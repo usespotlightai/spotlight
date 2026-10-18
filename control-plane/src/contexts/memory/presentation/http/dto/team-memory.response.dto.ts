@@ -1,19 +1,19 @@
 import {
   MEMORY_KIND_NAMES,
-  MEMORY_REACH_NAMES,
+  MEMORY_SCOPE_NAMES,
   MEMORY_SOURCE_NAMES,
 } from '@memory/application/dto/memory-review.dto';
 import {
-  MEMORY_STANDING_NAMES,
+  MEMORY_STATUS_NAMES,
   type MemoryLinkDto,
   type MemoryRetirementDto,
   type TeamMemoryDetailDto,
   type TeamMemoryDto,
 } from '@memory/application/dto/team-memory.dto';
 import {
-  MemoryGroundNoteResponseDto,
-  MemoryGroundStepResponseDto,
   MemoryPersonResponseDto,
+  MemoryProvenanceNoteResponseDto,
+  MemoryProvenanceStepResponseDto,
 } from '@memory/presentation/http/dto/memory-review.response.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -46,16 +46,16 @@ export class MemoryRetirementResponseDto {
   }
 }
 
-export class MemoryGroundsResponseDto {
+export class MemoryProvenanceResponseDto {
   @ApiProperty({ example: 'task_1' })
   readonly taskId: string;
 
   @ApiProperty({ example: 'run_1' })
   readonly runId: string;
 
-  constructor(grounds: { taskId: string; runId: string }) {
-    this.taskId = grounds.taskId;
-    this.runId = grounds.runId;
+  constructor(provenance: { taskId: string; runId: string }) {
+    this.taskId = provenance.taskId;
+    this.runId = provenance.runId;
   }
 }
 
@@ -95,11 +95,11 @@ export class TeamMemoryResponseDto {
   @ApiProperty({ enum: MEMORY_SOURCE_NAMES, example: 'person' })
   readonly source: string;
 
-  @ApiProperty({ enum: MEMORY_STANDING_NAMES, example: 'stands' })
-  readonly standing: string;
+  @ApiProperty({ enum: MEMORY_STATUS_NAMES, example: 'active' })
+  readonly status: string;
 
-  @ApiProperty({ enum: MEMORY_REACH_NAMES, example: 'team' })
-  readonly reach: string;
+  @ApiProperty({ enum: MEMORY_SCOPE_NAMES, example: 'team' })
+  readonly scope: string;
 
   @ApiProperty({ nullable: true, type: String })
   readonly lineId: string | null;
@@ -133,11 +133,11 @@ export class TeamMemoryResponseDto {
   readonly retirement: MemoryRetirementResponseDto | null;
 
   @ApiProperty({
-    type: MemoryGroundsResponseDto,
+    type: MemoryProvenanceResponseDto,
     nullable: true,
-    description: 'The task and run it rests on; none where a person wrote it',
+    description: 'The task and run it cites; none where a person wrote it',
   })
-  readonly grounds: MemoryGroundsResponseDto | null;
+  readonly provenance: MemoryProvenanceResponseDto | null;
 
   @ApiProperty({
     example: 3,
@@ -151,8 +151,8 @@ export class TeamMemoryResponseDto {
     this.kind = memory.kind;
     this.body = memory.body;
     this.source = memory.source;
-    this.standing = memory.standing;
-    this.reach = memory.reach;
+    this.status = memory.status;
+    this.scope = memory.scope;
     this.lineId = memory.lineId;
     this.stationId = memory.stationId;
     this.repository = memory.repository;
@@ -163,8 +163,8 @@ export class TeamMemoryResponseDto {
     this.retirement = memory.retirement
       ? new MemoryRetirementResponseDto(memory.retirement)
       : null;
-    this.grounds = memory.grounds
-      ? new MemoryGroundsResponseDto(memory.grounds)
+    this.provenance = memory.provenance
+      ? new MemoryProvenanceResponseDto(memory.provenance)
       : null;
     this.runs = memory.runs;
   }
@@ -175,15 +175,15 @@ export class TeamMemoryDetailResponseDto extends TeamMemoryResponseDto {
     nullable: true,
     type: String,
     example: 'claude-code',
-    description: 'The harness the run whose steps it rests on ran on',
+    description: 'The harness of the run whose steps it cites',
   })
   readonly harness: string | null;
 
-  @ApiProperty({ type: MemoryGroundStepResponseDto, isArray: true })
-  readonly steps: readonly MemoryGroundStepResponseDto[];
+  @ApiProperty({ type: MemoryProvenanceStepResponseDto, isArray: true })
+  readonly steps: readonly MemoryProvenanceStepResponseDto[];
 
-  @ApiProperty({ type: MemoryGroundNoteResponseDto, isArray: true })
-  readonly notes: readonly MemoryGroundNoteResponseDto[];
+  @ApiProperty({ type: MemoryProvenanceNoteResponseDto, isArray: true })
+  readonly notes: readonly MemoryProvenanceNoteResponseDto[];
 
   @ApiProperty({ type: MemoryLinkResponseDto, nullable: true })
   readonly superseded: MemoryLinkResponseDto | null;
@@ -195,10 +195,10 @@ export class TeamMemoryDetailResponseDto extends TeamMemoryResponseDto {
     super(memory);
     this.harness = memory.harness;
     this.steps = memory.steps.map(
-      (each) => new MemoryGroundStepResponseDto(each),
+      (each) => new MemoryProvenanceStepResponseDto(each),
     );
     this.notes = memory.notes.map(
-      (each) => new MemoryGroundNoteResponseDto(each),
+      (each) => new MemoryProvenanceNoteResponseDto(each),
     );
     this.superseded = memory.superseded
       ? new MemoryLinkResponseDto(memory.superseded)
@@ -240,7 +240,7 @@ export class WriteMemoryRequestDto {
 export class RetireMemoryRequestDto {
   @ApiProperty({
     example: 'The retry worker was removed.',
-    description: 'Why it no longer holds',
+    description: 'Why it no longer applies',
   })
   readonly reason!: string;
 }

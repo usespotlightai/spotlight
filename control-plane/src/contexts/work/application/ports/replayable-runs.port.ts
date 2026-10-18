@@ -1,4 +1,4 @@
-import type { ReplayRefusalCode } from '@work/application/contracts/replay-refusal.contract';
+import type { UnreplayableReasonCode } from '@work/application/contracts/unreplayable-reason.contract';
 
 export const REPLAYABLE_RUNS = Symbol('REPLAYABLE_RUNS');
 
@@ -6,11 +6,11 @@ export interface Replayability {
   readonly runId: string;
   readonly taskId: string | null;
   readonly stationId: string | null;
-  readonly refusal: ReplayRefusalCode | null;
+  readonly unreplayableReason: UnreplayableReasonCode | null;
   readonly reason: string | null;
 }
 
-export interface StandingRun extends Replayability {
+export interface RunSummary extends Replayability {
   readonly title: string | null;
   readonly state: string | null;
   readonly endedAt: Date | null;
@@ -30,10 +30,10 @@ export interface ReplayableRunsPort {
     runIds: readonly string[],
   ): Promise<readonly Replayability[]>;
 
-  standing(
+  summaries(
     workspaceId: string,
     runIds: readonly string[],
-  ): Promise<readonly StandingRun[]>;
+  ): Promise<readonly RunSummary[]>;
 
   durations(runIds: readonly string[]): Promise<ReadonlyMap<string, number>>;
 

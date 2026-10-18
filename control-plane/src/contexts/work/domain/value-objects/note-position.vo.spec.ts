@@ -3,19 +3,19 @@ import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('NotePosition', () => {
-  it('is where a note stands in the trail', () => {
+  it('is where a note is in the trail', () => {
     expect(NotePosition.of(3).value).toBe(3);
   });
 
-  it('refuses a place before the start', () => {
+  it('rejects a place before the start', () => {
     expect(() => NotePosition.of(-1)).toThrow(InvalidNotePositionError);
   });
 
-  it('refuses a place between two notes', () => {
+  it('rejects a place between two notes', () => {
     expect(() => NotePosition.of(1.5)).toThrow(InvalidNotePositionError);
   });
 
-  it('knows what it stands at or before', () => {
+  it('knows what it is at or before', () => {
     expect(NotePosition.of(2).isAtOrBefore(NotePosition.of(3))).toBe(true);
     expect(NotePosition.of(4).isAtOrBefore(NotePosition.of(3))).toBe(false);
   });

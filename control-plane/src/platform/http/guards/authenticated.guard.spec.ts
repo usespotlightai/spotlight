@@ -1,7 +1,7 @@
 import { type ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ADMITS_WORKSPACE_TOKENS } from '@platform/http/decorators/admits-workspace-tokens.decorator';
 import { ALLOW_ANONYMOUS } from '@platform/http/decorators/allow-anonymous.decorator';
+import { ALLOW_WORKSPACE_TOKENS } from '@platform/http/decorators/allow-workspace-tokens.decorator';
 import { REQUEST_PRINCIPAL } from '@platform/http/decorators/current-principal.decorator';
 import { AuthenticatedGuard } from '@platform/http/guards/authenticated.guard';
 import type { SessionReaderPort } from '@shared-kernel/application/ports/session.port';
@@ -28,7 +28,7 @@ const TOKEN = TokenPrincipal.of({
 function setup(
   options: {
     anonymous?: boolean;
-    admitsTokens?: boolean;
+    allowsTokens?: boolean;
     session?: boolean;
     bearer?: string;
     known?: boolean;
@@ -38,14 +38,16 @@ function setup(
   vi.spyOn(reflector, 'getAllAndOverride').mockImplementation(
     (marker) =>
       (marker === ALLOW_ANONYMOUS && options.anonymous) ||
-      (marker === ADMITS_WORKSPACE_TOKENS && options.admitsTokens) ||
+      (marker === ALLOW_WORKSPACE_TOKENS && options.allowsTokens) ||
       false,
   );
 
   const read = vi.fn().mockResolvedValue(options.session ? USER : null);
   const sessions = { read } as unknown as SessionReaderPort;
-  const identify = vi.fn().mockResolvedValue(options.known ? TOKEN : null);
-  const tokens = { identify } satisfies WorkspaceTokenIdentityPort;
+  const authenticate = vi.fn().mockResolvedValue(options.known ? TOKEN : null);
+  const tokens = {
+    authenticate,
+  } satisfies WorkspaceTokenIdentityPort;
 
   const request: Record<string | symbol, unknown> = {
     headers: {
@@ -63,7 +65,7 @@ function setup(
     guard: new AuthenticatedGuard(reflector, sessions, tokens),
     context,
     read,
-    identify,
+    authenticate,
     request,
   };
 }
@@ -79,7 +81,7 @@ describe('AuthenticatedGuard', () => {
     );
   });
 
-  it('admits a request with a session, as the person signed in', async () => {
+  it('accepts a request with a session, as the person signed in', async () => {
     const { guard, context, request } = setup({ session: true });
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
@@ -88,29 +90,29 @@ describe('AuthenticatedGuard', () => {
     );
   });
 
-  it('admits a route marked anonymous without reading the session', async () => {
+  it('accepts a route marked anonymous without reading the session', async () => {
     const { guard, context, read } = setup({ anonymous: true });
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
     expect(read).not.toHaveBeenCalled();
   });
 
-  it('admits a workspace token where the route admits tokens, as that token', async () => {
-    const { guard, context, request, identify, read } = setup({
-      admitsTokens: true,
+  it('accepts a workspace token where the route allows tokens, as that token', async () => {
+    const { guard, context, request, authenticate, read } = setup({
+      allowsTokens: true,
       bearer: 'abc',
       known: true,
     });
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
-    expect(identify).toHaveBeenCalledWith('abc');
+    expect(authenticate).toHaveBeenCalledWith('abc');
     expect(read).not.toHaveBeenCalled();
     expect(request[REQUEST_PRINCIPAL]).toBe(TOKEN);
   });
 
-  it('refuses a token it does not know, rather than falling back to the session', async () => {
+  it('does not accept a token it does not know, rather than falling back to the session', async () => {
     const { guard, context } = setup({
-      admitsTokens: true,
+      allowsTokens: true,
       bearer: 'revoked',
       known: false,
       session: true,
@@ -121,8 +123,8 @@ describe('AuthenticatedGuard', () => {
     );
   });
 
-  it('never takes a workspace token on a route that admits only people', async () => {
-    const { guard, context, identify } = setup({
+  it('never takes a workspace token on a route that allows only people', async () => {
+    const { guard, context, authenticate } = setup({
       bearer: 'abc',
       known: true,
     });
@@ -130,6 +132,6 @@ describe('AuthenticatedGuard', () => {
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
-    expect(identify).not.toHaveBeenCalled();
+    expect(authenticate).not.toHaveBeenCalled();
   });
 });

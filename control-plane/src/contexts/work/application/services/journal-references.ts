@@ -21,7 +21,7 @@ export const referencesUnder = (
 
     const touched = [
       step.text,
-      step.given ?? '',
+      step.input ?? '',
       ...step.locations.map((each) => each.path),
     ];
 

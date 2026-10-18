@@ -1,7 +1,7 @@
 import type { ReactNode, Ref, UIEventHandler } from 'react';
 
 type PaneScrollerProps = {
-  aside?: ReactNode;
+  sidePanel?: ReactNode;
   footer?: ReactNode;
   ref?: Ref<HTMLDivElement>;
   onScroll?: UIEventHandler<HTMLDivElement>;
@@ -9,7 +9,7 @@ type PaneScrollerProps = {
 };
 
 export function PaneScroller({
-  aside,
+  sidePanel,
   footer,
   ref,
   onScroll,
@@ -26,9 +26,9 @@ export function PaneScroller({
         {footer && <div className="sticky bottom-0 z-20">{footer}</div>}
       </div>
 
-      {aside && (
+      {sidePanel && (
         <div className="sticky top-0 flex h-full shrink-0 self-start">
-          {aside}
+          {sidePanel}
         </div>
       )}
     </div>

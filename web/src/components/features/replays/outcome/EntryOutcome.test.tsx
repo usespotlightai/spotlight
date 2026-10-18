@@ -28,8 +28,8 @@ const step = (
   ms: 1_000,
   startedAt: '2026-10-03T10:00:00.000Z',
   locations: [],
-  given: null,
-  returned: null,
+  input: null,
+  output: null,
   change: null,
   ...over,
 });
@@ -43,8 +43,8 @@ const JOURNALS = [
     marks: {
       startedAt: null,
       readyAt: null,
-      spokeFrom: null,
-      spokeTo: null,
+      firstAgentUpdateAt: null,
+      lastAgentUpdateAt: null,
       endedAt: null,
     },
     spent: null,
@@ -87,13 +87,13 @@ const STACK = {
   ],
   check: {
     command: 'npm test',
-    state: 'checked',
+    status: 'checked',
     reason: null,
     whole: {
       step: 'whole',
       passed: false,
       output: 'FAIL retry > gives up on a 410',
-      tookMs: 41_000,
+      durationMs: 41_000,
     },
     layers: [],
   },

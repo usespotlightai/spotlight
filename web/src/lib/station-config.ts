@@ -3,7 +3,7 @@ import type {
   StationChangeResponseDto,
 } from '@/lib/api';
 import { formatImage } from '@/lib/run';
-import { sharePercent } from '@/lib/station-watch';
+import { sharePercent } from '@/lib/station-monitoring';
 
 export type ConfigChange = ConfigChangeResponseDto;
 
@@ -54,7 +54,12 @@ const shareOf = (value: string | null): string | null =>
     ? null
     : sharePercent(Number(value));
 
-const namedPhrase = (change: ConfigChange, label: string, name: string) => {
+const SETTING_NAMES: Readonly<Record<string, string>> = {
+  minAgreement: 'min agreement',
+};
+
+const namedPhrase = (change: ConfigChange, label: string, setting: string) => {
+  const name = SETTING_NAMES[setting] ?? setting;
   const was = change.part === 'judge' ? shareOf(change.was) : null;
   const now = change.part === 'judge' ? shareOf(change.now) : null;
 

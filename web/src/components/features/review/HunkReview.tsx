@@ -3,9 +3,9 @@ import { useMemo, useState } from 'react';
 import { NewReviewComment } from '@/components/features/review/NewReviewComment';
 import { ReviewGutterPlus } from '@/components/features/review/ReviewGutterPlus';
 import { ReviewThreadCard } from '@/components/features/review/ReviewThreadCard';
+import { COLLAPSE_MS } from '@/components/shared/Collapsible';
 import { PatchCodeDiff } from '@/components/shared/PatchCodeDiff';
-import { UNFOLD_MS } from '@/components/shared/Unfold';
-import { useLingering } from '@/hooks/useLingering';
+import { useDelayedValue } from '@/hooks/useDelayedValue';
 import { type DiffFile, type DiffHunk, patchOf } from '@/lib/change-stack';
 import {
   type ReviewSpot,
@@ -38,7 +38,7 @@ export function HunkReview({ file, hunk }: { file: DiffFile; hunk: DiffHunk }) {
     !threads.some(({ root }) => samePlace(composing, root))
       ? composing
       : null;
-  const shownComposer = useLingering(composingHere, UNFOLD_MS);
+  const shownComposer = useDelayedValue(composingHere, COLLAPSE_MS);
   const [firstSeen, setFirstSeen] = useState<ReadonlySet<string> | null>(null);
   const [dragging, setDragging] = useState<SelectedLineRange | null>(null);
   const [pointedAt, setPointedAt] = useState<SelectedLineRange | null>(null);

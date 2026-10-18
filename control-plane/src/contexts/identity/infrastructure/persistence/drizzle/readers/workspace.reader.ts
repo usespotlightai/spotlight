@@ -19,7 +19,7 @@ import { and, eq } from 'drizzle-orm';
 export class DrizzleWorkspaceReader implements WorkspaceReaderPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
-  async identify(slug: string): Promise<string | null> {
+  async idForSlug(slug: string): Promise<string | null> {
     const [found] = await this.db
       .select({ id: workspace.id })
       .from(workspace)

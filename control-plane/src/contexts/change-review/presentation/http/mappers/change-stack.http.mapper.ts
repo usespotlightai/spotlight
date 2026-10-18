@@ -13,17 +13,22 @@ import {
   RunChangeStacksResponseDto,
   StackCheckResponseDto,
   StackCohortResponseDto,
+  StackHunkResponseDto,
   StackLayerResponseDto,
-  StackRangeResponseDto,
 } from '@change-review/presentation/http/dto/change-stack.response.dto';
 
 const stepOf = (step: CheckedStepDto): CheckedStepResponseDto =>
-  new CheckedStepResponseDto(step.step, step.passed, step.output, step.tookMs);
+  new CheckedStepResponseDto(
+    step.step,
+    step.passed,
+    step.output,
+    step.durationMs,
+  );
 
 const checkOf = (check: StackCheckDto): StackCheckResponseDto =>
   new StackCheckResponseDto(
     check.command,
-    check.state,
+    check.status,
     check.reason,
     check.whole && stepOf(check.whole),
     check.layers.map(stepOf),
@@ -68,8 +73,8 @@ const toStack = (stack: ChangeStackDto): ChangeStackResponseDto =>
                 layer.id,
                 layer.title,
                 layer.summary,
-                layer.ranges.map(
-                  (range) => new StackRangeResponseDto(range.hunk),
+                layer.hunks.map(
+                  (entry) => new StackHunkResponseDto(entry.hunk),
                 ),
                 layer.notes.map(
                   (each) => new FileNoteResponseDto(each.path, each.note),

@@ -16,7 +16,7 @@ const nested = (depth: number): JsonValue =>
 
 describe('OutputShape', () => {
   it('keeps field names and types, and none of the values', () => {
-    const kept = JSON.stringify(OutputShape.of(ISSUE).toJson());
+    const stored = JSON.stringify(OutputShape.of(ISSUE).toJson());
 
     for (const value of [
       'ENG-412',
@@ -26,7 +26,7 @@ describe('OutputShape', () => {
       'p1',
       '#ff0000',
     ]) {
-      expect(kept).not.toContain(value);
+      expect(stored).not.toContain(value);
     }
     expect(OutputShape.of(ISSUE).schema).toEqual({
       type: 'object',
@@ -138,10 +138,10 @@ describe('OutputShape', () => {
         () => ({ a: 1, b: [1, 2] }),
       ),
     }));
-    const count = (held: unknown): number =>
-      typeof held === 'object' && held !== null
-        ? ('kind' in held ? 1 : 0) +
-          Object.values(held).reduce<number>(
+    const count = (value: unknown): number =>
+      typeof value === 'object' && value !== null
+        ? ('kind' in value ? 1 : 0) +
+          Object.values(value).reduce<number>(
             (sum, each) => sum + count(each),
             0,
           )
@@ -215,12 +215,14 @@ describe('OutputShape', () => {
     ).toBe('object');
   });
 
-  it('is read back the way it was kept', () => {
+  it('is read back the way it was stored', () => {
     const shape = OutputShape.of(ISSUE);
 
     expect(
-      OutputShape.kept(JSON.parse(JSON.stringify(shape.toJson()))).toJson(),
+      OutputShape.fromStored(
+        JSON.parse(JSON.stringify(shape.toJson())),
+      ).toJson(),
     ).toEqual(shape.toJson());
-    expect(() => OutputShape.kept({ kind: 'nonsense' })).toThrow();
+    expect(() => OutputShape.fromStored({ kind: 'nonsense' })).toThrow();
   });
 });

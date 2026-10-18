@@ -17,7 +17,7 @@ import type {
   PullRequestFilter,
 } from '@/lib/insights-pull-requests';
 
-type Held = {
+type Queried = {
   data: unknown;
   isPending: boolean;
   isFetching: boolean;
@@ -25,7 +25,7 @@ type Held = {
   refetch: () => void;
 };
 
-const held = (data: unknown, errorUpdateCount = 0): Held => ({
+const queried = (data: unknown, errorUpdateCount = 0): Queried => ({
   data,
   isPending: data === undefined && errorUpdateCount === 0,
   isFetching: false,
@@ -33,9 +33,9 @@ const held = (data: unknown, errorUpdateCount = 0): Held => ({
   refetch: vi.fn(),
 });
 
-const answers: { summary: Held; list: Held } = {
-  summary: held(undefined),
-  list: held(undefined),
+const answers: { summary: Queried; list: Queried } = {
+  summary: queried(undefined),
+  list: queried(undefined),
 };
 const listed: { filter: PullRequestFilter; page: number }[] = [];
 
@@ -69,10 +69,10 @@ const measures = {
 const week = {
   week: '2026-09-28',
   merged: 4,
-  made: 2,
-  touched: 1,
+  authored: 2,
+  reviewed: 1,
   bots: 0,
-  share: 0.75,
+  rate: 0.75,
 };
 
 const SUMMARY = {
@@ -80,21 +80,21 @@ const SUMMARY = {
   total: 6,
   repositories: ['acme/api'],
   weeks: ['2026-09-28'],
-  penetration: {
+  spotlightShare: {
     merged: 4,
-    made: 2,
-    touched: 1,
+    authored: 2,
+    reviewed: 1,
     bots: 0,
-    share: 0.75,
+    rate: 0.75,
     weeks: [week],
     repositories: [
       {
         repository: 'acme/api',
         merged: 4,
-        made: 2,
-        touched: 1,
+        authored: 2,
+        reviewed: 1,
         bots: 0,
-        share: 0.75,
+        rate: 0.75,
         weeks: [week],
       },
     ],
@@ -161,7 +161,7 @@ const LIST = {
       number: 8,
       title: 'Move billing',
       author: 'ada',
-      by: 'touched',
+      by: 'reviewed',
       taskId: null,
       reviewTaskIds: ['task_review_8'],
       spend: null,
@@ -210,13 +210,13 @@ const PRODUCTIVITY = '/w/acme/team/team_1/insights?tab=productivity';
 
 beforeEach(() => {
   listed.length = 0;
-  answers.summary = held(SUMMARY);
-  answers.list = held(LIST);
+  answers.summary = queried(SUMMARY);
+  answers.list = queried(LIST);
 });
 
 describe('the pull requests of the Productivity tab', () => {
   it('shows a faithful skeleton while it loads', () => {
-    answers.summary = held(undefined);
+    answers.summary = queried(undefined);
 
     showing();
 
@@ -226,7 +226,7 @@ describe('the pull requests of the Productivity tab', () => {
   });
 
   it('offers to try again where it could not load', async () => {
-    answers.summary = held(undefined, 1);
+    answers.summary = queried(undefined, 1);
 
     showing();
 
@@ -236,7 +236,7 @@ describe('the pull requests of the Productivity tab', () => {
   });
 
   it('leads to connecting a repository where no pull request was recorded', () => {
-    answers.summary = held({ ...SUMMARY, total: 0 });
+    answers.summary = queried({ ...SUMMARY, total: 0 });
 
     showing();
 
@@ -246,9 +246,9 @@ describe('the pull requests of the Productivity tab', () => {
   });
 
   it('shows the pull requests still open where nothing merged yet', () => {
-    answers.summary = held({
+    answers.summary = queried({
       ...SUMMARY,
-      penetration: { ...SUMMARY.penetration, merged: 0 },
+      spotlightShare: { ...SUMMARY.spotlightShare, merged: 0 },
     });
 
     showing();
@@ -361,7 +361,7 @@ describe('the pull requests of the Productivity tab', () => {
   });
 
   it('says nothing matches, and offers every pull request', async () => {
-    answers.list = held({ ...LIST, total: 0, pullRequests: [] });
+    answers.list = queried({ ...LIST, total: 0, pullRequests: [] });
 
     showing('?tab=productivity&type=tests');
 
@@ -376,7 +376,7 @@ describe('the pull requests of the Productivity tab', () => {
   });
 
   it('shows a skeleton for the list while only the list loads', () => {
-    answers.list = held(undefined);
+    answers.list = queried(undefined);
 
     showing();
 
@@ -387,7 +387,7 @@ describe('the pull requests of the Productivity tab', () => {
   });
 
   it('offers to try the list again where only the list could not load', async () => {
-    answers.list = held(undefined, 1);
+    answers.list = queried(undefined, 1);
 
     showing();
 
@@ -398,7 +398,7 @@ describe('the pull requests of the Productivity tab', () => {
   });
 
   it('says no pull request is listed for the period where nothing narrows it', () => {
-    answers.list = held({ ...LIST, total: 0, pullRequests: [] });
+    answers.list = queried({ ...LIST, total: 0, pullRequests: [] });
 
     showing();
 
@@ -411,7 +411,7 @@ describe('the pull requests of the Productivity tab', () => {
   });
 
   it('pages through the pull requests, keeping the page in the address', async () => {
-    answers.list = held({ ...LIST, total: 120 });
+    answers.list = queried({ ...LIST, total: 120 });
 
     showing();
 

@@ -7,7 +7,7 @@ export class GrantWorkspaceArchiveCommand {
   ) {}
 }
 
-export class SealWorkspaceArchiveCommand {
+export class CompleteWorkspaceArchiveCommand {
   constructor(
     readonly runId: string,
     readonly runnerId: string,

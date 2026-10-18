@@ -3,7 +3,7 @@ import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { DayChart } from '@/components/features/insights/shipping/DayChart';
 import { PercentilePicker } from '@/components/features/insights/shipping/PercentilePicker';
 import { Segmented } from '@/components/shared/Segmented';
-import { lasted } from '@/lib/insights';
+import { formatDuration } from '@/lib/insights';
 import {
   DEFAULT_PERCENTILE,
   FIRST_REVIEW_NOTE,
@@ -47,7 +47,7 @@ export function TimeToFirstReview({ days }: { days: readonly ReviewDay[] }) {
             as: 'line',
           },
         ]}
-        format={lasted}
+        format={formatDuration}
         durations
         legend={false}
       />

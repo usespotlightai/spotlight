@@ -1,4 +1,4 @@
-import { ConfigRepositoryRefusedError } from '@replays/application/errors/config-repository-refused.error';
+import { ConfigRepositoryError } from '@replays/application/errors/config-repository.error';
 import type { ConfigRepositoryPort } from '@replays/application/ports/config-repository.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type { StationSourceEditorPort } from '@replays/application/ports/station-source-editor.port';
@@ -18,14 +18,14 @@ import type { ConfigPullRequestRepository } from '@replays/domain/repositories/c
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { overfitOf } from '@replays/domain/services/overfit';
-import { comparedWith } from '@replays/domain/services/replay-results';
+import { taskComparisons } from '@replays/domain/services/replay-results';
 import { scoresOf } from '@replays/domain/services/search-scores';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
+import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -40,7 +40,7 @@ type Opened =
 const because = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-const refusedAs = (
+const failedAs = (
   code: ConfigPullRequestReason['code'],
   message: string,
 ): Opened => ({ reason: ConfigPullRequestReason.of({ code, message }) });
@@ -48,13 +48,14 @@ const refusedAs = (
 const regressionsOf = (
   replay: Replay | null,
   seed: Replay | null,
-  among: readonly RunId[],
+  runSubset: readonly RunId[],
 ): number | null =>
   replay
-    ? comparedWith(replay, seed, among).filter((each) => each.regressed).length
+    ? taskComparisons(replay, seed, runSubset).filter((each) => each.regressed)
+        .length
     : null;
 
-export class OpenConfigPullRequests implements OwedWorkPort {
+export class OpenConfigPullRequests implements PendingJobsPort {
   readonly name = 'Opening config pull requests';
 
   constructor(
@@ -73,7 +74,7 @@ export class OpenConfigPullRequests implements OwedWorkPort {
     private readonly healths: SetHealths,
   ) {}
 
-  async workDue(): Promise<void> {
+  async processDue(): Promise<void> {
     for (const pullRequest of await this.pullRequests.due(this.clock.now())) {
       await this.attempt(pullRequest).catch((error: unknown) =>
         this.logger.warn(
@@ -96,39 +97,42 @@ export class OpenConfigPullRequests implements OwedWorkPort {
       throw error;
     }
 
-    let held = await this.pullRequests.find(due.id);
+    let pullRequest = await this.pullRequests.find(due.id);
 
-    if (!held) {
+    if (!pullRequest) {
       return;
     }
 
     const committed = async (commit: string) => {
-      const next = (held as ConfigPullRequest).commit(commit, this.clock.now());
+      const next = (pullRequest as ConfigPullRequest).commit(
+        commit,
+        this.clock.now(),
+      );
 
       await this.saved(next);
-      held = (await this.pullRequests.find(next.id)) ?? next;
+      pullRequest = (await this.pullRequests.find(next.id)) ?? next;
     };
     let opened: Opened;
 
     try {
-      opened = await this.opening(held, committed);
+      opened = await this.opening(pullRequest, committed);
     } catch (error) {
-      if (!(error instanceof ConfigRepositoryRefusedError)) {
+      if (!(error instanceof ConfigRepositoryError)) {
         this.logger.warn(
-          { err: error, pullRequestId: held.id.value },
-          'Opening a config pull request failed; it will be tried again',
+          { err: error, pullRequestId: pullRequest.id.value },
+          'Opening a config pull request failed; Spotlight retries it later',
         );
-        await this.saved(held.tried(because(error), this.clock.now()));
+        await this.saved(pullRequest.tried(because(error), this.clock.now()));
         return;
       }
 
-      opened = refusedAs(error.code, error.message);
+      opened = failedAs(error.code, error.message);
     }
 
     await this.saved(
       'url' in opened
-        ? held.open(opened.url, opened.proposing, this.clock.now())
-        : held.refused(opened.reason, this.clock.now()),
+        ? pullRequest.open(opened.url, opened.proposing, this.clock.now())
+        : pullRequest.failed(opened.reason, this.clock.now()),
     );
   }
 
@@ -153,13 +157,13 @@ export class OpenConfigPullRequests implements OwedWorkPort {
     ]);
 
     if (!named || !path) {
-      return refusedAs(
+      return failedAs(
         'no-source',
         'The config pull request has no target repository.',
       );
     }
     if (!search || !station || !teamKey) {
-      return refusedAs(
+      return failedAs(
         'block-not-found',
         'The searched station is gone from its line.',
       );
@@ -176,7 +180,7 @@ export class OpenConfigPullRequests implements OwedWorkPort {
     const seed = found.find((each) => each.id.equals(search.seed.candidateId));
 
     if (!candidate || !seed) {
-      return refusedAs(
+      return failedAs(
         'block-not-found',
         'The picked candidate or the seed of the search no longer exists.',
       );
@@ -189,7 +193,7 @@ export class OpenConfigPullRequests implements OwedWorkPort {
     );
 
     if (!file) {
-      return refusedAs(
+      return failedAs(
         'file-missing',
         `File ${path} not found on the default branch of ${repository.value}.`,
       );
@@ -302,7 +306,7 @@ export class OpenConfigPullRequests implements OwedWorkPort {
         searched: picked?.searchedPairs ?? null,
         heldOut: picked?.heldOutPairs ?? null,
       },
-      onlyOnSeenTasks: overfitOf(
+      overfit: overfitOf(
         picked?.searchedGain ?? null,
         picked?.heldOutGain ?? null,
       ),

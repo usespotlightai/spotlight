@@ -15,13 +15,13 @@ const CENTERED = 'flex flex-1 items-center justify-center pb-8';
 type RubricVersionCardProps = {
   version: RubricVersion;
   claims: readonly string[];
-  trust: number | null;
+  minAgreement: number | null;
 };
 
 export function RubricVersionCard({
   version,
   claims,
-  trust,
+  minAgreement,
 }: RubricVersionCardProps) {
   const { agreement } = version;
 
@@ -60,7 +60,7 @@ export function RubricVersionCard({
           <ClaimAgreements
             agreements={agreement.claims}
             claims={claims}
-            trust={trust}
+            minAgreement={minAgreement}
           />
         </InsightsCard>
       )}

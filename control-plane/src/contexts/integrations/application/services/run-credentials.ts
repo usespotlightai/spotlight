@@ -1,5 +1,5 @@
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
-import type { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
+import type { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 
 export class RunCredentials implements Credentials {
@@ -12,7 +12,10 @@ export class RunCredentials implements Credentials {
     },
   ) {}
 
-  wornToward(url: string, secrets: readonly string[]): Promise<WornSecrets> {
+  injectedFor(
+    url: string,
+    secrets: readonly string[],
+  ): Promise<InjectedSecrets> {
     return this.injection.forRun({
       workspaceId: this.run.workspaceId,
       runId: this.run.runId,

@@ -1,13 +1,13 @@
-import type { RereadIntegrationSourceHandler } from '@integrations/application/commands/handlers/reread-integration-source.handler';
-import { RereadIntegrationSourceCommand } from '@integrations/application/commands/reread-integration-source.command';
-import type { AbandonTeamIntegrations } from '@integrations/application/services/abandon-team-integrations.service';
-import type { HookedHappenings } from '@integrations/application/services/hooked-happenings.service';
-import type { HookAbandonmentDue } from '@integrations/domain/events/hook-abandonment-due.event';
-import type { HostConnected } from '@integrations/domain/events/host-connected.event';
-import type { IntegrationAbandonmentDue } from '@integrations/domain/events/integration-abandonment-due.event';
-import type { IntegrationRedefined } from '@integrations/domain/events/integration-redefined.event';
-import type { IntegrationRetired } from '@integrations/domain/events/integration-retired.event';
-import type { LearnedOutputRepository } from '@integrations/domain/repositories/learned-output.repository';
+import type { RefreshIntegrationSpecHandler } from '@integrations/application/commands/handlers/refresh-integration-spec.handler';
+import { RefreshIntegrationSpecCommand } from '@integrations/application/commands/refresh-integration-spec.command';
+import type { DeleteTeamIntegrations } from '@integrations/application/services/delete-team-integrations.service';
+import type { LifecycleHookTriggers } from '@integrations/application/services/lifecycle-hook-triggers.service';
+import type { HookDeletionRequested } from '@integrations/domain/events/hook-deletion-requested.event';
+import type { IntegrationConnected } from '@integrations/domain/events/integration-connected.event';
+import type { IntegrationDeleted } from '@integrations/domain/events/integration-deleted.event';
+import type { IntegrationDeletionRequested } from '@integrations/domain/events/integration-deletion-requested.event';
+import type { IntegrationUpdated } from '@integrations/domain/events/integration-updated.event';
+import type { InferredOutputSchemaRepository } from '@integrations/domain/repositories/inferred-output-schema.repository';
 import {
   PULL_REQUEST_CLOSED,
   type PullRequestClosedIntegrationEvent,
@@ -25,9 +25,9 @@ import {
   type TaskOpenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-opened.integration-event';
 import {
-  TEAM_DISBANDED,
-  type TeamDisbandedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
+  TEAM_DELETED,
+  type TeamDeletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import {
   type DomainEventSubscriber,
   subscribing,
@@ -36,70 +36,70 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const integrationsSubscribers = (
-  abandoning: AbandonTeamIntegrations,
-  hooked: HookedHappenings,
-  rereading: RereadIntegrationSourceHandler,
-  learned: LearnedOutputRepository,
+  deleting: DeleteTeamIntegrations,
+  hookTriggers: LifecycleHookTriggers,
+  refreshingSpec: RefreshIntegrationSpecHandler,
+  schemas: InferredOutputSchemaRepository,
 ): readonly DomainEventSubscriber[] => [
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'integrations.abandon-integrations-of-disbanded-team',
-    [TEAM_DISBANDED],
+  subscribing<TeamDeletedIntegrationEvent>(
+    'integrations.delete-integrations-of-deleted-team',
+    [TEAM_DELETED],
     (event) =>
-      abandoning.owed(
+      deleting.pendingDeletions(
         TeamId.of(event.teamId),
         WorkspaceId.of(event.workspaceId),
       ),
   ),
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'integrations.forget-connections-of-disbanded-team',
-    [TEAM_DISBANDED],
-    (event) => abandoning.connectionsOf(TeamId.of(event.teamId)),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'integrations.delete-connections-of-deleted-team',
+    [TEAM_DELETED],
+    (event) => deleting.deleteConnectionsForTeam(TeamId.of(event.teamId)),
   ),
-  subscribing<HookAbandonmentDue>(
-    'integrations.abandon-hook-of-disbanded-team',
-    ['integrations.hook-abandonment-due'],
-    (event) => abandoning.hook(event.id, event.workspaceId),
+  subscribing<HookDeletionRequested>(
+    'integrations.delete-hook-of-deleted-team',
+    ['integrations.hook-deletion-requested'],
+    (event) => deleting.deleteHook(event.id, event.workspaceId),
   ),
-  subscribing<IntegrationAbandonmentDue>(
-    'integrations.abandon-integration-of-disbanded-team',
-    ['integrations.integration-abandonment-due'],
-    (event) => abandoning.integration(event.id, event.workspaceId),
+  subscribing<IntegrationDeletionRequested>(
+    'integrations.delete-integration-of-deleted-team',
+    ['integrations.integration-deletion-requested'],
+    (event) => deleting.deleteIntegration(event.id, event.workspaceId),
   ),
-  subscribing<HostConnected>(
-    'integrations.reread-source-when-a-host-connected',
-    ['integrations.host-connected'],
+  subscribing<IntegrationConnected>(
+    'integrations.refresh-spec-when-an-integration-connected',
+    ['integrations.integration-connected'],
     async (event) =>
-      event.changesWhatDescriptionsAreReadWith &&
-      rereading.execute(
-        new RereadIntegrationSourceCommand(
+      event.changesSpecFetch &&
+      refreshingSpec.execute(
+        new RefreshIntegrationSpecCommand(
           event.teamId.value,
-          event.source.value,
+          event.integration.value,
         ),
       ),
   ),
-  subscribing<IntegrationRedefined | IntegrationRetired>(
-    'integrations.forget-learned-outputs-of-a-changed-integration',
-    ['integrations.integration-redefined', 'integrations.integration-retired'],
-    (event) => learned.forgetSource(event.teamId, event.source),
+  subscribing<IntegrationUpdated | IntegrationDeleted>(
+    'integrations.delete-inferred-output-schemas-of-a-changed-integration',
+    ['integrations.integration-updated', 'integrations.integration-deleted'],
+    (event) => schemas.deleteForIntegration(event.teamId, event.integration),
   ),
   subscribing<RunEndedIntegrationEvent>(
     'integrations.fire-hooks-when-a-run-ended',
     [RUN_ENDED],
-    (event) => hooked.runEnded(event),
+    (event) => hookTriggers.runEnded(event),
   ),
   subscribing<TaskOpenedIntegrationEvent>(
     'integrations.fire-hooks-when-a-task-opened',
     [TASK_OPENED],
-    (event) => hooked.taskOpened(event),
+    (event) => hookTriggers.taskOpened(event),
   ),
   subscribing<TaskMovedIntegrationEvent>(
     'integrations.fire-hooks-when-a-task-moved',
     [TASK_MOVED],
-    (event) => hooked.taskMoved(event),
+    (event) => hookTriggers.taskMoved(event),
   ),
   subscribing<PullRequestClosedIntegrationEvent>(
     'integrations.fire-hooks-when-a-pull-request-merged',
     [PULL_REQUEST_CLOSED],
-    (event) => hooked.pullRequestClosed(event),
+    (event) => hookTriggers.pullRequestClosed(event),
   ),
 ];

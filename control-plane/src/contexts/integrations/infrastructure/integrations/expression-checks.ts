@@ -30,10 +30,10 @@ const LONGEST_REMEMBERED = 256 * 1024;
 const fieldsOf = (fields: SchemaFields): ExpressionDeclarationDto[] =>
   Object.entries(fields)
     .sort(([one], [other]) => one.localeCompare(other))
-    .map(([name, held]) =>
-      typeof held === 'string'
-        ? { name, type: held, fields: [] }
-        : { name, type: OBJECT, fields: fieldsOf(held) },
+    .map(([name, field]) =>
+      typeof field === 'string'
+        ? { name, type: field, fields: [] }
+        : { name, type: OBJECT, fields: fieldsOf(field) },
     );
 
 const declarationsOf = (
@@ -41,9 +41,9 @@ const declarationsOf = (
 ): ExpressionDeclarationDto[] =>
   fieldsOf(
     Object.fromEntries(
-      Object.entries(declared).map(([name, held]) => [
+      Object.entries(declared).map(([name, each]) => [
         name,
-        typeof held === 'string' ? held : held.schema,
+        typeof each === 'string' ? each : each.schema,
       ]),
     ),
   );
@@ -52,8 +52,8 @@ const POSITIONS: readonly ExpressionPositionDto[] = EXPRESSION_POSITIONS.map(
   (position) => ({
     position: position.position,
     returns: position.returns,
-    sees: declarationsOf(position.scope.declared),
-    alsoSees: position.alsoSees,
+    variables: declarationsOf(position.scope.declared),
+    addedVariables: position.addedVariables,
   }),
 );
 
@@ -91,14 +91,14 @@ export class ExpressionChecks implements ExpressionChecksPort {
       return found;
     }
 
-    const verdict = found.place.checked(this.expressions, expression);
+    const result = found.place.checked(this.expressions, expression);
 
     return {
       outcome: 'checked',
       check: {
-        type: verdict.type,
-        errors: verdict.errors,
-        warnings: verdict.warnings.map((warning) => ({
+        type: result.type,
+        errors: result.errors,
+        warnings: result.warnings.map((warning) => ({
           position: positionAt(warning.field),
           message: warning.message,
         })),
@@ -127,8 +127,8 @@ export class ExpressionChecks implements ExpressionChecksPort {
       : { outcome: 'no-expression-there' };
   }
 
-  private compiled(held: unknown): Compiled {
-    const key = JSON.stringify(held) ?? '';
+  private compiled(raw: unknown): Compiled {
+    const key = JSON.stringify(raw) ?? '';
     const known = this.remembered.get(key);
 
     if (known) {
@@ -138,7 +138,7 @@ export class ExpressionChecks implements ExpressionChecksPort {
       return known;
     }
 
-    const compiled = compileIntegration(held, this.expressions);
+    const compiled = compileIntegration(raw, this.expressions);
 
     if (key.length > LONGEST_REMEMBERED) {
       return compiled;

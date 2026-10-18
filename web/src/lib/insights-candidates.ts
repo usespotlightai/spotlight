@@ -84,7 +84,7 @@ type Charted = {
   readonly scored: number;
   readonly frontier: boolean;
   readonly heldOut: string | null;
-  readonly charted: SetCandidate['charted'];
+  readonly chartStatus: SetCandidate['chartStatus'];
 };
 
 const searchesOf = (
@@ -110,7 +110,7 @@ const seedsOf = (set: CandidatesSet): Charted[] => {
     scored: search.seed.scored,
     frontier: true,
     heldOut: null,
-    charted: search.seed.charted,
+    chartStatus: search.seed.chartStatus,
   }));
 };
 
@@ -127,7 +127,7 @@ const chartedOf = (set: CandidatesSet): Charted[] => [
           scored: set.baseline.scored,
           frontier: false,
           heldOut: null,
-          charted: set.baseline.charted,
+          chartStatus: set.baseline.chartStatus,
         },
       ]
     : []),
@@ -142,13 +142,13 @@ const chartedOf = (set: CandidatesSet): Charted[] => [
     scored: candidate.scored,
     frontier: candidate.onFrontier === true,
     heldOut: formatHeldOutScore(candidate),
-    charted: candidate.charted,
+    chartStatus: candidate.chartStatus,
   })),
 ];
 
 export const replayedPoints = (set: CandidatesSet): ReplayedPoint[] =>
   chartedOf(set).flatMap((each) =>
-    each.charted === 'priced' && each.cost !== null && each.success !== null
+    each.chartStatus === 'priced' && each.cost !== null && each.success !== null
       ? [
           {
             key: each.key,
@@ -290,7 +290,7 @@ export const candidateHeadings = (
 ): readonly NestedHeading[] => [
   { label: 'Config', indent: 'inner' },
   { label: 'What changed', size: 'minmax(12rem,1.5fr)' },
-  { label: 'Source', note: SOURCES_NOTE },
+  { label: 'Source', tooltip: SOURCES_NOTE },
   { label: 'Replay success', size: 'minmax(8rem,1fr)' },
   { label: 'Candidate', numeric: true },
   { label: 'Live', numeric: true },
@@ -303,7 +303,7 @@ export const candidateHeadings = (
 
 export const REPLAYED_HEADINGS: readonly NestedHeading[] = [
   { label: 'Config', indent: 'outer', size: 'minmax(12rem,2fr)' },
-  { label: 'Source', note: SOURCES_NOTE, size: SPREAD },
+  { label: 'Source', tooltip: SOURCES_NOTE, size: SPREAD },
   { label: 'Runs scored', numeric: true, size: SPREAD },
   { label: 'Cost per run', numeric: true, size: SPREAD },
   { label: 'Replay success', numeric: true, size: SPREAD },

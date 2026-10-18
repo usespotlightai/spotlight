@@ -3,14 +3,14 @@ import type {
   ListedServersPort,
 } from '@integrations/application/ports/listed-servers.port';
 import { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
-import { IntegrationAlreadyDefinedError } from '@integrations/domain/exceptions/integration-already-defined.error';
+import { IntegrationAlreadyExistsError } from '@integrations/domain/exceptions/integration-already-exists.error';
 import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
-import { SourceReading } from '@integrations/domain/value-objects/source-reading.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { SpecFetchResult } from '@integrations/domain/value-objects/spec-fetch-result.vo';
 import { integrationDefinition } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -32,32 +32,32 @@ const collided = (error: unknown): boolean =>
 
 type Row = typeof integrationDefinition.$inferSelect;
 
-const readingOf = (row: Row): SourceReading | null =>
-  row.sourceFingerprint && row.sourceReadAt
-    ? SourceReading.rehydrate({
-        fingerprint: row.sourceFingerprint,
-        hash: row.sourceHash ? ContentHash.of(row.sourceHash) : null,
-        readAt: row.sourceReadAt,
-        problem: row.sourceProblem,
-        passedOver: row.sourcePassedOver ?? [],
+const readingOf = (row: Row): SpecFetchResult | null =>
+  row.specFingerprint && row.specReadAt
+    ? SpecFetchResult.rehydrate({
+        fingerprint: row.specFingerprint,
+        hash: row.specHash ? ContentHash.of(row.specHash) : null,
+        readAt: row.specReadAt,
+        problem: row.specProblem,
+        skipped: row.specSkipped ?? [],
       })
     : null;
 
-const readingColumns = (reading: SourceReading | null) => ({
-  sourceFingerprint: reading?.fingerprint ?? null,
-  sourceHash: reading?.hash?.value ?? null,
-  sourceReadAt: reading?.readAt ?? null,
-  sourceProblem: reading?.problem ?? null,
-  sourcePassedOver: reading ? [...reading.passedOver] : null,
+const readingColumns = (reading: SpecFetchResult | null) => ({
+  specFingerprint: reading?.fingerprint ?? null,
+  specHash: reading?.hash?.value ?? null,
+  specReadAt: reading?.readAt ?? null,
+  specProblem: reading?.problem ?? null,
+  specSkipped: reading ? [...reading.skipped] : null,
 });
 
 const rehydrated = (row: Row): IntegrationDefinition =>
   IntegrationDefinition.rehydrate({
     id: IntegrationDefinitionId.of(row.id),
     teamId: TeamId.of(row.teamId),
-    source: SourceKey.of(row.source),
+    integration: IntegrationKey.of(row.integration),
     document: DefinitionDocument.of(row.definition),
-    offers: row.offers,
+    tools: row.tools,
     reading: readingOf(row),
     version: row.version,
   });
@@ -82,11 +82,14 @@ export class DrizzleIntegrationDefinitions
     return this.first(eq(integrationDefinition.id, id.value));
   }
 
-  of(teamId: TeamId, source: SourceKey): Promise<IntegrationDefinition | null> {
+  of(
+    teamId: TeamId,
+    integration: IntegrationKey,
+  ): Promise<IntegrationDefinition | null> {
     return this.first(
       and(
         eq(integrationDefinition.teamId, teamId.value),
-        eq(integrationDefinition.source, source.value),
+        eq(integrationDefinition.integration, integration.value),
       ),
     );
   }
@@ -107,23 +110,23 @@ export class DrizzleIntegrationDefinitions
     const claimed = await this.context.db
       .update(integrationDefinition)
       .set({
-        sourceReadAt: at,
-        definedAt: sql`${integrationDefinition.definedAt}`,
+        specReadAt: at,
+        updatedAt: sql`${integrationDefinition.updatedAt}`,
       })
       .where(
         and(
           sql`${integrationDefinition.definition} ? 'mcp'`,
-          lt(integrationDefinition.sourceReadAt, before),
+          lt(integrationDefinition.specReadAt, before),
         ),
       )
       .returning({
         teamId: integrationDefinition.teamId,
-        source: integrationDefinition.source,
+        integration: integrationDefinition.integration,
       });
 
     return claimed.map((each) => ({
       teamId: TeamId.of(each.teamId),
-      source: SourceKey.of(each.source),
+      integration: IntegrationKey.of(each.integration),
     }));
   }
 
@@ -137,7 +140,7 @@ export class DrizzleIntegrationDefinitions
   private async stored(definition: IntegrationDefinition): Promise<void> {
     const fields = {
       definition: { ...definition.document.fields },
-      offers: [...definition.offers],
+      tools: [...definition.tools],
       ...readingColumns(definition.reading),
     };
 
@@ -146,12 +149,12 @@ export class DrizzleIntegrationDefinitions
         await this.context.db.insert(integrationDefinition).values({
           id: definition.id.value,
           teamId: definition.teamId.value,
-          source: definition.source.value,
+          integration: definition.integration.value,
           ...fields,
         });
       } catch (error) {
         if (collided(error)) {
-          throw new IntegrationAlreadyDefinedError(definition.source.value);
+          throw new IntegrationAlreadyExistsError(definition.integration.value);
         }
 
         throw error;
@@ -160,7 +163,7 @@ export class DrizzleIntegrationDefinitions
       return;
     }
 
-    const touched = definition.isRetired
+    const touched = definition.isDeleted
       ? await this.context.db
           .delete(integrationDefinition)
           .where(inPlace(definition))
@@ -173,7 +176,7 @@ export class DrizzleIntegrationDefinitions
 
     if (touched.length === 0) {
       throw new IntegrationDefinitionVersionConflictError(
-        definition.source.value,
+        definition.integration.value,
       );
     }
   }

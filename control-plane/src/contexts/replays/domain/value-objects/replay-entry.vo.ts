@@ -10,9 +10,9 @@ import type { EntryReason } from '@replays/domain/value-objects/entry-reason';
 import type { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import type { ReplayEnding } from '@replays/domain/value-objects/replay-ending';
-import type { ReplayRefusal } from '@replays/domain/value-objects/replay-refusal';
 import type { RunEnd } from '@replays/domain/value-objects/run-end.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -31,13 +31,13 @@ interface EntryState {
   readonly queued: boolean;
   readonly fingerprint: StationFingerprint | null;
   readonly queueAttempts: number;
-  readonly refusal: ReplayRefusal | null;
+  readonly unreplayableReason: UnreplayableReason | null;
   readonly notRun: boolean;
   readonly end: RunEnd | null;
   readonly measures: EntryMeasures | null;
   readonly checks: ChangeChecks | null;
   readonly judging: EntryJudging | null;
-  readonly draftingSpent: ModelSpent | null;
+  readonly generationSpent: ModelSpent | null;
   readonly judgingSpent: ModelSpent | null;
   readonly succeeded: boolean | null;
   readonly reasons: readonly EntryReason[];
@@ -74,13 +74,13 @@ export class ReplayEntry {
       queued: false,
       fingerprint: null,
       queueAttempts: 0,
-      refusal: null,
+      unreplayableReason: null,
       notRun: false,
       end: null,
       measures: null,
       checks: null,
       judging: null,
-      draftingSpent: null,
+      generationSpent: null,
       judgingSpent: null,
       succeeded: null,
       reasons: [],
@@ -99,7 +99,7 @@ export class ReplayEntry {
         'ended or was queued without a run of its own',
       );
     }
-    if (state.refusal !== null && state.end !== null) {
+    if (state.unreplayableReason !== null && state.end !== null) {
       throw new InconsistentStateError(
         'replay entry',
         'both ran and could not be replayed',
@@ -159,8 +159,8 @@ export class ReplayEntry {
     return this.state.queueAttempts;
   }
 
-  get refusal(): ReplayRefusal | null {
-    return this.state.refusal;
+  get unreplayableReason(): UnreplayableReason | null {
+    return this.state.unreplayableReason;
   }
 
   get notRun(): boolean {
@@ -183,8 +183,8 @@ export class ReplayEntry {
     return this.state.judging;
   }
 
-  get draftingSpent(): ModelSpent | null {
-    return this.state.draftingSpent;
+  get generationSpent(): ModelSpent | null {
+    return this.state.generationSpent;
   }
 
   get judgingSpent(): ModelSpent | null {
@@ -192,7 +192,7 @@ export class ReplayEntry {
   }
 
   get modelSpends(): readonly ModelSpent[] {
-    return [this.state.draftingSpent, this.state.judgingSpent].flatMap(
+    return [this.state.generationSpent, this.state.judgingSpent].flatMap(
       (each) => (each ? [each] : []),
     );
   }
@@ -222,38 +222,38 @@ export class ReplayEntry {
     return this.state.pairing === null && this.pairableFor(scoring);
   }
 
-  pairingAsked(against: RunId): ReplayEntry {
+  pairingRequested(other: RunId): ReplayEntry {
     return this.state.pairing === null
-      ? this.with({ pairing: EntryPairing.asked(against) })
+      ? this.with({ pairing: EntryPairing.requested(other) })
       : this;
   }
 
-  pairingLeft(against: RunId, why: string): ReplayEntry {
+  pairingLeft(other: RunId, why: string): ReplayEntry {
     return this.state.pairing === null
-      ? this.with({ pairing: EntryPairing.asked(against).failed(why) })
+      ? this.with({ pairing: EntryPairing.requested(other).failed(why) })
       : this;
   }
 
   paired(
-    against: RunId,
+    other: RunId,
     verdict: PairVerdict,
     spent: ModelSpent | null,
   ): ReplayEntry {
     const pairing = this.state.pairing;
 
-    return pairing?.pending && pairing.isAgainst(against)
+    return pairing?.pending && pairing.isAgainst(other)
       ? this.with({ pairing: pairing.judged(verdict), pairingSpent: spent })
       : this;
   }
 
   pairingFailed(
-    against: RunId,
+    other: RunId,
     why: string,
     spent: ModelSpent | null,
   ): ReplayEntry {
     const pairing = this.state.pairing;
 
-    return pairing?.pending && pairing.isAgainst(against)
+    return pairing?.pending && pairing.isAgainst(other)
       ? this.with({ pairing: pairing.failed(why), pairingSpent: spent })
       : this;
   }
@@ -293,13 +293,13 @@ export class ReplayEntry {
     return this.state.recheck === null && isConclusive(this.state.checks);
   }
 
-  rejudgingAsked(): ReplayEntry {
+  rejudgingRequested(): ReplayEntry {
     return this.wantsRejudging
-      ? this.with({ secondJudging: EntryJudging.asked() })
+      ? this.with({ secondJudging: EntryJudging.requested() })
       : this;
   }
 
-  recheckAsked(): ReplayEntry {
+  recheckRequested(): ReplayEntry {
     return this.wantsRecheck
       ? this.with({ recheck: ChangeChecks.checking() })
       : this;
@@ -349,28 +349,28 @@ export class ReplayEntry {
     return (
       scoring.judges &&
       this.state.judging === null &&
-      this.state.refusal === null &&
+      this.state.unreplayableReason === null &&
       this.state.end?.ending === 'completed' &&
-      (this.state.checks?.drafted ?? false)
+      (this.state.checks?.generated ?? false)
     );
   }
 
-  reviewed(checks: ChangeChecks, drafting: ModelSpent | null): ReplayEntry {
+  reviewed(checks: ChangeChecks, generation: ModelSpent | null): ReplayEntry {
     if (
       this.state.run === null ||
       (this.state.checks?.equals(checks) &&
-        sameSpend(this.state.draftingSpent, drafting))
+        sameSpend(this.state.generationSpent, generation))
     ) {
       return this;
     }
 
-    return this.with({ checks, draftingSpent: drafting });
+    return this.with({ checks, generationSpent: generation });
   }
 
-  judgingAsked(): ReplayEntry {
+  judgingRequested(): ReplayEntry {
     return this.state.judging
       ? this
-      : this.with({ judging: EntryJudging.asked() });
+      : this.with({ judging: EntryJudging.requested() });
   }
 
   judged(verdict: JudgeVerdict, spent: ModelSpent | null): ReplayEntry {
@@ -401,33 +401,35 @@ export class ReplayEntry {
   get isWaiting(): boolean {
     return (
       this.state.run === null &&
-      this.state.refusal === null &&
+      this.state.unreplayableReason === null &&
       !this.state.notRun
     );
   }
 
-  get isSettled(): boolean {
-    if (this.state.refusal !== null || this.state.notRun) {
+  get hasEnded(): boolean {
+    if (this.state.unreplayableReason !== null || this.state.notRun) {
       return true;
     }
 
     const end = this.state.end;
 
-    return end !== null && (this.state.measures !== null || !end.isDigested);
+    return (
+      end !== null && (this.state.measures !== null || !end.isUsageRecorded)
+    );
   }
 
   get occupiesARunner(): boolean {
-    return this.state.run !== null && !this.isSettled;
+    return this.state.run !== null && !this.hasEnded;
   }
 
   get ending(): ReplayEnding | null {
-    if (this.state.refusal !== null) {
+    if (this.state.unreplayableReason !== null) {
       return 'unreplayable';
     }
     if (this.state.notRun) {
       return 'not-run';
     }
-    return this.isSettled ? (this.state.end?.ending ?? null) : null;
+    return this.hasEnded ? (this.state.end?.ending ?? null) : null;
   }
 
   ranAs(run: RunId): boolean {
@@ -438,7 +440,7 @@ export class ReplayEntry {
     if (!this.isWaiting) {
       throw new InconsistentStateError(
         'replay entry',
-        'was given a run while it already had one or a result',
+        'got a run while it already had one or a result',
       );
     }
 
@@ -457,7 +459,7 @@ export class ReplayEntry {
     return this.with({ queueAttempts: this.state.queueAttempts + 1 });
   }
 
-  get isGivenUp(): boolean {
+  get isExhausted(): boolean {
     return (
       this.occupiesARunner &&
       !this.state.queued &&
@@ -465,20 +467,20 @@ export class ReplayEntry {
     );
   }
 
-  gaveUp(): ReplayEntry {
-    return this.isGivenUp ? this.refused('dispatch-failed') : this;
+  exhaust(): ReplayEntry {
+    return this.isExhausted ? this.unreplayable('dispatch-failed') : this;
   }
 
-  forgone(): ReplayEntry {
-    return this.state.run !== null && !this.state.queued && !this.isSettled
+  cancelled(): ReplayEntry {
+    return this.state.run !== null && !this.state.queued && !this.hasEnded
       ? this.with({ notRun: true })
       : this;
   }
 
-  refused(refusal: ReplayRefusal): ReplayEntry {
-    return this.state.end || this.state.refusal !== null
+  unreplayable(reason: UnreplayableReason): ReplayEntry {
+    return this.state.end || this.state.unreplayableReason !== null
       ? this
-      : this.with({ refusal, queued: false });
+      : this.with({ unreplayableReason: reason, queued: false });
   }
 
   skipped(): ReplayEntry {
@@ -486,7 +488,7 @@ export class ReplayEntry {
   }
 
   ended(end: RunEnd): ReplayEntry {
-    return this.state.end || this.state.refusal !== null
+    return this.state.end || this.state.unreplayableReason !== null
       ? this
       : this.with({ end, queued: true });
   }

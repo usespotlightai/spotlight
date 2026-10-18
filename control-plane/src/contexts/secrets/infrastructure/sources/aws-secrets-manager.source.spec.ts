@@ -18,7 +18,7 @@ const reference = (field: string | null = null): SecretReference => ({
   source: SecretSource.awsSecretsManager({ secretId: 'linear', field }),
 });
 
-const holding = (answer: () => Promise<unknown>) => {
+const setUp = (answer: () => Promise<unknown>) => {
   const send = vi.fn(answer);
 
   return {
@@ -31,7 +31,7 @@ const holding = (answer: () => Promise<unknown>) => {
 
 describe('AwsSecretsManagerSource', () => {
   it('reads the current value of the secret it names', async () => {
-    const { send, source } = holding(async () => ({
+    const { send, source } = setUp(async () => ({
       SecretString: 'lin_api_1',
     }));
 
@@ -42,8 +42,8 @@ describe('AwsSecretsManagerSource', () => {
     expect(command.input).toEqual({ SecretId: 'linear' });
   });
 
-  it('reads one field of a secret that holds JSON', async () => {
-    const { source } = holding(async () => ({
+  it('reads one field of a secret that contains JSON', async () => {
+    const { source } = setUp(async () => ({
       SecretString: JSON.stringify({ token: 'lin_api_2', other: 'x' }),
     }));
 
@@ -53,18 +53,18 @@ describe('AwsSecretsManagerSource', () => {
   });
 
   it('says what went wrong without saying the value', async () => {
-    const { source } = holding(async () => ({
+    const { source } = setUp(async () => ({
       SecretString: 'lin_api_1',
     }));
 
-    const refused = source.read(reference('token'));
+    const reading = source.read(reference('token'));
 
-    await expect(refused).rejects.toThrow(UnreadableSecretError);
-    await expect(refused).rejects.not.toThrow(/lin_api_1/);
+    await expect(reading).rejects.toThrow(UnreadableSecretError);
+    await expect(reading).rejects.not.toThrow(/lin_api_1/);
   });
 
-  it('turns a refusal from AWS into one of its own', async () => {
-    const { source } = holding(async () => {
+  it('turns an AWS error into one of its own', async () => {
+    const { source } = setUp(async () => {
       throw Object.assign(new Error('denied'), {
         name: 'AccessDeniedException',
       });

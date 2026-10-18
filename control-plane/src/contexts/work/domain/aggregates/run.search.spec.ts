@@ -6,12 +6,12 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
+import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
-import { KeptFromSearchesError } from '@work/domain/exceptions/kept-from-searches.error';
+import { NotAllowedInSearchError } from '@work/domain/exceptions/not-allowed-in-search.error';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
-import { Declaration } from '@work/domain/value-objects/declaration.vo';
+import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
@@ -39,7 +39,7 @@ const SEARCH_SPEC: RunSpecParts = {
   command: { executable: 'sh', args: [] },
   briefing: 'Find a better Build station.',
   handover: { options: [], noteLimit: 0 },
-  continuity: { key: 'search-run_1' },
+  resume: { key: 'search-run_1' },
   search: {},
 };
 
@@ -62,11 +62,11 @@ const claimed = () => queued().claim(RUNNER, NOW);
 
 const finished = RunOutcome.of({ exitCode: 0, failed: false });
 
-const saying = (next: string) =>
-  HandoverReport.of({ declared: Declaration.of({ next }), session: null });
+const reportOf = (next: string) =>
+  HandoverReport.of({ handover: Handover.of({ next }), session: null });
 
 describe('a search run', () => {
-  it('works no task of its own, keeps no workspace and restores none', () => {
+  it('works no task of its own, archives no workspace and restores none', () => {
     const run = queued();
 
     expect(run.isSearch).toBe(true);
@@ -93,7 +93,7 @@ describe('a search run', () => {
         SEARCH_SPEC,
         BriefedMemories.of({
           briefed: [{ id: 'memory_1', handle: 'M-1' }],
-          cut: [],
+          omitted: [],
         }),
       ),
     ).toThrow(InvalidRunTransitionError);
@@ -101,14 +101,14 @@ describe('a search run', () => {
 
   it('never waits for a person', () => {
     expect(() =>
-      claimed().paused(RUNNER, finished, saying('review'), NOW),
+      claimed().paused(RUNNER, finished, reportOf('review'), NOW),
     ).toThrow(InvalidRunTransitionError);
   });
 
   it('ends recording that it asked a person, when its runner says so, and only then', () => {
     const asked = claimed()
       .askedAPersonBy(RUNNER)
-      .complete(RUNNER, finished, saying('review'));
+      .complete(RUNNER, finished, reportOf('review'));
     const [completed] = asked
       .pullEvents()
       .filter((each): each is RunCompleted => each instanceof RunCompleted);
@@ -116,27 +116,27 @@ describe('a search run', () => {
     expect(asked.askedAPerson).toBe(true);
     expect(completed?.asked).toBe(true);
     expect(
-      claimed().complete(RUNNER, finished, saying('review')).askedAPerson,
+      claimed().complete(RUNNER, finished, reportOf('review')).askedAPerson,
     ).toBe(false);
   });
 
-  it('gives up rather than going back on the queue once it has asked a person', () => {
-    const lapsed = claimed()
+  it('is exhausted rather than going back on the queue once it has asked a person', () => {
+    const expired = claimed()
       .askedAPersonBy(RUNNER)
-      .requeue(new Date(NOW.getTime() + 120_000));
-    const [abandoned] = lapsed
+      .expireLease(new Date(NOW.getTime() + 120_000));
+    const [exhausted] = expired
       .pullEvents()
-      .filter((each): each is RunAbandoned => each instanceof RunAbandoned);
+      .filter((each): each is RunExhausted => each instanceof RunExhausted);
 
-    expect(lapsed.hasEnded).toBe(true);
-    expect(abandoned?.asked).toBe(true);
+    expect(expired.hasEnded).toBe(true);
+    expect(exhausted?.asked).toBe(true);
   });
 
-  it('reaches nothing beyond itself, and hears no hook', () => {
-    expect(() => claimed().mayReachBeyondItself('answer a remark')).toThrow(
-      KeptFromSearchesError,
-    );
-    expect(claimed().hearsHooks).toBe(false);
+  it('acts on nothing beyond itself, and fires no hook', () => {
+    expect(() =>
+      claimed().mayActBeyondItself('reply to a review comment'),
+    ).toThrow(NotAllowedInSearchError);
+    expect(claimed().firesHooks).toBe(false);
   });
 
   it('comes back only with a spec that says it searches', () => {

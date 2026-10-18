@@ -5,8 +5,8 @@ const kindOf = (step: Parameters<typeof reasoningIn>[0]) =>
   reasoningIn(step)?.kind ?? null;
 
 describe('reasoning in a run’s journal', () => {
-  it('is what the agent said, thought and planned', () => {
-    expect(kindOf({ kind: 'said', text: 'Retrying once.' })).toBe('said');
+  it('is the messages, thoughts and plans of the agent', () => {
+    expect(kindOf({ kind: 'message', text: 'Retrying once.' })).toBe('message');
     expect(kindOf({ kind: 'thought', text: 'A queue is overkill.' })).toBe(
       'thought',
     );
@@ -22,7 +22,7 @@ describe('reasoning in a run’s journal', () => {
     ).toBe('handover');
   });
 
-  it('is what the agent asked its team to remember, however the harness titles the command', () => {
+  it('is what the agent told its team to remember, however the harness titles the command', () => {
     for (const text of [
       'spotlight remember --kind rationale --body "Retry once"',
       '`spotlight remember --kind rationale --body "Retry once"`',
@@ -35,12 +35,12 @@ describe('reasoning in a run’s journal', () => {
     ).toBeNull();
   });
 
-  it('reads the command from what the tool was given when its title does not show it', () => {
+  it('reads the command from the input of the tool when its title does not show it', () => {
     expect(
       reasoningIn({
         kind: 'tool',
         text: 'Terminal',
-        given:
+        input:
           '{"command":"spotlight remember --kind failure --body \\"CI flakes\\""}',
       }),
     ).toEqual({
@@ -64,13 +64,13 @@ describe('reasoning in a run’s journal', () => {
     ).toBeNull();
   });
 
-  it('is never another command, a hook, or nothing said', () => {
+  it('is never another command, a hook, or an empty message', () => {
     expect(kindOf({ kind: 'tool', text: 'npm test' })).toBeNull();
     expect(kindOf({ kind: 'tool', text: 'spotlight handovers' })).toBeNull();
     expect(
       kindOf({ kind: 'tool', text: 'grep -r "spotlight remember" docs' }),
     ).toBeNull();
     expect(kindOf({ kind: 'hook', text: 'lint passed' })).toBeNull();
-    expect(kindOf({ kind: 'said', text: '   ' })).toBeNull();
+    expect(kindOf({ kind: 'message', text: '   ' })).toBeNull();
   });
 });

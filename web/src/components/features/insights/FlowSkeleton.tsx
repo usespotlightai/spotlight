@@ -29,7 +29,7 @@ export function FlowSkeleton({ stations }: { stations: number }) {
         </figure>
       </InsightsCardSkeleton>
 
-      <TileGroup title="Past the last station" note={DELIVERY_NOTE}>
+      <TileGroup title="Past the last station" tooltip={DELIVERY_NOTE}>
         {DELIVERY.map((label) => (
           <InsightsTileSkeleton key={label} label={label} delta detail />
         ))}

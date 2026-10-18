@@ -1,9 +1,8 @@
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
 import { SecretInUseError } from '@secrets/domain/exceptions/secret-in-use.error';
-import { SecretNameFixedError } from '@secrets/domain/exceptions/secret-name-fixed.error';
 import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound.error';
-import { SecretUnwearableError } from '@secrets/domain/exceptions/secret-unwearable.error';
+import { SecretNotInjectableError } from '@secrets/domain/exceptions/secret-not-injectable.error';
 import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
 import { SecretChangeDetail } from '@secrets/domain/value-objects/secret-change-detail.vo';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
@@ -12,7 +11,8 @@ import { SecretUses } from '@secrets/domain/value-objects/secret-uses.vo';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { BY, definition, NOW } from '@secrets/secrets.fakes.fake-spec';
 import { changesConfiguration } from '@shared-kernel/domain/events/configuration-changed';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -23,14 +23,14 @@ const LATER = new Date('2026-09-24T12:00:00.000Z');
 const AWS = SecretSource.awsSecretsManager({ secretId: 'linear-api-key' });
 
 const set = (over: Parameters<typeof definition>[0] = {}) =>
-  Secret.set(definition(over), {
+  Secret.create(definition(over), {
     id: SecretId.of('secret_1'),
     workspaceId: WORKSPACE,
     by: BY,
     at: NOW,
   });
 
-const kept = (over: Parameters<typeof definition>[0] = {}) => {
+const stored = (over: Parameters<typeof definition>[0] = {}) => {
   const made = set(over);
 
   return Secret.rehydrate({
@@ -68,15 +68,15 @@ const recorded = (secret: Secret) =>
 
 describe('Secret', () => {
   describe('set', () => {
-    it('keeps the value it was given, and records who set it, its value version and hosts', () => {
+    it('stores the value it was given, and records who created it, its value version and hosts', () => {
       const secret = set();
 
-      expect(secret.keeping?.revealed()).toBe('lin_api_1');
+      expect(secret.valueToStore?.revealed()).toBe('lin_api_1');
       expect(changes(secret)).toEqual([
         ConfigurationChange.created(
           LINEAR,
           BY,
-          SecretChangeDetail.set(1, ['api.linear.app']),
+          SecretChangeDetail.created(1, ['api.linear.app']),
         ),
       ]);
       expect(recorded(set())).toEqual([
@@ -85,27 +85,27 @@ describe('Secret', () => {
           'LINEAR_API_KEY',
           'created',
           BY,
-          { valueVersion: 1, boundTo: ['api.linear.app'] },
+          { valueVersion: 1, targets: ['api.linear.app'] },
         ],
       ]);
     });
 
-    it('needs a value when Spotlight is to keep it', () => {
+    it('needs a value when Spotlight is to store it', () => {
       expect(() => set({ value: null })).toThrow(
         expect.objectContaining({
           constructor: InvalidSecretError,
           because: expect.stringMatching(
-            /required for a secret kept by Spotlight/,
+            /required for a secret stored by Spotlight/,
           ),
         }),
       );
     });
 
-    it('takes no value when AWS Secrets Manager holds it', () => {
+    it('takes no value when AWS Secrets Manager stores it', () => {
       expect(() => set({ source: AWS })).toThrow(
         /cannot be set on a secret read from AWS Secrets Manager/,
       );
-      expect(set({ source: AWS, value: null }).keeping).toBeNull();
+      expect(set({ source: AWS, value: null }).valueToStore).toBeNull();
     });
 
     it('carries its value in no event', () => {
@@ -113,29 +113,29 @@ describe('Secret', () => {
     });
   });
 
-  describe('redefined', () => {
-    it('keeps its old value while valueWoVersion stands, whatever value is sent', () => {
-      const redefined = kept().redefinedAs(
+  describe('updated', () => {
+    it('keeps its old value while valueWoVersion does not change, whatever value is sent', () => {
+      const updated = stored().update(
         definition({ value: 'lin_api_ignored' }),
         BY,
         LATER,
       );
 
-      expect(redefined.keeping).toBeNull();
-      expect(redefined.rotatedAt).toEqual(NOW);
-      expect(recorded(redefined)).toEqual([
+      expect(updated.valueToStore).toBeNull();
+      expect(updated.rotatedAt).toEqual(NOW);
+      expect(recorded(updated)).toEqual([
         ['secret', 'LINEAR_API_KEY', 'updated', BY, {}],
       ]);
     });
 
     it('rotates to the value sent when valueWoVersion changes', () => {
-      const rotated = kept().redefinedAs(
+      const rotated = stored().update(
         definition({ value: 'lin_api_2', valueVersion: 2 }),
         BY,
         LATER,
       );
 
-      expect(rotated.keeping?.revealed()).toBe('lin_api_2');
+      expect(rotated.valueToStore?.revealed()).toBe('lin_api_2');
       expect(rotated.valueVersion).toBe(2);
       expect(rotated.rotatedAt).toEqual(LATER);
       expect(recorded(rotated)).toEqual([
@@ -143,9 +143,9 @@ describe('Secret', () => {
       ]);
     });
 
-    it('refuses a new valueWoVersion without the value it stands for', () => {
+    it('rejects a new valueWoVersion without the value of that version', () => {
       expect(() =>
-        kept().redefinedAs(
+        stored().update(
           definition({ value: null, valueVersion: 2 }),
           BY,
           LATER,
@@ -154,7 +154,7 @@ describe('Secret', () => {
     });
 
     it('records where it is bound once its bindings change', () => {
-      const rebound = kept().redefinedAs(
+      const rebound = stored().update(
         definition({ bindings: [{ host: 'uploads.linear.app' }] }),
         BY,
         LATER,
@@ -166,109 +166,113 @@ describe('Secret', () => {
           'LINEAR_API_KEY',
           'updated',
           BY,
-          { boundTo: ['uploads.linear.app'] },
+          { targets: ['uploads.linear.app'] },
         ],
       ]);
     });
 
-    it('forgets the value it kept once AWS Secrets Manager holds it', () => {
-      const moved = kept().redefinedAs(
+    it('deletes the value it stored once AWS Secrets Manager stores it', () => {
+      const moved = stored().update(
         definition({ source: AWS, value: null }),
         BY,
         LATER,
       );
 
-      expect(moved.forgetsValue).toBe(true);
-      expect(moved.keeping).toBeNull();
+      expect(moved.deletesValue).toBe(true);
+      expect(moved.valueToStore).toBeNull();
     });
 
-    it('needs a value once Spotlight is to keep it again', () => {
+    it('needs a value once Spotlight is to store it again', () => {
       expect(() =>
-        kept({ source: AWS, value: null }).redefinedAs(
+        stored({ source: AWS, value: null }).update(
           definition({ value: null }),
           BY,
           LATER,
         ),
-      ).toThrow(/required once Spotlight keeps the secret/);
+      ).toThrow(/required once Spotlight stores the secret/);
     });
 
     it('keeps its name for life', () => {
       expect(() =>
-        kept().redefinedAs(definition({ name: 'LINEAR_TOKEN' }), BY, LATER),
-      ).toThrow(SecretNameFixedError);
+        stored().update(definition({ name: 'LINEAR_TOKEN' }), BY, LATER),
+      ).toThrow(ImmutableFieldError);
     });
 
-    it('refuses a change to a version no longer current', () => {
-      expect(() => kept().assertVersion(0)).toThrow(SecretVersionConflictError);
-      expect(() => kept().assertVersion(1)).not.toThrow();
+    it('rejects a change to a version no longer current', () => {
+      expect(() => stored().assertVersion(0)).toThrow(
+        SecretVersionConflictError,
+      );
+      expect(() => stored().assertVersion(1)).not.toThrow();
     });
   });
 
   describe('deleted', () => {
-    it('forgets the value Spotlight kept, and records who deleted it', () => {
-      const deleted = kept().deleted(SecretUses.none(), BY);
+    it('deletes the value Spotlight stored, and records who deleted it', () => {
+      const deleted = stored().delete(SecretUses.none(), BY);
 
       expect(deleted.isDeleted).toBe(true);
-      expect(deleted.forgetsValue).toBe(true);
+      expect(deleted.deletesValue).toBe(true);
       expect(changes(deleted)).toEqual([
         ConfigurationChange.deleted(LINEAR, BY),
       ]);
     });
 
     it('is changed no more once deleted', () => {
-      const deleted = kept().deleted(SecretUses.none(), BY);
+      const deleted = stored().delete(SecretUses.none(), BY);
 
-      expect(() => deleted.deleted(SecretUses.none(), BY)).toThrow(
+      expect(() => deleted.delete(SecretUses.none(), BY)).toThrow(
         /after it was deleted/,
       );
     });
 
-    it('is not deleted while an integration still wears it', () => {
+    it('is not deleted while an integration still uses it', () => {
       expect(() =>
-        kept().deleted(SecretUses.of(['integration core/linear']), BY),
+        stored().delete(SecretUses.of(['integration core/linear']), BY),
       ).toThrow(SecretInUseError);
     });
 
-    it('is abandoned with its workspace, whatever still names it', () => {
-      const spotlight = Attribution.spotlight(WORKSPACE);
-      const abandoned = kept().abandon(spotlight);
+    it('is deleted with its workspace, whatever still names it', () => {
+      const spotlight = ChangeActor.spotlight(WORKSPACE);
+      const deleted = stored().cascadeDelete(spotlight);
 
-      expect(abandoned.isDeleted).toBe(true);
-      expect(abandoned.forgetsValue).toBe(true);
-      expect(changes(abandoned)).toEqual([
+      expect(deleted.isDeleted).toBe(true);
+      expect(deleted.deletesValue).toBe(true);
+      expect(changes(deleted)).toEqual([
         ConfigurationChange.deleted(LINEAR, spotlight),
       ]);
     });
   });
 
-  describe('worn toward a host', () => {
+  describe('injected for a host', () => {
     const value = SecretValue.of('lin_api_1');
 
-    it('is worn in its header, after its prefix, toward a host it is bound to', () => {
+    it('is injected in its header, after its prefix, for a host it is bound to', () => {
       expect(
-        kept().wornToward('https://api.linear.app/graphql?x=1', value),
+        stored().injectedFor('https://api.linear.app/graphql?x=1', value),
       ).toEqual({
-        carrier: 'header',
+        location: 'header',
         name: 'authorization',
         value: 'Bearer lin_api_1',
         bare: 'lin_api_1',
       });
     });
 
-    it('is worn in its query parameter when bound to one', () => {
+    it('is injected in its query parameter when bound to one', () => {
       expect(
-        kept({
-          bindings: [{ host: 'api.linear.app', carrier: 'query', name: 'key' }],
-        }).wornToward('https://api.linear.app/graphql', value),
+        stored({
+          bindings: [
+            { host: 'api.linear.app', location: 'query', name: 'key' },
+          ],
+        }).injectedFor('https://api.linear.app/graphql', value),
       ).toEqual({
-        carrier: 'query',
+        location: 'query',
         name: 'key',
         value: 'lin_api_1',
         bare: 'lin_api_1',
       });
     });
 
-    it('is never worn toward a host it is not bound to', () => {
+    it('is never injected for a host it is not bound to', () => {
       for (const url of [
         'https://api.linear.app.evil.test/graphql',
         'https://evil.test/?api.linear.app',
@@ -276,31 +280,31 @@ describe('Secret', () => {
         'https://sub.api.linear.app/graphql',
         'not a url',
       ]) {
-        expect(() => kept().wornToward(url, value), url).toThrow(
+        expect(() => stored().injectedFor(url, value), url).toThrow(
           SecretNotBoundError,
         );
       }
     });
 
-    it('is never worn over plain http, even to its host', () => {
+    it('is never injected over plain http, even to its host', () => {
       expect(() =>
-        kept().wornToward('http://api.linear.app/graphql', value),
+        stored().injectedFor('http://api.linear.app/graphql', value),
       ).toThrow(SecretNotBoundError);
     });
 
-    it('is never worn where its value would break the header', () => {
+    it('is never injected where its value would break the header', () => {
       expect(() =>
-        kept().wornToward(
+        stored().injectedFor(
           'https://api.linear.app/graphql',
           SecretValue.of('line\r\nx-evil: 1'),
         ),
-      ).toThrow(SecretUnwearableError);
+      ).toThrow(SecretNotInjectableError);
     });
   });
 
   describe('granted to a run', () => {
-    it('is granted toward each host it is bound to, for that run alone', () => {
-      const grants = kept({
+    it('is granted for each host it is bound to, for that run alone', () => {
+      const grants = stored({
         bindings: [{ host: 'api.linear.app' }, { host: 'uploads.linear.app' }],
       }).grantTo(RunId.of('run_1'));
 
@@ -310,8 +314,8 @@ describe('Secret', () => {
       ]);
     });
 
-    it('stands for the grant a run needs to wear it toward an address', () => {
-      const grant = kept().grantToward(
+    it('makes the grant a run needs to inject it for an address', () => {
+      const grant = stored().grantForUrl(
         RunId.of('run_1'),
         'https://api.linear.app/graphql',
       );
@@ -321,18 +325,18 @@ describe('Secret', () => {
         'api.linear.app',
       ]);
       expect(() =>
-        kept().grantToward(RunId.of('run_1'), 'https://sentry.io/'),
+        stored().grantForUrl(RunId.of('run_1'), 'https://sentry.io/'),
       ).toThrow(SecretNotBoundError);
     });
 
-    it('is granted toward nowhere when bound to no host', () => {
-      expect(() => kept({ bindings: [] }).grantTo(RunId.of('run_1'))).toThrow(
+    it('is granted for no host when bound to no host', () => {
+      expect(() => stored({ bindings: [] }).grantTo(RunId.of('run_1'))).toThrow(
         SecretNotBoundError,
       );
     });
 
-    it('is worn the way it is bound toward the host a grant names', () => {
-      const secret = kept({
+    it('is injected the way it is bound for the host a grant names', () => {
+      const secret = stored({
         bindings: [
           { host: 'api.linear.app', prefix: 'Bearer ' },
           { host: 'uploads.linear.app', name: 'x-api-key' },
@@ -342,27 +346,27 @@ describe('Secret', () => {
 
       expect(uploads && secret.bindingFor(uploads)).toMatchObject({
         host: 'uploads.linear.app',
-        carrier: { kind: 'header', name: 'x-api-key' },
+        target: { location: 'header', name: 'x-api-key' },
         prefix: '',
       });
     });
 
-    it('honours no grant toward a host it is no longer bound to', () => {
-      const [grant] = kept({
+    it('honours no grant for a host it is no longer bound to', () => {
+      const [grant] = stored({
         bindings: [{ host: 'api.linear.app' }, { host: 'old.linear.app' }],
       }).grantTo(RunId.of('run_1'));
-      const rebound = kept({ bindings: [{ host: 'new.linear.app' }] });
+      const rebound = stored({ bindings: [{ host: 'new.linear.app' }] });
 
       expect(() => grant && rebound.bindingFor(grant)).toThrow(
         SecretNotBoundError,
       );
     });
 
-    it('refuses a value it cannot wear in a header', () => {
-      expect(() => kept().wearable(SecretValue.of('one\ntwo'))).toThrow(
-        SecretUnwearableError,
+    it('rejects a value it cannot inject in a header', () => {
+      expect(() => stored().injectable(SecretValue.of('one\ntwo'))).toThrow(
+        SecretNotInjectableError,
       );
-      expect(kept().wearable(SecretValue.of('one')).revealed()).toBe('one');
+      expect(stored().injectable(SecretValue.of('one')).revealed()).toBe('one');
     });
   });
 });

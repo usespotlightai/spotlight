@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { AgentPicker } from '@/components/features/stations/AgentPicker';
 import { FixedRepositories } from '@/components/features/stations/FixedRepositories';
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
-import { useSayInChat } from '@/hooks/api/useSayInChat';
+import { useSendChatMessage } from '@/hooks/api/useSendChatMessage';
 import { useStopChat } from '@/hooks/api/useStopChat';
 import type { Chat } from '@/lib/chat';
 
@@ -13,7 +13,7 @@ type ChatComposerProps = {
 };
 
 export function ChatComposer({ slug, teamId, chat }: ChatComposerProps) {
-  const say = useSayInChat();
+  const send = useSendChatMessage();
   const stop = useStopChat();
   const [model, setModel] = useState(chat.model ?? '');
   const [effort, setEffort] = useState(chat.effort ?? '');
@@ -21,9 +21,9 @@ export function ChatComposer({ slug, teamId, chat }: ChatComposerProps) {
   return (
     <ChatInput
       slug={slug}
-      label="Say something to the agent"
+      label="Message the agent"
       placeholder="Reply…"
-      pending={say.isPending}
+      pending={send.isPending}
       running={chat.working}
       onStop={() => stop.mutate({ teamId, chatId: chat.id })}
       settings={
@@ -37,7 +37,7 @@ export function ChatComposer({ slug, teamId, chat }: ChatComposerProps) {
       }
       below={<FixedRepositories slug={slug} repositories={chat.repositories} />}
       onSend={({ body, attachments }, sent) =>
-        say.mutate(
+        send.mutate(
           { teamId, chatId: chat.id, body, attachments, model, effort },
           { onSuccess: sent },
         )

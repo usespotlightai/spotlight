@@ -11,7 +11,7 @@ import { SEARCH_HEADINGS, SEARCHES_NOTE } from '@/lib/search';
 export function StationImproveSkeleton() {
   return (
     <>
-      <ImproveSection title="What stands out">
+      <ImproveSection title="What needs attention">
         <WorthImprovingSkeleton />
       </ImproveSection>
 

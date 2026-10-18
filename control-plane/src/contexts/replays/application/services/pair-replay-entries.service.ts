@@ -1,7 +1,7 @@
-import type { OutcomesPort } from '@replays/application/ports/outcomes.port';
+import type { InsightsPort } from '@replays/application/ports/insights.port';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
-import { ReplayPairingDue } from '@replays/domain/events/replay-pairing-due.event';
+import { ReplayPairingRequested } from '@replays/domain/events/replay-pairing-requested.event';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -11,7 +11,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 export class PairReplayEntries {
   constructor(
     private readonly replays: ReplayRepository,
-    private readonly outcomes: OutcomesPort,
+    private readonly insights: InsightsPort,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -22,10 +22,12 @@ export class PairReplayEntries {
     const pairing = await this.replays.pairingWith(event.replayId);
     const due = [...(replay?.pairs ? [event.replayId] : []), ...pairing];
 
-    return due.map((each) => new ReplayPairingDue(each, event.workspaceId));
+    return due.map(
+      (each) => new ReplayPairingRequested(each, event.workspaceId),
+    );
   }
 
-  async due(replayId: ReplayId): Promise<void> {
+  async requested(replayId: ReplayId): Promise<void> {
     const seen = await this.replays.find(replayId);
 
     if (!seen?.pairs || !seen.takesPairings) {
@@ -36,15 +38,15 @@ export class PairReplayEntries {
 
     await this.transaction.inTransaction(async () => {
       const replay = await this.replays.find(replayId);
-      const counterpart = replay?.pairsWith
-        ? await this.replays.find(replay.pairsWith)
+      const reference = replay?.pairwiseReferenceId
+        ? await this.replays.find(replay.pairwiseReferenceId)
         : null;
 
-      if (!replay || !counterpart) {
+      if (!replay || !reference) {
         return;
       }
 
-      const paired = replay.pairAgainst(counterpart, (original) =>
+      const paired = replay.pairAgainst(reference, (original) =>
         accepted.has(original.value),
       );
 
@@ -69,7 +71,7 @@ export class PairReplayEntries {
     const accepted = new Set<string>();
 
     for (const original of wanting) {
-      if (await this.outcomes.acceptedAfter(original)) {
+      if (await this.insights.acceptedAfter(original)) {
         accepted.add(original.value);
       }
     }

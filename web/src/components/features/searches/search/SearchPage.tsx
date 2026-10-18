@@ -16,10 +16,10 @@ import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import type { ReplayedStation, ReplaySet } from '@/lib/replay';
 import {
   candidatesOf,
+  incumbentOf,
   ongoing,
   reflectionsOf,
   type SearchDetail,
-  standingOf,
 } from '@/lib/search';
 import { TrailContext } from '@/lib/trail';
 
@@ -70,7 +70,7 @@ export function SearchPage({
       />
 
       <StationPane
-        aside={
+        sidePanel={
           <CandidateDetailOf
             at={at}
             searchId={search.id}
@@ -88,7 +88,7 @@ export function SearchPage({
             at={at}
             iteration={reflection}
             set={set}
-            standing={standingOf(search, reflection)}
+            incumbent={incumbentOf(search, reflection)}
           />
         ))}
 

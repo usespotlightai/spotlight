@@ -16,7 +16,7 @@ export class RepositoryName {
 
     if (name.includes('/') || name.includes('\\') || name.startsWith('.')) {
       throw InvalidChangeStackError.because(
-        `repository ${name} is not one the workspace holds`,
+        `repository ${name} is not a repository of the workspace`,
       );
     }
 

@@ -4,9 +4,9 @@ import type { HookFiringHistoryPort } from '@integrations/application/ports/hook
 import type { TasksForHooksPort } from '@integrations/application/ports/tasks-for-hooks.port';
 import { CallbackTaskQuery } from '@integrations/application/queries/callback-task.query';
 import { CallbackTaskHandler } from '@integrations/application/queries/handlers/callback-task.handler';
-import { HookCallbackGrants } from '@integrations/application/services/hook-callback-grants.service';
-import { HookCallbackGrant } from '@integrations/domain/aggregates/hook-callback-grant.aggregate';
-import type { HookCallbackGrantRepository } from '@integrations/domain/repositories/hook-callback-grant.repository';
+import { HookCallbackTokens } from '@integrations/application/services/hook-callback-tokens.service';
+import { HookCallbackToken } from '@integrations/domain/aggregates/hook-callback-token.aggregate';
+import type { HookCallbackTokenRepository } from '@integrations/domain/repositories/hook-callback-token.repository';
 import { causationInMemory } from '@shared-kernel/application/ports/causation.fake-spec';
 import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -19,7 +19,7 @@ const NOW = new Date('2026-09-26T10:00:00.000Z');
 
 const HASH = TokenHash.of('a'.repeat(64));
 
-const HOLDER = HookCallbackGrant.issueFor(
+const HOLDER = HookCallbackToken.issueFor(
   {
     tokenHash: HASH,
     workspaceId: WorkspaceId.of('workspace_1'),
@@ -30,10 +30,10 @@ const HOLDER = HookCallbackGrant.issueFor(
   NOW,
 );
 
-const FIRED = CausalChain.none().followedBy({
+const FIRED = CausalChain.none().append({
   kind: 'hook',
   key: 'hook:dba_id:task.moved:task_1:build → review',
-  saying: 'the hook dba-review',
+  description: 'the hook dba-review',
 });
 
 const TASK = {
@@ -52,20 +52,20 @@ const TASK = {
 };
 
 const setUp = (
-  held: HookCallbackGrant | null,
+  callbackToken: HookCallbackToken | null,
   task = TASK,
   now: Date = NOW,
 ) => {
-  const kept = {
+  const repository = {
     add: vi.fn(async () => {}),
-    withToken: vi.fn(async () => held),
-    forgetExpiringBefore: vi.fn(async () => {}),
-  } satisfies HookCallbackGrantRepository;
+    withToken: vi.fn(async () => callbackToken),
+    purgeExpiringBefore: vi.fn(async () => {}),
+  } satisfies HookCallbackTokenRepository;
   const clock = { now: () => now, sleep: async () => {} };
-  const callbacks = new HookCallbackGrants(
-    kept,
+  const callbacks = new HookCallbackTokens(
+    repository,
     {
-      mint: () => ({ token: 'token', hash: HASH.value }),
+      issue: () => ({ token: 'token', hash: HASH.value }),
       hash: () => HASH.value,
     },
     clock,
@@ -78,7 +78,7 @@ const setUp = (
   const chains: string[] = [];
   const notes = {
     noted: vi.fn(async () => {
-      chains.push(causation.current().saying);
+      chains.push(causation.current().description);
       return true;
     }),
     failed: vi.fn(async () => 'reported' as const),
@@ -92,7 +92,7 @@ const setUp = (
   return {
     tasks,
     notes,
-    kept,
+    repository,
     chains,
     reading: new CallbackTaskHandler(callbacks, tasks),
     noting: new NoteByCallbackHandler(callbacks, notes, history, causation),
@@ -100,16 +100,16 @@ const setUp = (
 };
 
 describe('hook callbacks', () => {
-  it('reads the one task the token was given for', async () => {
-    const { reading, kept } = setUp(HOLDER);
+  it('reads the one task the token was issued for', async () => {
+    const { reading, repository } = setUp(HOLDER);
 
     await expect(
       reading.execute(new CallbackTaskQuery('token')),
     ).resolves.toMatchObject({ id: 'task_1', hook: 'dba-review' });
-    expect(kept.withToken).toHaveBeenCalledWith(HASH);
+    expect(repository.withToken).toHaveBeenCalledWith(HASH);
   });
 
-  it('reads nothing once the token has lapsed', async () => {
+  it('reads nothing once the token has expired', async () => {
     const { reading } = setUp(
       HOLDER,
       TASK,
@@ -166,7 +166,7 @@ describe('hook callbacks', () => {
     );
   });
 
-  it('notes in the chain of causes of the firing that asked for it', async () => {
+  it('notes in the chain of causes of the firing that requested it', async () => {
     const { noting, chains } = setUp(HOLDER);
 
     await noting.execute(new NoteByCallbackCommand('token', 'Safe.', null));
@@ -176,9 +176,9 @@ describe('hook callbacks', () => {
     ]);
   });
 
-  it('refuses an empty or overlong note, and an unknown token', async () => {
+  it('rejects an empty or overlong note, and an unknown token', async () => {
     const { noting } = setUp(HOLDER);
-    const refused = setUp(null);
+    const rejected = setUp(null);
 
     await expect(
       noting.execute(new NoteByCallbackCommand('token', '   ', null)),
@@ -189,7 +189,7 @@ describe('hook callbacks', () => {
       ),
     ).resolves.toBe('empty');
     await expect(
-      refused.noting.execute(new NoteByCallbackCommand('token', 'Hi', null)),
-    ).resolves.toBe('refused');
+      rejected.noting.execute(new NoteByCallbackCommand('token', 'Hi', null)),
+    ).resolves.toBe('rejected');
   });
 });

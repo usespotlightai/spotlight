@@ -1,11 +1,11 @@
 import type {
-  InviteOffer,
+  InvitePreview,
   InviteReaderPort,
   InviteSummary,
 } from '@identity/application/ports/invite-reader.port';
-import type { TeamNamed } from '@identity/application/read-models/team-named';
+import type { TeamRef } from '@identity/application/read-models/team-ref';
 import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
-import { invitable } from '@identity/domain/value-objects/invite-terms.vo';
+import { invitable } from '@identity/domain/value-objects/invite-spec.vo';
 import { user } from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
 import {
   team,
@@ -24,7 +24,7 @@ import { and, asc, desc, eq, gt, inArray, isNull } from 'drizzle-orm';
 export class DrizzleInviteReader implements InviteReaderPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
-  async openInWorkspace(
+  async pendingInWorkspace(
     workspaceId: WorkspaceId,
     now: Date,
   ): Promise<readonly InviteSummary[]> {
@@ -71,7 +71,7 @@ export class DrizzleInviteReader implements InviteReaderPort {
     }));
   }
 
-  async withToken(hash: TokenHash, now: Date): Promise<InviteOffer | null> {
+  async withToken(hash: TokenHash, now: Date): Promise<InvitePreview | null> {
     const [found] = await this.db
       .select({
         id: workspaceInvite.id,
@@ -101,13 +101,13 @@ export class DrizzleInviteReader implements InviteReaderPort {
       invitedBy: found.invitedBy,
       role: invitable(found.role),
       teamNames: (teams.get(found.id) ?? []).map((each) => each.name),
-      standing: WorkspaceInvite.standingOf(found, now),
+      status: WorkspaceInvite.statusOf(found, now),
     };
   }
 
   private async teamsOf(
     inviteIds: readonly string[],
-  ): Promise<ReadonlyMap<string, readonly TeamNamed[]>> {
+  ): Promise<ReadonlyMap<string, readonly TeamRef[]>> {
     if (inviteIds.length === 0) {
       return new Map();
     }
@@ -123,13 +123,13 @@ export class DrizzleInviteReader implements InviteReaderPort {
       .where(inArray(workspaceInviteTeam.inviteId, [...inviteIds]))
       .orderBy(asc(team.name));
 
-    const teams = new Map<string, TeamNamed[]>();
+    const teams = new Map<string, TeamRef[]>();
 
     for (const row of rows) {
-      const held = teams.get(row.inviteId) ?? [];
+      const inviteTeams = teams.get(row.inviteId) ?? [];
 
-      held.push({ id: row.id, name: row.name });
-      teams.set(row.inviteId, held);
+      inviteTeams.push({ id: row.id, name: row.name });
+      teams.set(row.inviteId, inviteTeams);
     }
 
     return teams;

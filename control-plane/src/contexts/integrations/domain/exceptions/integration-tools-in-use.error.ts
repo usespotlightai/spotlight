@@ -1,14 +1,14 @@
 import type { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 
 export class IntegrationToolsInUseError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(
-    source: string,
+    integration: string,
     readonly uses: ToolUses,
   ) {
     super(
-      `Integration ${source} would stop offering tools in use. Tools in use: ${uses.uses
+      `Integration ${integration} would stop offering tools in use. Tools in use: ${uses.uses
         .map((each) => `${each.tool} (used by ${each.by})`)
         .join(', ')}`,
     );

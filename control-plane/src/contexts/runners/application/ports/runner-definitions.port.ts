@@ -15,7 +15,7 @@ import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/c
 
 export const RUNNER_DEFINITIONS = Symbol('RUNNER_DEFINITIONS');
 
-type Refused = {
+type Invalid = {
   readonly ok: false;
   readonly problems: readonly ConfigurationProblem[];
 };
@@ -27,7 +27,7 @@ export type ParsedTrust =
       readonly workload: TrustedWorkload;
       readonly labels: RunnerLabels;
     }
-  | Refused;
+  | Invalid;
 
 export type ParsedPoolAccess =
   | {
@@ -52,7 +52,7 @@ export type ParsedPool =
       readonly maxRuns: MaxRuns | null;
       readonly access: ParsedPoolAccess;
     }
-  | Refused;
+  | Invalid;
 
 export type ParsedEgress =
   | {
@@ -62,7 +62,7 @@ export type ParsedEgress =
       readonly token: EgressToken | null;
       readonly tokenVersion: number | null;
     }
-  | Refused;
+  | Invalid;
 
 export type ParsedWorkspaceRunners =
   | {
@@ -70,14 +70,14 @@ export type ParsedWorkspaceRunners =
       readonly trusts: readonly TrustKey[];
       readonly pools: readonly PoolKey[];
     }
-  | Refused;
+  | Invalid;
 
 export interface RunnerDefinitionsPort {
-  trust(held: unknown): ParsedTrust;
+  trust(input: unknown): ParsedTrust;
 
-  pool(held: unknown): ParsedPool;
+  pool(input: unknown): ParsedPool;
 
-  egress(held: unknown): ParsedEgress;
+  egress(input: unknown): ParsedEgress;
 
-  workspaceRunners(held: unknown): ParsedWorkspaceRunners;
+  workspaceRunners(input: unknown): ParsedWorkspaceRunners;
 }

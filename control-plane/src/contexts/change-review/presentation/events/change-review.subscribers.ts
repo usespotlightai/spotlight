@@ -2,27 +2,27 @@ import type { ChangeStackReactions } from '@change-review/application/events/han
 import type { DecisionReactions } from '@change-review/application/events/handlers/decision-reactions.handler';
 import type { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
 import type { StackCheckReactions } from '@change-review/application/events/handlers/stack-check-reactions.handler';
-import type { ChangeStackAnnouncerPort } from '@change-review/application/ports/change-stack-announcer.port';
 import type { CheckRunnersPort } from '@change-review/application/ports/check-runners.port';
-import type { AskForDecisions } from '@change-review/application/services/ask-for-decisions.service';
-import type { ForgetTaskAcrossAggregates } from '@change-review/application/services/forget-task-across-aggregates.service';
+import type { StickyCommentPosterPort } from '@change-review/application/ports/sticky-comment-poster.port';
+import type { ApplyPullRequestClose } from '@change-review/application/services/apply-pull-request-close.service';
+import type { DeleteTaskAcrossAggregates } from '@change-review/application/services/delete-task-across-aggregates.service';
 import type { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
-import type { SettleDecisions } from '@change-review/application/services/settle-decisions.service';
+import type { RequestDecisions } from '@change-review/application/services/request-decisions.service';
 import type { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
 import type { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
-import type { ChangeStackReordered } from '@change-review/domain/events/change-stack-reordered.event';
-import type { ChangeStackReorderingEnded } from '@change-review/domain/events/change-stack-reordering-ended.event';
-import type { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
+import type { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
+import type { ChangeStackRedrafted } from '@change-review/domain/events/change-stack-redrafted.event';
+import type { ChangeStackRedraftingEnded } from '@change-review/domain/events/change-stack-redrafting-ended.event';
 import type { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
 import type { DecisionDisputed } from '@change-review/domain/events/decision-disputed.event';
 import type { DecisionsRecorded } from '@change-review/domain/events/decisions-recorded.event';
-import type { HeldCheckForgotten } from '@change-review/domain/events/held-check-forgotten.event';
 import type { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
+import type { LeasedCheckDeleted } from '@change-review/domain/events/leased-check-deleted.event';
+import type { ReviewCommentDeleted } from '@change-review/domain/events/review-comment-deleted.event';
+import type { ReviewCommentEdited } from '@change-review/domain/events/review-comment-edited.event';
 import type { ReviewCommentNotPosted } from '@change-review/domain/events/review-comment-not-posted.event';
-import type { ReviewCommentPlaced } from '@change-review/domain/events/review-comment-placed.event';
-import type { ReviewCommentRemoved } from '@change-review/domain/events/review-comment-removed.event';
+import type { ReviewCommentPosted } from '@change-review/domain/events/review-comment-posted.event';
 import type { ReviewCommentReplied } from '@change-review/domain/events/review-comment-replied.event';
-import type { ReviewCommentRewritten } from '@change-review/domain/events/review-comment-rewritten.event';
 import type { ReviewPosted } from '@change-review/domain/events/review-posted.event';
 import type { ReviewSubmitted } from '@change-review/domain/events/review-submitted.event';
 import {
@@ -46,9 +46,9 @@ import {
   type TaskDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
 import {
-  TASK_HANDED_TO_RUN,
-  type TaskHandedToRunIntegrationEvent,
-} from '@shared-kernel/application/integration-events/task-handed-to-run.integration-event';
+  TASK_DISPATCHED,
+  type TaskDispatchedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-dispatched.integration-event';
 import {
   type DomainEventSubscriber,
   subscribing,
@@ -61,14 +61,14 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 
 export const changeReviewSubscribers = (
   reactions: ChangeStackReactions,
-  announcer: ChangeStackAnnouncerPort,
-  forgetting: ForgetTaskAcrossAggregates,
+  poster: StickyCommentPosterPort,
+  deleting: DeleteTaskAcrossAggregates,
   reviews: ReviewReactions,
   receiving: ReceiveReviewComment,
   signalling: SignalReviewing,
   checks: StackCheckReactions,
-  deciding: AskForDecisions,
-  settling: SettleDecisions,
+  deciding: RequestDecisions,
+  pullRequestClose: ApplyPullRequestClose,
   decisions: DecisionReactions,
   runners: CheckRunnersPort,
 ): readonly DomainEventSubscriber[] => [
@@ -77,39 +77,39 @@ export const changeReviewSubscribers = (
     ['change-stack.checked', 'change-stack.layers-failed-check'],
     (event) => runners.released(event.stackId),
   ),
-  subscribing<HeldCheckForgotten>(
-    'change-review.release-runner-of-forgotten-check',
-    ['change-stack.held-check-forgotten'],
+  subscribing<LeasedCheckDeleted>(
+    'change-review.release-runner-of-deleted-check',
+    ['change-stack.leased-check-deleted'],
     (event) => runners.released(event.stackId),
   ),
   subscribing<CheckReservationDropped>(
-    'change-review.let-go-of-reserved-runner',
+    'change-review.release-reserved-runner',
     ['change-stack.check-reservation-dropped'],
     (event) => runners.reservationDropped(event.runner),
   ),
-  subscribing<ChangeStackSettled>(
+  subscribing<ChangeStackCompleted>(
     'change-review.begin-check',
-    ['change-stack.settled'],
-    (event) => checks.onSettled(event),
+    ['change-stack.completed'],
+    (event) => checks.onCompleted(event),
   ),
   subscribing<LayersFailedCheck>(
-    'change-review.ask-to-reorder',
+    'change-review.request-redraft',
     ['change-stack.layers-failed-check'],
     (event) => checks.onLayersFailed(event.stackId),
   ),
-  subscribing<ChangeStackReordered>(
-    'change-review.take-reordered-layers',
-    ['change-stack.reordered'],
-    (event) => checks.onReordered(event.stackId),
+  subscribing<ChangeStackRedrafted>(
+    'change-review.take-redrafted-layers',
+    ['change-stack.redrafted'],
+    (event) => checks.onRedrafted(event.stackId),
   ),
-  subscribing<ChangeStackReorderingEnded>(
-    'change-review.keep-checked-layers',
-    ['change-stack.reordering-ended'],
-    (event) => checks.onReorderingEnded(event.stackId),
+  subscribing<ChangeStackRedraftingEnded>(
+    'change-review.retain-checked-layers',
+    ['change-stack.redrafting-ended'],
+    (event) => checks.onRedraftingEnded(event.stackId),
   ),
-  subscribing<TaskHandedToRunIntegrationEvent>(
+  subscribing<TaskDispatchedIntegrationEvent>(
     'change-review.signal-reviewing',
-    [TASK_HANDED_TO_RUN],
+    [TASK_DISPATCHED],
     (event) => signalling.began(TaskId.of(event.taskId), RunId.of(event.runId)),
   ),
   subscribing<RunEndedIntegrationEvent>(
@@ -121,7 +121,7 @@ export const changeReviewSubscribers = (
         : Promise.resolve(),
   ),
   subscribing<RunEndedIntegrationEvent>(
-    'change-review.ask-for-decisions',
+    'change-review.request-decisions',
     [RUN_ENDED],
     (event) =>
       event.taskId
@@ -129,10 +129,10 @@ export const changeReviewSubscribers = (
         : Promise.resolve(),
   ),
   subscribing<PullRequestClosedIntegrationEvent>(
-    'change-review.settle-decisions',
+    'change-review.apply-pull-request-close',
     [PULL_REQUEST_CLOSED],
     (event) =>
-      settling.closed({
+      pullRequestClose.closed({
         workspaceId: WorkspaceId.of(event.workspaceId),
         pullRequest: PullRequestUrl.of(event.pullRequest),
         repository: Repository.of(event.repository),
@@ -140,40 +140,40 @@ export const changeReviewSubscribers = (
         closedAt: event.closedAt ? new Date(event.closedAt) : null,
       }),
   ),
-  subscribing<ChangeStackSettled>(
-    'change-review.announce-settled',
-    ['change-stack.settled'],
-    (event) => reactions.onSettled(event),
+  subscribing<ChangeStackCompleted>(
+    'change-review.post-stack-comment-on-completed',
+    ['change-stack.completed'],
+    (event) => reactions.onCompleted(event),
   ),
   subscribing<ChangeStackChecked>(
-    'change-review.announce-checked',
+    'change-review.post-stack-comment-on-checked',
     ['change-stack.checked'],
     (event) => reactions.onChecked(event),
   ),
   subscribing<PullRequestOpenedIntegrationEvent>(
-    'change-review.announce-pull-request',
+    'change-review.post-stack-comment-on-pull-request',
     [PULL_REQUEST_OPENED],
-    (event) => announcer.ofTask(TaskId.of(event.taskId)),
+    (event) => poster.ofTask(TaskId.of(event.taskId)),
   ),
   subscribing<DecisionsRecorded>(
-    'change-review.announce-decisions',
+    'change-review.post-decisions-comment',
     ['decisions.recorded'],
     (event) => decisions.onRecorded(event),
   ),
   subscribing<DecisionDisputed>(
-    'change-review.announce-disputed-decision',
+    'change-review.post-decisions-comment-on-dispute',
     ['decisions.disputed'],
     (event) => decisions.onDisputed(event),
   ),
   subscribing<PullRequestOpenedIntegrationEvent>(
-    'change-review.announce-decisions-on-open',
+    'change-review.post-decisions-comment-on-open',
     [PULL_REQUEST_OPENED],
     (event) => decisions.onPullRequestOpened(TaskId.of(event.taskId)),
   ),
   subscribing<TaskDeletedIntegrationEvent>(
-    'change-review.forget-task',
+    'change-review.delete-task',
     [TASK_DELETED],
-    (event) => forgetting.forget(TaskId.of(event.taskId)),
+    (event) => deleting.deleteTask(TaskId.of(event.taskId)),
   ),
   subscribing<ReviewSubmitted>(
     'change-review.post-review',
@@ -185,13 +185,13 @@ export const changeReviewSubscribers = (
     ['review.posted'],
     (event) => reviews.onPosted(event),
   ),
-  subscribing<ReviewCommentPlaced>(
-    'change-review.keep-posted-comment',
-    ['review.comment-placed'],
-    (event) => reviews.onCommentPlaced(event),
+  subscribing<ReviewCommentPosted>(
+    'change-review.record-posted-comment',
+    ['review.comment-posted'],
+    (event) => reviews.onCommentPosted(event),
   ),
   subscribing<ReviewCommentNotPosted>(
-    'change-review.settle-unposted-comment',
+    'change-review.record-unposted-comment',
     ['review.comment-not-posted'],
     (event) => reviews.onCommentNotPosted(event),
   ),
@@ -200,15 +200,15 @@ export const changeReviewSubscribers = (
     ['review-comment.replied'],
     (event) => reviews.onReplied(event),
   ),
-  subscribing<ReviewCommentRewritten>(
+  subscribing<ReviewCommentEdited>(
     'change-review.edit-on-github',
-    ['review-comment.rewritten'],
-    (event) => reviews.onRewritten(event),
+    ['review-comment.edited'],
+    (event) => reviews.onEdited(event),
   ),
-  subscribing<ReviewCommentRemoved>(
+  subscribing<ReviewCommentDeleted>(
     'change-review.delete-on-github',
-    ['review-comment.removed'],
-    (event) => reviews.onRemoved(event),
+    ['review-comment.deleted'],
+    (event) => reviews.onDeleted(event),
   ),
   subscribing<ReviewCommentReceivedIntegrationEvent>(
     'change-review.receive-review-comment',
@@ -231,7 +231,7 @@ export const changeReviewSubscribers = (
                 startLine: event.startLine,
               }),
           body: event.body,
-          answers: event.answers,
+          inReplyToId: event.inReplyToId,
           login: event.login,
           writtenAt: event.writtenAt ? new Date(event.writtenAt) : null,
         },

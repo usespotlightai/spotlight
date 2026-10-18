@@ -2,7 +2,7 @@ import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { TRACE_COLUMNS } from '@/components/features/trace/list/columns';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { Checkbox } from '@/components/ui/checkbox';
-import { spentOn, took } from '@/lib/inbox';
+import { formatShortDuration, spentOn } from '@/lib/inbox';
 import { stationShare } from '@/lib/station';
 import { startedOn, type Traced } from '@/lib/trace-list';
 import { cn } from '@/lib/utils';
@@ -75,14 +75,14 @@ export function TraceRow({
       <span
         className={cn(
           'truncate text-right text-xs tabular-nums',
-          trace.faults > 0 ? 'text-destructive' : 'text-muted-foreground',
+          trace.errors > 0 ? 'text-destructive' : 'text-muted-foreground',
         )}
       >
-        {trace.faults > 0 ? trace.faults : '–'}
+        {trace.errors > 0 ? trace.errors : '–'}
       </span>
 
       <span className="truncate text-right text-muted-foreground text-xs tabular-nums">
-        {trace.ms === null ? '–' : took(trace.ms)}
+        {trace.ms === null ? '–' : formatShortDuration(trace.ms)}
       </span>
 
       <span className="truncate text-right text-muted-foreground text-xs tabular-nums">

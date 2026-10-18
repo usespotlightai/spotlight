@@ -1,32 +1,35 @@
 import {
   MEMORY_KIND_NAMES,
-  MEMORY_ORIGIN_NAMES,
-  MEMORY_REACH_NAMES,
+  MEMORY_PROPOSER_NAMES,
+  MEMORY_SCOPE_NAMES,
   MEMORY_SOURCE_NAMES,
   MEMORY_STATE_NAMES,
   type MemoryDecisionDto,
-  type MemoryGroundNoteDto,
-  type MemoryGroundStepDto,
+  type MemoryProvenanceNoteDto,
+  type MemoryProvenanceStepDto,
   type MemoryReviewDto,
   type PersonDto,
   type ProposedMemoryDto,
 } from '@memory/application/dto/memory-review.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class MemoryGroundStepResponseDto {
-  @ApiProperty({ example: 12, description: 'Where the step stands in its run' })
+export class MemoryProvenanceStepResponseDto {
+  @ApiProperty({
+    example: 12,
+    description: 'The position of the step in its run',
+  })
   readonly index: number;
 
   @ApiProperty({
     example: 'thought',
-    description: 'said, thought, planned, handover, or remember',
+    description: 'message, thought, planned, handover, or remember',
   })
   readonly kind: string;
 
   @ApiProperty({ example: 'A queue would need a worker we do not run.' })
   readonly text: string;
 
-  constructor(step: MemoryGroundStepDto) {
+  constructor(step: MemoryProvenanceStepDto) {
     this.index = step.index;
     this.kind = step.kind;
     this.text = step.text;
@@ -54,8 +57,11 @@ export class MemoryPersonResponseDto {
   }
 }
 
-export class MemoryGroundNoteResponseDto {
-  @ApiProperty({ example: 4, description: 'Where the note stands on its task' })
+export class MemoryProvenanceNoteResponseDto {
+  @ApiProperty({
+    example: 4,
+    description: 'The position of the note on its task',
+  })
   readonly position: number;
 
   @ApiProperty({
@@ -69,14 +75,14 @@ export class MemoryGroundNoteResponseDto {
     type: MemoryPersonResponseDto,
     nullable: true,
     description:
-      'The teammate who said it; absent for words from another tool, which carry no author',
+      'The teammate who wrote it; absent for a note from another tool, which carries no author',
   })
   readonly author: MemoryPersonResponseDto | null;
 
-  @ApiProperty({ example: 'Never retry an upload refused with a 403.' })
+  @ApiProperty({ example: 'Never retry an upload rejected with a 403.' })
   readonly text: string;
 
-  constructor(note: MemoryGroundNoteDto) {
+  constructor(note: MemoryProvenanceNoteDto) {
     this.position = note.position;
     this.by = note.by;
     this.author = note.author ? new MemoryPersonResponseDto(note.author) : null;
@@ -109,7 +115,7 @@ export class ProposedMemoryResponseDto {
   readonly kind: string;
 
   @ApiProperty({
-    example: 'Never retry an upload the bucket refused with a 403.',
+    example: 'Never retry an upload the bucket rejected with a 403.',
   })
   readonly body: string;
 
@@ -117,27 +123,27 @@ export class ProposedMemoryResponseDto {
     enum: MEMORY_SOURCE_NAMES,
     example: 'person',
     description:
-      'person: only what a teammate said; outside: input the team does not control, approved one at a time; run: anything else',
+      'person: only notes by a teammate; outside: input the team does not control, approved one at a time; run: anything else',
   })
   readonly source: string;
 
   @ApiProperty({
-    enum: MEMORY_ORIGIN_NAMES,
-    example: 'remembered',
+    enum: MEMORY_PROPOSER_NAMES,
+    example: 'agent',
     description:
-      'drafted: read from the run after it ended; remembered: the agent asked for it with spotlight remember',
+      'drafter: the drafter read it from the run after the run ended; agent: the agent proposed it with spotlight remember',
   })
-  readonly origin: string;
+  readonly proposedBy: string;
 
   @ApiProperty({ enum: MEMORY_STATE_NAMES, example: 'proposed' })
   readonly state: string;
 
   @ApiProperty({
-    enum: MEMORY_REACH_NAMES,
+    enum: MEMORY_SCOPE_NAMES,
     example: 'station',
     description: 'Where it applies: the whole team, its line, or its station',
   })
-  readonly reach: string;
+  readonly scope: string;
 
   @ApiProperty({ nullable: true, type: String, example: 'acme/api' })
   readonly repository: string | null;
@@ -148,7 +154,7 @@ export class ProposedMemoryResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    description: 'The standing memory it replaces once approved',
+    description: 'The active memory it replaces after approval',
   })
   readonly supersedes: string | null;
 
@@ -163,32 +169,32 @@ export class ProposedMemoryResponseDto {
     nullable: true,
     type: String,
     example: 'claude-code',
-    description: 'The harness the run whose steps it rests on ran on',
+    description: 'The harness of the run whose steps it cites',
   })
   readonly harness: string | null;
 
   @ApiProperty({
-    type: MemoryGroundStepResponseDto,
+    type: MemoryProvenanceStepResponseDto,
     isArray: true,
-    description: 'The steps of its run it rests on',
+    description: 'The steps of its run that it cites',
   })
-  readonly steps: readonly MemoryGroundStepResponseDto[];
+  readonly steps: readonly MemoryProvenanceStepResponseDto[];
 
   @ApiProperty({
-    type: MemoryGroundNoteResponseDto,
+    type: MemoryProvenanceNoteResponseDto,
     isArray: true,
-    description: 'What people said on the task that it rests on',
+    description: 'The notes on the task that it cites',
   })
-  readonly notes: readonly MemoryGroundNoteResponseDto[];
+  readonly notes: readonly MemoryProvenanceNoteResponseDto[];
 
   constructor(memory: ProposedMemoryDto) {
     this.id = memory.id;
     this.kind = memory.kind;
     this.body = memory.body;
     this.source = memory.source;
-    this.origin = memory.origin;
+    this.proposedBy = memory.proposedBy;
     this.state = memory.state;
-    this.reach = memory.reach;
+    this.scope = memory.scope;
     this.repository = memory.repository;
     this.paths = memory.paths;
     this.supersedes = memory.supersedes;
@@ -197,10 +203,10 @@ export class ProposedMemoryResponseDto {
       : null;
     this.harness = memory.harness;
     this.steps = memory.steps.map(
-      (each) => new MemoryGroundStepResponseDto(each),
+      (each) => new MemoryProvenanceStepResponseDto(each),
     );
     this.notes = memory.notes.map(
-      (each) => new MemoryGroundNoteResponseDto(each),
+      (each) => new MemoryProvenanceNoteResponseDto(each),
     );
   }
 }
@@ -229,8 +235,8 @@ export class ApprovedMemoryRequestDto {
   readonly id!: string;
 
   @ApiPropertyOptional({
-    example: 'Never retry an upload the bucket refused with a 403 or 404.',
-    description: 'The memory as it should stand, where it was edited',
+    example: 'Never retry an upload the bucket rejected with a 403 or 404.',
+    description: 'The memory as it should be, where it was edited',
   })
   readonly body?: string;
 }

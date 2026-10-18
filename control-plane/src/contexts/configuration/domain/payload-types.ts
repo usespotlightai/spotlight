@@ -1,9 +1,9 @@
-import { HarnessProfileDefined } from '@configuration/domain/events/harness-profile-defined.event';
-import { HarnessProfileRedefined } from '@configuration/domain/events/harness-profile-redefined.event';
-import { HarnessProfileRetired } from '@configuration/domain/events/harness-profile-retired.event';
-import { SkillDefined } from '@configuration/domain/events/skill-defined.event';
-import { SkillRedefined } from '@configuration/domain/events/skill-redefined.event';
-import { SkillRetired } from '@configuration/domain/events/skill-retired.event';
+import { HarnessProfileCreated } from '@configuration/domain/events/harness-profile-created.event';
+import { HarnessProfileDeleted } from '@configuration/domain/events/harness-profile-deleted.event';
+import { HarnessProfileUpdated } from '@configuration/domain/events/harness-profile-updated.event';
+import { SkillCreated } from '@configuration/domain/events/skill-created.event';
+import { SkillDeleted } from '@configuration/domain/events/skill-deleted.event';
+import { SkillUpdated } from '@configuration/domain/events/skill-updated.event';
 import { ConfigurationFile } from '@configuration/domain/value-objects/configuration-file.vo';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import { McpServer } from '@configuration/domain/value-objects/mcp-server.vo';
@@ -23,15 +23,15 @@ export const CONFIGURATION_PAYLOAD_TYPES = [
   SkillKey,
   StationUses,
   ToolName,
-  SkillDefined,
-  SkillRedefined,
-  SkillRetired,
+  SkillCreated,
+  SkillUpdated,
+  SkillDeleted,
   HarnessProfileId,
   ProfileKey,
   McpServer,
   PermissionRule,
   ProfileSettings,
-  HarnessProfileDefined,
-  HarnessProfileRedefined,
-  HarnessProfileRetired,
+  HarnessProfileCreated,
+  HarnessProfileUpdated,
+  HarnessProfileDeleted,
 ] as const;

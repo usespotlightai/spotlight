@@ -1,10 +1,10 @@
-import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
+import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RecordRunImageHandler } from '@work/application/commands/handlers/record-run-image.handler';
 import { RecordRunImageCommand } from '@work/application/commands/runner.commands';
@@ -24,21 +24,21 @@ const claimed = () =>
     harness: HarnessId.of('claude-code'),
     spec: RunSpec.of({
       command: { executable: 'claude-agent-acp', args: [] },
-      briefing: 'work out what is being asked for',
+      briefing: 'work out what the request wants',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task-task_1' },
+      resume: { key: 'task-task_1' },
     }),
   }).claim(RunnerId.of('runner_1'), NOW);
 
-const recording = (given: { run?: Run | null; known?: boolean } = {}) => {
+const recording = (options: { run?: Run | null; known?: boolean } = {}) => {
   const save = vi.fn(async (_: Run) => {});
   const seen = vi.fn(async () =>
-    given.known === false
+    options.known === false
       ? null
       : {
           workspaceId: WorkspaceId.of('ws_1'),
           harnesses: [HarnessId.of('claude-code')],
-          terms: RunnerTerms.none(),
+          offer: RunnerOffer.none(),
           claims: 'reserved' as const,
         },
   );
@@ -46,11 +46,11 @@ const recording = (given: { run?: Run | null; known?: boolean } = {}) => {
   const handler = new RecordRunImageHandler(
     {
       findById: vi.fn(async () =>
-        given.run === undefined ? claimed() : given.run,
+        options.run === undefined ? claimed() : options.run,
       ),
       save,
     } as unknown as RunRepository,
-    { seen } satisfies RunnerPresencePort,
+    { heartbeat: seen } satisfies RunnerHeartbeatsPort,
     { now: () => NOW } as ClockPort,
   );
 
@@ -58,7 +58,7 @@ const recording = (given: { run?: Run | null; known?: boolean } = {}) => {
 };
 
 describe('RecordRunImageHandler', () => {
-  it('records the image the runner holding the run started it in', async () => {
+  it('records the image the runner that leases the run started it in', async () => {
     const { handler, save, seen } = recording();
 
     await handler.execute(
@@ -69,7 +69,7 @@ describe('RecordRunImageHandler', () => {
     expect(save.mock.calls[0]?.[0].ranIn?.value).toBe(PINNED);
   });
 
-  it('refuses a runner it does not know, as not found', async () => {
+  it('rejects a runner it does not know, as not found', async () => {
     const { handler, save } = recording({ known: false });
 
     await expect(
@@ -78,7 +78,7 @@ describe('RecordRunImageHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses a run there is none of, as not found', async () => {
+  it('rejects a run there is none of, as not found', async () => {
     const { handler, save } = recording({ run: null });
 
     await expect(
@@ -87,7 +87,7 @@ describe('RecordRunImageHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses a runner that does not hold the run', async () => {
+  it('rejects a runner that does not lease the run', async () => {
     const { handler, save } = recording();
 
     await expect(
@@ -96,7 +96,7 @@ describe('RecordRunImageHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses an image that is not named by its digest, or not an image at all', async () => {
+  it('rejects an image that is not named by its digest, or not an image at all', async () => {
     const { handler, save } = recording();
 
     await expect(

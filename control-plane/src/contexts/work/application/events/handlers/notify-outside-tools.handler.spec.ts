@@ -24,7 +24,7 @@ import { describe, expect, it, vi } from 'vitest';
 const WORKSPACE = WorkspaceId.of('ws_1');
 const STATION = StationId.of('station_1');
 
-const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
+const delivery = (workspaceId = 'ws_1', backlogId = 'station_1') =>
   Line.rehydrate({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of(workspaceId),
@@ -33,7 +33,7 @@ const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
     name: LineName.of('Delivery'),
     stations: [
       Station.of({
-        id: StationId.of(standsAt),
+        id: StationId.of(backlogId),
         key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
@@ -51,7 +51,7 @@ const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
     ],
   });
 
-const held = () =>
+const handed = () =>
   Task.add({
     line: delivery(WORKSPACE.value, STATION.value),
     at: STATION,
@@ -61,14 +61,17 @@ const held = () =>
     newId: () => 'task_1',
   });
 
-const notifying = (marks: readonly Mark[] = [], wearer: Task | null = null) => {
-  const task = held();
+const notifying = (
+  marks: readonly Mark[] = [],
+  markedTask: Task | null = null,
+) => {
+  const task = handed();
   const save = vi.fn(async (_: Task) => {});
   const notify = vi.fn(async () => marks);
   const handler = new NotifyOutsideTools(
     {
       find: async () => task,
-      holding: async () => wearer,
+      findByMarks: async () => markedTask,
       save,
     } as unknown as TaskRepository,
     { notify } satisfies OutboundTaskNotifierPort,
@@ -158,10 +161,10 @@ describe('NotifyOutsideTools', () => {
       new TaskAsked(task.id, WORKSPACE, STATION, null, new Date()),
     );
 
-    const [given, taker] = save.mock.calls.map(([each]) => each);
-    expect(given?.id.value).toBe('task_0');
-    expect(given?.marks).toEqual([]);
-    expect(taker?.marks).toEqual([thread]);
+    const [marked, newTask] = save.mock.calls.map(([each]) => each);
+    expect(marked?.id.value).toBe('task_0');
+    expect(marked?.marks).toEqual([]);
+    expect(newTask?.marks).toEqual([thread]);
   });
 
   it('writes nothing where no tool handed a mark back', async () => {

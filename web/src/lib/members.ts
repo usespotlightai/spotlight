@@ -29,9 +29,9 @@ const ROLE_ORDER: readonly Role[] = ['owner', 'admin', 'member'];
 
 export const rolesOffered = (
   role: Role,
-  mayBeSetTo: readonly Role[],
+  assignableRoles: readonly Role[],
 ): Role[] => {
-  const offered = new Set<Role>([role, ...mayBeSetTo]);
+  const offered = new Set<Role>([role, ...assignableRoles]);
 
   return ROLE_ORDER.filter((each) => offered.has(each));
 };
@@ -72,31 +72,31 @@ export const parseEmails = (text: string): ParsedEmails => {
 
 export const OUTCOME_LABELS: Record<InviteOutcome['outcome'], string> = {
   invited: 'Invited',
-  'sent-again': 'Sent again',
+  resent: 'Resent',
   'already-a-member': 'Already a member',
   'not-sent': 'Not sent. Please resend it from Pending invites.',
 };
 
 const OUTCOME_COUNTS: readonly [InviteOutcome['outcome'], string][] = [
   ['invited', 'invited'],
-  ['sent-again', 'sent again'],
+  ['resent', 'resent'],
   ['already-a-member', 'already in the workspace'],
   ['not-sent', 'not sent'],
 ];
 
-export const outcomesTold = (outcomes: readonly InviteOutcome[]): string =>
-  OUTCOME_COUNTS.flatMap(([outcome, told]) => {
+export const describeOutcomes = (outcomes: readonly InviteOutcome[]): string =>
+  OUTCOME_COUNTS.flatMap(([outcome, label]) => {
     const count = outcomes.filter((each) => each.outcome === outcome).length;
-    return count > 0 ? [`${count} ${told}`] : [];
+    return count > 0 ? [`${count} ${label}`] : [];
   }).join(' · ') || 'Invites';
 
-export const teamsTold = (teams: readonly TeamReferenceResponseDto[]) =>
+export const describeTeams = (teams: readonly TeamReferenceResponseDto[]) =>
   teams.length === 0 ? 'No team' : teams.map((each) => each.name).join(', ');
 
 export const inviterNamed = (name: string | null | undefined): string =>
   name ?? 'Someone who has left';
 
-export const invitedByTold = (name: string | null | undefined): string =>
+export const describeInviter = (name: string | null | undefined): string =>
   `Invited by ${name ?? 'someone who has left'}`;
 
 export const sameAddress = (one: string, other: string): boolean =>

@@ -87,7 +87,7 @@ const renderAt = (search = '') =>
     </QueryClientProvider>,
   );
 
-const given = (value: RunChangeStacks | undefined) =>
+const serving = (value: RunChangeStacks | undefined) =>
   stacks.mockReturnValue(value);
 
 beforeEach(() => {
@@ -99,7 +99,7 @@ beforeEach(() => {
 describe('RunChangeStack', () => {
   describe('while it loads', () => {
     it('shows the skeleton', () => {
-      given(undefined);
+      serving(undefined);
       renderAt();
 
       expect(
@@ -110,7 +110,7 @@ describe('RunChangeStack', () => {
 
   describe('when it could not be loaded', () => {
     it('says so and tries again', async () => {
-      given(undefined);
+      serving(undefined);
       stacksFailing.mockReturnValue(true);
       renderAt();
 
@@ -124,8 +124,8 @@ describe('RunChangeStack', () => {
   });
 
   describe('without a stack', () => {
-    it('says one appears once a station drafts it', () => {
-      given({ stacks: [] });
+    it('says one appears once a station generates it', () => {
+      serving({ stacks: [] });
       renderAt();
 
       expect(screen.getByText('No change stack yet')).toBeInTheDocument();
@@ -135,28 +135,30 @@ describe('RunChangeStack', () => {
     });
   });
 
-  describe('while the stack drafts', () => {
+  describe('while the stack generates', () => {
     it('says what it is grouping', () => {
-      given({
-        stacks: [{ ...INVITATIONS, state: 'drafting', cohorts: [] }],
+      serving({
+        stacks: [{ ...INVITATIONS, state: 'generating', cohorts: [] }],
       });
       renderAt();
 
-      expect(screen.getByText('Drafting the change stack')).toBeInTheDocument();
       expect(
-        screen.getByText(/Grouping 5 changes across 5 files/),
+        screen.getByText('Generating the change stack'),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Grouping 5 hunks across 5 files/),
       ).toBeInTheDocument();
     });
   });
 
-  describe('where drafting failed', () => {
+  describe('where generation failed', () => {
     it('says why', () => {
-      given({
+      serving({
         stacks: [
           {
             ...INVITATIONS,
             state: 'failed',
-            failure: 'Spotlight couldn’t draft the change stack.',
+            failure: 'Spotlight couldn’t generate the change stack.',
             cohorts: [],
           },
         ],
@@ -164,13 +166,13 @@ describe('RunChangeStack', () => {
       renderAt();
 
       expect(
-        screen.getByText('Sorry, the change stack couldn’t be drafted'),
+        screen.getByText('Sorry, the change stack couldn’t be generated'),
       ).toBeInTheDocument();
     });
   });
 
   describe('with a stack', () => {
-    beforeEach(() => given({ stacks: [INVITATIONS] }));
+    beforeEach(() => serving({ stacks: [INVITATIONS] }));
 
     it('lists every cohort and its layers in order', () => {
       renderAt();
@@ -213,7 +215,7 @@ describe('RunChangeStack', () => {
       ).toBeInTheDocument();
     });
 
-    it('folds a cohort away and back', async () => {
+    it('collapses a cohort and expands it again', async () => {
       renderAt();
 
       const cohort = screen.getByRole('region', { name: 'Team invitations' });
@@ -273,7 +275,7 @@ describe('RunChangeStack', () => {
       const [controller] = within(files).getAllByRole('article');
       expect(
         within(controller as HTMLElement).getByText(
-          'Adds the invite and accept endpoints. Only admins may invite; anyone holding a token may accept.',
+          'Adds the invite and accept endpoints. Only admins may invite; anyone with a token may accept.',
         ),
       ).toBeInTheDocument();
     });
@@ -311,7 +313,7 @@ describe('RunChangeStack', () => {
     });
 
     it('opens large files collapsed, the rest open', () => {
-      given({ stacks: [LARGE_FILE] });
+      serving({ stacks: [LARGE_FILE] });
       renderAt('?layer=c1.l1');
 
       expect(
@@ -322,7 +324,7 @@ describe('RunChangeStack', () => {
       ).toHaveAttribute('aria-expanded', 'true');
     });
 
-    it('folds each layer afresh, though the pane stays put', async () => {
+    it('collapses each layer afresh, though the pane stays put', async () => {
       renderAt('?layer=c1.l2');
 
       const sidebar = () =>
@@ -374,11 +376,11 @@ describe('RunChangeStack', () => {
         }),
       ).toBeInTheDocument();
     });
-    it('shows a decision on the file it bears on, with its disputes there', () => {
+    it('shows a decision on the file it covers, with its disputes there', () => {
       decided.mockReturnValue({
         runId: 'run_1',
-        drafting: false,
-        standing: 'proposed',
+        generating: false,
+        status: 'proposed',
         merge: null,
         decisions: [
           {
@@ -388,7 +390,7 @@ describe('RunChangeStack', () => {
             why: 'The ticket says nothing on renewal.',
             alternatives: [],
             paths: ['control-plane/src/schemas/invitation.schema.ts'],
-            steps: [7],
+            journalSteps: [7],
             disputes: [
               {
                 path: 'control-plane/src/schemas/invitation.schema.ts',

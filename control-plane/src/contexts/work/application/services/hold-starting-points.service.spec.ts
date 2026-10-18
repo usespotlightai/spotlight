@@ -4,12 +4,12 @@ import { StartingPointHold } from '@work/domain/aggregates/starting-point-hold.a
 import type { StartingPointHoldRepository } from '@work/domain/repositories/starting-point-hold.repository';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-let kept: StartingPointHold | null;
+let stored: StartingPointHold | null;
 let added: StartingPointHold[];
 let saved: StartingPointHold[];
 
 const holds: StartingPointHoldRepository = {
-  find: async () => kept,
+  find: async () => stored,
   add: async (hold) => {
     added.push(hold);
   },
@@ -23,7 +23,7 @@ const holding = () =>
 
 describe('HoldStartingPoints', () => {
   beforeEach(() => {
-    kept = null;
+    stored = null;
     added = [];
     saved = [];
   });
@@ -43,7 +43,7 @@ describe('HoldStartingPoints', () => {
   });
 
   it('moves a hold to the runs the holder now names', async () => {
-    kept = StartingPointHold.take('replay-set:set_1', WorkspaceId.of('ws_1'));
+    stored = StartingPointHold.take('replay-set:set_1', WorkspaceId.of('ws_1'));
 
     await holding().hold('replay-set:set_1', 'ws_1', ['run_2']);
 
@@ -54,7 +54,7 @@ describe('HoldStartingPoints', () => {
     await holding().release('replay-set:set_1');
     expect(saved).toEqual([]);
 
-    kept = StartingPointHold.take('replay-set:set_1', WorkspaceId.of('ws_1'));
+    stored = StartingPointHold.take('replay-set:set_1', WorkspaceId.of('ws_1'));
     await holding().release('replay-set:set_1');
     expect(saved[0]?.isReleased).toBe(true);
   });

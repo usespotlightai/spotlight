@@ -34,32 +34,35 @@ export class CarryGitCall implements GitGatewayPort {
     service: GitService,
     call: GitCall,
   ): Promise<GitAnswer | null> {
-    const reached = await this.reaching(runId, runnerId, repo, service).catch(
-      rethrowAsApplicationError,
-    );
+    const allowed = await this.allowedRepository(
+      runId,
+      runnerId,
+      repo,
+      service,
+    ).catch(rethrowAsApplicationError);
 
-    if (!reached) {
+    if (!allowed) {
       return null;
     }
 
-    return (await this.workspaces.isConnected(reached.workspaceId))
-      ? this.git.call(reached.workspaceId, reached.repository, call)
+    return (await this.workspaces.isConnected(allowed.workspaceId))
+      ? this.git.call(allowed.workspaceId, allowed.repository, call)
       : null;
   }
 
-  private async reaching(
+  private async allowedRepository(
     runId: string,
     runnerId: string,
     repo: string,
     service: GitService,
   ): Promise<CheckedRepository | null> {
-    const held = await this.works
-      .heldBy(runId, runnerId)
-      .then((worked) => ({ worked }))
-      .catch((refused: unknown) => ({ refused }));
+    const leased = await this.works
+      .leasedBy(runId, runnerId)
+      .then((found) => ({ found }))
+      .catch((error: unknown) => ({ error }));
 
-    if ('worked' in held) {
-      const { work } = held.worked;
+    if ('found' in leased) {
+      const { work } = leased.found;
 
       const repository = work
         ? await work.repositoryNamed(repo, service)
@@ -72,13 +75,13 @@ export class CarryGitCall implements GitGatewayPort {
 
     if (
       service === 'git-receive-pack' ||
-      !(await this.checking.holdsCheckOfRun(
+      !(await this.checking.isCheckOfRunLeasedBy(
         RunId.of(runId),
         RunnerId.of(runnerId),
         this.clock.now(),
       ))
     ) {
-      throw held.refused;
+      throw leased.error;
     }
 
     return this.works.repositoryForCheck(RunId.of(runId), repo);

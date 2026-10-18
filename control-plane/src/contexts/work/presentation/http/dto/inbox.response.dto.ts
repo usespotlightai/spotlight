@@ -4,15 +4,15 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 import {
-  APPROVAL_STANDING,
   APPROVAL_SUBJECTS,
-  INBOX_ASIDE_FORMS,
+  INBOX_APPROVAL_STATUSES,
   INBOX_NOTICE_FORMS,
+  INBOX_REQUEST_DTO_FORMS,
   type InboxApprovalDto,
-  type InboxAsideDto,
   type InboxConnectionDto,
   type InboxFailureDto,
   type InboxNoticeDto,
+  type InboxRequestDto,
   NOTE_FORMS,
   NOTE_KINDS,
   NOTE_VOICES,
@@ -87,12 +87,12 @@ export class InboxApprovalResponseDto {
   @ApiProperty({
     type: InboxApprovalInputResponseDto,
     isArray: true,
-    description: 'What it would go ahead with, exactly as it stands',
+    description: 'What it would go ahead with, exactly as it is now',
   })
   readonly inputs: readonly InboxApprovalInputResponseDto[];
 
-  @ApiProperty({ example: 'asked', enum: [...APPROVAL_STANDING] })
-  readonly standing: string;
+  @ApiProperty({ example: 'pending', enum: [...INBOX_APPROVAL_STATUSES] })
+  readonly status: string;
 
   @ApiProperty({
     type: InboxApprovalInputResponseDto,
@@ -128,7 +128,7 @@ export class InboxApprovalResponseDto {
     this.inputs = approval.inputs.map(
       (input) => new InboxApprovalInputResponseDto(input.name, input.value),
     );
-    this.standing = approval.standing;
+    this.status = approval.status;
     this.edited =
       approval.edited?.map(
         (input) => new InboxApprovalInputResponseDto(input.name, input.value),
@@ -143,12 +143,12 @@ export class InboxApprovalResponseDto {
   }
 }
 
-export class InboxAsideResponseDto {
+export class InboxRequestResponseDto {
   @ApiProperty({
-    enum: INBOX_ASIDE_FORMS,
+    enum: INBOX_REQUEST_DTO_FORMS,
     example: 'memories',
     description:
-      'What is put aside for a person to settle, beside the task’s conversation: memories are proposed memories to approve or reject; grade asks a person to grade a judged run',
+      'The kind of inbox request: memories are proposed memories to approve or reject; grade asks a person to grade a judged run',
   })
   readonly form: string;
 
@@ -159,9 +159,9 @@ export class InboxAsideResponseDto {
   })
   readonly about: string;
 
-  constructor(aside: InboxAsideDto) {
-    this.form = aside.form;
-    this.about = aside.about;
+  constructor(inboxRequest: InboxRequestDto) {
+    this.form = inboxRequest.form;
+    this.about = inboxRequest.about;
   }
 }
 
@@ -195,10 +195,10 @@ export class InboxFailureResponseDto {
 
 export class InboxConnectionResponseDto {
   @ApiProperty({ example: 'linear' })
-  readonly source: string;
+  readonly integration: string;
 
   @ApiProperty({ example: 'Linear' })
-  readonly integration: string;
+  readonly integrationName: string;
 
   @ApiProperty({
     example: 'user_1',
@@ -214,15 +214,15 @@ export class InboxConnectionResponseDto {
   readonly met: boolean;
 
   constructor(connection: InboxConnectionDto) {
-    this.source = connection.source;
     this.integration = connection.integration;
+    this.integrationName = connection.integrationName;
     this.personId = connection.personId;
     this.personName = connection.personName;
     this.met = connection.met;
   }
 }
 
-export class InboxMessageResponseDto {
+export class NoteResponseDto {
   @ApiProperty({ example: 0 })
   readonly position: number;
 
@@ -242,7 +242,7 @@ export class InboxMessageResponseDto {
   @ApiProperty({
     example: 'station',
     enum: [...NOTE_VOICES],
-    description: 'Who spoke: the station, a person, or the world outside it',
+    description: 'Who wrote it: the station, a person, or the world outside it',
   })
   readonly voice: string;
 
@@ -278,7 +278,7 @@ export class InboxMessageResponseDto {
   @ApiProperty({
     type: InboxAuthorResponseDto,
     nullable: true,
-    description: 'Absent where the station said it rather than a person',
+    description: 'Absent where the station wrote it rather than a person',
   })
   readonly author: InboxAuthorResponseDto | null;
 
@@ -359,7 +359,7 @@ export class InboxStationResponseDto {
 export class InboxItemResponseDto {
   @ApiProperty({
     enum: ['task'],
-    description: 'A task’s conversation or what was put aside beside it',
+    description: 'A task’s conversation or an inbox request on the task',
   })
   readonly kind = 'task' as const;
 
@@ -384,7 +384,7 @@ export class InboxItemResponseDto {
   @ApiProperty({
     type: AttachmentResponseDto,
     isArray: true,
-    description: 'The files the task was raised with',
+    description: 'The files the task was created with',
   })
   readonly attachments: readonly AttachmentResponseDto[];
 
@@ -397,20 +397,21 @@ export class InboxItemResponseDto {
   @ApiProperty({ example: 2, description: 'Its place in the line, from zero' })
   readonly stationPosition: number;
 
-  @ApiProperty({ example: 4, description: 'How many stations the line holds' })
+  @ApiProperty({ example: 4, description: 'How many stations the line has' })
   readonly stationCount: number;
 
   @ApiProperty({
     type: InboxStationResponseDto,
-    description: 'Where it was raised, which it keeps as it moves',
+    description:
+      'The station where it was created. It keeps this station when it moves',
   })
-  readonly raisedAt: InboxStationResponseDto;
+  readonly originStation: InboxStationResponseDto;
 
   @ApiProperty({
     type: InboxStationResponseDto,
-    description: 'Where the task stands now, which is where it ended up',
+    description: 'Where the task is now, which is where it ended up',
   })
-  readonly standsAt: InboxStationResponseDto;
+  readonly currentStation: InboxStationResponseDto;
 
   @ApiProperty({ example: '2026-08-28T09:02:00.000Z' })
   readonly createdAt: string;
@@ -420,7 +421,7 @@ export class InboxItemResponseDto {
 
   @ApiProperty({
     example: false,
-    description: 'True once it is settled, and is no longer yours to answer',
+    description: 'True once it is resolved, and is no longer yours to answer',
   })
   readonly resolved: boolean;
 
@@ -447,7 +448,7 @@ export class InboxItemResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    description: 'What the station that opened this conversation was given',
+    description: 'The briefing of the station that opened this conversation',
   })
   readonly briefing: string | null;
 
@@ -460,15 +461,15 @@ export class InboxItemResponseDto {
   readonly failure: InboxFailureResponseDto | null;
 
   @ApiProperty({
-    type: InboxAsideResponseDto,
+    type: InboxRequestResponseDto,
     nullable: true,
     description:
-      'What this item puts aside for a person to settle, where it is not a conversation; it never holds the task up',
+      'The inbox request of this item, where it is not a conversation. It never blocks the task',
   })
-  readonly aside: InboxAsideResponseDto | null;
+  readonly inboxRequest: InboxRequestResponseDto | null;
 
-  @ApiProperty({ type: InboxMessageResponseDto, isArray: true })
-  readonly notes: readonly InboxMessageResponseDto[];
+  @ApiProperty({ type: NoteResponseDto, isArray: true })
+  readonly notes: readonly NoteResponseDto[];
 
   constructor(
     id: string,
@@ -481,8 +482,8 @@ export class InboxItemResponseDto {
     stationColor: string,
     stationPosition: number,
     stationCount: number,
-    raisedAt: InboxStationResponseDto,
-    standsAt: InboxStationResponseDto,
+    originStation: InboxStationResponseDto,
+    currentStation: InboxStationResponseDto,
     createdAt: string,
     askedAt: string,
     resolved: boolean,
@@ -491,8 +492,8 @@ export class InboxItemResponseDto {
     unread: boolean,
     briefing: string | null,
     failure: InboxFailureResponseDto | null,
-    aside: InboxAsideResponseDto | null,
-    notes: readonly InboxMessageResponseDto[],
+    inboxRequest: InboxRequestResponseDto | null,
+    notes: readonly NoteResponseDto[],
   ) {
     this.id = id;
     this.taskId = taskId;
@@ -504,8 +505,8 @@ export class InboxItemResponseDto {
     this.stationColor = stationColor;
     this.stationPosition = stationPosition;
     this.stationCount = stationCount;
-    this.raisedAt = raisedAt;
-    this.standsAt = standsAt;
+    this.originStation = originStation;
+    this.currentStation = currentStation;
     this.createdAt = createdAt;
     this.askedAt = askedAt;
     this.resolved = resolved;
@@ -514,7 +515,7 @@ export class InboxItemResponseDto {
     this.unread = unread;
     this.briefing = briefing;
     this.failure = failure;
-    this.aside = aside;
+    this.inboxRequest = inboxRequest;
     this.notes = notes;
   }
 }
@@ -549,7 +550,7 @@ export class InboxNoticeResponseDto {
     type: String,
     isArray: true,
     example: [
-      'Fix the judge: the rubric asks for tests the task never needed.',
+      'Fix the judge: the rubric requires tests the task never needed.',
     ],
     description: 'What happened, then what it suggests, one point each',
   })
@@ -575,7 +576,7 @@ export class InboxNoticeResponseDto {
 
   @ApiProperty({
     example: false,
-    description: 'True once its person settled it',
+    description: 'True once its person resolved it',
   })
   readonly resolved: boolean;
 
@@ -622,7 +623,7 @@ export class AnswerInboxItemRequestDto {
   @ApiProperty({
     example: 'Drain the queue before retrying, and cap it at 500.',
     description:
-      'What the person says back. It joins the task’s trail. May be empty where files are attached.',
+      'What the person writes back. It joins the task’s trail. May be empty where files are attached.',
   })
   readonly body!: string;
 
@@ -636,7 +637,7 @@ export class AnswerInboxItemRequestDto {
   @ApiPropertyOptional({
     type: Boolean,
     description:
-      'Where the conversation asks for a tool call to be approved: true lets it run, false rejects it. Left out, the words answer it and the tool call stays undecided. Refused anywhere else.',
+      'Where the conversation asks for a tool call to be approved: true lets it run, false rejects it. Left out, the words answer it and the tool call stays undecided. Rejected anywhere else.',
   })
   readonly approve?: boolean;
 
@@ -644,7 +645,7 @@ export class AnswerInboxItemRequestDto {
     type: AnswerInboxItemInputRequestDto,
     isArray: true,
     description:
-      'With approve: true on a tool call, what it runs with instead, as the person changed it. Names exactly the inputs it asked with; a harness asking permission takes no changes.',
+      'With approve: true on a tool call, what it runs with instead, as the person changed it. Names exactly the inputs it was called with; a harness asking permission takes no changes.',
   })
   readonly inputs?: AnswerInboxItemInputRequestDto[];
 }

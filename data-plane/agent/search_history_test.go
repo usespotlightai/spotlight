@@ -21,8 +21,8 @@ func searchHistory() protocol.History {
 	history := sampleHistory()
 	history.SeedBlock = json.RawMessage(`{"prompt":"Implement the task.","effort":"high"}`)
 
-	priced := func(amount float64, currency string) *protocol.RunCost {
-		return &protocol.RunCost{Steps: 3, Cost: &amount, Currency: &currency}
+	priced := func(amount float64, currency string) *protocol.RunUsage {
+		return &protocol.RunUsage{Steps: 3, Cost: &amount, Currency: &currency}
 	}
 
 	replayed := func(original, task string, succeeded *bool, verdict *string, reasons []string, changes []protocol.HistoryChange) protocol.CandidateRun {
@@ -54,9 +54,9 @@ func searchHistory() protocol.History {
 		},
 	}
 
-	candidates[0].Runs[0].Cost = priced(0.25, "USD")
-	candidates[0].Runs[1].Cost = priced(0.5, "USD")
-	candidates[0].Runs[2].Cost = priced(0.1, "EUR")
+	candidates[0].Runs[0].Usage = priced(0.25, "USD")
+	candidates[0].Runs[1].Usage = priced(0.5, "USD")
+	candidates[0].Runs[2].Usage = priced(0.1, "EUR")
 	history.Candidates = candidates
 
 	return history
@@ -119,13 +119,13 @@ func TestHistoryWritesASearchsCandidatesAndTheBlockItStartedFrom(t *testing.T) {
 	}
 
 	var result struct {
-		RunID     string            `json:"runId"`
-		Original  string            `json:"original"`
-		TaskID    string            `json:"taskId"`
-		Succeeded *bool             `json:"succeeded"`
-		Reasons   []string          `json:"reasons"`
-		Verdict   *string           `json:"verdict"`
-		Cost      *protocol.RunCost `json:"cost"`
+		RunID     string             `json:"runId"`
+		Original  string             `json:"original"`
+		TaskID    string             `json:"taskId"`
+		Succeeded *bool              `json:"succeeded"`
+		Reasons   []string           `json:"reasons"`
+		Verdict   *string            `json:"verdict"`
+		Usage     *protocol.RunUsage `json:"usage"`
 	}
 	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(terse, "runs", "run_2", "result.json"))), &result); err != nil {
 		t.Fatalf("result.json: %v", err)
@@ -133,7 +133,7 @@ func TestHistoryWritesASearchsCandidatesAndTheBlockItStartedFrom(t *testing.T) {
 	if result.RunID != "run_of_run_2" || result.Original != "run_2" || result.TaskID != "task_2" ||
 		result.Succeeded == nil || *result.Succeeded || !slices.Equal(result.Reasons, []string{"tests failed"}) ||
 		result.Verdict == nil || *result.Verdict != "fail" ||
-		result.Cost == nil || *result.Cost.Cost != 0.5 || *result.Cost.Currency != "USD" {
+		result.Usage == nil || *result.Usage.Cost != 0.5 || *result.Usage.Currency != "USD" {
 		t.Errorf("result.json %+v", result)
 	}
 
@@ -208,8 +208,8 @@ func TestHistoryOfAStationRunWritesNoCandidates(t *testing.T) {
 	shaped["candidates"] = json.RawMessage(`[]`)
 	shaped["seedBlock"] = json.RawMessage(`null`)
 	server.Histories(func(protocol.HistoryRequest) (json.RawMessage, error) { return json.Marshal(shaped) })
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 	root := t.TempDir()
 	out := new(bytes.Buffer)
 
@@ -228,7 +228,7 @@ func TestHistoryOfAStationRunWritesNoCandidates(t *testing.T) {
 	}
 }
 
-func TestHistoryRefusesACandidateOrReplayNamedOutsideItsFolder(t *testing.T) {
+func TestHistoryRejectsACandidateOrReplayNamedOutsideItsFolder(t *testing.T) {
 	for _, spoil := range []func(*protocol.History){
 		func(h *protocol.History) { h.Candidates[0].CandidateName = "../escape" },
 		func(h *protocol.History) { h.Candidates[0].Runs[0].Original = "../../runs" },
@@ -252,8 +252,8 @@ func TestHistoryRefusesACandidateOrReplayNamedOutsideItsFolder(t *testing.T) {
 	}
 }
 
-func TestSearchFilesKeepEachCopyOfARepeatedRunApartAndRateEachTaskByItsCopies(t *testing.T) {
-	copyOf := func(original, task string, repeat int, succeeded bool) protocol.CandidateRun {
+func TestSearchFilesKeepEachRepeatOfARepeatedRunApartAndRateEachTaskByItsRepeats(t *testing.T) {
+	repeatOf := func(original, task string, repeat int, succeeded bool) protocol.CandidateRun {
 		return protocol.CandidateRun{
 			RunID: "run_of_" + original + "_" + string(rune('0'+repeat)), TaskID: task, State: "completed",
 			Trace: protocol.Trace{Roots: []protocol.TraceNode{}}, Original: original, Repeat: repeat, Succeeded: yes(succeeded),
@@ -263,10 +263,10 @@ func TestSearchFilesKeepEachCopyOfARepeatedRunApartAndRateEachTaskByItsCopies(t 
 		CandidateName: "twice", Fingerprint: newerFingerprint, Hypothesis: "Twice is surer.",
 		Block: json.RawMessage(`{"prompt":"Be sure."}`),
 		Runs: []protocol.CandidateRun{
-			copyOf("run_1", "task_1", 1, true),
-			copyOf("run_2", "task_2", 1, false),
-			copyOf("run_1", "task_1", 2, false),
-			copyOf("run_2", "task_2", 2, false),
+			repeatOf("run_1", "task_1", 1, true),
+			repeatOf("run_2", "task_2", 1, false),
+			repeatOf("run_1", "task_1", 2, false),
+			repeatOf("run_2", "task_2", 2, false),
 		},
 	}}}
 	files := map[string]string{}
@@ -294,7 +294,7 @@ func TestSearchFilesKeepEachCopyOfARepeatedRunApartAndRateEachTaskByItsCopies(t 
 	if score.Succeeded != 1 || score.Scored != 4 || score.Repeats != 2 || score.TasksScored != 2 || score.Rate == nil || *score.Rate != 0.25 || !slices.Equal(score.Failed, []string{"task_2", "task_1"}) {
 		t.Errorf("score.json %+v", score)
 	}
-	if index := candidatesIndex(history); !strings.Contains(index, "| 1 | 4 | 2 | 25% |") || !strings.Contains(index, "runs/<original>/<copy>/") {
+	if index := candidatesIndex(history); !strings.Contains(index, "| 1 | 4 | 2 | 25% |") || !strings.Contains(index, "runs/<original>/<repeat>/") {
 		t.Errorf("index:\n%s", index)
 	}
 }

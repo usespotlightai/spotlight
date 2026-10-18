@@ -25,9 +25,9 @@ vi.mock('@/hooks/api/useTeamRuns', () => ({
   }),
 }));
 
-vi.mock('@/hooks/api/useRunConversation', () => ({
-  runConversationKeys: { forRun: () => ['run-conversation'] },
-  useRunConversation: () => ({
+vi.mock('@/hooks/api/useRunNotes', () => ({
+  runNotesKeys: { forRun: () => ['run-notes'] },
+  useRunNotes: () => ({
     data: conversation(),
     isPending: conversation() === undefined,
     errorUpdateCount: conversationFailing() ? 1 : 0,
@@ -105,7 +105,7 @@ vi.mock('@/hooks/api/useRunStream', () => ({ useRunStream: () => undefined }));
 vi.mock('@/hooks/api/useRunMemories', () => ({
   runMemoryKeys: { forRun: () => ['run-memories'] },
   useRunMemories: () => ({
-    data: { briefed: [], cut: [], recalled: [], proposed: [] },
+    data: { briefed: [], omitted: [], recalled: [], proposed: [] },
     isPending: false,
     isFetching: false,
     errorUpdateCount: 0,
@@ -116,14 +116,14 @@ vi.mock('@/hooks/api/useRunChangeStacks', () => ({
   useRunChangeStacks: () => ({ data: undefined }),
 }));
 
-const standing = vi.fn((): Record<string, unknown> => ({}));
+const taskStation = vi.fn((): Record<string, unknown> => ({}));
 
 vi.mock('@/hooks/api/useTaskStation', () => ({
-  useTaskStation: () => standing(),
+  useTaskStation: () => taskStation(),
 }));
 
-vi.mock('@/hooks/api/useSayToRun', () => ({
-  useSayToRun: () => ({ mutate: vi.fn(), isPending: false }),
+vi.mock('@/hooks/api/useSendMessage', () => ({
+  useSendMessage: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 const answer = vi.fn();
@@ -168,7 +168,7 @@ const run = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const said = (over: Record<string, unknown> = {}) => ({
+const conversationOf = (over: Record<string, unknown> = {}) => ({
   runId: 'run_1',
   taskId: 'task_1',
   title: 'Fix the queue',
@@ -206,8 +206,8 @@ const step = {
   ms: 1_000,
   startedAt: '2026-08-29T10:00:00.000Z',
   locations: [],
-  given: null,
-  returned: null,
+  input: null,
+  output: null,
   change: null,
 };
 
@@ -224,11 +224,11 @@ const renderRun = (client = new QueryClient()) =>
 
 describe('Run', () => {
   beforeEach(() => {
-    standing.mockReturnValue({});
+    taskStation.mockReturnValue({});
     runs.mockReturnValue([run()]);
     runsFailing.mockReturnValue(false);
     refetchRuns.mockReset();
-    conversation.mockReturnValue(said());
+    conversation.mockReturnValue(conversationOf());
     conversationFailing.mockReturnValue(false);
     refetchConversation.mockReset();
     journal.mockReturnValue([]);
@@ -240,7 +240,7 @@ describe('Run', () => {
   });
 
   describe('while it loads', () => {
-    it('holds the shape of the run rather than calling it gone', () => {
+    it('keeps the shape of the run rather than calling it gone', () => {
       runs.mockReturnValue(undefined);
 
       renderRun();
@@ -251,7 +251,7 @@ describe('Run', () => {
       expect(screen.queryByText(/no such run/)).not.toBeInTheDocument();
     });
 
-    it('waits for what was said, so the footer does not change under the reader', () => {
+    it('waits for the conversation, so the footer does not change under the reader', () => {
       conversation.mockReturnValue(undefined);
 
       renderRun();
@@ -290,7 +290,7 @@ describe('Run', () => {
       expect(screen.queryByText(/no such run/)).not.toBeInTheDocument();
     });
 
-    it('tries the runs again when asked', async () => {
+    it('tries the runs again on request', async () => {
       runs.mockReturnValue(undefined);
       runsFailing.mockReturnValue(true);
 
@@ -301,7 +301,7 @@ describe('Run', () => {
       expect(refetchRuns).toHaveBeenCalledTimes(1);
     });
 
-    it('tries what was said again when only that is missing', async () => {
+    it('tries the conversation again when only that is missing', async () => {
       conversation.mockReturnValue(undefined);
       conversationFailing.mockReturnValue(true);
 
@@ -330,7 +330,7 @@ describe('Run', () => {
     });
 
     it('does not call a run empty when only its work is missing', () => {
-      conversation.mockReturnValue(said({ notes: [] }));
+      conversation.mockReturnValue(conversationOf({ notes: [] }));
       journal.mockReturnValue(undefined);
       journalFailing.mockReturnValue(true);
 
@@ -415,7 +415,7 @@ describe('Run', () => {
       );
     });
 
-    it('shows what it was told and what it did, with a composer nobody can use', () => {
+    it('shows its briefing and what it did, with a composer nobody can use', () => {
       renderRun();
 
       expect(
@@ -429,12 +429,12 @@ describe('Run', () => {
     });
   });
 
-  it('shows what the station said', () => {
+  it('shows the note of the station', () => {
     renderRun();
 
     expect(screen.getByText('Which queue should I drain?')).toBeInTheDocument();
     expect(
-      screen.getByRole('textbox', { name: 'Say something to Implementation' }),
+      screen.getByRole('textbox', { name: 'Message Implementation' }),
     ).toBeInTheDocument();
   });
 
@@ -469,7 +469,7 @@ describe('Run', () => {
 
   it('leaves the config and the spend to the traces', () => {
     conversation.mockReturnValue(
-      said({
+      conversationOf({
         spend: {
           cost: 1.8742,
           currency: 'USD',
@@ -494,7 +494,7 @@ describe('Run', () => {
   describe('when nothing was done', () => {
     it('says the run failed before the agent started, and leads to the task', () => {
       runs.mockReturnValue([run({ state: 'failed' })]);
-      conversation.mockReturnValue(said({ notes: [] }));
+      conversation.mockReturnValue(conversationOf({ notes: [] }));
 
       renderRun();
 
@@ -508,7 +508,7 @@ describe('Run', () => {
 
     it('says nothing of the kind while the run is still to start', () => {
       runs.mockReturnValue([run({ state: 'queued' })]);
-      conversation.mockReturnValue(said({ notes: [] }));
+      conversation.mockReturnValue(conversationOf({ notes: [] }));
 
       renderRun();
 
@@ -521,7 +521,7 @@ describe('Run', () => {
     });
 
     it('says nothing of the kind once the run has done something', () => {
-      conversation.mockReturnValue(said({ notes: [] }));
+      conversation.mockReturnValue(conversationOf({ notes: [] }));
       journal.mockReturnValue([
         { runId: 'run_1', attempt: 1, steps: [step], spans: [] },
       ]);
@@ -535,14 +535,14 @@ describe('Run', () => {
     });
   });
 
-  describe('once the task stands idle at the station', () => {
+  describe('once the task is idle at the station', () => {
     const idle = {
       station: { id: 'station_3', harness: 'claude-code', kind: 'work' },
       task: { id: 'task_1', running: false, awaitingReview: null },
     };
 
     it('offers to send the work back to the station, which starts it again', () => {
-      standing.mockReturnValue(idle);
+      taskStation.mockReturnValue(idle);
 
       renderRun();
 
@@ -557,7 +557,7 @@ describe('Run', () => {
     });
 
     it('does not offer to send work back from a run at a station the task has left', () => {
-      standing.mockReturnValue({
+      taskStation.mockReturnValue({
         ...idle,
         station: { ...idle.station, id: 'station_4' },
       });
@@ -566,13 +566,13 @@ describe('Run', () => {
 
       expect(
         screen.getByRole('textbox', {
-          name: 'Say something to Implementation',
+          name: 'Message Implementation',
         }),
       ).toBeInTheDocument();
     });
 
     it('only says something to the station while a run still works the task', () => {
-      standing.mockReturnValue({
+      taskStation.mockReturnValue({
         ...idle,
         task: { ...idle.task, running: true },
       });
@@ -581,17 +581,17 @@ describe('Run', () => {
 
       expect(
         screen.getByRole('textbox', {
-          name: 'Say something to Implementation',
+          name: 'Message Implementation',
         }),
       ).toBeInTheDocument();
     });
   });
 
   describe('while it waits on a person', () => {
-    const OWED = { state: 'owed', conversationId: 'task_1:0' };
+    const PENDING = { state: 'pending', conversationId: 'task_1:0' };
 
     it('says it is waiting for you where it paused, and leads to where to answer', () => {
-      runs.mockReturnValue([run({ state: 'waiting', review: OWED })]);
+      runs.mockReturnValue([run({ state: 'waiting', review: PENDING })]);
 
       const { container } = renderRun();
 
@@ -604,7 +604,7 @@ describe('Run', () => {
     });
 
     it('does not claim the agent is working, nor offer to stop it', () => {
-      runs.mockReturnValue([run({ state: 'waiting', review: OWED })]);
+      runs.mockReturnValue([run({ state: 'waiting', review: PENDING })]);
 
       renderRun();
 
@@ -617,7 +617,7 @@ describe('Run', () => {
     });
 
     it('offers to answer the question right here, so the run carries on', () => {
-      runs.mockReturnValue([run({ state: 'waiting', review: OWED })]);
+      runs.mockReturnValue([run({ state: 'waiting', review: PENDING })]);
 
       renderRun();
 
@@ -630,8 +630,8 @@ describe('Run', () => {
     });
 
     it('lets an approval be decided right here, through its inbox conversation', async () => {
-      runs.mockReturnValue([run({ state: 'waiting', review: OWED })]);
-      const approval = said().notes.map((note) => ({
+      runs.mockReturnValue([run({ state: 'waiting', review: PENDING })]);
+      const approval = conversationOf().notes.map((note) => ({
         ...note,
         form: 'approval',
         approval: {
@@ -639,12 +639,12 @@ describe('Run', () => {
           name: 'linear.comment',
           because: 'It posts publicly, under the team’s name.',
           inputs: [{ name: 'body', value: 'Fixed.' }],
-          standing: 'asked' as const,
+          status: 'pending' as const,
           edited: null,
           intent: null,
         },
       }));
-      conversation.mockReturnValue(said({ notes: approval }));
+      conversation.mockReturnValue(conversationOf({ notes: approval }));
 
       renderRun();
 
@@ -665,13 +665,13 @@ describe('Run', () => {
       ).toBeInTheDocument();
       expect(
         screen.getByRole('textbox', {
-          name: 'Say something to Implementation',
+          name: 'Message Implementation',
         }),
       ).toBeInTheDocument();
     });
 
-    it('still waits for you once it is parked, pointing at the inbox without a conversation to name', () => {
-      runs.mockReturnValue([run({ state: 'parked' })]);
+    it('still waits for you once it is suspended, pointing at the inbox without a conversation to name', () => {
+      runs.mockReturnValue([run({ state: 'suspended' })]);
 
       const { container } = renderRun();
 
@@ -685,7 +685,7 @@ describe('Run', () => {
 
     it('does not call a run that asked before doing anything empty', () => {
       runs.mockReturnValue([run({ state: 'waiting' })]);
-      conversation.mockReturnValue(said({ notes: [] }));
+      conversation.mockReturnValue(conversationOf({ notes: [] }));
 
       renderRun();
 
@@ -698,12 +698,12 @@ describe('Run', () => {
     it('catches up on its work once it goes back to it', () => {
       const client = new QueryClient();
       const invalidated = vi.spyOn(client, 'invalidateQueries');
-      runs.mockReturnValue([run({ state: 'waiting', review: OWED })]);
+      runs.mockReturnValue([run({ state: 'waiting', review: PENDING })]);
 
       const { rerender } = renderRun(client);
       invalidated.mockClear();
 
-      runs.mockReturnValue([run({ state: 'claimed', review: OWED })]);
+      runs.mockReturnValue([run({ state: 'claimed', review: PENDING })]);
       rerender(
         <QueryClientProvider client={client}>
           <MemoryRouter initialEntries={['/w/acme/team/team_1/runs/run_1']}>
@@ -722,7 +722,7 @@ describe('Run', () => {
   });
 
   describe('once the person answered', () => {
-    const asked = said().notes[0];
+    const asked = conversationOf().notes[0];
     const answered = {
       ...asked,
       position: 1,
@@ -743,7 +743,7 @@ describe('Run', () => {
     it('shows one run: its work before the question, the answer, then it carrying on', () => {
       runs.mockReturnValue([run({ state: 'claimed', attempt: 2 })]);
       conversation.mockReturnValue(
-        said({ working: true, notes: [asked, answered] }),
+        conversationOf({ working: true, notes: [asked, answered] }),
       );
       journal.mockReturnValue([
         {
@@ -819,7 +819,7 @@ describe('Run', () => {
       expect(screen.getByText('Runner lost (not scored).')).toBeInTheDocument();
     });
 
-    it('shows what its agent was told, and a composer nobody can use', () => {
+    it('shows the briefing of its agent, and a composer nobody can use', () => {
       renderRun();
 
       expect(

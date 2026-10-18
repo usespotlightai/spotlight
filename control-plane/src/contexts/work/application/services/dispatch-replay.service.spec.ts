@@ -17,7 +17,7 @@ import type { AttachmentStorePort } from '@work/application/ports/attachment-sto
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { NamedMemory } from '@work/application/ports/memories-briefed-before.port';
 import type { RunEvidencePort } from '@work/application/ports/run-evidence.port';
-import type { BriefedPlace } from '@work/application/ports/team-memories.port';
+import type { BriefedContext } from '@work/application/ports/team-memories.port';
 import { DispatchReplay } from '@work/application/services/dispatch-replay.service';
 import { ReplayAnswers } from '@work/application/services/replay-answers.service';
 import { candidateOf } from '@work/application/services/replay-candidates.fake-spec';
@@ -40,16 +40,17 @@ import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { Harness } from '@work/domain/value-objects/harness.vo';
 import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
@@ -64,9 +65,8 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
-import { Sha256ContentDigest } from '@work/infrastructure/hashing/sha256-content-digest';
+import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-10-01T09:00:00.000Z');
@@ -124,7 +124,7 @@ const launch: HarnessLaunchPort = {
                     value,
                   })),
                 })),
-                asks: ['execute'],
+                askKinds: ['execute'],
               }
             : null,
         }
@@ -176,7 +176,7 @@ const LINE = Line.rehydrate({
   key: LineKey.of('delivery'),
   name: LineName.of('Delivery'),
   repositories: [
-    WorkedRepository.of(Repository.of('acme/api'), {
+    LineRepositoryConfig.of(Repository.of('acme/api'), {
       setup: RepositorySetup.of('npm ci'),
     }),
   ],
@@ -202,7 +202,7 @@ const BRIEFED = BriefedTask.of({
   reviewing: null,
   attachments: [SCREENSHOT],
   notes: [],
-  openRemarks: [],
+  openReviewComments: [],
   decisions: [
     {
       kind: 'assumption',
@@ -232,7 +232,7 @@ const original = (startedFrom: StartingPoint | null = null) =>
       command: { executable: 'dev-agent', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'task-task_1' },
+      resume: { key: 'task-task_1' },
       startingPoint: true,
     }),
     state: 'completed',
@@ -244,7 +244,7 @@ const original = (startedFrom: StartingPoint | null = null) =>
     provisioning: Provisioning.none(),
     briefedWith: BriefedMemories.of({
       briefed: [{ id: 'memory_1', handle: 'M-1' }],
-      cut: [{ id: 'memory_2', handle: 'M-2' }],
+      omitted: [{ id: 'memory_2', handle: 'M-2' }],
     }),
     startedFrom,
   });
@@ -259,39 +259,42 @@ const STARTED = StartingPoint.of({
 const SIZE = ArchiveSize.of(1_024);
 const DIGEST = ArchiveDigest.of('a'.repeat(64));
 
-const sealed = (workspace = 'ws_1') =>
+const completed = (workspace = 'ws_1') =>
   WorkspaceArchive.grant({
     id: ARCHIVE,
     workspaceId: WorkspaceId.of(workspace),
-    continuity: ContinuityKey.forTask('task_1'),
+    resumeKey: ResumeKey.forTask('task_1'),
     holder: { kind: 'task', taskId: TaskId.of('task_1') },
     run: ORIGINAL,
     size: SIZE,
     digest: DIGEST,
     at: NOW,
-  }).seal({ size: SIZE, digest: DIGEST }, NOW);
+  }).complete({ size: SIZE, digest: DIGEST }, NOW);
 
 let gone: string[] = [];
 let taskGone = false;
 let taskNotes: TaskNote[] = [];
-let held: Run | null = null;
-let kept: WorkspaceArchive | null = null;
+let stored: Run | null = null;
+let archive: WorkspaceArchive | null = null;
 let queued: Run[] = [];
-let askedSkills: string[] = [];
-let askedAgain: { place: BriefedPlace; briefed: readonly NamedMemory[] }[] = [];
+let requestedSkills: string[] = [];
+let requestedAgain: {
+  place: BriefedContext;
+  briefed: readonly NamedMemory[];
+}[] = [];
 
 const dispatching = () =>
   new DispatchReplay(
     {
       findById: async (id: RunId) =>
         id.equals(ORIGINAL)
-          ? held
+          ? stored
           : (queued.find((each) => each.id.equals(id)) ?? null),
       add: async (run: Run) => {
         queued.push(run);
       },
     } as unknown as RunRepository,
-    { find: async () => kept } as unknown as WorkspaceArchiveRepository,
+    { find: async () => archive } as unknown as WorkspaceArchiveRepository,
     {
       find: async () => (taskGone ? null : { notes: taskNotes }),
     } as unknown as TaskRepository,
@@ -306,16 +309,16 @@ const dispatching = () =>
     },
     {
       named: (key) => {
-        askedSkills.push(key);
+        requestedSkills.push(key);
         return null;
       },
     },
     { readyAt: async () => [] } as unknown as StationSkills,
     new StationCatalog({
-      givenTo: async () => ({
+      entitledTo: async () => ({
         tools: [],
         skills: [],
-        refused: [
+        denied: [
           {
             id: 'catalog.web-search@1.1.0',
             reason: 'not-entitled',
@@ -328,7 +331,7 @@ const dispatching = () =>
     { named: async (_team, key) => (key === 'linear' ? LINEAR : null) },
     {
       again: async (place, chosen) => {
-        askedAgain.push({ place, briefed: chosen.briefed });
+        requestedAgain.push({ place, briefed: chosen.briefed });
         return {
           briefed: [
             {
@@ -338,7 +341,7 @@ const dispatching = () =>
               body: 'Queues drain oldest first.',
             },
           ],
-          cut: [...chosen.cut],
+          omitted: [...chosen.omitted],
           folder: null,
         };
       },
@@ -355,7 +358,7 @@ const dispatching = () =>
         return [];
       },
     } as unknown as AttachmentStorePort,
-    new Sha256ContentDigest(),
+    new Sha256ContentHash(),
     new ReplayAnswers(
       {
         find: async () => (taskGone ? null : { notes: taskNotes }),
@@ -388,14 +391,14 @@ const written = (run?: Run): RunSpecShape => {
   return RunSpecContract.toWire(run.spec);
 };
 
-const refusalOf = async (asked: Promise<unknown>) =>
-  asked.then(
+const unreplayableReasonOf = async (enqueued: Promise<unknown>) =>
+  enqueued.then(
     () => {
       throw new Error('the replay was queued');
     },
     (error: unknown) => {
       if (error instanceof UnreplayableRunError) {
-        return error.refusal;
+        return error.unreplayableReason;
       }
       throw error;
     },
@@ -403,11 +406,11 @@ const refusalOf = async (asked: Promise<unknown>) =>
 
 describe('DispatchReplay', () => {
   beforeEach(() => {
-    held = original(STARTED);
-    kept = sealed();
+    stored = original(STARTED);
+    archive = completed();
     queued = [];
-    askedSkills = [];
-    askedAgain = [];
+    requestedSkills = [];
+    requestedAgain = [];
     gone = [];
     taskGone = false;
     taskNotes = [];
@@ -441,7 +444,7 @@ describe('DispatchReplay', () => {
         setup: 'npm ci',
       },
     ]);
-    expect(spec.continuity).toEqual({ key: 'replay-run_2' });
+    expect(spec.resume).toEqual({ key: 'replay-run_2' });
     expect(spec.command.env).toMatchObject({ DEV_MODEL: 'dev-large' });
     expect(spec.diffs).toBe(true);
     expect(spec.check).toBe('npm test');
@@ -486,7 +489,7 @@ describe('DispatchReplay', () => {
         body: TaskNoteBody.of('Drain oldest first.'),
         at: NOW,
         voice: Voice.person(UserId.of('user_maya')),
-        kind: 'said',
+        kind: 'message',
       }),
     ];
 
@@ -499,11 +502,11 @@ describe('DispatchReplay', () => {
     expect(written(queued[0]).briefing).toContain('> Drain oldest first.');
   });
 
-  it('refuses a replay of the answer whose answer is no longer there, queueing nothing', async () => {
+  it('rejects a replay of the answer whose answer is no longer there, queueing nothing', async () => {
     taskNotes = [];
 
     expect(
-      await refusalOf(
+      await unreplayableReasonOf(
         dispatching().enqueue({
           original: ORIGINAL,
           candidate: LINE,
@@ -514,27 +517,27 @@ describe('DispatchReplay', () => {
     expect(queued).toEqual([]);
   });
 
-  it('refuses no replay for a catalog tool its plan withholds, as a replay is given no tools', async () => {
+  it('queues a replay even for a catalog tool that is denied to its plan, as a replay has no tools enabled', async () => {
     await dispatching().enqueue({ original: ORIGINAL, candidate: LINE });
 
     expect(queued[0]?.hasEnded).toBe(false);
   });
 
-  it('gives the replay no tools, MCP servers or secrets, and never asks it where it started', async () => {
+  it('enables no tools, MCP servers or secrets for the replay, and never requests where it started', async () => {
     await dispatching().enqueue({ original: ORIGINAL, candidate: LINE });
 
     const spec = written(queued[0]);
 
     expect(spec.manifest).toBeUndefined();
     expect(spec.briefing).not.toContain('## Tools');
-    expect(askedSkills).not.toContain('spotlight-tools');
+    expect(requestedSkills).not.toContain('spotlight-tools');
     expect(spec.catalog).toBeUndefined();
-    expect(spec.wears).toBeUndefined();
+    expect(spec.injectedSecrets).toBeUndefined();
     expect(spec.startingPoint).toBeUndefined();
     expect(spec.harnessSetup).toEqual({
       files: [{ path: 'dev/servers.json', text: '' }],
       mcpServers: [],
-      asks: ['execute'],
+      askKinds: ['execute'],
     });
   });
 
@@ -557,7 +560,7 @@ describe('DispatchReplay', () => {
   it('briefs the memories the original was briefed with, never searching afresh', async () => {
     await dispatching().enqueue({ original: ORIGINAL, candidate: LINE });
 
-    expect(askedAgain).toEqual([
+    expect(requestedAgain).toEqual([
       {
         place: {
           teamId: TeamId.of('team_1'),
@@ -571,34 +574,34 @@ describe('DispatchReplay', () => {
     expect(written(queued[0]).briefing).toContain('Queues drain oldest first.');
     expect(queued[0]?.briefedWith.value).toEqual({
       briefed: [{ id: 'memory_1', handle: 'M-1' }],
-      cut: [{ id: 'memory_2', handle: 'M-2' }],
+      omitted: [{ id: 'memory_2', handle: 'M-2' }],
     });
   });
 
-  it('refuses a run there is no record of', async () => {
-    held = null;
+  it('rejects a run there is no record of', async () => {
+    stored = null;
 
     expect(
-      await refusalOf(
+      await unreplayableReasonOf(
         dispatching().enqueue({ original: ORIGINAL, candidate: LINE }),
       ),
     ).toBe('unknown-run');
   });
 
-  it('refuses a run that never said where it started', async () => {
-    held = original(null);
+  it('rejects a run that never said where it started', async () => {
+    stored = original(null);
 
     expect(
-      await refusalOf(
+      await unreplayableReasonOf(
         dispatching().enqueue({ original: ORIGINAL, candidate: LINE }),
       ),
     ).toBe('no-starting-point');
     expect(queued).toEqual([]);
   });
 
-  it('refuses a run whose archive is no longer kept, naming it', async () => {
-    for (const gone of [null, sealed('ws_2')]) {
-      kept = gone;
+  it('rejects a run whose archive is no longer stored, naming it', async () => {
+    for (const gone of [null, completed('ws_2')]) {
+      archive = gone;
 
       await expect(
         dispatching().enqueue({ original: ORIGINAL, candidate: LINE }),
@@ -607,20 +610,20 @@ describe('DispatchReplay', () => {
     expect(queued).toEqual([]);
   });
 
-  it('refuses a run whose briefed files are no longer kept', async () => {
+  it('rejects a run whose briefed files are no longer stored', async () => {
     gone = [SCREENSHOT.id.value];
 
     expect(
-      await refusalOf(
+      await unreplayableReasonOf(
         dispatching().enqueue({ original: ORIGINAL, candidate: LINE }),
       ),
     ).toBe('attachments-gone');
     expect(queued).toEqual([]);
   });
 
-  it('refuses a candidate no runner can start', async () => {
+  it('rejects a candidate no runner can start', async () => {
     expect(
-      await refusalOf(
+      await unreplayableReasonOf(
         dispatching().enqueue({
           original: ORIGINAL,
           candidate: candidateOf(LINE, BUILD, {
@@ -631,25 +634,25 @@ describe('DispatchReplay', () => {
     ).toBe('cannot-start');
   });
 
-  it('refuses a run whose task was deleted', async () => {
+  it('rejects a run whose task was deleted', async () => {
     taskGone = true;
 
     expect(
-      await refusalOf(
+      await unreplayableReasonOf(
         dispatching().enqueue({ original: ORIGINAL, candidate: LINE }),
       ),
     ).toBe('task-gone');
     expect(queued).toEqual([]);
   });
 
-  it('queues a replay under the id it is asked for once, however often it is asked', async () => {
+  it('queues a replay under the requested id once, however often it is requested', async () => {
     const id = RunId.of('run_9');
 
     expect(
       (await dispatching().enqueue({ original: ORIGINAL, candidate: LINE, id }))
         .value,
     ).toBe('run_9');
-    held = null;
+    stored = null;
     expect(
       (await dispatching().enqueue({ original: ORIGINAL, candidate: LINE, id }))
         .value,
@@ -657,7 +660,7 @@ describe('DispatchReplay', () => {
     expect(queued.map((each) => each.id.value)).toEqual(['run_9']);
   });
 
-  it('refuses to take a run queued under the id as its replay when it replays another run', async () => {
+  it('does not take a run queued under the id as its replay when it replays another run', async () => {
     const id = RunId.of('run_9');
     await dispatching().enqueue({ original: ORIGINAL, candidate: LINE, id });
 

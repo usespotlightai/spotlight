@@ -28,8 +28,8 @@ export function NoToolsUsed({ slug, teamId }: NoToolsUsedProps) {
           </TrailLink>
         }
       >
-        Skill reads and MCP server calls show here once a station gives its runs
-        skills or MCP servers.
+        Skill reads and MCP server calls show here once a station enables skills
+        or MCP servers for its runs.
       </EmptyState>
     </div>
   );

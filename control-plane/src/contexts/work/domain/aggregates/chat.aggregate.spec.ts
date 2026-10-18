@@ -9,7 +9,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
+import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
@@ -24,10 +24,9 @@ import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import { ConfigHome } from '@work/domain/value-objects/config-home.vo';
+import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
@@ -36,6 +35,7 @@ import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { describe, expect, it } from 'vitest';
@@ -55,19 +55,19 @@ const started = (body = 'Plan how retries back off.\nThen split it up.') =>
     startedBy: LEON,
     harness: HarnessId.of('claude-code'),
     repositories: [Repository.of('acme/api'), Repository.of('acme/api')],
-    body: ChatMessageBody.given(body),
+    body: ChatMessageBody.fromInput(body),
     now: NOW,
     newId: () => 'chat_1',
   });
 
-const improving = (stationTeam: TeamId) =>
+const targetingStation = (stationTeam: TeamId) =>
   Chat.start({
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     startedBy: LEON,
     harness: HarnessId.of('claude-code'),
-    body: ChatMessageBody.given('Improve this station.'),
-    improving: ImprovedStation.rehydrate({
+    body: ChatMessageBody.fromInput('Improve this station.'),
+    targetStation: TargetStation.rehydrate({
       teamId: stationTeam,
       lineId: LineId.of('line_1'),
       lineKey: LineKey.of('delivery'),
@@ -81,7 +81,7 @@ const improving = (stationTeam: TeamId) =>
   });
 
 const working = () => {
-  const chat = started().handedTo(RunId.of('run_1'), NOW);
+  const chat = started().assignRun(RunId.of('run_1'), NOW);
   chat.pullEvents();
   return chat;
 };
@@ -115,11 +115,11 @@ describe('Chat', () => {
     ]);
   });
 
-  it('opens with what the person said, waiting to be heard', () => {
+  it('opens with the message of the person, waiting to be acknowledged', () => {
     const chat = started();
 
     expect(chat.messages).toHaveLength(1);
-    expect(chat.undelivered.map((each) => each.position.value)).toEqual([0]);
+    expect(chat.unacknowledged.map((each) => each.position.value)).toEqual([0]);
   });
 
   it('names an attachment where nothing was typed', () => {
@@ -128,7 +128,7 @@ describe('Chat', () => {
       teamId: TeamId.of('team_1'),
       startedBy: LEON,
       harness: HarnessId.of('claude-code'),
-      body: ChatMessageBody.given('', [
+      body: ChatMessageBody.fromInput('', [
         Attachment.of({ id: 'file_1', name: 'queue.png', size: 10 }),
       ]),
       attachments: [
@@ -154,7 +154,7 @@ describe('Chat', () => {
       teamId: TeamId.of('team_1'),
       startedBy: LEON,
       harness: HarnessId.of('claude-code'),
-      body: ChatMessageBody.given('', [], [retries]),
+      body: ChatMessageBody.fromInput('', [], [retries]),
       traces,
       now: NOW,
       newId: () => 'chat_1',
@@ -176,9 +176,9 @@ describe('Chat', () => {
     });
 
     expect(() =>
-      started().said({
+      started().addMessage({
         by: LEON,
-        body: ChatMessageBody.given('And this?'),
+        body: ChatMessageBody.fromInput('And this?'),
         traces: [elsewhere],
         at: LATER,
       }),
@@ -186,14 +186,16 @@ describe('Chat', () => {
   });
 
   it('keeps the station it was opened to improve', () => {
-    const chat = improving(TeamId.of('team_1'));
+    const chat = targetingStation(TeamId.of('team_1'));
 
-    expect(chat.improving?.stationKey.value).toBe('implementation');
-    expect(chat.improving?.lineKey.value).toBe('delivery');
+    expect(chat.targetStation?.stationKey.value).toBe('implementation');
+    expect(chat.targetStation?.lineKey.value).toBe('delivery');
   });
 
   it('improves no station of another team, as if there were no such station', () => {
-    expect(() => improving(TeamId.of('team_2'))).toThrow(UnknownStationError);
+    expect(() => targetingStation(TeamId.of('team_2'))).toThrow(
+      UnknownStationError,
+    );
   });
 
   it('shares only so many traces at once', () => {
@@ -206,22 +208,22 @@ describe('Chat', () => {
     );
 
     expect(() =>
-      started().said({
+      started().addMessage({
         by: LEON,
-        body: ChatMessageBody.given('All of these'),
+        body: ChatMessageBody.fromInput('All of these'),
         traces: many,
         at: LATER,
       }),
     ).toThrow(InvalidChatMessageError);
   });
 
-  it('refuses to open with nothing at all', () => {
+  it('does not open with nothing at all', () => {
     expect(() => started('   ')).toThrow(InvalidChatMessageError);
   });
 
-  it('hears only the person who started it', () => {
+  it('accepts messages only from the person who started it', () => {
     expect(() =>
-      working().said({
+      working().addMessage({
         by: STRANGER,
         body: ChatMessageBody.of('Me too.'),
         at: LATER,
@@ -229,96 +231,124 @@ describe('Chat', () => {
     ).toThrow(NotTheChatStarterError);
   });
 
-  it('counts what it was handed to a run with as heard', () => {
+  it('has the messages acknowledged once a run works it', () => {
     const chat = working();
 
     expect(chat.running).toBe(true);
-    expect(chat.undelivered).toHaveLength(0);
+    expect(chat.unacknowledged).toHaveLength(0);
   });
 
-  it('says which of its messages it handed a run', () => {
-    const handed = working()
+  it('says which of its messages a run acknowledged', () => {
+    const assigned = working()
       .endRun(RunId.of('run_1'))
-      .said({ by: LEON, body: ChatMessageBody.of('And then?'), at: LATER })
-      .handedTo(RunId.of('run_2'), LATER);
+      .addMessage({
+        by: LEON,
+        body: ChatMessageBody.of('And then?'),
+        at: LATER,
+      })
+      .assignRun(RunId.of('run_2'), LATER);
 
-    const [event] = handed.pullEvents();
+    const [event] = assigned.pullEvents();
 
-    expect(event).toBeInstanceOf(ChatHandedToRun);
-    expect((event as ChatHandedToRun).handed.map((each) => each.value)).toEqual(
-      [1],
-    );
+    expect(event).toBeInstanceOf(ChatDispatched);
     expect(
-      handed
-        .messagesAt((event as ChatHandedToRun).handed)
+      (event as ChatDispatched).acknowledged.map((each) => each.value),
+    ).toEqual([1]);
+    expect(
+      assigned
+        .messagesAt((event as ChatDispatched).acknowledged)
         .map((each) => each.body.value),
     ).toEqual(['And then?']);
   });
 
-  it('takes back only what it handed to a run that kept nothing, and wants following up', () => {
-    const handed = working()
+  it('unacknowledges only what a run that ended without a session acknowledged, and wants following up', () => {
+    const assigned = working()
       .endRun(RunId.of('run_1'))
-      .said({ by: LEON, body: ChatMessageBody.of('Split it.'), at: LATER })
-      .handedTo(RunId.of('run_2'), LATER)
-      .said({ by: LEON, body: ChatMessageBody.of('And docs.'), at: LATER });
+      .addMessage({
+        by: LEON,
+        body: ChatMessageBody.of('Split it.'),
+        at: LATER,
+      })
+      .assignRun(RunId.of('run_2'), LATER)
+      .addMessage({
+        by: LEON,
+        body: ChatMessageBody.of('And docs.'),
+        at: LATER,
+      });
 
-    const released = handed.runKeptNothing(RunId.of('run_2'));
+    const released = assigned.runEndedWithoutSession(RunId.of('run_2'));
 
     expect(released.running).toBe(false);
-    expect(released.undelivered.map((each) => each.position.value)).toEqual([
+    expect(released.unacknowledged.map((each) => each.position.value)).toEqual([
       1, 2,
     ]);
-    expect(released.messages[0]?.wasDeliveredTo(RunId.of('run_1'))).toBe(true);
+    expect(released.messages[0]?.wasAcknowledgedBy(RunId.of('run_1'))).toBe(
+      true,
+    );
     expect(released.wantsFollowUp).toBe(true);
   });
 
-  it('keeps what it handed when a run it is not held by kept nothing', () => {
-    const unchanged = working().runKeptNothing(RunId.of('run_2'));
+  it('keeps what a run acknowledged when a run that is not its current run sameModel nothing', () => {
+    const unchanged = working().runEndedWithoutSession(RunId.of('run_2'));
 
     expect(unchanged.running).toBe(true);
-    expect(unchanged.undelivered).toHaveLength(0);
+    expect(unchanged.unacknowledged).toHaveLength(0);
   });
 
-  it('counts nothing as heard by a run it is not held by', () => {
-    const said = working()
+  it('counts nothing as acknowledged by a run that is not its current run', () => {
+    const withMessage = working()
       .endRun(RunId.of('run_1'))
-      .said({ by: LEON, body: ChatMessageBody.of('Split it.'), at: LATER });
+      .addMessage({
+        by: LEON,
+        body: ChatMessageBody.of('Split it.'),
+        at: LATER,
+      });
 
     expect(
-      said.markDeliveredUpTo(RunId.of('run_1'), SECOND, LATER).undelivered,
+      withMessage.acknowledgeUpTo(RunId.of('run_1'), SECOND, LATER)
+        .unacknowledged,
     ).toHaveLength(1);
   });
 
-  it('keeps what a run heard once it started', () => {
-    const heard = working()
-      .said({ by: LEON, body: ChatMessageBody.of('Split it.'), at: LATER })
-      .markDeliveredUpTo(RunId.of('run_1'), SECOND, LATER);
+  it('keeps what a run acknowledged once it started', () => {
+    const acknowledged = working()
+      .addMessage({
+        by: LEON,
+        body: ChatMessageBody.of('Split it.'),
+        at: LATER,
+      })
+      .acknowledgeUpTo(RunId.of('run_1'), SECOND, LATER);
 
-    expect(heard.messages[1]?.wasDeliveredTo(RunId.of('run_1'))).toBe(true);
-    expect(heard.endRun(RunId.of('run_1')).wantsFollowUp).toBe(false);
+    expect(acknowledged.messages[1]?.wasAcknowledgedBy(RunId.of('run_1'))).toBe(
+      true,
+    );
+    expect(acknowledged.endRun(RunId.of('run_1')).wantsFollowUp).toBe(false);
   });
 
-  it('will not be handed to a second run while one works it', () => {
-    expect(() => working().handedTo(RunId.of('run_2'), LATER)).toThrow(
+  it('is not assigned to a second run while one works it', () => {
+    expect(() => working().assignRun(RunId.of('run_2'), LATER)).toThrow(
       InvalidChatTransitionError,
     );
   });
 
-  it('hears what is said while it is worked, until it is delivered', () => {
-    const said = working().said({
+  it('keeps a message sent while it is worked unacknowledged, until a run acknowledges it', () => {
+    const withMessage = working().addMessage({
       by: LEON,
       body: ChatMessageBody.of('Split it.'),
       at: LATER,
     });
 
-    expect(said.undelivered.map((each) => each.position.value)).toEqual([1]);
     expect(
-      said.markDeliveredUpTo(RunId.of('run_1'), SECOND, LATER).undelivered,
+      withMessage.unacknowledged.map((each) => each.position.value),
+    ).toEqual([1]);
+    expect(
+      withMessage.acknowledgeUpTo(RunId.of('run_1'), SECOND, LATER)
+        .unacknowledged,
     ).toHaveLength(0);
   });
 
   it('answers with the model and effort the person picks, keeping the harness, and keeps them when nothing is picked', () => {
-    const picked = started().said({
+    const picked = started().addMessage({
       by: LEON,
       body: ChatMessageBody.of('Think harder.'),
       model: HarnessModel.of('opus'),
@@ -330,14 +360,14 @@ describe('Chat', () => {
     expect(picked.effort?.value).toBe('high');
     expect(picked.harness.value).toBe(started().harness.value);
 
-    const kept = picked.said({
+    const sameModel = picked.addMessage({
       by: LEON,
       body: ChatMessageBody.of('And again.'),
       at: LATER,
     });
-    expect(kept.model?.value).toBe('opus');
+    expect(sameModel.model?.value).toBe('opus');
 
-    const defaulted = kept.said({
+    const defaulted = sameModel.addMessage({
       by: LEON,
       body: ChatMessageBody.of('Back to the default.'),
       model: null,
@@ -348,32 +378,32 @@ describe('Chat', () => {
     expect(defaulted.effort).toBeNull();
   });
 
-  it('wants following up only once its run is done and something is left unheard', () => {
-    const said = working().said({
+  it('wants following up only once its run is done and a message is left unacknowledged', () => {
+    const withMessage = working().addMessage({
       by: LEON,
       body: ChatMessageBody.of('Split it.'),
       at: LATER,
     });
 
-    expect(said.wantsFollowUp).toBe(false);
-    expect(said.endRun(RunId.of('run_1')).wantsFollowUp).toBe(true);
+    expect(withMessage.wantsFollowUp).toBe(false);
+    expect(withMessage.endRun(RunId.of('run_1')).wantsFollowUp).toBe(true);
     expect(working().endRun(RunId.of('run_1')).wantsFollowUp).toBe(false);
   });
 
   describe('when its run ends', () => {
     const SESSION = HarnessSession.of('session_1');
     const RUNNER = RunnerId.of('runner_1');
-    const saidMeanwhile = () =>
-      working().said({
+    const messagedMeanwhile = () =>
+      working().addMessage({
         by: LEON,
         body: ChatMessageBody.of('Split it.'),
         at: LATER,
       });
 
-    it('keeps the session the run worked in and follows up on what was said meanwhile', () => {
-      const ended = saidMeanwhile().runEnded(RunId.of('run_1'), {
+    it('keeps the session the run worked in and follows up on the messages sent meanwhile', () => {
+      const ended = messagedMeanwhile().runEnded(RunId.of('run_1'), {
         session: SESSION,
-        workedBy: RUNNER,
+        claimedBy: RUNNER,
         stopped: false,
       });
 
@@ -382,10 +412,10 @@ describe('Chat', () => {
       expect(ended.followsUp).toBe(true);
     });
 
-    it('does not follow up after a run it was asked to stop', () => {
-      const ended = saidMeanwhile().runEnded(RunId.of('run_1'), {
+    it('does not follow up after a run with a stop request', () => {
+      const ended = messagedMeanwhile().runEnded(RunId.of('run_1'), {
         session: SESSION,
-        workedBy: RUNNER,
+        claimedBy: RUNNER,
         stopped: true,
       });
 
@@ -393,25 +423,25 @@ describe('Chat', () => {
       expect(ended.followsUp).toBe(false);
     });
 
-    it('takes back what it handed a run that kept no session, and leaves the follow-up for later', () => {
-      const ended = saidMeanwhile().runEnded(RunId.of('run_1'), {
+    it('unacknowledges what a run that ended without a session acknowledged, and leaves the follow-up for later', () => {
+      const ended = messagedMeanwhile().runEnded(RunId.of('run_1'), {
         session: null,
-        workedBy: RUNNER,
+        claimedBy: RUNNER,
         stopped: false,
       });
 
       expect(ended.chat.running).toBe(false);
-      expect(ended.chat.undelivered.map((each) => each.position.value)).toEqual(
-        [0, 1],
-      );
+      expect(
+        ended.chat.unacknowledged.map((each) => each.position.value),
+      ).toEqual([0, 1]);
       expect(ended.followsUp).toBe(false);
     });
 
-    it('stays as it is when a run it is not held by ends', () => {
+    it('stays as it is when a run that is not its current run ends', () => {
       const chat = working();
       const ended = chat.runEnded(RunId.of('run_2'), {
         session: SESSION,
-        workedBy: RUNNER,
+        claimedBy: RUNNER,
         stopped: false,
       });
 
@@ -420,7 +450,7 @@ describe('Chat', () => {
     });
   });
 
-  it('lets go of its run only for the run that works it', () => {
+  it('ends its run only for the run that works it', () => {
     const chat = working();
 
     expect(chat.endRun(RunId.of('run_2')).running).toBe(true);
@@ -438,15 +468,15 @@ describe('Chat', () => {
   });
 
   it('carries on in the same workspace, taking up the session it was worked in', () => {
-    const plain = started().continuity();
-    const worked = started()
+    const plain = started().resume();
+    const resume = started()
       .recordSession(HarnessSession.of('session_1'), RunnerId.of('runner_1'))
-      .continuity();
+      .resume();
 
     expect(plain.key.value).toBe('chat-chat_1');
     expect(plain.sessionId).toBeNull();
-    expect(worked.key.value).toBe('chat-chat_1');
-    expect(worked.sessionId?.value).toBe('session_1');
+    expect(resume.key.value).toBe('chat-chat_1');
+    expect(resume.sessionId?.value).toBe('session_1');
   });
 
   it('takes a proposal only from the run working it', () => {
@@ -464,7 +494,7 @@ describe('Chat', () => {
     ).toThrow(InvalidChatTransitionError);
   });
 
-  it('holds a proposal open, says it was proposed, and never delivers it back', () => {
+  it('keeps a proposal open, says it was proposed, and never hands it back to a run', () => {
     const chat = working().propose({
       runId: RunId.of('run_1'),
       placement: ProposalPlacement.of({
@@ -478,7 +508,7 @@ describe('Chat', () => {
 
     expect(chat.proposalAt(SECOND).isOpen).toBe(true);
     expect(chat.messages[1]?.kind).toBe('proposed');
-    expect(chat.undelivered).toHaveLength(0);
+    expect(chat.unacknowledged).toHaveLength(0);
     expect(chat.pullEvents()).toEqual([expect.any(TaskProposed)]);
   });
 
@@ -536,7 +566,7 @@ describe('Chat', () => {
     ).toThrow(InvalidChatTransitionError);
   });
 
-  it('has no proposal where something was only said', () => {
+  it('has no proposal where there is only a message', () => {
     expect(() => proposing().proposalAt(MessagePosition.of(0))).toThrow(
       InvalidChatTransitionError,
     );
@@ -550,11 +580,14 @@ describe('Chat', () => {
         startedBy: LEON,
         harness: HarnessId.of('claude-code'),
         repositories: [Repository.of('acme/api')],
-        body: ChatMessageBody.given('Set up our configuration.'),
-        setup: ConfigHome.of({ repository: 'acme/infra', folder: 'spotlight' }),
+        body: ChatMessageBody.fromInput('Set up our configuration.'),
+        setup: ConfigFolder.of({
+          repository: 'acme/infra',
+          folder: 'spotlight',
+        }),
         now: NOW,
         newId: () => 'chat_1',
-      }).handedTo(RunId.of('run_1'), NOW);
+      }).assignRun(RunId.of('run_1'), NOW);
 
     const URL = PullRequestUrl.of('https://github.com/acme/infra/pull/12');
 
@@ -569,7 +602,7 @@ describe('Chat', () => {
       expect(started().pushableNamed('api')).toBeNull();
     });
 
-    it('refuses a branch named like a task’s, before anything is opened', () => {
+    it('rejects a branch named like a task’s, before anything is opened', () => {
       expect(() =>
         settingUp().mayOpenSetupFrom(
           RunId.of('run_1'),
@@ -606,7 +639,7 @@ describe('Chat', () => {
       expect(opened.setup?.pullRequest?.equals(URL)).toBe(true);
     });
 
-    it('refuses a pull request in another repository', () => {
+    it('rejects a pull request in another repository', () => {
       expect(() =>
         settingUp().openSetup(
           RunId.of('run_1'),
@@ -617,16 +650,16 @@ describe('Chat', () => {
       ).toThrow(InvalidChatTransitionError);
     });
 
-    it('refuses a run that no longer works the chat', () => {
+    it('rejects a run that no longer works the chat', () => {
       expect(() =>
         settingUp().openSetup(RunId.of('run_2'), BRANCH, URL, LATER),
       ).toThrow(InvalidChatTransitionError);
     });
 
-    it('refuses a chat that sets nothing up', () => {
+    it('rejects a chat that sets nothing up', () => {
       expect(() =>
         started()
-          .handedTo(RunId.of('run_1'), NOW)
+          .assignRun(RunId.of('run_1'), NOW)
           .openSetup(RunId.of('run_1'), BRANCH, URL, LATER),
       ).toThrow(NotASetupChatError);
     });

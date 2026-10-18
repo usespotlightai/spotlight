@@ -3,7 +3,7 @@ import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid
 import { describe, expect, it } from 'vitest';
 
 describe('ConfigurationFile', () => {
-  it('holds where it is and what it says', () => {
+  it('keeps where it is and what it says', () => {
     const file = ConfigurationFile.of(
       '.spotlight/lines/default/line.yml',
       'a: 1',
@@ -28,7 +28,7 @@ describe('ConfigurationFile', () => {
     ).toBe(false);
   });
 
-  it('refuses a path that is not within the repository', () => {
+  it('rejects a path that is not within the repository', () => {
     for (const path of [
       '/etc/passwd',
       '../secrets.yml',

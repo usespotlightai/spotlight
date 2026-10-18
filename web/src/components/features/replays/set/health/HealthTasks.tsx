@@ -4,7 +4,7 @@ type HealthTask = {
   readonly key: string;
   readonly title: string;
   readonly to: string;
-  readonly said: string;
+  readonly text: string;
 };
 
 type HealthTasksProps = {
@@ -28,7 +28,7 @@ export function HealthTasks({ label, tasks }: HealthTasksProps) {
             {task.title}
           </TrailLink>
           <span className="shrink-0 text-muted-foreground tabular-nums">
-            {task.said}
+            {task.text}
           </span>
         </li>
       ))}

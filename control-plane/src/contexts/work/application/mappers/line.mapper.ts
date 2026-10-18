@@ -44,9 +44,9 @@ export const LineMapper = {
         ? {
             rubric: station.judge.rubric,
             claims: [...station.judge.claims],
-            passShare: station.judge.passShare,
+            passThreshold: station.judge.passThreshold,
             sample: station.judge.sample,
-            trust: station.judge.trust,
+            minAgreement: station.judge.minAgreement,
           }
         : null,
       alerts: station.alerts.map((each) => ({

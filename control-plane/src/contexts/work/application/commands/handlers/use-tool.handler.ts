@@ -6,26 +6,26 @@ import type { UseToolCommand } from '@work/application/commands/use-tool.command
 import type { ToolAnswerDto } from '@work/application/dto/tool-answer.dto';
 import { ToolActingAsMapper } from '@work/application/mappers/tool-acting-as.mapper';
 import type {
-  HookedTaskDto,
-  HookedTasksPort,
-} from '@work/application/ports/hooked-tasks.port';
-import type {
-  HookVerdict,
+  HookDecision,
   LifecycleHooksPort,
 } from '@work/application/ports/lifecycle-hooks.port';
+import type {
+  TaskViewDto,
+  TaskViewsPort,
+} from '@work/application/ports/task-views.port';
 import type { RunWorks } from '@work/application/services/run-works.service';
 import type { ToolSources } from '@work/application/services/tool-sources.service';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { ToolUsed } from '@work/domain/events/tool-used.event';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
-import { ToolApprovalRefusedError } from '@work/domain/exceptions/tool-approval-refused.error';
+import { ToolApprovalDismissedError } from '@work/domain/exceptions/tool-approval-dismissed.error';
 import { ToolAwaitsApprovalError } from '@work/domain/exceptions/tool-awaits-approval.error';
 import { ToolAwaitsConnectionError } from '@work/domain/exceptions/tool-awaits-connection.error';
 import { ToolBlockedByPersonError } from '@work/domain/exceptions/tool-blocked-by-person.error';
-import { ToolConnectionRefusedError } from '@work/domain/exceptions/tool-connection-refused.error';
-import { ToolHookRefusedError } from '@work/domain/exceptions/tool-hook-refused.error';
+import { ToolConnectionDeniedError } from '@work/domain/exceptions/tool-connection-denied.error';
+import { ToolHookDeniedError } from '@work/domain/exceptions/tool-hook-denied.error';
 import { ToolNeedsWorkError } from '@work/domain/exceptions/tool-needs-work.error';
-import { ToolNotGivenError } from '@work/domain/exceptions/tool-not-given.error';
+import { ToolNotEnabledError } from '@work/domain/exceptions/tool-not-enabled.error';
 import { UnknownToolError } from '@work/domain/exceptions/unknown-tool.error';
 import { StricterRule } from '@work/domain/services/stricter-rule';
 import { Tool } from '@work/domain/value-objects/tool.vo';
@@ -39,7 +39,7 @@ export class UseToolHandler
   constructor(
     private readonly works: RunWorks,
     private readonly sources: ToolSources,
-    private readonly hookedTasks: HookedTasksPort,
+    private readonly taskViews: TaskViewsPort,
     private readonly hooks: LifecycleHooksPort,
     private readonly ids: IdGeneratorPort,
     private readonly events: DomainEventDispatcher,
@@ -48,13 +48,13 @@ export class UseToolHandler
   async execute(command: UseToolCommand): Promise<ToolAnswerDto> {
     try {
       const tool = Tool.of(command.tool);
-      const { run, work } = await this.works.heldBy(
+      const { run, work } = await this.works.leasedBy(
         command.runId,
         command.runnerId,
       );
 
-      if (!run.wasGiven(tool)) {
-        throw new ToolNotGivenError(tool.value);
+      if (!run.isEnabled(tool)) {
+        throw new ToolNotEnabledError(tool.value);
       }
 
       if (!work) {
@@ -62,34 +62,34 @@ export class UseToolHandler
       }
 
       const context = await work.toolContext();
-      const reachable = await this.sources.reach(
+      const resolved = await this.sources.resolve(
         tool,
         run,
         context,
         command.runnerId,
       );
 
-      if (!reachable) {
+      if (!resolved) {
         throw new UnknownToolError(tool.value);
       }
 
-      if (reachable.wants) {
+      if (resolved.missing) {
         const asked = await work.askToConnect(
-          reachable.declared,
-          reachable.wants,
+          resolved.declared,
+          resolved.missing,
         );
 
         if (asked.kind === 'asked') {
           throw new ToolAwaitsConnectionError(
             tool.value,
-            reachable.wants.integration,
+            resolved.missing.integrationName,
           );
         }
 
-        throw new ToolConnectionRefusedError(tool.value, asked.reason);
+        throw new ToolConnectionDeniedError(tool.value, asked.reason);
       }
 
-      const ruled = StricterRule.of(reachable.declared, reachable.personRule);
+      const ruled = StricterRule.of(resolved.declared, resolved.personRule);
 
       if (ruled.kind === 'blocked') {
         throw new ToolBlockedByPersonError(tool.value, ruled.by);
@@ -97,46 +97,46 @@ export class UseToolHandler
 
       const declared =
         ruled.kind === 'needs-approval'
-          ? reachable.declared.withApproval(ruled.needed)
-          : reachable.declared;
+          ? resolved.declared.withApproval(ruled.needed)
+          : resolved.declared;
       const { intent, rest } = declared.intentIn(command.input);
-      const asked = declared.accept(rest, (input) =>
-        reachable.defaultFor(input),
+      const accepted = declared.accept(rest, (input) =>
+        resolved.defaultFor(input),
       );
       const cleared = await work.clearFor(
         declared,
-        declared.callWith(asked),
+        declared.callWith(accepted),
         intent,
       );
 
-      if (cleared.kind === 'asked') {
+      if (cleared.kind === 'pending') {
         throw new ToolAwaitsApprovalError(tool.value);
       }
 
-      if (cleared.kind === 'refused') {
-        throw new ToolApprovalRefusedError(tool.value, cleared.reason);
+      if (cleared.kind === 'dismissed') {
+        throw new ToolApprovalDismissedError(tool.value, cleared.reason);
       }
 
-      let inputs = asked;
+      let inputs = accepted;
 
       try {
         if (cleared.edited) {
           inputs = declared.accept(cleared.edited.values, (input) =>
-            reachable.defaultFor(input),
+            resolved.defaultFor(input),
           );
         }
 
-        const hooked = await this.hookedTaskOf(run);
-        const verdict: HookVerdict = hooked
-          ? await this.hooks.before(hooked, {
+        const taskView = await this.taskViewOf(run);
+        const decision: HookDecision = taskView
+          ? await this.hooks.before(taskView, {
               on: 'tool.using',
               tool: tool.value,
               inputs: inputs.values,
             })
           : { kind: 'allowed' };
 
-        if (verdict.kind === 'refused') {
-          throw new ToolHookRefusedError(tool.value, verdict.reason);
+        if (decision.kind === 'denied') {
+          throw new ToolHookDeniedError(tool.value, decision.reason);
         }
 
         await this.works.stillOn(run.currentAttempt, command.runnerId);
@@ -148,7 +148,7 @@ export class UseToolHandler
       let output: unknown;
 
       try {
-        output = await reachable.call(inputs);
+        output = await resolved.call(inputs);
       } catch (error) {
         await cleared.returned();
 
@@ -162,7 +162,7 @@ export class UseToolHandler
           inputs,
           ToolOutput.answered(error instanceof Error ? error.message : null),
           true,
-          reachable.actingAs,
+          resolved.actingAs,
         );
         throw error;
       }
@@ -173,13 +173,13 @@ export class UseToolHandler
         inputs,
         ToolOutput.answered(output),
         false,
-        reachable.actingAs,
+        resolved.actingAs,
       );
 
       return {
         output,
-        actingAs: reachable.actingAs
-          ? ToolActingAsMapper.toDto(reachable.actingAs)
+        actingAs: resolved.actingAs
+          ? ToolActingAsMapper.toDto(resolved.actingAs)
           : null,
       };
     } catch (error) {
@@ -187,9 +187,9 @@ export class UseToolHandler
     }
   }
 
-  private hookedTaskOf(run: Run): Promise<HookedTaskDto | null> {
-    return run.hearsHooks && run.taskId
-      ? this.hookedTasks.of(run.taskId.value, run.id.value)
+  private taskViewOf(run: Run): Promise<TaskViewDto | null> {
+    return run.firesHooks && run.taskId
+      ? this.taskViews.of(run.taskId.value, run.id.value)
       : Promise.resolve(null);
   }
 

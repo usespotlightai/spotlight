@@ -6,22 +6,22 @@ import {
 } from 'lucide-react';
 import { AlertTrend } from '@/components/features/stations/config/AlertTrend';
 import {
-  type AlertThreshold,
-  type AlertTrigger,
+  type AlertCondition,
+  type AlertRule,
   alertFace,
   alertPhrase,
-} from '@/lib/station-watch';
+} from '@/lib/station-monitoring';
 
-const ICONS: Record<AlertTrigger, typeof TrendingUp> = {
+const ICONS: Record<AlertCondition, typeof TrendingUp> = {
   rises: TrendingUp,
   falls: TrendingDown,
   above: ArrowUpToLine,
   below: ArrowDownToLine,
 };
 
-export function AlertSlide({ alert }: { alert: AlertThreshold }) {
+export function AlertSlide({ alert }: { alert: AlertRule }) {
   const face = alertFace(alert);
-  const Icon = ICONS[face.trigger];
+  const Icon = ICONS[face.condition];
 
   return (
     <li
@@ -36,7 +36,7 @@ export function AlertSlide({ alert }: { alert: AlertThreshold }) {
           <span className="truncate">{face.measure}</span>
         </span>
 
-        <AlertTrend trigger={face.trigger} />
+        <AlertTrend condition={face.condition} />
 
         <div className="flex flex-col gap-1">
           <span className="whitespace-nowrap text-[1.375rem] text-foreground tabular-nums leading-none tracking-tight">

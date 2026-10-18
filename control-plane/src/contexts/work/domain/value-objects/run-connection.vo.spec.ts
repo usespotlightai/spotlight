@@ -10,7 +10,7 @@ const parts = {
   bytesOut: 512,
   bytesIn: 4_096,
   ms: 80,
-  outcome: 'tunnelled',
+  outcome: 'passthrough',
   status: null as number | null,
   reason: null as string | null,
   at: AT,
@@ -24,12 +24,12 @@ describe('RunConnection', () => {
       bytesOut: 512,
       bytesIn: 4_096,
       ms: 80,
-      outcome: 'tunnelled',
+      outcome: 'passthrough',
       at: AT,
     });
   });
 
-  it('refuses a host, port, count, outcome or time it cannot keep', () => {
+  it('rejects a host, port, count, outcome or time it cannot keep', () => {
     for (const wrong of [
       { host: '' },
       { host: 'a'.repeat(254) },
@@ -40,9 +40,9 @@ describe('RunConnection', () => {
       { bytesIn: 1.5 },
       { ms: Number.NaN },
       { outcome: 'decrypted' },
-      { outcome: 'forwarded', status: 99 },
-      { outcome: 'forwarded', status: 600 },
-      { outcome: 'forwarded', status: 200.5 },
+      { outcome: 'injected', status: 99 },
+      { outcome: 'injected', status: 600 },
+      { outcome: 'injected', status: 200.5 },
       { at: new Date('not a time') },
     ]) {
       expect(() => RunConnection.of({ ...parts, ...wrong })).toThrow(
@@ -62,15 +62,15 @@ describe('RunConnection', () => {
     ).toBe('timed-out');
   });
 
-  it('refuses a status or a reason that does not fit its outcome', () => {
+  it('rejects a status or a reason that does not fit its outcome', () => {
     for (const wrong of [
-      { outcome: 'tunnelled', status: 401 },
+      { outcome: 'passthrough', status: 401 },
       { outcome: 'blocked', status: 403 },
       { outcome: 'failed', reason: 'cosmic-rays' },
       { outcome: 'blocked', reason: 'timed-out' },
       { outcome: 'failed', reason: 'not-allowed' },
-      { outcome: 'forwarded', reason: 'unreachable' },
-      { outcome: 'tunnelled', reason: 'not-allowed' },
+      { outcome: 'injected', reason: 'unreachable' },
+      { outcome: 'passthrough', reason: 'not-allowed' },
     ]) {
       expect(() => RunConnection.of({ ...parts, ...wrong })).toThrow(
         InvalidRunConnectionError,
@@ -78,23 +78,23 @@ describe('RunConnection', () => {
     }
   });
 
-  it('went wrong when it was blocked or failed, or when the host refused or failed a forwarded request', () => {
-    const trouble = (part: Partial<typeof parts>) =>
-      RunConnection.of({ ...parts, ...part }).trouble;
+  it('has an error when it was blocked or failed, or when the host answered an injected request with an auth failure or a server error', () => {
+    const error = (part: Partial<typeof parts>) =>
+      RunConnection.of({ ...parts, ...part }).error;
 
-    expect(trouble({ outcome: 'blocked', reason: 'not-allowed' })).toBe(
+    expect(error({ outcome: 'blocked', reason: 'not-allowed' })).toBe(
       'blocked',
     );
-    expect(trouble({ outcome: 'failed', reason: 'timed-out' })).toBe('failed');
-    expect(trouble({ outcome: 'forwarded', status: 401 })).toBe('refused');
-    expect(trouble({ outcome: 'forwarded', status: 403 })).toBe('refused');
-    expect(trouble({ outcome: 'forwarded', status: 502 })).toBe('server-error');
-    expect(trouble({ outcome: 'forwarded', status: 404 })).toBeNull();
-    expect(trouble({ outcome: 'forwarded', status: 200 })).toBeNull();
-    expect(trouble({ outcome: 'forwarded' })).toBeNull();
-    expect(trouble({ outcome: 'tunnelled' })).toBeNull();
+    expect(error({ outcome: 'failed', reason: 'timed-out' })).toBe('failed');
+    expect(error({ outcome: 'injected', status: 401 })).toBe('auth-failed');
+    expect(error({ outcome: 'injected', status: 403 })).toBe('auth-failed');
+    expect(error({ outcome: 'injected', status: 502 })).toBe('server-error');
+    expect(error({ outcome: 'injected', status: 404 })).toBeNull();
+    expect(error({ outcome: 'injected', status: 200 })).toBeNull();
+    expect(error({ outcome: 'injected' })).toBeNull();
+    expect(error({ outcome: 'passthrough' })).toBeNull();
     expect(
-      RunConnection.of({ ...parts, outcome: 'failed', reason: null }).wentWrong,
+      RunConnection.of({ ...parts, outcome: 'failed', reason: null }).isError,
     ).toBe(true);
   });
 
@@ -102,11 +102,13 @@ describe('RunConnection', () => {
     const now = new Date('2026-10-16T13:00:00.000Z');
 
     expect(RunConnection.record(parts, now).at).toEqual(AT);
-    for (const told of [
+    for (const reportedAt of [
       new Date('2026-10-16T11:59:59.000Z'),
       new Date('2026-10-16T13:01:01.000Z'),
     ]) {
-      expect(RunConnection.record({ ...parts, at: told }, now).at).toEqual(now);
+      expect(
+        RunConnection.record({ ...parts, at: reportedAt }, now).at,
+      ).toEqual(now);
     }
   });
 });

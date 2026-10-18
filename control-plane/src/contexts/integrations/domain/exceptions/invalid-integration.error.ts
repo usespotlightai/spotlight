@@ -1,11 +1,11 @@
 export class InvalidIntegrationError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(
-    source: string,
+    integration: string,
     readonly because: string,
   ) {
-    super(`Integration ${source} ${because}.`);
+    super(`Integration ${integration} ${because}.`);
     this.name = 'InvalidIntegrationError';
   }
 }

@@ -4,11 +4,11 @@ import { RepositoriesSelect } from '@/components/features/stations/RepositoriesS
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useStartChat } from '@/hooks/api/useStartChat';
-import { useRemembered } from '@/hooks/useRemembered';
+import { useStoredState } from '@/hooks/useStoredState';
 import {
   CHAT_HARNESS_KEY,
-  type ImprovedStation,
   type SharedTrace,
+  type TargetStation,
 } from '@/lib/chat';
 import { stationReference, traceReference } from '@/lib/chat-input';
 
@@ -16,8 +16,8 @@ type NewChatComposerProps = {
   slug: string;
   teamId: string;
   traces: readonly SharedTrace[];
-  defaultImproving: ImprovedStation | null;
-  defaultAsk?: string | null;
+  defaultTargetStation: TargetStation | null;
+  defaultPrompt?: string | null;
   onStarted: (chatId: string) => void;
 };
 
@@ -25,27 +25,27 @@ export function NewChatComposer({
   slug,
   teamId,
   traces: handed,
-  defaultImproving,
-  defaultAsk,
+  defaultTargetStation,
+  defaultPrompt,
   onStarted,
 }: NewChatComposerProps) {
   const { data: harnesses } = useHarnesses();
-  const [held, remember] = useRemembered(CHAT_HARNESS_KEY, '');
+  const [stored, store] = useStoredState(CHAT_HARNESS_KEY, '');
   const [model, setModel] = useState('');
   const [effort, setEffort] = useState('');
   const [repositories, setRepositories] = useState<string[]>([]);
   const start = useStartChat();
   const [references] = useState(() => [
-    ...(defaultImproving ? [stationReference(defaultImproving)] : []),
+    ...(defaultTargetStation ? [stationReference(defaultTargetStation)] : []),
     ...handed.map(traceReference),
   ]);
 
-  const harness = harnesses?.some((each) => each.id === held)
-    ? held
+  const harness = harnesses?.some((each) => each.id === stored)
+    ? stored
     : (harnesses?.[0]?.id ?? '');
 
   const choose = (next: string) => {
-    remember(next);
+    store(next);
     setModel('');
     setEffort('');
   };
@@ -57,7 +57,7 @@ export function NewChatComposer({
       placeholder="What do you want to plan?"
       pending={start.isPending || !harness}
       initialReferences={references}
-      initialText={defaultAsk ?? undefined}
+      initialText={defaultPrompt ?? undefined}
       settings={
         <AgentPicker
           harness={harness}
@@ -76,7 +76,7 @@ export function NewChatComposer({
           className="h-6 w-auto"
         />
       }
-      onSend={({ body, attachments, traces, improving }, sent) =>
+      onSend={({ body, attachments, traces, targetStation }, sent) =>
         start.mutate(
           {
             teamId,
@@ -87,7 +87,7 @@ export function NewChatComposer({
             body,
             attachments,
             traces,
-            ...(improving ? { improving } : {}),
+            ...(targetStation ? { targetStation } : {}),
           },
           {
             onSuccess: (chat) => {

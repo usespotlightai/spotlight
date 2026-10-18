@@ -13,9 +13,9 @@ import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
-import { DrizzleArchiveStandings } from '@work/infrastructure/persistence/drizzle/readers/archive-standings.reader';
+import { DrizzleArchiveReferences } from '@work/infrastructure/persistence/drizzle/readers/archive-references.reader';
 import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
@@ -32,20 +32,20 @@ const STORED: StoredArchive = {
   digest: ArchiveDigest.of(SHA256),
 };
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 let archives: DrizzleWorkspaceArchiveRepository;
-let standings: DrizzleArchiveStandings;
+let references: DrizzleArchiveReferences;
 let stationId: string;
 let otherStationId: string;
 
 beforeAll(async () => {
-  held = await openDatabase('workspace_archives');
-  db = held.db;
+  database = await openDatabase('workspace_archives');
+  db = database.db;
   archives = new DrizzleWorkspaceArchiveRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
-  standings = new DrizzleArchiveStandings(db);
+  references = new DrizzleArchiveReferences(db);
 
   const lineId = randomUUID();
   stationId = randomUUID();
@@ -65,7 +65,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 const aTask = async (
@@ -83,7 +83,7 @@ const aTask = async (
     openedFrom: 'person',
     workspaceId: 'ws_1',
     stationId: state.stationId ?? stationId,
-    title: 'Keep the workspace',
+    title: 'Archive the workspace',
     sessionId: state.sessionId === undefined ? 'session_1' : state.sessionId,
     finishedAt: state.finishedAt ?? null,
     updatedAt: state.updatedAt ?? ago(DAY),
@@ -117,18 +117,18 @@ const forTask = (taskId: string): ArchiveHolder => ({
   taskId: TaskId.of(taskId),
 });
 
-const kept = async (
+const archived = async (
   holder: ArchiveHolder,
-  times: { grantedAt: Date; sealedAt?: Date },
+  times: { grantedAt: Date; completedAt?: Date },
 ): Promise<WorkspaceArchive> => {
-  const continuity =
+  const key =
     holder.kind === 'task'
-      ? ContinuityKey.forTask(holder.taskId.value)
-      : ContinuityKey.forChat(holder.chatId.value);
+      ? ResumeKey.forTask(holder.taskId.value)
+      : ResumeKey.forChat(holder.chatId.value);
   const granted = WorkspaceArchive.grant({
     id: WorkspaceArchiveId.of(randomUUID()),
     workspaceId: WorkspaceId.of('ws_1'),
-    continuity,
+    resumeKey: key,
     holder,
     run: RunId.of(randomUUID()),
     size: STORED.size,
@@ -138,58 +138,58 @@ const kept = async (
 
   await archives.add(granted);
 
-  if (!times.sealedAt) {
+  if (!times.completedAt) {
     return granted;
   }
 
-  await archives.save(granted.seal(STORED, times.sealedAt));
+  await archives.save(granted.complete(STORED, times.completedAt));
 
   return (await archives.find(granted.id)) as WorkspaceArchive;
 };
 
 const dueNow = async () =>
   new Map(
-    (await standings.due(WorkspaceArchive.removalCutoffs(NOW), 500)).map(
+    (await references.due(WorkspaceArchive.removalCutoffs(NOW), 500)).map(
       (each) => [each.id.value, each.facts],
     ),
   );
 
-describe('keeping workspace archives', () => {
-  it('finds the newest sealed archive of a piece of work, and nothing unsealed', async () => {
+describe('storing workspace archives', () => {
+  it('finds the newest completed archive of a piece of work, and nothing incomplete', async () => {
     const taskId = await aTask();
-    const older = await kept(forTask(taskId), {
+    const older = await archived(forTask(taskId), {
       grantedAt: ago(3 * HOUR),
-      sealedAt: ago(3 * HOUR),
+      completedAt: ago(3 * HOUR),
     });
-    const newer = await kept(forTask(taskId), {
+    const newer = await archived(forTask(taskId), {
       grantedAt: ago(2 * HOUR),
-      sealedAt: ago(2 * HOUR),
+      completedAt: ago(2 * HOUR),
     });
-    await kept(forTask(taskId), { grantedAt: ago(HOUR) });
+    await archived(forTask(taskId), { grantedAt: ago(HOUR) });
 
-    const found = await archives.newestSealed(
+    const found = await archives.newestCompleted(
       WorkspaceId.of('ws_1'),
-      ContinuityKey.forTask(taskId),
+      ResumeKey.forTask(taskId),
     );
 
     expect(found?.id.value).toBe(newer.id.value);
-    expect(found?.sealedAt).toEqual(ago(2 * HOUR));
+    expect(found?.completedAt).toEqual(ago(2 * HOUR));
     expect(found?.id.value).not.toBe(older.id.value);
   });
 
-  it('writes an archive over only the version it read, and forgets one removed', async () => {
+  it('writes an archive over only the version it read, and deletes one removed', async () => {
     const taskId = await aTask();
-    const granted = await kept(forTask(taskId), { grantedAt: ago(HOUR) });
+    const granted = await archived(forTask(taskId), { grantedAt: ago(HOUR) });
 
-    await archives.save(granted.seal(STORED, ago(HOUR)));
+    await archives.save(granted.complete(STORED, ago(HOUR)));
 
-    await expect(archives.save(granted.seal(STORED, NOW))).rejects.toThrow(
+    await expect(archives.save(granted.complete(STORED, NOW))).rejects.toThrow(
       WorkspaceArchiveVersionConflictError,
     );
 
-    const sealed = (await archives.find(granted.id)) as WorkspaceArchive;
+    const completed = (await archives.find(granted.id)) as WorkspaceArchive;
     await archives.save(
-      sealed.remove(NOW, {
+      completed.remove(NOW, {
         holder: null,
         supersededAt: null,
         lastStartedFromAt: null,
@@ -200,7 +200,7 @@ describe('keeping workspace archives', () => {
     await expect(archives.find(granted.id)).resolves.toBeNull();
   });
 
-  it('lets go of archives no later run will restore, and keeps the rest', async () => {
+  it('releases archives no later run will restore, and keeps the rest', async () => {
     const carryingOn = await aTask();
     const finishedLongAgo = await aTask({
       finishedAt: ago(9 * DAY),
@@ -219,73 +219,73 @@ describe('keeping workspace archives', () => {
     const deleted = randomUUID();
     const deletedChat = randomUUID();
 
-    const stillHeld = await kept(forTask(carryingOn), {
+    const stillArchived = await archived(forTask(carryingOn), {
       grantedAt: ago(30 * DAY),
-      sealedAt: ago(30 * DAY),
+      completedAt: ago(30 * DAY),
     });
-    const letGoLongAgo = await kept(forTask(finishedLongAgo), {
+    const releasedLongAgo = await archived(forTask(finishedLongAgo), {
       grantedAt: ago(10 * DAY),
-      sealedAt: ago(10 * DAY),
+      completedAt: ago(10 * DAY),
     });
-    const letGoLately = await kept(forTask(finishedLately), {
+    const releasedLately = await archived(forTask(finishedLately), {
       grantedAt: ago(10 * DAY),
-      sealedAt: ago(10 * DAY),
+      completedAt: ago(10 * DAY),
     });
-    const keptAtAnotherStation = await kept(forTask(movedOn), {
+    const archivedAtAnotherStation = await archived(forTask(movedOn), {
       grantedAt: ago(10 * DAY),
-      sealedAt: ago(10 * DAY),
+      completedAt: ago(10 * DAY),
     });
-    const ofAChatLetGo = await kept(
+    const releasedOfAChat = await archived(
       { kind: 'chat', chatId: ChatId.of(leftItsConversation) },
-      { grantedAt: ago(10 * DAY), sealedAt: ago(10 * DAY) },
+      { grantedAt: ago(10 * DAY), completedAt: ago(10 * DAY) },
     );
-    const ofADeletedTask = await kept(forTask(deleted), {
+    const ofADeletedTask = await archived(forTask(deleted), {
       grantedAt: ago(HOUR),
-      sealedAt: ago(HOUR),
+      completedAt: ago(HOUR),
     });
-    const ofADeletedChat = await kept(
+    const ofADeletedChat = await archived(
       { kind: 'chat', chatId: ChatId.of(deletedChat) },
-      { grantedAt: ago(HOUR), sealedAt: ago(HOUR) },
+      { grantedAt: ago(HOUR), completedAt: ago(HOUR) },
     );
-    const ofAChat = await kept(
+    const ofAChat = await archived(
       { kind: 'chat', chatId: ChatId.of(await aChat()) },
-      { grantedAt: ago(30 * DAY), sealedAt: ago(30 * DAY) },
+      { grantedAt: ago(30 * DAY), completedAt: ago(30 * DAY) },
     );
-    const neverSealed = await kept(forTask(carryingOn), {
+    const neverCompleted = await archived(forTask(carryingOn), {
       grantedAt: ago(2 * DAY),
     });
-    const stillUploading = await kept(forTask(carryingOn), {
+    const stillUploading = await archived(forTask(carryingOn), {
       grantedAt: ago(HOUR),
     });
 
     const due = await dueNow();
 
-    expect(due.get(letGoLongAgo.id.value)?.holder).toEqual({
+    expect(due.get(releasedLongAgo.id.value)?.holder).toEqual({
       kind: 'task',
       finished: true,
       changedAt: ago(9 * DAY),
     });
-    expect(due.get(ofAChatLetGo.id.value)?.holder).toEqual({
+    expect(due.get(releasedOfAChat.id.value)?.holder).toEqual({
       kind: 'chat',
       conversing: false,
       changedAt: ago(8 * DAY),
     });
     expect(due.get(ofADeletedTask.id.value)?.holder).toBeNull();
     expect(due.get(ofADeletedChat.id.value)?.holder).toBeNull();
-    expect(due.has(neverSealed.id.value)).toBe(true);
+    expect(due.has(neverCompleted.id.value)).toBe(true);
 
-    expect(due.has(stillHeld.id.value)).toBe(false);
-    expect(due.has(keptAtAnotherStation.id.value)).toBe(false);
-    expect(due.has(letGoLately.id.value)).toBe(false);
+    expect(due.has(stillArchived.id.value)).toBe(false);
+    expect(due.has(archivedAtAnotherStation.id.value)).toBe(false);
+    expect(due.has(releasedLately.id.value)).toBe(false);
     expect(due.has(ofAChat.id.value)).toBe(false);
     expect(due.has(stillUploading.id.value)).toBe(false);
 
     for (const id of [
-      letGoLongAgo,
-      ofAChatLetGo,
+      releasedLongAgo,
+      releasedOfAChat,
       ofADeletedTask,
       ofADeletedChat,
-      neverSealed,
+      neverCompleted,
     ]) {
       const archive = (await archives.find(id.id)) as WorkspaceArchive;
       const facts = due.get(id.id.value);
@@ -294,7 +294,7 @@ describe('keeping workspace archives', () => {
     }
   });
 
-  it('keeps an archive a task run started from for thirty days after the latest such start', async () => {
+  it('retains an archive a task run started from for thirty days after the latest such start', async () => {
     const startedFrom = async (archive: WorkspaceArchive, at: Date) => {
       await db.insert(schema.run).values({
         id: randomUUID(),
@@ -310,33 +310,33 @@ describe('keeping workspace archives', () => {
     };
     const finished = { finishedAt: ago(40 * DAY), updatedAt: ago(40 * DAY) };
 
-    const startedLately = await kept(forTask(await aTask(finished)), {
+    const startedLately = await archived(forTask(await aTask(finished)), {
       grantedAt: ago(40 * DAY),
-      sealedAt: ago(40 * DAY),
+      completedAt: ago(40 * DAY),
     });
     await startedFrom(startedLately, ago(35 * DAY));
     await startedFrom(startedLately, ago(5 * DAY));
 
-    const startedLongAgo = await kept(forTask(await aTask(finished)), {
+    const startedLongAgo = await archived(forTask(await aTask(finished)), {
       grantedAt: ago(40 * DAY),
-      sealedAt: ago(40 * DAY),
+      completedAt: ago(40 * DAY),
     });
     await startedFrom(startedLongAgo, ago(31 * DAY));
 
     const superseding = await aTask();
-    const supersededButStarted = await kept(forTask(superseding), {
+    const supersededButStarted = await archived(forTask(superseding), {
       grantedAt: ago(3 * HOUR),
-      sealedAt: ago(3 * HOUR),
+      completedAt: ago(3 * HOUR),
     });
-    await kept(forTask(superseding), {
+    await archived(forTask(superseding), {
       grantedAt: ago(2 * HOUR),
-      sealedAt: ago(2 * HOUR),
+      completedAt: ago(2 * HOUR),
     });
     await startedFrom(supersededButStarted, ago(DAY));
 
-    const ofADeletedTask = await kept(forTask(randomUUID()), {
+    const ofADeletedTask = await archived(forTask(randomUUID()), {
       grantedAt: ago(2 * DAY),
-      sealedAt: ago(2 * DAY),
+      completedAt: ago(2 * DAY),
     });
     await startedFrom(ofADeletedTask, ago(DAY));
 
@@ -362,24 +362,24 @@ describe('keeping workspace archives', () => {
     }
   });
 
-  it('lets go of an archive an hour after a newer one of the same work is sealed', async () => {
+  it('releases an archive an hour after a newer one of the same work is completed', async () => {
     const taskId = await aTask();
-    const superseded = await kept(forTask(taskId), {
+    const superseded = await archived(forTask(taskId), {
       grantedAt: ago(3 * HOUR),
-      sealedAt: ago(3 * HOUR),
+      completedAt: ago(3 * HOUR),
     });
-    const current = await kept(forTask(taskId), {
+    const current = await archived(forTask(taskId), {
       grantedAt: ago(2 * HOUR),
-      sealedAt: ago(2 * HOUR),
+      completedAt: ago(2 * HOUR),
     });
     const lately = await aTask();
-    const justSuperseded = await kept(forTask(lately), {
+    const justSuperseded = await archived(forTask(lately), {
       grantedAt: ago(HOUR),
-      sealedAt: ago(HOUR),
+      completedAt: ago(HOUR),
     });
-    await kept(forTask(lately), {
+    await archived(forTask(lately), {
       grantedAt: ago(10 * 60_000),
-      sealedAt: ago(10 * 60_000),
+      completedAt: ago(10 * 60_000),
     });
 
     const due = await dueNow();

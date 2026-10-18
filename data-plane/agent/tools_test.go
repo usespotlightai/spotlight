@@ -16,7 +16,7 @@ var commenting = protocol.ToolManifest{
 	Description: "Comment on the Linear issue this task came from.",
 	Inputs: []protocol.ToolInputManifest{
 		{Name: "issue", Schema: json.RawMessage(`{"type":"string"}`), Defaulted: true},
-		{Name: "body", Schema: json.RawMessage(`{"type":"string"}`), Description: "What to say", Required: true, Piped: true},
+		{Name: "body", Schema: json.RawMessage(`{"type":"string"}`), Description: "What to say", Required: true, Stdin: true},
 		{Name: "notify", Schema: json.RawMessage(`{"type":"boolean"}`)},
 	},
 }
@@ -40,7 +40,7 @@ func withTools(t *testing.T, answer string) (*channel, *map[string]any) {
 	carried := map[string]any{}
 	server.Tools([]string{"linear.comment", "linear.search"}, func(_ context.Context, name string, input json.RawMessage) (json.RawMessage, error) {
 		if name != "linear.comment" && name != "linear.search" {
-			t.Errorf("reached for %q", name)
+			t.Errorf("called %q", name)
 		}
 		if err := json.Unmarshal(input, &carried); err != nil {
 			t.Errorf("carried %s: %v", input, err)
@@ -56,7 +56,7 @@ func withTools(t *testing.T, answer string) (*channel, *map[string]any) {
 	return server, &carried
 }
 
-func TestListsTheToolsTheRunWasGiven(t *testing.T) {
+func TestListsTheToolsEnabledForTheRun(t *testing.T) {
 	withTools(t, `{}`)
 	out := new(bytes.Buffer)
 
@@ -76,7 +76,7 @@ func TestListsTheToolsTheRunWasGiven(t *testing.T) {
 		}
 	}
 	if strings.Contains(listed, "linear close") {
-		t.Errorf("listed a tool the run was not given: %q", listed)
+		t.Errorf("listed a tool not enabled for the run: %q", listed)
 	}
 }
 
@@ -93,10 +93,10 @@ func TestUsesAToolTypedAsTwoWords(t *testing.T) {
 		t.Errorf("carried %v", *carried)
 	}
 	if _, left := (*carried)["issue"]; left {
-		t.Errorf("carried an issue nobody gave, which the task is left to say: %v", *carried)
+		t.Errorf("carried an issue nobody supplied, which the task is left to say: %v", *carried)
 	}
 	if strings.TrimSpace(out.String()) != `"https://linear.app/acme/issue/ENG-12#comment-1"` {
-		t.Errorf("said %q, want the tool's output as JSON", out.String())
+		t.Errorf("output %q, want the tool's output as JSON", out.String())
 	}
 }
 
@@ -112,11 +112,11 @@ func TestUsesAToolByItsFullNameWithWhatIsPipedIn(t *testing.T) {
 		t.Errorf("carried %v", *carried)
 	}
 	if !strings.Contains(out.String(), `"url": "https://linear.app/c/1"`) {
-		t.Errorf("said %q, want the answer as indented JSON", out.String())
+		t.Errorf("output %q, want the answer as indented JSON", out.String())
 	}
 }
 
-func TestRefusesAFlagTheToolDoesNotTake(t *testing.T) {
+func TestRejectsAFlagTheToolDoesNotTake(t *testing.T) {
 	withTools(t, `{}`)
 
 	err := run([]string{"linear", "comment", "--isue", "ENG-1"}, strings.NewReader(""), new(bytes.Buffer))
@@ -125,25 +125,25 @@ func TestRefusesAFlagTheToolDoesNotTake(t *testing.T) {
 	}
 }
 
-func TestSaysWhichToolsThereAreForOneTheRunWasNotGiven(t *testing.T) {
+func TestSaysWhichToolsThereAreForOneNotEnabledForTheRun(t *testing.T) {
 	withTools(t, `{}`)
 
 	err := run([]string{"linear", "close"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "This run's tools:\nspotlight linear comment") {
-		t.Fatalf("err = %v, want the tools it was given", err)
+		t.Fatalf("err = %v, want the tools enabled for it", err)
 	}
 }
 
-func TestRefusesAToolUseMissingWhatItRequires(t *testing.T) {
+func TestRejectsAToolUseMissingWhatItRequires(t *testing.T) {
 	withTools(t, `{}`)
 
 	err := run([]string{"linear", "comment", "--notify"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "--body is required") {
-		t.Fatalf("err = %v, want it to ask for the body", err)
+		t.Fatalf("err = %v, want it to require the body", err)
 	}
 }
 
-func TestReadsAPipedInputFromStandardInputWhenNamed(t *testing.T) {
+func TestReadsTheStdinInputWhenNamedAsStandardInput(t *testing.T) {
 	for _, named := range []string{"/dev/stdin", "-"} {
 		t.Run(named, func(t *testing.T) {
 			_, carried := withTools(t, `{}`)
@@ -187,7 +187,7 @@ func TestReadsTheJSONObjectFromStandardInput(t *testing.T) {
 	}
 }
 
-func TestRefusesAPipedInputNamedWhenStandardInputCarriesTheJSON(t *testing.T) {
+func TestRejectsTheStdinInputNamedWhenStandardInputCarriesTheJSON(t *testing.T) {
 	withTools(t, `{}`)
 
 	args := []string{"linear", "comment", "--json", "-", "--body", "-"}
@@ -210,7 +210,7 @@ func TestAFlagOverridesTheJSONObjectsField(t *testing.T) {
 	}
 }
 
-func TestCarriesFlagsAsTheTextGiven(t *testing.T) {
+func TestCarriesFlagsAsTheTextTyped(t *testing.T) {
 	_, carried := withTools(t, `{}`)
 
 	args := []string{"linear", "search", "--team_id", "ENG", "--first", "10", "--filter", `{"state":"open"}`}
@@ -219,24 +219,24 @@ func TestCarriesFlagsAsTheTextGiven(t *testing.T) {
 	}
 
 	if (*carried)["first"] != "10" || (*carried)["filter"] != `{"state":"open"}` {
-		t.Errorf("carried %v, want the number and the object as the text given", *carried)
+		t.Errorf("carried %v, want the number and the object as the text typed", *carried)
 	}
 }
 
-func TestRefusesJSONThatIsNotAnObject(t *testing.T) {
-	for _, given := range []string{`["ENG"]`, `null`, `{"team_id":`} {
-		t.Run(given, func(t *testing.T) {
+func TestRejectsJSONThatIsNotAnObject(t *testing.T) {
+	for _, input := range []string{`["ENG"]`, `null`, `{"team_id":`} {
+		t.Run(input, func(t *testing.T) {
 			withTools(t, `{}`)
 
-			err := run([]string{"linear", "search", "--json", given}, strings.NewReader(""), new(bytes.Buffer))
+			err := run([]string{"linear", "search", "--json", input}, strings.NewReader(""), new(bytes.Buffer))
 			if err == nil || !strings.Contains(err.Error(), "--json takes one JSON object") {
-				t.Fatalf("err = %v, want it to ask for a JSON object", err)
+				t.Fatalf("err = %v, want it to require a JSON object", err)
 			}
 		})
 	}
 }
 
-func TestRefusesAValueAfterASwitch(t *testing.T) {
+func TestRejectsAValueAfterASwitch(t *testing.T) {
 	_, carried := withTools(t, `{}`)
 
 	args := []string{"linear", "comment", "--notify", "false", "--body", "Fixed."}
@@ -249,7 +249,7 @@ func TestRefusesAValueAfterASwitch(t *testing.T) {
 	}
 }
 
-func TestRefusesAStrayArgument(t *testing.T) {
+func TestRejectsAStrayArgument(t *testing.T) {
 	withTools(t, `{}`)
 
 	err := run([]string{"linear", "comment", "--body", "Fixed.", "again"}, strings.NewReader(""), new(bytes.Buffer))
@@ -287,7 +287,7 @@ func TestSummarisesMoreThanThirtyToolsByIntegration(t *testing.T) {
 	listed := listing(manyTools(31))
 
 	for _, want := range []string{
-		"This run was given 31 tools, too many to list:",
+		"This run has 31 tools enabled, too many to list:",
 		"  Petstore  11\n",
 		"  Linear  20\n",
 		`spotlight tools search "<words>"`,
@@ -311,12 +311,12 @@ func TestSummarisesSpotlightsOwnToolsUnderSpotlight(t *testing.T) {
 }
 
 func TestPrintsATextAnswerAsJSON(t *testing.T) {
-	if said := readable(`{"output":"done \"now\""}`); said != `"done \"now\""` {
-		t.Errorf("said %s, want the text as a JSON string", said)
+	if output := readable(`{"output":"done \"now\""}`); output != `"done \"now\""` {
+		t.Errorf("output %s, want the text as a JSON string", output)
 	}
 }
 
-func TestRefusesAToolsCommandThereIsNot(t *testing.T) {
+func TestRejectsAToolsCommandThereIsNot(t *testing.T) {
 	withTools(t, `{}`)
 
 	err := run([]string{"tools", "find", "issue"}, strings.NewReader(""), new(bytes.Buffer))
@@ -326,9 +326,9 @@ func TestRefusesAToolsCommandThereIsNot(t *testing.T) {
 }
 
 func TestPrintsOnlyTheOutputOfAnAnswerThatSaysWhoItActedAs(t *testing.T) {
-	said := readable(`{"output":{"id":"ENG-1"},"actingAs":{"holder":"user_1","personId":"user_1"}}`)
+	output := readable(`{"output":{"id":"ENG-1"},"actingAs":{"actsAs":"requester","personId":"user_1"}}`)
 
-	if said != "{\n  \"id\": \"ENG-1\"\n}" {
-		t.Errorf("said %s, want only the output", said)
+	if output != "{\n  \"id\": \"ENG-1\"\n}" {
+		t.Errorf("output %s, want only the output", output)
 	}
 }

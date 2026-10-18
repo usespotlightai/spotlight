@@ -9,47 +9,47 @@ interface CatalogToolInputShape {
   readonly description: string | null;
   readonly required: boolean;
   readonly defaulted: boolean;
-  readonly piped: boolean;
+  readonly stdin: boolean;
 }
 
-export interface CatalogToolGiven {
+export interface CatalogToolEntitled {
   readonly id: string;
   readonly description: string;
   readonly inputs: readonly CatalogToolInputShape[];
 }
 
-export interface CatalogSkillGiven {
+export interface CatalogSkillEntitled {
   readonly id: string;
   readonly description: string;
   readonly files: readonly { readonly path: string; readonly text: string }[];
   readonly tools: readonly string[];
 }
 
-export type CatalogRefusalReason =
+export type CatalogDenialReason =
   | 'unknown'
   | 'wrong-kind'
   | 'not-entitled'
-  | 'lapsed';
+  | 'expired';
 
-export interface CatalogRefusal {
+export interface CatalogDenial {
   readonly id: string;
-  readonly reason: CatalogRefusalReason;
+  readonly reason: CatalogDenialReason;
   readonly because: string;
 }
 
-export interface CatalogNamed {
+export interface CatalogRequest {
   readonly tools: readonly string[];
   readonly skills: readonly string[];
 }
 
-export interface CatalogGiving {
-  readonly tools: readonly CatalogToolGiven[];
-  readonly skills: readonly CatalogSkillGiven[];
-  readonly refused: readonly CatalogRefusal[];
+export interface EntitledItems {
+  readonly tools: readonly CatalogToolEntitled[];
+  readonly skills: readonly CatalogSkillEntitled[];
+  readonly denied: readonly CatalogDenial[];
 }
 
 export type CatalogInputValues = Readonly<Record<string, JsonValue>>;
 
-export type CatalogCallAnswer =
+export type CatalogCallResult =
   | { readonly kind: 'answered'; readonly output: unknown }
-  | { readonly kind: 'refused'; readonly refusal: CatalogRefusal };
+  | { readonly kind: 'denied'; readonly denial: CatalogDenial };

@@ -8,26 +8,26 @@ const BURST = PoolId.of('burst');
 const until = new Date('2026-09-24T12:05:00.000Z');
 
 describe('RunnerReservation', () => {
-  it('holds until the moment it runs out', () => {
+  it('is active until the moment it runs out', () => {
     const reservation = RunnerReservation.of(
       RunnerId.of('runner_1'),
       BURST,
       until,
     );
 
-    expect(reservation.holdsAt(new Date(until.getTime() - 1))).toBe(true);
-    expect(reservation.holdsAt(until)).toBe(false);
+    expect(reservation.isActiveAt(new Date(until.getTime() - 1))).toBe(true);
+    expect(reservation.isActiveAt(until)).toBe(false);
   });
 
-  it('is held for the runner it names and no other', () => {
+  it('is for the runner it names and no other', () => {
     const reservation = RunnerReservation.of(
       RunnerId.of('runner_1'),
       BURST,
       until,
     );
 
-    expect(reservation.heldFor(RunnerId.of('runner_1'))).toBe(true);
-    expect(reservation.heldFor(RunnerId.of('runner_2'))).toBe(false);
+    expect(reservation.isFor(RunnerId.of('runner_1'))).toBe(true);
+    expect(reservation.isFor(RunnerId.of('runner_2'))).toBe(false);
   });
 
   it('gives the runner five minutes to claim from when it is reserved', () => {

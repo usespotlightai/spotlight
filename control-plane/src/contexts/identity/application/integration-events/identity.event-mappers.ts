@@ -1,34 +1,34 @@
 import type { TeamCreated } from '@identity/domain/events/team-created.event';
-import type { TeamDisbanded } from '@identity/domain/events/team-disbanded.event';
-import type { WorkspaceClosed } from '@identity/domain/events/workspace-closed.event';
+import type { TeamDeleted } from '@identity/domain/events/team-deleted.event';
+import type { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
 import {
   TEAM_CREATED,
   type TeamCreatedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/team-created.integration-event';
 import {
-  TEAM_DISBANDED,
-  type TeamDisbandedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
+  TEAM_DELETED,
+  type TeamDeletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import {
-  WORKSPACE_CLOSED,
-  type WorkspaceClosedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/workspace-closed.integration-event';
+  WORKSPACE_DELETED,
+  type WorkspaceDeletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 
 export const IDENTITY_EVENT_MAPPERS = [
-  mapping<TeamDisbanded>(
-    'team.disbanded',
-    (event): TeamDisbandedIntegrationEvent => ({
-      kind: TEAM_DISBANDED,
+  mapping<TeamDeleted>(
+    'team.deleted',
+    (event): TeamDeletedIntegrationEvent => ({
+      kind: TEAM_DELETED,
       workspaceId: event.workspaceId.value,
       teamId: event.teamId.value,
       key: event.key.value,
     }),
   ),
-  mapping<WorkspaceClosed>(
-    'workspace.closed',
-    (event): WorkspaceClosedIntegrationEvent => ({
-      kind: WORKSPACE_CLOSED,
+  mapping<WorkspaceDeleted>(
+    'workspace.deleted',
+    (event): WorkspaceDeletedIntegrationEvent => ({
+      kind: WORKSPACE_DELETED,
       workspaceId: event.workspaceId.value,
       slug: event.slug.value,
     }),
@@ -39,7 +39,7 @@ export const IDENTITY_EVENT_MAPPERS = [
       kind: TEAM_CREATED,
       workspaceId: event.workspaceId.value,
       teamId: event.teamId.value,
-      ownerId: event.openedBy.value,
+      ownerId: event.createdBy.value,
       origin: event.origin,
     }),
   ),

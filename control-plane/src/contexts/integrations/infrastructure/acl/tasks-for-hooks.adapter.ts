@@ -1,25 +1,25 @@
 import type {
-  HookedTask,
   TasksForHooksPort,
+  TaskView,
 } from '@integrations/application/ports/tasks-for-hooks.port';
-import { HookedTaskMapper } from '@integrations/infrastructure/acl/hooked-task.mapper';
-import type { HookedTasksPort } from '@work/application/ports/hooked-tasks.port';
+import { TaskViewMapper } from '@integrations/infrastructure/acl/task-view.mapper';
+import type { TaskViewsPort } from '@work/application/ports/task-views.port';
 
 export class TasksForHooks implements TasksForHooksPort {
-  constructor(private readonly tasks: HookedTasksPort) {}
+  constructor(private readonly tasks: TaskViewsPort) {}
 
-  async of(taskId: string, runId: string | null): Promise<HookedTask | null> {
+  async of(taskId: string, runId: string | null): Promise<TaskView | null> {
     const task = await this.tasks.of(taskId, runId);
 
-    return task ? HookedTaskMapper.toHooked(task) : null;
+    return task ? TaskViewMapper.toView(task) : null;
   }
 
   async ofPullRequest(
     workspaceId: string,
     pullRequest: string,
-  ): Promise<HookedTask | null> {
+  ): Promise<TaskView | null> {
     const task = await this.tasks.ofPullRequest(workspaceId, pullRequest);
 
-    return task ? HookedTaskMapper.toHooked(task) : null;
+    return task ? TaskViewMapper.toView(task) : null;
   }
 }

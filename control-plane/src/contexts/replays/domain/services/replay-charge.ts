@@ -1,8 +1,8 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
-import type { Spend } from '@replays/domain/value-objects/spend.vo';
+import type { Money } from '@replays/domain/value-objects/money.vo';
 
 export interface ReplayCharge {
-  readonly spent: Spend;
+  readonly spent: Money;
   readonly unpriced: number;
 }
 

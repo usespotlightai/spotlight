@@ -12,19 +12,19 @@ import type {
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
-import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
+import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import {
+  callingNoServer,
   discoveringNothing,
-  reachingNoServer,
 } from '@integrations/integrations.mcp.fake-spec';
 import {
+  callAuthFor,
   injecting,
-  reachFor,
 } from '@integrations/integrations.secrets.fake-spec';
 import { WebInboxLinks } from '@integrations/presentation/http/web-inbox-links';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
-import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
+import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import { describe, expect, it, vi } from 'vitest';
 
 const expressions = new CelExpressionEngine();
@@ -35,12 +35,12 @@ const runtimeWith = (
   clients: OAuth2ClientsPort = clientsFrom(),
 ) =>
   new CompiledIntegrationRuntime(
-    new IntegrationReader(expressions, operationsHolding()),
+    new IntegrationReader(expressions, operationsContaining()),
     outbound as HttpOutbound,
     clients,
     exchange as OAuth2Exchange,
     discoveringNothing(),
-    reachingNoServer(),
+    callingNoServer(),
   );
 
 const _NOW = new Date('2026-09-07T10:00:00.000Z');
@@ -66,14 +66,14 @@ ${headers}      body: '\${{ {"channel": target.channel, "thread_ts": target.thre
         success: '\${{ response.ok }}'
 on:
   task.opened:
-    do: acknowledge
+    action: acknowledge
     to:
       channel: '\${{ task.marks["slack.channel"] }}'
       thread: '\${{ task.marks["slack.thread"] }}'
     routes:
       delivery: C0DELIVERY
   task.asked:
-    do: post-message
+    action: post-message
     to:
       channel: '\${{ task.marks["slack.channel"] }}'
       thread: '\${{ task.marks["slack.thread"] }}'
@@ -91,7 +91,7 @@ const READS_A_SECRET = `      auth:
 const asked = (
   marks: Record<string, string> = {},
   awaitsApproval = false,
-): BoundTaskDto => ({
+): IntegrationTaskViewDto => ({
   taskId: 'task_1',
   workspaceId: 'ws_1',
   teamId: 'team_1',
@@ -101,7 +101,7 @@ const asked = (
   marks,
   waiting: {
     conversationId: 'task_1:1',
-    said: 'Which queue should I drain?',
+    body: 'Which queue should I drain?',
     awaitsApproval,
   },
 });
@@ -129,7 +129,7 @@ const notifying = (
       ofTeam: vi.fn(async () => [defined(file)]),
     } as unknown as DefinedIntegrationsPort,
     runtimeWith({ run } as unknown as HttpOutbound),
-    reachFor(injection),
+    callAuthFor(injection),
     new WebInboxLinks(
       { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
       'https://app.example',
@@ -156,7 +156,7 @@ describe('TaskNotices', () => {
     expect(action.ask.link).toContain('/w/acme/inbox/task_1:');
   });
 
-  it('tells a host where to approve or reject a tool call, since it cannot be decided there', async () => {
+  it('tells the service where to approve or reject a tool call, since it cannot be decided there', async () => {
     const { notifier, run } = notifying();
 
     await notifier.notify(asked({}, true), 'task.asked');
@@ -185,14 +185,14 @@ describe('TaskNotices', () => {
   it('hands back the thread it captured, for the caller to record', async () => {
     const { notifier } = notifying();
 
-    const kept = await notifier.notify(asked(), 'task.asked');
+    const marks = await notifier.notify(asked(), 'task.asked');
 
-    expect(kept.map((each) => `${each.kind}:${each.value}`)).toContain(
+    expect(marks.map((each) => `${each.kind}:${each.value}`)).toContain(
       'slack.thread:170.9',
     );
   });
 
-  it('keeps nothing where the host refuses the post', async () => {
+  it('stores no marks where the service answers the post with an error', async () => {
     const { notifier } = notifying({
       ok: false,
       status: 200,
@@ -203,7 +203,7 @@ describe('TaskNotices', () => {
     expect(await notifier.notify(asked(), 'task.asked')).toEqual([]);
   });
 
-  it('lets the post wear the workspace’s secrets as Spotlight’s own', async () => {
+  it('lets the post inject the workspace’s secrets as Spotlight’s own', async () => {
     const { injection, forSpotlight } = injecting({
       SLACK_BOT_TOKEN: { host: 'slack.com', value: 'xoxb-1' },
     });
@@ -216,7 +216,7 @@ describe('TaskNotices', () => {
     await notifier.notify(asked({ 'slack.thread': '170.1' }), 'task.asked');
 
     const credentials = run.mock.calls[0]?.[2] as Credentials;
-    await credentials.wornToward('https://slack.com/api/chat.postMessage', [
+    await credentials.injectedFor('https://slack.com/api/chat.postMessage', [
       'SLACK_BOT_TOKEN',
     ]);
 

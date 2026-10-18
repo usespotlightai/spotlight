@@ -1,5 +1,5 @@
 export class ReplayVersionConflictError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(replayId: string) {
     super(

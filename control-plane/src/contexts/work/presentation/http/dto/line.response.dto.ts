@@ -11,7 +11,7 @@ export class StationJudgeResponseDto {
   @ApiProperty({
     type: String,
     nullable: true,
-    example: 'A good run changes only what the task asks for.',
+    example: 'A good run changes only what the task requests.',
     description:
       'What a good run looks like, in Markdown. Null when the judge goes by its claims alone',
   })
@@ -30,7 +30,7 @@ export class StationJudgeResponseDto {
     description:
       'The share of claims a run must meet to pass, from 0 to 1. 1 means every claim',
   })
-  readonly passShare: number;
+  readonly passThreshold: number;
 
   @ApiProperty({
     example: 0.2,
@@ -43,14 +43,14 @@ export class StationJudgeResponseDto {
     description:
       'How often the judge must agree with people, from 0 to 1, before its scores show',
   })
-  readonly trust: number;
+  readonly minAgreement: number;
 
   constructor(judge: StationJudgeSummary) {
     this.rubric = judge.rubric;
     this.claims = [...judge.claims];
-    this.passShare = judge.passShare;
+    this.passThreshold = judge.passThreshold;
     this.sample = judge.sample;
-    this.trust = judge.trust;
+    this.minAgreement = judge.minAgreement;
   }
 }
 
@@ -114,7 +114,7 @@ export class StationResponseDto {
   @ApiProperty({
     example: 'triage',
     description:
-      'What the station is called in its line definition, and what a run hands a task on to it by',
+      'What the station is called in its line definition, and what a run passes a task to it by',
   })
   readonly key: string;
 
@@ -156,7 +156,7 @@ export class StationResponseDto {
     nullable: true,
     type: String,
     description:
-      'How hard the harness is told to think. Null leaves its own default.',
+      'How hard the harness must think. Null leaves its own default.',
   })
   readonly effort: string | null;
 
@@ -195,7 +195,7 @@ export class StationResponseDto {
     example: ['our-migrations'],
     isArray: true,
     type: String,
-    description: 'The team’s own skills given to a run here',
+    description: 'The team’s own skills enabled for a run here',
   })
   readonly skills: string[];
 
@@ -241,7 +241,7 @@ export class ReactionResponseDto {
     nullable: true,
     type: String,
     description:
-      'Where the task must stand for this to count. Null is wherever it is.',
+      'The station where the task must be for this to count. Null means any station.',
   })
   readonly from: string | null;
 
@@ -258,14 +258,14 @@ export class ReactionResponseDto {
 export class LineSourceResponseDto {
   @ApiProperty({
     example: 'acme/platform',
-    description: 'The GitHub repository that holds the line’s Terraform',
+    description: 'The GitHub repository that contains the line’s Terraform',
   })
   readonly repository: string;
 
   @ApiProperty({
     example: 'teams/core/delivery.tf',
     description:
-      'The Terraform file in it that holds the line, from the repository root',
+      'The Terraform file in it that contains the line, from the repository root',
   })
   readonly path: string;
 

@@ -11,12 +11,21 @@ export const RUN_FAILURES = {
   refused: Retry.never(),
   unprovisioned: Retry.never(),
   'hooks-unanswered': Retry.backoff({
-    max: 6,
-    firstMs: 5_000,
-    longestMs: 120_000,
+    maxAttempts: 6,
+    initialDelayMs: 5_000,
+    maxDelayMs: 120_000,
   }),
-  'runner-lost': Retry.backoff({ max: 3, firstMs: 0, longestMs: 0 }),
-  'timed-out': Retry.backoff({ max: 3, firstMs: 0, longestMs: 0 }),
+  'runner-lost': Retry.backoff({
+    maxAttempts: 3,
+    initialDelayMs: 0,
+    maxDelayMs: 0,
+  }),
+  'timed-out': Retry.backoff({
+    maxAttempts: 3,
+    initialDelayMs: 0,
+    maxDelayMs: 0,
+  }),
+  cancelled: Retry.never(),
   superseded: Retry.never(),
 } as const satisfies Record<RunFailureCode, Retry>;
 
@@ -33,6 +42,10 @@ export class RunFailure {
 
   get retry(): Retry {
     return RUN_FAILURES[this.code];
+  }
+
+  get cancelled(): boolean {
+    return this.code === 'cancelled';
   }
 
   get superseded(): boolean {

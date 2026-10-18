@@ -1,43 +1,43 @@
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { ForgetRunConnections } from '@work/application/services/forget-run-connections.service';
+import type { PurgeRunConnections } from '@work/application/services/purge-run-connections.service';
 
-const FORGET_EVERY_MS = 60 * 60 * 1000;
+const PURGE_EVERY_MS = 60 * 60 * 1000;
 
 @Injectable()
 export class RunConnectionsWorker implements OnModuleDestroy {
-  #forgetting: Promise<void> | null = null;
+  #purging: Promise<void> | null = null;
   #stopped = false;
 
   constructor(
-    private readonly forgetting: ForgetRunConnections,
+    private readonly purging: PurgeRunConnections,
     private readonly logger: LoggerPort,
   ) {}
 
   async onModuleDestroy(): Promise<void> {
     this.#stopped = true;
-    await this.#forgetting;
+    await this.#purging;
   }
 
-  @Interval(FORGET_EVERY_MS)
-  async forget(): Promise<void> {
-    if (this.#forgetting || this.#stopped) {
+  @Interval(PURGE_EVERY_MS)
+  async purge(): Promise<void> {
+    if (this.#purging || this.#stopped) {
       return;
     }
 
-    this.#forgetting = this.forgotten();
-    await this.#forgetting;
-    this.#forgetting = null;
+    this.#purging = this.purgeOnce();
+    await this.#purging;
+    this.#purging = null;
   }
 
-  private async forgotten(): Promise<void> {
+  private async purgeOnce(): Promise<void> {
     try {
-      await this.forgetting.forget();
+      await this.purging.purge();
     } catch (error) {
       this.logger.error(
         { err: error },
-        'Forgetting connection records older than 30 days failed',
+        'Purging connection records older than 30 days failed',
       );
     }
   }

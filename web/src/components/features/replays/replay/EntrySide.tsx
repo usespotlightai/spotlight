@@ -1,8 +1,8 @@
-import { Noted } from '@/components/shared/Noted';
-import { copiesTally, RESULT_INK, type ReplayEntry } from '@/lib/replay';
+import { WithTooltip } from '@/components/shared/WithTooltip';
+import { RESULT_INK, type ReplayEntry, repeatsTally } from '@/lib/replay';
 import {
-  formatCopy,
   formatReason,
+  formatRepeat,
   formatResult,
   NOT_SCORED_YET,
 } from '@/lib/replay-words';
@@ -11,16 +11,16 @@ import { cn } from '@/lib/utils';
 const reasonsOf = (entry: ReplayEntry): string =>
   entry.reasons.map(formatReason).join(' · ');
 
-const copyNote = (entry: ReplayEntry): string => {
+const repeatNote = (entry: ReplayEntry): string => {
   const reasons = reasonsOf(entry);
 
-  return `${formatCopy(entry.repeat)}: ${formatResult(entry.result)}${reasons ? ` (${reasons})` : ''}`;
+  return `${formatRepeat(entry.repeat)}: ${formatResult(entry.result)}${reasons ? ` (${reasons})` : ''}`;
 };
 
-export function EntrySide({ copies }: { copies: readonly ReplayEntry[] }) {
-  const [only] = copies;
+export function EntrySide({ repeats }: { repeats: readonly ReplayEntry[] }) {
+  const [only] = repeats;
 
-  if (copies.length === 1 && only) {
+  if (repeats.length === 1 && only) {
     const reasons = reasonsOf(only);
     const word = (
       <span
@@ -31,19 +31,19 @@ export function EntrySide({ copies }: { copies: readonly ReplayEntry[] }) {
       </span>
     );
 
-    return reasons ? <Noted note={reasons}>{word}</Noted> : word;
+    return reasons ? <WithTooltip tooltip={reasons}>{word}</WithTooltip> : word;
   }
 
-  const { succeeded, scored } = copiesTally(copies);
+  const { succeeded, scored } = repeatsTally(repeats);
 
   return (
-    <Noted note={copies.map(copyNote).join(' · ')}>
+    <WithTooltip tooltip={repeats.map(repeatNote).join(' · ')}>
       <span
         data-slot="entry-side"
         className="relative z-10 font-medium text-foreground tabular-nums"
       >
         {scored === 0 ? NOT_SCORED_YET : `${succeeded} of ${scored} succeeded`}
       </span>
-    </Noted>
+    </WithTooltip>
   );
 }

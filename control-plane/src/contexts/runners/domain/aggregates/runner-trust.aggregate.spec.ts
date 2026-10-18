@@ -1,16 +1,16 @@
 import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
-import { RunnerTrustKeyFixedError } from '@runners/domain/exceptions/runner-trust-key-fixed.error';
 import { RunnerTrustVersionConflictError } from '@runners/domain/exceptions/runner-trust-version-conflict.error';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const BY = attributedIn('ws_1');
+const BY = changeActorIn('ws_1');
 
 const ISSUER = 'https://oidc.example.com/cluster';
 const SUBJECT = 'system:serviceaccount:spotlight:runner';
@@ -18,8 +18,8 @@ const SUBJECT = 'system:serviceaccount:spotlight:runner';
 const workload = (subject = SUBJECT) =>
   TrustedWorkload.of({ issuer: ISSUER, subject, audience: 'spotlight' });
 
-const defined = () =>
-  RunnerTrust.define({
+const created = () =>
+  RunnerTrust.create({
     id: RunnerTrustId.of('trust_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     key: TrustKey.of('production'),
@@ -28,8 +28,8 @@ const defined = () =>
     by: BY,
   });
 
-const standing = () => {
-  const trust = defined();
+const persisted = () => {
+  const trust = created();
   trust.pullEvents();
   return trust;
 };
@@ -38,73 +38,73 @@ const kinds = (trust: RunnerTrust) =>
   trust.pullEvents().map((each) => each.kind);
 
 describe('RunnerTrust', () => {
-  it('says it was defined', () => {
-    expect(kinds(defined())).toEqual(['runner-trust.defined']);
+  it('says it was created', () => {
+    expect(kinds(created())).toEqual(['runner-trust.created']);
   });
 
-  it('admits a token from its issuer, for its subject and audience', () => {
+  it('matches a token from its issuer, for its subject and audience', () => {
     expect(
-      standing().admits({
+      persisted().matches({
         issuer: ISSUER,
         subject: SUBJECT,
         audiences: ['sts.amazonaws.com', 'spotlight'],
-        named: {},
+        customClaims: {},
       }),
     ).toBe(true);
   });
 
-  it('admits no token issued elsewhere, to another workload or for another audience', () => {
-    const trust = standing();
+  it('matches no token issued elsewhere, to another workload or for another audience', () => {
+    const trust = persisted();
 
     expect(
-      trust.admits({
+      trust.matches({
         issuer: 'https://elsewhere.example.com',
         subject: SUBJECT,
         audiences: ['spotlight'],
-        named: {},
+        customClaims: {},
       }),
     ).toBe(false);
     expect(
-      trust.admits({
+      trust.matches({
         issuer: ISSUER,
         subject: 'system:serviceaccount:default:default',
         audiences: ['spotlight'],
-        named: {},
+        customClaims: {},
       }),
     ).toBe(false);
     expect(
-      trust.admits({
+      trust.matches({
         issuer: ISSUER,
         subject: SUBJECT,
         audiences: ['other'],
-        named: {},
+        customClaims: {},
       }),
     ).toBe(false);
   });
 
-  it('admits nothing once withdrawn, and says it was withdrawn', () => {
-    const withdrawn = standing().withdraw(BY);
+  it('matches nothing once deleted, and says it was deleted', () => {
+    const deleted = persisted().delete(BY);
 
     expect(
-      withdrawn.admits({
+      deleted.matches({
         issuer: ISSUER,
         subject: SUBJECT,
         audiences: ['spotlight'],
-        named: {},
+        customClaims: {},
       }),
     ).toBe(false);
-    expect(kinds(withdrawn)).toEqual(['runner-trust.withdrawn']);
-    expect(() => withdrawn.withdraw(BY)).toThrow(InconsistentStateError);
+    expect(kinds(deleted)).toEqual(['runner-trust.deleted']);
+    expect(() => deleted.delete(BY)).toThrow(InconsistentStateError);
   });
 
-  it('lets runners start through it only by pulling, and only while it stands', () => {
-    expect(standing().startVerdict('pull')).toBe('open');
-    expect(standing().startVerdict('push')).toBe('gone');
-    expect(standing().withdraw(BY).startVerdict('pull')).toBe('gone');
+  it('lets runners start through it only by pulling, and only while it is not deleted', () => {
+    expect(persisted().capacity('pull')).toBe('open');
+    expect(persisted().capacity('push')).toBe('gone');
+    expect(persisted().delete(BY).capacity('pull')).toBe('gone');
   });
 
   it('takes another workload and labels under the same key', () => {
-    const redefined = standing().redefinedAs(
+    const updated = persisted().update(
       {
         key: TrustKey.of('production'),
         workload: workload('system:serviceaccount:spotlight:other'),
@@ -113,15 +113,15 @@ describe('RunnerTrust', () => {
       BY,
     );
 
-    expect(redefined.workload.subject).toBe(
+    expect(updated.workload.subject).toBe(
       'system:serviceaccount:spotlight:other',
     );
-    expect(kinds(redefined)).toEqual(['runner-trust.redefined']);
+    expect(kinds(updated)).toEqual(['runner-trust.updated']);
   });
 
   it('keeps its key for its whole life', () => {
     expect(() =>
-      standing().redefinedAs(
+      persisted().update(
         {
           key: TrustKey.of('staging'),
           workload: workload(),
@@ -129,11 +129,11 @@ describe('RunnerTrust', () => {
         },
         BY,
       ),
-    ).toThrow(RunnerTrustKeyFixedError);
+    ).toThrow(ImmutableFieldError);
   });
 
-  it('refuses a change to a version no longer current', () => {
-    expect(() => standing().assertVersion(3)).toThrow(
+  it('rejects a change to a version no longer current', () => {
+    expect(() => persisted().assertVersion(3)).toThrow(
       RunnerTrustVersionConflictError,
     );
   });

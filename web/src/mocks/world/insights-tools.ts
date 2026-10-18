@@ -45,19 +45,19 @@ const trendOf = (
   ) {
     return null;
   }
-  const usedShare = (some: readonly HistoryRun[]) =>
+  const usedRate = (some: readonly HistoryRun[]) =>
     some.filter((run) => run.skillsUsed.includes(skill)).length / some.length;
-  const moved = (usedShare(latest) - usedShare(earlier)) * 100;
+  const moved = (usedRate(latest) - usedRate(earlier)) * 100;
 
   return moved >= TREND_RULE.shiftPoints
-    ? 'spreading'
+    ? 'rising'
     : moved <= -TREND_RULE.shiftPoints
-      ? 'fading'
-      : 'steady';
+      ? 'falling'
+      : 'flat';
 };
 
 const touches = (run: HistoryRun, skill: string): boolean =>
-  run.skillsGiven.includes(skill) || run.skillsUsed.includes(skill);
+  run.skillsEnabled.includes(skill) || run.skillsUsed.includes(skill);
 
 const skillOf = (
   runs: readonly HistoryRun[],
@@ -66,7 +66,7 @@ const skillOf = (
   defined: readonly string[],
 ): SkillReportResponseDto => {
   const countOf = (some: readonly HistoryRun[]) => ({
-    given: some.filter((run) => run.skillsGiven.includes(skill)).length,
+    enabled: some.filter((run) => run.skillsEnabled.includes(skill)).length,
     used: some.filter((run) => run.skillsUsed.includes(skill)).length,
   });
   const stations = distinct(
@@ -84,7 +84,7 @@ const skillOf = (
         week,
         runs: inWeek.length,
         ...counted,
-        usedShare: shareOf(counted.used, inWeek.length),
+        usedRate: shareOf(counted.used, inWeek.length),
       };
     }),
     trend: trendOf(runs, weeks, skill),
@@ -127,7 +127,7 @@ const serverOf = (
     failedCalls,
     errorRate: shareOf(failedCalls, total),
     failingRuns: calls.filter((call) => call.failed > 0).length,
-    refused: calls.filter((call) => call.refused !== null).length,
+    dismissed: calls.filter((call) => call.dismissed !== null).length,
   };
 };
 
@@ -140,11 +140,11 @@ export const toolsOf = (
   const weeks = mondaysOf(span);
   const defined = DEFINED[teamId] ?? [];
   const seen = distinct(
-    runs.flatMap((run) => [...run.skillsGiven, ...run.skillsUsed]),
+    runs.flatMap((run) => [...run.skillsEnabled, ...run.skillsUsed]),
   );
-  const refusals = runs.flatMap((run) =>
+  const dismissals = runs.flatMap((run) =>
     run.calls.flatMap((call) =>
-      call.refused ? [{ tool: call.refused, server: call.server }] : [],
+      call.dismissed ? [{ tool: call.dismissed, server: call.server }] : [],
     ),
   );
 
@@ -164,12 +164,12 @@ export const toolsOf = (
     )
       .map((server) => serverOf(runs, server))
       .sort((one, other) => other.calls - one.calls),
-    refusals: distinct(refusals.map((each) => each.tool))
+    dismissals: distinct(dismissals.map((each) => each.tool))
       .map((tool) => ({
         tool,
-        server: refusals.find((each) => each.tool === tool)?.server ?? null,
-        refused: refusals.filter((each) => each.tool === tool).length,
+        server: dismissals.find((each) => each.tool === tool)?.server ?? null,
+        dismissed: dismissals.filter((each) => each.tool === tool).length,
       }))
-      .sort((one, other) => other.refused - one.refused),
+      .sort((one, other) => other.dismissed - one.dismissed),
   };
 };

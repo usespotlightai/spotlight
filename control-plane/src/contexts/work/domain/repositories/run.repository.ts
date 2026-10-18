@@ -1,7 +1,7 @@
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
@@ -12,7 +12,7 @@ export interface Claimant {
   readonly runner: RunnerId;
   readonly workspaceId: WorkspaceId;
   readonly harnesses: readonly HarnessId[];
-  readonly terms: RunnerTerms;
+  readonly offer: RunnerOffer;
   readonly claims: Claims;
 }
 
@@ -21,14 +21,14 @@ export interface RunExtras {
 }
 
 export interface RunRepository {
-  add(run: Run, kept?: RunExtras): Promise<void>;
+  add(run: Run, extras?: RunExtras): Promise<void>;
 
   // Must be atomic and follow ClaimOrder. Two runners must never claim the same run.
   claimNext(by: Claimant, now: Date): Promise<Run | null>;
 
   findById(id: RunId): Promise<Run | null>;
 
-  lapsedClaims(now: Date): Promise<readonly Run[]>;
+  expiredLeases(now: Date): Promise<readonly Run[]>;
 
   claimedBy(runner: RunnerId): Promise<readonly Run[]>;
 
@@ -44,7 +44,7 @@ export interface RunRepository {
     },
   ): Promise<readonly Run[]>;
 
-  withLapsedReservations(now: Date): Promise<readonly Run[]>;
+  withExpiredReservations(now: Date): Promise<readonly Run[]>;
 
   save(run: Run): Promise<void>;
 }

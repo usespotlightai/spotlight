@@ -3,7 +3,7 @@ import { InvalidRunOutcomeError } from '@work/domain/exceptions/invalid-run-outc
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 
 export interface RefusalReason {
-  readonly saying: string;
+  readonly description: string;
 }
 
 export class RunOutcome {
@@ -17,7 +17,7 @@ export class RunOutcome {
   static of(input: {
     exitCode: number;
     failed: boolean;
-    unprepared?: boolean;
+    setupFailed?: boolean;
     message?: string | null;
   }): RunOutcome {
     if (!Number.isInteger(input.exitCode)) {
@@ -29,7 +29,7 @@ export class RunOutcome {
     return new RunOutcome(
       input.exitCode,
       input.failed
-        ? RunFailure.of(input.unprepared ? 'unprepared' : 'exited')
+        ? RunFailure.of(input.setupFailed ? 'unprepared' : 'exited')
         : null,
       input.message?.trim() || null,
     );
@@ -52,17 +52,17 @@ export class RunOutcome {
   static refused(reasons: readonly RefusalReason[]): RunOutcome {
     return RunOutcome.failedWith(
       'refused',
-      reasons.map((each) => each.saying).join('; '),
+      reasons.map((each) => each.description).join('; '),
     );
   }
 
   static unprovisioned(
-    failure: { readonly saying: string },
+    failure: { readonly description: string },
     attempts: number,
   ): RunOutcome {
     return RunOutcome.failedWith(
       'unprovisioned',
-      `No runner was provisioned after ${attempts} attempts. Last failure: ${failure.saying}`,
+      `No runner was provisioned after ${attempts} attempts. Last failure: ${failure.description}`,
     );
   }
 
@@ -87,8 +87,8 @@ export class RunOutcome {
     );
   }
 
-  static superseded(reason: string): RunOutcome {
-    return RunOutcome.failedWith('superseded', reason);
+  static cancelled(reason: string): RunOutcome {
+    return RunOutcome.failedWith('cancelled', reason);
   }
 
   static stopped(exitCode: number): RunOutcome {
@@ -111,12 +111,16 @@ export class RunOutcome {
     return !this.failed;
   }
 
+  get cancelled(): boolean {
+    return this.failure?.cancelled ?? false;
+  }
+
   get superseded(): boolean {
     return this.failure?.superseded ?? false;
   }
 
   supersede(): RunOutcome {
-    return this.failed && !this.superseded
+    return this.failed && !this.superseded && !this.cancelled
       ? new RunOutcome(
           this.exitCode,
           RunFailure.of('superseded'),

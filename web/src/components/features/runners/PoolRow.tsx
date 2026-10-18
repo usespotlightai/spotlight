@@ -4,15 +4,15 @@ import {
   HOST_ROW_HOVER,
 } from '@/components/features/runners/columns';
 import { HarnessLogos } from '@/components/features/runners/HarnessLogos';
-import { PoolWayOut } from '@/components/features/runners/PoolWayOut';
+import { PoolEgress } from '@/components/features/runners/PoolEgress';
 import { RunnerChildren } from '@/components/features/runners/RunnerChildren';
-import { StandingDot } from '@/components/features/runners/StandingDot';
+import { StatusDot } from '@/components/features/runners/StatusDot';
 import {
-  heldBy,
   type NamedHarness,
   type PushPool,
+  poolHarnesses,
   poolName,
-  poolStanding,
+  poolStatus,
 } from '@/lib/runner';
 import { cn } from '@/lib/utils';
 
@@ -23,26 +23,26 @@ type PoolRowProps = {
 };
 
 export function PoolRow({ slug, pool, harnesses }: PoolRowProps) {
-  const name = poolName(pool.through);
+  const name = poolName(pool.source);
 
   return (
     <li data-slot="pool-row">
       <div className={cn(HOST_ROW, HOST_ROW_HOVER, HOST_COLUMNS)}>
         <span className="min-w-0 truncate text-foreground">{name}</span>
 
-        <PoolWayOut slug={slug} poolKey={pool.through.key} />
+        <PoolEgress slug={slug} poolKey={pool.source.key} />
 
-        <StandingDot
+        <StatusDot
           tone={
             pool.runners.some((runner) => runner.currentRun) ? 'busy' : 'ready'
           }
         >
-          {poolStanding(pool)}
-        </StandingDot>
+          {poolStatus(pool)}
+        </StatusDot>
 
         <span />
 
-        <HarnessLogos harnesses={heldBy(pool, harnesses)} />
+        <HarnessLogos harnesses={poolHarnesses(pool, harnesses)} />
 
         <span />
         <span />

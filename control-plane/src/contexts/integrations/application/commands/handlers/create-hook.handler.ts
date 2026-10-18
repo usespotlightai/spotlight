@@ -4,9 +4,9 @@ import type { CreateHookCommand } from '@integrations/application/commands/creat
 import type { HookCompilerPort } from '@integrations/application/ports/hook-compiler.port';
 import { HookProblems } from '@integrations/application/rendering/hook-problems';
 import type { HookAllowancesService } from '@integrations/application/services/hook-allowances.service';
-import { secretGiven } from '@integrations/application/services/signing-secrets';
+import { signingSecretChange } from '@integrations/application/services/signing-secrets';
 import { HookDefinition } from '@integrations/domain/aggregates/hook-definition.aggregate';
-import { HookAlreadyDefinedError } from '@integrations/domain/exceptions/hook-already-defined.error';
+import { HookAlreadyExistsError } from '@integrations/domain/exceptions/hook-already-exists.error';
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
 import { HookAddress } from '@integrations/domain/value-objects/hook-address.vo';
@@ -23,8 +23,8 @@ import type {
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 
 export class CreateHookHandler
@@ -81,25 +81,25 @@ export class CreateHookHandler
 
       try {
         return await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
-            const defined = HookDefinition.define({
+          createIdempotently(this.creates, create, async () => {
+            const created = HookDefinition.create({
               ...compiled,
               id: HookDefinitionId.of(this.ids.generate()),
               workspaceId: permissions.workspaceId,
               teamId: permissions.teamId,
-              secret: secretGiven(compiled.secret),
+              secret: signingSecretChange(compiled.secret),
               allowances: await this.allowances.onTeam(permissions.teamId),
-              by: Attribution.of(command.actor, permissions.workspaceId),
+              by: ChangeActor.of(command.actor, permissions.workspaceId),
             });
 
-            await this.definitions.save(defined);
+            await this.definitions.save(created);
 
-            return defined.id.value;
+            return created.id.value;
           }),
         );
       } catch (error) {
-        if (error instanceof HookAlreadyDefinedError) {
-          return { outcome: 'taken', address: address.toString() };
+        if (error instanceof HookAlreadyExistsError) {
+          return { outcome: 'already-exists', address: address.toString() };
         }
 
         if (error instanceof InvalidHookError) {

@@ -5,7 +5,7 @@ import {
   type KMSClient,
   KMSInternalException,
 } from '@aws-sdk/client-kms';
-import { UnopenableEnvelopeError } from '@secrets/infrastructure/crypto/envelope';
+import { DecryptionFailedError } from '@secrets/infrastructure/crypto/envelope';
 import { AwsKeyManagement } from '@secrets/infrastructure/kms/aws-key-management';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -25,7 +25,7 @@ const kmsAnswering = () => {
 };
 
 describe('AwsKeyManagement', () => {
-  it('asks KMS for an AES-256 data key bound to the workspace', async () => {
+  it('requests an AES-256 data key from KMS, bound to the workspace', async () => {
     const { send, kms } = kmsAnswering();
 
     const issued = await new AwsKeyManagement(kms, KEY_ID).issue(CONTEXT);
@@ -62,7 +62,7 @@ describe('AwsKeyManagement', () => {
     });
   });
 
-  it('calls a data key another KMS key wrapped unopenable', async () => {
+  it('says that a data key that another KMS key wrapped does not decrypt', async () => {
     const kms = {
       send: vi.fn(async () => {
         throw new InvalidCiphertextException({ message: 'no', $metadata: {} });
@@ -71,7 +71,7 @@ describe('AwsKeyManagement', () => {
 
     await expect(
       new AwsKeyManagement(kms, KEY_ID).unwrap('d3JhcHBlZA==', CONTEXT),
-    ).rejects.toBeInstanceOf(UnopenableEnvelopeError);
+    ).rejects.toBeInstanceOf(DecryptionFailedError);
   });
 
   it('lets a passing KMS failure through as it is', async () => {
@@ -90,7 +90,7 @@ describe('AwsKeyManagement', () => {
     ).rejects.toBe(throttled);
   });
 
-  it('refuses a data key KMS issued without its parts', async () => {
+  it('rejects a data key KMS issued without its parts', async () => {
     const kms = { send: vi.fn(async () => ({})) } as unknown as Pick<
       KMSClient,
       'send'

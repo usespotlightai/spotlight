@@ -1,4 +1,4 @@
-import { MemoryGroundList } from '@/components/features/memory/MemoryGroundList';
+import { MemoryProvenanceList } from '@/components/features/memory/MemoryProvenanceList';
 import { MemoryScopeRows } from '@/components/features/memory/MemoryScopeRows';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
 import { InPlaceTextarea } from '@/components/shared/form/InPlaceTextarea';
@@ -38,7 +38,7 @@ export function ProposedMemoryFacts({
               autoFocus
               maxLength={MAX_MEMORY_BODY}
               onChange={(event) => onBody(event.target.value)}
-              aria-label="The memory as it should stand"
+              aria-label="The memory as it should be"
             />
           ) : (
             <p id={bodyId} className={FACT_VALUE}>
@@ -54,7 +54,7 @@ export function ProposedMemoryFacts({
         <FactRow>
           <dt className={FACT_LABEL}>Source</dt>
           <dd>
-            <MemoryGroundList grounds={memory} />
+            <MemoryProvenanceList provenance={memory} />
           </dd>
         </FactRow>
       )}

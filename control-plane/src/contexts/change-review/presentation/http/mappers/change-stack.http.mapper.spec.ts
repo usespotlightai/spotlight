@@ -2,7 +2,7 @@ import { ChangeStackHttpMapper } from '@change-review/presentation/http/mappers/
 import { describe, expect, it } from 'vitest';
 
 describe('ChangeStackHttpMapper', () => {
-  it('gives each layer its hunks and one note per file', () => {
+  it('shows each layer with its hunks and one note per file', () => {
     const response = ChangeStackHttpMapper.toResponse({
       stacks: [
         {
@@ -10,8 +10,8 @@ describe('ChangeStackHttpMapper', () => {
           repository: null,
           state: 'ready',
           failure: null,
-          draftedAt: '2026-09-16T10:00:00.000Z',
-          settledAt: '2026-09-16T10:01:00.000Z',
+          startedAt: '2026-09-16T10:00:00.000Z',
+          completedAt: '2026-09-16T10:01:00.000Z',
           files: [
             {
               path: 'src/invite.ts',
@@ -42,7 +42,7 @@ describe('ChangeStackHttpMapper', () => {
                   title: 'Add invite',
                   summary: 'The function',
                   dependsOn: [],
-                  ranges: [{ hunk: 'h1' }],
+                  hunks: [{ hunk: 'h1' }],
                   notes: [
                     {
                       path: 'src/invite.ts',
@@ -64,13 +64,18 @@ describe('ChangeStackHttpMapper', () => {
       id: 'c1.l1',
       title: 'Add invite',
       summary: 'The function',
-      ranges: [{ hunk: 'h1' }],
+      hunks: [{ hunk: 'h1' }],
       notes: [{ path: 'src/invite.ts', note: 'Adds the invite function.' }],
     });
   });
 
   it('maps what the check ran and what each step printed', () => {
-    const step = { step: 'whole', passed: true, output: 'ok', tookMs: 1200 };
+    const step = {
+      step: 'whole',
+      passed: true,
+      output: 'ok',
+      durationMs: 1200,
+    };
     const response = ChangeStackHttpMapper.toResponse({
       stacks: [
         {
@@ -78,13 +83,13 @@ describe('ChangeStackHttpMapper', () => {
           repository: null,
           state: 'ready',
           failure: null,
-          draftedAt: '2026-10-03T10:00:00.000Z',
-          settledAt: null,
+          startedAt: '2026-10-03T10:00:00.000Z',
+          completedAt: null,
           files: [],
           cohorts: [],
           check: {
             command: 'npm test',
-            state: 'checked',
+            status: 'checked',
             reason: null,
             whole: step,
             layers: [step],
@@ -95,7 +100,7 @@ describe('ChangeStackHttpMapper', () => {
 
     expect(JSON.parse(JSON.stringify(response.stacks[0]?.check))).toEqual({
       command: 'npm test',
-      state: 'checked',
+      status: 'checked',
       reason: null,
       whole: step,
       layers: [step],

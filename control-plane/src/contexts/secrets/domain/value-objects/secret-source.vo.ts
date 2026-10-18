@@ -5,7 +5,7 @@ export const SECRET_SOURCE_KINDS = ['built-in', 'aws-secrets-manager'] as const;
 
 export type SecretSourceKind = (typeof SECRET_SOURCE_KINDS)[number];
 
-export interface SourceInNetwork {
+export interface ExternalSecretRef {
   readonly kind: Exclude<SecretSourceKind, 'built-in'>;
   readonly secretId: string;
   readonly field: string | null;
@@ -54,7 +54,7 @@ export class SecretSource {
     return this.kind === 'built-in';
   }
 
-  get readInNetwork(): SourceInNetwork | null {
+  get externalRef(): ExternalSecretRef | null {
     if (this.kind === 'built-in') {
       return null;
     }

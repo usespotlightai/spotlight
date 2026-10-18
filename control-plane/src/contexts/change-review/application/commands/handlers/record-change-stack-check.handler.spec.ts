@@ -16,7 +16,7 @@ import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -55,13 +55,13 @@ const cohort = (hunks: string[]): ProposedCohort => ({
     title: hunk,
     summary: hunk,
     dependsOn: [],
-    ranges: [{ hunk: HunkId.of(hunk) }],
+    hunks: [{ hunk: HunkId.of(hunk) }],
     notes: [{ path: DIFF.fileOf(hunk)?.path ?? hunk, note: 'Why' }],
   })),
 });
 
 const ready = () =>
-  ChangeStack.draft({
+  ChangeStack.startGeneration({
     id: ChangeStackId.of(STACK),
     runId: RunId.of(RUN),
     taskId: null,
@@ -95,7 +95,7 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
     add: async () => undefined,
     save: async () => undefined,
     find: async () => stack,
-    dueForWork: async () => null,
+    nextDueJob: async () => null,
     removeForTask: async () => undefined,
     ofRun: async () => [],
   };
@@ -112,9 +112,9 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
     remove: async () => undefined,
     dueForCheck: async () => null,
     reservedTo: async () => null,
-    overdue: async () => [],
+    withExpiredWait: async () => [],
     awaitingProvision: async () => [],
-    withLapsedReservations: async () => [],
+    withExpiredReservations: async () => [],
     waitingIn: async () => [],
   };
 
@@ -129,33 +129,33 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
 
 const reported = (runner: string) =>
   new RecordChangeStackCheckCommand(RUN, runner, STACK, false, null, [
-    { step: 'whole', passed: true, output: '', tookMs: 10 },
+    { step: 'whole', passed: true, output: '', durationMs: 10 },
   ]);
 
 describe('RecordChangeStackCheckHandler', () => {
-  it('takes what the runner holding the check found', async () => {
+  it('takes what the runner with the lease on the check found', async () => {
     const stack = ready();
-    const held = checkFor(stack).claimedFor(
+    const leased = checkFor(stack).claimedFor(
       RunnerId.of('runner_1'),
-      RunnerTerms.none(),
+      RunnerOffer.none(),
       LATER,
     );
-    const { handler, saved } = recording(stack, held);
+    const { handler, saved } = recording(stack, leased);
 
     await handler.execute(reported('runner_1'));
 
     expect(saved).toHaveLength(1);
-    expect(saved[0]?.stateAt(LATER)).toBe('checked');
+    expect(saved[0]?.statusAt(LATER)).toBe('checked');
   });
 
-  it('turns away a runner that does not hold the check as a conflict', async () => {
+  it('turns away a runner that does not have the lease on the check as a conflict', async () => {
     const stack = ready();
-    const held = checkFor(stack).claimedFor(
+    const leased = checkFor(stack).claimedFor(
       RunnerId.of('runner_1'),
-      RunnerTerms.none(),
+      RunnerOffer.none(),
       LATER,
     );
-    const { handler, saved } = recording(stack, held);
+    const { handler, saved } = recording(stack, leased);
 
     await expect(handler.execute(reported('runner_2'))).rejects.toMatchObject({
       kind: 'conflict',

@@ -1,5 +1,5 @@
 export class EgressInUseError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(
     key: string,

@@ -1,12 +1,12 @@
 import type { ReplaySetDto } from '@replays/application/dto/replays.dto';
-import type { OutcomesPort } from '@replays/application/ports/outcomes.port';
+import type { InsightsPort } from '@replays/application/ports/insights.port';
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { ListReplaySetsQuery } from '@replays/application/queries/list-replay-sets.query';
 import { setView } from '@replays/application/services/replay-views';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
-import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-reading';
+import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-estimate';
 import { UNREAD_HEALTH } from '@replays/domain/services/set-health';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
@@ -18,7 +18,7 @@ export class ListReplaySetsHandler
     private readonly access: ReplaysAccess,
     private readonly sets: ReplaySetRepository,
     private readonly work: WorkPort,
-    private readonly outcomes: OutcomesPort,
+    private readonly insights: InsightsPort,
     private readonly healths: SetHealths,
   ) {}
 
@@ -33,11 +33,11 @@ export class ListReplaySetsHandler
       const sets = (await this.sets.atStation(station.stationId)).filter(
         (each) => access.sees(each.station),
       );
-      const replayable = await this.work.standing(
+      const replayable = await this.work.runSummaries(
         access.workspaceId,
         sets.flatMap((each) => each.runs),
       );
-      const turnouts = await this.outcomes.turnedOut(
+      const originalOutcomes = await this.insights.originalOutcomes(
         sets.flatMap((each) => each.runs),
       );
 
@@ -50,7 +50,7 @@ export class ListReplaySetsHandler
         setView(
           each,
           replayable,
-          turnouts,
+          originalOutcomes,
           healths.get(each.id.value) ?? UNREAD_HEALTH,
           standards.get(each.station.stationId)?.minGain ?? DEFAULT_MIN_GAIN,
         ),

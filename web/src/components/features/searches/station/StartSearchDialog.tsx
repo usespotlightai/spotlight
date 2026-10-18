@@ -38,7 +38,7 @@ export function StartSearchDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      onOpenChangeComplete={(settledOpen) => !settledOpen && form.forget()}
+      onOpenChangeComplete={(open) => !open && form.reset()}
     >
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
@@ -46,8 +46,8 @@ export function StartSearchDialog({
           <DialogDescription>
             An agent proposes configs for this station. Each config replays on
             most of the set’s tasks. Then the best configs replay on held-out
-            tasks to check that they hold up. The station doesn’t change until
-            you pick a config.
+            tasks to check that they still do well. The station doesn’t change
+            until you pick a config.
           </DialogDescription>
         </DialogHeader>
 
@@ -98,10 +98,10 @@ export function StartSearchDialog({
 
           <SearchEstimateSummary
             estimate={form.estimate.data}
-            repeats={form.settled?.budget.repeats ?? 1}
-            asked={form.settled !== null}
+            repeats={form.debounced?.budget.repeats ?? 1}
+            requested={form.debounced !== null}
             estimating={form.estimate.isFetching}
-            refusal={form.estimateRefusal}
+            problem={form.estimateProblem}
           />
 
           {form.suggested && (

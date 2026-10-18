@@ -1,7 +1,7 @@
 import { type Content, diffIn } from '@work/infrastructure/acp/content';
 import { decoded } from '@work/infrastructure/journal/journalled';
 
-interface Spoken {
+interface AcpNotification {
   update?: {
     sessionUpdate?: string;
     toolCallId?: string;
@@ -14,14 +14,14 @@ export class ChangedPaths {
   #changes: (string | null)[] = [];
 
   take(data: string): void {
-    let sent: Spoken;
+    let notification: AcpNotification;
     try {
-      sent = JSON.parse(decoded(data)) as Spoken;
+      notification = JSON.parse(decoded(data)) as AcpNotification;
     } catch {
       return;
     }
 
-    const update = sent?.update;
+    const update = notification?.update;
     const id = update?.toolCallId;
 
     if (!id) {

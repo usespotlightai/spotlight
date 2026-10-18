@@ -30,7 +30,7 @@ export class ChangedByResponseDto {
     type: String,
     nullable: true,
     description:
-      'For a token minted through a workspace token trust, that trust; the person is then whoever defined the trust',
+      'For a token issued by a workspace token trust, that trust; the person is then whoever created the trust',
   })
   readonly trust: string | null;
 
@@ -78,9 +78,9 @@ export class ConfigurationChangeResponseDto {
   @ApiProperty({
     type: 'object',
     additionalProperties: true,
-    example: { valueVersion: 2, boundTo: ['api.linear.app'] },
+    example: { valueVersion: 2, targets: ['api.linear.app'] },
     description:
-      'What moved beyond the action itself, where that is worth keeping, as the resource’s kind records it; a secret records the value version it moved to and the hosts it is bound to once changed, never the value',
+      'What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records the value version it moved to and the hosts it is bound to once changed, never the value',
   })
   readonly details: RecordedDetail;
 

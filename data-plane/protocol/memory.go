@@ -5,10 +5,10 @@ type RecallRequest struct {
 	Handle string `json:"handle,omitempty"`
 }
 
-type Remembering struct {
+type RememberRequest struct {
 	Kind       string   `json:"kind"`
 	Body       string   `json:"body"`
-	Reach      string   `json:"reach,omitempty"`
+	Scope      string   `json:"scope,omitempty"`
 	Paths      []string `json:"paths,omitempty"`
 	Supersedes string   `json:"supersedes,omitempty"`
 }
@@ -18,7 +18,7 @@ type MemoryPerson struct {
 	Name *string `json:"name"`
 }
 
-type MemoryGrounds struct {
+type MemoryProvenance struct {
 	TaskID string `json:"taskId"`
 	RunID  string `json:"runId"`
 }
@@ -51,14 +51,14 @@ type RecalledMemory struct {
 	Kind       string            `json:"kind"`
 	Body       string            `json:"body"`
 	Source     string            `json:"source"`
-	Standing   string            `json:"standing"`
-	Reach      string            `json:"reach"`
+	Status     string            `json:"status"`
+	Scope      string            `json:"scope"`
 	Repository *string           `json:"repository"`
 	Paths      []string          `json:"paths"`
 	ApprovedBy MemoryPerson      `json:"approvedBy"`
 	ApprovedAt string            `json:"approvedAt"`
 	Retirement *MemoryRetirement `json:"retirement"`
-	Grounds    *MemoryGrounds    `json:"grounds"`
+	Provenance *MemoryProvenance `json:"provenance"`
 	Steps      []MemoryStep      `json:"steps"`
 	Notes      []MemoryNote      `json:"notes"`
 	Superseded *MemoryLink       `json:"superseded"`
@@ -69,7 +69,7 @@ type ProposedMemory struct {
 	Kind       string       `json:"kind"`
 	Body       string       `json:"body"`
 	Source     string       `json:"source"`
-	Reach      string       `json:"reach"`
+	Scope      string       `json:"scope"`
 	Repository *string      `json:"repository"`
 	Paths      []string     `json:"paths"`
 	Steps      []MemoryStep `json:"steps"`

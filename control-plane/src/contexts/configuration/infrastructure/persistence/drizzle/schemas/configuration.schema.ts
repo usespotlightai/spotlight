@@ -15,7 +15,7 @@ export const skillDefinition = pgTable(
     key: text('key').notNull(),
     files: jsonb('files').$type<Record<string, string>>().notNull(),
     version: integer('version').notNull().default(1),
-    definedAt: timestamp('defined_at')
+    updatedAt: timestamp('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
@@ -46,7 +46,7 @@ export const harnessProfile = pgTable(
     mcpServers: jsonb('mcp_servers').$type<McpServerRow[]>().notNull(),
     native: jsonb('native').$type<Record<string, unknown>>().notNull(),
     version: integer('version').notNull().default(1),
-    definedAt: timestamp('defined_at')
+    updatedAt: timestamp('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),

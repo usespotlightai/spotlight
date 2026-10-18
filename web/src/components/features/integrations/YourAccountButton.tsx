@@ -31,9 +31,9 @@ export function YourAccountButton({
         disabled={connect.isPending}
         onClick={() =>
           connect.mutate({
-            source: integration.source,
-            for: 'me',
-            back: pathname,
+            integration: integration.integration,
+            actsAs: 'requester',
+            returnTo: pathname,
           })
         }
       >

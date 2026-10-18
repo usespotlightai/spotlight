@@ -6,14 +6,14 @@ import {
   aSet,
   BY,
   candidateOf,
-  LIVE_DIGESTS,
   LIVE_FINGERPRINT,
+  LIVE_HASHES,
   later,
   NOW,
+  ranToEnd,
   replayedAs,
   runIds,
   STATION,
-  settledAs,
   UNSCORED,
 } from '@replays/domain/replays.fake-spec';
 import {
@@ -23,10 +23,10 @@ import {
   needsBaseline,
 } from '@replays/domain/services/baseline';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
-import { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
+import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -60,20 +60,20 @@ describe('baselineOf', () => {
     ).toBeNull();
   });
 
-  it('passes over a baseline that went over its budget', () => {
-    const over = settledAs(
+  it('passes over a baseline that reached its ceiling', () => {
+    const over = ranToEnd(
       aBaseline('replay_over', 0, 2).reserving(1, runIds()),
       RunId.of('replay_run_0'),
       'completed',
       100,
     );
 
-    expect(over.current).toBe('over-budget');
+    expect(over.current).toBe('ceiling-reached');
     expect(baselineOf([over])).toBeNull();
   });
 });
 
-const SCORING = LIVE_DIGESTS.scoring;
+const SCORING = LIVE_HASHES.scoring;
 
 const stale = Candidate.live({
   id: CandidateId.of('candidate_stale'),
@@ -81,7 +81,7 @@ const stale = Candidate.live({
   address: AT,
   block: StationBlock.of({ key: 'build', name: 'Build', kind: 'work' }),
   fingerprint: LIVE_FINGERPRINT,
-  digests: StationDigests.of({
+  hashes: StationHashes.of({
     behaviour: 'd'.repeat(64),
     scoring: 'f'.repeat(64),
   }),
@@ -100,7 +100,7 @@ describe('needsBaseline', () => {
     ).toBe(false);
   });
 
-  it('wants a new one once the set holds a run its baseline did not replay', () => {
+  it('wants a new one once the set contains a run its baseline did not replay', () => {
     expect(
       needsBaseline(aSet(3), [aBaseline('replay_1', 0, 2)], SCORING, 1),
     ).toBe(true);
@@ -127,7 +127,7 @@ describe('needsBaseline', () => {
     expect(needsBaseline(aSet(2), [old], SCORING, 1)).toBe(true);
   });
 
-  it('wants a new one when a replay copies each run more often than its baseline did', () => {
+  it('wants a new one when a replay repeats each run more often than its baseline did', () => {
     const once = aBaseline('replay_once', 0, 2);
     const thrice = aBaseline('replay_thrice', 1, 2, 3);
 
@@ -144,7 +144,7 @@ describe('needsBaseline', () => {
 describe('baselineFor', () => {
   const runs = aSet(2).runs;
 
-  it('is the newest finished baseline of the live config covering the runs, else the newest standing one, else any', () => {
+  it('is the newest finished baseline of the live config covering the runs, else the newest valid one, else any', () => {
     const running = aBaseline('replay_running', 2);
     const stopped = aBaseline('replay_stopped', 3).stop(later(4), BY);
     const old = aReplay({
@@ -181,7 +181,7 @@ describe('comparedAgainst', () => {
         at: NOW,
       }),
       baseline: false,
-      ceiling: Spend.ceiling(10, 'USD'),
+      ceiling: Money.ceiling(10, 'USD'),
       at: later(1),
       by: BY,
       oracle: {
@@ -218,7 +218,7 @@ describe('comparedAgainst', () => {
   it('compares a replay with the replay it pairs with', () => {
     const paired = aReplay({
       id: 'replay_paired',
-      pairsWith: 'replay_old',
+      pairwiseReferenceId: 'replay_old',
       at: later(3),
     });
     const old = aBaseline('replay_old', 0);

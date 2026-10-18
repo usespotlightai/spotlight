@@ -17,5 +17,5 @@ export interface NoticeRepository {
     subject: string,
   ): Promise<Notice | null>;
 
-  forgetTeam(teamId: TeamId): Promise<void>;
+  deleteForTeam(teamId: TeamId): Promise<void>;
 }

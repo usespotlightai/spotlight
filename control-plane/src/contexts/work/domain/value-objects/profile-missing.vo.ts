@@ -12,7 +12,7 @@ export class ProfileMissing implements RefusalReason {
     return new ProfileMissing(station, profile);
   }
 
-  get saying(): string {
+  get description(): string {
     return `harness_profile_unknown: Harness profile ${this.profile.value} is not in this team. Station: ${this.station.value}`;
   }
 }

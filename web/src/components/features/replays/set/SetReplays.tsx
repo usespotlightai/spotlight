@@ -18,7 +18,7 @@ import {
   type ReplayedStation,
   type ReplaySet,
   SET_REPLAY_HEADINGS,
-  startRefusal,
+  startProblem,
 } from '@/lib/replay';
 
 const REPLAYS_NOTE =
@@ -38,7 +38,7 @@ export function SetReplays({ at, set, replays }: SetReplaysProps) {
       at={at}
       set={set}
       baseline={baseline}
-      refusedBecause={startRefusal(set)}
+      disabledBecause={startProblem(set)}
     />
   );
 

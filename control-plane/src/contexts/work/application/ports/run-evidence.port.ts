@@ -5,8 +5,8 @@ export interface EvidencedStep {
   readonly kind: string;
   readonly tool: string | null;
   readonly text: string;
-  readonly given: string | null;
-  readonly returned: string | null;
+  readonly input: string | null;
+  readonly output: string | null;
 }
 
 export interface EvidencedHunk {
@@ -22,10 +22,10 @@ export interface StationJudgeSettings {
   readonly lineId: string;
   readonly rubric: string | null;
   readonly claims: readonly string[];
-  readonly passShare: number;
+  readonly passThreshold: number;
   readonly rubricVersion: string;
   readonly sample: number;
-  readonly trust: number;
+  readonly minAgreement: number;
 }
 
 export interface EvidencedRun {
@@ -38,7 +38,7 @@ export interface EvidencedRun {
 }
 
 export interface RunEvidencePort {
-  holds(runId: string): Promise<boolean>;
+  hasTask(runId: string): Promise<boolean>;
 
   of(runId: string): Promise<EvidencedRun | null>;
 

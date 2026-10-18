@@ -1,54 +1,60 @@
 import type {
   BotActivity,
   BotComment,
-  HeardThread,
+  PullRequestThread,
 } from '@github/domain/value-objects/bot-activity.vo';
 
-interface BotHeard {
+interface BotWebhookEvent {
   readonly reviews: readonly {
     readonly login: string | null;
     readonly byBot: boolean;
   }[];
   readonly botComments: readonly BotComment[];
-  readonly threads: readonly HeardThread[];
+  readonly threads: readonly PullRequestThread[];
 }
 
-const openerKey = (id: number): string => `comment:${id}`;
+const firstCommentKey = (id: number): string => `comment:${id}`;
 
-const threadKey = (thread: HeardThread): string =>
-  thread.opener !== null ? openerKey(thread.opener) : `thread:${thread.id}`;
+const threadKey = (thread: PullRequestThread): string =>
+  thread.firstCommentId !== null
+    ? firstCommentKey(thread.firstCommentId)
+    : `thread:${thread.id}`;
 
-const loginsOf = (heard: BotHeard): readonly string[] =>
+const loginsOf = (activity: BotWebhookEvent): readonly string[] =>
   [
     ...new Set([
-      ...heard.reviews.flatMap((each) =>
+      ...activity.reviews.flatMap((each) =>
         each.byBot && each.login ? [each.login] : [],
       ),
-      ...heard.botComments.map((each) => each.login),
-      ...heard.threads.flatMap((each) =>
+      ...activity.botComments.map((each) => each.login),
+      ...activity.threads.flatMap((each) =>
         each.byBot && each.login ? [each.login] : [],
       ),
     ]),
   ].sort();
 
-export const botActivityOf = (heard: BotHeard): readonly BotActivity[] =>
-  loginsOf(heard).map((login) => {
-    const comments = heard.botComments.filter(
+export const botActivityOf = (
+  activity: BotWebhookEvent,
+): readonly BotActivity[] =>
+  loginsOf(activity).map((login) => {
+    const comments = activity.botComments.filter(
       (each) => each.login === login && !each.deleted,
     );
-    const threads = heard.threads.filter(
+    const threads = activity.threads.filter(
       (each) => each.byBot && each.login === login,
     );
 
     return {
       login,
-      reviews: heard.reviews.filter(
+      reviews: activity.reviews.filter(
         (each) => each.byBot && each.login === login,
       ).length,
       comments: comments.length,
       threads: new Set([
         ...comments.flatMap((each) =>
-          each.on === 'line' && each.opensThread ? [openerKey(each.id)] : [],
+          each.on === 'line' && each.opensThread
+            ? [firstCommentKey(each.id)]
+            : [],
         ),
         ...threads.map(threadKey),
       ]).size,

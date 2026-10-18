@@ -33,7 +33,7 @@ export class ReplaysAccess {
   async forTeam(teamId: string, principal: Principal): Promise<TeamAccess> {
     return TeamAccess.onTeam(
       teamId,
-      await this.people.standingOn(teamId, principal),
+      await this.people.membershipOn(teamId, principal),
     );
   }
 

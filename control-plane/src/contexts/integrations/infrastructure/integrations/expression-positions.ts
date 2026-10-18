@@ -1,5 +1,5 @@
 import type {
-  ExpressionAlsoSees,
+  ExpressionAddedVariable,
   ExpressionReturns,
 } from '@integrations/application/dto/expression-check.dto';
 import { ExpressionPosition } from '@integrations/infrastructure/integrations/expression-position';
@@ -23,25 +23,25 @@ import {
 
 const RESOURCE = 'integration';
 
-interface Seeing {
+interface PositionVariables {
   readonly returns?: ExpressionReturns;
-  readonly alsoSees?: readonly ExpressionAlsoSees[];
+  readonly addedVariables?: readonly ExpressionAddedVariable[];
 }
 
-const at = (name: string, scope: Scope, seeing: Seeing = {}) =>
+const at = (name: string, scope: Scope, variables: PositionVariables = {}) =>
   new ExpressionPosition(
     FieldPath.dotted(`${RESOURCE}.${name}`),
     scope,
-    seeing.returns ?? null,
-    seeing.alsoSees ?? [],
+    variables.returns ?? null,
+    variables.addedVariables ?? [],
   );
 
 const each = (
   prefix: string,
   fields: readonly string[],
   scope: Scope,
-  alsoSees: readonly ExpressionAlsoSees[],
-) => fields.map((field) => at(`${prefix}.${field}`, scope, { alsoSees }));
+  addedVariables: readonly ExpressionAddedVariable[],
+) => fields.map((field) => at(`${prefix}.${field}`, scope, { addedVariables }));
 
 const verifyAt = (prefix: string, scope: Scope) =>
   each(
@@ -60,30 +60,33 @@ const verifyAt = (prefix: string, scope: Scope) =>
 const requestAt = (
   prefix: string,
   scope: Scope,
-  alsoSees: readonly ExpressionAlsoSees[] = [],
+  addedVariables: readonly ExpressionAddedVariable[] = [],
 ) => [
   ...each(
     prefix,
     ['url', `query.${ANY_SEGMENT}`, `headers.${ANY_SEGMENT}`, 'body'],
     scope,
-    alsoSees,
+    addedVariables,
   ),
   at(`${prefix}.expect.success`, answered(scope), {
     returns: 'bool',
-    alsoSees,
+    addedVariables,
   }),
-  at(`${prefix}.capture.${ANY_SEGMENT}`, answered(scope), { alsoSees }),
+  at(`${prefix}.capture.${ANY_SEGMENT}`, answered(scope), { addedVariables }),
 ];
 
 const raiseAt = (prefix: string, scope: Scope) => {
-  const alsoSees: readonly ExpressionAlsoSees[] = ['item', 'captures'];
+  const addedVariables: readonly ExpressionAddedVariable[] = [
+    'item',
+    'captures',
+  ];
   const carried = attaching(scope);
 
   return [
     ...each(
       prefix,
       [
-        'say',
+        'message',
         'opens.title',
         'opens.description',
         'opens.assignBy.email',
@@ -91,28 +94,31 @@ const raiseAt = (prefix: string, scope: Scope) => {
         `marks.${ANY_SEGMENT}.value`,
       ],
       scope,
-      alsoSees,
+      addedVariables,
     ),
-    at(`${prefix}.attaches.each`, scope, { returns: 'list', alsoSees }),
+    at(`${prefix}.attachments.each`, scope, {
+      returns: 'list',
+      addedVariables,
+    }),
     ...each(
       prefix,
-      ['attaches.name', 'attaches.type', 'attaches.size'],
+      ['attachments.name', 'attachments.type', 'attachments.size'],
       carried,
-      alsoSees,
+      addedVariables,
     ),
-    ...requestAt(`${prefix}.attaches.fetch`, carried, alsoSees),
+    ...requestAt(`${prefix}.attachments.fetch`, carried, addedVariables),
   ];
 };
 
 const eventsAt = (prefix: string, trigger: Scope) => {
-  const alsoSees: readonly ExpressionAlsoSees[] = ['item'];
+  const addedVariables: readonly ExpressionAddedVariable[] = ['item'];
 
   return [
     at(`${prefix}.forEach`, trigger, { returns: 'list' }),
-    at(`${prefix}.when`, trigger, { returns: 'bool', alsoSees }),
-    ...requestAt(`${prefix}.lookup.request`, trigger, alsoSees),
+    at(`${prefix}.when`, trigger, { returns: 'bool', addedVariables }),
+    ...requestAt(`${prefix}.lookup.request`, trigger, addedVariables),
     at(`${prefix}.lookup.capture.${ANY_SEGMENT}`, answered(trigger), {
-      alsoSees,
+      addedVariables,
     }),
     ...raiseAt(`${prefix}.raise`, trigger),
   ];
@@ -122,7 +128,7 @@ export const EXPRESSION_POSITIONS: readonly ExpressionPosition[] = [
   ...verifyAt('webhook.verify', DELIVERED),
   at('webhook.respond.when', DELIVERED, { returns: 'bool' }),
   at('webhook.respond.body', DELIVERED),
-  at('webhook.mine', DELIVERED, { returns: 'bool' }),
+  at('webhook.ignoreWhen', DELIVERED, { returns: 'bool' }),
   at('webhook.route.by', DELIVERED),
   at('webhook.delivery', DELIVERED),
   ...eventsAt(`webhook.events.${ANY_SEGMENT}`, DELIVERED),
@@ -134,7 +140,7 @@ export const EXPRESSION_POSITIONS: readonly ExpressionPosition[] = [
   at(
     `tools.${ANY_SEGMENT}.output`,
     answered(ACTING).and({ capture: 'map<string, dyn>' }),
-    { alsoSees: ['inputs'] },
+    { addedVariables: ['inputs'] },
   ),
   at('connection.oauth2.identity', LINKED),
   at(`on.${ANY_SEGMENT}.to.${ANY_SEGMENT}`, ADDRESSING),

@@ -11,16 +11,16 @@ import type {
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
 import type { CreateLineCommand } from '@work/application/commands/create-line.command';
 import type { LineCompilerPort } from '@work/application/ports/line-compiler.port';
 import type { ApplyLines } from '@work/application/services/apply-lines.service';
-import { lineRefusal } from '@work/application/services/line-refusals';
+import { lineRejection } from '@work/application/services/line-rejections';
 import type { StationCatalog } from '@work/application/services/station-catalog.service';
-import { LineAlreadyOpenedError } from '@work/domain/exceptions/line-already-opened.error';
+import { LineAlreadyExistsError } from '@work/domain/exceptions/line-already-exists.error';
 
 export class CreateLineHandler
   implements CommandHandlerPort<CreateLineCommand, ResourceCreated | null>
@@ -61,13 +61,13 @@ export class CreateLineHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      const refused = await this.catalog.refusedIn(
+      const denied = await this.catalog.deniedIn(
         team.workspaceId,
         compiled.line,
       );
 
-      if (refused.length > 0) {
-        return { outcome: 'invalid', problems: refused };
+      if (denied.length > 0) {
+        return { outcome: 'invalid', problems: denied };
       }
 
       const key = compiled.line.key.value;
@@ -83,31 +83,31 @@ export class CreateLineHandler
 
       try {
         return await this.transaction.inTransaction(() =>
-          createdOnce(
+          createIdempotently(
             this.creates,
             create,
             async () =>
               (
-                await this.applying.open(
+                await this.applying.create(
                   team,
                   compiled.line,
-                  Attribution.of(command.actor, team.workspaceId),
+                  ChangeActor.of(command.actor, team.workspaceId),
                 )
               ).id.value,
           ),
         );
       } catch (error) {
-        if (error instanceof LineAlreadyOpenedError) {
+        if (error instanceof LineAlreadyExistsError) {
           return {
-            outcome: 'taken',
+            outcome: 'already-exists',
             address: TeamAddress.of(team.key, key).toString(),
           };
         }
 
-        const refused = lineRefusal(key, error);
+        const rejected = lineRejection(key, error);
 
-        if (refused?.outcome === 'invalid') {
-          return refused;
+        if (rejected?.outcome === 'invalid') {
+          return rejected;
         }
 
         throw error;

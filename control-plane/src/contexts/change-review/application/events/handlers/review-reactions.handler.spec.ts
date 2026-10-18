@@ -1,11 +1,11 @@
 import { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
 import type { ReviewOutboxPort } from '@change-review/application/ports/review-outbox.port';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
+import { ReviewCommentDeleted } from '@change-review/domain/events/review-comment-deleted.event';
+import { ReviewCommentEdited } from '@change-review/domain/events/review-comment-edited.event';
 import { ReviewCommentNotPosted } from '@change-review/domain/events/review-comment-not-posted.event';
-import { ReviewCommentPlaced } from '@change-review/domain/events/review-comment-placed.event';
-import { ReviewCommentRemoved } from '@change-review/domain/events/review-comment-removed.event';
+import { ReviewCommentPosted } from '@change-review/domain/events/review-comment-posted.event';
 import { ReviewCommentReplied } from '@change-review/domain/events/review-comment-replied.event';
-import { ReviewCommentRewritten } from '@change-review/domain/events/review-comment-rewritten.event';
 import { ReviewPosted } from '@change-review/domain/events/review-posted.event';
 import { ReviewSubmitted } from '@change-review/domain/events/review-submitted.event';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
@@ -37,8 +37,8 @@ const draft = (id: string) =>
     now: NOW,
   });
 
-const reacting = (held: readonly ReviewComment[] = []) => {
-  const comments = new Map(held.map((each) => [each.id.value, each]));
+const reacting = (stored: readonly ReviewComment[] = []) => {
+  const comments = new Map(stored.map((each) => [each.id.value, each]));
   const enqueue = vi.fn(async () => {});
   const reactions = new ReviewReactions(
     {
@@ -55,7 +55,7 @@ const reacting = (held: readonly ReviewComment[] = []) => {
 };
 
 describe('ReviewReactions', () => {
-  it('owes GitHub a post of its own for each comment on a whole file', async () => {
+  it('sends GitHub a post of its own for each comment on a whole file', async () => {
     const { reactions, enqueue } = reacting();
 
     await reactions.onPosted(
@@ -81,19 +81,19 @@ describe('ReviewReactions', () => {
     );
   });
 
-  it('keeps where GitHub put each comment its review holds', async () => {
+  it('stores where GitHub put each comment its review contains', async () => {
     const submitted = draft('comment_1').submittedIn(REVIEW);
     const elsewhere = draft('comment_2').submittedIn(ReviewId.of('review_2'));
     const { reactions, comments } = reacting([submitted, elsewhere]);
 
-    await reactions.onCommentPlaced(
-      new ReviewCommentPlaced(REVIEW, submitted.id, {
+    await reactions.onCommentPosted(
+      new ReviewCommentPosted(REVIEW, submitted.id, {
         id: 101,
         url: 'https://github.com/c/101',
       }),
     );
-    await reactions.onCommentPlaced(
-      new ReviewCommentPlaced(REVIEW, elsewhere.id, {
+    await reactions.onCommentPosted(
+      new ReviewCommentPosted(REVIEW, elsewhere.id, {
         id: 102,
         url: 'https://github.com/c/102',
       }),
@@ -103,13 +103,13 @@ describe('ReviewReactions', () => {
     expect(comments.get('comment_2')?.github).toBeNull();
   });
 
-  it('hands back the comments of a review that never reached GitHub', async () => {
-    const held = draft('comment_1').submittedIn(REVIEW);
-    const withdrawn = draft('comment_2').submittedIn(REVIEW).removed(ADA);
+  it('hands back the comments of a review that was never posted to GitHub', async () => {
+    const submitted = draft('comment_1').submittedIn(REVIEW);
+    const deleted = draft('comment_2').submittedIn(REVIEW).deleted(ADA);
     const elsewhere = draft('comment_3').submittedIn(ReviewId.of('review_2'));
-    const { reactions, comments } = reacting([held, withdrawn, elsewhere]);
+    const { reactions, comments } = reacting([submitted, deleted, elsewhere]);
 
-    for (const each of [held, withdrawn, elsewhere]) {
+    for (const each of [submitted, deleted, elsewhere]) {
       await reactions.onCommentNotPosted(
         new ReviewCommentNotPosted(REVIEW, each.id),
       );
@@ -120,15 +120,15 @@ describe('ReviewReactions', () => {
     expect(comments.get('comment_3')?.state).toBe('submitted');
   });
 
-  it('owes GitHub an edit made while the review was on its way', async () => {
+  it('has an edit to send to GitHub that was made while the review was on its way', async () => {
     const sending = draft('comment_1')
       .submittedIn(REVIEW)
-      .rewritten('Clearer', ADA, NOW);
+      .edited('Clearer', ADA, NOW);
     sending.pullEvents();
     const { reactions, comments } = reacting([sending]);
 
-    await reactions.onCommentPlaced(
-      new ReviewCommentPlaced(REVIEW, sending.id, {
+    await reactions.onCommentPosted(
+      new ReviewCommentPosted(REVIEW, sending.id, {
         id: 101,
         url: 'https://github.com/c/101',
       }),
@@ -136,7 +136,7 @@ describe('ReviewReactions', () => {
 
     expect(comments.get('comment_1')?.pullEvents()).toEqual([
       expect.objectContaining({
-        kind: 'review-comment.rewritten',
+        kind: 'review-comment.edited',
         onGitHub: true,
       }),
     ]);
@@ -148,11 +148,11 @@ describe('ReviewReactions', () => {
     await reactions.onReplied(
       new ReviewCommentReplied(COMMENT, WORKSPACE, TASK),
     );
-    await reactions.onRewritten(
-      new ReviewCommentRewritten(COMMENT, WORKSPACE, TASK, true),
+    await reactions.onEdited(
+      new ReviewCommentEdited(COMMENT, WORKSPACE, TASK, true),
     );
-    await reactions.onRemoved(
-      new ReviewCommentRemoved(COMMENT, WORKSPACE, TASK, true),
+    await reactions.onDeleted(
+      new ReviewCommentDeleted(COMMENT, WORKSPACE, TASK, true),
     );
 
     expect(
@@ -162,14 +162,14 @@ describe('ReviewReactions', () => {
     ).toEqual(['reply', 'edit', 'delete']);
   });
 
-  it('queues nothing for a draft rewritten or removed before it reached GitHub', async () => {
+  it('queues nothing for a draft edited or deleted before it was posted to GitHub', async () => {
     const { reactions, enqueue } = reacting();
 
-    await reactions.onRewritten(
-      new ReviewCommentRewritten(COMMENT, WORKSPACE, TASK, false),
+    await reactions.onEdited(
+      new ReviewCommentEdited(COMMENT, WORKSPACE, TASK, false),
     );
-    await reactions.onRemoved(
-      new ReviewCommentRemoved(COMMENT, WORKSPACE, TASK, false),
+    await reactions.onDeleted(
+      new ReviewCommentDeleted(COMMENT, WORKSPACE, TASK, false),
     );
 
     expect(enqueue).not.toHaveBeenCalled();

@@ -43,7 +43,7 @@ export const sourceRow = (
 
 export const routeRowsOf = (line: Line) =>
   line.stations.flatMap((each) =>
-    each.wayOut.stations.map((to) => ({
+    each.routes.stations.map((to) => ({
       stationId: each.id.value,
       toStationId: to.value,
     })),
@@ -95,7 +95,7 @@ export const stationColumnsOf = (each: Station) => ({
   profile: each.profile?.value ?? null,
   agentPrompt: each.agentPrompt?.value ?? null,
   check: each.check?.value ?? null,
-  runners: [...each.placement.selectors],
+  runners: [...each.placement.requiredLabels],
   diffs: each.diffs,
   decisions: each.decisions,
   memories: each.memories,
@@ -103,9 +103,9 @@ export const stationColumnsOf = (each: Station) => ({
     ? {
         rubric: each.judge.rubric,
         claims: [...each.judge.claims],
-        passShare: each.judge.passShare,
+        passThreshold: each.judge.passThreshold,
         sample: each.judge.sample,
-        trust: each.judge.trust,
+        minAgreement: each.judge.minAgreement,
       }
     : null,
   alerts: each.alerts.map((alert) => ({
@@ -117,7 +117,7 @@ export const stationColumnsOf = (each: Station) => ({
     over: alert.over,
   })),
   kind: each.kind,
-  finishes: each.wayOut.ends,
+  finishes: each.routes.ends,
 });
 
 export const lineRowsOf = (line: Line): LineRows => ({
@@ -128,7 +128,7 @@ export const lineRowsOf = (line: Line): LineRows => ({
     reviews: reviewsRow(line.reviews),
     replayCheck: replayCheckRow(line.replayCheck),
     source: sourceRow(line.source),
-    runners: [...line.placement.selectors],
+    runners: [...line.placement.requiredLabels],
   },
   stations: line.stations.map((each) => ({
     id: each.id.value,

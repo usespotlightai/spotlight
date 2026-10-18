@@ -5,12 +5,13 @@ import {
   violates,
 } from '@platform/persistence/drizzle/violations';
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
-import { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
-import { RunnerPoolAlreadyDefinedError } from '@runners/domain/exceptions/runner-pool-already-defined.error';
+import { PoolTokenInUseError } from '@runners/domain/exceptions/pool-token-in-use.error';
+import { RunnerPoolAlreadyExistsError } from '@runners/domain/exceptions/runner-pool-already-exists.error';
 import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
+import { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypted-provision-secret.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import {
   type PoolAccess,
@@ -21,7 +22,6 @@ import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
-import { SealedProvisionSecret } from '@runners/domain/value-objects/sealed-provision-secret.vo';
 import { runnerPool } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
@@ -64,7 +64,7 @@ const accessOf = (row: Row): PoolAccess => {
   if (row.provisionUrl && row.provisionSecret) {
     return PushAccess.of(
       ProvisionUrl.of(row.provisionUrl),
-      SealedProvisionSecret.of(row.provisionSecret),
+      EncryptedProvisionSecret.of(row.provisionSecret),
       row.provisionSecretVersion,
       row.provisionEgress === null
         ? null
@@ -77,7 +77,7 @@ const accessOf = (row: Row): PoolAccess => {
 
   throw new InconsistentStateError(
     'runner pool',
-    'was kept neither pulled from nor provisioning',
+    'is neither pulled from nor provisioning',
   );
 };
 
@@ -92,13 +92,13 @@ const toPool = (row: Row): RunnerPool =>
     version: row.version,
   });
 
-const refusedAs = (error: unknown, key: string): unknown => {
+const domainErrorOf = (error: unknown, key: string): unknown => {
   if (violates(error, UNIQUE_VIOLATION, 'runner_pool_workspace_key')) {
-    return new RunnerPoolAlreadyDefinedError(key);
+    return new RunnerPoolAlreadyExistsError(key);
   }
 
   if (violates(error, UNIQUE_VIOLATION, 'runner_pool_token_hash')) {
-    return new PoolTokenTakenError();
+    return new PoolTokenInUseError();
   }
 
   return error;
@@ -122,7 +122,7 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
           version: added.version,
         });
       } catch (error) {
-        throw refusedAs(error, added.key.value);
+        throw domainErrorOf(error, added.key.value);
       }
 
       await this.events.dispatch(added.pullEvents());
@@ -135,14 +135,14 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
         eq(runnerPool.id, saved.id.value),
         eq(runnerPool.version, saved.version),
       );
-      const stored = !saved.isRetired
+      const stored = !saved.isDeleted
         ? await this.context.db
             .update(runnerPool)
             .set({ ...written(saved), version: saved.version + 1 })
             .where(matching)
             .returning({ id: runnerPool.id })
             .catch((error: unknown) => {
-              throw refusedAs(error, saved.key.value);
+              throw domainErrorOf(error, saved.key.value);
             })
         : await this.context.db
             .delete(runnerPool)

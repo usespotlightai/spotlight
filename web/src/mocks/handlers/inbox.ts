@@ -63,12 +63,12 @@ const taskOfAnyRun = (runId: string) =>
     ? historyRunOf(runId)?.taskId
     : undefined);
 
-const settleAsides = (form: 'grade' | 'memories', runId: string) => {
+const resolveInboxRequests = (form: 'grade' | 'memories', runId: string) => {
   for (const entry of inboxStore().entries) {
     if (
       entry.kind === 'task' &&
-      entry.aside?.form === form &&
-      entry.aside.about === runId
+      entry.inboxRequest?.form === form &&
+      entry.inboxRequest.about === runId
     ) {
       entry.resolved = true;
       entry.unread = false;
@@ -76,7 +76,7 @@ const settleAsides = (form: 'grade' | 'memories', runId: string) => {
   }
 };
 
-const settleReviewOf = (item: InboxItemResponseDto) => {
+const answerReviewOf = (item: InboxItemResponseDto) => {
   const task = taskOf(item.taskId);
 
   if (task?.awaitingReview?.conversationId === item.id) {
@@ -84,23 +84,23 @@ const settleReviewOf = (item: InboxItemResponseDto) => {
   }
   for (const run of world().runs[item.taskId] ?? []) {
     if (run.review?.conversationId === item.id) {
-      run.review = { ...run.review, state: 'settled' };
+      run.review = { ...run.review, state: 'answered' };
     }
   }
 };
 
 const answer = (
   item: InboxItemResponseDto,
-  said: AnswerInboxItemRequestDto,
+  reply: AnswerInboxItemRequestDto,
 ) => {
   const pending = item.notes.findLast((note) => note.kind === 'asked');
-  const deciding = said.approve !== undefined;
+  const deciding = reply.approve !== undefined;
 
   if (deciding && pending?.approval) {
     pending.approval = {
       ...pending.approval,
-      standing: said.approve ? 'granted' : 'refused',
-      edited: said.approve && said.inputs ? said.inputs : null,
+      status: reply.approve ? 'approved' : 'dismissed',
+      edited: reply.approve && reply.inputs ? reply.inputs : null,
     };
   }
 
@@ -113,7 +113,7 @@ const answer = (
     stationColor: item.stationColor,
     stationPosition: item.stationPosition,
     runId: null,
-    body: said.body,
+    body: reply.body,
     attachments: [],
     at: now(),
     author: SAM,
@@ -124,7 +124,7 @@ const answer = (
   item.askedAt = now();
   item.resolved = true;
   item.unread = false;
-  settleReviewOf(item);
+  answerReviewOf(item);
 };
 
 const conversationHandlers = [
@@ -143,23 +143,23 @@ const conversationHandlers = [
     async ({ params, request }) => {
       const item = itemOf(param(params, 'itemId'));
 
-      if (!isOurs(params) || !item || item.aside) {
+      if (!isOurs(params) || !item || item.inboxRequest) {
         return notFound();
       }
       if (item.resolved) {
         return problem(409, 'Sorry, this was already answered.');
       }
 
-      const said = (await request.json()) as AnswerInboxItemRequestDto;
-      const owesDecision =
+      const reply = (await request.json()) as AnswerInboxItemRequestDto;
+      const decisionPending =
         item.notes.findLast((note) => note.kind === 'asked')?.form ===
         'approval';
 
-      if (said.approve !== undefined && !owesDecision) {
+      if (reply.approve !== undefined && !decisionPending) {
         return problem(400, 'Nothing here waits for an approval.');
       }
 
-      answer(item, said);
+      answer(item, reply);
 
       return noContent();
     },
@@ -168,7 +168,7 @@ const conversationHandlers = [
   api.post('/workspaces/:slug/inbox/:itemId/read', ({ params }) => {
     const item = itemOf(param(params, 'itemId'));
 
-    if (!isOurs(params) || !item || item.aside) {
+    if (!isOurs(params) || !item || item.inboxRequest) {
       return notFound();
     }
     item.unread = false;
@@ -176,10 +176,10 @@ const conversationHandlers = [
     return noContent();
   }),
 
-  api.post('/workspaces/:slug/inbox/asides/:asideId/read', ({ params }) => {
-    const item = itemOf(param(params, 'asideId'));
+  api.post('/workspaces/:slug/inbox/requests/:requestId/read', ({ params }) => {
+    const item = itemOf(param(params, 'requestId'));
 
-    if (!isOurs(params) || !item?.aside) {
+    if (!isOurs(params) || !item?.inboxRequest) {
       return notFound();
     }
     item.unread = false;
@@ -187,20 +187,23 @@ const conversationHandlers = [
     return noContent();
   }),
 
-  api.post('/workspaces/:slug/inbox/notices/:noticeId/settle', ({ params }) => {
-    const notice = inboxStore().entries.find(
-      (entry) =>
-        entry.kind === 'notice' && entry.id === param(params, 'noticeId'),
-    );
+  api.post(
+    '/workspaces/:slug/inbox/notices/:noticeId/resolve',
+    ({ params }) => {
+      const notice = inboxStore().entries.find(
+        (entry) =>
+          entry.kind === 'notice' && entry.id === param(params, 'noticeId'),
+      );
 
-    if (!isOurs(params) || !notice) {
-      return notFound();
-    }
-    notice.resolved = true;
-    notice.unread = false;
+      if (!isOurs(params) || !notice) {
+        return notFound();
+      }
+      notice.resolved = true;
+      notice.unread = false;
 
-    return noContent();
-  }),
+      return noContent();
+    },
+  ),
 
   api.get('/workspaces/:slug/inbox/tasks/:taskId/journal', ({ params }) => {
     const taskId = param(params, 'taskId');
@@ -227,35 +230,35 @@ const alertHandlers = [
 
 const gradeOf = (
   kind: GradeResponseDto['kind'],
-  given: GradeRunRequestDto,
+  input: GradeRunRequestDto,
 ): GradeResponseDto => {
   const base = { by: SAM.id, mine: true, kind, at: now() };
 
-  if (given.claims) {
-    const met = given.claims.filter(Boolean).length;
-    const share = given.claims.length ? met / given.claims.length : 0;
+  if (input.claims) {
+    const met = input.claims.filter(Boolean).length;
+    const share = input.claims.length ? met / input.claims.length : 0;
 
     return {
       ...base,
       value: share,
-      marks: given.claims,
+      claimResults: input.claims,
       label: `${Math.round(share * 100)}% of claims met`,
     };
   }
-  if (typeof given.value === 'boolean') {
+  if (typeof input.value === 'boolean') {
     return {
       ...base,
-      value: given.value ? 1 : 0,
-      marks: null,
-      label: given.value ? 'yes' : 'no',
+      value: input.value ? 1 : 0,
+      claimResults: null,
+      label: input.value ? 'yes' : 'no',
     };
   }
 
   return {
     ...base,
-    value: given.value ?? 0,
-    marks: null,
-    label: `${given.value ?? 0}`,
+    value: input.value ?? 0,
+    claimResults: null,
+    label: `${input.value ?? 0}`,
   };
 };
 
@@ -289,12 +292,12 @@ const scoreHandlers = [
       return notFound();
     }
 
-    const given = (await request.json()) as GradeRunRequestDto;
+    const input = (await request.json()) as GradeRunRequestDto;
     scores.grades = [
-      gradeOf(scores.kind, given),
+      gradeOf(scores.kind, input),
       ...scores.grades.filter((grade) => !grade.mine),
     ];
-    settleAsides('grade', runId);
+    resolveInboxRequests('grade', runId);
 
     return json(scores);
   }),
@@ -342,8 +345,8 @@ const draftedComment = (
     authorName: SAM.name,
     authorLogin: null,
     authorImage: SAM.image,
-    yours: true,
-    byAgent: false,
+    viewerIsAuthor: true,
+    isAgentAuthored: false,
     replyTo: answering?.replyTo ?? answering?.id ?? null,
     state: 'draft' as const,
     failure: null,
@@ -386,7 +389,7 @@ const reviewHandlers = [
     '/teams/:teamId/runs/:runId/review/comments/:commentId',
     async ({ params, request }) => {
       const comment = codeReviewOf(param(params, 'runId'))?.comments.find(
-        (each) => each.id === param(params, 'commentId') && each.yours,
+        (each) => each.id === param(params, 'commentId') && each.viewerIsAuthor,
       );
 
       if (!comment) {
@@ -408,7 +411,9 @@ const reviewHandlers = [
       const commentId = param(params, 'commentId');
 
       if (
-        !review?.comments.some((each) => each.id === commentId && each.yours)
+        !review?.comments.some(
+          (each) => each.id === commentId && each.viewerIsAuthor,
+        )
       ) {
         return notFound();
       }
@@ -432,7 +437,7 @@ const reviewHandlers = [
     const id = nextId('review');
 
     for (const comment of review.comments) {
-      if (comment.yours && comment.state === 'draft') {
+      if (comment.viewerIsAuthor && comment.state === 'draft') {
         comment.state = 'posted';
         comment.url = `${review.pullRequest}#discussion_${comment.id}`;
       }
@@ -440,8 +445,8 @@ const reviewHandlers = [
     review.reviews.push({
       id,
       authorName: SAM.name,
-      yours: true,
-      byAgent: false,
+      viewerIsAuthor: true,
+      isAgentAuthored: false,
       verdict: submitted.verdict,
       body: submitted.body ?? '',
       state: 'posted',
@@ -522,7 +527,7 @@ const decide = (
   memory.decision = { by: SAM.id, name: SAM.name, at: now() };
 
   if (review.memories.every((each) => each.state !== 'proposed')) {
-    settleAsides('memories', review.runId);
+    resolveInboxRequests('memories', review.runId);
   }
 };
 

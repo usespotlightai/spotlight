@@ -27,13 +27,13 @@ export class NetworkCalls implements NetworkCallsPort {
   async queue(
     workspaceId: string,
     request: Request,
-    lapsesAt: Date,
+    expiresAt: Date,
   ): Promise<string> {
     const call = NetworkCall.queue({
       id: NetworkCallId.of(this.ids.generate()),
       workspaceId: WorkspaceId.of(workspaceId),
       request: NetworkRequest.of(request),
-      lapsesAt,
+      expiresAt,
       now: this.clock.now(),
     });
 
@@ -56,48 +56,48 @@ export class NetworkCalls implements NetworkCallsPort {
         return state;
       }
 
-      if (state.kind === 'lapsed') {
-        return this.settled(call, call.lapsed(now));
+      if (state.kind === 'expired') {
+        return this.stateOnceCompleted(call, call.expire(now));
       }
 
       if (now.getTime() >= until.getTime()) {
-        return this.settled(call, call.givenUp(now));
+        return this.stateOnceCompleted(call, call.cancel(now));
       }
 
       await this.clock.sleep(POLL_INTERVAL_MS);
     }
   }
 
-  async lapseOverdue(): Promise<number> {
+  async expireDue(): Promise<number> {
     const now = this.clock.now();
-    let lapsed = 0;
+    let expired = 0;
 
-    for (const call of await this.calls.lapsingBy(now, MAX_AT_ONCE)) {
-      if (await this.settledAs(call, call.lapsed(now))) {
-        lapsed += 1;
+    for (const call of await this.calls.expiringBy(now, MAX_AT_ONCE)) {
+      if (await this.saveIfChanged(call, call.expire(now))) {
+        expired += 1;
       }
     }
 
-    return lapsed;
+    return expired;
   }
 
-  async forgetSettled(): Promise<number> {
+  async purgeCompleted(): Promise<number> {
     const now = this.clock.now();
-    let forgotten = 0;
+    let purged = 0;
 
-    for (const call of await this.calls.settledBy(
-      NetworkCall.settledForgettablyBy(now),
+    for (const call of await this.calls.completedBy(
+      NetworkCall.retentionCutoff(now),
       MAX_AT_ONCE,
     )) {
       if (
-        call.isForgettableAt(now) &&
-        (await this.settledAs(call, call.forgotten(now)))
+        call.isPastRetention(now) &&
+        (await this.saveIfChanged(call, call.purge(now)))
       ) {
-        forgotten += 1;
+        purged += 1;
       }
     }
 
-    return forgotten;
+    return purged;
   }
 
   private async found(callId: string): Promise<NetworkCall> {
@@ -111,47 +111,47 @@ export class NetworkCalls implements NetworkCallsPort {
   }
 
   private viewOf(call: NetworkCall, now: Date): NetworkCallState {
-    const { answer } = call;
+    const { response } = call;
 
-    if (answer) {
+    if (response) {
       return {
         kind: 'answered',
-        answer: {
-          status: answer.status,
-          headers: answer.headers,
-          body: answer.body,
-          ms: answer.ms,
-          error: answer.error,
+        response: {
+          status: response.status,
+          headers: response.headers,
+          body: response.body,
+          ms: response.ms,
+          error: response.error,
         },
       };
     }
 
-    const standing = call.stateAt(now);
+    const state = call.stateAt(now);
 
-    return standing === 'waiting' || standing === 'claimed'
+    return state === 'waiting' || state === 'claimed'
       ? { kind: 'waiting' }
-      : { kind: 'lapsed' };
+      : { kind: 'expired' };
   }
 
-  private async settled(
+  private async stateOnceCompleted(
     call: NetworkCall,
-    settled: NetworkCall,
+    completed: NetworkCall,
   ): Promise<NetworkCallState> {
-    return settled === call || (await this.settledAs(call, settled))
-      ? this.viewOf(settled, this.clock.now())
+    return completed === call || (await this.saveIfChanged(call, completed))
+      ? this.viewOf(completed, this.clock.now())
       : this.stateOf(call.id.value);
   }
 
-  private async settledAs(
+  private async saveIfChanged(
     call: NetworkCall,
-    settled: NetworkCall,
+    changed: NetworkCall,
   ): Promise<boolean> {
-    if (settled === call) {
+    if (changed === call) {
       return false;
     }
 
     try {
-      await this.calls.save(settled);
+      await this.calls.save(changed);
       return true;
     } catch (error) {
       if (error instanceof NetworkCallVersionConflictError) {

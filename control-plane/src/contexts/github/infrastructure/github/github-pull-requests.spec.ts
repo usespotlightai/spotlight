@@ -68,11 +68,11 @@ const repository = (over: { open?: boolean; taken?: boolean } = {}) =>
     return answering(404, { message: `unrouted ${url}` });
   });
 
-const asked = (fragment: string) =>
+const sentTo = (fragment: string) =>
   sent.filter((each) => each.url.includes(fragment));
 
 const lastly = (fragment: string): Sent | undefined => {
-  const all = asked(fragment);
+  const all = sentTo(fragment);
 
   return all[all.length - 1];
 };
@@ -104,7 +104,7 @@ describe('GitHubPullRequests', () => {
       });
     });
 
-    it('carries GitHub’s refusal where nothing is open for the branch after all', async () => {
+    it('carries GitHub’s error where nothing is open for the branch after all', async () => {
       repository({ open: false, taken: true });
 
       await expect(
@@ -117,7 +117,7 @@ describe('GitHubPullRequests', () => {
 
       await new GitHubPullRequests(access).open(opening);
 
-      expect(asked('/git/')).toHaveLength(0);
+      expect(sentTo('/git/')).toHaveLength(0);
     });
   });
 
@@ -156,7 +156,7 @@ describe('GitHubPullRequests', () => {
 
       expect(changed).toHaveLength(120);
       expect(changed[0]).toBe('src/file-0.ts');
-      expect(asked('/compare/trunk...spotlight/task_1')).toHaveLength(2);
+      expect(sentTo('/compare/trunk...spotlight/task_1')).toHaveLength(2);
     });
 
     it('stops at 3000 files', async () => {
@@ -176,7 +176,7 @@ describe('GitHubPullRequests', () => {
       );
 
       expect(changed).toHaveLength(3_000);
-      expect(asked('/compare/')).toHaveLength(30);
+      expect(sentTo('/compare/')).toHaveLength(30);
     });
 
     it('stops when a page names nothing new', async () => {
@@ -189,7 +189,7 @@ describe('GitHubPullRequests', () => {
       );
 
       expect(changed).toHaveLength(100);
-      expect(asked('/compare/')).toHaveLength(2);
+      expect(sentTo('/compare/')).toHaveLength(2);
     });
 
     it('lists the files of a pull request', async () => {
@@ -202,10 +202,10 @@ describe('GitHubPullRequests', () => {
       );
 
       expect(changed).toHaveLength(101);
-      expect(asked('/repos/acme/api/pulls/9/files')).toHaveLength(2);
+      expect(sentTo('/repos/acme/api/pulls/9/files')).toHaveLength(2);
     });
 
-    it('refuses a link that names no pull request', async () => {
+    it('rejects a link that names no pull request', async () => {
       changing({});
 
       await expect(
@@ -217,7 +217,7 @@ describe('GitHubPullRequests', () => {
       ).rejects.toThrow(/is not a GitHub pull request/);
     });
 
-    it('carries GitHub’s refusal', async () => {
+    it('carries GitHub’s error', async () => {
       changing({});
 
       await expect(

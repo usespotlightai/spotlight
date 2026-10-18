@@ -19,7 +19,7 @@ export class ChangeMemberRoleHandler
         WorkspaceSlug.of(command.slug),
       );
 
-      if (!workspace?.holds(by)) {
+      if (!workspace?.hasMember(by)) {
         return false;
       }
 

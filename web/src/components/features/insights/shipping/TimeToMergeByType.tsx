@@ -3,7 +3,7 @@ import { AUTHOR_SERIES } from '@/components/features/insights/chart-series';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend';
 import { PercentilePicker } from '@/components/features/insights/shipping/PercentilePicker';
-import { lastedOrNone } from '@/lib/insights';
+import { formatDurationOrNone } from '@/lib/insights';
 import { formatType, MERGE_BY_TYPE_NOTE } from '@/lib/insights-pull-requests';
 import {
   DEFAULT_PERCENTILE,
@@ -47,10 +47,10 @@ export function TimeToMergeByType({
                 </span>
               </span>
               <span className="text-foreground tabular-nums">
-                {lastedOrNone(row.toMerge.spotlight[percentile])}
+                {formatDurationOrNone(row.toMerge.spotlight[percentile])}
                 <span className="text-[0.7rem] text-muted-foreground">
                   {' '}
-                  · {lastedOrNone(row.toMerge.people[percentile])}
+                  · {formatDurationOrNone(row.toMerge.people[percentile])}
                 </span>
               </span>
             </div>

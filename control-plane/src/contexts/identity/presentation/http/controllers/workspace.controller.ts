@@ -1,5 +1,5 @@
 import { ChangeMemberRoleCommand } from '@identity/application/commands/change-member-role.command';
-import { OpenWorkspaceCommand } from '@identity/application/commands/open-workspace.command';
+import { CreateWorkspaceWithTeamCommand } from '@identity/application/commands/create-workspace-with-team.command';
 import type { WorkspaceMemberDto } from '@identity/application/dto/member.dto';
 import type {
   WorkspaceDetailDto,
@@ -59,7 +59,7 @@ export class WorkspaceController {
 
   @Post()
   @ApiOperation({
-    operationId: 'openWorkspace',
+    operationId: 'createWorkspaceWithTeam',
     summary: 'Create a workspace, along with the team it starts with',
   })
   @ApiCreatedResponse({ type: CreatedWorkspaceResponseDto })
@@ -70,9 +70,16 @@ export class WorkspaceController {
     @CurrentActor() actor: Actor,
   ): Promise<CreatedWorkspaceResponseDto> {
     const workspace = await this.commandBus.execute<
-      OpenWorkspaceCommand,
+      CreateWorkspaceWithTeamCommand,
       WorkspaceDto
-    >(new OpenWorkspaceCommand(body.name, body.slug, body.teamName, actor));
+    >(
+      new CreateWorkspaceWithTeamCommand(
+        body.name,
+        body.slug,
+        body.teamName,
+        actor,
+      ),
+    );
 
     return WorkspaceHttpMapper.createdToResponse(workspace);
   }
@@ -147,14 +154,14 @@ export class WorkspaceController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'changeMemberRole',
-    summary: 'Set what somebody is in this workspace',
+    summary: 'Change a member’s role',
     description:
-      'Roles are given downwards: an owner may set anyone’s, an admin only those of people they outrank, and nobody may hand out a rank they do not hold. The last owner keeps the workspace.',
+      'Roles are assigned downwards: an owner may set anyone’s, an admin only those of people they outrank, and nobody may hand out a rank they do not have. The last owner keeps the workspace.',
   })
   @ApiParam({ name: 'slug', example: 'acme-inc' })
   @ApiParam({ name: 'userId' })
   @ApiNoContentResponse({ description: 'That is what they are now' })
-  @ApiForbiddenResponse({ description: 'Not yours to give' })
+  @ApiForbiddenResponse({ description: 'You cannot assign this role' })
   @ApiConflictResponse({ description: 'It would leave nobody who owns it' })
   @ApiNotFoundResponse({ description: 'No such workspace for this caller' })
   @ApiUnprocessableEntityResponse({ description: 'No such role' })

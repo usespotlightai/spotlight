@@ -2,8 +2,8 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
-import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
+import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 
@@ -22,7 +22,7 @@ export class ChatOutcomes implements RunOutcomes {
 
     const ended = chat.runEnded(event.runId, {
       session: event.session,
-      workedBy: event.workedBy,
+      claimedBy: event.claimedBy,
       stopped: event.outcome.stopped,
     });
 
@@ -31,11 +31,11 @@ export class ChatOutcomes implements RunOutcomes {
     );
   }
 
-  async onRunAbandoned(event: RunAbandoned): Promise<void> {
+  async onRunExhausted(event: RunExhausted): Promise<void> {
     const chat = await this.waiting(event.runId, event.chatId);
 
     if (chat) {
-      await this.chats.save(chat.runKeptNothing(event.runId));
+      await this.chats.save(chat.runEndedWithoutSession(event.runId));
     }
   }
 
@@ -49,6 +49,6 @@ export class ChatOutcomes implements RunOutcomes {
 
     const chat = await this.chats.find(chatId);
 
-    return chat?.heldBy(runId) ? chat : null;
+    return chat?.hasCurrentRun(runId) ? chat : null;
   }
 }

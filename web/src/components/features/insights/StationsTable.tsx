@@ -13,7 +13,7 @@ import {
   type StationReport,
   stationAnchor,
 } from '@/lib/insights';
-import { countedColumnsOf, stationTableHeadings } from '@/lib/station-outcomes';
+import { countedColumnsOf, stationTableHeadings } from '@/lib/station-insights';
 import { cn } from '@/lib/utils';
 
 type StationsTableProps = {

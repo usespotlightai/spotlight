@@ -23,7 +23,7 @@ func TestNextFollowsTheHappyPath(t *testing.T) {
 			t.Fatalf("%s while %s: %v", step.trigger, state, err)
 		}
 		if next != step.want {
-			t.Fatalf("%s while %s gave %s, want %s", step.trigger, state, next, step.want)
+			t.Fatalf("%s while %s went to %s, want %s", step.trigger, state, next, step.want)
 		}
 		state = next
 	}
@@ -47,10 +47,10 @@ func walk(t *testing.T, from session.State, triggers ...session.Trigger) session
 	return state
 }
 
-func TestARunPutToAPersonWaitsAndRunsAgainOnceAnswered(t *testing.T) {
+func TestARunEscalatedToAPersonWaitsAndRunsAgainOnceAnswered(t *testing.T) {
 	state := walk(t, session.Running, session.PersonAsked)
 	if state != session.Waiting {
-		t.Fatalf("a run put to a person is %s", state)
+		t.Fatalf("a run escalated to a person is %s", state)
 	}
 
 	state = walk(t, state, session.PersonAnswered, session.PersonAsked, session.PersonAnswered,
@@ -60,15 +60,15 @@ func TestARunPutToAPersonWaitsAndRunsAgainOnceAnswered(t *testing.T) {
 	}
 }
 
-func TestAWaitingRunNobodyAnsweredIsParkedAndOver(t *testing.T) {
-	state := walk(t, session.Running, session.PersonAsked, session.RunParked)
-	if state != session.Parked {
-		t.Fatalf("a run let go while waiting is %s", state)
+func TestAWaitingRunNobodyAnsweredIsSuspendedAndOver(t *testing.T) {
+	state := walk(t, session.Running, session.PersonAsked, session.RunSuspended)
+	if state != session.Suspended {
+		t.Fatalf("a run suspended while waiting is %s", state)
 	}
 
-	for _, trigger := range []session.Trigger{session.PersonAnswered, session.AgentExited, session.WentWrong} {
+	for _, trigger := range []session.Trigger{session.PersonAnswered, session.AgentExited, session.Errored} {
 		if _, err := session.Next(state, trigger); err == nil {
-			t.Errorf("a parked run could still be %s", trigger)
+			t.Errorf("a suspended run could still be %s", trigger)
 		}
 	}
 }
@@ -81,17 +81,17 @@ func TestAWaitingRunStoppedDrainsLikeAnyOther(t *testing.T) {
 
 func TestAnythingCanGoWrongUntilItIsOver(t *testing.T) {
 	for _, from := range []session.State{session.Preparing, session.Running, session.Waiting, session.Draining} {
-		next, err := session.Next(from, session.WentWrong)
+		next, err := session.Next(from, session.Errored)
 		if err != nil {
 			t.Fatalf("failing while %s: %v", from, err)
 		}
 		if next != session.Failed {
-			t.Errorf("failing while %s gave %s", from, next)
+			t.Errorf("failing while %s went to %s", from, next)
 		}
 	}
 }
 
-func TestNextRefusesWhatCannotHappen(t *testing.T) {
+func TestNextRejectsWhatCannotHappen(t *testing.T) {
 	for _, impossible := range []struct {
 		from    session.State
 		trigger session.Trigger
@@ -101,16 +101,16 @@ func TestNextRefusesWhatCannotHappen(t *testing.T) {
 		{session.Running, session.AgentStarted},
 		{session.Running, session.Drained},
 		{session.Running, session.PersonAnswered},
-		{session.Running, session.RunParked},
+		{session.Running, session.RunSuspended},
 		{session.Preparing, session.PersonAsked},
 		{session.Waiting, session.PersonAsked},
 		{session.Waiting, session.Drained},
 		{session.Draining, session.AgentExited},
 		{session.Completed, session.Drained},
-		{session.Failed, session.WentWrong},
+		{session.Failed, session.Errored},
 	} {
 		if _, err := session.Next(impossible.from, impossible.trigger); err == nil {
-			t.Errorf("%s while %s should be refused", impossible.trigger, impossible.from)
+			t.Errorf("%s while %s should be rejected", impossible.trigger, impossible.from)
 		}
 	}
 }

@@ -184,10 +184,7 @@ export class RunSubject {
       return RunSubject.task(input.taskId, input.stationId, input.revision);
     }
     if (input.stationId) {
-      throw new InconsistentStateError(
-        'run',
-        'stands at a station with no task',
-      );
+      throw new InconsistentStateError('run', 'is at a station with no task');
     }
 
     return null;

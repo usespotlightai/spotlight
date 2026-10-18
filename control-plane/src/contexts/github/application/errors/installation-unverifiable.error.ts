@@ -1,5 +1,5 @@
 export class InstallationUnverifiableError extends Error {
-  readonly violation = 'not-allowed' as const;
+  readonly kind = 'not-allowed' as const;
 
   constructor() {
     super(

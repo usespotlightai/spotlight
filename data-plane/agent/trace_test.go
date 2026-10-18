@@ -25,23 +25,23 @@ func tracing(t *testing.T, trace protocol.Trace) {
 		return json.Marshal(trace)
 	})
 
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 }
 
 func sampleTrace() protocol.Trace {
-	tool, given, returned := "read", "path: main.go", "package main"
+	tool, input, output := "read", "path: main.go", "package main"
 
 	return protocol.Trace{
-		Ms: 1500, Rows: 2, Faults: 1,
+		Ms: 1500, Rows: 2, Errors: 1,
 		Roots: []protocol.TraceNode{{
-			ID: "run:1", Kind: "run", Name: "Run", Ms: 1500, Tone: "agent",
+			ID: "run:1", Kind: "run", Name: "Run", Ms: 1500, Category: "agent",
 			Children: []protocol.TraceNode{{
 				ID: "1:step:0", Kind: "step", Name: "Read main.go",
-				Ms: 20, Tone: "failed",
+				Ms: 20, Category: "failed",
 				Step: &protocol.TraceStep{
 					Kind: "tool", Text: "Read main.go",
-					Tool: &tool, Given: &given, Returned: &returned,
+					Tool: &tool, Input: &input, Output: &output,
 				},
 			}},
 		}},
@@ -62,7 +62,7 @@ func TestTraceWritesTheWholeTraceToAFile(t *testing.T) {
 	}
 
 	got := out.String()
-	for _, want := range []string{path, "2 nodes", "1 faults"} {
+	for _, want := range []string{path, "2 nodes", "1 errors"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("receipt missing %q in %q", want, got)
 		}

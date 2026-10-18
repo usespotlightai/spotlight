@@ -5,10 +5,7 @@ export const INSTALLATION_ADMINISTRATION = Symbol(
   'GITHUB_INSTALLATION_ADMINISTRATION',
 );
 
-export type InstallationAdministration =
-  | 'administers'
-  | 'does-not'
-  | 'cannot-tell';
+export type InstallationAdministration = 'admin' | 'not-admin' | 'unknown';
 
 export interface InstallationAdministrationPort {
   of(

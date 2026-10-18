@@ -11,13 +11,13 @@ const node = (
   kind: 'step',
   startedAt: iso(0),
   ms: 1_000,
-  tone: 'agent',
+  category: 'agent',
   cost: null,
   currency: null,
   step: null,
   span: null,
   connection: null,
-  egress: null,
+  egressEnforcement: null,
   children: [],
   ...part,
 });
@@ -26,7 +26,7 @@ const trace = (): Trace => ({
   startedAt: iso(0),
   ms: 60_000,
   rows: 4,
-  faults: 0,
+  errors: 0,
   roots: [
     node({
       id: 'run:run_1',
@@ -54,8 +54,8 @@ const trace = (): Trace => ({
                 ms: 1_000,
                 startedAt: iso(20_000),
                 locations: [],
-                given: null,
-                returned: null,
+                input: null,
+                output: null,
                 change: null,
               },
             }),
@@ -72,8 +72,8 @@ const trace = (): Trace => ({
                 ms: 1_000,
                 startedAt: iso(30_000),
                 locations: [{ path: 'src/queue.ts', line: 12 }],
-                given: null,
-                returned: null,
+                input: null,
+                output: null,
                 change: null,
               },
             }),
@@ -96,14 +96,14 @@ describe('rowsOf', () => {
     ]);
   });
 
-  it('holds back what a closed row is holding, and says how much', () => {
+  it('hides what a closed row contains, and says how much', () => {
     const rows = rowsOf(trace().roots, new Set(['run:run_1']));
 
     expect(rows).toHaveLength(1);
     expect(rows[0]?.children).toBe(1);
   });
 
-  it('holds back only what sits under the row that is closed', () => {
+  it('hides only what sits under the row that is closed', () => {
     const rows = rowsOf(trace().roots, new Set(['run_1:turn']));
 
     expect(rows.map((row) => row.node.name)).toEqual([
@@ -115,10 +115,10 @@ describe('rowsOf', () => {
 
 describe('laidOut', () => {
   it('places a bar where it belongs in the whole', () => {
-    const held = trace();
-    const turn = held.roots[0]?.children[0];
+    const tree = trace();
+    const turn = tree.roots[0]?.children[0];
 
-    expect(turn && laidOut(turn, held)).toEqual({
+    expect(turn && laidOut(turn, tree)).toEqual({
       left: 20,
       width: (38 / 60) * 100,
     });

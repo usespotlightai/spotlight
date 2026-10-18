@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useRevokeWorkspaceToken } from '@/hooks/api/useRevokeWorkspaceToken';
-import { useLingering } from '@/hooks/useLingering';
+import { useDelayedValue } from '@/hooks/useDelayedValue';
 import type { WorkspaceToken } from '@/lib/token';
 
 const CLOSING_MS = 150;
@@ -26,20 +26,20 @@ export function RevokeTokenDialog({
   onClose,
 }: RevokeTokenDialogProps) {
   const revoke = useRevokeWorkspaceToken(workspaceId);
-  const asked = useLingering(token, CLOSING_MS);
+  const shown = useDelayedValue(token, CLOSING_MS);
 
   return (
     <Dialog
       open={token !== null}
       onOpenChange={(open) => !open && onClose()}
-      onOpenChangeComplete={(settled) => !settled && revoke.reset()}
+      onOpenChangeComplete={(open) => !open && revoke.reset()}
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Revoke {asked?.name}?</DialogTitle>
+          <DialogTitle>Revoke {shown?.name}?</DialogTitle>
           <DialogDescription>
-            Spotlight immediately refuses anything that uses this token. You
-            can’t undo this.
+            Spotlight immediately stops accepting this token. You can’t undo
+            this.
           </DialogDescription>
         </DialogHeader>
 

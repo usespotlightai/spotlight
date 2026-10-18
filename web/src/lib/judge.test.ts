@@ -1,21 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import {
   comparisonStats,
+  formatCalibration,
   formatScore,
-  formatStanding,
   gradeOptions,
   judgeTiles,
   type RubricVersion,
   valueOfGrade,
 } from '@/lib/judge';
 
-const STANDING = {
-  trusted: false,
+const CALIBRATION = {
+  qualified: false,
   measure: 'spearman' as const,
   agreement: 0.3,
   pairs: 4,
-  trust: 0.5,
-  hiddenBecause: 'too-few-pairs' as const,
+  minAgreement: 0.5,
+  hiddenReason: 'too-few-pairs' as const,
 };
 
 describe('judge', () => {
@@ -26,7 +26,7 @@ describe('judge', () => {
       formatScore({
         kind: 'claims',
         label: '67% of claims met',
-        marks: [true, false, true],
+        claimResults: [true, false, true],
       }),
     ).toBe('2 of 3 claims met');
     expect(formatScore({ kind: 'claims', label: '67% of claims met' })).toBe(
@@ -45,17 +45,19 @@ describe('judge', () => {
   });
 
   it('says why a judge’s scores are hidden', () => {
-    expect(formatStanding(STANDING)).toBe(
+    expect(formatCalibration(CALIBRATION)).toBe(
       'Hidden until more runs have scores from both the judge and people. Runs so far: 4',
     );
-    expect(formatStanding({ ...STANDING, hiddenBecause: 'no-agreement' })).toBe(
+    expect(
+      formatCalibration({ ...CALIBRATION, hiddenReason: 'no-agreement' }),
+    ).toBe(
       'Hidden. Agreement can’t be measured while all scores are identical.',
     );
   });
 
   it('says so when the station’s rubric cannot be read', () => {
     expect(
-      formatStanding({ ...STANDING, hiddenBecause: 'unreadable-rubric' }),
+      formatCalibration({ ...CALIBRATION, hiddenReason: 'unreadable-rubric' }),
     ).toMatch(/cannot be read/);
   });
 });
@@ -64,12 +66,12 @@ describe('judgeTiles', () => {
   it('shows how well the judge agrees and how many of the last runs have each kind of score', () => {
     const tiles = judgeTiles(
       {
-        trusted: true,
+        qualified: true,
         measure: 'kappa',
         agreement: 0.71,
         pairs: 24,
-        trust: 0.6,
-        hiddenBecause: null,
+        minAgreement: 0.6,
+        hiddenReason: null,
       },
       {
         runs: 50,
@@ -77,7 +79,7 @@ describe('judgeTiles', () => {
         judgeOnly: 6,
         peopleOnly: 14,
         neither: 6,
-        shares: {
+        rates: {
           both: 0.48,
           judgeOnly: 0.12,
           peopleOnly: 0.28,
@@ -87,7 +89,7 @@ describe('judgeTiles', () => {
     );
 
     expect(tiles.map((tile) => [tile.label, tile.value, tile.detail])).toEqual([
-      ['Cohen’s kappa', '0.71', 'Trusted. Minimum required: 0.60'],
+      ['Cohen’s kappa', '0.71', 'Qualified. Minimum required: 0.60'],
       ['Both scores', '24', '48% of the last 50'],
       ['Judge only', '6', '12% of the last 50'],
       ['People only', '14', '28% of the last 50'],
@@ -130,7 +132,7 @@ describe('comparisonStats', () => {
       comparisonStats(yesNo).map((stat) => [
         stat.label,
         stat.value,
-        stat.note.split('. ')[0],
+        stat.tooltip.split('. ')[0],
       ]),
     ).toEqual([
       ['Cohen’s kappa', '0.71', 'Substantial agreement'],
@@ -152,7 +154,7 @@ describe('comparisonStats', () => {
       comparisonStats(exact).map((stat) => [
         stat.label,
         stat.value,
-        stat.note.split('. ')[0],
+        stat.tooltip.split('. ')[0],
       ]),
     ).toEqual([
       ['Pearson correlation', '1.00', 'Very strong correlation'],
@@ -167,6 +169,8 @@ describe('comparisonStats', () => {
   });
 
   it('notes no reading where there is no figure', () => {
-    expect(comparisonStats(version('yes-no'))[0]?.note).toMatch(/^How often/);
+    expect(comparisonStats(version('yes-no'))[0]?.tooltip).toMatch(
+      /^How often/,
+    );
   });
 });

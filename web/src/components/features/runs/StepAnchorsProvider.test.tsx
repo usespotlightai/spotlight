@@ -14,8 +14,8 @@ const stepOf = (text: string, detail: string | null = null): JournalStep => ({
   ms: 0,
   startedAt: '2026-09-30T10:00:00.000Z',
   locations: [],
-  given: null,
-  returned: null,
+  input: null,
+  output: null,
   change: null,
   text,
 });
@@ -28,8 +28,8 @@ const journalOf = (attempt: number, steps: JournalStep[]): RunJournal => ({
   marks: {
     startedAt: null,
     readyAt: null,
-    spokeFrom: null,
-    spokeTo: null,
+    firstAgentUpdateAt: null,
+    lastAgentUpdateAt: null,
     endedAt: null,
   },
   spent: null,
@@ -51,7 +51,7 @@ function Focusing({ index }: { index: number }) {
 }
 
 describe('StepAnchorsProvider', () => {
-  it('names each step by its place across the run’s attempts, and opens the one asked for', async () => {
+  it('names each step by its place across the run’s attempts, and opens the one requested', async () => {
     render(
       <StepAnchorsProvider runId="run_1" journals={JOURNALS}>
         <Focusing index={1} />

@@ -1,5 +1,5 @@
 import { ComparedLabel } from '@/components/features/insights/ComparedLabel';
-import { DeltaMark } from '@/components/features/insights/DeltaMark';
+import { DeltaGlyph } from '@/components/features/insights/DeltaGlyph';
 import {
   type ComparedRow,
   comparedRows,
@@ -69,7 +69,7 @@ export function TallyComparison({
             </td>
             <td data-slot="verdict" className={cn('py-1.5 pl-3 text-right')}>
               {row.delta ? (
-                <DeltaMark delta={row.delta} />
+                <DeltaGlyph delta={row.delta} />
               ) : (
                 <span className="text-muted-foreground">–</span>
               )}

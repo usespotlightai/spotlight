@@ -1,6 +1,6 @@
 import type {
+  ReviewOutboxEntry,
   ReviewOutboxPort,
-  ReviewSync,
 } from '@change-review/application/ports/review-outbox.port';
 import {
   MAX_ATTEMPTS,
@@ -19,7 +19,7 @@ import { ReviewCommentId } from '@change-review/domain/value-objects/review-comm
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 
 import type { PullRequestReviewsPort } from '@github/application/ports/pull-request-reviews.port';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -46,7 +46,7 @@ const draft = (id: string, line: number) =>
 
 const syncing = (over: {
   pullRequest?: PullRequestUrl | null;
-  sync: Omit<ReviewSync, 'id' | 'workspaceId' | 'taskId'>;
+  sync: Omit<ReviewOutboxEntry, 'id' | 'workspaceId' | 'taskId'>;
   comments?: ReviewComment[];
   reviews?: Review[];
   github?: Partial<PullRequestReviewsPort>;
@@ -58,8 +58,8 @@ const syncing = (over: {
   const reviews = new Map(
     (over.reviews ?? []).map((each) => [each.id.value, each]),
   );
-  const settled: { how: string; args: unknown[] }[] = [];
-  let pending: ReviewSync | null = {
+  const recorded: { how: string; args: unknown[] }[] = [];
+  let pending: ReviewOutboxEntry | null = {
     id: 'sync_1',
     workspaceId: WORKSPACE,
     taskId: TASK,
@@ -73,11 +73,11 @@ const syncing = (over: {
       pending = null;
       return next;
     },
-    done: async (...args) => void settled.push({ how: 'done', args }),
-    later: async (...args) => void settled.push({ how: 'later', args }),
-    failed: async (...args) => void settled.push({ how: 'failed', args }),
+    done: async (...args) => void recorded.push({ how: 'done', args }),
+    later: async (...args) => void recorded.push({ how: 'later', args }),
+    failed: async (...args) => void recorded.push({ how: 'failed', args }),
     failuresFor: async () => new Map(),
-    forgetTask: async () => undefined,
+    deleteTask: async () => undefined,
   };
 
   const task = {
@@ -94,9 +94,9 @@ const syncing = (over: {
   const github: PullRequestReviewsPort = {
     submit: vi.fn(async (input) => ({
       githubId: 900,
-      comments: input.comments.map((_: unknown, place: number) => ({
-        id: 100 + place,
-        url: `https://github.com/c/${100 + place}`,
+      comments: input.comments.map((_: unknown, index: number) => ({
+        id: 100 + index,
+        url: `https://github.com/c/${100 + index}`,
       })),
     })),
     reply: vi.fn(async (input) => {
@@ -139,7 +139,7 @@ const syncing = (over: {
     } as ReviewCommentRepository,
     {
       run: async () => null,
-      wasWorkedBy: async () => false,
+      wasClaimedBy: async () => false,
       teamOfRun: async () => null,
       reasoning: async () => null,
       task: async () => task,
@@ -159,7 +159,7 @@ const syncing = (over: {
     reports,
   );
 
-  return { service, settled, github, comments, reviews, reports };
+  return { service, recorded, github, comments, reviews, reports };
 };
 
 const submitted = () => {
@@ -177,7 +177,7 @@ const submitted = () => {
 };
 
 describe('SyncReviews', () => {
-  it('posts a submitted review with its comments, and keeps where GitHub put them', async () => {
+  it('posts a submitted review with its comments, and stores where GitHub put them', async () => {
     const { review, comments } = submitted();
     const synced = syncing({
       sync: { kind: 'review', subjectId: 'review_1', attempts: 0 },
@@ -189,7 +189,7 @@ describe('SyncReviews', () => {
 
     expect(synced.github.submit).toHaveBeenCalledWith(
       expect.objectContaining({
-        verdict: 'request-changes',
+        event: 'request-changes',
         body: 'A few things',
         by: { kind: 'person', userId: ADA, name: 'Ada' },
         comments: [
@@ -215,16 +215,16 @@ describe('SyncReviews', () => {
       expect.arrayContaining([
         expect.objectContaining({ kind: 'review.posted' }),
         expect.objectContaining({
-          kind: 'review.comment-placed',
+          kind: 'review.comment-posted',
           github: { id: 100, url: 'https://github.com/c/100' },
         }),
         expect.objectContaining({
-          kind: 'review.comment-placed',
+          kind: 'review.comment-posted',
           github: { id: 101, url: 'https://github.com/c/101' },
         }),
       ]),
     );
-    expect(synced.settled).toEqual([{ how: 'done', args: ['sync_1'] }]);
+    expect(synced.recorded).toEqual([{ how: 'done', args: ['sync_1'] }]);
   });
 
   it('posts an agent’s review as Spotlight itself, naming nobody', async () => {
@@ -266,7 +266,7 @@ describe('SyncReviews', () => {
     );
   });
 
-  it('posts only the comments its own review holds', async () => {
+  it('posts only the comments its own review contains', async () => {
     const { review, comments } = submitted();
     const second = Review.rehydrate({
       id: ReviewId.of('review_2'),
@@ -307,7 +307,7 @@ describe('SyncReviews', () => {
     await synced.service.syncDue();
 
     expect(synced.github.submit).not.toHaveBeenCalled();
-    expect(synced.settled).toEqual([
+    expect(synced.recorded).toEqual([
       {
         how: 'later',
         args: ['sync_1', new Date(NOW.getTime() + 60_000), null, false],
@@ -315,11 +315,11 @@ describe('SyncReviews', () => {
     ]);
   });
 
-  it('tries again later where GitHub refuses, then gives up', async () => {
+  it('retries later where GitHub answers with an error, then gives up', async () => {
     const { review, comments } = submitted();
-    const refusing = {
+    const failing = {
       submit: vi.fn(async () => {
-        throw new UpstreamRefusedError('submit the review', 'Server Error');
+        throw new UpstreamError('submit the review', 'Server Error');
       }),
     };
 
@@ -327,12 +327,12 @@ describe('SyncReviews', () => {
       sync: { kind: 'review', subjectId: 'review_1', attempts: 1 },
       reviews: [review],
       comments,
-      github: refusing,
+      github: failing,
     });
     await early.service.syncDue();
 
     expect(early.reports.report).not.toHaveBeenCalled();
-    expect(early.settled).toEqual([
+    expect(early.recorded).toEqual([
       {
         how: 'later',
         args: [
@@ -352,11 +352,11 @@ describe('SyncReviews', () => {
       },
       reviews: [review],
       comments,
-      github: refusing,
+      github: failing,
     });
     await last.service.syncDue();
 
-    expect(last.settled).toEqual([
+    expect(last.recorded).toEqual([
       { how: 'failed', args: ['sync_1', 'submit the review: Server Error'] },
     ]);
     expect(last.reviews.get('review_1')?.state).toBe('failed');
@@ -364,12 +364,12 @@ describe('SyncReviews', () => {
       expect.objectContaining({ kind: 'review.comment-not-posted' }),
     );
     expect(last.reports.report).toHaveBeenCalledExactlyOnceWith(
-      expect.any(UpstreamRefusedError),
+      expect.any(UpstreamError),
       expect.objectContaining({ source: 'Syncing reviews with GitHub' }),
     );
   });
 
-  it('withdraws a review whose every comment was deleted on its way, without asking GitHub', async () => {
+  it('discards a review whose every comment was deleted on its way, without calling GitHub', async () => {
     const { review, comments } = submitted();
     const synced = syncing({
       sync: { kind: 'review', subjectId: 'review_1', attempts: 0 },
@@ -385,20 +385,20 @@ describe('SyncReviews', () => {
           now: NOW,
         }).review,
       ],
-      comments: comments.map((each) => each.removed(ADA)),
+      comments: comments.map((each) => each.deleted(ADA)),
     });
 
     await synced.service.syncDue();
 
     expect(synced.github.submit).not.toHaveBeenCalled();
-    expect(synced.reviews.get('review_1')?.state).toBe('withdrawn');
+    expect(synced.reviews.get('review_1')?.state).toBe('discarded');
     expect(synced.reviews.get('review_1')?.pullEvents()).toContainEqual(
       expect.objectContaining({ kind: 'review.comment-not-posted' }),
     );
-    expect(synced.settled).toEqual([{ how: 'done', args: ['sync_1'] }]);
+    expect(synced.recorded).toEqual([{ how: 'done', args: ['sync_1'] }]);
   });
 
-  it('fails a reply to a comment whose review never reached GitHub', async () => {
+  it('fails a reply to a comment whose review was never posted to GitHub', async () => {
     const sending = draft('comment_1', 3).submittedIn(ReviewId.of('review_1'));
     const reply = sending.replied({
       id: ReviewCommentId.of('comment_2'),
@@ -414,7 +414,7 @@ describe('SyncReviews', () => {
     await synced.service.syncDue();
 
     expect(synced.github.reply).not.toHaveBeenCalled();
-    expect(synced.settled[0]?.how).toBe('failed');
+    expect(synced.recorded[0]?.how).toBe('failed');
     expect(synced.comments.get('comment_2')?.state).toBe('failed');
   });
 
@@ -433,7 +433,7 @@ describe('SyncReviews', () => {
     });
     await waiting.service.syncDue();
 
-    expect(waiting.settled).toEqual([
+    expect(waiting.recorded).toEqual([
       {
         how: 'later',
         args: ['sync_1', new Date(NOW.getTime() + 60_000), null, true],
@@ -450,11 +450,11 @@ describe('SyncReviews', () => {
     });
     await tired.service.syncDue();
 
-    expect(tired.settled[0]?.how).toBe('failed');
+    expect(tired.recorded[0]?.how).toBe('failed');
     expect(tired.comments.get('comment_2')?.state).toBe('failed');
   });
 
-  it('posts a review with its comments on lines, and owes each comment on a whole file a post of its own', async () => {
+  it('posts a review with its comments on lines, and sends each comment on a whole file in a post of its own', async () => {
     const onFile = ReviewComment.draft({
       id: ReviewCommentId.of('comment_3'),
       workspaceId: WORKSPACE,
@@ -496,7 +496,7 @@ describe('SyncReviews', () => {
     );
   });
 
-  it('posts a comment on a whole file on its own, and keeps where GitHub put it', async () => {
+  it('posts a comment on a whole file on its own, and stores where GitHub put it', async () => {
     const onFile = ReviewComment.draft({
       id: ReviewCommentId.of('comment_3'),
       workspaceId: WORKSPACE,
@@ -547,7 +547,7 @@ describe('SyncReviews', () => {
     expect(synced.comments.get('comment_2')?.github?.id).toBe(555);
   });
 
-  it('keeps where GitHub put a reply edited while it was posted, and never posts it twice', async () => {
+  it('stores where GitHub put a reply edited while it was posted, and never posts it twice', async () => {
     const parent = draft('comment_1', 3)
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 77, url: 'https://github.com/c/77' });
@@ -562,26 +562,26 @@ describe('SyncReviews', () => {
       sync: { kind: 'reply', subjectId: 'comment_2', attempts: 0 },
       comments: [parent, reply],
       editedWhilePosting: (comment) =>
-        comment.rewritten('Done, and tested', ADA, NOW),
+        comment.edited('Done, and tested', ADA, NOW),
     });
 
     await synced.service.syncDue();
 
-    const kept = synced.comments.get('comment_2');
+    const stored = synced.comments.get('comment_2');
     expect(synced.github.reply).toHaveBeenCalledTimes(1);
-    expect(kept?.github?.id).toBe(555);
-    expect(kept?.body).toBe('Done, and tested');
-    expect(kept?.pullEvents()).toContainEqual(
+    expect(stored?.github?.id).toBe(555);
+    expect(stored?.body).toBe('Done, and tested');
+    expect(stored?.pullEvents()).toContainEqual(
       expect.objectContaining({
-        kind: 'review-comment.rewritten',
+        kind: 'review-comment.edited',
         onGitHub: true,
       }),
     );
-    expect(synced.settled).toEqual([{ how: 'done', args: ['sync_1'] }]);
+    expect(synced.recorded).toEqual([{ how: 'done', args: ['sync_1'] }]);
 
     const again = syncing({
       sync: { kind: 'reply', subjectId: 'comment_2', attempts: 1 },
-      comments: [parent, kept as ReviewComment],
+      comments: [parent, stored as ReviewComment],
     });
     await again.service.syncDue();
 
@@ -594,7 +594,7 @@ describe('SyncReviews', () => {
     const synced = syncing({
       sync: { kind: 'review', subjectId: 'review_1', attempts: 0 },
       reviews: [review],
-      comments: [first.rewritten('Clearer', ADA, NOW), second.removed(ADA)],
+      comments: [first.edited('Clearer', ADA, NOW), second.deleted(ADA)],
     });
 
     await synced.service.syncDue();
@@ -607,11 +607,11 @@ describe('SyncReviews', () => {
     expect(synced.reviews.get('review_1')?.pullEvents()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          kind: 'review.comment-placed',
+          kind: 'review.comment-posted',
           github: { id: 100, url: 'https://github.com/c/100' },
         }),
         expect.objectContaining({
-          kind: 'review.comment-placed',
+          kind: 'review.comment-posted',
           commentId: second.id,
           github: null,
         }),
@@ -619,7 +619,7 @@ describe('SyncReviews', () => {
     );
   });
 
-  it('holds a reply back while the comment it answers is still on its way', async () => {
+  it('does not send a reply while the comment it answers is still on its way', async () => {
     const parent = draft('comment_1', 3).submittedIn(ReviewId.of('review_1'));
     const reply = parent.postedAs(null).replied({
       id: ReviewCommentId.of('comment_2'),
@@ -635,14 +635,14 @@ describe('SyncReviews', () => {
     await synced.service.syncDue();
 
     expect(synced.github.reply).not.toHaveBeenCalled();
-    expect(synced.settled[0]?.how).toBe('later');
+    expect(synced.recorded[0]?.how).toBe('later');
   });
 
   it('carries an edit and a deletion to the comment on GitHub', async () => {
     const posted = draft('comment_1', 3)
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 77, url: 'https://github.com/c/77' })
-      .rewritten('Clearer', ADA, NOW);
+      .edited('Clearer', ADA, NOW);
 
     const edited = syncing({
       sync: { kind: 'edit', subjectId: 'comment_1', attempts: 0 },
@@ -654,22 +654,22 @@ describe('SyncReviews', () => {
       expect.objectContaining({ commentId: 77, body: 'Clearer' }),
     );
 
-    const removed = syncing({
+    const deleted = syncing({
       sync: { kind: 'delete', subjectId: 'comment_1', attempts: 0 },
-      comments: [posted.removed(ADA)],
+      comments: [posted.deleted(ADA)],
     });
-    await removed.service.syncDue();
+    await deleted.service.syncDue();
 
-    expect(removed.github.remove).toHaveBeenCalledWith(
+    expect(deleted.github.remove).toHaveBeenCalledWith(
       expect.objectContaining({ commentId: 77 }),
     );
   });
 
-  it('remembers the edit it sent, and still owes one made while sending it', async () => {
+  it('remembers the edit it sent, and still has to send one made while sending it', async () => {
     const posted = draft('comment_1', 3)
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 77, url: 'https://github.com/c/77' })
-      .rewritten('First', ADA, NOW);
+      .edited('First', ADA, NOW);
     let synced: ReturnType<typeof syncing> | null = null;
 
     synced = syncing({
@@ -677,39 +677,36 @@ describe('SyncReviews', () => {
       comments: [posted],
       github: {
         edit: vi.fn(async () => {
-          synced?.comments.set(
-            'comment_1',
-            posted.rewritten('Second', ADA, NOW),
-          );
+          synced?.comments.set('comment_1', posted.edited('Second', ADA, NOW));
         }),
       },
     });
     await synced.service.syncDue();
 
-    const kept = synced.comments.get('comment_1');
-    expect(kept?.body).toBe('Second');
-    expect(kept?.editPending).toBe(true);
-    expect(kept?.editsAwaitingEcho).toEqual(['First']);
+    const stored = synced.comments.get('comment_1');
+    expect(stored?.body).toBe('Second');
+    expect(stored?.editPending).toBe(true);
+    expect(stored?.pendingOwnEdits).toEqual(['First']);
   });
 
-  it('stops owing an edit GitHub would never take', async () => {
-    const owed = draft('comment_1', 3)
+  it('drops a pending edit GitHub would never take', async () => {
+    const pending = draft('comment_1', 3)
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 77, url: 'https://github.com/c/77' })
-      .rewritten('Clearer', ADA, NOW);
+      .edited('Clearer', ADA, NOW);
     const synced = syncing({
       sync: { kind: 'edit', subjectId: 'comment_1', attempts: MAX_ATTEMPTS },
-      comments: [owed],
+      comments: [pending],
       github: {
         edit: vi.fn(async () => {
-          throw new UpstreamRefusedError('edit the review comment', '422');
+          throw new UpstreamError('edit the review comment', '422');
         }),
       },
     });
 
     await synced.service.syncDue();
 
-    expect(synced.settled[0]?.how).toBe('failed');
+    expect(synced.recorded[0]?.how).toBe('failed');
     expect(synced.comments.get('comment_1')?.editPending).toBe(false);
   });
 });

@@ -59,7 +59,7 @@ export const harnessToolOf = (
   return fromTitle(trimmed, kind) ?? { server: null, tool: trimmed };
 };
 
-export const skillAskedFor = (
+export const requestedSkillOf = (
   tool: HarnessTool,
   input: string | null,
 ): string | null => {
@@ -68,9 +68,9 @@ export const skillAskedFor = (
   }
 
   try {
-    const given = JSON.parse(input) as { skill?: unknown };
+    const parsed = JSON.parse(input) as { skill?: unknown };
 
-    return typeof given.skill === 'string' ? given.skill : null;
+    return typeof parsed.skill === 'string' ? parsed.skill : null;
   } catch {
     return null;
   }
@@ -101,7 +101,7 @@ export const callEndingOf = (
 
 @Injectable()
 export class AcpHarnessToolNames implements HarnessToolNamesPort {
-  askedFor(title: string, kind: string): CalledTool | null {
+  toolFor(title: string, kind: string): CalledTool | null {
     const named = fromTitle(title.trim(), kind);
 
     return named && named.server !== null ? CalledTool.of(named) : null;

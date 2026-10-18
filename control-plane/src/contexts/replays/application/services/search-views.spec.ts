@@ -13,11 +13,11 @@ import {
   replayFor,
   searchRunIds,
 } from '@replays/domain/replays.fake-spec';
-import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-reading';
+import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-estimate';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -29,20 +29,20 @@ const heldOutWorld = (
   const set = aSet(tasks);
   const ids = searchRunIds();
   const searching = aSearch({ set })
-    .recordReplayEnd(
+    .recordReplayStopReason(
       ReplayId.of('replay_seed'),
       'finished',
-      { spent: Spend.of(10, 'USD'), unpriced: 0 },
+      { spent: Money.of(10, 'USD'), unpriced: 0 },
       NOW,
       ids,
       true,
     )
-    .admitted(RUN_ONE, {
+    .acceptProposal(RUN_ONE, {
       candidateId: CandidateId.of('candidate_terse'),
       name: CandidateName.searched('terse'),
       replayId: ReplayId.of('replay_terse'),
     })
-    .admitted(RUN_ONE, {
+    .acceptProposal(RUN_ONE, {
       candidateId: CandidateId.of('candidate_wordy'),
       name: CandidateName.searched('wordy'),
       replayId: ReplayId.of('replay_wordy'),
@@ -81,7 +81,7 @@ const heldOutWorld = (
       replayedAs(
         replayFor(
           set,
-          'replay_held_terse',
+          'replay_held_out_terse',
           'candidate_terse',
           search.split.heldOutRuns,
         ),
@@ -101,27 +101,27 @@ describe('search views', () => {
 
     expect(summary.best).toMatchObject({
       name: 'terse',
-      onlyOnSeenTasks: 'marked',
+      overfit: 'likely',
     });
     expect(
-      detail.candidates.find((each) => each.name === 'terse')?.onlyOnSeenTasks,
-    ).toBe('marked');
-    expect(detail.seed.onlyOnSeenTasks).toBeNull();
-    expect(detail.onlyOnSeenTasks).toBe(1);
+      detail.candidates.find((each) => each.name === 'terse')?.overfit,
+    ).toBe('likely');
+    expect(detail.seed.overfit).toBeNull();
+    expect(detail.overfitCount).toBe(1);
   });
 
-  it('says too few held-out tasks were scored to tell, and does not count it as marked', () => {
+  it('says too few held-out tasks were scored to tell, and does not count it as overfit', () => {
     const { search, replays } = heldOutWorld(10);
 
     const detail = searchDetailView(search, replays, [], [], DEFAULT_MIN_GAIN);
 
     expect(detail.best).toMatchObject({
       name: 'terse',
-      onlyOnSeenTasks: 'too-few-held-out',
+      overfit: 'too-few-held-out',
     });
     expect(
-      detail.candidates.find((each) => each.name === 'terse')?.onlyOnSeenTasks,
+      detail.candidates.find((each) => each.name === 'terse')?.overfit,
     ).toBe('too-few-held-out');
-    expect(detail.onlyOnSeenTasks).toBe(0);
+    expect(detail.overfitCount).toBe(0);
   });
 });

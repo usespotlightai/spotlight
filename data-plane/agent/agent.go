@@ -30,7 +30,7 @@ const Usage = `  spotlight handover --next <where> [--note <text>]
   spotlight trace --task <id> [--out <path>]
   spotlight history --station <key> [--line <key>] [--fingerprint <fp>] [--outcome <word>] [--since <date>] [--last <n>] [--out <dir>]
   spotlight recall "<words>" | M-12
-  spotlight remember --kind <kind> --body "…" [--path <path>]... [--reach team|line|station] [--supersedes M-12]
+  spotlight remember --kind <kind> --body "…" [--path <path>]... [--scope team|line|station] [--supersedes M-12]
   spotlight candidate --name <name> --hypothesis <text | @file> <station.json | ->
   spotlight cause --task <task> --cause config|task|judge|check|infra --evidence <text | @file> [--suggestion <text | @file>]
   spotlight tools
@@ -103,23 +103,23 @@ func handover(args []string, in io.Reader, out io.Writer) error {
 	}
 	*note = noted
 
-	endpoint, token := os.Getenv(protocol.HandoverURLVar), os.Getenv(protocol.HandoverTokenVar)
+	endpoint, token := os.Getenv(protocol.AgentAPIURLVar), os.Getenv(protocol.AgentAPITokenVar)
 	if endpoint == "" || token == "" {
 		return fmt.Errorf("no run to hand over: spotlight runs inside a Spotlight workspace")
 	}
 
-	said, err := say(endpoint, token, protocol.Outcome{Next: *next, Note: *note})
+	handedTo, err := postHandover(endpoint, token, protocol.Handover{Next: *next, Note: *note})
 	if err != nil {
 		return err
 	}
 
 	switch {
-	case strings.EqualFold(said, protocol.HandoverReview):
+	case strings.EqualFold(handedTo, protocol.HandoverReview):
 		fmt.Fprintln(out, "Put to a person. The task waits here until someone answers.")
-	case strings.EqualFold(said, protocol.HandoverDone):
-		fmt.Fprintln(out, "Closed where it stands.")
+	case strings.EqualFold(handedTo, protocol.HandoverDone):
+		fmt.Fprintln(out, "Closed at its current station.")
 	default:
-		fmt.Fprintf(out, "Handed over to %s.\n", said)
+		fmt.Fprintf(out, "Passed to %s.\n", handedTo)
 	}
 
 	return nil
@@ -129,8 +129,8 @@ func reply(args []string, in io.Reader, out io.Writer) error {
 	flags := flag.NewFlagSet("reply", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
-	to := flags.String("to", "", "which remark, as the briefing named it")
-	body := flags.String("body", "", "what to say back")
+	to := flags.String("to", "", "which review comment, as the briefing named it")
+	body := flags.String("body", "", "the reply")
 	resolve := flags.Bool("resolve", false, "resolve the thread as well")
 
 	if err := flags.Parse(args); err != nil {
@@ -143,7 +143,7 @@ func reply(args []string, in io.Reader, out io.Writer) error {
 
 	answered, err := prose(*body, in)
 	if err != nil {
-		return fmt.Errorf("read the answer: %w", err)
+		return fmt.Errorf("read the reply: %w", err)
 	}
 	*body = answered
 
@@ -151,35 +151,35 @@ func reply(args []string, in io.Reader, out io.Writer) error {
 		return fmt.Errorf("--body is required\n%s", usage)
 	}
 
-	endpoint, token := os.Getenv(protocol.HandoverURLVar), os.Getenv(protocol.HandoverTokenVar)
+	endpoint, token := os.Getenv(protocol.AgentAPIURLVar), os.Getenv(protocol.AgentAPITokenVar)
 	if endpoint == "" || token == "" {
-		return fmt.Errorf("no run to answer for: spotlight runs inside a Spotlight workspace")
+		return fmt.Errorf("no run to reply from: spotlight runs inside a Spotlight workspace")
 	}
 
-	said, err := json.Marshal(protocol.Remark{
+	encoded, err := json.Marshal(protocol.ReviewCommentReply{
 		Handle: *to, Body: *body, Resolve: *resolve,
 	})
 	if err != nil {
-		return fmt.Errorf("say it: %w", err)
+		return fmt.Errorf("encode the reply: %w", err)
 	}
 
 	if _, err := post(
-		strings.TrimSuffix(endpoint, "/")+protocol.HandoverRemarkPath, token, said,
+		strings.TrimSuffix(endpoint, "/")+protocol.AgentAPIReviewCommentReplyPath, token, encoded,
 	); err != nil {
 		return err
 	}
 
 	if *resolve {
-		fmt.Fprintf(out, "Answered %s, and resolved it.\n", *to)
+		fmt.Fprintf(out, "Replied to %s, and resolved it.\n", *to)
 	} else {
-		fmt.Fprintf(out, "Answered %s.\n", *to)
+		fmt.Fprintf(out, "Replied to %s.\n", *to)
 	}
 
 	return nil
 }
 
-func say(endpoint, token string, spoken protocol.Outcome) (string, error) {
-	body, err := json.Marshal(spoken)
+func postHandover(endpoint, token string, handedOver protocol.Handover) (string, error) {
+	body, err := json.Marshal(handedOver)
 	if err != nil {
 		return "", err
 	}
@@ -188,7 +188,7 @@ func say(endpoint, token string, spoken protocol.Outcome) (string, error) {
 		return "", err
 	}
 
-	return spoken.Next, nil
+	return handedOver.Next, nil
 }
 
 func post(url, token string, body []byte) (string, error) {
@@ -205,11 +205,11 @@ func post(url, token string, body []byte) (string, error) {
 	}
 	defer response.Body.Close()
 
-	said, _ := io.ReadAll(response.Body)
+	read, _ := io.ReadAll(response.Body)
 
 	if response.StatusCode >= 300 {
-		return "", fmt.Errorf("%s", strings.TrimSpace(string(said)))
+		return "", fmt.Errorf("%s", strings.TrimSpace(string(read)))
 	}
 
-	return strings.TrimSpace(string(said)), nil
+	return strings.TrimSpace(string(read)), nil
 }

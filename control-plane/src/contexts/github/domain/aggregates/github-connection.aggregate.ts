@@ -1,16 +1,16 @@
 import { WorkspaceConnected } from '@github/domain/events/workspace-connected.event';
 import { WorkspaceDisconnected } from '@github/domain/events/workspace-disconnected.event';
-import { InstallationClaimedError } from '@github/domain/exceptions/installation-claimed.error';
-import { NotYoursToConnectError } from '@github/domain/exceptions/not-yours-to-connect.error';
+import { ConnectForbiddenError } from '@github/domain/exceptions/connect-forbidden.error';
+import { InstallationAlreadyConnectedError } from '@github/domain/exceptions/installation-already-connected.error';
 import type { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface ConnectingFacts {
-  readonly workspaceAdministered: boolean;
-  readonly installationAdministered: boolean;
-  readonly claimedBy: WorkspaceId | null;
+export interface ConnectPreconditions {
+  readonly isWorkspaceAdmin: boolean;
+  readonly isInstallationAdmin: boolean;
+  readonly connectedWorkspace: WorkspaceId | null;
 }
 
 export class GitHubConnection extends EventRecorder {
@@ -51,16 +51,19 @@ export class GitHubConnection extends EventRecorder {
 
   connectTo(
     installation: GitHubInstallation,
-    facts: ConnectingFacts,
+    preconditions: ConnectPreconditions,
   ): GitHubConnection {
-    if (!facts.workspaceAdministered) {
-      throw new NotYoursToConnectError('workspace-not-administered');
+    if (!preconditions.isWorkspaceAdmin) {
+      throw new ConnectForbiddenError('not-workspace-admin');
     }
-    if (!facts.installationAdministered) {
-      throw new NotYoursToConnectError('installation-not-administered');
+    if (!preconditions.isInstallationAdmin) {
+      throw new ConnectForbiddenError('not-installation-admin');
     }
-    if (facts.claimedBy && !facts.claimedBy.equals(this.workspaceId)) {
-      throw new InstallationClaimedError(installation.value);
+    if (
+      preconditions.connectedWorkspace &&
+      !preconditions.connectedWorkspace.equals(this.workspaceId)
+    ) {
+      throw new InstallationAlreadyConnectedError(installation.value);
     }
 
     const connected = this.with(installation);

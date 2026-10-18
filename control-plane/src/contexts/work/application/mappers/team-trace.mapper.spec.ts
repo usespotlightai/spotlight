@@ -1,7 +1,7 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamTraceMapper } from '@work/application/mappers/team-trace.mapper';
-import type { RunDigest } from '@work/application/ports/run-digest-reader.port';
+import type { RunUsage } from '@work/application/ports/run-usage-reader.port';
 import type { TeamTraceSummary } from '@work/application/ports/team-trace-reader.port';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { Money } from '@work/domain/value-objects/money.vo';
@@ -33,13 +33,13 @@ const summary = (over: Partial<TeamTraceSummary> = {}): TeamTraceSummary => ({
   ...over,
 });
 
-const digest = (over: Partial<RunDigest> = {}): RunDigest => ({
+const usage = (over: Partial<RunUsage> = {}): RunUsage => ({
   ms: 90_000,
   steps: 40,
-  faults: 1,
+  errors: 1,
   changedLines: 0,
-  used: 12_000,
-  size: 200_000,
+  contextTokens: 12_000,
+  contextWindow: 200_000,
   cost: Money.of(0.25, 'USD'),
   tokens: Tokens.UNREPORTED,
   ...over,
@@ -50,32 +50,32 @@ describe('TeamTraceMapper', () => {
     const dto = TeamTraceMapper.toDto(
       summary({ runIds: [RunId.of('run_1'), RunId.of('run_2')], runs: 2 }),
       new Map([
-        ['run_1', digest()],
-        ['run_2', digest({ cost: Money.of(0.5, 'USD'), steps: 10, faults: 2 })],
+        ['run_1', usage()],
+        ['run_2', usage({ cost: Money.of(0.5, 'USD'), steps: 10, errors: 2 })],
       ]),
     );
 
     expect(dto.cost).toBeCloseTo(0.75);
     expect(dto.steps).toBe(50);
-    expect(dto.faults).toBe(3);
+    expect(dto.errors).toBe(3);
     expect(dto.currency).toBe('USD');
   });
 
   it('says nothing about cost where nothing was reported', () => {
     const dto = TeamTraceMapper.toDto(
       summary(),
-      new Map([['run_1', digest({ cost: null })]]),
+      new Map([['run_1', usage({ cost: null })]]),
     );
 
     expect(dto.cost).toBeNull();
     expect(dto.currency).toBeNull();
   });
 
-  it('counts a run with no digest as nothing rather than failing', () => {
+  it('counts a run with no usage as nothing rather than failing', () => {
     const dto = TeamTraceMapper.toDto(summary(), new Map());
 
     expect(dto.steps).toBe(0);
-    expect(dto.faults).toBe(0);
+    expect(dto.errors).toBe(0);
     expect(dto.cost).toBeNull();
   });
 

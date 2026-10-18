@@ -2,7 +2,8 @@ import type {
   CandidateResponseDto,
   EntryComparisonResponseDto,
   EntryJudgeResponseDto,
-  GainReadingResponseDto,
+  GainEstimateResponseDto,
+  MoneyResponseDto,
   RateIntervalResponseDto,
   ReplayableRunResponseDto,
   ReplayCandidateResourceResponseDto,
@@ -15,14 +16,12 @@ import type {
   ReplaySetResponseDto,
   SetCompositionResponseDto,
   SetNoiseResponseDto,
-  SpendResponseDto,
   SuggestedRunResponseDto,
 } from '@/lib/api';
-import { spentIn, took } from '@/lib/inbox';
+import { formatShortDuration, spentIn } from '@/lib/inbox';
 import { formatClaimsMet, formatPercent } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import {
-  AGAINST_LIVE,
   AN_EARLIER_BASELINE,
   BASELINE_LABEL,
   CLOSER_TO_ACCEPTED,
@@ -33,6 +32,7 @@ import {
   SEARCH_START_LABEL,
   STATION_GONE_FROM_LINE,
   THE_BASELINE,
+  THE_LIVE_CONFIG,
   THE_SEARCH_START,
 } from '@/lib/replay-words';
 import { stationPath, stationTabPath } from '@/lib/station';
@@ -50,9 +50,9 @@ export type ReplayCandidate = ReplayCandidateResourceResponseDto;
 export type ReplayedCandidate = CandidateResponseDto;
 export type ReplayRun = ReplayRunResponseDto;
 export type ReplayOfRun = ReplayOfRunResponseDto;
-export type Spend = SpendResponseDto;
+export type Money = MoneyResponseDto;
 export type RateInterval = RateIntervalResponseDto;
-export type GainReading = GainReadingResponseDto;
+export type GainEstimate = GainEstimateResponseDto;
 export type SetNoise = SetNoiseResponseDto;
 
 export type ReplayedStation = {
@@ -89,18 +89,18 @@ export const replayPath = (at: ReplayedStation, replayId: string): string =>
 export const replaysAnchorPath = (at: ReplayedStation): string =>
   `${stationTabPath(at.slug, at.teamId, at.lineId, at.stationId, 'improve')}#${REPLAYS_ANCHOR}`;
 
-export const underway = (state: ReplayState): boolean =>
+export const inProgress = (state: ReplayState): boolean =>
   state === 'queued' || state === 'running';
 
-export const anyUnderway = (replays: readonly Replay[]): boolean =>
-  replays.some((each) => underway(each.state));
+export const anyInProgress = (replays: readonly Replay[]): boolean =>
+  replays.some((each) => inProgress(each.state));
 
 export const newestFirst = (replays: readonly Replay[]): Replay[] =>
   [...replays].sort((one, other) =>
     other.startedAt.localeCompare(one.startedAt),
   );
 
-export const startRefusal = (set: ReplaySet): string | null => {
+export const startProblem = (set: ReplaySet): string | null => {
   if (set.stationGone) {
     return STATION_GONE_FROM_LINE;
   }
@@ -130,28 +130,28 @@ export const formatCandidate = (
 export const formatTitle = (title: string | null): string =>
   title ?? 'A deleted task';
 
-export const spendOfCeiling = (spent: Spend, ceiling: Spend): string =>
+export const spendOfCeiling = (spent: Money, ceiling: Money): string =>
   `${spentIn(spent.amount, spent.currency)} / ${spentIn(ceiling.amount, ceiling.currency)}`;
 
-export const overCeiling = (spent: Spend, ceiling: Spend): Spend | null =>
+export const overCeiling = (spent: Money, ceiling: Money): Money | null =>
   spent.currency === ceiling.currency && spent.amount > ceiling.amount
     ? { amount: spent.amount - ceiling.amount, currency: ceiling.currency }
     : null;
 
-export const ceilingShare = (spent: Spend, ceiling: Spend): number =>
+export const ceilingRate = (spent: Money, ceiling: Money): number =>
   ceiling.amount > 0 ? Math.min(spent.amount / ceiling.amount, 1) : 0;
 
 export type SpendBreakdown = {
-  readonly runs: Spend;
-  readonly drafting: Spend;
-  readonly judging: Spend;
-  readonly pairing: Spend;
+  readonly runs: Money;
+  readonly generation: Money;
+  readonly judging: Money;
+  readonly pairing: Money;
 };
 
 const summed = (
-  spends: readonly (Spend | null)[],
+  spends: readonly (Money | null)[],
   currency: string,
-): Spend => ({
+): Money => ({
   amount: spends.reduce(
     (total, each) =>
       each && each.currency === currency ? total + each.amount : total,
@@ -170,8 +170,8 @@ export const spendBreakdown = (
       replay.entries.map((each) => each.cost),
       currency,
     ),
-    drafting: summed(
-      replay.entries.flatMap((each) => each.draftingSpent?.spends ?? []),
+    generation: summed(
+      replay.entries.flatMap((each) => each.generationSpent?.spends ?? []),
       currency,
     ),
     judging: summed(
@@ -204,19 +204,21 @@ export const formatCostDelta = (
     : `${signOf(delta)}${spentIn(Math.abs(delta), currency)}`;
 
 export const formatMsDelta = (delta: number | null): string =>
-  delta === null ? '–' : `${signOf(delta)}${took(Math.abs(delta))}`;
+  delta === null
+    ? '–'
+    : `${signOf(delta)}${formatShortDuration(Math.abs(delta))}`;
 
 export const formatScoreDelta = (delta: number | null): string =>
   delta === null ? '–' : `${signOf(delta)}${Math.abs(delta).toFixed(2)}`;
 
-type Counterpart = 'baseline' | 'search-start' | 'live' | 'earlier-baseline';
+type ReferenceKind = 'baseline' | 'search-start' | 'live' | 'earlier-baseline';
 
-const counterpartOf = (
-  counterpartId: string,
+const referenceOf = (
+  referenceId: string,
   candidate: Replay['candidate'],
   baselineId: string | null,
-): Counterpart => {
-  if (counterpartId === baselineId) {
+): ReferenceKind => {
+  if (referenceId === baselineId) {
     return 'baseline';
   }
 
@@ -230,65 +232,63 @@ const counterpartOf = (
   }
 };
 
-const COUNTERPART_PHRASES: Record<Counterpart, string> = {
+const REFERENCE_PHRASES: Record<ReferenceKind, string> = {
   baseline: THE_BASELINE,
   'search-start': THE_SEARCH_START,
-  live: AGAINST_LIVE,
+  live: THE_LIVE_CONFIG,
   'earlier-baseline': AN_EARLIER_BASELINE,
 };
 
-const COUNTERPART_LABELS: Record<Counterpart, string> = {
+const REFERENCE_LABELS: Record<ReferenceKind, string> = {
   baseline: BASELINE_LABEL,
   'search-start': SEARCH_START_LABEL,
   live: LIVE_CONFIG_LABEL,
   'earlier-baseline': EARLIER_BASELINE_LABEL,
 };
 
-export const formatCounterpart = (
-  counterpartId: string,
+export const formatReference = (
+  referenceId: string,
   candidate: Replay['candidate'],
   baselineId: string | null,
-): string =>
-  COUNTERPART_PHRASES[counterpartOf(counterpartId, candidate, baselineId)];
+): string => REFERENCE_PHRASES[referenceOf(referenceId, candidate, baselineId)];
 
-export const counterpartLabel = (
-  counterpartId: string,
+export const referenceLabel = (
+  referenceId: string,
   candidate: Replay['candidate'],
   baselineId: string | null,
-): string =>
-  COUNTERPART_LABELS[counterpartOf(counterpartId, candidate, baselineId)];
+): string => REFERENCE_LABELS[referenceOf(referenceId, candidate, baselineId)];
 
-export type CounterpartRate = {
+export type ReferenceRate = {
   readonly label: string;
   readonly successRate: number | null;
   readonly interval: RateIntervalResponseDto | null;
 };
 
-export const counterpartRateOf = (
-  replay: Pick<Replay, 'comparedWith' | 'candidate'>,
+export const referenceRateOf = (
+  replay: Pick<Replay, 'referenceReplay' | 'candidate'>,
   baselineId: string | null,
-): CounterpartRate | null => {
-  const against = replay.comparedWith;
+): ReferenceRate | null => {
+  const reference = replay.referenceReplay;
 
-  if (!against) {
+  if (!reference) {
     return null;
   }
 
   return {
-    label: counterpartLabel(against.replayId, replay.candidate, baselineId),
-    successRate: against.successRate,
-    interval: against.interval,
+    label: referenceLabel(reference.replayId, replay.candidate, baselineId),
+    successRate: reference.successRate,
+    interval: reference.interval,
   };
 };
 
-export const counterpartNoun = (against: Pick<CounterpartRate, 'label'>) =>
-  lowered(against.label);
+export const referenceNoun = (reference: Pick<ReferenceRate, 'label'>) =>
+  lowered(reference.label);
 
 export type EntryPair = NonNullable<ReplayEntry['pair']>;
 
-export const readingsDisagree = (pair: EntryPair): boolean =>
+export const passesDisagree = (pair: EntryPair): boolean =>
   pair.outcome === 'tie' &&
-  new Set(pair.readings.map((each) => each.outcome)).size > 1;
+  new Set(pair.passes.map((each) => each.outcome)).size > 1;
 
 export const formatJudgeScore = (
   judge: EntryJudgeResponseDto | null,
@@ -301,8 +301,8 @@ export const formatJudgeScore = (
     case 'yes-no':
       return judge.score >= 1 ? 'Yes' : 'No';
     case 'claims':
-      return judge.marks
-        ? formatClaimsMet(judge.marks)
+      return judge.claimResults
+        ? formatClaimsMet(judge.claimResults)
         : `${formatPercent(judge.score)} of claims met`;
     default:
       return `${judge.score}/5`;
@@ -316,7 +316,7 @@ export const candidatesInOrder = (
     other.createdAt.localeCompare(one.createdAt),
   );
 
-export const stationAddress = (
+export const stationKeyPath = (
   teamKey: string,
   lineKey: string,
   stationKey: string,
@@ -362,19 +362,21 @@ export const countFrom = (
 export const repeatsFrom = (text: string): number | string =>
   countFrom(text, REPEAT_BOUNDS);
 
-export type CopiesTally = {
+export type RepeatsTally = {
   readonly succeeded: number;
   readonly scored: number;
 };
 
-export const copiesTally = (entries: readonly ReplayEntry[]): CopiesTally => ({
+export const repeatsTally = (
+  entries: readonly ReplayEntry[],
+): RepeatsTally => ({
   succeeded: entries.filter((each) => each.result === 'succeeded').length,
   scored: entries.filter(
     (each) => each.result === 'succeeded' || each.result === 'failed',
   ).length,
 });
 
-export const meanCostOf = (entries: readonly ReplayEntry[]): Spend | null => {
+export const meanCostOf = (entries: readonly ReplayEntry[]): Money | null => {
   const costs = entries.map((each) => each.cost);
   const [first] = costs;
 
@@ -425,7 +427,7 @@ export const SET_REPLAY_HEADINGS: readonly NestedHeading[] = [
 ];
 
 export const SET_HEALTH_HEADINGS: readonly NestedHeading[] = [
-  { label: 'Reading', indent: 'edge', size: 'minmax(10rem,1fr)' },
+  { label: 'Check', indent: 'edge', size: 'minmax(10rem,1fr)' },
   { label: 'Result', size: 'minmax(12rem,3fr)' },
 ];
 
@@ -437,7 +439,7 @@ export const SET_RUN_HEADINGS: readonly NestedHeading[] = [
 
 export const SET_CHECK_HEADINGS: readonly NestedHeading[] = [
   { label: 'Change', indent: 'edge', size: 'minmax(7rem,2fr)' },
-  { label: 'Verdict', size: 'minmax(6rem,2fr)' },
+  { label: 'Result', size: 'minmax(6rem,2fr)' },
   { label: 'Regressions', numeric: true, size: SPREAD },
   { label: 'When', numeric: true, size: SPREAD },
 ];
@@ -446,8 +448,8 @@ export type TaskColumns = {
   readonly compared: boolean;
   readonly judged: boolean;
   readonly paired: boolean;
-  readonly counterpart: string;
-  readonly counterpartLabel: string;
+  readonly reference: string;
+  readonly referenceLabel: string;
 };
 
 export const taskColumnsOf = (replay: ReplayDetail): TaskColumns => ({
@@ -456,16 +458,16 @@ export const taskColumnsOf = (replay: ReplayDetail): TaskColumns => ({
     [...each.candidate, ...each.baseline].some((entry) => entry.judge),
   ),
   paired: replay.comparison.some((each) => each.pair !== null),
-  counterpart: replay.comparedWith
-    ? formatCounterpart(
-        replay.comparedWith.replayId,
+  reference: replay.referenceReplay
+    ? formatReference(
+        replay.referenceReplay.replayId,
         replay.candidate,
         replay.baselineReplayId,
       )
     : THE_BASELINE,
-  counterpartLabel: replay.comparedWith
-    ? counterpartLabel(
-        replay.comparedWith.replayId,
+  referenceLabel: replay.referenceReplay
+    ? referenceLabel(
+        replay.referenceReplay.replayId,
         replay.candidate,
         replay.baselineReplayId,
       )
@@ -481,14 +483,14 @@ export const taskHeadingsOf = (
     size: SPREAD,
   },
   ...(columns.compared
-    ? [{ label: columns.counterpartLabel, size: SPREAD }]
+    ? [{ label: columns.referenceLabel, size: SPREAD }]
     : []),
   ...(columns.judged ? [{ label: 'Judge', numeric: true, size: SPREAD }] : []),
   ...(columns.paired
     ? [
         {
           label: 'Closer',
-          note: `${CLOSER_TO_ACCEPTED}, as a blind judge saw it`,
+          tooltip: `${CLOSER_TO_ACCEPTED}, as a blind judge saw it`,
           size: SPREAD,
         },
       ]

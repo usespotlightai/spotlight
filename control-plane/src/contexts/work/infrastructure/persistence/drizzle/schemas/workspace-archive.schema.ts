@@ -12,21 +12,21 @@ export const workspaceArchive = pgTable(
   {
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
-    continuityKey: text('continuity_key').notNull(),
+    resumeKey: text('resume_key').notNull(),
     taskId: text('task_id'),
     chatId: text('chat_id'),
     grantedToRunId: text('granted_to_run_id').notNull(),
     size: bigint('size', { mode: 'number' }).notNull(),
     sha256: text('sha256').notNull(),
     grantedAt: timestamp('granted_at').notNull(),
-    sealedAt: timestamp('sealed_at'),
+    completedAt: timestamp('completed_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
-    index('workspace_archive_continuity_idx').on(
+    index('workspace_archive_resume_idx').on(
       table.workspaceId,
-      table.continuityKey,
-      table.sealedAt,
+      table.resumeKey,
+      table.completedAt,
     ),
     index('workspace_archive_task_idx').on(table.taskId),
     index('workspace_archive_chat_idx').on(table.chatId),

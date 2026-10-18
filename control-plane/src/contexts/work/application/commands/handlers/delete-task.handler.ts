@@ -20,7 +20,7 @@ export class DeleteTaskHandler
 
       if (
         !found ||
-        !(await this.lines.holding(
+        !(await this.lines.findByStation(
           command.teamId,
           found.stationId,
           command.viewerId,

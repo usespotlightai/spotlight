@@ -1,4 +1,4 @@
-import { HELD } from '@configuration/presentation/terraform/held-configuration.fake-spec';
+import { CONFIGURATION } from '@configuration/presentation/terraform/exportable-configuration.fake-spec';
 import { workspaceTerraform } from '@configuration/presentation/terraform/terraform-configuration';
 import type { HclLiteral } from '@platform/hcl/hcl.parse';
 import {
@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 
 const ROOT = 'infra/spotlight';
 
-const EXPORTED = workspaceTerraform(HELD).map((each) => ({
+const EXPORTED = workspaceTerraform(CONFIGURATION).map((each) => ({
   path: `${ROOT}/${each.path}`,
   content: each.content,
 }));
@@ -45,19 +45,19 @@ const RULES: Readonly<Record<string, HclField['references']>> = {
   profile: {
     type: 'spotlight_harness_profile',
     attribute: 'key',
-    heldAt: 'key',
+    storedAt: 'key',
     tool: false,
   },
   skills: {
     type: 'spotlight_skill',
     attribute: 'key',
-    heldAt: 'key',
+    storedAt: 'key',
     tool: false,
   },
   tools: {
     type: 'spotlight_integration',
-    attribute: 'source',
-    heldAt: 'definition.integration',
+    attribute: 'integration',
+    storedAt: 'definition.integration',
     tool: true,
   },
 };
@@ -71,8 +71,8 @@ const editOf = (now: Readonly<Record<string, HclLiteral>>): HclBlockEdit => ({
   block: { type: 'station', key: 'implementation' },
   fields: Object.entries(SEED).map(([name, was]) => ({
     name,
-    was,
-    now: name in now ? (now[name] ?? null) : was,
+    expected: was,
+    desired: name in now ? (now[name] ?? null) : was,
     unset: LISTS.has(name)
       ? []
       : name === 'decisions' || name === 'memories'
@@ -86,10 +86,10 @@ const editOf = (now: Readonly<Record<string, HclLiteral>>): HclBlockEdit => ({
   blocks: [
     {
       type: 'judge',
-      was: {
-        rubric: 'A good run changes only what the task asks for.\n',
+      expected: {
+        rubric: 'A good run changes only what the task requests.\n',
         sample: 0.2,
-        trust: 0.6,
+        min_agreement: 0.6,
       },
     },
   ],
@@ -150,7 +150,7 @@ describe('editing a line Spotlight exported', () => {
     expect(edited.ok).toBe(true);
     expect(main).toContain(
       // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
-      '    tools     = ["github.comment", "${spotlight_integration.core_linear.source}.comment"]\n',
+      '    tools     = ["github.comment", "${spotlight_integration.core_linear.integration}.comment"]\n',
     );
     expect(main).toContain(
       '    skills    = ["catalog.research@1.0.0", spotlight_skill.core_grafana.key]\n',

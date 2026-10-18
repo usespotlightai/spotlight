@@ -13,7 +13,7 @@ export interface KnownMemory {
   readonly body: string;
 }
 
-export interface MemoryDraftAsk {
+export interface MemoryDraftRequest {
   readonly lineName: string;
   readonly stationName: string;
   readonly repositories: readonly string[];
@@ -21,7 +21,7 @@ export interface MemoryDraftAsk {
   readonly stepsLeftOut: number;
   readonly notes: readonly EvidenceNote[];
   readonly changed: readonly ChangedPath[];
-  readonly standing: readonly KnownMemory[];
+  readonly active: readonly KnownMemory[];
   readonly proposed: readonly KnownMemory[];
   readonly rejected: readonly KnownMemory[];
 }
@@ -29,5 +29,5 @@ export interface MemoryDraftAsk {
 export interface MemoryDrafterPort {
   readonly available: boolean;
 
-  draft(ask: MemoryDraftAsk): Promise<readonly ProposedMemory[]>;
+  draft(request: MemoryDraftRequest): Promise<readonly ProposedMemory[]>;
 }

@@ -2,9 +2,9 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 
 export class Retry {
   private constructor(
-    readonly max: number,
-    readonly firstMs: number,
-    readonly longestMs: number,
+    readonly maxAttempts: number,
+    readonly initialDelayMs: number,
+    readonly maxDelayMs: number,
   ) {}
 
   static never(): Retry {
@@ -12,43 +12,43 @@ export class Retry {
   }
 
   static backoff(input: {
-    max: number;
-    firstMs: number;
-    longestMs: number;
+    maxAttempts: number;
+    initialDelayMs: number;
+    maxDelayMs: number;
   }): Retry {
-    if (!Number.isInteger(input.max) || input.max < 2) {
+    if (!Number.isInteger(input.maxAttempts) || input.maxAttempts < 2) {
       throw new InconsistentStateError(
         'retry',
-        `must allow at least one more attempt, not ${input.max} in all`,
+        `must allow at least one more attempt, not ${input.maxAttempts} in all`,
       );
     }
 
-    if (input.firstMs < 0 || input.longestMs < input.firstMs) {
+    if (input.initialDelayMs < 0 || input.maxDelayMs < input.initialDelayMs) {
       throw new InconsistentStateError(
         'retry',
-        `cannot wait from ${input.firstMs}ms up to ${input.longestMs}ms`,
+        `cannot wait from ${input.initialDelayMs}ms up to ${input.maxDelayMs}ms`,
       );
     }
 
-    return new Retry(input.max, input.firstMs, input.longestMs);
+    return new Retry(input.maxAttempts, input.initialDelayMs, input.maxDelayMs);
   }
 
-  get retries(): boolean {
-    return this.max > 1;
+  get allowsRetry(): boolean {
+    return this.maxAttempts > 1;
   }
 
-  exhaustedAfter(failures: number): boolean {
-    return failures >= this.max;
+  exhaustedAfter(attempts: number): boolean {
+    return attempts >= this.maxAttempts;
   }
 
-  after(failures: number, now: Date): Date | null {
-    if (this.exhaustedAfter(failures)) {
+  nextAttemptAt(attempts: number, now: Date): Date | null {
+    if (this.exhaustedAfter(attempts)) {
       return null;
     }
 
     const wait = Math.min(
-      this.firstMs * 2 ** (Math.max(failures, 1) - 1),
-      this.longestMs,
+      this.initialDelayMs * 2 ** (Math.max(attempts, 1) - 1),
+      this.maxDelayMs,
     );
 
     return new Date(now.getTime() + wait);
@@ -56,9 +56,9 @@ export class Retry {
 
   equals(other: Retry): boolean {
     return (
-      this.max === other.max &&
-      this.firstMs === other.firstMs &&
-      this.longestMs === other.longestMs
+      this.maxAttempts === other.maxAttempts &&
+      this.initialDelayMs === other.initialDelayMs &&
+      this.maxDelayMs === other.maxDelayMs
     );
   }
 }

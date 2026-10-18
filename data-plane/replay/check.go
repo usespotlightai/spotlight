@@ -17,18 +17,18 @@ import (
 
 const CheckUsage = `  spotlight replay check [--json] [--timeout 60m] [--every 15s] [--commit <sha>] [--pull-request <n>] [--repeats 1] <plan.json | ->
       checks each station a saved Terraform plan changes against the replay set
-      that guards the station's changes, under the live line's replay_check;
-      give it the output of ` + "`terraform show -json <planfile>`" + `. Reads SPOTLIGHT_URL and
+      that gates the station's changes, under the live line's replay_check;
+      pass it the output of ` + "`terraform show -json <planfile>`" + `. Reads SPOTLIGHT_URL and
       SPOTLIGHT_API_TOKEN (a workspace token that may plan), or SPOTLIGHT_OIDC_TRUST
       to exchange the CI job's OIDC token (GitHub Actions, or SPOTLIGHT_OIDC_TOKEN).
-      --every is how often it asks how the checks stand while they run.
+      --every is how often it reads the status of the checks while they run.
       --repeats replays each run of the set up to 5 times within the line's
       ceiling; each side's success then carries a 95% interval, and the
       candidate's gain over the baseline says whether it is within noise.
       A station the plan renames, a line it replaces, and a station whose
       skill, profile, integration, hook or secret it changes are undecided.
       Appends a summary to GITHUB_STEP_SUMMARY when set. Exits 1 when a check
-      was refused or failed to run, else 2 when a change regressed past its
+      could not start or failed to run, else 2 when a change regressed past its
       threshold, else 3 when a check is undecided or still running at the
       timeout (it keeps running), else 0`
 
@@ -38,9 +38,9 @@ const (
 	checkUndecided = "undecided"
 	checkRunning   = "running"
 	checkUnchanged = "unchanged"
-	checkRefused   = "refused"
+	checkErrored   = "errored"
 
-	refusedExit   = 1
+	errorExit     = 1
 	undecidedExit = 3
 
 	nothingToReplay = "urn:spotlight:problem:nothing-to-replay"
@@ -54,7 +54,7 @@ type checkSide struct {
 	SuccessRate *float64  `json:"successRate"`
 	Interval    *interval `json:"interval"`
 	TasksScored int       `json:"tasksScored"`
-	Spent       *spend    `json:"spent"`
+	Spent       *money    `json:"spent"`
 }
 
 type checkRegression struct {
@@ -69,21 +69,21 @@ type checkRegression struct {
 }
 
 type checkRead struct {
-	ID               string   `json:"id"`
-	SetName          *string  `json:"setName"`
-	ReplayID         string   `json:"replayId"`
-	KeptLive         []string `json:"keptLive"`
-	Verdict          string   `json:"verdict"`
-	UndecidedBecause *string  `json:"undecidedBecause"`
-	Tasks            int      `json:"tasks"`
-	Compared         int      `json:"compared"`
-	Threshold        struct {
+	ID                  string   `json:"id"`
+	SetName             *string  `json:"setName"`
+	ReplayID            string   `json:"replayId"`
+	ScoringPinnedToLive []string `json:"scoringPinnedToLive"`
+	Result              string   `json:"result"`
+	UndecidedBecause    *string  `json:"undecidedBecause"`
+	Tasks               int      `json:"tasks"`
+	Compared            int      `json:"compared"`
+	Threshold           struct {
 		MaxRegressions int     `json:"maxRegressions"`
 		MinGain        float64 `json:"minGain"`
-		Ceiling        spend   `json:"ceiling"`
+		Ceiling        money   `json:"ceiling"`
 	} `json:"threshold"`
 	Repeats     int               `json:"repeats"`
-	Gain        *gainReading      `json:"gain"`
+	Gain        *gainEstimate     `json:"gain"`
 	Candidate   checkSide         `json:"candidate"`
 	Baseline    checkSide         `json:"baseline"`
 	Regressions []checkRegression `json:"regressions"`
@@ -131,7 +131,7 @@ func checkOptionsOf(args []string) (checkOptions, error) {
 
 	asJSON := set.Bool("json", false, "answer in JSON")
 	timeout := set.Duration("timeout", 60*time.Minute, "how long to wait for the checks")
-	every := set.Duration("every", 15*time.Second, "how often to ask")
+	every := set.Duration("every", 15*time.Second, "how often to read the status")
 	commit := set.String("commit", "", "the commit that plans the change")
 	pullRequest := set.Int("pull-request", 0, "the pull request that plans the change")
 	repeats := set.Int("repeats", 1, "how many times to replay each run")
@@ -171,13 +171,13 @@ func check(args []string, in io.Reader, out, errOut io.Writer, env func(string) 
 	options, err := checkOptionsOf(args)
 	if err != nil {
 		fmt.Fprintln(errOut, "spotlight replay check:", err)
-		return refusedExit
+		return errorExit
 	}
 
 	plan, err := planFrom(options.plan, in)
 	if err != nil {
 		fmt.Fprintln(errOut, "spotlight replay check:", err)
-		return refusedExit
+		return errorExit
 	}
 
 	report := &checkReport{Notes: plan.Notes, Stations: []*stationCheck{}}
@@ -187,7 +187,7 @@ func check(args []string, in io.Reader, out, errOut io.Writer, env func(string) 
 		client, err = checkAPI(env, version, now)
 		if err != nil {
 			fmt.Fprintln(errOut, "spotlight replay check:", err)
-			return refusedExit
+			return errorExit
 		}
 	}
 
@@ -201,7 +201,7 @@ func check(args []string, in io.Reader, out, errOut io.Writer, env func(string) 
 		encoder.SetIndent("", "  ")
 		if err := encoder.Encode(report); err != nil {
 			fmt.Fprintln(errOut, "spotlight replay check:", err)
-			return refusedExit
+			return errorExit
 		}
 	} else {
 		report.print(out)
@@ -243,25 +243,25 @@ func (p planned) wanted() int {
 
 func (c *checking) run(plan planned, options checkOptions, report *checkReport) {
 	for _, each := range plan.Stations {
-		held := &stationCheck{Station: each.Address, Resource: each.Resource, teamID: each.TeamID}
-		report.Stations = append(report.Stations, held)
+		checked := &stationCheck{Station: each.Path, Resource: each.Resource, teamID: each.TeamID}
+		report.Stations = append(report.Stations, checked)
 
 		if each.Undecided {
-			held.Status = checkUndecided
-			held.Message = each.Because
+			checked.Status = checkUndecided
+			checked.Message = each.Because
 			continue
 		}
 
-		c.start(held, each, options)
+		c.start(checked, each, options)
 	}
 
 	deadline := c.now().Add(options.timeout)
 	for {
 		waiting := false
-		for _, held := range report.Stations {
-			if held.pending {
-				c.follow(held)
-				waiting = waiting || held.pending
+		for _, checked := range report.Stations {
+			if checked.pending {
+				c.follow(checked)
+				waiting = waiting || checked.pending
 			}
 		}
 
@@ -271,24 +271,24 @@ func (c *checking) run(plan planned, options checkOptions, report *checkReport) 
 		}
 
 		wait := options.every
-		for _, held := range report.Stations {
-			if held.pending && held.misses > 0 {
-				wait = max(wait, backedOff(options.every, held.misses))
+		for _, checked := range report.Stations {
+			if checked.pending && checked.misses > 0 {
+				wait = max(wait, retryDelay(options.every, checked.misses))
 			}
 		}
 		c.sleep(min(wait, left))
 	}
 
-	for _, held := range report.Stations {
-		if held.pending {
-			held.pending = false
-			held.Status = checkRunning
-			held.Message = fmt.Sprintf("still running after %s; it keeps running, so follow it at its link", options.timeout)
+	for _, checked := range report.Stations {
+		if checked.pending {
+			checked.pending = false
+			checked.Status = checkRunning
+			checked.Message = fmt.Sprintf("still running after %s; it keeps running, so follow it at its link", options.timeout)
 		}
 	}
 }
 
-func (c *checking) start(held *stationCheck, each plannedStation, options checkOptions) {
+func (c *checking) start(checked *stationCheck, each plannedStation, options checkOptions) {
 	reference := map[string]any{}
 	if options.commit != "" {
 		reference["commit"] = options.commit
@@ -310,51 +310,51 @@ func (c *checking) start(held *stationCheck, each plannedStation, options checkO
 		if !transient(err) || failures+1 >= maxFailures {
 			break
 		}
-		c.sleep(backedOff(options.every, failures+1))
+		c.sleep(retryDelay(options.every, failures+1))
 	}
 
-	var refused *answered
+	var answer *answered
 	switch {
-	case errors.As(err, &refused) && refused.said.Type == nothingToReplay:
-		held.Status = checkUnchanged
-		held.Message = refused.said.Detail
+	case errors.As(err, &answer) && answer.errorBody.Type == nothingToReplay:
+		checked.Status = checkUnchanged
+		checked.Message = answer.errorBody.Detail
 	case err != nil:
-		held.Status = checkRefused
-		held.Message = err.Error()
+		checked.Status = checkErrored
+		checked.Message = err.Error()
 	default:
-		c.settle(held, read)
+		c.record(checked, read)
 	}
 }
 
-func (c *checking) follow(held *stationCheck) {
+func (c *checking) follow(checked *stationCheck) {
 	var read checkRead
-	err := c.api.get(teamPath(held.teamID)+"/replay-checks/"+url.PathEscape(held.Check.ID), &read)
+	err := c.api.get(teamPath(checked.teamID)+"/replay-checks/"+url.PathEscape(checked.Check.ID), &read)
 	if err != nil {
 		if !transient(err) {
-			held.pending = false
-			held.Status = checkRefused
-			held.Message = err.Error()
+			checked.pending = false
+			checked.Status = checkErrored
+			checked.Message = err.Error()
 			return
 		}
-		held.misses++
-		if held.misses >= maxFailures {
-			held.pending = false
-			held.Status = checkRefused
-			held.Message = fmt.Sprintf("gave up after %d failed tries in a row: %v", held.misses, err)
+		checked.misses++
+		if checked.misses >= maxFailures {
+			checked.pending = false
+			checked.Status = checkErrored
+			checked.Message = fmt.Sprintf("gave up after %d failed tries in a row: %v", checked.misses, err)
 		}
 		return
 	}
 
-	held.misses = 0
-	c.settle(held, read)
+	checked.misses = 0
+	c.record(checked, read)
 }
 
-func (c *checking) settle(held *stationCheck, read checkRead) {
-	held.Check = &read
-	held.Status = read.Verdict
-	held.pending = read.Verdict == checkRunning
+func (c *checking) record(checked *stationCheck, read checkRead) {
+	checked.Check = &read
+	checked.Status = read.Result
+	checked.pending = read.Result == checkRunning
 	if read.ReplayURL != nil {
-		held.URL = *read.ReplayURL
+		checked.URL = *read.ReplayURL
 	}
 }
 
@@ -369,8 +369,8 @@ func (r *checkReport) exitCode() int {
 	worst := 0
 	for _, each := range r.Stations {
 		switch each.Status {
-		case checkRefused:
-			return refusedExit
+		case checkErrored:
+			return errorExit
 		case checkFailed:
 			worst = regressedExit
 		case checkUndecided, checkRunning:
@@ -404,28 +404,28 @@ func (r *checkReport) print(out io.Writer) {
 			continue
 		}
 
-		set := "its guarding set"
+		set := "its gating set"
 		if read.SetName != nil {
 			set = fmt.Sprintf("set %q", *read.SetName)
 		}
 		fmt.Fprintf(out, "  %d of %d tasks regressed (at most %d may), replaying %s: %d tasks, %d scored on both sides\n",
 			len(read.Regressions), read.Tasks, read.Threshold.MaxRegressions, set, read.Tasks, read.Compared)
 		if read.UndecidedBecause != nil {
-			fmt.Fprintf(out, "  undecided: %s\n", undecidedSays(*read.UndecidedBecause))
+			fmt.Fprintf(out, "  undecided: %s\n", describeUndecided(*read.UndecidedBecause))
 		}
 		if read.Repeats > 1 {
 			fmt.Fprintf(out, "  each run replayed %d times\n", read.Repeats)
 		}
-		fmt.Fprintf(out, "  candidate %s, baseline %s\n", sideSays(read.Candidate), sideSays(read.Baseline))
+		fmt.Fprintf(out, "  candidate %s, baseline %s\n", describeSide(read.Candidate), describeSide(read.Baseline))
 		if read.Gain != nil {
-			fmt.Fprintf(out, "  %s\n", gainSays(*read.Gain, "the baseline"))
+			fmt.Fprintf(out, "  %s\n", describeGain(*read.Gain, "the baseline"))
 		}
-		fmt.Fprintf(out, "  spent %s of a %s ceiling\n", spentSays(read.Candidate.Spent), money(read.Threshold.Ceiling))
-		if len(read.KeptLive) > 0 {
-			fmt.Fprintf(out, "  scored with the live %s, which the plan also changes\n", strings.Join(read.KeptLive, ", "))
+		fmt.Fprintf(out, "  spent %s of a %s ceiling\n", describeSpent(read.Candidate.Spent), formatMoney(read.Threshold.Ceiling))
+		if len(read.ScoringPinnedToLive) > 0 {
+			fmt.Fprintf(out, "  scored with the live %s, which the plan also changes\n", strings.Join(read.ScoringPinnedToLive, ", "))
 		}
 		for _, regressed := range read.Regressions {
-			fmt.Fprintf(out, "  REGRESSED %s: %s\n", taskSays(regressed), reasonsSay(regressed))
+			fmt.Fprintf(out, "  REGRESSED %s: %s\n", describeTask(regressed), describeReasons(regressed))
 		}
 		if each.URL != "" {
 			fmt.Fprintf(out, "  %s\n", each.URL)
@@ -452,16 +452,16 @@ func (r *checkReport) summarise(path string) error {
 		return err
 	}
 
-	written.WriteString("| Station | Verdict | Regressed | Candidate | Baseline | Gain | Spent | Replay |\n")
+	written.WriteString("| Station | Result | Regressed | Candidate | Baseline | Gain | Spent | Replay |\n")
 	written.WriteString("| --- | --- | --- | --- | --- | --- | --- | --- |\n")
 	for _, each := range r.Stations {
 		regressed, candidate, baseline, gain, spent, link := "", "", "", "", "", ""
 		if read := each.Check; read != nil {
 			regressed = fmt.Sprintf("%d of %d (at most %d)", len(read.Regressions), read.Tasks, read.Threshold.MaxRegressions)
-			candidate = sideSays(read.Candidate)
-			baseline = sideSays(read.Baseline)
+			candidate = describeSide(read.Candidate)
+			baseline = describeSide(read.Baseline)
 			gain = gainCell(read.Gain)
-			spent = spentSays(read.Candidate.Spent)
+			spent = describeSpent(read.Candidate.Spent)
 		}
 		if each.URL != "" {
 			link = fmt.Sprintf("[open](%s)", each.URL)
@@ -478,11 +478,11 @@ func (r *checkReport) summarise(path string) error {
 			fmt.Fprintf(&written, "%s\n\n", markdownCell(each.Message))
 		}
 		if each.Check != nil && each.Check.Gain != nil {
-			fmt.Fprintf(&written, "%s\n\n", markdownCell(gainSays(*each.Check.Gain, "the baseline")))
+			fmt.Fprintf(&written, "%s\n\n", markdownCell(describeGain(*each.Check.Gain, "the baseline")))
 		}
 		if each.Check != nil {
 			for _, regressed := range each.Check.Regressions {
-				fmt.Fprintf(&written, "- **%s**: %s\n", markdownCell(taskSays(regressed)), markdownCell(reasonsSay(regressed)))
+				fmt.Fprintf(&written, "- **%s**: %s\n", markdownCell(describeTask(regressed)), markdownCell(describeReasons(regressed)))
 			}
 		}
 	}
@@ -501,12 +501,12 @@ func markdownCell(text string) string {
 	return markdownSpecials.Replace(text)
 }
 
-func undecidedSays(because string) string {
+func describeUndecided(because string) string {
 	switch because {
 	case "stopped":
 		return "the replay was stopped"
 	case "over-ceiling":
-		return "the replay reached its ceiling before every task ran"
+		return "the replay hit its ceiling before every task ran"
 	case "baseline-unfinished":
 		return "the baseline replay of the live config did not finish"
 	case "no-baseline":
@@ -520,7 +520,7 @@ func undecidedSays(because string) string {
 	}
 }
 
-func sideSays(side checkSide) string {
+func describeSide(side checkSide) string {
 	if side.Succeeded == nil || side.SuccessRate == nil {
 		return "nothing scored yet"
 	}
@@ -528,31 +528,31 @@ func sideSays(side checkSide) string {
 		return fmt.Sprintf("%d of %d succeeded (%.0f%%)", *side.Succeeded, side.Scored, *side.SuccessRate*100)
 	}
 
-	return fmt.Sprintf("%d of %d succeeded, %s over %d tasks", *side.Succeeded, side.Scored, intervalSays(*side.Interval), side.TasksScored)
+	return fmt.Sprintf("%d of %d succeeded, %s over %d tasks", *side.Succeeded, side.Scored, describeInterval(*side.Interval), side.TasksScored)
 }
 
-func gainCell(gain *gainReading) string {
+func gainCell(gain *gainEstimate) string {
 	if gain == nil {
 		return "-"
 	}
 
-	verdict := gain.Verdict
-	if verdict == "within-noise" {
-		verdict = "within noise"
+	significance := gain.Significance
+	if significance == "within-noise" {
+		significance = "within noise"
 	}
 
-	return fmt.Sprintf("%s points (%s to %s), %s", points(gain.Gain), points(gain.Low), points(gain.High), verdict)
+	return fmt.Sprintf("%s points (%s to %s), %s", points(gain.Gain), points(gain.Low), points(gain.High), significance)
 }
 
-func spentSays(spent *spend) string {
+func describeSpent(spent *money) string {
 	if spent == nil {
 		return "nothing"
 	}
 
-	return money(*spent)
+	return formatMoney(*spent)
 }
 
-func taskSays(regressed checkRegression) string {
+func describeTask(regressed checkRegression) string {
 	if regressed.Title != nil && *regressed.Title != "" {
 		return fmt.Sprintf("%s %q", regressed.TaskID, *regressed.Title)
 	}
@@ -560,7 +560,7 @@ func taskSays(regressed checkRegression) string {
 	return regressed.TaskID
 }
 
-func reasonsSay(regressed checkRegression) string {
+func describeReasons(regressed checkRegression) string {
 	baseline := "none"
 	if len(regressed.Baseline) > 0 {
 		baseline = strings.Join(regressed.Baseline, "/")
@@ -575,10 +575,10 @@ func reasonsSay(regressed checkRegression) string {
 		}
 	}
 
-	said := fmt.Sprintf("%s where the baseline %s", strings.Join(regressed.Candidate, "/"), baseline)
+	text := fmt.Sprintf("%s where the baseline %s", strings.Join(regressed.Candidate, "/"), baseline)
 	if len(reasons) > 0 {
-		said += ", " + strings.Join(reasons, "; ")
+		text += ", " + strings.Join(reasons, "; ")
 	}
 
-	return said
+	return text
 }

@@ -1,6 +1,6 @@
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
-import { ConfigPullRequestWanted } from '@replays/domain/events/config-pull-request-wanted.event';
+import { ConfigPullRequestRequested } from '@replays/domain/events/config-pull-request-requested.event';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ConfigPullRequestDetail } from '@replays/domain/value-objects/config-pull-request-detail.vo';
 import type { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
@@ -10,23 +10,23 @@ import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export const MAX_TRIES = 5;
+export const MAX_RETRIES = 5;
 
 const FIRST_RETRY_MS = 30_000;
 
 const RETRY_GROWTH = 4;
 
-const retryAfterMs = (tries: number): number =>
-  FIRST_RETRY_MS * RETRY_GROWTH ** (tries - 1);
+const retryAfterMs = (retries: number): number =>
+  FIRST_RETRY_MS * RETRY_GROWTH ** (retries - 1);
 
-const HOLDER = 'config pull request';
+const AGGREGATE = 'config pull request';
 
 const SEARCH_PREFIX = 8;
 
@@ -48,8 +48,8 @@ interface State {
   readonly state: ConfigPullRequestState;
   readonly url: string | null;
   readonly reason: ConfigPullRequestReason | null;
-  readonly attempts: number;
-  readonly tries: number;
+  readonly generation: number;
+  readonly retries: number;
   readonly lastCommit: string | null;
   readonly dueAt: Date | null;
   readonly createdAt: Date;
@@ -66,7 +66,7 @@ const slugOf = (name: string): string =>
 export class ConfigPullRequest extends EventRecorder {
   private constructor(
     private readonly state: State,
-    readonly isAbandoned = false,
+    readonly isDeleted = false,
   ) {
     super();
   }
@@ -85,7 +85,7 @@ export class ConfigPullRequest extends EventRecorder {
     lineKey: string;
     source: ConfigSourceOf | null;
     at: Date;
-    by: Attribution;
+    by: ChangeActor;
   }): ConfigPullRequest {
     const picked = new ConfigPullRequest({
       id: input.id,
@@ -111,32 +111,32 @@ export class ConfigPullRequest extends EventRecorder {
 
     if ((current === 'opened') !== (url !== null)) {
       throw new InconsistentStateError(
-        HOLDER,
+        AGGREGATE,
         'has a pull request link when, and only when, it opened',
       );
     }
-    if ((current === 'refused') !== (reason !== null)) {
+    if ((current === 'failed') !== (reason !== null)) {
       throw new InconsistentStateError(
-        HOLDER,
-        'says why when, and only when, it was refused',
+        AGGREGATE,
+        'says why when, and only when, it failed',
       );
     }
-    if (current !== 'refused' && (repository === null || path === null)) {
+    if (current !== 'failed' && (repository === null || path === null)) {
       throw new InconsistentStateError(
-        HOLDER,
-        'knows the repository and file it opens against unless it was refused',
+        AGGREGATE,
+        'knows the repository and file it opens against unless it failed',
       );
     }
     if ((current === 'opening') !== (state.dueAt !== null)) {
       throw new InconsistentStateError(
-        HOLDER,
+        AGGREGATE,
         'is due to be tried when, and only when, it is opening',
       );
     }
-    if (!Number.isInteger(state.attempts) || state.attempts < 1) {
+    if (!Number.isInteger(state.generation) || state.generation < 1) {
       throw new InconsistentStateError(
-        HOLDER,
-        `counts ${state.attempts} attempts, not one or more`,
+        AGGREGATE,
+        `has generation ${state.generation}, not 1 or more`,
       );
     }
 
@@ -146,7 +146,7 @@ export class ConfigPullRequest extends EventRecorder {
   private static attempted(
     source: ConfigSourceOf | null,
     lineKey: string,
-    attempts: number,
+    generation: number,
     at: Date,
   ): Pick<
     State,
@@ -155,19 +155,19 @@ export class ConfigPullRequest extends EventRecorder {
     | 'state'
     | 'url'
     | 'reason'
-    | 'attempts'
-    | 'tries'
+    | 'generation'
+    | 'retries'
     | 'dueAt'
     | 'updatedAt'
   > {
     return {
       repository: source?.repository.value ?? null,
       path: source?.path ?? null,
-      state: source ? 'opening' : 'refused',
+      state: source ? 'opening' : 'failed',
       url: null,
       reason: source ? null : ConfigPullRequestReason.noSource(lineKey),
-      attempts,
-      tries: 0,
+      generation,
+      retries: 0,
       dueAt: source ? at : null,
       updatedAt: at,
     };
@@ -229,12 +229,12 @@ export class ConfigPullRequest extends EventRecorder {
     return this.state.reason;
   }
 
-  get attempts(): number {
-    return this.state.attempts;
+  get generation(): number {
+    return this.state.generation;
   }
 
-  get tries(): number {
-    return this.state.tries;
+  get retries(): number {
+    return this.state.retries;
   }
 
   get lastCommit(): string | null {
@@ -258,11 +258,13 @@ export class ConfigPullRequest extends EventRecorder {
   }
 
   get isRetryable(): boolean {
-    return this.state.state === 'refused';
+    return this.state.state === 'failed';
   }
 
-  isOpening(attempt: number): boolean {
-    return this.state.state === 'opening' && this.state.attempts === attempt;
+  isOpening(generation: number): boolean {
+    return (
+      this.state.state === 'opening' && this.state.generation === generation
+    );
   }
 
   isDue(now: Date): boolean {
@@ -279,12 +281,12 @@ export class ConfigPullRequest extends EventRecorder {
     lineKey: string;
     source: ConfigSourceOf | null;
     at: Date;
-    by: Attribution;
+    by: ChangeActor;
   }): ConfigPullRequest {
     if (!this.isRetryable) {
       throw new InconsistentStateError(
-        HOLDER,
-        `is ${this.state.state}, and only a refused one is tried again`,
+        AGGREGATE,
+        `is ${this.state.state}, and only a failed one is tried again`,
       );
     }
 
@@ -292,7 +294,7 @@ export class ConfigPullRequest extends EventRecorder {
       ConfigPullRequest.attempted(
         input.source,
         input.lineKey,
-        this.state.attempts + 1,
+        this.state.generation + 1,
         input.at,
       ),
     );
@@ -338,37 +340,37 @@ export class ConfigPullRequest extends EventRecorder {
     return opened;
   }
 
-  refused(reason: ConfigPullRequestReason, at: Date): ConfigPullRequest {
+  failed(reason: ConfigPullRequestReason, at: Date): ConfigPullRequest {
     this.mustBeOpening();
 
-    return this.with({ state: 'refused', reason, dueAt: null, updatedAt: at });
+    return this.with({ state: 'failed', reason, dueAt: null, updatedAt: at });
   }
 
   tried(message: string, at: Date): ConfigPullRequest {
     this.mustBeOpening();
 
-    const tries = this.state.tries + 1;
+    const retries = this.state.retries + 1;
 
-    return tries >= MAX_TRIES
-      ? this.with({ tries }).refused(
-          ConfigPullRequestReason.of({ code: 'github-refused', message }),
+    return retries >= MAX_RETRIES
+      ? this.with({ retries }).failed(
+          ConfigPullRequestReason.of({ code: 'github-error', message }),
           at,
         )
       : this.with({
-          tries,
-          dueAt: new Date(at.getTime() + retryAfterMs(tries)),
+          retries,
+          dueAt: new Date(at.getTime() + retryAfterMs(retries)),
           updatedAt: at,
         });
   }
 
-  abandon(): ConfigPullRequest {
+  delete(): ConfigPullRequest {
     return new ConfigPullRequest(this.state, true);
   }
 
   private mustBeOpening(): void {
     if (this.state.state !== 'opening') {
       throw new InconsistentStateError(
-        HOLDER,
+        AGGREGATE,
         `is ${this.state.state}, not opening`,
       );
     }
@@ -376,8 +378,8 @@ export class ConfigPullRequest extends EventRecorder {
 
   private wanted(
     action: 'created' | 'updated',
-    by: Attribution,
-  ): ConfigPullRequestWanted {
+    by: ChangeActor,
+  ): ConfigPullRequestRequested {
     const changed = {
       resource: 'config-pull-request' as const,
       id: this.state.id.value,
@@ -387,13 +389,13 @@ export class ConfigPullRequest extends EventRecorder {
       searchId: this.state.searchId.value,
       candidateId: this.state.candidateId.value,
       candidate: this.state.candidateName,
-      attempt: this.state.attempts,
+      generation: this.state.generation,
     });
 
-    return new ConfigPullRequestWanted(
+    return new ConfigPullRequestRequested(
       this.state.id,
       this.teamId,
-      this.state.attempts,
+      this.state.generation,
       action === 'created'
         ? ConfigurationChange.created(changed, by, detail)
         : ConfigurationChange.updated(changed, by, detail),

@@ -32,12 +32,12 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-23T09:00:00.000Z');
@@ -58,7 +58,7 @@ const LINE = Line.rehydrate({
       position: 0,
       color: StationColor.of('#a3a8b0'),
       kind: 'backlog',
-      wayOut: WayOut.of({ stations: [IMPLEMENTING] }),
+      routes: StationRoutes.of({ stations: [IMPLEMENTING] }),
     }),
     Station.of({
       id: IMPLEMENTING,
@@ -104,18 +104,18 @@ const runOf = (
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task:station' },
+      resume: { key: 'task:station' },
     }),
   }).claim(RunnerId.of('runner_1'), NOW);
 
-const heldBy = (runId: string) =>
+const withRun = (runId: string) =>
   Task.rehydrate({
     ...Task.add({
       line: LINE,
       at: IMPLEMENTING,
       title: TaskTitle.of('Fix the queue'),
       rank: TaskRank.between(null, null),
-      raisedBy: UserId.of('user_1'),
+      createdBy: UserId.of('user_1'),
       now: NOW,
       newId: () => 'task_1',
     }),
@@ -123,16 +123,16 @@ const heldBy = (runId: string) =>
   });
 
 const asking = (start: Task, subject?: RunSubject) => {
-  let standing = start;
+  let current = start;
   let run = runOf('run_1', subject);
 
   const handler = new AskPermissionHandler(
     new RunWorks(
       { findById: async () => run } as unknown as RunRepository,
       {
-        find: async () => standing,
+        find: async () => current,
         save: async (saved: Task) => {
-          standing = saved;
+          current = saved;
         },
       } as unknown as TaskRepository,
       {
@@ -145,14 +145,14 @@ const asking = (start: Task, subject?: RunSubject) => {
             body: ChatMessageBody.of('Plan the queue.'),
             now: NOW,
             newId: () => 'chat_1',
-          }).handedTo(RunId.of('run_1'), NOW),
+          }).assignRun(RunId.of('run_1'), NOW),
       } as unknown as ChatRepository,
-      { holding: async () => LINE } as unknown as LineRepository,
+      { findByStation: async () => LINE } as unknown as LineRepository,
       { of: async () => null },
       { now: () => NOW, sleep: async () => {} },
     ),
     {
-      askedFor: (title) =>
+      toolFor: (title) =>
         title === 'mcp__linear__create_issue'
           ? CalledTool.of({ server: 'linear', tool: 'create_issue' })
           : null,
@@ -167,14 +167,14 @@ const asking = (start: Task, subject?: RunSubject) => {
         )
       ).decision,
     decide: (decision: ApprovalDecision) => {
-      const at = NotePosition.of(standing.notes.length - 1);
+      const at = NotePosition.of(current.notes.length - 1);
 
-      standing = standing.answer(
+      current = current.answer(
         at,
         {
           station: StationName.of('Implementation'),
           body: TaskNoteBody.of(
-            decision === 'granted' ? 'Go ahead.' : 'Not today.',
+            decision === 'approved' ? 'Go ahead.' : 'Not today.',
           ),
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),
@@ -184,83 +184,83 @@ const asking = (start: Task, subject?: RunSubject) => {
     },
     takenUpBy: (runId: string) => {
       run = runOf(runId);
-      standing = Task.rehydrate({ ...standing, currentRunId: RunId.of(runId) });
+      current = Task.rehydrate({ ...current, currentRunId: RunId.of(runId) });
     },
-    standing: () => standing,
+    current: () => current,
   };
 };
 
 describe('AskPermissionHandler', () => {
   it('puts what the harness asks to a person, the run keeping the task while it waits and carrying its session', async () => {
-    const { ask, standing } = asking(heldBy('run_1'));
+    const { ask, current } = asking(withRun('run_1'));
 
-    await expect(ask()).resolves.toBe('asked');
+    await expect(ask()).resolves.toBe('pending');
 
-    const asked = standing().notes[standing().notes.length - 1];
+    const asked = current().notes[current().notes.length - 1];
     expect(asked?.form).toBe('approval');
     expect(asked?.approval?.subject.kind).toBe('harness-permission');
     expect(asked?.approval?.subject.name).toBe('claude-code execute');
     expect(asked?.approval?.because).toContain('careful');
     expect(asked?.body.value).toContain('git push origin main');
-    expect(standing().currentRunId).toEqual(RunId.of('run_1'));
-    expect(standing().sessionId?.value).toBe('sess_1');
+    expect(current().currentRunId).toEqual(RunId.of('run_1'));
+    expect(current().sessionId?.value).toBe('sess_1');
   });
 
-  it('records the MCP tool a permission names, so a refusal is counted against it', async () => {
-    const { ask, standing } = asking(heldBy('run_1'));
+  it('records the MCP tool a permission names, so a dismissal is counted against it', async () => {
+    const { ask, current } = asking(withRun('run_1'));
 
     await ask({ ...PUSH, title: 'mcp__linear__create_issue' });
 
     expect(
-      standing().notes[standing().notes.length - 1]?.approval?.subject.tool,
+      current().notes[current().notes.length - 1]?.approval?.subject.tool,
     ).toEqual({ server: 'linear', tool: 'create_issue' });
   });
 
   it('lets the run that takes the task up again do it once a person approves', async () => {
-    const { ask, decide, takenUpBy, standing } = asking(heldBy('run_1'));
+    const { ask, decide, takenUpBy, current } = asking(withRun('run_1'));
 
     await ask();
-    decide('granted');
+    decide('approved');
     takenUpBy('run_2');
 
     await expect(
       ask({ ...PUSH, input: { ...PUSH.input, description: 'Push it now' } }),
     ).resolves.toBe('allow');
-    expect(
-      standing().notes.find((each) => each.approval)?.approval?.spent,
-    ).toBe(true);
+    expect(current().notes.find((each) => each.approval)?.approval?.spent).toBe(
+      true,
+    );
   });
 
   it('asks again for a second go, since an approval is spent once', async () => {
-    const { ask, decide, takenUpBy } = asking(heldBy('run_1'));
+    const { ask, decide, takenUpBy } = asking(withRun('run_1'));
 
     await ask();
-    decide('granted');
+    decide('approved');
     takenUpBy('run_2');
     await ask();
 
-    await expect(ask()).resolves.toBe('asked');
+    await expect(ask()).resolves.toBe('pending');
   });
 
   it('refuses what a person rejected', async () => {
-    const { ask, decide, takenUpBy } = asking(heldBy('run_1'));
+    const { ask, decide, takenUpBy } = asking(withRun('run_1'));
 
     await ask();
-    decide('refused');
+    decide('dismissed');
     takenUpBy('run_2');
 
     await expect(ask()).resolves.toBe('reject');
   });
 
-  it('refuses a run its task has let go of', async () => {
-    const { ask } = asking(heldBy('run_other'));
+  it('refuses a run its task detached', async () => {
+    const { ask } = asking(withRun('run_other'));
 
     await expect(ask()).resolves.toBe('reject');
   });
 
   it('refuses a chat, which has nobody to ask', async () => {
     const { ask } = asking(
-      heldBy('run_1'),
+      withRun('run_1'),
       RunSubject.chat(ChatId.of('chat_1')),
     );
 

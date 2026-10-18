@@ -4,7 +4,7 @@ import type {
   WorkPort,
 } from '@memory/application/ports/work.port';
 import { MemoryAccess } from '@memory/application/services/memory-access.service';
-import { NotOnTeamError } from '@memory/domain/exceptions/not-on-team.error';
+import { TeamNotFoundError } from '@memory/domain/exceptions/team-not-found.error';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -42,7 +42,7 @@ describe('MemoryAccess', () => {
 
   it('keeps out anyone not on the team, saying there is no such team for them', async () => {
     await expect(access({ member: false })).rejects.toBeInstanceOf(
-      NotOnTeamError,
+      TeamNotFoundError,
     );
   });
 

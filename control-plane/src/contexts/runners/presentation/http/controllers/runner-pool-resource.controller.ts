@@ -6,18 +6,18 @@ import { CurrentPrincipal } from '@platform/http/decorators/current-principal.de
 import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
-import {
-  answerCreated,
-  answerDeleted,
-  answerUpdated,
-  found,
-  listed,
-} from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
 import {
   ETAG_HEADER,
   IDEMPOTENT_REPLAY_HEADER,
 } from '@platform/http/resources/resource-headers';
+import {
+  respondCreated,
+  respondDeleted,
+  respondFound,
+  respondListed,
+  respondUpdated,
+} from '@platform/http/resources/resource-responses';
 import {
   CreateRunnerPoolCommand,
   DeleteRunnerPoolCommand,
@@ -83,19 +83,19 @@ const DEFINITION = ApiBody({
         minLength: 32,
         maxLength: 255,
         description:
-          'Write-only, and only for a pool without provision: the token its hosts claim with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Pool-Token',
+          'Write-only, and only for a pool without provision: the token its hosts claim with, stored only as a hash and never returned. Left out on create, Spotlight issues one and returns it once in Spotlight-Pool-Token',
       },
       tokenVersion: {
         ...WRITE_ONLY_VERSION,
         description:
-          'Changed, with a new token, to rotate the pool token in place: the old token is refused at once, while runs already claimed keep their own one-run credentials',
+          'Changed, with a new token, to rotate the pool token in place: the old token stops working at once, while runs already claimed keep their own one-run credentials',
       },
       provision: {
         type: 'object',
         nullable: true,
         required: ['url'],
         description:
-          'Makes the pool push: Spotlight calls url with each run it is to serve, and the pool has no token. Fixed for the pool’s life',
+          'Makes the pool push: Spotlight calls url with each run it is to serve, and the pool has no token. Immutable',
         properties: {
           url: {
             type: 'string',
@@ -133,20 +133,20 @@ const DEFINITION = ApiBody({
 
 const CREATED = ApiResponse({
   status: HttpStatus.CREATED,
-  description: 'The runner pool, as a read would answer it',
+  description: 'The runner pool, as a read returns it',
   type: RunnerPoolResourceResponseDto,
   headers: {
     [ETAG_HEADER]: {
-      description: 'The version answered, to send back as If-Match',
+      description: 'The version returned, to send back as If-Match',
       schema: { type: 'string', example: '"0"' },
     },
     [IDEMPOTENT_REPLAY_HEADER]: {
-      description: 'true when this answers an earlier attempt',
+      description: 'true when this returns the result of an earlier attempt',
       schema: { type: 'string', enum: ['true'] },
     },
     [POOL_TOKEN_HEADER]: {
       description:
-        'The pool token Spotlight issued, when none was given; answered this once and never again, not even to a retry',
+        'The pool token Spotlight issued, when none was given; returned once and never again, not even to a retry',
       schema: { type: 'string' },
     },
   },
@@ -179,7 +179,7 @@ export class RunnerPoolResourceController {
   @CREATED
   @RunnerPoolResource.Create(
     'workspaces/:workspaceId/runner-pools',
-    'Define a pool of one-run runners, pulled from with a token or pushed to through provision',
+    'Create a pool of one-run runners, pulled from with a token or pushed to through provision',
   )
   @WORKSPACE
   @DEFINITION
@@ -188,21 +188,21 @@ export class RunnerPoolResourceController {
     @IdempotencyKeyHeader() key: string,
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
-    @Res({ passthrough: true }) response: Headed,
+    @Res({ passthrough: true }) httpResponse: Headed,
   ): Promise<RunnerPoolResourceResponseDto> {
     const made = await this.commandBus.execute<
       CreateRunnerPoolCommand,
       RunnerPoolCreatedDto | null
     >(new CreateRunnerPoolCommand(workspaceId, actor, key, body));
-    const answered = await answerCreated(KIND, made?.created ?? null, (id) =>
-      this.answer(id, actor.principal),
+    const response = await respondCreated(KIND, made?.created ?? null, (id) =>
+      this.toResponse(id, actor.principal),
     );
 
     if (made?.token) {
-      response.setHeader(POOL_TOKEN_HEADER, made.token);
+      httpResponse.setHeader(POOL_TOKEN_HEADER, made.token);
     }
 
-    return answered;
+    return response;
   }
 
   @RunnerPoolResource.Read('runner-pools/:id', 'Read a runner pool')
@@ -211,7 +211,7 @@ export class RunnerPoolResourceController {
     @Param('id') id: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<RunnerPoolResourceResponseDto> {
-    return this.answer(id, principal);
+    return this.toResponse(id, principal);
   }
 
   @RunnerPoolResource.Update(
@@ -226,19 +226,19 @@ export class RunnerPoolResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<RunnerPoolResourceResponseDto> {
-    return answerUpdated(
+    return respondUpdated(
       KIND,
       await this.commandBus.execute<
         UpdateRunnerPoolCommand,
         ResourceUpdated | null
       >(new UpdateRunnerPoolCommand(id, actor, version, body)),
-      (updated) => this.answer(updated, actor.principal),
+      (updated) => this.toResponse(updated, actor.principal),
     );
   }
 
   @RunnerPoolResource.Delete(
     'runner-pools/:id',
-    'Retire a runner pool; runs its runners already hold carry on to their end',
+    'Delete a runner pool. Runs that its runners already have a lease on continue until they end',
   )
   @ID
   async delete(
@@ -246,7 +246,7 @@ export class RunnerPoolResourceController {
     @IfMatch() version: number,
     @CurrentActor() actor: Actor,
   ): Promise<void> {
-    answerDeleted(
+    respondDeleted(
       KIND,
       await this.commandBus.execute<
         DeleteRunnerPoolCommand,
@@ -265,7 +265,7 @@ export class RunnerPoolResourceController {
     @Query('address') address: string | undefined,
     @CurrentPrincipal() principal: Principal,
   ): Promise<RunnerPoolResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<
         ImportRunnerPoolQuery,
@@ -284,7 +284,7 @@ export class RunnerPoolResourceController {
     @Param('workspaceId') workspaceId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ResourceList<RunnerPoolResourceResponseDto>> {
-    return listed(
+    return respondListed(
       await this.queryBus.execute<
         ListRunnerPoolResourcesQuery,
         readonly RunnerPoolResourceDto[] | null
@@ -293,11 +293,11 @@ export class RunnerPoolResourceController {
     );
   }
 
-  private async answer(
+  private async toResponse(
     id: string,
     principal: Principal,
   ): Promise<RunnerPoolResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<
         ReadRunnerPoolQuery,

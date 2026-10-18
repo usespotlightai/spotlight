@@ -1,6 +1,6 @@
 import { StepBody } from '@/components/features/inbox/conversation/StepBody';
 import { StepHead } from '@/components/features/inbox/conversation/StepHead';
-import { Unfold } from '@/components/shared/Unfold';
+import { Collapsible } from '@/components/shared/Collapsible';
 import { useOpenWhenFocused } from '@/hooks/useOpenWhenFocused';
 import type { JournalStep } from '@/lib/inbox';
 import { shownStep, stillRunning } from '@/lib/journal-step';
@@ -48,9 +48,9 @@ export function ExpandableStep({ step, live, focused }: ExpandableStepProps) {
         {head}
       </button>
 
-      <Unfold open={open} appear={false}>
+      <Collapsible open={open} appear={false}>
         <StepBody shown={shown} command={step.text} />
-      </Unfold>
+      </Collapsible>
     </>
   );
 }

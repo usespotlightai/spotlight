@@ -20,22 +20,22 @@ import { and, asc, eq, inArray, lte, type SQL } from 'drizzle-orm';
 type PullRequestRow = typeof configPullRequest.$inferSelect;
 
 const reasonOf = (row: PullRequestRow): ConfigPullRequestReason | null => {
-  if (row.refusal === null) {
+  if (row.errorCode === null) {
     return null;
   }
-  if (row.refusalMessage === null) {
+  if (row.errorMessage === null) {
     throw new InconsistentStateError(
       'config pull request',
-      'was refused without a message',
+      'failed without a message',
     );
   }
 
   return ConfigPullRequestReason.of({
-    code: row.refusal,
-    message: row.refusalMessage,
-    attribute: row.refusalAttribute,
-    expression: row.refusalExpression,
-    wanted: row.refusalWanted,
+    code: row.errorCode,
+    message: row.errorMessage,
+    attribute: row.errorAttribute,
+    expression: row.errorExpression,
+    wanted: row.errorWanted,
   });
 };
 
@@ -58,8 +58,8 @@ const toPullRequest = (row: PullRequestRow): ConfigPullRequest =>
     state: row.state,
     url: row.url,
     reason: reasonOf(row),
-    attempts: row.attempts,
-    tries: row.tries,
+    generation: row.generation,
+    retries: row.retries,
     lastCommit: row.lastCommit,
     dueAt: row.dueAt,
     createdAt: row.createdAt,
@@ -67,31 +67,31 @@ const toPullRequest = (row: PullRequestRow): ConfigPullRequest =>
     version: row.version,
   });
 
-const columnsOf = (held: ConfigPullRequest) => ({
-  workspaceId: held.workspaceId.value,
-  teamId: held.teamId.value,
-  searchId: held.searchId.value,
-  candidateId: held.candidateId.value,
-  lineId: held.station.lineId,
-  stationId: held.station.stationId,
-  stationKey: held.stationKey,
-  candidateName: held.candidateName,
-  repository: held.repository,
-  path: held.path,
-  branch: held.branch,
-  state: held.current,
-  url: held.url,
-  refusal: held.reason?.code ?? null,
-  refusalMessage: held.reason?.message ?? null,
-  refusalAttribute: held.reason?.attribute ?? null,
-  refusalExpression: held.reason?.expression ?? null,
-  refusalWanted: held.reason?.wanted ?? null,
-  attempts: held.attempts,
-  tries: held.tries,
-  lastCommit: held.lastCommit,
-  dueAt: held.dueAt,
-  createdAt: held.createdAt,
-  updatedAt: held.updatedAt,
+const columnsOf = (aggregate: ConfigPullRequest) => ({
+  workspaceId: aggregate.workspaceId.value,
+  teamId: aggregate.teamId.value,
+  searchId: aggregate.searchId.value,
+  candidateId: aggregate.candidateId.value,
+  lineId: aggregate.station.lineId,
+  stationId: aggregate.station.stationId,
+  stationKey: aggregate.stationKey,
+  candidateName: aggregate.candidateName,
+  repository: aggregate.repository,
+  path: aggregate.path,
+  branch: aggregate.branch,
+  state: aggregate.current,
+  url: aggregate.url,
+  errorCode: aggregate.reason?.code ?? null,
+  errorMessage: aggregate.reason?.message ?? null,
+  errorAttribute: aggregate.reason?.attribute ?? null,
+  errorExpression: aggregate.reason?.expression ?? null,
+  errorWanted: aggregate.reason?.wanted ?? null,
+  generation: aggregate.generation,
+  retries: aggregate.retries,
+  lastCommit: aggregate.lastCommit,
+  dueAt: aggregate.dueAt,
+  createdAt: aggregate.createdAt,
+  updatedAt: aggregate.updatedAt,
 });
 
 @Injectable()
@@ -170,13 +170,16 @@ export class DrizzleConfigPullRequestRepository
         .returning({ id: configPullRequest.id });
 
       if (written.length === 0) {
-        const kept = await this.forCandidate(added.searchId, added.candidateId);
+        const existing = await this.forCandidate(
+          added.searchId,
+          added.candidateId,
+        );
 
-        if (!kept) {
+        if (!existing) {
           throw new ConfigPullRequestVersionConflictError(added.id.value);
         }
 
-        return kept;
+        return existing;
       }
 
       await this.events.dispatch(added.pullEvents());
@@ -191,7 +194,7 @@ export class DrizzleConfigPullRequestRepository
         eq(configPullRequest.id, saved.id.value),
         eq(configPullRequest.version, saved.version),
       );
-      const written = saved.isAbandoned
+      const written = saved.isDeleted
         ? await this.context.db
             .delete(configPullRequest)
             .where(at)

@@ -12,7 +12,7 @@ describe('ClaimPattern', () => {
     expect(matching('refs/heads/main', '')).toBe(false);
   });
 
-  it('lets * stand for any run of characters, none included', () => {
+  it('lets * match any run of characters, none included', () => {
     expect(matching('refs/heads/*', 'refs/heads/')).toBe(true);
     expect(matching('refs/heads/*', 'refs/heads/release/1.2')).toBe(true);
     expect(matching('*/main', 'refs/heads/main')).toBe(true);
@@ -34,9 +34,9 @@ describe('ClaimPattern', () => {
     expect(ClaimPattern.of('repo:acme/x').isExact).toBe(true);
   });
 
-  it('refuses a blank pattern, one with spaces, or one too long', () => {
-    for (const refused of ['', ' ', 'a b', 'a'.repeat(256)]) {
-      expect(() => ClaimPattern.of(refused)).toThrow(InvalidTokenTrustError);
+  it('rejects a blank pattern, one with spaces, or one too long', () => {
+    for (const invalid of ['', ' ', 'a b', 'a'.repeat(256)]) {
+      expect(() => ClaimPattern.of(invalid)).toThrow(InvalidTokenTrustError);
     }
   });
 });

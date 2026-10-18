@@ -1,5 +1,5 @@
 export const STEP_KINDS = [
-  'said',
+  'message',
   'thought',
   'tool',
   'planned',

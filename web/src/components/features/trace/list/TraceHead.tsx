@@ -13,10 +13,10 @@ export function TraceHead() {
       <span className="truncate">Started</span>
       <span className="truncate">Stations</span>
       <span className="truncate">Task</span>
-      <span className="truncate">Asked</span>
-      <span className="truncate">Answered</span>
-      <span className="truncate text-right">Faults</span>
-      <span className="truncate text-right">Took</span>
+      <span className="truncate">Input</span>
+      <span className="truncate">Output</span>
+      <span className="truncate text-right">Errors</span>
+      <span className="truncate text-right">Duration</span>
       <span className="truncate text-right">Cost</span>
     </div>
   );

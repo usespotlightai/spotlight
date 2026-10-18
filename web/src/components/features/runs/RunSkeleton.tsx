@@ -1,4 +1,4 @@
-import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
+import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { TurnsSkeleton } from '@/components/features/inbox/conversation/TurnsSkeleton';
 import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
@@ -7,7 +7,7 @@ import { CrumbSeparator } from '@/components/shared/skeleton/CrumbSeparator';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
-import { HELD_AT_TOP } from '@/lib/inbox';
+import { STICKY_AT_TOP } from '@/lib/inbox';
 
 export function RunSkeleton() {
   return (
@@ -35,10 +35,10 @@ export function RunSkeleton() {
             <SkeletonLine className="w-28 self-center text-xs" />
 
             <section className="flex flex-col">
-              <div className={HELD_AT_TOP}>
-                <SaidCard>
+              <div className={STICKY_AT_TOP}>
+                <MessageCard>
                   <SkeletonLine className="w-3/5 text-sm leading-6" />
-                </SaidCard>
+                </MessageCard>
               </div>
 
               <TurnsSkeleton />
@@ -47,7 +47,7 @@ export function RunSkeleton() {
         </div>
 
         <ComposerFooter>
-          <ChatInputSkeleton placeholder="Say something…" />
+          <ChatInputSkeleton placeholder="Write a message…" />
         </ComposerFooter>
       </RunSidePanel>
     </div>

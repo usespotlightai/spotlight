@@ -1,8 +1,8 @@
 export class SecretNotBoundError extends Error {
-  readonly violation = 'not-allowed' as const;
+  readonly kind = 'not-allowed' as const;
 
-  constructor(secretName: string, toward: string) {
-    super(`Secret ${secretName} is not bound to ${toward}.`);
+  constructor(secretName: string, host: string) {
+    super(`Secret ${secretName} is not bound to ${host}.`);
     this.name = 'SecretNotBoundError';
   }
 }

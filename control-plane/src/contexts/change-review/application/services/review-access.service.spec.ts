@@ -1,7 +1,7 @@
 import type { PeoplePort } from '@change-review/application/ports/people.port';
 import type {
-  ReviewedRun,
   ReviewedTask,
+  RunForReview,
   WorkPort,
 } from '@change-review/application/ports/work.port';
 import { ReviewAccess } from '@change-review/application/services/review-access.service';
@@ -18,7 +18,7 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 const access = (
   over: {
     member?: boolean;
-    run?: Partial<ReviewedRun> | null;
+    run?: Partial<RunForReview> | null;
     task?: Partial<ReviewedTask> | null;
   } = {},
 ) =>
@@ -35,7 +35,7 @@ const access = (
       find: async () => ({ name: 'Ada', image: null }),
     } as unknown as PeoplePort,
     {
-      run: async (): Promise<ReviewedRun | null> =>
+      run: async (): Promise<RunForReview | null> =>
         over.run === null
           ? null
           : {

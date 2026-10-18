@@ -7,7 +7,7 @@ import { useRevokeInvite } from '@/hooks/api/useRevokeInvite';
 import { messageOf } from '@/lib/error';
 import type { WorkspaceInvite } from '@/lib/members';
 
-const SENT_AGAIN_SHOWN_MS = 4000;
+const RESENT_SHOWN_MS = 4000;
 
 const alertOf = (
   resendFailure: Error | null,
@@ -17,10 +17,7 @@ const alertOf = (
     return messageOf(revokeFailure, 'Sorry, the invite couldn’t be revoked.');
   }
   if (resendFailure) {
-    return messageOf(
-      resendFailure,
-      'Sorry, the invite couldn’t be sent again.',
-    );
+    return messageOf(resendFailure, 'Sorry, the invite couldn’t be resent.');
   }
 
   return null;
@@ -34,22 +31,22 @@ type InviteActionsProps = {
 export function InviteActions({ slug, invite }: InviteActionsProps) {
   const resend = useResendInvite(slug);
   const revoke = useRevokeInvite(slug);
-  const { isSuccess: sentAgain, reset: forgetSentAgain } = resend;
+  const { isSuccess: resent, reset: resetResent } = resend;
 
   useEffect(() => {
-    if (!sentAgain) {
+    if (!resent) {
       return;
     }
 
-    const timer = setTimeout(forgetSentAgain, SENT_AGAIN_SHOWN_MS);
+    const timer = setTimeout(resetResent, RESENT_SHOWN_MS);
     return () => clearTimeout(timer);
-  }, [sentAgain, forgetSentAgain]);
+  }, [resent, resetResent]);
 
   return (
     <ActionWithAlert alert={alertOf(resend.error, revoke.error)}>
-      {sentAgain && (
+      {resent && (
         <span role="status" className="text-muted-foreground text-xs">
-          Sent again
+          Resent
         </span>
       )}
       <RowActions

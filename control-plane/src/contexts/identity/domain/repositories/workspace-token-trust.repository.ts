@@ -8,5 +8,5 @@ export interface WorkspaceTokenTrustRepository {
 
   find(id: WorkspaceTokenTrustId): Promise<WorkspaceTokenTrust | null>;
 
-  holding(id: WorkspaceTokenTrustId): Promise<WorkspaceTokenTrust | null>;
+  findLocked(id: WorkspaceTokenTrustId): Promise<WorkspaceTokenTrust | null>;
 }

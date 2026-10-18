@@ -24,8 +24,8 @@ const input = (over: Partial<Enabled> = {}) =>
   render(
     <ChatInput
       slug="acme"
-      label="Say something to Triage"
-      placeholder="Say something…"
+      label="Message Triage"
+      placeholder="Write a message…"
       pending={false}
       settings={null}
       onSend={vi.fn()}
@@ -33,8 +33,7 @@ const input = (over: Partial<Enabled> = {}) =>
     />,
   );
 
-const box = () =>
-  screen.getByRole('textbox', { name: 'Say something to Triage' });
+const box = () => screen.getByRole('textbox', { name: 'Message Triage' });
 
 const send = () => screen.getByRole('button', { name: 'Send' });
 
@@ -110,7 +109,7 @@ describe('ChatInput', () => {
         body: 'the log, attached',
         attachments: ['att_1'],
         traces: [],
-        improving: null,
+        targetStation: null,
       },
       expect.any(Function),
     );
@@ -135,7 +134,7 @@ describe('ChatInput', () => {
     await userEvent.click(send());
 
     expect(onSend).toHaveBeenCalledWith(
-      { body: 'see', attachments: ['att_1'], traces: [], improving: null },
+      { body: 'see', attachments: ['att_1'], traces: [], targetStation: null },
       expect.any(Function),
     );
   });
@@ -151,7 +150,7 @@ describe('ChatInput', () => {
     expect(uploaded).toHaveBeenCalledTimes(1);
   });
 
-  it('holds the send while a file is still going up', async () => {
+  it('blocks the send while a file is still going up', async () => {
     uploaded.mockReturnValue(new Promise(() => {}));
     input();
 
@@ -176,7 +175,7 @@ describe('ChatInput', () => {
     expect(send()).toBeDisabled();
   });
 
-  it('forgets the words and the files once they are sent', async () => {
+  it('clears the words and the files once they are sent', async () => {
     input({ onSend: (_message, sent) => sent() });
 
     fireEvent.paste(box(), { clipboardData: { files: [notes()] } });
@@ -192,8 +191,8 @@ describe('ChatInput', () => {
     render(
       <ChatInput
         slug="acme"
-        label="Say something to Triage"
-        placeholder="Say something…"
+        label="Message Triage"
+        placeholder="Write a message…"
         disabled
         settings={<button type="button">Agent</button>}
       />,
@@ -206,7 +205,7 @@ describe('ChatInput', () => {
     ).not.toBeNull();
   });
 
-  it('sits on one line, and opens out once what is written runs past it, and folds back once it fits again', async () => {
+  it('sits on one line, and opens out once what is written runs past it, and collapses back once it fits again', async () => {
     let notice: () => void = () => {};
     vi.stubGlobal(
       'ResizeObserver',

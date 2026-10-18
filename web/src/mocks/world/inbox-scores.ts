@@ -1,9 +1,9 @@
 import type {
   GradeResponseDto,
+  JudgeCalibrationResponseDto,
   JudgeScoreResponseDto,
-  JudgeStandingResponseDto,
   RunScoresResponseDto,
-  StationAlertCrossingResponseDto,
+  StationAlertFiringResponseDto,
 } from '@/lib/api';
 import { GROWTH_LINES } from '@/mocks/world/growth';
 import { ALERT_ID, COST_ALERT_ID } from '@/mocks/world/inbox';
@@ -11,11 +11,11 @@ import {
   ALERT_OVER,
   ALERT_RISES_BY,
   ALERT_STATION,
-  type AlertCrossing,
-  alertCrossing,
+  type AlertFiring,
+  alertFiring,
   COST_ALERT_ABOVE,
   COST_ALERT_OVER,
-  costAlertCrossing,
+  costAlertFiring,
 } from '@/mocks/world/inbox-alert';
 import {
   lineOfStation,
@@ -46,35 +46,35 @@ const judgeOf = (stationId: string) =>
 const rubricBodyOf = (stationId: string): string | null =>
   judgeOf(stationId)?.rubric?.replace(/^##[^\n]*\n+/, '') ?? null;
 
-const TRUSTED: JudgeStandingResponseDto = {
-  trusted: true,
+const TRUSTED: JudgeCalibrationResponseDto = {
+  qualified: true,
   measure: 'kappa',
   agreement: 0.71,
   pairs: 24,
-  trust: 0.6,
-  hiddenBecause: null,
+  minAgreement: 0.6,
+  hiddenReason: null,
 };
 
-const NEW_JUDGE: JudgeStandingResponseDto = {
-  trusted: false,
+const NEW_JUDGE: JudgeCalibrationResponseDto = {
+  qualified: false,
   measure: 'kappa',
   agreement: null,
   pairs: 0,
-  trust: 0.6,
-  hiddenBecause: 'too-few-pairs',
+  minAgreement: 0.6,
+  hiddenReason: 'too-few-pairs',
 };
 
-const NO_JUDGE: JudgeStandingResponseDto = {
-  trusted: false,
+const NO_JUDGE: JudgeCalibrationResponseDto = {
+  qualified: false,
   measure: null,
   agreement: null,
   pairs: 0,
-  trust: null,
-  hiddenBecause: 'no-judge',
+  minAgreement: null,
+  hiddenReason: 'no-judge',
 };
 
 const EARLIER_RUBRIC_BODY =
-  'Score 5 where the change does what the spec asks, small and tested, and 1 where it does not do it at all.';
+  'Score 5 where the change does what the spec requires, small and tested, and 1 where it does not do it at all.';
 
 const verdict = (
   runId: string,
@@ -83,7 +83,7 @@ const verdict = (
 ): JudgeScoreResponseDto => ({
   kind: 'yes-no',
   value: yes ? 1 : 0,
-  marks: null,
+  claimResults: null,
   label: yes ? 'yes' : 'no',
   rubricVersion: RUBRIC,
   model: 'google/gemini-3.8-flash',
@@ -93,7 +93,7 @@ const verdict = (
 
 const citedStep = (index: number, tool: string | null, text: string) => ({
   kind: 'step' as const,
-  step: { index, kind: tool ? 'tool' : 'said', tool, text },
+  step: { index, kind: tool ? 'tool' : 'message', tool, text },
   hunk: null,
 });
 
@@ -117,9 +117,9 @@ const citedStackHunk = (runId: string, path: string) => {
   return citedHunk(found?.id ?? path, path, header, lines);
 };
 
-const citedSaid = (runId: string) => {
+const citedMessage = (runId: string) => {
   const steps = RUN_STORIES[runId]?.steps ?? [];
-  const index = steps.findLastIndex((step) => step.kind === 'said');
+  const index = steps.findLastIndex((step) => step.kind === 'message');
 
   return citedStep(index, null, steps[index]?.text ?? '');
 };
@@ -136,7 +136,7 @@ const graded = (
   mine: by.id === SAM.id,
   kind: 'yes-no',
   value: yes ? 1 : 0,
-  marks: null,
+  claimResults: null,
   label: yes ? 'yes' : 'no',
   at: minutesAfter(runEnded(runId), 90),
 });
@@ -160,7 +160,7 @@ const JUDGED: Record<string, Pick<RunScoresResponseDto, 'judge' | 'grades'>> = {
       {
         claim: null,
         text: 'It said the migration rewrites 1.3M rows and left batching to review, rather than deciding it alone.',
-        citations: [citedSaid('run_postgres_2')],
+        citations: [citedMessage('run_postgres_2')],
       },
     ]),
   },
@@ -198,7 +198,7 @@ const JUDGED: Record<string, Pick<RunScoresResponseDto, 'judge' | 'grades'>> = {
   },
 };
 
-const standingOf = (stationId: string): JudgeStandingResponseDto => {
+const calibrationOf = (stationId: string): JudgeCalibrationResponseDto => {
   if (stationId === JUDGED_STATION) {
     return TRUSTED;
   }
@@ -221,7 +221,7 @@ const scoresOf = (runId: string): RunScoresResponseDto => {
     claims,
     judged: Boolean(found?.judge),
     judge: found?.judge ?? null,
-    standing: standingOf(stationId),
+    calibration: calibrationOf(stationId),
     grades: found?.grades ?? [],
   };
 };
@@ -236,20 +236,20 @@ const rounded = (value: number) => Math.round(value * 100) / 100;
 const endOf = (run: HistoryRun) =>
   run.endedAt ?? new Date(run.at).toISOString();
 
-const crossingFrom = (
+const firingFrom = (
   alertId: string,
-  crossing: AlertCrossing,
-  threshold: StationAlertCrossingResponseDto['threshold'],
+  firing: AlertFiring,
+  rule: StationAlertFiringResponseDto['rule'],
   currency: string | null,
-): StationAlertCrossingResponseDto => {
-  const { run, value, baseline, recovered, series } = crossing;
+): StationAlertFiringResponseDto => {
+  const { run, value, baseline, resolved, series } = firing;
   const by = baseline === null ? null : rounded(value - baseline);
 
   return {
     alertId,
     lineId: lineOfStation(ALERT_STATION),
     stationId: ALERT_STATION,
-    threshold,
+    rule,
     value: rounded(value),
     baseline: baseline === null ? null : rounded(baseline),
     change:
@@ -264,9 +264,9 @@ const crossingFrom = (
           },
     runId: run.runId,
     taskId: run.taskId,
-    raisedAt: minutesAfter(endOf(run), 2),
+    firedAt: minutesAfter(endOf(run), 2),
     insightsPeriod: '30d',
-    recoveredAt: recovered ? endOf(recovered) : null,
+    resolvedAt: resolved ? endOf(resolved) : null,
     currency,
     series: series.map((point) => ({
       runId: point.run.runId,
@@ -276,16 +276,13 @@ const crossingFrom = (
   };
 };
 
-export const seedAlerts = (): Record<
-  string,
-  StationAlertCrossingResponseDto
-> => {
-  const sentBack = alertCrossing();
-  const cost = costAlertCrossing();
+export const seedAlerts = (): Record<string, StationAlertFiringResponseDto> => {
+  const sentBack = alertFiring();
+  const cost = costAlertFiring();
 
   return {
     ...(sentBack && {
-      [ALERT_ID]: crossingFrom(
+      [ALERT_ID]: firingFrom(
         ALERT_ID,
         sentBack,
         {
@@ -300,7 +297,7 @@ export const seedAlerts = (): Record<
       ),
     }),
     ...(cost && {
-      [COST_ALERT_ID]: crossingFrom(
+      [COST_ALERT_ID]: firingFrom(
         COST_ALERT_ID,
         cost,
         {
@@ -338,7 +335,7 @@ const pastJudgeOf = (
   return {
     kind: earlier ? 'number' : 'yes-no',
     value: earlier ? score : yes ? 1 : 0,
-    marks: null,
+    claimResults: null,
     label: earlier ? `${score}` : yes ? 'yes' : 'no',
     rubricVersion: earlier ? EARLIER_RUBRIC : RUBRIC,
     model: 'google/gemini-3.8-flash',
@@ -347,7 +344,7 @@ const pastJudgeOf = (
       {
         claim: null,
         text: yes
-          ? 'It changed what the spec asks for and left the tests passing.'
+          ? 'It changed what the spec requires and left the tests passing.'
           : 'It left a check failing and did not say why.',
         citations:
           tested < 0
@@ -372,7 +369,7 @@ export const pastScoresOf = (run: HistoryRun): RunScoresResponseDto => {
     claims: [],
     judged: judge !== null,
     judge,
-    standing: judged ? TRUSTED : NO_JUDGE,
+    calibration: judged ? TRUSTED : NO_JUDGE,
     grades: [],
   };
 };

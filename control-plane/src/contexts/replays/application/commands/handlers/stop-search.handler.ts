@@ -8,7 +8,7 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class StopSearchHandler
   implements CommandHandlerPort<StopSearchCommand, SearchStoppedOutcome>
@@ -42,7 +42,7 @@ export class StopSearchHandler
         await this.searches.save(
           search.stop(
             this.clock.now(),
-            Attribution.of(command.actor, search.workspaceId),
+            ChangeActor.of(command.actor, search.workspaceId),
           ),
         );
       });

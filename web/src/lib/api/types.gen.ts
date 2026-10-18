@@ -29,7 +29,7 @@ export type StationJudgeResponseDto = {
   /**
    * The share of claims a run must meet to pass, from 0 to 1. 1 means every claim
    */
-  passShare: number;
+  passThreshold: number;
   /**
    * The share of runs judged, from 0 to 1
    */
@@ -37,7 +37,7 @@ export type StationJudgeResponseDto = {
   /**
    * How often the judge must agree with people, from 0 to 1, before its scores show
    */
-  trust: number;
+  minAgreement: number;
 };
 
 export type StationAlertResponseDto = {
@@ -67,7 +67,7 @@ export type StationAlertResponseDto = {
 export type StationResponseDto = {
   id: string;
   /**
-   * What the station is called in its line definition, and what a run hands a task on to it by
+   * What the station is called in its line definition, and what a run passes a task to it by
    */
   key: string;
   name: string;
@@ -89,7 +89,7 @@ export type StationResponseDto = {
    */
   model: string | null;
   /**
-   * How hard the harness is told to think. Null leaves its own default.
+   * How hard the harness must think. Null leaves its own default.
    */
   effort: string | null;
   /**
@@ -109,7 +109,7 @@ export type StationResponseDto = {
    */
   kind: 'backlog' | 'work' | 'completed';
   /**
-   * The team’s own skills given to a run here
+   * The team’s own skills enabled for a run here
    */
   skills: Array<string>;
 };
@@ -117,7 +117,7 @@ export type StationResponseDto = {
 export type ReactionResponseDto = {
   happening: string;
   /**
-   * Where the task must stand for this to count. Null is wherever it is.
+   * The station where the task must be for this to count. Null means any station.
    */
   from: string | null;
   to: string;
@@ -125,11 +125,11 @@ export type ReactionResponseDto = {
 
 export type LineSourceResponseDto = {
   /**
-   * The GitHub repository that holds the line’s Terraform
+   * The GitHub repository that contains the line’s Terraform
    */
   repository: string;
   /**
-   * The Terraform file in it that holds the line, from the repository root
+   * The Terraform file in it that contains the line, from the repository root
    */
   path: string;
 };
@@ -202,9 +202,9 @@ export type ProblemResponseDto = {
    */
   currentVersion?: number;
   /**
-   * The permission the caller lacks, when it was refused as forbidden: one its role in the workspace, or its token’s scopes, do not grant
+   * The permission the caller lacks, when the request is forbidden: one its role in the workspace, or its token’s scopes, do not grant
    */
-  permission?: 'configure' | 'manage-secrets' | 'manage-runners' | 'manage-token-trusts' | 'administer' | 'open-workspaces' | 'plan';
+  permission?: 'configure' | 'secrets' | 'runners' | 'trusts' | 'administer' | 'create-workspaces' | 'plan';
 };
 
 export type LineResourceResponseDto = {
@@ -229,11 +229,11 @@ export type LineResourceResponseDto = {
    */
   teamId: string;
   /**
-   * Names the line within its team; fixed for its life, so changing it means replacing the line
+   * Names the line within its team. Immutable: changing it means replacing the line
    */
   key: string;
   /**
-   * The line as it stands now, stations in order, with every field a definition may leave out filled in
+   * The current line, stations in order, with every field a definition may leave out filled in
    */
   definition: {
     [key: string]: unknown;
@@ -242,7 +242,7 @@ export type LineResourceResponseDto = {
 
 export type LineResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<LineResourceResponseDto>;
 };
@@ -253,7 +253,7 @@ export type EnqueueRunRequestDto = {
    */
   harness: string;
   /**
-   * Handed to the runner untouched: checkouts, briefing, handover and continuity. The command is filled in from the harness, so it is not given here.
+   * Sent to the runner unchanged: checkouts, briefing, handover and resume. The command is filled in from the harness, so it is not sent here.
    */
   spec: {
     [key: string]: unknown;
@@ -266,7 +266,7 @@ export type EnqueuedRunResponseDto = {
   state: string;
 };
 
-export type InstallableHarnessResponseDto = {
+export type HarnessProbeResponseDto = {
   id: string;
   /**
    * What to look for on the runner’s PATH.
@@ -285,7 +285,7 @@ export type InstallableHarnessResponseDto = {
 export type ClaimedRunResponseDto = {
   id: string;
   /**
-   * The harness the run needs, so a host can tell whether the image it pulled still holds it
+   * The harness the run needs, so a host can tell whether the image it pulled still contains it
    */
   harness: string;
   /**
@@ -302,7 +302,7 @@ export type ClaimedRunResponseDto = {
 
 export type ClaimedCheckStepResponseDto = {
   /**
-   * The whole change, or the layer this step reaches
+   * The whole change, or the layer this step covers
    */
   id: string;
   /**
@@ -366,7 +366,7 @@ export type PendingMessageResponseDto = {
   position: number;
   body: string;
   /**
-   * Files to lay out before the words are given
+   * Files to lay out before the words are sent
    */
   attachments: Array<RunAttachmentResponseDto>;
 };
@@ -379,7 +379,7 @@ export type StepLocationResponseDto = {
 export type StepChangeResponseDto = {
   path: string | null;
   /**
-   * The file as it stood
+   * The file before the agent changed it
    */
   before: string;
   /**
@@ -389,7 +389,7 @@ export type StepChangeResponseDto = {
 };
 
 export type JournalStepResponseDto = {
-  kind: 'said' | 'thought' | 'tool' | 'planned' | 'hook';
+  kind: 'message' | 'thought' | 'tool' | 'planned' | 'hook';
   text: string;
   status: string | null;
   /**
@@ -410,13 +410,13 @@ export type JournalStepResponseDto = {
   startedAt: string;
   locations: Array<StepLocationResponseDto>;
   /**
-   * What the tool was asked for, as it was asked
+   * The input of the call, as it was sent
    */
-  given: string | null;
+  input: string | null;
   /**
-   * What it handed back, unread
+   * The output of the call, unread
    */
-  returned: string | null;
+  output: string | null;
   change: StepChangeResponseDto | null;
 };
 
@@ -439,25 +439,25 @@ export type TraceConnectionResponseDto = {
   host: string;
   port: number;
   /**
-   * blocked: egress stopped it. failed: egress could not open it. forwarded: the host refused or failed a request egress added a secret to
+   * blocked: egress stopped it. failed: egress could not open it. injected: egress injected a secret into the request
    */
-  outcome: 'tunnelled' | 'forwarded' | 'blocked' | 'failed';
+  outcome: 'passthrough' | 'injected' | 'blocked' | 'failed';
   /**
-   * The status the host answered a forwarded request with
+   * The status the host answered an injected request with
    */
   status: number | null;
   /**
    * Why egress blocked the connection or could not open it
    */
-  reason: 'not-allowed' | 'address-refused' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable' | null;
+  reason: 'not-allowed' | 'private-address' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable' | null;
   /**
-   * What went wrong. blocked: egress stopped it. failed: egress could not open it. refused: the host answered a forwarded request with 401 or 403. server-error: the host answered it with 500 or more. null: nothing went wrong
+   * The error of the connection. blocked: egress stopped it. failed: egress could not open it. auth-failed: the host answered an injected request with 401 or 403. server-error: the host answered it with 500 or more. null: no error
    */
-  trouble: 'blocked' | 'failed' | 'refused' | 'server-error' | null;
+  error: 'blocked' | 'failed' | 'auth-failed' | 'server-error' | null;
   /**
-   * How many times the same thing went wrong in this row. The row starts at the first time
+   * How many times the same error occurred in this row. The row starts at the first time
    */
-  times: number;
+  count: number;
 };
 
 export type TraceNodeResponseDto = {
@@ -470,21 +470,21 @@ export type TraceNodeResponseDto = {
    */
   ms: number;
   /**
-   * The agent working, the overhead around it, or a fault
+   * The agent working, the overhead around it, or an error
    */
-  tone: 'agent' | 'overhead' | 'failed';
+  category: 'agent' | 'overhead' | 'failed';
   cost: number | null;
   currency: string | null;
   step: JournalStepResponseDto | null;
   span: RunSpanResponseDto | null;
   /**
-   * On a connection row: a connection of the run that went wrong, as a shared egress recorded it
+   * On a connection row: a connection of the run with an error, as a shared egress recorded it
    */
   connection: TraceConnectionResponseDto | null;
   /**
    * On a run row: what the runner in the sandbox reported before the harness started. enforced: a direct connection around egress failed. not-enforced: it operated. null: the runner did not check
    */
-  egress: 'enforced' | 'not-enforced' | null;
+  egressEnforcement: 'enforced' | 'not-enforced' | null;
   children: Array<TraceNodeResponseDto>;
 };
 
@@ -498,7 +498,7 @@ export type TaskTraceResponseDto = {
    * How many rows it draws
    */
   rows: number;
-  faults: number;
+  errors: number;
   roots: Array<TraceNodeResponseDto>;
 };
 
@@ -510,7 +510,7 @@ export type HistoryPlaceResponseDto = {
 export type ProfileViewResponseDto = {
   key: string;
   /**
-   * The permissions, MCP servers and native settings it held
+   * The permissions, MCP servers and native settings it contained
    */
   settings: {
     [key: string]: unknown;
@@ -527,14 +527,14 @@ export type SkillViewResponseDto = {
   /**
    * The SHA-256 of the skill's files
    */
-  digest: string;
+  hash: string;
 };
 
 export type JudgeViewResponseDto = {
   /**
    * The SHA-256 of the judge's rubric
    */
-  rubricDigest: string;
+  rubricHash: string;
   /**
    * The share of runs judged
    */
@@ -542,7 +542,7 @@ export type JudgeViewResponseDto = {
   /**
    * How often the judge must agree with people
    */
-  trust: number;
+  minAgreement: number;
 };
 
 export type StationConfigResponseDto = {
@@ -568,31 +568,31 @@ export type HistoryConfigResponseDto = {
   config: StationConfigResponseDto;
 };
 
-export type RunCostResponseDto = {
+export type RunUsageResponseDto = {
   ms: number | null;
   steps: number;
-  faults: number;
-  used: number | null;
+  errors: number;
+  contextTokens: number | null;
   cost: number | null;
   currency: string | null;
 };
 
-export type PersonActResponseDto = {
-  act: 'started' | 'parked' | 'closed' | 'answered' | 'approved' | 'refused' | 'sent-back';
+export type TaskHumanActionResponseDto = {
+  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'approved' | 'dismissed' | 'sent-back';
   at: string;
 };
 
-export type RunTurnedOutResponseDto = {
-  ending: 'completed' | 'failed' | 'stopped' | 'abandoned' | 'withdrawn' | 'superseded';
+export type RunOutcomeResponseDto = {
+  ending: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded';
   failure: string | null;
   /**
    * How many runs this station has taken on the task, this one included
    */
-  round: number;
-  cost: RunCostResponseDto | null;
+  visit: number;
+  usage: RunUsageResponseDto | null;
   checks: 'passed' | 'failed' | 'skipped' | null;
-  next: PersonActResponseDto | null;
-  delivery: 'open' | 'merged' | 'closed' | null;
+  firstHumanAction: TaskHumanActionResponseDto | null;
+  pullRequestState: 'open' | 'merged' | 'closed' | null;
 };
 
 export type FileChangeResponseDto = {
@@ -615,7 +615,7 @@ export type HistoryRunResponseDto = {
   harness: string;
   startedAt: string;
   endedAt: string;
-  outcome: RunTurnedOutResponseDto | null;
+  outcome: RunOutcomeResponseDto | null;
   changes: Array<FileChangeResponseDto>;
   trace: TaskTraceResponseDto;
 };
@@ -642,9 +642,9 @@ export type HistoryCandidateRunResponseDto = {
   startedAt: string;
   endedAt: string;
   /**
-   * What the replay cost; a replay run has no outcome of its own, so its cost stands beside the run
+   * What the replay cost; a replay run has no outcome of its own, so the response shows its cost beside the run
    */
-  cost: RunCostResponseDto | null;
+  usage: RunUsageResponseDto | null;
   changes: Array<FileChangeResponseDto>;
   trace: TaskTraceResponseDto;
   /**
@@ -666,7 +666,7 @@ export type HistoryCandidateResponseDto = {
    */
   hypothesis: string;
   /**
-   * The candidate’s station block, in the shape the line resource holds a station in
+   * The candidate’s station block, in the shape that the line resource uses for a station
    */
   block: {
     [key: string]: unknown;
@@ -691,23 +691,23 @@ export type RunnerHistoryResponseDto = {
   } | null;
 };
 
-export type DeliverSaidRequestDto = {
+export type AckMessagesRequestDto = {
   /**
-   * Everything said up to and including this note was given
+   * The agent got all the messages up to and including this note
    */
   upTo: number;
 };
 
 export type RenewLeaseResponseDto = {
   /**
-   * Whether a person has asked the runner to stop this run
+   * Whether a person has requested that the runner stop this run
    */
   stop: boolean;
 };
 
 export type RenewCheckLeaseResponseDto = {
   /**
-   * Whether the runner should stop checking: the check was forgotten with its task, settled, or waited too long to be recorded
+   * Whether the runner should stop checking: the check was deleted with its task, ended, or waited too long to be recorded
    */
   stop: boolean;
 };
@@ -721,7 +721,7 @@ export type RecordRunImageRequestDto = {
 
 export type StartedCheckoutRequestDto = {
   /**
-   * The checkout, by its path in the workspace, as the run was given it
+   * The checkout, by its path in the workspace, as the run received it
    */
   path: string;
   /**
@@ -732,7 +732,7 @@ export type StartedCheckoutRequestDto = {
 
 export type RecordStartingPointRequestDto = {
   /**
-   * The attempt of the run the runner was handed, as the claim named it
+   * The attempt of the run assigned to the runner, as the claim named it
    */
   attempt: number;
   /**
@@ -764,15 +764,15 @@ export type ToolActingAsResponseDto = {
   /**
    * Whose connection the call used: the team’s, or the person’s who started the task
    */
-  holder: 'team' | 'person';
+  actsAs: 'team' | 'requester';
   /**
    * The person whose connection it was, where it was a person’s
    */
   personId: string | null;
   /**
-   * What the host calls whoever the call acted as, where it says
+   * The account name on the service of whoever the call acted as, where the service gives it
    */
-  handle: string | null;
+  linkedAccount: string | null;
 };
 
 export type ToolAnswerResponseDto = {
@@ -783,7 +783,7 @@ export type ToolAnswerResponseDto = {
     [key: string]: unknown;
   } | Array<unknown> | null;
   /**
-   * Whose connection the call acted with, where its integration connects
+   * Whose connection the call acted with, where its integration requires a connection
    */
   actingAs: ToolActingAsResponseDto | null;
 };
@@ -794,7 +794,7 @@ export type AskPermissionRequestDto = {
    */
   sessionId?: string;
   /**
-   * The ACP tool kind the harness gave, as in read, edit or execute
+   * The ACP tool kind the harness sent, as in read, edit or execute
    */
   kind?: string;
   /**
@@ -802,7 +802,7 @@ export type AskPermissionRequestDto = {
    */
   title?: string;
   /**
-   * The tool call’s raw input, as the harness gave it
+   * The tool call’s raw input, as the harness sent it
    */
   input?: {
     [key: string]: unknown;
@@ -811,26 +811,26 @@ export type AskPermissionRequestDto = {
 
 export type PermissionAnswerResponseDto = {
   /**
-   * allow or reject answers the harness now; asked means a person was asked in their inbox, so the run should end its turn and let the task go
+   * allow or reject answers the harness now; pending means a person was asked in their inbox, so the run should end its turn and release the task
    */
-  decision: 'allow' | 'reject' | 'asked';
+  decision: 'allow' | 'reject' | 'pending';
 };
 
-export type AnswerRemarkRequestDto = {
+export type ReplyToReviewCommentRequestDto = {
   /**
-   * Which remark, as briefed
+   * Which review comment, as the briefing named it
    */
   handle: string;
   body: string;
   /**
-   * Resolve the thread as well as answering it
+   * Resolve the thread as well as replying to it
    */
   resolve?: boolean;
 };
 
-export type DeclaredOutcomeDto = {
+export type HandoverDto = {
   /**
-   * The key of the station to pass the task to, as in code-review; "review" to ask a person; or "done" to close the task where it stands. Anything this line does not know is treated as a question for a person.
+   * The key of the station to pass the task to, as in code-review; "review" to ask a person; or "done" to close the task at its current station. Anything this line does not know is treated as a question for a person.
    */
   next: string;
   /**
@@ -845,13 +845,13 @@ export type CompleteRunRequestDto = {
   /**
    * With failed: it failed before the agent was handed the run, while the runner made its workspace ready
    */
-  unprepared?: boolean;
+  setupFailed?: boolean;
   /**
-   * With failed: its host stopped it for running past its time; the run is then treated as a runner that went silent, as Work would after its lease lapsed
+   * With failed: its host stopped it for running past its time; the run is then treated as a runner that went silent, as Work would after its lease expired
    */
   timedOut?: boolean;
   message?: string;
-  outcome?: DeclaredOutcomeDto;
+  handover?: HandoverDto;
   /**
    * What the harness called this conversation. Reported rather than remembered by the runner, because the next run may fall to another one.
    */
@@ -861,40 +861,40 @@ export type CompleteRunRequestDto = {
    */
   stopped?: boolean;
   /**
-   * The workspace archive is sealed as this turn left it. A run waits for a person only when it is, so a later runner can take it up from there.
+   * The workspace archive is complete as this turn left it. A run waits for a person only when it is, so a later runner can take it up from there.
    */
-  kept?: boolean;
+  archived?: boolean;
 };
 
 export type RunCompletionResponseDto = {
   /**
-   * Whether the turn ended by asking a person, so the run now waits for their answer instead of ending. The runner keeps its sandbox for the grace period, then parks the run.
+   * Whether the turn ended by asking a person, so the run now waits for their answer instead of ending. The runner keeps its sandbox for the grace period, then suspends the run.
    */
   waiting: boolean;
 };
 
-export type TurnAsksAPersonResponseDto = {
+export type TurnAwaitsPersonResponseDto = {
   /**
-   * Whether this turn, reported as given, would put the run to a person, so the runner keeps its harness running while it keeps the workspace. Otherwise the runner closes the harness first, as the run ends.
+   * Whether this turn, as reported, would put the run to a person, so the runner keeps its harness running while it archives the workspace. Otherwise the runner closes the harness first, as the run ends.
    */
-  asks: boolean;
+  awaitsPerson: boolean;
 };
 
-export type ParkRunRequestDto = {
+export type SuspendRunRequestDto = {
   /**
    * The harness has already closed, so an answer that arrived first cannot be delivered warm: the run goes back on the queue from its archive instead of staying with this runner.
    */
-  cold?: boolean;
+  requeue?: boolean;
 };
 
-export type RunParkingResponseDto = {
+export type RunSuspensionResponseDto = {
   /**
-   * Whether the run is parked (or, if a stop was asked for, ended) and no longer held by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages.
+   * Whether the run is suspended (or, if a stop was requested, ended) and no longer leased by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages.
    */
-  parked: boolean;
+  suspended: boolean;
 };
 
-export type HeldArchiveResponseDto = {
+export type StoredArchiveResponseDto = {
   id: string;
   /**
    * Where to GET the archive, for a quarter of an hour
@@ -932,7 +932,7 @@ export type PoolQueueResponseDto = {
    */
   pending: number;
   /**
-   * The pool’s runners standing now: holding a run or check, or started and yet to claim
+   * The pool’s runners that are active now: with a lease on a run or check, or started and yet to claim
    */
   running: number;
   /**
@@ -949,7 +949,7 @@ export type PoolQueueResponseDto = {
 
 export type RunnerReleaseResponseDto = {
   /**
-   * The oldest runner release this control plane works with; a host refuses an image whose runner is older
+   * The oldest runner release this control plane works with; a host cannot use an image whose runner is older
    */
   minimum: string;
 };
@@ -959,20 +959,20 @@ export type HostRequirementsResponseDto = {
   /**
    * What a host looks for in each runner image
    */
-  harnesses: Array<InstallableHarnessResponseDto>;
+  harnesses: Array<HarnessProbeResponseDto>;
   /**
-   * The images this workspace’s lines name; a host serves those its allow-list admits, beside its default
+   * The images this workspace’s lines name; a host serves those its allow-list allows, beside its default
    */
   images: Array<string>;
 };
 
 export type ClaimHostWorkRequestDto = {
   /**
-   * The host claiming, as it names itself in its presence
+   * The host claiming, as it names itself in its heartbeat
    */
   host: string;
   /**
-   * The runner image this claim will run in, one the host reported serving; what it holds and whether it is the default come from that report
+   * The runner image this claim will run in, one the host reported that it supports; what it contains and whether it is the default come from that report
    */
   image: string;
 };
@@ -987,7 +987,7 @@ export type HostClaimResponseDto = {
    */
   token: string;
   /**
-   * The credential the egress beside the sandbox redeems the run’s secrets with; the host hands it to egress alone, never into the sandbox
+   * The credential the egress sidecar fetches the run’s secrets with; the host hands it to egress alone, never into the sandbox
    */
   egressToken: string;
   work: ClaimedWorkResponseDto;
@@ -995,7 +995,7 @@ export type HostClaimResponseDto = {
 
 export type ClaimHostCallRequestDto = {
   /**
-   * The host claiming, as it names itself in its presence
+   * The host claiming, as it names itself in its heartbeat
    */
   host: string;
 };
@@ -1029,64 +1029,64 @@ export type HostCallResponseDto = {
   timeoutMs: number;
 };
 
-export type AnswerHostCallRequestDto = {
+export type RecordHostCallResponseRequestDto = {
   /**
-   * The host answering, the one that claimed the call
+   * The host that records the response, the one that claimed the call
    */
   host: string;
   /**
-   * The HTTP status the call was answered with, or 0 when nothing answered
+   * The HTTP status of the response, or 0 when no response came
    */
   status: number;
   /**
-   * The headers the call was answered with
+   * The headers of the response
    */
   headers?: {
     [key: string]: string;
   };
   /**
-   * The body the call was answered with, base64, at most 16 KiB
+   * The body of the response, base64, at most 16 KiB
    */
   body?: string;
   /**
-   * How long the call took to answer, in milliseconds
+   * How long the call took to get a response, in milliseconds
    */
   ms: number;
   /**
-   * Why nothing answered, when the status is 0
+   * Why no response came, when the status is 0
    */
   error?: string;
 };
 
-export type SharedRedeemEgressRequestDto = {
+export type FetchRunSecretsRequestDto = {
   /**
-   * The X25519 public key egress holds for this run alone, in base64; values Spotlight keeps are sealed to it
+   * The X25519 public key that egress holds for this run alone, in base64; values Spotlight stores are sealed to it
    */
   recipient: string;
   /**
-   * The run proxy credential a runner presented to a shared egress. A shared egress sends it with its own egress token; the egress beside a sandbox leaves it out
+   * The run proxy credential a runner presented to a shared egress. A shared egress sends it with its own egress token; an egress sidecar leaves it out
    */
   proxyCredential?: string;
 };
 
-export type ReadInNetworkResponseDto = {
+export type ExternalSecretRefResponseDto = {
   kind: 'aws-secrets-manager';
   secretId: string;
   field: string | null;
 };
 
-export type RedeemedSecretResponseDto = {
+export type FetchedSecretResponseDto = {
   secret: string;
   /**
-   * The one host egress wears it toward
+   * The one host that egress injects it for
    */
   host: string;
   /**
-   * Whether egress wears it in a request header or a query parameter
+   * Whether egress injects it in a request header or in a query parameter
    */
-  carrier: 'header' | 'query';
+  location: 'header' | 'query';
   /**
-   * The header or query parameter that holds its stand-in
+   * The header or query parameter that contains its stand-in
    */
   name: string;
   prefix: string;
@@ -1097,81 +1097,81 @@ export type RedeemedSecretResponseDto = {
   /**
    * Where egress reads the value with its host’s own identity; null when Spotlight sealed it
    */
-  readInNetwork: ReadInNetworkResponseDto | null;
+  externalRef: ExternalSecretRefResponseDto | null;
 };
 
-export type WithheldSecretResponseDto = {
+export type DeniedSecretResponseDto = {
   secret: string;
   reason: string;
 };
 
 export type SpotlightApiResponseDto = {
   /**
-   * A read and plan token for this run alone, sealed to the recipient; egress wears it toward the control plane as a bearer token
+   * A read and plan token for this run alone, sealed to the recipient; egress injects it for the control plane as a bearer token
    */
   sealed: string;
 };
 
-export type EgressRedemptionResponseDto = {
+export type EgressSecretsResponseDto = {
   /**
-   * The run the sealed values are bound to; null when the sandbox checks a change stack and wears nothing
+   * The run the sealed values are bound to; null when the sandbox checks a change stack and gets no secrets
    */
   runId: string | null;
   /**
-   * Hosts every sandbox must reach besides the control plane, whatever else the host allows
+   * Hosts that every sandbox is allowed to connect to besides the control plane, whatever else the host allows
    */
-  reaches: Array<string>;
+  extraAllowedHosts: Array<string>;
   /**
    * The hosts the secrets are bound to. Egress decrypts only these hosts, and also the control plane host when spotlightApi is set
    */
   bound: Array<string>;
-  secrets: Array<RedeemedSecretResponseDto>;
+  secrets: Array<FetchedSecretResponseDto>;
   /**
-   * Secrets the run wears that egress will not get, and why
+   * The secrets of the run that egress does not get, and why
    */
-  withheld: Array<WithheldSecretResponseDto>;
+  denied: Array<DeniedSecretResponseDto>;
   /**
-   * Where the run reaches Spotlight’s own API, the token it reaches it with
+   * Where the run uses Spotlight’s own API, the token that it uses
    */
   spotlightApi: SpotlightApiResponseDto | null;
 };
 
-export type AdmitThroughEgressRequestDto = {
+export type AuthorizeRunnerRequestDto = {
   /**
    * The run proxy credential a runner presented to the egress
    */
   proxyCredential: string;
 };
 
-export type EgressAdmissionResponseDto = {
+export type EgressAuthorizationResponseDto = {
   runnerId: string;
   workspaceId: string;
   /**
-   * The host of the control plane URL the runner was handed. Before the runner has a run, egress lets it reach only this host
+   * The host of the control plane URL the runner was handed. Before the runner has a run, egress allows it to connect only to this host
    */
   controlPlaneHost: string;
   /**
-   * The port of the control plane URL the runner was handed. Egress lets a sandbox reach the control plane host only on this port
+   * The port of the control plane URL the runner was handed. Egress allows a sandbox to connect to the control plane host only on this port
    */
   controlPlanePort: number;
   /**
-   * Hosts every sandbox must reach besides the control plane, whatever else the egress allows
+   * Hosts that every sandbox is allowed to connect to besides the control plane, whatever else the egress allows
    */
-  reaches: Array<string>;
+  extraAllowedHosts: Array<string>;
 };
 
-export type KeepEgressHoldsRequestDto = {
+export type CheckActiveRunsRequestDto = {
   /**
    * The run proxy credentials whose runs the egress serves now
    */
   proxyCredentials: Array<string>;
 };
 
-export type EgressHoldsResponseDto = {
+export type EgressActiveRunsResponseDto = {
   /**
-   * The proxy credentials whose runner still holds its work. Egress forgets every other run
+   * The proxy credentials whose runner still leases its work, or has no work yet. Egress evicts the secrets of every other run
    */
-  held: Array<string>;
+  active: Array<string>;
 };
 
 export type EgressConnectionRequestDto = {
@@ -1190,15 +1190,15 @@ export type EgressConnectionRequestDto = {
    * How long the connection was open
    */
   ms: number;
-  outcome: 'tunnelled' | 'forwarded' | 'blocked' | 'failed';
+  outcome: 'passthrough' | 'injected' | 'blocked' | 'failed';
   /**
-   * The status the host answered a forwarded request with. Egress cannot read the status of a tunnel
+   * The status the host answered an injected request with. Egress cannot read the status of a passthrough connection
    */
   status?: number;
   /**
    * Why egress blocked the connection or could not open it. Spotlight drops a record whose reason does not fit its outcome
    */
-  reason?: 'not-allowed' | 'address-refused' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable';
+  reason?: 'not-allowed' | 'private-address' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable';
   at: string;
 };
 
@@ -1206,7 +1206,7 @@ export type RecordEgressConnectionsRequestDto = {
   records: Array<EgressConnectionRequestDto>;
 };
 
-export type HeldRunResponseDto = {
+export type LeasedRunResponseDto = {
   id: string;
   state: string;
   /**
@@ -1232,7 +1232,7 @@ export type RunnerActivityResponseDto = {
   /**
    * The run the runner is working on
    */
-  currentRun: HeldRunResponseDto;
+  currentRun: LeasedRunResponseDto;
 };
 
 export type HarnessModelResponseDto = {
@@ -1285,9 +1285,9 @@ export type InboxFailureResponseDto = {
   occurrences: number;
 };
 
-export type InboxAsideResponseDto = {
+export type InboxRequestResponseDto = {
   /**
-   * What is put aside for a person to settle, beside the task’s conversation: memories are proposed memories to approve or reject; grade asks a person to grade a judged run
+   * The kind of inbox request: memories are proposed memories to approve or reject; grade asks a person to grade a judged run
    */
   form: 'memories' | 'grade' | 'alert';
   /**
@@ -1326,10 +1326,10 @@ export type InboxApprovalResponseDto = {
    */
   because: string;
   /**
-   * What it would go ahead with, exactly as it stands
+   * What it would go ahead with, exactly as it is now
    */
   inputs: Array<InboxApprovalInputResponseDto>;
-  standing: 'asked' | 'granted' | 'refused';
+  status: 'pending' | 'approved' | 'dismissed';
   /**
    * What it was approved to run with instead, where the person changed it
    */
@@ -1345,8 +1345,8 @@ export type InboxApprovalResponseDto = {
 };
 
 export type InboxConnectionResponseDto = {
-  source: string;
   integration: string;
+  integrationName: string;
   /**
    * The person asked to connect, whose connection the tool acts with
    */
@@ -1358,15 +1358,15 @@ export type InboxConnectionResponseDto = {
   met: boolean;
 };
 
-export type InboxMessageResponseDto = {
+export type NoteResponseDto = {
   position: number;
-  kind: 'asked' | 'passed' | 'answered' | 'said';
+  kind: 'asked' | 'passed' | 'answered' | 'message';
   /**
    * What it shows, which is not what it did
    */
-  form: 'words' | 'setup' | 'settled' | 'approval' | 'failure' | 'connection';
+  form: 'words' | 'setup' | 'resolved' | 'approval' | 'failure' | 'connection';
   /**
-   * Who spoke: the station, a person, or the world outside it
+   * Who wrote it: the station, a person, or the world outside it
    */
   voice: 'station' | 'person' | 'world';
   station: string;
@@ -1386,7 +1386,7 @@ export type InboxMessageResponseDto = {
   attachments: Array<AttachmentResponseDto>;
   at: string;
   /**
-   * Absent where the station said it rather than a person
+   * Absent where the station wrote it rather than a person
    */
   author: InboxAuthorResponseDto | null;
   /**
@@ -1405,7 +1405,7 @@ export type InboxMessageResponseDto = {
 
 export type InboxItemResponseDto = {
   /**
-   * A task’s conversation or what was put aside beside it
+   * A task’s conversation or an inbox request on the task
    */
   kind: 'task';
   /**
@@ -1417,7 +1417,7 @@ export type InboxItemResponseDto = {
   title: string;
   description: string | null;
   /**
-   * The files the task was raised with
+   * The files the task was created with
    */
   attachments: Array<AttachmentResponseDto>;
   station: string;
@@ -1427,21 +1427,21 @@ export type InboxItemResponseDto = {
    */
   stationPosition: number;
   /**
-   * How many stations the line holds
+   * How many stations the line has
    */
   stationCount: number;
   /**
-   * Where it was raised, which it keeps as it moves
+   * The station where it was created. It keeps this station when it moves
    */
-  raisedAt: InboxStationResponseDto;
+  originStation: InboxStationResponseDto;
   /**
-   * Where the task stands now, which is where it ended up
+   * Where the task is now, which is where it ended up
    */
-  standsAt: InboxStationResponseDto;
+  currentStation: InboxStationResponseDto;
   createdAt: string;
   askedAt: string;
   /**
-   * True once it is settled, and is no longer yours to answer
+   * True once it is resolved, and is no longer yours to answer
    */
   resolved: boolean;
   /**
@@ -1457,7 +1457,7 @@ export type InboxItemResponseDto = {
    */
   unread: boolean;
   /**
-   * What the station that opened this conversation was given
+   * The briefing of the station that opened this conversation
    */
   briefing: string | null;
   /**
@@ -1465,10 +1465,10 @@ export type InboxItemResponseDto = {
    */
   failure: InboxFailureResponseDto | null;
   /**
-   * What this item puts aside for a person to settle, where it is not a conversation; it never holds the task up
+   * The inbox request of this item, where it is not a conversation. It never blocks the task
    */
-  aside: InboxAsideResponseDto | null;
-  notes: Array<InboxMessageResponseDto>;
+  inboxRequest: InboxRequestResponseDto | null;
+  notes: Array<NoteResponseDto>;
 };
 
 export type InboxNoticeResponseDto = {
@@ -1501,7 +1501,7 @@ export type InboxNoticeResponseDto = {
    */
   unread: boolean;
   /**
-   * True once its person settled it
+   * True once its person resolved it
    */
   resolved: boolean;
 };
@@ -1513,7 +1513,7 @@ export type AnswerInboxItemInputRequestDto = {
 
 export type AnswerInboxItemRequestDto = {
   /**
-   * What the person says back. It joins the task’s trail. May be empty where files are attached.
+   * What the person writes back. It joins the task’s trail. May be empty where files are attached.
    */
   body: string;
   /**
@@ -1521,11 +1521,11 @@ export type AnswerInboxItemRequestDto = {
    */
   attachments?: Array<string>;
   /**
-   * Where the conversation asks for a tool call to be approved: true lets it run, false rejects it. Left out, the words answer it and the tool call stays undecided. Refused anywhere else.
+   * Where the conversation asks for a tool call to be approved: true lets it run, false rejects it. Left out, the words answer it and the tool call stays undecided. Rejected anywhere else.
    */
   approve?: boolean;
   /**
-   * With approve: true on a tool call, what it runs with instead, as the person changed it. Names exactly the inputs it asked with; a harness asking permission takes no changes.
+   * With approve: true on a tool call, what it runs with instead, as the person changed it. Names exactly the inputs it was called with; a harness asking permission takes no changes.
    */
   inputs?: Array<AnswerInboxItemInputRequestDto>;
 };
@@ -1536,14 +1536,14 @@ export type RunMarksResponseDto = {
    * When the workspace was handed to the agent
    */
   readyAt: string | null;
-  spokeFrom: string | null;
-  spokeTo: string | null;
+  firstAgentUpdateAt: string | null;
+  lastAgentUpdateAt: string | null;
   endedAt: string | null;
 };
 
 export type RunSpentResponseDto = {
   /**
-   * Tokens held in context
+   * Tokens in context
    */
   used: number;
   /**
@@ -1563,7 +1563,7 @@ export type RunJournalResponseDto = {
    */
   spans: Array<RunSpanResponseDto>;
   /**
-   * How long the run spoke for, in ms
+   * How long the agent was active, in ms
    */
   ms: number | null;
   marks: RunMarksResponseDto;
@@ -1631,7 +1631,7 @@ export type TaskResponseDto = {
    */
   description: string | null;
   /**
-   * The files it was raised with
+   * The files it was created with
    */
   attachments: Array<AttachmentResponseDto>;
   createdAt: string;
@@ -1640,7 +1640,7 @@ export type TaskResponseDto = {
    */
   running: boolean;
   /**
-   * Where a standing question is answered, or null for none
+   * Where an open question is answered, or null for none
    */
   awaitingReview: TaskReviewResponseDto | null;
   /**
@@ -1648,15 +1648,15 @@ export type TaskResponseDto = {
    */
   pullRequest: string | null;
   /**
-   * Who raised it, and so who it comes back to
+   * The person who created it. The task comes back to this person
    */
-  raisedBy: TaskPersonResponseDto | null;
+  createdBy: TaskPersonResponseDto | null;
   /**
    * The team member who owns the work, or nobody where unclaimed
    */
   assignee: TaskPersonResponseDto | null;
   /**
-   * The last thing said about this task, and where it was said
+   * The last note on this task, and the station where it was written
    */
   note: TaskNoteResponseDto | null;
 };
@@ -1667,13 +1667,13 @@ export type RunStationResponseDto = {
   color: string;
   position: number;
   /**
-   * How many stations the line holds
+   * How many stations the line has
    */
   count: number;
 };
 
 export type RunReviewResponseDto = {
-  state: 'owed' | 'settled';
+  state: 'pending' | 'answered';
   /**
    * The inbox conversation it opened
    */
@@ -1682,7 +1682,7 @@ export type RunReviewResponseDto = {
 
 export type TeamRunResponseDto = {
   id: string;
-  state: 'queued' | 'claimed' | 'waiting' | 'parked' | 'completed' | 'failed' | 'superseded';
+  state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -1703,7 +1703,7 @@ export type TeamRunResponseDto = {
   taskId: string | null;
   taskTitle: string | null;
   /**
-   * What was asked for, shown before a run has said anything
+   * What was requested, shown before a run has written a note
    */
   taskDescription: string | null;
 };
@@ -1722,9 +1722,9 @@ export type TraceVolumeBucketResponseDto = {
    */
   count: number;
   /**
-   * Every fault the traces that started in it came to
+   * Every error in the traces that started in it
    */
-  faults: number;
+  errors: number;
 };
 
 export type TraceStationResponseDto = {
@@ -1732,7 +1732,7 @@ export type TraceStationResponseDto = {
   color: string;
   position: number;
   /**
-   * How many the line holds
+   * How many stations the line has
    */
   count: number;
 };
@@ -1742,14 +1742,14 @@ export type TeamTraceResponseDto = {
   title: string;
   station: TraceStationResponseDto | null;
   /**
-   * Every station that has worked it, in the line’s own order
+   * Every station that has run it, in the line’s order
    */
   stations: Array<TraceStationResponseDto>;
   harness: string;
-  state: 'queued' | 'claimed' | 'waiting' | 'parked' | 'completed' | 'failed' | 'superseded';
+  state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
   startedAt: string;
   /**
-   * How many runs worked the task
+   * How many runs the task has had
    */
   runs: number;
   /**
@@ -1757,12 +1757,12 @@ export type TeamTraceResponseDto = {
    */
   input: string | null;
   /**
-   * What it said when it handed the task on
+   * The last note that the run wrote on the task
    */
   output: string | null;
   ms: number | null;
   steps: number;
-  faults: number;
+  errors: number;
   cost: number | null;
   currency: string | null;
 };
@@ -1774,11 +1774,11 @@ export type TeamTracesResponseDto = {
    */
   from: string;
   /**
-   * Where the range ends: when it was asked
+   * Where the range ends: when it was requested
    */
   to: string;
   /**
-   * Every trace in the range, counted into evenly long bars from start to end, empty bars kept
+   * Every trace in the range, counted into evenly long bars from start to end, empty bars included
    */
   volume: Array<TraceVolumeBucketResponseDto>;
   /**
@@ -1833,21 +1833,21 @@ export type RunConnectionResponseDto = {
    */
   ms: number;
   /**
-   * tunnelled: egress did not decrypt it. forwarded: egress decrypted it to add a secret. blocked: egress stopped it. failed: egress could not open it
+   * passthrough: egress did not decrypt it. injected: egress decrypted it to inject a secret. blocked: egress stopped it. failed: egress could not open it
    */
-  outcome: 'tunnelled' | 'forwarded' | 'blocked' | 'failed';
+  outcome: 'passthrough' | 'injected' | 'blocked' | 'failed';
   /**
-   * The status the host answered a forwarded request with. null for a tunnel, because egress cannot read it
+   * The status the host answered an injected request with. null for a passthrough connection, because egress cannot read it
    */
   status: number | null;
   /**
    * Why egress blocked the connection or could not open it
    */
-  reason: 'not-allowed' | 'address-refused' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable' | null;
+  reason: 'not-allowed' | 'private-address' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable' | null;
   /**
-   * What went wrong. blocked: egress stopped it. failed: egress could not open it. refused: the host answered a forwarded request with 401 or 403. server-error: the host answered it with 500 or more. null: nothing went wrong
+   * The error of the connection. blocked: egress stopped it. failed: egress could not open it. auth-failed: the host answered an injected request with 401 or 403. server-error: the host answered it with 500 or more. null: no error
    */
-  trouble: 'blocked' | 'failed' | 'refused' | 'server-error' | null;
+  error: 'blocked' | 'failed' | 'auth-failed' | 'server-error' | null;
   at: string;
 };
 
@@ -1857,7 +1857,7 @@ export type RunNetworkResponseDto = {
   /**
    * What the runner in the sandbox reported before the harness started. enforced: a direct connection around egress failed. not-enforced: it operated. null: the runner did not check, for example on a host. The sandbox itself makes this report, so a compromised sandbox can report enforced
    */
-  egress: 'enforced' | 'not-enforced' | null;
+  egressEnforcement: 'enforced' | 'not-enforced' | null;
   /**
    * The connections a shared egress recorded for this attempt
    */
@@ -1885,35 +1885,35 @@ export type RunSpendResponseDto = {
   cacheWriteTokens: number | null;
 };
 
-export type RunConversationResponseDto = {
+export type RunNotesResponseDto = {
   runId: string;
   taskId: string;
   title: string;
   description: string | null;
   /**
-   * The files the task was raised with
+   * The files the task was created with
    */
   attachments: Array<AttachmentResponseDto>;
   station: RunStationResponseDto | null;
   createdAt: string;
   /**
-   * What the run was given, word for word
+   * The briefing of the run, word for word
    */
   briefing: string;
   /**
    * A run is on the task now
    */
   working: boolean;
-  notes: Array<InboxMessageResponseDto>;
+  notes: Array<NoteResponseDto>;
   /**
-   * What the run spent, once it has ended and been digested
+   * What the run spent, once it has ended and its usage is recorded
    */
   spend: RunSpendResponseDto | null;
 };
 
-export type SayToRunRequestDto = {
+export type SendMessageRequestDto = {
   /**
-   * Reaches the agent when its current turn ends. May be empty where files are attached.
+   * Goes to the agent when its current turn ends. May be empty where files are attached.
    */
   body: string;
   /**
@@ -1924,7 +1924,7 @@ export type SayToRunRequestDto = {
 
 export type TaskRunResponseDto = {
   id: string;
-  state: 'queued' | 'claimed' | 'waiting' | 'parked' | 'completed' | 'failed' | 'superseded';
+  state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -1947,7 +1947,7 @@ export type TaskRunResponseDto = {
 export type AddTaskRequestDto = {
   title: string;
   /**
-   * Markdown. Left out or blank for a task with nothing said.
+   * Markdown. Left out or blank for a task with no description.
    */
   description?: string | null;
   /**
@@ -1973,7 +1973,7 @@ export type MoveTaskRequestDto = {
 
 export type AssignTaskRequestDto = {
   /**
-   * The team member to give it to, or null to leave it unclaimed
+   * The team member to assign it to, or null to leave it unclaimed
    */
   assigneeId: string | null;
 };
@@ -1982,7 +1982,7 @@ export type ReplayedRunResponseDto = {
   runId: string;
   taskId: string | null;
   /**
-   * The title of the task it worked, as it reads now; null once the task is deleted
+   * The title of the task of the run, as it reads now; null once the task is deleted
    */
   title: string | null;
 };
@@ -1995,7 +1995,7 @@ export type RunAgentResponseDto = {
 
 export type ReplayRunResponseDto = {
   id: string;
-  state: 'queued' | 'claimed' | 'waiting' | 'parked' | 'completed' | 'failed' | 'superseded';
+  state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -2019,11 +2019,11 @@ export type ReplayRunResponseDto = {
   original: ReplayedRunResponseDto;
   spend: RunSpendResponseDto | null;
   /**
-   * What it did and said, attempt by attempt
+   * What it did and wrote, attempt by attempt
    */
   journals: Array<RunJournalResponseDto>;
   /**
-   * What the replay told its agent when it was dispatched
+   * The briefing that the replay sent to its agent when it was dispatched
    */
   briefing: string;
   /**
@@ -2031,7 +2031,7 @@ export type ReplayRunResponseDto = {
    */
   agent: RunAgentResponseDto;
   /**
-   * The repositories the replay was given
+   * The repositories of the replay
    */
   repositories: Array<string>;
 };
@@ -2054,7 +2054,7 @@ export type SearchRunSpentResponseDto = {
 
 export type SearchRunResponseDto = {
   id: string;
-  state: 'queued' | 'claimed' | 'waiting' | 'parked' | 'completed' | 'failed' | 'superseded';
+  state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -2089,16 +2089,16 @@ export type SearchRunResponseDto = {
   spent: SearchRunSpentResponseDto;
   spend: RunSpendResponseDto | null;
   /**
-   * What it did and said, attempt by attempt
+   * What it did and wrote, attempt by attempt
    */
   journals: Array<RunJournalResponseDto>;
   /**
-   * What the search told its agent when it dispatched this iteration
+   * The briefing that the search sent to its agent when it dispatched this iteration
    */
   briefing: string;
 };
 
-export type ChatImprovingResponseDto = {
+export type ChatTargetStationResponseDto = {
   lineId: string;
   lineKey: string;
   lineName: string;
@@ -2124,9 +2124,9 @@ export type ChatSummaryResponseDto = {
   effort: string | null;
   repositories: Array<string>;
   /**
-   * The station the chat is about improving, if any
+   * The station that the chat must improve, if any
    */
-  improving: ChatImprovingResponseDto | null;
+  targetStation: ChatTargetStationResponseDto | null;
   /**
    * Where the chat sets up the team’s configuration as code, for a setup chat
    */
@@ -2180,9 +2180,9 @@ export type StartChatRequestDto = {
    */
   traces?: Array<string>;
   /**
-   * A station the chat is about improving, by its id; the agent is briefed to study its recent runs
+   * The id of the station that the chat must improve. The agent gets an instruction to study the recent runs of the station
    */
-  improving?: string;
+  targetStation?: string;
   /**
    * Makes this the team’s setup chat: the agent surveys the team’s tools and opens a pull request with its configuration as code there
    */
@@ -2201,7 +2201,7 @@ export type ChatProposalResponseDto = {
   stationName: string | null;
   stationColor: string | null;
   /**
-   * Where the station stands on its line, from 0
+   * The position of the station on its line, from 0
    */
   stationPosition: number | null;
   /**
@@ -2219,7 +2219,7 @@ export type ChatProposalResponseDto = {
 
 export type ChatMessageResponseDto = {
   position: number;
-  kind: 'said' | 'proposed';
+  kind: 'message' | 'proposed';
   body: string;
   at: string;
   author: InboxAuthorResponseDto | null;
@@ -2243,9 +2243,9 @@ export type ChatResponseDto = {
   effort: string | null;
   repositories: Array<string>;
   /**
-   * The station the chat is about improving, if any
+   * The station that the chat must improve, if any
    */
-  improving: ChatImprovingResponseDto | null;
+  targetStation: ChatTargetStationResponseDto | null;
   /**
    * Where the chat sets up the team’s configuration as code, for a setup chat
    */
@@ -2263,7 +2263,7 @@ export type ChatResponseDto = {
   messages: Array<ChatMessageResponseDto>;
 };
 
-export type SayInChatRequestDto = {
+export type SendChatMessageRequestDto = {
   /**
    * May be empty where files are attached or traces shared.
    */
@@ -2313,7 +2313,7 @@ export type SetupChatResponseDto = {
 
 export type OnboardingResponseDto = {
   /**
-   * Whether Spotlight has opened the first lines and the setup task of the team. The value is failed after Spotlight stopped its attempts.
+   * Whether Spotlight has created the first lines and opened the setup task of the team. The value is failed after Spotlight stopped its attempts.
    */
   provisioning: 'pending' | 'done' | 'failed';
   /**
@@ -2352,14 +2352,14 @@ export type WorkspaceResourceResponseDto = {
    */
   name: string;
   /**
-   * Where the workspace lives in the web app; fixed for its life, so changing it means replacing the workspace
+   * Where the workspace lives in the web app. Immutable: changing it means replacing the workspace
    */
   slug: string;
 };
 
 export type WorkspaceResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<WorkspaceResourceResponseDto>;
 };
@@ -2386,7 +2386,7 @@ export type TeamResourceResponseDto = {
    */
   workspaceId: string;
   /**
-   * Names the team in the addresses of everything it holds; fixed for its life, so changing it means replacing the team
+   * Names the team in the addresses of everything it has. Immutable: changing it means replacing the team
    */
   key: string;
   /**
@@ -2397,7 +2397,7 @@ export type TeamResourceResponseDto = {
 
 export type TeamResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<TeamResourceResponseDto>;
 };
@@ -2424,7 +2424,7 @@ export type WorkspaceTokenResourceResponseDto = {
    */
   workspaceId: string;
   /**
-   * Names the token within its workspace; fixed for its life, so changing it means replacing the token
+   * Names the token within its workspace. Immutable: changing it means replacing the token
    */
   name: string;
   /**
@@ -2432,7 +2432,7 @@ export type WorkspaceTokenResourceResponseDto = {
    */
   description: string;
   /**
-   * What it may do: read reads; plan also checks expressions; configure also changes configuration as a workspace admin may, except secrets, runners and token trusts; secrets, granted beside one of those, manages secrets; runners, granted the same way, manages runners, runner trusts and the workspace’s runners; trusts, granted the same way, manages workspace token trusts. Fixed for its life
+   * What it may do: read reads; plan also checks expressions; configure also changes configuration as a workspace admin may, except secrets, runners and token trusts; secrets, granted beside one of those, manages secrets; runners, granted the same way, manages runners, runner trusts and the workspace’s runners; trusts, granted the same way, manages workspace token trusts. Immutable
    */
   scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners' | 'trusts'>;
   /**
@@ -2441,14 +2441,14 @@ export type WorkspaceTokenResourceResponseDto = {
   issuedBy: string;
   issuedAt: string;
   /**
-   * After this it admits nobody; null never expires. Fixed for its life
+   * After this Spotlight does not accept it; null never expires. Immutable
    */
   expiresAt: string | null;
 };
 
 export type WorkspaceTokenResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<WorkspaceTokenResourceResponseDto>;
 };
@@ -2471,11 +2471,11 @@ export type WorkspaceTokenTrustResourceResponseDto = {
    */
   warnings: Array<FieldErrorResponseDto>;
   /**
-   * The workspace the tokens it mints act in
+   * The workspace the tokens it issues act in
    */
   workspaceId: string;
   /**
-   * Names the trust within its workspace, and every token it mints; fixed for its life
+   * Names the trust within its workspace, and every token it issues. Immutable
    */
   key: string;
   /**
@@ -2483,11 +2483,11 @@ export type WorkspaceTokenTrustResourceResponseDto = {
    */
   issuer: string;
   /**
-   * The audience the workload must ask its issuer for
+   * The audience the workload must request from its issuer
    */
   audience: string;
   /**
-   * The subject the workload’s token must carry; * stands for any run of characters
+   * The subject the workload’s token must carry; * matches any run of characters
    */
   subject: string;
   /**
@@ -2497,22 +2497,22 @@ export type WorkspaceTokenTrustResourceResponseDto = {
     [key: string]: string;
   };
   /**
-   * The scopes every token it mints is given
+   * The scopes of every token it issues
    */
   scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners' | 'trusts'>;
   /**
-   * How many minutes a token it mints admits its bearer
+   * How many minutes a token it issues stays valid
    */
   lifetimeMinutes: number;
   /**
-   * The person who defined the trust, or who issued the token that did; the tokens it mints act on their behalf
+   * The person who created the trust, or who issued the token that did; the tokens it issues act on their behalf
    */
-  definedBy: string;
+  createdBy: string;
 };
 
 export type WorkspaceTokenTrustResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<WorkspaceTokenTrustResourceResponseDto>;
 };
@@ -2528,16 +2528,16 @@ export type ExchangeWorkloadTokenRequestDto = {
   token: string;
 };
 
-export type MintedTokenResponseDto = {
+export type IssuedTokenResponseDto = {
   /**
-   * The token to send as Authorization: Bearer until it expires; answered this once, and kept only as a hash
+   * The token to send as Authorization: Bearer until it expires; returned once, and stored only as a hash
    */
   token: string;
   tokenId: string;
   workspaceId: string;
   scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners' | 'trusts'>;
   /**
-   * After this it admits nobody
+   * After this Spotlight does not accept it
    */
   expiresAt: string;
 };
@@ -2549,7 +2549,7 @@ export type CreateWorkspaceRequestDto = {
    */
   slug: string;
   /**
-   * Names the team the workspace opens with. A workspace with no team has nowhere to put work.
+   * Names the team the workspace starts with. A workspace with no team has nowhere to put work.
    */
   teamName: string;
 };
@@ -2583,9 +2583,9 @@ export type WorkspaceResponseDto = {
    */
   role: 'owner' | 'admin' | 'member';
   /**
-   * Whether Spotlight has opened the first team of the workspace. The value is failed after Spotlight stopped its attempts.
+   * Whether Spotlight has created the first team of the workspace. The value is failed after Spotlight stopped its attempts.
    */
-  provisioning: 'pending' | 'done' | 'failed';
+  setupStatus: 'pending' | 'done' | 'failed';
 };
 
 export type TeamReferenceResponseDto = {
@@ -2602,9 +2602,9 @@ export type WorkspaceMemberResponseDto = {
    */
   role: 'owner' | 'admin' | 'member';
   /**
-   * What the caller may set them to, which is empty where that is not theirs to do. Worked out by the same rule the workspace enforces.
+   * The roles that the caller can assign to this member. The list is empty when the caller cannot change the role of this member. The workspace uses the same rule when it changes a role.
    */
-  mayBeSetTo: Array<'owner' | 'admin' | 'member'>;
+  assignableRoles: Array<'owner' | 'admin' | 'member'>;
   email: string;
   /**
    * The teams of this workspace they are on.
@@ -2634,7 +2634,7 @@ export type ChangedByResponseDto = {
   userId: string | null;
   tokenId: string | null;
   /**
-   * For a token minted through a workspace token trust, that trust; the person is then whoever defined the trust
+   * For a token issued by a workspace token trust, that trust; the person is then whoever created the trust
    */
   trust: string | null;
 };
@@ -2657,7 +2657,7 @@ export type ConfigurationChangeResponseDto = {
    */
   client: string | null;
   /**
-   * What moved beyond the action itself, where that is worth keeping, as the resource’s kind records it; a secret records the value version it moved to and the hosts it is bound to once changed, never the value
+   * What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records the value version it moved to and the hosts it is bound to once changed, never the value
    */
   details: {
     [key: string]: unknown;
@@ -2674,9 +2674,9 @@ export type MemberResponseDto = {
    */
   role: 'owner' | 'admin' | 'member';
   /**
-   * What the caller may set them to, which is empty where that is not theirs to do. Worked out by the same rule the workspace enforces.
+   * The roles that the caller can assign to this member. The list is empty when the caller cannot change the role of this member. The workspace uses the same rule when it changes a role.
    */
-  mayBeSetTo: Array<'owner' | 'admin' | 'member'>;
+  assignableRoles: Array<'owner' | 'admin' | 'member'>;
 };
 
 export type AddTeamMemberRequestDto = {
@@ -2704,7 +2704,7 @@ export type WorkspaceInviteResponseDto = {
    */
   teams: Array<TeamReferenceResponseDto>;
   /**
-   * Who asked them, or null once their account is deleted.
+   * Who invited them, or null once their account is deleted.
    */
   invitedBy: InviterResponseDto | null;
   invitedAt: string;
@@ -2729,26 +2729,26 @@ export type InviteToWorkspaceRequestDto = {
 export type InviteOutcomeResponseDto = {
   email: string;
   /**
-   * What came of the address: a new invitation, an open one sent again with a fresh link, nothing, since they are already in the workspace, or an invitation kept whose email could not be sent, which sending again may still deliver.
+   * What came of the address: a new invitation, a pending one resent with a fresh link, nothing, since they are already in the workspace, or an invitation stored whose email could not be sent. Resend it to try again.
    */
-  outcome: 'invited' | 'sent-again' | 'already-a-member' | 'not-sent';
+  outcome: 'invited' | 'resent' | 'already-a-member' | 'not-sent';
 };
 
 export type InviteOutcomesResponseDto = {
   /**
-   * One outcome per address asked, in the order asked.
+   * One outcome per address in the request, in the order of the request.
    */
   outcomes: Array<InviteOutcomeResponseDto>;
 };
 
-export type InviteOfferResponseDto = {
+export type InvitePreviewResponseDto = {
   /**
    * The address it was sent to, which is who may accept it.
    */
   email: string;
   workspaceName: string;
   /**
-   * Who asked them, or null once their account is deleted.
+   * Who invited them, or null once their account is deleted.
    */
   invitedBy: string | null;
   /**
@@ -2762,7 +2762,7 @@ export type InviteOfferResponseDto = {
   /**
    * Whether it is still worth following.
    */
-  standing: 'open' | 'accepted' | 'revoked' | 'expired';
+  status: 'pending' | 'accepted' | 'revoked' | 'expired';
 };
 
 export type JoinedWorkspaceResponseDto = {
@@ -2774,7 +2774,7 @@ export type JoinedWorkspaceResponseDto = {
 
 export type SecretSourceResponseDto = {
   /**
-   * Where the value lives: kept by Spotlight, or read from AWS Secrets Manager when it is used
+   * Where the value lives: stored by Spotlight, or read from AWS Secrets Manager when it is used
    */
   kind: 'built-in' | 'aws-secrets-manager';
   /**
@@ -2782,7 +2782,7 @@ export type SecretSourceResponseDto = {
    */
   secretId: string | null;
   /**
-   * The key to read when that secret holds JSON
+   * The key to read when that secret contains JSON
    */
   field: string | null;
 };
@@ -2793,15 +2793,15 @@ export type SecretBindingResponseDto = {
    */
   host: string;
   /**
-   * Whether it is worn in a request header or a query parameter
+   * Whether Spotlight injects it in a request header or in a query parameter
    */
-  carrier: 'header' | 'query';
+  location: 'header' | 'query';
   /**
-   * The header or query parameter it is worn in
+   * The header or query parameter that Spotlight injects it in
    */
   name: string;
   /**
-   * Written before the value it is worn with
+   * The text that Spotlight writes before the value
    */
   prefix: string;
 };
@@ -2828,7 +2828,7 @@ export type SecretResourceResponseDto = {
    */
   workspaceId: string;
   /**
-   * What integrations call it; fixed for its life, so changing it means replacing the secret
+   * What integrations call it. Immutable: changing it means replacing the secret
    */
   name: string;
   source: SecretSourceResponseDto;
@@ -2837,7 +2837,7 @@ export type SecretResourceResponseDto = {
    */
   bindings: Array<SecretBindingResponseDto>;
   /**
-   * Changing it rotates the value to the valueWo sent with it; the value itself is write-only and never answered
+   * Changing it rotates the value to the valueWo sent with it; the value itself is write-only and never returned
    */
   valueWoVersion: number | null;
   /**
@@ -2848,14 +2848,14 @@ export type SecretResourceResponseDto = {
 
 export type SecretResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<SecretResourceResponseDto>;
 };
 
 export type CatalogToolResponseDto = {
   /**
-   * What a station gives it by; it carries the version, so an upgrade shows as a change to the station
+   * What a station enables it by; it carries the version, so an upgrade shows as a change to the station
    */
   id: string;
   name: string;
@@ -2868,7 +2868,7 @@ export type CatalogToolResponseDto = {
    */
   constraint: string;
   /**
-   * The plan it needs
+   * The lowest plan that includes the item
    */
   plan: 'free' | 'team' | 'enterprise';
   description: string;
@@ -2876,7 +2876,7 @@ export type CatalogToolResponseDto = {
 
 export type CatalogSkillResponseDto = {
   /**
-   * What a station gives it by; it carries the version, so an upgrade shows as a change to the station
+   * What a station enables it by; it carries the version, so an upgrade shows as a change to the station
    */
   id: string;
   name: string;
@@ -2889,12 +2889,12 @@ export type CatalogSkillResponseDto = {
    */
   constraint: string;
   /**
-   * The plan it needs
+   * The lowest plan that includes the item
    */
   plan: 'free' | 'team' | 'enterprise';
   description: string;
   /**
-   * The catalog tools it brings, given wherever the skill is; its files never leave Spotlight except into a run
+   * The catalog tools that the skill uses, enabled wherever the skill is; its files never leave Spotlight except into a run
    */
   tools: Array<string>;
 };
@@ -2906,7 +2906,7 @@ export type RepositoryResponseDto = {
   fullName: string;
 };
 
-export type GitHubStandingResponseDto = {
+export type GitHubConnectionStatusResponseDto = {
   /**
    * Whether the App is installed for this workspace
    */
@@ -2924,11 +2924,11 @@ export type ConnectGitHubRequestDto = {
   installationId: string;
 };
 
-export type HostPresenceRequestDto = {
+export type HostHeartbeatRequestDto = {
   /**
    * New each time the host starts, so a restart shows as one
    */
-  session: string;
+  bootId: string;
   /**
    * What the host calls itself, usually its hostname
    */
@@ -2940,7 +2940,7 @@ export type HostPresenceRequestDto = {
   /**
    * The container runtime its sandboxes run in
    */
-  executor: string;
+  containerRuntime: string;
   /**
    * How many sandboxes it runs at once
    */
@@ -2950,19 +2950,19 @@ export type HostPresenceRequestDto = {
    */
   running?: Array<string>;
   /**
-   * The runner images it serves or refused, each with what it found inside
+   * The runner images it supports or cannot use, each with what it found inside
    */
   images?: Array<Array<unknown>>;
 };
 
-export type HostStandingResponseDto = {
+export type HostHeartbeatResponseDto = {
   /**
    * The workspace the host serves, which it keeps its mirrors under
    */
   workspace: string;
 };
 
-export type AdmittedThroughResponseDto = {
+export type CredentialSourceResponseDto = {
   kind: 'pool' | 'trust';
   /**
    * The pool’s or trust’s key; null once it is gone
@@ -2984,7 +2984,7 @@ export type HostImageResponseDto = {
   /**
    * Runs every line that names no image
    */
-  usual: boolean;
+  isDefault: boolean;
   /**
    * The release of the runner inside
    */
@@ -2993,18 +2993,18 @@ export type HostImageResponseDto = {
   /**
    * Why the host will not run it, when it will not
    */
-  refused: string | null;
+  unavailableReason: string | null;
 };
 
 export type HostResponseDto = {
   id: string;
   name: string;
-  through: AdmittedThroughResponseDto;
+  source: CredentialSourceResponseDto;
   /**
    * The spotlight release
    */
   release: string;
-  executor: string;
+  containerRuntime: string;
   /**
    * How many sandboxes it runs at once
    */
@@ -3014,24 +3014,24 @@ export type HostResponseDto = {
    */
   running: Array<string>;
   /**
-   * The runner images it serves or refused, and what each holds
+   * The runner images it supports or cannot use, and what each contains
    */
   images: Array<HostImageResponseDto>;
-  firstSeenAt: string;
+  firstHeartbeatAt: string;
   /**
-   * When it last came up: started, or answered again after going quiet
+   * When it last came online: it started, or sent a heartbeat again after it was offline
    */
-  upSince: string;
-  lastSeenAt: string;
+  onlineSince: string;
+  lastHeartbeatAt: string;
   /**
-   * Heard from recently enough to be counted on
+   * It sent a heartbeat recently enough to count as online
    */
-  answering: boolean;
+  online: boolean;
 };
 
 export type LiveRunnerResponseDto = {
   id: string;
-  through: AdmittedThroughResponseDto;
+  source: CredentialSourceResponseDto;
   /**
    * The host whose sandbox it runs in; null where a push pool provisioned it
    */
@@ -3042,7 +3042,7 @@ export type LiveRunnerResponseDto = {
   image: string | null;
   harnesses: Array<string>;
   startedAt: string;
-  lastSeenAt: string | null;
+  lastHeartbeatAt: string | null;
 };
 
 export type RunnerFleetResponseDto = {
@@ -3086,11 +3086,11 @@ export type RunnerTrustResourceResponseDto = {
    */
   workspaceId: string;
   /**
-   * Names the trust; fixed for its life
+   * Names the trust. Immutable
    */
   key: string;
   /**
-   * The issuer of the tokens the platform gives its workloads; its keys are found through OIDC discovery
+   * The issuer of the tokens the platform issues to its workloads; its keys are found through OIDC discovery
    */
   issuer: string;
   /**
@@ -3109,7 +3109,7 @@ export type RunnerTrustResourceResponseDto = {
 
 export type RunnerTrustResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<RunnerTrustResourceResponseDto>;
 };
@@ -3120,7 +3120,7 @@ export type PoolProvisionResponseDto = {
    */
   url: string;
   /**
-   * Changed to rotate provision.secret, which is write-only and never answered
+   * Changed to rotate provision.secret, which is write-only and never returned
    */
   secretVersion: number | null;
   /**
@@ -3155,7 +3155,7 @@ export type RunnerPoolResourceResponseDto = {
    */
   workspaceId: string;
   /**
-   * Names the pool, and is its address; fixed for its life
+   * Names the pool, and is its address. Immutable
    */
   key: string;
   /**
@@ -3167,11 +3167,11 @@ export type RunnerPoolResourceResponseDto = {
    */
   maxRuns: number | null;
   /**
-   * pull when hosts claim with the pool token, push when Spotlight calls provision; fixed for its life, and not settable
+   * pull when hosts claim with the pool token, push when Spotlight calls provision. Immutable, and not settable
    */
   mode: 'pull' | 'push';
   /**
-   * Changed, with a new token, to rotate the pool token of a pull pool, which is write-only and never answered
+   * Changed, with a new token, to rotate the pool token of a pull pool, which is write-only and never returned
    */
   tokenVersion: number | null;
   /**
@@ -3182,7 +3182,7 @@ export type RunnerPoolResourceResponseDto = {
 
 export type RunnerPoolResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<RunnerPoolResourceResponseDto>;
 };
@@ -3209,7 +3209,7 @@ export type EgressResourceResponseDto = {
    */
   workspaceId: string;
   /**
-   * Names the egress, and is its address; fixed for its life
+   * Names the egress, and is its address. Immutable
    */
   key: string;
   /**
@@ -3217,14 +3217,14 @@ export type EgressResourceResponseDto = {
    */
   url: string;
   /**
-   * Changed, with a new token, to rotate the egress token, which is write-only and never answered
+   * Changed, with a new token, to rotate the egress token, which is write-only and never returned
    */
   tokenVersion: number | null;
 };
 
 export type EgressResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<EgressResourceResponseDto>;
 };
@@ -3262,14 +3262,14 @@ export type WorkspaceRunnersResourceResponseDto = {
 
 export type WorkspaceRunnersResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<WorkspaceRunnersResourceResponseDto>;
 };
 
-export type DescriptionViewResponseDto = {
+export type ApiSpecViewResponseDto = {
   /**
-   * The kind of API description, or the MCP server, its tools are generated from
+   * The kind of API spec that its tools are generated from: an OpenAPI document, a GraphQL schema or an MCP server
    */
   kind: 'openapi' | 'graphql' | 'mcp';
   /**
@@ -3277,38 +3277,41 @@ export type DescriptionViewResponseDto = {
    */
   tools: number;
   /**
-   * When it was last read
+   * When Spotlight last fetched the spec
    */
   readAt: string;
   /**
-   * Why it could not be read when it was last asked for; the tools from the last good read stay offered
+   * Why it could not be read when it was last requested. The tools from the last good read stay available
    */
   problem: string | null;
 };
 
 export type IntegrationViewResponseDto = {
-  source: string;
+  /**
+   * The name of the integration, as in slack
+   */
+  integration: string;
   name: string;
   /**
    * Where the integration is defined
    */
   path: string;
   /**
-   * Whether the team is linked to the host: it only listens, it links by authorizing and has not, or it has
+   * Whether the team is connected to the integration. The integration needs no connection, is disconnected, or is connected.
    */
-  standing: 'listens' | 'unlinked' | 'linked';
+  connectionStatus: 'not-required' | 'disconnected' | 'connected';
   /**
    * Whose connection its tools act with: the team’s, or that of the person who started the task
    */
-  holding: 'team' | 'requester';
+  actsAs: 'team' | 'requester';
   /**
-   * What the host calls the team once linked, where it says
+   * The account name of the team on the service once connected, where the service gives one
    */
-  handle: string | null;
+  linkedAccount: string | null;
   /**
-   * The API description its tools are generated from, as last read; null where it names none
+   * The API spec that its tools are generated from, as last read. Null where it names none
    */
-  described: DescriptionViewResponseDto | null;
+  spec: ApiSpecViewResponseDto | null;
 };
 
 export type ConfigurationResponseDto = {
@@ -3351,7 +3354,7 @@ export type SkillResourceResponseDto = {
    */
   teamId: string;
   /**
-   * What stations give it by; fixed for its life, so changing it means replacing the skill
+   * What stations enable it by. Immutable: changing it means replacing the skill
    */
   key: string;
   /**
@@ -3365,7 +3368,7 @@ export type SkillResourceResponseDto = {
    */
   description: string;
   /**
-   * The secrets SKILL.md asks for; not settable
+   * The secrets SKILL.md requires; not settable
    */
   secrets: Array<SkillSecretResponseDto>;
   /**
@@ -3376,7 +3379,7 @@ export type SkillResourceResponseDto = {
 
 export type SkillResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<SkillResourceResponseDto>;
 };
@@ -3387,7 +3390,7 @@ export type PermissionsResponseDto = {
    */
   allow: Array<string>;
   /**
-   * What the harness asks a person about first; the ask reaches their inbox as an approval
+   * What the harness asks a person about first; the ask goes to their inbox as an approval
    */
   ask: Array<string>;
   /**
@@ -3401,7 +3404,7 @@ export type McpServerResponseDto = {
   command: string;
   args: Array<string>;
   /**
-   * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace holds, and the server gets only a stand-in, since egress wears the value on its requests to the hosts the secret is bound to.
+   * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace has, and the server gets only a stand-in, since egress injects the value into its requests to the hosts the secret is bound to.
    */
   env: {
     [key: string]: string;
@@ -3430,7 +3433,7 @@ export type HarnessProfileResourceResponseDto = {
    */
   teamId: string;
   /**
-   * What stations name it by; fixed for its life, so changing it means replacing the profile
+   * What stations name it by. Immutable: changing it means replacing the profile
    */
   key: string;
   /**
@@ -3451,7 +3454,7 @@ export type HarnessProfileResourceResponseDto = {
 
 export type HarnessProfileResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<HarnessProfileResourceResponseDto>;
 };
@@ -3466,14 +3469,14 @@ export type TerraformFileResponseDto = {
 
 export type WorkspaceTerraformResponseDto = {
   /**
-   * main.tf, with an import block beside each resource and references between them; variables.tf, declaring a sensitive variable for each value Spotlight never answers (secret values, runner tokens); and every prompt and skill file main.tf reads with file(), byte for byte; ordered by path
+   * main.tf, with an import block beside each resource and references between them; variables.tf, declaring a sensitive variable for each value Spotlight never returns (secret values, runner tokens); and every prompt and skill file main.tf reads with file(), byte for byte; ordered by path
    */
   files: Array<TerraformFileResponseDto>;
 };
 
 export type ResourceHclResponseDto = {
   /**
-   * The resource as HCL, formatted as terraform fmt would: any variable it reads, then an import block that adopts it, then the resource, referring to the resources it names
+   * The resource as HCL, formatted as terraform fmt would: any variable it reads, then an import block that imports it, then the resource, referring to the resources it names
    */
   hcl: string;
   /**
@@ -3502,9 +3505,9 @@ export type DiffFileResponseDto = {
   hunks: Array<DiffHunkResponseDto>;
 };
 
-export type StackRangeResponseDto = {
+export type StackHunkResponseDto = {
   /**
-   * The hunk it places
+   * A hunk of the layer
    */
   hunk: string;
 };
@@ -3521,7 +3524,7 @@ export type StackLayerResponseDto = {
   id: string;
   title: string;
   summary: string;
-  ranges: Array<StackRangeResponseDto>;
+  hunks: Array<StackHunkResponseDto>;
   /**
    * One note per file the layer touches; empty for incidental changes
    */
@@ -3546,12 +3549,12 @@ export type CheckedStepResponseDto = {
    * The end of what the check printed
    */
   output: string;
-  tookMs: number;
+  durationMs: number;
 };
 
 export type StackCheckResponseDto = {
   command: string;
-  state: 'waiting' | 'checked' | 'skipped';
+  status: 'waiting' | 'checked' | 'skipped';
   /**
    * Why it was skipped, where it was
    */
@@ -3563,7 +3566,7 @@ export type StackCheckResponseDto = {
 export type ChangeStackResponseDto = {
   id: string;
   repository: string | null;
-  state: 'drafting' | 'ready' | 'failed';
+  state: 'generating' | 'ready' | 'failed';
   failure: string | null;
   files: Array<DiffFileResponseDto>;
   cohorts: Array<StackCohortResponseDto>;
@@ -3582,12 +3585,12 @@ export type RunChangeStacksResponseDto = {
 
 export type LatestChangeStackResponseDto = {
   /**
-   * The run whose page holds the stack
+   * The run whose page shows the stack
    */
   runId: string;
   repository: string | null;
-  state: 'drafting' | 'ready' | 'failed';
-  checkState: 'waiting' | 'checked' | 'skipped' | null;
+  state: 'generating' | 'ready' | 'failed';
+  checkStatus: 'waiting' | 'checked' | 'skipped' | null;
   /**
    * Lines added across the stack
    */
@@ -3600,7 +3603,7 @@ export type LatestChangeStackResponseDto = {
 
 export type NewestChangeStackResponseDto = {
   /**
-   * The newest change stack drafted, if any
+   * The newest change stack generated, if any
    */
   latest: LatestChangeStackResponseDto | null;
 };
@@ -3645,31 +3648,31 @@ export type DecisionResponseDto = {
    */
   alternatives: Array<string>;
   /**
-   * The changed files it bears on, from the workspace root
+   * The changed files it covers, from the workspace root
    */
   paths: Array<string>;
   /**
    * Where the agent reasoned it, as steps of the run’s journal
    */
-  steps: Array<number>;
+  journalSteps: Array<number>;
   /**
-   * Who holds it wrong or out of date, and why
+   * Who says it is wrong or out of date, and why
    */
   disputes: Array<DisputeResponseDto>;
 };
 
 export type TaskDecisionsResponseDto = {
   /**
-   * The run the decisions were drafted from, if any was
+   * The run the decisions were generated from, if there is one
    */
   runId: string | null;
   /**
-   * Whether a later run’s decisions are being drafted
+   * Whether decisions for a later run are being generated
    */
-  drafting: boolean;
-  standing: 'proposed' | 'stands';
+  generating: boolean;
+  status: 'proposed' | 'merged';
   /**
-   * The merge the decisions stood in, once the pull request merged
+   * The merge that contains the decisions, after the pull request merges
    */
   merge: DecisionMergeResponseDto | null;
   /**
@@ -3689,7 +3692,7 @@ export type DisputeDecisionRequestDto = {
   path: string;
 };
 
-export type StandingDecisionsResponseDto = {
+export type MergedDecisionsResponseDto = {
   taskId: string;
   runId: string | null;
   repository: string;
@@ -3699,19 +3702,19 @@ export type StandingDecisionsResponseDto = {
   commit: string;
   mergedAt: string;
   /**
-   * Those bearing on the paths asked about; deviations and limitations first
+   * Those that cover the paths in the query; deviations and limitations first
    */
   decisions: Array<DecisionResponseDto>;
 };
 
-export type StandingDecisionListResponseDto = {
+export type MergedDecisionListResponseDto = {
   /**
    * Newest merge first, at most fifty
    */
-  merges: Array<StandingDecisionsResponseDto>;
+  merges: Array<MergedDecisionsResponseDto>;
 };
 
-export type DraftChangeStackRequestDto = {
+export type GenerateChangeStackRequestDto = {
   /**
    * The changes, as the output of git diff
    */
@@ -3723,7 +3726,7 @@ export type DraftChangeStackRequestDto = {
     [key: string]: unknown;
   } | null;
   /**
-   * The commit the checkout stood at when the run began
+   * The commit of the checkout when the run began
    */
   base: {
     [key: string]: unknown;
@@ -3734,7 +3737,7 @@ export type SkippedCheckRequestDto = {
   /**
    * Why the runner could not check the stack at all
    */
-  code: 'no-base' | 'no-checkout' | 'checkout-failed' | 'setup-failed' | 'no-room' | 'out-of-time' | 'no-image';
+  code: 'no-base' | 'no-checkout' | 'checkout-failed' | 'setup-failed' | 'workspace-failed' | 'out-of-time' | 'no-image';
   /**
    * What it printed while trying, where that helps
    */
@@ -3751,7 +3754,7 @@ export type CheckedStepRequestDto = {
    * The end of what the check printed
    */
   output: string;
-  tookMs: number;
+  durationMs: number;
 };
 
 export type RecordChangeStackCheckRequestDto = {
@@ -3790,17 +3793,17 @@ export type ReviewCommentResponseDto = {
   /**
    * Whether the caller wrote it
    */
-  yours: boolean;
+  viewerIsAuthor: boolean;
   /**
    * Whether an agent wrote it, reviewing
    */
-  byAgent: boolean;
+  isAgentAuthored: boolean;
   /**
    * The first comment of the thread this answers
    */
   replyTo: string | null;
   /**
-   * draft: only its author sees it; sending: on its way to GitHub; posted: on GitHub; failed: GitHub refused it
+   * draft: only its author sees it; sending: on its way to GitHub; posted: on GitHub; failed: GitHub answered with an error
    */
   state: 'draft' | 'sending' | 'posted' | 'failed';
   failure: string | null;
@@ -3812,11 +3815,11 @@ export type ReviewCommentResponseDto = {
 export type ReviewResponseDto = {
   id: string;
   authorName: string;
-  yours: boolean;
+  viewerIsAuthor: boolean;
   /**
    * Whether an agent submitted it
    */
-  byAgent: boolean;
+  isAgentAuthored: boolean;
   verdict: 'comment' | 'approve' | 'request-changes';
   body: string;
   state: 'draft' | 'sending' | 'posted' | 'failed';
@@ -3869,18 +3872,18 @@ export type SubmitReviewRequestDto = {
 
 export type ConnectIntegrationRequestDto = {
   /**
-   * Whose connection to make: the team’s, which only an admin makes, or the caller’s own
+   * Whose connection to make: the team’s, which only an admin makes, or the requester’s own
    */
-  for?: 'team' | 'me';
+  actsAs?: 'team' | 'requester';
   /**
-   * Where in the app to land once connected, as a path in a workspace’s inbox or settings; anything else lands on the team’s integrations
+   * Where in the app to return to after the connection, as a path in a workspace’s inbox or settings. For any other value, the app returns to the team’s integrations.
    */
-  back?: string;
+  returnTo?: string;
 };
 
 export type OAuth2StartResponseDto = {
   /**
-   * Where to send the person to authorize the link
+   * Where to send the person to authorize the connection
    */
   url: string;
 };
@@ -3888,17 +3891,17 @@ export type OAuth2StartResponseDto = {
 export type ConnectionToolRuleResponseDto = {
   tool: string;
   /**
-   * What the caller asks of calls made with their connection: allowed follows the team, needs-approval asks them first, blocked never sends
+   * What the caller requires of calls made with their connection: allowed follows the team, needs-approval asks them first, blocked never sends
    */
   rule: 'allowed' | 'needs-approval' | 'blocked';
 };
 
 export type MyConnectionResponseDto = {
-  source: string;
+  integration: string;
   /**
-   * What the host calls the person, where it says
+   * The account name of the person on the service
    */
-  handle: string | null;
+  linkedAccount: string | null;
   connectedAt: string;
   /**
    * Each tool the integration offers, with the caller’s rule for calls made with this connection
@@ -3907,53 +3910,53 @@ export type MyConnectionResponseDto = {
 };
 
 export type PersonConnectionResponseDto = {
-  source: string;
+  integration: string;
   /**
-   * What the host calls the person, where it says
+   * The account name of the person on the service
    */
-  handle: string | null;
+  linkedAccount: string | null;
   connectedAt: string;
   personId: string;
   name: string;
 };
 
-export type HostConnectionsResponseDto = {
+export type IntegrationConnectionsResponseDto = {
   /**
    * The connections the caller made themselves
    */
   mine: Array<MyConnectionResponseDto>;
   /**
-   * Who in the team has connected what, shown to admins only; it never holds a token
+   * Who in the team has connected what, shown to admins only; it never contains a token
    */
   people: Array<PersonConnectionResponseDto> | null;
 };
 
 export type SetToolRuleRequestDto = {
   /**
-   * What to ask of calls made with the caller’s connection; it can only make the team’s rule stricter
+   * What to require of calls made with the caller’s connection; it can only make the team’s rule stricter
    */
   rule: 'allowed' | 'needs-approval' | 'blocked';
 };
 
-export type DescribedSourceResponseDto = {
+export type ApiSpecResponseDto = {
   /**
-   * The kind of API description, or the MCP server, its tools are generated from
+   * The kind of API spec that its tools are generated from: an OpenAPI document, a GraphQL schema or an MCP server
    */
   kind: 'openapi' | 'graphql' | 'mcp';
   /**
-   * The sha256 of what was last read, kept while a later read fails; null when it has never been read
+   * The sha256 of the spec that Spotlight last fetched. It does not change when a later fetch fails. It is null when Spotlight never fetched the spec
    */
   hash: string | null;
   /**
-   * When the description was last read
+   * When Spotlight last fetched the spec
    */
   readAt: string;
   /**
-   * Why the description could not be read when it was last asked for, or null when it was; Spotlight reads it again when its url, document, baseUrl, revision or depth changes, on any update after a failed read, and when the integration is connected, and lists an MCP server’s tools again every MCP_RELIST_SECONDS
+   * Why Spotlight could not fetch the spec the last time, or null when it could. Spotlight fetches the spec again when its url, document, baseUrl, revision or depth changes, on each update after a failed fetch, and when the integration is connected. Spotlight lists the tools of an MCP server again every SPOTLIGHT_MCP_RELIST_SECONDS
    */
   problem: string | null;
   /**
-   * How many of its tools were generated from the description
+   * How many of its tools were generated from the spec
    */
   tools: number;
 };
@@ -3980,9 +3983,9 @@ export type IntegrationResourceResponseDto = {
    */
   teamId: string;
   /**
-   * The host it defines; fixed for its life, so changing it means replacing the integration
+   * The name of the integration, as in linear. It cannot change. To change it, replace the integration
    */
-  source: string;
+  integration: string;
   /**
    * The integration as it was defined, with every field it left out filled in
    */
@@ -3990,27 +3993,27 @@ export type IntegrationResourceResponseDto = {
     [key: string]: unknown;
   };
   /**
-   * Each tool the integration offers, hand-written or generated from its API description, by its name within the integration, to the name a station or hook gives it by; not settable
+   * Each tool the integration provides, hand-written or generated from its API spec, by its name within the integration, to the name that a station or hook uses for it; not settable
    */
   tools: {
     [key: string]: string;
   };
   /**
-   * The API description its tools are generated from, as last read; null when it names none; not settable
+   * The API spec that its tools are generated from, as Spotlight last fetched it; null when it names none; not settable
    */
-  described: DescribedSourceResponseDto | null;
+  spec: ApiSpecResponseDto | null;
 };
 
 export type IntegrationResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<IntegrationResourceResponseDto>;
 };
 
 export type CheckExpressionRequestDto = {
   /**
-   * The attribute that holds the expression, within the definition, written as its problems would name it
+   * The attribute that contains the expression, within the definition, written as its problems would name it
    */
   position: string;
   /**
@@ -4018,7 +4021,7 @@ export type CheckExpressionRequestDto = {
    */
   expression: string;
   /**
-   * The integration’s whole definition, as it would be created, which says what the position sees
+   * The whole definition of the integration, as it would be created. It sets the variables at the position
    */
   definition: {
     [key: string]: unknown;
@@ -4058,7 +4061,7 @@ export type ExpressionWarningResponseDto = {
 
 export type ExpressionCheckResponseDto = {
   /**
-   * The CEL type it evaluates to; dyn where that depends on what the host sends, null where it does not check at all
+   * The CEL type it evaluates to; dyn where that depends on what the service sends, null where it does not check at all
    */
   type: string | null;
   /**
@@ -4092,18 +4095,18 @@ export type ExpressionPositionResponseDto = {
   /**
    * The names an expression here may read before the definition adds its own; type hints in the definition refine body and response
    */
-  sees: Array<ExpressionDeclarationResponseDto>;
+  variables: Array<ExpressionDeclarationResponseDto>;
   /**
    * What the definition adds here: item where the event has a forEach, the names its lookup captures, the inputs of the tools that do the action
    */
-  alsoSees: Array<'item' | 'captures' | 'inputs'>;
+  addedVariables: Array<'item' | 'captures' | 'inputs'>;
 };
 
 export type HappeningResponseDto = {
   happening: string;
-  source: string;
+  integration: string;
   label: string;
-  told: string;
+  summary: string;
 };
 
 export type HookMatchDto = {
@@ -4131,7 +4134,7 @@ export type HookMatchDto = {
 
 export type HookRequestDto = {
   /**
-   * Where the request goes; may hold ${{ }} expressions
+   * Where the request goes; may contain ${{ }} expressions
    */
   url: string;
   /**
@@ -4141,7 +4144,7 @@ export type HookRequestDto = {
     [key: string]: string;
   };
   /**
-   * The JSON body, any JSON value; strings may hold ${{ }} expressions. Left out, Spotlight sends the event, task and run
+   * The JSON body, any JSON value; strings may contain ${{ }} expressions. Left out, Spotlight sends the event, task and run
    */
   body?: {
     [key: string]: unknown;
@@ -4162,7 +4165,7 @@ export type HookStepDto = {
    */
   call?: string;
   /**
-   * The inputs the step gives its tool
+   * The inputs the step sends to its tool
    */
   with?: {
     [key: string]: unknown;
@@ -4193,7 +4196,7 @@ export type HookSigningRequestDto = {
 
 export type HookDefinitionRequestDto = {
   key: string;
-  on: 'tool.using' | 'tool.used' | 'run.starting' | 'run.ended' | 'handover.giving' | 'pull-request.opening' | 'pull-request.merged' | 'task.opened' | 'task.moved';
+  on: 'tool.using' | 'tool.used' | 'run.starting' | 'run.ended' | 'handover.submitting' | 'pull-request.opening' | 'pull-request.merged' | 'task.opened' | 'task.moved';
   match?: HookMatchDto;
   when?: string;
   vars?: {
@@ -4207,7 +4210,7 @@ export type HookDefinitionRequestDto = {
 
 export type HookSigningDto = {
   /**
-   * The version of the HMAC secret; changed to rotate secret, which is write-only and never answered
+   * The version of the HMAC secret; changed to rotate secret, which is write-only and never returned
    */
   secretVersion?: number;
   /**
@@ -4238,13 +4241,13 @@ export type HookResourceResponseDto = {
    */
   teamId: string;
   /**
-   * Names the hook within its team; fixed for its life, so changing it means replacing the hook
+   * Names the hook within its team. Immutable: changing it means replacing the hook
    */
   key: string;
   /**
    * The event the hook fires on
    */
-  on: 'tool.using' | 'tool.used' | 'run.starting' | 'run.ended' | 'handover.giving' | 'pull-request.opening' | 'pull-request.merged' | 'task.opened' | 'task.moved';
+  on: 'tool.using' | 'tool.used' | 'run.starting' | 'run.ended' | 'handover.submitting' | 'pull-request.opening' | 'pull-request.merged' | 'task.opened' | 'task.moved';
   match: HookMatchDto;
   /**
    * A CEL condition the event must meet, besides match
@@ -4270,7 +4273,7 @@ export type HookResourceResponseDto = {
 
 export type HookResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<HookResourceResponseDto>;
 };
@@ -4288,14 +4291,14 @@ export type CallbackTaskResponseDto = {
   repositories: Array<string>;
   pullRequest: string | null;
   /**
-   * The hook the token was given to
+   * The hook that the token was issued to
    */
   hook: string;
 };
 
 export type CallbackNoteRequestDto = {
   /**
-   * What to say on the task, as the hook
+   * The note to add to the task, as the hook
    */
   body: string;
 };
@@ -4306,13 +4309,13 @@ export type MemoryDecisionResponseDto = {
   at: string;
 };
 
-export type MemoryGroundStepResponseDto = {
+export type MemoryProvenanceStepResponseDto = {
   /**
-   * Where the step stands in its run
+   * The position of the step in its run
    */
   index: number;
   /**
-   * said, thought, planned, handover, or remember
+   * message, thought, planned, handover, or remember
    */
   kind: string;
   text: string;
@@ -4324,9 +4327,9 @@ export type MemoryPersonResponseDto = {
   image: string | null;
 };
 
-export type MemoryGroundNoteResponseDto = {
+export type MemoryProvenanceNoteResponseDto = {
   /**
-   * Where the note stands on its task
+   * The position of the note on its task
    */
   position: number;
   /**
@@ -4334,7 +4337,7 @@ export type MemoryGroundNoteResponseDto = {
    */
   by: string;
   /**
-   * The teammate who said it; absent for words from another tool, which carry no author
+   * The teammate who wrote it; absent for a note from another tool, which carries no author
    */
   author: MemoryPersonResponseDto | null;
   text: string;
@@ -4345,22 +4348,22 @@ export type ProposedMemoryResponseDto = {
   kind: 'rationale' | 'rejected-approach' | 'failure' | 'environment' | 'preference' | 'correction';
   body: string;
   /**
-   * person: only what a teammate said; outside: input the team does not control, approved one at a time; run: anything else
+   * person: only notes by a teammate; outside: input the team does not control, approved one at a time; run: anything else
    */
   source: 'person' | 'run' | 'outside';
   /**
-   * drafted: read from the run after it ended; remembered: the agent asked for it with spotlight remember
+   * drafter: the drafter read it from the run after the run ended; agent: the agent proposed it with spotlight remember
    */
-  origin: 'drafted' | 'remembered';
+  proposedBy: 'drafter' | 'agent';
   state: 'proposed' | 'approved' | 'rejected';
   /**
    * Where it applies: the whole team, its line, or its station
    */
-  reach: 'team' | 'line' | 'station';
+  scope: 'team' | 'line' | 'station';
   repository: string | null;
   paths: Array<string>;
   /**
-   * The standing memory it replaces once approved
+   * The active memory it replaces after approval
    */
   supersedes: string | null;
   /**
@@ -4368,17 +4371,17 @@ export type ProposedMemoryResponseDto = {
    */
   decision: MemoryDecisionResponseDto | null;
   /**
-   * The harness the run whose steps it rests on ran on
+   * The harness of the run whose steps it cites
    */
   harness: string | null;
   /**
-   * The steps of its run it rests on
+   * The steps of its run that it cites
    */
-  steps: Array<MemoryGroundStepResponseDto>;
+  steps: Array<MemoryProvenanceStepResponseDto>;
   /**
-   * What people said on the task that it rests on
+   * The notes on the task that it cites
    */
-  notes: Array<MemoryGroundNoteResponseDto>;
+  notes: Array<MemoryProvenanceNoteResponseDto>;
 };
 
 export type MemoryReviewResponseDto = {
@@ -4390,7 +4393,7 @@ export type MemoryReviewResponseDto = {
 export type ApprovedMemoryRequestDto = {
   id: string;
   /**
-   * The memory as it should stand, where it was edited
+   * The memory as it should be, where it was edited
    */
   body?: string;
 };
@@ -4415,7 +4418,7 @@ export type MemoryRetirementResponseDto = {
   supersededBy: string | null;
 };
 
-export type MemoryGroundsResponseDto = {
+export type MemoryProvenanceResponseDto = {
   taskId: string;
   runId: string;
 };
@@ -4429,8 +4432,8 @@ export type TeamMemoryResponseDto = {
   kind: 'rationale' | 'rejected-approach' | 'failure' | 'environment' | 'preference' | 'correction';
   body: string;
   source: 'person' | 'run' | 'outside';
-  standing: 'stands' | 'retired';
-  reach: 'team' | 'line' | 'station';
+  status: 'active' | 'retired';
+  scope: 'team' | 'line' | 'station';
   lineId: string | null;
   stationId: string | null;
   repository: string | null;
@@ -4446,9 +4449,9 @@ export type TeamMemoryResponseDto = {
   supersedes: string | null;
   retirement: MemoryRetirementResponseDto | null;
   /**
-   * The task and run it rests on; none where a person wrote it
+   * The task and run it cites; none where a person wrote it
    */
-  grounds: MemoryGroundsResponseDto | null;
+  provenance: MemoryProvenanceResponseDto | null;
   /**
    * How many runs were briefed with it or recalled it
    */
@@ -4485,8 +4488,8 @@ export type TeamMemoryDetailResponseDto = {
   kind: 'rationale' | 'rejected-approach' | 'failure' | 'environment' | 'preference' | 'correction';
   body: string;
   source: 'person' | 'run' | 'outside';
-  standing: 'stands' | 'retired';
-  reach: 'team' | 'line' | 'station';
+  status: 'active' | 'retired';
+  scope: 'team' | 'line' | 'station';
   lineId: string | null;
   stationId: string | null;
   repository: string | null;
@@ -4502,26 +4505,26 @@ export type TeamMemoryDetailResponseDto = {
   supersedes: string | null;
   retirement: MemoryRetirementResponseDto | null;
   /**
-   * The task and run it rests on; none where a person wrote it
+   * The task and run it cites; none where a person wrote it
    */
-  grounds: MemoryGroundsResponseDto | null;
+  provenance: MemoryProvenanceResponseDto | null;
   /**
    * How many runs were briefed with it or recalled it
    */
   runs: number;
   /**
-   * The harness the run whose steps it rests on ran on
+   * The harness of the run whose steps it cites
    */
   harness: string | null;
-  steps: Array<MemoryGroundStepResponseDto>;
-  notes: Array<MemoryGroundNoteResponseDto>;
+  steps: Array<MemoryProvenanceStepResponseDto>;
+  notes: Array<MemoryProvenanceNoteResponseDto>;
   superseded: MemoryLinkResponseDto | null;
   successor: MemoryLinkResponseDto | null;
 };
 
 export type RetireMemoryRequestDto = {
   /**
-   * Why it no longer holds
+   * Why it no longer applies
    */
   reason: string;
 };
@@ -4531,22 +4534,22 @@ export type RunProposalResponseDto = {
   kind: 'rationale' | 'rejected-approach' | 'failure' | 'environment' | 'preference' | 'correction';
   body: string;
   /**
-   * person: only what a teammate said; outside: input the team does not control, approved one at a time; run: anything else
+   * person: only notes by a teammate; outside: input the team does not control, approved one at a time; run: anything else
    */
   source: 'person' | 'run' | 'outside';
   /**
-   * drafted: read from the run after it ended; remembered: the agent asked for it with spotlight remember
+   * drafter: the drafter read it from the run after the run ended; agent: the agent proposed it with spotlight remember
    */
-  origin: 'drafted' | 'remembered';
+  proposedBy: 'drafter' | 'agent';
   state: 'proposed' | 'approved' | 'rejected';
   /**
    * Where it applies: the whole team, its line, or its station
    */
-  reach: 'team' | 'line' | 'station';
+  scope: 'team' | 'line' | 'station';
   repository: string | null;
   paths: Array<string>;
   /**
-   * The standing memory it replaces once approved
+   * The active memory it replaces after approval
    */
   supersedes: string | null;
   /**
@@ -4554,46 +4557,46 @@ export type RunProposalResponseDto = {
    */
   decision: MemoryDecisionResponseDto | null;
   /**
-   * The harness the run whose steps it rests on ran on
+   * The harness of the run whose steps it cites
    */
   harness: string | null;
   /**
-   * The steps of its run it rests on
+   * The steps of its run that it cites
    */
-  steps: Array<MemoryGroundStepResponseDto>;
+  steps: Array<MemoryProvenanceStepResponseDto>;
   /**
-   * What people said on the task that it rests on
+   * The notes on the task that it cites
    */
-  notes: Array<MemoryGroundNoteResponseDto>;
+  notes: Array<MemoryProvenanceNoteResponseDto>;
   /**
    * Its handle once approved
    */
   handle: string | null;
   /**
-   * Once approved, whether it still stands: stands or retired
+   * After approval, whether it is still active: active or retired
    */
-  standing: string | null;
+  status: string | null;
 };
 
 export type RunMemoriesResponseDto = {
   /**
-   * What the run was briefed with, in the order it was told
+   * What the run was briefed with, in the order of the briefing
    */
   briefed: Array<TeamMemoryResponseDto>;
   /**
-   * What reached the run but was left out of its briefing by the cap, the nearest first
+   * What applied to the run but was left out of its briefing by the cap, the nearest first
    */
-  cut: Array<TeamMemoryResponseDto>;
+  omitted: Array<TeamMemoryResponseDto>;
   /**
    * What the run looked up with spotlight recall, or read from the memory folder in its workspace
    */
   recalled: Array<TeamMemoryResponseDto>;
   /**
-   * What the run proposed, drafted or asked to remember
+   * What the run proposed, drafted or remembered
    */
   proposed: Array<RunProposalResponseDto>;
   /**
-   * The inbox item where people keep or reject what the run proposed; null where it proposed nothing
+   * The inbox item where people approve or reject what the run proposed; null where it proposed nothing
    */
   reviewItemId: string | null;
 };
@@ -4611,20 +4614,20 @@ export type RememberRequestDto = {
   /**
    * Where it applies; the run’s line when left out
    */
-  reach?: 'team' | 'line' | 'station';
+  scope?: 'team' | 'line' | 'station';
   /**
-   * Paths it bears on, relative to the run’s workspace, each starting with the checkout folder
+   * Paths it is about, relative to the run’s workspace, each starting with the checkout folder
    */
   paths?: Array<string>;
   /**
-   * The standing memory it corrects, by handle
+   * The active memory it corrects, by handle
    */
   supersedes?: string | null;
 };
 
 export type MemoryFileResponseDto = {
   /**
-   * Where to lay it, relative to the run’s workspace
+   * Where to write it, relative to the run’s workspace
    */
   path: string;
   body: string;
@@ -4637,14 +4640,14 @@ export type StationConfigPullRequestResponseDto = {
   url: string;
 };
 
-export type NextActResponseDto = {
-  act: 'started' | 'parked' | 'closed' | 'answered' | 'sent-back';
+export type HumanActionResponseDto = {
+  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back';
   at: string;
 };
 
-export type HandedOnResponseDto = {
+export type StationPassResponseDto = {
   /**
-   * The station the run moved its task on to
+   * The station the run passed its task to
    */
   to: string;
   at: string;
@@ -4654,7 +4657,7 @@ export type StationRunOutcomeResponseDto = {
   runId: string;
   taskId: string;
   endedAt: string;
-  ending: 'completed' | 'failed' | 'stopped' | 'abandoned' | 'withdrawn' | 'superseded';
+  ending: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded';
   /**
    * Why it failed, where it did
    */
@@ -4662,8 +4665,8 @@ export type StationRunOutcomeResponseDto = {
   /**
    * How many runs this station has taken on the task, this one included
    */
-  round: number;
-  cost: RunCostResponseDto | null;
+  visit: number;
+  usage: RunUsageResponseDto | null;
   /**
    * How its change fared when checked, if it was
    */
@@ -4671,18 +4674,18 @@ export type StationRunOutcomeResponseDto = {
   /**
    * The first thing a person did with the task after the run
    */
-  next: NextActResponseDto | null;
+  firstHumanAction: HumanActionResponseDto | null;
   /**
-   * Where the run moved its task on to, if it did
+   * The station the run passed its task to, if it did
    */
-  handedOn: HandedOnResponseDto | null;
+  passed: StationPassResponseDto | null;
   /**
-   * Where the task’s pull request stands, if it opened one
+   * The status of the task’s pull request, if it opened one
    */
-  delivery: 'open' | 'merged' | 'closed' | null;
+  pullRequestState: 'open' | 'merged' | 'closed' | null;
 };
 
-export type SpendResponseDto = {
+export type MoneyResponseDto = {
   amount: number;
   currency: string;
 };
@@ -4693,14 +4696,14 @@ export type RunTallyResponseDto = {
    */
   runs: number;
   /**
-   * Runs withdrawn from the queue before they ran
+   * Runs cancelled before they ran
    */
-  withdrawn: number;
+  cancelled: number;
   failed: number;
   /**
-   * Failed runs as a share of the runs; none where none ran
+   * Failed runs as a fraction of the runs; none where none ran
    */
-  failedShare: number | null;
+  failedRate: number | null;
   /**
    * Runs a person stopped
    */
@@ -4708,17 +4711,17 @@ export type RunTallyResponseDto = {
   checksPassed: number;
   checksFailed: number;
   /**
-   * Runs a person next closed or approved
+   * Runs that a person accepted or approved first
    */
   accepted: number;
   /**
-   * Runs a person next sent back or refused
+   * Runs that a person sent back first
    */
   sentBack: number;
   /**
-   * Runs that moved their task on to another station
+   * Runs that passed their task to another station
    */
-  handedOn: number;
+  passed: number;
   /**
    * Tasks among these runs whose pull request merged
    */
@@ -4726,7 +4729,7 @@ export type RunTallyResponseDto = {
   /**
    * What the runs cost together, where they cost one currency
    */
-  cost: SpendResponseDto | null;
+  cost: MoneyResponseDto | null;
   /**
    * Runs that ran with no price
    */
@@ -4736,7 +4739,7 @@ export type RunTallyResponseDto = {
    */
   mixedCurrencies: boolean;
   /**
-   * The median time the runs took, from their digests
+   * The median time the runs took, from their recorded usage
    */
   medianMs: number | null;
   /**
@@ -4745,17 +4748,17 @@ export type RunTallyResponseDto = {
   p90Ms: number | null;
 };
 
-export type TallySharesResponseDto = {
+export type TallyRatesResponseDto = {
   /**
-   * Runs whose checks passed as a share of the runs checked; none where none were
+   * Runs whose checks passed as a fraction of the runs checked; none where none were
    */
   checksPassed: number | null;
   /**
-   * Runs a person accepted as a share of the runs that ran
+   * Runs a person accepted as a fraction of the runs that ran
    */
   accepted: number | null;
   /**
-   * Merged tasks as a share of the runs that ran
+   * Merged tasks as a fraction of the runs that ran
    */
   merged: number | null;
 };
@@ -4770,7 +4773,7 @@ export type FingerprintGroupResponseDto = {
    */
   fingerprint: string | null;
   /**
-   * Whether the group’s config is one the station ran: false for runs meant for a config other than the one in force that never ran it (never started, failed to provision or withdrawn), which are kept apart from the group in force
+   * Whether the group’s config is one the station ran: false for runs meant for a config other than the one in force that never ran it (never started, failed to provision or cancelled), which are kept apart from the group in force
    */
   ran: boolean;
   config: StationConfigResponseDto | null;
@@ -4787,7 +4790,7 @@ export type FingerprintGroupResponseDto = {
    */
   runs: Array<StationRunOutcomeResponseDto>;
   tally: RunTallyResponseDto;
-  shares: TallySharesResponseDto;
+  rates: TallyRatesResponseDto;
   /**
    * The day its earliest-ended run ended; none where none ended
    */
@@ -4800,15 +4803,15 @@ export type FingerprintGroupResponseDto = {
 
 export type ConfigInForceResponseDto = {
   /**
-   * One tally over the listed runs of the config the station last ran, as of the listed runs, back to its last change to another config it ran; runs meant for a config that never ran them, between, leave the stretch whole and are not counted
+   * One tally over the listed runs of the config the station last ran, as of the listed runs, back to its last change to another config it ran; runs meant for a config that never ran them, between, leave the config interval whole and are not counted
    */
   tally: RunTallyResponseDto;
 };
 
-export type StationOutcomesResponseDto = {
+export type StationInsightsResponseDto = {
   stationId: string;
   /**
-   * The station’s latest-started runs in groups, the newest first, in the order the runs started: a new group starts at every run that ran a config other than the station’s run before it that ran one, listed or not; a run meant for another config than the one in force that never ran it (never started, failed to provision or withdrawn) starts or joins a group of that config that never ran, and the group in force starts again after it; a run with no config joins the group in force
+   * The station’s latest-started runs in groups, the newest first, in the order the runs started: a new group starts at every run that ran a config other than the station’s run before it that ran one, listed or not; a run meant for another config than the one in force that never ran it (never started, failed to provision or cancelled) starts or joins a group of that config that never ran, and the group in force starts again after it; a run with no config joins the group in force
    */
   groups: Array<FingerprintGroupResponseDto>;
   /**
@@ -4833,16 +4836,16 @@ export type StationJudgeSettingsResponseDto = {
   /**
    * The share of claims a run must meet to pass, from 0 to 1
    */
-  passShare: number;
+  passThreshold: number;
   sample: number;
-  trust: number;
+  minAgreement: number;
 };
 
-export type JudgeStandingResponseDto = {
+export type JudgeCalibrationResponseDto = {
   /**
    * Whether the judge agrees with people often enough for its scores to count
    */
-  trusted: boolean;
+  qualified: boolean;
   /**
    * How agreement is measured: Cohen’s kappa for yes or no scores and for claims, Spearman’s correlation for numbers
    */
@@ -4852,11 +4855,11 @@ export type JudgeStandingResponseDto = {
    * Runs of the current rubric with both a judge score and people’s
    */
   pairs: number;
-  trust: number | null;
+  minAgreement: number | null;
   /**
    * Why the judge’s scores are hidden, where they are
    */
-  hiddenBecause: 'no-judge' | 'unreadable-rubric' | 'too-few-pairs' | 'no-agreement' | 'below-trust' | null;
+  hiddenReason: 'no-judge' | 'unreadable-rubric' | 'too-few-pairs' | 'no-agreement' | 'below-min-agreement' | null;
 };
 
 export type AgreementReadingsResponseDto = {
@@ -4946,7 +4949,7 @@ export type TrendPointResponseDto = {
   day: string;
   judged: number;
   /**
-   * The judge’s mean score, or null while this rubric version is not the current trusted one
+   * The judge’s mean score, or null while this rubric version is not the current qualified one
    */
   judge: number | null;
   labelled: number;
@@ -4975,7 +4978,7 @@ export type RubricVersionResponseDto = {
   lastAt: string;
 };
 
-export type JudgeCoverageSharesResponseDto = {
+export type JudgeCoverageRatesResponseDto = {
   both: number | null;
   judgeOnly: number | null;
   peopleOnly: number | null;
@@ -4992,15 +4995,15 @@ export type JudgeCoverageResponseDto = {
   peopleOnly: number;
   neither: number;
   /**
-   * Each count as a share of the runs
+   * Each count as a fraction of the runs
    */
-  shares: JudgeCoverageSharesResponseDto;
+  rates: JudgeCoverageRatesResponseDto;
 };
 
 export type StationJudgeAgreementResponseDto = {
   stationId: string;
   judge: StationJudgeSettingsResponseDto | null;
-  standing: JudgeStandingResponseDto;
+  calibration: JudgeCalibrationResponseDto;
   /**
    * How the judge agreed with people under each rubric, the latest first
    */
@@ -5052,7 +5055,7 @@ export type JudgeScoreResponseDto = {
   /**
    * Whether each claim was met, in order; none on a rubric’s scale
    */
-  marks: Array<boolean> | null;
+  claimResults: Array<boolean> | null;
   label: string;
   rubricVersion: string;
   model: string;
@@ -5071,7 +5074,7 @@ export type GradeResponseDto = {
   /**
    * Whether the person found each claim met, in order; none on a rubric’s scale
    */
-  marks: Array<boolean> | null;
+  claimResults: Array<boolean> | null;
   label: string;
   at: string;
 };
@@ -5089,7 +5092,7 @@ export type RunScoresResponseDto = {
    */
   rubricBody: string | null;
   /**
-   * The claims the run is graded on, in order, on a claims scale, empty on any other: the ones the judge marked where it scored the run; a claim reads null only where the rubric the judge was given is no longer held
+   * The claims the run is graded on, in order, on a claims scale, empty on any other: the ones the judge marked where it scored the run; a claim reads null only where the rubric the judge was given is no longer stored
    */
   claims: Array<string | null>;
   /**
@@ -5100,7 +5103,7 @@ export type RunScoresResponseDto = {
    * The judge’s score and its reasons; none where it did not score the run, or where its scores are hidden
    */
   judge: JudgeScoreResponseDto | null;
-  standing: JudgeStandingResponseDto;
+  calibration: JudgeCalibrationResponseDto;
   /**
    * What people graded the run, the latest first
    */
@@ -5161,7 +5164,7 @@ export type HeadlineResponseDto = {
   /**
    * What the runs that ran cost together; none where nothing was priced or prices came in more than one currency
    */
-  spend: SpendResponseDto | null;
+  spend: MoneyResponseDto | null;
   /**
    * Runs that ran with no price
    */
@@ -5193,19 +5196,19 @@ export type HeadlineResponseDto = {
   /**
    * Spend over merged pull requests
    */
-  costPerMerge: SpendResponseDto | null;
+  costPerMerge: MoneyResponseDto | null;
   /**
    * For pull requests merged in the period, the time from their task opening to the merge
    */
   taskToMerge: SpreadResponseDto;
   /**
-   * What people did with the tasks worked in the period: moves, answers, approvals, refusals, sends-back
+   * What people did with the tasks worked in the period: moves, answers, approvals, dismissals, sends-back
    */
-  touches: number;
+  humanActions: number;
   /**
-   * Touches per task worked
+   * Human actions per task worked
    */
-  touchesPerTask: number | null;
+  humanActionsPerTask: number | null;
   /**
    * People who opened a task, acted on one or started a chat
    */
@@ -5220,7 +5223,7 @@ export type HeadlineResponseDto = {
   peopleIds: Array<string>;
 };
 
-export type ChangeResponseDto = {
+export type DeltaResponseDto = {
   /**
    * percent: moved by a share of what it was; points: a rate or share that moved by percentage points
    */
@@ -5240,35 +5243,35 @@ export type ChangeResponseDto = {
   tone: 'good' | 'bad' | 'flat';
 };
 
-export type HeadlineChangesResponseDto = {
+export type HeadlineDeltasResponseDto = {
   /**
    * Spend against the period before, where both were in one currency
    */
-  spend: ChangeResponseDto | null;
+  spend: DeltaResponseDto | null;
   /**
    * Pull requests merged against the period before
    */
-  mergedPullRequests: ChangeResponseDto | null;
+  mergedPullRequests: DeltaResponseDto | null;
   /**
    * The merge rate against the period before, in points
    */
-  mergeRate: ChangeResponseDto | null;
+  mergeRate: DeltaResponseDto | null;
   /**
    * Cost per merged pull request against the period before, where both were in one currency
    */
-  costPerMerge: ChangeResponseDto | null;
+  costPerMerge: DeltaResponseDto | null;
   /**
    * The median task to merge against the period before
    */
-  taskToMerge: ChangeResponseDto | null;
+  taskToMerge: DeltaResponseDto | null;
   /**
-   * Human touches per task against the period before
+   * Human actions per task against the period before
    */
-  touchesPerTask: ChangeResponseDto | null;
+  humanActionsPerTask: DeltaResponseDto | null;
   /**
    * Active people against the period before
    */
-  activePeople: ChangeResponseDto | null;
+  activePeople: DeltaResponseDto | null;
 };
 
 export type ConfigMarkerResponseDto = {
@@ -5298,7 +5301,7 @@ export type DayOutputResponseDto = {
    * Runs that ended that day; the Runs tab lists them by day
    */
   runs: number;
-  spend: SpendResponseDto | null;
+  spend: MoneyResponseDto | null;
   /**
    * Runs that ran with no price
    */
@@ -5320,7 +5323,7 @@ export type DayOutputResponseDto = {
 
 export type SignalReadingResponseDto = {
   /**
-   * sent-back: share of runs sent back or refused; checks-failed: share of checked changes that failed; run-failures: share of runs that failed; task-failures: task failures per run; cost: spend per run
+   * sent-back: share of runs that a person sent back first; checks-failed: share of checked changes that failed; run-failures: share of runs that failed; task-failures: task failures per run; cost: spend per run
    */
   signal: 'sent-back' | 'checks-failed' | 'run-failures' | 'task-failures' | 'cost';
   /**
@@ -5391,7 +5394,7 @@ export type InsightsOverviewResponseDto = {
   /**
    * How the headline moved against the period before, as long
    */
-  changes: HeadlineChangesResponseDto;
+  changes: HeadlineDeltasResponseDto;
   /**
    * Spend, merged pull requests and config changes per day, oldest first
    */
@@ -5425,7 +5428,7 @@ export type StationFlowResponseDto = {
   /**
    * Its tasks against the period before
    */
-  tasksChange: ChangeResponseDto | null;
+  tasksChange: DeltaResponseDto | null;
   taskIds: Array<string>;
   /**
    * Runs it ran
@@ -5453,19 +5456,19 @@ export type StationFlowResponseDto = {
   unanswered: number;
 };
 
-export type DeliveryChangesResponseDto = {
+export type DeliveryDeltasResponseDto = {
   /**
    * Pull requests opened against the period before
    */
-  opened: ChangeResponseDto | null;
+  opened: DeltaResponseDto | null;
   /**
    * First reviews against the period before
    */
-  reviewed: ChangeResponseDto | null;
+  reviewed: DeltaResponseDto | null;
   /**
    * Pull requests merged against the period before
    */
-  merged: ChangeResponseDto | null;
+  merged: DeltaResponseDto | null;
 };
 
 export type DeliveryFlowResponseDto = {
@@ -5493,7 +5496,7 @@ export type DeliveryFlowResponseDto = {
   /**
    * How each count moved against the period before, as long
    */
-  changes: DeliveryChangesResponseDto;
+  changes: DeliveryDeltasResponseDto;
 };
 
 export type FlowResponseDto = {
@@ -5515,35 +5518,35 @@ export type InsightsFlowResponseDto = {
   flow: FlowResponseDto;
 };
 
-export type TallyChangesResponseDto = {
+export type TallyDeltasResponseDto = {
   /**
    * Runs against the period before
    */
-  runs: ChangeResponseDto | null;
+  runs: DeltaResponseDto | null;
   /**
    * Failed runs against the period before
    */
-  failed: ChangeResponseDto | null;
+  failed: DeltaResponseDto | null;
   /**
    * Accepted runs against the period before
    */
-  accepted: ChangeResponseDto | null;
+  accepted: DeltaResponseDto | null;
   /**
    * Runs sent back against the period before
    */
-  sentBack: ChangeResponseDto | null;
+  sentBack: DeltaResponseDto | null;
   /**
    * Merged tasks against the period before
    */
-  merged: ChangeResponseDto | null;
+  merged: DeltaResponseDto | null;
   /**
    * Cost against the period before, where both were in one currency
    */
-  cost: ChangeResponseDto | null;
+  cost: DeltaResponseDto | null;
   /**
    * The median run time against the period before
    */
-  median: ChangeResponseDto | null;
+  median: DeltaResponseDto | null;
 };
 
 export type TallySeenResponseDto = {
@@ -5568,9 +5571,9 @@ export type TallyCountedResponseDto = {
   checksFailed: boolean;
   accepted: boolean;
   sentBack: boolean;
-  handedOn: boolean;
+  passed: boolean;
   merged: boolean;
-  withdrawn: boolean;
+  cancelled: boolean;
 };
 
 export type DayTallyResponseDto = {
@@ -5620,7 +5623,7 @@ export type StationReportResponseDto = {
   /**
    * How its runs moved against the period before
    */
-  changes: TallyChangesResponseDto;
+  changes: TallyDeltasResponseDto;
   /**
    * Which of its counts were above zero in either period
    */
@@ -5648,7 +5651,7 @@ export type InsightsStationsResponseDto = {
   /**
    * How the whole team’s runs moved against the period before
    */
-  teamChanges: TallyChangesResponseDto;
+  teamChanges: TallyDeltasResponseDto;
   /**
    * Which of the whole team’s counts were above zero in either period
    */
@@ -5680,35 +5683,35 @@ export type HumanLoadResponseDto = {
   toAnswer: SpreadResponseDto;
   unanswered: number;
   /**
-   * Runs a person next sent back or refused
+   * Runs that a person sent back first
    */
   sentBack: number;
   sentBackRate: number | null;
   /**
-   * Tool approvals and permissions people refused
+   * Tool approvals and permissions people dismissed
    */
-  refused: number;
+  dismissed: number;
   askedTaskIds: Array<string>;
-  refusedTaskIds: Array<string>;
+  dismissedTaskIds: Array<string>;
 };
 
-export type HumanLoadChangesResponseDto = {
+export type HumanLoadDeltasResponseDto = {
   /**
    * Inbox asks per task against the period before
    */
-  asksPerTask: ChangeResponseDto | null;
+  asksPerTask: DeltaResponseDto | null;
   /**
    * The median time to answer against the period before
    */
-  toAnswer: ChangeResponseDto | null;
+  toAnswer: DeltaResponseDto | null;
   /**
    * The sent-back rate against the period before, in points
    */
-  sentBackRate: ChangeResponseDto | null;
+  sentBackRate: DeltaResponseDto | null;
   /**
-   * Refused approvals against the period before
+   * Dismissed approvals against the period before
    */
-  refused: ChangeResponseDto | null;
+  dismissed: DeltaResponseDto | null;
 };
 
 export type PersonUseResponseDto = {
@@ -5716,9 +5719,9 @@ export type PersonUseResponseDto = {
   name: string | null;
   tasksOpened: number;
   /**
-   * Moves, answers, approvals, refusals and sends-back
+   * Moves, answers, approvals, dismissals and sends-back
    */
-  acts: number;
+  actions: number;
   /**
    * Agent chats they started
    */
@@ -5742,7 +5745,7 @@ export type AdoptionResponseDto = {
   /**
    * Active people against the period before
    */
-  activeChange: ChangeResponseDto | null;
+  activeChange: DeltaResponseDto | null;
   /**
    * People whose first activity on the team was this period
    */
@@ -5774,7 +5777,7 @@ export type InsightsPeopleResponseDto = {
   /**
    * How the load moved against the period before, as long
    */
-  loadChanges: HumanLoadChangesResponseDto;
+  loadChanges: HumanLoadDeltasResponseDto;
   adoption: AdoptionResponseDto;
 };
 
@@ -5825,9 +5828,9 @@ export type CacheUseResponseDto = {
    */
   cacheWrite: number | null;
   /**
-   * Cache reads as a share of everything the runs read: input, cache reads and cache writes together; none where nothing was counted
+   * Cache reads as a fraction of everything the runs read: input, cache reads and cache writes together; none where nothing was counted
    */
-  cacheShare: number | null;
+  cacheRate: number | null;
 };
 
 export type StationCacheUseResponseDto = {
@@ -5844,9 +5847,9 @@ export type StationCacheUseResponseDto = {
    */
   cacheWrite: number | null;
   /**
-   * Cache reads as a share of everything the runs read: input, cache reads and cache writes together; none where nothing was counted
+   * Cache reads as a fraction of everything the runs read: input, cache reads and cache writes together; none where nothing was counted
    */
-  cacheShare: number | null;
+  cacheRate: number | null;
   stationId: string;
 };
 
@@ -5854,7 +5857,7 @@ export type CostBreakdownResponseDto = {
   /**
    * Spend this period; none, and every slice empty, where nothing was priced or prices came in more than one currency
    */
-  spend: SpendResponseDto | null;
+  spend: MoneyResponseDto | null;
   /**
    * Runs that ran with no price
    */
@@ -5891,7 +5894,7 @@ export type InsightsCostResponseDto = {
   /**
    * Spend against the period before, where both periods were priced in one currency
    */
-  spendChange: ChangeResponseDto | null;
+  spendChange: DeltaResponseDto | null;
 };
 
 export type TrendRuleResponseDto = {
@@ -5919,17 +5922,17 @@ export type SkillWeekResponseDto = {
    */
   runs: number;
   /**
-   * Of those, the runs given it
+   * Of those, the runs that had it enabled
    */
-  given: number;
+  enabled: number;
   /**
    * Of those, the runs that read it
    */
   used: number;
   /**
-   * The share of that week’s runs that read it; none where no run ended that week
+   * The fraction of that week’s runs that read it; none where no run ended that week
    */
-  usedShare: number | null;
+  usedRate: number | null;
 };
 
 export type SkillAtStationResponseDto = {
@@ -5939,12 +5942,12 @@ export type SkillAtStationResponseDto = {
    * Runs that ended there
    */
   runs: number;
-  given: number;
+  enabled: number;
   used: number;
   /**
-   * spreading or fading where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; steady where it moved less; none where either side had too few runs
+   * rising or falling where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; flat where it moved less; none where either side had too few runs
    */
-  trend: 'spreading' | 'fading' | 'steady' | null;
+  trend: 'rising' | 'falling' | 'flat' | null;
 };
 
 export type SkillReportResponseDto = {
@@ -5954,11 +5957,11 @@ export type SkillReportResponseDto = {
    */
   defined: boolean;
   /**
-   * Runs in the period whose station config gave it
+   * Runs in the period whose station config enabled it
    */
-  given: number;
+  enabled: number;
   /**
-   * Runs in the period that read it: a tool call touched a file in its folder, or asked the harness for it by name
+   * Runs in the period that read it: a tool call touched a file in its folder, or requested it from the harness by name
    */
   used: number;
   /**
@@ -5966,11 +5969,11 @@ export type SkillReportResponseDto = {
    */
   weeks: Array<SkillWeekResponseDto>;
   /**
-   * spreading or fading where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; steady where it moved less; none where either side had too few runs
+   * rising or falling where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; flat where it moved less; none where either side had too few runs
    */
-  trend: 'spreading' | 'fading' | 'steady' | null;
+  trend: 'rising' | 'falling' | 'flat' | null;
   /**
-   * Each station whose runs were given it or read it
+   * Each station that enabled it for its runs or whose runs read it
    */
   stations: Array<SkillAtStationResponseDto>;
 };
@@ -5982,7 +5985,7 @@ export type ServerReportResponseDto = {
    */
   runs: number;
   /**
-   * Calls to it across those runs, leaving out calls a person refused to approve
+   * Calls to it across those runs, leaving out calls whose approval a person dismissed
    */
   calls: number;
   callsPerRun: number | null;
@@ -6007,21 +6010,21 @@ export type ServerReportResponseDto = {
    */
   failingRuns: number;
   /**
-   * Runs in which a person refused one of its tools
+   * Runs in which a person dismissed an approval for one of its tools
    */
-  refused: number;
+  dismissed: number;
 };
 
-export type ToolRefusalsResponseDto = {
+export type ToolDismissalsResponseDto = {
   /**
    * The tool’s own name, or what the harness asked to do where it names no tool
    */
   tool: string;
   server: string | null;
   /**
-   * Runs in which a person refused this tool
+   * Runs in which a person dismissed an approval for this tool
    */
-  refused: number;
+  dismissed: number;
 };
 
 export type InsightsToolsResponseDto = {
@@ -6036,7 +6039,7 @@ export type InsightsToolsResponseDto = {
   runs: number;
   trendRule: TrendRuleResponseDto;
   /**
-   * Every skill a run in the period was given or read, the most used first
+   * Every skill that a station enabled for a run in the period or that a run read, the most used first
    */
   skills: Array<SkillReportResponseDto>;
   /**
@@ -6048,44 +6051,44 @@ export type InsightsToolsResponseDto = {
    */
   servers: Array<ServerReportResponseDto>;
   /**
-   * Each tool a person refused to approve for a run in the period, per server, the most refused first
+   * Each tool whose approval a person dismissed for a run in the period, per server, the most dismissed first
    */
-  refusals: Array<ToolRefusalsResponseDto>;
+  dismissals: Array<ToolDismissalsResponseDto>;
 };
 
 export type MeasureVerdictResponseDto = {
   measure: 'sent_back_rate' | 'accepted_rate' | 'checks_failed_rate' | 'failed_rate' | 'merged_rate' | 'cost_per_run';
   /**
-   * The measure over the settled runs compared against: a share, or a cost per run
+   * The measure over the measured runs compared against: a share, or a cost per run
    */
   before: number | null;
   /**
-   * The measure over the settled runs compared
+   * The measure over the measured runs compared
    */
   after: number | null;
   /**
    * Runs compared against whose outcome for this measure is known
    */
-  settledBefore: number;
+  measuredBefore: number;
   /**
    * Runs compared whose outcome for this measure is known
    */
-  settledAfter: number;
+  measuredAfter: number;
   /**
    * The currency of a cost per run; none for a share
    */
   currency: string | null;
   /**
-   * Whether the runs compared did better, worse or the same; insufficient below 5 settled runs on either side, or where the costs are in different currencies
+   * Whether the runs compared did better, worse or the same; insufficient below 5 measured runs on either side, or where the costs are in different currencies
    */
   verdict: 'better' | 'worse' | 'unchanged' | 'insufficient';
   /**
    * How far the measure moved: a share in points, a cost per run in percent; none where either side is unknown or the costs are in different currencies
    */
-  change: ChangeResponseDto | null;
+  change: DeltaResponseDto | null;
 };
 
-export type JudgeShareResponseDto = {
+export type JudgeRateResponseDto = {
   /**
    * The judge’s mean score as a share of its scale, from 0 for the lowest to 1 for the highest; none where it judged none of the runs
    */
@@ -6128,28 +6131,28 @@ export type ChangeMarkerResponseDto = {
    */
   verdicts: Array<MeasureVerdictResponseDto>;
   /**
-   * The judge’s scores of the runs before, only where the station’s judge is trusted
+   * The judge’s scores of the runs before, only where the station’s judge is qualified
    */
-  judgeBefore: JudgeShareResponseDto | null;
+  judgeBefore: JudgeRateResponseDto | null;
   /**
-   * The judge’s scores of the runs after, only where the station’s judge is trusted
+   * The judge’s scores of the runs after, only where the station’s judge is qualified
    */
-  judgeAfter: JudgeShareResponseDto | null;
+  judgeAfter: JudgeRateResponseDto | null;
   /**
    * The judge’s mean score after against before, in points; none where either side went unjudged
    */
-  judgeChange: ChangeResponseDto | null;
+  judgeChange: DeltaResponseDto | null;
   /**
    * How the new config differs from the one before it
    */
   changes: Array<ConfigChangeResponseDto>;
 };
 
-export type StationStandingResponseDto = {
+export type StationJudgeCalibrationResponseDto = {
   /**
    * Whether the judge agrees with people often enough for its scores to count
    */
-  trusted: boolean;
+  qualified: boolean;
   /**
    * How agreement is measured: Cohen’s kappa for yes or no scores and for claims, Spearman’s correlation for numbers
    */
@@ -6159,11 +6162,11 @@ export type StationStandingResponseDto = {
    * Runs of the current rubric with both a judge score and people’s
    */
   pairs: number;
-  trust: number | null;
+  minAgreement: number | null;
   /**
    * Why the judge’s scores are hidden, where they are
    */
-  hiddenBecause: 'no-judge' | 'unreadable-rubric' | 'too-few-pairs' | 'no-agreement' | 'below-trust' | null;
+  hiddenReason: 'no-judge' | 'unreadable-rubric' | 'too-few-pairs' | 'no-agreement' | 'below-min-agreement' | null;
   lineId: string;
   stationId: string;
 };
@@ -6175,9 +6178,9 @@ export type InsightsChangesResponseDto = {
    */
   markers: Array<ChangeMarkerResponseDto>;
   /**
-   * How far each changed station’s judge is trusted, where it has one
+   * The calibration of each changed station’s judge, where it has one
    */
-  judges: Array<StationStandingResponseDto>;
+  judges: Array<StationJudgeCalibrationResponseDto>;
 };
 
 export type SizeBoundResponseDto = {
@@ -6192,19 +6195,19 @@ export type SizeBoundResponseDto = {
   maxSteps: number | null;
 };
 
-export type SetupOutcomesResponseDto = {
+export type AgentConfigOutcomesResponseDto = {
   /**
-   * Share of runs a person next closed or approved
+   * Share of runs that a person accepted or approved first
    */
   accepted: number | null;
   /**
-   * Share of runs a person next sent back or refused
+   * Share of runs that a person sent back first
    */
   sent_back: number | null;
   /**
-   * Share of runs that moved their task on to another station
+   * Share of runs that passed their task to another station
    */
-  handed_on: number | null;
+  passed: number | null;
   /**
    * Share of checked runs whose checks passed
    */
@@ -6214,12 +6217,12 @@ export type SetupOutcomesResponseDto = {
    */
   merged: number | null;
   /**
-   * The judge’s mean score as a share of its scale, over runs at stations whose judge is trusted
+   * The judge’s mean score as a share of its scale, over runs at stations whose judge is qualified
    */
   judge: number | null;
 };
 
-export type SetupOutcomeResponseDto = {
+export type AgentConfigOutcomeResponseDto = {
   harness: string;
   model: string | null;
   effort: string | null;
@@ -6234,18 +6237,18 @@ export type SetupOutcomeResponseDto = {
    * Whether it has a cost per run in the currency the comparison is drawn in, so it can go on the chart
    */
   priced: boolean;
-  outcomes: SetupOutcomesResponseDto;
+  outcomes: AgentConfigOutcomesResponseDto;
   /**
-   * The judge’s scores of this setup’s runs; none unless the comparison is narrowed to one station
+   * The judge’s scores of this agent config’s runs; none unless the comparison is narrowed to one station
    */
-  judge: JudgeShareResponseDto | null;
+  judge: JudgeRateResponseDto | null;
   /**
-   * The outcomes this setup sits on the cost frontier for: no other setup with enough runs did as well or better for less
+   * The outcomes this agent config sits on the cost frontier for: no other agent config with enough runs did as well or better for less
    */
-  frontier: Array<'accepted' | 'sent_back' | 'handed_on' | 'checks_passed' | 'merged' | 'judge'>;
+  frontier: Array<'accepted' | 'sent_back' | 'passed' | 'checks_passed' | 'merged' | 'judge'>;
 };
 
-export type InsightsSetupsResponseDto = {
+export type InsightsAgentConfigsResponseDto = {
   period: InsightsPeriodResponseDto;
   /**
    * The station the comparison was narrowed to, if any
@@ -6256,29 +6259,29 @@ export type InsightsSetupsResponseDto = {
    */
   size: 'small' | 'medium' | 'large' | null;
   /**
-   * How a run’s size is told: by the lines its changes took out and put in, or by its steps where it changed none
+   * How a run’s size is measured: by the lines its changes removed and added, or by its steps where it changed none
    */
   sizes: Array<SizeBoundResponseDto>;
   /**
-   * The minimum number of runs a setup needs to sit on the frontier
+   * The minimum number of runs an agent config needs to sit on the frontier
    */
   minRuns: number;
   /**
-   * The currency the frontier is drawn in; setups priced in another are left off it
+   * The currency the frontier is drawn in; agent configs priced in another are left off it
    */
   currency: string | null;
   /**
    * How runs went on each harness, model, effort and profile, the most runs first
    */
-  setups: Array<SetupOutcomeResponseDto>;
+  agentConfigs: Array<AgentConfigOutcomeResponseDto>;
   /**
    * Why no judge scores are compared: no_station where the comparison spans stations, whose judges each score against their own rubric
    */
-  judgeWithheld: 'no_station' | null;
+  judgeOmitted: 'no_station' | null;
   /**
-   * How far the station’s judge is trusted, where one station is picked and it has a judge
+   * The calibration of the station’s judge, where one station is picked and it has a judge
    */
-  judges: Array<StationStandingResponseDto>;
+  judges: Array<StationJudgeCalibrationResponseDto>;
 };
 
 export type FlaggedMemoryResponseDto = {
@@ -6310,9 +6313,9 @@ export type MemoryBenchmarkResponseDto = {
 export type InsightsMemoryResponseDto = {
   period: InsightsPeriodResponseDto;
   /**
-   * Memories the team keeps now
+   * Approved memories the team has now
    */
-  standing: number;
+  activeCount: number;
   /**
    * Memories briefed to at least one run in the period
    */
@@ -6351,7 +6354,7 @@ export type InsightsMemoryResponseDto = {
   benchmark: MemoryBenchmarkResponseDto | null;
 };
 
-export type AlertThresholdResponseDto = {
+export type AlertRuleResponseDto = {
   measure: 'sent_back_rate' | 'accepted_rate' | 'checks_failed_rate' | 'failed_rate' | 'merged_rate' | 'cost_per_run';
   risesBy: number | null;
   fallsBy: number | null;
@@ -6360,7 +6363,7 @@ export type AlertThresholdResponseDto = {
   over: number;
 };
 
-export type AlertCrossingPointResponseDto = {
+export type AlertFiringPointResponseDto = {
   runId: string;
   endedAt: string;
   /**
@@ -6369,48 +6372,48 @@ export type AlertCrossingPointResponseDto = {
   value: number | null;
 };
 
-export type StationAlertCrossingResponseDto = {
+export type StationAlertFiringResponseDto = {
   alertId: string;
   lineId: string;
   stationId: string;
   /**
-   * The threshold that was crossed, as set on the station
+   * The alert rule that fired, as set on the station
    */
-  threshold: AlertThresholdResponseDto;
+  rule: AlertRuleResponseDto;
   /**
-   * The measure over the last runs when it crossed
+   * The measure over the last runs when the alert fired
    */
   value: number;
   /**
-   * The measure over the runs before them, for a threshold that watches a rise or fall
+   * The measure over the runs before them, for a condition that watches a rise or fall
    */
   baseline: number | null;
   /**
    * The measure against the baseline: points for a rate, percent for cost per run; none without a baseline
    */
-  change: ChangeResponseDto | null;
+  change: DeltaResponseDto | null;
   /**
-   * The run that crossed it
+   * The run that fired the alert
    */
   runId: string;
   taskId: string;
-  raisedAt: string;
+  firedAt: string;
   /**
-   * The shortest Insights period whose days hold the moment the alert went off
+   * The shortest Insights period whose days include the moment the alert fired
    */
   insightsPeriod: '7d' | '30d' | '90d';
   /**
-   * When the station came back within the threshold, if it has
+   * When the alert resolved, if it has
    */
-  recoveredAt: string | null;
+  resolvedAt: string | null;
   /**
    * The currency a cost threshold is in
    */
   currency: string | null;
   /**
-   * The measure run by run around the crossing, the oldest first
+   * The measure run by run around the firing, the oldest first
    */
-  series: Array<AlertCrossingPointResponseDto>;
+  series: Array<AlertFiringPointResponseDto>;
 };
 
 export type WeekShareResponseDto = {
@@ -6425,11 +6428,11 @@ export type WeekShareResponseDto = {
   /**
    * Of those, the ones Spotlight made
    */
-  made: number;
+  authored: number;
   /**
    * Of those, ones people or bots wrote that a Spotlight review task was opened on
    */
-  touched: number;
+  reviewed: number;
   /**
    * Of those, the ones Spotlight made or reviewed
    */
@@ -6443,39 +6446,39 @@ export type WeekShareResponseDto = {
    */
   bots: number;
   /**
-   * Made and touched over everything merged, bots’ included, from 0 to 1; none where nothing merged
+   * Authored and reviewed over everything merged, bots’ included, from 0 to 1; none where nothing merged
    */
-  share: number | null;
+  rate: number | null;
 };
 
-export type RepositoryPenetrationResponseDto = {
+export type RepositorySpotlightShareResponseDto = {
   repository: string;
   merged: number;
-  made: number;
-  touched: number;
+  authored: number;
+  reviewed: number;
   bots: number;
-  share: number | null;
+  rate: number | null;
   weeks: Array<WeekShareResponseDto>;
 };
 
-export type PenetrationResponseDto = {
+export type SpotlightShareResponseDto = {
   /**
    * Pull requests merged in the period, across the team, bots’ included
    */
   merged: number;
-  made: number;
+  authored: number;
   /**
    * Merged ones a Spotlight review task was opened on
    */
-  touched: number;
+  reviewed: number;
   /**
    * Merged ones bots wrote alone
    */
   bots: number;
   /**
-   * Made and touched over everything merged; bots’ pull requests count in the whole
+   * Authored and reviewed over everything merged; bots’ pull requests count in the whole
    */
-  share: number | null;
+  rate: number | null;
   /**
    * The team, week by week, oldest first
    */
@@ -6483,7 +6486,7 @@ export type PenetrationResponseDto = {
   /**
    * Each repository the team’s lines work, and any other its tasks merged into, the busiest first
    */
-  repositories: Array<RepositoryPenetrationResponseDto>;
+  repositories: Array<RepositorySpotlightShareResponseDto>;
 };
 
 export type GroupMeasuresResponseDto = {
@@ -6542,7 +6545,7 @@ export type TypeShareResponseDto = {
   /**
    * What the runs of Spotlight’s pull requests of this type cost; none where nothing was priced or prices came in more than one currency
    */
-  spend: SpendResponseDto | null;
+  spend: MoneyResponseDto | null;
   /**
    * Runs with no price
    */
@@ -6574,9 +6577,9 @@ export type InsightsPullRequestsResponseDto = {
    */
   weeks: Array<string>;
   /**
-   * How much of what merged Spotlight made or touched
+   * How much of what merged Spotlight authored or reviewed
    */
-  penetration: PenetrationResponseDto;
+  spotlightShare: SpotlightShareResponseDto;
   /**
    * Spotlight’s merged pull requests against people’s, in the same repositories
    */
@@ -6586,7 +6589,7 @@ export type InsightsPullRequestsResponseDto = {
    */
   types: Array<TypeShareResponseDto>;
   /**
-   * How many review rounds merged pull requests took, Spotlight’s against people’s, in the same repositories
+   * How many review rounds merged pull requests needed, Spotlight’s against people’s, in the same repositories
    */
   depth: Array<RoundsShareResponseDto>;
 };
@@ -6625,34 +6628,34 @@ export type ByAuthorResponseDto = {
   people: PercentilesResponseDto;
 };
 
-export type PercentileChangesResponseDto = {
+export type PercentileDeltasResponseDto = {
   /**
    * The median against the period before
    */
-  p50: ChangeResponseDto | null;
+  p50: DeltaResponseDto | null;
   /**
    * The 75th percentile against the period before
    */
-  p75: ChangeResponseDto | null;
+  p75: DeltaResponseDto | null;
   /**
    * The 90th percentile against the period before
    */
-  p90: ChangeResponseDto | null;
+  p90: DeltaResponseDto | null;
   /**
    * The 95th percentile against the period before
    */
-  p95: ChangeResponseDto | null;
+  p95: DeltaResponseDto | null;
 };
 
 export type ByAuthorChangesResponseDto = {
   /**
    * Pull requests Spotlight made
    */
-  spotlight: PercentileChangesResponseDto;
+  spotlight: PercentileDeltasResponseDto;
   /**
    * Pull requests people made alone, in the repositories Spotlight merged into
    */
-  people: PercentileChangesResponseDto;
+  people: PercentileDeltasResponseDto;
 };
 
 export type MergeDayResponseDto = {
@@ -6698,7 +6701,7 @@ export type RoundsCountResponseDto = {
   /**
    * Those over everything merged across the buckets, from 0 to 1; none where nothing merged
    */
-  share: number | null;
+  rate: number | null;
 };
 
 export type DepthWeekResponseDto = {
@@ -6711,7 +6714,7 @@ export type DepthWeekResponseDto = {
    */
   merged: number;
   /**
-   * How many of them took each number of review rounds
+   * How many of them needed each number of review rounds
    */
   rounds: Array<RoundsCountResponseDto>;
 };
@@ -6750,9 +6753,9 @@ export type ReviewBotResponseDto = {
    */
   reviews: number;
   /**
-   * Of the review threads it started, the share now resolved, from 0 to 1; none where it started none
+   * Of the review threads it started, the fraction now resolved, from 0 to 1; none where it started none
    */
-  resolvedShare: number | null;
+  resolvedRate: number | null;
 };
 
 export type PipelineTypeResponseDto = {
@@ -6766,7 +6769,7 @@ export type StagePartsResponseDto = {
   inbox: PercentilesResponseDto;
 };
 
-export type PercentileJamsResponseDto = {
+export type PercentileBottleneckRatiosResponseDto = {
   p50: number;
   p75: number;
   p90: number;
@@ -6796,7 +6799,7 @@ export type StageTimesResponseDto = {
   /**
    * At each percentile, the stage’s time over the longest stage’s in the same layout and for the same kind of pull request, from 0 to 1
    */
-  jam: PercentileJamsResponseDto;
+  bottleneckRatio: PercentileBottleneckRatiosResponseDto;
   /**
    * At each percentile, whether this is the longest stage in the layout for the same kind of pull request; the first one on a tie
    */
@@ -6900,9 +6903,9 @@ export type InsightsPullRequestResponseDto = {
   author: string | null;
   authorIsBot: boolean;
   /**
-   * spotlight where a task opened it, touched where someone else wrote it and a Spotlight review task was opened on it, bots where a bot wrote it with no such task, people otherwise
+   * spotlight where a task opened it, reviewed where someone else wrote it and a Spotlight review task was opened on it, bots where a bot wrote it with no such task, people otherwise
    */
-  by: 'spotlight' | 'touched' | 'people' | 'bots';
+  by: 'spotlight' | 'reviewed' | 'people' | 'bots';
   /**
    * The task that opened it
    */
@@ -6939,7 +6942,7 @@ export type InsightsPullRequestResponseDto = {
   /**
    * What the runs of the task that opened it cost
    */
-  spend: SpendResponseDto | null;
+  spend: MoneyResponseDto | null;
   /**
    * Its task’s runs with no price
    */
@@ -6987,27 +6990,27 @@ export type InsightsRunResponseDto = {
   openedBy: string | null;
   queuedAt: string | null;
   /**
-   * When a runner first took it; none if none did
+   * When a runner first claimed it; none if none did
    */
   startedAt: string | null;
   endedAt: string;
   queuedMs: number | null;
   runningMs: number | null;
   /**
-   * How long it worked, by its digest
+   * How long it worked, by its recorded usage
    */
   ms: number | null;
-  cost: SpendResponseDto | null;
+  cost: MoneyResponseDto | null;
   /**
-   * None until its digest is in
+   * None until its usage is recorded
    */
   tokens: TokenCountsResponseDto | null;
-  ending: 'completed' | 'failed' | 'stopped' | 'abandoned' | 'withdrawn' | 'superseded';
+  ending: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded';
   failure: string | null;
   checks: 'passed' | 'failed' | 'skipped' | null;
-  next: NextActResponseDto | null;
-  handedOn: HandedOnResponseDto | null;
-  delivery: 'open' | 'merged' | 'closed' | null;
+  firstHumanAction: HumanActionResponseDto | null;
+  passed: StationPassResponseDto | null;
+  pullRequestState: 'open' | 'merged' | 'closed' | null;
 };
 
 export type InsightsRunsResponseDto = {
@@ -7031,7 +7034,7 @@ export type StationChangeResponseDto = {
    */
   part: string;
   /**
-   * Which one of the part changed: the repository, skill or tool, or the judge’s rubric, sample or trust
+   * Which one of the part changed: the repository, skill or tool, or the judge’s rubric, sample or minimum agreement
    */
   name: string | null;
   kind: 'added' | 'removed' | 'changed';
@@ -7085,7 +7088,7 @@ export type ReplayCandidateResourceResponseDto = {
   /**
    * The station it is for: team, line and station keys
    */
-  stationAddress: string;
+  stationPath: string;
   /**
    * Tells it from the station’s other candidates; a proposed name is used once per station
    */
@@ -7095,7 +7098,7 @@ export type ReplayCandidateResourceResponseDto = {
    */
   kind: 'live' | 'proposed' | 'searched' | 'planned' | 'oracle';
   /**
-   * The station block it replays the station under, in the shape the line resource holds a station in
+   * The station block it replays the station under, in the shape in which the line resource stores a station
    */
   station: {
     [key: string]: unknown;
@@ -7110,7 +7113,7 @@ export type ReplayCandidateResourceResponseDto = {
 
 export type ReplayCandidateResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<ReplayCandidateResourceResponseDto>;
 };
@@ -7126,27 +7129,27 @@ export type SetNoiseResponseDto = {
   fingerprint: string;
   repeats: number;
   /**
-   * The success rate of each copy of the set, in order
+   * The success rate of each repeat of the set, in order
    */
   perRepeat: Array<number>;
   /**
-   * The highest copy’s success rate less the lowest’s
+   * The highest repeat’s success rate less the lowest’s
    */
   spread: number;
   /**
-   * Tasks whose copies disagree, succeeding in one and failing in another
+   * Tasks whose repeats disagree, succeeding in one and failing in another
    */
   flippedTasks: Array<string>;
   measuredAt: string;
   /**
-   * Whether the spread is too wide for a single copy of each run to tell a gain of the line’s min_gain from chance, by the same rule the search warnings use
+   * Whether the spread is too wide for a single repeat of each run to tell a gain of the line’s min_gain from chance, by the same rule the search warnings use
    */
-  noisyInOneCopy: boolean;
+  noisyInOneRepeat: boolean;
 };
 
 export type RateIntervalResponseDto = {
   /**
-   * The success rate: per task, the share of its judged copies that succeeded, averaged over the tasks
+   * The success rate: per task, the share of its judged repeats that succeeded, averaged over the tasks
    */
   rate: number;
   /**
@@ -7178,7 +7181,7 @@ export type SetSaturationResponseDto = {
 
 export type JudgeConsistencyResponseDto = {
   /**
-   * The probe: the newest finished replay of the live config that checked the set
+   * The calibration: the newest finished replay of the live config that checked the set
    */
   replayId: string;
   /**
@@ -7210,7 +7213,7 @@ export type FlakyCheckResponseDto = {
    */
   originalRunId: string;
   /**
-   * The probe’s replay run whose change flipped
+   * The calibration’s replay run whose change flipped
    */
   runId: string;
   first: 'passed' | 'failed';
@@ -7219,7 +7222,7 @@ export type FlakyCheckResponseDto = {
 
 export type CheckConsistencyResponseDto = {
   /**
-   * The probe whose changes were checked again
+   * The calibration whose changes were checked again
    */
   replayId: string;
   /**
@@ -7236,7 +7239,7 @@ export type CheckConsistencyResponseDto = {
   flaky: Array<FlakyCheckResponseDto>;
 };
 
-export type GainReadingResponseDto = {
+export type GainEstimateResponseDto = {
   /**
    * The success rate gained over what it is compared with, on the tasks both scored
    */
@@ -7252,7 +7255,7 @@ export type GainReadingResponseDto = {
   /**
    * better when the whole interval is above nothing and the gain reaches the line’s min_gain; worse when the whole interval is below nothing and the loss reaches it; else within-noise
    */
-  verdict: 'better' | 'worse' | 'within-noise';
+  significance: 'better' | 'worse' | 'within-noise';
   /**
    * The smallest gain the line counts as real
    */
@@ -7265,22 +7268,22 @@ export type GainReadingResponseDto = {
 
 export type OracleReadingResponseDto = {
   /**
-   * The newest replay of the live config handed each run’s answer: the change people accepted, or what they said when they sent it back
+   * The newest replay of the live config handed each run’s answer: the change people accepted, or the note they wrote when they sent it back
    */
   replayId: string;
   candidateId: string;
   repeats: number;
-  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached';
   /**
    * The replay of the live config it is compared with: the one whose finishing started it
    */
-  againstReplayId: string | null;
+  referenceReplayId: string | null;
   /**
-   * How the replay it is compared with stands: finished once they can be compared; stopped, over-budget or gone means they never will be
+   * The state of the replay that it is compared with: finished once they can be compared; stopped, ceiling-reached or gone means they never will be
    */
-  againstState: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | 'gone' | null;
+  referenceState: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached' | 'gone' | null;
   /**
-   * Runs it replayed: those the live replay replayed whose original was accepted with a change, or sent back with something a person said. Others have no answer to hand over
+   * Runs it replayed: those the live replay replayed whose original was accepted with a change, or sent back with a note from a person. Others have no answer to hand over
    */
   answered: number;
   /**
@@ -7294,7 +7297,7 @@ export type OracleReadingResponseDto = {
   /**
    * The gain the answer brings over the live config: the most a better harness could gain on these runs
    */
-  gain: GainReadingResponseDto | null;
+  gain: GainEstimateResponseDto | null;
   /**
    * The answer did clearly better; false means the set leaves no room a better config could show, so a search on it would find little; null until compared, or when fewer than 5 runs had an answer
    */
@@ -7303,7 +7306,7 @@ export type OracleReadingResponseDto = {
 
 export type SetHealthResponseDto = {
   /**
-   * How much its success rate moves between copies of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has
+   * How much its success rate moves between repeats of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has
    */
   noise: SetNoiseResponseDto | null;
   /**
@@ -7311,11 +7314,11 @@ export type SetHealthResponseDto = {
    */
   saturation: SetSaturationResponseDto | null;
   /**
-   * How often the judge agrees with itself, from the set’s newest probe; null until a probe was judged
+   * How often the judge agrees with itself, from the set’s newest calibration; null until a calibration was judged
    */
   judge: JudgeConsistencyResponseDto | null;
   /**
-   * Whether the station’s check gives the same answer twice, from the set’s newest probe; null until a probe was checked
+   * Whether the station’s check returns the same answer twice, from the set’s newest calibration; null until a calibration was checked
    */
   checks: CheckConsistencyResponseDto | null;
   /**
@@ -7375,7 +7378,7 @@ export type ReplaySetEntryResponseDto = {
    */
   title: string | null;
   /**
-   * How the run stands now; null where there is no such run
+   * The current state of the run; null where there is no such run
    */
   state: string | null;
   /**
@@ -7384,16 +7387,16 @@ export type ReplaySetEntryResponseDto = {
   endedAt: string | null;
   addedAt: string;
   /**
-   * Why the run can no longer be replayed, as it stands now; null while it can
+   * Why the run can no longer be replayed; null while it can
    */
-  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  unreplayableReason: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'cancelled' | 'dispatch-failed' | null;
   reason: string | null;
   /**
    * How the original run turned out: asked when what a person did next was decide an approval it asked for; else accepted or sent back by what a person did next; else failed; else asked when it ended waiting on a person or a person answered it; else other
    */
   outcome: 'accepted' | 'sent-back' | 'asked' | 'failed' | 'other';
   /**
-   * Where its task came from: person when a person raised it at this station, the integration whose happening opened it here, as in slack or github, or station when another station handed it on; null once the task is deleted
+   * Where its task came from: person when a person created it at this station, the integration whose happening opened it here, as in slack or github, or station when another station passed it on; null once the task is deleted
    */
   origin: string | null;
 };
@@ -7405,15 +7408,15 @@ export type ReplaySetResponseDto = {
   name: string;
   createdAt: string;
   /**
-   * Its station is gone from its line: it takes no more runs, starts no replays and keeps no archives; it may still be renamed, have runs taken out, or be deleted
+   * Its station is gone from its line: it takes no more runs, starts no replays and holds no archives; it may still be renamed, have runs taken out, or be deleted
    */
   stationGone: boolean;
   /**
-   * Planned changes of its station are checked against it, as `spotlight replay check` asks; a station has at most one such set
+   * Planned changes of its station are checked against it, as `spotlight replay check` requests; a station has at most one such set
    */
-  guardsChanges: boolean;
+  gatesChanges: boolean;
   /**
-   * Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check give the same answer twice, and how much better the live config does when handed each run’s answer
+   * Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check return the same answer twice, and how much better the live config does when handed each run’s answer
    */
   health: SetHealthResponseDto;
   /**
@@ -7436,7 +7439,7 @@ export type ReplayableRunResponseDto = {
   /**
    * Why it cannot be replayed; null when it can
    */
-  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  unreplayableReason: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'cancelled' | 'dispatch-failed' | null;
   reason: string | null;
 };
 
@@ -7449,7 +7452,7 @@ export type SuggestedRunResponseDto = {
   /**
    * Why it cannot be replayed; null when it can
    */
-  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  unreplayableReason: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'cancelled' | 'dispatch-failed' | null;
   reason: string | null;
   /**
    * How the run turned out
@@ -7457,11 +7460,11 @@ export type SuggestedRunResponseDto = {
   outcome: 'accepted' | 'sent-back' | 'asked' | 'failed' | 'other';
 };
 
-export type OpenReplaySetRequestDto = {
+export type CreateReplaySetRequestDto = {
   name: string;
 };
 
-export type ReplaySetOpenedResponseDto = {
+export type ReplaySetCreatedResponseDto = {
   id: string;
 };
 
@@ -7485,7 +7488,7 @@ export type CandidateResponseDto = {
    */
   fingerprint: string;
   /**
-   * The station block, as the line resource holds it
+   * The station block, as the line resource stores it
    */
   station: {
     [key: string]: unknown;
@@ -7495,7 +7498,7 @@ export type CandidateResponseDto = {
 
 export type ReplayTotalsResponseDto = {
   entries: number;
-  settled: number;
+  ended: number;
   completed: number;
   failed: number;
   stopped: number;
@@ -7504,7 +7507,7 @@ export type ReplayTotalsResponseDto = {
   notRun: number;
   succeeded: number | null;
   /**
-   * Per task, the share of its scored copies that succeeded, averaged over the tasks scored
+   * Per task, the share of its scored repeats that succeeded, averaged over the tasks scored
    */
   successRate: number | null;
   /**
@@ -7520,7 +7523,7 @@ export type ReplayTotalsResponseDto = {
    */
   tasks: number;
   /**
-   * Original runs with at least one scored copy
+   * Original runs with at least one scored repeat
    */
   tasksScored: number;
   /**
@@ -7530,17 +7533,17 @@ export type ReplayTotalsResponseDto = {
   /**
    * What it spent in the ceiling’s currency, counted against it
    */
-  spent: SpendResponseDto;
+  spent: MoneyResponseDto;
   /**
    * What it spent in other currencies, one sum each; none of it counts against the ceiling
    */
-  spentElsewhere: Array<SpendResponseDto>;
+  spentElsewhere: Array<MoneyResponseDto>;
   /**
    * Runs whose cost was never reported
    */
   unpriced: number;
   /**
-   * Model calls, for drafting change stacks or judging, that came back with no price
+   * Model calls, for generating change stacks or judging, that came back with no price
    */
   unpricedCalls: number;
   steps: number;
@@ -7549,13 +7552,13 @@ export type ReplayTotalsResponseDto = {
   medianMs: number | null;
 };
 
-export type ReplayCounterpartResponseDto = {
+export type ReplayReferenceResponseDto = {
   /**
-   * The replay compared with: pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline
+   * The replay compared with: pairwiseReference where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline
    */
   replayId: string;
   /**
-   * Its success rate on the tasks the gain pairs, the tasks both replays scored: per task, the share of its scored copies that succeeded, averaged over those tasks; null with no such task
+   * Its success rate on the tasks the gain pairs, the tasks both replays scored: per task, the share of its scored repeats that succeeded, averaged over those tasks; null with no such task
    */
   successRate: number | null;
   /**
@@ -7581,17 +7584,17 @@ export type PairTallyResponseDto = {
 
 export type EntryChecksResponseDto = {
   /**
-   * drafting or checking until its change stacks settle and their checks end; absent when its run left no change stack; none when its stacks are checked by nothing
+   * generating or checking until its change stacks complete and their checks end; absent when its run left no change stack; none when its stacks are checked by nothing
    */
-  state: 'absent' | 'drafting' | 'checking' | 'passed' | 'failed' | 'none' | 'unchecked';
+  state: 'absent' | 'generating' | 'checking' | 'passed' | 'failed' | 'none' | 'unchecked';
   /**
    * The steps or layers that failed
    */
   failedAt: Array<string>;
   /**
-   * Why it went unchecked: what stopped the runner checking it, undrafted when its change was never drafted, or skipped for anything else
+   * Why it went unchecked: what stopped the runner checking it, not-generated when Spotlight never generated a change stack for its change, or skipped for anything else
    */
-  why: 'no-base' | 'no-checkout' | 'checkout-failed' | 'setup-failed' | 'no-room' | 'out-of-time' | 'no-image' | 'unprovisioned' | 'nobody-checked' | 'skipped' | 'undrafted' | 'no-check-asked' | null;
+  why: 'no-base' | 'no-checkout' | 'checkout-failed' | 'setup-failed' | 'workspace-failed' | 'out-of-time' | 'no-image' | 'provision-failed' | 'queue-timeout' | 'skipped' | 'not-generated' | 'no-check-asked' | null;
 };
 
 export type EntryCitedStepResponseDto = {
@@ -7600,7 +7603,7 @@ export type EntryCitedStepResponseDto = {
    */
   index: number;
   /**
-   * Always null here: a replay keeps no copy of what the judge read
+   * Always null here: a replay stores no copy of what the judge read
    */
   kind: string | null;
   tool: string | null;
@@ -7610,7 +7613,7 @@ export type EntryCitedStepResponseDto = {
 export type EntryCitedHunkResponseDto = {
   id: string;
   /**
-   * Always null here: a replay keeps no copy of what the judge read
+   * Always null here: a replay stores no copy of what the judge read
    */
   path: string | null;
   header: string | null;
@@ -7633,30 +7636,30 @@ export type EntryJudgeReasonResponseDto = {
 };
 
 export type EntryJudgeResponseDto = {
-  state: 'asked' | 'judged' | 'unjudged';
+  state: 'requested' | 'judged' | 'unjudged';
   scale: 'yes-no' | 'number' | 'claims' | null;
   /**
    * 0 or 1 on a yes-no rubric, 1 to 5 on a number one, or the share of claims met
    */
   score: number | null;
   /**
-   * Yes on a yes-no rubric, at least 4 on a number one, or at least the pass share of claims met
+   * Yes on a yes-no rubric, at least 4 on a number one, or at least the pass threshold of claims met
    */
   passed: boolean | null;
   /**
    * Whether each claim was met, in order; null unless the judge goes by claims
    */
-  marks: Array<boolean> | null;
+  claimResults: Array<boolean> | null;
   /**
    * The share of claims a run had to meet to pass; null unless the judge goes by claims
    */
-  passShare: number | null;
+  passThreshold: number | null;
   /**
    * Whether it was judged against the change people accepted for the original run; without one, on the rubric alone
    */
   referenced: boolean | null;
   model: string | null;
-  unjudged: 'unavailable' | 'unreadable-rubric' | 'no-evidence' | 'refused' | 'unreadable' | 'ungrounded' | 'errored' | 'interrupted' | 'stopped-before-judging' | null;
+  unjudged: 'unavailable' | 'unreadable-rubric' | 'no-evidence' | 'request-failed' | 'unreadable' | 'ungrounded' | 'errored' | 'interrupted' | 'stopped-before-judging' | null;
   /**
    * The claims the judge marked, in order, as worded when it judged; empty unless it goes by claims
    */
@@ -7671,7 +7674,7 @@ export type ModelSpentResponseDto = {
   /**
    * One sum per currency the calls were priced in
    */
-  spends: Array<SpendResponseDto>;
+  spends: Array<MoneyResponseDto>;
   /**
    * Calls that came back with no price
    */
@@ -7690,7 +7693,7 @@ export type EntryPairReasonResponseDto = {
   theirHunks: Array<string>;
 };
 
-export type EntryPairReadingResponseDto = {
+export type EntryPairPassResponseDto = {
   /**
    * Whether this entry’s change was shown first, as A; each pair is read both ways round
    */
@@ -7700,30 +7703,30 @@ export type EntryPairReadingResponseDto = {
 };
 
 export type EntryPairResponseDto = {
-  state: 'asked' | 'judged' | 'unpaired';
+  state: 'requested' | 'judged' | 'unpaired';
   /**
-   * The run of the same task, in the replay in pairedWith, this change was set beside
+   * The run of the same task, in the replay in pairwiseReference, this change was set beside
    */
-  againstRunId: string;
+  otherRunId: string;
   /**
    * Whether the judge, not knowing which change was which, found this one better (win), worse (loss) or as good (tie)
    */
   outcome: 'win' | 'loss' | 'tie' | null;
   model: string | null;
-  unpaired: 'unavailable' | 'unreadable-rubric' | 'no-evidence' | 'refused' | 'unreadable' | 'ungrounded' | 'errored' | 'interrupted' | 'other-rubric' | 'budget' | null;
+  unpaired: 'unavailable' | 'unreadable-rubric' | 'no-evidence' | 'request-failed' | 'unreadable' | 'ungrounded' | 'errored' | 'interrupted' | 'other-rubric' | 'ceiling-reached' | null;
   /**
-   * The two readings, one with each change shown first; where they disagree the outcome is a tie
+   * The two passes, one with each change shown first; where they disagree the outcome is a tie
    */
-  readings: Array<EntryPairReadingResponseDto>;
+  passes: Array<EntryPairPassResponseDto>;
 };
 
 export type EntryReasonResponseDto = {
   /**
-   * run-failed (detail: how; exited, refused or timed-out, the run failed through the candidate), asked-a-person, check-failed and judge-failed count against the replay; run-failed with unprepared, unprovisioned, hooks-unanswered, runner-lost or superseded (what ran it failed), unreplayable (detail: why it could not be replayed or started), run-stopped (the replay was stopped or ran over its ceiling), not-run, check-skipped (detail: why, as in no-check-asked), change-undrafted, no-change (it changed nothing for its check to run on), no-change-stack (it changed files, but no stack of them reached Spotlight), unjudged and nothing-judges leave it unscored; judged says why the judge passed it
+   * run-failed (detail: how; exited, refused or timed-out, the run failed through the candidate), asked-a-person, check-failed and judge-failed count against the replay; run-failed with unprepared, unprovisioned, hooks-unanswered, runner-lost or superseded (what ran it failed), unreplayable (detail: why it could not be replayed or started), run-stopped (the replay was stopped or ran over its ceiling), not-run, check-skipped (detail: why, as in no-check-asked), change-not-generated, no-change (it changed nothing for its check to run on), no-change-stack (it changed files, but no stack of them reached Spotlight), unjudged and nothing-judges leave it unscored; judged says why the judge passed it
    */
-  code: 'unreplayable' | 'not-run' | 'run-failed' | 'run-stopped' | 'asked-a-person' | 'check-failed' | 'check-skipped' | 'change-undrafted' | 'no-change' | 'no-change-stack' | 'judged' | 'judge-failed' | 'unjudged' | 'nothing-judges';
+  code: 'unreplayable' | 'not-run' | 'run-failed' | 'run-stopped' | 'asked-a-person' | 'check-failed' | 'check-skipped' | 'change-not-generated' | 'no-change' | 'no-change-stack' | 'judged' | 'judge-failed' | 'unjudged' | 'nothing-judges';
   /**
-   * The refusal, failure or skip code, the failed check step or layer, or what the judge said
+   * The unreplayable reason, the failure or skip code, the failed check step or layer, or what the judge said
    */
   detail: string | null;
   /**
@@ -7744,7 +7747,7 @@ export type ReplayEntryResponseDto = {
   originalRunId: string;
   taskId: string;
   /**
-   * Which copy of the original run this is, from 1
+   * Which repeat of the original run this is, from 1
    */
   repeat: number;
   /**
@@ -7755,20 +7758,20 @@ export type ReplayEntryResponseDto = {
    * The StationConfig fingerprint the replay run was queued under; it can drift from the candidate’s when the line changed since
    */
   fingerprint: string | null;
-  phase: 'waiting' | 'dispatched' | 'settled';
+  phase: 'waiting' | 'dispatched' | 'ended';
   ending: 'completed' | 'failed' | 'stopped' | 'asked' | 'unreplayable' | 'not-run' | null;
-  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  unreplayableReason: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'cancelled' | 'dispatch-failed' | null;
   /**
-   * How its run failed: exited, refused and timed-out (it ran past its host’s time limit) count against the candidate; unprepared, unprovisioned, hooks-unanswered, runner-lost and superseded were down to what ran it, and leave the entry unscored
+   * How its run failed: exited, refused and timed-out (it ran past its host’s time limit) count against the candidate; unprepared, unprovisioned, hooks-unanswered, runner-lost, superseded and cancelled were down to what ran it, and leave the entry unscored
    */
-  failure: 'exited' | 'unprepared' | 'refused' | 'unprovisioned' | 'hooks-unanswered' | 'runner-lost' | 'timed-out' | 'superseded' | null;
+  failure: 'exited' | 'unprepared' | 'refused' | 'unprovisioned' | 'hooks-unanswered' | 'runner-lost' | 'timed-out' | 'cancelled' | 'superseded' | null;
   /**
    * Where its handover would have sent the task
    */
   next: string | null;
   ms: number | null;
   steps: number | null;
-  cost: SpendResponseDto | null;
+  cost: MoneyResponseDto | null;
   inputTokens: number | null;
   outputTokens: number | null;
   cacheReadTokens: number | null;
@@ -7776,15 +7779,15 @@ export type ReplayEntryResponseDto = {
   checks: EntryChecksResponseDto | null;
   judge: EntryJudgeResponseDto | null;
   /**
-   * What drafting and reordering its change stacks cost, failed calls included; what is in the ceiling’s currency is spent against it
+   * What generating and redrafting its change stacks cost, failed calls included; what is in the ceiling’s currency is spent against it
    */
-  draftingSpent: ModelSpentResponseDto | null;
+  generationSpent: ModelSpentResponseDto | null;
   /**
    * What judging its change cost, unreadable answers included; what is in the ceiling’s currency is spent against it
    */
   judgingSpent: ModelSpentResponseDto | null;
   /**
-   * A probe’s second judging of the same change, to see whether the judge agrees with itself; it never changes the run’s result
+   * A calibration’s second judging of the same change, to see whether the judge agrees with itself; it never changes the run’s result
    */
   secondJudge: EntryJudgeResponseDto | null;
   /**
@@ -7792,11 +7795,11 @@ export type ReplayEntryResponseDto = {
    */
   rejudgingSpent: ModelSpentResponseDto | null;
   /**
-   * A probe’s second check of the same change, to see whether the check is flaky; it never changes the run’s result
+   * A calibration’s second check of the same change, to see whether the check is flaky; it never changes the run’s result
    */
   recheck: EntryChecksResponseDto | null;
   /**
-   * Its change set side by side with that of the replay in pairedWith for the same task, judged blind both ways round; it never changes the run’s result
+   * Its change set side by side with that of the replay in pairwiseReference for the same task, judged blind both ways round; it never changes the run’s result
    */
   pair: EntryPairResponseDto | null;
   /**
@@ -7834,35 +7837,35 @@ export type ReplayResponseDto = {
    * Its candidate checks the change each replay run leaves; a run that leaves no change stack then goes unscored
    */
   checks: boolean;
-  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
-  ceiling: SpendResponseDto;
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached';
+  ceiling: MoneyResponseDto;
   /**
    * How many times it replays each run of its set
    */
   repeats: number;
   /**
-   * It probes the set: once it finishes, each judged change is judged again and each checked change checked again, to see whether the judge and the check give the same answer twice
+   * It calibrates the set: once it finishes, each judged change is judged again and each checked change checked again, to see whether the judge and the check return the same answer twice
    */
-  probe: boolean;
+  calibration: boolean;
   startedAt: string;
   endedAt: string | null;
   totals: ReplayTotalsResponseDto;
   /**
-   * Its gain in success over the replay in comparedWith, with whether it is within noise; null with none
+   * Its gain in success over the replay in referenceReplay, with whether it is within noise; null with none
    */
-  againstBaseline: GainReadingResponseDto | null;
+  gainOverReference: GainEstimateResponseDto | null;
   /**
    * The replay its gain, comparison rows and deltas are against, with its success rate; null for the baseline itself or with none
    */
-  comparedWith: ReplayCounterpartResponseDto | null;
+  referenceReplay: ReplayReferenceResponseDto | null;
   /**
-   * The replay its changes are set beside, judged blind: the baseline standing when it started, or its search’s seed; null for a baseline, a probe or a replay that had none
+   * The replay its changes are set beside, judged blind: the current baseline when it started, or its search’s seed; null for a baseline, a calibration or a replay that had none
    */
-  pairedWith: string | null;
+  pairwiseReference: string | null;
   /**
-   * Tasks whose change the judge, comparing it blind with the change of the replay in pairedWith, found better, worse or as good; null where pairedWith is
+   * Tasks whose change the judge, comparing it blind with the change of the replay in pairwiseReference, found better, worse or as good; null where pairwiseReference is
    */
-  pairsAgainstBaseline: PairTallyResponseDto | null;
+  referencePairs: PairTallyResponseDto | null;
   entries: Array<ReplayEntryResponseDto>;
 };
 
@@ -7878,7 +7881,7 @@ export type StartReplayRequestDto = {
   candidate: string;
   ceiling: StartReplayCeilingRequestDto;
   /**
-   * How many times to replay each run, 1 when left out; more copies measure the set’s noise and narrow the intervals
+   * How many times to replay each run, 1 when left out; more repeats measure the set’s noise and narrow the intervals
    */
   repeats?: number;
 };
@@ -7886,9 +7889,9 @@ export type StartReplayRequestDto = {
 export type StartedBaselineResponseDto = {
   id: string;
   /**
-   * Its own ceiling, the same as the one asked for
+   * Its own ceiling, the same as the requested one
    */
-  ceiling: SpendResponseDto;
+  ceiling: MoneyResponseDto;
   /**
    * started: this replay is the baseline; starting: it starts shortly, unless another baseline covers the set by then, which reads then name
    */
@@ -7900,9 +7903,9 @@ export type ReplayStartedResponseDto = {
   /**
    * The most this replay may spend, on its own
    */
-  ceiling: SpendResponseDto;
+  ceiling: MoneyResponseDto;
   /**
-   * The set’s baseline replay of the live config, when the set had none covering its runs: this replay itself, or one starting beside it under this id. It spends against a ceiling of its own, equal to the one asked for, so the two together may spend up to twice it
+   * The set’s baseline replay of the live config, when the set had none covering its runs: this replay itself, or one starting beside it under this id. It spends against a ceiling of its own, equal to the requested one, so the two together may spend up to twice it
    */
   baseline: StartedBaselineResponseDto | null;
 };
@@ -7926,23 +7929,23 @@ export type EntryComparisonResponseDto = {
    */
   title: string | null;
   /**
-   * Each copy of the task the candidate replayed
+   * Each repeat of the task the candidate replayed
    */
   candidate: Array<ReplayEntryResponseDto>;
   /**
-   * Each copy of the task the baseline replayed; none without one
+   * Each repeat of the task the baseline replayed; none without one
    */
   baseline: Array<ReplayEntryResponseDto>;
   /**
-   * The share of the candidate’s scored copies that succeeded
+   * The share of the candidate’s scored repeats that succeeded
    */
   candidateSuccess: number | null;
   /**
-   * The share of the baseline’s scored copies that succeeded
+   * The share of the baseline’s scored repeats that succeeded
    */
   baselineSuccess: number | null;
   /**
-   * Candidate cost less the baseline’s, each averaged over its copies, once both settled
+   * Candidate cost less the baseline’s, each averaged over its repeats, once both ended
    */
   costDelta: number | null;
   msDelta: number | null;
@@ -7956,11 +7959,11 @@ export type EntryComparisonResponseDto = {
    */
   scoreUncompared: 'unjudged' | 'other-rubric' | 'other-reference' | null;
   /**
-   * The baseline’s share of copies that succeeded is more than half above the candidate’s (with one copy each: the baseline succeeded and the candidate failed), or its average judge score dropped
+   * The baseline’s share of repeats that succeeded is more than half above the candidate’s (with one repeat each: the baseline succeeded and the candidate failed), or its average judge score dropped
    */
   regressed: boolean;
   /**
-   * Whether the judge, comparing the candidate’s change blind with that of the replay in pairedWith, found it better (win), worse (loss) or as good (tie), by most of its copies; null where none was compared so
+   * Whether the judge, comparing the candidate’s change blind with that of the replay in pairwiseReference, found it better (win), worse (loss) or as good (tie), by most of its repeats; null where none was compared so
    */
   pair: 'win' | 'loss' | 'tie' | null;
 };
@@ -7985,35 +7988,35 @@ export type ReplayDetailResponseDto = {
    * Its candidate checks the change each replay run leaves; a run that leaves no change stack then goes unscored
    */
   checks: boolean;
-  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
-  ceiling: SpendResponseDto;
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached';
+  ceiling: MoneyResponseDto;
   /**
    * How many times it replays each run of its set
    */
   repeats: number;
   /**
-   * It probes the set: once it finishes, each judged change is judged again and each checked change checked again, to see whether the judge and the check give the same answer twice
+   * It calibrates the set: once it finishes, each judged change is judged again and each checked change checked again, to see whether the judge and the check return the same answer twice
    */
-  probe: boolean;
+  calibration: boolean;
   startedAt: string;
   endedAt: string | null;
   totals: ReplayTotalsResponseDto;
   /**
-   * Its gain in success over the replay in comparedWith, with whether it is within noise; null with none
+   * Its gain in success over the replay in referenceReplay, with whether it is within noise; null with none
    */
-  againstBaseline: GainReadingResponseDto | null;
+  gainOverReference: GainEstimateResponseDto | null;
   /**
    * The replay its gain, comparison rows and deltas are against, with its success rate; null for the baseline itself or with none
    */
-  comparedWith: ReplayCounterpartResponseDto | null;
+  referenceReplay: ReplayReferenceResponseDto | null;
   /**
-   * The replay its changes are set beside, judged blind: the baseline standing when it started, or its search’s seed; null for a baseline, a probe or a replay that had none
+   * The replay its changes are set beside, judged blind: the current baseline when it started, or its search’s seed; null for a baseline, a calibration or a replay that had none
    */
-  pairedWith: string | null;
+  pairwiseReference: string | null;
   /**
-   * Tasks whose change the judge, comparing it blind with the change of the replay in pairedWith, found better, worse or as good; null where pairedWith is
+   * Tasks whose change the judge, comparing it blind with the change of the replay in pairwiseReference, found better, worse or as good; null where pairwiseReference is
    */
-  pairsAgainstBaseline: PairTallyResponseDto | null;
+  referencePairs: PairTallyResponseDto | null;
   entries: Array<ReplayEntryResponseDto>;
   baselineReplayId: string | null;
   /**
@@ -8021,7 +8024,7 @@ export type ReplayDetailResponseDto = {
    */
   search: ReplaySearchResponseDto | null;
   /**
-   * Per task against the replay it is compared with (comparedWith), regressions first
+   * Per task against the replay it is compared with (referenceReplay), regressions first
    */
   comparison: Array<EntryComparisonResponseDto>;
 };
@@ -8044,7 +8047,7 @@ export type ReplayOfRunResponseDto = {
    * The set’s baseline, compared against
    */
   isBaseline: boolean;
-  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached';
   /**
    * The run’s entry in the replay, with its result
    */
@@ -8064,7 +8067,7 @@ export type SearchAgentResponseDto = {
 export type SearchBudgetResponseDto = {
   iterations: number;
   perIteration: number;
-  ceiling: SpendResponseDto;
+  ceiling: MoneyResponseDto;
   concurrency: number;
   /**
    * How many times each of its replays replays each run
@@ -8078,7 +8081,7 @@ export type SearchBestResponseDto = {
   /**
    * Whether nothing the search found beat the live config
    */
-  seed: boolean;
+  isSeed: boolean;
   /**
    * Its success rate on the searched tasks, 0 to 1
    */
@@ -8102,7 +8105,7 @@ export type SearchBestResponseDto = {
   /**
    * marked when it beat the live config on the searched tasks but not on the held-out ones, so its gain showed only on the tasks the search could see; too-few-held-out when it beat the live config on the searched tasks but too few held-out tasks were scored on both sides to tell; null otherwise, and until its held-out replay finished
    */
-  onlyOnSeenTasks: 'marked' | 'too-few-held-out' | null;
+  overfit: 'likely' | 'too-few-held-out' | null;
 };
 
 export type SearchResponseDto = {
@@ -8115,9 +8118,9 @@ export type SearchResponseDto = {
    */
   state: 'seeding' | 'searching' | 'holding-out' | 'finished' | 'stopped';
   /**
-   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose outcome says why), was stopped by a person, lost its station or set, or could not replay the live config
+   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose result says why), was stopped by a person, lost its station or set, or could not replay the live config
    */
-  ending: 'iterations-spent' | 'ceiling-reached' | 'stalled' | 'stopped' | 'station-gone' | 'set-gone' | 'seed-failed' | null;
+  stopReason: 'iterations-spent' | 'ceiling-reached' | 'stalled' | 'stopped' | 'station-gone' | 'set-gone' | 'seed-failed' | null;
   agent: SearchAgentResponseDto;
   budget: SearchBudgetResponseDto;
   /**
@@ -8127,7 +8130,7 @@ export type SearchResponseDto = {
   /**
    * What it spent so far, in its ceiling’s currency: its replays and its agent’s runs
    */
-  spent: SpendResponseDto;
+  spent: MoneyResponseDto;
   /**
    * How many times its agent ran, or is running
    */
@@ -8188,11 +8191,11 @@ export type NoiseUnmeasuredWarningResponseDto = {
 
 export type NoisyWarningResponseDto = {
   /**
-   * The set’s success moves more between copies than the line’s min_gain, so a single copy cannot tell a real gain from noise
+   * The set’s success moves more between repeats than the line’s min_gain, so a single repeat cannot tell a real gain from noise
    */
   kind: 'noisy';
   /**
-   * How far the set’s success moved between copies
+   * How far the set’s success moved between repeats
    */
   spread: number;
   minGain: number;
@@ -8201,7 +8204,7 @@ export type NoisyWarningResponseDto = {
    */
   neededRepeats: number;
   /**
-   * The repeats to ask for: the needed ones, at most 5
+   * The repeats to request: the needed ones, at most 5
    */
   suggestedRepeats: number;
 };
@@ -8219,7 +8222,7 @@ export type SaturatedWarningResponseDto = {
 
 export type JudgeUnstableWarningResponseDto = {
   /**
-   * The judge, asked twice of the same change, passed or failed it alike less than 80% of the time, so its verdicts are partly chance
+   * The judge, run twice on the same change, passed or failed it alike less than 80% of the time, so its verdicts are partly chance
    */
   kind: 'judge-unstable';
   /**
@@ -8284,23 +8287,23 @@ export type SearchRunsEstimateResponseDto = {
   total: number;
 };
 
-export type SearchAllotmentsResponseDto = {
+export type SearchCeilingSplitsResponseDto = {
   /**
    * The ceiling of its replay of the live config
    */
-  seed: SpendResponseDto;
+  seed: MoneyResponseDto;
   /**
    * The ceiling of each candidate’s replay on searched tasks
    */
-  searchReplay: SpendResponseDto;
+  searchReplay: MoneyResponseDto;
   /**
    * The ceiling of each candidate’s replay on held-out tasks
    */
-  heldOutReplay: SpendResponseDto;
+  heldOutReplay: MoneyResponseDto;
   /**
    * What each agent run is expected to spend; one may overshoot it
    */
-  agentRun: SpendResponseDto;
+  agentRun: MoneyResponseDto;
 };
 
 export type SearchEstimateResponseDto = {
@@ -8319,8 +8322,8 @@ export type SearchEstimateResponseDto = {
   /**
    * The most it may spend
    */
-  ceiling: SpendResponseDto;
-  perReplayAllotments: SearchAllotmentsResponseDto;
+  ceiling: MoneyResponseDto;
+  perReplayLimits: SearchCeilingSplitsResponseDto;
   /**
    * Roughly how long it takes at its concurrency, in milliseconds, from how long the set’s runs took; unknown when none of them was timed
    */
@@ -8330,7 +8333,7 @@ export type SearchEstimateResponseDto = {
    */
   minGain: number;
   /**
-   * What it would look for, as asked or as the set’s health suggests: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs
+   * What it would look for, as requested or as the set’s health suggests: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs
    */
   objective: 'success' | 'cost';
   /**
@@ -8398,7 +8401,7 @@ export type SearchSplitResponseDto = {
 export type ReflectedTaskResponseDto = {
   taskId: string;
   /**
-   * The run the set holds for the task
+   * The run the set contains for the task
    */
   originalRunId: string;
   /**
@@ -8407,10 +8410,10 @@ export type ReflectedTaskResponseDto = {
   replayRunId: string;
 };
 
-export type SearchCauseResponseDto = {
+export type FailureCauseResponseDto = {
   taskId: string;
   /**
-   * The run the set holds for the task
+   * The run the set contains for the task
    */
   originalRunId: string;
   /**
@@ -8436,7 +8439,7 @@ export type SearchReflectionResponseDto = {
   /**
    * The candidate whose failures it looked into: the best config before it, the seed’s id when nothing beat the live config; none until it looked
    */
-  standing: string | null;
+  incumbent: string | null;
   /**
    * The searched tasks the best config so far still failed, which it looked into; never a held-out one
    */
@@ -8444,13 +8447,13 @@ export type SearchReflectionResponseDto = {
   /**
    * One cause for each task it recorded one for
    */
-  causes: Array<SearchCauseResponseDto>;
+  causes: Array<FailureCauseResponseDto>;
   /**
-   * How it ended, once it did: went-on when it found a cause the config can fix and the search carried on; no-config-cause when it found none; no-failures when no searched task failed, so it never ran; did-not-run when its run failed before recording a cause; out-of-budget when it found a config cause but the search had no budget left to try it
+   * How it ended, once it did: continued when it found a cause the config can fix and the search continued; no-config-cause when it found none; no-failures when no searched task failed, so it never ran; did-not-run when its run failed before recording a cause; ceiling-reached when it found a config cause but the search had no budget left to try it
    */
-  outcome: 'went-on' | 'no-config-cause' | 'no-failures' | 'did-not-run' | 'out-of-budget' | null;
+  result: 'continued' | 'no-config-cause' | 'no-failures' | 'did-not-run' | 'ceiling-reached' | null;
   /**
-   * True when the search stopped searching once it ended, for whatever outcome other than went-on
+   * True when the search stopped searching once it ended, for whatever result other than continued
    */
   endedSearch: boolean;
 };
@@ -8470,7 +8473,7 @@ export type SearchIterationResponseDto = {
    */
   state: 'wanted' | 'running' | 'ended' | 'failed';
   /**
-   * How many candidates it tried to propose, those refused included
+   * How many candidates it tried to propose, those rejected included
    */
   attempts: number;
   /**
@@ -8478,7 +8481,7 @@ export type SearchIterationResponseDto = {
    */
   proposed: Array<string>;
   /**
-   * What its agent run spent, once digested
+   * What its agent run spent, once its usage is recorded
    */
   agentSpent: ModelSpentResponseDto | null;
   /**
@@ -8489,9 +8492,9 @@ export type SearchIterationResponseDto = {
 
 export type ConfigPullRequestReasonResponseDto = {
   /**
-   * Why Spotlight would not open it: the line names no source; the GitHub App cannot reach the repository; the file is missing or does not parse; the station’s block was not found exactly once; an attribute it would change is computed in Terraform; the file changed since the search began; or GitHub refused
+   * Why Spotlight would not open it: the line names no source; the GitHub App cannot access the repository; the file is missing or does not parse; the station’s block was not found exactly once; an attribute it would change is computed in Terraform; the file changed since the search began; or GitHub answered with an error
    */
-  code: 'no-source' | 'repository-unreachable' | 'file-missing' | 'file-unparsable' | 'block-not-found' | 'blocks-ambiguous' | 'computed-attribute' | 'drifted' | 'edit-failed' | 'branch-taken' | 'file-unwritable' | 'github-refused';
+  code: 'no-source' | 'repository-unreachable' | 'file-missing' | 'file-unparsable' | 'block-not-found' | 'blocks-ambiguous' | 'computed-attribute' | 'base-changed' | 'edit-failed' | 'branch-taken' | 'file-unwritable' | 'github-error';
   message: string;
   /**
    * The station attribute it is about, where there is one
@@ -8509,13 +8512,13 @@ export type ConfigPullRequestReasonResponseDto = {
 
 export type CandidatePullRequestResponseDto = {
   id: string;
-  state: 'opening' | 'opened' | 'refused';
+  state: 'opening' | 'opened' | 'failed';
   /**
    * The pull request, once it opened
    */
   url: string | null;
   /**
-   * Why it was refused; null unless it was
+   * Why it failed; null unless it failed
    */
   reason: ConfigPullRequestReasonResponseDto | null;
 };
@@ -8529,7 +8532,7 @@ export type SearchCandidateResponseDto = {
   /**
    * Whether it is the live config it started from
    */
-  seed: boolean;
+  isSeed: boolean;
   /**
    * The iteration that proposed it; none for the seed
    */
@@ -8547,12 +8550,12 @@ export type SearchCandidateResponseDto = {
    * Its replay on the searched tasks; for the seed, its replay of the whole set
    */
   replayId: string;
-  replayState: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | null;
+  replayState: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached' | null;
   /**
    * Its replay on the held-out tasks, when it was on the frontier as the search stopped
    */
   heldOutReplayId: string | null;
-  heldOutReplayState: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | null;
+  heldOutReplayState: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached' | null;
   /**
    * Its success rate on the searched tasks, 0 to 1
    */
@@ -8562,7 +8565,7 @@ export type SearchCandidateResponseDto = {
    */
   searchInterval: RateIntervalResponseDto | null;
   /**
-   * How many searched replay runs, copies included, it was scored on
+   * How many searched replay runs, repeats included, it was scored on
    */
   searchScored: number;
   /**
@@ -8576,11 +8579,11 @@ export type SearchCandidateResponseDto = {
   /**
    * Its gain over the seed on the searched tasks, paired task by task, and whether it is within noise; null for the seed
    */
-  searchedGain: GainReadingResponseDto | null;
+  searchedGain: GainEstimateResponseDto | null;
   /**
    * Its gain over the seed on the held-out tasks, once its held-out replay finished; null for the seed
    */
-  heldOutGain: GainReadingResponseDto | null;
+  heldOutGain: GainEstimateResponseDto | null;
   /**
    * Searched tasks whose change the judge, comparing it blind with the seed’s, found better, worse or as good; null for the seed
    */
@@ -8593,7 +8596,7 @@ export type SearchCandidateResponseDto = {
    * What it spent per searched run; unknown while any of it went unpriced or was in another currency
    */
   costPerRun: number | null;
-  spent: SpendResponseDto;
+  spent: MoneyResponseDto;
   /**
    * Whether no other candidate, nor the seed, succeeds as often for less
    */
@@ -8601,7 +8604,7 @@ export type SearchCandidateResponseDto = {
   /**
    * marked when it beat the live config on the searched tasks but not on the held-out ones, so its gain showed only on the tasks the search could see; too-few-held-out when it beat the live config on the searched tasks but too few held-out tasks were scored on both sides to tell; null otherwise, and until its held-out replay finished
    */
-  onlyOnSeenTasks: 'marked' | 'too-few-held-out' | null;
+  overfit: 'likely' | 'too-few-held-out' | null;
   /**
    * The pull request Spotlight opens in the line’s config repository once a person picks the candidate; null until then, and always for the seed
    */
@@ -8618,9 +8621,9 @@ export type SearchDetailResponseDto = {
    */
   state: 'seeding' | 'searching' | 'holding-out' | 'finished' | 'stopped';
   /**
-   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose outcome says why), was stopped by a person, lost its station or set, or could not replay the live config
+   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose result says why), was stopped by a person, lost its station or set, or could not replay the live config
    */
-  ending: 'iterations-spent' | 'ceiling-reached' | 'stalled' | 'stopped' | 'station-gone' | 'set-gone' | 'seed-failed' | null;
+  stopReason: 'iterations-spent' | 'ceiling-reached' | 'stalled' | 'stopped' | 'station-gone' | 'set-gone' | 'seed-failed' | null;
   agent: SearchAgentResponseDto;
   budget: SearchBudgetResponseDto;
   /**
@@ -8630,7 +8633,7 @@ export type SearchDetailResponseDto = {
   /**
    * What it spent so far, in its ceiling’s currency: its replays and its agent’s runs
    */
-  spent: SpendResponseDto;
+  spent: MoneyResponseDto;
   /**
    * How many times its agent ran, or is running
    */
@@ -8659,7 +8662,7 @@ export type SearchDetailResponseDto = {
   /**
    * How many frontier candidates gained only on the tasks the search could see
    */
-  onlyOnSeenTasks: number;
+  overfitCount: number;
   /**
    * The smallest gain over the seed its line counts as real: replay_check.min_gain, or 0.05 when the line sets none
    */
@@ -8668,13 +8671,13 @@ export type SearchDetailResponseDto = {
 
 export type ConfigPullRequestResponseDto = {
   id: string;
-  state: 'opening' | 'opened' | 'refused';
+  state: 'opening' | 'opened' | 'failed';
   /**
    * The pull request, once it opened
    */
   url: string | null;
   /**
-   * Why it was refused; null unless it was
+   * Why it failed; null unless it failed
    */
   reason: ConfigPullRequestReasonResponseDto | null;
   teamId: string;
@@ -8685,7 +8688,7 @@ export type ConfigPullRequestResponseDto = {
   stationId: string;
   stationKey: string;
   /**
-   * The repository the line’s source names, as it stood when it was picked; null when the line named none
+   * The repository that the line’s source named when it was picked; null when the line named none
    */
   repository: string | null;
   path: string | null;
@@ -8694,9 +8697,9 @@ export type ConfigPullRequestResponseDto = {
    */
   branch: string;
   /**
-   * How many times a person picked it; each pick after a refusal tries again
+   * How many times a person picked it. Each pick after a failure starts a new generation
    */
-  attempts: number;
+  generation: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -8716,13 +8719,13 @@ export type StartReplayCheckRequestDto = {
   lineId: string;
   stationKey: string;
   /**
-   * The station block as the plan would apply it, as the line resource holds a station; its check, judge, diffs and runners are replaced by the live station’s, since a planned change is scored as, and runs where, the live station does
+   * The station block as the plan would apply it, as the line resource stores a station; its check, judge, diffs and runners are replaced by the live station’s, since a planned change is scored as, and runs where, the live station does
    */
   station: {
     [key: string]: unknown;
   };
   /**
-   * The line’s settings that change how its stations run, as the plan would apply them: its repositories, each with its image and setup, as the line resource holds them
+   * The line’s settings that change how its stations run, as the plan would apply them: its repositories, each with its image and setup, as the line resource stores them
    */
   line?: {
     [key: string]: unknown;
@@ -8749,20 +8752,20 @@ export type ReplayCheckThresholdResponseDto = {
    */
   minGain: number;
   /**
-   * The most each replay of the check may spend: the replay of the planned change and, when the set has no baseline of the live config yet, the baseline replay the check starts, each up to this ceiling on its own; a baseline already there costs the check nothing. A replay reaching its ceiling starts no more runs, though runs already going finish, so it may end a little over it
+   * The most each replay of the check may spend: the replay of the planned change and, when the set has no baseline of the live config yet, the baseline replay the check starts, each up to this ceiling on its own; a baseline already there costs the check nothing. A replay at its ceiling starts no more runs, though runs already going finish, so it may end a little over it
    */
-  ceiling: SpendResponseDto;
+  ceiling: MoneyResponseDto;
   /**
    * What a run that reports no price, or a price in another currency, counts against the ceiling: the ceiling shared out over the set’s runs; null once the replay is gone
    */
-  unpricedRun: SpendResponseDto | null;
+  unpricedRun: MoneyResponseDto | null;
 };
 
 export type ReplayCheckSideResponseDto = {
   /**
    * The replay’s state; null once it is gone
    */
-  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | null;
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached' | null;
   entries: number;
   scored: number;
   succeeded: number | null;
@@ -8772,10 +8775,10 @@ export type ReplayCheckSideResponseDto = {
    */
   interval: RateIntervalResponseDto | null;
   /**
-   * Tasks with at least one scored copy
+   * Tasks with at least one scored repeat
    */
   tasksScored: number;
-  spent: SpendResponseDto | null;
+  spent: MoneyResponseDto | null;
 };
 
 export type ReplayCheckReasonResponseDto = {
@@ -8788,11 +8791,11 @@ export type ReplayCheckRegressionResponseDto = {
   originalRunId: string;
   title: string | null;
   /**
-   * The result of each copy the candidate replayed
+   * The result of each repeat the candidate replayed
    */
   candidate: Array<'pending' | 'succeeded' | 'failed' | 'unscored'>;
   /**
-   * The result of each copy the baseline replayed
+   * The result of each repeat the baseline replayed
    */
   baseline: Array<'pending' | 'succeeded' | 'failed' | 'unscored'>;
   scoreDelta: number | null;
@@ -8806,7 +8809,7 @@ export type ReplayCheckResponseDto = {
   stationId: string;
   stationKey: string;
   /**
-   * The replay set that guards the station’s changes
+   * The replay set that gates the station’s changes
    */
   setId: string;
   setName: string | null;
@@ -8827,25 +8830,25 @@ export type ReplayCheckResponseDto = {
   liveFingerprint: string;
   candidateFingerprint: string;
   /**
-   * What the plan changed of how runs are scored, which the check kept as the live station has it
+   * What the plan changed of how runs are scored, which the check pinned to the live station’s values
    */
-  keptLive: Array<'check' | 'judge' | 'diffs' | 'runners'>;
+  scoringPinnedToLive: Array<'check' | 'judge' | 'diffs' | 'runners'>;
   threshold: ReplayCheckThresholdResponseDto;
   /**
    * How many times the check replays each run of the set
    */
   repeats: number;
   /**
-   * The candidate’s gain in success over the baseline and whether it is within noise; it does not decide the verdict
+   * The candidate’s gain in success over the baseline and whether it is within noise; it does not decide the result
    */
-  gain: GainReadingResponseDto | null;
+  gain: GainEstimateResponseDto | null;
   /**
    * failed as soon as more tasks regressed than the threshold allows; running while either replay runs; undecided when the replay stopped or reached its ceiling, the baseline did not finish, or fewer than half the tasks were scored on both sides; passed otherwise
    */
-  verdict: 'running' | 'passed' | 'failed' | 'undecided';
+  result: 'running' | 'passed' | 'failed' | 'undecided';
   undecidedBecause: 'replay-gone' | 'stopped' | 'over-ceiling' | 'baseline-unfinished' | 'no-baseline' | 'too-few-scored' | null;
   /**
-   * How many tasks the guarding set replays
+   * How many tasks the gating set replays
    */
   tasks: number;
   /**
@@ -8870,7 +8873,7 @@ export type ReplayCheckSummaryResponseDto = {
   id: string;
   stationId: string;
   stationKey: string;
-  verdict: 'running' | 'passed' | 'failed' | 'undecided';
+  result: 'running' | 'passed' | 'failed' | 'undecided';
   undecidedBecause: 'replay-gone' | 'stopped' | 'over-ceiling' | 'baseline-unfinished' | 'no-baseline' | 'too-few-scored' | null;
   /**
    * How many tasks the change regressed on
@@ -8898,7 +8901,7 @@ export type ProposeSearchCandidateRequestDto = {
    */
   hypothesis: string;
   /**
-   * The station block, as the line holds it, changed only where a search may change it
+   * The station block, as the line stores it, changed only where a search may change it
    */
   station: {
     [key: string]: unknown;
@@ -8914,7 +8917,7 @@ export type SearchCandidateProposedResponseDto = {
   replayId: string;
 };
 
-export type RecordSearchCauseRequestDto = {
+export type RecordFailureCauseRequestDto = {
   /**
    * A failing task the reflection’s briefing lists, by its task id
    */
@@ -8933,7 +8936,7 @@ export type RecordSearchCauseRequestDto = {
   suggestion?: string | null;
 };
 
-export type SearchCauseRecordedResponseDto = {
+export type FailureCauseRecordedResponseDto = {
   taskId: string;
   cause: 'config' | 'task' | 'judge' | 'check' | 'infra';
   /**
@@ -8956,7 +8959,7 @@ export type ReplayedPeriodResponseDto = {
 
 export type ReplaySetHealthResponseDto = {
   /**
-   * How much its success rate moves between copies of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has
+   * How much its success rate moves between repeats of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has
    */
   noise: SetNoiseResponseDto | null;
   /**
@@ -8964,11 +8967,11 @@ export type ReplaySetHealthResponseDto = {
    */
   saturation: SetSaturationResponseDto | null;
   /**
-   * How often the judge agrees with itself, from the set’s newest probe; null until a probe was judged
+   * How often the judge agrees with itself, from the set’s newest calibration; null until a calibration was judged
    */
   judge: JudgeConsistencyResponseDto | null;
   /**
-   * Whether the station’s check gives the same answer twice, from the set’s newest probe; null until a probe was checked
+   * Whether the station’s check returns the same answer twice, from the set’s newest calibration; null until a calibration was checked
    */
   checks: CheckConsistencyResponseDto | null;
   /**
@@ -8980,7 +8983,7 @@ export type ReplaySetHealthResponseDto = {
    */
   tasks: number;
   /**
-   * How many past runs the set holds now
+   * How many past runs the set contains now
    */
   runs: number;
   /**
@@ -8992,7 +8995,7 @@ export type ReplaySetHealthResponseDto = {
    */
   newestRunEndedAt: string | null;
   /**
-   * When a task was last added to it; null while it holds none
+   * When a task was last added to it; null while it contains none
    */
   lastAddedAt: string | null;
   /**
@@ -9003,7 +9006,7 @@ export type ReplaySetHealthResponseDto = {
 
 export type ReplayedBaselineResponseDto = {
   replayId: string;
-  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached';
   /**
    * The fingerprint of the live config it replayed
    */
@@ -9029,12 +9032,12 @@ export type ReplayedBaselineResponseDto = {
   /**
    * Where it goes on the set’s cost and success chart: priced when finished, scored and costed in the chart currency; unfinished, unscored, unpriced or other-currency say why it is left off
    */
-  charted: 'priced' | 'unpriced' | 'other-currency' | 'unscored' | 'unfinished';
+  chartStatus: 'priced' | 'unpriced' | 'other-currency' | 'unscored' | 'unfinished';
 };
 
 export type ReplayedHeldOutResponseDto = {
   replayId: string;
-  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | null;
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached' | null;
   /**
    * Its success rate on the held-out tasks, 0 to 1, once its held-out replay finished
    */
@@ -9092,7 +9095,7 @@ export type ReplayedSeedResponseDto = {
   /**
    * Where it goes on the set’s cost and success chart: priced when finished, scored and costed in the chart currency; unfinished, unscored, unpriced or other-currency say why it is left off
    */
-  charted: 'priced' | 'unpriced' | 'other-currency' | 'unscored' | 'unfinished';
+  chartStatus: 'priced' | 'unpriced' | 'other-currency' | 'unscored' | 'unfinished';
 };
 
 export type ReplayedSearchResponseDto = {
@@ -9164,7 +9167,7 @@ export type ReplayedCandidateResponseDto = {
    * Its replay: on the searched tasks when searched, of the whole set when proposed
    */
   replayId: string;
-  replayState: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | null;
+  replayState: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached' | null;
   /**
    * When the replay shown started: for a proposed candidate, its newest finished replay in the period, else its newest; null while a searched candidate’s replay cannot be found
    */
@@ -9225,7 +9228,7 @@ export type ReplayedCandidateResponseDto = {
   /**
    * Its gain in success over the baseline on the compared runs, paired task by task, and whether it is within noise; null without a baseline
    */
-  againstLive: GainReadingResponseDto | null;
+  gainOverLive: GainEstimateResponseDto | null;
   /**
    * Whether no other candidate of its search, nor the seed, succeeds as often for less; null unless searched
    */
@@ -9241,7 +9244,7 @@ export type ReplayedCandidateResponseDto = {
   /**
    * Where it goes on the set’s cost and success chart: priced when finished, scored and costed in the chart currency; unfinished, unscored, unpriced or other-currency say why it is left off
    */
-  charted: 'priced' | 'unpriced' | 'other-currency' | 'unscored' | 'unfinished';
+  chartStatus: 'priced' | 'unpriced' | 'other-currency' | 'unscored' | 'unfinished';
   /**
    * The success and cost to set beside live: on the compared runs when there are any, else overall
    */
@@ -9258,13 +9261,13 @@ export type ReplayedSetResponseDto = {
   /**
    * Whether it checks every pull request that changes its station
    */
-  guardsChanges: boolean;
+  gatesChanges: boolean;
   /**
-   * How the set stands now, whatever the period
+   * The current health of the set, whatever the period
    */
   health: ReplaySetHealthResponseDto;
   /**
-   * The live config replayed over the set, its newest standing baseline whatever the period; null while it has none
+   * The live config replayed over the set, its newest valid baseline whatever the period; null while it has none
    */
   baseline: ReplayedBaselineResponseDto | null;
   /**
@@ -9312,7 +9315,7 @@ export type HookSigningRequestDtoWritable = {
 
 export type HookDefinitionRequestDtoWritable = {
   key: string;
-  on: 'tool.using' | 'tool.used' | 'run.starting' | 'run.ended' | 'handover.giving' | 'pull-request.opening' | 'pull-request.merged' | 'task.opened' | 'task.moved';
+  on: 'tool.using' | 'tool.used' | 'run.starting' | 'run.ended' | 'handover.submitting' | 'pull-request.opening' | 'pull-request.merged' | 'task.opened' | 'task.moved';
   match?: HookMatchDto;
   when?: string;
   vars?: {
@@ -9382,7 +9385,7 @@ export type CreateLineData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -9390,7 +9393,7 @@ export type CreateLineData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -9403,7 +9406,7 @@ export type CreateLineData = {
 
 export type CreateLineErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -9432,7 +9435,7 @@ export type CreateLineError = CreateLineErrors[keyof CreateLineErrors];
 
 export type CreateLineResponses = {
   /**
-   * The line, as a read would answer it
+   * The line, as a read returns it
    */
   201: LineResourceResponseDto;
 };
@@ -9443,7 +9446,7 @@ export type DeleteLineData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -9451,7 +9454,7 @@ export type DeleteLineData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -9464,7 +9467,7 @@ export type DeleteLineData = {
 
 export type DeleteLineErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -9504,7 +9507,7 @@ export type ReadLineData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -9521,7 +9524,7 @@ export type ReadLineData = {
 
 export type ReadLineErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -9551,7 +9554,7 @@ export type UpdateLineData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -9559,7 +9562,7 @@ export type UpdateLineData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -9572,7 +9575,7 @@ export type UpdateLineData = {
 
 export type UpdateLineErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -9605,7 +9608,7 @@ export type UpdateLineError = UpdateLineErrors[keyof UpdateLineErrors];
 
 export type UpdateLineResponses = {
   /**
-   * The line, as a read would answer it
+   * The line, as a read returns it
    */
   200: LineResourceResponseDto;
 };
@@ -9616,7 +9619,7 @@ export type ImportLineData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -9638,7 +9641,7 @@ export type ImportLineData = {
 
 export type ImportLineErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -9655,7 +9658,7 @@ export type ImportLineError = ImportLineErrors[keyof ImportLineErrors];
 
 export type ImportLineResponses = {
   /**
-   * The line, as a read would answer it
+   * The line, as a read returns it
    */
   200: LineResourceResponseDto;
 };
@@ -9666,7 +9669,7 @@ export type ListLinesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -9683,7 +9686,7 @@ export type ListLinesData = {
 
 export type ListLinesErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -9700,7 +9703,7 @@ export type ListLinesError = ListLinesErrors[keyof ListLinesErrors];
 
 export type ListLinesResponses = {
   /**
-   * Every line there, each as a read would answer it, in address order
+   * Every line there, each as a read returns it, in address order
    */
   200: LineResourceListResponseDto;
 };
@@ -9765,25 +9768,25 @@ export type StreamRunResponses = {
   200: unknown;
 };
 
-export type InstallableHarnessesData = {
+export type ListHarnessProbesData = {
   body?: never;
   path?: never;
   query?: never;
   url: '/runners/harnesses';
 };
 
-export type InstallableHarnessesErrors = {
+export type ListHarnessProbesErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
 };
 
-export type InstallableHarnessesResponses = {
-  200: Array<InstallableHarnessResponseDto>;
+export type ListHarnessProbesResponses = {
+  200: Array<HarnessProbeResponseDto>;
 };
 
-export type InstallableHarnessesResponse = InstallableHarnessesResponses[keyof InstallableHarnessesResponses];
+export type ListHarnessProbesResponse = ListHarnessProbesResponses[keyof ListHarnessProbesResponses];
 
 export type ClaimRunData = {
   body?: never;
@@ -9794,7 +9797,7 @@ export type ClaimRunData = {
 
 export type ClaimRunErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
 };
@@ -9820,11 +9823,11 @@ export type PendingMessagesData = {
 
 export type PendingMessagesErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
-   * No such run held by this runner
+   * No such run leased by this runner
    */
   404: unknown;
 };
@@ -9847,7 +9850,7 @@ export type ReadRunAttachmentData = {
 
 export type ReadRunAttachmentErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -9875,7 +9878,7 @@ export type ReadRunTraceData = {
 
 export type ReadRunTraceErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -9908,7 +9911,7 @@ export type ReadRunHistoryData = {
 
 export type ReadRunHistoryErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -9927,31 +9930,31 @@ export type ReadRunHistoryResponses = {
 
 export type ReadRunHistoryResponse = ReadRunHistoryResponses[keyof ReadRunHistoryResponses];
 
-export type DeliverSaidData = {
-  body: DeliverSaidRequestDto;
+export type AckMessagesData = {
+  body: AckMessagesRequestDto;
   path: {
     runId: string;
   };
   query?: never;
-  url: '/runs/{runId}/messages/delivered';
+  url: '/runs/{runId}/messages/ack';
 };
 
-export type DeliverSaidErrors = {
+export type AckMessagesErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
-   * The run is not held by this runner
+   * The run is not leased by this runner
    */
   409: unknown;
 };
 
-export type DeliverSaidResponses = {
+export type AckMessagesResponses = {
   204: void;
 };
 
-export type DeliverSaidResponse = DeliverSaidResponses[keyof DeliverSaidResponses];
+export type AckMessagesResponse = AckMessagesResponses[keyof AckMessagesResponses];
 
 export type RenewLeaseData = {
   body?: never;
@@ -9964,11 +9967,11 @@ export type RenewLeaseData = {
 
 export type RenewLeaseErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
-   * The run is no longer held by this runner: it ended, was parked, or its task let it go. The runner lets its sandbox go.
+   * The run is no longer leased by this runner: it ended, was suspended, or its task cancelled it. The runner releases its sandbox.
    */
   404: unknown;
   /**
@@ -10000,11 +10003,11 @@ export type RenewCheckLeaseData = {
 
 export type RenewCheckLeaseErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
-   * No such runner, or the check this runner holds is of another run
+   * No such runner, or the check this runner leases is of another run
    */
   404: unknown;
   /**
@@ -10030,11 +10033,11 @@ export type RecordRunImageData = {
 
 export type RecordRunImageErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
-   * The run is not held by this runner
+   * The run is not leased by this runner
    */
   409: unknown;
 };
@@ -10056,7 +10059,7 @@ export type RecordStartingPointData = {
 
 export type RecordStartingPointErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -10064,11 +10067,11 @@ export type RecordStartingPointErrors = {
    */
   404: unknown;
   /**
-   * The run is not held by this runner on that attempt, works no task, or already started from somewhere else
+   * The run is not leased by this runner on that attempt, works no task, or already started from somewhere else
    */
   409: unknown;
   /**
-   * An archive the run could not have restored, a commit that is not a full SHA, or checkouts other than the ones the run was given
+   * An archive the run could not have restored, a commit that is not a full SHA, or checkouts that are not the run’s own
    */
   422: unknown;
 };
@@ -10090,11 +10093,11 @@ export type AppendRunEventsData = {
 
 export type AppendRunEventsErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
-   * The run is not held by this runner
+   * The run is not leased by this runner
    */
   409: unknown;
 };
@@ -10119,11 +10122,11 @@ export type UseToolData = {
 
 export type UseToolErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
-   * The run was not given this tool
+   * This tool is not enabled for the run
    */
   403: unknown;
   /**
@@ -10139,7 +10142,7 @@ export type UseToolErrors = {
    */
   422: unknown;
   /**
-   * The integration the tool calls refused
+   * The integration the tool calls answered with an error
    */
   502: unknown;
 };
@@ -10161,11 +10164,11 @@ export type AskPermissionData = {
 
 export type AskPermissionErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
-   * The run is not held by this runner
+   * The run is not leased by this runner
    */
   409: unknown;
 };
@@ -10176,27 +10179,27 @@ export type AskPermissionResponses = {
 
 export type AskPermissionResponse = AskPermissionResponses[keyof AskPermissionResponses];
 
-export type AnswerRemarkData = {
-  body: AnswerRemarkRequestDto;
+export type ReplyToReviewCommentData = {
+  body: ReplyToReviewCommentRequestDto;
   path: {
     runId: string;
   };
   query?: never;
-  url: '/runs/{runId}/remark';
+  url: '/runs/{runId}/review-comment-replies';
 };
 
-export type AnswerRemarkErrors = {
+export type ReplyToReviewCommentErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
 };
 
-export type AnswerRemarkResponses = {
+export type ReplyToReviewCommentResponses = {
   204: void;
 };
 
-export type AnswerRemarkResponse = AnswerRemarkResponses[keyof AnswerRemarkResponses];
+export type ReplyToReviewCommentResponse = ReplyToReviewCommentResponses[keyof ReplyToReviewCommentResponses];
 
 export type CompleteRunData = {
   body: CompleteRunRequestDto;
@@ -10209,7 +10212,7 @@ export type CompleteRunData = {
 
 export type CompleteRunErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
 };
@@ -10220,57 +10223,57 @@ export type CompleteRunResponses = {
 
 export type CompleteRunResponse = CompleteRunResponses[keyof CompleteRunResponses];
 
-export type TurnAsksAPersonData = {
+export type TurnAwaitsPersonData = {
   body: CompleteRunRequestDto;
   path: {
     runId: string;
   };
   query?: never;
-  url: '/runs/{runId}/completion/asks';
+  url: '/runs/{runId}/completion/awaits-person';
 };
 
-export type TurnAsksAPersonErrors = {
+export type TurnAwaitsPersonErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
-   * No such run held by this runner
+   * No such run leased by this runner
    */
   404: unknown;
 };
 
-export type TurnAsksAPersonResponses = {
-  200: TurnAsksAPersonResponseDto;
+export type TurnAwaitsPersonResponses = {
+  200: TurnAwaitsPersonResponseDto;
 };
 
-export type TurnAsksAPersonResponse = TurnAsksAPersonResponses[keyof TurnAsksAPersonResponses];
+export type TurnAwaitsPersonResponse = TurnAwaitsPersonResponses[keyof TurnAwaitsPersonResponses];
 
-export type ParkRunData = {
-  body: ParkRunRequestDto;
+export type SuspendRunData = {
+  body: SuspendRunRequestDto;
   path: {
     runId: string;
   };
   query?: never;
-  url: '/runs/{runId}/parked';
+  url: '/runs/{runId}/suspended';
 };
 
-export type ParkRunErrors = {
+export type SuspendRunErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
-   * The run is not held by this runner
+   * The run is not leased by this runner
    */
   409: unknown;
 };
 
-export type ParkRunResponses = {
-  200: RunParkingResponseDto;
+export type SuspendRunResponses = {
+  200: RunSuspensionResponseDto;
 };
 
-export type ParkRunResponse = ParkRunResponses[keyof ParkRunResponses];
+export type SuspendRunResponse = SuspendRunResponses[keyof SuspendRunResponses];
 
 export type ReadWorkspaceArchiveData = {
   body?: never;
@@ -10283,7 +10286,7 @@ export type ReadWorkspaceArchiveData = {
 
 export type ReadWorkspaceArchiveErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -10293,7 +10296,7 @@ export type ReadWorkspaceArchiveErrors = {
 };
 
 export type ReadWorkspaceArchiveResponses = {
-  200: HeldArchiveResponseDto;
+  200: StoredArchiveResponseDto;
   /**
    * Nothing to restore: the run starts its work afresh
    */
@@ -10313,7 +10316,7 @@ export type GrantWorkspaceArchiveData = {
 
 export type GrantWorkspaceArchiveErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -10321,7 +10324,7 @@ export type GrantWorkspaceArchiveErrors = {
    */
   404: unknown;
   /**
-   * Too large, not a SHA-256, work that does not carry on, or nowhere to keep it
+   * Too large, not a SHA-256, work that does not carry on, or nowhere to store it
    */
   422: unknown;
 };
@@ -10332,19 +10335,19 @@ export type GrantWorkspaceArchiveResponses = {
 
 export type GrantWorkspaceArchiveResponse = GrantWorkspaceArchiveResponses[keyof GrantWorkspaceArchiveResponses];
 
-export type SealWorkspaceArchiveData = {
+export type CompleteWorkspaceArchiveData = {
   body?: never;
   path: {
     runId: string;
     archiveId: string;
   };
   query?: never;
-  url: '/runs/{runId}/workspace-archive/{archiveId}/sealed';
+  url: '/runs/{runId}/workspace-archive/{archiveId}/complete';
 };
 
-export type SealWorkspaceArchiveErrors = {
+export type CompleteWorkspaceArchiveErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -10357,11 +10360,11 @@ export type SealWorkspaceArchiveErrors = {
   409: unknown;
 };
 
-export type SealWorkspaceArchiveResponses = {
+export type CompleteWorkspaceArchiveResponses = {
   204: void;
 };
 
-export type SealWorkspaceArchiveResponse = SealWorkspaceArchiveResponses[keyof SealWorkspaceArchiveResponses];
+export type CompleteWorkspaceArchiveResponse = CompleteWorkspaceArchiveResponses[keyof CompleteWorkspaceArchiveResponses];
 
 export type PoolQueueData = {
   body?: never;
@@ -10400,7 +10403,7 @@ export type HostRequirementsData = {
 
 export type HostRequirementsErrors = {
   /**
-   * Missing, rotated or unknown pool token, or a workload the trust does not admit
+   * Missing, rotated or unknown pool token, or a workload the trust does not match
    */
   401: unknown;
 };
@@ -10426,11 +10429,11 @@ export type ClaimHostWorkData = {
 
 export type ClaimHostWorkErrors = {
   /**
-   * Missing, rotated or unknown pool token, or a workload the trust does not admit
+   * Missing, rotated or unknown pool token, or a workload the trust does not match
    */
   401: unknown;
   /**
-   * The host has not reported through this pool or trust (`host-unreported`), or has not reported serving the image it claims for (`image-unreported`)
+   * The host has not reported through this pool or trust (`host-unreported`), or has not reported that it supports the image it claims for (`image-unreported`)
    */
   409: unknown;
 };
@@ -10460,7 +10463,7 @@ export type ClaimHostCallData = {
 
 export type ClaimHostCallErrors = {
   /**
-   * Missing, rotated or unknown pool token, or a workload the trust does not admit
+   * Missing, rotated or unknown pool token, or a workload the trust does not match
    */
   401: unknown;
   /**
@@ -10479,8 +10482,8 @@ export type ClaimHostCallResponses = {
 
 export type ClaimHostCallResponse = ClaimHostCallResponses[keyof ClaimHostCallResponses];
 
-export type AnswerHostCallData = {
-  body: AnswerHostCallRequestDto;
+export type RecordHostCallResponseData = {
+  body: RecordHostCallResponseRequestDto;
   headers?: {
     /**
      * The runner trust to claim through; the bearer is then the workload’s token
@@ -10491,12 +10494,12 @@ export type AnswerHostCallData = {
     id: string;
   };
   query?: never;
-  url: '/hosts/calls/{id}/answer';
+  url: '/hosts/calls/{id}/response';
 };
 
-export type AnswerHostCallErrors = {
+export type RecordHostCallResponseErrors = {
   /**
-   * Missing, rotated or unknown pool token, or a workload the trust does not admit
+   * Missing, rotated or unknown pool token, or a workload the trust does not match
    */
   401: unknown;
   /**
@@ -10504,34 +10507,34 @@ export type AnswerHostCallErrors = {
    */
   404: unknown;
   /**
-   * The call was already answered, lapsed before it was answered, or was never claimed (`call-settled`), or another host claimed it (`not-this-hosts-call`)
+   * The call already has a response, expired before it got a response, or was never claimed (`call-completed`), or another host claimed it (`not-this-hosts-call`)
    */
   409: unknown;
 };
 
-export type AnswerHostCallResponses = {
+export type RecordHostCallResponseResponses = {
   /**
-   * The answer was taken
+   * Spotlight recorded the response
    */
   204: void;
 };
 
-export type AnswerHostCallResponse = AnswerHostCallResponses[keyof AnswerHostCallResponses];
+export type RecordHostCallResponseResponse = RecordHostCallResponseResponses[keyof RecordHostCallResponseResponses];
 
-export type RedeemEgressData = {
-  body: SharedRedeemEgressRequestDto;
+export type FetchRunSecretsData = {
+  body: FetchRunSecretsRequestDto;
   path?: never;
   query?: never;
-  url: '/egress/redeem';
+  url: '/egress/secrets';
 };
 
-export type RedeemEgressErrors = {
+export type FetchRunSecretsErrors = {
   /**
-   * Missing or unknown egress token, or its runner no longer holds work
+   * Missing or unknown egress token, or its runner no longer has a lease on work
    */
   401: unknown;
   /**
-   * The runner of this proxy credential holds no run yet. Please redeem again after it claims one
+   * The runner of this proxy credential has no lease on a run yet. Please fetch the secrets again after it claims one
    */
   409: unknown;
   /**
@@ -10540,55 +10543,55 @@ export type RedeemEgressErrors = {
   422: unknown;
 };
 
-export type RedeemEgressResponses = {
-  200: EgressRedemptionResponseDto;
+export type FetchRunSecretsResponses = {
+  200: EgressSecretsResponseDto;
 };
 
-export type RedeemEgressResponse = RedeemEgressResponses[keyof RedeemEgressResponses];
+export type FetchRunSecretsResponse = FetchRunSecretsResponses[keyof FetchRunSecretsResponses];
 
-export type AdmitThroughEgressData = {
-  body: AdmitThroughEgressRequestDto;
+export type AuthorizeRunnerData = {
+  body: AuthorizeRunnerRequestDto;
   path?: never;
   query?: never;
-  url: '/egress/admit';
+  url: '/egress/authorize';
 };
 
-export type AdmitThroughEgressErrors = {
+export type AuthorizeRunnerErrors = {
   /**
-   * Missing or unknown egress token, or its runner no longer holds work
+   * Missing or unknown egress token, or its runner no longer has a lease on work
    */
   401: unknown;
 };
 
-export type AdmitThroughEgressResponses = {
-  200: EgressAdmissionResponseDto;
+export type AuthorizeRunnerResponses = {
+  200: EgressAuthorizationResponseDto;
 };
 
-export type AdmitThroughEgressResponse = AdmitThroughEgressResponses[keyof AdmitThroughEgressResponses];
+export type AuthorizeRunnerResponse = AuthorizeRunnerResponses[keyof AuthorizeRunnerResponses];
 
-export type KeepEgressHoldsData = {
-  body: KeepEgressHoldsRequestDto;
+export type CheckActiveRunsData = {
+  body: CheckActiveRunsRequestDto;
   path?: never;
   query?: never;
-  url: '/egress/holds';
+  url: '/egress/active-runs';
 };
 
-export type KeepEgressHoldsErrors = {
+export type CheckActiveRunsErrors = {
   /**
-   * Missing or unknown egress token, or its runner no longer holds work
+   * Missing or unknown egress token, or its runner no longer has a lease on work
    */
   401: unknown;
   /**
-   * The call holds more than 500 proxy credentials
+   * The request has more than 500 proxy credentials
    */
   422: unknown;
 };
 
-export type KeepEgressHoldsResponses = {
-  200: EgressHoldsResponseDto;
+export type CheckActiveRunsResponses = {
+  200: EgressActiveRunsResponseDto;
 };
 
-export type KeepEgressHoldsResponse = KeepEgressHoldsResponses[keyof KeepEgressHoldsResponses];
+export type CheckActiveRunsResponse = CheckActiveRunsResponses[keyof CheckActiveRunsResponses];
 
 export type RecordEgressConnectionsData = {
   body: RecordEgressConnectionsRequestDto;
@@ -10599,18 +10602,18 @@ export type RecordEgressConnectionsData = {
 
 export type RecordEgressConnectionsErrors = {
   /**
-   * Missing or unknown egress token, or its runner no longer holds work
+   * Missing or unknown egress token, or its runner no longer has a lease on work
    */
   401: unknown;
   /**
-   * The call holds more than 2000 records
+   * The request has more than 2000 records
    */
   422: unknown;
 };
 
 export type RecordEgressConnectionsResponses = {
   /**
-   * The records were taken
+   * Spotlight accepted the records
    */
   204: void;
 };
@@ -10715,7 +10718,7 @@ export type AnswerInboxItemErrors = {
    */
   404: unknown;
   /**
-   * Only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it asked with
+   * Only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with
    */
   409: unknown;
 };
@@ -10729,7 +10732,7 @@ export type AnswerInboxItemResponses = {
 
 export type AnswerInboxItemResponse = AnswerInboxItemResponses[keyof AnswerInboxItemResponses];
 
-export type ReadInboxItemData = {
+export type MarkInboxItemReadData = {
   body?: never;
   path: {
     itemId: string;
@@ -10739,7 +10742,7 @@ export type ReadInboxItemData = {
   url: '/workspaces/{slug}/inbox/{itemId}/read';
 };
 
-export type ReadInboxItemErrors = {
+export type MarkInboxItemReadErrors = {
   /**
    * No valid session
    */
@@ -10750,56 +10753,56 @@ export type ReadInboxItemErrors = {
   404: unknown;
 };
 
-export type ReadInboxItemResponses = {
+export type MarkInboxItemReadResponses = {
   /**
    * It is no longer unread
    */
   204: void;
 };
 
-export type ReadInboxItemResponse = ReadInboxItemResponses[keyof ReadInboxItemResponses];
+export type MarkInboxItemReadResponse = MarkInboxItemReadResponses[keyof MarkInboxItemReadResponses];
 
-export type ReadInboxAsideData = {
+export type MarkInboxRequestReadData = {
   body?: never;
   path: {
-    asideId: string;
+    requestId: string;
     slug: string;
   };
   query?: never;
-  url: '/workspaces/{slug}/inbox/asides/{asideId}/read';
+  url: '/workspaces/{slug}/inbox/requests/{requestId}/read';
 };
 
-export type ReadInboxAsideErrors = {
+export type MarkInboxRequestReadErrors = {
   /**
    * No valid session
    */
   401: unknown;
   /**
-   * No such aside for this caller
+   * No such inbox request for this caller
    */
   404: unknown;
 };
 
-export type ReadInboxAsideResponses = {
+export type MarkInboxRequestReadResponses = {
   /**
    * It is no longer unread
    */
   204: void;
 };
 
-export type ReadInboxAsideResponse = ReadInboxAsideResponses[keyof ReadInboxAsideResponses];
+export type MarkInboxRequestReadResponse = MarkInboxRequestReadResponses[keyof MarkInboxRequestReadResponses];
 
-export type SettleInboxNoticeData = {
+export type ResolveInboxNoticeData = {
   body?: never;
   path: {
     slug: string;
     noticeId: string;
   };
   query?: never;
-  url: '/workspaces/{slug}/inbox/notices/{noticeId}/settle';
+  url: '/workspaces/{slug}/inbox/notices/{noticeId}/resolve';
 };
 
-export type SettleInboxNoticeErrors = {
+export type ResolveInboxNoticeErrors = {
   /**
    * No valid session
    */
@@ -10810,14 +10813,14 @@ export type SettleInboxNoticeErrors = {
   404: unknown;
 };
 
-export type SettleInboxNoticeResponses = {
+export type ResolveInboxNoticeResponses = {
   /**
-   * It is settled
+   * It is resolved
    */
   204: void;
 };
 
-export type SettleInboxNoticeResponse = SettleInboxNoticeResponses[keyof SettleInboxNoticeResponses];
+export type ResolveInboxNoticeResponse = ResolveInboxNoticeResponses[keyof ResolveInboxNoticeResponses];
 
 export type ReadTaskJournalData = {
   body?: never;
@@ -10865,7 +10868,7 @@ export type GrantAttachmentUploadErrors = {
    */
   404: unknown;
   /**
-   * Too large to attach, or nowhere to keep it
+   * Too large to attach, or nowhere to store it
    */
   422: unknown;
 };
@@ -10957,7 +10960,7 @@ export type ListTeamTracesData = {
   };
   query?: {
     /**
-     * How far back from now to look, counting runs started since; 30d unless asked
+     * How far back from now to look, counting runs started since; 30d by default
      */
     range?: '30m' | '1h' | '6h' | '1d' | '3d' | '7d' | '14d' | '30d' | '90d';
   };
@@ -11035,17 +11038,17 @@ export type ReadRunNetworkResponses = {
 
 export type ReadRunNetworkResponse = ReadRunNetworkResponses[keyof ReadRunNetworkResponses];
 
-export type ReadRunConversationData = {
+export type ReadRunNotesData = {
   body?: never;
   path: {
     runId: string;
     teamId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/runs/{runId}/conversation';
+  url: '/teams/{teamId}/runs/{runId}/notes';
 };
 
-export type ReadRunConversationErrors = {
+export type ReadRunNotesErrors = {
   /**
    * No valid session
    */
@@ -11056,23 +11059,23 @@ export type ReadRunConversationErrors = {
   404: unknown;
 };
 
-export type ReadRunConversationResponses = {
-  200: RunConversationResponseDto;
+export type ReadRunNotesResponses = {
+  200: RunNotesResponseDto;
 };
 
-export type ReadRunConversationResponse = ReadRunConversationResponses[keyof ReadRunConversationResponses];
+export type ReadRunNotesResponse = ReadRunNotesResponses[keyof ReadRunNotesResponses];
 
-export type SayToRunData = {
-  body: SayToRunRequestDto;
+export type SendMessageData = {
+  body: SendMessageRequestDto;
   path: {
     runId: string;
     teamId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/runs/{runId}/say';
+  url: '/teams/{teamId}/runs/{runId}/messages';
 };
 
-export type SayToRunErrors = {
+export type SendMessageErrors = {
   /**
    * No valid session
    */
@@ -11087,14 +11090,14 @@ export type SayToRunErrors = {
   409: unknown;
 };
 
-export type SayToRunResponses = {
+export type SendMessageResponses = {
   /**
-   * It joined the task’s trail, and starts the station again if the task stood idle there
+   * It joined the task’s trail, and starts the station again if the task was idle there
    */
   204: void;
 };
 
-export type SayToRunResponse = SayToRunResponses[keyof SayToRunResponses];
+export type SendMessageResponse = SendMessageResponses[keyof SendMessageResponses];
 
 export type StopRunData = {
   body?: never;
@@ -11116,14 +11119,14 @@ export type StopRunErrors = {
    */
   404: unknown;
   /**
-   * The run is no longer being worked
+   * The run is no longer in progress
    */
   409: unknown;
 };
 
 export type StopRunResponses = {
   /**
-   * The run was asked to stop
+   * The run received a stop request
    */
   204: void;
 };
@@ -11305,7 +11308,7 @@ export type ReadReplayRunData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -11323,7 +11326,7 @@ export type ReadReplayRunData = {
 
 export type ReadReplayRunErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -11331,7 +11334,7 @@ export type ReadReplayRunErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * No such replay run of the team for a caller who may read its outcomes
+   * No such replay run of the team for a caller who may read its insights
    */
   404: ProblemResponseDto;
 };
@@ -11348,7 +11351,7 @@ export type ReadSearchRunData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -11366,7 +11369,7 @@ export type ReadSearchRunData = {
 
 export type ReadSearchRunErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -11436,7 +11439,7 @@ export type StartChatErrors = {
    */
   404: unknown;
   /**
-   * An unknown harness, model, effort or repository, or a setup the GitHub App cannot reach or no host can run
+   * An unknown harness, model, effort or repository, or a setup the GitHub App cannot access or no host can run
    */
   422: unknown;
 };
@@ -11501,8 +11504,8 @@ export type ReadChatJournalResponses = {
 
 export type ReadChatJournalResponse = ReadChatJournalResponses[keyof ReadChatJournalResponses];
 
-export type SayInChatData = {
-  body: SayInChatRequestDto;
+export type SendChatMessageData = {
+  body: SendChatMessageRequestDto;
   path: {
     teamId: string;
     chatId: string;
@@ -11511,7 +11514,7 @@ export type SayInChatData = {
   url: '/teams/{teamId}/chats/{chatId}/messages';
 };
 
-export type SayInChatErrors = {
+export type SendChatMessageErrors = {
   /**
    * A model or effort that is not text
    */
@@ -11530,14 +11533,14 @@ export type SayInChatErrors = {
   422: unknown;
 };
 
-export type SayInChatResponses = {
+export type SendChatMessageResponses = {
   /**
-   * The agent hears it
+   * The agent gets the message
    */
   204: void;
 };
 
-export type SayInChatResponse = SayInChatResponses[keyof SayInChatResponses];
+export type SendChatMessageResponse = SendChatMessageResponses[keyof SendChatMessageResponses];
 
 export type StopChatData = {
   body?: never;
@@ -11566,7 +11569,7 @@ export type StopChatErrors = {
 
 export type StopChatResponses = {
   /**
-   * The agent was asked to stop
+   * The agent received a stop request
    */
   204: void;
 };
@@ -11594,7 +11597,7 @@ export type AcceptProposalErrors = {
    */
   404: unknown;
   /**
-   * The proposal is already settled
+   * The proposal is already decided
    */
   409: unknown;
 };
@@ -11629,7 +11632,7 @@ export type DismissProposalErrors = {
    */
   404: unknown;
   /**
-   * The proposal is already settled
+   * The proposal is already decided
    */
   409: unknown;
 };
@@ -11673,7 +11676,7 @@ export type ImportWorkspaceData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -11693,7 +11696,7 @@ export type ImportWorkspaceData = {
 
 export type ImportWorkspaceErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -11710,7 +11713,7 @@ export type ImportWorkspaceError = ImportWorkspaceErrors[keyof ImportWorkspaceEr
 
 export type ImportWorkspaceResponses = {
   /**
-   * The workspace, as a read would answer it
+   * The workspace, as a read returns it
    */
   200: WorkspaceResourceResponseDto;
 };
@@ -11721,7 +11724,7 @@ export type ListWorkspacesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -11736,7 +11739,7 @@ export type ListWorkspacesData = {
 
 export type ListWorkspacesErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -11749,7 +11752,7 @@ export type ListWorkspacesError = ListWorkspacesErrors[keyof ListWorkspacesError
 
 export type ListWorkspacesResponses = {
   /**
-   * Every workspace there, each as a read would answer it, in address order
+   * Every workspace there, each as a read returns it, in address order
    */
   200: WorkspaceResourceListResponseDto;
 };
@@ -11763,7 +11766,7 @@ export type CreateWorkspaceData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -11771,7 +11774,7 @@ export type CreateWorkspaceData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -11782,7 +11785,7 @@ export type CreateWorkspaceData = {
 
 export type CreateWorkspaceErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -11811,7 +11814,7 @@ export type CreateWorkspaceError = CreateWorkspaceErrors[keyof CreateWorkspaceEr
 
 export type CreateWorkspaceResponses = {
   /**
-   * The workspace, as a read would answer it
+   * The workspace, as a read returns it
    */
   201: WorkspaceResourceResponseDto;
 };
@@ -11822,7 +11825,7 @@ export type DeleteWorkspaceData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -11830,7 +11833,7 @@ export type DeleteWorkspaceData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -11843,7 +11846,7 @@ export type DeleteWorkspaceData = {
 
 export type DeleteWorkspaceErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -11883,7 +11886,7 @@ export type ReadWorkspaceData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -11900,7 +11903,7 @@ export type ReadWorkspaceData = {
 
 export type ReadWorkspaceErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -11931,7 +11934,7 @@ export type UpdateWorkspaceData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -11939,7 +11942,7 @@ export type UpdateWorkspaceData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -11952,7 +11955,7 @@ export type UpdateWorkspaceData = {
 
 export type UpdateWorkspaceErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -11985,7 +11988,7 @@ export type UpdateWorkspaceError = UpdateWorkspaceErrors[keyof UpdateWorkspaceEr
 
 export type UpdateWorkspaceResponses = {
   /**
-   * The workspace, as a read would answer it
+   * The workspace, as a read returns it
    */
   200: WorkspaceResourceResponseDto;
 };
@@ -11996,7 +11999,7 @@ export type ListTeamsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12013,7 +12016,7 @@ export type ListTeamsData = {
 
 export type ListTeamsErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -12030,7 +12033,7 @@ export type ListTeamsError = ListTeamsErrors[keyof ListTeamsErrors];
 
 export type ListTeamsResponses = {
   /**
-   * Every team there, each as a read would answer it, in address order
+   * Every team there, each as a read returns it, in address order
    */
   200: TeamResourceListResponseDto;
 };
@@ -12044,7 +12047,7 @@ export type CreateTeamData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12052,7 +12055,7 @@ export type CreateTeamData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -12065,7 +12068,7 @@ export type CreateTeamData = {
 
 export type CreateTeamErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -12094,7 +12097,7 @@ export type CreateTeamError = CreateTeamErrors[keyof CreateTeamErrors];
 
 export type CreateTeamResponses = {
   /**
-   * The team, as a read would answer it
+   * The team, as a read returns it
    */
   201: TeamResourceResponseDto;
 };
@@ -12105,7 +12108,7 @@ export type DeleteTeamData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12113,7 +12116,7 @@ export type DeleteTeamData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -12126,7 +12129,7 @@ export type DeleteTeamData = {
 
 export type DeleteTeamErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -12166,7 +12169,7 @@ export type ReadTeamData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12183,7 +12186,7 @@ export type ReadTeamData = {
 
 export type ReadTeamErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -12214,7 +12217,7 @@ export type UpdateTeamData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12222,7 +12225,7 @@ export type UpdateTeamData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -12235,7 +12238,7 @@ export type UpdateTeamData = {
 
 export type UpdateTeamErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -12268,7 +12271,7 @@ export type UpdateTeamError = UpdateTeamErrors[keyof UpdateTeamErrors];
 
 export type UpdateTeamResponses = {
   /**
-   * The team, as a read would answer it
+   * The team, as a read returns it
    */
   200: TeamResourceResponseDto;
 };
@@ -12279,7 +12282,7 @@ export type ImportTeamData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12301,7 +12304,7 @@ export type ImportTeamData = {
 
 export type ImportTeamErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -12318,7 +12321,7 @@ export type ImportTeamError = ImportTeamErrors[keyof ImportTeamErrors];
 
 export type ImportTeamResponses = {
   /**
-   * The team, as a read would answer it
+   * The team, as a read returns it
    */
   200: TeamResourceResponseDto;
 };
@@ -12329,7 +12332,7 @@ export type ListWorkspaceTokensData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12346,7 +12349,7 @@ export type ListWorkspaceTokensData = {
 
 export type ListWorkspaceTokensErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -12363,7 +12366,7 @@ export type ListWorkspaceTokensError = ListWorkspaceTokensErrors[keyof ListWorks
 
 export type ListWorkspaceTokensResponses = {
   /**
-   * Every workspace-token there, each as a read would answer it, in address order
+   * Every workspace-token there, each as a read returns it, in address order
    */
   200: WorkspaceTokenResourceListResponseDto;
 };
@@ -12379,7 +12382,7 @@ export type CreateWorkspaceTokenData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12387,7 +12390,7 @@ export type CreateWorkspaceTokenData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -12400,7 +12403,7 @@ export type CreateWorkspaceTokenData = {
 
 export type CreateWorkspaceTokenErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -12429,9 +12432,9 @@ export type CreateWorkspaceTokenError = CreateWorkspaceTokenErrors[keyof CreateW
 
 export type CreateWorkspaceTokenResponses = {
   /**
-   * The workspace-token, as a read would answer it
+   * The workspace-token, as a read returns it
    *
-   * The token, as a read would answer it
+   * The token, as a read returns it
    */
   201: WorkspaceTokenResourceResponseDto;
 };
@@ -12442,7 +12445,7 @@ export type DeleteWorkspaceTokenData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12450,7 +12453,7 @@ export type DeleteWorkspaceTokenData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -12463,7 +12466,7 @@ export type DeleteWorkspaceTokenData = {
 
 export type DeleteWorkspaceTokenErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -12503,7 +12506,7 @@ export type ReadWorkspaceTokenData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12520,7 +12523,7 @@ export type ReadWorkspaceTokenData = {
 
 export type ReadWorkspaceTokenErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -12553,7 +12556,7 @@ export type UpdateWorkspaceTokenData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12561,7 +12564,7 @@ export type UpdateWorkspaceTokenData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -12574,7 +12577,7 @@ export type UpdateWorkspaceTokenData = {
 
 export type UpdateWorkspaceTokenErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -12607,7 +12610,7 @@ export type UpdateWorkspaceTokenError = UpdateWorkspaceTokenErrors[keyof UpdateW
 
 export type UpdateWorkspaceTokenResponses = {
   /**
-   * The workspace-token, as a read would answer it
+   * The workspace-token, as a read returns it
    */
   200: WorkspaceTokenResourceResponseDto;
 };
@@ -12618,7 +12621,7 @@ export type ImportWorkspaceTokenData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12640,7 +12643,7 @@ export type ImportWorkspaceTokenData = {
 
 export type ImportWorkspaceTokenErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -12657,7 +12660,7 @@ export type ImportWorkspaceTokenError = ImportWorkspaceTokenErrors[keyof ImportW
 
 export type ImportWorkspaceTokenResponses = {
   /**
-   * The workspace-token, as a read would answer it
+   * The workspace-token, as a read returns it
    */
   200: WorkspaceTokenResourceResponseDto;
 };
@@ -12668,7 +12671,7 @@ export type ListWorkspaceTokenTrustsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12685,7 +12688,7 @@ export type ListWorkspaceTokenTrustsData = {
 
 export type ListWorkspaceTokenTrustsErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -12702,7 +12705,7 @@ export type ListWorkspaceTokenTrustsError = ListWorkspaceTokenTrustsErrors[keyof
 
 export type ListWorkspaceTokenTrustsResponses = {
   /**
-   * Every workspace-token-trust there, each as a read would answer it, in address order
+   * Every workspace-token-trust there, each as a read returns it, in address order
    */
   200: WorkspaceTokenTrustResourceListResponseDto;
 };
@@ -12723,7 +12726,7 @@ export type CreateWorkspaceTokenTrustData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12731,7 +12734,7 @@ export type CreateWorkspaceTokenTrustData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -12744,7 +12747,7 @@ export type CreateWorkspaceTokenTrustData = {
 
 export type CreateWorkspaceTokenTrustErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -12773,7 +12776,7 @@ export type CreateWorkspaceTokenTrustError = CreateWorkspaceTokenTrustErrors[key
 
 export type CreateWorkspaceTokenTrustResponses = {
   /**
-   * The workspace-token-trust, as a read would answer it
+   * The workspace-token-trust, as a read returns it
    */
   201: WorkspaceTokenTrustResourceResponseDto;
 };
@@ -12784,7 +12787,7 @@ export type DeleteWorkspaceTokenTrustData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12792,7 +12795,7 @@ export type DeleteWorkspaceTokenTrustData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -12805,7 +12808,7 @@ export type DeleteWorkspaceTokenTrustData = {
 
 export type DeleteWorkspaceTokenTrustErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -12845,7 +12848,7 @@ export type ReadWorkspaceTokenTrustData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12862,7 +12865,7 @@ export type ReadWorkspaceTokenTrustData = {
 
 export type ReadWorkspaceTokenTrustErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -12900,7 +12903,7 @@ export type UpdateWorkspaceTokenTrustData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12908,7 +12911,7 @@ export type UpdateWorkspaceTokenTrustData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -12921,7 +12924,7 @@ export type UpdateWorkspaceTokenTrustData = {
 
 export type UpdateWorkspaceTokenTrustErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -12954,7 +12957,7 @@ export type UpdateWorkspaceTokenTrustError = UpdateWorkspaceTokenTrustErrors[key
 
 export type UpdateWorkspaceTokenTrustResponses = {
   /**
-   * The workspace-token-trust, as a read would answer it
+   * The workspace-token-trust, as a read returns it
    */
   200: WorkspaceTokenTrustResourceResponseDto;
 };
@@ -12965,7 +12968,7 @@ export type ImportWorkspaceTokenTrustData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12987,7 +12990,7 @@ export type ImportWorkspaceTokenTrustData = {
 
 export type ImportWorkspaceTokenTrustErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -13004,7 +13007,7 @@ export type ImportWorkspaceTokenTrustError = ImportWorkspaceTokenTrustErrors[key
 
 export type ImportWorkspaceTokenTrustResponses = {
   /**
-   * The workspace-token-trust, as a read would answer it
+   * The workspace-token-trust, as a read returns it
    */
   200: WorkspaceTokenTrustResourceResponseDto;
 };
@@ -13020,13 +13023,13 @@ export type ExchangeWorkloadTokenData = {
 
 export type ExchangeWorkloadTokenErrors = {
   /**
-   * Spotlight refused the exchange. Possible causes: an unknown trust, a token its issuer did not sign for the trust’s audience, a workload the trust does not admit, or a closed workspace
+   * Spotlight did not accept the exchange. Possible causes: an unknown trust, a token its issuer did not sign for the trust’s audience, a workload the trust does not match, or a deleted workspace
    */
   401: unknown;
 };
 
 export type ExchangeWorkloadTokenResponses = {
-  200: MintedTokenResponseDto;
+  200: IssuedTokenResponseDto;
 };
 
 export type ExchangeWorkloadTokenResponse = ExchangeWorkloadTokenResponses[keyof ExchangeWorkloadTokenResponses];
@@ -13051,14 +13054,14 @@ export type ListMemberWorkspacesResponses = {
 
 export type ListMemberWorkspacesResponse = ListMemberWorkspacesResponses[keyof ListMemberWorkspacesResponses];
 
-export type OpenWorkspaceData = {
+export type CreateWorkspaceWithTeamData = {
   body: CreateWorkspaceRequestDto;
   path?: never;
   query?: never;
   url: '/workspaces';
 };
 
-export type OpenWorkspaceErrors = {
+export type CreateWorkspaceWithTeamErrors = {
   /**
    * No valid session
    */
@@ -13073,11 +13076,11 @@ export type OpenWorkspaceErrors = {
   422: unknown;
 };
 
-export type OpenWorkspaceResponses = {
+export type CreateWorkspaceWithTeamResponses = {
   201: CreatedWorkspaceResponseDto;
 };
 
-export type OpenWorkspaceResponse = OpenWorkspaceResponses[keyof OpenWorkspaceResponses];
+export type CreateWorkspaceWithTeamResponse = CreateWorkspaceWithTeamResponses[keyof CreateWorkspaceWithTeamResponses];
 
 export type GetWorkspaceData = {
   body?: never;
@@ -13147,7 +13150,7 @@ export type ChangeMemberRoleErrors = {
    */
   401: unknown;
   /**
-   * Not yours to give
+   * You cannot assign this role
    */
   403: unknown;
   /**
@@ -13312,7 +13315,7 @@ export type InviteToWorkspaceErrors = {
    */
   401: unknown;
   /**
-   * Not a role yours to give
+   * You cannot assign this role
    */
   403: unknown;
   /**
@@ -13324,7 +13327,7 @@ export type InviteToWorkspaceErrors = {
    */
   409: unknown;
   /**
-   * An address, role or team that does not hold
+   * An address, role or team that is not valid
    */
   422: unknown;
 };
@@ -13417,7 +13420,7 @@ export type ReadInviteErrors = {
 };
 
 export type ReadInviteResponses = {
-  200: InviteOfferResponseDto;
+  200: InvitePreviewResponseDto;
 };
 
 export type ReadInviteResponse = ReadInviteResponses[keyof ReadInviteResponses];
@@ -13460,7 +13463,7 @@ export type ListSecretsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -13477,7 +13480,7 @@ export type ListSecretsData = {
 
 export type ListSecretsErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -13494,7 +13497,7 @@ export type ListSecretsError = ListSecretsErrors[keyof ListSecretsErrors];
 
 export type ListSecretsResponses = {
   /**
-   * Every secret there, each as a read would answer it, in address order
+   * Every secret there, each as a read returns it, in address order
    */
   200: SecretResourceListResponseDto;
 };
@@ -13511,15 +13514,15 @@ export type CreateSecretData = {
     };
     bindings?: Array<{
       host: string;
-      carrier?: 'header' | 'query';
+      location?: 'header' | 'query';
       /**
-       * The header or query parameter it is worn in; authorization when a header is not named
+       * The header or query parameter that Spotlight injects it in. The default header is authorization
        */
       name?: string;
       prefix?: string;
     }>;
     /**
-     * The value to keep; accepted on create and whenever valueWoVersion changes, and never answered
+     * The value to store; accepted on create and whenever valueWoVersion changes, and never returned
      */
     valueWo?: string;
     /**
@@ -13529,7 +13532,7 @@ export type CreateSecretData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -13537,7 +13540,7 @@ export type CreateSecretData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -13550,7 +13553,7 @@ export type CreateSecretData = {
 
 export type CreateSecretErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -13579,7 +13582,7 @@ export type CreateSecretError = CreateSecretErrors[keyof CreateSecretErrors];
 
 export type CreateSecretResponses = {
   /**
-   * The secret, as a read would answer it
+   * The secret, as a read returns it
    */
   201: SecretResourceResponseDto;
 };
@@ -13590,7 +13593,7 @@ export type DeleteSecretData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -13598,7 +13601,7 @@ export type DeleteSecretData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -13611,7 +13614,7 @@ export type DeleteSecretData = {
 
 export type DeleteSecretErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -13651,7 +13654,7 @@ export type ReadSecretData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -13668,7 +13671,7 @@ export type ReadSecretData = {
 
 export type ReadSecretErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -13702,15 +13705,15 @@ export type UpdateSecretData = {
     };
     bindings?: Array<{
       host: string;
-      carrier?: 'header' | 'query';
+      location?: 'header' | 'query';
       /**
-       * The header or query parameter it is worn in; authorization when a header is not named
+       * The header or query parameter that Spotlight injects it in. The default header is authorization
        */
       name?: string;
       prefix?: string;
     }>;
     /**
-     * The value to keep; accepted on create and whenever valueWoVersion changes, and never answered
+     * The value to store; accepted on create and whenever valueWoVersion changes, and never returned
      */
     valueWo?: string;
     /**
@@ -13720,7 +13723,7 @@ export type UpdateSecretData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -13728,7 +13731,7 @@ export type UpdateSecretData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -13741,7 +13744,7 @@ export type UpdateSecretData = {
 
 export type UpdateSecretErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -13774,7 +13777,7 @@ export type UpdateSecretError = UpdateSecretErrors[keyof UpdateSecretErrors];
 
 export type UpdateSecretResponses = {
   /**
-   * The secret, as a read would answer it
+   * The secret, as a read returns it
    */
   200: SecretResourceResponseDto;
 };
@@ -13785,7 +13788,7 @@ export type ImportSecretData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -13807,7 +13810,7 @@ export type ImportSecretData = {
 
 export type ImportSecretErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -13824,7 +13827,7 @@ export type ImportSecretError = ImportSecretErrors[keyof ImportSecretErrors];
 
 export type ImportSecretResponses = {
   /**
-   * The secret, as a read would answer it
+   * The secret, as a read returns it
    */
   200: SecretResourceResponseDto;
 };
@@ -13835,7 +13838,7 @@ export type ReadCatalogToolData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -13852,7 +13855,7 @@ export type ReadCatalogToolData = {
      */
     name: unknown;
     /**
-     * The versions you accept, as Terraform writes a constraint; the newest it accepts is answered
+     * The versions you accept, as Terraform writes a constraint; Spotlight returns the newest version that matches
      */
     version: unknown;
   };
@@ -13861,7 +13864,7 @@ export type ReadCatalogToolData = {
 
 export type ReadCatalogToolErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -13869,7 +13872,7 @@ export type ReadCatalogToolErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * The workspace’s plan does not include the catalog-tool; the detail names the plan it needs
+   * The workspace’s plan does not include the catalog-tool; the detail names the plan that it requires
    */
   403: ProblemResponseDto;
   /**
@@ -13897,7 +13900,7 @@ export type ReadCatalogSkillData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -13914,7 +13917,7 @@ export type ReadCatalogSkillData = {
      */
     name: unknown;
     /**
-     * The versions you accept, as Terraform writes a constraint; the newest it accepts is answered
+     * The versions you accept, as Terraform writes a constraint; Spotlight returns the newest version that matches
      */
     version: unknown;
   };
@@ -13923,7 +13926,7 @@ export type ReadCatalogSkillData = {
 
 export type ReadCatalogSkillErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -13931,7 +13934,7 @@ export type ReadCatalogSkillErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * The workspace’s plan does not include the catalog-skill; the detail names the plan it needs
+   * The workspace’s plan does not include the catalog-skill; the detail names the plan that it requires
    */
   403: ProblemResponseDto;
   /**
@@ -14002,7 +14005,7 @@ export type ReadGitHubErrors = {
 };
 
 export type ReadGitHubResponses = {
-  200: GitHubStandingResponseDto;
+  200: GitHubConnectionStatusResponseDto;
 };
 
 export type ReadGitHubResponse = ReadGitHubResponses[keyof ReadGitHubResponses];
@@ -14022,7 +14025,7 @@ export type ConnectGitHubErrors = {
    */
   401: unknown;
   /**
-   * Not an owner or admin, or not your installation
+   * Not an owner or admin, or not an admin of the installation
    */
   403: unknown;
   /**
@@ -14044,7 +14047,7 @@ export type ConnectGitHubResponses = {
 
 export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
 
-export type LeaveAsHostData = {
+export type DeregisterHostData = {
   body?: never;
   headers?: {
     /**
@@ -14059,24 +14062,24 @@ export type LeaveAsHostData = {
   url: '/hosts/{hostId}';
 };
 
-export type LeaveAsHostErrors = {
+export type DeregisterHostErrors = {
   /**
-   * Pool token is missing, rotated or unknown, or no trust admits this workload.
+   * Pool token is missing, rotated or unknown, or no trust accepts this workload.
    */
   401: unknown;
 };
 
-export type LeaveAsHostResponses = {
+export type DeregisterHostResponses = {
   /**
-   * Gone
+   * Deregistered
    */
   204: void;
 };
 
-export type LeaveAsHostResponse = LeaveAsHostResponses[keyof LeaveAsHostResponses];
+export type DeregisterHostResponse = DeregisterHostResponses[keyof DeregisterHostResponses];
 
-export type ReportHostPresenceData = {
-  body: HostPresenceRequestDto;
+export type HostHeartbeatData = {
+  body: HostHeartbeatRequestDto;
   headers?: {
     /**
      * The runner trust to claim through; the bearer is then the workload’s token
@@ -14090,22 +14093,22 @@ export type ReportHostPresenceData = {
   url: '/hosts/{hostId}';
 };
 
-export type ReportHostPresenceErrors = {
+export type HostHeartbeatErrors = {
   /**
-   * Pool token is missing, rotated or unknown, or no trust admits this workload.
+   * Pool token is missing, rotated or unknown, or no trust accepts this workload.
    */
   401: unknown;
   /**
-   * The host id serves another pool or trust
+   * The host id is in use by another pool or trust
    */
   409: unknown;
 };
 
-export type ReportHostPresenceResponses = {
-  200: HostStandingResponseDto;
+export type HostHeartbeatResponses = {
+  200: HostHeartbeatResponseDto;
 };
 
-export type ReportHostPresenceResponse = ReportHostPresenceResponses[keyof ReportHostPresenceResponses];
+export type HostHeartbeatResponse = HostHeartbeatResponses[keyof HostHeartbeatResponses];
 
 export type ListRunnersData = {
   body?: never;
@@ -14142,7 +14145,7 @@ export type RegisterRunnerData = {
 
 export type RegisterRunnerErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
 };
@@ -14157,7 +14160,7 @@ export type ListRunnerTrustsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14174,7 +14177,7 @@ export type ListRunnerTrustsData = {
 
 export type ListRunnerTrustsErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -14191,7 +14194,7 @@ export type ListRunnerTrustsError = ListRunnerTrustsErrors[keyof ListRunnerTrust
 
 export type ListRunnerTrustsResponses = {
   /**
-   * Every runner-trust there, each as a read would answer it, in address order
+   * Every runner-trust there, each as a read returns it, in address order
    */
   200: RunnerTrustResourceListResponseDto;
 };
@@ -14208,7 +14211,7 @@ export type CreateRunnerTrustData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14216,7 +14219,7 @@ export type CreateRunnerTrustData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -14229,7 +14232,7 @@ export type CreateRunnerTrustData = {
 
 export type CreateRunnerTrustErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -14258,7 +14261,7 @@ export type CreateRunnerTrustError = CreateRunnerTrustErrors[keyof CreateRunnerT
 
 export type CreateRunnerTrustResponses = {
   /**
-   * The runner-trust, as a read would answer it
+   * The runner-trust, as a read returns it
    */
   201: RunnerTrustResourceResponseDto;
 };
@@ -14269,7 +14272,7 @@ export type DeleteRunnerTrustData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14277,7 +14280,7 @@ export type DeleteRunnerTrustData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -14290,7 +14293,7 @@ export type DeleteRunnerTrustData = {
 
 export type DeleteRunnerTrustErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -14330,7 +14333,7 @@ export type ReadRunnerTrustData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14347,7 +14350,7 @@ export type ReadRunnerTrustData = {
 
 export type ReadRunnerTrustErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -14381,7 +14384,7 @@ export type UpdateRunnerTrustData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14389,7 +14392,7 @@ export type UpdateRunnerTrustData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -14402,7 +14405,7 @@ export type UpdateRunnerTrustData = {
 
 export type UpdateRunnerTrustErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -14435,7 +14438,7 @@ export type UpdateRunnerTrustError = UpdateRunnerTrustErrors[keyof UpdateRunnerT
 
 export type UpdateRunnerTrustResponses = {
   /**
-   * The runner-trust, as a read would answer it
+   * The runner-trust, as a read returns it
    */
   200: RunnerTrustResourceResponseDto;
 };
@@ -14446,7 +14449,7 @@ export type ImportRunnerTrustData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14468,7 +14471,7 @@ export type ImportRunnerTrustData = {
 
 export type ImportRunnerTrustErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -14485,7 +14488,7 @@ export type ImportRunnerTrustError = ImportRunnerTrustErrors[keyof ImportRunnerT
 
 export type ImportRunnerTrustResponses = {
   /**
-   * The runner-trust, as a read would answer it
+   * The runner-trust, as a read returns it
    */
   200: RunnerTrustResourceResponseDto;
 };
@@ -14496,7 +14499,7 @@ export type ListRunnerPoolsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14513,7 +14516,7 @@ export type ListRunnerPoolsData = {
 
 export type ListRunnerPoolsErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -14530,7 +14533,7 @@ export type ListRunnerPoolsError = ListRunnerPoolsErrors[keyof ListRunnerPoolsEr
 
 export type ListRunnerPoolsResponses = {
   /**
-   * Every runner-pool there, each as a read would answer it, in address order
+   * Every runner-pool there, each as a read returns it, in address order
    */
   200: RunnerPoolResourceListResponseDto;
 };
@@ -14546,15 +14549,15 @@ export type CreateRunnerPoolData = {
      */
     maxRuns?: number | null;
     /**
-     * Write-only, and only for a pool without provision: the token its hosts claim with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Pool-Token
+     * Write-only, and only for a pool without provision: the token its hosts claim with, stored only as a hash and never returned. Left out on create, Spotlight issues one and returns it once in Spotlight-Pool-Token
      */
     token?: string;
     /**
-     * Changed, with a new token, to rotate the pool token in place: the old token is refused at once, while runs already claimed keep their own one-run credentials
+     * Changed, with a new token, to rotate the pool token in place: the old token stops working at once, while runs already claimed keep their own one-run credentials
      */
     tokenVersion?: number | null;
     /**
-     * Makes the pool push: Spotlight calls url with each run it is to serve, and the pool has no token. Fixed for the pool’s life
+     * Makes the pool push: Spotlight calls url with each run it is to serve, and the pool has no token. Immutable
      */
     provision?: {
       url: string;
@@ -14578,7 +14581,7 @@ export type CreateRunnerPoolData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14586,7 +14589,7 @@ export type CreateRunnerPoolData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -14599,7 +14602,7 @@ export type CreateRunnerPoolData = {
 
 export type CreateRunnerPoolErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -14628,9 +14631,9 @@ export type CreateRunnerPoolError = CreateRunnerPoolErrors[keyof CreateRunnerPoo
 
 export type CreateRunnerPoolResponses = {
   /**
-   * The runner-pool, as a read would answer it
+   * The runner-pool, as a read returns it
    *
-   * The runner pool, as a read would answer it
+   * The runner pool, as a read returns it
    */
   201: RunnerPoolResourceResponseDto;
 };
@@ -14641,7 +14644,7 @@ export type DeleteRunnerPoolData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14649,7 +14652,7 @@ export type DeleteRunnerPoolData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -14662,7 +14665,7 @@ export type DeleteRunnerPoolData = {
 
 export type DeleteRunnerPoolErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -14702,7 +14705,7 @@ export type ReadRunnerPoolData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14719,7 +14722,7 @@ export type ReadRunnerPoolData = {
 
 export type ReadRunnerPoolErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -14752,15 +14755,15 @@ export type UpdateRunnerPoolData = {
      */
     maxRuns?: number | null;
     /**
-     * Write-only, and only for a pool without provision: the token its hosts claim with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Pool-Token
+     * Write-only, and only for a pool without provision: the token its hosts claim with, stored only as a hash and never returned. Left out on create, Spotlight issues one and returns it once in Spotlight-Pool-Token
      */
     token?: string;
     /**
-     * Changed, with a new token, to rotate the pool token in place: the old token is refused at once, while runs already claimed keep their own one-run credentials
+     * Changed, with a new token, to rotate the pool token in place: the old token stops working at once, while runs already claimed keep their own one-run credentials
      */
     tokenVersion?: number | null;
     /**
-     * Makes the pool push: Spotlight calls url with each run it is to serve, and the pool has no token. Fixed for the pool’s life
+     * Makes the pool push: Spotlight calls url with each run it is to serve, and the pool has no token. Immutable
      */
     provision?: {
       url: string;
@@ -14784,7 +14787,7 @@ export type UpdateRunnerPoolData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14792,7 +14795,7 @@ export type UpdateRunnerPoolData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -14805,7 +14808,7 @@ export type UpdateRunnerPoolData = {
 
 export type UpdateRunnerPoolErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -14838,7 +14841,7 @@ export type UpdateRunnerPoolError = UpdateRunnerPoolErrors[keyof UpdateRunnerPoo
 
 export type UpdateRunnerPoolResponses = {
   /**
-   * The runner-pool, as a read would answer it
+   * The runner-pool, as a read returns it
    */
   200: RunnerPoolResourceResponseDto;
 };
@@ -14849,7 +14852,7 @@ export type ImportRunnerPoolData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14871,7 +14874,7 @@ export type ImportRunnerPoolData = {
 
 export type ImportRunnerPoolErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -14888,7 +14891,7 @@ export type ImportRunnerPoolError = ImportRunnerPoolErrors[keyof ImportRunnerPoo
 
 export type ImportRunnerPoolResponses = {
   /**
-   * The runner-pool, as a read would answer it
+   * The runner-pool, as a read returns it
    */
   200: RunnerPoolResourceResponseDto;
 };
@@ -14899,7 +14902,7 @@ export type ListEgressesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14916,7 +14919,7 @@ export type ListEgressesData = {
 
 export type ListEgressesErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -14933,7 +14936,7 @@ export type ListEgressesError = ListEgressesErrors[keyof ListEgressesErrors];
 
 export type ListEgressesResponses = {
   /**
-   * Every egress there, each as a read would answer it, in address order
+   * Every egress there, each as a read returns it, in address order
    */
   200: EgressResourceListResponseDto;
 };
@@ -14948,17 +14951,17 @@ export type CreateEgressData = {
      */
     url: string;
     /**
-     * Write-only: the token the egress calls Spotlight with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Egress-Token
+     * Write-only: the token the egress calls Spotlight with, stored only as a hash and never returned. Left out on create, Spotlight issues one and returns it once in Spotlight-Egress-Token
      */
     token?: string;
     /**
-     * Changed, with a new token, to rotate the egress token in place: the old token is refused at once
+     * Changed, with a new token, to rotate the egress token in place: the old token stops working at once
      */
     tokenVersion?: number | null;
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14966,7 +14969,7 @@ export type CreateEgressData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -14979,7 +14982,7 @@ export type CreateEgressData = {
 
 export type CreateEgressErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -15008,9 +15011,9 @@ export type CreateEgressError = CreateEgressErrors[keyof CreateEgressErrors];
 
 export type CreateEgressResponses = {
   /**
-   * The egress, as a read would answer it
+   * The egress, as a read returns it
    *
-   * The egress, as a read would answer it
+   * The egress, as a read returns it
    */
   201: EgressResourceResponseDto;
 };
@@ -15021,7 +15024,7 @@ export type DeleteEgressData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15029,7 +15032,7 @@ export type DeleteEgressData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -15042,7 +15045,7 @@ export type DeleteEgressData = {
 
 export type DeleteEgressErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -15082,7 +15085,7 @@ export type ReadEgressData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15099,7 +15102,7 @@ export type ReadEgressData = {
 
 export type ReadEgressErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -15131,17 +15134,17 @@ export type UpdateEgressData = {
      */
     url: string;
     /**
-     * Write-only: the token the egress calls Spotlight with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Egress-Token
+     * Write-only: the token the egress calls Spotlight with, stored only as a hash and never returned. Left out on create, Spotlight issues one and returns it once in Spotlight-Egress-Token
      */
     token?: string;
     /**
-     * Changed, with a new token, to rotate the egress token in place: the old token is refused at once
+     * Changed, with a new token, to rotate the egress token in place: the old token stops working at once
      */
     tokenVersion?: number | null;
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15149,7 +15152,7 @@ export type UpdateEgressData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -15162,7 +15165,7 @@ export type UpdateEgressData = {
 
 export type UpdateEgressErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -15195,7 +15198,7 @@ export type UpdateEgressError = UpdateEgressErrors[keyof UpdateEgressErrors];
 
 export type UpdateEgressResponses = {
   /**
-   * The egress, as a read would answer it
+   * The egress, as a read returns it
    */
   200: EgressResourceResponseDto;
 };
@@ -15206,7 +15209,7 @@ export type ImportEgressData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15228,7 +15231,7 @@ export type ImportEgressData = {
 
 export type ImportEgressErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -15245,7 +15248,7 @@ export type ImportEgressError = ImportEgressErrors[keyof ImportEgressErrors];
 
 export type ImportEgressResponses = {
   /**
-   * The egress, as a read would answer it
+   * The egress, as a read returns it
    */
   200: EgressResourceResponseDto;
 };
@@ -15256,7 +15259,7 @@ export type ListWorkspaceRunnersData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15273,7 +15276,7 @@ export type ListWorkspaceRunnersData = {
 
 export type ListWorkspaceRunnersErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -15290,7 +15293,7 @@ export type ListWorkspaceRunnersError = ListWorkspaceRunnersErrors[keyof ListWor
 
 export type ListWorkspaceRunnersResponses = {
   /**
-   * Every workspace-runners there, each as a read would answer it, in address order
+   * Every workspace-runners there, each as a read returns it, in address order
    */
   200: WorkspaceRunnersResourceListResponseDto;
 };
@@ -15305,7 +15308,7 @@ export type CreateWorkspaceRunnersData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15313,7 +15316,7 @@ export type CreateWorkspaceRunnersData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -15326,7 +15329,7 @@ export type CreateWorkspaceRunnersData = {
 
 export type CreateWorkspaceRunnersErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -15355,7 +15358,7 @@ export type CreateWorkspaceRunnersError = CreateWorkspaceRunnersErrors[keyof Cre
 
 export type CreateWorkspaceRunnersResponses = {
   /**
-   * The workspace-runners, as a read would answer it
+   * The workspace-runners, as a read returns it
    */
   201: WorkspaceRunnersResourceResponseDto;
 };
@@ -15366,7 +15369,7 @@ export type DeleteWorkspaceRunnersData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15374,7 +15377,7 @@ export type DeleteWorkspaceRunnersData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -15387,7 +15390,7 @@ export type DeleteWorkspaceRunnersData = {
 
 export type DeleteWorkspaceRunnersErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -15427,7 +15430,7 @@ export type ReadWorkspaceRunnersData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15444,7 +15447,7 @@ export type ReadWorkspaceRunnersData = {
 
 export type ReadWorkspaceRunnersErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -15476,7 +15479,7 @@ export type UpdateWorkspaceRunnersData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15484,7 +15487,7 @@ export type UpdateWorkspaceRunnersData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -15497,7 +15500,7 @@ export type UpdateWorkspaceRunnersData = {
 
 export type UpdateWorkspaceRunnersErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -15530,7 +15533,7 @@ export type UpdateWorkspaceRunnersError = UpdateWorkspaceRunnersErrors[keyof Upd
 
 export type UpdateWorkspaceRunnersResponses = {
   /**
-   * The workspace-runners, as a read would answer it
+   * The workspace-runners, as a read returns it
    */
   200: WorkspaceRunnersResourceResponseDto;
 };
@@ -15541,7 +15544,7 @@ export type ImportWorkspaceRunnersData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15563,7 +15566,7 @@ export type ImportWorkspaceRunnersData = {
 
 export type ImportWorkspaceRunnersErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -15580,7 +15583,7 @@ export type ImportWorkspaceRunnersError = ImportWorkspaceRunnersErrors[keyof Imp
 
 export type ImportWorkspaceRunnersResponses = {
   /**
-   * The workspace-runners, as a read would answer it
+   * The workspace-runners, as a read returns it
    */
   200: WorkspaceRunnersResourceResponseDto;
 };
@@ -15648,7 +15651,7 @@ export type CreateSkillData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15656,7 +15659,7 @@ export type CreateSkillData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -15669,7 +15672,7 @@ export type CreateSkillData = {
 
 export type CreateSkillErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -15698,7 +15701,7 @@ export type CreateSkillError = CreateSkillErrors[keyof CreateSkillErrors];
 
 export type CreateSkillResponses = {
   /**
-   * The skill, as a read would answer it
+   * The skill, as a read returns it
    */
   201: SkillResourceResponseDto;
 };
@@ -15709,7 +15712,7 @@ export type DeleteSkillData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15717,7 +15720,7 @@ export type DeleteSkillData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -15730,7 +15733,7 @@ export type DeleteSkillData = {
 
 export type DeleteSkillErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -15770,7 +15773,7 @@ export type ReadSkillData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15787,7 +15790,7 @@ export type ReadSkillData = {
 
 export type ReadSkillErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -15820,7 +15823,7 @@ export type UpdateSkillData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15828,7 +15831,7 @@ export type UpdateSkillData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -15841,7 +15844,7 @@ export type UpdateSkillData = {
 
 export type UpdateSkillErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -15874,7 +15877,7 @@ export type UpdateSkillError = UpdateSkillErrors[keyof UpdateSkillErrors];
 
 export type UpdateSkillResponses = {
   /**
-   * The skill, as a read would answer it
+   * The skill, as a read returns it
    */
   200: SkillResourceResponseDto;
 };
@@ -15885,7 +15888,7 @@ export type ImportSkillData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15907,7 +15910,7 @@ export type ImportSkillData = {
 
 export type ImportSkillErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -15924,7 +15927,7 @@ export type ImportSkillError = ImportSkillErrors[keyof ImportSkillErrors];
 
 export type ImportSkillResponses = {
   /**
-   * The skill, as a read would answer it
+   * The skill, as a read returns it
    */
   200: SkillResourceResponseDto;
 };
@@ -15935,7 +15938,7 @@ export type ListSkillsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15952,7 +15955,7 @@ export type ListSkillsData = {
 
 export type ListSkillsErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -15969,7 +15972,7 @@ export type ListSkillsError = ListSkillsErrors[keyof ListSkillsErrors];
 
 export type ListSkillsResponses = {
   /**
-   * Every skill there, each as a read would answer it, in address order
+   * Every skill there, each as a read returns it, in address order
    */
   200: SkillResourceListResponseDto;
 };
@@ -15989,7 +15992,7 @@ export type CreateHarnessProfileData = {
       command: string;
       args?: Array<string>;
       /**
-       * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace holds, and the server gets only a stand-in, since egress wears the value on its requests to the hosts the secret is bound to.
+       * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace has, and the server gets only a stand-in, since egress injects the value into its requests to the hosts the secret is bound to.
        */
       env?: {
         [key: string]: string;
@@ -16001,7 +16004,7 @@ export type CreateHarnessProfileData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -16009,7 +16012,7 @@ export type CreateHarnessProfileData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -16022,7 +16025,7 @@ export type CreateHarnessProfileData = {
 
 export type CreateHarnessProfileErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -16051,7 +16054,7 @@ export type CreateHarnessProfileError = CreateHarnessProfileErrors[keyof CreateH
 
 export type CreateHarnessProfileResponses = {
   /**
-   * The harness-profile, as a read would answer it
+   * The harness-profile, as a read returns it
    */
   201: HarnessProfileResourceResponseDto;
 };
@@ -16062,7 +16065,7 @@ export type DeleteHarnessProfileData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -16070,7 +16073,7 @@ export type DeleteHarnessProfileData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -16083,7 +16086,7 @@ export type DeleteHarnessProfileData = {
 
 export type DeleteHarnessProfileErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -16123,7 +16126,7 @@ export type ReadHarnessProfileData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -16140,7 +16143,7 @@ export type ReadHarnessProfileData = {
 
 export type ReadHarnessProfileErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -16177,7 +16180,7 @@ export type UpdateHarnessProfileData = {
       command: string;
       args?: Array<string>;
       /**
-       * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace holds, and the server gets only a stand-in, since egress wears the value on its requests to the hosts the secret is bound to.
+       * Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace has, and the server gets only a stand-in, since egress injects the value into its requests to the hosts the secret is bound to.
        */
       env?: {
         [key: string]: string;
@@ -16189,7 +16192,7 @@ export type UpdateHarnessProfileData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -16197,7 +16200,7 @@ export type UpdateHarnessProfileData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -16210,7 +16213,7 @@ export type UpdateHarnessProfileData = {
 
 export type UpdateHarnessProfileErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -16243,7 +16246,7 @@ export type UpdateHarnessProfileError = UpdateHarnessProfileErrors[keyof UpdateH
 
 export type UpdateHarnessProfileResponses = {
   /**
-   * The harness-profile, as a read would answer it
+   * The harness-profile, as a read returns it
    */
   200: HarnessProfileResourceResponseDto;
 };
@@ -16254,7 +16257,7 @@ export type ImportHarnessProfileData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -16276,7 +16279,7 @@ export type ImportHarnessProfileData = {
 
 export type ImportHarnessProfileErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -16293,7 +16296,7 @@ export type ImportHarnessProfileError = ImportHarnessProfileErrors[keyof ImportH
 
 export type ImportHarnessProfileResponses = {
   /**
-   * The harness-profile, as a read would answer it
+   * The harness-profile, as a read returns it
    */
   200: HarnessProfileResourceResponseDto;
 };
@@ -16304,7 +16307,7 @@ export type ListHarnessProfilesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -16321,7 +16324,7 @@ export type ListHarnessProfilesData = {
 
 export type ListHarnessProfilesErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -16338,7 +16341,7 @@ export type ListHarnessProfilesError = ListHarnessProfilesErrors[keyof ListHarne
 
 export type ListHarnessProfilesResponses = {
   /**
-   * Every harness-profile there, each as a read would answer it, in address order
+   * Every harness-profile there, each as a read returns it, in address order
    */
   200: HarnessProfileResourceListResponseDto;
 };
@@ -16349,7 +16352,7 @@ export type ExportWorkspaceData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -16366,7 +16369,7 @@ export type ExportWorkspaceData = {
 
 export type ExportWorkspaceErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -16391,7 +16394,7 @@ export type ReadResourceHclData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -16409,7 +16412,7 @@ export type ReadResourceHclData = {
 
 export type ReadResourceHclErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -16520,7 +16523,7 @@ export type DisputeDecisionData = {
 
 export type DisputeDecisionErrors = {
   /**
-   * No reason given, one too long, or a path the decision does not name
+   * The reason is missing or too long, or the decision does not name the path
    */
   400: unknown;
   /**
@@ -16539,7 +16542,7 @@ export type DisputeDecisionResponses = {
 
 export type DisputeDecisionResponse = DisputeDecisionResponses[keyof DisputeDecisionResponses];
 
-export type ListStandingDecisionsData = {
+export type ListMergedDecisionsData = {
   body?: never;
   path: {
     slug: string;
@@ -16555,14 +16558,14 @@ export type ListStandingDecisionsData = {
      */
     until?: string;
     /**
-     * A file or directory in the repository; repeat it to ask about several
+     * A file or directory in the repository; repeat it to query several
      */
     path?: Array<string>;
   };
   url: '/workspaces/{slug}/decisions';
 };
 
-export type ListStandingDecisionsErrors = {
+export type ListMergedDecisionsErrors = {
   /**
    * Paths without their repository, or a time that is no date
    */
@@ -16577,14 +16580,14 @@ export type ListStandingDecisionsErrors = {
   404: unknown;
 };
 
-export type ListStandingDecisionsResponses = {
-  200: StandingDecisionListResponseDto;
+export type ListMergedDecisionsResponses = {
+  200: MergedDecisionListResponseDto;
 };
 
-export type ListStandingDecisionsResponse = ListStandingDecisionsResponses[keyof ListStandingDecisionsResponses];
+export type ListMergedDecisionsResponse = ListMergedDecisionsResponses[keyof ListMergedDecisionsResponses];
 
-export type DraftChangeStackData = {
-  body: DraftChangeStackRequestDto;
+export type GenerateChangeStackData = {
+  body: GenerateChangeStackRequestDto;
   path: {
     runId: string;
   };
@@ -16592,13 +16595,13 @@ export type DraftChangeStackData = {
   url: '/runs/{runId}/change-stacks';
 };
 
-export type DraftChangeStackErrors = {
+export type GenerateChangeStackErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
-   * Not a run this runner worked
+   * Not a run this runner claimed
    */
   404: unknown;
   /**
@@ -16607,11 +16610,11 @@ export type DraftChangeStackErrors = {
   409: unknown;
 };
 
-export type DraftChangeStackResponses = {
+export type GenerateChangeStackResponses = {
   204: void;
 };
 
-export type DraftChangeStackResponse = DraftChangeStackResponses[keyof DraftChangeStackResponses];
+export type GenerateChangeStackResponse = GenerateChangeStackResponses[keyof GenerateChangeStackResponses];
 
 export type RecordChangeStackCheckData = {
   body: RecordChangeStackCheckRequestDto;
@@ -16630,15 +16633,15 @@ export type RecordChangeStackCheckData = {
 
 export type RecordChangeStackCheckErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
-   * Not a run this runner worked, or no such stack of it
+   * Not a run this runner claimed, or no such stack of it
    */
   404: unknown;
   /**
-   * This runner does not hold the check of that stack
+   * This runner does not have the lease on the check of that stack
    */
   409: unknown;
   /**
@@ -16715,7 +16718,7 @@ export type DraftReviewCommentErrors = {
    */
   404: unknown;
   /**
-   * Nothing said, or no file
+   * The comment has no text, or names no file
    */
   422: unknown;
 };
@@ -16778,15 +16781,15 @@ export type ConnectIntegrationData = {
   body?: ConnectIntegrationRequestDto;
   path: {
     teamId: string;
-    source: string;
+    integration: string;
   };
   query?: never;
-  url: '/teams/{teamId}/integrations/{source}/connect';
+  url: '/teams/{teamId}/integrations/{integration}/connect';
 };
 
 export type ConnectIntegrationErrors = {
   /**
-   * It asks to connect for someone other than the team or me
+   * It requests a connection that acts as someone other than the team or the requester
    */
   400: unknown;
   /**
@@ -16794,7 +16797,7 @@ export type ConnectIntegrationErrors = {
    */
   401: unknown;
   /**
-   * No such team, not yours to link, or the host does not link so
+   * No such team, not yours to connect, or the integration does not take this connection
    */
   404: unknown;
 };
@@ -16805,7 +16808,7 @@ export type ConnectIntegrationResponses = {
 
 export type ConnectIntegrationResponse = ConnectIntegrationResponses[keyof ConnectIntegrationResponses];
 
-export type ListConnectionsData = {
+export type ListIntegrationConnectionsData = {
   body?: never;
   path: {
     teamId: string;
@@ -16814,7 +16817,7 @@ export type ListConnectionsData = {
   url: '/teams/{teamId}/connections';
 };
 
-export type ListConnectionsErrors = {
+export type ListIntegrationConnectionsErrors = {
   /**
    * No valid session
    */
@@ -16825,23 +16828,23 @@ export type ListConnectionsErrors = {
   404: unknown;
 };
 
-export type ListConnectionsResponses = {
-  200: HostConnectionsResponseDto;
+export type ListIntegrationConnectionsResponses = {
+  200: IntegrationConnectionsResponseDto;
 };
 
-export type ListConnectionsResponse = ListConnectionsResponses[keyof ListConnectionsResponses];
+export type ListIntegrationConnectionsResponse = ListIntegrationConnectionsResponses[keyof ListIntegrationConnectionsResponses];
 
-export type DisconnectMineData = {
+export type DisconnectIntegrationData = {
   body?: never;
   path: {
     teamId: string;
-    source: string;
+    integration: string;
   };
   query?: never;
-  url: '/teams/{teamId}/integrations/{source}/connections/mine';
+  url: '/teams/{teamId}/integrations/{integration}/connections/mine';
 };
 
-export type DisconnectMineErrors = {
+export type DisconnectIntegrationErrors = {
   /**
    * No valid session
    */
@@ -16852,24 +16855,24 @@ export type DisconnectMineErrors = {
   404: unknown;
 };
 
-export type DisconnectMineResponses = {
+export type DisconnectIntegrationResponses = {
   /**
    * The caller’s connection is gone
    */
   204: void;
 };
 
-export type DisconnectMineResponse = DisconnectMineResponses[keyof DisconnectMineResponses];
+export type DisconnectIntegrationResponse = DisconnectIntegrationResponses[keyof DisconnectIntegrationResponses];
 
 export type SetMyToolRuleData = {
   body: SetToolRuleRequestDto;
   path: {
     teamId: string;
-    source: string;
+    integration: string;
     tool: string;
   };
   query?: never;
-  url: '/teams/{teamId}/integrations/{source}/connections/mine/tools/{tool}';
+  url: '/teams/{teamId}/integrations/{integration}/connections/mine/tools/{tool}';
 };
 
 export type SetMyToolRuleErrors = {
@@ -16902,7 +16905,7 @@ export type CreateIntegrationData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -16910,7 +16913,7 @@ export type CreateIntegrationData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -16923,7 +16926,7 @@ export type CreateIntegrationData = {
 
 export type CreateIntegrationErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -16952,7 +16955,7 @@ export type CreateIntegrationError = CreateIntegrationErrors[keyof CreateIntegra
 
 export type CreateIntegrationResponses = {
   /**
-   * The integration, as a read would answer it
+   * The integration, as a read returns it
    */
   201: IntegrationResourceResponseDto;
 };
@@ -16963,7 +16966,7 @@ export type DeleteIntegrationData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -16971,7 +16974,7 @@ export type DeleteIntegrationData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -16984,7 +16987,7 @@ export type DeleteIntegrationData = {
 
 export type DeleteIntegrationErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -17024,7 +17027,7 @@ export type ReadIntegrationData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17041,7 +17044,7 @@ export type ReadIntegrationData = {
 
 export type ReadIntegrationErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -17071,7 +17074,7 @@ export type UpdateIntegrationData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17079,7 +17082,7 @@ export type UpdateIntegrationData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -17092,7 +17095,7 @@ export type UpdateIntegrationData = {
 
 export type UpdateIntegrationErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -17125,7 +17128,7 @@ export type UpdateIntegrationError = UpdateIntegrationErrors[keyof UpdateIntegra
 
 export type UpdateIntegrationResponses = {
   /**
-   * The integration, as a read would answer it
+   * The integration, as a read returns it
    */
   200: IntegrationResourceResponseDto;
 };
@@ -17136,7 +17139,7 @@ export type ImportIntegrationData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17158,7 +17161,7 @@ export type ImportIntegrationData = {
 
 export type ImportIntegrationErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -17175,7 +17178,7 @@ export type ImportIntegrationError = ImportIntegrationErrors[keyof ImportIntegra
 
 export type ImportIntegrationResponses = {
   /**
-   * The integration, as a read would answer it
+   * The integration, as a read returns it
    */
   200: IntegrationResourceResponseDto;
 };
@@ -17186,7 +17189,7 @@ export type ListIntegrationsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17203,7 +17206,7 @@ export type ListIntegrationsData = {
 
 export type ListIntegrationsErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -17220,7 +17223,7 @@ export type ListIntegrationsError = ListIntegrationsErrors[keyof ListIntegration
 
 export type ListIntegrationsResponses = {
   /**
-   * Every integration there, each as a read would answer it, in address order
+   * Every integration there, each as a read returns it, in address order
    */
   200: IntegrationResourceListResponseDto;
 };
@@ -17231,7 +17234,7 @@ export type CheckExpressionData = {
   body: CheckExpressionRequestDto;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17246,7 +17249,7 @@ export type CheckExpressionData = {
 
 export type CheckExpressionErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -17258,7 +17261,7 @@ export type CheckExpressionErrors = {
    */
   403: ProblemResponseDto;
   /**
-   * The request is not shaped as a check, the definition holds errors, each listed under definition, or the position names no expression in it
+   * The request is not shaped as a check, the definition has errors, each listed under definition, or the position names no expression in it
    */
   422: ProblemResponseDto;
 };
@@ -17278,7 +17281,7 @@ export type ListExpressionPositionsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17293,7 +17296,7 @@ export type ListExpressionPositionsData = {
 
 export type ListExpressionPositionsErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -17340,7 +17343,7 @@ export type CreateHookData = {
   body: HookDefinitionRequestDtoWritable;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17348,7 +17351,7 @@ export type CreateHookData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -17361,7 +17364,7 @@ export type CreateHookData = {
 
 export type CreateHookErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -17390,7 +17393,7 @@ export type CreateHookError = CreateHookErrors[keyof CreateHookErrors];
 
 export type CreateHookResponses = {
   /**
-   * The hook, as a read would answer it
+   * The hook, as a read returns it
    */
   201: HookResourceResponseDto;
 };
@@ -17401,7 +17404,7 @@ export type DeleteHookData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17409,7 +17412,7 @@ export type DeleteHookData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -17422,7 +17425,7 @@ export type DeleteHookData = {
 
 export type DeleteHookErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -17462,7 +17465,7 @@ export type ReadHookData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17479,7 +17482,7 @@ export type ReadHookData = {
 
 export type ReadHookErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -17507,7 +17510,7 @@ export type UpdateHookData = {
   body: HookDefinitionRequestDtoWritable;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17515,7 +17518,7 @@ export type UpdateHookData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -17528,7 +17531,7 @@ export type UpdateHookData = {
 
 export type UpdateHookErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -17561,7 +17564,7 @@ export type UpdateHookError = UpdateHookErrors[keyof UpdateHookErrors];
 
 export type UpdateHookResponses = {
   /**
-   * The hook, as a read would answer it
+   * The hook, as a read returns it
    */
   200: HookResourceResponseDto;
 };
@@ -17572,7 +17575,7 @@ export type ImportHookData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17594,7 +17597,7 @@ export type ImportHookData = {
 
 export type ImportHookErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -17611,7 +17614,7 @@ export type ImportHookError = ImportHookErrors[keyof ImportHookErrors];
 
 export type ImportHookResponses = {
   /**
-   * The hook, as a read would answer it
+   * The hook, as a read returns it
    */
   200: HookResourceResponseDto;
 };
@@ -17622,7 +17625,7 @@ export type ListHooksData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17639,7 +17642,7 @@ export type ListHooksData = {
 
 export type ListHooksErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -17656,7 +17659,7 @@ export type ListHooksError = ListHooksErrors[keyof ListHooksErrors];
 
 export type ListHooksResponses = {
   /**
-   * Every hook there, each as a read would answer it, in address order
+   * Every hook there, each as a read returns it, in address order
    */
   200: HookResourceListResponseDto;
 };
@@ -17715,7 +17718,7 @@ export type NoteOnHookTaskData = {
   body: CallbackNoteRequestDto;
   headers?: {
     /**
-     * The same on every retry of one note, so a retried note is said once
+     * The same on every retry of one note, so a retried note is added once
      */
     'Idempotency-Key'?: string;
   };
@@ -17851,7 +17854,7 @@ export type ListTeamMemoriesData = {
     stationId?: string;
     lineId?: string;
     kind?: string;
-    standing?: 'stands' | 'retired';
+    status?: 'active' | 'retired';
   };
   url: '/teams/{teamId}/memories';
 };
@@ -17866,7 +17869,7 @@ export type ListTeamMemoriesErrors = {
    */
   404: unknown;
   /**
-   * A standing or kind no memory has
+   * A status or kind that no memory has
    */
   422: unknown;
 };
@@ -17993,7 +17996,7 @@ export type RetireMemoryErrors = {
    */
   409: unknown;
   /**
-   * No reason given, or one too long
+   * The reason is missing or too long
    */
   422: unknown;
 };
@@ -18042,11 +18045,11 @@ export type RecallMemoriesData = {
 
 export type RecallMemoriesErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
-   * No such run held by this runner
+   * No such run leased by this runner
    */
   404: unknown;
   /**
@@ -18077,11 +18080,11 @@ export type RecallMemoryData = {
 
 export type RecallMemoryErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
-   * No such run held by this runner
+   * No such run leased by this runner
    */
   404: unknown;
   /**
@@ -18111,11 +18114,11 @@ export type RememberData = {
 
 export type RememberErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
-   * No such run held by this runner
+   * No such run leased by this runner
    */
   404: unknown;
   /**
@@ -18123,7 +18126,7 @@ export type RememberErrors = {
    */
   409: unknown;
   /**
-   * An unknown kind or reach, a path outside the run’s repositories, or a chat run
+   * An unknown kind or scope, a path outside the run’s repositories, or a chat run
    */
   422: unknown;
 };
@@ -18145,11 +18148,11 @@ export type ReadMemoryFilesData = {
 
 export type ReadMemoryFilesErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
-   * No such run held by this runner
+   * No such run leased by this runner
    */
   404: unknown;
 };
@@ -18160,7 +18163,7 @@ export type ReadMemoryFilesResponses = {
 
 export type ReadMemoryFilesResponse = ReadMemoryFilesResponses[keyof ReadMemoryFilesResponses];
 
-export type ListStationOutcomesData = {
+export type ReadStationInsightsData = {
   body?: never;
   path: {
     teamId: string;
@@ -18169,14 +18172,14 @@ export type ListStationOutcomesData = {
   };
   query?: {
     /**
-     * How many of the latest-started runs to look at: 50 unless asked, 200 at most
+     * How many of the latest-started runs to look at: 50 by default, 200 at most
      */
     last?: number;
   };
-  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/outcomes';
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/insights';
 };
 
-export type ListStationOutcomesErrors = {
+export type ReadStationInsightsErrors = {
   /**
    * No valid session
    */
@@ -18187,11 +18190,11 @@ export type ListStationOutcomesErrors = {
   404: unknown;
 };
 
-export type ListStationOutcomesResponses = {
-  200: StationOutcomesResponseDto;
+export type ReadStationInsightsResponses = {
+  200: StationInsightsResponseDto;
 };
 
-export type ListStationOutcomesResponse = ListStationOutcomesResponses[keyof ListStationOutcomesResponses];
+export type ReadStationInsightsResponse = ReadStationInsightsResponses[keyof ReadStationInsightsResponses];
 
 export type ReadStationJudgeData = {
   body?: never;
@@ -18290,7 +18293,7 @@ export type ReadInsightsOverviewData = {
   };
   query?: {
     /**
-     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     * How many whole UTC days, up to and including today, to look at; 30d by default. Every answer also covers the period before, as long
      */
     period?: '7d' | '30d' | '90d';
   };
@@ -18325,7 +18328,7 @@ export type ReadInsightsFlowData = {
   };
   query?: {
     /**
-     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     * How many whole UTC days, up to and including today, to look at; 30d by default. Every answer also covers the period before, as long
      */
     period?: '7d' | '30d' | '90d';
   };
@@ -18360,7 +18363,7 @@ export type ReadInsightsStationsData = {
   };
   query?: {
     /**
-     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     * How many whole UTC days, up to and including today, to look at; 30d by default. Every answer also covers the period before, as long
      */
     period?: '7d' | '30d' | '90d';
   };
@@ -18395,7 +18398,7 @@ export type ReadInsightsPeopleData = {
   };
   query?: {
     /**
-     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     * How many whole UTC days, up to and including today, to look at; 30d by default. Every answer also covers the period before, as long
      */
     period?: '7d' | '30d' | '90d';
   };
@@ -18430,7 +18433,7 @@ export type ReadInsightsCostData = {
   };
   query?: {
     /**
-     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     * How many whole UTC days, up to and including today, to look at; 30d by default. Every answer also covers the period before, as long
      */
     period?: '7d' | '30d' | '90d';
   };
@@ -18465,7 +18468,7 @@ export type ReadInsightsToolsData = {
   };
   query?: {
     /**
-     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     * How many whole UTC days, up to and including today, to look at; 30d by default. Every answer also covers the period before, as long
      */
     period?: '7d' | '30d' | '90d';
   };
@@ -18500,7 +18503,7 @@ export type ReadInsightsChangesData = {
   };
   query?: {
     /**
-     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     * How many whole UTC days, up to and including today, to look at; 30d by default. Every answer also covers the period before, as long
      */
     period?: '7d' | '30d' | '90d';
   };
@@ -18528,14 +18531,14 @@ export type ReadInsightsChangesResponses = {
 
 export type ReadInsightsChangesResponse = ReadInsightsChangesResponses[keyof ReadInsightsChangesResponses];
 
-export type ReadInsightsSetupsData = {
+export type ReadInsightsAgentConfigsData = {
   body?: never;
   path: {
     teamId: string;
   };
   query?: {
     /**
-     * Only runs of this size, told by the lines their changes took out and put in, or by their steps where they changed none
+     * Only runs of this size, told by the lines their changes removed and added, or by their steps where they changed none
      */
     size?: 'small' | 'medium' | 'large';
     /**
@@ -18543,14 +18546,14 @@ export type ReadInsightsSetupsData = {
      */
     stationId?: string;
     /**
-     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     * How many whole UTC days, up to and including today, to look at; 30d by default. Every answer also covers the period before, as long
      */
     period?: '7d' | '30d' | '90d';
   };
-  url: '/teams/{teamId}/insights/setups';
+  url: '/teams/{teamId}/insights/agent-configs';
 };
 
-export type ReadInsightsSetupsErrors = {
+export type ReadInsightsAgentConfigsErrors = {
   /**
    * No valid session or token
    */
@@ -18565,11 +18568,11 @@ export type ReadInsightsSetupsErrors = {
   422: unknown;
 };
 
-export type ReadInsightsSetupsResponses = {
-  200: InsightsSetupsResponseDto;
+export type ReadInsightsAgentConfigsResponses = {
+  200: InsightsAgentConfigsResponseDto;
 };
 
-export type ReadInsightsSetupsResponse = ReadInsightsSetupsResponses[keyof ReadInsightsSetupsResponses];
+export type ReadInsightsAgentConfigsResponse = ReadInsightsAgentConfigsResponses[keyof ReadInsightsAgentConfigsResponses];
 
 export type ReadInsightsMemoryData = {
   body?: never;
@@ -18578,7 +18581,7 @@ export type ReadInsightsMemoryData = {
   };
   query?: {
     /**
-     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     * How many whole UTC days, up to and including today, to look at; 30d by default. Every answer also covers the period before, as long
      */
     period?: '7d' | '30d' | '90d';
   };
@@ -18632,7 +18635,7 @@ export type ReadStationAlertErrors = {
 };
 
 export type ReadStationAlertResponses = {
-  200: StationAlertCrossingResponseDto;
+  200: StationAlertFiringResponseDto;
 };
 
 export type ReadStationAlertResponse = ReadStationAlertResponses[keyof ReadStationAlertResponses];
@@ -18644,7 +18647,7 @@ export type ReadInsightsPullRequestsData = {
   };
   query?: {
     /**
-     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     * How many whole UTC days, up to and including today, to look at; 30d by default. Every answer also covers the period before, as long
      */
     period?: '7d' | '30d' | '90d';
   };
@@ -18679,7 +18682,7 @@ export type ReadInsightsShippingData = {
   };
   query?: {
     /**
-     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     * How many whole UTC days, up to and including today, to look at; 30d by default. Every answer also covers the period before, as long
      */
     period?: '7d' | '30d' | '90d';
   };
@@ -18714,7 +18717,7 @@ export type ListInsightsPullRequestsData = {
   };
   query?: {
     /**
-     * Pull requests per page: 50 unless asked, 200 at most
+     * Pull requests per page: 50 by default, 200 at most
      */
     size?: number;
     /**
@@ -18722,7 +18725,7 @@ export type ListInsightsPullRequestsData = {
      */
     page?: number;
     /**
-     * Only pull requests that took this many review rounds
+     * Only pull requests that needed this many review rounds
      */
     rounds?: '0' | '1' | '2' | '3+';
     /**
@@ -18746,15 +18749,15 @@ export type ListInsightsPullRequestsData = {
      */
     type?: 'feature' | 'fix' | 'refactor' | 'tests' | 'chore' | 'other';
     /**
-     * spotlight for those a task opened, touched for others’ a Spotlight review task was opened on, bots for bots’ with no such task, people for the rest
+     * spotlight for those a task opened, reviewed for others’ a Spotlight review task was opened on, bots for bots’ with no such task, people for the rest
      */
-    author?: 'spotlight' | 'touched' | 'people' | 'bots';
+    author?: 'spotlight' | 'reviewed' | 'people' | 'bots';
     /**
      * Only pull requests in these repositories, comma-separated or repeated, at most 50
      */
     repository?: string;
     /**
-     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     * How many whole UTC days, up to and including today, to look at; 30d by default. Every answer also covers the period before, as long
      */
     period?: '7d' | '30d' | '90d';
   };
@@ -18789,7 +18792,7 @@ export type ListInsightsRunsData = {
   };
   query?: {
     /**
-     * Runs per page: 50 unless asked, 200 at most
+     * Runs per page: 50 by default, 200 at most
      */
     size?: number;
     /**
@@ -18801,21 +18804,21 @@ export type ListInsightsRunsData = {
      */
     asked?: boolean;
     /**
-     * Only runs a person next acted on this way
+     * Only runs that a person acted on first in this way
      */
-    next?: 'started' | 'parked' | 'closed' | 'answered' | 'sent-back';
+    humanAction?: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back';
     /**
-     * Only runs of tasks whose pull request stands this way
+     * Only runs of tasks whose pull request has this status
      */
-    delivery?: 'open' | 'merged' | 'closed';
+    pullRequestState?: 'open' | 'merged' | 'closed';
     /**
-     * Only runs a person refused a tool of this MCP server for; none for tools of no server
+     * Only runs in which a person dismissed an approval for a tool of this MCP server; none for tools of no server
      */
-    refusedServer?: string;
+    dismissedServer?: string;
     /**
-     * Only runs a person refused this tool for
+     * Only runs in which a person dismissed an approval for this tool
      */
-    refusedTool?: string;
+    dismissedTool?: string;
     /**
      * Only runs that failed where the run’s last call to this MCP server failed
      */
@@ -18833,9 +18836,9 @@ export type ListInsightsRunsData = {
      */
     skillUsed?: string;
     /**
-     * Only runs whose station config gave this skill
+     * Only runs whose station config enabled this skill
      */
-    skillGiven?: string;
+    skillEnabled?: string;
     /**
      * Only runs that ended in the week starting this UTC Monday, as YYYY-MM-DD
      */
@@ -18865,7 +18868,7 @@ export type ListInsightsRunsData = {
      */
     repository?: string;
     /**
-     * Only runs with this model; ~default for runs that named none and took the harness’s own
+     * Only runs with this model; ~default for runs that named none and used the harness’s own
      */
     model?: string;
     /**
@@ -18875,7 +18878,7 @@ export type ListInsightsRunsData = {
     /**
      * Only runs that ended this way
      */
-    outcome?: 'completed' | 'failed' | 'stopped' | 'abandoned' | 'withdrawn' | 'superseded';
+    outcome?: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded';
     /**
      * Only runs at this station
      */
@@ -18885,7 +18888,7 @@ export type ListInsightsRunsData = {
      */
     lineId?: string;
     /**
-     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     * How many whole UTC days, up to and including today, to look at; 30d by default. Every answer also covers the period before, as long
      */
     period?: '7d' | '30d' | '90d';
   };
@@ -18920,7 +18923,7 @@ export type CreateReplayCandidateData = {
      */
     name: string;
     /**
-     * The station block to replay under, as the line resource holds a station: it keeps the station’s key, and is checked as a line with it in place would be
+     * The station block to replay under, as the line resource stores a station: it keeps the station’s key, and is checked as a line with it in place would be
      */
     station: {
       [key: string]: unknown;
@@ -18928,7 +18931,7 @@ export type CreateReplayCandidateData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -18936,7 +18939,7 @@ export type CreateReplayCandidateData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -18950,7 +18953,7 @@ export type CreateReplayCandidateData = {
 
 export type CreateReplayCandidateErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -18979,7 +18982,7 @@ export type CreateReplayCandidateError = CreateReplayCandidateErrors[keyof Creat
 
 export type CreateReplayCandidateResponses = {
   /**
-   * The replay-candidate, as a read would answer it
+   * The replay-candidate, as a read returns it
    */
   201: ReplayCandidateResourceResponseDto;
 };
@@ -18990,7 +18993,7 @@ export type DeleteReplayCandidateData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -18998,7 +19001,7 @@ export type DeleteReplayCandidateData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -19011,7 +19014,7 @@ export type DeleteReplayCandidateData = {
 
 export type DeleteReplayCandidateErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19051,7 +19054,7 @@ export type ReadReplayCandidateData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19068,7 +19071,7 @@ export type ReadReplayCandidateData = {
 
 export type ReadReplayCandidateErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19096,7 +19099,7 @@ export type ImportReplayCandidateData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19118,7 +19121,7 @@ export type ImportReplayCandidateData = {
 
 export type ImportReplayCandidateErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19135,7 +19138,7 @@ export type ImportReplayCandidateError = ImportReplayCandidateErrors[keyof Impor
 
 export type ImportReplayCandidateResponses = {
   /**
-   * The replay-candidate, as a read would answer it
+   * The replay-candidate, as a read returns it
    */
   200: ReplayCandidateResourceResponseDto;
 };
@@ -19146,7 +19149,7 @@ export type ListReplayCandidatesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19168,7 +19171,7 @@ export type ListReplayCandidatesData = {
 
 export type ListReplayCandidatesErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19185,7 +19188,7 @@ export type ListReplayCandidatesError = ListReplayCandidatesErrors[keyof ListRep
 
 export type ListReplayCandidatesResponses = {
   /**
-   * Every replay-candidate there, each as a read would answer it, in address order
+   * Every replay-candidate there, each as a read returns it, in address order
    */
   200: ReplayCandidateResourceListResponseDto;
 };
@@ -19196,7 +19199,7 @@ export type ListReplaySetsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19215,7 +19218,7 @@ export type ListReplaySetsData = {
 
 export type ListReplaySetsErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19236,11 +19239,11 @@ export type ListReplaySetsResponses = {
 
 export type ListReplaySetsResponse = ListReplaySetsResponses[keyof ListReplaySetsResponses];
 
-export type OpenReplaySetData = {
-  body: OpenReplaySetRequestDto;
+export type CreateReplaySetData = {
+  body: CreateReplaySetRequestDto;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19257,9 +19260,9 @@ export type OpenReplaySetData = {
   url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/replay-sets';
 };
 
-export type OpenReplaySetErrors = {
+export type CreateReplaySetErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19280,19 +19283,19 @@ export type OpenReplaySetErrors = {
   422: ProblemResponseDto;
 };
 
-export type OpenReplaySetError = OpenReplaySetErrors[keyof OpenReplaySetErrors];
+export type CreateReplaySetError = CreateReplaySetErrors[keyof CreateReplaySetErrors];
 
-export type OpenReplaySetResponses = {
-  201: ReplaySetOpenedResponseDto;
+export type CreateReplaySetResponses = {
+  201: ReplaySetCreatedResponseDto;
 };
 
-export type OpenReplaySetResponse = OpenReplaySetResponses[keyof OpenReplaySetResponses];
+export type CreateReplaySetResponse = CreateReplaySetResponses[keyof CreateReplaySetResponses];
 
 export type ListTeamReplaySetsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19305,7 +19308,7 @@ export type ListTeamReplaySetsData = {
   };
   query?: {
     /**
-     * With line: the key of the station whose sets to list; a line or station the team does not hold is not found
+     * With line: the key of the station whose sets to list; a line or station that the team does not own is not found
      */
     station?: unknown;
     /**
@@ -19318,7 +19321,7 @@ export type ListTeamReplaySetsData = {
 
 export type ListTeamReplaySetsErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19347,7 +19350,7 @@ export type ListReplayableRunsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19366,7 +19369,7 @@ export type ListReplayableRunsData = {
 
 export type ListReplayableRunsErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19391,7 +19394,7 @@ export type ListReplaySetSuggestionsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19409,7 +19412,7 @@ export type ListReplaySetSuggestionsData = {
 
 export type ListReplaySetSuggestionsErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19434,7 +19437,7 @@ export type DeleteReplaySetData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19452,7 +19455,7 @@ export type DeleteReplaySetData = {
 
 export type DeleteReplaySetErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19488,7 +19491,7 @@ export type RenameReplaySetData = {
   body: RenameReplaySetRequestDto;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19506,7 +19509,7 @@ export type RenameReplaySetData = {
 
 export type RenameReplaySetErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19542,7 +19545,7 @@ export type AddReplaySetEntryData = {
   body: AddReplaySetEntryRequestDto;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19560,7 +19563,7 @@ export type AddReplaySetEntryData = {
 
 export type AddReplaySetEntryErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19600,7 +19603,7 @@ export type RemoveReplaySetEntryData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19619,7 +19622,7 @@ export type RemoveReplaySetEntryData = {
 
 export type RemoveReplaySetEntryErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19647,11 +19650,11 @@ export type RemoveReplaySetEntryResponses = {
 
 export type RemoveReplaySetEntryResponse = RemoveReplaySetEntryResponses[keyof RemoveReplaySetEntryResponses];
 
-export type UnguardChangesData = {
+export type UngateChangesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19664,12 +19667,12 @@ export type UnguardChangesData = {
     setId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/replay-sets/{setId}/guards-changes';
+  url: '/teams/{teamId}/replay-sets/{setId}/gates-changes';
 };
 
-export type UnguardChangesErrors = {
+export type UngateChangesErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19686,22 +19689,22 @@ export type UnguardChangesErrors = {
   404: ProblemResponseDto;
 };
 
-export type UnguardChangesError = UnguardChangesErrors[keyof UnguardChangesErrors];
+export type UngateChangesError = UngateChangesErrors[keyof UngateChangesErrors];
 
-export type UnguardChangesResponses = {
+export type UngateChangesResponses = {
   /**
-   * It no longer guards the station’s changes
+   * It no longer gates the station’s changes
    */
   204: void;
 };
 
-export type UnguardChangesResponse = UnguardChangesResponses[keyof UnguardChangesResponses];
+export type UngateChangesResponse = UngateChangesResponses[keyof UngateChangesResponses];
 
-export type GuardChangesData = {
+export type GateChangesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19714,12 +19717,12 @@ export type GuardChangesData = {
     setId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/replay-sets/{setId}/guards-changes';
+  url: '/teams/{teamId}/replay-sets/{setId}/gates-changes';
 };
 
-export type GuardChangesErrors = {
+export type GateChangesErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19735,27 +19738,27 @@ export type GuardChangesErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * Another set guards the station’s changes already, or the set’s station is gone
+   * Another set gates the station’s changes already, or the set’s station is gone
    */
   409: ProblemResponseDto;
 };
 
-export type GuardChangesError = GuardChangesErrors[keyof GuardChangesErrors];
+export type GateChangesError = GateChangesErrors[keyof GateChangesErrors];
 
-export type GuardChangesResponses = {
+export type GateChangesResponses = {
   /**
-   * It guards the station’s changes
+   * It gates the station’s changes
    */
   204: void;
 };
 
-export type GuardChangesResponse = GuardChangesResponses[keyof GuardChangesResponses];
+export type GateChangesResponse = GateChangesResponses[keyof GateChangesResponses];
 
 export type ListReplaysData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19773,7 +19776,7 @@ export type ListReplaysData = {
 
 export type ListReplaysErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19798,7 +19801,7 @@ export type StartReplayData = {
   body: StartReplayRequestDto;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19816,7 +19819,7 @@ export type StartReplayData = {
 
 export type StartReplayErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19849,7 +19852,7 @@ export type ReadReplayData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19867,7 +19870,7 @@ export type ReadReplayData = {
 
 export type ReadReplayErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19892,7 +19895,7 @@ export type ReadReplayOfRunData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19910,7 +19913,7 @@ export type ReadReplayOfRunData = {
 
 export type ReadReplayOfRunErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19935,7 +19938,7 @@ export type StopReplayData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19953,7 +19956,7 @@ export type StopReplayData = {
 
 export type StopReplayErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -19989,7 +19992,7 @@ export type ListSearchesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20008,7 +20011,7 @@ export type ListSearchesData = {
 
 export type ListSearchesErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -20033,7 +20036,7 @@ export type StartSearchData = {
   body: StartSearchRequestDto;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20052,7 +20055,7 @@ export type StartSearchData = {
 
 export type StartSearchErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -20089,7 +20092,7 @@ export type EstimateSearchData = {
   body: EstimateSearchRequestDto;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20108,7 +20111,7 @@ export type EstimateSearchData = {
 
 export type EstimateSearchErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -20137,7 +20140,7 @@ export type ListTeamSearchesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20154,7 +20157,7 @@ export type ListTeamSearchesData = {
      */
     limit?: number;
     /**
-     * Only searches started before this one, by its id; a search the team does not hold answers an empty page
+     * Only searches started before this one, by its id; a search that the team does not own answers an empty page
      */
     before?: string;
   };
@@ -20163,7 +20166,7 @@ export type ListTeamSearchesData = {
 
 export type ListTeamSearchesErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -20188,7 +20191,7 @@ export type ReadSearchData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20206,7 +20209,7 @@ export type ReadSearchData = {
 
 export type ReadSearchErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -20231,7 +20234,7 @@ export type PickSearchCandidateData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20250,7 +20253,7 @@ export type PickSearchCandidateData = {
 
 export type PickSearchCandidateErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -20279,7 +20282,7 @@ export type PickSearchCandidateResponses = {
    */
   200: ConfigPullRequestResponseDto;
   /**
-   * Picked, or tried again after a refusal
+   * Picked, or tried again after a failure
    */
   201: ConfigPullRequestResponseDto;
 };
@@ -20290,7 +20293,7 @@ export type StopSearchData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20308,7 +20311,7 @@ export type StopSearchData = {
 
 export type StopSearchErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -20344,7 +20347,7 @@ export type StartReplayCheckData = {
   body: StartReplayCheckRequestDto;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20352,7 +20355,7 @@ export type StartReplayCheckData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per check asked for; a retry with the same key and body answers the check the first attempt started, and starts nothing more
+     * Unique per requested check; a retry with the same key and body answers the check the first attempt started, and starts nothing more
      */
     'Idempotency-Key': string;
   };
@@ -20365,7 +20368,7 @@ export type StartReplayCheckData = {
 
 export type StartReplayCheckErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -20381,7 +20384,7 @@ export type StartReplayCheckErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * The line has no replay_check, no replay set guards the station’s changes, or the plan changes nothing that changes how its runs go (nothing-to-replay)
+   * The line has no replay_check, no replay set gates the station’s changes, or the plan changes nothing that changes how its runs go (nothing-to-replay)
    */
   409: ProblemResponseDto;
   /**
@@ -20398,7 +20401,7 @@ export type StartReplayCheckResponses = {
    */
   200: ReplayCheckResponseDto;
   /**
-   * The check started, as a read would answer it; or, on a retry with the same Idempotency-Key, the check the first attempt answered
+   * The check started, as a read returns it; or, on a retry with the same Idempotency-Key, the check that the first attempt returned
    */
   201: ReplayCheckResponseDto;
 };
@@ -20409,7 +20412,7 @@ export type ListReplaySetChecksData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20427,7 +20430,7 @@ export type ListReplaySetChecksData = {
      */
     limit?: number;
     /**
-     * Only checks started before this one, by its id; a check the set does not hold answers an empty page
+     * Only checks started before this one, by its id; a check that the set does not contain answers an empty page
      */
     before?: string;
   };
@@ -20436,7 +20439,7 @@ export type ListReplaySetChecksData = {
 
 export type ListReplaySetChecksErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -20461,7 +20464,7 @@ export type ReadReplayCheckData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20479,7 +20482,7 @@ export type ReadReplayCheckData = {
 
 export type ReadReplayCheckErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -20511,19 +20514,19 @@ export type ProposeSearchCandidateData = {
 
 export type ProposeSearchCandidateErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
-   * The search no longer holds this run, or it is no search run this runner holds
+   * This run is no longer the active run of the search, or it is not a search run that this runner leases
    */
   404: ProblemResponseDto;
   /**
-   * The iteration proposed all the candidates it may, or tried too often, or another iteration took the name
+   * The iteration proposed all the candidates it may, or tried too often, or another iteration uses the name already
    */
   409: ProblemResponseDto;
   /**
-   * A name that is no slug, no hypothesis, or a station block the line refuses or that changes what a search may not; errors name each problem’s path
+   * A name that is no slug, no hypothesis, or a station block the line rejects or that changes what a search may not; errors name each problem’s path
    */
   422: ProblemResponseDto;
 };
@@ -20536,22 +20539,22 @@ export type ProposeSearchCandidateResponses = {
 
 export type ProposeSearchCandidateResponse = ProposeSearchCandidateResponses[keyof ProposeSearchCandidateResponses];
 
-export type RecordSearchCauseData = {
-  body: RecordSearchCauseRequestDto;
+export type RecordFailureCauseData = {
+  body: RecordFailureCauseRequestDto;
   path: {
     runId: string;
   };
   query?: never;
-  url: '/runs/{runId}/search-causes';
+  url: '/runs/{runId}/failure-causes';
 };
 
-export type RecordSearchCauseErrors = {
+export type RecordFailureCauseErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
-   * The search no longer holds this run, it is no search run this runner holds, or the task is none the reflection looks into
+   * This run is no longer the active run of the search, it is not a search run that this runner leases, or the reflection does not look into the task
    */
   404: ProblemResponseDto;
   /**
@@ -20564,19 +20567,19 @@ export type RecordSearchCauseErrors = {
   422: ProblemResponseDto;
 };
 
-export type RecordSearchCauseError = RecordSearchCauseErrors[keyof RecordSearchCauseErrors];
+export type RecordFailureCauseError = RecordFailureCauseErrors[keyof RecordFailureCauseErrors];
 
-export type RecordSearchCauseResponses = {
-  201: SearchCauseRecordedResponseDto;
+export type RecordFailureCauseResponses = {
+  201: FailureCauseRecordedResponseDto;
 };
 
-export type RecordSearchCauseResponse = RecordSearchCauseResponses[keyof RecordSearchCauseResponses];
+export type RecordFailureCauseResponse = RecordFailureCauseResponses[keyof RecordFailureCauseResponses];
 
 export type ReadConfigPullRequestData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20594,7 +20597,7 @@ export type ReadConfigPullRequestData = {
 
 export type ReadConfigPullRequestErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**
@@ -20619,7 +20622,7 @@ export type ReadReplayedCandidatesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20632,7 +20635,7 @@ export type ReadReplayedCandidatesData = {
   };
   query?: {
     /**
-     * How many whole UTC days, up to and including today, to look at; 30d unless asked
+     * How many whole UTC days, up to and including today, to look at; 30d by default
      */
     period?: '7d' | '30d' | '90d';
   };
@@ -20641,7 +20644,7 @@ export type ReadReplayedCandidatesData = {
 
 export type ReadReplayedCandidatesErrors = {
   /**
-   * Malformed, or asking for an API version this server does not serve
+   * Malformed, or requests an API version this server does not serve
    */
   400: ProblemResponseDto;
   /**

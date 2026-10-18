@@ -84,7 +84,7 @@ const waiting = () =>
     at: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
   }).askedAbout(
@@ -108,11 +108,11 @@ const asking = () =>
     at: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
   })
-    .handedTo(RunId.of('run_1'), line())
+    .assignRun(RunId.of('run_1'), line())
     .clearFor(
       ApprovalSubject.toolCall(
         ToolCall.of(
@@ -141,9 +141,9 @@ const tasks = (found: Task) =>
     }),
     find: vi.fn(async () => found),
     remove: vi.fn(),
-    standingAt: vi.fn(async () => []),
+    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    holding: vi.fn(async () => found),
+    findByMarks: vi.fn(async () => found),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
@@ -155,7 +155,7 @@ const lines = () =>
     add: vi.fn(),
     save: vi.fn(),
     find: vi.fn(async () => line()),
-    holding: vi.fn(async () => line()),
+    findByStation: vi.fn(async () => line()),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
   }) satisfies LineRepository;
@@ -166,8 +166,8 @@ const dispatch: TaskDispatching = {
 
 const store = {
   grant: vi.fn(),
-  received: vi.fn(async (_at, given: readonly AttachmentId[]) =>
-    given.map((id) =>
+  received: vi.fn(async (_at, ids: readonly AttachmentId[]) =>
+    ids.map((id) =>
       Attachment.of({
         id: id.value,
         name: 'queue.png',
@@ -176,7 +176,7 @@ const store = {
       }),
     ),
   ),
-  keep: vi.fn(),
+  save: vi.fn(),
   taken: vi.fn(),
   link: vi.fn(),
   open: vi.fn(),
@@ -202,7 +202,7 @@ describe('AnswerInboxItem', () => {
     saved = undefined;
   });
 
-  it('adds what the person said to the trail, in their name', async () => {
+  it('adds the answer of the person to the trail, in their name', async () => {
     await answer(waiting());
 
     const last = saved?.notes[saved.notes.length - 1];
@@ -241,13 +241,13 @@ describe('AnswerInboxItem', () => {
     expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
   });
 
-  it('refuses to answer a task nobody was asked about', async () => {
+  it('does not answer a task nobody was asked about', async () => {
     const untouched = Task.add({
       line: line(),
       at: StationId.of('station_1'),
       title: TaskTitle.of('Fix the queue'),
       rank: TaskRank.of('i'),
-      raisedBy: UserId.of('user_1'),
+      createdBy: UserId.of('user_1'),
       now: NOW,
       newId: () => 'task_1',
     });
@@ -259,11 +259,11 @@ describe('AnswerInboxItem', () => {
   it('grants the approval a person gives, leaving the task to the run that asked', async () => {
     await answer(
       asking(),
-      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'granted'),
+      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'approved'),
     );
 
     const decided = saved?.notes.find((note) => note.approval)?.approval;
-    expect(decided?.standing).toBe('granted');
+    expect(decided?.status).toBe('approved');
     expect(decided?.decided?.by.value).toBe('user_1');
     expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe('Approved.');
     expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
@@ -272,7 +272,7 @@ describe('AnswerInboxItem', () => {
   it('grants it with the person’s changes, telling the agent what it runs with instead', async () => {
     await answer(
       asking(),
-      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'granted', {
+      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'approved', {
         issue: 'ENG-12',
         body: 'Fixed in #41.',
       }),
@@ -286,7 +286,7 @@ describe('AnswerInboxItem', () => {
     expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe(
       [
         'Approved.',
-        'I changed what it runs with. Call it again as you asked and it runs with these instead:',
+        'I changed what it runs with. Call it again as before and it runs with these instead:',
         'body: `Fixed in #41.`',
         'issue: `ENG-12`',
       ].join('\n\n'),
@@ -301,7 +301,7 @@ describe('AnswerInboxItem', () => {
         'user_1',
         'Mention the PR.',
         [],
-        'granted',
+        'approved',
         { issue: 'ENG-12', body: 'Fixed in #41.' },
       ),
     );
@@ -311,11 +311,11 @@ describe('AnswerInboxItem', () => {
     );
   });
 
-  it('refuses changes to a rejection as a rejection, saving nothing', async () => {
+  it('rejects changes to a dismissed request, saving nothing', async () => {
     await expect(
       answer(
         asking(),
-        new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'refused', {
+        new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'dismissed', {
           issue: 'ENG-12',
           body: 'Fixed in #41.',
         }),
@@ -327,7 +327,7 @@ describe('AnswerInboxItem', () => {
   it('says plainly it was approved where the changes left it as it was', async () => {
     await answer(
       asking(),
-      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'granted', {
+      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'approved', {
         issue: 'ENG-12',
         body: 'Fixed.',
       }),
@@ -339,13 +339,13 @@ describe('AnswerInboxItem', () => {
   it('tells the agent it was dismissed where the person gave no reason', async () => {
     await answer(
       asking(),
-      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'refused'),
+      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'dismissed'),
     );
 
     expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe('Dismissed.');
   });
 
-  it('records a refusal in the person’s own words', async () => {
+  it('records a dismissal in the person’s own words', async () => {
     await answer(
       asking(),
       new AnswerInboxItemCommand(
@@ -353,12 +353,12 @@ describe('AnswerInboxItem', () => {
         'user_1',
         'Not before the release.',
         [],
-        'refused',
+        'dismissed',
       ),
     );
 
-    expect(saved?.notes.find((note) => note.approval)?.approval?.standing).toBe(
-      'refused',
+    expect(saved?.notes.find((note) => note.approval)?.approval?.status).toBe(
+      'dismissed',
     );
     expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe(
       'Not before the release.',
@@ -375,8 +375,8 @@ describe('AnswerInboxItem', () => {
       ),
     );
 
-    expect(saved?.notes.find((note) => note.approval)?.approval?.standing).toBe(
-      'asked',
+    expect(saved?.notes.find((note) => note.approval)?.approval?.status).toBe(
+      'pending',
     );
     expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe(
       'Mention the ticket too.',
@@ -389,7 +389,7 @@ describe('AnswerInboxItem', () => {
       await answer(asking());
 
       expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
-      expect(saved?.undelivered.map((each) => each.body.value)).toEqual([
+      expect(saved?.unacknowledged.map((each) => each.body.value)).toEqual([
         'Cap it at 500.',
       ]);
       expect(saved?.pullEvents()).toContainEqual(
@@ -401,21 +401,21 @@ describe('AnswerInboxItem', () => {
       );
     });
 
-    it('hands the answer to a new run in its briefing, so it is never delivered twice', async () => {
+    it('hands the answer to a new run in its briefing, so the run never gets it twice', async () => {
       await answer(waiting());
 
-      expect(saved?.undelivered).toEqual([]);
+      expect(saved?.unacknowledged).toEqual([]);
       expect(
         saved?.pullEvents().some((each) => each instanceof TaskAnswered),
       ).toBe(false);
     });
   });
 
-  it('refuses a decision where nothing was put up to be approved', async () => {
+  it('rejects a decision where nothing was put up to be approved', async () => {
     await expect(
       answer(
         waiting(),
-        new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'granted'),
+        new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'approved'),
       ),
     ).rejects.toMatchObject({ kind: 'conflict' });
   });

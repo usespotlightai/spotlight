@@ -8,9 +8,9 @@ type MemoryPlaceProps = {
 };
 
 export function MemoryPlace({ tree, open }: MemoryPlaceProps) {
-  const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
-  const fold = (key: string) =>
-    setFolded((was) => {
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const toggle = (key: string) =>
+    setCollapsed((was) => {
       const next = new Set(was);
 
       if (!next.delete(key)) {
@@ -23,7 +23,7 @@ export function MemoryPlace({ tree, open }: MemoryPlaceProps) {
   return (
     <ul
       aria-label="Where it applies"
-      className="flex min-w-0 flex-col text-muted-foreground text-xs leading-5 group-data-clamped/row:flex-row group-data-clamped/row:items-center group-data-clamped/row:overflow-hidden group-data-clamped/row:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] group-data-closing/row:overflow-x-clip group-data-closing/row:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] group-data-gliding/row:overflow-x-clip group-data-gliding/row:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]"
+      className="flex min-w-0 flex-col text-muted-foreground text-xs leading-5 group-data-clamped/row:flex-row group-data-clamped/row:items-center group-data-clamped/row:overflow-hidden group-data-clamped/row:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] group-data-closing/row:overflow-x-clip group-data-closing/row:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] group-data-transitioning/row:overflow-x-clip group-data-transitioning/row:[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]"
     >
       <MemoryPlaceNode
         node={tree}
@@ -31,8 +31,8 @@ export function MemoryPlace({ tree, open }: MemoryPlaceProps) {
         root
         last
         open={open}
-        folded={folded}
-        onFold={fold}
+        collapsed={collapsed}
+        onToggle={toggle}
       />
     </ul>
   );

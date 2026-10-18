@@ -29,12 +29,12 @@ export class ListWorkspaceInvitesHandler
         return null;
       }
 
-      const open = await this.invites.openInWorkspace(
+      const pending = await this.invites.pendingInWorkspace(
         administered.workspace.id,
         this.clock.now(),
       );
 
-      return open.map((invite) => ({
+      return pending.map((invite) => ({
         id: invite.id,
         email: invite.email,
         role: invite.role,

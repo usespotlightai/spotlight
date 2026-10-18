@@ -4,7 +4,7 @@ import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('HandoverOption', () => {
-  it('is said as the key of the station it passes to', () => {
+  it('is written as the key of the station it passes to', () => {
     const option = HandoverOption.station(
       StationKey.of('code-review'),
       StationName.of('Code Review'),
@@ -15,7 +15,7 @@ describe('HandoverOption', () => {
     expect(option.station?.name.value).toBe('Code Review');
   });
 
-  it('is said as review where it reaches a person', () => {
+  it('is written as review where it goes to a person', () => {
     const option = HandoverOption.review();
 
     expect(option.kind).toBe('review');
@@ -23,7 +23,7 @@ describe('HandoverOption', () => {
     expect(option.station).toBeNull();
   });
 
-  it('is said as done where it finishes the work', () => {
+  it('is written as done where it finishes the work', () => {
     const option = HandoverOption.done();
 
     expect(option.kind).toBe('done');

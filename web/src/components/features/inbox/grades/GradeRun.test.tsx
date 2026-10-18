@@ -107,10 +107,10 @@ describe('GradeRun', () => {
 
     showing();
 
-    const answer = async (claim: string, said: 'Yes' | 'No') =>
+    const answer = async (claim: string, choice: 'Yes' | 'No') =>
       userEvent.click(
         within(screen.getByRole('group', { name: claim })).getByRole('button', {
-          name: said,
+          name: choice,
         }),
       );
     await answer('Retries stop on a 410 Gone', 'Yes');
@@ -154,7 +154,7 @@ describe('GradeRun', () => {
           mine: true,
           kind: 'claims',
           value: 2 / 3,
-          marks: [true, true, false],
+          claimResults: [true, true, false],
           label: '67% of claims met',
           at: '2026-09-30T12:00:00.000Z',
         },
@@ -185,7 +185,7 @@ describe('GradeRun', () => {
           mine: true,
           kind: 'claims',
           value: 2 / 3,
-          marks: [true, true, false],
+          claimResults: [true, true, false],
           label: '67% of claims met',
           at: '2026-09-30T12:00:00.000Z',
         },
@@ -211,7 +211,7 @@ describe('GradeRun', () => {
             mine: true,
             kind: 'yes-no',
             value: 1,
-            marks: null,
+            claimResults: null,
             label: 'yes',
             at: '2026-09-30T12:00:00.000Z',
           },
@@ -242,7 +242,7 @@ describe('GradeRun', () => {
     );
   });
 
-  it('holds its place while the run loads', () => {
+  it('keeps its place while the run loads', () => {
     scores.mockReturnValue(undefined);
 
     showing();

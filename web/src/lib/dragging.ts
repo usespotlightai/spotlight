@@ -27,17 +27,17 @@ export const landingFor = (
     return null;
   }
 
-  const standing = idsAt(tasks, over.stationId);
+  const taskIdsAt = idsAt(tasks, over.stationId);
 
   if (over.kind === 'station') {
-    const rest = standing.filter((each) => each !== taskId);
+    const rest = taskIdsAt.filter((each) => each !== taskId);
     return {
       stationId: over.stationId,
       afterTaskId: rest.length === 0 ? null : (rest[rest.length - 1] as string),
     };
   }
 
-  const to = standing.indexOf(over.id);
+  const to = taskIdsAt.indexOf(over.id);
 
   if (to === -1) {
     return null;
@@ -46,17 +46,17 @@ export const landingFor = (
   if (moving.stationId !== over.stationId) {
     return {
       stationId: over.stationId,
-      afterTaskId: to === 0 ? null : (standing[to - 1] as string),
+      afterTaskId: to === 0 ? null : (taskIdsAt[to - 1] as string),
     };
   }
 
-  const from = standing.indexOf(taskId);
+  const from = taskIdsAt.indexOf(taskId);
 
   if (from === -1) {
     return null;
   }
 
-  const order = [...standing];
+  const order = [...taskIdsAt];
   order.splice(from, 1);
   order.splice(to, 0, taskId);
 

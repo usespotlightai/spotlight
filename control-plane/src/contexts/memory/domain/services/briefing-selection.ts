@@ -1,13 +1,13 @@
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { withoutSuperseded } from '@memory/domain/services/superseded-memories';
 import { isWarning } from '@memory/domain/value-objects/memory-kind';
-import type { TouchedSite } from '@memory/domain/value-objects/run-site';
+import type { TouchedContext } from '@memory/domain/value-objects/run-context';
 
 const MAX_BRIEFED = 8;
 
 const MAX_BRIEFED_LENGTH = 3_000;
 
-const MAX_CUT_KEPT = 20;
+const MAX_OMITTED = 20;
 
 const TASK_WEIGHT = 3;
 
@@ -25,7 +25,7 @@ export interface BriefingCandidate {
 
 export interface BriefingChoice {
   readonly briefed: readonly Memory[];
-  readonly cut: readonly Memory[];
+  readonly omitted: readonly Memory[];
 }
 
 const REPOSITORY_SPECIFICITY = 1;
@@ -33,38 +33,45 @@ const REPOSITORY_SPECIFICITY = 1;
 const matchOf = (rank: number): number =>
   Math.min(1, Math.max(0, rank / STRONG_RANK));
 
-const reaching = (candidate: BriefingCandidate, site: TouchedSite): boolean => {
+const relevantAt = (
+  candidate: BriefingCandidate,
+  runContext: TouchedContext,
+): boolean => {
   const { memory, rank } = candidate;
 
   return (
-    memory.appliesAt(site) && (memory.scope.reaches(site) || matchOf(rank) > 0)
+    memory.appliesAt(runContext) &&
+    (memory.scope.matches(runContext) || matchOf(rank) > 0)
   );
 };
 
-const specificityAt = (memory: Memory, site: TouchedSite): number =>
-  memory.scope.reaches(site)
+const specificityAt = (memory: Memory, runContext: TouchedContext): number =>
+  memory.scope.matches(runContext)
     ? memory.scope.specificity
     : REPOSITORY_SPECIFICITY;
 
-const bearing = (candidate: BriefingCandidate, site: TouchedSite): number =>
-  specificityAt(candidate.memory, site) +
+const scoreOf = (
+  candidate: BriefingCandidate,
+  runContext: TouchedContext,
+): number =>
+  specificityAt(candidate.memory, runContext) +
   TASK_WEIGHT * matchOf(candidate.rank) +
   (isWarning(candidate.memory.kind) ? WARNING_WEIGHT : 0) +
   (candidate.recalled > 0 ? RECALLED_WEIGHT : 0);
 
 export const selectForBriefing = (
   candidates: readonly BriefingCandidate[],
-  site: TouchedSite,
+  runContext: TouchedContext,
 ): BriefingChoice => {
   const current = new Set(
     withoutSuperseded(candidates.map((each) => each.memory)),
   );
   const ranked = candidates
-    .filter((each) => current.has(each.memory) && reaching(each, site))
-    .map((each) => ({ memory: each.memory, bears: bearing(each, site) }))
+    .filter((each) => current.has(each.memory) && relevantAt(each, runContext))
+    .map((each) => ({ memory: each.memory, score: scoreOf(each, runContext) }))
     .sort(
       (one, other) =>
-        other.bears - one.bears ||
+        other.score - one.score ||
         other.memory.approval.at.getTime() - one.memory.approval.at.getTime(),
     )
     .map((each) => each.memory);
@@ -85,6 +92,6 @@ export const selectForBriefing = (
 
   return {
     briefed: chosen,
-    cut: ranked.slice(chosen.length, chosen.length + MAX_CUT_KEPT),
+    omitted: ranked.slice(chosen.length, chosen.length + MAX_OMITTED),
   };
 };

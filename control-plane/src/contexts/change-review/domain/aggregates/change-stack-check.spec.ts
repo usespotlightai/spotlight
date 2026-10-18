@@ -52,7 +52,7 @@ const cohort = (
     title: `${title} ${at + 1}`,
     summary: `${title} ${at + 1}`,
     dependsOn: [],
-    ranges: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
+    hunks: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
     notes: hunks.map((hunk) => ({
       path: DIFF.fileOf(hunk)?.path ?? hunk,
       note: 'Why it changes',
@@ -61,7 +61,7 @@ const cohort = (
 });
 
 const ready = (request = CheckRequest.of('npx tsc --noEmit', null)) => {
-  const stack = ChangeStack.draft({
+  const stack = ChangeStack.startGeneration({
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
@@ -90,8 +90,8 @@ const ready = (request = CheckRequest.of('npx tsc --noEmit', null)) => {
 const kinds = (stack: ChangeStack) =>
   stack.pullEvents().map((event) => event.kind);
 
-describe('ChangeStack, on the check it asks for', () => {
-  it('carries what the station asked of it', () => {
+describe('ChangeStack, on the check it requests', () => {
+  it('carries what the station requested of it', () => {
     expect(ready().request?.command).toBe('npx tsc --noEmit');
     expect(ready(CheckRequest.of('npm test', 'npm ci')).request?.setup).toBe(
       'npm ci',
@@ -115,24 +115,24 @@ describe('ChangeStack, on the check it asks for', () => {
     expect(ready().layers()).toEqual(['c1.l1', 'c1.l2', 'c2.l1']);
   });
 
-  it('takes up reordering only once, and only once it is ready', () => {
-    const asked = ready().askedToReorder();
+  it('takes up redrafting only once, and only once it is ready', () => {
+    const requested = ready().requestRedraft();
 
-    expect(asked.reordering).toBe(true);
-    expect(asked.owesWork).toBe(true);
-    expect(asked.askedToReorder()).toBe(asked);
+    expect(requested.redrafting).toBe(true);
+    expect(requested.hasPendingJob).toBe(true);
+    expect(requested.requestRedraft()).toBe(requested);
   });
 
-  it('refuses to be reordered before it is asked', () => {
-    expect(() => ready().reordered([cohort('All', [['h1']])], LATER)).toThrow(
+  it('is not redrafted before it is requested', () => {
+    expect(() => ready().redrafted([cohort('All', [['h1']])], LATER)).toThrow(
       InvalidChangeStackError,
     );
   });
 
-  it('says it was reordered, and stops owing the work', () => {
-    const reordered = ready()
-      .askedToReorder()
-      .reordered(
+  it('says it was redrafted, and has no pending job any more', () => {
+    const redrafted = ready()
+      .requestRedraft()
+      .redrafted(
         [
           cohort('Invitations', [['h2'], ['h1', 'h3']]),
           cohort('Docs', [['h5']]),
@@ -141,30 +141,30 @@ describe('ChangeStack, on the check it asks for', () => {
         LATER,
       );
 
-    expect(reordered.reordering).toBe(false);
-    expect(reordered.owesWork).toBe(false);
-    expect(kinds(reordered)).toEqual([
-      'change-stack.reordered',
-      'change-stack.shaped',
+    expect(redrafted.redrafting).toBe(false);
+    expect(redrafted.hasPendingJob).toBe(false);
+    expect(kinds(redrafted)).toEqual([
+      'change-stack.redrafted',
+      'change-stack.ready',
     ]);
   });
 
-  it('says reordering ended where it is given up', () => {
-    const kept = ready().askedToReorder().gaveUpReordering();
+  it('says redrafting ended when redrafting stops', () => {
+    const ended = ready().requestRedraft().stopRedrafting();
 
-    expect(kept.reordering).toBe(false);
-    expect(kinds(kept)).toEqual(['change-stack.reordering-ended']);
+    expect(ended.redrafting).toBe(false);
+    expect(kinds(ended)).toEqual(['change-stack.redrafting-ended']);
   });
 
-  it('gives up reordering once it has been worked at for too long', () => {
-    const kept = ready().askedToReorder().gaveUp(LATER);
+  it('stops redrafting once its job is dead-lettered', () => {
+    const ended = ready().requestRedraft().deadLetter(LATER);
 
-    expect(kept.owesWork).toBe(false);
-    expect(kinds(kept)).toEqual(['change-stack.reordering-ended']);
+    expect(ended.hasPendingJob).toBe(false);
+    expect(kinds(ended)).toEqual(['change-stack.redrafting-ended']);
   });
 
-  it('keeps the events of every step it takes', () => {
-    const stack = ChangeStack.draft({
+  it('records the events of every step it takes', () => {
+    const stack = ChangeStack.startGeneration({
       id: ChangeStackId.of('stack-3'),
       runId: RunId.of('run-1'),
       taskId: null,
@@ -180,9 +180,9 @@ describe('ChangeStack, on the check it asks for', () => {
     }).propose([cohort('All', [['h1', 'h2', 'h3', 'h4', 'h5']])], LATER);
 
     expect(kinds(stack)).toEqual([
-      'change-stack.drafting-began',
-      'change-stack.settled',
-      'change-stack.shaped',
+      'change-stack.generation-started',
+      'change-stack.completed',
+      'change-stack.ready',
     ]);
   });
 });

@@ -11,35 +11,36 @@ const unreachable = ProvisionFailure.of('unreachable', 'connection refused');
 const failed = (times: number, failure = unreachable) => {
   let provisioning = Provisioning.none();
   for (let each = 0; each < times; each += 1) {
-    provisioning = provisioning.failedAt(failure, noon);
+    provisioning = provisioning.recordFailure(failure, noon);
   }
   return provisioning;
 };
 
 describe('Provisioning', () => {
   it('is due straight away before anything has failed', () => {
-    expect(Provisioning.none().dueAt(noon)).toBe(true);
-    expect(Provisioning.none().failures).toBe(0);
+    expect(Provisioning.none().isDue(noon)).toBe(true);
+    expect(Provisioning.none().attempts).toBe(0);
   });
 
   it('waits five seconds after the first failure', () => {
     const once = failed(1);
 
-    expect(once.failures).toBe(1);
-    expect(once.dueAt(later(4_999))).toBe(false);
-    expect(once.dueAt(later(5_000))).toBe(true);
+    expect(once.attempts).toBe(1);
+    expect(once.isDue(later(4_999))).toBe(false);
+    expect(once.isDue(later(5_000))).toBe(true);
   });
 
   it('doubles the wait after each failure', () => {
-    expect(failed(2).nextAt).toEqual(later(10_000));
-    expect(failed(3).nextAt).toEqual(later(20_000));
-    expect(failed(4).nextAt).toEqual(later(40_000));
+    expect(failed(2).nextAttemptAt).toEqual(later(10_000));
+    expect(failed(3).nextAttemptAt).toEqual(later(20_000));
+    expect(failed(4).nextAttemptAt).toEqual(later(40_000));
   });
 
   it('never waits longer than two minutes', () => {
-    expect(failed(5 - 1).nextAt).toEqual(later(40_000));
+    expect(failed(5 - 1).nextAttemptAt).toEqual(later(40_000));
     expect(
-      Provisioning.rehydrate(8, null).failedAt(unreachable, noon).nextAt,
+      Provisioning.rehydrate(8, null).recordFailure(unreachable, noon)
+        .nextAttemptAt,
     ).toBeNull();
   });
 
@@ -55,14 +56,14 @@ describe('Provisioning', () => {
     );
 
     expect(failed(1, notAllowed).exhausted).toBe(true);
-    expect(failed(1, notAllowed).nextAt).toBeNull();
+    expect(failed(1, notAllowed).nextAttemptAt).toBeNull();
   });
 
   it('is never exhausted as it is read back, since exhausted work has ended', () => {
     expect(Provisioning.rehydrate(3, later(1_000)).exhausted).toBe(false);
   });
 
-  it('refuses an impossible number of failures', () => {
+  it('rejects an impossible number of attempts', () => {
     expect(() => Provisioning.rehydrate(-1, null)).toThrow(
       InconsistentStateError,
     );

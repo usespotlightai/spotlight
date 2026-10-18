@@ -1,5 +1,5 @@
 import { ReplayStatePill } from '@/components/features/replays/ReplayStatePill';
-import { OnlyOnSeenTasksBadge } from '@/components/features/searches/OnlyOnSeenTasksBadge';
+import { OverfitBadge } from '@/components/features/searches/OverfitBadge';
 import { Pill } from '@/components/shared/Pill';
 import { candidateName, type SearchCandidate } from '@/lib/search';
 
@@ -16,9 +16,7 @@ export function CandidateHeading({ candidate }: CandidateHeadingProps) {
       {candidate.onFrontier && (
         <Pill className="text-primary">On the frontier</Pill>
       )}
-      {candidate.onlyOnSeenTasks && (
-        <OnlyOnSeenTasksBadge mark={candidate.onlyOnSeenTasks} />
-      )}
+      {candidate.overfit && <OverfitBadge mark={candidate.overfit} />}
       {candidate.replayState && candidate.replayState !== 'finished' && (
         <ReplayStatePill state={candidate.replayState} />
       )}

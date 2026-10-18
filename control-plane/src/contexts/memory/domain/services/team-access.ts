@@ -1,11 +1,11 @@
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
-import { NotOnTeamError } from '@memory/domain/exceptions/not-on-team.error';
-import type { RunSite } from '@memory/domain/value-objects/run-site';
+import { TeamNotFoundError } from '@memory/domain/exceptions/team-not-found.error';
+import type { RunContext } from '@memory/domain/value-objects/run-context';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface TeamStanding {
+export interface Membership {
   readonly workspaceId: WorkspaceId;
   readonly by: UserId;
 }
@@ -22,15 +22,19 @@ export class TeamAccess {
     readonly by: UserId,
   ) {}
 
-  static onTeam(teamId: string, standing: TeamStanding | null): TeamAccess {
-    if (!standing) {
-      throw new NotOnTeamError(teamId);
+  static onTeam(teamId: string, membership: Membership | null): TeamAccess {
+    if (!membership) {
+      throw new TeamNotFoundError(teamId);
     }
 
-    return new TeamAccess(TeamId.of(teamId), standing.workspaceId, standing.by);
+    return new TeamAccess(
+      TeamId.of(teamId),
+      membership.workspaceId,
+      membership.by,
+    );
   }
 
-  holds(memory: Memory): boolean {
+  includes(memory: Memory): boolean {
     return (
       memory.scope.teamId.equals(this.teamId) &&
       memory.workspaceId.equals(this.workspaceId)
@@ -44,7 +48,7 @@ export class TeamAccess {
     );
   }
 
-  sees(site: RunSite): boolean {
-    return site.teamId.equals(this.teamId);
+  sees(runContext: RunContext): boolean {
+    return runContext.teamId.equals(this.teamId);
   }
 }

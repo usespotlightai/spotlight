@@ -4,7 +4,7 @@ export const UNJUDGED_BECAUSE = [
   'unavailable',
   'unreadable-rubric',
   'no-evidence',
-  'refused',
+  'request-failed',
   'unreadable',
   'ungrounded',
   'errored',
@@ -25,7 +25,7 @@ export class EntryJudging {
     readonly unjudged: Unjudged | null,
   ) {}
 
-  static asked(): EntryJudging {
+  static requested(): EntryJudging {
     return new EntryJudging(null, null);
   }
 

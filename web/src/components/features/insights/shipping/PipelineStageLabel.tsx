@@ -3,11 +3,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { lastedOrNone } from '@/lib/insights';
+import { formatDurationOrNone } from '@/lib/insights';
 import {
   type FlowStage,
   formatPart,
-  STATION_PARTS,
+  STATION_STAGES,
 } from '@/lib/insights-shipping';
 import { cn } from '@/lib/utils';
 
@@ -34,7 +34,7 @@ export function PipelineStageLabel({
         {stage.label}
       </span>
       <span className="font-mono text-[0.7rem] text-muted-foreground">
-        {lastedOrNone(stage.ms)}
+        {formatDurationOrNone(stage.ms)}
       </span>
     </span>
   );
@@ -50,10 +50,12 @@ export function PipelineStageLabel({
           </TooltipTrigger>
           <TooltipContent className="flex flex-col gap-0.5 text-xs">
             <span className="text-foreground">{stage.label}</span>
-            {STATION_PARTS.map((part) => (
+            {STATION_STAGES.map((part) => (
               <span key={part} className="text-muted-foreground">
                 {formatPart(part)}{' '}
-                <span className="font-mono">{lastedOrNone(parts[part])}</span>
+                <span className="font-mono">
+                  {formatDurationOrNone(parts[part])}
+                </span>
               </span>
             ))}
           </TooltipContent>

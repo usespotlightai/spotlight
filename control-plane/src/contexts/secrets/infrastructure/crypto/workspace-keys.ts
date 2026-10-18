@@ -24,10 +24,10 @@ export class WorkspaceKeys implements WorkspaceKeysPort {
   ) {}
 
   async of(workspaceId: WorkspaceId): Promise<Uint8Array> {
-    const kept = await this.kept(workspaceId);
+    const existing = await this.storedKey(workspaceId);
 
-    if (kept) {
-      return this.unwrapped(workspaceId, kept);
+    if (existing) {
+      return this.unwrapped(workspaceId, existing);
     }
 
     const issued = await this.kms.issue(contextFor(workspaceId));
@@ -46,7 +46,7 @@ export class WorkspaceKeys implements WorkspaceKeysPort {
       return issued.plain;
     }
 
-    const first = await this.kept(workspaceId);
+    const first = await this.storedKey(workspaceId);
 
     if (!first) {
       throw new Error(
@@ -57,18 +57,18 @@ export class WorkspaceKeys implements WorkspaceKeysPort {
     return this.unwrapped(workspaceId, first);
   }
 
-  async forget(workspaceId: WorkspaceId): Promise<void> {
-    const forgotten = await this.context.db
+  async deleteDataKey(workspaceId: WorkspaceId): Promise<void> {
+    const deleted = await this.context.db
       .delete(secretDataKey)
       .where(eq(secretDataKey.workspaceId, workspaceId.value))
       .returning({ wrapped: secretDataKey.wrapped });
 
-    for (const each of forgotten) {
+    for (const each of deleted) {
       this.#unwrapped.delete(each.wrapped);
     }
   }
 
-  private async kept(workspaceId: WorkspaceId): Promise<string | null> {
+  private async storedKey(workspaceId: WorkspaceId): Promise<string | null> {
     const [found] = await this.context.db
       .select({ wrapped: secretDataKey.wrapped })
       .from(secretDataKey)
@@ -82,10 +82,10 @@ export class WorkspaceKeys implements WorkspaceKeysPort {
     workspaceId: WorkspaceId,
     wrapped: string,
   ): Promise<Uint8Array> {
-    const held = this.#unwrapped.get(wrapped);
+    const cached = this.#unwrapped.get(wrapped);
 
-    if (held) {
-      return held;
+    if (cached) {
+      return cached;
     }
 
     const plain = await this.kms.unwrap(wrapped, contextFor(workspaceId));

@@ -59,12 +59,12 @@ export class ReceiveReviewComment {
       }
 
       if (!known) {
-        await this.arrived(received);
+        await this.received(received);
       }
     });
   }
 
-  private async arrived({
+  private async received({
     workspaceId,
     pullRequest,
     comment,
@@ -82,14 +82,14 @@ export class ReceiveReviewComment {
 
     const siblings = await this.comments.ofTask(task.id);
 
-    if (siblings.some((each) => each.echoes(anchor, comment.body))) {
+    if (siblings.some((each) => each.isOwnPostedCopy(anchor, comment.body))) {
       return;
     }
 
     const parent =
-      comment.answers === null
+      comment.inReplyToId === null
         ? null
-        : await this.comments.onGitHub(workspaceId, comment.answers);
+        : await this.comments.onGitHub(workspaceId, comment.inReplyToId);
 
     await this.comments.add(
       ReviewComment.receive({

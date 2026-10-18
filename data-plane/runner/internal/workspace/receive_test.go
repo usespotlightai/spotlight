@@ -19,7 +19,7 @@ func writing(content string) func(io.Writer) error {
 	}
 }
 
-func TestReceivePlacesTheFileWhereItWasAsked(t *testing.T) {
+func TestReceivePlacesTheFileWhereItWasRequested(t *testing.T) {
 	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -44,7 +44,7 @@ func TestReceivePlacesTheFileWhereItWasAsked(t *testing.T) {
 	}
 }
 
-func TestReceiveRefusesAPathOutOfTheWorkspace(t *testing.T) {
+func TestReceiveRejectsAPathOutOfTheWorkspace(t *testing.T) {
 	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -58,10 +58,10 @@ func TestReceiveRefusesAPathOutOfTheWorkspace(t *testing.T) {
 		})
 
 		if err == nil {
-			t.Errorf("%q should be refused", escaping)
+			t.Errorf("%q should be rejected", escaping)
 		}
 		if fetched {
-			t.Errorf("%q was fetched before it was refused", escaping)
+			t.Errorf("%q was fetched before it was rejected", escaping)
 		}
 	}
 }
@@ -79,7 +79,7 @@ func TestReceiveWillNotFollowALinkOutOfTheWorkspace(t *testing.T) {
 	}
 
 	if err := space.Receive(".spotlight/notes.txt", nil, writing("x")); err == nil {
-		t.Error("a path through a link out of the workspace should be refused")
+		t.Error("a path through a link out of the workspace should be rejected")
 	}
 	if _, err := os.Stat(filepath.Join(outside, "notes.txt")); !os.IsNotExist(err) {
 		t.Errorf("a file was written outside the workspace: %v", err)
@@ -109,8 +109,8 @@ func TestReceiveLeavesAFileAlreadyThereAlone(t *testing.T) {
 	if fetched {
 		t.Error("a file already there was fetched again")
 	}
-	if kept, _ := os.ReadFile(path); string(kept) != "kept" {
-		t.Errorf("the file was replaced with %q", kept)
+	if content, _ := os.ReadFile(path); string(content) != "kept" {
+		t.Errorf("the file was replaced with %q", content)
 	}
 }
 
@@ -143,9 +143,9 @@ func TestReceiveNeverShowsHalfAFile(t *testing.T) {
 	}
 }
 
-func TestReceiveGivesWhatItMakesToTheAgent(t *testing.T) {
+func TestReceiveChownsWhatItMakesToTheAgent(t *testing.T) {
 	if os.Getuid() != 0 {
-		t.Skip("giving files to another account needs root")
+		t.Skip("changing the owner of files to another account needs root")
 	}
 
 	space, err := workspace.Open(t.TempDir())
@@ -202,7 +202,7 @@ func TestReplaceWritesOverAFileAlreadyThere(t *testing.T) {
 	}
 }
 
-func TestReplaceRefusesWhatIsNotAFile(t *testing.T) {
+func TestReplaceRejectsWhatIsNotAFile(t *testing.T) {
 	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -221,7 +221,7 @@ func TestReplaceRefusesWhatIsNotAFile(t *testing.T) {
 	}
 }
 
-func TestReplaceRefusesAPathOutOfTheWorkspace(t *testing.T) {
+func TestReplaceRejectsAPathOutOfTheWorkspace(t *testing.T) {
 	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)

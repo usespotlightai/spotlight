@@ -34,7 +34,7 @@ export function PeopleSkeleton() {
         <InsightsTilesSkeleton label="Human load" tiles={LOAD} />
       </InsightsSection>
 
-      <InsightsSection title="Who is using Spotlight" note={ADOPTION_NOTE}>
+      <InsightsSection title="Who is using Spotlight" tooltip={ADOPTION_NOTE}>
         <InsightsTilesSkeleton label="Adoption" tiles={ADOPTION} />
       </InsightsSection>
 

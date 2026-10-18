@@ -11,26 +11,26 @@ const shared = globalThis as { [OVERLAPS]?: string[] };
 
 if (!shared[OVERLAPS]) {
   const overlaps: string[] = [];
-  const query = Client.prototype.query as (...given: unknown[]) => unknown;
+  const query = Client.prototype.query as (...args: unknown[]) => unknown;
 
   shared[OVERLAPS] = overlaps;
   Client.prototype.query = function (
     this: Client & Queueing,
-    ...given: unknown[]
+    ...args: unknown[]
   ) {
     if (this._activeQuery || this._queryQueue.length > 0) {
-      const [asked] = given;
+      const [first] = args;
       const text =
-        typeof asked === 'string' ? asked : (asked as { text?: string }).text;
+        typeof first === 'string' ? first : (first as { text?: string }).text;
 
       overlaps.push(`${text}\n  while running: ${this._activeQuery?.text}`);
     }
 
-    return query.apply(this, given);
+    return query.apply(this, args);
   } as Client['query'];
 }
 
-// pg@9 refuses a query while the client runs another; inside a transaction every query shares one client.
+// pg@9 rejects a query while the client runs another; inside a transaction every query shares one client.
 afterEach(() => {
   const taken = shared[OVERLAPS]?.splice(0) ?? [];
 

@@ -12,11 +12,11 @@ import { and, eq, isNull } from 'drizzle-orm';
 export class DrizzleIntegrationCursors implements IntegrationCursorsPort {
   constructor(private readonly context: DrizzleContext) {}
 
-  async read(teamId: TeamId, source: string): Promise<PollState> {
+  async read(teamId: TeamId, integration: string): Promise<PollState> {
     const [found] = await this.context.db
       .select()
       .from(integrationCursor)
-      .where(this.theOne(teamId, source))
+      .where(this.theOne(teamId, integration))
       .limit(1);
 
     return { cursor: found?.cursor ?? null, ranAt: found?.ranAt ?? null };
@@ -24,7 +24,7 @@ export class DrizzleIntegrationCursors implements IntegrationCursorsPort {
 
   async claimTurn(
     teamId: TeamId,
-    source: string,
+    integration: string,
     seen: PollState,
     at: Date,
   ): Promise<boolean> {
@@ -32,25 +32,25 @@ export class DrizzleIntegrationCursors implements IntegrationCursorsPort {
       .insert(integrationCursor)
       .values({
         teamId: teamId.value,
-        source,
+        integration,
         cursor: seen.cursor,
         ranAt: at,
       })
       .onConflictDoUpdate({
-        target: [integrationCursor.teamId, integrationCursor.source],
+        target: [integrationCursor.teamId, integrationCursor.integration],
         set: { ranAt: at },
         setWhere: seen.ranAt
           ? eq(integrationCursor.ranAt, seen.ranAt)
           : isNull(integrationCursor.ranAt),
       })
-      .returning({ source: integrationCursor.source });
+      .returning({ integration: integrationCursor.integration });
 
     return claimed.length > 0;
   }
 
   async advance(
     teamId: TeamId,
-    source: string,
+    integration: string,
     cursor: string | null,
     claimedAt: Date,
   ): Promise<boolean> {
@@ -59,19 +59,19 @@ export class DrizzleIntegrationCursors implements IntegrationCursorsPort {
       .set({ cursor })
       .where(
         and(
-          this.theOne(teamId, source),
+          this.theOne(teamId, integration),
           eq(integrationCursor.ranAt, claimedAt),
         ),
       )
-      .returning({ source: integrationCursor.source });
+      .returning({ integration: integrationCursor.integration });
 
     return advanced.length > 0;
   }
 
-  private theOne(teamId: TeamId, source: string) {
+  private theOne(teamId: TeamId, integration: string) {
     return and(
       eq(integrationCursor.teamId, teamId.value),
-      eq(integrationCursor.source, source),
+      eq(integrationCursor.integration, integration),
     );
   }
 }

@@ -18,15 +18,15 @@ func (c candidate) label() string { return c.Name }
 func (s replaySet) id() string    { return s.ID }
 func (s replaySet) label() string { return s.Name }
 
-func pick[T named](held []T, asked, kind, at string) (T, error) {
+func pick[T named](items []T, query, kind, at string) (T, error) {
 	var none T
 	var byName []T
 
-	for _, each := range held {
-		if each.id() == asked {
+	for _, each := range items {
+		if each.id() == query {
 			return each, nil
 		}
-		if each.label() == asked {
+		if each.label() == query {
 			byName = append(byName, each)
 		}
 	}
@@ -35,20 +35,20 @@ func pick[T named](held []T, asked, kind, at string) (T, error) {
 	case 1:
 		return byName[0], nil
 	case 0:
-		names := make([]string, 0, len(held))
-		for _, each := range held {
+		names := make([]string, 0, len(items))
+		for _, each := range items {
 			names = append(names, each.label())
 		}
 		if len(names) == 0 {
-			return none, fmt.Errorf("%s has no %s %q, nor any other", at, kind, asked)
+			return none, fmt.Errorf("%s has no %s %q, nor any other", at, kind, query)
 		}
-		return none, fmt.Errorf("%s has no %s %q; it has %s", at, kind, asked, strings.Join(names, ", "))
+		return none, fmt.Errorf("%s has no %s %q; it has %s", at, kind, query, strings.Join(names, ", "))
 	default:
 		ids := make([]string, 0, len(byName))
 		for _, each := range byName {
 			ids = append(ids, each.id())
 		}
-		return none, fmt.Errorf("%s has %d of %s named %q; name one by its id: %s", at, len(byName), kind, asked, strings.Join(ids, ", "))
+		return none, fmt.Errorf("%s has %d of %s named %q; name one by its id: %s", at, len(byName), kind, query, strings.Join(ids, ", "))
 	}
 }
 

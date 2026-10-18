@@ -231,7 +231,7 @@ func (e *Engine) Start(ctx context.Context, spec sandbox.Spec) (string, error) {
 		}
 	}
 
-	if err := e.lay(ctx, answer.Id, spec.Files); err != nil {
+	if err := e.copyFiles(ctx, answer.Id, spec.Files); err != nil {
 		return answer.Id, err
 	}
 
@@ -242,9 +242,9 @@ func (e *Engine) Start(ctx context.Context, spec sandbox.Spec) (string, error) {
 	return answer.Id, nil
 }
 
-func (e *Engine) lay(ctx context.Context, id string, files []sandbox.File) error {
+func (e *Engine) copyFiles(ctx context.Context, id string, files []sandbox.File) error {
 	for _, file := range files {
-		if err := e.layOne(ctx, id, file); err != nil {
+		if err := e.copyFile(ctx, id, file); err != nil {
 			return err
 		}
 	}
@@ -252,8 +252,8 @@ func (e *Engine) lay(ctx context.Context, id string, files []sandbox.File) error
 	return nil
 }
 
-// layOne extracts the archive in the parent of the file's directory, so the existing parent directories in the image keep their modes.
-func (e *Engine) layOne(ctx context.Context, id string, file sandbox.File) error {
+// copyFile extracts the archive in the parent of the file's directory, so the existing parent directories in the image keep their modes.
+func (e *Engine) copyFile(ctx context.Context, id string, file sandbox.File) error {
 	name := path.Clean("/" + file.Path)
 	dir := path.Dir(name)
 	if dir == "/" {
@@ -525,10 +525,10 @@ func (e *Engine) send(ctx context.Context, method, path string, body io.Reader, 
 }
 
 func failure(response *http.Response) error {
-	var said struct{ Message string }
+	var errorBody struct{ Message string }
 	raw, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
-	if json.Unmarshal(raw, &said) == nil && said.Message != "" {
-		return fmt.Errorf("%s: %s", response.Status, said.Message)
+	if json.Unmarshal(raw, &errorBody) == nil && errorBody.Message != "" {
+		return fmt.Errorf("%s: %s", response.Status, errorBody.Message)
 	}
 
 	return fmt.Errorf("%s: %s", response.Status, strings.TrimSpace(string(raw)))

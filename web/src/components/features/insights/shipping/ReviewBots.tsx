@@ -28,7 +28,7 @@ const COLUMNS: readonly InsightsColumn<ReviewBot>[] = [
   {
     id: 'resolved',
     header: 'Resolved',
-    cell: (bot) => formatShare(bot.resolvedShare),
+    cell: (bot) => formatShare(bot.resolvedRate),
     numeric: true,
   },
 ];

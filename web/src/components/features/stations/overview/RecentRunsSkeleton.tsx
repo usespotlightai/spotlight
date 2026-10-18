@@ -1,7 +1,7 @@
 import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCardSkeleton';
 import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
 import { SectionLinkSkeleton } from '@/components/shared/skeleton/SectionLinkSkeleton';
-import { RECENT_RUN_HEADINGS } from '@/lib/station-outcomes';
+import { RECENT_RUN_HEADINGS } from '@/lib/station-insights';
 
 export function RecentRunsSkeleton() {
   return (

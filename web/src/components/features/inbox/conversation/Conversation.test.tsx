@@ -7,7 +7,7 @@ import {
   Conversation,
   type Deciding,
 } from '@/components/features/inbox/conversation/Conversation';
-import { type InboxMessage, openedAt } from '@/lib/inbox';
+import { type Note, openedAt } from '@/lib/inbox';
 
 vi.mock('@/hooks/api/useSession', () => ({
   useSession: () => ({ data: { user: { id: 'user_1' } } }),
@@ -26,11 +26,7 @@ vi.mock('@/hooks/api/useRepositories', () => ({
 const AT = '2026-09-03T21:22:00.000Z';
 const LATER = '2026-09-03T23:45:00.000Z';
 
-const note = (
-  position: number,
-  at: string,
-  station = 'Backlog',
-): InboxMessage => ({
+const note = (position: number, at: string, station = 'Backlog'): Note => ({
   position,
   kind: 'asked',
   form: 'words',
@@ -56,7 +52,7 @@ const APPROVAL = {
     { name: 'issue', value: 'ENG-12' },
     { name: 'body', value: 'Fixed in #41.' },
   ],
-  standing: 'asked' as const,
+  status: 'pending' as const,
   edited: null,
   intent: null,
   askedOf: null,
@@ -137,7 +133,7 @@ describe('Conversation', () => {
       screen.getByRole('button', { name: 'Approve linear.comment' }),
     );
 
-    expect(onDecide).toHaveBeenCalledWith({ approve: true, said: '' });
+    expect(onDecide).toHaveBeenCalledWith({ approve: true, body: '' });
   });
 
   it('shows the tool call without a decision to make where nobody can make one', () => {

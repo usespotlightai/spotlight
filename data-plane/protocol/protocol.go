@@ -16,18 +16,18 @@ type HarnessReport struct {
 	Version string   `json:"version,omitempty"`
 }
 
-type Installable struct {
+type HarnessProbe struct {
 	ID           string   `json:"id"`
 	Executable   string   `json:"executable"`
 	Discovery    []string `json:"discovery,omitempty"`
 	VersionProbe []string `json:"versionProbe,omitempty"`
 }
 
-type Registered struct {
+type RegisterResponse struct {
 	RunnerID string `json:"runnerId"`
 }
 
-const ThroughSpotlight = "spotlight:repository"
+const RemoteViaGitProxy = "spotlight:repository"
 
 type Checkout struct {
 	Remote string `json:"remote"`
@@ -46,7 +46,7 @@ type Command struct {
 	Env        map[string]string `json:"env,omitempty"`
 }
 
-type Handover struct {
+type HandoverSpec struct {
 	Options   []string `json:"options,omitempty"`
 	NoteLimit int      `json:"noteLimit,omitempty"`
 }
@@ -55,9 +55,9 @@ type Spec struct {
 	Checkouts     []Checkout     `json:"checkouts,omitempty"`
 	Command       Command        `json:"command"`
 	Briefing      string         `json:"briefing,omitempty"`
-	Handover      Handover       `json:"handover,omitzero"`
+	Handover      HandoverSpec   `json:"handover,omitzero"`
 	Manifest      []ToolManifest `json:"manifest,omitempty"`
-	Continuity    Continuity     `json:"continuity,omitzero"`
+	Resume        Resume         `json:"resume,omitzero"`
 	Attachments   []Attachment   `json:"attachments,omitempty"`
 	Skills        []SkillFile    `json:"skills,omitempty"`
 	SkillHomes    []string       `json:"skillHomes,omitempty"`
@@ -79,7 +79,7 @@ type HarnessSetup struct {
 	Files      []SetupFile     `json:"files,omitempty"`
 	Session    json.RawMessage `json:"session,omitempty"`
 	McpServers []McpServer     `json:"mcpServers,omitempty"`
-	Asks       []string        `json:"asks,omitempty"`
+	AskKinds   []string        `json:"askKinds,omitempty"`
 }
 
 type SetupFile struct {
@@ -100,19 +100,19 @@ type EnvVariable struct {
 }
 
 const (
-	PermissionAllow       = "allow"
-	PermissionReject      = "reject"
-	PermissionPutToPerson = "asked"
+	PermissionAllow   = "allow"
+	PermissionReject  = "reject"
+	PermissionPending = "pending"
 )
 
-type PermissionAsked struct {
+type PermissionRequest struct {
 	SessionID string          `json:"sessionId"`
 	Kind      string          `json:"kind"`
 	Title     string          `json:"title"`
 	Input     json.RawMessage `json:"input,omitempty"`
 }
 
-type PermissionAnswer struct {
+type PermissionResponse struct {
 	Decision string `json:"decision"`
 }
 
@@ -142,7 +142,7 @@ type ToolInputManifest struct {
 	Description string          `json:"description,omitempty"`
 	Required    bool            `json:"required,omitempty"`
 	Defaulted   bool            `json:"defaulted,omitempty"`
-	Piped       bool            `json:"piped,omitempty"`
+	Stdin       bool            `json:"stdin,omitempty"`
 }
 
 type inputSchema struct {
@@ -221,10 +221,10 @@ type SkillFile struct {
 	Text string `json:"text"`
 }
 
-type Continuity struct {
-	Key       string `json:"key,omitempty"`
-	SessionID string `json:"sessionId,omitempty"`
-	Resumes   bool   `json:"resumes,omitempty"`
+type Resume struct {
+	Key           string `json:"key,omitempty"`
+	SessionID     string `json:"sessionId,omitempty"`
+	ResumeSession bool   `json:"resumeSession,omitempty"`
 }
 
 type Run struct {
@@ -255,46 +255,46 @@ type Event struct {
 	ExitCode *int      `json:"exitCode,omitempty"`
 }
 
-type Remark struct {
+type ReviewCommentReply struct {
 	Handle  string `json:"handle"`
 	Body    string `json:"body"`
 	Resolve bool   `json:"resolve,omitempty"`
 }
 
-type Outcome struct {
+type Handover struct {
 	Next string `json:"next"`
 	Note string `json:"note,omitempty"`
 }
 
 type Completion struct {
-	ExitCode   int      `json:"exitCode"`
-	Failed     bool     `json:"failed"`
-	Unprepared bool     `json:"unprepared,omitempty"`
-	TimedOut   bool     `json:"timedOut,omitempty"`
-	Stopped    bool     `json:"stopped,omitempty"`
-	Message    string   `json:"message,omitempty"`
-	Outcome    *Outcome `json:"outcome,omitempty"`
-	SessionID  string   `json:"sessionId,omitempty"`
-	Kept       bool     `json:"kept,omitempty"`
+	ExitCode    int       `json:"exitCode"`
+	Failed      bool      `json:"failed"`
+	SetupFailed bool      `json:"setupFailed,omitempty"`
+	TimedOut    bool      `json:"timedOut,omitempty"`
+	Stopped     bool      `json:"stopped,omitempty"`
+	Message     string    `json:"message,omitempty"`
+	Handover    *Handover `json:"handover,omitempty"`
+	SessionID   string    `json:"sessionId,omitempty"`
+	Archived    bool      `json:"archived,omitempty"`
 }
 
-type TurnAsks struct {
-	Asks bool `json:"asks"`
+type TurnAwaitsPerson struct {
+	AwaitsPerson bool `json:"awaitsPerson"`
 }
 
-type Completed struct {
+type CompleteResponse struct {
 	Waiting bool `json:"waiting"`
 }
 
-type ParkRequest struct {
-	Cold bool `json:"cold,omitempty"`
+type SuspendRequest struct {
+	Requeue bool `json:"requeue,omitempty"`
 }
 
-type Parking struct {
-	Parked bool `json:"parked"`
+type Suspension struct {
+	Suspended bool `json:"suspended"`
 }
 
-type HeldArchive struct {
+type StoredArchive struct {
 	ID     string `json:"id"`
 	URL    string `json:"url"`
 	Size   int64  `json:"size"`
@@ -323,13 +323,13 @@ type ArchiveGrant struct {
 	Headers map[string]string `json:"headers"`
 }
 
-type Said struct {
+type Message struct {
 	Position    int          `json:"position"`
 	Body        string       `json:"body"`
 	Attachments []Attachment `json:"attachments,omitempty"`
 }
 
-type ChangeStackDraft struct {
+type ChangeStackGenerationRequest struct {
 	Diff       string `json:"diff"`
 	Repository string `json:"repository"`
 	Base       string `json:"base,omitempty"`
@@ -340,17 +340,17 @@ const (
 	ClaimedCheck = "check"
 )
 
-type Claimed struct {
+type ClaimResponse struct {
 	Kind  string      `json:"kind"`
 	Run   *Run        `json:"run"`
 	Check *StackCheck `json:"check"`
 }
 
-type Handed struct {
-	RunnerID    string  `json:"runnerId"`
-	Token       string  `json:"token"`
-	EgressToken string  `json:"egressToken,omitempty"`
-	Work        Claimed `json:"work"`
+type Assignment struct {
+	RunnerID    string        `json:"runnerId"`
+	Token       string        `json:"token"`
+	EgressToken string        `json:"egressToken,omitempty"`
+	Work        ClaimResponse `json:"work"`
 }
 
 type StackCheck struct {
@@ -372,13 +372,13 @@ type CheckStep struct {
 }
 
 const (
-	SkipNoBase         = "no-base"
-	SkipNoCheckout     = "no-checkout"
-	SkipCheckoutFailed = "checkout-failed"
-	SkipSetupFailed    = "setup-failed"
-	SkipNoRoom         = "no-room"
-	SkipOutOfTime      = "out-of-time"
-	SkipNoImage        = "no-image"
+	SkipNoBase          = "no-base"
+	SkipNoCheckout      = "no-checkout"
+	SkipCheckoutFailed  = "checkout-failed"
+	SkipSetupFailed     = "setup-failed"
+	SkipWorkspaceFailed = "workspace-failed"
+	SkipOutOfTime       = "out-of-time"
+	SkipNoImage         = "no-image"
 )
 
 type SkippedCheck struct {
@@ -386,14 +386,14 @@ type SkippedCheck struct {
 	Detail string `json:"detail,omitempty"`
 }
 
-type StackChecked struct {
-	Skipped *SkippedCheck `json:"skipped,omitempty"`
-	Steps   []CheckedStep `json:"steps,omitempty"`
+type StackCheckResult struct {
+	Skipped *SkippedCheck     `json:"skipped,omitempty"`
+	Steps   []CheckStepResult `json:"steps,omitempty"`
 }
 
-type CheckedStep struct {
-	Step   string `json:"step"`
-	Passed bool   `json:"passed"`
-	Output string `json:"output"`
-	TookMs int64  `json:"tookMs"`
+type CheckStepResult struct {
+	Step       string `json:"step"`
+	Passed     bool   `json:"passed"`
+	Output     string `json:"output"`
+	DurationMs int64  `json:"durationMs"`
 }

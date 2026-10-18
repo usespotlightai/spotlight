@@ -16,7 +16,7 @@ import { InvalidToolInputError } from '@work/domain/exceptions/invalid-tool-inpu
 import { NotASetupChatError } from '@work/domain/exceptions/not-a-setup-chat.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import { ConfigHome } from '@work/domain/value-objects/config-home.vo';
+import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -30,7 +30,7 @@ const INPUTS = ToolInputs.of({
   body: 'Triage reads the bug, feature and chore labels.',
 });
 
-const using = (given: { setup?: boolean } = {}) => {
+const using = (options: { setup?: boolean } = {}) => {
   let chat = Chat.start({
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -38,12 +38,12 @@ const using = (given: { setup?: boolean } = {}) => {
     harness: HarnessId.of('claude-code'),
     body: ChatMessageBody.of('Set up our configuration.'),
     setup:
-      given.setup === false
+      options.setup === false
         ? null
-        : ConfigHome.of({ repository: 'acme/infra', folder: 'spotlight' }),
+        : ConfigFolder.of({ repository: 'acme/infra', folder: 'spotlight' }),
     now: NOW,
     newId: () => 'chat_1',
-  }).handedTo(RunId.of('run_1'), NOW);
+  }).assignRun(RunId.of('run_1'), NOW);
   chat.pullEvents();
 
   const events: unknown[] = [];
@@ -107,7 +107,7 @@ describe('SetupPullRequestToolUse', () => {
     expect(open).toHaveBeenCalledTimes(1);
   });
 
-  it('refuses a chat that sets nothing up', async () => {
+  it('rejects a chat that sets nothing up', async () => {
     const { tool, context, open } = using({ setup: false });
 
     await expect(tool.call(context, INPUTS)).rejects.toThrow(
@@ -116,7 +116,7 @@ describe('SetupPullRequestToolUse', () => {
     expect(open).not.toHaveBeenCalled();
   });
 
-  it('refuses a branch named like a task’s', async () => {
+  it('rejects a branch named like a task’s', async () => {
     const { tool, context, open } = using();
 
     await expect(
@@ -128,7 +128,7 @@ describe('SetupPullRequestToolUse', () => {
     expect(open).not.toHaveBeenCalled();
   });
 
-  it('refuses a pull request without a title', async () => {
+  it('rejects a pull request without a title', async () => {
     const { tool, context, open } = using();
 
     await expect(

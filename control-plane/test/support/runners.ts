@@ -2,7 +2,7 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { eq, inArray } from 'drizzle-orm';
 import * as schema from './schema';
 
-export const forgetRunnersOf = async (
+export const deleteRunnersOf = async (
   db: DrizzleDatabase,
   workspaceId: string,
 ): Promise<void> => {

@@ -1,5 +1,5 @@
-import type { RunnerAdmissionsPort } from '@runners/application/ports/runner-admissions.port';
-import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
+import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-authenticator.port';
+import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
 import type { RunnersPort } from '@runners/application/ports/runners.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -25,9 +25,9 @@ export class ClaimHostWorkHandler
   implements CommandHandlerPort<ClaimHostWorkCommand, HostClaimDto>
 {
   constructor(
-    private readonly admissions: RunnerAdmissionsPort,
+    private readonly authenticator: RunnerAuthenticatorPort,
     private readonly runners: RunnersPort,
-    private readonly presence: RunnerPresencePort,
+    private readonly heartbeats: RunnerHeartbeatsPort,
     private readonly runs: RunRepository,
     private readonly leases: RunLeases,
     private readonly checks: CheckWorkPort,
@@ -39,17 +39,19 @@ export class ClaimHostWorkHandler
 
   async execute(command: ClaimHostWorkCommand): Promise<HostClaimDto> {
     try {
-      const admitted = await this.admissions.admit(command.credential);
+      const authenticated = await this.authenticator.authenticate(
+        command.credential,
+      );
 
-      if (!admitted) {
-        return { outcome: 'refused' };
+      if (!authenticated) {
+        return { outcome: 'unauthorized' };
       }
 
       const until = this.polls.deadline();
       const started = await this.polls.polled(async () => {
         const now = this.clock.now();
         const attempt = await this.runners.start(
-          admitted.way,
+          authenticated.source,
           command.host,
           command.image,
           now,
@@ -64,9 +66,10 @@ export class ClaimHostWorkHandler
       }
 
       if (started.outcome !== 'started') {
-        return started.outcome === 'stranger' || started.outcome === 'unoffered'
+        return started.outcome === 'host-unreported' ||
+          started.outcome === 'image-unreported'
           ? { outcome: started.outcome }
-          : { outcome: 'refused' };
+          : { outcome: 'unauthorized' };
       }
 
       let work: ClaimedWorkDto | null = null;
@@ -74,7 +77,7 @@ export class ClaimHostWorkHandler
         work = await this.claimed(started.runnerId, until);
       } finally {
         if (!work) {
-          await this.runners.letGo(started.runnerId, this.clock.now());
+          await this.runners.release(started.runnerId, this.clock.now());
         }
       }
 
@@ -98,30 +101,30 @@ export class ClaimHostWorkHandler
     runner: RunnerId,
     until: Date,
   ): Promise<ClaimedWorkDto | null> {
-    const seen = await this.presence.seen(runner, this.clock.now());
+    const heartbeat = await this.heartbeats.heartbeat(runner, this.clock.now());
 
-    if (!seen) {
+    if (!heartbeat) {
       return null;
     }
 
-    await this.leases.requeueLapsed(this.clock.now());
+    await this.leases.expireLeases(this.clock.now());
 
     const claimant: Claimant = {
       runner,
-      workspaceId: seen.workspaceId,
-      harnesses: seen.harnesses,
-      terms: seen.terms,
+      workspaceId: heartbeat.workspaceId,
+      harnesses: heartbeat.harnesses,
+      offer: heartbeat.offer,
       claims: 'any',
     };
 
-    const found = await this.polls.polled<ClaimedWorkDto | 'handed-back'>(
+    const found = await this.polls.polled<ClaimedWorkDto | 'requeued'>(
       async () => {
         const run = await this.runs.claimNext(claimant, this.clock.now());
         const start = run
           ? await this.starting.mayStart(run, runner, until)
           : null;
 
-        if (start === 'handed-back') {
+        if (start === 'requeued') {
           return start;
         }
 
@@ -132,9 +135,9 @@ export class ClaimHostWorkHandler
         }
 
         const check = await this.checks.claimNext(
-          seen.workspaceId,
+          heartbeat.workspaceId,
           runner,
-          seen.terms,
+          heartbeat.offer,
           this.clock.now(),
         );
 
@@ -149,6 +152,6 @@ export class ClaimHostWorkHandler
       until,
     );
 
-    return found === 'handed-back' ? null : found;
+    return found === 'requeued' ? null : found;
   }
 }

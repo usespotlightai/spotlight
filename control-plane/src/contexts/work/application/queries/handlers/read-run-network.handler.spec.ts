@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 const AT = new Date('2026-10-16T12:00:00.000Z');
 
-const told = (data: unknown) =>
+const encoded = (data: unknown) =>
   Buffer.from(JSON.stringify(data)).toString('base64');
 
 const connection = (host: string) =>
@@ -19,20 +19,20 @@ const connection = (host: string) =>
     bytesOut: 10,
     bytesIn: 20,
     ms: 5,
-    outcome: 'tunnelled',
+    outcome: 'passthrough',
     status: null,
     reason: null,
     at: AT,
   });
 
 const reading = (checked: string | null, visible = true) => {
-  const asked: string[] = [];
+  const read: string[] = [];
   const events = {
     findForViewer: async (runId: RunId) =>
       visible ? { id: runId.value, attempt: 2 } : null,
     eventsSince: async () => [],
     lastOfType: async (_runId: RunId, _attempt: number, type: string) => {
-      asked.push(type);
+      read.push(type);
       return checked === null
         ? null
         : { attempt: 2, seq: 3, type, at: AT.toISOString(), data: checked };
@@ -44,26 +44,26 @@ const reading = (checked: string | null, visible = true) => {
       { attempt: 1, connection: connection('old.example.com') },
       { attempt: 2, connection: connection('registry.npmjs.org') },
     ],
-    wentWrongIn: async () => [],
-    forgetBefore: async () => 0,
+    errorsIn: async () => [],
+    purgeBefore: async () => 0,
   } satisfies RunConnectionsPort;
 
   return {
     handler: new ReadRunNetworkHandler(events, connections),
-    asked,
+    read,
   };
 };
 
 describe('ReadRunNetworkHandler', () => {
   it('reads the connections of the current attempt, and egress enforced', async () => {
-    const { handler, asked } = reading(told({ enforced: true }));
+    const { handler, read } = reading(encoded({ enforced: true }));
 
     await expect(
       handler.execute(new ReadRunNetworkQuery('run_1', 'user_1')),
     ).resolves.toEqual({
       runId: 'run_1',
       attempt: 2,
-      egress: 'enforced',
+      egressEnforcement: 'enforced',
       connections: [
         {
           host: 'registry.npmjs.org',
@@ -71,29 +71,29 @@ describe('ReadRunNetworkHandler', () => {
           bytesOut: 10,
           bytesIn: 20,
           ms: 5,
-          outcome: 'tunnelled',
+          outcome: 'passthrough',
           status: null,
           reason: null,
-          trouble: null,
+          error: null,
           at: AT.toISOString(),
         },
       ],
     });
-    expect(asked).toEqual([EGRESS_CHECKED]);
+    expect(read).toEqual([EGRESS_CHECKED]);
   });
 
   it('reads egress not enforced, or no check at all', async () => {
-    for (const [checked, egress] of [
-      [told({ enforced: false }), 'not-enforced'],
+    for (const [checked, egressEnforcement] of [
+      [encoded({ enforced: false }), 'not-enforced'],
       [null, null],
-      [told({ enforced: 'yes' }), null],
+      [encoded({ enforced: 'yes' }), null],
       ['not base64 json', null],
     ] as const) {
       await expect(
         reading(checked).handler.execute(
           new ReadRunNetworkQuery('run_1', 'user_1'),
         ),
-      ).resolves.toMatchObject({ egress });
+      ).resolves.toMatchObject({ egressEnforcement });
     }
   });
 

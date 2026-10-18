@@ -26,7 +26,7 @@ export class RunMemoriesController {
   @ApiOperation({
     operationId: 'readRunMemories',
     summary:
-      'What a run remembered: the memories it was briefed with and those the cap cut, what it recalled, and what it proposed',
+      'What a run remembered: the memories it was briefed with and those the cap omitted, what it recalled, and what it proposed',
   })
   @ApiOkResponse({ type: RunMemoriesResponseDto })
   @ApiNotFoundResponse({

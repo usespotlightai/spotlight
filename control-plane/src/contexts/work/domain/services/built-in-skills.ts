@@ -8,7 +8,7 @@ export const REVIEWING_PULL_REQUESTS = SkillKey.of('spotlight-review');
 
 export const USING_TOOLS = SkillKey.of('spotlight-tools');
 
-export const BUILT_IN_SKILL_KEYS: readonly SkillKey[] = [
+export const BUILT_IN_SKILL_KEY_LIST: readonly SkillKey[] = [
   HANDING_OVER,
   OPENING_PULL_REQUESTS,
   REVIEWING_PULL_REQUESTS,

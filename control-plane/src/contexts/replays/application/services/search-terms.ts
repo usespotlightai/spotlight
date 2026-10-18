@@ -1,25 +1,25 @@
 import type {
-  SearchAgentAsked,
-  SearchBudgetAsked,
+  SearchAgentInput,
+  SearchBudgetInput,
 } from '@replays/application/commands/start-search.command';
 import type { WorkPort } from '@replays/application/ports/work.port';
+import { InvalidMoneyError } from '@replays/domain/exceptions/invalid-money.error';
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
-import { InvalidSpendError } from '@replays/domain/exceptions/invalid-spend.error';
 import { SearchSetTooSmallError } from '@replays/domain/exceptions/search-set-too-small.error';
 import type { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import {
-  type SearchAllotment,
   SearchBudget,
+  type SearchCeilingSplit,
 } from '@replays/domain/value-objects/search-budget.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
-export class SearchTermsRefusedError extends Error {
+export class InvalidSearchTermsError extends Error {
   constructor(readonly problems: readonly ConfigurationProblem[]) {
     super('Search is invalid.');
-    this.name = 'SearchTermsRefusedError';
+    this.name = 'InvalidSearchTermsError';
   }
 }
 
@@ -29,7 +29,7 @@ const problemAt = (
 ): ConfigurationProblem =>
   ConfigurationProblem.of({ path: '', at: FieldPath.of([...path]), reason });
 
-const refusalOf = (
+const problemsOf = (
   made: () => unknown,
   path: readonly string[],
 ): ConfigurationProblem[] => {
@@ -39,7 +39,7 @@ const refusalOf = (
   } catch (error) {
     if (
       error instanceof InvalidSearchError ||
-      error instanceof InvalidSpendError
+      error instanceof InvalidMoneyError
     ) {
       return [problemAt(path, error.message)];
     }
@@ -47,58 +47,58 @@ const refusalOf = (
   }
 };
 
-const refused = (problems: readonly ConfigurationProblem[]): void => {
+const reject = (problems: readonly ConfigurationProblem[]): void => {
   if (problems.length > 0) {
-    throw new SearchTermsRefusedError(problems);
+    throw new InvalidSearchTermsError(problems);
   }
 };
 
 const ANY_HARNESS = 'any';
 
-const ANY_CEILING = Spend.ceiling(1, 'USD');
+const ANY_CEILING = Money.ceiling(1, 'USD');
 
 export const searchAgentOf = (
-  asked: SearchAgentAsked,
+  input: SearchAgentInput,
   work: WorkPort,
 ): SearchAgent => {
-  refused([
-    ...refusalOf(
+  reject([
+    ...problemsOf(
       () =>
-        SearchAgent.of({ harness: asked.harness, model: null, effort: null }),
+        SearchAgent.of({ harness: input.harness, model: null, effort: null }),
       ['agent', 'harness'],
     ),
-    ...refusalOf(
+    ...problemsOf(
       () =>
         SearchAgent.of({
           harness: ANY_HARNESS,
-          model: asked.model,
+          model: input.model,
           effort: null,
         }),
       ['agent', 'model'],
     ),
-    ...refusalOf(
+    ...problemsOf(
       () =>
         SearchAgent.of({
           harness: ANY_HARNESS,
           model: null,
-          effort: asked.effort,
+          effort: input.effort,
         }),
       ['agent', 'effort'],
     ),
   ]);
 
-  const agent = SearchAgent.of(asked);
-  const refusal = work.agentRefusal(agent);
+  const agent = SearchAgent.of(input);
+  const problem = work.agentProblem(agent);
 
-  if (refusal) {
-    refused([problemAt(['agent', refusal.field], refusal.reason)]);
+  if (problem) {
+    reject([problemAt(['agent', problem.field], problem.reason)]);
   }
 
   return agent;
 };
 
-export const searchBudgetOf = (asked: SearchBudgetAsked): SearchBudget => {
-  const counts = (over: Partial<SearchBudgetAsked>) => () =>
+export const searchBudgetOf = (input: SearchBudgetInput): SearchBudget => {
+  const counts = (over: Partial<SearchBudgetInput>) => () =>
     SearchBudget.of({
       iterations: over.iterations ?? 1,
       perIteration: over.perIteration ?? 1,
@@ -110,40 +110,40 @@ export const searchBudgetOf = (asked: SearchBudgetAsked): SearchBudget => {
         ? {}
         : { repeats: over.repeats }),
     });
-  const currency = refusalOf(
-    () => Spend.none(asked.ceiling.currency),
+  const currency = problemsOf(
+    () => Money.none(input.ceiling.currency),
     ['budget', 'ceiling', 'currency'],
   );
 
-  refused([
+  reject([
     ...currency,
     ...(currency.length > 0
       ? []
-      : refusalOf(
-          () => Spend.ceiling(asked.ceiling.amount, asked.ceiling.currency),
+      : problemsOf(
+          () => Money.ceiling(input.ceiling.amount, input.ceiling.currency),
           ['budget', 'ceiling', 'amount'],
         )),
-    ...refusalOf(counts({ iterations: asked.iterations }), [
+    ...problemsOf(counts({ iterations: input.iterations }), [
       'budget',
       'iterations',
     ]),
-    ...refusalOf(counts({ perIteration: asked.perIteration }), [
+    ...problemsOf(counts({ perIteration: input.perIteration }), [
       'budget',
       'perIteration',
     ]),
-    ...refusalOf(counts({ concurrency: asked.concurrency }), [
+    ...problemsOf(counts({ concurrency: input.concurrency }), [
       'budget',
       'concurrency',
     ]),
-    ...refusalOf(counts({ repeats: asked.repeats }), ['budget', 'repeats']),
+    ...problemsOf(counts({ repeats: input.repeats }), ['budget', 'repeats']),
   ]);
 
   return SearchBudget.of({
-    iterations: asked.iterations,
-    perIteration: asked.perIteration,
-    ceiling: Spend.ceiling(asked.ceiling.amount, asked.ceiling.currency),
-    ...(asked.concurrency === null ? {} : { concurrency: asked.concurrency }),
-    ...(asked.repeats === null ? {} : { repeats: asked.repeats }),
+    iterations: input.iterations,
+    perIteration: input.perIteration,
+    ceiling: Money.ceiling(input.ceiling.amount, input.ceiling.currency),
+    ...(input.concurrency === null ? {} : { concurrency: input.concurrency }),
+    ...(input.repeats === null ? {} : { repeats: input.repeats }),
   });
 };
 
@@ -152,21 +152,21 @@ export const splitOf = (drawn: () => HeldOutSplit): HeldOutSplit => {
     return drawn();
   } catch (error) {
     if (error instanceof SearchSetTooSmallError) {
-      throw new SearchTermsRefusedError([problemAt(['setId'], error.message)]);
+      throw new InvalidSearchTermsError([problemAt(['setId'], error.message)]);
     }
     throw error;
   }
 };
 
-export const allotmentOf = (
+export const ceilingSplitOf = (
   budget: SearchBudget,
   split: HeldOutSplit,
-): SearchAllotment => {
+): SearchCeilingSplit => {
   try {
-    return budget.allot(split);
+    return budget.splitCeiling(split);
   } catch (error) {
     if (error instanceof InvalidSearchError) {
-      throw new SearchTermsRefusedError([
+      throw new InvalidSearchTermsError([
         problemAt(['budget', 'ceiling', 'amount'], error.message),
       ]);
     }

@@ -1,7 +1,7 @@
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
 import type { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { MAX_REPEATS } from '@replays/domain/value-objects/replay-repeats';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 
 export const MAX_ITERATIONS = 10;
 
@@ -15,15 +15,15 @@ const AGENT_SLACK = { parts: 1, of: 10 } as const;
 
 const MIN_RUN = 0.01;
 
-export interface SearchAllotment {
-  readonly perRun: Spend;
-  readonly seed: Spend;
-  readonly searchReplay: Spend;
-  readonly heldOutReplay: Spend;
-  readonly heldOutReserve: Spend;
-  readonly agentRuns: Spend;
-  readonly agentRun: Spend;
-  readonly iteration: Spend;
+export interface SearchCeilingSplit {
+  readonly perRun: Money;
+  readonly seed: Money;
+  readonly searchReplay: Money;
+  readonly heldOutReplay: Money;
+  readonly heldOutReserve: Money;
+  readonly agentRuns: Money;
+  readonly agentRun: Money;
+  readonly iteration: Money;
 }
 
 const counted = (value: number, max: number, what: string, min = 1): number => {
@@ -38,7 +38,7 @@ export class SearchBudget {
   private constructor(
     readonly iterations: number,
     readonly perIteration: number,
-    readonly ceiling: Spend,
+    readonly ceiling: Money,
     readonly concurrency: number,
     readonly repeats: number,
   ) {}
@@ -46,7 +46,7 @@ export class SearchBudget {
   static of(input: {
     iterations: number;
     perIteration: number;
-    ceiling: Spend;
+    ceiling: Money;
     concurrency?: number;
     repeats?: number;
   }): SearchBudget {
@@ -57,7 +57,7 @@ export class SearchBudget {
         MAX_PER_ITERATION,
         'candidates per iteration',
       ),
-      Spend.ceiling(input.ceiling.amount, input.ceiling.currency),
+      Money.ceiling(input.ceiling.amount, input.ceiling.currency),
       counted(
         input.concurrency ?? SEARCH_CONCURRENCY,
         MAX_CONCURRENCY,
@@ -67,7 +67,7 @@ export class SearchBudget {
     );
   }
 
-  allot(split: HeldOutSplit): SearchAllotment {
+  splitCeiling(split: HeldOutSplit): SearchCeilingSplit {
     const total = split.runs * this.repeats;
     const searched = split.searched.length * this.repeats;
     const heldOut = split.heldOut.length * this.repeats;
@@ -118,12 +118,12 @@ export class SearchBudget {
     );
   }
 
-  allowsIteration(spent: Spend, split: HeldOutSplit): boolean {
-    const allotted = this.allot(split);
+  allowsIteration(spent: Money, split: HeldOutSplit): boolean {
+    const ceilingSplit = this.splitCeiling(split);
 
     return spent
-      .plus(allotted.heldOutReserve)
-      .plus(allotted.iteration)
+      .plus(ceilingSplit.heldOutReserve)
+      .plus(ceilingSplit.iteration)
       .isWithin(this.ceiling);
   }
 

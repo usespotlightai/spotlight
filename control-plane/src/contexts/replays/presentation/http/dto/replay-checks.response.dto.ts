@@ -7,17 +7,17 @@ import type {
 } from '@replays/application/dto/replay-checks.dto';
 import { SCORING_FIELDS } from '@replays/domain/services/live-scoring';
 import {
-  CHECK_VERDICTS,
+  CHECK_RESULTS,
   UNDECIDED_BECAUSE,
-} from '@replays/domain/services/replay-check-verdict';
+} from '@replays/domain/services/replay-check-result';
 import { MAX_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
 import {
-  GainReadingResponseDto,
+  GainEstimateResponseDto,
   gainResponse,
   intervalResponse,
+  MoneyResponseDto,
   RateIntervalResponseDto,
-  SpendResponseDto,
 } from '@replays/presentation/http/dto/replays.response.dto';
 
 const ENTRY_RESULTS = ['pending', 'succeeded', 'failed', 'unscored'];
@@ -53,7 +53,7 @@ export class StartReplayCheckRequestDto {
     type: 'object',
     additionalProperties: true,
     description:
-      'The station block as the plan would apply it, as the line resource holds a station; its check, judge, diffs and runners are replaced by the live station’s, since a planned change is scored as, and runs where, the live station does',
+      'The station block as the plan would apply it, as the line resource stores a station; its check, judge, diffs and runners are replaced by the live station’s, since a planned change is scored as, and runs where, the live station does',
     example: {
       key: 'build',
       name: 'Build',
@@ -69,7 +69,7 @@ export class StartReplayCheckRequestDto {
     type: 'object',
     additionalProperties: true,
     description:
-      'The line’s settings that change how its stations run, as the plan would apply them: its repositories, each with its image and setup, as the line resource holds them',
+      'The line’s settings that change how its stations run, as the plan would apply them: its repositories, each with its image and setup, as the line resource stores them',
     example: { repositories: [{ name: 'acme/api', setup: 'npm ci' }] },
   })
   readonly line?: Record<string, unknown>;
@@ -104,26 +104,26 @@ export class ReplayCheckThresholdResponseDto {
   readonly minGain: number;
 
   @ApiProperty({
-    type: SpendResponseDto,
+    type: MoneyResponseDto,
     description:
-      'The most each replay of the check may spend: the replay of the planned change and, when the set has no baseline of the live config yet, the baseline replay the check starts, each up to this ceiling on its own; a baseline already there costs the check nothing. A replay reaching its ceiling starts no more runs, though runs already going finish, so it may end a little over it',
+      'The most each replay of the check may spend: the replay of the planned change and, when the set has no baseline of the live config yet, the baseline replay the check starts, each up to this ceiling on its own; a baseline already there costs the check nothing. A replay at its ceiling starts no more runs, though runs already going finish, so it may end a little over it',
   })
-  readonly ceiling: SpendResponseDto;
+  readonly ceiling: MoneyResponseDto;
 
   @ApiProperty({
-    type: SpendResponseDto,
+    type: MoneyResponseDto,
     nullable: true,
     description:
       'What a run that reports no price, or a price in another currency, counts against the ceiling: the ceiling shared out over the set’s runs; null once the replay is gone',
   })
-  readonly unpricedRun: SpendResponseDto | null;
+  readonly unpricedRun: MoneyResponseDto | null;
 
   constructor(threshold: ReplayCheckDto['threshold']) {
     this.maxRegressions = threshold.maxRegressions;
     this.minGain = threshold.minGain;
-    this.ceiling = new SpendResponseDto(threshold.ceiling);
+    this.ceiling = new MoneyResponseDto(threshold.ceiling);
     this.unpricedRun =
-      threshold.unpricedRun && new SpendResponseDto(threshold.unpricedRun);
+      threshold.unpricedRun && new MoneyResponseDto(threshold.unpricedRun);
   }
 }
 
@@ -168,11 +168,11 @@ export class ReplayCheckSideResponseDto {
   })
   readonly interval: RateIntervalResponseDto | null;
 
-  @ApiProperty({ description: 'Tasks with at least one scored copy' })
+  @ApiProperty({ description: 'Tasks with at least one scored repeat' })
   readonly tasksScored: number;
 
-  @ApiProperty({ type: SpendResponseDto, nullable: true })
-  readonly spent: SpendResponseDto | null;
+  @ApiProperty({ type: MoneyResponseDto, nullable: true })
+  readonly spent: MoneyResponseDto | null;
 
   constructor(side: CheckSideDto) {
     this.state = side.state;
@@ -182,7 +182,7 @@ export class ReplayCheckSideResponseDto {
     this.successRate = side.successRate;
     this.interval = intervalResponse(side.interval);
     this.tasksScored = side.tasksScored;
-    this.spent = side.spent && new SpendResponseDto(side.spent);
+    this.spent = side.spent && new MoneyResponseDto(side.spent);
   }
 }
 
@@ -212,14 +212,14 @@ export class ReplayCheckRegressionResponseDto {
   @ApiProperty({
     enum: ENTRY_RESULTS,
     isArray: true,
-    description: 'The result of each copy the candidate replayed',
+    description: 'The result of each repeat the candidate replayed',
   })
   readonly candidate: string[];
 
   @ApiProperty({
     enum: ENTRY_RESULTS,
     isArray: true,
-    description: 'The result of each copy the baseline replayed',
+    description: 'The result of each repeat the baseline replayed',
   })
   readonly baseline: string[];
 
@@ -259,7 +259,7 @@ export class ReplayCheckResponseDto {
   readonly stationKey: string;
 
   @ApiProperty({
-    description: 'The replay set that guards the station’s changes',
+    description: 'The replay set that gates the station’s changes',
   })
   readonly setId: string;
 
@@ -299,9 +299,9 @@ export class ReplayCheckResponseDto {
     enum: SCORING_FIELDS,
     isArray: true,
     description:
-      'What the plan changed of how runs are scored, which the check kept as the live station has it',
+      'What the plan changed of how runs are scored, which the check pinned to the live station’s values',
   })
-  readonly keptLive: string[];
+  readonly scoringPinnedToLive: string[];
 
   @ApiProperty({ type: ReplayCheckThresholdResponseDto })
   readonly threshold: ReplayCheckThresholdResponseDto;
@@ -314,18 +314,18 @@ export class ReplayCheckResponseDto {
 
   @ApiProperty({
     nullable: true,
-    type: GainReadingResponseDto,
+    type: GainEstimateResponseDto,
     description:
-      'The candidate’s gain in success over the baseline and whether it is within noise; it does not decide the verdict',
+      'The candidate’s gain in success over the baseline and whether it is within noise; it does not decide the result',
   })
-  readonly gain: GainReadingResponseDto | null;
+  readonly gain: GainEstimateResponseDto | null;
 
   @ApiProperty({
-    enum: CHECK_VERDICTS,
+    enum: CHECK_RESULTS,
     description:
       'failed as soon as more tasks regressed than the threshold allows; running while either replay runs; undecided when the replay stopped or reached its ceiling, the baseline did not finish, or fewer than half the tasks were scored on both sides; passed otherwise',
   })
-  readonly verdict: string;
+  readonly result: string;
 
   @ApiProperty({
     enum: [...UNDECIDED_BECAUSE, null],
@@ -334,7 +334,7 @@ export class ReplayCheckResponseDto {
   })
   readonly undecidedBecause: string | null;
 
-  @ApiProperty({ description: 'How many tasks the guarding set replays' })
+  @ApiProperty({ description: 'How many tasks the gating set replays' })
   readonly tasks: number;
 
   @ApiProperty({ description: 'How many tasks were scored on both sides' })
@@ -382,11 +382,11 @@ export class ReplayCheckResponseDto {
     this.reference = new ReplayCheckReferenceResponseDto(check.reference);
     this.liveFingerprint = check.liveFingerprint;
     this.candidateFingerprint = check.candidateFingerprint;
-    this.keptLive = [...check.keptLive];
+    this.scoringPinnedToLive = [...check.scoringPinnedToLive];
     this.threshold = new ReplayCheckThresholdResponseDto(check.threshold);
     this.repeats = check.repeats;
     this.gain = gainResponse(check.gain);
-    this.verdict = check.verdict;
+    this.result = check.result;
     this.undecidedBecause = check.undecidedBecause;
     this.tasks = check.tasks;
     this.compared = check.compared;
@@ -411,8 +411,8 @@ export class ReplayCheckSummaryResponseDto {
   @ApiProperty({ example: 'build' })
   readonly stationKey: string;
 
-  @ApiProperty({ enum: CHECK_VERDICTS })
-  readonly verdict: string;
+  @ApiProperty({ enum: CHECK_RESULTS })
+  readonly result: string;
 
   @ApiProperty({
     enum: [...UNDECIDED_BECAUSE, null],
@@ -447,7 +447,7 @@ export class ReplayCheckSummaryResponseDto {
     this.id = check.id;
     this.stationId = check.stationId;
     this.stationKey = check.stationKey;
-    this.verdict = check.verdict;
+    this.result = check.result;
     this.undecidedBecause = check.undecidedBecause;
     this.regressions = check.regressions;
     this.attempt = check.attempt;

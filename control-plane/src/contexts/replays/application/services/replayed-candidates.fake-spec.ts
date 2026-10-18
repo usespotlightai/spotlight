@@ -8,8 +8,8 @@ import {
   aSet,
   BY,
   candidateOf,
-  DIGESTS,
   FINGERPRINT,
+  HASHES,
   LIVE_FINGERPRINT,
   later,
   NOW,
@@ -24,8 +24,8 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -41,7 +41,7 @@ export const made = {
   address: AT,
   block: StationBlock.of({ key: 'build', name: 'Build', prompt: 'Go.' }),
   fingerprint: FINGERPRINT,
-  digests: DIGESTS,
+  hashes: HASHES,
   scoring: UNSCORED,
   at: NOW,
 };
@@ -70,7 +70,7 @@ export const replayOf = (
     set,
     candidate,
     baseline: false,
-    ceiling: Spend.ceiling(100, 'USD'),
+    ceiling: Money.ceiling(100, 'USD'),
     at,
     by: BY,
   });
@@ -92,32 +92,32 @@ export const heldOutOf = (
   replays: readonly Replay[],
   ids: () => RunId,
 ): Search => {
-  let held = search
+  let built = search
     .recordRunEnd(RUN_ONE, { failed: false, started: true }, later(1), ids)
     .recordAgentSpend(RUN_ONE, ModelSpent.of([], 0), later(1), ids);
 
   for (const replayId of ['replay_terse', 'replay_wordy']) {
-    held = held.recordReplayEnd(
+    built = built.recordReplayStopReason(
       ReplayId.of(replayId),
       'finished',
-      { spent: Spend.of(1, 'USD'), unpriced: 0 },
+      { spent: Money.of(1, 'USD'), unpriced: 0 },
       later(2),
       ids,
       true,
     );
   }
-  while (held.heldRun) {
-    const run = held.heldRun;
+  while (built.activeRun) {
+    const run = built.activeRun;
 
-    held = held
+    built = built
       .recordRunEnd(run, { failed: false, started: true }, later(3), ids)
       .recordAgentSpend(run, ModelSpent.of([], 0), later(3), ids);
   }
 
-  return held.heldOutFrom(
+  return built.heldOutFrom(
     replays,
     0.05,
-    () => ReplayId.of('replay_held_terse'),
+    () => ReplayId.of('replay_held_out_terse'),
     later(4),
   );
 };
@@ -126,20 +126,20 @@ export const replayedWorld = (holdingOut = false): ReplayedWorld => {
   const set = aSet(10);
   const ids = searchRunIds();
   const searching = aSearch({ set })
-    .recordReplayEnd(
+    .recordReplayStopReason(
       ReplayId.of('replay_seed'),
       'finished',
-      { spent: Spend.of(20, 'USD'), unpriced: 0 },
+      { spent: Money.of(20, 'USD'), unpriced: 0 },
       NOW,
       ids,
       true,
     )
-    .admitted(RUN_ONE, {
+    .acceptProposal(RUN_ONE, {
       candidateId: CandidateId.of('candidate_terse'),
       name: CandidateName.searched('terse'),
       replayId: ReplayId.of('replay_terse'),
     })
-    .admitted(RUN_ONE, {
+    .acceptProposal(RUN_ONE, {
       candidateId: CandidateId.of('candidate_wordy'),
       name: CandidateName.searched('wordy'),
       replayId: ReplayId.of('replay_wordy'),
@@ -180,7 +180,7 @@ export const replayedWorld = (holdingOut = false): ReplayedWorld => {
             replayedAs(
               replayFor(
                 set,
-                'replay_held_terse',
+                'replay_held_out_terse',
                 'candidate_terse',
                 search.split.heldOutRuns,
               ),

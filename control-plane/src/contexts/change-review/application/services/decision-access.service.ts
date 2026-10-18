@@ -26,7 +26,7 @@ export class DecisionAccess {
     const member = await this.people.memberOf(teamId, viewerId);
     const task = member ? await this.work.task(TaskId.of(taskId)) : null;
 
-    if (!member || !task || !TeamAccess.of(member).reaches(task)) {
+    if (!member || !task || !TeamAccess.of(member).allows(task)) {
       return null;
     }
 

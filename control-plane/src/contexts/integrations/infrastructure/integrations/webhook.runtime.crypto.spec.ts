@@ -34,7 +34,7 @@ const EVENT = `
       raise:
         happening: x.thing
         label: A thing
-        told: A thing happened.
+        summary: A thing happened.
         marks:
           - kind: x.thing
             value: '\${{ "one" }}'
@@ -88,11 +88,11 @@ ${EVENT}`;
     };
   };
 
-  it('takes one the host really signed', async () => {
+  it('takes one the service really signed', async () => {
     expect(await runtime().verifies(signed({ type: 1 }))).toBe(true);
   });
 
-  it('refuses one signed by another key', async () => {
+  it('rejects one signed by another key', async () => {
     const other = generateKeyPairSync('ed25519').privateKey;
     const message = Buffer.concat([Buffer.from('170'), raw({ type: 1 })]);
 
@@ -133,7 +133,7 @@ ${EVENT}`;
 
   const runtime = () => runtimeOf(compiled(RSA));
 
-  it('takes one the host really signed over the raw body', async () => {
+  it('takes one the service really signed over the raw body', async () => {
     const body = { hello: 'world' };
     const signature = sign('sha256', raw(body), privateKey).toString('base64');
 
@@ -200,25 +200,25 @@ ${EVENT}`;
     expect(await runtime().verifies(delivered(claims))).toBe(true);
   });
 
-  it('refuses an expired one', async () => {
+  it('rejects an expired one', async () => {
     expect(
       await runtime().verifies(delivered({ ...claims, exp: NOW - 1 })),
     ).toBe(false);
   });
 
-  it('refuses one for another audience', async () => {
+  it('rejects one for another audience', async () => {
     expect(
       await runtime().verifies(delivered({ ...claims, aud: 'someone-else' })),
     ).toBe(false);
   });
 
-  it('refuses one from another issuer', async () => {
+  it('rejects one from another issuer', async () => {
     expect(
       await runtime().verifies(delivered({ ...claims, iss: 'https://evil' })),
     ).toBe(false);
   });
 
-  it('refuses a token tampered after signing', async () => {
+  it('rejects a token tampered after signing', async () => {
     const good = token(claims);
     const tampered = `${good.slice(0, -4)}aaaa`;
 

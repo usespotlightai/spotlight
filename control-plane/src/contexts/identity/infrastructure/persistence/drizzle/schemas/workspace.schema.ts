@@ -127,7 +127,7 @@ export const workspaceInvite = pgTable(
       sql`${table.acceptedBy} is null or ${table.acceptedAt} is not null`,
     ),
     check(
-      'workspace_invite_closed_once',
+      'workspace_invite_ended_once',
       sql`not (${table.acceptedAt} is not null and ${table.revokedAt} is not null)`,
     ),
   ],
@@ -163,36 +163,34 @@ export const workspaceToken = pgTable(
     issuedBy: text('issued_by').notNull(),
     issuedAt: timestamp('issued_at').notNull(),
     expiresAt: timestamp('expires_at'),
-    mintedThrough: text('minted_through'),
-    mintedUnder: integer('minted_under'),
-    mintedForRun: text('minted_for_run'),
-    mintedForAttempt: integer('minted_for_attempt'),
+    issuedByTrustId: text('issued_by_trust_id'),
+    trustVersion: integer('trust_version'),
+    runId: text('run_id'),
+    runAttempt: integer('run_attempt'),
     version: integer('version').default(0).notNull(),
   },
   (table) => [
     uniqueIndex('workspace_token_workspace_name_idx')
       .on(table.workspaceId, table.name)
-      .where(
-        sql`${table.mintedThrough} is null and ${table.mintedForRun} is null`,
-      ),
-    index('workspace_token_minted_for_run_idx').on(table.mintedForRun),
-    index('workspace_token_minted_through_idx').on(table.mintedThrough),
+      .where(sql`${table.issuedByTrustId} is null and ${table.runId} is null`),
+    index('workspace_token_run_id_idx').on(table.runId),
+    index('workspace_token_issued_by_trust_id_idx').on(table.issuedByTrustId),
     check(
-      'workspace_token_minted_under',
-      sql`(${table.mintedThrough} is null) = (${table.mintedUnder} is null)`,
+      'workspace_token_trust_version',
+      sql`(${table.issuedByTrustId} is null) = (${table.trustVersion} is null)`,
     ),
     check(
-      'workspace_token_minted_for_attempt',
-      sql`(${table.mintedForRun} is null) = (${table.mintedForAttempt} is null)`,
+      'workspace_token_run_attempt',
+      sql`(${table.runId} is null) = (${table.runAttempt} is null)`,
     ),
     check(
-      'workspace_token_minted_once',
-      sql`${table.mintedThrough} is null or ${table.mintedForRun} is null`,
+      'workspace_token_issued_once',
+      sql`${table.issuedByTrustId} is null or ${table.runId} is null`,
     ),
-    index('workspace_token_minted_expiry_idx')
+    index('workspace_token_issued_expiry_idx')
       .on(table.expiresAt)
       .where(
-        sql`${table.mintedThrough} is not null or ${table.mintedForRun} is not null`,
+        sql`${table.issuedByTrustId} is not null or ${table.runId} is not null`,
       ),
   ],
 );
@@ -214,7 +212,7 @@ export const workspaceTokenTrust = pgTable(
       .default({}),
     scopes: workspaceTokenScope('scopes').array().notNull(),
     lifetimeMinutes: integer('lifetime_minutes').notNull(),
-    definedBy: text('defined_by').notNull(),
+    createdBy: text('created_by').notNull(),
     version: integer('version').default(0).notNull(),
   },
   (table) => [

@@ -207,16 +207,16 @@ const resolve = (
 };
 
 const exportedAs = (definition: Node, name: string): string[] => {
-  const holder =
+  const statement =
     definition.type === 'variable_declarator'
       ? definition.parent?.parent
       : definition.parent;
 
-  if (holder?.type !== 'export_statement') {
+  if (statement?.type !== 'export_statement') {
     return [];
   }
 
-  return holder.children.some((child) => child?.type === 'default')
+  return statement.children.some((child) => child?.type === 'default')
     ? ['default', name]
     : [name];
 };

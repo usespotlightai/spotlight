@@ -1,6 +1,6 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
-  CATALOG_SOURCE,
+  CATALOG_INTEGRATION,
   catalogReferenceParts,
   isCatalogReference,
   isSlug,
@@ -24,7 +24,7 @@ export class SkillKey {
     return new SkillKey(trimmed);
   }
 
-  get isSpotlights(): boolean {
+  get isReserved(): boolean {
     return this.value.startsWith('spotlight-');
   }
 
@@ -38,7 +38,7 @@ export class SkillKey {
 
   get folder(): string {
     return this.catalogued
-      ? `spotlight-${CATALOG_SOURCE}-${catalogReferenceParts(this.value).name}`
+      ? `spotlight-${CATALOG_INTEGRATION}-${catalogReferenceParts(this.value).name}`
       : this.value;
   }
 

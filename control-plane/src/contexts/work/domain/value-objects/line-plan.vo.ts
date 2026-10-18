@@ -4,14 +4,14 @@ import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-plac
 import type { StationKind } from '@work/domain/entities/station.entity';
 import { InvalidLinePlanError } from '@work/domain/exceptions/invalid-line-plan.error';
 import {
-  reactionsRefused,
-  setupRefused,
-  stationsRefused,
+  reactionsProblem,
+  setupProblem,
+  stationsProblem,
 } from '@work/domain/services/line-layout';
 import {
-  skillsRefused,
-  toolsRefused,
-} from '@work/domain/services/station-gives';
+  skillsProblem,
+  toolsProblem,
+} from '@work/domain/services/station-enables';
 import type { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import type { ConfigSource } from '@work/domain/value-objects/config-source.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
@@ -19,6 +19,7 @@ import type { Happening } from '@work/domain/value-objects/happening.vo';
 import type { LineKey } from '@work/domain/value-objects/line-key.vo';
 import type { LineName } from '@work/domain/value-objects/line-name.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
+import type { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import type { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import type { ReplayCheckPolicy } from '@work/domain/value-objects/replay-check-policy.vo';
@@ -33,7 +34,6 @@ import type { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 import type { StationKey } from '@work/domain/value-objects/station-key.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
-import type { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 
 export interface StationPlan {
   readonly key: StationKey;
@@ -59,7 +59,7 @@ export interface StationPlan {
   readonly ends: boolean;
 }
 
-type RefusedStation = {
+type InvalidStation = {
   readonly field: 'skills' | 'tools' | 'judge' | 'alerts';
   readonly reason: string;
 } | null;
@@ -69,7 +69,7 @@ const NOTHING_RUNS: Readonly<Record<Exclude<StationKind, 'work'>, string>> = {
   completed: 'is the completed station',
 };
 
-const stationRefused = (station: StationPlan): RefusedStation => {
+const stationProblem = (station: StationPlan): InvalidStation => {
   if (station.kind !== 'work') {
     const idle = NOTHING_RUNS[station.kind];
 
@@ -84,13 +84,13 @@ const stationRefused = (station: StationPlan): RefusedStation => {
     }
   }
 
-  const skills = skillsRefused(station.skills);
+  const skills = skillsProblem(station.skills);
 
   if (skills) {
     return { field: 'skills', reason: skills };
   }
 
-  const tools = toolsRefused(station.tools);
+  const tools = toolsProblem(station.tools);
 
   return tools ? { field: 'tools', reason: tools } : null;
 };
@@ -121,14 +121,14 @@ export class LinePlan {
     stations: readonly StationPlan[];
     reactions?: readonly ReactionPlan[];
     role?: LineRole | null;
-    repositories?: readonly WorkedRepository[];
+    repositories?: readonly LineRepositoryConfig[];
     reviews?: ReviewPolicy | null;
     placement?: RunnerPlacement;
     replayCheck?: ReplayCheckPolicy | null;
     source?: ConfigSource | null;
   }): LinePlan {
     const reactions = input.reactions ?? [];
-    const laid = stationsRefused(
+    const laid = stationsProblem(
       input.stations.map((each) => ({
         key: each.key.value,
         name: each.name.value,
@@ -146,22 +146,22 @@ export class LinePlan {
     }
 
     for (const station of input.stations) {
-      const refused = stationRefused(station);
+      const problem = stationProblem(station);
 
-      if (refused) {
+      if (problem) {
         throw new InvalidLinePlanError(
           input.key.value,
-          `station ${station.key.value} ${refused.reason}`,
+          `station ${station.key.value} ${problem.reason}`,
           {
             of: 'station',
             station: station.key.value,
-            field: refused.field,
+            field: problem.field,
           },
         );
       }
     }
 
-    const reacting = reactionsRefused(
+    const reacting = reactionsProblem(
       reactions.map((each) => ({
         happening: each.happening.value,
         from: each.from?.value ?? null,
@@ -190,7 +190,7 @@ export class LinePlan {
       );
     }
 
-    const unready = setupRefused(input.stations, repositories);
+    const unready = setupProblem(input.stations, repositories);
 
     if (unready) {
       throw new InvalidLinePlanError(

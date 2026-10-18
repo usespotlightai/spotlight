@@ -47,13 +47,13 @@ export class DrizzleLineResources implements LineResourcesPort {
   constructor(private readonly context: DrizzleContext) {}
 
   async withId(id: string): Promise<LineRecord | null> {
-    const [found] = await this.kept(eq(line.id, id));
+    const [found] = await this.recordsWhere(eq(line.id, id));
 
     return found ?? null;
   }
 
   async at(teamId: TeamId, key: string): Promise<LineRecord | null> {
-    const [found] = await this.kept(
+    const [found] = await this.recordsWhere(
       and(eq(line.teamId, teamId.value), eq(line.key, key)),
     );
 
@@ -61,7 +61,7 @@ export class DrizzleLineResources implements LineResourcesPort {
   }
 
   ofTeam(teamId: TeamId): Promise<readonly LineRecord[]> {
-    return this.kept(eq(line.teamId, teamId.value));
+    return this.recordsWhere(eq(line.teamId, teamId.value));
   }
 
   ofTeams(teamIds: readonly TeamId[]): Promise<readonly LineRecord[]> {
@@ -69,7 +69,7 @@ export class DrizzleLineResources implements LineResourcesPort {
       return Promise.resolve([]);
     }
 
-    return this.kept(
+    return this.recordsWhere(
       inArray(
         line.teamId,
         teamIds.map((each) => each.value),
@@ -77,7 +77,7 @@ export class DrizzleLineResources implements LineResourcesPort {
     );
   }
 
-  private async kept(where: SQL | undefined): Promise<LineRecord[]> {
+  private async recordsWhere(where: SQL | undefined): Promise<LineRecord[]> {
     const db = this.context.db;
     const lines = await db.select().from(line).where(where);
 

@@ -1,5 +1,5 @@
 import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
-import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
+import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import {
   compileIntegration,
   type RequestIR,
@@ -14,7 +14,7 @@ import {
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { ExpressionFailedError } from '@platform/expressions/expression.errors';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
@@ -156,7 +156,7 @@ actions:
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('sends nothing where the secret it wears is not bound to the host', async () => {
+  it('sends nothing where the secret that it injects is not bound to the host', async () => {
     const fetch = replying({ ok: true });
     const out = new HttpOutbound(['slack.com'], fetch);
 
@@ -170,7 +170,7 @@ actions:
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('asks for the secret only once the deployment allows the host', async () => {
+  it('requests the secret only once the deployment allows the host', async () => {
     const fetch = replying({ ok: true });
     const { injection, forSpotlight } = injecting({
       TOKEN: { host: 'slack.com', value: 'xoxb-1' },
@@ -183,11 +183,11 @@ actions:
         against,
         new SpotlightCredentials(injection, async () => 'ws_1'),
       ),
-    ).rejects.toBeInstanceOf(OutboundRefusedError);
+    ).rejects.toBeInstanceOf(EgressBlockedError);
     expect(forSpotlight).not.toHaveBeenCalled();
   });
 
-  it('asks for the secrets the action names, toward the address it calls', async () => {
+  it('requests the secrets the action names, for the address it calls', async () => {
     const { injection, forSpotlight } = injecting({
       TOKEN: { host: 'slack.com', value: 'xoxb-1' },
     });
@@ -205,7 +205,7 @@ actions:
     });
   });
 
-  it('follows a redirect itself, wearing nothing toward another host', async () => {
+  it('follows a redirect itself, and injects nothing for another host', async () => {
     const fetch = vi.fn(async (url: string) =>
       url.startsWith('https://slack.com')
         ? new Response(null, {
@@ -246,11 +246,11 @@ actions:
 
     await expect(
       new HttpOutbound(['slack.com'], fetch).run(action(), against, SLACK),
-    ).rejects.toBeInstanceOf(OutboundRefusedError);
+    ).rejects.toBeInstanceOf(EgressBlockedError);
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
-  it('refuses an answer larger than it reads from a tool', async () => {
+  it('rejects an answer larger than it reads from a tool', async () => {
     const fetch = vi.fn(
       async () =>
         new Response('{}', {
@@ -268,12 +268,12 @@ actions:
     ).rejects.toThrow(/larger than the 4 MB/);
   });
 
-  it('refuses a host the deployment did not allow', async () => {
+  it('blocks a host the deployment did not allow', async () => {
     const fetch = replying({ ok: true });
     const out = new HttpOutbound(['example.com'], fetch);
 
     await expect(out.run(action(), against, SLACK)).rejects.toBeInstanceOf(
-      OutboundRefusedError,
+      EgressBlockedError,
     );
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -286,7 +286,7 @@ actions:
     expect(fetch).toHaveBeenCalled();
   });
 
-  it('wears the connection token where the action authenticates by oauth2', async () => {
+  it('injects the connection token where the action authenticates by oauth2', async () => {
     const OAUTH = `
 integration: demo
 connection:
@@ -361,7 +361,7 @@ actions:
           }),
       );
 
-    it('hands the bytes back whole, wearing the token', async () => {
+    it('hands the bytes back whole, and injects the token', async () => {
       const fetch = answering(new Uint8Array([1, 2, 3]), 'image/png');
 
       await expect(
@@ -374,7 +374,7 @@ actions:
       );
     });
 
-    it('refuses a page standing in for the file', async () => {
+    it('rejects a page in place of the file', async () => {
       const fetch = answering(
         '<html>Sign in</html>',
         'text/html; charset=utf-8',
@@ -382,17 +382,17 @@ actions:
 
       await expect(
         new HttpOutbound(['slack.com'], fetch).bytes(fetching(), named, FILES),
-      ).rejects.toThrow(UpstreamRefusedError);
+      ).rejects.toThrow(UpstreamError);
     });
 
-    it('refuses a host the deployment does not allow', async () => {
+    it('blocks a host the deployment does not allow', async () => {
       await expect(
         new HttpOutbound(['github.com'], vi.fn()).bytes(
           fetching(),
           named,
           FILES,
         ),
-      ).rejects.toThrow(OutboundRefusedError);
+      ).rejects.toThrow(EgressBlockedError);
     });
   });
 });
@@ -424,7 +424,7 @@ actions:
     return read.readable.actions.get(name) as RequestIR;
   };
 
-  const asked = {
+  const payload = {
     ask: { body: 'The queue is stuck.', station: 'Triage' },
     target: {
       channel: 'C0DELIVERY',
@@ -439,7 +439,7 @@ actions:
   it('sends the structure the file wrote, each piece read in', async () => {
     const fetch = replying({ ok: true });
 
-    await new HttpOutbound(['slack.com'], fetch).run(written(), asked, SLACK);
+    await new HttpOutbound(['slack.com'], fetch).run(written(), payload, SLACK);
 
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe('https://slack.com/api/chat.postMessage');
@@ -460,7 +460,7 @@ actions:
     await expect(
       new HttpOutbound(['slack.com'], fetch).run(
         written(),
-        { ...asked, ask: { station: 'Triage' } },
+        { ...payload, ask: { station: 'Triage' } },
         SLACK,
       ),
     ).rejects.toThrow(/actions\.post\.request\.body\.text/);
@@ -468,11 +468,11 @@ actions:
   });
 });
 
-describe('HttpOutbound, a secret worn in the query', () => {
+describe('HttpOutbound, a secret injected in the query', () => {
   const GOOGLE = credentialsFor({
     MAPS_KEY: {
       host: 'maps.googleapis.com',
-      carrier: 'query',
+      location: 'query',
       name: 'key',
       value: 'AIza-1/2',
     },
@@ -486,16 +486,16 @@ describe('HttpOutbound, a secret worn in the query', () => {
 
   const auth = { kind: 'secrets', secrets: ['MAPS_KEY'] } as const;
 
-  it('reaches the host with the key in its parameter, the rest of the query kept', async () => {
+  it('calls the host with the key in its parameter, and leaves the rest of the query unchanged', async () => {
     const fetch = replying({ results: [] });
     const out = new HttpOutbound(['maps.googleapis.com'], fetch);
 
     await out.answer(geocode, auth, null, GOOGLE);
 
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    const reached = new URL(url);
-    expect(reached.searchParams.getAll('key')).toEqual(['AIza-1/2']);
-    expect(reached.searchParams.get('address')).toBe('10 Downing St');
+    const called = new URL(url);
+    expect(called.searchParams.getAll('key')).toEqual(['AIza-1/2']);
+    expect(called.searchParams.get('address')).toBe('10 Downing St');
     expect(init.headers).toEqual({ accept: 'application/json' });
   });
 
@@ -524,15 +524,15 @@ describe('HttpOutbound, a secret worn in the query', () => {
     });
     const out = new HttpOutbound(['maps.googleapis.com'], fetch);
 
-    const refused = await out
+    const failed = await out
       .answer(geocode, auth, null, GOOGLE)
       .catch((error: unknown) => error);
 
-    expect(refused).toBeInstanceOf(UpstreamRefusedError);
-    expect((refused as Error).message).not.toContain('AIza');
+    expect(failed).toBeInstanceOf(UpstreamError);
+    expect((failed as Error).message).not.toContain('AIza');
   });
 
-  it('wears nothing toward another host a redirect sends it to, even where the redirect echoes the key', async () => {
+  it('injects nothing for another host that a redirect sends it to, even where the redirect echoes the key', async () => {
     const fetch = vi
       .fn()
       .mockResolvedValueOnce(

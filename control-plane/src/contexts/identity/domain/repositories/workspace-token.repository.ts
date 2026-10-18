@@ -12,19 +12,19 @@ export interface WorkspaceTokenRepository {
 
   find(id: WorkspaceTokenId): Promise<WorkspaceToken | null>;
 
-  bearing(hash: TokenHash): Promise<WorkspaceToken | null>;
+  findByHash(hash: TokenHash): Promise<WorkspaceToken | null>;
 
-  mintedThrough(
+  issuedByTrust(
     trustId: WorkspaceTokenTrustId,
   ): Promise<readonly WorkspaceToken[]>;
 
-  mintedForRun(
+  issuedForRun(
     workspaceId: WorkspaceId,
     runId: RunId,
     attempt: number | null,
   ): Promise<readonly WorkspaceToken[]>;
 
-  mintedAndExpiredBy(
+  issuedAndExpiredBy(
     now: Date,
     limit: number,
   ): Promise<readonly WorkspaceToken[]>;

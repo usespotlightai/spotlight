@@ -13,7 +13,7 @@ import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -39,7 +39,7 @@ const NOW = new Date('2026-09-16T10:00:00Z');
 const CHECKER = RunnerId.of('checker_1');
 
 const checked = () =>
-  ChangeStack.draft({
+  ChangeStack.startGeneration({
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
@@ -62,7 +62,7 @@ const checked = () =>
           title: at === 0 ? 'Add the label table' : 'Add the label API',
           summary: 'A layer',
           dependsOn: [],
-          ranges: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
+          hunks: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
           notes: [
             {
               path: at === 0 ? 'schema.ts' : 'api.ts',
@@ -80,7 +80,7 @@ const checked = () =>
             title: 'Update lockfiles',
             summary: 'Incidental',
             dependsOn: [],
-            ranges: [{ hunk: HunkId.of('h3') }],
+            hunks: [{ hunk: HunkId.of('h3') }],
             notes: [],
           },
         ],
@@ -102,28 +102,28 @@ describe('ChangeStackComment', () => {
       entries: stack.entries(),
       now: NOW,
     })
-      .claimedFor(CHECKER, RunnerTerms.none(), NOW)
+      .claimedFor(CHECKER, RunnerOffer.none(), NOW)
       .recordResult(
         CHECKER,
         { steps: stack.checkSteps(stack.entries()), layers: stack.layers() },
         [
-          { step: WHOLE_STEP, passed: true, output: '', tookMs: 1 },
+          { step: WHOLE_STEP, passed: true, output: '', durationMs: 1 },
           {
             step: LayerId.of('c1.l1'),
             passed: false,
             output: 'does not build',
-            tookMs: 1,
+            durationMs: 1,
           },
         ],
         NOW,
       )
-      .keptLayers();
+      .retainCheckedLayers();
     const body = ChangeStackComment.of(
       {
         cohorts: stack.cohorts,
         check: {
           command: check.request.command,
-          state: check.stateAt(NOW),
+          status: check.statusAt(NOW),
           reason: checkReasonOf({
             skipped: check.skippedAt(NOW),
             wholeFailed: check.wholeFailed,
@@ -139,9 +139,9 @@ describe('ChangeStackComment', () => {
       '[open the change stack in Spotlight](https://app.example/w/acme/team/t1/runs/run-1/changes)',
     );
     expect(body).toContain(
-      '**Task labels**\n1. Add the label table (1 change) · does not build\n2. Add the label API (1 change)',
+      '**Task labels**\n1. Add the label table (1 hunk) · does not build\n2. Add the label API (1 hunk)',
     );
-    expect(body).toContain('Set aside as incidental: Update lockfiles.');
+    expect(body).toContain('Incidental: Update lockfiles.');
     expect(body).toContain('checked on its own with `npx tsc --noEmit`');
   });
 });

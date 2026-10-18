@@ -9,10 +9,10 @@ export class ToolActingAsResponseDto {
   @ApiProperty({
     description:
       'Whose connection the call used: the team’s, or the person’s who started the task',
-    enum: ['team', 'person'],
-    example: 'person',
+    enum: ['team', 'requester'],
+    example: 'requester',
   })
-  readonly holder: 'team' | 'person';
+  readonly actsAs: 'team' | 'requester';
 
   @ApiProperty({
     description: 'The person whose connection it was, where it was a person’s',
@@ -23,17 +23,18 @@ export class ToolActingAsResponseDto {
   readonly personId: string | null;
 
   @ApiProperty({
-    description: 'What the host calls whoever the call acted as, where it says',
+    description:
+      'The account name on the service of whoever the call acted as, where the service gives it',
     example: '@alice',
     nullable: true,
     type: String,
   })
-  readonly handle: string | null;
+  readonly linkedAccount: string | null;
 
   constructor(actingAs: ToolActingAsDto) {
-    this.holder = actingAs.holder;
+    this.actsAs = actingAs.actsAs;
     this.personId = actingAs.personId;
-    this.handle = actingAs.handle;
+    this.linkedAccount = actingAs.linkedAccount;
   }
 }
 
@@ -56,7 +57,7 @@ export class ToolAnswerResponseDto {
     type: ToolActingAsResponseDto,
     nullable: true,
     description:
-      'Whose connection the call acted with, where its integration connects',
+      'Whose connection the call acted with, where its integration requires a connection',
   })
   readonly actingAs: ToolActingAsResponseDto | null;
 
@@ -68,7 +69,7 @@ export class ToolAnswerResponseDto {
 
 export class ClaimedCheckStepResponseDto {
   @ApiProperty({
-    description: 'The whole change, or the layer this step reaches',
+    description: 'The whole change, or the layer this step covers',
     example: 'whole',
   })
   readonly id: string;
@@ -181,7 +182,7 @@ export class ClaimedRunResponseDto {
   @ApiProperty({
     example: 'claude-code',
     description:
-      'The harness the run needs, so a host can tell whether the image it pulled still holds it',
+      'The harness the run needs, so a host can tell whether the image it pulled still contains it',
   })
   readonly harness: string;
 
@@ -225,7 +226,7 @@ export class EnqueuedRunResponseDto {
 export class RenewLeaseResponseDto {
   @ApiProperty({
     example: false,
-    description: 'Whether a person has asked the runner to stop this run',
+    description: 'Whether a person has requested that the runner stop this run',
   })
   readonly stop: boolean;
 
@@ -238,7 +239,7 @@ export class RunCompletionResponseDto {
   @ApiProperty({
     example: false,
     description:
-      'Whether the turn ended by asking a person, so the run now waits for their answer instead of ending. The runner keeps its sandbox for the grace period, then parks the run.',
+      'Whether the turn ended by asking a person, so the run now waits for their answer instead of ending. The runner keeps its sandbox for the grace period, then suspends the run.',
   })
   readonly waiting: boolean;
 
@@ -247,29 +248,29 @@ export class RunCompletionResponseDto {
   }
 }
 
-export class TurnAsksAPersonResponseDto {
+export class TurnAwaitsPersonResponseDto {
   @ApiProperty({
     example: true,
     description:
-      'Whether this turn, reported as given, would put the run to a person, so the runner keeps its harness running while it keeps the workspace. Otherwise the runner closes the harness first, as the run ends.',
+      'Whether this turn, as reported, would put the run to a person, so the runner keeps its harness running while it archives the workspace. Otherwise the runner closes the harness first, as the run ends.',
   })
-  readonly asks: boolean;
+  readonly awaitsPerson: boolean;
 
-  constructor(asks: boolean) {
-    this.asks = asks;
+  constructor(awaitsPerson: boolean) {
+    this.awaitsPerson = awaitsPerson;
   }
 }
 
-export class RunParkingResponseDto {
+export class RunSuspensionResponseDto {
   @ApiProperty({
     example: true,
     description:
-      'Whether the run is parked (or, if a stop was asked for, ended) and no longer held by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages.',
+      'Whether the run is suspended (or, if a stop was requested, ended) and no longer leased by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages.',
   })
-  readonly parked: boolean;
+  readonly suspended: boolean;
 
-  constructor(parked: boolean) {
-    this.parked = parked;
+  constructor(suspended: boolean) {
+    this.suspended = suspended;
   }
 }
 
@@ -277,8 +278,8 @@ export class RenewCheckLeaseResponseDto {
   @ApiProperty({
     example: false,
     description:
-      'Whether the runner should stop checking: the check was forgotten ' +
-      'with its task, settled, or waited too long to be recorded',
+      'Whether the runner should stop checking: the check was deleted ' +
+      'with its task, ended, or waited too long to be recorded',
   })
   readonly stop: boolean;
 
@@ -290,9 +291,9 @@ export class RenewCheckLeaseResponseDto {
 export class PermissionAnswerResponseDto {
   @ApiProperty({
     enum: PERMISSION_ANSWERS,
-    example: 'asked',
+    example: 'pending',
     description:
-      'allow or reject answers the harness now; asked means a person was asked in their inbox, so the run should end its turn and let the task go',
+      'allow or reject answers the harness now; pending means a person was asked in their inbox, so the run should end its turn and release the task',
   })
   readonly decision: PermissionAnswer;
 

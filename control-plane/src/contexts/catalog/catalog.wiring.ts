@@ -8,22 +8,22 @@ import {
   type CatalogServicePort,
 } from '@catalog/application/ports/catalog-service.port';
 import {
-  WORKSPACE_PLAN_FORGETTING,
-  type WorkspacePlanForgettingPort,
-} from '@catalog/application/ports/workspace-plan-forgetting.port';
+  WORKSPACE_PLAN_DELETION,
+  type WorkspacePlanDeletionPort,
+} from '@catalog/application/ports/workspace-plan-deletion.port';
 import {
   WORKSPACE_PLANS,
   type WorkspacePlansPort,
 } from '@catalog/application/ports/workspace-plans.port';
 import { ResolveCatalogItemHandler } from '@catalog/application/queries/handlers/resolve-catalog-item.handler';
 import { ResolveCatalogItemQuery } from '@catalog/application/queries/resolve-catalog-item.query';
-import { CatalogGivings } from '@catalog/application/services/catalog-givings.service';
+import { CatalogEntitlements } from '@catalog/application/services/catalog-entitlements.service';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
-import { SeededCatalog } from '@catalog/infrastructure/catalog/seeded-catalog';
+import { StaticCatalog } from '@catalog/infrastructure/catalog/static-catalog';
 import { DrizzleMeteredCalls } from '@catalog/infrastructure/persistence/drizzle/ledgers/metered-calls.ledger';
 import { DrizzleWorkspacePlans } from '@catalog/infrastructure/persistence/drizzle/readers/workspace-plans.reader';
-import { DrizzleWorkspacePlanForgetting } from '@catalog/infrastructure/persistence/drizzle/workspace-plan-forgetting';
-import { AlwaysAllowedCatalogService } from '@catalog/infrastructure/service/always-allowed-catalog-service';
+import { DrizzleWorkspacePlanDeletion } from '@catalog/infrastructure/persistence/drizzle/workspace-plan-deletion';
+import { HttpCatalogClient } from '@catalog/infrastructure/service/http-catalog.client';
 import { catalogSubscribers } from '@catalog/presentation/events/catalog.subscribers';
 import { CatalogController } from '@catalog/presentation/http/controllers/catalog.controller';
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
@@ -42,13 +42,13 @@ const CATALOG_EVENTS = Symbol('CATALOG_EVENTS');
 export const CATALOG_CONTROLLERS: readonly Type[] = [CatalogController];
 
 export const CATALOG_PROVIDERS: readonly Provider[] = [
-  { provide: SeededCatalog, useValue: new SeededCatalog(CATALOG_ITEMS) },
+  { provide: StaticCatalog, useValue: new StaticCatalog(CATALOG_ITEMS) },
 
   { provide: WORKSPACE_PLANS, useClass: DrizzleWorkspacePlans },
 
   {
-    provide: WORKSPACE_PLAN_FORGETTING,
-    useClass: DrizzleWorkspacePlanForgetting,
+    provide: WORKSPACE_PLAN_DELETION,
+    useClass: DrizzleWorkspacePlanDeletion,
   },
 
   { provide: CALL_METER, useClass: DrizzleMeteredCalls },
@@ -57,7 +57,7 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
     provide: CATALOG_SERVICE,
     inject: [ENV],
     useFactory: (env: Env) =>
-      new AlwaysAllowedCatalogService(
+      new HttpCatalogClient(
         env.SPOTLIGHT_CATALOG_URL,
         env.SPOTLIGHT_CATALOG_TOKEN,
       ),
@@ -66,27 +66,27 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
   {
     provide: CATALOG,
     inject: [
-      SeededCatalog,
+      StaticCatalog,
       WORKSPACE_PLANS,
       CALL_METER,
       CATALOG_SERVICE,
       CLOCK,
     ],
     useFactory: (
-      catalog: SeededCatalog,
+      catalog: StaticCatalog,
       plans: WorkspacePlansPort,
       meter: CallMeterPort,
       service: CatalogServicePort,
       clock: ClockPort,
-    ) => new CatalogGivings(catalog, plans, meter, service, clock),
+    ) => new CatalogEntitlements(catalog, plans, meter, service, clock),
   },
 
   {
     provide: CATALOG_EVENTS,
-    inject: [EventSubscribers, WORKSPACE_PLAN_FORGETTING, CALL_METER],
+    inject: [EventSubscribers, WORKSPACE_PLAN_DELETION, CALL_METER],
     useFactory: (
       subscribers: EventSubscribers,
-      plans: WorkspacePlanForgettingPort,
+      plans: WorkspacePlanDeletionPort,
       meter: CallMeterPort,
     ) => {
       subscribers.register(catalogSubscribers({ plans, meter }));
@@ -96,7 +96,7 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(ResolveCatalogItemQuery, ResolveCatalogItemHandler, [
     WORKSPACE_ACCESS,
-    SeededCatalog,
+    StaticCatalog,
     WORKSPACE_PLANS,
     CLOCK,
   ]),

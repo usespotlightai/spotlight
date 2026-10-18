@@ -1,4 +1,4 @@
-import type { ConfigPullRequestRefusal } from '@replays/domain/value-objects/config-pull-request-state';
+import type { ConfigPullRequestError } from '@replays/domain/value-objects/config-pull-request-state';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 const LONGEST_MESSAGE = 2_000;
@@ -12,7 +12,7 @@ export type WantedValue =
 
 export class ConfigPullRequestReason {
   private constructor(
-    readonly code: ConfigPullRequestRefusal,
+    readonly code: ConfigPullRequestError,
     readonly message: string,
     readonly attribute: string | null,
     readonly expression: string | null,
@@ -20,7 +20,7 @@ export class ConfigPullRequestReason {
   ) {}
 
   static of(input: {
-    code: ConfigPullRequestRefusal;
+    code: ConfigPullRequestError;
     message: string;
     attribute?: string | null;
     expression?: string | null;
@@ -31,7 +31,7 @@ export class ConfigPullRequestReason {
     if (message.length === 0) {
       throw new InconsistentStateError(
         'config pull request',
-        'was refused without saying why',
+        'failed without saying why',
       );
     }
 

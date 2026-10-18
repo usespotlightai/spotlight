@@ -28,8 +28,8 @@ vi.mock('@/hooks/api/useReplays', () => ({
   }),
 }));
 
-vi.mock('@/hooks/api/useOpenReplaySet', () => ({
-  useOpenReplaySet: () => ({
+vi.mock('@/hooks/api/useCreateReplaySet', () => ({
+  useCreateReplaySet: () => ({
     mutate: vi.fn(),
     isPending: false,
     reset: vi.fn(),
@@ -50,7 +50,7 @@ const SET: ReplaySet = {
   name: 'Queue fixes',
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
-  guardsChanges: false,
+  gatesChanges: false,
   health: {
     noise: null,
     saturation: null,
@@ -91,17 +91,17 @@ const replay = (over: Partial<Replay>): Replay =>
     state: 'finished',
     startedAt: '2026-10-02T09:00:00.000Z',
     totals: { successRate: 0.75, interval: { rate: 0.75, low: 0.5, high: 1 } },
-    againstBaseline: {
+    gainOverReference: {
       gain: 0.25,
       low: 0.05,
       high: 0.45,
-      verdict: 'better',
+      significance: 'better',
       minGain: 0.05,
       tasks: 4,
     },
-    comparedWith: { replayId: 'baseline', successRate: 0.5, interval: null },
-    pairedWith: 'baseline',
-    pairsAgainstBaseline: { wins: 2, losses: 1, ties: 1 },
+    referenceReplay: { replayId: 'baseline', successRate: 0.5, interval: null },
+    pairwiseReference: 'baseline',
+    referencePairs: { wins: 2, losses: 1, ties: 1 },
     ...over,
   }) as Replay;
 
@@ -129,7 +129,7 @@ describe('ReplaySets', () => {
     ).toBeInTheDocument();
   });
 
-  it('offers to open the first set where there is none', () => {
+  it('offers to create the first set where there is none', () => {
     sets.mockReturnValue([]);
 
     renderSets();
@@ -153,7 +153,7 @@ describe('ReplaySets', () => {
             state: 'completed',
             endedAt: null,
             addedAt: '2026-10-01T09:00:00.000Z',
-            refusal: null,
+            unreplayableReason: null,
             reason: null,
             outcome: 'other',
             origin: 'person',
@@ -166,8 +166,8 @@ describe('ReplaySets', () => {
       replay({
         id: 'baseline',
         isBaseline: true,
-        pairedWith: null,
-        comparedWith: null,
+        pairwiseReference: null,
+        referenceReplay: null,
         startedAt: '2026-10-01T09:00:00.000Z',
         totals: { successRate: 0.5 } as Replay['totals'],
       }),
@@ -190,12 +190,12 @@ describe('ReplaySets', () => {
 
     expect(await screen.findByText('Shorter prompt')).toBeInTheDocument();
     const success = document.querySelector(
-      '[data-slot="success-against-baseline"]',
+      '[data-slot="success-over-reference"]',
     );
     expect(success).toHaveTextContent('75% (50–100%) succeeded');
     expect(
-      success?.querySelector('[data-slot="gain-verdict"]'),
-    ).toHaveAttribute('data-verdict', 'better');
+      success?.querySelector('[data-slot="gain-significance"]'),
+    ).toHaveAttribute('data-significance', 'better');
     expect(success).toHaveTextContent(
       '+25 pts(+5 to +45)vs baseline 50%· Better',
     );
@@ -219,15 +219,19 @@ describe('ReplaySets', () => {
           station: {},
           createdAt: '2026-10-01T09:00:00.000Z',
         },
-        comparedWith: { replayId: 'live', successRate: 0.25, interval: null },
-        pairedWith: null,
-        pairsAgainstBaseline: null,
+        referenceReplay: {
+          replayId: 'live',
+          successRate: 0.25,
+          interval: null,
+        },
+        pairwiseReference: null,
+        referencePairs: null,
       }),
       replay({
         id: 'baseline',
         isBaseline: true,
-        pairedWith: null,
-        comparedWith: null,
+        pairwiseReference: null,
+        referenceReplay: null,
         startedAt: '2026-10-01T09:00:00.000Z',
         totals: { successRate: 0.5 } as Replay['totals'],
       }),
@@ -241,11 +245,11 @@ describe('ReplaySets', () => {
 
     expect(await screen.findByText('With the answer')).toBeInTheDocument();
     expect(
-      document.querySelector('[data-slot="success-against-baseline"]'),
+      document.querySelector('[data-slot="success-over-reference"]'),
     ).toHaveTextContent('+25 pts(+5 to +45)vs live config 25%· Better');
   });
 
-  it('names a counterpart that has scored nothing yet, with no rate', async () => {
+  it('names a reference that has scored nothing yet, with no rate', async () => {
     sets.mockReturnValue([SET]);
     replays.mockReturnValue([
       replay({
@@ -257,10 +261,14 @@ describe('ReplaySets', () => {
           station: {},
           createdAt: '2026-10-01T09:00:00.000Z',
         },
-        againstBaseline: null,
-        comparedWith: { replayId: 'live', successRate: null, interval: null },
-        pairedWith: null,
-        pairsAgainstBaseline: null,
+        gainOverReference: null,
+        referenceReplay: {
+          replayId: 'live',
+          successRate: null,
+          interval: null,
+        },
+        pairwiseReference: null,
+        referencePairs: null,
       }),
     ]);
 
@@ -272,7 +280,7 @@ describe('ReplaySets', () => {
 
     expect(await screen.findByText('With the answer')).toBeInTheDocument();
     const success = document.querySelector(
-      '[data-slot="success-against-baseline"]',
+      '[data-slot="success-over-reference"]',
     );
     expect(success).toHaveTextContent('75% (50–100%) succeeded· live config');
     expect(success).not.toHaveTextContent('baseline');

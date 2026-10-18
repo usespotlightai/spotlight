@@ -28,6 +28,6 @@ export interface TaskDto {
   readonly awaitingReview: TaskReviewDto | null;
   readonly pullRequest: string | null;
   readonly note: TaskNoteDto | null;
-  readonly raisedBy: TaskPersonDto | null;
+  readonly createdBy: TaskPersonDto | null;
   readonly assignee: TaskPersonDto | null;
 }

@@ -65,7 +65,7 @@ type Hovered = {
   };
 };
 
-const Said = ({
+const TipContent = ({
   active,
   payload,
   currency,
@@ -133,7 +133,7 @@ export function CostSankey({ shown, currency }: CostSankeyProps) {
             <Tooltip
               {...cursor.tooltip}
               content={
-                <Said currency={currency} placement={cursor.placement} />
+                <TipContent currency={currency} placement={cursor.placement} />
               }
             />
           </Sankey>

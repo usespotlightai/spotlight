@@ -2,11 +2,10 @@ import type {
   Hook,
   HookOnFailure,
 } from '@integrations/domain/entities/hook.entity';
-import { HookDefined } from '@integrations/domain/events/hook-defined.event';
-import { HookRedefined } from '@integrations/domain/events/hook-redefined.event';
-import { HookRetired } from '@integrations/domain/events/hook-retired.event';
+import { HookCreated } from '@integrations/domain/events/hook-created.event';
+import { HookDeleted } from '@integrations/domain/events/hook-deleted.event';
+import { HookUpdated } from '@integrations/domain/events/hook-updated.event';
 import { HookDefinitionVersionConflictError } from '@integrations/domain/exceptions/hook-definition-version-conflict.error';
-import { HookKeyFixedError } from '@integrations/domain/exceptions/hook-key-fixed.error';
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
 import type { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
@@ -15,8 +14,9 @@ import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import type { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -44,13 +44,13 @@ interface Props {
 }
 
 interface State extends Props {
-  readonly retired: boolean;
-  readonly givenSecret: HookSigningSecret | null;
+  readonly deleted: boolean;
+  readonly secretInput: HookSigningSecret | null;
 }
 
 interface Signing {
   readonly signing: SigningVersion | null;
-  readonly givenSecret: HookSigningSecret | null;
+  readonly secretInput: HookSigningSecret | null;
 }
 
 export interface Compiled {
@@ -58,20 +58,20 @@ export interface Compiled {
   readonly document: DefinitionDocument;
 }
 
-export type SecretGiven =
-  | { readonly kind: 'given'; readonly held: VersionedSigningSecret }
-  | { readonly kind: 'kept'; readonly version: number }
+export type SigningSecretChange =
+  | { readonly kind: 'supplied'; readonly versioned: VersionedSigningSecret }
+  | { readonly kind: 'unchanged'; readonly version: number }
   | { readonly kind: 'none' };
 
 export interface HookAllowances {
-  readonly offered: readonly string[];
+  readonly provided: readonly string[];
   readonly signsTokens: boolean;
   allowsHost(host: string): boolean;
 }
 
 const guardAllowed = (hook: Hook, allowances: HookAllowances): void => {
   const missing = hook.matchedTools.filter(
-    (tool) => !allowances.offered.includes(tool.value),
+    (tool) => !allowances.provided.includes(tool.value),
   );
 
   if (missing.length > 0) {
@@ -82,7 +82,10 @@ const guardAllowed = (hook: Hook, allowances: HookAllowances): void => {
   }
 
   hook.steps.forEach((step, index) => {
-    if (step.kind === 'call' && !allowances.offered.includes(step.tool.value)) {
+    if (
+      step.kind === 'call' &&
+      !allowances.provided.includes(step.tool.value)
+    ) {
       throw new InvalidHookError(
         FieldPath.of(['steps', index, 'call']),
         `names tool ${step.tool.value}, which no team integration offers`,
@@ -110,34 +113,34 @@ const guardAllowed = (hook: Hook, allowances: HookAllowances): void => {
   }
 };
 
-const NOT_SIGNED: Signing = { signing: null, givenSecret: null };
+const NOT_SIGNED: Signing = { signing: null, secretInput: null };
 
 const signingFor = (
   hook: Hook,
-  given: SecretGiven,
-  held: SigningVersion | null,
+  change: SigningSecretChange,
+  stored: SigningVersion | null,
 ): Signing => {
   if (hook.signing !== 'hmac') {
     return NOT_SIGNED;
   }
 
-  if (given.kind === 'given') {
-    return held && given.held.version === held.version
-      ? { signing: held, givenSecret: null }
+  if (change.kind === 'supplied') {
+    return stored && change.versioned.version === stored.version
+      ? { signing: stored, secretInput: null }
       : {
-          signing: { version: given.held.version },
-          givenSecret: given.held.secret,
+          signing: { version: change.versioned.version },
+          secretInput: change.versioned.secret,
         };
   }
 
-  if (held && (given.kind === 'none' || given.version === held.version)) {
-    return { signing: held, givenSecret: null };
+  if (stored && (change.kind === 'none' || change.version === stored.version)) {
+    return { signing: stored, secretInput: null };
   }
 
-  if (held) {
+  if (stored) {
     throw new InvalidHookError(
       FieldPath.of(['signing', 'secret']),
-      `is required when secretVersion changes from ${held.version}`,
+      `is required when secretVersion changes from ${stored.version}`,
     );
   }
 
@@ -152,19 +155,19 @@ export class HookDefinition extends EventRecorder {
     super();
   }
 
-  static define(
+  static create(
     input: Compiled & {
       id: HookDefinitionId;
       workspaceId: WorkspaceId;
       teamId: TeamId;
-      secret: SecretGiven;
+      secret: SigningSecretChange;
       allowances: HookAllowances;
-      by: Attribution;
+      by: ChangeActor;
     },
   ): HookDefinition {
     guardAllowed(input.hook, input.allowances);
 
-    const defined = new HookDefinition({
+    const created = new HookDefinition({
       id: input.id,
       workspaceId: input.workspaceId,
       teamId: input.teamId,
@@ -174,30 +177,30 @@ export class HookDefinition extends EventRecorder {
       tools: input.hook.tools,
       ...signingFor(input.hook, input.secret, null),
       version: 0,
-      retired: false,
+      deleted: false,
     });
 
-    defined.record(
-      new HookDefined(
-        defined.id,
-        defined.teamId,
-        defined.key,
-        ConfigurationChange.created(defined.whatChanged, input.by),
+    created.record(
+      new HookCreated(
+        created.id,
+        created.teamId,
+        created.key,
+        ConfigurationChange.created(created.whatChanged, input.by),
       ),
     );
 
-    return defined;
+    return created;
   }
 
   static rehydrate(input: Props): HookDefinition {
     if (input.version < 1) {
       throw new InconsistentStateError(
         'hook definition',
-        'was kept without a version',
+        'was stored without a version',
       );
     }
 
-    return new HookDefinition({ ...input, retired: false, givenSecret: null });
+    return new HookDefinition({ ...input, deleted: false, secretInput: null });
   }
 
   assertVersion(version: number): void {
@@ -206,32 +209,35 @@ export class HookDefinition extends EventRecorder {
     }
   }
 
-  redefinedAs(
+  update(
     compiled: Compiled,
-    secret: SecretGiven,
+    secret: SigningSecretChange,
     allowances: HookAllowances,
-    by: Attribution,
+    by: ChangeActor,
   ): HookDefinition {
     this.guardLive();
 
     if (!compiled.hook.key.equals(this.key)) {
-      throw new HookKeyFixedError(
-        this.key.value,
-        `cannot change its key to ${compiled.hook.key.value}`,
+      const because = `cannot change its key to ${compiled.hook.key.value}`;
+
+      throw new ImmutableFieldError(
+        'key',
+        because,
+        `Hook ${this.key.value} ${because}.`,
       );
     }
 
     guardAllowed(compiled.hook, allowances);
 
-    const redefined = this.with({
+    const updated = this.with({
       event: compiled.hook.event,
       document: compiled.document,
       tools: compiled.hook.tools,
       ...signingFor(compiled.hook, secret, this.signing),
     });
 
-    redefined.record(
-      new HookRedefined(
+    updated.record(
+      new HookUpdated(
         this.id,
         this.teamId,
         this.key,
@@ -239,21 +245,21 @@ export class HookDefinition extends EventRecorder {
       ),
     );
 
-    return redefined;
+    return updated;
   }
 
-  retire(by: Attribution): HookDefinition {
+  delete(by: ChangeActor): HookDefinition {
     this.guardLive();
 
-    const retired = this.with({ retired: true });
+    const deleted = this.with({ deleted: true });
 
-    retired.record(this.retiredBy(by));
+    deleted.record(this.deletedBy(by));
 
-    return retired;
+    return deleted;
   }
 
-  abandon(by: Attribution): HookDefinition {
-    return this.retire(by);
+  cascadeDelete(by: ChangeActor): HookDefinition {
+    return this.delete(by);
   }
 
   get id(): HookDefinitionId {
@@ -283,7 +289,7 @@ export class HookDefinition extends EventRecorder {
   get blocks(): boolean {
     const blocking: HookOnFailure = 'block';
 
-    return this.state.document.says('failure', blocking);
+    return this.state.document.hasValue('failure', blocking);
   }
 
   get workspaceId(): WorkspaceId {
@@ -294,8 +300,8 @@ export class HookDefinition extends EventRecorder {
     return this.state.signing;
   }
 
-  get givenSecret(): HookSigningSecret | null {
-    return this.state.givenSecret;
+  get secretInput(): HookSigningSecret | null {
+    return this.state.secretInput;
   }
 
   get version(): number {
@@ -306,12 +312,12 @@ export class HookDefinition extends EventRecorder {
     return this.state.version === 0;
   }
 
-  get isRetired(): boolean {
-    return this.state.retired;
+  get isDeleted(): boolean {
+    return this.state.deleted;
   }
 
-  private retiredBy(by: Attribution): HookRetired {
-    return new HookRetired(
+  private deletedBy(by: ChangeActor): HookDeleted {
+    return new HookDeleted(
       this.id,
       this.teamId,
       this.key,
@@ -336,10 +342,10 @@ export class HookDefinition extends EventRecorder {
   }
 
   private guardLive(): void {
-    if (this.isRetired) {
+    if (this.isDeleted) {
       throw new InconsistentStateError(
         'hook definition',
-        'was changed after it was retired',
+        'was changed after it was deleted',
       );
     }
   }

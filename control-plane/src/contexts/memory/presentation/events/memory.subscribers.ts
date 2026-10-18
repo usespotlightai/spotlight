@@ -1,11 +1,11 @@
 import type { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
-import type { AskForMemories } from '@memory/application/services/ask-for-memories.service';
-import type { ForgetMemoryDraft } from '@memory/application/services/forget-memory-draft.service';
-import type { NoteMemoryUses } from '@memory/application/services/note-memory-uses.service';
+import type { DeleteMemoryDraft } from '@memory/application/services/delete-memory-draft.service';
+import type { RecordRunMemoryUses } from '@memory/application/services/record-run-memory-uses.service';
+import type { RequestMemories } from '@memory/application/services/request-memories.service';
 import type { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import type { MemoryApproved } from '@memory/domain/events/memory-approved.event';
-import type { MemoryReviewSettled } from '@memory/domain/events/memory-review-settled.event';
-import type { MemoryStood } from '@memory/domain/events/memory-stood.event';
+import type { MemoryCreated } from '@memory/domain/events/memory-created.event';
+import type { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import {
   RUN_BRIEFED,
   type RunBriefedIntegrationEvent,
@@ -27,16 +27,16 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const memorySubscribers = (
-  asking: AskForMemories,
-  forgetting: ForgetMemoryDraft,
+  requesting: RequestMemories,
+  deleting: DeleteMemoryDraft,
   reactions: MemoryReactions,
-  noting: NoteMemoryUses,
+  recording: RecordRunMemoryUses,
 ): readonly DomainEventSubscriber[] => [
   subscribing<RunBriefedIntegrationEvent>(
-    'memory.note-briefed-memories',
+    'memory.record-briefed-memories',
     [RUN_BRIEFED],
     (event) =>
-      noting.runBriefed(
+      recording.runBriefed(
         {
           id: RunId.of(event.runId),
           workspaceId: WorkspaceId.of(event.workspaceId),
@@ -46,46 +46,46 @@ export const memorySubscribers = (
       ),
   ),
   subscribing<MemoriesProposed>(
-    'memory.raise-review',
+    'memory.create-review',
     ['memory-draft.proposed'],
     (event) => reactions.onProposed(event),
   ),
-  subscribing<MemoryReviewSettled>(
-    'memory.settle-review',
-    ['memory-draft.review-settled'],
-    (event) => reactions.onReviewSettled(event),
+  subscribing<MemoryReviewResolved>(
+    'memory.resolve-review',
+    ['memory-draft.review-resolved'],
+    (event) => reactions.onReviewResolved(event),
   ),
   subscribing<MemoryApproved>(
-    'memory.keep-approved-memory',
+    'memory.create-approved-memory',
     ['memory-draft.approved'],
     (event) => reactions.onApproved(event),
   ),
-  subscribing<MemoryStood>(
+  subscribing<MemoryCreated>(
     'memory.retire-superseded-memory',
-    ['memory.stood'],
-    (event) => reactions.onStood(event),
+    ['memory.created'],
+    (event) => reactions.onCreated(event),
   ),
   subscribing<RunEndedIntegrationEvent>(
-    'memory.note-memories-read',
+    'memory.record-memories-read',
     [RUN_ENDED],
     (event) =>
-      noting.runEnded({
+      recording.runEnded({
         id: RunId.of(event.runId),
         workspaceId: WorkspaceId.of(event.workspaceId),
         taskId: event.taskId ? TaskId.of(event.taskId) : null,
       }),
   ),
   subscribing<RunEndedIntegrationEvent>(
-    'memory.ask-for-memories',
+    'memory.request-memories',
     [RUN_ENDED],
     (event) =>
       event.taskId
-        ? asking.runEnded(TaskId.of(event.taskId), RunId.of(event.runId))
+        ? requesting.runEnded(TaskId.of(event.taskId), RunId.of(event.runId))
         : Promise.resolve(),
   ),
   subscribing<TaskDeletedIntegrationEvent>(
-    'memory.forget-draft-of-deleted-task',
+    'memory.delete-draft-of-deleted-task',
     [TASK_DELETED],
-    (event) => forgetting.forget(TaskId.of(event.taskId)),
+    (event) => deleting.deleteForTask(TaskId.of(event.taskId)),
   ),
 ];

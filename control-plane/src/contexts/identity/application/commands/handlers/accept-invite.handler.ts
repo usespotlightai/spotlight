@@ -6,7 +6,7 @@ import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -16,7 +16,7 @@ export class AcceptInviteHandler
   constructor(
     private readonly invites: WorkspaceInviteRepository,
     private readonly workspaces: WorkspaceRepository,
-    private readonly tokens: TokenMintPort,
+    private readonly tokens: TokenIssuer,
     private readonly clock: ClockPort,
   ) {}
 

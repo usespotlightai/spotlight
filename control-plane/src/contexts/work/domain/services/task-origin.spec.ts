@@ -4,11 +4,11 @@ import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('originOfRun', () => {
-  it('came from a person who raised the task at the run’s own station', () => {
+  it('came from a person who created the task at the run’s own station', () => {
     expect(
       originOfRun({
         openedFrom: TaskOrigin.person(),
-        raisedAt: 'build',
+        originStationId: 'build',
         ranAt: 'build',
       }),
     ).toBe('person');
@@ -17,28 +17,28 @@ describe('originOfRun', () => {
   it('came from the integration whose happening opened the task there', () => {
     expect(
       originOfRun({
-        openedFrom: TaskOrigin.heardFrom(Happening.of('slack.app_mention')),
-        raisedAt: 'build',
+        openedFrom: TaskOrigin.receivedFrom(Happening.of('slack.app_mention')),
+        originStationId: 'build',
         ranAt: 'build',
       }),
     ).toBe('slack');
   });
 
-  it('came from a station when the task was raised elsewhere and handed on', () => {
+  it('came from a station when the task was created elsewhere and passed on', () => {
     expect(
       originOfRun({
         openedFrom: TaskOrigin.person(),
-        raisedAt: 'plan',
+        originStationId: 'plan',
         ranAt: 'build',
       }),
     ).toBe('station');
   });
 
-  it('came from a station when the station it was raised at is gone', () => {
+  it('came from a station when the station it was created at is gone', () => {
     expect(
       originOfRun({
         openedFrom: TaskOrigin.person(),
-        raisedAt: null,
+        originStationId: null,
         ranAt: 'build',
       }),
     ).toBe('station');

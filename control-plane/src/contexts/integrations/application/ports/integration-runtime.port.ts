@@ -1,29 +1,29 @@
 import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
 import type { Integration } from '@integrations/domain/entities/integration.entity';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
-import type { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
-import type { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
-import type { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
-import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import type { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import type { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import type { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
+import type { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import type { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
-import type { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type {
   Happened,
-  MarkWorn,
+  TaskMark,
 } from '@work/application/contracts/happenings.contract';
 import type {
   ToolDeclaration,
   ToolInputValues,
 } from '@work/application/contracts/tools.contract';
 
-interface BoundTaskWaiting {
+interface IntegrationTaskViewWaiting {
   readonly conversationId: string;
-  readonly said: string;
+  readonly body: string;
   readonly awaitsApproval: boolean;
 }
 
-export interface BoundTask {
+export interface IntegrationTaskView {
   readonly taskId: string;
   readonly workspaceId: string;
   readonly teamId: string;
@@ -31,34 +31,37 @@ export interface BoundTask {
   readonly station: string;
   readonly stationKey: string;
   readonly marks: Readonly<Record<string, string>>;
-  readonly waiting: BoundTaskWaiting | null;
+  readonly waiting: IntegrationTaskViewWaiting | null;
 }
 
 export const INTEGRATION_RUNTIME = Symbol('INTEGRATION_RUNTIME');
 
 export interface Credentials {
-  wornToward(url: string, secrets: readonly string[]): Promise<WornSecrets>;
+  injectedFor(
+    url: string,
+    secrets: readonly string[],
+  ): Promise<InjectedSecrets>;
 }
 
 export interface SigningSecrets {
   named(secret: string): Promise<VerifyingSecret>;
 }
 
-export interface HeldConnection {
+export interface ActiveConnection {
   readonly token: AccessToken;
-  readonly holder: ConnectionHolder;
-  readonly handle: string | null;
-  refused(token: AccessToken): Promise<AccessToken | null>;
+  readonly owner: ConnectionOwner;
+  readonly linkedAccount: string | null;
+  unauthorized(token: AccessToken): Promise<AccessToken | null>;
 }
 
-export interface Reach {
-  readonly connection: HeldConnection | null;
+export interface CallAuth {
+  readonly connection: ActiveConnection | null;
   readonly credentials: Credentials;
 }
 
-export interface HostRefusal {
+export interface ServiceError {
   readonly status: number;
-  readonly said: string;
+  readonly output: string;
 }
 
 export type ToolOutput =
@@ -69,21 +72,21 @@ export type ToolOutput =
   | readonly ToolOutput[]
   | { readonly [field: string]: ToolOutput };
 
-export type Polled =
+export type PollResult =
   | {
       readonly kind: 'read';
       readonly cursor: string | null;
       readonly happenings: readonly Happened[];
     }
-  | { readonly kind: 'refused'; readonly refusal: HostRefusal };
+  | { readonly kind: 'failed'; readonly error: ServiceError };
 
-export type Acted =
+export type ActionResult =
   | { readonly kind: 'done' }
-  | { readonly kind: 'refused'; readonly refusal: HostRefusal }
+  | { readonly kind: 'failed'; readonly error: ServiceError }
   | { readonly kind: 'nothing-to-do' };
 
 export interface TaskPayload {
-  readonly task: BoundTask;
+  readonly task: IntegrationTaskView;
   readonly ask: {
     readonly body: string;
     readonly link: string | null;
@@ -91,27 +94,27 @@ export interface TaskPayload {
   };
 }
 
-export type Posted =
-  | { readonly kind: 'posted'; readonly marks: readonly MarkWorn[] }
+export type PostResult =
+  | { readonly kind: 'posted'; readonly marks: readonly TaskMark[] }
   | { readonly kind: 'unaddressed' }
   | {
-      readonly kind: 'refused';
-      readonly refusal: HostRefusal;
+      readonly kind: 'failed';
+      readonly error: ServiceError;
       readonly target: Readonly<Record<string, string>>;
     };
 
-export type Renewed =
-  | { readonly kind: 'renewed'; readonly grant: HostGrant }
-  | { readonly kind: 'refused' }
-  | { readonly kind: 'unrenewable' };
+export type RefreshResult =
+  | { readonly kind: 'refreshed'; readonly tokens: OAuthTokens }
+  | { readonly kind: 'failed' }
+  | { readonly kind: 'not-refreshable' };
 
-export interface ReachableTool {
+export interface ResolvedTool {
   readonly integration: Integration;
-  readonly offered: OfferedTool;
+  readonly provided: ProvidedTool;
   readonly declared: ToolDeclaration;
-  readonly wears: readonly string[];
+  readonly injectedSecrets: readonly string[];
   defaultFor(input: string): unknown;
-  call(inputs: ToolInputValues, reach: Reach): Promise<ToolOutput>;
+  call(inputs: ToolInputValues, callAuth: CallAuth): Promise<ToolOutput>;
 }
 
 export interface IntegrationRuntimePort {
@@ -123,33 +126,33 @@ export interface IntegrationRuntimePort {
     definitions: readonly DefinedIntegration[],
     integration: Integration,
     cursor: string | null,
-    reach: Reach,
-  ): Promise<Polled>;
+    callAuth: CallAuth,
+  ): Promise<PollResult>;
 
   runSchedule(
     definitions: readonly DefinedIntegration[],
     integration: Integration,
-    reach: Reach,
-  ): Promise<Acted>;
+    callAuth: CallAuth,
+  ): Promise<ActionResult>;
 
   post(
     definitions: readonly DefinedIntegration[],
     integration: Integration,
     event: string,
     payload: TaskPayload,
-    reach: Reach,
-  ): Promise<Posted>;
+    callAuth: CallAuth,
+  ): Promise<PostResult>;
 
   tool(
     definitions: readonly DefinedIntegration[],
     tool: string,
-    task: BoundTask,
-  ): Promise<ReachableTool | null>;
+    task: IntegrationTaskView,
+  ): Promise<ResolvedTool | null>;
 
-  renew(
+  refresh(
     definitions: readonly DefinedIntegration[],
     teamId: TeamId,
-    source: SourceKey,
+    integration: IntegrationKey,
     refreshToken: AccessToken,
-  ): Promise<Renewed>;
+  ): Promise<RefreshResult>;
 }

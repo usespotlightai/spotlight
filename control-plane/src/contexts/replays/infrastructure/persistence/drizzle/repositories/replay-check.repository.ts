@@ -20,8 +20,8 @@ import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo'
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
-import { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { replayCheck } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
@@ -36,13 +36,13 @@ type CheckRow = typeof replayCheck.$inferSelect;
 
 const ATTEMPT_INDEX = 'replay_check_attempt_idx';
 
-const scoringFieldOf = (held: string): ScoringField => {
-  const field = SCORING_FIELDS.find((each) => each === held);
+const scoringFieldOf = (raw: string): ScoringField => {
+  const field = SCORING_FIELDS.find((each) => each === raw);
 
   if (!field) {
     throw new InconsistentStateError(
       'replay check',
-      `kept a part of the live station no longer known, ${held}`,
+      `pinned a part of the live station no longer known, ${raw}`,
     );
   }
 
@@ -70,11 +70,11 @@ const toCheck = (row: CheckRow): ReplayCheck =>
     }),
     liveFingerprint: StationFingerprint.of(row.liveFingerprint),
     candidateFingerprint: StationFingerprint.of(row.candidateFingerprint),
-    liveDigests: StationDigests.of({
+    liveHashes: StationHashes.of({
       behaviour: row.liveBehaviour,
       scoring: row.liveScoring,
     }),
-    candidateDigests: StationDigests.of({
+    candidateHashes: StationHashes.of({
       behaviour: row.candidateBehaviour,
       scoring: row.candidateScoring,
     }),
@@ -85,7 +85,7 @@ const toCheck = (row: CheckRow): ReplayCheck =>
       minGain: row.minGain,
     }),
     repeats: row.repeats,
-    keptLive: row.keptLive.map(scoringFieldOf),
+    scoringPinnedToLive: row.scoringPinnedToLive.map(scoringFieldOf),
     baseline: row.baseline,
     createdAt: row.createdAt,
   });
@@ -106,8 +106,8 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
 
   matching(
     stationId: string,
-    candidate: StationDigests,
-    live: StationDigests,
+    candidate: StationHashes,
+    live: StationHashes,
   ): Promise<readonly ReplayCheck[]> {
     return this.where(
       and(
@@ -193,16 +193,16 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
           referencePullRequest: added.reference.pullRequest,
           liveFingerprint: added.liveFingerprint.value,
           candidateFingerprint: added.candidateFingerprint.value,
-          liveBehaviour: added.liveDigests.behaviour,
-          liveScoring: added.liveDigests.scoring,
-          candidateBehaviour: added.candidateDigests.behaviour,
-          candidateScoring: added.candidateDigests.scoring,
+          liveBehaviour: added.liveHashes.behaviour,
+          liveScoring: added.liveHashes.scoring,
+          candidateBehaviour: added.candidateHashes.behaviour,
+          candidateScoring: added.candidateHashes.scoring,
           maxRegressions: added.threshold.maxRegressions,
           ceilingAmount: added.threshold.ceiling.amount,
           ceilingCurrency: added.threshold.ceiling.currency,
           minGain: added.threshold.minGain,
           repeats: added.repeats,
-          keptLive: [...added.keptLive],
+          scoringPinnedToLive: [...added.scoringPinnedToLive],
           baseline: added.baseline,
           createdAt: added.createdAt,
         })
@@ -218,7 +218,7 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
 
   async save(saved: ReplayCheck): Promise<void> {
     await this.context.inTransaction(async () => {
-      if (saved.isAbandoned) {
+      if (saved.isDeleted) {
         await this.context.db
           .delete(replayCheck)
           .where(eq(replayCheck.id, saved.id.value));

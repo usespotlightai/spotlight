@@ -38,7 +38,7 @@ const readStoredWidth = (pane: Pane): number => {
 const clampTo = (pane: Pane, width: number) =>
   Math.min(pane.max, Math.max(pane.min, Math.round(width)));
 
-const remember = (pane: Pane, width: number) => {
+const store = (pane: Pane, width: number) => {
   try {
     localStorage.setItem(pane.storageKey, String(width));
   } catch {}
@@ -47,12 +47,12 @@ const remember = (pane: Pane, width: number) => {
 export function usePaneWidth<T extends HTMLElement = HTMLElement>(
   pane: Pane = WORKSPACE_SIDEBAR,
 ) {
-  const towards = pane.edge === 'left' ? -1 : 1;
+  const direction = pane.edge === 'left' ? -1 : 1;
   const [width, setWidth] = useState(() => readStoredWidth(pane));
   const [resizing, setResizing] = useState(false);
   const origin = useRef<{ x: number; width: number } | null>(null);
   const last = useRef(width);
-  const held = useRef<T | null>(null);
+  const paneRef = useRef<T | null>(null);
 
   useEffect(() => {
     if (!resizing) {
@@ -63,13 +63,13 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
     return () => document.body.classList.remove('resizing');
   }, [resizing]);
 
-  const resize = (next: number, keep = true) => {
+  const resize = (next: number, persist = true) => {
     const clamped = clampTo(pane, next);
     last.current = clamped;
     setWidth(clamped);
 
-    if (keep) {
-      remember(pane, clamped);
+    if (persist) {
+      store(pane, clamped);
     }
   };
 
@@ -78,9 +78,9 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
     last.current = clamped;
 
     if (pane.property) {
-      held.current?.style.setProperty(pane.property, `${clamped}px`);
-    } else if (held.current) {
-      held.current.style.width = `${clamped}px`;
+      paneRef.current?.style.setProperty(pane.property, `${clamped}px`);
+    } else if (paneRef.current) {
+      paneRef.current.style.width = `${clamped}px`;
     } else {
       setWidth(clamped);
     }
@@ -96,22 +96,22 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
     if (!origin.current) {
       return;
     }
-    show(origin.current.width + towards * (event.clientX - origin.current.x));
+    show(origin.current.width + direction * (event.clientX - origin.current.x));
   };
 
   const onPointerUp = (event: PointerEvent<HTMLElement>) => {
     origin.current = null;
     setResizing(false);
     setWidth(last.current);
-    remember(pane, last.current);
+    store(pane, last.current);
     event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === 'ArrowLeft') {
-      resize(width - towards * KEYBOARD_STEP);
+      resize(width - direction * KEYBOARD_STEP);
     } else if (event.key === 'ArrowRight') {
-      resize(width + towards * KEYBOARD_STEP);
+      resize(width + direction * KEYBOARD_STEP);
     } else if (event.key === 'Home') {
       resize(pane.initial);
     } else {
@@ -123,7 +123,7 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
   return {
     width,
     resizing,
-    paneRef: held,
+    paneRef,
     handleProps: {
       role: 'separator' as const,
       'aria-orientation': 'vertical' as const,

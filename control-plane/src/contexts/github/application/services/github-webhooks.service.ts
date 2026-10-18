@@ -1,12 +1,12 @@
 import type { GitHubDelivery } from '@github/application/dto/github-delivery.dto';
 import type { PullRequestActivity } from '@github/application/dto/pull-request-activity.dto';
 import type { GitHubWebhooksPort } from '@github/application/ports/github-webhooks.port';
-import type { WebhookSignaturePort } from '@github/application/ports/webhook-signature.port';
 import type {
-  Heard,
-  WebhookTranslationPort,
-} from '@github/application/ports/webhook-translation.port';
-import type { RecordPullRequests } from '@github/application/services/record-pull-requests.service';
+  WebhookEvent,
+  WebhookParserPort,
+} from '@github/application/ports/webhook-parser.port';
+import type { WebhookSignaturePort } from '@github/application/ports/webhook-signature.port';
+import type { PullRequestSync } from '@github/application/services/pull-request-sync.service';
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
@@ -18,58 +18,60 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export class GitHubWebhooks implements GitHubWebhooksPort {
   constructor(
-    private readonly translation: WebhookTranslationPort,
+    private readonly parser: WebhookParserPort,
     private readonly signature: WebhookSignaturePort,
     private readonly connections: GitHubConnectionRepository,
     private readonly events: DomainEventDispatcher,
-    private readonly recording: RecordPullRequests,
+    private readonly sync: PullRequestSync,
     private readonly logger: LoggerPort,
   ) {}
 
   verifies(delivery: GitHubDelivery): boolean {
     return (
       delivery.raw !== null &&
-      this.signature.signs(delivery.raw, this.translation.signatureOf(delivery))
+      this.signature.signs(delivery.raw, this.parser.signatureOf(delivery))
     );
   }
 
   idOf(delivery: GitHubDelivery): string {
-    return this.translation.idOf(delivery);
+    return this.parser.idOf(delivery);
   }
 
   async workspaceOf(delivery: GitHubDelivery): Promise<WorkspaceId | null> {
     const installation = this.installationIn(delivery);
 
-    return installation ? this.connections.claimantOf(installation) : null;
+    return installation
+      ? this.connections.connectedWorkspaceOf(installation)
+      : null;
   }
 
   activityIn(delivery: GitHubDelivery): readonly PullRequestActivity[] {
-    return this.translation
-      .translated(delivery)
-      .heard.flatMap((each) =>
+    return this.parser
+      .parse(delivery)
+      .events.flatMap((each) =>
         each.kind === 'pull-request-activity' ? [each.activity] : [],
       );
   }
 
   async receive(delivery: GitHubDelivery): Promise<void> {
     const installation = this.installationIn(delivery);
-    const heard = this.translation
-      .translated(delivery)
-      .heard.filter((each) => each.kind !== 'pull-request-activity');
+    const events = this.parser
+      .parse(delivery)
+      .events.filter((each) => each.kind !== 'pull-request-activity');
 
-    if (!installation || heard.length === 0) {
+    if (!installation || events.length === 0) {
       return;
     }
 
     const failures: unknown[] = [];
 
-    for (const each of heard) {
+    for (const each of events) {
       try {
         await this.attend(installation, each);
       } catch (error) {
         failures.push(error);
         this.logger.error(
-          { err: error, heard: each.kind },
+          { err: error, event: each.kind },
           'Attending to what a GitHub delivery said about the workspace',
         );
       }
@@ -82,9 +84,10 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
 
   private async attend(
     installation: GitHubInstallation,
-    heard: Heard,
+    event: WebhookEvent,
   ): Promise<void> {
-    const workspaceId = await this.connections.claimantOf(installation);
+    const workspaceId =
+      await this.connections.connectedWorkspaceOf(installation);
 
     if (!workspaceId) {
       return;
@@ -92,102 +95,102 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
 
     const from = { installation, workspaceId };
 
-    if (heard.kind === 'installation-removed') {
+    if (event.kind === 'installation-removed') {
       await this.connections.save(
         (await this.connections.of(workspaceId)).disconnectFrom(installation),
       );
     }
 
-    if (heard.kind === 'pull-request') {
-      await this.recording.described(from, heard.facts);
+    if (event.kind === 'pull-request') {
+      await this.sync.updateDetails(from, event.snapshot);
     }
 
-    if (heard.kind === 'review-comment') {
+    if (event.kind === 'review-comment') {
       await this.events.dispatch([
         new ReviewCommentReceived(
           workspaceId,
-          heard.action,
-          heard.pullRequest,
-          heard.comment,
+          event.action,
+          event.pullRequest,
+          event.comment,
         ),
       ]);
-      await this.recording.commented(from, heard.pullRequest, heard.facts, {
-        id: heard.comment.id,
+      await this.sync.commented(from, event.pullRequest, event.snapshot, {
+        id: event.comment.id,
         on: 'line',
-        action: heard.action,
-        login: heard.comment.login,
-        answers: heard.comment.answers,
-        byBot: heard.comment.byBot,
+        action: event.action,
+        login: event.comment.login,
+        inReplyToId: event.comment.inReplyToId,
+        byBot: event.comment.byBot,
       });
     }
 
-    if (heard.kind === 'conversation-comment') {
-      await this.recording.commented(from, heard.pullRequest, null, {
-        id: heard.comment.id,
+    if (event.kind === 'conversation-comment') {
+      await this.sync.commented(from, event.pullRequest, null, {
+        id: event.comment.id,
         on: 'conversation',
-        action: heard.action,
-        login: heard.comment.login,
-        answers: null,
-        byBot: heard.comment.byBot,
+        action: event.action,
+        login: event.comment.login,
+        inReplyToId: null,
+        byBot: event.comment.byBot,
       });
     }
 
-    if (heard.kind === 'review-thread') {
-      await this.recording.threadResolved(
+    if (event.kind === 'review-thread') {
+      await this.sync.threadResolved(
         from,
-        heard.pullRequest,
-        heard.facts,
-        heard.thread,
+        event.pullRequest,
+        event.snapshot,
+        event.thread,
       );
     }
 
-    if (heard.kind === 'pull-request-reviewed') {
+    if (event.kind === 'pull-request-reviewed') {
       await this.events.dispatch([
         new PullRequestReviewed(
           workspaceId,
-          heard.pullRequest,
-          heard.state,
-          heard.login,
-          heard.byBot,
-          heard.submittedAt,
+          event.pullRequest,
+          event.state,
+          event.login,
+          event.byBot,
+          event.submittedAt,
         ),
       ]);
 
-      if (heard.id !== null) {
-        await this.recording.reviewed(from, heard.pullRequest, heard.facts, {
-          id: heard.id,
-          state: heard.state,
-          login: heard.login,
-          byBot: heard.byBot,
-          at: heard.submittedAt,
+      if (event.id !== null) {
+        await this.sync.reviewed(from, event.pullRequest, event.snapshot, {
+          id: event.id,
+          state: event.state,
+          login: event.login,
+          byBot: event.byBot,
+          at: event.submittedAt,
         });
       }
     }
 
-    if (heard.kind === 'pull-request-review-dismissed') {
-      await this.recording.reviewDismissed(
+    if (event.kind === 'pull-request-review-dismissed') {
+      await this.sync.reviewDismissed(
         from,
-        heard.pullRequest,
-        heard.facts,
-        heard.id,
+        event.pullRequest,
+        event.snapshot,
+        event.id,
       );
     }
 
-    if (heard.kind === 'pull-request-closed') {
+    if (event.kind === 'pull-request-closed') {
       await this.events.dispatch([
         new PullRequestClosed(
           workspaceId,
-          heard.pullRequest,
-          heard.repository,
-          heard.merge,
-          heard.closedAt,
+          event.pullRequest,
+          event.repository,
+          event.merge,
+          event.closedAt,
         ),
       ]);
     }
   }
 
   private installationIn(delivery: GitHubDelivery): GitHubInstallation | null {
-    const installation = this.translation.translated(delivery).installation;
+    const installation = this.parser.parse(delivery).installation;
 
     return installation ? GitHubInstallation.parsed(installation) : null;
   }

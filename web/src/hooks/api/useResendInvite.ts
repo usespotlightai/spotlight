@@ -14,7 +14,7 @@ export function useResendInvite(slug: string | undefined) {
 
       if (!data) {
         throw new Error(
-          messageOf(error, 'Sorry, the invite couldn’t be sent again.'),
+          messageOf(error, 'Sorry, the invite couldn’t be resent.'),
         );
       }
       return data;

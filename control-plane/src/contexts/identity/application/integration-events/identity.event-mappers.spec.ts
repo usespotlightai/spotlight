@@ -1,11 +1,11 @@
 import { IDENTITY_EVENT_MAPPERS } from '@identity/application/integration-events/identity.event-mappers';
 import { TeamCreated } from '@identity/domain/events/team-created.event';
-import { TeamDisbanded } from '@identity/domain/events/team-disbanded.event';
-import { WorkspaceClosed } from '@identity/domain/events/workspace-closed.event';
+import { TeamDeleted } from '@identity/domain/events/team-deleted.event';
+import { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { changed } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changed } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -26,10 +26,10 @@ const TEAM = [
 ] as const;
 
 describe('IDENTITY_EVENT_MAPPERS', () => {
-  it('publishes a disbanded team as plain data', () => {
-    expect(published(new TeamDisbanded(...TEAM))).toEqual([
+  it('publishes a deleted team as plain data', () => {
+    expect(published(new TeamDeleted(...TEAM))).toEqual([
       {
-        kind: 'identity.team-disbanded.v1',
+        kind: 'identity.team-deleted.v1',
         workspaceId: 'ws_1',
         teamId: 'team_1',
         key: 'core',
@@ -59,10 +59,10 @@ describe('IDENTITY_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes a workspace’s closing', () => {
+  it('publishes a deleted workspace', () => {
     expect(
       published(
-        new WorkspaceClosed(
+        new WorkspaceDeleted(
           WORKSPACE,
           WorkspaceSlug.of('acme'),
           changed('workspace', 'ws_1', 'acme'),
@@ -70,7 +70,7 @@ describe('IDENTITY_EVENT_MAPPERS', () => {
       ),
     ).toEqual([
       {
-        kind: 'identity.workspace-closed.v1',
+        kind: 'identity.workspace-deleted.v1',
         workspaceId: 'ws_1',
         slug: 'acme',
       },

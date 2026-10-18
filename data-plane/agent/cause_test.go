@@ -19,27 +19,27 @@ func causer(t *testing.T, status int, body string) *[]protocol.CauseRecord {
 	}
 	t.Cleanup(func() { _ = server.Close() })
 
-	var asked []protocol.CauseRecord
+	var received []protocol.CauseRecord
 	server.Causes(func(record protocol.CauseRecord) (int, string) {
-		asked = append(asked, record)
+		received = append(received, record)
 		return status, body
 	})
 
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 
-	return &asked
+	return &received
 }
 
 const recordedJudge = `{"taskId":"task_1","cause":"judge","replayRunId":"replayed_1"}`
 
 func TestCauseRecordsTheCauseOfAFailingTask(t *testing.T) {
-	asked := causer(t, 200, recordedJudge)
+	received := causer(t, 200, recordedJudge)
 	out := new(bytes.Buffer)
 
 	err := run([]string{
 		"cause", "--task", "task_1", "--cause", "judge",
-		"--evidence", "The rubric asks for tests the task never needed.", "--suggestion", "Drop that line.",
+		"--evidence", "The rubric requires tests the task never needed.", "--suggestion", "Drop that line.",
 	}, strings.NewReader(""), out)
 	if err != nil {
 		t.Fatalf("run: %v", err)
@@ -47,20 +47,20 @@ func TestCauseRecordsTheCauseOfAFailingTask(t *testing.T) {
 
 	want := protocol.CauseRecord{
 		TaskID: "task_1", Cause: "judge",
-		Evidence: "The rubric asks for tests the task never needed.", Suggestion: "Drop that line.",
+		Evidence: "The rubric requires tests the task never needed.", Suggestion: "Drop that line.",
 	}
-	if len(*asked) != 1 || (*asked)[0] != want {
-		t.Errorf("recorded %+v", *asked)
+	if len(*received) != 1 || (*received)[0] != want {
+		t.Errorf("recorded %+v", *received)
 	}
-	for _, said := range []string{"Recorded judge as the cause for task task_1, whose replay run replayed_1 failed.", "replaces this one"} {
-		if !strings.Contains(out.String(), said) {
-			t.Errorf("said %q, missing %q", out, said)
+	for _, want := range []string{"Recorded judge as the cause for task task_1, whose replay run replayed_1 failed.", "replaces this one"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("output %q, missing %q", out, want)
 		}
 	}
 }
 
 func TestCauseReadsItsEvidenceAndSuggestionFromFiles(t *testing.T) {
-	asked := causer(t, 201, recordedJudge)
+	received := causer(t, 201, recordedJudge)
 	dir := t.TempDir()
 	evidence := filepath.Join(dir, "evidence.md")
 	suggestion := filepath.Join(dir, "suggestion.md")
@@ -77,13 +77,13 @@ func TestCauseReadsItsEvidenceAndSuggestionFromFiles(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	if len(*asked) != 1 || (*asked)[0].Evidence != "Step 12 shows\nthe judge misread it." || (*asked)[0].Suggestion != "Say what passing means." {
-		t.Errorf("recorded %+v", *asked)
+	if len(*received) != 1 || (*received)[0].Evidence != "Step 12 shows\nthe judge misread it." || (*received)[0].Suggestion != "Say what passing means." {
+		t.Errorf("recorded %+v", *received)
 	}
 }
 
-func TestCauseRefusesMisuseBeforeAskingSpotlight(t *testing.T) {
-	asked := causer(t, 200, recordedJudge)
+func TestCauseRejectsMisuseBeforeCallingSpotlight(t *testing.T) {
+	received := causer(t, 200, recordedJudge)
 
 	for _, args := range [][]string{
 		{"cause"},
@@ -96,19 +96,19 @@ func TestCauseRefusesMisuseBeforeAskingSpotlight(t *testing.T) {
 	} {
 		err := run(args, strings.NewReader(""), new(bytes.Buffer))
 		if err == nil || !strings.Contains(err.Error(), "usage:") {
-			t.Errorf("%v said %v", args, err)
+			t.Errorf("%v returned %v", args, err)
 		}
 	}
 	if err := run([]string{"cause", "--task", "task_1", "--cause", "judge", "--evidence", "@" + filepath.Join(t.TempDir(), "gone.md")},
 		strings.NewReader(""), new(bytes.Buffer)); err == nil || !strings.Contains(err.Error(), "read the evidence") {
-		t.Errorf("a missing evidence file said %v", err)
+		t.Errorf("a missing evidence file returned %v", err)
 	}
-	if len(*asked) != 0 {
-		t.Errorf("recorded anyway: %+v", *asked)
+	if len(*received) != 0 {
+		t.Errorf("recorded anyway: %+v", *received)
 	}
 }
 
-func TestCauseCarriesARefusal(t *testing.T) {
+func TestCauseCarriesAnError(t *testing.T) {
 	causer(t, 422, "No failing task task_9 among the tasks this reflection looks into\n")
 
 	err := run([]string{"cause", "--task", "task_9", "--cause", "task", "--evidence", "x"}, strings.NewReader(""), new(bytes.Buffer))
@@ -124,8 +124,8 @@ func TestCauseSaysWhenTheRunCannotRecordOne(t *testing.T) {
 		t.Fatalf("serve: %v", err)
 	}
 	t.Cleanup(func() { _ = server.Close() })
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 
 	err = run([]string{"cause", "--task", "task_1", "--cause", "judge", "--evidence", "x"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "only a search's runs do") {
@@ -134,8 +134,8 @@ func TestCauseSaysWhenTheRunCannotRecordOne(t *testing.T) {
 }
 
 func TestCauseOutsideARunSaysSo(t *testing.T) {
-	t.Setenv(protocol.HandoverURLVar, "")
-	t.Setenv(protocol.HandoverTokenVar, "")
+	t.Setenv(protocol.AgentAPIURLVar, "")
+	t.Setenv(protocol.AgentAPITokenVar, "")
 
 	err := run([]string{"cause", "--task", "task_1", "--cause", "judge", "--evidence", "x"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "no run") {

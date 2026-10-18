@@ -1,20 +1,20 @@
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
-import type { Handover } from '@work/domain/value-objects/handover.vo';
+import type { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
 import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 
 export type RunRouting =
   | { readonly kind: 'finish'; readonly line: Line }
   | { readonly kind: 'ask'; readonly failure: TaskFailure | null }
-  | { readonly kind: 'let-go'; readonly failure: TaskFailure | null }
+  | { readonly kind: 'detach'; readonly failure: TaskFailure | null }
   | {
       readonly kind: 'advance';
       readonly to: Station;
       readonly line: Line;
     }
   | {
-      readonly kind: 'heldBack';
+      readonly kind: 'deferredMove';
       readonly to: Station;
       readonly line: Line;
     };
@@ -22,13 +22,13 @@ export type RunRouting =
 export const putsItToAPerson = (routing: RunRouting): boolean =>
   routing.kind === 'ask' && routing.failure === null;
 
-const failureOf = (handover: Handover): TaskFailure | null =>
+const failureOf = (handover: ResolvedHandover): TaskFailure | null =>
   handover.kind === 'review' ? handover.failure : null;
 
 export const routeAfterRun = (
-  handover: Handover,
+  handover: ResolvedHandover,
   line: Line | null,
-  task: Pick<Task, 'awaitingReview' | 'heldBackTo'>,
+  task: Pick<Task, 'awaitingReview' | 'deferredMoveTo'>,
 ): RunRouting => {
   const passedTo =
     handover.kind === 'pass' && !task.awaitingReview
@@ -39,14 +39,16 @@ export const routeAfterRun = (
     return { kind: 'advance', to: passedTo, line };
   }
 
-  const heldBack = task.heldBackTo ? line?.stationAt(task.heldBackTo) : null;
+  const deferredTo = task.deferredMoveTo
+    ? line?.stationAt(task.deferredMoveTo)
+    : null;
 
-  if (heldBack && line) {
-    return { kind: 'heldBack', to: heldBack, line };
+  if (deferredTo && line) {
+    return { kind: 'deferredMove', to: deferredTo, line };
   }
 
   if (task.awaitingReview) {
-    return { kind: 'let-go', failure: failureOf(handover) };
+    return { kind: 'detach', failure: failureOf(handover) };
   }
 
   if (handover.kind === 'done' && line) {

@@ -1,22 +1,21 @@
-import { WorkspaceClosed } from '@identity/domain/events/workspace-closed.event';
+import { WorkspaceCreated } from '@identity/domain/events/workspace-created.event';
+import { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
 import { WorkspaceMemberJoined } from '@identity/domain/events/workspace-member-joined.event';
 import { WorkspaceMemberRoleChanged } from '@identity/domain/events/workspace-member-role-changed.event';
-import { WorkspaceOpened } from '@identity/domain/events/workspace-opened.event';
-import { WorkspaceRedefined } from '@identity/domain/events/workspace-redefined.event';
+import { WorkspaceUpdated } from '@identity/domain/events/workspace-updated.event';
 import { LastOwnerError } from '@identity/domain/exceptions/last-owner.error';
-import { NotYoursToGiveError } from '@identity/domain/exceptions/not-yours-to-give.error';
 import { NotYoursToInviteError } from '@identity/domain/exceptions/not-yours-to-invite.error';
+import { RoleAssignmentDeniedError } from '@identity/domain/exceptions/role-assignment-denied.error';
 import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
 import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
-import { WorkspaceSlugFixedError } from '@identity/domain/exceptions/workspace-slug-fixed.error';
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import {
-  type RolePositions,
-  refusalToGive,
-  rolesGivable,
-} from '@identity/domain/services/role-giving';
-import { Holdings } from '@identity/domain/value-objects/holdings.vo';
-import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+  assignableRoles,
+  type RoleAssignmentContext,
+  roleAssignmentDenial,
+} from '@identity/domain/services/role-assignment';
+import { Dependents } from '@identity/domain/value-objects/dependents.vo';
+import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { Permissions } from '@identity/domain/value-objects/permissions.vo';
 import type { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
@@ -26,8 +25,9 @@ import type { WorkspaceName } from '@identity/domain/value-objects/workspace-nam
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import type { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import {
   PersonPrincipal,
@@ -54,33 +54,33 @@ export class Workspace extends EventRecorder {
     readonly slug: WorkspaceSlug,
     readonly members: readonly WorkspaceMember[],
     readonly version: number = 0,
-    readonly isClosed: boolean = false,
+    readonly isDeleted: boolean = false,
   ) {
     super();
   }
 
-  static open(input: {
+  static create(input: {
     id: WorkspaceId;
     name: WorkspaceName;
     slug: WorkspaceSlug;
     owner: UserId;
     firstTeam?: { id: TeamId; name: TeamName };
-    by: Attribution;
+    by: ChangeActor;
   }): Workspace {
-    const opened = new Workspace(input.id, input.name, input.slug, [
+    const created = new Workspace(input.id, input.name, input.slug, [
       { userId: input.owner, role: WorkspaceRole.owner },
     ]);
 
-    opened.record(
-      new WorkspaceOpened(
+    created.record(
+      new WorkspaceCreated(
         input.id,
         input.owner,
         input.firstTeam ?? null,
-        ConfigurationChange.created(opened.whatChanged, input.by),
+        ConfigurationChange.created(created.whatChanged, input.by),
       ),
     );
 
-    return opened;
+    return created;
   }
 
   static rehydrate(input: {
@@ -112,74 +112,77 @@ export class Workspace extends EventRecorder {
     }
   }
 
-  redefinedAs(
+  update(
     definition: { name: WorkspaceName; slug: WorkspaceSlug },
-    by: Attribution,
+    by: ChangeActor,
   ): Workspace {
-    this.guardOpen();
+    this.assertNotDeleted();
 
     if (!definition.slug.equals(this.slug)) {
-      throw new WorkspaceSlugFixedError(
-        this.slug.value,
-        `cannot change its slug to ${definition.slug.value}`,
+      const because = `cannot change its slug to ${definition.slug.value}`;
+
+      throw new ImmutableFieldError(
+        'slug',
+        because,
+        `Workspace ${this.slug.value} ${because}.`,
       );
     }
 
-    const redefined = this.with({
+    const updated = this.with({
       members: this.members,
       name: definition.name,
     });
 
-    redefined.record(
-      new WorkspaceRedefined(
+    updated.record(
+      new WorkspaceUpdated(
         this.id,
         definition.name,
         ConfigurationChange.updated(this.whatChanged, by),
       ),
     );
 
-    return redefined;
+    return updated;
   }
 
-  close(
+  delete(
     teams: readonly TeamKey[],
     tokens: readonly TokenName[],
     trusts: readonly TokenTrustKey[],
-    minting: readonly TokenTrustKey[],
-    holdings: Holdings,
-    by: Attribution,
+    issuing: readonly TokenTrustKey[],
+    dependents: Dependents,
+    by: ChangeActor,
   ): Workspace {
-    this.guardOpen();
+    this.assertNotDeleted();
 
-    const held = Holdings.of([
+    const remaining = Dependents.of([
       ...teams.map((each) => `team ${each.value}`),
       ...tokens.map((each) => `token ${each.value}`),
       ...trusts.map((each) => `token trust ${each.value}`),
-      ...minting.map((each) => `tokens minted through ${each.value}`),
-    ]).and(holdings);
+      ...issuing.map((each) => `tokens issued by ${each.value}`),
+    ]).and(dependents);
 
-    if (!held.isEmpty) {
-      throw new WorkspaceInUseError(this.slug.value, held);
+    if (!remaining.isEmpty) {
+      throw new WorkspaceInUseError(this.slug.value, remaining);
     }
 
-    const closed = this.with({ members: this.members, closed: true });
+    const deleted = this.with({ members: this.members, deleted: true });
 
-    closed.record(
-      new WorkspaceClosed(
+    deleted.record(
+      new WorkspaceDeleted(
         this.id,
         this.slug,
         ConfigurationChange.deleted(this.whatChanged, by),
       ),
     );
 
-    return closed;
+    return deleted;
   }
 
-  private guardOpen(): void {
-    if (this.isClosed) {
+  private assertNotDeleted(): void {
+    if (this.isDeleted) {
       throw new InconsistentStateError(
         'workspace',
-        'was changed after it was closed',
+        'was changed after it was deleted',
       );
     }
   }
@@ -190,16 +193,16 @@ export class Workspace extends EventRecorder {
     );
   }
 
-  holds(userId: UserId): boolean {
+  hasMember(userId: UserId): boolean {
     return this.permissionsFor(PersonPrincipal.of(userId)).reads;
   }
 
   administeredBy(userId: UserId): boolean {
-    return this.permissionsFor(PersonPrincipal.of(userId)).administers;
+    return this.permissionsFor(PersonPrincipal.of(userId)).isAdmin;
   }
 
   permissionsFor(principal: Principal): Permissions {
-    if (this.isClosed) {
+    if (this.isDeleted) {
       return Permissions.none;
     }
 
@@ -228,31 +231,31 @@ export class Workspace extends EventRecorder {
     return owners.length === 1 && owners[0]?.userId.equals(userId) === true;
   }
 
-  private positionsBetween(target: UserId, by: UserId): RolePositions {
+  private assignmentContext(target: UserId, by: UserId): RoleAssignmentContext {
     return {
-      mine: this.roleOf(by),
-      theirs: this.roleOf(target),
-      lastOwner: this.isLastOwner(target),
+      callerRole: this.roleOf(by),
+      memberRole: this.roleOf(target),
+      isLastOwner: this.isLastOwner(target),
       isSelf: target.equals(by),
     };
   }
 
-  rolesGivableTo(target: UserId, by: UserId): readonly WorkspaceRole[] {
-    return rolesGivable(this.positionsBetween(target, by));
+  assignableRolesFor(target: UserId, by: UserId): readonly WorkspaceRole[] {
+    return assignableRoles(this.assignmentContext(target, by));
   }
 
   changeRole(target: UserId, role: WorkspaceRole, by: UserId): Workspace {
-    const positions = this.positionsBetween(target, by);
-    const refusal = refusalToGive(positions, role);
+    const context = this.assignmentContext(target, by);
+    const denial = roleAssignmentDenial(context, role);
 
-    if (refusal === 'last-owner') {
+    if (denial === 'last-owner') {
       throw new LastOwnerError();
     }
-    if (refusal) {
-      throw new NotYoursToGiveError(refusal);
+    if (denial) {
+      throw new RoleAssignmentDeniedError(denial);
     }
 
-    const was = positions.theirs;
+    const was = context.memberRole;
 
     if (!was || was.equals(role)) {
       return this;
@@ -272,7 +275,7 @@ export class Workspace extends EventRecorder {
   }
 
   join(userId: UserId, role: WorkspaceRole): Workspace {
-    if (this.holds(userId)) {
+    if (this.hasMember(userId)) {
       return this;
     }
 
@@ -285,11 +288,11 @@ export class Workspace extends EventRecorder {
     return joined;
   }
 
-  inviteTerms(input: {
+  inviteSpec(input: {
     role: WorkspaceRole;
     teams: readonly TeamId[];
     among: readonly TeamOfWorkspace[];
-  }): InviteTerms {
+  }): InviteSpec {
     if (input.role.isOwner) {
       throw new NotYoursToInviteError();
     }
@@ -305,13 +308,13 @@ export class Workspace extends EventRecorder {
       throw new TeamOutsideWorkspaceError(outside.value);
     }
 
-    return InviteTerms.of(input.role, input.teams);
+    return InviteSpec.of(input.role, input.teams);
   }
 
   private with(over: {
     members: readonly WorkspaceMember[];
     name?: WorkspaceName;
-    closed?: boolean;
+    deleted?: boolean;
   }): Workspace {
     const next = new Workspace(
       this.id,
@@ -319,7 +322,7 @@ export class Workspace extends EventRecorder {
       this.slug,
       over.members,
       this.version,
-      over.closed ?? this.isClosed,
+      over.deleted ?? this.isDeleted,
     );
     next.inheritEvents(this);
 

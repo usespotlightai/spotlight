@@ -1,16 +1,16 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
 import type {
-  BoundTask,
   IntegrationRuntimePort,
+  IntegrationTaskView,
   TaskPayload,
 } from '@integrations/application/ports/integration-runtime.port';
-import type { HostReach } from '@integrations/application/services/host-reach.service';
-import { BoundTaskMapper } from '@integrations/infrastructure/acl/bound-task.mapper';
+import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
+import { IntegrationTaskViewMapper } from '@integrations/infrastructure/acl/integration-task-view.mapper';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { MarkWorn } from '@work/application/contracts/happenings.contract';
-import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
+import type { TaskMark } from '@work/application/contracts/happenings.contract';
+import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import type { TaskNoticesPort } from '@work/application/ports/task-notices.port';
 
 const waiting = (station: string, link: string | null): string => {
@@ -28,15 +28,15 @@ export class TaskNotices implements TaskNoticesPort {
   constructor(
     private readonly defined: DefinedIntegrationsPort,
     private readonly runtime: IntegrationRuntimePort,
-    private readonly reach: HostReach,
+    private readonly callAuthResolver: CallAuthResolver,
     private readonly links: InboxLinksPort,
     private readonly log: LoggerPort,
   ) {}
 
   async notify(
-    task: BoundTaskDto,
+    task: IntegrationTaskViewDto,
     event: string,
-  ): Promise<readonly MarkWorn[]> {
+  ): Promise<readonly TaskMark[]> {
     const teamId = TeamId.of(task.teamId);
     const definitions = await this.defined.ofTeam(teamId);
     const posting = this.runtime
@@ -47,9 +47,9 @@ export class TaskNotices implements TaskNoticesPort {
       return [];
     }
 
-    const bound = BoundTaskMapper.toBound(task);
-    const payload: TaskPayload = { task: bound, ask: await this.asking(bound) };
-    const kept: MarkWorn[] = [];
+    const view = IntegrationTaskViewMapper.toView(task);
+    const payload: TaskPayload = { task: view, ask: await this.asking(view) };
+    const addedMarks: TaskMark[] = [];
 
     for (const integration of posting) {
       try {
@@ -58,36 +58,36 @@ export class TaskNotices implements TaskNoticesPort {
           integration,
           event,
           payload,
-          await this.reach.of(teamId, integration),
+          await this.callAuthResolver.of(teamId, integration),
         );
 
         if (posted.kind === 'posted') {
-          kept.push(...posted.marks);
+          addedMarks.push(...posted.marks);
         }
 
-        if (posted.kind === 'refused') {
+        if (posted.kind === 'failed') {
           this.log.warn(
             {
               task: task.taskId,
-              refusal: posted.refusal,
+              error: posted.error,
               target: posted.target,
               marks: task.marks,
             },
-            'A host refused a task’s word',
+            'A service answered a task’s word with an error',
           );
         }
       } catch (error) {
         this.log.warn(
           { err: error, task: task.taskId },
-          'Posting a task’s word to a host',
+          'Posting a task’s word to a service',
         );
       }
     }
 
-    return kept;
+    return addedMarks;
   }
 
-  private async asking(task: BoundTask): Promise<TaskPayload['ask']> {
+  private async asking(task: IntegrationTaskView): Promise<TaskPayload['ask']> {
     const { station, waiting: open } = task;
 
     if (!open) {
@@ -99,7 +99,7 @@ export class TaskNotices implements TaskNoticesPort {
       open.conversationId,
     );
 
-    const body = open.said || waiting(station, link);
+    const body = open.body || waiting(station, link);
 
     return {
       body: open.awaitsApproval ? `${body}\n\n${decidedAt(link)}` : body,

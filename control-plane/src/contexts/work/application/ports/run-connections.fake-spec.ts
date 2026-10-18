@@ -8,9 +8,9 @@ export const connectionsInMemory = (
 ): RunConnectionsPort => ({
   record: async () => {},
   of: async (runId) => recorded.filter((each) => each.runId === runId),
-  wentWrongIn: async (runIds) =>
+  errorsIn: async (runIds) =>
     recorded.filter(
-      (each) => runIds.includes(each.runId) && each.connection.wentWrong,
+      (each) => runIds.includes(each.runId) && each.connection.isError,
     ),
-  forgetBefore: async () => 0,
+  purgeBefore: async () => 0,
 });

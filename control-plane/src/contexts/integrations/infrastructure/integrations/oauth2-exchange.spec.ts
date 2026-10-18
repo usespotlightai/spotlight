@@ -1,4 +1,4 @@
-import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
+import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import {
   compileIntegration,
   type OAuth2Endpoints,
@@ -68,7 +68,7 @@ describe('OAuth2Exchange', () => {
       fetch,
     );
 
-    const linked = await exchange.exchange(
+    const tokens = await exchange.exchange(
       oauth2(),
       CLIENT,
       'the-code',
@@ -76,11 +76,11 @@ describe('OAuth2Exchange', () => {
       'the-verifier',
     );
 
-    expect(linked?.accessToken.value).toBe('xoxb-1');
-    expect(linked?.refreshToken?.value).toBe('xoxe-1');
-    expect(linked?.expiresAt).toEqual(new Date('2026-09-07T11:00:00.000Z'));
-    expect(linked?.scopes).toEqual(['chat:write', 'channels:read']);
-    expect(linked?.handle).toBe('Acme');
+    expect(tokens?.accessToken.value).toBe('xoxb-1');
+    expect(tokens?.refreshToken?.value).toBe('xoxe-1');
+    expect(tokens?.expiresAt).toEqual(new Date('2026-09-07T11:00:00.000Z'));
+    expect(tokens?.scopes).toEqual(['chat:write', 'channels:read']);
+    expect(tokens?.linkedAccount).toBe('Acme');
   });
 
   it('sends the code and the client credentials to the token endpoint', async () => {
@@ -148,7 +148,7 @@ describe('OAuth2Exchange', () => {
     expect(init.signal).toBeInstanceOf(AbortSignal);
   });
 
-  it('falls back to the file’s scopes where the host names none', async () => {
+  it('falls back to the file’s scopes where the service names none', async () => {
     const fetch = replying({ access_token: 'xoxb-1' });
     const exchange = new OAuth2Exchange(
       new OutboundPolicy(['slack.com']),
@@ -156,7 +156,7 @@ describe('OAuth2Exchange', () => {
       fetch,
     );
 
-    const linked = await exchange.exchange(
+    const tokens = await exchange.exchange(
       oauth2(),
       CLIENT,
       'the-code',
@@ -164,7 +164,7 @@ describe('OAuth2Exchange', () => {
       'the-verifier',
     );
 
-    expect(linked?.scopes).toEqual(['chat:write']);
+    expect(tokens?.scopes).toEqual(['chat:write']);
   });
 
   it('refreshes with the refresh token', async () => {
@@ -175,16 +175,16 @@ describe('OAuth2Exchange', () => {
       fetch,
     );
 
-    const linked = await exchange.refresh(oauth2(), CLIENT, 'xoxe-1');
+    const tokens = await exchange.refresh(oauth2(), CLIENT, 'xoxe-1');
 
     const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     const form = new URLSearchParams(init.body as string);
     expect(form.get('grant_type')).toBe('refresh_token');
     expect(form.get('refresh_token')).toBe('xoxe-1');
-    expect(linked?.accessToken.value).toBe('xoxb-2');
+    expect(tokens?.accessToken.value).toBe('xoxb-2');
   });
 
-  it('refuses a token endpoint the deployment did not allow', async () => {
+  it('blocks a token endpoint the deployment did not allow', async () => {
     const fetch = replying({ access_token: 'xoxb-1' });
     const exchange = new OAuth2Exchange(
       new OutboundPolicy(['example.com']),
@@ -200,11 +200,11 @@ describe('OAuth2Exchange', () => {
         'https://app.example/callback',
         'v',
       ),
-    ).rejects.toBeInstanceOf(OutboundRefusedError);
+    ).rejects.toBeInstanceOf(EgressBlockedError);
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('keeps nothing from a refusal by the host', async () => {
+  it('stores nothing when the service answers with an error', async () => {
     const fetch = replying({ error: 'bad_code' }, 400);
     const exchange = new OAuth2Exchange(
       new OutboundPolicy(['slack.com']),
@@ -223,7 +223,7 @@ describe('OAuth2Exchange', () => {
     ).toBeNull();
   });
 
-  it('never follows a redirect from the token endpoint, and keeps nothing from it', async () => {
+  it('never follows a redirect from the token endpoint, and stores nothing from it', async () => {
     const fetch = vi.fn(
       async () =>
         new Response(null, {

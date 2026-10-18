@@ -3,16 +3,16 @@ export const REPLAY_STATES = [
   'running',
   'finished',
   'stopped',
-  'over-budget',
+  'ceiling-reached',
 ] as const;
 
 export type ReplayState = (typeof REPLAY_STATES)[number];
 
-export const REPLAY_ENDS = [
+export const REPLAY_STOP_REASONS = [
   'finished',
   'stopped',
-  'over-budget',
-  'abandoned',
+  'ceiling-reached',
+  'deleted',
 ] as const;
 
-export type ReplayEnd = (typeof REPLAY_ENDS)[number];
+export type ReplayStopReason = (typeof REPLAY_STOP_REASONS)[number];

@@ -3,9 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { StationAlertCard } from '@/components/features/inbox/alerts/StationAlertCard';
-import type { StationAlertCrossing } from '@/lib/station-alert';
+import type { StationAlertFiring } from '@/lib/station-alert';
 
-type Held = {
+type Queried = {
   data: unknown;
   isPending: boolean;
   isFetching: boolean;
@@ -14,11 +14,11 @@ type Held = {
   refetch: () => void;
 };
 
-const held = (
+const queried = (
   data: unknown,
   errorUpdateCount = 0,
   error: unknown = null,
-): Held => ({
+): Queried => ({
   data,
   isPending: data === undefined && errorUpdateCount === 0,
   isFetching: false,
@@ -27,7 +27,7 @@ const held = (
   refetch: vi.fn(),
 });
 
-const answer: { alert: Held } = { alert: held(undefined) };
+const answer: { alert: Queried } = { alert: queried(undefined) };
 
 vi.mock('@/hooks/api/useStationAlert', () => ({
   useStationAlert: () => answer.alert,
@@ -60,7 +60,7 @@ const ALERT = {
   alertId: 'alert_1',
   lineId: 'line_1',
   stationId: 'station_impl',
-  threshold: {
+  rule: {
     measure: 'sent_back_rate',
     risesBy: 0.15,
     fallsBy: null,
@@ -79,19 +79,19 @@ const ALERT = {
   },
   runId: 'run_2',
   taskId: 'task_1',
-  raisedAt: '2026-09-30T10:00:00.000Z',
+  firedAt: '2026-09-30T10:00:00.000Z',
   insightsPeriod: '7d',
-  recoveredAt: null,
+  resolvedAt: null,
   currency: 'USD',
   series: [
     { runId: 'run_1', endedAt: '2026-09-29T10:00:00.000Z', value: 0.2 },
     { runId: 'run_2', endedAt: '2026-09-30T10:00:00.000Z', value: 0.4 },
   ],
-} as unknown as StationAlertCrossing;
+} as unknown as StationAlertFiring;
 
 const showing = () =>
   render(
-    <MemoryRouter initialEntries={['/w/acme/inbox/aside_1']}>
+    <MemoryRouter initialEntries={['/w/acme/inbox/request_1']}>
       <Routes>
         <Route
           path="/w/:slug/inbox/:itemId"
@@ -104,12 +104,12 @@ const showing = () =>
   );
 
 beforeEach(() => {
-  answer.alert = held(ALERT);
+  answer.alert = queried(ALERT);
 });
 
 describe('StationAlertCard', () => {
   it('shows a faithful skeleton while it loads', () => {
-    answer.alert = held(undefined);
+    answer.alert = queried(undefined);
 
     showing();
 
@@ -119,7 +119,7 @@ describe('StationAlertCard', () => {
   });
 
   it('offers to try again where it could not load', async () => {
-    answer.alert = held(undefined, 1);
+    answer.alert = queried(undefined, 1);
 
     showing();
 
@@ -129,7 +129,7 @@ describe('StationAlertCard', () => {
   });
 
   it('tells someone off the team that only its members can see the alert', () => {
-    answer.alert = held(undefined, 1, { statusCode: 404 });
+    answer.alert = queried(undefined, 1, { statusCode: 404 });
 
     showing();
 
@@ -146,7 +146,7 @@ describe('StationAlertCard', () => {
 
     expect(
       within(screen.getByRole('list', { name: 'Legend' })).getByText(
-        'The run it went off at',
+        'The run it fired at',
       ),
     ).toBeInTheDocument();
   });
@@ -157,7 +157,7 @@ describe('StationAlertCard', () => {
     expect(
       screen.getByRole('heading', {
         level: 2,
-        name: 'Alert raised at Implementation',
+        name: 'Alert fired at Implementation',
       }),
     ).toBeInTheDocument();
     expect(
@@ -170,7 +170,7 @@ describe('StationAlertCard', () => {
     ).toBeInTheDocument();
   });
 
-  it('links to the station, to it on Insights over the period the alert says, and to improving it', () => {
+  it('links to the station, to it on Insights over the period the alert says, and to a chat that improves it', () => {
     showing();
 
     expect(
@@ -191,10 +191,10 @@ describe('StationAlertCard', () => {
     );
   });
 
-  it('says when the station came back within it, and when its runs are gone', () => {
-    answer.alert = held({
+  it('says when the station alert resolved, and when its runs are gone', () => {
+    answer.alert = queried({
       ...ALERT,
-      recoveredAt: '2026-10-01T10:00:00.000Z',
+      resolvedAt: '2026-10-01T10:00:00.000Z',
       series: [],
     });
 

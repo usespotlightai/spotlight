@@ -1,12 +1,12 @@
-import type { ReadSkill } from '@configuration/domain/aggregates/skill-definition.aggregate';
+import type { ParsedSkill } from '@configuration/domain/aggregates/skill-definition.aggregate';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
 export const SKILL_COMPILER = Symbol('SKILL_COMPILER');
 
-export type ParsedSkill =
-  | ({ readonly ok: true } & ReadSkill)
+export type SkillParseResult =
+  | ({ readonly ok: true } & ParsedSkill)
   | { readonly ok: false; readonly problems: readonly ConfigurationProblem[] };
 
 export interface SkillCompilerPort {
-  compile(held: unknown): ParsedSkill;
+  compile(input: unknown): SkillParseResult;
 }

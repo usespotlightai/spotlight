@@ -9,13 +9,13 @@ export class TracesLoader {
   constructor(private readonly tasks: TracedTaskReaderPort) {}
 
   async shared(taskIds: readonly string[]): Promise<TraceReference[]> {
-    const asked = [...new Set(taskIds)];
+    const requested = [...new Set(taskIds)];
 
-    TraceReference.refuseTooMany(asked.length);
+    TraceReference.assertNotTooMany(requested.length);
 
-    const found = await this.tasks.of(asked.map((each) => TaskId.of(each)));
+    const found = await this.tasks.of(requested.map((each) => TaskId.of(each)));
 
-    return asked.map((id) => {
+    return requested.map((id) => {
       const traced = found.find((each) => each.taskId === id);
 
       if (!traced) {

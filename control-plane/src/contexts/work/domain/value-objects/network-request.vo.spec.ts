@@ -12,11 +12,11 @@ const signed = (body = new Uint8Array([1, 2, 3])) =>
   });
 
 describe('NetworkRequest', () => {
-  it('keeps its own copy of what it was given, and hands out copies', () => {
-    const given = new Uint8Array([1, 2, 3]);
-    const request = signed(given);
+  it('keeps its own copy of what it was bytes, and hands out copies', () => {
+    const bytes = new Uint8Array([1, 2, 3]);
+    const request = signed(bytes);
 
-    given[0] = 9;
+    bytes[0] = 9;
     request.body[1] = 9;
     (request.headers as Record<string, string>).authorization = 'Bearer other';
 

@@ -3,8 +3,8 @@ import {
   aHost,
   aHostReport,
   HOST_ID,
-  heldHosts,
   STARTED_AT,
+  storedHosts,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { RunnerHostVersionConflictError } from '@runners/domain/exceptions/runner-host-version-conflict.error';
 import { describe, expect, it } from 'vitest';
@@ -13,49 +13,49 @@ const LATER = new Date(STARTED_AT.getTime() + 30_000);
 
 const reported = (host: ReturnType<typeof aHost>) =>
   host.reportThrough({
-    admission: host.admission,
+    source: host.source,
     workspaceId: host.workspaceId,
-    session: host.session,
+    bootId: host.bootId,
     report: aHostReport(['runner_1']),
     at: LATER,
   });
 
 describe('reviseHost', () => {
-  it('adds a host it has never seen', async () => {
-    const { held, hosts } = heldHosts();
+  it('adds a host it does not know yet', async () => {
+    const { stored, hosts } = storedHosts();
 
     await reviseHost(hosts, HOST_ID, (known) => known ?? aHost());
 
     expect(hosts.add).toHaveBeenCalledTimes(1);
     expect(hosts.save).not.toHaveBeenCalled();
-    expect(held.get(HOST_ID.value)?.version).toBe(0);
+    expect(stored.get(HOST_ID.value)?.version).toBe(0);
   });
 
   it('saves a host it already knows over the version it read', async () => {
-    const { held, hosts } = heldHosts(aHost());
+    const { stored, hosts } = storedHosts(aHost());
 
     await reviseHost(hosts, HOST_ID, (known) => reported(known ?? aHost()));
 
     expect(hosts.save).toHaveBeenCalledTimes(1);
-    expect(held.get(HOST_ID.value)?.version).toBe(1);
-    expect(held.get(HOST_ID.value)?.lastSeenAt).toEqual(LATER);
+    expect(stored.get(HOST_ID.value)?.version).toBe(1);
+    expect(stored.get(HOST_ID.value)?.lastHeartbeatAt).toEqual(LATER);
   });
 
   it('writes nothing when a report leaves the host as it was', async () => {
-    const { held, hosts } = heldHosts(aHost());
+    const { stored, hosts } = storedHosts(aHost());
 
     await reviseHost(hosts, HOST_ID, (known) => known ?? aHost());
 
     expect(hosts.save).not.toHaveBeenCalled();
-    expect(held.get(HOST_ID.value)?.version).toBe(0);
+    expect(stored.get(HOST_ID.value)?.version).toBe(0);
   });
 
   it('reads the host again and retries when another report moved it on first', async () => {
-    const { held, hosts } = heldHosts();
+    const { stored, hosts } = storedHosts();
     const seen: (number | null)[] = [];
 
     hosts.add.mockImplementationOnce(async (host) => {
-      held.set(host.id.value, host);
+      stored.set(host.id.value, host);
       throw new RunnerHostVersionConflictError(host.id.value);
     });
 
@@ -65,12 +65,12 @@ describe('reviseHost', () => {
     });
 
     expect(seen).toEqual([null, 0]);
-    expect(revised.lastSeenAt).toEqual(LATER);
-    expect(held.get(HOST_ID.value)?.version).toBe(1);
+    expect(revised.lastHeartbeatAt).toEqual(LATER);
+    expect(stored.get(HOST_ID.value)?.version).toBe(1);
   });
 
-  it('gives up after three tries, answering that the host changed', async () => {
-    const { hosts } = heldHosts(aHost());
+  it('stops after three tries, and reports that the host changed', async () => {
+    const { hosts } = storedHosts(aHost());
 
     hosts.save.mockImplementation(async (host) => {
       throw new RunnerHostVersionConflictError(host.id.value);
@@ -84,7 +84,7 @@ describe('reviseHost', () => {
   });
 
   it('never retries what is not a version conflict on the host', async () => {
-    const { hosts } = heldHosts(aHost());
+    const { hosts } = storedHosts(aHost());
     const lost = new Error('the database is down');
 
     hosts.save.mockRejectedValue(lost);

@@ -15,9 +15,9 @@ import { faulted } from '@work/domain/value-objects/step-status';
 
 export type NodeKind = 'run' | 'phase' | 'step' | 'span' | 'connection';
 
-export type Tone = 'agent' | 'overhead' | 'failed';
+export type Category = 'agent' | 'overhead' | 'failed';
 
-export interface WorkedRun {
+export interface TracedRun {
   readonly id: RunId;
   readonly station: StationName | null;
   readonly harness: HarnessName;
@@ -40,7 +40,7 @@ export const connectionsOf = (
 
 interface TracedConnection {
   readonly connection: RunConnection;
-  readonly times: number;
+  readonly count: number;
 }
 
 export interface TraceNode {
@@ -49,12 +49,12 @@ export interface TraceNode {
   readonly name: string;
   readonly from: Date;
   readonly to: Date;
-  readonly tone: Tone;
+  readonly category: Category;
   readonly step: JournalStep | null;
   readonly span: RunSpan | null;
   readonly cost: Money | null;
   readonly connection: TracedConnection | null;
-  readonly egress: EgressEnforcement | null;
+  readonly egressEnforcement: EgressEnforcement | null;
   readonly children: readonly TraceNode[];
 }
 
@@ -62,7 +62,7 @@ export interface Trace {
   readonly from: Date | null;
   readonly to: Date | null;
   readonly rows: number;
-  readonly faults: number;
+  readonly errors: number;
   readonly roots: readonly TraceNode[];
 }
 
@@ -71,7 +71,7 @@ const at = (when: Date): number => when.getTime();
 const ending = (from: Date, ms: number): Date =>
   new Date(at(from) + Math.max(ms, 0));
 
-const toneOf = (step: JournalStep): Tone => {
+const categoryOf = (step: JournalStep): Category => {
   if (faulted(step.status)) {
     return 'failed';
   }
@@ -80,8 +80,8 @@ const toneOf = (step: JournalStep): Tone => {
 };
 
 const named = (step: JournalStep): string => {
-  if (step.kind === 'said') {
-    return 'Said';
+  if (step.kind === 'message') {
+    return 'Message';
   }
   if (step.kind === 'thought') {
     return 'Thought';
@@ -95,12 +95,12 @@ const nodeOfStep = (step: JournalStep, id: string): TraceNode => ({
   name: named(step),
   from: step.startedAt,
   to: ending(step.startedAt, step.ms),
-  tone: toneOf(step),
+  category: categoryOf(step),
   step,
   span: null,
   cost: null,
   connection: null,
-  egress: null,
+  egressEnforcement: null,
   children: [],
 });
 
@@ -116,12 +116,12 @@ const nodeOfSpan = (
   name: step ? step.text : plainly(span.name),
   from: span.startedAt,
   to: ending(span.startedAt, span.ms),
-  tone: span.failed || (step && faulted(step.status)) ? 'failed' : 'agent',
+  category: span.failed || (step && faulted(step.status)) ? 'failed' : 'agent',
   step,
   span,
   cost: null,
   connection: null,
-  egress: null,
+  egressEnforcement: null,
   children,
 });
 
@@ -136,11 +136,11 @@ const overlaps = (one: Stretch, other: Stretch): boolean =>
 const isToolSpan = (span: RunSpan): boolean => span.name.endsWith('.tool');
 
 const stretched = <T extends { startedAt: Date; ms: number }>(
-  held: T,
-): Stretch & { held: T } => ({
-  held,
-  from: at(held.startedAt),
-  to: at(held.startedAt) + Math.max(held.ms, 0),
+  item: T,
+): Stretch & { item: T } => ({
+  item,
+  from: at(item.startedAt),
+  to: at(item.startedAt) + Math.max(item.ms, 0),
 });
 
 export const paired = (
@@ -160,12 +160,12 @@ export const paired = (
     .map(stretched)
     .sort((one, other) => one.from - other.from)) {
     const found = tools.find(
-      (tool) => !taken.has(tool.held) && overlaps(span, tool),
+      (tool) => !taken.has(tool.item) && overlaps(span, tool),
     );
 
     if (found) {
-      taken.add(found.held);
-      pairs.set(span.held.id, found.held);
+      taken.add(found.item);
+      pairs.set(span.item.id, found.item);
     }
   }
 
@@ -176,12 +176,12 @@ const nested = (
   spans: readonly RunSpan[],
   pairs: ReadonlyMap<string, JournalStep>,
 ): TraceNode[] => {
-  const held = new Set(spans.map((span) => span.id));
+  const ids = new Set(spans.map((span) => span.id));
   const under = new Map<string, RunSpan[]>();
   const roots: RunSpan[] = [];
 
   for (const span of spans) {
-    if (span.parentId && held.has(span.parentId)) {
+    if (span.parentId && ids.has(span.parentId)) {
       under.set(span.parentId, [...(under.get(span.parentId) ?? []), span]);
     } else {
       roots.push(span);
@@ -205,10 +205,10 @@ interface Phase {
   readonly name: string;
   readonly from: Date;
   readonly to: Date;
-  readonly worked: boolean;
+  readonly isAgent: boolean;
 }
 
-const phasesOf = (run: WorkedRun, journal: RunJournal): Phase[] => {
+const phasesOf = (run: TracedRun, journal: RunJournal): Phase[] => {
   const marks = journal.marks;
   const closed = marks.endedAt ?? run.endedAt;
   const phases: Phase[] = [];
@@ -219,27 +219,27 @@ const phasesOf = (run: WorkedRun, journal: RunJournal): Phase[] => {
       name: 'Prepare',
       from: marks.startedAt,
       to: marks.readyAt,
-      worked: false,
+      isAgent: false,
     });
   }
 
-  if (marks.spokeFrom && marks.spokeTo) {
+  if (marks.firstAgentUpdateAt && marks.lastAgentUpdateAt) {
     phases.push({
       id: `${run.id.value}:turn`,
       name: `Turn · ${run.harness.value}`,
-      from: marks.spokeFrom,
-      to: marks.spokeTo,
-      worked: true,
+      from: marks.firstAgentUpdateAt,
+      to: marks.lastAgentUpdateAt,
+      isAgent: true,
     });
   }
 
-  if (marks.spokeTo && closed > marks.spokeTo) {
+  if (marks.lastAgentUpdateAt && closed > marks.lastAgentUpdateAt) {
     phases.push({
       id: `${run.id.value}:publish`,
       name: 'Publish',
-      from: marks.spokeTo,
+      from: marks.lastAgentUpdateAt,
       to: closed,
-      worked: false,
+      isAgent: false,
     });
   }
 
@@ -275,12 +275,12 @@ const nodeOfGroup = ({ first, all }: Group, until: Date): TraceNode => ({
       ),
     ),
   ),
-  tone: 'failed',
+  category: 'failed',
   step: null,
   span: null,
   cost: null,
-  connection: { connection: first.connection, times: all.length },
-  egress: null,
+  connection: { connection: first.connection, count: all.length },
+  egressEnforcement: null,
   children: [],
 });
 
@@ -310,10 +310,13 @@ const grouped = (arriving: readonly Arriving[], until: Date): TraceNode[] => {
   return [...groups.values()].map((group) => nodeOfGroup(group, until));
 };
 
-const holds = (node: TraceNode, when: Date): boolean =>
+const covers = (node: TraceNode, when: Date): boolean =>
   node.kind !== 'connection' && node.from <= when && when <= node.to;
 
-const settled = (node: TraceNode, arriving: readonly Arriving[]): TraceNode => {
+const withConnections = (
+  node: TraceNode,
+  arriving: readonly Arriving[],
+): TraceNode => {
   if (arriving.length === 0) {
     return node;
   }
@@ -324,7 +327,7 @@ const settled = (node: TraceNode, arriving: readonly Arriving[]): TraceNode => {
   for (const each of arriving) {
     const child = [...node.children]
       .reverse()
-      .find((found) => holds(found, each.connection.at));
+      .find((found) => covers(found, each.connection.at));
 
     if (child) {
       below.set(child, [...(below.get(child) ?? []), each]);
@@ -336,23 +339,25 @@ const settled = (node: TraceNode, arriving: readonly Arriving[]): TraceNode => {
   return {
     ...node,
     children: [
-      ...node.children.map((child) => settled(child, below.get(child) ?? [])),
+      ...node.children.map((child) =>
+        withConnections(child, below.get(child) ?? []),
+      ),
       ...grouped(own, node.to),
     ].sort((one, other) => at(one.from) - at(other.from)),
   };
 };
 
-const runName = (run: WorkedRun): string =>
+const runName = (run: TracedRun): string =>
   `${run.station?.value ?? 'Run'}${run.attempt > 1 ? ` · attempt ${run.attempt}` : ''}`;
 
-const runNode = (run: WorkedRun): TraceNode => {
+const runNode = (run: TracedRun): TraceNode => {
   const journal = run.journal;
   const steps = journal?.steps ?? [];
   const spans = journal?.spans ?? [];
   const pairs = paired(spans, steps);
   const merged = new Set(pairs.values());
 
-  const held: TraceNode[] = [
+  const nodes: TraceNode[] = [
     ...steps
       .filter((step) => !merged.has(step))
       .map((step, index) => nodeOfStep(step, `${run.id.value}:step:${index}`)),
@@ -370,38 +375,38 @@ const runNode = (run: WorkedRun): TraceNode => {
     name: phase.name,
     from: phase.from,
     to: phase.to,
-    tone: phase.worked ? 'agent' : 'overhead',
+    category: phase.isAgent ? 'agent' : 'overhead',
     step: null,
     span: null,
     cost: null,
     connection: null,
-    egress: null,
-    children: held.filter((node) => inside(node)?.id === phase.id),
+    egressEnforcement: null,
+    children: nodes.filter((node) => inside(node)?.id === phase.id),
   }));
 
-  const loose = held.filter((node) => !inside(node));
+  const loose = nodes.filter((node) => !inside(node));
 
   const arriving = run.connections
-    .filter((each) => each.wentWrong)
+    .filter((each) => each.isError)
     .sort((one, other) => at(one.at) - at(other.at))
     .map((connection, index) => ({
       id: `${run.id.value}:connection:${index}`,
       connection,
     }));
 
-  return settled(
+  return withConnections(
     {
       id: `run:${run.id.value}`,
       kind: 'run',
       name: runName(run),
       from: run.startedAt,
       to: run.endedAt > run.startedAt ? run.endedAt : run.startedAt,
-      tone: run.state === 'failed' ? 'failed' : 'agent',
+      category: run.state === 'failed' ? 'failed' : 'agent',
       step: null,
       span: null,
       cost: journal?.spent?.cost ?? null,
       connection: null,
-      egress: journal?.egress ?? null,
+      egressEnforcement: journal?.egressEnforcement ?? null,
       children: [...phased, ...loose].sort(
         (one, other) => at(one.from) - at(other.from),
       ),
@@ -412,28 +417,28 @@ const runNode = (run: WorkedRun): TraceNode => {
 
 const counted = (
   nodes: readonly TraceNode[],
-): { rows: number; faults: number } =>
+): { rows: number; errors: number } =>
   nodes.reduce(
     (all, node) => {
       const below = counted(node.children);
 
       return {
         rows: all.rows + 1 + below.rows,
-        faults:
-          all.faults +
-          (node.tone === 'failed' && node.kind !== 'connection' ? 1 : 0) +
-          below.faults,
+        errors:
+          all.errors +
+          (node.category === 'failed' && node.kind !== 'connection' ? 1 : 0) +
+          below.errors,
       };
     },
-    { rows: 0, faults: 0 },
+    { rows: 0, errors: 0 },
   );
 
-export const traceOf = (runs: readonly WorkedRun[]): Trace => {
+export const traceOf = (runs: readonly TracedRun[]): Trace => {
   const roots = [...runs]
     .map(runNode)
     .sort((one, other) => at(one.from) - at(other.from));
 
-  const { rows, faults } = counted(roots);
+  const { rows, errors } = counted(roots);
 
   return {
     from: roots[0]?.from ?? null,
@@ -442,7 +447,7 @@ export const traceOf = (runs: readonly WorkedRun[]): Trace => {
       null,
     ),
     rows,
-    faults,
+    errors,
     roots,
   };
 };

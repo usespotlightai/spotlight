@@ -4,16 +4,16 @@ import {
   type GitHubWebhooksPort,
 } from '@github/application/ports/github-webhooks.port';
 import { DrizzlePullRequests } from '@github/infrastructure/persistence/drizzle/repositories/pull-request.repository';
-import { WorkspaceClosed } from '@identity/domain/events/workspace-closed.event';
+import { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
+import { DrizzleDeletions } from '@insights/infrastructure/persistence/drizzle/ledgers/deletions.ledger';
+import { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import type { INestApplication } from '@nestjs/common';
-import { DrizzleForgotten } from '@outcomes/infrastructure/persistence/drizzle/ledgers/forgotten.ledger';
-import { DrizzlePullRequestRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { changed } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changed } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -24,7 +24,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const TOKEN_HEADER = 'spotlight-workspace-token';
 const HOUR = 60 * 60 * 1000;
@@ -34,15 +34,15 @@ const ago = (hours: number) => new Date(NOW - hours * HOUR).toISOString();
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
-let elsewhere: Awaited<ReturnType<typeof openTeam>>;
-let closing: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
+let elsewhere: Awaited<ReturnType<typeof createTeam>>;
+let deleting: Awaited<ReturnType<typeof createTeam>>;
 let repository: string;
 const TASK = TaskId.of(randomUUID());
 const INSTALLATION = randomInt(1_000_000, 3_000_000);
 const ELSEWHERE_INSTALLATION = randomInt(3_000_000, 5_000_000);
-const CLOSING_INSTALLATION = randomInt(5_000_000, 7_000_000);
-const UNCLAIMED_INSTALLATION = randomInt(7_000_000, 9_000_000);
+const DELETING_INSTALLATION = randomInt(5_000_000, 7_000_000);
+const UNCONNECTED_INSTALLATION = randomInt(7_000_000, 9_000_000);
 
 const urlOf = (number: number) =>
   `https://github.com/${repository}/pull/${number}`;
@@ -94,10 +94,10 @@ const deliverThrough = (
 const deliver = (event: string, body: Record<string, unknown>) =>
   deliverThrough(INSTALLATION, event, body);
 
-const drained = <T>(held: () => Promise<T | null | undefined | false>) =>
+const drained = <T>(check: () => Promise<T | null | undefined | false>) =>
   eventually(async () => {
     await app.get(EventDelivery).drain(2_000);
-    return held();
+    return check();
   }, 60_000);
 
 const recordOf = (
@@ -108,7 +108,10 @@ const recordOf = (
     .get(DrizzlePullRequestRecordRepository)
     .at(workspaceId, PullRequestUrl.of(urlOf(number)));
 
-const heldOf = (number: number, workspaceId: WorkspaceId = team.workspaceId) =>
+const pullRequestOf = (
+  number: number,
+  workspaceId: WorkspaceId = team.workspaceId,
+) =>
   app
     .get(DrizzlePullRequests)
     .at(workspaceId, PullRequestUrl.of(urlOf(number)));
@@ -120,7 +123,7 @@ const asOwner = (path: string) =>
   served(app).get(path).set(TEST_USER_HEADER, team.owner.value);
 
 const issued = async (
-  of: Awaited<ReturnType<typeof openTeam>>,
+  of: Awaited<ReturnType<typeof createTeam>>,
   scopes: readonly string[],
 ): Promise<string> => {
   const answer = await served(app)
@@ -138,9 +141,13 @@ beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
   const tasks = app.get(DrizzleTaskRepository);
-  team = await openTeam(db, tasks, `pulls-${randomUUID().slice(0, 8)}`);
-  elsewhere = await openTeam(db, tasks, `other-${randomUUID().slice(0, 8)}`);
-  closing = await openTeam(db, tasks, `closing-${randomUUID().slice(0, 8)}`);
+  team = await createTeam(db, tasks, `pulls-${randomUUID().slice(0, 8)}`);
+  elsewhere = await createTeam(db, tasks, `other-${randomUUID().slice(0, 8)}`);
+  deleting = await createTeam(
+    db,
+    tasks,
+    `deleting-${randomUUID().slice(0, 8)}`,
+  );
   repository = `acme/api-${randomUUID().slice(0, 8)}`;
 
   await db
@@ -158,8 +165,8 @@ beforeAll(async () => {
       version: 1,
     },
     {
-      workspaceId: closing.workspaceId.value,
-      installationId: String(CLOSING_INSTALLATION),
+      workspaceId: deleting.workspaceId.value,
+      installationId: String(DELETING_INSTALLATION),
       version: 1,
     },
   ]);
@@ -259,7 +266,7 @@ describe('every pull request in an installed repository (e2e)', () => {
     expect(theirs?.revertedBy?.value).toBe(urlOf(3));
   });
 
-  it('keeps what Insights needs of each in the outcomes context, Spotlight’s apart from people’s', async () => {
+  it('stores what Insights needs of each in the insights context, Spotlight’s apart from people’s', async () => {
     const mine = await recordOf(1);
     const theirs = await recordOf(2);
     const revert = await recordOf(3);
@@ -281,15 +288,15 @@ describe('the team’s pull request insights (e2e)', () => {
 
     expect(answer.status).toBe(200);
     expect(answer.body.repositories).toEqual([repository]);
-    expect(answer.body.penetration).toMatchObject({
+    expect(answer.body.spotlightShare).toMatchObject({
       merged: 3,
-      made: 1,
-      touched: 0,
+      authored: 1,
+      reviewed: 0,
     });
-    expect(answer.body.penetration.repositories[0]).toMatchObject({
+    expect(answer.body.spotlightShare.repositories[0]).toMatchObject({
       repository,
       merged: 3,
-      made: 1,
+      authored: 1,
     });
     expect(answer.body.comparison).toMatchObject({
       repositories: [repository],
@@ -350,7 +357,7 @@ describe('the team’s pull request insights (e2e)', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(answer.status).toBe(200);
-    expect(answer.body.penetration.merged).toBe(3);
+    expect(answer.body.spotlightShare.merged).toBe(3);
   });
 
   it('finds no team for a token of another workspace', async () => {
@@ -363,7 +370,7 @@ describe('the team’s pull request insights (e2e)', () => {
     expect(answer.status).toBe(404);
   });
 
-  it('refuses a filter it does not take', async () => {
+  it('rejects a filter it does not take', async () => {
     const answer = await asOwner(
       insights('pull-requests/list', 'period=7d&author=robots'),
     );
@@ -372,9 +379,9 @@ describe('the team’s pull request insights (e2e)', () => {
   });
 });
 
-describe('what GitHub said, kept in order and forgotten in time (e2e)', () => {
-  it('records nothing of a delivery through an installation no workspace claimed', async () => {
-    await deliverThrough(UNCLAIMED_INSTALLATION, 'pull_request', {
+describe('what GitHub said, stored in order and purged in time (e2e)', () => {
+  it('records nothing of a delivery through an installation that no workspace connected', async () => {
+    await deliverThrough(UNCONNECTED_INSTALLATION, 'pull_request', {
       action: 'opened',
       pull_request: pullRequest(90),
     });
@@ -387,7 +394,7 @@ describe('what GitHub said, kept in order and forgotten in time (e2e)', () => {
     ).toEqual([]);
   });
 
-  it('keeps the newer of what GitHub said, however late the older arrives', async () => {
+  it('stores the newer of what GitHub said, however late the older arrives', async () => {
     await deliver('pull_request', {
       action: 'edited',
       pull_request: pullRequest(91, { title: 'Newer', updated_at: ago(1) }),
@@ -397,7 +404,7 @@ describe('what GitHub said, kept in order and forgotten in time (e2e)', () => {
       pull_request: pullRequest(91, { title: 'Older', updated_at: ago(3) }),
     });
 
-    expect((await heldOf(91))?.title).toBe('Newer');
+    expect((await pullRequestOf(91))?.title).toBe('Newer');
   });
 
   it('leaves a dismissed review out of the rounds', async () => {
@@ -418,7 +425,7 @@ describe('what GitHub said, kept in order and forgotten in time (e2e)', () => {
       review: { id: review, state: 'dismissed', user: { login: 'bob' } },
     });
 
-    expect(await heldOf(92)).toMatchObject({
+    expect(await pullRequestOf(92)).toMatchObject({
       reviewRounds: 0,
       firstReviewAt: null,
     });
@@ -442,10 +449,10 @@ describe('what GitHub said, kept in order and forgotten in time (e2e)', () => {
       });
     }
 
-    expect((await heldOf(93))?.comments).toEqual([]);
+    expect((await pullRequestOf(93))?.comments).toEqual([]);
   });
 
-  it('refuses a filter that takes one value asked for twice, and takes repositories repeated', async () => {
+  it('rejects a filter that takes one value requested twice, and takes repositories repeated', async () => {
     const twice = await asOwner(
       insights(
         'pull-requests/list',
@@ -463,7 +470,7 @@ describe('what GitHub said, kept in order and forgotten in time (e2e)', () => {
     expect(repeated.status).toBe(200);
   });
 
-  it('forgets the pull requests of a workspace whose GitHub App was uninstalled, in both contexts', async () => {
+  it('purges the pull requests of a workspace whose GitHub App was uninstalled, in both contexts', async () => {
     await deliverThrough(ELSEWHERE_INSTALLATION, 'pull_request', {
       action: 'opened',
       pull_request: pullRequest(94),
@@ -476,78 +483,80 @@ describe('what GitHub said, kept in order and forgotten in time (e2e)', () => {
 
     await drained(
       async () =>
-        (await heldOf(94, elsewhere.workspaceId)) === null &&
+        (await pullRequestOf(94, elsewhere.workspaceId)) === null &&
         (await recordOf(94, elsewhere.workspaceId)) === null,
     );
     expect(
       await app
-        .get(DrizzleForgotten)
+        .get(DrizzleDeletions)
         .tombstoneOf(elsewhere.workspaceId, PullRequestUrl.of(urlOf(94))),
     ).not.toBeNull();
   });
 
-  it('records nothing heard late through an installation its workspace let go of', async () => {
+  it('records nothing received late through an installation its workspace removed', async () => {
     await deliverThrough(ELSEWHERE_INSTALLATION, 'pull_request', {
       action: 'edited',
       pull_request: pullRequest(94, { updated_at: ago(0) }),
     });
 
-    expect(await heldOf(94, elsewhere.workspaceId)).toBeNull();
+    expect(await pullRequestOf(94, elsewhere.workspaceId)).toBeNull();
   });
 
-  it('drops words of GitHub forgetting kept longer than retention and its slack', async () => {
-    const forgotten = app.get(DrizzleForgotten);
+  it('purges the tombstones of deleted pull requests stored longer than retention and its slack', async () => {
+    const deletions = app.get(DrizzleDeletions);
     const old = PullRequestUrl.of(urlOf(96));
     const recent = PullRequestUrl.of(urlOf(97));
-    await forgotten.forgetPullRequest(elsewhere.workspaceId, old, {
+    await deletions.deletePullRequest(elsewhere.workspaceId, old, {
       updatedAt: new Date(NOW - 400 * 24 * HOUR),
     });
-    await forgotten.forgetPullRequest(elsewhere.workspaceId, recent, {
+    await deletions.deletePullRequest(elsewhere.workspaceId, recent, {
       updatedAt: new Date(NOW - 24 * HOUR),
     });
 
-    await forgotten.dropTombstonesBefore(
+    await deletions.purgeTombstonesBefore(
       new Date(NOW - 210 * 24 * HOUR),
       1_000,
     );
 
-    expect(await forgotten.tombstoneOf(elsewhere.workspaceId, old)).toBeNull();
-    expect(await forgotten.tombstoneOf(elsewhere.workspaceId, recent)).toEqual({
+    expect(await deletions.tombstoneOf(elsewhere.workspaceId, old)).toBeNull();
+    expect(await deletions.tombstoneOf(elsewhere.workspaceId, recent)).toEqual({
       updatedAt: new Date(NOW - 24 * HOUR),
     });
   });
 
-  it('forgets the pull requests of a closed workspace', async () => {
-    await deliverThrough(CLOSING_INSTALLATION, 'pull_request', {
+  it('purges the pull requests of a deleted workspace', async () => {
+    await deliverThrough(DELETING_INSTALLATION, 'pull_request', {
       action: 'opened',
       pull_request: pullRequest(95),
     });
-    expect(await heldOf(95, closing.workspaceId)).not.toBeNull();
+    expect(await pullRequestOf(95, deleting.workspaceId)).not.toBeNull();
 
     await app
       .get(EventOutbox)
       .record([
-        new WorkspaceClosed(
-          closing.workspaceId,
-          WorkspaceSlug.of(closing.slug),
-          changed('workspace', closing.workspaceId.value, closing.slug),
+        new WorkspaceDeleted(
+          deleting.workspaceId,
+          WorkspaceSlug.of(deleting.slug),
+          changed('workspace', deleting.workspaceId.value, deleting.slug),
         ),
       ]);
 
-    await drained(async () => (await heldOf(95, closing.workspaceId)) === null);
+    await drained(
+      async () => (await pullRequestOf(95, deleting.workspaceId)) === null,
+    );
 
     const [connection] = await db
       .select()
       .from(schema.githubConnection)
       .where(
-        eq(schema.githubConnection.workspaceId, closing.workspaceId.value),
+        eq(schema.githubConnection.workspaceId, deleting.workspaceId.value),
       );
     expect(connection).toBeUndefined();
 
-    await deliverThrough(CLOSING_INSTALLATION, 'pull_request', {
+    await deliverThrough(DELETING_INSTALLATION, 'pull_request', {
       action: 'edited',
       pull_request: pullRequest(95, { updated_at: ago(0) }),
     });
-    expect(await heldOf(95, closing.workspaceId)).toBeNull();
+    expect(await pullRequestOf(95, deleting.workspaceId)).toBeNull();
   });
 });

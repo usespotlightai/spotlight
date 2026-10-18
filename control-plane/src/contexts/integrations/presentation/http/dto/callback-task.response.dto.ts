@@ -1,4 +1,4 @@
-import type { CallbackTaskDto } from '@integrations/application/dto/callback-task.dto';
+import type { CallbackTaskView } from '@integrations/application/dto/callback-task-view.dto';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CallbackTaskResponseDto {
@@ -17,10 +17,10 @@ export class CallbackTaskResponseDto {
   @ApiProperty({ type: String, nullable: true })
   readonly pullRequest: string | null;
 
-  @ApiProperty({ description: 'The hook the token was given to' })
+  @ApiProperty({ description: 'The hook that the token was issued to' })
   readonly hook: string;
 
-  constructor(task: CallbackTaskDto) {
+  constructor(task: CallbackTaskView) {
     this.id = task.id;
     this.title = task.title;
     this.url = task.url;

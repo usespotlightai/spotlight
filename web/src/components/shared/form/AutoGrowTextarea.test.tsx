@@ -41,17 +41,17 @@ describe('AutoGrowTextarea', () => {
       <AutoGrowTextarea
         value=""
         rows={2}
-        placeholder="Say something…"
+        placeholder="Write a message…"
         onChange={() => {}}
       />,
     );
 
-    const textarea = screen.getByPlaceholderText('Say something…');
+    const textarea = screen.getByPlaceholderText('Write a message…');
     expect(textarea.style.height).toBe('');
     expect(textarea).toHaveAttribute('rows', '2');
   });
 
-  it('grows to what it holds where it can be measured', () => {
+  it('grows to what it contains where it can be measured', () => {
     const scrollHeight = Object.getOwnPropertyDescriptor(
       HTMLElement.prototype,
       'scrollHeight',

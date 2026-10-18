@@ -18,7 +18,11 @@ describe('scoredLive', () => {
         name: 'Build',
         prompt: 'Build it carefully.',
         check: 'true',
-        judge: { rubric: 'scores: yes-no\nAll good?', sample: 1, trust: 0 },
+        judge: {
+          rubric: 'scores: yes-no\nAll good?',
+          sample: 1,
+          minAgreement: 0,
+        },
         diffs: false,
       },
       LIVE,
@@ -31,19 +35,19 @@ describe('scoredLive', () => {
       check: 'npm test',
       diffs: true,
     });
-    expect(scored.keptLive).toEqual(['check', 'judge', 'diffs']);
+    expect(scored.scoringPinnedToLive).toEqual(['check', 'judge', 'diffs']);
   });
 
-  it('says nothing was kept when the plan scores as the live station does', () => {
+  it('says nothing was pinned to live when the plan scores as the live station does', () => {
     expect(
       scoredLive(
         { key: 'build', name: 'Build', prompt: 'Other.', check: 'npm test' },
         LIVE,
-      ).keptLive,
+      ).scoringPinnedToLive,
     ).toEqual([]);
   });
 
-  it('counts a check the plan drops as kept, but not diffs it leaves for Spotlight to derive', () => {
+  it('counts a check the plan drops as pinned to live, but not diffs it leaves for Spotlight to derive', () => {
     expect(
       scoredLive({ key: 'build', name: 'Build', prompt: 'Other.' }, LIVE),
     ).toEqual({
@@ -54,14 +58,14 @@ describe('scoredLive', () => {
         check: 'npm test',
         diffs: true,
       },
-      keptLive: ['check'],
+      scoringPinnedToLive: ['check'],
     });
   });
 
-  it('leaves what is not a station block for examining to refuse', () => {
+  it('leaves what is not a station block for validation to reject', () => {
     expect(scoredLive('nonsense', LIVE)).toEqual({
       block: 'nonsense',
-      keptLive: [],
+      scoringPinnedToLive: [],
     });
   });
 });

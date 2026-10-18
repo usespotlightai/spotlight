@@ -56,7 +56,7 @@ interface HookExpressionError {
   readonly suggestion: string | null;
 }
 
-export interface HookVerdict {
+export interface HookCheckResult {
   readonly type: string | null;
   readonly errors: readonly HookExpressionError[];
 }
@@ -109,8 +109,8 @@ const READS_A_SECRET = /(^|[^A-Za-z0-9_.])secret\s*(\.|\[)/;
 
 const REGEX_SPECIAL = /[.+^${}()|[\]\\]/g;
 
-const addressOf = (held: unknown): string => {
-  const key = (held as { key?: unknown } | null)?.key;
+const addressOf = (raw: unknown): string => {
+  const key = (raw as { key?: unknown } | null)?.key;
 
   return typeof key === 'string' && key.trim() ? hookAt(key.trim()) : HOOKS;
 };
@@ -175,28 +175,28 @@ const matchConditions = (file: HookFile, event: HookEvent): string[] => {
   return conditions;
 };
 
-const staticUrl = (held: string): URL | null => {
-  if (held.includes('${{')) {
+const staticUrl = (raw: string): URL | null => {
+  if (raw.includes('${{')) {
     return null;
   }
 
   try {
-    return new URL(held);
+    return new URL(raw);
   } catch {
     return null;
   }
 };
 
-const wrote = (held: unknown, field: string): boolean =>
-  typeof held === 'object' && held !== null && field in held;
+const wrote = (raw: unknown, field: string): boolean =>
+  typeof raw === 'object' && raw !== null && field in raw;
 
-const documented = (file: HookFile, held: unknown): DefinitionDocument => {
+const documented = (file: HookFile, raw: unknown): DefinitionDocument => {
   const { failure, timeoutSeconds, ...rest } = file;
 
   return DefinitionDocument.of({
     ...rest,
-    ...(wrote(held, 'failure') ? { failure } : {}),
-    ...(wrote(held, 'timeoutSeconds') ? { timeoutSeconds } : {}),
+    ...(wrote(raw, 'failure') ? { failure } : {}),
+    ...(wrote(raw, 'timeoutSeconds') ? { timeoutSeconds } : {}),
     signing:
       file.signing && 'secretVersion' in file.signing
         ? { secretVersion: file.signing.secretVersion }
@@ -224,12 +224,12 @@ class HookCompiler {
   ) {}
 
   expression(
-    held: string,
+    raw: string,
     at: FieldPath,
     scope: Scope,
     returns: Returns,
   ): Expression | null {
-    if (READS_A_SECRET.test(held)) {
+    if (READS_A_SECRET.test(raw)) {
       this.problem(
         at,
         'reads a secret’s value. No hook may read a secret. A hook signs its requests with its own secret',
@@ -238,21 +238,21 @@ class HookCompiler {
       return null;
     }
 
-    const source = isExpression(held) ? written(held) : held;
-    const verdict = checkedAgainst(this.expressions, source, scope, returns);
+    const source = isExpression(raw) ? written(raw) : raw;
+    const result = checkedAgainst(this.expressions, source, scope, returns);
 
     this.places.set(at.rendered, { scope, returns });
 
-    for (const error of verdict.errors) {
+    for (const error of result.errors) {
       this.problem(at, error.message);
     }
 
-    if (verdict.errors.length > 0) {
+    if (result.errors.length > 0) {
       return null;
     }
 
     try {
-      return this.expressions.compile(source, { at: at.rendered });
+      return this.expressions.compile(source, { location: at.rendered });
     } catch (error) {
       this.problem(
         at,
@@ -263,9 +263,9 @@ class HookCompiler {
     }
   }
 
-  templated(held: string, at: FieldPath, scope: Scope): Templated {
-    if (isExpression(held)) {
-      const whole = this.expression(held, at, scope, null);
+  templated(raw: string, at: FieldPath, scope: Scope): Templated {
+    if (isExpression(raw)) {
+      const whole = this.expression(raw, at, scope, null);
 
       return { parts: whole ? [whole] : [] };
     }
@@ -273,11 +273,11 @@ class HookCompiler {
     const parts: (string | Expression)[] = [];
     let from = 0;
 
-    for (const found of held.matchAll(PIECE)) {
+    for (const found of raw.matchAll(PIECE)) {
       const start = found.index ?? 0;
 
       if (start > from) {
-        parts.push(held.slice(from, start));
+        parts.push(raw.slice(from, start));
       }
 
       const piece = this.expression(found[0], at, scope, null);
@@ -288,31 +288,31 @@ class HookCompiler {
       from = start + found[0].length;
     }
 
-    if (from < held.length || parts.length === 0) {
-      parts.push(held.slice(from));
+    if (from < raw.length || parts.length === 0) {
+      parts.push(raw.slice(from));
     }
 
     return { parts };
   }
 
-  structured(held: unknown, at: FieldPath, scope: Scope): Structured {
-    if (typeof held === 'string') {
-      return { kind: 'templated', templated: this.templated(held, at, scope) };
+  structured(raw: unknown, at: FieldPath, scope: Scope): Structured {
+    if (typeof raw === 'string') {
+      return { kind: 'templated', templated: this.templated(raw, at, scope) };
     }
 
-    if (Array.isArray(held)) {
+    if (Array.isArray(raw)) {
       return {
         kind: 'list',
-        items: held.map((each, index) =>
+        items: raw.map((each, index) =>
           this.structured(each, at.to(index), scope),
         ),
       };
     }
 
-    if (held !== null && typeof held === 'object') {
+    if (raw !== null && typeof raw === 'object') {
       return {
         kind: 'map',
-        entries: Object.entries(held).map(([key, each]) => ({
+        entries: Object.entries(raw).map(([key, each]) => ({
           key,
           value: this.structured(each, at.to(key), scope),
         })),
@@ -321,8 +321,7 @@ class HookCompiler {
 
     return {
       kind: 'value',
-      value:
-        typeof held === 'number' || typeof held === 'boolean' ? held : null,
+      value: typeof raw === 'number' || typeof raw === 'boolean' ? raw : null,
     };
   }
 
@@ -375,7 +374,7 @@ export const checkedAgainst = (
   source: string,
   scope: Scope,
   returns: Returns,
-): HookVerdict => {
+): HookCheckResult => {
   const checked = expressions.check(source, scope);
 
   if (!checked.valid) {
@@ -424,11 +423,11 @@ const signingKind = (file: HookFile): HookSigning | null =>
   signingOf(file)?.kind ?? null;
 
 export const compileHook = (
-  held: unknown,
+  raw: unknown,
   expressions: ExpressionEnginePort,
 ): CompiledHook => {
-  const path = addressOf(held);
-  const read = hookSchema.safeParse(held);
+  const path = addressOf(raw);
+  const read = hookSchema.safeParse(raw);
 
   if (!read.success) {
     return {
@@ -503,15 +502,15 @@ export const compileHook = (
       steps,
       signing: signingOf(file),
     },
-    document: documented(file, held),
+    document: documented(file, raw),
     places: compiler.places,
   };
 };
 
 export const secretIn = (
-  held: unknown,
+  raw: unknown,
 ): { readonly secret: string | null; readonly version: number } | null => {
-  const read = hookSchema.safeParse(held);
+  const read = hookSchema.safeParse(raw);
 
   if (
     !read.success ||

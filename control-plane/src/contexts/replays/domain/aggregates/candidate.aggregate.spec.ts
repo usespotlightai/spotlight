@@ -1,35 +1,35 @@
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
+import { CandidateDeleted } from '@replays/domain/events/candidate-deleted.event';
 import { CandidateProposed } from '@replays/domain/events/candidate-proposed.event';
-import { CandidateWithdrawn } from '@replays/domain/events/candidate-withdrawn.event';
+import { CandidateInUseError } from '@replays/domain/exceptions/candidate-in-use.error';
 import { CandidateIsLiveError } from '@replays/domain/exceptions/candidate-is-live.error';
-import { CandidateKeptBySpotlightError } from '@replays/domain/exceptions/candidate-kept-by-spotlight.error';
-import { CandidateUnderwayError } from '@replays/domain/exceptions/candidate-underway.error';
+import { CandidateManagedBySpotlightError } from '@replays/domain/exceptions/candidate-managed-by-spotlight.error';
 import { CandidateVersionConflictError } from '@replays/domain/exceptions/candidate-version-conflict.error';
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
 import {
   AT,
   BY,
   candidateOf,
-  DIGESTS,
   FINGERPRINT,
+  HASHES,
   LIVE_FINGERPRINT,
   NOW,
   STATION,
   UNSCORED,
 } from '@replays/domain/replays.fake-spec';
-import { CandidateAddress } from '@replays/domain/value-objects/candidate-address.vo';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
+import { CandidatePath } from '@replays/domain/value-objects/candidate-path.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import type { ConfigurationChanged } from '@shared-kernel/domain/events/configuration-changed';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { describe, expect, it } from 'vitest';
 
 const changeOf = (candidate: Candidate) => {
@@ -89,7 +89,7 @@ describe('Candidate', () => {
         name: CandidateName.of('Renamed'),
         block: StationBlock.of({ key: 'ship' }),
         fingerprint: FINGERPRINT,
-        digests: DIGESTS,
+        hashes: HASHES,
         scoring: UNSCORED,
         changedFrom: StationChanges.none(LIVE_FINGERPRINT),
         at: NOW,
@@ -98,52 +98,50 @@ describe('Candidate', () => {
     ).toThrow(InvalidCandidateError);
   });
 
-  it('is withdrawn at the version asked for, when none of its replays is running', () => {
+  it('is deleted at the requested version, when none of its replays is running', () => {
     const proposed = candidateOf('proposed');
     proposed.pullEvents();
 
     expect(() => proposed.assertVersion(1)).toThrow(
       CandidateVersionConflictError,
     );
-    expect(() => proposed.withdraw(true, BY)).toThrow(CandidateUnderwayError);
+    expect(() => proposed.delete(true, BY)).toThrow(CandidateInUseError);
 
-    const withdrawn = proposed.withdraw(false, BY);
+    const deleted = proposed.delete(false, BY);
 
-    expect(withdrawn.isAbandoned).toBe(true);
-    expect(changeOf(withdrawn)).toMatchObject({
+    expect(deleted.isDeleted).toBe(true);
+    expect(changeOf(deleted)).toMatchObject({
       resource: 'replay-candidate',
       action: 'deleted',
       by: BY,
     });
   });
 
-  it('is never withdrawn when it is the live config Spotlight replays', () => {
-    expect(() => candidateOf('live').withdraw(false, BY)).toThrow(
+  it('is never deleted when it is the live config Spotlight replays', () => {
+    expect(() => candidateOf('live').delete(false, BY)).toThrow(
       CandidateIsLiveError,
     );
   });
 
-  it('is abandoned by Spotlight, recording the withdrawal only of a proposal', () => {
+  it('is deleted by Spotlight with its team, recording the deletion only of a proposal', () => {
     const proposed = candidateOf('proposed');
     proposed.pullEvents();
-    const live = candidateOf('live').abandon();
+    const live = candidateOf('live').cascadeDelete();
 
-    expect(live.isAbandoned).toBe(true);
+    expect(live.isDeleted).toBe(true);
     expect(live.pullEvents()).toEqual([]);
 
-    const abandoned = proposed.abandon();
-    const [event] = abandoned.pullEvents();
+    const deleted = proposed.cascadeDelete();
+    const [event] = deleted.pullEvents();
 
-    expect(event).toBeInstanceOf(CandidateWithdrawn);
-    expect((event as CandidateWithdrawn).change.by).toEqual(
-      Attribution.spotlight(STATION.workspaceId),
+    expect(event).toBeInstanceOf(CandidateDeleted);
+    expect((event as CandidateDeleted).change.by).toEqual(
+      ChangeActor.spotlight(STATION.workspaceId),
     );
   });
 
   it('is addressed by team, line and station keys, then its name', () => {
-    const address = CandidateAddress.parse(
-      'core/delivery/build/Shorter prompt',
-    );
+    const address = CandidatePath.parse('core/delivery/build/Shorter prompt');
 
     expect(address.station).toEqual(AT);
     expect(address.name.value).toBe('Shorter prompt');
@@ -153,19 +151,19 @@ describe('Candidate', () => {
       'core/delivery/build/a/b',
       'Core/delivery/build/x',
     ]) {
-      expect(() => CandidateAddress.parse(malformed)).toThrow(
+      expect(() => CandidatePath.parse(malformed)).toThrow(
         InvalidCandidateError,
       );
     }
-    expect(StationAddress.parsed('core/delivery/build')).toEqual(AT);
-    expect(StationAddress.parsed('core/delivery')).toBeNull();
+    expect(StationPath.parsed('core/delivery/build')).toEqual(AT);
+    expect(StationPath.parsed('core/delivery')).toBeNull();
   });
 
   it('is named without surrounding spaces or slashes, and never as Spotlight names its live snapshots', () => {
     expect(CandidateName.proposed('Shorter prompt').value).toBe(
       'Shorter prompt',
     );
-    for (const refused of [
+    for (const invalid of [
       ' Shorter',
       'Shorter ',
       'a/b',
@@ -174,14 +172,14 @@ describe('Candidate', () => {
       'Live config, 2026-10-02',
       'live config tweak',
     ]) {
-      expect(() => CandidateName.proposed(refused)).toThrow(
+      expect(() => CandidateName.proposed(invalid)).toThrow(
         InvalidCandidateError,
       );
     }
     expect(CandidateName.live(NOW).value).toBe('Live config, 2026-10-01');
   });
 
-  it('holds a station block with a key, and a SHA-256 fingerprint', () => {
+  it('has a station block with a key, and a SHA-256 fingerprint', () => {
     expect(() => StationBlock.of(['build'])).toThrow(InvalidCandidateError);
     expect(() => StationBlock.of({ name: 'Build' })).toThrow(
       InvalidCandidateError,
@@ -199,7 +197,7 @@ describe('Candidate', () => {
       address: AT,
       block: StationBlock.of({ key: 'build', name: 'Build', prompt: 'Go.' }),
       fingerprint: FINGERPRINT,
-      digests: DIGESTS,
+      hashes: HASHES,
       scoring: UNSCORED,
       at: NOW,
     };
@@ -244,7 +242,7 @@ describe('Candidate', () => {
       for (const name of ['a', 'terse-prompt', '0-shot', 'x'.repeat(63)]) {
         expect(CandidateName.searched(name).value).toBe(name);
       }
-      for (const refused of [
+      for (const invalid of [
         '',
         '-lead',
         'Upper',
@@ -254,7 +252,7 @@ describe('Candidate', () => {
         '..',
         'x'.repeat(64),
       ]) {
-        expect(() => CandidateName.searched(refused)).toThrow(
+        expect(() => CandidateName.searched(invalid)).toThrow(
           InvalidCandidateError,
         );
       }
@@ -263,8 +261,8 @@ describe('Candidate', () => {
 
     it('says what it hopes for in 1 to 4,000 characters', () => {
       expect(Hypothesis.of('x'.repeat(4_000)).value).toHaveLength(4_000);
-      for (const refused of ['', '   ', 'x'.repeat(4_001)]) {
-        expect(() => Hypothesis.of(refused)).toThrow(InvalidCandidateError);
+      for (const invalid of ['', '   ', 'x'.repeat(4_001)]) {
+        expect(() => Hypothesis.of(invalid)).toThrow(InvalidCandidateError);
       }
     });
 
@@ -289,16 +287,16 @@ describe('Candidate', () => {
       );
     });
 
-    it('is never withdrawn by a person, and goes quietly when abandoned', () => {
+    it('is never deleted by a person, and goes quietly when deleted with its team', () => {
       for (const candidate of [searched(), planned()]) {
-        expect(() => candidate.withdraw(false, BY)).toThrow(
-          CandidateKeptBySpotlightError,
+        expect(() => candidate.delete(false, BY)).toThrow(
+          CandidateManagedBySpotlightError,
         );
 
-        const abandoned = candidate.abandon();
+        const deleted = candidate.cascadeDelete();
 
-        expect(abandoned.isAbandoned).toBe(true);
-        expect(abandoned.pullEvents()).toEqual([]);
+        expect(deleted.isDeleted).toBe(true);
+        expect(deleted.pullEvents()).toEqual([]);
       }
     });
 
@@ -307,11 +305,11 @@ describe('Candidate', () => {
       const state = {
         id: candidate.id,
         station: candidate.station,
-        address: candidate.stationAddress,
+        address: candidate.stationPath,
         name: candidate.name,
         block: candidate.block,
         fingerprint: candidate.fingerprint,
-        digests: candidate.digests,
+        hashes: candidate.hashes,
         line: null,
         scoring: candidate.scoring,
         changedFrom: candidate.changedFrom,

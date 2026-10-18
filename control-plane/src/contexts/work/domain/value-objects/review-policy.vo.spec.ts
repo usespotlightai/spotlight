@@ -1,29 +1,31 @@
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { InvalidReviewPolicyError } from '@work/domain/exceptions/invalid-review-policy.error';
+import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
-import type { ReviewAsked } from '@work/domain/value-objects/review-asked.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
-import { Said } from '@work/domain/value-objects/said.vo';
+import type { ReviewRequestReceived } from '@work/domain/value-objects/review-request.vo';
 import { describe, expect, it } from 'vitest';
 
-const asked = (over: Partial<ReviewAsked> = {}): ReviewAsked => ({
-  asking: 'opened',
+const requested = (
+  over: Partial<ReviewRequestReceived> = {},
+): ReviewRequestReceived => ({
+  trigger: 'opened',
   label: null,
   pullRequest: PullRequestUrl.of('https://github.com/acme/api/pull/7'),
   author: 'octocat',
   outside: false,
   draft: false,
   branch: Branch.of('fix-uploads'),
-  said: null,
+  anchor: null,
   ours: false,
   ...over,
 });
 
-const mentioned = (body: string, over: Partial<ReviewAsked> = {}) =>
-  asked({ asking: 'mentioned', said: Said.of({ body }), ...over });
+const mentioned = (body: string, over: Partial<ReviewRequestReceived> = {}) =>
+  requested({ trigger: 'mentioned', anchor: Anchor.of({ body }), ...over });
 
-const labelled = (label: string, over: Partial<ReviewAsked> = {}) =>
-  asked({ asking: 'labelled', label, ...over });
+const labelled = (label: string, over: Partial<ReviewRequestReceived> = {}) =>
+  requested({ trigger: 'labelled', label, ...over });
 
 describe('ReviewPolicy', () => {
   it('waits to be mentioned, and skips Spotlight’s own pull requests and drafts, unless told otherwise', () => {
@@ -50,13 +52,13 @@ describe('ReviewPolicy', () => {
     ).toBe(true);
   });
 
-  it('reviews a labelled draft, since a label is asked for by hand', () => {
+  it('reviews a labelled draft, since a person adds a label by hand', () => {
     expect(
       ReviewPolicy.of({}).takes(labelled('spotlight', { draft: true })),
     ).toBe(true);
   });
 
-  it('refuses an empty label or one longer than GitHub allows', () => {
+  it('rejects an empty label or one longer than GitHub allows', () => {
     expect(() => ReviewPolicy.of({ label: ' ' })).toThrow(
       InvalidReviewPolicyError,
     );
@@ -72,8 +74,10 @@ describe('ReviewPolicy', () => {
   });
 
   it('reviews a pull request as it opens only when it starts on opening', () => {
-    expect(ReviewPolicy.of({ start: 'opened' }).takes(asked())).toBe(true);
-    expect(ReviewPolicy.of({ start: 'mentioned' }).takes(asked())).toBe(false);
+    expect(ReviewPolicy.of({ start: 'opened' }).takes(requested())).toBe(true);
+    expect(ReviewPolicy.of({ start: 'mentioned' }).takes(requested())).toBe(
+      false,
+    );
   });
 
   it('reviews a pull request Spotlight is mentioned on, however it starts', () => {
@@ -84,7 +88,7 @@ describe('ReviewPolicy', () => {
     }
   });
 
-  it('hears a mention only of its own handle, standing on its own', () => {
+  it('accepts a mention only of its own handle, as a separate word', () => {
     const policy = ReviewPolicy.of({ mention: '@reviewer' });
 
     expect(policy.takes(mentioned('Could @Reviewer look?'))).toBe(true);
@@ -92,18 +96,18 @@ describe('ReviewPolicy', () => {
     expect(policy.takes(mentioned('@spotlight have a look'))).toBe(false);
     expect(policy.takes(mentioned('@reviewers have a look'))).toBe(false);
     expect(policy.takes(mentioned('mail me@reviewer.dev'))).toBe(false);
-    expect(policy.takes(asked({ asking: 'mentioned', said: null }))).toBe(
-      false,
-    );
+    expect(
+      policy.takes(requested({ trigger: 'mentioned', anchor: null })),
+    ).toBe(false);
   });
 
   it('skips a pull request Spotlight opened, unless told not to', () => {
     expect(
-      ReviewPolicy.of({ start: 'opened' }).takes(asked({ ours: true })),
+      ReviewPolicy.of({ start: 'opened' }).takes(requested({ ours: true })),
     ).toBe(false);
     expect(
       ReviewPolicy.of({ start: 'opened', skip: { spotlight: false } }).takes(
-        asked({ ours: true }),
+        requested({ ours: true }),
       ),
     ).toBe(true);
     expect(
@@ -111,14 +115,14 @@ describe('ReviewPolicy', () => {
     ).toBe(false);
   });
 
-  it('skips a draft as it opens, but reviews one it is asked to', () => {
+  it('skips a draft as it opens, but reviews one when requested', () => {
     const policy = ReviewPolicy.of({ start: 'opened' });
 
-    expect(policy.takes(asked({ draft: true }))).toBe(false);
+    expect(policy.takes(requested({ draft: true }))).toBe(false);
     expect(policy.takes(mentioned('@spotlight', { draft: true }))).toBe(true);
     expect(
       ReviewPolicy.of({ start: 'opened', skip: { drafts: false } }).takes(
-        asked({ draft: true }),
+        requested({ draft: true }),
       ),
     ).toBe(true);
   });
@@ -129,12 +133,12 @@ describe('ReviewPolicy', () => {
       skip: { authors: ['Dependabot[bot]'] },
     });
 
-    expect(policy.takes(asked({ author: 'dependabot[bot]' }))).toBe(false);
-    expect(policy.takes(asked({ author: 'octocat' }))).toBe(true);
-    expect(policy.takes(asked({ author: null }))).toBe(true);
+    expect(policy.takes(requested({ author: 'dependabot[bot]' }))).toBe(false);
+    expect(policy.takes(requested({ author: 'octocat' }))).toBe(true);
+    expect(policy.takes(requested({ author: null }))).toBe(true);
   });
 
-  it('refuses a start it does not know, or a handle that is not one', () => {
+  it('rejects a start it does not know, or a handle that is not one', () => {
     expect(() => ReviewPolicy.of({ start: 'pushed' })).toThrow(
       InvalidReviewPolicyError,
     );

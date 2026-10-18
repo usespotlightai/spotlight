@@ -34,11 +34,11 @@ export class ImportIntegrationHandler
             (each) => each.key === address.teamKey,
           )
         : undefined;
-      const kept = team
-        ? await this.resources.at(team.id, address.source.value)
+      const record = team
+        ? await this.resources.at(team.id, address.integration.value)
         : null;
 
-      return kept ? this.views.of(kept) : null;
+      return record ? this.views.of(record) : null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

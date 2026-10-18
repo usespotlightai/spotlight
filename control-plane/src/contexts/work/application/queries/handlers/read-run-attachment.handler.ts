@@ -19,11 +19,11 @@ export class ReadRunAttachmentHandler
     query: ReadRunAttachmentQuery,
   ): Promise<AttachmentContent | null> {
     try {
-      const work = await this.works.workHeldBy(query.runId, query.runnerId);
-      const given = work?.gave(query.attachmentId) ?? null;
+      const work = await this.works.workLeasedBy(query.runId, query.runnerId);
+      const attachment = work?.attachment(query.attachmentId) ?? null;
 
-      return work && given
-        ? await this.files.open(work.workspaceId, given)
+      return work && attachment
+        ? await this.files.open(work.workspaceId, attachment)
         : null;
     } catch (error) {
       rethrowAsApplicationError(error);

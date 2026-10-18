@@ -30,7 +30,7 @@ const spendOf = (day: DayOutput): number | null => day.spend?.amount ?? null;
 
 const INSET = 8;
 
-const Said = ({
+const TipContent = ({
   placement,
   active,
   payload,
@@ -129,7 +129,7 @@ export function OutputAgainstCost({
                 <Tooltip
                   {...cursor.tooltip}
                   content={
-                    <Said
+                    <TipContent
                       placement={cursor.placement}
                       currency={currency}
                       names={names}

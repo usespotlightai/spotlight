@@ -1,10 +1,10 @@
 import type { DeleteWorkspaceCommand } from '@identity/application/commands/delete-workspace.command';
 import type { IdentityResourcesPort } from '@identity/application/ports/identity-resources.port';
-import type { WorkspaceHoldingsPort } from '@identity/application/ports/workspace-holdings.port';
+import type { WorkspaceDependentsPort } from '@identity/application/ports/workspace-dependents.port';
 import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
-import { Holdings } from '@identity/domain/value-objects/holdings.vo';
+import { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
 import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
@@ -15,7 +15,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class DeleteWorkspaceHandler
@@ -24,7 +24,7 @@ export class DeleteWorkspaceHandler
   constructor(
     private readonly workspaces: WorkspaceRepository,
     private readonly resources: IdentityResourcesPort,
-    private readonly holdings: WorkspaceHoldingsPort,
+    private readonly dependents: WorkspaceDependentsPort,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -34,36 +34,36 @@ export class DeleteWorkspaceHandler
     const id = WorkspaceId.of(command.workspaceId);
 
     try {
-      const standing = await this.workspaces.find(id);
+      const existing = await this.workspaces.find(id);
 
-      const permissions = standing?.permissionsFor(command.actor.principal);
+      const permissions = existing?.permissionsFor(command.actor.principal);
 
-      if (!standing || !permissions?.reads) {
+      if (!existing || !permissions?.reads) {
         return null;
       }
 
-      if (!permissions.administers) {
+      if (!permissions.isAdmin) {
         return forbiddenTo('administer');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
-      const held = Holdings.of(await this.holdings.of(id));
+      const remaining = Dependents.of(await this.dependents.of(id));
 
       await this.transaction.inTransaction(async () => {
         const teams = await this.resources.teamKeysIn(id);
         const tokens = await this.resources.tokenNamesIn(id);
         const trusts = await this.resources.tokenTrustKeysIn(id);
-        const minting = await this.resources.mintingTrustKeysIn(id);
+        const issuing = await this.resources.issuingTrustKeysIn(id);
 
         await this.workspaces.save(
-          standing.close(
+          existing.delete(
             teams.map((each) => TeamKey.of(each)),
             tokens.map((each) => TokenName.of(each)),
             trusts.map((each) => TokenTrustKey.of(each)),
-            minting.map((each) => TokenTrustKey.of(each)),
-            held,
-            Attribution.of(command.actor, id),
+            issuing.map((each) => TokenTrustKey.of(each)),
+            remaining,
+            ChangeActor.of(command.actor, id),
           ),
         );
       });

@@ -14,7 +14,7 @@ import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { describe, expect, it } from 'vitest';
 
 type PullRequestFor = Parameters<OpenPullRequest['open']>[0];
-type PullRequestAsked = Parameters<OpenPullRequest['open']>[1];
+type PullRequestInput = Parameters<OpenPullRequest['open']>[1];
 
 const CONTEXT: TaskToolContext = {
   kind: 'task',
@@ -26,15 +26,15 @@ const CONTEXT: TaskToolContext = {
 };
 
 const using = () => {
-  const asked: { target: PullRequestFor; asked: PullRequestAsked }[] = [];
+  const opened: { target: PullRequestFor; input: PullRequestInput }[] = [];
   const opening = {
-    open: async (target: PullRequestFor, wanted: PullRequestAsked) => {
-      asked.push({ target, asked: wanted });
+    open: async (target: PullRequestFor, wanted: PullRequestInput) => {
+      opened.push({ target, input: wanted });
       return { url: 'https://github.com/acme/widgets/pull/7' };
     },
   } as unknown as OpenPullRequest;
 
-  return { asked, tool: new PullRequestToolUse(opening) };
+  return { opened, tool: new PullRequestToolUse(opening) };
 };
 
 const DECLARED = builtInTool(PULL_REQUEST)?.declared;
@@ -45,7 +45,7 @@ describe('PullRequestToolUse', () => {
   });
 
   it('opens one for the task, from what the agent handed over, and answers with where it is', async () => {
-    const { tool, asked } = using();
+    const { tool, opened } = using();
 
     await expect(
       tool.call(
@@ -58,14 +58,14 @@ describe('PullRequestToolUse', () => {
       ),
     ).resolves.toEqual({ url: 'https://github.com/acme/widgets/pull/7' });
 
-    expect(asked).toEqual([
+    expect(opened).toEqual([
       {
         target: {
           runId: CONTEXT.runId,
           taskId: CONTEXT.taskId,
           stationId: CONTEXT.stationId,
         },
-        asked: {
+        input: {
           title: 'Fix the queue',
           body: 'What it does.',
           repository: 'api',
@@ -75,11 +75,11 @@ describe('PullRequestToolUse', () => {
   });
 
   it('names no repository where the agent named none', async () => {
-    const { tool, asked } = using();
+    const { tool, opened } = using();
 
     await tool.call(CONTEXT, ToolInputs.of({ title: 'Fix the queue' }));
 
-    expect(asked[0]?.asked).toEqual({
+    expect(opened[0]?.input).toEqual({
       title: 'Fix the queue',
       body: '',
       repository: null,

@@ -17,14 +17,14 @@ import type {
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { FakeIntegrationCursors } from '@integrations/integrations.cursors.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
-import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
+import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import {
+  callingNoServer,
   discoveringNothing,
-  reachingNoServer,
 } from '@integrations/integrations.mcp.fake-spec';
 import {
+  callAuthFor,
   injecting,
-  reachFor,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
@@ -43,12 +43,12 @@ const runtimeWith = (
   clients: OAuth2ClientsPort = clientsFrom(),
 ) =>
   new CompiledIntegrationRuntime(
-    new IntegrationReader(expressions, operationsHolding()),
+    new IntegrationReader(expressions, operationsContaining()),
     outbound as HttpOutbound,
     clients,
     exchange as OAuth2Exchange,
     discoveringNothing(),
-    reachingNoServer(),
+    callingNoServer(),
   );
 
 const NOW = new Date('2026-09-07T10:00:00.000Z');
@@ -68,7 +68,7 @@ ${headers}  cursor: '\${{ body.lastId }}'
       raise:
         happening: linear.issue.completed
         label: Done
-        told: Done.
+        summary: Done.
         marks:
           - kind: linear.issue
             value: '\${{ item.id }}'
@@ -120,7 +120,7 @@ const polling = (
         members: [],
       }),
     } as unknown as TeamDirectoryPort,
-    reachFor(injection),
+    callAuthFor(injection),
     cursors,
     { react } as HappeningReactionsPort,
     { now: () => NOW } as ClockPort,
@@ -136,20 +136,20 @@ const working = (state: PollState = { cursor: null, ranAt: null }) => {
       _workspaceId: unknown,
       _teamId: unknown,
       _happenings: Happened[],
-      _heardAs: string | null,
+      _receivedAs: string | null,
     ) => undefined,
   );
   const cursors = new FakeIntegrationCursors();
 
   if (state.ranAt || state.cursor) {
-    cursors.keep(TEAM, 'linear', state);
+    cursors.setState(TEAM, 'linear', state);
   }
 
   return { polls: polling(cursors, run, react), run, react, cursors };
 };
 
 describe('ProcessDuePolls', () => {
-  it('polls the host with the cursor it last kept', async () => {
+  it('polls the service with the cursor it last stored', async () => {
     const { polls, run } = working({ cursor: 'ENG-0', ranAt: null });
 
     await polls.processDue();
@@ -165,12 +165,12 @@ describe('ProcessDuePolls', () => {
 
     const raised = react.mock.calls[0]?.[2];
     expect(raised).toHaveLength(1);
-    expect(raised?.[0]?.concerns.marks.map((each) => each.value)).toEqual([
-      'ENG-1',
-    ]);
+    expect(
+      raised?.[0]?.correlationKeys.marks.map((each) => each.value),
+    ).toEqual(['ENG-1']);
   });
 
-  it('names what it heard by the cursor it polled from, so a poll taken again acts once', async () => {
+  it('names what it received by the cursor it polled from, so a poll taken again acts once', async () => {
     const { polls, react } = working({ cursor: 'ENG-0', ranAt: null });
 
     await polls.processDue();
@@ -178,12 +178,12 @@ describe('ProcessDuePolls', () => {
     expect(react.mock.calls[0]?.[3]).toBe('poll:linear:team_1:ENG-0');
   });
 
-  it('keeps the cursor the response named, and marks it run', async () => {
+  it('stores the cursor the response named, and marks it run', async () => {
     const { polls, cursors } = working();
 
     await polls.processDue();
 
-    expect(cursors.kept(TEAM, 'linear')).toEqual({
+    expect(cursors.stateOf(TEAM, 'linear')).toEqual({
       cursor: 'ENG-2',
       ranAt: NOW,
     });
@@ -211,10 +211,10 @@ describe('ProcessDuePolls', () => {
     expect(run).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps its cursor and does not react when a host refuses', async () => {
+  it('keeps its cursor and does not react when the service answers with an error', async () => {
     const react = vi.fn(async () => undefined);
     const cursors = new FakeIntegrationCursors();
-    cursors.keep(TEAM, 'linear', { cursor: 'ENG-0', ranAt: null });
+    cursors.setState(TEAM, 'linear', { cursor: 'ENG-0', ranAt: null });
 
     await polling(
       cursors,
@@ -223,13 +223,13 @@ describe('ProcessDuePolls', () => {
     ).processDue();
 
     expect(react).not.toHaveBeenCalled();
-    expect(cursors.kept(TEAM, 'linear')).toEqual({
+    expect(cursors.stateOf(TEAM, 'linear')).toEqual({
       cursor: 'ENG-0',
       ranAt: NOW,
     });
   });
 
-  it('lets the call wear the workspace’s secrets as Spotlight’s own', async () => {
+  it('lets the call inject the workspace’s secrets as Spotlight’s own', async () => {
     const { injection, forSpotlight } = injecting({
       LINEAR_TOKEN: { host: 'api.linear.app', value: 'lin-1' },
     });
@@ -250,7 +250,7 @@ describe('ProcessDuePolls', () => {
     ).processDue();
 
     const credentials = run.mock.calls[0]?.[2] as Credentials;
-    await credentials.wornToward('https://api.linear.app/issues', [
+    await credentials.injectedFor('https://api.linear.app/issues', [
       'LINEAR_TOKEN',
     ]);
 
@@ -261,11 +261,11 @@ describe('ProcessDuePolls', () => {
     });
   });
 
-  it('polls a slot once when two workers reach it together', async () => {
+  it('polls a slot once when two workers claim it together', async () => {
     let reads = 0;
     let bothRead: () => void = () => {};
-    const together = new Promise<void>((settle) => {
-      bothRead = settle;
+    const together = new Promise<void>((resolve) => {
+      bothRead = resolve;
     });
     const cursors = new FakeIntegrationCursors(async () => {
       reads += 1;
@@ -286,18 +286,18 @@ describe('ProcessDuePolls', () => {
     expect(react).toHaveBeenCalledTimes(1);
   });
 
-  it('will not move the cursor back when a later poll took the turn', async () => {
+  it('will not move the cursor back when a later poll got the turn', async () => {
     const cursors = new FakeIntegrationCursors();
     const later = new Date(NOW.getTime() + 90_000);
     const react = vi.fn(async () => undefined);
     const run = vi.fn(async () => {
-      cursors.keep(TEAM, 'linear', { cursor: 'ENG-9', ranAt: later });
+      cursors.setState(TEAM, 'linear', { cursor: 'ENG-9', ranAt: later });
       return REPLY;
     });
 
     await polling(cursors, run, react).processDue();
 
-    expect(cursors.kept(TEAM, 'linear')).toEqual({
+    expect(cursors.stateOf(TEAM, 'linear')).toEqual({
       cursor: 'ENG-9',
       ranAt: later,
     });

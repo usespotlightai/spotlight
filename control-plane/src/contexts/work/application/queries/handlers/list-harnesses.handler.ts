@@ -31,14 +31,14 @@ export class ListHarnessesHandler
         return null;
       }
 
-      const advertised = await this.runners.advertisedModels(
+      const supported = await this.runners.supportedModels(
         membership.workspaceId,
       );
 
       return this.launch
         .catalogue()
         .map((entry) =>
-          HarnessMapper.toDto(entry, advertised.get(entry.id) ?? []),
+          HarnessMapper.toDto(entry, supported.get(entry.id) ?? []),
         );
     } catch (error) {
       rethrowAsApplicationError(error);

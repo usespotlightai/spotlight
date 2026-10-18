@@ -14,14 +14,14 @@ import { CurrentPrincipal } from '@platform/http/decorators/current-principal.de
 import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
-import {
-  answerCreated,
-  answerDeleted,
-  answerUpdated,
-  found,
-  listed,
-} from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
+import {
+  respondCreated,
+  respondDeleted,
+  respondFound,
+  respondListed,
+  respondUpdated,
+} from '@platform/http/resources/resource-responses';
 import type {
   ResourceCreated,
   ResourceDeleted,
@@ -73,7 +73,7 @@ export class TeamResourceController {
 
   @TeamResource.Create(
     'workspaces/:workspaceId/teams',
-    'Create a team in a workspace, holding nothing yet',
+    'Create a team in a workspace, with nothing in it yet',
   )
   @WORKSPACE
   @DEFINITION
@@ -83,12 +83,12 @@ export class TeamResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<TeamResourceResponseDto> {
-    return answerCreated(
+    return respondCreated(
       KIND,
       await this.commandBus.execute<CreateTeamCommand, ResourceCreated | null>(
         new CreateTeamCommand(workspaceId, actor, key, body),
       ),
-      (id) => this.answer(id, actor.principal),
+      (id) => this.toResponse(id, actor.principal),
     );
   }
 
@@ -98,7 +98,7 @@ export class TeamResourceController {
     @Param('id') id: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<TeamResourceResponseDto> {
-    return this.answer(id, principal);
+    return this.toResponse(id, principal);
   }
 
   @TeamResource.Update('teams/:id', 'Rename a team')
@@ -110,18 +110,18 @@ export class TeamResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<TeamResourceResponseDto> {
-    return answerUpdated(
+    return respondUpdated(
       KIND,
       await this.commandBus.execute<UpdateTeamCommand, ResourceUpdated | null>(
         new UpdateTeamCommand(id, actor, version, body),
       ),
-      (updated) => this.answer(updated, actor.principal),
+      (updated) => this.toResponse(updated, actor.principal),
     );
   }
 
   @TeamResource.Delete(
     'teams/:id',
-    'Delete a team that holds no lines, skills or integrations',
+    'Delete a team that has no lines, skills or integrations',
   )
   @ID
   async delete(
@@ -129,7 +129,7 @@ export class TeamResourceController {
     @IfMatch() version: number,
     @CurrentActor() actor: Actor,
   ): Promise<void> {
-    answerDeleted(
+    respondDeleted(
       KIND,
       await this.commandBus.execute<DeleteTeamCommand, ResourceDeleted | null>(
         new DeleteTeamCommand(id, actor, version),
@@ -147,7 +147,7 @@ export class TeamResourceController {
     @Query('address') address: string | undefined,
     @CurrentPrincipal() principal: Principal,
   ): Promise<TeamResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<ImportTeamQuery, TeamResourceDto | null>(
         new ImportTeamQuery(workspaceId, address ?? '', principal),
@@ -165,7 +165,7 @@ export class TeamResourceController {
     @Param('workspaceId') workspaceId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ResourceList<TeamResourceResponseDto>> {
-    return listed(
+    return respondListed(
       await this.queryBus.execute<
         ListTeamResourcesQuery,
         readonly TeamResourceDto[] | null
@@ -174,11 +174,11 @@ export class TeamResourceController {
     );
   }
 
-  private async answer(
+  private async toResponse(
     id: string,
     principal: Principal,
   ): Promise<TeamResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<ReadTeamQuery, TeamResourceDto | null>(
         new ReadTeamQuery(id, principal),

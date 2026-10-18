@@ -8,14 +8,14 @@ interface HostCallDto {
 }
 
 export type HostCallClaimDto =
-  | { readonly outcome: 'refused' }
+  | { readonly outcome: 'unauthorized' }
   | { readonly outcome: 'nothing' }
-  | { readonly outcome: 'stranger' }
+  | { readonly outcome: 'host-unreported' }
   | { readonly outcome: 'claimed'; readonly call: HostCallDto };
 
-export type HostCallAnswerDto =
-  | { readonly outcome: 'refused' }
+export type RecordHostCallResponseDto =
+  | { readonly outcome: 'unauthorized' }
   | { readonly outcome: 'unknown' }
-  | { readonly outcome: 'settled'; readonly reason: string }
+  | { readonly outcome: 'completed'; readonly reason: string }
   | { readonly outcome: 'not-theirs' }
   | { readonly outcome: 'answered' };

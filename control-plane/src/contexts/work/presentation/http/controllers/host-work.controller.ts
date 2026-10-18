@@ -27,21 +27,22 @@ import {
 import { bearerIn, TRUST_HEADER } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import {
-  AnswerHostCallCommand,
   ClaimHostCallCommand,
+  RecordHostCallResponseCommand,
 } from '@work/application/commands/host-call.commands';
 import { ClaimHostWorkCommand } from '@work/application/commands/runner.commands';
 import type { HostClaimDto } from '@work/application/dto/host.dto';
 import type {
-  HostCallAnswerDto,
   HostCallClaimDto,
+  RecordHostCallResponseDto,
 } from '@work/application/dto/host-call.dto';
 import type { HostRequirementsDto } from '@work/application/dto/host-requirements.dto';
 import { HostRequirementsQuery } from '@work/application/queries/host.queries';
+import { HarnessProbeResponseDto } from '@work/presentation/http/dto/harness-probe.response.dto';
 import { HostClaimResponseDto } from '@work/presentation/http/dto/host.response.dto';
 import {
-  AnswerHostCallRequestDto,
   ClaimHostCallRequestDto,
+  RecordHostCallResponseRequestDto,
 } from '@work/presentation/http/dto/host-call.request.dto';
 import { HostCallResponseDto } from '@work/presentation/http/dto/host-call.response.dto';
 import { ClaimHostWorkRequestDto } from '@work/presentation/http/dto/host-claim.request.dto';
@@ -49,15 +50,14 @@ import {
   HostRequirementsResponseDto,
   RunnerReleaseResponseDto,
 } from '@work/presentation/http/dto/host-requirements.response.dto';
-import { InstallableHarnessResponseDto } from '@work/presentation/http/dto/installable-harness.response.dto';
 import { ClaimedWorkHttpMapper } from '@work/presentation/http/mappers/claimed-work.http.mapper';
 
 interface Answerable {
   status(code: number): unknown;
 }
 
-const REFUSED =
-  'Missing, rotated or unknown pool token, or a workload the trust does not admit';
+const UNAUTHORIZED =
+  'Missing, rotated or unknown pool token, or a workload the trust does not match';
 
 @ApiTags('runners')
 @ApiBearerAuth()
@@ -67,7 +67,7 @@ const REFUSED =
   description:
     'The runner trust to claim through; the bearer is then the workload’s token',
 })
-@ApiUnauthorizedResponse({ description: REFUSED })
+@ApiUnauthorizedResponse({ description: UNAUTHORIZED })
 @AllowAnonymous()
 @Controller('hosts')
 export class HostWorkController {
@@ -93,14 +93,14 @@ export class HostWorkController {
     >(new HostRequirementsQuery({ bearer: bearerIn(authorization), trust }));
 
     if (!required) {
-      throw new UnauthorizedException(REFUSED);
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
     return new HostRequirementsResponseDto(
       new RunnerReleaseResponseDto(required.runnerMinimum),
       required.harnesses.map(
         (harness) =>
-          new InstallableHarnessResponseDto(
+          new HarnessProbeResponseDto(
             harness.id,
             harness.executable,
             harness.discovery,
@@ -116,14 +116,14 @@ export class HostWorkController {
   @ApiOperation({
     operationId: 'claimHostWork',
     summary:
-      'Long-poll for one run or check, handed over with a one-run runner’s credential for a fresh sandbox',
+      'Long-poll for one run or check, assigned with a one-run runner’s credential for a fresh sandbox',
     description:
       'Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call.',
   })
   @ApiOkResponse({ type: HostClaimResponseDto })
   @ApiConflictResponse({
     description:
-      'The host has not reported through this pool or trust (`host-unreported`), or has not reported serving the image it claims for (`image-unreported`)',
+      'The host has not reported through this pool or trust (`host-unreported`), or has not reported that it supports the image it claims for (`image-unreported`)',
   })
   @ApiNoContentResponse({
     description:
@@ -146,23 +146,23 @@ export class HostWorkController {
       ),
     );
 
-    if (claimed.outcome === 'refused') {
-      throw new UnauthorizedException(REFUSED);
+    if (claimed.outcome === 'unauthorized') {
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
-    if (claimed.outcome === 'stranger') {
+    if (claimed.outcome === 'host-unreported') {
       throw new ConflictException({
         reason: 'host-unreported',
         message:
-          'This host has not reported through this pool or trust. Please report presence first.',
+          'This host has not reported through this pool or trust. Please send a heartbeat first.',
       });
     }
 
-    if (claimed.outcome === 'unoffered') {
+    if (claimed.outcome === 'image-unreported') {
       throw new ConflictException({
         reason: 'image-unreported',
         message:
-          'This host has not reported that it serves that image. Please report presence with the image first.',
+          'This host has not reported that it supports that image. Please send a heartbeat that reports the image first.',
       });
     }
 
@@ -184,9 +184,9 @@ export class HostWorkController {
   @ApiOperation({
     operationId: 'claimHostCall',
     summary:
-      'Long-poll for one call a hook asked to be sent from inside the host’s network',
+      'Long-poll for one call that a hook requested, to send from inside the host’s network',
     description:
-      'Hands over the oldest call waiting for this pool’s or trust’s workspace that has not lapsed. The host sends it once and answers with what came back.',
+      'Assigns the oldest call waiting for this pool’s or trust’s workspace that has not expired. The host sends it once and records the response.',
   })
   @ApiOkResponse({ type: HostCallResponseDto })
   @ApiNoContentResponse({
@@ -212,15 +212,15 @@ export class HostWorkController {
       ),
     );
 
-    if (claimed.outcome === 'refused') {
-      throw new UnauthorizedException(REFUSED);
+    if (claimed.outcome === 'unauthorized') {
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
-    if (claimed.outcome === 'stranger') {
+    if (claimed.outcome === 'host-unreported') {
       throw new ConflictException({
         reason: 'host-unreported',
         message:
-          'This host has not reported through this pool or trust. Please report presence first.',
+          'This host has not reported through this pool or trust. Please send a heartbeat first.',
       });
     }
 
@@ -241,31 +241,31 @@ export class HostWorkController {
     );
   }
 
-  @Post('calls/:id/answer')
+  @Post('calls/:id/response')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'answerHostCall',
-    summary: 'Answer a claimed call with what came back when it was sent',
+    operationId: 'recordHostCallResponse',
+    summary: 'Record the response to a claimed call',
   })
-  @ApiNoContentResponse({ description: 'The answer was taken' })
+  @ApiNoContentResponse({ description: 'Spotlight recorded the response' })
   @ApiNotFoundResponse({
     description: 'No such call waits for this pool’s or trust’s workspace',
   })
   @ApiConflictResponse({
     description:
-      'The call was already answered, lapsed before it was answered, or was never claimed (`call-settled`), or another host claimed it (`not-this-hosts-call`)',
+      'The call already has a response, expired before it got a response, or was never claimed (`call-completed`), or another host claimed it (`not-this-hosts-call`)',
   })
-  async answerCall(
+  async recordResponse(
     @Headers('authorization') authorization: string | undefined,
     @Headers(TRUST_HEADER) trust: string | undefined,
     @Param('id') id: string,
-    @Body() body: AnswerHostCallRequestDto,
+    @Body() body: RecordHostCallResponseRequestDto,
   ): Promise<void> {
     const answered = await this.commandBus.execute<
-      AnswerHostCallCommand,
-      HostCallAnswerDto
+      RecordHostCallResponseCommand,
+      RecordHostCallResponseDto
     >(
-      new AnswerHostCallCommand(
+      new RecordHostCallResponseCommand(
         { bearer: bearerIn(authorization), trust },
         id,
         {
@@ -279,8 +279,8 @@ export class HostWorkController {
       ),
     );
 
-    if (answered.outcome === 'refused') {
-      throw new UnauthorizedException(REFUSED);
+    if (answered.outcome === 'unauthorized') {
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
     if (answered.outcome === 'unknown') {
@@ -296,9 +296,9 @@ export class HostWorkController {
       });
     }
 
-    if (answered.outcome === 'settled') {
+    if (answered.outcome === 'completed') {
       throw new ConflictException({
-        reason: 'call-settled',
+        reason: 'call-completed',
         message: answered.reason,
       });
     }

@@ -7,13 +7,13 @@ const report = (over: Partial<Parameters<typeof HostReport.of>[0]> = {}) =>
   HostReport.of({
     name: 'build-box',
     release: '0.9.0',
-    executor: 'docker',
+    containerRuntime: 'docker',
     capacity: 4,
     running: ['runner_1'],
     images: [
       {
         image: 'ghcr.io/acme/runner:main',
-        usual: true,
+        isDefault: true,
         harnesses: [
           { id: 'claude-code', models: ['claude-sonnet-5'], version: '2.1.0' },
         ],
@@ -22,7 +22,7 @@ const report = (over: Partial<Parameters<typeof HostReport.of>[0]> = {}) =>
     ...over,
   });
 
-const refusedAt = (over: Partial<Parameters<typeof HostReport.of>[0]>) => {
+const invalidAt = (over: Partial<Parameters<typeof HostReport.of>[0]>) => {
   try {
     report(over);
   } catch (error) {
@@ -33,16 +33,16 @@ const refusedAt = (over: Partial<Parameters<typeof HostReport.of>[0]>) => {
 };
 
 describe('HostReport', () => {
-  it('holds what a host says of itself, trimmed', () => {
-    const held = report({ name: '  build-box  ' });
+  it('keeps what a host says of itself, trimmed', () => {
+    const parsed = report({ name: '  build-box  ' });
 
-    expect(held.name).toBe('build-box');
-    expect(held.release).toBe('0.9.0');
-    expect(held.executor).toBe('docker');
-    expect(held.capacity).toBe(4);
-    expect(held.running.map((each) => each.value)).toEqual(['runner_1']);
-    expect(held.images[0]?.image.value).toBe('ghcr.io/acme/runner:main');
-    expect(held.images[0]?.harnesses[0]?.version?.value).toBe('2.1.0');
+    expect(parsed.name).toBe('build-box');
+    expect(parsed.release).toBe('0.9.0');
+    expect(parsed.containerRuntime).toBe('docker');
+    expect(parsed.capacity).toBe(4);
+    expect(parsed.running.map((each) => each.value)).toEqual(['runner_1']);
+    expect(parsed.images[0]?.image.value).toBe('ghcr.io/acme/runner:main');
+    expect(parsed.images[0]?.harnesses[0]?.version?.value).toBe('2.1.0');
   });
 
   it('names each runner it is running once', () => {
@@ -53,76 +53,83 @@ describe('HostReport', () => {
     ).toEqual(['runner_1', 'runner_2']);
   });
 
-  it('refuses a capacity that is not a whole number from 1 to 1000', () => {
+  it('rejects a capacity that is not a whole number from 1 to 1000', () => {
     for (const capacity of [0, 1.5, 1_001, Number.NaN]) {
-      expect(refusedAt({ capacity, running: [] })).toBe('capacity');
+      expect(invalidAt({ capacity, running: [] })).toBe('capacity');
     }
-    expect(refusedAt({ capacity: 1_000 })).toBeNull();
+    expect(invalidAt({ capacity: 1_000 })).toBeNull();
   });
 
-  it('refuses to run more runners than its capacity', () => {
-    expect(refusedAt({ capacity: 1, running: ['runner_1', 'runner_2'] })).toBe(
+  it('rejects more runners than its capacity', () => {
+    expect(invalidAt({ capacity: 1, running: ['runner_1', 'runner_2'] })).toBe(
       'running',
     );
   });
 
-  it('refuses more than 500 images', () => {
+  it('rejects more than 500 images', () => {
     const images = (count: number) =>
       Array.from({ length: count }, (_, at) => ({
         image: `ghcr.io/acme/runner-${at}:main`,
-        usual: false,
+        isDefault: false,
         harnesses: [],
       }));
 
-    expect(refusedAt({ images: images(501) })).toBe('images');
-    expect(refusedAt({ images: images(500) })).toBeNull();
+    expect(invalidAt({ images: images(501) })).toBe('images');
+    expect(invalidAt({ images: images(500) })).toBeNull();
   });
 
-  it('refuses two default images, or one image twice', () => {
-    const image = (usual: boolean, name = 'ghcr.io/acme/runner:main') => ({
+  it('rejects two default images, or one image twice', () => {
+    const image = (isDefault: boolean, name = 'ghcr.io/acme/runner:main') => ({
       image: name,
-      usual,
+      isDefault,
       harnesses: [],
     });
 
     expect(
-      refusedAt({
+      invalidAt({
         images: [image(true), image(true, 'ghcr.io/acme/other:1')],
       }),
     ).toBe('images');
-    expect(refusedAt({ images: [image(true), image(false)] })).toBe('images');
+    expect(invalidAt({ images: [image(true), image(false)] })).toBe('images');
   });
 
-  it('offers only an image it serves', () => {
+  it('finds only an image it supports', () => {
     const report = HostReport.of({
       name: 'build-box',
       release: '0.9.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 2,
       running: [],
       images: [
-        { image: 'ghcr.io/acme/runner:main', usual: true, harnesses: [] },
+        { image: 'ghcr.io/acme/runner:main', isDefault: true, harnesses: [] },
         {
           image: 'ghcr.io/acme/old:1',
-          usual: false,
+          isDefault: false,
           harnesses: [],
-          refused: 'too old',
+          unavailableReason: 'too old',
         },
       ],
     });
 
     expect(
-      report.offering(RunnerImage.of('ghcr.io/acme/runner:main'))?.usual,
+      report.supportedImage(RunnerImage.of('ghcr.io/acme/runner:main'))
+        ?.isDefault,
     ).toBe(true);
-    expect(report.offering(RunnerImage.of('ghcr.io/acme/old:1'))).toBeNull();
-    expect(report.offering(RunnerImage.of('ghcr.io/acme/none:1'))).toBeNull();
+    expect(
+      report.supportedImage(RunnerImage.of('ghcr.io/acme/old:1')),
+    ).toBeNull();
+    expect(
+      report.supportedImage(RunnerImage.of('ghcr.io/acme/none:1')),
+    ).toBeNull();
   });
 
-  it('refuses a name, release or executor that is blank or too long', () => {
-    expect(refusedAt({ name: '   ' })).toBe('name');
-    expect(refusedAt({ name: 'n'.repeat(121) })).toBe('name');
-    expect(refusedAt({ release: 'r'.repeat(65) })).toBe('release');
-    expect(refusedAt({ executor: '' })).toBe('executor');
-    expect(refusedAt({ executor: 'e'.repeat(201) })).toBe('executor');
+  it('rejects a name, release or container runtime that is blank or too long', () => {
+    expect(invalidAt({ name: '   ' })).toBe('name');
+    expect(invalidAt({ name: 'n'.repeat(121) })).toBe('name');
+    expect(invalidAt({ release: 'r'.repeat(65) })).toBe('release');
+    expect(invalidAt({ containerRuntime: '' })).toBe('containerRuntime');
+    expect(invalidAt({ containerRuntime: 'e'.repeat(201) })).toBe(
+      'containerRuntime',
+    );
   });
 });

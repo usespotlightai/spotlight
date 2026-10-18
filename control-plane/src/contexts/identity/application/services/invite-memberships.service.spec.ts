@@ -6,7 +6,7 @@ import { WorkspaceInviteAccepted } from '@identity/domain/events/workspace-invit
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
@@ -25,7 +25,7 @@ const accepted = (role = WorkspaceRole.admin) =>
   new WorkspaceInviteAccepted(
     InviteId.of('invite_1'),
     ACME,
-    InviteTerms.of(role, [
+    InviteSpec.of(role, [
       TeamId.of('team_1'),
       TeamId.of('team_gone'),
       TeamId.of('team_elsewhere'),
@@ -107,19 +107,19 @@ describe('InviteMemberships', () => {
     ]);
   });
 
-  it('keeps the role somebody already holds, whether higher or lower', async () => {
-    for (const [holds, invited] of [
+  it('keeps the role somebody already has, whether higher or lower', async () => {
+    for (const [current, invited] of [
       [WorkspaceRole.owner, WorkspaceRole.member],
       [WorkspaceRole.member, WorkspaceRole.admin],
     ] as const) {
       const { memberships, savedWorkspace, savedTeam } = joining({
-        adaIs: holds,
+        adaIs: current,
       });
 
       await memberships.joined(accepted(invited));
 
       expect(savedWorkspace).not.toHaveBeenCalled();
-      expect(savedTeam.mock.calls[0]?.[0].holds(ADA)).toBe(true);
+      expect(savedTeam.mock.calls[0]?.[0].hasMember(ADA)).toBe(true);
     }
   });
 
@@ -130,10 +130,10 @@ describe('InviteMemberships', () => {
 
     expect(savedTeam).toHaveBeenCalledTimes(1);
     expect(savedTeam.mock.calls[0]?.[0].id.value).toBe('team_1');
-    expect(savedTeam.mock.calls[0]?.[0].holds(ADA)).toBe(true);
+    expect(savedTeam.mock.calls[0]?.[0].hasMember(ADA)).toBe(true);
   });
 
-  it('changes nothing more when the acceptance is heard twice', async () => {
+  it('changes nothing more when the acceptance is received twice', async () => {
     const { memberships, savedWorkspace, savedTeam } = joining();
 
     await memberships.joined(accepted());

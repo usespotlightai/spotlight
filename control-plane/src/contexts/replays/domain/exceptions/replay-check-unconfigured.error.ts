@@ -1,5 +1,5 @@
 export class ReplayCheckUnconfiguredError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(lineKey: string) {
     super(

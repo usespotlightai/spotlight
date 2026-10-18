@@ -31,13 +31,13 @@ describe('RetireInPlace', () => {
 
     expect(send).toBeDisabled();
     await userEvent.type(
-      screen.getByRole('textbox', { name: 'Why it no longer holds' }),
+      screen.getByRole('textbox', { name: 'Why it no longer applies' }),
       '   ',
     );
     expect(send).toBeDisabled();
 
     await userEvent.type(
-      screen.getByRole('textbox', { name: 'Why it no longer holds' }),
+      screen.getByRole('textbox', { name: 'Why it no longer applies' }),
       'It was fixed.  ',
     );
     await userEvent.click(send);
@@ -53,7 +53,7 @@ describe('RetireInPlace', () => {
     showing();
 
     expect(
-      screen.getByRole('textbox', { name: 'Why it no longer holds' }),
+      screen.getByRole('textbox', { name: 'Why it no longer applies' }),
     ).toHaveFocus();
     expect(screen.getByText('Ada Lovelace')).toBeVisible();
     expect(screen.getByText('retiring this')).toBeVisible();
@@ -63,7 +63,7 @@ describe('RetireInPlace', () => {
     showing();
 
     await userEvent.type(
-      screen.getByRole('textbox', { name: 'Why it no longer holds' }),
+      screen.getByRole('textbox', { name: 'Why it no longer applies' }),
       'It was fixed.{Control>}{Enter}{/Control}',
     );
     expect(retire.mutate).toHaveBeenCalledTimes(1);

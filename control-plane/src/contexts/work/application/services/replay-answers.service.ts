@@ -15,13 +15,13 @@ export class ReplayAnswers {
     if (answer === 'accepted') {
       const evidenced = await this.evidence.of(original.id.value);
 
-      return Answered.acceptedGiven(evidenced?.hunks ?? []);
+      return Answered.hasAccepted(evidenced?.hunks ?? []);
     }
 
     const task = original.taskId && (await this.tasks.find(original.taskId));
 
     return Boolean(
-      task && Answered.sentBackGiven(feedbackAfter(task.notes, original.id)),
+      task && Answered.hasSentBack(feedbackAfter(task.notes, original.id)),
     );
   }
 

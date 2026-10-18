@@ -1,5 +1,5 @@
 import type {
-  InviteOfferResponseDto,
+  InvitePreviewResponseDto,
   WorkspaceInviteResponseDto,
 } from '@/lib/api';
 import type { Role } from '@/lib/role';
@@ -94,60 +94,60 @@ const INVITES: WorkspaceInviteResponseDto[] = [
   invite('invite_dana', 'dana.wright@contractors.io', 'member', [], null, 6),
 ];
 
-export type InviteOffer = InviteOfferResponseDto & { token: string };
+export type InvitePreview = InvitePreviewResponseDto & { token: string };
 
-const offer = (
+const preview = (
   token: string,
   email: string,
-  standing: InviteOffer['standing'],
-  role: InviteOffer['role'],
+  status: InvitePreview['status'],
+  role: InvitePreview['role'],
   teamIds: readonly string[],
   by: typeof SAM | null,
-): InviteOffer => ({
+): InvitePreview => ({
   token,
   email,
   workspaceName: WORKSPACE.name,
   invitedBy: by?.name ?? null,
   role,
   teamNames: teamIds.map((teamId) => team(teamId).name),
-  standing,
+  status,
 });
 
-const OFFERS: InviteOffer[] = [
-  offer(
+const PREVIEWS: InvitePreview[] = [
+  preview(
     'invite_sam',
     'Sam@Example.com',
-    'open',
+    'pending',
     'member',
     [PLATFORM_ID, GROWTH_ID],
     PRIYA,
   ),
-  offer(
+  preview(
     'invite_platform',
     'jordan.lee@acme.dev',
-    'open',
+    'pending',
     'member',
     [PLATFORM_ID],
     SAM,
   ),
-  offer(
+  preview(
     'invite_growth',
     'noor.haddad@acme.dev',
-    'open',
+    'pending',
     'member',
     [GROWTH_ID],
     PRIYA,
   ),
-  offer('invite_admin', 'alex.morgan@acme.dev', 'open', 'admin', [], SAM),
-  offer(
+  preview('invite_admin', 'alex.morgan@acme.dev', 'pending', 'admin', [], SAM),
+  preview(
     'invite_left',
     'dana.wright@contractors.io',
-    'open',
+    'pending',
     'member',
     [],
     null,
   ),
-  offer(
+  preview(
     'invite_accepted',
     'tom.becker@acme.dev',
     'accepted',
@@ -155,7 +155,7 @@ const OFFERS: InviteOffer[] = [
     [PLATFORM_ID],
     SAM,
   ),
-  offer(
+  preview(
     'invite_revoked',
     'kim.ortiz@acme.dev',
     'revoked',
@@ -163,7 +163,7 @@ const OFFERS: InviteOffer[] = [
     [PLATFORM_ID],
     SAM,
   ),
-  offer(
+  preview(
     'invite_expired',
     'ravi.shah@acme.dev',
     'expired',
@@ -173,20 +173,20 @@ const OFFERS: InviteOffer[] = [
   ),
 ];
 
-export type ClosedInvite = 'accepted' | 'revoked';
+export type EndedInvite = 'accepted' | 'revoked';
 
 export type MembersWorld = {
   people: WorkspacePerson[];
   invites: WorkspaceInviteResponseDto[];
-  closed: Record<string, ClosedInvite>;
-  offers: InviteOffer[];
+  ended: Record<string, EndedInvite>;
+  previews: InvitePreview[];
 };
 
 export const membersWorld = perWorld(
   (kind): MembersWorld => ({
     people: structuredClone(PEOPLE),
     invites: kind === 'empty' ? [] : structuredClone(INVITES),
-    closed: {},
-    offers: kind === 'empty' ? [] : structuredClone(OFFERS),
+    ended: {},
+    previews: kind === 'empty' ? [] : structuredClone(PREVIEWS),
   }),
 );

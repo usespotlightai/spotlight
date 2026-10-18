@@ -1,5 +1,5 @@
 export class InvalidDecisionError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(reason: string, subject = 'decision') {
     super(`A ${subject} ${reason}.`);

@@ -23,8 +23,8 @@ describe('HookFailure', () => {
     ['superseded', false],
   ])(
     'states whether a firing that failed as %s may be retried (%s)',
-    (code, retries) => {
-      expect(HookFailure.of(code, 'why').retry.retries).toBe(retries);
+    (code, allowsRetry) => {
+      expect(HookFailure.of(code, 'why').retry.allowsRetry).toBe(allowsRetry);
     },
   );
 
@@ -32,7 +32,7 @@ describe('HookFailure', () => {
     expect(Object.keys(HOOK_FAILURES)).toHaveLength(12);
   });
 
-  it('backs off a failure worth retrying, and gives up after its last attempt', () => {
+  it('schedules a later attempt for a failure worth retrying, and no attempt after its last one', () => {
     const failure = HookFailure.of('server-error', 'was answered 503');
 
     expect(failure.nextAttemptAfter(1, NOW)).toEqual(
@@ -44,7 +44,7 @@ describe('HookFailure', () => {
     expect(failure.nextAttemptAfter(8, NOW)).toBeNull();
   });
 
-  it('gives up at once on a failure no retry would mend', () => {
+  it('schedules no next attempt for a failure that no retry would mend', () => {
     expect(
       HookFailure.of('rejected', 'was answered 404').nextAttemptAfter(1, NOW),
     ).toBeNull();

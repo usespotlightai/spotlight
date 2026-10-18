@@ -7,16 +7,17 @@ import type {
   WriteMemoryRequestDto,
 } from '@/lib/api';
 import {
-  type DecisionStanding,
+  type ApprovalStatus,
   WAITING_FOR_APPROVAL,
-} from '@/lib/decision-standing';
+} from '@/lib/approval-status';
+import { ANOTHER_TOOL } from '@/lib/inbox';
 import { teamSectionPath } from '@/lib/team';
 
 export type ProposedMemory = ProposedMemoryResponseDto;
 
 export type TeamMemory = TeamMemoryResponseDto;
 
-export type RunMemories = RunMemoriesResponseDto;
+export type RunMemoriesData = RunMemoriesResponseDto;
 
 export type RunProposal = RunProposalResponseDto;
 
@@ -31,7 +32,7 @@ export const memoryPath = (
 ): string =>
   `${teamSectionPath(slug, teamId, 'memory')}?${FOCUS_PARAM}=${encodeURIComponent(memoryId)}`;
 
-export const givenMemories = (memories: RunMemories): TeamMemory[] => {
+export const suppliedMemories = (memories: RunMemoriesData): TeamMemory[] => {
   const briefed = new Set(memories.briefed.map((memory) => memory.id));
 
   return [
@@ -40,15 +41,15 @@ export const givenMemories = (memories: RunMemories): TeamMemory[] => {
   ];
 };
 
-export const rememberedNothing = (memories: RunMemories): boolean =>
-  givenMemories(memories).length === 0 && memories.proposed.length === 0;
+export const hasNoMemories = (memories: RunMemoriesData): boolean =>
+  suppliedMemories(memories).length === 0 && memories.proposed.length === 0;
 
-export type MemoryGround = Pick<
+export type MemoryProvenance = Pick<
   ProposedMemoryResponseDto,
   'steps' | 'notes' | 'harness'
 >;
 
-export type MemoryGroundNote = MemoryGround['notes'][number];
+export type MemoryProvenanceNote = MemoryProvenance['notes'][number];
 
 export const MAX_MEMORY_BODY = 1_000;
 
@@ -76,7 +77,7 @@ export const KIND_DESCRIPTIONS: Record<MemoryKind, string> = {
   correction: 'A person correcting the agent, and what is right instead.',
 };
 
-const REACH_LABELS: Record<ProposedMemory['reach'], string> = {
+const SCOPE_LABELS: Record<ProposedMemory['scope'], string> = {
   team: 'the whole team',
   line: 'this line',
   station: 'this station',
@@ -85,21 +86,21 @@ const REACH_LABELS: Record<ProposedMemory['reach'], string> = {
 export const undecided = (memory: ProposedMemory): boolean =>
   memory.state === 'proposed';
 
-export const speakerOf = (note: MemoryGroundNote): string => {
+export const authorOf = (note: MemoryProvenanceNote): string => {
   if (note.by === 'world') {
-    return 'From another tool';
+    return ANOTHER_TOOL;
   }
 
   return note.author?.name ?? 'A teammate';
 };
 
-export const citesAnything = (grounds: MemoryGround): boolean =>
-  grounds.steps.length + grounds.notes.length > 0;
+export const citesAnything = (provenance: MemoryProvenance): boolean =>
+  provenance.steps.length + provenance.notes.length > 0;
 
-type Scoped = Pick<ProposedMemory, 'reach' | 'repository' | 'paths'>;
+type Scoped = Pick<ProposedMemory, 'scope' | 'repository' | 'paths'>;
 
 export const appliesTo = (memory: Scoped): string => {
-  const where = REACH_LABELS[memory.reach];
+  const where = SCOPE_LABELS[memory.scope];
 
   return `${where.charAt(0).toUpperCase()}${where.slice(1)}`;
 };
@@ -140,14 +141,14 @@ export const proposalTitleOf = (memory: ProposedMemory): string => {
   return who ? `${outcome} by ${who}` : outcome;
 };
 
-const PROPOSAL_STANDINGS: Record<ProposedMemory['state'], DecisionStanding> = {
-  proposed: 'waiting',
+const PROPOSAL_STATUSES: Record<ProposedMemory['state'], ApprovalStatus> = {
+  proposed: 'pending',
   approved: 'approved',
-  rejected: 'declined',
+  rejected: 'dismissed',
 };
 
-export const proposalStandingOf = (memory: ProposedMemory): DecisionStanding =>
-  PROPOSAL_STANDINGS[memory.state];
+export const proposalStatusOf = (memory: ProposedMemory): ApprovalStatus =>
+  PROPOSAL_STATUSES[memory.state];
 
 export type MemoryKind = WriteMemoryRequestDto['kind'];
 
@@ -168,15 +169,15 @@ export const KIND_OPTIONS = KINDS.map((value) => ({
   label: KIND_LABELS[value],
 }));
 
-export const STANDING_VIEWS = [
-  { id: 'stands', label: 'Standing' },
+export const STATUS_VIEWS = [
+  { id: 'active', label: 'Active' },
   { id: 'retired', label: 'Retired' },
 ] as const;
 
-type MemoryStanding = (typeof STANDING_VIEWS)[number]['id'];
+type MemoryStatus = (typeof STATUS_VIEWS)[number]['id'];
 
 export type MemoryFilter = {
-  readonly standing: MemoryStanding;
+  readonly status: MemoryStatus;
   readonly kind: string | null;
   readonly lineId: string | null;
   readonly stationId: string | null;
@@ -187,7 +188,7 @@ export type MemoryFilter = {
 const FILTERED = ['kind', 'lineId', 'stationId', 'repository', 'path'] as const;
 
 export const filterOf = (params: URLSearchParams): MemoryFilter => ({
-  standing: params.get('standing') === 'retired' ? 'retired' : 'stands',
+  status: params.get('status') === 'retired' ? 'retired' : 'active',
   kind: params.get('kind'),
   lineId: params.get('lineId'),
   stationId: params.get('stationId'),
@@ -197,9 +198,7 @@ export const filterOf = (params: URLSearchParams): MemoryFilter => ({
 
 export const paramsOf = (filter: MemoryFilter): Record<string, string> =>
   Object.fromEntries([
-    ...(filter.standing === 'retired'
-      ? [['standing', 'retired'] as const]
-      : []),
+    ...(filter.status === 'retired' ? [['status', 'retired'] as const] : []),
     ...FILTERED.flatMap((key) => {
       const value = filter[key];
       return value ? [[key, value] as const] : [];
@@ -213,7 +212,7 @@ export const narrowed = (filter: MemoryFilter): boolean =>
   narrowedBy(filter) > 0;
 
 export const unnarrowed = (filter: MemoryFilter): MemoryFilter => ({
-  standing: filter.standing,
+  status: filter.status,
   kind: null,
   lineId: null,
   stationId: null,
@@ -221,14 +220,14 @@ export const unnarrowed = (filter: MemoryFilter): MemoryFilter => ({
   path: null,
 });
 
-export interface RememberedCount {
+export interface MemoryCount {
   readonly what: string;
   readonly count: number;
 }
 
-export const rememberedCounts = (memories: RunMemories): RememberedCount[] =>
+export const memoryCounts = (memories: RunMemoriesData): MemoryCount[] =>
   [
-    { what: 'Given', count: givenMemories(memories).length },
+    { what: 'Supplied', count: suppliedMemories(memories).length },
     { what: 'Proposed', count: memories.proposed.length },
   ].filter((each) => each.count > 0);
 
@@ -238,7 +237,7 @@ export const proposalStateOf = (proposal: RunProposal): string => {
   }
 
   if (proposal.state === 'approved') {
-    return proposal.standing === 'retired' ? 'Kept, now retired' : 'Kept';
+    return proposal.status === 'retired' ? 'Approved, now retired' : 'Approved';
   }
 
   return 'Waiting for you';

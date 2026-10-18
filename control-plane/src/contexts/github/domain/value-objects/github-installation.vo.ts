@@ -13,7 +13,7 @@ export class GitHubInstallation {
     if (!installation) {
       throw new InvalidIdentifierError(
         'GitHub installation',
-        'must be the number GitHub gave it',
+        'must be the number that GitHub assigned',
       );
     }
 

@@ -1,9 +1,9 @@
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
+import { HookDecision } from '@integrations/domain/value-objects/hook-decision.vo';
 import type { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
-import { HookVerdict } from '@integrations/domain/value-objects/hook-verdict.vo';
-import type { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
+import type { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
@@ -27,7 +27,7 @@ interface HookMatch {
   readonly paths: readonly string[];
 }
 
-interface Described {
+interface HookFields {
   readonly key: HookKey;
   readonly event: HookEvent;
   readonly match: HookMatch;
@@ -38,14 +38,14 @@ interface Described {
 }
 
 export interface StepEnded {
-  readonly refusal: string | null;
+  readonly denyReason: string | null;
   readonly failedBecause: string | null;
 }
 
 const DEFAULTS = {
   failure: 'continue',
   timeoutSeconds: 10,
-} as const satisfies Pick<Described, 'failure' | 'timeoutSeconds'>;
+} as const satisfies Pick<HookFields, 'failure' | 'timeoutSeconds'>;
 
 const STEP_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -63,18 +63,18 @@ const uniqueNames = (tools: readonly ToolName[]): ToolName[] =>
     (tool, index) => tools.findIndex((each) => each.equals(tool)) === index,
   );
 
-const guardMatch = (described: Described): void => {
-  if (described.match.tools.length > 0 && !described.event.aboutTool) {
+const guardMatch = (fields: HookFields): void => {
+  if (fields.match.tools.length > 0 && !fields.event.aboutTool) {
     throw new InvalidHookError(
       at('match', 'tools'),
-      `only applies to tool.using and tool.used, not ${described.event.name}`,
+      `only applies to tool.using and tool.used, not ${fields.event.name}`,
     );
   }
 
-  if (described.match.paths.length > 0 && !described.event.aboutChanges) {
+  if (fields.match.paths.length > 0 && !fields.event.aboutChanges) {
     throw new InvalidHookError(
       at('match', 'paths'),
-      `only applies to pull-request.opening and pull-request.merged, not ${described.event.name}`,
+      `only applies to pull-request.opening and pull-request.merged, not ${fields.event.name}`,
     );
   }
 };
@@ -99,14 +99,14 @@ const guardStep = (step: HookStep, index: number): void => {
   }
 };
 
-const guardSteps = (described: Described): void => {
-  if (described.steps.length === 0) {
+const guardSteps = (fields: HookFields): void => {
+  if (fields.steps.length === 0) {
     throw new InvalidHookError(at('steps'), 'must not be empty');
   }
 
   const seen = new Set<string>();
 
-  described.steps.forEach((step, index) => {
+  fields.steps.forEach((step, index) => {
     guardStep(step, index);
 
     if (seen.has(step.name)) {
@@ -120,8 +120,8 @@ const guardSteps = (described: Described): void => {
   });
 
   if (
-    described.signing === null &&
-    described.steps.some((step) => step.kind === 'request')
+    fields.signing === null &&
+    fields.steps.some((step) => step.kind === 'request')
   ) {
     throw new InvalidHookError(
       at('signing'),
@@ -130,18 +130,18 @@ const guardSteps = (described: Described): void => {
   }
 };
 
-const guardFailure = (described: Described): void => {
-  if (described.failure === 'block' && !described.event.isBefore) {
+const guardFailure = (fields: HookFields): void => {
+  if (fields.failure === 'block' && !fields.event.isBefore) {
     throw new InvalidHookError(
       at('failure'),
-      `cannot be block after ${described.event.name} has happened`,
+      `cannot be block after ${fields.event.name} has happened`,
     );
   }
 
   if (
-    !Number.isInteger(described.timeoutSeconds) ||
-    described.timeoutSeconds < SHORTEST_TIMEOUT ||
-    described.timeoutSeconds > LONGEST_TIMEOUT
+    !Number.isInteger(fields.timeoutSeconds) ||
+    fields.timeoutSeconds < SHORTEST_TIMEOUT ||
+    fields.timeoutSeconds > LONGEST_TIMEOUT
   ) {
     throw new InvalidHookError(
       at('timeoutSeconds'),
@@ -153,93 +153,93 @@ const guardFailure = (described: Described): void => {
 export class Hook {
   static readonly DEFAULTS = DEFAULTS;
 
-  private constructor(private readonly described: Described) {}
+  private constructor(private readonly fields: HookFields) {}
 
-  static of(described: Described): Hook {
-    guardMatch(described);
-    guardSteps(described);
-    guardFailure(described);
+  static of(fields: HookFields): Hook {
+    guardMatch(fields);
+    guardSteps(fields);
+    guardFailure(fields);
 
     return new Hook({
-      ...described,
+      ...fields,
       match: {
-        tools: uniqueNames(described.match.tools),
-        paths: [...described.match.paths],
+        tools: uniqueNames(fields.match.tools),
+        paths: [...fields.match.paths],
       },
-      steps: described.steps.map((step) => ({ ...step })),
+      steps: fields.steps.map((step) => ({ ...step })),
     });
   }
 
   get key(): HookKey {
-    return this.described.key;
+    return this.fields.key;
   }
 
   get event(): HookEvent {
-    return this.described.event;
+    return this.fields.event;
   }
 
   get failure(): HookOnFailure {
-    return this.described.failure;
+    return this.fields.failure;
   }
 
   get blocks(): boolean {
-    return this.described.failure === 'block';
+    return this.fields.failure === 'block';
   }
 
   get signing(): HookSigning | null {
-    return this.described.signing;
+    return this.fields.signing;
   }
 
   get steps(): readonly HookStep[] {
-    return this.described.steps;
+    return this.fields.steps;
   }
 
   get timeoutSeconds(): number {
-    return this.described.timeoutSeconds;
+    return this.fields.timeoutSeconds;
   }
 
   get tools(): readonly ToolName[] {
     return uniqueNames([
-      ...this.described.match.tools,
-      ...this.described.steps.flatMap((step) =>
+      ...this.fields.match.tools,
+      ...this.fields.steps.flatMap((step) =>
         step.kind === 'call' ? [step.tool] : [],
       ),
     ]).sort((one, other) => (one.value < other.value ? -1 : 1));
   }
 
   get matchedTools(): readonly ToolName[] {
-    return this.described.match.tools;
+    return this.fields.match.tools;
   }
 
   get requestsFromNetwork(): boolean {
-    return this.described.steps.some(
+    return this.fields.steps.some(
       (step) => step.kind === 'request' && step.fromNetwork,
     );
   }
 
-  refusalToCall(
+  callDenial(
     named: ToolName,
-    offered: OfferedTool | null,
+    provided: ProvidedTool | null,
   ): HookFailure | null {
-    if (offered === null || offered.tool !== named.value) {
+    if (provided === null || provided.tool !== named.value) {
       return HookFailure.of(
         'not-allowed',
         `names ${named.value}, which no integration of the team offers now`,
       );
     }
 
-    if (offered.approval) {
+    if (provided.approval) {
       return HookFailure.of(
         'not-allowed',
-        `calls ${named.value}, which needs a person's approval before each call. A hook cannot give that approval`,
+        `calls ${named.value}, which needs a person's approval before each call. A hook cannot approve the call`,
       );
     }
 
     return null;
   }
 
-  refusalToRequest(step: string, url: URL): HookFailure | null {
-    const fromNetwork = this.described.steps.some(
+  requestDenial(step: string, url: URL): HookFailure | null {
+    const fromNetwork = this.fields.steps.some(
       (each) =>
         each.name === step && each.kind === 'request' && each.fromNetwork,
     );
@@ -252,12 +252,12 @@ export class Hook {
       : null;
   }
 
-  verdictOn(step: string, ended: StepEnded): HookVerdict | null {
-    const hook = this.described.key.value;
+  decisionOn(step: string, ended: StepEnded): HookDecision | null {
+    const hook = this.fields.key.value;
 
-    if (ended.refusal !== null) {
-      return HookVerdict.refused(
-        `Hook ${hook} refused. Reason: ${ended.refusal}`,
+    if (ended.denyReason !== null) {
+      return HookDecision.denied(
+        `Hook ${hook} denied the event. Reason: ${ended.denyReason}`,
       );
     }
 
@@ -266,9 +266,9 @@ export class Hook {
     }
 
     return this.blocks
-      ? HookVerdict.refused(
+      ? HookDecision.denied(
           `Hook ${hook} failed at step ${step} and blocks on failure. Reason: ${ended.failedBecause}`,
         )
-      : HookVerdict.allowed();
+      : HookDecision.allowed();
   }
 }

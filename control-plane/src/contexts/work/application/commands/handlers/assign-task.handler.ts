@@ -1,6 +1,6 @@
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import {
-  holds,
+  hasMember,
   type TeamDirectoryPort,
 } from '@identity/application/ports/team-directory.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -38,7 +38,7 @@ export class AssignTaskHandler
     return await this.transaction.inTransaction(async () => {
       const team = await this.teams.find(TeamId.of(command.teamId));
 
-      if (!team || !holds(team, UserId.of(command.viewerId))) {
+      if (!team || !hasMember(team, UserId.of(command.viewerId))) {
         throw new UnknownTaskError(command.taskId);
       }
 
@@ -46,7 +46,7 @@ export class AssignTaskHandler
         ? UserId.of(command.assigneeId)
         : null;
 
-      if (assignee && !holds(team, assignee)) {
+      if (assignee && !hasMember(team, assignee)) {
         throw new NotATeamMemberError();
       }
 
@@ -60,14 +60,14 @@ export class AssignTaskHandler
 
       await this.tasks.save(assigned);
 
-      const raisedBy = assigned.raisedBy
-        ? await this.people.find(assigned.raisedBy)
+      const createdBy = assigned.createdBy
+        ? await this.people.find(assigned.createdBy)
         : null;
       const person = assigned.assignee
         ? await this.people.find(assigned.assignee)
         : null;
 
-      return TaskMapper.taskToDto(assigned, raisedBy, person);
+      return TaskMapper.taskToDto(assigned, createdBy, person);
     });
   }
 }

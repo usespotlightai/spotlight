@@ -1,5 +1,5 @@
-import { pullRequestTypeOf } from '@outcomes/domain/services/pull-request-types';
-import { pullRequestTypeSql } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pull-request-type.sql';
+import { pullRequestTypeOf } from '@insights/domain/services/pull-request-types';
+import { pullRequestTypeSql } from '@insights/infrastructure/persistence/drizzle/readers/insights/pull-request-type.sql';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
@@ -147,19 +147,19 @@ const CASES: readonly Case[] = [
   ),
 ].map((each, ord) => ({ ...each, ord }));
 
-let held: TestDatabase;
+let database: TestDatabase;
 
 beforeAll(async () => {
-  held = await openDatabase('pull_request_type');
+  database = await openDatabase('pull_request_type');
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 describe('the pull request type, read in SQL', () => {
   it('is the type the domain gives for every title, branch and change shape', async () => {
-    const result = await held.db.execute<{ ord: number; type: string }>(sql`
+    const result = await database.db.execute<{ ord: number; type: string }>(sql`
       select change.ord, ${pullRequestTypeSql({
         title: sql`change.title`,
         branch: sql`change.branch`,

@@ -1,5 +1,5 @@
 import type { GitHubAppPort } from '@github/application/ports/github-app.port';
-import { assertionFor } from '@github/infrastructure/github/app-assertion';
+import { appJwt } from '@github/infrastructure/github/app-jwt';
 import { Inject, Injectable } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
@@ -21,7 +21,7 @@ export class GitHubAppIdentity implements GitHubAppPort {
   private async named(): Promise<string | null> {
     const response = await fetch(`${API}/app`, {
       headers: {
-        authorization: `Bearer ${assertionFor(this.env)}`,
+        authorization: `Bearer ${appJwt(this.env)}`,
         accept: 'application/vnd.github+json',
         'x-github-api-version': '2022-11-28',
       },

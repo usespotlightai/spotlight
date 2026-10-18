@@ -6,7 +6,7 @@ import {
 import { FAILURE_BLAME } from '@replays/domain/services/failure-blame';
 import {
   ChangeChecks,
-  type StackStanding,
+  type StackStatus,
 } from '@replays/domain/value-objects/change-checks.vo';
 import { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
@@ -15,9 +15,9 @@ import { RUN_FAILURE_CODES } from '@shared-kernel/domain/value-objects/run-failu
 import { describe, expect, it } from 'vitest';
 
 const stack = (
-  state: StackStanding['state'],
-  more: Partial<StackStanding> = {},
-): StackStanding => ({
+  state: StackStatus['state'],
+  more: Partial<StackStatus> = {},
+): StackStatus => ({
   repository: 'api',
   state,
   skip: null,
@@ -31,7 +31,7 @@ const JUDGED = { judges: true, checks: true };
 const UNJUDGED = { judges: false, checks: true };
 
 const completed = (more: Partial<EntryFacts> = {}): EntryFacts => ({
-  refusal: null,
+  unreplayableReason: null,
   notRun: false,
   end: endOf('completed'),
   measures: measuresOf(1),
@@ -45,9 +45,9 @@ const verdict = (scale: 'yes-no' | 'number', value: number) =>
     JudgeVerdict.of({
       scale,
       value,
-      marks: null,
+      claimResults: null,
       claims: [],
-      passShare: 1,
+      passThreshold: 1,
       model: 'judge/model',
       referenced: false,
       reasons: [
@@ -147,7 +147,7 @@ describe('whether a replayed task succeeded', () => {
     });
   });
 
-  it('goes unscored when its candidate checks changes and no stack of its change reached Spotlight, whatever the judge says', () => {
+  it('goes unscored when its candidate checks changes and no stack of its change arrived at Spotlight, whatever the judge says', () => {
     const result = resultOf(
       completed({
         checks: ChangeChecks.of([]),
@@ -163,7 +163,7 @@ describe('whether a replayed task succeeded', () => {
     });
   });
 
-  it('goes unscored when it changed nothing for its candidate’s check to run on, keeping what the judge said', () => {
+  it('goes unscored when it changed nothing for its candidate’s check to run on, recording what the judge said', () => {
     const result = resultOf(
       completed({
         checks: ChangeChecks.of([]),
@@ -192,7 +192,7 @@ describe('whether a replayed task succeeded', () => {
     });
   });
 
-  it('goes unscored when its candidate checks changes but none of its stacks asked for a check', () => {
+  it('goes unscored when its candidate checks changes but none of its stacks requested a check', () => {
     expect(
       resultOf(
         completed({ checks: ChangeChecks.of([stack('unchecked')]) }),
@@ -205,7 +205,7 @@ describe('whether a replayed task succeeded', () => {
     });
   });
 
-  it('waits for its digest to tell a missing stack from no change at all', () => {
+  it('waits for its usage to tell a missing stack from no change at all', () => {
     expect(
       resultOf(
         completed({ checks: ChangeChecks.of([]), measures: null }),
@@ -225,7 +225,7 @@ describe('whether a replayed task succeeded', () => {
       resultOf(
         completed({
           checks: ChangeChecks.of([stack('failed')]),
-          judging: EntryJudging.asked(),
+          judging: EntryJudging.requested(),
         }),
         JUDGED,
       ),
@@ -240,7 +240,7 @@ describe('whether a replayed task succeeded', () => {
       resultOf(
         completed({
           checks: ChangeChecks.of([
-            stack('skipped', { skip: 'nobody-checked' }),
+            stack('skipped', { skip: 'queue-timeout' }),
           ]),
         }),
         UNJUDGED,
@@ -251,7 +251,7 @@ describe('whether a replayed task succeeded', () => {
       reasons: [
         {
           code: 'check-skipped',
-          detail: 'nobody-checked',
+          detail: 'queue-timeout',
           steps: [],
           hunks: [],
         },
@@ -304,14 +304,14 @@ describe('whether a replayed task succeeded', () => {
     }
   });
 
-  it('blames an abandoned run on the candidate only when it hung past its time', () => {
+  it('blames an exhausted run on the candidate only when it hung past its time', () => {
     for (const [failure, succeeded] of [
       ['runner-lost', null],
       [null, null],
       ['timed-out', false],
     ] as const) {
       expect(
-        resultOf(completed({ end: endOf('abandoned', { failure }) }), JUDGED),
+        resultOf(completed({ end: endOf('exhausted', { failure }) }), JUDGED),
         String(failure),
       ).toMatchObject({ succeeded, concluded: true });
     }
@@ -335,19 +335,19 @@ describe('whether a replayed task succeeded', () => {
       reasons: [{ code: 'run-stopped' }],
     });
 
-    for (const refusal of [
+    for (const reason of [
       'archive-gone',
       'candidate-unfit',
       'dispatch-failed',
       'unchecked',
     ] as const) {
-      expect(resultOf(completed({ refusal, end: null }), JUDGED)).toMatchObject(
-        {
-          succeeded: null,
-          concluded: true,
-          reasons: [{ code: 'unreplayable', detail: refusal }],
-        },
-      );
+      expect(
+        resultOf(completed({ unreplayableReason: reason, end: null }), JUDGED),
+      ).toMatchObject({
+        succeeded: null,
+        concluded: true,
+        reasons: [{ code: 'unreplayable', detail: reason }],
+      });
     }
   });
 

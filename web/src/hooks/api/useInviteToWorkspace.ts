@@ -8,10 +8,10 @@ export function useInviteToWorkspace(slug: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (terms: InviteToWorkspaceRequestDto) => {
+    mutationFn: async (spec: InviteToWorkspaceRequestDto) => {
       const { data, error, response } = await inviteToWorkspace({
         path: { slug: slug as string },
-        body: terms,
+        body: spec,
       });
 
       if (data) {

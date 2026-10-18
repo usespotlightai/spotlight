@@ -2,14 +2,14 @@ import type { StackCheck } from '@change-review/domain/aggregates/stack-check.ag
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface CheckClaimant {
   readonly workspaceId: WorkspaceId;
   readonly runner: RunnerId;
-  readonly terms: RunnerTerms;
+  readonly offer: RunnerOffer;
 }
 
 export interface StackCheckRepository {
@@ -31,7 +31,7 @@ export interface StackCheckRepository {
 
   reservedTo(runner: RunnerId, now: Date): Promise<StackCheck | null>;
 
-  overdue(now: Date, max: number): Promise<readonly StackCheck[]>;
+  withExpiredWait(now: Date, max: number): Promise<readonly StackCheck[]>;
 
   awaitingProvision(
     workspaceId: WorkspaceId,
@@ -39,7 +39,7 @@ export interface StackCheckRepository {
     page: { readonly skip: number; readonly max: number },
   ): Promise<readonly StackCheck[]>;
 
-  withLapsedReservations(now: Date): Promise<readonly StackCheck[]>;
+  withExpiredReservations(now: Date): Promise<readonly StackCheck[]>;
 
   waitingIn(
     workspaceId: WorkspaceId,

@@ -3,8 +3,8 @@ import { StationInsights } from '@/components/features/insights/station/StationI
 import { StationInsightsSkeleton } from '@/components/features/insights/station/StationInsightsSkeleton';
 import { useInsightsStations } from '@/hooks/api/useInsightsStations';
 import { useStation } from '@/hooks/api/useStation';
+import { useStationInsights } from '@/hooks/api/useStationInsights';
 import { useStationJudge } from '@/hooks/api/useStationJudge';
-import { useStationOutcomes } from '@/hooks/api/useStationOutcomes';
 import { useScrollToHash } from '@/hooks/useScrollToHash';
 import type { InsightsPeriod, StationNames } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
@@ -31,7 +31,7 @@ export function StationInsightsView({
   const lineId = names.get(stationId)?.lineId ?? report?.lineId;
   const { station } = useStation(teamId, lineId, stationId);
   const judged = Boolean(station?.judge);
-  const outcomes = useStationOutcomes(teamId, lineId, stationId);
+  const outcomes = useStationInsights(teamId, lineId, stationId);
   const judge = useStationJudge(teamId, lineId, judged ? stationId : undefined);
   const waiting =
     loading(stations) ||

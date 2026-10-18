@@ -14,7 +14,7 @@ const signing = (over: Record<string, unknown> = {}) =>
   });
 
 describe('Signing', () => {
-  it('holds what the signature should be, and what names the secret', () => {
+  it('keeps what the signature should be, and what names the secret', () => {
     expect(signing().scheme).toBe('hmac-sha256');
     expect(signing().secret).toEqual(SECRET);
   });
@@ -26,17 +26,17 @@ describe('Signing', () => {
     );
   });
 
-  it('writes the digest as hex unless the host asks otherwise', () => {
+  it('writes the digest as hex unless the service requests otherwise', () => {
     expect(signing().encoding).toBe('hex');
     expect(signing({ encoding: 'base64' }).encoding).toBe('base64');
   });
 
-  it('carries whatever the host writes in front of the digest', () => {
+  it('carries whatever the service writes in front of the digest', () => {
     expect(signing().prefix).toBe('');
     expect(signing({ prefix: 'sha256=' }).prefix).toBe('sha256=');
   });
 
-  it('refuses one that names no header to read', () => {
+  it('rejects one that names no header to read', () => {
     expect(() => signing({ header: '   ' })).toThrow(InvalidIdentifierError);
   });
 });

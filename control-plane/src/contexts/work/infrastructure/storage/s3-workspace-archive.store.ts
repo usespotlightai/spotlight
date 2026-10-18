@@ -34,10 +34,10 @@ const keyOf = (archive: WorkspaceArchive): string =>
 const base64Of = (digest: ArchiveDigest): string =>
   Buffer.from(digest.sha256, 'hex').toString('base64');
 
-const digestOf = (held: HeadObjectCommandOutput): ArchiveDigest | null =>
-  held.ChecksumSHA256
+const digestOf = (head: HeadObjectCommandOutput): ArchiveDigest | null =>
+  head.ChecksumSHA256
     ? ArchiveDigest.of(
-        Buffer.from(held.ChecksumSHA256, 'base64').toString('hex'),
+        Buffer.from(head.ChecksumSHA256, 'base64').toString('hex'),
       )
     : null;
 
@@ -55,7 +55,7 @@ export class S3WorkspaceArchiveStore implements WorkspaceArchiveStorePort {
   }
 
   async grantUpload(archive: WorkspaceArchive): Promise<ArchiveUpload> {
-    this.refuseWithoutABucket();
+    this.assertBucket();
 
     const headers = {
       'content-type': CONTENT_TYPE,
@@ -82,25 +82,25 @@ export class S3WorkspaceArchiveStore implements WorkspaceArchiveStorePort {
   }
 
   async stored(archive: WorkspaceArchive): Promise<StoredArchive | null> {
-    this.refuseWithoutABucket();
+    this.assertBucket();
 
-    const held = await headObject(this.store, {
+    const head = await headObject(this.store, {
       Bucket: this.bucket,
       Key: keyOf(archive),
       ChecksumMode: 'ENABLED',
     });
 
-    const digest = held ? digestOf(held) : null;
+    const digest = head ? digestOf(head) : null;
 
-    if (!held?.ContentLength || !digest) {
+    if (!head?.ContentLength || !digest) {
       return null;
     }
 
-    return { size: ArchiveSize.of(held.ContentLength), digest };
+    return { size: ArchiveSize.of(head.ContentLength), digest };
   }
 
   async grantDownload(archive: WorkspaceArchive): Promise<string> {
-    this.refuseWithoutABucket();
+    this.assertBucket();
 
     return getSignedUrl(
       this.runners,
@@ -119,7 +119,7 @@ export class S3WorkspaceArchiveStore implements WorkspaceArchiveStorePort {
     );
   }
 
-  private refuseWithoutABucket(): void {
+  private assertBucket(): void {
     if (!this.bucket) {
       throw new InvalidWorkspaceArchiveError(
         'storage is not configured on this deployment',

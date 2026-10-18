@@ -5,26 +5,26 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunJournal } from '@work/application/contracts/run-journal.contract';
 import type {
   HistoryCandidateDto,
-  HistoryCost,
   HistoryOutcome,
   HistoryRunDto,
+  HistoryUsage,
   RunnerHistoryAnswer,
 } from '@work/application/dto/runner-history.dto';
 import { TaskTraceMapper } from '@work/application/mappers/task-trace.mapper';
 import type { RunConnectionsPort } from '@work/application/ports/run-connections.port';
 import type {
-  RunDigest,
-  RunDigestReaderPort,
-} from '@work/application/ports/run-digest-reader.port';
-import type {
   RunOutcomeShape,
   RunOutcomesPort,
 } from '@work/application/ports/run-outcomes.port';
 import type {
-  HeldRunStanding,
+  RunUsage,
+  RunUsageReaderPort,
+} from '@work/application/ports/run-usage-reader.port';
+import type {
+  LeasedRunFacts,
   RunnerTraceReaderPort,
 } from '@work/application/ports/runner-trace-reader.port';
-import type { SearchSightPort } from '@work/application/ports/search-sight.port';
+import type { SearchVisibilityPort } from '@work/application/ports/search-visibility.port';
 import type {
   KeyedStation,
   StationRunReaderPort,
@@ -37,8 +37,8 @@ import {
   historyLength,
   turnedOut,
 } from '@work/application/read-models/history-selection';
-import { SightedHistory } from '@work/application/read-models/sighted-history';
 import { connectionsOf, traceOf } from '@work/application/read-models/trace-of';
+import { VisibleHistory } from '@work/application/read-models/visible-history';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 
@@ -52,20 +52,21 @@ const sinceOf = (written: string | null): Date | null => {
   return Number.isNaN(at.getTime()) ? null : at;
 };
 
-const costOf = (digest: RunDigest | null): HistoryCost | null =>
-  digest && {
-    ms: digest.ms,
-    steps: digest.steps,
-    faults: digest.faults,
-    used: digest.used,
-    cost: digest.cost?.amount ?? null,
-    currency: digest.cost?.currency ?? null,
+const historyUsageOf = (usage: RunUsage | null): HistoryUsage | null =>
+  usage && {
+    ms: usage.ms,
+    steps: usage.steps,
+    errors: usage.errors,
+    contextTokens: usage.contextTokens,
+    cost: usage.cost?.amount ?? null,
+    currency: usage.cost?.currency ?? null,
   };
 
-const withCost = (
+const withUsage = (
   outcome: RunOutcomeShape | null,
-  digest: RunDigest | null,
-): HistoryOutcome | null => outcome && { ...outcome, cost: costOf(digest) };
+  usage: RunUsage | null,
+): HistoryOutcome | null =>
+  outcome && { ...outcome, usage: historyUsageOf(usage) };
 
 type Outcomes = Awaited<ReturnType<RunOutcomesPort['of']>>;
 
@@ -90,31 +91,31 @@ export class ReadRunnerHistoryHandler
     private readonly traces: RunnerTraceReaderPort,
     private readonly stations: StationRunReaderPort,
     private readonly outcomes: RunOutcomesPort,
-    private readonly digests: RunDigestReaderPort,
-    private readonly sights: SearchSightPort,
+    private readonly usages: RunUsageReaderPort,
+    private readonly visibilities: SearchVisibilityPort,
     private readonly connections: RunConnectionsPort,
   ) {}
 
   async execute(query: ReadRunnerHistoryQuery): Promise<RunnerHistoryAnswer> {
     try {
-      const held = await this.traces.heldRunStanding(
+      const leased = await this.traces.leasedRunFacts(
         RunId.of(query.runId),
         RunnerId.of(query.runnerId),
       );
 
-      if (!held) {
+      if (!leased) {
         return { kind: 'unknown' };
       }
 
-      const sighted = await this.sightedBy(query.runId, held);
+      const visible = await this.visibilityFor(query.runId, leased);
       const { wanted } = query;
       const keyed = (
         await this.stations.stationsKeyed(
-          held.teamId,
+          leased.teamId,
           wanted.station,
           wanted.line,
         )
-      ).filter((each) => sighted.seesRunAt(each.stationId));
+      ).filter((each) => visible.seesRunAt(each.stationId));
       const [only] = keyed;
 
       if (!only) {
@@ -133,32 +134,32 @@ export class ReadRunnerHistoryHandler
         await this.stations.endedAt(only.stationId, {
           fingerprint: wanted.fingerprint,
           since: sinceOf(wanted.since),
-          until: held.replaysFrom,
+          until: leased.replaysFrom,
           max: wanted.outcome ? HISTORY_RUNS.matched : last,
-          excluding: sighted.hiddenTasks,
+          excluding: visible.heldOutTasks,
         })
-      ).filter((each) => !sighted.hides(each));
+      ).filter((each) => !visible.hides(each));
       const outcomes = await this.outcomes.of(
         ended.map((each) => each.runId),
-        held.replaysFrom,
+        leased.replaysFrom,
       );
-      const kept = ended
+      const filtered = ended
         .filter(
           (each) =>
             !wanted.outcome ||
             turnedOut(outcomes.get(each.runId) ?? null, wanted.outcome),
         )
         .slice(0, last);
-      const shown = await this.shownBeyond(only.stationId, sighted, kept);
+      const shown = await this.shownBeyond(only.stationId, visible, filtered);
       const shownOutcomes =
         shown.length > 0
           ? await this.outcomes.of(
               shown.map((each) => each.runId),
-              held.replaysFrom,
+              leased.replaysFrom,
             )
           : new Map();
-      const listed = [...kept, ...shown];
-      const candidates = await this.candidatesAt(only, sighted);
+      const listed = [...filtered, ...shown];
+      const candidates = await this.candidatesAt(only, visible);
 
       return {
         kind: 'found',
@@ -183,7 +184,7 @@ export class ReadRunnerHistoryHandler
             new Map([...outcomes, ...shownOutcomes]),
           ),
           candidates,
-          seedBlock: sighted.seedBlock,
+          seedBlock: visible.seedBlock,
         },
       };
     } catch (error) {
@@ -191,45 +192,45 @@ export class ReadRunnerHistoryHandler
     }
   }
 
-  private async sightedBy(
+  private async visibilityFor(
     runId: string,
-    held: HeldRunStanding,
-  ): Promise<SightedHistory> {
-    return held.isSearch
-      ? SightedHistory.through(await this.sights.of(runId))
-      : SightedHistory.unsighted();
+    leased: LeasedRunFacts,
+  ): Promise<VisibleHistory> {
+    return leased.isSearch
+      ? VisibleHistory.limitedTo(await this.visibilities.of(runId))
+      : VisibleHistory.unrestricted();
   }
 
   private async shownBeyond(
     stationId: string,
-    sighted: SightedHistory,
-    kept: readonly StationRunRow[],
+    visible: VisibleHistory,
+    runs: readonly StationRunRow[],
   ): Promise<readonly StationRunRow[]> {
     return (
-      await this.stations.endedAmong(stationId, sighted.shownBeyond(kept))
-    ).filter((each) => !sighted.hides(each));
+      await this.stations.endedAmong(stationId, visible.shownBeyond(runs))
+    ).filter((each) => !visible.hides(each));
   }
 
   private async candidatesAt(
     station: KeyedStation,
-    sighted: SightedHistory,
+    visible: VisibleHistory,
   ): Promise<readonly HistoryCandidateDto[]> {
-    const sightedRuns = sighted.candidates.flatMap((candidate) =>
+    const visibleRuns = visible.candidates.flatMap((candidate) =>
       candidate.runs.map((run) => [run.runId, run] as const),
     );
     const rows = (
       await this.stations.endedAmong(
         station.stationId,
-        sightedRuns.map(([runId]) => runId),
+        visibleRuns.map(([runId]) => runId),
       )
-    ).filter((each) => !sighted.hides(each));
-    const [written, digests] = await Promise.all([
+    ).filter((each) => !visible.hides(each));
+    const [written, usages] = await Promise.all([
       this.written(rows, station.stationName),
-      this.digests.forRuns(rows.map((each) => RunId.of(each.runId))),
+      this.usages.forRuns(rows.map((each) => RunId.of(each.runId))),
     ]);
     const writtenRuns = new Map(written.map((each) => [each.runId, each]));
 
-    return sighted.candidates.map((candidate) => ({
+    return visible.candidates.map((candidate) => ({
       candidateName: candidate.name,
       fingerprint: candidate.fingerprint,
       hypothesis: candidate.hypothesis,
@@ -243,7 +244,7 @@ export class ReadRunnerHistoryHandler
                 ...ran,
                 original: run.original,
                 repeat: run.repeat,
-                cost: costOf(digests.get(run.runId) ?? null),
+                usage: historyUsageOf(usages.get(run.runId) ?? null),
                 succeeded: run.succeeded,
                 reasons: [...run.reasons],
                 verdict: run.verdict,
@@ -255,38 +256,38 @@ export class ReadRunnerHistoryHandler
   }
 
   private async withOutcomes(
-    kept: readonly StationRunRow[],
+    runs: readonly StationRunRow[],
     station: string,
     outcomes: Outcomes,
   ): Promise<readonly HistoryRunDto[]> {
-    const [written, digests] = await Promise.all([
-      this.written(kept, station),
-      this.digests.forRuns(kept.map((each) => RunId.of(each.runId))),
+    const [written, usages] = await Promise.all([
+      this.written(runs, station),
+      this.usages.forRuns(runs.map((each) => RunId.of(each.runId))),
     ]);
 
     return written.map((each) => ({
       ...each,
-      outcome: withCost(
+      outcome: withUsage(
         outcomes.get(each.runId) ?? null,
-        digests.get(each.runId) ?? null,
+        usages.get(each.runId) ?? null,
       ),
     }));
   }
 
   private async written(
-    kept: readonly StationRunRow[],
+    runs: readonly StationRunRow[],
     station: string,
   ): Promise<readonly WrittenRun[]> {
-    const runIds = kept.map((each) => each.runId);
-    const [told, wentWrong] = await Promise.all([
+    const runIds = runs.map((each) => each.runId);
+    const [found, errors] = await Promise.all([
       this.stations.journalsOf(runIds),
-      this.connections.wentWrongIn(runIds),
+      this.connections.errorsIn(runIds),
     ]);
     const journals = new Map<string, RunJournal>(
-      told.map((journal) => [journal.runId, journal]),
+      found.map((journal) => [journal.runId, journal]),
     );
 
-    return kept.map((each) => {
+    return runs.map((each) => {
       const journal = journals.get(each.runId) ?? null;
 
       return {
@@ -311,7 +312,7 @@ export class ReadRunnerHistoryHandler
               startedAt: each.startedAt,
               endedAt: each.endedAt,
               journal,
-              connections: connectionsOf(wentWrong, each.runId, each.attempt),
+              connections: connectionsOf(errors, each.runId, each.attempt),
             },
           ]),
         ),

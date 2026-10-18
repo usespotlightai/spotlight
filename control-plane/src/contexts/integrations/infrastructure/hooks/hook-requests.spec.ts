@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import type {
-  HookMoment,
+  HookEventInstance,
   ListeningHook,
 } from '@integrations/application/ports/hook-runtime.port';
-import type { HookCallbackGrants } from '@integrations/application/services/hook-callback-grants.service';
+import type { HookCallbackTokens } from '@integrations/application/services/hook-callback-tokens.service';
 import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
 import {
   type HookRequest,
@@ -25,12 +25,12 @@ const HOOK: ListeningHook = {
   teamId: 'team_1',
   blocks: true,
   timeoutSeconds: 10,
-  steps: ['ask'],
+  steps: ['check'],
   broken: null,
   written: null,
 };
 
-const MOMENT: HookMoment = {
+const INSTANCE: HookEventInstance = {
   on: 'pull-request.opening',
   occurrence: 'occurrence_1',
   firing: null,
@@ -52,17 +52,17 @@ const MOMENT: HookMoment = {
   },
 };
 
-const asked = (overrides: Partial<HookRequest> = {}): HookRequest => ({
+const hookRequest = (overrides: Partial<HookRequest> = {}): HookRequest => ({
   hook: HOOK,
-  moment: MOMENT,
-  step: 'ask',
+  instance: INSTANCE,
+  step: 'check',
   url: 'https://dba.example.com/review',
   headers: { 'x-team': 'core' },
   body: '{"files":["db/migrations/1.sql"]}',
   fromNetwork: false,
   signing: { kind: 'hmac' },
   deadline: new Date(NOW.getTime() + 10_000),
-  waiting: 'until-answered',
+  waitMode: 'wait',
   resuming: null,
   ...overrides,
 });
@@ -72,7 +72,7 @@ const network = (): NetworkCallsPort => ({
   stateOf: vi.fn(async () => ({ kind: 'waiting' as const })),
   answered: vi.fn(async () => ({
     kind: 'answered' as const,
-    answer: {
+    response: {
       status: 200,
       headers: {},
       body: new TextEncoder().encode('{"ok":true}'),
@@ -109,7 +109,7 @@ const requests = (
         signed,
         keys: async () => ({ keys: [] }),
       },
-      { issued } as unknown as HookCallbackGrants,
+      { issued } as unknown as HookCallbackTokens,
       calls,
       fetch as unknown as typeof globalThis.fetch,
     ),
@@ -128,11 +128,11 @@ describe('HookRequests', () => {
       async () => new Response('{"ok":true}', { status: 200 }),
     );
 
-    const taken = await sending.sent(asked(), NOW);
+    const stepResult = await sending.sent(hookRequest(), NOW);
     const headers = sentHeaders(fetch);
 
-    expect(taken.outcome).toEqual({
-      name: 'ask',
+    expect(stepResult.outcome).toEqual({
+      name: 'check',
       status: 'done',
       output: { ok: true },
     });
@@ -141,7 +141,7 @@ describe('HookRequests', () => {
         SECRET.key,
         headers['webhook-id'] as string,
         Math.floor(NOW.getTime() / 1000),
-        asked().body,
+        hookRequest().body,
       ),
     );
     expect(headers['spotlight-callback-token']).toBe('callback_token');
@@ -150,7 +150,7 @@ describe('HookRequests', () => {
     );
     expect(headers['x-team']).toBe('core');
 
-    await sending.sent(asked(), NOW);
+    await sending.sent(hookRequest(), NOW);
     expect(sentHeaders(fetch)['webhook-id']).toBe(headers['webhook-id']);
   });
 
@@ -159,9 +159,9 @@ describe('HookRequests', () => {
       async () => new Response('{}', { status: 200 }),
     );
 
-    const taken = await sending.sent(asked(), NOW);
+    const stepResult = await sending.sent(hookRequest(), NOW);
 
-    expect(JSON.stringify(taken.trace)).not.toMatch(
+    expect(JSON.stringify(stepResult.trace)).not.toMatch(
       /callback_token|webhook-signature/,
     );
   });
@@ -174,20 +174,20 @@ describe('HookRequests', () => {
       null,
     );
 
-    await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
+    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
       outcome: { status: 'failed', reason: expect.stringMatching(/no secret/) },
     });
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('keeps no more of an answer than it can show', async () => {
+  it('stores no more of an answer than it can show', async () => {
     const { requests: sending } = requests(
       async () => new Response('x'.repeat(100_000), { status: 200 }),
     );
 
-    const taken = await sending.sent(asked(), NOW);
+    const stepResult = await sending.sent(hookRequest(), NOW);
 
-    expect((taken.outcome as { output: string }).output).toHaveLength(
+    expect((stepResult.outcome as { output: string }).output).toHaveLength(
       16 * 1024,
     );
   });
@@ -200,7 +200,7 @@ describe('HookRequests', () => {
     } = requests(async () => new Response('{}', { status: 200 }));
 
     await sending.sent(
-      asked({ signing: { kind: 'oidc', audience: 'https://dba' } }),
+      hookRequest({ signing: { kind: 'oidc', audience: 'https://dba' } }),
       NOW,
     );
 
@@ -210,18 +210,20 @@ describe('HookRequests', () => {
       subject: 'hook:workspace_1/team_1/dba-review',
       occurrence: 'occurrence_1',
       message: sentHeaders(fetch)['webhook-id'],
-      bodyDigest: createHash('sha256').update(asked().body).digest('base64url'),
+      bodyDigest: createHash('sha256')
+        .update(hookRequest().body)
+        .digest('base64url'),
     });
   });
 
-  it('reads a refusal from the answer', async () => {
+  it('reads a deny reason from the answer', async () => {
     const { requests: sending } = requests(
       async () =>
-        new Response('{"refuse":"drops a column in use"}', { status: 200 }),
+        new Response('{"deny":"drops a column in use"}', { status: 200 }),
     );
 
-    await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
-      refusal: 'drops a column in use',
+    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
+      denyReason: 'drops a column in use',
     });
   });
 
@@ -230,7 +232,7 @@ describe('HookRequests', () => {
       async () => new Response('down', { status: 503 }),
     );
 
-    await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
+    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
       outcome: {
         status: 'failed',
         code: 'server-error',
@@ -251,7 +253,7 @@ describe('HookRequests', () => {
       async () => new Response('no', { status }),
     );
 
-    await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
+    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
       outcome: { status: 'failed', code },
     });
   });
@@ -264,7 +266,7 @@ describe('HookRequests', () => {
     } = requests(async () => new Response('{}', { status: 200 }));
 
     await sending.sent(
-      asked({ moment: { ...MOMENT, firing: 'firing_1' } }),
+      hookRequest({ instance: { ...INSTANCE, firing: 'firing_1' } }),
       NOW,
     );
 
@@ -279,7 +281,7 @@ describe('HookRequests', () => {
       async () => new Response('{}', { status: 200 }),
     );
 
-    await sending.sent(asked(), NOW);
+    await sending.sent(hookRequest(), NOW);
 
     expect(sentHeaders(fetch)['spotlight-cause']).toBeUndefined();
   });
@@ -291,7 +293,7 @@ describe('HookRequests', () => {
       });
     });
 
-    await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
+    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
       outcome: {
         status: 'failed',
         code: 'unreachable',
@@ -308,7 +310,7 @@ describe('HookRequests', () => {
       ['slack.com'],
     );
 
-    await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
+    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
       outcome: { status: 'failed', code: 'not-allowed' },
     });
     expect(fetch).not.toHaveBeenCalled();
@@ -321,8 +323,8 @@ describe('HookRequests', () => {
       requests: sending,
     } = requests(async () => new Response('{}'));
 
-    const taken = await sending.sent(
-      asked({ url: 'http://dba.acme.internal/', fromNetwork: true }),
+    const stepResult = await sending.sent(
+      hookRequest({ url: 'http://dba.acme.internal/', fromNetwork: true }),
       NOW,
     );
 
@@ -337,14 +339,14 @@ describe('HookRequests', () => {
       }),
       new Date(NOW.getTime() + 10_000),
     );
-    expect(taken.outcome).toEqual({
-      name: 'ask',
+    expect(stepResult.outcome).toEqual({
+      name: 'check',
       status: 'done',
       output: { ok: true },
     });
   });
 
-  it('hands back a request a host sends after an event, and picks it up again', async () => {
+  it('suspends a request a host sends after an event, and resumes it', async () => {
     const calls = network();
     const { requests: sending } = requests(
       async () => new Response('{}'),
@@ -352,12 +354,12 @@ describe('HookRequests', () => {
     );
 
     const first = await sending.sent(
-      asked({ fromNetwork: true, waiting: 'hand-back' }),
+      hookRequest({ fromNetwork: true, waitMode: 'suspend' }),
       NOW,
     );
 
     expect(first.outcome).toEqual({
-      name: 'ask',
+      name: 'check',
       status: 'waiting',
       call: 'call_1',
       until: new Date(NOW.getTime() + 2 * 60 * 1000).toISOString(),
@@ -365,7 +367,7 @@ describe('HookRequests', () => {
 
     vi.mocked(calls.stateOf).mockResolvedValueOnce({
       kind: 'answered',
-      answer: {
+      response: {
         status: 204,
         headers: {},
         body: new Uint8Array(),
@@ -376,9 +378,9 @@ describe('HookRequests', () => {
 
     await expect(
       sending.sent(
-        asked({
+        hookRequest({
           fromNetwork: true,
-          waiting: 'hand-back',
+          waitMode: 'suspend',
           resuming: first.outcome,
         }),
         NOW,
@@ -391,14 +393,14 @@ describe('HookRequests', () => {
 
   it('fails a request no host answered in time', async () => {
     const calls = network();
-    vi.mocked(calls.answered).mockResolvedValueOnce({ kind: 'lapsed' });
+    vi.mocked(calls.answered).mockResolvedValueOnce({ kind: 'expired' });
     const { requests: sending } = requests(
       async () => new Response('{}'),
       calls,
     );
 
     await expect(
-      sending.sent(asked({ fromNetwork: true }), NOW),
+      sending.sent(hookRequest({ fromNetwork: true }), NOW),
     ).resolves.toMatchObject({
       outcome: {
         status: 'failed',

@@ -2,24 +2,24 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 const LIVES_MS = 10 * 60 * 1000;
 
-type OAuth2Holder = 'team' | 'person';
+type ConnectionOwnerKind = 'team' | 'person';
 
 interface Payload {
   readonly teamId: string;
-  readonly source: string;
+  readonly integration: string;
   readonly by: string;
-  readonly holder: OAuth2Holder;
-  readonly back: string | null;
+  readonly owner: ConnectionOwnerKind;
+  readonly returnTo: string | null;
   readonly nonce: string;
   readonly exp: number;
 }
 
 export interface OAuth2Intent {
   readonly teamId: string;
-  readonly source: string;
+  readonly integration: string;
   readonly by: string;
-  readonly holder: OAuth2Holder;
-  readonly back: string | null;
+  readonly owner: ConnectionOwnerKind;
+  readonly returnTo: string | null;
   readonly nonce: string;
 }
 
@@ -41,10 +41,10 @@ export class OAuth2State {
   sign(intent: OAuth2Intent): SignedOAuth2State {
     const payload: Payload = {
       teamId: intent.teamId,
-      source: intent.source,
+      integration: intent.integration,
       by: intent.by,
-      holder: intent.holder,
-      back: intent.back,
+      owner: intent.owner,
+      returnTo: intent.returnTo,
       nonce: intent.nonce,
       exp: this.now() + LIVES_MS,
     };
@@ -60,7 +60,7 @@ export class OAuth2State {
   open(token: string): OpenedOAuth2Intent | null {
     const [body, mac] = token.split('.');
 
-    if (!body || !mac || !this.holds(body, mac)) {
+    if (!body || !mac || !this.isAuthentic(body, mac)) {
       return null;
     }
 
@@ -77,18 +77,18 @@ export class OAuth2State {
       payload.exp < this.now() ||
       typeof payload.nonce !== 'string' ||
       payload.nonce.length === 0 ||
-      (payload.holder !== 'team' && payload.holder !== 'person') ||
-      (payload.back !== null && typeof payload.back !== 'string')
+      (payload.owner !== 'team' && payload.owner !== 'person') ||
+      (payload.returnTo !== null && typeof payload.returnTo !== 'string')
     ) {
       return null;
     }
 
     return {
       teamId: payload.teamId,
-      source: payload.source,
+      integration: payload.integration,
       by: payload.by,
-      holder: payload.holder,
-      back: payload.back,
+      owner: payload.owner,
+      returnTo: payload.returnTo,
       nonce: payload.nonce,
       expiresAt: new Date(payload.exp),
     };
@@ -108,10 +108,12 @@ export class OAuth2State {
     return createHmac('sha256', this.secret).update(body).digest('base64url');
   }
 
-  private holds(body: string, mac: string): boolean {
+  private isAuthentic(body: string, mac: string): boolean {
     const wanted = Buffer.from(this.mac(body));
-    const given = Buffer.from(mac);
+    const received = Buffer.from(mac);
 
-    return wanted.length === given.length && timingSafeEqual(wanted, given);
+    return (
+      wanted.length === received.length && timingSafeEqual(wanted, received)
+    );
   }
 }

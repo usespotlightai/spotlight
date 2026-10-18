@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HostResponseDto, LiveRunnerResponseDto } from '@/lib/api';
 import {
-  answeringCount,
   formatRun,
   type Host,
-  heldRunPath,
+  heartbeatAt,
   hiddenFromViewer,
-  runnerStanding,
-  seenAt,
-  standing,
-  through,
+  hostStatus,
+  leasedRunPath,
+  onlineCount,
+  runnerStatus,
+  sourceLabel,
   withActivity,
 } from '@/lib/runner';
 
@@ -18,16 +18,16 @@ const NOW = new Date('2026-08-30T12:00:00.000Z');
 const host = (over: Partial<HostResponseDto> = {}): HostResponseDto => ({
   id: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
   name: 'build-box-1',
-  through: { kind: 'pool', key: 'build-farm' },
+  source: { kind: 'pool', key: 'build-farm' },
   release: 'v1.4.0',
-  executor: 'Docker Engine 27.3.1 (linux/amd64)',
+  containerRuntime: 'Docker Engine 27.3.1 (linux/amd64)',
   capacity: 4,
   running: [],
   images: [],
-  firstSeenAt: '2026-08-30T09:00:00.000Z',
-  upSince: '2026-08-30T11:00:00.000Z',
-  lastSeenAt: '2026-08-30T11:30:00.000Z',
-  answering: true,
+  firstHeartbeatAt: '2026-08-30T09:00:00.000Z',
+  onlineSince: '2026-08-30T11:00:00.000Z',
+  lastHeartbeatAt: '2026-08-30T11:30:00.000Z',
+  online: true,
   ...over,
 });
 
@@ -40,16 +40,16 @@ const runner = (
   over: Partial<LiveRunnerResponseDto> = {},
 ): LiveRunnerResponseDto => ({
   id: 'runner_1',
-  through: { kind: 'pool', key: 'ephemeral' },
+  source: { kind: 'pool', key: 'ephemeral' },
   hostId: null,
   image: null,
   harnesses: [],
   startedAt: '2026-08-30T11:00:00.000Z',
-  lastSeenAt: null,
+  lastHeartbeatAt: null,
   ...over,
 });
 
-describe('seenAt', () => {
+describe('heartbeatAt', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
@@ -57,26 +57,30 @@ describe('seenAt', () => {
 
   afterEach(() => vi.useRealTimers());
 
-  it('says how long an answering host has been up since it last came up', () => {
-    expect(seenAt(hosted())).toBe('Up since 1h ago');
+  it('says when an online host came online', () => {
+    expect(heartbeatAt(hosted())).toBe('Online since 1h ago');
   });
 
-  it('says when a silent host was last heard from', () => {
-    expect(seenAt(hosted({ answering: false }))).toBe('Last seen 30m ago');
-  });
-});
-
-describe('standing', () => {
-  it('counts what a host runs against what it can', () => {
-    expect(standing(hosted({ running: ['runner_1'] }))).toBe('Running 1 of 4');
-    expect(standing(hosted())).toBe('Idle');
-    expect(standing(hosted({ answering: false, running: ['runner_1'] }))).toBe(
-      'Not answering',
+  it('says when an offline host sent its last heartbeat', () => {
+    expect(heartbeatAt(hosted({ online: false }))).toBe(
+      'Last heartbeat 30m ago',
     );
   });
 });
 
-const HELD = {
+describe('hostStatus', () => {
+  it('counts what a host runs against what it can', () => {
+    expect(hostStatus(hosted({ running: ['runner_1'] }))).toBe(
+      'Running 1 of 4',
+    );
+    expect(hostStatus(hosted())).toBe('Idle');
+    expect(hostStatus(hosted({ online: false, running: ['runner_1'] }))).toBe(
+      'Offline',
+    );
+  });
+});
+
+const LEASED_RUN = {
   id: 'run_7',
   state: 'claimed',
   kind: 'task' as const,
@@ -94,10 +98,12 @@ describe('withActivity', () => {
           runner({ id: 'runner_1', hostId: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P' }),
         ],
       },
-      [{ runnerId: 'runner_1', currentRun: HELD }],
+      [{ runnerId: 'runner_1', currentRun: LEASED_RUN }],
     );
 
-    expect(hosts[0]?.runners.map((each) => each.currentRun)).toEqual([HELD]);
+    expect(hosts[0]?.runners.map((each) => each.currentRun)).toEqual([
+      LEASED_RUN,
+    ]);
     expect(pools).toEqual([]);
   });
 
@@ -107,7 +113,7 @@ describe('withActivity', () => {
         hosts: [],
         runners: [
           runner({ id: 'runner_1' }),
-          runner({ id: 'runner_2', through: { kind: 'pool', key: 'burst' } }),
+          runner({ id: 'runner_2', source: { kind: 'pool', key: 'burst' } }),
           runner({ id: 'runner_3' }),
         ],
       },
@@ -116,7 +122,7 @@ describe('withActivity', () => {
 
     expect(
       pools.map((pool) => [
-        pool.through.key,
+        pool.source.key,
         pool.runners.map((each) => each.id),
       ]),
     ).toEqual([
@@ -128,81 +134,94 @@ describe('withActivity', () => {
 
 describe('formatRun', () => {
   it('names the run, or says what kind it is where it cannot', () => {
-    expect(formatRun(HELD)).toBe('Drain the stuck retry queues');
-    expect(formatRun({ ...HELD, kind: 'search', title: null })).toBe(
+    expect(formatRun(LEASED_RUN)).toBe('Drain the stuck retry queues');
+    expect(formatRun({ ...LEASED_RUN, kind: 'search', title: null })).toBe(
       'A search run',
     );
     expect(
-      formatRun({ ...HELD, kind: 'spec', teamId: null, title: null }),
+      formatRun({ ...LEASED_RUN, kind: 'spec', teamId: null, title: null }),
     ).toBe('A run queued by hand');
     expect(formatRun(null)).toBe('No run yet');
   });
 });
 
-describe('runnerStanding', () => {
+describe('runnerStatus', () => {
   it('says a runner is starting, running, or waiting on a person', () => {
     const active = runner();
 
-    expect(runnerStanding({ ...active, currentRun: null })).toBe('Starting');
-    expect(runnerStanding({ ...active, currentRun: HELD })).toBe('Running');
+    expect(runnerStatus({ ...active, currentRun: null })).toBe('Starting');
+    expect(runnerStatus({ ...active, currentRun: LEASED_RUN })).toBe('Running');
     expect(
-      runnerStanding({ ...active, currentRun: { ...HELD, state: 'waiting' } }),
+      runnerStatus({
+        ...active,
+        currentRun: { ...LEASED_RUN, state: 'waiting' },
+      }),
     ).toBe('Waiting on a person');
   });
 });
 
 describe('hiddenFromViewer', () => {
   it('hides a task run or chat of a team the viewer cannot read, never a replay, a search or a run for no team', () => {
-    expect(hiddenFromViewer({ ...HELD, readable: false, title: null })).toBe(
-      true,
-    );
     expect(
-      hiddenFromViewer({ ...HELD, kind: 'chat', readable: false, title: null }),
+      hiddenFromViewer({ ...LEASED_RUN, readable: false, title: null }),
     ).toBe(true);
-    expect(hiddenFromViewer(HELD)).toBe(false);
     expect(
       hiddenFromViewer({
-        ...HELD,
+        ...LEASED_RUN,
+        kind: 'chat',
+        readable: false,
+        title: null,
+      }),
+    ).toBe(true);
+    expect(hiddenFromViewer(LEASED_RUN)).toBe(false);
+    expect(
+      hiddenFromViewer({
+        ...LEASED_RUN,
         kind: 'search',
         readable: false,
         title: null,
       }),
     ).toBe(false);
     expect(
-      hiddenFromViewer({ ...HELD, readable: false, teamId: null, title: null }),
+      hiddenFromViewer({
+        ...LEASED_RUN,
+        readable: false,
+        teamId: null,
+        title: null,
+      }),
     ).toBe(false);
     expect(hiddenFromViewer(null)).toBe(false);
   });
 });
 
-describe('heldRunPath', () => {
+describe('leasedRunPath', () => {
   it('links only a task run on a team the viewer reads', () => {
-    expect(heldRunPath('acme', HELD)).toBe('/w/acme/team/team_1/runs/run_7');
+    expect(leasedRunPath('acme', LEASED_RUN)).toBe(
+      '/w/acme/team/team_1/runs/run_7',
+    );
     expect(
-      heldRunPath('acme', { ...HELD, readable: false, title: null }),
+      leasedRunPath('acme', { ...LEASED_RUN, readable: false, title: null }),
     ).toBeNull();
-    expect(heldRunPath('acme', { ...HELD, kind: 'chat' })).toBeNull();
+    expect(leasedRunPath('acme', { ...LEASED_RUN, kind: 'chat' })).toBeNull();
   });
 });
 
-describe('answeringCount', () => {
-  it('counts only the hosts still answering', () => {
+describe('onlineCount', () => {
+  it('counts only the hosts still online', () => {
     expect(
-      answeringCount({
-        hosts: [hosted(), hosted({ answering: false })],
+      onlineCount({
+        hosts: [hosted(), hosted({ online: false })],
         pools: [],
       }),
     ).toBe(1);
   });
 });
 
-describe('through', () => {
+describe('sourceLabel', () => {
   it('names the pool or trust, or says it is gone', () => {
-    expect(through({ kind: 'pool', key: 'build-farm' })).toBe(
+    expect(sourceLabel({ kind: 'pool', key: 'build-farm' })).toBe(
       'Pool build-farm',
     );
-    expect(through({ kind: 'trust', key: null })).toBe(
-      'Trust no longer defined',
-    );
+    expect(sourceLabel({ kind: 'trust', key: null })).toBe('Trust deleted');
   });
 });

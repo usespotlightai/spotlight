@@ -1,7 +1,7 @@
 import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
+import type { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypted-provision-secret.vo';
 import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
-import type { SealedProvisionSecret } from '@runners/domain/value-objects/sealed-provision-secret.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 export type PoolMode = 'pull' | 'push';
@@ -28,7 +28,7 @@ export class PushAccess {
 
   private constructor(
     readonly url: ProvisionUrl,
-    readonly secret: SealedProvisionSecret,
+    readonly secret: EncryptedProvisionSecret,
     readonly secretVersion: number | null,
     readonly egress: EgressReference | null,
     readonly egressTraffic: EgressTraffic,
@@ -36,7 +36,7 @@ export class PushAccess {
 
   static of(
     url: ProvisionUrl,
-    secret: SealedProvisionSecret,
+    secret: EncryptedProvisionSecret,
     secretVersion: number | null,
     egress: EgressReference | null,
     egressTraffic: EgressTraffic = EgressTraffic.all(),
@@ -54,7 +54,7 @@ export class PushAccess {
     return secretVersion !== this.secretVersion;
   }
 
-  goesOutThrough(egress: EgressReference): boolean {
+  usesEgress(egress: EgressReference): boolean {
     return this.egress?.equals(egress) ?? false;
   }
 }

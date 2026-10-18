@@ -10,7 +10,7 @@ export interface IntegrationRecord extends DefinedIntegration {
 export interface IntegrationResourcesPort {
   withId(id: string): Promise<IntegrationRecord | null>;
 
-  at(teamId: TeamId, source: string): Promise<IntegrationRecord | null>;
+  at(teamId: TeamId, integration: string): Promise<IntegrationRecord | null>;
 
   ofTeam(teamId: TeamId): Promise<readonly IntegrationRecord[]>;
 }

@@ -19,8 +19,8 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -47,9 +47,9 @@ const verdictOf = (passes: boolean) =>
   JudgeVerdict.of({
     scale: 'number',
     value: passes ? 5 : 2,
-    marks: null,
+    claimResults: null,
     claims: [],
-    passShare: 1,
+    passThreshold: 1,
     model: 'judge/model',
     referenced: false,
     reasons: [],
@@ -59,8 +59,8 @@ const started = (
   id: string,
   candidate: Candidate,
   repeats: number,
-  probe = false,
-  among: readonly RunId[] | null = null,
+  calibration = false,
+  runSubset: readonly RunId[] | null = null,
   against: Replay | null = null,
 ) => {
   const replay = Replay.start({
@@ -68,15 +68,15 @@ const started = (
     set: SET,
     candidate,
     baseline: false,
-    ceiling: Spend.ceiling(100, 'USD'),
+    ceiling: Money.ceiling(100, 'USD'),
     at: NOW,
     by: BY,
     repeats,
-    probe,
+    calibration,
     ...(against
       ? {
           oracle: {
-            answers: (among ?? SET.runs).map((run) => ({
+            answers: (runSubset ?? SET.runs).map((run) => ({
               run,
               answer: 'accepted' as const,
             })),
@@ -84,8 +84,8 @@ const started = (
             live: PLAIN,
           },
         }
-      : among
-        ? { among }
+      : runSubset
+        ? { runSubset }
         : {}),
   });
 
@@ -94,29 +94,29 @@ const started = (
   return replay.reserving(replay.entries.length, runIds());
 };
 
-const probed = (
+const calibrated = (
   passing: (place: number) => boolean,
   checked: (place: number) => 'passed' | 'failed' = () => 'passed',
 ) =>
-  started('replay_probe', SCORED, 2, true).entries.reduce(
-    (held, entry, place) => {
+  started('replay_calibration', SCORED, 2, true).entries.reduce(
+    (built, entry, place) => {
       const run = entry.run as RunId;
 
-      return held
+      return built
         .confirm(run, FINGERPRINT, NOW)
         .recordRunEnd(run, endOf('completed'))
         .measure(run, measuresOf(1), later(61_000))
         .recordReview(run, checksOf(checked(place)), null, later(62_000))
         .recordVerdict(run, verdictOf(passing(place)), null, later(63_000));
     },
-    started('replay_probe', SCORED, 2, true),
+    started('replay_calibration', SCORED, 2, true),
   );
 
 const plainly = (
   id: string,
   candidate: Candidate,
   failing: readonly string[],
-  among: readonly RunId[] | null = null,
+  runSubset: readonly RunId[] | null = null,
 ) =>
   replayedAs(
     started(
@@ -124,7 +124,7 @@ const plainly = (
       candidate,
       1,
       false,
-      among,
+      runSubset,
       candidate.isOracle ? finishedLive() : null,
     ),
     (original) => (failing.includes(original) ? 'failed' : 'completed'),
@@ -184,12 +184,12 @@ describe('setHealthOf', () => {
     });
   });
 
-  it('reads how often the judge agreed with itself on the newest probe, and marks it unstable below 80%', () => {
-    const probe = probed(() => true);
-    const answered = probe.entries.reduce(
-      (held, entry, place) =>
-        held.recordRejudgment(entry.run as RunId, verdictOf(place >= 3), null),
-      probe,
+  it('reads how often the judge agreed with itself on the newest calibration, and marks it unstable below 80%', () => {
+    const calibration = calibrated(() => true);
+    const answered = calibration.entries.reduce(
+      (built, entry, place) =>
+        built.recordRejudgment(entry.run as RunId, verdictOf(place >= 3), null),
+      calibration,
     );
     const health = setHealthOf([answered], [SCORED], FINGERPRINT, MIN_GAIN);
 
@@ -201,7 +201,7 @@ describe('setHealthOf', () => {
       unstable: true,
     });
     expect(
-      setHealthOf([probe], [SCORED], FINGERPRINT, MIN_GAIN).judge,
+      setHealthOf([calibration], [SCORED], FINGERPRINT, MIN_GAIN).judge,
     ).toMatchObject({
       compared: 0,
       pending: 12,
@@ -211,14 +211,14 @@ describe('setHealthOf', () => {
   });
 
   it('lists the runs whose check came out differently the second time', () => {
-    const probe = probed(() => true);
-    const rechecked = probe.entries.reduce(
-      (held, entry, place) =>
-        held.recheck(
+    const calibration = calibrated(() => true);
+    const rechecked = calibration.entries.reduce(
+      (built, entry, place) =>
+        built.recheck(
           entry.run as RunId,
           checksOf(place === 1 ? 'failed' : 'passed'),
         ),
-      probe,
+      calibration,
     );
     const checks = setHealthOf(
       [rechecked],
@@ -238,7 +238,7 @@ describe('setHealthOf', () => {
     ).toEqual([['task_1', 'original_1', 'passed', 'failed']]);
   });
 
-  it('has no judge or check consistency without a finished probe', () => {
+  it('has no judge or check consistency without a finished calibration', () => {
     const health = setHealthOf(
       [plainly('replay_live', PLAIN, [])],
       [PLAIN],
@@ -273,8 +273,8 @@ describe('setHealthOf', () => {
       withAnswer: 1,
       roomToImprove: true,
     });
-    expect(health.oracle?.againstReplayId?.value).toBe('replay_live');
-    expect(health.oracle?.gain?.verdict).toBe('better');
+    expect(health.oracle?.referenceReplayId?.value).toBe('replay_live');
+    expect(health.oracle?.gain?.significance).toBe('better');
   });
 
   it('compares only the runs handed an answer, and says when the answer leaves no room', () => {
@@ -315,8 +315,8 @@ describe('setHealthOf', () => {
     expect(oracle?.roomToImprove).toBeNull();
   });
 
-  it('holds back its reading until its replay finishes, and reads only one of the live config as it is now', () => {
-    const underway = started(
+  it('shows no reading until its replay finishes, and reads only one of the live config as it is now', () => {
+    const inProgress = started(
       'replay_oracle',
       ORACLE,
       1,
@@ -327,7 +327,7 @@ describe('setHealthOf', () => {
 
     expect(
       setHealthOf(
-        [plainly('replay_live', PLAIN, []), underway],
+        [plainly('replay_live', PLAIN, []), inProgress],
         [PLAIN, ORACLE],
         FINGERPRINT,
         MIN_GAIN,
@@ -359,7 +359,7 @@ describe('setHealthOf', () => {
     ).oracle;
 
     expect(oracle).toMatchObject({
-      againstState: 'stopped',
+      referenceState: 'stopped',
       gain: null,
       roomToImprove: null,
     });
@@ -369,7 +369,7 @@ describe('setHealthOf', () => {
         [ORACLE],
         FINGERPRINT,
         MIN_GAIN,
-      ).oracle?.againstState,
+      ).oracle?.referenceState,
     ).toBe('gone');
   });
 });

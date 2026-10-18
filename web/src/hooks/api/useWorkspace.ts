@@ -1,7 +1,7 @@
 import { queryOptions, useQuery } from '@tanstack/react-query';
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
 import { getWorkspace } from '@/lib/api';
-import { provisioningPollFor } from '@/lib/provisioning';
+import { setupStatusPollFor } from '@/lib/setup-status';
 
 export const workspaceQuery = (slug: string | undefined) =>
   queryOptions({
@@ -9,7 +9,7 @@ export const workspaceQuery = (slug: string | undefined) =>
     enabled: Boolean(slug),
     retry: false,
     refetchInterval: (query) =>
-      provisioningPollFor(query.state.data?.provisioning),
+      setupStatusPollFor(query.state.data?.setupStatus),
     queryFn: async () => {
       const { data, response } = await getWorkspace({
         path: { slug: slug as string },

@@ -3,7 +3,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import type { Concerns } from '@work/domain/value-objects/concerns.vo';
+import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 
 export interface TaskRepository {
@@ -15,10 +15,13 @@ export interface TaskRepository {
 
   remove(task: Task): Promise<void>;
 
-  standingAt(stationId: StationId): Promise<Task[]>;
+  allAtStation(stationId: StationId): Promise<Task[]>;
 
   // Locks the task until the transaction ends.
-  holding(workspaceId: WorkspaceId, concerns: Concerns): Promise<Task | null>;
+  findByMarks(
+    workspaceId: WorkspaceId,
+    correlationKeys: CorrelationKeys,
+  ): Promise<Task | null>;
 
   settingUpFor(teamId: TeamId): Promise<Task | null>;
 
@@ -29,6 +32,6 @@ export interface TaskRepository {
   awaitingConnection(
     teamId: TeamId,
     personId: UserId,
-    source: string,
+    integration: string,
   ): Promise<readonly Task[]>;
 }

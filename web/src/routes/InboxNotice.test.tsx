@@ -6,8 +6,8 @@ import { InboxNotice } from '@/routes/InboxNotice';
 
 const waiting = vi.fn();
 const failing = vi.fn();
-const settle = vi.fn();
-const settling = vi.fn();
+const resolve = vi.fn();
+const resolving = vi.fn();
 
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
@@ -26,12 +26,12 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
   }),
 }));
 
-vi.mock('@/hooks/api/useSettleInboxNotice', () => ({
-  useSettleInboxNotice: () => ({
-    mutate: settle,
+vi.mock('@/hooks/api/useResolveInboxNotice', () => ({
+  useResolveInboxNotice: () => ({
+    mutate: resolve,
     isPending: false,
-    isError: settling() !== null,
-    error: settling() === 'gone' ? { status: 404 } : settling() && {},
+    isError: resolving() !== null,
+    error: resolving() === 'gone' ? { status: 404 } : resolving() && {},
   }),
 }));
 
@@ -42,7 +42,7 @@ const notice = (over: Record<string, unknown> = {}) => ({
   form: 'ended',
   headline: 'The search for a better Build config stalled',
   points: [
-    'Fix the judge’s rubric: it asks for tests a rename never needs.',
+    'Fix the judge’s rubric: it requires tests a rename never needs.',
     'Fix the station’s check: it needs a database the runner never starts.',
   ],
   link: 'lines/line_1/stations/station_1/searches/search_1',
@@ -69,11 +69,11 @@ describe('InboxNotice', () => {
   beforeEach(() => {
     waiting.mockReturnValue([notice()]);
     failing.mockReturnValue(false);
-    settling.mockReturnValue(null);
-    settle.mockClear();
+    resolving.mockReturnValue(null);
+    resolve.mockClear();
   });
 
-  it('holds the notice’s place while the inbox loads', () => {
+  it('keeps the notice’s place while the inbox loads', () => {
     waiting.mockReturnValue(undefined);
     renderNotice();
 
@@ -99,7 +99,7 @@ describe('InboxNotice', () => {
   });
 
   it('says nothing is waiting where opening it finds it is no longer yours', () => {
-    settling.mockReturnValue('gone');
+    resolving.mockReturnValue('gone');
     renderNotice();
 
     expect(screen.getByText(GONE_FROM_INBOX)).toBeInTheDocument();
@@ -134,14 +134,17 @@ describe('InboxNotice', () => {
   it('moves it to resolved on opening it, once, as reading an email does', () => {
     renderNotice();
 
-    expect(settle).toHaveBeenCalledTimes(1);
-    expect(settle).toHaveBeenCalledWith({ slug: 'acme', noticeId: 'notice_1' });
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(resolve).toHaveBeenCalledWith({
+      slug: 'acme',
+      noticeId: 'notice_1',
+    });
   });
 
   it('leaves a notice already resolved alone', () => {
     waiting.mockReturnValue([notice({ resolved: true, unread: false })]);
     renderNotice();
 
-    expect(settle).not.toHaveBeenCalled();
+    expect(resolve).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,5 @@
 import type { DeleteHarnessProfileCommand } from '@configuration/application/commands/delete-harness-profile.command';
-import type { StationGifts } from '@configuration/application/services/station-gifts.service';
+import type { StationReferences } from '@configuration/application/services/station-references.service';
 import { HarnessProfileInUseError } from '@configuration/domain/exceptions/harness-profile-in-use.error';
 import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
 import type { HarnessProfileRepository } from '@configuration/domain/repositories/harness-profile.repository';
@@ -12,7 +12,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class DeleteHarnessProfileHandler
   implements
@@ -21,7 +21,7 @@ export class DeleteHarnessProfileHandler
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly profiles: HarnessProfileRepository,
-    private readonly given: StationGifts,
+    private readonly stationReferences: StationReferences,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -31,15 +31,15 @@ export class DeleteHarnessProfileHandler
     const id = HarnessProfileId.of(command.profileId);
 
     try {
-      const standing = await this.profiles.withId(id);
-      const permissions = standing
+      const existing = await this.profiles.withId(id);
+      const permissions = existing
         ? await this.access.permissionsOnTeam(
-            standing.teamId.value,
+            existing.teamId.value,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -47,15 +47,18 @@ export class DeleteHarnessProfileHandler
         return forbiddenTo('configure');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
-      const named = await this.given.onTeam(standing.teamId, 'profile');
+      const named = await this.stationReferences.onTeam(
+        existing.teamId,
+        'profile',
+      );
 
       await this.transaction.inTransaction(() =>
         this.profiles.save(
-          standing.retire(
+          existing.delete(
             named,
-            Attribution.of(command.actor, permissions.workspaceId),
+            ChangeActor.of(command.actor, permissions.workspaceId),
           ),
         ),
       );

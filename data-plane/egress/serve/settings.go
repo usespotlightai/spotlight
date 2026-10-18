@@ -14,20 +14,20 @@ import (
 	"strings"
 	"time"
 
-	"usespotlight.ai/data-plane/reach"
+	"usespotlight.ai/data-plane/allowlist"
 )
 
 const (
-	envListen      = "SPOTLIGHT_EGRESS_LISTEN"
-	envCertificate = "SPOTLIGHT_EGRESS_TLS_CERT"
-	envKey         = "SPOTLIGHT_EGRESS_TLS_KEY"
-	envURL         = "SPOTLIGHT_URL"
-	envToken       = "SPOTLIGHT_EGRESS_TOKEN"
-	envAllow       = "SPOTLIGHT_EGRESS_ALLOW"
-	envReads       = "SPOTLIGHT_EGRESS_READS"
-	envRate        = "SPOTLIGHT_EGRESS_RATE"
-	envConnections = "SPOTLIGHT_EGRESS_CONNECTIONS"
-	envTrust       = "SPOTLIGHT_EGRESS_TRUST"
+	envListen         = "SPOTLIGHT_EGRESS_LISTEN"
+	envCertificate    = "SPOTLIGHT_EGRESS_TLS_CERT"
+	envKey            = "SPOTLIGHT_EGRESS_TLS_KEY"
+	envURL            = "SPOTLIGHT_URL"
+	envToken          = "SPOTLIGHT_EGRESS_TOKEN"
+	envAllow          = "SPOTLIGHT_EGRESS_ALLOW"
+	envSecretAllow    = "SPOTLIGHT_EGRESS_SECRET_ALLOW"
+	envRateLimit      = "SPOTLIGHT_EGRESS_RATE_LIMIT"
+	envMaxConnections = "SPOTLIGHT_EGRESS_MAX_CONNECTIONS"
+	envCABundle       = "SPOTLIGHT_EGRESS_CA_BUNDLE"
 )
 
 const (
@@ -41,12 +41,12 @@ type Settings struct {
 	Certificate *tls.Certificate
 	URL         string
 	Token       string
-	Allow       reach.List
-	Reads       []string
+	Allow       allowlist.List
+	SecretAllow []string
 	Rate        float64
 	Connections int
 
-	HoldsEvery  time.Duration
+	CheckEvery  time.Duration
 	RecordEvery time.Duration
 	Dial        func(ctx context.Context, network, address string) (net.Conn, error)
 	RootCAs     *x509.CertPool
@@ -66,7 +66,7 @@ func Load() (Settings, error) {
 		Listen:      or(get(envListen), defaultListen),
 		URL:         get(envURL),
 		Token:       get(envToken),
-		Reads:       list(get(envReads)),
+		SecretAllow: list(get(envSecretAllow)),
 		Rate:        defaultRate,
 		Connections: defaultConnections,
 	}
@@ -78,7 +78,7 @@ func Load() (Settings, error) {
 		note(fmt.Errorf("%s is required; it is the token the control plane issued for this egress", envToken))
 	}
 
-	allow, err := reach.Parse(list(get(envAllow)))
+	allow, err := allowlist.Parse(list(get(envAllow)))
 	if err != nil {
 		note(fmt.Errorf("%s: %w", envAllow, err))
 	}
@@ -93,27 +93,27 @@ func Load() (Settings, error) {
 		}
 		settings.Certificate = &pair
 	case certificate != "" || key != "":
-		note(fmt.Errorf("%s and %s go together; give both or neither", envCertificate, envKey))
+		note(fmt.Errorf("%s and %s go together; set both or neither", envCertificate, envKey))
 	}
 
-	if path := get(envTrust); path != "" {
+	if path := get(envCABundle); path != "" {
 		roots, err := trusting(path)
 		note(err)
 		settings.RootCAs = roots
 	}
 
-	if raw := get(envRate); raw != "" {
+	if raw := get(envRateLimit); raw != "" {
 		rate, err := strconv.ParseFloat(raw, 64)
 		if err != nil || rate < 0 {
-			note(fmt.Errorf("%s: %q is not a number of requests each second, or 0 for no limit", envRate, raw))
+			note(fmt.Errorf("%s: %q is not a number of requests each second, or 0 for no limit", envRateLimit, raw))
 		}
 		settings.Rate = rate
 	}
 
-	if raw := get(envConnections); raw != "" {
+	if raw := get(envMaxConnections); raw != "" {
 		most, err := strconv.Atoi(raw)
 		if err != nil || most < 0 {
-			note(fmt.Errorf("%s: %q is not a number of open connections, or 0 for no limit", envConnections, raw))
+			note(fmt.Errorf("%s: %q is not a number of open connections, or 0 for no limit", envMaxConnections, raw))
 		}
 		settings.Connections = most
 	}
@@ -124,7 +124,7 @@ func Load() (Settings, error) {
 func trusting(path string) (*x509.CertPool, error) {
 	trusted, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", envTrust, err)
+		return nil, fmt.Errorf("%s: %w", envCABundle, err)
 	}
 
 	roots, err := x509.SystemCertPool()
@@ -132,7 +132,7 @@ func trusting(path string) (*x509.CertPool, error) {
 		roots = x509.NewCertPool()
 	}
 	if !roots.AppendCertsFromPEM(trusted) {
-		return nil, fmt.Errorf("%s: %s holds no PEM certificate", envTrust, path)
+		return nil, fmt.Errorf("%s: %s has no PEM certificate", envCABundle, path)
 	}
 
 	return roots, nil

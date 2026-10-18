@@ -4,17 +4,17 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { routeAfterRun } from '@work/domain/services/route-after-run';
-import { Handover } from '@work/domain/value-objects/handover.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import { describe, expect, it } from 'vitest';
 
 const station = (
@@ -42,7 +42,10 @@ const LINE = Line.rehydrate({
     station('station_0', 'Backlog', 0, { kind: 'backlog' }),
     station('station_1', 'Triage', 1, {
       harness: HarnessId.of('dev'),
-      wayOut: WayOut.of({ stations: [StationId.of('station_2')], ends: true }),
+      routes: StationRoutes.of({
+        stations: [StationId.of('station_2')],
+        ends: true,
+      }),
     }),
     station('station_2', 'Spec', 2, { harness: HarnessId.of('dev') }),
     station('station_3', 'Build', 3, { harness: HarnessId.of('dev') }),
@@ -50,32 +53,32 @@ const LINE = Line.rehydrate({
   ],
 });
 
-const said = TaskNoteBody.of('Over to you.');
+const NOTE = TaskNoteBody.of('Over to you.');
 const FAILURE = TaskFailure.fromRun('exited');
 const BUILD = StationId.of('station_3');
 const GONE = StationId.of('station_gone');
 
-const working = (heldBackTo: StationId | null) => ({
+const working = (deferredMoveTo: StationId | null) => ({
   awaitingReview: false,
-  heldBackTo,
+  deferredMoveTo,
 });
 
-const waiting = (heldBackTo: StationId | null) => ({
+const waiting = (deferredMoveTo: StationId | null) => ({
   awaitingReview: true,
-  heldBackTo,
+  deferredMoveTo,
 });
 
-const endings: readonly [string, Handover][] = [
-  ['asks a person', Handover.review(said)],
-  ['says the work is done', Handover.done(said)],
-  ['fails', Handover.failed(said, FAILURE)],
+const endings: readonly [string, ResolvedHandover][] = [
+  ['asks a person', ResolvedHandover.review(NOTE)],
+  ['hands over the task as done', ResolvedHandover.done(NOTE)],
+  ['fails', ResolvedHandover.failed(NOTE, FAILURE)],
 ];
 
 describe('routeAfterRun', () => {
-  it('passes the task on where the run passed it, whatever was held back', () => {
+  it('passes the task on where the run passed it, whatever was deferred', () => {
     expect(
       routeAfterRun(
-        Handover.pass(StationId.of('station_2'), said),
+        ResolvedHandover.pass(StationId.of('station_2'), NOTE),
         LINE,
         working(BUILD),
       ),
@@ -83,46 +86,54 @@ describe('routeAfterRun', () => {
   });
 
   it.each(endings)(
-    'takes the task where a move was held back to when the run %s',
+    'takes the task where a move was deferred to when the run %s',
     (_, handover) => {
       expect(routeAfterRun(handover, LINE, working(BUILD))).toMatchObject({
-        kind: 'heldBack',
+        kind: 'deferredMove',
         to: { id: BUILD },
       });
     },
   );
 
-  it('takes the task where a move was held back to when the run passes it somewhere off the line', () => {
+  it('takes the task where a move was deferred to when the run passes it somewhere off the line', () => {
     expect(
-      routeAfterRun(Handover.pass(GONE, said), LINE, working(BUILD)),
-    ).toMatchObject({ kind: 'heldBack', to: { id: BUILD } });
+      routeAfterRun(ResolvedHandover.pass(GONE, NOTE), LINE, working(BUILD)),
+    ).toMatchObject({ kind: 'deferredMove', to: { id: BUILD } });
   });
 
-  it('ends as the run said where the station held back to has left the line', () => {
-    expect(routeAfterRun(Handover.review(said), LINE, working(GONE))).toEqual({
+  it('ends as the run handed over where the station deferred to has left the line', () => {
+    expect(
+      routeAfterRun(ResolvedHandover.review(NOTE), LINE, working(GONE)),
+    ).toEqual({
       kind: 'ask',
       failure: null,
     });
     expect(
-      routeAfterRun(Handover.failed(said, FAILURE), LINE, working(GONE)),
+      routeAfterRun(
+        ResolvedHandover.failed(NOTE, FAILURE),
+        LINE,
+        working(GONE),
+      ),
     ).toEqual({
       kind: 'ask',
       failure: FAILURE,
     });
     expect(
-      routeAfterRun(Handover.done(said), LINE, working(GONE)),
+      routeAfterRun(ResolvedHandover.done(NOTE), LINE, working(GONE)),
     ).toMatchObject({
       kind: 'finish',
     });
   });
 
-  it('ends as the run said with nothing held back', () => {
-    expect(routeAfterRun(Handover.review(said), LINE, working(null))).toEqual({
+  it('ends as the run handed over with nothing deferred', () => {
+    expect(
+      routeAfterRun(ResolvedHandover.review(NOTE), LINE, working(null)),
+    ).toEqual({
       kind: 'ask',
       failure: null,
     });
     expect(
-      routeAfterRun(Handover.done(said), LINE, working(null)),
+      routeAfterRun(ResolvedHandover.done(NOTE), LINE, working(null)),
     ).toMatchObject({
       kind: 'finish',
     });
@@ -130,45 +141,53 @@ describe('routeAfterRun', () => {
 
   describe('while the task waits on a person', () => {
     it.each(endings)(
-      'takes the task where a move was held back to when the run %s',
+      'takes the task where a move was deferred to when the run %s',
       (_, handover) => {
         expect(routeAfterRun(handover, LINE, waiting(BUILD))).toMatchObject({
-          kind: 'heldBack',
+          kind: 'deferredMove',
           to: { id: BUILD },
         });
       },
     );
 
-    it('lets go of the task, still asked, with nothing held back', () => {
-      expect(routeAfterRun(Handover.done(said), LINE, waiting(null))).toEqual({
-        kind: 'let-go',
+    it('detaches the task, still asked, with nothing deferred', () => {
+      expect(
+        routeAfterRun(ResolvedHandover.done(NOTE), LINE, waiting(null)),
+      ).toEqual({
+        kind: 'detach',
         failure: null,
       });
       expect(
-        routeAfterRun(Handover.failed(said, FAILURE), LINE, waiting(null)),
-      ).toEqual({ kind: 'let-go', failure: FAILURE });
+        routeAfterRun(
+          ResolvedHandover.failed(NOTE, FAILURE),
+          LINE,
+          waiting(null),
+        ),
+      ).toEqual({ kind: 'detach', failure: FAILURE });
     });
 
     it('never passes the task on where the run passed it', () => {
       expect(
         routeAfterRun(
-          Handover.pass(StationId.of('station_2'), said),
+          ResolvedHandover.pass(StationId.of('station_2'), NOTE),
           LINE,
           waiting(null),
         ),
-      ).toEqual({ kind: 'let-go', failure: null });
+      ).toEqual({ kind: 'detach', failure: null });
       expect(
         routeAfterRun(
-          Handover.pass(StationId.of('station_2'), said),
+          ResolvedHandover.pass(StationId.of('station_2'), NOTE),
           LINE,
           waiting(BUILD),
         ),
-      ).toMatchObject({ kind: 'heldBack', to: { id: BUILD } });
+      ).toMatchObject({ kind: 'deferredMove', to: { id: BUILD } });
     });
   });
 
-  it('asks a person where the task stands on no line', () => {
-    expect(routeAfterRun(Handover.done(said), null, working(BUILD))).toEqual({
+  it('asks a person where the task is on no line', () => {
+    expect(
+      routeAfterRun(ResolvedHandover.done(NOTE), null, working(BUILD)),
+    ).toEqual({
       kind: 'ask',
       failure: null,
     });

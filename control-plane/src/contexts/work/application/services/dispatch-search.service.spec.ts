@@ -168,7 +168,7 @@ describe('DispatchSearch', () => {
     expect(runs.get('run_9')?.placement.equals(line.runsIn)).toBe(false);
   });
 
-  it('hands the runner only the briefing it was given, with nothing to check out, no tools, skills, attachments or memories', async () => {
+  it('hands the runner only its own briefing, with nothing to check out, no tools, skills, attachments or memories', async () => {
     const { dispatch, runs } = dispatching();
 
     await dispatch.enqueue(ORDER);
@@ -183,11 +183,11 @@ describe('DispatchSearch', () => {
       },
       briefing: ORDER.briefing,
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'search-run_9' },
+      resume: { key: 'search-run_9' },
       search: {},
     });
     expect(run?.briefedWith.briefed).toEqual([]);
-    expect(run?.briefedWith.cut).toEqual([]);
+    expect(run?.briefedWith.omitted).toEqual([]);
   });
 
   it('runs the harness, model and effort the search was started with', async () => {
@@ -200,7 +200,7 @@ describe('DispatchSearch', () => {
     ).toEqual([['claude-opus-4-5', 'high']]);
   });
 
-  it('queues an iteration once, however often it is asked', async () => {
+  it('queues an iteration once, however often it is requested', async () => {
     const { dispatch, runs } = dispatching();
 
     await dispatch.enqueue(ORDER);
@@ -216,20 +216,20 @@ describe('DispatchSearch', () => {
   it('says which of a search’s agent a runner could not start: an unknown harness, an overlong model or an unknown effort', () => {
     const { dispatch } = dispatching();
 
-    expect(dispatch.refusalOf(ORDER.agent)).toBeNull();
+    expect(dispatch.problemOf(ORDER.agent)).toBeNull();
     expect(
-      dispatch.refusalOf({ harness: 'claude-code', model: null, effort: null }),
+      dispatch.problemOf({ harness: 'claude-code', model: null, effort: null }),
     ).toBeNull();
-    expect(dispatch.refusalOf({ ...ORDER.agent, harness: 'emacs' })).toEqual({
+    expect(dispatch.problemOf({ ...ORDER.agent, harness: 'emacs' })).toEqual({
       field: 'harness',
       reason:
         'Harness emacs is not one that a runner can start. Harnesses: claude-code',
     });
     expect(
-      dispatch.refusalOf({ ...ORDER.agent, model: 'm'.repeat(61) })?.field,
+      dispatch.problemOf({ ...ORDER.agent, model: 'm'.repeat(61) })?.field,
     ).toBe('model');
     expect(
-      dispatch.refusalOf({ ...ORDER.agent, effort: 'enormous' })?.field,
+      dispatch.problemOf({ ...ORDER.agent, effort: 'enormous' })?.field,
     ).toBe('effort');
   });
 
@@ -247,15 +247,15 @@ describe('DispatchSearch', () => {
     }
   });
 
-  it('withdraws a queued search run, stops a held one, and leaves an ended one be', async () => {
+  it('cancels a queued search run, stops a leased one, and leaves an ended one be', async () => {
     const { dispatch, runs } = dispatching();
 
     await dispatch.enqueue(ORDER);
-    await dispatch.withdraw('run_9');
+    await dispatch.cancel('run_9');
 
     expect(runs.get('run_9')?.hasEnded).toBe(true);
     expect(runs.get('run_9')?.outcome?.message).toBe(
-      'Search stopped before a runner took the run.',
+      'Search stopped before a runner claimed the run.',
     );
 
     await dispatch.enqueue({ ...ORDER, id: 'run_10' });
@@ -263,17 +263,17 @@ describe('DispatchSearch', () => {
       'run_10',
       (runs.get('run_10') as Run).claim(RunnerId.of('runner_1'), NOW),
     );
-    await dispatch.withdraw('run_10');
+    await dispatch.cancel('run_10');
 
     expect(runs.get('run_10')?.stopRequested).toBe(true);
 
     const ended = runs.get('run_9');
-    await dispatch.withdraw('run_9');
+    await dispatch.cancel('run_9');
 
     expect(runs.get('run_9')).toBe(ended);
   });
 
-  it('lets go of a search run nobody took up only while it still waits, saying whether an earlier attempt ever started', async () => {
+  it('cancels a search run nobody claimed only while it still waits, saying whether an earlier attempt ever started', async () => {
     const { dispatch, runs } = dispatching();
 
     await dispatch.enqueue(ORDER);
@@ -283,21 +283,21 @@ describe('DispatchSearch', () => {
       (runs.get('run_10') as Run).claim(RunnerId.of('runner_1'), NOW),
     );
 
-    expect(await dispatch.withdrawUnclaimed('run_10')).toEqual({
+    expect(await dispatch.cancelUnclaimed('run_10')).toEqual({
       outcome: 'claimed',
     });
     expect(runs.get('run_10')?.hasEnded).toBe(false);
-    expect(await dispatch.withdrawUnclaimed('run_9')).toEqual({
-      outcome: 'withdrawn',
+    expect(await dispatch.cancelUnclaimed('run_9')).toEqual({
+      outcome: 'cancelled',
       started: false,
     });
     expect(runs.get('run_9')?.outcome?.message).toBe(
-      'No runner took the run in time. Its search released it.',
+      'No runner claimed the run in time. Its search cancelled it.',
     );
-    expect(await dispatch.withdrawUnclaimed('run_9')).toEqual({
+    expect(await dispatch.cancelUnclaimed('run_9')).toEqual({
       outcome: 'ended',
     });
-    expect(await dispatch.withdrawUnclaimed('nothing')).toEqual({
+    expect(await dispatch.cancelUnclaimed('nothing')).toEqual({
       outcome: 'ended',
     });
   });

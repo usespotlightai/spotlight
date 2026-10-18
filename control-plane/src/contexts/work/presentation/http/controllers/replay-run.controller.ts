@@ -6,7 +6,7 @@ import {
   ApiProblemResponse,
   ConventionalApiController,
 } from '@platform/http/resources/conventional-api';
-import { found } from '@platform/http/resources/resource-answers';
+import { respondFound } from '@platform/http/resources/resource-responses';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 import type { ReplayRunDto } from '@work/application/dto/replay-run.dto';
 import type { SearchRunDto } from '@work/application/dto/search-run.dto';
@@ -24,20 +24,20 @@ export class ReplayRunController {
   @ApiOperation({
     operationId: 'readReplayRun',
     summary:
-      'A replay run: the past run it replays, what it did and said, and what it spent',
+      'A replay run: the past run it replays, what it did and wrote, and what it spent',
   })
   @ApiParam({ name: 'runId', type: String })
   @ApiOkResponse({ type: ReplayRunResponseDto })
   @ApiProblemResponse(
     HttpStatus.NOT_FOUND,
-    'No such replay run of the team for a caller who may read its outcomes',
+    'No such replay run of the team for a caller who may read its insights',
   )
   async replayRun(
     @Param('teamId') teamId: string,
     @Param('runId') runId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ReplayRunResponseDto> {
-    return found(
+    return respondFound(
       'replay run',
       await this.queryBus.execute<ReadReplayRunQuery, ReplayRunDto | null>(
         new ReadReplayRunQuery(teamId, runId, principal),
@@ -50,7 +50,7 @@ export class ReplayRunController {
   @ApiOperation({
     operationId: 'readSearchRun',
     summary:
-      'A search’s agent run: its search and iteration, the agent it ran, what it did and said, and what it spent',
+      'A search’s agent run: its search and iteration, the agent it ran, what it did and wrote, and what it spent',
   })
   @ApiParam({ name: 'runId', type: String })
   @ApiOkResponse({ type: SearchRunResponseDto })
@@ -63,7 +63,7 @@ export class ReplayRunController {
     @Param('runId') runId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<SearchRunResponseDto> {
-    return found(
+    return respondFound(
       'search run',
       await this.queryBus.execute<ReadSearchRunQuery, SearchRunDto | null>(
         new ReadSearchRunQuery(teamId, runId, principal),

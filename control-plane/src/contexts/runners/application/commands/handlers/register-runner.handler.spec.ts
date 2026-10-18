@@ -13,14 +13,14 @@ const ID = '123e4567-e89b-42d3-a456-426614174000';
 const NOW = new Date('2026-09-24T10:00:30.000Z');
 
 const registering = (
-  given: {
+  input: {
     runner?: () => Runner | null;
     save?: (runner: Runner) => Promise<void>;
   } = {},
 ) => {
-  const save = vi.fn(given.save ?? (async (_: Runner) => {}));
+  const save = vi.fn(input.save ?? (async (_: Runner) => {}));
   const find = vi.fn(async () =>
-    given.runner ? given.runner() : aRunner({ id: ID }),
+    input.runner ? input.runner() : aRunner({ id: ID }),
   );
 
   const handler = new RegisterRunnerHandler(
@@ -36,7 +36,7 @@ const register = new RegisterRunnerCommand(ID, [
 ]);
 
 describe('RegisterRunnerHandler', () => {
-  it('registers the runner with what it found installed, answering its id', async () => {
+  it('registers the runner with what it found installed, and returns its id', async () => {
     const { handler, save } = registering();
 
     await expect(handler.execute(register)).resolves.toEqual({ runnerId: ID });
@@ -44,7 +44,7 @@ describe('RegisterRunnerHandler', () => {
     const saved = save.mock.calls[0]?.[0] as Runner;
 
     expect(saved.harnesses.map((each) => each.value)).toEqual(['claude-code']);
-    expect(saved.terms.values).toEqual(['linux']);
+    expect(saved.offer.values).toEqual(['linux']);
     expect(saved.installed[0]?.version?.value).toBe('2.1.0');
   });
 
@@ -53,7 +53,7 @@ describe('RegisterRunnerHandler', () => {
 
     await handler.execute(register);
 
-    expect(save.mock.calls[0]?.[0]).toMatchObject({ lastSeenAt: NOW });
+    expect(save.mock.calls[0]?.[0]).toMatchObject({ lastHeartbeatAt: NOW });
   });
 
   it('records the models each harness reported', async () => {
@@ -68,7 +68,7 @@ describe('RegisterRunnerHandler', () => {
     ]);
   });
 
-  it('refuses a runner nobody started', async () => {
+  it('rejects a runner nobody started', async () => {
     const { handler } = registering({ runner: () => null });
 
     await expect(handler.execute(register)).rejects.toMatchObject({
@@ -76,10 +76,10 @@ describe('RegisterRunnerHandler', () => {
     });
   });
 
-  it('refuses a runner that has ended', async () => {
+  it('rejects a runner that has ended', async () => {
     const { handler, save } = registering({
       runner: () =>
-        aRunner({ id: ID }).took(RunnerWork.run('run_1'), NOW).ended(NOW),
+        aRunner({ id: ID }).claim(RunnerWork.run('run_1'), NOW).ended(NOW),
     });
 
     await expect(handler.execute(register)).rejects.toThrow(ApplicationError);

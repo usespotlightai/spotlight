@@ -10,9 +10,9 @@ import {
 import {
   formatCauseAction,
   formatCauseTitle,
+  formatIncumbent,
   formatReflectionIteration,
-  formatReflectionOutcome,
-  formatStanding,
+  formatReflectionResult,
   formatWhyItStalled,
   OPEN_FAILED_REPLAY,
   REFLECTION_KIND,
@@ -58,8 +58,8 @@ vi.mock('@/hooks/api/useReplaySets', () => ({
               name: 'Billing work',
               entries: [
                 {
-                  runId: 'run_held',
-                  taskId: 'task_held',
+                  runId: 'run_held_out',
+                  taskId: 'task_held_out',
                   title: 'Retry refunds on timeout',
                 },
               ],
@@ -96,7 +96,7 @@ const candidate = (
 ): SearchDetail['seed'] => ({
   candidateId: 'c',
   name: 'shorter',
-  seed: false,
+  isSeed: false,
   iteration: 1,
   hypothesis: null,
   fingerprint: null,
@@ -117,7 +117,7 @@ const candidate = (
   costPerRun: 0.5,
   spent: { amount: 2.5, currency: 'USD' },
   onFrontier: false,
-  onlyOnSeenTasks: null,
+  overfit: null,
   pullRequest: null,
   ...over,
 });
@@ -128,7 +128,7 @@ const DETAIL: SearchDetail = {
   stationId: 'station_1',
   setId: 'set_1',
   state: 'finished',
-  ending: 'iterations-spent',
+  stopReason: 'iterations-spent',
   agent: { harness: 'claude-code', model: 'opus', effort: 'high' },
   budget: {
     iterations: 2,
@@ -148,7 +148,7 @@ const DETAIL: SearchDetail = {
     searchedTasks: 5,
     heldOutTasks: 2,
     searched: [],
-    heldOut: [{ runId: 'run_held', taskId: 'task_held' }],
+    heldOut: [{ runId: 'run_held_out', taskId: 'task_held_out' }],
   },
   iterations: [
     {
@@ -175,7 +175,7 @@ const DETAIL: SearchDetail = {
   seed: candidate({
     candidateId: 'seed',
     name: 'seed',
-    seed: true,
+    isSeed: true,
     iteration: null,
     replayId: 'replay_seed',
     onFrontier: true,
@@ -190,7 +190,7 @@ const DETAIL: SearchDetail = {
       ],
       searchScore: 0.8,
       heldOutScore: 1,
-      heldOutReplayId: 'replay_tests_held',
+      heldOutReplayId: 'replay_tests_held_out',
       heldOutReplayState: 'finished',
       searchInterval: { rate: 0.8, low: 0.6, high: 1 },
       heldOutInterval: { rate: 1, low: 1, high: 1 },
@@ -198,7 +198,7 @@ const DETAIL: SearchDetail = {
         gain: 0.2,
         low: 0.05,
         high: 0.35,
-        verdict: 'better',
+        significance: 'better',
         minGain: 0.05,
         tasks: 5,
       },
@@ -206,18 +206,18 @@ const DETAIL: SearchDetail = {
         gain: 0.1,
         low: -0.2,
         high: 0.4,
-        verdict: 'within-noise',
+        significance: 'within-noise',
         minGain: 0.05,
         tasks: 6,
       },
       searchedPairs: { wins: 3, losses: 1, ties: 1 },
       heldOutPairs: { wins: 0, losses: 0, ties: 0 },
       onFrontier: true,
-      onlyOnSeenTasks: 'marked',
+      overfit: 'likely',
     }),
   ],
   frontier: ['seed', 'tests'],
-  onlyOnSeenTasks: 1,
+  overfitCount: 1,
   minGain: 0.05,
 };
 
@@ -234,19 +234,23 @@ const reflection = (
   agentSpent: null,
   reflection: {
     tasks: [
-      { taskId: 'task_held', originalRunId: 'run_held', replayRunId: 'run_r1' },
+      {
+        taskId: 'task_held_out',
+        originalRunId: 'run_held_out',
+        replayRunId: 'run_r1',
+      },
       { taskId: 'task_2', originalRunId: 'run_2', replayRunId: 'run_r2' },
       { taskId: 'task_3', originalRunId: 'run_3', replayRunId: 'run_r3' },
     ],
     causes: [
       {
-        taskId: 'task_held',
-        originalRunId: 'run_held',
+        taskId: 'task_held_out',
+        originalRunId: 'run_held_out',
         replayRunId: 'run_r1',
         cause: 'judge',
         evidence:
           'It failed the change for missing tests a rename does not need.',
-        suggestion: 'Ask for tests only where behaviour changes.',
+        suggestion: 'Require tests only where behaviour changes.',
         recordedAt: '2026-10-01T11:00:00.000Z',
       },
       {
@@ -254,13 +258,13 @@ const reflection = (
         originalRunId: 'run_2',
         replayRunId: 'run_r2',
         cause: 'task',
-        evidence: 'The cache it asks to warm was removed.',
+        evidence: 'The cache it tells the agent to warm was removed.',
         suggestion: null,
         recordedAt: '2026-10-01T11:00:00.000Z',
       },
     ],
-    standing: 'tests',
-    outcome: 'no-config-cause',
+    incumbent: 'tests',
+    result: 'no-config-cause',
     endedSearch: true,
     ...over,
   },
@@ -312,7 +316,7 @@ describe('Search', () => {
     sets.mockReturnValue(undefined);
   });
 
-  it('holds the page’s place while the search loads', () => {
+  it('keeps the page’s place while the search loads', () => {
     renderSearch();
 
     expect(
@@ -331,7 +335,7 @@ describe('Search', () => {
     ).toBeInTheDocument();
   });
 
-  it('says a search the team does not hold is not found, for a member', () => {
+  it('says a search the team does not own is not found, for a member', () => {
     error.mockReturnValue({ status: 404 });
     sets.mockReturnValue([]);
 
@@ -355,7 +359,11 @@ describe('Search', () => {
   });
 
   it('marks a search that ended unusually, saying why on hover', () => {
-    detail.mockReturnValue({ ...DETAIL, state: 'stopped', ending: 'stalled' });
+    detail.mockReturnValue({
+      ...DETAIL,
+      state: 'stopped',
+      stopReason: 'stalled',
+    });
 
     renderSearch();
 
@@ -406,7 +414,7 @@ describe('Search', () => {
       /^The search aims for the same success for less\./,
     );
     expect(tile('Cheapest')).toHaveTextContent(
-      'No candidate holds its success yet',
+      'No candidate matches the live config’s success yet',
     );
     expect(
       screen.getByText(
@@ -449,7 +457,7 @@ describe('Search', () => {
       '80% (60–100%)',
       '100% (100–100%)',
     ]);
-    expect(slots('gain-verdict')).toEqual([
+    expect(slots('gain-significance')).toEqual([
       '+20 pts(+5 to +35)· Better',
       '+10 pts(−20 to +40)· within noise',
     ]);
@@ -471,12 +479,12 @@ describe('Search', () => {
 
     expect(
       within(candidateRow('tests-first')).getByRole('img', {
-        name: 'Only on seen tasks',
+        name: 'Likely overfit',
       }),
     ).toBeInTheDocument();
     expect(
       within(candidateRow('Live config')).queryByRole('img', {
-        name: 'Only on seen tasks',
+        name: 'Likely overfit',
       }),
     ).toBeNull();
 
@@ -496,7 +504,7 @@ describe('Search', () => {
         .getByText('tests-first')
         .closest('tr')
         ?.querySelector('[data-slot="only-on-seen-tasks"]'),
-    ).toHaveTextContent('Only on seen tasks');
+    ).toHaveTextContent('Likely overfit');
     expect(
       within(table)
         .getByText('Live config')
@@ -511,13 +519,13 @@ describe('Search', () => {
       best: {
         candidateId: 'tests',
         name: 'tests-first',
-        seed: false,
+        isSeed: false,
         searchScore: 0.8,
         searchInterval: null,
         heldOutScore: 1,
         heldOutInterval: null,
         costPerRun: 0.5,
-        onlyOnSeenTasks: 'marked',
+        overfit: 'likely',
       },
     });
 
@@ -526,7 +534,7 @@ describe('Search', () => {
     const best = tile('Best');
     expect(best).toHaveTextContent('tests-first100% held out');
     expect(
-      within(best).getByRole('img', { name: 'Only on seen tasks' }),
+      within(best).getByRole('img', { name: 'Likely overfit' }),
     ).toBeInTheDocument();
   });
 
@@ -534,10 +542,8 @@ describe('Search', () => {
     const [tests] = DETAIL.candidates;
     detail.mockReturnValue({
       ...DETAIL,
-      candidates: tests
-        ? [{ ...tests, onlyOnSeenTasks: 'too-few-held-out' }]
-        : [],
-      onlyOnSeenTasks: 0,
+      candidates: tests ? [{ ...tests, overfit: 'too-few-held-out' }] : [],
+      overfitCount: 0,
     });
 
     renderSearch();
@@ -547,7 +553,7 @@ describe('Search', () => {
       within(row).getByRole('img', { name: 'Too few held-out tasks to tell' }),
     ).toBeInTheDocument();
     expect(
-      within(row).queryByRole('img', { name: 'Only on seen tasks' }),
+      within(row).queryByRole('img', { name: 'Likely overfit' }),
     ).toBeNull();
     expect(
       within(await openCandidate('tests-first')).queryByRole('note'),
@@ -569,7 +575,7 @@ describe('Search', () => {
   });
 
   it('groups candidates by iteration, opening each for its reasoning, replays and a pick', async () => {
-    detail.mockReturnValue({ ...DETAIL, state: 'searching', ending: null });
+    detail.mockReturnValue({ ...DETAIL, state: 'searching', stopReason: null });
 
     renderSearch();
 
@@ -603,7 +609,7 @@ describe('Search', () => {
       within(opened).getByRole('link', { name: 'Held-out replay' }),
     ).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/lines/line_1/stations/station_1/replays/replay_tests_held',
+      '/w/acme/team/team_1/lines/line_1/stations/station_1/replays/replay_tests_held_out',
     );
     expect(within(opened).getByRole('button', { name: 'Pick' })).toBeEnabled();
 
@@ -618,7 +624,7 @@ describe('Search', () => {
     detail.mockReturnValue({
       ...DETAIL,
       state: 'seeding',
-      ending: null,
+      stopReason: null,
       iterations: [],
       candidates: [],
     });
@@ -645,7 +651,7 @@ describe('Search', () => {
     it('groups what it found by cause, says what to do, and links each to its failed replay run', () => {
       detail.mockReturnValue({
         ...DETAIL,
-        ending: 'stalled',
+        stopReason: 'stalled',
         iterations: [...DETAIL.iterations, reflection({})],
       });
 
@@ -654,11 +660,13 @@ describe('Search', () => {
       const why = screen.getByRole('region', { name: formatWhyItStalled(3) });
       expect(why).toBe(whyAt(container, 3));
       expect(
-        why.querySelector('[data-slot="reflection-standing"]'),
-      ).toHaveTextContent(formatStanding({ seed: false, name: 'tests-first' }));
+        why.querySelector('[data-slot="reflection-incumbent"]'),
+      ).toHaveTextContent(
+        formatIncumbent({ isSeed: false, name: 'tests-first' }),
+      );
       expect(
-        why.querySelector('[data-slot="reflection-outcome"]'),
-      ).toHaveTextContent(formatReflectionOutcome('no-config-cause'));
+        why.querySelector('[data-slot="reflection-result"]'),
+      ).toHaveTextContent(formatReflectionResult('no-config-cause'));
 
       const groups = why.querySelectorAll('[data-slot="cause-group"]');
       expect(
@@ -672,7 +680,7 @@ describe('Search', () => {
         within(judge).getByText(formatCauseAction('judge')),
       ).toBeInTheDocument();
       expect(
-        within(judge).getByText('Ask for tests only where behaviour changes.'),
+        within(judge).getByText('Require tests only where behaviour changes.'),
       ).toBeInTheDocument();
       expect(
         within(judge).getByRole('link', {
@@ -695,15 +703,15 @@ describe('Search', () => {
       ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_r3');
     });
 
-    it('says the search went on when the config could still fix some', () => {
+    it('says the search continued when the config could still fix some', () => {
       detail.mockReturnValue({
         ...DETAIL,
         state: 'searching',
-        ending: null,
+        stopReason: null,
         iterations: [
           ...DETAIL.iterations,
           reflection({
-            outcome: 'went-on',
+            result: 'continued',
             endedSearch: false,
             causes: [
               {
@@ -724,8 +732,8 @@ describe('Search', () => {
 
       const why = whyAt(container, 3);
       expect(
-        why.querySelector('[data-slot="reflection-outcome"]'),
-      ).toHaveTextContent(formatReflectionOutcome('went-on'));
+        why.querySelector('[data-slot="reflection-result"]'),
+      ).toHaveTextContent(formatReflectionResult('continued'));
       expect(
         within(why).getByText(formatCauseAction('config')),
       ).toBeInTheDocument();
@@ -735,11 +743,11 @@ describe('Search', () => {
       detail.mockReturnValue({
         ...DETAIL,
         state: 'searching',
-        ending: null,
+        stopReason: null,
         iterations: [
           ...DETAIL.iterations,
           reflection(
-            { causes: [], outcome: null, endedSearch: false },
+            { causes: [], result: null, endedSearch: false },
             'running',
           ),
         ],
@@ -757,7 +765,7 @@ describe('Search', () => {
     it('shows the reflection apart from the iterations that proposed candidates, linking to its own section', () => {
       detail.mockReturnValue({
         ...DETAIL,
-        ending: 'stalled',
+        stopReason: 'stalled',
         iterations: [...DETAIL.iterations, reflection({})],
       });
 
@@ -785,10 +793,10 @@ describe('Search', () => {
     it('shows every reflection, newest first, each iteration linking to its own', () => {
       detail.mockReturnValue({
         ...DETAIL,
-        ending: 'stalled',
+        stopReason: 'stalled',
         iterations: [
           ...DETAIL.iterations,
-          reflection({ outcome: 'went-on', endedSearch: false }),
+          reflection({ result: 'continued', endedSearch: false }),
           {
             ...reflection({}),
             number: 6,
@@ -826,11 +834,11 @@ describe('Search', () => {
     it('says when its agent’s run failed before it recorded a cause', () => {
       detail.mockReturnValue({
         ...DETAIL,
-        ending: 'stalled',
+        stopReason: 'stalled',
         iterations: [
           ...DETAIL.iterations,
           reflection(
-            { causes: [], standing: 'seed', outcome: 'did-not-run' },
+            { causes: [], incumbent: 'seed', result: 'did-not-run' },
             'failed',
           ),
         ],
@@ -840,11 +848,11 @@ describe('Search', () => {
 
       const why = whyAt(container, 3);
       expect(
-        why.querySelector('[data-slot="reflection-standing"]'),
-      ).toHaveTextContent(formatStanding({ seed: true, name: 'seed' }));
+        why.querySelector('[data-slot="reflection-incumbent"]'),
+      ).toHaveTextContent(formatIncumbent({ isSeed: true, name: 'seed' }));
       expect(
-        why.querySelector('[data-slot="reflection-outcome"]'),
-      ).toHaveTextContent(formatReflectionOutcome('did-not-run'));
+        why.querySelector('[data-slot="reflection-result"]'),
+      ).toHaveTextContent(formatReflectionResult('did-not-run'));
     });
   });
 

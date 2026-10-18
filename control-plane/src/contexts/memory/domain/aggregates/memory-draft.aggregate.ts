@@ -4,9 +4,9 @@ import type {
 } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
-import { MemoryDraftingAsked } from '@memory/domain/events/memory-drafting-asked.event';
 import { MemoryDraftingFailed } from '@memory/domain/events/memory-drafting-failed.event';
-import { MemoryReviewSettled } from '@memory/domain/events/memory-review-settled.event';
+import { MemoryDraftingRequested } from '@memory/domain/events/memory-drafting-requested.event';
+import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
 import type { DraftEvidence } from '@memory/domain/services/draft-evidence';
@@ -17,21 +17,21 @@ import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-draft
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { OwesWork } from '@shared-kernel/domain/owes-work';
+import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const runsOf = (proposals: readonly MemoryProposal[]): RunId[] =>
   proposals
-    .map((each) => each.grounds.runId)
+    .map((each) => each.provenance.runId)
     .filter(
       (runId, at, all) => all.findIndex((one) => one.equals(runId)) === at,
     );
 
 export class MemoryDraft
   extends EventRecorder
-  implements OwesWork<MemoryDraft>
+  implements HasPendingJob<MemoryDraft>
 {
   private constructor(
     readonly id: MemoryDraftId,
@@ -47,7 +47,7 @@ export class MemoryDraft
     super();
   }
 
-  static open(input: {
+  static create(input: {
     id: MemoryDraftId;
     taskId: TaskId;
     workspaceId: WorkspaceId;
@@ -89,16 +89,18 @@ export class MemoryDraft
     ) {
       throw new InconsistentStateError(
         'memory draft',
-        'holds the same proposal twice',
+        'has the same proposal twice',
       );
     }
 
     if (
-      input.proposals.some((each) => !each.grounds.taskId.equals(input.taskId))
+      input.proposals.some(
+        (each) => !each.provenance.taskId.equals(input.taskId),
+      )
     ) {
       throw new InconsistentStateError(
         'memory draft',
-        'holds a proposal grounded in another task',
+        'has a proposal that cites another task',
       );
     }
 
@@ -115,12 +117,12 @@ export class MemoryDraft
     );
   }
 
-  get owesWork(): boolean {
+  get hasPendingJob(): boolean {
     return this.drafting !== null;
   }
 
-  get workExhausted(): boolean {
-    return this.drafting?.work.exhausted ?? false;
+  get jobExhausted(): boolean {
+    return this.drafting?.job.exhausted ?? false;
   }
 
   reads(position: number): boolean {
@@ -130,34 +132,36 @@ export class MemoryDraft
     );
   }
 
-  asked(runId: RunId, now: Date): MemoryDraft {
+  requestDrafting(runId: RunId, now: Date): MemoryDraft {
     if (this.drafting?.isFor(runId) || this.draftedIn?.equals(runId)) {
       return this;
     }
 
-    const asked = this.with({ drafting: MemoryDrafting.asked(runId, now) });
-    asked.record(new MemoryDraftingAsked(this.id, this.taskId, runId));
-    return asked;
+    const requested = this.with({
+      drafting: MemoryDrafting.requested(runId, now),
+    });
+    requested.record(new MemoryDraftingRequested(this.id, this.taskId, runId));
+    return requested;
   }
 
-  leased(now: Date): MemoryDraft {
+  leaseJob(now: Date): MemoryDraft {
     if (!this.drafting) {
       throw InvalidMemoryError.ofDraft('has no run to draft memories from');
     }
-    if (!this.drafting.work.dueBy(now) || this.drafting.work.exhausted) {
+    if (!this.drafting.job.isDue(now) || this.drafting.job.exhausted) {
       throw InvalidMemoryError.ofDraft('cannot be drafted again yet');
     }
 
     return this.with({
-      drafting: this.drafting.withWork(this.drafting.work.leased(now)),
+      drafting: this.drafting.withJob(this.drafting.job.lease(now)),
     });
   }
 
-  triedAgainLater(now: Date): MemoryDraft {
+  scheduleRetry(now: Date): MemoryDraft {
     return this.failed(MemoryDraftingFailure.of('errored', now));
   }
 
-  gaveUp(now: Date): MemoryDraft {
+  deadLetter(now: Date): MemoryDraft {
     return this.ended(MemoryDraftingFailure.of('interrupted', now));
   }
 
@@ -166,12 +170,15 @@ export class MemoryDraft
       return this;
     }
 
-    const next = failure.retry.after(this.drafting.work.attempts, failure.at);
+    const next = failure.retry.nextAttemptAt(
+      this.drafting.job.attempts,
+      failure.at,
+    );
 
     return next
       ? this.with({
-          drafting: this.drafting.withWork(
-            this.drafting.work.waitingUntil(next),
+          drafting: this.drafting.withJob(
+            this.drafting.job.scheduleRetryAt(next),
           ),
         })
       : this.ended(failure);
@@ -210,8 +217,8 @@ export class MemoryDraft
         throw error;
       }
     });
-    const kept = valid.filter(
-      (each) => !this.stillRemembered.some((one) => one.says(each)),
+    const remaining = valid.filter(
+      (each) => !this.stillRemembered.some((one) => one.matches(each)),
     );
     const replaced = input.evidence.isEmpty
       ? []
@@ -227,13 +234,13 @@ export class MemoryDraft
           : Math.max(this.notesRead, through + 1),
       proposals: [
         ...this.proposals.filter((each) => !replaced.includes(each)),
-        ...kept,
+        ...remaining,
       ],
       failure: null,
     });
     for (const runId of runsOf(replaced)) {
       if (!drafted.proposals.some((each) => each.proposedIn(runId))) {
-        drafted.record(new MemoryReviewSettled(this.id, this.taskId, runId));
+        drafted.record(new MemoryReviewResolved(this.id, this.taskId, runId));
       }
     }
     drafted.record(
@@ -241,8 +248,8 @@ export class MemoryDraft
         this.id,
         this.taskId,
         input.runId,
-        kept.length,
-        input.proposed.length - kept.length,
+        remaining.length,
+        input.proposed.length - remaining.length,
         replaced.length,
       ),
     );
@@ -256,9 +263,9 @@ export class MemoryDraft
       );
     }
 
-    if (!proposal.grounds.taskId.equals(this.taskId)) {
+    if (!proposal.provenance.taskId.equals(this.taskId)) {
       throw InvalidMemoryError.ofDraft(
-        'takes in only a memory grounded in its own task',
+        'takes in only a memory that cites its own task',
       );
     }
 
@@ -273,7 +280,7 @@ export class MemoryDraft
       new MemoriesProposed(
         this.id,
         this.taskId,
-        proposal.grounds.runId,
+        proposal.provenance.runId,
         1,
         0,
         0,
@@ -282,7 +289,7 @@ export class MemoryDraft
     return remembered;
   }
 
-  holding(proposal: MemoryProposal): MemoryProposal | null {
+  findProposal(proposal: MemoryProposal): MemoryProposal | null {
     return (
       this.proposals.find((each) => each.id.equals(proposal.id)) ??
       this.twinOf(proposal)
@@ -295,8 +302,8 @@ export class MemoryDraft
 
   stepsRemembered(runId: RunId): readonly number[] {
     return this.proposals
-      .filter((each) => each.remembered && each.grounds.runId.equals(runId))
-      .flatMap((each) => each.grounds.steps);
+      .filter((each) => each.remembered && each.provenance.runId.equals(runId))
+      .flatMap((each) => each.provenance.steps);
   }
 
   private twinOf(proposal: MemoryProposal): MemoryProposal | null {
@@ -304,8 +311,8 @@ export class MemoryDraft
       this.proposals.find(
         (each) =>
           each.remembered &&
-          each.proposedIn(proposal.grounds.runId) &&
-          each.says(proposal),
+          each.proposedIn(proposal.provenance.runId) &&
+          each.matches(proposal),
       ) ?? null
     );
   }
@@ -350,7 +357,7 @@ export class MemoryDraft
           each.kind,
           each.body,
           each.scope,
-          each.grounds,
+          each.provenance,
           each.source,
           each.supersedes,
           input.decision,
@@ -358,7 +365,7 @@ export class MemoryDraft
       );
     }
 
-    return next.settledWhereDone(decided);
+    return next.resolveDecidedReviews(decided);
   }
 
   reject(input: {
@@ -370,19 +377,19 @@ export class MemoryDraft
       this.proposalNamed(input.id, input.runId).reject(input.decision),
     ];
 
-    return this.decided(decided).settledWhereDone(decided);
+    return this.decided(decided).resolveDecidedReviews(decided);
   }
 
   private proposalNamed(id: MemoryId, runId: RunId): MemoryProposal {
-    const held = this.proposals.find(
-      (each) => each.id.equals(id) && each.grounds.runId.equals(runId),
+    const found = this.proposals.find(
+      (each) => each.id.equals(id) && each.provenance.runId.equals(runId),
     );
 
-    if (!held) {
+    if (!found) {
       throw new UnknownMemoryError(id.value);
     }
 
-    return held;
+    return found;
   }
 
   private decided(decided: readonly MemoryProposal[]): MemoryDraft {
@@ -393,10 +400,12 @@ export class MemoryDraft
     });
   }
 
-  private settledWhereDone(decided: readonly MemoryProposal[]): MemoryDraft {
+  private resolveDecidedReviews(
+    decided: readonly MemoryProposal[],
+  ): MemoryDraft {
     for (const runId of runsOf(decided)) {
       if (!this.proposals.some((each) => each.proposedIn(runId))) {
-        this.record(new MemoryReviewSettled(this.id, this.taskId, runId));
+        this.record(new MemoryReviewResolved(this.id, this.taskId, runId));
       }
     }
 

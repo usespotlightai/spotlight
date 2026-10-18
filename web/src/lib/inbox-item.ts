@@ -1,6 +1,6 @@
-import type { Conversing, InboxItem } from '@/lib/inbox';
+import type { ConversationItem, InboxItem } from '@/lib/inbox';
 
-export const stationOf = (item: InboxItem): Conversing['station'] => ({
+export const stationOf = (item: InboxItem): ConversationItem['station'] => ({
   name: item.station,
   color: item.stationColor,
   position: item.stationPosition,

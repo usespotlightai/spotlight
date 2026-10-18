@@ -65,7 +65,9 @@ export const moneyOf = (amount: number | null) =>
 
 const mergedTasksOf = (runs: readonly HistoryRun[]): number =>
   distinct(
-    runs.filter((run) => run.delivery === 'merged').map((run) => run.taskId),
+    runs
+      .filter((run) => run.pullRequestState === 'merged')
+      .map((run) => run.taskId),
   ).length;
 
 export const tallyOf = (runs: readonly HistoryRun[]): RunTallyResponseDto => {
@@ -79,15 +81,15 @@ export const tallyOf = (runs: readonly HistoryRun[]): RunTallyResponseDto => {
 
   return {
     runs: runs.length,
-    withdrawn: 0,
+    cancelled: 0,
     failed,
-    failedShare: shareOf(failed, runs.length),
+    failedRate: shareOf(failed, runs.length),
     stopped: count((run) => run.ending === 'stopped'),
     checksPassed: count((run) => run.checks === 'passed'),
     checksFailed: count((run) => run.checks === 'failed'),
-    accepted: count((run) => run.next?.act === 'closed'),
-    sentBack: count((run) => run.next?.act === 'sent-back'),
-    handedOn: count((run) => run.handedOn !== null),
+    accepted: count((run) => run.firstHumanAction?.kind === 'accepted'),
+    sentBack: count((run) => run.firstHumanAction?.kind === 'sent-back'),
+    passed: count((run) => run.passed !== null),
     merged: mergedTasksOf(runs),
     cost: moneyOf(spendOf(runs)),
     unpriced: count((run) => run.cost === null),
@@ -108,30 +110,34 @@ const readingOf = (
   runs: readonly HistoryRun[],
 ): Reading => {
   const tally = tallyOf(runs);
-  const asked = runs.filter((run) => run.next !== null).length;
+  const asked = runs.filter((run) => run.firstHumanAction !== null).length;
   const checked = tally.checksPassed + tally.checksFailed;
   const tasks = distinct(runs.map((run) => run.taskId)).length;
-  const settledTasks = distinct(
+  const finishedTasks = distinct(
     runs
-      .filter((run) => run.delivery === 'merged' || run.delivery === 'closed')
+      .filter(
+        (run) =>
+          run.pullRequestState === 'merged' ||
+          run.pullRequestState === 'closed',
+      )
       .map((run) => run.taskId),
   ).length;
 
   switch (measure) {
     case 'sent_back_rate':
-      return { value: shareOf(tally.sentBack, tally.runs), settled: asked };
+      return { value: shareOf(tally.sentBack, tally.runs), measured: asked };
     case 'accepted_rate':
-      return { value: shareOf(tally.accepted, tally.runs), settled: asked };
+      return { value: shareOf(tally.accepted, tally.runs), measured: asked };
     case 'checks_failed_rate':
-      return { value: shareOf(tally.checksFailed, checked), settled: checked };
+      return { value: shareOf(tally.checksFailed, checked), measured: checked };
     case 'failed_rate':
-      return { value: shareOf(tally.failed, tally.runs), settled: tally.runs };
+      return { value: shareOf(tally.failed, tally.runs), measured: tally.runs };
     case 'merged_rate':
-      return { value: shareOf(tally.merged, tasks), settled: settledTasks };
+      return { value: shareOf(tally.merged, tasks), measured: finishedTasks };
     case 'cost_per_run':
       return {
         value: costPerRunOf(runs),
-        settled: runs.length - tally.unpriced,
+        measured: runs.length - tally.unpriced,
       };
   }
 };
@@ -202,5 +208,5 @@ export const peopleNamed = (
       name: PEOPLE.find((person) => person.id === id)?.name ?? null,
     }));
 
-export const owedAsks = (teamId: string) =>
+export const unansweredAsks = (teamId: string) =>
   (world().tasks[teamId] ?? []).filter((task) => task.awaitingReview !== null);

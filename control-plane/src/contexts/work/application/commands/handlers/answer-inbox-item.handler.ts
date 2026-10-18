@@ -64,7 +64,7 @@ export class AnswerInboxItemHandler
       item.from,
       {
         station,
-        body: TaskNoteBody.given(
+        body: TaskNoteBody.fromInput(
           ApprovalAnswered.words(command.body, command.decision, changed),
           attachments,
         ),
@@ -82,7 +82,7 @@ export class AnswerInboxItemHandler
         : null;
 
     await this.tasks.save(
-      runId && line ? answered.handedTo(runId, line) : answered,
+      runId && line ? answered.assignRun(runId, line) : answered,
     );
     await this.files.takenIn(task.workspaceId, attachments);
   }

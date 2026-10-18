@@ -1,9 +1,9 @@
-import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
+import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RenewCheckLeaseHandler } from '@work/application/commands/handlers/renew-check-lease.handler';
 import { RenewCheckLeaseCommand } from '@work/application/commands/runner.commands';
@@ -16,28 +16,28 @@ import { describe, expect, it, vi } from 'vitest';
 const NOW = new Date('2026-09-28T09:00:00.000Z');
 
 const renewing = (
-  given: { known?: boolean; answer?: CheckLeaseRenewal | Error } = {},
+  options: { known?: boolean; answer?: CheckLeaseRenewal | Error } = {},
 ) => {
   const seen = vi.fn(async () =>
-    given.known === false
+    options.known === false
       ? null
       : {
           workspaceId: WorkspaceId.of('ws_1'),
           harnesses: [HarnessId.of('claude-code')],
-          terms: RunnerTerms.none(),
+          offer: RunnerOffer.none(),
           claims: 'nothing' as const,
         },
   );
   const renewLease = vi.fn(async (): Promise<CheckLeaseRenewal> => {
-    if (given.answer instanceof Error) {
-      throw given.answer;
+    if (options.answer instanceof Error) {
+      throw options.answer;
     }
-    return given.answer ?? 'renewed';
+    return options.answer ?? 'renewed';
   });
 
   const handler = new RenewCheckLeaseHandler(
     { renewLease } as unknown as CheckWorkPort,
-    { seen } satisfies RunnerPresencePort,
+    { heartbeat: seen } satisfies RunnerHeartbeatsPort,
     { now: () => NOW } as ClockPort,
   );
 
@@ -48,7 +48,7 @@ const renewal = () =>
   new RenewCheckLeaseCommand('run_1', 'stack_1', false, 'runner_1');
 
 describe('RenewCheckLeaseHandler', () => {
-  it('keeps the runner standing while it renews the check it holds', async () => {
+  it('keeps the runner alive while it renews the check it leases', async () => {
     const { handler, seen, renewLease } = renewing();
 
     await expect(handler.execute(renewal())).resolves.toBe('renewed');
@@ -78,11 +78,11 @@ describe('RenewCheckLeaseHandler', () => {
     expect(renewLease).not.toHaveBeenCalled();
   });
 
-  it('answers a refusal to renew as a fault', async () => {
-    const notHeld = Object.assign(new Error('not held'), {
-      violation: 'conflict' as const,
+  it('answers a renewal that fails as a fault', async () => {
+    const notLeased = Object.assign(new Error('not leased'), {
+      kind: 'conflict' as const,
     });
-    const { handler } = renewing({ answer: notHeld });
+    const { handler } = renewing({ answer: notLeased });
 
     await expect(handler.execute(renewal())).rejects.toMatchObject({
       kind: 'conflict',

@@ -1,24 +1,22 @@
-import { NotedWarning } from '@/components/shared/NotedWarning';
-import type { DescriptionViewResponseDto } from '@/lib/api';
-import { formatReadProblem } from '@/lib/described';
+import { WarningTooltip } from '@/components/shared/WarningTooltip';
+import type { ApiSpecViewResponseDto } from '@/lib/api';
+import { formatReadProblem } from '@/lib/api-spec';
 
 type IntegrationReadProblemProps = {
-  described: DescriptionViewResponseDto;
+  spec: ApiSpecViewResponseDto;
 };
 
-export function IntegrationReadProblem({
-  described,
-}: IntegrationReadProblemProps) {
-  const problem = formatReadProblem(described);
+export function IntegrationReadProblem({ spec }: IntegrationReadProblemProps) {
+  const problem = formatReadProblem(spec);
 
   if (!problem) {
     return null;
   }
 
   return (
-    <NotedWarning
+    <WarningTooltip
       data-slot="integration-read-problem"
-      note={problem}
+      tooltip={problem}
       label="Could not be read"
       tone="destructive"
     />

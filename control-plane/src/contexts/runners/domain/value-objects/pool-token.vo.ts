@@ -6,7 +6,7 @@ import {
 
 const SHAPE = /^[A-Za-z0-9._~-]{32,255}$/;
 
-const WITHHELD = '[secret]';
+const REDACTED = '[secret]';
 
 export class PoolToken implements Secret {
   readonly #value: string;
@@ -39,14 +39,14 @@ export class PoolToken implements Secret {
   }
 
   toString(): string {
-    return WITHHELD;
+    return REDACTED;
   }
 
   toJSON(): string {
-    return WITHHELD;
+    return REDACTED;
   }
 
   [Symbol.for('nodejs.util.inspect.custom')](): string {
-    return `PoolToken ${WITHHELD}`;
+    return `PoolToken ${REDACTED}`;
   }
 }

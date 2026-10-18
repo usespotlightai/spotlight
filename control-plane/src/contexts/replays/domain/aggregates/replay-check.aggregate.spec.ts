@@ -1,14 +1,14 @@
 import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.event';
+import { InvalidMoneyError } from '@replays/domain/exceptions/invalid-money.error';
 import { InvalidReplayCheckError } from '@replays/domain/exceptions/invalid-replay-check.error';
-import { InvalidSpendError } from '@replays/domain/exceptions/invalid-spend.error';
 import {
   aSet,
   BY,
-  DIGESTS,
   FINGERPRINT,
-  LIVE_DIGESTS,
+  HASHES,
   LIVE_FINGERPRINT,
+  LIVE_HASHES,
   NOW,
   STATION,
 } from '@replays/domain/replays.fake-spec';
@@ -33,8 +33,8 @@ const started = (more: Partial<Parameters<typeof ReplayCheck.start>[0]> = {}) =>
     reference: PlannedReference.of({ pullRequest: 42 }),
     liveFingerprint: LIVE_FINGERPRINT,
     candidateFingerprint: FINGERPRINT,
-    liveDigests: LIVE_DIGESTS,
-    candidateDigests: DIGESTS,
+    liveHashes: LIVE_HASHES,
+    candidateHashes: HASHES,
     threshold: ReplayThreshold.of({
       maxRegressions: 0,
       ceiling: 10,
@@ -42,7 +42,7 @@ const started = (more: Partial<Parameters<typeof ReplayCheck.start>[0]> = {}) =>
       minGain: 0.05,
     }),
     repeats: 1,
-    keptLive: ['diffs', 'check'],
+    scoringPinnedToLive: ['diffs', 'check'],
     createdAt: NOW,
     by: BY,
     ...more,
@@ -51,7 +51,7 @@ const started = (more: Partial<Parameters<typeof ReplayCheck.start>[0]> = {}) =>
 const SET = aSet(2);
 
 describe('ReplayCheck', () => {
-  it('records that it started, named by the change it checks, keeping what it kept live in order', () => {
+  it('records that it started, named by the change it checks, recording what it pinned to live in order', () => {
     const check = started();
     const [event] = check.pullEvents();
 
@@ -61,17 +61,17 @@ describe('ReplayCheck', () => {
       action: 'created',
       key: 'PR #42',
     });
-    expect(check.keptLive).toEqual(['check', 'diffs']);
+    expect(check.scoringPinnedToLive).toEqual(['check', 'diffs']);
   });
 
   it('checks a change to how the station runs, counting its attempts from 1', () => {
-    expect(() => started({ candidateDigests: LIVE_DIGESTS })).toThrow(
+    expect(() => started({ candidateHashes: LIVE_HASHES })).toThrow(
       InvalidReplayCheckError,
     );
     expect(() => started({ attempt: 0 })).toThrow(InvalidReplayCheckError);
   });
 
-  it('is reused only for its own set holding the same runs, under the same threshold, while running, passed or failed', () => {
+  it('is reused only for its own set with the same runs, under the same threshold, while running, passed or failed', () => {
     const check = started({ setId: SET.id, setEntries: 'entries_1' });
     const threshold = ReplayThreshold.of({
       maxRegressions: 0,
@@ -85,8 +85,8 @@ describe('ReplayCheck', () => {
       currency: 'USD',
       minGain: 0.05,
     });
-    const reusable = (verdict: 'running' | 'passed' | 'failed' | 'undecided') =>
-      check.reusableFor(SET, 'entries_1', threshold, 1, verdict);
+    const reusable = (result: 'running' | 'passed' | 'failed' | 'undecided') =>
+      check.reusableFor(SET, 'entries_1', threshold, 1, result);
 
     expect(reusable('running')).toBe(true);
     expect(reusable('passed')).toBe(true);
@@ -109,7 +109,7 @@ describe('ReplayCheck', () => {
     ).toBe(false);
   });
 
-  it('is reused only when it replays each run as many times as asked, and replays each from 1 to 5 times', () => {
+  it('is reused only when it replays each run as many times as requested, and replays each from 1 to 5 times', () => {
     const check = started({
       setId: SET.id,
       setEntries: 'entries_1',
@@ -165,7 +165,7 @@ describe('ReplayCheck', () => {
     ).toBe(3);
   });
 
-  it('awaits its baseline until it is found or cannot come, and then stays settled', () => {
+  it('awaits its baseline until it is found or cannot come, and then records that baseline status', () => {
     const check = started();
 
     expect(check.baseline).toBe('awaiting');
@@ -192,7 +192,7 @@ describe('ReplayCheck', () => {
         currency: 'USD',
         minGain: 0.05,
       }),
-    ).toThrow(InvalidSpendError);
+    ).toThrow(InvalidMoneyError);
     expect(
       ReplayThreshold.of({
         maxRegressions: 2,

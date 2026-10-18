@@ -58,37 +58,37 @@ func configChanges(was, now protocol.StationConfig) []string {
 	nowSetup := map[string]*string{}
 	for _, repository := range now.Repositories {
 		nowSetup[repository.Name] = repository.Setup
-		setup, held := wasSetup[repository.Name]
+		setup, existed := wasSetup[repository.Name]
 		switch {
-		case !held:
+		case !existed:
 			changed("repository %s added", repository.Name)
 		case shown(setup) != shown(repository.Setup):
 			changed("repository %s setup changed", repository.Name)
 		}
 	}
 	for _, repository := range was.Repositories {
-		if _, kept := nowSetup[repository.Name]; !kept {
+		if _, present := nowSetup[repository.Name]; !present {
 			changed("repository %s removed", repository.Name)
 		}
 	}
 
-	wasDigest := map[string]string{}
+	wasHash := map[string]string{}
 	for _, skill := range was.Skills {
-		wasDigest[skill.Key] = skill.Digest
+		wasHash[skill.Key] = skill.Hash
 	}
-	nowDigest := map[string]string{}
+	nowHash := map[string]string{}
 	for _, skill := range now.Skills {
-		nowDigest[skill.Key] = skill.Digest
-		digest, held := wasDigest[skill.Key]
+		nowHash[skill.Key] = skill.Hash
+		hash, existed := wasHash[skill.Key]
 		switch {
-		case !held:
+		case !existed:
 			changed("skill %s added", skill.Key)
-		case digest != skill.Digest:
-			changed("skill %s changed (%s → %s)", skill.Key, short(digest), short(skill.Digest))
+		case hash != skill.Hash:
+			changed("skill %s changed (%s → %s)", skill.Key, short(hash), short(skill.Hash))
 		}
 	}
 	for _, skill := range was.Skills {
-		if _, kept := nowDigest[skill.Key]; !kept {
+		if _, present := nowHash[skill.Key]; !present {
 			changed("skill %s removed", skill.Key)
 		}
 	}
@@ -117,14 +117,14 @@ func configChanges(was, now protocol.StationConfig) []string {
 	case was.Judge != nil && now.Judge == nil:
 		changed("judge removed")
 	case was.Judge != nil:
-		if was.Judge.RubricDigest != now.Judge.RubricDigest {
+		if was.Judge.RubricHash != now.Judge.RubricHash {
 			changed("judge rubric changed")
 		}
 		if was.Judge.Sample != now.Judge.Sample {
 			changed("judge sample %s → %s", number(was.Judge.Sample), number(now.Judge.Sample))
 		}
-		if was.Judge.Trust != now.Judge.Trust {
-			changed("judge trust %s → %s", number(was.Judge.Trust), number(now.Judge.Trust))
+		if was.Judge.MinAgreement != now.Judge.MinAgreement {
+			changed("judge min agreement %s → %s", number(was.Judge.MinAgreement), number(now.Judge.MinAgreement))
 		}
 	}
 

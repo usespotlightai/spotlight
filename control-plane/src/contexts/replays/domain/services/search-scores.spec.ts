@@ -13,8 +13,8 @@ import { scoresOf } from '@replays/domain/services/search-scores';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -26,20 +26,20 @@ const searchWith = (): Search => {
   const ids = searchRunIds();
 
   return aSearch({ set: SET })
-    .recordReplayEnd(
+    .recordReplayStopReason(
       ReplayId.of('replay_seed'),
       'finished',
-      { spent: Spend.of(10, 'USD'), unpriced: 0 },
+      { spent: Money.of(10, 'USD'), unpriced: 0 },
       NOW,
       ids,
       true,
     )
-    .admitted(RUN_ONE, {
+    .acceptProposal(RUN_ONE, {
       candidateId: CandidateId.of('candidate_terse'),
       name: CandidateName.searched('terse'),
       replayId: ReplayId.of('replay_terse'),
     })
-    .admitted(RUN_ONE, {
+    .acceptProposal(RUN_ONE, {
       candidateId: CandidateId.of('candidate_wordy'),
       name: CandidateName.searched('wordy'),
       replayId: ReplayId.of('replay_wordy'),
@@ -49,10 +49,10 @@ const searchWith = (): Search => {
 describe('scoresOf', () => {
   it('scores the seed on the searched tasks and, apart, on the held-out ones, from its one full-set replay', () => {
     const search = searchWith();
-    const held = new Set(search.split.heldOutRuns.map((each) => each.value));
+    const heldOut = new Set(search.split.heldOutRuns.map((each) => each.value));
     const seed = replayedAs(
       replayFor(SET, 'replay_seed', 'candidate_live', null, true),
-      (original) => (held.has(original) ? 'failed' : 'completed'),
+      (original) => (heldOut.has(original) ? 'failed' : 'completed'),
       2,
     );
 
@@ -136,34 +136,34 @@ describe('scoresOf', () => {
     expect(second?.searchedPairs).toBeNull();
   });
 
-  it('gives a held-out score once the candidate’s held-out replay finished, and feeds the frontier', () => {
+  it('shows a held-out score once the candidate’s held-out replay finished, and feeds the frontier', () => {
     const ids = searchRunIds();
     let search = searchWith()
       .recordRunEnd(RUN_ONE, { failed: false, started: true }, later(1), ids)
       .recordAgentSpend(RUN_ONE, ModelSpent.of([], 0), later(1), ids)
-      .recordReplayEnd(
+      .recordReplayStopReason(
         ReplayId.of('replay_terse'),
         'finished',
-        { spent: Spend.of(1, 'USD'), unpriced: 0 },
+        { spent: Money.of(1, 'USD'), unpriced: 0 },
         later(2),
         ids,
         true,
       )
-      .recordReplayEnd(
+      .recordReplayStopReason(
         ReplayId.of('replay_wordy'),
         'finished',
-        { spent: Spend.of(1, 'USD'), unpriced: 0 },
+        { spent: Money.of(1, 'USD'), unpriced: 0 },
         later(2),
         ids,
         true,
       );
 
     for (let more = 2; more <= search.budget.iterations; more += 1) {
-      const held = search.heldRun as RunId;
+      const active = search.activeRun as RunId;
 
       search = search
-        .recordRunEnd(held, { failed: false, started: true }, later(3), ids)
-        .recordAgentSpend(held, ModelSpent.of([], 0), later(3), ids);
+        .recordRunEnd(active, { failed: false, started: true }, later(3), ids)
+        .recordAgentSpend(active, ModelSpent.of([], 0), later(3), ids);
     }
 
     expect(search.current).toBe('holding-out');
@@ -192,12 +192,12 @@ describe('scoresOf', () => {
       () => 'failed',
       0.5,
     );
-    let held = 0;
+    let heldOutCount = 0;
 
     search = search.heldOutFrom(
       [seed, terse, wordy],
       0.05,
-      () => ReplayId.of(`held_${++held}`),
+      () => ReplayId.of(`held_out_${++heldOutCount}`),
       later(4),
     );
 
@@ -207,22 +207,22 @@ describe('scoresOf', () => {
         each.replay.replayId.value,
       ]),
     ).toEqual([
-      ['candidate_terse', 'held_1'],
-      ['candidate_wordy', 'held_2'],
+      ['candidate_terse', 'held_out_1'],
+      ['candidate_wordy', 'held_out_2'],
     ]);
 
-    const heldTerse = replayedAs(
-      replayFor(SET, 'held_1', 'candidate_terse', search.split.heldOutRuns),
+    const heldOutTerse = replayedAs(
+      replayFor(SET, 'held_out_1', 'candidate_terse', search.split.heldOutRuns),
       () => 'completed',
     );
 
-    const scores = scoresOf(search, [seed, terse, wordy, heldTerse], 0.05);
+    const scores = scoresOf(search, [seed, terse, wordy, heldOutTerse], 0.05);
     const terseScores = scores.candidates.find(
       (each) => each.candidateId.value === 'candidate_terse',
     );
 
     expect(terseScores?.heldOutScore).toBe(1);
-    expect(terseScores?.heldOutReplayId?.value).toBe('held_1');
+    expect(terseScores?.heldOutReplayId?.value).toBe('held_out_1');
     expect(terseScores?.spent.amount).toBe(10);
     expect(
       frontierOf([scores.seed, ...scores.candidates], 'success').map(
@@ -310,11 +310,11 @@ describe('scoresOf, gains', () => {
     const [terseScores, wordyScores] = scores.candidates;
 
     expect(terseScores?.searchedGain).not.toBeNull();
-    expect(terseScores?.searchedVerdict).toBe(
-      terseScores?.searchedGain?.verdict,
+    expect(terseScores?.searchedSignificance).toBe(
+      terseScores?.searchedGain?.significance,
     );
     expect(wordyScores?.searchedGain).toBeNull();
-    expect(wordyScores?.searchedVerdict).toBeNull();
+    expect(wordyScores?.searchedSignificance).toBeNull();
     expect(scores.seed.searchedGain).toBeNull();
   });
 });

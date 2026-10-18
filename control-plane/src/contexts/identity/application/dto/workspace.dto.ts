@@ -1,4 +1,4 @@
-import type { Provisioning } from '@identity/application/ports/workspace-provisioning.port';
+import type { WorkspaceSetupStatus } from '@identity/application/ports/workspace-setup-status.port';
 
 interface TeamDto {
   readonly id: string;
@@ -14,7 +14,7 @@ export interface WorkspaceDto {
 
 export interface WorkspaceDetailDto extends WorkspaceDto {
   readonly role: string;
-  readonly provisioning: Provisioning;
+  readonly setupStatus: WorkspaceSetupStatus;
 }
 
 export interface WorkspaceListingDto {

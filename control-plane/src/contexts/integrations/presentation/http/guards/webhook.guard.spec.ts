@@ -1,9 +1,9 @@
 import type {
   Delivered,
-  WebhookSourcePort,
-} from '@integrations/application/ports/webhook-source.port';
-import { SourceForDelivery } from '@integrations/application/services/source-for-delivery.service';
-import { WebhookSources } from '@integrations/application/services/webhook-sources.service';
+  WebhookProviderPort,
+} from '@integrations/application/ports/webhook-provider.port';
+import { ProviderForDelivery } from '@integrations/application/services/provider-for-delivery.service';
+import { WebhookProviders } from '@integrations/application/services/webhook-providers.service';
 import { WebhookGuard } from '@integrations/presentation/http/guards/webhook.guard';
 import type { ExecutionContext } from '@nestjs/common';
 import { UnauthorizedException } from '@nestjs/common';
@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const RAW = new Uint8Array([1, 2, 3]);
 
-const source = (verifies: (delivered: Delivered) => boolean) =>
+const provider = (verifies: (delivered: Delivered) => boolean) =>
   ({
     key: 'github',
     happenings: [],
@@ -19,12 +19,12 @@ const source = (verifies: (delivered: Delivered) => boolean) =>
     delivery: () => 'delivery_1',
     routes: async () => null,
     read: async () => [],
-  }) satisfies WebhookSourcePort;
+  }) satisfies WebhookProviderPort;
 
-const asking = (
+const guarding = (
   request: Record<string, unknown>,
-  sources: WebhookSourcePort[],
-  declared: WebhookSourcePort[] = [],
+  providers: WebhookProviderPort[],
+  declared: WebhookProviderPort[] = [],
 ) => {
   const context = {
     switchToHttp: () => ({ getRequest: () => request }),
@@ -38,13 +38,13 @@ const asking = (
 
   return {
     guard: new WebhookGuard(
-      new SourceForDelivery(WebhookSources.of(sources), {
+      new ProviderForDelivery(WebhookProviders.of(providers), {
         find: async (_team, key) =>
           declared.find((each) => each.key === key) ?? null,
         all: async () => declared,
       }),
       {
-        identify: async () => 'ws_1',
+        idForSlug: async () => 'ws_1',
         slugOf: async () => 'acme',
         profileOf: async () => null,
         isOpen: async () => true,
@@ -69,7 +69,7 @@ const asking = (
 };
 
 const delivered = (over: Record<string, unknown> = {}) => ({
-  params: { source: 'github' },
+  params: { integration: 'github' },
   headers: { 'x-hub-signature-256': 'sha256=whatever' },
   body: { action: 'closed' },
   rawBody: RAW,
@@ -77,16 +77,16 @@ const delivered = (over: Record<string, unknown> = {}) => ({
 });
 
 describe('WebhookGuard', () => {
-  it('lets through what the source says its host signed', async () => {
-    const github = source(() => true);
-    const { guard, context } = asking(delivered(), [github]);
+  it('lets through what the provider says its service signed', async () => {
+    const github = provider(() => true);
+    const { guard, context } = guarding(delivered(), [github]);
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
   });
 
-  it('hands the source the body as it arrived, byte for byte', async () => {
-    const github = source(() => true);
-    const { guard, context } = asking(delivered(), [github]);
+  it('hands the provider the body as it arrived, byte for byte', async () => {
+    const github = provider(() => true);
+    const { guard, context } = guarding(delivered(), [github]);
 
     await guard.canActivate(context);
 
@@ -97,18 +97,18 @@ describe('WebhookGuard', () => {
     });
   });
 
-  it('turns away what the source will not vouch for', async () => {
-    const { guard, context } = asking(delivered(), [source(() => false)]);
+  it('turns away what the provider will not vouch for', async () => {
+    const { guard, context } = guarding(delivered(), [provider(() => false)]);
 
     await expect(guard.canActivate(context)).rejects.toThrow(
       UnauthorizedException,
     );
   });
 
-  it('turns away a source nobody registered, the same way', async () => {
-    const { guard, context } = asking(
-      delivered({ params: { source: 'sentry' } }),
-      [source(() => true)],
+  it('turns away a provider nobody registered, the same way', async () => {
+    const { guard, context } = guarding(
+      delivered({ params: { integration: 'sentry' } }),
+      [provider(() => true)],
     );
 
     await expect(guard.canActivate(context)).rejects.toThrow(
@@ -117,28 +117,28 @@ describe('WebhookGuard', () => {
   });
 
   it('turns away a delivery it could not verify, telling only the log why', async () => {
-    const github = source(() => {
+    const github = provider(() => {
       throw new Error(
-        'Secret GITHUB_SECRET not found. Please define it first.',
+        'Secret GITHUB_SECRET not found. Please create it first.',
       );
     });
-    const { guard, context, logger } = asking(delivered(), [github]);
+    const { guard, context, logger } = guarding(delivered(), [github]);
 
     await expect(guard.canActivate(context)).rejects.toThrow(
       UnauthorizedException,
     );
     expect(logger.warn).toHaveBeenCalledWith(
       {
-        source: 'github',
-        error: 'Secret GITHUB_SECRET not found. Please define it first.',
+        integration: 'github',
+        error: 'Secret GITHUB_SECRET not found. Please create it first.',
       },
       'A webhook delivery could not be verified',
     );
   });
 
-  it('turns away a delivery whose body was never kept', async () => {
-    const github = source((each) => each.raw !== null);
-    const { guard, context } = asking(delivered({ rawBody: undefined }), [
+  it('turns away a delivery whose body was never stored', async () => {
+    const github = provider((each) => each.raw !== null);
+    const { guard, context } = guarding(delivered({ rawBody: undefined }), [
       github,
     ]);
 

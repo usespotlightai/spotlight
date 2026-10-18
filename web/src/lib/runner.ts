@@ -1,8 +1,8 @@
 import type {
-  AdmittedThroughResponseDto,
-  HeldRunResponseDto,
+  CredentialSourceResponseDto,
   HostHarnessResponseDto,
   HostResponseDto,
+  LeasedRunResponseDto,
   LiveRunnerResponseDto,
   RunnerActivityResponseDto,
   RunnerFleetResponseDto,
@@ -11,10 +11,10 @@ import { runPath } from '@/lib/run';
 import { settingsPath } from '@/lib/settings';
 import { since } from '@/lib/since';
 
-export type HeldRun = HeldRunResponseDto;
+export type LeasedRun = LeasedRunResponseDto;
 
 export type ActiveRunner = LiveRunnerResponseDto & {
-  readonly currentRun: HeldRun | null;
+  readonly currentRun: LeasedRun | null;
 };
 
 export type Host = HostResponseDto & {
@@ -22,7 +22,7 @@ export type Host = HostResponseDto & {
 };
 
 export type PushPool = {
-  readonly through: AdmittedThroughResponseDto;
+  readonly source: CredentialSourceResponseDto;
   readonly runners: readonly ActiveRunner[];
 };
 
@@ -31,8 +31,8 @@ export type Fleet = {
   readonly pools: readonly PushPool[];
 };
 
-export const poolKeyOf = (way: AdmittedThroughResponseDto): string =>
-  `${way.kind}:${way.key ?? ''}`;
+export const poolKeyOf = (source: CredentialSourceResponseDto): string =>
+  `${source.kind}:${source.key ?? ''}`;
 
 export const withActivity = (
   fleet: RunnerFleetResponseDto,
@@ -45,7 +45,7 @@ export const withActivity = (
   }));
   const unhosted = runners.filter((runner) => runner.hostId === null);
   const pools = [
-    ...new Set(unhosted.map((runner) => poolKeyOf(runner.through))),
+    ...new Set(unhosted.map((runner) => poolKeyOf(runner.source))),
   ];
 
   return {
@@ -54,12 +54,12 @@ export const withActivity = (
       runners: runners.filter((runner) => runner.hostId === host.id),
     })),
     pools: pools.flatMap((key) => {
-      const held = unhosted.filter(
-        (runner) => poolKeyOf(runner.through) === key,
+      const pooled = unhosted.filter(
+        (runner) => poolKeyOf(runner.source) === key,
       );
-      const first = held[0];
+      const first = pooled[0];
 
-      return first ? [{ through: first.through, runners: held }] : [];
+      return first ? [{ source: first.source, runners: pooled }] : [];
     }),
   };
 };
@@ -72,17 +72,17 @@ export const runnersPath = (slug: string) => `${settingsPath(slug)}/runners`;
 export const addHostPath = (slug: string) => `${runnersPath(slug)}/new`;
 
 export const installCommand = (token: string) =>
-  `curl -fsSL ${window.location.origin}/api/install.sh | SPOTLIGHT_TOKEN=${token} sh`;
+  `curl -fsSL ${window.location.origin}/api/install.sh | SPOTLIGHT_POOL_TOKEN=${token} sh`;
 
-export const answeringCount = (fleet: Fleet) =>
-  fleet.hosts.filter((host) => host.answering).length;
+export const onlineCount = (fleet: Fleet) =>
+  fleet.hosts.filter((host) => host.online).length;
 
-export const noneAnswering = (fleet: Fleet): boolean =>
-  fleet.hosts.length > 0 && answeringCount(fleet) === 0;
+export const noneOnline = (fleet: Fleet): boolean =>
+  fleet.hosts.length > 0 && onlineCount(fleet) === 0;
 
-export const standing = (host: Host): string => {
-  if (!host.answering) {
-    return 'Not answering';
+export const hostStatus = (host: Host): string => {
+  if (!host.online) {
+    return 'Offline';
   }
 
   return host.running.length > 0
@@ -90,15 +90,15 @@ export const standing = (host: Host): string => {
     : 'Idle';
 };
 
-export const through = (way: AdmittedThroughResponseDto): string => {
-  const kind = way.kind === 'pool' ? 'Pool' : 'Trust';
-  return way.key === null ? `${kind} no longer defined` : `${kind} ${way.key}`;
+export const sourceLabel = (source: CredentialSourceResponseDto): string => {
+  const kind = source.kind === 'pool' ? 'Pool' : 'Trust';
+  return source.key === null ? `${kind} deleted` : `${kind} ${source.key}`;
 };
 
-export const seenAt = (host: Host): string =>
-  host.answering
-    ? `Up since ${since(host.upSince)}`
-    : `Last seen ${since(host.lastSeenAt)}`;
+export const heartbeatAt = (host: Host): string =>
+  host.online
+    ? `Online since ${since(host.onlineSince)}`
+    : `Last heartbeat ${since(host.lastHeartbeatAt)}`;
 
 export type NamedHarness = {
   readonly id: string;
@@ -132,7 +132,7 @@ export const servedBy = (
 ): NamedHarness[] =>
   namedHarnesses(
     host.images
-      .filter((image) => !image.refused)
+      .filter((image) => !image.unavailableReason)
       .flatMap((image) => image.harnesses)
       .filter(
         (each, at, all) =>
@@ -141,7 +141,7 @@ export const servedBy = (
     harnesses,
   );
 
-export const heldBy = (
+export const poolHarnesses = (
   pool: PushPool,
   harnesses: readonly NamedHarness[] | undefined,
 ): NamedHarness[] =>
@@ -154,7 +154,7 @@ export const RUNNER_FILTERS = [
   { id: 'all', label: 'All' },
   { id: 'running', label: 'Running' },
   { id: 'idle', label: 'Idle' },
-  { id: 'not-answering', label: 'Not answering' },
+  { id: 'offline', label: 'Offline' },
 ] as const;
 
 export type RunnerFilter = (typeof RUNNER_FILTERS)[number]['id'];
@@ -171,11 +171,11 @@ export const hostInFilter = (filter: RunnerFilter, host: Host): boolean => {
     case 'all':
       return true;
     case 'running':
-      return host.answering && host.running.length > 0;
+      return host.online && host.running.length > 0;
     case 'idle':
-      return host.answering && host.running.length === 0;
-    case 'not-answering':
-      return !host.answering;
+      return host.online && host.running.length === 0;
+    case 'offline':
+      return !host.online;
   }
 };
 
@@ -184,12 +184,12 @@ export const poolInFilter = (filter: RunnerFilter, pool: PushPool): boolean =>
   (filter === 'running' &&
     pool.runners.some((runner) => runner.currentRun !== null));
 
-export const poolName = (way: AdmittedThroughResponseDto): string =>
-  way.key ?? 'No longer defined';
+export const poolName = (source: CredentialSourceResponseDto): string =>
+  source.key ?? 'Deleted';
 
 export const PUSH_POOL = 'Push pool';
 
-export const poolStanding = (pool: PushPool): string => {
+export const poolStatus = (pool: PushPool): string => {
   const running = pool.runners.filter(
     (runner) => runner.currentRun !== null,
   ).length;
@@ -197,7 +197,7 @@ export const poolStanding = (pool: PushPool): string => {
   return running > 0 ? `Running ${running}` : 'Starting';
 };
 
-export const runnerStanding = (runner: ActiveRunner): string => {
+export const runnerStatus = (runner: ActiveRunner): string => {
   if (!runner.currentRun) {
     return 'Starting';
   }
@@ -207,7 +207,7 @@ export const runnerStanding = (runner: ActiveRunner): string => {
     : 'Running';
 };
 
-type UnnamedKind = Exclude<HeldRun['kind'], 'task' | 'chat'>;
+type UnnamedKind = Exclude<LeasedRun['kind'], 'task' | 'chat'>;
 
 const UNNAMED_RUNS: Record<UnnamedKind, string> = {
   replay: 'A replay run',
@@ -215,15 +215,15 @@ const UNNAMED_RUNS: Record<UnnamedKind, string> = {
   spec: 'A run queued by hand',
 };
 
-const isUnnamed = (kind: HeldRun['kind']): kind is UnnamedKind =>
+const isUnnamed = (kind: LeasedRun['kind']): kind is UnnamedKind =>
   kind in UNNAMED_RUNS;
 
-export const hiddenRunTip = (run: HeldRun): string =>
+export const hiddenRunTip = (run: LeasedRun): string =>
   run.kind === 'chat'
     ? 'Title hidden. This agent chat belongs to a team you’re not on.'
     : 'Title hidden. This run belongs to a team you’re not on.';
 
-export const formatRun = (run: HeldRun | null): string => {
+export const formatRun = (run: LeasedRun | null): string => {
   if (run === null) {
     return 'No run yet';
   }
@@ -234,15 +234,15 @@ export const formatRun = (run: HeldRun | null): string => {
   );
 };
 
-export const hiddenFromViewer = (run: HeldRun | null): boolean =>
+export const hiddenFromViewer = (run: LeasedRun | null): boolean =>
   run !== null &&
   !run.readable &&
   run.teamId !== null &&
   (run.kind === 'task' || run.kind === 'chat');
 
-export const heldRunPath = (
+export const leasedRunPath = (
   slug: string,
-  run: HeldRun | null,
+  run: LeasedRun | null,
 ): string | null =>
   run?.kind === 'task' && run.readable && run.teamId !== null
     ? runPath(slug, run.teamId, run.id)
@@ -251,7 +251,7 @@ export const heldRunPath = (
 export const NONE_IN_FILTER: Record<Exclude<RunnerFilter, 'all'>, string> = {
   running: 'No runs in progress.',
   idle: 'No idle hosts.',
-  'not-answering': 'All hosts are answering.',
+  offline: 'All hosts are online.',
 };
 
 export const connectedIn = (
@@ -260,9 +260,7 @@ export const connectedIn = (
 ): Host | undefined =>
   fleet?.hosts.find(
     (host) =>
-      host.answering &&
-      host.through.kind === 'pool' &&
-      host.through.key === pool,
+      host.online && host.source.kind === 'pool' && host.source.key === pool,
   );
 
 const SUGGESTED_POOL = 'my-computer';

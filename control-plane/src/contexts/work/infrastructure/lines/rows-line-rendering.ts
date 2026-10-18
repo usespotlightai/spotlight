@@ -5,7 +5,7 @@ import { lineRowsOf } from '@work/infrastructure/lines/line-rows.of';
 import { renderLineRows } from '@work/infrastructure/lines/line-rows.render';
 
 export class RowsLineRendering implements LineRenderingPort {
-  heldOf(line: Line): LineDefinition {
+  definitionOf(line: Line): LineDefinition {
     return renderLineRows(lineRowsOf(line));
   }
 }

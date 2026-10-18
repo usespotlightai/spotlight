@@ -5,11 +5,11 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 
 const post = (path: string, body: object) =>
   served(app)
@@ -28,7 +28,7 @@ const started = async (): Promise<string> =>
 beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `chat-choices-${randomUUID().slice(0, 8)}`,
@@ -40,7 +40,7 @@ afterAll(async () => {
 });
 
 describe('choosing the agent’s model and effort in a chat', () => {
-  it('refuses to start on a model that is empty or not text', async () => {
+  it('rejects a model that is empty or not text', async () => {
     await post('', {
       harness: 'claude-code',
       model: '',
@@ -53,7 +53,7 @@ describe('choosing the agent’s model and effort in a chat', () => {
     }).expect(400);
   });
 
-  it('answers with the model and effort a message picks, and refuses an empty or unknown one', async () => {
+  it('answers with the model and effort a message picks, and rejects an empty or unknown one', async () => {
     const chatId = await started();
 
     await post(`/${chatId}/messages`, { body: 'Again.', model: '' }).expect(

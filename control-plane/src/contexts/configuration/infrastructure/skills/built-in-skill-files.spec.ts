@@ -10,7 +10,7 @@ const written = (name: string, description: string, body: string) =>
   `---\nname: ${name}\ndescription: ${description}\n---\n\n${body}\n`;
 
 const readSkill = (folder: string, text: string) =>
-  readSkillFolder(folder, [{ path: 'SKILL.md', text }], 'shipped').skill;
+  readSkillFolder(folder, [{ path: 'SKILL.md', text }], 'built-in').skill;
 
 const HANDING_OVER = 'spotlight-handover';
 const OPENING_PULL_REQUESTS = 'spotlight-pull-request';
@@ -18,23 +18,23 @@ const USING_TOOLS = 'spotlight-tools';
 const BUILT_IN_SKILL_KEYS = [HANDING_OVER, OPENING_PULL_REQUESTS, USING_TOOLS];
 
 describe('BuiltInSkillFiles', () => {
-  const shipped = new BuiltInSkillFiles(BUILT_IN_SKILL_KEYS);
+  const builtIn = new BuiltInSkillFiles(BUILT_IN_SKILL_KEYS);
   const instructionsOf = (key: string) =>
-    shipped.named(key)?.files.find((each) => each.path === 'SKILL.md')?.text ??
+    builtIn.named(key)?.files.find((each) => each.path === 'SKILL.md')?.text ??
     '';
 
-  it('reads every skill Spotlight ships', () => {
+  it('reads every built-in skill', () => {
     for (const key of BUILT_IN_SKILL_KEYS) {
-      expect(shipped.named(key)?.skill.key.value).toBe(key);
+      expect(builtIn.named(key)?.skill.key.value).toBe(key);
     }
   });
 
   it('says what each is for, under a name only Spotlight uses', () => {
     for (const key of BUILT_IN_SKILL_KEYS) {
-      const skill = shipped.named(key)?.skill;
+      const skill = builtIn.named(key)?.skill;
 
       expect(skill?.description.length).toBeGreaterThan(20);
-      expect(skill?.key.isSpotlights).toBe(true);
+      expect(skill?.key.isReserved).toBe(true);
     }
   });
 
@@ -64,7 +64,7 @@ describe('BuiltInSkillFiles', () => {
     expect(instructions).toContain('end your turn');
   });
 
-  it('will not start without a skill it ships', () => {
+  it('will not start without a built-in skill', () => {
     const directory = mkdtempSync(join(tmpdir(), 'skills-'));
     mkdirSync(join(directory, 'spotlight-pull-request'));
     writeFileSync(
@@ -88,13 +88,13 @@ describe('BuiltInSkillFiles', () => {
       expect(skill.instructions).toBe('## Doing it\n\nSo.');
     });
 
-    it('refuses one with no frontmatter', () => {
+    it('rejects one with no frontmatter', () => {
       expect(() => readSkill('spotlight-example', '# Doing it')).toThrow(
         InvalidSkillError,
       );
     });
 
-    it('refuses one named for another folder', () => {
+    it('rejects one named for another folder', () => {
       expect(() =>
         readSkill(
           'spotlight-example',
@@ -103,7 +103,7 @@ describe('BuiltInSkillFiles', () => {
       ).toThrow(/must be named spotlight-example in its frontmatter/);
     });
 
-    it('refuses one that says nothing about when to use it', () => {
+    it('rejects one that says nothing about when to use it', () => {
       expect(() =>
         readSkill(
           'spotlight-example',
@@ -112,7 +112,7 @@ describe('BuiltInSkillFiles', () => {
       ).toThrow(/needs a description/);
     });
 
-    it('refuses one that has nothing to say', () => {
+    it('rejects one that has nothing to say', () => {
       expect(() =>
         readSkill(
           'spotlight-example',

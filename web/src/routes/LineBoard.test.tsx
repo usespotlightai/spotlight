@@ -47,7 +47,7 @@ vi.mock('@/hooks/api/useAssignTask', () => ({
   useAssignTask: () => ({ mutate: vi.fn() }),
 }));
 
-const standing = [
+const tasks = [
   {
     id: 'task_1',
     stationId: 'station_1',
@@ -135,12 +135,12 @@ describe('LineBoard', () => {
     lined.mockReturnValue([line]);
     linesFailing.mockReturnValue(false);
     refetchLines.mockClear();
-    listed.mockReturnValue(standing);
+    listed.mockReturnValue(tasks);
     tasksFailing.mockReturnValue(false);
     refetchTasks.mockClear();
   });
 
-  it('holds the shape of a station while the line loads, keeping what never changes', () => {
+  it('keeps the shape of a station while the line loads, keeping what never changes', () => {
     lined.mockReturnValue(undefined);
 
     renderAt('line_1');
@@ -168,7 +168,7 @@ describe('LineBoard', () => {
     ).toBeInTheDocument();
   });
 
-  it('says the line could not be loaded, and tries again when asked', async () => {
+  it('says the line could not be loaded, and tries again on request', async () => {
     const user = userEvent.setup();
     lined.mockReturnValue(undefined);
     linesFailing.mockReturnValue(true);
@@ -185,7 +185,7 @@ describe('LineBoard', () => {
     expect(refetchLines).toHaveBeenCalled();
   });
 
-  it('says the tasks could not be loaded, and tries again when asked', async () => {
+  it('says the tasks could not be loaded, and tries again on request', async () => {
     const user = userEvent.setup();
     listed.mockReturnValue(undefined);
     tasksFailing.mockReturnValue(true);
@@ -210,7 +210,7 @@ describe('LineBoard', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('shows only the stations when the line holds no tasks', () => {
+  it('shows only the stations when the line has no tasks', () => {
     listed.mockReturnValue([]);
 
     renderAt('line_1');
@@ -242,7 +242,7 @@ describe('LineBoard', () => {
     ).toBeInTheDocument();
   });
 
-  it('folds a station away and leaves the others open', async () => {
+  it('collapses a station and leaves the others open', async () => {
     const user = userEvent.setup();
     renderAt('line_1');
 
@@ -281,7 +281,7 @@ describe('LineBoard', () => {
     });
   });
 
-  it('stands each task at the station it belongs to', () => {
+  it('puts each task at the station it belongs to', () => {
     renderAt('line_1');
 
     const [triage, spec] = sections();
@@ -290,13 +290,13 @@ describe('LineBoard', () => {
     expect(spec?.textContent).not.toContain('Fix the queue');
   });
 
-  it('counts the tasks a station holds', () => {
+  it('counts the tasks a station has', () => {
     renderAt('line_1');
 
     expect(sections()[0]?.textContent).toContain('2');
   });
 
-  it('fills each station’s icon by how far along the line it stands', () => {
+  it('fills each station’s icon by how far along the line it is', () => {
     renderAt('line_1');
 
     expect(
@@ -315,7 +315,7 @@ describe('LineBoard', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('offers the backlog to a task standing further along', async () => {
+  it('offers the backlog to a task further along', async () => {
     const user = userEvent.setup();
     renderAt('line_1');
 
@@ -346,7 +346,7 @@ describe('LineBoard', () => {
   it('offers no move for a task that is completed', async () => {
     const user = userEvent.setup();
     listed.mockReturnValue([
-      ...standing,
+      ...tasks,
       {
         id: 'task_5',
         stationId: 'station_5',
@@ -453,7 +453,7 @@ describe('LineBoard', () => {
     expect(first?.className).not.toContain('rounded-b-none');
   });
 
-  it('holds back the backlog until it is asked for', () => {
+  it('hides the backlog until it is requested', () => {
     renderAt('line_1');
 
     expect(named()).toEqual([
@@ -474,7 +474,7 @@ describe('LineBoard', () => {
     expect(screen.getByText('Groom the idea')).toBeInTheDocument();
   });
 
-  it('holds back what is completed until it is asked for', () => {
+  it('hides what is completed until it is requested', () => {
     renderAt('line_1');
 
     expect(named()).not.toContain('Completed');
@@ -510,7 +510,7 @@ describe('LineBoard', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('says how many are picked inside a station folded away', async () => {
+  it('says how many are picked inside a collapsed station', async () => {
     const user = userEvent.setup();
     renderAt('line_1');
 
@@ -558,7 +558,7 @@ describe('LineBoard', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('says when each task was raised', () => {
+  it('says when each task was created', () => {
     renderAt('line_1');
 
     expect(screen.getByText('Aug 4')).toBeInTheDocument();
@@ -591,7 +591,7 @@ describe('LineBoard', () => {
     );
   });
 
-  it('folds from the chevron rather than the title, which navigates', async () => {
+  it('collapses from the chevron rather than the title, which navigates', async () => {
     const user = userEvent.setup();
     renderAt('line_1');
 

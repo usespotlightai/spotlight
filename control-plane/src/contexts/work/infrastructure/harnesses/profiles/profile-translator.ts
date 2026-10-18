@@ -43,18 +43,18 @@ export const layered = (
   const value: Json = { ...under };
   const replaced: (readonly string[])[] = [];
 
-  for (const [key, given] of Object.entries(over)) {
-    const held = value[key];
+  for (const [key, overValue] of Object.entries(over)) {
+    const existing = value[key];
 
-    if (isObject(held) && isObject(given)) {
-      const deeper = layered(held, given, [...at, key]);
+    if (isObject(existing) && isObject(overValue)) {
+      const deeper = layered(existing, overValue, [...at, key]);
       value[key] = deeper.value;
       replaced.push(...deeper.replaced);
     } else {
       if (key in value) {
         replaced.push([...at, key]);
       }
-      value[key] = given;
+      value[key] = overValue;
     }
   }
 
@@ -65,9 +65,9 @@ export const nativeObject = (
   profile: HarnessSettings,
   harness: string,
 ): Json => {
-  const given = profile.native[harness];
+  const native = profile.native[harness];
 
-  return isObject(given) ? given : {};
+  return isObject(native) ? native : {};
 };
 
 export const noteOn = (

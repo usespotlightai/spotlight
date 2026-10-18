@@ -1,8 +1,8 @@
 import { GITHUB_EVENT_MAPPERS } from '@github/application/integration-events/github.event-mappers';
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
-import { PullRequestForgotten } from '@github/domain/events/pull-request-forgotten.event';
-import { PullRequestRecorded } from '@github/domain/events/pull-request-recorded.event';
+import { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
 import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
+import { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -30,7 +30,7 @@ describe('GITHUB_EVENT_MAPPERS', () => {
             line: 12,
             startLine: null,
             body: 'Why not a constant?',
-            answers: 200,
+            inReplyToId: 200,
             login: 'octocat',
             writtenAt: new Date('2026-09-16T09:00:00Z'),
           },
@@ -50,7 +50,7 @@ describe('GITHUB_EVENT_MAPPERS', () => {
         line: 12,
         startLine: null,
         body: 'Why not a constant?',
-        answers: 200,
+        inReplyToId: 200,
         login: 'octocat',
         writtenAt: '2026-09-16T09:00:00.000Z',
       },
@@ -122,7 +122,7 @@ describe('GITHUB_EVENT_MAPPERS', () => {
   it('publishes what a pull request now is as plain data, owned by a task or not', () => {
     expect(
       published(
-        new PullRequestRecorded(WorkspaceId.of('ws_1'), {
+        new PullRequestUpdated(WorkspaceId.of('ws_1'), {
           pullRequest: 'https://github.com/acme/api/pull/7',
           repository: 'acme/api',
           number: 7,
@@ -138,7 +138,7 @@ describe('GITHUB_EVENT_MAPPERS', () => {
           closedAt: new Date('2026-09-21T09:00:00Z'),
           updatedAt: new Date('2026-09-21T09:05:00Z'),
           readyForReviewAt: new Date('2026-09-20T10:00:00Z'),
-          draftSpells: [
+          draftPeriods: [
             {
               from: new Date('2026-09-20T12:00:00Z'),
               to: new Date('2026-09-20T14:00:00Z'),
@@ -167,7 +167,7 @@ describe('GITHUB_EVENT_MAPPERS', () => {
       ),
     ).toEqual([
       {
-        kind: 'github.pull-request-recorded.v1',
+        kind: 'github.pull-request-updated.v1',
         workspaceId: 'ws_1',
         pullRequest: 'https://github.com/acme/api/pull/7',
         repository: 'acme/api',
@@ -184,7 +184,7 @@ describe('GITHUB_EVENT_MAPPERS', () => {
         closedAt: '2026-09-21T09:00:00.000Z',
         updatedAt: '2026-09-21T09:05:00.000Z',
         readyForReviewAt: '2026-09-20T10:00:00.000Z',
-        draftSpells: [
+        draftPeriods: [
           {
             from: '2026-09-20T12:00:00.000Z',
             to: '2026-09-20T14:00:00.000Z',
@@ -213,10 +213,10 @@ describe('GITHUB_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes a forgotten pull request with when GitHub last changed it', () => {
+  it('publishes a purged pull request with when GitHub last changed it', () => {
     expect(
       published(
-        new PullRequestForgotten(
+        new PullRequestPurged(
           WorkspaceId.of('ws_1'),
           'https://github.com/acme/api/pull/7',
           new Date('2026-03-01T10:00:00Z'),
@@ -224,7 +224,7 @@ describe('GITHUB_EVENT_MAPPERS', () => {
       ),
     ).toEqual([
       {
-        kind: 'github.pull-request-forgotten.v1',
+        kind: 'github.pull-request-purged.v1',
         workspaceId: 'ws_1',
         pullRequest: 'https://github.com/acme/api/pull/7',
         updatedAt: '2026-03-01T10:00:00.000Z',

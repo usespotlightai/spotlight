@@ -21,8 +21,8 @@ func inARun(t *testing.T) *channel {
 	}
 	t.Cleanup(func() { _ = server.Close() })
 
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 
 	return server
 }
@@ -36,13 +36,13 @@ func TestHandsOver(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	declared := server.Declared()
-	if declared == nil || declared.Next != "spec" || declared.Note != "the queue drains twice" {
-		t.Fatalf("got %+v", declared)
+	handover := server.Handover()
+	if handover == nil || handover.Next != "spec" || handover.Note != "the queue drains twice" {
+		t.Fatalf("got %+v", handover)
 	}
 
 	if !strings.Contains(out.String(), "spec") {
-		t.Fatalf("said nothing useful: %q", out)
+		t.Fatalf("wrote nothing useful: %q", out)
 	}
 }
 
@@ -54,7 +54,7 @@ func TestTakesTheNoteFromStandardInput(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	if note := server.Declared().Note; note != "first line\nsecond line" {
+	if note := server.Handover().Note; note != "first line\nsecond line" {
 		t.Fatalf("got %q", note)
 	}
 }
@@ -70,7 +70,7 @@ func TestReadsNoteFromStandardInputWhenNamed(t *testing.T) {
 				t.Fatalf("run: %v", err)
 			}
 
-			if note := server.Declared().Note; note != "the real note" {
+			if note := server.Handover().Note; note != "the real note" {
 				t.Fatalf("got %q", note)
 			}
 		})
@@ -82,12 +82,12 @@ func TestSaysWhatWouldHaveWorked(t *testing.T) {
 
 	err := run([]string{"handover", "--next", "Deployment"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil {
-		t.Fatal("expected a refusal")
+		t.Fatal("expected an error")
 	}
 
 	for _, wanted := range []string{"Deployment", "spec", "review"} {
 		if !strings.Contains(err.Error(), wanted) {
-			t.Fatalf("refusal %q never mentions %q", err, wanted)
+			t.Fatalf("error %q never mentions %q", err, wanted)
 		}
 	}
 }
@@ -102,8 +102,8 @@ func TestNextIsRequired(t *testing.T) {
 }
 
 func TestOutsideARunItSaysSo(t *testing.T) {
-	t.Setenv(protocol.HandoverURLVar, "")
-	t.Setenv(protocol.HandoverTokenVar, "")
+	t.Setenv(protocol.AgentAPIURLVar, "")
+	t.Setenv(protocol.AgentAPITokenVar, "")
 
 	err := run([]string{"handover", "--next", "spec"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "no run") {
@@ -130,17 +130,17 @@ func TestPuttingItToAPersonDoesNotSoundLikeAStation(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	said := out.String()
+	output := out.String()
 
-	if !strings.Contains(said, "person") {
-		t.Errorf("did not say who it went to: %q", said)
+	if !strings.Contains(output, "person") {
+		t.Errorf("did not say who it went to: %q", output)
 	}
-	if strings.Contains(said, "Handed over") {
-		t.Errorf("read as a station handover: %q", said)
+	if strings.Contains(output, "Passed to") {
+		t.Errorf("read as a station handover: %q", output)
 	}
 }
 
-func TestClosingItWhereItStandsDoesNotSoundLikeAStation(t *testing.T) {
+func TestClosingItInPlaceDoesNotSoundLikeAStation(t *testing.T) {
 	server := inARun(t)
 	out := new(bytes.Buffer)
 
@@ -152,24 +152,24 @@ func TestClosingItWhereItStandsDoesNotSoundLikeAStation(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	if declared := server.Declared(); declared == nil || declared.Next != "done" {
-		t.Fatalf("got %+v", declared)
+	if handover := server.Handover(); handover == nil || handover.Next != "done" {
+		t.Fatalf("got %+v", handover)
 	}
 
-	said := out.String()
+	output := out.String()
 
-	if !strings.Contains(said, "Closed where it stands") {
-		t.Errorf("did not say it was closed: %q", said)
+	if !strings.Contains(output, "Closed at its current station") {
+		t.Errorf("did not say it was closed: %q", output)
 	}
-	if strings.Contains(said, "Handed over") {
-		t.Errorf("read as a station handover: %q", said)
+	if strings.Contains(output, "Passed to") {
+		t.Errorf("read as a station handover: %q", output)
 	}
 }
 
-func TestRepliesToARemark(t *testing.T) {
-	var said protocol.Remark
-	server, err := serveHandover([]string{"spec"}, func(_ context.Context, spoken protocol.Remark) error {
-		said = spoken
+func TestRepliesToAReviewComment(t *testing.T) {
+	var replied protocol.ReviewCommentReply
+	server, err := serveHandover([]string{"spec"}, func(_ context.Context, reply protocol.ReviewCommentReply) error {
+		replied = reply
 		return nil
 	})
 	if err != nil {
@@ -177,8 +177,8 @@ func TestRepliesToARemark(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = server.Close() })
 
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 
 	out := new(bytes.Buffer)
 	args := []string{"reply", "--to", "c3", "--resolve"}
@@ -187,20 +187,20 @@ func TestRepliesToARemark(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	if said.Handle != "c3" || said.Body != "Split out in 4a1c2b0." || !said.Resolve {
-		t.Fatalf("said = %+v", said)
+	if replied.Handle != "c3" || replied.Body != "Split out in 4a1c2b0." || !replied.Resolve {
+		t.Fatalf("replied = %+v", replied)
 	}
 	if !strings.Contains(out.String(), "resolved") {
-		t.Errorf("said %q, want that it resolved the thread", out.String())
+		t.Errorf("output %q, want that it resolved the thread", out.String())
 	}
 }
 
-func TestRefusesAReplyNamingNoRemark(t *testing.T) {
+func TestRejectsAReplyNamingNoReviewComment(t *testing.T) {
 	inARun(t)
 
 	err := run([]string{"reply", "--body", "x"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "--to") {
-		t.Fatalf("err = %v, want it to ask which remark", err)
+		t.Fatalf("err = %v, want it to require a review comment", err)
 	}
 }
 
@@ -209,7 +209,7 @@ var pullRequesting = protocol.ToolManifest{
 	Description: "Open a pull request for the branch this task was worked on.",
 	Inputs: []protocol.ToolInputManifest{
 		{Name: "title", Schema: json.RawMessage(`{"type":"string"}`), Description: "What it does", Required: true},
-		{Name: "body", Schema: json.RawMessage(`{"type":"string"}`), Description: "The detail, as Markdown", Piped: true},
+		{Name: "body", Schema: json.RawMessage(`{"type":"string"}`), Description: "The detail, as Markdown", Stdin: true},
 		{Name: "repository", Schema: json.RawMessage(`{"type":"string"}`), Description: "Which of the line’s repositories, where it works several"},
 	},
 }
@@ -221,7 +221,7 @@ func openingPullRequests(t *testing.T) *map[string]any {
 	carried := map[string]any{}
 	server.Tools([]string{"pull-request"}, func(_ context.Context, name string, input json.RawMessage) (json.RawMessage, error) {
 		if name != "pull-request" {
-			t.Errorf("reached for %q", name)
+			t.Errorf("called %q", name)
 		}
 		if err := json.Unmarshal(input, &carried); err != nil {
 			t.Errorf("carried %s: %v", input, err)
@@ -247,16 +247,16 @@ func TestOpensAPullRequestThroughItsTool(t *testing.T) {
 		t.Fatalf("carried = %v", *carried)
 	}
 	if !strings.Contains(out.String(), `"url": "https://github.com/acme/widgets/pull/7"`) {
-		t.Errorf("said %q, want where it landed", out.String())
+		t.Errorf("output %q, want where it landed", out.String())
 	}
 }
 
-func TestRefusesAPullRequestWithoutATitle(t *testing.T) {
+func TestRejectsAPullRequestWithoutATitle(t *testing.T) {
 	openingPullRequests(t)
 
 	err := run([]string{"pull-request", "--body", "What it does."}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "--title is required") {
-		t.Fatalf("err = %v, want it to ask for a title", err)
+		t.Fatalf("err = %v, want it to require a title", err)
 	}
 }
 
@@ -266,8 +266,8 @@ func TestSaysWhyItCouldNotLookForATool(t *testing.T) {
 	}))
 	t.Cleanup(down.Close)
 
-	t.Setenv(protocol.HandoverURLVar, down.URL)
-	t.Setenv(protocol.HandoverTokenVar, "token")
+	t.Setenv(protocol.AgentAPIURLVar, down.URL)
+	t.Setenv(protocol.AgentAPITokenVar, "token")
 
 	err := run([]string{"pull-request", "--title", "Fix the queue"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "the run's tools are unavailable") {

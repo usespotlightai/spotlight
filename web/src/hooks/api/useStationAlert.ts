@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { readStationAlert } from '@/lib/api';
-import type { StationAlertCrossing } from '@/lib/station-alert';
+import type { StationAlertFiring } from '@/lib/station-alert';
 
 const stationAlertKeys = {
   of: (teamId: string | undefined, alertId: string | undefined) =>
@@ -14,7 +14,7 @@ export function useStationAlert(
   return useQuery({
     queryKey: stationAlertKeys.of(teamId, alertId),
     enabled: Boolean(teamId && alertId),
-    queryFn: async (): Promise<StationAlertCrossing> => {
+    queryFn: async (): Promise<StationAlertFiring> => {
       const { data } = await readStationAlert({
         path: { teamId: teamId as string, alertId: alertId as string },
         throwOnError: true,

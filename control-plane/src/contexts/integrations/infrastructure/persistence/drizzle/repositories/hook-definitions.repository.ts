@@ -1,6 +1,6 @@
 import type { HookSigningSecretsPort } from '@integrations/application/ports/hook-signing-secrets.port';
 import { HookDefinition } from '@integrations/domain/aggregates/hook-definition.aggregate';
-import { HookAlreadyDefinedError } from '@integrations/domain/exceptions/hook-already-defined.error';
+import { HookAlreadyExistsError } from '@integrations/domain/exceptions/hook-already-exists.error';
 import { HookDefinitionVersionConflictError } from '@integrations/domain/exceptions/hook-definition-version-conflict.error';
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
@@ -14,9 +14,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Credential } from '@secrets/application/contracts/credential.contract';
 import {
-  CREDENTIAL_SEALING,
-  type CredentialSealingPort,
-} from '@secrets/application/ports/credential-sealing.port';
+  CREDENTIAL_ENCRYPTION,
+  type CredentialEncryptionPort,
+} from '@secrets/application/ports/credential-encryption.port';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -68,8 +68,8 @@ export class DrizzleHookDefinitions
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
     private readonly events: DomainEventDispatcher,
-    @Inject(CREDENTIAL_SEALING)
-    private readonly sealing: CredentialSealingPort,
+    @Inject(CREDENTIAL_ENCRYPTION)
+    private readonly encryption: CredentialEncryptionPort,
   ) {}
 
   async withId(id: HookDefinitionId): Promise<HookDefinition | null> {
@@ -115,7 +115,7 @@ export class DrizzleHookDefinitions
 
     return HookSigningSecret.of(
       (
-        await this.sealing.open(
+        await this.encryption.decrypt(
           found.workspaceId,
           secretLabel(found.id),
           found.signingSecret,
@@ -124,19 +124,19 @@ export class DrizzleHookDefinitions
     );
   }
 
-  private async sealed(definition: HookDefinition) {
-    const given = definition.givenSecret;
+  private async encrypted(definition: HookDefinition) {
+    const secret = definition.secretInput;
 
     if (definition.signing === null) {
       return { signingSecret: null, signingSecretVersion: null };
     }
 
-    return given
+    return secret
       ? {
-          signingSecret: await this.sealing.seal(
+          signingSecret: await this.encryption.encrypt(
             definition.workspaceId.value,
             secretLabel(definition.id.value),
-            Credential.of(given.revealed()),
+            Credential.of(secret.revealed()),
           ),
           signingSecretVersion: definition.signing.version,
         }
@@ -148,7 +148,7 @@ export class DrizzleHookDefinitions
       on: definition.event.name,
       definition: { ...definition.document.fields },
       tools: definition.tools.map((tool) => tool.value),
-      ...(await this.sealed(definition)),
+      ...(await this.encrypted(definition)),
     };
 
     if (definition.isNew) {
@@ -162,7 +162,7 @@ export class DrizzleHookDefinitions
         });
       } catch (error) {
         if (collided(error)) {
-          throw new HookAlreadyDefinedError(definition.key.value);
+          throw new HookAlreadyExistsError(definition.key.value);
         }
 
         throw error;
@@ -171,7 +171,7 @@ export class DrizzleHookDefinitions
       return;
     }
 
-    const touched = definition.isRetired
+    const touched = definition.isDeleted
       ? await this.context.db
           .delete(hookDefinition)
           .where(inPlace(definition))

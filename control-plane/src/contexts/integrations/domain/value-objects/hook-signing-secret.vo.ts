@@ -13,7 +13,7 @@ const MIN_BYTES = 24;
 
 const MAX_BYTES = 64;
 
-const WITHHELD = '[secret]';
+const REDACTED = '[secret]';
 
 export class HookSigningSecret implements Secret {
   readonly #value: string;
@@ -55,14 +55,14 @@ export class HookSigningSecret implements Secret {
   }
 
   toString(): string {
-    return WITHHELD;
+    return REDACTED;
   }
 
   toJSON(): string {
-    return WITHHELD;
+    return REDACTED;
   }
 
   [Symbol.for('nodejs.util.inspect.custom')](): string {
-    return `HookSigningSecret ${WITHHELD}`;
+    return `HookSigningSecret ${REDACTED}`;
   }
 }

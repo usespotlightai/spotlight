@@ -14,14 +14,14 @@ import type {
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type {
   ChangedFile,
-  HeldRunLookup,
+  LeasedRunLookup,
   ReasonedStep,
+  RunContext,
+  RunLocation,
   RunLookup,
-  RunPlace,
   RunReasoning,
-  RunSite,
-  SpokenNote,
   TaskLookup,
+  TaskNoteView,
   TeamLine,
   WorkLookupPort,
 } from '@work/application/ports/work-lookup.port';
@@ -36,15 +36,15 @@ import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { reasoningIn } from '@work/domain/services/run-reasoning';
-import { repositoriesWorkedOn } from '@work/domain/services/task-checkouts';
+import { repositoriesForTask } from '@work/domain/services/task-checkouts';
 import {
   filesChangedIn,
   workspacePathsIn,
 } from '@work/domain/services/workspace-path';
-import { Concerns } from '@work/domain/value-objects/concerns.vo';
+import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 
-const spoken = (note: TaskNote): SpokenNote[] => {
+const noteViewsOf = (note: TaskNote): TaskNoteView[] => {
   const by = note.voice.isPerson
     ? 'person'
     : note.voice.isWorld
@@ -93,7 +93,9 @@ export class WorkLookup implements WorkLookupPort {
       return null;
     }
 
-    const line = run.stationId ? await this.lines.holding(run.stationId) : null;
+    const line = run.stationId
+      ? await this.lines.findByStation(run.stationId)
+      : null;
     const station = run.stationId ? line?.stationAt(run.stationId) : null;
 
     return {
@@ -114,10 +116,10 @@ export class WorkLookup implements WorkLookupPort {
     };
   }
 
-  async placeOf(runId: RunId): Promise<RunPlace | null> {
+  async locationOf(runId: RunId): Promise<RunLocation | null> {
     const run = await this.runs.findById(runId);
     const line = run?.stationId
-      ? await this.lines.holding(run.stationId)
+      ? await this.lines.findByStation(run.stationId)
       : null;
     const station = run?.stationId ? line?.stationAt(run.stationId) : null;
 
@@ -128,19 +130,19 @@ export class WorkLookup implements WorkLookupPort {
           lineName: line.name.value,
           stationId: station.id.value,
           stationName: station.name.value,
-          repositories: await this.worked(run, line),
+          repositories: await this.repositoriesOf(run, line),
         }
       : null;
   }
 
   async linesOf(teamId: TeamId): Promise<readonly TeamLine[]> {
     return (await this.lines.ofTeam(teamId))
-      .filter((line) => !line.isRetired)
+      .filter((line) => !line.isDeleted)
       .map((line) => ({
         id: line.id.value,
         name: line.name.value,
         stations: line.stations
-          .filter((station) => station.isWorked)
+          .filter((station) => station.isAgentStation)
           .map((station) => ({
             id: station.id.value,
             name: station.name.value,
@@ -157,13 +159,13 @@ export class WorkLookup implements WorkLookupPort {
       return null;
     }
 
-    const worked = run.taskId
+    const changes = run.taskId
       ? await this.journals.changesOfTask(run.taskId)
       : [changesIn(journal, run)];
 
     return {
       steps: journal.steps.flatMap(reasoned),
-      changed: [...new Set(worked.flatMap(workspacePathsIn))],
+      changed: [...new Set(changes.flatMap(workspacePathsIn))],
     };
   }
 
@@ -175,45 +177,53 @@ export class WorkLookup implements WorkLookupPort {
       return null;
     }
 
-    const line = run.stationId ? await this.lines.holding(run.stationId) : null;
-    const repositories = line ? await this.worked(run, line) : [];
+    const line = run.stationId
+      ? await this.lines.findByStation(run.stationId)
+      : null;
+    const repositories = line ? await this.repositoriesOf(run, line) : [];
 
     return distinctFiles(filesChangedIn(changesIn(journal, run), repositories));
   }
 
-  async spokenOn(taskId: TaskId): Promise<readonly SpokenNote[] | null> {
+  async notesOf(taskId: TaskId): Promise<readonly TaskNoteView[] | null> {
     const task = await this.tasks.find(taskId);
 
-    return task ? task.notes.flatMap(spoken) : null;
+    return task ? task.notes.flatMap(noteViewsOf) : null;
   }
 
-  private async worked(run: Run, line: Line): Promise<readonly Repository[]> {
+  private async repositoriesOf(
+    run: Run,
+    line: Line,
+  ): Promise<readonly Repository[]> {
     const task = run.taskId ? await this.tasks.find(run.taskId) : null;
 
-    return repositoriesWorkedOn(task, line);
+    return repositoriesForTask(task, line);
   }
 
-  async wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean> {
-    return (await this.runs.findById(runId))?.wasWorkedBy(runner) ?? false;
+  async wasClaimedBy(runId: RunId, runner: RunnerId): Promise<boolean> {
+    return (await this.runs.findById(runId))?.wasClaimedBy(runner) ?? false;
   }
 
-  async heldBy(runId: RunId, runner: RunnerId): Promise<HeldRunLookup | null> {
+  async leasedBy(
+    runId: RunId,
+    runner: RunnerId,
+  ): Promise<LeasedRunLookup | null> {
     const run = await this.runs.findById(runId);
 
-    if (!run?.isHeldBy(runner)) {
+    if (!run?.isLeasedBy(runner)) {
       return null;
     }
 
-    const site = await this.siteOf(run);
+    const runContext = await this.contextOf(run);
 
     return (
-      site && {
+      runContext && {
         id: run.id,
         workspaceId: run.workspaceId,
         taskId: run.taskId,
         replaysFrom: await this.replaysFrom(run),
         isSearch: run.isSearch,
-        ...site,
+        ...runContext,
       }
     );
   }
@@ -235,9 +245,9 @@ export class WorkLookup implements WorkLookupPort {
     return started.at;
   }
 
-  async siteOfRun(runId: RunId): Promise<RunSite | null> {
+  async contextOfRun(runId: RunId): Promise<RunContext | null> {
     const run = await this.runs.findById(runId);
-    return run ? this.siteOf(run) : null;
+    return run ? this.contextOf(run) : null;
   }
 
   async referencedUnder(
@@ -250,7 +260,7 @@ export class WorkLookup implements WorkLookupPort {
     return journal ? referencesUnder(journal, folder, file) : null;
   }
 
-  private async siteOf(run: Run): Promise<RunSite | null> {
+  private async contextOf(run: Run): Promise<RunContext | null> {
     if (run.chatId) {
       const chat = await this.chats.find(run.chatId);
       return (
@@ -263,7 +273,9 @@ export class WorkLookup implements WorkLookupPort {
       );
     }
 
-    const line = run.stationId ? await this.lines.holding(run.stationId) : null;
+    const line = run.stationId
+      ? await this.lines.findByStation(run.stationId)
+      : null;
     const ranFor = run.ranFor;
 
     if (ranFor) {
@@ -281,7 +293,7 @@ export class WorkLookup implements WorkLookupPort {
         teamId: line.teamId,
         lineId: line.id.value,
         stationId: run.stationId.value,
-        repositories: await this.worked(run, line),
+        repositories: await this.repositoriesOf(run, line),
       }
     );
   }
@@ -297,23 +309,25 @@ export class WorkLookup implements WorkLookupPort {
     pullRequest: PullRequestUrl,
   ): Promise<TaskLookup | null> {
     const task =
-      (await this.wearing(workspaceId, Mark.pullRequest(pullRequest))) ??
-      (await this.wearing(workspaceId, Mark.review(pullRequest)));
+      (await this.taskWithMark(workspaceId, Mark.pullRequest(pullRequest))) ??
+      (await this.taskWithMark(workspaceId, Mark.review(pullRequest)));
 
     return task ? this.lookup(task) : null;
   }
 
-  private async wearing(
+  private async taskWithMark(
     workspaceId: WorkspaceId,
     mark: Mark,
   ): Promise<Task | null> {
-    const concerns = Concerns.of({ marks: [mark] });
+    const correlationKeys = CorrelationKeys.of({ marks: [mark] });
 
-    return concerns ? this.tasks.holding(workspaceId, concerns) : null;
+    return correlationKeys
+      ? this.tasks.findByMarks(workspaceId, correlationKeys)
+      : null;
   }
 
   private async lookup(task: Task): Promise<TaskLookup> {
-    const line = await this.lines.holding(task.stationId);
+    const line = await this.lines.findByStation(task.stationId);
 
     return {
       id: task.id,

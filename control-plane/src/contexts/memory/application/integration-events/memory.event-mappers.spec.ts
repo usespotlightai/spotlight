@@ -30,7 +30,7 @@ describe('what memory tells other contexts', () => {
         runId: 'run_1',
         workspaceId: 'ws_1',
         taskId: 'task_1',
-        way: 'recalled',
+        via: 'recalled',
         memories: ['memory_1', 'memory_2'],
       },
     ]);

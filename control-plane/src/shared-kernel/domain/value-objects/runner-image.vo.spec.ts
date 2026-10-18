@@ -31,11 +31,11 @@ describe('RunnerImage', () => {
     'ghcr.io/acme/runner:',
     'ghcr.io/acme/runner@sha256:abc',
     `ghcr.io/acme/runner@sha256:${'A'.repeat(64)}`,
-  ])('refuses the reference %j', (reference) => {
+  ])('rejects the reference %j', (reference) => {
     expect(() => RunnerImage.of(reference)).toThrow(InvalidRunnerImageError);
   });
 
-  it('refuses a reference longer than 255 characters', () => {
+  it('rejects a reference longer than 255 characters', () => {
     expect(() => RunnerImage.of(`ghcr.io/${'a'.repeat(250)}`)).toThrow(
       InvalidRunnerImageError,
     );

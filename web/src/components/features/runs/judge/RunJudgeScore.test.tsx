@@ -56,7 +56,7 @@ describe('RunJudgeScore', () => {
     expect(screen.queryByRole('list', { name: 'Why' })).not.toBeInTheDocument();
   });
 
-  it('shows a trusted judge’s score and each reason it gave', () => {
+  it('shows a qualified judge’s score and each reason it gave', () => {
     showing();
 
     expect(
@@ -97,7 +97,7 @@ describe('RunJudgeScore', () => {
         value={{
           focused: null,
           anchorOf: () => null,
-          holds: () => true,
+          has: () => true,
           focus,
         }}
       >
@@ -112,17 +112,17 @@ describe('RunJudgeScore', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('keeps an untrusted judge’s score hidden, and says why', () => {
+  it('keeps an unqualified judge’s score hidden, and says why', () => {
     scores.mockReturnValue(
       runScoresOf('run_1', 'task_1', {
         judge: null,
-        standing: {
-          trusted: false,
+        calibration: {
+          qualified: false,
           measure: 'kappa',
           agreement: 0.38,
           pairs: 24,
-          trust: 0.6,
-          hiddenBecause: 'below-trust',
+          minAgreement: 0.6,
+          hiddenReason: 'below-min-agreement',
         },
       }),
     );
@@ -150,7 +150,7 @@ describe('RunJudgeScore', () => {
             mine: true,
             kind: 'yes-no',
             value: 1,
-            marks: null,
+            claimResults: null,
             label: 'yes',
             at: '2026-09-30T12:00:00.000Z',
           },
@@ -185,7 +185,7 @@ describe('RunJudgeScore', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('holds its place while the score loads, and offers to try again when it fails', async () => {
+  it('keeps its place while the score loads, and offers to try again when it fails', async () => {
     scores.mockReturnValue(undefined);
     const { rerender } = showing();
 

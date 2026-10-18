@@ -7,10 +7,10 @@ type CauseKind = (typeof CAUSE_KINDS)[number];
 export interface CauseLink {
   readonly kind: CauseKind;
   readonly key: string;
-  readonly saying: string;
+  readonly description: string;
 }
 
-const MAX_KEPT = 32;
+const MAX_LINKS = 32;
 
 const MAX_KEY = 500;
 
@@ -34,7 +34,7 @@ export class CausalChain {
     if (!Number.isInteger(input.depth) || input.depth < input.links.length) {
       throw new InconsistentStateError(
         'causal chain',
-        `is ${input.depth} deep yet holds ${input.links.length} links`,
+        `is ${input.depth} deep but has ${input.links.length} links`,
       );
     }
 
@@ -62,17 +62,21 @@ export class CausalChain {
   }
 
   private static linkOf(link: CauseLink): CauseLink {
-    if (!isKind(link?.kind) || !link.key || typeof link.saying !== 'string') {
+    if (
+      !isKind(link?.kind) ||
+      !link.key ||
+      typeof link.description !== 'string'
+    ) {
       throw new InconsistentStateError(
         'causal chain',
-        'holds a link that says nothing of what it was',
+        'has a link without a description',
       );
     }
 
     return {
       kind: link.kind,
       key: link.key.slice(0, MAX_KEY),
-      saying: link.saying,
+      description: link.description,
     };
   }
 
@@ -80,21 +84,21 @@ export class CausalChain {
     return this.depth > 0;
   }
 
-  followedBy(link: CauseLink): CausalChain {
+  append(link: CauseLink): CausalChain {
     return new CausalChain(
-      [...this.links, CausalChain.linkOf(link)].slice(-MAX_KEPT),
+      [...this.links, CausalChain.linkOf(link)].slice(-MAX_LINKS),
       this.depth + 1,
     );
   }
 
-  holds(key: string): boolean {
+  contains(key: string): boolean {
     return this.links.some((each) => each.key === key.slice(0, MAX_KEY));
   }
 
-  get saying(): string {
-    const said = this.links.map((each) => each.saying).join(' → ');
+  get description(): string {
+    const described = this.links.map((each) => each.description).join(' → ');
 
-    return this.depth > this.links.length ? `… → ${said}` : said;
+    return this.depth > this.links.length ? `… → ${described}` : described;
   }
 
   get stored(): { links: readonly CauseLink[]; depth: number } {

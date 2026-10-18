@@ -2,12 +2,12 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { ReplayRefusalCode } from '@work/application/contracts/replay-refusal.contract';
+import type { UnreplayableReasonCode } from '@work/application/contracts/unreplayable-reason.contract';
 import type {
-  AnswerAsked,
+  AnswerInput,
+  CancelledReplayRun,
   ReplayDispatched,
   ReplayDispatchPort,
-  ReplayForgone,
   ReplayOrder,
 } from '@work/application/ports/replay-dispatch.port';
 import type { ReplayRunClaimsPort } from '@work/application/ports/replay-run-claims.port';
@@ -19,13 +19,18 @@ import { UnreplayableRunError } from '@work/domain/exceptions/unreplayable-run.e
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ReplayRunClaim } from '@work/domain/value-objects/replay-run-claim.vo';
 
-const OVER_BUDGET = 'Replay reached its budget before a runner took the run.';
-const STOPPED = 'Replay stopped before a runner took the run.';
+const CEILING_REACHED =
+  'Replay reached its ceiling before a runner claimed the run.';
+const STOPPED = 'Replay stopped before a runner claimed the run.';
 
 const unreplayable = (
-  refusal: ReplayRefusalCode,
+  unreplayableReason: UnreplayableReasonCode,
   reason: string,
-): ReplayDispatched => ({ outcome: 'unreplayable', refusal, reason });
+): ReplayDispatched => ({
+  outcome: 'unreplayable',
+  unreplayableReason,
+  reason,
+});
 
 export class ReplayRuns implements ReplayDispatchPort {
   constructor(
@@ -45,11 +50,14 @@ export class ReplayRuns implements ReplayDispatchPort {
       const claim = await this.claims.claim(ReplayRunClaim.toQueue(id));
 
       if (!claim.mayQueue) {
-        return claim.refusal
-          ? unreplayable(claim.refusal, claim.reason ?? claim.refusal)
+        return claim.unreplayableReason
+          ? unreplayable(
+              claim.unreplayableReason,
+              claim.reason ?? claim.unreplayableReason,
+            )
           : unreplayable(
-              'forgone',
-              'its replay let it go before it was queued',
+              'cancelled',
+              'its replay cancelled it before it was queued',
             );
       }
 
@@ -61,7 +69,7 @@ export class ReplayRuns implements ReplayDispatchPort {
 
       if (dispatched.outcome === 'unreplayable') {
         await this.claims.save(
-          claim.refused(dispatched.refusal, dispatched.reason),
+          claim.unreplayable(dispatched.unreplayableReason, dispatched.reason),
         );
       }
 
@@ -69,10 +77,10 @@ export class ReplayRuns implements ReplayDispatchPort {
     });
   }
 
-  async answerable(asked: readonly AnswerAsked[]): Promise<readonly string[]> {
+  async answerable(inputs: readonly AnswerInput[]): Promise<readonly string[]> {
     const answered: string[] = [];
 
-    for (const each of asked) {
+    for (const each of inputs) {
       const original = await this.runs.findById(RunId.of(each.original));
 
       if (original && (await this.answers.has(original, each.answer))) {
@@ -83,16 +91,16 @@ export class ReplayRuns implements ReplayDispatchPort {
     return answered;
   }
 
-  withdraw(runIds: readonly string[]): Promise<void> {
+  cancelQueued(runIds: readonly string[]): Promise<void> {
     return this.each(runIds, (run) =>
-      run.state === 'queued' ? run.withdrawn(OVER_BUDGET) : run,
+      run.state === 'queued' ? run.cancelQueued(CEILING_REACHED) : run,
     );
   }
 
-  forgo(runId: string, keep: boolean): Promise<ReplayForgone> {
+  cancel(runId: string, leaveRunAsIs: boolean): Promise<CancelledReplayRun> {
     return this.transaction.inTransaction(async () => {
       const id = RunId.of(runId);
-      const claim = await this.claims.claim(ReplayRunClaim.toForgo(id));
+      const claim = await this.claims.claim(ReplayRunClaim.toCancel(id));
 
       if (!claim.mayQueue) {
         return { outcome: 'never-queued' as const };
@@ -100,14 +108,14 @@ export class ReplayRuns implements ReplayDispatchPort {
 
       const run = await this.runs.findById(id);
       const replayed = run?.replayOf ? run : null;
-      const settled = claim.forgone(replayed !== null);
+      const cancelledClaim = claim.cancelled(replayed !== null);
 
       if (!replayed) {
-        await this.claims.save(settled);
+        await this.claims.save(cancelledClaim);
         return { outcome: 'never-queued' as const };
       }
 
-      if (!keep) {
+      if (!leaveRunAsIs) {
         await this.stopped(replayed);
       }
 
@@ -129,20 +137,17 @@ export class ReplayRuns implements ReplayDispatchPort {
       return unreplayable('unknown-run', 'there is no such run');
     }
 
-    const standing = await this.candidates.standing(
-      order.lineId,
-      order.stationId,
-    );
+    const current = await this.candidates.live(order.lineId, order.stationId);
 
-    if (!standing) {
+    if (!current) {
       return unreplayable(
         'not-at-the-station',
-        'the line no longer has the station it worked at',
+        'the line no longer has the station of the run',
       );
     }
 
     const built = await this.candidates.withStation(
-      standing,
+      current,
       order.station,
       order.repositories,
     );
@@ -150,7 +155,7 @@ export class ReplayRuns implements ReplayDispatchPort {
     if (!built.ok) {
       return unreplayable(
         'candidate-unfit',
-        'the candidate no longer fits the line as it stands',
+        'the candidate no longer fits the current line',
       );
     }
 
@@ -163,7 +168,7 @@ export class ReplayRuns implements ReplayDispatchPort {
       });
     } catch (error) {
       if (error instanceof UnreplayableRunError) {
-        return unreplayable(error.refusal, error.message);
+        return unreplayable(error.unreplayableReason, error.message);
       }
       throw error;
     }
@@ -178,8 +183,8 @@ export class ReplayRuns implements ReplayDispatchPort {
 
     const changed =
       run.state === 'queued'
-        ? run.withdrawn(STOPPED)
-        : run.letGo(this.clock.now());
+        ? run.cancelQueued(STOPPED)
+        : run.cancel(this.clock.now());
 
     if (changed !== run) {
       await this.runs.save(changed);

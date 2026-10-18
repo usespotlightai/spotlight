@@ -9,15 +9,15 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 interface MemoryBody {
   readonly id: string;
   readonly kind: string;
   readonly body: string;
   readonly source: string;
-  readonly standing: string;
-  readonly reach: string;
+  readonly status: string;
+  readonly scope: string;
   readonly lineId: string | null;
   readonly stationId: string | null;
   readonly repository: string | null;
@@ -35,7 +35,7 @@ interface MemoryBody {
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 const LINE = randomUUID();
 const STATION = randomUUID();
 
@@ -54,7 +54,7 @@ const writing = (body: Record<string, unknown>) =>
 beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `memory-${randomUUID().slice(0, 8)}`,
@@ -102,7 +102,7 @@ afterAll(async () => {
 });
 
 describe('the team’s memory', () => {
-  it('stands a memory written on the page at once, as the writer’s own', async () => {
+  it('makes a memory written on the page active at once, as the writer’s own', async () => {
     const written = await writing({
       kind: 'environment',
       body: 'Staging needs a restart after deploys.',
@@ -112,8 +112,8 @@ describe('the team’s memory', () => {
     expect(written.body).toMatchObject({
       kind: 'environment',
       source: 'person',
-      standing: 'stands',
-      reach: 'team',
+      status: 'active',
+      scope: 'team',
       approvedBy: { id: team.owner.value, name: 'Ada' },
       retirement: null,
     });
@@ -122,7 +122,7 @@ describe('the team’s memory', () => {
     );
   });
 
-  it('holds a memory to a station and the paths of its line’s repository', async () => {
+  it('ties a memory to a station and the paths of its line’s repository', async () => {
     const written = await writing({
       kind: 'rationale',
       body: 'Uploads retry in the request, not from a queue.',
@@ -134,7 +134,7 @@ describe('the team’s memory', () => {
 
     expect(written.status).toBe(201);
     expect(written.body).toMatchObject({
-      reach: 'station',
+      scope: 'station',
       lineId: LINE,
       stationId: STATION,
       repository: 'acme/api',
@@ -142,20 +142,20 @@ describe('the team’s memory', () => {
     });
   });
 
-  it('refuses a line, station or repository the team does not have', async () => {
+  it('rejects a line, station or repository the team does not have', async () => {
     for (const where of [
       { lineId: randomUUID() },
       { lineId: LINE, stationId: team.stationId.value },
       { repository: 'acme/elsewhere' },
       { kind: 'gossip' },
     ]) {
-      const refused = await writing({
+      const rejected = await writing({
         kind: 'preference',
         body: 'Anything.',
         ...where,
       });
 
-      expect(refused.status).toBe(422);
+      expect(rejected.status).toBe(422);
     }
   });
 
@@ -209,23 +209,23 @@ describe('the team’s memory', () => {
           .get(`${memories()}/${old.id}`)
           .set(TEST_USER_HEADER, team.owner.value)
       ).body as MemoryBody;
-      return read.standing === 'retired' && read;
+      return read.status === 'retired' && read;
     });
     expect(retired.retirement?.supersededBy).toBe(replacement.id);
     expect(retired.successor?.id).toBe(replacement.id);
-    expect(
-      (await listing('?standing=retired')).map((each) => each.id),
-    ).toContain(old.id);
+    expect((await listing('?status=retired')).map((each) => each.id)).toContain(
+      old.id,
+    );
     expect((await listing()).map((each) => each.id)).not.toContain(old.id);
   });
 
   it('retires a memory only with a reason, and only once', async () => {
-    const held = (
+    const memory = (
       await writing({ kind: 'failure', body: 'The upload test flakes.' })
     ).body as MemoryBody;
     const retire = (reason: string) =>
       served(app)
-        .post(`${memories()}/${held.id}/retire`)
+        .post(`${memories()}/${memory.id}/retire`)
         .set(TEST_USER_HEADER, team.owner.value)
         .send({ reason });
 
@@ -241,10 +241,10 @@ describe('the team’s memory', () => {
       supersededBy: null,
     });
     expect(again.status).toBe(409);
-    expect((await listing()).map((each) => each.id)).not.toContain(held.id);
+    expect((await listing()).map((each) => each.id)).not.toContain(memory.id);
   });
 
-  it('keeps one correction when two arrive at once, and refuses correcting a retired memory', async () => {
+  it('stores one correction when two arrive at once, and rejects a correction of a retired memory', async () => {
     const old = (
       await writing({ kind: 'preference', body: 'Squash every merge.' })
     ).body as MemoryBody;
@@ -262,17 +262,17 @@ describe('the team’s memory', () => {
 
     expect(answers.map((each) => each.status).sort()).toEqual([201, 409]);
     expect(later.status).toBe(409);
-    const standing = (await listing()).filter(
+    const active = (await listing()).filter(
       (each) => each.supersedes === old.id,
     );
-    expect(standing).toHaveLength(1);
+    expect(active).toHaveLength(1);
   });
 
-  it('stops a retired memory reaching later runs', async () => {
-    const held = (
+  it('stops a retired memory applying to later runs', async () => {
+    const memory = (
       await writing({ kind: 'environment', body: 'CI has no network.' })
     ).body as MemoryBody;
-    const site = {
+    const runContext = {
       teamId: TeamId.of(team.teamId.value),
       lineId: LINE,
       stationId: STATION,
@@ -280,22 +280,22 @@ describe('the team’s memory', () => {
     };
     const repository = app.get(DrizzleMemoryRepository);
     const applying = async () =>
-      (await repository.mayReach(site))
-        .filter((each) => each.appliesAt(site))
+      (await repository.mayApplyAt(runContext))
+        .filter((each) => each.appliesAt(runContext))
         .map((each) => each.id.value);
 
-    expect(await applying()).toContain(held.id);
+    expect(await applying()).toContain(memory.id);
 
     await served(app)
-      .post(`${memories()}/${held.id}/retire`)
+      .post(`${memories()}/${memory.id}/retire`)
       .set(TEST_USER_HEADER, team.owner.value)
       .send({ reason: 'CI has network now.' });
 
-    expect(await applying()).not.toContain(held.id);
+    expect(await applying()).not.toContain(memory.id);
   });
 
   it('knows no memory of another team', async () => {
-    const other = await openTeam(
+    const other = await createTeam(
       db,
       app.get(DrizzleTaskRepository),
       `other-${randomUUID().slice(0, 8)}`,

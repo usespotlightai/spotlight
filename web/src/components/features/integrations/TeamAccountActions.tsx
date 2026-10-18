@@ -26,7 +26,8 @@ export function TeamAccountActions({
           {
             label: 'Change account',
             icon: ArrowLeftRight,
-            onSelect: () => connect.mutate({ source: integration.source }),
+            onSelect: () =>
+              connect.mutate({ integration: integration.integration }),
           },
         ]}
       />

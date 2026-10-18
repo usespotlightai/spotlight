@@ -12,7 +12,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -31,7 +31,7 @@ import {
 } from '@work/application/ports/pull-request-reviewing.port';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { BUILT_IN_LINES } from '@work/domain/services/built-in-lines';
-import { Concerns } from '@work/domain/value-objects/concerns.vo';
+import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
@@ -43,8 +43,8 @@ import { AppModule } from '@/app.module';
 describe('a pull request reviewed from GitHub (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
-  const held = `review_${Date.now()}`;
-  const pull = `https://github.com/acme/${held}/pull/7`;
+  const workspaceId = `review_${Date.now()}`;
+  const pull = `https://github.com/acme/${workspaceId}/pull/7`;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -55,34 +55,40 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
     await app.init();
     db = app.get(DRIZZLE);
 
-    await db.insert(workspace).values({ id: held, name: held, slug: held });
+    await db
+      .insert(workspace)
+      .values({ id: workspaceId, name: workspaceId, slug: workspaceId });
     await db
       .insert(team)
-      .values({ id: held, workspaceId: held, key: 'team', name: held });
+      .values({ id: workspaceId, workspaceId, key: 'team', name: workspaceId });
   });
 
   afterEach(async () => {
-    await db.delete(reviewTable).where(eq(reviewTable.workspaceId, held));
-    await db.delete(reviewComment).where(eq(reviewComment.workspaceId, held));
-    await db.delete(team).where(eq(team.workspaceId, held));
-    await db.delete(workspace).where(eq(workspace.id, held));
+    await db
+      .delete(reviewTable)
+      .where(eq(reviewTable.workspaceId, workspaceId));
+    await db
+      .delete(reviewComment)
+      .where(eq(reviewComment.workspaceId, workspaceId));
+    await db.delete(team).where(eq(team.workspaceId, workspaceId));
+    await db.delete(workspace).where(eq(workspace.id, workspaceId));
     await app.close();
   });
 
-  it('opens a review task when mentioned, and holds the agent’s review for GitHub', async () => {
+  it('opens a review task when mentioned, and stores the agent’s review for GitHub', async () => {
     const lines = app.get(DrizzleLineRepository);
     const tasks = app.get(DrizzleTaskRepository);
     let next = 0;
     const opening = BUILT_IN_LINES.find((each) =>
       each.role?.equals(LineRole.REVIEW),
     );
-    const line = Line.open({
-      by: attributedIn(),
-      workspaceId: WorkspaceId.of(held),
-      teamId: TeamId.of(held),
+    const line = Line.create({
+      by: changeActorIn(),
+      workspaceId: WorkspaceId.of(workspaceId),
+      teamId: TeamId.of(workspaceId),
       // biome-ignore lint/style/noNonNullAssertion: Spotlight has a built-in review line
       line: opening!,
-      newId: () => `${held}_${++next}`,
+      newId: () => `${workspaceId}_${++next}`,
     });
 
     await lines.add(line);
@@ -93,21 +99,21 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
     const marks = [{ kind: REVIEW_MARK, value: pull }];
     const mentioned: Happened = {
       happening: 'github.pull_request.mentioned',
-      told: 'Somebody mentioned Spotlight on the pull request.',
-      spoken: true,
+      summary: 'Somebody mentioned Spotlight on the pull request.',
+      answers: true,
       state: 'raised',
-      concerns: { branch: null, marks },
-      said: { body: '@spotlight please review' },
+      correlationKeys: { branch: null, marks },
+      message: { body: '@spotlight please review' },
       ourOwn: false,
       opens: {
-        onto: 'review',
-        at: null,
+        lineRole: 'review',
+        station: null,
         title: 'Retry uploads',
         description: `Review ${pull}`,
         assignEmail: null,
         marks,
         review: {
-          asking: 'mentioned',
+          trigger: 'mentioned',
           pullRequest: pull,
           author: 'octocat',
           outside: true,
@@ -120,23 +126,23 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
     await app
       .get<HappeningReactionsPort>(HAPPENING_REACTIONS)
       .react(
-        WorkspaceId.of(held),
-        TeamId.of(held),
+        WorkspaceId.of(workspaceId),
+        TeamId.of(workspaceId),
         [mentioned],
-        `mentioned:${held}`,
+        `mentioned:${workspaceId}`,
       );
 
-    const task = await tasks.holding(
-      WorkspaceId.of(held),
-      // biome-ignore lint/style/noNonNullAssertion: concerns with a mark are not null
-      Concerns.of({ marks: [Mark.review(PullRequestUrl.of(pull))] })!,
+    const task = await tasks.findByMarks(
+      WorkspaceId.of(workspaceId),
+      // biome-ignore lint/style/noNonNullAssertion: correlation keys with a mark are not null
+      CorrelationKeys.of({ marks: [Mark.review(PullRequestUrl.of(pull))] })!,
     );
 
     expect(task?.reviewing).toBe(true);
     expect(task?.fromOutside).toBe(true);
     expect(task?.pullRequest?.value).toBe(pull);
     expect(task?.stationId.value).toBe(line.entry?.id.value);
-    expect(task?.reviewedHead?.repository.value).toBe(`acme/${held}`);
+    expect(task?.reviewedHead?.repository.value).toBe(`acme/${workspaceId}`);
 
     const reviewing = app.get<PullRequestReviewingPort>(PULL_REQUEST_REVIEWING);
     if (!task) {
@@ -144,7 +150,7 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
     }
 
     const on = {
-      runId: RunId.of(`${held}_run`),
+      runId: RunId.of(`${workspaceId}_run`),
       taskId: task.id,
     };
 
@@ -164,7 +170,7 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
 
     expect(review?.state).toBe('submitted');
     expect(review?.author.userId).toBeNull();
-    expect(review?.author.runId?.value).toBe(`${held}_run`);
+    expect(review?.author.runId?.value).toBe(`${workspaceId}_run`);
     expect(review?.author.name.value).toBe('Spotlight');
     expect(review?.comments).toHaveLength(1);
   });

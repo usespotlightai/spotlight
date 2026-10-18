@@ -1,6 +1,6 @@
 import { SquareMousePointer } from 'lucide-react';
-import { Instrument } from '@/components/features/stations/config/Instrument';
-import { InstrumentValue } from '@/components/features/stations/config/InstrumentValue';
+import { ConfigCard } from '@/components/features/stations/config/ConfigCard';
+import { ConfigCardValue } from '@/components/features/stations/config/ConfigCardValue';
 import { Pill } from '@/components/shared/Pill';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonBlock } from '@/components/shared/skeleton/SkeletonBlock';
@@ -16,18 +16,18 @@ export function StationConfigSkeleton() {
 
       <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <SkeletonBlock>
-          <Instrument title="Agent">
-            <InstrumentValue
+          <ConfigCard title="Agent">
+            <ConfigCardValue
               lead={<Skeleton className="size-4 rounded" />}
               detail={<SkeletonLine className="w-16" />}
             >
               <SkeletonLine className="w-24" />
-            </InstrumentValue>
-          </Instrument>
+            </ConfigCardValue>
+          </ConfigCard>
         </SkeletonBlock>
 
         <SkeletonBlock>
-          <Instrument title="Prompt">
+          <ConfigCard title="Prompt">
             <div className="flex min-h-[182px] flex-col">
               {PROMPT.map((width, at) => (
                 <SkeletonLine
@@ -37,12 +37,12 @@ export function StationConfigSkeleton() {
                 />
               ))}
             </div>
-          </Instrument>
+          </ConfigCard>
         </SkeletonBlock>
 
         <SkeletonBlock>
-          <Instrument title="Skills">
-            <InstrumentValue
+          <ConfigCard title="Skills">
+            <ConfigCardValue
               lead={
                 <SquareMousePointer
                   aria-hidden
@@ -52,45 +52,45 @@ export function StationConfigSkeleton() {
               detail="given to its runs"
             >
               <SkeletonLine className="w-5" />
-            </InstrumentValue>
+            </ConfigCardValue>
             <span className="flex">
               <Pill>
                 <SkeletonLine className="w-24" />
               </Pill>
             </span>
-          </Instrument>
+          </ConfigCard>
         </SkeletonBlock>
 
         <SkeletonBlock>
-          <Instrument title="Judge">
+          <ConfigCard title="Judge">
             <div className="flex items-center gap-3">
               <Skeleton className="size-20 rounded-full" />
-              <InstrumentValue detail={<SkeletonLine className="w-16" />}>
+              <ConfigCardValue detail={<SkeletonLine className="w-16" />}>
                 <SkeletonLine className="w-12" />
-              </InstrumentValue>
+              </ConfigCardValue>
             </div>
-          </Instrument>
+          </ConfigCard>
         </SkeletonBlock>
 
         <SkeletonBlock>
-          <Instrument title="Ships through">
-            <InstrumentValue detail={<SkeletonLine className="w-24" />}>
+          <ConfigCard title="Line">
+            <ConfigCardValue detail={<SkeletonLine className="w-24" />}>
               <SkeletonLine className="w-20" />
-            </InstrumentValue>
+            </ConfigCardValue>
             <span className="flex">
               <Pill>
                 <SkeletonLine className="w-20" />
               </Pill>
             </span>
-          </Instrument>
+          </ConfigCard>
         </SkeletonBlock>
 
         <SkeletonBlock>
-          <Instrument title="Version">
-            <InstrumentValue detail={<SkeletonLine className="w-28" />}>
+          <ConfigCard title="Config fingerprint">
+            <ConfigCardValue detail={<SkeletonLine className="w-28" />}>
               <SkeletonLine className="w-28" />
-            </InstrumentValue>
-          </Instrument>
+            </ConfigCardValue>
+          </ConfigCard>
         </SkeletonBlock>
       </div>
     </section>

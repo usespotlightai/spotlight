@@ -5,20 +5,20 @@ import type { PlatformEgressSettings } from '@runners/application/ports/platform
 import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
-import { givePoolToken } from '@runners/application/services/give-pool-token';
+import { assertKnownEgress } from '@runners/application/services/assert-known-egress';
 import {
-  givenAccess,
   issuedTo,
-} from '@runners/application/services/pool-access-given';
-import { refuseUnknownEgress } from '@runners/application/services/refuse-unknown-egress';
+  poolAccessInput,
+} from '@runners/application/services/pool-access-input';
+import { recordPoolTokenUse } from '@runners/application/services/record-pool-token-use';
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
-import { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
-import { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
-import { RunnerPoolAlreadyDefinedError } from '@runners/domain/exceptions/runner-pool-already-defined.error';
+import { PoolTokenAlreadyUsedError } from '@runners/domain/exceptions/pool-token-already-used.error';
+import { PoolTokenInUseError } from '@runners/domain/exceptions/pool-token-in-use.error';
+import { RunnerPoolAlreadyExistsError } from '@runners/domain/exceptions/runner-pool-already-exists.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
-import type { GivenPoolTokensRepository } from '@runners/domain/repositories/given-pool-tokens.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
+import type { UsedPoolTokensRepository } from '@runners/domain/repositories/used-pool-tokens.repository';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -28,10 +28,10 @@ import type {
   IdempotentCreate,
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -43,13 +43,13 @@ export class CreateRunnerPoolHandler
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: RunnerDefinitionsPort,
     private readonly pools: RunnerPoolRepository,
-    private readonly given: GivenPoolTokensRepository,
+    private readonly usedTokens: UsedPoolTokensRepository,
     private readonly secrets: ProvisionSecretsPort,
     private readonly egresses: EgressRepository,
     private readonly platform: PlatformEgressSettings | null,
     private readonly creates: IdempotentCreatesPort,
     private readonly ids: IdGeneratorPort,
-    private readonly tokens: TokenMintPort,
+    private readonly tokens: TokenIssuer,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -67,7 +67,7 @@ export class CreateRunnerPoolHandler
       }
 
       if (!permissions.managesRunners) {
-        return { created: forbiddenTo('manage-runners'), token: null };
+        return { created: forbiddenTo('runners'), token: null };
       }
 
       const compiled = this.definitions.pool(command.definition);
@@ -80,8 +80,10 @@ export class CreateRunnerPoolHandler
       }
 
       const supplied = compiled.access;
-      const minted =
-        supplied.mode === 'pull' && !supplied.token ? this.tokens.mint() : null;
+      const issued =
+        supplied.mode === 'pull' && !supplied.token
+          ? this.tokens.issue()
+          : null;
 
       const create: IdempotentCreate = {
         by: command.actor.principal.toString(),
@@ -114,9 +116,9 @@ export class CreateRunnerPoolHandler
 
       try {
         const created = await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
+          createIdempotently(this.creates, create, async () => {
             if (supplied.mode === 'push') {
-              await refuseUnknownEgress(
+              await assertKnownEgress(
                 supplied.egress,
                 permissions.workspaceId,
                 this.egresses,
@@ -125,53 +127,53 @@ export class CreateRunnerPoolHandler
             }
 
             const id = RunnerPoolId.of(this.ids.generate());
-            const given = await givenAccess(
+            const accessInput = await poolAccessInput(
               supplied,
               { id, workspaceId: permissions.workspaceId },
               this.tokens,
               this.secrets,
             );
-            const defined = RunnerPool.define({
+            const pool = RunnerPool.create({
               id,
               workspaceId: permissions.workspaceId,
-              by: Attribution.of(command.actor, permissions.workspaceId),
+              by: ChangeActor.of(command.actor, permissions.workspaceId),
               key: compiled.key,
               labels: compiled.labels,
               maxRuns: compiled.maxRuns,
-              access: minted ? issuedTo(given, minted) : given,
+              access: issued ? issuedTo(accessInput, issued) : accessInput,
             });
 
-            await this.pools.add(defined);
-            await givePoolToken(this.given, this.pools, defined, null);
+            await this.pools.add(pool);
+            await recordPoolTokenUse(this.usedTokens, this.pools, pool, null);
 
-            return defined.id.value;
+            return pool.id.value;
           }),
         );
 
         return {
           created,
           token:
-            minted && created.outcome === 'created' && !created.replayed
-              ? minted.token
+            issued && created.outcome === 'created' && !created.replayed
+              ? issued.token
               : null,
         };
       } catch (error) {
-        if (error instanceof RunnerPoolAlreadyDefinedError) {
+        if (error instanceof RunnerPoolAlreadyExistsError) {
           return {
-            created: { outcome: 'taken', address: compiled.key.value },
+            created: { outcome: 'already-exists', address: compiled.key.value },
             token: null,
           };
         }
 
         if (
-          error instanceof PoolTokenTakenError ||
-          error instanceof PoolTokenSpentError ||
+          error instanceof PoolTokenInUseError ||
+          error instanceof PoolTokenAlreadyUsedError ||
           error instanceof InvalidRunnerPoolError
         ) {
           return {
             created: {
               outcome: 'invalid',
-              problems: [RunnerProblems.poolRefused(error)],
+              problems: [RunnerProblems.poolInvalid(error)],
             },
             token: null,
           };

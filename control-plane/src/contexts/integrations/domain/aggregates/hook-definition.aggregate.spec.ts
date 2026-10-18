@@ -1,13 +1,12 @@
 import {
   HookDefinition,
-  type SecretGiven,
+  type SigningSecretChange,
 } from '@integrations/domain/aggregates/hook-definition.aggregate';
 import { Hook } from '@integrations/domain/entities/hook.entity';
-import { HookDefined } from '@integrations/domain/events/hook-defined.event';
-import { HookRedefined } from '@integrations/domain/events/hook-redefined.event';
-import { HookRetired } from '@integrations/domain/events/hook-retired.event';
+import { HookCreated } from '@integrations/domain/events/hook-created.event';
+import { HookDeleted } from '@integrations/domain/events/hook-deleted.event';
+import { HookUpdated } from '@integrations/domain/events/hook-updated.event';
 import { HookDefinitionVersionConflictError } from '@integrations/domain/exceptions/hook-definition-version-conflict.error';
-import { HookKeyFixedError } from '@integrations/domain/exceptions/hook-key-fixed.error';
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
@@ -15,8 +14,9 @@ import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -28,7 +28,7 @@ const WORKSPACE = WorkspaceId.of('workspace_1');
 
 const ID = HookDefinitionId.of('hook_1');
 
-const BY = attributedIn();
+const BY = changeActorIn();
 
 const secret = (fill: string) =>
   HookSigningSecret.of(
@@ -67,29 +67,29 @@ const compiled = (options: Parameters<typeof hook>[0] = {}) => ({
   document: DefinitionDocument.of({ key: options.key ?? 'grafana-reads' }),
 });
 
-const given = (fill: string, version: number): SecretGiven => ({
-  kind: 'given',
-  held: { secret: secret(fill), version },
+const supplied = (fill: string, version: number): SigningSecretChange => ({
+  kind: 'supplied',
+  versioned: { secret: secret(fill), version },
 });
 
-const OFFERED = {
-  offered: ['grafana.search', 'slack.post-message'],
+const PROVIDED = {
+  provided: ['grafana.search', 'slack.post-message'],
   signsTokens: false,
   allowsHost: (host: string) => host.endsWith('example.com'),
 };
 
-const defined = () =>
-  HookDefinition.define({
+const created = () =>
+  HookDefinition.create({
     ...compiled(),
     id: ID,
     workspaceId: WORKSPACE,
     teamId: TEAM,
-    secret: given('a', 1),
-    allowances: OFFERED,
+    secret: supplied('a', 1),
+    allowances: PROVIDED,
     by: BY,
   });
 
-const standing = (version = 3) =>
+const rehydrated = (version = 3) =>
   HookDefinition.rehydrate({
     id: ID,
     workspaceId: WORKSPACE,
@@ -109,17 +109,17 @@ const CHANGED = {
 };
 
 describe('HookDefinition', () => {
-  it('is defined with the tools it uses and its secret to seal', () => {
-    const hook = defined();
+  it('is created with the tools it uses and its secret to encrypt', () => {
+    const hook = created();
 
     expect(hook.tools.map((tool) => tool.value)).toEqual([
       'grafana.search',
       'slack.post-message',
     ]);
     expect(hook.signing).toEqual({ version: 1 });
-    expect(hook.givenSecret?.equals(secret('a'))).toBe(true);
+    expect(hook.secretInput?.equals(secret('a'))).toBe(true);
     expect(hook.pullEvents()).toEqual([
-      new HookDefined(
+      new HookCreated(
         ID,
         TEAM,
         HookKey.of('grafana-reads'),
@@ -128,15 +128,15 @@ describe('HookDefinition', () => {
     ]);
   });
 
-  it('refuses a tool it calls that no integration offers, at that step', () => {
+  it('rejects a tool it calls that no integration offers, at that step', () => {
     try {
-      HookDefinition.define({
+      HookDefinition.create({
         ...compiled(),
         id: ID,
         workspaceId: WORKSPACE,
         teamId: TEAM,
-        secret: given('a', 1),
-        allowances: { ...OFFERED, offered: ['grafana.search'] },
+        secret: supplied('a', 1),
+        allowances: { ...PROVIDED, provided: ['grafana.search'] },
         by: BY,
       });
       expect.unreachable();
@@ -145,43 +145,43 @@ describe('HookDefinition', () => {
     }
   });
 
-  it('refuses a request to a host this Spotlight does not call', () => {
+  it('rejects a request to a host this Spotlight does not call', () => {
     expect(() =>
-      HookDefinition.define({
+      HookDefinition.create({
         ...compiled(),
         id: ID,
         workspaceId: WORKSPACE,
         teamId: TEAM,
-        secret: given('a', 1),
-        allowances: { ...OFFERED, allowsHost: () => false },
+        secret: supplied('a', 1),
+        allowances: { ...PROVIDED, allowsHost: () => false },
         by: BY,
       }),
     ).toThrow(/audit.example.com, which is not an allowed outbound host/);
   });
 
-  it('refuses OIDC signing where no key signs tokens', () => {
+  it('rejects OIDC signing where no key signs tokens', () => {
     expect(() =>
-      HookDefinition.define({
+      HookDefinition.create({
         ...compiled({ signing: 'oidc' }),
         id: ID,
         workspaceId: WORKSPACE,
         teamId: TEAM,
         secret: { kind: 'none' },
-        allowances: OFFERED,
+        allowances: PROVIDED,
         by: BY,
       }),
     ).toThrow(/needs HOOK_SIGNING_KEY/);
   });
 
-  it('refuses a tool no integration of the team offers', () => {
+  it('rejects a tool no integration of the team offers', () => {
     expect(() =>
-      HookDefinition.define({
+      HookDefinition.create({
         ...compiled({ tools: ['grafana.search', 'grafana.gone'] }),
         id: ID,
         workspaceId: WORKSPACE,
         teamId: TEAM,
-        secret: given('a', 1),
-        allowances: OFFERED,
+        secret: supplied('a', 1),
+        allowances: PROVIDED,
         by: BY,
       }),
     ).toThrow(InvalidHookError);
@@ -189,30 +189,30 @@ describe('HookDefinition', () => {
 
   it('needs its secret when it signs with HMAC', () => {
     expect(() =>
-      HookDefinition.define({
+      HookDefinition.create({
         ...compiled(),
         id: ID,
         workspaceId: WORKSPACE,
         teamId: TEAM,
         secret: { kind: 'none' },
-        allowances: OFFERED,
+        allowances: PROVIDED,
         by: BY,
       }),
     ).toThrow(/required for HMAC signing/);
   });
 
-  it('keeps its secret when redefined at the same version', () => {
-    const redefined = standing().redefinedAs(
+  it('keeps its secret when updated at the same version', () => {
+    const updated = rehydrated().update(
       compiled(),
-      { kind: 'kept', version: 1 },
-      OFFERED,
+      { kind: 'unchanged', version: 1 },
+      PROVIDED,
       BY,
     );
 
-    expect(redefined.signing).toEqual({ version: 1 });
-    expect(redefined.givenSecret).toBeNull();
-    expect(redefined.pullEvents()).toEqual([
-      new HookRedefined(
+    expect(updated.signing).toEqual({ version: 1 });
+    expect(updated.secretInput).toBeNull();
+    expect(updated.pullEvents()).toEqual([
+      new HookUpdated(
         ID,
         TEAM,
         HookKey.of('grafana-reads'),
@@ -222,69 +222,69 @@ describe('HookDefinition', () => {
   });
 
   it('takes a new secret when its version moves', () => {
-    const redefined = standing().redefinedAs(
+    const updated = rehydrated().update(
       compiled(),
-      given('b', 2),
-      OFFERED,
+      supplied('b', 2),
+      PROVIDED,
       BY,
     );
 
-    expect(redefined.signing).toEqual({ version: 2 });
-    expect(redefined.givenSecret?.equals(secret('b'))).toBe(true);
+    expect(updated.signing).toEqual({ version: 2 });
+    expect(updated.secretInput?.equals(secret('b'))).toBe(true);
   });
 
-  it('refuses a moved version without its new secret', () => {
+  it('rejects a moved version without its new secret', () => {
     expect(() =>
-      standing().redefinedAs(
+      rehydrated().update(
         compiled(),
-        { kind: 'kept', version: 2 },
-        OFFERED,
+        { kind: 'unchanged', version: 2 },
+        PROVIDED,
         BY,
       ),
     ).toThrow(/required when secretVersion changes/);
   });
 
-  it('forgets its secret when it stops signing with HMAC', () => {
-    const redefined = standing().redefinedAs(
+  it('deletes its secret when it stops signing with HMAC', () => {
+    const updated = rehydrated().update(
       compiled({ signing: 'oidc' }),
       { kind: 'none' },
-      { ...OFFERED, signsTokens: true },
+      { ...PROVIDED, signsTokens: true },
       BY,
     );
 
-    expect(redefined.signing).toBeNull();
+    expect(updated.signing).toBeNull();
   });
 
   it('keeps its key for life', () => {
     expect(() =>
-      standing().redefinedAs(
+      rehydrated().update(
         compiled({ key: 'other' }),
         { kind: 'none' },
-        OFFERED,
+        PROVIDED,
         BY,
       ),
-    ).toThrow(HookKeyFixedError);
+    ).toThrow(ImmutableFieldError);
   });
 
-  it('refuses a stale version', () => {
-    expect(() => standing(3).assertVersion(2)).toThrow(
+  it('rejects a stale version', () => {
+    expect(() => rehydrated(3).assertVersion(2)).toThrow(
       HookDefinitionVersionConflictError,
     );
   });
 
-  it('is retired once', () => {
-    const retired = standing().retire(BY);
+  it('is deleted once', () => {
+    const deleted = rehydrated().delete(BY);
 
-    expect(retired.isRetired).toBe(true);
-    expect(retired.pullEvents()).toEqual([
-      new HookRetired(
+    expect(deleted.isDeleted).toBe(true);
+    expect(deleted.pullEvents()).toEqual([
+      new HookDeleted(
         ID,
         TEAM,
         HookKey.of('grafana-reads'),
         ConfigurationChange.deleted(CHANGED, BY),
       ),
     ]);
-    expect(() => retired.retire(BY)).toThrow(InconsistentStateError);
+    expect(() => deleted.delete(BY)).toThrow(InconsistentStateError);
   });
 
   it('blocks on failure only where it was written to', () => {

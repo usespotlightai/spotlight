@@ -127,19 +127,19 @@ func TestSearchesTheRunsTools(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	said := out.String()
+	output := out.String()
 	for _, want := range []string{
 		"spotlight linear issue-create",
 		"  Create an issue.\n",
 		"  Needs a person's approval.",
 		"Read one with: spotlight tools describe linear.issue-create",
 	} {
-		if !strings.Contains(said, want) {
-			t.Errorf("said %q, want it to say %q", said, want)
+		if !strings.Contains(output, want) {
+			t.Errorf("output %q, want it to say %q", output, want)
 		}
 	}
-	if strings.Contains(said, "linear comment") || strings.Contains(said, "It lands in triage") {
-		t.Errorf("said %q, want one tool and the first line of what it does", said)
+	if strings.Contains(output, "linear comment") || strings.Contains(output, "It lands in triage") {
+		t.Errorf("output %q, want one tool and the first line of what it does", output)
 	}
 }
 
@@ -150,12 +150,12 @@ func TestSaysWhenNoToolMatches(t *testing.T) {
 	if err := run([]string{"tools", "search", "deploy"}, strings.NewReader(""), out); err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	if !strings.Contains(out.String(), `No tool this run was given matches "deploy"`) {
-		t.Errorf("said %q", out.String())
+	if !strings.Contains(out.String(), `No tool enabled for this run matches "deploy"`) {
+		t.Errorf("output %q", out.String())
 	}
 }
 
-func TestAsksWhatToSearchFor(t *testing.T) {
+func TestRequiresWhatToSearchFor(t *testing.T) {
 	withTools(t, `{}`)
 
 	err := run([]string{"tools", "search", "--limit", "3"}, strings.NewReader(""), new(bytes.Buffer))

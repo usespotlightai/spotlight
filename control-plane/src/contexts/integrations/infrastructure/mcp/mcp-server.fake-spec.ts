@@ -10,7 +10,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { ElicitResultSchema } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 
-interface McpHeard {
+interface McpReceived {
   readonly method: string;
   readonly path: string;
   readonly authorization: string | undefined;
@@ -32,10 +32,10 @@ type Other = (
 export interface FakeMcpServer {
   readonly origin: string;
   readonly url: string;
-  readonly heard: McpHeard[];
+  readonly received: McpReceived[];
   readonly called: McpCalled[];
   started(): number;
-  forgetSessions(): void;
+  evictSessions(): void;
   close(): Promise<void>;
 }
 
@@ -130,7 +130,7 @@ export const fakeMcpServer = async (
   options: { readonly token?: string; readonly other?: Other } = {},
 ): Promise<FakeMcpServer> => {
   const sessions = new Map<string, StreamableHTTPServerTransport>();
-  const heard: McpHeard[] = [];
+  const received: McpReceived[] = [];
   const called: McpCalled[] = [];
   let started = 0;
   let origin = '';
@@ -139,7 +139,7 @@ export const fakeMcpServer = async (
     const path = new URL(request.url ?? '/', origin).pathname;
     const authorization = headerOf(request, 'authorization');
 
-    heard.push({
+    received.push({
       method: request.method ?? 'GET',
       path,
       authorization,
@@ -165,15 +165,15 @@ export const fakeMcpServer = async (
     }
 
     const id = headerOf(request, 'mcp-session-id');
-    const held = id ? sessions.get(id) : undefined;
+    const existing = id ? sessions.get(id) : undefined;
 
-    if (id && !held) {
+    if (id && !existing) {
       reply.writeHead(404).end();
       return;
     }
 
     const transport =
-      held ??
+      existing ??
       new StreamableHTTPServerTransport({
         sessionIdGenerator: randomUUID,
         onsessioninitialized: (opened) => {
@@ -181,7 +181,7 @@ export const fakeMcpServer = async (
         },
       });
 
-    if (!held) {
+    if (!existing) {
       started += 1;
       await registered(
         new McpServer({ name: 'tracker', version: '1.0.0' }),
@@ -198,10 +198,10 @@ export const fakeMcpServer = async (
   return {
     origin,
     url: `${origin}${PATH}`,
-    heard,
+    received,
     called,
     started: () => started,
-    forgetSessions: () => sessions.clear(),
+    evictSessions: () => sessions.clear(),
     close: async () => {
       for (const transport of sessions.values()) {
         await transport.close();

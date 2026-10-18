@@ -16,7 +16,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { EGRESS_TOKEN_HEADER } from '@runners/presentation/http/controllers/egress-resource.controller';
 import {
   DrizzleRunConnections,
-  MAX_WENT_WRONG_FOR_A_RUN,
+  MAX_ERRORS_PER_RUN,
 } from '@work/infrastructure/persistence/drizzle/ledgers/run-connections.ledger';
 import { eq, inArray } from 'drizzle-orm';
 import {
@@ -30,7 +30,7 @@ import {
 } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -120,7 +120,7 @@ const listening = async (): Promise<{
 describe('a push pool that goes out through a shared egress (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
-  let held: string;
+  let workspaceId: string;
   let owner: string;
   let unseat: () => Promise<void>;
   let endpoint: Awaited<ReturnType<typeof listening>>;
@@ -131,7 +131,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
 
   const created = (collection: string, body: object) =>
     http()
-      .post(`/api/resources/workspaces/${held}/${collection}`)
+      .post(`/api/resources/workspaces/${workspaceId}/${collection}`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send(body);
@@ -142,12 +142,12 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .send(body);
 
-  const queue = async (wears: readonly string[]) => {
+  const queue = async (injectedSecrets: readonly string[]) => {
     const id = randomUUID();
 
     await db.insert(schema.run).values({
       id,
-      workspaceId: held,
+      workspaceId,
       harness: 'dev',
       state: 'queued',
       placement: [['sandbox']],
@@ -155,8 +155,8 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
         handover: { options: [], noteLimit: 0 },
-        continuity: { key: `task:${id}` },
-        wears,
+        resume: { key: `task:${id}` },
+        injectedSecrets,
       },
     });
 
@@ -197,8 +197,8 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
   });
 
   beforeEach(async () => {
-    held = `shared-egress-${randomUUID().slice(0, 8)}`;
-    const seat = await seatTeam(db, held);
+    workspaceId = `shared-egress-${randomUUID().slice(0, 8)}`;
+    const seat = await seatTeam(db, workspaceId);
     owner = seat.owner;
     unseat = seat.unseat;
     endpoint = await listening();
@@ -230,20 +230,22 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       .where(inArray(schema.idempotentCreate.scope, [`person:${owner}`]));
     await db
       .delete(schema.configurationChange)
-      .where(eq(schema.configurationChange.workspaceId, held));
-    await db.delete(schema.run).where(eq(schema.run.workspaceId, held));
-    await db.delete(schema.secret).where(eq(schema.secret.workspaceId, held));
+      .where(eq(schema.configurationChange.workspaceId, workspaceId));
+    await db.delete(schema.run).where(eq(schema.run.workspaceId, workspaceId));
+    await db
+      .delete(schema.secret)
+      .where(eq(schema.secret.workspaceId, workspaceId));
     await db
       .delete(schema.runGrants)
-      .where(eq(schema.runGrants.workspaceId, held));
+      .where(eq(schema.runGrants.workspaceId, workspaceId));
     await db
       .delete(schema.secretDataKey)
-      .where(eq(schema.secretDataKey.workspaceId, held));
-    await forgetRunnersOf(db, held);
+      .where(eq(schema.secretDataKey.workspaceId, workspaceId));
+    await deleteRunnersOf(db, workspaceId);
     await unseat();
   });
 
-  it('provisions a run that wears secrets, and hands the runner the egress and a proxy credential', async () => {
+  it('provisions a run with injected secrets, and hands the runner the egress and a proxy credential', async () => {
     const runId = await queue(['LINEAR_API_KEY']);
 
     const runner = await provisioned(runId);
@@ -257,42 +259,42 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     expect(runner.egress?.credential).not.toBe(runner.token);
   });
 
-  it('redeems the run’s secrets for the shared egress only once the runner claims it', async () => {
+  it('fetches the run’s secrets for the shared egress only after the runner claims it', async () => {
     const runId = await queue(['LINEAR_API_KEY']);
     const runner = await provisioned(runId);
     const credential = runner.egress?.credential ?? '';
     const node = recipient();
 
-    const admitted = await asEgress('admit', {
+    const authorized = await asEgress('authorize', {
       proxyCredential: credential,
     }).expect(200);
-    expect(admitted.body).toMatchObject({
-      workspaceId: held,
+    expect(authorized.body).toMatchObject({
+      workspaceId,
       controlPlaneHost: expect.any(String),
       controlPlanePort: expect.any(Number),
     });
 
-    await asEgress('redeem', {
+    await asEgress('secrets', {
       proxyCredential: credential,
       recipient: node.written,
     }).expect(409);
 
     expect((await claimedBy(runner.token)).body.run.id).toBe(runId);
 
-    const redeemed = await asEgress('redeem', {
+    const fetched = await asEgress('secrets', {
       proxyCredential: credential,
       recipient: node.written,
     }).expect(200);
-    const [secret] = redeemed.body.secrets;
+    const [secret] = fetched.body.secrets;
 
-    expect(redeemed.body).toMatchObject({
+    expect(fetched.body).toMatchObject({
       runId,
       bound: ['mcp.linear.app'],
     });
     expect(opened(secret.sealed, node, runId, 'LINEAR_API_KEY')).toBe(VALUE);
 
     const another = recipient();
-    const again = await asEgress('redeem', {
+    const again = await asEgress('secrets', {
       proxyCredential: credential,
       recipient: another.written,
     }).expect(200);
@@ -301,7 +303,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     ).toBe(VALUE);
   });
 
-  it('never redeems with the proxy credential alone, nor through the egress beside a sandbox', async () => {
+  it('never fetches secrets with the proxy credential alone, nor through an egress sidecar', async () => {
     const runId = await queue(['LINEAR_API_KEY']);
     const runner = await provisioned(runId);
     const credential = runner.egress?.credential ?? '';
@@ -309,28 +311,28 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
 
     for (const token of [credential, runner.token, 'not-a-token']) {
       await asEgress(
-        'redeem',
+        'secrets',
         { proxyCredential: credential, recipient: recipient().written },
         token,
       ).expect(401);
       await http()
-        .post('/api/egress/redeem')
+        .post('/api/egress/secrets')
         .set('Authorization', `Bearer ${token}`)
         .send({ recipient: recipient().written })
         .expect(401);
     }
   });
 
-  it('keeps the holds of standing runners, and records their connections for the trace', async () => {
+  it('checks the active runs of live runners, and records their connections for the trace', async () => {
     const runId = await queue(['LINEAR_API_KEY']);
     const runner = await provisioned(runId);
     const credential = runner.egress?.credential ?? '';
     await claimedBy(runner.token);
 
-    const kept = await asEgress('holds', {
+    const listed = await asEgress('active-runs', {
       proxyCredentials: [credential, 'unknown'],
     }).expect(200);
-    expect(kept.body.held).toEqual([credential]);
+    expect(listed.body.active).toEqual([credential]);
 
     await asEgress('connections', {
       records: [
@@ -341,7 +343,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
           bytesOut: 120,
           bytesIn: 4_000,
           ms: 35,
-          outcome: 'tunnelled',
+          outcome: 'passthrough',
           at: new Date().toISOString(),
         },
         {
@@ -351,22 +353,22 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
           bytesOut: 1,
           bytesIn: 1,
           ms: 1,
-          outcome: 'tunnelled',
+          outcome: 'passthrough',
           at: new Date().toISOString(),
         },
       ],
     }).expect(204);
 
     const network = await http()
-      .get(`/api/teams/${held}/runs/${runId}/network`)
+      .get(`/api/teams/${workspaceId}/runs/${runId}/network`)
       .set(TEST_USER_HEADER, owner)
       .expect(200);
 
     expect(network.body).toMatchObject({
       runId,
-      egress: null,
+      egressEnforcement: null,
       connections: [
-        { host: 'registry.npmjs.org', port: 443, outcome: 'tunnelled' },
+        { host: 'registry.npmjs.org', port: 443, outcome: 'passthrough' },
       ],
     });
   });
@@ -383,7 +385,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       bytesOut: 300,
       bytesIn: 2_000,
       ms: 20,
-      outcome: 'forwarded',
+      outcome: 'injected',
       at: new Date().toISOString(),
     });
 
@@ -396,14 +398,17 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       const rows = await db
         .select()
         .from(schema.runner)
-        .where(eq(schema.runner.workspaceId, held));
+        .where(eq(schema.runner.workspaceId, workspaceId));
 
       return rows.every((each) => each.endedAt !== null) && rows;
     });
 
     expect(
-      (await asEgress('holds', { proxyCredentials: [credential] }).expect(200))
-        .body.held,
+      (
+        await asEgress('active-runs', {
+          proxyCredentials: [credential],
+        }).expect(200)
+      ).body.active,
     ).toEqual([]);
     await asEgress('connections', {
       records: [connection('mcp.linear.app')],
@@ -421,7 +426,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     }).expect(204);
 
     const network = await http()
-      .get(`/api/teams/${held}/runs/${runId}/network`)
+      .get(`/api/teams/${workspaceId}/runs/${runId}/network`)
       .set(TEST_USER_HEADER, owner)
       .expect(200);
 
@@ -429,12 +434,12 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       expect.objectContaining({
         host: 'mcp.linear.app',
         bytesOut: 300,
-        outcome: 'forwarded',
+        outcome: 'injected',
       }),
     ]);
   });
 
-  it('reads for the trace exactly the connections that went wrong, at most 500 for each run', async () => {
+  it('reads for the trace exactly the connections with an error, at most 500 for each run', async () => {
     const [busy, mixed] = [await queue([]), await queue([])];
     const at = (second: number) =>
       new Date(Date.UTC(2026, 9, 17, 9, 0, second));
@@ -450,7 +455,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       bytesOut: 0,
       bytesIn: 0,
       ms: 1,
-      outcome: 'tunnelled',
+      outcome: 'passthrough',
       status: null,
       reason: null,
       at: at(second),
@@ -458,43 +463,43 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     });
 
     await db.insert(schema.runConnection).values([
-      ...Array.from({ length: MAX_WENT_WRONG_FOR_A_RUN + 1 }, (_, each) =>
+      ...Array.from({ length: MAX_ERRORS_PER_RUN + 1 }, (_, each) =>
         row(busy, each % 60, {
           host: 'loop.example.com',
           outcome: 'blocked',
           reason: 'not-allowed',
         }),
       ),
-      row(mixed, 1, { host: 'tunnelled.example.com' }),
+      row(mixed, 1, { host: 'passthrough.example.com' }),
       row(mixed, 2, {
         host: 'ok.example.com',
-        outcome: 'forwarded',
+        outcome: 'injected',
         status: 200,
       }),
       row(mixed, 3, {
         host: 'gone.example.com',
-        outcome: 'forwarded',
+        outcome: 'injected',
         status: 404,
       }),
       row(mixed, 4, {
         host: 'slow.example.com',
-        outcome: 'forwarded',
+        outcome: 'injected',
         status: 429,
       }),
-      row(mixed, 5, { host: 'cut.example.com', outcome: 'forwarded' }),
+      row(mixed, 5, { host: 'cut.example.com', outcome: 'injected' }),
       row(mixed, 6, {
-        host: 'refused.example.com',
-        outcome: 'forwarded',
+        host: 'unauthorized.example.com',
+        outcome: 'injected',
         status: 401,
       }),
       row(mixed, 7, {
-        host: 'denied.example.com',
-        outcome: 'forwarded',
+        host: 'forbidden.example.com',
+        outcome: 'injected',
         status: 403,
       }),
       row(mixed, 8, {
         host: 'broken.example.com',
-        outcome: 'forwarded',
+        outcome: 'injected',
         status: 503,
       }),
       row(mixed, 9, {
@@ -511,13 +516,13 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
 
     const read = await new DrizzleRunConnections(
       new DrizzleContext(db),
-    ).wentWrongIn([busy, mixed]);
+    ).errorsIn([busy, mixed]);
     const all = await new DrizzleRunConnections(new DrizzleContext(db)).of(
       mixed,
     );
 
     expect(read.filter((each) => each.runId === busy)).toHaveLength(
-      MAX_WENT_WRONG_FOR_A_RUN,
+      MAX_ERRORS_PER_RUN,
     );
     expect(
       read
@@ -525,14 +530,20 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
         .map((each) => each.connection.host),
     ).toEqual(
       all
-        .filter((each) => each.connection.wentWrong)
+        .filter((each) => each.connection.isError)
         .map((each) => each.connection.host),
     );
     expect(
       read
         .filter((each) => each.runId === mixed)
-        .map((each) => each.connection.trouble),
-    ).toEqual(['refused', 'refused', 'server-error', 'blocked', 'failed']);
+        .map((each) => each.connection.error),
+    ).toEqual([
+      'auth-failed',
+      'auth-failed',
+      'server-error',
+      'blocked',
+      'failed',
+    ]);
   });
 
   it('never lets the egress of another workspace serve this workspace’s runner', async () => {
@@ -554,7 +565,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
         EGRESS_TOKEN_HEADER.toLowerCase()
       ] as string;
 
-      for (const path of ['admit', 'redeem']) {
+      for (const path of ['authorize', 'secrets']) {
         await asEgress(
           path,
           { proxyCredential: credential, recipient: recipient().written },
@@ -582,12 +593,12 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       await db
         .delete(schema.configurationChange)
         .where(eq(schema.configurationChange.workspaceId, other));
-      await forgetRunnersOf(db, other);
+      await deleteRunnersOf(db, other);
       await elsewhere.unseat();
     }
   });
 
-  it('refuses the old egress token once the token is rotated', async () => {
+  it('does not accept the old egress token once the token is rotated', async () => {
     const egress = await http()
       .get(`/api/resources/egresses/${egressId}`)
       .set(TEST_USER_HEADER, owner)
@@ -606,14 +617,16 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       })
       .expect(200);
 
-    await asEgress('holds', { proxyCredentials: [] }).expect(401);
-    await asEgress('holds', { proxyCredentials: [] }, rotated).expect(200);
+    await asEgress('active-runs', { proxyCredentials: [] }).expect(401);
+    await asEgress('active-runs', { proxyCredentials: [] }, rotated).expect(
+      200,
+    );
   });
 
   it('tells the runner to send only bound traffic through egress when the pool says so', async () => {
     const pool = await http()
       .get(
-        `/api/resources/workspaces/${held}/runner-pools/import?address=sandboxes`,
+        `/api/resources/workspaces/${workspaceId}/runner-pools/import?address=sandboxes`,
       )
       .set(TEST_USER_HEADER, owner)
       .expect(200);
@@ -636,7 +649,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     expect((await provisioned(runId)).egress?.traffic).toBe('bound');
   });
 
-  it('refuses to delete an egress while a pool names it', async () => {
+  it('does not delete an egress while a pool names it', async () => {
     const egress = await http()
       .get(`/api/resources/egresses/${egressId}`)
       .set(TEST_USER_HEADER, owner)

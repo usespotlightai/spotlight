@@ -25,8 +25,8 @@ const toNotice = (row: Row): Notice =>
     subject: row.subject,
     link: NoticeLink.of({ path: row.link, label: row.linkLabel }),
     wording: NoticeWording.of({ headline: row.headline, points: row.points }),
-    raisedAt: row.raisedAt,
-    settledAt: row.settledAt,
+    createdAt: row.createdAt,
+    resolvedAt: row.resolvedAt,
     version: row.version,
   });
 
@@ -46,8 +46,8 @@ export class DrizzleNoticeRepository implements NoticeRepository {
       linkLabel: added.link.label,
       headline: added.wording.headline,
       points: [...added.wording.points],
-      raisedAt: added.raisedAt,
-      settledAt: added.settledAt,
+      createdAt: added.createdAt,
+      resolvedAt: added.resolvedAt,
       version: added.version,
     });
   }
@@ -56,7 +56,7 @@ export class DrizzleNoticeRepository implements NoticeRepository {
     const written = await this.context.db
       .update(notice)
       .set({
-        settledAt: saved.settledAt,
+        resolvedAt: saved.resolvedAt,
         version: saved.version + 1,
       })
       .where(
@@ -99,7 +99,7 @@ export class DrizzleNoticeRepository implements NoticeRepository {
     return row ? toNotice(row) : null;
   }
 
-  async forgetTeam(teamId: TeamId): Promise<void> {
+  async deleteForTeam(teamId: TeamId): Promise<void> {
     await this.context.db.delete(notice).where(eq(notice.teamId, teamId.value));
   }
 }

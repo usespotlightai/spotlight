@@ -2,12 +2,12 @@ import { ApiProperty } from '@nestjs/swagger';
 import type {
   HistoryCandidateDto,
   HistoryCandidateRunDto,
-  HistoryCost,
   HistoryOutcome,
   HistoryRunDto,
+  HistoryUsage,
   RunnerHistoryDto,
 } from '@work/application/dto/runner-history.dto';
-import type { SightedBlock } from '@work/application/ports/search-sight.port';
+import type { VisibleBlock } from '@work/application/ports/search-visibility.port';
 import type { FileChange } from '@work/application/read-models/file-changes-of';
 import { StationConfigResponseDto } from '@work/presentation/http/dto/station-config.response.dto';
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
@@ -38,7 +38,7 @@ export class HistoryConfigResponseDto {
   }
 }
 
-export class RunCostResponseDto {
+export class RunUsageResponseDto {
   @ApiProperty({ nullable: true, type: Number })
   readonly ms: number | null;
 
@@ -46,10 +46,10 @@ export class RunCostResponseDto {
   readonly steps: number;
 
   @ApiProperty()
-  readonly faults: number;
+  readonly errors: number;
 
   @ApiProperty({ nullable: true, type: Number })
-  readonly used: number | null;
+  readonly contextTokens: number | null;
 
   @ApiProperty({ nullable: true, type: Number })
   readonly cost: number | null;
@@ -57,47 +57,47 @@ export class RunCostResponseDto {
   @ApiProperty({ nullable: true, type: String })
   readonly currency: string | null;
 
-  constructor(from: HistoryCost) {
+  constructor(from: HistoryUsage) {
     this.ms = from.ms;
     this.steps = from.steps;
-    this.faults = from.faults;
-    this.used = from.used;
+    this.errors = from.errors;
+    this.contextTokens = from.contextTokens;
     this.cost = from.cost;
     this.currency = from.currency;
   }
 }
 
-export class PersonActResponseDto {
+export class TaskHumanActionResponseDto {
   @ApiProperty({
     enum: [
       'started',
       'parked',
-      'closed',
+      'accepted',
       'answered',
       'approved',
-      'refused',
+      'dismissed',
       'sent-back',
     ],
   })
-  readonly act: string;
+  readonly kind: string;
 
   @ApiProperty()
   readonly at: string;
 
-  constructor(from: { act: string; at: string }) {
-    this.act = from.act;
+  constructor(from: { kind: string; at: string }) {
+    this.kind = from.kind;
     this.at = from.at;
   }
 }
 
-export class RunTurnedOutResponseDto {
+export class RunOutcomeResponseDto {
   @ApiProperty({
     enum: [
       'completed',
       'failed',
       'stopped',
-      'abandoned',
-      'withdrawn',
+      'exhausted',
+      'cancelled',
       'superseded',
     ],
   })
@@ -110,10 +110,10 @@ export class RunTurnedOutResponseDto {
     description:
       'How many runs this station has taken on the task, this one included',
   })
-  readonly round: number;
+  readonly visit: number;
 
-  @ApiProperty({ nullable: true, type: () => RunCostResponseDto })
-  readonly cost: RunCostResponseDto | null;
+  @ApiProperty({ nullable: true, type: () => RunUsageResponseDto })
+  readonly usage: RunUsageResponseDto | null;
 
   @ApiProperty({
     nullable: true,
@@ -121,23 +121,25 @@ export class RunTurnedOutResponseDto {
   })
   readonly checks: string | null;
 
-  @ApiProperty({ nullable: true, type: () => PersonActResponseDto })
-  readonly next: PersonActResponseDto | null;
+  @ApiProperty({ nullable: true, type: () => TaskHumanActionResponseDto })
+  readonly firstHumanAction: TaskHumanActionResponseDto | null;
 
   @ApiProperty({
     nullable: true,
     enum: ['open', 'merged', 'closed', null],
   })
-  readonly delivery: string | null;
+  readonly pullRequestState: string | null;
 
   constructor(from: HistoryOutcome) {
     this.ending = from.ending;
     this.failure = from.failure;
-    this.round = from.round;
-    this.cost = from.cost ? new RunCostResponseDto(from.cost) : null;
+    this.visit = from.visit;
+    this.usage = from.usage ? new RunUsageResponseDto(from.usage) : null;
     this.checks = from.checks;
-    this.next = from.next ? new PersonActResponseDto(from.next) : null;
-    this.delivery = from.delivery;
+    this.firstHumanAction = from.firstHumanAction
+      ? new TaskHumanActionResponseDto(from.firstHumanAction)
+      : null;
+    this.pullRequestState = from.pullRequestState;
   }
 }
 
@@ -193,8 +195,8 @@ export class HistoryRunResponseDto {
   @ApiProperty()
   readonly endedAt: string;
 
-  @ApiProperty({ nullable: true, type: () => RunTurnedOutResponseDto })
-  readonly outcome: RunTurnedOutResponseDto | null;
+  @ApiProperty({ nullable: true, type: () => RunOutcomeResponseDto })
+  readonly outcome: RunOutcomeResponseDto | null;
 
   @ApiProperty({ type: () => [FileChangeResponseDto] })
   readonly changes: FileChangeResponseDto[];
@@ -213,7 +215,7 @@ export class HistoryRunResponseDto {
     this.startedAt = from.startedAt;
     this.endedAt = from.endedAt;
     this.outcome = from.outcome
-      ? new RunTurnedOutResponseDto(from.outcome)
+      ? new RunOutcomeResponseDto(from.outcome)
       : null;
     this.changes = from.changes.map((each) => new FileChangeResponseDto(each));
     this.trace = trace;
@@ -259,11 +261,11 @@ export class HistoryCandidateRunResponseDto {
 
   @ApiProperty({
     nullable: true,
-    type: () => RunCostResponseDto,
+    type: () => RunUsageResponseDto,
     description:
-      'What the replay cost; a replay run has no outcome of its own, so its cost stands beside the run',
+      'What the replay cost; a replay run has no outcome of its own, so the response shows its cost beside the run',
   })
-  readonly cost: RunCostResponseDto | null;
+  readonly usage: RunUsageResponseDto | null;
 
   @ApiProperty({ type: () => [FileChangeResponseDto] })
   readonly changes: FileChangeResponseDto[];
@@ -296,7 +298,7 @@ export class HistoryCandidateRunResponseDto {
     this.harness = from.harness;
     this.startedAt = from.startedAt;
     this.endedAt = from.endedAt;
-    this.cost = from.cost ? new RunCostResponseDto(from.cost) : null;
+    this.usage = from.usage ? new RunUsageResponseDto(from.usage) : null;
     this.changes = from.changes.map((each) => new FileChangeResponseDto(each));
     this.trace = trace;
     this.succeeded = from.succeeded;
@@ -319,7 +321,7 @@ export class HistoryCandidateResponseDto {
     type: 'object',
     additionalProperties: true,
     description:
-      'The candidate’s station block, in the shape the line resource holds a station in',
+      'The candidate’s station block, in the shape that the line resource uses for a station',
     example: {
       key: 'build',
       name: 'Build',
@@ -329,7 +331,7 @@ export class HistoryCandidateResponseDto {
       passesTo: ['ship'],
     },
   })
-  readonly block: SightedBlock;
+  readonly block: VisibleBlock;
 
   @ApiProperty({ type: () => [HistoryCandidateRunResponseDto] })
   readonly runs: HistoryCandidateRunResponseDto[];
@@ -381,7 +383,7 @@ export class RunnerHistoryResponseDto {
       passesTo: ['ship'],
     },
   })
-  readonly seedBlock: SightedBlock | null;
+  readonly seedBlock: VisibleBlock | null;
 
   constructor(
     from: RunnerHistoryDto,

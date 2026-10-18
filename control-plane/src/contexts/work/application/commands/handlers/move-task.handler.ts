@@ -67,12 +67,12 @@ export class MoveTaskHandler
         throw new UnknownStationError(command.stationId);
       }
 
-      const standing = (await this.placements.placementsAt(stationId)).filter(
+      const others = (await this.placements.placementsAt(stationId)).filter(
         (each) => !each.id.equals(task.id),
       );
 
       const after = command.afterTaskId
-        ? standing.find((each) => each.id.value === command.afterTaskId)
+        ? others.find((each) => each.id.value === command.afterTaskId)
         : null;
 
       if (command.afterTaskId && !after) {
@@ -80,7 +80,7 @@ export class MoveTaskHandler
       }
 
       const rank = Placement.below(
-        standing.map((each) => each.rank),
+        others.map((each) => each.rank),
         after?.rank ?? null,
       );
 
@@ -106,18 +106,18 @@ export class MoveTaskHandler
           ? await this.dispatch.runIdFor({ task: moved, line })
           : null;
 
-      const placed = runId ? moved.handedTo(runId, line) : moved;
+      const placed = runId ? moved.assignRun(runId, line) : moved;
 
       await this.tasks.save(placed);
 
-      const raisedBy = placed.raisedBy
-        ? await this.people.find(placed.raisedBy)
+      const createdBy = placed.createdBy
+        ? await this.people.find(placed.createdBy)
         : null;
       const assignee = placed.assignee
         ? await this.people.find(placed.assignee)
         : null;
 
-      return TaskMapper.taskToDto(placed, raisedBy, assignee);
+      return TaskMapper.taskToDto(placed, createdBy, assignee);
     });
   }
 }

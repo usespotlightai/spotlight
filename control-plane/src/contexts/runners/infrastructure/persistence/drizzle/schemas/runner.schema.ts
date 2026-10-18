@@ -14,14 +14,14 @@ import {
 export interface HostImageRecord {
   readonly image: string;
   readonly digest?: string;
-  readonly usual: boolean;
+  readonly isDefault: boolean;
   readonly release?: string;
   readonly harnesses: readonly {
     readonly id: string;
     readonly models: readonly string[];
     readonly version?: string;
   }[];
-  readonly refused?: string;
+  readonly unavailableReason?: string;
 }
 
 export const runnerTrust = pgTable(
@@ -97,7 +97,7 @@ export const runnerPool = pgTable(
 export const poolToken = pgTable('pool_token', {
   tokenHash: text('token_hash').primaryKey(),
   poolId: text('pool_id').notNull(),
-  givenAt: timestamp('given_at').defaultNow().notNull(),
+  usedAt: timestamp('used_at').defaultNow().notNull(),
 });
 
 export const egress = pgTable(
@@ -121,7 +121,7 @@ export const egress = pgTable(
 export const egressToken = pgTable('egress_token', {
   tokenHash: text('token_hash').primaryKey(),
   egressId: text('egress_id').notNull(),
-  givenAt: timestamp('given_at').defaultNow().notNull(),
+  usedAt: timestamp('used_at').defaultNow().notNull(),
 });
 
 export const runner = pgTable(
@@ -137,7 +137,7 @@ export const runner = pgTable(
     egressTokenHash: text('egress_token_hash'),
     proxyCredentialHash: text('proxy_credential_hash'),
     harnesses: jsonb('harnesses').$type<string[]>().notNull().default([]),
-    advertisedModels: jsonb('advertised_models')
+    supportedModels: jsonb('supported_models')
       .$type<Record<string, string[]>>()
       .notNull()
       .default({}),
@@ -146,12 +146,12 @@ export const runner = pgTable(
       .notNull()
       .default({}),
     image: text('image'),
-    usual: boolean('usual').notNull().default(false),
+    isDefault: boolean('is_default').notNull().default(false),
     workKind: text('work_kind'),
     workId: text('work_id'),
     claimBy: timestamp('claim_by').notNull(),
     startedAt: timestamp('started_at').notNull(),
-    lastSeenAt: timestamp('last_seen_at'),
+    lastHeartbeatAt: timestamp('last_heartbeat_at'),
     endedAt: timestamp('ended_at'),
     version: integer('version').notNull().default(0),
   },
@@ -161,13 +161,13 @@ export const runner = pgTable(
     uniqueIndex('runner_proxy_credential_hash_idx').on(
       table.proxyCredentialHash,
     ),
-    index('runner_pool_standing_idx')
+    index('runner_pool_active_idx')
       .on(table.poolId)
       .where(sql`${table.endedAt} is null`),
     index('runner_work_idx')
       .on(table.workKind, table.workId)
       .where(sql`${table.endedAt} is null`),
-    index('runner_workspace_standing_idx')
+    index('runner_workspace_active_idx')
       .on(table.workspaceId)
       .where(sql`${table.endedAt} is null`),
     check(
@@ -175,7 +175,7 @@ export const runner = pgTable(
       sql`(${table.workKind} is null) = (${table.workId} is null)`,
     ),
     check(
-      'runner_one_admission',
+      'runner_one_credential_source',
       sql`(${table.poolId} is null) <> (${table.trustId} is null)`,
     ),
   ],
@@ -190,23 +190,23 @@ export const runnerHost = pgTable(
     trustId: text('trust_id'),
     name: text('name').notNull(),
     release: text('release').notNull(),
-    executor: text('executor').notNull(),
+    containerRuntime: text('container_runtime').notNull(),
     capacity: integer('capacity').notNull(),
     running: jsonb('running').$type<string[]>().notNull().default([]),
     images: jsonb('images').$type<HostImageRecord[]>().notNull().default([]),
-    session: text('session').notNull(),
-    firstSeenAt: timestamp('first_seen_at').notNull(),
-    upSince: timestamp('up_since').notNull(),
-    lastSeenAt: timestamp('last_seen_at').notNull(),
+    bootId: text('boot_id').notNull(),
+    firstHeartbeatAt: timestamp('first_heartbeat_at').notNull(),
+    onlineSince: timestamp('online_since').notNull(),
+    lastHeartbeatAt: timestamp('last_heartbeat_at').notNull(),
     version: integer('version').notNull().default(0),
   },
   (table) => [
     index('runner_host_workspace_idx').on(table.workspaceId),
     index('runner_host_pool_idx').on(table.poolId),
     index('runner_host_trust_idx').on(table.trustId),
-    index('runner_host_last_seen_idx').on(table.lastSeenAt),
+    index('runner_host_last_heartbeat_idx').on(table.lastHeartbeatAt),
     check(
-      'runner_host_one_admission',
+      'runner_host_one_credential_source',
       sql`(${table.poolId} is null) <> (${table.trustId} is null)`,
     ),
   ],

@@ -18,20 +18,20 @@ import (
 	"testing"
 	"time"
 
-	"usespotlight.ai/data-plane/egressing/authority"
-	"usespotlight.ai/data-plane/egressing/guard"
-	"usespotlight.ai/data-plane/egressing/wear"
+	"usespotlight.ai/data-plane/allowlist"
+	"usespotlight.ai/data-plane/egresskit/authority"
+	"usespotlight.ai/data-plane/egresskit/guard"
+	"usespotlight.ai/data-plane/egresskit/inject"
 	"usespotlight.ai/data-plane/protocol"
-	"usespotlight.ai/data-plane/reach"
 )
 
-type wearing map[string]http.Header
+type fakeInjector map[string]http.Header
 
-func (w wearing) Wears(host string) bool { return w[host] != nil }
+func (w fakeInjector) InjectsFor(host string) bool { return w[host] != nil }
 
-func (w wearing) Unwear(string, *http.Response) {}
+func (w fakeInjector) Redact(string, *http.Response) {}
 
-func (w wearing) OntoPlain(host, port string, r *http.Request) {
+func (w fakeInjector) InjectPlain(host, port string, r *http.Request) {
 	if values := w["plain:"+host+":"+port]; values != nil {
 		for name, each := range values {
 			r.Header[name] = each
@@ -39,7 +39,7 @@ func (w wearing) OntoPlain(host, port string, r *http.Request) {
 	}
 }
 
-func (w wearing) Onto(host string, r *http.Request) {
+func (w fakeInjector) Inject(host string, r *http.Request) {
 	for name, values := range w[host] {
 		r.Header.Del(name)
 		for _, value := range values {
@@ -72,18 +72,18 @@ type rig struct {
 	upstreams *x509.CertPool
 }
 
-func rigged(t *testing.T, allowed []string, worn wearing) *rig {
+func rigged(t *testing.T, allowed []string, injected fakeInjector) *rig {
 	t.Helper()
 
-	hosts := make([]string, 0, len(worn))
-	for host := range worn {
+	hosts := make([]string, 0, len(injected))
+	for host := range injected {
 		hosts = append(hosts, host)
 	}
 
-	return riggedWith(t, allowed, worn, hosts)
+	return riggedWith(t, allowed, injected, hosts)
 }
 
-func riggedWith(t *testing.T, allowed []string, worn Wearing, wornToward []string) *rig {
+func riggedWith(t *testing.T, allowed []string, injector Injector, interceptHosts []string) *rig {
 	t.Helper()
 
 	upstream := &seen{}
@@ -98,7 +98,7 @@ func riggedWith(t *testing.T, allowed []string, worn Wearing, wornToward []strin
 			return
 		case "/echo":
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = io.WriteString(w, `{"asked":"`+r.URL.RawQuery+`","key":"`+r.URL.Query().Get("key")+`"}`)
+			_, _ = io.WriteString(w, `{"query":"`+r.URL.RawQuery+`","key":"`+r.URL.Query().Get("key")+`"}`)
 			return
 		}
 		_, _ = io.WriteString(w, "answered "+r.Host)
@@ -108,17 +108,17 @@ func riggedWith(t *testing.T, allowed []string, worn Wearing, wornToward []strin
 	t.Cleanup(secure.Close)
 	t.Cleanup(plain.Close)
 
-	issuer, err := authority.New(time.Now(), wornToward)
+	issuer, err := authority.New(time.Now(), interceptHosts)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	list, err := reach.Parse(allowed)
+	list, err := allowlist.Parse(allowed)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	proxy := New(list, worn, issuer, credential, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	proxy := New(list, injector, issuer, credential, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	toUpstream := func(ctx context.Context, network, address string) (net.Conn, error) {
 		_, port, _ := net.SplitHostPort(address)
 		target := secure.Listener.Addr().String()
@@ -179,8 +179,8 @@ func (r *rig) get(t *testing.T, address string, header http.Header) (*http.Respo
 	return response, string(body)
 }
 
-func TestWearsTheRealCredentialTowardABoundHost(t *testing.T) {
-	r := rigged(t, nil, wearing{"mcp.example.com": {"Authorization": {"Bearer lin_api_1"}}})
+func TestInjectsTheRealCredentialForABoundHost(t *testing.T) {
+	r := rigged(t, nil, fakeInjector{"mcp.example.com": {"Authorization": {"Bearer lin_api_1"}}})
 
 	response, body := r.get(t, "https://mcp.example.com/sse", http.Header{
 		"Authorization": {"Bearer spotlight-egress:LINEAR_API_KEY"},
@@ -202,8 +202,8 @@ func TestWearsTheRealCredentialTowardABoundHost(t *testing.T) {
 	}
 }
 
-func TestGivesAnUnboundHostNoCredentialAndDoesNotOpenItsTraffic(t *testing.T) {
-	r := rigged(t, nil, wearing{"mcp.example.com": {"Authorization": {"Bearer lin_api_1"}}})
+func TestSendsAnUnboundHostNoCredentialAndDoesNotOpenItsTraffic(t *testing.T) {
+	r := rigged(t, nil, fakeInjector{"mcp.example.com": {"Authorization": {"Bearer lin_api_1"}}})
 
 	response, body := r.get(t, "https://api.example.com/user", http.Header{"Authorization": {"Bearer agents-own"}})
 	if response == nil || response.StatusCode != http.StatusOK {
@@ -214,12 +214,12 @@ func TestGivesAnUnboundHostNoCredentialAndDoesNotOpenItsTraffic(t *testing.T) {
 		t.Errorf("an unbound host saw %q", got)
 	}
 	if issuer := response.TLS.PeerCertificates[0].Issuer.CommonName; issuer == "Spotlight egress" {
-		t.Error("egress opened traffic to a host it wears nothing toward")
+		t.Error("egress opened traffic to a host it injects nothing for")
 	}
 }
 
 func TestTheRequestGoesWhereTheSandboxConnectedWhateverItsHostHeaderSays(t *testing.T) {
-	r := rigged(t, nil, wearing{"mcp.example.com": {"Authorization": {"Bearer lin_api_1"}}})
+	r := rigged(t, nil, fakeInjector{"mcp.example.com": {"Authorization": {"Bearer lin_api_1"}}})
 
 	request, _ := http.NewRequest(http.MethodGet, "https://mcp.example.com/", nil)
 	request.Host = "evil.example.com"
@@ -230,20 +230,20 @@ func TestTheRequestGoesWhereTheSandboxConnectedWhateverItsHostHeaderSays(t *test
 	response.Body.Close()
 
 	if got := r.upstream.last().Host; got != "mcp.example.com" {
-		t.Errorf("the credential went toward %q", got)
+		t.Errorf("the credential went to %q", got)
 	}
 }
 
-func TestRefusesAHostTheListLeavesOut(t *testing.T) {
-	r := rigged(t, []string{"anthropic.example.com"}, wearing{})
+func TestBlocksAHostTheListLeavesOut(t *testing.T) {
+	r := rigged(t, []string{"anthropic.example.com"}, fakeInjector{})
 
 	if response, body := r.get(t, "https://anthropic.example.com/v1/messages", nil); response == nil || response.StatusCode != http.StatusOK {
-		t.Errorf("refused a listed host: %v %s", response, body)
+		t.Errorf("blocked a listed host: %v %s", response, body)
 	}
 
-	_, said := r.get(t, "https://exfiltrate.example.com/", nil)
-	if !strings.Contains(said, "Forbidden") {
-		t.Errorf("reached a host the list leaves out: %s", said)
+	_, refused := r.get(t, "https://exfiltrate.example.com/", nil)
+	if !strings.Contains(refused, "Forbidden") {
+		t.Errorf("reached a host the list leaves out: %s", refused)
 	}
 
 	response, body := r.get(t, "http://exfiltrate.example.com/", nil)
@@ -251,12 +251,12 @@ func TestRefusesAHostTheListLeavesOut(t *testing.T) {
 		t.Errorf("forwarded plain HTTP to a host the list leaves out: %v %s", response, body)
 	}
 	if r.upstream.last().Host != "anthropic.example.com" {
-		t.Errorf("a refused request reached %q", r.upstream.last().Host)
+		t.Errorf("a blocked request reached %q", r.upstream.last().Host)
 	}
 }
 
 func TestForwardsPlainHTTPToAnAllowedHostAsItWas(t *testing.T) {
-	r := rigged(t, []string{"control-plane"}, wearing{"control-plane": {"Authorization": {"Bearer never"}}})
+	r := rigged(t, []string{"control-plane"}, fakeInjector{"control-plane": {"Authorization": {"Bearer never"}}})
 
 	response, body := r.get(t, "http://control-plane/api/runs/claim", http.Header{"Authorization": {"Bearer one-run"}})
 	if response == nil || response.StatusCode != http.StatusOK {
@@ -269,8 +269,8 @@ func TestForwardsPlainHTTPToAnAllowedHostAsItWas(t *testing.T) {
 	}
 }
 
-func TestWearsWhatMayTravelPlainOverPlainHTTP(t *testing.T) {
-	r := rigged(t, []string{"control-plane"}, wearing{"plain:control-plane:80": {"Authorization": {"Bearer run-token"}}})
+func TestInjectsWhatMayTravelPlainOverPlainHTTP(t *testing.T) {
+	r := rigged(t, []string{"control-plane"}, fakeInjector{"plain:control-plane:80": {"Authorization": {"Bearer run-token"}}})
 
 	response, body := r.get(t, "http://control-plane/api/resources", http.Header{"Authorization": {"Bearer stand-in"}})
 	if response == nil || response.StatusCode != http.StatusOK {
@@ -278,13 +278,13 @@ func TestWearsWhatMayTravelPlainOverPlainHTTP(t *testing.T) {
 	}
 
 	if got := r.upstream.last().Header.Get("Authorization"); got != "Bearer run-token" {
-		t.Errorf("forwarded Authorization %q, want what egress wears over plain HTTP", got)
+		t.Errorf("forwarded Authorization %q, want what egress injects over plain HTTP", got)
 	}
 }
 
 func TestIsNeverAWebServerOfItsOwn(t *testing.T) {
-	r := rigged(t, nil, wearing{})
-	proxy := httptest.NewServer(New(reach.List{}, wearing{}, r.authority, credential, slog.New(slog.NewTextHandler(io.Discard, nil))))
+	r := rigged(t, nil, fakeInjector{})
+	proxy := httptest.NewServer(New(allowlist.List{}, fakeInjector{}, r.authority, credential, slog.New(slog.NewTextHandler(io.Discard, nil))))
 	defer proxy.Close()
 
 	request, _ := http.NewRequest(http.MethodGet, proxy.URL+"/", nil)
@@ -301,7 +301,7 @@ func TestIsNeverAWebServerOfItsOwn(t *testing.T) {
 }
 
 func TestAnswersOnlyTheSandboxItWasStartedFor(t *testing.T) {
-	r := rigged(t, nil, wearing{"mcp.example.com": {"Authorization": {"Bearer lin_api_1"}}})
+	r := rigged(t, nil, fakeInjector{"mcp.example.com": {"Authorization": {"Bearer lin_api_1"}}})
 
 	for name, user := range map[string]*url.Userinfo{
 		"no credential":     nil,
@@ -331,18 +331,18 @@ func (opener) Open(sealed, _, _ string) (string, error) {
 	return strings.TrimPrefix(sealed, "sealed:"), nil
 }
 
-func TestWearsWhatEgressRedeemedInPlaceOfWhatTheSandboxSent(t *testing.T) {
+func TestInjectsWhatEgressFetchedByReplacingTheStandInTheSandboxSent(t *testing.T) {
 	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
-	list, _ := reach.Parse(nil)
-	held := wear.From(context.Background(), protocol.EgressRedemption{
+	list, _ := allowlist.Parse(nil)
+	injector := inject.From(context.Background(), protocol.EgressSecrets{
 		RunID: "run_1",
-		Secrets: []protocol.RedeemedSecret{
-			{Secret: "LINEAR_API_KEY", Host: "mcp.example.com", Carrier: "header", Name: "authorization", Prefix: "Bearer ", Sealed: "sealed:lin_api_1"},
-			{Secret: "LINEAR_ORG", Host: "mcp.example.com", Carrier: "header", Name: "x-org", Sealed: "sealed:acme"},
-			{Secret: "MCP_KEY", Host: "mcp.example.com", Carrier: "query", Name: "key", Sealed: "sealed:k/1"},
+		Secrets: []protocol.FetchedSecret{
+			{Secret: "LINEAR_API_KEY", Host: "mcp.example.com", Location: "header", Name: "authorization", Prefix: "Bearer ", Sealed: "sealed:lin_api_1"},
+			{Secret: "LINEAR_ORG", Host: "mcp.example.com", Location: "header", Name: "x-org", Sealed: "sealed:acme"},
+			{Secret: "MCP_KEY", Host: "mcp.example.com", Location: "query", Name: "key", Sealed: "sealed:k/1"},
 		},
-	}, nil, wear.Limits{Hosts: list}, opener{}, func() (wear.Reader, error) { return nil, nil }, quiet)
-	r := riggedWith(t, nil, held, held.Hosts())
+	}, nil, inject.Limits{Hosts: list}, opener{}, func() (inject.Reader, error) { return nil, nil }, quiet)
+	r := riggedWith(t, nil, injector, injector.Hosts())
 
 	response, body := r.get(t, "https://mcp.example.com/", http.Header{
 		"Authorization": {"Bearer spotlight-egress:LINEAR_API_KEY"},
@@ -364,23 +364,23 @@ func TestWearsWhatEgressRedeemedInPlaceOfWhatTheSandboxSent(t *testing.T) {
 
 	r.get(t, "https://mcp.example.com/", http.Header{"Authorization": {"Bearer mine"}, "X-Org": {"forged", "twice"}})
 	if got := r.upstream.last().Header; got.Get("Authorization") != "Bearer mine" || !slices.Equal(got.Values("X-Org"), []string{"forged", "twice"}) {
-		t.Errorf("wore a secret over what the sandbox sent without its stand-in: %v", got)
+		t.Errorf("injected a secret over what the sandbox sent without its stand-in: %v", got)
 	}
 
 	r.get(t, "https://mcp.example.com/", http.Header{"X-Api-Key": {"spotlight-egress:UNKNOWN"}})
 	if got := r.upstream.last().Header; got.Get("X-Api-Key") != "" || got.Get("Authorization") != "" {
-		t.Errorf("sent on a stand-in it does not hold, or wore a secret nobody asked for: %v", got)
+		t.Errorf("sent on a stand-in it has no value for, or injected a secret nobody requested: %v", got)
 	}
 
-	held.Forget()
+	injector.Wipe()
 	r.get(t, "https://mcp.example.com/", http.Header{"Authorization": {"Bearer spotlight-egress:LINEAR_API_KEY"}})
 	if got := r.upstream.last().Header.Get("Authorization"); got != "" && got != "Bearer spotlight-egress:LINEAR_API_KEY" {
-		t.Errorf("wore %q after forgetting", got)
+		t.Errorf("injected %q after the wipe", got)
 	}
 }
 
 func TestTellsTheDialWhetherTheListNamesTheHostOnEveryPath(t *testing.T) {
-	r := rigged(t, []string{"*.acme.example.com", "mcp.example.com"}, wearing{"mcp.example.com": {"Authorization": {"Bearer lin_api_1"}}})
+	r := rigged(t, []string{"*.acme.example.com", "mcp.example.com"}, fakeInjector{"mcp.example.com": {"Authorization": {"Bearer lin_api_1"}}})
 	proxy := r.proxy
 	var mu sync.Mutex
 	seen := map[string]bool{}
@@ -408,16 +408,16 @@ func TestTellsTheDialWhetherTheListNamesTheHostOnEveryPath(t *testing.T) {
 	}
 }
 
-func TestSaysACallFailedWithoutEchoingTheAddressItWoreASecretIn(t *testing.T) {
+func TestSaysACallFailedWithoutEchoingTheAddressItInjectedASecretIn(t *testing.T) {
 	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
-	list, _ := reach.Parse(nil)
-	held := wear.From(context.Background(), protocol.EgressRedemption{
+	list, _ := allowlist.Parse(nil)
+	injector := inject.From(context.Background(), protocol.EgressSecrets{
 		RunID: "run_1",
-		Secrets: []protocol.RedeemedSecret{
-			{Secret: "MAPS_KEY", Host: "maps.example.com", Carrier: "query", Name: "key", Sealed: "sealed:AIza-secret"},
+		Secrets: []protocol.FetchedSecret{
+			{Secret: "MAPS_KEY", Host: "maps.example.com", Location: "query", Name: "key", Sealed: "sealed:AIza-secret"},
 		},
-	}, nil, wear.Limits{Hosts: list}, opener{}, func() (wear.Reader, error) { return nil, nil }, quiet)
-	r := riggedWith(t, nil, held, held.Hosts())
+	}, nil, inject.Limits{Hosts: list}, opener{}, func() (inject.Reader, error) { return nil, nil }, quiet)
+	r := riggedWith(t, nil, injector, injector.Hosts())
 	var logged strings.Builder
 	r.proxy.log = slog.New(slog.NewTextHandler(&logged, nil))
 	r.proxy.transport.DialContext = func(context.Context, string, string) (net.Conn, error) {
@@ -438,14 +438,14 @@ func TestSaysACallFailedWithoutEchoingTheAddressItWoreASecretIn(t *testing.T) {
 
 func TestHandsTheSandboxBackTheStandInWhereTheHostEchoesTheSecret(t *testing.T) {
 	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
-	list, _ := reach.Parse(nil)
-	held := wear.From(context.Background(), protocol.EgressRedemption{
+	list, _ := allowlist.Parse(nil)
+	injector := inject.From(context.Background(), protocol.EgressSecrets{
 		RunID: "run_1",
-		Secrets: []protocol.RedeemedSecret{
-			{Secret: "MAPS_KEY", Host: "maps.example.com", Carrier: "query", Name: "key", Sealed: "sealed:AIza/secret"},
+		Secrets: []protocol.FetchedSecret{
+			{Secret: "MAPS_KEY", Host: "maps.example.com", Location: "query", Name: "key", Sealed: "sealed:AIza/secret"},
 		},
-	}, nil, wear.Limits{Hosts: list}, opener{}, func() (wear.Reader, error) { return nil, nil }, quiet)
-	r := riggedWith(t, nil, held, held.Hosts())
+	}, nil, inject.Limits{Hosts: list}, opener{}, func() (inject.Reader, error) { return nil, nil }, quiet)
+	r := riggedWith(t, nil, injector, injector.Hosts())
 	client := *r.client
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 

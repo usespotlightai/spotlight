@@ -7,8 +7,8 @@ import { describe, expect, it } from 'vitest';
 const FOLDERS = ['value-objects', 'events'];
 
 describe('INTEGRATIONS_PAYLOAD_TYPES', () => {
-  it('holds every class that can travel in an event', async () => {
-    const held = new Set<unknown>(INTEGRATIONS_PAYLOAD_TYPES);
+  it('contains every class that can travel in an event', async () => {
+    const listed = new Set<unknown>(INTEGRATIONS_PAYLOAD_TYPES);
     const missing: string[] = [];
 
     for (const folder of FOLDERS) {
@@ -30,7 +30,7 @@ describe('INTEGRATIONS_PAYLOAD_TYPES', () => {
             typeof value === 'function' &&
             /^class\s/.test(value.toString()) &&
             !(SECRET in value.prototype) &&
-            !held.has(value)
+            !listed.has(value)
           ) {
             missing.push(`${folder}/${file}: ${name}`);
           }
@@ -41,7 +41,7 @@ describe('INTEGRATIONS_PAYLOAD_TYPES', () => {
     expect(missing).toEqual([]);
   });
 
-  it('holds no secret, which must never travel in an event', () => {
+  it('contains no secret, which must never travel in an event', () => {
     expect(
       INTEGRATIONS_PAYLOAD_TYPES.filter((type) => SECRET in type.prototype).map(
         (type) => type.name,

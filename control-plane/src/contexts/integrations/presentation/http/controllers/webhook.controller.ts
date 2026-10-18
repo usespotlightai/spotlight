@@ -32,13 +32,13 @@ interface Answerable {
 export class WebhookController {
   constructor(private readonly commandBus: CommandBus) {}
 
-  // Keep this route before `:source`. If not, `w` matches as a source name.
+  // Keep this route before `:integration`. If not, `w` matches as an integration name.
   @Post(TEAM_DELIVERIES)
   @AllowAnonymous()
   @UseGuards(WebhookGuard)
   @ApiExcludeEndpoint()
   async deliveredToTeam(
-    @Param('source') source: string,
+    @Param('integration') integration: string,
     @Param('teamKey') teamKey: string,
     @Headers() headers: Record<string, string | string[] | undefined>,
     @Body() body: unknown,
@@ -46,7 +46,7 @@ export class WebhookController {
     @Res() response: Answerable,
   ): Promise<void> {
     await this.take(
-      source,
+      integration,
       { ...(request.deliveredTo ?? { workspaceId: '', teamId: '' }), teamKey },
       headers,
       body,
@@ -55,19 +55,19 @@ export class WebhookController {
     );
   }
 
-  @Post(':source')
+  @Post(':integration')
   @AllowAnonymous()
   @UseGuards(WebhookGuard)
   @ApiExcludeEndpoint()
   async delivered(
-    @Param('source') source: string,
+    @Param('integration') integration: string,
     @Headers() headers: Record<string, string | string[] | undefined>,
     @Body() body: unknown,
     @Req() request: Delivering,
     @Res() response: Answerable,
   ): Promise<void> {
     await this.take(
-      source,
+      integration,
       { workspaceId: '', teamId: '', teamKey: '' },
       headers,
       body,
@@ -77,7 +77,7 @@ export class WebhookController {
   }
 
   private async take(
-    source: string,
+    integration: string,
     at: { workspaceId: string; teamId: string; teamKey: string },
     headers: Record<string, string | string[] | undefined>,
     body: unknown,
@@ -90,11 +90,17 @@ export class WebhookController {
     }
 
     await this.commandBus.execute(
-      new AcceptDeliveryCommand(source, at.workspaceId, at.teamId, at.teamKey, {
-        headers,
-        body,
-        raw: request.rawBody ?? null,
-      }),
+      new AcceptDeliveryCommand(
+        integration,
+        at.workspaceId,
+        at.teamId,
+        at.teamKey,
+        {
+          headers,
+          body,
+          raw: request.rawBody ?? null,
+        },
+      ),
     );
 
     response.status(HttpStatus.NO_CONTENT).send();

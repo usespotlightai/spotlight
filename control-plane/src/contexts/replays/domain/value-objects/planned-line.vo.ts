@@ -6,8 +6,8 @@ const MAX_CHARACTERS = 64_000;
 export class PlannedLine {
   private constructor(private readonly written: string) {}
 
-  static of(held: unknown): PlannedLine {
-    const repositories = isBlock(held) ? held.repositories : undefined;
+  static of(raw: unknown): PlannedLine {
+    const repositories = isBlock(raw) ? raw.repositories : undefined;
 
     if (!Array.isArray(repositories) || !repositories.every(isBlock)) {
       throw new InvalidCandidateError(

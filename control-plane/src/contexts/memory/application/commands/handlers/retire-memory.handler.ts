@@ -28,8 +28,8 @@ export class RetireMemoryHandler
         command.viewerId,
       );
       const retired = await this.transaction.inTransaction(async () => {
-        const held = await this.loader.memory(access, command.memoryId);
-        const next = held.retire({
+        const memory = await this.loader.memory(access, command.memoryId);
+        const next = memory.retire({
           by: access.by,
           reason: command.reason,
           at: this.clock.now(),

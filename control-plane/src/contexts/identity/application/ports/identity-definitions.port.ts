@@ -1,5 +1,5 @@
-import type { TokenTerms } from '@identity/domain/aggregates/workspace-token.aggregate';
-import type { TokenTrustTerms } from '@identity/domain/aggregates/workspace-token-trust.aggregate';
+import type { TokenSpec } from '@identity/domain/aggregates/workspace-token.aggregate';
+import type { TokenTrustSpec } from '@identity/domain/aggregates/workspace-token-trust.aggregate';
 import type { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import type { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
@@ -8,7 +8,7 @@ import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/c
 
 export const IDENTITY_DEFINITIONS = Symbol('IDENTITY_DEFINITIONS');
 
-type Refused = {
+type Invalid = {
   readonly ok: false;
   readonly problems: readonly ConfigurationProblem[];
 };
@@ -19,26 +19,26 @@ export type ParsedWorkspace =
       readonly name: WorkspaceName;
       readonly slug: WorkspaceSlug;
     }
-  | Refused;
+  | Invalid;
 
 export type ParsedTeam =
   | { readonly ok: true; readonly key: TeamKey; readonly name: TeamName }
-  | Refused;
+  | Invalid;
 
 export type ParsedWorkspaceToken =
-  | { readonly ok: true; readonly terms: TokenTerms }
-  | Refused;
+  | { readonly ok: true; readonly spec: TokenSpec }
+  | Invalid;
 
 export type ParsedWorkspaceTokenTrust =
-  | { readonly ok: true; readonly terms: TokenTrustTerms }
-  | Refused;
+  | { readonly ok: true; readonly spec: TokenTrustSpec }
+  | Invalid;
 
 export interface IdentityDefinitionsPort {
-  workspace(held: unknown): ParsedWorkspace;
+  workspace(input: unknown): ParsedWorkspace;
 
-  team(held: unknown): ParsedTeam;
+  team(input: unknown): ParsedTeam;
 
-  workspaceToken(held: unknown): ParsedWorkspaceToken;
+  workspaceToken(input: unknown): ParsedWorkspaceToken;
 
-  workspaceTokenTrust(held: unknown): ParsedWorkspaceTokenTrust;
+  workspaceTokenTrust(input: unknown): ParsedWorkspaceTokenTrust;
 }

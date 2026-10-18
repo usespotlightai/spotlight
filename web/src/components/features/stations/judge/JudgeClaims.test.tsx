@@ -6,7 +6,7 @@ const CLAIMS = ['Leaves the tests passing', 'Says what it could not do'];
 
 describe('JudgeClaims', () => {
   it('lists the claims the judge marks, in order', () => {
-    render(<JudgeClaims claims={CLAIMS} passShare={1} />);
+    render(<JudgeClaims claims={CLAIMS} passThreshold={1} />);
 
     expect(
       within(screen.getByRole('list'))
@@ -19,7 +19,7 @@ describe('JudgeClaims', () => {
   });
 
   it('says what share of claims a run must meet when it is not all of them', () => {
-    render(<JudgeClaims claims={CLAIMS} passShare={0.5} />);
+    render(<JudgeClaims claims={CLAIMS} passThreshold={0.5} />);
 
     expect(
       screen.getByText(

@@ -1,6 +1,6 @@
 import type {
-  ReviewedRun,
   ReviewedTask,
+  RunForReview,
   WorkPort,
 } from '@change-review/application/ports/work.port';
 import { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
@@ -26,10 +26,11 @@ const signalling = (
     connected?: boolean;
   } = {},
 ) => {
-  const told: string[] = [];
-  const said = (what: string) => async (on: ReactedTo, reaction: string) => {
-    told.push(`${what} ${reaction} on ${on.pullRequest.value}`);
-  };
+  const reactions: string[] = [];
+  const recording =
+    (what: string) => async (on: ReactedTo, reaction: string) => {
+      reactions.push(`${what} ${reaction} on ${on.pullRequest.value}`);
+    };
   const ended = over.ended ?? [];
 
   const signal = new SignalReviewing(
@@ -46,7 +47,7 @@ const signalling = (
               currentRunId: RUN,
               ...over.task,
             },
-      run: async (runId: RunId): Promise<ReviewedRun> => ({
+      run: async (runId: RunId): Promise<RunForReview> => ({
         id: runId,
         workspaceId: WorkspaceId.of('ws_1'),
         taskId: TASK,
@@ -60,68 +61,68 @@ const signalling = (
     } as unknown as WorkPort,
     { isConnected: async () => over.connected ?? true },
     {
-      react: said('react'),
-      withdraw: said('withdraw'),
+      react: recording('react'),
+      remove: recording('remove'),
     } satisfies PullRequestReactionsPort,
   );
 
-  return { signal, told };
+  return { signal, reactions };
 };
 
 describe('SignalReviewing', () => {
-  it('looks at the pull request while its review runs', async () => {
-    const { signal, told } = signalling();
+  it('adds the reviewing reaction to the pull request while its review runs', async () => {
+    const { signal, reactions } = signalling();
 
     await signal.began(TASK, RUN);
 
-    expect(told).toEqual([`react eyes on ${PULL.value}`]);
+    expect(reactions).toEqual([`react eyes on ${PULL.value}`]);
   });
 
-  it('stops looking once the run that reviewed it ends', async () => {
-    const { signal, told } = signalling({
+  it('removes the reviewing reaction once the run that reviewed it ends', async () => {
+    const { signal, reactions } = signalling({
       task: { currentRunId: null },
       ended: [RUN],
     });
 
     await signal.ended(TASK, RUN);
 
-    expect(told).toEqual([`withdraw eyes on ${PULL.value}`]);
+    expect(reactions).toEqual([`remove eyes on ${PULL.value}`]);
   });
 
-  it('never starts looking for a run that has already ended, however late it hears it began', async () => {
-    const { signal, told } = signalling({ ended: [RUN] });
+  it('never adds the reviewing reaction for a run that has already ended, however late it learns it began', async () => {
+    const { signal, reactions } = signalling({ ended: [RUN] });
 
     await signal.began(TASK, RUN);
 
-    expect(told).toEqual([]);
+    expect(reactions).toEqual([]);
   });
 
-  it('never starts looking for a run the task no longer holds', async () => {
-    const { signal, told } = signalling({ task: { currentRunId: NEXT } });
+  it('never adds the reviewing reaction for a run that is no longer the current run of the task', async () => {
+    const { signal, reactions } = signalling({ task: { currentRunId: NEXT } });
 
     await signal.began(TASK, RUN);
 
-    expect(told).toEqual([]);
+    expect(reactions).toEqual([]);
   });
 
-  it('keeps looking where a later review of the same task is still running', async () => {
-    const { signal, told } = signalling({
+  it('keeps the reviewing reaction where a later review of the same task is still running', async () => {
+    const { signal, reactions } = signalling({
       task: { currentRunId: NEXT },
       ended: [RUN],
     });
 
     await signal.ended(TASK, RUN);
 
-    expect(told).toEqual([]);
+    expect(reactions).toEqual([]);
   });
 
   it('says nothing on a pull request a task opened rather than reviews', async () => {
-    const { signal, told } = signalling({ task: { reviewing: false } });
+    const { signal, reactions } = signalling({ task: { reviewing: false } });
 
     await signal.began(TASK, RUN);
     await signal.ended(TASK, RUN);
 
-    expect(told).toEqual([]);
+    expect(reactions).toEqual([]);
   });
 
   it('says nothing for a task that is gone, or a workspace no longer on GitHub', async () => {
@@ -131,6 +132,6 @@ describe('SignalReviewing', () => {
     await gone.signal.began(TASK, RUN);
     await disconnected.signal.began(TASK, RUN);
 
-    expect([...gone.told, ...disconnected.told]).toEqual([]);
+    expect([...gone.reactions, ...disconnected.reactions]).toEqual([]);
   });
 });

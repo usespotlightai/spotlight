@@ -3,7 +3,7 @@ import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-us
 import { WorkspaceSlugTakenError } from '@identity/domain/exceptions/workspace-slug-taken.error';
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
-import { Holdings } from '@identity/domain/value-objects/holdings.vo';
+import { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
@@ -98,8 +98,8 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
 
   private async stored(saved: Workspace): Promise<void> {
     await this.context.inTransaction(async () => {
-      if (saved.isClosed) {
-        await this.closed(saved);
+      if (saved.isDeleted) {
+        await this.deleted(saved);
         return;
       }
 
@@ -126,7 +126,7 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
     });
   }
 
-  private async closed(saved: Workspace): Promise<void> {
+  private async deleted(saved: Workspace): Promise<void> {
     const removed = await this.context.db
       .delete(workspace)
       .where(
@@ -138,7 +138,7 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
       .returning({ id: workspace.id })
       .catch((error: unknown) => {
         throw codeOf(error) === RESTRICT_VIOLATION
-          ? new WorkspaceInUseError(saved.slug.value, Holdings.none())
+          ? new WorkspaceInUseError(saved.slug.value, Dependents.none())
           : error;
       });
 
@@ -148,15 +148,15 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
   }
 
   private async writeMembers(saved: Workspace): Promise<void> {
-    const held = saved.members.map((member) => member.userId.value);
+    const memberIds = saved.members.map((member) => member.userId.value);
 
     await this.context.db
       .delete(workspaceMember)
       .where(
         and(
           eq(workspaceMember.workspaceId, saved.id.value),
-          held.length > 0
-            ? notInArray(workspaceMember.userId, held)
+          memberIds.length > 0
+            ? notInArray(workspaceMember.userId, memberIds)
             : undefined,
         ),
       );

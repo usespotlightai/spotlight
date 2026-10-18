@@ -18,12 +18,12 @@ export const teamAccess = (
     onTeam: vi.fn(async () => ({
       ...permissions,
       viewer: UserId.of('user_1'),
-      administers: configures,
+      isAdmin: configures,
     })),
     permissionsOnTeam: vi.fn(async () => ({
       ...permissions,
       configures,
-      administers: configures,
+      isAdmin: configures,
     })),
   } as unknown as WorkspaceAccessPort;
 };

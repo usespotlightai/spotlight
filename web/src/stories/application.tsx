@@ -3,7 +3,6 @@ import { onlineManager } from '@tanstack/react-query';
 import type { Location } from 'react-router';
 import { mocked } from 'storybook/test';
 import { useSession } from '@/hooks/api/useSession';
-import { handlers } from '@/mocks/handlers';
 import {
   ACCOUNTS,
   ACTIONS,
@@ -128,7 +127,6 @@ export const pageStory = <Extra extends object = object>({
     state: stateControl(states),
     ...argTypes,
   } as Partial<ArgTypes<PageArgs & Extra>>,
-  parameters: { msw: handlers },
   beforeEach: () => {
     onlineManager.setOnline(true);
 

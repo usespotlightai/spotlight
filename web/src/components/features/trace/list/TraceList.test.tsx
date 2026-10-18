@@ -48,12 +48,12 @@ const traced: Traced = {
   output: null,
   ms: 12_000,
   steps: 4,
-  faults: 0,
+  errors: 0,
   cost: 0.42,
   currency: 'USD',
 };
 
-function Handed() {
+function HandedOver() {
   const { state } = useLocation();
 
   return <pre>{JSON.stringify(state.traces)}</pre>;
@@ -67,7 +67,7 @@ const showing = () =>
           path="/w/acme/team/team_1/insights"
           element={<TraceList slug="acme" teamId="team_1" range="7d" />}
         />
-        <Route path="/w/acme/team/team_1/agent" element={<Handed />} />
+        <Route path="/w/acme/team/team_1/agent" element={<HandedOver />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -104,7 +104,7 @@ describe('TraceList', () => {
     ]);
   });
 
-  it('holds the shape of a trace while they load, keeping the column names', () => {
+  it('keeps the shape of a trace while they load, keeping the column names', () => {
     traces.mockReturnValue(undefined);
     showing();
 
@@ -115,7 +115,7 @@ describe('TraceList', () => {
     expect(screen.queryByText('No traces')).not.toBeInTheDocument();
   });
 
-  it('says the traces could not be loaded, and tries again when asked', async () => {
+  it('says the traces could not be loaded, and tries again on request', async () => {
     traces.mockReturnValue(undefined);
     failing.mockReturnValue(true);
     showing();

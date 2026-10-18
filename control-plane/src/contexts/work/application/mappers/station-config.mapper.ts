@@ -1,5 +1,5 @@
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
-import type { ContentDigestPort } from '@work/application/ports/content-digest.port';
+import type { ContentHashPort } from '@work/application/ports/content-hash.port';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
 import type { RunOrder } from '@work/domain/services/run-order';
@@ -21,9 +21,9 @@ export const StationConfigMapper = {
       order: RunOrder;
       folders: readonly ReadySkillFolder[];
     },
-    digest: ContentDigestPort,
+    hash: ContentHashPort,
   ): StationConfig {
-    const profile = order.given.profile;
+    const profile = order.enabled.profile;
 
     return StationConfig.of(
       {
@@ -41,7 +41,7 @@ export const StationConfigMapper = {
                   env: Object.fromEntries(
                     Object.entries(server.env).map(([name, value]) => [
                       name,
-                      digest.sha256(value),
+                      hash.sha256(value),
                     ]),
                   ),
                 })),
@@ -56,7 +56,7 @@ export const StationConfigMapper = {
         })),
         skills: folders.map((folder) => ({
           key: folder.skill.key,
-          digest: digest.sha256(
+          hash: hash.sha256(
             JSON.stringify(
               [...folder.files]
                 .sort(byPath)
@@ -64,20 +64,20 @@ export const StationConfigMapper = {
             ),
           ),
         })),
-        tools: order.given.tools.map((each) => each.value),
+        tools: order.enabled.tools.map((each) => each.value),
         decisions: station.decisions,
         memories: station.memories,
         ...(station.judge
           ? {
               judge: {
-                rubricDigest: digest.sha256(station.judge.criteria),
+                rubricHash: hash.sha256(station.judge.criteria),
                 sample: station.judge.sample,
-                trust: station.judge.trust,
+                minAgreement: station.judge.minAgreement,
               },
             }
           : {}),
       },
-      (canonical) => digest.sha256(canonical),
+      (canonical) => hash.sha256(canonical),
     );
   },
 };

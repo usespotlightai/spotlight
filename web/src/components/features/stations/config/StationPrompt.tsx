@@ -1,4 +1,4 @@
-import { Instrument } from '@/components/features/stations/config/Instrument';
+import { ConfigCard } from '@/components/features/stations/config/ConfigCard';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { OverflowFade } from '@/components/shared/OverflowFade';
 
@@ -9,7 +9,7 @@ type StationPromptProps = {
 
 export function StationPrompt({ stationId, prompt }: StationPromptProps) {
   return (
-    <Instrument title="Prompt">
+    <ConfigCard title="Prompt">
       {prompt ? (
         <OverflowFade slot="prompt-text" className="max-h-60">
           <MarkdownEditor
@@ -24,6 +24,6 @@ export function StationPrompt({ stationId, prompt }: StationPromptProps) {
       ) : (
         <p className="text-muted-foreground text-xs leading-5">No prompt.</p>
       )}
-    </Instrument>
+    </ConfigCard>
   );
 }

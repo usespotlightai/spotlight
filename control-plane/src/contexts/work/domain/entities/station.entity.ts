@@ -3,9 +3,9 @@ import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-m
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { InvalidStationChangeError } from '@work/domain/exceptions/invalid-station-change.error';
 import {
-  skillsRefused,
-  toolsRefused,
-} from '@work/domain/services/station-gives';
+  skillsProblem,
+  toolsProblem,
+} from '@work/domain/services/station-enables';
 import type { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
 import type { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
@@ -18,8 +18,8 @@ import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 import type { StationKey } from '@work/domain/value-objects/station-key.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
 
 export type StationKind = 'backlog' | 'work' | 'completed';
 
@@ -40,7 +40,7 @@ type Part = {
   memories?: boolean;
   judge?: StationJudge | null;
   alerts?: readonly StationAlert[];
-  wayOut?: WayOut;
+  routes?: StationRoutes;
   tools?: readonly Tool[];
   skills?: readonly SkillKey[];
 };
@@ -65,7 +65,7 @@ export type StationInput = {
   judge?: StationJudge | null;
   alerts?: readonly StationAlert[];
   kind?: StationKind;
-  wayOut?: WayOut;
+  routes?: StationRoutes;
   tools?: readonly Tool[];
   skills?: readonly SkillKey[];
 };
@@ -78,7 +78,7 @@ export abstract class Station {
     readonly position: number,
     readonly color: StationColor,
     readonly description: StationDescription | null,
-    readonly wayOut: WayOut,
+    readonly routes: StationRoutes,
     readonly tools: readonly Tool[],
     readonly skills: readonly SkillKey[],
   ) {}
@@ -98,7 +98,7 @@ export abstract class Station {
   abstract readonly alerts: readonly StationAlert[];
 
   static of(input: StationInput): Station {
-    Station.guardWhatItGives(input.tools ?? [], input.skills ?? []);
+    Station.guardWhatItEnables(input.tools ?? [], input.skills ?? []);
 
     const ends = [
       input.id,
@@ -107,7 +107,7 @@ export abstract class Station {
       input.position,
       input.color,
       input.description ?? null,
-      input.wayOut ?? WayOut.nowhere(),
+      input.routes ?? StationRoutes.none(),
       input.tools ?? [],
       input.skills ?? [],
     ] as const;
@@ -144,7 +144,7 @@ export abstract class Station {
     return this.kind === 'completed';
   }
 
-  get isWorked(): boolean {
+  get isAgentStation(): boolean {
     return this.kind === 'work';
   }
 
@@ -160,20 +160,20 @@ export abstract class Station {
     return this.copiedWith({ description });
   }
 
-  givesSkills(skills: readonly SkillKey[]): Station {
-    Station.guardWhatItGives(this.tools, skills);
+  enablesSkills(skills: readonly SkillKey[]): Station {
+    Station.guardWhatItEnables(this.tools, skills);
 
     return this.copiedWith({ skills });
   }
 
-  private static guardWhatItGives(
+  private static guardWhatItEnables(
     tools: readonly Tool[],
     skills: readonly SkillKey[],
   ): void {
-    const refused = skillsRefused(skills) ?? toolsRefused(tools);
+    const problem = skillsProblem(skills) ?? toolsProblem(tools);
 
-    if (refused) {
-      throw new InvalidStationChangeError(refused);
+    if (problem) {
+      throw new InvalidStationChangeError(problem);
     }
   }
 
@@ -203,7 +203,7 @@ class WorkStation extends Station {
     position: number,
     color: StationColor,
     description: StationDescription | null,
-    wayOut: WayOut,
+    routes: StationRoutes,
     tools: readonly Tool[],
     skills: readonly SkillKey[],
     readonly harness: HarnessId | null,
@@ -219,7 +219,7 @@ class WorkStation extends Station {
     readonly judge: StationJudge | null,
     readonly alerts: readonly StationAlert[],
   ) {
-    super(id, key, name, position, color, description, wayOut, tools, skills);
+    super(id, key, name, position, color, description, routes, tools, skills);
   }
 
   runsOn(harness: HarnessId | null, model: HarnessModel | null): Station {
@@ -246,7 +246,7 @@ class WorkStation extends Station {
       part.position ?? this.position,
       part.color ?? this.color,
       part.description !== undefined ? part.description : this.description,
-      part.wayOut ?? this.wayOut,
+      part.routes ?? this.routes,
       part.tools ?? this.tools,
       part.skills ?? this.skills,
       part.harness !== undefined ? part.harness : this.harness,
@@ -306,7 +306,7 @@ class Backlog extends Station {
       part.position ?? this.position,
       part.color ?? this.color,
       part.description !== undefined ? part.description : this.description,
-      part.wayOut ?? this.wayOut,
+      part.routes ?? this.routes,
       part.tools ?? this.tools,
       part.skills ?? this.skills,
     );
@@ -354,7 +354,7 @@ class Completed extends Station {
       part.position ?? this.position,
       part.color ?? this.color,
       part.description !== undefined ? part.description : this.description,
-      part.wayOut ?? this.wayOut,
+      part.routes ?? this.routes,
       part.tools ?? this.tools,
       part.skills ?? this.skills,
     );

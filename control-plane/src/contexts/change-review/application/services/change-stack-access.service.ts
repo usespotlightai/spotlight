@@ -1,7 +1,7 @@
 import type { PeoplePort } from '@change-review/application/ports/people.port';
 import type {
-  ReviewedRun,
   ReviewedTask,
+  RunForReview,
   WorkPort,
 } from '@change-review/application/ports/work.port';
 import { TeamAccess } from '@change-review/domain/services/team-access';
@@ -18,7 +18,7 @@ export class ChangeStackAccess {
     teamId: string,
     runId: string,
     viewerId: string,
-  ): Promise<ReviewedRun | null> {
+  ): Promise<RunForReview | null> {
     const run = await this.work.run(RunId.of(runId));
 
     if (!run) {
@@ -41,7 +41,7 @@ export class ChangeStackAccess {
     ]);
 
     return member &&
-      TeamAccess.of(member).reaches({
+      TeamAccess.of(member).allows({
         workspaceId: run.workspaceId,
         teamId: ranFor,
       })
@@ -57,6 +57,6 @@ export class ChangeStackAccess {
     const member = await this.people.memberOf(teamId, viewerId);
     const task = member ? await this.work.task(TaskId.of(taskId)) : null;
 
-    return member && task && TeamAccess.of(member).reaches(task) ? task : null;
+    return member && task && TeamAccess.of(member).allows(task) ? task : null;
   }
 }

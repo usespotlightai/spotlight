@@ -43,7 +43,7 @@ export class HookFailure {
   }
 
   nextAttemptAfter(attempts: number, now: Date): Date | null {
-    return this.retry.after(attempts, now);
+    return this.retry.nextAttemptAt(attempts, now);
   }
 
   superseded(): HookFailure {

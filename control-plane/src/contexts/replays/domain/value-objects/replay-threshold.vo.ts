@@ -1,10 +1,10 @@
 import { InvalidReplayCheckError } from '@replays/domain/exceptions/invalid-replay-check.error';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 
 export class ReplayThreshold {
   private constructor(
     readonly maxRegressions: number,
-    readonly ceiling: Spend,
+    readonly ceiling: Money,
     readonly minGain: number,
   ) {}
 
@@ -31,7 +31,7 @@ export class ReplayThreshold {
 
     return new ReplayThreshold(
       input.maxRegressions,
-      Spend.ceiling(input.ceiling, input.currency),
+      Money.ceiling(input.ceiling, input.currency),
       input.minGain,
     );
   }
@@ -43,7 +43,7 @@ export class ReplayThreshold {
     );
   }
 
-  unpricedRunIn(runs: number): Spend {
+  unpricedRunIn(runs: number): Money {
     return this.ceiling.scaled(1, Math.max(runs, 1));
   }
 

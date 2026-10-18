@@ -1,4 +1,4 @@
-import { RereadIntegrationSourceCommand } from '@integrations/application/commands/reread-integration-source.command';
+import { RefreshIntegrationSpecCommand } from '@integrations/application/commands/refresh-integration-spec.command';
 import type { ListedServersPort } from '@integrations/application/ports/listed-servers.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -7,8 +7,8 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 export class RelistServers {
   constructor(
     private readonly servers: ListedServersPort,
-    private readonly rereading: CommandHandlerPort<
-      RereadIntegrationSourceCommand,
+    private readonly refreshingSpec: CommandHandlerPort<
+      RefreshIntegrationSpecCommand,
       void
     >,
     private readonly clock: ClockPort,
@@ -22,15 +22,15 @@ export class RelistServers {
 
     for (const server of await this.servers.claimListedBefore(due, now)) {
       try {
-        await this.rereading.execute(
-          new RereadIntegrationSourceCommand(
+        await this.refreshingSpec.execute(
+          new RefreshIntegrationSpecCommand(
             server.teamId.value,
-            server.source.value,
+            server.integration.value,
           ),
         );
       } catch (error) {
         this.log.error(
-          { err: error, source: server.source.value },
+          { err: error, integration: server.integration.value },
           'Listing the tools of an MCP server again',
         );
       }

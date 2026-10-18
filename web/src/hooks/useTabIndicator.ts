@@ -3,7 +3,7 @@ import { type RefObject, useLayoutEffect, useState } from 'react';
 export type TabIndicator = {
   readonly left: number;
   readonly width: number;
-  readonly settled: boolean;
+  readonly ready: boolean;
 };
 
 export function useTabIndicator(
@@ -31,7 +31,7 @@ export function useTabIndicator(
           ? {
               left: marked.offsetLeft,
               width: marked.offsetWidth,
-              settled: was !== null,
+              ready: was !== null,
             }
           : null,
       );

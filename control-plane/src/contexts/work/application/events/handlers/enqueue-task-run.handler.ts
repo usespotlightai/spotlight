@@ -1,5 +1,5 @@
 import type { DispatchTask } from '@work/application/services/dispatch-task.service';
-import type { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
+import type { TaskDispatched } from '@work/domain/events/task-dispatched.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -12,7 +12,7 @@ export class EnqueueTaskRun {
     private readonly dispatching: DispatchTask,
   ) {}
 
-  async on(event: TaskHandedToRun): Promise<void> {
+  async on(event: TaskDispatched): Promise<void> {
     const task = await this.tasks.find(event.taskId);
 
     if (!task?.currentRunId?.equals(event.runId)) {
@@ -23,7 +23,7 @@ export class EnqueueTaskRun {
       return;
     }
 
-    const line = await this.lines.holding(task.stationId);
+    const line = await this.lines.findByStation(task.stationId);
 
     if (
       line &&

@@ -4,7 +4,7 @@ import {
   secretIn,
 } from '@integrations/infrastructure/hooks/hook.compile';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
-import { holds } from '@platform/expressions/readings';
+import { isTrue } from '@platform/expressions/readings';
 import { describe, expect, it } from 'vitest';
 
 const engine = new CelExpressionEngine();
@@ -57,7 +57,7 @@ const MIGRATIONS = {
   failure: 'block',
 };
 
-const moment = (event: Record<string, unknown>) => ({
+const instance = (event: Record<string, unknown>) => ({
   event: { at: '2026-09-26T10:00:00.000Z', ...event },
   task: {
     id: 't',
@@ -75,8 +75,8 @@ const moment = (event: Record<string, unknown>) => ({
   hook: { key: 'k' },
 });
 
-const problemsOf = (held: unknown) => {
-  const compiled = compileHook(held, engine);
+const problemsOf = (raw: unknown) => {
+  const compiled = compileHook(raw, engine);
 
   return compiled.ok
     ? []
@@ -98,7 +98,7 @@ describe('compileHook', () => {
     expect(compiled.document.fields.signing).toEqual({ secretVersion: 1 });
   });
 
-  it('keeps in its document only the failure and timeout it was written with', () => {
+  it('stores in its document only the failure and timeout it was written with', () => {
     const unwritten = compileHook(GRAFANA_READS, engine);
     const written = compileHook(
       { ...GRAFANA_READS, failure: 'continue', timeoutSeconds: 10 },
@@ -117,7 +117,7 @@ describe('compileHook', () => {
     });
   });
 
-  it('keeps the secret out of the document and hands it over apart', () => {
+  it('stores the secret apart from the document and hands it over separately', () => {
     expect(secretIn(GRAFANA_READS)).toEqual({ secret: SECRET, version: 1 });
     expect(JSON.stringify(compileHook(GRAFANA_READS, engine))).not.toContain(
       SECRET,
@@ -130,9 +130,9 @@ describe('compileHook', () => {
 
     const matched = (tool: string) =>
       compiled.ir.conditions.every((condition) =>
-        holds(
+        isTrue(
           condition,
-          moment({ tool, inputs: {}, output: null, failed: false }),
+          instance({ tool, inputs: {}, output: null, failed: false }),
         ),
       );
 
@@ -146,9 +146,9 @@ describe('compileHook', () => {
 
     const matched = (changed: string[]) =>
       compiled.ir.conditions.every((condition) =>
-        holds(
+        isTrue(
           condition,
-          moment({
+          instance({
             repository: 'acme/api',
             branch: 'b',
             title: 'Add a column',
@@ -161,7 +161,7 @@ describe('compileHook', () => {
     expect(matched(['src/app.ts'])).toBe(false);
   });
 
-  it('refuses a typo, pointing at where it is and what was meant', () => {
+  it('rejects a typo, pointing at where it is and what was meant', () => {
     expect(
       problemsOf({
         ...GRAFANA_READS,
@@ -170,7 +170,7 @@ describe('compileHook', () => {
     ).toEqual([['when', expect.stringMatching(/argumnts/)]]);
   });
 
-  it('refuses a when that does not return a bool', () => {
+  it('rejects a when that does not return a bool', () => {
     expect(problemsOf({ ...GRAFANA_READS, when: 'event.tool' })).toEqual([
       ['when', 'must return a bool, not a string'],
     ]);
@@ -204,13 +204,13 @@ describe('compileHook', () => {
     ).toEqual([['when', expect.stringMatching(/run/)]]);
   });
 
-  it('refuses to block an event that has already happened', () => {
+  it('rejects a block on an event that has already happened', () => {
     expect(problemsOf({ ...GRAFANA_READS, failure: 'block' })).toEqual([
       ['failure', expect.stringMatching(/cannot be block after/)],
     ]);
   });
 
-  it('refuses tools matched on an event that is not about a tool', () => {
+  it('rejects tools matched on an event that is not about a tool', () => {
     expect(
       problemsOf({ ...MIGRATIONS, match: { tools: ['grafana.search'] } }),
     ).toEqual([
@@ -221,7 +221,7 @@ describe('compileHook', () => {
     ]);
   });
 
-  it('refuses a request with no signing', () => {
+  it('rejects a request with no signing', () => {
     expect(problemsOf({ ...MIGRATIONS, signing: null })).toEqual([
       [
         'signing',
@@ -230,7 +230,7 @@ describe('compileHook', () => {
     ]);
   });
 
-  it('refuses plain http unless the team’s network sends it', () => {
+  it('rejects plain http unless the team’s network sends it', () => {
     const plain = (from: string) => ({
       ...MIGRATIONS,
       steps: [
@@ -244,7 +244,7 @@ describe('compileHook', () => {
     expect(problemsOf(plain('network'))).toEqual([]);
   });
 
-  it('refuses a step that both calls and requests', () => {
+  it('rejects a step that both calls and requests', () => {
     expect(
       problemsOf({
         ...GRAFANA_READS,
@@ -259,7 +259,7 @@ describe('compileHook', () => {
     ).toEqual([['steps[0]', expect.stringMatching(/exactly one/)]]);
   });
 
-  it('refuses reading a secret', () => {
+  it('rejects reading a secret', () => {
     expect(
       problemsOf({
         ...GRAFANA_READS,

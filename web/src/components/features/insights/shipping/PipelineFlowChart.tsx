@@ -2,13 +2,13 @@ import { useId, useMemo, useRef } from 'react';
 import { PipelineStageLabel } from '@/components/features/insights/shipping/PipelineStageLabel';
 import { useElementWidth } from '@/hooks/useElementWidth';
 import { usePipelineParticles } from '@/hooks/usePipelineParticles';
-import { lastedOrNone } from '@/lib/insights';
+import { formatDurationOrNone } from '@/lib/insights';
 import type { PullRequestType } from '@/lib/insights-pull-requests';
 import { type FlowStage, formatPart } from '@/lib/insights-shipping';
 import {
   bandEdge,
+  bottleneckColor,
   geometryOf,
-  jamColor,
   type TypeShare,
 } from '@/lib/pipeline-flow';
 
@@ -16,7 +16,7 @@ export const PIPELINE_HEIGHT = 216;
 const LABELS = 52;
 const MIDDLE = LABELS + 62;
 const MARKS_END = PIPELINE_HEIGHT - 34;
-const BRACKET_REACH = 24;
+const BRACKET_EXTENT = 24;
 
 type PipelineFlowChartProps = {
   stages: readonly FlowStage[];
@@ -81,7 +81,9 @@ export function PipelineFlowChart({
                   <stop
                     key={stage.id}
                     offset={geometry.centers[at] / width}
-                    style={{ stopColor: jamColor(stage.jam) }}
+                    style={{
+                      stopColor: bottleneckColor(stage.bottleneckRatio),
+                    }}
                   />
                 ))}
               </linearGradient>
@@ -90,8 +92,8 @@ export function PipelineFlowChart({
             {stations.length > 0 && (
               <g className="text-chart-grid">
                 <line
-                  x1={geometry.centers[0] - BRACKET_REACH}
-                  x2={geometry.centers[stations.length - 1] + BRACKET_REACH}
+                  x1={geometry.centers[0] - BRACKET_EXTENT}
+                  x2={geometry.centers[stations.length - 1] + BRACKET_EXTENT}
                   y1={8}
                   y2={8}
                   stroke="currentColor"
@@ -136,7 +138,7 @@ export function PipelineFlowChart({
         {stations.length > 0 && width > 0 && (
           <span
             className="absolute top-0 bg-card pr-1.5 text-[0.7rem] text-muted-foreground"
-            style={{ left: geometry.centers[0] - BRACKET_REACH }}
+            style={{ left: geometry.centers[0] - BRACKET_EXTENT }}
           >
             Coding, by station
           </span>
@@ -161,9 +163,9 @@ export function PipelineFlowChart({
               aria-hidden
               className="size-1.5 rounded-full bg-destructive"
             />
-            Worst jam
+            Worst bottleneck
             <span className="text-destructive/50">|</span>
-            <span className="font-mono">{lastedOrNone(worst.ms)}</span>
+            <span className="font-mono">{formatDurationOrNone(worst.ms)}</span>
             {worstPart && (
               <span className="text-destructive/80">
                 mostly {formatPart(worstPart)}

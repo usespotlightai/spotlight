@@ -47,7 +47,7 @@ export function StationFailures({
 
               return (
                 <BarRow
-                  key={failure.failure ?? 'unsaid'}
+                  key={failure.failure ?? 'without-failure'}
                   share={failure.runs / failedRuns}
                   values={
                     <span className="w-10 text-right text-foreground tabular-nums">

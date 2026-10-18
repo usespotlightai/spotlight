@@ -48,7 +48,7 @@ describe('failure toasts', () => {
         {
           statusCode: 409,
           error: 'Conflict',
-          message: 'This proposal was already settled.',
+          message: 'This proposal was already decided.',
         },
         new Response(null, { status: 409 }),
         ACCEPT,
@@ -59,7 +59,7 @@ describe('failure toasts', () => {
 
     expect(toast).toMatchObject({ type: 'error', title: '409 Conflict' });
     expect(
-      screen.getByText('This proposal was already settled.'),
+      screen.getByText('This proposal was already decided.'),
     ).toBeInTheDocument();
     expect(
       screen.getByText(

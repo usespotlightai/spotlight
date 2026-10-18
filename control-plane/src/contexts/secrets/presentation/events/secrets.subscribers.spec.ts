@@ -1,9 +1,9 @@
-import { AbandonWorkspaceSecrets } from '@secrets/application/services/abandon-workspace-secrets.service';
-import { ForgetRunGrants } from '@secrets/application/services/forget-run-grants.service';
-import { RunGrantsKept } from '@secrets/application/services/run-grants-kept';
+import { DeleteWorkspaceSecrets } from '@secrets/application/services/delete-workspace-secrets.service';
+import { PurgeRunGrants } from '@secrets/application/services/purge-run-grants.service';
+import { RunGrantsUnitOfWork } from '@secrets/application/services/run-grants-unit-of-work';
 import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
-import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
+import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { secretsSubscribers } from '@secrets/presentation/events/secrets.subscribers';
 import {
@@ -18,25 +18,25 @@ import {
   transaction,
   WORKSPACE,
 } from '@secrets/secrets.fakes.fake-spec';
-import { WORKSPACE_CLOSED } from '@shared-kernel/application/integration-events/workspace-closed.integration-event';
+import { WORKSPACE_DELETED } from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const closed = {
-  kind: WORKSPACE_CLOSED,
+const deletedWorkspace = {
+  kind: WORKSPACE_DELETED,
   workspaceId: WORKSPACE.value,
   slug: 'acme',
 } as never;
 
-const holding = async () => {
+const setUp = async () => {
   const store = new InMemoryStore();
   const secrets = new InMemorySecrets(store);
   const grants = new InMemoryGrants();
-  const forgotten: WorkspaceId[] = [];
+  const deletedKeys: WorkspaceId[] = [];
 
   await secrets.save(
-    Secret.set(definition(), {
+    Secret.create(definition(), {
       id: SecretId.of('secret_linear'),
       workspaceId: WORKSPACE,
       by: BY,
@@ -45,60 +45,63 @@ const holding = async () => {
   );
 
   await grants.save(
-    RunGrants.start(RunHold.of(RunId.of('run_1'), 1), WORKSPACE),
+    RunGrants.start(RunLease.of(RunId.of('run_1'), 1), WORKSPACE),
   );
 
   const subscribers = secretsSubscribers({
-    abandoning: new AbandonWorkspaceSecrets(secrets, transaction),
-    keys: { forget: async (workspaceId) => void forgotten.push(workspaceId) },
-    runGrants: new ForgetRunGrants(
+    deleting: new DeleteWorkspaceSecrets(secrets, transaction),
+    keys: {
+      deleteDataKey: async (workspaceId) => void deletedKeys.push(workspaceId),
+    },
+    runGrants: new PurgeRunGrants(
       grants,
-      new RunGrantsKept(grants),
+      new RunGrantsUnitOfWork(grants),
       clockAt(),
       new RecordingLogger(),
     ),
   });
 
-  return { secrets, store, grants, forgotten, subscribers };
+  return { secrets, store, grants, deletedKeys, subscribers };
 };
 
 describe('secretsSubscribers', () => {
-  it('abandons the secrets a closed workspace still held, and their values', async () => {
-    const { secrets, store, subscribers } = await holding();
+  it('deletes the secrets a deleted workspace still had, and their values', async () => {
+    const { secrets, store, subscribers } = await setUp();
 
     await subscribers
       .find(
-        (each) => each.name === 'secrets.abandon-secrets-of-closed-workspace',
+        (each) => each.name === 'secrets.delete-secrets-of-deleted-workspace',
       )
-      ?.handle(closed);
+      ?.handle(deletedWorkspace);
 
     expect(await secrets.inWorkspace(WORKSPACE)).toEqual([]);
-    expect(store.holds(SecretId.of('secret_linear'))).toBe(false);
+    expect(store.has(SecretId.of('secret_linear'))).toBe(false);
     expect(secrets.events[secrets.events.length - 1]).toMatchObject({
-      kind: 'secret.abandoned',
+      kind: 'secret.deleted',
     });
   });
 
-  it('forgets the data key of a closed workspace', async () => {
-    const { forgotten, subscribers } = await holding();
+  it('deletes the data key of a deleted workspace', async () => {
+    const { deletedKeys, subscribers } = await setUp();
 
     await subscribers
       .find(
-        (each) => each.name === 'secrets.forget-data-key-of-closed-workspace',
+        (each) => each.name === 'secrets.delete-data-key-of-deleted-workspace',
       )
-      ?.handle(closed);
+      ?.handle(deletedWorkspace);
 
-    expect(forgotten.map((each) => each.value)).toEqual([WORKSPACE.value]);
+    expect(deletedKeys.map((each) => each.value)).toEqual([WORKSPACE.value]);
   });
 
-  it('forgets the secret grants a closed workspace’s runs held', async () => {
-    const { grants, subscribers } = await holding();
+  it('deletes the secret grants that the runs of a deleted workspace had', async () => {
+    const { grants, subscribers } = await setUp();
 
     await subscribers
       .find(
-        (each) => each.name === 'secrets.forget-run-grants-of-closed-workspace',
+        (each) =>
+          each.name === 'secrets.delete-run-grants-of-deleted-workspace',
       )
-      ?.handle(closed);
+      ?.handle(deletedWorkspace);
 
     expect(grants.of('run_1')).toBeNull();
   });

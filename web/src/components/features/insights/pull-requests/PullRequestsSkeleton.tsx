@@ -1,14 +1,14 @@
 import {
-  PENETRATION_SERIES,
+  SPOTLIGHT_SHARE_SERIES,
   TYPE_SERIES,
 } from '@/components/features/insights/chart-series';
 import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCardSkeleton';
 import { InsightsTableSkeleton } from '@/components/features/insights/InsightsTableSkeleton';
 import { InsightsTilesSkeleton } from '@/components/features/insights/InsightsTilesSkeleton';
-import { PENETRATION_CHART_HEIGHT } from '@/components/features/insights/pull-requests/PenetrationChart';
 import { PullRequestFilters } from '@/components/features/insights/pull-requests/PullRequestFilters';
 import { PullRequestListSkeleton } from '@/components/features/insights/pull-requests/PullRequestListSkeleton';
 import { TYPES_CHART_HEIGHT } from '@/components/features/insights/pull-requests/PullRequestTypesChart';
+import { SPOTLIGHT_SHARE_CHART_HEIGHT } from '@/components/features/insights/pull-requests/SpotlightShareChart';
 import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend';
 import { ChartSkeleton } from '@/components/shared/skeleton/ChartSkeleton';
 import type { InsightsView } from '@/lib/insights';
@@ -36,10 +36,12 @@ const TILES: readonly TileBones[] = [
   },
 ];
 
-const PENETRATION_LEGEND = PENETRATION_SERIES.map(({ label, fill }) => ({
-  label,
-  color: fill,
-}));
+const SPOTLIGHT_SHARE_LEGEND = SPOTLIGHT_SHARE_SERIES.map(
+  ({ label, fill }) => ({
+    label,
+    color: fill,
+  }),
+);
 
 const AUTHORS = ['Spotlight’s', 'People’s alone'];
 
@@ -66,8 +68,8 @@ export function PullRequestsSkeleton({
           description={WEEK_BY_WEEK_NOTE}
         >
           <figure className="flex flex-col gap-1">
-            <ChartLegend entries={PENETRATION_LEGEND} />
-            <ChartSkeleton height={PENETRATION_CHART_HEIGHT} />
+            <ChartLegend entries={SPOTLIGHT_SHARE_LEGEND} />
+            <ChartSkeleton height={SPOTLIGHT_SHARE_CHART_HEIGHT} />
           </figure>
         </InsightsCardSkeleton>
 

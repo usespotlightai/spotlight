@@ -1,24 +1,24 @@
 import type { MemoryRelevancePort } from '@memory/application/ports/memory-relevance.port';
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import { folderLayoutAt } from '@memory/application/rendering/memory-folder-layout';
-import type { MemoriesInReach } from '@memory/application/services/memories-in-reach.service';
+import type { ApplicableMemories } from '@memory/application/services/applicable-memories.service';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { selectForBriefing } from '@memory/domain/services/briefing-selection';
 import {
   MEMORY_FOLDER,
-  mirroringAt,
+  repositoryFolderAt,
 } from '@memory/domain/services/memory-folder';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
-import type { RunSite } from '@memory/domain/value-objects/run-site';
+import type { RunContext } from '@memory/domain/value-objects/run-context';
 import type {
   MemoriesBriefedBeforePort,
   NamedMemory,
 } from '@work/application/ports/memories-briefed-before.port';
 import type {
-  BriefedPlace,
-  BriefingPlace,
+  BriefedContext,
+  BriefingContext,
   BriefingSelection,
   MemoryFolder,
   TeamMemoriesPort,
@@ -36,19 +36,22 @@ const pathOf = (raw: string): MemoryPath | null => {
   }
 };
 
-const siteOf = (place: BriefedPlace): RunSite => ({
-  teamId: place.teamId,
-  lineId: place.lineId,
-  stationId: place.stationId,
-  repositories: place.repositories,
+const contextOf = (briefing: BriefedContext): RunContext => ({
+  teamId: briefing.teamId,
+  lineId: briefing.lineId,
+  stationId: briefing.stationId,
+  repositories: briefing.repositories,
 });
 
-const folderAt = (site: RunSite, laid: boolean): MemoryFolder | null =>
+const folderAt = (
+  runContext: RunContext,
+  laid: boolean,
+): MemoryFolder | null =>
   laid
     ? {
         path: MEMORY_FOLDER,
-        layout: folderLayoutAt(site),
-        mirroring: mirroringAt(site),
+        layout: folderLayoutAt(runContext),
+        repositoryFolder: repositoryFolderAt(runContext),
       }
     : null;
 
@@ -56,34 +59,34 @@ export class MemoriesForBriefing
   implements TeamMemoriesPort, MemoriesBriefedBeforePort
 {
   constructor(
-    private readonly inReach: MemoriesInReach,
+    private readonly applicable: ApplicableMemories,
     private readonly relevance: MemoryRelevancePort,
     private readonly uses: MemoryUsesPort,
     private readonly memories: MemoryRepository,
   ) {}
 
   async again(
-    place: BriefedPlace,
+    briefing: BriefedContext,
     chosen: {
       readonly briefed: readonly NamedMemory[];
-      readonly cut: readonly NamedMemory[];
+      readonly omitted: readonly NamedMemory[];
     },
     asOf: Date,
   ): Promise<BriefingSelection> {
-    const site = siteOf(place);
-    const kept = await this.memories.findAll(
+    const runContext = contextOf(briefing);
+    const stored = await this.memories.findAll(
       chosen.briefed.map((each) => MemoryId.of(each.id)),
     );
-    const applying = await this.inReach.at(site, asOf);
-    const held = new Map(
-      kept
-        .filter((each) => each.isTeams(place.teamId))
+    const applying = await this.applicable.at(runContext, asOf);
+    const teamMemories = new Map(
+      stored
+        .filter((each) => each.isTeams(briefing.teamId))
         .map((each) => [each.id.value, each]),
     );
 
     return {
       briefed: chosen.briefed.flatMap((each) => {
-        const memory = held.get(each.id);
+        const memory = teamMemories.get(each.id);
 
         return memory
           ? [
@@ -96,19 +99,25 @@ export class MemoriesForBriefing
             ]
           : [];
       }),
-      cut: chosen.cut.map((each) => ({ id: each.id, handle: each.handle })),
-      folder: folderAt(site, applying.length > 0 || held.size > 0),
+      omitted: chosen.omitted.map((each) => ({
+        id: each.id,
+        handle: each.handle,
+      })),
+      folder: folderAt(
+        runContext,
+        applying.length > 0 || teamMemories.size > 0,
+      ),
     };
   }
 
-  async forBriefing(place: BriefingPlace): Promise<BriefingSelection> {
-    const site = siteOf(place);
-    const applying = await this.inReach.at(site);
+  async forBriefing(briefing: BriefingContext): Promise<BriefingSelection> {
+    const runContext = contextOf(briefing);
+    const applying = await this.applicable.at(runContext);
     const ids = applying.map((each) => each.id);
     const touched = applying.some((each) => each.scope.paths.length > 0)
-      ? await place.touched()
+      ? await briefing.touched()
       : ([] as readonly TouchedFile[]);
-    const ranks = await this.relevance.rank(ids, place.about);
+    const ranks = await this.relevance.rank(ids, briefing.about);
     const recalled = await this.uses.runsUsing(ids, 'recalled');
 
     const chosen = selectForBriefing(
@@ -118,7 +127,7 @@ export class MemoriesForBriefing
         recalled: recalled.get(memory.id.value) ?? 0,
       })),
       {
-        ...site,
+        ...runContext,
         touched: touched.flatMap((each) => {
           const path = pathOf(each.path);
           return path ? [{ repository: each.repository, path }] : [];
@@ -133,11 +142,11 @@ export class MemoriesForBriefing
         kind: each.kind,
         body: each.body.value,
       })),
-      cut: chosen.cut.map((each) => ({
+      omitted: chosen.omitted.map((each) => ({
         id: each.id.value,
         handle: each.handle.value,
       })),
-      folder: folderAt(site, applying.length > 0),
+      folder: folderAt(runContext, applying.length > 0),
     };
   }
 }

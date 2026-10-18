@@ -8,7 +8,6 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
@@ -17,6 +16,7 @@ import type { StationConfigParts } from '@work/domain/value-objects/station-conf
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
 import { DrizzleStationRunReader } from '@work/infrastructure/persistence/drizzle/readers/station-run.reader';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
@@ -25,7 +25,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 let runs: DrizzleRunRepository;
 let stationRuns: DrizzleStationRunReader;
@@ -33,8 +33,8 @@ let runReader: DrizzleRunReader;
 let chats: DrizzleChatRepository;
 
 beforeAll(async () => {
-  held = await openDatabase('station_configs');
-  db = held.db;
+  database = await openDatabase('station_configs');
+  db = database.db;
   runs = new DrizzleRunRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
@@ -54,7 +54,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 const PARTS: StationConfigParts = {
@@ -65,7 +65,7 @@ const PARTS: StationConfigParts = {
   profile: { key: 'careful', settings: { rules: [], native: {} } },
   image: null,
   repositories: [{ name: 'api', setup: 'npm ci' }],
-  skills: [{ key: 'handing-over', digest: 'd'.repeat(64) }],
+  skills: [{ key: 'handing-over', hash: 'd'.repeat(64) }],
   tools: [],
   decisions: false,
   memories: true,
@@ -75,7 +75,7 @@ const SPEC = {
   command: { executable: 'sh', args: [] },
   briefing: 'do the thing',
   handover: { options: [], noteLimit: 0 },
-  continuity: { key: 'task:station' },
+  resume: { key: 'task:station' },
 };
 
 const lineOf = async (teamId: string, key = 'delivery') => {
@@ -168,7 +168,7 @@ describe('the station config a run ran with', () => {
     });
   });
 
-  it('tells the states of the task’s earlier runs at the station, to count its rounds by', async () => {
+  it('tells the states of the task’s earlier runs at the station, to count its visits by', async () => {
     const { stationId } = await lineOf('team_9');
     const first = await ran(stationId, {
       at: new Date('2026-09-01T00:00:00Z'),
@@ -306,15 +306,15 @@ describe('the station config a run ran with', () => {
   });
 });
 
-describe('a chat improving a station', () => {
-  it('keeps the station it improves', async () => {
+describe('a chat that improves a station', () => {
+  it('stores the station it improves', async () => {
     const chat = Chat.start({
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
       startedBy: UserId.of('user_1'),
       harness: HarnessId.of('dev'),
-      body: ChatMessageBody.given('Improve this station.'),
-      improving: ImprovedStation.rehydrate({
+      body: ChatMessageBody.fromInput('Improve this station.'),
+      targetStation: TargetStation.rehydrate({
         teamId: TeamId.of('team_1'),
         lineId: LineId.of('line_1'),
         lineKey: LineKey.of('delivery'),
@@ -330,7 +330,7 @@ describe('a chat improving a station', () => {
     await chats.add(chat);
     const found = await chats.find(chat.id);
 
-    expect(found?.improving?.stationKey.value).toBe('implementation');
-    expect(found?.improving?.lineName.value).toBe('Delivery');
+    expect(found?.targetStation?.stationKey.value).toBe('implementation');
+    expect(found?.targetStation?.lineName.value).toBe('Delivery');
   });
 });

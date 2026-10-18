@@ -1,15 +1,13 @@
 import type { Preview } from '@storybook/react-vite';
 import { onlineManager } from '@tanstack/react-query';
-import { mswLoader } from 'msw-storybook-addon/csf3';
 import { sb } from 'storybook/test';
 import '../src/index.css';
-import { startMockApi } from '../src/stories/mockApi';
 
+sb.mock(import('../src/lib/send.ts'));
 sb.mock(import('../src/hooks/api/useSession.ts'));
 sb.mock(import('../src/hooks/api/useCreateWorkspaceToken.ts'), { spy: true });
 
 const preview: Preview = {
-  loaders: [mswLoader(startMockApi)],
   parameters: {
     layout: 'fullscreen',
     options: {

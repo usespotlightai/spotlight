@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { UnopenableEnvelopeError } from '@secrets/infrastructure/crypto/envelope';
+import { DecryptionFailedError } from '@secrets/infrastructure/crypto/envelope';
 import { LocalKeyManagement } from '@secrets/infrastructure/kms/local-key-management';
 import { describe, expect, it } from 'vitest';
 
@@ -31,7 +31,7 @@ describe('LocalKeyManagement', () => {
 
     await expect(
       kms.unwrap(issued.wrapped, { ...CONTEXT, workspace: 'ws_2' }),
-    ).rejects.toThrow(UnopenableEnvelopeError);
+    ).rejects.toThrow(DecryptionFailedError);
   });
 
   it('unwraps nothing with another deployment key', async () => {
@@ -42,10 +42,10 @@ describe('LocalKeyManagement', () => {
         issued.wrapped,
         CONTEXT,
       ),
-    ).rejects.toThrow(UnopenableEnvelopeError);
+    ).rejects.toThrow(DecryptionFailedError);
   });
 
-  it('refuses a deployment key that is not thirty-two bytes', () => {
+  it('rejects a deployment key that is not thirty-two bytes', () => {
     expect(() => new LocalKeyManagement('short')).toThrow(/32 bytes/);
   });
 });

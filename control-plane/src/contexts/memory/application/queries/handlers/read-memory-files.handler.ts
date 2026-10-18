@@ -3,10 +3,10 @@ import type { PeoplePort } from '@memory/application/ports/people.port';
 import type { WorkPort } from '@memory/application/ports/work.port';
 import type { ReadMemoryFilesQuery } from '@memory/application/queries/read-memory-files.query';
 import { memoryFilesOf } from '@memory/application/rendering/memory-files';
-import type { MemoriesInReach } from '@memory/application/services/memories-in-reach.service';
+import type { ApplicableMemories } from '@memory/application/services/applicable-memories.service';
 import type { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
-import { reachesMemories } from '@memory/domain/services/search-reach';
+import { usesMemories } from '@memory/domain/services/search-memory-access';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -15,7 +15,7 @@ export class ReadMemoryFilesHandler
 {
   constructor(
     private readonly loader: RunnerMemoryLoader,
-    private readonly inReach: MemoriesInReach,
+    private readonly applicable: ApplicableMemories,
     private readonly memories: MemoryRepository,
     private readonly work: WorkPort,
     private readonly people: PeoplePort,
@@ -23,15 +23,15 @@ export class ReadMemoryFilesHandler
 
   async execute(query: ReadMemoryFilesQuery): Promise<MemoryFileDto[]> {
     try {
-      const held = await this.loader.held(query.runId, query.runnerId);
+      const run = await this.loader.leased(query.runId, query.runnerId);
 
-      if (!reachesMemories(held)) {
+      if (!usesMemories(run)) {
         return [];
       }
 
-      const applying = await this.inReach.at(held, held.replaysFrom);
+      const applying = await this.applicable.at(run, run.replaysFrom);
       const [lines, replaced] = await Promise.all([
-        this.work.linesOf(held.teamId),
+        this.work.linesOf(run.teamId),
         this.memories.findAll(
           applying.flatMap((each) =>
             each.supersedes ? [each.supersedes] : [],

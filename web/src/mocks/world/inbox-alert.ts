@@ -14,11 +14,11 @@ type AlertPoint = {
   readonly value: number | null;
 };
 
-export type AlertCrossing = {
+export type AlertFiring = {
   readonly run: HistoryRun;
   readonly value: number;
   readonly baseline: number | null;
-  readonly recovered: HistoryRun | null;
+  readonly resolved: HistoryRun | null;
   readonly series: readonly AlertPoint[];
 };
 
@@ -31,7 +31,7 @@ type Watch = {
 
 const SENT_BACK: Watch = {
   over: ALERT_OVER,
-  measure: (run) => (run.next?.act === 'sent-back' ? 1 : 0),
+  measure: (run) => (run.firstHumanAction?.kind === 'sent-back' ? 1 : 0),
   fromBaseline: true,
   crosses: (value, baseline) =>
     baseline !== null && value - baseline >= ALERT_RISES_BY - 1e-9,
@@ -65,7 +65,7 @@ const stationRuns = () =>
     )
     .sort((one, other) => one.at - other.at);
 
-const crossingOf = (watch: Watch): AlertCrossing | null => {
+const firingOf = (watch: Watch): AlertFiring | null => {
   const runs = stationRuns();
   const values = runs.map((_, end) => trailing(runs, end, watch));
   const changedAt = runs.findIndex(
@@ -88,7 +88,7 @@ const crossingOf = (watch: Watch): AlertCrossing | null => {
     : values.findLastIndex(
         (_, at) => at >= changedAt && crosses(at) && !crosses(at - 1),
       );
-  const crossed =
+  const fired =
     found >= 0 || !watch.fromBaseline
       ? found
       : values.reduce<number>(
@@ -96,8 +96,8 @@ const crossingOf = (watch: Watch): AlertCrossing | null => {
             at >= changedAt && (value ?? 0) > (values[best] ?? 0) ? at : best,
           changedAt,
         );
-  const recoveredAt = values.findIndex((_, at) => at > crossed && !crosses(at));
-  const run = runs[crossed];
+  const resolvedAt = values.findIndex((_, at) => at > fired && !crosses(at));
+  const run = runs[fired];
 
   if (!run) {
     return null;
@@ -105,11 +105,11 @@ const crossingOf = (watch: Watch): AlertCrossing | null => {
 
   return {
     run,
-    value: values[crossed] ?? 0,
+    value: values[fired] ?? 0,
     baseline,
-    recovered: recoveredAt >= 0 ? (runs[recoveredAt] ?? null) : null,
+    resolved: resolvedAt >= 0 ? (runs[resolvedAt] ?? null) : null,
     series: runs
-      .slice(Math.max(0, crossed + 1 - SERIES_POINTS), crossed + 1)
+      .slice(Math.max(0, fired + 1 - SERIES_POINTS), fired + 1)
       .map((each) => ({
         run: each,
         value: values[runs.indexOf(each)] ?? null,
@@ -118,14 +118,14 @@ const crossingOf = (watch: Watch): AlertCrossing | null => {
 };
 
 const once = (watch: Watch) => {
-  let made: { readonly crossing: AlertCrossing | null } | null = null;
+  let made: { readonly firing: AlertFiring | null } | null = null;
 
-  return (): AlertCrossing | null => {
-    made ??= { crossing: crossingOf(watch) };
-    return made.crossing;
+  return (): AlertFiring | null => {
+    made ??= { firing: firingOf(watch) };
+    return made.firing;
   };
 };
 
-export const alertCrossing = once(SENT_BACK);
+export const alertFiring = once(SENT_BACK);
 
-export const costAlertCrossing = once(COST);
+export const costAlertFiring = once(COST);

@@ -50,7 +50,7 @@ func configYAML(fingerprint string, config protocol.StationConfig) (string, erro
 		out.WriteString("skills:\n")
 		for _, skill := range config.Skills {
 			fmt.Fprintf(&out, "  - key: %s\n", quoted(skill.Key))
-			fmt.Fprintf(&out, "    digest: %s\n", quoted(skill.Digest))
+			fmt.Fprintf(&out, "    hash: %s\n", quoted(skill.Hash))
 		}
 	}
 
@@ -70,9 +70,9 @@ func configYAML(fingerprint string, config protocol.StationConfig) (string, erro
 		out.WriteString("judge: null\n")
 	} else {
 		out.WriteString("judge:\n")
-		fmt.Fprintf(&out, "  rubricDigest: %s\n", quoted(config.Judge.RubricDigest))
+		fmt.Fprintf(&out, "  rubricHash: %s\n", quoted(config.Judge.RubricHash))
 		fmt.Fprintf(&out, "  sample: %s\n", number(config.Judge.Sample))
-		fmt.Fprintf(&out, "  trust: %s\n", number(config.Judge.Trust))
+		fmt.Fprintf(&out, "  minAgreement: %s\n", number(config.Judge.MinAgreement))
 	}
 
 	out.WriteString("prompt:")

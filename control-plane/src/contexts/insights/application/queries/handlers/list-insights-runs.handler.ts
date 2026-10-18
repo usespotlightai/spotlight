@@ -1,0 +1,67 @@
+import {
+  type InsightsRunsDto,
+  insightsRunOf,
+  namedOf,
+  periodOf,
+} from '@insights/application/dto/insights.dto';
+import type { InsightsReaderPort } from '@insights/application/ports/insights-reader.port';
+import type { PeoplePort } from '@insights/application/ports/people.port';
+import { pageOf, sizeOf } from '@insights/application/queries/handlers/paging';
+import type { ListInsightsRunsQuery } from '@insights/application/queries/list-insights-runs.query';
+import {
+  type TeamScopes,
+  windowOf,
+} from '@insights/application/services/team-scopes.service';
+import { runFilterOf } from '@insights/domain/services/run-filter';
+import {
+  pageWithin,
+  requestedPageOf,
+} from '@insights/domain/services/run-page';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
+import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+
+export class ListInsightsRunsHandler
+  implements QueryHandlerPort<ListInsightsRunsQuery, InsightsRunsDto>
+{
+  constructor(
+    private readonly scopes: TeamScopes,
+    private readonly reader: InsightsReaderPort,
+    private readonly people: PeoplePort,
+  ) {}
+
+  async execute(query: ListInsightsRunsQuery): Promise<InsightsRunsDto> {
+    try {
+      const { access, period } = await this.scopes.scope(
+        query.teamId,
+        query.principal,
+        query.period,
+      );
+      const filter = runFilterOf(query.filter, period.current);
+      const size = sizeOf(query.size);
+      const page = requestedPageOf(pageOf(query.page));
+      const listed = await this.reader.runPage({
+        window: windowOf(access, period.current),
+        filter,
+        offset: (page - 1) * size,
+        limit: size,
+      });
+
+      pageWithin(page, listed.total, size);
+      const runs = listed.runs.map(insightsRunOf);
+      const ids = runs.flatMap((each) =>
+        each.openedBy ? [each.openedBy] : [],
+      );
+
+      return {
+        period: periodOf(period),
+        total: listed.total,
+        page,
+        size,
+        runs,
+        people: namedOf(ids, await this.people.namesOf(ids)),
+      };
+    } catch (error) {
+      rethrowAsApplicationError(error);
+    }
+  }
+}

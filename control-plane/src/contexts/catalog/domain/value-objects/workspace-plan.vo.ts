@@ -3,20 +3,20 @@ import { Plan } from '@catalog/domain/value-objects/plan.vo';
 export class WorkspacePlan {
   private constructor(
     readonly plan: Plan,
-    readonly lapsesAt: Date | null,
+    readonly expiresAt: Date | null,
   ) {}
 
   static readonly free = new WorkspacePlan(Plan.free, null);
 
-  static of(plan: Plan, lapsesAt: Date | null = null): WorkspacePlan {
-    return new WorkspacePlan(plan, lapsesAt);
+  static of(plan: Plan, expiresAt: Date | null = null): WorkspacePlan {
+    return new WorkspacePlan(plan, expiresAt);
   }
 
-  lapsedBy(now: Date): boolean {
-    return this.lapsesAt !== null && this.lapsesAt.getTime() <= now.getTime();
+  isExpiredAt(now: Date): boolean {
+    return this.expiresAt !== null && this.expiresAt.getTime() <= now.getTime();
   }
 
   at(now: Date): Plan {
-    return this.lapsedBy(now) ? Plan.free : this.plan;
+    return this.isExpiredAt(now) ? Plan.free : this.plan;
   }
 }

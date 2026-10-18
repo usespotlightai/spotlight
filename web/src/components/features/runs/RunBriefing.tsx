@@ -1,70 +1,62 @@
-import { ChevronDown } from 'lucide-react';
-import { useId, useRef, useState } from 'react';
-import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
-import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
+import type { ReactNode } from 'react';
+import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked';
+import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
+import { BriefingCard } from '@/components/features/runs/BriefingCard';
+import { RunImage } from '@/components/features/runs/RunImage';
+import { ComposerFooter } from '@/components/shared/ComposerFooter';
+import { PaneScroller } from '@/components/shared/PaneScroller';
+import { useStickToBottom } from '@/hooks/useStickToBottom';
 import type { Attachment } from '@/lib/attachment';
-import { cn } from '@/lib/utils';
+import type { TeamRun } from '@/lib/run';
+import { useRunSidePanel } from '@/lib/run-side-panel';
 
 type RunBriefingProps = {
-  briefing: string;
+  run: TeamRun;
+  briefing: string | null;
   attachments: readonly Attachment[];
+  activity?: ReactNode;
+  closing?: ReactNode;
+  footer: ReactNode;
 };
 
-export function RunBriefing({ briefing, attachments }: RunBriefingProps) {
-  const [open, setOpen] = useState(false);
-  const text = useRef<HTMLParagraphElement>(null);
-  const shown = useId();
-
-  const toggle = () => {
-    if (open && text.current) {
-      text.current.scrollTop = 0;
-    }
-    setOpen(!open);
-  };
+export function RunBriefing({
+  run,
+  briefing,
+  attachments,
+  activity,
+  closing,
+  footer,
+}: RunBriefingProps) {
+  const scroller = useStickToBottom<HTMLDivElement>();
+  const { sidePanel } = useRunSidePanel();
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <SaidCard>
-        <div className="group/briefing relative">
-          <p
-            id={shown}
-            ref={text}
-            className={cn(
-              'whitespace-pre-wrap text-foreground text-sm leading-6',
-              'transition-[max-height] duration-200 ease-out motion-reduce:transition-none',
-              open
-                ? 'max-h-64 overflow-y-auto'
-                : 'max-h-32 overflow-hidden [mask-image:linear-gradient(to_bottom,black_55%,transparent)]',
-            )}
-          >
-            {briefing}
-          </p>
+    <PaneScroller
+      ref={scroller}
+      sidePanel={sidePanel}
+      footer={<ComposerFooter>{footer}</ComposerFooter>}
+    >
+      <div className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8">
+        <TimeMarker at={run.startedAt} />
+        <RunImage image={run.image} />
 
-          <button
-            type="button"
-            onClick={toggle}
-            aria-expanded={open}
-            aria-controls={shown}
-            aria-label={
-              open ? 'Show less of the prompt' : 'Show the whole prompt'
-            }
-            className={cn(
-              'absolute rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              open ? 'right-0 bottom-0 size-3.5' : 'inset-0',
-            )}
-          >
-            <ChevronDown
-              className={cn(
-                'absolute right-0 bottom-0 size-3.5 shrink-0 text-muted-foreground transition-transform group-hover/briefing:text-foreground',
-                open && 'rotate-180',
-              )}
-              aria-hidden
+        <div className="mt-6">
+          {briefing ? (
+            <BriefingCard briefing={briefing} attachments={attachments} />
+          ) : (
+            <InboxAsked
+              station={run.station}
+              title={run.taskTitle}
+              description={run.taskDescription}
+              attachments={attachments}
             />
-          </button>
+          )}
         </div>
-      </SaidCard>
 
-      <AttachmentTiles attachments={attachments} />
-    </div>
+        {activity && <div className="mt-6 empty:hidden">{activity}</div>}
+
+        {closing && <div className="mt-3">{closing}</div>}
+      </div>
+    </PaneScroller>
   );
 }

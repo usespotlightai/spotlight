@@ -88,9 +88,9 @@ beforeEach(() => {
   mockSettingUp.mockReturnValue(false);
   refetch.mockClear();
   hosts.mockReturnValue([
-    { id: 'h1', name: 'one', answering: true },
-    { id: 'h2', name: 'two', answering: true },
-    { id: 'h3', name: 'three', answering: false },
+    { id: 'h1', name: 'one', online: true },
+    { id: 'h2', name: 'two', online: true },
+    { id: 'h3', name: 'three', online: false },
   ]);
 });
 
@@ -153,24 +153,24 @@ describe('Workspace', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('flags the settings when no host is answering', () => {
+  it('flags the settings when no host is online', () => {
     loaded(acme);
-    hosts.mockReturnValue([{ id: 'h1', name: 'one', answering: false }]);
+    hosts.mockReturnValue([{ id: 'h1', name: 'one', online: false }]);
 
     renderAt('acme-inc');
 
     expect(
-      screen.getByRole('img', { name: 'No host is answering' }),
+      screen.getByRole('img', { name: 'No host is online' }),
     ).toBeInTheDocument();
   });
 
-  it('leaves the settings unflagged while a host still answers', () => {
+  it('leaves the settings unflagged while a host is online', () => {
     loaded(acme);
 
     renderAt('acme-inc');
 
     expect(
-      screen.queryByRole('img', { name: 'No host is answering' }),
+      screen.queryByRole('img', { name: 'No host is online' }),
     ).not.toBeInTheDocument();
   });
 
@@ -265,7 +265,7 @@ describe('Workspace', () => {
     );
   });
 
-  it('asks by the slug in the address', () => {
+  it('requests the workspace by the slug in the address', () => {
     loaded(acme);
 
     renderAt('acme-inc');
@@ -301,7 +301,7 @@ describe('Workspace', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('says the workspace could not be loaded, and tries again when asked', async () => {
+  it('says the workspace could not be loaded, and tries again on request', async () => {
     const person = userEvent.setup();
     answered({ errorUpdateCount: 1 });
 
@@ -332,7 +332,7 @@ describe('Workspace', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('counts every host the control plane can still hear from', () => {
+  it('counts every host that still reports to the control plane', () => {
     loaded(acme);
 
     renderAt('acme-inc', '/settings/general');

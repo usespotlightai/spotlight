@@ -1,4 +1,5 @@
 import { grantAttachmentUpload } from '@/lib/api';
+import { send } from '@/lib/send';
 
 type UploadAttachmentInput = {
   slug: string;
@@ -25,10 +26,12 @@ export const uploadAttachment = async ({
 }: UploadAttachmentInput): Promise<{ id: string }> => {
   const { id, url, headers } = await grant(slug, file);
 
-  const put = await fetch(url, { method: 'PUT', headers, body: file });
+  const put = await send(url, { method: 'PUT', headers, body: file });
 
   if (!put.ok) {
-    throw new Error(`Sorry, storage refused the upload. Status: ${put.status}`);
+    throw new Error(
+      `Sorry, the upload to storage failed. Status: ${put.status}`,
+    );
   }
 
   return { id };

@@ -20,17 +20,17 @@ export class RecallMemoryHandler
   async execute(command: RecallMemoryCommand): Promise<TeamMemoryDetailDto> {
     try {
       const handle = MemoryHandle.parse(command.handle);
-      const held = await this.loader.recalling(command.runId, command.runnerId);
-      const memory = await this.memories.withHandle(held.teamId, handle);
+      const run = await this.loader.recalling(command.runId, command.runnerId);
+      const memory = await this.memories.withHandle(run.teamId, handle);
 
       if (
         !memory ||
-        (held.replaysFrom && !memory.stoodOn(held.teamId, held.replaysFrom))
+        (run.replaysFrom && !memory.activeOn(run.teamId, run.replaysFrom))
       ) {
         throw new UnknownMemoryError(handle.value);
       }
 
-      await this.loader.recalled(held, [memory.id]);
+      await this.loader.recalled(run, [memory.id]);
 
       return await this.views.detail(memory);
     } catch (error) {

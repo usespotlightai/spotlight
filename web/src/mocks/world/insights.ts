@@ -14,7 +14,7 @@ import type {
   StationCacheUseResponseDto,
   StationReportResponseDto,
   StationWorthImprovingResponseDto,
-  TallyChangesResponseDto,
+  TallyDeltasResponseDto,
 } from '@/lib/api';
 import { type HistoryRun, tasksOfTeam } from '@/mocks/world/insights-history';
 import {
@@ -40,13 +40,13 @@ import {
   costPerRunOf,
   mergedIn,
   moneyOf,
-  owedAsks,
   peopleNamed,
   profilesOfTeam,
   pullRequestsClosedIn,
   runsIn,
   spendOf,
   tallyOf,
+  unansweredAsks,
   versionChangesOf,
 } from '@/mocks/world/insights-tally';
 import { PEOPLE } from '@/mocks/world/people';
@@ -59,10 +59,12 @@ const dayWindow = (day: string): Window => {
 const headlineOf = (teamId: string, window: Window) => {
   const runs = runsIn(teamId, window);
   const tasks = distinct(runs.map((run) => run.taskId));
-  const settled = pullRequestsClosedIn(teamId, window);
+  const finished = pullRequestsClosedIn(teamId, window);
   const merged = mergedIn(teamId, window);
   const spend = spendOf(runs);
-  const touches = runs.filter((run) => run.next !== null).length;
+  const humanActions = runs.filter(
+    (run) => run.firstHumanAction !== null,
+  ).length;
   const people = distinct(
     tasksOfTeam(teamId)
       .filter(
@@ -79,8 +81,8 @@ const headlineOf = (teamId: string, window: Window) => {
     runs: runs.length,
     tasks: tasks.length,
     mergedPullRequests: merged.length,
-    closedPullRequests: settled.length - merged.length,
-    mergeRate: shareOf(merged.length, settled.length),
+    closedPullRequests: finished.length - merged.length,
+    mergeRate: shareOf(merged.length, finished.length),
     costPerMerge:
       spend === null || merged.length === 0
         ? null
@@ -88,8 +90,8 @@ const headlineOf = (teamId: string, window: Window) => {
     taskToMerge: spreadOf(
       merged.map((task) => (task.pullRequest?.closedAt ?? 0) - task.openedAt),
     ),
-    touches,
-    touchesPerTask: shareOf(touches, tasks.length),
+    humanActions,
+    humanActionsPerTask: shareOf(humanActions, tasks.length),
     activePeople: people.length,
     mergedTaskIds: merged.map((task) => task.id),
     peopleIds: people,
@@ -110,7 +112,7 @@ const SIGNALS: readonly SignalRule[] = [
     share: true,
     of: (runs) =>
       shareOf(
-        runs.filter((run) => run.next?.act === 'sent-back').length,
+        runs.filter((run) => run.firstHumanAction?.kind === 'sent-back').length,
         runs.length,
       ),
   },
@@ -241,7 +243,11 @@ const changesOfHeadline = (
     before.taskToMerge.p50Ms,
     'down',
   ),
-  touchesPerTask: changeOf(now.touchesPerTask, before.touchesPerTask, 'down'),
+  humanActionsPerTask: changeOf(
+    now.humanActionsPerTask,
+    before.humanActionsPerTask,
+    'down',
+  ),
   activePeople: changeOf(now.activePeople, before.activePeople, 'up'),
 });
 
@@ -284,7 +290,7 @@ export const overviewOf = (
 const flowStationsOf = (teamId: string, span: Span) => {
   const now = runsIn(teamId, span.now);
   const before = runsIn(teamId, span.before);
-  const owed = owedAsks(teamId);
+  const unansweredTasks = unansweredAsks(teamId);
 
   return profilesOfTeam(teamId).flatMap((profile) => {
     const runs = now.filter((run) => run.stationId === profile.stationId);
@@ -298,9 +304,11 @@ const flowStationsOf = (teamId: string, span: Span) => {
         .map((run) => run.taskId),
     ).length;
     const answered = runs.flatMap((run) =>
-      run.next ? [Date.parse(run.next.at) - run.at] : [],
+      run.firstHumanAction
+        ? [Date.parse(run.firstHumanAction.at) - run.at]
+        : [],
     );
-    const unanswered = owed.filter(
+    const unanswered = unansweredTasks.filter(
       (task) => task.stationId === profile.stationId,
     ).length;
 
@@ -398,7 +406,7 @@ export const flowOf = (
 const tallyChangesOf = (
   now: readonly HistoryRun[],
   before: readonly HistoryRun[],
-): TallyChangesResponseDto => {
+): TallyDeltasResponseDto => {
   if (now.length === 0 && before.length === 0) {
     return {
       runs: NO_CHANGE,
@@ -495,9 +503,9 @@ const COUNTED = [
   'checksFailed',
   'accepted',
   'sentBack',
-  'handedOn',
+  'passed',
   'merged',
-  'withdrawn',
+  'cancelled',
 ] as const;
 
 export const stationsOf = (
@@ -551,29 +559,31 @@ const CHATS: Record<string, number> = {
   user_4: 1,
 };
 
-const loadOf = (teamId: string, window: Window, owed: number) => {
+const loadOf = (teamId: string, window: Window, unanswered: number) => {
   const runs = runsIn(teamId, window);
-  const asked = runs.filter((run) => run.next !== null);
+  const asked = runs.filter((run) => run.firstHumanAction !== null);
   const tasks = distinct(runs.map((run) => run.taskId));
-  const sentBack = asked.filter((run) => run.next?.act === 'sent-back').length;
-  const asks = asked.length + owed;
+  const sentBack = asked.filter(
+    (run) => run.firstHumanAction?.kind === 'sent-back',
+  ).length;
+  const asks = asked.length + unanswered;
 
   return {
     asks,
     tasks: tasks.length,
     asksPerTask: shareOf(asks, tasks.length),
     toAnswer: spreadOf(
-      asked.map((run) => Date.parse(run.next?.at ?? '') - run.at),
+      asked.map((run) => Date.parse(run.firstHumanAction?.at ?? '') - run.at),
     ),
-    unanswered: owed,
+    unanswered,
     sentBack,
     sentBackRate: shareOf(sentBack, runs.length),
-    refused: runs.filter((run) => run.calls.some((call) => call.refused))
+    dismissed: runs.filter((run) => run.calls.some((call) => call.dismissed))
       .length,
     askedTaskIds: distinct(asked.map((run) => run.taskId)).slice(0, 200),
-    refusedTaskIds: distinct(
+    dismissedTaskIds: distinct(
       runs
-        .filter((run) => run.calls.some((call) => call.refused))
+        .filter((run) => run.calls.some((call) => call.dismissed))
         .map((run) => run.taskId),
     ),
   };
@@ -584,7 +594,10 @@ const lastActOf = (runs: readonly HistoryRun[], personId: string) =>
     .filter((run) => run.openedBy === personId)
     .reduce(
       (latest, run) =>
-        Math.max(latest, run.next ? Date.parse(run.next.at) : run.at),
+        Math.max(
+          latest,
+          run.firstHumanAction ? Date.parse(run.firstHumanAction.at) : run.at,
+        ),
       0,
     );
 
@@ -595,8 +608,8 @@ export const peopleOf = (
   const span = spanOf(name);
   const now = runsIn(teamId, span.now);
   const tasks = tasksOfTeam(teamId);
-  const owed = owedAsks(teamId).length;
-  const load = loadOf(teamId, span.now, owed);
+  const unanswered = unansweredAsks(teamId).length;
+  const load = loadOf(teamId, span.now, unanswered);
   const before = loadOf(teamId, span.before, 0);
   const activeIn = (window: Window) =>
     distinct(runsIn(teamId, window).map((run) => run.openedBy ?? '')).filter(
@@ -615,8 +628,9 @@ export const peopleOf = (
       name: PEOPLE.find((person) => person.id === personId)?.name ?? null,
       tasksOpened: opened.filter((task) => within(task.openedAt, span.now))
         .length,
-      acts: now.filter((run) => run.openedBy === personId && run.next !== null)
-        .length,
+      actions: now.filter(
+        (run) => run.openedBy === personId && run.firstHumanAction !== null,
+      ).length,
       chats: Math.round((CHATS[personId] ?? 0) * scale),
       firstSeenAt: new Date(firstSeen).toISOString(),
       lastActiveAt: new Date(lastActOf(now, personId)).toISOString(),
@@ -636,7 +650,7 @@ export const peopleOf = (
         'down',
         'points',
       ),
-      refused: changeOf(load.refused, before.refused, 'down'),
+      dismissed: changeOf(load.dismissed, before.dismissed, 'down'),
     },
     adoption: {
       activeCount: active.length,
@@ -645,7 +659,7 @@ export const peopleOf = (
       weeklyCount: weekly.length,
       monthlyCount: monthly.length,
       stickiness: shareOf(weekly.length, monthly.length),
-      people: people.sort((one, other) => other.acts - one.acts),
+      people: people.sort((one, other) => other.actions - one.actions),
     },
   };
 };
@@ -725,7 +739,7 @@ const cacheOf = (runs: readonly HistoryRun[]) => {
       : [],
   );
   if (counted.length === 0) {
-    return { input: null, cacheRead: null, cacheWrite: null, cacheShare: null };
+    return { input: null, cacheRead: null, cacheWrite: null, cacheRate: null };
   }
   const input = sumOf(counted.map((each) => each.input ?? 0));
   const cacheRead = sumOf(counted.map((each) => each.cacheRead ?? 0));
@@ -735,7 +749,7 @@ const cacheOf = (runs: readonly HistoryRun[]) => {
     input,
     cacheRead,
     cacheWrite,
-    cacheShare: shareOf(cacheRead, input + cacheRead + cacheWrite),
+    cacheRate: shareOf(cacheRead, input + cacheRead + cacheWrite),
   };
 };
 
@@ -785,9 +799,9 @@ const RUN_MATCHERS: {
   lineId: (run, value) => run.lineId === value,
   stationId: (run, value) => run.stationId === value,
   outcome: (run, value) => run.ending === value,
-  delivery: (run, value) => run.delivery === value,
-  next: (run, value) => run.next?.act === value,
-  asked: (run, value) => value !== 'true' || run.next !== null,
+  pullRequestState: (run, value) => run.pullRequestState === value,
+  humanAction: (run, value) => run.firstHumanAction?.kind === value,
+  asked: (run, value) => value !== 'true' || run.firstHumanAction !== null,
   harness: (run, value) => run.harness === value,
   model: (run, value) => (run.model ?? '') === value,
   repository: (run, value) => run.repositories.includes(value),
@@ -797,14 +811,15 @@ const RUN_MATCHERS: {
   personId: (run, value) => run.openedBy === value,
   day: (run, value) => dayOf(run.at) === value,
   week: (run, value) => weekOf(run.at) === value,
-  skillGiven: (run, value) => run.skillsGiven.includes(value),
+  skillEnabled: (run, value) => run.skillsEnabled.includes(value),
   skillUsed: (run, value) => run.skillsUsed.includes(value),
   server: (run, value) => run.calls.some((call) => call.server === value),
   serverFailed: (run, value) =>
     run.calls.some((call) => call.server === value && call.failed > 0),
-  refusedServer: (run, value) =>
-    run.calls.some((call) => call.server === value && call.refused !== null),
-  refusedTool: (run, value) => run.calls.some((call) => call.refused === value),
+  dismissedServer: (run, value) =>
+    run.calls.some((call) => call.server === value && call.dismissed !== null),
+  dismissedTool: (run, value) =>
+    run.calls.some((call) => call.dismissed === value),
 };
 
 const PAGE_SIZE = 50;
@@ -815,7 +830,7 @@ const shownRun = (run: HistoryRun): InsightsRunResponseDto => {
     at: _at,
     size: _size,
     judge: _judge,
-    skillsGiven: _given,
+    skillsEnabled: _enabled,
     skillsUsed: _used,
     calls: _calls,
     ...shown

@@ -1,13 +1,7 @@
 import { DecisionActions } from '@/components/shared/DecisionActions';
 import { DecisionHeader } from '@/components/shared/DecisionHeader';
 import { DecisionTitle } from '@/components/shared/DecisionTitle';
-import {
-  type Approval,
-  copyText,
-  editable,
-  standingOf,
-  titleOf,
-} from '@/lib/approval';
+import { type Approval, copyText, editable, titleOf } from '@/lib/approval';
 
 type ApprovalHeaderProps = {
   approval: Approval;
@@ -25,7 +19,7 @@ export function ApprovalHeader({
   return (
     <DecisionHeader
       title={
-        <DecisionTitle standing={standingOf(approval)}>
+        <DecisionTitle status={approval.status}>
           {titleOf(approval)}
         </DecisionTitle>
       }

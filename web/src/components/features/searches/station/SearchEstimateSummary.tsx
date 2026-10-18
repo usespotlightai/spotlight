@@ -2,14 +2,14 @@ import type { ReactNode } from 'react';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { formatCount, formatSpend } from '@/lib/insights';
 import { formatRepeats } from '@/lib/replay-words';
-import { formatDuration, type SearchEstimate } from '@/lib/search';
+import { formatEstimatedDuration, type SearchEstimate } from '@/lib/search';
 
 type SearchEstimateSummaryProps = {
   estimate: SearchEstimate | undefined;
   repeats: number;
-  asked: boolean;
+  requested: boolean;
   estimating: boolean;
-  refusal: string | null;
+  problem: string | null;
 };
 
 const ROW = 'flex items-baseline justify-between gap-3';
@@ -17,22 +17,22 @@ const ROW = 'flex items-baseline justify-between gap-3';
 export function SearchEstimateSummary({
   estimate,
   repeats,
-  asked,
+  requested,
   estimating,
-  refusal,
+  problem,
 }: SearchEstimateSummaryProps) {
   let body: ReactNode;
 
-  if (!asked) {
+  if (!requested) {
     body = (
       <p className="text-muted-foreground text-xs">
         Choose a replay set and budget to see the estimated runs and spend.
       </p>
     );
-  } else if (refusal) {
+  } else if (problem) {
     body = (
       <p role="alert" className="text-destructive text-xs">
-        {refusal}
+        {problem}
       </p>
     );
   } else if (!estimate) {
@@ -43,7 +43,7 @@ export function SearchEstimateSummary({
       </div>
     );
   } else {
-    const { runs, perReplayAllotments: allotted } = estimate;
+    const { runs, perReplayLimits: allotted } = estimate;
 
     body = (
       <dl className="flex flex-col gap-1 text-xs">
@@ -55,7 +55,7 @@ export function SearchEstimateSummary({
           </dd>
         </div>
         <div className={ROW}>
-          <dt className="text-muted-foreground">Copies</dt>
+          <dt className="text-muted-foreground">Repeats</dt>
           <dd className="text-foreground">{formatRepeats(repeats)}</dd>
         </div>
         <div className={ROW}>
@@ -85,7 +85,7 @@ export function SearchEstimateSummary({
         <div className={ROW}>
           <dt className="text-muted-foreground">Takes</dt>
           <dd className="text-right text-foreground">
-            {formatDuration(estimate.estimatedDuration)}
+            {formatEstimatedDuration(estimate.estimatedDuration)}
           </dd>
         </div>
       </dl>
@@ -100,7 +100,7 @@ export function SearchEstimateSummary({
       className="flex flex-col gap-2 rounded-lg border border-border bg-card px-3 py-2.5"
     >
       {body}
-      {asked && estimate && !refusal && (
+      {requested && estimate && !problem && (
         <p className="text-muted-foreground text-xs leading-5">
           An agent run may slightly overspend. The search may end a little over
           its ceiling.

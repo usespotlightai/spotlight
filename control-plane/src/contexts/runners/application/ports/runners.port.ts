@@ -1,9 +1,9 @@
-import type { AdmittedWay } from '@runners/application/ports/runner-admissions.port';
+import type { CredentialSourceRef } from '@runners/application/ports/runner-authenticator.port';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
 export const RUNNERS = Symbol('RUNNERS');
 
-export interface HeldWork {
+export interface LeasedWork {
   readonly kind: 'run' | 'check';
   readonly id: string;
 }
@@ -17,13 +17,13 @@ export type StartedRunner =
     }
   | { readonly outcome: 'full' }
   | { readonly outcome: 'gone' }
-  | { readonly outcome: 'stranger' }
-  | { readonly outcome: 'unoffered' };
+  | { readonly outcome: 'host-unreported' }
+  | { readonly outcome: 'image-unreported' };
 
 export interface ProvisionRequest {
   readonly poolId: string;
   readonly runnerId: RunnerId;
-  readonly work: HeldWork;
+  readonly work: LeasedWork;
   readonly runId: string;
   readonly taskId: string | null;
   readonly labels: readonly string[];
@@ -34,7 +34,7 @@ export interface ProvisionRequest {
 
 type ProvisionFailureKind =
   | 'unreachable'
-  | 'refused'
+  | 'http-error'
   | 'not-allowed'
   | 'unusable';
 
@@ -50,22 +50,22 @@ export type ProvisionedRunner =
 
 export interface RunnersPort {
   start(
-    way: AdmittedWay,
+    source: CredentialSourceRef,
     host: string,
     image: string,
     at: Date,
     claimBy: Date,
   ): Promise<StartedRunner>;
 
-  reports(way: AdmittedWay, host: string): Promise<boolean>;
+  reports(source: CredentialSourceRef, host: string): Promise<boolean>;
 
   provision(request: ProvisionRequest, at: Date): Promise<ProvisionedRunner>;
 
-  took(runnerId: RunnerId, work: HeldWork, at: Date): Promise<void>;
+  claim(runnerId: RunnerId, work: LeasedWork, at: Date): Promise<void>;
 
-  letGo(runnerId: RunnerId, at: Date): Promise<void>;
+  release(runnerId: RunnerId, at: Date): Promise<void>;
 
   reservationDropped(runnerId: RunnerId, at: Date): Promise<void>;
 
-  workEnded(work: HeldWork, at: Date): Promise<void>;
+  workEnded(work: LeasedWork, at: Date): Promise<void>;
 }

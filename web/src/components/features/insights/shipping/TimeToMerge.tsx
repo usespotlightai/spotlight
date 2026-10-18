@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { AUTHOR_SERIES } from '@/components/features/insights/chart-series';
-import { DeltaMark } from '@/components/features/insights/DeltaMark';
+import { DeltaGlyph } from '@/components/features/insights/DeltaGlyph';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { DayChart } from '@/components/features/insights/shipping/DayChart';
 import { PercentilePicker } from '@/components/features/insights/shipping/PercentilePicker';
 import { Segmented } from '@/components/shared/Segmented';
-import { changeDelta, lasted, lastedOrNone } from '@/lib/insights';
+import {
+  formatDuration,
+  formatDurationOrNone,
+  shownDeltaOf,
+} from '@/lib/insights';
 import { TIME_TO_MERGE_NOTE } from '@/lib/insights-pull-requests';
 import {
   type ByAuthor,
@@ -46,7 +50,7 @@ export function TimeToMerge({ now, changes, days }: TimeToMergeProps) {
     >
       <dl className="flex flex-wrap gap-x-8 gap-y-3">
         {AUTHOR_SERIES.map((author) => {
-          const delta = changeDelta(changes[author.key][percentile]);
+          const delta = shownDeltaOf(changes[author.key][percentile]);
 
           return (
             <div key={author.key} className="flex flex-col gap-1">
@@ -60,13 +64,13 @@ export function TimeToMerge({ now, changes, days }: TimeToMergeProps) {
               </dt>
               <dd className="flex items-baseline gap-2">
                 <span className="text-[1.375rem] text-foreground tabular-nums leading-none tracking-tight">
-                  {lastedOrNone(now[author.key][percentile])}
+                  {formatDurationOrNone(now[author.key][percentile])}
                 </span>
                 {delta && (
                   <span className="text-xs">
-                    <DeltaMark
+                    <DeltaGlyph
                       delta={delta}
-                      note="Against the previous period"
+                      tooltip="Against the previous period"
                     />
                   </span>
                 )}
@@ -83,7 +87,7 @@ export function TimeToMerge({ now, changes, days }: TimeToMergeProps) {
           ...author,
           as: 'line' as const,
         }))}
-        format={lasted}
+        format={formatDuration}
         durations
       />
     </InsightsCard>

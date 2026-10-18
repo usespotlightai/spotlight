@@ -1,4 +1,4 @@
-import type { HostCredential } from '@runners/application/ports/runner-admissions.port';
+import type { HostCredentials } from '@runners/application/ports/runner-authenticator.port';
 export class ClaimRunCommand {
   constructor(readonly runnerId: string) {}
 }
@@ -65,11 +65,11 @@ export class CompleteRunCommand {
     readonly exitCode: number,
     readonly failed: boolean,
     readonly message?: string,
-    readonly declared?: { next?: string; note?: string } | null,
+    readonly handover?: { next?: string; note?: string } | null,
     readonly sessionId?: string | null,
     readonly stopped: boolean = false,
-    readonly kept: boolean = false,
-    readonly unprepared: boolean = false,
+    readonly archived: boolean = false,
+    readonly setupFailed: boolean = false,
     readonly timedOut: boolean = false,
   ) {}
 }
@@ -85,16 +85,16 @@ export class EnqueueRunCommand {
 
 export class ClaimHostWorkCommand {
   constructor(
-    readonly credential: HostCredential,
+    readonly credential: HostCredentials,
     readonly host: string,
     readonly image: string,
   ) {}
 }
 
-export class ParkRunCommand {
+export class SuspendRunCommand {
   constructor(
     readonly runId: string,
     readonly runnerId: string,
-    readonly cold: boolean = false,
+    readonly requeue: boolean = false,
   ) {}
 }

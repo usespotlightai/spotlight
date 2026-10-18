@@ -30,7 +30,7 @@ export class DrizzleMeteredCalls implements CallMeterPort {
     });
   }
 
-  async forget(workspaceId: WorkspaceId): Promise<void> {
+  async deleteForWorkspace(workspaceId: WorkspaceId): Promise<void> {
     await this.context.db
       .delete(catalogCall)
       .where(eq(catalogCall.workspaceId, workspaceId.value));

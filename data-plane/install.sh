@@ -98,16 +98,16 @@ install_binary() {
   say "installed $BIN_DIR/spotlight"
 }
 
-held() { [ -f "$CONFIG" ] && sed -n "s/^$1=//p" "$CONFIG" | head -1 || true; }
+saved() { [ -f "$CONFIG" ] && sed -n "s/^$1=//p" "$CONFIG" | head -1 || true; }
 
 read_credentials() {
-  token="${SPOTLIGHT_TOKEN:-$(held SPOTLIGHT_TOKEN)}"
-  trust="${SPOTLIGHT_TRUST:-$(held SPOTLIGHT_TRUST)}"
-  token_file="${SPOTLIGHT_OIDC_TOKEN_FILE:-$(held SPOTLIGHT_OIDC_TOKEN_FILE)}"
-  capacity="${SPOTLIGHT_CAPACITY:-$(held SPOTLIGHT_CAPACITY)}"
+  token="${SPOTLIGHT_POOL_TOKEN:-$(saved SPOTLIGHT_POOL_TOKEN)}"
+  trust="${SPOTLIGHT_TRUST:-$(saved SPOTLIGHT_TRUST)}"
+  token_file="${SPOTLIGHT_OIDC_TOKEN_FILE:-$(saved SPOTLIGHT_OIDC_TOKEN_FILE)}"
+  capacity="${SPOTLIGHT_CAPACITY:-$(saved SPOTLIGHT_CAPACITY)}"
 
   if [ -z "$token" ] && [ -z "$trust" ]; then
-    die "set SPOTLIGHT_TOKEN to a pull pool's token, or SPOTLIGHT_TRUST and SPOTLIGHT_OIDC_TOKEN_FILE to claim through a runner trust"
+    die "set SPOTLIGHT_POOL_TOKEN to a pull pool's token, or SPOTLIGHT_TRUST and SPOTLIGHT_OIDC_TOKEN_FILE to claim through a runner trust"
   fi
 }
 
@@ -117,7 +117,7 @@ save_config() {
     umask 077
     {
       echo "SPOTLIGHT_URL=$API_BASE"
-      [ -n "$token" ] && echo "SPOTLIGHT_TOKEN=$token"
+      [ -n "$token" ] && echo "SPOTLIGHT_POOL_TOKEN=$token"
       [ -n "$trust" ] && echo "SPOTLIGHT_TRUST=$trust"
       [ -n "$token_file" ] && echo "SPOTLIGHT_OIDC_TOKEN_FILE=$token_file"
       [ -n "$capacity" ] && echo "SPOTLIGHT_CAPACITY=$capacity"

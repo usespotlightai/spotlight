@@ -33,7 +33,7 @@ describe('RubricScale', () => {
     expect(RubricScale.bodyOf('scores: 1-5')).toBe('');
   });
 
-  it('refuses front matter that is never closed', () => {
+  it('rejects front matter that is never closed', () => {
     expect(() =>
       RubricScale.of('---\nscores: 1-5\nHow well did it retry?'),
     ).toThrow(InvalidRubricScaleError);
@@ -48,7 +48,7 @@ describe('RubricScale', () => {
   });
 
   it.each(['1-10', 'stars', 'constructor', '__proto__', 'toString'])(
-    'refuses a scale it does not know, such as %s',
+    'rejects a scale it does not know, such as %s',
     (named) => {
       expect(() => RubricScale.of(`scores: ${named}\nHow well?`)).toThrow(
         InvalidRubricScaleError,

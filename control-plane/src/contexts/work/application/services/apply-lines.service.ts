@@ -1,14 +1,17 @@
 import type { TeamProfile } from '@identity/application/ports/team-directory.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { StationTalliesPort } from '@work/application/ports/station-tallies.port';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
-import { LineAlreadyOpenedError } from '@work/domain/exceptions/line-already-opened.error';
+import { LineAlreadyExistsError } from '@work/domain/exceptions/line-already-exists.error';
 import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
 import { LineRoleTakenError } from '@work/domain/exceptions/line-role-taken.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { rolesClaimedTwice } from '@work/domain/services/line-roles';
-import { openLine, reconcileLine } from '@work/domain/services/reconcile-line';
+import {
+  createLine,
+  reconcileLine,
+} from '@work/domain/services/reconcile-line';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import type { LinePlan } from '@work/domain/value-objects/line-plan.vo';
 
@@ -19,20 +22,20 @@ export class ApplyLines {
     private readonly ids: IdGeneratorPort,
   ) {}
 
-  async open(
+  async create(
     team: TeamProfile,
     plan: LinePlan,
-    by: Attribution,
+    by: ChangeActor,
   ): Promise<Line> {
-    const standing = await this.lines.ofTeam(team.id);
+    const existing = await this.lines.ofTeam(team.id);
 
-    if (standing.some((each) => each.key.equals(plan.key))) {
-      throw new LineAlreadyOpenedError(plan.key.value);
+    if (existing.some((each) => each.key.equals(plan.key))) {
+      throw new LineAlreadyExistsError(plan.key.value);
     }
 
-    this.guardRoles(standing, plan);
+    this.guardRoles(existing, plan);
 
-    const opened = openLine({
+    const created = createLine({
       identity: {
         id: LineId.of(this.ids.generate()),
         workspaceId: team.workspaceId,
@@ -43,12 +46,12 @@ export class ApplyLines {
       by,
     });
 
-    await this.lines.add(opened);
+    await this.lines.add(created);
 
-    return opened;
+    return created;
   }
 
-  async reconcile(line: Line, plan: LinePlan, by: Attribution): Promise<Line> {
+  async reconcile(line: Line, plan: LinePlan, by: ChangeActor): Promise<Line> {
     this.guardRoles(
       (await this.lines.ofTeam(line.teamId)).filter(
         (each) => !each.equals(line),
@@ -57,9 +60,9 @@ export class ApplyLines {
     );
 
     const reconciled = reconcileLine({
-      standing: line,
+      existing: line,
       plan,
-      tasksStanding: await this.tallies.lockedStandingAt(
+      taskCounts: await this.tallies.lockedTaskCountsAt(
         line.stations.map((each) => each.id),
       ),
       newId: () => this.ids.generate(),
@@ -75,8 +78,8 @@ export class ApplyLines {
     return reconciled.line;
   }
 
-  private guardRoles(standing: readonly Line[], plan: LinePlan): void {
-    const [claimed] = rolesClaimedTwice(standing, [plan]);
+  private guardRoles(existing: readonly Line[], plan: LinePlan): void {
+    const [claimed] = rolesClaimedTwice(existing, [plan]);
 
     if (claimed) {
       throw new LineRoleTakenError(claimed);

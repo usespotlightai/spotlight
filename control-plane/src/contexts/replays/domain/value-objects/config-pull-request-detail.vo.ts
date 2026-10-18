@@ -8,20 +8,20 @@ export class ConfigPullRequestDetail implements ChangeDetail {
     readonly searchId: string,
     readonly candidateId: string,
     readonly candidate: string,
-    readonly attempt: number,
+    readonly generation: number,
   ) {}
 
   static of(input: {
     searchId: string;
     candidateId: string;
     candidate: string;
-    attempt: number;
+    generation: number;
   }): ConfigPullRequestDetail {
     return new ConfigPullRequestDetail(
       input.searchId,
       input.candidateId,
       input.candidate,
-      input.attempt,
+      input.generation,
     );
   }
 
@@ -30,7 +30,7 @@ export class ConfigPullRequestDetail implements ChangeDetail {
       search: this.searchId,
       candidateId: this.candidateId,
       candidate: this.candidate,
-      attempt: this.attempt,
+      generation: this.generation,
     };
   }
 }

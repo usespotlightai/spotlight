@@ -14,40 +14,42 @@ export class HarnessProfileViews {
   ) {}
 
   async of(
-    kept: HarnessProfileRecord,
+    record: HarnessProfileRecord,
   ): Promise<HarnessProfileResourceDto | null> {
-    const team = await this.teams.find(kept.teamId);
+    const team = await this.teams.find(record.teamId);
 
-    return team ? this.onTeam(kept, team.key) : null;
+    return team ? this.onTeam(record, team.key) : null;
   }
 
   onTeam(
-    kept: HarnessProfileRecord,
+    record: HarnessProfileRecord,
     teamKey: string,
   ): HarnessProfileResourceDto {
-    const read = this.compiler.read(kept.definition);
+    const parsed = this.compiler.parse(record.definition);
 
-    if (!read.ok) {
+    if (!parsed.ok) {
       throw new InconsistentStateError(
         'harness profile',
-        `was kept in a shape that no longer reads (${kept.id})`,
+        `is in a shape that no longer reads (${record.id})`,
       );
     }
 
     return {
-      id: kept.id,
-      version: kept.version,
-      address: TeamAddress.of(teamKey, read.key.value).toString(),
-      teamId: kept.teamId.value,
-      key: read.key.value,
-      permissions: read.settings.permissions,
-      mcpServers: HarnessProfileMapper.servers(read.settings),
-      native: read.settings.native,
-      secretsWorn: read.settings.wornSecrets.map(({ at, secret }) => ({
-        path: FieldPath.of(at.slice(1)),
-        name: secret.value,
-      })),
-      warnings: this.compiler.warningsOf(read),
+      id: record.id,
+      version: record.version,
+      address: TeamAddress.of(teamKey, parsed.key.value).toString(),
+      teamId: record.teamId.value,
+      key: parsed.key.value,
+      permissions: parsed.settings.permissions,
+      mcpServers: HarnessProfileMapper.servers(parsed.settings),
+      native: parsed.settings.native,
+      secretReferences: parsed.settings.secretReferences.map(
+        ({ path, name }) => ({
+          path: FieldPath.of(path.segments.slice(1)),
+          name,
+        }),
+      ),
+      warnings: this.compiler.warningsOf(parsed),
     };
   }
 }

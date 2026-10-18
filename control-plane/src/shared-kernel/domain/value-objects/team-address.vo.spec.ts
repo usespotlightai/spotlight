@@ -3,7 +3,7 @@ import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo
 import { describe, expect, it } from 'vitest';
 
 describe('TeamAddress', () => {
-  it('names what a team holds by the team key and its own', () => {
+  it('names what a team owns by the team key and its own', () => {
     expect(TeamAddress.of('core', 'delivery').toString()).toBe('core/delivery');
   });
 
@@ -21,7 +21,7 @@ describe('TeamAddress', () => {
     '/delivery',
     'core/delivery/more',
     'Core/delivery',
-  ])('refuses %j', (held) => {
-    expect(() => TeamAddress.parse(held)).toThrow(InvalidIdentifierError);
+  ])('rejects %j', (text) => {
+    expect(() => TeamAddress.parse(text)).toThrow(InvalidIdentifierError);
   });
 });

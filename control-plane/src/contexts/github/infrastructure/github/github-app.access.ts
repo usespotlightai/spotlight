@@ -4,11 +4,11 @@ import type {
   RepositoryCredential,
 } from '@github/application/ports/repository-access.port';
 import type { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
-import { assertionFor } from '@github/infrastructure/github/app-assertion';
+import { appJwt } from '@github/infrastructure/github/app-jwt';
 import { Inject, Injectable } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const API = 'https://api.github.com';
@@ -19,7 +19,7 @@ type Minted = { token: string; expiresAt: number };
 
 @Injectable()
 export class GitHubAppAccess implements RepositoryAccessPort {
-  readonly #held = new Map<string, Minted>();
+  readonly #tokenCache = new Map<string, Minted>();
 
   constructor(
     @Inject(ENV) private readonly env: Env,
@@ -34,14 +34,14 @@ export class GitHubAppAccess implements RepositoryAccessPort {
   }
 
   private async token(installation: GitHubInstallation): Promise<string> {
-    const held = this.#held.get(installation.value);
+    const cached = this.#tokenCache.get(installation.value);
 
-    if (held && held.expiresAt - RENEW_BEFORE_MS > Date.now()) {
-      return held.token;
+    if (cached && cached.expiresAt - RENEW_BEFORE_MS > Date.now()) {
+      return cached.token;
     }
 
     const minted = await this.mint(installation);
-    this.#held.set(installation.value, minted);
+    this.#tokenCache.set(installation.value, minted);
 
     return minted.token;
   }
@@ -52,7 +52,7 @@ export class GitHubAppAccess implements RepositoryAccessPort {
       {
         method: 'POST',
         headers: {
-          authorization: `Bearer ${assertionFor(this.env)}`,
+          authorization: `Bearer ${appJwt(this.env)}`,
           accept: 'application/vnd.github+json',
           'x-github-api-version': '2022-11-28',
         },
@@ -60,7 +60,7 @@ export class GitHubAppAccess implements RepositoryAccessPort {
     );
 
     if (!response.ok) {
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         'GitHub would not mint an installation token',
         `${response.status}`,
       );
@@ -72,7 +72,7 @@ export class GitHubAppAccess implements RepositoryAccessPort {
     };
 
     if (!minted.token || !minted.expires_at) {
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         'GitHub would not mint an installation token',
         'The answer had no token',
       );

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { JUDGE, type JudgePort } from '@insights/application/ports/judge.port';
+import { WorkChangeJudgings } from '@insights/application/services/work-change-judgings.service';
 import type { INestApplication } from '@nestjs/common';
-import { JUDGE, type JudgePort } from '@outcomes/application/ports/judge.port';
-import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
@@ -30,7 +30,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const HOST = `host-replay-insights-${randomUUID().slice(0, 8)}`;
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -64,9 +64,9 @@ const archiveStore: WorkspaceArchiveStorePort = {
 const judge: JudgePort = {
   available: true,
   model: 'stub/judge',
-  judge: async (ask) => {
-    const said = ask.steps.find((each) => SCORED.test(each.text));
-    const value = Number(SCORED.exec(said?.text ?? '')?.[1] ?? 1);
+  judge: async (request) => {
+    const scoredStep = request.steps.find((each) => SCORED.test(each.text));
+    const value = Number(SCORED.exec(scoredStep?.text ?? '')?.[1] ?? 1);
 
     return {
       usage: {
@@ -79,7 +79,7 @@ const judge: JudgePort = {
         reasons: [
           {
             text: `It drains the queue as a ${value}.`,
-            steps: said ? [said.index] : [],
+            steps: scoredStep ? [scoredStep.index] : [],
             hunks: [],
           },
         ],
@@ -90,7 +90,7 @@ const judge: JudgePort = {
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 
 const http = () => served(app);
 
@@ -136,21 +136,21 @@ const anOriginal = async (stationId = BUILD): Promise<Original> => {
     stationId: BUILD,
     title: `Drain queue ${runId.slice(0, 4)}`,
     description: 'It stalls on restart.',
-    raisedAtStationId: BUILD,
-    raisedById: team.owner.value,
+    originStationId: BUILD,
+    createdById: team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
   });
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    continuityKey: `task-${taskId}`,
+    resumeKey: `task-${taskId}`,
     taskId,
     grantedToRunId: randomUUID(),
     size: 1_024,
     sha256: 'a'.repeat(64),
     grantedAt: at,
-    sealedAt: at,
+    completedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
@@ -173,7 +173,7 @@ const anOriginal = async (stationId = BUILD): Promise<Original> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship'], noteLimit: 0 },
-      continuity: { key: `task-${taskId}` },
+      resume: { key: `task-${taskId}` },
       startingPoint: true,
     },
     briefedTask: BriefedTask.of({
@@ -183,9 +183,9 @@ const anOriginal = async (stationId = BUILD): Promise<Original> => {
       reviewing: null,
       attachments: [],
       notes: [],
-      openRemarks: [],
+      openReviewComments: [],
     }).parts,
-    briefedMemories: { briefed: [], cut: [] },
+    briefedMemories: { briefed: [], omitted: [] },
     startedFromArchiveId: archiveId,
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
@@ -195,15 +195,15 @@ const anOriginal = async (stationId = BUILD): Promise<Original> => {
   return { taskId, runId };
 };
 
-const openSet = async (
+const createSet = async (
   name: string,
   originals: readonly Original[],
   stationId = BUILD,
 ): Promise<string> => {
-  const opened = await owner()
+  const created = await owner()
     .post(`${stationPath(stationId)}/replay-sets`, { name })
     .expect(201);
-  const setId = opened.body.id as string;
+  const setId = created.body.id as string;
 
   for (const each of originals) {
     await owner()
@@ -247,7 +247,7 @@ const startSearch = async (
 
 interface SearchRead {
   state: string;
-  ending: string | null;
+  stopReason: string | null;
   spent: { amount: number };
   split: {
     searched: { runId: string; taskId: string }[];
@@ -337,16 +337,16 @@ const claimed = async (): Promise<Claimed | null> => {
 
   expect(answer.status).toBe(200);
 
-  const handed = answer.body as {
+  const assignment = answer.body as {
     token: string;
     work: { run: { id: string } };
   };
 
-  return { token: handed.token, runId: handed.work.run.id };
+  return { token: assignment.token, runId: assignment.work.run.id };
 };
 
 const judged = async () => {
-  await app.get(WorkChangeJudgings).workDue();
+  await app.get(WorkChangeJudgings).processDue();
   await app.get(WorkChangeJudgings).idle();
 };
 
@@ -385,9 +385,9 @@ const finished = async (
     .post(`/api/runs/${runId}/completion`, {
       exitCode: 0,
       failed: false,
-      outcome: { next: 'ship', note: 'Drained.' },
+      handover: { next: 'ship', note: 'Drained.' },
       sessionId: 'session_1',
-      kept: true,
+      archived: true,
     })
     .expect(200);
 };
@@ -405,28 +405,28 @@ type Plan = (replayId: string) => { score: number; cost: number };
 
 const drained = async (plan: Plan): Promise<void> => {
   for (let turn = 0; turn < 200; turn += 1) {
-    await app.get(DispatchReplayRuns).workDue();
+    await app.get(DispatchReplayRuns).processDue();
 
     if ((await queuedReplayRuns()).length === 0) {
       await judged();
       return;
     }
 
-    const handed = await claimed();
+    const assignment = await claimed();
 
-    if (!handed) {
+    if (!assignment) {
       continue;
     }
 
-    const entry = await entryOf(handed.runId);
+    const entry = await entryOf(assignment.runId);
 
     if (!entry) {
-      throw new Error(`claimed ${handed.runId}, which is no replay run`);
+      throw new Error(`claimed ${assignment.runId}, which is no replay run`);
     }
 
     const { score, cost } = plan(entry.replayId);
 
-    await finished(handed, score, cost);
+    await finished(assignment, score, cost);
     await judged();
   }
 
@@ -441,12 +441,12 @@ const replayEnded = (replayId: string) =>
     return state !== 'queued' && state !== 'running' ? state : null;
   }, WITHIN);
 
-const heldSearchRun = async (
+const leasedSearchRun = async (
   searchId: string,
   iteration: number,
 ): Promise<Claimed> => {
   await eventually(async () => {
-    await app.get(AdvanceSearches).workDue();
+    await app.get(AdvanceSearches).processDue();
     const runs = await searchRunsOf(searchId);
 
     return runs.some(
@@ -454,15 +454,15 @@ const heldSearchRun = async (
     );
   }, WITHIN);
 
-  const handed = await claimed();
+  const assignment = await claimed();
   const [row] = await db
     .select()
     .from(schema.run)
-    .where(eq(schema.run.id, handed?.runId ?? ''));
+    .where(eq(schema.run.id, assignment?.runId ?? ''));
 
   expect(row?.searchId).toBe(searchId);
 
-  return handed as Claimed;
+  return assignment as Claimed;
 };
 
 const endedSearchRun = async ({ token, runId }: Claimed, failed = false) => {
@@ -487,9 +487,9 @@ const endedSearchRun = async ({ token, runId }: Claimed, failed = false) => {
     .post(`/api/runs/${runId}/completion`, {
       exitCode: failed ? 1 : 0,
       failed,
-      outcome: failed ? undefined : { next: 'review', note: 'Proposed.' },
+      handover: failed ? undefined : { next: 'review', note: 'Proposed.' },
       sessionId: 'session_1',
-      kept: true,
+      archived: true,
     })
     .expect(200);
 };
@@ -506,9 +506,9 @@ const liveBlock = async () => {
   return live.station;
 };
 
-const proposing = (handed: Claimed, body: object) =>
-  bearing(handed.token).post(
-    `/api/runs/${handed.runId}/search-candidates`,
+const proposing = (assignment: Claimed, body: object) =>
+  bearing(assignment.token).post(
+    `/api/runs/${assignment.runId}/search-candidates`,
     body,
   );
 
@@ -540,7 +540,7 @@ beforeAll(async () => {
       .useValue(judge),
   );
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `replay-insights-${randomUUID().slice(0, 8)}`,
@@ -560,9 +560,9 @@ beforeAll(async () => {
   const judged = {
     rubric: RUBRIC,
     claims: [],
-    passShare: 1,
+    passThreshold: 1,
     sample: 0.1,
-    trust: 0.6,
+    minAgreement: 0.6,
   };
   await db.insert(schema.station).values([
     {
@@ -628,16 +628,16 @@ beforeAll(async () => {
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'search-box',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 64,
       running: [],
       images: [
         {
           image: IMAGE,
-          usual: true,
+          isDefault: true,
           harnesses: [{ id: 'claude-code', models: [] }],
         },
       ],
@@ -696,7 +696,7 @@ interface Replayed {
 
 describe('replayed candidates beside live runs', () => {
   it('shows a searched candidate with the scores its search page shows, beside the baseline its replay page names', async () => {
-    const setId = await openSet('Replayed', fiveTasks);
+    const setId = await createSet('Replayed', fiveTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 1,
       perIteration: 1,
@@ -706,7 +706,7 @@ describe('replayed candidates beside live runs', () => {
     await drained(() => ({ score: 3, cost: 0.1 }));
     expect(await replayEnded(seedReplayId)).toBe('finished');
 
-    const agent = await heldSearchRun(id, 1);
+    const agent = await leasedSearchRun(id, 1);
     const block = await liveBlock();
     const proposed = (
       await proposing(agent, {
@@ -720,7 +720,7 @@ describe('replayed candidates beside live runs', () => {
     await drained(() => ({ score: 5, cost: 0.1 }));
     expect(await replayEnded(proposed.replayId)).toBe('finished');
     await eventually(async () => {
-      await app.get(AdvanceSearches).workDue();
+      await app.get(AdvanceSearches).processDue();
       return (await searchRow(id))?.heldOut.length === 1;
     }, WITHIN);
     await drained(() => ({ score: 5, cost: 0.1 }));
@@ -779,7 +779,7 @@ describe('replayed candidates beside live runs', () => {
   }, 120_000);
 
   it('shows a proposed candidate with the numbers its replay page shows', async () => {
-    const setId = await openSet('Proposed', fiveTasks);
+    const setId = await createSet('Proposed', fiveTasks);
     const created = await http()
       .post(`/api/resources/lines/${DELIVERY}/stations/build/replay-candidates`)
       .set(TEST_USER_HEADER, team.owner.value)
@@ -852,7 +852,7 @@ describe('replayed candidates beside live runs', () => {
     expect(set?.baseline?.replayId).not.toBeNull();
   }, 120_000);
 
-  it('reads each set’s standing baseline as the replay page picks it, past newer stopped ones', async () => {
+  it('reads each set’s current baseline as the replay page picks it, past newer stopped ones', async () => {
     const replays = app.get(DrizzleReplayRepository);
     const sets = await db
       .selectDistinct({ setId: schema.replay.setId })
@@ -918,7 +918,7 @@ describe('replayed candidates beside live runs', () => {
     await db
       .insert(schema.teamMember)
       .values({ teamId: team.teamId.value, userId: member });
-    const others = await openTeam(
+    const others = await createTeam(
       db,
       app.get(DrizzleTaskRepository),
       `replay-others-${randomUUID().slice(0, 8)}`,

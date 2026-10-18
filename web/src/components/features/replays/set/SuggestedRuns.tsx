@@ -5,21 +5,21 @@ import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import type { useReplaySetSuggestions } from '@/hooks/api/useReplaySetSuggestions';
 import { failed, loading } from '@/lib/query';
 import {
-  formatTurnedOut,
+  formatRunOutcome,
   SUGGESTIONS_LABEL,
   SUGGESTIONS_NOTE,
 } from '@/lib/replay-words';
 
 type SuggestedRunsProps = {
   suggestions: ReturnType<typeof useReplaySetSuggestions>;
-  held: ReadonlySet<string>;
+  setRunIds: ReadonlySet<string>;
   adding: (runId: string) => boolean;
   onAdd: (runId: string) => void;
 };
 
 export function SuggestedRuns({
   suggestions,
-  held,
+  setRunIds,
   adding,
   onAdd,
 }: SuggestedRunsProps) {
@@ -75,8 +75,8 @@ export function SuggestedRuns({
           <ReplayableRunRow
             key={run.runId}
             run={run}
-            note={formatTurnedOut(run.outcome)}
-            inSet={held.has(run.runId)}
+            note={formatRunOutcome(run.outcome)}
+            inSet={setRunIds.has(run.runId)}
             adding={adding(run.runId)}
             onAdd={() => onAdd(run.runId)}
           />

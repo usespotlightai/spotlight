@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { listReplays } from '@/lib/api';
-import { anyUnderway, type Replay } from '@/lib/replay';
+import { anyInProgress, type Replay } from '@/lib/replay';
 
 export const replayKeys = {
   all: ['replays'] as const,
@@ -19,7 +19,7 @@ export function useReplays(
     queryKey: replayKeys.forSet(setId),
     enabled: Boolean(teamId && setId),
     refetchInterval: (query) =>
-      query.state.data && anyUnderway(query.state.data) ? POLL_MS : false,
+      query.state.data && anyInProgress(query.state.data) ? POLL_MS : false,
     queryFn: async (): Promise<Replay[]> => {
       const { data } = await listReplays({
         path: { teamId: teamId as string, setId: setId as string },

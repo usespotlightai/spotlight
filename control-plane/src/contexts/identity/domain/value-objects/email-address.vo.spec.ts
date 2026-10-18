@@ -2,7 +2,7 @@ import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('EmailAddress', () => {
-  it('is held as the mailbox it names, however it was typed', () => {
+  it('is stored as the mailbox it names, however it was typed', () => {
     expect(EmailAddress.of('  Ada@Example.COM ').value).toBe('ada@example.com');
   });
 
@@ -24,7 +24,7 @@ describe('EmailAddress', () => {
     ['two addresses', 'ada@example.com, grace@example.com'],
     ['a name around it', 'Ada <ada@example.com>'],
     ['longer than any address is', `${'a'.repeat(250)}@example.com`],
-  ])('refuses %s', (_why, written) => {
+  ])('rejects %s', (_why, written) => {
     expect(() => EmailAddress.of(written)).toThrow(
       /Email address is not valid/,
     );

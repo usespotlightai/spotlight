@@ -3,13 +3,13 @@ import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate'
 import type { ReplayState } from '@replays/domain/value-objects/replay-state';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-export const STANDING_BASELINE_STATES = [
+export const VALID_BASELINE_STATES = [
   'queued',
   'running',
   'finished',
 ] as const satisfies readonly ReplayState[];
 
-const STANDS: readonly string[] = STANDING_BASELINE_STATES;
+const VALID: readonly string[] = VALID_BASELINE_STATES;
 
 const newestFirst = (one: Replay, other: Replay): number =>
   other.startedAt.getTime() - one.startedAt.getTime();
@@ -24,16 +24,16 @@ const covers = (
 
 export const baselineOf = (replays: readonly Replay[]): Replay | null =>
   [...replays]
-    .filter((each) => each.baseline && STANDS.includes(each.current))
+    .filter((each) => each.baseline && VALID.includes(each.current))
     .sort(newestFirst)[0] ?? null;
 
 export const comparedAgainst = (
   replay: Replay,
   setReplays: readonly Replay[],
 ): Replay | null => {
-  const counterpart = replay.counterpart;
-  const against = counterpart
-    ? (setReplays.find((each) => each.id.equals(counterpart)) ?? null)
+  const reference = replay.reference;
+  const against = reference
+    ? (setReplays.find((each) => each.id.equals(reference)) ?? null)
     : baselineOf(setReplays);
 
   return against && !against.id.equals(replay.id) ? against : null;
@@ -49,27 +49,27 @@ export const baselineFor = (
     .filter(
       (each) =>
         each.baseline &&
-        each.scoringDigest === liveScoring &&
+        each.scoringHash === liveScoring &&
         covers(each, runs, repeats),
     )
     .sort(newestFirst);
 
   return (
     matching.find((each) => each.current === 'finished') ??
-    matching.find((each) => STANDS.includes(each.current)) ??
+    matching.find((each) => VALID.includes(each.current)) ??
     matching[0] ??
     null
   );
 };
 
-export const standingBaselineFor = (
+export const currentBaselineFor = (
   set: ReplaySet,
   replays: readonly Replay[],
   liveScoring: string,
   repeats: number,
 ): Replay | null =>
   baselineFor(
-    replays.filter((each) => STANDS.includes(each.current)),
+    replays.filter((each) => VALID.includes(each.current)),
     liveScoring,
     set.runs,
     repeats,
@@ -80,4 +80,4 @@ export const needsBaseline = (
   replays: readonly Replay[],
   liveScoring: string,
   repeats: number,
-): boolean => !standingBaselineFor(set, replays, liveScoring, repeats);
+): boolean => !currentBaselineFor(set, replays, liveScoring, repeats);

@@ -1,10 +1,10 @@
 import type { WorkspaceKeysPort } from '@secrets/application/ports/workspace-keys.port';
-import type { AbandonWorkspaceSecrets } from '@secrets/application/services/abandon-workspace-secrets.service';
-import type { ForgetRunGrants } from '@secrets/application/services/forget-run-grants.service';
+import type { DeleteWorkspaceSecrets } from '@secrets/application/services/delete-workspace-secrets.service';
+import type { PurgeRunGrants } from '@secrets/application/services/purge-run-grants.service';
 import {
-  WORKSPACE_CLOSED,
-  type WorkspaceClosedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/workspace-closed.integration-event';
+  WORKSPACE_DELETED,
+  type WorkspaceDeletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
 import {
   type DomainEventSubscriber,
   subscribing,
@@ -12,24 +12,25 @@ import {
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const secretsSubscribers = (reactions: {
-  abandoning: AbandonWorkspaceSecrets;
+  deleting: DeleteWorkspaceSecrets;
   keys: WorkspaceKeysPort;
-  runGrants: ForgetRunGrants;
+  runGrants: PurgeRunGrants;
 }): readonly DomainEventSubscriber[] => [
-  subscribing<WorkspaceClosedIntegrationEvent>(
-    'secrets.abandon-secrets-of-closed-workspace',
-    [WORKSPACE_CLOSED],
-    (event) => reactions.abandoning.of(WorkspaceId.of(event.workspaceId)),
-  ),
-  subscribing<WorkspaceClosedIntegrationEvent>(
-    'secrets.forget-data-key-of-closed-workspace',
-    [WORKSPACE_CLOSED],
-    (event) => reactions.keys.forget(WorkspaceId.of(event.workspaceId)),
-  ),
-  subscribing<WorkspaceClosedIntegrationEvent>(
-    'secrets.forget-run-grants-of-closed-workspace',
-    [WORKSPACE_CLOSED],
+  subscribing<WorkspaceDeletedIntegrationEvent>(
+    'secrets.delete-secrets-of-deleted-workspace',
+    [WORKSPACE_DELETED],
     (event) =>
-      reactions.runGrants.ofWorkspace(WorkspaceId.of(event.workspaceId)),
+      reactions.deleting.deleteForWorkspace(WorkspaceId.of(event.workspaceId)),
+  ),
+  subscribing<WorkspaceDeletedIntegrationEvent>(
+    'secrets.delete-data-key-of-deleted-workspace',
+    [WORKSPACE_DELETED],
+    (event) => reactions.keys.deleteDataKey(WorkspaceId.of(event.workspaceId)),
+  ),
+  subscribing<WorkspaceDeletedIntegrationEvent>(
+    'secrets.delete-run-grants-of-deleted-workspace',
+    [WORKSPACE_DELETED],
+    (event) =>
+      reactions.runGrants.deleteForWorkspace(WorkspaceId.of(event.workspaceId)),
   ),
 ];

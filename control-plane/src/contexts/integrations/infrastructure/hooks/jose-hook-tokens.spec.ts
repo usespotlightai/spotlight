@@ -49,7 +49,7 @@ describe('JoseHookTokens', () => {
     expect(key).not.toHaveProperty('d');
   });
 
-  it('refuses at start a key that is not P-256, rather than failing each call', () => {
+  it('rejects at start a key that is not P-256, rather than failing each call', () => {
     expect(() => new JoseHookTokens(pemOf('secp384r1'), ISSUER)).toThrow(
       /not a P-256 private key/,
     );

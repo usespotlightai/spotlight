@@ -1,7 +1,7 @@
 import { StackCheckReactions } from '@change-review/application/events/handlers/stack-check-reactions.handler';
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
-import { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
+import { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
@@ -15,7 +15,7 @@ import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -57,7 +57,7 @@ const cohort = (hunks: string[][]): ProposedCohort => ({
     title: `Layer ${at + 1}`,
     summary: `Layer ${at + 1}`,
     dependsOn: [],
-    ranges: each.map((hunk) => ({ hunk: HunkId.of(hunk) })),
+    hunks: each.map((hunk) => ({ hunk: HunkId.of(hunk) })),
     notes: each.map((hunk) => ({
       path: DIFF.fileOf(hunk)?.path ?? hunk,
       note: 'Why',
@@ -66,7 +66,7 @@ const cohort = (hunks: string[][]): ProposedCohort => ({
 });
 
 const stackWith = (request: CheckRequest | null) =>
-  ChangeStack.draft({
+  ChangeStack.startGeneration({
     id: STACK,
     runId: RunId.of('run-1'),
     taskId: TASK,
@@ -84,12 +84,12 @@ const stackWith = (request: CheckRequest | null) =>
 const reacting = (stack: ChangeStack | null, check: StackCheck | null) => {
   const added: StackCheck[] = [];
   const saved: StackCheck[] = [];
-  const kept: ChangeStack[] = [];
+  const savedStacks: ChangeStack[] = [];
 
   const stacks = {
     find: async () => stack,
     save: async (each: ChangeStack) => {
-      kept.push(each);
+      savedStacks.push(each);
     },
   } as unknown as ChangeStackRepository;
 
@@ -110,7 +110,7 @@ const reacting = (stack: ChangeStack | null, check: StackCheck | null) => {
     }),
     added,
     saved,
-    kept,
+    savedStacks,
   };
 };
 
@@ -127,78 +127,88 @@ const checkFor = (stack: ChangeStack) =>
   });
 
 describe('StackCheckReactions', () => {
-  it('begins a check once a stack that asked for one settles', async () => {
+  it('begins a check once a stack that requested one completes', async () => {
     const stack = stackWith(CheckRequest.of('npm test', 'npm ci'));
     const { reactions, added } = reacting(stack, null);
 
-    await reactions.onSettled(
-      new ChangeStackSettled(STACK, stack.runId, false),
+    await reactions.onCompleted(
+      new ChangeStackCompleted(STACK, stack.runId, false),
     );
 
     expect(added).toHaveLength(1);
     expect(added[0]?.request.setup).toBe('npm ci');
     expect(added[0]?.taskId).toEqual(TASK);
-    expect(added[0]?.stateAt(LATER)).toBe('waiting');
+    expect(added[0]?.statusAt(LATER)).toBe('waiting');
   });
 
-  it('begins no check for a stack that asked for none', async () => {
+  it('begins no check for a stack that requested none', async () => {
     const stack = stackWith(null);
     const { reactions, added } = reacting(stack, null);
 
-    await reactions.onSettled(
-      new ChangeStackSettled(STACK, stack.runId, false),
+    await reactions.onCompleted(
+      new ChangeStackCompleted(STACK, stack.runId, false),
     );
 
     expect(added).toEqual([]);
   });
 
-  it('asks the stack to reorder once its layers fail', async () => {
+  it('requests the stack to redraft once its layers fail', async () => {
     const stack = stackWith(CheckRequest.of('npm test', null));
-    const { reactions, kept } = reacting(stack, null);
+    const { reactions, savedStacks } = reacting(stack, null);
 
     await reactions.onLayersFailed(STACK);
 
-    expect(kept[0]?.reordering).toBe(true);
+    expect(savedStacks[0]?.redrafting).toBe(true);
   });
 
-  it('hands the reordered layers to the check', async () => {
+  it('hands the redrafted layers to the check', async () => {
     const stack = stackWith(CheckRequest.of('npm test', null));
-    const reordering = checkFor(stack)
-      .claimedFor(CHECKER, RunnerTerms.none(), LATER)
+    const redrafting = checkFor(stack)
+      .claimedFor(CHECKER, RunnerOffer.none(), LATER)
       .recordResult(
         CHECKER,
         { steps: stack.checkSteps(stack.entries()), layers: stack.layers() },
         [
-          { step: 'whole', passed: true, output: '', tookMs: 1 },
-          { step: stack.layers()[0], passed: false, output: 'no', tookMs: 1 },
+          { step: 'whole', passed: true, output: '', durationMs: 1 },
+          {
+            step: stack.layers()[0],
+            passed: false,
+            output: 'no',
+            durationMs: 1,
+          },
         ],
         LATER,
       );
-    const { reactions, saved } = reacting(stack, reordering);
+    const { reactions, saved } = reacting(stack, redrafting);
 
-    await reactions.onReordered(STACK);
+    await reactions.onRedrafted(STACK);
 
-    expect(saved[0]?.phase).toBe('waiting');
-    expect(saved[0]?.rounds).toBe(1);
+    expect(saved[0]?.status).toBe('waiting');
+    expect(saved[0]?.redraftCount).toBe(1);
   });
 
-  it('keeps the checked layers once reordering ends', async () => {
+  it('retains the checked layers once redrafting ends', async () => {
     const stack = stackWith(CheckRequest.of('npm test', null));
-    const reordering = checkFor(stack)
-      .claimedFor(CHECKER, RunnerTerms.none(), LATER)
+    const redrafting = checkFor(stack)
+      .claimedFor(CHECKER, RunnerOffer.none(), LATER)
       .recordResult(
         CHECKER,
         { steps: stack.checkSteps(stack.entries()), layers: stack.layers() },
         [
-          { step: 'whole', passed: true, output: '', tookMs: 1 },
-          { step: stack.layers()[0], passed: false, output: 'no', tookMs: 1 },
+          { step: 'whole', passed: true, output: '', durationMs: 1 },
+          {
+            step: stack.layers()[0],
+            passed: false,
+            output: 'no',
+            durationMs: 1,
+          },
         ],
         LATER,
       );
-    const { reactions, saved } = reacting(stack, reordering);
+    const { reactions, saved } = reacting(stack, redrafting);
 
-    await reactions.onReorderingEnded(STACK);
+    await reactions.onRedraftingEnded(STACK);
 
-    expect(saved[0]?.stateAt(LATER)).toBe('checked');
+    expect(saved[0]?.statusAt(LATER)).toBe('checked');
   });
 });

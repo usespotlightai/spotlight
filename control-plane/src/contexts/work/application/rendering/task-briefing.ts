@@ -7,17 +7,17 @@ import type {
 import { Attached } from '@work/application/rendering/attached';
 import { Learned } from '@work/application/rendering/learned';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
-import { givenIntegrations } from '@work/domain/services/given-integrations';
+import { enabledIntegrations } from '@work/domain/services/enabled-integrations';
 import { HANDOVER_COMMAND } from '@work/domain/services/run-reasoning';
 import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts';
 import type {
-  BriefedRemark,
+  BriefedReviewComment,
   BriefedTask,
   DecisionOnRecord,
 } from '@work/domain/value-objects/briefed-task.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { DONE, REVIEW } from '@work/domain/value-objects/handover-word';
-import { RemarkHandle } from '@work/domain/value-objects/remark-handle.vo';
+import { ReviewCommentHandle } from '@work/domain/value-objects/review-comment-handle.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 
@@ -35,45 +35,45 @@ const closing = (line: Line, stationId: StationId): string => {
     '## When you are done',
     'Run this, from anywhere in the workspace:',
     `\`\`\`\n${HANDOVER_COMMAND} --next "…" --note "…"\n\`\`\``,
-    `\`--next\` names a station to pass the task to, by its key: ${named}. Name somewhere else and the command refuses it and tells you what would have worked, so read what it says and run it again.`,
+    `\`--next\` names a station to pass the task to, by its key: ${named}. Name somewhere else and the command rejects it and tells you what would have worked, so read what it says and run it again.`,
     `To put the task in front of a person instead of a station, use \`--next "${REVIEW}"\`. That is not a station — it is a person, whatever any station is called — and it is what to use whenever you are unsure.`,
     offered.some((each) => each.kind === 'done')
-      ? `Where the work is finished and nothing follows it, use \`--next "${DONE}"\`. That closes the task where it stands: nobody is asked anything, and no station takes it up again. Use it only when there is genuinely nothing left, not to get out of naming somewhere.`
+      ? `Where the work is finished and nothing follows it, use \`--next "${DONE}"\`. That closes the task at its current station: nobody is asked anything, and no station takes it up again. Use it only when there is genuinely nothing left, not to get out of naming somewhere.`
       : null,
     '`--note` is what the next station, or the person, needs to know.',
     'Running nothing puts the task in front of a person.',
     'Nobody is watching this terminal. If you need a decision, a missing detail, or an answer before you can finish, do not ask here and wait: hand the task over with `--next "' +
       REVIEW +
-      '"` and put the question in the note. Asking at the terminal reaches nobody, and the task stands still until someone notices.',
+      '"` and put the question in the note. Nobody sees a question at the terminal, and the task does not move until someone notices.',
   ]
     .filter(Boolean)
     .join('\n\n');
 };
 
-const answering = (task: BriefedTask): string | null => {
-  const open = task.openRemarks;
+const replying = (task: BriefedTask): string | null => {
+  const open = task.openReviewComments;
 
   if (open.length === 0) {
     return null;
   }
 
   const listed = open.map((each) =>
-    [`- \`${RemarkHandle.for(each.at)}\``, each.place, each.body || null]
+    [`- \`${ReviewCommentHandle.for(each.at)}\``, each.place, each.body || null]
       .filter(Boolean)
       .join(' — '),
   );
 
-  const one = RemarkHandle.for((open[0] as BriefedRemark).at);
+  const one = ReviewCommentHandle.for((open[0] as BriefedReviewComment).at);
 
   return [
-    '## Answering the pull request',
-    'These were said on the pull request and nobody has answered them:',
+    '## Replying to review comments',
+    'These review comments on the pull request have no reply:',
     ...listed,
-    'Run this to answer one, from anywhere in the workspace:',
+    'Run this to reply to one, from anywhere in the workspace:',
     `\`\`\`\nspotlight reply --to ${one} --body "…"\n\`\`\``,
     'Add `--resolve` to resolve the thread as well, where you have addressed what it asked. Leave it off where you are disagreeing or asking something back.',
-    `A long answer is easier piped in, as \`spotlight reply --to ${one} < answer.md\`.`,
-    'Answer only what you have something to say about. What you leave alone stays open for whoever picks the task up next.',
+    `A long reply is easier piped in, as \`spotlight reply --to ${one} < answer.md\`.`,
+    'Reply only where you have something to say. The review comments that you do not reply to stay open for whoever picks the task up next.',
   ].join('\n\n');
 };
 
@@ -84,7 +84,7 @@ const listing = (
   listedIn && skills.length > 0
     ? [
         '## Skills',
-        'These are in the workspace. Read one when you reach for what it is about:',
+        'These are in the workspace. Read one when you need what it is about:',
         skills
           .map(
             (each) =>
@@ -97,12 +97,12 @@ const listing = (
 const NAMED = new Intl.ListFormat('en', { type: 'conjunction' });
 
 const toolsOf = (described: readonly DeclaredTool[]): string | null => {
-  const integrations = givenIntegrations(described);
+  const integrations = enabledIntegrations(described);
 
   return integrations.length > 0
     ? [
         '## Tools',
-        `You were given tools from ${NAMED.format(integrations.map((each) => `${each.name} (${each.tools})`))}. Find the one you need with \`spotlight tools search "<words>"\`, read what it takes with \`spotlight tools describe <tool>\`, then call it. Every tool answers in JSON.`,
+        `Your station enables tools from ${NAMED.format(integrations.map((each) => `${each.name} (${each.tools})`))}. Find the one you need with \`spotlight tools search "<words>"\`, read what it takes with \`spotlight tools describe <tool>\`, then call it. Every tool answers in JSON.`,
       ].join('\n\n')
     : null;
 };
@@ -124,7 +124,7 @@ const onRecord = (decisions: readonly DecisionOnRecord[]): string | null =>
   decisions.length > 0
     ? [
         '## Decisions on record',
-        'An earlier run on this task recorded these decisions, and the pull request shows them to its reviewers. Check that the ones your work touches still hold, and weigh what a reviewer disputes. Where you change what one rests on, or find it no longer holds, say so in your note.',
+        'An earlier run on this task recorded these decisions, and the pull request shows them to its reviewers. Check that the ones your work touches still apply, and weigh what a reviewer disputes. Where you change what one rests on, or find it no longer applies, say so in your note.',
         decisions.map(recorded).join('\n'),
       ].join('\n\n')
     : null;
@@ -137,12 +137,12 @@ const SAYING_DECISIONS = [
     '- an assumption you rely on but have not checked;',
     '- a limitation or gap you leave in place;',
     '- an approach you weighed and set aside, and why;',
-    '- anywhere you depart from what the task, the spec or an earlier note asked.',
+    '- anywhere you depart from what the task, the spec or an earlier note requested.',
   ].join('\n'),
   'Routine choices anyone would make need no mention. Name them again in your handover note.',
 ].join('\n\n');
 
-const KEPT_WORKSPACE =
+const PERSISTENT_WORKSPACE =
   'The task keeps this workspace from one run and station to the next, so work an earlier one left, committed or not, may already be here.';
 
 const workspaceOf = (task: BriefedTask, line: Line): string | null => {
@@ -160,14 +160,14 @@ const workspaceOf = (task: BriefedTask, line: Line): string | null => {
     ? [
         '## The workspace',
         `The repository is checked out in:\n\n${listed}`,
-        KEPT_WORKSPACE,
+        PERSISTENT_WORKSPACE,
       ].join('\n\n')
     : [
         '## The workspace',
         'These repositories are checked out side by side, each in its own directory:',
         listed,
         'Work out which one (or ones) your change belongs in. When you open a pull request, name the repository with `spotlight pull-request --repository <name>`.',
-        KEPT_WORKSPACE,
+        PERSISTENT_WORKSPACE,
       ].join('\n\n');
 };
 
@@ -204,7 +204,7 @@ export const TaskBriefing = {
       workspaceOf(input.task, input.line),
       toolsOf(input.tools),
       listing(input.skills, input.listedIn),
-      answering(input.task),
+      replying(input.task),
       closing(input.line, input.task.stationId),
     ]
       .filter(Boolean)

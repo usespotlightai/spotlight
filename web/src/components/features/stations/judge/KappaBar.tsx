@@ -1,4 +1,4 @@
-import { Noted } from '@/components/shared/Noted';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { type ClaimAgreement, formatStat, kappaNote } from '@/lib/judge';
 
 const percent = (value: number): string =>
@@ -7,12 +7,12 @@ const percent = (value: number): string =>
 type KappaBarProps = {
   kappa: number | null;
   reading: ClaimAgreement['reading'];
-  trust: number | null;
+  minAgreement: number | null;
 };
 
-export function KappaBar({ kappa, reading, trust }: KappaBarProps) {
+export function KappaBar({ kappa, reading, minAgreement }: KappaBarProps) {
   return (
-    <Noted note={kappaNote(reading)}>
+    <WithTooltip tooltip={kappaNote(reading)}>
       <span className="flex min-w-0 cursor-default items-center gap-2">
         <span className="w-8 shrink-0 text-foreground tabular-nums">
           {formatStat(kappa)}
@@ -27,14 +27,14 @@ export function KappaBar({ kappa, reading, trust }: KappaBarProps) {
               style={{ width: percent(kappa) }}
             />
           )}
-          {trust !== null && (
+          {minAgreement !== null && (
             <span
               className="absolute -inset-y-1 w-px bg-foreground/40"
-              style={{ left: percent(trust) }}
+              style={{ left: percent(minAgreement) }}
             />
           )}
         </span>
       </span>
-    </Noted>
+    </WithTooltip>
   );
 }

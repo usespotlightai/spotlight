@@ -30,7 +30,7 @@ const posted = (id: string, anchor = ON_FILE) =>
     .postedAs({ id: 1, url: 'https://github.com/c/1' });
 
 describe('a file’s thread', () => {
-  it('is the comment on the whole file that has reached GitHub', () => {
+  it('is the comment on the whole file that is posted on GitHub', () => {
     const thread = posted('comment_1');
 
     expect(fileThreadOf([thread], ON_FILE)?.id).toEqual(thread.id);

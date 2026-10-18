@@ -18,11 +18,11 @@ export class ReadRunnerPoolHandler
     query: ReadRunnerPoolQuery,
   ): Promise<RunnerPoolResourceDto | null> {
     try {
-      const kept = await this.resources.poolWithId(query.poolId);
+      const record = await this.resources.poolWithId(query.poolId);
 
-      return kept &&
-        (await this.access.permissionsIn(kept.workspaceId, query.principal))
-        ? RunnerResourceMapper.pool(kept)
+      return record &&
+        (await this.access.permissionsIn(record.workspaceId, query.principal))
+        ? RunnerResourceMapper.pool(record)
         : null;
     } catch (error) {
       rethrowAsApplicationError(error);

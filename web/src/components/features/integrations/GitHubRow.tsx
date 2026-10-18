@@ -2,11 +2,11 @@ import { useLocation } from 'react-router';
 import { GitHubAppLink } from '@/components/features/integrations/GitHubAppLink';
 import { GitHubDetails } from '@/components/features/integrations/GitHubDetails';
 import { IntegrationRowFrame } from '@/components/features/integrations/IntegrationRowFrame';
-import GithubMark from '@/components/shared/icons/GithubMark';
-import { NotedWarning } from '@/components/shared/NotedWarning';
+import GithubLogo from '@/components/shared/icons/GithubLogo';
+import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import { useLines } from '@/hooks/api/useLines';
 import { useRepositories } from '@/hooks/api/useRepositories';
-import { formatRepos, installUrlFor, unreachedOf } from '@/lib/github';
+import { formatRepos, inaccessibleOf, installUrlFor } from '@/lib/github';
 
 type GitHubRowProps = {
   slug: string;
@@ -24,12 +24,14 @@ export function GitHubRow({
   const here = useLocation();
   const repositories = useRepositories(connected ? slug : undefined);
   const lines = useLines(teamId);
-  const reached = (repositories.data ?? []).map((each) => each.fullName);
+  const accessible = (repositories.data ?? []).map((each) => each.fullName);
   const used = [
     ...new Set((lines.data ?? []).flatMap((line) => line.repositories)),
   ].sort();
-  const unreached =
-    connected && repositories.data ? unreachedOf(used, reached) : new Set();
+  const inaccessible =
+    connected && repositories.data
+      ? inaccessibleOf(used, accessible)
+      : new Set();
   const href = installUrl
     ? installUrlFor(installUrl, {
         slug,
@@ -42,15 +44,15 @@ export function GitHubRow({
     <IntegrationRowFrame
       slot="github"
       logo={
-        <GithubMark className="size-5 shrink-0 text-foreground" aria-hidden />
+        <GithubLogo className="size-5 shrink-0 text-foreground" aria-hidden />
       }
       name="GitHub"
       mark={
-        unreached.size > 0 && (
-          <NotedWarning
+        inaccessible.size > 0 && (
+          <WarningTooltip
             tone="destructive"
-            label="Repositories not reached"
-            note={`The App can’t reach ${[...unreached].join(', ')}.`}
+            label="Repositories not accessible"
+            tooltip={`The App can’t access ${[...inaccessible].join(', ')}.`}
           />
         )
       }
@@ -58,7 +60,7 @@ export function GitHubRow({
         !connected
           ? 'Not installed on this team’s repositories'
           : repositories.data
-            ? `Reaches ${formatRepos(reached.length)}`
+            ? `Can access ${formatRepos(accessible.length)}`
             : 'Works in this team’s repositories'
       }
       need={
@@ -68,7 +70,7 @@ export function GitHubRow({
       <GitHubDetails
         installed={connected}
         href={href}
-        reached={reached}
+        accessible={accessible}
         used={used}
       />
     </IntegrationRowFrame>

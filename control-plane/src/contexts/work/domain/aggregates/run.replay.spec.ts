@@ -7,13 +7,13 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
+import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
-import { KeptFromReplaysError } from '@work/domain/exceptions/kept-from-replays.error';
+import { NotAllowedInReplayError } from '@work/domain/exceptions/not-allowed-in-replay.error';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
-import { Declaration } from '@work/domain/value-objects/declaration.vo';
+import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
@@ -67,13 +67,13 @@ const TASK_SPEC: RunSpecParts = {
   command: { executable: 'sh', args: [] },
   briefing: 'Fix the queue.',
   handover: { options: ['review'], noteLimit: 0 },
-  continuity: { key: 'task-task_1' },
+  resume: { key: 'task-task_1' },
 };
 
 const REPLAY_SPEC: RunSpecParts = {
   ...TASK_SPEC,
   checkouts: [{ remote: 'spotlight:repository', path: 'api', ref: COMMIT }],
-  continuity: { key: 'replay-run_1' },
+  resume: { key: 'replay-run_1' },
   replay: {
     archive: 'archive_1',
     checkouts: [{ path: 'api', commit: COMMIT, repository: 'acme/api' }],
@@ -83,7 +83,7 @@ const REPLAY_SPEC: RunSpecParts = {
 
 const MEMORIES = BriefedMemories.of({
   briefed: [{ id: 'memory_1', handle: 'M-1' }],
-  cut: [],
+  omitted: [],
 });
 
 const queued = (
@@ -105,11 +105,11 @@ const claimed = () => queued().claim(RUNNER, NOW);
 
 const finished = RunOutcome.of({ exitCode: 0, failed: false });
 
-const saying = (next: string) =>
-  HandoverReport.of({ declared: Declaration.of({ next }), session: null });
+const reportOf = (next: string) =>
+  HandoverReport.of({ handover: Handover.of({ next }), session: null });
 
 describe('a replay', () => {
-  it('works no task of its own and keeps no workspace for one', () => {
+  it('works no task of its own and archives no workspace for one', () => {
     const run = queued();
 
     expect(run.isReplay).toBe(true);
@@ -165,14 +165,14 @@ describe('a replay', () => {
 
   it('never waits for a person', () => {
     expect(() =>
-      claimed().paused(RUNNER, finished, saying('review'), NOW),
+      claimed().paused(RUNNER, finished, reportOf('review'), NOW),
     ).toThrow(InvalidRunTransitionError);
   });
 
   it('ends recording that it asked a person, when its runner says so', () => {
     const ended = claimed()
       .askedAPersonBy(RUNNER)
-      .complete(RUNNER, finished, saying('build'));
+      .complete(RUNNER, finished, reportOf('build'));
     const [completed] = ended
       .pullEvents()
       .filter((each): each is RunCompleted => each instanceof RunCompleted);
@@ -185,38 +185,38 @@ describe('a replay', () => {
   it('ends recording that it asked a person, when its handover would have put the work to one under the candidate', () => {
     for (const next of ['review', 'Nowhere', '']) {
       expect(
-        claimed().complete(RUNNER, finished, saying(next)).askedAPerson,
+        claimed().complete(RUNNER, finished, reportOf(next)).askedAPerson,
       ).toBe(true);
     }
     expect(
       claimed().complete(
         RUNNER,
         finished,
-        HandoverReport.of({ declared: null, session: null }),
+        HandoverReport.of({ handover: null, session: null }),
       ).askedAPerson,
     ).toBe(true);
   });
 
   it('ends recording that it asked nobody where it failed, was stopped, or moved on as the candidate would', () => {
     expect(
-      claimed().complete(RUNNER, RunOutcome.stopped(130), saying('review'))
+      claimed().complete(RUNNER, RunOutcome.stopped(130), reportOf('review'))
         .askedAPerson,
     ).toBe(false);
     expect(
-      claimed().complete(RUNNER, finished, saying('Done')).askedAPerson,
+      claimed().complete(RUNNER, finished, reportOf('Done')).askedAPerson,
     ).toBe(false);
   });
 
-  it('gives up rather than going back on the queue once it has asked a person', () => {
+  it('is exhausted rather than going back on the queue once it has asked a person', () => {
     const asked = claimed().askedAPersonBy(RUNNER);
-    const lapsed = asked.requeue(new Date(NOW.getTime() + 120_000));
-    const [abandoned] = lapsed
+    const expired = asked.expireLease(new Date(NOW.getTime() + 120_000));
+    const [exhausted] = expired
       .pullEvents()
-      .filter((each): each is RunAbandoned => each instanceof RunAbandoned);
+      .filter((each): each is RunExhausted => each instanceof RunExhausted);
 
-    expect(lapsed.hasEnded).toBe(true);
-    expect(abandoned?.asked).toBe(true);
-    expect(claimed().requeue(new Date(NOW.getTime() + 120_000)).state).toBe(
+    expect(expired.hasEnded).toBe(true);
+    expect(exhausted?.asked).toBe(true);
+    expect(claimed().expireLease(new Date(NOW.getTime() + 120_000)).state).toBe(
       'queued',
     );
   });
@@ -226,16 +226,16 @@ describe('a replay', () => {
     expect(claimed().replayedRepository('web')).toBeNull();
   });
 
-  it('reaches nothing beyond itself, and hears no hook', () => {
-    expect(() => claimed().mayReachBeyondItself('answer a remark')).toThrow(
-      KeptFromReplaysError,
-    );
-    expect(claimed().hearsHooks).toBe(false);
-    expect(queued(OF_TASK, TASK_SPEC).hearsHooks).toBe(true);
+  it('acts on nothing beyond itself, and fires no hook', () => {
+    expect(() =>
+      claimed().mayActBeyondItself('reply to a review comment'),
+    ).toThrow(NotAllowedInReplayError);
+    expect(claimed().firesHooks).toBe(false);
+    expect(queued(OF_TASK, TASK_SPEC).firesHooks).toBe(true);
   });
 
   it('ends recording that it asked nobody, when it did not', () => {
-    const ended = claimed().complete(RUNNER, finished, saying('build'));
+    const ended = claimed().complete(RUNNER, finished, reportOf('build'));
     const [completed] = ended
       .pullEvents()
       .filter((each): each is RunCompleted => each instanceof RunCompleted);
@@ -251,7 +251,7 @@ describe('a replay', () => {
       InvalidRunTransitionError,
     );
     expect(
-      ofTask.complete(RUNNER, finished, saying('review')).askedAPerson,
+      ofTask.complete(RUNNER, finished, reportOf('review')).askedAPerson,
     ).toBe(false);
   });
 

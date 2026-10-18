@@ -3,9 +3,9 @@ import type {
   CitedHunkResponseDto,
   ClaimAgreementResponseDto,
   GradeResponseDto,
+  JudgeCalibrationResponseDto,
   JudgeCoverageResponseDto,
   JudgeReasonResponseDto,
-  JudgeStandingResponseDto,
   RubricVersionResponseDto,
   RunScoresResponseDto,
   ScoreCountResponseDto,
@@ -18,7 +18,7 @@ export type StationJudgeAgreement = StationJudgeAgreementResponseDto;
 
 export type RubricVersion = RubricVersionResponseDto;
 
-export type JudgeStanding = JudgeStandingResponseDto;
+export type JudgeCalibration = JudgeCalibrationResponseDto;
 
 export type JudgeCoverage = JudgeCoverageResponseDto;
 
@@ -75,7 +75,7 @@ export const formatClaimsMet = (marks: readonly boolean[]): string =>
 export const formatScore = (score: {
   readonly kind: ScoreKind;
   readonly label: string;
-  readonly marks?: readonly boolean[] | null;
+  readonly claimResults?: readonly boolean[] | null;
 }): string => {
   switch (score.kind) {
     case 'yes-no':
@@ -83,7 +83,9 @@ export const formatScore = (score: {
     case 'number':
       return `${score.label} of 5`;
     case 'claims':
-      return score.marks ? formatClaimsMet(score.marks) : score.label;
+      return score.claimResults
+        ? formatClaimsMet(score.claimResults)
+        : score.label;
   }
 };
 
@@ -105,10 +107,10 @@ export const formatClaim = (
 
 export const formatMark = (met: boolean): string => (met ? 'Met' : 'Not met');
 
-export const formatPassShare = (passShare: number): string =>
-  passShare >= 1
+export const formatPassThreshold = (passThreshold: number): string =>
+  passThreshold >= 1
     ? 'A run passes when it meets every claim.'
-    : `A run passes when it meets at least ${formatPercent(passShare)} of its claims.`;
+    : `A run passes when it meets at least ${formatPercent(passThreshold)} of its claims.`;
 
 export const CLAIMS_LABEL = 'Claims';
 
@@ -143,12 +145,12 @@ const RUNS_COLUMN = 'Runs';
 
 export const YOUR_GRADE = 'Your grade';
 
-const MEASURES: Record<NonNullable<JudgeStanding['measure']>, string> = {
+const MEASURES: Record<NonNullable<JudgeCalibration['measure']>, string> = {
   kappa: 'Cohen’s kappa',
   spearman: 'Spearman’s ρ',
 };
 
-export const formatMeasure = (measure: JudgeStanding['measure']): string =>
+export const formatMeasure = (measure: JudgeCalibration['measure']): string =>
   measure ? MEASURES[measure] : 'Agreement';
 
 export const formatStat = (value: number | null): string =>
@@ -162,20 +164,20 @@ const PERCENT = new Intl.NumberFormat('en', {
 export const formatPercent = (share: number | null): string =>
   share === null ? '–' : PERCENT.format(share);
 
-export const formatStanding = (standing: JudgeStanding): string => {
-  switch (standing.hiddenBecause) {
+export const formatCalibration = (calibration: JudgeCalibration): string => {
+  switch (calibration.hiddenReason) {
     case null:
-      return `Trusted. ${formatMeasure(standing.measure)}: ${formatStat(standing.agreement)} over ${standing.pairs} runs. Minimum required: ${formatStat(standing.trust)}`;
+      return `Qualified. ${formatMeasure(calibration.measure)}: ${formatStat(calibration.agreement)} over ${calibration.pairs} runs. Minimum required: ${formatStat(calibration.minAgreement)}`;
     case 'no-judge':
       return 'This station has no judge. There are no scores to trust.';
     case 'unreadable-rubric':
       return 'Hidden. The rubric names a scale that cannot be read.';
     case 'too-few-pairs':
-      return `Hidden until more runs have scores from both the judge and people. Runs so far: ${standing.pairs}`;
+      return `Hidden until more runs have scores from both the judge and people. Runs so far: ${calibration.pairs}`;
     case 'no-agreement':
       return 'Hidden. Agreement can’t be measured while all scores are identical.';
-    case 'below-trust':
-      return `Hidden. ${formatMeasure(standing.measure)}: ${formatStat(standing.agreement)}. Minimum required: ${formatStat(standing.trust)}`;
+    case 'below-min-agreement':
+      return `Hidden. ${formatMeasure(calibration.measure)}: ${formatStat(calibration.agreement)}. Minimum required: ${formatStat(calibration.minAgreement)}`;
   }
 };
 
@@ -209,22 +211,22 @@ export type JudgeTile = {
 };
 
 export const judgeTiles = (
-  standing: JudgeStanding,
+  calibration: JudgeCalibration,
   coverage: JudgeCoverage,
 ): JudgeTile[] => [
   {
     id: 'agreement',
-    label: formatMeasure(standing.measure),
-    value: formatStat(standing.agreement),
-    detail: standing.trusted
-      ? `Trusted. Minimum required: ${formatStat(standing.trust)}`
-      : formatStanding(standing),
+    label: formatMeasure(calibration.measure),
+    value: formatStat(calibration.agreement),
+    detail: calibration.qualified
+      ? `Qualified. Minimum required: ${formatStat(calibration.minAgreement)}`
+      : formatCalibration(calibration),
   },
   ...COVERAGE_PARTS.map((part) => ({
     id: part.label,
     label: part.label,
     value: `${coverage[part.key]}`,
-    detail: `${formatPercent(coverage.shares[part.key])} of the last ${coverage.runs}`,
+    detail: `${formatPercent(coverage.rates[part.key])} of the last ${coverage.runs}`,
   })),
 ];
 
@@ -253,7 +255,7 @@ const CORRELATION_READINGS: Record<CorrelationReading, string> = {
 export type ComparisonStat = {
   readonly label: string;
   readonly value: string;
-  readonly note: string;
+  readonly tooltip: string;
 };
 
 const KAPPA_NOTE =
@@ -283,22 +285,24 @@ export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
       {
         label: 'Pearson correlation',
         value: formatStat(agreement.pearson),
-        note: correlationRead(readings.pearson, false),
+        tooltip: correlationRead(readings.pearson, false),
       },
       {
         label: 'Spearman correlation',
         value: formatStat(agreement.spearman),
-        note: correlationRead(readings.spearman, true),
+        tooltip: correlationRead(readings.spearman, true),
       },
       {
         label: 'Mean absolute error',
         value: formatStat(agreement.mae),
-        note: 'How far the judge’s score is from people’s on average, in points on the rubric’s scale. Lower is better.',
+        tooltip:
+          'How far the judge’s score is from people’s on average, in points on the rubric’s scale. Lower is better.',
       },
       {
         label: 'Root mean square error',
         value: formatStat(agreement.rmse),
-        note: 'This is like mean absolute error, but large misses count for more. Lower is better.',
+        tooltip:
+          'This is like mean absolute error, but large misses count for more. Lower is better.',
       },
     ];
   }
@@ -307,7 +311,7 @@ export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
     {
       label: 'Cohen’s kappa',
       value: formatStat(agreement.kappa),
-      note: kappaRead(
+      tooltip: kappaRead(
         readings.kappa,
         version.kind === 'claims'
           ? `This kappa covers every claim together. ${KAPPA_NOTE}`
@@ -317,12 +321,14 @@ export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
     {
       label: 'F1 score',
       value: formatStat(agreement.f1),
-      note: 'How well the judge’s yes matches people’s yes. A perfect match misses none, adds none and scores 1. Higher is better.',
+      tooltip:
+        'How well the judge’s yes matches people’s yes. A perfect match misses none, adds none and scores 1. Higher is better.',
     },
     {
       label: 'Overall agreement',
       value: formatPercent(agreement.observed),
-      note: 'The share of runs where the judge and people gave the same score. Agreement by chance counts.',
+      tooltip:
+        'The share of runs where the judge and people gave the same score. Agreement by chance counts.',
     },
   ];
 };

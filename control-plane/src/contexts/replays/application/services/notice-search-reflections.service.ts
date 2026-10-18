@@ -7,7 +7,7 @@ import {
 import type { SearchReflected } from '@replays/domain/events/search-reflected.event';
 import type { SearchStalledUnreflected } from '@replays/domain/events/search-stalled-unreflected.event';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
-import { reflectionToTell } from '@replays/domain/services/reflection-notice';
+import { reflectionNotice } from '@replays/domain/services/reflection-notice';
 
 export class NoticeSearchReflections {
   constructor(
@@ -21,9 +21,9 @@ export class NoticeSearchReflections {
     const reflection = search?.iterations.find(
       (each) => each.number === event.iteration && each.reflects,
     );
-    const told = reflection ? reflectionToTell(reflection) : null;
+    const notice = reflection ? reflectionNotice(reflection) : null;
 
-    if (!search?.startedBy || !told) {
+    if (!search?.startedBy || !notice) {
       return;
     }
 
@@ -31,14 +31,14 @@ export class NoticeSearchReflections {
     const station = await this.work.station(lineId, stationId);
     const titles = new Map(
       (
-        await this.work.standing(
+        await this.work.runSummaries(
           search.workspaceId,
-          told.fixes.map((each) => each.originalRunId),
+          notice.fixes.map((each) => each.originalRunId),
         )
       ).map((each) => [each.runId.value, each.title] as const),
     );
 
-    await this.notices.told({
+    await this.notices.notify({
       workspaceId: search.workspaceId,
       teamId: search.teamId,
       addressee: search.startedBy,
@@ -46,8 +46,8 @@ export class NoticeSearchReflections {
       lineId,
       stationId,
       about: `iteration ${event.iteration}`,
-      endedSearch: told.endedSearch,
-      ...ReflectionNoticeWording.of(told, station?.name ?? null, titles),
+      endedSearch: notice.endedSearch,
+      ...ReflectionNoticeWording.of(notice, station?.name ?? null, titles),
     });
   }
 
@@ -61,7 +61,7 @@ export class NoticeSearchReflections {
     const { lineId, stationId } = search.station;
     const station = await this.work.station(lineId, stationId);
 
-    await this.notices.told({
+    await this.notices.notify({
       workspaceId: search.workspaceId,
       teamId: search.teamId,
       addressee: search.startedBy,

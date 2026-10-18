@@ -36,14 +36,14 @@ export type LinePart =
       readonly field: 'to' | 'from' | null;
     };
 
-interface LayoutRefusal {
+interface LayoutProblem {
   readonly reason: string;
   readonly part: LinePart;
 }
 
 const STATIONS: LinePart = { of: 'line', field: 'stations' };
 
-const handingOn = (station: LaidStation): LinePart => ({
+const passingOn = (station: LaidStation): LinePart => ({
   of: 'station',
   station: station.key,
   field: 'passesTo',
@@ -55,9 +55,9 @@ const reactionAt = (place: number, field: 'to' | 'from' | null): LinePart => ({
   field,
 });
 
-export const stationsRefused = (
+export const stationsProblem = (
   stations: readonly LaidStation[],
-): LayoutRefusal | null => {
+): LayoutProblem | null => {
   if (stations.length === 0) {
     return { reason: 'must include at least one station', part: STATIONS };
   }
@@ -101,7 +101,7 @@ export const stationsRefused = (
     };
   }
 
-  const worked = new Set(
+  const agentStations = new Set(
     stations.filter((each) => each.kind === 'work').map((each) => each.key),
   );
 
@@ -109,7 +109,7 @@ export const stationsRefused = (
     if (station.kind === 'completed' && station.passesTo.length > 0) {
       return {
         reason: 'cannot pass on from the completed station',
-        part: handingOn(station),
+        part: passingOn(station),
       };
     }
 
@@ -117,13 +117,13 @@ export const stationsRefused = (
       if (to === station.key) {
         return {
           reason: `cannot pass to themselves, but ${station.name} does`,
-          part: handingOn(station),
+          part: passingOn(station),
         };
       }
-      if (!worked.has(to)) {
+      if (!agentStations.has(to)) {
         return {
           reason: `must pass to work stations, but ${station.name} does not`,
-          part: handingOn(station),
+          part: passingOn(station),
         };
       }
     }
@@ -138,10 +138,10 @@ interface CheckingStation {
   readonly diffs: boolean;
 }
 
-export const setupRefused = (
+export const setupProblem = (
   stations: readonly CheckingStation[],
   repositories: LineRepositories,
-): LayoutRefusal | null => {
+): LayoutProblem | null => {
   const checking = stations.find((each) => each.check !== null && each.diffs);
   const unready = repositories.entries.findIndex((each) => !each.setup);
 
@@ -153,10 +153,10 @@ export const setupRefused = (
     : null;
 };
 
-export const reactionsRefused = (
+export const reactionsProblem = (
   reactions: readonly LaidReaction[],
   stationKeys: ReadonlySet<string>,
-): LayoutRefusal | null => {
+): LayoutProblem | null => {
   const claimed = new Set<string>();
 
   for (const [at, reaction] of reactions.entries()) {
@@ -173,15 +173,15 @@ export const reactionsRefused = (
       };
     }
 
-    const standing = `${reaction.happening}@${reaction.from ?? '*'}`;
+    const claim = `${reaction.happening}@${reaction.from ?? '*'}`;
 
-    if (claimed.has(standing)) {
+    if (claimed.has(claim)) {
       return {
         reason: `must send each happening to one station, but two wait for "${reaction.happening}"`,
         part: reactionAt(at, null),
       };
     }
-    claimed.add(standing);
+    claimed.add(claim);
   }
 
   return null;

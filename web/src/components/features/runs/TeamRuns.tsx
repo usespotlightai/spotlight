@@ -10,7 +10,7 @@ import { Disclosure } from '@/components/shell/layout/Disclosure';
 import { DisclosureRow } from '@/components/shell/layout/DisclosureRow';
 import { useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { useCollapsed } from '@/hooks/useCollapsed';
-import { useRemembered } from '@/hooks/useRemembered';
+import { useStoredState } from '@/hooks/useStoredState';
 import { inboxItemPath } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
 import {
@@ -29,8 +29,8 @@ const FILTER_KEY = 'spotlight.run-filter';
 export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
   const runs = useTeamRuns(teamId);
   const ages = useCollapsed(STORAGE_KEY);
-  const [held, remember] = useRemembered(FILTER_KEY, FALLBACK_RUN_FILTER);
-  const filter = asRunFilter(held);
+  const [stored, store] = useStoredState(FILTER_KEY, FALLBACK_RUN_FILTER);
+  const filter = asRunFilter(stored);
 
   if (failed(runs)) {
     return (
@@ -63,7 +63,7 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
 
   return (
     <>
-      <ViewPills views={RUN_FILTERS} current={filter} onChange={remember} />
+      <ViewPills views={RUN_FILTERS} current={filter} onChange={store} />
 
       {loading(runs) ? (
         <TeamRunsSkeleton />
@@ -75,14 +75,14 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
         </Notice>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pb-1.5">
-          {byAge(shown).map(([age, held], at) => (
+          {byAge(shown).map(([age, ofAge], at) => (
             <section
               key={age}
               className={cn('flex flex-col', at === 0 && 'pt-1.5')}
             >
               <DisclosureRow
                 label={age}
-                count={held.length}
+                count={ofAge.length}
                 open={ages.isExpanded(age)}
                 onToggle={() => ages.toggle(age)}
                 chevron="start"
@@ -90,7 +90,7 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
               />
 
               <Disclosure open={ages.isExpanded(age)} className="px-1.5">
-                {held.map((run) => (
+                {ofAge.map((run) => (
                   <RunRow
                     key={run.id}
                     run={run}

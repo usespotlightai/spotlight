@@ -21,7 +21,7 @@ export class TeamAccess {
     return new TeamAccess(member.workspaceId, member.teamId);
   }
 
-  reaches(work: ReviewedWork): boolean {
+  allows(work: ReviewedWork): boolean {
     return (
       work.workspaceId.equals(this.workspaceId) &&
       (work.teamId?.equals(this.teamId) ?? false)

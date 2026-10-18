@@ -9,13 +9,13 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { CompleteRunHandler } from '@work/application/commands/handlers/complete-run.handler';
 import { CompleteRunCommand } from '@work/application/commands/runner.commands';
 import type {
-  HookedTaskDto,
-  HookedTasksPort,
-} from '@work/application/ports/hooked-tasks.port';
-import type {
-  BeforeMoment,
-  HookVerdict,
+  BeforeHookEvent,
+  HookDecision,
 } from '@work/application/ports/lifecycle-hooks.port';
+import type {
+  TaskViewDto,
+  TaskViewsPort,
+} from '@work/application/ports/task-views.port';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -39,17 +39,17 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-17T09:00:00.000Z');
 
-const held = () =>
+const leased = () =>
   Run.enqueue({
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -63,11 +63,11 @@ const held = () =>
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task:station' },
+      resume: { key: 'task:station' },
     }),
   }).claim(RunnerId.of('runner_1'), NOW);
 
-const HOOKED = { taskId: 'task_1', runId: 'run_1' } as HookedTaskDto;
+const TASK_VIEW = { taskId: 'task_1', runId: 'run_1' } as TaskViewDto;
 
 const line = () =>
   Line.rehydrate({
@@ -92,7 +92,7 @@ const line = () =>
         position: 1,
         color: StationColor.of('#a3a8b0'),
         harness: HarnessId.of('dev'),
-        wayOut: WayOut.of({ stations: [StationId.of('station_2')] }),
+        routes: StationRoutes.of({ stations: [StationId.of('station_2')] }),
       }),
       Station.of({
         id: StationId.of('station_2'),
@@ -113,58 +113,58 @@ const line = () =>
     ],
   });
 
-const workedByTheRun = () =>
+const claimedByTheRun = () =>
   Task.add({
     line: line(),
     at: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
-  }).handedTo(RunId.of('run_1'), line());
+  }).assignRun(RunId.of('run_1'), line());
 
 const completing = (
   save: (run: Run) => Promise<void>,
-  verdict: HookVerdict = { kind: 'allowed' },
+  decision: HookDecision = { kind: 'allowed' },
   task: Task | (() => Task) | null = null,
   stored: { tasks: Task[]; run?: () => Run } = { tasks: [] },
 ) => {
-  const asked: BeforeMoment[] = [];
+  const hookCalls: BeforeHookEvent[] = [];
   const handler = new CompleteRunHandler(
     {
-      findById: async () => (stored.run ? stored.run() : held()),
+      findById: async () => (stored.run ? stored.run() : leased()),
       save,
     } as unknown as RunRepository,
     {
       find: async () => (typeof task === 'function' ? task() : task),
       save: async (each: Task) => void stored.tasks.push(each),
     } as unknown as TaskRepository,
-    { holding: async () => line() } as unknown as LineRepository,
+    { findByStation: async () => line() } as unknown as LineRepository,
     {
       inTransaction: (work: () => Promise<unknown>) => work(),
     } as TransactionPort,
-    { of: async () => HOOKED } as unknown as HookedTasksPort,
+    { of: async () => TASK_VIEW } as unknown as TaskViewsPort,
     {
       listens: async () => true,
-      before: async (_task, moment) => {
-        asked.push(moment);
-        return verdict;
+      before: async (_task, event) => {
+        hookCalls.push(event);
+        return decision;
       },
       after: async () => {},
     },
     { now: () => NOW, sleep: async () => {} },
   );
 
-  return Object.assign(handler, { asked });
+  return Object.assign(handler, { hookCalls });
 };
 
-const declaredOn = (run: Run | undefined) =>
+const handoverOn = (run: Run | undefined) =>
   (
     run?.pullEvents().find((each) => each instanceof RunCompleted) as
       | RunCompleted
       | undefined
-  )?.declared;
+  )?.handover;
 
 describe('CompleteRunHandler', () => {
   describe('ending a turn that asks a person', () => {
@@ -187,14 +187,14 @@ describe('CompleteRunHandler', () => {
       const answered = await completing(
         async (run) => void saved.push(run),
         { kind: 'allowed' },
-        workedByTheRun(),
+        claimedByTheRun(),
         stored,
       ).execute(reviewing);
 
       expect(answered).toEqual({ waiting: true });
       expect(saved[0]?.state).toBe('waiting');
       expect(stored.tasks[0]?.awaitingReview).toBe(true);
-      expect(stored.tasks[0]?.heldBy(RunId.of('run_1'))).toBe(true);
+      expect(stored.tasks[0]?.hasCurrentRun(RunId.of('run_1'))).toBe(true);
       expect(stored.tasks[0]?.sessionId?.value).toBe('session_1');
       expect(stored.tasks[0]?.notes[0]?.body.value).toBe(
         'Which queue should I drain?',
@@ -211,23 +211,23 @@ describe('CompleteRunHandler', () => {
       await completing(
         async (run) => void saved.push(run),
         { kind: 'allowed' },
-        workedByTheRun(),
+        claimedByTheRun(),
       ).execute(reviewing);
 
-      expect(saved[0]?.spec.value.continuity).toEqual({
+      expect(saved[0]?.spec.value.resume).toEqual({
         key: 'task:station',
         sessionId: 'session_1',
-        resumes: true,
+        resumeSession: true,
       });
     });
 
-    it('ends the run as before when the turn hands the task on to a station', async () => {
+    it('ends the run as before when the turn passes the task to a station', async () => {
       const saved: Run[] = [];
 
       const answered = await completing(
         async (run) => void saved.push(run),
         { kind: 'allowed' },
-        workedByTheRun(),
+        claimedByTheRun(),
       ).execute(
         new CompleteRunCommand('run_1', 'runner_1', 0, false, undefined, {
           next: 'deploy',
@@ -244,7 +244,7 @@ describe('CompleteRunHandler', () => {
       const answered = await completing(
         async (run) => void saved.push(run),
         { kind: 'allowed' },
-        workedByTheRun(),
+        claimedByTheRun(),
       ).execute(
         new CompleteRunCommand('run_1', 'runner_1', 1, true, 'boom', {
           next: 'review',
@@ -258,7 +258,7 @@ describe('CompleteRunHandler', () => {
     it('carries on at once, without pausing or asking again, when the person already answered', async () => {
       const saved: Run[] = [];
       const stored = { tasks: [] as Task[] };
-      const answeredAlready = workedByTheRun()
+      const answeredAlready = claimedByTheRun()
         .putToAPerson(RunId.of('run_1'), {
           station: StationName.of('Build'),
           body: TaskNoteBody.of('Approve?'),
@@ -284,10 +284,10 @@ describe('CompleteRunHandler', () => {
       expect(stored.tasks).toEqual([]);
     });
 
-    it('answers a repeated report of a pause the same way, changing nothing and asking no hook again', async () => {
+    it('answers a repeated report of a pause the same way, changing nothing and calling no hook again', async () => {
       const saved: Run[] = [];
       const waiting = () =>
-        held().paused(
+        leased().paused(
           RunnerId.of('runner_1'),
           RunOutcome.of({ exitCode: 0, failed: false }),
           HandoverReport.none(),
@@ -297,7 +297,7 @@ describe('CompleteRunHandler', () => {
       const handler = completing(
         async (run) => void saved.push(run),
         { kind: 'allowed' },
-        workedByTheRun(),
+        claimedByTheRun(),
         { tasks: [], run: waiting },
       );
 
@@ -305,16 +305,16 @@ describe('CompleteRunHandler', () => {
 
       expect(answered).toEqual({ waiting: true });
       expect(saved).toEqual([]);
-      expect(handler.asked).toEqual([]);
+      expect(handler.hookCalls).toEqual([]);
     });
 
-    it('ends the run as before when the runner could not keep its workspace', async () => {
+    it('ends the run as before when the runner could not archive its workspace', async () => {
       const saved: Run[] = [];
 
       const answered = await completing(
         async (run) => void saved.push(run),
         { kind: 'allowed' },
-        workedByTheRun(),
+        claimedByTheRun(),
       ).execute(
         new CompleteRunCommand(
           'run_1',
@@ -336,7 +336,7 @@ describe('CompleteRunHandler', () => {
     it('reads the task again when a person answered it while the turn was being reported', async () => {
       const saved: Run[] = [];
       let reads = 0;
-      const asked = workedByTheRun().putToAPerson(RunId.of('run_1'), {
+      const asked = claimedByTheRun().putToAPerson(RunId.of('run_1'), {
         station: StationName.of('Build'),
         body: TaskNoteBody.of('Approve?'),
         at: NOW,
@@ -419,13 +419,13 @@ describe('CompleteRunHandler', () => {
       true,
     );
     const lastAttempt = () =>
-      held()
+      leased()
         .timedOut(RUNNER, NOW)
         .claim(RUNNER, NOW)
         .timedOut(RUNNER, NOW)
         .claim(RUNNER, NOW);
 
-    it('goes back on the queue, as a lapsed run does', async () => {
+    it('goes back on the queue, as a run whose lease expired does', async () => {
       const saved: Run[] = [];
 
       await completing(async (run) => void saved.push(run)).execute(timedOut);
@@ -433,7 +433,7 @@ describe('CompleteRunHandler', () => {
       expect(saved[0]?.state).toBe('queued');
     });
 
-    it('is given up on as timed out at its last attempt', async () => {
+    it('is exhausted as timed out at its last attempt', async () => {
       const saved: Run[] = [];
 
       await completing(async (run) => void saved.push(run), undefined, null, {
@@ -476,16 +476,20 @@ describe('CompleteRunHandler', () => {
         note: 'Ready for review.',
       });
 
-    it('asks the hooks before the task is handed over, saying where and what', async () => {
+    it('calls the hooks before the task is handed over, saying where and what', async () => {
       const saved: Run[] = [];
       const handler = completing(async (run) => void saved.push(run));
 
       await handler.execute(handingOver('review-code'));
 
-      expect(handler.asked).toEqual([
-        { on: 'handover.giving', to: 'review-code', note: 'Ready for review.' },
+      expect(handler.hookCalls).toEqual([
+        {
+          on: 'handover.submitting',
+          to: 'review-code',
+          note: 'Ready for review.',
+        },
       ]);
-      expect(declaredOn(saved[0])?.next).toBe('review-code');
+      expect(handoverOn(saved[0])?.next).toBe('review-code');
     });
 
     it('says nowhere where the run named no station', async () => {
@@ -493,25 +497,25 @@ describe('CompleteRunHandler', () => {
 
       await handler.execute(handingOver(''));
 
-      expect(handler.asked[0]).toMatchObject({ to: null });
+      expect(handler.hookCalls[0]).toMatchObject({ to: null });
     });
 
-    it('puts the task to a person with the hook’s reason when a hook refuses', async () => {
+    it('puts the task to a person with the hook’s reason when a hook denies it', async () => {
       const saved: Run[] = [];
 
       await completing(async (run) => void saved.push(run), {
-        kind: 'refused',
-        reason: 'The hook core/qa refused: tests are red.',
+        kind: 'denied',
+        reason: 'The hook core/qa denied the handover: tests are red.',
       }).execute(handingOver('deploy'));
 
-      const declared = declaredOn(saved[0]);
-      expect(declared?.asksForReview()).toBe(true);
-      expect(declared?.note).toBe(
-        'The hook core/qa refused: tests are red.\n\nThe run said: Ready for review.',
+      const handover = handoverOn(saved[0]);
+      expect(handover?.requestsReview()).toBe(true);
+      expect(handover?.note).toBe(
+        'The hook core/qa denied the handover: tests are red.\n\nNote from the run: Ready for review.',
       );
     });
 
-    it('asks no hooks when the run failed or was stopped', async () => {
+    it('calls no hooks when the run failed or was stopped', async () => {
       const failed = completing(async () => {});
       await failed.execute(
         new CompleteRunCommand('run_1', 'runner_1', 1, true, 'boom', {
@@ -533,21 +537,21 @@ describe('CompleteRunHandler', () => {
         ),
       );
 
-      expect(failed.asked).toEqual([]);
-      expect(stopped.asked).toEqual([]);
+      expect(failed.hookCalls).toEqual([]);
+      expect(stopped.hookCalls).toEqual([]);
     });
 
-    it('asks no hooks when the run declared nothing', async () => {
+    it('calls no hooks when the run handed over nothing', async () => {
       const handler = completing(async () => {});
 
       await handler.execute(
         new CompleteRunCommand('run_1', 'runner_1', 0, false),
       );
 
-      expect(handler.asked).toEqual([]);
+      expect(handler.hookCalls).toEqual([]);
     });
 
-    it('asks no hooks for a run another runner holds', async () => {
+    it('calls no hooks for a run another runner leases', async () => {
       const handler = completing(async () => {});
 
       await expect(
@@ -557,7 +561,7 @@ describe('CompleteRunHandler', () => {
           }),
         ),
       ).rejects.toMatchObject({ kind: 'conflict' });
-      expect(handler.asked).toEqual([]);
+      expect(handler.hookCalls).toEqual([]);
     });
   });
 });

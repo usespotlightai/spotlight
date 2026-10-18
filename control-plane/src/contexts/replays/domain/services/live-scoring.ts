@@ -10,7 +10,7 @@ const DERIVED_WHEN_LEFT_OUT: readonly ScoringField[] = ['diffs'];
 
 export interface ScoredLive {
   readonly block: unknown;
-  readonly keptLive: readonly ScoringField[];
+  readonly scoringPinnedToLive: readonly ScoringField[];
 }
 
 const changes = (
@@ -26,22 +26,24 @@ export const scoredLive = (
   live: StationBlock,
 ): ScoredLive => {
   if (!isBlock(planned)) {
-    return { block: planned, keptLive: [] };
+    return { block: planned, scoringPinnedToLive: [] };
   }
 
-  const held = live.value;
+  const liveBlock = live.value;
   const block: Record<string, unknown> = { ...planned };
 
   for (const field of SCORING_FIELDS) {
-    if (held[field] === undefined) {
+    if (liveBlock[field] === undefined) {
       delete block[field];
     } else {
-      block[field] = held[field];
+      block[field] = liveBlock[field];
     }
   }
 
   return {
     block,
-    keptLive: SCORING_FIELDS.filter((field) => changes(planned, held, field)),
+    scoringPinnedToLive: SCORING_FIELDS.filter((field) =>
+      changes(planned, liveBlock, field),
+    ),
   };
 };

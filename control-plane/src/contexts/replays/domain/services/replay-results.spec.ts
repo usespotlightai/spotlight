@@ -9,13 +9,13 @@ import {
   measuresOf,
   NOW,
   RUBRIC,
+  ranToEnd,
   replayedAs,
   replayFor,
   runIds,
-  settledAs,
 } from '@replays/domain/replays.fake-spec';
 import {
-  comparedWith,
+  taskComparisons,
   totalsOf,
 } from '@replays/domain/services/replay-results';
 import {
@@ -24,7 +24,7 @@ import {
 } from '@replays/domain/value-objects/change-checks.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -43,7 +43,7 @@ const checksOf = (state: StackState) =>
     },
   ]);
 
-const settled = (replay: Replay, at: number, how: Ran, cost: number) => {
+const ranToEndHow = (replay: Replay, at: number, how: Ran, cost: number) => {
   const confirmed = replay
     .confirm(run(at), FINGERPRINT, NOW)
     .recordRunEnd(
@@ -72,7 +72,7 @@ const ran = (
   rubric: string | null = null,
 ) =>
   runs.reduce(
-    (replay, how, at) => settled(replay, at, how, costs[at] ?? 1),
+    (replay, how, at) => ranToEndHow(replay, at, how, costs[at] ?? 1),
     aReplay({
       id,
       count: runs.length,
@@ -90,9 +90,9 @@ const scoredAs = (score: number) =>
   JudgeVerdict.of({
     scale: 'number',
     value: score,
-    marks: null,
+    claimResults: null,
     claims: [],
-    passShare: 1,
+    passThreshold: 1,
     model: 'judge/model',
     referenced: true,
     reasons: [
@@ -113,15 +113,15 @@ describe('totalsOf', () => {
       .recordReview(
         run(0),
         checksOf('passed'),
-        ModelSpent.of([Spend.of(0.5, 'USD'), Spend.of(0.3, 'GBP')], 2),
+        ModelSpent.of([Money.of(0.5, 'USD'), Money.of(0.3, 'GBP')], 2),
         later(2),
       );
     const totals = totalsOf(replay);
 
-    expect(totals.spent).toEqual(Spend.of(1.5, 'USD'));
+    expect(totals.spent).toEqual(Money.of(1.5, 'USD'));
     expect(totals.spentElsewhere).toEqual([
-      Spend.of(2, 'EUR'),
-      Spend.of(0.3, 'GBP'),
+      Money.of(2, 'EUR'),
+      Money.of(0.3, 'GBP'),
     ]);
     expect(totals.unpricedCalls).toBe(2);
   });
@@ -135,7 +135,7 @@ describe('totalsOf', () => {
     const totals = totalsOf(replay);
 
     expect(totals.entries).toBe(3);
-    expect(totals.settled).toBe(3);
+    expect(totals.ended).toBe(3);
     expect(totals.endings.completed).toBe(2);
     expect(totals.endings.failed).toBe(1);
     expect(totals.spent.amount).toBe(7);
@@ -157,7 +157,7 @@ describe('totalsOf', () => {
     expect(totals.successRate).toBeCloseTo(2 / 3);
   });
 
-  it('totals only the runs it is given, when given some', () => {
+  it('totals only the runs it receives, when it receives some', () => {
     const replay = ran(
       'replay_1',
       ['passed', 'failed-run', 'passed', 'failed-check'],
@@ -181,12 +181,12 @@ describe('totalsOf', () => {
       .reserving(1, runIds())
       .measure(run(0), measuresOf(null), NOW);
 
-    expect(totalsOf(replay).settled).toBe(0);
+    expect(totalsOf(replay).ended).toBe(0);
   });
 });
 
-describe('comparedWith', () => {
-  it('sets each task against the baseline, regressions first, with deltas once both settled', () => {
+describe('taskComparisons', () => {
+  it('sets each task against the baseline, regressions first, with deltas once both ended', () => {
     const baseline = ran(
       'baseline',
       ['passed', 'passed', 'failed-run'],
@@ -199,7 +199,7 @@ describe('comparedWith', () => {
       [0.5, 2, 1],
     );
 
-    const compared = comparedWith(candidate, baseline);
+    const compared = taskComparisons(candidate, baseline);
 
     expect(compared.map((each) => [each.original, each.regressed])).toEqual([
       ['original_1', true],
@@ -215,8 +215,8 @@ describe('comparedWith', () => {
   it('counts a drop in the judge’s score as a regression, even where both succeeded', () => {
     const judged = (replay: Replay, scores: readonly number[]) =>
       scores.reduce(
-        (held, score, at) =>
-          held.recordVerdict(run(at), scoredAs(score), null, later(90_000)),
+        (built, score, at) =>
+          built.recordVerdict(run(at), scoredAs(score), null, later(90_000)),
         replay,
       );
     const baseline = judged(
@@ -228,7 +228,7 @@ describe('comparedWith', () => {
       [4, 5],
     );
 
-    const compared = comparedWith(candidate, baseline);
+    const compared = taskComparisons(candidate, baseline);
 
     expect(
       compared.map((each) => [
@@ -250,9 +250,9 @@ describe('comparedWith', () => {
         JudgeVerdict.of({
           scale: 'number',
           value: 2,
-          marks: null,
+          claimResults: null,
           claims: [],
-          passShare: 1,
+          passThreshold: 1,
           model: 'judge/model',
           referenced,
           reasons: [],
@@ -266,7 +266,7 @@ describe('comparedWith', () => {
     );
 
     expect(
-      comparedWith(
+      taskComparisons(
         judged(
           ran('candidate', ['passed'], [], false, `${RUBRIC} More.`),
           true,
@@ -275,13 +275,13 @@ describe('comparedWith', () => {
       )[0],
     ).toMatchObject({ scoreDelta: null, scoreUncompared: 'other-rubric' });
     expect(
-      comparedWith(
+      taskComparisons(
         judged(ran('candidate', ['passed'], [], false, RUBRIC), false),
         baseline,
       )[0],
     ).toMatchObject({ scoreDelta: null, scoreUncompared: 'other-reference' });
     expect(
-      comparedWith(
+      taskComparisons(
         judged(ran('candidate', ['passed'], [], false, RUBRIC), true),
         baseline,
       )[0],
@@ -289,7 +289,7 @@ describe('comparedWith', () => {
   });
 
   it('calls nothing a regression that neither side could score', () => {
-    const compared = comparedWith(
+    const compared = taskComparisons(
       ran('candidate', ['failed-run'], []),
       ran('baseline', ['unchecked'], [], true),
     );
@@ -298,32 +298,32 @@ describe('comparedWith', () => {
   });
 
   it('calls no task a regression that the candidate could not replay or start, where its baseline passed', () => {
-    const refused = aReplay({
+    const unreplayable = aReplay({
       id: 'candidate',
       count: 1,
       ceiling: 100,
       candidate: candidateOf('proposed', 'candidate_candidate'),
     })
       .reserving(1, runIds())
-      .refused(run(0), 'candidate-unfit', NOW);
-    const compared = comparedWith(
-      refused,
+      .unreplayable(run(0), 'candidate-unfit', NOW);
+    const compared = taskComparisons(
+      unreplayable,
       ran('baseline', ['passed'], [1], true),
     );
 
     expect(compared[0]?.candidateSuccess).toBeNull();
     expect(compared[0]?.regressed).toBe(false);
-    expect(totalsOf(refused).unscored).toBe(1);
+    expect(totalsOf(unreplayable).unscored).toBe(1);
   });
 
-  it('compares only the runs it is given, when given some', () => {
+  it('compares only the runs it receives, when it receives some', () => {
     const baseline = ran('baseline', ['passed', 'passed', 'passed'], [], true);
     const candidate = ran(
       'candidate',
       ['failed-run', 'passed', 'failed-run'],
       [],
     );
-    const compared = comparedWith(candidate, baseline, [
+    const compared = taskComparisons(candidate, baseline, [
       RunId.of('original_1'),
       RunId.of('original_2'),
     ]);
@@ -336,7 +336,10 @@ describe('comparedWith', () => {
   });
 
   it('has nothing to set a task against without a baseline', () => {
-    const compared = comparedWith(ran('candidate', ['failed-run'], [1]), null);
+    const compared = taskComparisons(
+      ran('candidate', ['failed-run'], [1]),
+      null,
+    );
 
     expect(compared[0]?.baseline).toEqual([]);
     expect(compared[0]?.regressed).toBe(false);
@@ -347,7 +350,7 @@ describe('comparedWith', () => {
 describe('results with repeats', () => {
   const SET = aSet(4);
 
-  const copies = (
+  const withRepeats = (
     id: string,
     repeats: number,
     failing: readonly string[],
@@ -366,8 +369,8 @@ describe('results with repeats', () => {
         failing.includes(`${original}#${repeat}`) ? 'failed' : 'completed',
     );
 
-  it('rates one copy each exactly as the share of scored runs that succeeded', () => {
-    const once = copies('replay_once', 1, ['original_0#1']);
+  it('rates one repeat each exactly as the share of scored runs that succeeded', () => {
+    const once = withRepeats('replay_once', 1, ['original_0#1']);
     const totals = totalsOf(once);
 
     expect(totals.successRate).toBe(
@@ -378,8 +381,8 @@ describe('results with repeats', () => {
     expect(totals.tasksScored).toBe(4);
   });
 
-  it('rates each task by the mean of its copies, then the tasks evenly, with an interval over the tasks', () => {
-    const twice = copies('replay_twice', 2, [
+  it('rates each task by the mean of its repeats, then the tasks evenly, with an interval over the tasks', () => {
+    const twice = withRepeats('replay_twice', 2, [
       'original_0#1',
       'original_0#2',
       'original_1#2',
@@ -398,15 +401,15 @@ describe('results with repeats', () => {
     expect(totalsOf(twice)).toEqual(totals);
   });
 
-  it('compares task by task, every copy on each side, regressing only when the baseline succeeds more than half as often again', () => {
-    const baseline = copies('replay_live', 2, ['original_3#1'], true);
-    const candidate = copies('replay_candidate', 2, [
+  it('compares task by task, every repeat on each side, regressing only when the baseline succeeds more than half as often again', () => {
+    const baseline = withRepeats('replay_live', 2, ['original_3#1'], true);
+    const candidate = withRepeats('replay_candidate', 2, [
       'original_0#1',
       'original_0#2',
       'original_1#1',
       'original_3#2',
     ]);
-    const compared = comparedWith(candidate, baseline);
+    const compared = taskComparisons(candidate, baseline);
 
     expect(compared).toHaveLength(4);
     expect(
@@ -427,8 +430,8 @@ describe('results with repeats', () => {
     expect(compared[0]?.costDelta).toBe(0);
   });
 
-  it('counts no task as regressed while any of its copies, on either side, is still out', () => {
-    const baseline = copies('replay_live', 1, [], true);
+  it('counts no task as regressed while any of its repeats, on either side, is still out', () => {
+    const baseline = withRepeats('replay_live', 1, [], true);
     const reserved = replayFor(
       SET,
       'replay_partial',
@@ -440,16 +443,16 @@ describe('results with repeats', () => {
     const firstOnly = reserved.entries
       .filter((each) => each.repeat === 1)
       .reduce(
-        (held, entry) =>
-          settledAs(
-            held,
+        (built, entry) =>
+          ranToEnd(
+            built,
             entry.run as RunId,
             entry.original.value === 'original_0' ? 'failed' : 'completed',
             1,
           ),
         reserved,
       );
-    const midway = comparedWith(firstOnly, baseline).find(
+    const midway = taskComparisons(firstOnly, baseline).find(
       (each) => each.original === 'original_0',
     );
 
@@ -460,9 +463,9 @@ describe('results with repeats', () => {
     const done = firstOnly.entries
       .filter((each) => each.repeat > 1)
       .reduce(
-        (held, entry) =>
-          settledAs(
-            held,
+        (built, entry) =>
+          ranToEnd(
+            built,
             entry.run as RunId,
             entry.original.value === 'original_0' ? 'failed' : 'completed',
             1,
@@ -471,18 +474,18 @@ describe('results with repeats', () => {
       );
 
     expect(
-      comparedWith(done, baseline).find(
+      taskComparisons(done, baseline).find(
         (each) => each.original === 'original_0',
       )?.regressed,
     ).toBe(true);
   });
 
-  it('regresses on one copy each just as before: the baseline succeeded and the candidate failed', () => {
-    const baseline = copies('replay_live', 1, [], true);
-    const candidate = copies('replay_candidate', 1, ['original_2#1']);
+  it('regresses on one repeat each just as before: the baseline succeeded and the candidate failed', () => {
+    const baseline = withRepeats('replay_live', 1, [], true);
+    const candidate = withRepeats('replay_candidate', 1, ['original_2#1']);
 
     expect(
-      comparedWith(candidate, baseline)
+      taskComparisons(candidate, baseline)
         .filter((each) => each.regressed)
         .map((each) => each.original),
     ).toEqual(['original_2']);

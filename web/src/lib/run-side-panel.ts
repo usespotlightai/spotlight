@@ -1,7 +1,7 @@
 import { createContext, type ReactNode, useContext } from 'react';
 import type { FileChange, LineRange } from '@/lib/changes';
 
-export interface RememberedRun {
+export interface MemoriesRun {
   readonly slug: string;
   readonly teamId: string;
   readonly runId: string;
@@ -10,20 +10,20 @@ export interface RememberedRun {
 export interface RunSidePanel {
   readonly selected: FileChange | null;
   readonly lines: LineRange | null;
-  readonly remembered: RememberedRun | null;
-  readonly aside: ReactNode;
+  readonly memories: MemoriesRun | null;
+  readonly sidePanel: ReactNode;
   open(file: FileChange, lines?: LineRange): void;
-  openRemembered(run: RememberedRun): void;
+  openMemories(run: MemoriesRun): void;
   close(): void;
 }
 
 const CLOSED: RunSidePanel = {
   selected: null,
   lines: null,
-  remembered: null,
-  aside: null,
+  memories: null,
+  sidePanel: null,
   open: () => {},
-  openRemembered: () => {},
+  openMemories: () => {},
   close: () => {},
 };
 

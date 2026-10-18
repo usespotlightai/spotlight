@@ -13,13 +13,13 @@ type SecretsManager = Pick<SecretsManagerClient, 'send'>;
 
 const fieldOf = (
   secret: SecretReference,
-  held: string,
+  text: string,
   field: string,
 ): string => {
   let parsed: unknown;
 
   try {
-    parsed = JSON.parse(held);
+    parsed = JSON.parse(text);
   } catch {
     throw new UnreadableSecretError(
       secret.name.value,
@@ -55,10 +55,10 @@ export class AwsSecretsManagerSource implements SecretSourcePort {
       );
     }
 
-    let held: string | undefined;
+    let text: string | undefined;
 
     try {
-      held = (
+      text = (
         await this.client.send(
           new GetSecretValueCommand({ SecretId: secretId }),
         )
@@ -70,15 +70,15 @@ export class AwsSecretsManagerSource implements SecretSourcePort {
       );
     }
 
-    if (!held) {
+    if (!text) {
       throw new UnreadableSecretError(
         secret.name.value,
-        'AWS Secrets Manager holds no text for it.',
+        'AWS Secrets Manager has no text for it.',
       );
     }
 
     return SecretValue.of(
-      secret.source.field ? fieldOf(secret, held, secret.source.field) : held,
+      secret.source.field ? fieldOf(secret, text, secret.source.field) : text,
       'value',
     );
   }

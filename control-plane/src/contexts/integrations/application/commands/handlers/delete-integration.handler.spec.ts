@@ -6,25 +6,25 @@ import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import {
   access,
   definitions,
-  standingAt,
-  toolsGiven,
+  enabledTools,
+  storedAt,
   transaction,
 } from '@integrations/integrations.resources.fake-spec';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const deleting = (
   over: {
-    administers?: boolean;
-    given?: ToolUses;
+    isAdmin?: boolean;
+    enabled?: ToolUses;
   } & Parameters<typeof definitions>[0] = {},
 ) => {
-  const kept = definitions({ standing: standingAt(3), ...over });
+  const repository = definitions({ stored: storedAt(3), ...over });
   const handler = new DeleteIntegrationHandler(
-    access(over.administers),
-    kept,
-    toolsGiven(over.given),
+    access(over.isAdmin),
+    repository,
+    enabledTools(over.enabled),
     transaction,
   );
 
@@ -37,35 +37,35 @@ const deleting = (
           version,
         ),
       ),
-    kept,
+    repository,
   };
 };
 
 describe('DeleteIntegrationHandler', () => {
-  it('retires the version it was asked to', async () => {
-    const { remove, kept } = deleting();
+  it('deletes the requested version', async () => {
+    const { remove, repository } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
 
-    const [saved] = kept.save.mock.calls[0] as [IntegrationDefinition];
+    const [saved] = repository.save.mock.calls[0] as [IntegrationDefinition];
 
-    expect(saved.isRetired).toBe(true);
+    expect(saved.isDeleted).toBe(true);
   });
 
-  it('refuses to delete a version no longer current, naming the current one', async () => {
-    const { remove, kept } = deleting();
+  it('does not delete a version no longer current, naming the current one', async () => {
+    const { remove, repository } = deleting();
 
     expect(await remove(2)).toEqual({
       outcome: 'version-conflict',
       currentVersion: 3,
     });
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 
   it('names the version that won when a change got there first', async () => {
     const { remove } = deleting({
-      refusing: new IntegrationDefinitionVersionConflictError('linear'),
-      thenAt: standingAt(4),
+      failing: new IntegrationDefinitionVersionConflictError('linear'),
+      thenAt: storedAt(4),
     });
 
     expect(await remove()).toEqual({
@@ -74,21 +74,21 @@ describe('DeleteIntegrationHandler', () => {
     });
   });
 
-  it('will not delete an integration whose tools a station gives', async () => {
-    const { remove, kept } = deleting({
-      standing: standingAt(3, ['linear.comment']),
-      given: ToolUses.of([
+  it('will not delete an integration whose tools a station enables', async () => {
+    const { remove, repository } = deleting({
+      stored: storedAt(3, ['linear.comment']),
+      enabled: ToolUses.of([
         { tool: 'linear.comment', by: 'the station delivery/implementation' },
       ]),
     });
 
     expect(await remove()).toMatchObject({ outcome: 'in-use' });
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 
   it('answers nothing for an integration it cannot find, and forbids one it may not delete', async () => {
-    expect(await deleting({ standing: null }).remove()).toBeNull();
-    expect(await deleting({ administers: false }).remove()).toEqual(
+    expect(await deleting({ stored: null }).remove()).toBeNull();
+    expect(await deleting({ isAdmin: false }).remove()).toEqual(
       forbiddenTo('configure'),
     );
   });

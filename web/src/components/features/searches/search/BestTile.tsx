@@ -1,5 +1,5 @@
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
-import { OnlyOnSeenTasksMark } from '@/components/features/searches/OnlyOnSeenTasksMark';
+import { OverfitMark } from '@/components/features/searches/OverfitMark';
 import { formatPercent } from '@/lib/judge';
 import type { SearchDetail } from '@/lib/search';
 import {
@@ -23,7 +23,7 @@ export function BestTile({ search }: { search: SearchDetail }) {
         label={formatBestTerm(objective)}
         value={NO_VALUE}
         detail={formatNoBest(objective)}
-        note={aims}
+        tooltip={aims}
       />
     );
   }
@@ -34,16 +34,14 @@ export function BestTile({ search }: { search: SearchDetail }) {
   return (
     <InsightsTile
       label={formatBestTerm(objective)}
-      value={best.seed ? 'Live config' : best.name}
+      value={best.isSeed ? 'Live config' : best.name}
       detail={
         <span className="inline-flex flex-wrap items-center gap-1.5">
           {rate !== null && `${formatPercent(rate)} ${formatBestOn(heldOut)}`}
-          {best.onlyOnSeenTasks && (
-            <OnlyOnSeenTasksMark mark={best.onlyOnSeenTasks} />
-          )}
+          {best.overfit && <OverfitMark mark={best.overfit} />}
         </span>
       }
-      note={formatSentences(
+      tooltip={formatSentences(
         aims,
         formatLikely(heldOut ? best.heldOutInterval : best.searchInterval),
       )}

@@ -129,7 +129,7 @@ describe('factsOf with a symbol index', () => {
     ]);
   });
 
-  it('links a call to the route it reaches', () => {
+  it('links a call to the route it calls', () => {
     const facts = factsWith(
       [
         added('api/runs.go', ['r.Get("/teams/{team}/runs", list)']),

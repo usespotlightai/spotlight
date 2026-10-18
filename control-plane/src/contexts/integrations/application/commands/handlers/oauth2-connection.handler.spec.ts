@@ -11,12 +11,12 @@ import type {
   OAuth2Authorized,
   OAuth2LinkingPort,
 } from '@integrations/application/ports/oauth2-linking.port';
-import type { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
+import type { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import { Integration } from '@integrations/domain/entities/integration.entity';
-import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
-import { ConnectionHolding } from '@integrations/domain/value-objects/connection-holding.vo';
-import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
+import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -35,7 +35,7 @@ const authorizing = (allowed: boolean, member = true) =>
             slug: 'acme',
             viewer: UserId.of('user_1'),
             teamId: TeamId.of('team_1'),
-            administers: allowed,
+            isAdmin: allowed,
           }
         : null,
     ),
@@ -45,7 +45,7 @@ const authorizing = (allowed: boolean, member = true) =>
     mayPlan: vi.fn(),
   }) satisfies WorkspaceAccessPort;
 
-const BEGUN = {
+const STARTED = {
   url: 'https://slack.com/oauth/authorize?state=x',
   nonce: 'n-1',
   expiresAt: new Date('2026-09-07T10:10:00.000Z'),
@@ -53,17 +53,13 @@ const BEGUN = {
 
 describe('BeginOAuth2ConnectionHandler', () => {
   const beginning = (
-    over: {
-      allowed?: boolean;
-      member?: boolean;
-      holding?: ConnectionHolding;
-    } = {},
+    over: { allowed?: boolean; member?: boolean; actsAs?: ActsAs } = {},
   ) => {
-    const begin = vi.fn(async () => BEGUN);
+    const begin = vi.fn(async () => STARTED);
     const integration = Integration.of({
-      source: SourceKey.of('slack'),
-      connects: true,
-      holding: over.holding ?? ConnectionHolding.team(),
+      key: IntegrationKey.of('slack'),
+      requiresConnection: true,
+      actsAs: over.actsAs ?? ActsAs.team(),
     });
 
     return {
@@ -80,25 +76,31 @@ describe('BeginOAuth2ConnectionHandler', () => {
   };
 
   const command = (
-    holder: 'team' | 'person' = 'team',
-    back: string | null = null,
+    owner: 'team' | 'person' = 'team',
+    returnTo: string | null = null,
   ) =>
-    new BeginOAuth2ConnectionCommand('team_1', 'slack', 'user_1', holder, back);
+    new BeginOAuth2ConnectionCommand(
+      'team_1',
+      'slack',
+      'user_1',
+      owner,
+      returnTo,
+    );
 
   it('returns the authorize URL for an admin connecting the team', async () => {
     const { handler, begin } = beginning();
 
-    expect(await handler.execute(command())).toBe(BEGUN);
+    expect(await handler.execute(command())).toBe(STARTED);
     expect(begin).toHaveBeenCalledWith({
       teamId: 'team_1',
-      source: 'slack',
+      integration: 'slack',
       by: 'user_1',
-      holder: 'team',
-      back: null,
+      owner: 'team',
+      returnTo: null,
     });
   });
 
-  it('refuses someone who may not connect the team', async () => {
+  it('denies someone who may not connect the team', async () => {
     const { handler, begin } = beginning({ allowed: false });
 
     expect(await handler.execute(command())).toBeNull();
@@ -108,54 +110,56 @@ describe('BeginOAuth2ConnectionHandler', () => {
   it('lets any member connect their own account where the integration acts as each person', async () => {
     const { handler, begin } = beginning({
       allowed: false,
-      holding: ConnectionHolding.requester(),
+      actsAs: ActsAs.requester(),
     });
 
     expect(
       await handler.execute(command('person', '/w/acme/inbox/task_1')),
-    ).toBe(BEGUN);
+    ).toBe(STARTED);
     expect(begin).toHaveBeenCalledWith(
       expect.objectContaining({
-        holder: 'person',
-        back: '/w/acme/inbox/task_1',
+        owner: 'person',
+        returnTo: '/w/acme/inbox/task_1',
       }),
     );
   });
 
-  it('refuses a person’s own connection where the integration acts as the team', async () => {
+  it('rejects a person’s own connection where the integration acts as the team', async () => {
     const { handler, begin } = beginning();
 
     expect(await handler.execute(command('person'))).toBeNull();
     expect(begin).not.toHaveBeenCalled();
   });
 
-  it('refuses someone who is not on the team', async () => {
+  it('denies someone who is not on the team', async () => {
     const { handler, begin } = beginning({
       member: false,
-      holding: ConnectionHolding.requester(),
+      actsAs: ActsAs.requester(),
     });
 
     expect(await handler.execute(command('person'))).toBeNull();
     expect(begin).not.toHaveBeenCalled();
   });
 
-  it('drops a place to land that is not in the app', async () => {
+  it('drops a return path that is not in the app', async () => {
     const { handler, begin } = beginning();
 
     await handler.execute(command('team', 'https://evil.example/'));
 
-    expect(begin).toHaveBeenCalledWith(expect.objectContaining({ back: null }));
+    expect(begin).toHaveBeenCalledWith(
+      expect.objectContaining({ returnTo: null }),
+    );
   });
 });
 
 describe('FinishOAuth2ConnectionHandler', () => {
   const authorized: OAuth2Authorized = {
     teamId: 'team_1',
-    source: 'slack',
+    integration: 'slack',
     by: 'user_1',
-    holder: 'team',
-    back: null,
-    grant: HostGrant.of({ accessToken: 'xoxb-1', handle: 'Acme' }),
+    owner: 'team',
+    returnTo: null,
+    tokens: OAuthTokens.of({ accessToken: 'xoxb-1', linkedAccount: 'Acme' }),
   };
 
   const finishing = (
@@ -163,18 +167,18 @@ describe('FinishOAuth2ConnectionHandler', () => {
       authorized?: OAuth2Authorized | null;
       allowed?: boolean;
       member?: boolean;
-      holding?: ConnectionHolding;
+      actsAs?: ActsAs;
     } = {},
   ) => {
     const integration = Integration.of({
-      source: SourceKey.of('slack'),
-      connects: true,
-      holding: over.holding ?? ConnectionHolding.requester(),
+      key: IntegrationKey.of('slack'),
+      requiresConnection: true,
+      actsAs: over.actsAs ?? ActsAs.requester(),
     });
     const dispatch = vi.fn(
       async (_events: readonly { kind: string }[]) => undefined,
     );
-    const save = vi.fn(async (connection: HostConnection) => {
+    const save = vi.fn(async (connection: IntegrationConnection) => {
       await dispatch(connection.pullEvents());
     });
     const landingFor = vi.fn(
@@ -195,7 +199,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
         save,
         of: vi.fn(),
         expiringBefore: vi.fn(),
-      } as unknown as HostConnectionRepository,
+      } as unknown as IntegrationConnectionRepository,
       authorizing(over.allowed ?? true, over.member ?? true),
       { ofTeam: async () => [] } as unknown as DefinedIntegrationsPort,
       {
@@ -212,7 +216,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
   const command = () =>
     new FinishOAuth2ConnectionCommand('the-state', 'the-code', 'n-1', 'user_1');
 
-  it('links the host, saves it, announces it, and says where to go', async () => {
+  it('connects the integration, saves it, announces it, and says where to go', async () => {
     const { handler, save, dispatch, returned } = finishing();
 
     const to = await handler.execute(command());
@@ -228,40 +232,40 @@ describe('FinishOAuth2ConnectionHandler', () => {
     expect(connection?.workspaceId.value).toBe('ws_1');
     expect(connection?.accessToken.value).toBe('xoxb-1');
     expect(dispatch.mock.calls[0]?.[0]?.map((each) => each.kind)).toContain(
-      'integrations.host-connected',
+      'integrations.integration-connected',
     );
     expect(to).toBe(
       'https://app.example/w/acme/settings/team/team_1/integrations?connected=slack',
     );
   });
 
-  it('stores nothing when the callback does not hold up', async () => {
+  it('stores nothing when the callback is not valid', async () => {
     const { handler, save } = finishing({ authorized: null });
 
     expect(await handler.execute(command())).toBeNull();
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('re-checks the authorizer may still connect, and refuses if not', async () => {
+  it('re-checks the authorizer may still connect, and denies if not', async () => {
     const { handler, save } = finishing({ allowed: false });
 
     expect(await handler.execute(command())).toBeNull();
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('keeps a person’s own connection as theirs, and lands where they began', async () => {
+  it('stores a person’s own connection as theirs, and lands where they began', async () => {
     const { handler, save, landingFor } = finishing({
       allowed: false,
       authorized: {
         ...authorized,
-        holder: 'person',
-        back: '/w/acme/inbox/task_1',
+        owner: 'person',
+        returnTo: '/w/acme/inbox/task_1',
       },
     });
 
     await handler.execute(command());
 
-    expect(save.mock.calls[0]?.[0]?.holder.personId?.value).toBe('user_1');
+    expect(save.mock.calls[0]?.[0]?.owner.personId?.value).toBe('user_1');
     expect(landingFor).toHaveBeenCalledWith(
       'team_1',
       'slack',
@@ -269,20 +273,20 @@ describe('FinishOAuth2ConnectionHandler', () => {
     );
   });
 
-  it('refuses a person’s own connection once they left the team', async () => {
+  it('denies a person’s own connection once they left the team', async () => {
     const { handler, save } = finishing({
       member: false,
-      authorized: { ...authorized, holder: 'person' },
+      authorized: { ...authorized, owner: 'person' },
     });
 
     expect(await handler.execute(command())).toBeNull();
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses a person’s own connection once the integration acts as the team', async () => {
+  it('rejects a person’s own connection once the integration acts as the team', async () => {
     const { handler, save } = finishing({
-      holding: ConnectionHolding.team(),
-      authorized: { ...authorized, holder: 'person' },
+      actsAs: ActsAs.team(),
+      authorized: { ...authorized, owner: 'person' },
     });
 
     expect(await handler.execute(command())).toBeNull();

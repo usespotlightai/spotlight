@@ -21,7 +21,7 @@ type TaskActionsProps = {
 };
 
 export function TaskActions({ title, onDelete }: TaskActionsProps) {
-  const [asking, setAsking] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   return (
     <>
@@ -34,14 +34,14 @@ export function TaskActions({ title, onDelete }: TaskActionsProps) {
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="start" sideOffset={6} className="min-w-44">
-          <DropdownMenuItem closeOnClick onClick={() => setAsking(true)}>
+          <DropdownMenuItem closeOnClick onClick={() => setConfirming(true)}>
             <Trash className="size-3.5" aria-hidden />
             Delete task
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={asking} onOpenChange={setAsking}>
+      <Dialog open={confirming} onOpenChange={setConfirming}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete "{title}"?</DialogTitle>
@@ -56,7 +56,7 @@ export function TaskActions({ title, onDelete }: TaskActionsProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setAsking(false)}
+              onClick={() => setConfirming(false)}
             >
               Keep it
             </Button>

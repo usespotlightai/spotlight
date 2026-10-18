@@ -3,7 +3,7 @@ import type {
   InsightsPullRequestListResponseDto,
   InsightsPullRequestResponseDto,
   InsightsPullRequestsResponseDto,
-  RepositoryPenetrationResponseDto,
+  RepositorySpotlightShareResponseDto,
   RoundsShareResponseDto,
   TypeShareResponseDto,
   WeekShareResponseDto,
@@ -13,7 +13,7 @@ export type InsightsPullRequests = InsightsPullRequestsResponseDto;
 export type InsightsPullRequestList = InsightsPullRequestListResponseDto;
 export type InsightsPullRequest = InsightsPullRequestResponseDto;
 export type WeekShare = WeekShareResponseDto;
-export type RepositoryPenetration = RepositoryPenetrationResponseDto;
+export type RepositorySpotlightShare = RepositorySpotlightShareResponseDto;
 export type GroupMeasures = GroupMeasuresResponseDto;
 export type TypeShare = TypeShareResponseDto;
 export type RoundsShare = RoundsShareResponseDto;
@@ -25,7 +25,7 @@ export type RoundBucket = RoundsShare['rounds'];
 
 export const PULL_REQUEST_AUTHORS: readonly PullRequestAuthor[] = [
   'spotlight',
-  'touched',
+  'reviewed',
   'people',
   'bots',
 ];
@@ -106,7 +106,7 @@ export const pullRequestsNarrowedBy = (
 
 const AUTHORS: Record<PullRequestAuthor, string> = {
   spotlight: 'Spotlight',
-  touched: 'Others, with a Spotlight review task',
+  reviewed: 'Others, with a Spotlight review task',
   people: 'People alone',
   bots: 'Bots alone',
 };

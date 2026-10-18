@@ -4,7 +4,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import {
   EGRESS_CHECKED,
-  enforcementTold,
+  parseEnforcement,
 } from '@work/application/contracts/run-journal.contract';
 import type { RunNetworkDto } from '@work/application/dto/run-network.dto';
 import type { RunConnectionsPort } from '@work/application/ports/run-connections.port';
@@ -41,7 +41,7 @@ export class ReadRunNetworkHandler
       return {
         runId: found.id,
         attempt: found.attempt,
-        egress: enforcementTold(checked?.data),
+        egressEnforcement: parseEnforcement(checked?.data),
         connections: recorded
           .filter((each) => each.attempt === found.attempt)
           .map(({ connection }) => ({
@@ -53,7 +53,7 @@ export class ReadRunNetworkHandler
             outcome: connection.outcome,
             status: connection.status,
             reason: connection.reason,
-            trouble: connection.trouble,
+            error: connection.error,
             at: connection.at.toISOString(),
           })),
       };

@@ -7,15 +7,15 @@ import { sized } from '@/lib/attachment';
 import {
   CONNECTION_OUTCOME_LABELS,
   type ConnectionGroup,
+  ERROR_LABELS,
   formatTraffic,
-  OUTCOME_TOLD,
-  TROUBLE_LABELS,
+  OUTCOME_DESCRIPTION,
 } from '@/lib/run-network';
 import { cn } from '@/lib/utils';
 
 export function ConnectionRow({ group }: { group: ConnectionGroup }) {
-  const shown = group.trouble
-    ? TROUBLE_LABELS[group.trouble]
+  const shown = group.error
+    ? ERROR_LABELS[group.error]
     : CONNECTION_OUTCOME_LABELS[group.outcome];
 
   return (
@@ -35,10 +35,10 @@ export function ConnectionRow({ group }: { group: ConnectionGroup }) {
           <span
             className={cn(
               'min-w-0 flex-1 truncate text-sm tabular-nums',
-              group.trouble ? 'text-destructive' : 'text-foreground',
+              group.error ? 'text-destructive' : 'text-foreground',
             )}
           >
-            {group.trouble ? shown : sized(group.bytesIn + group.bytesOut)}
+            {group.error ? shown : sized(group.bytesIn + group.bytesOut)}
           </span>
         </TooltipTrigger>
         <TooltipContent className="flex max-w-80 flex-col gap-1">
@@ -47,7 +47,7 @@ export function ConnectionRow({ group }: { group: ConnectionGroup }) {
             {shown} · {group.count}{' '}
             {group.count === 1 ? 'connection' : 'connections'}
           </span>
-          <span>{OUTCOME_TOLD[group.outcome]}</span>
+          <span>{OUTCOME_DESCRIPTION[group.outcome]}</span>
           <span>{formatTraffic(group)}</span>
         </TooltipContent>
       </Tooltip>

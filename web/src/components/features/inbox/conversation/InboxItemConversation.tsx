@@ -1,7 +1,7 @@
 import { useSearchParams } from 'react-router';
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
+import { InboxItemBriefing } from '@/components/features/inbox/conversation/InboxItemBriefing';
 import { InboxItemFooter } from '@/components/features/inbox/conversation/InboxItemFooter';
-import { InboxItemOpening } from '@/components/features/inbox/conversation/InboxItemOpening';
 import { FailureCount } from '@/components/features/inbox/FailureCount';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
@@ -34,7 +34,7 @@ export function InboxItemConversation({
 }: InboxItemConversationProps) {
   const [params] = useSearchParams();
   const answer = useAnswerInboxItem();
-  const ownsItsOpening = carriesItsOwn(item);
+  const ownsItsBriefing = carriesItsOwn(item);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -48,7 +48,7 @@ export function InboxItemConversation({
           item={{
             id: item.id,
             teamId: item.teamId,
-            about: ownsItsOpening
+            about: ownsItsBriefing
               ? { title: item.title, description: item.description }
               : undefined,
             createdAt: item.createdAt,
@@ -60,11 +60,11 @@ export function InboxItemConversation({
           worked={worked}
           deciding={{
             pending: answer.isPending,
-            onDecide: ({ approve, said, inputs }) =>
+            onDecide: ({ approve, body, inputs }) =>
               answer.mutate({
                 slug,
                 itemId: item.id,
-                body: said,
+                body,
                 attachments: [],
                 approve,
                 inputs,
@@ -80,11 +80,11 @@ export function InboxItemConversation({
               />
             ) : undefined
           }
-          opening={
-            ownsItsOpening ? undefined : <InboxItemOpening item={item} />
+          briefing={
+            ownsItsBriefing ? undefined : <InboxItemBriefing item={item} />
           }
           footer={
-            ownsItsOpening ? null : <InboxItemFooter slug={slug} item={item} />
+            ownsItsBriefing ? null : <InboxItemFooter slug={slug} item={item} />
           }
         />
       </RunSidePanel>

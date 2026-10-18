@@ -16,16 +16,16 @@ const PARTS: StationConfigParts = {
   profile: { key: 'careful', settings: { rules: ['be kind'], native: {} } },
   image: null,
   repositories: [{ name: 'acme/widgets', setup: 'npm ci' }],
-  skills: [{ key: 'review', digest: 'a'.repeat(64) }],
+  skills: [{ key: 'review', hash: 'a'.repeat(64) }],
   tools: ['github.comment'],
   decisions: true,
   memories: false,
 };
 
 const FINGERPRINT_BEFORE_JUDGES =
-  '3d548c379d8e7d9a5be1412570a1240d8f65a876a8813260ef3ead58dbf38c7d';
+  '6d0f4c91fc7468814f6766b85d726f9ee5d9a1590a1092dbb3748591bc8dac33';
 
-const JUDGE = { rubricDigest: 'b'.repeat(64), sample: 0.2, trust: 0.6 };
+const JUDGE = { rubricHash: 'b'.repeat(64), sample: 0.2, minAgreement: 0.6 };
 
 const configured = (parts: Partial<StationConfigParts> = {}): StationConfig =>
   StationConfig.of({ ...PARTS, ...parts }, sha256);
@@ -56,10 +56,10 @@ describe('StationConfig', () => {
     ]);
   });
 
-  it('says the rubric changed without showing it, and shows the sample and trust it moved between', () => {
+  it('says the rubric changed without showing it, and shows the sample and minimum agreement it moved between', () => {
     const was = configured({ judge: JUDGE });
     const now = configured({
-      judge: { rubricDigest: 'c'.repeat(64), sample: 0.5, trust: 0.8 },
+      judge: { rubricHash: 'c'.repeat(64), sample: 0.5, minAgreement: 0.8 },
     });
 
     expect(now.changesFrom(was)).toEqual([
@@ -71,7 +71,13 @@ describe('StationConfig', () => {
         was: '0.2',
         now: '0.5',
       },
-      { part: 'judge', name: 'trust', kind: 'changed', was: '0.6', now: '0.8' },
+      {
+        part: 'judge',
+        name: 'minAgreement',
+        kind: 'changed',
+        was: '0.6',
+        now: '0.8',
+      },
     ]);
   });
 });

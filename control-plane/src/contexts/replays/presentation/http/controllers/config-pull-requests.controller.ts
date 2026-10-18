@@ -24,7 +24,7 @@ export class ConfigPullRequestsController {
   @ApiOperation({
     operationId: 'readConfigPullRequest',
     summary:
-      'Read the pull request a picked search candidate opens in the line’s config repository: opening, opened with its link, or refused and why',
+      'Read the pull request a picked search candidate opens in the line’s config repository: opening, opened with its link, or failed and why',
   })
   @ApiParam({ name: 'pullRequestId', type: String })
   @ApiOkResponse({ type: ConfigPullRequestResponseDto })

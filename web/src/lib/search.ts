@@ -1,4 +1,5 @@
 import type {
+  FailureCauseResponseDto,
   FieldErrorResponseDto,
   LineReplayCheckResponseDto,
   ReflectedTaskResponseDto,
@@ -7,7 +8,6 @@ import type {
   SearchBestResponseDto,
   SearchBudgetRequestDto,
   SearchCandidateResponseDto,
-  SearchCauseResponseDto,
   SearchDetailResponseDto,
   SearchEstimateResponseDto,
   SearchIterationResponseDto,
@@ -16,7 +16,7 @@ import type {
 } from '@/lib/api';
 import { messageOf } from '@/lib/error';
 import { spentIn } from '@/lib/inbox';
-import { lasted } from '@/lib/insights';
+import { formatDuration } from '@/lib/insights';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import {
   type CountBounds,
@@ -148,7 +148,7 @@ export const tasksIn = (set: ReplaySet): number =>
 const formatTasks = (count: number): string =>
   count === 1 ? '1 task' : `${count} tasks`;
 
-export const setRefusal = (set: ReplaySet): string | null => {
+export const setProblemOf = (set: ReplaySet): string | null => {
   if (set.stationGone) {
     return STATION_GONE_FROM_LINE;
   }
@@ -160,18 +160,18 @@ export const setRefusal = (set: ReplaySet): string | null => {
     : null;
 };
 
-export const startRefusal = (
+export const startProblem = (
   sets: readonly ReplaySet[],
-  underway: Search | null,
+  inProgress: Search | null,
 ): string | null => {
-  if (underway) {
-    return 'A search of this station is underway.';
+  if (inProgress) {
+    return 'A search of this station is in progress.';
   }
   if (sets.length === 0) {
     return 'Create a replay set first.';
   }
 
-  return sets.some((set) => setRefusal(set) === null)
+  return sets.some((set) => setProblemOf(set) === null)
     ? null
     : `No replay set covers ${MIN_TASKS} different tasks yet.`;
 };
@@ -232,7 +232,7 @@ const fieldErrorsOf = (thrown: unknown): FieldErrorResponseDto[] => {
   return Array.isArray(errors) ? (errors as FieldErrorResponseDto[]) : [];
 };
 
-export const refusalsOf = (
+export const problemsOf = (
   thrown: unknown,
 ): { fields: FieldProblems; general: string | null } => {
   if (!thrown) {
@@ -278,7 +278,7 @@ export const formatCostPerRun = (
 ): string => (cost === null ? 'Unpriced' : spentIn(cost, currency));
 
 export const formatHeldOut = (candidate: SearchCandidate): string => {
-  if (candidate.seed) {
+  if (candidate.isSeed) {
     return '–';
   }
   if (
@@ -291,16 +291,16 @@ export const formatHeldOut = (candidate: SearchCandidate): string => {
   return candidate.heldOutReplayId ? '–' : 'Not held out';
 };
 
-export const formatDuration = (ms: number | null): string =>
+export const formatEstimatedDuration = (ms: number | null): string =>
   ms === null
     ? 'Unknown. None of the set’s runs was timed.'
-    : `About ${lasted(ms)}`;
+    : `About ${formatDuration(ms)}`;
 
 export const searchChanges = (candidate: SearchCandidate): ConfigChange[] =>
   configChangesOf(candidate.changes);
 
-export const pickRefusal = (candidate: SearchCandidate): string | null => {
-  if (candidate.seed) {
+export const pickProblem = (candidate: SearchCandidate): string | null => {
+  if (candidate.isSeed) {
     return 'The station already runs the live config.';
   }
 
@@ -309,7 +309,7 @@ export const pickRefusal = (candidate: SearchCandidate): string | null => {
       return null;
     case 'stopped':
       return 'You can’t pick this candidate. Its replay stopped before it finished.';
-    case 'over-budget':
+    case 'ceiling-reached':
       return 'You can’t pick this candidate. Its replay reached its ceiling before it finished.';
     case null:
       return 'You can’t pick this candidate. Its replay is gone.';
@@ -342,7 +342,7 @@ export const byIteration = (detail: SearchDetail): IterationGroup[] => {
     }));
 };
 
-type SearchCause = SearchCauseResponseDto;
+type FailureCause = FailureCauseResponseDto;
 export type ReflectedTask = ReflectedTaskResponseDto;
 
 const CAUSE_ORDER: readonly CauseKind[] = [
@@ -362,19 +362,19 @@ export const reflectionsOf = (detail: SearchDetail): SearchIteration[] =>
     .sort((one, other) => other.number - one.number);
 
 export const reflecting = (iteration: SearchIteration): boolean =>
-  !iteration.reflection?.outcome;
+  !iteration.reflection?.result;
 
-export const standingOf = (
+export const incumbentOf = (
   detail: SearchDetail,
   iteration: SearchIteration,
 ): SearchCandidate | null =>
   candidatesOf(detail).find(
-    (each) => each.candidateId === iteration.reflection?.standing,
+    (each) => each.candidateId === iteration.reflection?.incumbent,
   ) ?? null;
 
 export type CauseGroup = {
   readonly cause: CauseKind;
-  readonly causes: readonly SearchCause[];
+  readonly causes: readonly FailureCause[];
 };
 
 export const causesByKind = (iteration: SearchIteration): CauseGroup[] => {
@@ -407,8 +407,8 @@ export type FrontierPoint = {
   readonly frontier: boolean;
 };
 
-const charted = (candidate: SearchCandidate): boolean =>
-  candidate.seed || candidate.replayState === 'finished';
+const chartStatus = (candidate: SearchCandidate): boolean =>
+  candidate.isSeed || candidate.replayState === 'finished';
 
 export const frontierPoints = (
   detail: SearchDetail,
@@ -419,7 +419,7 @@ export const frontierPoints = (
   const scored = candidatesOf(detail).filter(
     (each) => each.searchScore !== null,
   );
-  const finished = scored.filter(charted);
+  const finished = scored.filter(chartStatus);
 
   return {
     priced: finished.flatMap((each) =>
@@ -428,7 +428,7 @@ export const frontierPoints = (
             {
               id: each.candidateId,
               name: candidateName(each),
-              seed: each.seed,
+              seed: each.isSeed,
               success: each.searchScore,
               cost: each.costPerRun,
               frontier: each.onFrontier,
@@ -441,7 +441,7 @@ export const frontierPoints = (
 };
 
 export const candidateName = (candidate: SearchCandidate): string =>
-  candidate.seed ? 'Live config' : candidate.name;
+  candidate.isSeed ? 'Live config' : candidate.name;
 
 export const setTaskTitle = (
   entry: { readonly runId: string; readonly taskId: string },
@@ -504,20 +504,20 @@ export const SEARCH_HEADINGS: readonly NestedHeading[] = [
   { label: 'Started', numeric: true, size: SPREAD },
 ];
 
-const GUARD_NOTE =
-  'spotlight replay check replays a pull request’s change of this station on this set. One guarding set per station.';
+const GATE_NOTE =
+  'spotlight replay check replays a pull request’s change of this station on this set. One gating set per station.';
 
 export const replayCheckNote = (
   replayCheck: LineReplayCheck | null | undefined,
 ): string => {
   if (replayCheck === undefined) {
-    return GUARD_NOTE;
+    return GATE_NOTE;
   }
   if (replayCheck === null) {
-    return `${GUARD_NOTE} Line sets no replay_check. Its pull requests aren’t checked.`;
+    return `${GATE_NOTE} Line sets no replay_check. Its pull requests aren’t checked.`;
   }
 
-  return `${GUARD_NOTE} Fails past ${formatRegressions(replayCheck.maxRegressions)}. Ceiling per check: ${spentIn(replayCheck.ceiling, replayCheck.currency)} · ${minGainSentence(replayCheck.minGain)}`;
+  return `${GATE_NOTE} Fails past ${formatRegressions(replayCheck.maxRegressions)}. Ceiling per check: ${spentIn(replayCheck.ceiling, replayCheck.currency)} · ${minGainSentence(replayCheck.minGain)}`;
 };
 
 export const SEARCH_CANDIDATE_HEADINGS: readonly NestedHeading[] = [

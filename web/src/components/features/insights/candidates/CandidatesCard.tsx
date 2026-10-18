@@ -19,7 +19,7 @@ export function CandidatesCard({
   stations,
   names,
 }: CandidatesCardProps) {
-  const [charted, setCharted] = useState(false);
+  const [chartStatus, setCharted] = useState(false);
   const shown = { slug, teamId, stations, names };
 
   return (
@@ -29,12 +29,12 @@ export function CandidatesCard({
       description={CANDIDATES_NOTE}
       actions={
         <ChartTableSwitch
-          tabled={!charted}
+          tabled={!chartStatus}
           onTabled={(tabled) => setCharted(!tabled)}
         />
       }
     >
-      <CandidatesTable {...shown} charted={charted} />
+      <CandidatesTable {...shown} chartStatus={chartStatus} />
     </InsightsCard>
   );
 }

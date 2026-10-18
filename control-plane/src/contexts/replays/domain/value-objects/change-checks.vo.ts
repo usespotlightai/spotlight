@@ -1,13 +1,13 @@
 import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.error';
 import {
   checkSkipOf,
-  UNDRAFTED,
+  NOT_GENERATED,
 } from '@replays/domain/value-objects/check-skip';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 
 const STACK_STATES = [
-  'drafting',
-  'undrafted',
+  'generating',
+  'not-generated',
   'unchecked',
   'checking',
   'passed',
@@ -17,7 +17,7 @@ const STACK_STATES = [
 
 export type StackState = (typeof STACK_STATES)[number];
 
-export interface StackStanding {
+export interface StackStatus {
   readonly repository: string | null;
   readonly state: StackState;
   readonly skip: string | null;
@@ -25,8 +25,8 @@ export interface StackStanding {
   readonly spent: ModelSpent;
 }
 
-const draftingSpentOn = (
-  stacks: readonly StackStanding[],
+const generationSpentOn = (
+  stacks: readonly StackStatus[],
 ): ModelSpent | null => {
   const [first, ...rest] = stacks;
 
@@ -37,7 +37,7 @@ const draftingSpentOn = (
 
 export const CHECKS_STATES = [
   'absent',
-  'drafting',
+  'generating',
   'checking',
   'passed',
   'failed',
@@ -50,7 +50,7 @@ export type ChecksState = (typeof CHECKS_STATES)[number];
 const isChecksState = (raw: string): raw is ChecksState =>
   (CHECKS_STATES as readonly string[]).includes(raw);
 
-const named = (stack: StackStanding, name: string, many: boolean): string =>
+const named = (stack: StackStatus, name: string, many: boolean): string =>
   many && stack.repository ? `${stack.repository}: ${name}` : name;
 
 export class ChangeChecks {
@@ -60,7 +60,7 @@ export class ChangeChecks {
     readonly why: string | null,
   ) {}
 
-  static of(stacks: readonly StackStanding[]): ChangeChecks {
+  static of(stacks: readonly StackStatus[]): ChangeChecks {
     if (stacks.length === 0) {
       return new ChangeChecks('absent', [], null);
     }
@@ -69,8 +69,8 @@ export class ChangeChecks {
     const any = (state: StackState) =>
       stacks.filter((each) => each.state === state);
 
-    if (any('drafting').length > 0) {
-      return new ChangeChecks('drafting', [], null);
+    if (any('generating').length > 0) {
+      return new ChangeChecks('generating', [], null);
     }
     if (any('checking').length > 0) {
       return new ChangeChecks('checking', [], null);
@@ -89,14 +89,14 @@ export class ChangeChecks {
     }
 
     const lost = stacks.find(
-      (each) => each.state === 'undrafted' || each.state === 'skipped',
+      (each) => each.state === 'not-generated' || each.state === 'skipped',
     );
 
     if (lost) {
       return new ChangeChecks(
         'unchecked',
         [],
-        lost.state === 'skipped' ? checkSkipOf(lost.skip) : UNDRAFTED,
+        lost.state === 'skipped' ? checkSkipOf(lost.skip) : NOT_GENERATED,
       );
     }
 
@@ -124,11 +124,11 @@ export class ChangeChecks {
   }
 
   get pending(): boolean {
-    return this.state === 'drafting' || this.state === 'checking';
+    return this.state === 'generating' || this.state === 'checking';
   }
 
-  get drafted(): boolean {
-    return this.state !== 'drafting';
+  get generated(): boolean {
+    return this.state !== 'generating';
   }
 
   equals(other: ChangeChecks): boolean {
@@ -142,8 +142,8 @@ export class ChangeChecks {
 }
 
 export const reviewOf = (
-  stacks: readonly StackStanding[],
+  stacks: readonly StackStatus[],
 ): [ChangeChecks, ModelSpent | null] => [
   ChangeChecks.of(stacks),
-  draftingSpentOn(stacks),
+  generationSpentOn(stacks),
 ];

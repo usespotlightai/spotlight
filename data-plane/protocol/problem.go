@@ -15,7 +15,7 @@ type FieldErrors struct {
 	Errors []FieldError `json:"errors"`
 }
 
-func Refuses(errors []FieldError) bool {
+func HasErrors(errors []FieldError) bool {
 	for _, each := range errors {
 		if each.Severity == SeverityError {
 			return true

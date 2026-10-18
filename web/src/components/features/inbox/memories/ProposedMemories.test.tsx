@@ -33,9 +33,9 @@ const memory = (over: Partial<ProposedMemory>): ProposedMemory => ({
   kind: 'preference',
   body: 'Name branches after the ticket.',
   source: 'person',
-  origin: 'drafted',
+  proposedBy: 'drafter',
   state: 'proposed',
-  reach: 'team',
+  scope: 'team',
   repository: null,
   paths: [],
   supersedes: null,
@@ -85,7 +85,7 @@ describe('ProposedMemories', () => {
     expect(screen.getAllByRole('button', { name: /^Approve/ })).toHaveLength(2);
   });
 
-  it('names who said each thing it came from, and the harness behind its steps', () => {
+  it('names the author of each note it came from, and the harness behind its steps', () => {
     showing([
       memory({
         id: 'one',
@@ -134,7 +134,7 @@ describe('ProposedMemories', () => {
       screen.getByRole('button', { name: 'Edit memory 1' }),
     );
     const editor = screen.getByRole('textbox', {
-      name: 'The memory as it should stand',
+      name: 'The memory as it should be',
     });
     await userEvent.clear(editor);
     await userEvent.type(editor, 'One, edited.');
@@ -181,7 +181,7 @@ describe('ProposedMemories', () => {
       screen.getByRole('button', { name: 'Edit memory 1' }),
     );
     await userEvent.type(
-      screen.getByRole('textbox', { name: 'The memory as it should stand' }),
+      screen.getByRole('textbox', { name: 'The memory as it should be' }),
       ' More.',
     );
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -197,7 +197,7 @@ describe('ProposedMemories', () => {
       screen.getByRole('button', { name: 'Edit memory 1' }),
     );
     await userEvent.clear(
-      screen.getByRole('textbox', { name: 'The memory as it should stand' }),
+      screen.getByRole('textbox', { name: 'The memory as it should be' }),
     );
 
     expect(
@@ -217,13 +217,13 @@ describe('ProposedMemories', () => {
     ).toBeInTheDocument();
   });
 
-  it('lays out what it is, what kind, where it applies and the files it bears on', () => {
+  it('lays out what it is, what kind, where it applies and the files it is about', () => {
     showing([
       memory({
         id: 'one',
         body: 'Retry 410s never.',
         kind: 'rationale',
-        reach: 'station',
+        scope: 'station',
         repository: 'acme/worker',
         paths: ['src/retries/deliver.ts'],
       }),
@@ -239,7 +239,7 @@ describe('ProposedMemories', () => {
     ).toBeVisible();
   });
 
-  it('leaves out files where a memory bears on none', () => {
+  it('leaves out files where a memory is about none', () => {
     showing([memory({ id: 'one' })]);
 
     expect(screen.queryByText('Files')).not.toBeInTheDocument();
@@ -284,7 +284,7 @@ describe('ProposedMemories', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('holds its place while the memories load', () => {
+  it('keeps its place while the memories load', () => {
     reviewState.data = undefined;
     reviewState.isPending = true;
     render(<ProposedMemories {...ABOUT} />);
@@ -296,7 +296,7 @@ describe('ProposedMemories', () => {
     ).toBeInTheDocument();
   });
 
-  it('opens on the memories, and folds them into one line that says what waits', async () => {
+  it('opens on the memories, and collapses them into one line that says what waits', async () => {
     reviewState.data = {
       taskId: 'task_1',
       runId: 'run_1',

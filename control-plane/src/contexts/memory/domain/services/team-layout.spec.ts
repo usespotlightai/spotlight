@@ -21,22 +21,22 @@ const layout = TeamLayout.of({
 });
 
 describe('TeamLayout', () => {
-  it('holds a memory to the whole team when it names no line', () => {
+  it('keeps a memory to the whole team when it names no line', () => {
     const scope = layout.scopeOf({});
 
-    expect(scope.reach).toBe('team');
+    expect(scope.level).toBe('team');
     expect(scope.teamId.value).toBe('team_1');
   });
 
-  it('holds a memory to a line, or a station of it', () => {
-    expect(layout.scopeOf({ lineId: 'line_delivery' }).reach).toBe('line');
+  it('keeps a memory to a line, or a station of it', () => {
+    expect(layout.scopeOf({ lineId: 'line_delivery' }).level).toBe('line');
     expect(
       layout.scopeOf({ lineId: 'line_delivery', stationId: 'station_build' })
-        .reach,
+        .level,
     ).toBe('station');
   });
 
-  it('refuses a line of another team, or a station of another line', () => {
+  it('rejects a line of another team, or a station of another line', () => {
     expect(() => layout.scopeOf({ lineId: 'line_elsewhere' })).toThrow(
       InvalidMemoryError,
     );
@@ -61,7 +61,7 @@ describe('TeamLayout', () => {
     );
   });
 
-  it('refuses paths without the repository they lie in', () => {
+  it('rejects paths without the repository they lie in', () => {
     expect(() => layout.scopeOf({ paths: ['src/uploads.ts'] })).toThrow(
       InvalidMemoryError,
     );

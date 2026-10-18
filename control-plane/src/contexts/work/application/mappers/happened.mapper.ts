@@ -2,11 +2,12 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import type {
   Arriving,
   Happened,
-  MarkWorn,
   ReviewPayload,
+  TaskMark,
 } from '@work/application/contracts/happenings.contract';
+import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
-import { Concerns } from '@work/domain/value-objects/concerns.vo';
+import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import {
   Happening,
   type HappeningPayload,
@@ -16,16 +17,15 @@ import { Mark } from '@work/domain/value-objects/mark.vo';
 import type { OpensWith } from '@work/domain/value-objects/opens-with';
 import {
   type ReviewRequest,
-  reviewAsking,
   reviewRequested,
-} from '@work/domain/value-objects/review-asked.vo';
-import { Said } from '@work/domain/value-objects/said.vo';
+  reviewTrigger,
+} from '@work/domain/value-objects/review-request.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 
-export interface Heard {
+export interface ReceivedHappening {
   readonly payload: HappeningPayload;
-  readonly concerns: Concerns;
-  readonly said: Said | null;
+  readonly correlationKeys: CorrelationKeys;
+  readonly anchor: Anchor | null;
   readonly ourOwn: boolean;
   readonly opens: OpensWith | null;
   readonly attachments: readonly Arriving[];
@@ -39,7 +39,7 @@ const reviewOf = (
   }
 
   return reviewRequested({
-    asking: reviewAsking(review.asking),
+    trigger: reviewTrigger(review.trigger),
     label: review.label?.trim() || null,
     pullRequest: PullRequestUrl.of(review.pullRequest),
     author: review.author?.trim() || null,
@@ -50,17 +50,17 @@ const reviewOf = (
 };
 
 export const HappenedMapper = {
-  markOf(worn: MarkWorn): Mark {
-    return Mark.of(worn.kind, worn.value);
+  markOf(mark: TaskMark): Mark {
+    return Mark.of(mark.kind, mark.value);
   },
 
-  toHeard(happened: Happened): Heard | null {
-    const concerns = Concerns.of({
-      branch: happened.concerns.branch,
-      marks: happened.concerns.marks.map(HappenedMapper.markOf),
+  toReceivedHappening(happened: Happened): ReceivedHappening | null {
+    const correlationKeys = CorrelationKeys.of({
+      branch: happened.correlationKeys.branch,
+      marks: happened.correlationKeys.marks.map(HappenedMapper.markOf),
     });
 
-    if (!concerns) {
+    if (!correlationKeys) {
       return null;
     }
 
@@ -69,17 +69,17 @@ export const HappenedMapper = {
     return {
       payload: {
         happening: Happening.of(happened.happening),
-        told: happened.told,
-        spoken: happened.spoken,
+        summary: happened.summary,
+        answers: happened.answers,
         state: happened.state,
       },
-      concerns,
-      said: happened.said ? Said.of(happened.said) : null,
+      correlationKeys,
+      anchor: happened.message ? Anchor.of(happened.message) : null,
       ourOwn: happened.ourOwn,
       opens: opens
         ? {
-            onto: LineRole.of(opens.onto),
-            at: opens.at ? StationKey.parsed(opens.at) : null,
+            lineRole: LineRole.of(opens.lineRole),
+            station: opens.station ? StationKey.parsed(opens.station) : null,
             title: opens.title,
             description: opens.description,
             assignEmail: opens.assignEmail,

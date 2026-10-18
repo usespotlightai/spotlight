@@ -26,7 +26,7 @@ export class RunnerLabels {
       }
 
       if (values.includes(label)) {
-        throw new InvalidRunnerLabelError(`${label} is given twice`);
+        throw new InvalidRunnerLabelError(`${label} is named twice`);
       }
 
       values.push(label);

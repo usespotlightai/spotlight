@@ -9,7 +9,7 @@ const SKILL = (front: string) =>
 const readSkill = (folder: string, text: string) =>
   readSkillFolder(folder, [{ path: 'SKILL.md', text }], 'defined').skill;
 
-describe('what a skill asks a team for', () => {
+describe('what a skill requires from a team', () => {
   it('reads the secrets its frontmatter lists, each with what it is for', () => {
     const skill = readSkill(
       'grafana-dashboards',
@@ -24,20 +24,20 @@ describe('what a skill asks a team for', () => {
     ]);
   });
 
-  it('asks for nothing where its frontmatter lists nothing', () => {
+  it('requires nothing where its frontmatter lists nothing', () => {
     const skill = readSkill('grafana-dashboards', SKILL(''));
 
     expect(skill.secrets).toEqual([]);
     expect(skill.tools).toEqual([]);
   });
 
-  it('refuses secrets written as something other than names with what each is for', () => {
+  it('rejects secrets written as something other than names with what each is for', () => {
     expect(() =>
       readSkill('grafana-dashboards', SKILL('secrets:\n  - GRAFANA_TOKEN\n')),
     ).toThrow(InvalidSkillError);
   });
 
-  it('refuses a name no secret could have', () => {
+  it('rejects a name no secret could have', () => {
     expect(() =>
       readSkill('grafana-dashboards', SKILL('secrets:\n  grafana_token: x\n')),
     ).toThrow('must use capitals, digits and underscores');
@@ -55,7 +55,7 @@ describe('what a skill asks a team for', () => {
     ]);
   });
 
-  it('refuses tools written as something other than a list of tool names', () => {
+  it('rejects tools written as something other than a list of tool names', () => {
     expect(() =>
       readSkill('grafana-dashboards', SKILL('tools: grafana.search\n')),
     ).toThrow('tools must be a list');

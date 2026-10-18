@@ -10,8 +10,8 @@ import {
   type InboxItemResponseDto,
   listInbox,
   listTasks,
-  readInboxAside,
-  readInboxItem,
+  markInboxItemRead,
+  markInboxRequestRead,
   readMemoryReview,
   readRunReview,
   readRunScores,
@@ -19,21 +19,21 @@ import {
   readTaskDecisions,
   readTaskJournal,
   rejectMemory,
-  settleInboxNotice,
+  resolveInboxNotice,
   submitReview,
 } from '@/lib/api';
 import { serveMockApi } from '@/mocks/testing';
 import { GROWTH_ID, PLATFORM_ID, SLUG } from '@/mocks/world';
 import {
-  ALERT_ASIDE_ID,
   ALERT_ID,
-  CLAIMS_GRADE_ASIDE_ID,
-  COST_ALERT_ASIDE_ID,
+  ALERT_REQUEST_ID,
+  CLAIMS_GRADE_REQUEST_ID,
   COST_ALERT_ID,
-  DECIDED_MEMORIES_ASIDE_ID,
-  FIVE_POINT_GRADE_ASIDE_ID,
-  GRADE_ASIDE_ID,
-  MEMORIES_ASIDE_ID,
+  COST_ALERT_REQUEST_ID,
+  DECIDED_MEMORIES_REQUEST_ID,
+  FIVE_POINT_GRADE_REQUEST_ID,
+  GRADE_REQUEST_ID,
+  MEMORIES_REQUEST_ID,
   SETUP_ITEM_ID,
   STALLED_NOTICE_ID,
 } from '@/mocks/world/inbox';
@@ -58,10 +58,13 @@ const POSTGRES_RUN = { teamId: PLATFORM_ID, runId: 'run_postgres_2' };
 const approvalIn = async (itemId: string) =>
   (await itemIn(itemId))?.notes.findLast((note) => note.approval)?.approval;
 
-const scoresAbout = async (asideId: string) => {
-  const aside = await itemIn(asideId);
+const scoresAbout = async (requestId: string) => {
+  const inboxRequest = await itemIn(requestId);
   const { data } = await readRunScores({
-    path: { teamId: aside?.teamId ?? '', runId: aside?.aside?.about ?? '' },
+    path: {
+      teamId: inboxRequest?.teamId ?? '',
+      runId: inboxRequest?.inboxRequest?.about ?? '',
+    },
     throwOnError: true,
   });
 
@@ -71,7 +74,7 @@ const scoresAbout = async (asideId: string) => {
 describe('the mock inbox', () => {
   serveMockApi();
 
-  it('holds open and settled work across both teams', async () => {
+  it('contains open and resolved work across both teams', async () => {
     const entries = await inbox();
     const ids = entries.map((entry) => entry.id);
 
@@ -80,8 +83,8 @@ describe('the mock inbox', () => {
         'task_rate_limits:0',
         'task_postgres:0',
         'task_onboarding_copy:0',
-        MEMORIES_ASIDE_ID,
-        ALERT_ASIDE_ID,
+        MEMORIES_REQUEST_ID,
+        ALERT_REQUEST_ID,
         STALLED_NOTICE_ID,
       ]),
     );
@@ -92,7 +95,7 @@ describe('the mock inbox', () => {
     );
   });
 
-  it('answers a question, settling the review it owed', async () => {
+  it('answers a question, and its pending review is answered', async () => {
     await answerInboxItem({
       path: { slug: SLUG, itemId: 'task_rate_limits:0' },
       body: { body: 'Per API key.' },
@@ -129,34 +132,34 @@ describe('the mock inbox', () => {
 
     const approval = (await itemIn('task_latency:0'))?.notes[0]?.approval;
 
-    expect(approval?.standing).toBe('granted');
+    expect(approval?.status).toBe('approved');
     expect(approval?.edited).toEqual([{ name: 'for', value: '20m' }]);
   });
 
-  it('asks for approvals in every standing', async () => {
+  it('requests approvals in every status', async () => {
     expect(await approvalIn('task_checkout:0')).toMatchObject({
       kind: 'harness-permission',
-      standing: 'asked',
+      status: 'pending',
       askedOf: null,
     });
     expect(await approvalIn('task_signup_survey:0')).toMatchObject({
       kind: 'tool-call',
       name: 'linear.comment',
-      standing: 'asked',
+      status: 'pending',
       askedOf: null,
     });
     expect(await approvalIn('task_pricing_toggle:0')).toMatchObject({
-      standing: 'asked',
+      status: 'pending',
       askedOf: { name: 'Priya Nair' },
     });
     expect(await approvalIn('task_disk:0')).toMatchObject({
       kind: 'harness-permission',
-      standing: 'refused',
+      status: 'dismissed',
     });
 
     const edited = await approvalIn('task_referral:0');
 
-    expect(edited?.standing).toBe('granted');
+    expect(edited?.status).toBe('approved');
     expect(edited?.edited?.[1]?.value).not.toBe(edited?.inputs[1]?.value);
   });
 
@@ -168,16 +171,16 @@ describe('the mock inbox', () => {
     });
   });
 
-  it('marks items and asides read, and settles notices', async () => {
-    await readInboxItem({
+  it('marks items and inbox requests read, and resolves notices', async () => {
+    await markInboxItemRead({
       path: { slug: SLUG, itemId: 'task_rate_limits:0' },
       throwOnError: true,
     });
-    await readInboxAside({
-      path: { slug: SLUG, asideId: MEMORIES_ASIDE_ID },
+    await markInboxRequestRead({
+      path: { slug: SLUG, requestId: MEMORIES_REQUEST_ID },
       throwOnError: true,
     });
-    await settleInboxNotice({
+    await resolveInboxNotice({
       path: { slug: SLUG, noticeId: STALLED_NOTICE_ID },
       throwOnError: true,
     });
@@ -187,7 +190,7 @@ describe('the mock inbox', () => {
       entries.find((entry) => entry.id === id)?.unread;
 
     expect(unreadOf('task_rate_limits:0')).toBe(false);
-    expect(unreadOf(MEMORIES_ASIDE_ID)).toBe(false);
+    expect(unreadOf(MEMORIES_REQUEST_ID)).toBe(false);
     expect(
       entries.find((entry) => entry.id === STALLED_NOTICE_ID)?.resolved,
     ).toBe(true);
@@ -207,14 +210,14 @@ describe('the mock inbox', () => {
     expect(data[1]?.steps.some((step) => step.change)).toBe(true);
   });
 
-  it('reads the alert the Implementation station raised', async () => {
+  it('reads the alert that fired at the Implementation station', async () => {
     const { data } = await readStationAlert({
       path: { teamId: PLATFORM_ID, alertId: ALERT_ID },
       throwOnError: true,
     });
 
     expect(data.stationId).toBe('station_implementation');
-    expect(data.threshold).toMatchObject({
+    expect(data.rule).toMatchObject({
       measure: 'sent_back_rate',
       risesBy: 0.2,
       over: 20,
@@ -222,7 +225,7 @@ describe('the mock inbox', () => {
     expect(data.series.at(-1)?.runId).toBe(data.runId);
   });
 
-  it('raises a cost alert that still stands beside one that recovered', async () => {
+  it('fires a cost alert that is still active beside one that resolved', async () => {
     const { data: cost } = await readStationAlert({
       path: { teamId: PLATFORM_ID, alertId: COST_ALERT_ID },
       throwOnError: true,
@@ -232,17 +235,17 @@ describe('the mock inbox', () => {
       throwOnError: true,
     });
 
-    expect(cost.threshold).toMatchObject({ measure: 'cost_per_run', above: 2 });
+    expect(cost.rule).toMatchObject({ measure: 'cost_per_run', above: 2 });
     expect(cost.value).toBeGreaterThan(2);
-    expect(cost.recoveredAt).toBeNull();
-    expect((await itemIn(COST_ALERT_ASIDE_ID))?.resolved).toBe(false);
-    expect(sentBack.recoveredAt).not.toBeNull();
-    expect((await itemIn(ALERT_ASIDE_ID))?.resolved).toBe(true);
+    expect(cost.resolvedAt).toBeNull();
+    expect((await itemIn(COST_ALERT_REQUEST_ID))?.resolved).toBe(false);
+    expect(sentBack.resolvedAt).not.toBeNull();
+    expect((await itemIn(ALERT_REQUEST_ID))?.resolved).toBe(true);
   });
 
-  it('asks for grades on every scale', async () => {
-    const claims = await scoresAbout(CLAIMS_GRADE_ASIDE_ID);
-    const five = await scoresAbout(FIVE_POINT_GRADE_ASIDE_ID);
+  it('requests grades on every scale', async () => {
+    const claims = await scoresAbout(CLAIMS_GRADE_REQUEST_ID);
+    const five = await scoresAbout(FIVE_POINT_GRADE_REQUEST_ID);
 
     expect(claims).toMatchObject({
       kind: 'claims',
@@ -253,7 +256,7 @@ describe('the mock inbox', () => {
     expect(five.judge?.kind).toBe('number');
   });
 
-  it('grades a judged run and settles the grade it asked for', async () => {
+  it('grades a judged run and resolves the grade it asked for', async () => {
     const { data: before } = await readRunScores({
       path: POSTGRES_RUN,
       throwOnError: true,
@@ -266,7 +269,7 @@ describe('the mock inbox', () => {
 
     expect(before.judge?.label).toBe('yes');
     expect(after.grades[0]).toMatchObject({ mine: true, label: 'yes' });
-    expect((await itemIn(GRADE_ASIDE_ID))?.resolved).toBe(true);
+    expect((await itemIn(GRADE_REQUEST_ID))?.resolved).toBe(true);
   });
 
   it('drafts, edits, deletes and submits review comments', async () => {
@@ -331,7 +334,7 @@ describe('the mock inbox', () => {
     ]);
   });
 
-  it('shows the memory the run kept as approved, and settles the aside once the last is decided', async () => {
+  it('shows the memory of the run as approved, and resolves the inbox request once the last is decided', async () => {
     const { data: review } = await readMemoryReview({
       path: RETRIES,
       throwOnError: true,
@@ -353,7 +356,7 @@ describe('the mock inbox', () => {
       'approved',
       'rejected',
     ]);
-    expect((await itemIn(MEMORIES_ASIDE_ID))?.resolved).toBe(true);
+    expect((await itemIn(MEMORIES_REQUEST_ID))?.resolved).toBe(true);
   });
 
   it('shows memories already decided', async () => {
@@ -366,7 +369,7 @@ describe('the mock inbox', () => {
       'approved',
       'rejected',
     ]);
-    expect((await itemIn(DECIDED_MEMORIES_ASIDE_ID))?.resolved).toBe(true);
+    expect((await itemIn(DECIDED_MEMORIES_REQUEST_ID))?.resolved).toBe(true);
   });
 
   it('approves a proposed memory', async () => {
@@ -390,7 +393,7 @@ const statusOf = async (call: Promise<{ response?: Response }>) =>
 describe('the mock inbox in an empty workspace', () => {
   serveMockApi('empty');
 
-  it('holds only the open setup of the new team', async () => {
+  it('contains only the open setup of the new team', async () => {
     const { data: journal } = await readTaskJournal({
       path: { slug: SLUG, taskId: 'task_setup_platform' },
       throwOnError: true,

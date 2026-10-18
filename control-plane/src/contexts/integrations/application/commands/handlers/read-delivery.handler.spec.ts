@@ -1,10 +1,10 @@
 import { ReadDeliveryHandler } from '@integrations/application/commands/handlers/read-delivery.handler';
 import { ReadDeliveryCommand } from '@integrations/application/commands/read-delivery.command';
-import type { StoredDelivery } from '@integrations/application/ports/delivery-inbox.port';
+import type { StoredDelivery } from '@integrations/application/ports/delivery-queue.port';
 import type { HookFiringHistoryPort } from '@integrations/application/ports/hook-firing-history.port';
-import type { WebhookSourcePort } from '@integrations/application/ports/webhook-source.port';
-import { SourceForDelivery } from '@integrations/application/services/source-for-delivery.service';
-import { WebhookSources } from '@integrations/application/services/webhook-sources.service';
+import type { WebhookProviderPort } from '@integrations/application/ports/webhook-provider.port';
+import { ProviderForDelivery } from '@integrations/application/services/provider-for-delivery.service';
+import { WebhookProviders } from '@integrations/application/services/webhook-providers.service';
 import { causationInMemory } from '@shared-kernel/application/ports/causation.fake-spec';
 import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -15,17 +15,17 @@ const MERGED = 'github.pull_request.merged';
 
 const payloadOf = (ourOwn = false): Happened => ({
   happening: MERGED,
-  told: 'The pull request was merged.',
-  spoken: false,
+  summary: 'The pull request was merged.',
+  answers: false,
   state: 'raised',
-  concerns: { branch: 'spotlight/task_1', marks: [] },
-  said: null,
+  correlationKeys: { branch: 'spotlight/task_1', marks: [] },
+  message: null,
   ourOwn,
   opens: null,
 });
 
 const stored: StoredDelivery = {
-  source: 'github',
+  integration: 'github',
   workspaceId: '',
   teamId: '',
   teamKey: '',
@@ -48,11 +48,11 @@ const reading = (
     ),
   } as unknown as HookFiringHistoryPort;
   react.mockImplementation(async () => {
-    chains.push(causation.current().saying);
+    chains.push(causation.current().description);
   });
   const handler = new ReadDeliveryHandler(
-    new SourceForDelivery(
-      WebhookSources.of([
+    new ProviderForDelivery(
+      WebhookProviders.of([
         {
           key: 'github',
           happenings: [],
@@ -63,7 +63,7 @@ const reading = (
               ? null
               : WorkspaceId.of(over.workspaceId ?? 'ws_1'),
           read: async () => carried,
-        } satisfies WebhookSourcePort,
+        } satisfies WebhookProviderPort,
       ]),
       { find: async () => null, all: async () => [] },
     ),
@@ -75,10 +75,10 @@ const reading = (
   return { handler, react, firings, chains };
 };
 
-const FIRED = CausalChain.none().followedBy({
+const FIRED = CausalChain.none().append({
   kind: 'hook',
   key: 'hook:notify_id:task.moved:task_1:build → review',
-  saying: 'the hook notify',
+  description: 'the hook notify',
 });
 
 describe('ReadDeliveryHandler', () => {
@@ -109,7 +109,7 @@ describe('ReadDeliveryHandler', () => {
     expect(chains).toEqual(['', '']);
   });
 
-  it('hands what a host said to the workspace it came from', async () => {
+  it('hands what a service said to the workspace it came from', async () => {
     const { handler, react } = reading([payloadOf()]);
 
     await handler.execute(new ReadDeliveryCommand(stored));

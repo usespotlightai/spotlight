@@ -16,8 +16,8 @@ import type {
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -42,8 +42,8 @@ export class CreateWorkspaceHandler
     try {
       const { principal } = command.actor;
 
-      if (!Permissions.beyondWorkspaces(principal).opensWorkspaces) {
-        return forbiddenTo('open-workspaces');
+      if (!Permissions.global(principal).createsWorkspaces) {
+        return forbiddenTo('create-workspaces');
       }
 
       const compiled = this.definitions.workspace(command.definition);
@@ -60,24 +60,24 @@ export class CreateWorkspaceHandler
 
       try {
         return await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
+          createIdempotently(this.creates, create, async () => {
             const id = WorkspaceId.of(this.ids.generate());
-            const opened = await this.registration.register({
+            const created = await this.registration.register({
               id,
               name: compiled.name,
               slug: compiled.slug,
               owner: principal.userId,
-              by: Attribution.of(command.actor, id),
+              by: ChangeActor.of(command.actor, id),
             });
 
-            await this.workspaces.add(opened);
+            await this.workspaces.add(created);
 
-            return opened.id.value;
+            return created.id.value;
           }),
         );
       } catch (error) {
         if (error instanceof WorkspaceSlugTakenError) {
-          return { outcome: 'taken', address: compiled.slug.value };
+          return { outcome: 'already-exists', address: compiled.slug.value };
         }
 
         throw error;

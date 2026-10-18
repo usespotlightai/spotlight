@@ -3,12 +3,12 @@ import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/inv
 export class Binding {
   private constructor(
     readonly event: string,
-    readonly does: string,
+    readonly action: string,
   ) {}
 
   static of(input: {
     event: string;
-    does: string;
+    action: string;
     known: readonly string[];
   }): Binding {
     if (!input.known.includes(input.event)) {
@@ -18,7 +18,7 @@ export class Binding {
       );
     }
 
-    return new Binding(input.event, input.does);
+    return new Binding(input.event, input.action);
   }
 
   isFor(event: string): boolean {

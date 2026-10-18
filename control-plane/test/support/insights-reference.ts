@@ -1,34 +1,34 @@
 import type {
-  HistoryHeld,
-  PullRequestsHeld,
-} from '@outcomes/application/ports/insights-reader.fake-spec';
-import type { RunPage } from '@outcomes/domain/outcomes.fake-spec';
+  HistoryRepositories,
+  PullRequestRepositories,
+} from '@insights/application/ports/insights-reader.fake-spec';
 import type {
   RunListing,
   TeamWindow,
-} from '@outcomes/domain/repositories/run-record.repository';
+} from '@insights/domain/repositories/run-record.repository';
+import type { RunPage } from '@insights/domain/runs.fake-spec';
 import type {
   Narrowing,
   RunFilter,
-} from '@outcomes/domain/services/run-filter';
-import { inEndOrder } from '@outcomes/domain/services/run-order';
-import type { Window } from '@outcomes/domain/value-objects/insights-period.vo';
-import type { DrizzleChatRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/chat-record.repository';
-import type { DrizzlePullRequestRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
-import type { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
-import type { DrizzleTaskChangeShapeRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-change-shape.repository';
-import type { DrizzleTaskDeliveryRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-delivery.repository';
-import type { DrizzleTaskFailuresRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-failures.repository';
-import type { DrizzleTaskTouchesRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-touches.repository';
+} from '@insights/domain/services/run-filter';
+import { inEndOrder } from '@insights/domain/services/run-order';
+import type { Window } from '@insights/domain/value-objects/insights-period.vo';
+import type { DrizzleChatRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/chat-record.repository';
+import type { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
+import type { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
+import type { DrizzleTaskChangeShapeRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-change-shape.repository';
+import type { DrizzleTaskFailuresRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-failures.repository';
+import type { DrizzleTaskHumanActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-human-actions.repository';
+import type { DrizzleTaskPullRequestRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-pull-request.repository';
 import {
   chatRecord,
   pullRequestRecord,
   runRecord,
   startOrderColumns,
-  taskDelivery,
   taskFailures,
-  taskTouches,
-} from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
+  taskHumanAction,
+  taskPullRequest,
+} from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -49,11 +49,11 @@ import {
   sql,
 } from 'drizzle-orm';
 
-export interface HeldRepositories {
+export interface ReferenceRepositories {
   readonly db: DrizzleDatabase;
   readonly runs: DrizzleRunRecordRepository;
-  readonly deliveries: DrizzleTaskDeliveryRepository;
-  readonly touches: DrizzleTaskTouchesRepository;
+  readonly taskPullRequests: DrizzleTaskPullRequestRepository;
+  readonly humanActions: DrizzleTaskHumanActionsRepository;
   readonly failures: DrizzleTaskFailuresRepository;
   readonly chats: DrizzleChatRecordRepository;
   readonly pullRequests: DrizzlePullRequestRecordRepository;
@@ -74,11 +74,11 @@ const inKeyOrder = <T>(
   });
 };
 
-const touchesOf = async (
-  touches: DrizzleTaskTouchesRepository,
+const humanActionsOf = async (
+  humanActions: DrizzleTaskHumanActionsRepository,
   taskIds: readonly TaskId[],
 ) => {
-  const found = await Promise.all(taskIds.map((each) => touches.of(each)));
+  const found = await Promise.all(taskIds.map((each) => humanActions.of(each)));
 
   return found.flatMap((each) => (each ? [each] : []));
 };
@@ -132,12 +132,12 @@ const endedWithin = (window: Window | null): SQL | undefined =>
         lt(runRecord.endedAt, window.to),
       );
 
-const holding = (column: SQLWrapper, value: unknown): SQL =>
+const containing = (column: SQLWrapper, value: unknown): SQL =>
   sql`${column} @> ${JSON.stringify(value)}::jsonb`;
 
-const ranWhere = sql`${runRecord.ending}::text <> 'withdrawn'`;
+const ranWhere = sql`${runRecord.ending}::text <> 'cancelled'`;
 
-const refusedServerOf = (server: Narrowing): { server?: string | null } => {
+const dismissedServerOf = (server: Narrowing): { server?: string | null } => {
   if (server.kind === 'any') {
     return {};
   }
@@ -145,27 +145,29 @@ const refusedServerOf = (server: Narrowing): { server?: string | null } => {
   return { server: server.kind === 'none' ? null : server.value };
 };
 
-const refusalWhere = (filter: RunFilter): SQL | undefined =>
-  filter.refusedTool === null && filter.refusedServer.kind === 'any'
+const dismissalWhere = (filter: RunFilter): SQL | undefined =>
+  filter.dismissedTool === null && filter.dismissedServer.kind === 'any'
     ? undefined
-    : holding(runRecord.refusals, [
+    : containing(runRecord.dismissals, [
         {
-          ...(filter.refusedTool === null ? {} : { tool: filter.refusedTool }),
-          ...refusedServerOf(filter.refusedServer),
+          ...(filter.dismissedTool === null
+            ? {}
+            : { tool: filter.dismissedTool }),
+          ...dismissedServerOf(filter.dismissedServer),
         },
       ]);
 
 const toolsWhere = (filter: RunFilter): (SQL | undefined)[] => {
   const narrowed = [
-    filter.skillGiven === null
+    filter.skillEnabled === null
       ? undefined
-      : holding(runRecord.skills, [filter.skillGiven]),
+      : containing(runRecord.skills, [filter.skillEnabled]),
     filter.skillUsed === null
       ? undefined
-      : holding(sql`${runRecord.tools}->'skillsRead'`, [filter.skillUsed]),
+      : containing(sql`${runRecord.tools}->'skillsRead'`, [filter.skillUsed]),
     filter.server === null
       ? undefined
-      : holding(sql`${runRecord.tools}->'servers'`, [
+      : containing(sql`${runRecord.tools}->'servers'`, [
           { server: filter.server },
         ]),
     filter.serverFailed === null
@@ -176,11 +178,11 @@ const toolsWhere = (filter: RunFilter): (SQL | undefined)[] => {
       : and(
           sql`${runRecord.ending}::text = 'failed'`,
           isNull(runRecord.supersededAt),
-          holding(sql`${runRecord.tools}->'servers'`, [
+          containing(sql`${runRecord.tools}->'servers'`, [
             { server: filter.failedAfter, lastCallFailed: true },
           ]),
         ),
-    refusalWhere(filter),
+    dismissalWhere(filter),
   ].filter((each) => each !== undefined);
 
   return [
@@ -218,34 +220,34 @@ const filtered = (
         : inArray(runRecord.taskId, [...filter.taskIds]),
     endedWithin(filter.day),
     ...toolsWhere(filter),
-    filter.next === null
+    filter.humanAction === null
       ? undefined
-      : sql`${runRecord.nextAct}::text = ${filter.next}`,
+      : sql`${runRecord.firstHumanAction}::text = ${filter.humanAction}`,
     filter.personId === null
       ? undefined
       : inArray(
           runRecord.taskId,
           db
-            .select({ taskId: taskTouches.taskId })
-            .from(taskTouches)
+            .select({ taskId: taskHumanAction.taskId })
+            .from(taskHumanAction)
             .where(
               and(
-                eq(taskTouches.workspaceId, workspace),
-                eq(taskTouches.openedBy, filter.personId),
+                eq(taskHumanAction.workspaceId, workspace),
+                eq(taskHumanAction.openedBy, filter.personId),
               ),
             ),
         ),
-    filter.delivery === null
+    filter.pullRequestState === null
       ? undefined
       : inArray(
           runRecord.taskId,
           db
-            .select({ taskId: taskDelivery.taskId })
-            .from(taskDelivery)
+            .select({ taskId: taskPullRequest.taskId })
+            .from(taskPullRequest)
             .where(
               and(
-                eq(taskDelivery.workspaceId, workspace),
-                sql`${taskDelivery.state}::text = ${filter.delivery}`,
+                eq(taskPullRequest.workspaceId, workspace),
+                sql`${taskPullRequest.state}::text = ${filter.pullRequestState}`,
               ),
             ),
         ),
@@ -254,26 +256,26 @@ const filtered = (
       : inArray(
           runRecord.taskId,
           db
-            .select({ taskId: taskTouches.taskId })
-            .from(taskTouches)
+            .select({ taskId: taskHumanAction.taskId })
+            .from(taskHumanAction)
             .where(
               and(
-                eq(taskTouches.workspaceId, workspace),
-                sql`exists (select 1 from jsonb_array_elements(${taskTouches.asks}) as ask where (ask->>'at')::timestamptz >= ${filter.askedWithin.from.toISOString()}::timestamptz and (ask->>'at')::timestamptz < ${filter.askedWithin.to.toISOString()}::timestamptz)`,
+                eq(taskHumanAction.workspaceId, workspace),
+                sql`exists (select 1 from jsonb_array_elements(${taskHumanAction.asks}) as ask where (ask->>'at')::timestamptz >= ${filter.askedWithin.from.toISOString()}::timestamptz and (ask->>'at')::timestamptz < ${filter.askedWithin.to.toISOString()}::timestamptz)`,
               ),
             ),
         ),
   ];
 };
 
-export const historyHeldIn = ({
+export const historyRepositoriesOf = ({
   db,
   runs,
-  deliveries,
-  touches,
+  taskPullRequests,
+  humanActions,
   failures,
   chats,
-}: HeldRepositories): HistoryHeld => ({
+}: ReferenceRepositories): HistoryRepositories => ({
   records: {
     endedForTeam: async (window, max) => {
       const keys = await db
@@ -324,71 +326,74 @@ export const historyHeldIn = ({
       runs.lastConfigRunsBefore(teamId, stations),
     ofTasks: (taskIds) => runs.ofTasks(taskIds),
   },
-  deliveries: {
-    forTasks: (taskIds) => deliveries.forTasks(taskIds),
+  taskPullRequests: {
+    forTasks: (taskIds) => taskPullRequests.forTasks(taskIds),
     ofTeamBetween: async (window, max) => {
       const keys = (
         await db
-          .select({ taskId: taskDelivery.taskId })
-          .from(taskDelivery)
+          .select({ taskId: taskPullRequest.taskId })
+          .from(taskPullRequest)
           .where(
             and(
-              eq(taskDelivery.workspaceId, window.workspaceId.value),
+              eq(taskPullRequest.workspaceId, window.workspaceId.value),
               or(
                 and(
-                  eq(taskDelivery.teamId, window.teamId.value),
-                  lt(taskDelivery.openedAt, window.to),
+                  eq(taskPullRequest.teamId, window.teamId.value),
+                  lt(taskPullRequest.openedAt, window.to),
                   or(
                     and(
-                      isNull(taskDelivery.closedAt),
+                      isNull(taskPullRequest.closedAt),
                       or(
-                        gte(taskDelivery.openedAt, window.from),
-                        gte(taskDelivery.firstReviewAt, window.from),
+                        gte(taskPullRequest.openedAt, window.from),
+                        gte(taskPullRequest.firstReviewAt, window.from),
                       ),
                     ),
-                    gte(taskDelivery.closedAt, window.from),
+                    gte(taskPullRequest.closedAt, window.from),
                   ),
                 ),
-                inArray(taskDelivery.taskId, ranInWindow(db, window)),
+                inArray(taskPullRequest.taskId, ranInWindow(db, window)),
               ),
             ),
           )
-          .orderBy(desc(taskDelivery.openedAt), desc(taskDelivery.taskId))
+          .orderBy(desc(taskPullRequest.openedAt), desc(taskPullRequest.taskId))
           .limit(max)
       ).map((each) => each.taskId);
 
       return inKeyOrder(
         keys,
-        await deliveries.forTasks(keys.map(TaskId.of)),
+        await taskPullRequests.forTasks(keys.map(TaskId.of)),
         (each) => each.taskId.value,
       );
     },
   },
-  touches: {
-    forTasks: (taskIds) => touchesOf(touches, taskIds),
+  taskHumanActions: {
+    forTasks: (taskIds) => humanActionsOf(humanActions, taskIds),
     ofTeamBetween: async (window, max) => {
       const keys = (
         await db
-          .select({ taskId: taskTouches.taskId })
-          .from(taskTouches)
+          .select({ taskId: taskHumanAction.taskId })
+          .from(taskHumanAction)
           .where(
             and(
-              eq(taskTouches.workspaceId, window.workspaceId.value),
+              eq(taskHumanAction.workspaceId, window.workspaceId.value),
               or(
                 and(
-                  eq(taskTouches.teamId, window.teamId.value),
-                  gte(taskTouches.touchedAt, window.from),
-                  lt(taskTouches.openedAt, window.to),
+                  eq(taskHumanAction.teamId, window.teamId.value),
+                  gte(taskHumanAction.lastActionAt, window.from),
+                  lt(taskHumanAction.openedAt, window.to),
                 ),
-                inArray(taskTouches.taskId, ranInWindow(db, window)),
+                inArray(taskHumanAction.taskId, ranInWindow(db, window)),
               ),
             ),
           )
-          .orderBy(desc(taskTouches.touchedAt), desc(taskTouches.taskId))
+          .orderBy(
+            desc(taskHumanAction.lastActionAt),
+            desc(taskHumanAction.taskId),
+          )
           .limit(max)
       ).map((each) => each.taskId);
 
-      return touchesOf(touches, keys.map(TaskId.of));
+      return humanActionsOf(humanActions, keys.map(TaskId.of));
     },
   },
   failures: {
@@ -436,11 +441,11 @@ export const historyHeldIn = ({
   },
 });
 
-export const pullRequestsHeld = ({
+export const pullRequestRepositoriesOf = ({
   db,
   pullRequests,
   shapes,
-}: HeldRepositories): PullRequestsHeld => ({
+}: ReferenceRepositories): PullRequestRepositories => ({
   records: {
     seenForTeamBetween: async (window, max) => {
       const repositories = window.repositories.map((each) =>

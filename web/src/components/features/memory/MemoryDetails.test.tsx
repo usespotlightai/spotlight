@@ -37,8 +37,8 @@ const detail = (over: Record<string, unknown> = {}) => ({
   kind: 'rationale',
   body: 'Retry uploads in the request.',
   source: 'run',
-  standing: 'stands',
-  reach: 'team',
+  status: 'active',
+  scope: 'team',
   lineId: null,
   stationId: null,
   repository: null,
@@ -47,7 +47,7 @@ const detail = (over: Record<string, unknown> = {}) => ({
   approvedAt: '2026-09-27T10:00:00.000Z',
   supersedes: null,
   retirement: null,
-  grounds: { taskId: 'task_1', runId: 'run_1' },
+  provenance: { taskId: 'task_1', runId: 'run_1' },
   steps: [{ index: 3, kind: 'thought', text: 'A queue needs a worker.' }],
   notes: [],
   superseded: null,
@@ -93,7 +93,7 @@ beforeEach(() => {
 });
 
 describe('MemoryDetails', () => {
-  it('offers to correct or retire a standing memory', () => {
+  it('offers to correct or retire an active memory', () => {
     memoryState.data = detail();
     showing();
 
@@ -101,7 +101,7 @@ describe('MemoryDetails', () => {
     expect(screen.getByRole('button', { name: 'Retire' })).toBeVisible();
   });
 
-  it('asks why in place when retiring, not in a dialog', async () => {
+  it('takes the reason in place when retiring, not in a dialog', async () => {
     memoryState.data = detail();
     showing();
 
@@ -120,7 +120,7 @@ describe('MemoryDetails', () => {
     );
   });
 
-  it('drops a half-written retirement when its row folds', async () => {
+  it('drops a half-written retirement when its row collapses', async () => {
     memoryState.data = detail();
     const { rerender } = render(details(true));
 
@@ -137,7 +137,7 @@ describe('MemoryDetails', () => {
 
   it('offers nothing to do with a retired memory, and names what replaced it', () => {
     memoryState.data = detail({
-      standing: 'retired',
+      status: 'retired',
       retirement: {
         at: '2026-09-27T11:00:00.000Z',
         by: null,

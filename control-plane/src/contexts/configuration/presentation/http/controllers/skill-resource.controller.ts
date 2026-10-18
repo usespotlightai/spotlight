@@ -14,14 +14,14 @@ import { CurrentPrincipal } from '@platform/http/decorators/current-principal.de
 import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
-import {
-  answerCreated,
-  answerDeleted,
-  answerUpdated,
-  found,
-  listed,
-} from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
+import {
+  respondCreated,
+  respondDeleted,
+  respondFound,
+  respondListed,
+  respondUpdated,
+} from '@platform/http/resources/resource-responses';
 import type {
   ResourceCreated,
   ResourceDeleted,
@@ -78,7 +78,7 @@ export class SkillResourceController {
     private readonly commandBus: CommandBus,
   ) {}
 
-  @SkillResource.Create('teams/:teamId/skills', 'Define a skill for a team')
+  @SkillResource.Create('teams/:teamId/skills', 'Create a skill for a team')
   @ApiParam({ name: 'teamId', example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84' })
   @DEFINITION
   async create(
@@ -87,12 +87,12 @@ export class SkillResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<SkillResourceResponseDto> {
-    return answerCreated(
+    return respondCreated(
       KIND,
       await this.commandBus.execute<CreateSkillCommand, ResourceCreated | null>(
         new CreateSkillCommand(teamId, actor, key, body),
       ),
-      (id) => this.answer(id, actor.principal),
+      (id) => this.toResponse(id, actor.principal),
     );
   }
 
@@ -102,7 +102,7 @@ export class SkillResourceController {
     @Param('id') id: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<SkillResourceResponseDto> {
-    return this.answer(id, principal);
+    return this.toResponse(id, principal);
   }
 
   @SkillResource.Update('skills/:id', 'Replace a skill’s files')
@@ -114,23 +114,23 @@ export class SkillResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<SkillResourceResponseDto> {
-    return answerUpdated(
+    return respondUpdated(
       KIND,
       await this.commandBus.execute<UpdateSkillCommand, ResourceUpdated | null>(
         new UpdateSkillCommand(id, actor, version, body),
       ),
-      (updated) => this.answer(updated, actor.principal),
+      (updated) => this.toResponse(updated, actor.principal),
     );
   }
 
-  @SkillResource.Delete('skills/:id', 'Delete a skill no station gives')
+  @SkillResource.Delete('skills/:id', 'Delete a skill no station enables')
   @ID
   async delete(
     @Param('id') id: string,
     @IfMatch() version: number,
     @CurrentActor() actor: Actor,
   ): Promise<void> {
-    answerDeleted(
+    respondDeleted(
       KIND,
       await this.commandBus.execute<DeleteSkillCommand, ResourceDeleted | null>(
         new DeleteSkillCommand(id, actor, version),
@@ -148,7 +148,7 @@ export class SkillResourceController {
     @Query('address') address: string | undefined,
     @CurrentPrincipal() principal: Principal,
   ): Promise<SkillResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<ImportSkillQuery, SkillResourceDto | null>(
         new ImportSkillQuery(workspaceId, address ?? '', principal),
@@ -166,7 +166,7 @@ export class SkillResourceController {
     @Param('workspaceId') workspaceId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ResourceList<SkillResourceResponseDto>> {
-    return listed(
+    return respondListed(
       await this.queryBus.execute<
         ListSkillResourcesQuery,
         readonly SkillResourceDto[] | null
@@ -175,11 +175,11 @@ export class SkillResourceController {
     );
   }
 
-  private async answer(
+  private async toResponse(
     id: string,
     principal: Principal,
   ): Promise<SkillResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<ReadSkillQuery, SkillResourceDto | null>(
         new ReadSkillQuery(id, principal),

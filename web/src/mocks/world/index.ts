@@ -35,7 +35,7 @@ export const WORKSPACE: WorkspaceResponseDto = {
     { id: PLATFORM_ID, name: 'Platform' },
     { id: GROWTH_ID, name: 'Growth' },
   ],
-  provisioning: 'done',
+  setupStatus: 'done',
 };
 
 export type WorldKind = 'full' | 'empty';
@@ -51,13 +51,13 @@ export type World = {
 
 const MEMBERS: Record<string, MemberResponseDto[]> = {
   [PLATFORM_ID]: [
-    { ...SAM, role: 'owner', mayBeSetTo: [] },
-    { ...MAYA, role: 'member', mayBeSetTo: ['admin'] },
-    { ...TOM, role: 'member', mayBeSetTo: ['admin'] },
+    { ...SAM, role: 'owner', assignableRoles: [] },
+    { ...MAYA, role: 'member', assignableRoles: ['admin'] },
+    { ...TOM, role: 'member', assignableRoles: ['admin'] },
   ],
   [GROWTH_ID]: [
-    { ...SAM, role: 'owner', mayBeSetTo: [] },
-    { ...PRIYA, role: 'admin', mayBeSetTo: ['member'] },
+    { ...SAM, role: 'owner', assignableRoles: [] },
+    { ...PRIYA, role: 'admin', assignableRoles: ['member'] },
   ],
 };
 

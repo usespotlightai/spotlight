@@ -79,7 +79,7 @@ export class TaskResponseDto {
   @ApiProperty({
     type: AttachmentResponseDto,
     isArray: true,
-    description: 'The files it was raised with',
+    description: 'The files it was created with',
   })
   readonly attachments: readonly AttachmentResponseDto[];
 
@@ -92,7 +92,7 @@ export class TaskResponseDto {
   @ApiProperty({
     type: TaskReviewResponseDto,
     nullable: true,
-    description: 'Where a standing question is answered, or null for none',
+    description: 'Where an open question is answered, or null for none',
   })
   readonly awaitingReview: TaskReviewResponseDto | null;
 
@@ -107,9 +107,10 @@ export class TaskResponseDto {
   @ApiProperty({
     type: TaskPersonResponseDto,
     nullable: true,
-    description: 'Who raised it, and so who it comes back to',
+    description:
+      'The person who created it. The task comes back to this person',
   })
-  readonly raisedBy: TaskPersonResponseDto | null;
+  readonly createdBy: TaskPersonResponseDto | null;
 
   @ApiProperty({
     type: TaskPersonResponseDto,
@@ -121,7 +122,8 @@ export class TaskResponseDto {
   @ApiProperty({
     type: TaskNoteResponseDto,
     nullable: true,
-    description: 'The last thing said about this task, and where it was said',
+    description:
+      'The last note on this task, and the station where it was written',
   })
   readonly note: TaskNoteResponseDto | null;
 
@@ -136,7 +138,7 @@ export class TaskResponseDto {
     running: boolean,
     awaitingReview: TaskReviewResponseDto | null,
     pullRequest: string | null,
-    raisedBy: TaskPersonResponseDto | null,
+    createdBy: TaskPersonResponseDto | null,
     assignee: TaskPersonResponseDto | null,
     note: TaskNoteResponseDto | null,
   ) {
@@ -150,7 +152,7 @@ export class TaskResponseDto {
     this.running = running;
     this.awaitingReview = awaitingReview;
     this.pullRequest = pullRequest;
-    this.raisedBy = raisedBy;
+    this.createdBy = createdBy;
     this.assignee = assignee;
     this.note = note;
   }

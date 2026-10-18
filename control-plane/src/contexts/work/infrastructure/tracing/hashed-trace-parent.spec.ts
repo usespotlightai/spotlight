@@ -16,7 +16,7 @@ describe('HashedTraceParent', () => {
     );
   });
 
-  it('says the same thing every time it is asked', () => {
+  it('says the same thing every time it is called', () => {
     expect(naming.for(TaskId.of('task_1'), RunId.of('run_1'))).toBe(
       naming.for(TaskId.of('task_1'), RunId.of('run_1')),
     );

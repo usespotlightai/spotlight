@@ -25,17 +25,17 @@ export class WorkloadRule {
   ) {}
 
   static issuerOf(raw: string): string {
-    const held = raw.trim();
-    const refused = new InvalidTokenTrustError(
+    const trimmed = raw.trim();
+    const invalid = new InvalidTokenTrustError(
       'issuer',
       'must be an https URL with no query or fragment, as in https://token.actions.githubusercontent.com',
     );
     let url: URL;
 
     try {
-      url = new URL(held);
+      url = new URL(trimmed);
     } catch {
-      throw refused;
+      throw invalid;
     }
 
     const secure =
@@ -48,25 +48,25 @@ export class WorkloadRule {
       url.hash ||
       url.username ||
       url.password ||
-      held.length > LONGEST
+      trimmed.length > LONGEST
     ) {
-      throw refused;
+      throw invalid;
     }
 
-    return held;
+    return trimmed;
   }
 
   static audienceOf(raw: string): string {
-    const held = raw.trim();
+    const trimmed = raw.trim();
 
-    if (!held || held.length > LONGEST || /\s/.test(held)) {
+    if (!trimmed || trimmed.length > LONGEST || /\s/.test(trimmed)) {
       throw new InvalidTokenTrustError(
         'audience',
         `must be one word of at most ${LONGEST} characters, as in spotlight`,
       );
     }
 
-    return held;
+    return trimmed;
   }
 
   static claimNameOf(raw: string): string {
@@ -86,9 +86,9 @@ export class WorkloadRule {
     subject: string;
     claims: Readonly<Record<string, string>>;
   }): WorkloadRule {
-    const named = Object.entries(input.claims);
+    const customClaims = Object.entries(input.claims);
 
-    if (named.length > MAX_CLAIMS) {
+    if (customClaims.length > MAX_CLAIMS) {
       throw new InvalidTokenTrustError(
         'claims',
         `must name at most ${MAX_CLAIMS} claims`,
@@ -96,7 +96,7 @@ export class WorkloadRule {
     }
 
     const claimed = new Map(
-      named.map(([name, pattern]): [string, ClaimPattern] => [
+      customClaims.map(([name, pattern]): [string, ClaimPattern] => [
         WorkloadRule.claimNameOf(name),
         ClaimPattern.of(pattern, `claims.${name}`),
       ]),
@@ -124,15 +124,15 @@ export class WorkloadRule {
     );
   }
 
-  admits(workload: WorkloadClaims): boolean {
-    const named = new Map(Object.entries(workload.named));
+  matches(workload: WorkloadClaims): boolean {
+    const customClaims = new Map(Object.entries(workload.customClaims));
 
     return (
       workload.issuer === this.issuer &&
       workload.audiences.includes(this.audience) &&
       this.subject.matches(workload.subject) &&
       [...this.claimed].every(([name, pattern]) => {
-        const claimed = named.get(name);
+        const claimed = customClaims.get(name);
 
         return typeof claimed === 'string' && pattern.matches(claimed);
       })

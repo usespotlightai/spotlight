@@ -13,8 +13,8 @@ import type {
   Delivered,
   HappeningDeclaration,
   WebhookHeaders,
-  WebhookSourcePort,
-} from '@integrations/application/ports/webhook-source.port';
+  WebhookProviderPort,
+} from '@integrations/application/ports/webhook-provider.port';
 import type { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { readEvents } from '@integrations/infrastructure/integrations/happenings';
 import type {
@@ -28,9 +28,12 @@ import {
   textOf,
 } from '@integrations/infrastructure/integrations/templating';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
-import { type Bindings, bound } from '@platform/expressions/bindings';
+import {
+  type CelVariables,
+  sanitizedForCel,
+} from '@platform/expressions/cel-variables';
 import { ExpressionFailedError } from '@platform/expressions/expression.errors';
-import { holds, reads, value } from '@platform/expressions/readings';
+import { evaluateText, isTrue, value } from '@platform/expressions/readings';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 
@@ -44,7 +47,7 @@ const headed = (headers: WebhookHeaders, name: string): string | undefined => {
 
 const DIGEST = { sha256: 'sha256', sha1: 'sha1', sha512: 'sha512' } as const;
 
-export class WebhookRuntime implements WebhookSourcePort {
+export class WebhookRuntime implements WebhookProviderPort {
   constructor(
     private readonly readable: ReadableIntegration,
     private readonly workspaceId: WorkspaceId,
@@ -56,15 +59,15 @@ export class WebhookRuntime implements WebhookSourcePort {
   ) {}
 
   get key(): string {
-    return this.readable.integration.source.value;
+    return this.readable.integration.key.value;
   }
 
   get happenings(): readonly HappeningDeclaration[] {
     return this.readable.integration.declares.map((each) => ({
       happening: each.happening,
       label: each.label,
-      told: each.told,
-      spoken: each.spoken,
+      summary: each.summary,
+      answers: each.answers,
     }));
   }
 
@@ -101,31 +104,31 @@ export class WebhookRuntime implements WebhookSourcePort {
     auth: Extract<AuthIR, { kind: 'token' }>,
     delivered: Delivered,
   ): Promise<boolean> {
-    const given = auth.header && headed(delivered.headers, auth.header);
+    const received = auth.header && headed(delivered.headers, auth.header);
 
-    if (!given) {
+    if (!received) {
       return false;
     }
 
     const secret = await this.signing.named(auth.secret);
 
-    return equal(secret.revealed(), given);
+    return equal(secret.revealed(), received);
   }
 
   private async hmac(
     auth: Extract<AuthIR, { kind: 'hmac' }>,
     delivered: Delivered,
   ): Promise<boolean> {
-    const given = auth.header && headed(delivered.headers, auth.header);
+    const received = auth.header && headed(delivered.headers, auth.header);
 
-    if (!given) {
+    if (!received) {
       return false;
     }
 
     const secret = (await this.signing.named(auth.secret)).revealed();
 
     const material = auth.signed
-      ? Buffer.from(reads(auth.signed, this.bindings(delivered)) ?? '')
+      ? Buffer.from(evaluateText(auth.signed, this.bindings(delivered)) ?? '')
       : Buffer.from(delivered.raw as Uint8Array);
 
     const expected =
@@ -134,7 +137,7 @@ export class WebhookRuntime implements WebhookSourcePort {
         .update(material)
         .digest(auth.encoding);
 
-    return equal(expected, given);
+    return equal(expected, received);
   }
 
   private asymmetric(
@@ -142,16 +145,16 @@ export class WebhookRuntime implements WebhookSourcePort {
     delivered: Delivered,
   ): boolean {
     const raw = this.templated(auth.key, delivered);
-    const given = auth.header && headed(delivered.headers, auth.header);
+    const received = auth.header && headed(delivered.headers, auth.header);
 
-    if (!raw || !given) {
+    if (!raw || !received) {
       return false;
     }
 
     const message = auth.signed
-      ? Buffer.from(reads(auth.signed, this.bindings(delivered)) ?? '')
+      ? Buffer.from(evaluateText(auth.signed, this.bindings(delivered)) ?? '')
       : Buffer.from(delivered.raw as Uint8Array);
-    const signature = Buffer.from(given, auth.encoding);
+    const signature = Buffer.from(received, auth.encoding);
 
     try {
       const key =
@@ -245,7 +248,7 @@ export class WebhookRuntime implements WebhookSourcePort {
     }
 
     const at = Number.parseInt(
-      reads(freshness.at, this.bindings(delivered)) ?? '',
+      evaluateText(freshness.at, this.bindings(delivered)) ?? '',
       10,
     );
 
@@ -256,8 +259,8 @@ export class WebhookRuntime implements WebhookSourcePort {
     return Math.abs(this.now() / 1000 - at) <= freshness.within;
   }
 
-  private templated(held: Templated, delivered: Delivered): string | null {
-    return textOf(held, this.bindings(delivered));
+  private templated(template: Templated, delivered: Delivered): string | null {
+    return textOf(template, this.bindings(delivered));
   }
 
   answer(delivered: Delivered): string | null {
@@ -269,13 +272,15 @@ export class WebhookRuntime implements WebhookSourcePort {
 
     const against = this.bindings(delivered);
 
-    return holds(respond.when, against) ? reads(respond.body, against) : null;
+    return isTrue(respond.when, against)
+      ? evaluateText(respond.body, against)
+      : null;
   }
 
   delivery(delivered: Delivered): string {
     const named =
       this.readable.webhook?.delivery &&
-      reads(this.readable.webhook.delivery, this.bindings(delivered));
+      evaluateText(this.readable.webhook.delivery, this.bindings(delivered));
 
     return (
       named ??
@@ -290,20 +295,23 @@ export class WebhookRuntime implements WebhookSourcePort {
   }
 
   async read(delivered: Delivered): Promise<readonly Happened[]> {
-    const mine = this.readable.webhook?.mine;
+    const ignoreWhen = this.readable.webhook?.ignoreWhen;
 
     return readEvents(
       this.readable.webhook?.events ?? [],
       (happening) => this.declaring(happening),
       this.bindings(delivered),
-      (against) => (mine ? holds(mine, against) : false),
+      (against) => (ignoreWhen ? isTrue(ignoreWhen, against) : false),
       (event, against) => this.enriched(event, against),
       (request, against) =>
         this.outbound.bytes(request, against, this.credentials),
     );
   }
 
-  private async enriched(event: EventIR, against: Bindings): Promise<Bindings> {
+  private async enriched(
+    event: EventIR,
+    against: CelVariables,
+  ): Promise<CelVariables> {
     if (!event.lookup) {
       return against;
     }
@@ -328,7 +336,7 @@ export class WebhookRuntime implements WebhookSourcePort {
       return against;
     }
 
-    const beside = { ...against, response: bound(result.response) };
+    const beside = { ...against, response: sanitizedForCel(result.response) };
     const captured: Record<string, unknown> = {};
 
     for (const each of event.lookup.capture) {
@@ -348,8 +356,8 @@ export class WebhookRuntime implements WebhookSourcePort {
 
   private bindings(delivered: Delivered): Record<string, unknown> {
     return {
-      body: bound(delivered.body ?? {}),
-      headers: bound(delivered.headers ?? {}),
+      body: sanitizedForCel(delivered.body ?? {}),
+      headers: sanitizedForCel(delivered.headers ?? {}),
       raw: delivered.raw ? Buffer.from(delivered.raw).toString('utf8') : '',
     };
   }

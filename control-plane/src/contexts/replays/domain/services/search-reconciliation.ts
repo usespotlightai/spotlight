@@ -3,12 +3,12 @@ import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { chargeOf } from '@replays/domain/services/replay-charge';
 import { improvedOnBestBefore } from '@replays/domain/services/search-improvement';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import type { ReplayEnd } from '@replays/domain/value-objects/replay-state';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
+import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-const DIGEST_WAIT_MS = 15 * 60_000;
+const USAGE_WAIT_MS = 15 * 60_000;
 
 const UNCLAIMED_WAIT_MS = 60 * 60_000;
 
@@ -23,8 +23,8 @@ export interface SeenRun {
 
 const UNPRICED_RUN = ModelSpent.of([], 1);
 
-const endOf = (replay: Replay): ReplayEnd | null =>
-  replay.isDispatching ? null : (replay.current as ReplayEnd);
+const endOf = (replay: Replay): ReplayStopReason | null =>
+  replay.isDispatching ? null : (replay.current as ReplayStopReason);
 
 const withReplays = (
   search: Search,
@@ -34,43 +34,48 @@ const withReplays = (
   at: Date,
   runIds: () => RunId,
 ): Search =>
-  search.replayIds.reduce((held, replayId) => {
+  search.replayIds.reduce((reconciled, replayId) => {
     const replay = replays.find((each) => each.id.equals(replayId));
-    const unended = held.unendedReplays.some((each) => each.equals(replayId));
+    const unended = reconciled.unendedReplays.some((each) =>
+      each.equals(replayId),
+    );
 
     if (!replay) {
       return unended && known.some((each) => each.equals(replayId))
-        ? held.recordReplayEnd(
+        ? reconciled.recordReplayStopReason(
             replayId,
-            'abandoned',
-            { spent: Spend.none(held.budget.ceiling.currency), unpriced: 0 },
+            'deleted',
+            {
+              spent: Money.none(reconciled.budget.ceiling.currency),
+              unpriced: 0,
+            },
             at,
             runIds,
             false,
           )
-        : held;
+        : reconciled;
     }
 
     const charge = chargeOf(replay);
     const end = endOf(replay);
 
     return end && unended
-      ? held.recordReplayEnd(
+      ? reconciled.recordReplayStopReason(
           replayId,
           end,
           charge,
           at,
           runIds,
-          improvedOnBestBefore(held, replayId, replays, minGain),
+          improvedOnBestBefore(reconciled, replayId, replays, minGain),
         )
-      : held.replaySpent(replayId, charge);
+      : reconciled.replaySpent(replayId, charge);
   }, search);
 
 const past = (since: Date | null, wait: number, at: Date): boolean =>
   since !== null && at.getTime() - since.getTime() >= wait;
 
 export const runsToSee = (search: Search): readonly RunId[] => [
-  ...(search.heldRun ? [search.heldRun] : []),
+  ...(search.activeRun ? [search.activeRun] : []),
   ...search.awaitingAgentSpend.map((each) => each.runId),
 ];
 
@@ -79,15 +84,15 @@ export const unclaimedTooLong = (
   runs: readonly SeenRun[],
   at: Date,
 ): RunId | null => {
-  const holding = search.heldRun;
-  const waiting = holding
-    ? runs.find((each) => each.run.equals(holding))
+  const activeRun = search.activeRun;
+  const waiting = activeRun
+    ? runs.find((each) => each.run.equals(activeRun))
     : undefined;
 
-  return holding &&
+  return activeRun &&
     waiting?.phase === 'queued' &&
     past(waiting.queuedAt, UNCLAIMED_WAIT_MS, at)
-    ? holding
+    ? activeRun
     : null;
 };
 
@@ -100,35 +105,40 @@ export const reconciled = (
   at: Date,
   runIds: () => RunId,
 ): Search => {
-  let held = withReplays(search, replays, known, minGain, at, runIds);
-  const holding = held.heldRun;
-  const running = holding
-    ? runs.find((each) => each.run.equals(holding))
+  let reconciled = withReplays(search, replays, known, minGain, at, runIds);
+  const activeRun = reconciled.activeRun;
+  const running = activeRun
+    ? runs.find((each) => each.run.equals(activeRun))
     : undefined;
 
-  if (holding && running?.phase === 'ended') {
-    held = held.recordRunEnd(
-      holding,
+  if (activeRun && running?.phase === 'ended') {
+    reconciled = reconciled.recordRunEnd(
+      activeRun,
       { failed: running.failed, started: running.started },
       at,
       runIds,
     );
-  } else if (holding && !running && !held.isActive) {
-    held = held.recordRunEnd(
-      holding,
+  } else if (activeRun && !running && !reconciled.isActive) {
+    reconciled = reconciled.recordRunEnd(
+      activeRun,
       { failed: true, started: false },
       at,
       runIds,
     );
   }
 
-  for (const iteration of held.awaitingAgentSpend) {
+  for (const iteration of reconciled.awaitingAgentSpend) {
     const ended = runs.find((each) => each.run.equals(iteration.runId));
 
-    if (past(ended?.endedAt ?? null, DIGEST_WAIT_MS, at)) {
-      held = held.recordAgentSpend(iteration.runId, UNPRICED_RUN, at, runIds);
+    if (past(ended?.endedAt ?? null, USAGE_WAIT_MS, at)) {
+      reconciled = reconciled.recordAgentSpend(
+        iteration.runId,
+        UNPRICED_RUN,
+        at,
+        runIds,
+      );
     }
   }
 
-  return held;
+  return reconciled;
 };

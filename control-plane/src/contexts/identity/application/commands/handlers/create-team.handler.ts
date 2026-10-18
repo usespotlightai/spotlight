@@ -3,7 +3,7 @@ import type { IdentityDefinitionsPort } from '@identity/application/ports/identi
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { Team } from '@identity/domain/aggregates/team.aggregate';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
-import { TeamAlreadyDefinedError } from '@identity/domain/exceptions/team-already-defined.error';
+import { TeamAlreadyExistsError } from '@identity/domain/exceptions/team-already-exists.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import {
   forbiddenTo,
@@ -17,8 +17,8 @@ import type {
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -69,24 +69,24 @@ export class CreateTeamHandler
 
       try {
         return await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
-            const defined = Team.define({
+          createIdempotently(this.creates, create, async () => {
+            const created = Team.create({
               id: TeamId.of(this.ids.generate()),
               workspaceId: permissions.workspaceId,
               key: compiled.key,
               name: compiled.name,
-              openedBy: principal.userId,
-              by: Attribution.of(command.actor, permissions.workspaceId),
+              createdBy: principal.userId,
+              by: ChangeActor.of(command.actor, permissions.workspaceId),
             });
 
-            await this.teams.add(defined);
+            await this.teams.add(created);
 
-            return defined.id.value;
+            return created.id.value;
           }),
         );
       } catch (error) {
-        if (error instanceof TeamAlreadyDefinedError) {
-          return { outcome: 'taken', address: compiled.key.value };
+        if (error instanceof TeamAlreadyExistsError) {
+          return { outcome: 'already-exists', address: compiled.key.value };
         }
 
         if (error instanceof NoSuchWorkspaceError) {

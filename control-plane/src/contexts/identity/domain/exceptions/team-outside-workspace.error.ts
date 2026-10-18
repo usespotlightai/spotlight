@@ -1,5 +1,5 @@
 export class TeamOutsideWorkspaceError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(teamId: string) {
     super(`Team ${teamId} is not in this workspace.`);

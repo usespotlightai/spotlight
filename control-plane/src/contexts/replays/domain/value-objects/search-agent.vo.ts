@@ -7,15 +7,15 @@ const named = (raw: string | null, what: string): string | null => {
     return null;
   }
 
-  const held = raw.trim();
+  const trimmed = raw.trim();
 
-  if (held.length === 0 || held.length > MAX_LENGTH) {
+  if (trimmed.length === 0 || trimmed.length > MAX_LENGTH) {
     throw new InvalidSearchError(
       `agent ${what} must be 1 to ${MAX_LENGTH} characters, or left out`,
     );
   }
 
-  return held;
+  return trimmed;
 };
 
 export class SearchAgent {

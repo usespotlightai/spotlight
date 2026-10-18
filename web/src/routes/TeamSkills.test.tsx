@@ -107,7 +107,7 @@ describe('TeamSkills', () => {
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 
-  it('holds the shape of a skill while they load, keeping what never changes', () => {
+  it('keeps the shape of a skill while they load, keeping what never changes', () => {
     skills.mockReturnValue(undefined);
     showing();
 
@@ -127,7 +127,7 @@ describe('TeamSkills', () => {
     ).toBeInTheDocument();
   });
 
-  it('says the skills could not be loaded, rather than that there are none, and tries again when asked', async () => {
+  it('says the skills could not be loaded, rather than that there are none, and tries again on request', async () => {
     const person = userEvent.setup();
     skills.mockReturnValue(undefined);
     failing.mockReturnValue(true);

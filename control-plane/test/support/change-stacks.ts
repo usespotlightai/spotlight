@@ -50,8 +50,8 @@ export const awaitingCheck = async (
       links: [],
       imports: [],
     },
-    draftedAt: new Date(),
-    settledAt: new Date(),
+    startedAt: new Date(),
+    completedAt: new Date(),
     cohorts: [
       {
         id: 'c1',
@@ -64,14 +64,14 @@ export const awaitingCheck = async (
             title: 'Readme',
             summary: 'Rewords it',
             dependsOn: [],
-            ranges: [{ hunk: 'h1' }],
+            hunks: [{ hunk: 'h1' }],
             notes: [{ path: 'README.md', note: 'Reworded' }],
           },
         ],
       },
     ],
     checkCommand: 'npm test',
-    spent: {
+    usage: {
       calls: 0,
       inputTokens: 0,
       outputTokens: 0,
@@ -86,7 +86,7 @@ export const awaitingCheck = async (
     workspaceId,
     command: 'npm test',
     placement,
-    phase: 'waiting',
+    status: 'waiting',
     waitingSince: new Date(),
   });
 

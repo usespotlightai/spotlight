@@ -17,13 +17,13 @@ interface RepositoryView {
 
 interface SkillView {
   readonly key: string;
-  readonly digest: string;
+  readonly hash: string;
 }
 
 interface JudgeView {
-  readonly rubricDigest: string;
+  readonly rubricHash: string;
   readonly sample: number;
-  readonly trust: number;
+  readonly minAgreement: number;
 }
 
 export interface StationConfigParts {
@@ -103,7 +103,7 @@ const ordered = (parts: StationConfigParts): StationConfigParts => ({
     .map((each) => ({ name: each.name, setup: each.setup }))
     .sort((a, b) => textOrder(a.name, b.name)),
   skills: [...parts.skills]
-    .map((each) => ({ key: each.key, digest: each.digest }))
+    .map((each) => ({ key: each.key, hash: each.hash }))
     .sort((a, b) => textOrder(a.key, b.key)),
   tools: [...new Set(parts.tools)].sort(textOrder),
   decisions: parts.decisions,
@@ -111,9 +111,9 @@ const ordered = (parts: StationConfigParts): StationConfigParts => ({
   ...(parts.judge
     ? {
         judge: {
-          rubricDigest: parts.judge.rubricDigest,
+          rubricHash: parts.judge.rubricHash,
           sample: parts.judge.sample,
-          trust: parts.judge.trust,
+          minAgreement: parts.judge.minAgreement,
         },
       }
     : {}),
@@ -198,7 +198,7 @@ const judgeChanges = (
   }
 
   const setting = (
-    name: 'sample' | 'trust',
+    name: 'sample' | 'minAgreement',
     before: number,
     after: number,
   ): ConfigChange[] =>
@@ -215,7 +215,7 @@ const judgeChanges = (
         ];
 
   return [
-    ...(was.rubricDigest === now.rubricDigest
+    ...(was.rubricHash === now.rubricHash
       ? []
       : [
           {
@@ -227,7 +227,7 @@ const judgeChanges = (
           },
         ]),
     ...setting('sample', was.sample, now.sample),
-    ...setting('trust', was.trust, now.trust),
+    ...setting('minAgreement', was.minAgreement, now.minAgreement),
   ];
 };
 
@@ -245,9 +245,12 @@ export class StationConfig {
     parts: StationConfigParts,
     fingerprintOf: (canonical: string) => string,
   ): StationConfig {
-    const kept = ordered(parts);
+    const sorted = ordered(parts);
 
-    return StationConfig.rehydrate(kept, fingerprintOf(canonicalText(kept)));
+    return StationConfig.rehydrate(
+      sorted,
+      fingerprintOf(canonicalText(sorted)),
+    );
   }
 
   static rehydrate(
@@ -319,7 +322,7 @@ export class StationConfig {
         now.skills,
         (each) => each.key,
         () => null,
-        (one, other) => one.digest === other.digest,
+        (one, other) => one.hash === other.hash,
       ),
       ...namedChanges(
         'tool',

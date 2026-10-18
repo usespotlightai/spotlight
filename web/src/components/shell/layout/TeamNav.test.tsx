@@ -79,7 +79,7 @@ describe('TeamNav', () => {
     expect(panels()[1]?.querySelector('ul')).not.toHaveAttribute('inert');
   });
 
-  it('lists a team’s lines under a label that folds them away, and remembers it', async () => {
+  it('lists a team’s lines under a label that collapses them, and remembers it', async () => {
     renderNav();
 
     expect(lineGroups()).toHaveLength(teams.length);
@@ -112,7 +112,7 @@ describe('TeamNav', () => {
     expect(linesOf(0)).toBeInTheDocument();
   });
 
-  it('marks the line a task stands on, on the task and on its trace', () => {
+  it('marks the line a task is on, on the task and on its trace', () => {
     lines.mockReturnValue([
       { id: 'line_1', name: 'Default', stations: [{ id: 'station_1' }] },
     ]);

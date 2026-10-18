@@ -6,13 +6,13 @@ import type {
 } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
-import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
+import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryRetirement } from '@memory/domain/value-objects/memory-retirement.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
-import type { RunSite } from '@memory/domain/value-objects/run-site';
+import type { RunContext } from '@memory/domain/value-objects/run-context';
 import { memory } from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -33,11 +33,11 @@ type Row = typeof memory.$inferSelect;
 
 const MAX_LISTED = 500;
 
-const groundsOf = (row: Row): MemoryGrounds | null => {
+const provenanceOf = (row: Row): MemoryProvenance | null => {
   const { taskId, runId, steps, notes } = row;
 
   if (taskId && runId && steps && notes) {
-    return MemoryGrounds.of({
+    return MemoryProvenance.of({
       taskId: TaskId.of(taskId),
       runId: RunId.of(runId),
       steps,
@@ -48,7 +48,7 @@ const groundsOf = (row: Row): MemoryGrounds | null => {
   if (taskId || runId || steps || notes) {
     throw new InconsistentStateError(
       'memory',
-      'rests on part of a run, but not all of what it cites',
+      'has part of its provenance, but not all of it',
     );
   }
 
@@ -56,10 +56,10 @@ const groundsOf = (row: Row): MemoryGrounds | null => {
 };
 
 const toMemory = (row: Row): Memory => {
-  if ((row.standing === 'retired') !== (row.retiredAt !== null)) {
+  if ((row.status === 'retired') !== (row.retiredAt !== null)) {
     throw new InconsistentStateError(
       'memory',
-      'stands while retired, or is retired without saying when',
+      'has a retirement date but is not retired, or is retired without a date',
     );
   }
 
@@ -76,7 +76,7 @@ const toMemory = (row: Row): Memory => {
       repository: row.repository ? Repository.of(row.repository) : null,
       paths: row.paths.map(MemoryPath.of),
     }),
-    grounds: groundsOf(row),
+    provenance: provenanceOf(row),
     source: row.source,
     supersedes: row.supersedes ? MemoryId.of(row.supersedes) : null,
     approval: MemoryDecision.of({
@@ -95,21 +95,21 @@ const toMemory = (row: Row): Memory => {
   });
 };
 
-const changedColumnsOf = (held: Memory) => ({
-  standing: held.standing,
-  retiredAt: held.retirement?.at ?? null,
-  retiredBy: held.retirement?.by?.value ?? null,
-  retireReason: held.retirement?.reason ?? null,
-  supersededBy: held.retirement?.supersededBy?.value ?? null,
+const changedColumnsOf = (stored: Memory) => ({
+  status: stored.status,
+  retiredAt: stored.retirement?.at ?? null,
+  retiredBy: stored.retirement?.by?.value ?? null,
+  retireReason: stored.retirement?.reason ?? null,
+  supersededBy: stored.retirement?.supersededBy?.value ?? null,
 });
 
-export const standingWhen = (at: Date | null) =>
+export const activeAsOf = (at: Date | null) =>
   at
     ? and(
         lte(memory.approvedAt, at),
         or(isNull(memory.retiredAt), gt(memory.retiredAt, at)),
       )
-    : eq(memory.standing, 'stands');
+    : eq(memory.status, 'active');
 
 @Injectable()
 export class DrizzleMemoryRepository implements MemoryRepository {
@@ -134,10 +134,10 @@ export class DrizzleMemoryRepository implements MemoryRepository {
           stationId: added.scope.stationId,
           repository: added.scope.repository?.value ?? null,
           paths: added.scope.paths.map((each) => each.value),
-          taskId: added.grounds?.taskId.value ?? null,
-          runId: added.grounds?.runId.value ?? null,
-          steps: added.grounds ? [...added.grounds.steps] : null,
-          notes: added.grounds ? [...added.grounds.notes] : null,
+          taskId: added.provenance?.taskId.value ?? null,
+          runId: added.provenance?.runId.value ?? null,
+          steps: added.provenance ? [...added.provenance.steps] : null,
+          notes: added.provenance ? [...added.provenance.notes] : null,
           source: added.source,
           supersedes: added.supersedes?.value ?? null,
           approvedBy: added.approval.by.value,
@@ -186,7 +186,7 @@ export class DrizzleMemoryRepository implements MemoryRepository {
       .where(
         and(
           eq(memory.teamId, teamId.value),
-          eq(memory.standing, criteria.standing),
+          eq(memory.status, criteria.status),
           criteria.kind ? eq(memory.kind, criteria.kind) : undefined,
           criteria.lineId ? eq(memory.lineId, criteria.lineId) : undefined,
           criteria.stationId
@@ -196,12 +196,12 @@ export class DrizzleMemoryRepository implements MemoryRepository {
             ? eq(memory.repository, criteria.repository)
             : undefined,
           criteria.path
-            ? sql`exists (select 1 from jsonb_array_elements_text(${memory.paths}) as held(path) where starts_with(held.path, ${criteria.path}))`
+            ? sql`exists (select 1 from jsonb_array_elements_text(${memory.paths}) as entry(path) where starts_with(entry.path, ${criteria.path}))`
             : undefined,
         ),
       )
       .orderBy(
-        criteria.standing === 'retired'
+        criteria.status === 'retired'
           ? desc(memory.retiredAt)
           : desc(memory.approvedAt),
       )
@@ -218,29 +218,32 @@ export class DrizzleMemoryRepository implements MemoryRepository {
     const [row] = result.rows;
 
     if (!row) {
-      throw new Error('The memory handle sequence gave no number');
+      throw new Error('The memory handle sequence returned no number');
     }
 
     return MemoryHandle.of(Number(row.next));
   }
 
-  async mayReach(
-    site: RunSite,
-    standingAt: Date | null = null,
+  async mayApplyAt(
+    runContext: RunContext,
+    asOf: Date | null = null,
   ): Promise<readonly Memory[]> {
-    const repositories = site.repositories.map((each) => each.value);
+    const repositories = runContext.repositories.map((each) => each.value);
     const rows = await this.context.db
       .select()
       .from(memory)
       .where(
         and(
-          eq(memory.teamId, site.teamId.value),
-          standingWhen(standingAt),
-          site.lineId
-            ? or(isNull(memory.lineId), eq(memory.lineId, site.lineId))
+          eq(memory.teamId, runContext.teamId.value),
+          activeAsOf(asOf),
+          runContext.lineId
+            ? or(isNull(memory.lineId), eq(memory.lineId, runContext.lineId))
             : isNull(memory.lineId),
-          site.stationId
-            ? or(isNull(memory.stationId), eq(memory.stationId, site.stationId))
+          runContext.stationId
+            ? or(
+                isNull(memory.stationId),
+                eq(memory.stationId, runContext.stationId),
+              )
             : isNull(memory.stationId),
           repositories.length > 0
             ? or(
@@ -328,8 +331,8 @@ export class DrizzleMemoryRepository implements MemoryRepository {
     const found = new Map(rows.map((row) => [row.id, toMemory(row)]));
 
     return ids.flatMap((each) => {
-      const held = found.get(each.value);
-      return held ? [held] : [];
+      const match = found.get(each.value);
+      return match ? [match] : [];
     });
   }
 

@@ -2,7 +2,7 @@ import { ApplicationError } from '@shared-kernel/application/errors/application-
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { RunDigest } from '@work/application/ports/run-digest-reader.port';
+import type { RunUsage } from '@work/application/ports/run-usage-reader.port';
 import type { TeamTraceSummary } from '@work/application/ports/team-trace-reader.port';
 import { ListTeamTracesHandler } from '@work/application/queries/handlers/list-team-traces.handler';
 import { ListTeamTracesQuery } from '@work/application/queries/list-team-traces.query';
@@ -35,22 +35,22 @@ const trace = (taskId: string, runIds: string[]): TeamTraceSummary => ({
   output: null,
 });
 
-let asked: string[][] = [];
+let requested: string[][] = [];
 
-const digests = {
+const usages = {
   forRuns: async (runIds: readonly RunId[]) => {
-    asked.push(runIds.map((each) => each.value));
+    requested.push(runIds.map((each) => each.value));
 
-    return new Map<string, RunDigest>([
+    return new Map<string, RunUsage>([
       [
         'run_1',
         {
           ms: 1_000,
           steps: 5,
-          faults: 1,
+          errors: 1,
           changedLines: 0,
-          used: null,
-          size: null,
+          contextTokens: null,
+          contextWindow: null,
           cost: Money.of(0.5, 'USD'),
           tokens: Tokens.UNREPORTED,
         },
@@ -73,57 +73,57 @@ const handler = (found: TeamTraceSummary[]) =>
         return found;
       },
     },
-    digests,
+    usages,
     clock,
   );
 
 describe('ListTeamTracesHandler', () => {
   beforeEach(() => {
-    asked = [];
+    requested = [];
     since = null;
   });
 
-  it('asks only for what the runs it is reporting on came to', async () => {
+  it('reads only what the runs it reports on came to', async () => {
     await handler([trace('task_1', ['run_1', 'run_2'])]).execute(
       new ListTeamTracesQuery('team_1', 'user_1', '1h'),
     );
 
-    expect(asked).toEqual([['run_1', 'run_2']]);
+    expect(requested).toEqual([['run_1', 'run_2']]);
   });
 
-  it('asks for nothing where the team has run nothing', async () => {
+  it('requests nothing where the team has run nothing', async () => {
     const { traces } = await handler([]).execute(
       new ListTeamTracesQuery('team_1', 'user_1', '1h'),
     );
 
     expect(traces).toEqual([]);
-    expect(asked).toEqual([[]]);
+    expect(requested).toEqual([[]]);
   });
 
   it('hands back what each trace came to', async () => {
     const {
-      traces: [held],
+      traces: [first],
     } = await handler([trace('task_1', ['run_1'])]).execute(
       new ListTeamTracesQuery('team_1', 'user_1', '1h'),
     );
 
-    expect(held?.taskId).toBe('task_1');
-    expect(held?.cost).toBe(0.5);
-    expect(held?.faults).toBe(1);
+    expect(first?.taskId).toBe('task_1');
+    expect(first?.cost).toBe(0.5);
+    expect(first?.errors).toBe(1);
   });
 
   it('reads the range back from now, and says where it starts and ends', async () => {
-    const held = await handler([]).execute(
+    const listed = await handler([]).execute(
       new ListTeamTracesQuery('team_1', 'user_1', '1h'),
     );
 
     expect(since).toEqual(new Date('2026-08-29T11:30:00.000Z'));
-    expect(held.range).toBe('1h');
-    expect(held.from).toBe('2026-08-29T11:30:00.000Z');
-    expect(held.to).toBe('2026-08-29T12:30:00.000Z');
+    expect(listed.range).toBe('1h');
+    expect(listed.from).toBe('2026-08-29T11:30:00.000Z');
+    expect(listed.to).toBe('2026-08-29T12:30:00.000Z');
   });
 
-  it('counts every trace and its faults into the bar it started in', async () => {
+  it('counts every trace and its errors into the bar it started in', async () => {
     const { volume } = await handler([trace('task_1', ['run_1'])]).execute(
       new ListTeamTracesQuery('team_1', 'user_1', '1h'),
     );
@@ -133,17 +133,17 @@ describe('ListTeamTracesHandler', () => {
       from: '2026-08-29T12:28:00.000Z',
       to: '2026-08-29T12:30:00.000Z',
       count: 0,
-      faults: 0,
+      errors: 0,
     });
     expect(volume.find((bucket) => bucket.count > 0)).toEqual({
       from: '2026-08-29T12:00:00.000Z',
       to: '2026-08-29T12:02:00.000Z',
       count: 1,
-      faults: 1,
+      errors: 1,
     });
   });
 
-  it('refuses a range it does not know', async () => {
+  it('rejects a range it does not know', async () => {
     await expect(
       handler([]).execute(new ListTeamTracesQuery('team_1', 'user_1', '2y')),
     ).rejects.toThrow(ApplicationError);

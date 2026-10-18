@@ -1,8 +1,8 @@
 import type { ReadDeliveryCommand } from '@integrations/application/commands/read-delivery.command';
 import type {
-  DeliveryInboxPort,
+  DeliveryQueuePort,
   StoredDelivery,
-} from '@integrations/application/ports/delivery-inbox.port';
+} from '@integrations/application/ports/delivery-queue.port';
 import { ProcessDueDeliveries } from '@integrations/application/services/process-due-deliveries.service';
 import { MAX_DELIVERY_ATTEMPTS } from '@integrations/domain/services/delivery-retry';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from 'vitest';
 const NOW = new Date('2026-09-07T10:00:00.000Z');
 
 const waiting = (id: string, attempts = 0): StoredDelivery => ({
-  source: 'github',
+  integration: 'github',
   workspaceId: '',
   teamId: '',
   teamKey: '',
@@ -27,14 +27,14 @@ const working = (
   react: (command: ReadDeliveryCommand) => Promise<void> = async () => {},
 ) => {
   const pending = [...queued];
-  const worked: string[] = [];
+  const done: string[] = [];
   const failed: { id: string; because: string }[] = [];
   const retried: { id: string; because: string; at: Date }[] = [];
 
-  const inbox = {
+  const queue = {
     claimNext: vi.fn(async () => pending.shift() ?? null),
-    worked: vi.fn(async (delivered: StoredDelivery) => {
-      worked.push(delivered.id);
+    markDone: vi.fn(async (delivered: StoredDelivery) => {
+      done.push(delivered.id);
     }),
     retryAt: vi.fn(
       async (delivered: StoredDelivery, because: string, at: Date) => {
@@ -44,7 +44,7 @@ const working = (
     failed: vi.fn(async (delivered: StoredDelivery, because: string) => {
       failed.push({ id: delivered.id, because });
     }),
-  } as unknown as DeliveryInboxPort;
+  } as unknown as DeliveryQueuePort;
 
   const reacting = { execute: vi.fn(react) } as unknown as CommandHandlerPort<
     ReadDeliveryCommand,
@@ -52,64 +52,64 @@ const working = (
   >;
 
   return {
-    service: new ProcessDueDeliveries(inbox, reacting, {
+    service: new ProcessDueDeliveries(queue, reacting, {
       now: () => NOW,
     } as ClockPort),
-    inbox,
+    queue,
     reacting,
-    worked,
+    done,
     failed,
     retried,
   };
 };
 
 describe('ProcessDueDeliveries', () => {
-  it('says there was nothing when the inbox is empty', async () => {
+  it('says there was nothing when the queue is empty', async () => {
     const { service } = working([]);
 
     expect(await service.workOne()).toBe(false);
   });
 
   it('works the delivery it was handed, and marks it done', async () => {
-    const { service, reacting, worked } = working([waiting('d_1')]);
+    const { service, reacting, done } = working([waiting('d_1')]);
 
     expect(await service.workOne()).toBe(true);
     expect(reacting.execute).toHaveBeenCalledTimes(1);
-    expect(worked).toEqual(['d_1']);
+    expect(done).toEqual(['d_1']);
   });
 
   it('works off everything waiting, oldest first', async () => {
-    const { service, worked } = working([
+    const { service, done } = working([
       waiting('d_1'),
       waiting('d_2'),
       waiting('d_3'),
     ]);
 
     expect(await service.processDue()).toBe(3);
-    expect(worked).toEqual(['d_1', 'd_2', 'd_3']);
+    expect(done).toEqual(['d_1', 'd_2', 'd_3']);
   });
 
   it('stops at the limit it was given, leaving the rest waiting', async () => {
-    const { service, worked } = working([
+    const { service, done } = working([
       waiting('d_1'),
       waiting('d_2'),
       waiting('d_3'),
     ]);
 
     expect(await service.processDue(2)).toBe(2);
-    expect(worked).toEqual(['d_1', 'd_2']);
+    expect(done).toEqual(['d_1', 'd_2']);
   });
 
-  it('asks the inbox only for deliveries due now', async () => {
-    const { service, inbox } = working([]);
+  it('reads from the queue only the deliveries due now', async () => {
+    const { service, queue } = working([]);
 
     await service.workOne();
 
-    expect(inbox.claimNext).toHaveBeenCalledWith(NOW);
+    expect(queue.claimNext).toHaveBeenCalledWith(NOW);
   });
 
   it('puts a delivery that would not be read back to wait, and says why', async () => {
-    const { service, worked, failed, retried } = working(
+    const { service, done, failed, retried } = working(
       [waiting('d_1')],
       async () => {
         throw new Error('the line was read in pieces');
@@ -117,7 +117,7 @@ describe('ProcessDueDeliveries', () => {
     );
 
     expect(await service.workOne()).toBe(true);
-    expect(worked).toEqual([]);
+    expect(done).toEqual([]);
     expect(failed).toEqual([]);
     expect(retried).toEqual([
       {
@@ -154,7 +154,7 @@ describe('ProcessDueDeliveries', () => {
 
   it('carries on with the next one after a failure', async () => {
     let seen = 0;
-    const { service, worked, retried } = working(
+    const { service, done, retried } = working(
       [waiting('d_1'), waiting('d_2')],
       async () => {
         seen += 1;
@@ -166,6 +166,6 @@ describe('ProcessDueDeliveries', () => {
 
     expect(await service.processDue()).toBe(2);
     expect(retried.map((each) => each.id)).toEqual(['d_1']);
-    expect(worked).toEqual(['d_2']);
+    expect(done).toEqual(['d_2']);
   });
 });

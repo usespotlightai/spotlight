@@ -3,13 +3,13 @@ import { DeliveryWorker } from '@integrations/presentation/workers/delivery-work
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { describe, expect, it, vi } from 'vitest';
 
-const held = () => {
+const gate = () => {
   let release: () => void = () => {};
-  const holding = new Promise<void>((done) => {
+  const opened = new Promise<void>((done) => {
     release = done;
   });
 
-  return { holding, release: () => release() };
+  return { opened, release: () => release() };
 };
 
 const ticking = (processDue: () => Promise<number>) => {
@@ -29,9 +29,9 @@ describe('DeliveryWorker', () => {
   });
 
   it('lets one turn finish before another starts', async () => {
-    const { holding, release } = held();
+    const { opened, release } = gate();
     const { worker, work } = ticking(async () => {
-      await holding;
+      await opened;
       return 1;
     });
 

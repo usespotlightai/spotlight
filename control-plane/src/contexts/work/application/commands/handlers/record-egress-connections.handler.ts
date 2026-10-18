@@ -10,7 +10,7 @@ import type {
   EgressConnectionsRecordedDto,
 } from '@work/application/dto/egress-connections.dto';
 import type { RunConnectionsPort } from '@work/application/ports/run-connections.port';
-import type { EgressRedemptions } from '@work/application/services/egress-redemptions.service';
+import type { EgressSecretFetches } from '@work/application/services/egress-secret-fetches.service';
 import { InvalidRunConnectionError } from '@work/domain/exceptions/invalid-run-connection.error';
 import { RunConnection } from '@work/domain/value-objects/run-connection.vo';
 
@@ -48,7 +48,7 @@ export class RecordEgressConnectionsHandler
 {
   constructor(
     private readonly egress: RunnerEgressPort,
-    private readonly redemptions: EgressRedemptions,
+    private readonly fetches: EgressSecretFetches,
     private readonly connections: RunConnectionsPort,
     private readonly clock: ClockPort,
   ) {}
@@ -60,7 +60,7 @@ export class RecordEgressConnectionsHandler
       const shared = await this.egress.sharedWith(command.token);
 
       if (!shared) {
-        return { outcome: 'refused' };
+        return { outcome: 'unauthorized' };
       }
 
       if (command.records.length > MAX_CONNECTIONS_AT_ONCE) {
@@ -70,22 +70,22 @@ export class RecordEgressConnectionsHandler
       const byCredential = new Map<string, EgressConnectionRecord[]>();
 
       for (const record of command.records) {
-        const kept = byCredential.get(record.proxyCredential) ?? [];
-        kept.push(record);
-        byCredential.set(record.proxyCredential, kept);
+        const grouped = byCredential.get(record.proxyCredential) ?? [];
+        grouped.push(record);
+        byCredential.set(record.proxyCredential, grouped);
       }
 
       let recorded = 0;
 
       for (const [credential, records] of byCredential) {
-        const recording = await this.egress.recordsThrough(
+        const recording = await this.egress.runnerForConnectionRecords(
           shared,
           credential,
           this.clock.now(),
         );
         const attempt =
           recording?.work?.kind === 'run'
-            ? await this.redemptions.attemptWorkedBy(
+            ? await this.fetches.attemptClaimedBy(
                 RunId.of(recording.work.id),
                 RunnerId.of(recording.runnerId),
                 recording.workspaceId,

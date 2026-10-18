@@ -1,8 +1,8 @@
 import { DndContext } from '@dnd-kit/core';
 import type { Dispatch, SetStateAction } from 'react';
 import { BoardStation } from '@/components/features/board/BoardStation';
-import { LiftedTaskOverlay } from '@/components/features/board/LiftedTaskOverlay';
 import { SelectionBar } from '@/components/features/board/SelectionBar';
+import { TaskDragOverlay } from '@/components/features/board/TaskDragOverlay';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
 import { useBoardDrag } from '@/hooks/useBoardDrag';
 import { useCollapsed } from '@/hooks/useCollapsed';
@@ -47,7 +47,7 @@ export function Board({
     .map((station, place) => ({ station, place }))
     .filter(({ station }) => inView(view, station.kind));
   const target = moveTargetFor(line.stations, tasks, selected);
-  const lifted = tasks.find((each) => each.id === drag.lifted) ?? null;
+  const dragged = tasks.find((each) => each.id === drag.draggedId) ?? null;
 
   const select = (taskId: string, taken: boolean) =>
     onSelectedChange((current) =>
@@ -98,7 +98,7 @@ export function Board({
           ))}
         </div>
 
-        <LiftedTaskOverlay stations={line.stations} lifted={lifted} />
+        <TaskDragOverlay stations={line.stations} task={dragged} />
       </DndContext>
 
       <SelectionBar

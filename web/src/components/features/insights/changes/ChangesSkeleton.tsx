@@ -1,5 +1,5 @@
-import { SetupFilters } from '@/components/features/insights/changes/SetupFilters';
-import { SETUP_SCATTER_HEIGHT } from '@/components/features/insights/changes/SetupScatter';
+import { AgentConfigFilters } from '@/components/features/insights/changes/AgentConfigFilters';
+import { AGENT_CONFIG_SCATTER_HEIGHT } from '@/components/features/insights/changes/AgentConfigScatter';
 import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCardSkeleton';
 import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
 import { ChartSkeleton } from '@/components/shared/skeleton/ChartSkeleton';
@@ -9,7 +9,7 @@ import {
   CHANGE_HEADINGS,
   CHANGES_NOTE,
   DEFAULT_OUTCOME,
-  EVERY_SETUP,
+  EVERY_AGENT_CONFIG,
   outcomeLabel,
 } from '@/lib/insights-changes';
 import { ignore } from '@/lib/utils';
@@ -37,8 +37,8 @@ export function ChangesSkeleton({ names }: { names: StationNames }) {
         description={`${outcomeLabel(DEFAULT_OUTCOME)} against cost per run.`}
         actions={
           <div inert>
-            <SetupFilters
-              narrowed={EVERY_SETUP}
+            <AgentConfigFilters
+              narrowed={EVERY_AGENT_CONFIG}
               measure={DEFAULT_OUTCOME}
               judged={false}
               names={names}
@@ -49,7 +49,7 @@ export function ChangesSkeleton({ names }: { names: StationNames }) {
         }
       >
         <figure className="flex flex-col gap-1">
-          <ChartSkeleton height={SETUP_SCATTER_HEIGHT} />
+          <ChartSkeleton height={AGENT_CONFIG_SCATTER_HEIGHT} />
           <SkeletonLine className="ml-14 h-5 w-64" />
         </figure>
       </InsightsCardSkeleton>

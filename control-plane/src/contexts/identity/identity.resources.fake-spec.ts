@@ -1,5 +1,5 @@
 import type { IdentityResourcesPort } from '@identity/application/ports/identity-resources.port';
-import type { TeamHoldingsPort } from '@identity/application/ports/team-holdings.port';
+import type { TeamDependentsPort } from '@identity/application/ports/team-dependents.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { Team } from '@identity/domain/aggregates/team.aggregate';
 import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
@@ -47,13 +47,13 @@ export const teamAt = (version: number, key = 'core') =>
 
 export const workspaces = (
   over: {
-    standing?: Workspace | null;
-    refusing?: Error;
+    existing?: Workspace | null;
+    throwing?: Error;
     thenAt?: Workspace | null;
     taken?: boolean;
   } = {},
 ) => {
-  const find = vi.fn(async () => over.standing ?? null);
+  const find = vi.fn(async () => over.existing ?? null);
 
   return {
     find,
@@ -61,9 +61,9 @@ export const workspaces = (
     isTaken: vi.fn(async () => over.taken ?? false),
     add: vi.fn(async (_: Workspace) => {}),
     save: vi.fn(async (_: Workspace) => {
-      if (over.refusing) {
+      if (over.throwing) {
         find.mockResolvedValue(over.thenAt ?? null);
-        throw over.refusing;
+        throw over.throwing;
       }
     }),
   } satisfies WorkspaceRepository;
@@ -71,39 +71,39 @@ export const workspaces = (
 
 export const teams = (
   over: {
-    standing?: Team | null;
-    held?: readonly Team[];
-    refusing?: Error;
+    existing?: Team | null;
+    inWorkspace?: readonly Team[];
+    throwing?: Error;
     thenAt?: Team | null;
   } = {},
 ) => {
-  const find = vi.fn(async () => over.standing ?? null);
+  const find = vi.fn(async () => over.existing ?? null);
 
   return {
     find,
     named: find,
-    ofWorkspace: vi.fn(async () => over.held ?? []),
+    ofWorkspace: vi.fn(async () => over.inWorkspace ?? []),
     add: vi.fn(async (_: Team) => {
-      if (over.refusing) {
-        throw over.refusing;
+      if (over.throwing) {
+        throw over.throwing;
       }
     }),
     save: vi.fn(async (_: Team) => {
-      if (over.refusing) {
+      if (over.throwing) {
         find.mockResolvedValue(over.thenAt ?? null);
-        throw over.refusing;
+        throw over.throwing;
       }
     }),
   } satisfies TeamRepository;
 };
 
-export const access = (administers = true): WorkspaceAccessPort =>
+export const access = (isAdmin = true): WorkspaceAccessPort =>
   ({
     permissionsIn: vi.fn(async () => ({
       workspaceId: WORKSPACE,
       slug: 'acme',
-      configures: administers,
-      administers,
+      configures: isAdmin,
+      isAdmin,
     })),
   }) as unknown as WorkspaceAccessPort;
 
@@ -111,24 +111,26 @@ export const teamKeys = (
   keys: readonly string[],
   tokens: readonly string[] = [],
   trusts: readonly string[] = [],
-  minting: readonly string[] = [],
+  issuing: readonly string[] = [],
 ): IdentityResourcesPort =>
   ({
     teamKeysIn: vi.fn(async () => keys),
     tokenNamesIn: vi.fn(async () => tokens),
     tokenTrustKeysIn: vi.fn(async () => trusts),
-    mintingTrustKeysIn: vi.fn(async () => minting),
+    issuingTrustKeysIn: vi.fn(async () => issuing),
   }) as unknown as IdentityResourcesPort;
 
-export const holdings = (held: readonly string[] = []): TeamHoldingsPort => ({
+export const dependents = (
+  names: readonly string[] = [],
+): TeamDependentsPort => ({
   register: vi.fn(),
-  of: vi.fn(async () => held),
+  of: vi.fn(async () => names),
 });
 
 export const creates = () =>
   ({
-    claim: vi.fn(async () => ({ kind: 'fresh' as const })),
-    created: vi.fn(async () => {}),
+    reserve: vi.fn(async () => ({ kind: 'new' as const })),
+    recordCreated: vi.fn(async () => {}),
   }) satisfies IdempotentCreatesPort;
 
 export const transaction: TransactionPort = { inTransaction: (work) => work() };

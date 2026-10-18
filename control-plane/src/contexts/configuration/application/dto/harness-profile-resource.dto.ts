@@ -1,4 +1,4 @@
-import type { WornSecret } from '@configuration/application/ports/integration-configs.port';
+import type { SecretReferenceAt } from '@configuration/domain/value-objects/secret-reference-at.vo';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
 export interface McpServerDto {
@@ -21,6 +21,6 @@ export interface HarnessProfileResourceDto {
   };
   readonly mcpServers: readonly McpServerDto[];
   readonly native: Readonly<Record<string, unknown>>;
-  readonly secretsWorn: readonly WornSecret[];
+  readonly secretReferences: readonly SecretReferenceAt[];
   readonly warnings: readonly ConfigurationProblem[];
 }

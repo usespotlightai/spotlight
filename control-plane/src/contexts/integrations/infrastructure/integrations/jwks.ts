@@ -6,13 +6,13 @@ export interface JwksResolver {
 
 type Fetch = typeof globalThis.fetch;
 
-interface Held {
+interface CachedKeys {
   readonly at: number;
   readonly keys: ReadonlyMap<string, KeyObject>;
 }
 
 export class JwksCache implements JwksResolver {
-  private readonly held = new Map<string, Held>();
+  private readonly cache = new Map<string, CachedKeys>();
 
   constructor(
     private readonly ttl = 3_600_000,
@@ -21,14 +21,14 @@ export class JwksCache implements JwksResolver {
   ) {}
 
   async keys(url: string): Promise<ReadonlyMap<string, KeyObject>> {
-    const hit = this.held.get(url);
+    const hit = this.cache.get(url);
 
     if (hit && this.now() - hit.at < this.ttl) {
       return hit.keys;
     }
 
     const keys = await this.read(url);
-    this.held.set(url, { at: this.now(), keys });
+    this.cache.set(url, { at: this.now(), keys });
 
     return keys;
   }

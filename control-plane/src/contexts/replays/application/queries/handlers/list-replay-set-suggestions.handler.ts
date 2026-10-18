@@ -1,10 +1,10 @@
 import type { SuggestedRunDto } from '@replays/application/dto/replays.dto';
-import type { OutcomesPort } from '@replays/application/ports/outcomes.port';
+import type { InsightsPort } from '@replays/application/ports/insights.port';
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { ListReplaySetSuggestionsQuery } from '@replays/application/queries/list-replay-set-suggestions.query';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import { MAX_SET_ENTRIES } from '@replays/domain/aggregates/replay-set.aggregate';
-import { turnedOutOf } from '@replays/domain/services/composition';
+import { originalOutcomeOf } from '@replays/domain/services/composition';
 import {
   balancingPicks,
   MAX_SUGGESTED,
@@ -22,7 +22,7 @@ export class ListReplaySetSuggestionsHandler
   constructor(
     private readonly access: ReplaysAccess,
     private readonly work: WorkPort,
-    private readonly outcomes: OutcomesPort,
+    private readonly insights: InsightsPort,
   ) {}
 
   async execute(
@@ -44,22 +44,24 @@ export class ListReplaySetSuggestionsHandler
             MAX_SUGGESTED_FROM,
           )
         ).flatMap((each) =>
-          each.refusal === null && each.taskId && !set.holds(each.runId)
+          each.unreplayableReason === null &&
+          each.taskId &&
+          !set.includes(each.runId)
             ? [{ ...each, task: each.taskId.value }]
             : [],
         ),
         set.entries.map((each) => each.taskId.value),
       );
-      const turnouts = await this.outcomes.turnedOut([
+      const originalOutcomes = await this.insights.originalOutcomes([
         ...set.runs,
         ...recent.map((each) => each.runId),
       ]);
 
       return balancingPicks(
-        set.runs.map((each) => turnedOutOf(turnouts, each.value)),
+        set.runs.map((each) => originalOutcomeOf(originalOutcomes, each.value)),
         recent.map((each) => ({
           run: each,
-          outcome: turnedOutOf(turnouts, each.runId.value),
+          outcome: originalOutcomeOf(originalOutcomes, each.runId.value),
         })),
         Math.min(MAX_SUGGESTED, MAX_SET_ENTRIES - set.entries.length),
       ).map(({ run, outcome }) => ({
@@ -68,7 +70,7 @@ export class ListReplaySetSuggestionsHandler
         title: run.title,
         state: run.state,
         endedAt: run.endedAt.toISOString(),
-        refusal: run.refusal,
+        unreplayableReason: run.unreplayableReason,
         reason: run.reason,
         outcome,
       }));

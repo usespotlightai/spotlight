@@ -1,5 +1,5 @@
 import { ReadDeliveryCommand } from '@integrations/application/commands/read-delivery.command';
-import type { DeliveryInboxPort } from '@integrations/application/ports/delivery-inbox.port';
+import type { DeliveryQueuePort } from '@integrations/application/ports/delivery-queue.port';
 import type { DeliveryWorkPort } from '@integrations/application/ports/delivery-work.port';
 import { nextDeliveryAttempt } from '@integrations/domain/services/delivery-retry';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -10,13 +10,13 @@ const because = (error: unknown): string =>
 
 export class ProcessDueDeliveries implements DeliveryWorkPort {
   constructor(
-    private readonly inbox: DeliveryInboxPort,
+    private readonly queue: DeliveryQueuePort,
     private readonly reading: CommandHandlerPort<ReadDeliveryCommand, void>,
     private readonly clock: ClockPort,
   ) {}
 
   async workOne(): Promise<boolean> {
-    const waiting = await this.inbox.claimNext(this.clock.now());
+    const waiting = await this.queue.claimNext(this.clock.now());
 
     if (!waiting) {
       return false;
@@ -24,15 +24,15 @@ export class ProcessDueDeliveries implements DeliveryWorkPort {
 
     try {
       await this.reading.execute(new ReadDeliveryCommand(waiting));
-      await this.inbox.worked(waiting, this.clock.now());
+      await this.queue.markDone(waiting, this.clock.now());
     } catch (error) {
       const now = this.clock.now();
       const again = nextDeliveryAttempt(waiting.attempts + 1, now);
 
       if (again) {
-        await this.inbox.retryAt(waiting, because(error), again);
+        await this.queue.retryAt(waiting, because(error), again);
       } else {
-        await this.inbox.failed(waiting, because(error), now);
+        await this.queue.failed(waiting, because(error), now);
       }
     }
 

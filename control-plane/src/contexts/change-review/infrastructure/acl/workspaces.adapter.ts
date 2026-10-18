@@ -15,7 +15,7 @@ export class Workspaces implements WorkspacesPort {
   }
 
   async idOf(slug: string): Promise<WorkspaceId | null> {
-    const id = await this.reader.identify(slug);
+    const id = await this.reader.idForSlug(slug);
     return id ? WorkspaceId.of(id) : null;
   }
 

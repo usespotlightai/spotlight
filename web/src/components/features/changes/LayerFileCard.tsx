@@ -3,8 +3,8 @@ import { FileThread } from '@/components/features/changes/FileThread';
 import { LayerFileDiff } from '@/components/features/changes/LayerFileDiff';
 import { LayerFileHeader } from '@/components/features/changes/LayerFileHeader';
 import { FileDecisions } from '@/components/features/decisions/FileDecisions';
-import { UNFOLD_MS, Unfold } from '@/components/shared/Unfold';
-import { useLingering } from '@/hooks/useLingering';
+import { COLLAPSE_MS, Collapsible } from '@/components/shared/Collapsible';
+import { useDelayedValue } from '@/hooks/useDelayedValue';
 import { type LayerFile, tallyOf } from '@/lib/change-stack';
 import { useReviewing } from '@/lib/review-context';
 
@@ -19,7 +19,7 @@ export function LayerFileCard({ placed, open, onToggle }: LayerFileCardProps) {
   const tally = tallyOf(hunks);
   const [replying, setReplying] = useState(false);
   const reviewing = useReviewing();
-  const mounted = useLingering(open || null, UNFOLD_MS) !== null;
+  const mounted = useDelayedValue(open || null, COLLAPSE_MS) !== null;
 
   const comment = () => {
     if (!open) {
@@ -41,7 +41,7 @@ export function LayerFileCard({ placed, open, onToggle }: LayerFileCardProps) {
         onComment={reviewing ? comment : undefined}
       />
 
-      <Unfold open={open} appear={false}>
+      <Collapsible open={open} appear={false}>
         <FileThread
           path={file.path}
           note={note}
@@ -57,7 +57,7 @@ export function LayerFileCard({ placed, open, onToggle }: LayerFileCardProps) {
           mounted={mounted}
           lines={tally.added + tally.removed}
         />
-      </Unfold>
+      </Collapsible>
     </article>
   );
 }

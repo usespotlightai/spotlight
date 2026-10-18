@@ -4,16 +4,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InviteDialog } from '@/components/features/members/InviteDialog';
 
 const invite = vi.fn();
-const standing = vi.fn();
+const mutationState = vi.fn();
 
 vi.mock('@/hooks/api/useInviteToWorkspace', () => ({
   useInviteToWorkspace: () => ({
     mutate: invite,
     reset: vi.fn(),
-    isPending: standing() === 'pending',
-    isError: standing() === 'failed',
+    isPending: mutationState() === 'pending',
+    isError: mutationState() === 'failed',
     error:
-      standing() === 'failed'
+      mutationState() === 'failed'
         ? new Error('Sorry, those teams are not in this workspace.')
         : null,
   }),
@@ -51,7 +51,7 @@ const send = (dialog: HTMLElement) =>
 
 beforeEach(() => {
   invite.mockReset();
-  standing.mockReturnValue('idle');
+  mutationState.mockReturnValue('idle');
 });
 
 describe('InviteDialog', () => {
@@ -166,7 +166,7 @@ describe('InviteDialog', () => {
     invite.mockImplementation((_, { onSuccess }) =>
       onSuccess([
         { email: 'ada@example.com', outcome: 'invited' },
-        { email: 'grace@example.com', outcome: 'sent-again' },
+        { email: 'grace@example.com', outcome: 'resent' },
         { email: 'sam@example.com', outcome: 'already-a-member' },
         { email: 'alan@example.com', outcome: 'not-sent' },
       ]),
@@ -179,29 +179,29 @@ describe('InviteDialog', () => {
     );
     await send(dialog);
 
-    const said = within(dialog).getByRole('list', {
+    const outcomes = within(dialog).getByRole('list', {
       name: 'What happened to each address',
     });
 
     expect(
       within(dialog).getByRole('heading', {
-        name: '1 invited · 1 sent again · 1 already in the workspace · 1 not sent',
+        name: '1 invited · 1 resent · 1 already in the workspace · 1 not sent',
       }),
     ).toBeInTheDocument();
     expect(
-      within(said)
+      within(outcomes)
         .getAllByRole('listitem')
         .map((each) => each.textContent),
     ).toEqual([
       'ada@example.comInvited',
-      'grace@example.comSent again',
+      'grace@example.comResent',
       'sam@example.comAlready a member',
       'alan@example.comNot sent. Please resend it from Pending invites.',
     ]);
   });
 
   it('says why the invites could not be sent', () => {
-    standing.mockReturnValue('failed');
+    mutationState.mockReturnValue('failed');
     const dialog = opened();
 
     expect(within(dialog).getByRole('alert')).toHaveTextContent(
@@ -209,8 +209,8 @@ describe('InviteDialog', () => {
     );
   });
 
-  it('holds the form while the invites are sent', () => {
-    standing.mockReturnValue('pending');
+  it('locks the form while the invites are sent', () => {
+    mutationState.mockReturnValue('pending');
     const dialog = opened();
 
     expect(

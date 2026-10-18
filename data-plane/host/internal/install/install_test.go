@@ -10,7 +10,7 @@ import (
 
 var host = install.Service{Binary: "/usr/local/bin/spotlight", Config: "/etc/spotlight/host.env"}
 
-func TestTheSystemdUnitRestartsTheHostAndGivesItsSandboxesTimeToStop(t *testing.T) {
+func TestTheSystemdUnitRestartsTheHostAndLetsItsSandboxesStopInTime(t *testing.T) {
 	unit := install.SystemdUnit(host, true)
 
 	for _, want := range []string{

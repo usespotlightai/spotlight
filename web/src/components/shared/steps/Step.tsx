@@ -1,5 +1,5 @@
 import { type ReactNode, useId } from 'react';
-import { Unfold } from '@/components/shared/Unfold';
+import { Collapsible } from '@/components/shared/Collapsible';
 
 type StepProps = {
   title: string;
@@ -42,14 +42,14 @@ export function Step({
           )}
         </h3>
 
-        <Unfold open={open} appear={false}>
+        <Collapsible open={open} appear={false}>
           <div id={contentId} className="flex flex-col gap-2 pt-1">
             {description && (
               <p className="text-muted-foreground text-xs">{description}</p>
             )}
             {children}
           </div>
-        </Unfold>
+        </Collapsible>
       </div>
     </li>
   );

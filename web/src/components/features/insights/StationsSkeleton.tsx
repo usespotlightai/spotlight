@@ -3,7 +3,7 @@ import { InsightsTilesSkeleton } from '@/components/features/insights/InsightsTi
 import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
 import { BY_STATION_NOTE } from '@/lib/insights';
 import { TALLY_TILES } from '@/lib/insights-tiles';
-import { stationTableHeadings, TYPICAL_COUNTED } from '@/lib/station-outcomes';
+import { stationTableHeadings, TYPICAL_COUNTED } from '@/lib/station-insights';
 
 export function StationsSkeleton({ stations }: { stations: number }) {
   return (

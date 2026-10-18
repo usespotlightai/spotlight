@@ -1,5 +1,5 @@
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import type { LineDefinitionStation } from '@work/application/contracts/line-definition.contract';
@@ -14,9 +14,9 @@ import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { reconcileLine } from '@work/domain/services/reconcile-line';
-import { Continuity } from '@work/domain/value-objects/continuity.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
+import { Resume } from '@work/domain/value-objects/resume.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import type { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
@@ -25,12 +25,12 @@ const STATION = FieldPath.of(['station']);
 
 const LINE = FieldPath.of(['line']);
 
-const NO_TASKS_STANDING: ReadonlyMap<string, number> = new Map();
+const NO_TASK_COUNTS: ReadonlyMap<string, number> = new Map();
 
-export interface StandingStation {
+export interface StationInLine {
   readonly line: Line;
   readonly station: Station;
-  readonly kept: LineRecord;
+  readonly record: LineRecord;
 }
 
 export type CandidateLine =
@@ -43,8 +43,8 @@ const problemAt = (
   reason: string,
 ): ConfigurationProblem => ConfigurationProblem.of({ path, at, reason });
 
-const isBlock = (held: unknown): held is Record<string, unknown> =>
-  typeof held === 'object' && held !== null && !Array.isArray(held);
+const isBlock = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const rerooted =
   (place: number) =>
@@ -78,51 +78,47 @@ export class CandidateLines {
     private readonly ids: IdGeneratorPort,
   ) {}
 
-  async standing(
-    lineId: string,
-    stationId: string,
-  ): Promise<StandingStation | null> {
+  async live(lineId: string, stationId: string): Promise<StationInLine | null> {
     const line = await this.lines.find(LineId.of(lineId));
     const station = line?.stationAt(StationId.of(stationId));
-    const kept = station ? await this.resources.withId(lineId) : null;
+    const record = station ? await this.resources.withId(lineId) : null;
 
-    return line && station && kept ? { line, station, kept } : null;
+    return line && station && record ? { line, station, record } : null;
   }
 
-  async keyed(lineId: string, key: string): Promise<StandingStation | null> {
+  async keyed(lineId: string, key: string): Promise<StationInLine | null> {
     const line = await this.lines.find(LineId.of(lineId));
     const parsed = StationKey.parsed(key);
     const station = line && parsed ? line.stationKeyed(parsed) : null;
-    const kept = station ? await this.resources.withId(lineId) : null;
+    const record = station ? await this.resources.withId(lineId) : null;
 
-    return line && station && kept ? { line, station, kept } : null;
+    return line && station && record ? { line, station, record } : null;
   }
 
   liveBlockOf({
     station,
-    kept,
-  }: StandingStation): LineDefinitionStation | null {
+    record,
+  }: StationInLine): LineDefinitionStation | null {
     return (
-      kept.definition.stations.find((each) => each.key === station.key.value) ??
-      null
+      record.definition.stations.find(
+        (each) => each.key === station.key.value,
+      ) ?? null
     );
   }
 
   async withStation(
-    { line, station, kept }: StandingStation,
+    { line, station, record }: StationInLine,
     block: unknown,
     repositories?: unknown,
   ): Promise<CandidateLine> {
-    const place = kept.definition.stations.findIndex(
+    const place = record.definition.stations.findIndex(
       (each) => each.key === station.key.value,
     );
 
     if (!isBlock(block)) {
       return {
         ok: false,
-        problems: [
-          problemAt('', STATION, 'is a station block, as a line holds it'),
-        ],
+        problems: [problemAt('', STATION, 'is a station block, as in a line')],
       };
     }
 
@@ -140,9 +136,9 @@ export class CandidateLines {
     }
 
     const compiled = this.compiler.compile({
-      ...kept.definition,
+      ...record.definition,
       ...(repositories === undefined ? {} : { repositories }),
-      stations: kept.definition.stations.map((each, at) =>
+      stations: record.definition.stations.map((each, at) =>
         at === place ? block : each,
       ),
     });
@@ -151,21 +147,18 @@ export class CandidateLines {
       return { ok: false, problems: compiled.problems.map(rerooted(place)) };
     }
 
-    const refused = await this.catalog.refusedIn(
-      line.workspaceId,
-      compiled.line,
-    );
+    const denied = await this.catalog.deniedIn(line.workspaceId, compiled.line);
 
-    if (refused.length > 0) {
-      return { ok: false, problems: refused.map(rerooted(place)) };
+    if (denied.length > 0) {
+      return { ok: false, problems: denied.map(rerooted(place)) };
     }
 
     const reconciled = reconcileLine({
-      standing: line,
+      existing: line,
       plan: compiled.line,
-      tasksStanding: NO_TASKS_STANDING,
+      taskCounts: NO_TASK_COUNTS,
       newId: () => this.ids.generate(),
-      by: Attribution.spotlight(line.workspaceId),
+      by: ChangeActor.spotlight(line.workspaceId),
     });
     const candidate = reconciled.ok
       ? reconciled.line.stationAt(station.id)
@@ -186,8 +179,8 @@ export class CandidateLines {
   async configOf(line: Line, station: Station): Promise<StationConfig | null> {
     const ordered = await this.ordering.ordered(line, {
       stationId: station.id,
-      continuity: Continuity.of({
-        key: ContinuityKey.forReplay(this.ids.generate()),
+      resume: Resume.of({
+        key: ResumeKey.forReplay(this.ids.generate()),
       }),
       checkouts: [],
     });

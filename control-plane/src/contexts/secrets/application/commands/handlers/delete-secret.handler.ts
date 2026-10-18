@@ -13,7 +13,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class DeleteSecretHandler
   implements CommandHandlerPort<DeleteSecretCommand, ResourceDeleted | null>
@@ -29,36 +29,36 @@ export class DeleteSecretHandler
     const id = SecretId.of(command.secretId);
 
     try {
-      const standing = await this.secrets.withId(id);
-      const permissions = standing
+      const existing = await this.secrets.withId(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
       if (!permissions.managesSecrets) {
-        return forbiddenTo('manage-secrets');
+        return forbiddenTo('secrets');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const uses = SecretUses.of(
         await this.uses.of({
-          workspaceId: standing.workspaceId.value,
-          name: standing.name.value,
+          workspaceId: existing.workspaceId.value,
+          name: existing.name.value,
         }),
       );
 
       await this.transaction.inTransaction(() =>
         this.secrets.save(
-          standing.deleted(
+          existing.delete(
             uses,
-            Attribution.of(command.actor, standing.workspaceId),
+            ChangeActor.of(command.actor, existing.workspaceId),
           ),
         ),
       );

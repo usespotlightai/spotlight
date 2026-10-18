@@ -1,6 +1,6 @@
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
-import type { TouchedSite } from '@memory/domain/value-objects/run-site';
+import type { TouchedContext } from '@memory/domain/value-objects/run-context';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 const TEAM = TeamId.of('team_1');
 const API = Repository.of('acme/api');
 
-const place = (touched: string[] = []): TouchedSite => ({
+const touchedContext = (touched: string[] = []): TouchedContext => ({
   teamId: TEAM,
   lineId: 'line_1',
   stationId: 'station_1',
@@ -27,25 +27,29 @@ const aboutPaths = (paths: string[]) =>
   });
 
 describe('MemoryScope', () => {
-  it('reaches a place through a folder that holds a touched file', () => {
+  it('matches a run context through a folder that contains a touched file', () => {
     expect(
-      aboutPaths(['src/uploads']).reaches(place(['src/uploads/retry.ts'])),
+      aboutPaths(['src/uploads']).matches(
+        touchedContext(['src/uploads/retry.ts']),
+      ),
     ).toBe(true);
     expect(
-      aboutPaths(['src/uploads/retry.ts']).reaches(
-        place(['src/uploads/retry.ts']),
+      aboutPaths(['src/uploads/retry.ts']).matches(
+        touchedContext(['src/uploads/retry.ts']),
       ),
     ).toBe(true);
   });
 
-  it('never reaches through a path that only begins the same way', () => {
+  it('never matches through a path that only begins the same way', () => {
     expect(
-      aboutPaths(['src/uploads']).reaches(place(['src/uploadsX/a.ts'])),
+      aboutPaths(['src/uploads']).matches(
+        touchedContext(['src/uploadsX/a.ts']),
+      ),
     ).toBe(false);
   });
 
-  it('never reaches a place that touched nothing it is about', () => {
-    expect(aboutPaths(['src/uploads']).reaches(place())).toBe(false);
+  it('never matches a run context that touched nothing it is about', () => {
+    expect(aboutPaths(['src/uploads']).matches(touchedContext())).toBe(false);
   });
 
   it('ranks paths, then a station, then a line, then a repository, then the team', () => {

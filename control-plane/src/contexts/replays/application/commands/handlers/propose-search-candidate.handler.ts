@@ -2,8 +2,8 @@ import type { ProposeSearchCandidateCommand } from '@replays/application/command
 import type { SearchCandidateProposed } from '@replays/application/dto/replay-outcomes.dto';
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
-  ExaminedCandidate,
   StationView,
+  ValidatedCandidate,
   WorkPort,
 } from '@replays/application/ports/work.port';
 import { CandidateProblems } from '@replays/application/rendering/candidate-problems';
@@ -11,7 +11,7 @@ import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
-import { SearchRunNotHeldError } from '@replays/domain/exceptions/search-run-not-held.error';
+import { SearchRunNotActiveError } from '@replays/domain/exceptions/search-run-not-active.error';
 import { UnknownStationError } from '@replays/domain/exceptions/unknown-station.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -22,14 +22,14 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
+import { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -40,20 +40,19 @@ type Parsed<T> =
 
 const parsed = <T>(
   made: () => T,
-  refused: (reason: string) => ConfigurationProblem,
+  problemOf: (reason: string) => ConfigurationProblem,
 ): Parsed<T> => {
   try {
     return { ok: true, value: made() };
   } catch (error) {
     if (error instanceof InvalidCandidateError) {
-      return { ok: false, problem: refused(error.reason) };
+      return { ok: false, problem: problemOf(error.reason) };
     }
     throw error;
   }
 };
 
-const textOf = (held: unknown): string =>
-  typeof held === 'string' ? held : '';
+const textOf = (raw: unknown): string => (typeof raw === 'string' ? raw : '');
 
 const hypothesisProblem = (reason: string): ConfigurationProblem =>
   ConfigurationProblem.of({
@@ -65,7 +64,7 @@ const hypothesisProblem = (reason: string): ConfigurationProblem =>
 interface Proposal {
   readonly name: CandidateName;
   readonly hypothesis: Hypothesis;
-  readonly examined: Extract<ExaminedCandidate, { ok: true }>;
+  readonly validated: Extract<ValidatedCandidate, { ok: true }>;
 }
 
 export class ProposeSearchCandidateHandler
@@ -89,11 +88,11 @@ export class ProposeSearchCandidateHandler
   ): Promise<SearchCandidateProposed> {
     try {
       const run = RunId.of(command.runId);
-      const held = await this.work.heldSearchRun(run, command.runnerId);
-      const seen = held ? await this.searches.find(held.searchId) : null;
+      const leased = await this.work.leasedSearchRun(run, command.runnerId);
+      const seen = leased ? await this.searches.find(leased.searchId) : null;
 
       if (!seen) {
-        throw new SearchRunNotHeldError();
+        throw new SearchRunNotActiveError();
       }
 
       const already = this.proposedBy(seen, run, textOf(command.name));
@@ -106,13 +105,13 @@ export class ProposeSearchCandidateHandler
       const station = await this.work.station(lineId, stationId);
       const teamKey = await this.people.teamKey(seen.teamId);
       const [seed] = await this.candidates.findMany([seen.seed.candidateId]);
-      const examined = await this.work.examine(
+      const validated = await this.work.validate(
         lineId,
         stationId,
         command.station,
       );
 
-      if (!station || !teamKey || !seed || !examined) {
+      if (!station || !teamKey || !seed || !validated) {
         throw new UnknownStationError(stationId);
       }
 
@@ -127,21 +126,21 @@ export class ProposeSearchCandidateHandler
       const problems = [
         ...(name.ok ? [] : [name.problem]),
         ...(hypothesis.ok ? [] : [hypothesis.problem]),
-        ...(examined.ok
-          ? unsearchableChanges(seed.block, examined.block)
-          : examined.problems),
+        ...(validated.ok
+          ? unsearchableChanges(seed.block, validated.block)
+          : validated.problems),
       ];
 
-      if (!name.ok || !hypothesis.ok || !examined.ok || problems.length > 0) {
-        await this.refused(seen, run);
+      if (!name.ok || !hypothesis.ok || !validated.ok || problems.length > 0) {
+        await this.rejected(seen, run);
 
         return { outcome: 'invalid', problems };
       }
 
-      return await this.admitted(seen, run, station, teamKey, {
+      return await this.acceptProposal(seen, run, station, teamKey, {
         name: name.value,
         hypothesis: hypothesis.value,
-        examined,
+        validated,
       });
     } catch (error) {
       rethrowAsApplicationError(error);
@@ -167,19 +166,19 @@ export class ProposeSearchCandidateHandler
       : null;
   }
 
-  private refused(seen: Search, run: RunId): Promise<void> {
+  private rejected(seen: Search, run: RunId): Promise<void> {
     return this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(seen.id);
 
       if (!search) {
-        throw new SearchRunNotHeldError();
+        throw new SearchRunNotActiveError();
       }
 
-      await this.searches.save(search.proposalRefused(run));
+      await this.searches.save(search.proposalRejected(run));
     });
   }
 
-  private admitted(
+  private acceptProposal(
     seen: Search,
     run: RunId,
     station: StationView,
@@ -191,7 +190,7 @@ export class ProposeSearchCandidateHandler
       const set = search ? await this.sets.find(search.setId) : null;
 
       if (!search || !set) {
-        throw new SearchRunNotHeldError();
+        throw new SearchRunNotActiveError();
       }
 
       const again = this.proposedBy(search, run, proposal.name.value);
@@ -201,20 +200,20 @@ export class ProposeSearchCandidateHandler
       }
 
       const iteration = search.iterationOf(run);
-      const address = StationAddress.of(teamKey, station.lineKey, station.key);
+      const address = StationPath.of(teamKey, station.lineKey, station.key);
 
       if (!iteration || !address) {
-        throw new SearchRunNotHeldError();
+        throw new SearchRunNotActiveError();
       }
 
       const at = this.clock.now();
       const candidate = this.searched(search, proposal, address, {
         iteration: iteration.number,
-        block: proposal.examined.block,
+        block: proposal.validated.block,
         at,
       });
       const replayId = ReplayId.of(this.ids.generate());
-      const admitted = search.admitted(run, {
+      const accepted = search.acceptProposal(run, {
         candidateId: candidate.id,
         name: proposal.name,
         replayId,
@@ -227,17 +226,17 @@ export class ProposeSearchCandidateHandler
           set,
           candidate,
           baseline: false,
-          ceiling: search.allotment.searchReplay,
-          unpricedRate: search.allotment.perRun,
+          ceiling: search.ceilingSplit.searchReplay,
+          unpricedRate: search.ceilingSplit.perRun,
           at,
-          by: Attribution.spotlight(search.workspaceId),
-          among: search.split.searchedRuns,
+          by: ChangeActor.spotlight(search.workspaceId),
+          runSubset: search.split.searchedRuns,
           repeats: search.budget.repeats,
           searchId: search.id,
-          pairsWith: search.seed.replay.replayId,
+          pairwiseReferenceId: search.seed.replay.replayId,
         }),
       );
-      await this.searches.save(admitted);
+      await this.searches.save(accepted);
 
       return {
         outcome: 'proposed',
@@ -251,7 +250,7 @@ export class ProposeSearchCandidateHandler
   private searched(
     search: Search,
     proposal: Proposal,
-    address: StationAddress,
+    address: StationPath,
     made: { iteration: number; block: StationBlock; at: Date },
   ): Candidate {
     return Candidate.fromSearch({
@@ -260,10 +259,10 @@ export class ProposeSearchCandidateHandler
       address,
       name: proposal.name.value,
       block: made.block,
-      fingerprint: proposal.examined.fingerprint,
-      digests: proposal.examined.digests,
-      scoring: proposal.examined.scoring,
-      changedFrom: proposal.examined.changedFrom,
+      fingerprint: proposal.validated.fingerprint,
+      hashes: proposal.validated.hashes,
+      scoring: proposal.validated.scoring,
+      changedFrom: proposal.validated.changedFrom,
       search: {
         searchId: search.id,
         iteration: made.iteration,

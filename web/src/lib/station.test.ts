@@ -10,7 +10,7 @@ describe('stationShare', () => {
     expect(stationShare(4, 5)).toBe(1);
   });
 
-  it('divides the ones between by how far along they stand', () => {
+  it('divides the ones between by how far along they are', () => {
     expect([1, 2, 3].map((place) => stationShare(place, 5))).toEqual([
       0.25, 0.5, 0.75,
     ]);

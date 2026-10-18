@@ -1,20 +1,20 @@
 import { type FormEvent, useState } from 'react';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useStartSearch } from '@/hooks/api/useStartSearch';
+import { useDebouncedSearchEstimate } from '@/hooks/useDebouncedSearchEstimate';
 import { useFollowStarted } from '@/hooks/useFollowStarted';
-import { useSettledSearchEstimate } from '@/hooks/useSettledSearchEstimate';
 import { andReset } from '@/lib/and-reset';
 import type { ReplayedStation, ReplaySet } from '@/lib/replay';
 import {
   agentOf,
   type BudgetInputs,
   budgetFrom,
-  refusalsOf,
+  problemsOf,
   type SearchField,
   searchPath,
 } from '@/lib/search';
 import {
-  estimateRefusalOf,
+  estimateProblemOf,
   FIRST_BUDGET,
   firstStartable,
   harnessOf,
@@ -55,24 +55,24 @@ export function useStartSearchForm({
   const setId = chosenSet || firstStartable(sets);
   const harness = harnessOf(harnesses, chosenHarness);
   const { budget, problems } = budgetFrom(inputs);
-  const { settled, estimate } = useSettledSearchEstimate(
+  const { debounced, estimate } = useDebouncedSearchEstimate(
     at,
     open,
     setId,
     budget,
   );
-  const estimateRefusals = refusalsOf(estimate.error);
-  const startRefusals = refusalsOf(start.error);
+  const estimateProblems = problemsOf(estimate.error);
+  const startProblems = problemsOf(start.error);
   const suggested = estimate.isError ? null : (estimate.data ?? null);
   const saturation = saturationOf(sets, setId);
-  const askedObjective = chosenObjective ?? suggested?.objective ?? null;
+  const requestedObjective = chosenObjective ?? suggested?.objective ?? null;
 
   const shown = (field: SearchField): string | null =>
     searchProblemOf(field, {
       problems,
       inputs,
       tried,
-      refused: [startRefusals.fields, estimateRefusals.fields],
+      rejected: [startProblems.fields, estimateProblems.fields],
     });
 
   const change = (field: keyof BudgetInputs) =>
@@ -87,7 +87,7 @@ export function useStartSearchForm({
     setEffort('');
   }, start.reset);
 
-  const forget = () => {
+  const reset = () => {
     setChosenSet('');
     setInputs(FIRST_BUDGET);
     setChosenHarness('');
@@ -112,7 +112,7 @@ export function useStartSearchForm({
         setId,
         budget,
         agent: agentOf(harness, model, effort),
-        objective: askedObjective,
+        objective: requestedObjective,
       },
       { onSuccess: (started) => followStarted(searchPath(at, started.id)) },
     );
@@ -124,21 +124,21 @@ export function useStartSearchForm({
     harness,
     model,
     effort,
-    objective: objectiveOf(askedObjective, saturation),
+    objective: objectiveOf(requestedObjective, saturation),
     objectiveSuggestion: objectiveSuggestionOf(
       chosenObjective,
       saturatedRateOf(suggested, saturation),
     ),
     budget,
-    settled,
+    debounced,
     estimate,
     suggested,
     pending: start.isPending,
     shown,
     setProblem: shown('set') ?? (tried && !setId ? NO_SET_CHOSEN : null),
-    estimateRefusal: estimateRefusalOf(
+    estimateProblem: estimateProblemOf(
       estimate.isError,
-      estimateRefusals.general,
+      estimateProblems.general,
     ),
     change,
     chooseSet: andReset(setChosenSet, start.reset),
@@ -146,7 +146,7 @@ export function useStartSearchForm({
     chooseHarness,
     chooseModel: andReset(setModel, start.reset),
     chooseEffort: andReset(setEffort, start.reset),
-    forget,
+    reset,
     submit,
   };
 }

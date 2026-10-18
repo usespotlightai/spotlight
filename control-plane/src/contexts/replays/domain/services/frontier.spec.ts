@@ -18,7 +18,7 @@ const point = (
   seed: false,
   finished: true,
   searchScore,
-  searchedVerdict: 'within-noise',
+  searchedSignificance: 'within-noise',
   costPerRun,
   ...more,
 });
@@ -28,11 +28,11 @@ const ids = (points: readonly Named[]) => points.map((each) => each.id);
 describe('frontierOf', () => {
   it('drops, when it looks for cost, a candidate clearly worse than the seed, and one not compared with it, keeping the trade-off among the rest', () => {
     const points = [
-      point('seed', 0.9, 0.5, { seed: true, searchedVerdict: null }),
-      point('cheap-but-worse', 0.6, 0.1, { searchedVerdict: 'worse' }),
+      point('seed', 0.9, 0.5, { seed: true, searchedSignificance: null }),
+      point('cheap-but-worse', 0.6, 0.1, { searchedSignificance: 'worse' }),
       point('cheaper', 0.85, 0.3),
       point('cheapest', 0.8, 0.2),
-      point('uncompared', 0.95, 0.05, { searchedVerdict: null }),
+      point('uncompared', 0.95, 0.05, { searchedSignificance: null }),
       point('dearer', 0.8, 0.4),
     ];
 

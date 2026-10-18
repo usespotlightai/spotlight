@@ -3,31 +3,31 @@ import { OAuth2ClientRegistrationVersionConflictError } from '@integrations/doma
 import type { OAuth2ClientRegistrationRepository } from '@integrations/domain/repositories/oauth2-client-registration.repository';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { oauth2ClientRegistration } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Credential } from '@secrets/application/contracts/credential.contract';
-import type { CredentialSealingPort } from '@secrets/application/ports/credential-sealing.port';
+import type { CredentialEncryptionPort } from '@secrets/application/ports/credential-encryption.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq } from 'drizzle-orm';
 
 type Row = typeof oauth2ClientRegistration.$inferSelect;
 
-const labelFor = (teamId: string, source: string): string =>
-  ['oauth2-client', teamId, source, 'secret'].join(':');
+const labelFor = (teamId: string, integration: string): string =>
+  ['oauth2-client', teamId, integration, 'secret'].join(':');
 
 export class DrizzleOAuth2ClientRegistrations
   implements OAuth2ClientRegistrationRepository
 {
   constructor(
     private readonly context: DrizzleContext,
-    private readonly sealing: CredentialSealingPort,
+    private readonly encryption: CredentialEncryptionPort,
   ) {}
 
   async of(
     teamId: TeamId,
-    source: SourceKey,
+    integration: IntegrationKey,
   ): Promise<OAuth2ClientRegistration | null> {
     const [found] = await this.context.db
       .select()
@@ -35,7 +35,7 @@ export class DrizzleOAuth2ClientRegistrations
       .where(
         and(
           eq(oauth2ClientRegistration.teamId, teamId.value),
-          eq(oauth2ClientRegistration.source, source.value),
+          eq(oauth2ClientRegistration.integration, integration.value),
         ),
       )
       .limit(1);
@@ -52,26 +52,26 @@ export class DrizzleOAuth2ClientRegistrations
       tokenEndpoint: registration.server?.token ?? null,
       clientId: registration.clientId,
       clientSecret: registration.clientSecret
-        ? await this.sealing.seal(
+        ? await this.encryption.encrypt(
             registration.workspaceId.value,
-            labelFor(registration.teamId.value, registration.source.value),
+            labelFor(registration.teamId.value, registration.integration.value),
             Credential.of(registration.clientSecret.value),
           )
         : null,
       secretExpiresAt: registration.secretExpiresAt,
     };
 
-    const kept = registration.isNew
+    const saved = registration.isNew
       ? await this.context.db
           .insert(oauth2ClientRegistration)
           .values({
             workspaceId: registration.workspaceId.value,
             teamId: registration.teamId.value,
-            source: registration.source.value,
+            integration: registration.integration.value,
             ...written,
           })
           .onConflictDoNothing()
-          .returning({ source: oauth2ClientRegistration.source })
+          .returning({ integration: oauth2ClientRegistration.integration })
       : await this.context.db
           .update(oauth2ClientRegistration)
           .set({
@@ -82,20 +82,23 @@ export class DrizzleOAuth2ClientRegistrations
           .where(
             and(
               eq(oauth2ClientRegistration.teamId, registration.teamId.value),
-              eq(oauth2ClientRegistration.source, registration.source.value),
+              eq(
+                oauth2ClientRegistration.integration,
+                registration.integration.value,
+              ),
               eq(oauth2ClientRegistration.version, registration.version),
             ),
           )
-          .returning({ source: oauth2ClientRegistration.source });
+          .returning({ integration: oauth2ClientRegistration.integration });
 
-    if (kept.length === 0) {
+    if (saved.length === 0) {
       throw new OAuth2ClientRegistrationVersionConflictError(
-        registration.source.value,
+        registration.integration.value,
       );
     }
   }
 
-  async forgetTeam(teamId: TeamId): Promise<void> {
+  async deleteForTeam(teamId: TeamId): Promise<void> {
     await this.context.db
       .delete(oauth2ClientRegistration)
       .where(eq(oauth2ClientRegistration.teamId, teamId.value));
@@ -105,7 +108,7 @@ export class DrizzleOAuth2ClientRegistrations
     return OAuth2ClientRegistration.rehydrate({
       workspaceId: WorkspaceId.of(row.workspaceId),
       teamId: TeamId.of(row.teamId),
-      source: SourceKey.of(row.source),
+      integration: IntegrationKey.of(row.integration),
       registrationEndpoint: row.registrationEndpoint,
       redirectUri: row.redirectUri,
       server:
@@ -120,9 +123,9 @@ export class DrizzleOAuth2ClientRegistrations
       clientSecret: row.clientSecret
         ? AccessToken.of(
             (
-              await this.sealing.open(
+              await this.encryption.decrypt(
                 row.workspaceId,
-                labelFor(row.teamId, row.source),
+                labelFor(row.teamId, row.integration),
                 row.clientSecret,
               )
             ).revealed(),

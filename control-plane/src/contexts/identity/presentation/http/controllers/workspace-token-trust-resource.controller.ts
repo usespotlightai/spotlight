@@ -18,14 +18,14 @@ import { CurrentPrincipal } from '@platform/http/decorators/current-principal.de
 import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
-import {
-  answerCreated,
-  answerDeleted,
-  answerUpdated,
-  found,
-  listed,
-} from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
+import {
+  respondCreated,
+  respondDeleted,
+  respondFound,
+  respondListed,
+  respondUpdated,
+} from '@platform/http/resources/resource-responses';
 import type {
   ResourceCreated,
   ResourceDeleted,
@@ -114,13 +114,13 @@ export class WorkspaceTokenTrustResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<WorkspaceTokenTrustResourceResponseDto> {
-    return answerCreated(
+    return respondCreated(
       KIND,
       await this.commandBus.execute<
         CreateWorkspaceTokenTrustCommand,
         ResourceCreated | null
       >(new CreateWorkspaceTokenTrustCommand(workspaceId, actor, key, body)),
-      (id) => this.answer(id, actor.principal),
+      (id) => this.toResponse(id, actor.principal),
     );
   }
 
@@ -133,12 +133,12 @@ export class WorkspaceTokenTrustResourceController {
     @Param('id') id: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<WorkspaceTokenTrustResourceResponseDto> {
-    return this.answer(id, principal);
+    return this.toResponse(id, principal);
   }
 
   @WorkspaceTokenTrustResource.Update(
     'token-trusts/:id',
-    'Change which workloads a token trust admits, or what the tokens it mints may do; tokens minted with scopes it no longer grants stop admitting their bearers',
+    'Change which workloads a token trust matches, or what the tokens it issues may do; tokens issued with scopes it no longer grants stop being valid',
   )
   @ID
   @DEFINITION
@@ -148,19 +148,19 @@ export class WorkspaceTokenTrustResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<WorkspaceTokenTrustResourceResponseDto> {
-    return answerUpdated(
+    return respondUpdated(
       KIND,
       await this.commandBus.execute<
         UpdateWorkspaceTokenTrustCommand,
         ResourceUpdated | null
       >(new UpdateWorkspaceTokenTrustCommand(id, actor, version, body)),
-      (updated) => this.answer(updated, actor.principal),
+      (updated) => this.toResponse(updated, actor.principal),
     );
   }
 
   @WorkspaceTokenTrustResource.Delete(
     'token-trusts/:id',
-    'Stop trusting a workload; every token the trust minted admits nobody from this moment',
+    'Delete a token trust; Spotlight accepts no token that the trust issued from this moment',
   )
   @ID
   async delete(
@@ -168,7 +168,7 @@ export class WorkspaceTokenTrustResourceController {
     @IfMatch() version: number,
     @CurrentActor() actor: Actor,
   ): Promise<void> {
-    answerDeleted(
+    respondDeleted(
       KIND,
       await this.commandBus.execute<
         DeleteWorkspaceTokenTrustCommand,
@@ -187,7 +187,7 @@ export class WorkspaceTokenTrustResourceController {
     @Query('address') address: string | undefined,
     @CurrentPrincipal() principal: Principal,
   ): Promise<WorkspaceTokenTrustResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<
         ImportWorkspaceTokenTrustQuery,
@@ -212,7 +212,7 @@ export class WorkspaceTokenTrustResourceController {
     @Param('workspaceId') workspaceId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ResourceList<WorkspaceTokenTrustResourceResponseDto>> {
-    return listed(
+    return respondListed(
       await this.queryBus.execute<
         ListWorkspaceTokenTrustResourcesQuery,
         readonly WorkspaceTokenTrustResourceDto[] | null
@@ -221,11 +221,11 @@ export class WorkspaceTokenTrustResourceController {
     );
   }
 
-  private async answer(
+  private async toResponse(
     id: string,
     principal: Principal,
   ): Promise<WorkspaceTokenTrustResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<
         ReadWorkspaceTokenTrustQuery,

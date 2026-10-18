@@ -58,8 +58,8 @@ export function ReplayedOverlayNote({
     <>
       {!scattered && replayed.length > 0 && (
         <p data-slot="replayed-note" className={NOTE}>
-          Replayed candidates aren’t drawn. No live setup has a priced outcome.
-          The table lists them.
+          Replayed candidates aren’t drawn. No live agent config has a priced
+          outcome. The table lists them.
         </p>
       )}
       {drawn && (

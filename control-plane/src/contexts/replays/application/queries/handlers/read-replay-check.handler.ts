@@ -5,13 +5,13 @@ import type {
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { ReadReplayCheckQuery } from '@replays/application/queries/read-replay-check.query';
-import type { CheckReadings } from '@replays/application/services/check-readings.service';
+import type { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
 import { replayUrlOf } from '@replays/application/services/replay-check-views';
 import {
   entryView,
   gainView,
   intervalView,
-  spendView,
+  moneyView,
 } from '@replays/application/services/replay-views';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
@@ -34,13 +34,13 @@ const sideOf = (
   successRate: totals?.successRate ?? null,
   interval: intervalView(totals?.interval ?? null),
   tasksScored: totals?.tasksScored ?? 0,
-  spent: totals ? spendView(totals.spent) : null,
+  spent: totals ? moneyView(totals.spent) : null,
 });
 
-const reasonsOf = (copies: readonly ReplayEntry[]) => [
+const reasonsOf = (repeats: readonly ReplayEntry[]) => [
   ...new Map(
-    copies
-      .flatMap((copy) => copy.reasons)
+    repeats
+      .flatMap((repeat) => repeat.reasons)
       .map((reason) => [
         `${reason.code}:${reason.detail}`,
         { code: reason.code, detail: reason.detail },
@@ -56,7 +56,7 @@ export class ReadReplayCheckHandler
     private readonly people: PeoplePort,
     private readonly work: WorkPort,
     private readonly checks: ReplayCheckRepository,
-    private readonly readings: CheckReadings,
+    private readonly evaluations: CheckEvaluations,
     private readonly webOrigin: string,
   ) {}
 
@@ -69,16 +69,16 @@ export class ReadReplayCheckHandler
         throw new UnknownReplayCheckError(query.checkId);
       }
 
-      const [{ reading, replay, baseline, set }, slug] = await Promise.all([
-        this.readings.of(check),
+      const [{ evaluation, replay, baseline, set }, slug] = await Promise.all([
+        this.evaluations.of(check),
         this.people.workspaceSlug(check.workspaceId),
       ]);
       const titles = new Map(
         (
-          await this.work.standing(
+          await this.work.runSummaries(
             check.workspaceId,
-            reading.regressions.flatMap((each) =>
-              each.candidate.map((copy) => copy.original),
+            evaluation.regressions.flatMap((each) =>
+              each.candidate.map((repeat) => repeat.original),
             ),
           )
         ).map((each) => [each.runId.value, each.title]),
@@ -102,33 +102,33 @@ export class ReadReplayCheckHandler
         },
         liveFingerprint: check.liveFingerprint.value,
         candidateFingerprint: check.candidateFingerprint.value,
-        keptLive: [...check.keptLive],
+        scoringPinnedToLive: [...check.scoringPinnedToLive],
         threshold: {
           maxRegressions: check.threshold.maxRegressions,
           minGain: check.threshold.minGain,
-          ceiling: spendView(check.threshold.ceiling),
+          ceiling: moneyView(check.threshold.ceiling),
           unpricedRun: replay
-            ? spendView(check.threshold.unpricedRunIn(replay.entries.length))
+            ? moneyView(check.threshold.unpricedRunIn(replay.entries.length))
             : null,
         },
         repeats: check.repeats,
-        gain: gainView(reading.gain),
-        verdict: reading.verdict,
-        undecidedBecause: reading.because,
-        tasks: reading.entries,
-        compared: reading.compared,
-        candidate: sideOf(replay, reading.candidate),
-        baseline: sideOf(baseline, reading.baseline),
-        regressions: reading.regressions.map((each) => ({
+        gain: gainView(evaluation.gain),
+        result: evaluation.result,
+        undecidedBecause: evaluation.because,
+        tasks: evaluation.entries,
+        compared: evaluation.compared,
+        candidate: sideOf(replay, evaluation.candidate),
+        baseline: sideOf(baseline, evaluation.baseline),
+        regressions: evaluation.regressions.map((each) => ({
           taskId: each.taskId,
           originalRunId: each.original,
           title: titles.get(each.original) ?? null,
           candidate: each.candidate.map(
-            (copy) => entryView(copy, (replay as Replay).scoring).result,
+            (repeat) => entryView(repeat, (replay as Replay).scoring).result,
           ),
           baseline: baseline
             ? each.baseline.map(
-                (copy) => entryView(copy, baseline.scoring).result,
+                (repeat) => entryView(repeat, baseline.scoring).result,
               )
             : [],
           scoreDelta: each.scoreDelta,

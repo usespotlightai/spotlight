@@ -8,7 +8,7 @@ import type {
   RunnerTrustRecord,
   WorkspaceRunnersRecord,
 } from '@runners/application/ports/runner-resources.port';
-import type { WaysIn } from '@runners/domain/services/runner-drift';
+import type { CredentialSourceKeys } from '@runners/domain/services/dangling-keys';
 import {
   egress,
   runnerPool,
@@ -216,7 +216,9 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
     return found ? declaredRecord(found) : null;
   }
 
-  async waysIn(workspaceId: WorkspaceId): Promise<WaysIn> {
+  async credentialSourceKeysIn(
+    workspaceId: WorkspaceId,
+  ): Promise<CredentialSourceKeys> {
     const [trusts, pools] = await Promise.all([
       this.db
         .select({ key: runnerTrust.key })

@@ -56,43 +56,43 @@ const tokenOf = (scopes: readonly string[], workspace = 'ws_1') =>
     issuedBy: ADMIN,
   });
 
-const admits = (principal: PersonPrincipal | TokenPrincipal, of = PLATFORM) =>
-  TeamAccess.admits(of, ACME, principal);
+const allows = (principal: PersonPrincipal | TokenPrincipal, of = PLATFORM) =>
+  TeamAccess.allows(of, ACME, principal);
 
 describe('TeamAccess', () => {
-  it('admits a member of the team', () => {
-    expect(admits(PersonPrincipal.of(ON_PLATFORM))).toBe(true);
+  it('allows a member of the team', () => {
+    expect(allows(PersonPrincipal.of(ON_PLATFORM))).toBe(true);
   });
 
-  it('admits an admin of the workspace who is not on the team', () => {
-    expect(admits(PersonPrincipal.of(ADMIN))).toBe(true);
+  it('allows an admin of the workspace who is not on the team', () => {
+    expect(allows(PersonPrincipal.of(ADMIN))).toBe(true);
   });
 
   it('turns away a workspace member who is only on another team', () => {
-    expect(admits(PersonPrincipal.of(ON_PAYMENTS))).toBe(false);
+    expect(allows(PersonPrincipal.of(ON_PAYMENTS))).toBe(false);
   });
 
   it('turns away someone outside the workspace', () => {
-    expect(admits(PersonPrincipal.of(OUTSIDER))).toBe(false);
+    expect(allows(PersonPrincipal.of(OUTSIDER))).toBe(false);
   });
 
   it('turns away a team member once they have left the workspace', () => {
     expect(
-      admits(PersonPrincipal.of(OUTSIDER), team('Platform', [OUTSIDER])),
+      allows(PersonPrincipal.of(OUTSIDER), team('Platform', [OUTSIDER])),
     ).toBe(false);
   });
 
-  it('admits a token of the workspace that may read', () => {
-    expect(admits(tokenOf(['read']))).toBe(true);
+  it('allows a token of the workspace that may read', () => {
+    expect(allows(tokenOf(['read']))).toBe(true);
   });
 
   it('turns away a token of another workspace', () => {
-    expect(admits(tokenOf(['read'], 'ws_2'))).toBe(false);
+    expect(allows(tokenOf(['read'], 'ws_2'))).toBe(false);
   });
 
-  it('turns away anyone for a team held by another workspace', () => {
+  it('turns away anyone for a team of another workspace', () => {
     expect(
-      admits(PersonPrincipal.of(ADMIN), team('Platform', [ADMIN], 'ws_2')),
+      allows(PersonPrincipal.of(ADMIN), team('Platform', [ADMIN], 'ws_2')),
     ).toBe(false);
   });
 });

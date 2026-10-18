@@ -2,15 +2,15 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 
 const BACKING_OFF = Retry.backoff({
-  max: 5,
-  firstMs: 5_000,
-  longestMs: 120_000,
+  maxAttempts: 5,
+  initialDelayMs: 5_000,
+  maxDelayMs: 120_000,
 });
 
 export const PROVISION_FAILURES = {
   unreachable: BACKING_OFF,
-  refused: BACKING_OFF,
-  lapsed: BACKING_OFF,
+  'http-error': BACKING_OFF,
+  expired: BACKING_OFF,
   'not-allowed': Retry.never(),
   unusable: Retry.never(),
   'harness-missing': Retry.never(),
@@ -40,9 +40,9 @@ export class ProvisionFailure {
     return new ProvisionFailure(kind, detail.trim().slice(0, MAX_DETAIL));
   }
 
-  static lapsed(until: Date): ProvisionFailure {
+  static expired(until: Date): ProvisionFailure {
     return ProvisionFailure.of(
-      'lapsed',
+      'expired',
       `The pool accepted the work. No runner claimed it by ${until.toISOString()}.`,
     );
   }
@@ -58,7 +58,7 @@ export class ProvisionFailure {
     return PROVISION_FAILURES[this.kind];
   }
 
-  get saying(): string {
+  get description(): string {
     return `${this.kind}: ${this.detail}`;
   }
 

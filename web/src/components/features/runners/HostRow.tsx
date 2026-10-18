@@ -5,14 +5,14 @@ import {
 } from '@/components/features/runners/columns';
 import { HarnessLogos } from '@/components/features/runners/HarnessLogos';
 import { HostImageCell } from '@/components/features/runners/HostImageCell';
-import { HostStanding } from '@/components/features/runners/HostStanding';
+import { HostStatus } from '@/components/features/runners/HostStatus';
 import { RunnerChildren } from '@/components/features/runners/RunnerChildren';
 import {
   type Host,
+  heartbeatAt,
   type NamedHarness,
-  seenAt,
   servedBy,
-  through,
+  sourceLabel,
 } from '@/lib/runner';
 import { cn } from '@/lib/utils';
 
@@ -29,10 +29,10 @@ export function HostRow({ slug, host, harnesses }: HostRowProps) {
         <span className="min-w-0 truncate text-foreground">{host.name}</span>
 
         <span className="min-w-0 truncate text-muted-foreground text-xs">
-          {through(host.through)}
+          {sourceLabel(host.source)}
         </span>
 
-        <HostStanding host={host} />
+        <HostStatus host={host} />
 
         <HostImageCell images={host.images} />
 
@@ -43,7 +43,7 @@ export function HostRow({ slug, host, harnesses }: HostRowProps) {
         </span>
 
         <span className="truncate text-right text-muted-foreground text-xs tabular-nums">
-          {seenAt(host)}
+          {heartbeatAt(host)}
         </span>
       </div>
 

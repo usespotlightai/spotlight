@@ -1,20 +1,20 @@
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { RunJournal } from '@work/application/contracts/run-journal.contract';
 import { connectionsInMemory } from '@work/application/ports/run-connections.fake-spec';
-import type { RunDigestReaderPort } from '@work/application/ports/run-digest-reader.port';
 import type {
   RunOutcomeShape,
   RunOutcomesPort,
 } from '@work/application/ports/run-outcomes.port';
+import type { RunUsageReaderPort } from '@work/application/ports/run-usage-reader.port';
 import type { RunnerTraceReaderPort } from '@work/application/ports/runner-trace-reader.port';
 import {
-  aSight,
+  aSearchVisibility,
   BUILD_BLOCK,
-} from '@work/application/ports/search-sight.fake-spec';
+} from '@work/application/ports/search-visibility.fake-spec';
 import type {
-  SearchSight,
-  SearchSightPort,
-} from '@work/application/ports/search-sight.port';
+  SearchVisibility,
+  SearchVisibilityPort,
+} from '@work/application/ports/search-visibility.port';
 import type {
   KeyedStation,
   StationRunReaderPort,
@@ -80,8 +80,8 @@ const journal = (runId: string): RunJournal => ({
       ms: 1000,
       startedAt: new Date('2026-09-30T10:01:00Z'),
       locations: [],
-      given: 'npm test',
-      returned: '3 failing',
+      input: 'npm test',
+      output: '3 failing',
       change: { path: 'src/queue.ts', before: 'old', after: 'new' },
     },
   ],
@@ -90,12 +90,12 @@ const journal = (runId: string): RunJournal => ({
   marks: {
     startedAt: null,
     readyAt: null,
-    spokeFrom: null,
-    spokeTo: null,
+    firstAgentUpdateAt: null,
+    lastAgentUpdateAt: null,
     endedAt: null,
   },
   spent: null,
-  egress: null,
+  egressEnforcement: null,
 });
 
 const outcomeOf = (
@@ -107,10 +107,10 @@ const outcomeOf = (
   endedAt: '2026-09-30T10:05:00.000Z',
   ending,
   failure: null,
-  round: 1,
+  visit: 1,
   checks: null,
-  next: null,
-  delivery: null,
+  firstHumanAction: null,
+  pullRequestState: null,
 });
 
 const reading = ({
@@ -119,7 +119,7 @@ const reading = ({
   runs = [ran('run_3'), ran('run_2'), ran('run_1')],
   outcomes = [] as RunOutcomeShape[],
   replaysFrom = null,
-  sight = null,
+  visibility = null,
   among = [],
 }: {
   team?: TeamId | null;
@@ -127,11 +127,11 @@ const reading = ({
   keyed?: KeyedStation[];
   runs?: StationRunRow[];
   outcomes?: RunOutcomeShape[];
-  sight?: SearchSight | 'unseeable' | null;
+  visibility?: SearchVisibility | 'unseeable' | null;
   among?: StationRunRow[];
 } = {}) => {
-  const asked: StationRunsWanted[] = [];
-  const sighted: string[] = [];
+  const requested: StationRunsWanted[] = [];
+  const visible: string[] = [];
   const stationsKeyed = vi.fn().mockResolvedValue(keyed);
   const stations: StationRunReaderPort = {
     endedRun: vi.fn(),
@@ -139,7 +139,7 @@ const reading = ({
       fingerprints.map((fingerprint) => ({ fingerprint, parts: PARTS })),
     stationsKeyed,
     endedAt: async (_station, wanted) => {
-      asked.push(wanted);
+      requested.push(wanted);
       return runs.slice(0, wanted.max);
     },
     endedAmong: async (_station, runIds) =>
@@ -148,29 +148,31 @@ const reading = ({
     alertsAt: async () => null,
   };
   const traces = {
-    heldRunStanding: vi
+    leasedRunFacts: vi
       .fn()
       .mockResolvedValue(
-        team ? { teamId: team, replaysFrom, isSearch: sight !== null } : null,
+        team
+          ? { teamId: team, replaysFrom, isSearch: visibility !== null }
+          : null,
       ),
   } as unknown as RunnerTraceReaderPort;
-  const sights: SearchSightPort = {
+  const visibilities: SearchVisibilityPort = {
     of: async (runId) => {
-      sighted.push(runId);
-      if (sight === 'unseeable') {
+      visible.push(runId);
+      if (visibility === 'unseeable') {
         throw new Error('no search ran this');
       }
-      if (!sight) {
-        throw new Error('asked the sight of a run that is no search');
+      if (!visibility) {
+        throw new Error('requested the visibility of a run that is no search');
       }
-      return sight;
+      return visibility;
     },
   };
-  const told: RunOutcomesPort = {
+  const outcomesPort: RunOutcomesPort = {
     of: async () => new Map(outcomes.map((each) => [each.runId, each])),
   };
 
-  const digests: RunDigestReaderPort = {
+  const usages: RunUsageReaderPort = {
     forRuns: async (ids) =>
       new Map(
         ids.map((id) => [
@@ -178,10 +180,10 @@ const reading = ({
           {
             ms: 300_000,
             steps: 12,
-            faults: 1,
+            errors: 1,
             changedLines: 0,
-            used: 40_000,
-            size: 200_000,
+            contextTokens: 40_000,
+            contextWindow: 200_000,
             cost: Money.of(0.42, 'USD'),
             tokens: Tokens.UNREPORTED,
           },
@@ -190,16 +192,16 @@ const reading = ({
   };
 
   return {
-    asked,
+    requested,
     stationsKeyed,
-    sighted,
+    visible,
     read: (wanted: Partial<HistoryWanted> = {}) =>
       new ReadRunnerHistoryHandler(
         traces,
         stations,
-        told,
-        digests,
-        sights,
+        outcomesPort,
+        usages,
+        visibilities,
         connectionsInMemory(),
       ).execute(
         new ReadRunnerHistoryQuery('run_0', 'runner_1', {
@@ -216,11 +218,11 @@ const reading = ({
 };
 
 describe('ReadRunnerHistoryHandler', () => {
-  it('answers nothing for a run its runner does not hold', async () => {
+  it('answers nothing for a run its runner does not lease', async () => {
     expect(await reading({ team: null }).read()).toEqual({ kind: 'unknown' });
   });
 
-  it('looks for the station only among the held run’s team’s lines', async () => {
+  it('looks for the station only among the lines of the team of the leased run', async () => {
     const { read, stationsKeyed } = reading();
 
     await read({ line: 'delivery' });
@@ -236,7 +238,7 @@ describe('ReadRunnerHistoryHandler', () => {
     expect(await reading({ keyed: [] }).read()).toEqual({ kind: 'unknown' });
   });
 
-  it('asks for the line when several lines have a station by that key', async () => {
+  it('requests the line when several lines have a station by that key', async () => {
     expect(
       await reading({
         keyed: [IMPLEMENTATION, { ...IMPLEMENTATION, lineKey: 'hotfix' }],
@@ -265,11 +267,11 @@ describe('ReadRunnerHistoryHandler', () => {
     const [run] = answer.history.runs;
 
     expect(run?.outcome?.ending).toBe('failed');
-    expect(run?.outcome?.cost).toEqual({
+    expect(run?.outcome?.usage).toEqual({
       ms: 300_000,
       steps: 12,
-      faults: 1,
-      used: 40_000,
+      errors: 1,
+      contextTokens: 40_000,
       cost: 0.42,
       currency: 'USD',
     });
@@ -279,12 +281,12 @@ describe('ReadRunnerHistoryHandler', () => {
     expect(JSON.stringify(run?.trace)).toContain('3 failing');
   });
 
-  it('reads the last runs asked for, and looks further back for an outcome', async () => {
+  it('reads the last runs requested, and looks further back for an outcome', async () => {
     const plain = reading();
 
     await plain.read({ last: 2 });
 
-    expect(plain.asked[0]?.max).toBe(2);
+    expect(plain.requested[0]?.max).toBe(2);
 
     const matching = reading({
       outcomes: [
@@ -295,7 +297,7 @@ describe('ReadRunnerHistoryHandler', () => {
     });
     const answer = await matching.read({ outcome: 'failed', last: 1 });
 
-    expect(matching.asked[0]?.max).toBe(500);
+    expect(matching.requested[0]?.max).toBe(500);
     expect(
       answer.kind === 'found' && answer.history.runs.map((each) => each.runId),
     ).toEqual(['run_2']);
@@ -307,7 +309,7 @@ describe('ReadRunnerHistoryHandler', () => {
 
     await history.read();
 
-    expect(history.asked[0]?.until).toEqual(started);
+    expect(history.requested[0]?.until).toEqual(started);
   });
 
   it('shows a task run every ended run', async () => {
@@ -315,13 +317,13 @@ describe('ReadRunnerHistoryHandler', () => {
 
     await history.read();
 
-    expect(history.asked[0]?.until).toBeNull();
+    expect(history.requested[0]?.until).toBeNull();
   });
 
   describe('for a search run', () => {
-    const SIGHT = aSight({
+    const VISIBILITY = aSearchVisibility({
       stationId: 'station_1',
-      hiddenTasks: ['task_of_run_2'],
+      heldOutTasks: ['task_of_run_2'],
       shownOriginals: ['run_1', 'run_9'],
       candidates: [
         {
@@ -354,14 +356,14 @@ describe('ReadRunnerHistoryHandler', () => {
     it('reads only the searched station, never another by the same key', async () => {
       expect(
         await reading({
-          sight: SIGHT,
+          visibility: VISIBILITY,
           keyed: [{ ...IMPLEMENTATION, stationId: 'station_other' }],
         }).read(),
       ).toEqual({ kind: 'unknown' });
       expect(
         (
           await reading({
-            sight: SIGHT,
+            visibility: VISIBILITY,
             keyed: [
               IMPLEMENTATION,
               { ...IMPLEMENTATION, stationId: 'station_other', lineKey: 'x' },
@@ -371,21 +373,21 @@ describe('ReadRunnerHistoryHandler', () => {
       ).toBe('found');
     });
 
-    it('leaves out every run of a held-out task, asking the store to skip them too', async () => {
-      const history = reading({ sight: SIGHT });
+    it('leaves out every run of a held-out task, telling the store to skip them too', async () => {
+      const history = reading({ visibility: VISIBILITY });
       const answer = await history.read();
 
-      expect(history.asked[0]?.excluding).toEqual(['task_of_run_2']);
-      expect(history.sighted).toEqual(['run_0']);
+      expect(history.requested[0]?.excluding).toEqual(['task_of_run_2']);
+      expect(history.visible).toEqual(['run_0']);
       expect(
         answer.kind === 'found' &&
           answer.history.runs.map((each) => each.taskId),
       ).not.toContain('task_of_run_2');
     });
 
-    it('always shows the originals it searches, even beyond the runs asked for', async () => {
+    it('always shows the originals it searches, even beyond the runs requested', async () => {
       const answer = await reading({
-        sight: SIGHT,
+        visibility: VISIBILITY,
         among: [ran('run_9')],
       }).read({ last: 1 });
 
@@ -397,7 +399,7 @@ describe('ReadRunnerHistoryHandler', () => {
 
     it('lists each candidate’s replay runs with their changes, cost and result, but none of a held-out task', async () => {
       const answer = await reading({
-        sight: SIGHT,
+        visibility: VISIBILITY,
         among: [
           { ...ran('run_c'), taskId: 'task_of_run_9' },
           { ...ran('run_hidden_c'), taskId: 'task_of_run_2' },
@@ -428,7 +430,7 @@ describe('ReadRunnerHistoryHandler', () => {
         succeeded: false,
         reasons: ['check-failed'],
         verdict: 'fail',
-        cost: { cost: 0.42, currency: 'USD' },
+        usage: { cost: 0.42, currency: 'USD' },
         changes: [
           { path: 'src/queue.ts', before: 'old', after: 'new', omitted: false },
         ],
@@ -439,19 +441,19 @@ describe('ReadRunnerHistoryHandler', () => {
     });
 
     it('fails rather than show an unfiltered history when the search cannot be seen', async () => {
-      await expect(reading({ sight: 'unseeable' }).read()).rejects.toThrow(
+      await expect(reading({ visibility: 'unseeable' }).read()).rejects.toThrow(
         'no search ran this',
       );
     });
   });
 
-  it('lists no candidates and asks no sight for a run that is no search', async () => {
+  it('lists no candidates and requests no visibility for a run that is no search', async () => {
     const history = reading();
     const answer = await history.read();
 
     expect(answer.kind === 'found' && answer.history.candidates).toEqual([]);
     expect(answer.kind === 'found' && answer.history.seedBlock).toBeNull();
-    expect(history.sighted).toEqual([]);
-    expect(history.asked[0]?.excluding).toEqual([]);
+    expect(history.visible).toEqual([]);
+    expect(history.requested[0]?.excluding).toEqual([]);
   });
 });

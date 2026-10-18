@@ -1,5 +1,5 @@
 export class InvalidSetupBranchError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(branch: string) {
     super(

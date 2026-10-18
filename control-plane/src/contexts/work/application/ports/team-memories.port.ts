@@ -8,14 +8,14 @@ export interface TouchedFile {
   readonly path: string;
 }
 
-export interface BriefedPlace {
+export interface BriefedContext {
   readonly teamId: TeamId;
   readonly lineId: string | null;
   readonly stationId: string | null;
   readonly repositories: readonly Repository[];
 }
 
-export interface BriefingPlace extends BriefedPlace {
+export interface BriefingContext extends BriefedContext {
   readonly about: string;
   touched(): Promise<readonly TouchedFile[]>;
 }
@@ -27,34 +27,34 @@ export interface BriefedMemory {
   readonly body: string;
 }
 
-interface CutMemory {
+interface OmittedMemory {
   readonly id: string;
   readonly handle: string;
 }
 
 interface MemoryFolderRow {
   readonly folder: string;
-  readonly holds: string;
+  readonly level: string;
 }
 
 export interface MemoryFolder {
   readonly path: string;
   readonly layout: readonly MemoryFolderRow[];
-  readonly mirroring: string | null;
+  readonly repositoryFolder: string | null;
 }
 
 export interface BriefingSelection {
   readonly briefed: readonly BriefedMemory[];
-  readonly cut: readonly CutMemory[];
+  readonly omitted: readonly OmittedMemory[];
   readonly folder: MemoryFolder | null;
 }
 
 export const NOTHING_REMEMBERED: BriefingSelection = {
   briefed: [],
-  cut: [],
+  omitted: [],
   folder: null,
 };
 
 export interface TeamMemoriesPort {
-  forBriefing(place: BriefingPlace): Promise<BriefingSelection>;
+  forBriefing(place: BriefingContext): Promise<BriefingSelection>;
 }

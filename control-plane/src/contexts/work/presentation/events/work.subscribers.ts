@@ -1,28 +1,28 @@
 import type { RunTokensPort } from '@identity/application/ports/run-tokens.port';
 import type {
   RunGrantsPort,
-  RunHoldDto,
+  RunLeaseDto,
 } from '@secrets/application/ports/run-grants.port';
 import {
-  HOST_CONNECTED,
-  type HostConnectedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/host-connected.integration-event';
+  HOST_READY,
+  type HostReadyIntegrationEvent,
+} from '@shared-kernel/application/integration-events/host-ready.integration-event';
 import {
-  RUNNER_HOST_STARTED_SERVING,
-  type RunnerHostStartedServingIntegrationEvent,
-} from '@shared-kernel/application/integration-events/runner-host-started-serving.integration-event';
+  INTEGRATION_CONNECTED,
+  type IntegrationConnectedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/integration-connected.integration-event';
 import {
-  RUNNER_WAY_IN_OPENED,
-  type RunnerWayInOpenedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/runner-way-in-opened.integration-event';
+  RUNNER_ACCESS_DEFINED,
+  type RunnerAccessDefinedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/runner-access-defined.integration-event';
 import {
   TEAM_CREATED,
   type TeamCreatedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/team-created.integration-event';
 import {
-  TEAM_DISBANDED,
-  type TeamDisbandedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
+  TEAM_DELETED,
+  type TeamDeletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import {
   WORKSPACE_CONNECTED,
   type WorkspaceConnectedIntegrationEvent,
@@ -36,41 +36,41 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { BINDABLE_TASK_EVENTS } from '@work/application/contracts/bindable-task-events.contract';
-import type { AbandonTeamLines } from '@work/application/events/handlers/abandon-team-lines.handler';
-import type { DigestRun } from '@work/application/events/handlers/digest-run.handler';
+import type { CancelDetachedRun } from '@work/application/events/handlers/cancel-detached-run.handler';
+import type { DeleteTeamLines } from '@work/application/events/handlers/delete-team-lines.handler';
 import type { EnqueueChatRun } from '@work/application/events/handlers/enqueue-chat-run.handler';
 import type { EnqueueTaskRun } from '@work/application/events/handlers/enqueue-task-run.handler';
 import type { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
+import type { RecordRunUsage } from '@work/application/events/handlers/record-run-usage.handler';
 import {
   type NewTeam,
-  PROVISION_TEAM,
-  type ProvisionTeam,
-} from '@work/application/events/handlers/provision-team.handler';
-import type { StopLetGoRun } from '@work/application/events/handlers/stop-let-go-run.handler';
+  SEED_TEAM,
+  type SeedTeam,
+} from '@work/application/events/handlers/seed-team.handler';
 import type { ConnectionsMade } from '@work/application/services/connections-made.service';
 import type { Notices } from '@work/application/services/notices.service';
 import type { PauseMarks } from '@work/application/services/pause-marks.service';
 import type { PausedRuns } from '@work/application/services/paused-runs.service';
 import type { ProposalAcceptances } from '@work/application/services/proposal-acceptances';
+import type { ReconcileSetup } from '@work/application/services/reconcile-setup.service';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
-import type { RunnerHolds } from '@work/application/services/runner-holds.service';
-import type { SettleSetup } from '@work/application/services/settle-setup.service';
+import type { RunnerLeases } from '@work/application/services/runner-leases.service';
 import type { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
-import type { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
+import type { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import type { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
-import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
+import type { RunCancelled } from '@work/domain/events/run-cancelled.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
-import type { RunLapsed } from '@work/domain/events/run-lapsed.event';
-import type { RunParked } from '@work/domain/events/run-parked.event';
+import type { RunDetached } from '@work/domain/events/run-detached.event';
+import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
+import type { RunLeaseExpired } from '@work/domain/events/run-lease-expired.event';
 import type { RunPaused } from '@work/domain/events/run-paused.event';
 import type { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
-import type { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
+import type { RunSuspended } from '@work/domain/events/run-suspended.event';
 import type { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import type { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { TaskAsked } from '@work/domain/events/task-asked.event';
-import type { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
-import type { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
+import type { TaskDispatched } from '@work/domain/events/task-dispatched.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { ToolUsed } from '@work/domain/events/tool-used.event';
 
@@ -80,11 +80,11 @@ const newTeam = (event: TeamCreatedIntegrationEvent): NewTeam => ({
   owner: UserId.of(event.ownerId),
 });
 
-const holdOf = (event: {
+const leaseOf = (event: {
   readonly runId: RunId;
   readonly workspaceId: WorkspaceId;
   readonly attempt: number;
-}): RunHoldDto => ({
+}): RunLeaseDto => ({
   workspaceId: event.workspaceId.value,
   runId: event.runId.value,
   attempt: event.attempt,
@@ -100,8 +100,8 @@ const reactingToOutcomes = (
   subscribing<RunCompleted>(`${name}.completed`, ['run.completed'], (event) =>
     outcomes.onRunCompleted(event),
   ),
-  subscribing<RunAbandoned>(`${name}.abandoned`, ['run.abandoned'], (event) =>
-    outcomes.onRunAbandoned(event),
+  subscribing<RunExhausted>(`${name}.exhausted`, ['run.exhausted'], (event) =>
+    outcomes.onRunExhausted(event),
   ),
 ];
 
@@ -110,30 +110,30 @@ export const workSubscribers = (reactions: {
   pausedRuns: PausedRuns;
   pauseMarks: PauseMarks;
   chatOutcomes: RunOutcomes;
-  digests: DigestRun;
-  provisioning: ProvisionTeam;
+  usages: RecordRunUsage;
+  seeding: SeedTeam;
   acceptances: ProposalAcceptances;
   outsideTools: NotifyOutsideTools;
   taskRuns: EnqueueTaskRun;
-  letGoRuns: StopLetGoRun;
+  detachedRuns: CancelDetachedRun;
   chatRuns: EnqueueChatRun;
-  setup: SettleSetup;
-  abandoning: AbandonTeamLines;
+  setup: ReconcileSetup;
+  deleting: DeleteTeamLines;
   runGrants: RunGrantsPort;
   runTokens: RunTokensPort;
-  runners: RunnerHolds;
+  runners: RunnerLeases;
   toolUsedHooks: ToolUsedHooks;
   notices: Notices;
   connections: ConnectionsMade;
 }): readonly DomainEventSubscriber[] => [
-  subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
+  subscribing<RunCompleted | RunExhausted | RunCancelled>(
     'work.end-secret-grants-of-ended-run',
-    ['run.completed', 'run.abandoned', 'run.withdrawn'],
-    (event) => reactions.runGrants.endedFor(holdOf(event)),
+    ['run.completed', 'run.exhausted', 'run.cancelled'],
+    (event) => reactions.runGrants.endedFor(leaseOf(event)),
   ),
-  subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
+  subscribing<RunCompleted | RunExhausted | RunCancelled>(
     'work.revoke-tokens-of-ended-run',
-    ['run.completed', 'run.abandoned', 'run.withdrawn'],
+    ['run.completed', 'run.exhausted', 'run.cancelled'],
     (event) =>
       reactions.runTokens.revokeFor(
         event.workspaceId.value,
@@ -141,14 +141,14 @@ export const workSubscribers = (reactions: {
         null,
       ),
   ),
-  subscribing<RunLapsed | RunParked>(
-    'work.lose-secret-hold-of-ended-attempt',
-    ['run.lapsed', 'run.parked'],
-    (event) => reactions.runGrants.holdLost(holdOf(event)),
+  subscribing<RunLeaseExpired | RunSuspended>(
+    'work.lose-secret-lease-of-ended-attempt',
+    ['run.lease-expired', 'run.suspended'],
+    (event) => reactions.runGrants.leaseLost(leaseOf(event)),
   ),
-  subscribing<RunLapsed | RunParked>(
+  subscribing<RunLeaseExpired | RunSuspended>(
     'work.revoke-tokens-of-ended-attempt',
-    ['run.lapsed', 'run.parked'],
+    ['run.lease-expired', 'run.suspended'],
     (event) =>
       reactions.runTokens.revokeFor(
         event.workspaceId.value,
@@ -156,9 +156,9 @@ export const workSubscribers = (reactions: {
         event.attempt,
       ),
   ),
-  subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
+  subscribing<RunCompleted | RunExhausted | RunCancelled>(
     'work.end-runner-of-ended-run',
-    ['run.completed', 'run.abandoned', 'run.withdrawn'],
+    ['run.completed', 'run.exhausted', 'run.cancelled'],
     (event) => reactions.runners.runEnded(event.runId),
   ),
   subscribing<ToolUsed>(
@@ -166,9 +166,9 @@ export const workSubscribers = (reactions: {
     ['run.tool-used'],
     (event) => reactions.toolUsedHooks.on(event),
   ),
-  subscribing<RunLapsed | RunParked>(
-    'work.let-go-of-runner-that-left-its-run',
-    ['run.lapsed', 'run.parked'],
+  subscribing<RunLeaseExpired | RunSuspended>(
+    'work.release-runner-that-left-its-run',
+    ['run.lease-expired', 'run.suspended'],
     (event) => reactions.runners.runLeft(event.runner, event.at),
   ),
   subscribing<RunPaused>(
@@ -181,57 +181,56 @@ export const workSubscribers = (reactions: {
     ['task.answered'],
     (event) => reactions.pausedRuns.onTaskAnswered(event),
   ),
-  subscribing<HostConnectedIntegrationEvent>(
+  subscribing<IntegrationConnectedIntegrationEvent>(
     'work.answer-asks-to-connect',
-    [HOST_CONNECTED],
+    [INTEGRATION_CONNECTED],
     async (event) =>
       event.personId !== null &&
       reactions.connections.answer({
         teamId: TeamId.of(event.teamId),
-        source: event.source,
+        integration: event.integration,
         personId: UserId.of(event.personId),
       }),
   ),
   subscribing<RunReservationDropped>(
-    'work.let-go-of-reserved-runner',
+    'work.release-reserved-runner',
     ['run.reservation-dropped'],
     (event) => reactions.runners.reservationDropped(event.runner.value),
   ),
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'work.abandon-lines-of-disbanded-team',
-    [TEAM_DISBANDED],
-    (event) => reactions.abandoning.of(TeamId.of(event.teamId)),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'work.delete-lines-of-deleted-team',
+    [TEAM_DELETED],
+    (event) => reactions.deleting.deleteForTeam(TeamId.of(event.teamId)),
   ),
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'work.forget-notices-of-disbanded-team',
-    [TEAM_DISBANDED],
-    (event) => reactions.notices.forgetTeam(TeamId.of(event.teamId)),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'work.delete-notices-of-deleted-team',
+    [TEAM_DELETED],
+    (event) => reactions.notices.deleteForTeam(TeamId.of(event.teamId)),
   ),
   ...reactingToOutcomes('work.hand-over', reactions.handOver),
   ...reactingToOutcomes('work.chat-outcomes', reactions.chatOutcomes),
   subscribing<RunCompleted>(
-    'work.digest-run.completed',
+    'work.record-run-usage.completed',
     ['run.completed'],
-    (event) => reactions.digests.onRunCompleted(event),
+    (event) => reactions.usages.onRunCompleted(event),
   ),
-  subscribing<RunAbandoned>(
-    'work.digest-run.abandoned',
-    ['run.abandoned'],
-    (event) => reactions.digests.onRunAbandoned(event),
+  subscribing<RunExhausted>(
+    'work.record-run-usage.exhausted',
+    ['run.exhausted'],
+    (event) => reactions.usages.onRunExhausted(event),
   ),
   subscribing<TeamCreatedIntegrationEvent>(
-    PROVISION_TEAM,
+    SEED_TEAM,
     [TEAM_CREATED],
-    async (event) =>
-      signedUp(event) && reactions.provisioning.provision(newTeam(event)),
+    async (event) => signedUp(event) && reactions.seeding.seed(newTeam(event)),
   ),
   subscribing<WorkspaceConnectedIntegrationEvent>(
-    'work.settle-on-connection',
+    'work.reconcile-setup-on-connection',
     [WORKSPACE_CONNECTED],
     (event) => reactions.setup.forWorkspace(WorkspaceId.of(event.workspaceId)),
   ),
   subscribing<SetupPullRequestOpened>(
-    'work.settle-on-setup-pull-request',
+    'work.reconcile-setup-on-pull-request',
     ['chat.setup-pull-request-opened'],
     (event) => reactions.setup.forTeam(event.teamId),
   ),
@@ -241,7 +240,7 @@ export const workSubscribers = (reactions: {
     (event) => reactions.acceptances.onProposalAccepted(event),
   ),
   subscribing<TaskOpened>(
-    'work.settle-accepted-proposal',
+    'work.complete-accepted-proposal',
     ['task.opened'],
     (event) => reactions.acceptances.onTaskOpened(event),
   ),
@@ -250,29 +249,29 @@ export const workSubscribers = (reactions: {
     BINDABLE_TASK_EVENTS,
     (event) => reactions.outsideTools.on(event),
   ),
-  subscribing<TaskHandedToRun>(
+  subscribing<TaskDispatched>(
     'work.enqueue-task-run',
-    ['task.handed-to-run'],
+    ['task.dispatched'],
     (event) => reactions.taskRuns.on(event),
   ),
-  subscribing<TaskLetGoOfRun>(
-    'work.stop-let-go-run',
-    ['task.let-go-of-run'],
-    (event) => reactions.letGoRuns.on(event),
+  subscribing<RunDetached>(
+    'work.cancel-detached-run',
+    ['task.run-detached'],
+    (event) => reactions.detachedRuns.on(event),
   ),
-  subscribing<ChatHandedToRun>(
+  subscribing<ChatDispatched>(
     'work.enqueue-chat-run',
-    ['chat.handed-to-run'],
+    ['chat.dispatched'],
     (event) => reactions.chatRuns.on(event),
   ),
-  subscribing<RunnerWayInOpenedIntegrationEvent>(
-    'work.settle-on-way-in',
-    [RUNNER_WAY_IN_OPENED],
+  subscribing<RunnerAccessDefinedIntegrationEvent>(
+    'work.reconcile-setup-on-runner-access',
+    [RUNNER_ACCESS_DEFINED],
     (event) => reactions.setup.forWorkspace(WorkspaceId.of(event.workspaceId)),
   ),
-  subscribing<RunnerHostStartedServingIntegrationEvent>(
-    'work.settle-on-host-serving',
-    [RUNNER_HOST_STARTED_SERVING],
+  subscribing<HostReadyIntegrationEvent>(
+    'work.reconcile-setup-on-host-ready',
+    [HOST_READY],
     (event) => reactions.setup.forWorkspace(WorkspaceId.of(event.workspaceId)),
   ),
 ];

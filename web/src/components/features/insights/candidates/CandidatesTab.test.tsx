@@ -7,7 +7,7 @@ import type { InsightsPeriod } from '@/lib/insights';
 import { stationNamesOf } from '@/lib/insights';
 import { CANDIDATES } from '@/test/fixtures/insights-candidates';
 
-type Held = {
+type Queried = {
   data: unknown;
   isPending: boolean;
   isFetching: boolean;
@@ -15,7 +15,7 @@ type Held = {
   refetch: () => void;
 };
 
-const held = (data: unknown, errorUpdateCount = 0): Held => ({
+const queried = (data: unknown, errorUpdateCount = 0): Queried => ({
   data,
   isPending: data === undefined && errorUpdateCount === 0,
   isFetching: false,
@@ -52,19 +52,19 @@ const LINES = [
 ];
 
 const answer: {
-  candidates: Held;
+  candidates: Queried;
   lines: unknown;
-  asked: unknown[];
+  requested: unknown[];
 } = {
-  candidates: held(undefined),
+  candidates: queried(undefined),
   lines: LINES,
-  asked: [],
+  requested: [],
 };
 
 vi.mock('@/hooks/api/useInsightsCandidates', () => ({
   insightsCandidatesKeys: { forTeam: () => ['insights', 'candidates'] },
   useInsightsCandidates: (teamId: string, period: string) => {
-    answer.asked.push({ teamId, period });
+    answer.requested.push({ teamId, period });
     return answer.candidates;
   },
 }));
@@ -94,20 +94,20 @@ const row = (name: string) =>
     .closest('[data-slot="replayed-candidate"]') as HTMLElement;
 
 beforeEach(() => {
-  answer.candidates = held(CANDIDATES);
+  answer.candidates = queried(CANDIDATES);
   answer.lines = LINES;
-  answer.asked = [];
+  answer.requested = [];
 });
 
 describe('the Candidates tab', () => {
-  it('asks for the candidates replayed in its period', () => {
+  it('requests the candidates replayed in its period', () => {
     showing('7d');
 
-    expect(answer.asked).toContainEqual({ teamId: 'team_1', period: '7d' });
+    expect(answer.requested).toContainEqual({ teamId: 'team_1', period: '7d' });
   });
 
   it('shows a faithful skeleton while it loads', () => {
-    answer.candidates = held(undefined);
+    answer.candidates = queried(undefined);
 
     showing();
 
@@ -117,7 +117,7 @@ describe('the Candidates tab', () => {
   });
 
   it('offers to try again where it could not load', async () => {
-    answer.candidates = held(undefined, 1);
+    answer.candidates = queried(undefined, 1);
 
     showing();
 
@@ -127,7 +127,7 @@ describe('the Candidates tab', () => {
   });
 
   it('explains replays and leads to the line where nothing was replayed', () => {
-    answer.candidates = held({ ...CANDIDATES, stations: [] });
+    answer.candidates = queried({ ...CANDIDATES, stations: [] });
 
     showing();
 
@@ -144,7 +144,7 @@ describe('the Candidates tab', () => {
   });
 
   it('notes when the oldest replays were left out', () => {
-    answer.candidates = held({ ...CANDIDATES, truncated: true });
+    answer.candidates = queried({ ...CANDIDATES, truncated: true });
 
     showing();
 
@@ -153,7 +153,7 @@ describe('the Candidates tab', () => {
     );
   });
 
-  it('groups the candidates in one table by station, then replay set, saying how far to trust each set', () => {
+  it('groups the candidates in one table by station, then replay set, showing the health of each set', () => {
     showing();
 
     const groups = [
@@ -172,31 +172,29 @@ describe('the Candidates tab', () => {
       `${STATION}/station_implementation/replay-sets/set_implementation`,
     );
     expect(screen.getAllByLabelText('Checks pull requests')).toHaveLength(1);
-    expect(screen.getAllByLabelText('How far to trust this set')).toHaveLength(
-      2,
-    );
+    expect(screen.getAllByLabelText('Set health')).toHaveLength(2);
   });
 
-  it('folds a station or a replay set away and opens it again', async () => {
+  it('collapses a station or a replay set and expands it again', async () => {
     showing();
 
     await userEvent.click(
-      screen.getByRole('button', { name: 'Fold Implementation' }),
+      screen.getByRole('button', { name: 'Collapse Implementation' }),
     );
     expect(screen.queryByText('opus-with-migrations-skill')).toBeNull();
     expect(screen.getByText('review-against-spec')).toBeInTheDocument();
 
     await userEvent.click(
-      screen.getByRole('button', { name: 'Unfold Implementation' }),
+      screen.getByRole('button', { name: 'Expand Implementation' }),
     );
     await userEvent.click(
-      screen.getByRole('button', { name: 'Fold Reviews sent back' }),
+      screen.getByRole('button', { name: 'Collapse Reviews sent back' }),
     );
     expect(screen.getByText('opus-with-migrations-skill')).toBeInTheDocument();
     expect(screen.queryByText('review-against-spec')).toBeNull();
   });
 
-  it('charts each replay set in place of its candidates, under the same folding rows', async () => {
+  it('charts each replay set in place of its candidates, under the same collapsible rows', async () => {
     showing();
 
     await userEvent.click(screen.getByRole('button', { name: 'Chart' }));
@@ -272,7 +270,7 @@ describe('the Candidates tab', () => {
 
   it('says a candidate was not compared with live where no task was compared', () => {
     const [station] = CANDIDATES.stations;
-    answer.candidates = held({
+    answer.candidates = queried({
       ...CANDIDATES,
       stations: [
         {
@@ -281,7 +279,7 @@ describe('the Candidates tab', () => {
             ...set,
             candidates: set.candidates.map((each) => ({
               ...each,
-              againstLive: null,
+              gainOverLive: null,
               regressions: 0,
               compared: 0,
             })),
@@ -298,7 +296,7 @@ describe('the Candidates tab', () => {
   });
 
   it('still leads somewhere where the team’s lines have not loaded', () => {
-    answer.candidates = held({ ...CANDIDATES, stations: [] });
+    answer.candidates = queried({ ...CANDIDATES, stations: [] });
     answer.lines = undefined;
 
     showing();
@@ -308,7 +306,7 @@ describe('the Candidates tab', () => {
     ).toHaveAttribute('href', '/w/acme/team/team_1');
   });
 
-  it('expands a candidate whose changes run past the row, and folds it back', async () => {
+  it('expands a candidate whose changes run past the row, and collapses it again', async () => {
     vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(80);
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(48);
     showing();

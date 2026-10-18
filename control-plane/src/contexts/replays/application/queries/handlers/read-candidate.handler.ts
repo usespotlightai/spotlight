@@ -22,11 +22,16 @@ export class ReadCandidateHandler
       const candidate = await this.candidates.find(
         CandidateId.of(query.candidateId),
       );
-      const standing = candidate
-        ? await this.people.standingOn(candidate.teamId.value, query.principal)
+      const membership = candidate
+        ? await this.people.membershipOn(
+            candidate.teamId.value,
+            query.principal,
+          )
         : null;
 
-      return candidate && standing && (candidate.isProposed || candidate.isLive)
+      return candidate &&
+        membership &&
+        (candidate.isProposed || candidate.isLive)
         ? candidateResourceView(candidate)
         : null;
     } catch (error) {

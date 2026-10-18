@@ -1,10 +1,10 @@
-import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
+import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { StationNameSkeleton } from '@/components/features/inbox/conversation/StationNameSkeleton';
 import { TurnsSkeleton } from '@/components/features/inbox/conversation/TurnsSkeleton';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { ChatInputSkeleton } from '@/components/shared/chat-input/ChatInputSkeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
-import { HELD_AT_TOP } from '@/lib/inbox';
+import { STICKY_AT_TOP } from '@/lib/inbox';
 
 export function ConversationSkeleton() {
   return (
@@ -14,12 +14,12 @@ export function ConversationSkeleton() {
           <SkeletonLine className="w-28 self-center text-xs" />
 
           <section className="flex flex-col">
-            <div className={HELD_AT_TOP}>
-              <SaidCard>
+            <div className={STICKY_AT_TOP}>
+              <MessageCard>
                 <StationNameSkeleton />
 
                 <SkeletonLine className="w-2/5 text-sm leading-6" />
-              </SaidCard>
+              </MessageCard>
             </div>
 
             <TurnsSkeleton />

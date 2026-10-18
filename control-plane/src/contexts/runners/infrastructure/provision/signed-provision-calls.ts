@@ -80,11 +80,11 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          'webhook-id': call.attempt,
+          'webhook-id': call.messageId,
           'webhook-timestamp': String(timestamp),
           'webhook-signature': signatureOf(
             call.secret.key,
-            call.attempt,
+            call.messageId,
             timestamp,
             body,
           ),
@@ -97,15 +97,18 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
       return { outcome: 'unreachable', detail: described(error) };
     }
 
-    const said = (await answered.text().catch(() => '')).slice(0, MAX_DETAIL);
+    const response = (await answered.text().catch(() => '')).slice(
+      0,
+      MAX_DETAIL,
+    );
 
     if (answered.status >= 200 && answered.status < 300) {
       return { outcome: 'accepted' };
     }
 
     return {
-      outcome: 'refused',
-      detail: `Provision URL answered ${answered.status}.${said ? ` Response: ${said}` : ''}`,
+      outcome: 'http-error',
+      detail: `Provision URL answered ${answered.status}.${response ? ` Response: ${response}` : ''}`,
     };
   }
 }

@@ -24,10 +24,10 @@ export function LayerFileDiff({
     setLoaded(false);
   }
 
-  const held = mounted && isLargeDiff(hunks) && !loaded;
-  const drawn = useAfterPaint(mounted && !held);
+  const collapsed = mounted && isLargeDiff(hunks) && !loaded;
+  const drawn = useAfterPaint(mounted && !collapsed);
 
-  if (held) {
+  if (collapsed) {
     return <LargeDiffNotice lines={lines} onLoad={() => setLoaded(true)} />;
   }
 

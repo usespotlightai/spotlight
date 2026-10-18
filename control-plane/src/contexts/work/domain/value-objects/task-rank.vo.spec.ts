@@ -54,11 +54,11 @@ describe('TaskRank', () => {
     expect([...ranks].sort()).toEqual([ranks[0], ranks[2], ranks[1]]);
   });
 
-  it('refuses neighbours given the wrong way round', () => {
+  it('rejects neighbours given the wrong way round', () => {
     expect(() => between('b', 'a')).toThrow(InvalidTaskRankError);
   });
 
-  it('refuses a rank that is not a rank', () => {
+  it('rejects a rank that is not a rank', () => {
     expect(() => TaskRank.of('NOPE!')).toThrow(InvalidTaskRankError);
   });
 });

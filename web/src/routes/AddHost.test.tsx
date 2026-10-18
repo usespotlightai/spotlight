@@ -21,13 +21,13 @@ vi.mock('@/hooks/api/useRunners', () => ({
 const host = (over: Record<string, unknown> = {}) => ({
   id: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
   name: 'leons-mac',
-  through: { kind: 'pool', key: 'my-computer' },
-  answering: true,
+  source: { kind: 'pool', key: 'my-computer' },
+  online: true,
   running: [],
   ...over,
 });
 
-const holding = (...hosts: unknown[]) =>
+const listing = (...hosts: unknown[]) =>
   fleet.mockReturnValue({ hosts, pools: [] });
 
 const poolCreated = () =>
@@ -50,7 +50,7 @@ vi.mock('@/hooks/api/useCreateRunnerPool', async (actual) => ({
   }),
 }));
 
-const folded = (step: string): boolean =>
+const collapsed = (step: string): boolean =>
   screen
     .getByRole('heading', { name: step })
     .parentElement?.querySelector('[inert]') != null;
@@ -72,7 +72,7 @@ describe('AddHost', () => {
     role.mockReturnValue('owner');
     creating.mockReturnValue({});
     create.mockClear();
-    holding();
+    listing();
     pools.mockReturnValue([]);
   });
 
@@ -136,7 +136,9 @@ describe('AddHost', () => {
 
     renderPage();
 
-    expect(document.body).toHaveTextContent('SPOTLIGHT_TOKEN=spt_pool_secret');
+    expect(document.body).toHaveTextContent(
+      'SPOTLIGHT_POOL_TOKEN=spt_pool_secret',
+    );
     expect(
       screen.getByText('Add the machine to the my-computer pool'),
     ).toBeInTheDocument();
@@ -162,21 +164,21 @@ describe('AddHost', () => {
   it('opens only the first step before a pool exists', () => {
     renderPage();
 
-    expect(folded('Create a pool')).toBe(false);
-    expect(folded('Add the machine to the pool')).toBe(true);
-    expect(folded('Wait for the host to connect')).toBe(true);
+    expect(collapsed('Create a pool')).toBe(false);
+    expect(collapsed('Add the machine to the pool')).toBe(true);
+    expect(collapsed('Wait for the host to connect')).toBe(true);
   });
 
-  it('folds the pool step away once the pool exists, keeping its field', () => {
+  it('collapses the pool step once the pool exists, keeping its field', () => {
     poolCreated();
 
     renderPage();
 
-    expect(folded('Create a pool')).toBe(true);
+    expect(collapsed('Create a pool')).toBe(true);
     expect(screen.getByLabelText('Pool name')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Create pool' })).toBeDisabled();
-    expect(folded('Add the machine to the my-computer pool')).toBe(false);
-    expect(folded('Wait for the host to connect')).toBe(true);
+    expect(collapsed('Add the machine to the my-computer pool')).toBe(false);
+    expect(collapsed('Wait for the host to connect')).toBe(true);
   });
 
   it('moves on to waiting two seconds after the command is copied', async () => {
@@ -188,17 +190,17 @@ describe('AddHost', () => {
 
     await person.click(screen.getByRole('button', { name: 'Copy command' }));
 
-    expect(folded('Add the machine to the my-computer pool')).toBe(false);
+    expect(collapsed('Add the machine to the my-computer pool')).toBe(false);
 
     act(() => vi.advanceTimersByTime(1_900));
-    expect(folded('Add the machine to the my-computer pool')).toBe(false);
+    expect(collapsed('Add the machine to the my-computer pool')).toBe(false);
 
     act(() => vi.advanceTimersByTime(100));
-    expect(folded('Add the machine to the my-computer pool')).toBe(true);
-    expect(folded('Wait for the host to connect')).toBe(false);
+    expect(collapsed('Add the machine to the my-computer pool')).toBe(true);
+    expect(collapsed('Wait for the host to connect')).toBe(false);
   });
 
-  it('opens a folded step again from its title, folding the rest', async () => {
+  it('expands a collapsed step again from its title, and collapses the rest', async () => {
     const person = userEvent.setup();
     poolCreated();
 
@@ -209,9 +211,9 @@ describe('AddHost', () => {
 
     await person.click(pool);
 
-    expect(folded('Create a pool')).toBe(false);
+    expect(collapsed('Create a pool')).toBe(false);
     expect(pool).toHaveAttribute('aria-expanded', 'true');
-    expect(folded('Add the machine to the my-computer pool')).toBe(true);
+    expect(collapsed('Add the machine to the my-computer pool')).toBe(true);
 
     await person.click(
       screen.getByRole('button', {
@@ -219,8 +221,8 @@ describe('AddHost', () => {
       }),
     );
 
-    expect(folded('Create a pool')).toBe(true);
-    expect(folded('Add the machine to the my-computer pool')).toBe(false);
+    expect(collapsed('Create a pool')).toBe(true);
+    expect(collapsed('Add the machine to the my-computer pool')).toBe(false);
   });
 
   it('opens the step the page moves on to, even after one was picked', async () => {
@@ -232,12 +234,12 @@ describe('AddHost', () => {
 
     await person.click(screen.getByRole('button', { name: 'Copy command' }));
     await person.click(screen.getByRole('button', { name: 'Create a pool' }));
-    expect(folded('Create a pool')).toBe(false);
+    expect(collapsed('Create a pool')).toBe(false);
 
     act(() => vi.advanceTimersByTime(2_000));
 
-    expect(folded('Create a pool')).toBe(true);
-    expect(folded('Wait for the host to connect')).toBe(false);
+    expect(collapsed('Create a pool')).toBe(true);
+    expect(collapsed('Wait for the host to connect')).toBe(false);
   });
 
   it('offers no title to click before the pool exists', () => {
@@ -253,9 +255,9 @@ describe('AddHost', () => {
 
   it('waits for a host in the new pool to connect', () => {
     poolCreated();
-    holding(
-      host({ through: { kind: 'pool', key: 'build-farm' } }),
-      host({ id: 'second', name: 'asleep', answering: false }),
+    listing(
+      host({ source: { kind: 'pool', key: 'build-farm' } }),
+      host({ id: 'second', name: 'asleep', online: false }),
     );
 
     renderPage();
@@ -268,7 +270,7 @@ describe('AddHost', () => {
 
   it('goes to the runners once a host of the new pool connects', () => {
     poolCreated();
-    holding(host());
+    listing(host());
 
     renderPage();
 

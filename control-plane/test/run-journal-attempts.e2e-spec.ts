@@ -6,8 +6,8 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
-import { DrizzleRunDigests } from '@work/infrastructure/persistence/drizzle/ledgers/run-digests.ledger';
 import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
+import { DrizzleRunUsages } from '@work/infrastructure/persistence/drizzle/ledgers/run-usages.ledger';
 import { DrizzleRunEventReader } from '@work/infrastructure/persistence/drizzle/readers/run-event.reader';
 import { journalsOfChat } from '@work/infrastructure/persistence/drizzle/readers/run-journals';
 import { eq } from 'drizzle-orm';
@@ -15,26 +15,26 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 let journal: DrizzleRunJournal;
 let events: DrizzleRunEventReader;
-let digests: DrizzleRunDigests;
+let runUsages: DrizzleRunUsages;
 
 beforeAll(async () => {
-  held = await openDatabase('run_journal_attempts');
-  db = held.db;
+  database = await openDatabase('run_journal_attempts');
+  db = database.db;
   journal = new DrizzleRunJournal(new DrizzleContext(db));
   events = new DrizzleRunEventReader(db, {
     mayView: async () => true,
   } as unknown as WorkspaceAccessPort);
-  digests = new DrizzleRunDigests(db, {
+  runUsages = new DrizzleRunUsages(db, {
     skillHomes: () => ['.claude/skills'],
   } as unknown as HarnessLaunchPort);
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 const hooks = (...messages: string[]) =>
@@ -84,7 +84,7 @@ const finished = async (runId: RunId) => {
 };
 
 describe('journalling a run that was tried again', () => {
-  it('keeps every attempt, even where their entries share a place', async () => {
+  it('stores every attempt, even where their entries share a place', async () => {
     const { runId } = await chatRun();
 
     await journal.append(RunAttempt.of(runId, 1), hooks('one-a', 'one-b'));
@@ -92,7 +92,7 @@ describe('journalling a run that was tried again', () => {
     await journal.append(RunAttempt.of(runId, 2), hooks('two-a'));
     await journal.append(RunAttempt.of(runId, 2), hooks('again'));
 
-    const kept = await db
+    const stored = await db
       .select({
         attempt: schema.runJournalEntry.attempt,
         seq: schema.runJournalEntry.seq,
@@ -102,14 +102,14 @@ describe('journalling a run that was tried again', () => {
       .where(eq(schema.runJournalEntry.runId, runId.value))
       .orderBy(schema.runJournalEntry.attempt, schema.runJournalEntry.seq);
 
-    expect(kept).toEqual([
+    expect(stored).toEqual([
       { attempt: 1, seq: 1, message: 'one-a' },
       { attempt: 1, seq: 2, message: 'one-b' },
       { attempt: 2, seq: 1, message: 'two-a' },
     ]);
   });
 
-  it('replays the stream from the attempt asked for', async () => {
+  it('replays the stream from the attempt requested', async () => {
     const { runId } = await chatRun();
 
     await journal.append(RunAttempt.of(runId, 1), hooks('one-a', 'one-b'));
@@ -137,26 +137,26 @@ describe('journalling a run that was tried again', () => {
     expect(read?.steps.map((step) => step.text)).toEqual(['two-a']);
   });
 
-  it('digests the attempt that finished, and again when a later one does', async () => {
+  it('records the usage of the attempt that finished, and again when a later one does', async () => {
     const { runId } = await chatRun();
 
     await journal.append(RunAttempt.of(runId, 1), hooks('one-a', 'one-b'));
     await finished(runId);
-    await digests.ensure([runId]);
+    await runUsages.ensure([runId]);
 
-    expect((await digests.forRuns([runId])).get(runId.value)?.steps).toBe(2);
+    expect((await runUsages.forRuns([runId])).get(runId.value)?.steps).toBe(2);
 
     await requeued(runId, 2);
     await journal.append(RunAttempt.of(runId, 2), hooks('two-a'));
     await finished(runId);
-    await digests.ensure([runId]);
+    await runUsages.ensure([runId]);
 
-    expect((await digests.forRuns([runId])).get(runId.value)?.steps).toBe(1);
+    expect((await runUsages.forRuns([runId])).get(runId.value)?.steps).toBe(1);
   });
 });
 
-describe('digesting a run that paused for a person', () => {
-  const spoken = (seq: number, second: number) => ({
+describe('recording the usage of a run that paused for a person', () => {
+  const messageChunk = (seq: number, second: number) => ({
     seq,
     type: 'output',
     at: new Date(Date.UTC(2026, 8, 17, 9, 0, second)),
@@ -165,40 +165,43 @@ describe('digesting a run that paused for a person', () => {
         sessionId: 'session_1',
         update: {
           sessionUpdate: 'agent_message_chunk',
-          content: { type: 'text', text: `said at ${second}` },
+          content: { type: 'text', text: `message at ${second}` },
         },
       }),
     ).toString('base64'),
   });
 
-  it('counts every attempt it kept, and none of the time it waited', async () => {
+  it('counts every attempt it stored, and none of the time it waited', async () => {
     const { runId } = await chatRun();
 
-    await journal.append(RunAttempt.of(runId, 1), [spoken(1, 0), spoken(2, 4)]);
-    await journal.appendAside(RunAttempt.of(runId, 1), {
+    await journal.append(RunAttempt.of(runId, 1), [
+      messageChunk(1, 0),
+      messageChunk(2, 4),
+    ]);
+    await journal.appendControlPlaneEntry(RunAttempt.of(runId, 1), {
       type: 'run.paused',
       at: new Date(Date.UTC(2026, 8, 17, 9, 0, 5)),
       message: 'Waiting for a person',
     });
     await db
       .update(schema.run)
-      .set({ attempt: 2, parkedAttempts: [1], state: 'claimed' })
+      .set({ attempt: 2, suspendedAttempts: [1], state: 'claimed' })
       .where(eq(schema.run.id, runId.value));
     await journal.append(RunAttempt.of(runId, 2), [
-      spoken(1, 50),
-      spoken(2, 53),
+      messageChunk(1, 50),
+      messageChunk(2, 53),
     ]);
     await finished(runId);
-    await digests.ensure([runId]);
+    await runUsages.ensure([runId]);
 
-    const digest = (await digests.forRuns([runId])).get(runId.value);
+    const recordedUsage = (await runUsages.forRuns([runId])).get(runId.value);
 
-    expect(digest?.steps).toBe(2);
-    expect(digest?.ms).toBe(7_000);
+    expect(recordedUsage?.steps).toBe(2);
+    expect(recordedUsage?.ms).toBe(7_000);
   });
 });
 
-describe('digesting the tokens a run took', () => {
+describe('recording the tokens a run used', () => {
   const turned = (seq: number, usage: Record<string, number>) => ({
     seq,
     type: 'usage',
@@ -206,7 +209,7 @@ describe('digesting the tokens a run took', () => {
     data: Buffer.from(JSON.stringify(usage)).toString('base64'),
   });
 
-  it('adds up the turns of every attempt it kept, count by count', async () => {
+  it('adds up the turns of every attempt it stored, count by count', async () => {
     const { runId } = await chatRun();
 
     await journal.append(RunAttempt.of(runId, 1), [
@@ -220,7 +223,7 @@ describe('digesting the tokens a run took', () => {
     ]);
     await db
       .update(schema.run)
-      .set({ attempt: 2, parkedAttempts: [1], state: 'claimed' })
+      .set({ attempt: 2, suspendedAttempts: [1], state: 'claimed' })
       .where(eq(schema.run.id, runId.value));
     await journal.append(RunAttempt.of(runId, 2), [
       turned(1, {
@@ -232,11 +235,11 @@ describe('digesting the tokens a run took', () => {
       }),
     ]);
     await finished(runId);
-    await digests.ensure([runId]);
+    await runUsages.ensure([runId]);
 
-    const digest = (await digests.forRuns([runId])).get(runId.value);
+    const recordedUsage = (await runUsages.forRuns([runId])).get(runId.value);
 
-    expect(digest?.tokens).toMatchObject({
+    expect(recordedUsage?.tokens).toMatchObject({
       input: 15,
       output: 27,
       cacheRead: 5_000,
@@ -251,17 +254,17 @@ describe('digesting the tokens a run took', () => {
       turned(1, { inputTokens: 10, outputTokens: 20, totalTokens: 30 }),
     ]);
     await finished(runId);
-    await digests.ensure([runId]);
+    await runUsages.ensure([runId]);
 
     const [stored] = await db
       .select({
-        inputTokens: schema.runDigest.inputTokens,
-        outputTokens: schema.runDigest.outputTokens,
-        cacheReadTokens: schema.runDigest.cacheReadTokens,
-        cacheWriteTokens: schema.runDigest.cacheWriteTokens,
+        inputTokens: schema.runUsage.inputTokens,
+        outputTokens: schema.runUsage.outputTokens,
+        cacheReadTokens: schema.runUsage.cacheReadTokens,
+        cacheWriteTokens: schema.runUsage.cacheWriteTokens,
       })
-      .from(schema.runDigest)
-      .where(eq(schema.runDigest.runId, runId.value));
+      .from(schema.runUsage)
+      .where(eq(schema.runUsage.runId, runId.value));
 
     expect(stored).toEqual({
       inputTokens: 10,
@@ -272,8 +275,8 @@ describe('digesting the tokens a run took', () => {
   });
 });
 
-describe('journalling aside what happened around a run', () => {
-  const aside = (message: string, second: number) => ({
+describe('journalling what happened around a run', () => {
+  const controlPlaneEntry = (message: string, second: number) => ({
     type: 'hook.called',
     at: new Date(Date.UTC(2026, 8, 17, 9, 0, second)),
     message,
@@ -288,7 +291,10 @@ describe('journalling aside what happened around a run', () => {
     ]);
     const placed = await Promise.all(
       Array.from({ length: 4 }, (_, each) =>
-        journal.appendAside(attempt, aside(`hook-${each}`, each)),
+        journal.appendControlPlaneEntry(
+          attempt,
+          controlPlaneEntry(`hook-${each}`, each),
+        ),
       ),
     );
 
@@ -296,19 +302,22 @@ describe('journalling aside what happened around a run', () => {
     expect(Math.max(...placed)).toBe(-1_000_000);
     expect(Math.min(...placed)).toBe(-1_000_003);
 
-    const kept = await db
+    const stored = await db
       .select({ seq: schema.runJournalEntry.seq })
       .from(schema.runJournalEntry)
       .where(eq(schema.runJournalEntry.runId, runId.value));
-    expect(kept).toHaveLength(5);
+    expect(stored).toHaveLength(5);
   });
 
-  it('replays what was kept aside whatever the cursor, in time among the runner’s entries', async () => {
+  it('replays what was set aside whatever the cursor, in time among the runner’s entries', async () => {
     const { runId } = await chatRun();
     const attempt = RunAttempt.of(runId, 1);
 
     await journal.append(attempt, hooks('one', 'two', 'three'));
-    await journal.appendAside(attempt, aside('between', 1));
+    await journal.appendControlPlaneEntry(
+      attempt,
+      controlPlaneEntry('between', 1),
+    );
 
     const all = await events.eventsSince(runId, 1, 0, 50);
     expect(all.map((each) => each.message)).toEqual([
@@ -324,7 +333,7 @@ describe('journalling aside what happened around a run', () => {
     ]);
   });
 
-  it('replays the newest of what was kept aside on a long run', async () => {
+  it('replays the newest of what was set aside on a long run', async () => {
     const { runId } = await chatRun();
     await db.insert(schema.runJournalEntry).values(
       Array.from({ length: 205 }, (_, each) => ({

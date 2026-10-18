@@ -34,7 +34,7 @@ export function TeamMemoryResults({
   lines,
   memories,
 }: TeamMemoryResultsProps) {
-  const held = memories.data ?? [];
+  const listed = memories.data ?? [];
   const known = lines.data ?? [];
   const [openId, setOpenId] = useState(opened);
   const [followed, setFollowed] = useState(opened);
@@ -44,7 +44,7 @@ export function TeamMemoryResults({
     setOpenId(opened);
   }
 
-  const rows = held.map((memory) => (
+  const rows = listed.map((memory) => (
     <TeamMemoryRow
       key={memory.id}
       slug={slug}
@@ -89,7 +89,7 @@ export function TeamMemoryResults({
     );
   }
 
-  if (held.length === 0 && !narrowed(filter) && filter.standing === 'stands') {
+  if (listed.length === 0 && !narrowed(filter) && filter.status === 'active') {
     return (
       <Notice>
         <EmptyState
@@ -97,18 +97,18 @@ export function TeamMemoryResults({
           title="No memories yet"
           action={<WriteMemoryButton size="regular" />}
         >
-          Stations that keep memories propose them after runs. Approve them in
+          Stations that use memories propose them after runs. Approve them in
           the inbox, or write one yourself.
         </EmptyState>
       </Notice>
     );
   }
 
-  if (held.length === 0) {
+  if (listed.length === 0) {
     return (
       <Notice>
         <p className="text-muted-foreground text-sm">
-          {filter.standing === 'retired'
+          {filter.status === 'retired'
             ? 'No retired memories match.'
             : 'No memories match.'}
         </p>

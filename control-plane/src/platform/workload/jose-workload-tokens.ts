@@ -17,7 +17,7 @@ import {
 
 const DISCOVERY_PATH = '/.well-known/openid-configuration';
 
-const KEYS_KEPT_MS = 60 * 60_000;
+const KEYS_CACHE_MS = 60 * 60_000;
 
 const TIMEOUT_MS = 5_000;
 
@@ -27,7 +27,7 @@ const ALGORITHMS = ['RS256', 'RS384', 'RS512', 'ES256', 'ES384', 'PS256'];
 
 const REGISTERED = new Set(['iss', 'sub', 'aud', 'exp', 'nbf', 'iat', 'jti']);
 
-const namedIn = (payload: JWTPayload): Record<string, string> =>
+const customClaimsIn = (payload: JWTPayload): Record<string, string> =>
   Object.fromEntries(
     Object.entries(payload).filter(
       (entry): entry is [string, string] =>
@@ -67,7 +67,7 @@ export class JoseWorkloadTokens implements WorkloadTokensPort {
         issuer: String(payload.iss),
         subject: String(payload.sub),
         audiences: [payload.aud ?? []].flat(),
-        named: namedIn(payload),
+        customClaims: customClaimsIn(payload),
       };
     } catch (error) {
       this.logger.warn(
@@ -75,7 +75,7 @@ export class JoseWorkloadTokens implements WorkloadTokensPort {
           issuer: expected.issuer,
           reason: error instanceof Error ? error.message : String(error),
         },
-        'Refused a workload token',
+        'Rejected a workload token',
       );
 
       return null;
@@ -83,22 +83,22 @@ export class JoseWorkloadTokens implements WorkloadTokensPort {
   }
 
   private async keysOf(issuer: string): Promise<JWTVerifyGetKey> {
-    const held = this.#discovered.get(issuer);
+    const cached = this.#discovered.get(issuer);
 
-    if (held && held.until > Date.now()) {
-      return held.keys;
+    if (cached && cached.until > Date.now()) {
+      return cached.keys;
     }
 
-    const answer = await fetch(
+    const response = await fetch(
       `${issuer.replace(/\/+$/, '')}${DISCOVERY_PATH}`,
       { signal: AbortSignal.timeout(TIMEOUT_MS), redirect: 'error' },
     );
 
-    if (!answer.ok) {
-      throw new Error(`${issuer} answered discovery with ${answer.status}`);
+    if (!response.ok) {
+      throw new Error(`${issuer} returned ${response.status} for discovery`);
     }
 
-    const document = (await answer.json()) as {
+    const document = (await response.json()) as {
       issuer?: unknown;
       jwks_uri?: unknown;
     };
@@ -111,7 +111,7 @@ export class JoseWorkloadTokens implements WorkloadTokensPort {
       timeoutDuration: TIMEOUT_MS,
     });
 
-    this.#discovered.set(issuer, { keys, until: Date.now() + KEYS_KEPT_MS });
+    this.#discovered.set(issuer, { keys, until: Date.now() + KEYS_CACHE_MS });
 
     return keys;
   }

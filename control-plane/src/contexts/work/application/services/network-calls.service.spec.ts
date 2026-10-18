@@ -4,7 +4,7 @@ import type { NetworkCall } from '@work/domain/aggregates/network-call.aggregate
 import { UnknownNetworkCallError } from '@work/domain/exceptions/unknown-network-call.error';
 import type { NetworkCallRepository } from '@work/domain/repositories/network-call.repository';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
-import { NetworkAnswer } from '@work/domain/value-objects/network-answer.vo';
+import { NetworkResponse } from '@work/domain/value-objects/network-response.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-26T09:00:00.000Z');
@@ -21,9 +21,9 @@ const REQUEST = {
 
 const calling = (
   answerAfter: number | null = null,
-  answer = NetworkAnswer.of({
+  response = NetworkResponse.of({
     status: 200,
-    body: new TextEncoder().encode('{"refuse":"not today"}'),
+    body: new TextEncoder().encode('{"deny":"not today"}'),
     ms: 84,
   }),
 ) => {
@@ -49,7 +49,9 @@ const calling = (
         now.getTime() - NOW.getTime() >= answerAfter &&
         stored.stateAt(now) === 'waiting'
       ) {
-        stored = stored.claimedBy(HOST, now).answerWith(HOST, answer, now);
+        stored = stored
+          .claimedBy(HOST, now)
+          .recordResponse(HOST, response, now);
       }
       return stored;
     },
@@ -57,10 +59,10 @@ const calling = (
       saves += 1;
       stored = call.isDiscarded ? null : call;
     },
-    lapsingBy: async (at: Date) =>
-      stored && stored.lapsesAt <= at && !stored.settled ? [stored] : [],
-    settledBy: async (at: Date) =>
-      stored?.settledAt && stored.settledAt <= at ? [stored] : [],
+    expiringBy: async (at: Date) =>
+      stored && stored.expiresAt <= at && !stored.isCompleted ? [stored] : [],
+    completedBy: async (at: Date) =>
+      stored?.completedAt && stored.completedAt <= at ? [stored] : [],
   } as unknown as NetworkCallRepository;
 
   return {
@@ -84,7 +86,7 @@ describe('NetworkCalls', () => {
     expect(await calls.stateOf('call_1')).toEqual({ kind: 'waiting' });
   });
 
-  it('waits for the answer, reading the call every quarter second', async () => {
+  it('waits for the response, reading the call every quarter second', async () => {
     const { calls, reads } = calling(1_000);
     await calls.queue('ws_1', REQUEST, later(15_000));
 
@@ -92,10 +94,10 @@ describe('NetworkCalls', () => {
 
     expect(state).toEqual({
       kind: 'answered',
-      answer: {
+      response: {
         status: 200,
         headers: {},
-        body: new TextEncoder().encode('{"refuse":"not today"}'),
+        body: new TextEncoder().encode('{"deny":"not today"}'),
         ms: 84,
         error: null,
       },
@@ -104,75 +106,75 @@ describe('NetworkCalls', () => {
     expect(reads[1]).toEqual(later(250));
   });
 
-  it('gives the call up at the time it was given, forgetting what it would have sent', async () => {
+  it('cancels the call at the time it was given, discarding what it would have sent', async () => {
     const { calls, stored } = calling();
     await calls.queue('ws_1', REQUEST, later(15_000));
 
     expect(await calls.answered('call_1', later(1_000))).toEqual({
-      kind: 'lapsed',
+      kind: 'expired',
     });
     expect(stored()?.progress).toEqual({
-      kind: 'given-up',
+      kind: 'cancelled',
       at: later(1_000),
     });
     expect(stored()?.request.headers).toEqual({});
     expect(stored()?.request.body.byteLength).toBe(0);
   });
 
-  it('lapses the calls whose time is up, one at a time', async () => {
+  it('expires the calls whose time is up, one at a time', async () => {
     const watching = calling();
     const { calls, stored, clock } = watching;
     await calls.queue('ws_1', REQUEST, later(1_000));
     await clock.sleep(1_000);
 
-    expect(await calls.lapseOverdue()).toBe(1);
-    expect(await calls.lapseOverdue()).toBe(0);
+    expect(await calls.expireDue()).toBe(1);
+    expect(await calls.expireDue()).toBe(0);
     expect(watching.saves).toBe(1);
-    expect(stored()?.progress.kind).toBe('lapsed');
+    expect(stored()?.progress.kind).toBe('expired');
     expect(stored()?.request.headers).toEqual({});
   });
 
-  it('says a call lapsed once its time is up unanswered', async () => {
+  it('says a call expired once its time is up unanswered', async () => {
     const { calls } = calling();
     await calls.queue('ws_1', REQUEST, later(2_000));
 
     expect(await calls.answered('call_1', later(10_000))).toEqual({
-      kind: 'lapsed',
+      kind: 'expired',
     });
   });
 
-  it('forgets what a lapsed call would have sent once it sees it lapse', async () => {
+  it('discards what an expired call would have sent once it sees it expire', async () => {
     const { calls, stored } = calling();
     await calls.queue('ws_1', REQUEST, later(2_000));
 
     await calls.answered('call_1', later(10_000));
 
-    expect(stored()?.progress.kind).toBe('lapsed');
+    expect(stored()?.progress.kind).toBe('expired');
     expect(stored()?.request.headers).toEqual({});
     expect(stored()?.request.body.byteLength).toBe(0);
   });
 
-  it('only reads a call when asked how it stands, even once its time is up', async () => {
+  it('only reads a call when requested for its state, even once its time is up', async () => {
     const watching = calling();
     const { calls, clock } = watching;
     await calls.queue('ws_1', REQUEST, later(1_000));
     await clock.sleep(2_000);
 
-    expect(await calls.stateOf('call_1')).toEqual({ kind: 'lapsed' });
+    expect(await calls.stateOf('call_1')).toEqual({ kind: 'expired' });
     expect(watching.saves).toBe(0);
   });
 
-  it('forgets calls settled more than a week ago', async () => {
+  it('purges calls completed more than a week ago', async () => {
     const watching = calling();
     const { calls, clock, stored } = watching;
     await calls.queue('ws_1', REQUEST, later(15_000));
     await calls.answered('call_1', later(1_000));
 
     await clock.sleep(7 * 24 * 60 * 60_000 - 1);
-    expect(await calls.forgetSettled()).toBe(0);
+    expect(await calls.purgeCompleted()).toBe(0);
 
     await clock.sleep(1);
-    expect(await calls.forgetSettled()).toBe(1);
+    expect(await calls.purgeCompleted()).toBe(1);
     expect(stored()).toBeNull();
   });
 

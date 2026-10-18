@@ -4,7 +4,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
-import type { ContentDigestPort } from '@work/application/ports/content-digest.port';
+import type { ContentHashPort } from '@work/application/ports/content-hash.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { MemoriesBriefedBeforePort } from '@work/application/ports/memories-briefed-before.port';
 import type { ReplayAnswer } from '@work/application/ports/replay-dispatch.port';
@@ -32,7 +32,7 @@ import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts'
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 
-export interface ReplayAsked {
+export interface ReplayInput {
   readonly original: RunId;
   readonly candidate: Line;
   readonly id?: RunId;
@@ -57,7 +57,7 @@ export class DispatchReplay {
     profiles: StationProfilesPort,
     private readonly memories: MemoriesBriefedBeforePort,
     private readonly files: AttachmentStorePort,
-    digest: ContentDigestPort,
+    hash: ContentHashPort,
     private readonly answers: ReplayAnswers,
   ) {
     this.ordering = new StationOrdering(
@@ -67,18 +67,18 @@ export class DispatchReplay {
       teamSkills,
       catalog,
       profiles,
-      digest,
+      hash,
     );
   }
 
   async enqueue({
     original,
     candidate,
-    id: asked,
+    id: requestedId,
     answer = null,
-  }: ReplayAsked): Promise<RunId> {
-    if (asked && (await this.alreadyQueued(asked, original))) {
-      return asked;
+  }: ReplayInput): Promise<RunId> {
+    if (requestedId && (await this.alreadyQueued(requestedId, original))) {
+      return requestedId;
     }
 
     const replayed = await this.runs.findById(original);
@@ -91,7 +91,7 @@ export class DispatchReplay {
       );
     }
 
-    const id = asked ?? RunId.of(this.ids.generate());
+    const id = requestedId ?? RunId.of(this.ids.generate());
     const plan = await this.planned(replayed, candidate, id);
     const ordered = await this.ordering.orderedForReplay(candidate, plan.at);
 
@@ -146,7 +146,7 @@ export class DispatchReplay {
       placement: order.placement,
       briefedWith: BriefedMemories.of({
         briefed: memories.briefed,
-        cut: memories.cut,
+        omitted: memories.omitted,
       }),
       configuredAs: this.ordering.configuredAs(ordered, candidate),
       spec: RunSpec.of({
@@ -184,8 +184,8 @@ export class DispatchReplay {
       );
     }
 
-    await this.stillKept(replayed, plan);
-    await this.attachmentsStillKept(replayed, plan);
+    await this.stillStored(replayed, plan);
+    await this.attachmentsStillStored(replayed, plan);
 
     return plan;
   }
@@ -207,7 +207,7 @@ export class DispatchReplay {
     return true;
   }
 
-  private async attachmentsStillKept(
+  private async attachmentsStillStored(
     replayed: Run,
     plan: ReplayPlan,
   ): Promise<void> {
@@ -221,25 +221,25 @@ export class DispatchReplay {
           throw new UnreplayableRunError(
             replayed.id.value,
             'attachments-gone',
-            'A file from its task briefing is no longer kept.',
+            'A file from its task briefing is no longer stored.',
           );
         }
         throw error;
       });
   }
 
-  private async stillKept(replayed: Run, plan: ReplayPlan): Promise<void> {
+  private async stillStored(replayed: Run, plan: ReplayPlan): Promise<void> {
     if (!plan.archive) {
       return;
     }
 
     const archive = await this.archives.find(plan.archive);
 
-    if (!archive?.isKeptIn(replayed.workspaceId)) {
+    if (!archive?.isAvailableIn(replayed.workspaceId)) {
       throw new UnreplayableRunError(
         replayed.id.value,
         'archive-gone',
-        `Its workspace archive ${plan.archive.value} is no longer kept.`,
+        `Its workspace archive ${plan.archive.value} is no longer stored.`,
       );
     }
   }

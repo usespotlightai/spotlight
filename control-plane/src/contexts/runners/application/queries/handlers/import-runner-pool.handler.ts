@@ -25,14 +25,14 @@ export class ImportRunnerPoolHandler
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
-      const kept = permissions
+      const record = permissions
         ? await this.resources.poolAt(
             permissions.workspaceId,
             PoolKey.of(query.address).value,
           )
         : null;
 
-      return kept ? RunnerResourceMapper.pool(kept) : null;
+      return record ? RunnerResourceMapper.pool(record) : null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

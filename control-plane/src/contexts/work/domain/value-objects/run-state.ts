@@ -2,15 +2,16 @@ export const RUN_STATES = [
   'queued',
   'claimed',
   'waiting',
-  'parked',
+  'suspended',
   'completed',
   'failed',
+  'cancelled',
   'superseded',
 ] as const;
 
 export type RunState = (typeof RUN_STATES)[number];
 
-export const HELD_RUN_STATES = [
+export const LEASED_RUN_STATES = [
   'claimed',
   'waiting',
 ] as const satisfies readonly RunState[];
@@ -18,5 +19,6 @@ export const HELD_RUN_STATES = [
 export const TERMINAL_RUN_STATES = [
   'completed',
   'failed',
+  'cancelled',
   'superseded',
 ] as const satisfies readonly RunState[];

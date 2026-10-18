@@ -3,10 +3,10 @@ import { AdvanceSearches } from '@replays/application/services/advance-searches.
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { estimateOf } from '@replays/domain/services/search-estimate';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { eq } from 'drizzle-orm';
@@ -22,18 +22,18 @@ import {
   bearing,
   budgetOf,
   claimed,
+  createSet,
   db,
   drained,
   endedSearchRun,
   entryOf,
   finished,
   fiveTasks,
-  heldSearchRun,
   http,
   judged,
+  leasedSearchRun,
   liveBlock,
   openSearchFlow,
-  openSet,
   originalsOf,
   owner,
   proposing,
@@ -54,8 +54,8 @@ import {
 openSearchFlow();
 
 describe('a search for a better station config', () => {
-  it('estimates what it would start, spend and take, as its budget allots it, writing nothing', async () => {
-    const setId = await openSet('Estimated', tenTasks);
+  it('estimates what it would start, spend and take, as it splits its ceiling, writing nothing', async () => {
+    const setId = await createSet('Estimated', tenTasks);
     const budget = { iterations: 2, perIteration: 2, ceiling: 40 };
 
     const estimate = (
@@ -69,7 +69,7 @@ describe('a search for a better station config', () => {
       searchedTasks: number;
       heldOutTasks: number;
       runs: Record<string, number>;
-      perReplayAllotments: Record<string, { amount: number }>;
+      perReplayLimits: Record<string, { amount: number }>;
       estimatedDuration: number | null;
       minGain: number;
       objective: string;
@@ -84,13 +84,13 @@ describe('a search for a better station config', () => {
           addedAt: new Date(),
         }),
       ),
-      digest: (text) => createHash('sha256').update(text, 'utf8').digest('hex'),
+      hash: (text) => createHash('sha256').update(text, 'utf8').digest('hex'),
     });
     const expected = estimateOf(
       SearchBudget.of({
         iterations: 2,
         perIteration: 2,
-        ceiling: Spend.ceiling(40, 'USD'),
+        ceiling: Money.ceiling(40, 'USD'),
         concurrency: 10,
       }),
       split,
@@ -100,16 +100,16 @@ describe('a search for a better station config', () => {
     expect(estimate.searchedTasks).toBe(7);
     expect(estimate.heldOutTasks).toBe(3);
     expect(estimate.runs).toEqual(expected.runs);
-    expect(estimate.perReplayAllotments.seed?.amount).toBeCloseTo(
-      expected.allotment.seed.amount,
+    expect(estimate.perReplayLimits.seed?.amount).toBeCloseTo(
+      expected.ceilingSplit.seed.amount,
       6,
     );
-    expect(estimate.perReplayAllotments.searchReplay?.amount).toBeCloseTo(
-      expected.allotment.searchReplay.amount,
+    expect(estimate.perReplayLimits.searchReplay?.amount).toBeCloseTo(
+      expected.ceilingSplit.searchReplay.amount,
       6,
     );
-    expect(estimate.perReplayAllotments.heldOutReplay?.amount).toBeCloseTo(
-      expected.allotment.heldOutReplay.amount,
+    expect(estimate.perReplayLimits.heldOutReplay?.amount).toBeCloseTo(
+      expected.ceilingSplit.heldOutReplay.amount,
       6,
     );
     expect(estimate.estimatedDuration).toBeNull();
@@ -193,7 +193,7 @@ describe('a search for a better station config', () => {
   }, 120_000);
 
   it('replays the live config first, then runs its agent, takes its candidates only on the searched tasks, shows it no held-out task, holds out its frontier, and finishes', async () => {
-    const setId = await openSet('Searched', tenTasks);
+    const setId = await createSet('Searched', tenTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 2,
       perIteration: 2,
@@ -231,9 +231,11 @@ describe('a search for a better station config', () => {
     await drained(() => ({ score: 4, cost: 0.2 }));
     expect(await replayEnded(seedReplayId)).toBe('finished');
 
-    const agent = await heldSearchRun(id, 1);
-    const held = new Set(started.split.heldOut.map((each) => each.taskId));
-    const heldRuns = started.split.heldOut.map((each) => each.runId).sort();
+    const agent = await leasedSearchRun(id, 1);
+    const heldOutTaskIds = new Set(
+      started.split.heldOut.map((each) => each.taskId),
+    );
+    const heldOutRuns = started.split.heldOut.map((each) => each.runId).sort();
     const searchedRuns = started.split.searched
       .map((each) => each.runId)
       .sort();
@@ -252,7 +254,9 @@ describe('a search for a better station config', () => {
     };
 
     expect(history.seedBlock.key).toBe('build');
-    expect(history.runs.some((each) => held.has(each.taskId))).toBe(false);
+    expect(history.runs.some((each) => heldOutTaskIds.has(each.taskId))).toBe(
+      false,
+    );
     expect(history.candidates.map((each) => each.candidateName)).toEqual([
       'seed',
     ]);
@@ -264,13 +268,13 @@ describe('a search for a better station config', () => {
     ).toBe(true);
 
     const block = await liveBlock();
-    const refused = await proposing(agent, {
+    const rejected = await proposing(agent, {
       name: 'Not a slug',
       hypothesis: '',
       station: { ...block, passesTo: [] },
     }).expect(422);
 
-    expect(refused.body.errors).toEqual(
+    expect(rejected.body.errors).toEqual(
       expect.arrayContaining([
         { path: 'name', message: expect.any(String), severity: 'error' },
         { path: 'hypothesis', message: expect.any(String), severity: 'error' },
@@ -291,7 +295,7 @@ describe('a search for a better station config', () => {
     ).body as { candidateId: string; name: string; replayId: string };
     const again = await proposing(agent, {
       name: 'in-order',
-      hypothesis: 'Said twice.',
+      hypothesis: 'Proposed twice.',
       station: { ...block, prompt: 'Build it, draining in order.' },
     }).expect(201);
     const terse = {
@@ -324,7 +328,7 @@ describe('a search for a better station config', () => {
         .where(eq(schema.replayCandidate.searchId, id)),
     ).toHaveLength(2);
 
-    await app.get(DispatchReplayRuns).workDue();
+    await app.get(DispatchReplayRuns).processDue();
     const bystander = await claimed();
 
     if (!bystander) {
@@ -339,7 +343,9 @@ describe('a search for a better station config', () => {
       })
       .expect(404);
 
-    expect(byStander.body.detail).toBe('The search no longer holds this run');
+    expect(byStander.body.detail).toBe(
+      'This run is no longer the active run of the search',
+    );
     await finished(
       bystander,
       ((await entryOf(bystander.runId))?.replayId ?? '') === strong.replayId
@@ -438,7 +444,7 @@ describe('a search for a better station config', () => {
     expect(ofRun.search).toEqual({ searchId: id, candidateName: 'in-order' });
     expect(await replayEnded(weak.replayId)).toBe('finished');
 
-    const second = await heldSearchRun(id, 2);
+    const second = await leasedSearchRun(id, 2);
     const later = (
       await bearing(second.token)
         .get(`/api/runs/${second.runId}/history?station=build`)
@@ -454,30 +460,34 @@ describe('a search for a better station config', () => {
       expect(candidate.runs.map((each) => each.original).sort()).toEqual(
         searchedRuns,
       );
-      expect(candidate.runs.some((each) => held.has(each.taskId))).toBe(false);
+      expect(
+        candidate.runs.some((each) => heldOutTaskIds.has(each.taskId)),
+      ).toBe(false);
     }
     expect(
       later.candidates[2]?.runs.every((each) => each.succeeded === false),
     ).toBe(true);
-    expect(later.runs.some((each) => held.has(each.taskId))).toBe(false);
+    expect(later.runs.some((each) => heldOutTaskIds.has(each.taskId))).toBe(
+      false,
+    );
 
     await endedSearchRun(second);
     await eventually(async () => {
-      await app.get(AdvanceSearches).workDue();
+      await app.get(AdvanceSearches).processDue();
       return (await searchRow(id))?.heldOut.length === 1;
     }, WITHIN);
 
-    const holding = await searchOf(id);
-    const heldOutReplayId = holding.candidates.find(
+    const current = await searchOf(id);
+    const heldOutReplayId = current.candidates.find(
       (each) => each.name === 'in-order',
     )?.heldOutReplayId as string;
 
-    expect(holding.state).toBe('holding-out');
-    expect(holding.ending).toBe('iterations-spent');
+    expect(current.state).toBe('holding-out');
+    expect(current.stopReason).toBe('iterations-spent');
     expect(
-      holding.candidates.find((each) => each.name === 'terse')?.heldOutReplayId,
+      current.candidates.find((each) => each.name === 'terse')?.heldOutReplayId,
     ).toBeNull();
-    expect(await originalsOf(heldOutReplayId)).toEqual(heldRuns);
+    expect(await originalsOf(heldOutReplayId)).toEqual(heldOutRuns);
 
     await drained(() => ({ score: 5, cost: 0.1 }));
     await eventually(async () => {
@@ -487,7 +497,7 @@ describe('a search for a better station config', () => {
 
     const done = await searchOf(id);
 
-    expect(done.ending).toBe('iterations-spent');
+    expect(done.stopReason).toBe('iterations-spent');
     expect(done.candidates.map((each) => [each.name, each.onFrontier])).toEqual(
       [
         ['in-order', true],
@@ -497,12 +507,9 @@ describe('a search for a better station config', () => {
     expect(done.candidates[0]?.searchScore).toBe(1);
     expect(done.candidates[0]?.heldOutScore).toBe(1);
     expect(done.candidates[1]?.searchScore).toBe(0);
-    expect(done.candidates.map((each) => each.onlyOnSeenTasks)).toEqual([
-      null,
-      null,
-    ]);
-    expect(done.onlyOnSeenTasks).toBe(0);
-    expect(done.best?.onlyOnSeenTasks).toBeNull();
+    expect(done.candidates.map((each) => each.overfit)).toEqual([null, null]);
+    expect(done.overfitCount).toBe(0);
+    expect(done.best?.overfit).toBeNull();
     expect(done.frontier).toContain(done.seed.candidateId);
     expect(done.best?.name).toBe('in-order');
     expect(done.spent.amount).toBeGreaterThan(0);
@@ -529,7 +536,7 @@ describe('a search for a better station config', () => {
   }, 120_000);
 
   it('ends when its seed spends past its ceiling, and when a person stops it', async () => {
-    const setId = await openSet('Capped', fiveTasks);
+    const setId = await createSet('Capped', fiveTasks);
     const capped = await startSearch(setId, {
       iterations: 1,
       perIteration: 1,
@@ -542,8 +549,10 @@ describe('a search for a better station config', () => {
       WITHIN,
     );
 
-    expect((await searchRow(capped.id))?.ending).toBe('ceiling-reached');
-    expect((await replayRow(capped.seedReplayId))?.state).toBe('over-budget');
+    expect((await searchRow(capped.id))?.stopReason).toBe('ceiling-reached');
+    expect((await replayRow(capped.seedReplayId))?.state).toBe(
+      'ceiling-reached',
+    );
     expect(await searchRunsOf(capped.id)).toEqual([]);
 
     const stopped = await startSearch(setId, {
@@ -555,7 +564,7 @@ describe('a search for a better station config', () => {
     await owner().post(`${teamPath()}/searches/${stopped.id}/stop`).expect(204);
     await owner().post(`${teamPath()}/searches/${stopped.id}/stop`).expect(409);
 
-    expect((await searchRow(stopped.id))?.ending).toBe('stopped');
+    expect((await searchRow(stopped.id))?.stopReason).toBe('stopped');
     await eventually(
       async () => (await replayRow(stopped.seedReplayId))?.state === 'stopped',
       WITHIN,

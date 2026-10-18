@@ -82,7 +82,7 @@
          "sample": {
           "constant_value": 0.5
          },
-         "trust": {
+         "min_agreement": {
           "constant_value": 0.6
          }
         },
@@ -374,7 +374,7 @@
         "judge": {
          "rubric": "scores: yes-no\nDid it drain the queue?",
          "sample": 0.5,
-         "trust": 0.6
+         "min_agreement": 0.6
         },
         "key": "build",
         "kind": "work",
@@ -907,7 +907,7 @@
        "judge": {
         "rubric": "scores: yes-no\nDid it drain the queue?",
         "sample": 0.5,
-        "trust": 0.6
+        "min_agreement": 0.6
        },
        "key": "build",
        "kind": "work",

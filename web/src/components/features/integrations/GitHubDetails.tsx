@@ -1,22 +1,22 @@
 import { GitHubAppLink } from '@/components/features/integrations/GitHubAppLink';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
-import { NotedWarning } from '@/components/shared/NotedWarning';
-import { unreachedOf } from '@/lib/github';
+import { WarningTooltip } from '@/components/shared/WarningTooltip';
+import { inaccessibleOf } from '@/lib/github';
 
 type GitHubDetailsProps = {
   installed: boolean;
   href: string | null;
-  reached: readonly string[];
+  accessible: readonly string[];
   used: readonly string[];
 };
 
 export function GitHubDetails({
   installed,
   href,
-  reached,
+  accessible,
   used,
 }: GitHubDetailsProps) {
-  const unreached = unreachedOf(used, reached);
+  const inaccessible = inaccessibleOf(used, accessible);
 
   return (
     <dl className="flex flex-col gap-2 pr-4 pb-4 pl-12">
@@ -43,9 +43,9 @@ export function GitHubDetails({
 
       {installed && (
         <FactRow>
-          <dt className={FACT_LABEL}>Reaches</dt>
+          <dt className={FACT_LABEL}>Can access</dt>
           <dd className={FACT_VALUE}>
-            {reached.length > 0 ? reached.join(', ') : 'No repositories'}
+            {accessible.length > 0 ? accessible.join(', ') : 'No repositories'}
           </dd>
         </FactRow>
       )}
@@ -58,11 +58,11 @@ export function GitHubDetails({
               {used.map((repository) => (
                 <li key={repository} className="flex items-center gap-1.5">
                   {repository}
-                  {unreached.has(repository) && (
-                    <NotedWarning
+                  {inaccessible.has(repository) && (
+                    <WarningTooltip
                       tone="destructive"
-                      label="Not reached"
-                      note={`The App can’t reach ${repository}. Agents can’t work in it. Please give the App access on GitHub.`}
+                      label="Not accessible"
+                      tooltip={`The App can’t access ${repository}. Agents can’t work in it. Please grant the App access on GitHub.`}
                     />
                   )}
                 </li>

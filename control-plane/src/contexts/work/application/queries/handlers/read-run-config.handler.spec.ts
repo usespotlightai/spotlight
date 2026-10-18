@@ -54,7 +54,7 @@ const reading = (
   new ReadRunConfigHandler(access, {
     listForTask: vi.fn(),
     listForTeam: vi.fn(),
-    conversationFor: vi.fn(),
+    notesFor: vi.fn(),
     configFor: vi.fn().mockResolvedValue(found),
     replayFor: vi.fn(),
     searchRunFor: vi.fn(),
@@ -63,7 +63,7 @@ const reading = (
   );
 
 describe('ReadRunConfigHandler', () => {
-  it('shows a replay run’s config only to those who may read its team’s outcomes', async () => {
+  it('shows a replay run’s config only to those who may read its team’s insights', async () => {
     const replayed = (teamId: string | null): RunConfigSummary => ({
       ran: null,
       before: null,

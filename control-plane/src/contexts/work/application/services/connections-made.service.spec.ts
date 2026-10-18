@@ -62,7 +62,7 @@ const waiting = () => {
       at: WORK,
       title: TaskTitle.of('Comment on ENG-12'),
       rank: TaskRank.of('i'),
-      raisedBy: ALICE,
+      createdBy: ALICE,
       now: NOW,
       newId: () => 'task_1',
     }),
@@ -77,8 +77,8 @@ const waiting = () => {
     },
     ConnectionAsk.of({
       teamId: TEAM,
-      source: 'linear',
-      integration: 'Linear',
+      integration: 'linear',
+      integrationName: 'Linear',
       personId: ALICE,
     }),
   );
@@ -87,17 +87,17 @@ const waiting = () => {
 };
 
 const answering = (fails = 0) => {
-  let standing = waiting();
+  let current = waiting();
   const saved: Task[] = [];
   const tasks = {
-    awaitingConnection: vi.fn(async () => [standing]),
-    find: vi.fn(async () => standing),
+    awaitingConnection: vi.fn(async () => [current]),
+    find: vi.fn(async () => current),
     save: vi.fn(async (task: Task) => {
       if (fails > 0) {
         fails--;
         throw new TaskVersionConflictError('task_1');
       }
-      standing = task;
+      current = task;
       saved.push(task);
     }),
   } as unknown as TaskRepository;
@@ -113,7 +113,7 @@ describe('ConnectionsMade', () => {
   it('answers each task waiting on that person’s connection in their own voice', async () => {
     const { made, tasks, saved } = answering();
 
-    await made.answer({ teamId: TEAM, source: 'linear', personId: ALICE });
+    await made.answer({ teamId: TEAM, integration: 'linear', personId: ALICE });
 
     expect(tasks.awaitingConnection).toHaveBeenCalledWith(
       TEAM,
@@ -131,7 +131,7 @@ describe('ConnectionsMade', () => {
   it('tries again when the task changed while it answered', async () => {
     const { made, saved } = answering(1);
 
-    await made.answer({ teamId: TEAM, source: 'linear', personId: ALICE });
+    await made.answer({ teamId: TEAM, integration: 'linear', personId: ALICE });
 
     expect(saved).toHaveLength(1);
   });
@@ -141,7 +141,7 @@ describe('ConnectionsMade', () => {
 
     await made.answer({
       teamId: TEAM,
-      source: 'linear',
+      integration: 'linear',
       personId: UserId.of('user_bob'),
     });
 

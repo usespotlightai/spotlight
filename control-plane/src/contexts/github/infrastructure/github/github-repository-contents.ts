@@ -12,7 +12,7 @@ import {
   call,
   sending,
 } from '@github/infrastructure/github/github.rest';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -64,9 +64,9 @@ interface Commit {
 const decoded = (base64: string): string =>
   Buffer.from(base64, 'base64').toString('utf8');
 
-const shaOf = (answer: Sha, asking: string): string => {
+const shaOf = (answer: Sha, operation: string): string => {
   if (!answer.sha) {
-    throw new UpstreamRefusedError(asking, 'GitHub answered without a sha');
+    throw new UpstreamError(operation, 'GitHub answered without a sha');
   }
 
   return answer.sha;
@@ -207,7 +207,7 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
     for (const [at, step] of steps.entries()) {
       const listed = await answered<Tree>(
         await call(`${this.at(repository)}/git/trees/${tree}`, token),
-        `GitHub would not list the tree holding ${path}`,
+        `GitHub would not list the tree containing ${path}`,
       );
       const entry = (listed.tree ?? []).find((each) => each.path === step);
 

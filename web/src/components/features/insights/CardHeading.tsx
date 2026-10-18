@@ -1,4 +1,4 @@
-import { InfoNote } from '@/components/features/insights/InfoNote';
+import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
 
 type CardTitleProps = {
   titleId: string;
@@ -20,7 +20,7 @@ export function CardTitle({
       <Heading id={titleId} className="font-medium text-foreground text-xs">
         {title}
       </Heading>
-      {description && <InfoNote note={description} />}
+      {description && <InfoTooltip tooltip={description} />}
     </span>
   );
 }

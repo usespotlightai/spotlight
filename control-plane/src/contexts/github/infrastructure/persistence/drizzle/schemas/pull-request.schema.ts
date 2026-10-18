@@ -1,8 +1,8 @@
-import type { HeardReview } from '@github/domain/aggregates/pull-request.aggregate';
+import type { WebhookReview } from '@github/domain/aggregates/pull-request.aggregate';
 import type { RevertTarget } from '@github/domain/services/revert-convention';
 import type {
   BotComment,
-  HeardThread,
+  PullRequestThread,
 } from '@github/domain/value-objects/bot-activity.vo';
 import {
   boolean,
@@ -16,11 +16,11 @@ import {
   timestamp,
 } from 'drizzle-orm/pg-core';
 
-export interface StoredReview extends Omit<HeardReview, 'at'> {
+export interface StoredReview extends Omit<WebhookReview, 'at'> {
   readonly at: string | null;
 }
 
-export interface StoredDraftSpell {
+export interface StoredDraftPeriod {
   readonly from: string;
   readonly to: string | null;
 }
@@ -48,8 +48,8 @@ export const githubPullRequest = pgTable(
     openedAt: timestamp('opened_at').notNull(),
     draft: boolean('draft').notNull().default(false),
     readyForReviewAt: timestamp('ready_for_review_at'),
-    draftSpells: jsonb('draft_spells')
-      .$type<StoredDraftSpell[]>()
+    draftPeriods: jsonb('draft_periods')
+      .$type<StoredDraftPeriod[]>()
       .notNull()
       .default([]),
     state: githubPullRequestState('state').notNull(),
@@ -70,7 +70,10 @@ export const githubPullRequest = pgTable(
       .$type<BotComment[]>()
       .notNull()
       .default([]),
-    threads: jsonb('threads').$type<HeardThread[]>().notNull().default([]),
+    threads: jsonb('threads')
+      .$type<PullRequestThread[]>()
+      .notNull()
+      .default([]),
     revertedBy: text('reverted_by'),
     version: integer('version').notNull().default(0),
   },

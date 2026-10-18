@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  describeInviter,
+  describeOutcomes,
   expiryOfInvite,
-  invitedByTold,
   inviterNamed,
   joiningAs,
-  outcomesTold,
   parseEmails,
   rolesOffered,
   sameAddress,
@@ -41,7 +41,7 @@ describe('parseEmails', () => {
     });
   });
 
-  it('refuses an address longer than 254 characters, as the server does', () => {
+  it('rejects an address longer than 254 characters, as the server does', () => {
     const longest = `${'a'.repeat(245)}@acme.dev`;
     const tooLong = `${'a'.repeat(246)}@acme.dev`;
 
@@ -127,26 +127,26 @@ describe('inviterNamed', () => {
   });
 
   it('says who invited inside a sentence in lowercase once their account is gone', () => {
-    expect(invitedByTold('Sam Rivera')).toBe('Invited by Sam Rivera');
-    expect(invitedByTold(null)).toBe('Invited by someone who has left');
+    expect(describeInviter('Sam Rivera')).toBe('Invited by Sam Rivera');
+    expect(describeInviter(null)).toBe('Invited by someone who has left');
   });
 });
 
-describe('outcomesTold', () => {
+describe('describeOutcomes', () => {
   it('counts what happened to the addresses, leaving out what did not happen', () => {
     expect(
-      outcomesTold([
+      describeOutcomes([
         { email: 'a@x.io', outcome: 'invited' },
         { email: 'b@x.io', outcome: 'invited' },
         { email: 'c@x.io', outcome: 'already-a-member' },
       ]),
     ).toBe('2 invited · 1 already in the workspace');
     expect(
-      outcomesTold([
-        { email: 'a@x.io', outcome: 'sent-again' },
+      describeOutcomes([
+        { email: 'a@x.io', outcome: 'resent' },
         { email: 'b@x.io', outcome: 'not-sent' },
       ]),
-    ).toBe('1 sent again · 1 not sent');
-    expect(outcomesTold([])).toBe('Invites');
+    ).toBe('1 resent · 1 not sent');
+    expect(describeOutcomes([])).toBe('Invites');
   });
 });

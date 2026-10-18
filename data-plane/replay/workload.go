@@ -28,31 +28,31 @@ const (
 type workloadTokens func(audience string) (string, error)
 
 func workloadFrom(env func(string) string, client *http.Client) (workloadTokens, error) {
-	if given := env(oidcTokenVar); given != "" {
-		return func(string) (string, error) { return given, nil }, nil
+	if token := env(oidcTokenVar); token != "" {
+		return func(string) (string, error) { return token, nil }, nil
 	}
 
-	asked, token := env(actionsURLVar), env(actionsTokenVar)
-	if asked == "" || token == "" {
+	actionsURL, token := env(actionsURLVar), env(actionsTokenVar)
+	if actionsURL == "" || token == "" {
 		return nil, fmt.Errorf("%s needs an OIDC token: set %s, or run in GitHub Actions with permissions: id-token: write", trustVar, oidcTokenVar)
 	}
 
 	return func(audience string) (string, error) {
-		return actionsToken(client, asked, token, audience)
+		return actionsToken(client, actionsURL, token, audience)
 	}, nil
 }
 
 func actionsToken(client *http.Client, requestURL, requestToken, audience string) (string, error) {
-	asked, err := url.Parse(requestURL)
+	target, err := url.Parse(requestURL)
 	if err != nil {
 		return "", fmt.Errorf("%s is not a URL: %w", actionsURLVar, err)
 	}
 
-	query := asked.Query()
+	query := target.Query()
 	query.Set("audience", audience)
-	asked.RawQuery = query.Encode()
+	target.RawQuery = query.Encode()
 
-	request, err := http.NewRequest(http.MethodGet, asked.String(), nil)
+	request, err := http.NewRequest(http.MethodGet, target.String(), nil)
 	if err != nil {
 		return "", err
 	}
@@ -71,7 +71,7 @@ func actionsToken(client *http.Client, requestURL, requestToken, audience string
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("GitHub Actions refused the OIDC token request with %d: %s; the job needs permissions: id-token: write",
+		return "", fmt.Errorf("GitHub Actions answered the OIDC token request with %d: %s; the job needs permissions: id-token: write",
 			response.StatusCode, strings.TrimSpace(string(body)))
 	}
 
@@ -98,7 +98,7 @@ type exchanging struct {
 	now      func() time.Time
 
 	mu      sync.Mutex
-	held    string
+	cached  string
 	renewAt time.Time
 }
 
@@ -114,8 +114,8 @@ func (e *exchanging) token(renewed bool) (string, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if e.held != "" && !renewed && e.now().Before(e.renewAt) {
-		return e.held, nil
+	if e.cached != "" && !renewed && e.now().Before(e.renewAt) {
+		return e.cached, nil
 	}
 
 	workload, err := e.workload(e.audience)
@@ -148,44 +148,44 @@ func (e *exchanging) token(renewed bool) (string, error) {
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("the workspace token trust %s did not admit the OIDC token: %s", e.trust, refusalOf(response.StatusCode, body))
+		return "", fmt.Errorf("the workspace token trust %s did not accept the OIDC token: %s", e.trust, problemOf(response.StatusCode, body))
 	}
 
-	var minted struct {
+	var issued struct {
 		Token     string `json:"token"`
 		ExpiresAt string `json:"expiresAt"`
 	}
-	if err := json.Unmarshal(body, &minted); err != nil || minted.Token == "" {
+	if err := json.Unmarshal(body, &issued); err != nil || issued.Token == "" {
 		return "", errors.New("Spotlight answered the exchange with no token this can read")
 	}
 
-	expiresAt, err := time.Parse(time.RFC3339, minted.ExpiresAt)
+	expiresAt, err := time.Parse(time.RFC3339, issued.ExpiresAt)
 	if err != nil {
-		return "", fmt.Errorf("the minted token's expiry %q is not a time", minted.ExpiresAt)
+		return "", fmt.Errorf("the issued token's expiry %q is not a time", issued.ExpiresAt)
 	}
 
-	e.held = minted.Token
+	e.cached = issued.Token
 	e.renewAt = renewalOf(expiresAt, e.now())
 
-	return e.held, nil
+	return e.cached, nil
 }
 
-func refusalOf(status int, body []byte) string {
-	var said struct {
+func problemOf(status int, body []byte) string {
+	var errorBody struct {
 		Detail  string `json:"detail"`
 		Title   string `json:"title"`
 		Message any    `json:"message"`
 	}
-	_ = json.Unmarshal(body, &said)
+	_ = json.Unmarshal(body, &errorBody)
 
 	switch {
-	case said.Detail != "":
-		return said.Detail
-	case said.Title != "":
-		return said.Title
+	case errorBody.Detail != "":
+		return errorBody.Detail
+	case errorBody.Title != "":
+		return errorBody.Title
 	}
 
-	if message, ok := said.Message.(string); ok && message != "" {
+	if message, ok := errorBody.Message.(string); ok && message != "" {
 		return message
 	}
 

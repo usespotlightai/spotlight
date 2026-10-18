@@ -1,8 +1,8 @@
 import type {
   AttachmentResponseDto,
-  InboxMessageResponseDto,
   LatestChangeStackResponseDto,
-  RunConversationResponseDto,
+  NoteResponseDto,
+  RunNotesResponseDto,
   StationResponseDto,
   TaskResponseDto,
   TaskRunResponseDto,
@@ -20,15 +20,15 @@ import {
   teamOfPastTask,
 } from '@/mocks/world/past-work';
 import { SAM } from '@/mocks/world/people';
-import { egressOf, wentWrongIn } from '@/mocks/world/run-network';
+import { egressEnforcementOf, errorsIn } from '@/mocks/world/run-network';
 import {
   changeStacksOf,
   endOf,
   finished,
-  messageOf,
   PREPARE_MS,
   PUBLISH_MS,
   runsOfAnyTask,
+  storyNoteOf,
   storyOf,
   timedSteps,
 } from '@/mocks/world/run-stories';
@@ -130,15 +130,15 @@ export const teamRunsOf = (teamId: string): TeamRunResponseDto[] =>
   );
 
 const conversationNotes = perWorld(
-  (): Record<string, InboxMessageResponseDto[]> => ({}),
+  (): Record<string, NoteResponseDto[]> => ({}),
 );
 
 const noteOf = (
   located: Located,
   script: NoteScript,
   position: number,
-): InboxMessageResponseDto => ({
-  ...messageOf(located.run, script),
+): NoteResponseDto => ({
+  ...storyNoteOf(located.run, script),
   position,
 });
 
@@ -164,9 +164,7 @@ const briefingOf = (located: Located, story: RunStory): string => {
   ].join('\n\n');
 };
 
-export const conversationOf = (
-  located: Located,
-): RunConversationResponseDto => {
+export const conversationOf = (located: Located): RunNotesResponseDto => {
   const story = storyOf(located.run.id);
   const scripted = story.notes.map((script, position) =>
     noteOf(located, script, position),
@@ -188,7 +186,7 @@ export const conversationOf = (
   };
 };
 
-export const sayTo = (
+export const addMessage = (
   located: Located,
   body: string,
   attachments: AttachmentResponseDto[],
@@ -199,7 +197,7 @@ export const sayTo = (
   notes[located.run.id] = [
     ...(notes[located.run.id] ?? []),
     {
-      ...noteOf(located, { kind: 'said', body }, before),
+      ...noteOf(located, { kind: 'message', body }, before),
       at: new Date().toISOString(),
       attachments,
       author: SAM,
@@ -216,13 +214,13 @@ const node = (
   },
 ): TraceNodeResponseDto => ({
   kind: 'phase',
-  tone: 'agent',
+  category: 'agent',
   cost: null,
   currency: null,
   step: null,
   span: null,
   connection: null,
-  egress: null,
+  egressEnforcement: null,
   children: [],
   ...over,
   startedAt: new Date(over.startedAt).toISOString(),
@@ -239,7 +237,7 @@ const stepNodes = (
       name: step.text,
       startedAt: Date.parse(step.startedAt),
       ms: step.ms,
-      tone: step.status === 'failed' ? 'failed' : 'agent',
+      category: step.status === 'failed' ? 'failed' : 'agent',
       step,
     }),
   );
@@ -248,14 +246,14 @@ const connectionNodes = (
   run: TaskRunResponseDto,
   from: number,
 ): TraceNodeResponseDto[] =>
-  wentWrongIn(run.id).map((connection, index) =>
+  errorsIn(run.id).map((connection, index) =>
     node({
       id: `${run.id}:connection:${index}`,
       kind: 'connection',
       name: connection.host,
-      tone: 'failed',
+      category: 'failed',
       startedAt: from + index * SECOND,
-      ms: connection.times * 200,
+      ms: connection.count * 200,
       connection,
     }),
   );
@@ -297,15 +295,15 @@ const runNode = (run: TaskRunResponseDto): TraceNodeResponseDto => {
     name: run.station?.name ?? 'Run',
     startedAt: from,
     ms,
-    tone: run.state === 'failed' ? 'failed' : 'agent',
+    category: run.state === 'failed' ? 'failed' : 'agent',
     cost,
     currency,
-    egress: egressOf(run.id),
+    egressEnforcement: egressEnforcementOf(run.id),
     children: [
       node({
         id: `${run.id}:prepare`,
         name: 'Prepare',
-        tone: 'overhead',
+        category: 'overhead',
         startedAt: from,
         ms: PREPARE_MS,
       }),
@@ -323,7 +321,7 @@ const runNode = (run: TaskRunResponseDto): TraceNodeResponseDto => {
             node({
               id: `${run.id}:publish`,
               name: 'Publish',
-              tone: 'overhead',
+              category: 'overhead',
               startedAt: to - PUBLISH_MS,
               ms: PUBLISH_MS,
             }),
@@ -357,7 +355,7 @@ export const taskTraceOf = (taskId: string): TaskTraceResponseDto => {
     startedAt: first?.startedAt ?? null,
     ms: first && last ? endOf(last) - Date.parse(first.startedAt) : 0,
     rows: nodes.length,
-    faults: nodes.filter((each) => each.tone === 'failed').length,
+    errors: nodes.filter((each) => each.category === 'failed').length,
     roots,
   };
 };
@@ -413,7 +411,7 @@ const teamTraceOf = (task: TaskResponseDto): TeamTraceResponseDto | null => {
         .at(-1) ?? null,
     ms: finished(last) ? trace.ms : null,
     steps: stories.reduce((sum, story) => sum + story.steps.length, 0),
-    faults: trace.faults,
+    errors: trace.errors,
     cost: costs.length
       ? Math.round(costs.reduce((sum, cost) => sum + cost, 0) * 100) / 100
       : null,
@@ -469,7 +467,7 @@ export const teamTracesOf = (
         from: new Date(start).toISOString(),
         to: new Date(start + width).toISOString(),
         count: inside.length,
-        faults: inside.filter((run) => run.state === 'failed').length,
+        errors: inside.filter((run) => run.state === 'failed').length,
       };
     }),
   };
@@ -492,10 +490,10 @@ export const latestChangeStackOf = (
   return {
     runId: run.id,
     repository: only?.repository ?? null,
-    state: stacks.some((each) => each.state === 'drafting')
-      ? 'drafting'
+    state: stacks.some((each) => each.state === 'generating')
+      ? 'generating'
       : 'ready',
-    checkState: only?.check?.state ?? null,
+    checkStatus: only?.check?.status ?? null,
     added: stacks.reduce((sum, each) => sum + addedIn(each), 0),
     removed: stacks.reduce((sum, each) => sum + removedIn(each), 0),
   };

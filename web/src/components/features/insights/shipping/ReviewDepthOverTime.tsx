@@ -26,7 +26,7 @@ import {
 } from '@/lib/insights-shipping';
 import { formatDay } from '@/lib/judge';
 
-const Said = ({
+const TipContent = ({
   placement,
   active,
   payload,
@@ -108,7 +108,7 @@ export function ReviewDepthOverTime({
                   />
                   <Tooltip
                     {...cursor.tooltip}
-                    content={<Said placement={cursor.placement} />}
+                    content={<TipContent placement={cursor.placement} />}
                     cursor={{ fill: 'var(--accent)' }}
                   />
                   {ROUNDS.map((rounds) => (
@@ -160,7 +160,7 @@ export function ReviewDepthOverTime({
               </dt>
               <dd className="text-foreground tabular-nums">{total.merged}</dd>
               <dd className="w-10 text-right text-muted-foreground tabular-nums">
-                {formatShare(total.share)}
+                {formatShare(total.rate)}
               </dd>
             </div>
           ))}

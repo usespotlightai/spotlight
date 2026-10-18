@@ -1,5 +1,5 @@
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
-import { formatSpend, lastedOrNone } from '@/lib/insights';
+import { formatDurationOrNone, formatSpend } from '@/lib/insights';
 import {
   type EntryComparison,
   formatCostDelta,
@@ -26,7 +26,7 @@ export function TaskSpendCells({
           {formatSpend(meanCostOf(row.candidate))}
         </NestedCell>
         <NestedCell heading="Time">
-          {lastedOrNone(meanMsOf(row.candidate))}
+          {formatDurationOrNone(meanMsOf(row.candidate))}
         </NestedCell>
       </>
     );

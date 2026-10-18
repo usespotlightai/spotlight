@@ -1,5 +1,5 @@
 import { EntryDetail } from '@/components/features/replays/replay/EntryDetail';
-import { useLingering } from '@/hooks/useLingering';
+import { useDelayedValue } from '@/hooks/useDelayedValue';
 import type { EntryComparison } from '@/lib/replay';
 
 const LEAVING = 240;
@@ -8,7 +8,7 @@ type EntryDetailOfProps = {
   slug: string;
   teamId: string;
   chosen: EntryComparison | null;
-  counterpartLabel: string;
+  referenceLabel: string;
   onClose: () => void;
 };
 
@@ -16,17 +16,17 @@ export function EntryDetailOf({
   slug,
   teamId,
   chosen,
-  counterpartLabel,
+  referenceLabel,
   onClose,
 }: EntryDetailOfProps) {
-  const held = useLingering(chosen, LEAVING);
+  const displayed = useDelayedValue(chosen, LEAVING);
 
-  return held ? (
+  return displayed ? (
     <EntryDetail
       slug={slug}
       teamId={teamId}
-      row={held}
-      counterpartLabel={counterpartLabel}
+      row={displayed}
+      referenceLabel={referenceLabel}
       open={chosen !== null}
       onClose={onClose}
     />

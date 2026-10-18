@@ -62,7 +62,7 @@ const using = () => {
     body: ChatMessageBody.of('Plan the retries.'),
     now: NOW,
     newId: () => 'chat_1',
-  }).handedTo(RunId.of('run_1'), NOW);
+  }).assignRun(RunId.of('run_1'), NOW);
   chat.pullEvents();
 
   const dispatch = vi.fn(async (_events: readonly unknown[]) => undefined);
@@ -91,7 +91,7 @@ describe('ProposeTaskToolUse', () => {
     expect(using().tool.tool.value).toBe('propose-task');
   });
 
-  it('holds a proposal in the chat for the person to decide on, and says it was proposed', async () => {
+  it('keeps a proposal in the chat for the person to decide on, and says it was proposed', async () => {
     const { tool, context, save, dispatch } = using();
 
     const answer = await tool.call(

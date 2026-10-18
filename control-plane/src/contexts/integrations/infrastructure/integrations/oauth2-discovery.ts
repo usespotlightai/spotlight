@@ -3,11 +3,11 @@ import type {
   OAuth2Endpoints,
   OAuth2IR,
 } from '@integrations/infrastructure/integrations/integration.compile';
-import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import {
-  type PolicedFetch,
-  policedFetch,
-} from '@integrations/infrastructure/outbound/policed-fetch';
+  type GuardedFetch,
+  guardedFetch,
+} from '@integrations/infrastructure/outbound/guarded-fetch';
+import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import {
   discoverOAuthServerInfo,
   extractWWWAuthenticateParams,
@@ -27,7 +27,7 @@ interface Discovered {
   readonly scopes: readonly string[];
 }
 
-const KEPT_FOR_MS = 10 * 60_000;
+const CACHE_TTL_MS = 10 * 60_000;
 
 const ANSWERS_WITHIN_MS = 15_000;
 
@@ -35,7 +35,7 @@ const PKCE = 'S256';
 
 const UNAUTHORIZED = 401;
 
-const ASKING = JSON.stringify({
+const OAUTH_DISCOVERY_REQUEST = JSON.stringify({
   jsonrpc: '2.0',
   id: 0,
   method: 'initialize',
@@ -64,17 +64,17 @@ export class OAuth2Discovery {
     string,
     { readonly discovered: Discovered; readonly until: number }
   >();
-  readonly #fetch: PolicedFetch;
+  readonly #fetch: GuardedFetch;
 
   constructor(
     policy: OutboundPolicy,
     private readonly clock: ClockPort,
     fetch: Fetch = globalThis.fetch,
   ) {
-    const policed = policedFetch(fetch, policy);
+    const guarded = guardedFetch(fetch, policy);
 
     this.#fetch = (url, init) =>
-      policed(url, {
+      guarded(url, {
         ...init,
         signal: init?.signal ?? AbortSignal.timeout(ANSWERS_WITHIN_MS),
       });
@@ -110,16 +110,16 @@ export class OAuth2Discovery {
 
   private async discovered(server: string): Promise<Discovered | null> {
     const now = this.clock.now().getTime();
-    const held = this.#found.get(server);
+    const cached = this.#found.get(server);
 
-    if (held && held.until > now) {
-      return held.discovered;
+    if (cached && cached.until > now) {
+      return cached.discovered;
     }
 
     const discovered = await this.discover(server).catch(() => null);
 
     if (discovered) {
-      this.#found.set(server, { discovered, until: now + KEPT_FOR_MS });
+      this.#found.set(server, { discovered, until: now + CACHE_TTL_MS });
     }
 
     return discovered;
@@ -164,7 +164,7 @@ export class OAuth2Discovery {
           'content-type': 'application/json',
           accept: 'application/json, text/event-stream',
         },
-        body: ASKING,
+        body: OAUTH_DISCOVERY_REQUEST,
       });
 
       await reply.body?.cancel();

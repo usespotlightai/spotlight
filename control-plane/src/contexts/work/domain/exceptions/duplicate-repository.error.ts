@@ -1,5 +1,5 @@
 export class DuplicateRepositoryError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(name: string) {
     super(

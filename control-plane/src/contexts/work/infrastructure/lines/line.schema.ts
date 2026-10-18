@@ -29,9 +29,9 @@ const identifier = (make: (raw: string) => unknown) =>
 const judgeSchema = z.object({
   rubric: z.string().optional(),
   claims: z.array(z.string()).optional(),
-  passShare: z.number().optional(),
+  passThreshold: z.number().optional(),
   sample: z.number(),
-  trust: z.number(),
+  minAgreement: z.number(),
 });
 
 const alertSchema = z.object({
@@ -79,7 +79,10 @@ const repositorySchema = z.object({
 const reactionSchema = z.object({
   happening: z
     .string()
-    .regex(HAPPENING, 'names its source first, as in github.checks.failed'),
+    .regex(
+      HAPPENING,
+      'names its integration first, as in github.checks.failed',
+    ),
   from: identifier(StationKey.of).optional(),
   to: identifier(StationKey.of),
 });

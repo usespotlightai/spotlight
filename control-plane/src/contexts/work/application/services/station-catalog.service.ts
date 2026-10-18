@@ -1,40 +1,40 @@
 import type {
-  CatalogNamed,
-  CatalogRefusal,
+  CatalogDenial,
+  CatalogRequest,
 } from '@catalog/application/contracts/catalog.contract';
 import type { CatalogPort } from '@catalog/application/ports/catalog.port';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
-import { CatalogGivenMapper } from '@work/application/mappers/catalog-given.mapper';
+import { CatalogEntitledMapper } from '@work/application/mappers/catalog-entitled.mapper';
 import type {
-  ReachableTool,
+  ResolvedTool,
   ToolContext,
 } from '@work/application/ports/integration-tools.port';
 import { LineProblems } from '@work/application/rendering/line-problems';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
-import { CatalogWithheldError } from '@work/domain/exceptions/catalog-withheld.error';
-import type { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
+import { CatalogItemDeniedError } from '@work/domain/exceptions/catalog-item-denied.error';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
+import type { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import type { LinePlan } from '@work/domain/value-objects/line-plan.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
 
 interface Named {
   readonly id: string;
-  readonly field: keyof CatalogNamed;
+  readonly field: keyof CatalogRequest;
   readonly at: FieldPath;
 }
 
-interface Giving {
+interface StationItems {
   readonly tools: readonly Tool[];
   readonly skills: readonly SkillKey[];
 }
 
-const fromCatalog = ({ tools, skills }: Giving): CatalogNamed => ({
+const fromCatalog = ({ tools, skills }: StationItems): CatalogRequest => ({
   tools: tools
     .filter((each) => each.origin === 'catalog')
     .map((each) => each.value),
@@ -43,11 +43,11 @@ const fromCatalog = ({ tools, skills }: Giving): CatalogNamed => ({
 
 const namedIn = (plan: LinePlan): Named[] =>
   plan.stations.flatMap((station, at) => {
-    const named = fromCatalog(station);
+    const request = fromCatalog(station);
 
     return (['tools', 'skills'] as const).flatMap((field) =>
       [...station[field]].flatMap((each, index) =>
-        named[field].includes(each.value)
+        request[field].includes(each.value)
           ? [
               {
                 id: each.value,
@@ -60,37 +60,37 @@ const namedIn = (plan: LinePlan): Named[] =>
     );
   });
 
-const asked = (named: CatalogNamed): boolean =>
-  named.tools.length > 0 || named.skills.length > 0;
+const namesAny = (request: CatalogRequest): boolean =>
+  request.tools.length > 0 || request.skills.length > 0;
 
 export interface CatalogAtStation {
   readonly skills: readonly ReadySkillFolder[];
   readonly tools: readonly DeclaredTool[];
-  readonly withheld: readonly CatalogWithheld[];
+  readonly denied: readonly DeniedCatalogItem[];
 }
 
-const NOTHING: CatalogAtStation = { skills: [], tools: [], withheld: [] };
+const NOTHING: CatalogAtStation = { skills: [], tools: [], denied: [] };
 
 export class StationCatalog {
   constructor(private readonly catalog: CatalogPort) {}
 
-  async givenAt(line: Line, station: Station): Promise<CatalogAtStation> {
-    const named = fromCatalog(station);
+  async enabledAt(line: Line, station: Station): Promise<CatalogAtStation> {
+    const request = fromCatalog(station);
 
-    if (!asked(named)) {
+    if (!namesAny(request)) {
       return NOTHING;
     }
 
-    const given = await this.catalog.givenTo(line.workspaceId, named);
+    const entitled = await this.catalog.entitledTo(line.workspaceId, request);
 
     return {
-      skills: given.skills.map(CatalogGivenMapper.toFolder),
-      tools: given.tools.map(CatalogGivenMapper.toDeclared),
-      withheld: given.refused.map(CatalogGivenMapper.toWithheld),
+      skills: entitled.skills.map(CatalogEntitledMapper.toFolder),
+      tools: entitled.tools.map(CatalogEntitledMapper.toDeclared),
+      denied: entitled.denied.map(CatalogEntitledMapper.toDenied),
     };
   }
 
-  async refusedIn(
+  async deniedIn(
     workspaceId: WorkspaceId,
     plan: LinePlan,
   ): Promise<readonly ConfigurationProblem[]> {
@@ -100,7 +100,7 @@ export class StationCatalog {
       return [];
     }
 
-    const given = await this.catalog.givenTo(workspaceId, {
+    const entitled = await this.catalog.entitledTo(workspaceId, {
       tools: named
         .filter((each) => each.field === 'tools')
         .map((each) => each.id),
@@ -108,50 +108,50 @@ export class StationCatalog {
         .filter((each) => each.field === 'skills')
         .map((each) => each.id),
     });
-    const bringing = (refusal: CatalogRefusal): readonly string[] => [
-      refusal.id,
-      ...given.skills
-        .filter((skill) => skill.tools.includes(refusal.id))
+    const bringing = (denial: CatalogDenial): readonly string[] => [
+      denial.id,
+      ...entitled.skills
+        .filter((skill) => skill.tools.includes(denial.id))
         .map((skill) => skill.id),
     ];
 
-    return given.refused.flatMap((refusal) =>
+    return entitled.denied.flatMap((denial) =>
       named
-        .filter((each) => bringing(refusal).includes(each.id))
+        .filter((each) => bringing(denial).includes(each.id))
         .map((each) =>
-          LineProblems.catalogRefused(plan.key.value, each.at, refusal.because),
+          LineProblems.catalogDenied(plan.key.value, each.at, denial.because),
         ),
     );
   }
 
-  async reach(
+  async resolve(
     tool: Tool,
     run: Run,
     context: ToolContext,
-  ): Promise<ReachableTool | null> {
+  ): Promise<ResolvedTool | null> {
     const pinned = run.pinnedFor(tool);
 
     if (!pinned) {
       return null;
     }
 
-    const given = await this.catalog.givenTo(context.workspaceId, {
+    const entitled = await this.catalog.entitledTo(context.workspaceId, {
       tools: [pinned.value],
       skills: [],
     });
-    const [refused] = given.refused;
+    const [denied] = entitled.denied;
 
-    if (refused) {
-      throw new CatalogWithheldError(CatalogGivenMapper.toWithheld(refused));
+    if (denied) {
+      throw new CatalogItemDeniedError(CatalogEntitledMapper.toDenied(denied));
     }
 
-    const found = given.tools.find((each) => each.id === pinned.value);
+    const found = entitled.tools.find((each) => each.id === pinned.value);
 
     return found
       ? {
-          declared: CatalogGivenMapper.toDeclared(found),
+          declared: CatalogEntitledMapper.toDeclared(found),
           actingAs: null,
-          wants: null,
+          missing: null,
           personRule: null,
           defaultFor: () => undefined,
           call: async (inputs) => {
@@ -162,9 +162,9 @@ export class StationCatalog {
               inputs: inputs.values,
             });
 
-            if (answer.kind === 'refused') {
-              throw new CatalogWithheldError(
-                CatalogGivenMapper.toWithheld(answer.refusal),
+            if (answer.kind === 'denied') {
+              throw new CatalogItemDeniedError(
+                CatalogEntitledMapper.toDenied(answer.denial),
               );
             }
 

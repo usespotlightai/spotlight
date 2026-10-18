@@ -1,8 +1,8 @@
 import type {
   InboxApprovalResponseDto,
   InboxFailureResponseDto,
-  InboxMessageResponseDto,
   JournalStepResponseDto,
+  NoteResponseDto,
   RunSpendResponseDto,
   StepChangeResponseDto,
   TaskPersonResponseDto,
@@ -21,8 +21,8 @@ export type StepScript = {
 };
 
 export type NoteScript = {
-  readonly kind: InboxMessageResponseDto['kind'];
-  readonly form?: InboxMessageResponseDto['form'];
+  readonly kind: NoteResponseDto['kind'];
+  readonly form?: NoteResponseDto['form'];
   readonly body: string;
   readonly author?: TaskPersonResponseDto;
   readonly failure?: InboxFailureResponseDto;
@@ -60,8 +60,8 @@ export const thought = (text: string, weight = 1): StepScript => ({
   weight,
 });
 
-export const said = (text: string, weight = 1): StepScript => ({
-  kind: 'said',
+export const messageStep = (text: string, weight = 1): StepScript => ({
+  kind: 'message',
   text,
   weight,
 });
@@ -250,15 +250,15 @@ export const GONE_THOUGHT =
   'Three endpoints answer 410 Gone. They will never come back, so retrying them only fills the queue again.';
 
 export const GONE_REMEMBER =
-  'spotlight remember --kind rationale --reach station --path src/retries/deliver.ts --body "A 410 Gone from a webhook endpoint is permanent, so its deliveries are dropped rather than retried."';
+  'spotlight remember --kind rationale --scope station --path src/retries/deliver.ts --body "A 410 Gone from a webhook endpoint is permanent, so its deliveries are dropped rather than retried."';
 
 export const DRAIN_ANSWER =
   'Start with webhook-retries. Billing is still being reconciled, so leave it alone for now.';
 
-export const DISK_DUMPS_SAID =
-  '/var/crash holds 14 GB of core dumps from the image resizer, all from the last three days. Nothing rotates them.';
+export const DISK_DUMPS_MESSAGE =
+  '/var/crash contains 14 GB of core dumps from the image resizer, all from the last three days. Nothing rotates them.';
 
-export const PRICING_FLAG_SAID =
+export const PRICING_FLAG_MESSAGE =
   'Finance has not agreed the 20% annual discount yet, so the design keeps the toggle behind pricing_annual and shows monthly prices to everyone else.';
 
 export const SEARCH_SCAN_THOUGHT =
@@ -294,7 +294,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
                 'npx playwright test checkout --repeat-each 20 --workers 4',
             },
           ],
-          standing: 'asked',
+          status: 'pending',
           edited: null,
           intent: null,
           askedOf: null,
@@ -316,7 +316,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         3,
       ),
       read('src/http/public/routes.ts'),
-      said(
+      messageStep(
         'Reproduced: three partner tokens send up to 1,800 requests in the first minute after their nightly sync, and the dashboard slows for everyone. Nothing limits a token today.',
       ),
     ],
@@ -338,7 +338,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         'The dashboard signs in with a session cookie, never an API token, so a limit per token leaves it alone.',
       ),
       planned(
-        '1. A token bucket per API key, kept in Redis\n2. 429 with Retry-After once it is empty\n3. Leave dashboard sessions unlimited',
+        '1. A token bucket per API key, stored in Redis\n2. 429 with Retry-After once it is empty\n3. Leave dashboard sessions unlimited',
       ),
       edit(
         'docs/specs/rate-limits.md',
@@ -346,7 +346,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         '# Rate limits on the public API\n\n- 600 requests a minute per API key, bursts of 100\n- Over the limit: `429 Too Many Requests` with `Retry-After`\n- Dashboard sessions are not limited\n',
         3,
       ),
-      said(
+      messageStep(
         'The spec is in `docs/specs/rate-limits.md`. One question is open: per API key or per workspace.',
       ),
     ],
@@ -374,7 +374,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         '[{"name":"QUEUE_URL","value":"redis://queue:6379"}]',
         1,
       ),
-      said(
+      messageStep(
         'The worker came back on Friday without `RETRY_CONCURRENCY`, so it takes no jobs at all.',
       ),
     ],
@@ -404,11 +404,11 @@ export const RUN_STORIES: Record<string, RunStory> = {
         3,
       ),
       execute(GONE_REMEMBER, 'Proposed for the team to approve.', 1),
-      said('The spec is ready for review.'),
+      messageStep('The spec is ready for review.'),
     ],
     notes: [
       asked(
-        'The spec is in `docs/specs/drain-retry-queues.md`:\n\n- Restore `RETRY_CONCURRENCY=8` on the worker and replay `webhook-retries`\n- Drop deliveries whose endpoint answers `410 Gone`, and record them as gone\n- `billing-retries` holds **87** jobs for invoices that are still open\n\nShould Implementation drain `billing-retries` too, or start with `webhook-retries`?',
+        'The spec is in `docs/specs/drain-retry-queues.md`:\n\n- Restore `RETRY_CONCURRENCY=8` on the worker and replay `webhook-retries`\n- Drop deliveries whose endpoint answers `410 Gone`, and record them as gone\n- `billing-retries` contains **87** jobs for invoices that are still open\n\nShould Implementation drain `billing-retries` too, or start with `webhook-retries`?',
       ),
       answered(MAYA, DRAIN_ANSWER, 6),
     ],
@@ -416,7 +416,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
   },
   run_retries_3: {
     spend: null,
-    before: `The spec in \`docs/specs/drain-retry-queues.md\` settled the change. Maya Chen answered: ${DRAIN_ANSWER}`,
+    before: `The spec in \`docs/specs/drain-retry-queues.md\` decided the change. Maya Chen answered: ${DRAIN_ANSWER}`,
     steps: [
       read('docs/specs/drain-retry-queues.md'),
       read('src/retries/deliver.ts'),
@@ -453,7 +453,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         2,
         'failed',
       ),
-      said(
+      messageStep(
         'The reconcile script cannot reach the billing database from the runner.',
       ),
     ],
@@ -477,7 +477,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
       thought(
         '8.13 returns `timestamptz` values with microseconds, so anything that compares stored timestamps as strings may change.',
       ),
-      said(
+      messageStep(
         'Spec: move pg from 8.7.3 to 8.13.1 and drop the pg-native binding, which breaks the Alpine image build.',
       ),
     ],
@@ -491,7 +491,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
   run_postgres_2: {
     spend: spend(2.31, 9_840, 21_600, 1_684_000, 88_200),
     before:
-      'The spec asks for `pg` 8.13.1 in acme/api without the `pg-native` binding, and warns that `timestamptz` now keeps microseconds.',
+      'The spec requires `pg` 8.13.1 in acme/api without the `pg-native` binding, and warns that `timestamptz` now keeps microseconds.',
     steps: [
       thought(
         'Start from the pool: the native binding is chosen there, and it is the part the spec drops.',
@@ -531,7 +531,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         PULL_431,
         1,
       ),
-      said(
+      messageStep(
         'Opened acme/api#431. All 412 tests pass. The migration rewrites `invoices.paid_at`, about 1.3M rows.',
       ),
     ],
@@ -553,9 +553,9 @@ export const RUN_STORIES: Record<string, RunStory> = {
         2,
       ),
       thought(
-        'One ALTER over 1.3M rows holds an exclusive lock on invoices for the whole rewrite, about 40 seconds on the replica.',
+        'One ALTER over 1.3M rows keeps an exclusive lock on invoices for the whole rewrite, about 40 seconds on the replica.',
       ),
-      said(
+      messageStep(
         'The migration rewrites 1.3M invoice rows under one lock. Everything else looks safe to merge.',
       ),
     ],
@@ -598,7 +598,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
       thought(
         'The migration builds the index concurrently, so it will not lock the table.',
       ),
-      said('acme/api#412 is ready to merge.'),
+      messageStep('acme/api#412 is ready to merge.'),
     ],
     notes: [
       asked(
@@ -625,7 +625,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         'The pool runs out under the 09:00 batch. Silencing the alert while the pool is resized stops the pages.',
         2,
       ),
-      said(
+      messageStep(
         'The payments API runs out of database connections during the 09:00 batch.',
       ),
     ],
@@ -646,7 +646,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
                 'Pool exhausted during the 09:00 batch. Resizing the pool from 20 to 40; silenced by Spotlight while it rolls out.',
             },
           ],
-          standing: 'asked',
+          status: 'pending',
           edited: null,
           intent:
             'silence the p99 alert for 45 minutes while the connection pool is resized',
@@ -672,8 +672,8 @@ export const RUN_STORIES: Record<string, RunStory> = {
       thought(
         'Debug logging is still on in eu-west-1. At 9 GB a day it fills the disk within a week of every resize.',
       ),
-      said(DISK_DUMPS_SAID),
-      said(
+      messageStep(DISK_DUMPS_MESSAGE),
+      messageStep(
         'The worker logs grow 9 GB a day since debug logging was left on in eu-west-1.',
       ),
     ],
@@ -689,7 +689,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
               value: 'ssh worker-euw1-3 sudo rm -f /var/crash/core.*',
             },
           ],
-          standing: 'refused',
+          status: 'dismissed',
           edited: null,
           intent: null,
           askedOf: null,
@@ -702,7 +702,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         33,
       ),
       passed(
-        'Passed to Mitigate. Found it: `/var/log/worker` grows 9 GB a day since debug logging was left on in eu-west-1, and `/var/crash` holds 14 GB of core dumps that nothing rotates.',
+        'Passed to Mitigate. Found it: `/var/log/worker` grows 9 GB a day since debug logging was left on in eu-west-1, and `/var/crash` contains 14 GB of core dumps that nothing rotates.',
       ),
     ],
     output: 'Debug logs at 9 GB a day and 14 GB of core dumps fill the disk.',
@@ -727,7 +727,9 @@ export const RUN_STORIES: Record<string, RunStory> = {
         '/dev/nvme1n1  100G   38G  62G  38% /var',
         1,
       ),
-      said('The eu-west-1 workers log at info again, and the disk is at 38%.'),
+      messageStep(
+        'The eu-west-1 workers log at info again, and the disk is at 38%.',
+      ),
     ],
     notes: [
       asked(
@@ -749,7 +751,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
       thought(
         'Most people stop at step four, inviting a teammate; a shorter list could move it to the end.',
       ),
-      said(
+      messageStep(
         'Designed the experiment: four steps instead of seven, measured by first projects within 24 hours.',
       ),
     ],
@@ -773,7 +775,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         '',
         '# Annual pricing toggle\n\n- Monthly by default; annual shows the monthly equivalent\n- Behind the `pricing_annual` flag\n- Metric: share of upgrades that pick annual\n',
       ),
-      said(PRICING_FLAG_SAID),
+      messageStep(PRICING_FLAG_MESSAGE),
     ],
     notes: [
       passed(
@@ -785,7 +787,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
   run_pricing_2: {
     spend: null,
     before:
-      'Design settled the toggle: monthly by default, behind the `pricing_annual` flag.',
+      'Design decided the toggle: monthly by default, behind the `pricing_annual` flag.',
     steps: [
       read('src/pricing/PlansPage.tsx'),
       edit(
@@ -805,7 +807,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
           kind: 'tool-call',
           name: 'linear.issue-create',
           because:
-            'Priya Nair asks to approve each call made with their Linear connection.',
+            'Priya Nair wants to approve each call made with their Linear connection.',
           inputs: [
             {
               name: 'title',
@@ -818,7 +820,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
             },
             { name: 'team', value: 'GRO' },
           ],
-          standing: 'asked',
+          status: 'pending',
           edited: null,
           intent: 'file a follow-up issue for the invoice emails',
           askedOf: { id: PRIYA.id, name: PRIYA.name },
@@ -839,7 +841,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
       thought(
         'Only one signup in five says where it came from. One optional question on the welcome screen should not cost activation.',
       ),
-      said(
+      messageStep(
         'Designed the experiment: one optional question on the welcome screen, measured by how many signups answer it.',
       ),
     ],
@@ -853,11 +855,11 @@ export const RUN_STORIES: Record<string, RunStory> = {
             {
               name: 'body',
               value:
-                'Experiment design: one optional question on the welcome screen, “Where did you hear about Acme?”, with five choices and a free-text other. Metric: share of signups that answer, now 22%. Stop rule: two weeks or 1,000 signups per arm.',
+                'Experiment design: one optional question on the welcome screen, “How did you find Acme?”, with five choices and a free-text other. Metric: share of signups that answer, now 22%. Stop rule: two weeks or 1,000 signups per arm.',
             },
             { name: 'issue', value: 'GRO-131' },
           ],
-          standing: 'asked',
+          status: 'pending',
           edited: null,
           intent: 'post the experiment design on GRO-131',
           askedOf: null,
@@ -893,7 +895,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
                 'Referral links are in invite emails for everyone with the `invite-referral` flag. Know someone who should try Acme? Your link is under Settings › Invite.',
             },
           ],
-          standing: 'granted',
+          status: 'approved',
           edited: [
             { name: 'channel', value: '#growth' },
             {
@@ -920,7 +922,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
 export const stepIndexOf = (runId: string, text: string): number =>
   RUN_STORIES[runId]?.steps.findIndex((step) => step.text === text) ?? -1;
 
-export const groundStep = (runId: string, text: string, kind?: string) => {
+export const provenanceStep = (runId: string, text: string, kind?: string) => {
   const index = stepIndexOf(runId, text);
   const step = RUN_STORIES[runId]?.steps[index];
 

@@ -6,7 +6,7 @@ import type { CheckAccessPort } from '@work/application/ports/check-access.port'
 export class CheckAccess implements CheckAccessPort {
   constructor(private readonly checks: StackCheckRepository) {}
 
-  async holdsCheckOfRun(
+  async isCheckOfRunLeasedBy(
     runId: RunId,
     runner: RunnerId,
     now: Date,

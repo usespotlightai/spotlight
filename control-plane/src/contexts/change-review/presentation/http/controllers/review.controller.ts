@@ -85,7 +85,9 @@ export class ReviewController {
   @ApiNotFoundResponse({
     description: 'No such run or comment for this caller',
   })
-  @ApiUnprocessableEntityResponse({ description: 'Nothing said, or no file' })
+  @ApiUnprocessableEntityResponse({
+    description: 'The comment has no text, or names no file',
+  })
   async draft(
     @Param('teamId') teamId: string,
     @Param('runId') runId: string,
@@ -121,7 +123,7 @@ export class ReviewController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'editReviewComment',
-    summary: 'Rewrite a comment of your own, on GitHub too once it is there',
+    summary: 'Edit a comment of your own, on GitHub too once it is there',
   })
   @ApiParam({ name: 'commentId', type: String })
   @ApiNoContentResponse()
@@ -153,7 +155,7 @@ export class ReviewController {
   @ApiParam({ name: 'commentId', type: String })
   @ApiNoContentResponse()
   @ApiForbiddenResponse({ description: 'Someone else wrote it' })
-  async remove(
+  async delete(
     @Param('teamId') teamId: string,
     @Param('runId') runId: string,
     @Param('commentId') commentId: string,

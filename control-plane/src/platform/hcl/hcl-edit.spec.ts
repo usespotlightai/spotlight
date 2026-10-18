@@ -51,15 +51,15 @@ resource "spotlight_line" "core_delivery" {
     harness   = "claude-code" // the harness we trust
     model     = "sonnet"
     prompt    = file("\${path.module}/prompts/shared.md")
-    tools     = ["\${spotlight_integration.core_linear.source}.comment", "github.comment"]
+    tools     = ["\${spotlight_integration.core_linear.integration}.comment", "github.comment"]
     skills    = [spotlight_skill.core_grafana.key]
     check     = "npm test"
     passes_to = ["completed"]
 
     judge {
-      rubric = file("\${path.module}/judges/build.md")
-      sample = 0.2
-      trust  = 0.6
+      rubric        = file("\${path.module}/judges/build.md")
+      sample        = 0.2
+      min_agreement = 0.6
     }
   }
 
@@ -89,14 +89,14 @@ const FILES: Readonly<Record<string, string>> = {
 const SKILLS: HclReferenceRule = {
   type: 'spotlight_skill',
   attribute: 'key',
-  heldAt: 'key',
+  storedAt: 'key',
   tool: false,
 };
 
 const TOOLS: HclReferenceRule = {
   type: 'spotlight_integration',
-  attribute: 'source',
-  heldAt: 'definition.integration',
+  attribute: 'integration',
+  storedAt: 'definition.integration',
   tool: true,
 };
 
@@ -119,28 +119,33 @@ const UNSET: Readonly<Record<string, HclField['unset']>> = {
 
 const JUDGE: HclGuardedBlock = {
   type: 'judge',
-  was: { rubric: 'Good runs ship.\n', sample: 0.2, trust: 0.6 },
+  expected: { rubric: 'Good runs ship.\n', sample: 0.2, min_agreement: 0.6 },
 };
 
 const fieldsOf = (
-  was: Readonly<Record<string, HclField['was']>>,
-  now: Readonly<Record<string, HclField['was']>> = {},
+  expected: Readonly<Record<string, HclField['expected']>>,
+  desired: Readonly<Record<string, HclField['expected']>> = {},
   station = 'build',
 ): readonly HclField[] =>
-  [...new Set([...Object.keys(was), ...Object.keys(now)])].map((name) => ({
-    name,
-    was: was[name] ?? UNSET[name] ?? null,
-    now: name in now ? (now[name] ?? null) : (was[name] ?? UNSET[name] ?? null),
-    unset: UNSET[name] ?? null,
-    ...(name === 'skills' ? { references: SKILLS } : {}),
-    ...(name === 'tools' ? { references: TOOLS } : {}),
-    ...(name === 'prompt'
-      ? { freshFile: `prompts/core/delivery/${station}.md` }
-      : {}),
-  }));
+  [...new Set([...Object.keys(expected), ...Object.keys(desired)])].map(
+    (name) => ({
+      name,
+      expected: expected[name] ?? UNSET[name] ?? null,
+      desired:
+        name in desired
+          ? (desired[name] ?? null)
+          : (expected[name] ?? UNSET[name] ?? null),
+      unset: UNSET[name] ?? null,
+      ...(name === 'skills' ? { references: SKILLS } : {}),
+      ...(name === 'tools' ? { references: TOOLS } : {}),
+      ...(name === 'prompt'
+        ? { freshFile: `prompts/core/delivery/${station}.md` }
+        : {}),
+    }),
+  );
 
 const editOf = (
-  now: Readonly<Record<string, HclField['was']>>,
+  desired: Readonly<Record<string, HclField['expected']>>,
   more: Partial<HclBlockEdit> = {},
   files: Readonly<Record<string, string>> = FILES,
 ): HclBlockEdit => ({
@@ -148,7 +153,7 @@ const editOf = (
   owner: { attribute: 'team_id', type: 'spotlight_team', key: 'core' },
   resource: { type: 'spotlight_line', key: 'delivery' },
   block: { type: 'station', key: 'build' },
-  fields: fieldsOf(BUILD, now),
+  fields: fieldsOf(BUILD, desired),
   blocks: [JUDGE],
   read: async (path) => files[path] ?? null,
   ...more,
@@ -158,20 +163,20 @@ const editedTo = async (edit: HclBlockEdit) => {
   const edited = await editedHclBlock(edit);
 
   if (!edited.ok) {
-    throw new Error(edited.refusal.message);
+    throw new Error(edited.error.message);
   }
 
   return edited;
 };
 
-const refusalOf = async (edit: HclBlockEdit) => {
+const errorOf = async (edit: HclBlockEdit) => {
   const edited = await editedHclBlock(edit);
 
   if (edited.ok) {
     throw new Error('the edit went through');
   }
 
-  return edited.refusal;
+  return edited.error;
 };
 
 const mainOf = async (edit: HclBlockEdit): Promise<string> =>
@@ -195,7 +200,7 @@ describe('parsedHcl', () => {
       kind: 'list',
       items: [
         {
-          written: 'spotlight_skill.core_grafana.key',
+          sourceText: 'spotlight_skill.core_grafana.key',
           read: {
             kind: 'reference',
             type: 'spotlight_skill',
@@ -240,7 +245,7 @@ describe('parsedHcl', () => {
     expect(c?.read).toEqual({ kind: 'file', path: 'p.md', fromModule: false });
   });
 
-  it('refuses a file that does not parse', async () => {
+  it('fails on a file that does not parse', async () => {
     await expect(parsedHcl('resource "x" {\n  a = \n')).rejects.toThrow(
       'does not parse as HCL',
     );
@@ -405,7 +410,7 @@ describe('editedHclBlock', () => {
 
     expect(main).toContain(
       // biome-ignore lint/suspicious/noTemplateCurlyInString: a Terraform expression
-      '    tools     = ["github.comment", "${spotlight_integration.core_linear.source}.create", "${spotlight_integration.core_linear.source}.comment"]\n',
+      '    tools     = ["github.comment", "${spotlight_integration.core_linear.integration}.create", "${spotlight_integration.core_linear.integration}.comment"]\n',
     );
     expect(main).toContain(
       '    skills    = [spotlight_skill.core_grafana.key, spotlight_skill.core_oncall.key, "catalog.research@1.0.0"]\n',
@@ -413,19 +418,19 @@ describe('editedHclBlock', () => {
     expect(fmtClean(main)).toBe(true);
   });
 
-  it('refuses to change what it cannot resolve, and lists what it could not check', async () => {
+  it('does not change what it cannot resolve, and lists what it could not check', async () => {
     const elsewhere = LINES.replace(
       'skills    = [spotlight_skill.core_grafana.key]',
       'skills    = [module.shared.skill]',
     );
-    const refusal = await refusalOf(
+    const error = await errorOf(
       editOf(
         { skills: ['oncall'] },
         { file: { path: 'teams/core/lines.tf', content: elsewhere } },
       ),
     );
 
-    expect(refusal).toMatchObject({
+    expect(error).toMatchObject({
       code: 'computed-attribute',
       attribute: 'skills',
       expression: '[module.shared.skill]',
@@ -442,7 +447,7 @@ describe('editedHclBlock', () => {
     expect(unchecked.unchecked).toEqual(['skills']);
   });
 
-  it('refuses a plain relative file() it cannot follow, and a computed attribute, saying what it wanted', async () => {
+  it('fails on a plain relative file() it cannot follow, and a computed attribute, saying what it wanted', async () => {
     const plain = LINES.replace(
       // biome-ignore lint/suspicious/noTemplateCurlyInString: a Terraform expression
       'prompt    = file("${path.module}/prompts/shared.md")',
@@ -450,7 +455,7 @@ describe('editedHclBlock', () => {
     );
 
     expect(
-      await refusalOf(
+      await errorOf(
         editOf(
           { prompt: 'Ship.\n' },
           { file: { path: 'teams/core/lines.tf', content: plain } },
@@ -458,12 +463,14 @@ describe('editedHclBlock', () => {
       ),
     ).toMatchObject({ code: 'computed-attribute', attribute: 'prompt' });
     expect(
-      await refusalOf(
+      await errorOf(
         editOf(
           {},
           {
             block: { type: 'station', key: 'polish' },
-            fields: [{ name: 'effort', was: 'high', now: 'max', unset: null }],
+            fields: [
+              { name: 'effort', expected: 'high', desired: 'max', unset: null },
+            ],
             blocks: [],
           },
         ),
@@ -493,7 +500,7 @@ describe('editedHclBlock', () => {
       ),
     ).toContain('model     = "opus"');
     expect(
-      await refusalOf(
+      await errorOf(
         editOf(
           { model: 'opus' },
           {
@@ -520,7 +527,7 @@ describe('editedHclBlock', () => {
 
     expect(await mainOf(only)).toContain('model = "opus"');
     expect(
-      await refusalOf({
+      await errorOf({
         ...only,
         file: {
           path: 'main.tf',
@@ -530,9 +537,9 @@ describe('editedHclBlock', () => {
     ).toMatchObject({ code: 'blocks-ambiguous' });
   });
 
-  it('refuses when no block or more than one block has the key', async () => {
+  it('fails when no block or more than one block has the key', async () => {
     expect(
-      await refusalOf(
+      await errorOf(
         editOf({}, { block: { type: 'station', key: 'ship' }, fields: [] }),
       ),
     ).toMatchObject({
@@ -547,15 +554,15 @@ describe('editedHclBlock', () => {
     );
 
     expect(
-      await refusalOf(
+      await errorOf(
         editOf({}, { file: { path: 'teams/core/lines.tf', content: twice } }),
       ),
     ).toMatchObject({ code: 'blocks-ambiguous' });
   });
 
-  it('refuses when anything the search started from moved on in the repository, the judge and routes included', async () => {
+  it('fails when anything the search started from changed in the repository, the judge and routes included', async () => {
     const changedIn = (from: string, to: string) =>
-      refusalOf(
+      errorOf(
         editOf(
           { model: 'opus' },
           {
@@ -571,7 +578,7 @@ describe('editedHclBlock', () => {
       ['harness   = "claude-code"', 'harness   = "codex"', 'harness'],
       ['check     = "npm test"', 'check     = "npm run test"', 'check'],
       ['passes_to = ["completed"]', 'passes_to = []', 'passes_to'],
-      ['sample = 0.2', 'sample = 0.3', 'judge'],
+      ['sample        = 0.2', 'sample        = 0.3', 'judge'],
       [
         'skills    = [spotlight_skill.core_grafana.key]',
         'skills    = []',
@@ -579,13 +586,13 @@ describe('editedHclBlock', () => {
       ],
     ] as const) {
       expect(await changedIn(from, to)).toMatchObject({
-        code: 'drifted',
+        code: 'base-changed',
         attribute,
       });
     }
 
     expect(
-      await refusalOf(
+      await errorOf(
         editOf(
           { model: 'opus' },
           {},
@@ -595,12 +602,12 @@ describe('editedHclBlock', () => {
           },
         ),
       ),
-    ).toMatchObject({ code: 'drifted', attribute: 'judge' });
+    ).toMatchObject({ code: 'base-changed', attribute: 'judge' });
   });
 
   it('checks a prompt file before taking the prompt away', async () => {
     expect(
-      await refusalOf(
+      await errorOf(
         editOf(
           { prompt: null },
           {},
@@ -610,7 +617,7 @@ describe('editedHclBlock', () => {
           },
         ),
       ),
-    ).toMatchObject({ code: 'drifted', attribute: 'prompt' });
+    ).toMatchObject({ code: 'base-changed', attribute: 'prompt' });
     expect(await mainOf(editOf({ prompt: null }))).toContain(
       '    prompt    = null\n',
     );
@@ -626,8 +633,8 @@ describe('editedHclBlock', () => {
       ...fieldsOf(BUILD),
       {
         name: 'description',
-        was: 'Build it.\n',
-        now: 'Builds the change.\n',
+        expected: 'Build it.\n',
+        desired: 'Builds the change.\n',
         unset: null,
         ...(fresh
           ? { freshFile: 'prompts/core/delivery/build.description.md' }
@@ -656,15 +663,15 @@ describe('editedHclBlock', () => {
       // biome-ignore lint/suspicious/noTemplateCurlyInString: a Terraform expression
       '    prompt    = file("${path.module}/prompts/shared.md")',
     );
-    expect(await refusalOf(edit(false))).toMatchObject({
+    expect(await errorOf(edit(false))).toMatchObject({
       code: 'edit-failed',
       attribute: 'description',
     });
   });
 
-  it('refuses a prompt file the repository does not hold', async () => {
-    expect(
-      await refusalOf(editOf({ prompt: 'Ship.\n' }, {}, {})),
-    ).toMatchObject({ code: 'file-missing' });
+  it('fails on a prompt file the repository does not contain', async () => {
+    expect(await errorOf(editOf({ prompt: 'Ship.\n' }, {}, {}))).toMatchObject({
+      code: 'file-missing',
+    });
   });
 });

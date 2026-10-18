@@ -1,12 +1,12 @@
 import type {
-  MemoryGroundNoteDto,
-  MemoryGroundStepDto,
+  MemoryProvenanceNoteDto,
+  MemoryProvenanceStepDto,
   PersonDto,
   ProposedMemoryDto,
 } from '@memory/application/dto/memory-review.dto';
-import { MEMORY_STANDINGS } from '@memory/domain/value-objects/memory-standing';
+import { MEMORY_STATUSES } from '@memory/domain/value-objects/memory-status';
 
-export const MEMORY_STANDING_NAMES = MEMORY_STANDINGS;
+export const MEMORY_STATUS_NAMES = MEMORY_STATUSES;
 
 export interface MemoryRetirementDto {
   readonly at: string;
@@ -15,7 +15,7 @@ export interface MemoryRetirementDto {
   readonly supersededBy: string | null;
 }
 
-interface MemoryGroundsDto {
+interface MemoryProvenanceDto {
   readonly taskId: string;
   readonly runId: string;
 }
@@ -26,8 +26,8 @@ export interface TeamMemoryDto {
   readonly kind: string;
   readonly body: string;
   readonly source: string;
-  readonly standing: string;
-  readonly reach: string;
+  readonly status: string;
+  readonly scope: string;
   readonly lineId: string | null;
   readonly stationId: string | null;
   readonly repository: string | null;
@@ -36,7 +36,7 @@ export interface TeamMemoryDto {
   readonly approvedAt: string;
   readonly supersedes: string | null;
   readonly retirement: MemoryRetirementDto | null;
-  readonly grounds: MemoryGroundsDto | null;
+  readonly provenance: MemoryProvenanceDto | null;
   readonly runs: number;
 }
 
@@ -48,20 +48,20 @@ export interface MemoryLinkDto {
 
 export interface TeamMemoryDetailDto extends TeamMemoryDto {
   readonly harness: string | null;
-  readonly steps: readonly MemoryGroundStepDto[];
-  readonly notes: readonly MemoryGroundNoteDto[];
+  readonly steps: readonly MemoryProvenanceStepDto[];
+  readonly notes: readonly MemoryProvenanceNoteDto[];
   readonly superseded: MemoryLinkDto | null;
   readonly successor: MemoryLinkDto | null;
 }
 
 export interface RunProposalDto extends ProposedMemoryDto {
   readonly handle: string | null;
-  readonly standing: string | null;
+  readonly status: string | null;
 }
 
 export interface RunMemoriesDto {
   readonly briefed: readonly TeamMemoryDto[];
-  readonly cut: readonly TeamMemoryDto[];
+  readonly omitted: readonly TeamMemoryDto[];
   readonly recalled: readonly TeamMemoryDto[];
   readonly proposed: readonly RunProposalDto[];
   readonly reviewItemId: string | null;

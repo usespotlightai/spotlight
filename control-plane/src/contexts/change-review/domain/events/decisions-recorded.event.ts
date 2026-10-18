@@ -10,7 +10,7 @@ export class DecisionsRecorded implements DomainEvent {
     readonly setId: DecisionSetId,
     readonly taskId: TaskId,
     readonly runId: RunId,
-    readonly kept: number,
+    readonly recorded: number,
     readonly dropped: number,
   ) {}
 }

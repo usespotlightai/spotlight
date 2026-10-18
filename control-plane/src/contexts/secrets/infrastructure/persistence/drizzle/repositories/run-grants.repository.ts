@@ -2,9 +2,9 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
 import { RunGrantsVersionConflictError } from '@secrets/domain/exceptions/run-grants-version-conflict.error';
 import type { RunGrantsRepository } from '@secrets/domain/repositories/run-grants.repository';
-import { Redeemer } from '@secrets/domain/value-objects/redeemer.vo';
-import { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-recipient.vo';
-import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
+import { Recipient } from '@secrets/domain/value-objects/recipient.vo';
+import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
+import { SecretFetcher } from '@secrets/domain/value-objects/secret-fetcher.vo';
 import { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import {
@@ -25,19 +25,19 @@ export class DrizzleRunGrants implements RunGrantsRepository {
   ) {}
 
   async find(runId: RunId): Promise<RunGrants | null> {
-    const [kept] = await this.kept(eq(runGrants.runId, runId.value), 1);
+    const [found] = await this.loaded(eq(runGrants.runId, runId.value), 1);
 
-    return kept ?? null;
+    return found ?? null;
   }
 
   async runsIn(workspaceId: WorkspaceId): Promise<readonly RunId[]> {
-    const held = await this.context.db
+    const rows = await this.context.db
       .select({ runId: runGrants.runId })
       .from(runGrants)
       .where(eq(runGrants.workspaceId, workspaceId.value))
       .orderBy(asc(runGrants.runId));
 
-    return held.map((each) => RunId.of(each.runId));
+    return rows.map((each) => RunId.of(each.runId));
   }
 
   async endedBy(
@@ -63,7 +63,7 @@ export class DrizzleRunGrants implements RunGrantsRepository {
   async save(grants: RunGrants): Promise<void> {
     await this.context.inTransaction(async () => {
       if (grants.isDiscarded) {
-        await this.forgotten(grants);
+        await this.deleted(grants);
       } else {
         await this.stored(grants);
         await this.grantsStored(grants);
@@ -73,7 +73,7 @@ export class DrizzleRunGrants implements RunGrantsRepository {
     });
   }
 
-  private async kept(
+  private async loaded(
     where: SQL | undefined,
     max?: number,
   ): Promise<RunGrants[]> {
@@ -106,8 +106,8 @@ export class DrizzleRunGrants implements RunGrantsRepository {
     );
   }
 
-  private async forgotten(grants: RunGrants): Promise<void> {
-    const forgotten = await this.context.db
+  private async deleted(grants: RunGrants): Promise<void> {
+    const rows = await this.context.db
       .delete(runGrants)
       .where(
         and(
@@ -117,17 +117,17 @@ export class DrizzleRunGrants implements RunGrantsRepository {
       )
       .returning({ runId: runGrants.runId });
 
-    if (forgotten.length === 0) {
+    if (rows.length === 0) {
       throw new RunGrantsVersionConflictError(grants.runId.value);
     }
   }
 
   private async stored(grants: RunGrants): Promise<void> {
     const fields = {
-      attempt: grants.hold.attempt,
+      attempt: grants.lease.attempt,
       recipient: grants.recipient?.key ?? null,
-      redeemedThrough: grants.redeemer?.sharedEgress ?? null,
-      holdLost: grants.isHoldLost,
+      fetchedByEgressId: grants.fetcher?.sharedEgress ?? null,
+      leaseLost: grants.isLeaseLost,
       endedAt: grants.endedAt,
     };
 
@@ -158,18 +158,20 @@ export class DrizzleRunGrants implements RunGrantsRepository {
   }
 
   private async grantsStored(grants: RunGrants): Promise<void> {
-    const held = grants.grants.map((each) => ({
+    const wanted = grants.grants.map((each) => ({
       secretId: each.secretId.value,
       host: each.host,
     }));
-    const kept = await this.context.db
+    const existing = await this.context.db
       .select({ secretId: secretGrant.secretId, host: secretGrant.host })
       .from(secretGrant)
       .where(eq(secretGrant.runId, grants.runId.value));
-    const heldKeys = new Set(held.map(keyOf));
-    const keptKeys = new Set(kept.map(keyOf));
+    const wantedKeys = new Set(wanted.map(keyOf));
+    const existingKeys = new Set(existing.map(keyOf));
 
-    for (const gone of kept.filter((each) => !heldKeys.has(keyOf(each)))) {
+    for (const gone of existing.filter(
+      (each) => !wantedKeys.has(keyOf(each)),
+    )) {
       await this.context.db
         .delete(secretGrant)
         .where(
@@ -181,7 +183,7 @@ export class DrizzleRunGrants implements RunGrantsRepository {
         );
     }
 
-    const fresh = held.filter((each) => !keptKeys.has(keyOf(each)));
+    const fresh = wanted.filter((each) => !existingKeys.has(keyOf(each)));
 
     if (fresh.length > 0) {
       await this.context.db
@@ -207,7 +209,7 @@ const toGrants = (
   const workspaceId = WorkspaceId.of(row.workspaceId);
 
   return RunGrants.rehydrate({
-    hold: RunHold.of(runId, row.attempt),
+    lease: RunLease.of(runId, row.attempt),
     workspaceId,
     grants: granted.map((each) =>
       SecretGrant.of({
@@ -217,14 +219,11 @@ const toGrants = (
         host: each.host,
       }),
     ),
-    redeemer:
+    fetcher:
       row.recipient === null
         ? null
-        : Redeemer.of(
-            RedemptionRecipient.of(row.recipient),
-            row.redeemedThrough,
-          ),
-    holdLost: row.holdLost,
+        : SecretFetcher.of(Recipient.of(row.recipient), row.fetchedByEgressId),
+    leaseLost: row.leaseLost,
     endedAt: row.endedAt,
     version: row.version,
   });

@@ -9,9 +9,9 @@ import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
+import { PoolTokenAlreadyUsedError } from '@runners/domain/exceptions/pool-token-already-used.error';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
-import { DrizzleGivenPoolTokensRepository } from '@runners/infrastructure/persistence/drizzle/repositories/given-pool-tokens.repository';
+import { DrizzleUsedPoolTokensRepository } from '@runners/infrastructure/persistence/drizzle/repositories/used-pool-tokens.repository';
 import { POOL_TOKEN_HEADER } from '@runners/presentation/http/controllers/runner-pool-resource.controller';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -35,13 +35,13 @@ import { awaitingCheck } from './support/change-stacks';
 import { eventually } from './support/eventually';
 import { definitionOf } from './support/line-definition';
 import { E2E_LONG_POLL_MS } from './support/long-poll';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { listSetUp, seatTeam } from './support/team';
 
 const HARNESSES = [{ id: 'dev', models: [] }];
 
-const USUAL = 'ghcr.io/acme/runner:main';
+const DEFAULT_IMAGE = 'ghcr.io/acme/runner:main';
 
 const WIDGETS = 'ghcr.io/acme/widgets:1';
 
@@ -90,20 +90,20 @@ const listening = async (
 describe('runner pools (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
-  let held: string;
+  let workspaceId: string;
   let owner: string;
   let unseat: () => Promise<void>;
 
   const http = () => served(app);
 
-  const define = (body: object) =>
+  const create = (body: object) =>
     http()
-      .post(`/api/resources/workspaces/${held}/runner-pools`)
+      .post(`/api/resources/workspaces/${workspaceId}/runner-pools`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send(body);
 
-  const redefine = (id: string, version: number, body: object) =>
+  const update = (id: string, version: number, body: object) =>
     http()
       .put(`/api/resources/runner-pools/${id}`)
       .set(TEST_USER_HEADER, owner)
@@ -118,7 +118,7 @@ describe('runner pools (e2e)', () => {
 
     await db.insert(schema.run).values({
       id,
-      workspaceId: held,
+      workspaceId,
       harness: 'dev',
       state: 'queued',
       placement,
@@ -127,7 +127,7 @@ describe('runner pools (e2e)', () => {
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
         handover: { options: [], noteLimit: 0 },
-        continuity: { key: `task:${id}` },
+        resume: { key: `task:${id}` },
       },
     });
 
@@ -142,31 +142,31 @@ describe('runner pools (e2e)', () => {
     return stack?.check ?? null;
   };
 
-  const claimWith = (token: string, host = HOST, image = USUAL) =>
+  const claimWith = (token: string, host = HOST, image = DEFAULT_IMAGE) =>
     http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${token}`)
       .send({ host, image });
 
-  const report = (
+  const heartbeat = (
     token: string,
     host = HOST,
     running: string[] = [],
-    session = 'session_1',
+    bootId = 'boot_1',
   ) =>
     http()
       .put(`/api/hosts/${host}`)
       .set('Authorization', `Bearer ${token}`)
       .send({
-        session,
+        bootId,
         name: 'build-box',
         release: '0.1.0',
-        executor: 'docker',
+        containerRuntime: 'docker',
         capacity: 2,
         running,
         images: [
-          { image: USUAL, usual: true, harnesses: HARNESSES },
-          { image: WIDGETS, usual: false, harnesses: HARNESSES },
+          { image: DEFAULT_IMAGE, isDefault: true, harnesses: HARNESSES },
+          { image: WIDGETS, isDefault: false, harnesses: HARNESSES },
         ],
       });
 
@@ -201,8 +201,8 @@ describe('runner pools (e2e)', () => {
   });
 
   beforeEach(async () => {
-    held = `pools-${randomUUID().slice(0, 8)}`;
-    const seat = await seatTeam(db, held);
+    workspaceId = `pools-${randomUUID().slice(0, 8)}`;
+    const seat = await seatTeam(db, workspaceId);
     owner = seat.owner;
     unseat = seat.unseat;
   });
@@ -213,20 +213,22 @@ describe('runner pools (e2e)', () => {
       .where(inArray(schema.idempotentCreate.scope, [`person:${owner}`]));
     await db
       .delete(schema.configurationChange)
-      .where(eq(schema.configurationChange.workspaceId, held));
+      .where(eq(schema.configurationChange.workspaceId, workspaceId));
     await db
       .delete(schema.githubConnection)
-      .where(eq(schema.githubConnection.workspaceId, held));
-    await forgetRunnersOf(db, held);
-    await db.delete(schema.chat).where(eq(schema.chat.workspaceId, held));
+      .where(eq(schema.githubConnection.workspaceId, workspaceId));
+    await deleteRunnersOf(db, workspaceId);
+    await db
+      .delete(schema.chat)
+      .where(eq(schema.chat.workspaceId, workspaceId));
     await unseat();
   });
 
   describe('a pull pool', () => {
     it('swaps its token, at each claim, for a credential good for that one run', async () => {
       const token = tokenOf('a');
-      await define({ key: 'ephemeral', labels: ['linux'], token }).expect(201);
-      await report(token).expect(200);
+      await create({ key: 'ephemeral', labels: ['linux'], token }).expect(201);
+      await heartbeat(token).expect(200);
       const runId = await queue([['linux']]);
 
       const claimed = await claimWith(token).expect(200);
@@ -252,11 +254,11 @@ describe('runner pools (e2e)', () => {
       expect(started?.poolId).toEqual(expect.any(String));
     });
 
-    it('tells a host how new its runner must be, what harnesses to look for and which images to serve, and refuses a token it does not know', async () => {
+    it('tells a host how new its runner must be, what harnesses to look for and which images to serve, and does not accept a token it does not know', async () => {
       const token = tokenOf('i');
-      await define({ key: 'ephemeral', token }).expect(201);
+      await create({ key: 'ephemeral', token }).expect(201);
       await http()
-        .post(`/api/resources/teams/${held}/lines`)
+        .post(`/api/resources/teams/${workspaceId}/lines`)
         .set(TEST_USER_HEADER, owner)
         .set('Idempotency-Key', randomUUID())
         .send({
@@ -283,13 +285,13 @@ describe('runner pools (e2e)', () => {
         .expect(401);
     });
 
-    it('hands work naming an image only to a claim offering that image, and work naming none only to a claim in the host’s usual image', async () => {
+    it('hands work naming an image only to a claim in that image, and work naming none only to a claim in the host’s default image', async () => {
       const token = tokenOf('w');
-      await define({ key: 'ephemeral', token }).expect(201);
-      await report(token).expect(200);
+      await create({ key: 'ephemeral', token }).expect(201);
+      await heartbeat(token).expect(200);
       const inWidgets = await queue([], WIDGETS);
 
-      await claimWith(token, HOST, USUAL).expect(204);
+      await claimWith(token, HOST, DEFAULT_IMAGE).expect(204);
       const unreported = await claimWith(
         token,
         HOST,
@@ -297,9 +299,9 @@ describe('runner pools (e2e)', () => {
       ).expect(409);
       expect(unreported.body.reason).toBe('image-unreported');
 
-      const offered = await claimWith(token, HOST, WIDGETS).expect(200);
+      const supported = await claimWith(token, HOST, WIDGETS).expect(200);
 
-      expect(offered.body.work).toMatchObject({
+      expect(supported.body.work).toMatchObject({
         kind: 'run',
         run: { id: inWidgets },
       });
@@ -308,61 +310,61 @@ describe('runner pools (e2e)', () => {
 
       await claimWith(token, HOST, WIDGETS).expect(204);
 
-      const usual = await claimWith(token).expect(200);
+      const inDefaultImage = await claimWith(token).expect(200);
 
-      expect(usual.body.work).toMatchObject({
+      expect(inDefaultImage.body.work).toMatchObject({
         kind: 'run',
         run: { id: anywhere },
       });
     });
 
-    it('issues a token Terraform does not keep when none is given', async () => {
-      const made = await define({ key: 'ephemeral' }).expect(201);
+    it('issues a token Terraform does not store when none is given', async () => {
+      const made = await create({ key: 'ephemeral' }).expect(201);
       const issued = made.headers[POOL_TOKEN_HEADER.toLowerCase()] as string;
       await queue();
 
       expect(issued).toEqual(expect.any(String));
       expect(made.body).toMatchObject({ mode: 'pull', provision: null });
-      await report(issued).expect(200);
+      await heartbeat(issued).expect(200);
       await claimWith(issued).expect(200);
     });
 
-    it('answers nothing when no run fits, and refuses a token it does not know', async () => {
+    it('answers nothing when no run fits, and does not accept a token it does not know', async () => {
       const token = tokenOf('b');
-      await define({ key: 'ephemeral', labels: ['linux'], token }).expect(201);
-      await report(token).expect(200);
+      await create({ key: 'ephemeral', labels: ['linux'], token }).expect(201);
+      await heartbeat(token).expect(200);
       await queue([['gpu']]);
 
       await claimWith(token).expect(204);
       await claimWith(tokenOf('z')).expect(401);
     });
 
-    it('holds no more runs at once than maxRuns, keeping a host that asks for more waiting out its poll', async () => {
+    it('gives out no more runs at once than maxRuns, keeping a host that requests more waiting out its poll', async () => {
       const token = tokenOf('c');
-      await define({ key: 'ephemeral', token, maxRuns: 1 }).expect(201);
-      await report(token).expect(200);
+      await create({ key: 'ephemeral', token, maxRuns: 1 }).expect(201);
+      await heartbeat(token).expect(200);
       await queue();
       await queue();
 
       await claimWith(token).expect(200);
-      const asked = Date.now();
+      const requestedAt = Date.now();
       await claimWith(token).expect(204);
 
-      expect(Date.now() - asked).toBeGreaterThanOrEqual(E2E_LONG_POLL_MS);
+      expect(Date.now() - requestedAt).toBeGreaterThanOrEqual(E2E_LONG_POLL_MS);
     });
 
-    it('rotates its token in place: the pool keeps its id, the old token is refused at once, and a claimed run finishes', async () => {
+    it('rotates its token in place: the pool keeps its id, the old token stops working at once, and a claimed run finishes', async () => {
       const old = tokenOf('d');
-      const made = await define({
+      const made = await create({
         key: 'ephemeral',
         token: old,
         tokenVersion: 1,
       }).expect(201);
-      await report(old).expect(200);
+      await heartbeat(old).expect(200);
       const runId = await queue();
       const claimed = await claimWith(old).expect(200);
 
-      const rotated = await redefine(made.body.id, made.body.version, {
+      const rotated = await update(made.body.id, made.body.version, {
         key: 'ephemeral',
         token: tokenOf('e'),
         tokenVersion: 2,
@@ -378,188 +380,188 @@ describe('runner pools (e2e)', () => {
       );
     });
 
-    it('refuses to rotate its token without a new one', async () => {
-      const made = await define({
+    it('does not rotate its token without a new one', async () => {
+      const made = await create({
         key: 'ephemeral',
         token: tokenOf('f'),
         tokenVersion: 1,
       }).expect(201);
 
-      const refused = await redefine(made.body.id, made.body.version, {
+      const rejected = await update(made.body.id, made.body.version, {
         key: 'ephemeral',
         tokenVersion: 2,
       }).expect(422);
       await queue();
 
-      expect(refused.body.errors).toEqual([
+      expect(rejected.body.errors).toEqual([
         expect.objectContaining({ path: 'token' }),
       ]);
-      await report(tokenOf('f')).expect(200);
+      await heartbeat(tokenOf('f')).expect(200);
       await claimWith(tokenOf('f')).expect(200);
     });
 
-    it('spends a token it rotates away from for good, so no pool, itself included, is given it again', async () => {
-      const old = tokenOf('spent');
-      const made = await define({
+    it('uses up a token it rotates away from, so no pool, itself included, can use it again', async () => {
+      const old = tokenOf('aged');
+      const made = await create({
         key: 'ephemeral',
         token: old,
         tokenVersion: 1,
       }).expect(201);
-      const rotated = await redefine(made.body.id, made.body.version, {
+      const rotated = await update(made.body.id, made.body.version, {
         key: 'ephemeral',
         token: tokenOf('rotated'),
         tokenVersion: 2,
       }).expect(200);
 
-      const back = await redefine(made.body.id, rotated.body.version, {
+      const back = await update(made.body.id, rotated.body.version, {
         key: 'ephemeral',
         token: old,
         tokenVersion: 3,
       }).expect(422);
-      const elsewhere = await define({ key: 'sandboxes', token: old }).expect(
+      const elsewhere = await create({ key: 'sandboxes', token: old }).expect(
         422,
       );
 
-      for (const refused of [back, elsewhere]) {
-        expect(refused.body.errors).toEqual([
+      for (const rejected of [back, elsewhere]) {
+        expect(rejected.body.errors).toEqual([
           expect.objectContaining({
             path: 'token',
-            message: expect.stringContaining('Pool tokens work once only'),
+            message: expect.stringContaining('Each pool token is single-use'),
           }),
         ]);
       }
       await claimWith(old).expect(401);
     });
 
-    it('spends the token of a pool that is deleted, so the pool that replaces it cannot be given it', async () => {
+    it('uses up the token of a deleted pool, so the pool that replaces it cannot use it', async () => {
       const token = tokenOf('deleted');
-      const made = await define({ key: 'ephemeral', token }).expect(201);
+      const made = await create({ key: 'ephemeral', token }).expect(201);
       await http()
         .delete(`/api/resources/runner-pools/${made.body.id}`)
         .set(TEST_USER_HEADER, owner)
         .set('If-Match', `"${made.body.version}"`)
         .expect(204);
 
-      const replaced = await define({ key: 'ephemeral', token }).expect(422);
+      const replaced = await create({ key: 'ephemeral', token }).expect(422);
 
       expect(replaced.body.errors).toEqual([
         expect.objectContaining({
           path: 'token',
-          message: expect.stringContaining('Pool tokens work once only'),
+          message: expect.stringContaining('Each pool token is single-use'),
         }),
       ]);
     });
 
-    it('refuses the token a live pool holds as taken, while letting that pool be given it again', async () => {
-      const token = tokenOf('held');
-      const holder = await define({
+    it('rejects the token of a live pool as in use, but lets that pool use it again', async () => {
+      const token = tokenOf('used');
+      const holder = await create({
         key: 'ephemeral',
         token,
         tokenVersion: 1,
       }).expect(201);
-      const other = await define({
+      const other = await create({
         key: 'sandboxes',
         token: tokenOf('other'),
         tokenVersion: 1,
       }).expect(201);
 
-      const created = await define({ key: 'burst', token }).expect(422);
-      const rotated = await redefine(other.body.id, other.body.version, {
+      const created = await create({ key: 'burst', token }).expect(422);
+      const rotated = await update(other.body.id, other.body.version, {
         key: 'sandboxes',
         token,
         tokenVersion: 2,
       }).expect(422);
 
-      for (const refused of [created, rotated]) {
-        expect(refused.body.errors).toEqual([
+      for (const rejected of [created, rotated]) {
+        expect(rejected.body.errors).toEqual([
           expect.objectContaining({
             path: 'token',
-            message: expect.stringContaining('belongs to another pool'),
+            message: expect.stringContaining('is in use by another pool'),
           }),
         ]);
       }
-      await redefine(holder.body.id, holder.body.version, {
+      await update(holder.body.id, holder.body.version, {
         key: 'ephemeral',
         token,
         tokenVersion: 2,
       }).expect(200);
     });
 
-    it('gives a token to one pool only, when two ask for it at once', async () => {
+    it('lets only one pool use a token when two request it at once', async () => {
       const token = tokenOf('raced');
 
       const answers = await Promise.all(
-        ['ephemeral', 'sandboxes'].map((key) => define({ key, token })),
+        ['ephemeral', 'sandboxes'].map((key) => create({ key, token })),
       );
 
       expect(answers.map((each) => each.status).sort()).toEqual([201, 422]);
       expect(answers.find((each) => each.status === 422)?.body.errors).toEqual([
         expect.objectContaining({
           path: 'token',
-          message: expect.stringContaining('belongs to another pool'),
+          message: expect.stringContaining('is in use by another pool'),
         }),
       ]);
     });
 
-    it('refuses a spent token by the ledger’s key alone, as a give racing past the check would be', async () => {
+    it('rejects a used token by the ledger’s key alone, as it would a use that races past the check', async () => {
       const token = tokenOf('ledgered');
-      const made = await define({
+      const made = await create({
         key: 'ephemeral',
         token,
         tokenVersion: 1,
       }).expect(201);
-      await redefine(made.body.id, made.body.version, {
+      await update(made.body.id, made.body.version, {
         key: 'ephemeral',
         token: tokenOf('moved'),
         tokenVersion: 2,
       }).expect(200);
       const context = new DrizzleContext(db);
-      const given = new DrizzleGivenPoolTokensRepository(context);
+      const usedTokens = new DrizzleUsedPoolTokensRepository(context);
 
       await expect(
         context.inTransaction(() =>
-          given.give(
+          usedTokens.recordUse(
             TokenHash.of(sha256Of(token)),
             RunnerPoolId.of(randomUUID()),
           ),
         ),
-      ).rejects.toBeInstanceOf(PoolTokenSpentError);
+      ).rejects.toBeInstanceOf(PoolTokenAlreadyUsedError);
       expect(
         await db
           .select()
           .from(schema.runnerPool)
-          .where(eq(schema.runnerPool.workspaceId, held)),
+          .where(eq(schema.runnerPool.workspaceId, workspaceId)),
       ).toHaveLength(1);
     });
 
-    it('keeps only the sha256 of each token it gives, never the token', async () => {
+    it('stores only the sha256 of each used token, never the token', async () => {
       const first = tokenOf('first');
       const second = tokenOf('second');
-      const made = await define({
+      const made = await create({
         key: 'ephemeral',
         token: first,
         tokenVersion: 1,
       }).expect(201);
-      await redefine(made.body.id, made.body.version, {
+      await update(made.body.id, made.body.version, {
         key: 'ephemeral',
         token: second,
         tokenVersion: 2,
       }).expect(200);
 
-      const given = await db
+      const used = await db
         .select()
         .from(schema.poolToken)
         .where(eq(schema.poolToken.poolId, made.body.id));
 
-      expect(given.map((each) => each.tokenHash).sort()).toEqual(
+      expect(used.map((each) => each.tokenHash).sort()).toEqual(
         [sha256Of(first), sha256Of(second)].sort(),
       );
-      expect(JSON.stringify(given)).not.toContain(first);
+      expect(JSON.stringify(used)).not.toContain(first);
     });
 
     it('tells an autoscaler what waits for it, per label', async () => {
       const token = tokenOf('g');
-      const made = await define({
+      const made = await create({
         key: 'ephemeral',
         labels: ['linux', 'gpu'],
         token,
@@ -568,7 +570,7 @@ describe('runner pools (e2e)', () => {
       await queue([['linux']]);
       await queue([['gpu']]);
       await queue([['arm']]);
-      await report(token).expect(200);
+      await heartbeat(token).expect(200);
       await claimWith(token).expect(200);
 
       const queued = await http()
@@ -594,23 +596,23 @@ describe('runner pools (e2e)', () => {
         .expect(401);
     });
 
-    it('settles the Setup list once a host reports in through it, in a workspace connected to GitHub and set up as code', async () => {
+    it('closes the Setup list once a host sends a heartbeat through it, in a workspace connected to GitHub and set up as code', async () => {
       const { list } = await listSetUp(
         db,
         new DrizzleTaskRepository(new DrizzleContext(db), {
           dispatch: async () => {},
         }),
-        { workspaceId: held, teamId: held, owner },
+        { workspaceId, teamId: workspaceId, owner },
       );
       await db.insert(schema.githubConnection).values({
-        workspaceId: held,
+        workspaceId,
         installationId: String(randomInt(1, 2 ** 31)),
         version: 1,
       });
       await db.insert(schema.chat).values({
         id: randomUUID(),
-        workspaceId: held,
-        teamId: held,
+        workspaceId,
+        teamId: workspaceId,
         startedById: owner,
         title: 'Set up our configuration.',
         harness: 'claude-code',
@@ -620,50 +622,50 @@ describe('runner pools (e2e)', () => {
           pullRequest: 'https://github.com/acme/infra/pull/12',
         },
       });
-      const settledNotes = () =>
+      const resolvedNotes = () =>
         db
           .select({ body: schema.taskNote.body })
           .from(schema.taskNote)
           .where(
             and(
               eq(schema.taskNote.taskId, list.id.value),
-              eq(schema.taskNote.form, 'settled'),
+              eq(schema.taskNote.form, 'resolved'),
             ),
           );
 
       const token = tokenOf('v');
-      await define({ key: 'ephemeral', token }).expect(201);
+      await create({ key: 'ephemeral', token }).expect(201);
 
-      expect(await settledNotes()).toEqual([]);
+      expect(await resolvedNotes()).toEqual([]);
 
-      await report(token).expect(200);
+      await heartbeat(token).expect(200);
 
       expect(
         await eventually(async () => {
-          const notes = await settledNotes();
+          const notes = await resolvedNotes();
 
           return notes.length > 0 ? notes : null;
         }),
       ).toEqual([{ body: 'Everything on this list is done.' }]);
     });
 
-    it('keeps the workspace from closing, and is audited as Spotlight’s configuration', async () => {
-      await define({ key: 'ephemeral', token: tokenOf('h') }).expect(201);
+    it('keeps the workspace from being deleted, and is audited as Spotlight’s configuration', async () => {
+      await create({ key: 'ephemeral', token: tokenOf('h') }).expect(201);
 
       const workspace = await http()
-        .get(`/api/resources/workspaces/${held}`)
+        .get(`/api/resources/workspaces/${workspaceId}`)
         .set(TEST_USER_HEADER, owner);
-      const refused = await http()
-        .delete(`/api/resources/workspaces/${held}`)
+      const rejected = await http()
+        .delete(`/api/resources/workspaces/${workspaceId}`)
         .set(TEST_USER_HEADER, owner)
         .set('If-Match', `"${workspace.body.version}"`);
 
-      expect(refused.status).toBe(409);
-      expect(JSON.stringify(refused.body)).toContain('runner pool ephemeral');
+      expect(rejected.status).toBe(409);
+      expect(JSON.stringify(rejected.body)).toContain('runner pool ephemeral');
 
       const changes = (
         await http()
-          .get(`/api/workspaces/${held}/configuration-changes`)
+          .get(`/api/workspaces/${workspaceId}/configuration-changes`)
           .set(TEST_USER_HEADER, owner)
       ).body as { resource: string; action: string; details: object }[];
 
@@ -676,11 +678,11 @@ describe('runner pools (e2e)', () => {
   });
 
   describe('a host', () => {
-    it('is recorded the first time it says it is here, and kept current after', async () => {
+    it('is recorded at its first heartbeat, and updated after', async () => {
       const token = tokenOf('j');
-      const pool = await define({ key: 'ephemeral', token }).expect(201);
+      const pool = await create({ key: 'ephemeral', token }).expect(201);
 
-      const first = await report(token).expect(200);
+      const first = await heartbeat(token).expect(200);
       const created = await hostRow();
 
       expect(first.body).toEqual({ workspace: pool.body.workspaceId });
@@ -688,72 +690,72 @@ describe('runner pools (e2e)', () => {
         workspaceId: pool.body.workspaceId,
         poolId: pool.body.id,
         trustId: null,
-        session: 'session_1',
+        bootId: 'boot_1',
         name: 'build-box',
         release: '0.1.0',
-        executor: 'docker',
+        containerRuntime: 'docker',
         capacity: 2,
         running: [],
       });
 
       await new Promise((resolve) => setTimeout(resolve, 20));
-      await report(token, HOST, ['run-1']).expect(200);
+      await heartbeat(token, HOST, ['run-1']).expect(200);
       const updated = await hostRow();
 
       expect(updated?.running).toEqual(['run-1']);
-      expect(updated?.firstSeenAt).toEqual(created?.firstSeenAt);
-      expect(updated?.upSince).toEqual(created?.firstSeenAt);
-      expect(updated?.lastSeenAt.getTime()).toBeGreaterThan(
-        created?.lastSeenAt.getTime() ?? Number.POSITIVE_INFINITY,
+      expect(updated?.firstHeartbeatAt).toEqual(created?.firstHeartbeatAt);
+      expect(updated?.onlineSince).toEqual(created?.firstHeartbeatAt);
+      expect(updated?.lastHeartbeatAt.getTime()).toBeGreaterThan(
+        created?.lastHeartbeatAt.getTime() ?? Number.POSITIVE_INFINITY,
       );
     });
 
-    it('is up again from the first report after it restarts', async () => {
+    it('is online again from the first heartbeat after it restarts', async () => {
       const token = tokenOf('U');
-      await define({ key: 'ephemeral', token }).expect(201);
-      await report(token).expect(200);
+      await create({ key: 'ephemeral', token }).expect(201);
+      await heartbeat(token).expect(200);
       const before = await hostRow();
 
       await new Promise((resolve) => setTimeout(resolve, 20));
-      await report(token, HOST, [], 'session_2').expect(200);
+      await heartbeat(token, HOST, [], 'boot_2').expect(200);
       const restarted = await hostRow();
 
-      expect(restarted?.session).toBe('session_2');
-      expect(restarted?.firstSeenAt).toEqual(before?.firstSeenAt);
-      expect(restarted?.upSince).toEqual(restarted?.lastSeenAt);
-      expect(restarted?.upSince.getTime()).toBeGreaterThan(
-        before?.upSince.getTime() ?? Number.POSITIVE_INFINITY,
+      expect(restarted?.bootId).toBe('boot_2');
+      expect(restarted?.firstHeartbeatAt).toEqual(before?.firstHeartbeatAt);
+      expect(restarted?.onlineSince).toEqual(restarted?.lastHeartbeatAt);
+      expect(restarted?.onlineSince.getTime()).toBeGreaterThan(
+        before?.onlineSince.getTime() ?? Number.POSITIVE_INFINITY,
       );
     });
 
-    it('keeps one way in for its life, refusing the same host id through another pool', async () => {
+    it('keeps one credential source for its life, rejecting the same host id through another pool', async () => {
       const token = tokenOf('k');
       const other = tokenOf('l');
-      await define({ key: 'ephemeral', token }).expect(201);
-      await define({ key: 'sandboxes', token: other }).expect(201);
-      await report(token).expect(200);
+      await create({ key: 'ephemeral', token }).expect(201);
+      await create({ key: 'sandboxes', token: other }).expect(201);
+      await heartbeat(token).expect(200);
 
-      const taken = await report(other).expect(409);
-      expect(taken.body).toMatchObject({ reason: 'host-taken' });
-      await report(tokenOf('x')).expect(401);
+      const inUse = await heartbeat(other).expect(409);
+      expect(inUse.body).toMatchObject({ reason: 'host-in-use' });
+      await heartbeat(tokenOf('x')).expect(401);
     });
 
-    it('claims nothing for a host id it has never heard from', async () => {
+    it('claims nothing for a host id that never sent a heartbeat', async () => {
       const token = tokenOf('p');
-      await define({ key: 'ephemeral', token }).expect(201);
+      await create({ key: 'ephemeral', token }).expect(201);
       await queue();
 
-      const unheard = await claimWith(token).expect(409);
-      expect(unheard.body).toMatchObject({ reason: 'host-unreported' });
+      const offline = await claimWith(token).expect(409);
+      expect(offline.body).toMatchObject({ reason: 'host-unreported' });
       expect(await hostRow()).toBeNull();
     });
 
     it('claims nothing for a host id that reports through another pool', async () => {
       const token = tokenOf('q');
       const other = tokenOf('r');
-      await define({ key: 'ephemeral', token }).expect(201);
-      await define({ key: 'sandboxes', token: other }).expect(201);
-      await report(token).expect(200);
+      await create({ key: 'ephemeral', token }).expect(201);
+      await create({ key: 'sandboxes', token: other }).expect(201);
+      await heartbeat(token).expect(200);
       await queue();
 
       await claimWith(other).expect(409);
@@ -762,36 +764,36 @@ describe('runner pools (e2e)', () => {
     it('takes over a host id gone silent through another pool, which can then no longer claim for it', async () => {
       const token = tokenOf('s');
       const other = tokenOf('t');
-      await define({ key: 'ephemeral', token }).expect(201);
-      const taking = await define({ key: 'sandboxes', token: other }).expect(
+      await create({ key: 'ephemeral', token }).expect(201);
+      const taking = await create({ key: 'sandboxes', token: other }).expect(
         201,
       );
-      await report(token).expect(200);
+      await heartbeat(token).expect(200);
       const silentSince = new Date(Date.now() - 91_000);
       await db
         .update(schema.runnerHost)
         .set({
-          firstSeenAt: silentSince,
-          upSince: silentSince,
-          lastSeenAt: silentSince,
+          firstHeartbeatAt: silentSince,
+          onlineSince: silentSince,
+          lastHeartbeatAt: silentSince,
         })
         .where(eq(schema.runnerHost.id, HOST));
 
-      await report(other).expect(200);
+      await heartbeat(other).expect(200);
       const rehomed = await hostRow();
 
       expect(rehomed).toMatchObject({ poolId: taking.body.id, trustId: null });
-      expect(rehomed?.firstSeenAt.getTime()).toBeGreaterThan(
+      expect(rehomed?.firstHeartbeatAt.getTime()).toBeGreaterThan(
         silentSince.getTime(),
       );
       await queue();
       await claimWith(token).expect(409);
     });
 
-    it('is forgotten once the pool it came in by is retired, leaving its runner on the Runners page with no pool to name', async () => {
+    it('is deleted once the pool it came in by is deleted, leaving its runner on the Runners page with no pool to name', async () => {
       const token = tokenOf('u');
-      const pool = await define({ key: 'ephemeral', token }).expect(201);
-      await report(token).expect(200);
+      const pool = await create({ key: 'ephemeral', token }).expect(201);
+      await heartbeat(token).expect(200);
       await queue();
       const claimed = await claimWith(token).expect(200);
 
@@ -803,7 +805,7 @@ describe('runner pools (e2e)', () => {
 
       await eventually(async () => (await hostRow()) === null);
       const fleet = await http()
-        .get(`/api/workspaces/${held}/runners`)
+        .get(`/api/workspaces/${workspaceId}/runners`)
         .set(TEST_USER_HEADER, owner)
         .expect(200);
 
@@ -811,43 +813,43 @@ describe('runner pools (e2e)', () => {
       expect(fleet.body.runners).toEqual([
         expect.objectContaining({
           id: claimed.body.runnerId,
-          through: { kind: 'pool', key: null },
+          source: { kind: 'pool', key: null },
           hostId: HOST,
         }),
       ]);
     });
 
-    it('refuses a report that does not add up', async () => {
+    it('rejects a heartbeat that does not add up', async () => {
       const token = tokenOf('m');
-      await define({ key: 'ephemeral', token }).expect(201);
+      await create({ key: 'ephemeral', token }).expect(201);
 
       for (const body of [
         {
-          session: 'session_1',
+          bootId: 'boot_1',
           name: 'build-box',
           release: '0.1.0',
-          executor: 'docker',
+          containerRuntime: 'docker',
           capacity: 0,
         },
         {
-          session: 'session_1',
+          bootId: 'boot_1',
           name: 'build-box',
           release: '0.1.0',
-          executor: 'docker',
+          containerRuntime: 'docker',
           capacity: 1,
           running: ['run-1', 'run-2'],
         },
         {
-          session: 'session_1',
+          bootId: 'boot_1',
           name: '',
           release: '0.1.0',
-          executor: 'docker',
+          containerRuntime: 'docker',
           capacity: 1,
         },
         {
           name: 'build-box',
           release: '0.1.0',
-          executor: 'docker',
+          containerRuntime: 'docker',
           capacity: 1,
         },
       ]) {
@@ -861,10 +863,10 @@ describe('runner pools (e2e)', () => {
       expect(await hostRow()).toBeNull();
     });
 
-    it('leaves when it says it is stopping', async () => {
+    it('deregisters when it says it is stopping', async () => {
       const token = tokenOf('n');
-      await define({ key: 'ephemeral', token }).expect(201);
-      await report(token).expect(200);
+      await create({ key: 'ephemeral', token }).expect(201);
+      await heartbeat(token).expect(200);
 
       await http()
         .delete(`/api/hosts/${HOST}`)
@@ -874,15 +876,15 @@ describe('runner pools (e2e)', () => {
       expect(await hostRow()).toBeNull();
     });
 
-    it('shows on the Runners page, answering, beside the runner holding the work it claimed', async () => {
+    it('shows on the Runners page, online, beside the runner with the lease on the work it claimed', async () => {
       const token = tokenOf('o');
-      await define({ key: 'ephemeral', token }).expect(201);
-      await report(token, HOST, []).expect(200);
+      await create({ key: 'ephemeral', token }).expect(201);
+      await heartbeat(token, HOST, []).expect(200);
       await queue();
       const claimed = await claimWith(token).expect(200);
 
       const fleet = await http()
-        .get(`/api/workspaces/${held}/runners`)
+        .get(`/api/workspaces/${workspaceId}/runners`)
         .set(TEST_USER_HEADER, owner)
         .expect(200);
 
@@ -891,44 +893,44 @@ describe('runner pools (e2e)', () => {
           {
             id: HOST,
             name: 'build-box',
-            through: { kind: 'pool', key: 'ephemeral' },
+            source: { kind: 'pool', key: 'ephemeral' },
             release: '0.1.0',
-            executor: 'docker',
+            containerRuntime: 'docker',
             capacity: 2,
             running: [],
             images: [
               {
-                image: USUAL,
+                image: DEFAULT_IMAGE,
                 digest: null,
-                usual: true,
+                isDefault: true,
                 release: null,
                 harnesses: [{ id: 'dev', version: null }],
-                refused: null,
+                unavailableReason: null,
               },
               {
                 image: WIDGETS,
                 digest: null,
-                usual: false,
+                isDefault: false,
                 release: null,
                 harnesses: [{ id: 'dev', version: null }],
-                refused: null,
+                unavailableReason: null,
               },
             ],
-            firstSeenAt: expect.any(String),
-            upSince: expect.any(String),
-            lastSeenAt: expect.any(String),
-            answering: true,
+            firstHeartbeatAt: expect.any(String),
+            onlineSince: expect.any(String),
+            lastHeartbeatAt: expect.any(String),
+            online: true,
           },
         ],
         runners: [
           {
             id: claimed.body.runnerId,
-            through: { kind: 'pool', key: 'ephemeral' },
+            source: { kind: 'pool', key: 'ephemeral' },
             hostId: HOST,
-            image: USUAL,
+            image: DEFAULT_IMAGE,
             harnesses: ['dev'],
             startedAt: expect.any(String),
-            lastSeenAt: expect.any(String),
+            lastHeartbeatAt: expect.any(String),
           },
         ],
       });
@@ -940,7 +942,7 @@ describe('runner pools (e2e)', () => {
       const endpoint = await listening(() => 202);
 
       try {
-        await define({
+        await create({
           key: 'sandboxes',
           labels: ['sandbox'],
           provision: { url: endpoint.url, secret: SECRET, secretVersion: 1 },
@@ -981,19 +983,19 @@ describe('runner pools (e2e)', () => {
       }
     });
 
-    it('provisions nothing for a run wearing secrets, which only a host’s egress can wear', async () => {
+    it('provisions nothing for a run with injected secrets, which only the egress of a host can inject', async () => {
       const endpoint = await listening(() => 202);
 
       try {
-        await define({
+        await create({
           key: 'sandboxes',
           labels: ['sandbox'],
           provision: { url: endpoint.url, secret: SECRET, secretVersion: 1 },
         }).expect(201);
-        const wearing = randomUUID();
+        const withSecrets = randomUUID();
         await db.insert(schema.run).values({
-          id: wearing,
-          workspaceId: held,
+          id: withSecrets,
+          workspaceId,
           harness: 'dev',
           state: 'queued',
           placement: [['sandbox']],
@@ -1001,8 +1003,8 @@ describe('runner pools (e2e)', () => {
             command: { executable: 'sh', args: [] },
             briefing: 'do the thing',
             handover: { options: [], noteLimit: 0 },
-            continuity: { key: `task:${wearing}` },
-            wears: ['LINEAR_API_KEY'],
+            resume: { key: `task:${withSecrets}` },
+            injectedSecrets: ['LINEAR_API_KEY'],
           },
         });
         const plain = await queue([['sandbox']]);
@@ -1015,14 +1017,14 @@ describe('runner pools (e2e)', () => {
 
         expect(
           endpoint.calls.map((call) => JSON.parse(call.body).data.runId),
-        ).not.toContain(wearing);
+        ).not.toContain(withSecrets);
         const [waiting] = await db
           .select({
             state: schema.run.state,
             reservedFor: schema.run.reservedFor,
           })
           .from(schema.run)
-          .where(eq(schema.run.id, wearing));
+          .where(eq(schema.run.id, withSecrets));
         expect(waiting).toEqual({ state: 'queued', reservedFor: null });
       } finally {
         endpoint.server.close();
@@ -1033,7 +1035,7 @@ describe('runner pools (e2e)', () => {
       const endpoint = await listening(() => 202);
       endpoint.server.close();
 
-      await define({
+      await create({
         key: 'sandboxes',
         provision: { url: endpoint.url, secret: SECRET },
       }).expect(201);
@@ -1042,7 +1044,7 @@ describe('runner pools (e2e)', () => {
       const failed = await eventually(async () => {
         await db
           .update(schema.run)
-          .set({ nextProvisionAt: null })
+          .set({ nextProvisionAttemptAt: null })
           .where(and(eq(schema.run.id, runId), eq(schema.run.state, 'queued')));
 
         const [row] = await db
@@ -1063,7 +1065,7 @@ describe('runner pools (e2e)', () => {
       });
 
       expect(failed.message).toContain('unreachable');
-      expect(failed.provisionFailures).toBe(5);
+      expect(failed.provisionAttempts).toBe(5);
       expect(steps.map((each) => [each.type, each.message, each.seq])).toEqual(
         [-1, -2, -3, -4, -5].map((seq) => [
           'provision.failed',
@@ -1073,16 +1075,16 @@ describe('runner pools (e2e)', () => {
       );
     }, 30_000);
 
-    it('provisions a runner for a waiting check, hands it that check, and lets it go once the check is reported', async () => {
+    it('provisions a runner for a waiting check, hands it that check, and releases it once the check is reported', async () => {
       const endpoint = await listening(() => 202);
 
       try {
-        await define({
+        await create({
           key: 'sandboxes',
           labels: ['sandbox'],
           provision: { url: endpoint.url, secret: SECRET, secretVersion: 1 },
         }).expect(201);
-        const stackId = await awaitingCheck(db, held, [['sandbox']]);
+        const stackId = await awaitingCheck(db, workspaceId, [['sandbox']]);
 
         const [call] = await eventually(async () =>
           endpoint.calls.length > 0 ? endpoint.calls : null,
@@ -1138,20 +1140,20 @@ describe('runner pools (e2e)', () => {
       const endpoint = await listening(() => 202);
       endpoint.server.close();
 
-      await define({
+      await create({
         key: 'sandboxes',
         provision: { url: endpoint.url, secret: SECRET },
       }).expect(201);
-      const stackId = await awaitingCheck(db, held, []);
+      const stackId = await awaitingCheck(db, workspaceId, []);
 
       const skipped = await eventually(async () => {
         await db
           .update(schema.stackCheck)
-          .set({ nextProvisionAt: null })
+          .set({ nextProvisionAttemptAt: null })
           .where(
             and(
               eq(schema.stackCheck.stackId, stackId),
-              eq(schema.stackCheck.phase, 'waiting'),
+              eq(schema.stackCheck.status, 'waiting'),
             ),
           );
 
@@ -1160,26 +1162,26 @@ describe('runner pools (e2e)', () => {
           .from(schema.stackCheck)
           .where(eq(schema.stackCheck.stackId, stackId));
 
-        return row?.phase === 'skipped' ? row : null;
+        return row?.status === 'skipped' ? row : null;
       }, 25_000);
 
-      expect(skipped.provisionFailures).toBe(5);
-      expect(skipped.outcome?.skip).toMatchObject({ code: 'unprovisioned' });
+      expect(skipped.provisionAttempts).toBe(5);
+      expect(skipped.outcome?.skip).toMatchObject({ code: 'provision-failed' });
       expect(skipped.outcome?.skip?.detail).toContain('unreachable');
       expect(await checkReadFor(skipped.runId)).toMatchObject({
-        state: 'skipped',
+        status: 'skipped',
         reason: expect.stringContaining(
           'Spotlight couldn’t provision a runner to check the layers.',
         ),
       });
     }, 30_000);
 
-    it('settles a check nobody took up within its hour, letting go of the runner reserved for it', async () => {
-      const stackId = await awaitingCheck(db, held, []);
+    it('expires a check that no runner claimed within its hour, and releases the runner reserved for it', async () => {
+      const stackId = await awaitingCheck(db, workspaceId, []);
       const reserved = randomUUID();
       await db.insert(schema.runner).values({
         id: reserved,
-        workspaceId: held,
+        workspaceId,
         poolId: randomUUID(),
         tokenHash: createHash('sha256').update(reserved).digest('hex'),
         claimBy: new Date(Date.now() + 60_000),
@@ -1195,19 +1197,19 @@ describe('runner pools (e2e)', () => {
         })
         .where(eq(schema.stackCheck.stackId, stackId));
 
-      const settled = await eventually(async () => {
+      const expired = await eventually(async () => {
         const [row] = await db
           .select()
           .from(schema.stackCheck)
           .where(eq(schema.stackCheck.stackId, stackId));
 
-        return row?.phase === 'skipped' ? row : null;
+        return row?.status === 'skipped' ? row : null;
       });
 
-      expect(settled.reservedFor).toBeNull();
-      expect(settled.outcome?.skip).toMatchObject({ code: 'nobody-checked' });
-      expect(await checkReadFor(settled.runId)).toMatchObject({
-        state: 'skipped',
+      expect(expired.reservedFor).toBeNull();
+      expect(expired.outcome?.skip).toMatchObject({ code: 'queue-timeout' });
+      expect(await checkReadFor(expired.runId)).toMatchObject({
+        status: 'skipped',
         reason: 'No runner checked the layers in time.',
       });
       await eventually(

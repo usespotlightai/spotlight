@@ -25,7 +25,7 @@ func onPath(t *testing.T, name string) string {
 func TestReportsWhatIsThere(t *testing.T) {
 	executable := onPath(t, "here")
 
-	found := harness.Installed(context.Background(), []protocol.Installable{
+	found := harness.Installed(context.Background(), []protocol.HarnessProbe{
 		{ID: "the-one-here", Executable: executable},
 	})
 
@@ -37,7 +37,7 @@ func TestReportsWhatIsThere(t *testing.T) {
 func TestLeavesOutWhatIsNotThere(t *testing.T) {
 	onPath(t, "here")
 
-	found := harness.Installed(context.Background(), []protocol.Installable{
+	found := harness.Installed(context.Background(), []protocol.HarnessProbe{
 		{ID: "the-one-here", Executable: "here"},
 		{ID: "not-here", Executable: "nothing-of-that-name"},
 	})
@@ -61,7 +61,7 @@ func TestDiscoversModelsFromTheCommand(t *testing.T) {
 	}
 	t.Setenv("PATH", dir)
 
-	found := harness.Installed(context.Background(), []protocol.Installable{
+	found := harness.Installed(context.Background(), []protocol.HarnessProbe{
 		{ID: "lister", Executable: "lister", Discovery: []string{"lister"}},
 	})
 
@@ -83,7 +83,7 @@ func TestDiscoversModelsFromTheCommand(t *testing.T) {
 func TestReportsNoModelsWithoutDiscovery(t *testing.T) {
 	executable := onPath(t, "bare")
 
-	found := harness.Installed(context.Background(), []protocol.Installable{
+	found := harness.Installed(context.Background(), []protocol.HarnessProbe{
 		{ID: "bare", Executable: executable},
 	})
 
@@ -92,7 +92,7 @@ func TestReportsNoModelsWithoutDiscovery(t *testing.T) {
 	}
 }
 
-func TestNothingAskedAboutIsNothingReported(t *testing.T) {
+func TestNothingRequestedIsNothingReported(t *testing.T) {
 	if found := harness.Installed(context.Background(), nil); len(found) != 0 {
 		t.Fatalf("got %v", found)
 	}
@@ -101,7 +101,7 @@ func TestNothingAskedAboutIsNothingReported(t *testing.T) {
 func TestSkipsAnEntryThatNamesNothing(t *testing.T) {
 	onPath(t, "here")
 
-	found := harness.Installed(context.Background(), []protocol.Installable{
+	found := harness.Installed(context.Background(), []protocol.HarnessProbe{
 		{ID: "", Executable: "here"},
 		{ID: "no-executable", Executable: ""},
 	})
@@ -113,7 +113,7 @@ func TestSkipsAnEntryThatNamesNothing(t *testing.T) {
 
 func TestReadsTheVersionTheHarnessReports(t *testing.T) {
 	for _, expected := range []struct {
-		said    string
+		printed string
 		version string
 	}{
 		{"2.1.270 (Claude Code)", "2.1.270"},
@@ -124,18 +124,18 @@ func TestReadsTheVersionTheHarnessReports(t *testing.T) {
 		{"", ""},
 	} {
 		dir := t.TempDir()
-		script := "#!/bin/sh\nprintf '%s\\n' '" + expected.said + "'\n"
+		script := "#!/bin/sh\nprintf '%s\\n' '" + expected.printed + "'\n"
 		if err := os.WriteFile(filepath.Join(dir, "versioned"), []byte(script), 0o755); err != nil {
 			t.Fatal(err)
 		}
 		t.Setenv("PATH", dir)
 
-		found := harness.Installed(context.Background(), []protocol.Installable{
+		found := harness.Installed(context.Background(), []protocol.HarnessProbe{
 			{ID: "versioned", Executable: "versioned", VersionProbe: []string{"versioned", "--version"}},
 		})
 
 		if len(found) != 1 || found[0].Version != expected.version {
-			t.Errorf("%q: got %+v, want version %q", expected.said, found, expected.version)
+			t.Errorf("%q: got %+v, want version %q", expected.printed, found, expected.version)
 		}
 	}
 }
@@ -147,9 +147,9 @@ func TestReportsNoVersionWhenItCannotBeRead(t *testing.T) {
 	}
 	t.Setenv("PATH", dir)
 
-	found := harness.Installed(context.Background(), []protocol.Installable{
+	found := harness.Installed(context.Background(), []protocol.HarnessProbe{
 		{ID: "broken", Executable: "broken", VersionProbe: []string{"broken"}},
-		{ID: "unasked", Executable: "broken"},
+		{ID: "unrequested", Executable: "broken"},
 	})
 
 	if len(found) != 2 || found[0].Version != "" || found[1].Version != "" {

@@ -5,7 +5,7 @@ import { settingsWorld } from '@/mocks/world/settings';
 
 const workspaceAs = () => ({
   ...world().workspace,
-  provisioning: settingsWorld().settingUp.includes(world().workspace.id)
+  setupStatus: settingsWorld().settingUp.includes(world().workspace.id)
     ? ('pending' as const)
     : ('done' as const),
   role:

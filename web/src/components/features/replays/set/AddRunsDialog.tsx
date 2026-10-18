@@ -34,7 +34,7 @@ export function AddRunsDialog({
 }: AddRunsDialogProps) {
   const runs = useReplayableRuns(at.teamId, at.lineId, at.stationId, open);
   const add = useAddReplaySetEntry();
-  const held = new Set(set.entries.map((each) => each.runId));
+  const setRunIds = new Set(set.entries.map((each) => each.runId));
   const suggestions = useReplaySetSuggestions(at.teamId, set.id, open);
   const suggested = new Set((suggestions.data ?? []).map((each) => each.runId));
   const listed = (runs.data ?? []).filter((each) => !suggested.has(each.runId));
@@ -78,7 +78,7 @@ export function AddRunsDialog({
           <ReplayableRunRow
             key={run.runId}
             run={run}
-            inSet={held.has(run.runId)}
+            inSet={setRunIds.has(run.runId)}
             adding={adding(run.runId)}
             onAdd={() => addRun(run.runId)}
           />
@@ -91,13 +91,13 @@ export function AddRunsDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      onOpenChangeComplete={(settled) => !settled && add.reset()}
+      onOpenChangeComplete={(open) => !open && add.reset()}
     >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Add runs to {set.name}</DialogTitle>
           <DialogDescription>
-            The station’s latest ended runs. Spotlight keeps a run’s starting
+            The station’s latest ended runs. Spotlight retains a run’s starting
             workspace while it’s in the set.
           </DialogDescription>
         </DialogHeader>
@@ -105,7 +105,7 @@ export function AddRunsDialog({
         <div className="-mx-2 flex max-h-[min(60vh,28rem)] flex-col gap-2 overflow-y-auto">
           <SuggestedRuns
             suggestions={suggestions}
-            held={held}
+            setRunIds={setRunIds}
             adding={adding}
             onAdd={addRun}
           />

@@ -31,7 +31,7 @@ const LINEAR = {
 
 const ID = 'secret_new';
 
-const holding = (managesSecrets = true) => {
+const setUp = (managesSecrets = true) => {
   const store = new InMemoryStore();
   const secrets = new InMemorySecrets(store);
   const creates = new InMemoryCreates();
@@ -64,7 +64,7 @@ const holding = (managesSecrets = true) => {
     transaction,
   );
 
-  const keptValue = async () => {
+  const storedValue = async () => {
     const secret = await secrets.withId(SecretId.of(ID));
 
     return secret ? (await store.read(secret)).revealed() : null;
@@ -83,7 +83,7 @@ const holding = (managesSecrets = true) => {
     store,
     creates,
     uses,
-    keptValue,
+    storedValue,
     demoted: () => {
       as.managesSecrets = false;
     },
@@ -91,34 +91,34 @@ const holding = (managesSecrets = true) => {
 };
 
 const created = async () => {
-  const held = holding();
-  await held.create();
+  const created = setUp();
+  await created.create();
 
-  return held;
+  return created;
 };
 
 describe('CreateSecretHandler', () => {
-  it('sets the secret and keeps its value', async () => {
-    const { create, keptValue, secrets } = holding();
+  it('creates the secret and stores its value', async () => {
+    const { create, storedValue, secrets } = setUp();
 
     expect(await create()).toEqual({
       outcome: 'created',
       id: ID,
       replayed: false,
     });
-    expect(await keptValue()).toBe('lin_api_1');
-    expect(secrets.events.map((each) => each.kind)).toEqual(['secret.set']);
+    expect(await storedValue()).toBe('lin_api_1');
+    expect(secrets.events.map((each) => each.kind)).toEqual(['secret.created']);
   });
 
   it('forbids someone who reads the workspace but may not manage its secrets', async () => {
-    const { create, secrets } = holding(false);
+    const { create, secrets } = setUp(false);
 
-    expect(await create()).toEqual(forbiddenTo('manage-secrets'));
+    expect(await create()).toEqual(forbiddenTo('secrets'));
     expect(await secrets.withId(SecretId.of(ID))).toBeNull();
   });
 
   it('never remembers the value alongside the idempotency key', async () => {
-    const { create, creates } = holding();
+    const { create, creates } = setUp();
 
     await create();
 
@@ -126,7 +126,7 @@ describe('CreateSecretHandler', () => {
   });
 
   it('points at the field that is wrong', async () => {
-    const { create } = holding();
+    const { create } = setUp();
     const answered = await create({ ...LINEAR, valueWo: undefined });
 
     expect(answered?.outcome).toBe('invalid');
@@ -136,11 +136,11 @@ describe('CreateSecretHandler', () => {
     ).toEqual(['valueWo']);
   });
 
-  it('says a name the workspace already holds is taken', async () => {
+  it('says a name the workspace already has is taken', async () => {
     const { create } = await created();
 
     expect(await create(LINEAR, 'key-2')).toEqual({
-      outcome: 'taken',
+      outcome: 'already-exists',
       address: 'LINEAR_API_KEY',
     });
   });
@@ -148,24 +148,24 @@ describe('CreateSecretHandler', () => {
 
 describe('UpdateSecretHandler', () => {
   it('rotates the value when valueWoVersion changes, with nothing redeployed', async () => {
-    const { update, keptValue } = await created();
+    const { update, storedValue } = await created();
 
     expect(
       await update({ ...LINEAR, valueWo: 'lin_api_2', valueWoVersion: 2 }),
     ).toEqual({ outcome: 'updated', id: ID });
-    expect(await keptValue()).toBe('lin_api_2');
+    expect(await storedValue()).toBe('lin_api_2');
   });
 
-  it('leaves the value alone while valueWoVersion stands', async () => {
-    const { update, keptValue } = await created();
+  it('leaves the value alone while valueWoVersion does not change', async () => {
+    const { update, storedValue } = await created();
 
     await update({ ...LINEAR, valueWo: 'lin_api_ignored' });
 
-    expect(await keptValue()).toBe('lin_api_1');
+    expect(await storedValue()).toBe('lin_api_1');
   });
 
-  it('refuses a new valueWoVersion without the value, keeping the old one', async () => {
-    const { update, keptValue } = await created();
+  it('rejects a new valueWoVersion without the value, keeping the old one', async () => {
+    const { update, storedValue } = await created();
     const answered = await update({
       ...LINEAR,
       valueWo: undefined,
@@ -176,10 +176,10 @@ describe('UpdateSecretHandler', () => {
       answered?.outcome === 'invalid' &&
         answered.problems.map((each) => dottedOf(each.field)),
     ).toEqual(['valueWo']);
-    expect(await keptValue()).toBe('lin_api_1');
+    expect(await storedValue()).toBe('lin_api_1');
   });
 
-  it('refuses a rename at the name', async () => {
+  it('rejects a rename at the name', async () => {
     const { update } = await created();
     const answered = await update({ ...LINEAR, name: 'LINEAR_TOKEN' });
 
@@ -189,7 +189,7 @@ describe('UpdateSecretHandler', () => {
     ).toEqual(['name']);
   });
 
-  it('refuses a change to a version no longer current', async () => {
+  it('rejects a change to a version no longer current', async () => {
     const { update } = await created();
 
     expect(await update(LINEAR, 0)).toEqual({
@@ -199,14 +199,14 @@ describe('UpdateSecretHandler', () => {
   });
 
   it('forbids someone who may no longer manage the workspace’s secrets', async () => {
-    const { update, keptValue, demoted } = await created();
+    const { update, storedValue, demoted } = await created();
 
     demoted();
 
     expect(
       await update({ ...LINEAR, valueWo: 'lin_api_2', valueWoVersion: 2 }),
-    ).toEqual(forbiddenTo('manage-secrets'));
-    expect(await keptValue()).toBe('lin_api_1');
+    ).toEqual(forbiddenTo('secrets'));
+    expect(await storedValue()).toBe('lin_api_1');
   });
 
   it('records one change saying who rebound and rotated it, and never the value', async () => {
@@ -220,8 +220,8 @@ describe('UpdateSecretHandler', () => {
     });
 
     expect(secrets.events.map((each) => each.kind)).toEqual([
-      'secret.set',
-      'secret.redefined',
+      'secret.created',
+      'secret.updated',
     ]);
     expect(secrets.events[1]).toMatchObject({
       change: { action: 'updated', by: BY },
@@ -230,26 +230,26 @@ describe('UpdateSecretHandler', () => {
       secrets.events.filter(changesConfiguration)[1]?.change.recordedDetail,
     ).toEqual({
       valueVersion: 2,
-      boundTo: ['uploads.linear.app'],
+      targets: ['uploads.linear.app'],
     });
     expect(JSON.stringify(secrets.events)).not.toMatch(/lin_api_/);
   });
 });
 
 describe('DeleteSecretHandler', () => {
-  it('deletes the secret and forgets its value', async () => {
+  it('deletes the secret and its value', async () => {
     const { remove, store, secrets } = await created();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
-    expect(store.holds(SecretId.of(ID))).toBe(false);
+    expect(store.has(SecretId.of(ID))).toBe(false);
     expect(secrets.events[secrets.events.length - 1]).toMatchObject({
       kind: 'secret.deleted',
       change: { action: 'deleted', by: BY },
     });
   });
 
-  it('will not delete a secret an integration still wears, and says which', async () => {
-    const { remove, keptValue, uses } = await created();
+  it('will not delete a secret an integration still uses, and says which', async () => {
+    const { remove, storedValue, uses } = await created();
 
     uses.push('integration core/linear');
 
@@ -257,15 +257,15 @@ describe('DeleteSecretHandler', () => {
       outcome: 'in-use',
       reason: expect.stringContaining('integration core/linear'),
     });
-    expect(await keptValue()).toBe('lin_api_1');
+    expect(await storedValue()).toBe('lin_api_1');
   });
 
   it('forbids someone who may no longer manage the workspace’s secrets', async () => {
-    const { remove, keptValue, demoted } = await created();
+    const { remove, storedValue, demoted } = await created();
 
     demoted();
 
-    expect(await remove()).toEqual(forbiddenTo('manage-secrets'));
-    expect(await keptValue()).toBe('lin_api_1');
+    expect(await remove()).toEqual(forbiddenTo('secrets'));
+    expect(await storedValue()).toBe('lin_api_1');
   });
 });

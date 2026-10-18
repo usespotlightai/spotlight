@@ -15,15 +15,15 @@ import (
 	"syscall"
 	"time"
 
-	"usespotlight.ai/data-plane/egressing/guard"
+	"usespotlight.ai/data-plane/egresskit/guard"
 	"usespotlight.ai/data-plane/protocol"
 )
 
 const usualTimeout = 10 * time.Second
 
 type Allowed interface {
-	Admits(host string) bool
-	Names(host string) bool
+	Allows(host string) bool
+	ExplicitlyListed(host string) bool
 }
 
 type Sender struct {
@@ -44,47 +44,47 @@ func New(allowed Allowed) *Sender {
 	}
 }
 
-func (s *Sender) Send(ctx context.Context, call protocol.HostCall) protocol.HostCallAnswer {
+func (s *Sender) Send(ctx context.Context, call protocol.HostCall) protocol.HostCallResponse {
 	timeout := time.Duration(call.TimeoutMs) * time.Millisecond
 	if timeout <= 0 {
 		timeout = usualTimeout
 	}
 
 	began := time.Now()
-	answer, err := s.sent(ctx, call, timeout)
-	answer.Ms = int(time.Since(began).Milliseconds())
+	result, err := s.sent(ctx, call, timeout)
+	result.Ms = int(time.Since(began).Milliseconds())
 	if err != nil {
-		return protocol.HostCallAnswer{Ms: answer.Ms, Error: plain(err, timeout)}
+		return protocol.HostCallResponse{Ms: result.Ms, Error: plain(err, timeout)}
 	}
 
-	return answer
+	return result
 }
 
-func (s *Sender) sent(ctx context.Context, call protocol.HostCall, timeout time.Duration) (protocol.HostCallAnswer, error) {
+func (s *Sender) sent(ctx context.Context, call protocol.HostCall, timeout time.Duration) (protocol.HostCallResponse, error) {
 	address, err := url.Parse(call.URL)
 	if err != nil || address.Hostname() == "" {
-		return protocol.HostCallAnswer{}, &guard.Refusal{Reason: fmt.Sprintf("The call's URL isn't a valid address. URL: %s", call.URL)}
+		return protocol.HostCallResponse{}, &guard.Blocked{Reason: fmt.Sprintf("The call's URL isn't a valid address. URL: %s", call.URL)}
 	}
 	if address.Scheme != "https" && address.Scheme != "http" {
-		return protocol.HostCallAnswer{}, &guard.Refusal{Reason: fmt.Sprintf("Egress sends only http and https calls. Scheme: %s", address.Scheme)}
+		return protocol.HostCallResponse{}, &guard.Blocked{Reason: fmt.Sprintf("Egress sends only http and https calls. Scheme: %s", address.Scheme)}
 	}
 
 	host := address.Hostname()
-	if !s.allowed.Admits(host) {
-		return protocol.HostCallAnswer{}, &guard.Refusal{Reason: fmt.Sprintf("The host's allow-list doesn't admit %s.", host)}
+	if !s.allowed.Allows(host) {
+		return protocol.HostCallResponse{}, &guard.Blocked{Reason: fmt.Sprintf("The host's allow-list doesn't allow %s.", host)}
 	}
 
 	body, err := base64.StdEncoding.DecodeString(call.Body)
 	if err != nil {
-		return protocol.HostCallAnswer{}, &guard.Refusal{Reason: "The call's body isn't base64."}
+		return protocol.HostCallResponse{}, &guard.Blocked{Reason: "The call's body isn't base64."}
 	}
 
-	sending, cancel := context.WithTimeout(guard.Naming(ctx, s.allowed.Names(host)), timeout)
+	sending, cancel := context.WithTimeout(guard.WithListed(ctx, s.allowed.ExplicitlyListed(host)), timeout)
 	defer cancel()
 
 	request, err := http.NewRequestWithContext(sending, call.Method, address.String(), bytes.NewReader(body))
 	if err != nil {
-		return protocol.HostCallAnswer{}, err
+		return protocol.HostCallResponse{}, err
 	}
 	for name, value := range call.Headers {
 		if strings.EqualFold(name, "host") {
@@ -100,13 +100,13 @@ func (s *Sender) sent(ctx context.Context, call protocol.HostCall, timeout time.
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		return protocol.HostCallAnswer{}, err
+		return protocol.HostCallResponse{}, err
 	}
 	defer response.Body.Close()
 
-	read, err := io.ReadAll(io.LimitReader(response.Body, protocol.AnswerBodyMost))
+	read, err := io.ReadAll(io.LimitReader(response.Body, protocol.MaxResponseBody))
 	if err != nil {
-		return protocol.HostCallAnswer{}, err
+		return protocol.HostCallResponse{}, err
 	}
 
 	headers := make(map[string]string, len(response.Header))
@@ -114,28 +114,28 @@ func (s *Sender) sent(ctx context.Context, call protocol.HostCall, timeout time.
 		headers[strings.ToLower(name)] = strings.Join(values, ", ")
 	}
 
-	answer := protocol.HostCallAnswer{Status: response.StatusCode, Headers: headers}
+	result := protocol.HostCallResponse{Status: response.StatusCode, Headers: headers}
 	if len(read) > 0 {
-		answer.Body = base64.StdEncoding.EncodeToString(read)
+		result.Body = base64.StdEncoding.EncodeToString(read)
 	}
 
-	return answer, nil
+	return result, nil
 }
 
 func plain(err error, timeout time.Duration) string {
 	var (
-		refusal    *guard.Refusal
+		blocked    *guard.Blocked
 		unresolved *net.DNSError
 		unverified *tls.CertificateVerificationError
 	)
 
 	switch {
-	case errors.As(err, &refusal):
-		return refusal.Reason
+	case errors.As(err, &blocked):
+		return blocked.Reason
 	case errors.Is(err, context.DeadlineExceeded) || timedOut(err):
 		return fmt.Sprintf("The call timed out. Time limit: %s", timeout)
 	case errors.Is(err, context.Canceled):
-		return "Egress stopped before the call was answered."
+		return "Egress stopped before the call got a response."
 	case errors.Is(err, syscall.ECONNREFUSED):
 		return "The server refused the connection."
 	case errors.Is(err, syscall.ECONNRESET):

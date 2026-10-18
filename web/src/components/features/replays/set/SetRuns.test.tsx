@@ -23,7 +23,7 @@ const SET: ReplaySet = {
   name: 'Queue fixes',
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
-  guardsChanges: false,
+  gatesChanges: false,
   health: {
     noise: null,
     saturation: null,
@@ -54,7 +54,7 @@ const SET: ReplaySet = {
       state: 'completed',
       endedAt: '2026-10-02T09:00:00.000Z',
       addedAt: '2026-10-03T09:00:00.000Z',
-      refusal: null,
+      unreplayableReason: null,
       reason: null,
       outcome: 'accepted',
       origin: null,
@@ -62,7 +62,7 @@ const SET: ReplaySet = {
   ],
 };
 
-const HELD =
+const FROZEN_BY_SEARCH =
   'A search of this set is running. Add or take out runs after the search ends or a person stops it.';
 
 const renderRuns = (frozen: boolean) =>
@@ -86,7 +86,7 @@ describe('SetRuns', () => {
     ).toBeEnabled();
   });
 
-  it('refuses to add or take out runs while a search uses the set, saying why on each', () => {
+  it('does not add or take out runs while a search uses the set, saying why on each', () => {
     renderRuns(true);
 
     const adding = screen.getByRole('button', { name: 'Add runs' });
@@ -94,8 +94,8 @@ describe('SetRuns', () => {
       name: 'Take Split the invoice job out of the set',
     });
     expect(adding).toBeDisabled();
-    expect(adding).toHaveAccessibleDescription(HELD);
+    expect(adding).toHaveAccessibleDescription(FROZEN_BY_SEARCH);
     expect(removing).toBeDisabled();
-    expect(removing).toHaveAccessibleDescription(HELD);
+    expect(removing).toHaveAccessibleDescription(FROZEN_BY_SEARCH);
   });
 });

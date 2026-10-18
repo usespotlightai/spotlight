@@ -4,15 +4,15 @@ import { DecisionDispute } from '@change-review/domain/entities/decision-dispute
 import { DecisionSetVersionConflictError } from '@change-review/domain/exceptions/decision-set-version-conflict.error';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
-import { DecisionDraft } from '@change-review/domain/value-objects/decision-draft.vo';
+import { DecisionGeneration } from '@change-review/domain/value-objects/decision-generation.vo';
 import { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
 import { DecisionMerge } from '@change-review/domain/value-objects/decision-merge.vo';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
-import { DecisionStanding } from '@change-review/domain/value-objects/decision-standing.vo';
+import { DecisionStatus } from '@change-review/domain/value-objects/decision-status.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import {
   type DecisionSetRow,
-  draftedRunOf,
+  generationRunOf,
   mergeRowOf,
 } from '@change-review/infrastructure/persistence/drizzle/repositories/decision-set.rows';
 import {
@@ -27,7 +27,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -38,34 +38,34 @@ import { and, asc, eq, inArray, isNotNull, isNull, lte, or } from 'drizzle-orm';
 type DecisionRow = typeof decision.$inferSelect;
 type DisputeRow = typeof decisionDispute.$inferSelect;
 
-const draftOf = (row: DecisionSetRow): DecisionDraft | null => {
-  const runId = draftedRunOf(row);
+const generationOf = (row: DecisionSetRow): DecisionGeneration | null => {
+  const runId = generationRunOf(row);
 
   if (!runId) {
     return null;
   }
-  if (!row.draftAskedAt) {
+  if (!row.generationRequestedAt) {
     throw new InconsistentStateError(
       'decision set',
-      'drafts a run without saying when it was asked',
+      'generates decisions for a run without saying when it was requested',
     );
   }
 
-  return DecisionDraft.rehydrate({
+  return DecisionGeneration.rehydrate({
     runId: RunId.of(runId),
-    askedAt: row.draftAskedAt,
-    work: OwedWork.rehydrate({
-      attempts: row.workAttempts,
-      dueAt: row.workDueAt,
+    requestedAt: row.generationRequestedAt,
+    job: PendingJob.rehydrate({
+      attempts: row.jobAttempts,
+      nextAttemptAt: row.jobDueAt,
     }),
   });
 };
 
-const standingOf = (row: DecisionSetRow): DecisionStanding => {
+const statusOf = (row: DecisionSetRow): DecisionStatus => {
   const merge = mergeRowOf(row);
 
-  return DecisionStanding.rehydrate({
-    state: row.standing,
+  return DecisionStatus.rehydrate({
+    state: row.status,
     merge: merge
       ? DecisionMerge.rehydrate({
           repository: Repository.of(merge.repository),
@@ -87,7 +87,7 @@ const toDecision = (
     why: row.why,
     alternatives: row.alternatives,
     paths: row.paths.map(FilePath.of),
-    steps: row.steps,
+    journalSteps: row.journalSteps,
     disputes: disputes
       .filter((each) => each.decisionId === row.id)
       .map((each) =>
@@ -110,25 +110,25 @@ const toDecisionSet = (
     id: DecisionSetId.of(row.id),
     taskId: TaskId.of(row.taskId),
     workspaceId: WorkspaceId.of(row.workspaceId),
-    decidedIn: row.decidedIn ? RunId.of(row.decidedIn) : null,
+    sourceRunId: row.sourceRunId ? RunId.of(row.sourceRunId) : null,
     decisions: [...decisions]
       .sort((a, b) => a.position - b.position)
       .map((each) => toDecision(each, disputes)),
-    draft: draftOf(row),
-    standing: standingOf(row),
+    generation: generationOf(row),
+    status: statusOf(row),
     version: row.version,
   });
 
 const columnsOf = (set: DecisionSet) => ({
-  decidedIn: set.decidedIn?.value ?? null,
-  draftRunId: set.draft?.runId.value ?? null,
-  draftAskedAt: set.draft?.askedAt ?? null,
-  workAttempts: set.draft?.work.attempts ?? 0,
-  workDueAt: set.draft?.work.dueAt ?? null,
-  standing: set.standing.state,
-  mergedRepository: set.standing.merge?.repository.value ?? null,
-  mergedCommit: set.standing.merge?.commit ?? null,
-  mergedAt: set.standing.merge?.at ?? null,
+  sourceRunId: set.sourceRunId?.value ?? null,
+  generationRunId: set.generation?.runId.value ?? null,
+  generationRequestedAt: set.generation?.requestedAt ?? null,
+  jobAttempts: set.generation?.job.attempts ?? 0,
+  jobDueAt: set.generation?.job.nextAttemptAt ?? null,
+  status: set.status.state,
+  mergedRepository: set.status.merge?.repository.value ?? null,
+  mergedCommit: set.status.merge?.commit ?? null,
+  mergedAt: set.status.merge?.at ?? null,
 });
 
 const decisionRows = (set: DecisionSet) =>
@@ -141,7 +141,7 @@ const decisionRows = (set: DecisionSet) =>
     why: each.why,
     alternatives: [...each.alternatives],
     paths: each.paths.map((path) => path.value),
-    steps: [...each.steps],
+    journalSteps: [...each.journalSteps],
   }));
 
 @Injectable()
@@ -224,8 +224,8 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
       await this.context.db.insert(decision).values(rows);
     }
 
-    const disputes = set.decisions.flatMap((held) =>
-      held.disputes.map((each) => ({ decisionId: held.id.value, each })),
+    const disputes = set.decisions.flatMap((entity) =>
+      entity.disputes.map((each) => ({ decisionId: entity.id.value, each })),
     );
 
     if (disputes.length > 0) {
@@ -252,17 +252,17 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
     return row ? this.withDecisions(row) : null;
   }
 
-  async dueForWork(now: Date): Promise<DecisionSet | null> {
+  async nextDueJob(now: Date): Promise<DecisionSet | null> {
     const [row] = await this.context.db
       .select()
       .from(decisionSet)
       .where(
         and(
-          isNotNull(decisionSet.draftRunId),
-          or(isNull(decisionSet.workDueAt), lte(decisionSet.workDueAt, now)),
+          isNotNull(decisionSet.generationRunId),
+          or(isNull(decisionSet.jobDueAt), lte(decisionSet.jobDueAt, now)),
         ),
       )
-      .orderBy(asc(decisionSet.draftAskedAt))
+      .orderBy(asc(decisionSet.generationRequestedAt))
       .limit(1)
       .for('update', { skipLocked: true });
 

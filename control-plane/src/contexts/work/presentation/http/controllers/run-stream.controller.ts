@@ -78,7 +78,7 @@ export class RunStreamController {
       let replaying = true;
 
       const emit = (event: RunEventView) => {
-        if (mark.admits(event)) {
+        if (mark.accepts(event)) {
           const id = eventIdOf(event);
           subscriber.next(id ? { id, data: event } : { data: event });
         }

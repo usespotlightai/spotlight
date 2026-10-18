@@ -5,24 +5,28 @@ import type {
   SearchRunFactsPort,
 } from '@work/application/ports/search-run-facts.port';
 import type {
-  HeldSearchRun,
-  SearchRunStanding,
+  LeasedSearchRun,
+  SearchRunStatus,
   SearchRunsPort,
 } from '@work/application/ports/search-runs.port';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import {
-  HELD_RUN_STATES,
+  LEASED_RUN_STATES,
   type RunState,
 } from '@work/domain/value-objects/run-state';
 
-const held = (state: RunState): boolean =>
-  (HELD_RUN_STATES as readonly RunState[]).includes(state) ||
-  state === 'parked';
+const isRunning = (state: RunState): boolean =>
+  (LEASED_RUN_STATES as readonly RunState[]).includes(state) ||
+  state === 'suspended';
 
-const standingOf = (fact: SearchRunFact): SearchRunStanding => ({
+const statusOf = (fact: SearchRunFact): SearchRunStatus => ({
   runId: fact.runId,
   phase:
-    fact.state === 'queued' ? 'queued' : held(fact.state) ? 'running' : 'ended',
+    fact.state === 'queued'
+      ? 'queued'
+      : isRunning(fact.state)
+        ? 'running'
+        : 'ended',
   failed: fact.state !== 'completed' || fact.askedAPerson,
   started: fact.startedAt !== null || fact.attempt > 1,
   queuedAt: fact.queuedAt,
@@ -35,21 +39,21 @@ export class SearchRuns implements SearchRunsPort {
     private readonly facts: SearchRunFactsPort,
   ) {}
 
-  async standing(
+  async statuses(
     runIds: readonly string[],
-  ): Promise<readonly SearchRunStanding[]> {
-    return (await this.facts.of(runIds)).map(standingOf);
+  ): Promise<readonly SearchRunStatus[]> {
+    return (await this.facts.of(runIds)).map(statusOf);
   }
 
-  async heldSearchRun(
+  async leasedSearchRun(
     runId: string,
     runnerId: string,
-  ): Promise<HeldSearchRun | null> {
+  ): Promise<LeasedSearchRun | null> {
     const run = await this.runs.findById(RunId.of(runId));
     const subject = run?.subject;
 
     if (
-      !run?.isHeldBy(RunnerId.of(runnerId)) ||
+      !run?.isLeasedBy(RunnerId.of(runnerId)) ||
       !subject?.searchId ||
       !subject.iteration
     ) {

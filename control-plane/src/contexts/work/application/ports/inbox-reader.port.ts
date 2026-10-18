@@ -4,11 +4,11 @@ import type {
   TaskNoteForm,
   TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
-import type { ApprovalStanding } from '@work/domain/value-objects/approval.vo';
+import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import type { ApprovalSubjectKind } from '@work/domain/value-objects/approval-subject.vo';
-import type { AsideForm } from '@work/domain/value-objects/aside-form';
+import type { InboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
-import type { SpokenBy } from '@work/domain/value-objects/voice.vo';
+import type { AuthorKind } from '@work/domain/value-objects/voice.vo';
 
 interface InboxAuthor {
   readonly id: string;
@@ -31,15 +31,15 @@ export interface InboxApproval {
   readonly name: string;
   readonly because: string;
   readonly inputs: readonly InboxApprovalInput[];
-  readonly standing: ApprovalStanding;
+  readonly status: ApprovalStatus;
   readonly edited: readonly InboxApprovalInput[] | null;
   readonly intent: string | null;
   readonly askedOf: InboxPerson | null;
 }
 
 export interface InboxConnection {
-  readonly source: string;
   readonly integration: string;
+  readonly integrationName: string;
   readonly personId: string;
   readonly personName: string;
   readonly met: boolean;
@@ -55,7 +55,7 @@ export interface InboxNote {
   readonly position: number;
   readonly kind: TaskNoteKind;
   readonly form: TaskNoteForm;
-  readonly voice: SpokenBy;
+  readonly voice: AuthorKind;
   readonly station: string;
   readonly stationColor: string;
   readonly stationPosition: number;
@@ -70,8 +70,8 @@ export interface InboxNote {
   readonly connection: InboxConnection | null;
 }
 
-interface InboxAside {
-  readonly form: AsideForm;
+interface InboxRequestView {
+  readonly form: InboxRequestForm;
   readonly about: string;
 }
 
@@ -93,8 +93,8 @@ export interface InboxItemSummary {
   readonly stationColor: string;
   readonly stationPosition: number;
   readonly stationCount: number;
-  readonly raisedAt: InboxStation;
-  readonly standsAt: InboxStation;
+  readonly originStation: InboxStation;
+  readonly currentStation: InboxStation;
   readonly createdAt: Date;
   readonly askedAt: Date;
   readonly resolved: boolean;
@@ -103,7 +103,7 @@ export interface InboxItemSummary {
   readonly unread: boolean;
   readonly briefing: string | null;
   readonly failure: InboxFailure | null;
-  readonly aside: InboxAside | null;
+  readonly inboxRequest: InboxRequestView | null;
   readonly notes: readonly InboxNote[];
 }
 
@@ -129,6 +129,6 @@ export interface InboxReaderPort {
   listForWorkspaceMember(
     slug: string,
     userId: UserId,
-    noticesSettledSince: Date,
+    noticesResolvedSince: Date,
   ): Promise<InboxEntrySummary[] | null>;
 }

@@ -2,7 +2,7 @@ import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCar
 import { InsightsTilesSkeleton } from '@/components/features/insights/InsightsTilesSkeleton';
 import { StationInsightsHeading } from '@/components/features/insights/station/StationInsightsHeading';
 import { JudgeAgreementSkeleton } from '@/components/features/stations/judge/JudgeAgreementSkeleton';
-import { StationOutcomesSkeleton } from '@/components/features/stations/outcomes/StationOutcomesSkeleton';
+import { StationRunOutcomesSkeleton } from '@/components/features/stations/outcomes/StationRunOutcomesSkeleton';
 import { StationSection } from '@/components/features/stations/StationSection';
 import { RUNS_BY_CONFIG_NOTE, type StationNames } from '@/lib/insights';
 import { TALLY_TILES } from '@/lib/insights-tiles';
@@ -32,7 +32,7 @@ export function StationInsightsSkeleton({
         title="Runs by config"
         description={RUNS_BY_CONFIG_NOTE}
       >
-        <StationOutcomesSkeleton />
+        <StationRunOutcomesSkeleton />
       </InsightsCardSkeleton>
 
       {judged && (

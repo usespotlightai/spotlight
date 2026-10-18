@@ -63,7 +63,7 @@ const codec = () => {
 };
 
 describe('EventCodec', () => {
-  it('refuses to carry a secret, even one registered by mistake', () => {
+  it('does not carry a secret, even one registered by mistake', () => {
     expect(() => codec().encode(new Leaked(new Password('hunter2')))).toThrow(
       /secret never travels/,
     );
@@ -85,7 +85,7 @@ describe('EventCodec', () => {
     expect(decoded.note).toBeNull();
   });
 
-  it('refuses to carry a type nobody registered', () => {
+  it('does not carry a type nobody registered', () => {
     const event = {
       kind: 'thing.happened',
       who: new Unregistered('ada'),
@@ -94,7 +94,7 @@ describe('EventCodec', () => {
     expect(() => codec().encode(event)).toThrow(/never registered/);
   });
 
-  it('refuses a payload naming a type it does not know', () => {
+  it('rejects a payload naming a type it does not know', () => {
     expect(() =>
       codec().decode({ $type: 'Vanished', kind: 'thing.happened' }),
     ).toThrow(/No event type is registered as Vanished/);
@@ -102,7 +102,7 @@ describe('EventCodec', () => {
 });
 
 describe('PayloadTypes', () => {
-  it('refuses two types that share a name', () => {
+  it('rejects two types that share a name', () => {
     const types = new PayloadTypes();
     types.register('test', [Named]);
 

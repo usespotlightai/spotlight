@@ -10,7 +10,7 @@ import {
   readTeamMemory,
   remember,
   retireMemory,
-  sayInChat,
+  sendChatMessage,
   startChat,
   writeMemory,
 } from '@/lib/api';
@@ -31,7 +31,7 @@ const memoryIds = async (query: Record<string, string> = {}) => {
 describe('the mock team memories', () => {
   serveMockApi();
 
-  it('lists what each team remembers, standing by default', async () => {
+  it('lists what each team remembers, active by default', async () => {
     const { data: growth } = await listTeamMemories({
       path: { teamId: GROWTH_ID },
       throwOnError: true,
@@ -48,8 +48,8 @@ describe('the mock team memories', () => {
     expect(growth.length).toBeGreaterThan(0);
   });
 
-  it('narrows by standing, kind, line, station, repository and path', async () => {
-    expect(await memoryIds({ standing: 'retired' })).toEqual([
+  it('narrows by status, kind, line, station, repository and path', async () => {
+    expect(await memoryIds({ status: 'retired' })).toEqual([
       'memory_flaky',
       'memory_branches',
     ]);
@@ -66,7 +66,7 @@ describe('the mock team memories', () => {
     expect(await memoryIds({ path: 'src/retries' })).toEqual(['memory_gone']);
   });
 
-  it('opens a memory with the steps or notes it rests on', async () => {
+  it('opens a memory with the steps or notes it cites', async () => {
     const { data: gone } = await readTeamMemory({
       path: { ...team, memoryId: 'memory_gone' },
       throwOnError: true,
@@ -82,7 +82,7 @@ describe('the mock team memories', () => {
 
     expect(gone.harness).toBe('claude-code');
     expect(gone.steps.length).toBeGreaterThan(0);
-    expect(gone.grounds).toEqual({
+    expect(gone.provenance).toEqual({
       taskId: 'task_retries',
       runId: 'run_retries_2',
     });
@@ -119,7 +119,7 @@ describe('the mock team memories', () => {
       throwOnError: true,
     });
 
-    expect(written.reach).toBe('line');
+    expect(written.scope).toBe('line');
     expect(written.source).toBe('person');
     expect(edited.superseded?.id).toBe('memory_gone');
     expect(edited.steps.length).toBeGreaterThan(0);
@@ -129,19 +129,19 @@ describe('the mock team memories', () => {
     expect(await memoryIds()).toEqual(
       expect.arrayContaining([written.id, edited.id]),
     );
-    expect(await memoryIds({ standing: 'retired' })).toEqual(
+    expect(await memoryIds({ status: 'retired' })).toEqual(
       expect.arrayContaining(['memory_gone', 'memory_staging']),
     );
   });
 
-  it('takes a memory an agent asks to remember', async () => {
+  it('takes a memory an agent requests to remember', async () => {
     const { data } = await remember({
       path: { runId: 'run_retries_3' },
       body: { kind: 'failure', body: 'The consumer test needs Redis running.' },
       throwOnError: true,
     });
 
-    expect(data.origin).toBe('remembered');
+    expect(data.proposedBy).toBe('agent');
     expect(data.state).toBe('proposed');
   });
 });
@@ -165,7 +165,7 @@ describe('the mock agent chats', () => {
     expect(chat.messages.some((each) => each.proposal?.state === 'open')).toBe(
       true,
     );
-    expect(journal.flatMap((each) => each.steps).at(-1)?.kind).toBe('said');
+    expect(journal.flatMap((each) => each.steps).at(-1)?.kind).toBe('message');
   });
 
   it('turns an accepted proposal into a task at its station', async () => {
@@ -186,17 +186,17 @@ describe('the mock agent chats', () => {
     );
   });
 
-  it('starts a chat about improving a station and answers what is said', async () => {
+  it('starts a chat about a target station and answers the message', async () => {
     const { data: started } = await startChat({
       path: team,
       body: {
         harness: 'claude-code',
         body: 'Why are its pull requests so large?',
-        improving: 'station_implementation',
+        targetStation: 'station_implementation',
       },
       throwOnError: true,
     });
-    await sayInChat({
+    await sendChatMessage({
       path: { ...team, chatId: started.id },
       body: { body: 'Draft the prompt change.' },
       throwOnError: true,
@@ -206,7 +206,7 @@ describe('the mock agent chats', () => {
       throwOnError: true,
     });
 
-    expect(started.improving?.stationName).toBe('Implementation');
+    expect(started.targetStation?.stationName).toBe('Implementation');
     expect(journal).toHaveLength(2);
   });
 });

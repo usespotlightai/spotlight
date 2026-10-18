@@ -5,11 +5,11 @@ export type ScheduleTurn = 'starts' | 'due' | 'waits';
 export class Schedule {
   private constructor(
     readonly cron: CronExpression,
-    readonly does: string,
+    readonly action: string,
   ) {}
 
-  static of(input: { cron: CronExpression; does: string }): Schedule {
-    return new Schedule(input.cron, input.does);
+  static of(input: { cron: CronExpression; action: string }): Schedule {
+    return new Schedule(input.cron, input.action);
   }
 
   turn(lastRan: Date | null, now: Date): ScheduleTurn {

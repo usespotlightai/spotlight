@@ -8,7 +8,7 @@ describe('HarnessVersion', () => {
     expect(HarnessVersion.of('2026.09.01-abc').value).toBe('2026.09.01-abc');
   });
 
-  it('refuses what is not a release', () => {
+  it('rejects what is not a release', () => {
     expect(() => HarnessVersion.of('latest')).toThrow(
       InvalidHarnessVersionError,
     );

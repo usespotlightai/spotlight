@@ -40,7 +40,7 @@ describe('PatternCodeReading', () => {
 });
 
 describe('factsOf', () => {
-  it('sets aside lockfiles, generated files and formatting-only changes', () => {
+  it('marks lockfiles, generated files and formatting-only changes incidental', () => {
     const facts = factsFor(
       file('package-lock.json', ['"zod": "4.4.3"'], ['"zod": "4.4.2"']),
       file('src/a.ts', ['const  total = 1;'], ['const total = 1;']),
@@ -151,7 +151,7 @@ describe('factsOf, further', () => {
     ]);
   });
 
-  it('sets aside a file that was only renamed', () => {
+  it('marks a file that was only renamed incidental', () => {
     const facts = factsOf(
       reader.read(
         [

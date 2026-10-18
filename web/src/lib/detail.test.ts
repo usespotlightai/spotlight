@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TraceNodeResponseDto } from '@/lib/api';
-import { answeredBy, askedOf, holdings, restOf, shaped } from '@/lib/detail';
+import { answeredBy, contentsOf, inputOf, restOf, shaped } from '@/lib/detail';
 
 const node = (
   part: Partial<TraceNodeResponseDto> & { id: string; name: string },
@@ -8,13 +8,13 @@ const node = (
   kind: 'step',
   startedAt: '2026-08-29T12:00:00.000Z',
   ms: 1_000,
-  tone: 'agent',
+  category: 'agent',
   cost: null,
   currency: null,
   step: null,
   span: null,
   connection: null,
-  egress: null,
+  egressEnforcement: null,
   children: [],
   ...part,
 });
@@ -29,8 +29,8 @@ const step = (part: Record<string, unknown>) =>
     ms: 1_000,
     startedAt: '2026-08-29T12:00:00.000Z',
     locations: [],
-    given: null,
-    returned: null,
+    input: null,
+    output: null,
     change: null,
     ...part,
   }) as TraceNodeResponseDto['step'];
@@ -46,7 +46,7 @@ describe('shaped', () => {
     ]);
   });
 
-  it('names its way into what is nested', () => {
+  it('names the path to each nested value', () => {
     expect(shaped('{"a":{"b":[1,null]}}')).toEqual([
       { path: 'a.b[0]', value: '1', kind: 'number' },
       { path: 'a.b[1]', value: 'null', kind: 'null' },
@@ -59,26 +59,26 @@ describe('shaped', () => {
   });
 });
 
-describe('askedOf and answeredBy', () => {
+describe('inputOf and answeredBy', () => {
   it('reads a tool by what it was given and what it returned', () => {
-    const held = node({
+    const call = node({
       id: 'a',
       name: 'npm test',
-      step: step({ given: '{"cmd":"npm test"}', detail: 'ok' }),
+      step: step({ input: '{"cmd":"npm test"}', detail: 'ok' }),
     });
 
-    expect(askedOf(held)?.body).toBe('{"cmd":"npm test"}');
-    expect(answeredBy(held)?.body).toBe('ok');
+    expect(inputOf(call)?.body).toBe('{"cmd":"npm test"}');
+    expect(answeredBy(call)?.body).toBe('ok');
   });
 
-  it('reads what was said as the answer, where the row only says it spoke', () => {
-    const held = node({
+  it('reads the message as the answer, where the row shows only the step kind', () => {
+    const call = node({
       id: 'b',
-      name: 'Said',
-      step: step({ kind: 'said', text: 'All done.' }),
+      name: 'Message',
+      step: step({ kind: 'message', text: 'All done.' }),
     });
 
-    expect(answeredBy(held)).toEqual({
+    expect(answeredBy(call)).toEqual({
       title: 'Message',
       body: 'All done.',
       prose: true,
@@ -86,16 +86,16 @@ describe('askedOf and answeredBy', () => {
   });
 
   it('has nothing to say about a row that recorded nothing', () => {
-    const held = node({ id: 'c', name: 'Prepare', kind: 'phase' });
+    const call = node({ id: 'c', name: 'Prepare', kind: 'phase' });
 
-    expect(askedOf(held)).toBeNull();
-    expect(answeredBy(held)).toBeNull();
+    expect(inputOf(call)).toBeNull();
+    expect(answeredBy(call)).toBeNull();
   });
 });
 
-describe('holdings', () => {
+describe('contentsOf', () => {
   it('counts what sits beneath a row, by sort, however deep', () => {
-    const held = holdings(
+    const contents = contentsOf(
       node({
         id: 'run',
         name: 'Implementation',
@@ -110,7 +110,7 @@ describe('holdings', () => {
               node({
                 id: '2',
                 name: 'Thought',
-                tone: 'failed',
+                category: 'failed',
                 step: step({ kind: 'thought' }),
               }),
             ],
@@ -119,9 +119,9 @@ describe('holdings', () => {
       }),
     );
 
-    expect(held.rows).toBe(3);
-    expect(held.faults).toBe(1);
-    expect([...held.kinds]).toEqual([
+    expect(contents.rows).toBe(3);
+    expect(contents.errors).toBe(1);
+    expect([...contents.kinds]).toEqual([
       ['Tools', 1],
       ['Thoughts', 1],
     ]);
@@ -130,7 +130,7 @@ describe('holdings', () => {
 
 describe('restOf', () => {
   it('leaves out what the header already says', () => {
-    const held = node({
+    const span = node({
       id: 'span',
       name: 'llm_request',
       kind: 'span',
@@ -148,7 +148,7 @@ describe('restOf', () => {
       },
     });
 
-    expect(restOf(held).map((each) => each.name)).toEqual([
+    expect(restOf(span).map((each) => each.name)).toEqual([
       'gen_ai.request.temperature',
     ]);
   });

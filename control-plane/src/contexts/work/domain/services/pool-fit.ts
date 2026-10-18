@@ -1,7 +1,7 @@
+import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 
 export const poolCouldTake = (
   placement: RunnerPlacement,
-  labels: RunnerTerms,
-): boolean => placement.admits(labels.runningIn(null));
+  labels: RunnerOffer,
+): boolean => placement.matches(labels.runningIn(null));

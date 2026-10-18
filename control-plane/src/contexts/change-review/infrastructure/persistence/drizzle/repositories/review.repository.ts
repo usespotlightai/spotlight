@@ -41,21 +41,21 @@ const toReview = (row: Row): Review =>
     version: row.version,
   });
 
-const toRow = (held: Review): Row => ({
-  id: held.id.value,
-  workspaceId: held.workspaceId.value,
-  taskId: held.taskId.value,
-  authorId: held.author.userId?.value ?? null,
-  authorRunId: held.author.runId?.value ?? null,
-  authorName: held.author.name.value,
-  verdict: held.verdict,
-  body: held.body,
-  commentIds: held.comments.map((each) => each.value),
-  state: held.state,
-  githubId: held.githubId,
-  submittedAt: held.submittedAt,
-  postedAt: held.postedAt,
-  version: held.version,
+const toRow = (aggregate: Review): Row => ({
+  id: aggregate.id.value,
+  workspaceId: aggregate.workspaceId.value,
+  taskId: aggregate.taskId.value,
+  authorId: aggregate.author.userId?.value ?? null,
+  authorRunId: aggregate.author.runId?.value ?? null,
+  authorName: aggregate.author.name.value,
+  verdict: aggregate.verdict,
+  body: aggregate.body,
+  commentIds: aggregate.comments.map((each) => each.value),
+  state: aggregate.state,
+  githubId: aggregate.githubId,
+  submittedAt: aggregate.submittedAt,
+  postedAt: aggregate.postedAt,
+  version: aggregate.version,
 });
 
 @Injectable()

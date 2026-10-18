@@ -15,13 +15,13 @@ export class ReadChatJournalHandler
 
   async execute(query: ReadChatJournalQuery): Promise<RunJournalDto[] | null> {
     try {
-      const worked = await this.journals.listForChat(
+      const entries = await this.journals.listForChat(
         TeamId.of(query.teamId),
         ChatId.of(query.chatId),
         UserId.of(query.viewerId),
       );
 
-      return worked?.map(RunJournalMapper.toDto) ?? null;
+      return entries?.map(RunJournalMapper.toDto) ?? null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

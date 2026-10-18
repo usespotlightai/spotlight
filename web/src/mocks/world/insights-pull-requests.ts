@@ -197,7 +197,7 @@ const peoplePullRequests = (
       const rounds = Math.floor(draw() * 3.4);
       const firstReviewAt = openedAt + around(draw, 6 * HOUR_MS);
       const closingAt = firstReviewAt + around(draw, 14 * HOUR_MS);
-      const touched = draw() < 0.3;
+      const reviewed = draw() < 0.3;
       const open = closingAt > Date.now();
       const additions = around(draw, 140);
       made.push({
@@ -209,9 +209,9 @@ const peoplePullRequests = (
         title,
         author: logins[Math.floor(draw() * logins.length)] ?? 'jonas-weber',
         authorIsBot: false,
-        by: touched ? 'touched' : 'people',
+        by: reviewed ? 'reviewed' : 'people',
         taskId: null,
-        reviewTaskIds: touched
+        reviewTaskIds: reviewed
           ? [`task_review_${repository.length}_${made.length}`]
           : [],
         type,
@@ -415,35 +415,35 @@ const weekShare = (
 ): WeekShareResponseDto => {
   const inWeek = merged.filter((fact) => weekOf(fact.closedAt ?? 0) === week);
   const count = (by: Author) => inWeek.filter((fact) => fact.by === by).length;
-  const made = count('spotlight');
-  const touched = count('touched');
+  const authored = count('spotlight');
+  const reviewed = count('reviewed');
 
   return {
     week,
     merged: inWeek.length,
-    made,
-    touched,
-    spotlight: made + touched,
+    authored,
+    reviewed,
+    spotlight: authored + reviewed,
     people: count('people'),
     bots: count('bots'),
-    share: shareOf(made + touched, inWeek.length),
+    rate: shareOf(authored + reviewed, inWeek.length),
   };
 };
 
-const penetrationOf = (
+const spotlightShareOf = (
   merged: readonly PullRequestFact[],
   weeks: readonly string[],
 ) => {
   const count = (by: Author) => merged.filter((fact) => fact.by === by).length;
-  const made = count('spotlight');
-  const touched = count('touched');
+  const authored = count('spotlight');
+  const reviewed = count('reviewed');
 
   return {
     merged: merged.length,
-    made,
-    touched,
+    authored,
+    reviewed,
     bots: count('bots'),
-    share: shareOf(made + touched, merged.length),
+    rate: shareOf(authored + reviewed, merged.length),
     weeks: weeks.map((week) => weekShare(week, merged)),
   };
 };
@@ -527,12 +527,12 @@ export const pullRequestsOf = (
     total: facts.filter((fact) => activeIn(fact, span.now)).length,
     repositories: repositoriesOf(teamId),
     weeks,
-    penetration: {
-      ...penetrationOf(merged, weeks),
+    spotlightShare: {
+      ...spotlightShareOf(merged, weeks),
       repositories: repositoriesOf(teamId)
         .map((repository) => ({
           repository,
-          ...penetrationOf(
+          ...spotlightShareOf(
             merged.filter((fact) => fact.repository === repository),
             weeks,
           ),

@@ -66,7 +66,7 @@ export function StartReplayDialog({
   const problem = typeof ceiling === 'string' ? ceiling : null;
   const repeatsProblem = typeof repeats === 'string' ? repeats : null;
 
-  const forget = () => {
+  const reset = () => {
     setCandidate(LIVE);
     setAmount('');
     setCurrency(USUAL_CURRENCY);
@@ -106,14 +106,14 @@ export function StartReplayDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      onOpenChangeComplete={(settled) => !settled && forget()}
+      onOpenChangeComplete={(open) => !open && reset()}
     >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Replay {set.name}</DialogTitle>
           <DialogDescription>
             Each of the set’s {set.entries.length} runs restarts from its
-            starting point under the chosen config. Nothing reaches the task,
+            starting point under the chosen config. Nothing goes to the task,
             GitHub or any inbox.
           </DialogDescription>
         </DialogHeader>
@@ -148,9 +148,9 @@ export function StartReplayDialog({
             problem={shownProblem}
             note={
               <>
-                The most that this replay can spend. Its runs count, and so do
-                the drafting and judging of their changes. Nothing more starts
-                after the replay spends it.{' '}
+                The most that this replay can spend. Its runs count, and so does
+                the generation and judging of their change stacks. Nothing more
+                starts after the replay spends it.{' '}
                 {formatBaselineNote(
                   candidate !== LIVE,
                   baseline?.repeats ?? null,

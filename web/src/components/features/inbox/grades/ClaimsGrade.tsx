@@ -20,7 +20,7 @@ export function ClaimsGrade({
   onGrade,
 }: ClaimsGradeProps) {
   const [answers, setAnswers] = useState<readonly (boolean | null)[]>(() =>
-    claims.map((_, at) => mine?.marks?.[at] ?? null),
+    claims.map((_, at) => mine?.claimResults?.[at] ?? null),
   );
 
   const answer = (at: number, met: boolean) => {

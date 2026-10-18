@@ -10,7 +10,7 @@ import {
 export const workspacePlan = pgTable('workspace_plan', {
   workspaceId: text('workspace_id').primaryKey(),
   plan: text('plan').notNull(),
-  lapsesAt: timestamp('lapses_at'),
+  expiresAt: timestamp('expires_at'),
 });
 
 export const catalogCall = pgTable(

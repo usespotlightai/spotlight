@@ -32,7 +32,7 @@ export class EditReviewCommentHandler
       }
 
       await this.comments.save(
-        comment.rewritten(command.body, by, this.clock.now()),
+        comment.edited(command.body, by, this.clock.now()),
       );
     } catch (error) {
       rethrowAsApplicationError(error);

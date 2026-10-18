@@ -3,11 +3,11 @@ import type {
   WorkspaceDto,
   WorkspaceListingDto,
 } from '@identity/application/dto/workspace.dto';
-import type { Provisioning } from '@identity/application/ports/workspace-provisioning.port';
 import type {
   WorkspaceDetail,
   WorkspaceListing,
 } from '@identity/application/ports/workspace-reader.port';
+import type { WorkspaceSetupStatus } from '@identity/application/ports/workspace-setup-status.port';
 import type { Team } from '@identity/domain/aggregates/team.aggregate';
 import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 
@@ -26,7 +26,7 @@ export const WorkspaceMapper = {
 
   detailToDto(
     detail: WorkspaceDetail,
-    provisioning: Provisioning,
+    setupStatus: WorkspaceSetupStatus,
   ): WorkspaceDetailDto {
     return {
       id: detail.id,
@@ -34,7 +34,7 @@ export const WorkspaceMapper = {
       slug: detail.slug,
       teams: detail.teams.map((team) => ({ id: team.id, name: team.name })),
       role: detail.role,
-      provisioning,
+      setupStatus,
     };
   },
 

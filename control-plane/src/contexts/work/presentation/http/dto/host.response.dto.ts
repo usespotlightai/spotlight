@@ -16,7 +16,7 @@ export class HostClaimResponseDto {
 
   @ApiProperty({
     description:
-      'The credential the egress beside the sandbox redeems the run’s secrets with; the host hands it to egress alone, never into the sandbox',
+      'The credential the egress sidecar fetches the run’s secrets with; the host hands it to egress alone, never into the sandbox',
   })
   readonly egressToken: string;
 

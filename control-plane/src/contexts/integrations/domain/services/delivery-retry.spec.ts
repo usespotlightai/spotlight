@@ -24,7 +24,7 @@ describe('nextDeliveryAttempt', () => {
     ).toBeLessThanOrEqual(inner.getTime());
   });
 
-  it('gives up once the delivery has had its attempts', () => {
+  it('schedules no next attempt once the delivery has had its attempts', () => {
     expect(nextDeliveryAttempt(MAX_DELIVERY_ATTEMPTS, NOW)).toBeNull();
   });
 });

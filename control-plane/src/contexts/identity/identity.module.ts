@@ -1,11 +1,11 @@
 import { MEMBER_DIRECTORY } from '@identity/application/ports/member-directory.port';
 import { PERSON_READER } from '@identity/application/ports/person-reader.port';
 import { RUN_TOKENS } from '@identity/application/ports/run-tokens.port';
+import { TEAM_DEPENDENTS } from '@identity/application/ports/team-dependents.port';
 import { TEAM_DIRECTORY } from '@identity/application/ports/team-directory.port';
-import { TEAM_HOLDINGS } from '@identity/application/ports/team-holdings.port';
 import { TOKEN_TRUST_CONFIGURATION } from '@identity/application/ports/token-trust-configuration.port';
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
-import { WORKSPACE_HOLDINGS } from '@identity/application/ports/workspace-holdings.port';
+import { WORKSPACE_DEPENDENTS } from '@identity/application/ports/workspace-dependents.port';
 import { WORKSPACE_READER } from '@identity/application/ports/workspace-reader.port';
 import {
   IDENTITY_CONTROLLERS,
@@ -23,8 +23,8 @@ import { WORKSPACE_TOKEN_IDENTITY } from '@shared-kernel/application/ports/works
   exports: [
     WORKSPACE_ACCESS,
     TEAM_DIRECTORY,
-    TEAM_HOLDINGS,
-    WORKSPACE_HOLDINGS,
+    TEAM_DEPENDENTS,
+    WORKSPACE_DEPENDENTS,
     WORKSPACE_READER,
     PERSON_READER,
     MEMBER_DIRECTORY,

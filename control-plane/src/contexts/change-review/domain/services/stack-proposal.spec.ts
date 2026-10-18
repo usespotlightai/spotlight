@@ -52,7 +52,7 @@ const proposal = (
         title: 'Add invitations',
         summary: 'The function and its route',
         dependsOn: [],
-        ranges: [
+        hunks: [
           { hunk: HunkId.of('h1') },
           { hunk: HunkId.of('h2') },
           { hunk: HunkId.of('h3') },
@@ -68,12 +68,12 @@ const NOTED: FileNote[] = [
   { path: 'src/routes.ts', note: 'Mounts it under /invitations.' },
 ];
 
-const settled = (cohorts: ProposedCohort[]) =>
-  StackProposal.settle({ diff: DIFF, facts: NO_FACTS, cohorts });
+const validated = (cohorts: ProposedCohort[]) =>
+  StackProposal.validate({ diff: DIFF, facts: NO_FACTS, cohorts });
 
 const problemsOf = (cohorts: ProposedCohort[]) => {
   try {
-    settled(cohorts);
+    validated(cohorts);
   } catch (error) {
     if (error instanceof InvalidChangeStackError) {
       return error.problems;
@@ -85,9 +85,9 @@ const problemsOf = (cohorts: ProposedCohort[]) => {
 
 describe('StackProposal', () => {
   it('keeps one note per file a layer touches', () => {
-    const [cohort] = settled(proposal(NOTED));
+    const [cohort] = validated(proposal(NOTED));
 
-    expect(cohort?.layers[0]?.ranges).toEqual([
+    expect(cohort?.layers[0]?.hunks).toEqual([
       { hunk: HunkId.of('h1') },
       { hunk: HunkId.of('h2') },
       { hunk: HunkId.of('h3') },
@@ -98,26 +98,26 @@ describe('StackProposal', () => {
     ]);
   });
 
-  it('refuses a change layer that leaves a file it touches without a note', () => {
+  it('rejects a change layer that leaves a file it touches without a note', () => {
     expect(problemsOf(proposal(NOTED.slice(0, 1)))).toEqual([
       {
         code: 'shape',
-        message: 'cohort 1, layer 1 gives no note on src/routes.ts',
+        message: 'cohort 1, layer 1 has no note on src/routes.ts',
       },
     ]);
   });
 
-  it('refuses a note on a file the layer does not touch', () => {
+  it('rejects a note on a file the layer does not touch', () => {
     expect(
       problemsOf(
         proposal([...NOTED, { path: 'src/mail.ts', note: 'Sends it.' }]),
       ).map((each) => each.message),
     ).toEqual([
-      'cohort 1, layer 1 notes src/mail.ts, which none of its changes touch',
+      'cohort 1, layer 1 notes src/mail.ts, which none of its hunks touch',
     ]);
   });
 
-  it('refuses two notes on one file', () => {
+  it('rejects two notes on one file', () => {
     expect(
       problemsOf(
         proposal([
@@ -128,7 +128,7 @@ describe('StackProposal', () => {
     ).toEqual(['cohort 1, layer 1 notes src/invite.ts 2 times']);
   });
 
-  it('refuses a blank note or one too long', () => {
+  it('rejects a blank note or one too long', () => {
     expect(
       problemsOf(
         proposal([
@@ -142,14 +142,14 @@ describe('StackProposal', () => {
     ]);
   });
 
-  it('needs no notes on incidental changes, but still refuses wrong ones', () => {
+  it('needs no notes on incidental changes, but still rejects wrong ones', () => {
     expect(problemsOf(proposal([], 'incidental'))).toEqual([]);
     expect(
       problemsOf(
         proposal([{ path: 'src/mail.ts', note: 'Sends it.' }], 'incidental'),
       ).map((each) => each.message),
     ).toEqual([
-      'cohort 1, layer 1 notes src/mail.ts, which none of its changes touch',
+      'cohort 1, layer 1 notes src/mail.ts, which none of its hunks touch',
     ]);
   });
 });

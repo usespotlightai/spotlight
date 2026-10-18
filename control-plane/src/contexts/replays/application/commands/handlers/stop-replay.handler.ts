@@ -6,7 +6,7 @@ import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dt
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class StopReplayHandler
   implements CommandHandlerPort<StopReplayCommand, ReplayStoppedOutcome>
@@ -32,7 +32,7 @@ export class StopReplayHandler
       await this.replays.save(
         replay.stop(
           this.clock.now(),
-          Attribution.of(command.actor, replay.workspaceId),
+          ChangeActor.of(command.actor, replay.workspaceId),
         ),
       );
 

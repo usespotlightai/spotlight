@@ -5,27 +5,27 @@ import {
 } from '@memory/domain/entities/memory-proposal.entity';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
-import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { parseMemoryKind } from '@memory/domain/value-objects/memory-kind';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
-import { parseMemoryReach } from '@memory/domain/value-objects/memory-reach';
+import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { parseMemoryScopeLevel } from '@memory/domain/value-objects/memory-scope-level';
 import type { MemorySource } from '@memory/domain/value-objects/memory-source';
-import type { StationSite } from '@memory/domain/value-objects/run-site';
+import type { StationContext } from '@memory/domain/value-objects/run-context';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
-const MAX_TOLD = 2_000;
+const MAX_PROMPT_CHARS = 2_000;
 
-const MAX_STEPS_TOLD = 100_000;
+const MAX_PROMPT_STEPS = 100_000;
 
-const MAX_NOTES_TOLD = 20_000;
+const MAX_PROMPT_NOTES = 20_000;
 
-const MAX_STANDING_TOLD = 50;
+const MAX_PROMPT_ACTIVE = 50;
 
-export type NoteSpeaker = 'person' | 'world';
+export type AuthorKind = 'person' | 'world';
 
 export interface EvidenceStep {
   readonly index: number;
@@ -35,7 +35,7 @@ export interface EvidenceStep {
 
 export interface EvidenceNote {
   readonly position: number;
-  readonly by: NoteSpeaker;
+  readonly by: AuthorKind;
   readonly text: string;
 }
 
@@ -46,8 +46,8 @@ export interface ChangedPath {
 
 const clipped = (text: string): string => {
   const trimmed = text.trim();
-  return trimmed.length > MAX_TOLD
-    ? `${trimmed.slice(0, MAX_TOLD)} …`
+  return trimmed.length > MAX_PROMPT_CHARS
+    ? `${trimmed.slice(0, MAX_PROMPT_CHARS)} …`
     : trimmed;
 };
 
@@ -55,7 +55,7 @@ const within = <T extends { readonly text: string }>(
   items: readonly T[],
   max: number,
 ): T[] => {
-  const kept: T[] = [];
+  const selected: T[] = [];
   let used = 0;
 
   for (const item of items) {
@@ -63,11 +63,11 @@ const within = <T extends { readonly text: string }>(
       break;
     }
 
-    kept.push(item);
+    selected.push(item);
     used += item.text.length;
   }
 
-  return kept;
+  return selected;
 };
 
 const pathOf = (raw: string): MemoryPath | null => {
@@ -88,20 +88,20 @@ export class DraftEvidence {
   private constructor(
     private readonly taskId: TaskId,
     private readonly runId: RunId,
-    private readonly site: StationSite,
+    private readonly runContext: StationContext,
     readonly steps: readonly EvidenceStep[],
     readonly stepsLeftOut: number,
     readonly notes: readonly EvidenceNote[],
     readonly changed: readonly ChangedPath[],
     private readonly changedKeys: ReadonlySet<string>,
-    readonly standing: readonly Memory[],
+    readonly active: readonly Memory[],
     private readonly fromOutside: boolean,
   ) {}
 
   static of(input: {
     taskId: TaskId;
     runId: RunId;
-    site: StationSite;
+    runContext: StationContext;
     steps: readonly EvidenceStep[];
     notes: readonly EvidenceNote[];
     notesRead: number;
@@ -113,18 +113,19 @@ export class DraftEvidence {
       input.steps
         .map((each) => ({ ...each, text: clipped(each.text) }))
         .reverse(),
-      MAX_STEPS_TOLD,
+      MAX_PROMPT_STEPS,
     ).reverse();
     const ordered = [...input.notes]
       .sort((a, b) => a.position - b.position)
       .map((each) => ({ ...each, text: clipped(each.text) }));
     const unread = within(
       ordered.filter((each) => each.position >= input.notesRead),
-      MAX_NOTES_TOLD,
+      MAX_PROMPT_NOTES,
     );
     const revisited = within(
       ordered.filter((each) => each.position < input.notesRead),
-      MAX_NOTES_TOLD - unread.reduce((sum, each) => sum + each.text.length, 0),
+      MAX_PROMPT_NOTES -
+        unread.reduce((sum, each) => sum + each.text.length, 0),
     );
     const changed = input.changed.flatMap((each) => {
       const path = pathOf(each.path);
@@ -133,23 +134,23 @@ export class DraftEvidence {
         : [];
     });
 
-    const standing = input.known
-      .filter((each) => each.appliesAt(input.site))
+    const active = input.known
+      .filter((each) => each.appliesAt(input.runContext))
       .sort(
         (one, other) => other.approval.at.getTime() - one.approval.at.getTime(),
       )
-      .slice(0, MAX_STANDING_TOLD);
+      .slice(0, MAX_PROMPT_ACTIVE);
 
     return new DraftEvidence(
       input.taskId,
       input.runId,
-      input.site,
+      input.runContext,
       steps,
       input.steps.length - steps.length,
       [...revisited, ...unread],
       changed.map(({ each }) => each),
       new Set(changed.map(({ key }) => key)),
-      standing,
+      active,
       input.fromOutside,
     );
   }
@@ -173,7 +174,7 @@ export class DraftEvidence {
     proposed: ProposedMemory,
     now: Date,
   ): MemoryProposal {
-    const grounds = MemoryGrounds.of({
+    const provenance = MemoryProvenance.of({
       taskId: this.taskId,
       runId: this.runId,
       steps: proposed.steps,
@@ -181,7 +182,7 @@ export class DraftEvidence {
     });
 
     if (
-      !grounds.steps.every((index) =>
+      !provenance.steps.every((index) =>
         this.steps.some((each) => each.index === index),
       )
     ) {
@@ -190,7 +191,7 @@ export class DraftEvidence {
       );
     }
 
-    if (!grounds.notes.every((position) => this.speakerOf(position))) {
+    if (!provenance.notes.every((position) => this.authorOf(position))) {
       throw new InvalidMemoryError('cites only notes its drafter read');
     }
 
@@ -198,13 +199,8 @@ export class DraftEvidence {
       ? MemoryId.of(proposed.supersedes.trim())
       : null;
 
-    if (
-      supersedes &&
-      !this.standing.some((each) => each.id.equals(supersedes))
-    ) {
-      throw new InvalidMemoryError(
-        'supersedes only a memory standing in scope',
-      );
+    if (supersedes && !this.active.some((each) => each.id.equals(supersedes))) {
+      throw new InvalidMemoryError('supersedes only an active memory in scope');
     }
 
     return MemoryProposal.of({
@@ -212,23 +208,23 @@ export class DraftEvidence {
       kind: parseMemoryKind(proposed.kind),
       body: MemoryBody.of(proposed.body),
       scope: this.scopeOf(proposed),
-      grounds,
-      source: this.sourceOf(grounds),
-      origin: 'drafted',
+      provenance,
+      source: this.sourceOf(provenance),
+      proposedBy: 'drafter',
       supersedes,
       recordedAt: now,
     });
   }
 
-  private speakerOf(position: number): NoteSpeaker | null {
+  private authorOf(position: number): AuthorKind | null {
     return this.notes.find((each) => each.position === position)?.by ?? null;
   }
 
   private scopeOf(proposed: ProposedMemory): MemoryScope {
-    const reach = parseMemoryReach(proposed.reach);
+    const level = parseMemoryScopeLevel(proposed.scope);
     const named = proposed.repository?.trim() || null;
     const repository = named
-      ? this.site.repositories.find((each) => each.value === named)
+      ? this.runContext.repositories.find((each) => each.value === named)
       : null;
 
     if (named && !repository) {
@@ -244,25 +240,25 @@ export class DraftEvidence {
         this.changedKeys.has(changeKey(repository.value, each)),
       )
     ) {
-      throw new InvalidMemoryError('bears only on paths its run changed');
+      throw new InvalidMemoryError('is only about paths its run changed');
     }
 
     return MemoryScope.of({
-      teamId: this.site.teamId,
-      lineId: reach === 'team' ? null : this.site.lineId,
-      stationId: reach === 'station' ? this.site.stationId : null,
+      teamId: this.runContext.teamId,
+      lineId: level === 'team' ? null : this.runContext.lineId,
+      stationId: level === 'station' ? this.runContext.stationId : null,
       repository,
       paths,
     });
   }
 
-  private sourceOf(grounds: MemoryGrounds): MemorySource {
-    const speakers = grounds.notes.map((each) => this.speakerOf(each));
+  private sourceOf(provenance: MemoryProvenance): MemorySource {
+    const authors = provenance.notes.map((each) => this.authorOf(each));
 
-    if (this.fromOutside || speakers.includes('world')) {
+    if (this.fromOutside || authors.includes('world')) {
       return 'outside';
     }
 
-    return grounds.onlyNotes ? 'person' : 'run';
+    return provenance.onlyNotes ? 'person' : 'run';
   }
 }

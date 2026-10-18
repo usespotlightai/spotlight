@@ -1,16 +1,16 @@
 import { randomUUID } from 'node:crypto';
+import { StationAlertStateVersionConflictError } from '@insights/domain/exceptions/station-alert-state-version-conflict.error';
+import { AlertId } from '@insights/domain/value-objects/alert-id.vo';
+import { DrizzleStationAlertStateRepository } from '@insights/infrastructure/persistence/drizzle/repositories/station-alert-state.repository';
 import type { INestApplication } from '@nestjs/common';
-import { StationWatchVersionConflictError } from '@outcomes/domain/exceptions/station-watch-version-conflict.error';
-import { AlertId } from '@outcomes/domain/value-objects/alert-id.vo';
-import { DrizzleStationWatchRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/station-watch.repository';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
-  LINE_REDEFINED,
-  type LineRedefinedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/line-redefined.integration-event';
+  LINE_CHANGED,
+  type LineChangedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/line-changed.integration-event';
 import {
   RUN_ENDED,
   type RunEndedIntegrationEvent,
@@ -29,13 +29,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const SPEC = {
   command: { executable: 'sh', args: [] },
   briefing: 'do the thing',
   handover: { options: [], noteLimit: 0 },
-  continuity: { key: 'task:station' },
+  resume: { key: 'task:station' },
 };
 
 const MINUTE = 60_000;
@@ -46,21 +46,21 @@ const ago = (minutes: number) => new Date(NOW - minutes * MINUTE);
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
-let elsewhere: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
+let elsewhere: Awaited<ReturnType<typeof createTeam>>;
 
-const asideOf = async (taskId: string) => {
-  const [aside] = await db
+const inboxRequestOf = async (taskId: string) => {
+  const [inboxRequest] = await db
     .select()
-    .from(schema.taskAside)
+    .from(schema.inboxRequest)
     .where(
       and(
-        eq(schema.taskAside.taskId, taskId),
-        eq(schema.taskAside.form, 'alert'),
+        eq(schema.inboxRequest.taskId, taskId),
+        eq(schema.inboxRequest.form, 'alert'),
       ),
     );
 
-  return aside ?? null;
+  return inboxRequest ?? null;
 };
 
 const ranAndEnded = async (minutesAgo: number) => {
@@ -113,7 +113,7 @@ const ranAndEnded = async (minutesAgo: number) => {
 
 const actedOn = async (
   runId: string,
-  act: 'sent-back' | 'closed',
+  act: 'sent-back' | 'accepted',
   minutesAgo: number,
 ) => {
   const acted: TaskActedOnIntegrationEvent = {
@@ -121,9 +121,9 @@ const actedOn = async (
     taskId: team.list.id.value,
     workspaceId: team.workspaceId.value,
     stationId: team.stationId.value,
-    act,
+    action: act,
     by: team.owner.value,
-    after: runId,
+    afterRunId: runId,
     at: ago(minutesAgo).toISOString(),
     tool: null,
     server: null,
@@ -132,7 +132,7 @@ const actedOn = async (
   await app.get(EventOutbox).record([acted as never]);
 };
 
-const settled = async <T>(read: () => Promise<T | null | undefined>) =>
+const eventuallyFound = async <T>(read: () => Promise<T | null | undefined>) =>
   eventually(async () => {
     await app.get(EventDelivery).drain(2_000);
     return read();
@@ -148,8 +148,8 @@ beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
   const tasks = app.get(DrizzleTaskRepository);
-  team = await openTeam(db, tasks, `alerts-${randomUUID().slice(0, 8)}`);
-  elsewhere = await openTeam(
+  team = await createTeam(db, tasks, `alerts-${randomUUID().slice(0, 8)}`);
+  elsewhere = await createTeam(
     db,
     tasks,
     `elsewhere-${randomUUID().slice(0, 8)}`,
@@ -177,23 +177,27 @@ afterAll(async () => {
 });
 
 describe('a station alert (e2e)', () => {
-  it('raises an inbox aside on the task whose run crossed the station’s threshold once a person answered it, and shows it', async () => {
+  it('creates an inbox request on the task whose run crossed the station’s threshold once a person answered it, and shows it', async () => {
     const runId = await ranAndEnded(10);
-    await settled(async () => {
+    await eventuallyFound(async () => {
       const [record] = await db
         .select()
         .from(schema.runRecord)
         .where(eq(schema.runRecord.runId, runId));
       return record?.endedAt;
     });
-    expect(await asideOf(team.list.id.value)).toBeNull();
+    expect(await inboxRequestOf(team.list.id.value)).toBeNull();
 
     await actedOn(runId, 'sent-back', 9);
 
-    const aside = await settled(() => asideOf(team.list.id.value));
+    const inboxRequest = await eventuallyFound(() =>
+      inboxRequestOf(team.list.id.value),
+    );
 
     const answer = await served(app)
-      .get(`/api/teams/${team.teamId.value}/insights/alerts/${aside.about}`)
+      .get(
+        `/api/teams/${team.teamId.value}/insights/alerts/${inboxRequest.about}`,
+      )
       .set(TEST_USER_HEADER, team.owner.value);
 
     expect(answer.status).toBe(200);
@@ -203,8 +207,8 @@ describe('a station alert (e2e)', () => {
       taskId: team.list.id.value,
       value: 0,
       baseline: null,
-      threshold: { measure: 'accepted_rate', below: 0.5, over: 1 },
-      recoveredAt: null,
+      rule: { measure: 'accepted_rate', below: 0.5, over: 1 },
+      resolvedAt: null,
     });
     expect(answer.body.series).toEqual([
       expect.objectContaining({ runId, value: 0 }),
@@ -216,16 +220,19 @@ describe('a station alert (e2e)', () => {
 
     expect(inbox.status).toBe(200);
     expect(
-      (inbox.body as { aside: { form: string; about: string } | null }[]).some(
+      (
+        inbox.body as { inboxRequest: { form: string; about: string } | null }[]
+      ).some(
         (each) =>
-          each.aside?.form === 'alert' && each.aside.about === aside.about,
+          each.inboxRequest?.form === 'alert' &&
+          each.inboxRequest.about === inboxRequest.about,
       ),
     ).toBe(true);
   });
 
-  it('raises no second aside while the station stays past the threshold, nor on a run nobody answered yet', async () => {
+  it('creates no second inbox request while the station stays past the threshold, nor on a run nobody answered yet', async () => {
     const runId = await ranAndEnded(5);
-    await settled(async () => {
+    await eventuallyFound(async () => {
       const [record] = await db
         .select()
         .from(schema.runRecord)
@@ -235,49 +242,49 @@ describe('a station alert (e2e)', () => {
     await app.get(EventDelivery).drain(2_000);
     await app.get(EventDelivery).drain(2_000);
 
-    const asides = await db
+    const inboxRequests = await db
       .select()
-      .from(schema.taskAside)
-      .where(eq(schema.taskAside.form, 'alert'));
+      .from(schema.inboxRequest)
+      .where(eq(schema.inboxRequest.form, 'alert'));
     const alerts = await alertsAtStation();
 
     expect(
-      asides.filter((each) => each.taskId === team.list.id.value),
+      inboxRequests.filter((each) => each.taskId === team.list.id.value),
     ).toHaveLength(1);
     expect(alerts).toHaveLength(1);
-    expect(alerts[0]?.recoveredAt).toBeNull();
+    expect(alerts[0]?.resolvedAt).toBeNull();
   });
 
-  it('recovers once a person accepts the run that ended unanswered', async () => {
+  it('resolves once a person accepts the run that ended unanswered', async () => {
     const [unanswered] = await db
       .select()
       .from(schema.runRecord)
       .where(
         and(
           eq(schema.runRecord.stationId, team.stationId.value),
-          isNull(schema.runRecord.nextAct),
+          isNull(schema.runRecord.firstHumanAction),
         ),
       );
 
-    await actedOn(unanswered?.runId as string, 'closed', 4);
+    await actedOn(unanswered?.runId as string, 'accepted', 4);
 
-    const [recovered] = await settled(async () => {
+    const [recovered] = await eventuallyFound(async () => {
       const alerts = await alertsAtStation();
-      return alerts[0]?.recoveredAt ? alerts : null;
+      return alerts[0]?.resolvedAt ? alerts : null;
     });
 
-    expect(recovered?.recoveredAt).not.toBeNull();
+    expect(recovered?.resolvedAt).not.toBeNull();
   });
 
-  it('settles the aside on recovering, and reopens the same alert and aside when the station crosses again soon after', async () => {
+  it('resolves the inbox request when the alert resolves, and reopens the same alert and inbox request when the station crosses again soon after', async () => {
     const [recovered] = await alertsAtStation();
-    const settledAside = await settled(async () => {
-      const aside = await asideOf(team.list.id.value);
-      return aside?.settledAt ? aside : null;
+    const resolvedRequest = await eventuallyFound(async () => {
+      const inboxRequest = await inboxRequestOf(team.list.id.value);
+      return inboxRequest?.resolvedAt ? inboxRequest : null;
     });
 
     const runId = await ranAndEnded(3);
-    await settled(async () => {
+    await eventuallyFound(async () => {
       const [record] = await db
         .select()
         .from(schema.runRecord)
@@ -286,40 +293,40 @@ describe('a station alert (e2e)', () => {
     });
     await actedOn(runId, 'sent-back', 2);
 
-    const [reopened] = await settled(async () => {
+    const [reopened] = await eventuallyFound(async () => {
       const alerts = await alertsAtStation();
-      return alerts[0]?.recoveredAt === null ? alerts : null;
+      return alerts[0]?.resolvedAt === null ? alerts : null;
     });
-    const aside = await settled(async () => {
-      const held = await asideOf(team.list.id.value);
-      return held && held.settledAt === null ? held : null;
+    const inboxRequest = await eventuallyFound(async () => {
+      const found = await inboxRequestOf(team.list.id.value);
+      return found && found.resolvedAt === null ? found : null;
     });
 
     expect(await alertsAtStation()).toHaveLength(1);
     expect(reopened?.id).toBe(recovered?.id);
-    expect(aside.id).toBe(settledAside.id);
+    expect(inboxRequest.id).toBe(resolvedRequest.id);
   });
 
-  it('recovers at once when the line no longer sets the threshold', async () => {
+  it('resolves at once when the line no longer sets the threshold', async () => {
     await db
       .update(schema.station)
       .set({ alerts: [] })
       .where(eq(schema.station.id, team.stationId.value));
-    const redefined: LineRedefinedIntegrationEvent = {
-      kind: LINE_REDEFINED,
+    const updated: LineChangedIntegrationEvent = {
+      kind: LINE_CHANGED,
       lineId: team.line.id.value,
       workspaceId: team.workspaceId.value,
       teamId: team.teamId.value,
       stationIds: [team.stationId.value],
     };
-    await app.get(EventOutbox).record([redefined as never]);
+    await app.get(EventOutbox).record([updated as never]);
 
-    const [recovered] = await settled(async () => {
+    const [recovered] = await eventuallyFound(async () => {
       const alerts = await alertsAtStation();
-      return alerts[0]?.recoveredAt ? alerts : null;
+      return alerts[0]?.resolvedAt ? alerts : null;
     });
 
-    expect(recovered?.recoveredAt).not.toBeNull();
+    expect(recovered?.resolvedAt).not.toBeNull();
   });
 
   it('finds no alert for another team', async () => {
@@ -335,14 +342,14 @@ describe('a station alert (e2e)', () => {
     expect(answer.status).toBe(404);
   });
 
-  it('forgets a deleted task’s alerts through the station’s watch, so a check read before the forgetting cannot write them back', async () => {
-    const watches = app.get(DrizzleStationWatchRepository);
+  it('deletes the alerts of a deleted task through the station’s alert state, so a check read before the deletion cannot write them back', async () => {
+    const alertStates = app.get(DrizzleStationAlertStateRepository);
     const [alert] = await alertsAtStation();
-    const stale = await watches.raising(AlertId.of(alert?.id as string));
+    const stale = await alertStates.ofAlert(AlertId.of(alert?.id as string));
     const [before] = await db
       .select()
-      .from(schema.stationWatch)
-      .where(eq(schema.stationWatch.stationId, team.stationId.value));
+      .from(schema.stationAlertState)
+      .where(eq(schema.stationAlertState.stationId, team.stationId.value));
 
     const deleted: TaskDeletedIntegrationEvent = {
       kind: TASK_DELETED,
@@ -351,20 +358,20 @@ describe('a station alert (e2e)', () => {
     };
     await app.get(EventOutbox).record([deleted as never]);
 
-    await settled(async () =>
+    await eventuallyFound(async () =>
       (await alertsAtStation()).length === 0 ? true : null,
     );
     const [after] = await db
       .select()
-      .from(schema.stationWatch)
-      .where(eq(schema.stationWatch.stationId, team.stationId.value));
+      .from(schema.stationAlertState)
+      .where(eq(schema.stationAlertState.stationId, team.stationId.value));
 
     expect(after?.version).toBeGreaterThan(before?.version ?? 0);
     await expect(
-      watches.save(
+      alertStates.save(
         stale?.check([], new Date(), () => AlertId.of(randomUUID())) as never,
       ),
-    ).rejects.toBeInstanceOf(StationWatchVersionConflictError);
+    ).rejects.toBeInstanceOf(StationAlertStateVersionConflictError);
     expect(await alertsAtStation()).toEqual([]);
   });
 });

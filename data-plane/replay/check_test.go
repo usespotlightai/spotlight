@@ -53,7 +53,7 @@ func TestReadPlanChecksOnlyTheLiveStationsAnUpdateChanges(t *testing.T) {
 	if polish.Key != "polish" || !polish.Undecided || !strings.Contains(polish.Because, "removes ship and adds this station") {
 		t.Fatalf("polish = %+v, want undecided as a station perhaps renamed", polish)
 	}
-	if build.Key != "build" || build.LineID != deliveryLine || build.TeamID != coreTeam || build.Address != "core/delivery/build" || build.Undecided {
+	if build.Key != "build" || build.LineID != deliveryLine || build.TeamID != coreTeam || build.Path != "core/delivery/build" || build.Undecided {
 		t.Fatalf("build = %+v", build)
 	}
 	if review.Key != "review" || !review.Undecided || !strings.Contains(review.Because, "knows its prompt only after apply") {
@@ -93,7 +93,7 @@ func TestReadPlanSendsTheStationAsTheProviderWouldApplyIt(t *testing.T) {
 		"runners":  []any{},
 		"passesTo": []any{"review"},
 		"ends":     false,
-		"judge":    map[string]any{"rubric": "scores: yes-no\nDid it drain the queue?", "sample": 0.5, "trust": 0.6},
+		"judge":    map[string]any{"rubric": "scores: yes-no\nDid it drain the queue?", "sample": 0.5, "minAgreement": 0.6},
 		"alerts":   []any{map[string]any{"measure": "sent_back_rate", "risesBy": 0.2, "over": float64(20)}},
 	}
 
@@ -104,7 +104,7 @@ func TestReadPlanSendsTheStationAsTheProviderWouldApplyIt(t *testing.T) {
 	}
 }
 
-func TestReadPlanRefusesTheStreamingLog(t *testing.T) {
+func TestReadPlanRejectsTheStreamingLog(t *testing.T) {
 	stream, err := os.ReadFile(filepath.Join("testdata", "stream.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -116,7 +116,7 @@ func TestReadPlanRefusesTheStreamingLog(t *testing.T) {
 	}
 
 	if _, err := readPlan(strings.NewReader(`{"resources": []}`)); err == nil || !strings.Contains(err.Error(), "terraform show -json") {
-		t.Fatalf("err = %v, want a refusal naming terraform show", err)
+		t.Fatalf("err = %v, want an error naming terraform show", err)
 	}
 }
 
@@ -148,7 +148,7 @@ type checkServer struct {
 	posted    []map[string]any
 	keys      []string
 	tokens    []string
-	verdict   []string
+	result    []string
 	post      func(w http.ResponseWriter) bool
 	reads     int
 	exchanges int
@@ -164,15 +164,15 @@ func (s *checkServer) serve() *httptest.Server {
 
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == exchangePath:
-			var asked map[string]string
-			_ = json.NewDecoder(r.Body).Decode(&asked)
-			if asked["trust"] != "trust_1" || asked["token"] != "oidc-token" {
+			var received map[string]string
+			_ = json.NewDecoder(r.Body).Decode(&received)
+			if received["trust"] != "trust_1" || received["token"] != "oidc-token" {
 				w.WriteHeader(http.StatusUnauthorized)
-				_, _ = io.WriteString(w, `{"statusCode":401,"message":"No such trust, or a workload it does not admit"}`)
+				_, _ = io.WriteString(w, `{"statusCode":401,"message":"No such trust, or a workload it does not match"}`)
 				return
 			}
 			s.exchanges++
-			_, _ = io.WriteString(w, `{"token":"minted","expiresAt":"2026-10-02T10:00:00Z"}`)
+			_, _ = io.WriteString(w, `{"token":"issued","expiresAt":"2026-10-02T10:00:00Z"}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/api/teams/"+coreTeam+"/replay-checks":
 			var body map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&body)
@@ -184,12 +184,12 @@ func (s *checkServer) serve() *httptest.Server {
 			w.WriteHeader(http.StatusCreated)
 			_, _ = io.WriteString(w, checkAnswer("running"))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/teams/"+coreTeam+"/replay-checks/check_1":
-			verdict := "running"
-			if s.reads < len(s.verdict) {
-				verdict = s.verdict[s.reads]
+			result := "running"
+			if s.reads < len(s.result) {
+				result = s.result[s.reads]
 			}
 			s.reads++
-			_, _ = io.WriteString(w, checkAnswer(verdict))
+			_, _ = io.WriteString(w, checkAnswer(result))
 		default:
 			s.t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
@@ -197,20 +197,20 @@ func (s *checkServer) serve() *httptest.Server {
 	}))
 }
 
-func checkAnswer(verdict string) string {
+func checkAnswer(result string) string {
 	regressions := `[]`
-	if verdict == "failed" {
+	if result == "failed" {
 		regressions = `[{"taskId":"task_2","title":"Drain the queue","candidate":["failed"],"baseline":["succeeded"],"scoreDelta":null,"reasons":[{"code":"check-failed","detail":"npm test"}]}]`
 	}
 	undecided := `null`
-	if verdict == "undecided" {
+	if result == "undecided" {
 		undecided = `"too-few-scored"`
 	}
 
-	return `{"id":"check_1","setName":"Queue fixes","replayId":"replay_1","keptLive":["check","judge"],
-  "verdict":"` + verdict + `","undecidedBecause":` + undecided + `,"tasks":3,"compared":3,
+	return `{"id":"check_1","setName":"Queue fixes","replayId":"replay_1","scoringPinnedToLive":["check","judge"],
+  "result":"` + result + `","undecidedBecause":` + undecided + `,"tasks":3,"compared":3,
   "threshold":{"maxRegressions":0,"minGain":0.05,"ceiling":{"amount":10,"currency":"USD"}},
-  "repeats":3,"gain":{"gain":-0.3333,"low":-1,"high":0,"verdict":"within-noise","minGain":0.05,"tasks":3},
+  "repeats":3,"gain":{"gain":-0.3333,"low":-1,"high":0,"significance":"within-noise","minGain":0.05,"tasks":3},
   "candidate":{"state":"finished","entries":9,"scored":9,"succeeded":6,"successRate":0.6667,"interval":{"rate":0.6667,"low":0.3333,"high":1},"tasksScored":3,"spent":{"amount":1.5,"currency":"USD"}},
   "baseline":{"state":"finished","entries":3,"scored":3,"succeeded":3,"successRate":1,"interval":{"rate":1,"low":1,"high":1},"tasksScored":3,"spent":{"amount":1.2,"currency":"USD"}},
   "regressions":` + regressions + `,"replayUrl":"https://app.example.test/w/acme/team/` + coreTeam + `/lines/` + deliveryLine + `/stations/st_build/replays/replay_1"}`
@@ -238,7 +238,7 @@ func runCheck(t *testing.T, env map[string]string, plan []byte, args ...string) 
 }
 
 func TestCheckPassesOnceTheCheckPassesAndSendsNoThreshold(t *testing.T) {
-	s := &checkServer{t: t, verdict: []string{"running", "passed"}}
+	s := &checkServer{t: t, result: []string{"running", "passed"}}
 	server := s.serve()
 	defer server.Close()
 
@@ -287,8 +287,8 @@ func TestCheckPassesOnceTheCheckPassesAndSendsNoThreshold(t *testing.T) {
 	}
 }
 
-func TestCheckReplaysEachRunAsOftenAsAskedAndSaysWhenTheGainIsWithinNoise(t *testing.T) {
-	s := &checkServer{t: t, verdict: []string{"passed"}}
+func TestCheckReplaysEachRunAsOftenAsRequestedAndSaysWhenTheGainIsWithinNoise(t *testing.T) {
+	s := &checkServer{t: t, result: []string{"passed"}}
 	server := s.serve()
 	defer server.Close()
 
@@ -318,13 +318,13 @@ func TestCheckReplaysEachRunAsOftenAsAskedAndSaysWhenTheGainIsWithinNoise(t *tes
 		t.Fatalf("summary:\n%s", written)
 	}
 
-	if bad := runCheck(t, env, planFixture(t), "--repeats", "6"); bad.code != refusedExit || !strings.Contains(bad.errOut, "--repeats") {
+	if bad := runCheck(t, env, planFixture(t), "--repeats", "6"); bad.code != errorExit || !strings.Contains(bad.errOut, "--repeats") {
 		t.Fatalf("--repeats 6 answered %d: %s", bad.code, bad.errOut)
 	}
 }
 
 func TestCheckReusesTheSameKeyForTheSameChange(t *testing.T) {
-	s := &checkServer{t: t, verdict: []string{"passed", "passed"}}
+	s := &checkServer{t: t, result: []string{"passed", "passed"}}
 	server := s.serve()
 	defer server.Close()
 
@@ -338,26 +338,26 @@ func TestCheckReusesTheSameKeyForTheSameChange(t *testing.T) {
 	}
 }
 
-func TestCheckExitsByTheWorstVerdict(t *testing.T) {
+func TestCheckExitsByTheWorstResult(t *testing.T) {
 	onlyBuild := withoutUnknowns(t, planFixture(t))
 
 	for name, tc := range map[string]struct {
-		verdicts []string
+		results  []string
 		post     func(w http.ResponseWriter) bool
 		want     int
-		says     string
+		contains string
 	}{
-		"passed":    {verdicts: []string{"passed"}, want: 0, says: "PASSED"},
-		"failed":    {verdicts: []string{"failed"}, want: regressedExit, says: `REGRESSED task_2 "Drain the queue": failed where the baseline succeeded, check-failed: npm test`},
-		"undecided": {verdicts: []string{"undecided"}, want: undecidedExit, says: "fewer than half the tasks were scored on both sides"},
-		"timed out": {verdicts: nil, want: undecidedExit, says: "still running after 1m0s"},
-		"refused": {
+		"passed":    {results: []string{"passed"}, want: 0, contains: "PASSED"},
+		"failed":    {results: []string{"failed"}, want: regressedExit, contains: `REGRESSED task_2 "Drain the queue": failed where the baseline succeeded, check-failed: npm test`},
+		"undecided": {results: []string{"undecided"}, want: undecidedExit, contains: "fewer than half the tasks were scored on both sides"},
+		"timed out": {results: nil, want: undecidedExit, contains: "still running after 1m0s"},
+		"conflict": {
 			post: func(w http.ResponseWriter) bool {
 				w.WriteHeader(http.StatusConflict)
-				_, _ = io.WriteString(w, `{"type":"urn:spotlight:problem:conflict","status":409,"title":"conflict","detail":"No replay set guards the changes of the station build"}`)
+				_, _ = io.WriteString(w, `{"type":"urn:spotlight:problem:conflict","status":409,"title":"conflict","detail":"No replay set gates the changes of the station build"}`)
 				return true
 			},
-			want: refusedExit, says: "No replay set guards the changes of the station build",
+			want: errorExit, contains: "No replay set gates the changes of the station build",
 		},
 		"invalid": {
 			post: func(w http.ResponseWriter) bool {
@@ -365,7 +365,7 @@ func TestCheckExitsByTheWorstVerdict(t *testing.T) {
 				_, _ = io.WriteString(w, `{"type":"urn:spotlight:problem:invalid","status":422,"title":"The replay check is not valid","errors":[{"path":"station.effort","message":"is low, medium, high, xhigh or max","severity":"error"}]}`)
 				return true
 			},
-			want: refusedExit, says: "station.effort: is low, medium, high, xhigh or max",
+			want: errorExit, contains: "station.effort: is low, medium, high, xhigh or max",
 		},
 		"nothing to replay": {
 			post: func(w http.ResponseWriter) bool {
@@ -373,16 +373,16 @@ func TestCheckExitsByTheWorstVerdict(t *testing.T) {
 				_, _ = io.WriteString(w, `{"type":"urn:spotlight:problem:nothing-to-replay","status":409,"detail":"The plan changes only check of the station"}`)
 				return true
 			},
-			want: 0, says: "UNCHANGED",
+			want: 0, contains: "UNCHANGED",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			s := &checkServer{t: t, verdict: tc.verdicts, post: tc.post}
+			s := &checkServer{t: t, result: tc.results, post: tc.post}
 			server := s.serve()
 			defer server.Close()
 
 			got := runCheck(t, map[string]string{urlVar: server.URL, tokenVar: token}, onlyBuild, "--timeout", "1m")
-			if got.code != tc.want || !strings.Contains(got.out, tc.says) {
+			if got.code != tc.want || !strings.Contains(got.out, tc.contains) {
 				t.Fatalf("code = %d, want %d; output:\n%s%s", got.code, tc.want, got.out, got.errOut)
 			}
 		})
@@ -390,7 +390,7 @@ func TestCheckExitsByTheWorstVerdict(t *testing.T) {
 }
 
 func TestCheckAnswersInJSON(t *testing.T) {
-	s := &checkServer{t: t, verdict: []string{"failed"}}
+	s := &checkServer{t: t, result: []string{"failed"}}
 	server := s.serve()
 	defer server.Close()
 
@@ -419,7 +419,7 @@ func TestCheckAnswersInJSON(t *testing.T) {
 }
 
 func TestCheckExchangesTheJobsOIDCTokenThroughATrust(t *testing.T) {
-	s := &checkServer{t: t, verdict: []string{"passed"}}
+	s := &checkServer{t: t, result: []string{"passed"}}
 	server := s.serve()
 	defer server.Close()
 
@@ -427,13 +427,13 @@ func TestCheckExchangesTheJobsOIDCTokenThroughATrust(t *testing.T) {
 	if got.code != 0 {
 		t.Fatalf("code = %d\n%s%s", got.code, got.out, got.errOut)
 	}
-	if s.tokens[1] != "Bearer minted" {
+	if s.tokens[1] != "Bearer issued" {
 		t.Fatalf("tokens = %v", s.tokens)
 	}
 
-	refused := runCheck(t, map[string]string{urlVar: server.URL, trustVar: "trust_1", oidcTokenVar: "forged"}, withoutUnknowns(t, planFixture(t)))
-	if refused.code != refusedExit || !strings.Contains(refused.out, "did not admit the OIDC token: No such trust, or a workload it does not admit") || strings.Contains(refused.out, "statusCode") {
-		t.Fatalf("code = %d\n%s%s", refused.code, refused.out, refused.errOut)
+	untrusted := runCheck(t, map[string]string{urlVar: server.URL, trustVar: "trust_1", oidcTokenVar: "forged"}, withoutUnknowns(t, planFixture(t)))
+	if untrusted.code != errorExit || !strings.Contains(untrusted.out, "did not accept the OIDC token: No such trust, or a workload it does not match") || strings.Contains(untrusted.out, "statusCode") {
+		t.Fatalf("code = %d\n%s%s", untrusted.code, untrusted.out, untrusted.errOut)
 	}
 }
 
@@ -445,10 +445,10 @@ func TestCheckNeedsNoSpotlightWhenNothingIsChecked(t *testing.T) {
 	}
 }
 
-func TestCheckRefusesWithoutCredentials(t *testing.T) {
+func TestCheckRejectsWithoutCredentials(t *testing.T) {
 	got := runCheck(t, map[string]string{urlVar: "http://127.0.0.1:9"}, withoutUnknowns(t, planFixture(t)))
 
-	if got.code != refusedExit || !strings.Contains(got.errOut, tokenVar) || !strings.Contains(got.errOut, trustVar) {
+	if got.code != errorExit || !strings.Contains(got.errOut, tokenVar) || !strings.Contains(got.errOut, trustVar) {
 		t.Fatalf("code = %d\n%s", got.code, got.errOut)
 	}
 }
@@ -459,11 +459,11 @@ func withoutUnknowns(t *testing.T, plan []byte) []byte {
 	var shown map[string]any
 	_ = json.Unmarshal(plan, &shown)
 
-	kept := []any{}
+	remaining := []any{}
 	for _, each := range shown["resource_changes"].([]any) {
 		change := each.(map[string]any)
 		if change["address"] != "spotlight_line.delivery" {
-			kept = append(kept, change)
+			remaining = append(remaining, change)
 			continue
 		}
 
@@ -472,24 +472,24 @@ func withoutUnknowns(t *testing.T, plan []byte) []byte {
 		unknowns := inner["after_unknown"].(map[string]any)
 		stations, unknownStations := []any{}, []any{}
 		for at, station := range after["station"].([]any) {
-			held := station.(map[string]any)
-			if held["key"] == "polish" {
+			values := station.(map[string]any)
+			if values["key"] == "polish" {
 				continue
 			}
-			if held["key"] == "review" {
-				held["prompt"] = "Review."
-				held["passes_to"] = []any{"completed"}
+			if values["key"] == "review" {
+				values["prompt"] = "Review."
+				values["passes_to"] = []any{"completed"}
 			}
 			unknown := unknowns["station"].([]any)[at].(map[string]any)
 			delete(unknown, "prompt")
-			stations = append(stations, held)
+			stations = append(stations, values)
 			unknownStations = append(unknownStations, unknown)
 		}
 		after["station"] = stations
 		unknowns["station"] = unknownStations
-		kept = append(kept, change)
+		remaining = append(remaining, change)
 	}
-	shown["resource_changes"] = kept
+	shown["resource_changes"] = remaining
 
 	written, _ := json.Marshal(shown)
 	return written
@@ -580,7 +580,7 @@ func TestReadPlanLeavesUndecidedAStationWhoseSkillOrProfileThePlanChanges(t *tes
 		t.Fatalf("stations = %+v", stations)
 	}
 
-	s := &checkServer{t: t, verdict: []string{"passed"}}
+	s := &checkServer{t: t, result: []string{"passed"}}
 	server := s.serve()
 	defer server.Close()
 	if got := runCheck(t, map[string]string{urlVar: server.URL, tokenVar: token}, plan); got.code != undecidedExit {
@@ -636,7 +636,7 @@ func TestReadPlanCountsDecisionsLeftOutAsChangedWhenTheyWereOn(t *testing.T) {
 
 func TestCheckRetriesTheStartWithTheSameKeyUntilSpotlightAnswers(t *testing.T) {
 	failures := 0
-	s := &checkServer{t: t, verdict: []string{"passed"}, post: func(w http.ResponseWriter) bool {
+	s := &checkServer{t: t, result: []string{"passed"}, post: func(w http.ResponseWriter) bool {
 		if failures < 2 {
 			failures++
 			w.WriteHeader(http.StatusServiceUnavailable)
@@ -654,12 +654,12 @@ func TestCheckRetriesTheStartWithTheSameKeyUntilSpotlightAnswers(t *testing.T) {
 }
 
 func TestCheckRenewsAnExchangedTokenBeforeItExpires(t *testing.T) {
-	verdicts := make([]string, 300)
-	for at := range verdicts {
-		verdicts[at] = "running"
+	results := make([]string, 300)
+	for at := range results {
+		results[at] = "running"
 	}
-	verdicts[len(verdicts)-1] = "passed"
-	s := &checkServer{t: t, verdict: verdicts}
+	results[len(results)-1] = "passed"
+	s := &checkServer{t: t, result: results}
 	server := s.serve()
 	defer server.Close()
 
@@ -721,19 +721,19 @@ func TestReadPlanLeavesUndecidedStationsWhoseIntegrationsHooksOrSecretsThePlanCh
 	for name, tc := range map[string]struct {
 		resource map[string]any
 		want     string
-		says     string
+		contains string
 	}{
 		"an integration a station's tools come from": {
-			resource: catalogResource("spotlight_integration.core_linear", "spotlight_integration", map[string]any{"team_id": coreTeam, "source": "linear"}),
-			want:     "review", says: "integration spotlight_integration.core_linear",
+			resource: catalogResource("spotlight_integration.core_linear", "spotlight_integration", map[string]any{"team_id": coreTeam, "integration": "linear"}),
+			want:     "review", contains: "integration spotlight_integration.core_linear",
 		},
 		"an integration of another team": {
-			resource: catalogResource("spotlight_integration.other_linear", "spotlight_integration", map[string]any{"team_id": "another-team", "source": "linear"}),
+			resource: catalogResource("spotlight_integration.other_linear", "spotlight_integration", map[string]any{"team_id": "another-team", "integration": "linear"}),
 			want:     "",
 		},
 		"a hook matching one station": {
 			resource: catalogResource("spotlight_hook.core_notify", "spotlight_hook", map[string]any{"team_id": coreTeam, "key": "notify", "match": map[string]any{"stations": []any{"build"}}}),
-			want:     "build", says: "hook spotlight_hook.core_notify",
+			want:     "build", contains: "hook spotlight_hook.core_notify",
 		},
 		"a hook matching every station": {
 			resource: catalogResource("spotlight_hook.core_audit", "spotlight_hook", map[string]any{"team_id": coreTeam, "key": "audit", "match": map[string]any{}}),
@@ -741,7 +741,7 @@ func TestReadPlanLeavesUndecidedStationsWhoseIntegrationsHooksOrSecretsThePlanCh
 		},
 		"a secret, which any station may use": {
 			resource: catalogResource("spotlight_secret.linear_key", "spotlight_secret", map[string]any{"workspace_id": "ws", "name": "LINEAR_KEY"}),
-			want:     "build,review", says: "secret spotlight_secret.linear_key",
+			want:     "build,review", contains: "secret spotlight_secret.linear_key",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -754,7 +754,7 @@ func TestReadPlanLeavesUndecidedStationsWhoseIntegrationsHooksOrSecretsThePlanCh
 				t.Fatalf("undecided = %q, want %q: %+v", got, tc.want, stations)
 			}
 			for _, each := range stations {
-				if each.Undecided && tc.says != "" && !strings.Contains(each.Because, tc.says) {
+				if each.Undecided && tc.contains != "" && !strings.Contains(each.Because, tc.contains) {
 					t.Fatalf("%s: %s", each.Key, each.Because)
 				}
 			}
@@ -781,13 +781,13 @@ func TestReadPlanLeavesUndecidedTheWorkStationsOfAReplacedLine(t *testing.T) {
 	}
 
 	got := runCheck(t, map[string]string{}, mutated(t, plan, func(changes []any) []any {
-		kept := []any{}
+		remaining := []any{}
 		for _, each := range changes {
 			if each.(map[string]any)["address"] != "spotlight_line.delivery" {
-				kept = append(kept, each)
+				remaining = append(remaining, each)
 			}
 		}
-		return kept
+		return remaining
 	}))
 	if got.code != undecidedExit {
 		t.Fatalf("code = %d\n%s%s", got.code, got.out, got.errOut)
@@ -795,7 +795,7 @@ func TestReadPlanLeavesUndecidedTheWorkStationsOfAReplacedLine(t *testing.T) {
 }
 
 func TestUndecidedSaysWhyThereIsNoBaseline(t *testing.T) {
-	if !strings.Contains(undecidedSays("no-baseline"), "none can come") {
-		t.Fatal(undecidedSays("no-baseline"))
+	if !strings.Contains(describeUndecided("no-baseline"), "none can come") {
+		t.Fatal(describeUndecided("no-baseline"))
 	}
 }

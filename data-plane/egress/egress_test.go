@@ -12,122 +12,122 @@ import (
 	"testing"
 	"time"
 
+	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/protocol"
-	"usespotlight.ai/data-plane/reach"
 )
 
-type redeemer struct {
+type fakeFetcher struct {
 	answers []error
-	asked   int
+	calls   int
 }
 
-func (r *redeemer) RedeemEgress(context.Context, string) (protocol.EgressRedemption, error) {
-	r.asked++
+func (r *fakeFetcher) FetchRunSecrets(context.Context, string) (protocol.EgressSecrets, error) {
+	r.calls++
 	if len(r.answers) > 0 {
 		answer := r.answers[0]
 		r.answers = r.answers[1:]
 		if answer != nil {
-			return protocol.EgressRedemption{}, answer
+			return protocol.EgressSecrets{}, answer
 		}
 	}
-	return protocol.EgressRedemption{RunID: "run_1"}, nil
+	return protocol.EgressSecrets{RunID: "run_1"}, nil
 }
 
 var quiet = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 func TestTriesAgainWhileTheControlPlaneCannotAnswer(t *testing.T) {
-	asked := &redeemer{answers: []error{
+	fetcher := &fakeFetcher{answers: []error{
 		errors.New("connection refused"),
-		&control.Rejection{Status: http.StatusBadGateway, Err: errors.New("bad gateway")},
+		&control.ResponseError{Status: http.StatusBadGateway, Err: errors.New("bad gateway")},
 	}}
 
-	if redeemed := redeemedBy(context.Background(), asked, "key", quiet); redeemed.RunID != "run_1" || asked.asked != 3 {
-		t.Errorf("redeemed %+v after %d asks", redeemed, asked.asked)
+	if fetched := fetchedBy(context.Background(), fetcher, "key", quiet); fetched.RunID != "run_1" || fetcher.calls != 3 {
+		t.Errorf("fetched %+v after %d calls", fetched, fetcher.calls)
 	}
 }
 
-func TestGoesOutWearingNothingWhenTheControlPlaneRefuses(t *testing.T) {
-	asked := &redeemer{answers: []error{&control.Rejection{Status: http.StatusUnauthorized, Err: control.ErrRefused}}}
+func TestGoesOutInjectingNothingWhenTheControlPlaneDoesNotAccept(t *testing.T) {
+	fetcher := &fakeFetcher{answers: []error{&control.ResponseError{Status: http.StatusUnauthorized, Err: control.ErrUnauthorized}}}
 
-	if redeemed := redeemedBy(context.Background(), asked, "key", quiet); redeemed.RunID != "" || asked.asked != 1 {
-		t.Errorf("redeemed %+v after %d asks", redeemed, asked.asked)
+	if fetched := fetchedBy(context.Background(), fetcher, "key", quiet); fetched.RunID != "" || fetcher.calls != 1 {
+		t.Errorf("fetched %+v after %d calls", fetched, fetcher.calls)
 	}
 }
 
-func TestReadsWhatTheHostHandedItOnceAndLeavesNoCopy(t *testing.T) {
+func TestReadsItsConfigOnceAndLeavesNoCopy(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "egress.json")
-	if err := os.WriteFile(path, []byte(`{"url":"http://control-plane:3000","token":"egress-token","credential":"proxy","allow":["api.example.com"],"reads":["sentry-*"]}`), 0o400); err != nil {
+	if err := os.WriteFile(path, []byte(`{"url":"http://control-plane:3000","token":"egress-token","credential":"proxy","allow":["api.example.com"],"secretAllow":["sentry-*"]}`), 0o400); err != nil {
 		t.Fatal(err)
 	}
 
-	handed, err := handedTo(path)
-	if err != nil || handed.Token != "egress-token" || handed.URL != "http://control-plane:3000" ||
-		handed.Credential != "proxy" || len(handed.Allow) != 1 || len(handed.Reads) != 1 {
-		t.Fatalf("handed %+v: %v", handed, err)
+	config, err := readConfig(path)
+	if err != nil || config.Token != "egress-token" || config.URL != "http://control-plane:3000" ||
+		config.Credential != "proxy" || len(config.Allow) != 1 || len(config.SecretAllow) != 1 {
+		t.Fatalf("config %+v: %v", config, err)
 	}
 	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("the handed file is still there: %v", err)
+		t.Errorf("the config file is still there: %v", err)
 	}
 }
 
-func TestRefusesAHandingWithNoControlPlaneOrProxyCredential(t *testing.T) {
-	for _, handed := range []string{
+func TestRejectsAConfigWithNoControlPlaneOrProxyCredential(t *testing.T) {
+	for _, config := range []string{
 		`{"credential":"proxy"}`,
 		`{"url":"http://control-plane:3000","token":"egress-token"}`,
 	} {
 		path := filepath.Join(t.TempDir(), "egress.json")
-		if err := os.WriteFile(path, []byte(handed), 0o400); err != nil {
+		if err := os.WriteFile(path, []byte(config), 0o400); err != nil {
 			t.Fatal(err)
 		}
 
-		if _, err := handedTo(path); err == nil {
-			t.Errorf("took %s", handed)
+		if _, err := readConfig(path); err == nil {
+			t.Errorf("accepted %s", config)
 		}
 	}
 }
 
-func TestRedeemsNothingWithoutAToken(t *testing.T) {
+func TestFetchesNothingWithoutAToken(t *testing.T) {
 	connected := false
-	redeemed, err := redemptionFor(context.Background(), protocol.EgressHanded{URL: "http://control-plane:3000"}, "key",
-		func(string, string) (Redeemer, error) {
+	fetched, err := fetchSecretsFor(context.Background(), protocol.EgressConfig{URL: "http://control-plane:3000"}, "key",
+		func(string, string) (SecretFetcher, error) {
 			connected = true
-			return &redeemer{}, nil
+			return &fakeFetcher{}, nil
 		}, quiet)
 
-	if err != nil || connected || redeemed.RunID != "" {
-		t.Errorf("redeemed %+v (connected %v): %v", redeemed, connected, err)
+	if err != nil || connected || fetched.RunID != "" {
+		t.Errorf("fetched %+v (connected %v): %v", fetched, connected, err)
 	}
 }
 
-func TestReachesTheControlPlaneAndItsStorageButNoHostASecretIsBoundTo(t *testing.T) {
-	listed, err := reach.Parse([]string{"api.anthropic.com"})
+func TestAllowsTheControlPlaneAndItsStorageButNoHostASecretIsBoundTo(t *testing.T) {
+	listed, err := allowlist.Parse([]string{"api.anthropic.com"})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	reached := reachedBy(listed, "control-plane", protocol.EgressRedemption{
-		Reaches: []string{"storage"},
-		Secrets: []protocol.RedeemedSecret{{Secret: "PRIVATE", Host: "private-api.acme.internal"}},
+	allowed := withRunHosts(listed, "control-plane", protocol.EgressSecrets{
+		ExtraAllowedHosts: []string{"storage"},
+		Secrets:           []protocol.FetchedSecret{{Secret: "PRIVATE", Host: "private-api.acme.internal"}},
 	})
 
 	for host, want := range map[string]bool{
 		"control-plane": true, "storage": true, "api.anthropic.com": true, "private-api.acme.internal": false,
 	} {
-		if reached.Names(host) != want {
+		if allowed.ExplicitlyListed(host) != want {
 			t.Errorf("%s named: %v", host, !want)
 		}
 	}
 }
 
-type sender protocol.HostCallAnswer
+type sender protocol.HostCallResponse
 
-func (s sender) Send(context.Context, protocol.HostCall) protocol.HostCallAnswer {
-	return protocol.HostCallAnswer(s)
+func (s sender) Send(context.Context, protocol.HostCall) protocol.HostCallResponse {
+	return protocol.HostCallResponse(s)
 }
 
-func TestWritesTheCallsAnswerForTheHostAndWaitsToBeStopped(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "egress", "answer.json")
+func TestWritesTheCallsResponseForTheHostAndWaitsToBeStopped(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "egress", "response.json")
 	ctx, stop := context.WithCancel(context.Background())
 
 	done := make(chan error, 1)
@@ -135,28 +135,28 @@ func TestWritesTheCallsAnswerForTheHostAndWaitsToBeStopped(t *testing.T) {
 		done <- sent(ctx, protocol.HostCall{ID: "call_1"}, sender{Status: 0, Error: "connection refused", Ms: 3}, path, quiet)
 	}()
 
-	var answer protocol.HostCallAnswer
+	var response protocol.HostCallResponse
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		raw, err := os.ReadFile(path)
-		if err == nil && json.Unmarshal(raw, &answer) == nil {
+		if err == nil && json.Unmarshal(raw, &response) == nil {
 			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatal("never wrote the answer")
+			t.Fatal("never wrote the response")
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	if answer.Error != "connection refused" || answer.Ms != 3 {
-		t.Errorf("wrote %+v", answer)
+	if response.Error != "connection refused" || response.Ms != 3 {
+		t.Errorf("wrote %+v", response)
 	}
 	if info, _ := os.Stat(path); info.Mode().Perm() != 0o644 {
-		t.Errorf("wrote the answer as %v", info.Mode())
+		t.Errorf("wrote the response as %v", info.Mode())
 	}
 
 	select {
 	case err := <-done:
-		t.Fatalf("stopped before it was told to: %v", err)
+		t.Fatalf("stopped before a stop was requested: %v", err)
 	case <-time.After(50 * time.Millisecond):
 	}
 

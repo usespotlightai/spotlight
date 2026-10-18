@@ -17,7 +17,7 @@ const TILES: readonly TileBones[] = [
   { label: 'Merge rate', delta: true },
   { label: 'Cost per merged PR', wide: true, delta: true },
   { label: 'Task to merge', delta: true, detail: true },
-  { label: 'Human touches per task', delta: true, detail: true },
+  { label: 'Human actions per task worked', delta: true, detail: true },
   { label: 'Active people', delta: true },
 ];
 

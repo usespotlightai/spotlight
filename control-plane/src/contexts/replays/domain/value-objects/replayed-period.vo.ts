@@ -40,7 +40,7 @@ export class ReplayedPeriod {
     );
   }
 
-  holds(at: Date): boolean {
+  includes(at: Date): boolean {
     return (
       at.getTime() >= this.from.getTime() && at.getTime() < this.to.getTime()
     );

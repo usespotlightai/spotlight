@@ -1,8 +1,8 @@
-export type MemoryDraftingTrouble = 'refused' | 'unreadable';
+export type MemoryDraftingErrorKind = 'request-failed' | 'unreadable';
 
 export class MemoryDraftingError extends Error {
   constructor(
-    readonly trouble: MemoryDraftingTrouble,
+    readonly kind: MemoryDraftingErrorKind,
     reason: string,
   ) {
     super(`Memories could not be drafted: ${reason}`);

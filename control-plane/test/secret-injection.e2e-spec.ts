@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
+import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import {
-  HOST_CONNECTIONS,
-  type HostConnectionRepository,
-} from '@integrations/domain/repositories/host-connection.repository';
-import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
-import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+  INTEGRATION_CONNECTIONS,
+  type IntegrationConnectionRepository,
+} from '@integrations/domain/repositories/integration-connection.repository';
+import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -16,7 +16,7 @@ import {
 } from '@secrets/application/ports/run-grants.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
+import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import {
   INTEGRATION_TOOL_CALLS,
   type IntegrationTool,
@@ -61,7 +61,7 @@ const LINEAR = {
   },
   tools: {
     comment: {
-      does: 'comment',
+      action: 'comment',
       description: 'Comment on the Linear issue',
       inputs: { body: { required: true } },
       // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
@@ -77,10 +77,10 @@ const secretBoundTo = (host: string) => ({
   valueWoVersion: 1,
 });
 
-describe('a secret worn by a tool call the control plane makes (e2e)', () => {
+describe('a secret injected into a tool call that the control plane makes (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
-  let held: string;
+  let workspaceId: string;
   let seat: Awaited<ReturnType<typeof seatTeam>>;
 
   const fetch = vi.fn(
@@ -97,10 +97,10 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
       .set('Idempotency-Key', randomUUID())
       .send(body);
 
-  const task = (): BoundTaskDto => ({
+  const task = (): IntegrationTaskViewDto => ({
     taskId: 'task_1',
-    workspaceId: held,
-    teamId: held,
+    workspaceId,
+    teamId: workspaceId,
     line: 'delivery',
     station: 'Implementation',
     stationKey: 'implementation',
@@ -109,16 +109,16 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
   });
 
   const comment = async (runId = 'run_1', attempt = 1) => {
-    const reached = (await app
+    const resolved = (await app
       .get<IntegrationToolCallsPort>(INTEGRATION_TOOL_CALLS)
-      .reach(
+      .resolve(
         'linear.comment',
         task(),
         { runId, attempt },
         null,
       )) as IntegrationTool;
 
-    return reached.call({ body: 'Fixed in the queue worker.' });
+    return resolved.call({ body: 'Fixed in the queue worker.' });
   };
 
   const passedOn = globalThis.fetch;
@@ -128,8 +128,8 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
 
   beforeAll(async () => {
     vi.stubEnv(
-      'OUTBOUND_ALLOWED_HOSTS',
-      [process.env.OUTBOUND_ALLOWED_HOSTS, 'api.linear.app']
+      'SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS',
+      [process.env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS, 'api.linear.app']
         .filter(Boolean)
         .join(','),
     );
@@ -147,12 +147,13 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
   });
 
   beforeEach(async () => {
-    held = `injection-${randomUUID().slice(0, 8)}`;
-    seat = await seatTeam(db, held);
+    workspaceId = `injection-${randomUUID().slice(0, 8)}`;
+    seat = await seatTeam(db, workspaceId);
     fetch.mockClear();
 
     expect(
-      (await post(`/api/resources/teams/${held}/integrations`, LINEAR)).status,
+      (await post(`/api/resources/teams/${workspaceId}/integrations`, LINEAR))
+        .status,
     ).toBe(201);
   });
 
@@ -162,29 +163,31 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
       .where(inArray(schema.idempotentCreate.scope, [`person:${seat.owner}`]));
     await db
       .delete(schema.integrationDefinition)
-      .where(eq(schema.integrationDefinition.teamId, held));
+      .where(eq(schema.integrationDefinition.teamId, workspaceId));
     await db
-      .delete(schema.hostConnection)
-      .where(eq(schema.hostConnection.teamId, held));
+      .delete(schema.integrationConnection)
+      .where(eq(schema.integrationConnection.teamId, workspaceId));
     await db
-      .delete(schema.learnedOutput)
-      .where(eq(schema.learnedOutput.teamId, held));
-    await db.delete(schema.secret).where(eq(schema.secret.workspaceId, held));
+      .delete(schema.inferredOutputSchema)
+      .where(eq(schema.inferredOutputSchema.teamId, workspaceId));
+    await db
+      .delete(schema.secret)
+      .where(eq(schema.secret.workspaceId, workspaceId));
     await db
       .delete(schema.runGrants)
-      .where(eq(schema.runGrants.workspaceId, held));
+      .where(eq(schema.runGrants.workspaceId, workspaceId));
     await db
       .delete(schema.configurationChange)
-      .where(eq(schema.configurationChange.workspaceId, held));
+      .where(eq(schema.configurationChange.workspaceId, workspaceId));
     await db
       .delete(schema.secretDataKey)
-      .where(eq(schema.secretDataKey.workspaceId, held));
+      .where(eq(schema.secretDataKey.workspaceId, workspaceId));
     await seat.unseat();
   });
 
-  it('reaches the host wearing a secret bound to it', async () => {
+  it('injects the secret that is bound to the host, and reaches the host', async () => {
     await post(
-      `/api/resources/workspaces/${held}/secrets`,
+      `/api/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
     );
 
@@ -199,9 +202,9 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
   });
 
   it('reaches the host with a secret bound to a query parameter, and keeps it out of the answer', async () => {
-    await post(`/api/resources/workspaces/${held}/secrets`, {
+    await post(`/api/resources/workspaces/${workspaceId}/secrets`, {
       ...secretBoundTo('api.linear.app'),
-      bindings: [{ host: 'api.linear.app', carrier: 'query', name: 'key' }],
+      bindings: [{ host: 'api.linear.app', location: 'query', name: 'key' }],
     });
     fetch.mockResolvedValueOnce(
       new Response(
@@ -221,33 +224,33 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
     ).toBeUndefined();
   });
 
-  it('learns what the tool answered, without its values, for the next run’s manifest', async () => {
+  it('infers an output schema from what the tool answered, without its values, for the next run’s manifest', async () => {
     await post(
-      `/api/resources/workspaces/${held}/secrets`,
+      `/api/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
     );
 
     await comment();
 
-    const [kept] = await eventually(() =>
+    const [stored] = await eventually(() =>
       db
         .select()
-        .from(schema.learnedOutput)
-        .where(eq(schema.learnedOutput.teamId, held))
+        .from(schema.inferredOutputSchema)
+        .where(eq(schema.inferredOutputSchema.teamId, workspaceId))
         .then((rows) => (rows.length > 0 ? rows : null)),
     );
-    expect(kept?.tool).toBe('linear.comment');
-    expect(JSON.stringify(kept?.shape)).not.toContain('linear.app');
+    expect(stored?.tool).toBe('linear.comment');
+    expect(JSON.stringify(stored?.shape)).not.toContain('linear.app');
 
-    const [offered] = await app
+    const [provided] = await app
       .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
-      .offered(TeamId.of(held), ['linear.comment']);
-    expect(offered?.learnedOutput).toEqual({ type: 'string' });
+      .provided(TeamId.of(workspaceId), ['linear.comment']);
+    expect(provided?.inferredOutput).toEqual({ type: 'string' });
   });
 
-  it('grants the run the secret toward its host alone', async () => {
+  it('grants the run the secret for its host alone', async () => {
     await post(
-      `/api/resources/workspaces/${held}/secrets`,
+      `/api/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
     );
 
@@ -265,74 +268,70 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
             schema.runGrants,
             eq(schema.runGrants.runId, schema.secretGrant.runId),
           )
-          .where(eq(schema.runGrants.workspaceId, held))
+          .where(eq(schema.runGrants.workspaceId, workspaceId))
       ).map((each) => [each.runId, each.host]),
     ).toEqual([['run_7', 'api.linear.app']]);
   });
 
   it('grants each attempt of a run afresh, and nothing more to an attempt the run moved past', async () => {
     await post(
-      `/api/resources/workspaces/${held}/secrets`,
+      `/api/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
     );
 
     await expect(comment('run_8', 1)).resolves.toBe('https://linear.app/c/1');
     await expect(comment('run_8', 2)).resolves.toBe('https://linear.app/c/1');
-    await expect(comment('run_8', 1)).rejects.toThrow(
-      /no longer holds attempt 1/,
-    );
+    await expect(comment('run_8', 1)).rejects.toThrow(/for attempt 1 is over/);
     expect(fetch).toHaveBeenCalledTimes(2);
 
-    const [kept] = await db
+    const [stored] = await db
       .select({ attempt: schema.runGrants.attempt })
       .from(schema.runGrants)
       .where(eq(schema.runGrants.runId, 'run_8'));
 
-    expect(kept?.attempt).toBe(2);
+    expect(stored?.attempt).toBe(2);
   });
 
-  it('sends nothing for an attempt once its lost hold is heard, and grants the next attempt afresh', async () => {
+  it('sends nothing for an attempt once its lost lease is received, and grants the next attempt afresh', async () => {
     const grants = app.get<RunGrantsPort>(RUN_GRANTS);
 
     await post(
-      `/api/resources/workspaces/${held}/secrets`,
+      `/api/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
     );
 
     await expect(comment('run_9', 1)).resolves.toBe('https://linear.app/c/1');
-    await grants.holdLost({ workspaceId: held, runId: 'run_9', attempt: 1 });
+    await grants.leaseLost({ workspaceId, runId: 'run_9', attempt: 1 });
 
-    await expect(comment('run_9', 1)).rejects.toThrow(
-      /no longer holds attempt 1/,
-    );
+    await expect(comment('run_9', 1)).rejects.toThrow(/for attempt 1 is over/);
     await expect(comment('run_9', 2)).resolves.toBe('https://linear.app/c/1');
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
-  it('sends nothing for a run whose end was heard before anything was granted to it', async () => {
+  it('sends nothing for a run whose end was received before anything was granted to it', async () => {
     await post(
-      `/api/resources/workspaces/${held}/secrets`,
+      `/api/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
     );
 
     await app
       .get<RunGrantsPort>(RUN_GRANTS)
-      .endedFor({ workspaceId: held, runId: 'run_10', attempt: 1 });
+      .endedFor({ workspaceId, runId: 'run_10', attempt: 1 });
 
     await expect(comment('run_10', 1)).rejects.toThrow(/has ended/);
     expect(fetch).not.toHaveBeenCalled();
 
-    const [kept] = await db
+    const [stored] = await db
       .select({ endedAt: schema.runGrants.endedAt })
       .from(schema.runGrants)
       .where(eq(schema.runGrants.runId, 'run_10'));
 
-    expect(kept?.endedAt).toBeInstanceOf(Date);
+    expect(stored?.endedAt).toBeInstanceOf(Date);
   });
 
   it('sends nothing where the secret is bound to another host', async () => {
     await post(
-      `/api/resources/workspaces/${held}/secrets`,
+      `/api/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('uploads.linear.app'),
     );
 
@@ -340,45 +339,47 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('sends nothing where the workspace holds no such secret', async () => {
+  it('sends nothing where the workspace has no such secret', async () => {
     await expect(comment()).rejects.toThrow(/Secret LINEAR_API_KEY not found/);
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('seals a host connection’s tokens under the workspace’s data key', async () => {
-    const connections = app.get<HostConnectionRepository>(HOST_CONNECTIONS);
+  it('encrypts the tokens of an integration connection under the data key of the workspace', async () => {
+    const connections = app.get<IntegrationConnectionRepository>(
+      INTEGRATION_CONNECTIONS,
+    );
 
     await connections.save(
-      HostConnection.linkFrom({
-        workspaceId: WorkspaceId.of(held),
-        teamId: TeamId.of(held),
-        source: SourceKey.of('slack'),
-        holder: ConnectionHolder.team(),
-        grant: HostGrant.of({
-          accessToken: 'xoxb-sealed-1',
-          refreshToken: 'xoxe-sealed-1',
+      IntegrationConnection.connectFrom({
+        workspaceId: WorkspaceId.of(workspaceId),
+        teamId: TeamId.of(workspaceId),
+        integration: IntegrationKey.of('slack'),
+        owner: ConnectionOwner.team(),
+        tokens: OAuthTokens.of({
+          accessToken: 'xoxb-encrypted-1',
+          refreshToken: 'xoxe-encrypted-1',
         }),
       }),
     );
 
     const [row] = await db
       .select()
-      .from(schema.hostConnection)
+      .from(schema.integrationConnection)
       .where(
         and(
-          eq(schema.hostConnection.teamId, held),
-          eq(schema.hostConnection.source, 'slack'),
+          eq(schema.integrationConnection.teamId, workspaceId),
+          eq(schema.integrationConnection.integration, 'slack'),
         ),
       );
     const read = await connections.of(
-      TeamId.of(held),
-      SourceKey.of('slack'),
-      ConnectionHolder.team(),
+      TeamId.of(workspaceId),
+      IntegrationKey.of('slack'),
+      ConnectionOwner.team(),
     );
 
-    expect(row?.accessToken).not.toContain('xoxb-sealed-1');
-    expect(row?.refreshToken).not.toContain('xoxe-sealed-1');
-    expect(read?.accessToken.value).toBe('xoxb-sealed-1');
-    expect(read?.refreshToken?.value).toBe('xoxe-sealed-1');
+    expect(row?.accessToken).not.toContain('xoxb-encrypted-1');
+    expect(row?.refreshToken).not.toContain('xoxe-encrypted-1');
+    expect(read?.accessToken.value).toBe('xoxb-encrypted-1');
+    expect(read?.refreshToken?.value).toBe('xoxe-encrypted-1');
   });
 });

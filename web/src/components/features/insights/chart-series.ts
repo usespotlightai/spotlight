@@ -11,9 +11,9 @@ export const AUTHOR_SERIES = [
   { key: 'people', label: 'People’s alone', color: 'var(--chart-2)' },
 ] as const;
 
-export const PENETRATION_SERIES = [
-  { key: 'made', label: 'Made by Spotlight', fill: 'var(--chart-primary)' },
-  { key: 'touched', label: 'Reviewed by Spotlight', fill: 'var(--chart-4)' },
+export const SPOTLIGHT_SHARE_SERIES = [
+  { key: 'authored', label: 'Made by Spotlight', fill: 'var(--chart-primary)' },
+  { key: 'reviewed', label: 'Reviewed by Spotlight', fill: 'var(--chart-4)' },
   { key: 'people', label: 'People alone', fill: 'var(--chart-1)' },
   { key: 'bots', label: 'Bots alone', fill: 'var(--chart-2)' },
 ] as const;

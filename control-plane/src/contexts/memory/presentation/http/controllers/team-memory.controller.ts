@@ -76,7 +76,7 @@ export class TeamMemoryController {
     summary:
       'What the team remembers, narrowed by where it applies and its kind',
   })
-  @ApiQuery({ name: 'standing', required: false, enum: ['stands', 'retired'] })
+  @ApiQuery({ name: 'status', required: false, enum: ['active', 'retired'] })
   @ApiQuery({ name: 'kind', required: false, type: String })
   @ApiQuery({ name: 'lineId', required: false, type: String })
   @ApiQuery({ name: 'stationId', required: false, type: String })
@@ -90,7 +90,7 @@ export class TeamMemoryController {
   @ApiOkResponse({ type: TeamMemoryResponseDto, isArray: true })
   @ApiNotFoundResponse({ description: 'No such team for this caller' })
   @ApiUnprocessableEntityResponse({
-    description: 'A standing or kind no memory has',
+    description: 'A status or kind that no memory has',
   })
   async list(
     @Param('teamId') teamId: string,
@@ -102,7 +102,7 @@ export class TeamMemoryController {
       TeamMemoryDto[]
     >(
       new ListTeamMemoriesQuery(teamId, user.id, {
-        standing: optional(query.standing),
+        status: optional(query.status),
         kind: optional(query.kind),
         lineId: optional(query.lineId),
         stationId: optional(query.stationId),
@@ -117,7 +117,7 @@ export class TeamMemoryController {
   @Post()
   @ApiOperation({
     operationId: 'writeMemory',
-    summary: 'Tell the team something to remember; it stands at once',
+    summary: 'Tell the team something to remember. It is active at once',
   })
   @ApiBody({ type: WriteMemoryRequestDto })
   @ApiCreatedResponse({ type: TeamMemoryDetailResponseDto })
@@ -142,7 +142,7 @@ export class TeamMemoryController {
   @ApiOperation({
     operationId: 'readTeamMemory',
     summary:
-      'One memory with what it rests on, and what it replaced or was replaced by',
+      'One memory with what it cites, and what it replaced or was replaced by',
   })
   @ApiParam({ name: 'memoryId', type: String })
   @ApiOkResponse({ type: TeamMemoryDetailResponseDto })
@@ -163,7 +163,7 @@ export class TeamMemoryController {
   @ApiOperation({
     operationId: 'editMemory',
     summary:
-      'Correct a memory: a new one replaces it, keeping what it rests on, and it is retired',
+      'Correct a memory: a new one replaces it, keeping what it cites, and it is retired',
   })
   @ApiParam({ name: 'memoryId', type: String })
   @ApiBody({ type: WriteMemoryRequestDto })
@@ -191,7 +191,7 @@ export class TeamMemoryController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'retireMemory',
-    summary: 'Stop a memory being given to runs, saying why',
+    summary: 'Stop briefing a memory to runs, saying why',
   })
   @ApiParam({ name: 'memoryId', type: String })
   @ApiBody({ type: RetireMemoryRequestDto })
@@ -199,7 +199,7 @@ export class TeamMemoryController {
   @ApiNotFoundResponse({ description: 'No such memory for this caller' })
   @ApiConflictResponse({ description: 'It was already retired' })
   @ApiUnprocessableEntityResponse({
-    description: 'No reason given, or one too long',
+    description: 'The reason is missing or too long',
   })
   async retire(
     @Param('teamId') teamId: string,

@@ -47,12 +47,12 @@ const attributeRoute = (attribute: Node): GrammarRoute | null => {
     return null;
   }
 
-  const given = named(field(attribute, 'parameters'));
+  const parameters = named(field(attribute, 'parameters'));
   const labelled = (label: string) =>
-    given.find((argument) => field(argument, 'name')?.text === label);
+    parameters.find((argument) => field(argument, 'name')?.text === label);
   const path =
     labelled('path') ??
-    given.find(
+    parameters.find(
       (argument) =>
         !field(argument, 'name') &&
         STRINGS.has(argumentValue(argument)?.type ?? ''),
@@ -91,13 +91,16 @@ const callRoute = (node: Node): GrammarRoute | null => {
   const path = named(field(node, 'arguments'))
     .map(argumentValue)
     .find((value) => STRINGS.has(value?.type ?? ''));
-  const given = path ? unquoted(path.text) : '';
+  const literal = path ? unquoted(path.text) : '';
   const facade =
     node.type === 'scoped_call_expression' &&
     lastSegment(field(node, 'scope')?.text ?? '') === 'Route';
 
-  return path && (facade || given.startsWith('/'))
-    ? { method: HTTP_VERBS.has(verb) ? verb.toUpperCase() : 'ANY', path: given }
+  return path && (facade || literal.startsWith('/'))
+    ? {
+        method: HTTP_VERBS.has(verb) ? verb.toUpperCase() : 'ANY',
+        path: literal,
+      }
     : null;
 };
 

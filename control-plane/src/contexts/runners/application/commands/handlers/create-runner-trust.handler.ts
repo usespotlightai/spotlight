@@ -2,7 +2,7 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { CreateRunnerTrustCommand } from '@runners/application/commands/runner-resource.commands';
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
 import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
-import { RunnerTrustAlreadyDefinedError } from '@runners/domain/exceptions/runner-trust-already-defined.error';
+import { RunnerTrustAlreadyExistsError } from '@runners/domain/exceptions/runner-trust-already-exists.error';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import {
@@ -17,8 +17,8 @@ import type {
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -49,7 +49,7 @@ export class CreateRunnerTrustHandler
       }
 
       if (!permissions.managesRunners) {
-        return forbiddenTo('manage-runners');
+        return forbiddenTo('runners');
       }
 
       const compiled = this.definitions.trust(command.definition);
@@ -70,24 +70,24 @@ export class CreateRunnerTrustHandler
 
       try {
         return await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
-            const defined = RunnerTrust.define({
+          createIdempotently(this.creates, create, async () => {
+            const trust = RunnerTrust.create({
               id: RunnerTrustId.of(this.ids.generate()),
               workspaceId: permissions.workspaceId,
-              by: Attribution.of(command.actor, permissions.workspaceId),
+              by: ChangeActor.of(command.actor, permissions.workspaceId),
               key: compiled.key,
               workload: compiled.workload,
               labels: compiled.labels,
             });
 
-            await this.trusts.add(defined);
+            await this.trusts.add(trust);
 
-            return defined.id.value;
+            return trust.id.value;
           }),
         );
       } catch (error) {
-        if (error instanceof RunnerTrustAlreadyDefinedError) {
-          return { outcome: 'taken', address: compiled.key.value };
+        if (error instanceof RunnerTrustAlreadyExistsError) {
+          return { outcome: 'already-exists', address: compiled.key.value };
         }
 
         throw error;

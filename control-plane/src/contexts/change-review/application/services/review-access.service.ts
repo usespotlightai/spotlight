@@ -31,7 +31,7 @@ export class ReviewAccess {
     const run = member ? await this.work.run(RunId.of(runId)) : null;
     const task = run?.taskId ? await this.work.task(run.taskId) : null;
 
-    if (!member || !task || !TeamAccess.of(member).reaches(task)) {
+    if (!member || !task || !TeamAccess.of(member).allows(task)) {
       throw new UnknownReviewError(`run ${runId}`);
     }
 

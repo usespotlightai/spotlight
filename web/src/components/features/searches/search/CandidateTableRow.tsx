@@ -1,6 +1,5 @@
-import { OnlyOnSeenTasksMark } from '@/components/features/searches/OnlyOnSeenTasksMark';
+import { OverfitMark } from '@/components/features/searches/OverfitMark';
 import { CandidatePullRequest } from '@/components/features/searches/search/CandidatePullRequest';
-import { Noted } from '@/components/shared/Noted';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   EDGE_INDENT,
@@ -8,6 +7,7 @@ import {
   ROW_DIVIDER,
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { formatPercent } from '@/lib/judge';
 import type { RateInterval } from '@/lib/replay';
 import {
@@ -51,9 +51,9 @@ function Rate({
     .join(' · ');
 
   return note ? (
-    <Noted note={note}>
+    <WithTooltip tooltip={note}>
       <span className="relative z-10">{formatPercent(rate)}</span>
-    </Noted>
+    </WithTooltip>
   ) : (
     formatPercent(rate)
   );
@@ -97,18 +97,16 @@ export function CandidateTableRow({
           {name}
         </button>
         {candidate.onFrontier && (
-          <Noted note={ON_THE_FRONTIER_NOTE}>
+          <WithTooltip tooltip={ON_THE_FRONTIER_NOTE}>
             <span
               role="img"
               aria-label={ON_THE_FRONTIER}
               data-slot="on-the-frontier"
               className="relative z-10 size-1.5 shrink-0 rounded-full bg-primary"
             />
-          </Noted>
+          </WithTooltip>
         )}
-        {candidate.onlyOnSeenTasks && (
-          <OnlyOnSeenTasksMark mark={candidate.onlyOnSeenTasks} />
-        )}
+        {candidate.overfit && <OverfitMark mark={candidate.overfit} />}
       </span>
       <NestedCell heading="Searched" strong>
         {unfinished ? (
@@ -139,11 +137,13 @@ export function CandidateTableRow({
       </NestedCell>
       <NestedCell heading="Gain">
         {gain ? (
-          <Noted note={candidateGainNote(gain, candidate.heldOutGain)}>
-            <span className={cn('relative z-10', GAIN_TONES[gain.verdict])}>
+          <WithTooltip tooltip={candidateGainNote(gain, candidate.heldOutGain)}>
+            <span
+              className={cn('relative z-10', GAIN_TONES[gain.significance])}
+            >
               {formatGain(gain)}
             </span>
-          </Noted>
+          </WithTooltip>
         ) : (
           '–'
         )}

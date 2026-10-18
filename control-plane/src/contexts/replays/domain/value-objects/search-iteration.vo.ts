@@ -1,13 +1,13 @@
 import type { ReplayCharge } from '@replays/domain/services/replay-charge';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import type { FailureCause } from '@replays/domain/value-objects/failure-cause.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import type { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
-import type { ReflectionOutcome } from '@replays/domain/value-objects/reflection-outcome';
+import type { ReflectionResult } from '@replays/domain/value-objects/reflection-result';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import type { ReplayEnd } from '@replays/domain/value-objects/replay-state';
-import type { SearchCause } from '@replays/domain/value-objects/search-cause.vo';
+import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
 import type { SearchProposal } from '@replays/domain/value-objects/search-proposal.vo';
-import type { Spend } from '@replays/domain/value-objects/spend.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -35,10 +35,10 @@ interface IterationState {
   readonly proposals: readonly SearchProposal[];
   readonly attempts: number;
   readonly agentSpent: ModelSpent | null;
-  readonly standing: CandidateId | null;
+  readonly incumbent: CandidateId | null;
   readonly reflectedOn: readonly ReflectedTask[];
-  readonly causes: readonly SearchCause[];
-  readonly outcome: ReflectionOutcome | null;
+  readonly causes: readonly FailureCause[];
+  readonly result: ReflectionResult | null;
 }
 
 export class SearchIteration {
@@ -57,10 +57,10 @@ export class SearchIteration {
       proposals: [],
       attempts: 0,
       agentSpent: null,
-      standing: null,
+      incumbent: null,
       reflectedOn: [],
       causes: [],
-      outcome: null,
+      result: null,
     });
   }
 
@@ -74,14 +74,14 @@ export class SearchIteration {
     if (state.attempts < state.proposals.length) {
       throw new InconsistentStateError(
         'search iteration',
-        'took more candidates than it was offered',
+        'holds more proposals than attempts',
       );
     }
     if (
       state.kind === 'reflect'
         ? state.attempts > 0
-        : state.standing !== null ||
-          state.outcome !== null ||
+        : state.incumbent !== null ||
+          state.result !== null ||
           state.reflectedOn.length > 0 ||
           state.causes.length > 0
     ) {
@@ -90,7 +90,7 @@ export class SearchIteration {
         'either proposes candidates or looks into failing tasks, not both',
       );
     }
-    if (state.standing === null && state.reflectedOn.length > 0) {
+    if (state.incumbent === null && state.reflectedOn.length > 0) {
       throw new InconsistentStateError(
         'search iteration',
         'looks into failing tasks without knowing whose failures they are',
@@ -105,7 +105,7 @@ export class SearchIteration {
     ) {
       throw new InconsistentStateError(
         'search iteration',
-        'holds one cause for each task it looked into, and none for others',
+        'has one cause for each task it looked into, and none for others',
       );
     }
 
@@ -133,23 +133,23 @@ export class SearchIteration {
     return this.state.kind === 'reflect';
   }
 
-  get standing(): CandidateId | null {
-    return this.state.standing;
+  get incumbent(): CandidateId | null {
+    return this.state.incumbent;
   }
 
-  get outcome(): ReflectionOutcome | null {
-    return this.state.outcome;
+  get result(): ReflectionResult | null {
+    return this.state.result;
   }
 
   get endedSearch(): boolean {
-    return this.state.outcome !== null && this.state.outcome !== 'went-on';
+    return this.state.result !== null && this.state.result !== 'continued';
   }
 
   get reflectedOn(): readonly ReflectedTask[] {
     return this.state.reflectedOn;
   }
 
-  get causes(): readonly SearchCause[] {
+  get causes(): readonly FailureCause[] {
     return this.state.causes;
   }
 
@@ -173,23 +173,23 @@ export class SearchIteration {
     return this.state.agentSpent;
   }
 
-  get holdsItsRun(): boolean {
+  get ownsActiveRun(): boolean {
     return this.state.state === 'wanted' || this.state.state === 'running';
   }
 
   get isClosed(): boolean {
     return (
-      !this.holdsItsRun &&
+      !this.ownsActiveRun &&
       this.state.agentSpent !== null &&
       this.state.proposals.every((each) => each.replay.hasEnded)
     );
   }
 
   get awaitsAgentSpend(): boolean {
-    return !this.holdsItsRun && this.state.agentSpent === null;
+    return !this.ownsActiveRun && this.state.agentSpent === null;
   }
 
-  agentUnpriced(ceiling: Spend): boolean {
+  agentUnpriced(ceiling: Money): boolean {
     const spent = this.state.agentSpent;
 
     return (
@@ -213,7 +213,7 @@ export class SearchIteration {
   mayPropose(max: number): boolean {
     return (
       !this.reflects &&
-      this.holdsItsRun &&
+      this.ownsActiveRun &&
       this.state.proposals.length < max &&
       this.state.attempts < max * ATTEMPTS_PER_PROPOSAL
     );
@@ -226,7 +226,7 @@ export class SearchIteration {
   }
 
   ended(failed: boolean, started: boolean): SearchIteration {
-    if (!this.holdsItsRun) {
+    if (!this.ownsActiveRun) {
       return this;
     }
 
@@ -237,7 +237,7 @@ export class SearchIteration {
     });
   }
 
-  admitted(proposal: SearchProposal): SearchIteration {
+  acceptProposal(proposal: SearchProposal): SearchIteration {
     return this.with({
       proposals: [...this.state.proposals, proposal],
       attempts: this.state.attempts + 1,
@@ -245,36 +245,36 @@ export class SearchIteration {
   }
 
   reflectingOn(
-    standing: CandidateId,
+    incumbent: CandidateId,
     tasks: readonly ReflectedTask[],
   ): SearchIteration {
     if (
       !this.reflects ||
       this.state.state !== 'wanted' ||
-      this.state.standing !== null
+      this.state.incumbent !== null
     ) {
       return this;
     }
 
     return tasks.length > 0
-      ? this.with({ standing, reflectedOn: [...tasks] })
+      ? this.with({ incumbent, reflectedOn: [...tasks] })
       : this.with({
-          standing,
+          incumbent,
           state: 'ended',
           agentSpent: ModelSpent.of([], 0),
-          outcome: 'no-failures',
+          result: 'no-failures',
         });
   }
 
-  concluded(outcome: ReflectionOutcome): SearchIteration {
-    return this.state.outcome ? this : this.with({ outcome });
+  concluded(result: ReflectionResult): SearchIteration {
+    return this.state.result ? this : this.with({ result });
   }
 
   taskReflectedOn(taskId: TaskId): ReflectedTask | null {
     return this.state.reflectedOn.find((each) => each.isAbout(taskId)) ?? null;
   }
 
-  causeRecorded(cause: SearchCause): SearchIteration {
+  causeRecorded(cause: FailureCause): SearchIteration {
     return this.with({
       causes: [
         ...this.state.causes.filter((each) => !each.isAbout(cause.taskId)),
@@ -283,7 +283,7 @@ export class SearchIteration {
     });
   }
 
-  refused(): SearchIteration {
+  rejected(): SearchIteration {
     return this.with({ attempts: this.state.attempts + 1 });
   }
 
@@ -293,7 +293,7 @@ export class SearchIteration {
 
   replayEnded(
     replayId: ReplayId,
-    end: ReplayEnd,
+    end: ReplayStopReason,
     charge: ReplayCharge,
     improved: boolean,
   ): SearchIteration {

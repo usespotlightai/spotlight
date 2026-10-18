@@ -14,7 +14,7 @@ export const resourceListOf = (
       type: representation,
       isArray: true,
       description:
-        'Every one there is, each as a read would answer it, in address order',
+        'Every one there is, each as a read returns it, in address order',
     })
     readonly items: readonly ResourceResponseDto[] = [];
   }

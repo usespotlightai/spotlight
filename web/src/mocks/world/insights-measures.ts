@@ -1,5 +1,5 @@
 import type {
-  ChangeResponseDto,
+  DeltaResponseDto,
   InsightsPeriodResponseDto,
   MeasureVerdictResponseDto,
   RunTallyResponseDto,
@@ -112,7 +112,7 @@ export type Better = 'up' | 'down' | 'neither';
 const toneOf = (
   by: number | null,
   better: Better,
-): ChangeResponseDto['tone'] => {
+): DeltaResponseDto['tone'] => {
   if (by === 0 || better === 'neither') {
     return 'flat';
   }
@@ -127,8 +127,8 @@ export const changeOf = (
   now: number | null,
   before: number | null,
   better: Better,
-  unit: ChangeResponseDto['unit'] = 'percent',
-): ChangeResponseDto | null => {
+  unit: DeltaResponseDto['unit'] = 'percent',
+): DeltaResponseDto | null => {
   if (now === null || before === null) {
     return null;
   }
@@ -150,7 +150,7 @@ export const changeOf = (
   };
 };
 
-export const NO_CHANGE: ChangeResponseDto = {
+export const NO_CHANGE: DeltaResponseDto = {
   unit: 'percent',
   by: 0,
   fromZero: false,
@@ -160,15 +160,15 @@ export const NO_CHANGE: ChangeResponseDto = {
 
 export const emptyTally = (): RunTallyResponseDto => ({
   runs: 0,
-  withdrawn: 0,
+  cancelled: 0,
   failed: 0,
-  failedShare: null,
+  failedRate: null,
   stopped: 0,
   checksPassed: 0,
   checksFailed: 0,
   accepted: 0,
   sentBack: 0,
-  handedOn: 0,
+  passed: 0,
   merged: 0,
   cost: null,
   unpriced: 0,
@@ -188,7 +188,7 @@ export const MEASURES: readonly Measure[] = [
   'cost_per_run',
 ];
 
-const MIN_SETTLED = 10;
+const MIN_MEASURED = 10;
 
 const LOWER_IS_BETTER: ReadonlySet<Measure> = new Set([
   'sent_back_rate',
@@ -199,7 +199,7 @@ const LOWER_IS_BETTER: ReadonlySet<Measure> = new Set([
 
 export type Reading = {
   readonly value: number | null;
-  readonly settled: number;
+  readonly measured: number;
 };
 
 const verdictOf = (
@@ -210,8 +210,8 @@ const verdictOf = (
   if (
     before.value === null ||
     after.value === null ||
-    before.settled < MIN_SETTLED ||
-    after.settled < MIN_SETTLED
+    before.measured < MIN_MEASURED ||
+    after.measured < MIN_MEASURED
   ) {
     return 'insufficient';
   }
@@ -242,8 +242,8 @@ export const verdictFor = (
     measure,
     before: before.value === null ? null : rounded(before.value),
     after: after.value === null ? null : rounded(after.value),
-    settledBefore: before.settled,
-    settledAfter: after.settled,
+    measuredBefore: before.measured,
+    measuredAfter: after.measured,
     currency: measure === 'cost_per_run' ? CURRENCY : null,
     verdict,
     change: changeOf(

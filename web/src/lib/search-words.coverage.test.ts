@@ -6,15 +6,15 @@ import {
   formatCauseAction,
   formatCauseMeaning,
   formatCauseTitle,
-  formatEnding,
+  formatCheckResult,
   formatIterationState,
   formatNoBest,
   formatObjective,
   formatPullRequestReason,
   formatPullRequestState,
-  formatReflectionOutcome,
+  formatReflectionResult,
   formatSearchState,
-  formatVerdict,
+  formatStopReason,
   formatWarning,
   frontierNote,
   objectiveNote,
@@ -46,10 +46,10 @@ const codesOf = (schema: string, property: string): string[] => {
   return codes.filter((each): each is string => each !== null);
 };
 
-const worded = (said: string, code: string) => {
-  expect(said, code).toBeTruthy();
-  expect(said, code).not.toBe(code);
-  expect(said.includes('undefined'), `${code} has no words`).toBe(false);
+const worded = (text: string, code: string) => {
+  expect(text, code).toBeTruthy();
+  expect(text, code).not.toBe(code);
+  expect(text.includes('undefined'), `${code} has no words`).toBe(false);
 };
 
 const reason = (code: string): PullRequestReason => ({
@@ -61,13 +61,13 @@ const reason = (code: string): PullRequestReason => ({
 });
 
 describe('search words cover every code the API can answer', () => {
-  it('words every state and ending of a search, and every iteration state', () => {
+  it('words every state and stop reason of a search, and every iteration state', () => {
     for (const schema of ['SearchResponseDto', 'SearchDetailResponseDto']) {
       for (const state of codesOf(schema, 'state')) {
         worded(formatSearchState(state as never), state);
       }
-      for (const ending of codesOf(schema, 'ending')) {
-        worded(formatEnding(ending as never), ending);
+      for (const reason of codesOf(schema, 'stopReason')) {
+        worded(formatStopReason(reason as never), reason);
       }
     }
     for (const state of codesOf('SearchIterationResponseDto', 'state')) {
@@ -75,7 +75,7 @@ describe('search words cover every code the API can answer', () => {
     }
   });
 
-  it('words every state of a config pull request and every reason it was refused', () => {
+  it('words every state of a config pull request and every reason it failed', () => {
     for (const schema of [
       'CandidatePullRequestResponseDto',
       'ConfigPullRequestResponseDto',
@@ -89,12 +89,12 @@ describe('search words cover every code the API can answer', () => {
     }
   });
 
-  it('words every verdict of a replay check, and every reason it went undecided', () => {
-    for (const verdict of codesOf('ReplayCheckResponseDto', 'verdict')) {
-      worded(formatVerdict(verdict as never), verdict);
+  it('words every result of a replay check, and every reason it went undecided', () => {
+    for (const result of codesOf('ReplayCheckResponseDto', 'result')) {
+      worded(formatCheckResult(result as never), result);
     }
     for (const why of codesOf('ReplayCheckResponseDto', 'undecidedBecause')) {
-      worded(formatVerdict('undecided', why as never), why);
+      worded(formatCheckResult('undecided', why as never), why);
     }
   });
 
@@ -161,13 +161,13 @@ describe('search words cover every code the API can answer', () => {
   });
 
   it('words every cause a reflection can find, with what a person can do', () => {
-    for (const cause of codesOf('SearchCauseResponseDto', 'cause')) {
+    for (const cause of codesOf('FailureCauseResponseDto', 'cause')) {
       worded(formatCauseTitle(cause as never), cause);
       worded(formatCauseMeaning(cause as never), cause);
       worded(formatCauseAction(cause as never), cause);
     }
-    for (const outcome of codesOf('SearchReflectionResponseDto', 'outcome')) {
-      worded(formatReflectionOutcome(outcome as never), outcome);
+    for (const result of codesOf('SearchReflectionResponseDto', 'result')) {
+      worded(formatReflectionResult(result as never), result);
     }
   });
 });

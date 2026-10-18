@@ -1,4 +1,4 @@
-import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
+import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -18,7 +18,7 @@ export class RenewLeaseHandler
 {
   constructor(
     private readonly runs: RunRepository,
-    private readonly presence: RunnerPresencePort,
+    private readonly heartbeats: RunnerHeartbeatsPort,
     private readonly clock: ClockPort,
   ) {}
 
@@ -27,16 +27,16 @@ export class RenewLeaseHandler
       const renewing = RunnerId.of(command.runnerId);
       const at = this.clock.now();
 
-      if (!(await this.presence.seen(renewing, at))) {
+      if (!(await this.heartbeats.heartbeat(renewing, at))) {
         throw new UnknownRunnerError(command.runnerId);
       }
 
       for (let attempt = 1; ; attempt++) {
         const run = await this.load(command.runId);
 
-        if (!run.isHeldBy(renewing)) {
+        if (!run.isLeasedBy(renewing)) {
           throw new UnknownRunError(
-            `Runner ${command.runnerId} holds no run ${command.runId}.`,
+            `Runner ${command.runnerId} has no lease on run ${command.runId}.`,
           );
         }
 

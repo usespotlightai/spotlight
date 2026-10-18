@@ -17,7 +17,7 @@ import {
   conformsAsResource,
   type ResourceFixture,
 } from './support/resource-conformance';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -38,20 +38,20 @@ const seated =
   ) =>
   async (app: INestApplication): Promise<ResourceFixture> => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
-    const held = `${kind}-${randomUUID().slice(0, 8)}`;
-    const seat = await seatTeam(db, held);
+    const workspaceId = `${kind}-${randomUUID().slice(0, 8)}`;
+    const seat = await seatTeam(db, workspaceId);
 
     return {
       admin: seat.owner,
       viewer: seat.member,
-      collection: `/api/resources/workspaces/${held}/${kind}`,
+      collection: `/api/resources/workspaces/${workspaceId}/${kind}`,
       item: (id) => `/api/resources/${kind}/${id}`,
       importing: (address) =>
-        `/api/resources/workspaces/${held}/${kind}/import?address=${encodeURIComponent(address)}`,
+        `/api/resources/workspaces/${workspaceId}/${kind}/import?address=${encodeURIComponent(address)}`,
       listing: (workspaceId) =>
         `/api/resources/workspaces/${workspaceId}/${kind}`,
-      workspaceOf: () => held,
-      address: bodies.address ?? held,
+      workspaceOf: () => workspaceId,
+      address: bodies.address ?? workspaceId,
       ...bodies,
       close: async () => {
         await db
@@ -62,7 +62,7 @@ const seated =
               `person:${seat.member}`,
             ]),
           );
-        await forgetRunnersOf(db, held);
+        await deleteRunnersOf(db, workspaceId);
         await seat.unseat();
       },
     };
@@ -127,10 +127,10 @@ conformsAsResource({
   }),
 });
 
-describe('runner trusts, pools and what the workspace declares of them (e2e)', () => {
+describe('runner trusts, pools and the workspace runners (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
-  let held: string;
+  let workspaceId: string;
   let owner: string;
   let unseat: () => Promise<void>;
 
@@ -141,7 +141,7 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
     body: object,
   ) =>
     http()
-      .post(`/api/resources/workspaces/${held}/${kind}`)
+      .post(`/api/resources/workspaces/${workspaceId}/${kind}`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send(body);
@@ -156,8 +156,8 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
   });
 
   beforeEach(async () => {
-    held = `fleet-${randomUUID().slice(0, 8)}`;
-    const seat = await seatTeam(db, held);
+    workspaceId = `fleet-${randomUUID().slice(0, 8)}`;
+    const seat = await seatTeam(db, workspaceId);
     owner = seat.owner;
     unseat = seat.unseat;
   });
@@ -165,7 +165,7 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
   afterEach(async () => {
     const issued = await db
       .delete(schema.workspaceToken)
-      .where(eq(schema.workspaceToken.workspaceId, held))
+      .where(eq(schema.workspaceToken.workspaceId, workspaceId))
       .returning({ id: schema.workspaceToken.id });
 
     await db
@@ -178,14 +178,14 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
       );
     await db
       .delete(schema.configurationChange)
-      .where(eq(schema.configurationChange.workspaceId, held));
-    await forgetRunnersOf(db, held);
+      .where(eq(schema.configurationChange.workspaceId, workspaceId));
+    await deleteRunnersOf(db, workspaceId);
     await unseat();
   });
 
   const tokenWith = async (scopes: readonly string[]) => {
     const issued = await http()
-      .post(`/api/resources/workspaces/${held}/tokens`)
+      .post(`/api/resources/workspaces/${workspaceId}/tokens`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send({ name: scopes.join('-'), scopes });
@@ -226,22 +226,22 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
   it('lets a configure token with the runners scope manage trusts, pools and the declaration, as Terraform would', async () => {
     const terraform = as(await tokenWith(['configure', 'runners']));
     const trust = await terraform.post(
-      `/api/resources/workspaces/${held}/runner-trusts`,
+      `/api/resources/workspaces/${workspaceId}/runner-trusts`,
       { key: 'production', issuer: ISSUER, subject: SUBJECT },
     );
     const pool = await terraform.post(
-      `/api/resources/workspaces/${held}/runner-pools`,
+      `/api/resources/workspaces/${workspaceId}/runner-pools`,
       { key: 'ephemeral' },
     );
-    const declared = await terraform.post(
-      `/api/resources/workspaces/${held}/workspace-runners`,
+    const created = await terraform.post(
+      `/api/resources/workspaces/${workspaceId}/workspace-runners`,
       { trusts: ['production'], pools: ['ephemeral'] },
     );
 
-    expect([trust.status, pool.status, declared.status]).toEqual([
+    expect([trust.status, pool.status, created.status]).toEqual([
       201, 201, 201,
     ]);
-    expect(declared.body.warnings).toEqual([]);
+    expect(created.body.warnings).toEqual([]);
     expect(
       (
         await terraform.put(
@@ -268,17 +268,20 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
       subject: SUBJECT,
     });
     const pool = await asOwner('runner-pools', { key: 'ephemeral' });
-    const declared = await asOwner('workspace-runners', {
+    const created = await asOwner('workspace-runners', {
       trusts: ['production'],
     });
     const configure = as(await tokenWith(['configure']));
 
     const answered = [
-      await configure.post(`/api/resources/workspaces/${held}/runner-trusts`, {
-        key: 'staging',
-        issuer: ISSUER,
-        subject: SUBJECT,
-      }),
+      await configure.post(
+        `/api/resources/workspaces/${workspaceId}/runner-trusts`,
+        {
+          key: 'staging',
+          issuer: ISSUER,
+          subject: SUBJECT,
+        },
+      ),
       await configure.put(
         `/api/resources/runner-trusts/${trust.body.id}`,
         trust.body.version,
@@ -293,9 +296,12 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
         `/api/resources/runner-trusts/${trust.body.id}`,
         trust.body.version,
       ),
-      await configure.post(`/api/resources/workspaces/${held}/runner-pools`, {
-        key: 'sandboxes',
-      }),
+      await configure.post(
+        `/api/resources/workspaces/${workspaceId}/runner-pools`,
+        {
+          key: 'sandboxes',
+        },
+      ),
       await configure.put(
         `/api/resources/runner-pools/${pool.body.id}`,
         pool.body.version,
@@ -306,13 +312,13 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
         pool.body.version,
       ),
       await configure.put(
-        `/api/resources/workspace-runners/${declared.body.id}`,
-        declared.body.version,
+        `/api/resources/workspace-runners/${created.body.id}`,
+        created.body.version,
         { trusts: [] },
       ),
       await configure.delete(
-        `/api/resources/workspace-runners/${declared.body.id}`,
-        declared.body.version,
+        `/api/resources/workspace-runners/${created.body.id}`,
+        created.body.version,
       ),
     ];
 
@@ -330,11 +336,7 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
         ...Array(3).fill('Not allowed to change the runner-trust'),
         ...Array(3).fill('Not allowed to change the runner-pool'),
         ...Array(2).fill('Not allowed to change the workspace-runners'),
-      ].map((title) => [
-        'urn:spotlight:problem:forbidden',
-        title,
-        'manage-runners',
-      ]),
+      ].map((title) => ['urn:spotlight:problem:forbidden', title, 'runners']),
     );
     expect(
       (await configure.get(`/api/resources/runner-trusts/${trust.body.id}`))
@@ -342,15 +344,15 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
     ).toBe(200);
   });
 
-  it('refuses a token that would manage runners without a rung of the ladder', async () => {
-    const refused = await http()
-      .post(`/api/resources/workspaces/${held}/tokens`)
+  it('rejects a token that would manage runners without a rung of the ladder', async () => {
+    const rejected = await http()
+      .post(`/api/resources/workspaces/${workspaceId}/tokens`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send({ name: 'runners', scopes: ['runners'] });
 
-    expect(refused.status).toBe(422);
-    expect(refused.body.errors).toEqual([
+    expect(rejected.status).toBe(422);
+    expect(rejected.body.errors).toEqual([
       expect.objectContaining({ path: 'scopes' }),
     ]);
   });
@@ -373,9 +375,12 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
     ).toBe(200);
     expect(
       (
-        await reader.post(`/api/resources/workspaces/${held}/runner-pools`, {
-          key: 'sandboxes',
-        })
+        await reader.post(
+          `/api/resources/workspaces/${workspaceId}/runner-pools`,
+          {
+            key: 'sandboxes',
+          },
+        )
       ).status,
     ).toBe(403);
     expect(
@@ -389,11 +394,14 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
     ).toBe(403);
     expect(
       (
-        await reader.post(`/api/resources/workspaces/${held}/runner-trusts`, {
-          key: 'staging',
-          issuer: ISSUER,
-          subject: SUBJECT,
-        })
+        await reader.post(
+          `/api/resources/workspaces/${workspaceId}/runner-trusts`,
+          {
+            key: 'staging',
+            issuer: ISSUER,
+            subject: SUBJECT,
+          },
+        )
       ).status,
     ).toBe(403);
   });
@@ -419,19 +427,19 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
       )
       .expect(200);
     await terraform
-      .post(`/api/resources/workspaces/${held}/runner-pools`, {
+      .post(`/api/resources/workspaces/${workspaceId}/runner-pools`, {
         key: 'ephemeral',
       })
       .expect(201);
     await terraform
-      .post(`/api/resources/workspaces/${held}/workspace-runners`, {
+      .post(`/api/resources/workspaces/${workspaceId}/workspace-runners`, {
         trusts: ['production'],
       })
       .expect(201);
 
     const changes = (
       await http()
-        .get(`/api/workspaces/${held}/configuration-changes`)
+        .get(`/api/workspaces/${workspaceId}/configuration-changes`)
         .set(TEST_USER_HEADER, owner)
     ).body as {
       resource: string;
@@ -456,7 +464,7 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
     ]);
   });
 
-  it('keeps the workspace from closing while it holds trusts, pools or a declaration', async () => {
+  it('keeps the workspace from being deleted while it has trusts, pools or workspace runners', async () => {
     await asOwner('runner-trusts', {
       key: 'production',
       issuer: ISSUER,
@@ -466,21 +474,21 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
     await asOwner('workspace-runners', { trusts: ['production'] }).expect(201);
 
     const workspace = await http()
-      .get(`/api/resources/workspaces/${held}`)
+      .get(`/api/resources/workspaces/${workspaceId}`)
       .set(TEST_USER_HEADER, owner);
-    const refused = await http()
-      .delete(`/api/resources/workspaces/${held}`)
+    const rejected = await http()
+      .delete(`/api/resources/workspaces/${workspaceId}`)
       .set(TEST_USER_HEADER, owner)
       .set('If-Match', `"${workspace.body.version}"`);
 
-    expect(refused.status).toBe(409);
-    expect(refused.body.detail).toEqual(
+    expect(rejected.status).toBe(409);
+    expect(rejected.body.detail).toEqual(
       expect.stringContaining('runner trust production'),
     );
-    expect(refused.body.detail).toEqual(
+    expect(rejected.body.detail).toEqual(
       expect.stringContaining('runner pool ephemeral'),
     );
-    expect(refused.body.detail).toEqual(
+    expect(rejected.body.detail).toEqual(
       expect.stringContaining('workspace runners'),
     );
   });
@@ -493,19 +501,19 @@ describe('runner trusts, pools and what the workspace declares of them (e2e)', (
     }).expect(201);
     await asOwner('runner-pools', { key: 'ephemeral' }).expect(201);
 
-    const declared = await asOwner('workspace-runners', {
+    const created = await asOwner('workspace-runners', {
       trusts: ['production', 'staging'],
       pools: ['sandboxes', 'ephemeral'],
     });
 
-    expect(declared.status).toBe(201);
-    expect(declared.body).toMatchObject({
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({
       trusts: ['production', 'staging'],
       pools: ['sandboxes', 'ephemeral'],
     });
-    expect(declared.body).not.toHaveProperty('runners');
-    expect(declared.body).not.toHaveProperty('drift');
-    expect(declared.body.warnings).toEqual([
+    expect(created.body).not.toHaveProperty('runners');
+    expect(created.body).not.toHaveProperty('drift');
+    expect(created.body.warnings).toEqual([
       expect.objectContaining({ path: 'trusts[1]', severity: 'warning' }),
       expect.objectContaining({ path: 'pools[0]', severity: 'warning' }),
     ]);

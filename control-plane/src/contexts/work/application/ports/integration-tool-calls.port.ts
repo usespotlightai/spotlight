@@ -2,7 +2,7 @@ import type {
   ToolDeclaration,
   ToolInputValues,
 } from '@work/application/contracts/tools.contract';
-import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
+import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 
 export const INTEGRATION_TOOL_CALLS = Symbol('INTEGRATION_TOOL_CALLS');
 
@@ -12,18 +12,18 @@ export interface RunAttemptDto {
 }
 
 export interface ToolActingAsDto {
-  readonly holder: 'team' | 'person';
+  readonly actsAs: 'team' | 'requester';
   readonly personId: string | null;
-  readonly handle: string | null;
+  readonly linkedAccount: string | null;
 }
 
-export interface ConnectionWantedDto {
-  readonly source: string;
+export interface ConnectionMissingDto {
   readonly integration: string;
+  readonly integrationName: string;
   readonly personId: string | null;
   readonly because:
     | 'not-connected'
-    | 'renewal-refused'
+    | 'refresh-failed'
     | 'no-requester'
     | 'not-a-member';
 }
@@ -37,16 +37,16 @@ export interface PersonRuleDto {
 export interface IntegrationTool {
   readonly declared: ToolDeclaration;
   readonly actingAs: ToolActingAsDto | null;
-  readonly wants: ConnectionWantedDto | null;
+  readonly missing: ConnectionMissingDto | null;
   readonly personRule: PersonRuleDto | null;
   defaultFor(input: string): unknown;
   call(inputs: ToolInputValues): Promise<unknown>;
 }
 
 export interface IntegrationToolCallsPort {
-  reach(
+  resolve(
     tool: string,
-    task: BoundTaskDto,
+    task: IntegrationTaskViewDto,
     run: RunAttemptDto,
     requester: string | null,
   ): Promise<IntegrationTool | null>;

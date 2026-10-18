@@ -14,15 +14,15 @@ export interface SkillFolder {
   readonly files: readonly SkillFile[];
 }
 
-export interface ReadSkills {
+export interface ParsedSkills {
   readonly skills: readonly SkillFolder[];
   readonly problems: readonly ConfigurationProblem[];
 }
 
-export type SkillOrigin = 'defined' | 'shipped';
+export type SkillOrigin = 'defined' | 'built-in';
 
 export interface SkillReaderPort {
-  read(files: readonly ConfigurationFile[]): ReadSkills;
+  parse(files: readonly ConfigurationFile[]): ParsedSkills;
 
   folder(
     name: string,

@@ -1,10 +1,10 @@
 import { AddReplaySetEntryCommand } from '@replays/application/commands/add-replay-set-entry.command';
+import { CreateReplaySetCommand } from '@replays/application/commands/create-replay-set.command';
 import { DeleteReplaySetCommand } from '@replays/application/commands/delete-replay-set.command';
 import { AddReplaySetEntryHandler } from '@replays/application/commands/handlers/add-replay-set-entry.handler';
+import { CreateReplaySetHandler } from '@replays/application/commands/handlers/create-replay-set.handler';
 import { DeleteReplaySetHandler } from '@replays/application/commands/handlers/delete-replay-set.handler';
-import { OpenReplaySetHandler } from '@replays/application/commands/handlers/open-replay-set.handler';
 import { RemoveReplaySetEntryHandler } from '@replays/application/commands/handlers/remove-replay-set-entry.handler';
-import { OpenReplaySetCommand } from '@replays/application/commands/open-replay-set.command';
 import { RemoveReplaySetEntryCommand } from '@replays/application/commands/remove-replay-set-entry.command';
 import {
   accessFor,
@@ -34,8 +34,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 let memory: InMemoryReplays;
 let work: FakeWork;
 
-const errorOf = async (asked: Promise<unknown>) =>
-  asked.then(
+const errorOf = async (call: Promise<unknown>) =>
+  call.then(
     () => {
       throw new Error('it was allowed');
     },
@@ -52,18 +52,18 @@ beforeEach(() => {
   work = new FakeWork();
 });
 
-describe('OpenReplaySetHandler', () => {
-  const opening = (mayPlan: boolean | null) =>
-    new OpenReplaySetHandler(
+describe('CreateReplaySetHandler', () => {
+  const creating = (mayPlan: boolean | null) =>
+    new CreateReplaySetHandler(
       accessFor(memory, work, mayPlan),
       memory.setRepository,
       IDS,
       CLOCK,
     );
 
-  it('opens an empty set at a station of the team', async () => {
-    const opened = await opening(true).execute(
-      new OpenReplaySetCommand(
+  it('creates an empty set at a station of the team', async () => {
+    const created = await creating(true).execute(
+      new CreateReplaySetCommand(
         'team_1',
         'line_1',
         'station_build',
@@ -72,14 +72,14 @@ describe('OpenReplaySetHandler', () => {
       ),
     );
 
-    expect(opened.outcome).toBe('opened');
+    expect(created.outcome).toBe('created');
     expect([...memory.sets.values()][0]?.name.value).toBe('Queue fixes');
   });
 
-  it('refuses one who may read the team but not plan', async () => {
+  it('denies one who may read the team but not plan', async () => {
     expect(
-      await opening(false).execute(
-        new OpenReplaySetCommand(
+      await creating(false).execute(
+        new CreateReplaySetCommand(
           'team_1',
           'line_1',
           'station_build',
@@ -93,8 +93,8 @@ describe('OpenReplaySetHandler', () => {
   it('knows no team the caller may not read, nor a station elsewhere', async () => {
     expect(
       await errorOf(
-        opening(null).execute(
-          new OpenReplaySetCommand(
+        creating(null).execute(
+          new CreateReplaySetCommand(
             'team_1',
             'line_1',
             'station_build',
@@ -106,8 +106,8 @@ describe('OpenReplaySetHandler', () => {
     ).toBe('not-found');
     expect(
       await errorOf(
-        opening(true).execute(
-          new OpenReplaySetCommand(
+        creating(true).execute(
+          new CreateReplaySetCommand(
             'team_1',
             'line_2',
             'station_build',
@@ -154,7 +154,7 @@ describe('AddReplaySetEntryHandler', () => {
       runId: RunId.of('run_1'),
       taskId: TaskId.of('task_1'),
       stationId: STATION.stationId,
-      refusal: null,
+      unreplayableReason: null,
       reason: null,
     });
 
@@ -173,12 +173,12 @@ describe('AddReplaySetEntryHandler', () => {
     ]);
   });
 
-  it('refuses a run Work cannot replay, or knows nothing of', async () => {
+  it('rejects a run Work cannot replay, or knows nothing of', async () => {
     work.replayables.set('run_1', {
       runId: RunId.of('run_1'),
       taskId: TaskId.of('task_1'),
       stationId: STATION.stationId,
-      refusal: 'archive-gone',
+      unreplayableReason: 'archive-gone',
       reason: 'the archive is gone',
     });
 
@@ -228,7 +228,7 @@ describe('DeleteReplaySetHandler', () => {
       TRANSACTION,
     );
 
-  it('refuses while a replay of the set is underway', async () => {
+  it('rejects while a replay of the set is in progress', async () => {
     await memory.setRepository.add(aSet(1));
     await memory.replayRepository.add(aReplay({ count: 1 }));
 
@@ -241,7 +241,7 @@ describe('DeleteReplaySetHandler', () => {
     ).toBe('conflict');
   });
 
-  it('deletes a set nothing of is underway', async () => {
+  it('deletes a set nothing of is in progress', async () => {
     await memory.setRepository.add(aSet(1));
 
     await deleting().execute(

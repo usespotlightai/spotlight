@@ -3,18 +3,18 @@ import {
   type ChangeStack,
   changeStackPath,
   currentStacks,
-  drafting,
   filesOf,
+  generating,
+  inProgress,
   isLargeDiff,
   layerAt,
   patchOf,
-  settling,
   tallyOf,
 } from '@/lib/change-stack';
 
-const checked = (state: 'waiting' | 'checked'): ChangeStack['check'] => ({
+const checked = (status: 'waiting' | 'checked'): ChangeStack['check'] => ({
   command: 'npm test',
-  state,
+  status,
   reason: null,
   whole: null,
   layers: [],
@@ -80,7 +80,7 @@ const stack = (over: Partial<ChangeStack> = {}): ChangeStack => ({
           id: 'c1.l1',
           title: 'Add the invitation model',
           summary: 'The model',
-          ranges: [{ hunk: 'h1' }],
+          hunks: [{ hunk: 'h1' }],
           notes: [
             { path: 'src/invite.ts', note: 'Adds the invitation model.' },
           ],
@@ -89,7 +89,7 @@ const stack = (over: Partial<ChangeStack> = {}): ChangeStack => ({
           id: 'c1.l2',
           title: 'Mount the invitation routes',
           summary: 'The routes',
-          ranges: [{ hunk: 'h3' }, { hunk: 'h2' }],
+          hunks: [{ hunk: 'h3' }, { hunk: 'h2' }],
           notes: [],
         },
       ],
@@ -118,22 +118,22 @@ describe('currentStacks', () => {
     ]);
   });
 
-  it('says whether a current stack is still drafting', () => {
-    expect(drafting([stack({ state: 'drafting' }), stack()])).toBe(true);
-    expect(drafting([stack(), stack({ state: 'drafting' })])).toBe(false);
+  it('says whether a current stack is still generating', () => {
+    expect(generating([stack({ state: 'generating' }), stack()])).toBe(true);
+    expect(generating([stack(), stack({ state: 'generating' })])).toBe(false);
   });
 });
 
-describe('settling', () => {
-  it('keeps asking while a stack drafts or waits for its check', () => {
-    expect(settling([stack({ check: checked('waiting') })])).toBe(true);
-    expect(settling([stack({ check: checked('checked') })])).toBe(false);
-    expect(settling([stack()])).toBe(false);
+describe('inProgress', () => {
+  it('keeps polling while a stack generates or waits for its check', () => {
+    expect(inProgress([stack({ check: checked('waiting') })])).toBe(true);
+    expect(inProgress([stack({ check: checked('checked') })])).toBe(false);
+    expect(inProgress([stack()])).toBe(false);
   });
 });
 
 describe('layerAt', () => {
-  it('finds the layer asked for, with where it stands in its cohort', () => {
+  it('finds the layer requested, with its position in its cohort', () => {
     const found = layerAt(stack(), 'c1.l2');
 
     expect(found?.layer.title).toBe('Mount the invitation routes');
@@ -201,7 +201,7 @@ describe('isLargeDiff', () => {
     ].join('\n'),
   });
 
-  it('holds back a diff over a thousand lines', () => {
+  it('hides a diff over a thousand lines', () => {
     expect(isLargeDiff([hunk(600), hunk(401)])).toBe(true);
   });
 

@@ -1,12 +1,12 @@
 import type {
-  HeldConfigurationDto,
-  HeldResourceDto,
-} from '@configuration/application/dto/held-configuration.dto';
+  ExportableConfigurationDto,
+  ExportableResourceDto,
+} from '@configuration/application/dto/exportable-configuration.dto';
 import type {
   HookConfigMatch,
   HookConfigStep,
 } from '@configuration/application/ports/hook-configs.port';
-import type { WornSecret } from '@configuration/application/ports/integration-configs.port';
+import type { SecretReferenceAt } from '@configuration/domain/value-objects/secret-reference-at.vo';
 import { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
 import {
   attribute,
@@ -51,16 +51,16 @@ interface Rendered {
   readonly files: readonly TerraformFile[];
 }
 
-type HeldBy<K extends HeldResourceDto['kind']> = Extract<
-  HeldResourceDto,
+type ResourceOf<K extends ExportableResourceDto['kind']> = Extract<
+  ExportableResourceDto,
   { kind: K }
 >;
 
-interface Neighbours {
+interface ModuleIndex {
   readonly workspaceSlug: string;
   readonly skills: ReadonlySet<string>;
   readonly profiles: ReadonlySet<string>;
-  readonly sources: ReadonlySet<string>;
+  readonly integrations: ReadonlySet<string>;
   readonly trusts: ReadonlySet<string>;
   readonly pools: ReadonlySet<string>;
   readonly egresses: ReadonlyMap<string, string>;
@@ -85,7 +85,7 @@ const HOOK_MATCHES: readonly (keyof HookConfigMatch)[] = [
 
 const byPath = inCodePointOrderOf((file: TerraformFile) => file.path);
 
-const PLACE: Readonly<Record<HeldResourceDto['kind'], number>> = {
+const PLACE: Readonly<Record<ExportableResourceDto['kind'], number>> = {
   workspace: 0,
   secret: 1,
   'workspace-token-trust': 2,
@@ -103,17 +103,20 @@ const PLACE: Readonly<Record<HeldResourceDto['kind'], number>> = {
 
 const PLATFORM_EGRESS = 'spotlight';
 
-const teamOf = (held: HeldResourceDto): string => {
-  if (held.kind === 'team') {
-    return held.key;
+const teamOf = (resource: ExportableResourceDto): string => {
+  if (resource.kind === 'team') {
+    return resource.key;
   }
 
-  return held.kind !== 'workspace' && held.heldBy === 'team'
-    ? held.teamKey
+  return resource.kind !== 'workspace' && resource.ownedBy === 'team'
+    ? resource.teamKey
     : '';
 };
 
-const inModuleOrder = (one: HeldResourceDto, other: HeldResourceDto): number =>
+const inModuleOrder = (
+  one: ExportableResourceDto,
+  other: ExportableResourceDto,
+): number =>
   inCodePointOrder(teamOf(one), teamOf(other)) ||
   PLACE[one.kind] - PLACE[other.kind] ||
   inCodePointOrder(one.address, other.address);
@@ -152,11 +155,11 @@ const nameOf = (...keys: readonly string[]): string => {
   return /^[A-Za-z_]/.test(joined) ? joined : `_${joined}`;
 };
 
-const typeOf = (kind: HeldResourceDto['kind']): string =>
+const typeOf = (kind: ExportableResourceDto['kind']): string =>
   `${PROVIDER}_${kind.replaceAll('-', '_')}`;
 
 const referenceTo = (
-  kind: HeldResourceDto['kind'],
+  kind: ExportableResourceDto['kind'],
   name: string,
   field: string,
 ): HclExpression => HclExpression.traversal(typeOf(kind), name, field);
@@ -166,14 +169,16 @@ const inTeam = (teamKey: string, key: string): string =>
 
 const secretNameOf = (name: string): string => nameOf(name.toLowerCase());
 
-const neighboursIn = (configuration: HeldConfigurationDto): Neighbours => {
-  const of = <K extends HeldResourceDto['kind']>(
+const moduleIndexOf = (
+  configuration: ExportableConfigurationDto,
+): ModuleIndex => {
+  const of = <K extends ExportableResourceDto['kind']>(
     kind: K,
-    key: (held: HeldBy<K>) => string,
+    key: (resource: ResourceOf<K>) => string,
   ): ReadonlySet<string> =>
     new Set(
       configuration.resources
-        .filter((each): each is HeldBy<K> => each.kind === kind)
+        .filter((each): each is ResourceOf<K> => each.kind === kind)
         .map(key),
     );
 
@@ -181,84 +186,99 @@ const neighboursIn = (configuration: HeldConfigurationDto): Neighbours => {
     workspaceSlug: configuration.workspaceSlug,
     skills: of('skill', (each) => inTeam(each.teamKey, each.key)),
     profiles: of('harness-profile', (each) => inTeam(each.teamKey, each.key)),
-    sources: of('integration', (each) => inTeam(each.teamKey, each.source)),
+    integrations: of('integration', (each) =>
+      inTeam(each.teamKey, each.integration),
+    ),
     trusts: of('runner-trust', (each) => each.key),
     pools: of('runner-pool', (each) => each.key),
     egresses: new Map(
       configuration.resources
-        .filter((each): each is HeldBy<'egress'> => each.kind === 'egress')
+        .filter((each): each is ResourceOf<'egress'> => each.kind === 'egress')
         .map((each) => [each.id, each.key]),
     ),
     secrets: of('secret', (each) => each.name),
   };
 };
 
-const References = (neighbours: Neighbours) => ({
-  owner(held: HeldResourceDto): HclItem[] {
-    if (held.kind === 'workspace') {
+const References = (moduleIndex: ModuleIndex) => ({
+  owner(resource: ExportableResourceDto): HclItem[] {
+    if (resource.kind === 'workspace') {
       return [];
     }
 
-    return held.heldBy === 'team'
-      ? [attribute('team_id', referenceTo('team', nameOf(held.teamKey), 'id'))]
+    return resource.ownedBy === 'team'
+      ? [
+          attribute(
+            'team_id',
+            referenceTo('team', nameOf(resource.teamKey), 'id'),
+          ),
+        ]
       : [
           attribute(
             'workspace_id',
-            referenceTo('workspace', nameOf(neighbours.workspaceSlug), 'id'),
+            referenceTo('workspace', nameOf(moduleIndex.workspaceSlug), 'id'),
           ),
         ];
   },
 
   skill(teamKey: string, key: string): HclValue {
-    return neighbours.skills.has(inTeam(teamKey, key))
+    return moduleIndex.skills.has(inTeam(teamKey, key))
       ? referenceTo('skill', nameOf(teamKey, key), 'key')
       : key;
   },
 
   profile(teamKey: string, key: string): HclValue {
-    return neighbours.profiles.has(inTeam(teamKey, key))
+    return moduleIndex.profiles.has(inTeam(teamKey, key))
       ? referenceTo('harness-profile', nameOf(teamKey, key), 'key')
       : key;
   },
 
   tool(teamKey: string, tool: string): HclValue {
     const named = isToolName(tool) ? ToolName.of(tool) : null;
-    const source = named?.integration;
+    const integration = named?.integration;
 
-    return named && source && neighbours.sources.has(inTeam(teamKey, source))
+    return named &&
+      integration &&
+      moduleIndex.integrations.has(inTeam(teamKey, integration))
       ? HclExpression.template(
-          referenceTo('integration', nameOf(teamKey, source), 'source'),
+          referenceTo(
+            'integration',
+            nameOf(teamKey, integration),
+            'integration',
+          ),
           `.${named.name}`,
         )
       : tool;
   },
 
-  offered(teamKey: string, tool: string): HclValue {
+  toolIndex(teamKey: string, tool: string): HclValue {
     const named = isToolName(tool) ? ToolName.of(tool) : null;
-    const source = named?.integration;
+    const integration = named?.integration;
 
-    return named && source && neighbours.sources.has(inTeam(teamKey, source))
+    return named &&
+      integration &&
+      moduleIndex.integrations.has(inTeam(teamKey, integration))
       ? HclExpression.indexed(
-          referenceTo('integration', nameOf(teamKey, source), 'tools'),
+          referenceTo('integration', nameOf(teamKey, integration), 'tools'),
           named.name,
         )
       : tool;
   },
 
   trust(key: string): HclValue {
-    return neighbours.trusts.has(key)
+    return moduleIndex.trusts.has(key)
       ? referenceTo('runner-trust', nameOf(key), 'key')
       : key;
   },
 
   pool(key: string): HclValue {
-    return neighbours.pools.has(key)
+    return moduleIndex.pools.has(key)
       ? referenceTo('runner-pool', nameOf(key), 'key')
       : key;
   },
 
   egress(named: string): HclValue {
-    const key = neighbours.egresses.get(named);
+    const key = moduleIndex.egresses.get(named);
 
     return named !== PLATFORM_EGRESS && key !== undefined
       ? referenceTo('egress', nameOf(key), 'id')
@@ -266,7 +286,7 @@ const References = (neighbours: Neighbours) => ({
   },
 
   secret(name: string): HclExpression | null {
-    return neighbours.secrets.has(name)
+    return moduleIndex.secrets.has(name)
       ? HclExpression.template(
           'secret.',
           referenceTo('secret', secretNameOf(name), 'name'),
@@ -277,11 +297,16 @@ const References = (neighbours: Neighbours) => ({
 
 type Referring = ReturnType<typeof References>;
 
-const importIdOf = (held: HeldResourceDto, workspaceId: string): string =>
-  held.kind === 'workspace' ? held.address : `${workspaceId}/${held.address}`;
+const importIdOf = (
+  resource: ExportableResourceDto,
+  workspaceId: string,
+): string =>
+  resource.kind === 'workspace'
+    ? resource.address
+    : `${workspaceId}/${resource.address}`;
 
-const adopted = (
-  held: HeldResourceDto,
+const withImportBlock = (
+  resource: ExportableResourceDto,
   name: string,
   importedAs: string,
   body: readonly HclItem[],
@@ -293,11 +318,11 @@ const adopted = (
       'import',
       [],
       [
-        attribute('to', HclExpression.traversal(typeOf(held.kind), name)),
+        attribute('to', HclExpression.traversal(typeOf(resource.kind), name)),
         attribute('id', importedAs),
       ],
     ),
-    block('resource', [typeOf(held.kind), name], body),
+    block('resource', [typeOf(resource.kind), name], body),
   ],
   files: more.files ?? [],
 });
@@ -324,15 +349,15 @@ const present = (
 ): readonly HclItem[] => (value === undefined ? [] : [attribute(name, value)]);
 
 const line = (
-  held: HeldBy<'line'>,
+  resource: ResourceOf<'line'>,
   importedAs: string,
   refer: Referring,
 ): Rendered => {
   const files: TerraformFile[] = [];
-  const { definition } = held;
+  const { definition } = resource;
 
   const judge = (stationKey: string, set: LineDefinitionJudge): HclBlock => {
-    const path = `judges/${held.teamKey}/${held.key}/${stationKey}.md`;
+    const path = `judges/${resource.teamKey}/${resource.key}/${stationKey}.md`;
 
     if (set.rubric !== undefined) {
       files.push({ path, content: set.rubric });
@@ -348,9 +373,9 @@ const line = (
         ...(set.claims === undefined
           ? []
           : [attribute('claims', HclLines.of(set.claims))]),
-        ...present('pass_share', set.passShare),
+        ...present('pass_threshold', set.passThreshold),
         attribute('sample', set.sample),
-        attribute('trust', set.trust),
+        attribute('min_agreement', set.minAgreement),
       ],
     );
   };
@@ -370,7 +395,7 @@ const line = (
     );
 
   const station = (each: LineDefinitionStation): HclBlock => {
-    const path = `prompts/${held.teamKey}/${held.key}/${each.key}.md`;
+    const path = `prompts/${resource.teamKey}/${resource.key}/${each.key}.md`;
 
     if (each.prompt !== undefined) {
       files.push({ path, content: each.prompt });
@@ -392,7 +417,7 @@ const line = (
           'profile',
           each.profile === undefined
             ? undefined
-            : refer.profile(held.teamKey, each.profile),
+            : refer.profile(resource.teamKey, each.profile),
         ),
         ...present(
           'prompt',
@@ -407,11 +432,11 @@ const line = (
         ...present('memories', each.memories),
         attribute(
           'tools',
-          each.tools.map((tool) => refer.tool(held.teamKey, tool)),
+          each.tools.map((tool) => refer.tool(resource.teamKey, tool)),
         ),
         attribute(
           'skills',
-          each.skills.map((skill) => refer.skill(held.teamKey, skill)),
+          each.skills.map((skill) => refer.skill(resource.teamKey, skill)),
         ),
         attribute('passes_to', each.passesTo),
         attribute('ends', each.ends),
@@ -482,12 +507,12 @@ const line = (
       [attribute('repository', from.repository), attribute('path', from.path)],
     );
 
-  return adopted(
-    held,
-    nameOf(held.teamKey, held.key),
+  return withImportBlock(
+    resource,
+    nameOf(resource.teamKey, resource.key),
     importedAs,
     [
-      ...refer.owner(held),
+      ...refer.owner(resource),
       attribute('key', definition.key),
       attribute('name', definition.name),
       ...present('role', definition.role),
@@ -504,25 +529,25 @@ const line = (
 };
 
 const skill = (
-  held: HeldBy<'skill'>,
+  resource: ResourceOf<'skill'>,
   importedAs: string,
   refer: Referring,
 ): Rendered => {
-  const files = Object.entries(held.files)
+  const files = Object.entries(resource.files)
     .sort(inCodePointOrderOf(([within]: [string, string]) => within))
     .map(([within, content]) => ({
       within,
-      path: `skills/${held.teamKey}/${held.key}/${within}`,
+      path: `skills/${resource.teamKey}/${resource.key}/${within}`,
       content,
     }));
 
-  return adopted(
-    held,
-    nameOf(held.teamKey, held.key),
+  return withImportBlock(
+    resource,
+    nameOf(resource.teamKey, resource.key),
     importedAs,
     [
-      ...refer.owner(held),
-      attribute('key', held.key),
+      ...refer.owner(resource),
+      attribute('key', resource.key),
       attribute(
         'files',
         Object.fromEntries(
@@ -561,10 +586,10 @@ const replacedAt = (
 
 const withSecretReferences = (
   definition: unknown,
-  worn: readonly WornSecret[],
+  references: readonly SecretReferenceAt[],
   refer: Referring,
 ): unknown =>
-  worn.reduce<unknown>((written, each) => {
+  references.reduce<unknown>((written, each) => {
     const reference = refer.secret(each.name);
 
     return reference
@@ -573,36 +598,63 @@ const withSecretReferences = (
   }, definition);
 
 const integration = (
-  held: HeldBy<'integration'>,
+  resource: ResourceOf<'integration'>,
   importedAs: string,
   refer: Referring,
 ): Rendered =>
-  adopted(held, nameOf(held.teamKey, held.source), importedAs, [
-    ...refer.owner(held),
-    attribute(
-      'definition',
-      hclOf(withSecretReferences(held.definition, held.secretsWorn, refer)),
-    ),
-  ]);
+  withImportBlock(
+    resource,
+    nameOf(resource.teamKey, resource.integration),
+    importedAs,
+    [
+      ...refer.owner(resource),
+      attribute(
+        'definition',
+        hclOf(
+          withSecretReferences(
+            resource.definition,
+            resource.secretReferences,
+            refer,
+          ),
+        ),
+      ),
+    ],
+  );
 
 const profile = (
-  held: HeldBy<'harness-profile'>,
+  resource: ResourceOf<'harness-profile'>,
   importedAs: string,
   refer: Referring,
 ): Rendered =>
-  adopted(held, nameOf(held.teamKey, held.key), importedAs, [
-    ...refer.owner(held),
-    attribute('key', held.key),
-    attribute('permissions', hclOf(held.permissions)),
-    attribute(
-      'mcp_servers',
-      hclOf(withSecretReferences(held.mcpServers, held.secretsWorn, refer)),
-    ),
-    attribute('native', hclOf(held.native)),
-  ]);
+  withImportBlock(
+    resource,
+    nameOf(resource.teamKey, resource.key),
+    importedAs,
+    [
+      ...refer.owner(resource),
+      attribute('key', resource.key),
+      attribute('permissions', hclOf(resource.permissions)),
+      attribute(
+        'mcp_servers',
+        hclOf(
+          withSecretReferences(
+            resource.mcpServers,
+            resource.secretReferences,
+            refer,
+          ),
+        ),
+      ),
+      attribute('native', hclOf(resource.native)),
+    ],
+  );
 
-const hookMatch = (held: HeldBy<'hook'>, refer: Referring): HclItem[] => {
-  const matched = HOOK_MATCHES.filter((each) => held.match[each].length > 0);
+const hookMatch = (
+  resource: ResourceOf<'hook'>,
+  refer: Referring,
+): HclItem[] => {
+  const matched = HOOK_MATCHES.filter(
+    (each) => resource.match[each].length > 0,
+  );
 
   return matched.length === 0
     ? []
@@ -613,10 +665,10 @@ const hookMatch = (held: HeldBy<'hook'>, refer: Referring): HclItem[] => {
             matched.map((each) => [
               each,
               each === 'tools'
-                ? held.match.tools.map((tool) =>
-                    refer.offered(held.teamKey, tool),
+                ? resource.match.tools.map((tool) =>
+                    refer.toolIndex(resource.teamKey, tool),
                   )
-                : [...held.match[each]],
+                : [...resource.match[each]],
             ]),
           ),
         ),
@@ -631,7 +683,7 @@ const hookStep = (
   if ('call' in step) {
     return {
       name: step.name,
-      call: refer.offered(teamKey, step.call),
+      call: refer.toolIndex(teamKey, step.call),
       ...(Object.keys(step.with).length === 0
         ? {}
         : { with: hclOf(step.with) }),
@@ -654,27 +706,27 @@ const hookStep = (
 };
 
 const hook = (
-  held: HeldBy<'hook'>,
+  resource: ResourceOf<'hook'>,
   importedAs: string,
   refer: Referring,
 ): Rendered => {
-  const secret = `hook_${held.teamKey}_${held.key}_signing_secret`;
-  const { signing } = held;
+  const secret = `hook_${resource.teamKey}_${resource.key}_signing_secret`;
+  const { signing } = resource;
   const signed = signing !== null && 'secretVersion' in signing;
 
-  return adopted(
-    held,
-    nameOf(held.teamKey, held.key),
+  return withImportBlock(
+    resource,
+    nameOf(resource.teamKey, resource.key),
     importedAs,
     [
-      ...refer.owner(held),
-      attribute('key', held.key),
-      attribute('on', held.on),
-      ...hookMatch(held, refer),
-      ...(held.when === null ? [] : [attribute('when', held.when)]),
-      ...(Object.keys(held.vars).length === 0
+      ...refer.owner(resource),
+      attribute('key', resource.key),
+      attribute('on', resource.on),
+      ...hookMatch(resource, refer),
+      ...(resource.when === null ? [] : [attribute('when', resource.when)]),
+      ...(Object.keys(resource.vars).length === 0
         ? []
-        : [attribute('vars', hclOf(held.vars))]),
+        : [attribute('vars', hclOf(resource.vars))]),
       ...(signing === null
         ? []
         : [
@@ -688,13 +740,15 @@ const hook = (
                 : { oidc: { audience: signing.oidc.audience } },
             ),
           ]),
-      ...(held.failure === null ? [] : [attribute('failure', held.failure)]),
-      ...(held.timeoutSeconds === null
+      ...(resource.failure === null
         ? []
-        : [attribute('timeout_seconds', held.timeoutSeconds)]),
+        : [attribute('failure', resource.failure)]),
+      ...(resource.timeoutSeconds === null
+        ? []
+        : [attribute('timeout_seconds', resource.timeoutSeconds)]),
       attribute(
         'steps',
-        held.steps.map((each) => hookStep(held.teamKey, each, refer)),
+        resource.steps.map((each) => hookStep(resource.teamKey, each, refer)),
       ),
     ],
     {
@@ -702,7 +756,7 @@ const hook = (
         ? [
             variable(
               secret,
-              `The secret the hook ${held.address} signs its requests with, as whsec_ and base64 bytes`,
+              `The secret the hook ${resource.address} signs its requests with, as whsec_ and base64 bytes`,
               false,
             ),
           ]
@@ -712,42 +766,42 @@ const hook = (
 };
 
 const secret = (
-  held: HeldBy<'secret'>,
+  resource: ResourceOf<'secret'>,
   importedAs: string,
   refer: Referring,
 ): Rendered => {
-  const name = secretNameOf(held.name);
-  const value = `secret_${held.name.toLowerCase()}`;
+  const name = secretNameOf(resource.name);
+  const value = `secret_${resource.name.toLowerCase()}`;
 
-  return adopted(
-    held,
+  return withImportBlock(
+    resource,
     name,
     importedAs,
     [
-      ...refer.owner(held),
-      attribute('name', held.name),
+      ...refer.owner(resource),
+      attribute('name', resource.name),
       attribute(
         'source',
         hclOf({
-          kind: held.source.kind,
-          secret_id: held.source.secretId ?? undefined,
-          field: held.source.field ?? undefined,
+          kind: resource.source.kind,
+          secret_id: resource.source.secretId ?? undefined,
+          field: resource.source.field ?? undefined,
         }),
       ),
-      attribute('bindings', hclOf(held.bindings)),
-      ...(held.keepsValue
+      attribute('bindings', hclOf(resource.bindings)),
+      ...(resource.storesValue
         ? [attribute('value_wo', HclExpression.traversal('var', value))]
         : []),
-      ...(held.valueVersion === null
+      ...(resource.valueVersion === null
         ? []
-        : [attribute('value_wo_version', held.valueVersion)]),
+        : [attribute('value_wo_version', resource.valueVersion)]),
     ],
     {
-      variables: held.keepsValue
+      variables: resource.storesValue
         ? [
             variable(
               value,
-              `The value of the secret ${held.name}, which Spotlight keeps and never answers`,
+              `The value of the secret ${resource.name}, which Spotlight stores and never returns`,
               false,
             ),
           ]
@@ -757,23 +811,25 @@ const secret = (
 };
 
 const pool = (
-  held: HeldBy<'runner-pool'>,
+  resource: ResourceOf<'runner-pool'>,
   importedAs: string,
   refer: Referring,
 ): Rendered => {
-  const token = `runner_pool_${held.key}_token`;
-  const secret = `runner_pool_${held.key}_provision_secret`;
-  const { provision } = held;
+  const token = `runner_pool_${resource.key}_token`;
+  const secret = `runner_pool_${resource.key}_provision_secret`;
+  const { provision } = resource;
 
-  return adopted(
-    held,
-    nameOf(held.key),
+  return withImportBlock(
+    resource,
+    nameOf(resource.key),
     importedAs,
     [
-      ...refer.owner(held),
-      attribute('key', held.key),
-      attribute('labels', [...held.labels]),
-      ...(held.maxRuns === null ? [] : [attribute('max_runs', held.maxRuns)]),
+      ...refer.owner(resource),
+      attribute('key', resource.key),
+      attribute('labels', [...resource.labels]),
+      ...(resource.maxRuns === null
+        ? []
+        : [attribute('max_runs', resource.maxRuns)]),
       ...(provision
         ? [
             attribute('provision', {
@@ -792,9 +848,9 @@ const pool = (
           ]
         : [
             attribute('token', HclExpression.traversal('var', token)),
-            ...(held.tokenVersion === null
+            ...(resource.tokenVersion === null
               ? []
-              : [attribute('token_version', held.tokenVersion)]),
+              : [attribute('token_version', resource.tokenVersion)]),
           ]),
     ],
     {
@@ -802,12 +858,12 @@ const pool = (
         provision
           ? variable(
               secret,
-              `The secret the runner pool ${held.key} signs its provision calls with, as whsec_ and base64 bytes`,
+              `The secret the runner pool ${resource.key} signs its provision calls with, as whsec_ and base64 bytes`,
               false,
             )
           : variable(
               token,
-              `The token the runner pool ${held.key} claims with; left null, Spotlight issues one when it creates the pool`,
+              `The token the runner pool ${resource.key} claims with; left null, Spotlight issues one when it creates the pool`,
               true,
             ),
       ],
@@ -816,30 +872,30 @@ const pool = (
 };
 
 const egress = (
-  held: HeldBy<'egress'>,
+  resource: ResourceOf<'egress'>,
   importedAs: string,
   refer: Referring,
 ): Rendered => {
-  const token = `egress_${held.key}_token`;
+  const token = `egress_${resource.key}_token`;
 
-  return adopted(
-    held,
-    nameOf(held.key),
+  return withImportBlock(
+    resource,
+    nameOf(resource.key),
     importedAs,
     [
-      ...refer.owner(held),
-      attribute('key', held.key),
-      attribute('url', held.url),
+      ...refer.owner(resource),
+      attribute('key', resource.key),
+      attribute('url', resource.url),
       attribute('token', HclExpression.traversal('var', token)),
-      ...(held.tokenVersion === null
+      ...(resource.tokenVersion === null
         ? []
-        : [attribute('token_version', held.tokenVersion)]),
+        : [attribute('token_version', resource.tokenVersion)]),
     ],
     {
       variables: [
         variable(
           token,
-          `The token the egress ${held.key} calls Spotlight with; left null, Spotlight issues one when it creates the egress`,
+          `The token the egress ${resource.key} calls Spotlight with; left null, Spotlight issues one when it creates the egress`,
           true,
         ),
       ],
@@ -848,82 +904,82 @@ const egress = (
 };
 
 const rendered = (
-  held: HeldResourceDto,
-  configuration: HeldConfigurationDto,
+  resource: ExportableResourceDto,
+  configuration: ExportableConfigurationDto,
   refer: Referring,
 ): Rendered => {
-  const importedAs = importIdOf(held, configuration.workspaceId);
+  const importedAs = importIdOf(resource, configuration.workspaceId);
 
-  switch (held.kind) {
+  switch (resource.kind) {
     case 'workspace':
-      return adopted(held, nameOf(held.slug), importedAs, [
-        attribute('name', held.name),
-        attribute('slug', held.slug),
+      return withImportBlock(resource, nameOf(resource.slug), importedAs, [
+        attribute('name', resource.name),
+        attribute('slug', resource.slug),
       ]);
     case 'team':
-      return adopted(held, nameOf(held.key), importedAs, [
-        ...refer.owner(held),
-        attribute('key', held.key),
-        attribute('name', held.name),
+      return withImportBlock(resource, nameOf(resource.key), importedAs, [
+        ...refer.owner(resource),
+        attribute('key', resource.key),
+        attribute('name', resource.name),
       ]);
     case 'secret':
-      return secret(held, importedAs, refer);
+      return secret(resource, importedAs, refer);
     case 'workspace-token-trust':
-      return adopted(held, nameOf(held.key), importedAs, [
-        ...refer.owner(held),
-        attribute('key', held.key),
-        attribute('issuer', held.issuer),
-        attribute('audience', held.audience),
-        attribute('subject', held.subject),
-        ...(Object.keys(held.claims).length === 0
+      return withImportBlock(resource, nameOf(resource.key), importedAs, [
+        ...refer.owner(resource),
+        attribute('key', resource.key),
+        attribute('issuer', resource.issuer),
+        attribute('audience', resource.audience),
+        attribute('subject', resource.subject),
+        ...(Object.keys(resource.claims).length === 0
           ? []
-          : [attribute('claims', { ...held.claims })]),
-        attribute('scopes', [...held.scopes]),
-        attribute('lifetime_minutes', held.lifetimeMinutes),
+          : [attribute('claims', { ...resource.claims })]),
+        attribute('scopes', [...resource.scopes]),
+        attribute('lifetime_minutes', resource.lifetimeMinutes),
       ]);
     case 'runner-trust':
-      return adopted(held, nameOf(held.key), importedAs, [
-        ...refer.owner(held),
-        attribute('key', held.key),
-        attribute('issuer', held.issuer),
-        attribute('subject', held.subject),
-        attribute('audience', held.audience),
-        attribute('labels', [...held.labels]),
+      return withImportBlock(resource, nameOf(resource.key), importedAs, [
+        ...refer.owner(resource),
+        attribute('key', resource.key),
+        attribute('issuer', resource.issuer),
+        attribute('subject', resource.subject),
+        attribute('audience', resource.audience),
+        attribute('labels', [...resource.labels]),
       ]);
     case 'workspace-runners':
-      return adopted(held, nameOf(held.address), importedAs, [
-        ...refer.owner(held),
+      return withImportBlock(resource, nameOf(resource.address), importedAs, [
+        ...refer.owner(resource),
         attribute(
           'trusts',
-          held.trusts.map((each) => refer.trust(each)),
+          resource.trusts.map((each) => refer.trust(each)),
         ),
         attribute(
           'pools',
-          held.pools.map((each) => refer.pool(each)),
+          resource.pools.map((each) => refer.pool(each)),
         ),
       ]);
     case 'runner-pool':
-      return pool(held, importedAs, refer);
+      return pool(resource, importedAs, refer);
     case 'egress':
-      return egress(held, importedAs, refer);
+      return egress(resource, importedAs, refer);
     case 'line':
-      return line(held, importedAs, refer);
+      return line(resource, importedAs, refer);
     case 'skill':
-      return skill(held, importedAs, refer);
+      return skill(resource, importedAs, refer);
     case 'integration':
-      return integration(held, importedAs, refer);
+      return integration(resource, importedAs, refer);
     case 'hook':
-      return hook(held, importedAs, refer);
+      return hook(resource, importedAs, refer);
     case 'harness-profile':
-      return profile(held, importedAs, refer);
+      return profile(resource, importedAs, refer);
   }
 };
 
 const renderedIn = (
-  configuration: HeldConfigurationDto,
-  chosen: readonly HeldResourceDto[],
+  configuration: ExportableConfigurationDto,
+  chosen: readonly ExportableResourceDto[],
 ): readonly Rendered[] => {
-  const refer = References(neighboursIn(configuration));
+  const refer = References(moduleIndexOf(configuration));
 
   return chosen.map((each) => rendered(each, configuration, refer));
 };
@@ -941,7 +997,7 @@ const PROVIDERS = block(
 );
 
 export const workspaceTerraform = (
-  configuration: HeldConfigurationDto,
+  configuration: ExportableConfigurationDto,
 ): readonly TerraformFile[] => {
   const all = renderedIn(
     configuration,
@@ -962,8 +1018,8 @@ export const workspaceTerraform = (
 };
 
 export const resourceHcl = (
-  configuration: HeldConfigurationDto,
-  resource: HeldResourceDto,
+  configuration: ExportableConfigurationDto,
+  resource: ExportableResourceDto,
 ): ResourceHcl => {
   const [one] = renderedIn(configuration, [resource]);
 

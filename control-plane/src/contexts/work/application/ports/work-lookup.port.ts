@@ -9,7 +9,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const WORK_LOOKUP = Symbol('WORK_LOOKUP');
 
-export interface RunPlace {
+export interface RunLocation {
   readonly teamId: TeamId;
   readonly lineId: string;
   readonly lineName: string;
@@ -33,7 +33,10 @@ export interface RunLookup {
       readonly id: string;
       readonly handle: string;
     }[];
-    readonly cut: readonly { readonly id: string; readonly handle: string }[];
+    readonly omitted: readonly {
+      readonly id: string;
+      readonly handle: string;
+    }[];
   };
   readonly ended: boolean;
   readonly completed: boolean;
@@ -41,14 +44,14 @@ export interface RunLookup {
   readonly isSearch: boolean;
 }
 
-export interface RunSite {
+export interface RunContext {
   readonly teamId: TeamId;
   readonly lineId: string | null;
   readonly stationId: string | null;
   readonly repositories: readonly Repository[];
 }
 
-export interface HeldRunLookup extends RunSite {
+export interface LeasedRunLookup extends RunContext {
   readonly id: RunId;
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
@@ -58,7 +61,7 @@ export interface HeldRunLookup extends RunSite {
 
 export interface ReasonedStep {
   readonly index: number;
-  readonly kind: 'said' | 'thought' | 'planned' | 'handover' | 'remember';
+  readonly kind: 'message' | 'thought' | 'planned' | 'handover' | 'remember';
   readonly text: string;
 }
 
@@ -79,7 +82,7 @@ export interface ChangedFile {
   readonly path: string;
 }
 
-export interface SpokenNote {
+export interface TaskNoteView {
   readonly position: number;
   readonly by: 'person' | 'world';
   readonly author: string | null;
@@ -99,11 +102,11 @@ export interface TaskLookup {
 export interface WorkLookupPort {
   run(runId: RunId): Promise<RunLookup | null>;
 
-  wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean>;
+  wasClaimedBy(runId: RunId, runner: RunnerId): Promise<boolean>;
 
-  heldBy(runId: RunId, runner: RunnerId): Promise<HeldRunLookup | null>;
+  leasedBy(runId: RunId, runner: RunnerId): Promise<LeasedRunLookup | null>;
 
-  siteOfRun(runId: RunId): Promise<RunSite | null>;
+  contextOfRun(runId: RunId): Promise<RunContext | null>;
 
   referencedUnder(
     runId: RunId,
@@ -111,7 +114,7 @@ export interface WorkLookupPort {
     file: RegExp,
   ): Promise<readonly string[] | null>;
 
-  placeOf(runId: RunId): Promise<RunPlace | null>;
+  locationOf(runId: RunId): Promise<RunLocation | null>;
 
   linesOf(teamId: TeamId): Promise<readonly TeamLine[]>;
 
@@ -119,7 +122,7 @@ export interface WorkLookupPort {
 
   changedBy(runId: RunId): Promise<readonly ChangedFile[] | null>;
 
-  spokenOn(taskId: TaskId): Promise<readonly SpokenNote[] | null>;
+  notesOf(taskId: TaskId): Promise<readonly TaskNoteView[] | null>;
 
   task(taskId: TaskId): Promise<TaskLookup | null>;
 

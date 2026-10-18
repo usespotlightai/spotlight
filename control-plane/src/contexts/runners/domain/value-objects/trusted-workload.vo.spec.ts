@@ -20,7 +20,7 @@ describe('TrustedWorkload', () => {
     );
   });
 
-  it('refuses an issuer carrying a query or credentials', () => {
+  it('rejects an issuer carrying a query or credentials', () => {
     for (const raw of [
       'https://issuer.example.com?x=1',
       'https://user:pass@issuer.example.com',
@@ -32,7 +32,7 @@ describe('TrustedWorkload', () => {
     }
   });
 
-  it('refuses a subject with spaces in it', () => {
+  it('rejects a subject with spaces in it', () => {
     expect(() => TrustedWorkload.subjectOf('two words')).toThrow(
       InvalidTrustedWorkloadError,
     );

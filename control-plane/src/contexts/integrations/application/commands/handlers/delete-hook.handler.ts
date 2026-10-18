@@ -10,7 +10,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class DeleteHookHandler
   implements CommandHandlerPort<DeleteHookCommand, ResourceDeleted | null>
@@ -25,15 +25,15 @@ export class DeleteHookHandler
     const id = HookDefinitionId.of(command.hookId);
 
     try {
-      const standing = await this.definitions.withId(id);
-      const permissions = standing
+      const existing = await this.definitions.withId(id);
+      const permissions = existing
         ? await this.access.permissionsOnTeam(
-            standing.teamId.value,
+            existing.teamId.value,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -41,12 +41,12 @@ export class DeleteHookHandler
         return forbiddenTo('configure');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       await this.transaction.inTransaction(() =>
         this.definitions.save(
-          standing.retire(
-            Attribution.of(command.actor, permissions.workspaceId),
+          existing.delete(
+            ChangeActor.of(command.actor, permissions.workspaceId),
           ),
         ),
       );

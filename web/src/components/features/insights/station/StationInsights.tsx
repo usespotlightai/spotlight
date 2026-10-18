@@ -4,7 +4,7 @@ import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { StationFailures } from '@/components/features/insights/StationFailures';
 import { StationInsightsHeading } from '@/components/features/insights/station/StationInsightsHeading';
 import { JudgeAgreement } from '@/components/features/stations/judge/JudgeAgreement';
-import { StationOutcomes } from '@/components/features/stations/outcomes/StationOutcomes';
+import { StationRunOutcomes } from '@/components/features/stations/outcomes/StationRunOutcomes';
 import { StationSection } from '@/components/features/stations/StationSection';
 import { useStation } from '@/hooks/api/useStation';
 import {
@@ -80,7 +80,7 @@ export function StationInsights({
           title="Runs by config"
           description={RUNS_BY_CONFIG_NOTE}
         >
-          <StationOutcomes
+          <StationRunOutcomes
             slug={slug}
             teamId={teamId}
             lineId={lineId}
@@ -90,7 +90,10 @@ export function StationInsights({
       )}
 
       {lineId && station?.judge && (
-        <StationSection title="How far to trust the judge" id={JUDGE_ANCHOR}>
+        <StationSection
+          title="How far the judge agrees with people"
+          id={JUDGE_ANCHOR}
+        >
           <JudgeAgreement
             slug={slug}
             teamId={teamId}

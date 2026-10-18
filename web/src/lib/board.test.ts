@@ -3,8 +3,8 @@ import type { StationResponseDto } from '@/lib/api';
 import {
   asBoardView,
   inView,
-  rememberBoardView,
-  rememberedBoardView,
+  storeBoardView,
+  storedBoardView,
 } from '@/lib/board';
 
 const kinds: StationResponseDto['kind'][] = ['backlog', 'work', 'completed'];
@@ -48,19 +48,19 @@ describe('board views', () => {
 describe('the view a board is left on', () => {
   afterEach(() => localStorage.clear());
 
-  it('opens on the active board until one is remembered', () => {
-    expect(rememberedBoardView()).toBe('active');
+  it('opens on the active board until one is stored', () => {
+    expect(storedBoardView()).toBe('active');
   });
 
-  it('remembers the last view looked at', () => {
-    rememberBoardView('backlog');
+  it('stores the last view looked at', () => {
+    storeBoardView('backlog');
 
-    expect(rememberedBoardView()).toBe('backlog');
+    expect(storedBoardView()).toBe('backlog');
   });
 
   it('falls back to active when what was stored makes no sense', () => {
     localStorage.setItem('spotlight.board-view', 'nonsense');
 
-    expect(rememberedBoardView()).toBe('active');
+    expect(storedBoardView()).toBe('active');
   });
 });

@@ -10,7 +10,7 @@ import { and, asc, eq, type SQL } from 'drizzle-orm';
 
 type Row = typeof hookDefinition.$inferSelect;
 
-const kept = (row: Row): HookRecord => ({
+const recordOf = (row: Row): HookRecord => ({
   id: row.id,
   teamId: TeamId.of(row.teamId),
   key: row.key,
@@ -39,7 +39,7 @@ export class DrizzleHookResources implements HookResourcesPort {
         .from(hookDefinition)
         .where(eq(hookDefinition.teamId, teamId.value))
         .orderBy(asc(hookDefinition.key))
-    ).map(kept);
+    ).map(recordOf);
   }
 
   private async first(where: SQL | undefined): Promise<HookRecord | null> {
@@ -49,6 +49,6 @@ export class DrizzleHookResources implements HookResourcesPort {
       .where(where)
       .limit(1);
 
-    return found ? kept(found) : null;
+    return found ? recordOf(found) : null;
   }
 }

@@ -16,17 +16,17 @@ const logos: Record<string, Logo> = {
 };
 
 export function IntegrationLogo({
-  source,
+  integration,
   className,
 }: {
-  source: string;
+  integration: string;
   className?: string;
 }) {
-  if (source === 'slack') {
+  if (integration === 'slack') {
     return <SlackMark className={cn('size-5 shrink-0', className)} />;
   }
 
-  const logo = logos[source];
+  const logo = logos[integration];
 
   if (!logo) {
     return (

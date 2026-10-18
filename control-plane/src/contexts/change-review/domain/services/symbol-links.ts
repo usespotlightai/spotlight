@@ -44,14 +44,14 @@ const routePathOf = (route: string): string => route.replace(/^\S+\s+/, '');
 
 const routeMatches = (route: string, used: string): boolean => {
   const wanted = segmentsOf(routePathOf(route));
-  const given = segmentsOf(used);
-  const offset = given.length - wanted.length;
+  const actual = segmentsOf(used);
+  const offset = actual.length - wanted.length;
 
   return (
     wanted.filter((segment) => !WILDCARD.test(segment)).length >= 2 &&
     offset >= 0 &&
     wanted.every((segment, at) => {
-      const other = given[offset + at] ?? '';
+      const other = actual[offset + at] ?? '';
       return (
         WILDCARD.test(segment) || WILDCARD.test(other) || segment === other
       );

@@ -52,7 +52,7 @@ const change = (
   }) as ChangeMemberRoleCommand;
 
 describe('ChangeMemberRoleHandler', () => {
-  it('saves the workspace the rule handed back', async () => {
+  it('saves the workspace the rule returns', async () => {
     const { handler, save } = changing();
 
     await expect(handler.execute(change())).resolves.toBe(true);
@@ -94,7 +94,7 @@ describe('ChangeMemberRoleHandler', () => {
     );
   });
 
-  it('refuses a role that is not one', async () => {
+  it('rejects a role that is not one', async () => {
     const { handler, save } = changing();
 
     await expect(handler.execute(change({ role: 'wizard' }))).rejects.toThrow(
@@ -103,12 +103,12 @@ describe('ChangeMemberRoleHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('saves nothing where the workspace refused', async () => {
+  it('saves nothing where the workspace denied the change', async () => {
     const { handler, save } = changing();
 
     await expect(
       handler.execute(change({ role: 'owner', viewerId: 'user_admin' })),
-    ).rejects.toThrow(/cannot give a role above your own/);
+    ).rejects.toThrow(/cannot assign a role above your own/);
     expect(save).not.toHaveBeenCalled();
   });
 
@@ -137,7 +137,7 @@ describe('ChangeMemberRoleHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('takes a role somebody already holds for an answer', async () => {
+  it('takes a role somebody already has for an answer', async () => {
     const { handler, dispatched } = changing();
 
     await expect(

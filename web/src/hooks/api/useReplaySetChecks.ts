@@ -17,7 +17,7 @@ export function useReplaySetChecks(
     enabled: Boolean(teamId && setId),
     refetchInterval: (query) =>
       query.state.data?.pages.some((page) =>
-        page.some((check) => check.verdict === 'running'),
+        page.some((check) => check.result === 'running'),
       )
         ? POLL_MS
         : false,

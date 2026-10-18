@@ -4,13 +4,14 @@ export const EXPRESSION_RETURNS_NAMES = ['bool', 'list'] as const;
 
 export type ExpressionReturns = (typeof EXPRESSION_RETURNS_NAMES)[number];
 
-export const EXPRESSION_ALSO_SEES_NAMES = [
+export const EXPRESSION_ADDED_VARIABLE_NAMES = [
   'item',
   'captures',
   'inputs',
 ] as const;
 
-export type ExpressionAlsoSees = (typeof EXPRESSION_ALSO_SEES_NAMES)[number];
+export type ExpressionAddedVariable =
+  (typeof EXPRESSION_ADDED_VARIABLE_NAMES)[number];
 
 export interface ExpressionSpanDto {
   readonly start: number;
@@ -43,6 +44,6 @@ export interface ExpressionDeclarationDto {
 export interface ExpressionPositionDto {
   readonly position: FieldPath;
   readonly returns: ExpressionReturns | null;
-  readonly sees: readonly ExpressionDeclarationDto[];
-  readonly alsoSees: readonly ExpressionAlsoSees[];
+  readonly variables: readonly ExpressionDeclarationDto[];
+  readonly addedVariables: readonly ExpressionAddedVariable[];
 }

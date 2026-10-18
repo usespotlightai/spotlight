@@ -12,17 +12,17 @@ export class RunTokenDetail implements ChangeDetail {
     readonly expiresAt: string,
   ) {}
 
-  static of(minted: {
+  static of(issued: {
     runId: RunId;
     attempt: number;
     scopes: readonly string[];
     expiresAt: Date;
   }): RunTokenDetail {
     return new RunTokenDetail(
-      minted.runId.value,
-      minted.attempt,
-      [...minted.scopes],
-      minted.expiresAt.toISOString(),
+      issued.runId.value,
+      issued.attempt,
+      [...issued.scopes],
+      issued.expiresAt.toISOString(),
     );
   }
 

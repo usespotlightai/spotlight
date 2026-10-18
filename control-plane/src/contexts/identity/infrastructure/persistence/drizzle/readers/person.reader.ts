@@ -26,16 +26,16 @@ export class DrizzlePersonReader implements PersonReaderPort {
   async findMany(
     ids: readonly UserId[],
   ): Promise<ReadonlyMap<string, PersonSummary>> {
-    const asked = [...new Set(ids.map((each) => each.value))];
+    const unique = [...new Set(ids.map((each) => each.value))];
 
-    if (asked.length === 0) {
+    if (unique.length === 0) {
       return new Map();
     }
 
     const rows = await this.db
       .select({ id: user.id, name: user.name, image: user.image })
       .from(user)
-      .where(inArray(user.id, asked));
+      .where(inArray(user.id, unique));
 
     return new Map(rows.map((each) => [each.id, each]));
   }

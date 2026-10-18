@@ -1,19 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import {
-  CHANGE_STACK_DRAFTER,
-  type ChangeStackDrafterPort,
-} from '@change-review/application/ports/change-stack-drafter.port';
+  CHANGE_STACK_GENERATOR,
+  type ChangeStackGeneratorPort,
+} from '@change-review/application/ports/change-stack-generator.port';
 import { WorkChangeStacks } from '@change-review/application/services/work-change-stacks.service';
-import type { INestApplication } from '@nestjs/common';
 import {
   JUDGE,
-  type JudgeAsk,
   type JudgePort,
-} from '@outcomes/application/ports/judge.port';
-import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
-import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
-import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
-import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
+  type JudgeRequest,
+} from '@insights/application/ports/judge.port';
+import { WorkChangeJudgings } from '@insights/application/services/work-change-judgings.service';
+import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
+import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
+import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -40,7 +40,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const HOST = `host-health-${randomUUID().slice(0, 8)}`;
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -68,9 +68,9 @@ const archiveStore: WorkspaceArchiveStorePort = {
   remove: async () => {},
 };
 
-const drafter: ChangeStackDrafterPort = {
+const generator: ChangeStackGeneratorPort = {
   available: true,
-  draft: async ({ diff }) => ({
+  generate: async ({ diff }) => ({
     usage: {
       inputTokens: 1_000,
       outputTokens: 100,
@@ -86,7 +86,7 @@ const drafter: ChangeStackDrafterPort = {
             title: 'Drain in order',
             summary: 'Drains the queue oldest first',
             dependsOn: [],
-            ranges: diff.hunks.map((each) => ({ hunk: each.id })),
+            hunks: diff.hunks.map((each) => ({ hunk: each.id })),
             notes: [
               ...new Set(
                 diff.hunks.flatMap((each) => diff.fileOf(each.id)?.path ?? []),
@@ -110,11 +110,11 @@ let judgeFlipsLeft = 4;
 const judge: JudgePort = {
   available: true,
   model: 'stub/judge',
-  judge: async (ask: JudgeAsk) => {
-    const said = ask.steps.find((each) => SCORED.test(each.text));
-    const run = MARKED.exec(said?.text ?? '')?.[1] ?? '';
+  judge: async (request: JudgeRequest) => {
+    const scoredStep = request.steps.find((each) => SCORED.test(each.text));
+    const run = MARKED.exec(scoredStep?.text ?? '')?.[1] ?? '';
     const times = (judgedRuns.get(run) ?? 0) + 1;
-    const scored = Number(SCORED.exec(said?.text ?? '')?.[1] ?? 1);
+    const scored = Number(SCORED.exec(scoredStep?.text ?? '')?.[1] ?? 1);
     const flips = times > 1 && judgeFlipsLeft > 0;
     const value = flips ? 2 : scored;
 
@@ -133,8 +133,8 @@ const judge: JudgePort = {
         reasons: [
           {
             text: `It drains the queue as a ${value}.`,
-            steps: said ? [said.index] : [],
-            hunks: ask.hunks.slice(0, 1).map((each) => each.id),
+            steps: scoredStep ? [scoredStep.index] : [],
+            hunks: request.hunks.slice(0, 1).map((each) => each.id),
           },
         ],
       },
@@ -144,7 +144,7 @@ const judge: JudgePort = {
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 
 const http = () => served(app);
 
@@ -174,14 +174,14 @@ const sent = (update: Record<string, unknown>): string =>
     'base64',
   );
 
-const changing = (said: string, line: string) => [
+const changing = (message: string, line: string) => [
   {
     seq: 1,
     type: 'output',
     at: new Date().toISOString(),
     data: sent({
       sessionUpdate: 'agent_message_chunk',
-      content: { type: 'text', text: said },
+      content: { type: 'text', text: message },
     }),
   },
   {
@@ -245,21 +245,21 @@ const anOriginal = async (): Promise<Original> => {
     stationId: BUILD,
     title: `Drain queue ${runId.slice(0, 4)}`,
     description: 'It stalls on restart.',
-    raisedAtStationId: BUILD,
-    raisedById: team.owner.value,
+    originStationId: BUILD,
+    createdById: team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
   });
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    continuityKey: `task-${taskId}`,
+    resumeKey: `task-${taskId}`,
     taskId,
     grantedToRunId: randomUUID(),
     size: 1_024,
     sha256: 'a'.repeat(64),
     grantedAt: at,
-    sealedAt: at,
+    completedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
@@ -282,7 +282,7 @@ const anOriginal = async (): Promise<Original> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship'], noteLimit: 0 },
-      continuity: { key: `task-${taskId}` },
+      resume: { key: `task-${taskId}` },
       startingPoint: true,
     },
     briefedTask: BriefedTask.of({
@@ -292,9 +292,9 @@ const anOriginal = async (): Promise<Original> => {
       reviewing: null,
       attachments: [],
       notes: [],
-      openRemarks: [],
+      openReviewComments: [],
     }).parts,
-    briefedMemories: { briefed: [], cut: [] },
+    briefedMemories: { briefed: [], omitted: [] },
     startedFromArchiveId: archiveId,
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
@@ -309,21 +309,21 @@ const anOriginal = async (): Promise<Original> => {
   await app
     .get(DrizzleRunRecordRepository)
     .add(
-      RunRecord.heardOf(
+      RunRecord.empty(
         RunId.of(runId),
         team.workspaceId,
         TaskId.of(taskId),
-      ).recordAction(NextAct.of('closed', at)),
+      ).recordAction(HumanAction.of('accepted', at)),
     );
 
   return { taskId, runId };
 };
 
-const openSet = async (name: string, originals: readonly Original[]) => {
-  const opened = await owner()
+const createSet = async (name: string, originals: readonly Original[]) => {
+  const created = await owner()
     .post(`${stationPath()}/replay-sets`, { name })
     .expect(201);
-  const setId = opened.body.id as string;
+  const setId = created.body.id as string;
 
   for (const each of originals) {
     await owner()
@@ -354,7 +354,7 @@ const claimed = async (): Promise<Claimed | null> => {
     return null;
   }
 
-  const handed = answer.body as {
+  const assignment = answer.body as {
     token: string;
     work: {
       kind: 'run' | 'check';
@@ -364,11 +364,11 @@ const claimed = async (): Promise<Claimed | null> => {
   };
 
   return {
-    token: handed.token,
-    kind: handed.work.kind,
-    runId: handed.work.run?.id ?? handed.work.check?.runId ?? '',
-    stackId: handed.work.check?.stackId ?? null,
-    recheck: handed.work.check?.recheck ?? false,
+    token: assignment.token,
+    kind: assignment.work.kind,
+    runId: assignment.work.run?.id ?? assignment.work.check?.runId ?? '',
+    stackId: assignment.work.check?.stackId ?? null,
+    recheck: assignment.work.check?.recheck ?? false,
   };
 };
 
@@ -381,10 +381,10 @@ const entryOf = async (runId: string) => {
   return entry;
 };
 
-const worked = async () => {
-  await app.get(WorkChangeStacks).workDue();
+const processed = async () => {
+  await app.get(WorkChangeStacks).processDue();
   await app.get(WorkChangeStacks).idle();
-  await app.get(WorkChangeJudgings).workDue();
+  await app.get(WorkChangeJudgings).processDue();
   await app.get(WorkChangeJudgings).idle();
 };
 
@@ -396,66 +396,68 @@ let checkFlipsLeft = 1;
 
 const staleRetries: number[] = [];
 
-const finish = async (handed: Claimed, plan: Plan) => {
-  const entry = await entryOf(handed.runId);
-  const score = plan(handed.runId, entry?.replayId ?? '');
+const finish = async (assignment: Claimed, plan: Plan) => {
+  const entry = await entryOf(assignment.runId);
+  const score = plan(assignment.runId, entry?.replayId ?? '');
 
-  await bearing(handed.token)
-    .post(`/api/runs/${handed.runId}/events`, {
+  await bearing(assignment.token)
+    .post(`/api/runs/${assignment.runId}/events`, {
       events: changing(
-        `Drained it: score(${score}) run(${handed.runId}).`,
+        `Drained it: score(${score}) run(${assignment.runId}).`,
         'drain()',
       ),
     })
     .expect(204);
-  await bearing(handed.token)
-    .post(`/api/runs/${handed.runId}/change-stacks`, {
+  await bearing(assignment.token)
+    .post(`/api/runs/${assignment.runId}/change-stacks`, {
       diff: diffOf('drain()'),
       repository: 'api',
       base: COMMIT,
     })
     .expect(204);
-  await bearing(handed.token)
-    .post(`/api/runs/${handed.runId}/completion`, {
+  await bearing(assignment.token)
+    .post(`/api/runs/${assignment.runId}/completion`, {
       exitCode: 0,
       failed: false,
-      outcome: { next: 'ship', note: 'Drained.' },
+      handover: { next: 'ship', note: 'Drained.' },
       sessionId: 'session_1',
-      kept: true,
+      archived: true,
     })
     .expect(200);
 };
 
-const check = async (handed: Claimed) => {
-  const stack = handed.stackId ?? '';
+const check = async (assignment: Claimed) => {
+  const stack = assignment.stackId ?? '';
   const times = (checked.get(stack) ?? 0) + 1;
   const passes = !(times > 1 && checkFlipsLeft > 0);
 
   checkFlipsLeft -= passes ? 0 : 1;
   checked.set(stack, times);
-  expect(handed.recheck).toBe(times > 1);
+  expect(assignment.recheck).toBe(times > 1);
 
-  const path = `/api/runs/${handed.runId}/change-stack-checks/${stack}`;
+  const path = `/api/runs/${assignment.runId}/change-stack-checks/${stack}`;
 
-  if (handed.recheck) {
+  if (assignment.recheck) {
     staleRetries.push(
       (
-        await bearing(handed.token).post(path, {
+        await bearing(assignment.token).post(path, {
           steps: [{ step: 'whole', passed: true }],
         })
       ).status,
     );
-    await bearing(handed.token).post(`${path}/lease?recheck=true`).expect(200);
+    await bearing(assignment.token)
+      .post(`${path}/lease?recheck=true`)
+      .expect(200);
   }
 
-  await bearing(handed.token)
-    .post(handed.recheck ? `${path}?recheck=true` : path, {
+  await bearing(assignment.token)
+    .post(assignment.recheck ? `${path}?recheck=true` : path, {
       steps: [
         {
           step: 'whole',
           passed: passes,
           output: passes ? 'ok' : '1 failing',
-          tookMs: 900,
+          durationMs: 900,
         },
       ],
     })
@@ -487,40 +489,42 @@ const workWaiting = async (replayIds: readonly string[]) => {
     .where(
       and(
         inArray(schema.stackCheck.runId, runs),
-        eq(schema.stackCheck.phase, 'waiting'),
+        eq(schema.stackCheck.status, 'waiting'),
       ),
     );
 
   return queued.length > 0 || checks.length > 0;
 };
 
-const settled = async (
+const workUntil = async (
   replayIds: readonly string[],
   done: (entries: Awaited<ReturnType<typeof entriesOf>>) => boolean,
   plan: Plan,
 ) => {
   for (let turn = 0; turn < 400; turn += 1) {
-    await app.get(DispatchReplayRuns).workDue();
-    await worked();
+    await app.get(DispatchReplayRuns).processDue();
+    await processed();
 
     if (done(await entriesOf(replayIds))) {
       return;
     }
     if (await workWaiting(replayIds)) {
-      const handed = await claimed();
+      const assignment = await claimed();
 
-      if (handed) {
-        await (handed.kind === 'run' ? finish(handed, plan) : check(handed));
+      if (assignment) {
+        await (assignment.kind === 'run'
+          ? finish(assignment, plan)
+          : check(assignment));
       }
     } else {
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
   }
 
-  throw new Error('the replays never settled');
+  throw new Error('the replays never ended');
 };
 
-const probedAgain = (entries: Awaited<ReturnType<typeof entriesOf>>) =>
+const recalibrated = (entries: Awaited<ReturnType<typeof entriesOf>>) =>
   entries.length > 0 &&
   entries.every(
     (each) =>
@@ -558,13 +562,13 @@ interface SetRead {
     oracle: {
       replayId: string;
       state: string;
-      againstReplayId: string | null;
-      againstState: string | null;
+      referenceReplayId: string | null;
+      referenceState: string | null;
       answered: number;
       live: number | null;
       withAnswer: number | null;
       roomToImprove: boolean | null;
-      gain: { verdict: string } | null;
+      gain: { significance: string } | null;
     } | null;
   };
 }
@@ -583,7 +587,7 @@ const setOf = async (setId: string): Promise<SetRead> => {
 
 let originals: Original[];
 let setId: string;
-let probeId: string;
+let calibrationId: string;
 
 beforeAll(async () => {
   app = await openApp((module) =>
@@ -592,13 +596,13 @@ beforeAll(async () => {
       .useValue(archiveStore)
       .overrideProvider(ATTACHMENT_STORE)
       .useValue(attachmentStore)
-      .overrideProvider(CHANGE_STACK_DRAFTER)
-      .useValue(drafter)
+      .overrideProvider(CHANGE_STACK_GENERATOR)
+      .useValue(generator)
       .overrideProvider(JUDGE)
       .useValue(judge),
   );
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `health-${randomUUID().slice(0, 8)}`,
@@ -640,9 +644,9 @@ beforeAll(async () => {
       judge: {
         rubric: RUBRIC,
         claims: [],
-        passShare: 1,
+        passThreshold: 1,
         sample: 0.1,
-        trust: 0.6,
+        minAgreement: 0.6,
       },
     },
     {
@@ -679,15 +683,15 @@ beforeAll(async () => {
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
       name: 'health-box',
-      session: 'session_1',
+      bootId: 'boot_1',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 8,
       running: [],
       images: [
         {
           image: IMAGE,
-          usual: true,
+          isDefault: true,
           harnesses: [{ id: 'claude-code', models: ['sonnet', 'opus'] }],
         },
       ],
@@ -698,7 +702,7 @@ beforeAll(async () => {
   for (let made = 0; made < 5; made += 1) {
     originals.push(await anOriginal());
   }
-  setId = await openSet('Probed', originals);
+  setId = await createSet('Calibrated', originals);
 }, 60_000);
 
 afterAll(async () => {
@@ -720,23 +724,23 @@ describe('checking a replay set’s health', () => {
       baseline: { id: string; status: string } | null;
     };
 
-    probeId = started.id;
+    calibrationId = started.id;
     expect(started.ceiling.amount).toBe(60);
     expect(started.baseline).toMatchObject({
-      id: probeId,
+      id: calibrationId,
       status: 'started',
     });
 
-    await settled([probeId], probedAgain, () => 5);
+    await workUntil([calibrationId], recalibrated, () => 5);
 
-    const runs = (await entriesOf([probeId])).flatMap((each) =>
+    const runs = (await entriesOf([calibrationId])).flatMap((each) =>
       each.runId ? [each.runId] : [],
     );
 
     const detail = (
-      await owner().get(`${teamPath()}/replays/${probeId}`).expect(200)
+      await owner().get(`${teamPath()}/replays/${calibrationId}`).expect(200)
     ).body as {
-      probe: boolean;
+      calibration: boolean;
       repeats: number;
       state: string;
       entries: {
@@ -749,7 +753,7 @@ describe('checking a replay set’s health', () => {
     };
 
     expect(detail).toMatchObject({
-      probe: true,
+      calibration: true,
       repeats: 3,
       state: 'finished',
     });
@@ -774,7 +778,7 @@ describe('checking a replay set’s health', () => {
     expect(health.noise).toMatchObject({ repeats: 3, spread: 0 });
     expect(health.saturation).toMatchObject({ rate: 1, saturated: true });
     expect(health.judge).toEqual({
-      replayId: probeId,
+      replayId: calibrationId,
       compared: 15,
       agreed: 11,
       pending: 0,
@@ -795,7 +799,7 @@ describe('checking a replay set’s health', () => {
     ]);
     expect(
       await db
-        .select({ round: schema.changeJudging.round })
+        .select({ attempt: schema.changeJudging.attempt })
         .from(schema.changeJudging)
         .where(inArray(schema.changeJudging.runId, runs)),
     ).toHaveLength(30);
@@ -831,27 +835,27 @@ describe('checking a replay set’s health', () => {
 
   it('replays the live config handed each run’s answer once a replay of the whole set finishes, and says how much room the set leaves', async () => {
     const started = await eventually(async () => {
-      await worked();
+      await processed();
       return (await setOf(setId)).health.oracle;
     }, 30_000);
 
     expect(started).toMatchObject({
-      againstReplayId: probeId,
+      referenceReplayId: calibrationId,
       answered: originals.length,
     });
 
-    await settled([started.replayId], scoredAll, () => 5);
+    await workUntil([started.replayId], scoredAll, () => 5);
 
     const oracle = await eventually(async () => {
-      await worked();
+      await processed();
       const read = (await setOf(setId)).health.oracle;
 
       return read?.state === 'finished' && read.gain ? read : null;
     }, 30_000);
 
     expect(oracle).toMatchObject({
-      againstReplayId: probeId,
-      againstState: 'finished',
+      referenceReplayId: calibrationId,
+      referenceState: 'finished',
       answered: originals.length,
       withAnswer: 1,
       roomToImprove: false,

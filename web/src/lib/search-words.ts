@@ -1,8 +1,8 @@
 import type {
   ConfigPullRequestReasonResponseDto,
+  FailureCauseResponseDto,
   ReplayCheckResponseDto,
   SearchCandidateResponseDto,
-  SearchCauseResponseDto,
   SearchEstimateResponseDto,
   SearchIterationResponseDto,
   SearchReflectionResponseDto,
@@ -18,24 +18,22 @@ import {
 } from '@/lib/replay-words';
 
 export type SearchState = SearchResponseDto['state'];
-export type SearchEnding = NonNullable<SearchResponseDto['ending']>;
+export type SearchStopReason = NonNullable<SearchResponseDto['stopReason']>;
 export type IterationState = SearchIterationResponseDto['state'];
 export type PullRequestState = NonNullable<
   SearchCandidateResponseDto['pullRequest']
 >['state'];
 export type PullRequestReason = ConfigPullRequestReasonResponseDto;
 type ReasonCode = PullRequestReason['code'];
-type CheckVerdict = ReplayCheckResponseDto['verdict'];
+type CheckResult = ReplayCheckResponseDto['result'];
 type Undecided = NonNullable<ReplayCheckResponseDto['undecidedBecause']>;
 export type SearchWarning = SearchEstimateResponseDto['warnings'][number];
 export type SearchObjective = SearchEstimateResponseDto['objective'];
-export type CauseKind = SearchCauseResponseDto['cause'];
-export type ReflectionOutcome = NonNullable<
-  SearchReflectionResponseDto['outcome']
+export type CauseKind = FailureCauseResponseDto['cause'];
+export type ReflectionResult = NonNullable<
+  SearchReflectionResponseDto['result']
 >;
-export type OnlyOnSeenTasks = NonNullable<
-  SearchCandidateResponseDto['onlyOnSeenTasks']
->;
+export type Overfit = NonNullable<SearchCandidateResponseDto['overfit']>;
 
 const STATES: Record<SearchState, string> = {
   seeding: 'Replaying the live config',
@@ -45,7 +43,7 @@ const STATES: Record<SearchState, string> = {
   stopped: 'Stopped',
 };
 
-const ENDINGS: Record<SearchEnding, string> = {
+const STOP_REASONS: Record<SearchStopReason, string> = {
   'iterations-spent': 'Ran every iteration it was given',
   'ceiling-reached': 'Reached its ceiling',
   stalled: 'Found nothing better twice in a row',
@@ -65,28 +63,28 @@ const ITERATION_STATES: Record<IterationState, string> = {
 const PULL_REQUEST_STATES: Record<PullRequestState, string> = {
   opening: 'Opening a pull request…',
   opened: 'Pull request opened',
-  refused: 'No pull request opened',
+  failed: 'No pull request opened',
 };
 
 const REASONS: Record<ReasonCode, string> = {
   'no-source': 'Line names no repository for its Terraform',
   'repository-unreachable':
-    'Spotlight’s GitHub App can’t reach the line’s repository',
+    'Spotlight’s GitHub App can’t access the line’s repository',
   'file-missing': 'Line’s Terraform file isn’t in its repository',
   'file-unparsable': 'Line’s Terraform file couldn’t be read',
   'block-not-found': 'Station’s block isn’t in the file',
   'blocks-ambiguous': 'Station’s block appears more than once',
   'computed-attribute':
     'Attribute is computed in Terraform. Please set it by hand.',
-  drifted: 'File changed since the search began',
+  'base-changed': 'File changed since the search began',
   'edit-failed':
     'Edited file wouldn’t parse as Terraform. Please make the change by hand.',
   'branch-taken': 'Pull request branch already exists',
   'file-unwritable': 'File couldn’t be written to its repository',
-  'github-refused': 'GitHub refused the change',
+  'github-error': 'GitHub answered with an error',
 };
 
-const CHECK_VERDICTS: Record<CheckVerdict, string> = {
+const CHECK_RESULTS: Record<CheckResult, string> = {
   running: 'Checking',
   passed: 'Passed',
   failed: 'Too many regressions',
@@ -104,7 +102,8 @@ const UNDECIDED: Record<Undecided, string> = {
 
 export const formatSearchState = (state: SearchState): string => STATES[state];
 
-export const formatEnding = (ending: SearchEnding): string => ENDINGS[ending];
+export const formatStopReason = (reason: SearchStopReason): string =>
+  STOP_REASONS[reason];
 
 export const formatIterationState = (state: IterationState): string =>
   ITERATION_STATES[state];
@@ -115,13 +114,13 @@ export const formatPullRequestState = (state: PullRequestState): string =>
 export const formatPullRequestReason = (reason: PullRequestReason): string =>
   REASONS[reason.code];
 
-export const formatVerdict = (
-  verdict: CheckVerdict,
+export const formatCheckResult = (
+  result: CheckResult,
   undecidedBecause: Undecided | null = null,
 ): string =>
-  verdict === 'undecided' && undecidedBecause
-    ? `${CHECK_VERDICTS[verdict]}: ${UNDECIDED[undecidedBecause]}`
-    : CHECK_VERDICTS[verdict];
+  result === 'undecided' && undecidedBecause
+    ? `${CHECK_RESULTS[result]}: ${UNDECIDED[undecidedBecause]}`
+    : CHECK_RESULTS[result];
 
 export const formatWarning = (warning: SearchWarning): string => {
   switch (warning.kind) {
@@ -133,7 +132,7 @@ export const formatWarning = (warning: SearchWarning): string => {
           ? `Even the maximum of ${warning.suggestedRepeats} repeats won’t bring the noise below it. Read small gains with care, or raise the line’s min_gain.`
           : `If you replay each run ${warning.suggestedRepeats} times, the noise falls below it.`;
 
-      return `Success moved ${formatPoints(warning.spread)} between copies of the same runs. This is more than the line’s minimum real gain. ${fix} Minimum real gain: ${formatMinGain(warning.minGain)}`;
+      return `Success moved ${formatPoints(warning.spread)} between repeats of the same runs. This is more than the line’s minimum real gain. ${fix} Minimum real gain: ${formatMinGain(warning.minGain)}`;
     }
     case 'saturated':
       return `The live config already succeeds on ${formatPercent(warning.rate)} of this set. Aim for the same success for less, or add tasks that the live config fails.`;
@@ -170,7 +169,7 @@ const BEST_TERMS: Record<SearchObjective, string> = {
 
 const NO_BEST: Record<SearchObjective, string> = {
   success: 'No best candidate yet',
-  cost: 'No candidate holds its success yet',
+  cost: 'No candidate matches the live config’s success yet',
 };
 
 const FRONTIER_NOTES: Record<SearchObjective, string> = {
@@ -213,28 +212,26 @@ export const bestScoreNote = (
 export const formatBestOn = (heldOut: boolean): string =>
   heldOut ? 'held out' : 'searched';
 
-const ONLY_ON_SEEN_TASKS: Record<OnlyOnSeenTasks, string> = {
-  marked: 'Only on seen tasks',
+const OVERFIT_LABELS: Record<Overfit, string> = {
+  likely: 'Likely overfit',
   'too-few-held-out': 'Too few held-out tasks to tell',
 };
 
-const ONLY_ON_SEEN_TASKS_NOTES: Record<OnlyOnSeenTasks, string> = {
-  marked:
+const OVERFIT_NOTES: Record<Overfit, string> = {
+  likely:
     'This candidate beat the live config on searched tasks but not on held-out tasks. The gain may not carry over to new work.',
   'too-few-held-out':
     'This candidate beat the live config on searched tasks. Too few held-out tasks have a score to tell if the gain carries over.',
 };
 
-export const formatOnlyOnSeenTasks = (mark: OnlyOnSeenTasks): string =>
-  ONLY_ON_SEEN_TASKS[mark];
+export const formatOverfit = (mark: Overfit): string => OVERFIT_LABELS[mark];
 
-export const onlyOnSeenTasksNote = (mark: OnlyOnSeenTasks): string =>
-  ONLY_ON_SEEN_TASKS_NOTES[mark];
+export const overfitNote = (mark: Overfit): string => OVERFIT_NOTES[mark];
 
-export const ONLY_ON_SEEN_TASKS_PICK =
+export const OVERFIT_PICK =
   'The gain showed only on searched tasks. You can still pick this candidate, but the gain may not carry over to new work.';
 
-export const formatOnlyOnSeenTasksCount = (count: number): string =>
+export const formatOverfitCount = (count: number): string =>
   `${count} frontier ${count === 1 ? 'candidate' : 'candidates'} gained only on searched tasks, not on held-out tasks.`;
 
 export const SEARCH_CEILING_NOTE =
@@ -254,9 +251,9 @@ const CAUSE_TITLES: Record<CauseKind, string> = {
 };
 
 const CAUSE_MEANINGS: Record<CauseKind, string> = {
-  task: 'The task is unclear, out of date, or can’t be done as asked. No config would get it right.',
+  task: 'The task is unclear, out of date, or can’t be done as written. No config would get it right.',
   judge:
-    'The work can be fine, but the judge scored it wrong. The judge’s rubric asks for the wrong thing.',
+    'The work can be fine, but the judge scored it wrong. The judge’s rubric requires the wrong thing.',
   check:
     'The check failed for a reason that the change didn’t cause, such as a broken or flaky test.',
   infra:
@@ -295,11 +292,11 @@ export const OPEN_FAILED_REPLAY = 'Open the failed replay run';
 const tasksCounted = (count: number): string =>
   `${count} ${count === 1 ? 'task' : 'tasks'}`;
 
-export const formatStanding = (candidate: {
-  readonly seed: boolean;
+export const formatIncumbent = (candidate: {
+  readonly isSeed: boolean;
   readonly name: string;
 }): string =>
-  `Looked at why ${candidate.seed ? 'the live config' : candidate.name} failed`;
+  `Looked at why ${candidate.isSeed ? 'the live config' : candidate.name} failed`;
 
 export const formatReflectionLooked = (tasks: number): string =>
   `Two iterations in a row found nothing better. The search agent sorted the ${tasksCounted(tasks)} that the best config still failed by cause.`;
@@ -307,20 +304,20 @@ export const formatReflectionLooked = (tasks: number): string =>
 export const REFLECTION_LOOKING =
   'Two iterations in a row found nothing better. The search agent is looking into why the remaining tasks fail.';
 
-const REFLECTION_OUTCOMES: Record<ReflectionOutcome, string> = {
-  'went-on':
+const REFLECTION_RESULTS: Record<ReflectionResult, string> = {
+  continued:
     'The search continued. A config change can still fix some of these tasks.',
   'no-config-cause':
     'The search ended. No config change can fix the tasks that are left. The rest of the budget stays unspent.',
   'no-failures': 'The search ended. No searched task failed.',
   'did-not-run':
     'The search ended. The search agent’s run failed before it recorded a cause.',
-  'out-of-budget':
-    'The search ended with no budget left. A config change can still fix some of these tasks.',
+  'ceiling-reached':
+    'The search ended at its ceiling. A config change can still fix some of these tasks.',
 };
 
-export const formatReflectionOutcome = (outcome: ReflectionOutcome): string =>
-  REFLECTION_OUTCOMES[outcome];
+export const formatReflectionResult = (result: ReflectionResult): string =>
+  REFLECTION_RESULTS[result];
 
 export const formatReflectionIteration = (
   tasks: number,
@@ -370,7 +367,7 @@ export const candidateGainNote = (
 const PULL_REQUEST_CELLS: Record<PullRequestState, string> = {
   opening: 'Opening…',
   opened: 'Opened',
-  refused: 'Not opened',
+  failed: 'Not opened',
 };
 
 export const formatPullRequestCell = (state: PullRequestState): string =>
@@ -393,7 +390,7 @@ export const formatIterationNote = (
     .filter(Boolean)
     .join(' ');
 
-const ENDING_MARKS: Record<SearchEnding, string | null> = {
+const STOP_REASON_MARKS: Record<SearchStopReason, string | null> = {
   'iterations-spent': null,
   'ceiling-reached': 'Hit its ceiling',
   stalled: 'Stalled',
@@ -403,8 +400,9 @@ const ENDING_MARKS: Record<SearchEnding, string | null> = {
   'seed-failed': 'Couldn’t start',
 };
 
-export const formatEndingMark = (ending: SearchEnding | null): string | null =>
-  ending ? ENDING_MARKS[ending] : null;
+export const formatStopReasonMark = (
+  reason: SearchStopReason | null,
+): string | null => (reason ? STOP_REASON_MARKS[reason] : null);
 
 export const NO_VALUE = '–';
 

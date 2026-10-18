@@ -8,7 +8,7 @@ import type {
 import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChangedPaths } from '@work/infrastructure/acp/changed-paths';
-import { Told } from '@work/infrastructure/acp/told';
+import { JournalBuilder } from '@work/infrastructure/acp/journal-builder';
 import { Reported } from '@work/infrastructure/otel/reported';
 import {
   run,
@@ -26,9 +26,9 @@ import {
   sql,
 } from 'drizzle-orm';
 
-const keptAttempt = or(
+const journalledAttempt = or(
   eq(run.attempt, runJournalEntry.attempt),
-  sql`${runJournalEntry.attempt} = any(${run.parkedAttempts})`,
+  sql`${runJournalEntry.attempt} = any(${run.suspendedAttempts})`,
 );
 
 export function journalsOfTask(
@@ -49,10 +49,10 @@ export async function changesOfTask(
   db: DrizzleDatabase,
   taskId: TaskId,
 ): Promise<RunChanges[]> {
-  const spoken = await db
+  const outputs = await db
     .select({ runId: runJournalEntry.runId, data: runJournalEntry.data })
     .from(runJournalEntry)
-    .innerJoin(run, and(eq(run.id, runJournalEntry.runId), keptAttempt))
+    .innerJoin(run, and(eq(run.id, runJournalEntry.runId), journalledAttempt))
     .where(
       and(
         eq(run.taskId, taskId.value),
@@ -70,7 +70,7 @@ export async function changesOfTask(
 
   const changed = new Map<string, ChangedPaths>();
 
-  for (const row of spoken) {
+  for (const row of outputs) {
     const paths = changed.get(row.runId) ?? new ChangedPaths();
     paths.take(row.data ?? '');
     changed.set(row.runId, paths);
@@ -142,7 +142,7 @@ async function journalsOf(
     return [];
   }
 
-  const told = await db
+  const entries = await db
     .select({
       runId: runJournalEntry.runId,
       attempt: runJournalEntry.attempt,
@@ -152,7 +152,7 @@ async function journalsOf(
       data: runJournalEntry.data,
     })
     .from(runJournalEntry)
-    .innerJoin(run, and(eq(run.id, runJournalEntry.runId), keptAttempt))
+    .innerJoin(run, and(eq(run.id, runJournalEntry.runId), journalledAttempt))
     .where(
       inArray(
         runJournalEntry.runId,
@@ -166,12 +166,15 @@ async function journalsOf(
     );
 
   const began = new Map(runs.map((each) => [each.id, each.createdAt]));
-  const journals = new Map<string, { told: Told; reported: Reported }>();
+  const journals = new Map<
+    string,
+    { journal: JournalBuilder; reported: Reported }
+  >();
 
-  for (const row of told) {
+  for (const row of entries) {
     const at = `${row.runId}:${row.attempt}`;
     const reading = journals.get(at) ?? {
-      told: new Told(began.get(row.runId) ?? null),
+      journal: new JournalBuilder(began.get(row.runId) ?? null),
       reported: new Reported(),
     };
 
@@ -182,7 +185,7 @@ async function journalsOf(
       data: row.data,
     };
 
-    reading.told.take(event);
+    reading.journal.take(event);
     reading.reported.take(event);
     journals.set(at, reading);
   }
@@ -193,12 +196,12 @@ async function journalsOf(
     return {
       runId: runId ?? '',
       attempt: Number(attempt ?? 1),
-      steps: reading.told.steps(),
+      steps: reading.journal.steps(),
       spans: reading.reported.spans(),
-      ms: reading.told.ms(),
-      marks: reading.told.marks(),
-      spent: reading.told.spent(),
-      egress: reading.told.egress(),
+      ms: reading.journal.ms(),
+      marks: reading.journal.marks(),
+      spent: reading.journal.spent(),
+      egressEnforcement: reading.journal.egressEnforcement(),
     };
   });
 }

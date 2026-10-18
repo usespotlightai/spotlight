@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_RANGE, rangeOf } from '@/lib/range';
 
 describe('rangeOf', () => {
-  it('finds the range it was asked for', () => {
+  it('finds the range requested', () => {
     expect(rangeOf('7d').label).toBe('Past 7 days');
   });
 

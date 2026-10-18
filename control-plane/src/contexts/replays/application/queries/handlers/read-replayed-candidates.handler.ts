@@ -9,7 +9,7 @@ import type { ConfigPullRequestRepository } from '@replays/domain/repositories/c
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
-import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-reading';
+import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-estimate';
 import { UNREAD_HEALTH } from '@replays/domain/services/set-health';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
@@ -82,7 +82,7 @@ export class ReadReplayedCandidatesHandler
         this.replays.baselinesOfSets(seen.map((each) => each.id)),
         this.pullRequests.ofSearches(searches.map((each) => each.id)),
       ]);
-      const [candidates, standing] = await Promise.all([
+      const [candidates, summaries] = await Promise.all([
         this.candidates.findMany(
           distinct([
             ...recent.map((each) => each.candidateId.value),
@@ -92,7 +92,7 @@ export class ReadReplayedCandidatesHandler
             ),
           ]).map((each) => CandidateId.of(each)),
         ),
-        this.work.standing(
+        this.work.runSummaries(
           access.workspaceId,
           seen.flatMap((each) => each.runs),
         ),
@@ -123,7 +123,7 @@ export class ReadReplayedCandidatesHandler
         baselines,
         candidates,
         pullRequests,
-        standing,
+        summaries,
         standards,
       });
     } catch (error) {

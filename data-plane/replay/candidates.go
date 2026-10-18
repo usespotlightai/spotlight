@@ -19,15 +19,15 @@ type stationChange struct {
 }
 
 type candidate struct {
-	ID             string         `json:"id"`
-	Version        int            `json:"version"`
-	Address        string         `json:"address"`
-	StationID      string         `json:"stationId"`
-	StationAddress string         `json:"stationAddress"`
-	Name           string         `json:"name"`
-	Station        map[string]any `json:"station"`
-	Fingerprint    string         `json:"fingerprint"`
-	ChangedFrom    struct {
+	ID          string         `json:"id"`
+	Version     int            `json:"version"`
+	Address     string         `json:"address"`
+	StationID   string         `json:"stationId"`
+	StationPath string         `json:"stationPath"`
+	Name        string         `json:"name"`
+	Station     map[string]any `json:"station"`
+	Fingerprint string         `json:"fingerprint"`
+	ChangedFrom struct {
 		Fingerprint string          `json:"fingerprint"`
 		Changes     []stationChange `json:"changes"`
 	} `json:"changedFrom"`
@@ -75,7 +75,7 @@ func (c *cli) propose(args []string) error {
 		return fmt.Errorf("--name tells the candidate from the station's others")
 	}
 	if len(flags.args) != 1 {
-		return fmt.Errorf("name one file holding the station block, as the line resource holds a station, or - to read it from stdin")
+		return fmt.Errorf("name one file that contains the station block, as the line resource contains a station, or - to read it from stdin")
 	}
 
 	block, err := c.block(flags.args[0])
@@ -109,7 +109,7 @@ func (c *cli) propose(args []string) error {
 
 func (c *cli) block(path string) (map[string]any, error) {
 	if ext := strings.ToLower(filepath.Ext(path)); ext == ".tf" || ext == ".hcl" {
-		return nil, fmt.Errorf("%s is HCL; Spotlight writes HCL but never reads it, so give the station block as JSON, as the line resource holds it", path)
+		return nil, fmt.Errorf("%s is HCL; Spotlight writes HCL but never reads it, so supply the station block as JSON, as the line resource contains it", path)
 	}
 
 	var read []byte
@@ -125,7 +125,7 @@ func (c *cli) block(path string) (map[string]any, error) {
 
 	var block map[string]any
 	if err := json.Unmarshal(read, &block); err != nil || block == nil {
-		return nil, fmt.Errorf("%s holds no JSON object; it holds the station block, as the line resource holds a station", path)
+		return nil, fmt.Errorf("%s contains no JSON object; it must contain the station block, as the line resource contains a station", path)
 	}
 
 	return block, nil
@@ -175,14 +175,14 @@ func (c *cli) candidatesOf(at *station) ([]candidate, []json.RawMessage, error) 
 		return nil, nil, fmt.Errorf("list the candidates of %s: %w", at.address, err)
 	}
 
-	held := make([]candidate, len(raws.Items))
+	candidates := make([]candidate, len(raws.Items))
 	for at, raw := range raws.Items {
-		if err := json.Unmarshal(raw, &held[at]); err != nil {
+		if err := json.Unmarshal(raw, &candidates[at]); err != nil {
 			return nil, nil, fmt.Errorf("Spotlight answered with %q", string(raw))
 		}
 	}
 
-	return held, raws.Items, nil
+	return candidates, raws.Items, nil
 }
 
 func (c *cli) show(args []string) error {

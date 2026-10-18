@@ -1,4 +1,4 @@
-import type { ReplayRefusalCode } from '@work/application/contracts/replay-refusal.contract';
+import type { UnreplayableReasonCode } from '@work/application/contracts/unreplayable-reason.contract';
 
 export const REPLAY_DISPATCH = Symbol('REPLAY_DISPATCH');
 
@@ -19,15 +19,15 @@ export type ReplayDispatched =
   | { readonly outcome: 'queued'; readonly fingerprint: string | null }
   | {
       readonly outcome: 'unreplayable';
-      readonly refusal: ReplayRefusalCode;
+      readonly unreplayableReason: UnreplayableReasonCode;
       readonly reason: string;
     };
 
-export type ReplayForgone =
+export type CancelledReplayRun =
   | { readonly outcome: 'never-queued' }
   | { readonly outcome: 'queued'; readonly fingerprint: string | null };
 
-export interface AnswerAsked {
+export interface AnswerInput {
   readonly original: string;
   readonly answer: ReplayAnswer;
 }
@@ -35,9 +35,9 @@ export interface AnswerAsked {
 export interface ReplayDispatchPort {
   enqueue(order: ReplayOrder): Promise<ReplayDispatched>;
 
-  answerable(asked: readonly AnswerAsked[]): Promise<readonly string[]>;
+  answerable(inputs: readonly AnswerInput[]): Promise<readonly string[]>;
 
-  withdraw(runIds: readonly string[]): Promise<void>;
+  cancelQueued(runIds: readonly string[]): Promise<void>;
 
-  forgo(runId: string, keep: boolean): Promise<ReplayForgone>;
+  cancel(runId: string, leaveRunAsIs: boolean): Promise<CancelledReplayRun>;
 }

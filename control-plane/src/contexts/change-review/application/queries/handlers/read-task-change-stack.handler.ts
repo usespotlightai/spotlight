@@ -37,7 +37,7 @@ export class ReadTaskChangeStackHandler
             runId: latest.runId,
             repository: latest.repository,
             state: latest.state,
-            checkState: latest.check?.state ?? null,
+            checkStatus: latest.check?.status ?? null,
             added: latest.added,
             removed: latest.removed,
           }

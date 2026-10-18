@@ -5,15 +5,15 @@ import {
   type PermissionDecision,
   PermissionRule,
 } from '@configuration/domain/value-objects/permission-rule.vo';
+import type { SecretReferenceAt } from '@configuration/domain/value-objects/secret-reference-at.vo';
 import { deepFrozen } from '@shared-kernel/domain/deep-frozen';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
-type WrittenPermissions = Readonly<
-  Record<PermissionDecision, readonly string[]>
->;
+type RawPermissions = Readonly<Record<PermissionDecision, readonly string[]>>;
 
-export interface WrittenSettings {
-  readonly permissions: WrittenPermissions;
+export interface RawSettings {
+  readonly permissions: RawPermissions;
   readonly mcpServers: readonly {
     readonly name: string;
     readonly command: string;
@@ -21,11 +21,6 @@ export interface WrittenSettings {
     readonly env: Readonly<Record<string, string>>;
   }[];
   readonly native: Readonly<Record<string, unknown>>;
-}
-
-export interface WornSecret {
-  readonly at: readonly [string, number, string, string];
-  readonly secret: SecretName;
 }
 
 export class ProfileSettings {
@@ -37,7 +32,7 @@ export class ProfileSettings {
     readonly native: Readonly<Record<string, unknown>>,
   ) {}
 
-  static written(settings: WrittenSettings): ProfileSettings {
+  static fromRaw(settings: RawSettings): ProfileSettings {
     return ProfileSettings.of({
       rules: PERMISSION_DECISIONS.flatMap((decision) =>
         settings.permissions[decision].map((raw, at) =>
@@ -97,17 +92,17 @@ export class ProfileSettings {
     };
   }
 
-  get wornSecrets(): readonly WornSecret[] {
+  get secretReferences(): readonly SecretReferenceAt[] {
     return this.mcpServers.flatMap((server, at) =>
-      server.wornSecrets.map(({ variable, secret }) => ({
-        at: ['mcpServers', at, 'env', variable] as const,
-        secret,
+      server.injectedSecrets.map(({ variable, secret }) => ({
+        path: FieldPath.of(['mcpServers', at, 'env', variable]),
+        name: secret.value,
       })),
     );
   }
 
-  wears(secret: SecretName): boolean {
-    return this.wornSecrets.some((each) => each.secret.equals(secret));
+  uses(secret: SecretName): boolean {
+    return this.secretReferences.some((each) => each.name === secret.value);
   }
 
   equals(other: ProfileSettings): boolean {

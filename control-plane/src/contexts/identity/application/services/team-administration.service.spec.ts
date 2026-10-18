@@ -36,7 +36,7 @@ const platform = Team.rehydrate({
   version: 0,
 });
 
-const asking = (
+const administering = (
   over: { workspace?: Workspace | null; team?: Team | null } = {},
 ) => {
   const workspaces = {
@@ -60,7 +60,7 @@ const asking = (
 
 describe('TeamAdministration', () => {
   it('hands an owner the team and its workspace to act on', async () => {
-    const { administration, workspaces } = asking();
+    const { administration, workspaces } = administering();
     const administered = await administration.administeredBy(
       'team_1',
       'user_1',
@@ -73,38 +73,38 @@ describe('TeamAdministration', () => {
 
   it('hands an admin the workspace too', async () => {
     expect(
-      await asking({
+      await administering({
         workspace: acme(WorkspaceRole.admin),
       }).administration.administeredBy('team_1', 'user_1'),
     ).not.toBeNull();
   });
 
-  it('refuses a plain member', async () => {
+  it('denies a plain member', async () => {
     expect(
-      await asking({
+      await administering({
         workspace: acme(WorkspaceRole.member),
       }).administration.administeredBy('team_1', 'user_1'),
     ).toBeNull();
   });
 
-  it('refuses someone who is not of the workspace at all', async () => {
+  it('denies someone who is not of the workspace at all', async () => {
     expect(
-      await asking().administration.administeredBy('team_1', 'stranger'),
+      await administering().administration.administeredBy('team_1', 'stranger'),
     ).toBeNull();
   });
 
-  it('refuses where the team cannot be found', async () => {
+  it('fails where the team cannot be found', async () => {
     expect(
-      await asking({ team: null }).administration.administeredBy(
+      await administering({ team: null }).administration.administeredBy(
         'team_1',
         'user_1',
       ),
     ).toBeNull();
   });
 
-  it('refuses where the workspace cannot be found', async () => {
+  it('fails where the workspace cannot be found', async () => {
     expect(
-      await asking({ workspace: null }).administration.administeredBy(
+      await administering({ workspace: null }).administration.administeredBy(
         'team_1',
         'user_1',
       ),

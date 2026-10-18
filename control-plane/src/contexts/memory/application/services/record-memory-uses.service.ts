@@ -25,7 +25,7 @@ export class RecordMemoryUses {
 
   recorded(
     run: UsingRun,
-    way: MemoryUse,
+    via: MemoryUse,
     memories: readonly MemoryId[],
   ): Promise<void> {
     if (memories.length === 0) {
@@ -33,9 +33,9 @@ export class RecordMemoryUses {
     }
 
     return this.transaction.inTransaction(async () => {
-      await this.uses.record(run.id, way, memories, this.clock.now());
+      await this.uses.record(run.id, via, memories, this.clock.now());
       await this.events.dispatch([
-        new MemoriesUsed(run.id, run.workspaceId, run.taskId, way, memories),
+        new MemoriesUsed(run.id, run.workspaceId, run.taskId, via, memories),
       ]);
     });
   }

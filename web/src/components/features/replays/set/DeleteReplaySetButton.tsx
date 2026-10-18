@@ -17,14 +17,14 @@ import type { ReplaySet } from '@/lib/replay';
 type DeleteReplaySetButtonProps = {
   teamId: string;
   set: ReplaySet;
-  refusedBecause: string | null;
+  disabledBecause: string | null;
   deletedTo: string;
 };
 
 export function DeleteReplaySetButton({
   teamId,
   set,
-  refusedBecause,
+  disabledBecause,
   deletedTo,
 }: DeleteReplaySetButtonProps) {
   const deleting = useDeleteReplaySet();
@@ -35,19 +35,19 @@ export function DeleteReplaySetButton({
       label="Delete"
       icon={Trash2}
       variant="outline"
-      refusedBecause={refusedBecause}
+      disabledBecause={disabledBecause}
       dialog={(open, onOpenChange) => (
         <Dialog
           open={open}
           onOpenChange={onOpenChange}
-          onOpenChangeComplete={(settled) => !settled && deleting.reset()}
+          onOpenChangeComplete={(open) => !open && deleting.reset()}
         >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Delete {set.name}?</DialogTitle>
               <DialogDescription>
                 This also deletes the set’s replays and results. Spotlight stops
-                keeping its runs’ starting workspaces. You can’t undo this.
+                retaining its runs’ starting workspaces. You can’t undo this.
               </DialogDescription>
             </DialogHeader>
 

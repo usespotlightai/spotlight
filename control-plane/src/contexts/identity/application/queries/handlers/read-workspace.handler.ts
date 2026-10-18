@@ -19,12 +19,13 @@ export class ReadWorkspaceHandler
     query: ReadWorkspaceQuery,
   ): Promise<WorkspaceResourceDto | null> {
     try {
-      const kept = await this.resources.workspaceWithId(
+      const record = await this.resources.workspaceWithId(
         WorkspaceId.of(query.workspaceId),
       );
 
-      return kept && (await this.access.permissionsIn(kept.id, query.principal))
-        ? ResourceMapper.workspace(kept)
+      return record &&
+        (await this.access.permissionsIn(record.id, query.principal))
+        ? ResourceMapper.workspace(record)
         : null;
     } catch (error) {
       rethrowAsApplicationError(error);

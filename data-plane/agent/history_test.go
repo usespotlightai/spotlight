@@ -21,16 +21,16 @@ func historian(t *testing.T, history protocol.History) *[]protocol.HistoryReques
 	}
 	t.Cleanup(func() { _ = server.Close() })
 
-	var asked []protocol.HistoryRequest
+	var received []protocol.HistoryRequest
 	server.Histories(func(request protocol.HistoryRequest) (json.RawMessage, error) {
-		asked = append(asked, request)
+		received = append(received, request)
 		return json.Marshal(history)
 	})
 
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 
-	return &asked
+	return &received
 }
 
 func text(value string) *string { return &value }
@@ -42,9 +42,9 @@ const (
 
 func sampleHistory() protocol.History {
 	tool, status := "bash", "completed"
-	given := "{\"command\":\"go test ./...\"}"
-	returned := "--- FAIL: TestUploadRetries (0.02s)\n    upload_test.go:41: ```retry``` gave up after 3 tries\nFAIL"
-	failure, checks, delivery := "tests-failed", "failed", "open"
+	input := "{\"command\":\"go test ./...\"}"
+	output := "--- FAIL: TestUploadRetries (0.02s)\n    upload_test.go:41: ```retry``` gave up after 3 tries\nFAIL"
+	failure, checks, pullRequestState := "tests-failed", "failed", "open"
 	ms, cost, currency := 90000, 0.42, "USD"
 	line := 12
 	editedPath := "api/upload.go"
@@ -53,17 +53,17 @@ func sampleHistory() protocol.History {
 		Prompt:  text("Implement the task.\n"),
 		Harness: "claude-code", Model: text("opus"), Effort: text("high"),
 		Repositories: []protocol.ConfigRepository{{Name: "api", Setup: text("npm ci")}},
-		Skills:       []protocol.ConfigSkill{{Key: "tdd", Digest: "1111111111111111"}},
+		Skills:       []protocol.ConfigSkill{{Key: "tdd", Hash: "1111111111111111"}},
 		Tools:        []string{"linear"},
 		Decisions:    true,
 	}
 	newer := older
 	newer.Prompt = text("Implement the task.\nRun the tests first.\n")
 	newer.Effort = text("xhigh")
-	newer.Skills = []protocol.ConfigSkill{{Key: "tdd", Digest: "2222222222222222"}, {Key: "review", Digest: "3333"}}
+	newer.Skills = []protocol.ConfigSkill{{Key: "tdd", Hash: "2222222222222222"}, {Key: "review", Hash: "3333"}}
 	newer.Tools = nil
 	newer.Memories = true
-	newer.Judge = &protocol.ConfigJudge{RubricDigest: "cccc", Sample: 0.2, Trust: 0.6}
+	newer.Judge = &protocol.ConfigJudge{RubricHash: "cccc", Sample: 0.2, MinAgreement: 0.6}
 	newer.Profile = &protocol.ConfigProfile{Key: "fast", Settings: json.RawMessage(`{"b":[1,{"c":true}],"a":null}`)}
 
 	return protocol.History{
@@ -79,35 +79,35 @@ func sampleHistory() protocol.History {
 				State: "completed", Attempt: 1, Harness: "claude-code",
 				StartedAt: text("2026-09-29T10:00:00Z"), EndedAt: text("2026-09-29T10:01:30Z"),
 				Outcome: &protocol.RunOutcome{
-					Ending: "failed", Failure: &failure, Round: 2,
-					Cost:   &protocol.RunCost{Ms: &ms, Steps: 14, Faults: 1, Cost: &cost, Currency: &currency},
-					Checks: &checks, Next: &protocol.RunNext{Act: "asked", At: "2026-09-29T10:01:31Z"}, Delivery: &delivery,
+					Ending: "failed", Failure: &failure, Visit: 2,
+					Usage:  &protocol.RunUsage{Ms: &ms, Steps: 14, Errors: 1, Cost: &cost, Currency: &currency},
+					Checks: &checks, FirstHumanAction: &protocol.HumanAction{Kind: "accepted", At: "2026-09-29T10:01:31Z"}, PullRequestState: &pullRequestState,
 				},
 				Changes: []protocol.HistoryChange{
 					{Path: "api/upload.go", Before: "package api\n\nfunc upload() {}\n", After: "package api\n\nfunc upload() { retry() }\n"},
 					{Path: "api/retry.go", Before: "", After: "package api\n"},
 				},
 				Trace: protocol.Trace{
-					Ms: 90000, Rows: 3, Faults: 1,
+					Ms: 90000, Rows: 3, Errors: 1,
 					Roots: []protocol.TraceNode{{
-						ID: "run:2", Kind: "run", Name: "Run", Ms: 90000, Tone: "agent",
+						ID: "run:2", Kind: "run", Name: "Run", Ms: 90000, Category: "agent",
 						Children: []protocol.TraceNode{
 							{
-								ID: "2:step:0", Kind: "step", Name: "go test ./...", Ms: 800, Tone: "failed",
+								ID: "2:step:0", Kind: "step", Name: "go test ./...", Ms: 800, Category: "failed",
 								Step: &protocol.TraceStep{
 									Kind: "tool", Text: "go test ./...", Tool: &tool, Status: &status,
-									Given: &given, Returned: &returned,
+									Input: &input, Output: &output,
 									Locations: []protocol.TraceLocation{{Path: "api/upload_test.go", Line: &line}},
 								},
 							},
 							{
-								ID: "2:step:1", Kind: "step", Name: "Edit upload.go", Ms: 20, Tone: "agent",
+								ID: "2:step:1", Kind: "step", Name: "Edit upload.go", Ms: 20, Category: "agent",
 								Step: &protocol.TraceStep{
 									Kind: "edit", Text: "Edit upload.go",
 									Change: &protocol.TraceChange{Path: &editedPath, Before: "func upload() {}\n", After: "func upload() { retry() }\n"},
 								},
 								Children: []protocol.TraceNode{{
-									ID: "span:1", Kind: "span", Name: "gopls check", Ms: 5, Tone: "span",
+									ID: "span:1", Kind: "span", Name: "gopls check", Ms: 5, Category: "span",
 									Span: &protocol.TraceSpan{
 										ID: "span:1", Name: "gopls check", Ms: 5,
 										Attributes: []protocol.TraceAttribute{{Name: "file", Value: "api/upload.go"}},
@@ -121,7 +121,7 @@ func sampleHistory() protocol.History {
 			{
 				RunID: "run_1", TaskID: "task_1", Title: "First go", Fingerprint: text(olderFingerprint),
 				State: "completed", Attempt: 1, Harness: "claude-code",
-				Outcome: &protocol.RunOutcome{Ending: "completed", Round: 1},
+				Outcome: &protocol.RunOutcome{Ending: "completed", Visit: 1},
 				Trace:   protocol.Trace{Roots: []protocol.TraceNode{}},
 			},
 		},
@@ -139,7 +139,7 @@ func readFile(t *testing.T, path string) string {
 }
 
 func TestHistoryWritesAGreppableTreeOfTheStationsRuns(t *testing.T) {
-	asked := historian(t, sampleHistory())
+	received := historian(t, sampleHistory())
 	root := t.TempDir()
 	out := new(bytes.Buffer)
 
@@ -154,8 +154,8 @@ func TestHistoryWritesAGreppableTreeOfTheStationsRuns(t *testing.T) {
 	want := protocol.HistoryRequest{
 		Station: "implementation", Line: "delivery", Outcome: "failed", Since: "2026-09-01", Last: 30,
 	}
-	if len(*asked) != 1 || (*asked)[0] != want {
-		t.Fatalf("asked %+v, want %+v", *asked, want)
+	if len(*received) != 1 || (*received)[0] != want {
+		t.Fatalf("received %+v, want %+v", *received, want)
 	}
 
 	dir := filepath.Join(root, "implementation")
@@ -168,7 +168,7 @@ func TestHistoryWritesAGreppableTreeOfTheStationsRuns(t *testing.T) {
 	index := readFile(t, filepath.Join(dir, "index.md"))
 	for _, want := range []string{
 		"# Delivery / Implementation",
-		"[run_2](runs/run_2/journal.md) | Retry \\| uploads | bbbbbbbbbbbb | failed (tests-failed) | failed | asked | open | 2 | 0.42 USD | 14 | 90.0s |",
+		"[run_2](runs/run_2/journal.md) | Retry \\| uploads | bbbbbbbbbbbb | failed (tests-failed) | failed | accepted | open | 2 | 0.42 USD | 14 | 90.0s |",
 		"effort high → xhigh",
 		"prompt changed",
 		"+Run the tests first.",
@@ -218,7 +218,7 @@ func TestHistoryWritesAGreppableTreeOfTheStationsRuns(t *testing.T) {
 		t.Fatalf("outcome.json: %v", err)
 	}
 	if outcome.RunID != "run_2" || outcome.TaskID != "task_2" || *outcome.Fingerprint != newerFingerprint ||
-		outcome.Outcome.Ending != "failed" || *outcome.Outcome.Cost.Cost != 0.42 {
+		outcome.Outcome.Ending != "failed" || *outcome.Outcome.Usage.Cost != 0.42 {
 		t.Errorf("outcome.json %+v", outcome)
 	}
 
@@ -315,7 +315,7 @@ func TestHistoryNeedsAStationThatIsOneFolder(t *testing.T) {
 	}
 }
 
-func TestHistoryCarriesSpotlightsRefusalToTheAgent(t *testing.T) {
+func TestHistoryCarriesSpotlightsErrorToTheAgent(t *testing.T) {
 	server, err := serveHandover([]string{"spec"}, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
@@ -324,8 +324,8 @@ func TestHistoryCarriesSpotlightsRefusalToTheAgent(t *testing.T) {
 	server.Histories(func(protocol.HistoryRequest) (json.RawMessage, error) {
 		return nil, errors.New("Several lines have a station by that key; name one with --line: delivery, maintenance")
 	})
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 	root := t.TempDir()
 
 	err = run([]string{"history", "--station", "implementation", "--out", root}, strings.NewReader(""), new(bytes.Buffer))

@@ -1,5 +1,5 @@
 export class InvalidTrustedWorkloadError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(
     readonly field: 'issuer' | 'subject' | 'audience',

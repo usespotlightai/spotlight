@@ -28,7 +28,7 @@ const SET: ReplaySet = {
   name: 'Queue fixes',
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
-  guardsChanges: false,
+  gatesChanges: false,
   health: {
     noise: null,
     saturation: null,
@@ -74,12 +74,12 @@ describe('ReplaySetHeading and ReplaySetActions', () => {
     expect(
       screen.getByRole('heading', { name: 'Queue fixes' }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/^0 runs · opened /)).toBeInTheDocument();
+    expect(screen.getByText(/^0 runs · created /)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Rename' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
   });
 
-  it('refuses to delete a set while a replay of it runs, saying why', () => {
+  it('does not delete a set while a replay of it runs, saying why', () => {
     renderHeader(SET, true);
 
     const deleting = screen.getByRole('button', { name: 'Delete' });
@@ -97,7 +97,7 @@ describe('ReplaySetHeading and ReplaySetActions', () => {
     expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
   });
 
-  it('refuses to delete a set a search is using, without marking the heading', () => {
+  it('does not delete a set a search is using, without marking the heading', () => {
     renderHeader(SET, false, true);
 
     expect(screen.queryByText(/frozen/i)).not.toBeInTheDocument();

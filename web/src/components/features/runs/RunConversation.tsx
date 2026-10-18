@@ -3,16 +3,16 @@ import {
   Conversation,
   type Deciding,
 } from '@/components/features/inbox/conversation/Conversation';
-import { RunBriefing } from '@/components/features/runs/RunBriefing';
+import { BriefingCard } from '@/components/features/runs/BriefingCard';
 import type { RunJournal } from '@/lib/inbox';
 import {
-  conversingOf,
-  type RunConversation as Said,
-} from '@/lib/run-conversation';
+  type RunNotes as ConversationData,
+  conversationItemOf,
+} from '@/lib/run-notes';
 
 type RunConversationProps = {
   teamId: string;
-  said: Said;
+  conversation: ConversationData;
   worked: readonly RunJournal[];
   footer: ReactNode;
   deciding?: Deciding;
@@ -24,7 +24,7 @@ type RunConversationProps = {
 
 export function RunConversation({
   teamId,
-  said,
+  conversation,
   worked,
   footer,
   deciding,
@@ -35,14 +35,14 @@ export function RunConversation({
 }: RunConversationProps) {
   return (
     <Conversation
-      item={conversingOf(said, teamId)}
+      item={conversationItemOf(conversation, teamId)}
       worked={worked}
       openAt={openAt}
-      opening={
-        said.briefing ? (
-          <RunBriefing
-            briefing={said.briefing}
-            attachments={said.attachments}
+      briefing={
+        conversation.briefing ? (
+          <BriefingCard
+            briefing={conversation.briefing}
+            attachments={conversation.attachments}
           />
         ) : undefined
       }

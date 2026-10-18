@@ -13,7 +13,7 @@ export const tilesInARow = (count: number): string =>
 
 export type TileBones = {
   readonly label: string | null;
-  readonly note?: string;
+  readonly tooltip?: string;
   readonly wide?: boolean;
   readonly delta?: boolean;
   readonly detail?: boolean | string;

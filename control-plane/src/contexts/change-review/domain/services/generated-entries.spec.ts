@@ -62,7 +62,7 @@ const COHORTS: ProposedCohort[] = [
       title: `Layer ${at + 1}`,
       summary: `Layer ${at + 1}`,
       dependsOn: [],
-      ranges: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
+      hunks: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
       notes: hunks.map((hunk) => ({
         path: DIFF.fileOf(hunk)?.path ?? hunk,
         note: 'Why it changes',
@@ -95,7 +95,7 @@ const factsWith = (imports: typeof IMPORTS) =>
 const facts = factsWith(IMPORTS);
 
 const ready = () =>
-  ChangeStack.draft({
+  ChangeStack.startGeneration({
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
@@ -111,7 +111,7 @@ const ready = () =>
   }).propose(COHORTS, new Date('2026-09-16T10:01:00Z'));
 
 describe('generatedEntries', () => {
-  it('lets a generated file in with the earliest layer that reaches it through imports', () => {
+  it('lets a generated file in with the earliest layer that imports it, directly or not', () => {
     expect(generatedEntries(DIFF, ready().cohorts, facts)).toEqual([
       { hunk: HunkId.of('h2'), layer: 'c1.l2' },
     ]);
@@ -121,26 +121,26 @@ describe('generatedEntries', () => {
     expect(generatedEntries(DIFF, ready().cohorts, factsWith([]))).toEqual([]);
   });
 
-  it('checks each layer with only the generated files it reaches, and the whole change with all of them', () => {
+  it('checks each layer with only the generated files it imports, directly or not, and the whole change with all of them', () => {
     expect(ready().checkSteps(ready().entries())).toEqual([
       {
         id: 'whole',
         hunks: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
-        isWholeChange: true,
-        installsAnew: true,
+        stopsOnFailure: true,
+        runsSetup: true,
       },
-      { id: 'c1.l1', hunks: ['h1'], isWholeChange: false, installsAnew: false },
+      { id: 'c1.l1', hunks: ['h1'], stopsOnFailure: false, runsSetup: false },
       {
         id: 'c1.l2',
         hunks: ['h1', 'h2', 'h3', 'h4'],
-        isWholeChange: false,
-        installsAnew: false,
+        stopsOnFailure: false,
+        runsSetup: false,
       },
       {
         id: 'c1.l3',
         hunks: ['h1', 'h2', 'h3', 'h4', 'h5'],
-        isWholeChange: false,
-        installsAnew: false,
+        stopsOnFailure: false,
+        runsSetup: false,
       },
     ]);
   });

@@ -20,7 +20,7 @@ import type {
   ReplayRunSummary,
   RunConfigSummary,
   RunConfigView,
-  RunConversationSummary,
+  RunNotesSummary,
   RunReaderPort,
   RunStationSummary,
   SearchRunSummary,
@@ -55,9 +55,9 @@ export type StationRow = {
   stationLineId: string | null;
 };
 
-export const worked = (
+export const stationSummaryOf = (
   row: StationRow,
-  held: Map<string, number>,
+  stationCounts: Map<string, number>,
 ): RunStationSummary | null =>
   row.stationId === null ||
   row.stationName === null ||
@@ -69,7 +69,7 @@ export const worked = (
         name: row.stationName,
         color: row.stationColor,
         position: row.stationPosition,
-        count: held.get(row.stationLineId ?? '') ?? 1,
+        count: stationCounts.get(row.stationLineId ?? '') ?? 1,
       };
 
 @Injectable()
@@ -119,7 +119,7 @@ export class DrizzleRunReader implements RunReaderPort {
       .orderBy(desc(run.createdAt));
     const rows = await this.visibleTo(viewerId, found);
 
-    const [held, review] = await Promise.all([
+    const [stationCounts, review] = await Promise.all([
       stationsPerLine(
         this.db,
         rows.flatMap((row) => (row.stationLineId ? [row.stationLineId] : [])),
@@ -129,7 +129,7 @@ export class DrizzleRunReader implements RunReaderPort {
 
     return rows.map(({ stationLineId, workspaceId: _workspace, ...rest }) => ({
       ...rest,
-      station: worked({ ...rest, stationLineId }, held),
+      station: stationSummaryOf({ ...rest, stationLineId }, stationCounts),
       review: review.get(rest.id) ?? null,
     }));
   }
@@ -167,7 +167,7 @@ export class DrizzleRunReader implements RunReaderPort {
       .orderBy(desc(run.createdAt));
     const rows = await this.visibleTo(viewerId, found);
 
-    const [held, review] = await Promise.all([
+    const [stationCounts, review] = await Promise.all([
       stationsPerLine(
         this.db,
         rows.flatMap((row) => (row.stationLineId ? [row.stationLineId] : [])),
@@ -180,15 +180,15 @@ export class DrizzleRunReader implements RunReaderPort {
 
     return rows.map(({ stationLineId, workspaceId: _workspace, ...rest }) => ({
       ...rest,
-      station: worked({ ...rest, stationLineId }, held),
+      station: stationSummaryOf({ ...rest, stationLineId }, stationCounts),
       review: review.get(rest.id) ?? null,
     }));
   }
 
-  async conversationFor(
+  async notesFor(
     runId: RunId,
     viewerId: UserId,
-  ): Promise<RunConversationSummary | null> {
+  ): Promise<RunNotesSummary | null> {
     const [found] = await this.db
       .select({
         runId: run.id,
@@ -223,10 +223,12 @@ export class DrizzleRunReader implements RunReaderPort {
       found.taskId,
     );
     const attached = await attachmentsFor(this.db, [found.taskId]);
-    const held = await stationsPerLine(this.db, [found.stationLineId ?? '']);
-    const told = trail ?? [];
-    const holding = found.workingRunId === found.runId;
-    const said = turnOf(told, runId.value, holding);
+    const stationCounts = await stationsPerLine(this.db, [
+      found.stationLineId ?? '',
+    ]);
+    const notes = trail ?? [];
+    const isCurrentRun = found.workingRunId === found.runId;
+    const turn = turnOf(notes, runId.value, isCurrentRun);
     const spec = RunSpecContract.from(found.spec);
 
     return {
@@ -235,11 +237,11 @@ export class DrizzleRunReader implements RunReaderPort {
       title: found.title,
       description: found.description,
       attachments: attachmentsOf(attached, found.taskId).own,
-      station: worked({ ...found }, held),
+      station: stationSummaryOf({ ...found }, stationCounts),
       createdAt: found.createdAt,
       briefing: spec.briefing,
-      working: holding && !awaitsAPerson(told),
-      notes: said,
+      working: isCurrentRun && !awaitsAPerson(notes),
+      notes: turn,
     };
   }
 
@@ -357,7 +359,7 @@ export class DrizzleRunReader implements RunReaderPort {
       return null;
     }
 
-    const held = await stationsPerLine(
+    const stationCounts = await stationsPerLine(
       this.db,
       found.stationLineId ? [found.stationLineId] : [],
     );
@@ -371,7 +373,7 @@ export class DrizzleRunReader implements RunReaderPort {
       updatedAt: found.updatedAt,
       harness: found.harness,
       image: found.image,
-      station: worked(found, held),
+      station: stationSummaryOf(found, stationCounts),
       review: null,
       searchId: found.searchId,
       iteration: found.iteration,
@@ -434,7 +436,7 @@ export class DrizzleRunReader implements RunReaderPort {
       );
     }
 
-    const held = await stationsPerLine(
+    const stationCounts = await stationsPerLine(
       this.db,
       found.stationLineId ? [found.stationLineId] : [],
     );
@@ -448,7 +450,7 @@ export class DrizzleRunReader implements RunReaderPort {
       updatedAt: found.updatedAt,
       harness: found.harness,
       image: found.image,
-      station: worked(found, held),
+      station: stationSummaryOf(found, stationCounts),
       review: null,
       original: {
         runId: found.originalRunId,

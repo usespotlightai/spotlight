@@ -41,8 +41,8 @@ const named = <T extends string>(
 };
 
 export const HunkId = {
-  at: (place: number): HunkId => `h${placed(place, 'changes')}` as HunkId,
-  of: (raw: string): HunkId => named<HunkId>(raw, HUNK, 'change'),
+  at: (place: number): HunkId => `h${placed(place, 'hunks')}` as HunkId,
+  of: (raw: string): HunkId => named<HunkId>(raw, HUNK, 'hunk'),
 };
 
 export const CohortId = {

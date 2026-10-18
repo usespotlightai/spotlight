@@ -2,8 +2,8 @@ export type Permission =
   | 'read'
   | 'plan'
   | 'configure'
-  | 'manage-secrets'
-  | 'manage-runners'
-  | 'manage-token-trusts'
+  | 'secrets'
+  | 'runners'
+  | 'trusts'
   | 'administer'
-  | 'open-workspaces';
+  | 'create-workspaces';

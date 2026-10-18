@@ -35,28 +35,28 @@ const TITLES: Readonly<Record<number, [slug: string, title: string]>> = {
     'precondition-required',
     'The request must be conditional',
   ],
-  [HttpStatus.BAD_GATEWAY]: ['refused-upstream', 'An upstream service refused'],
+  [HttpStatus.BAD_GATEWAY]: ['upstream-error', 'An upstream service failed'],
 };
 
-type Refusal = (kind: string) => [title: string, detail: string];
+type ForbiddenText = (kind: string) => [title: string, detail: string];
 
-const changing: Refusal = (kind) => [
+const changing: ForbiddenText = (kind) => [
   `Not allowed to change the ${kind}`,
   `You can read this ${kind} but not change it. Your workspace role or token scopes do not allow it.`,
 ];
 
-const REFUSALS: Readonly<Record<ForbiddenAct, Refusal>> = {
+const FORBIDDEN_TEXTS: Readonly<Record<ForbiddenAct, ForbiddenText>> = {
   configure: changing,
-  'manage-secrets': changing,
-  'manage-runners': changing,
-  'manage-token-trusts': changing,
+  secrets: changing,
+  runners: changing,
+  trusts: changing,
   administer: (kind) => [
     `Not allowed to administer the ${kind}`,
     `Only workspace admins can do this. A token can never administer a ${kind}.`,
   ],
-  'open-workspaces': () => [
-    'Not allowed to open a workspace',
-    'A workspace token cannot open a workspace. Only a person can create one.',
+  'create-workspaces': () => [
+    'Not allowed to create a workspace',
+    'A workspace token cannot create a workspace. Only a person can create one.',
   ],
   plan: () => [
     'Not allowed to plan',
@@ -64,7 +64,9 @@ const REFUSALS: Readonly<Record<ForbiddenAct, Refusal>> = {
   ],
 };
 
-export const FORBIDDEN_ACTS = Object.keys(REFUSALS) as readonly ForbiddenAct[];
+export const FORBIDDEN_ACTS = Object.keys(
+  FORBIDDEN_TEXTS,
+) as readonly ForbiddenAct[];
 
 const problemType = (slug: string): string => `urn:spotlight:problem:${slug}`;
 
@@ -134,7 +136,7 @@ export class ProblemException extends HttpException {
     });
   }
 
-  static taken(kind: string, address: string): ProblemException {
+  static alreadyExists(kind: string, address: string): ProblemException {
     return new ProblemException({
       type: problemType('already-exists'),
       title: `The ${kind} already exists`,
@@ -153,7 +155,7 @@ export class ProblemException extends HttpException {
   }
 
   static forbidden(kind: string, act: ForbiddenAct): ProblemException {
-    const [title, detail] = REFUSALS[act](kind);
+    const [title, detail] = FORBIDDEN_TEXTS[act](kind);
 
     return new ProblemException({
       type: problemType('forbidden'),
@@ -186,12 +188,12 @@ export class ProblemException extends HttpException {
     });
   }
 
-  static malformedPrecondition(held: string): ProblemException {
+  static malformedPrecondition(received: string): ProblemException {
     return new ProblemException({
       type: problemType('malformed-if-match'),
       title: 'If-Match names no version this API issued',
       status: HttpStatus.BAD_REQUEST,
-      detail: `If-Match must be one ETag, such as "3". Received: ${held}`,
+      detail: `If-Match must be one ETag, such as "3". Received: ${received}`,
     });
   }
 
@@ -216,14 +218,14 @@ export class ProblemException extends HttpException {
   }
 
   static unsupportedApiVersion(
-    asked: string,
+    requested: string,
     supported: readonly string[],
   ): ProblemException {
     return new ProblemException({
       type: problemType('unsupported-api-version'),
       title: 'This API version is not served here',
       status: HttpStatus.BAD_REQUEST,
-      detail: `API version ${asked} is not supported. Supported versions: ${supported.join(', ')}`,
+      detail: `API version ${requested} is not supported. Supported versions: ${supported.join(', ')}`,
     });
   }
 }

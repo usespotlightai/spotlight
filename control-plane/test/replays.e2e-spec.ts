@@ -26,9 +26,9 @@ import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const HOST = `host-replay-${randomUUID().slice(0, 8)}`;
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -60,7 +60,7 @@ const archiveStore: WorkspaceArchiveStorePort = {
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 let memoryHandle: number;
 let memoryId: string;
 
@@ -105,8 +105,8 @@ const anOriginal = async (): Promise<Original> => {
     stationId: BUILD,
     title: 'Drain the queue',
     description: 'It stalls on restart.',
-    raisedAtStationId: BUILD,
-    raisedById: team.owner.value,
+    originStationId: BUILD,
+    createdById: team.owner.value,
     assigneeId: team.owner.value,
   });
   await db.insert(schema.taskAttachment).values(
@@ -122,13 +122,13 @@ const anOriginal = async (): Promise<Original> => {
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    continuityKey: `task-${taskId}`,
+    resumeKey: `task-${taskId}`,
     taskId,
     grantedToRunId: randomUUID(),
     size: 1_024,
     sha256: 'a'.repeat(64),
     grantedAt: at,
-    sealedAt: at,
+    completedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
@@ -150,7 +150,7 @@ const anOriginal = async (): Promise<Original> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship', 'review'], noteLimit: 0 },
-      continuity: { key: `task-${taskId}` },
+      resume: { key: `task-${taskId}` },
       startingPoint: true,
     },
     briefedTask: BriefedTask.of({
@@ -167,11 +167,11 @@ const anOriginal = async (): Promise<Original> => {
         }),
       ],
       notes: [],
-      openRemarks: [],
+      openReviewComments: [],
     }).parts,
     briefedMemories: {
       briefed: [{ id: memoryId, handle: `M-${memoryHandle}` }],
-      cut: [],
+      omitted: [],
     },
     startedFromArchiveId: archiveId,
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
@@ -185,7 +185,7 @@ const anOriginal = async (): Promise<Original> => {
 const candidate = async (): Promise<Line> => {
   const line = await app
     .get(DrizzleLineRepository)
-    .holding(StationId.of(BUILD));
+    .findByStation(StationId.of(BUILD));
 
   if (!line) {
     throw new Error('the delivery line is not there');
@@ -211,23 +211,23 @@ const claimed = async (
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'build-box',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 8,
       running: [],
       images: [
         {
           image: IMAGE,
-          usual: true,
+          isDefault: true,
           harnesses: [{ id: 'claude-code', models: [] }],
         },
       ],
     })
     .expect(200);
 
-  const handed = (
+  const assignment = (
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
@@ -235,9 +235,9 @@ const claimed = async (
       .expect(200)
   ).body as { token: string; work: { run: Claimed } };
 
-  expect(handed.work.run.id).toBe(replayId);
+  expect(assignment.work.run.id).toBe(replayId);
 
-  return { token: handed.token, run: handed.work.run };
+  return { token: assignment.token, run: assignment.work.run };
 };
 
 const aClaimedReplay = async () => {
@@ -280,7 +280,7 @@ const published = (kind: string, runId: string) =>
       ),
     );
 
-const settled = (runId: string) =>
+const untilDelivered = (runId: string) =>
   eventually(async () => {
     const pending = await db
       .select({ subscriber: schema.eventDelivery.subscriber })
@@ -313,7 +313,7 @@ const settled = (runId: string) =>
     return pending.length === 0 && delivered.length > 0;
   });
 
-const inboxHolds = async (taskId: string): Promise<boolean> =>
+const inboxHas = async (taskId: string): Promise<boolean> =>
   (
     (
       await http()
@@ -326,9 +326,9 @@ const inboxHolds = async (taskId: string): Promise<boolean> =>
 const finishing = (next: string) => ({
   exitCode: 0,
   failed: false,
-  outcome: { next, note: 'Done here.' },
+  handover: { next, note: 'Done here.' },
   sessionId: 'session_1',
-  kept: true,
+  archived: true,
 });
 
 beforeAll(async () => {
@@ -340,7 +340,7 @@ beforeAll(async () => {
       .useValue(attachmentStore),
   );
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `replay-${randomUUID().slice(0, 8)}`,
@@ -400,7 +400,7 @@ beforeAll(async () => {
   });
 
   memoryId = randomUUID();
-  const [kept] = await db
+  const [stored] = await db
     .insert(schema.memory)
     .values({
       id: memoryId,
@@ -415,7 +415,7 @@ beforeAll(async () => {
       approvedAt: new Date(),
     })
     .returning({ handle: schema.memory.handle });
-  memoryHandle = kept?.handle ?? 0;
+  memoryHandle = stored?.handle ?? 0;
 
   await http()
     .post(`/api/resources/workspaces/${team.workspaceId.value}/runner-pools`)
@@ -426,20 +426,20 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await forgetRunnersOf(db, team.workspaceId.value);
+  await deleteRunnersOf(db, team.workspaceId.value);
   await app?.close();
 });
 
 describe('a replay claimed by a runner', () => {
-  it('is handed the candidate’s spec, starting at the original’s archive and commits, with no tools, secrets or starting-point report', async () => {
+  it('receives the candidate’s spec, starting at the original’s archive and commits, with no tools, secrets or starting-point report', async () => {
     const { original, replayId, run } = await aClaimedReplay();
     const spec = run.spec as {
       checkouts: unknown;
       replay: unknown;
-      continuity: unknown;
+      resume: unknown;
       briefing: string;
       manifest?: unknown;
-      wears?: unknown;
+      injectedSecrets?: unknown;
       startingPoint?: unknown;
       diffs?: boolean;
     };
@@ -453,14 +453,14 @@ describe('a replay claimed by a runner', () => {
     expect(spec.checkouts).toEqual([
       { remote: 'spotlight:repository', path: 'api', ref: COMMIT },
     ]);
-    expect(spec.continuity).toEqual({ key: `replay-${replayId}` });
+    expect(spec.resume).toEqual({ key: `replay-${replayId}` });
     expect(spec.briefing).toContain(
       'Replay this, and say what you would change.',
     );
     expect(spec.briefing).toContain('## Drain the queue');
     expect(spec.briefing).toContain('Queues drain oldest first.');
     expect(spec.manifest).toBeUndefined();
-    expect(spec.wears).toBeUndefined();
+    expect(spec.injectedSecrets).toBeUndefined();
     expect(spec.startingPoint).toBeUndefined();
     expect(spec.diffs).toBe(true);
 
@@ -489,14 +489,14 @@ describe('a replay claimed by a runner', () => {
   it('restores exactly the archive its original started from', async () => {
     const { original, replayId, token } = await aClaimedReplay();
 
-    const held = await runner(token)
+    const archive = await runner(token)
       .get(`/api/runs/${replayId}/workspace-archive`)
       .expect(200);
 
-    expect(held.body.id).toBe(original.archiveId);
+    expect(archive.body.id).toBe(original.archiveId);
   });
 
-  it('keeps no workspace of its own, and says nothing of where it started', async () => {
+  it('archives no workspace of its own, and says nothing of where it started', async () => {
     const { replayId, token } = await aClaimedReplay();
 
     await runner(token)
@@ -528,21 +528,21 @@ describe('a replay claimed by a runner', () => {
       .expect(404);
   });
 
-  it('uses no tool, answers no remark, takes up nothing said, reads no trace, and remembers nothing', async () => {
+  it('uses no tool, replies to no review comment, acknowledges no message, reads no trace, and remembers nothing', async () => {
     const { original, replayId, token } = await aClaimedReplay();
 
     await runner(token)
       .post(`/api/runs/${replayId}/tools/linear.comment`, { body: 'hi' })
       .expect(403);
     await runner(token)
-      .post(`/api/runs/${replayId}/remark`, {
+      .post(`/api/runs/${replayId}/review-comment-replies`, {
         handle: 'R-1',
         body: 'Fixed.',
         resolve: true,
       })
       .expect(409);
     await runner(token)
-      .post(`/api/runs/${replayId}/messages/delivered`, { upTo: 0 })
+      .post(`/api/runs/${replayId}/messages/ack`, { upTo: 0 })
       .expect(409);
     await runner(token)
       .post(`/api/runs/${replayId}/memories`, {
@@ -576,7 +576,7 @@ describe('a replay claimed by a runner', () => {
 });
 
 describe('a replay ending', () => {
-  it('records its handover as its own result, leaving the original task as it stood', async () => {
+  it('records its handover as its own result, and leaves the original task as it was', async () => {
     const { original, replayId, token } = await aClaimedReplay();
     const before = await taskRow(original.taskId);
     const notesBefore = await notesOf(original.taskId);
@@ -584,10 +584,13 @@ describe('a replay ending', () => {
     expect(
       (
         await runner(token)
-          .post(`/api/runs/${replayId}/completion/asks`, finishing('ship'))
+          .post(
+            `/api/runs/${replayId}/completion/awaits-person`,
+            finishing('ship'),
+          )
           .expect(200)
       ).body,
-    ).toEqual({ asks: false });
+    ).toEqual({ awaitsPerson: false });
     expect(
       (
         await runner(token)
@@ -596,7 +599,7 @@ describe('a replay ending', () => {
       ).body,
     ).toEqual({ waiting: false });
 
-    await settled(replayId);
+    await untilDelivered(replayId);
 
     const after = await taskRow(original.taskId);
     expect(after?.stationId).toBe(before?.stationId);
@@ -605,7 +608,7 @@ describe('a replay ending', () => {
     expect(after?.currentRunId).toBeNull();
     expect(after?.sessionId).toBeNull();
     expect(await notesOf(original.taskId)).toEqual(notesBefore);
-    expect(await inboxHolds(original.taskId)).toBe(false);
+    expect(await inboxHas(original.taskId)).toBe(false);
 
     const row = await runRow(replayId);
     expect(row?.state).toBe('completed');
@@ -635,9 +638,9 @@ describe('a replay ending', () => {
           })
           .expect(200)
       ).body,
-    ).toEqual({ decision: 'asked' });
+    ).toEqual({ decision: 'pending' });
     await runner(token)
-      .post(`/api/runs/${replayId}/parked`, { cold: true })
+      .post(`/api/runs/${replayId}/suspended`, { requeue: true })
       .expect(409);
     expect(
       (
@@ -647,11 +650,11 @@ describe('a replay ending', () => {
       ).body,
     ).toEqual({ waiting: false });
 
-    await settled(replayId);
+    await untilDelivered(replayId);
 
     expect((await runRow(replayId))?.state).toBe('completed');
     expect((await runRow(replayId))?.askedAPerson).toBe(true);
-    expect(await inboxHolds(original.taskId)).toBe(false);
+    expect(await inboxHas(original.taskId)).toBe(false);
     expect(await notesOf(original.taskId)).toEqual([]);
 
     const [ended] = await published('work.replay-ended.v1', replayId);
@@ -664,13 +667,13 @@ describe('a replay ending', () => {
     await runner(token)
       .post(`/api/runs/${replayId}/completion`, finishing('ship'))
       .expect(200);
-    await settled(replayId);
+    await untilDelivered(replayId);
 
     for (const kind of [
       'work.run-ended.v1',
-      'work.run-digested.v1',
+      'work.run-usage-recorded.v1',
       'work.run-briefed.v1',
-      'work.task-handed-to-run.v1',
+      'work.task-dispatched.v1',
     ]) {
       expect(await published(kind, replayId)).toEqual([]);
     }
@@ -689,8 +692,8 @@ describe('a replay ending', () => {
     expect(
       await db
         .select()
-        .from(schema.runDigest)
-        .where(eq(schema.runDigest.runId, replayId)),
+        .from(schema.runUsage)
+        .where(eq(schema.runUsage.runId, replayId)),
     ).toHaveLength(1);
   });
 });

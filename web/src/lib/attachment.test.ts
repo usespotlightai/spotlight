@@ -5,8 +5,8 @@ import {
   drawn,
   filesIn,
   MAX_ATTACHMENT_BYTES,
-  refused,
   sized,
+  sizeProblem,
 } from '@/lib/attachment';
 
 describe('attachmentPath', () => {
@@ -16,7 +16,7 @@ describe('attachmentPath', () => {
     );
   });
 
-  it('asks for a download rather than a look', () => {
+  it('requests a download rather than a look', () => {
     expect(downloadPath('acme', 'att_1')).toBe(
       '/api/workspaces/acme/attachments/att_1?download=1',
     );
@@ -47,13 +47,13 @@ describe('sized', () => {
   });
 });
 
-describe('refused', () => {
+describe('sizeProblem', () => {
   it('takes a file up to the limit', () => {
-    expect(refused({ size: MAX_ATTACHMENT_BYTES })).toBeNull();
+    expect(sizeProblem({ size: MAX_ATTACHMENT_BYTES })).toBeNull();
   });
 
-  it('says why a larger one is refused', () => {
-    expect(refused({ size: MAX_ATTACHMENT_BYTES + 1 })).toBe(
+  it('says why a larger one is rejected', () => {
+    expect(sizeProblem({ size: MAX_ATTACHMENT_BYTES + 1 })).toBe(
       'The file is too large. Maximum size: 25 MB',
     );
   });

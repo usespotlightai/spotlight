@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { FoldChevron } from '@/components/shared/FoldChevron';
+import { ExpandChevron } from '@/components/shared/ExpandChevron';
 import type { Expansion } from '@/components/shared/nested-table/ExpandingRow';
 
 type ExpandToggleProps = {
@@ -21,7 +21,7 @@ export function ExpandToggle({ expansion, children }: ExpandToggleProps) {
         aria-hidden
         className="flex size-4 shrink-0 items-center justify-center text-muted-foreground"
       >
-        <FoldChevron open={expansion.expanded} />
+        <ExpandChevron open={expansion.expanded} />
       </span>
       <span className="min-w-0 break-words leading-4 group-data-clamped/row:line-clamp-1">
         {children}

@@ -15,12 +15,12 @@ const dto: TaskDto = {
   running: true,
   awaitingReview: null,
   pullRequest: null,
-  raisedBy: { id: 'user_1', name: 'Ada', image: null },
+  createdBy: { id: 'user_1', name: 'Ada', image: null },
   assignee: null,
   note: {
     position: 0,
     station: 'Implementation',
-    body: 'Given up on after 3 attempts.',
+    body: 'The run did not finish after 3 attempts.',
   },
 };
 
@@ -43,11 +43,11 @@ describe('TaskHttpMapper', () => {
     expect(response.note).toEqual({
       position: 0,
       station: 'Implementation',
-      body: 'Given up on after 3 attempts.',
+      body: 'The run did not finish after 3 attempts.',
     });
   });
 
-  it('keeps a task nobody has said anything about noteless', () => {
+  it('gives no note to a task that has no notes', () => {
     expect(TaskHttpMapper.toResponse({ ...dto, note: null }).note).toBeNull();
   });
 });

@@ -12,7 +12,7 @@ export class TeamCreated implements ConfigurationChanged {
   constructor(
     readonly workspaceId: WorkspaceId,
     readonly teamId: TeamId,
-    readonly openedBy: UserId,
+    readonly createdBy: UserId,
     readonly origin: TeamOrigin,
     readonly change: ConfigurationChange,
   ) {}

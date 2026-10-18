@@ -30,7 +30,7 @@ const entry = (
   state: 'completed',
   endedAt: null,
   addedAt: '2026-10-01T09:00:00.000Z',
-  refusal: null,
+  unreplayableReason: null,
   reason: null,
   outcome: 'other',
   origin: 'person',
@@ -43,7 +43,7 @@ const SET: ReplaySet = {
   name: 'Queue fixes',
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
-  guardsChanges: false,
+  gatesChanges: false,
   health: NEVER_READ,
   minGain: 0.05,
   composition: {
@@ -67,24 +67,24 @@ const UNHEALTHY: ReplaySet = {
   ...SET,
   health: {
     noise: {
-      replayId: 'replay_probe',
+      replayId: 'replay_calibration',
       fingerprint: 'abcdef1234567890',
       repeats: 3,
       perRepeat: [0.5, 0.6, 0.7],
       spread: 0.2,
       flippedTasks: ['task_b'],
       measuredAt: '2026-10-02T09:00:00.000Z',
-      noisyInOneCopy: true,
+      noisyInOneRepeat: true,
     },
     saturation: {
-      replayId: 'replay_probe',
+      replayId: 'replay_calibration',
       rate: 0.97,
       interval: { rate: 0.97, low: 0.9, high: 1 },
       saturated: true,
       measuredAt: '2026-10-02T09:00:00.000Z',
     },
     judge: {
-      replayId: 'replay_probe',
+      replayId: 'replay_calibration',
       compared: 10,
       agreed: 6,
       pending: 0,
@@ -92,14 +92,14 @@ const UNHEALTHY: ReplaySet = {
       unstable: true,
     },
     checks: {
-      replayId: 'replay_probe',
+      replayId: 'replay_calibration',
       rechecked: 6,
       pending: 0,
       flaky: [
         {
           taskId: 'task_a',
           originalRunId: 'run_task_a',
-          runId: 'run_probe_a',
+          runId: 'run_calibration_a',
           first: 'passed',
           recheck: 'failed',
         },
@@ -110,8 +110,8 @@ const UNHEALTHY: ReplaySet = {
       candidateId: 'candidate_oracle',
       repeats: 1,
       state: 'finished',
-      againstReplayId: 'replay_probe',
-      againstState: 'finished',
+      referenceReplayId: 'replay_calibration',
+      referenceState: 'finished',
       answered: 6,
       live: 0.95,
       withAnswer: 0.97,
@@ -119,7 +119,7 @@ const UNHEALTHY: ReplaySet = {
         gain: 0.02,
         low: -0.05,
         high: 0.08,
-        verdict: 'within-noise',
+        significance: 'within-noise',
         minGain: 0.05,
         tasks: 6,
       },
@@ -157,7 +157,7 @@ describe('SetHealth', () => {
     renderHealth(UNHEALTHY);
 
     expect(line('noise')).toHaveAttribute('data-tone', 'bad');
-    expect(line('noise')).toHaveTextContent('Each copy: 50%, 60%, 70%');
+    expect(line('noise')).toHaveTextContent('Each repeat: 50%, 60%, 70%');
     expect(
       within(
         screen.getByRole('list', { name: 'Tasks that went both ways' }),
@@ -183,7 +183,7 @@ describe('SetHealth', () => {
       within(
         screen.getByRole('list', { name: 'Tasks whose check flipped' }),
       ).getByRole('link', { name: 'Fix the queue' }),
-    ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_probe_a');
+    ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_calibration_a');
     expect(line('checks')).toHaveTextContent('Passed, then failed');
   });
 });

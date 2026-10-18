@@ -1,8 +1,8 @@
 import { useInsightsOverview } from '@/hooks/api/useInsightsOverview';
 import { useReplaySets } from '@/hooks/api/useReplaySets';
 import { useSearches } from '@/hooks/api/useSearches';
+import { useStationInsights } from '@/hooks/api/useStationInsights';
 import { useStationJudge } from '@/hooks/api/useStationJudge';
-import { useStationOutcomes } from '@/hooks/api/useStationOutcomes';
 import { DEFAULT_PERIOD } from '@/lib/insights';
 import { loading } from '@/lib/query';
 import type { StationTab } from '@/lib/station';
@@ -18,7 +18,7 @@ export function useStationTabLoading(
   { teamId, lineId, stationId }: StationIds,
 ): boolean {
   const on = (shown: StationTab) => (tab === shown ? stationId : undefined);
-  const outcomes = useStationOutcomes(teamId, lineId, on('overview'));
+  const outcomes = useStationInsights(teamId, lineId, on('overview'));
   const judge = useStationJudge(teamId, lineId, on('overview'));
   const signals = useInsightsOverview(
     tab === 'improve' ? teamId : undefined,

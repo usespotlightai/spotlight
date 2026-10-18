@@ -11,23 +11,23 @@ const BODY = {
   description: null,
   required: true,
   defaulted: false,
-  piped: false,
+  stdin: false,
 };
 
 const tool = (
   approval: ApprovalNeeded | null,
-  offeredBy: string | null = null,
+  providedBy: string | null = null,
 ) =>
   DeclaredTool.of({
     tool: Tool.of('linear.comment'),
     description: 'Comment on the issue.',
     inputs: [BODY],
     approval,
-    offeredBy,
+    providedBy,
   });
 
 describe('toolManifestOf', () => {
-  it('asks the agent to say what it wants to do, where a person approves the call', () => {
+  it('tells the agent to say what it wants to do, where a person approves the call', () => {
     const manifest = toolManifestOf(
       tool(ApprovalNeeded.of('linear.comment', 'It posts publicly.')),
     );
@@ -50,14 +50,14 @@ describe('toolManifestOf', () => {
   });
 
   it('says what the tool answered before', () => {
-    const learnedOutput = { type: 'string' };
-    const learned = DeclaredTool.of({
+    const inferredOutput = { type: 'string' };
+    const inferred = DeclaredTool.of({
       tool: Tool.of('linear.comment'),
       description: 'Comment on the issue.',
-      learnedOutput,
+      inferredOutput,
     });
 
-    expect(toolManifestOf(learned).output).toEqual(learnedOutput);
+    expect(toolManifestOf(inferred).output).toEqual(inferredOutput);
     expect(toolManifestOf(tool(null))).not.toHaveProperty('output');
   });
 
@@ -66,7 +66,7 @@ describe('toolManifestOf', () => {
     expect(toolManifestOf(tool(null))).not.toHaveProperty('integration');
   });
 
-  it('asks nothing more of a tool nobody approves', () => {
+  it('requires nothing more of a tool nobody approves', () => {
     const manifest = toolManifestOf(tool(null));
 
     expect(manifest.inputs.map((each) => each.name)).toEqual(['body']);

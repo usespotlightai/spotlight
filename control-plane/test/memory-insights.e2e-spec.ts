@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto';
+import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
+import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
+import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
+import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
+import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { MemoryUse } from '@memory/domain/value-objects/memory-use';
 import type { INestApplication } from '@nestjs/common';
-import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
-import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
-import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
-import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
-import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
-import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { EventDelivery } from '@platform/events/event-delivery';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -20,7 +20,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const HOUR = 60 * 60_000;
 
@@ -28,7 +28,7 @@ const ago = (hours: number) => new Date(Date.now() - hours * HOUR);
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 
 const remembered = async (
   change: Partial<typeof schema.memory.$inferInsert>,
@@ -53,16 +53,16 @@ const remembered = async (
 };
 
 const ran = async (runId: string) => {
-  const ended = RunRecord.heardOf(RunId.of(runId), team.workspaceId).recordEnd(
+  const ended = RunRecord.empty(RunId.of(runId), team.workspaceId).recordEnd(
     RunEnd.of({
-      place: RunPlace.of({
+      location: RunLocation.of({
         teamId: team.teamId,
         lineId: team.line.id.value,
         stationId: team.stationId.value,
         taskId: team.list.id,
       }),
       fingerprint: null,
-      setup: RunSetup.of({
+      agentConfig: RunAgentConfig.of({
         harness: 'claude-code',
         model: null,
         effort: null,
@@ -75,7 +75,7 @@ const ran = async (runId: string) => {
       endedAt: ago(2),
       ending: 'completed',
       failure: null,
-      round: 1,
+      visit: 1,
       asked: false,
     }),
   );
@@ -84,42 +84,42 @@ const ran = async (runId: string) => {
     .get(DrizzleRunRecordRepository)
     .add(
       runId.endsWith('x')
-        ? ended.recordAction(NextAct.of('closed', ago(1)))
+        ? ended.recordAction(HumanAction.of('accepted', ago(1)))
         : ended,
     );
 };
 
-const used = (runId: string, way: MemoryUse, memory: string) =>
+const used = (runId: string, via: MemoryUse, memory: string) =>
   app.get(RecordMemoryUses).recorded(
     {
       id: RunId.of(runId),
       workspaceId: team.workspaceId,
       taskId: team.list.id,
     },
-    way,
+    via,
     [MemoryId.of(memory)],
   );
 
 beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `memory-${randomUUID().slice(0, 8)}`,
   );
 
-  const standing = await remembered({});
+  const active = await remembered({});
   const wrong = await remembered({
-    standing: 'retired',
+    status: 'retired',
     retiredAt: ago(5),
     retiredBy: team.owner.value,
     retireReason: 'We stopped doing this',
   });
   await remembered({
-    standing: 'retired',
+    status: 'retired',
     retiredAt: ago(5),
-    supersededBy: standing,
+    supersededBy: active,
   });
 
   const [x, y, z] = [
@@ -130,8 +130,8 @@ beforeAll(async () => {
   for (const runId of [x, y, z]) {
     await ran(runId);
   }
-  await used(x, 'briefed', standing);
-  await used(x, 'recalled', standing);
+  await used(x, 'briefed', active);
+  await used(x, 'recalled', active);
   await used(y, 'briefed', wrong);
   await app.get(RecordMemoryUses).recorded(
     {
@@ -144,14 +144,14 @@ beforeAll(async () => {
   );
   await eventually(async () => {
     await app.get(EventDelivery).drain(2_000);
-    const heard = await db
+    const facts = await db
       .select({ memories: schema.runFact.memories })
       .from(schema.runFact)
       .where(inArray(schema.runFact.runId, [x, y]));
 
     return (
-      heard.filter((each) => each.memories.briefed.length > 0).length === 2 &&
-      heard.some((each) => each.memories.recalled.length > 0)
+      facts.filter((each) => each.memories.briefed.length > 0).length === 2 &&
+      facts.some((each) => each.memories.recalled.length > 0)
     );
   });
 }, 60_000);
@@ -161,14 +161,14 @@ afterAll(async () => {
 });
 
 describe('the team’s memory on Insights (e2e)', () => {
-  it('counts standing memories, their use by the period’s runs only, the ones flagged wrong, and runs with memories against runs without', async () => {
+  it('counts active memories, their use by the period’s runs only, the ones flagged wrong, and runs with memories against runs without', async () => {
     const answer = await served(app)
       .get(`/api/teams/${team.teamId.value}/insights/memory?period=7d`)
       .set(TEST_USER_HEADER, team.owner.value);
 
     expect(answer.status).toBe(200);
     expect(answer.body).toMatchObject({
-      standing: 1,
+      activeCount: 1,
       memoriesBriefed: 2,
       memoriesRecalled: 1,
       runsBriefed: 2,

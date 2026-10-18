@@ -6,7 +6,7 @@ import { YourAccountActions } from '@/components/features/integrations/YourAccou
 import { YourAccountButton } from '@/components/features/integrations/YourAccountButton';
 import { YourToolRules } from '@/components/features/integrations/YourToolRules';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
-import { formatReadProblem, formatToolsRead } from '@/lib/described';
+import { formatReadProblem, formatToolsRead } from '@/lib/api-spec';
 import {
   actsAsEachPerson,
   type Integration,
@@ -32,8 +32,8 @@ export function IntegrationDetails({
   mine,
   joined,
 }: IntegrationDetailsProps) {
-  const { described } = integration;
-  const problem = described ? formatReadProblem(described) : null;
+  const { spec } = integration;
+  const problem = spec ? formatReadProblem(spec) : null;
 
   return (
     <dl className="flex flex-col gap-2 pr-4 pb-4 pl-12">
@@ -42,12 +42,12 @@ export function IntegrationDetails({
           <dt className={FACT_LABEL}>Team account</dt>
           <dd className={FACT_VALUE}>
             <IntegrationAccount
-              handle={integration.handle}
-              connected={integration.standing === 'linked'}
+              linkedAccount={integration.linkedAccount}
+              connected={integration.connectionStatus === 'connected'}
               purpose={teamAccountPurpose(integration)}
               action={
                 admin &&
-                (integration.standing === 'linked' ? (
+                (integration.connectionStatus === 'connected' ? (
                   <TeamAccountActions
                     integration={integration}
                     teamId={teamId}
@@ -69,7 +69,7 @@ export function IntegrationDetails({
           <dt className={FACT_LABEL}>Your account</dt>
           <dd className={FACT_VALUE}>
             <IntegrationAccount
-              handle={mine?.handle ?? null}
+              linkedAccount={mine?.linkedAccount ?? null}
               connected={Boolean(mine)}
               purpose="Its tools act as you on tasks you start."
               action={
@@ -92,11 +92,11 @@ export function IntegrationDetails({
 
       {mine && mine.tools.length > 0 && (
         <FactRow>
-          <dt className={FACT_LABEL}>Acting as you</dt>
+          <dt className={FACT_LABEL}>Your tool rules</dt>
           <dd className={FACT_VALUE}>
             <YourToolRules
               teamId={teamId}
-              source={integration.source}
+              integration={integration.integration}
               tools={mine.tools}
             />
           </dd>
@@ -112,11 +112,11 @@ export function IntegrationDetails({
         </FactRow>
       )}
 
-      {described && (
+      {spec && (
         <FactRow>
           <dt className={FACT_LABEL}>Tools</dt>
           <dd className={cn(FACT_VALUE, problem && 'text-destructive')}>
-            {problem ?? formatToolsRead(described)}
+            {problem ?? formatToolsRead(spec)}
           </dd>
         </FactRow>
       )}

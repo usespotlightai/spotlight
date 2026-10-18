@@ -51,7 +51,9 @@ export function PeopleTable({ people }: { people: readonly PersonUse[] }) {
           <NestedCell heading="Tasks opened" strong>
             {formatCount(person.tasksOpened)}
           </NestedCell>
-          <NestedCell heading="Acts">{formatCount(person.acts)}</NestedCell>
+          <NestedCell heading="Actions">
+            {formatCount(person.actions)}
+          </NestedCell>
           <NestedCell heading="Chats">{formatCount(person.chats)}</NestedCell>
           <NestedCell heading="First seen">
             {formatDay(dayOf(person.firstSeenAt))}

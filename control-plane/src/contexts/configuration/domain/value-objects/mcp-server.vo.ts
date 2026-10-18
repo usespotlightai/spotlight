@@ -50,7 +50,7 @@ export class McpServer {
     return new McpServer(name, command, [...input.args], { ...input.env });
   }
 
-  get wornSecrets(): readonly { variable: string; secret: SecretName }[] {
+  get injectedSecrets(): readonly { variable: string; secret: SecretName }[] {
     return Object.entries(this.env).flatMap(([variable, value]) => {
       const secret = SecretName.referencedBy(value);
 

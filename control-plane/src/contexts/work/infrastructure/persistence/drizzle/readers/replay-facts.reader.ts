@@ -39,11 +39,11 @@ export class DrizzleReplayFacts implements ReplayFactsPort {
         startedFromAt: run.startedFromAt,
         archiveId: run.startedFromArchiveId,
         briefed: isNotNull(run.briefedTask).mapWith(Boolean),
-        heldTask: task.id,
+        liveTask: task.id,
         title: task.title,
         openedFrom: task.openedFrom,
-        raisedAt: task.raisedAtStationId,
-        keptArchive: workspaceArchive.id,
+        originStationId: task.originStationId,
+        storedArchive: workspaceArchive.id,
       })
       .from(run)
       .leftJoin(task, eq(task.id, run.taskId))
@@ -52,7 +52,7 @@ export class DrizzleReplayFacts implements ReplayFactsPort {
         and(
           eq(workspaceArchive.id, run.startedFromArchiveId),
           eq(workspaceArchive.workspaceId, run.workspaceId),
-          isNotNull(workspaceArchive.sealedAt),
+          isNotNull(workspaceArchive.completedAt),
         ),
       )
       .where(inArray(run.id, [...new Set(runIds)]));
@@ -69,9 +69,13 @@ export class DrizzleReplayFacts implements ReplayFactsPort {
             row.state,
           ),
           startedFrom: row.startedFromAt !== null,
-          archive: row.archiveId ? (row.keptArchive ? 'kept' : 'gone') : 'none',
+          archive: row.archiveId
+            ? row.storedArchive
+              ? 'stored'
+              : 'gone'
+            : 'none',
           briefed: row.briefed,
-          taskStands: row.heldTask !== null,
+          taskExists: row.liveTask !== null,
           title: row.title,
           state: row.state,
           endedAt: row.endedAt,
@@ -79,7 +83,7 @@ export class DrizzleReplayFacts implements ReplayFactsPort {
             row.openedFrom && row.stationId
               ? originOfRun({
                   openedFrom: TaskOrigin.of(row.openedFrom),
-                  raisedAt: row.raisedAt,
+                  originStationId: row.originStationId,
                   ranAt: row.stationId,
                 })
               : null,

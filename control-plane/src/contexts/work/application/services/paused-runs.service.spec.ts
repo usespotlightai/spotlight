@@ -77,11 +77,11 @@ const asked = () =>
     at: BUILD,
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
   })
-    .handedTo(RUN, line)
+    .assignRun(RUN, line)
     .putToAPerson(RUN, note('Which queue?', Voice.station(RUN)));
 
 const answered = () =>
@@ -99,7 +99,7 @@ const waiting = () =>
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'task_1:station_build' },
+      resume: { key: 'task_1:station_build' },
     }),
   })
     .claim(RUNNER, NOW)
@@ -119,7 +119,7 @@ const taking = (task: Task, run: Run | null, conflictsFirst = false) => {
     { find: async () => task } as unknown as TaskRepository,
     {
       findById: async () =>
-        reads++ > 0 && conflictsFirst ? run?.park(RUNNER, NOW) : run,
+        reads++ > 0 && conflictsFirst ? run?.suspend(RUNNER, NOW) : run,
       save: async (each: Run) => {
         if (!conflicted) {
           conflicted = true;
@@ -149,8 +149,11 @@ describe('PausedRuns', () => {
     expect(saved[0]?.attempt).toBe(1);
   });
 
-  it('requeues a parked run as its next attempt once its person has answered', async () => {
-    const { takeUp, saved } = taking(answered(), waiting().park(RUNNER, NOW));
+  it('requeues a suspended run as its next attempt once its person has answered', async () => {
+    const { takeUp, saved } = taking(
+      answered(),
+      waiting().suspend(RUNNER, NOW),
+    );
 
     await takeUp();
 
@@ -158,7 +161,7 @@ describe('PausedRuns', () => {
     expect(saved[0]?.attempt).toBe(2);
   });
 
-  it('requeues from the archive when the run was parked while it was being taken up', async () => {
+  it('requeues from the archive when the run was suspended while it was being taken up', async () => {
     const { takeUp, saved } = taking(answered(), waiting(), true);
 
     await takeUp();
@@ -166,7 +169,7 @@ describe('PausedRuns', () => {
     expect(saved[0]?.state).toBe('queued');
   });
 
-  it('leaves the run waiting while the person still owes an answer', async () => {
+  it('leaves the run waiting while an answer from the person is still pending', async () => {
     const { takeUp, saved } = taking(asked(), waiting());
 
     await takeUp();
@@ -174,7 +177,7 @@ describe('PausedRuns', () => {
     expect(saved).toEqual([]);
   });
 
-  it('leaves a run its task no longer holds, or one asked to stop, alone', async () => {
+  it('leaves a run that is no longer the current run of its task, or one with a stop request, alone', async () => {
     const moved = taking(answered().leaveRun(RUN, NOW), waiting());
     const stopping = taking(answered(), waiting().requestStop(NOW));
 

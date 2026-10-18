@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 const run = (id: string, outcome: OriginalOutcome) => ({ id, outcome });
 
-const held = (outcome: OriginalOutcome, count: number): OriginalOutcome[] =>
+const repeated = (outcome: OriginalOutcome, count: number): OriginalOutcome[] =>
   Array.from({ length: count }, () => outcome);
 
 const ids = (picks: readonly { id: string }[]) => picks.map((each) => each.id);
@@ -18,7 +18,7 @@ describe('balancingPicks', () => {
     expect(
       ids(
         balancingPicks(
-          held('failed', 6),
+          repeated('failed', 6),
           [
             run('failed_1', 'failed'),
             run('sent_1', 'sent-back'),
@@ -37,7 +37,7 @@ describe('balancingPicks', () => {
     expect(
       ids(
         balancingPicks(
-          [...held('failed', 4), ...held('accepted', 2)],
+          [...repeated('failed', 4), ...repeated('accepted', 2)],
           [run('accepted_1', 'accepted'), run('asked_1', 'asked')],
           MAX_SUGGESTED,
         ),
@@ -49,7 +49,7 @@ describe('balancingPicks', () => {
     expect(
       ids(
         balancingPicks(
-          [...held('failed', 2), 'accepted'],
+          [...repeated('failed', 2), 'accepted'],
           [
             run('accepted_1', 'accepted'),
             run('accepted_2', 'accepted'),
@@ -64,7 +64,7 @@ describe('balancingPicks', () => {
   it('never suggests a run that turned out some other way, nor more of the most common outcome', () => {
     expect(
       balancingPicks(
-        held('failed', 3),
+        repeated('failed', 3),
         [run('other_1', 'other'), run('failed_1', 'failed')],
         MAX_SUGGESTED,
       ),
@@ -80,10 +80,10 @@ describe('balancingPicks', () => {
     expect(balancingPicks([], recent, MAX_SUGGESTED)).toEqual([]);
   });
 
-  it('suggests no more than it is asked for', () => {
+  it('suggests no more than is requested', () => {
     expect(
       balancingPicks(
-        held('failed', 10),
+        repeated('failed', 10),
         [
           run('accepted_1', 'accepted'),
           run('accepted_2', 'accepted'),
@@ -96,16 +96,16 @@ describe('balancingPicks', () => {
 });
 
 describe('newestOfEachTask', () => {
-  it('keeps only the newest run of each task, and none of a task the set holds', () => {
+  it('keeps only the newest run of each task, and none of a task the set contains', () => {
     expect(
       newestOfEachTask(
         [
           { id: 'run_3', task: 'task_a' },
           { id: 'run_2', task: 'task_b' },
           { id: 'run_1', task: 'task_a' },
-          { id: 'run_0', task: 'task_held' },
+          { id: 'run_0', task: 'task_in_set' },
         ],
-        ['task_held'],
+        ['task_in_set'],
       ).map((each) => each.id),
     ).toEqual(['run_3', 'run_2']);
   });

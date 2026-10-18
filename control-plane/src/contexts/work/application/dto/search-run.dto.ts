@@ -1,6 +1,6 @@
 import type { RunAgentDto } from '@work/application/dto/run-agent.dto';
-import type { RunSpendDto } from '@work/application/dto/run-conversation.dto';
 import type { RunJournalDto } from '@work/application/dto/run-journal.dto';
+import type { RunSpendDto } from '@work/application/dto/run-notes.dto';
 import type { TaskRunDto } from '@work/application/dto/task-run.dto';
 
 export interface SearchRunSpentDto {

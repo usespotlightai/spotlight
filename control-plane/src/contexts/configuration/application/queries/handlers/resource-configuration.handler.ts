@@ -1,13 +1,13 @@
 import type {
-  HeldKind,
-  HeldResourceConfigurationDto,
-} from '@configuration/application/dto/held-configuration.dto';
+  ExportableKind,
+  ExportableResourceConfigurationDto,
+} from '@configuration/application/dto/exportable-configuration.dto';
 import type { HarnessProfileResourcesPort } from '@configuration/application/ports/harness-profile-resources.port';
 import type { HookConfigsPort } from '@configuration/application/ports/hook-configs.port';
 import type { IntegrationConfigsPort } from '@configuration/application/ports/integration-configs.port';
 import type { SkillResourcesPort } from '@configuration/application/ports/skill-resources.port';
 import type { ResourceConfigurationQuery } from '@configuration/application/queries/resource-configuration.query';
-import type { HeldConfigurations } from '@configuration/application/services/held-configurations.service';
+import type { ExportableConfigurations } from '@configuration/application/services/exportable-configurations.service';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { TokenTrustConfigurationPort } from '@identity/application/ports/token-trust-configuration.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
@@ -32,7 +32,7 @@ export class ResourceConfigurationHandler
   implements
     QueryHandlerPort<
       ResourceConfigurationQuery,
-      HeldResourceConfigurationDto | null
+      ExportableResourceConfigurationDto | null
     >
 {
   constructor(
@@ -47,12 +47,12 @@ export class ResourceConfigurationHandler
     private readonly secrets: SecretConfigurationPort,
     private readonly runners: RunnerConfigurationPort,
     private readonly tokenTrusts: TokenTrustConfigurationPort,
-    private readonly held: HeldConfigurations,
+    private readonly configurations: ExportableConfigurations,
   ) {}
 
   async execute(
     query: ResourceConfigurationQuery,
-  ): Promise<HeldResourceConfigurationDto | null> {
+  ): Promise<ExportableResourceConfigurationDto | null> {
     try {
       const workspaceId = await this.workspaceOf(query.kind, query.id);
       const permissions =
@@ -66,7 +66,7 @@ export class ResourceConfigurationHandler
         return null;
       }
 
-      const configuration = await this.held.of(workspace);
+      const configuration = await this.configurations.of(workspace);
       const resource = configuration.resources.find(
         (each) => each.kind === query.kind && each.id === query.id,
       );
@@ -78,7 +78,7 @@ export class ResourceConfigurationHandler
   }
 
   private async workspaceOf(
-    kind: HeldKind,
+    kind: ExportableKind,
     id: string,
   ): Promise<WorkspaceId | null> {
     switch (kind) {
@@ -97,28 +97,28 @@ export class ResourceConfigurationHandler
       case 'harness-profile':
         return this.teamWorkspaceOf(await this.profiles.withId(id));
       case 'secret':
-        return workspaceOfHeld(await this.secrets.withId(id));
+        return workspaceIdOf(await this.secrets.withId(id));
       case 'workspace-token-trust':
-        return workspaceOfHeld(await this.tokenTrusts.withId(id));
+        return workspaceIdOf(await this.tokenTrusts.withId(id));
       case 'runner-trust':
-        return workspaceOfHeld(await this.runners.trustWithId(id));
+        return workspaceIdOf(await this.runners.trustWithId(id));
       case 'runner-pool':
-        return workspaceOfHeld(await this.runners.poolWithId(id));
+        return workspaceIdOf(await this.runners.poolWithId(id));
       case 'egress':
-        return workspaceOfHeld(await this.runners.egressWithId(id));
+        return workspaceIdOf(await this.runners.egressWithId(id));
       case 'workspace-runners':
-        return workspaceOfHeld(await this.runners.declaredWithId(id));
+        return workspaceIdOf(await this.runners.declaredWithId(id));
     }
   }
 
   private async teamWorkspaceOf(
-    held: OnTeam | null,
+    resource: OnTeam | null,
   ): Promise<WorkspaceId | null> {
-    return held
-      ? ((await this.teams.find(held.teamId))?.workspaceId ?? null)
+    return resource
+      ? ((await this.teams.find(resource.teamId))?.workspaceId ?? null)
       : null;
   }
 }
 
-const workspaceOfHeld = (held: InWorkspace | null): WorkspaceId | null =>
-  held?.workspaceId ?? null;
+const workspaceIdOf = (resource: InWorkspace | null): WorkspaceId | null =>
+  resource?.workspaceId ?? null;

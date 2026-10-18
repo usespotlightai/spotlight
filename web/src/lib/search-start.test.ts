@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  estimateAskedOf,
+  estimateInputOf,
   estimateKey,
-  estimateRefusalOf,
+  estimateProblemOf,
   FIRST_BUDGET,
   harnessOf,
   objectiveOf,
@@ -32,13 +32,13 @@ describe('harnessOf', () => {
 });
 
 describe('estimateKey', () => {
-  it('round-trips what the estimate is asked for', () => {
+  it('round-trips what the estimate is requested for', () => {
     const key = estimateKey('set_1', BUDGET);
 
-    expect(estimateAskedOf(key)).toEqual({ setId: 'set_1', budget: BUDGET });
+    expect(estimateInputOf(key)).toEqual({ setId: 'set_1', budget: BUDGET });
     expect(estimateKey('', BUDGET)).toBeNull();
     expect(estimateKey('set_1', null)).toBeNull();
-    expect(estimateAskedOf(null)).toBeNull();
+    expect(estimateInputOf(null)).toBeNull();
   });
 });
 
@@ -47,7 +47,7 @@ describe('searchProblemOf', () => {
     problems: { iterations: 'Too many.' },
     inputs: { ...FIRST_BUDGET, iterations: '' },
     tried: false,
-    refused: [{ agent: 'Refused.' }, { agent: 'Later.', set: 'Gone.' }],
+    rejected: [{ agent: 'Rejected.' }, { agent: 'Later.', set: 'Gone.' }],
   };
 
   it('shows a local problem once typed in or tried', () => {
@@ -57,8 +57,8 @@ describe('searchProblemOf', () => {
     );
   });
 
-  it('falls back to the first refusal that names the field', () => {
-    expect(searchProblemOf('agent', sources)).toBe('Refused.');
+  it('falls back to the first rejection that names the field', () => {
+    expect(searchProblemOf('agent', sources)).toBe('Rejected.');
     expect(searchProblemOf('set', sources)).toBe('Gone.');
     expect(searchProblemOf('repeats', sources)).toBeNull();
   });
@@ -69,7 +69,7 @@ describe('objectiveOf', () => {
     typeof objectiveOf
   >[1];
 
-  it('keeps what was asked, else follows the set’s saturation', () => {
+  it('keeps what was requested, else follows the set’s saturation', () => {
     expect(objectiveOf('success', saturated)).toBe('success');
     expect(objectiveOf(null, saturated)).toBe('cost');
     expect(objectiveOf(null, null)).toBe('success');
@@ -92,11 +92,11 @@ describe('objectiveOf', () => {
   });
 });
 
-describe('estimateRefusalOf', () => {
-  it('explains a refused estimate', () => {
-    expect(estimateRefusalOf(false, 'No.')).toBeNull();
-    expect(estimateRefusalOf(true, 'No.')).toBe('No.');
-    expect(estimateRefusalOf(true, null)).toBe(
+describe('estimateProblemOf', () => {
+  it('explains a rejected estimate', () => {
+    expect(estimateProblemOf(false, 'No.')).toBeNull();
+    expect(estimateProblemOf(true, 'No.')).toBe('No.');
+    expect(estimateProblemOf(true, null)).toBe(
       'Please fix the marked field to see an estimate.',
     );
   });

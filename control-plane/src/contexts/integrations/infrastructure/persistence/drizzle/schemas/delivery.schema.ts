@@ -20,7 +20,7 @@ export type DeliveryState = (typeof DELIVERY_STATES)[number];
 export const inboundDelivery = pgTable(
   'inbound_delivery',
   {
-    source: text('source').notNull(),
+    integration: text('integration').notNull(),
     workspaceId: text('workspace_id').notNull().default(''),
     teamId: text('team_id').notNull().default(''),
     teamKey: text('team_key').notNull().default(''),
@@ -36,7 +36,7 @@ export const inboundDelivery = pgTable(
     handledAt: timestamp('handled_at'),
   },
   (table) => [
-    primaryKey({ columns: [table.source, table.teamId, table.id] }),
+    primaryKey({ columns: [table.integration, table.teamId, table.id] }),
     index('inbound_delivery_state_idx').on(table.state, table.dueAt),
   ],
 );

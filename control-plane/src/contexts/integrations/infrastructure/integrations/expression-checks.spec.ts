@@ -39,7 +39,7 @@ const LINEAR = {
         },
         raise: {
           happening: 'linear.issue.closed',
-          say: e('issue.title'),
+          message: e('issue.title'),
           marks: [{ kind: 'linear.issue', value: e('issue.id') }],
         },
       },
@@ -56,13 +56,13 @@ const LINEAR = {
   tools: {
     comment: {
       description: 'Comment on an issue',
-      does: 'comment',
+      action: 'comment',
       inputs: { issue: { type: 'string' }, urgent: { type: 'boolean' } },
     },
   },
   on: {
     'task.opened': {
-      do: 'comment',
+      action: 'comment',
       to: { thread: e('task.marks["slack.thread"] + ask.bdoy') },
     },
   },
@@ -113,7 +113,7 @@ const checked = (
   return answered.check;
 };
 
-const refused = (
+const problemsOf = (
   position: string,
   expression: string,
   definition: unknown = LINEAR,
@@ -135,7 +135,7 @@ const WHEN = 'integration.webhook.events[0].when';
 const WALKING = 'integration.webhook.events[1].when';
 const THREAD = 'integration.on["task.opened"].to.thread';
 
-describe('checking an expression where a definition holds it', () => {
+describe('checking an expression where a definition contains it', () => {
   it('answers the type a sound one evaluates to', () => {
     expect(checked(WHEN, 'body.type == "Issue"')).toEqual({
       type: 'bool',
@@ -144,7 +144,7 @@ describe('checking an expression where a definition holds it', () => {
     });
   });
 
-  it('refuses a when that does not return a bool', () => {
+  it('rejects a when that does not return a bool', () => {
     expect(checked(WHEN, ' "Issue" ').errors).toEqual([
       {
         message: 'must return a bool, not a string',
@@ -164,7 +164,7 @@ describe('checking an expression where a definition holds it', () => {
     ]);
   });
 
-  it('gives item only to an event that walks a list', () => {
+  it('provides item only to an event that walks a list', () => {
     expect(checked(WALKING, 'item.done').errors).toEqual([]);
     expect(checked(WHEN, 'item.done').errors[0]?.message).toBe(
       'Unknown variable: item',
@@ -175,13 +175,14 @@ describe('checking an expression where a definition holds it', () => {
     ).toBe('Unknown variable: item');
   });
 
-  it('gives a raise what its lookup captured', () => {
+  it('provides a raise with what its lookup captured', () => {
     expect(
-      checked('integration.webhook.events[1].raise.say', 'issue.title').errors,
+      checked('integration.webhook.events[1].raise.message', 'issue.title')
+        .errors,
     ).toEqual([]);
   });
 
-  it('gives an action the inputs of the tools that do it, as their types', () => {
+  it('provides an action with the inputs of the tools that do it, as their types', () => {
     const position = 'integration.actions.comment.request.body.urgent';
 
     expect(checked(position, 'inputs.urgent')).toMatchObject({
@@ -212,9 +213,9 @@ describe('checking an expression where a definition holds it', () => {
     expect(checked(position, 'body.data.identifer').errors).toEqual([]);
   });
 
-  it('warns where a capture shadows a name Spotlight gives', () => {
+  it('warns where a capture shadows a name Spotlight provides', () => {
     expect(
-      checked('integration.webhook.events[1].raise.say', 'issue.title')
+      checked('integration.webhook.events[1].raise.message', 'issue.title')
         .warnings,
     ).toEqual([
       {
@@ -230,9 +231,9 @@ describe('checking an expression where a definition holds it', () => {
 });
 
 describe('a definition that is not valid', () => {
-  it('is refused with every error it holds, where it holds it', () => {
+  it('is rejected with every error it contains, where it contains it', () => {
     expect(
-      refused(WHEN, 'true', {
+      problemsOf(WHEN, 'true', {
         ...LINEAR,
         webhook: {
           ...LINEAR.webhook,
@@ -248,7 +249,7 @@ describe('a definition that is not valid', () => {
     ).toEqual([
       {
         at: 'webhook.events[0].raise.happening',
-        reason: 'names its source first, as in slack.app_mention',
+        reason: 'names its integration first, as in slack.app_mention',
       },
       {
         at: 'actions.broken.request.method',
@@ -261,28 +262,30 @@ describe('a definition that is not valid', () => {
     ]);
   });
 
-  it('is refused where the definition compiles but not whole', () => {
+  it('is rejected where the definition compiles but not whole', () => {
     expect(
-      refused(THREAD, 'ask.body', {
+      problemsOf(THREAD, 'ask.body', {
         ...LINEAR,
-        on: { 'task.opened': { ...LINEAR.on['task.opened'], do: 'missing' } },
+        on: {
+          'task.opened': { ...LINEAR.on['task.opened'], action: 'missing' },
+        },
       }).map((each) => each.at),
-    ).toEqual(['on["task.opened"].do']);
+    ).toEqual(['on["task.opened"].action']);
   });
 
   it('is still checked where it only warns', () => {
     expect(checked(THREAD, 'ask.body').errors).toEqual([]);
   });
 
-  it('refuses something that is not a definition at all', () => {
-    expect(refused(WHEN, 'true', 'linear').map((each) => each.at)).toEqual([
+  it('rejects something that is not a definition at all', () => {
+    expect(problemsOf(WHEN, 'true', 'linear').map((each) => each.at)).toEqual([
       '',
     ]);
   });
 });
 
 describe('a position that names no expression', () => {
-  it('is refused where the definition holds none there', () => {
+  it('is rejected where the definition contains none there', () => {
     for (const position of [
       'integration.webhook.events[0].raise.happening',
       'integration.webhook.events[7].when',
@@ -292,7 +295,7 @@ describe('a position that names no expression', () => {
     }
   });
 
-  it('is refused where it is not an integration’s', () => {
+  it('is rejected where it is not an integration’s', () => {
     expect(outcomeOf('line.stations[0].check')).toBe('no-such-resource');
     expect(outcomeOf('integration')).toBe('no-such-resource');
   });
@@ -304,11 +307,11 @@ describe('the check and the compiler', () => {
       ? `does not check: ${message}. Did you mean ${suggestion}?`
       : `does not check: ${message}`;
 
-  const valueAt = (held: unknown, field: FieldPath): unknown =>
+  const valueAt = (raw: unknown, field: FieldPath): unknown =>
     field.segments.reduce<unknown>(
       (within, segment) =>
         (within as Record<string | number, unknown> | undefined)?.[segment],
-      held,
+      raw,
     );
 
   const piecesOf = (value: string): string[] =>
@@ -319,10 +322,10 @@ describe('the check and the compiler', () => {
   it.each([
     ['a plain definition', LINEAR],
     ['a hinted definition', HINTED],
-  ])('reach the same verdict on every expression in %s', (_, definition) => {
+  ])('return the same result for every expression in %s', (_, definition) => {
     const compiled = placesOf(definition);
     const warnings = compiled.warnings;
-    const verdicts = new Map<string, string[]>();
+    const results = new Map<string, string[]>();
     const shadowed = new Set<string>();
 
     for (const place of compiled.places.values()) {
@@ -336,8 +339,8 @@ describe('the check and the compiler', () => {
         );
         const key = place.field.rendered;
 
-        verdicts.set(key, [
-          ...(verdicts.get(key) ?? []),
+        results.set(key, [
+          ...(results.get(key) ?? []),
           ...check.errors.map((each) => doubted(each.message, each.suggestion)),
         ]);
 
@@ -356,9 +359,9 @@ describe('the check and the compiler', () => {
     }
 
     expect(compiler.size).toBeGreaterThan(0);
-    expect(
-      new Map([...verdicts].filter(([, each]) => each.length > 0)),
-    ).toEqual(compiler);
+    expect(new Map([...results].filter(([, each]) => each.length > 0))).toEqual(
+      compiler,
+    );
     expect(shadowed).toEqual(
       new Set(
         warnings
@@ -373,12 +376,12 @@ describe('the positions an expression is written at', () => {
   const listed = (written: string) =>
     checks.positions().find((each) => each.position.rendered === written);
 
-  it('names what each sees, returns and also sees from the definition', () => {
+  it('names the variables of each, what it returns and the variables that the definition adds', () => {
     expect(listed('integration.webhook.events[*].when')).toEqual({
       position: expect.anything(),
       returns: 'bool',
-      alsoSees: ['item'],
-      sees: [
+      addedVariables: ['item'],
+      variables: [
         { name: 'body', type: 'dyn', fields: [] },
         { name: 'headers', type: 'dyn', fields: [] },
         { name: 'raw', type: 'string', fields: [] },
@@ -388,7 +391,7 @@ describe('the positions an expression is written at', () => {
 
   it('describes the fields Spotlight shapes', () => {
     expect(
-      listed('integration.on[*].to[*]')?.sees.find(
+      listed('integration.on[*].to[*]')?.variables.find(
         (each) => each.name === 'ask',
       ),
     ).toEqual({
@@ -408,10 +411,10 @@ describe('the positions an expression is written at', () => {
     expect(position?.seen({})).toBe(position?.scope);
   });
 
-  describe('against every expression an integration can hold', () => {
+  describe('against every expression an integration can contain', () => {
     const NOPE = e('nope');
     const FRESH = { at: NOPE, within: '300s' };
-    const WEARS = { secrets: ['secret.KITCHEN_KEY'] };
+    const INJECTS = { secrets: ['secret.KITCHEN_KEY'] };
     const VERIFIES = [
       { hmac: { secret: 'secret.SIGNING', signed: NOPE, freshness: FRESH } },
       {
@@ -429,7 +432,7 @@ describe('the positions an expression is written at', () => {
       query: { k: NOPE },
       headers: { k: NOPE },
       body: NOPE,
-      auth: WEARS,
+      auth: INJECTS,
       expect: { success: NOPE },
       capture: { k: NOPE },
     };
@@ -440,16 +443,16 @@ describe('the positions an expression is written at', () => {
       lookup: { request, capture: { k: NOPE } },
       raise: {
         happening,
-        say: NOPE,
+        message: NOPE,
         opens: {
-          onto: 'core',
+          lineRole: 'core',
           title: NOPE,
           description: NOPE,
           assignBy: { email: NOPE },
         },
         branch: NOPE,
         marks: [{ kind: 'kitchen.mark', value: NOPE }],
-        attaches: {
+        attachments: {
           each: NOPE,
           name: NOPE,
           type: NOPE,
@@ -459,7 +462,7 @@ describe('the positions an expression is written at', () => {
       },
     });
 
-    const holding = (verify: object) => ({
+    const verifying = (verify: object) => ({
       integration: 'kitchen',
       connection: {
         oauth2: {
@@ -471,7 +474,7 @@ describe('the positions an expression is written at', () => {
       webhook: {
         verify,
         respond: { when: NOPE, body: NOPE },
-        mine: NOPE,
+        ignoreWhen: NOPE,
         route: { by: NOPE },
         delivery: NOPE,
         events: [event('kitchen.hooked')],
@@ -485,7 +488,7 @@ describe('the positions an expression is written at', () => {
       actions: { k: { request } },
       tools: {
         k: {
-          does: 'k',
+          action: 'k',
           description: 'Everything at once',
           inputs: { k: { default: NOPE } },
           output: NOPE,
@@ -493,21 +496,21 @@ describe('the positions an expression is written at', () => {
       },
       on: {
         'task.opened': {
-          do: 'k',
+          action: 'k',
           to: { k: NOPE },
           mark: [{ kind: 'kitchen.mark', value: NOPE }],
         },
       },
     });
 
-    const reached = new Set(
+    const covered = new Set(
       VERIFIES.flatMap((verify) => [
-        ...placesOf(holding(verify)).places.values(),
+        ...placesOf(verifying(verify)).places.values(),
       ]).map((place) => place.position.position.rendered),
     );
 
-    it('lists every position an integration holds an expression at, and no other', () => {
-      expect(reached).toEqual(
+    it('lists every position an integration has an expression at, and no other', () => {
+      expect(covered).toEqual(
         new Set(EXPRESSION_POSITIONS.map((each) => each.position.rendered)),
       );
     });

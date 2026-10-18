@@ -1,20 +1,20 @@
 import { randomUUID } from 'node:crypto';
 import {
-  CHANGE_STACK_DRAFTER,
-  type ChangeStackDrafterPort,
-} from '@change-review/application/ports/change-stack-drafter.port';
+  CHANGE_STACK_GENERATOR,
+  type ChangeStackGeneratorPort,
+} from '@change-review/application/ports/change-stack-generator.port';
 import { WorkChangeStacks } from '@change-review/application/services/work-change-stacks.service';
-import type { INestApplication } from '@nestjs/common';
 import {
   JUDGE,
-  type JudgeAsk,
   type JudgePort,
-} from '@outcomes/application/ports/judge.port';
-import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
-import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
-import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
-import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
-import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
+  type JudgeRequest,
+} from '@insights/application/ports/judge.port';
+import { DeleteInsights } from '@insights/application/services/delete-insights.service';
+import { WorkChangeJudgings } from '@insights/application/services/work-change-judgings.service';
+import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
+import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
+import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -45,7 +45,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const HOST = `host-scoring-${randomUUID().slice(0, 8)}`;
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -73,9 +73,9 @@ const archiveStore: WorkspaceArchiveStorePort = {
   remove: async () => {},
 };
 
-const drafter: ChangeStackDrafterPort = {
+const generator: ChangeStackGeneratorPort = {
   available: true,
-  draft: async ({ diff }) => ({
+  generate: async ({ diff }) => ({
     usage: {
       inputTokens: 1_000,
       outputTokens: 100,
@@ -91,7 +91,7 @@ const drafter: ChangeStackDrafterPort = {
             title: 'Drain in order',
             summary: 'Drains the queue oldest first',
             dependsOn: [],
-            ranges: diff.hunks.map((each) => ({ hunk: each.id })),
+            hunks: diff.hunks.map((each) => ({ hunk: each.id })),
             notes: [
               ...new Set(
                 diff.hunks.flatMap((each) => diff.fileOf(each.id)?.path ?? []),
@@ -106,15 +106,15 @@ const drafter: ChangeStackDrafterPort = {
 
 const SCORED = /score\((\d)\)/;
 
-const asked: JudgeAsk[] = [];
+const requests: JudgeRequest[] = [];
 
 const judge: JudgePort = {
   available: true,
   model: 'stub/judge',
-  judge: async (ask) => {
-    asked.push(ask);
-    const said = ask.steps.find((each) => SCORED.test(each.text));
-    const value = Number(SCORED.exec(said?.text ?? '')?.[1] ?? 1);
+  judge: async (request) => {
+    requests.push(request);
+    const scoredStep = request.steps.find((each) => SCORED.test(each.text));
+    const value = Number(SCORED.exec(scoredStep?.text ?? '')?.[1] ?? 1);
 
     return {
       usage: {
@@ -127,8 +127,8 @@ const judge: JudgePort = {
         reasons: [
           {
             text: `It drains the queue as a ${value}.`,
-            steps: said ? [said.index] : [],
-            hunks: ask.hunks.slice(0, 1).map((each) => each.id),
+            steps: scoredStep ? [scoredStep.index] : [],
+            hunks: request.hunks.slice(0, 1).map((each) => each.id),
           },
         ],
       },
@@ -138,7 +138,7 @@ const judge: JudgePort = {
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 
 const http = () => served(app);
 
@@ -168,14 +168,14 @@ const sent = (update: Record<string, unknown>): string =>
     'base64',
   );
 
-const changing = (from: number, said: string, line: string) => [
+const changing = (from: number, message: string, line: string) => [
   {
     seq: from,
     type: 'output',
     at: new Date().toISOString(),
     data: sent({
       sessionUpdate: 'agent_message_chunk',
-      content: { type: 'text', text: said },
+      content: { type: 'text', text: message },
     }),
   },
   {
@@ -239,21 +239,21 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
     stationId: BUILD,
     title: `Drain queue ${runId.slice(0, 4)}`,
     description: 'It stalls on restart.',
-    raisedAtStationId: BUILD,
-    raisedById: team.owner.value,
+    originStationId: BUILD,
+    createdById: team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
   });
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    continuityKey: `task-${taskId}`,
+    resumeKey: `task-${taskId}`,
     taskId,
     grantedToRunId: randomUUID(),
     size: 1_024,
     sha256: 'a'.repeat(64),
     grantedAt: at,
-    sealedAt: at,
+    completedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
@@ -276,7 +276,7 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship'], noteLimit: 0 },
-      continuity: { key: `task-${taskId}` },
+      resume: { key: `task-${taskId}` },
       startingPoint: true,
     },
     briefedTask: BriefedTask.of({
@@ -286,9 +286,9 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
       reviewing: null,
       attachments: [],
       notes: [],
-      openRemarks: [],
+      openReviewComments: [],
     }).parts,
-    briefedMemories: { briefed: [], cut: [] },
+    briefedMemories: { briefed: [], omitted: [] },
     startedFromArchiveId: archiveId,
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
@@ -305,11 +305,11 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
     await app
       .get(DrizzleRunRecordRepository)
       .add(
-        RunRecord.heardOf(
+        RunRecord.empty(
           RunId.of(runId),
           team.workspaceId,
           TaskId.of(taskId),
-        ).recordAction(NextAct.of('closed', at)),
+        ).recordAction(HumanAction.of('accepted', at)),
       );
   }
 
@@ -342,7 +342,7 @@ interface Claimed {
 }
 
 const claimed = async (): Promise<Claimed> => {
-  const handed = (
+  const assignment = (
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
@@ -358,10 +358,10 @@ const claimed = async (): Promise<Claimed> => {
   };
 
   return {
-    token: handed.token,
-    kind: handed.work.kind,
-    runId: handed.work.run?.id ?? handed.work.check?.runId ?? '',
-    stackId: handed.work.check?.stackId ?? null,
+    token: assignment.token,
+    kind: assignment.work.kind,
+    runId: assignment.work.run?.id ?? assignment.work.check?.runId ?? '',
+    stackId: assignment.work.check?.stackId ?? null,
   };
 };
 
@@ -383,10 +383,10 @@ const replayState = async (replayId: string) => {
   return row?.state;
 };
 
-const worked = async () => {
-  await app.get(WorkChangeStacks).workDue();
+const processed = async () => {
+  await app.get(WorkChangeStacks).processDue();
   await app.get(WorkChangeStacks).idle();
-  await app.get(WorkChangeJudgings).workDue();
+  await app.get(WorkChangeJudgings).processDue();
   await app.get(WorkChangeJudgings).idle();
 };
 
@@ -397,13 +397,13 @@ beforeAll(async () => {
       .useValue(archiveStore)
       .overrideProvider(ATTACHMENT_STORE)
       .useValue(attachmentStore)
-      .overrideProvider(CHANGE_STACK_DRAFTER)
-      .useValue(drafter)
+      .overrideProvider(CHANGE_STACK_GENERATOR)
+      .useValue(generator)
       .overrideProvider(JUDGE)
       .useValue(judge),
   );
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `scoring-${randomUUID().slice(0, 8)}`,
@@ -444,9 +444,9 @@ beforeAll(async () => {
       judge: {
         rubric: RUBRIC,
         claims: [],
-        passShare: 1,
+        passThreshold: 1,
         sample: 0.1,
-        trust: 0.6,
+        minAgreement: 0.6,
       },
     },
     {
@@ -482,16 +482,16 @@ beforeAll(async () => {
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'scoring-box',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 8,
       running: [],
       images: [
         {
           image: IMAGE,
-          usual: true,
+          isDefault: true,
           harnesses: [{ id: 'claude-code', models: [] }],
         },
       ],
@@ -504,13 +504,13 @@ afterAll(async () => {
 });
 
 describe('a replay at a station that checks and judges', () => {
-  it('drafts each replay’s change, checks it with the candidate’s own check, judges it against the change people accepted, and puts the task that regressed first', async () => {
+  it('generates each replay’s change stack, checks it with the candidate’s own check, judges it against the change people accepted, and puts the task that regressed first', async () => {
     const first = await anOriginal(true);
     const second = await anOriginal(false);
-    const opened = await owner()
+    const created = await owner()
       .post(`${stationPath()}/replay-sets`, { name: 'Scored' })
       .expect(201);
-    const setId = opened.body.id as string;
+    const setId = created.body.id as string;
     for (const each of [first, second]) {
       await owner()
         .post(`${teamPath()}/replay-sets/${setId}/entries`, {
@@ -545,35 +545,35 @@ describe('a replay at a station that checks and judges', () => {
     const both = [id, baselineId];
     const reported = new Set<string>();
 
-    const finish = async (handed: Claimed) => {
-      const entry = await entryOf(handed.runId);
+    const finish = async (assignment: Claimed) => {
+      const entry = await entryOf(assignment.runId);
       const { score } = plan(entry?.replayId ?? '', entry?.originalRunId ?? '');
 
-      await bearing(handed.token)
-        .post(`/api/runs/${handed.runId}/events`, {
+      await bearing(assignment.token)
+        .post(`/api/runs/${assignment.runId}/events`, {
           events: changing(1, `Drained it: score(${score}).`, 'drain()'),
         })
         .expect(204);
-      await bearing(handed.token)
-        .post(`/api/runs/${handed.runId}/change-stacks`, {
+      await bearing(assignment.token)
+        .post(`/api/runs/${assignment.runId}/change-stacks`, {
           diff: diffOf('drain()'),
           repository: 'api',
           base: COMMIT,
         })
         .expect(204);
-      await bearing(handed.token)
-        .post(`/api/runs/${handed.runId}/completion`, {
+      await bearing(assignment.token)
+        .post(`/api/runs/${assignment.runId}/completion`, {
           exitCode: 0,
           failed: false,
-          outcome: { next: 'ship', note: 'Drained.' },
+          handover: { next: 'ship', note: 'Drained.' },
           sessionId: 'session_1',
-          kept: true,
+          archived: true,
         })
         .expect(200);
     };
 
-    const check = async (handed: Claimed) => {
-      const entry = await entryOf(handed.runId);
+    const check = async (assignment: Claimed) => {
+      const entry = await entryOf(assignment.runId);
       const { passes } = plan(
         entry?.replayId ?? '',
         entry?.originalRunId ?? '',
@@ -582,22 +582,22 @@ describe('a replay at a station that checks and judges', () => {
       expect(entry?.succeeded).toBeNull();
       expect(await replayState(entry?.replayId ?? '')).toBe('running');
 
-      await bearing(handed.token)
+      await bearing(assignment.token)
         .post(
-          `/api/runs/${handed.runId}/change-stack-checks/${handed.stackId}`,
+          `/api/runs/${assignment.runId}/change-stack-checks/${assignment.stackId}`,
           {
             steps: [
               {
                 step: 'whole',
                 passed: passes,
                 output: passes ? 'ok' : '1 failing',
-                tookMs: 900,
+                durationMs: 900,
               },
             ],
           },
         )
         .expect(204);
-      reported.add(handed.stackId ?? '');
+      reported.add(assignment.stackId ?? '');
     };
 
     const replayRunIds = async () =>
@@ -628,7 +628,7 @@ describe('a replay at a station that checks and judges', () => {
           .where(
             and(
               inArray(schema.stackCheck.runId, runs),
-              eq(schema.stackCheck.phase, 'waiting'),
+              eq(schema.stackCheck.status, 'waiting'),
             ),
           )
       ).filter((each) => !reported.has(each.stackId));
@@ -648,13 +648,15 @@ describe('a replay at a station that checks and judges', () => {
     };
 
     await eventually(async () => {
-      await app.get(DispatchReplayRuns).workDue();
-      await worked();
+      await app.get(DispatchReplayRuns).processDue();
+      await processed();
 
       if (await workWaiting()) {
-        const handed = await claimed();
+        const assignment = await claimed();
 
-        await (handed.kind === 'run' ? finish(handed) : check(handed));
+        await (assignment.kind === 'run'
+          ? finish(assignment)
+          : check(assignment));
       }
 
       return allScored();
@@ -682,7 +684,7 @@ describe('a replay at a station that checks and judges', () => {
           result: string;
           checks: { state: string; failedAt: string[] };
           judge: { score: number; referenced: boolean; passed: boolean };
-          draftingSpent: {
+          generationSpent: {
             spends: { amount: number; currency: string }[];
             unpriced: number;
           } | null;
@@ -716,12 +718,12 @@ describe('a replay at a station that checks and judges', () => {
       [first.runId, false, 1, 'succeeded', 'succeeded'],
     ]);
 
-    const [regressed, kept] = detail.comparison;
-    expect(kept?.candidate[0]?.draftingSpent).toEqual({
+    const [regressed, steady] = detail.comparison;
+    expect(steady?.candidate[0]?.generationSpent).toEqual({
       spends: [{ amount: 0.02, currency: 'USD' }],
       unpriced: 0,
     });
-    expect(kept?.candidate[0]?.judgingSpent).toEqual({
+    expect(steady?.candidate[0]?.judgingSpent).toEqual({
       spends: [{ amount: 0.01, currency: 'USD' }],
       unpriced: 0,
     });
@@ -739,15 +741,15 @@ describe('a replay at a station that checks and judges', () => {
       'check-failed',
       'judge-failed',
     ]);
-    expect(kept?.candidate[0]?.judge).toMatchObject({
+    expect(steady?.candidate[0]?.judge).toMatchObject({
       score: 5,
       passed: true,
       referenced: true,
     });
 
-    const referenced = asked.find((each) => each.reference !== null);
+    const referenced = requests.find((each) => each.reference !== null);
     expect(referenced?.reference?.hunks[0]?.lines).toContain('+drainInOrder()');
-    expect(asked.every((each) => each.rubric === RUBRIC)).toBe(true);
+    expect(requests.every((each) => each.rubric === RUBRIC)).toBe(true);
 
     const replayRuns = (
       await db
@@ -782,7 +784,7 @@ describe('a replay at a station that checks and judges', () => {
         .where(inArray(schema.changeJudging.runId, replayRuns)),
     ).toHaveLength(4);
     await app
-      .get(ForgetOutcomes)
+      .get(DeleteInsights)
       .judgingsAndScoresOfTeam(team.workspaceId, team.teamId);
     expect(
       await db
@@ -812,8 +814,8 @@ describe('a task run’s change', () => {
       workspaceId: team.workspaceId.value,
       stationId: BUILD,
       title: 'Retry uploads',
-      raisedAtStationId: BUILD,
-      raisedById: team.owner.value,
+      originStationId: BUILD,
+      createdById: team.owner.value,
       assigneeId: team.owner.value,
     });
     await db.insert(schema.run).values({
@@ -836,14 +838,14 @@ describe('a task run’s change', () => {
         command: { executable: 'claude-agent-acp', args: [] },
         briefing: 'Retry uploads.',
         handover: { options: ['ship'], noteLimit: 0 },
-        continuity: { key: `task-${taskId}` },
+        resume: { key: `task-${taskId}` },
         diffs: true,
         check: 'npm test',
       },
     });
 
-    const held = await claimed();
-    expect(held.runId).toBe(runId);
+    const leased = await claimed();
+    expect(leased.runId).toBe(runId);
 
     await db
       .update(schema.station)
@@ -851,7 +853,7 @@ describe('a task run’s change', () => {
       .where(eq(schema.station.id, BUILD));
 
     try {
-      await bearing(held.token)
+      await bearing(leased.token)
         .post(`/api/runs/${runId}/change-stacks`, {
           diff: diffOf('retry(upload)'),
           repository: 'api',

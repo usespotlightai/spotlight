@@ -20,7 +20,7 @@ export function RenameReplaySetButton({
       label="Rename"
       icon={Pencil}
       variant="outline"
-      refusedBecause={null}
+      disabledBecause={null}
       dialog={(open, onOpenChange) => (
         <ReplaySetNameDialog
           key={set.name}

@@ -1,7 +1,7 @@
 import type { MemberDto } from '@identity/application/dto/member.dto';
 import type { MemberReaderPort } from '@identity/application/ports/member-reader.port';
 import type { ListMembersQuery } from '@identity/application/queries/list-members.query';
-import { rolesGivable } from '@identity/domain/services/role-giving';
+import { assignableRoles } from '@identity/domain/services/role-assignment';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
@@ -24,15 +24,15 @@ export class ListMembersHandler
         return null;
       }
 
-      const mine = WorkspaceRole.of(roster.viewer);
+      const callerRole = WorkspaceRole.of(roster.viewer);
 
       return roster.members.map((member) => {
-        const theirs = WorkspaceRole.of(member.role);
+        const memberRole = WorkspaceRole.of(member.role);
 
-        const mayBeSetTo = rolesGivable({
-          mine,
-          theirs,
-          lastOwner: theirs.isOwner && roster.owners === 1,
+        const assignable = assignableRoles({
+          callerRole,
+          memberRole,
+          isLastOwner: memberRole.isOwner && roster.owners === 1,
           isSelf: member.id === query.viewerId,
         });
 
@@ -41,7 +41,7 @@ export class ListMembersHandler
           name: member.name,
           image: member.image,
           role: member.role,
-          mayBeSetTo: mayBeSetTo.map((role) => role.value),
+          assignableRoles: assignable.map((role) => role.value),
         };
       });
     } catch (error) {

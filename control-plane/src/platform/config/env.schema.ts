@@ -36,7 +36,7 @@ export const envSchema = databaseSchema
     GITHUB_APP_PRIVATE_KEY: z.string().min(1),
     GITHUB_WEBHOOK_SECRET: z.string().default(''),
     SPOTLIGHT_SECRETS_KEY: z.string().min(1).optional(),
-    SECRETS_KMS_KEY_ID: z.string().min(1).optional(),
+    SPOTLIGHT_SECRETS_KMS_KEY_ID: z.string().min(1).optional(),
     SECRETS_AWS_SECRETS_MANAGER: z.stringbool().default(false),
     SPOTLIGHT_PUBLIC_URL: z.url().optional(),
     SPOTLIGHT_PLATFORM_EGRESS_URL: z.url({ protocol: /^https?$/ }).optional(),
@@ -45,11 +45,15 @@ export const envSchema = databaseSchema
       .regex(/^[A-Za-z0-9._~-]{32,255}$/)
       .optional(),
     // An empty value permits no hosts. The deployment decides which hosts Spotlight can call.
-    OUTBOUND_ALLOWED_HOSTS: z.string().default(''),
+    SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS: z.string().default(''),
     HOOK_SIGNING_KEY: z.string().min(1).optional(),
     OAUTH_CLIENTS: z.string().default('{}'),
     SPOTLIGHT_LONG_POLL_MS: z.coerce.number().int().positive().default(10_000),
-    MCP_RELIST_SECONDS: z.coerce.number().int().positive().default(600),
+    SPOTLIGHT_MCP_RELIST_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(600),
     SPOTLIGHT_CATALOG_URL: z.url().default('https://catalog.usespotlight.ai'),
     SPOTLIGHT_CATALOG_TOKEN: z.string().min(1).optional(),
     S3_BUCKET: z.string().min(1),
@@ -75,11 +79,14 @@ export const envSchema = databaseSchema
     JUDGE_MODEL: z.string().min(1).default('google/gemini-3.8-flash'),
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),
   })
-  .refine((env) => env.SPOTLIGHT_SECRETS_KEY || env.SECRETS_KMS_KEY_ID, {
-    path: ['SPOTLIGHT_SECRETS_KEY'],
-    message:
-      'wraps each workspace data key when SECRETS_KMS_KEY_ID names no AWS KMS key; generate one with: openssl rand -base64 32',
-  })
+  .refine(
+    (env) => env.SPOTLIGHT_SECRETS_KEY || env.SPOTLIGHT_SECRETS_KMS_KEY_ID,
+    {
+      path: ['SPOTLIGHT_SECRETS_KEY'],
+      message:
+        'wraps each workspace data key when SPOTLIGHT_SECRETS_KMS_KEY_ID names no AWS KMS key; generate one with: openssl rand -base64 32',
+    },
+  )
   .refine(
     (env) =>
       (env.SPOTLIGHT_PLATFORM_EGRESS_URL === undefined) ===
@@ -87,7 +94,7 @@ export const envSchema = databaseSchema
     {
       path: ['SPOTLIGHT_PLATFORM_EGRESS_TOKEN'],
       message:
-        'goes with SPOTLIGHT_PLATFORM_EGRESS_URL. Give both to name the platform egress, or neither; generate a token with: openssl rand -hex 32',
+        'goes with SPOTLIGHT_PLATFORM_EGRESS_URL. Set both to name the platform egress, or neither; generate a token with: openssl rand -hex 32',
     },
   )
   .transform((env) => ({

@@ -6,16 +6,16 @@ import {
   MAX_SLUG_LENGTH,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
-import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 
-type Clause = readonly string[];
+type LabelGroup = readonly string[];
 
-const sameClause = (a: Clause, b: Clause): boolean =>
+const sameLabelGroup = (a: LabelGroup, b: LabelGroup): boolean =>
   a.length === b.length && a.every((each) => b.includes(each));
 
 export class RunnerPlacement {
   private constructor(
-    readonly clauses: readonly Clause[],
+    readonly labelGroups: readonly LabelGroup[],
     readonly image: RunnerImage | null,
   ) {}
 
@@ -24,7 +24,7 @@ export class RunnerPlacement {
   }
 
   static of(raw: readonly string[]): RunnerPlacement {
-    const selectors: string[] = [];
+    const labels: string[] = [];
 
     for (const each of raw) {
       const trimmed = each.trim();
@@ -35,18 +35,18 @@ export class RunnerPlacement {
         );
       }
 
-      if (selectors.includes(trimmed)) {
+      if (labels.includes(trimmed)) {
         throw new InvalidRunnerPlacementError(`must name ${trimmed} only once`);
       }
 
-      selectors.push(trimmed);
+      labels.push(trimmed);
     }
 
-    return new RunnerPlacement(selectors.length > 0 ? [selectors] : [], null);
+    return new RunnerPlacement(labels.length > 0 ? [labels] : [], null);
   }
 
-  static ofClauses(
-    raw: readonly Clause[],
+  static ofLabelGroups(
+    raw: readonly LabelGroup[],
     image: RunnerImage | null = null,
   ): RunnerPlacement {
     return RunnerPlacement.every(
@@ -55,11 +55,11 @@ export class RunnerPlacement {
   }
 
   static every(placements: readonly RunnerPlacement[]): RunnerPlacement {
-    const clauses: Clause[] = [];
+    const labelGroups: LabelGroup[] = [];
 
-    for (const clause of placements.flatMap((each) => each.clauses)) {
-      if (!clauses.some((held) => sameClause(held, clause))) {
-        clauses.push(clause);
+    for (const group of placements.flatMap((each) => each.labelGroups)) {
+      if (!labelGroups.some((existing) => sameLabelGroup(existing, group))) {
+        labelGroups.push(group);
       }
     }
 
@@ -73,37 +73,38 @@ export class RunnerPlacement {
       );
     }
 
-    return new RunnerPlacement(clauses, images[0] ?? null);
+    return new RunnerPlacement(labelGroups, images[0] ?? null);
   }
 
   in(image: RunnerImage | null): RunnerPlacement {
-    return new RunnerPlacement(this.clauses, image);
+    return new RunnerPlacement(this.labelGroups, image);
   }
 
   get isAnywhere(): boolean {
-    return this.clauses.length === 0 && this.image === null;
+    return this.labelGroups.length === 0 && this.image === null;
   }
 
-  get selectors(): readonly string[] {
-    return this.clauses.flat();
+  get requiredLabels(): readonly string[] {
+    return this.labelGroups.flat();
   }
 
   or(fallback: RunnerPlacement): RunnerPlacement {
     return this.isAnywhere ? fallback : this;
   }
 
-  admits(terms: RunnerTerms): boolean {
+  matches(offer: RunnerOffer): boolean {
     return (
-      this.clauses.every((clause) => clause.some((each) => terms.has(each))) &&
-      terms.serves(this.image)
+      this.labelGroups.every((group) =>
+        group.some((each) => offer.has(each)),
+      ) && offer.supports(this.image)
     );
   }
 
   equals(other: RunnerPlacement): boolean {
     return (
-      this.clauses.length === other.clauses.length &&
-      this.clauses.every((clause) =>
-        other.clauses.some((each) => sameClause(each, clause)),
+      this.labelGroups.length === other.labelGroups.length &&
+      this.labelGroups.every((group) =>
+        other.labelGroups.some((each) => sameLabelGroup(each, group)),
       ) &&
       sameOrBothNone(this.image, other.image)
     );

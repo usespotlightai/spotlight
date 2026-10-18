@@ -6,14 +6,14 @@ import { CurrentPrincipal } from '@platform/http/decorators/current-principal.de
 import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
-import {
-  answerCreated,
-  answerDeleted,
-  answerUpdated,
-  found,
-  listed,
-} from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
+import {
+  respondCreated,
+  respondDeleted,
+  respondFound,
+  respondListed,
+  respondUpdated,
+} from '@platform/http/resources/resource-responses';
 import { CreateSecretCommand } from '@secrets/application/commands/create-secret.command';
 import { DeleteSecretCommand } from '@secrets/application/commands/delete-secret.command';
 import { UpdateSecretCommand } from '@secrets/application/commands/update-secret.command';
@@ -30,7 +30,7 @@ import type {
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
-import { SECRET_CARRIERS } from '@shared-kernel/domain/value-objects/secret-carriers';
+import { SECRET_LOCATIONS } from '@shared-kernel/domain/value-objects/secret-locations';
 
 const KIND = 'secret';
 
@@ -68,15 +68,15 @@ const DEFINITION = ApiBody({
           required: ['host'],
           properties: {
             host: { type: 'string', example: 'api.linear.app' },
-            carrier: {
+            location: {
               type: 'string',
-              enum: [...SECRET_CARRIERS],
+              enum: [...SECRET_LOCATIONS],
               default: 'header',
             },
             name: {
               type: 'string',
               description:
-                'The header or query parameter it is worn in; authorization when a header is not named',
+                'The header or query parameter that Spotlight injects it in. The default header is authorization',
               example: 'authorization',
             },
             prefix: { type: 'string', default: '', example: 'Bearer ' },
@@ -87,7 +87,7 @@ const DEFINITION = ApiBody({
         type: 'string',
         writeOnly: true,
         description:
-          'The value to keep; accepted on create and whenever valueWoVersion changes, and never answered',
+          'The value to store; accepted on create and whenever valueWoVersion changes, and never returned',
       },
       valueWoVersion: {
         type: 'integer',
@@ -122,7 +122,7 @@ export class SecretResourceController {
 
   @SecretResource.Create(
     'workspaces/:workspaceId/secrets',
-    'Set a secret in a workspace; only workspace admins and tokens with the secrets scope may',
+    'Create a secret in a workspace; only workspace admins and tokens with the secrets scope may',
   )
   @WORKSPACE
   @DEFINITION
@@ -132,13 +132,13 @@ export class SecretResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<SecretResourceResponseDto> {
-    return answerCreated(
+    return respondCreated(
       KIND,
       await this.commandBus.execute<
         CreateSecretCommand,
         ResourceCreated | null
       >(new CreateSecretCommand(workspaceId, actor, key, body)),
-      (id) => this.answer(id, actor.principal),
+      (id) => this.toResponse(id, actor.principal),
     );
   }
 
@@ -148,7 +148,7 @@ export class SecretResourceController {
     @Param('id') id: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<SecretResourceResponseDto> {
-    return this.answer(id, principal);
+    return this.toResponse(id, principal);
   }
 
   @SecretResource.Update(
@@ -163,13 +163,13 @@ export class SecretResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<SecretResourceResponseDto> {
-    return answerUpdated(
+    return respondUpdated(
       KIND,
       await this.commandBus.execute<
         UpdateSecretCommand,
         ResourceUpdated | null
       >(new UpdateSecretCommand(id, actor, version, body)),
-      (updated) => this.answer(updated, actor.principal),
+      (updated) => this.toResponse(updated, actor.principal),
     );
   }
 
@@ -180,7 +180,7 @@ export class SecretResourceController {
     @IfMatch() version: number,
     @CurrentActor() actor: Actor,
   ): Promise<void> {
-    answerDeleted(
+    respondDeleted(
       KIND,
       await this.commandBus.execute<
         DeleteSecretCommand,
@@ -199,7 +199,7 @@ export class SecretResourceController {
     @Query('address') address: string | undefined,
     @CurrentPrincipal() principal: Principal,
   ): Promise<SecretResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<ImportSecretQuery, SecretResourceDto | null>(
         new ImportSecretQuery(workspaceId, address ?? '', principal),
@@ -217,7 +217,7 @@ export class SecretResourceController {
     @Param('workspaceId') workspaceId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ResourceList<SecretResourceResponseDto>> {
-    return listed(
+    return respondListed(
       await this.queryBus.execute<
         ListSecretResourcesQuery,
         readonly SecretResourceDto[] | null
@@ -226,11 +226,11 @@ export class SecretResourceController {
     );
   }
 
-  private async answer(
+  private async toResponse(
     id: string,
     principal: Principal,
   ): Promise<SecretResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<ReadSecretQuery, SecretResourceDto | null>(
         new ReadSecretQuery(id, principal),

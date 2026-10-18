@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-var ErrOutside = errors.New("the archive reaches outside the workspace")
+var ErrOutside = errors.New("the archive has a path outside the workspace")
 
 func Unpack(from io.Reader, dir string) error {
 	root, err := os.OpenRoot(dir)
@@ -33,7 +33,7 @@ func Unpack(from io.Reader, dir string) error {
 	for {
 		header, err := archive.Next()
 		if errors.Is(err, io.EOF) {
-			return restoring.settle()
+			return restoring.applyDirModes()
 		}
 		if err != nil {
 			return fmt.Errorf("restore the workspace: %w", err)
@@ -86,7 +86,7 @@ func (r *restoring) place(archive *tar.Reader, header *tar.Header, name string) 
 		}
 	}
 
-	if err := r.makeRoom(name, header.Typeflag == tar.TypeDir); err != nil {
+	if err := r.clearPath(name, header.Typeflag == tar.TypeDir); err != nil {
 		return err
 	}
 
@@ -137,7 +137,7 @@ func (r *restoring) write(archive *tar.Reader, header *tar.Header, name string, 
 	return r.root.Chtimes(name, header.ModTime, header.ModTime)
 }
 
-func (r *restoring) makeRoom(name string, dir bool) error {
+func (r *restoring) clearPath(name string, dir bool) error {
 	there, err := r.root.Lstat(name)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
@@ -151,8 +151,8 @@ func (r *restoring) makeRoom(name string, dir bool) error {
 	return r.root.RemoveAll(name)
 }
 
-// settle starts at the deepest folder, so a folder that does not permit writes is closed only after all of its contents are written.
-func (r *restoring) settle() error {
+// applyDirModes starts at the deepest folder, so a folder that does not permit writes is closed only after all of its contents are written.
+func (r *restoring) applyDirModes() error {
 	for i := len(r.folders) - 1; i >= 0; i-- {
 		placed := r.folders[i]
 		if r.owned {

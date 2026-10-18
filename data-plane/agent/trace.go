@@ -49,9 +49,9 @@ func traceCmd(args []string, out io.Writer) error {
 
 	fmt.Fprintf(
 		out,
-		"Wrote the trace to %s — %d nodes, %d faults, %s. Read and search that "+
+		"Wrote the trace to %s — %d nodes, %d errors, %s. Read and search that "+
 			"file with your own tools rather than loading it whole.\n",
-		file.Name(), trace.Rows, trace.Faults, tookMs(trace.Ms),
+		file.Name(), trace.Rows, trace.Errors, tookMs(trace.Ms),
 	)
 
 	return nil
@@ -75,20 +75,20 @@ func traceFile(path string) (*os.File, error) {
 }
 
 func fetchTrace(taskID string) (protocol.Trace, error) {
-	endpoint, token := os.Getenv(protocol.HandoverURLVar), os.Getenv(protocol.HandoverTokenVar)
+	endpoint, token := os.Getenv(protocol.AgentAPIURLVar), os.Getenv(protocol.AgentAPITokenVar)
 	if endpoint == "" || token == "" {
 		return protocol.Trace{}, fmt.Errorf(
 			"no run to read a trace from: spotlight runs inside a Spotlight workspace",
 		)
 	}
 
-	asked, err := json.Marshal(protocol.TraceRequest{Task: taskID})
+	body, err := json.Marshal(protocol.TraceRequest{Task: taskID})
 	if err != nil {
 		return protocol.Trace{}, err
 	}
 
 	answered, err := post(
-		strings.TrimSuffix(endpoint, "/")+protocol.HandoverTracePath, token, asked,
+		strings.TrimSuffix(endpoint, "/")+protocol.AgentAPITracePath, token, body,
 	)
 	if err != nil {
 		return protocol.Trace{}, err

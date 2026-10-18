@@ -3,6 +3,7 @@ import { AddTeamMemberCommand } from '@identity/application/commands/add-team-me
 import { ChangeMemberRoleCommand } from '@identity/application/commands/change-member-role.command';
 import { CreateTeamCommand } from '@identity/application/commands/create-team.command';
 import { CreateWorkspaceCommand } from '@identity/application/commands/create-workspace.command';
+import { CreateWorkspaceWithTeamCommand } from '@identity/application/commands/create-workspace-with-team.command';
 import { DeleteTeamCommand } from '@identity/application/commands/delete-team.command';
 import { DeleteWorkspaceCommand } from '@identity/application/commands/delete-workspace.command';
 import { ExchangeWorkloadTokenCommand } from '@identity/application/commands/exchange-workload-token.command';
@@ -13,13 +14,13 @@ import { CreateTeamHandler } from '@identity/application/commands/handlers/creat
 import { CreateWorkspaceHandler } from '@identity/application/commands/handlers/create-workspace.handler';
 import { CreateWorkspaceTokenHandler } from '@identity/application/commands/handlers/create-workspace-token.handler';
 import { CreateWorkspaceTokenTrustHandler } from '@identity/application/commands/handlers/create-workspace-token-trust.handler';
+import { CreateWorkspaceWithTeamHandler } from '@identity/application/commands/handlers/create-workspace-with-team.handler';
 import { DeleteTeamHandler } from '@identity/application/commands/handlers/delete-team.handler';
 import { DeleteWorkspaceHandler } from '@identity/application/commands/handlers/delete-workspace.handler';
 import { DeleteWorkspaceTokenHandler } from '@identity/application/commands/handlers/delete-workspace-token.handler';
 import { DeleteWorkspaceTokenTrustHandler } from '@identity/application/commands/handlers/delete-workspace-token-trust.handler';
 import { ExchangeWorkloadTokenHandler } from '@identity/application/commands/handlers/exchange-workload-token.handler';
 import { InviteToWorkspaceHandler } from '@identity/application/commands/handlers/invite-to-workspace.handler';
-import { OpenWorkspaceHandler } from '@identity/application/commands/handlers/open-workspace.handler';
 import { ResendInviteHandler } from '@identity/application/commands/handlers/resend-invite.handler';
 import { RevokeInviteHandler } from '@identity/application/commands/handlers/revoke-invite.handler';
 import { UpdateTeamHandler } from '@identity/application/commands/handlers/update-team.handler';
@@ -27,7 +28,6 @@ import { UpdateWorkspaceHandler } from '@identity/application/commands/handlers/
 import { UpdateWorkspaceTokenHandler } from '@identity/application/commands/handlers/update-workspace-token.handler';
 import { UpdateWorkspaceTokenTrustHandler } from '@identity/application/commands/handlers/update-workspace-token-trust.handler';
 import { InviteToWorkspaceCommand } from '@identity/application/commands/invite-to-workspace.command';
-import { OpenWorkspaceCommand } from '@identity/application/commands/open-workspace.command';
 import { ResendInviteCommand } from '@identity/application/commands/resend-invite.command';
 import { RevokeInviteCommand } from '@identity/application/commands/revoke-invite.command';
 import { UpdateTeamCommand } from '@identity/application/commands/update-team.command';
@@ -64,13 +64,13 @@ import {
   type PersonReaderPort,
 } from '@identity/application/ports/person-reader.port';
 import { RUN_TOKENS } from '@identity/application/ports/run-tokens.port';
+import { TEAM_DEPENDENTS } from '@identity/application/ports/team-dependents.port';
 import { TEAM_DIRECTORY } from '@identity/application/ports/team-directory.port';
-import { TEAM_HOLDINGS } from '@identity/application/ports/team-holdings.port';
 import { TOKEN_TRUST_CONFIGURATION } from '@identity/application/ports/token-trust-configuration.port';
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
-import { WORKSPACE_HOLDINGS } from '@identity/application/ports/workspace-holdings.port';
-import { WORKSPACE_PROVISIONING } from '@identity/application/ports/workspace-provisioning.port';
+import { WORKSPACE_DEPENDENTS } from '@identity/application/ports/workspace-dependents.port';
 import { WORKSPACE_READER } from '@identity/application/ports/workspace-reader.port';
+import { WORKSPACE_SETUP_STATUS } from '@identity/application/ports/workspace-setup-status.port';
 import { GetWorkspaceQuery } from '@identity/application/queries/get-workspace.query';
 import { GetWorkspaceHandler } from '@identity/application/queries/handlers/get-workspace.handler';
 import { ImportTeamHandler } from '@identity/application/queries/handlers/import-team.handler';
@@ -117,25 +117,25 @@ import {
   ListWorkspaceTokenTrustResourcesQuery,
   ReadWorkspaceTokenTrustQuery,
 } from '@identity/application/queries/workspace-token-trust.queries';
+import { DependentsRegistry } from '@identity/application/services/dependents-registry.service';
 import { FirstTeam } from '@identity/application/services/first-team.service';
-import { HoldingsRegistry } from '@identity/application/services/holdings-registry.service';
 import { InviteMemberships } from '@identity/application/services/invite-memberships.service';
 import { InviteSending } from '@identity/application/services/invite-sending.service';
-import { MintedTokens } from '@identity/application/services/minted-tokens.service';
+import { IssuedTokens } from '@identity/application/services/issued-tokens.service';
 import { RunTokens } from '@identity/application/services/run-tokens.service';
 import { TeamAdministration } from '@identity/application/services/team-administration.service';
 import { TeamDirectory } from '@identity/application/services/team-directory.service';
-import { TokenBearers } from '@identity/application/services/token-bearers.service';
+import { TokenAuthenticator } from '@identity/application/services/token-authenticator.service';
 import { TokenTrustConfiguration } from '@identity/application/services/token-trust-configuration.service';
 import { WorkspaceAccess } from '@identity/application/services/workspace-access.service';
 import { WorkspaceAdministration } from '@identity/application/services/workspace-administration.service';
 import { IDENTITY_PAYLOAD_TYPES } from '@identity/domain/payload-types';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
-import { OutboxWorkspaceProvisioning } from '@identity/infrastructure/events/outbox-workspace-provisioning';
+import { OutboxWorkspaceSetupStatus } from '@identity/infrastructure/events/outbox-workspace-setup-status';
 import { InviteByMail } from '@identity/infrastructure/mail/invite.mail';
+import { LogMailTransport } from '@identity/infrastructure/mail/log.transport';
 import type { MailTransport } from '@identity/infrastructure/mail/mail.transport';
 import { SmtpMail } from '@identity/infrastructure/mail/smtp.transport';
-import { WrittenDownMail } from '@identity/infrastructure/mail/written-down.mail';
 import { DrizzleConfigurationAudit } from '@identity/infrastructure/persistence/drizzle/configuration-audit';
 import { DrizzleIdentityResources } from '@identity/infrastructure/persistence/drizzle/readers/identity-resources.reader';
 import { DrizzleInviteReader } from '@identity/infrastructure/persistence/drizzle/readers/invite.reader';
@@ -187,9 +187,9 @@ import {
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
 import {
-  TOKEN_MINT,
-  type TokenMintPort,
-} from '@shared-kernel/application/ports/token-mint.port';
+  TOKEN_ISSUER,
+  type TokenIssuer,
+} from '@shared-kernel/application/ports/token-issuer.port';
 import {
   TRANSACTION,
   type TransactionPort,
@@ -222,16 +222,19 @@ const adapters: Provider[] = [
   DrizzleWorkspaceTokenTrustRepository,
   DrizzleViewableWorkspaces,
   { provide: WORKSPACE_READER, useClass: DrizzleWorkspaceReader },
-  { provide: WORKSPACE_PROVISIONING, useClass: OutboxWorkspaceProvisioning },
+  { provide: WORKSPACE_SETUP_STATUS, useClass: OutboxWorkspaceSetupStatus },
   { provide: PERSON_READER, useClass: DrizzlePersonReader },
   { provide: MEMBER_READER, useClass: DrizzleMemberReader },
   { provide: MEMBER_DIRECTORY, useClass: DrizzleMemberDirectory },
   { provide: INVITE_READER, useClass: DrizzleInviteReader },
   { provide: IDENTITY_DEFINITIONS, useClass: IdentityDefinitions },
-  { provide: TEAM_HOLDINGS, useFactory: () => new HoldingsRegistry<TeamId>() },
   {
-    provide: WORKSPACE_HOLDINGS,
-    useFactory: () => new HoldingsRegistry<WorkspaceId>(),
+    provide: TEAM_DEPENDENTS,
+    useFactory: () => new DependentsRegistry<TeamId>(),
+  },
+  {
+    provide: WORKSPACE_DEPENDENTS,
+    useFactory: () => new DependentsRegistry<WorkspaceId>(),
   },
   { provide: IDENTITY_RESOURCES, useClass: DrizzleIdentityResources },
   { provide: CONFIGURATION_AUDIT, useClass: DrizzleConfigurationAudit },
@@ -240,7 +243,7 @@ const adapters: Provider[] = [
     inject: [ENV, LOGGER],
     useFactory: (env: Env, logger: LoggerPort) => {
       const transport: MailTransport =
-        SmtpMail.configured(env) ?? new WrittenDownMail(logger);
+        SmtpMail.configured(env) ?? new LogMailTransport(logger);
 
       return new InviteByMail(transport, env);
     },
@@ -272,36 +275,36 @@ const services: Provider[] = [
     ) => new InviteSending(people, mail, logger),
   },
   {
-    provide: MintedTokens,
+    provide: IssuedTokens,
     inject: [DrizzleWorkspaceTokenRepository, CLOCK, TRANSACTION],
     useFactory: (
       tokens: DrizzleWorkspaceTokenRepository,
       clock: ClockPort,
       transaction: TransactionPort,
-    ) => new MintedTokens(tokens, clock, transaction),
+    ) => new IssuedTokens(tokens, clock, transaction),
   },
   {
     provide: RUN_TOKENS,
     inject: [
       DrizzleWorkspaceTokenRepository,
-      TOKEN_MINT,
+      TOKEN_ISSUER,
       ID_GENERATOR,
       CLOCK,
       TRANSACTION,
     ],
     useFactory: (
       tokens: DrizzleWorkspaceTokenRepository,
-      mint: TokenMintPort,
+      issuer: TokenIssuer,
       ids: IdGeneratorPort,
       clock: ClockPort,
       transaction: TransactionPort,
-    ) => new RunTokens(tokens, mint, ids, clock, transaction),
+    ) => new RunTokens(tokens, issuer, ids, clock, transaction),
   },
   {
     provide: ExpiredTokensWorker,
-    inject: [MintedTokens, LOGGER],
-    useFactory: (minted: MintedTokens, logger: LoggerPort) =>
-      new ExpiredTokensWorker(minted, logger),
+    inject: [IssuedTokens, LOGGER],
+    useFactory: (issuedTokens: IssuedTokens, logger: LoggerPort) =>
+      new ExpiredTokensWorker(issuedTokens, logger),
   },
 ];
 
@@ -311,7 +314,7 @@ const handlers: Provider[] = [
   ]),
   ...bindQueryHandler(GetWorkspaceQuery, GetWorkspaceHandler, [
     WORKSPACE_READER,
-    WORKSPACE_PROVISIONING,
+    WORKSPACE_SETUP_STATUS,
   ]),
   ...bindQueryHandler(ListMembersQuery, ListMembersHandler, [MEMBER_READER]),
   ...bindQueryHandler(ListWorkspaceMembersQuery, ListWorkspaceMembersHandler, [
@@ -325,13 +328,14 @@ const handlers: Provider[] = [
   ]),
   ...bindQueryHandler(ReadInviteQuery, ReadInviteHandler, [
     INVITE_READER,
-    TOKEN_MINT,
+    TOKEN_ISSUER,
     CLOCK,
   ]),
-  ...bindCommandHandler(OpenWorkspaceCommand, OpenWorkspaceHandler, [
-    DrizzleWorkspaceRepository,
-    ID_GENERATOR,
-  ]),
+  ...bindCommandHandler(
+    CreateWorkspaceWithTeamCommand,
+    CreateWorkspaceWithTeamHandler,
+    [DrizzleWorkspaceRepository, ID_GENERATOR],
+  ),
   ...bindCommandHandler(CreateWorkspaceCommand, CreateWorkspaceHandler, [
     IDENTITY_DEFINITIONS,
     DrizzleWorkspaceRepository,
@@ -347,7 +351,7 @@ const handlers: Provider[] = [
   ...bindCommandHandler(DeleteWorkspaceCommand, DeleteWorkspaceHandler, [
     DrizzleWorkspaceRepository,
     IDENTITY_RESOURCES,
-    WORKSPACE_HOLDINGS,
+    WORKSPACE_DEPENDENTS,
     TRANSACTION,
   ]),
   ...bindQueryHandler(ReadWorkspaceQuery, ReadWorkspaceHandler, [
@@ -380,7 +384,7 @@ const handlers: Provider[] = [
   ...bindCommandHandler(DeleteTeamCommand, DeleteTeamHandler, [
     WORKSPACE_ACCESS,
     DrizzleTeamRepository,
-    TEAM_HOLDINGS,
+    TEAM_DEPENDENTS,
     TRANSACTION,
   ]),
   ...bindQueryHandler(ReadTeamQuery, ReadTeamHandler, [
@@ -404,7 +408,7 @@ const handlers: Provider[] = [
       DrizzleWorkspaceTokenRepository,
       IDEMPOTENT_CREATES,
       ID_GENERATOR,
-      TOKEN_MINT,
+      TOKEN_ISSUER,
       CLOCK,
       TRANSACTION,
     ],
@@ -487,7 +491,7 @@ const handlers: Provider[] = [
       DrizzleWorkspaceTokenRepository,
       WORKLOAD_TOKENS,
       ID_GENERATOR,
-      TOKEN_MINT,
+      TOKEN_ISSUER,
       CLOCK,
       TRANSACTION,
     ],
@@ -503,7 +507,7 @@ const handlers: Provider[] = [
     DrizzleTeamRepository,
     MEMBER_DIRECTORY,
     InviteSending,
-    TOKEN_MINT,
+    TOKEN_ISSUER,
     ID_GENERATOR,
     CLOCK,
   ]),
@@ -512,7 +516,7 @@ const handlers: Provider[] = [
     DrizzleWorkspaceInviteRepository,
     DrizzleTeamRepository,
     InviteSending,
-    TOKEN_MINT,
+    TOKEN_ISSUER,
     CLOCK,
   ]),
   ...bindCommandHandler(RevokeInviteCommand, RevokeInviteHandler, [
@@ -530,7 +534,7 @@ const handlers: Provider[] = [
   ...bindCommandHandler(AcceptInviteCommand, AcceptInviteHandler, [
     DrizzleWorkspaceInviteRepository,
     DrizzleWorkspaceRepository,
-    TOKEN_MINT,
+    TOKEN_ISSUER,
     CLOCK,
   ]),
 ];
@@ -546,7 +550,7 @@ const published: Provider[] = [
       DrizzleWorkspaceRepository,
       DrizzleTeamRepository,
       CONFIGURATION_AUDIT,
-      MintedTokens,
+      IssuedTokens,
       PERSON_READER,
     ],
     useFactory: (
@@ -557,7 +561,7 @@ const published: Provider[] = [
       workspaces: DrizzleWorkspaceRepository,
       teams: DrizzleTeamRepository,
       audit: ConfigurationAuditPort,
-      minted: MintedTokens,
+      issuedTokens: IssuedTokens,
       people: PersonReaderPort,
     ) => {
       types.register('identity', IDENTITY_PAYLOAD_TYPES);
@@ -567,7 +571,7 @@ const published: Provider[] = [
         identitySubscribers(
           new InviteMemberships(workspaces, teams, people),
           new FirstTeam(teams),
-          minted,
+          issuedTokens,
         ),
       );
       return true;
@@ -593,15 +597,15 @@ const published: Provider[] = [
     inject: [
       DrizzleWorkspaceTokenRepository,
       DrizzleWorkspaceTokenTrustRepository,
-      TOKEN_MINT,
+      TOKEN_ISSUER,
       CLOCK,
     ],
     useFactory: (
       tokens: DrizzleWorkspaceTokenRepository,
       trusts: DrizzleWorkspaceTokenTrustRepository,
-      mint: TokenMintPort,
+      issuer: TokenIssuer,
       clock: ClockPort,
-    ) => new TokenBearers(tokens, trusts, mint, clock),
+    ) => new TokenAuthenticator(tokens, trusts, issuer, clock),
   },
   {
     provide: TOKEN_TRUST_CONFIGURATION,

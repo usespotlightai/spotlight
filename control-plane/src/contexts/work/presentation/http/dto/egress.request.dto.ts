@@ -4,32 +4,32 @@ import {
   CONNECTION_REASONS,
 } from '@work/domain/value-objects/run-connection.vo';
 
-class RedeemEgressRequestDto {
+class SidecarSecretsRequestDto {
   @ApiProperty({
     example: 'p8kX0q1cVJ3Q0x4yQ2a6m0dD6b8hT3n1gC9sZ7rW2Ek=',
     description:
-      'The X25519 public key egress holds for this run alone, in base64; values Spotlight keeps are sealed to it',
+      'The X25519 public key that egress holds for this run alone, in base64; values Spotlight stores are sealed to it',
   })
   readonly recipient!: string;
 }
 
-export class SharedRedeemEgressRequestDto extends RedeemEgressRequestDto {
+export class FetchRunSecretsRequestDto extends SidecarSecretsRequestDto {
   @ApiProperty({
     required: false,
     description:
-      'The run proxy credential a runner presented to a shared egress. A shared egress sends it with its own egress token; the egress beside a sandbox leaves it out',
+      'The run proxy credential a runner presented to a shared egress. A shared egress sends it with its own egress token; an egress sidecar leaves it out',
   })
   readonly proxyCredential?: string;
 }
 
-export class AdmitThroughEgressRequestDto {
+export class AuthorizeRunnerRequestDto {
   @ApiProperty({
     description: 'The run proxy credential a runner presented to the egress',
   })
   readonly proxyCredential!: string;
 }
 
-export class KeepEgressHoldsRequestDto {
+export class CheckActiveRunsRequestDto {
   @ApiProperty({
     type: [String],
     maxItems: 500,
@@ -64,7 +64,7 @@ export class EgressConnectionRequestDto {
     minimum: 100,
     maximum: 599,
     description:
-      'The status the host answered a forwarded request with. Egress cannot read the status of a tunnel',
+      'The status the host answered an injected request with. Egress cannot read the status of a passthrough connection',
   })
   readonly status?: number;
 

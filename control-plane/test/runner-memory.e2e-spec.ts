@@ -14,16 +14,19 @@ import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 interface Recalled {
   readonly id: string;
   readonly handle: string;
   readonly body: string;
-  readonly standing: string;
-  readonly grounds: { readonly taskId: string; readonly runId: string } | null;
+  readonly status: string;
+  readonly provenance: {
+    readonly taskId: string;
+    readonly runId: string;
+  } | null;
   readonly superseded?: { readonly handle: string; readonly body: string };
 }
 
@@ -31,9 +34,9 @@ interface Proposed {
   readonly id: string;
   readonly kind: string;
   readonly body: string;
-  readonly origin: string;
+  readonly proposedBy: string;
   readonly state: string;
-  readonly reach: string;
+  readonly scope: string;
   readonly repository: string | null;
   readonly paths: readonly string[];
   readonly steps: readonly { readonly index: number; readonly kind: string }[];
@@ -47,8 +50,8 @@ const BUILD = randomUUID();
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
-let other: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
+let other: Awaited<ReturnType<typeof createTeam>>;
 let runId: string;
 let token: string;
 
@@ -111,14 +114,18 @@ const claimed = async (): Promise<string> => {
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'build-box',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 1,
       running: [],
       images: [
-        { image: IMAGE, usual: true, harnesses: [{ id: 'dev', models: [] }] },
+        {
+          image: IMAGE,
+          isDefault: true,
+          harnesses: [{ id: 'dev', models: [] }],
+        },
       ],
     })
     .expect(200);
@@ -138,8 +145,8 @@ beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
   const tasks = app.get(DrizzleTaskRepository);
-  team = await openTeam(db, tasks, `recall-${randomUUID().slice(0, 8)}`);
-  other = await openTeam(db, tasks, `elsewhere-${randomUUID().slice(0, 8)}`);
+  team = await createTeam(db, tasks, `recall-${randomUUID().slice(0, 8)}`);
+  other = await createTeam(db, tasks, `elsewhere-${randomUUID().slice(0, 8)}`);
 
   await db.insert(schema.line).values({
     id: DELIVERY,
@@ -200,7 +207,7 @@ beforeAll(async () => {
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the uploads.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: `task:${runId}` },
+      resume: { key: `task:${runId}` },
     },
   });
   token = await claimed();
@@ -220,20 +227,20 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await forgetRunnersOf(db, team.workspaceId.value);
+  await deleteRunnersOf(db, team.workspaceId.value);
   await app?.close();
 });
 
 describe('recalling what the team remembers from inside a run', () => {
-  let standing: Recalled;
+  let active: Recalled;
   let corrected: Recalled;
 
   beforeAll(async () => {
-    standing = await writing(team.teamId.value, team.owner.value, {
+    active = await writing(team.teamId.value, team.owner.value, {
       body: 'Uploads retry in the request, never from a queue.',
     });
     const retired = await writing(team.teamId.value, team.owner.value, {
-      body: 'Uploads retry twice before giving up.',
+      body: 'Uploads retry twice before they fail.',
     });
     await http()
       .post(`/api/teams/${team.teamId.value}/memories/${retired.id}/retire`)
@@ -257,19 +264,19 @@ describe('recalling what the team remembers from inside a run', () => {
 
     const proposedIn = RunId.of(randomUUID());
     await app.get(DrizzleMemoryDraftRepository).add(
-      MemoryDraft.open({
+      MemoryDraft.create({
         id: MemoryDraftId.of(randomUUID()),
         taskId: team.list.id,
         workspaceId: team.workspaceId,
       })
-        .asked(proposedIn, new Date())
+        .requestDrafting(proposedIn, new Date())
         .recordDraft({
           runId: proposedIn,
           proposed: [
             {
               kind: 'failure',
               body: 'Uploads time out behind the proxy.',
-              reach: 'team',
+              scope: 'team',
               repository: null,
               paths: [],
               steps: [1],
@@ -280,13 +287,13 @@ describe('recalling what the team remembers from inside a run', () => {
           evidence: DraftEvidence.of({
             taskId: team.list.id,
             runId: proposedIn,
-            site: {
+            runContext: {
               teamId: TeamId.of(team.teamId.value),
               lineId: DELIVERY,
               stationId: BUILD,
               repositories: [Repository.of('acme/api')],
             },
-            steps: [{ index: 1, kind: 'said', text: 'It timed out.' }],
+            steps: [{ index: 1, kind: 'message', text: 'It timed out.' }],
             notes: [],
             notesRead: 0,
             changed: [],
@@ -299,14 +306,14 @@ describe('recalling what the team remembers from inside a run', () => {
     );
   });
 
-  it('finds a standing memory by a word in it, and nothing retired, proposed or of another team', async () => {
+  it('finds an active memory by a word in it, and nothing retired, proposed or of another team', async () => {
     const found = await recall('upload');
 
     expect(found.status).toBe(200);
     expect((found.body as Recalled[]).map((each) => each.body)).toEqual([
       'Uploads retry in the request, never from a queue.',
     ]);
-    expect((found.body as Recalled[])[0]?.handle).toBe(standing.handle);
+    expect((found.body as Recalled[])[0]?.handle).toBe(active.handle);
   });
 
   it('prints one memory in full by its handle, with the memory it replaced', async () => {
@@ -316,13 +323,13 @@ describe('recalling what the team remembers from inside a run', () => {
     expect(read.body).toMatchObject({
       handle: corrected.handle,
       body: 'Name branches after the ticket.',
-      standing: 'stands',
+      status: 'active',
       superseded: { body: 'Name branches after people.' },
     });
     expect((read.body as Recalled).superseded?.handle).toMatch(/^M-\d+$/);
   });
 
-  it('knows no memory of another team by its handle, and refuses what is not a handle', async () => {
+  it('knows no memory of another team by its handle, and rejects what is not a handle', async () => {
     const theirs = await writing(other.teamId.value, other.owner.value, {
       body: 'Ours alone.',
     });
@@ -343,7 +350,7 @@ describe('recalling what the team remembers from inside a run', () => {
         handle: sql`nextval('memory_handle_seq')`,
         workspaceId: team.workspaceId.value,
         kind: 'rationale',
-        body: 'Deploys wait for the canary to settle.',
+        body: 'Deploys wait for the canary to become stable.',
         teamId: team.teamId.value,
         paths: [],
         source: 'person',
@@ -355,7 +362,7 @@ describe('recalling what the team remembers from inside a run', () => {
 
     expect(
       ((await recall('canary')).body as Recalled[]).map((each) => each.body),
-    ).toEqual(['Deploys wait for the canary to settle.']);
+    ).toEqual(['Deploys wait for the canary to become stable.']);
 
     const files = (
       await http()
@@ -372,7 +379,7 @@ describe('recalling what the team remembers from inside a run', () => {
     );
   });
 
-  it('answers only the runner holding the run', async () => {
+  it('answers only the runner with the lease on the run', async () => {
     expect((await recall('upload', 'not-a-runner-token')).status).toBe(401);
     expect(
       (
@@ -386,7 +393,7 @@ describe('recalling what the team remembers from inside a run', () => {
 });
 
 describe('remembering from inside a run', () => {
-  it('proposes a memory grounded in the step it was asked from, beside the run in the inbox', async () => {
+  it('proposes a memory that cites the step it was requested from, beside the run in the inbox', async () => {
     const proposed = await remember({
       body: 'Uploads retry in the request.',
       paths: ['api/src/uploads'],
@@ -396,9 +403,9 @@ describe('remembering from inside a run', () => {
     expect(proposed.body).toMatchObject({
       kind: 'rationale',
       body: 'Uploads retry in the request.',
-      origin: 'remembered',
+      proposedBy: 'agent',
       state: 'proposed',
-      reach: 'line',
+      scope: 'line',
       repository: 'acme/api',
       paths: ['src/uploads'],
     });
@@ -423,22 +430,24 @@ describe('remembering from inside a run', () => {
         await http()
           .get(`/api/workspaces/${team.slug}/inbox`)
           .set(TEST_USER_HEADER, team.owner.value)
-      ).body as { aside: { form: string; about: string } | null }[];
+      ).body as { inboxRequest: { form: string; about: string } | null }[];
 
       return items.some(
-        (each) => each.aside?.form === 'memories' && each.aside.about === runId,
+        (each) =>
+          each.inboxRequest?.form === 'memories' &&
+          each.inboxRequest.about === runId,
       );
     });
   });
 
-  it('proposes the same memory once, however often it is asked', async () => {
+  it('proposes the same memory once, however often it is requested', async () => {
     const first = await remember({ body: 'Staging needs a restart.' });
     const again = await remember({ body: 'Staging needs a restart.' });
 
     expect((again.body as Proposed).id).toBe((first.body as Proposed).id);
   });
 
-  it('refuses a kind or a path it cannot take, saying what would work', async () => {
+  it('rejects a kind or a path it cannot take, saying what would work', async () => {
     const gossip = await remember({ kind: 'gossip', body: 'Something.' });
     const elsewhere = await remember({
       body: 'Something.',
@@ -496,7 +505,7 @@ describe('what the run remembered, as a person sees it', () => {
     expect(((await recall('upload')).body as Recalled[]).length).toBe(0);
     const after = (await remembered()).body as { recalled: Recalled[] };
     expect(
-      after.recalled.find((each) => each.id === recalled?.id)?.standing,
+      after.recalled.find((each) => each.id === recalled?.id)?.status,
     ).toBe('retired');
   });
 
@@ -523,7 +532,7 @@ describe('the team’s memory laid out in the run’s workspace', () => {
         .expect(200)
     ).body as MemoryFile[];
 
-  it('holds every standing memory that applies to the run, and none of another line or team', async () => {
+  it('includes every active memory that applies to the run, and none of another line or team', async () => {
     const elsewhere = await writing(team.teamId.value, team.owner.value, {
       body: 'The default line ships on Fridays.',
       lineId: team.line.id.value,
@@ -551,12 +560,12 @@ describe('the team’s memory laid out in the run’s workspace', () => {
     ).toBe(true);
   });
 
-  it('answers only the runner holding the run', async () => {
-    const refused = await http()
+  it('answers only the runner with the lease on the run', async () => {
+    const missing = await http()
       .get(`/api/runs/${randomUUID()}/memory-files`)
       .set('Authorization', `Bearer ${token}`);
 
-    expect(refused.status).toBe(404);
+    expect(missing.status).toBe(404);
   });
 
   it('counts a memory file the run read as recalled once the run ends', async () => {

@@ -22,7 +22,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
-import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -32,12 +32,12 @@ import { and, asc, eq, isNull, lte, or } from 'drizzle-orm';
 
 type Row = typeof changeStack.$inferSelect;
 
-const usageRow = (spent: ModelUsage) => ({
-  calls: spent.calls,
-  inputTokens: spent.inputTokens,
-  outputTokens: spent.outputTokens,
-  costs: spent.costs.map((each) => ({ ...each })),
-  unpriced: spent.unpriced,
+const usageRow = (usage: ModelUsage) => ({
+  calls: usage.calls,
+  inputTokens: usage.inputTokens,
+  outputTokens: usage.outputTokens,
+  costs: usage.costs.map((each) => ({ ...each })),
+  unpriced: usage.unpriced,
 });
 
 const toChangeStack = (row: Row): ChangeStack =>
@@ -53,15 +53,15 @@ const toChangeStack = (row: Row): ChangeStack =>
     facts: factsOf(row.facts),
     cohorts: cohortsOf(row.cohorts),
     progress: progressOf(row),
-    work: OwedWork.rehydrate({
-      attempts: row.workAttempts,
-      dueAt: row.workDueAt,
+    job: PendingJob.rehydrate({
+      attempts: row.jobAttempts,
+      nextAttemptAt: row.jobDueAt,
     }),
     request: row.checkCommand
       ? CheckRequest.of(
           row.checkCommand,
           row.checkSetup,
-          RunnerPlacement.ofClauses(
+          RunnerPlacement.ofLabelGroups(
             row.checkPlacement,
             row.checkPlacementImage
               ? RunnerImage.of(row.checkPlacementImage)
@@ -69,8 +69,8 @@ const toChangeStack = (row: Row): ChangeStack =>
           ),
         )
       : null,
-    reordering: row.reordering,
-    spent: ModelUsage.rehydrate(row.spent),
+    redrafting: row.redrafting,
+    usage: ModelUsage.rehydrate(row.usage),
     version: row.version,
   });
 
@@ -102,17 +102,17 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       files: fileRows(added.diff.files),
       cohorts: cohortRows(added.cohorts),
       failure: added.failure,
-      draftedAt: added.draftedAt,
-      settledAt: added.settledAt,
+      startedAt: added.startedAt,
+      completedAt: added.completedAt,
       facts: factRows(added.facts),
-      workAttempts: added.work.attempts,
-      workDueAt: added.work.dueAt,
+      jobAttempts: added.job.attempts,
+      jobDueAt: added.job.nextAttemptAt,
       checkCommand: added.request?.command ?? null,
       checkSetup: added.request?.setup ?? null,
-      checkPlacement: added.request?.placement.clauses ?? [],
+      checkPlacement: added.request?.placement.labelGroups ?? [],
       checkPlacementImage: added.request?.placement.image?.value ?? null,
-      reordering: added.reordering,
-      spent: usageRow(added.spent),
+      redrafting: added.redrafting,
+      usage: usageRow(added.usage),
       version: added.version,
     });
   }
@@ -132,11 +132,11 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
         state: saved.state,
         cohorts: cohortRows(saved.cohorts),
         failure: saved.failure,
-        settledAt: saved.settledAt,
-        workAttempts: saved.work.attempts,
-        workDueAt: saved.work.dueAt,
-        reordering: saved.reordering,
-        spent: usageRow(saved.spent),
+        completedAt: saved.completedAt,
+        jobAttempts: saved.job.attempts,
+        jobDueAt: saved.job.nextAttemptAt,
+        redrafting: saved.redrafting,
+        usage: usageRow(saved.usage),
       })
       .where(
         and(
@@ -166,25 +166,25 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       .select()
       .from(changeStack)
       .where(eq(changeStack.runId, runId.value))
-      .orderBy(asc(changeStack.draftedAt), asc(changeStack.id));
+      .orderBy(asc(changeStack.startedAt), asc(changeStack.id));
 
     return rows.map(toChangeStack);
   }
 
-  async dueForWork(now: Date): Promise<ChangeStack | null> {
+  async nextDueJob(now: Date): Promise<ChangeStack | null> {
     const [row] = await this.context.db
       .select()
       .from(changeStack)
       .where(
         and(
           or(
-            eq(changeStack.state, 'drafting'),
-            eq(changeStack.reordering, true),
+            eq(changeStack.state, 'generating'),
+            eq(changeStack.redrafting, true),
           ),
-          or(isNull(changeStack.workDueAt), lte(changeStack.workDueAt, now)),
+          or(isNull(changeStack.jobDueAt), lte(changeStack.jobDueAt, now)),
         ),
       )
-      .orderBy(asc(changeStack.draftedAt))
+      .orderBy(asc(changeStack.startedAt))
       .limit(1)
       .for('update', { skipLocked: true });
 

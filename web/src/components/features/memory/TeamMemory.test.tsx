@@ -12,7 +12,7 @@ import { TeamMemory } from '@/components/features/memory/TeamMemory';
 import type { TeamMemory as Memory, MemoryFilter } from '@/lib/memory';
 
 const refetch = vi.fn();
-const asked: MemoryFilter[] = [];
+const requested: MemoryFilter[] = [];
 const memoriesState = {
   data: undefined as unknown,
   isPending: false,
@@ -23,7 +23,7 @@ const memoriesState = {
 
 vi.mock('@/hooks/api/useTeamMemories', () => ({
   useTeamMemories: (_teamId: string, filter: MemoryFilter) => {
-    asked.push(filter);
+    requested.push(filter);
     return memoriesState;
   },
 }));
@@ -101,8 +101,8 @@ const memory = (over: Partial<Memory> = {}): Memory => ({
   kind: 'preference',
   body: 'Name branches after the ticket.',
   source: 'person',
-  standing: 'stands',
-  reach: 'team',
+  status: 'active',
+  scope: 'team',
   lineId: null,
   stationId: null,
   repository: null,
@@ -111,7 +111,7 @@ const memory = (over: Partial<Memory> = {}): Memory => ({
   approvedAt: '2026-09-27T10:00:00.000Z',
   supersedes: null,
   retirement: null,
-  grounds: null,
+  provenance: null,
   runs: 0,
   ...over,
 });
@@ -148,7 +148,7 @@ const showing = (at = '/w/acme/team/team_1/memory') =>
   );
 
 beforeEach(() => {
-  asked.length = 0;
+  requested.length = 0;
   memoriesState.data = undefined;
   memoriesState.isPending = false;
   memoriesState.errorUpdateCount = 0;
@@ -158,7 +158,7 @@ beforeEach(() => {
 });
 
 describe('TeamMemory', () => {
-  it('lists every standing memory, saying where it applies and who kept it', () => {
+  it('lists every active memory, saying where it applies and who approved it', () => {
     memoriesState.data = [
       memory(),
       memory({
@@ -182,13 +182,13 @@ describe('TeamMemory', () => {
       'Delivery › Implementation › acme/api › src/uploads.ts',
     );
     expect(screen.getAllByText('Maya Chen')).toHaveLength(2);
-    expect(asked[0]?.standing).toBe('stands');
+    expect(requested[0]?.status).toBe('active');
   });
 
-  it('asks for the retired memories, and says why each was retired', async () => {
+  it('requests the retired memories, and says why each was retired', async () => {
     memoriesState.data = [
       memory({
-        standing: 'retired',
+        status: 'retired',
         retirement: {
           at: '2026-09-27T11:00:00.000Z',
           by: { id: 'user_2', name: 'Maya Chen', image: null },
@@ -198,9 +198,9 @@ describe('TeamMemory', () => {
       }),
     ];
 
-    showing('/w/acme/team/team_1/memory?standing=retired');
+    showing('/w/acme/team/team_1/memory?status=retired');
 
-    expect(asked[0]?.standing).toBe('retired');
+    expect(requested[0]?.status).toBe('retired');
     await userEvent.click(
       screen.getByRole('button', { name: /Name branches after the ticket/ }),
     );
@@ -210,18 +210,18 @@ describe('TeamMemory', () => {
     expect(within(why).getByText('It was fixed.')).toBeVisible();
   });
 
-  it('shows the retired memories when asked, kept in the address', async () => {
+  it('shows the retired memories on request, held in the address', async () => {
     memoriesState.data = [memory()];
     showing();
 
     await userEvent.click(screen.getByRole('link', { name: 'Retired' }));
 
     expect(screen.getByRole('status', { name: 'Where' })).toHaveTextContent(
-      '?standing=retired',
+      '?status=retired',
     );
   });
 
-  it('folds a branch of where an opened memory applies', async () => {
+  it('collapses a branch of where an opened memory applies', async () => {
     memoriesState.data = [
       memory({
         lineId: 'line_delivery',
@@ -235,10 +235,10 @@ describe('TeamMemory', () => {
     await userEvent.click(
       screen.getByRole('button', { name: /Name branches after the ticket/ }),
     );
-    const fold = screen.getByRole('button', {
+    const toggle = screen.getByRole('button', {
       name: 'Hide what is under acme/api',
     });
-    await userEvent.click(fold);
+    await userEvent.click(toggle);
 
     expect(
       screen.getByRole('button', { name: 'Show what is under acme/api' }),
@@ -370,14 +370,14 @@ describe('TeamMemory', () => {
     ).toBeVisible();
   });
 
-  it('still offers the retired memories when none stands', async () => {
+  it('still offers the retired memories when none is active', async () => {
     memoriesState.data = [];
     showing();
 
     await userEvent.click(screen.getByRole('link', { name: 'Retired' }));
 
     expect(screen.getByRole('status', { name: 'Where' })).toHaveTextContent(
-      '?standing=retired',
+      '?status=retired',
     );
   });
 
@@ -388,7 +388,7 @@ describe('TeamMemory', () => {
     expect(screen.getByText('No memories match.')).toBeVisible();
   });
 
-  it('holds its shape while it loads', () => {
+  it('keeps its shape while it loads', () => {
     memoriesState.isPending = true;
     showing();
 
@@ -435,7 +435,7 @@ describe('TeamMemory', () => {
     expect(screen.queryByText('Details of memory_1')).not.toBeInTheDocument();
   });
 
-  it('starts a folded memory afresh, not in the edit it was left in', async () => {
+  it('starts a collapsed memory afresh, not in the edit it was left in', async () => {
     memoriesState.data = [
       memory(),
       memory({ id: 'memory_2', body: 'Retry uploads in the request.' }),
@@ -483,7 +483,7 @@ describe('TeamMemory', () => {
     ).toHaveAttribute('aria-expanded', 'false');
   });
 
-  it('holds its shape while the lines load', () => {
+  it('keeps its shape while the lines load', () => {
     memoriesState.data = [memory({ lineId: 'line_delivery' })];
     linesState.data = undefined;
     linesState.isPending = true;

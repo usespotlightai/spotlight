@@ -9,7 +9,7 @@ const members = vi.fn();
 const invites = vi.fn();
 const membersFailing = vi.fn();
 const refetchMembers = vi.fn();
-const askedMembers = vi.fn();
+const requestedMembers = vi.fn();
 const changeRole = vi.fn();
 const changing = vi.fn();
 const resend = vi.fn();
@@ -25,13 +25,13 @@ const query = (data: unknown, failing = false, refetch = vi.fn()) => ({
   refetch,
 });
 
-const mutation = (mutate: (...args: unknown[]) => void, standing: string) => ({
+const mutation = (mutate: (...args: unknown[]) => void, state: string) => ({
   mutate,
   reset: vi.fn(),
-  isPending: standing === 'pending',
-  isError: standing === 'failed',
-  isSuccess: standing === 'done',
-  error: standing === 'failed' ? new Error('') : null,
+  isPending: state === 'pending',
+  isError: state === 'failed',
+  isSuccess: state === 'done',
+  error: state === 'failed' ? new Error('') : null,
   variables: undefined,
 });
 
@@ -41,7 +41,7 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
 
 vi.mock('@/hooks/api/useWorkspaceMembers', () => ({
   useWorkspaceMembers: (slug: string | undefined) => {
-    askedMembers(slug);
+    requestedMembers(slug);
     return query(members(), membersFailing(), refetchMembers);
   },
 }));
@@ -78,7 +78,7 @@ const member = (over: Record<string, unknown>) => ({
   role: 'owner',
   teams: [PLATFORM, GROWTH],
   joinedAt: '2026-05-01T09:00:00.000Z',
-  mayBeSetTo: [],
+  assignableRoles: [],
   ...over,
 });
 
@@ -142,7 +142,7 @@ beforeEach(() => {
       email: 'priya.nair@acme.dev',
       role: 'admin',
       teams: [GROWTH],
-      mayBeSetTo: ['owner', 'member'],
+      assignableRoles: ['owner', 'member'],
     }),
     member({
       id: 'user_3',
@@ -150,7 +150,7 @@ beforeEach(() => {
       email: 'maya.chen@acme.dev',
       role: 'member',
       teams: [PLATFORM],
-      mayBeSetTo: ['admin'],
+      assignableRoles: ['admin'],
     }),
     member({
       id: 'user_4',
@@ -158,7 +158,7 @@ beforeEach(() => {
       email: 'lena.park@acme.dev',
       role: 'member',
       teams: [],
-      mayBeSetTo: ['owner', 'admin'],
+      assignableRoles: ['owner', 'admin'],
     }),
   ]);
   invites.mockReturnValue([pendingInvite()]);
@@ -168,7 +168,7 @@ beforeEach(() => {
   revoking.mockReturnValue('idle');
   for (const each of [
     refetchMembers,
-    askedMembers,
+    requestedMembers,
     changeRole,
     resend,
     revoke,
@@ -270,7 +270,7 @@ describe('WorkspaceMembers', () => {
     expect(screen.getByText('No pending invites.')).toBeInTheDocument();
   });
 
-  it('says no one matches a role nobody holds', () => {
+  it('says no one matches a role nobody has', () => {
     members.mockReturnValue([member({})]);
     showing('/w/acme/settings/members?show=admin');
 
@@ -300,7 +300,7 @@ describe('WorkspaceMembers', () => {
     ).toBeInTheDocument();
   });
 
-  it('changes a member’s role to one it may be set to', async () => {
+  it('changes a member’s role to an assignable role', async () => {
     showing();
 
     await userEvent.click(
@@ -335,7 +335,7 @@ describe('WorkspaceMembers', () => {
   it('says when a role could not be changed', () => {
     changing.mockReturnValue('failed');
     members.mockReturnValue([
-      member({ id: 'user_3', name: 'Maya Chen', mayBeSetTo: ['admin'] }),
+      member({ id: 'user_3', name: 'Maya Chen', assignableRoles: ['admin'] }),
     ]);
     showing();
 
@@ -352,21 +352,21 @@ describe('WorkspaceMembers', () => {
     expect(resend).toHaveBeenCalledWith('invite_1');
   });
 
-  it('says an invite was sent again', () => {
+  it('says an invite was resent', () => {
     resending.mockReturnValue('done');
     showing();
 
     expect(within(invitesList()).getByRole('status')).toHaveTextContent(
-      'Sent again',
+      'Resent',
     );
   });
 
-  it('says when an invite could not be sent again', () => {
+  it('says when an invite could not be resent', () => {
     resending.mockReturnValue('failed');
     showing();
 
     expect(within(invitesList()).getByRole('alert')).toHaveTextContent(
-      'Sorry, the invite couldn’t be sent again.',
+      'Sorry, the invite couldn’t be resent.',
     );
   });
 
@@ -411,10 +411,10 @@ describe('WorkspaceMembers', () => {
     showing();
 
     expect(screen.getByText('the workspace')).toBeInTheDocument();
-    expect(askedMembers).not.toHaveBeenCalledWith('acme');
+    expect(requestedMembers).not.toHaveBeenCalledWith('acme');
   });
 
-  it('holds the shape of the list while it loads', () => {
+  it('keeps the shape of the list while it loads', () => {
     members.mockReturnValue(undefined);
     invites.mockReturnValue(undefined);
     showing();
@@ -427,7 +427,7 @@ describe('WorkspaceMembers', () => {
     ).toBeInTheDocument();
   });
 
-  it('says the members could not be loaded, and tries again when asked', async () => {
+  it('says the members could not be loaded, and tries again on request', async () => {
     members.mockReturnValue(undefined);
     membersFailing.mockReturnValue(true);
     showing();

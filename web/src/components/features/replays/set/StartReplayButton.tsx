@@ -8,21 +8,21 @@ type StartReplayButtonProps = {
   at: ReplayedStation;
   set: ReplaySet;
   baseline: Pick<Replay, 'repeats'> | null;
-  refusedBecause: string | null;
+  disabledBecause: string | null;
 };
 
 export function StartReplayButton({
   at,
   set,
   baseline,
-  refusedBecause,
+  disabledBecause,
 }: StartReplayButtonProps) {
   return (
     <DialogButton
       label={START_REPLAY}
       icon={Play}
       variant="outline"
-      refusedBecause={refusedBecause}
+      disabledBecause={disabledBecause}
       dialog={(open, onOpenChange) => (
         <StartReplayDialog
           at={at}

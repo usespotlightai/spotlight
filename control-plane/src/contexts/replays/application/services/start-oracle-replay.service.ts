@@ -1,4 +1,4 @@
-import type { OutcomesPort } from '@replays/application/ports/outcomes.port';
+import type { InsightsPort } from '@replays/application/ports/insights.port';
 import type { WorkPort } from '@replays/application/ports/work.port';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
@@ -18,10 +18,10 @@ import type { StationFingerprint } from '@replays/domain/value-objects/station-f
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-const STANDING: readonly ReplayState[] = ['queued', 'running', 'finished'];
+const VALID_STATES: readonly ReplayState[] = ['queued', 'running', 'finished'];
 
 export class StartOracleReplay {
   constructor(
@@ -29,7 +29,7 @@ export class StartOracleReplay {
     private readonly replays: ReplayRepository,
     private readonly candidates: CandidateRepository,
     private readonly work: WorkPort,
-    private readonly outcomes: OutcomesPort,
+    private readonly insights: InsightsPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -46,7 +46,7 @@ export class StartOracleReplay {
     if (
       !baseline ||
       !live?.isLive ||
-      baseline.among !== null ||
+      baseline.runSubset !== null ||
       baseline.searchId !== null
     ) {
       return;
@@ -72,7 +72,7 @@ export class StartOracleReplay {
       const locked = await this.sets.locked(set.id);
       const against = await this.replays.find(baseline.id);
       const answers = locked
-        ? answered.filter((each) => locked.holds(each.run))
+        ? answered.filter((each) => locked.includes(each.run))
         : [];
 
       if (
@@ -100,7 +100,7 @@ export class StartOracleReplay {
             ? { unpricedRate: baseline.unpricedRate }
             : {}),
           at: oracle.createdAt,
-          by: Attribution.spotlight(locked.workspaceId),
+          by: ChangeActor.spotlight(locked.workspaceId),
         }),
       );
     });
@@ -125,15 +125,15 @@ export class StartOracleReplay {
     const runs = set.entries
       .map((each) => each.runId)
       .filter((run) => replayed.some((each) => each.equals(run)));
-    const turned = await this.outcomes.turnedOut(runs);
-    const asked = runs.flatMap((run) => {
+    const turned = await this.insights.originalOutcomes(runs);
+    const queries = runs.flatMap((run) => {
       const answer = oracleAnswerOf(turned.get(run.value));
 
       return answer ? [{ run, answer }] : [];
     });
-    const answerable = await this.work.answerable(asked);
+    const answerable = await this.work.answerable(queries);
 
-    return asked.filter((each) =>
+    return queries.filter((each) =>
       answerable.some((run) => run.equals(each.run)),
     );
   }
@@ -142,11 +142,11 @@ export class StartOracleReplay {
     set: ReplaySet,
     fingerprint: StationFingerprint,
   ): Promise<boolean> {
-    const standing = (await this.replays.ofSet(set.id)).filter((each) =>
-      STANDING.includes(each.current),
+    const valid = (await this.replays.ofSet(set.id)).filter((each) =>
+      VALID_STATES.includes(each.current),
     );
     const configs = await this.candidates.findMany(
-      standing.map((each) => each.candidateId),
+      valid.map((each) => each.candidateId),
     );
 
     return configs.some(

@@ -59,7 +59,7 @@ const rateOfEntries = (entries: readonly ReplayEntryResponseDto[]) => {
   };
 };
 
-const againstLive = (replay: ReplaySpec, live: ReplaySpec | undefined) => {
+const gainOverLiveOf = (replay: ReplaySpec, live: ReplaySpec | undefined) => {
   const mine = scoredEntries(replay);
   const theirs = live ? scoredEntries(live) : [];
   const pairs = mine.flatMap((entry) => {
@@ -97,7 +97,7 @@ const searchRefOf = (search: SearchSpec) => {
       interval: seed.searchInterval,
       costPerRun: seed.costPerRun,
       scored: seed.searchScored,
-      charted: 'priced' as const,
+      chartStatus: 'priced' as const,
     },
   };
 };
@@ -132,12 +132,12 @@ const replayedCandidate = (
     : undefined;
   const scored = scoredEntries(replay);
   const overall = rateOfEntries(scored);
-  const versus = againstLive(replay, live);
+  const versus = gainOverLiveOf(replay, live);
   const onCompared = rateOfEntries(versus.compared);
   const liveOnCompared = rateOfEntries(versus.liveCompared);
   const finished = replay.state === 'finished';
-  const heldScored = heldOut ? scoredEntries(heldOut) : [];
-  const held = rateOfEntries(heldScored);
+  const heldOutScored = heldOut ? scoredEntries(heldOut) : [];
+  const heldOutRate = rateOfEntries(heldOutScored);
   const basis = versus.compared.length > 0 ? 'compared' : 'overall';
 
   return {
@@ -159,8 +159,8 @@ const replayedCandidate = (
       ? {
           replayId: heldOut.id,
           state: heldOut.state,
-          score: held.rate,
-          interval: held.interval,
+          score: heldOutRate.rate,
+          interval: heldOutRate.interval,
           tasks: heldOut.runs.length,
           runs: heldOut.runs.length,
         }
@@ -180,11 +180,11 @@ const replayedCandidate = (
     costPerRunOnCompared: costPerRun(versus.compared),
     regressions: live ? versus.regressions : null,
     compared: versus.compared.length,
-    againstLive: versus.gain,
+    gainOverLive: versus.gain,
     onFrontier: source.search ? source.spec.onFrontier : null,
     search: source.search ? searchRefOf(source.search) : null,
     pullRequest: source.spec.pullRequest,
-    charted: finished ? 'priced' : 'unfinished',
+    chartStatus: finished ? 'priced' : 'unfinished',
     shown: {
       basis,
       costBasis: basis,
@@ -268,7 +268,7 @@ const replayedSet = (
     setId: set.id,
     name: set.name,
     stationGone: false,
-    guardsChanges: set.guardsChanges,
+    gatesChanges: set.gatesChanges,
     health: {
       ...set.health,
       tasks: set.entries.length,
@@ -290,7 +290,7 @@ const replayedSet = (
             costPerRun: costPerRun(liveScored),
             currency: 'USD',
             endedAt: baseline.endedAt,
-            charted: liveScored.length > 0 ? 'priced' : 'unscored',
+            chartStatus: liveScored.length > 0 ? 'priced' : 'unscored',
           }
         : null,
     chartCurrency: 'USD',

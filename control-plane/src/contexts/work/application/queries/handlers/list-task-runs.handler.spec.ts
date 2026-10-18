@@ -31,7 +31,7 @@ const reading = (found: TaskRunSummary[]) => {
   const runs = {
     listForTask,
     listForTeam: vi.fn(),
-    conversationFor: vi.fn(),
+    notesFor: vi.fn(),
     configFor: vi.fn(),
     replayFor: vi.fn(),
     searchRunFor: vi.fn(),
@@ -41,7 +41,7 @@ const reading = (found: TaskRunSummary[]) => {
 };
 
 describe('ListTaskRunsHandler', () => {
-  it('carries the station a run worked, not the one its task stands at', async () => {
+  it('carries the station a run worked, not the one its task is at now', async () => {
     const { runs } = reading([summary()]);
 
     const [only] = await new ListTaskRunsHandler(runs).execute(
@@ -62,12 +62,12 @@ describe('ListTaskRunsHandler', () => {
     const pinned = `ghcr.io/acme/widgets@sha256:${'a'.repeat(64)}`;
     const { runs } = reading([summary({ image: pinned }), summary()]);
 
-    const [ran, unsaid] = await new ListTaskRunsHandler(runs).execute(
+    const [ran, unreported] = await new ListTaskRunsHandler(runs).execute(
       new ListTaskRunsQuery('task_1', 'user_1'),
     );
 
     expect(ran?.image).toBe(pinned);
-    expect(unsaid?.image).toBeNull();
+    expect(unreported?.image).toBeNull();
   });
 
   it('leaves a run dispatched to no station without one', async () => {
@@ -80,7 +80,7 @@ describe('ListTaskRunsHandler', () => {
     expect(only?.station).toBeNull();
   });
 
-  it('asks only for the runs of the task the viewer named', async () => {
+  it('requests only the runs of the task the viewer named', async () => {
     const { runs, listForTask } = reading([]);
 
     await new ListTaskRunsHandler(runs).execute(
@@ -116,9 +116,9 @@ describe('ListTaskRunsHandler', () => {
     expect(found?.exitCode).toBeNull();
   });
 
-  it('carries that a run is still owed an answer, and where it is answered', async () => {
+  it('carries that the answer for a run is still pending, and where it is answered', async () => {
     const { runs } = reading([
-      summary({ review: { state: 'owed', conversationId: 'task_1:5' } }),
+      summary({ review: { state: 'pending', conversationId: 'task_1:5' } }),
     ]);
 
     const [found] = await new ListTaskRunsHandler(runs).execute(
@@ -126,7 +126,7 @@ describe('ListTaskRunsHandler', () => {
     );
 
     expect(found?.review).toEqual({
-      state: 'owed',
+      state: 'pending',
       conversationId: 'task_1:5',
     });
   });

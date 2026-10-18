@@ -33,7 +33,7 @@ const chat: ChatSummary = {
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   working: false,
-  improving: null,
+  targetStation: null,
   setup: null,
 };
 
@@ -59,7 +59,7 @@ describe('AgentChats', () => {
     ).toHaveAttribute('href', '/w/acme/team/team_1/agent/chat_1');
   });
 
-  it('holds the shape of a chat while they load, keeping the composer', () => {
+  it('keeps the shape of a chat while they load, keeping the composer', () => {
     chats.mockReturnValue(undefined);
     showing();
 
@@ -70,7 +70,7 @@ describe('AgentChats', () => {
     expect(screen.queryByText('No chats yet')).not.toBeInTheDocument();
   });
 
-  it('says the chats could not be loaded, and tries again when asked', async () => {
+  it('says the chats could not be loaded, and tries again on request', async () => {
     chats.mockReturnValue(undefined);
     failing.mockReturnValue(true);
     showing();

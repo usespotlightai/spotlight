@@ -10,25 +10,25 @@ import {
 import { failingSearchedTasksOf } from '@replays/domain/services/reflected-tasks';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const SET = aSet(10);
 
 const seeded = (): Search =>
-  aSearch({ set: SET }).recordReplayEnd(
+  aSearch({ set: SET }).recordReplayStopReason(
     ReplayId.of('replay_seed'),
     'finished',
-    { spent: Spend.of(10, 'USD'), unpriced: 0 },
+    { spent: Money.of(10, 'USD'), unpriced: 0 },
     NOW,
     searchRunIds(),
     true,
   );
 
 const withTerse = (): Search =>
-  seeded().admitted(RunId.of('search_run_1'), {
+  seeded().acceptProposal(RunId.of('search_run_1'), {
     candidateId: CandidateId.of('candidate_terse'),
     name: CandidateName.searched('terse'),
     replayId: ReplayId.of('replay_terse'),
@@ -81,7 +81,7 @@ describe('failingSearchedTasksOf', () => {
     ]);
   });
 
-  it('takes a task that mostly fails, with a success mean below one half over its copies, once, linking its first failing copy', () => {
+  it('takes a task that mostly fails, with a success mean below one half over its repeats, once, linking its first failing repeat', () => {
     const search = seeded();
     const first = search.split.searched[0]?.runId.value;
     const seed = replayedAs(
@@ -100,7 +100,7 @@ describe('failingSearchedTasksOf', () => {
     );
   });
 
-  it('leaves out a task whose copies mostly succeed, though one of them failed', () => {
+  it('leaves out a task whose repeats mostly succeed, though one of them failed', () => {
     const search = seeded();
     const first = search.split.searched[0]?.runId.value;
     const seed = replayedAs(
@@ -112,7 +112,7 @@ describe('failingSearchedTasksOf', () => {
     expect(failingSearchedTasksOf(search, [seed], 0.05).tasks).toEqual([]);
   });
 
-  it('leaves out a task that fails exactly half of its copies, as it does not mostly fail', () => {
+  it('leaves out a task that fails exactly half of its repeats, as it does not mostly fail', () => {
     const search = seeded();
     const first = search.split.searched[0]?.runId.value;
     const seed = replayedAs(

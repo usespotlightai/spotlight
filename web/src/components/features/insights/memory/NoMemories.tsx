@@ -23,7 +23,7 @@ export function NoMemories({ slug, teamId }: { slug: string; teamId: string }) {
           </TrailLink>
         }
       >
-        Memory use and run outcomes show here once the team keeps memories.
+        Memory use and run outcomes show here once the team has memories.
       </EmptyState>
     </div>
   );

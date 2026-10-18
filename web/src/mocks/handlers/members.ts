@@ -18,7 +18,7 @@ import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { scenario } from '@/mocks/scenario';
 import { world } from '@/mocks/world';
 import {
-  type ClosedInvite,
+  type EndedInvite,
   INVITE_DAYS,
   membersWorld,
   type WorkspacePerson,
@@ -29,16 +29,16 @@ const ROLES: readonly Role[] = ['owner', 'admin', 'member'];
 
 const ofWorkspace = (slug: unknown) => slug === world().workspace.slug;
 
-const administers = () => scenario().account !== 'member';
+const isAdmin = () => scenario().account !== 'member';
 
-const CLOSED_BECAUSE: Record<ClosedInvite | 'expired', string> = {
+const NOT_PENDING_BECAUSE: Record<EndedInvite | 'expired', string> = {
   accepted: 'This invite has already been accepted.',
   revoked: 'This invite has been revoked.',
-  expired: 'This invite has expired. Please ask for a new one.',
+  expired: 'This invite has expired. Please request a new one.',
 };
 
-const closedInvite = (inviteId: unknown) =>
-  membersWorld().closed[String(inviteId)];
+const endedInvite = (inviteId: unknown) =>
+  membersWorld().ended[String(inviteId)];
 
 const pendingInvite = (inviteId: unknown) =>
   membersWorld().invites.find((each) => each.id === inviteId);
@@ -52,7 +52,7 @@ const LAST_OWNER =
   'The workspace needs at least one owner. Please make someone else an owner first.';
 
 const myRole = (): Role =>
-  administers()
+  isAdmin()
     ? (membersWorld().people.find((each) => each.id === SIGNED_IN.id)?.role ??
       'owner')
     : 'member';
@@ -61,9 +61,12 @@ const lastOwner = (person: WorkspacePerson) =>
   person.role === 'owner' &&
   membersWorld().people.filter((each) => each.role === 'owner').length === 1;
 
-type Refusal = readonly [status: number, detail: string];
+type RoleAssignmentDenial = readonly [status: number, detail: string];
 
-const refusalToGive = (person: WorkspacePerson, role: Role): Refusal | null => {
+const roleAssignmentDenial = (
+  person: WorkspacePerson,
+  role: Role,
+): RoleAssignmentDenial | null => {
   const mine = myRole();
 
   if (RANK[mine] < RANK.admin) {
@@ -78,7 +81,7 @@ const refusalToGive = (person: WorkspacePerson, role: Role): Refusal | null => {
       : [403, 'You can only set roles for people below you.'];
   }
   if (RANK[mine] < RANK[role]) {
-    return [403, 'You cannot give a role above your own.'];
+    return [403, 'You cannot assign a role above your own.'];
   }
   if (lastOwner(person) && role !== 'owner') {
     return [409, LAST_OWNER];
@@ -92,16 +95,18 @@ const teamsOf = (personId: string) =>
     (world().members[team.id] ?? []).some((each) => each.id === personId),
   );
 
-const mayBeSetToOf = (person: WorkspacePerson): Role[] => {
-  const givable = ROLES.filter((each) => !refusalToGive(person, each));
+const assignableRolesOf = (person: WorkspacePerson): Role[] => {
+  const assignable = ROLES.filter(
+    (each) => !roleAssignmentDenial(person, each),
+  );
 
-  return givable.length > 1 ? givable : [];
+  return assignable.length > 1 ? assignable : [];
 };
 
 const memberOf = (person: WorkspacePerson): WorkspaceMemberResponseDto => ({
   ...person,
   teams: teamsOf(person.id),
-  mayBeSetTo: mayBeSetToOf(person),
+  assignableRoles: assignableRolesOf(person),
 });
 
 const inviter = () => ({
@@ -110,22 +115,22 @@ const inviter = () => ({
   image: SIGNED_IN.image,
 });
 
-const offeredFor = (
+const createdFor = (
   email: string,
-  terms: InviteToWorkspaceRequestDto,
+  spec: InviteToWorkspaceRequestDto,
 ): WorkspaceInviteResponseDto => ({
   id: `invite_${crypto.randomUUID().slice(0, 8)}`,
   email,
-  role: terms.role,
+  role: spec.role,
   teams: world().workspace.teams.filter((team) =>
-    terms.teamIds.includes(team.id),
+    spec.teamIds.includes(team.id),
   ),
   invitedBy: inviter(),
   invitedAt: daysAgo(0),
   expiresAt: daysAgo(-INVITE_DAYS),
 });
 
-const sentAgain = (invite: WorkspaceInviteResponseDto) => {
+const resend = (invite: WorkspaceInviteResponseDto) => {
   invite.invitedAt = daysAgo(0);
   invite.expiresAt = daysAgo(-INVITE_DAYS);
   invite.invitedBy = inviter();
@@ -136,7 +141,7 @@ const bounces = (email: string): boolean =>
 
 const inviteOne = (
   email: string,
-  terms: InviteToWorkspaceRequestDto,
+  spec: InviteToWorkspaceRequestDto,
 ): InviteOutcomeResponseDto['outcome'] => {
   const store = membersWorld();
 
@@ -146,16 +151,16 @@ const inviteOne = (
 
   const pending = store.invites.find((each) => sameAddress(each.email, email));
   if (pending) {
-    sentAgain(pending);
+    resend(pending);
   } else {
-    store.invites.unshift(offeredFor(email, terms));
+    store.invites.unshift(createdFor(email, spec));
   }
 
   if (bounces(email)) {
     return 'not-sent';
   }
 
-  return pending ? 'sent-again' : 'invited';
+  return pending ? 'resent' : 'invited';
 };
 
 const inviteHandlers = [
@@ -164,34 +169,31 @@ const inviteHandlers = [
       return notFound();
     }
 
-    return administers() ? json(membersWorld().invites) : notFound();
+    return isAdmin() ? json(membersWorld().invites) : notFound();
   }),
 
   api.post('/workspaces/:slug/invites', async ({ params, request }) => {
     if (!ofWorkspace(params.slug)) {
       return notFound();
     }
-    if (!administers()) {
+    if (!isAdmin()) {
       return notFound();
     }
 
-    const terms = (await request.json()) as InviteToWorkspaceRequestDto;
-    const stranger = terms.teamIds.find(
+    const spec = (await request.json()) as InviteToWorkspaceRequestDto;
+    const unknownTeam = spec.teamIds.find(
       (teamId) => !world().workspace.teams.some((team) => team.id === teamId),
     );
-    const notAnAddress = terms.emails.find(
+    const notAnAddress = spec.emails.find(
       (each) => !isEmailAddress(each.trim().toLowerCase()),
     );
-    if (
-      terms.emails.length === 0 ||
-      terms.emails.length > MAX_INVITED_AT_ONCE
-    ) {
+    if (spec.emails.length === 0 || spec.emails.length > MAX_INVITED_AT_ONCE) {
       return problem(
         422,
-        `Number of email addresses must be 1 to ${MAX_INVITED_AT_ONCE}. Received: ${terms.emails.length}`,
+        `Number of email addresses must be 1 to ${MAX_INVITED_AT_ONCE}. Received: ${spec.emails.length}`,
       );
     }
-    if ((terms.role as Role) === 'owner') {
+    if ((spec.role as Role) === 'owner') {
       return problem(
         403,
         'Nobody can be invited as an owner. Please invite them as an admin, then make them an owner.',
@@ -203,26 +205,26 @@ const inviteHandlers = [
         `Email address is not valid. Received: ${notAnAddress.trim()}`,
       );
     }
-    if (stranger) {
-      return problem(422, `Team ${stranger} is not in this workspace.`);
+    if (unknownTeam) {
+      return problem(422, `Team ${unknownTeam} is not in this workspace.`);
     }
 
     return json({
-      outcomes: terms.emails.map((email) => ({
+      outcomes: spec.emails.map((email) => ({
         email,
-        outcome: inviteOne(email, terms),
+        outcome: inviteOne(email, spec),
       })),
     });
   }),
 
   api.post('/workspaces/:slug/invites/:inviteId/resend', ({ params }) => {
-    if (!ofWorkspace(params.slug) || !administers()) {
+    if (!ofWorkspace(params.slug) || !isAdmin()) {
       return notFound();
     }
 
-    const closed = closedInvite(params.inviteId);
-    if (closed) {
-      return problem(409, CLOSED_BECAUSE[closed]);
+    const ended = endedInvite(params.inviteId);
+    if (ended) {
+      return problem(409, NOT_PENDING_BECAUSE[ended]);
     }
 
     const invite = pendingInvite(params.inviteId);
@@ -230,21 +232,21 @@ const inviteHandlers = [
       return notFound();
     }
 
-    sentAgain(invite);
+    resend(invite);
     return json(invite);
   }),
 
   api.delete('/workspaces/:slug/invites/:inviteId', ({ params }) => {
-    if (!ofWorkspace(params.slug) || !administers()) {
+    if (!ofWorkspace(params.slug) || !isAdmin()) {
       return notFound();
     }
 
     const store = membersWorld();
-    const closed = closedInvite(params.inviteId);
-    if (closed === 'accepted') {
-      return problem(409, CLOSED_BECAUSE.accepted);
+    const ended = endedInvite(params.inviteId);
+    if (ended === 'accepted') {
+      return problem(409, NOT_PENDING_BECAUSE.accepted);
     }
-    if (closed === 'revoked') {
+    if (ended === 'revoked') {
       return noContent();
     }
     if (!pendingInvite(params.inviteId)) {
@@ -252,41 +254,41 @@ const inviteHandlers = [
     }
 
     store.invites = store.invites.filter((each) => each.id !== params.inviteId);
-    store.closed[String(params.inviteId)] = 'revoked';
+    store.ended[String(params.inviteId)] = 'revoked';
     return noContent();
   }),
 
   api.get('/invites/:token', ({ params }) => {
-    const found = membersWorld().offers.find(
+    const found = membersWorld().previews.find(
       (each) => each.token === params.token,
     );
     if (!found) {
       return notFound();
     }
 
-    const { token: _token, ...offer } = found;
-    return json(offer);
+    const { token: _token, ...preview } = found;
+    return json(preview);
   }),
 
   api.post('/invites/:token/accept', ({ params }) => {
-    const found = membersWorld().offers.find(
+    const found = membersWorld().previews.find(
       (each) => each.token === params.token,
     );
     if (!found) {
       return notFound();
     }
-    if (found.standing !== 'open') {
-      return problem(409, CLOSED_BECAUSE[found.standing]);
+    if (found.status !== 'pending') {
+      return problem(409, NOT_PENDING_BECAUSE[found.status]);
     }
 
     const store = membersWorld();
     const pending = store.invites.find((each) =>
       sameAddress(each.email, found.email),
     );
-    found.standing = 'accepted';
+    found.status = 'accepted';
     if (pending) {
       store.invites = store.invites.filter((each) => each !== pending);
-      store.closed[pending.id] = 'accepted';
+      store.ended[pending.id] = 'accepted';
     }
     return json({ workspaceSlug: world().workspace.slug });
   }),
@@ -316,9 +318,9 @@ const memberHandlers = [
       }
 
       const { role } = (await request.json()) as ChangeMemberRoleRequestDto;
-      const refusal = refusalToGive(person, role);
-      if (refusal) {
-        return problem(...refusal);
+      const denial = roleAssignmentDenial(person, role);
+      if (denial) {
+        return problem(...denial);
       }
 
       person.role = role;
@@ -355,7 +357,9 @@ const memberHandlers = [
       name: person.name,
       image: person.image,
       role: person.role,
-      mayBeSetTo: mayBeSetToOf(person).filter((each) => each !== person.role),
+      assignableRoles: assignableRolesOf(person).filter(
+        (each) => each !== person.role,
+      ),
     });
     return noContent();
   }),

@@ -12,7 +12,7 @@ const task = (id: string, stationId: string): Task => ({
   createdAt: '2026-08-04T09:15:00.000Z',
   running: false,
   awaitingReview: null,
-  raisedBy: null,
+  createdBy: null,
   assignee: null,
   pullRequest: null,
   note: null,
@@ -49,7 +49,7 @@ describe('landingFor', () => {
     ).toEqual({ stationId: 'triage', afterTaskId: 'b' });
   });
 
-  it('lands first in a station holding nothing', () => {
+  it('lands first in a station that has nothing', () => {
     expect(
       landingFor(board, 'a', {
         kind: 'station',

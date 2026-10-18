@@ -1,29 +1,29 @@
 import type {
-  AdmittedThroughDto,
+  CredentialSourceDto,
   RunnerFleetDto,
 } from '@runners/application/dto/runner-fleet.dto';
 import {
-  AdmittedThroughResponseDto,
+  CredentialSourceResponseDto,
   HostResponseDto,
   LiveRunnerResponseDto,
   RunnerFleetResponseDto,
 } from '@runners/presentation/http/dto/runner-fleet.response.dto';
 
-const through = (dto: AdmittedThroughDto) =>
-  new AdmittedThroughResponseDto(dto.kind, dto.key);
+const sourceOf = (dto: CredentialSourceDto) =>
+  new CredentialSourceResponseDto(dto.kind, dto.key);
 
 export const RunnerFleetHttpMapper = {
   toResponse(dto: RunnerFleetDto): RunnerFleetResponseDto {
     return new RunnerFleetResponseDto(
       dto.hosts.map(
         (host) =>
-          new HostResponseDto({ ...host, through: through(host.through) }),
+          new HostResponseDto({ ...host, source: sourceOf(host.source) }),
       ),
       dto.runners.map(
         (runner) =>
           new LiveRunnerResponseDto({
             ...runner,
-            through: through(runner.through),
+            source: sourceOf(runner.source),
           }),
       ),
     );

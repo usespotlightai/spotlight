@@ -1,4 +1,4 @@
-import { InfoNote } from '@/components/features/insights/InfoNote';
+import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonBlock } from '@/components/shared/skeleton/SkeletonBlock';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 
 export function InsightsTileSkeleton({
   label,
-  note,
+  tooltip,
   wide,
   delta,
   detail,
@@ -25,7 +25,7 @@ export function InsightsTileSkeleton({
           ) : (
             <span className="truncate">{label}</span>
           )}
-          {note && <InfoNote note={note} />}
+          {tooltip && <InfoTooltip tooltip={tooltip} />}
         </dt>
         <dd className="flex flex-1 flex-col gap-1 px-3 pb-3">
           <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">

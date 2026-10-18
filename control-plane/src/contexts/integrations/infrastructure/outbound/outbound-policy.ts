@@ -1,4 +1,4 @@
-import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
+import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import { OutboundHosts } from '@platform/outbound/outbound-hosts';
 
 export class OutboundPolicy {
@@ -14,11 +14,11 @@ export class OutboundPolicy {
     try {
       host = new URL(url).host;
     } catch {
-      throw new OutboundRefusedError(url, 'URL is not valid.');
+      throw new EgressBlockedError(url, 'URL is not valid.');
     }
 
     if (!this.hosts.allow(host)) {
-      throw new OutboundRefusedError(
+      throw new EgressBlockedError(
         host.toLowerCase(),
         'Host is not on the allowed list.',
       );

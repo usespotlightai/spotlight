@@ -6,8 +6,8 @@ import type {
   TaskNoteForm,
   TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
-import type { ApprovalStanding } from '@work/domain/value-objects/approval.vo';
-import type { SpokenBy } from '@work/domain/value-objects/voice.vo';
+import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
+import type { AuthorKind } from '@work/domain/value-objects/voice.vo';
 import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { sql } from 'drizzle-orm';
 import {
@@ -21,12 +21,12 @@ import {
   timestamp,
 } from 'drizzle-orm/pg-core';
 
-export interface SaidRow {
+export interface AnchorRow {
   readonly body: string;
   readonly path: string | null;
   readonly from: number | null;
   readonly to: number | null;
-  readonly remark: string | null;
+  readonly reviewComment: string | null;
 }
 
 export type ApprovalSubjectRow =
@@ -52,7 +52,7 @@ export interface ApprovalRow {
   readonly subject: ApprovalSubjectRow;
   readonly stationId: string;
   readonly because: string;
-  readonly standing: ApprovalStanding;
+  readonly status: ApprovalStatus;
   readonly decidedBy: string | null;
   readonly decidedAt: string | null;
   readonly reason: string | null;
@@ -62,14 +62,14 @@ export interface ApprovalRow {
   readonly askedOf?: string | null;
 }
 
-export type HeldBackRow =
+export type DeferredMoveRow =
   | { readonly kind: 'moves'; readonly to: string }
   | { readonly kind: 'cleared' };
 
 export interface ConnectionAskRow {
   readonly teamId: string;
-  readonly source: string;
   readonly integration: string;
+  readonly integrationName: string;
   readonly personId: string;
   readonly met: boolean;
 }
@@ -91,11 +91,10 @@ export const task = pgTable(
     title: text('title').notNull(),
     description: text('description'),
     rank: text('rank').notNull().default('i'),
-    raisedAtStationId: text('raised_at_station_id').references(
-      () => station.id,
-      { onDelete: 'set null' },
-    ),
-    raisedById: text('raised_by_id'),
+    originStationId: text('origin_station_id').references(() => station.id, {
+      onDelete: 'set null',
+    }),
+    createdById: text('created_by_id'),
     openedFrom: text('opened_from').notNull(),
     assigneeId: text('assignee_id'),
     currentRunId: text('current_run_id'),
@@ -129,19 +128,19 @@ export const taskNote = pgTable(
     station: text('station').notNull(),
     body: text('body').notNull(),
     at: timestamp('at').notNull(),
-    voice: text('voice').$type<SpokenBy>().notNull().default('station'),
+    voice: text('voice').$type<AuthorKind>().notNull().default('station'),
     authorId: text('author_id'),
     runId: text('run_id'),
     kind: text('kind').$type<TaskNoteKind>().notNull(),
     form: text('form').$type<TaskNoteForm>().notNull().default('words'),
-    said: jsonb('said').$type<SaidRow>(),
+    anchor: jsonb('anchor').$type<AnchorRow>(),
     approval: jsonb('approval').$type<ApprovalRow>(),
     failure: jsonb('failure').$type<FailureRow>(),
-    heldBack: jsonb('held_back').$type<HeldBackRow>(),
+    deferredMove: jsonb('deferred_move').$type<DeferredMoveRow>(),
     connectionAsk: jsonb('connection_ask').$type<ConnectionAskRow>(),
     answeredAt: timestamp('answered_at'),
     readAt: timestamp('read_at'),
-    deliveredAt: timestamp('delivered_at'),
+    acknowledgedAt: timestamp('acknowledged_at'),
   },
   (table) => [
     primaryKey({ columns: [table.taskId, table.position] }),
@@ -149,7 +148,7 @@ export const taskNote = pgTable(
     index('task_note_connection_ask_idx')
       .on(
         sql`(${table.connectionAsk}->>'personId')`,
-        sql`(${table.connectionAsk}->>'source')`,
+        sql`(${table.connectionAsk}->>'integration')`,
       )
       .where(
         sql`${table.connectionAsk} is not null and (${table.connectionAsk}->>'met')::boolean = false`,

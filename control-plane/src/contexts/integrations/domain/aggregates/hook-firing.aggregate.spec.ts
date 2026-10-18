@@ -12,18 +12,18 @@ const later = (ms: number) => new Date(NOW.getTime() + ms);
 const MOVED = {
   kind: 'event' as const,
   key: 'task.moved:task_1:triage → build',
-  saying: 'task.moved of Add a column (triage → build)',
+  description: 'task.moved of Add a column (triage → build)',
 };
 
 const AUDIT = {
   kind: 'hook' as const,
   key: `hook:audit_id:${MOVED.key}`,
-  saying: 'the hook audit',
+  description: 'the hook audit',
 };
 
 const LOOP = HookFailure.of('loop', 'The hook audit was stopped: again');
 
-const fired = (cause = CausalChain.none().followedBy(MOVED)) =>
+const fired = (cause = CausalChain.none().append(MOVED)) =>
   HookFiring.fire({
     id: 'firing_1',
     hookId: 'audit_id',
@@ -63,10 +63,10 @@ const stateOf = (firing: HookFiring) => ({
   version: firing.version,
 });
 
-const kept = (firing: HookFiring, version = 1) =>
+const stored = (firing: HookFiring, version = 1) =>
   HookFiring.rehydrate({ ...stateOf(firing), version });
 
-const working = (firing = fired()) => kept(firing).claimed(NOW);
+const working = (firing = fired()) => stored(firing).claimed(NOW);
 
 const DONE_A = { name: 'a', status: 'done' as const, output: null };
 
@@ -103,7 +103,7 @@ describe('HookFiring', () => {
     });
 
     it('is not claimed before it is due', () => {
-      const waiting = kept(working().waitUntil(later(2_000)));
+      const waiting = stored(working().waitUntil(later(2_000)));
 
       expect(() => waiting.claimed(later(1_000))).toThrow(
         InvalidHookFiringTransitionError,
@@ -111,20 +111,20 @@ describe('HookFiring', () => {
       expect(waiting.claimed(later(2_000)).progress.kind).toBe('working');
     });
 
-    it('is not claimed from a worker still holding it, only once its lease lapses', () => {
-      const held = kept(working());
+    it('is not claimed from a worker that still has the lease, only once its lease expires', () => {
+      const leased = stored(working());
 
-      expect(() => held.claimed(later(10 * 60_000))).toThrow(
+      expect(() => leased.claimed(later(10 * 60_000))).toThrow(
         InvalidHookFiringTransitionError,
       );
-      expect(held.claimed(later(10 * 60_000 + 1)).progress).toEqual({
+      expect(leased.claimed(later(10 * 60_000 + 1)).progress).toEqual({
         kind: 'working',
         claimedAt: later(10 * 60_000 + 1),
       });
     });
 
     it('is never claimed once finished', () => {
-      const done = kept(working().worked(NOW));
+      const done = stored(working().worked(NOW));
 
       expect(() => done.claimed(later(60 * 60_000))).toThrow(
         InvalidHookFiringTransitionError,
@@ -132,7 +132,7 @@ describe('HookFiring', () => {
     });
   });
 
-  describe('while a worker holds it', () => {
+  describe('while a worker has the lease', () => {
     it('keeps the steps it has taken', () => {
       expect(working().recordStep([DONE_A]).steps).toEqual([DONE_A]);
     });
@@ -186,8 +186,8 @@ describe('HookFiring', () => {
       expect(done.finished).toBe(true);
     });
 
-    it('refuses every change unless a worker holds it', () => {
-      const pending = kept(fired());
+    it('rejects every change unless a worker has the lease', () => {
+      const pending = stored(fired());
 
       expect(() => pending.recordStep([DONE_A])).toThrow(
         InvalidHookFiringTransitionError,
@@ -208,7 +208,7 @@ describe('HookFiring', () => {
   });
 
   describe('failing', () => {
-    it('is tried again later after a failure that may be retried', () => {
+    it('is retried later after a failure that allows a retry', () => {
       const failed = working().failedWith(
         HookFailure.of('server-error', 'was answered 503'),
         NOW,
@@ -218,7 +218,7 @@ describe('HookFiring', () => {
       expect(failed.progress).toEqual({ kind: 'pending', dueAt: later(2_000) });
       expect(failed.attempts).toBe(1);
       expect(failed.failure?.code).toBe('server-error');
-      expect(failed.retries(HookFailure.of('server-error', 'x'), NOW)).toBe(
+      expect(failed.willRetry(HookFailure.of('server-error', 'x'), NOW)).toBe(
         true,
       );
     });
@@ -227,7 +227,7 @@ describe('HookFiring', () => {
       let firing = working();
 
       for (let attempt = 0; attempt < 7; attempt += 1) {
-        firing = kept(
+        firing = stored(
           firing.failedWith(HookFailure.of('timeout', 'slow'), NOW, false),
         ).claimed(later(60 * 60_000));
       }
@@ -278,10 +278,7 @@ describe('HookFiring', () => {
   });
 
   describe('guarding against loops', () => {
-    const looped = CausalChain.none()
-      .followedBy(MOVED)
-      .followedBy(AUDIT)
-      .followedBy(MOVED);
+    const looped = CausalChain.none().append(MOVED).append(AUDIT).append(MOVED);
 
     it('is stopped when its own firing caused it again', () => {
       expect(working(fired(looped)).loopStop('audit', 0)?.code).toBe('loop');
@@ -316,21 +313,23 @@ describe('HookFiring', () => {
       ).toThrow(InvalidHookFiringTransitionError);
     });
 
-    it('ends as a loop once told of, or superseded when nobody is there to tell', () => {
+    it('ends as a loop once notified, or superseded when nobody is there to notify', () => {
       const stopped = working().stopForLoop(LOOP);
 
-      expect(stopped.toldOfLoop(NOW, false).failure).toBe(LOOP);
-      expect(stopped.toldOfLoop(NOW, false).progress.kind).toBe('failed');
-      expect(stopped.toldOfLoop(NOW, true).progress.kind).toBe('superseded');
+      expect(stopped.markLoopNotified(NOW, false).failure).toBe(LOOP);
+      expect(stopped.markLoopNotified(NOW, false).progress.kind).toBe('failed');
+      expect(stopped.markLoopNotified(NOW, true).progress.kind).toBe(
+        'superseded',
+      );
     });
 
-    it('is not told of as a loop before it is stopped for one', () => {
-      expect(() => working().toldOfLoop(NOW, false)).toThrow(
+    it('is not marked as notified of a loop before it is stopped for one', () => {
+      expect(() => working().markLoopNotified(NOW, false)).toThrow(
         InvalidHookFiringTransitionError,
       );
     });
 
-    it('keeps its stop to tell of again when something fails before it is told', () => {
+    it('keeps its stop to notify again when something fails before the notice', () => {
       const stopped = working().stopForLoop(LOOP);
       const again = stopped.failedWith(
         HookFailure.of('errored', 'db went away'),
@@ -342,7 +341,7 @@ describe('HookFiring', () => {
       expect(again.failure).toBe(LOOP);
     });
 
-    it('ends as a loop when it could never be told of', () => {
+    it('ends as a loop when it could never be notified', () => {
       const stopped = HookFiring.rehydrate({
         ...stateOf(working().stopForLoop(LOOP)),
         attempts: 7,
@@ -354,7 +353,7 @@ describe('HookFiring', () => {
       ).toBe(LOOP);
     });
 
-    it('lets a failure that may never be retried end a stop still to be told of', () => {
+    it('lets a failure that may never be retried end a stop still to be notified', () => {
       const stopped = working().stopForLoop(LOOP);
 
       expect(
@@ -364,32 +363,32 @@ describe('HookFiring', () => {
     });
   });
 
-  describe('being forgotten', () => {
-    it('is forgotten thirty days after it finishes', () => {
-      const done = kept(working().worked(NOW));
+  describe('being purged', () => {
+    it('is purged thirty days after it finishes', () => {
+      const done = stored(working().worked(NOW));
       const month = later(30 * 24 * 60 * 60_000);
 
-      expect(done.isForgettableAt(later(1))).toBe(false);
-      expect(() => done.forgotten(later(1))).toThrow(
+      expect(done.isPastRetention(later(1))).toBe(false);
+      expect(() => done.purge(later(1))).toThrow(
         InvalidHookFiringTransitionError,
       );
-      expect(done.forgotten(month).isDiscarded).toBe(true);
-      expect(HookFiring.finishedForgettablyBefore(month)).toEqual(NOW);
+      expect(done.purge(month).isDiscarded).toBe(true);
+      expect(HookFiring.retentionCutoff(month)).toEqual(NOW);
     });
 
-    it('is never forgotten while still owed', () => {
-      expect(kept(fired()).isForgettableAt(later(365 * 24 * 60 * 60_000))).toBe(
-        false,
-      );
+    it('is never purged while it is pending', () => {
+      expect(
+        stored(fired()).isPastRetention(later(365 * 24 * 60 * 60_000)),
+      ).toBe(false);
     });
   });
 
-  describe('as kept', () => {
-    it('refuses a firing kept without a version', () => {
-      expect(() => kept(fired(), 0)).toThrow(InconsistentStateError);
+  describe('as stored', () => {
+    it('rejects a firing stored without a version', () => {
+      expect(() => stored(fired(), 0)).toThrow(InconsistentStateError);
     });
 
-    it('refuses a failed firing that says no failure', () => {
+    it('rejects a failed firing that says no failure', () => {
       expect(() =>
         HookFiring.rehydrate({
           ...stateOf(fired()),

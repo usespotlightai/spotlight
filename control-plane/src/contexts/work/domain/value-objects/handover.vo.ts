@@ -1,48 +1,38 @@
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
-import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
-import type { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
+import { DONE, REVIEW } from '@work/domain/value-objects/handover-word';
+import type { StationKey } from '@work/domain/value-objects/station-key.vo';
 
-interface Said {
-  readonly body: TaskNoteBody;
-  readonly account: TaskNoteBody | null;
+export class Handover {
+  private constructor(
+    readonly next: string,
+    readonly note: string,
+  ) {}
+
+  static of(input: { next?: string; note?: string }): Handover {
+    return new Handover((input.next ?? '').trim(), (input.note ?? '').trim());
+  }
+
+  sentToReview(reason: string): Handover {
+    return new Handover(
+      REVIEW,
+      [reason.trim(), this.note === '' ? '' : `Note from the run: ${this.note}`]
+        .filter(Boolean)
+        .join('\n\n'),
+    );
+  }
+
+  isDone(): boolean {
+    return this.next.toLowerCase() === DONE;
+  }
+
+  requestsReview(): boolean {
+    return this.next === '' || this.next.toLowerCase() === REVIEW;
+  }
+
+  names(key: StationKey): boolean {
+    return key.value.toLowerCase() === this.next.toLowerCase();
+  }
+
+  equals(other: Handover): boolean {
+    return this.next === other.next && this.note === other.note;
+  }
 }
-
-export type Handover =
-  | (Said & { readonly kind: 'review'; readonly failure: TaskFailure | null })
-  | (Said & { readonly kind: 'done' })
-  | (Said & { readonly kind: 'pass'; readonly stationId: StationId });
-
-export const Handover = {
-  review: (
-    body: TaskNoteBody,
-    account: TaskNoteBody | null = null,
-  ): Handover => ({
-    kind: 'review',
-    body,
-    account,
-    failure: null,
-  }),
-
-  failed: (body: TaskNoteBody, failure: TaskFailure): Handover => ({
-    kind: 'review',
-    body,
-    account: body,
-    failure,
-  }),
-
-  done: (
-    body: TaskNoteBody,
-    account: TaskNoteBody | null = null,
-  ): Handover => ({
-    kind: 'done',
-    body,
-    account,
-  }),
-
-  pass: (stationId: StationId, body: TaskNoteBody): Handover => ({
-    kind: 'pass',
-    stationId,
-    body,
-    account: body,
-  }),
-};

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryTab } from '@/components/features/insights/memory/MemoryTab';
 import type { InsightsMemory } from '@/lib/insights-memory';
 
-type Held = {
+type Queried = {
   data: unknown;
   isPending: boolean;
   isFetching: boolean;
@@ -13,7 +13,7 @@ type Held = {
   refetch: () => void;
 };
 
-const held = (data: unknown, errorUpdateCount = 0): Held => ({
+const queried = (data: unknown, errorUpdateCount = 0): Queried => ({
   data,
   isPending: data === undefined && errorUpdateCount === 0,
   isFetching: false,
@@ -21,28 +21,28 @@ const held = (data: unknown, errorUpdateCount = 0): Held => ({
   refetch: vi.fn(),
 });
 
-const answer: { memory: Held; asked: unknown[] } = {
-  memory: held(undefined),
-  asked: [],
+const answer: { memory: Queried; requested: unknown[] } = {
+  memory: queried(undefined),
+  requested: [],
 };
 
 vi.mock('@/hooks/api/useInsightsMemory', () => ({
   useInsightsMemory: (teamId: string, period: string) => {
-    answer.asked.push({ teamId, period });
+    answer.requested.push({ teamId, period });
     return answer.memory;
   },
 }));
 
 const tally = (over: Record<string, unknown> = {}) => ({
   runs: 10,
-  withdrawn: 0,
+  cancelled: 0,
   failed: 0,
   stopped: 0,
   checksPassed: 0,
   checksFailed: 0,
   accepted: 5,
   sentBack: 1,
-  handedOn: 0,
+  passed: 0,
   merged: 0,
   cost: null,
   unpriced: 0,
@@ -54,7 +54,7 @@ const tally = (over: Record<string, unknown> = {}) => ({
 
 const MEMORY = {
   period: { name: '30d' },
-  standing: 12,
+  activeCount: 12,
   memoriesBriefed: 7,
   memoriesRecalled: 2,
   runsBriefed: 30,
@@ -77,8 +77,8 @@ const MEMORY = {
       measure: 'accepted_rate',
       before: 0.5,
       after: 0.8,
-      settledBefore: 4,
-      settledAfter: 10,
+      measuredBefore: 4,
+      measuredAfter: 10,
       currency: null,
       verdict: 'insufficient',
     },
@@ -94,19 +94,19 @@ const showing = () =>
   );
 
 beforeEach(() => {
-  answer.memory = held(MEMORY);
-  answer.asked = [];
+  answer.memory = queried(MEMORY);
+  answer.requested = [];
 });
 
 describe('memory in Insights', () => {
   it('reads the team’s memory over the period', () => {
     showing();
 
-    expect(answer.asked).toContainEqual({ teamId: 'team_1', period: '7d' });
+    expect(answer.requested).toContainEqual({ teamId: 'team_1', period: '7d' });
   });
 
   it('shows a faithful skeleton while it loads', () => {
-    answer.memory = held(undefined);
+    answer.memory = queried(undefined);
 
     showing();
 
@@ -116,7 +116,7 @@ describe('memory in Insights', () => {
   });
 
   it('offers to try again where it could not load', async () => {
-    answer.memory = held(undefined, 1);
+    answer.memory = queried(undefined, 1);
 
     showing();
 
@@ -125,10 +125,10 @@ describe('memory in Insights', () => {
     expect(answer.memory.refetch).toHaveBeenCalled();
   });
 
-  it('leads to the team’s memory where it keeps none', () => {
-    answer.memory = held({
+  it('leads to the team’s memory where it has none', () => {
+    answer.memory = queried({
       ...MEMORY,
-      standing: 0,
+      activeCount: 0,
       memoriesBriefed: 0,
       memoriesRecalled: 0,
       flagged: [],
@@ -145,10 +145,10 @@ describe('memory in Insights', () => {
     showing();
 
     const tiles = screen.getByLabelText('Memory use');
-    const standing = within(tiles)
-      .getByText('Standing memories')
+    const active = within(tiles)
+      .getByText('Active memories')
       .closest('[data-slot="insights-tile"]') as HTMLElement;
-    expect(standing).toHaveTextContent('12');
+    expect(active).toHaveTextContent('12');
     expect(within(tiles).getByText('to 30 runs')).toBeInTheDocument();
 
     const compared = screen.getByRole('list', {

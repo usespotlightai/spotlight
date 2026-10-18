@@ -11,5 +11,5 @@ export type ParsedSecret =
     };
 
 export interface SecretDefinitionsPort {
-  secret(held: unknown): ParsedSecret;
+  secret(input: unknown): ParsedSecret;
 }

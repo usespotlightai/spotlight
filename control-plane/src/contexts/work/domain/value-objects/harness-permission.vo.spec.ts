@@ -16,7 +16,7 @@ describe('a permission a harness asks for', () => {
     const permission = asked({ command: 'rm -rf build' });
 
     expect(permission.name).toBe('claude-code execute');
-    expect(permission.given).toEqual([
+    expect(permission.writtenInputs).toEqual([
       { name: 'title', value: '`rm -rf build`' },
       { name: 'input', value: '{"command":"rm -rf build"}' },
     ]);

@@ -3,19 +3,19 @@ export const CHECK_SKIPS = [
   'no-checkout',
   'checkout-failed',
   'setup-failed',
-  'no-room',
+  'workspace-failed',
   'out-of-time',
   'no-image',
-  'unprovisioned',
-  'nobody-checked',
+  'provision-failed',
+  'queue-timeout',
   'skipped',
-  'undrafted',
+  'not-generated',
   'no-check-asked',
 ] as const;
 
 export type CheckSkip = (typeof CHECK_SKIPS)[number];
 
-export const UNDRAFTED: CheckSkip = 'undrafted';
+export const NOT_GENERATED: CheckSkip = 'not-generated';
 
 export const NO_CHECK_ASKED: CheckSkip = 'no-check-asked';
 

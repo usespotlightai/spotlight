@@ -28,12 +28,10 @@ export function IntegrationRow({
   return (
     <IntegrationRowFrame
       slot="integration"
-      logo={<IntegrationLogo source={integration.source} />}
+      logo={<IntegrationLogo integration={integration.integration} />}
       name={integration.name}
       mark={
-        integration.described && (
-          <IntegrationReadProblem described={integration.described} />
-        )
+        integration.spec && <IntegrationReadProblem spec={integration.spec} />
       }
       summary={formatUsedFor(integration)}
       need={

@@ -1,12 +1,12 @@
 import { RunComposer } from '@/components/features/runs/RunComposer';
 import { type TeamRun, waitsOnPerson } from '@/lib/run';
-import type { RunConversation } from '@/lib/run-conversation';
+import type { RunNotes } from '@/lib/run-notes';
 
 type RunFooterProps = {
   slug: string;
   teamId: string;
   run: TeamRun;
-  said: RunConversation | undefined;
+  conversation: RunNotes | undefined;
   deciding: boolean;
 };
 
@@ -14,10 +14,10 @@ export function RunFooter({
   slug,
   teamId,
   run,
-  said,
+  conversation,
   deciding,
 }: RunFooterProps) {
-  if (run.station?.name !== said?.station?.name) {
+  if (run.station?.name !== conversation?.station?.name) {
     return (
       <p className="pb-5 text-center text-muted-foreground text-xs">
         The task has moved to another station. Messages here reach no one.
@@ -30,7 +30,7 @@ export function RunFooter({
       slug={slug}
       teamId={teamId}
       runId={run.id}
-      taskId={said?.taskId}
+      taskId={conversation?.taskId}
       station={run.station?.name ?? 'the agent'}
       stationId={run.station?.id}
       running={run.state === 'claimed'}

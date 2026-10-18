@@ -1,12 +1,12 @@
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
-import { OpenReplaySetAction } from '@/components/features/replays/station/OpenReplaySetAction';
+import { CreateReplaySetAction } from '@/components/features/replays/station/CreateReplaySetAction';
 import { ReplaySets } from '@/components/features/replays/station/ReplaySets';
 import { StationSearches } from '@/components/features/searches/station/StationSearches';
 import { ImproveStationLink } from '@/components/features/stations/ImproveStationLink';
 import { ImproveSection } from '@/components/features/stations/improve/ImproveSection';
 import { WorthImproving } from '@/components/features/stations/improve/WorthImproving';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
-import { signalAsk } from '@/lib/insights';
+import { signalPrompt } from '@/lib/insights';
 import { REPLAY_SETS_NOTE, REPLAYS_ANCHOR } from '@/lib/replay';
 import { SEARCHES_ANCHOR, SEARCHES_NOTE } from '@/lib/search';
 
@@ -24,7 +24,7 @@ export function StationImproveTab({
   station,
 }: StationImproveTabProps) {
   const at = { slug, teamId, lineId: line.id, stationId: station.id };
-  const improving = {
+  const targetStation = {
     lineId: line.id,
     lineKey: line.key,
     lineName: line.name,
@@ -35,7 +35,7 @@ export function StationImproveTab({
 
   return (
     <>
-      <ImproveSection title="What stands out">
+      <ImproveSection title="What needs attention">
         <WorthImproving
           teamId={teamId}
           stationId={station.id}
@@ -43,18 +43,18 @@ export function StationImproveTab({
             <ImproveStationLink
               slug={slug}
               teamId={teamId}
-              improving={improving}
+              targetStation={targetStation}
               label="Review with the agent"
               size="regular"
             />
           }
-          askAbout={(reading) => (
+          actionFor={(reading) => (
             <ImproveStationLink
               slug={slug}
               teamId={teamId}
-              improving={improving}
+              targetStation={targetStation}
               label="Ask the agent"
-              ask={signalAsk(reading)}
+              prompt={signalPrompt(reading)}
             />
           )}
         />
@@ -69,7 +69,7 @@ export function StationImproveTab({
             description={REPLAY_SETS_NOTE}
           >
             <ReplaySets at={at} />
-            <OpenReplaySetAction at={at} />
+            <CreateReplaySetAction at={at} />
           </InsightsCard>
 
           <InsightsCard

@@ -10,9 +10,9 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
@@ -30,26 +30,26 @@ const NOW = new Date('2026-10-01T09:00:00.000Z');
 const STATION = randomUUID();
 const RUNNER = RunnerId.of('runner_1');
 
-let held: TestDatabase;
+let database: TestDatabase;
 let runs: DrizzleRunRepository;
 let briefedTasks: DrizzleBriefedTasks;
 
 beforeAll(async () => {
-  held = await openDatabase('run_starting_points');
-  runs = new DrizzleRunRepository(new DrizzleContext(held.db), {
+  database = await openDatabase('run_starting_points');
+  runs = new DrizzleRunRepository(new DrizzleContext(database.db), {
     dispatch: async () => {},
   });
-  briefedTasks = new DrizzleBriefedTasks(held.db);
+  briefedTasks = new DrizzleBriefedTasks(database.db);
 
   const lineId = randomUUID();
-  await held.db.insert(schema.line).values({
+  await database.db.insert(schema.line).values({
     id: lineId,
     key: 'delivery',
     workspaceId: 'ws_1',
     teamId: 'team_1',
     name: 'Delivery',
   });
-  await held.db.insert(schema.station).values({
+  await database.db.insert(schema.station).values({
     id: STATION,
     key: 'build',
     lineId,
@@ -59,7 +59,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 const SCREENSHOT = Attachment.of({
@@ -82,7 +82,7 @@ const briefed = BriefedTask.of({
       attachments: [SCREENSHOT],
     },
   ],
-  openRemarks: [
+  openReviewComments: [
     { at: NotePosition.of(0), place: 'src/queue.ts:12', body: 'Why here?' },
   ],
 });
@@ -102,14 +102,14 @@ const aTaskRun = (): Run =>
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'task-task_1' },
+      resume: { key: 'task-task_1' },
       startingPoint: true,
     }),
     briefedTask: briefed,
   });
 
 describe('a task run’s starting point', () => {
-  it('keeps the task as it was briefed, read apart from the run', async () => {
+  it('stores the task as it was briefed, read apart from the run', async () => {
     const run = aTaskRun();
     await runs.add(run, { briefed });
 
@@ -122,10 +122,10 @@ describe('a task run’s starting point', () => {
     expect(found?.startedFrom).toBeNull();
   });
 
-  it('refuses to read a run that records only part of where it started', async () => {
+  it('does not read a run that records only part of where it started', async () => {
     const run = aTaskRun();
     await runs.add(run);
-    await held.db
+    await database.db
       .update(schema.run)
       .set({ startedFromArchiveId: randomUUID() })
       .where(eq(schema.run.id, run.id.value));
@@ -152,7 +152,7 @@ describe('a task run’s starting point', () => {
           restored: RestoredArchive.of(
             archive,
             run.workspaceId,
-            ContinuityKey.forTask('task_1'),
+            ResumeKey.forTask('task_1'),
           ),
           checkouts,
         },

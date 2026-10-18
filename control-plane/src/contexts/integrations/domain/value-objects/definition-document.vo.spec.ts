@@ -2,15 +2,15 @@ import { DefinitionDocument } from '@integrations/domain/value-objects/definitio
 import { describe, expect, it } from 'vitest';
 
 describe('DefinitionDocument', () => {
-  it('says what a field holds', () => {
+  it('says what a field contains', () => {
     const document = DefinitionDocument.of({ key: 'delivery' });
 
-    expect(document.says('key', 'delivery')).toBe(true);
-    expect(document.says('key', 'review')).toBe(false);
-    expect(document.says('name', 'delivery')).toBe(false);
+    expect(document.hasValue('key', 'delivery')).toBe(true);
+    expect(document.hasValue('key', 'review')).toBe(false);
+    expect(document.hasValue('name', 'delivery')).toBe(false);
   });
 
-  it('holds a copy that nothing can change afterwards', () => {
+  it('keeps a copy that nothing can change afterwards', () => {
     const written = { key: 'delivery', stations: [{ key: 'backlog' }] };
     const document = DefinitionDocument.of(written);
 
@@ -23,7 +23,7 @@ describe('DefinitionDocument', () => {
     expect(Object.isFrozen(document.fields.stations)).toBe(true);
   });
 
-  it('refuses what is not a document of fields', () => {
+  it('rejects what is not a document of fields', () => {
     expect(() => DefinitionDocument.of('delivery')).toThrow(/document/);
     expect(() => DefinitionDocument.of([])).toThrow(/document/);
     expect(() => DefinitionDocument.of(null)).toThrow(/document/);
@@ -37,7 +37,7 @@ describe('DefinitionDocument', () => {
     ).toBe(true);
   });
 
-  it('is equal to another that says the same in another order, as one kept in the database is', () => {
+  it('is equal to another that says the same in another order, as one stored in the database is', () => {
     expect(
       DefinitionDocument.of({ key: 'a', mcp: { url: 'u', auth: {} } }).equals(
         DefinitionDocument.of({ mcp: { auth: {}, url: 'u' }, key: 'a' }),

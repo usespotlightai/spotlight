@@ -8,8 +8,8 @@ export interface MergeRow {
   readonly at: Date;
 }
 
-export const draftedRunOf = (row: DecisionSetRow): string | null =>
-  row.draftRunId;
+export const generationRunOf = (row: DecisionSetRow): string | null =>
+  row.generationRunId;
 
 export const mergeRowOf = (row: DecisionSetRow): MergeRow | null =>
   row.mergedRepository && row.mergedCommit && row.mergedAt

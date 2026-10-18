@@ -1,9 +1,9 @@
 import type { BeginOAuth2ConnectionCommand } from '@integrations/application/commands/begin-oauth2-connection.command';
 import type { FinishOAuth2ConnectionCommand } from '@integrations/application/commands/finish-oauth2-connection.command';
 import {
+  FAILED_REDIRECT,
   OAuth2ConnectionController,
   type Redirectable,
-  WENT_WRONG,
 } from '@integrations/presentation/http/controllers/oauth2-connection.controller';
 import {
   OAUTH2_NONCE_COOKIE,
@@ -99,58 +99,58 @@ describe('OAuth2ConnectionController', () => {
     expect(redirect).toHaveBeenCalledWith('https://app.example/landing');
   });
 
-  it('refuses a browser that brought no nonce cookie', async () => {
+  it('rejects a browser that brought no nonce cookie', async () => {
     const { controller, execute } = controlling();
     const { response, redirect } = answering();
 
     await controller.callback('s', 'c', { headers: {} }, response);
 
     expect(execute).not.toHaveBeenCalled();
-    expect(redirect).toHaveBeenCalledWith(WENT_WRONG);
+    expect(redirect).toHaveBeenCalledWith(FAILED_REDIRECT);
   });
 
-  it('refuses a browser with no session', async () => {
+  it('rejects a browser with no session', async () => {
     const { controller, execute } = controlling(null);
     const { response, redirect } = answering();
 
     await controller.callback('s', 'c', withCookie('n-1'), response);
 
     expect(execute).not.toHaveBeenCalled();
-    expect(redirect).toHaveBeenCalledWith(WENT_WRONG);
+    expect(redirect).toHaveBeenCalledWith(FAILED_REDIRECT);
   });
 
-  it('connects the team unless asked to connect the caller', async () => {
+  it('connects the team unless requested to connect the caller', async () => {
     const { controller, execute } = controlling();
 
     await controller.connect('team_1', 'slack', ADMIN, answering().response);
 
     const begin = execute.mock.calls[0]?.[0] as BeginOAuth2ConnectionCommand;
-    expect(begin.holder).toBe('team');
-    expect(begin.back).toBeNull();
+    expect(begin.owner).toBe('team');
+    expect(begin.returnTo).toBeNull();
   });
 
-  it('connects the caller’s own account, carrying where to land', async () => {
+  it('connects the caller’s own account, carrying where to return to', async () => {
     const { controller, execute } = controlling();
 
     await controller.connect('team_1', 'linear', ADMIN, answering().response, {
-      for: 'me',
-      back: '/w/acme/inbox/task_1',
+      actsAs: 'requester',
+      returnTo: '/w/acme/inbox/task_1',
     });
 
     const begin = execute.mock.calls[0]?.[0] as BeginOAuth2ConnectionCommand;
-    expect(begin.holder).toBe('person');
-    expect(begin.back).toBe('/w/acme/inbox/task_1');
+    expect(begin.owner).toBe('person');
+    expect(begin.returnTo).toBe('/w/acme/inbox/task_1');
   });
 
-  it('refuses to connect for anyone but the team or the caller', async () => {
+  it('denies a connection for anyone but the team or the caller', async () => {
     const { controller, execute } = controlling();
 
     await expect(
       controller.connect('team_1', 'linear', ADMIN, answering().response, {
-        for: 'someone-else' as 'me',
+        actsAs: 'someone-else' as 'requester',
       }),
     ).rejects.toThrow(
-      /A connection must be for team or me\. Received: someone-else/,
+      /A connection must act as team or requester\. Received: someone-else/,
     );
     expect(execute).not.toHaveBeenCalled();
   });

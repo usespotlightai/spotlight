@@ -6,7 +6,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
 
 export const MCP_SERVER_ENV =
-  'Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace holds, and the server gets only a stand-in, since egress wears the value on its requests to the hosts the secret is bound to.';
+  'Environment for the server. A value is plain text, stored and shown as written, or a reference to a workspace secret, as in secret.LINEAR_API_KEY: the reference must name a secret the workspace has, and the server gets only a stand-in, since egress injects the value into its requests to the hosts the secret is bound to.';
 
 class PermissionsResponseDto {
   @ApiProperty({
@@ -23,7 +23,7 @@ class PermissionsResponseDto {
     isArray: true,
     example: ['execute(git push *)'],
     description:
-      'What the harness asks a person about first; the ask reaches their inbox as an approval',
+      'What the harness asks a person about first; the ask goes to their inbox as an approval',
   })
   readonly ask: readonly string[];
 
@@ -82,7 +82,7 @@ export class HarnessProfileResourceResponseDto extends ResourceResponseDto {
   @ApiProperty({
     example: 'careful',
     description:
-      'What stations name it by; fixed for its life, so changing it means replacing the profile',
+      'What stations name it by. Immutable: changing it means replacing the profile',
   })
   readonly key: string;
 

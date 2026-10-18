@@ -1,8 +1,11 @@
-import type { MarkWorn } from '@work/application/contracts/happenings.contract';
-import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
+import type { TaskMark } from '@work/application/contracts/happenings.contract';
+import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 
 export const TASK_NOTICES = Symbol('TASK_NOTICES');
 
 export interface TaskNoticesPort {
-  notify(task: BoundTaskDto, event: string): Promise<readonly MarkWorn[]>;
+  notify(
+    task: IntegrationTaskViewDto,
+    event: string,
+  ): Promise<readonly TaskMark[]>;
 }

@@ -8,5 +8,5 @@ export type ParsedLine =
   | { readonly ok: false; readonly problems: readonly ConfigurationProblem[] };
 
 export interface LineCompilerPort {
-  compile(held: unknown): ParsedLine;
+  compile(input: unknown): ParsedLine;
 }

@@ -9,16 +9,16 @@ export class StartChatCommand {
     readonly body: string,
     readonly attachments: readonly string[] = [],
     readonly traces: readonly string[] = [],
-    readonly improving: string | null = null,
+    readonly targetStation: string | null = null,
     readonly setup: { repository: string; folder: string } | null = null,
   ) {}
 }
 
-export class SayInChatCommand {
+export class SendChatMessageCommand {
   constructor(
     readonly teamId: string,
     readonly chatId: string,
-    readonly saidBy: string,
+    readonly sentBy: string,
     readonly body: string,
     readonly attachments: readonly string[] = [],
     readonly traces: readonly string[] = [],

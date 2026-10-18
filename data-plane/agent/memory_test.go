@@ -14,10 +14,10 @@ import (
 
 type memoryChannel struct {
 	recalled   []protocol.RecallRequest
-	remembered []protocol.Remembering
+	remembered []protocol.RememberRequest
 }
 
-func remembering(t *testing.T, refusing error) *memoryChannel {
+func remembering(t *testing.T, rejecting error) *memoryChannel {
 	t.Helper()
 
 	server, err := serveHandover([]string{"spec"}, nil)
@@ -28,42 +28,42 @@ func remembering(t *testing.T, refusing error) *memoryChannel {
 
 	seen := &memoryChannel{}
 	name := "Ada"
-	grounds := &protocol.MemoryGrounds{TaskID: "task_1", RunID: "run_1"}
+	provenance := &protocol.MemoryProvenance{TaskID: "task_1", RunID: "run_1"}
 	repository := "acme/api"
 
 	server.Memories(
-		func(asked protocol.RecallRequest) (json.RawMessage, error) {
-			seen.recalled = append(seen.recalled, asked)
+		func(received protocol.RecallRequest) (json.RawMessage, error) {
+			seen.recalled = append(seen.recalled, received)
 			memory := protocol.RecalledMemory{
-				Handle: "M-12", Kind: "rejected-approach", Standing: "stands",
-				Body: "Uploads retry in the request,\nnot from a queue.", Source: "run", Reach: "line",
+				Handle: "M-12", Kind: "rejected-approach", Status: "active",
+				Body: "Uploads retry in the request,\nnot from a queue.", Source: "run", Scope: "line",
 				Repository: &repository, Paths: []string{"src/uploads"},
 				ApprovedBy: protocol.MemoryPerson{ID: "user_1", Name: &name},
-				ApprovedAt: "2026-09-21T10:00:00.000Z", Grounds: grounds,
+				ApprovedAt: "2026-09-21T10:00:00.000Z", Provenance: provenance,
 				Steps:      []protocol.MemoryStep{{Index: 14, Kind: "thought", Text: "A queue needs a worker we do not run."}},
 				Superseded: &protocol.MemoryLink{Handle: "M-7", Body: "Uploads retry from a queue."},
 			}
-			if asked.Handle != "" {
+			if received.Handle != "" {
 				return json.Marshal(memory)
 			}
-			if asked.Words == "nothing" {
+			if received.Words == "nothing" {
 				return json.Marshal([]protocol.RecalledMemory{})
 			}
 			return json.Marshal([]protocol.RecalledMemory{memory})
 		},
-		func(asked protocol.Remembering) (json.RawMessage, error) {
-			if refusing != nil {
-				return nil, refusing
+		func(received protocol.RememberRequest) (json.RawMessage, error) {
+			if rejecting != nil {
+				return nil, rejecting
 			}
-			seen.remembered = append(seen.remembered, asked)
+			seen.remembered = append(seen.remembered, received)
 			return json.Marshal(protocol.ProposedMemory{
-				Kind: asked.Kind, Body: asked.Body, Source: "run", Reach: "line",
+				Kind: received.Kind, Body: received.Body, Source: "run", Scope: "line",
 			})
 		},
 	)
 
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 
 	return seen
 }
@@ -77,7 +77,7 @@ func TestRecallSearchesByWordsAndShowsEachMemoryBriefly(t *testing.T) {
 	}
 
 	if len(seen.recalled) != 1 || seen.recalled[0].Words != "upload retries" {
-		t.Fatalf("asked %+v", seen.recalled)
+		t.Fatalf("received %+v", seen.recalled)
 	}
 	for _, want := range []string{
 		"M-12 · rejected approach · line, in acme/api at src/uploads",
@@ -99,11 +99,11 @@ func TestRecallSaysSoWhenNothingMatches(t *testing.T) {
 	}
 
 	if !strings.Contains(out.String(), "remembers nothing") {
-		t.Errorf("said %q", out.String())
+		t.Errorf("output %q", out.String())
 	}
 }
 
-func TestRecallByHandleShowsTheMemoryInFullWithItsGrounds(t *testing.T) {
+func TestRecallByHandleShowsTheMemoryInFullWithItsProvenance(t *testing.T) {
 	seen := remembering(t, nil)
 	out := new(bytes.Buffer)
 
@@ -112,7 +112,7 @@ func TestRecallByHandleShowsTheMemoryInFullWithItsGrounds(t *testing.T) {
 	}
 
 	if len(seen.recalled) != 1 || seen.recalled[0].Handle != "M-12" || seen.recalled[0].Words != "" {
-		t.Fatalf("asked %+v", seen.recalled)
+		t.Fatalf("received %+v", seen.recalled)
 	}
 	for _, want := range []string{
 		"step 14, thought: A queue needs a worker we do not run.",
@@ -152,12 +152,12 @@ func TestRememberProposesWithAbsolutePaths(t *testing.T) {
 		(!strings.HasPrefix(got.Paths[0], working) && !strings.HasPrefix(got.Paths[0], resolved)) {
 		t.Errorf("paths %v", got.Paths)
 	}
-	if !strings.Contains(out.String(), "waits beside the task for a person to approve it") {
-		t.Errorf("said %q", out.String())
+	if !strings.Contains(out.String(), "waits in the inbox for a person to approve it") {
+		t.Errorf("output %q", out.String())
 	}
 }
 
-func TestRememberShowsWhySpotlightRefusedIt(t *testing.T) {
+func TestRememberShowsWhySpotlightRejectedIt(t *testing.T) {
 	remembering(t, errors.New("A memory is one of rationale, rejected-approach, failure, environment, preference, correction, not gossip"))
 
 	err := run([]string{"remember", "--kind", "gossip", "--body", "Something."}, strings.NewReader(""), new(bytes.Buffer))
@@ -167,7 +167,7 @@ func TestRememberShowsWhySpotlightRefusedIt(t *testing.T) {
 	}
 }
 
-func TestRememberAsksForAKindAndABody(t *testing.T) {
+func TestRememberRequiresAKindAndABody(t *testing.T) {
 	remembering(t, nil)
 
 	for _, args := range [][]string{

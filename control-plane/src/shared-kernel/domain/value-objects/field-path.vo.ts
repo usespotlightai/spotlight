@@ -49,8 +49,8 @@ export class FieldPath {
     );
   }
 
-  static dotted(held: string): FieldPath {
-    const text = held.trim();
+  static dotted(input: string): FieldPath {
+    const text = input.trim();
 
     return new FieldPath(
       text === ''

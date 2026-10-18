@@ -5,7 +5,7 @@ import type {
   AttachmentResponseDto,
   GrantAttachmentUploadRequestDto,
   MoveTaskRequestDto,
-  SayToRunRequestDto,
+  SendMessageRequestDto,
   TaskResponseDto,
   TeamTracesResponseDto,
 } from '@/lib/api';
@@ -15,6 +15,7 @@ import { perWorld, world } from '@/mocks/world';
 import { SAM } from '@/mocks/world/people';
 import { runNetworkOf } from '@/mocks/world/run-network';
 import {
+  addMessage,
   changeStacksOf,
   conversationOf,
   findTask,
@@ -23,7 +24,6 @@ import {
   placeStation,
   readableTask,
   runStationIn,
-  sayTo,
   taskTraceOf,
   teamRunsOf,
   teamTracesOf,
@@ -34,11 +34,11 @@ const UPLOAD_PATH = '/attachment-uploads/:attachmentId';
 
 const uploads = perWorld((): Record<string, AttachmentResponseDto> => ({}));
 
-let minted = 0;
+let idCount = 0;
 
-const mint = (prefix: string) => {
-  minted += 1;
-  return `${prefix}_${Date.now().toString(36)}${minted}`;
+const nextId = (prefix: string) => {
+  idCount += 1;
+  return `${prefix}_${Date.now().toString(36)}${idCount}`;
 };
 
 const attachmentsOf = (ids: readonly string[] = []) =>
@@ -63,7 +63,7 @@ const queueRunAt = (teamId: string, taskId: string, stationId: string) => {
   const now = new Date().toISOString();
   world().runs[taskId] = [
     {
-      id: mint('run'),
+      id: nextId('run'),
       state: 'queued',
       attempt: 1,
       exitCode: null,
@@ -91,8 +91,10 @@ const RANGES = new Set<string>([
 ]);
 
 const rangeFrom = (url: string): TeamTracesResponseDto['range'] => {
-  const asked = new URL(url).searchParams.get('range') ?? '30d';
-  return (RANGES.has(asked) ? asked : '30d') as TeamTracesResponseDto['range'];
+  const requested = new URL(url).searchParams.get('range') ?? '30d';
+  return (
+    RANGES.has(requested) ? requested : '30d'
+  ) as TeamTracesResponseDto['range'];
 };
 
 export const workHandlers: RequestHandler[] = [
@@ -108,7 +110,7 @@ export const workHandlers: RequestHandler[] = [
 
       const body = (await request.json()) as AddTaskRequestDto;
       const task: TaskResponseDto = {
-        id: mint('task'),
+        id: nextId('task'),
         stationId,
         revision: 0,
         title: body.title,
@@ -118,7 +120,7 @@ export const workHandlers: RequestHandler[] = [
         running: false,
         awaitingReview: null,
         pullRequest: null,
-        raisedBy: SAM,
+        createdBy: SAM,
         assignee: null,
         note: null,
       };
@@ -211,7 +213,7 @@ export const workHandlers: RequestHandler[] = [
     json(teamRunsOf(String(params.teamId))),
   ),
 
-  api.get('/teams/:teamId/runs/:runId/conversation', ({ params }) => {
+  api.get('/teams/:teamId/runs/:runId/notes', ({ params }) => {
     const located = locateRun(String(params.teamId), String(params.runId));
     return located ? json(conversationOf(located)) : notFound();
   }),
@@ -228,18 +230,21 @@ export const workHandlers: RequestHandler[] = [
     return located ? json(runMemoriesOf(located.run.id)) : notFound();
   }),
 
-  api.post('/teams/:teamId/runs/:runId/say', async ({ params, request }) => {
-    const located = locateRun(String(params.teamId), String(params.runId));
+  api.post(
+    '/teams/:teamId/runs/:runId/messages',
+    async ({ params, request }) => {
+      const located = locateRun(String(params.teamId), String(params.runId));
 
-    if (!located) {
-      return notFound();
-    }
+      if (!located) {
+        return notFound();
+      }
 
-    const body = (await request.json()) as SayToRunRequestDto;
-    sayTo(located, body.body, attachmentsOf(body.attachments));
+      const body = (await request.json()) as SendMessageRequestDto;
+      addMessage(located, body.body, attachmentsOf(body.attachments));
 
-    return noContent();
-  }),
+      return noContent();
+    },
+  ),
 
   api.post('/teams/:teamId/runs/:runId/stop', ({ params }) => {
     const teamId = String(params.teamId);
@@ -288,7 +293,7 @@ export const workHandlers: RequestHandler[] = [
     }
 
     const body = (await request.json()) as GrantAttachmentUploadRequestDto;
-    const id = mint('attachment');
+    const id = nextId('attachment');
     const contentType = body.contentType ?? 'application/octet-stream';
 
     uploads()[id] = { id, name: body.name, contentType, size: body.size };

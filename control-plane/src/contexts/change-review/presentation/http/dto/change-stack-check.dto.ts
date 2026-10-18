@@ -15,7 +15,7 @@ export class CheckedStepRequestDto {
   readonly output!: string;
 
   @ApiProperty({ example: 42_000 })
-  readonly tookMs!: number;
+  readonly durationMs!: number;
 }
 
 export class SkippedCheckRequestDto {

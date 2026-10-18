@@ -29,7 +29,7 @@ describe('GitHubAppIdentity', () => {
     );
   });
 
-  it('speaks as the App itself', async () => {
+  it('acts as the App itself', async () => {
     const fetching = answering({ slug: 'spotlight-dev' });
     vi.stubGlobal('fetch', fetching);
 
@@ -40,7 +40,7 @@ describe('GitHubAppIdentity', () => {
     expect(init.headers.authorization).toMatch(/^Bearer ey/);
   });
 
-  it('asks once and remembers', async () => {
+  it('requests once and remembers', async () => {
     const fetching = answering({ slug: 'spotlight-dev' });
     vi.stubGlobal('fetch', fetching);
 
@@ -51,7 +51,7 @@ describe('GitHubAppIdentity', () => {
     expect(fetching).toHaveBeenCalledTimes(1);
   });
 
-  it('answers null where GitHub refuses', async () => {
+  it('answers null where GitHub answers with an error', async () => {
     vi.stubGlobal('fetch', answering({}, false));
 
     await expect(new GitHubAppIdentity(env).installUrl()).resolves.toBeNull();

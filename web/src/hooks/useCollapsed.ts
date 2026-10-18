@@ -11,7 +11,7 @@ const readStored = (storageKey: string): string[] => {
   }
 };
 
-const remember = (storageKey: string, ids: readonly string[]) => {
+const store = (storageKey: string, ids: readonly string[]) => {
   try {
     localStorage.setItem(storageKey, JSON.stringify(ids));
   } catch {}
@@ -28,7 +28,7 @@ export function useCollapsed(storageKey: string) {
         ? collapsed.filter((each) => each !== id)
         : [...collapsed, id];
       setCollapsed(next);
-      remember(storageKey, next);
+      store(storageKey, next);
     },
     [collapsed, storageKey],
   );

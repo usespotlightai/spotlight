@@ -51,7 +51,7 @@ type ServerCalls = {
   readonly calls: number;
   readonly failed: number;
   readonly ms: number;
-  readonly refused: string | null;
+  readonly dismissed: string | null;
 };
 
 export type HistoryRun = InsightsRunResponseDto & {
@@ -59,7 +59,7 @@ export type HistoryRun = InsightsRunResponseDto & {
   readonly at: number;
   readonly size: RunSize;
   readonly judge: number | null;
-  readonly skillsGiven: readonly string[];
+  readonly skillsEnabled: readonly string[];
   readonly skillsUsed: readonly string[];
   readonly calls: readonly ServerCalls[];
 };
@@ -174,19 +174,19 @@ const tokensOf = (draw: Draw, profile: Profile, amount: number | null) => {
   };
 };
 
-const givenAnywhere = (profile: Profile, skill: string): boolean =>
+const enabledAnywhere = (profile: Profile, skill: string): boolean =>
   profile.versions.some((version) => version.skills.includes(skill));
 
 const skillsUsedOf = (
   draw: Draw,
   profile: Profile,
-  given: readonly string[],
+  enabled: readonly string[],
 ): string[] =>
   profile.uses
     .filter(
       ([skill, share]) =>
         chance(draw, share) &&
-        (given.includes(skill) || !givenAnywhere(profile, skill)),
+        (enabled.includes(skill) || !enabledAnywhere(profile, skill)),
     )
     .map(([skill]) => skill);
 
@@ -204,12 +204,13 @@ const callsOf = (draw: Draw, profile: Profile): ServerCalls[] =>
         calls,
         failed,
         ms: around(draw, use.p50Ms),
-        refused: use.refusable && chance(draw, 0.04) ? use.refusable : null,
+        dismissed:
+          use.dismissible && chance(draw, 0.04) ? use.dismissible : null,
       };
     });
 
-type Settle =
-  | { readonly kind: 'hand-on'; readonly to: string }
+type Outcome =
+  | { readonly kind: 'pass'; readonly to: string }
   | { readonly kind: 'ask'; readonly to: string | null };
 
 type Ran = {
@@ -223,7 +224,7 @@ const makeRun = (
   task: HistoryTask,
   profile: Profile,
   queuedAt: number,
-  settle: Settle,
+  outcome: Outcome,
   id: string,
 ): Ran => {
   const version = versionAt(profile, queuedAt);
@@ -243,7 +244,7 @@ const makeRun = (
       : null;
   const sentBack =
     ended &&
-    settle.kind === 'ask' &&
+    outcome.kind === 'ask' &&
     (checks === 'failed'
       ? steadily(`${station}:checks-sent-back`, version.sentBack + 0.3)
       : steadily(`${station}:sent-back`, version.sentBack));
@@ -281,28 +282,28 @@ const makeRun = (
       ? (profile.failures[Math.floor(draw() * profile.failures.length)] ?? null)
       : null,
     checks,
-    next:
-      ended && settle.kind === 'ask'
+    firstHumanAction:
+      ended && outcome.kind === 'ask'
         ? {
-            act: sentBack ? 'sent-back' : 'closed',
+            kind: sentBack ? 'sent-back' : 'accepted',
             at: new Date(answeredAt).toISOString(),
           }
         : null,
-    handedOn:
-      onward && settle.to
+    passed:
+      onward && outcome.to
         ? {
-            to: settle.to,
+            to: outcome.to,
             at: new Date(
-              settle.kind === 'ask' ? answeredAt : endedAt,
+              outcome.kind === 'ask' ? answeredAt : endedAt,
             ).toISOString(),
           }
         : null,
-    delivery: null,
+    pullRequestState: null,
     teamId: task.teamId,
     at: endedAt,
     size: weighted(draw, SIZES[profile.stationId] ?? SMALL_ONLY),
     judge: judged === null ? null : Math.round(judged * 100) / 100,
-    skillsGiven: version.skills,
+    skillsEnabled: version.skills,
     skillsUsed: skillsUsedOf(draw, profile, version.skills),
     calls: callsOf(draw, profile),
   };
@@ -310,13 +311,13 @@ const makeRun = (
   return {
     run,
     onward,
-    at: (settle.kind === 'ask' ? answeredAt : endedAt) + 5 * MINUTE_MS,
+    at: (outcome.kind === 'ask' ? answeredAt : endedAt) + 5 * MINUTE_MS,
   };
 };
 
 type Step = {
   readonly stationId: string;
-  readonly settle: Settle;
+  readonly outcome: Outcome;
   readonly attempts?: number;
 };
 
@@ -341,7 +342,7 @@ const chainOf = (
     let onward = false;
     const attempts = step.attempts ?? ATTEMPTS;
     for (let attempt = 0; attempt < attempts && !onward; attempt += 1) {
-      const ran = makeRun(draw, task, profile, at, step.settle, ids());
+      const ran = makeRun(draw, task, profile, at, step.outcome, ids());
       if (ran.run.at > cutoff) {
         return null;
       }
@@ -439,22 +440,22 @@ const tasksThatDay = (draw: Draw, line: LineShape, back: number): number => {
 const deliverySteps: readonly Step[] = [
   {
     stationId: 'station_triage',
-    settle: { kind: 'hand-on', to: 'station_spec' },
+    outcome: { kind: 'pass', to: 'station_spec' },
   },
   {
     stationId: 'station_spec',
-    settle: { kind: 'ask', to: 'station_implementation' },
+    outcome: { kind: 'ask', to: 'station_implementation' },
   },
 ];
 
 const buildStep: Step = {
   stationId: 'station_implementation',
-  settle: { kind: 'ask', to: 'station_review' },
+  outcome: { kind: 'ask', to: 'station_review' },
 };
 
 const reviewStep: Step = {
   stationId: 'station_review',
-  settle: { kind: 'ask', to: 'station_completed' },
+  outcome: { kind: 'ask', to: 'station_completed' },
   attempts: 1,
 };
 
@@ -494,9 +495,9 @@ const pullRequestOf = (
   };
 };
 
-const deliveryOf = (
+const pullRequestStateOf = (
   pullRequest: PullRequestRecord | null,
-): HistoryRun['delivery'] => pullRequest?.state ?? null;
+): HistoryRun['pullRequestState'] => pullRequest?.state ?? null;
 
 const runDeliveryTask = (
   draw: Draw,
@@ -522,12 +523,14 @@ const runDeliveryTask = (
     const reviewed = chainOf(draw, task, [reviewStep], ids, cutoff, runs, at);
     const reviews = runs.slice(before);
     rounds += reviews.length;
-    firstReviewAt ??= reviews[0]?.next ? Date.parse(reviews[0].next.at) : null;
+    firstReviewAt ??= reviews[0]?.firstHumanAction
+      ? Date.parse(reviews[0].firstHumanAction.at)
+      : null;
     if (reviewed !== null) {
       doneAt = reviewed;
     } else {
-      at = reviews.at(-1)?.next
-        ? Date.parse(reviews.at(-1)?.next?.at ?? '')
+      at = reviews.at(-1)?.firstHumanAction
+        ? Date.parse(reviews.at(-1)?.firstHumanAction?.at ?? '')
         : null;
     }
   }
@@ -547,21 +550,24 @@ const runDeliveryTask = (
 };
 
 const experimentSteps: readonly Step[] = [
-  { stationId: 'station_design', settle: { kind: 'ask', to: 'station_build' } },
+  {
+    stationId: 'station_design',
+    outcome: { kind: 'ask', to: 'station_build' },
+  },
   {
     stationId: 'station_build',
-    settle: { kind: 'ask', to: 'station_shipped' },
+    outcome: { kind: 'ask', to: 'station_shipped' },
   },
 ];
 
 const incidentSteps: readonly Step[] = [
   {
     stationId: 'station_investigate',
-    settle: { kind: 'ask', to: 'station_mitigate' },
+    outcome: { kind: 'ask', to: 'station_mitigate' },
   },
   {
     stationId: 'station_mitigate',
-    settle: { kind: 'ask', to: 'station_resolved' },
+    outcome: { kind: 'ask', to: 'station_resolved' },
   },
 ];
 
@@ -585,9 +591,11 @@ const runExperiment = (
   );
   const built = runs
     .slice(before)
-    .find((each) => each.stationId === 'station_build' && each.next);
-  if (built?.next) {
-    const reviewedAt = Date.parse(built.next.at);
+    .find(
+      (each) => each.stationId === 'station_build' && each.firstHumanAction,
+    );
+  if (built?.firstHumanAction) {
+    const reviewedAt = Date.parse(built.firstHumanAction.at);
     task.pullRequest = pullRequestOf(
       draw,
       task,
@@ -645,15 +653,15 @@ const syntheticHistory = (cutoff: number): History => {
     }
   }
 
-  const deliveries = new Map(
-    tasks.map((task) => [task.id, deliveryOf(task.pullRequest)]),
+  const pullRequestStates = new Map(
+    tasks.map((task) => [task.id, pullRequestStateOf(task.pullRequest)]),
   );
 
   return {
     tasks,
     runs: runs.map((run) => ({
       ...run,
-      delivery: deliveries.get(run.taskId) ?? null,
+      pullRequestState: pullRequestStates.get(run.taskId) ?? null,
     })),
   };
 };
@@ -754,7 +762,7 @@ const worldRuns = (
       teamId,
       lineId: lineOf(task.stationId),
       title: task.title,
-      openedBy: task.raisedBy?.id ?? SAM.id,
+      openedBy: task.createdBy?.id ?? SAM.id,
       openedAt: Date.parse(task.createdAt),
       repository: pullRequest?.repository ?? null,
       pullRequest,
@@ -786,7 +794,7 @@ const worldRuns = (
         effort: version.effort,
         profileKey: null,
         repositories: record.repository ? [record.repository] : [],
-        openedBy: task.raisedBy?.id ?? SAM.id,
+        openedBy: task.createdBy?.id ?? SAM.id,
         queuedAt: new Date(startedAt - 40_000).toISOString(),
         startedAt: each.startedAt,
         endedAt: each.updatedAt,
@@ -802,20 +810,20 @@ const worldRuns = (
             ? 'failed'
             : 'passed'
           : null,
-        next:
+        firstHumanAction:
           answeredAt === null
             ? null
-            : { act: 'closed', at: new Date(answeredAt).toISOString() },
-        handedOn:
+            : { kind: 'accepted', at: new Date(answeredAt).toISOString() },
+        passed:
           each.state === 'completed' && later?.station
             ? { to: later.station.id, at: later.startedAt }
             : null,
-        delivery: record.pullRequest?.state ?? null,
+        pullRequestState: record.pullRequest?.state ?? null,
         teamId,
         at: endedAt,
         size: profile.checks ? 'medium' : 'small',
         judge: null,
-        skillsGiven: version.skills,
+        skillsEnabled: version.skills,
         skillsUsed: skillsUsedOf(draw, profile, version.skills),
         calls: callsOf(draw, profile),
       });
@@ -870,25 +878,25 @@ const namedRunOf = (
           : 'completed',
     failure: past.shape === 'failed' ? 'The agent ran out of turns' : null,
     checks: ended ? (past.shape === 'sent-back' ? 'failed' : 'passed') : null,
-    next:
+    firstHumanAction:
       past.shape === 'accepted'
-        ? { act: 'closed', at: later(0.6) }
+        ? { kind: 'accepted', at: later(0.6) }
         : past.shape === 'sent-back'
-          ? { act: 'sent-back', at: later(1.5) }
+          ? { kind: 'sent-back', at: later(1.5) }
           : null,
-    handedOn:
-      past.shape === 'accepted' || past.shape === 'handed'
+    passed:
+      past.shape === 'accepted' || past.shape === 'passed'
         ? {
             to: 'station_review',
             at: reviewAt(past.shape === 'accepted' ? 0.6 : 0.4),
           }
         : null,
-    delivery: null,
+    pullRequestState: null,
     teamId: PLATFORM_ID,
     at: endedAt,
     size: 'medium',
     judge: null,
-    skillsGiven: version.skills,
+    skillsEnabled: version.skills,
     skillsUsed: skillsUsedOf(draw, profile, version.skills),
     calls: [],
   };
@@ -919,8 +927,10 @@ const namedHistory = (): History => {
       const first = Math.min(
         ...runs.map((run) => Date.parse(run.startedAt ?? '')),
       );
-      const shipped = runs.find((run) => run.next?.act === 'closed');
-      const delivered = runs.some((run) => run.handedOn || run.next);
+      const shipped = runs.find(
+        (run) => run.firstHumanAction?.kind === 'accepted',
+      );
+      const delivered = runs.some((run) => run.passed || run.firstHumanAction);
       const pullRequest: PullRequestRecord | null = delivered
         ? {
             repository: 'acme/api',
@@ -929,8 +939,8 @@ const namedHistory = (): History => {
             type: 'feature',
             openedAt: Math.min(...runs.map((run) => run.at)) + MINUTE_MS,
             firstReviewAt: null,
-            closedAt: shipped?.next
-              ? Date.parse(shipped.next.at) + 2 * HOUR_MS
+            closedAt: shipped?.firstHumanAction
+              ? Date.parse(shipped.firstHumanAction.at) + 2 * HOUR_MS
               : null,
             state: shipped ? 'merged' : 'open',
             reviewRounds: runs.length,
@@ -956,7 +966,7 @@ const namedHistory = (): History => {
           ...made.runs,
           ...runs.map((run) => ({
             ...run,
-            delivery: deliveryOf(pullRequest),
+            pullRequestState: pullRequestStateOf(pullRequest),
           })),
         ],
         tasks: [...made.tasks, task],

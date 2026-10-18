@@ -7,7 +7,7 @@ import type { WorkspaceTokenTrustRepository } from '@identity/domain/repositorie
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { WorkloadTokensPort } from '@shared-kernel/application/ports/workload-tokens.port';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
@@ -21,7 +21,7 @@ const ISSUER = 'https://token.actions.githubusercontent.com';
 const MAIN = 'repo:acme/platform:ref:refs/heads/main';
 const NOW = new Date('2026-09-25T10:00:00.000Z');
 
-const TERMS = {
+const SPEC = {
   id: WorkspaceTokenTrustId.of('trust_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   key: TokenTrustKey.of('github-main'),
@@ -33,23 +33,23 @@ const TERMS = {
   }),
   scopes: TokenScopes.named(['configure']),
   lifetime: TokenLifetime.ofMinutes(15),
-  definedBy: UserId.of('admin_1'),
+  createdBy: UserId.of('admin_1'),
 };
 
-const TRUST = WorkspaceTokenTrust.rehydrate({ ...TERMS, version: 0 });
+const TRUST = WorkspaceTokenTrust.rehydrate({ ...SPEC, version: 0 });
 
 const CLAIMS: WorkloadClaims = {
   issuer: ISSUER,
   subject: MAIN,
   audiences: ['spotlight'],
-  named: {},
+  customClaims: {},
 };
 
 const exchanging = (
   over: {
     trust?: WorkspaceTokenTrust | null;
     claims?: WorkloadClaims | null;
-    held?: WorkspaceTokenTrust | null;
+    locked?: WorkspaceTokenTrust | null;
     adding?: Error;
   } = {},
 ) => {
@@ -64,14 +64,16 @@ const exchanging = (
   const handler = new ExchangeWorkloadTokenHandler(
     {
       find: vi.fn(async () => (over.trust === undefined ? TRUST : over.trust)),
-      holding: vi.fn(async () => (over.held === undefined ? TRUST : over.held)),
+      findLocked: vi.fn(async () =>
+        over.locked === undefined ? TRUST : over.locked,
+      ),
     } as unknown as WorkspaceTokenTrustRepository,
     { add } as unknown as WorkspaceTokenRepository,
     { verify } satisfies WorkloadTokensPort,
     { generate: () => 'token_1' },
     {
-      mint: () => ({ token: 'minted-token', hash: 'c'.repeat(64) }),
-    } as unknown as TokenMintPort,
+      issue: () => ({ token: 'issued-token', hash: 'c'.repeat(64) }),
+    } as unknown as TokenIssuer,
     { now: () => NOW, sleep: async () => {} },
     { inTransaction: (work) => work() },
   );
@@ -87,11 +89,11 @@ const exchanging = (
 };
 
 describe('ExchangeWorkloadTokenHandler', () => {
-  it('verifies the workload against the trust’s issuer and audience, and mints a token for it that expires as the token itself does', async () => {
+  it('verifies the workload against the trust’s issuer and audience, and issues a token for it that expires as the token itself does', async () => {
     const { exchange, verify, add } = exchanging();
 
     expect(await exchange()).toEqual({
-      token: 'minted-token',
+      token: 'issued-token',
       tokenId: 'token_1',
       workspaceId: 'ws_1',
       scopes: ['configure'],
@@ -104,21 +106,21 @@ describe('ExchangeWorkloadTokenHandler', () => {
     expect(add).toHaveBeenCalledOnce();
   });
 
-  it('mints nothing through a trust that does not exist', async () => {
+  it('issues nothing through a trust that does not exist', async () => {
     const { exchange, verify } = exchanging({ trust: null });
 
     expect(await exchange()).toBeNull();
     expect(verify).not.toHaveBeenCalled();
   });
 
-  it('mints nothing for a token its issuer did not sign', async () => {
+  it('issues nothing for a token its issuer did not sign', async () => {
     const { exchange, add } = exchanging({ claims: null });
 
     expect(await exchange()).toBeNull();
     expect(add).not.toHaveBeenCalled();
   });
 
-  it('mints nothing for a workload the trust does not admit', async () => {
+  it('issues nothing for a workload the trust does not match', async () => {
     const { exchange, add } = exchanging({
       claims: { ...CLAIMS, subject: 'repo:acme/platform:pull_request' },
     });
@@ -127,12 +129,12 @@ describe('ExchangeWorkloadTokenHandler', () => {
     expect(add).not.toHaveBeenCalled();
   });
 
-  it('mints nothing through a trust withdrawn, or changed to refuse the workload, while it was verified', async () => {
-    expect(await exchanging({ held: null }).exchange()).toBeNull();
+  it('issues nothing through a trust deleted, or changed to deny the workload, while it was verified', async () => {
+    expect(await exchanging({ locked: null }).exchange()).toBeNull();
     expect(
       await exchanging({
-        held: WorkspaceTokenTrust.rehydrate({
-          ...TERMS,
+        locked: WorkspaceTokenTrust.rehydrate({
+          ...SPEC,
           workload: WorkloadRule.of({
             issuer: ISSUER,
             audience: 'spotlight',
@@ -145,7 +147,7 @@ describe('ExchangeWorkloadTokenHandler', () => {
     ).toBeNull();
   });
 
-  it('mints nothing into a workspace closed while it minted', async () => {
+  it('issues nothing into a workspace deleted while it issued', async () => {
     expect(
       await exchanging({
         adding: new NoSuchWorkspaceError('ws_1'),
@@ -153,7 +155,7 @@ describe('ExchangeWorkloadTokenHandler', () => {
     ).toBeNull();
   });
 
-  it('mints nothing for an empty token', async () => {
+  it('issues nothing for an empty token', async () => {
     const { exchange, verify } = exchanging();
 
     expect(await exchange('  ')).toBeNull();

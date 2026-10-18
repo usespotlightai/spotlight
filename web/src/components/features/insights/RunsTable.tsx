@@ -1,13 +1,14 @@
-import { Noted } from '@/components/shared/Noted';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
   EDGE_INDENT,
   ROW_DIVIDER,
 } from '@/components/shared/nested-table/nested-rows';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { HarnessResponseDto } from '@/lib/api';
 import {
+  formatDurationOrNone,
   formatHarness,
   formatModel,
   formatPerson,
@@ -15,13 +16,12 @@ import {
   formatStation,
   INSIGHTS_RUN_HEADINGS,
   type InsightsRun,
-  lastedOrNone,
   type PersonName,
   type StationNames,
 } from '@/lib/insights';
 import { runPath } from '@/lib/run';
 import { since } from '@/lib/since';
-import { endedBadly, formatEnding } from '@/lib/station-outcomes';
+import { endedBadly, formatEnding } from '@/lib/station-insights';
 import { cn } from '@/lib/utils';
 
 type RunsTableProps = {
@@ -67,9 +67,9 @@ export function RunsTable({
           </span>
           <NestedCell heading="Failure" numeric={false}>
             {run.failure ? (
-              <Noted note={run.failure}>
+              <WithTooltip tooltip={run.failure}>
                 <span className="relative block truncate">{run.failure}</span>
-              </Noted>
+              </WithTooltip>
             ) : (
               '–'
             )}
@@ -80,10 +80,12 @@ export function RunsTable({
           <NestedCell heading="Person" numeric={false}>
             {formatPerson(people, run.openedBy)}
           </NestedCell>
-          <NestedCell heading="Setup" numeric={false}>
+          <NestedCell heading="Agent config" numeric={false}>
             {formatHarness(harnesses, run.harness)} · {formatModel(run.model)}
           </NestedCell>
-          <NestedCell heading="Took">{lastedOrNone(run.ms)}</NestedCell>
+          <NestedCell heading="Duration">
+            {formatDurationOrNone(run.ms)}
+          </NestedCell>
           <NestedCell heading="Cost" strong>
             {formatSpend(run.cost)}
           </NestedCell>

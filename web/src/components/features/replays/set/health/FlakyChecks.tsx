@@ -22,7 +22,7 @@ export function FlakyChecks({ slug, teamId, set, checks }: FlakyChecksProps) {
         key: flaky.runId,
         title: taskTitleIn(set, flaky.taskId),
         to: runPath(slug, teamId, flaky.runId),
-        said: formatFlakyCheck(flaky),
+        text: formatFlakyCheck(flaky),
       }))}
     />
   );

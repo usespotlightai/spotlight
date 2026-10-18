@@ -5,11 +5,11 @@ import type {
 import { minutesAfter, runEnded } from '@/mocks/world/inbox-places';
 import { MAYA, TOM } from '@/mocks/world/people';
 import {
-  DISK_DUMPS_SAID,
+  DISK_DUMPS_MESSAGE,
   DRAIN_ANSWER,
   GONE_REMEMBER,
   GONE_THOUGHT,
-  groundStep,
+  provenanceStep,
 } from '@/mocks/world/work-stories';
 
 const RUN_ID = 'run_retries_2';
@@ -25,9 +25,9 @@ const proposed = (
   over: Partial<ProposedMemoryResponseDto> &
     Pick<ProposedMemoryResponseDto, 'id' | 'kind' | 'body' | 'source'>,
 ): ProposedMemoryResponseDto => ({
-  origin: 'drafted',
+  proposedBy: 'drafter',
   state: 'proposed',
-  reach: 'team',
+  scope: 'team',
   repository: null,
   paths: [],
   supersedes: null,
@@ -70,27 +70,27 @@ export const seedMemoryReviews = (): Record<
         id: 'memory_gone',
         kind: 'rationale',
         source: 'run',
-        origin: 'remembered',
+        proposedBy: 'agent',
         state: 'approved',
         decision: {
           by: MAYA.id,
           name: MAYA.name,
           at: minutesAfter(runEnded(RUN_ID), 20),
         },
-        reach: 'station',
+        scope: 'station',
         repository: 'acme/worker',
         paths: ['src/retries/deliver.ts'],
         body: 'A 410 Gone from a webhook endpoint is permanent, so its deliveries are dropped rather than retried.',
         steps: [
-          groundStep(RUN_ID, GONE_THOUGHT),
-          groundStep(RUN_ID, GONE_REMEMBER, 'remember'),
+          provenanceStep(RUN_ID, GONE_THOUGHT),
+          provenanceStep(RUN_ID, GONE_REMEMBER, 'remember'),
         ],
       }),
       proposed({
         id: 'memory_redeploy_check',
         kind: 'failure',
         source: 'outside',
-        reach: 'line',
+        scope: 'line',
         repository: 'acme/worker',
         body: 'After the queue worker is redeployed, check the retry queues for jobs that never ran; a redeploy can leave them stranded.',
         notes: [
@@ -112,21 +112,21 @@ export const seedMemoryReviews = (): Record<
         id: 'memory_crash_dumps',
         kind: 'environment',
         source: 'run',
-        origin: 'remembered',
+        proposedBy: 'agent',
         state: 'approved',
-        reach: 'station',
+        scope: 'station',
         repository: 'acme/infra',
         paths: ['terraform/workers/eu-west-1.tf'],
         body: 'Workers in eu-west-1 write core dumps to /var/crash; clear them before resizing a disk, or the resize fills up again within a day.',
         decision: decidedByTom(70),
-        steps: [groundStep(DISK_RUN_ID, DISK_DUMPS_SAID)],
+        steps: [provenanceStep(DISK_RUN_ID, DISK_DUMPS_MESSAGE)],
       }),
       proposed({
         id: 'memory_disk_size',
         kind: 'preference',
         source: 'run',
         state: 'rejected',
-        reach: 'line',
+        scope: 'line',
         repository: 'acme/infra',
         body: 'Size eu-west-1 worker disks at 200 GB, double the other regions.',
         decision: decidedByTom(72),

@@ -33,7 +33,7 @@ export class WorkspaceArchivesWorker implements OnModuleDestroy {
 
   private async removed(): Promise<void> {
     try {
-      await this.released.workDue();
+      await this.released.processDue();
     } catch (error) {
       this.logger.error({ err: error }, this.released.name);
     }

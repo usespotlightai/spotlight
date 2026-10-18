@@ -56,7 +56,7 @@ describe('ChatProposal', () => {
     expect(screen.getByText('Waiting for your approval')).toBeInTheDocument();
   });
 
-  it('creates the proposed task when asked', async () => {
+  it('creates the proposed task on request', async () => {
     showing();
 
     await userEvent.click(screen.getByRole('button', { name: 'Create task' }));
@@ -68,7 +68,7 @@ describe('ChatProposal', () => {
     });
   });
 
-  it('turns the proposal down when asked', async () => {
+  it('turns the proposal down on request', async () => {
     showing();
 
     await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }));

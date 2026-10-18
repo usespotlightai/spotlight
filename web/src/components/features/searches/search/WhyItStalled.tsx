@@ -15,9 +15,9 @@ import {
   formatCauseAction,
   formatCauseMeaning,
   formatCauseTitle,
+  formatIncumbent,
   formatReflectionLooked,
-  formatReflectionOutcome,
-  formatStanding,
+  formatReflectionResult,
   formatWhyItStalled,
   REFLECTION_LOOKING,
   UNCAUSED_NOTE,
@@ -28,14 +28,14 @@ type WhyItStalledProps = {
   at: ReplayedStation;
   iteration: SearchDetail['iterations'][number];
   set: ReplaySet | undefined;
-  standing: SearchCandidate | null;
+  incumbent: SearchCandidate | null;
 };
 
 export function WhyItStalled({
   at,
   iteration,
   set,
-  standing,
+  incumbent,
 }: WhyItStalledProps) {
   const reflection = iteration.reflection;
   const looking = reflecting(iteration);
@@ -51,12 +51,12 @@ export function WhyItStalled({
         className="flex flex-col gap-3"
       >
         <div className="flex flex-col gap-1 text-sm leading-6">
-          {standing && (
-            <p data-slot="reflection-standing" className="text-foreground">
-              {formatStanding(standing)}
+          {incumbent && (
+            <p data-slot="reflection-incumbent" className="text-foreground">
+              {formatIncumbent(incumbent)}
             </p>
           )}
-          {looking || !reflection?.outcome ? (
+          {looking || !reflection?.result ? (
             <p className="text-muted-foreground">{REFLECTION_LOOKING}</p>
           ) : (
             <>
@@ -65,8 +65,8 @@ export function WhyItStalled({
                   {formatReflectionLooked(reflection.tasks.length)}
                 </p>
               )}
-              <p data-slot="reflection-outcome" className="text-foreground">
-                {formatReflectionOutcome(reflection.outcome)}
+              <p data-slot="reflection-result" className="text-foreground">
+                {formatReflectionResult(reflection.result)}
               </p>
             </>
           )}

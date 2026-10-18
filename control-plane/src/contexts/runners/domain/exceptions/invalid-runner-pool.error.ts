@@ -1,5 +1,5 @@
 export class InvalidRunnerPoolError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(
     readonly field: string,

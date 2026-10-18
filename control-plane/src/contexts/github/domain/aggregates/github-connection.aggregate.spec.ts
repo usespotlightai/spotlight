@@ -1,8 +1,8 @@
 import { GitHubConnection } from '@github/domain/aggregates/github-connection.aggregate';
 import { WorkspaceConnected } from '@github/domain/events/workspace-connected.event';
 import { WorkspaceDisconnected } from '@github/domain/events/workspace-disconnected.event';
-import { InstallationClaimedError } from '@github/domain/exceptions/installation-claimed.error';
-import { NotYoursToConnectError } from '@github/domain/exceptions/not-yours-to-connect.error';
+import { ConnectForbiddenError } from '@github/domain/exceptions/connect-forbidden.error';
+import { InstallationAlreadyConnectedError } from '@github/domain/exceptions/installation-already-connected.error';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -14,9 +14,9 @@ const INSTALLED = GitHubInstallation.of('42');
 const REINSTALLED = GitHubInstallation.of('43');
 
 const allowed = {
-  workspaceAdministered: true,
-  installationAdministered: true,
-  claimedBy: null,
+  isWorkspaceAdmin: true,
+  isInstallationAdmin: true,
+  connectedWorkspace: null,
 };
 
 const none = () => GitHubConnection.none(WORKSPACE);
@@ -29,7 +29,7 @@ const connected = () =>
   });
 
 describe('GitHubConnection', () => {
-  it('reaches no installation until somebody connects one', () => {
+  it('has no installation until somebody connects one', () => {
     expect(none().installation).toBeNull();
     expect(none().isConnected).toBe(false);
   });
@@ -53,45 +53,50 @@ describe('GitHubConnection', () => {
     expect(connected().connectTo(REINSTALLED, allowed).version).toBe(3);
   });
 
-  it('leaves the connection it was asked of unchanged', () => {
+  it('leaves the connection it was queried for unchanged', () => {
     const connection = none();
     connection.connectTo(INSTALLED, allowed);
 
     expect(connection.installation).toBeNull();
   });
 
-  it('refuses somebody who does not administer the workspace', () => {
+  it('denies somebody who is not an admin of the workspace', () => {
     expect(() =>
       none().connectTo(INSTALLED, {
         ...allowed,
-        workspaceAdministered: false,
+        isWorkspaceAdmin: false,
       }),
-    ).toThrow(NotYoursToConnectError);
+    ).toThrow(ConnectForbiddenError);
   });
 
-  it('refuses an installation the caller does not administer on GitHub', () => {
+  it('denies an installation when the caller is not its admin on GitHub', () => {
     expect(() =>
       none().connectTo(INSTALLED, {
         ...allowed,
-        installationAdministered: false,
+        isInstallationAdmin: false,
       }),
-    ).toThrow(NotYoursToConnectError);
+    ).toThrow(ConnectForbiddenError);
   });
 
-  it('refuses an installation another workspace already holds', () => {
+  it('denies an installation another workspace already has', () => {
     expect(() =>
-      none().connectTo(INSTALLED, { ...allowed, claimedBy: ELSEWHERE }),
-    ).toThrow(InstallationClaimedError);
+      none().connectTo(INSTALLED, {
+        ...allowed,
+        connectedWorkspace: ELSEWHERE,
+      }),
+    ).toThrow(InstallationAlreadyConnectedError);
   });
 
-  it('takes again an installation it already holds itself', () => {
+  it('takes again an installation it already has itself', () => {
     expect(
-      connected().connectTo(INSTALLED, { ...allowed, claimedBy: WORKSPACE })
-        .installation,
+      connected().connectTo(INSTALLED, {
+        ...allowed,
+        connectedWorkspace: WORKSPACE,
+      }).installation,
     ).toEqual(INSTALLED);
   });
 
-  it('refuses to read back a connection that was never written', () => {
+  it('does not read back a connection that was never written', () => {
     expect(() =>
       GitHubConnection.rehydrate({
         workspaceId: WORKSPACE,
@@ -117,7 +122,7 @@ describe('GitHubConnection', () => {
       expect(connection.disconnectFrom(REINSTALLED)).toBe(connection);
     });
 
-    it('says nothing where it held nothing', () => {
+    it('says nothing where it had nothing', () => {
       const connection = none();
 
       expect(connection.disconnectFrom(INSTALLED)).toBe(connection);

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { placementMet } from '@platform/persistence/drizzle/placement-met';
+import { placementMatches } from '@platform/persistence/drizzle/placement-matches';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -28,12 +28,12 @@ import type {
 import { ClaimOrder } from '@work/domain/services/claim-order';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { HandBacks } from '@work/domain/value-objects/hand-backs.vo';
+import { RequeueCount } from '@work/domain/value-objects/requeue-count.vo';
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import {
-  HELD_RUN_STATES,
+  LEASED_RUN_STATES,
   type RunState,
   TERMINAL_RUN_STATES,
 } from '@work/domain/value-objects/run-state';
@@ -58,15 +58,15 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-const wearsNoSecrets = sql`coalesce(jsonb_array_length(${run.spec} -> 'wears'), 0) = 0
+const injectsNoSecrets = sql`coalesce(jsonb_array_length(${run.spec} -> 'injectedSecrets'), 0) = 0
   AND coalesce((${run.spec} ->> 'spotlightApi')::boolean, false) = false`;
 
-const noEarlierRunStillHeld = sql`NOT EXISTS (
+const noEarlierRunStillLeased = sql`NOT EXISTS (
   SELECT 1 FROM ${run} AS earlier
   WHERE earlier.task_id = ${run.taskId}
     AND earlier.id <> ${run.id}
     AND earlier.state IN (${sql.join(
-      HELD_RUN_STATES.map((each) => sql`${each}`),
+      LEASED_RUN_STATES.map((each) => sql`${each}`),
       sql`, `,
     )})
 )`;
@@ -88,14 +88,14 @@ export class DrizzleRunRepository implements RunRepository {
     private readonly events: DomainEventDispatcher,
   ) {}
 
-  async add(added: Run, kept: RunExtras = {}): Promise<void> {
+  async add(added: Run, extras: RunExtras = {}): Promise<void> {
     await this.context.inTransaction(async () => {
-      await this.inserted(added, kept);
+      await this.inserted(added, extras);
       await this.events.dispatch(added.pullEvents());
     });
   }
 
-  private async inserted(added: Run, kept: RunExtras): Promise<void> {
+  private async inserted(added: Run, extras: RunExtras): Promise<void> {
     await this.context.db.insert(run).values({
       id: added.id.value,
       workspaceId: added.workspaceId.value,
@@ -115,13 +115,13 @@ export class DrizzleRunRepository implements RunRepository {
       message: added.outcome?.message ?? null,
       failure: added.outcome?.failure?.code ?? null,
       stopped: added.outcome?.stopped ?? false,
-      placement: added.placement.clauses,
+      placement: added.placement.labelGroups,
       placementImage: added.placement.image?.value ?? null,
       briefedMemories: added.briefedWith.value,
       endedAt: endedAtFor(added.state, sql`now()`),
       stationFingerprint: added.configuredAs?.fingerprint ?? null,
       stationConfig: added.configuredAs?.parts ?? null,
-      briefedTask: kept.briefed?.parts ?? null,
+      briefedTask: extras.briefed?.parts ?? null,
       askedAPerson: added.askedAPerson,
       ...startOf(added),
       ...reservationOf(added),
@@ -148,8 +148,8 @@ export class DrizzleRunRepository implements RunRepository {
               : sql`(reserved_for IS NULL OR reserved_for = ${by.runner.value} OR reserved_until <= ${now.toISOString()}::timestamp)`
           }
           AND (claimable_from IS NULL OR claimable_from <= ${now.toISOString()}::timestamp)
-          AND ${placementMet(run.placement, run.placementImage, by.terms)}
-          AND ${noEarlierRunStillHeld}
+          AND ${placementMatches(run.placement, run.placementImage, by.offer)}
+          AND ${noEarlierRunStillLeased}
         ORDER BY priority DESC, created_at
         FOR UPDATE SKIP LOCKED
         LIMIT 1
@@ -207,7 +207,7 @@ export class DrizzleRunRepository implements RunRepository {
         startedAt: saved.startedAt,
         endedAt: endedAtFor(saved.state, sql`coalesce(${run.endedAt}, now())`),
         spec: RunSpecContract.toWire(saved.spec),
-        parkedAttempts: [...saved.parkedAttempts],
+        suspendedAttempts: [...saved.suspendedAttempts],
         askedAPerson: saved.askedAPerson,
         ...(saved.state === 'queued'
           ? {
@@ -225,10 +225,10 @@ export class DrizzleRunRepository implements RunRepository {
     }
   }
 
-  async lapsedClaims(now: Date): Promise<readonly Run[]> {
+  async expiredLeases(now: Date): Promise<readonly Run[]> {
     const rows = await this.selected().where(
       and(
-        inArray(run.state, [...HELD_RUN_STATES]),
+        inArray(run.state, [...LEASED_RUN_STATES]),
         lte(run.leaseExpiresAt, now),
       ),
     );
@@ -259,10 +259,13 @@ export class DrizzleRunRepository implements RunRepository {
           eq(run.workspaceId, workspaceId.value),
           eq(run.state, 'queued'),
           isNull(run.reservedFor),
-          page.withSecrets ? undefined : wearsNoSecrets,
-          or(isNull(run.nextProvisionAt), lte(run.nextProvisionAt, now)),
+          page.withSecrets ? undefined : injectsNoSecrets,
+          or(
+            isNull(run.nextProvisionAttemptAt),
+            lte(run.nextProvisionAttemptAt, now),
+          ),
           or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
-          noEarlierRunStillHeld,
+          noEarlierRunStillLeased,
         ),
       )
       .orderBy(desc(run.priority), run.createdAt, run.id)
@@ -272,7 +275,7 @@ export class DrizzleRunRepository implements RunRepository {
     return rows.map(toRun);
   }
 
-  async withLapsedReservations(now: Date): Promise<readonly Run[]> {
+  async withExpiredReservations(now: Date): Promise<readonly Run[]> {
     const rows = await this.selected().where(
       and(eq(run.state, 'queued'), lte(run.reservedUntil, now)),
     );
@@ -289,11 +292,11 @@ export class DrizzleRunRepository implements RunRepository {
   }
 }
 
-const startOf = (held: Run) => ({
-  startedFromArchiveId: held.startedFrom?.archive?.value ?? null,
-  startedFromCheckouts: held.startedFrom?.parts.checkouts ?? null,
-  startedFromAttempt: held.startedFrom?.attempt ?? null,
-  startedFromAt: held.startedFrom?.at ?? null,
+const startOf = (saving: Run) => ({
+  startedFromArchiveId: saving.startedFrom?.archive?.value ?? null,
+  startedFromCheckouts: saving.startedFrom?.parts.checkouts ?? null,
+  startedFromAttempt: saving.startedFrom?.attempt ?? null,
+  startedFromAt: saving.startedFrom?.at ?? null,
 });
 
 const configuredFrom = (row: Row): StationConfig | null => {
@@ -304,7 +307,7 @@ const configuredFrom = (row: Row): StationConfig | null => {
   if (row.stationConfig === null || row.stationFingerprint === null) {
     throw new InconsistentStateError(
       'run',
-      `keeps only half of its station config (${row.id})`,
+      `stores only half of its station config (${row.id})`,
     );
   }
 
@@ -342,14 +345,14 @@ const startFrom = (row: Row): StartingPoint | null => {
   });
 };
 
-const reservationOf = (held: Run) => ({
-  reservedFor: held.reservation?.runner.value ?? null,
-  reservedPool: held.reservation?.pool.value ?? null,
-  reservedUntil: held.reservation?.until ?? null,
-  provisionFailures: held.provisioning.failures,
-  nextProvisionAt: held.provisioning.nextAt,
-  handBacks: held.handBacks.count,
-  claimableFrom: held.handBacks.claimableFrom,
+const reservationOf = (saving: Run) => ({
+  reservedFor: saving.reservation?.runner.value ?? null,
+  reservedPool: saving.reservation?.pool.value ?? null,
+  reservedUntil: saving.reservation?.until ?? null,
+  provisionAttempts: saving.provisioning.attempts,
+  nextProvisionAttemptAt: saving.provisioning.nextAttemptAt,
+  requeueCount: saving.requeueCount.count,
+  claimableFrom: saving.requeueCount.claimableFrom,
 });
 
 const reservationFrom = (row: Row): RunnerReservation | null =>
@@ -386,7 +389,7 @@ const toRun = ({ run: row, replayedTaskId }: Selected): Run =>
           : SearchIteration.of(row.searchIteration),
     }),
     spec: RunSpecContract.from(row.spec),
-    placement: RunnerPlacement.ofClauses(
+    placement: RunnerPlacement.ofLabelGroups(
       row.placement,
       row.placementImage ? RunnerImage.of(row.placementImage) : null,
     ),
@@ -396,8 +399,8 @@ const toRun = ({ run: row, replayedTaskId }: Selected): Run =>
     stopRequestedAt: row.stopRequestedAt,
     reservation: reservationFrom(row),
     provisioning: Provisioning.rehydrate(
-      row.provisionFailures,
-      row.nextProvisionAt,
+      row.provisionAttempts,
+      row.nextProvisionAttemptAt,
     ),
     outcome:
       row.exitCode === null
@@ -409,12 +412,12 @@ const toRun = ({ run: row, replayedTaskId }: Selected): Run =>
             stopped: row.stopped,
           }),
     attempt: row.attempt,
-    handBacks: HandBacks.rehydrate(row.handBacks, row.claimableFrom),
+    requeueCount: RequeueCount.rehydrate(row.requeueCount, row.claimableFrom),
     ranIn: row.ranIn ? RunnerImage.of(row.ranIn) : null,
     briefedWith: row.briefedMemories
       ? BriefedMemories.of(row.briefedMemories)
       : BriefedMemories.none(),
-    parkedAttempts: row.parkedAttempts,
+    suspendedAttempts: row.suspendedAttempts,
     configuredAs: configuredFrom(row),
     startedAt: row.startedAt,
     startedFrom: startFrom(row),

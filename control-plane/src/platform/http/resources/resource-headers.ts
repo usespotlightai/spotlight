@@ -38,7 +38,7 @@ export const headerIn = (
   headers: RequestHeaders,
   name: string,
 ): string | undefined => {
-  const held = headers[name.toLowerCase()];
+  const value = headers[name.toLowerCase()];
 
-  return Array.isArray(held) ? held[0] : held;
+  return Array.isArray(value) ? value[0] : value;
 };

@@ -33,7 +33,7 @@ describe('WorkspaceSlug', () => {
     );
   });
 
-  it('takes a slug exactly as written only when that is how it is kept', () => {
+  it('takes a slug exactly as written only when that is how it is stored', () => {
     expect(WorkspaceSlug.exactly('acme-inc').value).toBe('acme-inc');
     expect(() => WorkspaceSlug.exactly('Acme-Inc')).toThrow(
       /must be lowercase, as in acme-inc/,

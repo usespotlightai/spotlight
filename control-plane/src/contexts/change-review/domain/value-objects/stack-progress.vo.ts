@@ -1,53 +1,53 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
-export const CHANGE_STACK_STATES = ['drafting', 'ready', 'failed'] as const;
+export const CHANGE_STACK_STATES = ['generating', 'ready', 'failed'] as const;
 
 export type ChangeStackState = (typeof CHANGE_STACK_STATES)[number];
 
-export const INTERRUPTED = 'Drafting was interrupted before it finished.';
+export const INTERRUPTED = 'Generation was interrupted before it finished.';
 
 export class StackProgress {
   private constructor(
     readonly state: ChangeStackState,
     readonly failure: string | null,
-    readonly draftedAt: Date,
-    readonly settledAt: Date | null,
+    readonly startedAt: Date,
+    readonly completedAt: Date | null,
   ) {}
 
-  static drafting(draftedAt: Date): StackProgress {
-    return new StackProgress('drafting', null, draftedAt, null);
+  static generating(startedAt: Date): StackProgress {
+    return new StackProgress('generating', null, startedAt, null);
   }
 
   static rehydrate(input: {
     state: ChangeStackState;
     failure: string | null;
-    draftedAt: Date;
-    settledAt: Date | null;
+    startedAt: Date;
+    completedAt: Date | null;
   }): StackProgress {
-    if ((input.state === 'drafting') !== (input.settledAt === null)) {
+    if ((input.state === 'generating') !== (input.completedAt === null)) {
       throw new InconsistentStateError(
         'change stack',
-        'is settled and drafting at once',
+        'is completed and generating at once',
       );
     }
 
     return new StackProgress(
       input.state,
       input.failure,
-      input.draftedAt,
-      input.settledAt,
+      input.startedAt,
+      input.completedAt,
     );
   }
 
-  settled(
-    state: Exclude<ChangeStackState, 'drafting'>,
+  complete(
+    state: Exclude<ChangeStackState, 'generating'>,
     now: Date,
     change: { failure?: string } = {},
   ): StackProgress {
     return new StackProgress(
       state,
       change.failure ?? null,
-      this.draftedAt,
+      this.startedAt,
       now,
     );
   }

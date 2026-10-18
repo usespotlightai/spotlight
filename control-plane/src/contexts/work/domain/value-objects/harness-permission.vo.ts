@@ -74,7 +74,10 @@ export class HarnessPermission {
     return `${this.harness.value} ${this.kind}`;
   }
 
-  get given(): readonly { readonly name: string; readonly value: string }[] {
+  get writtenInputs(): readonly {
+    readonly name: string;
+    readonly value: string;
+  }[] {
     return [
       { name: 'title', value: this.title },
       ...(this.input ? [{ name: 'input', value: this.input }] : []),

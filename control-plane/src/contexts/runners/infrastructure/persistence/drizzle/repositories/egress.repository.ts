@@ -5,8 +5,8 @@ import {
   violates,
 } from '@platform/persistence/drizzle/violations';
 import { Egress } from '@runners/domain/aggregates/egress.aggregate';
-import { EgressAlreadyDefinedError } from '@runners/domain/exceptions/egress-already-defined.error';
-import { EgressTokenTakenError } from '@runners/domain/exceptions/egress-token-taken.error';
+import { EgressAlreadyExistsError } from '@runners/domain/exceptions/egress-already-exists.error';
+import { EgressTokenInUseError } from '@runners/domain/exceptions/egress-token-in-use.error';
 import { EgressVersionConflictError } from '@runners/domain/exceptions/egress-version-conflict.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
@@ -23,11 +23,11 @@ import { and, eq, type SQL } from 'drizzle-orm';
 
 type Row = typeof egress.$inferSelect;
 
-const written = (kept: Egress) => ({
-  key: kept.key.value,
-  url: kept.url.value,
-  tokenHash: kept.tokenHash.value,
-  tokenVersion: kept.tokenVersion,
+const written = (egress: Egress) => ({
+  key: egress.key.value,
+  url: egress.url.value,
+  tokenHash: egress.tokenHash.value,
+  tokenVersion: egress.tokenVersion,
 });
 
 const toEgress = (row: Row): Egress =>
@@ -41,13 +41,13 @@ const toEgress = (row: Row): Egress =>
     version: row.version,
   });
 
-const refusedAs = (error: unknown, key: string): unknown => {
+const domainErrorOf = (error: unknown, key: string): unknown => {
   if (violates(error, UNIQUE_VIOLATION, 'egress_workspace_key')) {
-    return new EgressAlreadyDefinedError(key);
+    return new EgressAlreadyExistsError(key);
   }
 
   if (violates(error, UNIQUE_VIOLATION, 'egress_token_hash')) {
-    return new EgressTokenTakenError();
+    return new EgressTokenInUseError();
   }
 
   return error;
@@ -71,7 +71,7 @@ export class DrizzleEgressRepository implements EgressRepository {
           version: added.version,
         });
       } catch (error) {
-        throw refusedAs(error, added.key.value);
+        throw domainErrorOf(error, added.key.value);
       }
 
       await this.events.dispatch(added.pullEvents());
@@ -84,14 +84,14 @@ export class DrizzleEgressRepository implements EgressRepository {
         eq(egress.id, saved.id.value),
         eq(egress.version, saved.version),
       );
-      const stored = !saved.isRetired
+      const stored = !saved.isDeleted
         ? await this.context.db
             .update(egress)
             .set({ ...written(saved), version: saved.version + 1 })
             .where(matching)
             .returning({ id: egress.id })
             .catch((error: unknown) => {
-              throw refusedAs(error, saved.key.value);
+              throw domainErrorOf(error, saved.key.value);
             })
         : await this.context.db
             .delete(egress)
@@ -114,7 +114,7 @@ export class DrizzleEgressRepository implements EgressRepository {
     return this.one(eq(egress.id, id.value), 'share');
   }
 
-  findToRetire(id: EgressId): Promise<Egress | null> {
+  findToDelete(id: EgressId): Promise<Egress | null> {
     return this.one(eq(egress.id, id.value), 'update');
   }
 

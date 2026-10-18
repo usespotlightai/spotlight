@@ -21,24 +21,24 @@ const ago = (ms: number): Date => new Date(NOW.getTime() - ms);
 const host = (overrides: Partial<HostSummary> = {}): HostSummary => ({
   id: '01J8ZQ4Y7N3K5V2W9X6RTBHCDE',
   name: 'build-box',
-  through: { kind: 'pool', key: 'ephemeral' },
+  source: { kind: 'pool', key: 'ephemeral' },
   release: '0.9.0',
-  executor: 'docker',
+  containerRuntime: 'docker',
   capacity: 4,
   running: ['runner_1'],
   images: [
     {
       image: 'ghcr.io/acme/runner:main',
       digest: null,
-      usual: true,
+      isDefault: true,
       release: '0.9.0',
       harnesses: [{ id: 'claude-code', version: '2.1.0' }],
-      refused: null,
+      unavailableReason: null,
     },
   ],
-  firstSeenAt: ago(3_600_000),
-  upSince: ago(1_800_000),
-  lastSeenAt: NOW,
+  firstHeartbeatAt: ago(3_600_000),
+  onlineSince: ago(1_800_000),
+  lastHeartbeatAt: NOW,
   ...overrides,
 });
 
@@ -46,12 +46,12 @@ const runner = (
   overrides: Partial<LiveRunnerSummary> = {},
 ): LiveRunnerSummary => ({
   id: 'runner_1',
-  through: { kind: 'pool', key: 'ephemeral' },
+  source: { kind: 'pool', key: 'ephemeral' },
   hostId: '01J8ZQ4Y7N3K5V2W9X6RTBHCDE',
   image: 'ghcr.io/acme/runner:main',
   harnesses: ['claude-code'],
   startedAt: ago(60_000),
-  lastSeenAt: null,
+  lastHeartbeatAt: null,
   ...overrides,
 });
 
@@ -64,15 +64,15 @@ const MEMBER: WorkspaceMembership = {
   workspaceId: WorkspaceId.of('ws_1'),
   slug: 'acme',
   viewer: UserId.of('user_1'),
-  administers: false,
+  isAdmin: false,
 };
 
 const listing = (
-  given: { hosts?: HostSummary[]; runners?: LiveRunnerSummary[] } = {},
+  input: { hosts?: HostSummary[]; runners?: LiveRunnerSummary[] } = {},
   membership: WorkspaceMembership | null = MEMBER,
 ) => {
-  const inWorkspace = vi.fn().mockResolvedValue(given.runners ?? []);
-  const hostsIn = vi.fn().mockResolvedValue(given.hosts ?? []);
+  const inWorkspace = vi.fn().mockResolvedValue(input.runners ?? []);
+  const hostsIn = vi.fn().mockResolvedValue(input.hosts ?? []);
 
   const handler = new ListRunnersHandler(
     {
@@ -82,8 +82,8 @@ const listing = (
       inWorkspace,
       hostsIn,
       readyToRun: vi.fn(),
-      hasAWayOut: vi.fn(),
-      advertisedModels: vi.fn(),
+      hasEgressCapableRunner: vi.fn(),
+      supportedModels: vi.fn(),
     } as RunnerReaderPort,
     clock(),
   );
@@ -92,44 +92,48 @@ const listing = (
 };
 
 const handle = async (
-  given: { hosts?: HostSummary[]; runners?: LiveRunnerSummary[] } = {},
-) => listing(given).handler.execute(new ListRunnersQuery('acme', 'user_1'));
+  input: { hosts?: HostSummary[]; runners?: LiveRunnerSummary[] } = {},
+) => listing(input).handler.execute(new ListRunnersQuery('acme', 'user_1'));
 
 describe('ListRunnersHandler', () => {
-  it('reports a host heard from just now as answering', async () => {
+  it('reports a host with a heartbeat just now as online', async () => {
     const fleet = await handle({ hosts: [host()] });
 
     expect(fleet?.hosts).toEqual([
       expect.objectContaining({
         id: '01J8ZQ4Y7N3K5V2W9X6RTBHCDE',
-        through: { kind: 'pool', key: 'ephemeral' },
+        source: { kind: 'pool', key: 'ephemeral' },
         running: ['runner_1'],
         images: [
           expect.objectContaining({
             image: 'ghcr.io/acme/runner:main',
-            usual: true,
+            isDefault: true,
             harnesses: [{ id: 'claude-code', version: '2.1.0' }],
           }),
         ],
-        lastSeenAt: NOW.toISOString(),
-        answering: true,
+        lastHeartbeatAt: NOW.toISOString(),
+        online: true,
       }),
     ]);
   });
 
-  it('holds a host answering across a missed report', async () => {
-    const fleet = await handle({ hosts: [host({ lastSeenAt: ago(60_000) })] });
+  it('keeps a host online across a missed heartbeat', async () => {
+    const fleet = await handle({
+      hosts: [host({ lastHeartbeatAt: ago(60_000) })],
+    });
 
-    expect(fleet?.hosts[0]?.answering).toBe(true);
+    expect(fleet?.hosts[0]?.online).toBe(true);
   });
 
-  it('still lists a host that has gone quiet, marked not answering', async () => {
-    const fleet = await handle({ hosts: [host({ lastSeenAt: ago(90_000) })] });
+  it('still lists a host that is offline, and marks it offline', async () => {
+    const fleet = await handle({
+      hosts: [host({ lastHeartbeatAt: ago(90_000) })],
+    });
 
-    expect(fleet?.hosts[0]?.answering).toBe(false);
+    expect(fleet?.hosts[0]?.online).toBe(false);
   });
 
-  it('remembers hosts for a day, and only those of the workspace asked about', async () => {
+  it('lists hosts for a day after their last heartbeat, and only those of the workspace requested', async () => {
     const { handler, hostsIn, inWorkspace } = listing();
 
     await handler.execute(new ListRunnersQuery('acme', 'user_1'));
@@ -141,16 +145,16 @@ describe('ListRunnersHandler', () => {
     expect(inWorkspace).toHaveBeenCalledWith(MEMBER.workspaceId);
   });
 
-  it('lists the runners standing now, with the host each runs on', async () => {
+  it('lists the runners that are alive now, with the host each runs on', async () => {
     const fleet = await handle({
       runners: [
         runner(),
         runner({
           id: 'runner_2',
-          through: { kind: 'trust', key: 'cluster' },
+          source: { kind: 'trust', key: 'cluster' },
           hostId: null,
           image: null,
-          lastSeenAt: NOW,
+          lastHeartbeatAt: NOW,
         }),
       ],
     });
@@ -158,18 +162,18 @@ describe('ListRunnersHandler', () => {
     expect(fleet?.runners).toEqual([
       {
         id: 'runner_1',
-        through: { kind: 'pool', key: 'ephemeral' },
+        source: { kind: 'pool', key: 'ephemeral' },
         hostId: '01J8ZQ4Y7N3K5V2W9X6RTBHCDE',
         image: 'ghcr.io/acme/runner:main',
         harnesses: ['claude-code'],
         startedAt: ago(60_000).toISOString(),
-        lastSeenAt: null,
+        lastHeartbeatAt: null,
       },
       expect.objectContaining({
         id: 'runner_2',
-        through: { kind: 'trust', key: 'cluster' },
+        source: { kind: 'trust', key: 'cluster' },
         hostId: null,
-        lastSeenAt: NOW.toISOString(),
+        lastHeartbeatAt: NOW.toISOString(),
       }),
     ]);
   });
@@ -177,12 +181,12 @@ describe('ListRunnersHandler', () => {
   it('still lists a host and a runner whose pool is gone, with no key to name it by', async () => {
     const gone = { kind: 'pool' as const, key: null };
     const fleet = await handle({
-      hosts: [host({ through: gone })],
-      runners: [runner({ through: gone })],
+      hosts: [host({ source: gone })],
+      runners: [runner({ source: gone })],
     });
 
-    expect(fleet?.hosts[0]?.through).toEqual(gone);
-    expect(fleet?.runners[0]?.through).toEqual(gone);
+    expect(fleet?.hosts[0]?.source).toEqual(gone);
+    expect(fleet?.runners[0]?.source).toEqual(gone);
   });
 
   it('lists nothing for someone outside the workspace', async () => {

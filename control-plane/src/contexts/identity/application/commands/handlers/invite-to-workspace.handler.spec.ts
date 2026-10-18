@@ -18,7 +18,7 @@ import type { WorkspaceRepository } from '@identity/domain/repositories/workspac
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
@@ -27,7 +27,7 @@ import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo'
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -64,19 +64,19 @@ const team = (id: string, name: string) =>
 
 const TEAMS = [team('team_1', 'Platform'), team('team_2', 'Mobile')];
 
-const kept = (invite: WorkspaceInvite): WorkspaceInvite =>
+const stored = (invite: WorkspaceInvite): WorkspaceInvite =>
   WorkspaceInvite.rehydrate({ ...invite, version: invite.version + 1 });
 
-const standing = (
+const pendingInvite = (
   email = 'ada@example.com',
   sentAt = new Date('2026-09-01T09:00:00.000Z'),
 ) =>
-  kept(
-    WorkspaceInvite.offer({
+  stored(
+    WorkspaceInvite.create({
       id: InviteId.of(`invite_${email}`),
       workspaceId: ACME,
       email: EmailAddress.of(email),
-      terms: InviteTerms.of(WorkspaceRole.member, []),
+      spec: InviteSpec.of(WorkspaceRole.member, []),
       tokenHash: TokenHash.of('b'.repeat(64)),
       invitedBy: LEON,
       now: sentAt,
@@ -98,7 +98,7 @@ const inviting = (
   const save = vi.fn(over.save ?? (async (_: WorkspaceInvite) => {}));
   const send = vi.fn(over.mail ?? (async (_: InviteToSend) => {}));
   const warn = vi.fn();
-  let minted = 0;
+  let issued = 0;
   let generated = 0;
 
   const handler = new InviteToWorkspaceHandler(
@@ -108,7 +108,7 @@ const inviting = (
     {
       add,
       save,
-      openTo: async (_: WorkspaceId, email: EmailAddress) =>
+      notEndedTo: async (_: WorkspaceId, email: EmailAddress) =>
         over.previous?.(email.value) ?? null,
     } as unknown as WorkspaceInviteRepository,
     { ofWorkspace: async () => TEAMS } as unknown as TeamRepository,
@@ -127,11 +127,11 @@ const inviting = (
       { warn } as unknown as LoggerPort,
     ),
     {
-      mint: () => {
-        minted += 1;
-        return { token: `tok_${minted}`, hash: `${minted}`.repeat(64) };
+      issue: () => {
+        issued += 1;
+        return { token: `tok_${issued}`, hash: `${issued}`.repeat(64) };
       },
-    } as unknown as TokenMintPort,
+    } as unknown as TokenIssuer,
     {
       generate: () => {
         generated += 1;
@@ -152,7 +152,7 @@ const invite = (
 ) => new InviteToWorkspaceCommand('acme', emails, role, teamIds, viewer);
 
 describe('InviteToWorkspaceHandler', () => {
-  it('invites every address asked, as one invite each, with one email each', async () => {
+  it('invites every address in the request, as one invite each, with one email each', async () => {
     const { handler, add, send } = inviting();
 
     await expect(
@@ -169,10 +169,10 @@ describe('InviteToWorkspaceHandler', () => {
 
     expect(add).toHaveBeenCalledTimes(3);
     expect(send).toHaveBeenCalledTimes(3);
-    expect(add.mock.calls[0]?.[0].terms.invitedAs).toBe('admin');
-    expect(
-      add.mock.calls[0]?.[0].terms.teams.map((each) => each.value),
-    ).toEqual(['team_1', 'team_2']);
+    expect(add.mock.calls[0]?.[0].spec.invitedAs).toBe('admin');
+    expect(add.mock.calls[0]?.[0].spec.teams.map((each) => each.value)).toEqual(
+      ['team_1', 'team_2'],
+    );
     expect(send.mock.calls[0]?.[0]).toEqual({
       to: 'ada@example.com',
       token: 'tok_1',
@@ -182,7 +182,7 @@ describe('InviteToWorkspaceHandler', () => {
     });
   });
 
-  it('keeps the invite whose email could not be sent, says so, and carries on with the rest', async () => {
+  it('stores the invite whose email could not be sent, says so, and carries on with the rest', async () => {
     const { handler, add, send, warn } = inviting({
       mail: async (sending) => {
         if (sending.to === 'grace@example.com') {
@@ -217,7 +217,7 @@ describe('InviteToWorkspaceHandler', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('keeps only the hash of the token it sent', async () => {
+  it('stores only the hash of the token it sent', async () => {
     const { handler, add } = inviting();
 
     await handler.execute(invite(['ada@example.com']));
@@ -225,7 +225,7 @@ describe('InviteToWorkspaceHandler', () => {
     expect(add.mock.calls[0]?.[0].tokenHash.value).toBe('1'.repeat(64));
   });
 
-  it('asks each address once, however it was written', async () => {
+  it('invites each address once, however it was written', async () => {
     const { handler, add } = inviting();
 
     const { outcomes } =
@@ -254,14 +254,14 @@ describe('InviteToWorkspaceHandler', () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 
-  it('sends an open invite again, on the terms asked now, rather than opening a second', async () => {
+  it('resends a pending invite, with the settings requested now, rather than creating a second', async () => {
     const { handler, add, save, send } = inviting({
-      previous: () => standing(),
+      previous: () => pendingInvite(),
     });
 
     await expect(handler.execute(invite(['ada@example.com']))).resolves.toEqual(
       {
-        outcomes: [{ email: 'ada@example.com', outcome: 'sent-again' }],
+        outcomes: [{ email: 'ada@example.com', outcome: 'resent' }],
       },
     );
     expect(add).not.toHaveBeenCalled();
@@ -269,27 +269,27 @@ describe('InviteToWorkspaceHandler', () => {
       id: { value: 'invite_ada@example.com' },
       invitedAt: NOW,
     });
-    expect(save.mock.calls[0]?.[0].terms.invitedAs).toBe('admin');
+    expect(save.mock.calls[0]?.[0].spec.invitedAs).toBe('admin');
     expect(send).toHaveBeenCalledTimes(1);
   });
 
-  it('sends a run-out invite again', async () => {
+  it('resends a run-out invite', async () => {
     const { handler, save } = inviting({
-      previous: () => standing('ada@example.com', new Date('2026-08-01')),
+      previous: () => pendingInvite('ada@example.com', new Date('2026-08-01')),
     });
 
     await handler.execute(invite(['ada@example.com']));
 
-    expect(save.mock.calls[0]?.[0].statusAt(NOW)).toBe('open');
+    expect(save.mock.calls[0]?.[0].statusAt(NOW)).toBe('pending');
   });
 
-  it('sends the invite another first offer just opened, where that offer wrote first, and carries on', async () => {
-    const opened = new Map<string, WorkspaceInvite>();
+  it('resends the invite that another first send just created, where that send wrote first, and carries on', async () => {
+    const created = new Map<string, WorkspaceInvite>();
     const { handler, add, save, send } = inviting({
-      previous: (email) => opened.get(email) ?? null,
+      previous: (email) => created.get(email) ?? null,
       add: async (added) => {
         if (added.email.value === 'ada@example.com') {
-          opened.set('ada@example.com', standing());
+          created.set('ada@example.com', pendingInvite());
           throw new AlreadyInvitedError(added.email.value);
         }
       },
@@ -299,7 +299,7 @@ describe('InviteToWorkspaceHandler', () => {
       handler.execute(invite(['ada@example.com', 'grace@example.com'])),
     ).resolves.toEqual({
       outcomes: [
-        { email: 'ada@example.com', outcome: 'sent-again' },
+        { email: 'ada@example.com', outcome: 'resent' },
         { email: 'grace@example.com', outcome: 'invited' },
       ],
     });
@@ -308,10 +308,10 @@ describe('InviteToWorkspaceHandler', () => {
     expect(send).toHaveBeenCalledTimes(2);
   });
 
-  it('sends again from what the invite became, where another send wrote first', async () => {
+  it('resends from what the invite became, where another send wrote first', async () => {
     let saves = 0;
     const { handler, save, send } = inviting({
-      previous: () => standing(),
+      previous: () => pendingInvite(),
       save: async (saved) => {
         saves += 1;
         if (saves === 1) {
@@ -344,7 +344,7 @@ describe('InviteToWorkspaceHandler', () => {
     expect(add).toHaveBeenCalledTimes(1);
   });
 
-  it('refuses to invite an owner, and sends nothing', async () => {
+  it('does not invite an owner, and sends nothing', async () => {
     const { handler, add, send } = inviting();
 
     await expect(
@@ -354,7 +354,7 @@ describe('InviteToWorkspaceHandler', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('refuses a team that is not in the workspace, and sends nothing', async () => {
+  it('rejects a team that is not in the workspace, and sends nothing', async () => {
     const { handler, send } = inviting();
 
     await expect(
@@ -363,7 +363,7 @@ describe('InviteToWorkspaceHandler', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('refuses something that is not an address before sending anything', async () => {
+  it('rejects something that is not an address before sending anything', async () => {
     const { handler, send } = inviting();
 
     await expect(
@@ -372,7 +372,7 @@ describe('InviteToWorkspaceHandler', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('refuses to invite nobody', async () => {
+  it('rejects an invite to nobody', async () => {
     const { handler } = inviting();
 
     await expect(handler.execute(invite([]))).rejects.toMatchObject({

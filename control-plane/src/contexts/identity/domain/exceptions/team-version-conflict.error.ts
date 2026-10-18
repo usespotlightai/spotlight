@@ -1,5 +1,5 @@
 export class TeamVersionConflictError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(teamId: string) {
     super(

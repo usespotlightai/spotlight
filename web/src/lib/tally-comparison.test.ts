@@ -5,8 +5,8 @@ const verdict = (over: Partial<MeasureVerdict>): MeasureVerdict => ({
   measure: 'accepted_rate',
   before: 0.4,
   after: 0.6,
-  settledBefore: 10,
-  settledAfter: 10,
+  measuredBefore: 10,
+  measuredAfter: 10,
   currency: null,
   verdict: 'better',
   change: null,
@@ -64,7 +64,7 @@ describe('comparedRows', () => {
     expect(row(rows, 'failed_rate')?.delta?.tone).toBe('good');
   });
 
-  it('says too few runs settled rather than showing a change, and prices a run in its currency', () => {
+  it('says too few runs are measured rather than showing a change, and prices a run in its currency', () => {
     const rows = comparedRows({ one: 3, other: 2 }, [
       verdict({
         measure: 'cost_per_run',

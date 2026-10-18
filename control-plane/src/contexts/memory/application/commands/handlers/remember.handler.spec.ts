@@ -1,7 +1,7 @@
 import { RememberHandler } from '@memory/application/commands/handlers/remember.handler';
 import { RememberCommand } from '@memory/application/commands/remember.command';
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
-import type { HeldRun, WorkPort } from '@memory/application/ports/work.port';
+import type { LeasedRun, WorkPort } from '@memory/application/ports/work.port';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
 import { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
@@ -22,7 +22,7 @@ const TASK = TaskId.of('task_1');
 const TEAM = TeamId.of('team_1');
 const WORKSPACE = WorkspaceId.of('ws_1');
 
-const HELD: HeldRun = {
+const LEASED: LeasedRun = {
   id: RUN,
   workspaceId: WORKSPACE,
   teamId: TEAM,
@@ -34,18 +34,18 @@ const HELD: HeldRun = {
   isSearch: false,
 };
 
-const remembering = (held: HeldRun | null = HELD) => {
+const remembering = (run: LeasedRun | null = LEASED) => {
   const added: MemoryDraft[] = [];
   let ids = 0;
   const work = {
-    heldBy: async () => held,
+    leasedBy: async () => run,
     task: async () => ({
       id: TASK,
       workspaceId: WORKSPACE,
       teamId: TEAM,
       fromOutside: false,
     }),
-    stationSiteOf: async () => ({
+    stationContextOf: async () => ({
       teamId: TEAM,
       lineId: 'line_1',
       lineName: 'Delivery',
@@ -56,7 +56,7 @@ const remembering = (held: HeldRun | null = HELD) => {
     reasoning: async () => [
       { index: 4, kind: 'remember', text: 'spotlight remember' },
     ],
-    spokenOn: async () => [],
+    notesOf: async () => [],
     harnessOf: async () => 'claude-code',
   } as unknown as WorkPort;
 
@@ -96,7 +96,7 @@ const remembering = (held: HeldRun | null = HELD) => {
         new RememberCommand('run_1', 'runner_1', {
           kind: 'rationale',
           body,
-          reach: null,
+          scope: null,
           paths: [],
           supersedes: null,
         }),
@@ -105,13 +105,13 @@ const remembering = (held: HeldRun | null = HELD) => {
 };
 
 describe('RememberHandler', () => {
-  it('opens the task’s draft with what the run asked to keep, grounded in its step', async () => {
+  it('opens the task’s draft with what the run proposed to remember, which cites its step', async () => {
     const { added, remember } = remembering();
 
     const proposed = await remember();
 
     expect(proposed).toMatchObject({
-      origin: 'remembered',
+      proposedBy: 'agent',
       state: 'proposed',
       steps: [{ index: 4, kind: 'remember' }],
     });
@@ -121,8 +121,8 @@ describe('RememberHandler', () => {
     ]);
   });
 
-  it('refuses a run of a chat, which has no task to ground a memory in', async () => {
-    const { remember } = remembering({ ...HELD, taskId: null });
+  it('rejects a run of a chat, which has no task for a memory to cite', async () => {
+    const { remember } = remembering({ ...LEASED, taskId: null });
 
     await expect(remember()).rejects.toMatchObject({
       kind: 'invalid',
@@ -130,7 +130,7 @@ describe('RememberHandler', () => {
     });
   });
 
-  it('knows no run this runner does not hold', async () => {
+  it('knows no run this runner does not lease', async () => {
     const { remember } = remembering(null);
 
     await expect(remember()).rejects.toBeInstanceOf(ApplicationError);

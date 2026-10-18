@@ -49,9 +49,9 @@ const line = {
       judge: {
         rubric: '## A good run\n\n- Changes only what it must',
         claims: [],
-        passShare: 1,
+        passThreshold: 1,
         sample: 0.2,
-        trust: 0.6,
+        minAgreement: 0.6,
       },
       alerts: [
         {
@@ -134,8 +134,8 @@ const outcomesFailing = vi.fn();
 const outcomesError = vi.fn();
 const refetchOutcomes = vi.fn();
 
-vi.mock('@/hooks/api/useStationOutcomes', () => ({
-  useStationOutcomes: () => ({
+vi.mock('@/hooks/api/useStationInsights', () => ({
+  useStationInsights: () => ({
     data: outcomes(),
     isPending: outcomes() === undefined,
     errorUpdateCount: outcomesFailing() ? 1 : 0,
@@ -200,14 +200,14 @@ vi.mock('@/hooks/api/useStartSearch', () => ({
   useStartSearch: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
 }));
 
-vi.mock('@/hooks/api/useOpenReplaySet', () => ({
-  useOpenReplaySet: () => ({ mutate: vi.fn(), isPending: false }),
+vi.mock('@/hooks/api/useCreateReplaySet', () => ({
+  useCreateReplaySet: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 vi.mock('@/hooks/api/useStationCandidates', () => ({
   useStationCandidates: () => ({
-    address: 'core/default/spec',
-    addressFailed: false,
+    path: 'core/default/spec',
+    pathFailed: false,
     candidates: { data: [], isPending: false, errorUpdateCount: 0 },
   }),
 }));
@@ -220,8 +220,8 @@ const TALLY = {
   checksFailed: 2,
   accepted: 28,
   sentBack: 3,
-  withdrawn: 0,
-  handedOn: 0,
+  cancelled: 0,
+  passed: 0,
   merged: 20,
   cost: null,
   medianMs: null,
@@ -236,12 +236,12 @@ const run = (runId: string, ending: string) => ({
   endedAt: new Date().toISOString(),
   ending,
   failure: null,
-  round: 1,
-  cost: null,
+  visit: 1,
+  usage: null,
   checks: 'passed',
-  next: null,
-  handedOn: null,
-  delivery: null,
+  firstHumanAction: null,
+  passed: null,
+  pullRequestState: null,
 });
 
 const OUTCOMES = {
@@ -271,13 +271,13 @@ const OUTCOMES = {
   inForce: { tally: TALLY },
 };
 
-const STANDING = {
-  trusted: true,
+const CALIBRATION = {
+  qualified: true,
   measure: 'kappa',
   agreement: 0.71,
   pairs: 24,
-  trust: 0.6,
-  hiddenBecause: null,
+  minAgreement: 0.6,
+  hiddenReason: null,
 };
 
 const INSIGHTS = '/w/acme/team/team_1/insights';
@@ -288,8 +288,8 @@ function HandedOver() {
 
   return (
     <>
-      <pre data-slot="handed-over">{JSON.stringify(state?.improving)}</pre>
-      <pre data-slot="handed-ask">{state?.ask ?? ''}</pre>
+      <pre data-slot="handed-over">{JSON.stringify(state?.targetStation)}</pre>
+      <pre data-slot="handed-prompt">{state?.prompt ?? ''}</pre>
     </>
   );
 }
@@ -337,7 +337,7 @@ beforeEach(() => {
   outcomesFailing.mockReturnValue(false);
   outcomesError.mockReturnValue(null);
   refetchOutcomes.mockClear();
-  judged.mockReturnValue({ standing: STANDING });
+  judged.mockReturnValue({ calibration: CALIBRATION });
   worthImproving.mockReturnValue([]);
   judgeFailing.mockReturnValue(false);
   sets.mockReturnValue([]);
@@ -390,7 +390,7 @@ describe('Station', () => {
     ).toHaveAttribute('stroke', '#93a1b5');
   });
 
-  it('holds the shape of the station while the line loads', () => {
+  it('keeps the shape of the station while the line loads', () => {
     lines.mockReturnValue(undefined);
 
     renderAt('station_2');
@@ -401,7 +401,7 @@ describe('Station', () => {
     expect(screen.queryByText('Station not found')).not.toBeInTheDocument();
   });
 
-  it('holds the shape of the tab its address opens while the line loads', () => {
+  it('keeps the shape of the tab its address opens while the line loads', () => {
     lines.mockReturnValue(undefined);
 
     const { unmount } = renderAt('station_2');
@@ -418,7 +418,7 @@ describe('Station', () => {
     ).not.toHaveTextContent('Latest runs on this config');
   });
 
-  it('says the station could not be loaded, and tries again when asked', async () => {
+  it('says the station could not be loaded, and tries again on request', async () => {
     const user = userEvent.setup();
     lines.mockReturnValue(undefined);
     failing.mockReturnValue(true);
@@ -524,11 +524,11 @@ describe('Station', () => {
   });
 
   describe('its overview', () => {
-    it('sums up the latest runs on the config in force, linking to the station in Insights', () => {
+    it('sums up the latest runs on the live config, linking to the station in Insights', () => {
       renderAt('station_2');
 
       expect(
-        [...document.querySelectorAll('[data-slot="glance-tile"]')]
+        [...document.querySelectorAll('[data-slot="summary-tile"]')]
           .slice(0, 4)
           .map((tile) => tile.textContent),
       ).toEqual([
@@ -595,7 +595,7 @@ describe('Station', () => {
       ).toHaveLength(2);
     });
 
-    it('links to the pull request that brought the config in force', () => {
+    it('links to the pull request that brought the live config', () => {
       outcomes.mockReturnValue({
         ...OUTCOMES,
         groups: OUTCOMES.groups.map((group, at) =>
@@ -611,7 +611,7 @@ describe('Station', () => {
       renderAt('station_2');
 
       expect(
-        within(sectionTitled('Version')).getByRole('link', {
+        within(sectionTitled('Config fingerprint')).getByRole('link', {
           name: 'View pull request',
         }),
       ).toHaveAttribute('href', 'https://github.com/acme/config/pull/42');
@@ -625,16 +625,15 @@ describe('Station', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('says which config version is in force, linking to its history', () => {
+    it('says which config fingerprint is live, linking to its history', () => {
       renderAt('station_2');
 
-      const version = within(sectionTitled('Version'));
+      const fingerprint = within(sectionTitled('Config fingerprint'));
 
-      expect(version.getByText('Version aaaaaaaa')).toBeInTheDocument();
-      expect(version.getByRole('link', { name: 'History' })).toHaveAttribute(
-        'href',
-        `${INSIGHTS}?tab=stations&stationId=station_2`,
-      );
+      expect(fingerprint.getByText('Config aaaaaaaa')).toBeInTheDocument();
+      expect(
+        fingerprint.getByRole('link', { name: 'History' }),
+      ).toHaveAttribute('href', `${INSIGHTS}?tab=stations&stationId=station_2`);
     });
 
     it('lists the station’s alerts in the order they were written', () => {
@@ -651,12 +650,12 @@ describe('Station', () => {
       ]);
     });
 
-    it('says how far the judge is trusted, linking to its agreement in Insights', () => {
+    it('says how far the judge agrees with people, linking to its agreement in Insights', () => {
       renderAt('station_2');
 
       expect(
-        document.querySelector('[data-slot="judge-standing"]'),
-      ).toHaveTextContent('Cohen’s kappa0.71Trusted above 0.60 over 24 runs');
+        document.querySelector('[data-slot="judge-calibration"]'),
+      ).toHaveTextContent('Cohen’s kappa0.71Qualified above 0.60 over 24 runs');
       expect(
         screen.getByRole('link', { name: 'How it agrees with people' }),
       ).toHaveAttribute(
@@ -665,21 +664,21 @@ describe('Station', () => {
       );
     });
 
-    it('leaves out how far the judge is trusted where its agreement could not load', () => {
+    it('leaves out how far the judge agrees with people where its agreement could not load', () => {
       judged.mockReturnValue(undefined);
       judgeFailing.mockReturnValue(true);
 
       renderAt('station_2');
 
       expect(
-        document.querySelector('[data-slot="judge-standing"]'),
+        document.querySelector('[data-slot="judge-calibration"]'),
       ).not.toBeInTheDocument();
       expect(sectionTitled('Judge')).toHaveTextContent(
-        'Trusted from 0.60 agreement',
+        'Qualified from 0.60 agreement',
       );
     });
 
-    it('shows no alerts and no judge standing where none are set', () => {
+    it('shows no alerts and no judge calibration where none are set', () => {
       renderAt('station_1');
 
       expect(
@@ -690,7 +689,7 @@ describe('Station', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('lists the recent runs of the config in force newest first, each linking to the run', () => {
+    it('lists the recent runs of the live config newest first, each linking to the run', () => {
       renderAt('station_2');
 
       const runs = within(screen.getByRole('list', { name: 'Recent runs' }));
@@ -714,7 +713,7 @@ describe('Station', () => {
       );
     });
 
-    it('holds the place of its runs while they load', () => {
+    it('keeps the place of its runs while they load', () => {
       outcomes.mockReturnValue(undefined);
 
       renderAt('station_2');
@@ -724,7 +723,7 @@ describe('Station', () => {
       ).toBeInTheDocument();
     });
 
-    it('says its runs could not be loaded, and tries again when asked', async () => {
+    it('says its runs could not be loaded, and tries again on request', async () => {
       const user = userEvent.setup();
       outcomes.mockReturnValue(undefined);
       outcomesFailing.mockReturnValue(true);
@@ -782,7 +781,7 @@ describe('Station', () => {
           .getAllByRole('heading', { level: 2 })
           .map((each) => each.textContent),
       ).toEqual([
-        'What stands out',
+        'What needs attention',
         'Worth improving',
         'Try a change',
         'Replay sets',
@@ -821,7 +820,7 @@ describe('Station', () => {
       ).toEqual([expect.stringMatching(/^Sent back 30%/)]);
     });
 
-    it('asks the agent about one signal, handing over the station and what stood out', async () => {
+    it('opens a chat with the agent about one signal, handing over the station and what needs attention', async () => {
       const user = userEvent.setup();
       worthImproving.mockReturnValue([
         {
@@ -856,7 +855,7 @@ describe('Station', () => {
         screen.queryByRole('link', { name: 'Review with the agent' }),
       ).not.toBeInTheDocument();
       expect(
-        document.querySelector('[data-slot="handed-ask"]'),
+        document.querySelector('[data-slot="handed-prompt"]'),
       ).toHaveTextContent(
         /^Sent back 30%.*What should change at this station\?$/,
       );
@@ -868,7 +867,7 @@ describe('Station', () => {
       ).toMatchObject({ stationId: 'station_2' });
     });
 
-    it('says when nothing stands out', () => {
+    it('says when nothing needs attention', () => {
       renderAt('station_2', 'improve');
 
       expect(sectionTitled('Worth improving')).toHaveTextContent(
@@ -876,7 +875,7 @@ describe('Station', () => {
       );
     });
 
-    it('hands the station to the agent when nothing stands out', async () => {
+    it('hands the station to the agent when nothing needs attention', async () => {
       const user = userEvent.setup();
       renderAt('station_2', 'improve');
 
@@ -887,7 +886,7 @@ describe('Station', () => {
       );
 
       expect(
-        document.querySelector('[data-slot="handed-ask"]'),
+        document.querySelector('[data-slot="handed-prompt"]'),
       ).toBeEmptyDOMElement();
 
       expect(
@@ -914,7 +913,7 @@ describe('Station', () => {
       ).toBeInTheDocument();
     });
 
-    it('holds the place of the replay sets while they load', () => {
+    it('keeps the place of the replay sets while they load', () => {
       sets.mockReturnValue(undefined);
 
       renderAt('station_2', 'improve');
@@ -924,7 +923,7 @@ describe('Station', () => {
       ).toBeInTheDocument();
     });
 
-    it('says the replay sets could not be loaded, and tries again when asked', async () => {
+    it('says the replay sets could not be loaded, and tries again on request', async () => {
       const user = userEvent.setup();
       sets.mockReturnValue(undefined);
       setsFailing.mockReturnValue(true);
@@ -973,7 +972,7 @@ describe('Station', () => {
       ).toHaveTextContent('No agent');
     });
 
-    it('shows the skills the station gives its runs', () => {
+    it('shows the skills the station enables for its runs', () => {
       renderAt('station_2');
 
       expect(
@@ -983,7 +982,7 @@ describe('Station', () => {
       ).toEqual(['our-migrations', 'grafana-dashboards']);
     });
 
-    it('lists no skills where a station gives none', () => {
+    it('lists no skills where a station enables none', () => {
       renderAt('station_1');
 
       expect(
@@ -1009,7 +1008,7 @@ describe('Station', () => {
       expect(screen.getByText('No prompt.')).toBeInTheDocument();
     });
 
-    it('shows how much of the station’s work its judge scores, and how far it must be trusted', () => {
+    it('shows how much of the station’s work its judge scores, and the minimum agreement it needs', () => {
       renderAt('station_2');
 
       const judge = sectionTitled('Judge');
@@ -1022,7 +1021,7 @@ describe('Station', () => {
       ).toBeInTheDocument();
     });
 
-    it('keeps the rubric folded away until asked, then shows it without letting it be written', async () => {
+    it('keeps the rubric collapsed until requested, then shows it without letting it be written', async () => {
       const user = userEvent.setup();
       renderAt('station_2');
 
@@ -1052,10 +1051,10 @@ describe('Station', () => {
       );
     });
 
-    it('names the line the station ships through and its repositories', () => {
+    it('names the line of the station and its repositories', () => {
       renderAt('station_2');
 
-      const fromLine = within(sectionTitled('Ships through'));
+      const fromLine = within(sectionTitled('Line'));
 
       expect(fromLine.getByText('Default')).toBeInTheDocument();
       expect(

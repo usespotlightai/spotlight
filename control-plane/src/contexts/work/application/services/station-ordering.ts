@@ -1,6 +1,6 @@
 import {
+  REMOTE_VIA_GIT_PROXY,
   RunSpecContract,
-  THROUGH_SPOTLIGHT,
   TRACE_PARENT_VAR,
 } from '@work/application/contracts/run-spec.contract';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
@@ -9,7 +9,7 @@ import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
 import { skillFilesOf } from '@work/application/mappers/skill-files.mapper';
 import { StationConfigMapper } from '@work/application/mappers/station-config.mapper';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
-import type { ContentDigestPort } from '@work/application/ports/content-digest.port';
+import type { ContentHashPort } from '@work/application/ports/content-hash.port';
 import type {
   HarnessLaunchPort,
   PreparedHarness,
@@ -21,8 +21,8 @@ import type { StationCatalog } from '@work/application/services/station-catalog.
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
-import { BUILT_IN_SKILL_KEYS } from '@work/domain/services/built-in-skills';
-import { skillsForTools } from '@work/domain/services/given-to-run';
+import { BUILT_IN_SKILL_KEY_LIST } from '@work/domain/services/built-in-skills';
+import { skillsForTools } from '@work/domain/services/enabled-for-run';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import {
   type OrderedAt,
@@ -30,8 +30,8 @@ import {
   type RunOrder,
 } from '@work/domain/services/run-order';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
-import type { CatalogWithheld } from '@work/domain/value-objects/catalog-withheld.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
+import type { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import {
   type ReadyProfile,
   withoutServers,
@@ -62,7 +62,7 @@ const laidOut = (
   laid: Laid,
 ): RunSpecParts => ({
   checkouts: order.checkouts.map((checkout) => ({
-    remote: THROUGH_SPOTLIGHT,
+    remote: REMOTE_VIA_GIT_PROXY,
     path: checkout.repository.name,
     ...(checkout.branch ? { branch: checkout.branch.value } : {}),
     ...(checkout.ref ? { ref: checkout.ref } : {}),
@@ -75,7 +75,7 @@ const laidOut = (
     options: order.options.map((each) => each.word),
     noteLimit: order.noteLimit,
   },
-  continuity: RunSpecContract.continuityOf(order.continuity),
+  resume: RunSpecContract.resumeOf(order.resume),
   skills: skillFilesOf(folders, home),
   skillHomes: laid.skillHomes,
   attachments: Attached.shapes(laid.attachments),
@@ -86,21 +86,21 @@ const laidOut = (
 });
 
 interface Readying {
-  withheld(
+  denied(
     station: Station,
-    withheld: readonly CatalogWithheld[],
-  ): readonly CatalogWithheld[];
+    denied: readonly DeniedCatalogItem[],
+  ): readonly DeniedCatalogItem[];
   profile(profile: ReadyProfile): ReadyProfile;
 }
 
 const AS_A_TASK_RUN: Readying = {
-  withheld: (_station, withheld) => withheld,
+  denied: (_station, denied) => denied,
   profile: (profile) => profile,
 };
 
 const AS_A_REPLAY: Readying = {
-  withheld: (station, withheld) =>
-    withheld.filter(
+  denied: (station, denied) =>
+    denied.filter(
       (each) => !station.tools.some((tool) => tool.value === each.id),
     ),
   profile: withoutServers,
@@ -114,7 +114,7 @@ export class StationOrdering {
     private readonly teamSkills: StationSkills,
     private readonly catalog: StationCatalog,
     private readonly profiles: StationProfilesPort,
-    private readonly digest: ContentDigestPort,
+    private readonly hash: ContentHashPort,
   ) {}
 
   ordered(line: Line, at: OrderedAt): Promise<Ordered | null> {
@@ -131,17 +131,21 @@ export class StationOrdering {
     readying: Readying,
   ): Promise<Ordered | null> {
     const station = line.stationAt(at.stationId) ?? null;
-    const kept = station ? await this.teamSkills.readyAt(line, station) : [];
-    const catalog = station ? await this.catalog.givenAt(line, station) : null;
-    const ready = [...kept, ...(catalog?.skills ?? [])];
+    const teamSkills = station
+      ? await this.teamSkills.readyAt(line, station)
+      : [];
+    const catalog = station
+      ? await this.catalog.enabledAt(line, station)
+      : null;
+    const ready = [...teamSkills, ...(catalog?.skills ?? [])];
     const order = orderAt({
       at,
       line,
       harnesses: this.harnesses,
       ready: ready.map(ReadySkillMapper.toReady),
       profiles: await this.profilesAt(line, station),
-      withheld:
-        station && catalog ? readying.withheld(station, catalog.withheld) : [],
+      denied:
+        station && catalog ? readying.denied(station, catalog.denied) : [],
     });
 
     if (!order) {
@@ -166,11 +170,11 @@ export class StationOrdering {
       prepared,
       home,
       folders: [
-        ...order.given.builtInSkills.flatMap((key) => {
+        ...order.enabled.builtInSkills.flatMap((key) => {
           const folder = this.builtInSkills.named(key.value);
           return folder ? [folder] : [];
         }),
-        ...order.given.teamSkills.flatMap((skill) =>
+        ...order.enabled.teamSkills.flatMap((skill) =>
           ready.filter((each) => each.skill.key === skill.key.value),
         ),
       ],
@@ -197,7 +201,7 @@ export class StationOrdering {
     order: RunOrder,
     readying: Readying,
   ): PreparedHarness | null {
-    const profile = order.given.profile;
+    const profile = order.enabled.profile;
 
     return this.launch.preparedFor(order.harness.id, {
       model: order.model,
@@ -218,12 +222,12 @@ export class StationOrdering {
             order,
             folders: folders.filter(
               (each) =>
-                !BUILT_IN_SKILL_KEYS.some(
+                !BUILT_IN_SKILL_KEY_LIST.some(
                   (key) => key.value === each.skill.key,
                 ),
             ),
           },
-          this.digest,
+          this.hash,
         )
       : null;
   }

@@ -5,9 +5,9 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import {
-  ARCHIVE_STANDINGS,
-  type ArchiveStandingsPort,
-} from '@work/application/ports/archive-standings.port';
+  ARCHIVE_REFERENCES,
+  type ArchiveReferencesPort,
+} from '@work/application/ports/archive-references.port';
 import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
@@ -30,9 +30,9 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const HOST = `host-experiment-${randomUUID().slice(0, 8)}`;
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -64,7 +64,7 @@ const archiveStore: WorkspaceArchiveStorePort = {
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 let readToken: string;
 let planToken: string;
 let stranger: string;
@@ -110,8 +110,8 @@ const anOriginal = async (
   input: {
     stationId?: string;
     startedFrom?: boolean;
-    heardFrom?: string;
-    raisedAt?: string;
+    openedFrom?: string;
+    originStationId?: string;
   } = {},
 ): Promise<Original> => {
   const stationId = input.stationId ?? BUILD;
@@ -123,26 +123,26 @@ const anOriginal = async (
 
   await db.insert(schema.task).values({
     id: taskId,
-    openedFrom: input.heardFrom ?? 'person',
+    openedFrom: input.openedFrom ?? 'person',
     workspaceId: team.workspaceId.value,
     stationId: taskAt,
     title: `Drain queue ${runId.slice(0, 4)}`,
     description: 'It stalls on restart.',
-    raisedAtStationId: input.raisedAt ?? taskAt,
-    raisedById: input.heardFrom ? null : team.owner.value,
+    originStationId: input.originStationId ?? taskAt,
+    createdById: input.openedFrom ? null : team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
   });
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    continuityKey: `task-${taskId}`,
+    resumeKey: `task-${taskId}`,
     taskId,
     grantedToRunId: randomUUID(),
     size: 1_024,
     sha256: 'a'.repeat(64),
     grantedAt: at,
-    sealedAt: at,
+    completedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
@@ -165,7 +165,7 @@ const anOriginal = async (
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship', 'review'], noteLimit: 0 },
-      continuity: { key: `task-${taskId}` },
+      resume: { key: `task-${taskId}` },
       startingPoint: true,
     },
     briefedTask: BriefedTask.of({
@@ -175,9 +175,9 @@ const anOriginal = async (
       reviewing: null,
       attachments: [],
       notes: [],
-      openRemarks: [],
+      openReviewComments: [],
     }).parts,
-    briefedMemories: { briefed: [], cut: [] },
+    briefedMemories: { briefed: [], omitted: [] },
     ...(input.startedFrom === false
       ? {}
       : {
@@ -191,11 +191,11 @@ const anOriginal = async (
   return { taskId, runId, archiveId };
 };
 
-const turnedOut = async (
+const withDisposition = async (
   original: Original,
   how: {
     ending: 'completed' | 'failed';
-    next: 'closed' | 'sent-back' | null;
+    humanAction: 'accepted' | 'sent-back' | null;
   },
 ) => {
   await db.insert(schema.runRecord).values({
@@ -210,24 +210,24 @@ const turnedOut = async (
     skills: [],
     endedAt: new Date(),
     ending: how.ending,
-    round: 1,
-    nextAct: how.next,
-    nextAt: how.next ? new Date() : null,
+    visit: 1,
+    firstHumanAction: how.humanAction,
+    firstHumanActionAt: how.humanAction ? new Date() : null,
   });
 };
 
-const openSet = async (name: string, ...originals: Original[]) =>
-  openSetAt(BUILD, name, ...originals);
+const createSet = async (name: string, ...originals: Original[]) =>
+  createSetAt(BUILD, name, ...originals);
 
-const openSetAt = async (
+const createSetAt = async (
   stationId: string,
   name: string,
   ...originals: Original[]
 ) => {
-  const opened = await owner()
+  const created = await owner()
     .post(`${stationPath(stationId)}/replay-sets`, { name })
     .expect(201);
-  const setId = opened.body.id as string;
+  const setId = created.body.id as string;
 
   for (const each of originals) {
     await owner()
@@ -274,11 +274,11 @@ const runRow = async (runId: string) => {
 };
 
 const dispatched = async () => {
-  await app.get(DispatchReplayRuns).workDue();
+  await app.get(DispatchReplayRuns).processDue();
 };
 
 const claimed = async (): Promise<{ token: string; runId: string }> => {
-  const handed = (
+  const assignment = (
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
@@ -286,7 +286,7 @@ const claimed = async (): Promise<{ token: string; runId: string }> => {
       .expect(200)
   ).body as { token: string; work: { run: { id: string } } };
 
-  return { token: handed.token, runId: handed.work.run.id };
+  return { token: assignment.token, runId: assignment.work.run.id };
 };
 
 const usage = (amount: number) =>
@@ -327,21 +327,21 @@ const finishes = async (
     .send({
       exitCode: failed ? 1 : 0,
       failed,
-      outcome: failed ? undefined : { next: 'ship', note: 'Done here.' },
+      handover: failed ? undefined : { next: 'ship', note: 'Done here.' },
       sessionId: 'session_1',
-      kept: true,
+      archived: true,
     })
     .expect(200);
 };
 
-const settledRun = (runId: string) =>
+const untilEnded = (runId: string) =>
   eventually(async () => {
     const [entry] = await db
       .select()
       .from(schema.replayEntry)
       .where(eq(schema.replayEntry.runId, runId));
 
-    return entry?.outcome !== null && entry?.measured === true;
+    return entry?.result !== null && entry?.measured === true;
   });
 
 const startReplay = async (
@@ -398,7 +398,7 @@ beforeAll(async () => {
       .useValue(attachmentStore),
   );
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `experiment-${randomUUID().slice(0, 8)}`,
@@ -483,16 +483,16 @@ beforeAll(async () => {
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'build-box',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 8,
       running: [],
       images: [
         {
           image: IMAGE,
-          usual: true,
+          isDefault: true,
           harnesses: [{ id: 'claude-code', models: [] }],
         },
       ],
@@ -504,12 +504,12 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await forgetRunnersOf(db, team.workspaceId.value);
+  await deleteRunnersOf(db, team.workspaceId.value);
   await app?.close();
 });
 
 describe('a replay set', () => {
-  it('is built from a station’s past runs, refusing those that cannot be replayed and those of another station', async () => {
+  it('is built from a station’s past runs, rejecting those that cannot be replayed and those of another station', async () => {
     const first = await anOriginal();
     const second = await anOriginal();
     const unanchored = await anOriginal({ startedFrom: false });
@@ -517,24 +517,28 @@ describe('a replay set', () => {
 
     const picks = (
       await owner().get(`${stationPath()}/replayable-runs`).expect(200)
-    ).body as { runId: string; refusal: string | null; title: string }[];
+    ).body as {
+      runId: string;
+      unreplayableReason: string | null;
+      title: string;
+    }[];
 
     expect(
-      picks.find((each) => each.runId === first.runId)?.refusal,
+      picks.find((each) => each.runId === first.runId)?.unreplayableReason,
     ).toBeNull();
-    expect(picks.find((each) => each.runId === unanchored.runId)?.refusal).toBe(
-      'no-starting-point',
-    );
+    expect(
+      picks.find((each) => each.runId === unanchored.runId)?.unreplayableReason,
+    ).toBe('no-starting-point');
     expect(picks.some((each) => each.runId === elsewhere.runId)).toBe(false);
 
-    const setId = await openSet('Queue fixes', first, second);
+    const setId = await createSet('Queue fixes', first, second);
 
-    const refused = await owner()
+    const rejected = await owner()
       .post(`${teamPath()}/replay-sets/${setId}/entries`, {
         runId: unanchored.runId,
       })
       .expect(409);
-    expect(refused.body.detail).toContain('never reported a starting point');
+    expect(rejected.body.detail).toContain('never reported a starting point');
     await owner()
       .post(`${teamPath()}/replay-sets/${setId}/entries`, {
         runId: elsewhere.runId,
@@ -556,7 +560,7 @@ describe('a replay set', () => {
       name: string;
       entries: {
         runId: string;
-        refusal: string | null;
+        unreplayableReason: string | null;
         title: string;
         state: string;
         endedAt: string | null;
@@ -568,7 +572,7 @@ describe('a replay set', () => {
     expect(
       set?.entries.map((each) => [
         each.runId,
-        each.refusal,
+        each.unreplayableReason,
         each.title,
         each.state,
       ]),
@@ -590,38 +594,41 @@ describe('a replay set', () => {
   });
 
   it('shows a run whose task was deleted as one that can no longer be replayed', async () => {
-    const kept = await anOriginal();
-    const setId = await openSet('Deleted later', kept);
+    const original = await anOriginal();
+    const setId = await createSet('Deleted later', original);
 
-    await db.delete(schema.task).where(eq(schema.task.id, kept.taskId));
+    await db.delete(schema.task).where(eq(schema.task.id, original.taskId));
 
     const sets = (await owner().get(`${stationPath()}/replay-sets`).expect(200))
-      .body as { id: string; entries: { refusal: string | null }[] }[];
+      .body as {
+      id: string;
+      entries: { unreplayableReason: string | null }[];
+    }[];
 
-    expect(sets.find((each) => each.id === setId)?.entries[0]?.refusal).toBe(
-      'task-gone',
-    );
+    expect(
+      sets.find((each) => each.id === setId)?.entries[0]?.unreplayableReason,
+    ).toBe('task-gone');
   });
 
-  it('keeps the archives its runs started from while it holds them, and lets them go after', async () => {
+  it('keeps the archives its runs started from while it holds them, and releases them after', async () => {
     const original = await anOriginal();
-    const setId = await openSet('Pinned', original);
-    const standings = app.get<ArchiveStandingsPort>(ARCHIVE_STANDINGS);
+    const setId = await createSet('Pinned', original);
+    const references = app.get<ArchiveReferencesPort>(ARCHIVE_REFERENCES);
     const archives = app.get(DrizzleWorkspaceArchiveRepository);
     const archiveId = WorkspaceArchiveId.of(original.archiveId);
     const at = new Date(Date.now() + 60 * DAY);
     const due = async () =>
-      (await standings.due(WorkspaceArchive.removalCutoffs(at), 5_000)).find(
+      (await references.due(WorkspaceArchive.removalCutoffs(at), 5_000)).find(
         (each) => each.id.equals(archiveId),
       );
 
     await eventually(async () => {
-      const [hold] = await db
+      const [startingPointHold] = await db
         .select()
         .from(schema.startingPointHold)
         .where(eq(schema.startingPointHold.holder, `replay-set:${setId}`));
 
-      return hold?.runIds.includes(original.runId) ?? false;
+      return startingPointHold?.runIds.includes(original.runId) ?? false;
     });
 
     expect(await due()).toBeUndefined();
@@ -643,29 +650,38 @@ describe('a replay set', () => {
     const failures: Original[] = [];
     for (let at = 0; at < 4; at += 1) {
       const failed = await anOriginal();
-      await turnedOut(failed, { ending: 'failed', next: null });
+      await withDisposition(failed, { ending: 'failed', humanAction: null });
       failures.push(failed);
     }
-    const heard = await anOriginal({ heardFrom: 'slack' });
-    await turnedOut(heard, { ending: 'failed', next: null });
-    const handedOn = await anOriginal({ raisedAt: SHIP });
-    await turnedOut(handedOn, { ending: 'failed', next: null });
+    const fromSlack = await anOriginal({ openedFrom: 'slack' });
+    await withDisposition(fromSlack, { ending: 'failed', humanAction: null });
+    const passedOn = await anOriginal({ originStationId: SHIP });
+    await withDisposition(passedOn, { ending: 'failed', humanAction: null });
     const accepted = await anOriginal();
-    await turnedOut(accepted, { ending: 'completed', next: 'closed' });
-    const setId = await openSet(
+    await withDisposition(accepted, {
+      ending: 'completed',
+      humanAction: 'accepted',
+    });
+    const setId = await createSet(
       'Lopsided',
       ...failures,
-      heard,
-      handedOn,
+      fromSlack,
+      passedOn,
       accepted,
     );
 
     const sentBack = await anOriginal();
-    await turnedOut(sentBack, { ending: 'completed', next: 'sent-back' });
+    await withDisposition(sentBack, {
+      ending: 'completed',
+      humanAction: 'sent-back',
+    });
     const alsoAccepted = await anOriginal();
-    await turnedOut(alsoAccepted, { ending: 'completed', next: 'closed' });
+    await withDisposition(alsoAccepted, {
+      ending: 'completed',
+      humanAction: 'accepted',
+    });
     const alsoFailed = await anOriginal();
-    await turnedOut(alsoFailed, { ending: 'failed', next: null });
+    await withDisposition(alsoFailed, { ending: 'failed', humanAction: null });
 
     const sets = (await owner().get(`${stationPath()}/replay-sets`).expect(200))
       .body as {
@@ -706,17 +722,21 @@ describe('a replay set', () => {
     expect(set?.composition.oldest).not.toBeNull();
     expect(set?.composition.newest).not.toBeNull();
     expect(
-      set?.entries.find((each) => each.runId === heard.runId),
+      set?.entries.find((each) => each.runId === fromSlack.runId),
     ).toMatchObject({ outcome: 'failed', origin: 'slack' });
     expect(
-      set?.entries.find((each) => each.runId === handedOn.runId)?.origin,
+      set?.entries.find((each) => each.runId === passedOn.runId)?.origin,
     ).toBe('station');
 
     const suggested = (
       await owner()
         .get(`${teamPath()}/replay-sets/${setId}/suggestions`)
         .expect(200)
-    ).body as { runId: string; outcome: string; refusal: string | null }[];
+    ).body as {
+      runId: string;
+      outcome: string;
+      unreplayableReason: string | null;
+    }[];
 
     expect(suggested.length).toBeLessThanOrEqual(5);
     expect(suggested.map((each) => each.runId)).toEqual(
@@ -726,7 +746,7 @@ describe('a replay set', () => {
       suggested.every(
         (each) =>
           (each.outcome === 'accepted' || each.outcome === 'sent-back') &&
-          each.refusal === null,
+          each.unreplayableReason === null,
       ),
     ).toBe(true);
     expect(suggested.some((each) => each.runId === alsoFailed.runId)).toBe(
@@ -741,7 +761,7 @@ describe('a replay set', () => {
   });
 
   it('is read by those who may read the team, changed by those who may plan, and unseen by anyone else', async () => {
-    const setId = await openSet('Access');
+    const setId = await createSet('Access');
 
     await as(stranger).get(`${stationPath()}/replay-sets`).expect(404);
     await as(stranger)
@@ -788,33 +808,33 @@ describe('a candidate', () => {
     expect(live?.station.key).toBe('build');
     expect(live?.fingerprint).toMatch(/^[0-9a-f]{64}$/);
 
-    const wrongKey = await candidates.examine(DELIVERY, BUILD, {
+    const wrongKey = await candidates.validate(DELIVERY, BUILD, {
       ...live?.station,
       key: 'ship',
     });
-    const badHarness = await candidates.examine(DELIVERY, BUILD, {
+    const badHarness = await candidates.validate(DELIVERY, BUILD, {
       ...live?.station,
       harness: 'no-such-harness',
     });
-    const badPrompt = await candidates.examine(DELIVERY, BUILD, {
+    const badPrompt = await candidates.validate(DELIVERY, BUILD, {
       ...live?.station,
       prompt: 42,
     });
 
-    for (const [examined, at] of [
+    for (const [validated, at] of [
       [wrongKey, 'station.key'],
       [badHarness, 'station.harness'],
       [badPrompt, 'station.prompt'],
     ] as const) {
-      expect(examined?.ok).toBe(false);
+      expect(validated?.ok).toBe(false);
       expect(
-        examined && !examined.ok
-          ? examined.problems.map((each) => each.field.rendered)
+        validated && !validated.ok
+          ? validated.problems.map((each) => each.field.rendered)
           : [],
       ).toContain(at);
     }
 
-    const changed = await candidates.examine(DELIVERY, BUILD, {
+    const changed = await candidates.validate(DELIVERY, BUILD, {
       ...live?.station,
       prompt: 'Build it, then drain the queue.',
     });
@@ -823,11 +843,11 @@ describe('a candidate', () => {
     expect(changed?.ok && changed.changes).toEqual([
       { part: 'prompt', name: null, kind: 'changed', was: null, now: null },
     ]);
-    expect(await candidates.examine(DELIVERY, BUILD, live?.station)).toEqual({
+    expect(await candidates.validate(DELIVERY, BUILD, live?.station)).toEqual({
       ok: true,
       fingerprint: live?.fingerprint,
-      digests: live?.digests,
-      liveDigests: live?.digests,
+      hashes: live?.hashes,
+      liveHashes: live?.hashes,
       live: live?.fingerprint,
       changes: [],
       scoring: { checksChanges: false, judge: null, rubricVersion: null },
@@ -866,7 +886,7 @@ describe('a replay', () => {
   it('replays a set under a candidate beside a baseline of the live config, two runs of the team at a time, and compares them task by task', async () => {
     const first = await anOriginal();
     const second = await anOriginal();
-    const setId = await openSet('Compared', first, second);
+    const setId = await createSet('Compared', first, second);
     const candidate = await proposed('Build it, then drain the queue.');
 
     const { id, baselineId } = await startReplay(setId, candidate, 5);
@@ -883,9 +903,9 @@ describe('a replay', () => {
     expect(await replayRunsOf(both)).toHaveLength(2);
 
     for (let round = 0; round < 2; round += 1) {
-      const handed = [await claimed(), await claimed()];
+      const assignments = [await claimed(), await claimed()];
 
-      for (const each of handed) {
+      for (const each of assignments) {
         const [entry] = await db
           .select()
           .from(schema.replayEntry)
@@ -897,7 +917,7 @@ describe('a replay', () => {
           entry?.originalRunId,
         );
         await finishes(each, ofCandidate ? 0.1 : 0.2, failsAt);
-        await settledRun(each.runId);
+        await untilEnded(each.runId);
       }
 
       await dispatched();
@@ -972,7 +992,7 @@ describe('a replay', () => {
 
   it('tells each replay run what it replays, under which candidate, and what it did and spent', async () => {
     const original = await anOriginal();
-    const setId = await openSet('Read back', original);
+    const setId = await createSet('Read back', original);
     const candidate = await proposed('Build it, and say what you drained.');
     const { id, baselineId } = await startReplay(setId, candidate, 5);
     await eventually(
@@ -982,7 +1002,7 @@ describe('a replay', () => {
     await dispatched();
     for (const each of [await claimed(), await claimed()]) {
       await finishes(each, 0.3);
-      await settledRun(each.runId);
+      await untilEnded(each.runId);
     }
 
     const [runId] = await replayRunsOf([id]);
@@ -1093,8 +1113,8 @@ describe('a replay', () => {
       .expect(404);
   });
 
-  it('stops dispatching once it has spent its ceiling, withdrawing what was queued while running runs finish', async () => {
-    const setId = await openSet(
+  it('stops dispatching once it has spent its ceiling, cancelling what was queued while running runs finish', async () => {
+    const setId = await createSet(
       'Budget',
       await anOriginal(),
       await anOriginal(),
@@ -1107,7 +1127,7 @@ describe('a replay', () => {
     const [one, two] = [await claimed(), await claimed()];
 
     await finishes(one, 0.4);
-    await settledRun(one.runId);
+    await untilEnded(one.runId);
     await dispatched();
 
     const [, , third] = await entriesOf(id);
@@ -1115,15 +1135,15 @@ describe('a replay', () => {
     expect((await runRow(third?.runId ?? ''))?.state).toBe('queued');
 
     await finishes(two, 0.4);
-    await settledRun(two.runId);
+    await untilEnded(two.runId);
 
     await eventually(async () => {
       const entries = await entriesOf(id);
-      return entries[2]?.outcome === 'withdrawn';
+      return entries[2]?.result === 'cancelled';
     });
 
     const row = await replayRow(id);
-    expect(row?.state).toBe('over-budget');
+    expect(row?.state).toBe('ceiling-reached');
     expect((await runRow(third?.runId ?? ''))?.state).not.toBe('queued');
 
     const detail = (
@@ -1132,14 +1152,14 @@ describe('a replay', () => {
       state: string;
       totals: { spent: { amount: number }; completed: number; stopped: number };
     };
-    expect(detail.state).toBe('over-budget');
+    expect(detail.state).toBe('ceiling-reached');
     expect(detail.totals.spent.amount).toBeCloseTo(0.8);
     expect(detail.totals.completed).toBe(2);
     expect(detail.totals.stopped).toBe(1);
   });
 
-  it('is stopped by a person: nothing more starts, its runs stop, and its set may then be deleted, letting go of the archives', async () => {
-    const setId = await openSet(
+  it('is stopped by a person: nothing more starts, its runs stop, and its set may then be deleted, which releases the archives', async () => {
+    const setId = await createSet(
       'Stopped',
       await anOriginal(),
       await anOriginal(),
@@ -1166,7 +1186,7 @@ describe('a replay', () => {
     await owner().post(`${teamPath()}/replays/${id}/stop`).expect(409);
 
     await finishes(running, 0.1);
-    await settledRun(running.runId);
+    await untilEnded(running.runId);
     await dispatched();
     expect(
       (await entriesOf(id)).filter((each) => each.runId !== null),
@@ -1174,19 +1194,19 @@ describe('a replay', () => {
 
     await owner().delete(`${teamPath()}/replay-sets/${setId}`).expect(204);
     await eventually(async () => {
-      const held = await db
+      const startingPointHolds = await db
         .select()
         .from(schema.startingPointHold)
         .where(and(eq(schema.startingPointHold.holder, `replay-set:${setId}`)));
-      return held.length === 0;
+      return startingPointHolds.length === 0;
     });
     await eventually(async () => (await replayRow(id)) === undefined);
   });
 
-  it('replays each run as many times as asked, rating each task by the mean of its copies with an interval, and measures the set’s noise', async () => {
+  it('replays each run as many times as requested, rating each task by the mean of its repeats with an interval, and measures the set’s noise', async () => {
     const first = await anOriginal();
     const second = await anOriginal();
-    const setId = await openSet('Repeated', first, second);
+    const setId = await createSet('Repeated', first, second);
     const started = (
       await owner()
         .post(`${teamPath()}/replay-sets/${setId}/replays`, {
@@ -1212,9 +1232,9 @@ describe('a replay', () => {
 
     await dispatched();
     for (let round = 0; round < 2; round += 1) {
-      const handed = [await claimed(), await claimed()];
+      const assignments = [await claimed(), await claimed()];
 
-      for (const each of handed) {
+      for (const each of assignments) {
         const [entry] = await db
           .select()
           .from(schema.replayEntry)
@@ -1226,7 +1246,7 @@ describe('a replay', () => {
           (entry?.originalRunId === first.runId && entry?.repeat === 1) ||
             (entry?.originalRunId === second.runId && entry?.repeat === 2),
         );
-        await settledRun(each.runId);
+        await untilEnded(each.runId);
       }
 
       await dispatched();
@@ -1251,7 +1271,7 @@ describe('a replay', () => {
         successRate: number;
         interval: { rate: number; low: number; high: number } | null;
       };
-      againstBaseline: unknown;
+      gainOverReference: unknown;
     };
 
     expect(detail.repeats).toBe(2);
@@ -1266,7 +1286,7 @@ describe('a replay', () => {
       successRate: 0,
     });
     expect(detail.totals.interval).toEqual({ rate: 0, low: 0, high: 0 });
-    expect(detail.againstBaseline).toBeNull();
+    expect(detail.gainOverReference).toBeNull();
 
     const sets = (await owner().get(`${stationPath()}/replay-sets`).expect(200))
       .body as {
@@ -1279,7 +1299,7 @@ describe('a replay', () => {
           perRepeat: number[];
           spread: number;
           flippedTasks: string[];
-          noisyInOneCopy: boolean;
+          noisyInOneRepeat: boolean;
         } | null;
       };
     }[];
@@ -1293,14 +1313,14 @@ describe('a replay', () => {
           perRepeat: [0, 0],
           spread: 0,
           flippedTasks: [],
-          noisyInOneCopy: false,
+          noisyInOneRepeat: false,
         },
       },
     });
   });
 
   it('is proposed, started, read and stopped through tokens that may plan or read, each write audited with its token', async () => {
-    const setId = await openSet('Through tokens', await anOriginal());
+    const setId = await createSet('Through tokens', await anOriginal());
     const live = await app
       .get<ReplayCandidatesPort>(REPLAY_CANDIDATES)
       .live(DELIVERY, BUILD);
@@ -1397,23 +1417,23 @@ describe('a replay', () => {
         baseline: false,
         ceiling: '3 USD',
         repeats: 1,
-        probe: false,
+        calibration: false,
       },
     );
   });
 });
 
 describe('a replay set whose station leaves its line', () => {
-  it('is still listed for the team, lets go of its archives, starts nothing, and may be deleted', async () => {
+  it('is still listed for the team, releases its archives, starts nothing, and may be deleted', async () => {
     const original = await anOriginal({ stationId: POLISH });
-    const setId = await openSetAt(POLISH, 'Reviewed', original);
-    const holdOf = () =>
+    const setId = await createSetAt(POLISH, 'Reviewed', original);
+    const startingPointHoldsOf = () =>
       db
         .select()
         .from(schema.startingPointHold)
         .where(eq(schema.startingPointHold.holder, `replay-set:${setId}`));
 
-    await eventually(async () => (await holdOf()).length === 1);
+    await eventually(async () => (await startingPointHoldsOf()).length === 1);
 
     const { id: replayId } = await startReplay(setId, 'live', 1);
     await dispatched();
@@ -1443,7 +1463,7 @@ describe('a replay set whose station leaves its line', () => {
         .body as { id: string; stationGone: boolean }[];
       return sets.find((each) => each.id === setId)?.stationGone === true;
     });
-    await eventually(async () => (await holdOf()).length === 0);
+    await eventually(async () => (await startingPointHoldsOf()).length === 0);
 
     expect((await runRow(replayRun as string))?.stationId).toBeNull();
 

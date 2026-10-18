@@ -3,15 +3,15 @@ import type {
   StackCohortDto,
 } from '@change-review/application/dto/change-stack.dto';
 
-export interface AnnouncedStack {
+export interface CommentedStack {
   readonly cohorts: readonly StackCohortDto[];
   readonly check: StackCheckDto | null;
 }
 
 export const CHANGE_STACK_MARKER = '<!-- spotlight:change-stack -->';
 
-const marked = (stack: AnnouncedStack, layerId: string): string => {
-  if (stack.check?.state === 'waiting') {
+const marked = (stack: CommentedStack, layerId: string): string => {
+  if (stack.check?.status === 'waiting') {
     return ' · checking';
   }
 
@@ -21,9 +21,9 @@ const marked = (stack: AnnouncedStack, layerId: string): string => {
 };
 
 export const ChangeStackComment = {
-  of(stack: AnnouncedStack, link: string): string {
+  of(stack: CommentedStack, link: string): string {
     const changes = stack.cohorts.filter((each) => each.kind === 'change');
-    const setAside = stack.cohorts.filter((each) => each.kind !== 'change');
+    const incidental = stack.cohorts.filter((each) => each.kind !== 'change');
     const reason = stack.check?.reason ?? null;
 
     return [
@@ -34,12 +34,12 @@ export const ChangeStackComment = {
           `**${cohort.title}**`,
           ...cohort.layers.map(
             (layer, place) =>
-              `${place + 1}. ${layer.title} (${layer.ranges.length} ${layer.ranges.length === 1 ? 'change' : 'changes'})${marked(stack, layer.id)}`,
+              `${place + 1}. ${layer.title} (${layer.hunks.length} ${layer.hunks.length === 1 ? 'hunk' : 'hunks'})${marked(stack, layer.id)}`,
           ),
         ].join('\n'),
       ),
-      setAside.length > 0
-        ? `Set aside as incidental: ${setAside.map((each) => each.title).join(', ')}.`
+      incidental.length > 0
+        ? `Incidental: ${incidental.map((each) => each.title).join(', ')}.`
         : null,
       stack.check
         ? `Each layer is checked on its own with \`${stack.check.command}\`.${reason ? ` ${reason}` : ''}`

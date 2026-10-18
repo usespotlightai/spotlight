@@ -75,7 +75,7 @@ const LEFT = {
 };
 
 describe('AgentReviews', () => {
-  it('holds a comment the agent leaves as its draft, written by the run', async () => {
+  it('stores a comment the agent leaves as its draft, written by the run', async () => {
     const { agent, comments } = reviewing();
 
     const id = await agent.comment(ON, LEFT);
@@ -93,7 +93,7 @@ describe('AgentReviews', () => {
     expect(left?.author.userId).toBeNull();
     expect(left?.author.runId?.equals(RUN)).toBe(true);
     expect(left?.author.name.value).toBe('Spotlight');
-    expect(left?.byAgent).toBe(true);
+    expect(left?.isAgentAuthored).toBe(true);
   });
 
   it('submits the run’s own drafts as one review, and nobody else’s', async () => {
@@ -141,7 +141,7 @@ describe('AgentReviews', () => {
     ]);
   });
 
-  it('refuses a comment where the task has no pull request to review', async () => {
+  it('rejects a comment where the task has no pull request to review', async () => {
     const { agent } = reviewing(null);
 
     await expect(agent.comment(ON, LEFT)).rejects.toThrow(InvalidReviewError);
@@ -150,13 +150,13 @@ describe('AgentReviews', () => {
     ).rejects.toThrow(InvalidReviewError);
   });
 
-  it('refuses a comment on a pull request its task opened rather than reviews', async () => {
+  it('rejects a comment on a pull request its task opened rather than reviews', async () => {
     const { agent } = reviewing('https://github.com/acme/api/pull/7', false);
 
     await expect(agent.comment(ON, LEFT)).rejects.toThrow(InvalidReviewError);
   });
 
-  it('refuses a verdict it does not know, or a review that says nothing', async () => {
+  it('rejects a verdict it does not know, or a review that says nothing', async () => {
     const { agent } = reviewing();
 
     await expect(

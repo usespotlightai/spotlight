@@ -8,11 +8,11 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import {
   CheckClaim,
   MAX_CHECK_ATTEMPTS,
-  MAX_HOLD_MS,
+  MAX_LEASE_MS,
 } from '@change-review/domain/value-objects/check-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import {
-  keptSkipOf,
+  parseStoredSkip,
   WAITING_LIMIT_MS,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import {
@@ -22,7 +22,7 @@ import {
 import { stackCheck } from '@change-review/infrastructure/persistence/drizzle/schemas/stack-check.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { placementMet } from '@platform/persistence/drizzle/placement-met';
+import { placementMatches } from '@platform/persistence/drizzle/placement-matches';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -51,18 +51,18 @@ const toStackCheck = (row: Row): StackCheck =>
     request: CheckRequest.of(
       row.command,
       row.setup,
-      RunnerPlacement.ofClauses(
+      RunnerPlacement.ofLabelGroups(
         row.placement,
         row.placementImage ? RunnerImage.of(row.placementImage) : null,
       ),
     ),
-    phase: row.phase,
+    status: row.status,
     entries: row.entries.map(entryOf),
-    rounds: row.rounds,
+    redraftCount: row.redraftCount,
     outcome: row.outcome && {
-      state: row.outcome.state,
+      status: row.outcome.status,
       skip: row.outcome.skip
-        ? keptSkipOf(row.outcome.skip.code, row.outcome.skip.detail)
+        ? parseStoredSkip(row.outcome.skip.code, row.outcome.skip.detail)
         : null,
       whole: row.outcome.whole && checkedStepOf(row.outcome.whole),
       layers: row.outcome.layers.map(checkedStepOf),
@@ -84,21 +84,21 @@ const toStackCheck = (row: Row): StackCheck =>
           )
         : null,
     provisioning: Provisioning.rehydrate(
-      row.provisionFailures,
-      row.nextProvisionAt,
+      row.provisionAttempts,
+      row.nextProvisionAttemptAt,
     ),
     version: row.version,
   });
 
 const valuesOf = (check: StackCheck) => ({
-  phase: check.phase,
+  status: check.status,
   entries: check.entries.map((entry) => ({
     hunk: entry.hunk,
     layer: entry.layer,
   })),
-  rounds: check.rounds,
+  redraftCount: check.redraftCount,
   outcome: check.outcome && {
-    state: check.outcome.state,
+    status: check.outcome.status,
     skip: check.outcome.skip ? { ...check.outcome.skip } : null,
     whole: check.outcome.whole && { ...check.outcome.whole },
     layers: check.outcome.layers.map((each) => ({ ...each })),
@@ -112,8 +112,8 @@ const valuesOf = (check: StackCheck) => ({
   reservedFor: check.reservation?.runner.value ?? null,
   reservedPool: check.reservation?.pool.value ?? null,
   reservedUntil: check.reservation?.until ?? null,
-  provisionFailures: check.provisioning.failures,
-  nextProvisionAt: check.provisioning.nextAt,
+  provisionAttempts: check.provisioning.attempts,
+  nextProvisionAttemptAt: check.provisioning.nextAttemptAt,
 });
 
 @Injectable()
@@ -137,7 +137,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
           workspaceId: added.workspaceId.value,
           command: added.request.command,
           setup: added.request.setup,
-          placement: added.request.placement.clauses,
+          placement: added.request.placement.labelGroups,
           placementImage: added.request.placement.image?.value ?? null,
           version: added.version,
           ...valuesOf(added),
@@ -245,7 +245,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
       .where(
         and(
           eq(stackCheck.workspaceId, by.workspaceId.value),
-          eq(stackCheck.phase, 'waiting'),
+          eq(stackCheck.status, 'waiting'),
           gte(
             stackCheck.waitingSince,
             new Date(now.getTime() - WAITING_LIMIT_MS),
@@ -260,10 +260,10 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
             eq(stackCheck.reservedFor, by.runner.value),
             lte(stackCheck.reservedUntil, now),
           ),
-          placementMet(
+          placementMatches(
             stackCheck.placement,
             stackCheck.placementImage,
-            by.terms,
+            by.offer,
           ),
         ),
       )
@@ -280,7 +280,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
       .from(stackCheck)
       .where(
         and(
-          eq(stackCheck.phase, 'waiting'),
+          eq(stackCheck.status, 'waiting'),
           eq(stackCheck.reservedFor, runner.value),
           gt(stackCheck.reservedUntil, now),
         ),
@@ -302,7 +302,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
       .where(
         and(
           eq(stackCheck.workspaceId, workspaceId.value),
-          eq(stackCheck.phase, 'waiting'),
+          eq(stackCheck.status, 'waiting'),
           gte(
             stackCheck.waitingSince,
             new Date(now.getTime() - WAITING_LIMIT_MS),
@@ -314,8 +314,8 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
           ),
           lt(stackCheck.attempts, MAX_CHECK_ATTEMPTS),
           or(
-            isNull(stackCheck.nextProvisionAt),
-            lte(stackCheck.nextProvisionAt, now),
+            isNull(stackCheck.nextProvisionAttemptAt),
+            lte(stackCheck.nextProvisionAttemptAt, now),
           ),
         ),
       )
@@ -330,13 +330,16 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
     return rows.map(toStackCheck);
   }
 
-  async overdue(now: Date, max: number): Promise<readonly StackCheck[]> {
+  async withExpiredWait(
+    now: Date,
+    max: number,
+  ): Promise<readonly StackCheck[]> {
     const rows = await this.context.db
       .select()
       .from(stackCheck)
       .where(
         and(
-          eq(stackCheck.phase, 'waiting'),
+          eq(stackCheck.status, 'waiting'),
           lte(
             stackCheck.waitingSince,
             new Date(now.getTime() - WAITING_LIMIT_MS),
@@ -344,7 +347,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
           or(
             isNull(stackCheck.leaseExpiresAt),
             lte(stackCheck.leaseExpiresAt, now),
-            lte(stackCheck.claimedAt, new Date(now.getTime() - MAX_HOLD_MS)),
+            lte(stackCheck.claimedAt, new Date(now.getTime() - MAX_LEASE_MS)),
           ),
         ),
       )
@@ -354,13 +357,13 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
     return rows.map(toStackCheck);
   }
 
-  async withLapsedReservations(now: Date): Promise<readonly StackCheck[]> {
+  async withExpiredReservations(now: Date): Promise<readonly StackCheck[]> {
     const rows = await this.context.db
       .select()
       .from(stackCheck)
       .where(
         and(
-          eq(stackCheck.phase, 'waiting'),
+          eq(stackCheck.status, 'waiting'),
           lte(stackCheck.reservedUntil, now),
         ),
       );
@@ -378,7 +381,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
       .where(
         and(
           eq(stackCheck.workspaceId, workspaceId.value),
-          eq(stackCheck.phase, 'waiting'),
+          eq(stackCheck.status, 'waiting'),
           gte(
             stackCheck.waitingSince,
             new Date(now.getTime() - WAITING_LIMIT_MS),

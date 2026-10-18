@@ -1,5 +1,5 @@
 export class RunnerHostVersionConflictError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(hostId: string) {
     super(

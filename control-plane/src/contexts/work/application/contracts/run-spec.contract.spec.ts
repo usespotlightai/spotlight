@@ -1,9 +1,9 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';
-import { Continuity } from '@work/domain/value-objects/continuity.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import { Resume } from '@work/domain/value-objects/resume.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { describe, expect, it } from 'vitest';
 
 const command = { executable: 'claude-agent-acp', args: [] };
@@ -12,7 +12,7 @@ const parts = (over: Record<string, unknown> = {}) => ({
   command,
   briefing: 'do the thing',
   handover: { options: ['Spec'], noteLimit: 4_000 },
-  continuity: { key: 'task-task_1' },
+  resume: { key: 'task-task_1' },
   ...over,
 });
 
@@ -32,7 +32,7 @@ const representative = {
   },
   briefing: 'do the thing',
   handover: { options: ['spec', 'review'], noteLimit: 4_000 },
-  continuity: { key: 'task-task_1', sessionId: 'session_1' },
+  resume: { key: 'task-task_1', sessionId: 'session_1' },
   skills: [{ path: '.claude/skills/triage/SKILL.md', text: '# Triage' }],
   skillHomes: ['.claude/skills', '.spotlight/skills'],
   manifest: [
@@ -46,14 +46,14 @@ const representative = {
           description: 'What to look for',
           required: true,
           defaulted: false,
-          piped: false,
+          stdin: false,
         },
         {
           name: 'limit',
           schema: { type: 'integer', minimum: 1 },
           required: false,
           defaulted: true,
-          piped: false,
+          stdin: false,
         },
         {
           name: 'filter',
@@ -63,7 +63,7 @@ const representative = {
           },
           required: false,
           defaulted: true,
-          piped: false,
+          stdin: false,
         },
       ],
       approval: { because: 'It reads private dashboards.' },
@@ -89,7 +89,7 @@ const representative = {
     { id: 'att_1', path: '.spotlight/attachments/att_1/screen.png' },
   ],
   settingFiles: ['claude/settings.json'],
-  wears: ['LINEAR_API_KEY'],
+  injectedSecrets: ['LINEAR_API_KEY'],
 };
 
 describe('RunSpecContract wire', () => {
@@ -102,10 +102,10 @@ describe('RunSpecContract wire', () => {
     );
   });
 
-  it('round-trips a search to an empty search block, and refuses one that is no object', () => {
+  it('round-trips a search to an empty search block, and rejects one that is no object', () => {
     const searching = parts({
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'search-run_1' },
+      resume: { key: 'search-run_1' },
       search: {},
     });
 
@@ -117,9 +117,10 @@ describe('RunSpecContract wire', () => {
     );
   });
 
-  it('keeps no empty list of secrets worn', () => {
+  it('keeps no empty list of injected secrets', () => {
     expect(
-      RunSpecContract.from(parts({ wears: [] })).value.wears,
+      RunSpecContract.from(parts({ injectedSecrets: [] })).value
+        .injectedSecrets,
     ).toBeUndefined();
   });
 
@@ -127,7 +128,7 @@ describe('RunSpecContract wire', () => {
     expect(RunSpecContract.from(parts()).value).toEqual(parts());
   });
 
-  it('refuses what is not a spec as a stored run that no longer reads', () => {
+  it('rejects what is not a spec as a stored run that no longer reads', () => {
     for (const raw of [
       null,
       undefined,
@@ -158,7 +159,7 @@ describe('RunSpecContract wire', () => {
                 schema: 'string',
                 required: true,
                 defaulted: false,
-                piped: false,
+                stdin: false,
               },
             ],
           },
@@ -172,7 +173,7 @@ describe('RunSpecContract wire', () => {
 });
 
 describe('RunSpecContract.ordered', () => {
-  it('runs what Spotlight says, not what the caller asked for', () => {
+  it('runs what Spotlight says, not what the caller requested', () => {
     const spec = RunSpecContract.ordered(
       {
         briefing: 'do the thing',
@@ -188,10 +189,10 @@ describe('RunSpecContract.ordered', () => {
     const spec = RunSpecContract.ordered({ briefing: 'do the thing' }, command);
 
     expect(spec.value.handover).toEqual({ options: [], noteLimit: 0 });
-    expect(spec.value.continuity).toEqual({ key: '' });
+    expect(spec.value.resume).toEqual({ key: '' });
   });
 
-  it('refuses what is not a spec at all', () => {
+  it('rejects what is not a spec at all', () => {
     for (const raw of [null, undefined, 'a spec', 7]) {
       expect(() => RunSpecContract.ordered(raw, command)).toThrow(
         InvalidRunSpecError,
@@ -199,7 +200,7 @@ describe('RunSpecContract.ordered', () => {
     }
   });
 
-  it('holds a caller to the same rules as Spotlight', () => {
+  it('keeps a caller to the same rules as Spotlight', () => {
     expect(() =>
       RunSpecContract.ordered(
         { briefing: 'do it', checkouts: [{ remote: 'x', path: '../out' }] },
@@ -209,19 +210,19 @@ describe('RunSpecContract.ordered', () => {
   });
 });
 
-describe('RunSpecContract.continuityOf', () => {
-  const key = ContinuityKey.of('task-task_2');
+describe('RunSpecContract.resumeOf', () => {
+  const key = ResumeKey.of('task-task_2');
 
   it('tells the runner which directory to work in', () => {
-    expect(RunSpecContract.continuityOf(Continuity.of({ key }))).toEqual({
+    expect(RunSpecContract.resumeOf(Resume.of({ key }))).toEqual({
       key: 'task-task_2',
     });
   });
 
   it('names the conversation to take up where there is one', () => {
     expect(
-      RunSpecContract.continuityOf(
-        Continuity.of({
+      RunSpecContract.resumeOf(
+        Resume.of({
           key,
           sessionId: HarnessSession.of('session_1'),
         }),
@@ -233,9 +234,9 @@ describe('RunSpecContract.continuityOf', () => {
   });
 
   it('says nothing about a conversation there is none of', () => {
-    expect(
-      RunSpecContract.continuityOf(Continuity.of({ key })),
-    ).not.toHaveProperty('sessionId');
+    expect(RunSpecContract.resumeOf(Resume.of({ key }))).not.toHaveProperty(
+      'sessionId',
+    );
   });
 });
 
@@ -250,7 +251,7 @@ describe('RunSpecContract.checkoutFoldersIn', () => {
     expect(RunSpecContract.checkoutFoldersIn(null)).toEqual([]);
   });
 
-  it('refuses checkouts that are not what a run stores', () => {
+  it('rejects checkouts that are not what a run stores', () => {
     expect(() => RunSpecContract.checkoutFoldersIn([{ path: 'api' }])).toThrow(
       InvalidRunSpecError,
     );

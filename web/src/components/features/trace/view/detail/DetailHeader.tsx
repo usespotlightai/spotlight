@@ -1,7 +1,12 @@
 import { DetailProperty } from '@/components/features/trace/view/detail/DetailProperty';
-import { holdings, reported } from '@/lib/detail';
-import { counted, spentOn, spokenAt, took } from '@/lib/inbox';
-import { REASON_LABELS, TROUBLE_LABELS } from '@/lib/run-network';
+import { contentsOf, reported } from '@/lib/detail';
+import {
+  counted,
+  formatShortDuration,
+  shortTimeOf,
+  spentOn,
+} from '@/lib/inbox';
+import { ERROR_LABELS, REASON_LABELS } from '@/lib/run-network';
 import type { TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
@@ -19,7 +24,7 @@ const tokensOf = (node: TraceNode): string | null => {
 };
 
 export function DetailHeader({ node }: { node: TraceNode }) {
-  const held = holdings(node);
+  const contents = contentsOf(node);
   const model = reported(node, 'gen_ai.request.model', 'llm.model_name');
   const tokens = tokensOf(node);
 
@@ -28,7 +33,7 @@ export function DetailHeader({ node }: { node: TraceNode }) {
       <h2
         className={cn(
           'min-w-0 break-words font-medium text-sm leading-5',
-          node.tone === 'failed' ? 'text-destructive' : 'text-foreground',
+          node.category === 'failed' ? 'text-destructive' : 'text-foreground',
         )}
       >
         {node.name}
@@ -36,9 +41,11 @@ export function DetailHeader({ node }: { node: TraceNode }) {
 
       <dl className="flex flex-col">
         <DetailProperty name="Started">
-          {spokenAt(node.startedAt)}
+          {shortTimeOf(node.startedAt)}
         </DetailProperty>
-        <DetailProperty name="Took">{took(node.ms)}</DetailProperty>
+        <DetailProperty name="Duration">
+          {formatShortDuration(node.ms)}
+        </DetailProperty>
 
         {node.step?.status && (
           <DetailProperty name="Status" failed={node.step.status === 'failed'}>
@@ -48,9 +55,9 @@ export function DetailHeader({ node }: { node: TraceNode }) {
         {node.step?.tool && (
           <DetailProperty name="Tool">{node.step.tool}</DetailProperty>
         )}
-        {node.connection?.trouble && (
-          <DetailProperty name="Outcome" failed>
-            {TROUBLE_LABELS[node.connection.trouble]}
+        {node.connection?.error && (
+          <DetailProperty name="Error" failed>
+            {ERROR_LABELS[node.connection.error]}
           </DetailProperty>
         )}
         {node.connection?.status != null && (
@@ -63,20 +70,20 @@ export function DetailHeader({ node }: { node: TraceNode }) {
             {REASON_LABELS[node.connection.reason]}
           </DetailProperty>
         )}
-        {node.connection && node.connection.times > 1 && (
-          <DetailProperty name="Times">{node.connection.times}</DetailProperty>
+        {node.connection && node.connection.count > 1 && (
+          <DetailProperty name="Count">{node.connection.count}</DetailProperty>
         )}
         {model && <DetailProperty name="Model">{model}</DetailProperty>}
         {tokens && <DetailProperty name="Tokens">{tokens}</DetailProperty>}
         {node.cost !== null && (
           <DetailProperty name="Cost">{spentOn(node.cost)}</DetailProperty>
         )}
-        {held.rows > 0 && (
-          <DetailProperty name="Rows">{held.rows}</DetailProperty>
+        {contents.rows > 0 && (
+          <DetailProperty name="Rows">{contents.rows}</DetailProperty>
         )}
-        {held.faults > 0 && (
-          <DetailProperty name="Faults" failed>
-            {held.faults}
+        {contents.errors > 0 && (
+          <DetailProperty name="Errors" failed>
+            {contents.errors}
           </DetailProperty>
         )}
       </dl>

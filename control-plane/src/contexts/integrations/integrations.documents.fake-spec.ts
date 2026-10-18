@@ -1,27 +1,27 @@
-import type { DescribedDocument } from '@integrations/domain/aggregates/described-document.aggregate';
-import type { DescribedDocumentRepository } from '@integrations/domain/repositories/described-document.repository';
+import type { SpecDocument } from '@integrations/domain/aggregates/spec-document.aggregate';
+import type { SpecDocumentRepository } from '@integrations/domain/repositories/spec-document.repository';
 import { OperationCache } from '@integrations/infrastructure/integrations/operation-cache';
 
-export const documentsHolding = (
-  ...held: DescribedDocument[]
-): DescribedDocumentRepository & { readonly kept: DescribedDocument[] } => {
-  const kept = [...held];
+export const documentsContaining = (
+  ...documents: SpecDocument[]
+): SpecDocumentRepository & { readonly stored: SpecDocument[] } => {
+  const stored = [...documents];
   const withHash = (hash: string) =>
-    kept.find((each) => each.hash.value === hash) ?? null;
+    stored.find((each) => each.hash.value === hash) ?? null;
 
   return {
-    kept,
+    stored,
     withHash: async (hash) => withHash(hash.value),
     operation: async (hash, name) =>
       withHash(hash.value)?.operation(name) ?? null,
-    keep: async (document) => {
+    save: async (document) => {
       if (!withHash(document.hash.value)) {
-        kept.push(document);
+        stored.push(document);
       }
     },
   };
 };
 
-export const operationsHolding = (
-  ...held: DescribedDocument[]
-): OperationCache => new OperationCache(documentsHolding(...held));
+export const operationsContaining = (
+  ...documents: SpecDocument[]
+): OperationCache => new OperationCache(documentsContaining(...documents));

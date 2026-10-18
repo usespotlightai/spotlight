@@ -15,34 +15,34 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-const notAdmitted = "The host's SPOTLIGHT_RUNNER_IMAGE doesn't admit this image."
+const notAllowed = "The host's SPOTLIGHT_RUNNER_IMAGE doesn't allow this image."
 
 type served struct {
-	image string
-	usual bool
-	stop  context.CancelFunc
+	image     string
+	isDefault bool
+	stop      context.CancelFunc
 
 	examining sync.Mutex
 
-	id        string
-	judged    string
-	digest    string
-	release   string
-	harnesses []protocol.HarnessReport
-	refused   string
+	id                string
+	judged            string
+	digest            string
+	release           string
+	harnesses         []protocol.HarnessReport
+	unavailableReason string
 }
 
 type examined struct {
-	image     string
-	usual     bool
-	id        string
-	digest    string
-	release   string
-	harnesses []protocol.HarnessReport
-	refused   string
+	image             string
+	isDefault         bool
+	id                string
+	digest            string
+	release           string
+	harnesses         []protocol.HarnessReport
+	unavailableReason string
 }
 
-func (e examined) holds(harness string) bool {
+func (e examined) hasHarness(harness string) bool {
 	return slices.ContainsFunc(e.harnesses, func(each protocol.HarnessReport) bool { return each.ID == harness })
 }
 
@@ -56,7 +56,7 @@ func (h *Host) refresh(ctx, claiming, serving context.Context, stop func(error))
 
 	h.mu.Lock()
 	h.required = required
-	h.unadmitted = h.opts.Images.Refused(required.Images)
+	h.disallowed = h.opts.Images.Disallowed(required.Images)
 	var gone []*served
 	for image, each := range h.served {
 		if !slices.ContainsFunc(wanted, func(w images.Wanted) bool { return w.Image == image }) {
@@ -68,12 +68,12 @@ func (h *Host) refresh(ctx, claiming, serving context.Context, stop func(error))
 	var fresh, stale []*served
 	for _, want := range wanted {
 		if each, ok := h.served[want.Image]; ok {
-			if each.refused != "" || each.judged != judging {
+			if each.unavailableReason != "" || each.judged != judging {
 				stale = append(stale, each)
 			}
 			continue
 		}
-		each := &served{image: want.Image, usual: want.Usual}
+		each := &served{image: want.Image, isDefault: want.IsDefault}
 		h.served[want.Image] = each
 		fresh = append(fresh, each)
 	}
@@ -95,7 +95,7 @@ func (h *Host) refresh(ctx, claiming, serving context.Context, stop func(error))
 			h.log.Warn("could not get the runner image", "image", each.image, "error", err)
 		}
 
-		if _, err := h.pool.Present(ctx, h.presence()); err != nil {
+		if _, err := h.pool.Heartbeat(ctx, h.heartbeat()); err != nil {
 			h.log.Warn("could not report what it serves", "error", err)
 		}
 
@@ -105,7 +105,7 @@ func (h *Host) refresh(ctx, claiming, serving context.Context, stop func(error))
 	}
 
 	if len(fresh)+len(stale) == 0 {
-		if _, err := h.pool.Present(ctx, h.presence()); err != nil {
+		if _, err := h.pool.Heartbeat(ctx, h.heartbeat()); err != nil {
 			h.log.Warn("could not report what it serves", "error", err)
 		}
 	}
@@ -127,8 +127,8 @@ func (h *Host) serve(claiming, serving context.Context, each *served, stop func(
 }
 
 func judgedUnder(required protocol.HostRequirements) string {
-	asked, _ := json.Marshal(required.Harnesses)
-	return required.Runner.Minimum + "\x00" + string(asked)
+	harnesses, _ := json.Marshal(required.Harnesses)
+	return required.Runner.Minimum + "\x00" + string(harnesses)
 }
 
 func (h *Host) examine(ctx context.Context, each *served) (examined, error) {
@@ -140,13 +140,13 @@ func (h *Host) examine(ctx context.Context, each *served) (examined, error) {
 		h.mu.Lock()
 		defer h.mu.Unlock()
 		each.id, each.digest, each.release, each.harnesses = "", "", "", nil
-		each.refused = "Image can't be pulled. Error: " + err.Error()
+		each.unavailableReason = "Image can't be pulled. Error: " + err.Error()
 		return examinedOf(each), err
 	}
 
 	h.mu.Lock()
 	judging := judgedUnder(h.required)
-	unchanged := each.id == pulled.ID && each.refused == "" && each.judged == judging
+	unchanged := each.id == pulled.ID && each.unavailableReason == "" && each.judged == judging
 	candidates := h.required.Harnesses
 	minimum := h.required.Runner.Minimum
 	h.mu.Unlock()
@@ -164,7 +164,7 @@ func (h *Host) examine(ctx context.Context, each *served) (examined, error) {
 	each.judged = judging
 	each.digest = pinned(each.image, pulled)
 	if err != nil {
-		each.refused = "Image can't be inspected. Error: " + err.Error()
+		each.unavailableReason = "Image can't be inspected. Error: " + err.Error()
 		each.harnesses, each.release = nil, ""
 		h.log.Warn("could not look inside the runner image", "image", each.image, "error", err)
 		return examinedOf(each), nil
@@ -172,9 +172,9 @@ func (h *Host) examine(ctx context.Context, each *served) (examined, error) {
 
 	each.release = report.Release
 	each.harnesses = report.Harnesses
-	each.refused = images.RunnerRefusal(report.Release, minimum)
-	if each.refused != "" {
-		h.log.Warn("refused the runner image", "image", each.image, "reason", each.refused)
+	each.unavailableReason = images.RunnerTooOld(report.Release, minimum)
+	if each.unavailableReason != "" {
+		h.log.Warn("cannot use the runner image", "image", each.image, "reason", each.unavailableReason)
 	} else {
 		h.log.Info("serving the runner image", "image", each.image, "digest", each.digest,
 			"release", each.release, "harnesses", each.harnesses)
@@ -191,13 +191,13 @@ func (h *Host) snapshot(each *served) examined {
 
 func examinedOf(each *served) examined {
 	return examined{
-		image:     each.image,
-		usual:     each.usual,
-		id:        each.id,
-		digest:    each.digest,
-		release:   each.release,
-		harnesses: slices.Clone(each.harnesses),
-		refused:   each.refused,
+		image:             each.image,
+		isDefault:         each.isDefault,
+		id:                each.id,
+		digest:            each.digest,
+		release:           each.release,
+		harnesses:         slices.Clone(each.harnesses),
+		unavailableReason: each.unavailableReason,
 	}
 }
 
@@ -238,8 +238,8 @@ func (h *Host) pulled(ctx context.Context, image string) (sandbox.Image, error) 
 	return h.engine.Inspect(ctx, image)
 }
 
-func (h *Host) found(ctx context.Context, image string, candidates []protocol.Installable) (protocol.Registration, error) {
-	asked, err := json.Marshal(candidates)
+func (h *Host) found(ctx context.Context, image string, candidates []protocol.HarnessProbe) (protocol.Registration, error) {
+	encoded, err := json.Marshal(candidates)
 	if err != nil {
 		return protocol.Registration{}, err
 	}
@@ -247,21 +247,21 @@ func (h *Host) found(ctx context.Context, image string, candidates []protocol.In
 	ctx, cancel := context.WithTimeout(ctx, probeLongest)
 	defer cancel()
 
-	env, held := standInsFor(h.opts.SandboxEnv)
-	way, err := h.wayOut(ctx, "probe-"+strings.ToLower(rand.Text()[:12]), map[string]string{LabelHost: h.opts.HostID}, "", held,
+	env, harnessKeys := standInsFor(h.opts.SandboxEnv)
+	sidecar, err := h.egressSidecar(ctx, "probe-"+strings.ToLower(rand.Text()[:12]), map[string]string{LabelHost: h.opts.HostID}, "", harnessKeys,
 		probeEgressWait)
-	defer way.close()
+	defer sidecar.close()
 	if err != nil {
 		return protocol.Registration{}, fmt.Errorf("start the probe's egress: %w", err)
 	}
 
 	id, err := h.engine.Start(ctx, sandbox.Spec{
 		Image:   image,
-		Args:    []string{"harnesses", string(asked)},
-		Env:     append(env, way.env()...),
+		Args:    []string{"harnesses", string(encoded)},
+		Env:     append(env, sidecar.env()...),
 		Labels:  map[string]string{LabelHost: h.opts.HostID},
-		Files:   way.files(),
-		Network: way.network,
+		Files:   sidecar.files(),
+		Network: sidecar.network,
 	})
 	defer h.destroy(id)
 	if err != nil {
@@ -276,13 +276,13 @@ func (h *Host) found(ctx context.Context, image string, candidates []protocol.In
 		return protocol.Registration{}, fmt.Errorf("the runner image answered with exit %d", code)
 	}
 
-	var said lines
-	if err := h.engine.Follow(ctx, id, &said); err != nil {
+	var output lines
+	if err := h.engine.Follow(ctx, id, &output); err != nil {
 		return protocol.Registration{}, err
 	}
 
 	var reported protocol.Registration
-	if err := json.Unmarshal([]byte(said.last()), &reported); err != nil {
+	if err := json.Unmarshal([]byte(output.last()), &reported); err != nil {
 		return protocol.Registration{}, fmt.Errorf("read what the runner image has: %w", err)
 	}
 
@@ -293,27 +293,27 @@ func (h *Host) reportedImages() []protocol.HostImage {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	reported := make([]protocol.HostImage, 0, len(h.served)+len(h.unadmitted))
+	reported := make([]protocol.HostImage, 0, len(h.served)+len(h.disallowed))
 	for _, each := range h.served {
-		if each.id == "" && each.refused == "" {
+		if each.id == "" && each.unavailableReason == "" {
 			continue
 		}
 		reported = append(reported, protocol.HostImage{
-			Image:     each.image,
-			Digest:    each.digest,
-			Usual:     each.usual,
-			Release:   each.release,
-			Harnesses: slices.Clone(each.harnesses),
-			Refused:   each.refused,
+			Image:             each.image,
+			Digest:            each.digest,
+			IsDefault:         each.isDefault,
+			Release:           each.release,
+			Harnesses:         slices.Clone(each.harnesses),
+			UnavailableReason: each.unavailableReason,
 		})
 	}
-	for _, image := range h.unadmitted {
-		reported = append(reported, protocol.HostImage{Image: image, Refused: notAdmitted})
+	for _, image := range h.disallowed {
+		reported = append(reported, protocol.HostImage{Image: image, UnavailableReason: notAllowed})
 	}
 
 	slices.SortFunc(reported, func(a, b protocol.HostImage) int {
-		if a.Usual != b.Usual {
-			if a.Usual {
+		if a.IsDefault != b.IsDefault {
+			if a.IsDefault {
 				return -1
 			}
 			return 1

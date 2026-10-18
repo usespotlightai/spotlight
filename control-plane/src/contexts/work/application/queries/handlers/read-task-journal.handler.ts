@@ -14,12 +14,12 @@ export class ReadTaskJournalHandler
 
   async execute(query: ReadTaskJournalQuery): Promise<RunJournalDto[] | null> {
     try {
-      const worked = await this.journals.listForTask(
+      const entries = await this.journals.listForTask(
         TaskId.of(query.taskId),
         UserId.of(query.viewerId),
       );
 
-      return worked?.map(RunJournalMapper.toDto) ?? null;
+      return entries?.map(RunJournalMapper.toDto) ?? null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }
