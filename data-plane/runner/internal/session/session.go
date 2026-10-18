@@ -317,6 +317,9 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	log.Info("agent started", "executable", run.Spec.Command.Executable, "cwd", cwd)
 
 	sessionID, err := open(ctx, harness, run.Spec.Resume.SessionID, log)
+	if err == nil {
+		err = configure(ctx, harness, sessionID, run.Spec.Command.SessionOptions, log)
+	}
 	if err != nil {
 		leave()
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
@@ -455,6 +458,24 @@ func open(ctx context.Context, harness *acp.Client, previous string, log *slog.L
 	}
 
 	return sessionID, nil
+}
+
+func configure(
+	ctx context.Context, harness *acp.Client, sessionID string, options []protocol.SessionOption, log *slog.Logger,
+) error {
+	for _, option := range options {
+		err := harness.SetConfigOption(ctx, sessionID, option.ID, option.Value)
+		if err == nil {
+			continue
+		}
+		if option.Optional && ctx.Err() == nil {
+			log.Warn("the harness refused an optional setting, so it runs without it",
+				"option", option.ID, "value", option.Value, "error", err)
+			continue
+		}
+		return fmt.Errorf("set the harness's %s to %s: %w", option.ID, option.Value, err)
+	}
+	return nil
 }
 
 func answerPermissions(

@@ -8,7 +8,7 @@ import {
 } from '@/lib/runner';
 
 const NO_HARNESS =
-  'The images of this host hold no harness. The host runs checks, but no agent run. Install Claude Code, Codex or Cursor in an image built from the Spotlight runner image, and name it in SPOTLIGHT_RUNNER_IMAGE.';
+  'The images of this host hold no harness. The host runs checks, but no agent run. Install Claude Code, Codex, Cursor or OpenCode in an image built from the Spotlight runner image, and name it in SPOTLIGHT_RUNNER_IMAGE.';
 
 type HostHarnessCellProps = {
   host: Host;

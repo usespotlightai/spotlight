@@ -14,10 +14,17 @@ export interface RunCheckout {
   readonly setup?: string;
 }
 
+export interface SessionOption {
+  readonly id: string;
+  readonly value: string;
+  readonly optional?: boolean;
+}
+
 export interface RunCommand {
   readonly executable: string;
   readonly args: readonly string[];
   readonly env?: Readonly<Record<string, string>>;
+  readonly sessionOptions?: readonly SessionOption[];
 }
 
 interface RunHandover {
@@ -164,6 +171,17 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
     executable: parts.command.executable,
     args: [...parts.command.args],
     ...(parts.command.env ? { env: { ...parts.command.env } } : {}),
+    ...(parts.command.sessionOptions?.length
+      ? {
+          sessionOptions: parts.command.sessionOptions.map(
+            ({ id, value, optional }) => ({
+              id,
+              value,
+              ...(optional ? { optional: true } : {}),
+            }),
+          ),
+        }
+      : {}),
   },
   briefing: parts.briefing,
   handover: {
@@ -376,6 +394,15 @@ export class RunSpec {
     }
     if (blank(parts.command.executable)) {
       throw new InvalidRunSpecError('must name something to run');
+    }
+    if (
+      parts.command.sessionOptions?.some(
+        (option) => blank(option.id) || blank(option.value),
+      )
+    ) {
+      throw new InvalidRunSpecError(
+        'must name each harness session option and its value',
+      );
     }
     if (
       !Number.isInteger(parts.handover.noteLimit) ||

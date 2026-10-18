@@ -170,6 +170,14 @@ func (c *Client) Resume(ctx context.Context, sessionID string) error {
 	}), nil)
 }
 
+func (c *Client) SetConfigOption(ctx context.Context, sessionID, id, value string) error {
+	return c.call(ctx, "session/set_config_option", map[string]any{
+		"sessionId": sessionID,
+		"configId":  id,
+		"value":     value,
+	}, nil)
+}
+
 func (c *Client) opening(params map[string]any) map[string]any {
 	servers := c.servers
 	if servers == nil {

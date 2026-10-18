@@ -26,6 +26,13 @@ describe('HarnessLogo', () => {
     expect(drawn()).toHaveAttribute('fill', 'currentColor');
   });
 
+  it('draws OpenCode in the text colour, so it shows on either theme', () => {
+    render(<HarnessLogo harness="opencode" />);
+
+    expect(drawn()).toHaveAttribute('data-harness', 'opencode');
+    expect(drawn()).toHaveAttribute('fill', 'currentColor');
+  });
+
   it('draws Gemini in Gemini’s colour', () => {
     render(<HarnessLogo harness="gemini" />);
 
@@ -34,7 +41,7 @@ describe('HarnessLogo', () => {
   });
 
   it('falls back to a plain mark for a harness it has no logo for', () => {
-    render(<HarnessLogo harness="opencode" />);
+    render(<HarnessLogo harness="aider" />);
 
     expect(drawn()).not.toHaveAttribute('data-harness');
   });

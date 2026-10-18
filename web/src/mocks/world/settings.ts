@@ -53,6 +53,19 @@ export const HARNESSES: HarnessResponseDto[] = [
     defaultModel: '',
     efforts: [],
   },
+  {
+    id: 'opencode',
+    name: 'OpenCode',
+    models: [
+      {
+        id: 'anthropic/claude-sonnet-4-5',
+        name: 'anthropic/claude-sonnet-4-5',
+      },
+      { id: 'opencode/big-pickle', name: 'opencode/big-pickle' },
+    ],
+    defaultModel: 'anthropic/claude-sonnet-4-5',
+    efforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+  },
 ];
 
 export const REPOSITORIES = [

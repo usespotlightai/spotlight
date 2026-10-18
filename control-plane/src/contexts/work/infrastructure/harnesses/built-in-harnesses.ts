@@ -22,9 +22,11 @@ import type {
   PermissionKind,
   ReadyProfile,
 } from '@work/domain/value-objects/ready-profile';
+import type { SessionOption } from '@work/domain/value-objects/run-spec.vo';
 import { claudeCodeProfile } from '@work/infrastructure/harnesses/profiles/claude-code.profile';
 import { codexProfile } from '@work/infrastructure/harnesses/profiles/codex.profile';
 import { cursorProfile } from '@work/infrastructure/harnesses/profiles/cursor.profile';
+import { opencodeProfile } from '@work/infrastructure/harnesses/profiles/opencode.profile';
 import {
   isObject,
   noteOnNative,
@@ -36,12 +38,14 @@ import { parse } from 'smol-toml';
 type ModelBinding =
   | { readonly kind: 'env'; readonly name: string }
   | { readonly kind: 'arg'; readonly flag: string }
-  | { readonly kind: 'config'; readonly key: string };
+  | { readonly kind: 'config'; readonly key: string }
+  | { readonly kind: 'session-option'; readonly id: string };
 
 type EffortBinding =
   | { readonly kind: 'env'; readonly name: string }
   | { readonly kind: 'model-bracket' }
-  | { readonly kind: 'config'; readonly key: string };
+  | { readonly kind: 'config'; readonly key: string }
+  | { readonly kind: 'session-option'; readonly id: string };
 
 interface Definition {
   readonly id: string;
@@ -50,6 +54,7 @@ interface Definition {
   readonly args: readonly string[];
   readonly env: Readonly<Record<string, string>>;
   readonly configEnv: string | null;
+  readonly config?: Readonly<Record<string, unknown>>;
   readonly modelBinding: ModelBinding;
   readonly effortBinding: EffortBinding | null;
   readonly efforts: readonly string[];
@@ -159,7 +164,33 @@ const CODEX: Definition = {
   profile: codexProfile,
 };
 
-const DEFINITIONS: readonly Definition[] = [CLAUDE_CODE, CURSOR, CODEX];
+const OPENCODE: Definition = {
+  id: 'opencode',
+  name: 'OpenCode',
+  executable: 'opencode',
+  args: ['acp'],
+  env: {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: expanded by the runner
+    OPENCODE_DB: '${SPOTLIGHT_STATE_DIR}/opencode.db',
+    OPENCODE_DISABLE_AUTOUPDATE: '1',
+  },
+  configEnv: 'OPENCODE_CONFIG_CONTENT',
+  config: { share: 'disabled', autoupdate: false },
+  modelBinding: { kind: 'config', key: 'model' },
+  efforts: EFFORTS,
+  effortBinding: { kind: 'session-option', id: 'effort' },
+  discovery: ['opencode', 'models'],
+  versionProbe: ['opencode', '--version'],
+  skills: { directory: '.opencode/skills', readByHarness: true },
+  profile: opencodeProfile,
+};
+
+const DEFINITIONS: readonly Definition[] = [
+  CLAUDE_CODE,
+  CURSOR,
+  CODEX,
+  OPENCODE,
+];
 
 export const DEFAULT_HARNESS = HarnessId.of(CLAUDE_CODE.id);
 
@@ -307,7 +338,8 @@ const commandOf = (
 ): HarnessCommand => {
   const args = [...def.args];
   const env: Record<string, string> = { ...def.env, ...extraEnv };
-  const config: Record<string, unknown> = {};
+  const config: Record<string, unknown> = { ...def.config };
+  const sessionOptions: SessionOption[] = [];
 
   const value =
     def.effortBinding?.kind === 'model-bracket' && chosen.model && chosen.effort
@@ -319,6 +351,8 @@ const commandOf = (
       env[def.modelBinding.name] = value;
     } else if (def.modelBinding.kind === 'arg') {
       args.push(def.modelBinding.flag, value);
+    } else if (def.modelBinding.kind === 'session-option') {
+      sessionOptions.push({ id: def.modelBinding.id, value });
     } else {
       config[def.modelBinding.key] = value;
     }
@@ -332,13 +366,26 @@ const commandOf = (
     config[def.effortBinding.key] = chosen.effort.value;
   }
 
+  if (def.effortBinding?.kind === 'session-option' && chosen.effort) {
+    sessionOptions.push({
+      id: def.effortBinding.id,
+      value: chosen.effort.value,
+      optional: true,
+    });
+  }
+
   const configured = { ...config, ...overrides };
 
   if (def.configEnv && Object.keys(configured).length > 0) {
     env[def.configEnv] = JSON.stringify(configured);
   }
 
-  return HarnessCommand.of({ executable: def.executable, args, env });
+  return HarnessCommand.of({
+    executable: def.executable,
+    args,
+    env,
+    sessionOptions,
+  });
 };
 
 const ACP_KINDS: Readonly<Record<PermissionKind, readonly string[]>> = {

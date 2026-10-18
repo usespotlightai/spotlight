@@ -179,13 +179,25 @@ services:
     command: ["harnesses", "[]"]
     restart: "no"
 
-  runner-harnesses:
-    image: spotlight-runner:dev-harnesses
+  runner-cursor:
+    image: spotlight-runner:dev-cursor
     build:
       context: .docker/runner/examples
       dockerfile: cursor.Dockerfile
       additional_contexts:
         base: service:runner-codex
+      args:
+        BASE: base
+    command: ["harnesses", "[]"]
+    restart: "no"
+
+  runner-harnesses:
+    image: spotlight-runner:dev-harnesses
+    build:
+      context: .docker/runner/examples
+      dockerfile: opencode.Dockerfile
+      additional_contexts:
+        base: service:runner-cursor
       args:
         BASE: base
     command: ["harnesses", "[]"]

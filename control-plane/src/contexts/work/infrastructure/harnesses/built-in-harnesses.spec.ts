@@ -8,6 +8,7 @@ const known = new BuiltInHarnesses();
 
 const claude = HarnessId.of('claude-code');
 const cursor = HarnessId.of('cursor');
+const opencode = HarnessId.of('opencode');
 
 const entry = (id: string) => known.catalogue().find((each) => each.id === id);
 
@@ -89,6 +90,40 @@ describe('the harnesses Spotlight knows', () => {
     expect(started?.env?.CLAUDE_CODE_EFFORT_LEVEL).toBeUndefined();
   });
 
+  it('tells OpenCode its model in its config and its effort as a session option it may refuse', () => {
+    const started = known
+      .commandFor(opencode, {
+        model: HarnessModel.of('anthropic/claude-sonnet-4-5'),
+        effort: Effort.of('high'),
+      })
+      ?.started();
+
+    expect(started?.executable).toBe('opencode');
+    expect(started?.args).toEqual(['acp']);
+    expect(JSON.parse(started?.env?.OPENCODE_CONFIG_CONTENT ?? '{}')).toEqual({
+      share: 'disabled',
+      autoupdate: false,
+      model: 'anthropic/claude-sonnet-4-5',
+    });
+    expect(started?.sessionOptions).toEqual([
+      { id: 'effort', value: 'high', optional: true },
+    ]);
+  });
+
+  it('keeps OpenCode’s sessions in the run’s state and never shares them', () => {
+    const started = known.commandFor(opencode, null_())?.started();
+
+    expect(started?.env?.OPENCODE_DB).toBe(
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: expanded by the runner
+      '${SPOTLIGHT_STATE_DIR}/opencode.db',
+    );
+    expect(JSON.parse(started?.env?.OPENCODE_CONFIG_CONTENT ?? '{}')).toEqual({
+      share: 'disabled',
+      autoupdate: false,
+    });
+    expect(started?.sessionOptions).toBeUndefined();
+  });
+
   it('describes what each harness offers', () => {
     expect(entry('claude-code')?.efforts).toContain('high');
     expect(entry('cursor')?.discovery).toEqual(['cursor-agent', 'models']);
@@ -132,6 +167,7 @@ describe('where a harness finds skills', () => {
     expect(harnesses.skillHomes()).toEqual([
       '.claude/skills',
       '.spotlight/skills',
+      '.opencode/skills',
     ]);
   });
 });

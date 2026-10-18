@@ -340,6 +340,70 @@ describe('one harness profile, told to each harness in its own terms', () => {
       ]);
     });
   });
+
+  describe('OpenCode', () => {
+    const configOf = (started: { env?: Readonly<Record<string, string>> }) =>
+      JSON.parse(started.env?.OPENCODE_CONFIG_CONTENT ?? '{}');
+
+    it('writes each kind as a permission whose last matching pattern wins, after the rest of the kind', () => {
+      const { started, setup } = prepared('opencode', CAREFUL, {
+        model: 'anthropic/claude-sonnet-4-5',
+      });
+
+      expect(configOf(started)).toEqual({
+        share: 'disabled',
+        autoupdate: false,
+        model: 'anthropic/claude-sonnet-4-5',
+        permission: {
+          read: { '*': 'allow', '.env': 'deny' },
+          glob: 'allow',
+          grep: 'allow',
+          edit: { '*': 'allow' },
+          bash: { '*': 'ask', 'npm test *': 'allow', 'rm -rf *': 'deny' },
+        },
+      });
+      expect(Object.keys(configOf(started).permission.bash)[0]).toBe('*');
+      expect(setup.files).toEqual([]);
+      expect(setup.askKinds).toEqual(['execute']);
+      expect(setup.mcpServers).toHaveLength(1);
+    });
+
+    it('lays its native opencode.json over what Spotlight writes, saying what it replaces', () => {
+      const { started } = prepared(
+        'opencode',
+        profile({
+          ...CAREFUL,
+          native: {
+            opencode: {
+              instructions: ['STYLE.md'],
+              permission: { bash: 'allow' },
+            },
+          },
+        }),
+      );
+
+      expect(configOf(started).instructions).toEqual(['STYLE.md']);
+      expect(configOf(started).permission.bash).toBe('allow');
+      expect(
+        warned(
+          profile({ native: { opencode: { permission: { bash: 'allow' } } } }),
+          'replaces the permission.bash',
+        ),
+      ).toEqual([
+        expect.objectContaining({ about: 'native', harness: 'opencode' }),
+      ]);
+    });
+
+    it('says a read pattern does not reach its glob and grep searches', () => {
+      expect(warned(CAREFUL, 'glob and grep searches')).toEqual([
+        expect.objectContaining({
+          about: 'rule',
+          harness: 'opencode',
+          rule: rule('deny', 'read', '.env'),
+        }),
+      ]);
+    });
+  });
 });
 
 describe('what a harness asks Spotlight about', () => {

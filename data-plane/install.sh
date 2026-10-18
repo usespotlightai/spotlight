@@ -147,7 +147,7 @@ pull_image() {
 note_harnesses() {
   [ "$IMAGE" = "$BASE_IMAGE:$VERSION" ] || return 0
   say "$IMAGE holds no harness, so this host runs checks but no agent run."
-  say "build your own image FROM it with Claude Code, Codex or Cursor installed, as in"
+  say "build your own image FROM it with Claude Code, Codex, Cursor or OpenCode installed, as in"
   say "https://github.com/usespotlightai/spotlight/tree/main/.docker/runner/examples"
   say "then set SPOTLIGHT_RUNNER_IMAGE in $CONFIG and restart the host."
 }

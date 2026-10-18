@@ -94,6 +94,7 @@ const HOSTS: HostResponseDto[] = [
           ['claude-code', '2.1.270'],
           ['codex', '0.41.0'],
           ['cursor', '2026.09.18'],
+          ['opencode', '1.19.3'],
         ],
         { isDefault: true },
       ),
