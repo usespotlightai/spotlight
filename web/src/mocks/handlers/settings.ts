@@ -401,6 +401,19 @@ const workspaceHandlers = [
     return json({ hosts, runners });
   }),
 
+  api.delete('/workspaces/:slug/runners/hosts/:hostId', ({ params }) => {
+    const { fleet } = settingsWorld();
+    if (
+      !ofWorkspace(params.slug) ||
+      !fleet.hosts.some((each) => each.id === params.hostId)
+    ) {
+      return notFound();
+    }
+
+    fleet.hosts = fleet.hosts.filter((each) => each.id !== params.hostId);
+    return noContent();
+  }),
+
   api.get('/workspaces/:slug/runner-activity', ({ params }) =>
     ofWorkspace(params.slug)
       ? json(settingsWorld().fleet.activity)

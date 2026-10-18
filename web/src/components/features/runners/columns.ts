@@ -12,7 +12,8 @@ export const HOST_HEADINGS: readonly NestedHeading[] = [
 
 export const HOST_COLUMNS = 'grid-cols-[var(--host-columns)]';
 
-export const HOST_ROW = 'grid h-9 items-center gap-x-6 rounded-md px-3 text-sm';
+export const HOST_ROW =
+  'relative grid h-9 items-center gap-x-6 rounded-md pr-3 pl-9 text-sm';
 
 export const HOST_ROW_HOVER = 'transition-colors hover:bg-accent';
 

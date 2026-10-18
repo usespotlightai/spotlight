@@ -31,7 +31,7 @@ export function HostHead({
     <div
       ref={row}
       className={cn(
-        'grid h-8 items-center gap-x-6 px-3 text-muted-foreground text-xs',
+        'grid h-8 items-center gap-x-6 pr-3 pl-9 text-muted-foreground text-xs',
         HOST_COLUMNS,
       )}
     >

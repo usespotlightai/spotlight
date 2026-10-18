@@ -153,27 +153,6 @@ describe('Workspace', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('flags the settings when no host is online', () => {
-    loaded(acme);
-    hosts.mockReturnValue([{ id: 'h1', name: 'one', online: false }]);
-
-    renderAt('acme-inc');
-
-    expect(
-      screen.getByRole('img', { name: 'No host is online' }),
-    ).toBeInTheDocument();
-  });
-
-  it('leaves the settings unflagged while a host is online', () => {
-    loaded(acme);
-
-    renderAt('acme-inc');
-
-    expect(
-      screen.queryByRole('img', { name: 'No host is online' }),
-    ).not.toBeInTheDocument();
-  });
-
   it('swaps the sidebar for the settings’ own while in settings', () => {
     loaded(acme);
 

@@ -25,6 +25,12 @@ vi.mock('@/hooks/api/useRunners', () => ({
   }),
 }));
 
+const deleteHosts = vi.fn();
+
+vi.mock('@/hooks/api/useDeleteHosts', () => ({
+  useDeleteHosts: () => ({ mutate: deleteHosts, isPending: false }),
+}));
+
 vi.mock('@/hooks/api/useWorkspace', () => ({
   useWorkspace: () => ({ data: { id: 'workspace_acme', role: role() } }),
 }));
@@ -116,7 +122,42 @@ describe('Runners', () => {
     localStorage.clear();
     failing.mockReturnValue(false);
     refetch.mockClear();
+    deleteHosts.mockClear();
     role.mockReturnValue('owner');
+  });
+
+  it('deletes the selected hosts from the pill', async () => {
+    const person = userEvent.setup();
+    listing([
+      host(),
+      host({ id: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9Q', name: 'build-box-2' }),
+    ]);
+
+    renderPage();
+
+    expect(screen.queryByText(/selected/)).not.toBeInTheDocument();
+
+    await person.click(
+      screen.getByRole('checkbox', { name: 'Select build-box-2' }),
+    );
+
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+
+    await person.click(screen.getByRole('button', { name: 'Delete' }));
+
+    expect(deleteHosts).toHaveBeenCalledWith(
+      { slug: 'acme', hostIds: ['K7Q2M4ZC3VYH6N5RB8WX1TDJ9Q'] },
+      expect.anything(),
+    );
+  });
+
+  it('offers no selection to somebody who cannot manage runners', () => {
+    role.mockReturnValue('member');
+    listing([host()]);
+
+    renderPage();
+
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   });
 
   it('keeps the shape of a host while they load', () => {

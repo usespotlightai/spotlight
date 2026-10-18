@@ -14152,6 +14152,40 @@ export type ListRunnersResponses = {
 
 export type ListRunnersResponse = ListRunnersResponses[keyof ListRunnersResponses];
 
+export type DeleteHostData = {
+  body?: never;
+  path: {
+    slug: string;
+    hostId: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/runners/hosts/{hostId}';
+};
+
+export type DeleteHostErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The caller does not manage runners
+   */
+  403: unknown;
+  /**
+   * No such host in this workspace
+   */
+  404: unknown;
+};
+
+export type DeleteHostResponses = {
+  /**
+   * Deleted
+   */
+  204: void;
+};
+
+export type DeleteHostResponse = DeleteHostResponses[keyof DeleteHostResponses];
+
 export type RegisterRunnerData = {
   body: RegisterRunnerRequestDto;
   path?: never;
