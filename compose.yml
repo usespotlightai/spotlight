@@ -28,9 +28,6 @@ x-control-plane-env: &control-plane-env
   DECISIONS_MODEL: ${DECISIONS_MODEL:-google/gemini-3.8-flash}
   MEMORIES_MODEL: ${MEMORIES_MODEL:-google/gemini-3.8-flash}
   JUDGE_MODEL: ${JUDGE_MODEL:-google/gemini-3.8-flash}
-  SENTRY_DSN: ${SENTRY_CONTROL_PLANE_DSN:-}
-  SENTRY_WEB_DSN: ${SENTRY_WEB_DSN:-}
-  SENTRY_ENVIRONMENT: development
 
 services:
   traefik:
@@ -227,8 +224,6 @@ services:
       # The path must be the same on the host and in the sandbox, because the engine bind-mounts the mirrors into the sandboxes.
       SPOTLIGHT_STATE: ${PWD}/.dev/host
       SPOTLIGHT_HOST_NAME: dev-host
-      SENTRY_DSN: ${SENTRY_DATA_PLANE_DSN:-}
-      SENTRY_ENVIRONMENT: development
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
