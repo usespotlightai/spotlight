@@ -26,7 +26,7 @@ export class RunnerTrustResourceResponseDto extends ResourceResponseDto {
 
   @ApiProperty({
     example: 'production-cluster',
-    description: 'Names the trust; fixed for its life',
+    description: 'Names the trust. Immutable',
   })
   readonly key: string;
 
@@ -116,7 +116,7 @@ export class RunnerPoolResourceResponseDto extends ResourceResponseDto {
 
   @ApiProperty({
     example: 'ephemeral',
-    description: 'Names the pool, and is its address; fixed for its life',
+    description: 'Names the pool, and is its address. Immutable',
   })
   readonly key: string;
 
@@ -135,7 +135,7 @@ export class RunnerPoolResourceResponseDto extends ResourceResponseDto {
     enum: ['pull', 'push'],
     example: 'pull',
     description:
-      'pull when hosts claim with the pool token, push when Spotlight calls provision; fixed for its life, and not settable',
+      'pull when hosts claim with the pool token, push when Spotlight calls provision. Immutable, and not settable',
   })
   readonly mode: 'pull' | 'push';
 
@@ -208,7 +208,7 @@ export class EgressResourceResponseDto extends ResourceResponseDto {
 
   @ApiProperty({
     example: 'shared',
-    description: 'Names the egress, and is its address; fixed for its life',
+    description: 'Names the egress, and is its address. Immutable',
   })
   readonly key: string;
 

@@ -82,7 +82,7 @@ export class HarnessProfileResourceResponseDto extends ResourceResponseDto {
   @ApiProperty({
     example: 'careful',
     description:
-      'What stations name it by; fixed for its life, so changing it means replacing the profile',
+      'What stations name it by. Immutable: changing it means replacing the profile',
   })
   readonly key: string;
 

@@ -25,7 +25,7 @@ export class SkillResourceResponseDto extends ResourceResponseDto {
   @ApiProperty({
     example: 'grafana',
     description:
-      'What stations enable it by; fixed for its life, so changing it means replacing the skill',
+      'What stations enable it by. Immutable: changing it means replacing the skill',
   })
   readonly key: string;
 

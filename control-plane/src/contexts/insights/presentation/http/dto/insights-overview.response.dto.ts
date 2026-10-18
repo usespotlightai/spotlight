@@ -293,7 +293,7 @@ export class SignalReadingResponseDto {
   @ApiProperty({
     enum: STATION_SIGNALS,
     description:
-      'sent-back: share of runs sent back or dismissed; checks-failed: share of checked changes that failed; run-failures: share of runs that failed; task-failures: task failures per run; cost: spend per run',
+      'sent-back: share of runs that a person sent back first; checks-failed: share of checked changes that failed; run-failures: share of runs that failed; task-failures: task failures per run; cost: spend per run',
   })
   readonly signal: string;
 

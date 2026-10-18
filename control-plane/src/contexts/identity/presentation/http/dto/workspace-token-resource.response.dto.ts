@@ -13,7 +13,7 @@ export class WorkspaceTokenResourceResponseDto extends ResourceResponseDto {
   @ApiProperty({
     example: 'ci',
     description:
-      'Names the token within its workspace; fixed for its life, so changing it means replacing the token',
+      'Names the token within its workspace. Immutable: changing it means replacing the token',
   })
   readonly name: string;
 
@@ -28,7 +28,7 @@ export class WorkspaceTokenResourceResponseDto extends ResourceResponseDto {
     isArray: true,
     example: ['configure', 'secrets'],
     description:
-      'What it may do: read reads; plan also checks expressions; configure also changes configuration as a workspace admin may, except secrets, runners and token trusts; secrets, granted beside one of those, manages secrets; runners, granted the same way, manages runners, runner trusts and the workspace’s runners; trusts, granted the same way, manages workspace token trusts. Fixed for its life',
+      'What it may do: read reads; plan also checks expressions; configure also changes configuration as a workspace admin may, except secrets, runners and token trusts; secrets, granted beside one of those, manages secrets; runners, granted the same way, manages runners, runner trusts and the workspace’s runners; trusts, granted the same way, manages workspace token trusts. Immutable',
   })
   readonly scopes: readonly string[];
 
@@ -46,7 +46,7 @@ export class WorkspaceTokenResourceResponseDto extends ResourceResponseDto {
     nullable: true,
     example: '2026-12-31T23:59:59.000Z',
     description:
-      'After this Spotlight does not accept it; null never expires. Fixed for its life',
+      'After this Spotlight does not accept it; null never expires. Immutable',
   })
   readonly expiresAt: string | null;
 

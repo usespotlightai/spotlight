@@ -13,7 +13,7 @@ export class WorkspaceTokenTrustResourceResponseDto extends ResourceResponseDto 
   @ApiProperty({
     example: 'github-main',
     description:
-      'Names the trust within its workspace, and every token it issues; fixed for its life',
+      'Names the trust within its workspace, and every token it issues. Immutable',
   })
   readonly key: string;
 

@@ -9,7 +9,7 @@ export class WorkspaceResourceResponseDto extends ResourceResponseDto {
   @ApiProperty({
     example: 'acme',
     description:
-      'Where the workspace lives in the web app; fixed for its life, so changing it means replacing the workspace',
+      'Where the workspace lives in the web app. Immutable: changing it means replacing the workspace',
   })
   readonly slug: string;
 
