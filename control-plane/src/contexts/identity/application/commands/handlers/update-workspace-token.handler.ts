@@ -12,7 +12,7 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 
 export class UpdateWorkspaceTokenHandler
@@ -44,7 +44,7 @@ export class UpdateWorkspaceTokenHandler
         return null;
       }
 
-      if (!permissions.administers) {
+      if (!permissions.isAdmin) {
         return forbiddenTo('administer');
       }
 
@@ -59,8 +59,8 @@ export class UpdateWorkspaceTokenHandler
       await this.transaction.inTransaction(() =>
         this.tokens.save(
           existing.update(
-            compiled.terms,
-            Attribution.of(command.actor, existing.workspaceId),
+            compiled.spec,
+            ChangeActor.of(command.actor, existing.workspaceId),
           ),
         ),
       );

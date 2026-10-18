@@ -9,13 +9,13 @@ import {
   Breadcrumbs,
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
-import { useRunConversation } from '@/hooks/api/useRunConversation';
+import { useRunNotes } from '@/hooks/api/useRunNotes';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { useRunDeciding } from '@/hooks/useRunDeciding';
 import { decisionPending } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
-import { lastNoteOf } from '@/lib/run-conversation';
+import { lastNoteOf } from '@/lib/run-notes';
 
 type RunThreadProps = {
   slug: string;
@@ -34,7 +34,7 @@ export function RunThread({
   trail,
   after,
 }: RunThreadProps) {
-  const conversationQuery = useRunConversation(teamId, runId);
+  const conversationQuery = useRunNotes(teamId, runId);
   const journal = useTaskJournal(slug, taskId);
   const runs = useTeamRuns(teamId);
   const conversation = conversationQuery.data;

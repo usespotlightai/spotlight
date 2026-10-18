@@ -395,7 +395,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     expect(forbidden.body).toMatchObject({
       ...FORBIDDEN_PROBLEM,
       title: 'Not allowed to change the secret',
-      permission: 'manage-secrets',
+      permission: 'secrets',
     });
 
     const made = await as(tokens.secrets).post(secrets, linear);
@@ -436,7 +436,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     ).toEqual([
       ['deleted', 'token', {}],
       ['updated', 'token', { valueVersion: 2 }],
-      ['created', 'token', { valueVersion: 1, boundTo: ['api.linear.app'] }],
+      ['created', 'token', { valueVersion: 1, targets: ['api.linear.app'] }],
     ]);
   });
 

@@ -1,5 +1,5 @@
 export class UnknownAlertError extends Error {
-  readonly violation = 'not-found' as const;
+  readonly kind = 'not-found' as const;
 
   constructor(alertId: string) {
     super(`Alert ${alertId} not found.`);

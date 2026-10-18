@@ -399,7 +399,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
       '  value_wo         = var.secret_linear_api_key\n  value_wo_version = 1\n',
     );
     expect(variables).toContain(
-      'variable "secret_linear_api_key" {\n  description = "The value of the secret LINEAR_API_KEY, which Spotlight stores and never answers"\n  type        = string\n  sensitive   = true\n}\n',
+      'variable "secret_linear_api_key" {\n  description = "The value of the secret LINEAR_API_KEY, which Spotlight stores and never returns"\n  type        = string\n  sensitive   = true\n}\n',
     );
     expect(
       blockOf(main, 'resource "spotlight_runner_pool" "ephemeral"'),

@@ -69,8 +69,8 @@ import { TEAM_DIRECTORY } from '@identity/application/ports/team-directory.port'
 import { TOKEN_TRUST_CONFIGURATION } from '@identity/application/ports/token-trust-configuration.port';
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
 import { WORKSPACE_DEPENDENTS } from '@identity/application/ports/workspace-dependents.port';
-import { WORKSPACE_PROVISIONING } from '@identity/application/ports/workspace-provisioning.port';
 import { WORKSPACE_READER } from '@identity/application/ports/workspace-reader.port';
+import { WORKSPACE_SETUP_STATUS } from '@identity/application/ports/workspace-setup-status.port';
 import { GetWorkspaceQuery } from '@identity/application/queries/get-workspace.query';
 import { GetWorkspaceHandler } from '@identity/application/queries/handlers/get-workspace.handler';
 import { ImportTeamHandler } from '@identity/application/queries/handlers/import-team.handler';
@@ -125,17 +125,17 @@ import { IssuedTokens } from '@identity/application/services/issued-tokens.servi
 import { RunTokens } from '@identity/application/services/run-tokens.service';
 import { TeamAdministration } from '@identity/application/services/team-administration.service';
 import { TeamDirectory } from '@identity/application/services/team-directory.service';
-import { TokenBearers } from '@identity/application/services/token-bearers.service';
+import { TokenAuthenticator } from '@identity/application/services/token-authenticator.service';
 import { TokenTrustConfiguration } from '@identity/application/services/token-trust-configuration.service';
 import { WorkspaceAccess } from '@identity/application/services/workspace-access.service';
 import { WorkspaceAdministration } from '@identity/application/services/workspace-administration.service';
 import { IDENTITY_PAYLOAD_TYPES } from '@identity/domain/payload-types';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
-import { OutboxWorkspaceProvisioning } from '@identity/infrastructure/events/outbox-workspace-provisioning';
+import { OutboxWorkspaceSetupStatus } from '@identity/infrastructure/events/outbox-workspace-setup-status';
 import { InviteByMail } from '@identity/infrastructure/mail/invite.mail';
+import { LogMailTransport } from '@identity/infrastructure/mail/log.transport';
 import type { MailTransport } from '@identity/infrastructure/mail/mail.transport';
 import { SmtpMail } from '@identity/infrastructure/mail/smtp.transport';
-import { WrittenDownMail } from '@identity/infrastructure/mail/written-down.mail';
 import { DrizzleConfigurationAudit } from '@identity/infrastructure/persistence/drizzle/configuration-audit';
 import { DrizzleIdentityResources } from '@identity/infrastructure/persistence/drizzle/readers/identity-resources.reader';
 import { DrizzleInviteReader } from '@identity/infrastructure/persistence/drizzle/readers/invite.reader';
@@ -222,7 +222,7 @@ const adapters: Provider[] = [
   DrizzleWorkspaceTokenTrustRepository,
   DrizzleViewableWorkspaces,
   { provide: WORKSPACE_READER, useClass: DrizzleWorkspaceReader },
-  { provide: WORKSPACE_PROVISIONING, useClass: OutboxWorkspaceProvisioning },
+  { provide: WORKSPACE_SETUP_STATUS, useClass: OutboxWorkspaceSetupStatus },
   { provide: PERSON_READER, useClass: DrizzlePersonReader },
   { provide: MEMBER_READER, useClass: DrizzleMemberReader },
   { provide: MEMBER_DIRECTORY, useClass: DrizzleMemberDirectory },
@@ -243,7 +243,7 @@ const adapters: Provider[] = [
     inject: [ENV, LOGGER],
     useFactory: (env: Env, logger: LoggerPort) => {
       const transport: MailTransport =
-        SmtpMail.configured(env) ?? new WrittenDownMail(logger);
+        SmtpMail.configured(env) ?? new LogMailTransport(logger);
 
       return new InviteByMail(transport, env);
     },
@@ -314,7 +314,7 @@ const handlers: Provider[] = [
   ]),
   ...bindQueryHandler(GetWorkspaceQuery, GetWorkspaceHandler, [
     WORKSPACE_READER,
-    WORKSPACE_PROVISIONING,
+    WORKSPACE_SETUP_STATUS,
   ]),
   ...bindQueryHandler(ListMembersQuery, ListMembersHandler, [MEMBER_READER]),
   ...bindQueryHandler(ListWorkspaceMembersQuery, ListWorkspaceMembersHandler, [
@@ -605,7 +605,7 @@ const published: Provider[] = [
       trusts: DrizzleWorkspaceTokenTrustRepository,
       issuer: TokenIssuer,
       clock: ClockPort,
-    ) => new TokenBearers(tokens, trusts, issuer, clock),
+    ) => new TokenAuthenticator(tokens, trusts, issuer, clock),
   },
   {
     provide: TOKEN_TRUST_CONFIGURATION,

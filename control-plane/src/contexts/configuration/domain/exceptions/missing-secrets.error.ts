@@ -1,7 +1,7 @@
 import type { SecretReferenceAt } from '@configuration/domain/value-objects/secret-reference-at.vo';
 
 export class MissingSecretsError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(
     readonly key: string,

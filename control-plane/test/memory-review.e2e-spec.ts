@@ -36,7 +36,10 @@ interface InboxBody {
   readonly taskId: string;
   readonly resolved: boolean;
   readonly unread: boolean;
-  readonly aside: { readonly form: string; readonly about: string } | null;
+  readonly inboxRequest: {
+    readonly form: string;
+    readonly about: string;
+  } | null;
 }
 
 const remembered = (body: string): ProposedMemory => ({
@@ -113,10 +116,11 @@ const inbox = async (as: string): Promise<readonly InboxBody[]> =>
       .set(TEST_USER_HEADER, as)
   ).body;
 
-const asideFor = (items: readonly InboxBody[], runId: RunId) =>
+const inboxRequestFor = (items: readonly InboxBody[], runId: RunId) =>
   items.find(
     (each) =>
-      each.aside?.form === 'memories' && each.aside.about === runId.value,
+      each.inboxRequest?.form === 'memories' &&
+      each.inboxRequest.about === runId.value,
   );
 
 beforeAll(async () => {
@@ -138,7 +142,7 @@ describe('reviewing the memories a run proposed', () => {
     const runId = await proposing(['One.', 'Two.', 'Three.']);
 
     const item = await eventually(async () =>
-      asideFor(await inbox(team.owner.value), runId),
+      inboxRequestFor(await inbox(team.owner.value), runId),
     );
     const review = await served(app)
       .get(reviewPath(runId))
@@ -154,7 +158,7 @@ describe('reviewing the memories a run proposed', () => {
   it('makes approved memories active, edited or not, and resolves the item once all are decided', async () => {
     const runId = await proposing(['Approve me.', 'Edit me.', 'Drop me.']);
     await eventually(async () =>
-      asideFor(await inbox(team.owner.value), runId),
+      inboxRequestFor(await inbox(team.owner.value), runId),
     );
     const [approve, edit, drop] = (
       (
@@ -205,7 +209,7 @@ describe('reviewing the memories a run proposed', () => {
     expect(active.every((each) => each.steps?.join() === '5')).toBe(true);
 
     const resolvedItem = await eventually(async () => {
-      const item = asideFor(await inbox(team.owner.value), runId);
+      const item = inboxRequestFor(await inbox(team.owner.value), runId);
       return item?.resolved && item;
     });
     expect(resolvedItem.resolved).toBe(true);
@@ -225,7 +229,7 @@ describe('reviewing the memories a run proposed', () => {
       .post(`${reviewPath(runId)}/${only?.id}/reject`)
       .set(TEST_USER_HEADER, team.owner.value);
     await eventually(async () => {
-      const item = asideFor(await inbox(team.owner.value), runId);
+      const item = inboxRequestFor(await inbox(team.owner.value), runId);
       return item?.resolved;
     });
 
@@ -316,7 +320,7 @@ describe('reviewing the memories a run proposed', () => {
       .get(reviewPath(runId))
       .set(TEST_USER_HEADER, stranger);
     await eventually(async () =>
-      asideFor(await inbox(team.owner.value), runId),
+      inboxRequestFor(await inbox(team.owner.value), runId),
     );
 
     expect(read.status).toBe(404);
@@ -347,24 +351,26 @@ describe('reviewing the memories a run proposed', () => {
       .values({ teamId: team.teamId.value, userId: teammate });
 
     await eventually(async () =>
-      asideFor(await inbox(team.owner.value), runId),
+      inboxRequestFor(await inbox(team.owner.value), runId),
     );
-    expect(asideFor(await inbox(teammate), runId)).toBeUndefined();
+    expect(inboxRequestFor(await inbox(teammate), runId)).toBeUndefined();
 
     await db
       .update(schema.task)
       .set({ assigneeId: null })
       .where(eq(schema.task.id, team.list.id.value));
 
-    const seen = asideFor(await inbox(teammate), runId);
+    const seen = inboxRequestFor(await inbox(teammate), runId);
     expect(seen?.resolved).toBe(false);
 
     const read = await served(app)
-      .post(`/api/workspaces/${team.slug}/inbox/asides/${seen?.id}/read`)
+      .post(`/api/workspaces/${team.slug}/inbox/requests/${seen?.id}/read`)
       .set(TEST_USER_HEADER, teammate);
     expect(read.status).toBe(204);
-    expect(asideFor(await inbox(teammate), runId)?.unread).toBe(false);
-    expect(asideFor(await inbox(team.owner.value), runId)?.unread).toBe(true);
+    expect(inboxRequestFor(await inbox(teammate), runId)?.unread).toBe(false);
+    expect(inboxRequestFor(await inbox(team.owner.value), runId)?.unread).toBe(
+      true,
+    );
 
     await db
       .update(schema.task)

@@ -9,16 +9,16 @@ import type { JudgedHunk } from '@insights/domain/services/judge-evidence';
 import { PAIR_LABELS } from '@insights/domain/value-objects/pair-order';
 import {
   type Fetch,
-  JsonShape,
+  JsonSchema,
+  OpenRouterEmptyCompletionError,
   OpenRouterRequestError,
-  OpenRouterUnansweredError,
   requestJson,
 } from '@platform/openrouter/openrouter-json';
 import { z } from 'zod';
 
 const MAX_OUTPUT = 4_000;
 
-const PAIR = new JsonShape(
+const PAIR = new JsonSchema(
   'pair_verdict',
   z.object({
     preferred: z.enum(PAIR_LABELS),
@@ -120,8 +120,8 @@ export class OpenRouterSideBySideJudge implements SideBySideJudgePort {
         fetch: this.fetch,
         system: systemOf(request),
         prompt: evidenceOf(request),
-        max: MAX_OUTPUT,
-        shape: PAIR,
+        maxTokens: MAX_OUTPUT,
+        responseSchema: PAIR,
       });
 
       return {
@@ -132,7 +132,7 @@ export class OpenRouterSideBySideJudge implements SideBySideJudgePort {
       if (error instanceof OpenRouterRequestError) {
         throw new JudgingError('request-failed', error.message, null);
       }
-      if (error instanceof OpenRouterUnansweredError) {
+      if (error instanceof OpenRouterEmptyCompletionError) {
         throw new JudgingError('unreadable', error.message, error.usage);
       }
       throw error;

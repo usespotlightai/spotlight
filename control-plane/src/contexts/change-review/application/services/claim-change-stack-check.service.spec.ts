@@ -20,13 +20,13 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-23T09:00:00.000Z');
-const LAPTOP = RunnerTerms.of(['laptop']);
+const LAPTOP = RunnerOffer.of(['laptop']);
 const RUNNER = RunnerId.of('pooled_1');
 
 const completed = () =>
@@ -136,7 +136,7 @@ describe('ClaimChangeStackCheck', () => {
     expect(claimed).toBeNull();
     expect(find).not.toHaveBeenCalled();
     expect(dueForCheck).toHaveBeenCalledWith(
-      expect.objectContaining({ terms: LAPTOP }),
+      expect.objectContaining({ offer: LAPTOP }),
       NOW,
     );
   });

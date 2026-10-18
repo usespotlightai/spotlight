@@ -64,7 +64,7 @@ import { ReadRunnerHistoryQuery } from '@work/application/queries/read-runner-hi
 import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
 import { RunStopRequestedQuery } from '@work/application/queries/run-stop-requested.query';
 import { TurnAwaitsPersonQuery } from '@work/application/queries/turn-awaits-person.query';
-import { InstallableHarnessResponseDto } from '@work/presentation/http/dto/installable-harness.response.dto';
+import { HarnessProbeResponseDto } from '@work/presentation/http/dto/harness-probe.response.dto';
 import {
   AckMessagesRequestDto,
   AppendRunEventsRequestDto,
@@ -126,11 +126,11 @@ export class RunnerController {
 
   @Get('runners/harnesses')
   @ApiOperation({
-    operationId: 'installableHarnesses',
+    operationId: 'listHarnessProbes',
     summary: 'What to look for on this runner, so it can say what it has',
   })
-  @ApiOkResponse({ type: InstallableHarnessResponseDto, isArray: true })
-  async harnesses(): Promise<InstallableHarnessResponseDto[]> {
+  @ApiOkResponse({ type: HarnessProbeResponseDto, isArray: true })
+  async harnesses(): Promise<HarnessProbeResponseDto[]> {
     const harnesses = await this.queryBus.execute<
       HarnessCatalogueQuery,
       HarnessDto[]
@@ -138,7 +138,7 @@ export class RunnerController {
 
     return harnesses.map(
       (harness) =>
-        new InstallableHarnessResponseDto(
+        new HarnessProbeResponseDto(
           harness.id,
           harness.executable,
           harness.discovery,
@@ -337,7 +337,7 @@ export class RunnerController {
   @Post('runs/:runId/lease')
   @ApiOperation({
     operationId: 'renewLease',
-    summary: 'Say the run is still being worked on',
+    summary: 'Say the run is still in progress',
     description:
       'The answer carries back whether a person has requested that the run stop, ' +
       'so the heartbeat also tells the runner about a stop.',
@@ -368,7 +368,7 @@ export class RunnerController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'renewCheckLease',
-    summary: 'Say the check of a change stack is still being worked on',
+    summary: 'Say the check of a change stack is still in progress',
     description:
       'The runner with the lease on a check renews that lease while the check runs, ' +
       'so a second runner does not claim a long check. The answer ' +
@@ -615,7 +615,7 @@ export class RunnerController {
         body.sessionId ?? null,
         body.stopped ?? false,
         body.archived ?? false,
-        body.unprepared ?? false,
+        body.setupFailed ?? false,
         body.timedOut ?? false,
       ),
     );
@@ -662,7 +662,7 @@ export class RunnerController {
     summary:
       'Suspend a run whose person did not answer within the grace period',
     description:
-      'The runner has sealed the workspace archive and releases its sandbox. A later answer requeues the same run, and any runner claims it and restores it from the archive. If the answer arrived first, the run is not suspended: it is working again, and the runner delivers the answer to the live session.',
+      'The runner has completed the workspace archive and releases its sandbox. A later answer requeues the same run, and any runner claims it and restores it from the archive. If the answer arrived first, the run is not suspended: it is working again, and the runner delivers the answer to the live session.',
   })
   @ApiOkResponse({ type: RunSuspensionResponseDto })
   @ApiConflictResponse({ description: 'The run is not leased by this runner' })

@@ -10,7 +10,7 @@ import { CredentialSource } from '@runners/domain/value-objects/credential-sourc
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -22,20 +22,20 @@ const published = (events: readonly DomainEvent[]) =>
   );
 
 const WAY_IN_OPENED = [
-  { kind: 'runners.way-in-opened.v1', workspaceId: 'ws_1' },
+  { kind: 'runners.runner-access-defined.v1', workspaceId: 'ws_1' },
 ];
 
 describe('RUNNERS_EVENT_MAPPERS', () => {
-  it('publishes a created pool as a way in opened to its workspace, whether it pulls or provisions', () => {
+  it('publishes runner access defined in its workspace for a created pool, whether it pulls or provisions', () => {
     expect(published(aPullPool().pullEvents())).toEqual(WAY_IN_OPENED);
     expect(published(aPushPool().pullEvents())).toEqual(WAY_IN_OPENED);
   });
 
-  it('publishes a created trust as a way in opened to its workspace', () => {
+  it('publishes runner access defined in its workspace for a created trust', () => {
     expect(published(aTrust().pullEvents())).toEqual(WAY_IN_OPENED);
   });
 
-  it('publishes a host that starts serving a harness to its workspace', () => {
+  it('publishes a host that becomes ready to its workspace', () => {
     const host = RunnerHost.fromHeartbeat({
       id: HostId.of('01J8ZQ4Y7N3K5V2W9X6RTBHCDE'),
       workspaceId: WorkspaceId.of('ws_1'),
@@ -59,7 +59,7 @@ describe('RUNNERS_EVENT_MAPPERS', () => {
     });
 
     expect(published(host.pullEvents())).toEqual([
-      { kind: 'runners.host-started-serving.v1', workspaceId: 'ws_1' },
+      { kind: 'runners.host-ready.v1', workspaceId: 'ws_1' },
     ]);
   });
 
@@ -70,8 +70,8 @@ describe('RUNNERS_EVENT_MAPPERS', () => {
     trust.pullEvents();
 
     const ended = [
-      ...pool.delete(attributedIn()).pullEvents(),
-      ...trust.delete(attributedIn()).pullEvents(),
+      ...pool.delete(changeActorIn()).pullEvents(),
+      ...trust.delete(changeActorIn()).pullEvents(),
     ];
 
     expect(ended.map((event) => event.kind)).toEqual([

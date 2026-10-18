@@ -7,7 +7,7 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { failed } from '@/lib/query';
-import { administers } from '@/lib/role';
+import { isAdmin } from '@/lib/role';
 
 export function TeamGeneral() {
   const { slug, teamId } = useParams();
@@ -53,7 +53,7 @@ export function TeamGeneral() {
       <TeamMembers
         slug={slug}
         teamId={teamId}
-        admin={workspace.data ? administers(workspace.data.role) : false}
+        admin={workspace.data ? isAdmin(workspace.data.role) : false}
         teams={workspace.data?.teams ?? []}
       />
     </SettingsPage>

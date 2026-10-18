@@ -97,13 +97,13 @@ export const teams = (
   } satisfies TeamRepository;
 };
 
-export const access = (administers = true): WorkspaceAccessPort =>
+export const access = (isAdmin = true): WorkspaceAccessPort =>
   ({
     permissionsIn: vi.fn(async () => ({
       workspaceId: WORKSPACE,
       slug: 'acme',
-      configures: administers,
-      administers,
+      configures: isAdmin,
+      isAdmin,
     })),
   }) as unknown as WorkspaceAccessPort;
 
@@ -129,8 +129,8 @@ export const dependents = (
 
 export const creates = () =>
   ({
-    claim: vi.fn(async () => ({ kind: 'fresh' as const })),
-    created: vi.fn(async () => {}),
+    reserve: vi.fn(async () => ({ kind: 'new' as const })),
+    recordCreated: vi.fn(async () => {}),
   }) satisfies IdempotentCreatesPort;
 
 export const transaction: TransactionPort = { inTransaction: (work) => work() };

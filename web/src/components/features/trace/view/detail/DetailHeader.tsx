@@ -28,7 +28,7 @@ export function DetailHeader({ node }: { node: TraceNode }) {
       <h2
         className={cn(
           'min-w-0 break-words font-medium text-sm leading-5',
-          node.tone === 'failed' ? 'text-destructive' : 'text-foreground',
+          node.category === 'failed' ? 'text-destructive' : 'text-foreground',
         )}
       >
         {node.name}
@@ -74,9 +74,9 @@ export function DetailHeader({ node }: { node: TraceNode }) {
         {contents.rows > 0 && (
           <DetailProperty name="Rows">{contents.rows}</DetailProperty>
         )}
-        {contents.faults > 0 && (
-          <DetailProperty name="Faults" failed>
-            {contents.faults}
+        {contents.errors > 0 && (
+          <DetailProperty name="Errors" failed>
+            {contents.errors}
           </DetailProperty>
         )}
       </dl>

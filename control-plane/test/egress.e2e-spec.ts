@@ -113,7 +113,7 @@ describe('egress fetching a run’s secrets (e2e)', () => {
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
         handover: { options: [], noteLimit: 0 },
-        continuity: { key: `task:${id}` },
+        resume: { key: `task:${id}` },
         injectedSecrets,
       },
     });

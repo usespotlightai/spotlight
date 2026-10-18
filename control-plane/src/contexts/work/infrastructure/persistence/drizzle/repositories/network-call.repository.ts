@@ -13,9 +13,9 @@ import {
 import { NetworkCallVersionConflictError } from '@work/domain/exceptions/network-call-version-conflict.error';
 import type { NetworkCallRepository } from '@work/domain/repositories/network-call.repository';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
-import { NetworkAnswer } from '@work/domain/value-objects/network-answer.vo';
 import { NetworkCallId } from '@work/domain/value-objects/network-call-id.vo';
 import { NetworkRequest } from '@work/domain/value-objects/network-request.vo';
+import { NetworkResponse } from '@work/domain/value-objects/network-response.vo';
 import { networkCall } from '@work/infrastructure/persistence/drizzle/schemas/network-call.schema';
 import { and, asc, eq, gt, inArray, lte, or } from 'drizzle-orm';
 
@@ -58,9 +58,9 @@ const progressOf = (row: Row): NetworkCallProgress => {
 
   if (
     row.state !== 'answered' ||
-    !row.answeredAt ||
-    row.answerStatus === null ||
-    row.answerMs === null
+    !row.respondedAt ||
+    row.responseStatus === null ||
+    row.responseMs === null
   ) {
     throw new InconsistentStateError(
       'network call',
@@ -72,13 +72,13 @@ const progressOf = (row: Row): NetworkCallProgress => {
     kind: 'answered',
     by,
     claimedAt: row.claimedAt,
-    at: row.answeredAt,
-    answer: NetworkAnswer.of({
-      status: row.answerStatus,
-      headers: row.answerHeaders ?? {},
-      body: bytesOf(row.answerBody),
-      ms: row.answerMs,
-      error: row.answerError,
+    at: row.respondedAt,
+    response: NetworkResponse.of({
+      status: row.responseStatus,
+      headers: row.responseHeaders ?? {},
+      body: bytesOf(row.responseBody),
+      ms: row.responseMs,
+      error: row.responseError,
     }),
   };
 };
@@ -121,12 +121,12 @@ const progressColumns = (progress: NetworkCallProgress) => {
     state: 'answered',
     claimedBy: progress.by.value,
     claimedAt: progress.claimedAt,
-    answeredAt: progress.at,
-    answerStatus: progress.answer.status,
-    answerHeaders: { ...progress.answer.headers },
-    answerBody: base64Of(progress.answer.body),
-    answerMs: progress.answer.ms,
-    answerError: progress.answer.error,
+    respondedAt: progress.at,
+    responseStatus: progress.response.status,
+    responseHeaders: { ...progress.response.headers },
+    responseBody: base64Of(progress.response.body),
+    responseMs: progress.response.ms,
+    responseError: progress.response.error,
   };
 };
 
@@ -222,7 +222,7 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
         or(
           and(
             eq(networkCall.state, 'answered'),
-            lte(networkCall.answeredAt, at),
+            lte(networkCall.respondedAt, at),
           ),
           and(
             inArray(networkCall.state, ['expired', 'cancelled']),

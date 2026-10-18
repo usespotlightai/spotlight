@@ -183,16 +183,16 @@ const resourceHandlers = [
         return notFound();
       }
 
-      const terms = (await request.json()) as CreateWorkspaceTokenData['body'];
+      const spec = (await request.json()) as CreateWorkspaceTokenData['body'];
       const tokens = settingsWorld().tokens;
-      if (tokens.some((each) => each.name === terms.name)) {
-        return problem(409, `Sorry, token ${terms.name} already exists.`);
+      if (tokens.some((each) => each.name === spec.name)) {
+        return problem(409, `Sorry, token ${spec.name} already exists.`);
       }
 
-      const token = workspaceToken(terms.name, {
-        description: terms.description ?? '',
-        scopes: terms.scopes,
-        expiresAt: terms.expiresAt ?? null,
+      const token = workspaceToken(spec.name, {
+        description: spec.description ?? '',
+        scopes: spec.scopes,
+        expiresAt: spec.expiresAt ?? null,
       });
       tokens.unshift(token);
       return created(token, 'Spotlight-Workspace-Token');

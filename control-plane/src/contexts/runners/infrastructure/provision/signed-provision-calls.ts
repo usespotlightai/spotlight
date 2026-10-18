@@ -80,11 +80,11 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          'webhook-id': call.attempt,
+          'webhook-id': call.messageId,
           'webhook-timestamp': String(timestamp),
           'webhook-signature': signatureOf(
             call.secret.key,
-            call.attempt,
+            call.messageId,
             timestamp,
             body,
           ),

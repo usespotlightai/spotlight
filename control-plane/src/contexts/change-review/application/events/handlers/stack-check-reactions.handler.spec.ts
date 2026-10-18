@@ -15,7 +15,7 @@ import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -164,7 +164,7 @@ describe('StackCheckReactions', () => {
   it('hands the redrafted layers to the check', async () => {
     const stack = stackWith(CheckRequest.of('npm test', null));
     const redrafting = checkFor(stack)
-      .claimedFor(CHECKER, RunnerTerms.none(), LATER)
+      .claimedFor(CHECKER, RunnerOffer.none(), LATER)
       .recordResult(
         CHECKER,
         { steps: stack.checkSteps(stack.entries()), layers: stack.layers() },
@@ -190,7 +190,7 @@ describe('StackCheckReactions', () => {
   it('retains the checked layers once redrafting ends', async () => {
     const stack = stackWith(CheckRequest.of('npm test', null));
     const redrafting = checkFor(stack)
-      .claimedFor(CHECKER, RunnerTerms.none(), LATER)
+      .claimedFor(CHECKER, RunnerOffer.none(), LATER)
       .recordResult(
         CHECKER,
         { steps: stack.checkSteps(stack.entries()), layers: stack.layers() },

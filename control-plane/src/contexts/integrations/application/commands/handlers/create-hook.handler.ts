@@ -23,8 +23,8 @@ import type {
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 
 export class CreateHookHandler
@@ -81,7 +81,7 @@ export class CreateHookHandler
 
       try {
         return await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
+          createIdempotently(this.creates, create, async () => {
             const created = HookDefinition.create({
               ...compiled,
               id: HookDefinitionId.of(this.ids.generate()),
@@ -89,7 +89,7 @@ export class CreateHookHandler
               teamId: permissions.teamId,
               secret: signingSecretChange(compiled.secret),
               allowances: await this.allowances.onTeam(permissions.teamId),
-              by: Attribution.of(command.actor, permissions.workspaceId),
+              by: ChangeActor.of(command.actor, permissions.workspaceId),
             });
 
             await this.definitions.save(created);
@@ -99,7 +99,7 @@ export class CreateHookHandler
         );
       } catch (error) {
         if (error instanceof HookAlreadyExistsError) {
-          return { outcome: 'taken', address: address.toString() };
+          return { outcome: 'already-exists', address: address.toString() };
         }
 
         if (error instanceof InvalidHookError) {

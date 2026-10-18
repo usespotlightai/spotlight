@@ -33,7 +33,7 @@ export const TeamTraceHttpMapper = {
       dto.output,
       dto.ms,
       dto.steps,
-      dto.faults,
+      dto.errors,
       dto.cost,
       dto.currency,
     );
@@ -49,7 +49,7 @@ export const TeamTraceHttpMapper = {
             bucket.from,
             bucket.to,
             bucket.count,
-            bucket.faults,
+            bucket.errors,
           ),
       ),
       dto.traces.map(TeamTraceHttpMapper.toResponse),

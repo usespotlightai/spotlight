@@ -1,5 +1,5 @@
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import type { LineDefinitionStation } from '@work/application/contracts/line-definition.contract';
@@ -14,9 +14,9 @@ import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { reconcileLine } from '@work/domain/services/reconcile-line';
-import { Continuity } from '@work/domain/value-objects/continuity.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
+import { Resume } from '@work/domain/value-objects/resume.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import type { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
@@ -158,7 +158,7 @@ export class CandidateLines {
       plan: compiled.line,
       taskCounts: NO_TASK_COUNTS,
       newId: () => this.ids.generate(),
-      by: Attribution.spotlight(line.workspaceId),
+      by: ChangeActor.spotlight(line.workspaceId),
     });
     const candidate = reconciled.ok
       ? reconciled.line.stationAt(station.id)
@@ -179,8 +179,8 @@ export class CandidateLines {
   async configOf(line: Line, station: Station): Promise<StationConfig | null> {
     const ordered = await this.ordering.ordered(line, {
       stationId: station.id,
-      continuity: Continuity.of({
-        key: ContinuityKey.forReplay(this.ids.generate()),
+      resume: Resume.of({
+        key: ResumeKey.forReplay(this.ids.generate()),
       }),
       checkouts: [],
     });

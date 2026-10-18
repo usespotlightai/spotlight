@@ -30,14 +30,14 @@ import type { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
-import type { ConfigHome } from '@work/domain/value-objects/config-home.vo';
-import { Continuity } from '@work/domain/value-objects/continuity.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
+import type { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import type { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import type { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
+import { Resume } from '@work/domain/value-objects/resume.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
+import type { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import type { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
@@ -58,8 +58,8 @@ export class Chat extends EventRecorder {
     readonly model: HarnessModel | null,
     readonly effort: Effort | null,
     readonly repositories: readonly Repository[],
-    readonly improving: ImprovedStation | null,
-    readonly setup: ConfigHome | null,
+    readonly targetStation: TargetStation | null,
+    readonly setup: ConfigFolder | null,
     readonly messages: readonly ChatMessage[],
     readonly currentRunId: RunId | null,
     readonly sessionId: HarnessSession | null,
@@ -81,13 +81,13 @@ export class Chat extends EventRecorder {
     body: ChatMessageBody;
     attachments?: readonly Attachment[];
     traces?: readonly TraceReference[];
-    improving?: ImprovedStation | null;
-    setup?: ConfigHome | null;
+    targetStation?: TargetStation | null;
+    setup?: ConfigFolder | null;
     now: Date;
     newId: () => string;
   }): Chat {
     Chat.assertNoForeignTraces(input.teamId, input.traces ?? []);
-    Chat.assertNoForeignStation(input.teamId, input.improving ?? null);
+    Chat.assertNoForeignStation(input.teamId, input.targetStation ?? null);
 
     const opening = ChatMessage.sent({
       position: MessagePosition.of(0),
@@ -111,7 +111,7 @@ export class Chat extends EventRecorder {
         ...(input.setup ? [input.setup.repository] : []),
         ...(input.repositories ?? []),
       ]),
-      input.improving ?? null,
+      input.targetStation ?? null,
       input.setup ?? null,
       [opening],
       null,
@@ -144,8 +144,8 @@ export class Chat extends EventRecorder {
     model: HarnessModel | null;
     effort: Effort | null;
     repositories: readonly Repository[];
-    improving?: ImprovedStation | null;
-    setup?: ConfigHome | null;
+    targetStation?: TargetStation | null;
+    setup?: ConfigFolder | null;
     messages: readonly ChatMessage[];
     currentRunId: RunId | null;
     sessionId: HarnessSession | null;
@@ -169,7 +169,7 @@ export class Chat extends EventRecorder {
       input.model,
       input.effort,
       input.repositories,
-      input.improving ?? null,
+      input.targetStation ?? null,
       input.setup ?? null,
       input.messages,
       input.currentRunId,
@@ -255,7 +255,7 @@ export class Chat extends EventRecorder {
     });
   }
 
-  mayOpenSetupFrom(runId: RunId, branch: Branch): ConfigHome {
+  mayOpenSetupFrom(runId: RunId, branch: Branch): ConfigFolder {
     const setup = this.setup;
 
     if (!setup) {
@@ -311,7 +311,7 @@ export class Chat extends EventRecorder {
   assignRun(runId: RunId, at: Date): Chat {
     if (this.running) {
       throw new InvalidChatTransitionError(
-        `Chat ${this.id.value} is already being worked by a run.`,
+        `Chat ${this.id.value} already has a run in progress.`,
       );
     }
 
@@ -348,7 +348,7 @@ export class Chat extends EventRecorder {
     runId: RunId,
     ending: {
       readonly session: HarnessSession | null;
-      readonly workedBy: RunnerId | null;
+      readonly claimedBy: RunnerId | null;
       readonly stopped: boolean;
     },
   ): ChatAfterRun {
@@ -360,12 +360,15 @@ export class Chat extends EventRecorder {
       return { chat: this.runEndedWithoutSession(runId), followsUp: false };
     }
 
-    const worked = this.endRun(runId).recordSession(
+    const recorded = this.endRun(runId).recordSession(
       ending.session,
-      ending.workedBy,
+      ending.claimedBy,
     );
 
-    return { chat: worked, followsUp: !ending.stopped && worked.wantsFollowUp };
+    return {
+      chat: recorded,
+      followsUp: !ending.stopped && recorded.wantsFollowUp,
+    };
   }
 
   endRun(runId: RunId): Chat {
@@ -397,16 +400,16 @@ export class Chat extends EventRecorder {
 
     if (!this.currentRunId) {
       throw new InvalidChatTransitionError(
-        `Chat ${this.id.value} is not being worked. There is nothing to stop.`,
+        `Chat ${this.id.value} has no run in progress. There is nothing to stop.`,
       );
     }
 
     return this.currentRunId;
   }
 
-  continuity(): Continuity {
-    return Continuity.of({
-      key: ContinuityKey.forChat(this.id.value),
+  resume(): Resume {
+    return Resume.of({
+      key: ResumeKey.forChat(this.id.value),
       sessionId: this.sessionId,
     });
   }
@@ -507,10 +510,10 @@ export class Chat extends EventRecorder {
 
   private static assertNoForeignStation(
     teamId: TeamId,
-    improving: ImprovedStation | null,
+    targetStation: TargetStation | null,
   ): void {
-    if (improving && !improving.teamId.equals(teamId)) {
-      throw new UnknownStationError(improving.stationId.value);
+    if (targetStation && !targetStation.teamId.equals(teamId)) {
+      throw new UnknownStationError(targetStation.stationId.value);
     }
   }
 
@@ -537,7 +540,7 @@ export class Chat extends EventRecorder {
     currentRunId?: RunId | null;
     sessionId?: HarnessSession | null;
     runnerId?: RunnerId | null;
-    setup?: ConfigHome | null;
+    setup?: ConfigFolder | null;
   }): Chat {
     const next = new Chat(
       this.id,
@@ -549,7 +552,7 @@ export class Chat extends EventRecorder {
       part.model !== undefined ? part.model : this.model,
       part.effort !== undefined ? part.effort : this.effort,
       this.repositories,
-      this.improving,
+      this.targetStation,
       part.setup !== undefined ? part.setup : this.setup,
       part.messages ?? this.messages,
       part.currentRunId !== undefined ? part.currentRunId : this.currentRunId,

@@ -13,7 +13,7 @@ export class PurgeStaleHosts {
     private readonly clock: ClockPort,
   ) {}
 
-  async servingThrough(id: RunnerPoolId | RunnerTrustId): Promise<void> {
+  async deleteHostsOf(id: RunnerPoolId | RunnerTrustId): Promise<void> {
     await this.hosts.removeThrough(CredentialSource.ofId(id));
   }
 

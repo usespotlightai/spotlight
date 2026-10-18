@@ -1,6 +1,6 @@
 import { InvalidChatMessageError } from '@work/domain/exceptions/invalid-chat-message.error';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
-import type { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
+import type { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 
 const MAX_LENGTH = 20_000;
@@ -29,7 +29,7 @@ export class ChatMessageBody {
     raw: string,
     attachments: readonly Attachment[] = [],
     traces: readonly TraceReference[] = [],
-    improving: ImprovedStation | null = null,
+    targetStation: TargetStation | null = null,
   ): ChatMessageBody {
     const names = attachments.map((each) => each.name).join(', ');
     const shared = TraceReference.distinct(traces);
@@ -38,8 +38,8 @@ export class ChatMessageBody {
     return ChatMessageBody.of(
       raw.trim() ||
         [
-          improving
-            ? `Requested an improvement to ${improving.stationName.value} on ${improving.lineName.value}.`
+          targetStation
+            ? `Requested an improvement to ${targetStation.stationName.value} on ${targetStation.lineName.value}.`
             : '',
           names ? `Attached ${names}.` : '',
           traced

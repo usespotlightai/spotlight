@@ -14,10 +14,10 @@ import {
   type TaskCheckout,
 } from '@work/domain/services/task-checkouts';
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { Continuity } from '@work/domain/value-objects/continuity.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { DONE } from '@work/domain/value-objects/handover-word';
+import { Resume } from '@work/domain/value-objects/resume.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import type { RunReplay } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import type { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
@@ -48,11 +48,11 @@ const checkoutsAt = (
   briefed: BriefedTask,
   candidate: Line,
 ): TaskCheckout[] => {
-  const worked = repositoriesReviewedOrAll(briefed.reviewing, candidate);
+  const repositories = repositoriesReviewedOrAll(briefed.reviewing, candidate);
 
   return started.map((each) => {
     const repository =
-      worked.find((repository) => repository.name === each.path) ??
+      repositories.find((repository) => repository.name === each.path) ??
       unreplayable(
         original,
         'repository-gone',
@@ -102,10 +102,10 @@ export const replayPlanFor = ({
 }): ReplayPlan => {
   const taskId =
     original.taskId ??
-    unreplayable(original, 'not-a-task-run', 'It worked no task.');
+    unreplayable(original, 'not-a-task-run', 'It has no task.');
   const stationId =
     original.stationId ??
-    unreplayable(original, 'not-a-task-run', 'It worked at no station.');
+    unreplayable(original, 'not-a-task-run', 'It ran at no station.');
   if (!original.hasEnded) {
     unreplayable(original, 'still-running', 'It has not ended yet.');
   }
@@ -142,7 +142,7 @@ export const replayPlanFor = ({
     briefed: task,
     at: {
       stationId,
-      continuity: Continuity.of({ key: ContinuityKey.forReplay(id.value) }),
+      resume: Resume.of({ key: ResumeKey.forReplay(id.value) }),
       checkouts,
     },
     archive: started.archive,

@@ -13,7 +13,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class UpdateWorkspaceRunnersHandler
   implements
@@ -45,7 +45,7 @@ export class UpdateWorkspaceRunnersHandler
       }
 
       if (!permissions.managesRunners) {
-        return forbiddenTo('manage-runners');
+        return forbiddenTo('runners');
       }
 
       existing.assertVersion(command.expectedVersion);
@@ -60,7 +60,7 @@ export class UpdateWorkspaceRunnersHandler
         this.declarations.save(
           existing.update(
             compiled,
-            Attribution.of(command.actor, permissions.workspaceId),
+            ChangeActor.of(command.actor, permissions.workspaceId),
           ),
         ),
       );

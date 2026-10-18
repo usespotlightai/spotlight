@@ -288,7 +288,7 @@ function HandedOver() {
 
   return (
     <>
-      <pre data-slot="handed-over">{JSON.stringify(state?.improving)}</pre>
+      <pre data-slot="handed-over">{JSON.stringify(state?.targetStation)}</pre>
       <pre data-slot="handed-prompt">{state?.prompt ?? ''}</pre>
     </>
   );

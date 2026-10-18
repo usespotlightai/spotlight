@@ -11,8 +11,8 @@ import type {
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
 import type { CreateLineCommand } from '@work/application/commands/create-line.command';
@@ -83,7 +83,7 @@ export class CreateLineHandler
 
       try {
         return await this.transaction.inTransaction(() =>
-          createdOnce(
+          createIdempotently(
             this.creates,
             create,
             async () =>
@@ -91,7 +91,7 @@ export class CreateLineHandler
                 await this.applying.create(
                   team,
                   compiled.line,
-                  Attribution.of(command.actor, team.workspaceId),
+                  ChangeActor.of(command.actor, team.workspaceId),
                 )
               ).id.value,
           ),
@@ -99,7 +99,7 @@ export class CreateLineHandler
       } catch (error) {
         if (error instanceof LineAlreadyExistsError) {
           return {
-            outcome: 'taken',
+            outcome: 'already-exists',
             address: TeamAddress.of(team.key, key).toString(),
           };
         }

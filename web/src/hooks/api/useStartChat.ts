@@ -11,7 +11,7 @@ type StartChatInput = {
   body: string;
   attachments: string[];
   traces: string[];
-  improving?: string;
+  targetStation?: string;
   setup?: { repository: string; folder: string };
 };
 

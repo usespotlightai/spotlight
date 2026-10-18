@@ -1,5 +1,5 @@
 export class JudgingVersionConflictError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(runId: string) {
     super(

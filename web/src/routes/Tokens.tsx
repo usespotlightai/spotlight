@@ -13,14 +13,14 @@ import type { CreatedWorkspaceToken } from '@/hooks/api/useCreateWorkspaceToken'
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useWorkspaceTokens } from '@/hooks/api/useWorkspaceTokens';
 import { failed, loading } from '@/lib/query';
-import { administers } from '@/lib/role';
+import { isAdmin } from '@/lib/role';
 import type { WorkspaceToken } from '@/lib/token';
 import { workspacePath } from '@/lib/workspace';
 
 export function Tokens() {
   const { slug } = useParams();
   const { data: workspace } = useWorkspace(slug);
-  const admin = workspace ? administers(workspace.role) : false;
+  const admin = workspace ? isAdmin(workspace.role) : false;
   const workspaceId = admin ? workspace?.id : undefined;
   const tokens = useWorkspaceTokens(workspaceId);
   const [creating, setCreating] = useState(false);

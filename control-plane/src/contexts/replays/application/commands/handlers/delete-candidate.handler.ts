@@ -14,7 +14,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class DeleteCandidateHandler
   implements CommandHandlerPort<DeleteCandidateCommand, ResourceDeleted | null>
@@ -62,7 +62,7 @@ export class DeleteCandidateHandler
         await this.candidates.save(
           candidate.delete(
             replays.some((each) => each.isInProgress),
-            Attribution.of(command.actor, candidate.workspaceId),
+            ChangeActor.of(command.actor, candidate.workspaceId),
           ),
         );
 

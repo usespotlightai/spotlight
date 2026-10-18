@@ -37,7 +37,7 @@ const aSpec = (executable = 'sh') =>
     command: { executable, args: [] },
     briefing: 'do the thing',
     handover: { options: [], noteLimit: 4_000 },
-    continuity: { key: 'task:station' },
+    resume: { key: 'task:station' },
   });
 
 const at = (iso: string) => new Date(iso);
@@ -362,7 +362,7 @@ describe('Run', () => {
           command: { executable: 'sh', args: [] },
           briefing: 'do the thing',
           handover: { options: [], noteLimit: 4_000 },
-          continuity: { key: 'task:station' },
+          resume: { key: 'task:station' },
           manifest: tools.map((name) => ({
             name,
             description: name,
@@ -392,7 +392,7 @@ describe('Run', () => {
   describe('knowing which workspace to restore', () => {
     const working = (
       subject: RunSubject | null,
-      continuity: { key: string; sessionId?: string },
+      resume: { key: string; sessionId?: string },
     ) =>
       Run.enqueue({
         id: RunId.of('run_1'),
@@ -403,7 +403,7 @@ describe('Run', () => {
           command: { executable: 'sh', args: [] },
           briefing: 'do the thing',
           handover: { options: [], noteLimit: 4_000 },
-          continuity,
+          resume,
         }),
       });
 
@@ -447,7 +447,7 @@ describe('Run', () => {
           command: { executable: 'sh', args: [] },
           briefing: 'do the thing',
           handover: { options: [], noteLimit: 4_000 },
-          continuity: { key: 'task:station' },
+          resume: { key: 'task:station' },
           injectedSecrets: ['LINEAR_API_KEY'],
         }),
       });
@@ -510,7 +510,7 @@ describe('Run', () => {
           command: { executable: 'sh', args: [] },
           briefing: 'set up',
           handover: { options: [], noteLimit: 4_000 },
-          continuity: { key: 'chat:chat_1' },
+          resume: { key: 'chat:chat_1' },
           spotlightApi: true,
         }),
       });
@@ -556,12 +556,12 @@ describe('Run', () => {
         RunOutcome.of({ exitCode: 0, failed: false }),
       );
 
-      expect(ended.wasWorkedBy(runner())).toBe(true);
-      expect(ended.wasWorkedBy(runner('runner_2'))).toBe(false);
+      expect(ended.wasClaimedBy(runner())).toBe(true);
+      expect(ended.wasClaimedBy(runner('runner_2'))).toBe(false);
     });
 
     it('was worked by nobody while it waits', () => {
-      expect(queued().wasWorkedBy(runner())).toBe(false);
+      expect(queued().wasClaimedBy(runner())).toBe(false);
     });
 
     it('names the attempt its runner worked, also once it has ended, but none after the runner lost it', () => {
@@ -572,10 +572,10 @@ describe('Run', () => {
       );
 
       expect(
-        ended.attemptWorkedBy(runner())?.equals(leased.currentAttempt),
+        ended.attemptClaimedBy(runner())?.equals(leased.currentAttempt),
       ).toBe(true);
-      expect(ended.attemptWorkedBy(runner('runner_2'))).toBeNull();
-      expect(lostAndRequeued(leased).attemptWorkedBy(runner())).toBeNull();
+      expect(ended.attemptClaimedBy(runner('runner_2'))).toBeNull();
+      expect(lostAndRequeued(leased).attemptClaimedBy(runner())).toBeNull();
     });
   });
 
@@ -599,7 +599,7 @@ describe('Run', () => {
 
       const [completed] = refused.pullEvents();
       expect(completed).toBeInstanceOf(RunCompleted);
-      expect((completed as RunCompleted).workedBy).toBeNull();
+      expect((completed as RunCompleted).claimedBy).toBeNull();
     });
 
     it('cannot be refused once a runner leases it', () => {
@@ -744,12 +744,12 @@ describe('Run', () => {
       expect(denied.state).toBe('failed');
       expect(denied.outcome?.message).toBe(REASON);
       expect(denied.claimedBy).toBeNull();
-      expect(denied.wasWorkedBy(runner())).toBe(false);
+      expect(denied.wasClaimedBy(runner())).toBe(false);
 
       const [completed] = denied.pullEvents();
       expect(completed).toBeInstanceOf(RunCompleted);
       expect((completed as RunCompleted).outcome.failed).toBe(true);
-      expect((completed as RunCompleted).workedBy).toBeNull();
+      expect((completed as RunCompleted).claimedBy).toBeNull();
     });
 
     it('has its start denied only by the runner that claimed it', () => {
@@ -845,7 +845,7 @@ describe('Run', () => {
       const completed = raised as RunCompleted;
       expect(completed.runId).toEqual(RunId.of('run_1'));
       expect(completed.outcome.failed).toBe(false);
-      expect(completed.workedBy).toEqual(runner());
+      expect(completed.claimedBy).toEqual(runner());
       expect(completed.handover?.next).toBe('Spec');
       expect(completed.session?.value).toBe('session_1');
     });
@@ -1080,7 +1080,7 @@ describe('Run', () => {
         .pullEvents()
         .filter((each) => each instanceof RunCompleted);
       expect(completed).toHaveLength(1);
-      expect((completed[0] as RunCompleted).workedBy).toBeNull();
+      expect((completed[0] as RunCompleted).claimedBy).toBeNull();
     });
 
     it('only releases the runner reserved for it while it still has tries left', () => {

@@ -1,5 +1,5 @@
 export class TeamAlreadyExistsError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(key: string) {
     super(`A team with key ${key} already exists. Please choose another key.`);

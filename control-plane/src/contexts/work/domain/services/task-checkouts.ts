@@ -19,18 +19,18 @@ export const repositoriesReviewedOrAll = (
   line: Line,
 ): readonly Repository[] => (reviewing ? [reviewing] : line.repositories.all);
 
-export const repositoriesWorkedOn = (
+export const repositoriesForTask = (
   task: Task | null,
   line: Line,
 ): readonly Repository[] =>
   repositoriesReviewedOrAll(task?.reviewedHead?.repository ?? null, line);
 
-export const repositoryWorkedOnNamed = (
+export const repositoryForTaskNamed = (
   name: string,
   task: Task | null,
   line: Line,
 ): Repository | null =>
-  repositoriesWorkedOn(task, line).find((each) => each.name === name) ?? null;
+  repositoriesForTask(task, line).find((each) => each.name === name) ?? null;
 
 export const checkoutsOf = (
   task: Task,
@@ -38,7 +38,7 @@ export const checkoutsOf = (
 ): readonly TaskCheckout[] => {
   const head = task.reviewedHead;
 
-  return repositoriesWorkedOn(task, line).map((repository) => ({
+  return repositoriesForTask(task, line).map((repository) => ({
     repository,
     branch: head ? null : task.branch,
     ref: head?.ref ?? null,

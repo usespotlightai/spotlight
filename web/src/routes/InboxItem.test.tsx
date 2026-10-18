@@ -53,10 +53,10 @@ vi.mock('@/hooks/api/useReadInboxItem', () => ({
   useReadInboxItem: () => ({ mutate: read }),
 }));
 
-const readAside = vi.fn();
+const readInboxRequest = vi.fn();
 
-vi.mock('@/hooks/api/useReadInboxAside', () => ({
-  useReadInboxAside: () => ({ mutate: readAside }),
+vi.mock('@/hooks/api/useReadInboxRequest', () => ({
+  useReadInboxRequest: () => ({ mutate: readInboxRequest }),
 }));
 
 vi.mock('@/components/features/inbox/memories/MemoryThread', () => ({
@@ -100,7 +100,7 @@ const item = (notes: unknown[], description: string | null = null) => [
     stationPosition: 2,
     stationCount: 4,
     currentStation: { name: 'Code Review', color: '#56b98d', position: 3 },
-    raisedAt: { name: 'Triage', color: '#edc12b', position: 0 },
+    originStation: { name: 'Triage', color: '#edc12b', position: 0 },
     createdAt: '2026-08-29T09:02:00.000Z',
     askedAt: '2026-08-29T12:00:00.000Z',
     resolved: false,
@@ -170,21 +170,21 @@ describe('InboxItem', () => {
     });
   });
 
-  describe('when it puts memories aside for review', () => {
-    const aside = (unread: boolean) => [
+  describe('when it asks for a review of memories', () => {
+    const inboxRequest = (unread: boolean) => [
       {
         ...item([])[0],
-        id: 'aside_1',
+        id: 'request_1',
         unread,
-        aside: { form: 'memories', about: 'run_7' },
+        inboxRequest: { form: 'memories', about: 'run_7' },
       },
     ];
 
     it('opens the run’s thread with the memories it proposed, without waiting on the work', () => {
-      waiting.mockReturnValue(aside(false));
+      waiting.mockReturnValue(inboxRequest(false));
       journal.mockReturnValue(undefined);
 
-      renderItem('aside_1');
+      renderItem('request_1');
 
       expect(
         screen.getByText(
@@ -194,15 +194,15 @@ describe('InboxItem', () => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });
 
-    it('marks it seen as an aside, not as a conversation', () => {
-      readAside.mockClear();
-      waiting.mockReturnValue(aside(true));
+    it('marks it seen as an inbox request, not as a conversation', () => {
+      readInboxRequest.mockClear();
+      waiting.mockReturnValue(inboxRequest(true));
 
-      renderItem('aside_1');
+      renderItem('request_1');
 
-      expect(readAside).toHaveBeenCalledWith({
+      expect(readInboxRequest).toHaveBeenCalledWith({
         slug: 'acme',
-        asideId: 'aside_1',
+        requestId: 'request_1',
       });
       expect(read).not.toHaveBeenCalled();
     });
@@ -213,14 +213,14 @@ describe('InboxItem', () => {
       waiting.mockReturnValue([
         {
           ...item([])[0],
-          id: 'aside_2',
+          id: 'request_2',
           unread: false,
-          aside: { form: 'grade', about: 'run_9' },
+          inboxRequest: { form: 'grade', about: 'run_9' },
         },
       ]);
       journal.mockReturnValue(undefined);
 
-      renderItem('aside_2');
+      renderItem('request_2');
 
       expect(
         screen.getByText('The thread of run run_9, asking for a grade'),

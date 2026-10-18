@@ -51,11 +51,11 @@ describe('StreamMark', () => {
     expect(eventIdOf(event(2, 3))).toBe('2:3');
   });
 
-  it('names no event journalled aside, so a viewer resumes from where the runner’s entries left off', () => {
+  it('names no control-plane entry, so a viewer resumes from where the runner’s entries left off', () => {
     expect(eventIdOf(event(2, -1_000_000))).toBeUndefined();
   });
 
-  it('sends each entry journalled aside once, without moving past the runner’s entries', () => {
+  it('sends each control-plane entry once, without moving past the runner’s entries', () => {
     const mark = new StreamMark({ attempt: 1, seq: 4 });
 
     expect(mark.accepts(event(1, -1_000_000))).toBe(true);
@@ -65,7 +65,7 @@ describe('StreamMark', () => {
     expect(mark.accepts(event(1, 5))).toBe(true);
   });
 
-  it('sends the entries journalled aside again for a run’s next attempt', () => {
+  it('sends the control-plane entries again for a run’s next attempt', () => {
     const mark = new StreamMark({ attempt: 1, seq: 0 });
 
     expect(mark.accepts(event(1, -1_000_000))).toBe(true);

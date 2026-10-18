@@ -37,14 +37,14 @@ describe('HostImage', () => {
 
     expect(image.image.value).toBe('ghcr.io/acme/widgets:main');
     expect(image.digest?.value).toBe(DIGEST);
-    expect(image.running.serves(image.image)).toBe(true);
-    expect(image.running.serves(null)).toBe(true);
+    expect(image.running.supports(image.image)).toBe(true);
+    expect(image.running.supports(null)).toBe(true);
     expect(image.isDefault).toBe(true);
     expect(image.release).toBe('0.9.0');
     expect(image.harnesses.map((each) => each.id.value)).toEqual([
       'claude-code',
     ]);
-    expect(image.isServed).toBe(true);
+    expect(image.isSupported).toBe(true);
   });
 
   it('keeps nothing for a digest, release or unavailable reason it was not given', () => {
@@ -59,7 +59,7 @@ describe('HostImage', () => {
     const image = reported({ unavailableReason: ' could not pull the image ' });
 
     expect(image.unavailableReason).toBe('could not pull the image');
-    expect(image.isServed).toBe(false);
+    expect(image.isSupported).toBe(false);
   });
 
   it('rejects an image that is not a reference', () => {
@@ -82,6 +82,6 @@ describe('HostImage', () => {
 
     expect(image.release).toHaveLength(64);
     expect(image.unavailableReason).toHaveLength(500);
-    expect(image.isServed).toBe(false);
+    expect(image.isSupported).toBe(false);
   });
 });

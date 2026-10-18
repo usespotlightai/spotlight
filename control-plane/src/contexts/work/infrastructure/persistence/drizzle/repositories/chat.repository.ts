@@ -23,10 +23,9 @@ import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
-import { ConfigHome } from '@work/domain/value-objects/config-home.vo';
+import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
@@ -35,6 +34,7 @@ import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
@@ -118,7 +118,7 @@ const toMessage = (
   });
 };
 
-const setupRow = (setup: ConfigHome | null): ChatSetupRow | null =>
+const setupRow = (setup: ConfigFolder | null): ChatSetupRow | null =>
   setup
     ? {
         repository: setup.repository.value,
@@ -142,19 +142,19 @@ const toChat = (
     model: row.model ? HarnessModel.of(row.model) : null,
     effort: row.effort ? Effort.of(row.effort) : null,
     repositories: row.repositories.map((each) => Repository.of(each)),
-    improving: row.improving
-      ? ImprovedStation.rehydrate({
+    targetStation: row.targetStation
+      ? TargetStation.rehydrate({
           teamId: TeamId.of(row.teamId),
-          lineId: LineId.of(row.improving.lineId),
-          lineKey: LineKey.of(row.improving.lineKey),
-          lineName: LineName.of(row.improving.lineName),
-          stationId: StationId.of(row.improving.stationId),
-          stationKey: StationKey.of(row.improving.stationKey),
-          stationName: StationName.of(row.improving.stationName),
+          lineId: LineId.of(row.targetStation.lineId),
+          lineKey: LineKey.of(row.targetStation.lineKey),
+          lineName: LineName.of(row.targetStation.lineName),
+          stationId: StationId.of(row.targetStation.stationId),
+          stationKey: StationKey.of(row.targetStation.stationKey),
+          stationName: StationName.of(row.targetStation.stationName),
         })
       : null,
     setup: row.setup
-      ? ConfigHome.rehydrate({
+      ? ConfigFolder.rehydrate({
           repository: Repository.of(row.setup.repository),
           folder: row.setup.folder,
           pullRequest: row.setup.pullRequest
@@ -196,14 +196,14 @@ export class DrizzleChatRepository implements ChatRepository {
       model: added.model?.value ?? null,
       effort: added.effort?.value ?? null,
       repositories: added.repositories.map((each) => each.value),
-      improving: added.improving
+      targetStation: added.targetStation
         ? {
-            lineId: added.improving.lineId.value,
-            lineKey: added.improving.lineKey.value,
-            lineName: added.improving.lineName.value,
-            stationId: added.improving.stationId.value,
-            stationKey: added.improving.stationKey.value,
-            stationName: added.improving.stationName.value,
+            lineId: added.targetStation.lineId.value,
+            lineKey: added.targetStation.lineKey.value,
+            lineName: added.targetStation.lineName.value,
+            stationId: added.targetStation.stationId.value,
+            stationKey: added.targetStation.stationKey.value,
+            stationName: added.targetStation.stationName.value,
           }
         : null,
       setup: setupRow(added.setup),

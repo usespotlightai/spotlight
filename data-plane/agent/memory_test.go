@@ -14,7 +14,7 @@ import (
 
 type memoryChannel struct {
 	recalled   []protocol.RecallRequest
-	remembered []protocol.Remembering
+	remembered []protocol.RememberRequest
 }
 
 func remembering(t *testing.T, rejecting error) *memoryChannel {
@@ -51,7 +51,7 @@ func remembering(t *testing.T, rejecting error) *memoryChannel {
 			}
 			return json.Marshal([]protocol.RecalledMemory{memory})
 		},
-		func(received protocol.Remembering) (json.RawMessage, error) {
+		func(received protocol.RememberRequest) (json.RawMessage, error) {
 			if rejecting != nil {
 				return nil, rejecting
 			}
@@ -152,7 +152,7 @@ func TestRememberProposesWithAbsolutePaths(t *testing.T) {
 		(!strings.HasPrefix(got.Paths[0], working) && !strings.HasPrefix(got.Paths[0], resolved)) {
 		t.Errorf("paths %v", got.Paths)
 	}
-	if !strings.Contains(out.String(), "waits beside the task for a person to approve it") {
+	if !strings.Contains(out.String(), "waits in the inbox for a person to approve it") {
 		t.Errorf("output %q", out.String())
 	}
 }

@@ -113,7 +113,7 @@ describe('CreateSecretHandler', () => {
   it('forbids someone who reads the workspace but may not manage its secrets', async () => {
     const { create, secrets } = setUp(false);
 
-    expect(await create()).toEqual(forbiddenTo('manage-secrets'));
+    expect(await create()).toEqual(forbiddenTo('secrets'));
     expect(await secrets.withId(SecretId.of(ID))).toBeNull();
   });
 
@@ -140,7 +140,7 @@ describe('CreateSecretHandler', () => {
     const { create } = await created();
 
     expect(await create(LINEAR, 'key-2')).toEqual({
-      outcome: 'taken',
+      outcome: 'already-exists',
       address: 'LINEAR_API_KEY',
     });
   });
@@ -205,7 +205,7 @@ describe('UpdateSecretHandler', () => {
 
     expect(
       await update({ ...LINEAR, valueWo: 'lin_api_2', valueWoVersion: 2 }),
-    ).toEqual(forbiddenTo('manage-secrets'));
+    ).toEqual(forbiddenTo('secrets'));
     expect(await storedValue()).toBe('lin_api_1');
   });
 
@@ -230,7 +230,7 @@ describe('UpdateSecretHandler', () => {
       secrets.events.filter(changesConfiguration)[1]?.change.recordedDetail,
     ).toEqual({
       valueVersion: 2,
-      boundTo: ['uploads.linear.app'],
+      targets: ['uploads.linear.app'],
     });
     expect(JSON.stringify(secrets.events)).not.toMatch(/lin_api_/);
   });
@@ -265,7 +265,7 @@ describe('DeleteSecretHandler', () => {
 
     demoted();
 
-    expect(await remove()).toEqual(forbiddenTo('manage-secrets'));
+    expect(await remove()).toEqual(forbiddenTo('secrets'));
     expect(await storedValue()).toBe('lin_api_1');
   });
 });

@@ -166,7 +166,7 @@ export class EventDelivery {
       throw new Error(`No subscriber is called ${due.subscriber} any more`);
     }
 
-    await this.causation.within(CausalChain.read(due.cause), async () => {
+    await this.causation.runWith(CausalChain.read(due.cause), async () => {
       const raised = await subscriber.handle(this.outbox.decode(due.payload));
 
       await this.outbox.record(raised);

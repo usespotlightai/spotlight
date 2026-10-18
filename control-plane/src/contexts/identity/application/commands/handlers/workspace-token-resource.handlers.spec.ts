@@ -12,8 +12,8 @@ import {
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
 import { RandomTokenIssuer } from '@platform/tokens/random-token-issuer.service';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import type { IdempotentClaim } from '@shared-kernel/application/ports/idempotent-creates.port';
-import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import type { IdempotentReservation } from '@shared-kernel/application/ports/idempotent-creates.port';
+import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -27,8 +27,8 @@ const CI = {
 
 const issuing = (
   over: {
-    administers?: boolean;
-    claim?: IdempotentClaim;
+    isAdmin?: boolean;
+    reservation?: IdempotentReservation;
     throwing?: Error;
   } = {},
 ) => {
@@ -40,12 +40,12 @@ const issuing = (
   const issuer = new RandomTokenIssuer();
   const keys = creates();
 
-  if (over.claim) {
-    keys.claim.mockResolvedValue(over.claim as never);
+  if (over.reservation) {
+    keys.reserve.mockResolvedValue(over.reservation as never);
   }
 
   const handler = new CreateWorkspaceTokenHandler(
-    access(over.administers),
+    access(over.isAdmin),
     new IdentityDefinitions(),
     { add } as unknown as WorkspaceTokenRepository,
     keys,
@@ -71,7 +71,7 @@ const issuing = (
 };
 
 describe('CreateWorkspaceTokenHandler', () => {
-  it('answers the token once, storing only its hash', async () => {
+  it('returns the token once, storing only its hash', async () => {
     const { issue, add, issuer } = issuing();
     const issued = await issue(CI);
 
@@ -87,9 +87,9 @@ describe('CreateWorkspaceTokenHandler', () => {
     expect(stored.issuedBy).toEqual(OWNER);
   });
 
-  it('answers no token to a retry, since only the first answer carried it', async () => {
+  it('returns no token for a retry, since only the first response carried it', async () => {
     const { issue, add } = issuing({
-      claim: { kind: 'replay', createdId: 'token_first' },
+      reservation: { kind: 'already-created', createdId: 'token_first' },
     });
 
     expect(await issue(CI)).toEqual({
@@ -100,7 +100,7 @@ describe('CreateWorkspaceTokenHandler', () => {
   });
 
   it('forbids someone who reads the workspace but does not administer it', async () => {
-    const { issue, add } = issuing({ administers: false });
+    const { issue, add } = issuing({ isAdmin: false });
 
     expect(await issue(CI)).toEqual({
       created: forbiddenTo('administer'),
@@ -120,13 +120,13 @@ describe('CreateWorkspaceTokenHandler', () => {
     ).toEqual(['expiresAt']);
   });
 
-  it('says the name is taken rather than answering a token', async () => {
+  it('says the name is taken rather than returning a token', async () => {
     const { issue } = issuing({
       throwing: new WorkspaceTokenAlreadyIssuedError('ci'),
     });
 
     expect(await issue(CI)).toEqual({
-      created: { outcome: 'taken', address: 'ci' },
+      created: { outcome: 'already-exists', address: 'ci' },
       token: null,
     });
   });

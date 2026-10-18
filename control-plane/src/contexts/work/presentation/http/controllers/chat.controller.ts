@@ -126,8 +126,8 @@ export class ChatController {
         body.body ?? '',
         idsInput(body.attachments),
         idsInput(body.traces),
-        typeof body.improving === 'string' && body.improving.trim()
-          ? body.improving.trim()
+        typeof body.targetStation === 'string' && body.targetStation.trim()
+          ? body.targetStation.trim()
           : null,
         setupInput(body.setup),
       ),

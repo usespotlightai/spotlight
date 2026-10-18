@@ -5,7 +5,7 @@ import { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.even
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { changed } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changed } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';

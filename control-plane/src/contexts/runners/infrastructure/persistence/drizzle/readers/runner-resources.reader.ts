@@ -8,7 +8,7 @@ import type {
   RunnerTrustRecord,
   WorkspaceRunnersRecord,
 } from '@runners/application/ports/runner-resources.port';
-import type { CredentialSourceKeys } from '@runners/domain/services/runner-drift';
+import type { CredentialSourceKeys } from '@runners/domain/services/dangling-keys';
 import {
   egress,
   runnerPool,

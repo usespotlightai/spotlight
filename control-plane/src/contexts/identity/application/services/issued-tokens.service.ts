@@ -3,7 +3,7 @@ import { WorkspaceTokenVersionConflictError } from '@identity/domain/exceptions/
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 const EXPIRE_BATCH = 100;
 
@@ -17,7 +17,7 @@ export class IssuedTokens {
   ) {}
 
   async revokeIssuedBy(deleted: WorkspaceTokenTrustDeleted): Promise<void> {
-    const by = Attribution.spotlight(deleted.workspaceId);
+    const by = ChangeActor.spotlight(deleted.workspaceId);
 
     for (const token of await this.tokens.issuedByTrust(deleted.trustId)) {
       await this.ignoringVersionConflict(() =>

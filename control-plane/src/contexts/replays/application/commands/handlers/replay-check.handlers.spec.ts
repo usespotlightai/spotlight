@@ -73,8 +73,8 @@ const CHECKED = CandidateScoring.of({
 });
 
 const FRESH: IdempotentCreatesPort = {
-  claim: async () => ({ kind: 'fresh' }),
-  created: async () => {},
+  reserve: async () => ({ kind: 'new' }),
+  recordCreated: async () => {},
 };
 
 const PLAN = {

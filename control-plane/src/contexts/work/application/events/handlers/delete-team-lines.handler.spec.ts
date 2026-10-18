@@ -1,4 +1,4 @@
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { DeleteTeamLines } from '@work/application/events/handlers/delete-team-lines.handler';
@@ -16,7 +16,7 @@ const TEAM = TeamId.of('team_1');
 const existingLine = (): Line => {
   let next = 0;
   const created = Line.create({
-    by: attributedIn(),
+    by: changeActorIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TEAM,
     line: BUILT_IN_LINES[0] as LineOpening,

@@ -1,6 +1,6 @@
 import type { TeamProfile } from '@identity/application/ports/team-directory.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { StationTalliesPort } from '@work/application/ports/station-tallies.port';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import { LineAlreadyExistsError } from '@work/domain/exceptions/line-already-exists.error';
@@ -25,7 +25,7 @@ export class ApplyLines {
   async create(
     team: TeamProfile,
     plan: LinePlan,
-    by: Attribution,
+    by: ChangeActor,
   ): Promise<Line> {
     const existing = await this.lines.ofTeam(team.id);
 
@@ -51,7 +51,7 @@ export class ApplyLines {
     return created;
   }
 
-  async reconcile(line: Line, plan: LinePlan, by: Attribution): Promise<Line> {
+  async reconcile(line: Line, plan: LinePlan, by: ChangeActor): Promise<Line> {
     this.guardRoles(
       (await this.lines.ofTeam(line.teamId)).filter(
         (each) => !each.equals(line),

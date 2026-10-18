@@ -24,15 +24,15 @@ export class ListMembersHandler
         return null;
       }
 
-      const mine = WorkspaceRole.of(roster.viewer);
+      const callerRole = WorkspaceRole.of(roster.viewer);
 
       return roster.members.map((member) => {
-        const theirs = WorkspaceRole.of(member.role);
+        const memberRole = WorkspaceRole.of(member.role);
 
-        const mayBeSetTo = assignableRoles({
-          mine,
-          theirs,
-          lastOwner: theirs.isOwner && roster.owners === 1,
+        const assignable = assignableRoles({
+          callerRole,
+          memberRole,
+          isLastOwner: memberRole.isOwner && roster.owners === 1,
           isSelf: member.id === query.viewerId,
         });
 
@@ -41,7 +41,7 @@ export class ListMembersHandler
           name: member.name,
           image: member.image,
           role: member.role,
-          mayBeSetTo: mayBeSetTo.map((role) => role.value),
+          assignableRoles: assignable.map((role) => role.value),
         };
       });
     } catch (error) {

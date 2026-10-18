@@ -4,11 +4,11 @@ import { WorkspaceRunnersVersionConflictError } from '@runners/domain/exceptions
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const BY = attributedIn('ws_1');
+const BY = changeActorIn('ws_1');
 
 const created = () =>
   WorkspaceRunners.create({

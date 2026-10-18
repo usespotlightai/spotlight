@@ -44,7 +44,8 @@ export class PoolQueueHandler
         labels: Object.fromEntries(
           pool.labels.values.map((label) => [
             label,
-            takeable.filter((each) => each.selectors.includes(label)).length,
+            takeable.filter((each) => each.requiredLabels.includes(label))
+              .length,
           ]),
         ),
       };

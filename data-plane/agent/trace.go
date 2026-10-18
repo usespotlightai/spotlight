@@ -49,9 +49,9 @@ func traceCmd(args []string, out io.Writer) error {
 
 	fmt.Fprintf(
 		out,
-		"Wrote the trace to %s — %d nodes, %d faults, %s. Read and search that "+
+		"Wrote the trace to %s — %d nodes, %d errors, %s. Read and search that "+
 			"file with your own tools rather than loading it whole.\n",
-		file.Name(), trace.Rows, trace.Faults, tookMs(trace.Ms),
+		file.Name(), trace.Rows, trace.Errors, tookMs(trace.Ms),
 	)
 
 	return nil

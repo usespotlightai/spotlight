@@ -6,7 +6,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { UpdateLineCommand } from '@work/application/commands/update-line.command';
 import type { LineCompilerPort } from '@work/application/ports/line-compiler.port';
 import type { ApplyLines } from '@work/application/services/apply-lines.service';
@@ -70,7 +70,7 @@ export class UpdateLineHandler
           this.applying.reconcile(
             existing,
             compiled.line,
-            Attribution.of(command.actor, existing.workspaceId),
+            ChangeActor.of(command.actor, existing.workspaceId),
           ),
         );
       } catch (error) {

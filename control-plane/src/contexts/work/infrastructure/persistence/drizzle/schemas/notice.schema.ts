@@ -25,7 +25,7 @@ export const notice = pgTable(
     linkLabel: text('link_label').notNull(),
     headline: text('headline').notNull(),
     points: jsonb('points').$type<string[]>().notNull(),
-    raisedAt: timestamp('raised_at').notNull(),
+    createdAt: timestamp('created_at').notNull(),
     resolvedAt: timestamp('resolved_at'),
     version: integer('version').notNull().default(0),
   },

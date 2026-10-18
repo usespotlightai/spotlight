@@ -53,7 +53,7 @@ export class CompleteRunHandler
         : RunOutcome.of({
             exitCode: command.exitCode,
             failed: command.failed,
-            unprepared: command.unprepared,
+            setupFailed: command.setupFailed,
             message: command.message,
           });
       const handover =
@@ -159,7 +159,7 @@ export class CompleteRunHandler
       !run?.firesHooks ||
       !run.taskId ||
       run.hasEnded ||
-      !run.wasWorkedBy(runnerId) ||
+      !run.wasClaimedBy(runnerId) ||
       run.pausedBy(runnerId)
     ) {
       return handover;

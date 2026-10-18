@@ -34,11 +34,11 @@ import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import type { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import type { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RequeueCount } from '@work/domain/value-objects/requeue-count.vo';
 import type { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
+import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
@@ -361,19 +361,19 @@ export class Run extends EventRecorder {
     return archive ? WorkspaceArchiveId.of(archive) : null;
   }
 
-  get continuity(): ContinuityKey | null {
-    return this.spec.continuity;
+  get resumeKey(): ResumeKey | null {
+    return this.spec.resumeKey;
   }
 
   get archiveHolder(): ArchiveHolder | null {
     return this.subject?.archiveHolder ?? null;
   }
 
-  get restoresFrom(): ContinuityKey | null {
+  get restoresFrom(): ResumeKey | null {
     const restores =
       this.archiveHolder?.kind === 'task' || this.spec.continuesASession;
 
-    return restores ? this.spec.continuity : null;
+    return restores ? this.spec.resumeKey : null;
   }
 
   claim(by: RunnerId, now: Date): Run {
@@ -598,7 +598,7 @@ export class Run extends EventRecorder {
   }
 
   unclaimedBy(by: RunnerId): Run {
-    this.requireWorkedBy(by, 'unclaim');
+    this.requireClaimedBy(by, 'unclaim');
 
     if (this.ranIn) {
       throw new InvalidRunTransitionError(
@@ -615,7 +615,7 @@ export class Run extends EventRecorder {
   }
 
   startedIn(by: RunnerId, image: RunnerImage, now: Date): Run {
-    this.requireWorkedBy(by, 'start');
+    this.requireClaimedBy(by, 'start');
 
     if (!image.isPinned) {
       throw new InvalidRunTransitionError(
@@ -641,7 +641,7 @@ export class Run extends EventRecorder {
     now: Date,
   ): Run {
     this.assertStillOn(attempt, by);
-    this.requireWorkedBy(by, 'record the start of');
+    this.requireClaimedBy(by, 'record the start of');
 
     if (!this.taskId) {
       throw new InvalidRunTransitionError(
@@ -781,7 +781,7 @@ export class Run extends EventRecorder {
   }
 
   askedAPersonBy(by: RunnerId): Run {
-    this.requireWorkedBy(by, 'ask a person on');
+    this.requireClaimedBy(by, 'ask a person on');
 
     if (!this.leavesNothingBehind) {
       throw new InvalidRunTransitionError(
@@ -798,7 +798,7 @@ export class Run extends EventRecorder {
     report: HandoverReport,
     now: Date,
   ): Run {
-    this.requireWorkedBy(by, 'pause');
+    this.requireClaimedBy(by, 'pause');
 
     if (this.leavesNothingBehind) {
       throw new InvalidRunTransitionError(
@@ -847,7 +847,7 @@ export class Run extends EventRecorder {
   }
 
   pausedBy(runner: RunnerId): boolean {
-    return this.state === 'waiting' && this.wasWorkedBy(runner);
+    return this.state === 'waiting' && this.wasClaimedBy(runner);
   }
 
   get resumable(): boolean {
@@ -901,7 +901,7 @@ export class Run extends EventRecorder {
   }
 
   private requeueToResume(by: RunnerId, now: Date): Run {
-    if (this.state !== 'claimed' || !this.spec.resumes) {
+    if (this.state !== 'claimed' || !this.spec.resumesSession) {
       throw new InvalidRunTransitionError(
         `Run ${this.id.value} can be suspended only after an answer resumes it from a pause.`,
       );
@@ -991,7 +991,7 @@ export class Run extends EventRecorder {
   }
 
   requeue(by: RunnerId, now: Date, because: string): Run {
-    this.requireWorkedBy(by, 'requeue');
+    this.requireClaimedBy(by, 'requeue');
 
     if (this.stopRequested) {
       return this.endedUnstarted(RunOutcome.stopped(-1));
@@ -1042,7 +1042,7 @@ export class Run extends EventRecorder {
   }
 
   deniedStart(by: RunnerId, reason: string): Run {
-    this.requireWorkedBy(by, 'deny the start of');
+    this.requireClaimedBy(by, 'deny the start of');
 
     return this.endedUnstarted(RunOutcome.refused([{ description: reason }]));
   }
@@ -1180,7 +1180,7 @@ export class Run extends EventRecorder {
     return this.stopRequestedAt !== null;
   }
 
-  wasWorkedBy(runner: RunnerId): boolean {
+  wasClaimedBy(runner: RunnerId): boolean {
     return this.claimedBy?.equals(runner) ?? false;
   }
 
@@ -1211,11 +1211,11 @@ export class Run extends EventRecorder {
   }
 
   isLeasedBy(runner: RunnerId): boolean {
-    return isLeased(this.state) && this.wasWorkedBy(runner);
+    return isLeased(this.state) && this.wasClaimedBy(runner);
   }
 
-  attemptWorkedBy(runner: RunnerId): RunAttempt | null {
-    return this.wasWorkedBy(runner) ? this.currentAttempt : null;
+  attemptClaimedBy(runner: RunnerId): RunAttempt | null {
+    return this.wasClaimedBy(runner) ? this.currentAttempt : null;
   }
 
   injectedSecretsFor(runner: RunnerId): readonly SecretName[] {
@@ -1303,7 +1303,7 @@ export class Run extends EventRecorder {
     return new Date(now.getTime() + LEASE_DURATION_MS);
   }
 
-  private requireWorkedBy(by: RunnerId, action: string): void {
+  private requireClaimedBy(by: RunnerId, action: string): void {
     if (this.state !== 'claimed') {
       throw new InvalidRunTransitionError(
         `Cannot ${action} run ${this.id.value} while it is ${this.state}.`,

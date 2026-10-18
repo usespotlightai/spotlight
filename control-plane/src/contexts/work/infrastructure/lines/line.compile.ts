@@ -29,6 +29,7 @@ import {
   LinePlan,
   type StationPlan,
 } from '@work/domain/value-objects/line-plan.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { ReplayCheckPolicy } from '@work/domain/value-objects/replay-check-policy.vo';
@@ -43,7 +44,6 @@ import { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import {
   type LineFields,
   lineSchema,
@@ -220,8 +220,11 @@ const compileRepository = (
   path: string,
   at: number,
   repository: RepositoryDefinition,
-): Read<WorkedRepository> => {
-  const invalid = (field: string, error: unknown): Read<WorkedRepository> => ({
+): Read<LineRepositoryConfig> => {
+  const invalid = (
+    field: string,
+    error: unknown,
+  ): Read<LineRepositoryConfig> => ({
     ok: false,
     problems: [
       ConfigurationProblem.of({
@@ -256,7 +259,7 @@ const compileRepository = (
     return invalid('setup', error);
   }
 
-  return { ok: true, value: WorkedRepository.of(named, { image, setup }) };
+  return { ok: true, value: LineRepositoryConfig.of(named, { image, setup }) };
 };
 
 const placed = (definition: LineFields, part: LinePart): FieldPath => {
@@ -303,7 +306,7 @@ export const compileLine = (input: unknown): ParsedLine => {
   const key = LineKey.of(definition.key);
   const path = lineAt(key.value);
   const problems: ConfigurationProblem[] = [];
-  const repositories: WorkedRepository[] = [];
+  const repositories: LineRepositoryConfig[] = [];
   let name: LineName | null = null;
 
   try {

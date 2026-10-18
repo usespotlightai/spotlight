@@ -16,7 +16,7 @@ import type { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
@@ -99,7 +99,7 @@ export class IntegrationDefinition extends EventRecorder {
       id: IntegrationDefinitionId;
       teamId: TeamId;
       reading: SpecFetchResult | null;
-      by: Attribution;
+      by: ChangeActor;
     },
   ): IntegrationDefinition {
     guardDescribes(input);
@@ -159,7 +159,7 @@ export class IntegrationDefinition extends EventRecorder {
     compiled: Compiled,
     reading: SpecFetchResult | null,
     enabled: ToolUses,
-    by: Attribution,
+    by: ChangeActor,
   ): IntegrationDefinition {
     this.guardLive();
     guardDescribes(compiled);
@@ -215,7 +215,7 @@ export class IntegrationDefinition extends EventRecorder {
   refreshSpec(
     compiled: Compiled,
     reading: SpecFetchResult,
-    by: Attribution,
+    by: ChangeActor,
   ): IntegrationDefinition {
     this.guardLive();
     guardDescribes(compiled);
@@ -254,7 +254,7 @@ export class IntegrationDefinition extends EventRecorder {
     return refreshed;
   }
 
-  delete(enabled: ToolUses, by: Attribution): IntegrationDefinition {
+  delete(enabled: ToolUses, by: ChangeActor): IntegrationDefinition {
     this.guardLive();
     this.guardUnused(enabled, this.tools);
 
@@ -265,7 +265,7 @@ export class IntegrationDefinition extends EventRecorder {
     return deleted;
   }
 
-  cascadeDelete(by: Attribution): IntegrationDefinition {
+  cascadeDelete(by: ChangeActor): IntegrationDefinition {
     this.guardLive();
 
     const deleted = this.with({ deleted: true });
@@ -275,7 +275,7 @@ export class IntegrationDefinition extends EventRecorder {
     return deleted;
   }
 
-  private deletedBy(by: Attribution): IntegrationDeleted {
+  private deletedBy(by: ChangeActor): IntegrationDeleted {
     return new IntegrationDeleted(
       this.id,
       this.teamId,

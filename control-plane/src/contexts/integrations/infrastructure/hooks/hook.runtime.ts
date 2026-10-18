@@ -32,7 +32,10 @@ import {
   requiredTextOf,
   requiredValueOf,
 } from '@integrations/infrastructure/integrations/templating';
-import { type Bindings, bound } from '@platform/expressions/bindings';
+import {
+  type CelVariables,
+  sanitizedForCel,
+} from '@platform/expressions/cel-variables';
 import type { ExpressionEnginePort } from '@platform/expressions/expression-engine.port';
 import { isTrue } from '@platform/expressions/readings';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -126,20 +129,20 @@ const eventSeen = (instance: HookEventInstance) => ({
 const outputOf = (outcome: StepOutcome): unknown =>
   outcome.status === 'waiting' ? null : outcome.output;
 
-const bindingsFor = (
+const celVariablesFor = (
   hook: Readable,
   instance: HookEventInstance,
   earlier: readonly StepOutcome[] = [],
-): Bindings => ({
-  event: bound(eventSeen(instance)),
-  task: bound(taskSeen(instance)),
+): CelVariables => ({
+  event: sanitizedForCel(eventSeen(instance)),
+  task: sanitizedForCel(taskSeen(instance)),
   ...(instance.task.runId ? { run: { id: instance.task.runId } } : {}),
   vars: hook.ir.vars,
   hook: { key: hook.key },
   step: Object.fromEntries(
     earlier.map((each) => [
       each.name,
-      { status: each.status, output: bound(outputOf(each)) },
+      { status: each.status, output: sanitizedForCel(outputOf(each)) },
     ]),
   ),
 });
@@ -235,10 +238,10 @@ export class CompiledHookRuntime implements HookRuntimePort {
     if (!isReadable(compiled)) {
       return false;
     }
-    const bindings = bindingsFor(compiled, instance);
+    const variables = celVariablesFor(compiled, instance);
 
     return compiled.ir.conditions.every((condition) =>
-      isTrue(condition, bindings),
+      isTrue(condition, variables),
     );
   }
 
@@ -272,15 +275,15 @@ export class CompiledHookRuntime implements HookRuntimePort {
     }
 
     try {
-      const bindings = bindingsFor(
+      const variables = celVariablesFor(
         hook,
         stepRequest.instance,
         stepRequest.earlier,
       );
 
       return step.kind === 'call'
-        ? await this.called(hook, step, stepRequest, bindings, now)
-        : await this.requested(hook, step, stepRequest, bindings, now);
+        ? await this.called(hook, step, stepRequest, variables, now)
+        : await this.requested(hook, step, stepRequest, variables, now);
     } catch (error) {
       return failedAt(step.name, 'errored', reasoned(error));
     }
@@ -290,7 +293,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
     hook: Readable,
     step: Extract<HookStepIR, { kind: 'request' }>,
     stepRequest: StepRequest,
-    bindings: Bindings,
+    variables: CelVariables,
     now: Date,
   ): Promise<StepResult> {
     let url: string;
@@ -298,17 +301,17 @@ export class CompiledHookRuntime implements HookRuntimePort {
     let headers: Record<string, string>;
 
     try {
-      url = requiredTextOf(step.url, bindings) ?? '';
+      url = requiredTextOf(step.url, variables) ?? '';
       new URL(url);
       headers = Object.fromEntries(
         step.headers.map((header) => [
           header.name,
-          requiredTextOf(header.value, bindings) ?? '',
+          requiredTextOf(header.value, variables) ?? '',
         ]),
       );
       body = asJson(
         step.body
-          ? requiredValueOf(step.body, bindings)
+          ? requiredValueOf(step.body, variables)
           : defaultBody(hook, stepRequest.instance),
       );
     } catch (error) {
@@ -343,7 +346,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
     hook: Readable,
     step: Extract<HookStepIR, { kind: 'call' }>,
     stepRequest: StepRequest,
-    bindings: Bindings,
+    variables: CelVariables,
     started: Date,
   ): Promise<StepResult> {
     const { instance } = stepRequest;
@@ -376,7 +379,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
       try {
         inputs = inputsFor(
           resolved.declared,
-          requiredValueOf(step.with, bindings),
+          requiredValueOf(step.with, variables),
           (name) => resolved.defaultFor(name),
         );
       } catch (error) {

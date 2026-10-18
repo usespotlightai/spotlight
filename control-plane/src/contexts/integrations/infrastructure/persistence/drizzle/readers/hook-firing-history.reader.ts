@@ -47,6 +47,6 @@ export class DrizzleHookFiringHistory implements HookFiringHistoryPort {
         ),
       );
 
-    return row ? CausalChain.read(row.cause).followedBy(row.link) : null;
+    return row ? CausalChain.read(row.cause).append(row.link) : null;
   }
 }

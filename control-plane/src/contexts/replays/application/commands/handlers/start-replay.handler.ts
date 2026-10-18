@@ -28,7 +28,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 const LIVE = 'live';
 
@@ -158,7 +158,7 @@ export class StartReplayHandler
                     )?.id ??
                     null),
                 at: this.clock.now(),
-                by: Attribution.of(command.actor, set.workspaceId),
+                by: ChangeActor.of(command.actor, set.workspaceId),
                 wanting,
               }),
             );

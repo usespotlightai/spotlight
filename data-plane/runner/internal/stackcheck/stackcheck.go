@@ -32,7 +32,7 @@ var errNoLongerLeased = errors.New("the check is no longer leased")
 
 type Control interface {
 	RenewCheckLease(ctx context.Context, runID, stackID string, recheck bool) (bool, error)
-	RecordChangeStackCheck(ctx context.Context, runID, stackID string, recheck bool, checked protocol.StackChecked) error
+	RecordChangeStackCheck(ctx context.Context, runID, stackID string, recheck bool, checked protocol.StackCheckResult) error
 }
 
 type Options struct {
@@ -112,11 +112,11 @@ func (o Options) renew(
 	return done
 }
 
-func skipped(code, detail string) protocol.StackChecked {
-	return protocol.StackChecked{Skipped: &protocol.SkippedCheck{Code: code, Detail: detail}}
+func skipped(code, detail string) protocol.StackCheckResult {
+	return protocol.StackCheckResult{Skipped: &protocol.SkippedCheck{Code: code, Detail: detail}}
 }
 
-func (o Options) perform(ctx context.Context, check protocol.StackCheck) protocol.StackChecked {
+func (o Options) perform(ctx context.Context, check protocol.StackCheck) protocol.StackCheckResult {
 	if check.Base == "" {
 		return skipped(protocol.SkipNoBase, "")
 	}
@@ -142,7 +142,7 @@ func (o Options) perform(ctx context.Context, check protocol.StackCheck) protoco
 		}
 	}
 
-	var steps []protocol.CheckedStep
+	var steps []protocol.CheckStepResult
 	for at, step := range check.Steps {
 		if ctx.Err() != nil {
 			break
@@ -165,7 +165,7 @@ func (o Options) perform(ctx context.Context, check protocol.StackCheck) protoco
 		return skipped(protocol.SkipOutOfTime, "")
 	}
 
-	return protocol.StackChecked{Steps: steps}
+	return protocol.StackCheckResult{Steps: steps}
 }
 
 func (o Options) fetch(ctx context.Context, tree string, check protocol.StackCheck) string {
@@ -177,16 +177,16 @@ func (o Options) fetch(ctx context.Context, tree string, check protocol.StackChe
 	}
 
 	if output, err := o.git(ctx, tree, "", "init", "--quiet"); err != nil {
-		o.Log.Warn("could not lay out a checkout to check",
+		o.Log.Warn("could not prepare a checkout to check",
 			"stack", check.StackID, "step", "init", "error", err, "output", output)
 		return fmt.Sprintf("git init: %s", shell.Tail(output))
 	}
 
-	o.borrow(tree, check.Repository)
+	o.useMirrorAlternates(tree, check.Repository)
 
 	if _, err := o.git(ctx, tree, "", "remote", "set-url", "origin", remote); err != nil {
 		if output, err := o.git(ctx, tree, "", "remote", "add", "origin", remote); err != nil {
-			o.Log.Warn("could not lay out a checkout to check",
+			o.Log.Warn("could not prepare a checkout to check",
 				"stack", check.StackID, "step", "remote", "error", err, "output", output)
 			return fmt.Sprintf("git remote: %s", shell.Tail(output))
 		}
@@ -197,7 +197,7 @@ func (o Options) fetch(ctx context.Context, tree string, check protocol.StackChe
 		{"checkout", "--quiet", "--force", "--detach", "FETCH_HEAD"},
 	} {
 		if output, err := o.git(ctx, tree, "", args...); err != nil {
-			o.Log.Warn("could not lay out a checkout to check",
+			o.Log.Warn("could not prepare a checkout to check",
 				"stack", check.StackID, "step", args[0], "error", err, "output", output)
 			return fmt.Sprintf("git %s: %s", args[0], shell.Tail(output))
 		}
@@ -211,7 +211,7 @@ func (o Options) fetch(ctx context.Context, tree string, check protocol.StackChe
 	return ""
 }
 
-func (o Options) borrow(tree, repository string) {
+func (o Options) useMirrorAlternates(tree, repository string) {
 	if o.Mirrors == "" {
 		return
 	}
@@ -226,16 +226,16 @@ func (o Options) borrow(tree, repository string) {
 		return
 	}
 	if err := os.WriteFile(alternates, []byte(objects+"\n"), 0o644); err != nil {
-		o.Log.Warn("could not borrow from the host's mirror", "repository", repository, "error", err)
+		o.Log.Warn("could not use the host's mirror as git alternates", "repository", repository, "error", err)
 	}
 }
 
 func (o Options) step(
 	ctx context.Context, tree string, check protocol.StackCheck, step protocol.CheckStep,
-) (protocol.CheckedStep, bool) {
+) (protocol.CheckStepResult, bool) {
 	started := time.Now()
-	failed := func(output string) protocol.CheckedStep {
-		return protocol.CheckedStep{
+	failed := func(output string) protocol.CheckStepResult {
+		return protocol.CheckStepResult{
 			Step:       step.ID,
 			Passed:     false,
 			Output:     shell.Tail(output),
@@ -272,7 +272,7 @@ func (o Options) step(
 		return failed(output + fmt.Sprintf("\n\nThe check didn't finish in time. Time limit: %s", o.or(o.Step, defaultStep))), true
 	}
 
-	return protocol.CheckedStep{
+	return protocol.CheckStepResult{
 		Step:       step.ID,
 		Passed:     err == nil,
 		Output:     shell.Tail(output),

@@ -18,7 +18,7 @@ import type { HappeningReactionsPort } from '@work/application/ports/happening-r
 import type { ProcessedEventsPort } from '@work/application/ports/processed-events.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
-import { takeTaskMarks } from '@work/application/services/task-marks';
+import { reassignTaskMarks } from '@work/application/services/task-marks';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
@@ -32,7 +32,7 @@ import {
 } from '@work/domain/services/reaction-for';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
-import { Concerns } from '@work/domain/value-objects/concerns.vo';
+import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import type { ReviewRequest } from '@work/domain/value-objects/review-request.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -52,7 +52,7 @@ const identityOf = (happened: Happened): string =>
     happened.happening,
     happened.summary,
     happened.state,
-    happened.concerns,
+    happened.correlationKeys,
     happened.message,
     happened.opens,
     (happened.attachments ?? []).map((each) => each.name),
@@ -187,7 +187,10 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return;
     }
 
-    const task = await this.tasks.findByMarks(workspaceId, happened.concerns);
+    const task = await this.tasks.findByMarks(
+      workspaceId,
+      happened.correlationKeys,
+    );
 
     if (!task) {
       await this.opened(workspaceId, teamId, happened, attachments);
@@ -252,7 +255,10 @@ export class ReactToHappenings implements HappeningReactionsPort {
         workspaceId,
         Mark.pullRequest(request.pullRequest),
       ),
-      reviewTask: await this.tasks.findByMarks(workspaceId, happened.concerns),
+      reviewTask: await this.tasks.findByMarks(
+        workspaceId,
+        happened.correlationKeys,
+      ),
     });
 
     if (answer.kind === 'received') {
@@ -270,9 +276,11 @@ export class ReactToHappenings implements HappeningReactionsPort {
     workspaceId: WorkspaceId,
     mark: Mark,
   ): Promise<Task | null> {
-    const concerns = Concerns.of({ marks: [mark] });
+    const correlationKeys = CorrelationKeys.of({ marks: [mark] });
 
-    return concerns ? this.tasks.findByMarks(workspaceId, concerns) : null;
+    return correlationKeys
+      ? this.tasks.findByMarks(workspaceId, correlationKeys)
+      : null;
   }
 
   private async linesOf(
@@ -351,7 +359,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       : null;
 
     const stored = runId ? opened.assignRun(runId, line) : opened;
-    await takeTaskMarks(this.tasks, stored);
+    await reassignTaskMarks(this.tasks, stored);
     await this.tasks.add(stored);
   }
 

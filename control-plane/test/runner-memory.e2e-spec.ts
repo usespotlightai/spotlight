@@ -207,7 +207,7 @@ beforeAll(async () => {
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the uploads.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: `task:${runId}` },
+      resume: { key: `task:${runId}` },
     },
   });
   token = await claimed();
@@ -430,10 +430,12 @@ describe('remembering from inside a run', () => {
         await http()
           .get(`/api/workspaces/${team.slug}/inbox`)
           .set(TEST_USER_HEADER, team.owner.value)
-      ).body as { aside: { form: string; about: string } | null }[];
+      ).body as { inboxRequest: { form: string; about: string } | null }[];
 
       return items.some(
-        (each) => each.aside?.form === 'memories' && each.aside.about === runId,
+        (each) =>
+          each.inboxRequest?.form === 'memories' &&
+          each.inboxRequest.about === runId,
       );
     });
   });

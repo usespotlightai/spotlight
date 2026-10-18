@@ -23,7 +23,7 @@ const AUDIT = {
 
 const LOOP = HookFailure.of('loop', 'The hook audit was stopped: again');
 
-const fired = (cause = CausalChain.none().followedBy(MOVED)) =>
+const fired = (cause = CausalChain.none().append(MOVED)) =>
   HookFiring.fire({
     id: 'firing_1',
     hookId: 'audit_id',
@@ -278,10 +278,7 @@ describe('HookFiring', () => {
   });
 
   describe('guarding against loops', () => {
-    const looped = CausalChain.none()
-      .followedBy(MOVED)
-      .followedBy(AUDIT)
-      .followedBy(MOVED);
+    const looped = CausalChain.none().append(MOVED).append(AUDIT).append(MOVED);
 
     it('is stopped when its own firing caused it again', () => {
       expect(working(fired(looped)).loopStop('audit', 0)?.code).toBe('loop');

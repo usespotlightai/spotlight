@@ -14,7 +14,7 @@ const setting = (member = true, actsAs = 'requester') => {
   const policies = new InMemoryPersonToolPolicies();
   const handler = new SetPersonToolRuleHandler(
     {
-      onTeam: async () => (member ? { administers: false } : null),
+      onTeam: async () => (member ? { isAdmin: false } : null),
     } as unknown as WorkspaceAccessPort,
     {
       ofTeam: async () => [

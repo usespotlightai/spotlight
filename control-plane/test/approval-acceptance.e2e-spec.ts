@@ -116,7 +116,7 @@ beforeAll(async () => {
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
         handover: { options: [], noteLimit: 0 },
-        continuity: { key: 'task:station' },
+        resume: { key: 'task:station' },
       },
       createdAt: ago(130),
       startedAt: ago(125),

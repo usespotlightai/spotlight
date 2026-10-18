@@ -6,7 +6,7 @@ import { DropIndicator } from '@/components/features/board/task/DropIndicator';
 import { TaskState } from '@/components/features/board/task/TaskState';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { Checkbox } from '@/components/ui/checkbox';
-import { raisedOn, type Task } from '@/lib/task';
+import { createdOn, type Task } from '@/lib/task';
 import { cn } from '@/lib/utils';
 
 type TaskRowProps = {
@@ -112,7 +112,7 @@ export function TaskRow({
           dateTime={task.createdAt}
           className="ml-2 w-20 shrink-0 text-right text-muted-foreground text-xs tabular-nums"
         >
-          {raisedOn(task.createdAt)}
+          {createdOn(task.createdAt)}
         </time>
       </div>
     </li>

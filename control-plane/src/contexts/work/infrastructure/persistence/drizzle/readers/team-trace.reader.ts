@@ -84,11 +84,11 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
       viewerId,
       rows.map((row) => WorkspaceId.of(row.workspaceId)),
     );
-    const worked = rows.flatMap((row) =>
+    const traced = rows.flatMap((row) =>
       row.taskId && visible.has(row.workspaceId) ? [row] : [],
     );
 
-    if (worked.length === 0) {
+    if (traced.length === 0) {
       return [];
     }
 
@@ -98,7 +98,7 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
       .where(
         inArray(
           taskNote.runId,
-          worked.map((row) => row.runId),
+          traced.map((row) => row.runId),
         ),
       )
       .orderBy(asc(taskNote.position));
@@ -107,7 +107,7 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
 
     const stationCounts = await stationsPerLine(
       this.db,
-      worked.flatMap((row) =>
+      traced.flatMap((row) =>
         [row.ranLineId, row.currentLineId].flatMap((each) =>
           each ? [each] : [],
         ),
@@ -136,7 +136,7 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
     const traces = new Map<string, TeamTraceSummary>();
     const passed = new Map<string, Map<string, TraceStation>>();
 
-    for (const row of worked) {
+    for (const row of traced) {
       const taskId = row.taskId as string;
 
       const ran = stationOf(

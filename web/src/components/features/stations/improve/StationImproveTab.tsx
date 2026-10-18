@@ -27,7 +27,7 @@ export function StationImproveTab({
 }: StationImproveTabProps) {
   const at = { slug, teamId, lineId: line.id, stationId: station.id };
   const { searches, sets } = useSearchStart(at);
-  const improving = {
+  const targetStation = {
     lineId: line.id,
     lineKey: line.key,
     lineName: line.name,
@@ -46,7 +46,7 @@ export function StationImproveTab({
             <ImproveStationLink
               slug={slug}
               teamId={teamId}
-              improving={improving}
+              targetStation={targetStation}
               label="Review with the agent"
               variant="default"
             />
@@ -55,7 +55,7 @@ export function StationImproveTab({
             <ImproveStationLink
               slug={slug}
               teamId={teamId}
-              improving={improving}
+              targetStation={targetStation}
               label="Ask the agent"
               prompt={signalPrompt(reading)}
             />

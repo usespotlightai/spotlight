@@ -67,22 +67,22 @@ func (m *Mirrors) Refresh(ctx context.Context, fetch Fetch) (string, error) {
 	}
 
 	// Clone into a temporary directory first. Then move the clone into place, so no sandbox mounts half a mirror.
-	aside, err := os.MkdirTemp(filepath.Dir(dir), "."+fetch.Repository+"-")
+	staging, err := os.MkdirTemp(filepath.Dir(dir), "."+fetch.Repository+"-")
 	if err != nil {
 		return "", fmt.Errorf("mirror %s: %w", key, err)
 	}
-	defer os.RemoveAll(aside)
+	defer os.RemoveAll(staging)
 
-	if out, err := git(ctx, nil, "init", "--bare", "--quiet", aside); err != nil {
+	if out, err := git(ctx, nil, "init", "--bare", "--quiet", staging); err != nil {
 		return "", fmt.Errorf("mirror %s: git init: %w: %s", key, err, out)
 	}
-	if err := m.fetch(ctx, aside, fetch); err != nil {
+	if err := m.fetch(ctx, staging, fetch); err != nil {
 		return "", err
 	}
-	if err := os.Chmod(aside, 0o755); err != nil {
+	if err := os.Chmod(staging, 0o755); err != nil {
 		return "", fmt.Errorf("mirror %s: %w", key, err)
 	}
-	if err := os.Rename(aside, dir); err != nil {
+	if err := os.Rename(staging, dir); err != nil {
 		return "", fmt.Errorf("mirror %s: %w", key, err)
 	}
 
@@ -106,8 +106,8 @@ func (m *Mirrors) fetch(ctx context.Context, dir string, fetch Fetch) error {
 	return nil
 }
 
-// Tidy must run only when no host serves from the mirrors. A git process that still runs will lose its locks.
-func (m *Mirrors) Tidy() error {
+// Prune must run only when no host serves from the mirrors. A git process that still runs will lose its locks.
+func (m *Mirrors) Prune() error {
 	workspaces, err := os.ReadDir(m.root)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil

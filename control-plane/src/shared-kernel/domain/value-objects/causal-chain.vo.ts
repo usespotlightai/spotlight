@@ -84,7 +84,7 @@ export class CausalChain {
     return this.depth > 0;
   }
 
-  followedBy(link: CauseLink): CausalChain {
+  append(link: CauseLink): CausalChain {
     return new CausalChain(
       [...this.links, CausalChain.linkOf(link)].slice(-MAX_LINKS),
       this.depth + 1,

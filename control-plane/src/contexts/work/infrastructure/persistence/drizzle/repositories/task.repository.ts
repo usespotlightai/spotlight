@@ -26,8 +26,8 @@ import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
-import type { Concerns } from '@work/domain/value-objects/concerns.vo';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
+import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
@@ -177,10 +177,10 @@ const toTask = (
     runnerId: row.runnerId ? RunnerId.of(row.runnerId) : null,
     notes: notes.map((note) => toNote(note, attachments)),
     createdAt: row.createdAt,
-    raisedAt: row.raisedAtStationId
-      ? StationId.of(row.raisedAtStationId)
+    originStationId: row.originStationId
+      ? StationId.of(row.originStationId)
       : null,
-    raisedBy: row.raisedById ? UserId.of(row.raisedById) : null,
+    createdBy: row.createdById ? UserId.of(row.createdById) : null,
     openedFrom: TaskOrigin.of(row.openedFrom),
     assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
     finishedAt: row.finishedAt,
@@ -230,8 +230,8 @@ export class DrizzleTaskRepository implements TaskRepository {
         sessionId: added.sessionId?.value ?? null,
         runnerId: added.runnerId?.value ?? null,
         createdAt: added.createdAt,
-        raisedAtStationId: added.raisedAt?.value ?? null,
-        raisedById: added.raisedBy?.value ?? null,
+        originStationId: added.originStationId?.value ?? null,
+        createdById: added.createdBy?.value ?? null,
         openedFrom: added.openedFrom.value,
         assigneeId: added.assignee?.value ?? null,
         pullRequest: added.pullRequest?.value ?? null,
@@ -407,13 +407,13 @@ export class DrizzleTaskRepository implements TaskRepository {
 
   async findByMarks(
     workspaceId: WorkspaceId,
-    concerns: Concerns,
+    correlationKeys: CorrelationKeys,
   ): Promise<Task | null> {
-    const named = concerns.taskId
-      ? eq(task.id, concerns.taskId.value)
+    const named = correlationKeys.taskId
+      ? eq(task.id, correlationKeys.taskId.value)
       : undefined;
 
-    const marked = concerns.marks.length
+    const marked = correlationKeys.marks.length
       ? inArray(
           task.id,
           this.context.db
@@ -423,7 +423,7 @@ export class DrizzleTaskRepository implements TaskRepository {
               and(
                 eq(taskMark.workspaceId, workspaceId.value),
                 or(
-                  ...concerns.marks.map((mark) =>
+                  ...correlationKeys.marks.map((mark) =>
                     and(
                       eq(taskMark.kind, mark.kind),
                       eq(taskMark.value, mark.value),

@@ -63,12 +63,12 @@ const taskOfAnyRun = (runId: string) =>
     ? historyRunOf(runId)?.taskId
     : undefined);
 
-const resolveAsides = (form: 'grade' | 'memories', runId: string) => {
+const resolveInboxRequests = (form: 'grade' | 'memories', runId: string) => {
   for (const entry of inboxStore().entries) {
     if (
       entry.kind === 'task' &&
-      entry.aside?.form === form &&
-      entry.aside.about === runId
+      entry.inboxRequest?.form === form &&
+      entry.inboxRequest.about === runId
     ) {
       entry.resolved = true;
       entry.unread = false;
@@ -143,7 +143,7 @@ const conversationHandlers = [
     async ({ params, request }) => {
       const item = itemOf(param(params, 'itemId'));
 
-      if (!isOurs(params) || !item || item.aside) {
+      if (!isOurs(params) || !item || item.inboxRequest) {
         return notFound();
       }
       if (item.resolved) {
@@ -168,7 +168,7 @@ const conversationHandlers = [
   api.post('/workspaces/:slug/inbox/:itemId/read', ({ params }) => {
     const item = itemOf(param(params, 'itemId'));
 
-    if (!isOurs(params) || !item || item.aside) {
+    if (!isOurs(params) || !item || item.inboxRequest) {
       return notFound();
     }
     item.unread = false;
@@ -176,10 +176,10 @@ const conversationHandlers = [
     return noContent();
   }),
 
-  api.post('/workspaces/:slug/inbox/asides/:asideId/read', ({ params }) => {
-    const item = itemOf(param(params, 'asideId'));
+  api.post('/workspaces/:slug/inbox/requests/:requestId/read', ({ params }) => {
+    const item = itemOf(param(params, 'requestId'));
 
-    if (!isOurs(params) || !item?.aside) {
+    if (!isOurs(params) || !item?.inboxRequest) {
       return notFound();
     }
     item.unread = false;
@@ -297,7 +297,7 @@ const scoreHandlers = [
       gradeOf(scores.kind, input),
       ...scores.grades.filter((grade) => !grade.mine),
     ];
-    resolveAsides('grade', runId);
+    resolveInboxRequests('grade', runId);
 
     return json(scores);
   }),
@@ -527,7 +527,7 @@ const decide = (
   memory.decision = { by: SAM.id, name: SAM.name, at: now() };
 
   if (review.memories.every((each) => each.state !== 'proposed')) {
-    resolveAsides('memories', review.runId);
+    resolveInboxRequests('memories', review.runId);
   }
 };
 

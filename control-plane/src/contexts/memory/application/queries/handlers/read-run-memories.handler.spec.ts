@@ -136,7 +136,7 @@ const reading = (input: {
     uses,
     new MemoryReviews(work, people),
     new TeamMemoryViews(memories, work, people, uses),
-    { reviewItemOf: async () => 'aside_1' } as unknown as ReviewsPort,
+    { reviewItemOf: async () => 'request_1' } as unknown as ReviewsPort,
   ).execute(new ReadRunMemoriesQuery('team_1', 'run_1', 'user_1'));
 };
 
@@ -174,7 +174,7 @@ describe('ReadRunMemoriesHandler', () => {
 
     expect(read.proposed.map((each) => each.id)).toEqual(['memory_proposed']);
     expect(read.proposed[0]?.harness).toBe('claude-code');
-    expect(read.reviewItemId).toBe('aside_1');
+    expect(read.reviewItemId).toBe('request_1');
   });
 
   it('knows no run of another team', async () => {

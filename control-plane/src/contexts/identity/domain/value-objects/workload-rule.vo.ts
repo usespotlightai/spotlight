@@ -86,9 +86,9 @@ export class WorkloadRule {
     subject: string;
     claims: Readonly<Record<string, string>>;
   }): WorkloadRule {
-    const named = Object.entries(input.claims);
+    const customClaims = Object.entries(input.claims);
 
-    if (named.length > MAX_CLAIMS) {
+    if (customClaims.length > MAX_CLAIMS) {
       throw new InvalidTokenTrustError(
         'claims',
         `must name at most ${MAX_CLAIMS} claims`,
@@ -96,7 +96,7 @@ export class WorkloadRule {
     }
 
     const claimed = new Map(
-      named.map(([name, pattern]): [string, ClaimPattern] => [
+      customClaims.map(([name, pattern]): [string, ClaimPattern] => [
         WorkloadRule.claimNameOf(name),
         ClaimPattern.of(pattern, `claims.${name}`),
       ]),
@@ -125,14 +125,14 @@ export class WorkloadRule {
   }
 
   matches(workload: WorkloadClaims): boolean {
-    const named = new Map(Object.entries(workload.named));
+    const customClaims = new Map(Object.entries(workload.customClaims));
 
     return (
       workload.issuer === this.issuer &&
       workload.audiences.includes(this.audience) &&
       this.subject.matches(workload.subject) &&
       [...this.claimed].every(([name, pattern]) => {
-        const claimed = named.get(name);
+        const claimed = customClaims.get(name);
 
         return typeof claimed === 'string' && pattern.matches(claimed);
       })

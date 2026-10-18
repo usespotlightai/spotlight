@@ -21,7 +21,7 @@ import { EgressReference } from '@runners/domain/value-objects/egress-reference.
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -145,7 +145,7 @@ describe('RunnerEgress', () => {
       ).resolves.toBeNull();
       await expect(
         egressOf(null, {
-          egress: anEgress().delete([], attributedIn()),
+          egress: anEgress().delete([], changeActorIn()),
         }).sharedWith('shared-token'),
       ).resolves.toBeNull();
     });
@@ -237,7 +237,7 @@ describe('RunnerEgress', () => {
       const setting = { pool, egress: anEgress() };
 
       await expect(
-        egressOf(ended, setting).recordsThrough(
+        egressOf(ended, setting).runnerForConnectionRecords(
           egress,
           'proxy-credential',
           later(2 + 120_000),
@@ -249,14 +249,14 @@ describe('RunnerEgress', () => {
         work: { kind: 'run', id: 'run_1' },
       });
       await expect(
-        egressOf(ended, setting).recordsThrough(
+        egressOf(ended, setting).runnerForConnectionRecords(
           egress,
           'proxy-credential',
           later(2 + 120_001),
         ),
       ).resolves.toBeNull();
       await expect(
-        egressOf(ended, setting).recordsThrough(
+        egressOf(ended, setting).runnerForConnectionRecords(
           { egressId: 'egress_2' },
           'proxy-credential',
           later(3),

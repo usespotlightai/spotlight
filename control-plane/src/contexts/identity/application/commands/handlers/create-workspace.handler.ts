@@ -16,8 +16,8 @@ import type {
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -42,7 +42,7 @@ export class CreateWorkspaceHandler
     try {
       const { principal } = command.actor;
 
-      if (!Permissions.beyondWorkspaces(principal).createsWorkspaces) {
+      if (!Permissions.global(principal).createsWorkspaces) {
         return forbiddenTo('create-workspaces');
       }
 
@@ -60,14 +60,14 @@ export class CreateWorkspaceHandler
 
       try {
         return await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
+          createIdempotently(this.creates, create, async () => {
             const id = WorkspaceId.of(this.ids.generate());
             const created = await this.registration.register({
               id,
               name: compiled.name,
               slug: compiled.slug,
               owner: principal.userId,
-              by: Attribution.of(command.actor, id),
+              by: ChangeActor.of(command.actor, id),
             });
 
             await this.workspaces.add(created);
@@ -77,7 +77,7 @@ export class CreateWorkspaceHandler
         );
       } catch (error) {
         if (error instanceof WorkspaceSlugTakenError) {
-          return { outcome: 'taken', address: compiled.slug.value };
+          return { outcome: 'already-exists', address: compiled.slug.value };
         }
 
         throw error;

@@ -71,7 +71,7 @@ describe('the tasks the board reads for a team', () => {
       at: stationId,
       title: TaskTitle.of('Ship the thing'),
       rank: TaskRank.between(null, null),
-      raisedBy: owner,
+      createdBy: owner,
       now: NOW,
       newId: () => randomUUID(),
     });

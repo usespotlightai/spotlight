@@ -39,7 +39,7 @@ const SEARCH_SPEC: RunSpecParts = {
   command: { executable: 'sh', args: [] },
   briefing: 'Find a better Build station.',
   handover: { options: [], noteLimit: 0 },
-  continuity: { key: 'search-run_1' },
+  resume: { key: 'search-run_1' },
   search: {},
 };
 

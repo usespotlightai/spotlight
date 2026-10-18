@@ -148,7 +148,7 @@ describe('Runners', () => {
     expect(refetch).toHaveBeenCalled();
   });
 
-  it('says what each host can run, and which way in it serves', () => {
+  it('says what each host can run, and which pool or trust it serves', () => {
     listing([host()]);
 
     renderPage();

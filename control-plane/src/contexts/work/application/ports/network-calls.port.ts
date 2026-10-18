@@ -8,7 +8,7 @@ export interface NetworkRequest {
   readonly timeoutMs: number;
 }
 
-export interface NetworkAnswer {
+export interface NetworkResponse {
   readonly status: number;
   readonly headers: Readonly<Record<string, string>>;
   readonly body: Uint8Array;
@@ -18,7 +18,7 @@ export interface NetworkAnswer {
 
 export type NetworkCallState =
   | { readonly kind: 'waiting' }
-  | { readonly kind: 'answered'; readonly answer: NetworkAnswer }
+  | { readonly kind: 'answered'; readonly response: NetworkResponse }
   | { readonly kind: 'expired' };
 
 export interface NetworkCallsPort {

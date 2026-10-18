@@ -17,7 +17,7 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { describe, expect, it } from 'vitest';
 
 const station = (
@@ -46,11 +46,14 @@ const LINE = Line.rehydrate({
     station('station_0', 'backlog', 'Backlog', 0, { kind: 'backlog' }),
     station('station_1', 'triage', 'Triage', 1, {
       harness: HarnessId.of('dev'),
-      wayOut: WayOut.of({ stations: [StationId.of('station_2')] }),
+      routes: StationRoutes.of({ stations: [StationId.of('station_2')] }),
     }),
     station('station_2', 'spec', 'Spec', 2, {
       harness: HarnessId.of('dev'),
-      wayOut: WayOut.of({ stations: [StationId.of('station_1')], ends: true }),
+      routes: StationRoutes.of({
+        stations: [StationId.of('station_1')],
+        ends: true,
+      }),
     }),
     station('station_3', 'code-review', 'Code Review', 3, {
       harness: HarnessId.of('dev'),

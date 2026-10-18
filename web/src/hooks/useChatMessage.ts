@@ -11,7 +11,7 @@ import { useAttachments } from '@/hooks/useAttachments';
 import {
   type Outgoing,
   type Reference,
-  stationImprovedBy,
+  targetStationIdIn,
   type Written,
 } from '@/lib/chat-input';
 
@@ -43,7 +43,7 @@ export function useChatMessage(
       each.state === 'ready' ? [each.id] : [],
     ),
     traces: traced.map((each) => each.key),
-    improving: stationImprovedBy(written.references),
+    targetStation: targetStationIdIn(written.references),
   };
 
   const states = useMemo(
@@ -88,7 +88,7 @@ export function useChatMessage(
       !outgoing.body &&
       outgoing.attachments.length === 0 &&
       outgoing.traces.length === 0 &&
-      outgoing.improving === null,
+      outgoing.targetStation === null,
     uploading: included.some((each) => each.state === 'uploading'),
     images: draft.attachments.filter((each) => each.image !== null),
     states,

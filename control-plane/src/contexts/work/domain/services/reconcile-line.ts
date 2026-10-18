@@ -1,4 +1,4 @@
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Line, type LineLayout } from '@work/domain/aggregates/line.aggregate';
@@ -8,7 +8,7 @@ import type { LinePlan } from '@work/domain/value-objects/line-plan.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 
 export interface Stranded {
   readonly key: string;
@@ -33,7 +33,7 @@ export const reconcileLine = (input: {
   plan: LinePlan;
   taskCounts: TaskCounts;
   newId: () => string;
-  by: Attribution;
+  by: ChangeActor;
 }): Reconciled => {
   const existingByKey = new Map(
     input.existing.stations.map((each) => [each.key.value, each]),
@@ -70,7 +70,7 @@ export const createLine = (input: {
   identity: LineIdentity;
   plan: LinePlan;
   newId: () => string;
-  by: Attribution;
+  by: ChangeActor;
 }): Line =>
   Line.createFromLayout({
     ...input.identity,
@@ -115,7 +115,7 @@ const assemble = (
       alerts: planned.alerts,
       tools: planned.tools,
       skills: planned.skills,
-      wayOut: WayOut.of({
+      routes: StationRoutes.of({
         stations: planned.passesTo.map((each) => at(each)),
         ends: planned.ends,
       }),

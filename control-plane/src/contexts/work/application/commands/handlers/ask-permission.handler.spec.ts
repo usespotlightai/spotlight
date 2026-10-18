@@ -32,12 +32,12 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-23T09:00:00.000Z');
@@ -58,7 +58,7 @@ const LINE = Line.rehydrate({
       position: 0,
       color: StationColor.of('#a3a8b0'),
       kind: 'backlog',
-      wayOut: WayOut.of({ stations: [IMPLEMENTING] }),
+      routes: StationRoutes.of({ stations: [IMPLEMENTING] }),
     }),
     Station.of({
       id: IMPLEMENTING,
@@ -104,7 +104,7 @@ const runOf = (
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task:station' },
+      resume: { key: 'task:station' },
     }),
   }).claim(RunnerId.of('runner_1'), NOW);
 
@@ -115,7 +115,7 @@ const withRun = (runId: string) =>
       at: IMPLEMENTING,
       title: TaskTitle.of('Fix the queue'),
       rank: TaskRank.between(null, null),
-      raisedBy: UserId.of('user_1'),
+      createdBy: UserId.of('user_1'),
       now: NOW,
       newId: () => 'task_1',
     }),

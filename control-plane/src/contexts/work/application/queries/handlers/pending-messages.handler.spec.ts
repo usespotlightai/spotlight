@@ -24,7 +24,7 @@ const working = () =>
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'task_1:station_1' },
+      resume: { key: 'task_1:station_1' },
     }),
   }).claim(RUNNER, NOW);
 

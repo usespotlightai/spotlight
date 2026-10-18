@@ -252,7 +252,7 @@ class HookCompiler {
     }
 
     try {
-      return this.expressions.compile(source, { at: at.rendered });
+      return this.expressions.compile(source, { location: at.rendered });
     } catch (error) {
       this.problem(
         at,

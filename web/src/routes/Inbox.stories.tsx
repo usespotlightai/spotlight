@@ -3,14 +3,14 @@ import { stateFor } from '@/lib/github';
 import { inboxItemPath, inboxPath } from '@/lib/inbox';
 import { PLATFORM_ID, SLUG } from '@/mocks/world';
 import {
-  ALERT_ASIDE_ID,
-  CLAIMS_GRADE_ASIDE_ID,
-  COST_ALERT_ASIDE_ID,
-  DECIDED_MEMORIES_ASIDE_ID,
-  FIVE_POINT_GRADE_ASIDE_ID,
-  GRADE_ASIDE_ID,
-  GRADED_ASIDE_ID,
-  MEMORIES_ASIDE_ID,
+  ALERT_REQUEST_ID,
+  CLAIMS_GRADE_REQUEST_ID,
+  COST_ALERT_REQUEST_ID,
+  DECIDED_MEMORIES_REQUEST_ID,
+  FIVE_POINT_GRADE_REQUEST_ID,
+  GRADE_REQUEST_ID,
+  GRADED_REQUEST_ID,
+  MEMORIES_REQUEST_ID,
   SETUP_ITEM_ID,
 } from '@/mocks/world/inbox';
 import {
@@ -64,14 +64,14 @@ const meta = {
         'task_disk:0': 'Dismissed',
         'task_billing:0': 'Repeated failure',
         'task_retries:0': 'Answered',
-        [MEMORIES_ASIDE_ID]: 'Proposed memories',
-        [DECIDED_MEMORIES_ASIDE_ID]: 'Memories decided',
-        [COST_ALERT_ASIDE_ID]: 'Station alert',
-        [ALERT_ASIDE_ID]: 'Alert resolved',
-        [GRADE_ASIDE_ID]: 'Grade run',
-        [FIVE_POINT_GRADE_ASIDE_ID]: 'Grade from 1 to 5',
-        [CLAIMS_GRADE_ASIDE_ID]: 'Grade claim by claim',
-        [GRADED_ASIDE_ID]: 'Graded',
+        [MEMORIES_REQUEST_ID]: 'Proposed memories',
+        [DECIDED_MEMORIES_REQUEST_ID]: 'Memories decided',
+        [COST_ALERT_REQUEST_ID]: 'Station alert',
+        [ALERT_REQUEST_ID]: 'Alert resolved',
+        [GRADE_REQUEST_ID]: 'Grade run',
+        [FIVE_POINT_GRADE_REQUEST_ID]: 'Grade from 1 to 5',
+        [CLAIMS_GRADE_REQUEST_ID]: 'Grade claim by claim',
+        [GRADED_REQUEST_ID]: 'Graded',
         [SETUP_ITEM_ID]: 'Set up your team',
         [GITHUB_INSTALLED]: 'Setup with GitHub installed',
       }),
@@ -80,14 +80,14 @@ const meta = {
       answeringYes: toggle('Answer Yes'),
     },
     script: ({ opened, editingMemory, approvingMemory, answeringYes }) => {
-      if (opened === MEMORIES_ASIDE_ID && editingMemory) {
+      if (opened === MEMORIES_REQUEST_ID && editingMemory) {
         return async (screen, user) => {
           await user.click(
             (await screen.findAllByRole('button', { name: /^Edit/ }))[0],
           );
         };
       }
-      if (opened === MEMORIES_ASIDE_ID && approvingMemory) {
+      if (opened === MEMORIES_REQUEST_ID && approvingMemory) {
         return async (screen, user) => {
           await user.click(
             (

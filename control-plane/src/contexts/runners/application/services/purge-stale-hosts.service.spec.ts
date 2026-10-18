@@ -35,7 +35,7 @@ describe('PurgeStaleHosts', () => {
   it('deletes the hosts serving through a pool, and only those', async () => {
     const { stored, hosts, purge } = purging();
 
-    await purge.servingThrough(POOL_ID);
+    await purge.deleteHostsOf(POOL_ID);
 
     expect(hosts.removeThrough).toHaveBeenCalledWith(
       CredentialSource.ofId(POOL_ID),
@@ -46,7 +46,7 @@ describe('PurgeStaleHosts', () => {
   it('deletes the hosts serving through a trust, and only those', async () => {
     const { stored, purge } = purging();
 
-    await purge.servingThrough(TRUST_ID);
+    await purge.deleteHostsOf(TRUST_ID);
 
     expect([...stored.keys()]).toEqual([THROUGH_POOL.value]);
   });

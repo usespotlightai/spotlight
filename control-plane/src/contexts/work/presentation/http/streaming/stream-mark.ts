@@ -1,4 +1,4 @@
-import { isAside } from '@work/application/contracts/run-journal.contract';
+import { isControlPlaneEntry } from '@work/application/contracts/run-journal.contract';
 import type { RunEventView } from '@work/application/ports/run-stream.port';
 
 const counted = (raw: string | undefined): number | null => {
@@ -23,12 +23,12 @@ export const cursorOf = (
 };
 
 export const eventIdOf = (event: RunEventView): string | undefined =>
-  isAside(event.seq) ? undefined : `${event.attempt}:${event.seq}`;
+  isControlPlaneEntry(event.seq) ? undefined : `${event.attempt}:${event.seq}`;
 
 export class StreamMark {
   private attempt: number;
   private sent: number;
-  private readonly sentAside = new Set<number>();
+  private readonly sentControlPlaneEntries = new Set<number>();
 
   constructor(from: StreamCursor) {
     this.attempt = from.attempt;
@@ -43,15 +43,15 @@ export class StreamMark {
     if (event.attempt > this.attempt) {
       this.attempt = event.attempt;
       this.sent = 0;
-      this.sentAside.clear();
+      this.sentControlPlaneEntries.clear();
     }
 
-    if (isAside(event.seq)) {
-      if (this.sentAside.has(event.seq)) {
+    if (isControlPlaneEntry(event.seq)) {
+      if (this.sentControlPlaneEntries.has(event.seq)) {
         return false;
       }
 
-      this.sentAside.add(event.seq);
+      this.sentControlPlaneEntries.add(event.seq);
       return true;
     }
 

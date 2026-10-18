@@ -17,48 +17,48 @@ func files(paths ...string) []protocol.SkillFile {
 }
 
 func TestSkillHomesIsWhereEverySkillIsLaid(t *testing.T) {
-	laid := []string{
+	written := []string{
 		".claude/skills/spotlight-handover/SKILL.md",
 		".claude/skills/our-migrations/SKILL.md",
 		".claude/skills/our-migrations/examples/SKILL.md",
 		".claude/skills/our-migrations/examples/add-column.md",
 	}
 
-	homes := skillHomes(nil, files(laid...))
+	homes := skillHomes(nil, files(written...))
 
 	if got := slices.Collect(maps.Keys(homes)); !slices.Equal(got, []string{".claude/skills"}) {
 		t.Fatalf("homes = %v", got)
 	}
-	if !slices.Equal(homes[".claude/skills"], laid) {
-		t.Errorf("laid there = %v", homes[".claude/skills"])
+	if !slices.Equal(homes[".claude/skills"], written) {
+		t.Errorf("written there = %v", homes[".claude/skills"])
 	}
 }
 
 func TestSkillHomesAreNamedEvenWhereNoSkillIsLaid(t *testing.T) {
-	laid := []string{".claude/skills/our-migrations/SKILL.md"}
+	written := []string{".claude/skills/our-migrations/SKILL.md"}
 
-	homes := skillHomes([]string{".claude/skills", ".spotlight/skills/", "."}, files(laid...))
+	homes := skillHomes([]string{".claude/skills", ".spotlight/skills/", "."}, files(written...))
 
 	got := slices.Sorted(maps.Keys(homes))
 	if !slices.Equal(got, []string{".claude/skills", ".spotlight/skills"}) {
 		t.Fatalf("homes = %v", got)
 	}
-	if !slices.Equal(homes[".claude/skills"], laid) {
-		t.Errorf("laid in .claude/skills = %v", homes[".claude/skills"])
+	if !slices.Equal(homes[".claude/skills"], written) {
+		t.Errorf("written in .claude/skills = %v", homes[".claude/skills"])
 	}
 	if len(homes[".spotlight/skills"]) != 0 {
-		t.Errorf("laid in .spotlight/skills = %v", homes[".spotlight/skills"])
+		t.Errorf("written in .spotlight/skills = %v", homes[".spotlight/skills"])
 	}
 }
 
 func TestSkillHomesNeverNamesTheWorkspaceItself(t *testing.T) {
-	for _, laid := range [][]string{
+	for _, written := range [][]string{
 		nil,
 		{"spotlight-handover/SKILL.md"},
 		{"SKILL.md"},
 	} {
-		if homes := skillHomes(nil, files(laid...)); len(homes) != 0 {
-			t.Errorf("skillHomes(%v) = %v, want none", laid, homes)
+		if homes := skillHomes(nil, files(written...)); len(homes) != 0 {
+			t.Errorf("skillHomes(%v) = %v, want none", written, homes)
 		}
 	}
 }

@@ -36,12 +36,12 @@ import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { reasoningIn } from '@work/domain/services/run-reasoning';
-import { repositoriesWorkedOn } from '@work/domain/services/task-checkouts';
+import { repositoriesForTask } from '@work/domain/services/task-checkouts';
 import {
   filesChangedIn,
   workspacePathsIn,
 } from '@work/domain/services/workspace-path';
-import { Concerns } from '@work/domain/value-objects/concerns.vo';
+import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 
 const noteViewsOf = (note: TaskNote): TaskNoteView[] => {
@@ -130,7 +130,7 @@ export class WorkLookup implements WorkLookupPort {
           lineName: line.name.value,
           stationId: station.id.value,
           stationName: station.name.value,
-          repositories: await this.worked(run, line),
+          repositories: await this.repositoriesOf(run, line),
         }
       : null;
   }
@@ -142,7 +142,7 @@ export class WorkLookup implements WorkLookupPort {
         id: line.id.value,
         name: line.name.value,
         stations: line.stations
-          .filter((station) => station.isWorked)
+          .filter((station) => station.isAgentStation)
           .map((station) => ({
             id: station.id.value,
             name: station.name.value,
@@ -159,13 +159,13 @@ export class WorkLookup implements WorkLookupPort {
       return null;
     }
 
-    const worked = run.taskId
+    const changes = run.taskId
       ? await this.journals.changesOfTask(run.taskId)
       : [changesIn(journal, run)];
 
     return {
       steps: journal.steps.flatMap(reasoned),
-      changed: [...new Set(worked.flatMap(workspacePathsIn))],
+      changed: [...new Set(changes.flatMap(workspacePathsIn))],
     };
   }
 
@@ -180,7 +180,7 @@ export class WorkLookup implements WorkLookupPort {
     const line = run.stationId
       ? await this.lines.findByStation(run.stationId)
       : null;
-    const repositories = line ? await this.worked(run, line) : [];
+    const repositories = line ? await this.repositoriesOf(run, line) : [];
 
     return distinctFiles(filesChangedIn(changesIn(journal, run), repositories));
   }
@@ -191,14 +191,17 @@ export class WorkLookup implements WorkLookupPort {
     return task ? task.notes.flatMap(noteViewsOf) : null;
   }
 
-  private async worked(run: Run, line: Line): Promise<readonly Repository[]> {
+  private async repositoriesOf(
+    run: Run,
+    line: Line,
+  ): Promise<readonly Repository[]> {
     const task = run.taskId ? await this.tasks.find(run.taskId) : null;
 
-    return repositoriesWorkedOn(task, line);
+    return repositoriesForTask(task, line);
   }
 
-  async wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean> {
-    return (await this.runs.findById(runId))?.wasWorkedBy(runner) ?? false;
+  async wasClaimedBy(runId: RunId, runner: RunnerId): Promise<boolean> {
+    return (await this.runs.findById(runId))?.wasClaimedBy(runner) ?? false;
   }
 
   async leasedBy(
@@ -290,7 +293,7 @@ export class WorkLookup implements WorkLookupPort {
         teamId: line.teamId,
         lineId: line.id.value,
         stationId: run.stationId.value,
-        repositories: await this.worked(run, line),
+        repositories: await this.repositoriesOf(run, line),
       }
     );
   }
@@ -316,9 +319,11 @@ export class WorkLookup implements WorkLookupPort {
     workspaceId: WorkspaceId,
     mark: Mark,
   ): Promise<Task | null> {
-    const concerns = Concerns.of({ marks: [mark] });
+    const correlationKeys = CorrelationKeys.of({ marks: [mark] });
 
-    return concerns ? this.tasks.findByMarks(workspaceId, concerns) : null;
+    return correlationKeys
+      ? this.tasks.findByMarks(workspaceId, correlationKeys)
+      : null;
   }
 
   private async lookup(task: Task): Promise<TaskLookup> {

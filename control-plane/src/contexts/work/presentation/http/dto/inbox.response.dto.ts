@@ -6,13 +6,13 @@ import {
 import {
   APPROVAL_SUBJECTS,
   INBOX_APPROVAL_STATUSES,
-  INBOX_ASIDE_FORMS,
   INBOX_NOTICE_FORMS,
+  INBOX_REQUEST_DTO_FORMS,
   type InboxApprovalDto,
-  type InboxAsideDto,
   type InboxConnectionDto,
   type InboxFailureDto,
   type InboxNoticeDto,
+  type InboxRequestDto,
   NOTE_FORMS,
   NOTE_KINDS,
   NOTE_VOICES,
@@ -143,12 +143,12 @@ export class InboxApprovalResponseDto {
   }
 }
 
-export class InboxAsideResponseDto {
+export class InboxRequestResponseDto {
   @ApiProperty({
-    enum: INBOX_ASIDE_FORMS,
+    enum: INBOX_REQUEST_DTO_FORMS,
     example: 'memories',
     description:
-      'What is put aside for a person to resolve, beside the task’s conversation: memories are proposed memories to approve or reject; grade asks a person to grade a judged run',
+      'The kind of inbox request: memories are proposed memories to approve or reject; grade asks a person to grade a judged run',
   })
   readonly form: string;
 
@@ -159,9 +159,9 @@ export class InboxAsideResponseDto {
   })
   readonly about: string;
 
-  constructor(aside: InboxAsideDto) {
-    this.form = aside.form;
-    this.about = aside.about;
+  constructor(inboxRequest: InboxRequestDto) {
+    this.form = inboxRequest.form;
+    this.about = inboxRequest.about;
   }
 }
 
@@ -359,7 +359,7 @@ export class InboxStationResponseDto {
 export class InboxItemResponseDto {
   @ApiProperty({
     enum: ['task'],
-    description: 'A task’s conversation or what was put aside beside it',
+    description: 'A task’s conversation or an inbox request on the task',
   })
   readonly kind = 'task' as const;
 
@@ -384,7 +384,7 @@ export class InboxItemResponseDto {
   @ApiProperty({
     type: AttachmentResponseDto,
     isArray: true,
-    description: 'The files the task was raised with',
+    description: 'The files the task was created with',
   })
   readonly attachments: readonly AttachmentResponseDto[];
 
@@ -402,9 +402,10 @@ export class InboxItemResponseDto {
 
   @ApiProperty({
     type: InboxStationResponseDto,
-    description: 'Where it was raised, which it keeps as it moves',
+    description:
+      'The station where it was created. It keeps this station when it moves',
   })
-  readonly raisedAt: InboxStationResponseDto;
+  readonly originStation: InboxStationResponseDto;
 
   @ApiProperty({
     type: InboxStationResponseDto,
@@ -460,12 +461,12 @@ export class InboxItemResponseDto {
   readonly failure: InboxFailureResponseDto | null;
 
   @ApiProperty({
-    type: InboxAsideResponseDto,
+    type: InboxRequestResponseDto,
     nullable: true,
     description:
-      'What this item puts aside for a person to resolve, where it is not a conversation; it never blocks the task',
+      'The inbox request of this item, where it is not a conversation. It never blocks the task',
   })
-  readonly aside: InboxAsideResponseDto | null;
+  readonly inboxRequest: InboxRequestResponseDto | null;
 
   @ApiProperty({ type: NoteResponseDto, isArray: true })
   readonly notes: readonly NoteResponseDto[];
@@ -481,7 +482,7 @@ export class InboxItemResponseDto {
     stationColor: string,
     stationPosition: number,
     stationCount: number,
-    raisedAt: InboxStationResponseDto,
+    originStation: InboxStationResponseDto,
     currentStation: InboxStationResponseDto,
     createdAt: string,
     askedAt: string,
@@ -491,7 +492,7 @@ export class InboxItemResponseDto {
     unread: boolean,
     briefing: string | null,
     failure: InboxFailureResponseDto | null,
-    aside: InboxAsideResponseDto | null,
+    inboxRequest: InboxRequestResponseDto | null,
     notes: readonly NoteResponseDto[],
   ) {
     this.id = id;
@@ -504,7 +505,7 @@ export class InboxItemResponseDto {
     this.stationColor = stationColor;
     this.stationPosition = stationPosition;
     this.stationCount = stationCount;
-    this.raisedAt = raisedAt;
+    this.originStation = originStation;
     this.currentStation = currentStation;
     this.createdAt = createdAt;
     this.askedAt = askedAt;
@@ -514,7 +515,7 @@ export class InboxItemResponseDto {
     this.unread = unread;
     this.briefing = briefing;
     this.failure = failure;
-    this.aside = aside;
+    this.inboxRequest = inboxRequest;
     this.notes = notes;
   }
 }

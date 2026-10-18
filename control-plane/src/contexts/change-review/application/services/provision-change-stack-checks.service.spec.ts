@@ -9,8 +9,8 @@ import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -78,7 +78,7 @@ describe('ProvisionChangeStackChecks', () => {
       waiting('stack_2').reservedFor(RUNNER, PoolId.of('pool_burst'), NOW),
       retryScheduled,
       waiting('stack_4')
-        .claimedFor(OTHER, RunnerTerms.none(), NOW)
+        .claimedFor(OTHER, RunnerOffer.none(), NOW)
         .skip(OTHER, skipOf('workspace-failed', null), NOW),
     ]);
 
@@ -205,7 +205,7 @@ describe('ProvisionChangeStackChecks', () => {
   it('records no failure on a check that is no longer waiting', async () => {
     const { service, save } = provisioning([
       waiting('stack_1')
-        .claimedFor(OTHER, RunnerTerms.none(), NOW)
+        .claimedFor(OTHER, RunnerOffer.none(), NOW)
         .skip(OTHER, skipOf('workspace-failed', null), NOW),
     ]);
 

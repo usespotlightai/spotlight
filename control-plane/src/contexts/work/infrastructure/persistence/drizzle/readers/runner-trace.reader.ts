@@ -15,7 +15,7 @@ import type {
 import { LEASED_RUN_STATES } from '@work/domain/value-objects/run-state';
 import {
   ranAt,
-  worked,
+  stationSummaryOf,
 } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
 import { journalsOfTask } from '@work/infrastructure/persistence/drizzle/readers/run-journals';
 import {
@@ -128,7 +128,7 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
 
     return rows.map(({ stationLineId, ...rest }) => ({
       ...rest,
-      station: worked({ ...rest, stationLineId }, stationCounts),
+      station: stationSummaryOf({ ...rest, stationLineId }, stationCounts),
       review: review.get(rest.id) ?? null,
     }));
   }

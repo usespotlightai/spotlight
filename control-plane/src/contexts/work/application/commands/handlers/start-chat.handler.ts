@@ -18,17 +18,17 @@ import type { ChatDispatching } from '@work/application/services/chat-dispatch';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TracesLoader } from '@work/application/services/traces-loader.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { ConfigHomeUnreachableError } from '@work/domain/exceptions/config-home-unreachable.error';
+import { ConfigFolderUnreachableError } from '@work/domain/exceptions/config-folder-unreachable.error';
 import { SetupNeedsEgressError } from '@work/domain/exceptions/setup-needs-egress.error';
 import { UnknownHarnessError } from '@work/domain/exceptions/unknown-harness.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import { ConfigHome } from '@work/domain/value-objects/config-home.vo';
+import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
-import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
+import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 
 export class StartChatHandler
   implements CommandHandlerPort<StartChatCommand, string | null>
@@ -68,16 +68,16 @@ export class StartChatHandler
 
       const workspaceId = WorkspaceId.of(member.workspaceId);
       const teamId = TeamId.of(member.teamId);
-      const setup = command.setup ? ConfigHome.of(command.setup) : null;
+      const setup = command.setup ? ConfigFolder.of(command.setup) : null;
 
       if (
         setup &&
         !(await this.repositories.isAccessible(workspaceId, setup.repository))
       ) {
-        throw new ConfigHomeUnreachableError(setup.repository.value);
+        throw new ConfigFolderUnreachableError(setup.repository.value);
       }
 
-      if (setup && !(await this.runners.hasAWayOut(workspaceId))) {
+      if (setup && !(await this.runners.hasEgressCapableRunner(workspaceId))) {
         throw new SetupNeedsEgressError();
       }
 
@@ -87,8 +87,8 @@ export class StartChatHandler
           command.attachments,
         );
         const traces = await this.traces.shared(command.traces);
-        const improving = command.improving
-          ? await this.improved(command.improving)
+        const targetStation = command.targetStation
+          ? await this.targetStationOf(command.targetStation)
           : null;
 
         const chat = Chat.start({
@@ -103,11 +103,11 @@ export class StartChatHandler
             command.body,
             attachments,
             traces,
-            improving,
+            targetStation,
           ),
           attachments,
           traces,
-          improving,
+          targetStation: targetStation,
           setup,
           now: this.clock.now(),
           newId: () => this.ids.generate(),
@@ -126,7 +126,7 @@ export class StartChatHandler
     }
   }
 
-  private async improved(stationId: string): Promise<ImprovedStation> {
+  private async targetStationOf(stationId: string): Promise<TargetStation> {
     const id = StationId.of(stationId);
     const line = await this.lines.findByStation(id);
     const station = line?.stationAt(id);
@@ -135,6 +135,6 @@ export class StartChatHandler
       throw new UnknownStationError(stationId);
     }
 
-    return ImprovedStation.at(line, station);
+    return TargetStation.at(line, station);
   }
 }

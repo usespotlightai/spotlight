@@ -77,7 +77,7 @@ const asked = () =>
     at: BUILD,
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
   })
@@ -99,7 +99,7 @@ const waiting = () =>
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'task_1:station_build' },
+      resume: { key: 'task_1:station_build' },
     }),
   })
     .claim(RUNNER, NOW)

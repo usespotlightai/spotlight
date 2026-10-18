@@ -55,7 +55,7 @@ export class ClaimRunHandler
         runner: runnerId,
         workspaceId: heartbeat.workspaceId,
         harnesses: heartbeat.harnesses,
-        terms: heartbeat.terms,
+        offer: heartbeat.offer,
         claims: heartbeat.claims,
       };
 
@@ -104,7 +104,7 @@ export class ClaimRunHandler
 
         const check = await this.checks.claimReserved(
           claimant.runner,
-          claimant.terms,
+          claimant.offer,
           this.clock.now(),
         );
 

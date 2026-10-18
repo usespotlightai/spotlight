@@ -22,8 +22,8 @@ import type {
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -56,7 +56,7 @@ export class CreateEgressHandler
       }
 
       if (!permissions.managesRunners) {
-        return { created: forbiddenTo('manage-runners'), token: null };
+        return { created: forbiddenTo('runners'), token: null };
       }
 
       const compiled = this.definitions.egress(command.definition);
@@ -87,11 +87,11 @@ export class CreateEgressHandler
 
       try {
         const created = await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
+          createIdempotently(this.creates, create, async () => {
             const egress = Egress.create({
               id: EgressId.of(this.ids.generate()),
               workspaceId: permissions.workspaceId,
-              by: Attribution.of(command.actor, permissions.workspaceId),
+              by: ChangeActor.of(command.actor, permissions.workspaceId),
               key: compiled.key,
               url: compiled.url,
               token: {
@@ -122,7 +122,7 @@ export class CreateEgressHandler
       } catch (error) {
         if (error instanceof EgressAlreadyExistsError) {
           return {
-            created: { outcome: 'taken', address: compiled.key.value },
+            created: { outcome: 'already-exists', address: compiled.key.value },
             token: null,
           };
         }

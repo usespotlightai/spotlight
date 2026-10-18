@@ -24,8 +24,8 @@ let memory: InMemoryReplays;
 let work: FakeWork;
 
 const FRESH: IdempotentCreatesPort = {
-  claim: async () => ({ kind: 'fresh' }),
-  created: async () => {},
+  reserve: async () => ({ kind: 'new' }),
+  recordCreated: async () => {},
 };
 
 const BLOCK = { key: 'build', name: 'Build', kind: 'work', prompt: 'Go.' };
@@ -118,7 +118,7 @@ describe('ProposeCandidateHandler', () => {
     };
 
     expect(await propose({ name: 'Shorter', station: BLOCK })).toEqual({
-      outcome: 'taken',
+      outcome: 'already-exists',
       address: 'core/delivery/build/Shorter',
     });
   });

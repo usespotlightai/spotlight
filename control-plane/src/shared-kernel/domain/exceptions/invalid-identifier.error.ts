@@ -1,13 +1,13 @@
 import { capitalised } from '@shared-kernel/domain/capitalised';
 
 export class InvalidIdentifierError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(
-    kind: string,
+    identifierKind: string,
     readonly because = 'must not be empty',
   ) {
-    super(`${capitalised(kind)} identifier ${because}.`);
+    super(`${capitalised(identifierKind)} identifier ${because}.`);
     this.name = 'InvalidIdentifierError';
   }
 }

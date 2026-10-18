@@ -21,7 +21,7 @@ const ISSUER = 'https://token.actions.githubusercontent.com';
 const MAIN = 'repo:acme/platform:ref:refs/heads/main';
 const NOW = new Date('2026-09-25T10:00:00.000Z');
 
-const TERMS = {
+const SPEC = {
   id: WorkspaceTokenTrustId.of('trust_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   key: TokenTrustKey.of('github-main'),
@@ -36,13 +36,13 @@ const TERMS = {
   createdBy: UserId.of('admin_1'),
 };
 
-const TRUST = WorkspaceTokenTrust.rehydrate({ ...TERMS, version: 0 });
+const TRUST = WorkspaceTokenTrust.rehydrate({ ...SPEC, version: 0 });
 
 const CLAIMS: WorkloadClaims = {
   issuer: ISSUER,
   subject: MAIN,
   audiences: ['spotlight'],
-  named: {},
+  customClaims: {},
 };
 
 const exchanging = (
@@ -134,7 +134,7 @@ describe('ExchangeWorkloadTokenHandler', () => {
     expect(
       await exchanging({
         locked: WorkspaceTokenTrust.rehydrate({
-          ...TERMS,
+          ...SPEC,
           workload: WorkloadRule.of({
             issuer: ISSUER,
             audience: 'spotlight',

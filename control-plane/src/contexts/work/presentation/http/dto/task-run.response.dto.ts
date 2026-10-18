@@ -112,7 +112,7 @@ export class RunSpendResponseDto {
   }
 }
 
-export class RunConversationResponseDto {
+export class RunNotesResponseDto {
   @ApiProperty({ example: '4e1e84a2-0c39-406d-bbbb-559f29e450be' })
   readonly runId: string;
 
@@ -128,7 +128,7 @@ export class RunConversationResponseDto {
   @ApiProperty({
     type: AttachmentResponseDto,
     isArray: true,
-    description: 'The files the task was raised with',
+    description: 'The files the task was created with',
   })
   readonly attachments: readonly AttachmentResponseDto[];
 

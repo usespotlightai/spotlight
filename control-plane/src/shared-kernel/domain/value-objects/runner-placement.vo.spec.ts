@@ -1,38 +1,43 @@
 import { InvalidRunnerPlacementError } from '@shared-kernel/domain/exceptions/invalid-runner-placement.error';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import { describe, expect, it } from 'vitest';
 
-const answering = (...terms: string[]) => RunnerTerms.of(terms);
+const offerOf = (...labels: string[]) => RunnerOffer.of(labels);
 
 const widgets = RunnerImage.of('ghcr.io/acme/widgets:1');
 const gadgets = RunnerImage.of('ghcr.io/acme/gadgets:1');
 
-const runningIn = (image: RunnerImage, isDefault = false, ...terms: string[]) =>
-  answering(...terms).runningIn(RunningImage.of(image, isDefault));
+const runningIn = (
+  image: RunnerImage,
+  isDefault = false,
+  ...labels: string[]
+) => offerOf(...labels).runningIn(RunningImage.of(image, isDefault));
 
 describe('RunnerPlacement', () => {
   it('matches every runner when it names none', () => {
-    expect(RunnerPlacement.anywhere().matches(RunnerTerms.none())).toBe(true);
-    expect(RunnerPlacement.of([]).matches(answering('build-1'))).toBe(true);
+    expect(RunnerPlacement.anywhere().matches(RunnerOffer.none())).toBe(true);
+    expect(RunnerPlacement.of([]).matches(offerOf('build-1'))).toBe(true);
   });
 
-  it('matches only a runner answering to one of the labels it names', () => {
+  it('matches only a runner that has one of the labels it names', () => {
     const placed = RunnerPlacement.of(['vpc-internal', 'gpu']);
 
-    expect(placed.matches(answering('linux', 'vpc-internal'))).toBe(true);
-    expect(placed.matches(answering('gpu'))).toBe(true);
-    expect(placed.matches(answering('linux'))).toBe(false);
-    expect(placed.matches(RunnerTerms.none())).toBe(false);
+    expect(placed.matches(offerOf('linux', 'vpc-internal'))).toBe(true);
+    expect(placed.matches(offerOf('gpu'))).toBe(true);
+    expect(placed.matches(offerOf('linux'))).toBe(false);
+    expect(placed.matches(RunnerOffer.none())).toBe(false);
   });
 
   it('falls back to another placement only when it names none', () => {
     const line = RunnerPlacement.of(['vpc-internal']);
 
     expect(RunnerPlacement.anywhere().or(line)).toBe(line);
-    expect(RunnerPlacement.of(['gpu']).or(line).selectors).toEqual(['gpu']);
+    expect(RunnerPlacement.of(['gpu']).or(line).requiredLabels).toEqual([
+      'gpu',
+    ]);
   });
 
   it('matches, when it must honour several placements, only a runner every one of them matches', () => {
@@ -42,10 +47,10 @@ describe('RunnerPlacement', () => {
       RunnerPlacement.of(['gpu']),
     ]);
 
-    expect(both.matches(answering('vpc-a', 'gpu'))).toBe(true);
-    expect(both.matches(answering('build-1', 'gpu'))).toBe(true);
-    expect(both.matches(answering('vpc-a'))).toBe(false);
-    expect(both.matches(answering('gpu'))).toBe(false);
+    expect(both.matches(offerOf('vpc-a', 'gpu'))).toBe(true);
+    expect(both.matches(offerOf('build-1', 'gpu'))).toBe(true);
+    expect(both.matches(offerOf('vpc-a'))).toBe(false);
+    expect(both.matches(offerOf('gpu'))).toBe(false);
   });
 
   it('keeps one of each placement it must honour', () => {
@@ -54,15 +59,17 @@ describe('RunnerPlacement', () => {
       RunnerPlacement.of(['gpu', 'vpc-a']),
     ]);
 
-    expect(twice.clauses).toEqual([['vpc-a', 'gpu']]);
-    expect(RunnerPlacement.ofClauses(twice.clauses).equals(twice)).toBe(true);
+    expect(twice.labelGroups).toEqual([['vpc-a', 'gpu']]);
+    expect(RunnerPlacement.ofLabelGroups(twice.labelGroups).equals(twice)).toBe(
+      true,
+    );
   });
 
-  it('runs in the image it is placed in, keeping its selectors', () => {
+  it('runs in the image it is placed in, keeping its required labels', () => {
     const placed = RunnerPlacement.of(['gpu']).in(widgets);
 
     expect(placed.image).toBe(widgets);
-    expect(placed.selectors).toEqual(['gpu']);
+    expect(placed.requiredLabels).toEqual(['gpu']);
     expect(placed.isAnywhere).toBe(false);
     expect(RunnerPlacement.anywhere().in(widgets).isAnywhere).toBe(false);
   });
@@ -83,9 +90,9 @@ describe('RunnerPlacement', () => {
   });
 
   it('matches a runner that says nothing of its image whatever image it requests', () => {
-    expect(
-      RunnerPlacement.anywhere().in(widgets).matches(answering('gpu')),
-    ).toBe(true);
+    expect(RunnerPlacement.anywhere().in(widgets).matches(offerOf('gpu'))).toBe(
+      true,
+    );
   });
 
   it('keeps the one image the placements it must honour request', () => {
@@ -96,7 +103,7 @@ describe('RunnerPlacement', () => {
     ]);
 
     expect(both.image?.equals(widgets)).toBe(true);
-    expect(both.clauses).toEqual([['gpu'], ['vpc-a']]);
+    expect(both.labelGroups).toEqual([['gpu'], ['vpc-a']]);
   });
 
   it('does not honour placements requesting different images', () => {
@@ -108,8 +115,8 @@ describe('RunnerPlacement', () => {
     ).toThrow(InvalidRunnerPlacementError);
   });
 
-  it('is rebuilt from its clauses and image', () => {
-    const placed = RunnerPlacement.ofClauses([['gpu'], ['vpc-a']], widgets);
+  it('is rebuilt from its label groups and image', () => {
+    const placed = RunnerPlacement.ofLabelGroups([['gpu'], ['vpc-a']], widgets);
 
     expect(placed.image?.equals(widgets)).toBe(true);
     expect(
@@ -127,15 +134,13 @@ describe('RunnerPlacement', () => {
   it('names any label a pool or trust may be given, of at most 64 characters', () => {
     const longest = 'a'.repeat(64);
 
-    expect(RunnerPlacement.of([longest]).matches(answering(longest))).toBe(
-      true,
-    );
+    expect(RunnerPlacement.of([longest]).matches(offerOf(longest))).toBe(true);
     expect(() => RunnerPlacement.of(['a'.repeat(65)])).toThrow(
       InvalidRunnerPlacementError,
     );
   });
 
-  it('rejects a selector no label could be', () => {
+  it('rejects a required label that no pool or trust label could be', () => {
     for (const unlabelled of ['GPU', 'vpc internal', 'claude-code@2.1.270']) {
       expect(() => RunnerPlacement.of([unlabelled])).toThrow(
         InvalidRunnerPlacementError,
@@ -143,7 +148,7 @@ describe('RunnerPlacement', () => {
     }
   });
 
-  it('rejects an empty or repeated selector', () => {
+  it('rejects an empty or repeated required label', () => {
     expect(() => RunnerPlacement.of([' '])).toThrow(
       InvalidRunnerPlacementError,
     );
@@ -153,39 +158,35 @@ describe('RunnerPlacement', () => {
   });
 });
 
-describe('RunnerTerms', () => {
-  it('has each term once', () => {
-    expect(answering('build-1', 'gpu', 'build-1').values).toEqual([
+describe('RunnerOffer', () => {
+  it('has each label once', () => {
+    expect(offerOf('build-1', 'gpu', 'build-1').values).toEqual([
       'build-1',
       'gpu',
     ]);
   });
 
-  it('rejects an empty term', () => {
-    expect(() => answering('build-1', ' ')).toThrow(
-      InvalidRunnerPlacementError,
-    );
+  it('rejects an empty label', () => {
+    expect(() => offerOf('build-1', ' ')).toThrow(InvalidRunnerPlacementError);
   });
 
   it('serves any image while it runs in none it knows of', () => {
-    expect(RunnerTerms.none().serves(widgets)).toBe(true);
-    expect(RunnerTerms.none().serves(null)).toBe(true);
+    expect(RunnerOffer.none().supports(widgets)).toBe(true);
+    expect(RunnerOffer.none().supports(null)).toBe(true);
   });
 
   it('serves the image it runs, and no image only when that is the default one', () => {
-    expect(runningIn(widgets).serves(widgets)).toBe(true);
-    expect(runningIn(widgets).serves(gadgets)).toBe(false);
-    expect(runningIn(widgets).serves(null)).toBe(false);
-    expect(runningIn(widgets, true).serves(null)).toBe(true);
+    expect(runningIn(widgets).supports(widgets)).toBe(true);
+    expect(runningIn(widgets).supports(gadgets)).toBe(false);
+    expect(runningIn(widgets).supports(null)).toBe(false);
+    expect(runningIn(widgets, true).supports(null)).toBe(true);
   });
 
-  it('equals other terms only when they run in the same image', () => {
+  it('equals another offer only when they run in the same image', () => {
     expect(
       runningIn(widgets, true, 'gpu').equals(runningIn(widgets, true, 'gpu')),
     ).toBe(true);
-    expect(runningIn(widgets, true, 'gpu').equals(answering('gpu'))).toBe(
-      false,
-    );
+    expect(runningIn(widgets, true, 'gpu').equals(offerOf('gpu'))).toBe(false);
     expect(
       runningIn(widgets, true, 'gpu').equals(runningIn(widgets, false, 'gpu')),
     ).toBe(false);

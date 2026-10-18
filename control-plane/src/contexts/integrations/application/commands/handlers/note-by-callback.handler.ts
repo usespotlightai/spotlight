@@ -54,8 +54,8 @@ export class NoteByCallbackHandler
             callbackToken.firing,
           )
         : null;
-      const noted = await this.causation.within(
-        (fired ?? this.causation.current()).followedBy(callbackToken.causeLink),
+      const noted = await this.causation.runWith(
+        (fired ?? this.causation.current()).append(callbackToken.causeLink),
         () =>
           this.notes.noted(
             callbackToken.taskId.value,

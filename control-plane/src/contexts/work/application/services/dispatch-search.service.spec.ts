@@ -183,7 +183,7 @@ describe('DispatchSearch', () => {
       },
       briefing: ORDER.briefing,
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'search-run_9' },
+      resume: { key: 'search-run_9' },
       search: {},
     });
     expect(run?.briefedWith.briefed).toEqual([]);

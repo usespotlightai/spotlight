@@ -3,11 +3,11 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import { describe, expect, it } from 'vitest';
 
 class BrokenRule extends Error {
-  readonly violation = 'invalid';
+  readonly kind = 'invalid';
 }
 
 class UpstreamFailure extends Error {
-  readonly violation = 'upstream-error';
+  readonly kind = 'upstream-error';
 }
 
 const thrown = (error: unknown): ApplicationError => {
@@ -39,7 +39,7 @@ describe('rethrowAsApplicationError', () => {
     expect(error.message).toContain('Resource not accessible by integration');
   });
 
-  it('leaves anything it does not know to be a rule violation', () => {
+  it('leaves an error that has no known error kind', () => {
     const surprise = new Error('the disk melted');
 
     expect(() => rethrowAsApplicationError(surprise)).toThrow(surprise);

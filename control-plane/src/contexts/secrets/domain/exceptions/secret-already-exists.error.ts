@@ -1,5 +1,5 @@
 export class SecretAlreadyExistsError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(readonly secretName: string) {
     super(

@@ -30,8 +30,8 @@ import type { ProvisionFailure } from '@shared-kernel/domain/value-objects/provi
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
-import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -241,21 +241,21 @@ export class StackCheck extends EventRecorder {
     );
   }
 
-  claimableBy(runner: RunnerId, terms: RunnerTerms, now: Date): boolean {
+  claimableBy(runner: RunnerId, offer: RunnerOffer, now: Date): boolean {
     return (
-      this.claimableAt(now, runner) && this.request.placement.matches(terms)
+      this.claimableAt(now, runner) && this.request.placement.matches(offer)
     );
   }
 
-  claimedFor(runner: RunnerId, terms: RunnerTerms, now: Date): StackCheck {
+  claimedFor(runner: RunnerId, offer: RunnerOffer, now: Date): StackCheck {
     if (!this.claimableAt(now, runner)) {
       throw InvalidChangeStackError.because(
         'has no check waiting for a runner to claim',
       );
     }
-    if (!this.request.placement.matches(terms)) {
+    if (!this.request.placement.matches(offer)) {
       throw InvalidChangeStackError.because(
-        'is placed on runners that do not answer to these terms',
+        'needs runner labels that this runner does not have',
       );
     }
 

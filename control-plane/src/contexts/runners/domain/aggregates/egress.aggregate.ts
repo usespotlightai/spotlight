@@ -12,7 +12,7 @@ import type { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -46,7 +46,7 @@ export class Egress extends EventRecorder {
       id: EgressId;
       workspaceId: WorkspaceId;
       token: EgressTokenInput;
-      by: Attribution;
+      by: ChangeActor;
     },
   ): Egress {
     if (!input.token.tokenHash) {
@@ -120,7 +120,7 @@ export class Egress extends EventRecorder {
   update(
     definition: EgressDefinition,
     tokenInput: EgressTokenInput,
-    by: Attribution,
+    by: ChangeActor,
   ): Egress {
     this.assertNotDeleted();
 
@@ -160,7 +160,7 @@ export class Egress extends EventRecorder {
           this.whatChanged,
           by,
           EgressChangeDetail.updated({
-            rekeyed: !tokenHash.equals(this.tokenHash),
+            tokenRotated: !tokenHash.equals(this.tokenHash),
           }),
         ),
       ),
@@ -169,7 +169,7 @@ export class Egress extends EventRecorder {
     return updated;
   }
 
-  delete(namedBy: readonly PoolKey[], by: Attribution): Egress {
+  delete(namedBy: readonly PoolKey[], by: ChangeActor): Egress {
     this.assertNotDeleted();
 
     if (namedBy.length > 0) {

@@ -195,7 +195,7 @@ describe('the Slack webhook runtime', () => {
       expect(read?.happening).toBe('slack.app_mention');
       expect(read?.opens?.lineRole).toBe('delivery');
       expect(read?.opens?.station).toBe('triage');
-      expect(read?.concerns.marks).toEqual([
+      expect(read?.correlationKeys.marks).toEqual([
         { kind: 'slack.thread', value: 'C0REQ:170.1' },
       ]);
     });
@@ -203,7 +203,7 @@ describe('the Slack webhook runtime', () => {
     it('has an ambient mark without finding a task by it', async () => {
       const [read] = await runtime().read(delivered(mention));
 
-      expect(read?.concerns.marks.map((each) => each.kind)).toEqual([
+      expect(read?.correlationKeys.marks.map((each) => each.kind)).toEqual([
         'slack.thread',
       ]);
       expect(read?.opens?.marks.map((each) => each.kind)).toEqual([

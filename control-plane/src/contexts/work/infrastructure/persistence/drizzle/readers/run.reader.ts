@@ -20,7 +20,7 @@ import type {
   ReplayRunSummary,
   RunConfigSummary,
   RunConfigView,
-  RunConversationSummary,
+  RunNotesSummary,
   RunReaderPort,
   RunStationSummary,
   SearchRunSummary,
@@ -55,7 +55,7 @@ export type StationRow = {
   stationLineId: string | null;
 };
 
-export const worked = (
+export const stationSummaryOf = (
   row: StationRow,
   stationCounts: Map<string, number>,
 ): RunStationSummary | null =>
@@ -129,7 +129,7 @@ export class DrizzleRunReader implements RunReaderPort {
 
     return rows.map(({ stationLineId, workspaceId: _workspace, ...rest }) => ({
       ...rest,
-      station: worked({ ...rest, stationLineId }, stationCounts),
+      station: stationSummaryOf({ ...rest, stationLineId }, stationCounts),
       review: review.get(rest.id) ?? null,
     }));
   }
@@ -180,15 +180,15 @@ export class DrizzleRunReader implements RunReaderPort {
 
     return rows.map(({ stationLineId, workspaceId: _workspace, ...rest }) => ({
       ...rest,
-      station: worked({ ...rest, stationLineId }, stationCounts),
+      station: stationSummaryOf({ ...rest, stationLineId }, stationCounts),
       review: review.get(rest.id) ?? null,
     }));
   }
 
-  async conversationFor(
+  async notesFor(
     runId: RunId,
     viewerId: UserId,
-  ): Promise<RunConversationSummary | null> {
+  ): Promise<RunNotesSummary | null> {
     const [found] = await this.db
       .select({
         runId: run.id,
@@ -237,7 +237,7 @@ export class DrizzleRunReader implements RunReaderPort {
       title: found.title,
       description: found.description,
       attachments: attachmentsOf(attached, found.taskId).own,
-      station: worked({ ...found }, stationCounts),
+      station: stationSummaryOf({ ...found }, stationCounts),
       createdAt: found.createdAt,
       briefing: spec.briefing,
       working: isCurrentRun && !awaitsAPerson(notes),
@@ -373,7 +373,7 @@ export class DrizzleRunReader implements RunReaderPort {
       updatedAt: found.updatedAt,
       harness: found.harness,
       image: found.image,
-      station: worked(found, stationCounts),
+      station: stationSummaryOf(found, stationCounts),
       review: null,
       searchId: found.searchId,
       iteration: found.iteration,
@@ -450,7 +450,7 @@ export class DrizzleRunReader implements RunReaderPort {
       updatedAt: found.updatedAt,
       harness: found.harness,
       image: found.image,
-      station: worked(found, stationCounts),
+      station: stationSummaryOf(found, stationCounts),
       review: null,
       original: {
         runId: found.originalRunId,

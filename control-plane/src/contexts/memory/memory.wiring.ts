@@ -119,11 +119,11 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
-import { MEMORIES_BRIEFED_BEFORE } from '@work/application/ports/memories-briefed-before.port';
 import {
-  TASK_ASIDES,
-  type TaskAsidesPort,
-} from '@work/application/ports/task-asides.port';
+  INBOX_REQUESTS,
+  type InboxRequestsPort,
+} from '@work/application/ports/inbox-requests.port';
+import { MEMORIES_BRIEFED_BEFORE } from '@work/application/ports/memories-briefed-before.port';
 import { TEAM_MEMORIES } from '@work/application/ports/team-memories.port';
 import {
   WORK_LOOKUP,
@@ -148,8 +148,9 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: REVIEWS,
-    inject: [TASK_ASIDES],
-    useFactory: (asides: TaskAsidesPort) => new Reviews(asides),
+    inject: [INBOX_REQUESTS],
+    useFactory: (inboxRequests: InboxRequestsPort) =>
+      new Reviews(inboxRequests),
   },
   {
     provide: PEOPLE,

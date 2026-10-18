@@ -23,7 +23,7 @@ import type { ReplayThreshold } from '@replays/domain/value-objects/replay-thres
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -63,7 +63,7 @@ export class ReplayCheck extends EventRecorder {
   }
 
   static start(
-    input: Omit<State, 'baseline'> & { by: Attribution },
+    input: Omit<State, 'baseline'> & { by: ChangeActor },
   ): ReplayCheck {
     const { by, ...rest } = input;
     const state: State = { ...rest, baseline: 'awaiting' };

@@ -1,8 +1,8 @@
 import type { RequestHandler } from 'msw';
 import type {
-  ChatImprovingResponseDto,
   ChatResponseDto,
   ChatSummaryResponseDto,
+  ChatTargetStationResponseDto,
   ProposedMemoryResponseDto,
   RememberRequestDto,
   RetireMemoryRequestDto,
@@ -355,10 +355,10 @@ const summaryOfChat = ({
   ...summary
 }: ChatResponseDto): ChatSummaryResponseDto => summary;
 
-const improvingOf = (
+const targetStationOf = (
   teamId: string,
   stationId: string,
-): ChatImprovingResponseDto | null => {
+): ChatTargetStationResponseDto | null => {
   for (const line of world().lines[teamId] ?? []) {
     const station = line.stations.find((each) => each.id === stationId);
     if (station) {
@@ -383,7 +383,7 @@ const tracesOf = (teamId: string, taskIds: readonly string[]) =>
 
 const titleOf = (
   body: string,
-  improving: ChatImprovingResponseDto | null,
+  targetStation: ChatTargetStationResponseDto | null,
   traces: readonly { title: string }[],
 ): string => {
   const firstLine = body.trim().split('\n')[0]?.trim() ?? '';
@@ -392,8 +392,8 @@ const titleOf = (
       ? `${firstLine.slice(0, TITLE_LENGTH - 1).trimEnd()}…`
       : firstLine;
   }
-  if (improving) {
-    return `Improve ${improving.stationName}`;
+  if (targetStation) {
+    return `Improve ${targetStation.stationName}`;
   }
 
   return traces[0]?.title ?? 'New chat';
@@ -406,11 +406,11 @@ const runsAtStation = (stationId: string): number =>
 
 const answerTo = (
   body: string,
-  improving: ChatImprovingResponseDto | null,
+  targetStation: ChatTargetStationResponseDto | null,
 ): string => {
-  if (improving) {
-    const runs = runsAtStation(improving.stationId);
-    return `I read the last ${runs} ${runs === 1 ? 'run' : 'runs'} at ${improving.stationName} on ${improving.lineName}. The clearest pattern is work sent back from review for size: the agent keeps going after the change is done. Telling it to stop and open the pull request once the checks pass would have saved two of those round trips.`;
+  if (targetStation) {
+    const runs = runsAtStation(targetStation.stationId);
+    return `I read the last ${runs} ${runs === 1 ? 'run' : 'runs'} at ${targetStation.stationName} on ${targetStation.lineName}. The clearest pattern is work sent back from review for size: the agent keeps going after the change is done. Telling it to stop and open the pull request once the checks pass would have saved two of those round trips.`;
   }
   if (!body.trim()) {
     return 'I read what you shared. Tell me what you would like to change, and I will propose tasks for it.';
@@ -428,7 +428,7 @@ const answered = (record: ChatRecord, sentAt: string, body: string): void => {
       tool: 'bash',
       text: `spotlight recall "${body.trim().slice(0, 40)}"`,
     },
-    { kind: 'message', text: answerTo(body, record.chat.improving) },
+    { kind: 'message', text: answerTo(body, record.chat.targetStation) },
   ]);
   record.journals.push(journal);
   record.chat.updatedAt = turnEndsAt(journal);
@@ -452,10 +452,10 @@ const chatHandlers = [
     }
 
     const input = (await request.json()) as StartChatRequestDto;
-    const improving = input.improving
-      ? improvingOf(teamId, input.improving)
+    const targetStation = input.targetStation
+      ? targetStationOf(teamId, input.targetStation)
       : null;
-    if (input.improving && !improving) {
+    if (input.targetStation && !targetStation) {
       return problem(422, 'Sorry, the team has no such station.');
     }
     if (!input.harness) {
@@ -467,7 +467,7 @@ const chatHandlers = [
     const record: ChatRecord = {
       chat: {
         id: nextId('chat'),
-        title: titleOf(input.body, improving, traces),
+        title: titleOf(input.body, targetStation, traces),
         harness: input.harness,
         model: input.model ?? null,
         effort: input.effort ?? null,
@@ -477,7 +477,7 @@ const chatHandlers = [
             ...(input.repositories ?? []),
           ]),
         ],
-        improving,
+        targetStation,
         setup: input.setup ? { ...input.setup, pullRequest: null } : null,
         createdAt: at,
         updatedAt: at,
@@ -554,7 +554,7 @@ const chatHandlers = [
           running: false,
           awaitingReview: null,
           pullRequest: null,
-          raisedBy: SAM,
+          createdBy: SAM,
           assignee: null,
           note: null,
         },

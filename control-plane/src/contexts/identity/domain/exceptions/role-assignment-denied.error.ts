@@ -9,7 +9,7 @@ const MESSAGES: Record<Exclude<RoleAssignmentDenial, 'last-owner'>, string> = {
 };
 
 export class RoleAssignmentDeniedError extends Error {
-  readonly violation = 'not-allowed' as const;
+  readonly kind = 'not-allowed' as const;
 
   constructor(readonly denial: Exclude<RoleAssignmentDenial, 'last-owner'>) {
     super(MESSAGES[denial]);

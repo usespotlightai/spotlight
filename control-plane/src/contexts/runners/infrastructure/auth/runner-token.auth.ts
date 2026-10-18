@@ -20,7 +20,7 @@ export class RunnerTokenAuth implements RunnerIdentityPort {
     @Inject(CLOCK) private readonly clock: ClockPort,
   ) {}
 
-  async identify(token: string | undefined): Promise<RunnerId | null> {
+  async authenticate(token: string | undefined): Promise<RunnerId | null> {
     if (!token) {
       return null;
     }

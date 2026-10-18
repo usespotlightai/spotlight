@@ -11,7 +11,7 @@ x-control-plane-env: &control-plane-env
   GITHUB_APP_ID: ${GITHUB_APP_ID:-}
   GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
   GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
-  OUTBOUND_ALLOWED_HOSTS: ${OUTBOUND_ALLOWED_HOSTS:-slack.com}
+  SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS: ${SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS:-slack.com}
   S3_BUCKET: ${S3_BUCKET:-files}
   S3_ENDPOINT: ${S3_ENDPOINT:-http://storage:9000}
   S3_FORCE_PATH_STYLE: "true"
@@ -168,7 +168,7 @@ services:
         condition: service_completed_successfully
     environment:
       SPOTLIGHT_URL: ${SPOTLIGHT_URL:-http://control-plane:3000}
-      SPOTLIGHT_TOKEN: ${DEV_POOL_TOKEN:-}
+      SPOTLIGHT_POOL_TOKEN: ${DEV_POOL_TOKEN:-}
       SPOTLIGHT_CAPACITY: ${DEV_HOST_CAPACITY:-2}
       SPOTLIGHT_RUNNER_IMAGE: spotlight-runner:dev
       SPOTLIGHT_EGRESS_IMAGE: spotlight-runner:dev

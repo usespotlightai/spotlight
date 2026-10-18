@@ -11,7 +11,7 @@ import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -40,7 +40,7 @@ const stored = (version = 3) =>
     version,
   });
 
-const BY = attributedIn();
+const BY = changeActorIn();
 
 const GRAFANA = { resource: 'skill' as const, id: 'skill_1', key: 'grafana' };
 

@@ -23,7 +23,7 @@ import type { StationHashes } from '@replays/domain/value-objects/station-hashes
 import type { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -75,7 +75,7 @@ export class Candidate extends EventRecorder {
     input: Proposal & {
       name: CandidateName;
       changedFrom: StationChanges;
-      by: Attribution;
+      by: ChangeActor;
     },
   ): Candidate {
     const proposed = Candidate.make(
@@ -346,7 +346,7 @@ export class Candidate extends EventRecorder {
     }
   }
 
-  delete(inProgress: boolean, by: Attribution): Candidate {
+  delete(inProgress: boolean, by: ChangeActor): Candidate {
     if (this.isLive) {
       throw new CandidateIsLiveError(this.id.value);
     }
@@ -362,7 +362,7 @@ export class Candidate extends EventRecorder {
 
   cascadeDelete(): Candidate {
     return this.isProposed
-      ? this.gone(Attribution.spotlight(this.workspaceId))
+      ? this.gone(ChangeActor.spotlight(this.workspaceId))
       : new Candidate(this.state, true);
   }
 
@@ -370,7 +370,7 @@ export class Candidate extends EventRecorder {
     return this.state.station.stationId === stationId;
   }
 
-  private gone(by: Attribution): Candidate {
+  private gone(by: ChangeActor): Candidate {
     const gone = new Candidate(this.state, true);
 
     gone.record(

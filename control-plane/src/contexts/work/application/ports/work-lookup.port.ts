@@ -102,7 +102,7 @@ export interface TaskLookup {
 export interface WorkLookupPort {
   run(runId: RunId): Promise<RunLookup | null>;
 
-  wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean>;
+  wasClaimedBy(runId: RunId, runner: RunnerId): Promise<boolean>;
 
   leasedBy(runId: RunId, runner: RunnerId): Promise<LeasedRunLookup | null>;
 

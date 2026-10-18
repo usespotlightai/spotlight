@@ -1,6 +1,6 @@
 import type { AlertInbox } from '@insights/application/services/alert-inbox.service';
 import type { DeleteInsights } from '@insights/application/services/delete-insights.service';
-import type { GradeAsides } from '@insights/application/services/grade-asides.service';
+import type { GradeInboxRequests } from '@insights/application/services/grade-inbox-requests.service';
 import type { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import type { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
 import type { RecordChat } from '@insights/application/services/record-chat.service';
@@ -141,7 +141,7 @@ export interface InsightsHandlers {
   readonly deleting: DeleteInsights;
   readonly judging: RequestJudging;
   readonly scoring: RecordJudgeScore;
-  readonly grading: GradeAsides;
+  readonly grading: GradeInboxRequests;
   readonly recordingUsage: RecordRunUsageSummary;
   readonly remembering: RecordRunMemories;
   readonly passing: RecordStationPass;
@@ -235,7 +235,7 @@ export const insightsSubscribers = (
     (event) => handlers.watching.pullRequestClosed(event),
   ),
   subscribing<StationAlertFired | StationAlertResolved | StationAlertReopened>(
-    'insights.follow-station-alert-aside',
+    'insights.follow-station-alert-inbox-request',
     ['station-alert.fired', 'station-alert.resolved', 'station-alert.reopened'],
     (event) => handlers.alerting.moved(event),
   ),

@@ -6,12 +6,12 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { DeleteLineCommand } from '@work/application/commands/delete-line.command';
 import type { StationTalliesPort } from '@work/application/ports/station-tallies.port';
 import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
 import { LineVersionConflictError } from '@work/domain/exceptions/line-version-conflict.error';
-import { StrandedWorkError } from '@work/domain/exceptions/stranded-work.error';
+import { StationNotEmptyError } from '@work/domain/exceptions/station-not-empty.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 
@@ -55,7 +55,7 @@ export class DeleteLineHandler
         await this.lines.save(
           existing.delete(
             tasks,
-            Attribution.of(command.actor, existing.workspaceId),
+            ChangeActor.of(command.actor, existing.workspaceId),
           ),
         );
       });
@@ -72,7 +72,7 @@ export class DeleteLineHandler
 
       if (
         error instanceof LineInUseError ||
-        error instanceof StrandedWorkError
+        error instanceof StationNotEmptyError
       ) {
         return { outcome: 'in-use', reason: error.message };
       }

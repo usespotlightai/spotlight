@@ -61,7 +61,7 @@ export function ChatThread({
                       slug={slug}
                       teamId={teamId}
                       message={turn.message}
-                      improving={at === 0 ? chat.improving : null}
+                      targetStation={at === 0 ? chat.targetStation : null}
                     />
                   </div>
                 )}

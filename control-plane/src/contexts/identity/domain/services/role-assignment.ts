@@ -8,37 +8,37 @@ export type RoleAssignmentDenial =
   | 'above-your-rank'
   | 'last-owner';
 
-export interface RolePositions {
-  readonly mine: WorkspaceRole | null;
-  readonly theirs: WorkspaceRole | null;
-  readonly lastOwner: boolean;
+export interface RoleAssignmentContext {
+  readonly callerRole: WorkspaceRole | null;
+  readonly memberRole: WorkspaceRole | null;
+  readonly isLastOwner: boolean;
   readonly isSelf: boolean;
 }
 
 export function roleAssignmentDenial(
-  positions: RolePositions,
+  context: RoleAssignmentContext,
   role: WorkspaceRole,
 ): RoleAssignmentDenial | null {
-  const { mine, theirs } = positions;
+  const { callerRole, memberRole } = context;
 
-  if (!theirs) {
+  if (!memberRole) {
     return 'not-a-member';
   }
-  if (!mine?.rankedAtLeast(WorkspaceRole.admin)) {
+  if (!callerRole?.rankedAtLeast(WorkspaceRole.admin)) {
     return 'not-an-admin';
   }
 
-  if (theirs.equals(role)) {
+  if (memberRole.equals(role)) {
     return null;
   }
 
-  if (!(mine.isOwner || mine.outranks(theirs))) {
-    return positions.isSelf ? 'your-own' : 'not-below-you';
+  if (!(callerRole.isOwner || callerRole.outranks(memberRole))) {
+    return context.isSelf ? 'your-own' : 'not-below-you';
   }
-  if (!mine.rankedAtLeast(role)) {
+  if (!callerRole.rankedAtLeast(role)) {
     return 'above-your-rank';
   }
-  if (positions.lastOwner && !role.isOwner) {
+  if (context.isLastOwner && !role.isOwner) {
     return 'last-owner';
   }
 
@@ -46,14 +46,14 @@ export function roleAssignmentDenial(
 }
 
 export function assignableRoles(
-  positions: RolePositions,
+  context: RoleAssignmentContext,
 ): readonly WorkspaceRole[] {
-  if (!positions.theirs) {
+  if (!context.memberRole) {
     return [];
   }
 
   const assignable = WorkspaceRole.all.filter(
-    (role) => roleAssignmentDenial(positions, role) === null,
+    (role) => roleAssignmentDenial(context, role) === null,
   );
 
   return assignable.length > 1 ? assignable : [];

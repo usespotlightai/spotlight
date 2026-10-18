@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	callers     = 4
-	callTimeout = 10 * time.Second
-	answerWait  = time.Minute
+	callers      = 4
+	callTimeout  = 10 * time.Second
+	responseWait = time.Minute
 )
 
 func (h *Host) calls(ctx, serving context.Context, stop func(error)) error {
@@ -53,39 +53,39 @@ func (h *Host) calls(ctx, serving context.Context, stop func(error)) error {
 		}
 
 		backoff = retryFloor
-		h.answering.Go(func() {
+		h.responding.Go(func() {
 			defer func() { <-slots }()
-			h.answer(serving, *call, stop)
+			h.respond(serving, *call, stop)
 		})
 	}
 }
 
-func (h *Host) answer(ctx context.Context, call protocol.HostCall, stop func(error)) {
+func (h *Host) respond(ctx context.Context, call protocol.HostCall, stop func(error)) {
 	log := h.log.With("call", call.ID)
-	answer := h.sent(ctx, call, log)
+	response := h.sent(ctx, call, log)
 
-	telling, cancel := context.WithTimeout(context.WithoutCancel(ctx), answerWait)
+	telling, cancel := context.WithTimeout(context.WithoutCancel(ctx), responseWait)
 	defer cancel()
 
-	if err := h.pool.AnswerCall(telling, call.ID, answer); err != nil {
+	if err := h.pool.RecordCallResponse(telling, call.ID, response); err != nil {
 		if final(err) {
 			stop(err)
 		}
-		log.Error("could not answer the call", "error", err)
+		log.Error("could not record the response of the call", "error", err)
 		return
 	}
 
-	if answer.Error != "" {
-		log.Warn("answered a call that went unanswered", "reason", answer.Error)
+	if response.Error != "" {
+		log.Warn("recorded a call that got no response", "reason", response.Error)
 		return
 	}
-	log.Info("answered a call", "status", answer.Status, "ms", answer.Ms)
+	log.Info("recorded the response of a call", "status", response.Status, "ms", response.Ms)
 }
 
-func (h *Host) sent(ctx context.Context, call protocol.HostCall, log *slog.Logger) protocol.HostCallAnswer {
+func (h *Host) sent(ctx context.Context, call protocol.HostCall, log *slog.Logger) protocol.HostCallResponse {
 	began := time.Now()
-	unanswered := func(reason string) protocol.HostCallAnswer {
-		return protocol.HostCallAnswer{Ms: int(time.Since(began).Milliseconds()), Error: reason}
+	noResponse := func(reason string) protocol.HostCallResponse {
+		return protocol.HostCallResponse{Ms: int(time.Since(began).Milliseconds()), Error: reason}
 	}
 
 	timeout := time.Duration(call.TimeoutMs) * time.Millisecond
@@ -103,7 +103,7 @@ func (h *Host) sent(ctx context.Context, call protocol.HostCall, log *slog.Logge
 
 	image, err := h.egressImage(sending)
 	if err != nil {
-		return unanswered(fmt.Sprintf("The host couldn't get its egress image. Error: %v", err))
+		return noResponse(fmt.Sprintf("The host couldn't get its egress image. Error: %v", err))
 	}
 
 	container, err := h.startEgress(sending, image, "call-"+call.ID,
@@ -118,24 +118,24 @@ func (h *Host) sent(ctx context.Context, call protocol.HostCall, log *slog.Logge
 	defer h.destroy(container)
 	if err != nil {
 		log.Warn("could not start an egress to send the call", "error", err)
-		return unanswered(fmt.Sprintf("The host's egress didn't start. Error: %v", err))
+		return noResponse(fmt.Sprintf("The host's egress didn't start. Error: %v", err))
 	}
 
 	found, err := h.awaited(sending, container, protocol.EgressSendPath, budget, json.Valid)
 	switch {
 	case err == nil:
 	case ctx.Err() != nil:
-		return unanswered("The host stopped before the call was answered.")
+		return noResponse("The host stopped before the call got a response.")
 	case sending.Err() != nil || errors.Is(err, errLate):
-		return unanswered(fmt.Sprintf("The host's egress didn't answer in time. Time limit: %s", budget))
+		return noResponse(fmt.Sprintf("The host's egress didn't respond in time. Time limit: %s", budget))
 	default:
-		return unanswered(fmt.Sprintf("The host can't read its egress's answer. Error: %v", err))
+		return noResponse(fmt.Sprintf("The host can't read its egress's response. Error: %v", err))
 	}
 
-	var answer protocol.HostCallAnswer
-	if err := json.Unmarshal(found, &answer); err != nil {
-		return unanswered(fmt.Sprintf("The host can't read its egress's answer. Error: %v", err))
+	var response protocol.HostCallResponse
+	if err := json.Unmarshal(found, &response); err != nil {
+		return noResponse(fmt.Sprintf("The host can't read its egress's response. Error: %v", err))
 	}
 
-	return answer
+	return response
 }

@@ -25,7 +25,7 @@ import { TaskDeleted } from '@work/domain/events/task-deleted.event';
 import { TaskDispatched } from '@work/domain/events/task-dispatched.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
-import { TaskMarkTaken } from '@work/domain/events/task-mark-taken.event';
+import { TaskMarkReassigned } from '@work/domain/events/task-mark-reassigned.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { TaskPassed } from '@work/domain/events/task-passed.event';
@@ -55,8 +55,6 @@ import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import type { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
-import { Continuity } from '@work/domain/value-objects/continuity.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import type { Happening } from '@work/domain/value-objects/happening.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
@@ -68,6 +66,8 @@ import {
   type ReviewedHead,
 } from '@work/domain/value-objects/pull-request-link.vo';
 import type { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
+import { Resume } from '@work/domain/value-objects/resume.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import type { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
@@ -134,8 +134,8 @@ export class Task extends EventRecorder {
     readonly runnerId: RunnerId | null,
     readonly notes: readonly TaskNote[],
     readonly createdAt: Date,
-    readonly raisedAt: StationId | null,
-    readonly raisedBy: UserId | null,
+    readonly originStationId: StationId | null,
+    readonly createdBy: UserId | null,
     readonly openedFrom: TaskOrigin,
     readonly pullRequestLink: PullRequestLink | null,
     readonly marks: readonly Mark[],
@@ -155,14 +155,14 @@ export class Task extends EventRecorder {
     description?: TaskDescription | null;
     attachments?: readonly Attachment[];
     rank: TaskRank;
-    raisedBy?: UserId | null;
+    createdBy?: UserId | null;
     receivedFrom?: Happening | null;
     proposedIn?: ProposalOrigin | null;
     now: Date;
     newId: () => string;
   }): Task {
     const station = Task.stationOn(input.line, input.at);
-    const raisedBy = input.raisedBy ?? null;
+    const createdBy = input.createdBy ?? null;
     const receivedFrom = input.receivedFrom ?? null;
 
     const task = new Task(
@@ -178,14 +178,14 @@ export class Task extends EventRecorder {
       [],
       input.now,
       station.id,
-      raisedBy,
+      createdBy,
       receivedFrom
         ? TaskOrigin.receivedFrom(receivedFrom)
         : TaskOrigin.person(),
       null,
       [],
       null,
-      raisedBy,
+      createdBy,
       input.attachments ?? [],
     );
 
@@ -196,7 +196,7 @@ export class Task extends EventRecorder {
         input.line.teamId,
         input.line.id,
         task.stationId,
-        raisedBy,
+        createdBy,
         input.now,
         receivedFrom !== null,
         input.proposedIn ?? null,
@@ -218,8 +218,8 @@ export class Task extends EventRecorder {
     runnerId: RunnerId | null;
     notes: readonly TaskNote[];
     createdAt: Date;
-    raisedAt: StationId | null;
-    raisedBy: UserId | null;
+    originStationId: StationId | null;
+    createdBy: UserId | null;
     openedFrom: TaskOrigin;
     pullRequestLink?: PullRequestLink | null;
     marks?: readonly Mark[];
@@ -259,8 +259,8 @@ export class Task extends EventRecorder {
       input.runnerId,
       input.notes,
       input.createdAt,
-      input.raisedAt,
-      input.raisedBy,
+      input.originStationId,
+      input.createdBy,
       input.openedFrom,
       input.pullRequestLink ?? null,
       input.marks ?? [],
@@ -320,7 +320,7 @@ export class Task extends EventRecorder {
   react(line: Line, to: StationId, rank: TaskRank, newNote: NewNote): Task {
     if (this.running) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is being worked by a run. A happening cannot move it.`,
+        `Task ${this.id.value} has a run in progress. A happening cannot move it.`,
       );
     }
 
@@ -330,7 +330,7 @@ export class Task extends EventRecorder {
   deferMove(line: Line, to: StationId, newNote: NewNote): Task {
     if (!this.running) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is not being worked by a run. There is no move to defer.`,
+        `Task ${this.id.value} has no run in progress. There is no move to defer.`,
       );
     }
 
@@ -434,7 +434,7 @@ export class Task extends EventRecorder {
   interrupt(newNote: NewNote): Task {
     if (!this.running) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is not being worked by a run.`,
+        `Task ${this.id.value} has no run in progress.`,
       );
     }
 
@@ -462,7 +462,10 @@ export class Task extends EventRecorder {
     this.assertNotAtStation(into.id);
 
     const takesOwnership =
-      handMove !== null && !this.assignee && from.isBacklog && into.isWorked;
+      handMove !== null &&
+      !this.assignee &&
+      from.isBacklog &&
+      into.isAgentStation;
 
     const moved = this.with({
       stationId: into.id,
@@ -588,9 +591,9 @@ export class Task extends EventRecorder {
       : this.with({ marks: [...this.marks, mark] });
   }
 
-  markTakenBy(mark: Mark, taker: TaskId): Task {
+  reassignMark(mark: Mark, newTaskId: TaskId): Task {
     if (
-      taker.equals(this.id) ||
+      newTaskId.equals(this.id) ||
       !this.marks.some((each) => each.equals(mark))
     ) {
       return this;
@@ -599,7 +602,9 @@ export class Task extends EventRecorder {
     const marked = this.with({
       marks: this.marks.filter((each) => !each.equals(mark)),
     });
-    marked.record(new TaskMarkTaken(this.id, this.workspaceId, mark, taker));
+    marked.record(
+      new TaskMarkReassigned(this.id, this.workspaceId, mark, newTaskId),
+    );
 
     return marked;
   }
@@ -758,7 +763,7 @@ export class Task extends EventRecorder {
   assignRun(runId: RunId, line: Line): Task {
     if (this.currentRunId) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is already being worked by a run.`,
+        `Task ${this.id.value} already has a run in progress.`,
       );
     }
 
@@ -799,9 +804,9 @@ export class Task extends EventRecorder {
     return this.with({ sessionId, runnerId });
   }
 
-  continuity(): Continuity {
-    return Continuity.of({
-      key: ContinuityKey.forTask(this.id.value),
+  resume(): Resume {
+    return Resume.of({
+      key: ResumeKey.forTask(this.id.value),
       sessionId: this.sessionId,
     });
   }
@@ -824,8 +829,8 @@ export class Task extends EventRecorder {
     return this.trail.open;
   }
 
-  raisedByThem(userId: UserId): boolean {
-    return this.raisedBy?.equals(userId) ?? false;
+  createdByThem(userId: UserId): boolean {
+    return this.createdBy?.equals(userId) ?? false;
   }
 
   assignedToThem(userId: UserId): boolean {
@@ -986,7 +991,7 @@ export class Task extends EventRecorder {
 
     const noted = this.with({
       currentRunId: waiting,
-      assignee: this.assignee ?? this.raisedBy,
+      assignee: this.assignee ?? this.createdBy,
       ...this.appendNote(newNote, 'asked'),
     });
     const asked =
@@ -1440,8 +1445,8 @@ export class Task extends EventRecorder {
       part.runnerId !== undefined ? part.runnerId : this.runnerId,
       part.notes ?? this.notes,
       this.createdAt,
-      this.raisedAt,
-      this.raisedBy,
+      this.originStationId,
+      this.createdBy,
       this.openedFrom,
       part.pullRequestLink !== undefined
         ? part.pullRequestLink

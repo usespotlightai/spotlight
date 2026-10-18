@@ -223,7 +223,9 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
     provide: OUTBOUND_HOSTS,
     inject: [ENV],
     useFactory: (env: Env): OutboundHostsPort => {
-      const hosts = new OutboundHosts(env.OUTBOUND_ALLOWED_HOSTS.split(','));
+      const hosts = new OutboundHosts(
+        env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(','),
+      );
 
       return { allows: (host) => hosts.allow(host) };
     },
@@ -264,7 +266,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       new HookRequests(
         {
           publicUrl: publicUrlOf(env),
-          allowed: env.OUTBOUND_ALLOWED_HOSTS.split(','),
+          allowed: env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(','),
         },
         secrets,
         tokens,

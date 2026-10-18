@@ -105,8 +105,8 @@ const anOriginal = async (): Promise<Original> => {
     stationId: BUILD,
     title: 'Drain the queue',
     description: 'It stalls on restart.',
-    raisedAtStationId: BUILD,
-    raisedById: team.owner.value,
+    originStationId: BUILD,
+    createdById: team.owner.value,
     assigneeId: team.owner.value,
   });
   await db.insert(schema.taskAttachment).values(
@@ -122,13 +122,13 @@ const anOriginal = async (): Promise<Original> => {
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    continuityKey: `task-${taskId}`,
+    resumeKey: `task-${taskId}`,
     taskId,
     grantedToRunId: randomUUID(),
     size: 1_024,
     sha256: 'a'.repeat(64),
     grantedAt: at,
-    sealedAt: at,
+    completedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
@@ -150,7 +150,7 @@ const anOriginal = async (): Promise<Original> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship', 'review'], noteLimit: 0 },
-      continuity: { key: `task-${taskId}` },
+      resume: { key: `task-${taskId}` },
       startingPoint: true,
     },
     briefedTask: BriefedTask.of({
@@ -436,7 +436,7 @@ describe('a replay claimed by a runner', () => {
     const spec = run.spec as {
       checkouts: unknown;
       replay: unknown;
-      continuity: unknown;
+      resume: unknown;
       briefing: string;
       manifest?: unknown;
       injectedSecrets?: unknown;
@@ -453,7 +453,7 @@ describe('a replay claimed by a runner', () => {
     expect(spec.checkouts).toEqual([
       { remote: 'spotlight:repository', path: 'api', ref: COMMIT },
     ]);
-    expect(spec.continuity).toEqual({ key: `replay-${replayId}` });
+    expect(spec.resume).toEqual({ key: `replay-${replayId}` });
     expect(spec.briefing).toContain(
       'Replay this, and say what you would change.',
     );

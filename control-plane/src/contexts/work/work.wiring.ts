@@ -128,7 +128,6 @@ import { GrantAttachmentUploadCommand } from '@work/application/commands/grant-a
 import { AcceptProposalHandler } from '@work/application/commands/handlers/accept-proposal.handler';
 import { AckMessagesHandler } from '@work/application/commands/handlers/ack-messages.handler';
 import { AddTaskHandler } from '@work/application/commands/handlers/add-task.handler';
-import { AnswerHostCallHandler } from '@work/application/commands/handlers/answer-host-call.handler';
 import { AnswerInboxItemHandler } from '@work/application/commands/handlers/answer-inbox-item.handler';
 import { AppendRunJournalHandler } from '@work/application/commands/handlers/append-run-journal.handler';
 import { AskPermissionHandler } from '@work/application/commands/handlers/ask-permission.handler';
@@ -139,6 +138,7 @@ import { ClaimHostCallHandler } from '@work/application/commands/handlers/claim-
 import { ClaimHostWorkHandler } from '@work/application/commands/handlers/claim-host-work.handler';
 import { ClaimRunHandler } from '@work/application/commands/handlers/claim-run.handler';
 import { CompleteRunHandler } from '@work/application/commands/handlers/complete-run.handler';
+import { CompleteWorkspaceArchiveHandler } from '@work/application/commands/handlers/complete-workspace-archive.handler';
 import { CreateLineHandler } from '@work/application/commands/handlers/create-line.handler';
 import { DeleteLineHandler } from '@work/application/commands/handlers/delete-line.handler';
 import { DeleteTaskHandler } from '@work/application/commands/handlers/delete-task.handler';
@@ -149,16 +149,16 @@ import { FetchSharedRunSecretsHandler } from '@work/application/commands/handler
 import { GrantAttachmentUploadHandler } from '@work/application/commands/handlers/grant-attachment-upload.handler';
 import { GrantWorkspaceArchiveHandler } from '@work/application/commands/handlers/grant-workspace-archive.handler';
 import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.handler';
-import { ReadInboxAsideHandler } from '@work/application/commands/handlers/read-inbox-aside.handler';
 import { ReadInboxItemHandler } from '@work/application/commands/handlers/read-inbox-item.handler';
+import { ReadInboxRequestHandler } from '@work/application/commands/handlers/read-inbox-request.handler';
 import { RecordEgressConnectionsHandler } from '@work/application/commands/handlers/record-egress-connections.handler';
+import { RecordHostCallResponseHandler } from '@work/application/commands/handlers/record-host-call-response.handler';
 import { RecordRunImageHandler } from '@work/application/commands/handlers/record-run-image.handler';
 import { RecordStartingPointHandler } from '@work/application/commands/handlers/record-starting-point.handler';
 import { RenewCheckLeaseHandler } from '@work/application/commands/handlers/renew-check-lease.handler';
 import { RenewLeaseHandler } from '@work/application/commands/handlers/renew-lease.handler';
 import { ReplyToReviewCommentHandler } from '@work/application/commands/handlers/reply-to-review-comment.handler';
 import { ResolveNoticeHandler } from '@work/application/commands/handlers/resolve-notice.handler';
-import { SealWorkspaceArchiveHandler } from '@work/application/commands/handlers/seal-workspace-archive.handler';
 import { SendChatMessageHandler } from '@work/application/commands/handlers/send-chat-message.handler';
 import { SendMessageHandler } from '@work/application/commands/handlers/send-message.handler';
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
@@ -168,12 +168,12 @@ import { SuspendRunHandler } from '@work/application/commands/handlers/suspend-r
 import { UpdateLineHandler } from '@work/application/commands/handlers/update-line.handler';
 import { UseToolHandler } from '@work/application/commands/handlers/use-tool.handler';
 import {
-  AnswerHostCallCommand,
   ClaimHostCallCommand,
+  RecordHostCallResponseCommand,
 } from '@work/application/commands/host-call.commands';
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
-import { ReadInboxAsideCommand } from '@work/application/commands/read-inbox-aside.command';
 import { ReadInboxItemCommand } from '@work/application/commands/read-inbox-item.command';
+import { ReadInboxRequestCommand } from '@work/application/commands/read-inbox-request.command';
 import { ReplyToReviewCommentCommand } from '@work/application/commands/reply-to-review-comment.command';
 import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
 import {
@@ -193,8 +193,8 @@ import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import { UpdateLineCommand } from '@work/application/commands/update-line.command';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
 import {
+  CompleteWorkspaceArchiveCommand,
   GrantWorkspaceArchiveCommand,
-  SealWorkspaceArchiveCommand,
 } from '@work/application/commands/workspace-archive.commands';
 import { CancelDetachedRun } from '@work/application/events/handlers/cancel-detached-run.handler';
 import { ChatOutcomes } from '@work/application/events/handlers/chat-outcomes.handler';
@@ -204,8 +204,8 @@ import { EnqueueChatRun } from '@work/application/events/handlers/enqueue-chat-r
 import { EnqueueTaskRun } from '@work/application/events/handlers/enqueue-task-run.handler';
 import { HandOver } from '@work/application/events/handlers/hand-over.handler';
 import { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
-import { ProvisionTeam } from '@work/application/events/handlers/provision-team.handler';
 import { RecordRunUsage } from '@work/application/events/handlers/record-run-usage.handler';
+import { SeedTeam } from '@work/application/events/handlers/seed-team.handler';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
 import { ACCESSIBLE_REPOSITORIES } from '@work/application/ports/accessible-repositories.port';
 import type { ArchiveReferencesPort } from '@work/application/ports/archive-references.port';
@@ -256,6 +256,7 @@ import { HARNESS_PROFILE_REVIEW } from '@work/application/ports/harness-profile-
 import { HARNESS_TOOL_NAMES } from '@work/application/ports/harness-tool-names.port';
 import { HOOK_TRACES } from '@work/application/ports/hook-traces.port';
 import { INBOX_READER } from '@work/application/ports/inbox-reader.port';
+import { INBOX_REQUESTS } from '@work/application/ports/inbox-requests.port';
 import {
   INTEGRATION_TOOL_CALLS,
   type IntegrationToolCallsPort,
@@ -355,7 +356,7 @@ import {
 import { SEARCH_AGENTS } from '@work/application/ports/search-agents.port';
 import { SEARCH_DISPATCH } from '@work/application/ports/search-dispatch.port';
 import { SEARCH_RUNS } from '@work/application/ports/search-runs.port';
-import { SEARCH_SIGHT } from '@work/application/ports/search-sight.port';
+import { SEARCH_VISIBILITY } from '@work/application/ports/search-visibility.port';
 import { STARTING_POINT_HOLDS } from '@work/application/ports/starting-point-holds.port';
 import {
   STATION_PROFILES,
@@ -370,7 +371,6 @@ import {
   STATION_TALLIES,
   type StationTalliesPort,
 } from '@work/application/ports/station-tallies.port';
-import { TASK_ASIDES } from '@work/application/ports/task-asides.port';
 import {
   TASK_DECISIONS,
   type TaskDecisionsPort,
@@ -446,9 +446,9 @@ import { ReadLineHandler } from '@work/application/queries/handlers/read-line.ha
 import { ReadReplayRunHandler } from '@work/application/queries/handlers/read-replay-run.handler';
 import { ReadRunAttachmentHandler } from '@work/application/queries/handlers/read-run-attachment.handler';
 import { ReadRunConfigHandler } from '@work/application/queries/handlers/read-run-config.handler';
-import { ReadRunConversationHandler } from '@work/application/queries/handlers/read-run-conversation.handler';
 import { ReadRunEventsHandler } from '@work/application/queries/handlers/read-run-events.handler';
 import { ReadRunNetworkHandler } from '@work/application/queries/handlers/read-run-network.handler';
+import { ReadRunNotesHandler } from '@work/application/queries/handlers/read-run-notes.handler';
 import { ReadRunnerHistoryHandler } from '@work/application/queries/handlers/read-runner-history.handler';
 import { ReadRunnerTraceHandler } from '@work/application/queries/handlers/read-runner-trace.handler';
 import { ReadSearchRunHandler } from '@work/application/queries/handlers/read-search-run.handler';
@@ -480,9 +480,9 @@ import { ReadLineQuery } from '@work/application/queries/read-line.query';
 import { ReadReplayRunQuery } from '@work/application/queries/read-replay-run.query';
 import { ReadRunAttachmentQuery } from '@work/application/queries/read-run-attachment.query';
 import { ReadRunConfigQuery } from '@work/application/queries/read-run-config.query';
-import { ReadRunConversationQuery } from '@work/application/queries/read-run-conversation.query';
 import { ReadRunEventsQuery } from '@work/application/queries/read-run-events.query';
 import { ReadRunNetworkQuery } from '@work/application/queries/read-run-network.query';
+import { ReadRunNotesQuery } from '@work/application/queries/read-run-notes.query';
 import { ReadRunnerHistoryQuery } from '@work/application/queries/read-runner-history.query';
 import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
 import { ReadSearchRunQuery } from '@work/application/queries/read-search-run.query';
@@ -493,7 +493,6 @@ import { StoredWorkspaceArchiveQuery } from '@work/application/queries/stored-wo
 import { TurnAwaitsPersonQuery } from '@work/application/queries/turn-awaits-person.query';
 import { WatchRunQuery } from '@work/application/queries/watch-run.query';
 import { ApplyLines } from '@work/application/services/apply-lines.service';
-import { AsideLoader } from '@work/application/services/aside-loader.service';
 import {
   BUILT_IN_TOOL_USES,
   BuiltInTools,
@@ -506,6 +505,7 @@ import { ChatLoader } from '@work/application/services/chat-loader.service';
 import { ClaimsTaken } from '@work/application/services/claims-taken.service';
 import { ConnectionsMade } from '@work/application/services/connections-made.service';
 import { ConversationLoader } from '@work/application/services/conversation-loader.service';
+import { CreateTask } from '@work/application/services/create-task';
 import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import { DispatchReplay } from '@work/application/services/dispatch-replay.service';
 import { DispatchSearch } from '@work/application/services/dispatch-search.service';
@@ -514,6 +514,8 @@ import { EgressSecretFetches } from '@work/application/services/egress-secret-fe
 import { FilesLoader } from '@work/application/services/files-loader.service';
 import { HoldStartingPoints } from '@work/application/services/hold-starting-points.service';
 import { HookTraces } from '@work/application/services/hook-traces.service';
+import { InboxRequestLoader } from '@work/application/services/inbox-request-loader.service';
+import { InboxRequests } from '@work/application/services/inbox-requests.service';
 import { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
 import { IntegrationTools } from '@work/application/services/integration-tools.service';
 import { LineLoader } from '@work/application/services/line-loader.service';
@@ -532,7 +534,6 @@ import { ProvisionWork } from '@work/application/services/provision-work.service
 import { PullRequestToolUse } from '@work/application/services/pull-request.tool-use';
 import { PurgeProcessedEvents } from '@work/application/services/purge-processed-events.service';
 import { PurgeRunConnections } from '@work/application/services/purge-run-connections.service';
-import { RaiseTask } from '@work/application/services/raise-task';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
 import { ReconcileSetup } from '@work/application/services/reconcile-setup.service';
 import { RemoveReleasedArchives } from '@work/application/services/remove-released-archives.service';
@@ -555,7 +556,6 @@ import { StationCatalog } from '@work/application/services/station-catalog.servi
 import { StationOrdering } from '@work/application/services/station-ordering';
 import { StationRuns } from '@work/application/services/station-runs.service';
 import { StationSkills } from '@work/application/services/station-skills.service';
-import { TaskAsides } from '@work/application/services/task-asides.service';
 import {
   TASK_DISPATCH,
   type TaskDispatching,
@@ -611,13 +611,13 @@ import { DrizzleTaskPlacements } from '@work/infrastructure/persistence/drizzle/
 import { DrizzleTeamTraceReader } from '@work/infrastructure/persistence/drizzle/readers/team-trace.reader';
 import { DrizzleTracedTaskReader } from '@work/infrastructure/persistence/drizzle/readers/traced-task.reader';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
+import { DrizzleInboxRequestRepository } from '@work/infrastructure/persistence/drizzle/repositories/inbox-request.repository';
 import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
 import { DrizzleNetworkCallRepository } from '@work/infrastructure/persistence/drizzle/repositories/network-call.repository';
 import { DrizzleNoticeRepository } from '@work/infrastructure/persistence/drizzle/repositories/notice.repository';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleStartingPointHoldRepository } from '@work/infrastructure/persistence/drizzle/repositories/starting-point-hold.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
-import { DrizzleTaskAsideRepository } from '@work/infrastructure/persistence/drizzle/repositories/task-aside.repository';
 import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 import { S3AttachmentStore } from '@work/infrastructure/storage/s3-attachment.store';
 import { s3ClientsOf } from '@work/infrastructure/storage/s3-clients';
@@ -746,26 +746,26 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   DrizzleNetworkCallRepository,
 
-  DrizzleTaskAsideRepository,
+  DrizzleInboxRequestRepository,
 
   {
-    provide: TaskAsides,
+    provide: InboxRequests,
     inject: [
-      DrizzleTaskAsideRepository,
+      DrizzleInboxRequestRepository,
       DrizzleTaskRepository,
       TRANSACTION,
       ID_GENERATOR,
       CLOCK,
     ],
     useFactory: (
-      asides: DrizzleTaskAsideRepository,
+      inboxRequests: DrizzleInboxRequestRepository,
       tasks: DrizzleTaskRepository,
       transaction: TransactionPort,
       ids: IdGeneratorPort,
       clock: ClockPort,
-    ) => new TaskAsides(asides, tasks, transaction, ids, clock),
+    ) => new InboxRequests(inboxRequests, tasks, transaction, ids, clock),
   },
-  { provide: TASK_ASIDES, useExisting: TaskAsides },
+  { provide: INBOX_REQUESTS, useExisting: InboxRequests },
 
   DrizzleNoticeRepository,
 
@@ -797,19 +797,19 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   { provide: NOTICES, useExisting: Notices },
 
   {
-    provide: AsideLoader,
+    provide: InboxRequestLoader,
     inject: [
-      DrizzleTaskAsideRepository,
+      DrizzleInboxRequestRepository,
       DrizzleTaskRepository,
       DrizzleLineRepository,
       WORKSPACE_ACCESS,
     ],
     useFactory: (
-      asides: DrizzleTaskAsideRepository,
+      inboxRequests: DrizzleInboxRequestRepository,
       tasks: DrizzleTaskRepository,
       lines: DrizzleLineRepository,
       access: WorkspaceAccessPort,
-    ) => new AsideLoader(asides, tasks, lines, access),
+    ) => new InboxRequestLoader(inboxRequests, tasks, lines, access),
   },
 
   {
@@ -1257,7 +1257,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleChatRepository,
       DrizzleLineRepository,
       TASK_PLACEMENTS,
-      RaiseTask,
+      CreateTask,
       ID_GENERATOR,
       CLOCK,
     ],
@@ -1265,11 +1265,18 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       chats: DrizzleChatRepository,
       lines: DrizzleLineRepository,
       placements: TaskPlacementsPort,
-      raise: RaiseTask,
+      createTask: CreateTask,
       ids: IdGeneratorPort,
       clock: ClockPort,
     ) =>
-      new CreateTaskFromProposal(chats, lines, placements, raise, ids, clock),
+      new CreateTaskFromProposal(
+        chats,
+        lines,
+        placements,
+        createTask,
+        ids,
+        clock,
+      ),
   },
 
   BuiltInHarnesses,
@@ -1585,14 +1592,14 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: RaiseTask,
+    provide: CreateTask,
     inject: [DrizzleTaskRepository, TASK_DISPATCH, TRANSACTION, FilesLoader],
     useFactory: (
       tasks: DrizzleTaskRepository,
       dispatch: DispatchTask,
       transaction: TransactionPort,
       files: FilesLoader,
-    ) => new RaiseTask(tasks, dispatch, transaction, files),
+    ) => new CreateTask(tasks, dispatch, transaction, files),
   },
 
   {
@@ -1646,7 +1653,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       types: PayloadTypes,
       mappers: IntegrationEventMappers,
       subscribers: EventSubscribers,
-      provisioningLines: DrizzleLineRepository,
+      seedingLines: DrizzleLineRepository,
       ids: IdGeneratorPort,
       clock: ClockPort,
       acceptances: CreateTaskFromProposal,
@@ -1689,8 +1696,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           pauseMarks: new PauseMarks(journal),
           chatOutcomes: new ChatOutcomes(chats, chatDispatch),
           usages: new RecordRunUsage(usageWriter, usages, tools, spends),
-          provisioning: new ProvisionTeam(
-            provisioningLines,
+          seeding: new SeedTeam(
+            seedingLines,
             tasks,
             ids,
             clock,
@@ -1749,7 +1756,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     RUN_USAGES,
   ]),
 
-  ...bindQueryHandler(ReadRunConversationQuery, ReadRunConversationHandler, [
+  ...bindQueryHandler(ReadRunNotesQuery, ReadRunNotesHandler, [
     RUN_READER,
     RUN_USAGES,
   ]),
@@ -1805,8 +1812,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ),
 
   ...bindCommandHandler(
-    SealWorkspaceArchiveCommand,
-    SealWorkspaceArchiveHandler,
+    CompleteWorkspaceArchiveCommand,
+    CompleteWorkspaceArchiveHandler,
     [
       DrizzleRunRepository,
       DrizzleWorkspaceArchiveRepository,
@@ -1964,13 +1971,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     STATION_RUN_READER,
     RUN_OUTCOMES,
     RUN_USAGES,
-    SEARCH_SIGHT,
+    SEARCH_VISIBILITY,
     RUN_CONNECTIONS,
   ]),
 
   ...bindQueryHandler(ReadRunnerTraceQuery, ReadRunnerTraceHandler, [
     RUNNER_TRACE_READER,
-    SEARCH_SIGHT,
+    SEARCH_VISIBILITY,
     RUN_CONNECTIONS,
   ]),
 
@@ -1989,7 +1996,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     LineLoader,
     ID_GENERATOR,
     CLOCK,
-    RaiseTask,
+    CreateTask,
     PERSON_READER,
     FilesLoader,
   ]),
@@ -2065,9 +2072,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     TEAM_PROVISIONING,
   ]),
 
-  ...bindCommandHandler(ReadInboxAsideCommand, ReadInboxAsideHandler, [
-    AsideLoader,
-    DrizzleTaskAsideRepository,
+  ...bindCommandHandler(ReadInboxRequestCommand, ReadInboxRequestHandler, [
+    InboxRequestLoader,
+    DrizzleInboxRequestRepository,
     CLOCK,
   ]),
   ...bindCommandHandler(ResolveNoticeCommand, ResolveNoticeHandler, [
@@ -2311,11 +2318,11 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     LongPoll,
   ]),
 
-  ...bindCommandHandler(AnswerHostCallCommand, AnswerHostCallHandler, [
-    RUNNER_AUTHENTICATOR,
-    DrizzleNetworkCallRepository,
-    CLOCK,
-  ]),
+  ...bindCommandHandler(
+    RecordHostCallResponseCommand,
+    RecordHostCallResponseHandler,
+    [RUNNER_AUTHENTICATOR, DrizzleNetworkCallRepository, CLOCK],
+  ),
 
   {
     provide: EgressSecretFetches,

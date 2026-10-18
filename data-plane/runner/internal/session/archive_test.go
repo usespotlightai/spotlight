@@ -19,13 +19,13 @@ import (
 )
 
 type archives struct {
-	mu      sync.Mutex
-	server  *httptest.Server
-	objects map[string][]byte
-	granted map[string]protocol.ArchiveRequest
-	sealed  []string
-	issued  int
-	spoil   bool
+	mu        sync.Mutex
+	server    *httptest.Server
+	objects   map[string][]byte
+	granted   map[string]protocol.ArchiveRequest
+	completed []string
+	issued    int
+	spoil     bool
 
 	slow          time.Duration
 	putting       bool
@@ -101,7 +101,7 @@ func (a *archives) grant(size int64, sha string) protocol.ArchiveGrant {
 	return protocol.ArchiveGrant{ID: id, URL: a.server.URL + "/objects/" + id}
 }
 
-func (a *archives) seal(id string) error {
+func (a *archives) complete(id string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -113,7 +113,7 @@ func (a *archives) seal(id string) error {
 		return errors.New("409 Conflict: not uploaded as granted")
 	}
 
-	a.sealed = append(a.sealed, id)
+	a.completed = append(a.completed, id)
 	return nil
 }
 
@@ -121,11 +121,11 @@ func (a *archives) newest() *protocol.StoredArchive {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	if len(a.sealed) == 0 {
+	if len(a.completed) == 0 {
 		return nil
 	}
 
-	id := a.sealed[len(a.sealed)-1]
+	id := a.completed[len(a.completed)-1]
 	granted := a.granted[id]
 
 	return &protocol.StoredArchive{
@@ -139,7 +139,7 @@ func (a *archives) newest() *protocol.StoredArchive {
 func (a *archives) count() int {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return len(a.sealed)
+	return len(a.completed)
 }
 
 func step(t *testing.T, written *journal, name string) string {
@@ -153,7 +153,7 @@ func step(t *testing.T, written *journal, name string) string {
 	return ""
 }
 
-const carriedOn = "task-task_1"
+const resumeKey = "task-task_1"
 
 func TestArchivesTheWorkspaceForTheNextRunInAFreshSandbox(t *testing.T) {
 	archives := newArchives(t)
@@ -161,7 +161,7 @@ func TestArchivesTheWorkspaceForTheNextRunInAFreshSandbox(t *testing.T) {
 	first := run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"),
 		func(o *runOptions) {
 			o.archives = archives
-			o.continuity = protocol.Continuity{Key: carriedOn}
+			o.resume = protocol.Resume{Key: resumeKey}
 		})
 
 	if got := step(t, first, "archive"); !strings.HasPrefix(got, "Captured the workspace") {
@@ -171,7 +171,7 @@ func TestArchivesTheWorkspaceForTheNextRunInAFreshSandbox(t *testing.T) {
 	second := run(t, harness(t, `output = require("node:fs").readFileSync("notes.md", "utf8");`, "end_turn"),
 		func(o *runOptions) {
 			o.archives = archives
-			o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_known"}
+			o.resume = protocol.Resume{Key: resumeKey, SessionID: "session_known"}
 		})
 
 	if got := agentOutput(t, second); got != "halfway" {
@@ -186,7 +186,7 @@ func TestRestoresTheWorkspaceForARunThatStartsItsConversationAfresh(t *testing.T
 	archives := newArchives(t)
 	carrying := func(o *runOptions) {
 		o.archives = archives
-		o.continuity = protocol.Continuity{Key: carriedOn}
+		o.resume = protocol.Resume{Key: resumeKey}
 	}
 
 	first := run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"), carrying)
@@ -209,7 +209,7 @@ func TestCoalescesAWorkspaceNothingChangedIn(t *testing.T) {
 	archives := newArchives(t)
 	continuing := func(o *runOptions) {
 		o.archives = archives
-		o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_known"}
+		o.resume = protocol.Resume{Key: resumeKey, SessionID: "session_known"}
 	}
 
 	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"), continuing)
@@ -219,13 +219,13 @@ func TestCoalescesAWorkspaceNothingChangedIn(t *testing.T) {
 		t.Errorf("a run that changed nothing said %q about archiving its workspace", got)
 	}
 	if archives.count() != 1 {
-		t.Errorf("%d archives were sealed, wanted the one", archives.count())
+		t.Errorf("%d archives were completed, wanted the one", archives.count())
 	}
 }
 
 func TestSkipsArchivingAWorkspaceWithNowhereToStoreIt(t *testing.T) {
 	written := run(t, harness(t, `output = "worked";`, "end_turn"), func(o *runOptions) {
-		o.continuity = protocol.Continuity{Key: carriedOn}
+		o.resume = protocol.Resume{Key: resumeKey}
 	})
 
 	if got := step(t, written, "archive"); !strings.HasPrefix(got, "Skipped: ") || !strings.Contains(got, "nowhere to store") {
@@ -242,7 +242,7 @@ func TestRestoresOverWhatTheImageLaidDown(t *testing.T) {
 	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"),
 		func(o *runOptions) {
 			o.archives = archives
-			o.continuity = protocol.Continuity{Key: carriedOn}
+			o.resume = protocol.Resume{Key: resumeKey}
 		})
 
 	baked := t.TempDir()
@@ -257,7 +257,7 @@ func TestRestoresOverWhatTheImageLaidDown(t *testing.T) {
 		func(o *runOptions) {
 			o.root = baked
 			o.archives = archives
-			o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_known"}
+			o.resume = protocol.Resume{Key: resumeKey, SessionID: "session_known"}
 		})
 
 	if got := agentOutput(t, second); got != "halfway" {
@@ -274,7 +274,7 @@ func TestStartsAfreshFromAnArchiveThatIsNotTheOneStored(t *testing.T) {
 	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"),
 		func(o *runOptions) {
 			o.archives = archives
-			o.continuity = protocol.Continuity{Key: carriedOn}
+			o.resume = protocol.Resume{Key: resumeKey}
 		})
 
 	archives.spoil = true
@@ -283,7 +283,7 @@ func TestStartsAfreshFromAnArchiveThatIsNotTheOneStored(t *testing.T) {
 		func(o *runOptions) {
 			o.root = root
 			o.archives = archives
-			o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_known"}
+			o.resume = protocol.Resume{Key: resumeKey, SessionID: "session_known"}
 		})
 
 	if got := agentOutput(t, second); got != "afresh" {
@@ -303,7 +303,7 @@ func TestRenewsTheLeaseWhileItArchivesTheWorkspace(t *testing.T) {
 
 	written := run(t, harness(t, `output = "worked";`, "end_turn"), func(o *runOptions) {
 		o.archives = archives
-		o.continuity = protocol.Continuity{Key: carriedOn}
+		o.resume = protocol.Resume{Key: resumeKey}
 		o.stopAfter = 1
 	})
 
@@ -322,7 +322,7 @@ func TestSaysWhereATaskRunStartedFromTheArchiveItRestored(t *testing.T) {
 	archives := newArchives(t)
 	reporting := func(o *runOptions) {
 		o.archives = archives
-		o.continuity = protocol.Continuity{Key: carriedOn}
+		o.resume = protocol.Resume{Key: resumeKey}
 		o.starting = true
 	}
 

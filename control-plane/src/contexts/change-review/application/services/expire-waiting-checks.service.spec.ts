@@ -10,7 +10,7 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -80,7 +80,7 @@ describe('ExpireWaitingChecks', () => {
   it('leaves alone a check a runner claimed since it was listed', async () => {
     const taken = waiting('stack_1').claimedFor(
       RunnerId.of('runner_1'),
-      RunnerTerms.none(),
+      RunnerOffer.none(),
       new Date(NOW.getTime() - 1_000),
     );
     const { expire, save } = expiring([taken]);

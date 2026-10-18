@@ -20,7 +20,7 @@ import {
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import { ConfigHome } from '@work/domain/value-objects/config-home.vo';
+import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { eq } from 'drizzle-orm';
 import {
@@ -59,7 +59,7 @@ describe('setting a team up as code (e2e)', () => {
       startedBy: UserId.of(owner),
       harness: HarnessId.of('claude-code'),
       body: ChatMessageBody.of('Set up our configuration.'),
-      setup: ConfigHome.of({ repository: 'acme/infra', folder: 'spotlight' }),
+      setup: ConfigFolder.of({ repository: 'acme/infra', folder: 'spotlight' }),
       now: NOW,
       newId: () => randomUUID(),
     }).assignRun(RunId.of(runId), NOW);

@@ -1,5 +1,5 @@
 export class StationAlertStateVersionConflictError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(stationId: string) {
     super(

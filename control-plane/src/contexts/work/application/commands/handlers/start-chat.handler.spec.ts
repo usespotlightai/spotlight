@@ -57,7 +57,7 @@ const starting = ({
       ),
     } satisfies AccessibleRepositoriesPort,
     {
-      hasAWayOut: vi.fn(async () => hosted),
+      hasEgressCapableRunner: vi.fn(async () => hosted),
     } as unknown as RunnerReaderPort,
     { generate: () => 'chat_1' } as IdGeneratorPort,
     { now: () => NOW } as ClockPort,

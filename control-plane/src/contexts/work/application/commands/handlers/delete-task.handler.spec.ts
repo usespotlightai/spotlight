@@ -57,7 +57,7 @@ const existing = () =>
     at: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: new Date('2026-08-28T09:15:00.000Z'),
     newId: () => 'task_1',
   });
@@ -86,7 +86,7 @@ const access = (teamId = 'team_1') =>
             workspaceId: WorkspaceId.of('ws_1'),
             slug: 'acme',
             viewer: UserId.of('user_1'),
-            administers: false,
+            isAdmin: false,
           }
         : null,
     ),

@@ -1,5 +1,7 @@
 import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
+import { InboxRequestCreated } from '@work/domain/events/inbox-request-created.event';
+import { InboxRequestResolved } from '@work/domain/events/inbox-request-resolved.event';
 import { LineCreated } from '@work/domain/events/line-created.event';
 import { LineDeleted } from '@work/domain/events/line-deleted.event';
 import { LineRepositoriesChanged } from '@work/domain/events/line-repositories-changed.event';
@@ -28,14 +30,12 @@ import { StationHarnessChanged } from '@work/domain/events/station-harness-chang
 import { StationRenamed } from '@work/domain/events/station-renamed.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
-import { TaskAsideRaised } from '@work/domain/events/task-aside-raised.event';
-import { TaskAsideResolved } from '@work/domain/events/task-aside-resolved.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
 import { TaskDispatched } from '@work/domain/events/task-dispatched.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
-import { TaskMarkTaken } from '@work/domain/events/task-mark-taken.event';
+import { TaskMarkReassigned } from '@work/domain/events/task-mark-reassigned.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { TaskPassed } from '@work/domain/events/task-passed.event';
@@ -49,8 +49,6 @@ import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
-import { AsideAbout } from '@work/domain/value-objects/aside-about.vo';
-import { AsideRead } from '@work/domain/value-objects/aside-read.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
@@ -61,13 +59,11 @@ import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
-import { Concerns } from '@work/domain/value-objects/concerns.vo';
-import { ConfigHome } from '@work/domain/value-objects/config-home.vo';
+import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { ConfigSource } from '@work/domain/value-objects/config-source.vo';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
-import { Continuity } from '@work/domain/value-objects/continuity.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
+import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
@@ -81,19 +77,22 @@ import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
+import { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
+import { InboxRequestRead } from '@work/domain/value-objects/inbox-request-read.vo';
+import { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { LinePlan } from '@work/domain/value-objects/line-plan.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { Money } from '@work/domain/value-objects/money.vo';
-import { NetworkAnswer } from '@work/domain/value-objects/network-answer.vo';
 import { NetworkCallId } from '@work/domain/value-objects/network-call-id.vo';
 import { NetworkRequest } from '@work/domain/value-objects/network-request.vo';
+import { NetworkResponse } from '@work/domain/value-objects/network-response.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
 import { NoticeLink } from '@work/domain/value-objects/notice-link.vo';
@@ -109,6 +108,8 @@ import { ReplayRunClaim } from '@work/domain/value-objects/replay-run-claim.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { RequeueCount } from '@work/domain/value-objects/requeue-count.vo';
 import { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
+import { Resume } from '@work/domain/value-objects/resume.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
@@ -133,7 +134,8 @@ import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { TaskAsideId } from '@work/domain/value-objects/task-aside-id.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
+import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -153,8 +155,6 @@ import { TraceRange } from '@work/domain/value-objects/trace-range.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
 export const WORK_PAYLOAD_TYPES = [
@@ -172,10 +172,10 @@ export const WORK_PAYLOAD_TYPES = [
   ChatId,
   ChatMessageBody,
   ChatTitle,
-  Concerns,
+  CorrelationKeys,
   ConnectionAsk,
-  Continuity,
-  ContinuityKey,
+  Resume,
+  ResumeKey,
   ConversationId,
   Handover,
   DeclaredTool,
@@ -192,19 +192,19 @@ export const WORK_PAYLOAD_TYPES = [
   HarnessCommand,
   HarnessName,
   HarnessSession,
-  ImprovedStation,
+  TargetStation,
   DeferredMove,
   LineId,
   LineKey,
   LineName,
   LinePlan,
   LineRepositories,
-  WorkedRepository,
+  LineRepositoryConfig,
   LineRole,
   PullRequestLink,
   RepositorySetup,
   ReplayCheckPolicy,
-  ConfigHome,
+  ConfigFolder,
   ConfigSource,
   ReviewPolicy,
   Mark,
@@ -215,7 +215,7 @@ export const WORK_PAYLOAD_TYPES = [
   TraceRange,
   ToolUse,
   CalledTool,
-  NetworkAnswer,
+  NetworkResponse,
   NetworkCallId,
   NetworkRequest,
   NotePosition,
@@ -260,14 +260,14 @@ export const WORK_PAYLOAD_TYPES = [
   Trail,
   TraceReference,
   Voice,
-  WayOut,
+  StationRoutes,
   WorkspaceArchiveId,
-  TaskAsideId,
+  InboxRequestId,
   NoticeId,
   NoticeLink,
   NoticeWording,
-  AsideAbout,
-  AsideRead,
+  InboxRequestSubject,
+  InboxRequestRead,
   BriefedMemories,
   BriefedTask,
   RestoredArchive,
@@ -305,13 +305,13 @@ export const WORK_PAYLOAD_TYPES = [
   TaskActedOn,
   TaskAnswered,
   TaskAsked,
-  TaskAsideRaised,
-  TaskAsideResolved,
+  InboxRequestCreated,
+  InboxRequestResolved,
   TaskDeleted,
   TaskFinished,
   TaskDispatched,
   RunDetached,
-  TaskMarkTaken,
+  TaskMarkReassigned,
   TaskMoved,
   TaskOpened,
   TaskProposed,

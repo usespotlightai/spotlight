@@ -8,7 +8,7 @@ import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo'
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -39,7 +39,7 @@ export class CreateWorkspaceWithTeamHandler
         slug: WorkspaceSlug.of(command.slug),
         firstTeam,
         owner: command.actor.principal.userId,
-        by: Attribution.of(command.actor, id),
+        by: ChangeActor.of(command.actor, id),
       });
 
       await this.workspaces.add(workspace);

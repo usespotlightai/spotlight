@@ -29,9 +29,9 @@ const ROLE_ORDER: readonly Role[] = ['owner', 'admin', 'member'];
 
 export const rolesOffered = (
   role: Role,
-  mayBeSetTo: readonly Role[],
+  assignableRoles: readonly Role[],
 ): Role[] => {
-  const offered = new Set<Role>([role, ...mayBeSetTo]);
+  const offered = new Set<Role>([role, ...assignableRoles]);
 
   return ROLE_ORDER.filter((each) => offered.has(each));
 };

@@ -6,9 +6,9 @@ import {
 import { BriefingCard } from '@/components/features/runs/BriefingCard';
 import type { RunJournal } from '@/lib/inbox';
 import {
-  type RunConversation as ConversationData,
+  type RunNotes as ConversationData,
   conversingOf,
-} from '@/lib/run-conversation';
+} from '@/lib/run-notes';
 
 type RunConversationProps = {
   teamId: string;

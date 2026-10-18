@@ -3,18 +3,18 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { takeTaskMarks } from '@work/application/services/task-marks';
+import { reassignTaskMarks } from '@work/application/services/task-marks';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { MarkAlreadyClaimedError } from '@work/domain/exceptions/mark-already-claimed.error';
-import { StrandedWorkError } from '@work/domain/exceptions/stranded-work.error';
+import { StationNotEmptyError } from '@work/domain/exceptions/station-not-empty.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import { Concerns } from '@work/domain/value-objects/concerns.vo';
+import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -139,7 +139,7 @@ describe('a line that drops a station', () => {
 
     await expect(
       new DrizzleLineRepository(context, quiet).save(without),
-    ).rejects.toBeInstanceOf(StrandedWorkError);
+    ).rejects.toBeInstanceOf(StationNotEmptyError);
     await expect(tasks.find(task.id)).resolves.not.toBeNull();
   });
 
@@ -192,13 +192,15 @@ describe('a mark that one task has and another task claims', () => {
 
     const newest = added(line, stationId, { marks: [thread] });
     await context.inTransaction(async () => {
-      await takeTaskMarks(tasks, newest);
+      await reassignTaskMarks(tasks, newest);
       await tasks.add(newest);
     });
 
-    const concerns = Concerns.of({ marks: [thread] }) as Concerns;
+    const correlationKeys = CorrelationKeys.of({
+      marks: [thread],
+    }) as CorrelationKeys;
     await expect(
-      tasks.findByMarks(workspaceId, concerns),
+      tasks.findByMarks(workspaceId, correlationKeys),
     ).resolves.toMatchObject({
       id: newest.id,
     });

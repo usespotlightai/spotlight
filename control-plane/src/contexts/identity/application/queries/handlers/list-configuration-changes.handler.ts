@@ -26,7 +26,7 @@ export class ListConfigurationChangesHandler
         WorkspaceSlug.of(query.slug),
       );
 
-      if (!workspace?.permissionsFor(query.principal).administers) {
+      if (!workspace?.permissionsFor(query.principal).isAdmin) {
         return null;
       }
 

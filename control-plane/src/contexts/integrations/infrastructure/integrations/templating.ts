@@ -1,4 +1,4 @@
-import type { Bindings } from '@platform/expressions/bindings';
+import type { CelVariables } from '@platform/expressions/cel-variables';
 import type { Expression } from '@platform/expressions/expression-engine.port';
 import {
   evaluateText,
@@ -44,7 +44,7 @@ const joined = (
 
 export const requiredTextOf = (
   template: Templated,
-  against: Bindings,
+  against: CelVariables,
 ): string | null => {
   const only = lone(template);
 
@@ -55,7 +55,7 @@ export const requiredTextOf = (
 
 export const textOf = (
   template: Templated,
-  against: Bindings,
+  against: CelVariables,
 ): string | null => {
   const only = lone(template);
 
@@ -66,7 +66,7 @@ export const textOf = (
 
 export const requiredValueOf = (
   structured: Structured,
-  against: Bindings,
+  against: CelVariables,
 ): unknown => {
   switch (structured.kind) {
     case 'value':

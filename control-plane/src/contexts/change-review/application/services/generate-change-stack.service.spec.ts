@@ -33,7 +33,7 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -596,7 +596,7 @@ describe('RedraftChangeStack', () => {
     })
       .claimedFor(
         RunnerId.of('checker_1'),
-        RunnerTerms.none(),
+        RunnerOffer.none(),
         new Date('2026-09-16T10:00:00Z'),
       )
       .recordResult(

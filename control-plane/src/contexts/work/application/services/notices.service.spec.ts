@@ -52,7 +52,7 @@ const access = {
           workspaceId: WorkspaceId.of('ws_1'),
           slug: 'acme',
           viewer,
-          administers: false,
+          isAdmin: false,
           teamId: TeamId.of(teamId),
         }
       : null,
@@ -86,13 +86,13 @@ describe('Notices', () => {
     members.add('team_2:user_1');
   });
 
-  it('raises a notice once however often it is told of the same subject', async () => {
+  it('creates a notice once however often it is told of the same subject', async () => {
     const memory = new InMemoryNotices();
     const notices = noticesOver(memory);
 
-    await notices.raise(STALLED);
-    await notices.raise(STALLED);
-    await notices.raise({
+    await notices.create(STALLED);
+    await notices.create(STALLED);
+    await notices.create({
       ...STALLED,
       subject: 'replay-search search_2 iteration 3',
     });
@@ -102,7 +102,7 @@ describe('Notices', () => {
 
   it('rejects a form it does not know', async () => {
     await expect(
-      noticesOver(new InMemoryNotices()).raise({ ...STALLED, form: 'gossip' }),
+      noticesOver(new InMemoryNotices()).create({ ...STALLED, form: 'gossip' }),
     ).rejects.toThrow('Notice form must be one of');
   });
 
@@ -110,8 +110,8 @@ describe('Notices', () => {
     const memory = new InMemoryNotices();
     const notices = noticesOver(memory);
 
-    await notices.raise(STALLED);
-    await notices.raise({
+    await notices.create(STALLED);
+    await notices.create({
       ...STALLED,
       teamId: TeamId.of('team_2'),
       subject: 'replay-search search_9 iteration 3',
@@ -123,10 +123,10 @@ describe('Notices', () => {
     ).toEqual(['team_2']);
   });
 
-  it('raises nothing for a team its person is no longer on, or that is gone', async () => {
+  it('creates nothing for a team its person is no longer on, or that is gone', async () => {
     const memory = new InMemoryNotices();
 
-    await noticesOver(memory).raise({
+    await noticesOver(memory).create({
       ...STALLED,
       teamId: TeamId.of('team_gone'),
     });
@@ -143,7 +143,7 @@ describe('Notices', () => {
         new ResolveNoticeCommand(id, slug, person),
       );
 
-    await noticesOver(memory).raise(STALLED);
+    await noticesOver(memory).create(STALLED);
 
     const [id] = [...memory.stored.keys()] as [string];
 

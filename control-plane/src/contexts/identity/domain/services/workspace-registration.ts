@@ -4,7 +4,7 @@ import type { WorkspaceSlugRegistry } from '@identity/domain/repositories/worksp
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import type { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import type { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -18,7 +18,7 @@ export class WorkspaceRegistration {
     slug: WorkspaceSlug;
     firstTeam?: { id: TeamId; name: TeamName };
     owner: UserId;
-    by: Attribution;
+    by: ChangeActor;
   }): Promise<Workspace> {
     if (await this.slugs.isTaken(input.slug)) {
       throw new WorkspaceSlugTakenError(input.slug.value);

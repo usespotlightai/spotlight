@@ -9,7 +9,7 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -197,7 +197,7 @@ describe('a team, created through the resource API (e2e)', () => {
 
     await app.get(DrizzleLineRepository).add(
       Line.create({
-        by: attributedIn(),
+        by: changeActorIn(),
         workspaceId: WorkspaceId.of(workspaceId),
         teamId: TeamId.of(teamId),
         line: BUILT_IN_LINES[0] as LineOpening,

@@ -1,11 +1,11 @@
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import { poolCouldTake } from '@work/domain/services/pool-fit';
 import { describe, expect, it } from 'vitest';
 
-const labels = RunnerTerms.of(['linux', 'gpu']);
+const labels = RunnerOffer.of(['linux', 'gpu']);
 
 describe('poolCouldTake', () => {
   it('takes a run placed anywhere', () => {
@@ -47,16 +47,16 @@ describe('poolCouldTake', () => {
     ).toBe(true);
   });
 
-  it('takes a run only when every clause of its placement is met', () => {
+  it('takes a run only when every label group of its placement matches', () => {
     expect(
       poolCouldTake(
-        RunnerPlacement.ofClauses([['gpu'], ['vpc-internal']]),
+        RunnerPlacement.ofLabelGroups([['gpu'], ['vpc-internal']]),
         labels,
       ),
     ).toBe(false);
     expect(
       poolCouldTake(
-        RunnerPlacement.ofClauses([['gpu'], ['vpc-internal', 'linux']]),
+        RunnerPlacement.ofLabelGroups([['gpu'], ['vpc-internal', 'linux']]),
         labels,
       ),
     ).toBe(true);

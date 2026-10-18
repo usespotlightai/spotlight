@@ -99,7 +99,7 @@ export class RunStartHooks {
     for (let attempt = 1; ; attempt++) {
       const found = await this.runs.findById(run.id);
 
-      if (!found || found.hasEnded || !found.wasWorkedBy(runner)) {
+      if (!found || found.hasEnded || !found.wasClaimedBy(runner)) {
         return;
       }
 

@@ -10,7 +10,7 @@ export class RunningImage {
     return new RunningImage(image, isDefault);
   }
 
-  serves(wanted: RunnerImage | null): boolean {
+  supports(wanted: RunnerImage | null): boolean {
     return wanted ? wanted.equals(this.image) : this.isDefault;
   }
 

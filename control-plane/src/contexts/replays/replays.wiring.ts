@@ -172,8 +172,8 @@ import { RequestReplayJudging } from '@replays/application/services/request-repl
 import { RequestReplayRecheck } from '@replays/application/services/request-replay-recheck.service';
 import { RequestReplayRejudging } from '@replays/application/services/request-replay-rejudging.service';
 import { RequestReplaySideBySideJudging } from '@replays/application/services/request-replay-side-by-side-judging.service';
-import { SearchSights } from '@replays/application/services/search-sights.service';
 import { SearchSummaries } from '@replays/application/services/search-summaries.service';
+import { SearchVisibilities } from '@replays/application/services/search-visibilities.service';
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import { SetStations } from '@replays/application/services/set-stations.service';
 import { StartOracleReplay } from '@replays/application/services/start-oracle-replay.service';
@@ -246,7 +246,7 @@ import {
   SEARCH_RUNS,
   type SearchRunsPort,
 } from '@work/application/ports/search-runs.port';
-import { SEARCH_SIGHT } from '@work/application/ports/search-sight.port';
+import { SEARCH_VISIBILITY } from '@work/application/ports/search-visibility.port';
 import {
   STARTING_POINT_HOLDS,
   type StartingPointHoldsPort,
@@ -270,7 +270,7 @@ export const REPLAYS_CONTROLLERS: readonly Type[] = [
 
 export const REPLAYS_PROVIDERS: readonly Provider[] = [
   {
-    provide: SEARCH_SIGHT,
+    provide: SEARCH_VISIBILITY,
     inject: [
       DrizzleSearchRepository,
       DrizzleCandidateRepository,
@@ -280,7 +280,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       searches: DrizzleSearchRepository,
       candidates: DrizzleCandidateRepository,
       replays: DrizzleReplayRepository,
-    ) => new SearchSights(searches, candidates, replays),
+    ) => new SearchVisibilities(searches, candidates, replays),
   },
   { provide: HASH, useClass: Sha256Hash },
   {

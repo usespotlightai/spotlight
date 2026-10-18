@@ -62,7 +62,7 @@ const waiting = () => {
       at: WORK,
       title: TaskTitle.of('Comment on ENG-12'),
       rank: TaskRank.of('i'),
-      raisedBy: ALICE,
+      createdBy: ALICE,
       now: NOW,
       newId: () => 'task_1',
     }),

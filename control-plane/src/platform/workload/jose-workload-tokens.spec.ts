@@ -30,7 +30,7 @@ describe('JoseWorkloadTokens', () => {
     await platform.close();
   });
 
-  it('answers the claims of a token its issuer signed, finding the keys by discovery', async () => {
+  it('returns the claims of a token its issuer signed, finding the keys by discovery', async () => {
     const token = await platform.issue({
       sub: SUBJECT,
       aud: 'spotlight',
@@ -43,7 +43,7 @@ describe('JoseWorkloadTokens', () => {
       issuer: platform.issuer,
       subject: SUBJECT,
       audiences: ['spotlight'],
-      named: { repository: 'acme/platform' },
+      customClaims: { repository: 'acme/platform' },
     });
   });
 

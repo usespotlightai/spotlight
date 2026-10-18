@@ -31,7 +31,7 @@ import type {
   TallySeenResponseDto,
   TaskFailureSummaryResponseDto,
 } from '@/lib/api';
-import type { ImprovedStation } from '@/lib/chat';
+import type { TargetStation } from '@/lib/chat';
 import { spentIn, took } from '@/lib/inbox';
 import {
   PULL_REQUEST_FILTER_KEYS,
@@ -461,7 +461,7 @@ export const headlineTiles = (
   },
 ];
 
-export type NamedStation = ImprovedStation & {
+export type NamedStation = TargetStation & {
   readonly kind: LineResponseDto['stations'][number]['kind'];
   readonly color: string;
   readonly position: number;
@@ -498,7 +498,7 @@ const REMOVED_STATION = 'A removed station';
 export const formatStation = (names: StationNames, stationId: string): string =>
   names.get(stationId)?.stationName ?? REMOVED_STATION;
 
-export const improvingOf = (named: NamedStation): ImprovedStation => ({
+export const targetStationOf = (named: NamedStation): TargetStation => ({
   lineId: named.lineId,
   lineKey: named.lineKey,
   lineName: named.lineName,

@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from 'vitest';
 type Options = {
   member?: boolean;
   state?: Partial<SetupState>;
-  hasAWayOut?: boolean;
+  hasEgressCapableRunner?: boolean;
   chat?: SetupChatView | null;
   provisioning?: Provisioning;
 };
@@ -41,7 +41,7 @@ const handler = (options: Options = {}) => {
   const setup = {
     of: vi.fn().mockResolvedValue({
       state: { ...nothing, ...options.state },
-      hasAWayOut: options.hasAWayOut ?? false,
+      hasEgressCapableRunner: options.hasEgressCapableRunner ?? false,
       chat: options.chat ?? null,
     }),
   } as unknown as SetupStatus;
@@ -87,12 +87,15 @@ describe('OnboardingHandler', () => {
 
   it('offers a setup chat once the GitHub App is installed and a host runs sandboxes', async () => {
     await expect(
-      read({ state: { connectedToGitHub: true }, hasAWayOut: true }),
+      read({
+        state: { connectedToGitHub: true },
+        hasEgressCapableRunner: true,
+      }),
     ).resolves.toMatchObject({ canSetUp: true });
     await expect(
       read({
         state: { connectedToGitHub: true, hasHarness: true },
-        hasAWayOut: false,
+        hasEgressCapableRunner: false,
       }),
     ).resolves.toMatchObject({ canSetUp: false });
   });

@@ -30,7 +30,7 @@ const HOLDER = HookCallbackToken.issueFor(
   NOW,
 );
 
-const FIRED = CausalChain.none().followedBy({
+const FIRED = CausalChain.none().append({
   kind: 'hook',
   key: 'hook:dba_id:task.moved:task_1:build → review',
   description: 'the hook dba-review',

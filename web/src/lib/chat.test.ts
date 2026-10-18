@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   type ChatMessage,
   chatPath,
-  improvingHandedOver,
   momentsOf,
   promptHandedOver,
+  targetStationHandedOver,
   tracesHandedOver,
   turnsOf,
 } from '@/lib/chat';
@@ -220,7 +220,7 @@ describe('promptHandedOver', () => {
   });
 });
 
-describe('improvingHandedOver', () => {
+describe('targetStationHandedOver', () => {
   const SPEC = {
     lineId: 'line_1',
     lineKey: 'delivery',
@@ -231,20 +231,22 @@ describe('improvingHandedOver', () => {
   };
 
   it('takes the station handed over with the page', () => {
-    expect(improvingHandedOver({ trail: [], improving: SPEC })).toEqual(SPEC);
+    expect(targetStationHandedOver({ trail: [], targetStation: SPEC })).toEqual(
+      SPEC,
+    );
   });
 
   it('keeps only what names the station', () => {
     expect(
-      improvingHandedOver({ improving: { ...SPEC, color: '#b36ae2' } }),
+      targetStationHandedOver({ targetStation: { ...SPEC, color: '#b36ae2' } }),
     ).toEqual(SPEC);
   });
 
   it('takes nothing where nothing, or nothing like a station, was handed over', () => {
-    expect(improvingHandedOver(null)).toBeNull();
-    expect(improvingHandedOver({ improving: 'station_1' })).toBeNull();
+    expect(targetStationHandedOver(null)).toBeNull();
+    expect(targetStationHandedOver({ targetStation: 'station_1' })).toBeNull();
     expect(
-      improvingHandedOver({ improving: { stationId: 'station_1' } }),
+      targetStationHandedOver({ targetStation: { stationId: 'station_1' } }),
     ).toBeNull();
   });
 });

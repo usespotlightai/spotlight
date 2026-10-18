@@ -27,8 +27,8 @@ vi.mock('@/hooks/api/useGitHub', () => ({
   useGitHub: () => githubState,
 }));
 
-vi.mock('@/components/features/onboarding/ConfigHomeForm', () => ({
-  ConfigHomeForm: () => <p>Choose the config home</p>,
+vi.mock('@/components/features/onboarding/ConfigFolderForm', () => ({
+  ConfigFolderForm: () => <p>Choose the config folder</p>,
 }));
 
 const STEPS = [
@@ -231,18 +231,18 @@ describe('SetupSteps', () => {
     expect(install.closest('[inert]')).toBeNull();
   });
 
-  it('offers the config home once GitHub and a host are ready', () => {
+  it('offers the config folder once GitHub and a host are ready', () => {
     onboardingState.data = onboarding({}, ['github', 'harness']);
     showing();
 
-    expect(screen.getByText('Choose the config home')).toBeInTheDocument();
+    expect(screen.getByText('Choose the config folder')).toBeInTheDocument();
   });
 
   it('says what setting up configuration waits on', () => {
     onboardingState.data = onboarding({}, ['github']);
     showing();
 
-    expect(screen.queryByText('Choose the config home')).toBeNull();
+    expect(screen.queryByText('Choose the config folder')).toBeNull();
     expect(
       screen.getByText(/The setup chat needs the GitHub App and egress\./),
     ).toBeInTheDocument();
@@ -255,7 +255,7 @@ describe('SetupSteps', () => {
     ]);
     showing();
 
-    expect(screen.queryByText('Choose the config home')).toBeNull();
+    expect(screen.queryByText('Choose the config folder')).toBeNull();
     expect(
       screen.getByText(/name an egress in a push pool\./),
     ).toBeInTheDocument();
@@ -270,7 +270,7 @@ describe('SetupSteps', () => {
 
     expect(screen.getByText('Grace is setting this up.')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Open setup chat' })).toBeNull();
-    expect(screen.queryByText('Choose the config home')).toBeNull();
+    expect(screen.queryByText('Choose the config folder')).toBeNull();
   });
 
   it('leads back to the setup chat while it works', () => {

@@ -62,7 +62,7 @@ const waiting = () =>
     at: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: new Date('2026-08-30T08:00:00.000Z'),
     newId: () => 'task_1',
   }).askedAbout(

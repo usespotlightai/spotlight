@@ -5,9 +5,9 @@ import { InvalidNetworkCallError } from '@work/domain/exceptions/invalid-network
 import { InvalidNetworkCallTransitionError } from '@work/domain/exceptions/invalid-network-call-transition.error';
 import { NotThisHostsCallError } from '@work/domain/exceptions/not-this-hosts-call.error';
 import type { CallingHost } from '@work/domain/value-objects/calling-host.vo';
-import type { NetworkAnswer } from '@work/domain/value-objects/network-answer.vo';
 import type { NetworkCallId } from '@work/domain/value-objects/network-call-id.vo';
 import type { NetworkRequest } from '@work/domain/value-objects/network-request.vo';
+import type { NetworkResponse } from '@work/domain/value-objects/network-response.vo';
 
 export type NetworkCallProgress =
   | { readonly kind: 'waiting' }
@@ -17,7 +17,7 @@ export type NetworkCallProgress =
       readonly by: CallingHost;
       readonly claimedAt: Date;
       readonly at: Date;
-      readonly answer: NetworkAnswer;
+      readonly response: NetworkResponse;
     }
   | { readonly kind: 'expired'; readonly at: Date }
   | { readonly kind: 'cancelled'; readonly at: Date };
@@ -128,9 +128,9 @@ export class NetworkCall extends EventRecorder {
     return this.state.version;
   }
 
-  get answer(): NetworkAnswer | null {
+  get response(): NetworkResponse | null {
     return this.state.progress.kind === 'answered'
-      ? this.state.progress.answer
+      ? this.state.progress.response
       : null;
   }
 
@@ -202,7 +202,11 @@ export class NetworkCall extends EventRecorder {
     return this.with({ progress: { kind: 'claimed', by: host, at: now } });
   }
 
-  answerWith(host: CallingHost, answer: NetworkAnswer, now: Date): NetworkCall {
+  recordResponse(
+    host: CallingHost,
+    response: NetworkResponse,
+    now: Date,
+  ): NetworkCall {
     const { progress } = this.state;
     const phase = this.stateAt(now);
 
@@ -241,7 +245,7 @@ export class NetworkCall extends EventRecorder {
         by: progress.by,
         claimedAt: progress.at,
         at: now,
-        answer,
+        response,
       },
     });
   }

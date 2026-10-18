@@ -10,9 +10,9 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
@@ -102,7 +102,7 @@ const aTaskRun = (): Run =>
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'task-task_1' },
+      resume: { key: 'task-task_1' },
       startingPoint: true,
     }),
     briefedTask: briefed,
@@ -152,7 +152,7 @@ describe('a task run’s starting point', () => {
           restored: RestoredArchive.of(
             archive,
             run.workspaceId,
-            ContinuityKey.forTask('task_1'),
+            ResumeKey.forTask('task_1'),
           ),
           checkouts,
         },

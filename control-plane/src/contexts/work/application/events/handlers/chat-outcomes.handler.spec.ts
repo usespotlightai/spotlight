@@ -127,7 +127,7 @@ describe('ChatOutcomes', () => {
     ],
   ])(
     'unacknowledges what %s acknowledged, and waits for the person',
-    async (_, outcome, workedBy) => {
+    async (_, outcome, claimedBy) => {
       const { outcomes, save, takenUp } = outcomesOf(handedAgain());
 
       await outcomes.onRunCompleted(
@@ -136,7 +136,7 @@ describe('ChatOutcomes', () => {
           WorkspaceId.of('ws_1'),
           IN_CHAT,
           outcome,
-          workedBy,
+          claimedBy,
           null,
           null,
           1,

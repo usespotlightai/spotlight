@@ -18,7 +18,7 @@ const payloadOf = (ourOwn = false): Happened => ({
   summary: 'The pull request was merged.',
   answers: false,
   state: 'raised',
-  concerns: { branch: 'spotlight/task_1', marks: [] },
+  correlationKeys: { branch: 'spotlight/task_1', marks: [] },
   message: null,
   ourOwn,
   opens: null,
@@ -75,7 +75,7 @@ const reading = (
   return { handler, react, firings, chains };
 };
 
-const FIRED = CausalChain.none().followedBy({
+const FIRED = CausalChain.none().append({
   kind: 'hook',
   key: 'hook:notify_id:task.moved:task_1:build → review',
   description: 'the hook notify',

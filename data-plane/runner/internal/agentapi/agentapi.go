@@ -31,7 +31,7 @@ type Historian func(ctx context.Context, request protocol.HistoryRequest) (json.
 
 type Recaller func(ctx context.Context, request protocol.RecallRequest) (json.RawMessage, error)
 
-type Rememberer func(ctx context.Context, remembered protocol.Remembering) (json.RawMessage, error)
+type Rememberer func(ctx context.Context, remembered protocol.RememberRequest) (json.RawMessage, error)
 
 type Proposer func(ctx context.Context, proposal protocol.CandidateProposal) (json.RawMessage, error)
 
@@ -417,7 +417,7 @@ func (s *Server) remembered(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	var remembered protocol.Remembering
+	var remembered protocol.RememberRequest
 	if err := json.NewDecoder(io.LimitReader(request.Body, maxInput)).Decode(&remembered); err != nil {
 		fail(writer, http.StatusBadRequest, "unreadable memory")
 		return

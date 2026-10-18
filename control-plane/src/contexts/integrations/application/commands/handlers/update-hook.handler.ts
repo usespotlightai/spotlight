@@ -16,7 +16,7 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class UpdateHookHandler
   implements CommandHandlerPort<UpdateHookCommand, ResourceUpdated | null>
@@ -63,7 +63,7 @@ export class UpdateHookHandler
             compiled,
             signingSecretChange(compiled.secret),
             await this.allowances.onTeam(existing.teamId),
-            Attribution.of(command.actor, permissions.workspaceId),
+            ChangeActor.of(command.actor, permissions.workspaceId),
           ),
         ),
       );

@@ -71,8 +71,8 @@ const editOf = (now: Readonly<Record<string, HclLiteral>>): HclBlockEdit => ({
   block: { type: 'station', key: 'implementation' },
   fields: Object.entries(SEED).map(([name, was]) => ({
     name,
-    was,
-    now: name in now ? (now[name] ?? null) : was,
+    expected: was,
+    desired: name in now ? (now[name] ?? null) : was,
     unset: LISTS.has(name)
       ? []
       : name === 'decisions' || name === 'memories'
@@ -86,7 +86,7 @@ const editOf = (now: Readonly<Record<string, HclLiteral>>): HclBlockEdit => ({
   blocks: [
     {
       type: 'judge',
-      was: {
+      expected: {
         rubric: 'A good run changes only what the task requests.\n',
         sample: 0.2,
         min_agreement: 0.6,

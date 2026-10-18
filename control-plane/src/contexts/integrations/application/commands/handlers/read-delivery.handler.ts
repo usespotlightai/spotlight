@@ -68,7 +68,7 @@ export class ReadDeliveryHandler
         ? await this.history.chainOf(workspaceId.value, cause)
         : null;
 
-      await this.causation.within(
+      await this.causation.runWith(
         this.deliveryChain(fired, stored.integration),
         () =>
           this.reactions.react(
@@ -88,7 +88,7 @@ export class ReadDeliveryHandler
     integration: string,
   ): CausalChain {
     return fired
-      ? fired.followedBy({
+      ? fired.append({
           kind: 'delivery',
           key: `delivery:${integration}`,
           description: `a delivery from ${integration}`,

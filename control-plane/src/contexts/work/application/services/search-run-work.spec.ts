@@ -32,7 +32,7 @@ const search = () =>
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Find a better Build station.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'search-run_9' },
+      resume: { key: 'search-run_9' },
       search: {},
     }),
   }).claim(RUNNER, NOW);

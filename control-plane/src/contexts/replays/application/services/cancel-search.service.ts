@@ -6,7 +6,7 @@ import type { ReplayRepository } from '@replays/domain/repositories/replay.repos
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class CancelSearch {
   constructor(
@@ -46,7 +46,7 @@ export class CancelSearch {
         await this.replays.save(
           replay.stop(
             this.clock.now(),
-            Attribution.spotlight(replay.workspaceId),
+            ChangeActor.spotlight(replay.workspaceId),
           ),
         );
       }

@@ -7,10 +7,13 @@ export class PauseMarks {
   constructor(private readonly journal: RunJournalPort) {}
 
   async onRunPaused(event: RunPaused): Promise<void> {
-    await this.journal.appendAside(RunAttempt.of(event.runId, event.attempt), {
-      type: RUN_PAUSED,
-      at: event.at,
-      message: 'Waiting for a person',
-    });
+    await this.journal.appendControlPlaneEntry(
+      RunAttempt.of(event.runId, event.attempt),
+      {
+        type: RUN_PAUSED,
+        at: event.at,
+        message: 'Waiting for a person',
+      },
+    );
   }
 }

@@ -66,7 +66,7 @@ const acting = async (...runs: Ended[]) => {
         workspaceId: 'ws_1',
         stationId: 'station_1',
         action: act,
-        after,
+        afterRunId: after,
         at: at(hour).toISOString(),
         tool: tool?.tool ?? null,
         server: tool?.server ?? null,

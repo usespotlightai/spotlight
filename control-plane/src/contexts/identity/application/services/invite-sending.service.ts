@@ -36,7 +36,7 @@ export class InviteSending {
       token,
       workspaceName: into.workspace.name.value,
       teamNames: into.teams
-        .filter((team) => invite.terms.joins(team.id))
+        .filter((team) => invite.spec.joins(team.id))
         .map((team) => team.name.value),
       invitedBy: into.by.name,
     });

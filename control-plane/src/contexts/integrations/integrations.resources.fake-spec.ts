@@ -17,13 +17,13 @@ import { IntegrationKey } from '@integrations/domain/value-objects/integration-k
 import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import { documentsContaining } from '@integrations/integrations.documents.fake-spec';
 import type {
-  IdempotentClaim,
   IdempotentCreatesPort,
+  IdempotentReservation,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type {
-  IdempotentRecall,
-  IdempotentRecallsPort,
-} from '@shared-kernel/application/ports/idempotent-recalls.port';
+  IdempotentLookup,
+  IdempotentLookupsPort,
+} from '@shared-kernel/application/ports/idempotent-lookups.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
@@ -81,7 +81,7 @@ export const storedAt = (
     version,
   });
 
-export const access = (administers = true) => teamAccess(TEAM, administers);
+export const access = (isAdmin = true) => teamAccess(TEAM, isAdmin);
 
 export const teams = (): TeamDirectoryPort => ({
   find: vi.fn(async () => ({
@@ -104,16 +104,16 @@ export const specs = new IntegrationSpecs(
   { now: () => new Date('2026-10-05T12:00:00.000Z'), sleep: async () => {} },
 );
 
-export const creates = (claim: IdempotentClaim = { kind: 'fresh' }) =>
+export const creates = (reservation: IdempotentReservation = { kind: 'new' }) =>
   ({
-    claim: vi.fn(async () => claim),
-    created: vi.fn(async () => {}),
+    reserve: vi.fn(async () => reservation),
+    recordCreated: vi.fn(async () => {}),
   }) satisfies IdempotentCreatesPort;
 
-export const recalls = (recall: IdempotentRecall = { kind: 'unseen' }) =>
+export const lookups = (lookup: IdempotentLookup = { kind: 'new' }) =>
   ({
-    recall: vi.fn(async () => recall),
-  }) satisfies IdempotentRecallsPort;
+    lookup: vi.fn(async () => lookup),
+  }) satisfies IdempotentLookupsPort;
 
 export const enabledTools = (enabled = ToolUses.none()): EnabledTools =>
   ({ onTeam: vi.fn(async () => enabled) }) as unknown as EnabledTools;

@@ -11,7 +11,7 @@ import type { TrustedWorkload } from '@runners/domain/value-objects/trusted-work
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -39,7 +39,7 @@ export class RunnerTrust extends EventRecorder {
     input: TrustDefinition & {
       id: RunnerTrustId;
       workspaceId: WorkspaceId;
-      by: Attribution;
+      by: ChangeActor;
     },
   ): RunnerTrust {
     const created = new RunnerTrust(
@@ -103,7 +103,7 @@ export class RunnerTrust extends EventRecorder {
     }
   }
 
-  update(definition: TrustDefinition, by: Attribution): RunnerTrust {
+  update(definition: TrustDefinition, by: ChangeActor): RunnerTrust {
     this.assertNotDeleted();
 
     if (!definition.key.equals(this.key)) {
@@ -133,7 +133,7 @@ export class RunnerTrust extends EventRecorder {
     return updated;
   }
 
-  delete(by: Attribution): RunnerTrust {
+  delete(by: ChangeActor): RunnerTrust {
     this.assertNotDeleted();
 
     const deleted = this.with({ deleted: true });

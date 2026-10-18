@@ -27,7 +27,7 @@ const read = (options: Options = {}) => {
 
   const runners = {
     readyToRun: vi.fn().mockResolvedValue(options.harness ?? false),
-    hasAWayOut: vi.fn().mockResolvedValue(options.hosted ?? false),
+    hasEgressCapableRunner: vi.fn().mockResolvedValue(options.hosted ?? false),
   } as unknown as RunnerReaderPort;
 
   const chats = {
@@ -45,7 +45,7 @@ describe('SetupStatus', () => {
         hasHarness: false,
         configured: false,
       },
-      hasAWayOut: false,
+      hasEgressCapableRunner: false,
       chat: null,
     });
   });
@@ -68,7 +68,7 @@ describe('SetupStatus', () => {
     await expect(read({ harness: true, hosted: false })).resolves.toMatchObject(
       {
         state: { hasHarness: true },
-        hasAWayOut: false,
+        hasEgressCapableRunner: false,
       },
     );
   });

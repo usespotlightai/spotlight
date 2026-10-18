@@ -9,7 +9,7 @@ export type TokenLevel = Extract<TokenScope, 'read' | 'plan' | 'configure'>;
 
 export type TokenGrant = Exclude<TokenScope, TokenLevel>;
 
-export type TokenTerms = {
+export type TokenSpec = {
   readonly name: string;
   readonly description: string;
   readonly scopes: TokenScope[];

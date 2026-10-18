@@ -1,5 +1,5 @@
 export class NoRepositoryError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(reason = 'Line has no repository to open.') {
     super(reason);

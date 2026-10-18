@@ -24,7 +24,7 @@ type channel struct {
 	trace    func(ctx context.Context, taskID string) (json.RawMessage, error)
 	history  func(received protocol.HistoryRequest) (json.RawMessage, error)
 	recall   func(received protocol.RecallRequest) (json.RawMessage, error)
-	remember func(received protocol.Remembering) (json.RawMessage, error)
+	remember func(received protocol.RememberRequest) (json.RawMessage, error)
 	propose  func(received protocol.CandidateProposal) (int, string)
 	cause    func(received protocol.CauseRecord) (int, string)
 
@@ -73,7 +73,7 @@ func (h *channel) Histories(history func(received protocol.HistoryRequest) (json
 
 func (h *channel) Memories(
 	recall func(received protocol.RecallRequest) (json.RawMessage, error),
-	remember func(received protocol.Remembering) (json.RawMessage, error),
+	remember func(received protocol.RememberRequest) (json.RawMessage, error),
 ) {
 	h.recall = recall
 	h.remember = remember
@@ -132,7 +132,7 @@ func (h *channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		answered(w)(h.recall(received))
 	case r.URL.Path == protocol.AgentAPIRememberPath:
-		var received protocol.Remembering
+		var received protocol.RememberRequest
 		if h.remember == nil || json.NewDecoder(r.Body).Decode(&received) != nil {
 			fail(w, http.StatusBadRequest, "unreadable memory")
 			return

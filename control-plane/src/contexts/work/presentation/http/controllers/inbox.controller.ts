@@ -23,8 +23,8 @@ import {
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 import { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
-import { ReadInboxAsideCommand } from '@work/application/commands/read-inbox-aside.command';
 import { ReadInboxItemCommand } from '@work/application/commands/read-inbox-item.command';
+import { ReadInboxRequestCommand } from '@work/application/commands/read-inbox-request.command';
 import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
 import type {
   InboxEntryDto,
@@ -37,12 +37,12 @@ import {
   AnswerInboxItemRequestDto,
   INBOX_ENTRY_SCHEMA,
   InboxApprovalResponseDto,
-  InboxAsideResponseDto,
   InboxAuthorResponseDto,
   InboxConnectionResponseDto,
   InboxFailureResponseDto,
   InboxItemResponseDto,
   InboxNoticeResponseDto,
+  InboxRequestResponseDto,
   InboxStationResponseDto,
   NoteResponseDto,
 } from '@work/presentation/http/dto/inbox.response.dto';
@@ -65,9 +65,9 @@ const taskItemResponse = (item: InboxItemDto): InboxItemResponseDto =>
     item.stationPosition,
     item.stationCount,
     new InboxStationResponseDto(
-      item.raisedAt.name,
-      item.raisedAt.color,
-      item.raisedAt.position,
+      item.originStation.name,
+      item.originStation.color,
+      item.originStation.position,
     ),
     new InboxStationResponseDto(
       item.currentStation.name,
@@ -82,7 +82,7 @@ const taskItemResponse = (item: InboxItemDto): InboxItemResponseDto =>
     item.unread,
     item.briefing,
     item.failure ? new InboxFailureResponseDto(item.failure) : null,
-    item.aside ? new InboxAsideResponseDto(item.aside) : null,
+    item.inboxRequest ? new InboxRequestResponseDto(item.inboxRequest) : null,
     item.notes.map(
       (note) =>
         new NoteResponseDto(
@@ -204,21 +204,23 @@ export class InboxController {
     await this.commandBus.execute(new ReadInboxItemCommand(itemId, user.id));
   }
 
-  @Post('asides/:asideId/read')
+  @Post('requests/:requestId/read')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'readInboxAside',
-    summary: 'Mark what was put aside for a person as seen',
+    operationId: 'readInboxRequest',
+    summary: 'Mark an inbox request as seen',
   })
   @ApiParam({ name: 'slug', type: String, example: 'acme' })
-  @ApiParam({ name: 'asideId', type: String, example: 'aside_1' })
+  @ApiParam({ name: 'requestId', type: String, example: 'request_1' })
   @ApiNoContentResponse({ description: 'It is no longer unread' })
-  @ApiNotFoundResponse({ description: 'No such aside for this caller' })
-  async readAside(
-    @Param('asideId') asideId: string,
+  @ApiNotFoundResponse({ description: 'No such inbox request for this caller' })
+  async readInboxRequest(
+    @Param('requestId') requestId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.commandBus.execute(new ReadInboxAsideCommand(asideId, user.id));
+    await this.commandBus.execute(
+      new ReadInboxRequestCommand(requestId, user.id),
+    );
   }
 
   @Post('notices/:noticeId/resolve')
@@ -254,15 +256,15 @@ export class InboxController {
     @Param('taskId') taskId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<RunJournalResponseDto[]> {
-    const worked = await this.queryBus.execute<
+    const entries = await this.queryBus.execute<
       ReadTaskJournalQuery,
       RunJournalDto[] | null
     >(new ReadTaskJournalQuery(taskId, user.id));
 
-    if (!worked) {
+    if (!entries) {
       throw new NotFoundException();
     }
 
-    return worked.map(RunJournalHttpMapper.toResponse);
+    return entries.map(RunJournalHttpMapper.toResponse);
   }
 }

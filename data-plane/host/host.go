@@ -78,8 +78,8 @@ func run(version string) error {
 	}
 
 	mirrors := mirror.At(filepath.Join(cfg.State, "mirrors"))
-	if err := mirrors.Tidy(); err != nil {
-		log.Warn("could not tidy the mirrors a stopped host left", "error", err)
+	if err := mirrors.Prune(); err != nil {
+		log.Warn("could not prune the mirrors a stopped host left", "error", err)
 	}
 
 	host := serve.New(serve.Options{

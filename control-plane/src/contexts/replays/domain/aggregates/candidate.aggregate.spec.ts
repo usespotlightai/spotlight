@@ -29,7 +29,7 @@ import { StationFingerprint } from '@replays/domain/value-objects/station-finger
 import { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import type { ConfigurationChanged } from '@shared-kernel/domain/events/configuration-changed';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { describe, expect, it } from 'vitest';
 
 const changeOf = (candidate: Candidate) => {
@@ -136,7 +136,7 @@ describe('Candidate', () => {
 
     expect(event).toBeInstanceOf(CandidateDeleted);
     expect((event as CandidateDeleted).change.by).toEqual(
-      Attribution.spotlight(STATION.workspaceId),
+      ChangeActor.spotlight(STATION.workspaceId),
     );
   });
 

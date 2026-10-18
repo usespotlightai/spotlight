@@ -44,7 +44,7 @@ describe('RunnerHeartbeats', () => {
     expect(heartbeat?.harnesses.map((each) => each.value)).toEqual([
       'claude-code',
     ]);
-    expect(heartbeat?.terms.values).toEqual(['linux']);
+    expect(heartbeat?.offer.values).toEqual(['linux']);
     expect(heartbeat?.claims).toBe('reserved');
     expect(save).toHaveBeenCalledOnce();
   });
@@ -55,16 +55,16 @@ describe('RunnerHeartbeats', () => {
       aRunner({ running: RunningImage.of(widgets, false) }),
     );
 
-    const terms = (await heartbeats.heartbeat(ID, later(1)))?.terms;
+    const offer = (await heartbeats.heartbeat(ID, later(1)))?.offer;
 
-    expect(terms?.serves(widgets)).toBe(true);
-    expect(terms?.serves(null)).toBe(false);
+    expect(offer?.supports(widgets)).toBe(true);
+    expect(offer?.supports(null)).toBe(false);
   });
 
   it('answers to the labels of the trust it started through', async () => {
     const { heartbeats } = setUp(aRunner({ through: aTrust() }));
 
-    expect((await heartbeats.heartbeat(ID, later(1)))?.terms.values).toEqual([
+    expect((await heartbeats.heartbeat(ID, later(1)))?.offer.values).toEqual([
       'vpc-internal',
     ]);
   });

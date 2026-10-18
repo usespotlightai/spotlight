@@ -17,7 +17,7 @@ export class RunOutcome {
   static of(input: {
     exitCode: number;
     failed: boolean;
-    unprepared?: boolean;
+    setupFailed?: boolean;
     message?: string | null;
   }): RunOutcome {
     if (!Number.isInteger(input.exitCode)) {
@@ -29,7 +29,7 @@ export class RunOutcome {
     return new RunOutcome(
       input.exitCode,
       input.failed
-        ? RunFailure.of(input.unprepared ? 'unprepared' : 'exited')
+        ? RunFailure.of(input.setupFailed ? 'unprepared' : 'exited')
         : null,
       input.message?.trim() || null,
     );

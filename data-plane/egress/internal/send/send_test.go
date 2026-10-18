@@ -42,7 +42,7 @@ func encoded(body string) string {
 	return base64.StdEncoding.EncodeToString([]byte(body))
 }
 
-func TestSendsTheCallOnceAndAnswersWithTheHostsResponse(t *testing.T) {
+func TestSendsTheCallOnceAndReturnsTheHostsResponse(t *testing.T) {
 	var got *http.Request
 	var received string
 	calls := 0
@@ -60,14 +60,14 @@ func TestSendsTheCallOnceAndAnswersWithTheHostsResponse(t *testing.T) {
 	sender := New(listed(t, "audit.example.com"))
 	sendTo(t, sender, server)
 
-	answer := sender.Send(context.Background(), protocol.HostCall{
+	result := sender.Send(context.Background(), protocol.HostCall{
 		ID: "call_1", Method: http.MethodPost, URL: "https://audit.example.com/hooks",
 		Headers: map[string]string{"content-type": "application/json", "webhook-id": "firing_1"},
 		Body:    encoded(`{"hook":"core/dba-review"}`), TimeoutMs: 5000,
 	})
 
-	if answer.Error != "" || answer.Status != http.StatusAccepted {
-		t.Fatalf("answered %+v", answer)
+	if result.Error != "" || result.Status != http.StatusAccepted {
+		t.Fatalf("got %+v", result)
 	}
 	if calls != 1 || got.Method != http.MethodPost || got.URL.Path != "/hooks" || got.Host != "audit.example.com" {
 		t.Errorf("the host saw %d calls, last %s %s at %s", calls, got.Method, got.URL.Path, got.Host)
@@ -75,25 +75,25 @@ func TestSendsTheCallOnceAndAnswersWithTheHostsResponse(t *testing.T) {
 	if got.Header.Get("Webhook-Id") != "firing_1" || received != `{"hook":"core/dba-review"}` {
 		t.Errorf("the host was sent %v %q", got.Header, received)
 	}
-	body, _ := base64.StdEncoding.DecodeString(answer.Body)
-	if string(body) != `{"deny":"no migrations on Fridays"}` || answer.Headers["content-type"] != "application/json" {
-		t.Errorf("answered %q with %v", body, answer.Headers)
+	body, _ := base64.StdEncoding.DecodeString(result.Body)
+	if string(body) != `{"deny":"no migrations on Fridays"}` || result.Headers["content-type"] != "application/json" {
+		t.Errorf("got %q with %v", body, result.Headers)
 	}
 }
 
-func TestTrimsTheAnswersBody(t *testing.T) {
+func TestTrimsTheResponseBody(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = io.WriteString(w, strings.Repeat("a", 3*protocol.AnswerBodyMost))
+		_, _ = io.WriteString(w, strings.Repeat("a", 3*protocol.MaxResponseBody))
 	}))
 	t.Cleanup(server.Close)
 
 	sender := New(listed(t, "audit.example.com"))
 	sendTo(t, sender, server)
 
-	answer := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.example.com/"})
-	body, _ := base64.StdEncoding.DecodeString(answer.Body)
-	if answer.Status != http.StatusOK || len(body) != protocol.AnswerBodyMost {
-		t.Errorf("answered %d with %d bytes", answer.Status, len(body))
+	result := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.example.com/"})
+	body, _ := base64.StdEncoding.DecodeString(result.Body)
+	if result.Status != http.StatusOK || len(body) != protocol.MaxResponseBody {
+		t.Errorf("got %d with %d bytes", result.Status, len(body))
 	}
 }
 
@@ -108,27 +108,27 @@ func TestDoesNotFollowARedirect(t *testing.T) {
 	sender := New(listed(t, "audit.example.com"))
 	sendTo(t, sender, server)
 
-	answer := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.example.com/"})
-	if answer.Status != http.StatusFound || answer.Headers["location"] != "https://elsewhere.example.com/" || calls != 1 {
-		t.Errorf("answered %+v after %d calls", answer, calls)
+	result := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.example.com/"})
+	if result.Status != http.StatusFound || result.Headers["location"] != "https://elsewhere.example.com/" || calls != 1 {
+		t.Errorf("got %+v after %d calls", result, calls)
 	}
 }
 
 func TestBlocksAHostTheAllowListLeavesOut(t *testing.T) {
 	sender := New(listed(t, "grafana.example.com"))
 
-	answer := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.acme.internal/"})
-	if answer.Status != 0 || answer.Error != "The host's allow-list doesn't allow audit.acme.internal." {
-		t.Errorf("answered %+v", answer)
+	result := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.acme.internal/"})
+	if result.Status != 0 || result.Error != "The host's allow-list doesn't allow audit.acme.internal." {
+		t.Errorf("got %+v", result)
 	}
 }
 
 func TestNeverConnectsToItselfEvenForAHostTheListNames(t *testing.T) {
 	sender := New(listed(t, "127.0.0.1"))
 
-	answer := sender.Send(context.Background(), protocol.HostCall{URL: "http://127.0.0.1:9/"})
-	if answer.Status != 0 || answer.Error != "Egress never opens a connection to 127.0.0.1." {
-		t.Errorf("answered %+v", answer)
+	result := sender.Send(context.Background(), protocol.HostCall{URL: "http://127.0.0.1:9/"})
+	if result.Status != 0 || result.Error != "Egress never opens a connection to 127.0.0.1." {
+		t.Errorf("got %+v", result)
 	}
 }
 
@@ -143,9 +143,9 @@ func TestSaysItTimedOut(t *testing.T) {
 	sender := New(listed(t, "audit.example.com"))
 	sendTo(t, sender, server)
 
-	answer := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.example.com/", TimeoutMs: 100})
-	if answer.Status != 0 || answer.Error != "The call timed out. Time limit: 100ms" || answer.Ms < 100 {
-		t.Errorf("answered %+v", answer)
+	result := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.example.com/", TimeoutMs: 100})
+	if result.Status != 0 || result.Error != "The call timed out. Time limit: 100ms" || result.Ms < 100 {
+		t.Errorf("got %+v", result)
 	}
 }
 
@@ -162,9 +162,9 @@ func TestSaysTheConnectionWasRefused(t *testing.T) {
 		return (&net.Dialer{Timeout: time.Second}).DialContext(ctx, network, address)
 	}
 
-	answer := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.example.com/"})
-	if answer.Status != 0 || answer.Error != "The server refused the connection." {
-		t.Errorf("answered %+v", answer)
+	result := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.example.com/"})
+	if result.Status != 0 || result.Error != "The server refused the connection." {
+		t.Errorf("got %+v", result)
 	}
 }
 
@@ -176,8 +176,8 @@ func TestSaysAnUntrustedCertificateIsNotTrusted(t *testing.T) {
 	sendTo(t, sender, server)
 	sender.transport.TLSClientConfig = &tls.Config{RootCAs: x509.NewCertPool()}
 
-	answer := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.example.com/"})
-	if answer.Status != 0 || !strings.HasPrefix(answer.Error, "The server's certificate isn't trusted.") {
-		t.Errorf("answered %+v", answer)
+	result := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.example.com/"})
+	if result.Status != 0 || !strings.HasPrefix(result.Error, "The server's certificate isn't trusted.") {
+		t.Errorf("got %+v", result)
 	}
 }

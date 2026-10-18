@@ -17,7 +17,7 @@ import type {
   ExpectedWorkload,
   WorkloadTokensPort,
 } from '@shared-kernel/application/ports/workload-tokens.port';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -31,7 +31,7 @@ const CLAIMS: WorkloadClaims = {
   issuer: 'https://oidc.example.com/cluster',
   subject: 'system:serviceaccount:spotlight:runner',
   audiences: ['spotlight'],
-  named: {},
+  customClaims: {},
 };
 
 const authenticating = (
@@ -112,7 +112,7 @@ describe('RunnerAuthenticator', () => {
     it('authenticates no host to a pool that is deleted', async () => {
       await expect(
         authenticating({
-          pool: aPullPool().delete(attributedIn()),
+          pool: aPullPool().delete(changeActorIn()),
         }).authenticator.authenticate(pooled),
       ).resolves.toBeNull();
     });
@@ -160,7 +160,7 @@ describe('RunnerAuthenticator', () => {
       ).resolves.toBeNull();
       await expect(
         authenticating({
-          trust: aTrust().delete(attributedIn()),
+          trust: aTrust().delete(changeActorIn()),
         }).authenticator.authenticate(trusted),
       ).resolves.toBeNull();
     });

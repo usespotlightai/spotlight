@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 
 const LEGEND = [
   { name: 'Traces', swatch: 'bg-primary' },
-  { name: 'Faults', swatch: 'bg-destructive' },
+  { name: 'Errors', swatch: 'bg-destructive' },
 ] as const;
 
 export function TraceLegend() {

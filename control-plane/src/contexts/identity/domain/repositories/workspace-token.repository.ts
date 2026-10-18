@@ -12,7 +12,7 @@ export interface WorkspaceTokenRepository {
 
   find(id: WorkspaceTokenId): Promise<WorkspaceToken | null>;
 
-  bearing(hash: TokenHash): Promise<WorkspaceToken | null>;
+  findByHash(hash: TokenHash): Promise<WorkspaceToken | null>;
 
   issuedByTrust(
     trustId: WorkspaceTokenTrustId,

@@ -8,7 +8,7 @@ const HOUR = TraceRange.of('1h', NOW);
 
 const BARS = 30;
 
-const started = (at: Date, faults = 0) => ({ startedAt: at, faults });
+const started = (at: Date, errors = 0) => ({ startedAt: at, errors });
 
 describe('traceVolumeOf', () => {
   it('draws the whole stretch even where nothing ran', () => {
@@ -33,19 +33,19 @@ describe('traceVolumeOf', () => {
     );
   });
 
-  it('adds up every fault in the stretch', () => {
+  it('adds up every error in the stretch', () => {
     const volume = traceVolumeOf(
       [started(HOUR.from, 2), started(HOUR.from, 1)],
       HOUR,
     );
 
-    expect(volume[0]).toMatchObject({ count: 2, faults: 3 });
+    expect(volume[0]).toMatchObject({ count: 2, errors: 3 });
   });
 
   it('reads a clean stretch as nothing rather than as nothing having run', () => {
     expect(traceVolumeOf([started(HOUR.from)], HOUR)[0]).toMatchObject({
       count: 1,
-      faults: 0,
+      errors: 0,
     });
   });
 

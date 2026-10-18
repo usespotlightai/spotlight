@@ -38,6 +38,7 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -48,7 +49,6 @@ import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import { describe, expect, it } from 'vitest';
 
 const withNotes = (task: Task, ...notes: TaskNote[]) =>
@@ -67,8 +67,8 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
       TaskNote.of({ ...each, position: NotePosition.of(place) }),
     ),
     createdAt: task.createdAt,
-    raisedAt: task.raisedAt,
-    raisedBy: task.raisedBy,
+    originStationId: task.originStationId,
+    createdBy: task.createdBy,
     openedFrom: task.openedFrom,
     pullRequestLink: task.pullRequestLink,
     finishedAt: task.finishedAt,
@@ -81,7 +81,7 @@ const added = (description?: TaskDescription) =>
     title: TaskTitle.of('Fix the queue'),
     description,
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: new Date('2026-08-27T09:15:00.000Z'),
     newId: () => 'task_1',
   });
@@ -123,7 +123,10 @@ const LINE = Line.rehydrate({
     station('station_0', 'Backlog', 0, { kind: 'backlog' }),
     station('station_1', 'Triage', 1, {
       harness: HarnessId.of('dev'),
-      wayOut: WayOut.of({ stations: [StationId.of('station_2')], ends: true }),
+      routes: StationRoutes.of({
+        stations: [StationId.of('station_2')],
+        ends: true,
+      }),
     }),
     station('station_2', 'Spec', 2, { harness: HarnessId.of('dev') }),
     station('completed_1', 'Completed', 3, { kind: 'completed' }),
@@ -192,7 +195,7 @@ describe('Task', () => {
     expect(task.description?.value).toBe('## Steps');
   });
 
-  it('remembers when it was raised', () => {
+  it('remembers when it was created', () => {
     expect(added().createdAt).toEqual(new Date('2026-08-27T09:15:00.000Z'));
   });
 
@@ -239,7 +242,7 @@ describe('Task', () => {
   });
 
   it('keeps a note of what a station left behind', () => {
-    const worked = withNotes(
+    const noted = withNotes(
       added(),
       TaskNote.of({
         position: NotePosition.of(0),
@@ -251,13 +254,13 @@ describe('Task', () => {
       }),
     );
 
-    expect(worked.notes.map((each) => each.body.value)).toEqual([
+    expect(noted.notes.map((each) => each.body.value)).toEqual([
       'Reproduced on restart.',
     ]);
   });
 
   it('keeps its notes in the order they were left', () => {
-    const worked = withNotes(
+    const noted = withNotes(
       added(),
       TaskNote.of({
         position: NotePosition.of(0),
@@ -277,14 +280,14 @@ describe('Task', () => {
       }),
     );
 
-    expect(worked.notes.map((each) => each.station.value)).toEqual([
+    expect(noted.notes.map((each) => each.station.value)).toEqual([
       'Triage',
       'Spec',
     ]);
   });
 
   it('carries the notes across a move, and records the move', () => {
-    const worked = withNotes(
+    const noted = withNotes(
       added(),
       TaskNote.of({
         position: NotePosition.of(0),
@@ -296,9 +299,9 @@ describe('Task', () => {
       }),
     ).react(LINE, StationId.of('station_2'), TaskRank.of('m'), newNote);
 
-    expect(worked.notes).toHaveLength(2);
-    expect(worked.notes[0]?.body.value).toBe('Reproduced.');
-    expect(worked.notes[1]?.kind).toBe('passed');
+    expect(noted.notes).toHaveLength(2);
+    expect(noted.notes[0]?.body.value).toBe('Reproduced.');
+    expect(noted.notes[1]?.kind).toBe('passed');
   });
 
   it('is the same task as another of the same id', () => {
@@ -307,13 +310,13 @@ describe('Task', () => {
 });
 
 describe('Task, what it is doing', () => {
-  const raised = () =>
+  const created = () =>
     Task.add({
       line: LINE,
       at: StationId.of('station_1'),
       title: TaskTitle.of('Fix the queue'),
       rank: TaskRank.of('i'),
-      raisedBy: UserId.of('user_1'),
+      createdBy: UserId.of('user_1'),
       now: new Date('2026-08-28T12:00:00.000Z'),
       newId: () => 'task_1',
     });
@@ -329,21 +332,21 @@ describe('Task, what it is doing', () => {
     });
 
   it('is idle when nobody has taken it up', () => {
-    const task = raised();
+    const task = created();
 
     expect(task.running).toBe(false);
     expect(task.idle).toBe(true);
   });
 
   it('is not idle while it has a current run', () => {
-    const task = raised().assignRun(RunId.of('run_1'), LINE);
+    const task = created().assignRun(RunId.of('run_1'), LINE);
 
     expect(task.running).toBe(true);
     expect(task.idle).toBe(false);
   });
 
   it('is not idle while it waits on a person', () => {
-    const task = raised().askedAbout(asked(), null);
+    const task = created().askedAbout(asked(), null);
 
     expect(task.running).toBe(false);
     expect(task.idle).toBe(false);
@@ -357,10 +360,10 @@ describe('Task, what it is doing', () => {
     });
 
     it('is remembered once one has, with the runner that leases it', () => {
-      const worked = added().recordSession(session, runner);
+      const recorded = added().recordSession(session, runner);
 
-      expect(worked.sessionId).toEqual(session);
-      expect(worked.runnerId).toEqual(runner);
+      expect(recorded.sessionId).toEqual(session);
+      expect(recorded.runnerId).toEqual(runner);
     });
 
     it('survives being put to a person', () => {
@@ -399,20 +402,18 @@ describe('Task, what it is doing', () => {
         newNote,
       );
 
-      expect(added().continuity().key.value).toBe('task-task_1');
-      expect(moved.continuity().key.equals(added().continuity().key)).toBe(
-        true,
-      );
+      expect(added().resume().key.value).toBe('task-task_1');
+      expect(moved.resume().key.equals(added().resume().key)).toBe(true);
     });
 
     it('hands the conversation to the next run', () => {
-      const carried = added().recordSession(session, runner).continuity();
+      const carried = added().recordSession(session, runner).resume();
 
       expect(carried.sessionId).toEqual(session);
     });
 
     it('requests no conversation when there is none to return to', () => {
-      expect(added().continuity().sessionId).toBeNull();
+      expect(added().resume().sessionId).toBeNull();
     });
 
     it('survives a person answering what it was waiting on', () => {
@@ -493,19 +494,19 @@ describe('Task, what it is doing', () => {
   });
 
   describe('who it belongs to', () => {
-    it('comes back to whoever raised it', () => {
-      expect(added().raisedByThem(UserId.of('user_1'))).toBe(true);
+    it('comes back to whoever created it', () => {
+      expect(added().createdByThem(UserId.of('user_1'))).toBe(true);
     });
 
     it('belongs to nobody else, however much of the workspace they see', () => {
-      expect(added().raisedByThem(UserId.of('user_2'))).toBe(false);
+      expect(added().createdByThem(UserId.of('user_2'))).toBe(false);
     });
 
-    it('is owned by whoever raised it from the start', () => {
+    it('is owned by whoever created it from the start', () => {
       expect(added().assignedToThem(UserId.of('user_1'))).toBe(true);
     });
 
-    it('falls back to the raiser when a person is asked and none is set', () => {
+    it('falls back to the creator when a person is asked and none is set', () => {
       const asked = added().unassign().askedAbout(newNote, null);
 
       expect(asked.assignedToThem(UserId.of('user_1'))).toBe(true);
@@ -1482,14 +1483,14 @@ describe('Task, what it is doing', () => {
 describe('Task, a failure reported on it', () => {
   const RUN_EXITED = TaskFailure.fromRun('exited');
   const LOOPED = TaskFailure.fromHook('notify', 'loop');
-  const worked = () => added().assignRun(RUN, LINE);
+  const withRun = () => added().assignRun(RUN, LINE);
   const failure = (body: string) => ({
     ...newNote,
     body: TaskNoteBody.of(body),
   });
 
   it('puts the first failure to a person, saying where it came from', () => {
-    const failed = worked().failed(
+    const failed = withRun().failed(
       RUN_EXITED,
       failure('It exited 1.'),
       RUN,
@@ -1514,7 +1515,7 @@ describe('Task, a failure reported on it', () => {
   });
 
   it('keeps a repeat in the conversation it belongs to once a person has answered', () => {
-    const asked = worked().failed(
+    const asked = withRun().failed(
       RUN_EXITED,
       failure('It exited 1.'),
       RUN,
@@ -1558,7 +1559,7 @@ describe('Task, a failure reported on it', () => {
   });
 
   it('detaches the run working it when the failure is not that run’s', () => {
-    const failed = worked().failed(
+    const failed = withRun().failed(
       LOOPED,
       failure('Stopped a loop.'),
       null,
@@ -1572,7 +1573,7 @@ describe('Task, a failure reported on it', () => {
   });
 
   it('puts no failure on a finished task to anyone', () => {
-    const finished = worked().finishHere(RUN, LINE, newNote);
+    const finished = withRun().finishHere(RUN, LINE, newNote);
 
     expect(finished.movedOnFrom(HERE)).toBe(true);
     expect(() =>
@@ -1604,7 +1605,7 @@ describe('Task, a failure reported on it', () => {
   });
 
   it('says which team’s line the failed task is on', () => {
-    const [raised] = worked()
+    const [raised] = withRun()
       .failed(RUN_EXITED, failure('It exited 1.'), RUN, LINE)
       .pullEvents()
       .filter((each) => each instanceof TaskFailed);
@@ -1614,7 +1615,7 @@ describe('Task, a failure reported on it', () => {
 
   it('tells no team of a failure raised while the task is on no line', () => {
     expect(
-      worked()
+      withRun()
         .failed(RUN_EXITED, failure('It exited 1.'), RUN, null)
         .pullEvents()
         .filter((each) => each instanceof TaskFailed),
@@ -1622,7 +1623,7 @@ describe('Task, a failure reported on it', () => {
   });
 
   it('leaves the task it failed from untouched, recording the failure only on the task it returns', () => {
-    const task = worked();
+    const task = withRun();
     task.pullEvents();
 
     const failed = task.failed(RUN_EXITED, failure('It exited 1.'), RUN, LINE);
@@ -1634,7 +1635,7 @@ describe('Task, a failure reported on it', () => {
   });
 
   it('says which run raised a failure, and when', () => {
-    const [raised] = worked()
+    const [raised] = withRun()
       .failed(RUN_EXITED, failure('It exited 1.'), RUN, LINE)
       .pullEvents()
       .filter((each) => each instanceof TaskFailed);
@@ -1644,7 +1645,7 @@ describe('Task, a failure reported on it', () => {
   });
 
   it('says when it put the failure to a person', () => {
-    const [asked] = worked()
+    const [asked] = withRun()
       .failed(RUN_EXITED, failure('It exited 1.'), RUN, LINE)
       .pullEvents()
       .filter((each) => each instanceof TaskAsked);
@@ -1862,7 +1863,7 @@ describe('Task and the happenings received while it has a current run', () => {
     expect(passed?.kind).toBe('passed');
     expect(passed?.form).toBe('words');
     expect(passed?.body.value).toBe(
-      'Moved to Spec when the run ended. An event arrived while the run worked.\n\nUploads retry now.',
+      'Moved to Spec when the run ended. An event arrived while the run was in progress.\n\nUploads retry now.',
     );
   });
 

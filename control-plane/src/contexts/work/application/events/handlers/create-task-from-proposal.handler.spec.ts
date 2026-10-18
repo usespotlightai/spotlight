@@ -7,7 +7,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { CreateTaskFromProposal } from '@work/application/events/handlers/create-task-from-proposal.handler';
-import type { RaiseTask } from '@work/application/services/raise-task';
+import type { CreateTask } from '@work/application/services/create-task';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
@@ -97,29 +97,29 @@ const event = new ProposalAccepted(
 
 const creating = (line: Line | null) => {
   const save = vi.fn(async (_saved: Chat) => undefined);
-  const raise = vi.fn(async ({ task }: { task: Task }) => task);
+  const create = vi.fn(async ({ task }: { task: Task }) => task);
   const handler = new CreateTaskFromProposal(
     { find: vi.fn(async () => accepted()), save } as unknown as ChatRepository,
     { find: vi.fn(async () => line) } as unknown as LineRepository,
     { placementsAt: vi.fn(async () => []) },
-    { raise } as unknown as RaiseTask,
+    { create } as unknown as CreateTask,
     { generate: () => 'task_9' } as IdGeneratorPort,
     { now: () => NOW } as ClockPort,
   );
 
-  return { handler, save, raise };
+  return { handler, save, create };
 };
 
 describe('CreateTaskFromProposal', () => {
-  it('raises the accepted task at its station, raised by whoever accepted it, and remembers it on the chat', async () => {
-    const { handler, save, raise } = creating(LINE);
+  it('creates the accepted task at its station, created by whoever accepted it, and remembers it on the chat', async () => {
+    const { handler, save, create } = creating(LINE);
 
     await handler.onProposalAccepted(event);
 
-    const task = raise.mock.calls[0]?.[0].task;
+    const task = create.mock.calls[0]?.[0].task;
     expect(task?.stationId.value).toBe('station_1');
     expect(task?.title.value).toBe('Back off exponentially');
-    expect(task?.raisedBy?.equals(LEON)).toBe(true);
+    expect(task?.createdBy?.equals(LEON)).toBe(true);
     expect(save).not.toHaveBeenCalled();
     const [opened] = task?.pullEvents() ?? [];
     expect(opened).toBeInstanceOf(TaskOpened);
@@ -173,11 +173,11 @@ describe('CreateTaskFromProposal', () => {
   });
 
   it('opens the proposal again where its line is gone', async () => {
-    const { handler, save, raise } = creating(null);
+    const { handler, save, create } = creating(null);
 
     await handler.onProposalAccepted(event);
 
-    expect(raise).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
     expect(save.mock.calls[0]?.[0].proposalAt(SECOND).isOpen).toBe(true);
   });
 });

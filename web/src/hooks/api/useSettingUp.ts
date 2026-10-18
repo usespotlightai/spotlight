@@ -9,7 +9,7 @@ import {
   clearCreatedHere,
   markCreatedHere,
   wasCreatedHere,
-} from '@/lib/provisioning';
+} from '@/lib/setup-status';
 
 const NO_TEAMS: WorkspaceResponseDto['teams'] = [];
 
@@ -19,7 +19,7 @@ export function useSettingUp(
 ): boolean {
   const queryClient = useQueryClient();
   const teams = workspace?.teams ?? NO_TEAMS;
-  const creatingTeam = workspace?.provisioning === 'pending';
+  const creatingTeam = workspace?.setupStatus === 'pending';
   const waiting = creatingTeam || wasCreatedHere(slug);
   const onboardings = useQueries({
     queries: teams.map((team) => ({

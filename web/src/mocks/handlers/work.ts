@@ -120,7 +120,7 @@ export const workHandlers: RequestHandler[] = [
         running: false,
         awaitingReview: null,
         pullRequest: null,
-        raisedBy: SAM,
+        createdBy: SAM,
         assignee: null,
         note: null,
       };
@@ -213,7 +213,7 @@ export const workHandlers: RequestHandler[] = [
     json(teamRunsOf(String(params.teamId))),
   ),
 
-  api.get('/teams/:teamId/runs/:runId/conversation', ({ params }) => {
+  api.get('/teams/:teamId/runs/:runId/notes', ({ params }) => {
     const located = locateRun(String(params.teamId), String(params.runId));
     return located ? json(conversationOf(located)) : notFound();
   }),

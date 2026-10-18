@@ -154,7 +154,7 @@ export class WorkspaceController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'changeMemberRole',
-    summary: 'Set what somebody is in this workspace',
+    summary: 'Change a member’s role',
     description:
       'Roles are assigned downwards: an owner may set anyone’s, an admin only those of people they outrank, and nobody may hand out a rank they do not have. The last owner keeps the workspace.',
   })

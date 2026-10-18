@@ -1,6 +1,6 @@
 import type {
   RunnerEgressPort,
-  SharedEgressFor,
+  SharedEgressAuthentication,
 } from '@runners/application/ports/runner-egress.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunLeasedByRunner } from '@work/application/services/egress-secret-fetches.service';
@@ -11,23 +11,23 @@ export const NOW = new Date('2026-10-16T12:00:00.000Z');
 export const SHARED_TOKEN = 'shared-token';
 
 export const sharedEgress = (
-  authorized: Record<string, SharedEgressFor>,
-  recording: Record<string, SharedEgressFor> = authorized,
+  authorized: Record<string, SharedEgressAuthentication>,
+  recording: Record<string, SharedEgressAuthentication> = authorized,
 ): RunnerEgressPort => ({
   authenticate: async () => null,
   sharedWith: async (token) =>
     token === SHARED_TOKEN ? { egressId: 'egress_1' } : null,
   authorizeRunner: async (egress, credential) =>
     egress.egressId === 'egress_1' ? (authorized[credential] ?? null) : null,
-  recordsThrough: async (egress, credential) =>
+  runnerForConnectionRecords: async (egress, credential) =>
     egress.egressId === 'egress_1' ? (recording[credential] ?? null) : null,
 });
 
 export const runOf = (
   credential: string,
   run: string,
-  work: SharedEgressFor['work'] = { kind: 'run', id: run },
-): [string, SharedEgressFor] => [
+  work: SharedEgressAuthentication['work'] = { kind: 'run', id: run },
+): [string, SharedEgressAuthentication] => [
   credential,
   {
     egressId: 'egress_1',
@@ -39,7 +39,7 @@ export const runOf = (
 
 export const leasing = (
   leased: readonly string[],
-  worked: readonly string[] = leased,
+  claimed: readonly string[] = leased,
 ) => ({
   leasedBy: async (runId: RunId): Promise<RunLeasedByRunner | null> =>
     leased.includes(runId.value)
@@ -47,6 +47,6 @@ export const leasing = (
           attempt: RunAttempt.of(RunId.of(runId.value), 1),
         } as RunLeasedByRunner)
       : null,
-  attemptWorkedBy: async (runId: RunId): Promise<RunAttempt | null> =>
-    worked.includes(runId.value) ? RunAttempt.of(runId, 1) : null,
+  attemptClaimedBy: async (runId: RunId): Promise<RunAttempt | null> =>
+    claimed.includes(runId.value) ? RunAttempt.of(runId, 1) : null,
 });

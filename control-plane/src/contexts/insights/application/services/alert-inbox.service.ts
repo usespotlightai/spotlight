@@ -1,4 +1,4 @@
-import type { AlertAsidesPort } from '@insights/application/ports/alert-asides.port';
+import type { AlertInboxRequestsPort } from '@insights/application/ports/alert-inbox-requests.port';
 import type { StationAlertFired } from '@insights/domain/events/station-alert-fired.event';
 import type { StationAlertReopened } from '@insights/domain/events/station-alert-reopened.event';
 import type { StationAlertResolved } from '@insights/domain/events/station-alert-resolved.event';
@@ -11,7 +11,7 @@ type AlertMoved =
 
 export class AlertInbox {
   constructor(
-    private readonly asides: AlertAsidesPort,
+    private readonly inboxRequests: AlertInboxRequestsPort,
     private readonly alertStates: StationAlertStateRepository,
   ) {}
 
@@ -25,7 +25,7 @@ export class AlertInbox {
     }
 
     await (firing.open
-      ? this.asides.open(firing.taskId, firing.id)
-      : this.asides.resolve(firing.taskId, firing.id));
+      ? this.inboxRequests.open(firing.taskId, firing.id)
+      : this.inboxRequests.resolve(firing.taskId, firing.id));
   }
 }

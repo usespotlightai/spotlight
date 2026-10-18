@@ -27,6 +27,7 @@ import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -34,7 +35,6 @@ import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import { describe, expect, it } from 'vitest';
 
 const REPLAYED_AS = StationConfig.rehydrate(
@@ -87,7 +87,7 @@ const line = Line.rehydrate({
     }),
     station(BUILD, 'build', 1, {
       harness: HarnessId.of('dev'),
-      wayOut: WayOut.of({ stations: [SHIP] }),
+      routes: StationRoutes.of({ stations: [SHIP] }),
     }),
     station(SHIP, 'ship', 2, { harness: HarnessId.of('dev') }),
     station(StationId.of('station_completed'), 'completed', 3, {
@@ -105,7 +105,7 @@ const run = () =>
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'task_1:station_build' },
+      resume: { key: 'task_1:station_build' },
     }),
   }).claim(RUNNER, NOW);
 
@@ -115,7 +115,7 @@ const handed = () =>
     at: BUILD,
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
   }).assignRun(RUN, line);
@@ -321,7 +321,7 @@ describe('the end of a replay’s turn', () => {
         command: { executable: 'sh', args: [] },
         briefing: 'Fix the queue.',
         handover: { options: ['ship', 'review'], noteLimit: 0 },
-        continuity: { key: 'replay-run_1' },
+        resume: { key: 'replay-run_1' },
         replay: {
           archive: null,
           checkouts: [{ path: 'api', commit: COMMIT, repository: 'acme/api' }],

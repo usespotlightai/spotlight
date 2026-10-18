@@ -21,7 +21,7 @@ import { Station } from '@work/domain/entities/station.entity';
 import { LineAlreadyExistsError } from '@work/domain/exceptions/line-already-exists.error';
 import { LineRoleTakenError } from '@work/domain/exceptions/line-role-taken.error';
 import { LineVersionConflictError } from '@work/domain/exceptions/line-version-conflict.error';
-import { StrandedWorkError } from '@work/domain/exceptions/stranded-work.error';
+import { StationNotEmptyError } from '@work/domain/exceptions/station-not-empty.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import { ConfigSource } from '@work/domain/value-objects/config-source.vo';
@@ -30,6 +30,7 @@ import { Happening } from '@work/domain/value-objects/happening.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
@@ -45,9 +46,8 @@ import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import {
   reactionRowsOf,
   replayCheckRow,
@@ -111,7 +111,7 @@ const toStation = (row: StationRow, ways: Ways): Station =>
       : null,
     alerts: row.alerts.map((each) => StationAlert.of(each)),
     kind: row.kind,
-    wayOut: WayOut.of({
+    routes: StationRoutes.of({
       stations: ways.routes.get(row.id) ?? [],
       ends: row.finishes,
     }),
@@ -124,7 +124,7 @@ const toLine = (
   stations: StationRow[],
   ways: Ways,
   reactions: readonly Reaction[],
-  repositories: readonly WorkedRepository[],
+  repositories: readonly LineRepositoryConfig[],
 ): Line =>
   Line.rehydrate({
     id: LineId.of(line.id),
@@ -188,7 +188,7 @@ export class DrizzleLineRepository implements LineRepository {
         reviews: reviewsRow(added.reviews),
         replayCheck: replayCheckRow(added.replayCheck),
         source: sourceRow(added.source),
-        runners: [...added.placement.selectors],
+        runners: [...added.placement.requiredLabels],
       });
     } catch (error) {
       if (violates(error, UNIQUE_VIOLATION, 'line_team_key')) {
@@ -225,7 +225,7 @@ export class DrizzleLineRepository implements LineRepository {
         reviews: reviewsRow(saved.reviews),
         replayCheck: replayCheckRow(saved.replayCheck),
         source: sourceRow(saved.source),
-        runners: [...saved.placement.selectors],
+        runners: [...saved.placement.requiredLabels],
       })
       .where(and(eq(line.id, saved.id.value), eq(line.version, saved.version)))
       .returning({ id: line.id })
@@ -306,7 +306,7 @@ export class DrizzleLineRepository implements LineRepository {
       }
     } catch (error) {
       if (violates(error, RESTRICT_VIOLATION, 'task_station_id')) {
-        throw new StrandedWorkError(
+        throw new StationNotEmptyError(
           deleted.stations.map((each) => each.id.value),
         );
       }
@@ -322,7 +322,7 @@ export class DrizzleLineRepository implements LineRepository {
         .where(inArray(station.id, [...stationIds]));
     } catch (error) {
       if (violates(error, RESTRICT_VIOLATION, 'task_station_id')) {
-        throw new StrandedWorkError(stationIds);
+        throw new StationNotEmptyError(stationIds);
       }
 
       throw error;
@@ -418,14 +418,16 @@ export class DrizzleLineRepository implements LineRepository {
     );
   }
 
-  private async repositoriesOf(lineId: string): Promise<WorkedRepository[]> {
+  private async repositoriesOf(
+    lineId: string,
+  ): Promise<LineRepositoryConfig[]> {
     const rows = await this.context.db
       .select()
       .from(lineRepository)
       .where(eq(lineRepository.lineId, lineId));
 
     return rows.map((row) =>
-      WorkedRepository.of(Repository.of(row.repository), {
+      LineRepositoryConfig.of(Repository.of(row.repository), {
         image: row.image ? RunnerImage.of(row.image) : null,
         setup: row.setup ? RepositorySetup.of(row.setup) : null,
       }),

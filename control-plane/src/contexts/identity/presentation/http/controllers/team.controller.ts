@@ -63,7 +63,8 @@ export class TeamController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'addTeamMember',
-    summary: 'Put somebody already in the workspace on this team',
+    summary: 'Add a team member',
+    description: 'The person must already be a member of the workspace.',
   })
   @ApiNoContentResponse({ description: 'They are on the team now' })
   @ApiConflictResponse({ description: 'They are already on the team' })

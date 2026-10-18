@@ -63,7 +63,7 @@ func causeCmd(args []string, out io.Writer) error {
 		return err
 	}
 
-	var recorded protocol.RecordedCause
+	var recorded protocol.RecordCauseResponse
 	if err := json.Unmarshal(answered, &recorded); err != nil || recorded.TaskID == "" {
 		return fmt.Errorf("Spotlight answered with %q", strings.TrimSpace(string(answered)))
 	}

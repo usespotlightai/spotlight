@@ -208,7 +208,7 @@ describe('a search for a better station config, when it stalls or loses its stat
 
     await db
       .update(schema.notice)
-      .set({ raisedAt: longAgo, resolvedAt: longAgo })
+      .set({ createdAt: longAgo, resolvedAt: longAgo })
       .where(eq(schema.notice.id, notice?.id as string));
 
     expect(

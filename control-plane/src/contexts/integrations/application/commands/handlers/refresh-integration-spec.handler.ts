@@ -5,7 +5,7 @@ import type { IntegrationDefinitionRepository } from '@integrations/domain/repos
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class RefreshIntegrationSpecHandler
@@ -46,7 +46,7 @@ export class RefreshIntegrationSpecHandler
         existing.refreshSpec(
           compiled,
           reading,
-          Attribution.spotlight(team.workspaceId),
+          ChangeActor.spotlight(team.workspaceId),
         ),
       ),
     );

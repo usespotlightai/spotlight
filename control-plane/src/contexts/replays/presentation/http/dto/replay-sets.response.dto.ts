@@ -75,7 +75,7 @@ export class ReplaySetEntryResponseDto {
     type: String,
     example: 'slack',
     description:
-      'Where its task came from: person when a person raised it at this station, the integration whose happening opened it here, as in slack or github, or station when another station passed it on; null once the task is deleted',
+      'Where its task came from: person when a person created it at this station, the integration whose happening opened it here, as in slack or github, or station when another station passed it on; null once the task is deleted',
   })
   readonly origin: string | null;
 

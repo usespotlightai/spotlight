@@ -14,7 +14,7 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class UpdateWorkspaceHandler
@@ -54,7 +54,7 @@ export class UpdateWorkspaceHandler
 
       await this.transaction.inTransaction(() =>
         this.workspaces.save(
-          existing.update(compiled, Attribution.of(command.actor, id)),
+          existing.update(compiled, ChangeActor.of(command.actor, id)),
         ),
       );
 

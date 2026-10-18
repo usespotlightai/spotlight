@@ -236,11 +236,11 @@ describe('inviting people to a workspace (e2e)', () => {
     expect(everyone[0]).toMatchObject({
       email: expect.stringContaining('@example.com'),
       joinedAt: expect.any(String),
-      mayBeSetTo: [],
+      assignableRoles: [],
     });
     expect(bea).toMatchObject({
       role: 'member',
-      mayBeSetTo: ['owner', 'admin', 'member'],
+      assignableRoles: ['owner', 'admin', 'member'],
     });
     await as(mallory).get(`/api/workspaces/${workspaceId}/members`).expect(404);
   });

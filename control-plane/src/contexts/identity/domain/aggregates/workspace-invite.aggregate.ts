@@ -5,7 +5,7 @@ import { InviteNotPendingError } from '@identity/domain/exceptions/invite-not-pe
 import { NotYourInviteError } from '@identity/domain/exceptions/not-your-invite.error';
 import type { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import type { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import type { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import type { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -28,7 +28,7 @@ interface State {
   readonly id: InviteId;
   readonly workspaceId: WorkspaceId;
   readonly email: EmailAddress;
-  readonly terms: InviteTerms;
+  readonly spec: InviteSpec;
   readonly tokenHash: TokenHash;
   readonly invitedBy: UserId | null;
   readonly invitedAt: Date;
@@ -43,7 +43,7 @@ export class WorkspaceInvite extends EventRecorder implements State {
   readonly id: InviteId;
   readonly workspaceId: WorkspaceId;
   readonly email: EmailAddress;
-  readonly terms: InviteTerms;
+  readonly spec: InviteSpec;
   readonly tokenHash: TokenHash;
   readonly invitedBy: UserId | null;
   readonly invitedAt: Date;
@@ -58,7 +58,7 @@ export class WorkspaceInvite extends EventRecorder implements State {
     this.id = state.id;
     this.workspaceId = state.workspaceId;
     this.email = state.email;
-    this.terms = state.terms;
+    this.spec = state.spec;
     this.tokenHash = state.tokenHash;
     this.invitedBy = state.invitedBy;
     this.invitedAt = state.invitedAt;
@@ -73,7 +73,7 @@ export class WorkspaceInvite extends EventRecorder implements State {
     id: InviteId;
     workspaceId: WorkspaceId;
     email: EmailAddress;
-    terms: InviteTerms;
+    spec: InviteSpec;
     tokenHash: TokenHash;
     invitedBy: UserId;
     now: Date;
@@ -82,7 +82,7 @@ export class WorkspaceInvite extends EventRecorder implements State {
       id: input.id,
       workspaceId: input.workspaceId,
       email: input.email,
-      terms: input.terms,
+      spec: input.spec,
       tokenHash: input.tokenHash,
       invitedBy: input.invitedBy,
       invitedAt: input.now,
@@ -104,7 +104,7 @@ export class WorkspaceInvite extends EventRecorder implements State {
       id: InviteId;
       workspaceId: WorkspaceId;
       email: EmailAddress;
-      terms: InviteTerms;
+      spec: InviteSpec;
       tokenHash: TokenHash;
       invitedBy: UserId;
       now: Date;
@@ -113,7 +113,7 @@ export class WorkspaceInvite extends EventRecorder implements State {
     if (existing && !existing.hasEndedAt(input.now)) {
       return {
         invite: existing.resend({
-          terms: input.terms,
+          spec: input.spec,
           tokenHash: input.tokenHash,
           by: input.invitedBy,
           now: input.now,
@@ -177,7 +177,7 @@ export class WorkspaceInvite extends EventRecorder implements State {
   }
 
   resend(input: {
-    terms: InviteTerms;
+    spec: InviteSpec;
     tokenHash: TokenHash;
     by: UserId;
     now: Date;
@@ -189,7 +189,7 @@ export class WorkspaceInvite extends EventRecorder implements State {
     }
 
     const resent = this.with({
-      terms: input.terms,
+      spec: input.spec,
       tokenHash: input.tokenHash,
       invitedBy: input.by,
       invitedAt: input.now,
@@ -218,7 +218,7 @@ export class WorkspaceInvite extends EventRecorder implements State {
     const accepted = this.with({ acceptedAt: now, acceptedBy: who });
 
     accepted.record(
-      new WorkspaceInviteAccepted(this.id, this.workspaceId, this.terms, who),
+      new WorkspaceInviteAccepted(this.id, this.workspaceId, this.spec, who),
     );
 
     return accepted;
@@ -246,7 +246,7 @@ export class WorkspaceInvite extends EventRecorder implements State {
       this.id,
       this.workspaceId,
       this.email,
-      this.terms,
+      this.spec,
       by,
       resent,
     );
@@ -265,7 +265,7 @@ export class WorkspaceInvite extends EventRecorder implements State {
       id: this.id,
       workspaceId: this.workspaceId,
       email: this.email,
-      terms: this.terms,
+      spec: this.spec,
       tokenHash: this.tokenHash,
       invitedBy: this.invitedBy,
       invitedAt: this.invitedAt,

@@ -6,11 +6,11 @@ import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const BY = attributedIn('ws_1');
+const BY = changeActorIn('ws_1');
 
 const ISSUER = 'https://oidc.example.com/cluster';
 const SUBJECT = 'system:serviceaccount:spotlight:runner';
@@ -48,7 +48,7 @@ describe('RunnerTrust', () => {
         issuer: ISSUER,
         subject: SUBJECT,
         audiences: ['sts.amazonaws.com', 'spotlight'],
-        named: {},
+        customClaims: {},
       }),
     ).toBe(true);
   });
@@ -61,7 +61,7 @@ describe('RunnerTrust', () => {
         issuer: 'https://elsewhere.example.com',
         subject: SUBJECT,
         audiences: ['spotlight'],
-        named: {},
+        customClaims: {},
       }),
     ).toBe(false);
     expect(
@@ -69,7 +69,7 @@ describe('RunnerTrust', () => {
         issuer: ISSUER,
         subject: 'system:serviceaccount:default:default',
         audiences: ['spotlight'],
-        named: {},
+        customClaims: {},
       }),
     ).toBe(false);
     expect(
@@ -77,7 +77,7 @@ describe('RunnerTrust', () => {
         issuer: ISSUER,
         subject: SUBJECT,
         audiences: ['other'],
-        named: {},
+        customClaims: {},
       }),
     ).toBe(false);
   });
@@ -90,7 +90,7 @@ describe('RunnerTrust', () => {
         issuer: ISSUER,
         subject: SUBJECT,
         audiences: ['spotlight'],
-        named: {},
+        customClaims: {},
       }),
     ).toBe(false);
     expect(kinds(deleted)).toEqual(['runner-trust.deleted']);

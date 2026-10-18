@@ -42,7 +42,7 @@ export class OnboardingHandler
       return {
         provisioning,
         steps: shownFor(setup.state),
-        canSetUp: setup.state.connectedToGitHub && setup.hasAWayOut,
+        canSetUp: setup.state.connectedToGitHub && setup.hasEgressCapableRunner,
         setupChat: chat && {
           id: chat.startedById === query.viewerId ? chat.id : null,
           pullRequest: chat.pullRequest,

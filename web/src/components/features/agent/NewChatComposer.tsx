@@ -7,8 +7,8 @@ import { useStartChat } from '@/hooks/api/useStartChat';
 import { useRemembered } from '@/hooks/useRemembered';
 import {
   CHAT_HARNESS_KEY,
-  type ImprovedStation,
   type SharedTrace,
+  type TargetStation,
 } from '@/lib/chat';
 import { stationReference, traceReference } from '@/lib/chat-input';
 
@@ -16,7 +16,7 @@ type NewChatComposerProps = {
   slug: string;
   teamId: string;
   traces: readonly SharedTrace[];
-  defaultImproving: ImprovedStation | null;
+  defaultTargetStation: TargetStation | null;
   defaultPrompt?: string | null;
   onStarted: (chatId: string) => void;
 };
@@ -25,7 +25,7 @@ export function NewChatComposer({
   slug,
   teamId,
   traces: handed,
-  defaultImproving,
+  defaultTargetStation,
   defaultPrompt,
   onStarted,
 }: NewChatComposerProps) {
@@ -36,7 +36,7 @@ export function NewChatComposer({
   const [repositories, setRepositories] = useState<string[]>([]);
   const start = useStartChat();
   const [references] = useState(() => [
-    ...(defaultImproving ? [stationReference(defaultImproving)] : []),
+    ...(defaultTargetStation ? [stationReference(defaultTargetStation)] : []),
     ...handed.map(traceReference),
   ]);
 
@@ -76,7 +76,7 @@ export function NewChatComposer({
           className="h-6 w-auto"
         />
       }
-      onSend={({ body, attachments, traces, improving }, sent) =>
+      onSend={({ body, attachments, traces, targetStation }, sent) =>
         start.mutate(
           {
             teamId,
@@ -87,7 +87,7 @@ export function NewChatComposer({
             body,
             attachments,
             traces,
-            ...(improving ? { improving } : {}),
+            ...(targetStation ? { targetStation } : {}),
           },
           {
             onSuccess: (chat) => {

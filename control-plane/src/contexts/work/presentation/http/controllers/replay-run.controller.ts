@@ -6,7 +6,7 @@ import {
   ApiProblemResponse,
   ConventionalApiController,
 } from '@platform/http/resources/conventional-api';
-import { found } from '@platform/http/resources/resource-answers';
+import { respondFound } from '@platform/http/resources/resource-responses';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 import type { ReplayRunDto } from '@work/application/dto/replay-run.dto';
 import type { SearchRunDto } from '@work/application/dto/search-run.dto';
@@ -37,7 +37,7 @@ export class ReplayRunController {
     @Param('runId') runId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ReplayRunResponseDto> {
-    return found(
+    return respondFound(
       'replay run',
       await this.queryBus.execute<ReadReplayRunQuery, ReplayRunDto | null>(
         new ReadReplayRunQuery(teamId, runId, principal),
@@ -63,7 +63,7 @@ export class ReplayRunController {
     @Param('runId') runId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<SearchRunResponseDto> {
-    return found(
+    return respondFound(
       'search run',
       await this.queryBus.execute<ReadSearchRunQuery, SearchRunDto | null>(
         new ReadSearchRunQuery(teamId, runId, principal),

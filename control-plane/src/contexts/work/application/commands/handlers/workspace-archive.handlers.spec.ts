@@ -1,9 +1,9 @@
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import { CompleteWorkspaceArchiveHandler } from '@work/application/commands/handlers/complete-workspace-archive.handler';
 import { GrantWorkspaceArchiveHandler } from '@work/application/commands/handlers/grant-workspace-archive.handler';
-import { SealWorkspaceArchiveHandler } from '@work/application/commands/handlers/seal-workspace-archive.handler';
 import {
+  CompleteWorkspaceArchiveCommand,
   GrantWorkspaceArchiveCommand,
-  SealWorkspaceArchiveCommand,
 } from '@work/application/commands/workspace-archive.commands';
 import { StoredWorkspaceArchiveHandler } from '@work/application/queries/handlers/stored-workspace-archive.handler';
 import { StoredWorkspaceArchiveQuery } from '@work/application/queries/stored-workspace-archive.query';
@@ -44,7 +44,7 @@ const setUp = (...runs: Run[]) => {
       ids,
       clock,
     ),
-    seal: new SealWorkspaceArchiveHandler(
+    complete: new CompleteWorkspaceArchiveHandler(
       runRepository,
       archives,
       store,
@@ -67,7 +67,7 @@ describe('archiving a workspace between runs', () => {
       url: 'https://storage.test/put/archive_1',
       headers: { 'x-amz-checksum-sha256': SHA256 },
     });
-    expect(archives.stored.get('archive_1')?.isSealed).toBe(false);
+    expect(archives.stored.get('archive_1')?.isCompleted).toBe(false);
   });
 
   it('grants nothing to a runner that does not lease the run', async () => {
@@ -82,7 +82,7 @@ describe('archiving a workspace between runs', () => {
 
   it('rejects work that does not carry on, and archives too large to store', async () => {
     const { grant, archives } = setUp(
-      aLeasedRun({ carriesOn: false }),
+      aLeasedRun({ restoresWorkspace: false }),
       aLeasedRun({ id: 'run_2', runner: 'runner_2' }),
     );
 
@@ -118,8 +118,8 @@ describe('archiving a workspace between runs', () => {
     expect(archives.stored.size).toBe(0);
   });
 
-  it('seals an archive once storage has it as granted, and the next run restores it', async () => {
-    const { grant, seal, read, store } = setUp();
+  it('completes an archive once storage has it as granted, and the next run restores it', async () => {
+    const { grant, complete, read, store } = setUp();
 
     await grant.execute(
       new GrantWorkspaceArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
@@ -127,8 +127,8 @@ describe('archiving a workspace between runs', () => {
     store.uploaded.set('archive_1', storedAs(1_024));
 
     await expect(
-      seal.execute(
-        new SealWorkspaceArchiveCommand('run_1', 'runner_1', 'archive_1'),
+      complete.execute(
+        new CompleteWorkspaceArchiveCommand('run_1', 'runner_1', 'archive_1'),
       ),
     ).resolves.toBe(true);
 
@@ -145,30 +145,30 @@ describe('archiving a workspace between runs', () => {
     });
   });
 
-  it('does not seal what was never uploaded as granted', async () => {
-    const { grant, seal, store } = setUp();
+  it('does not complete what was never uploaded as granted', async () => {
+    const { grant, complete, store } = setUp();
 
     await grant.execute(
       new GrantWorkspaceArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
     );
 
     await expect(
-      seal.execute(
-        new SealWorkspaceArchiveCommand('run_1', 'runner_1', 'archive_1'),
+      complete.execute(
+        new CompleteWorkspaceArchiveCommand('run_1', 'runner_1', 'archive_1'),
       ),
     ).rejects.toThrow(ApplicationError);
 
     store.uploaded.set('archive_1', storedAs(512));
 
     await expect(
-      seal.execute(
-        new SealWorkspaceArchiveCommand('run_1', 'runner_1', 'archive_1'),
+      complete.execute(
+        new CompleteWorkspaceArchiveCommand('run_1', 'runner_1', 'archive_1'),
       ),
     ).rejects.toThrow(ApplicationError);
   });
 
-  it('seals only an archive granted to the run sealing it', async () => {
-    const { grant, seal, store } = setUp();
+  it('completes only an archive granted to the run sealing it', async () => {
+    const { grant, complete, store } = setUp();
 
     await grant.execute(
       new GrantWorkspaceArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
@@ -176,19 +176,19 @@ describe('archiving a workspace between runs', () => {
     store.uploaded.set('archive_1', storedAs(1_024));
 
     await expect(
-      seal.execute(
-        new SealWorkspaceArchiveCommand('run_2', 'runner_2', 'archive_1'),
+      complete.execute(
+        new CompleteWorkspaceArchiveCommand('run_2', 'runner_2', 'archive_1'),
       ),
     ).resolves.toBe(false);
     await expect(
-      seal.execute(
-        new SealWorkspaceArchiveCommand('run_1', 'runner_1', 'archive_9'),
+      complete.execute(
+        new CompleteWorkspaceArchiveCommand('run_1', 'runner_1', 'archive_9'),
       ),
     ).resolves.toBe(false);
   });
 
   it('restores a task’s workspace for a run that starts its conversation afresh', async () => {
-    const { grant, seal, read, store } = setUp(
+    const { grant, complete, read, store } = setUp(
       aLeasedRun(),
       aLeasedRun({ id: 'run_2', runner: 'runner_2', session: null }),
     );
@@ -197,8 +197,8 @@ describe('archiving a workspace between runs', () => {
       new GrantWorkspaceArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
     );
     store.uploaded.set('archive_1', storedAs(1_024));
-    await seal.execute(
-      new SealWorkspaceArchiveCommand('run_1', 'runner_1', 'archive_1'),
+    await complete.execute(
+      new CompleteWorkspaceArchiveCommand('run_1', 'runner_1', 'archive_1'),
     );
 
     await expect(

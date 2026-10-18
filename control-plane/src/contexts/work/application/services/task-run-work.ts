@@ -19,7 +19,7 @@ import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-c
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { repositoryWorkedOnNamed } from '@work/domain/services/task-checkouts';
+import { repositoryForTaskNamed } from '@work/domain/services/task-checkouts';
 import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
@@ -67,7 +67,7 @@ export class TaskRunWork implements RunWork {
 
     const line = await this.lines.findByStation(this.run.stationId);
 
-    return line ? repositoryWorkedOnNamed(name, this.task, line) : null;
+    return line ? repositoryForTaskNamed(name, this.task, line) : null;
   }
 
   async clearFor(
@@ -171,11 +171,11 @@ export class TaskRunWork implements RunWork {
       subject.name,
       PermissionAsked.because(station?.profile?.value ?? null),
     );
-    const worked =
+    const recorded =
       session && this.run.claimedBy
         ? this.task.recordSession(session, this.run.claimedBy)
         : this.task;
-    const { task, check } = worked.clearFor(
+    const { task, check } = recorded.clearFor(
       subject,
       needed,
       {
@@ -219,7 +219,7 @@ export class TaskRunWork implements RunWork {
       workspaceId: this.task.workspaceId,
       taskId: this.task.id,
       stationId,
-      requester: this.task.raisedBy,
+      requester: this.task.createdBy,
     };
   }
 }

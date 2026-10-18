@@ -45,8 +45,8 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 
@@ -131,7 +131,7 @@ export class StartReplayCheckHandler
 
       try {
         const created = await this.transaction.inTransaction(() =>
-          createdOnce(
+          createIdempotently(
             this.creates,
             {
               by: command.actor.principal.toString(),
@@ -154,7 +154,7 @@ export class StartReplayCheckHandler
               const started = await this.started(
                 await this.gated(station),
                 planned,
-                Attribution.of(command.actor, station.workspaceId),
+                ChangeActor.of(command.actor, station.workspaceId),
               );
 
               reused = started.reused;
@@ -214,7 +214,7 @@ export class StartReplayCheckHandler
   private async started(
     gated: Gated,
     planned: Planned,
-    by: Attribution,
+    by: ChangeActor,
   ): Promise<{ readonly id: string; readonly reused: boolean }> {
     const { station, live, threshold } = gated;
     const scored = scoredLive(planned.station, live.block);

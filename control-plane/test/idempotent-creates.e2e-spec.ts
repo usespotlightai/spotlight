@@ -9,9 +9,9 @@ import {
   type IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import {
-  IDEMPOTENT_RECALLS,
-  type IdempotentRecallsPort,
-} from '@shared-kernel/application/ports/idempotent-recalls.port';
+  IDEMPOTENT_LOOKUPS,
+  type IdempotentLookupsPort,
+} from '@shared-kernel/application/ports/idempotent-lookups.port';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -29,7 +29,7 @@ const stateWithin = <T>(work: Promise<T>, within: number) =>
 describe('idempotent creates, claimed in the caller’s transaction (e2e)', () => {
   let app: INestApplication;
   let creates: IdempotentCreatesPort;
-  let recalls: IdempotentRecallsPort;
+  let lookups: IdempotentLookupsPort;
   let context: DrizzleContext;
   let db: DrizzleDatabase;
   const by = `creates-${randomUUID()}`;
@@ -54,8 +54,8 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
     });
     const done = context
       .inTransaction(async () => {
-        await creates.claim(made);
-        await creates.created(made, 'created_first');
+        await creates.reserve(made);
+        await creates.recordCreated(made, 'created_first');
         claimed();
         await released;
 
@@ -71,7 +71,7 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
   beforeAll(async () => {
     app = await openApp();
     creates = app.get(IDEMPOTENT_CREATES);
-    recalls = app.get(IDEMPOTENT_RECALLS);
+    lookups = app.get(IDEMPOTENT_LOOKUPS);
     context = app.get(DrizzleContext);
     db = app.get(DRIZZLE);
   });
@@ -92,7 +92,7 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
 
     await first.hasClaimed;
 
-    const second = context.inTransaction(() => creates.claim(made));
+    const second = context.inTransaction(() => creates.reserve(made));
 
     expect(await stateWithin(second, 300)).toBe('waiting');
 
@@ -100,7 +100,7 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
     await first.done;
 
     expect(await second).toEqual({
-      kind: 'replay',
+      kind: 'already-created',
       createdId: 'created_first',
     });
   });
@@ -111,68 +111,68 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
 
     await first.hasClaimed;
 
-    const second = context.inTransaction(() => creates.claim(made));
+    const second = context.inTransaction(() => creates.reserve(made));
 
     first.release();
     await first.done;
 
-    expect(await second).toEqual({ kind: 'fresh' });
+    expect(await second).toEqual({ kind: 'new' });
   });
 
   it('rejects the key for a different request', async () => {
     const made = create();
 
     await context.inTransaction(async () => {
-      await creates.claim(made);
-      await creates.created(made, 'created_first');
+      await creates.reserve(made);
+      await creates.recordCreated(made, 'created_first');
     });
 
     expect(
-      await creates.claim({ ...made, request: { name: 'Slack' } }),
-    ).toEqual({ kind: 'reused' });
+      await creates.reserve({ ...made, request: { name: 'Slack' } }),
+    ).toEqual({ kind: 'key-reused' });
   });
 
   it('purges a key a day after it was used', async () => {
     const made = create();
 
     await context.inTransaction(async () => {
-      await creates.claim(made);
-      await creates.created(made, 'created_first');
+      await creates.reserve(made);
+      await creates.recordCreated(made, 'created_first');
     });
     await db
       .update(schema.idempotentCreate)
       .set({ createdAt: sql`now() - interval '25 hours'` })
       .where(eq(schema.idempotentCreate.scope, by));
 
-    expect(await creates.claim(made)).toEqual({ kind: 'fresh' });
+    expect(await creates.reserve(made)).toEqual({ kind: 'new' });
   });
 
-  it('recalls what a key created without claiming it', async () => {
+  it('looks up what a key created without reserving it', async () => {
     const made = create();
 
-    expect(await recalls.recall(made)).toEqual({ kind: 'unseen' });
+    expect(await lookups.lookup(made)).toEqual({ kind: 'new' });
 
     await context.inTransaction(async () => {
-      await creates.claim(made);
-      await creates.created(made, 'created_first');
+      await creates.reserve(made);
+      await creates.recordCreated(made, 'created_first');
     });
 
-    expect(await recalls.recall(made)).toEqual({
-      kind: 'replay',
+    expect(await lookups.lookup(made)).toEqual({
+      kind: 'already-created',
       createdId: 'created_first',
     });
     expect(
-      await recalls.recall({ ...made, request: { name: 'Slack' } }),
-    ).toEqual({ kind: 'reused' });
+      await lookups.lookup({ ...made, request: { name: 'Slack' } }),
+    ).toEqual({ kind: 'key-reused' });
   });
 
-  it('recalls nothing of a key still being created, or one a day old', async () => {
+  it('finds nothing for a key still being created, or one a day old', async () => {
     const made = create();
     const first = blocking(made, 'commit');
 
     await first.hasClaimed;
 
-    expect(await recalls.recall(made)).toEqual({ kind: 'unseen' });
+    expect(await lookups.lookup(made)).toEqual({ kind: 'new' });
 
     first.release();
     await first.done;
@@ -181,6 +181,6 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
       .set({ createdAt: sql`now() - interval '25 hours'` })
       .where(eq(schema.idempotentCreate.scope, by));
 
-    expect(await recalls.recall(made)).toEqual({ kind: 'unseen' });
+    expect(await lookups.lookup(made)).toEqual({ kind: 'new' });
   });
 });

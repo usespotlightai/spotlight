@@ -32,7 +32,7 @@ export interface ChatSetupRow {
   readonly pullRequest: string | null;
 }
 
-export interface ImprovedStationRow {
+export interface TargetStationRow {
   readonly lineId: string;
   readonly lineKey: string;
   readonly lineName: string;
@@ -53,7 +53,7 @@ export const chat = pgTable(
     model: text('model'),
     effort: text('effort'),
     repositories: jsonb('repositories').$type<string[]>().notNull().default([]),
-    improving: jsonb('improving').$type<ImprovedStationRow>(),
+    targetStation: jsonb('target_station').$type<TargetStationRow>(),
     setup: jsonb('setup').$type<ChatSetupRow>(),
     currentRunId: text('current_run_id'),
     sessionId: text('session_id'),

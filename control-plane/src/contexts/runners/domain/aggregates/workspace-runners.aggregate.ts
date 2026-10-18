@@ -8,7 +8,7 @@ import type { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import type { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -53,7 +53,7 @@ export class WorkspaceRunners extends EventRecorder {
     input: Declaration & {
       id: WorkspaceRunnersId;
       workspaceId: WorkspaceId;
-      by: Attribution;
+      by: ChangeActor;
     },
   ): WorkspaceRunners {
     rejectRepeats(input);
@@ -108,7 +108,7 @@ export class WorkspaceRunners extends EventRecorder {
     }
   }
 
-  update(declaration: Declaration, by: Attribution): WorkspaceRunners {
+  update(declaration: Declaration, by: ChangeActor): WorkspaceRunners {
     this.assertNotDeleted();
     rejectRepeats(declaration);
 
@@ -128,7 +128,7 @@ export class WorkspaceRunners extends EventRecorder {
     return updated;
   }
 
-  delete(by: Attribution): WorkspaceRunners {
+  delete(by: ChangeActor): WorkspaceRunners {
     this.assertNotDeleted();
 
     const deleted = this.with({ deleted: true });

@@ -11,18 +11,18 @@ import {
   transaction,
 } from '@integrations/integrations.resources.fake-spec';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const deleting = (
   over: {
-    administers?: boolean;
+    isAdmin?: boolean;
     enabled?: ToolUses;
   } & Parameters<typeof definitions>[0] = {},
 ) => {
   const repository = definitions({ stored: storedAt(3), ...over });
   const handler = new DeleteIntegrationHandler(
-    access(over.administers),
+    access(over.isAdmin),
     repository,
     enabledTools(over.enabled),
     transaction,
@@ -88,7 +88,7 @@ describe('DeleteIntegrationHandler', () => {
 
   it('answers nothing for an integration it cannot find, and forbids one it may not delete', async () => {
     expect(await deleting({ stored: null }).remove()).toBeNull();
-    expect(await deleting({ administers: false }).remove()).toEqual(
+    expect(await deleting({ isAdmin: false }).remove()).toEqual(
       forbiddenTo('configure'),
     );
   });

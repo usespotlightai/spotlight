@@ -245,21 +245,21 @@ const anOriginal = async (): Promise<Original> => {
     stationId: BUILD,
     title: `Drain queue ${runId.slice(0, 4)}`,
     description: 'It stalls on restart.',
-    raisedAtStationId: BUILD,
-    raisedById: team.owner.value,
+    originStationId: BUILD,
+    createdById: team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
   });
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    continuityKey: `task-${taskId}`,
+    resumeKey: `task-${taskId}`,
     taskId,
     grantedToRunId: randomUUID(),
     size: 1_024,
     sha256: 'a'.repeat(64),
     grantedAt: at,
-    sealedAt: at,
+    completedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
@@ -282,7 +282,7 @@ const anOriginal = async (): Promise<Original> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship'], noteLimit: 0 },
-      continuity: { key: `task-${taskId}` },
+      resume: { key: `task-${taskId}` },
       startingPoint: true,
     },
     briefedTask: BriefedTask.of({
@@ -381,7 +381,7 @@ const entryOf = async (runId: string) => {
   return entry;
 };
 
-const worked = async () => {
+const processed = async () => {
   await app.get(WorkChangeStacks).processDue();
   await app.get(WorkChangeStacks).idle();
   await app.get(WorkChangeJudgings).processDue();
@@ -503,7 +503,7 @@ const workUntil = async (
 ) => {
   for (let turn = 0; turn < 400; turn += 1) {
     await app.get(DispatchReplayRuns).processDue();
-    await worked();
+    await processed();
 
     if (done(await entriesOf(replayIds))) {
       return;
@@ -835,7 +835,7 @@ describe('checking a replay set’s health', () => {
 
   it('replays the live config handed each run’s answer once a replay of the whole set finishes, and says how much room the set leaves', async () => {
     const started = await eventually(async () => {
-      await worked();
+      await processed();
       return (await setOf(setId)).health.oracle;
     }, 30_000);
 
@@ -847,7 +847,7 @@ describe('checking a replay set’s health', () => {
     await workUntil([started.replayId], scoredAll, () => 5);
 
     const oracle = await eventually(async () => {
-      await worked();
+      await processed();
       const read = (await setOf(setId)).health.oracle;
 
       return read?.state === 'finished' && read.gain ? read : null;

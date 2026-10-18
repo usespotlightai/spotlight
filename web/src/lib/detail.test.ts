@@ -8,7 +8,7 @@ const node = (
   kind: 'step',
   startedAt: '2026-08-29T12:00:00.000Z',
   ms: 1_000,
-  tone: 'agent',
+  category: 'agent',
   cost: null,
   currency: null,
   step: null,
@@ -46,7 +46,7 @@ describe('shaped', () => {
     ]);
   });
 
-  it('names its way into what is nested', () => {
+  it('names the path to each nested value', () => {
     expect(shaped('{"a":{"b":[1,null]}}')).toEqual([
       { path: 'a.b[0]', value: '1', kind: 'number' },
       { path: 'a.b[1]', value: 'null', kind: 'null' },
@@ -110,7 +110,7 @@ describe('contentsOf', () => {
               node({
                 id: '2',
                 name: 'Thought',
-                tone: 'failed',
+                category: 'failed',
                 step: step({ kind: 'thought' }),
               }),
             ],
@@ -120,7 +120,7 @@ describe('contentsOf', () => {
     );
 
     expect(contents.rows).toBe(3);
-    expect(contents.faults).toBe(1);
+    expect(contents.errors).toBe(1);
     expect([...contents.kinds]).toEqual([
       ['Tools', 1],
       ['Thoughts', 1],

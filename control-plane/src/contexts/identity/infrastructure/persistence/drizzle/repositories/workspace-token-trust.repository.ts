@@ -44,7 +44,7 @@ const toTrust = (row: Row): WorkspaceTokenTrust =>
     version: row.version,
   });
 
-const termsOf = (trust: WorkspaceTokenTrust) => ({
+const specOf = (trust: WorkspaceTokenTrust) => ({
   issuer: trust.workload.issuer,
   audience: trust.workload.audience,
   subject: trust.workload.subject.value,
@@ -70,7 +70,7 @@ export class DrizzleWorkspaceTokenTrustRepository
           id: added.id.value,
           workspaceId: added.workspaceId.value,
           key: added.key.value,
-          ...termsOf(added),
+          ...specOf(added),
           createdBy: added.createdBy.value,
           version: added.version,
         });
@@ -109,7 +109,7 @@ export class DrizzleWorkspaceTokenTrustRepository
             .returning({ id: workspaceTokenTrust.id })
         : await this.context.db
             .update(workspaceTokenTrust)
-            .set({ ...termsOf(saved), version: saved.version + 1 })
+            .set({ ...specOf(saved), version: saved.version + 1 })
             .where(matching)
             .returning({ id: workspaceTokenTrust.id });
 

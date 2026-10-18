@@ -15,8 +15,8 @@ import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
@@ -53,7 +53,7 @@ const waiting = (
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task:station' },
+      resume: { key: 'task:station' },
       ...(injectedSecrets.length > 0 ? { injectedSecrets } : {}),
     }),
     placement: RunnerPlacement.of(placement).in(image),
@@ -81,7 +81,7 @@ const aPool = (
   poolId: `pool_${key}`,
   workspaceId: WorkspaceId.of('ws_1'),
   key,
-  labels: RunnerTerms.of(labels),
+  labels: RunnerOffer.of(labels),
   egress,
   maxRuns: null,
 });
@@ -149,7 +149,7 @@ const provisioning = (
   let generated = 0;
   const failures = new ProvisionFailures(
     runs,
-    { append: async () => {}, appendAside: async () => -1_000_000 },
+    { append: async () => {}, appendControlPlaneEntry: async () => -1_000_000 },
     { publish: () => {}, subscribe: () => () => {} },
   );
 

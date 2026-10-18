@@ -41,7 +41,7 @@ func TestRegisterCarriesTheBearerTokenAndKeepsTheId(t *testing.T) {
 	var seenAuth string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		seenAuth = r.Header.Get("Authorization")
-		_ = json.NewEncoder(w).Encode(protocol.Registered{RunnerID: "runner_1"})
+		_ = json.NewEncoder(w).Encode(protocol.RegisterResponse{RunnerID: "runner_1"})
 	})
 
 	if err := client.Register(context.Background(), protocol.Registration{}); err != nil {
@@ -69,7 +69,7 @@ func TestRegisterRejectsAnAnswerWithoutAnId(t *testing.T) {
 func TestClaimTreatsAnEmptyQueueAsOrdinary(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/runners/register" {
-			_ = json.NewEncoder(w).Encode(protocol.Registered{RunnerID: "runner_1"})
+			_ = json.NewEncoder(w).Encode(protocol.RegisterResponse{RunnerID: "runner_1"})
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -92,11 +92,11 @@ func TestClaimReturnsTheRun(t *testing.T) {
 	var claimPath string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/runners/register" {
-			_ = json.NewEncoder(w).Encode(protocol.Registered{RunnerID: "runner_1"})
+			_ = json.NewEncoder(w).Encode(protocol.RegisterResponse{RunnerID: "runner_1"})
 			return
 		}
 		claimPath = r.URL.Path
-		_ = json.NewEncoder(w).Encode(protocol.Claimed{
+		_ = json.NewEncoder(w).Encode(protocol.ClaimResponse{
 			Kind: protocol.ClaimedRun,
 			Run:  &protocol.Run{ID: "run_1"},
 		})
@@ -263,7 +263,7 @@ func TestUseToolSaysWhichToolTheControlPlaneRejected(t *testing.T) {
 func TestClaimReadsAChangeStackCheck(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/runners/register" {
-			_ = json.NewEncoder(w).Encode(protocol.Registered{RunnerID: "runner_1"})
+			_ = json.NewEncoder(w).Encode(protocol.RegisterResponse{RunnerID: "runner_1"})
 			return
 		}
 		_, _ = w.Write([]byte(`{"kind":"check","run":null,"check":{"stackId":"s1","runId":"run_1","repository":"widgets","base":"abc","setup":"npm ci","command":"npm test","steps":[{"id":"whole","patch":"diff","stopsOnFailure":true}]}}`))
@@ -314,15 +314,15 @@ func TestGenerateChangeStackHandsOverTheDiffOfOneCheckout(t *testing.T) {
 
 func TestRecordChangeStackCheckPostsEachStep(t *testing.T) {
 	var seenPath string
-	var seen protocol.StackChecked
+	var seen protocol.StackCheckResult
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		seenPath = r.URL.Path
 		_ = json.NewDecoder(r.Body).Decode(&seen)
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	err := client.RecordChangeStackCheck(context.Background(), "run_1", "s1", false, protocol.StackChecked{
-		Steps: []protocol.CheckedStep{{Step: "whole", Passed: true, Output: "ok", DurationMs: 12}},
+	err := client.RecordChangeStackCheck(context.Background(), "run_1", "s1", false, protocol.StackCheckResult{
+		Steps: []protocol.CheckStepResult{{Step: "whole", Passed: true, Output: "ok", DurationMs: 12}},
 	})
 	if err != nil {
 		t.Fatalf("record: %v", err)
@@ -369,7 +369,7 @@ func TestRecheckCallsNameTheRecheck(t *testing.T) {
 	if _, err := client.RenewCheckLease(context.Background(), "run_1", "stack_1", true); err != nil {
 		t.Fatalf("renew: %v", err)
 	}
-	if err := client.RecordChangeStackCheck(context.Background(), "run_1", "stack_1", true, protocol.StackChecked{}); err != nil {
+	if err := client.RecordChangeStackCheck(context.Background(), "run_1", "stack_1", true, protocol.StackCheckResult{}); err != nil {
 		t.Fatalf("record: %v", err)
 	}
 
@@ -421,7 +421,7 @@ func TestAskPermissionPostsWhatWasAskedAndReadsTheDecision(t *testing.T) {
 		_, _ = w.Write([]byte(`{"decision":"asked"}`))
 	})
 
-	answer, err := client.AskPermission(context.Background(), "run_1", protocol.PermissionAsked{
+	answer, err := client.AskPermission(context.Background(), "run_1", protocol.PermissionRequest{
 		SessionID: "sess-1",
 		Kind:      "execute",
 		Title:     "`rm -rf build`",
@@ -450,7 +450,7 @@ func TestAskPermissionLeavesOutAnInputThereWasNone(t *testing.T) {
 		_, _ = w.Write([]byte(`{"decision":"allow"}`))
 	})
 
-	answer, err := client.AskPermission(context.Background(), "run_1", protocol.PermissionAsked{SessionID: "sess-1"})
+	answer, err := client.AskPermission(context.Background(), "run_1", protocol.PermissionRequest{SessionID: "sess-1"})
 	if err != nil {
 		t.Fatalf("ask: %v", err)
 	}
@@ -468,7 +468,7 @@ func TestAskPermissionFailsRatherThanDecidingOnItsOwn(t *testing.T) {
 		http.Error(w, "no such run", http.StatusNotFound)
 	})
 
-	answer, err := client.AskPermission(context.Background(), "run_1", protocol.PermissionAsked{})
+	answer, err := client.AskPermission(context.Background(), "run_1", protocol.PermissionRequest{})
 
 	if err == nil || !strings.Contains(err.Error(), "404") {
 		t.Fatalf("expected a 404, got %v", err)
@@ -503,7 +503,7 @@ func TestReadsTheWorkspaceToRestoreAndLearnsWhenThereIsNone(t *testing.T) {
 	}
 }
 
-func TestRequestsAWorkspaceArchiveThenSealsIt(t *testing.T) {
+func TestRequestsAWorkspaceArchiveThenCompletesIt(t *testing.T) {
 	var calls []string
 	var received protocol.ArchiveRequest
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
@@ -526,11 +526,11 @@ func TestRequestsAWorkspaceArchiveThenSealsIt(t *testing.T) {
 		t.Errorf("received %+v", received)
 	}
 
-	if err := client.SealArchive(context.Background(), "run_1", grant.ID); err != nil {
-		t.Fatalf("seal: %v", err)
+	if err := client.CompleteArchive(context.Background(), "run_1", grant.ID); err != nil {
+		t.Fatalf("complete: %v", err)
 	}
-	if calls[1] != "POST /api/runs/run_1/workspace-archive/archive_1/sealed" {
-		t.Errorf("sealed with %s", calls[1])
+	if calls[1] != "POST /api/runs/run_1/workspace-archive/archive_1/complete" {
+		t.Errorf("completed with %s", calls[1])
 	}
 }
 
@@ -684,34 +684,34 @@ func TestClaimCallRejectsACallWithNoAddress(t *testing.T) {
 	}
 }
 
-func TestAnswerCallPostsTheAnswerToTheCall(t *testing.T) {
+func TestRecordCallResponsePostsTheResponseOfTheCall(t *testing.T) {
 	var path string
-	var answered protocol.HostCallAnswer
+	var recorded protocol.HostCallResponse
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		path = r.URL.Path
-		_ = json.NewDecoder(r.Body).Decode(&answered)
+		_ = json.NewDecoder(r.Body).Decode(&recorded)
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	answer := protocol.HostCallAnswer{Status: 200, Headers: map[string]string{"content-type": "application/json"}, Body: "e30=", Ms: 12}
-	if err := client.AnswerCall(context.Background(), "call_1", answer); err != nil {
+	response := protocol.HostCallResponse{Status: 200, Headers: map[string]string{"content-type": "application/json"}, Body: "e30=", Ms: 12}
+	if err := client.RecordCallResponse(context.Background(), "call_1", response); err != nil {
 		t.Fatal(err)
 	}
-	if path != "/api/hosts/calls/call_1/answer" || answered.Status != 200 || answered.Body != "e30=" || answered.Ms != 12 {
-		t.Errorf("answered %s with %+v", path, answered)
+	if path != "/api/hosts/calls/call_1/response" || recorded.Status != 200 || recorded.Body != "e30=" || recorded.Ms != 12 {
+		t.Errorf("recorded %s with %+v", path, recorded)
 	}
 }
 
-func TestAnswerCallTellsACallAlreadyAnswered(t *testing.T) {
+func TestRecordCallResponseTellsACallAlreadyAnswered(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusConflict)
 		_, _ = w.Write([]byte(`{"reason":"call-answered"}`))
 	})
 
-	err := client.AnswerCall(context.Background(), "call_1", protocol.HostCallAnswer{Error: "timed out after 10s"})
+	err := client.RecordCallResponse(context.Background(), "call_1", protocol.HostCallResponse{Error: "timed out after 10s"})
 	var rejection *control.ResponseError
 	if !errors.As(err, &rejection) || rejection.Status != http.StatusConflict {
-		t.Errorf("answered with %v", err)
+		t.Errorf("recorded with %v", err)
 	}
 }
 
@@ -746,7 +746,7 @@ func TestARejectedMemorySaysWhySpotlightRejectedIt(t *testing.T) {
 		_, _ = w.Write([]byte(`{"message":"A memory is one of rationale, not gossip","error":"Unprocessable Entity","statusCode":422}`))
 	})
 
-	_, err := client.Remember(context.Background(), "run_1", protocol.Remembering{Kind: "gossip", Body: "x"})
+	_, err := client.Remember(context.Background(), "run_1", protocol.RememberRequest{Kind: "gossip", Body: "x"})
 
 	var rejection *control.ResponseError
 	if !errors.As(err, &rejection) {
@@ -763,7 +763,7 @@ func TestAnUnreachableSpotlightIsNoClientError(t *testing.T) {
 		_, _ = w.Write([]byte(`{"message":"upstream down"}`))
 	})
 
-	_, err := client.Remember(context.Background(), "run_1", protocol.Remembering{Kind: "rationale", Body: "x"})
+	_, err := client.Remember(context.Background(), "run_1", protocol.RememberRequest{Kind: "rationale", Body: "x"})
 
 	var rejection *control.ResponseError
 	if errors.As(err, &rejection) {

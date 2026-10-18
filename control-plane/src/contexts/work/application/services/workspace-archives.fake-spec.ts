@@ -15,8 +15,8 @@ import type {
 import { WorkspaceArchiveVersionConflictError } from '@work/domain/exceptions/workspace-archive-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { WorkspaceArchiveRepository } from '@work/domain/repositories/workspace-archive.repository';
-import type { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
-import { ContinuityKey as Key } from '@work/domain/value-objects/continuity-key.vo';
+import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
+import { ResumeKey as Key } from '@work/domain/value-objects/resume-key.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -30,7 +30,7 @@ export const aLeasedRun = (
     id?: string;
     runner?: string;
     session?: string | null;
-    carriesOn?: boolean;
+    restoresWorkspace?: boolean;
     checkouts?: readonly string[];
   } = {},
 ): Run =>
@@ -39,7 +39,7 @@ export const aLeasedRun = (
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('claude-code'),
     subject:
-      over.carriesOn === false
+      over.restoresWorkspace === false
         ? null
         : RunSubject.task(
             TaskId.of('task_1'),
@@ -58,7 +58,7 @@ export const aLeasedRun = (
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'keep the workspace',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: {
+      resume: {
         key: Key.forTask('task_1').value,
         ...(over.session === null
           ? {}
@@ -99,22 +99,23 @@ export class InMemoryArchives implements WorkspaceArchiveRepository {
     return this.stored.get(id.value) ?? null;
   }
 
-  async newestSealed(
+  async newestCompleted(
     workspaceId: WorkspaceId,
-    continuity: ContinuityKey,
+    resumeKey: ResumeKey,
   ): Promise<WorkspaceArchive | null> {
-    const sealed = [...this.stored.values()]
+    const completed = [...this.stored.values()]
       .filter(
         (each) =>
-          each.isSealed &&
+          each.isCompleted &&
           each.workspaceId.equals(workspaceId) &&
-          each.continuity.equals(continuity),
+          each.resumeKey.equals(resumeKey),
       )
       .sort(
-        (a, b) => (b.sealedAt?.getTime() ?? 0) - (a.sealedAt?.getTime() ?? 0),
+        (a, b) =>
+          (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0),
       );
 
-    return sealed[0] ?? null;
+    return completed[0] ?? null;
   }
 }
 

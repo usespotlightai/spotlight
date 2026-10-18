@@ -5,7 +5,7 @@ type RecallRequest struct {
 	Handle string `json:"handle,omitempty"`
 }
 
-type Remembering struct {
+type RememberRequest struct {
 	Kind       string   `json:"kind"`
 	Body       string   `json:"body"`
 	Scope      string   `json:"scope,omitempty"`

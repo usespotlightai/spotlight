@@ -78,7 +78,7 @@ export class ConfigurationChangeResponseDto {
   @ApiProperty({
     type: 'object',
     additionalProperties: true,
-    example: { valueVersion: 2, boundTo: ['api.linear.app'] },
+    example: { valueVersion: 2, targets: ['api.linear.app'] },
     description:
       'What moved beyond the action itself, where that is worth recording, as the resource’s kind records it; a secret records the value version it moved to and the hosts it is bound to once changed, never the value',
   })

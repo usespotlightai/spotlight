@@ -1,7 +1,7 @@
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const CHECK_WORK = Symbol('CHECK_WORK');
@@ -30,13 +30,13 @@ export interface CheckWorkPort {
   claimNext(
     workspaceId: WorkspaceId,
     runner: RunnerId,
-    terms: RunnerTerms,
+    offer: RunnerOffer,
     now: Date,
   ): Promise<ClaimedCheck | null>;
 
   claimReserved(
     runner: RunnerId,
-    terms: RunnerTerms,
+    offer: RunnerOffer,
     now: Date,
   ): Promise<ClaimedCheck | null>;
 

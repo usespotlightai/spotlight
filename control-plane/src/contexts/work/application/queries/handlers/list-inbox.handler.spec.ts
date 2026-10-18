@@ -44,7 +44,7 @@ const item = (failure: InboxItemSummary['failure']): InboxItemSummary => ({
   stationColor: '#edc12b',
   stationPosition: 1,
   stationCount: 3,
-  raisedAt: { name: 'Triage', color: '#edc12b', position: 0 },
+  originStation: { name: 'Triage', color: '#edc12b', position: 0 },
   currentStation: { name: 'Implementation', color: '#edc12b', position: 1 },
   createdAt: asked,
   askedAt: asked,
@@ -54,7 +54,7 @@ const item = (failure: InboxItemSummary['failure']): InboxItemSummary => ({
   unread: true,
   briefing: null,
   failure,
-  aside: null,
+  inboxRequest: null,
   notes: [note(failure)],
 });
 

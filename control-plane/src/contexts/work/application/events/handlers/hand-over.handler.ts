@@ -50,11 +50,11 @@ export class HandOver implements RunOutcomes {
       currentStation: task.stationId,
     });
 
-    const worked = event.session
-      ? task.recordSession(event.session, event.workedBy)
+    const recorded = event.session
+      ? task.recordSession(event.session, event.claimedBy)
       : task;
 
-    await this.saved(await this.applied(handover, worked, line, event.runId));
+    await this.saved(await this.applied(handover, recorded, line, event.runId));
   }
 
   async onRunExhausted(event: RunExhausted): Promise<void> {

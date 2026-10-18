@@ -129,7 +129,7 @@ export class IdentityDefinitions implements IdentityDefinitionsPort {
     return read.success
       ? {
           ok: true,
-          terms: {
+          spec: {
             name: TokenName.of(read.data.name),
             scopes: TokenScopes.named(read.data.scopes),
             description: TokenDescription.of(read.data.description),
@@ -148,7 +148,7 @@ export class IdentityDefinitions implements IdentityDefinitionsPort {
     return read.success
       ? {
           ok: true,
-          terms: {
+          spec: {
             key: TokenTrustKey.of(read.data.key),
             workload: WorkloadRule.of(read.data),
             scopes: TokenScopes.named(read.data.scopes),

@@ -398,7 +398,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       expect(imported.headers.etag).toBe(`"${made.version}"`);
     });
 
-    it('lists it in its workspace, as a read would answer it', async () => {
+    it('lists it in its workspace, as a read returns it', async () => {
       const made = await created();
 
       expect(

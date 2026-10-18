@@ -43,7 +43,7 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -166,7 +166,7 @@ describe('Runners', () => {
         token: 'one-run-token',
         egressToken: 'egress-token',
       });
-      expect(added[0]?.terms.values).toEqual(['linux']);
+      expect(added[0]?.offer.values).toEqual(['linux']);
       expect(added[0]?.running?.image.value).toBe(IMAGE);
       expect(added[0]?.running?.isDefault).toBe(true);
       expect(added[0]?.installed[0]?.version?.value).toBe('2.1.0');
@@ -189,13 +189,13 @@ describe('Runners', () => {
         CLAIM_BY,
       );
 
-      const terms = added[0]?.terms;
+      const offer = added[0]?.offer;
 
-      expect(terms?.serves(RunnerImage.of('ghcr.io/acme/widgets:1'))).toBe(
+      expect(offer?.supports(RunnerImage.of('ghcr.io/acme/widgets:1'))).toBe(
         true,
       );
-      expect(terms?.serves(RunnerImage.of(IMAGE))).toBe(false);
-      expect(terms?.serves(null)).toBe(false);
+      expect(offer?.supports(RunnerImage.of(IMAGE))).toBe(false);
+      expect(offer?.supports(null)).toBe(false);
     });
 
     it('starts none for an image the host did not report serving', async () => {
@@ -315,8 +315,8 @@ describe('Runners', () => {
         token: 'one-run-token',
         egressToken: 'egress-token',
       });
-      expect(added[0]?.terms.values).toEqual(['vpc-internal']);
-      expect(added[0]?.terms.running?.image.value).toBe(IMAGE);
+      expect(added[0]?.offer.values).toEqual(['vpc-internal']);
+      expect(added[0]?.offer.running?.image.value).toBe(IMAGE);
       expect(added[0]?.source.equals(CredentialSource.ofId(TRUST_ID))).toBe(
         true,
       );
@@ -344,7 +344,7 @@ describe('Runners', () => {
       ).resolves.toEqual({ outcome: 'gone' });
       await expect(
         running(null, {
-          trust: aTrust().delete(attributedIn()),
+          trust: aTrust().delete(changeActorIn()),
           host: aHost({ through: aTrust() }),
         }).service.start(THROUGH_TRUST, HOST, IMAGE, STARTED_AT, CLAIM_BY),
       ).resolves.toEqual({ outcome: 'gone' });
@@ -383,7 +383,7 @@ describe('Runners', () => {
       expect(added[0]?.id.value).toBe('pooled_1');
       expect(added[0]?.hostId).toBeNull();
       expect(called[0]).toMatchObject({
-        attempt: 'pooled_1',
+        messageId: 'pooled_1',
         pool: 'sandboxes',
         runId: 'run_1',
         image: 'ghcr.io/acme/widgets:1',

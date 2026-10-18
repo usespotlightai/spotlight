@@ -355,7 +355,7 @@ func TestSetupRunsInTheCheckout(t *testing.T) {
 	}
 }
 
-func TestSetupGoesOutThroughTheWayOut(t *testing.T) {
+func TestSetupConnectsThroughTheLocalProxy(t *testing.T) {
 	output, err := prepare.Setup(context.Background(), t.TempDir(), "echo $HTTPS_PROXY", nil, 0,
 		map[string]string{"HTTPS_PROXY": "http://127.0.0.1:3128"})
 	if err != nil || output != "http://127.0.0.1:3128" {

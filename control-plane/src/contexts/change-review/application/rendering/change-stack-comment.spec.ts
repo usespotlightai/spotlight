@@ -13,7 +13,7 @@ import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -102,7 +102,7 @@ describe('ChangeStackComment', () => {
       entries: stack.entries(),
       now: NOW,
     })
-      .claimedFor(CHECKER, RunnerTerms.none(), NOW)
+      .claimedFor(CHECKER, RunnerOffer.none(), NOW)
       .recordResult(
         CHECKER,
         { steps: stack.checkSteps(stack.entries()), layers: stack.layers() },

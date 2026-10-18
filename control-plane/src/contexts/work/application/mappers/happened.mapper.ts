@@ -7,7 +7,7 @@ import type {
 } from '@work/application/contracts/happenings.contract';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
-import { Concerns } from '@work/domain/value-objects/concerns.vo';
+import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import {
   Happening,
   type HappeningPayload,
@@ -24,7 +24,7 @@ import { StationKey } from '@work/domain/value-objects/station-key.vo';
 
 export interface ReceivedHappening {
   readonly payload: HappeningPayload;
-  readonly concerns: Concerns;
+  readonly correlationKeys: CorrelationKeys;
   readonly anchor: Anchor | null;
   readonly ourOwn: boolean;
   readonly opens: OpensWith | null;
@@ -55,12 +55,12 @@ export const HappenedMapper = {
   },
 
   toReceivedHappening(happened: Happened): ReceivedHappening | null {
-    const concerns = Concerns.of({
-      branch: happened.concerns.branch,
-      marks: happened.concerns.marks.map(HappenedMapper.markOf),
+    const correlationKeys = CorrelationKeys.of({
+      branch: happened.correlationKeys.branch,
+      marks: happened.correlationKeys.marks.map(HappenedMapper.markOf),
     });
 
-    if (!concerns) {
+    if (!correlationKeys) {
       return null;
     }
 
@@ -73,7 +73,7 @@ export const HappenedMapper = {
         answers: happened.answers,
         state: happened.state,
       },
-      concerns,
+      correlationKeys,
       anchor: happened.message ? Anchor.of(happened.message) : null,
       ourOwn: happened.ourOwn,
       opens: opens

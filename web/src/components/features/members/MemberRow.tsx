@@ -44,7 +44,7 @@ export function MemberRow({ slug, member }: MemberRowProps) {
           <MemberActions
             name={member.name}
             role={member.role}
-            mayBeSetTo={member.mayBeSetTo}
+            assignableRoles={member.assignableRoles}
             disabled={changeRole.isPending}
             onChangeRole={(role) =>
               changeRole.mutate({ userId: member.id, role })

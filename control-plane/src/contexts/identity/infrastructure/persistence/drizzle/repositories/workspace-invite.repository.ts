@@ -5,7 +5,7 @@ import { InviteVersionConflictError } from '@identity/domain/exceptions/invite-v
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import {
   team,
@@ -95,7 +95,7 @@ export class DrizzleWorkspaceInviteRepository
   }
 
   private async teamsWritten(invite: WorkspaceInvite): Promise<void> {
-    const teams = invite.terms.teams.map((each) => each.value);
+    const teams = invite.spec.teams.map((each) => each.value);
 
     await this.context.db
       .delete(workspaceInviteTeam)
@@ -168,7 +168,7 @@ export class DrizzleWorkspaceInviteRepository
       id: invite.id.value,
       workspaceId: invite.workspaceId.value,
       email: invite.email.value,
-      role: invite.terms.role.value,
+      role: invite.spec.role.value,
       tokenHash: invite.tokenHash.value,
       invitedBy: invite.invitedBy?.value ?? null,
       invitedAt: invite.invitedAt,
@@ -184,7 +184,7 @@ export class DrizzleWorkspaceInviteRepository
       id: InviteId.of(row.id),
       workspaceId: WorkspaceId.of(row.workspaceId),
       email: EmailAddress.of(row.email),
-      terms: InviteTerms.of(WorkspaceRole.of(row.role), teams),
+      spec: InviteSpec.of(WorkspaceRole.of(row.role), teams),
       tokenHash: TokenHash.of(row.tokenHash),
       invitedBy: row.invitedBy ? UserId.of(row.invitedBy) : null,
       invitedAt: row.invitedAt,

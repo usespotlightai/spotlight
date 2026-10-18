@@ -4,14 +4,14 @@ import { describe, expect, it } from 'vitest';
 describe('RunOutcome', () => {
   it('tells a run that failed before its agent was handed it from one whose agent failed', () => {
     expect(
-      RunOutcome.of({ exitCode: -1, failed: true, unprepared: true }).failure
+      RunOutcome.of({ exitCode: -1, failed: true, setupFailed: true }).failure
         ?.code,
     ).toBe('unprepared');
     expect(RunOutcome.of({ exitCode: -1, failed: true }).failure?.code).toBe(
       'exited',
     );
     expect(
-      RunOutcome.of({ exitCode: 0, failed: false, unprepared: true }).failure,
+      RunOutcome.of({ exitCode: 0, failed: false, setupFailed: true }).failure,
     ).toBeNull();
   });
 

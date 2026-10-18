@@ -46,7 +46,7 @@ export const memorySubscribers = (
       ),
   ),
   subscribing<MemoriesProposed>(
-    'memory.raise-review',
+    'memory.create-review',
     ['memory-draft.proposed'],
     (event) => reactions.onProposed(event),
   ),

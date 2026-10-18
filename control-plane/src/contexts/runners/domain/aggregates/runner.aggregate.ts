@@ -13,7 +13,7 @@ import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -81,10 +81,9 @@ export class Runner extends EventRecorder {
       );
     }
 
-    const goesOutThroughEgress =
-      through instanceof RunnerPool && through.egress !== null;
+    const usesEgress = through instanceof RunnerPool && through.egress !== null;
 
-    if (goesOutThroughEgress !== (input.proxyCredentialHash !== null)) {
+    if (usesEgress !== (input.proxyCredentialHash !== null)) {
       throw new InconsistentStateError(
         'runner',
         'was given a proxy credential that does not match the egress of its pool',
@@ -208,8 +207,8 @@ export class Runner extends EventRecorder {
     return this.state.installed.map((each) => each.id);
   }
 
-  get terms(): RunnerTerms {
-    return RunnerTerms.of(this.state.labels.values).runningIn(
+  get offer(): RunnerOffer {
+    return RunnerOffer.of(this.state.labels.values).runningIn(
       this.state.running,
     );
   }
@@ -234,13 +233,13 @@ export class Runner extends EventRecorder {
     return new Date(now.getTime() - ENDED_RETENTION_MS);
   }
 
-  workEgressActsFor(now: Date): RunnerWork | null {
+  authenticateEgressToken(now: Date): RunnerWork | null {
     return this.state.egressTokenHash !== null && this.isAlive(now)
       ? this.state.work
       : null;
   }
 
-  workEgressRecordsFor(now: Date): RunnerWork | null {
+  workForConnectionRecords(now: Date): RunnerWork | null {
     const { endedAt, work } = this.state;
     const recordsStill =
       this.isAlive(now) ||

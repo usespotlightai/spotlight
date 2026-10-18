@@ -23,7 +23,7 @@ import type { RunnerRepository } from '@runners/domain/repositories/runner.repos
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
-import { carriesRunTokens } from '@runners/domain/services/run-token-carriage';
+import { allowsUrl } from '@runners/domain/services/allows-url';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import type { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
@@ -56,7 +56,7 @@ type Unusable = { readonly outcome: 'unusable'; readonly detail: string };
 
 type Answered = ProvisionAnswer | Unusable;
 
-type WayOut =
+type ResolvedEgress =
   | { readonly outcome: 'found'; readonly url: EgressUrl | null }
   | Unusable;
 
@@ -90,11 +90,10 @@ export class Runners implements RunnersPort {
       return false;
     }
 
-    const serving = await this.hosts.find(hostId);
+    const known = await this.hosts.find(hostId);
 
     return (
-      serving?.servesThrough(CredentialSource.of(source.kind, source.id)) ??
-      false
+      known?.hasSource(CredentialSource.of(source.kind, source.id)) ?? false
     );
   }
 
@@ -106,15 +105,15 @@ export class Runners implements RunnersPort {
     claimBy: Date,
   ): Promise<StartedRunner> {
     const hostId = HostId.of(host);
-    const serving = await this.hosts.find(hostId);
+    const known = await this.hosts.find(hostId);
 
-    if (!serving?.servesThrough(CredentialSource.of(source.kind, source.id))) {
+    if (!known?.hasSource(CredentialSource.of(source.kind, source.id))) {
       return { outcome: 'host-unreported' };
     }
 
-    const offered = serving.offering(RunnerImage.of(image));
+    const supported = known.supportedImage(RunnerImage.of(image));
 
-    if (!offered) {
+    if (!supported) {
       return { outcome: 'image-unreported' };
     }
 
@@ -129,8 +128,8 @@ export class Runners implements RunnersPort {
         tokenHash: TokenHash.of(issued.hash),
         egressTokenHash: TokenHash.of(egress.hash),
         proxyCredentialHash: null,
-        installed: offered.harnesses,
-        running: offered.running,
+        installed: supported.harnesses,
+        running: supported.running,
         at,
         claimBy,
       });
@@ -267,22 +266,22 @@ export class Runners implements RunnersPort {
       );
     }
 
-    if (!carriesRunTokens(access.url, this.settings.insecureAllowed)) {
+    if (!allowsUrl(access.url, this.settings.insecureAllowed)) {
       return {
         outcome: 'not-allowed',
         detail: 'Provision URL must be https. Its calls carry a one-run token.',
       };
     }
 
-    const wayOut = await this.wayOutOf(pool, access.egress);
+    const resolved = await this.resolveEgress(pool, access.egress);
 
-    if (wayOut.outcome !== 'found') {
-      return wayOut;
+    if (resolved.outcome !== 'found') {
+      return resolved;
     }
 
     if (
-      wayOut.url &&
-      !carriesRunTokens(wayOut.url, this.settings.insecureAllowed)
+      resolved.url &&
+      !allowsUrl(resolved.url, this.settings.insecureAllowed)
     ) {
       return {
         outcome: 'not-allowed',
@@ -292,15 +291,15 @@ export class Runners implements RunnersPort {
     }
 
     const egress: ProvisionEgress | null =
-      wayOut.url && credential
+      resolved.url && credential
         ? {
-            url: wayOut.url.value,
+            url: resolved.url.value,
             credential: credential.token,
             traffic: pool.egressTraffic.value,
           }
         : null;
 
-    if (wayOut.url && !egress) {
+    if (resolved.url && !egress) {
       throw new InconsistentStateError(
         'runner',
         'was started for an egress with no proxy credential',
@@ -326,7 +325,7 @@ export class Runners implements RunnersPort {
     return this.calls.call({
       url: access.url,
       secret,
-      attempt: request.runnerId.value,
+      messageId: request.runnerId.value,
       at,
       pool: pool.key.value,
       workspaceId: pool.workspaceId.value,
@@ -343,10 +342,10 @@ export class Runners implements RunnersPort {
     });
   }
 
-  private async wayOutOf(
+  private async resolveEgress(
     pool: RunnerPool,
     reference: EgressReference | null,
-  ): Promise<WayOut> {
+  ): Promise<ResolvedEgress> {
     if (!reference) {
       return { outcome: 'found', url: null };
     }

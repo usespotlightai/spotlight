@@ -11,13 +11,13 @@ import {
   checkoutsOf,
   type TaskCheckout,
 } from '@work/domain/services/task-checkouts';
-import type { Continuity } from '@work/domain/value-objects/continuity.vo';
 import type { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
 import type { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
 import type { Harness } from '@work/domain/value-objects/harness.vo';
 import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import type { ReadySkill } from '@work/domain/value-objects/ready-skill';
+import type { Resume } from '@work/domain/value-objects/resume.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import type { StationCheck } from '@work/domain/value-objects/station-check.vo';
@@ -32,7 +32,7 @@ export interface RunOrder {
   readonly placement: RunnerPlacement;
   readonly options: readonly HandoverOption[];
   readonly noteLimit: number;
-  readonly continuity: Continuity;
+  readonly resume: Resume;
   readonly checkouts: readonly TaskCheckout[];
   readonly enabled: EnabledForRun;
   readonly diffs: boolean;
@@ -42,7 +42,7 @@ export interface RunOrder {
 
 export interface OrderedAt {
   readonly stationId: StationId;
-  readonly continuity: Continuity;
+  readonly resume: Resume;
   readonly checkouts: readonly TaskCheckout[];
 }
 
@@ -86,7 +86,7 @@ export const orderAt = ({
     placement: line.placementOf(station.id),
     options: line.optionsFrom(station.id),
     noteLimit: 0,
-    continuity: at.continuity,
+    resume: at.resume,
     checkouts: at.checkouts,
     enabled,
     diffs: station.diffs,
@@ -97,7 +97,7 @@ export const orderAt = ({
 
 export const taskOrderedAt = (task: Task, line: Line): OrderedAt => ({
   stationId: task.stationId,
-  continuity: task.continuity(),
+  resume: task.resume(),
   checkouts: checkoutsOf(task, line),
 });
 

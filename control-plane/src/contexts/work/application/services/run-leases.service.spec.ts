@@ -22,7 +22,7 @@ const claimedBy = (id: string, runner: string, at = NOON) =>
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task:station' },
+      resume: { key: 'task:station' },
     }),
   }).claim(RunnerId.of(runner), at);
 
@@ -32,7 +32,7 @@ const leasing = (stored: Run[], conflicting: string[] = []) => {
     expiredLeases: async (now: Date) =>
       stored.filter((each) => each.leaseExpired(now)),
     claimedBy: async (runner: RunnerId) =>
-      stored.filter((each) => each.wasWorkedBy(runner)),
+      stored.filter((each) => each.wasClaimedBy(runner)),
     save: async (run: Run) => {
       if (conflicting.includes(run.id.value)) {
         throw new RunVersionConflictError(run.id.value);

@@ -12,7 +12,7 @@ func setRequired(t *testing.T) {
 	t.Helper()
 
 	for _, name := range []string{
-		"SPOTLIGHT_URL", "SPOTLIGHT_TOKEN", "SPOTLIGHT_ASSIGNMENT_FILE", "SPOTLIGHT_WORKSPACE",
+		"SPOTLIGHT_URL", "SPOTLIGHT_RUN_TOKEN", "SPOTLIGHT_ASSIGNMENT_FILE", "SPOTLIGHT_WORKSPACE",
 		"SPOTLIGHT_AGENT_USER", "SPOTLIGHT_GIT_AUTHOR_NAME", "SPOTLIGHT_GIT_AUTHOR_EMAIL", "SPOTLIGHT_ANSWER_WAIT",
 		"SPOTLIGHT_EGRESS_URL", "SPOTLIGHT_EGRESS_PROXY_CREDENTIAL", "SPOTLIGHT_EGRESS_TRAFFIC",
 	} {
@@ -49,7 +49,7 @@ func TestLoadReadsTheWholeSurface(t *testing.T) {
 func TestLoadTakesAPushPoolsOneRunCredential(t *testing.T) {
 	setRequired(t)
 	t.Setenv("SPOTLIGHT_ASSIGNMENT_FILE", "")
-	t.Setenv("SPOTLIGHT_TOKEN", "one-run")
+	t.Setenv("SPOTLIGHT_RUN_TOKEN", "one-run")
 
 	cfg, err := config.Load(nil)
 	if err != nil {
@@ -63,7 +63,7 @@ func TestLoadTakesAPushPoolsOneRunCredential(t *testing.T) {
 
 func TestLoadRejectsBothWaysToGetWork(t *testing.T) {
 	setRequired(t)
-	t.Setenv("SPOTLIGHT_TOKEN", "one-run")
+	t.Setenv("SPOTLIGHT_RUN_TOKEN", "one-run")
 
 	_, err := config.Load(nil)
 	if err == nil || !strings.Contains(err.Error(), "set one") {
@@ -81,7 +81,7 @@ func TestLoadReportsEveryProblemAtOnce(t *testing.T) {
 		t.Fatal("expected an error")
 	}
 
-	for _, want := range []string{"SPOTLIGHT_URL", "SPOTLIGHT_ASSIGNMENT_FILE", "SPOTLIGHT_TOKEN"} {
+	for _, want := range []string{"SPOTLIGHT_URL", "SPOTLIGHT_ASSIGNMENT_FILE", "SPOTLIGHT_RUN_TOKEN"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error does not mention %s: %v", want, err)
 		}
@@ -135,7 +135,7 @@ func TestLoadRejectsAnAnswerWaitThatIsNoDurationOrIsNegative(t *testing.T) {
 func TestLoadTakesThePushPoolsEgress(t *testing.T) {
 	setRequired(t)
 	t.Setenv("SPOTLIGHT_ASSIGNMENT_FILE", "")
-	t.Setenv("SPOTLIGHT_TOKEN", "one-run")
+	t.Setenv("SPOTLIGHT_RUN_TOKEN", "one-run")
 	t.Setenv("SPOTLIGHT_EGRESS_URL", "https://egress.example.com")
 	t.Setenv("SPOTLIGHT_EGRESS_PROXY_CREDENTIAL", "proxy-credential")
 	t.Setenv("SPOTLIGHT_EGRESS_TRAFFIC", "bound")
@@ -154,7 +154,7 @@ func TestLoadTakesThePushPoolsEgress(t *testing.T) {
 func TestLoadRejectsATrafficSettingItDoesNotKnow(t *testing.T) {
 	setRequired(t)
 	t.Setenv("SPOTLIGHT_ASSIGNMENT_FILE", "")
-	t.Setenv("SPOTLIGHT_TOKEN", "one-run")
+	t.Setenv("SPOTLIGHT_RUN_TOKEN", "one-run")
 	t.Setenv("SPOTLIGHT_EGRESS_URL", "https://egress.example.com")
 	t.Setenv("SPOTLIGHT_EGRESS_PROXY_CREDENTIAL", "proxy-credential")
 	t.Setenv("SPOTLIGHT_EGRESS_TRAFFIC", "some")
@@ -181,7 +181,7 @@ func TestLoadLeavesEgressToTheHostThatAssignedTheWork(t *testing.T) {
 func TestLoadRejectsAnEgressWithoutItsCredential(t *testing.T) {
 	setRequired(t)
 	t.Setenv("SPOTLIGHT_ASSIGNMENT_FILE", "")
-	t.Setenv("SPOTLIGHT_TOKEN", "one-run")
+	t.Setenv("SPOTLIGHT_RUN_TOKEN", "one-run")
 	t.Setenv("SPOTLIGHT_EGRESS_URL", "https://egress.example.com")
 
 	if _, err := config.Load(nil); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_EGRESS_PROXY_CREDENTIAL") {

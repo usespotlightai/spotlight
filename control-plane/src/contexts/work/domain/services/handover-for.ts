@@ -19,7 +19,7 @@ const DENIALS: Record<PassDenial, (key: string) => string> = {
     `The run requested station "${key}". The task is already there.`,
   'nothing-runs': (key) =>
     `The run requested station "${key}". Nothing runs there to take up the task.`,
-  'no-way': (key) =>
+  'no-route': (key) =>
     `The run requested station "${key}". Work does not pass there from the task’s station.`,
 };
 

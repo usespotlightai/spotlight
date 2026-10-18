@@ -58,7 +58,7 @@ describe('hook firings, stored in the database (e2e)', () => {
       firedAt,
       event: {},
       matched: true,
-      cause: CausalChain.none().followedBy(OPENED),
+      cause: CausalChain.none().append(OPENED),
       link: {
         kind: 'hook',
         key: `hook:${hookId}:${OPENED.key}`,

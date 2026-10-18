@@ -10,7 +10,7 @@ import type { SetupState } from '@work/domain/services/setup-list';
 
 export interface TeamSetup {
   readonly state: SetupState;
-  readonly hasAWayOut: boolean;
+  readonly hasEgressCapableRunner: boolean;
   readonly chat: SetupChatView | null;
 }
 
@@ -24,7 +24,8 @@ export class SetupStatus {
   async of(workspaceId: WorkspaceId, teamId: TeamId): Promise<TeamSetup> {
     const connectedToGitHub = await this.connections.isConnected(workspaceId);
     const hasHarness = await this.runners.readyToRun(workspaceId);
-    const hasAWayOut = await this.runners.hasAWayOut(workspaceId);
+    const hasEgressCapableRunner =
+      await this.runners.hasEgressCapableRunner(workspaceId);
     const chat = await this.chats.setupOf(teamId);
 
     return {
@@ -33,7 +34,7 @@ export class SetupStatus {
         hasHarness,
         configured: chat?.pullRequest != null,
       },
-      hasAWayOut,
+      hasEgressCapableRunner,
       chat,
     };
   }

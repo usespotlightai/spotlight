@@ -14,7 +14,7 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -112,7 +112,7 @@ describe('DeleteTaskAcrossAggregates', () => {
   it('releases the runner that was checking a check it deletes', async () => {
     const leased = checkOf('stack_1').claimedFor(
       RunnerId.of('runner_1'),
-      RunnerTerms.none(),
+      RunnerOffer.none(),
       NOW,
     );
     leased.pullEvents();

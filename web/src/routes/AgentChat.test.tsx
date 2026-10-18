@@ -216,10 +216,10 @@ describe('AgentChat', () => {
     expect(trace.closest('p')).toHaveTextContent('Help me plan the retries.');
   });
 
-  it('names the station it is improving in the first message, leading to it', () => {
+  it('names the target station in the first message, leading to it', () => {
     chat.mockReturnValue(
       planning({
-        improving: {
+        targetStation: {
           lineId: 'line_1',
           lineKey: 'delivery',
           lineName: 'Delivery',

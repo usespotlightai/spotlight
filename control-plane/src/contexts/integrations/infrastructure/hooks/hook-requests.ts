@@ -17,9 +17,9 @@ import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-p
 import { API_PREFIX, HOOK_CALLBACKS } from '@platform/http/routes';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
 import type {
-  NetworkAnswer,
   NetworkCallsPort,
   NetworkRequest,
+  NetworkResponse,
 } from '@work/application/ports/network-calls.port';
 
 type Fetch = typeof globalThis.fetch;
@@ -130,15 +130,15 @@ const UNANSWERED = (error: string): Answered => ({
 const messageId = (hook: string, occurrence: string, step: string): string =>
   `msg_${createHash('sha256').update(`${hook}\u0000${occurrence}\u0000${step}`).digest('hex').slice(0, 32)}`;
 
-const fromAnswer = (answer: NetworkAnswer): Answered =>
-  answer.status === 0
-    ? UNANSWERED(answer.error ?? 'nothing answered there')
+const fromResponse = (response: NetworkResponse): Answered =>
+  response.status === 0
+    ? UNANSWERED(response.error ?? 'nothing answered there')
     : {
         reply: HookReply.answered(
-          answer.status,
-          storedBody(Buffer.from(answer.body).toString('utf8')),
+          response.status,
+          storedBody(Buffer.from(response.body).toString('utf8')),
         ),
-        error: answer.error,
+        error: response.error,
       };
 
 export class HookRequests {
@@ -324,7 +324,7 @@ export class HookRequests {
       ? this.resultOf(
           request,
           headers,
-          fromAnswer(state.answer),
+          fromResponse(state.response),
           started,
           new Date(),
         )
@@ -350,9 +350,9 @@ export class HookRequests {
 
     const answered: Answered =
       state.kind === 'answered'
-        ? fromAnswer(state.answer)
+        ? fromResponse(state.response)
         : UNANSWERED('no host of the workspace answered in time');
-    const ms = state.kind === 'answered' ? state.answer.ms : 0;
+    const ms = state.kind === 'answered' ? state.response.ms : 0;
 
     return this.resultOf(
       request,

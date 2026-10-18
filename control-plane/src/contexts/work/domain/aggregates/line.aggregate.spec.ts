@@ -20,7 +20,7 @@ import {
 
 const BUILT_IN_STATIONS = BUILT_IN_LINES[0]?.stations ?? [];
 
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
@@ -33,6 +33,7 @@ import { Happening } from '@work/domain/value-objects/happening.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { StationCheck } from '@work/domain/value-objects/station-check.vo';
@@ -40,8 +41,7 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { describe, expect, it } from 'vitest';
 
 const at = (
@@ -55,7 +55,9 @@ const at = (
     name: StationName.of(name),
     position,
     color: StationColor.of('#a3a8b0'),
-    wayOut: WayOut.of({ stations: (ways.passesTo ?? []).map(StationId.of) }),
+    routes: StationRoutes.of({
+      stations: (ways.passesTo ?? []).map(StationId.of),
+    }),
   });
 
 const backlog = (position = 0) =>
@@ -104,7 +106,7 @@ const sends = (to: string, from?: string) =>
 const created = () => {
   let next = 0;
   return Line.create({
-    by: attributedIn(),
+    by: changeActorIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     line: BUILT_IN_LINES[0] as LineOpening,
@@ -132,10 +134,10 @@ describe('Line', () => {
       placement: RunnerPlacement.of(['vpc-internal']),
     });
 
-    expect(line.placementOf(StationId.of('station_1')).selectors).toEqual([
+    expect(line.placementOf(StationId.of('station_1')).requiredLabels).toEqual([
       'vpc-internal',
     ]);
-    expect(line.placementOf(StationId.of('station_2')).selectors).toEqual([
+    expect(line.placementOf(StationId.of('station_2')).requiredLabels).toEqual([
       'gpu',
     ]);
   });
@@ -157,8 +159,8 @@ describe('Line', () => {
       key: LineKey.of('default'),
       name: LineName.of('Default'),
       repositories: [
-        WorkedRepository.of(Repository.of('acme/api'), { image }),
-        WorkedRepository.of(Repository.of('acme/web')),
+        LineRepositoryConfig.of(Repository.of('acme/api'), { image }),
+        LineRepositoryConfig.of(Repository.of('acme/web')),
       ],
       stations: [backlog(), at(1), placed, completed(3)],
       placement: RunnerPlacement.of(['vpc-internal']),
@@ -167,16 +169,16 @@ describe('Line', () => {
     expect(line.image?.equals(image)).toBe(true);
     expect(line.placementOf(StationId.of('station_1')).image).toBe(image);
     expect(line.placementOf(StationId.of('station_2')).image).toBe(image);
-    expect(line.placementOf(StationId.of('station_2')).selectors).toEqual([
+    expect(line.placementOf(StationId.of('station_2')).requiredLabels).toEqual([
       'gpu',
     ]);
     expect(line.runsIn.image).toBe(image);
-    expect(line.runsIn.selectors).toEqual(['vpc-internal']);
+    expect(line.runsIn.requiredLabels).toEqual(['vpc-internal']);
   });
 
   it('places its work in no image when its repositories name none', () => {
     const line = lineOf([at(1)]).worksIn([
-      WorkedRepository.of(Repository.of('acme/api')),
+      LineRepositoryConfig.of(Repository.of('acme/api')),
     ]);
 
     expect(line.placementOf(StationId.of('station_1')).image).toBeNull();
@@ -186,12 +188,12 @@ describe('Line', () => {
   it('records the image its repositories name changing', () => {
     const image = RunnerImage.of('ghcr.io/acme/api:1');
     const line = lineOf([at(1)]).worksIn([
-      WorkedRepository.of(Repository.of('acme/api')),
+      LineRepositoryConfig.of(Repository.of('acme/api')),
     ]);
     line.pullEvents();
 
     const moved = line.worksIn([
-      WorkedRepository.of(Repository.of('acme/api'), { image }),
+      LineRepositoryConfig.of(Repository.of('acme/api'), { image }),
     ]);
 
     expect(moved.pullEvents()[0]).toBeInstanceOf(LineRepositoriesChanged);
@@ -214,7 +216,7 @@ describe('Line', () => {
   });
 
   it('creates each station with what it is there to do', () => {
-    expect(created().worked[0]?.agentPrompt?.value).toBe(
+    expect(created().agentStations[0]?.agentPrompt?.value).toBe(
       BUILT_IN_STATIONS[1]?.agentPrompt?.value,
     );
   });
@@ -248,7 +250,7 @@ describe('Line', () => {
     it('leaves it out of the stations work moves through', () => {
       const line = created();
 
-      expect(line.worked.map((each) => each.name.value)).toEqual(
+      expect(line.agentStations.map((each) => each.name.value)).toEqual(
         BUILT_IN_STATIONS.filter((each) => each.kind === 'work').map(
           (each) => each.name.value,
         ),
@@ -315,7 +317,7 @@ describe('Line', () => {
     it('leaves it out of the stations work moves through', () => {
       const line = created();
 
-      expect(line.worked.map((each) => each.name.value)).toEqual(
+      expect(line.agentStations.map((each) => each.name.value)).toEqual(
         BUILT_IN_STATIONS.filter((each) => each.kind === 'work').map(
           (each) => each.name.value,
         ),
@@ -358,12 +360,12 @@ describe('Line', () => {
   });
 
   describe('the way work moves through it', () => {
-    it('starts with the ways out it is laid out with', () => {
+    it('starts with the routes it is laid out with', () => {
       const line = created();
       const named = (name: string) =>
         line.stations
           .find((each) => each.name.value === name)
-          ?.wayOut.stations.map(
+          ?.routes.stations.map(
             (id) => line.stationAt(id)?.name.value ?? 'nowhere',
           );
 
@@ -376,13 +378,13 @@ describe('Line', () => {
 
     it('lets one station end the line, and no other', () => {
       const finishing = created()
-        .stations.filter((each) => each.wayOut.ends)
+        .stations.filter((each) => each.routes.ends)
         .map((each) => each.name.value);
 
       expect(finishing).toEqual(['Code Review']);
     });
 
-    it('rejects a way out that lands off the line', () => {
+    it('rejects a route that lands off the line', () => {
       expect(() =>
         lineOf([at(1, 'Triage', { passesTo: ['station_elsewhere'] })]),
       ).toThrow(InvalidStationLayoutError);
@@ -394,7 +396,7 @@ describe('Line', () => {
       ).toThrow(InvalidStationLayoutError);
     });
 
-    it('rejects a way out of the end of the line', () => {
+    it('rejects a route out of the end of the line', () => {
       expect(() =>
         of([
           backlog(),
@@ -406,7 +408,7 @@ describe('Line', () => {
             position: 2,
             color: StationColor.of('#a3a8b0'),
             kind: 'completed',
-            wayOut: WayOut.of({ stations: [StationId.of('station_1')] }),
+            routes: StationRoutes.of({ stations: [StationId.of('station_1')] }),
           }),
         ]),
       ).toThrow(InvalidStationLayoutError);
@@ -443,7 +445,7 @@ describe('Line', () => {
     it('puts what finishes the line last of all', () => {
       const line = created();
       const furthest = Math.max(
-        ...line.worked.map((each) => line.depthOf(each.id)),
+        ...line.agentStations.map((each) => line.depthOf(each.id)),
       );
 
       expect(depth(line, 'Completed')).toBeGreaterThan(furthest);
@@ -535,14 +537,12 @@ describe('Line', () => {
       model: HarnessModel.of('dev-large'),
     });
 
-    expect(assigned.worked.map((each) => each.harness?.value ?? null)).toEqual([
-      'dev',
-      null,
-    ]);
-    expect(assigned.worked.map((each) => each.model?.value ?? null)).toEqual([
-      'dev-large',
-      null,
-    ]);
+    expect(
+      assigned.agentStations.map((each) => each.harness?.value ?? null),
+    ).toEqual(['dev', null]);
+    expect(
+      assigned.agentStations.map((each) => each.model?.value ?? null),
+    ).toEqual(['dev-large', null]);
   });
 
   it('does not change a station it does not have', () => {
@@ -559,7 +559,7 @@ describe('Line', () => {
       harness: HarnessId.of('dev'),
     });
 
-    expect(line.worked[0]?.harness).toBeNull();
+    expect(line.agentStations[0]?.harness).toBeNull();
   });
 
   it('keeps its stations in board order however they arrive', () => {
@@ -594,10 +594,14 @@ describe('Line', () => {
       );
 
       expect(
-        line.worked.every((each) => each.harness?.value === 'claude-code'),
+        line.agentStations.every(
+          (each) => each.harness?.value === 'claude-code',
+        ),
       ).toBe(true);
       expect(
-        line.worked.every((each) => each.model?.value === 'claude-sonnet-5'),
+        line.agentStations.every(
+          (each) => each.model?.value === 'claude-sonnet-5',
+        ),
       ).toBe(true);
       expect(line.backlog.harness).toBeNull();
       expect(line.completed.harness).toBeNull();
@@ -608,8 +612,12 @@ describe('Line', () => {
         .runsOn(HarnessId.of('claude-code'), HarnessModel.of('claude-sonnet-5'))
         .runsOn(null, null);
 
-      expect(line.worked.every((each) => each.harness === null)).toBe(true);
-      expect(line.worked.every((each) => each.model === null)).toBe(true);
+      expect(line.agentStations.every((each) => each.harness === null)).toBe(
+        true,
+      );
+      expect(line.agentStations.every((each) => each.model === null)).toBe(
+        true,
+      );
     });
   });
 });
@@ -666,7 +674,7 @@ describe('Line, where work may be passed on to', () => {
   const keyed = (line: Line, key: string) =>
     line.stations.find((each) => each.key.value === key) as Station;
 
-  it('lets work pass along a way out to a station something runs at', () => {
+  it('lets work pass along a route to a station something runs at', () => {
     const line = running();
 
     expect(
@@ -690,12 +698,12 @@ describe('Line, where work may be passed on to', () => {
     );
   });
 
-  it('denies passing work where no way out leads', () => {
+  it('denies passing work where no route leads', () => {
     const line = running();
 
     expect(
       line.passDenial(keyed(line, 'triage').id, keyed(line, 'code-review')),
-    ).toBe('no-way');
+    ).toBe('no-route');
   });
 
   it('lets a person start work from the backlog, park it back there, or close it from anywhere', () => {
@@ -797,7 +805,7 @@ describe('Line, what it records of its changes', () => {
 
   it('records the repositories it works in changing', () => {
     const moved = built().worksIn([
-      WorkedRepository.of(Repository.of('acme/api')),
+      LineRepositoryConfig.of(Repository.of('acme/api')),
     ]);
 
     const [event] = moved.pullEvents();
@@ -810,7 +818,7 @@ describe('Line, what it records of its changes', () => {
     ).toEqual(['acme/api']);
     expect(
       moved
-        .worksIn([WorkedRepository.of(Repository.of('acme/api'))])
+        .worksIn([LineRepositoryConfig.of(Repository.of('acme/api'))])
         .pullEvents(),
     ).toEqual([]);
   });
@@ -831,11 +839,11 @@ describe('Line, what it records of its changes', () => {
     ]);
 
     expect(() =>
-      checking.worksIn([WorkedRepository.of(Repository.of('acme/api'))]),
+      checking.worksIn([LineRepositoryConfig.of(Repository.of('acme/api'))]),
     ).toThrow(/needs a setup for repository acme\/api/);
     expect(
       checking.worksIn([
-        WorkedRepository.of(Repository.of('acme/api'), {
+        LineRepositoryConfig.of(Repository.of('acme/api'), {
           setup: RepositorySetup.of('npm ci'),
         }),
       ]).repositories.all,
@@ -882,7 +890,8 @@ describe('Line, what it records of its changes', () => {
     });
 
     expect(
-      read.worksIn([WorkedRepository.of(Repository.of('acme/api'))]).version,
+      read.worksIn([LineRepositoryConfig.of(Repository.of('acme/api'))])
+        .version,
     ).toBe(4);
   });
 
@@ -920,7 +929,7 @@ describe('Line, what it records of its changes', () => {
           line.key,
           ConfigurationChange.created(
             { resource: 'line', id: line.id.value, key: line.key.value },
-            attributedIn(),
+            changeActorIn(),
           ),
         ),
       ]);
@@ -935,7 +944,7 @@ describe('Line, what it records of its changes', () => {
           stations: line.stations,
           reactions: line.reactions,
         },
-        attributedIn(),
+        changeActorIn(),
       );
 
       expect(updated.pullEvents()).toContainEqual(
@@ -946,7 +955,7 @@ describe('Line, what it records of its changes', () => {
           line.key,
           ConfigurationChange.updated(
             { resource: 'line', id: line.id.value, key: line.key.value },
-            attributedIn(),
+            changeActorIn(),
           ),
           line.stations.map((each) => each.id),
         ),
@@ -962,7 +971,7 @@ describe('Line, what it records of its changes', () => {
           stations: [backlog(), at(1), completed(2)],
           reactions: [],
         },
-        attributedIn(),
+        changeActorIn(),
       );
       const [lineUpdated] = updated
         .pullEvents()
@@ -994,14 +1003,14 @@ describe('Line, what it records of its changes', () => {
             stations: line.stations,
             reactions: line.reactions,
           },
-          attributedIn(),
+          changeActorIn(),
         ),
       ).toThrow(ImmutableFieldError);
     });
 
     it('is deleted once no task is on it, and says so', () => {
       const line = stored();
-      const deleted = line.delete(new Map(), attributedIn());
+      const deleted = line.delete(new Map(), changeActorIn());
 
       expect(deleted.isDeleted).toBe(true);
       expect(deleted.pullEvents()).toEqual([
@@ -1012,7 +1021,7 @@ describe('Line, what it records of its changes', () => {
           line.key,
           ConfigurationChange.deleted(
             { resource: 'line', id: line.id.value, key: line.key.value },
-            attributedIn(),
+            changeActorIn(),
           ),
           line.stations.map((each) => each.id),
         ),
@@ -1025,10 +1034,10 @@ describe('Line, what it records of its changes', () => {
       const [, working] = line.stations;
 
       expect(() =>
-        line.delete(new Map([[working?.id.value ?? '', 2]]), attributedIn()),
+        line.delete(new Map([[working?.id.value ?? '', 2]]), changeActorIn()),
       ).toThrow(LineInUseError);
       expect(() =>
-        line.delete(new Map([[working?.id.value ?? '', 2]]), attributedIn()),
+        line.delete(new Map([[working?.id.value ?? '', 2]]), changeActorIn()),
       ).toThrow(`${working?.name.value} (2)`);
     });
   });

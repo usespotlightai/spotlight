@@ -3,7 +3,7 @@ import type {
   MemoryFolder,
 } from '@work/application/ports/team-memories.port';
 import { Attached } from '@work/application/rendering/attached';
-import { Improving } from '@work/application/rendering/improving';
+import { ImproveStation } from '@work/application/rendering/improve-station';
 import { Learned } from '@work/application/rendering/learned';
 import { SettingUp } from '@work/application/rendering/setting-up';
 import { Traced } from '@work/application/rendering/traced';
@@ -115,8 +115,8 @@ export const ChatBriefing = {
       linesOf(input.lines),
       workspaceOf(input.chat),
       setup ? SettingUp.section(setup, input.chat.workspaceId.value) : null,
-      input.chat.improving
-        ? Improving.section(input.chat.improving, input.lines)
+      input.chat.targetStation
+        ? ImproveStation.section(input.chat.targetStation, input.lines)
         : null,
       Learned.section(input.memories),
       Learned.rest({

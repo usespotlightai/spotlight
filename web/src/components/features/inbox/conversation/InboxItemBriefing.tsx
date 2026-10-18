@@ -15,7 +15,7 @@ export function InboxItemBriefing({ item }: InboxItemBriefingProps) {
 
   return (
     <InboxAsked
-      station={{ ...item.raisedAt, count: item.stationCount }}
+      station={{ ...item.originStation, count: item.stationCount }}
       title={item.title}
       description={item.description}
       attachments={item.attachments}

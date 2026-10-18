@@ -13,7 +13,7 @@ import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useClearedParam } from '@/hooks/useClearedParam';
 import { actsAsEachPerson, joinedOf } from '@/lib/integration';
 import { failed, loading } from '@/lib/query';
-import { administers } from '@/lib/role';
+import { isAdmin } from '@/lib/role';
 
 export function TeamIntegrations() {
   const { slug, teamId } = useParams();
@@ -30,7 +30,7 @@ export function TeamIntegrations() {
     return null;
   }
 
-  const admin = workspace ? administers(workspace.role) : false;
+  const admin = workspace ? isAdmin(workspace.role) : false;
   const unread = [github, configuration, connections].filter((query) =>
     failed(query),
   );

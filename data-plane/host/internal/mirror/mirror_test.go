@@ -122,7 +122,7 @@ func TestRejectsANameThatWouldLeaveTheMirrors(t *testing.T) {
 	}
 }
 
-func TestTidyingClearsWhatAKilledFetchLeft(t *testing.T) {
+func TestPruneClearsWhatAKilledFetchLeft(t *testing.T) {
 	source := upstream(t)
 	root := t.TempDir()
 	mirrors := mirror.At(root)
@@ -141,8 +141,8 @@ func TestTidyingClearsWhatAKilledFetchLeft(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := mirrors.Tidy(); err != nil {
-		t.Fatalf("tidy: %v", err)
+	if err := mirrors.Prune(); err != nil {
+		t.Fatalf("prune: %v", err)
 	}
 
 	for _, left := range []string{stale, aside} {

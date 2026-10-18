@@ -17,7 +17,7 @@ export class RunCompleted implements DomainEvent {
     readonly workspaceId: WorkspaceId,
     readonly subject: RunSubject | null,
     readonly outcome: RunOutcome,
-    readonly workedBy: RunnerId | null,
+    readonly claimedBy: RunnerId | null,
     readonly handover: Handover | null,
     readonly session: HarnessSession | null,
     readonly attempt: number,

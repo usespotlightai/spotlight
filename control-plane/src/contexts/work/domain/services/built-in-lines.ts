@@ -8,6 +8,7 @@ import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import { Happening } from '@work/domain/value-objects/happening.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import type { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
@@ -15,7 +16,6 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
-import type { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 
 interface StationOpening {
   readonly key: StationKey;
@@ -43,7 +43,7 @@ export interface LineOpening {
   readonly role: LineRole | null;
   readonly stations: readonly StationOpening[];
   readonly reactions: readonly ReactionOpening[];
-  readonly repositories: readonly WorkedRepository[];
+  readonly repositories: readonly LineRepositoryConfig[];
   readonly reviews?: ReviewPolicy | null;
 }
 

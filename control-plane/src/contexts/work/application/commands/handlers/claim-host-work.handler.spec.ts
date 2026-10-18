@@ -11,7 +11,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ClaimHostWorkHandler } from '@work/application/commands/handlers/claim-host-work.handler';
 import { ClaimHostWorkCommand } from '@work/application/commands/runner.commands';
@@ -41,7 +41,7 @@ const taken = () =>
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'work out what the request wants',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task-task_1' },
+      resume: { key: 'task-task_1' },
     }),
   }).claim(POOLED, NOW);
 
@@ -113,7 +113,7 @@ const pulling = (
     heartbeat: vi.fn(async () => ({
       workspaceId: WorkspaceId.of('ws_1'),
       harnesses: [HarnessId.of('claude-code')],
-      terms: RunnerTerms.of(['linux']),
+      offer: RunnerOffer.of(['linux']),
       claims: 'reserved' as const,
     })),
   };
@@ -234,7 +234,7 @@ describe('ClaimHostWorkHandler', () => {
     );
   });
 
-  it('answers a host that never reported through this way in as host-unreported, without waiting', async () => {
+  it('answers a host that never reported through this pool or trust as host-unreported, without waiting', async () => {
     const { handler, runners, claimNext } = pulling({
       started: { outcome: 'host-unreported' },
     });
@@ -246,7 +246,7 @@ describe('ClaimHostWorkHandler', () => {
     expect(claimNext).not.toHaveBeenCalled();
   });
 
-  it('answers a claim for an image the host did not report serving as image-unreported', async () => {
+  it('answers a claim for an image the host did not report supporting as image-unreported', async () => {
     const { handler, claimNext } = pulling({
       started: { outcome: 'image-unreported' },
     });

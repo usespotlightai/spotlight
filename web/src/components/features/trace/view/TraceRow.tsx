@@ -68,7 +68,7 @@ export const TraceRow = memo(function TraceRow({
           onClick={() => onPick(node.id)}
           className={cn(
             'min-w-0 truncate text-left outline-none after:absolute after:inset-0',
-            node.tone === 'failed'
+            node.category === 'failed'
               ? 'text-destructive'
               : 'text-muted-foreground',
           )}

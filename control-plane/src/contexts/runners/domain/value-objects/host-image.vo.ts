@@ -69,12 +69,12 @@ export class HostImage {
     );
   }
 
-  get isServed(): boolean {
+  get isSupported(): boolean {
     return this.unavailableReason === null;
   }
 
-  get servesAHarness(): boolean {
-    return this.isServed && this.harnesses.length > 0;
+  get supportsAHarness(): boolean {
+    return this.isSupported && this.harnesses.length > 0;
   }
 
   get running(): RunningImage {

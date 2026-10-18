@@ -31,7 +31,7 @@ const mayConnect = (
   membership: TeamMembership | null,
   owner: ConnectionOwner,
 ): membership is TeamMembership =>
-  membership !== null && (owner.isPerson || membership.administers);
+  membership !== null && (owner.isPerson || membership.isAdmin);
 
 const takesConnection = async (
   defined: DefinedIntegrationsPort,

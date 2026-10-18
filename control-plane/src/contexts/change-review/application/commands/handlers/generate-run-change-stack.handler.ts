@@ -21,7 +21,7 @@ export class GenerateRunChangeStackHandler
       const runId = RunId.of(command.runId);
 
       if (
-        !(await this.work.wasWorkedBy(runId, RunnerId.of(command.runnerId)))
+        !(await this.work.wasClaimedBy(runId, RunnerId.of(command.runnerId)))
       ) {
         throw new UnknownChangeStackError(
           `This runner didn’t work run ${command.runId}.`,

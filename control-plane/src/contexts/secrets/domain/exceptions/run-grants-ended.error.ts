@@ -1,5 +1,5 @@
 export class RunGrantsEndedError extends Error {
-  readonly violation = 'not-allowed' as const;
+  readonly kind = 'not-allowed' as const;
 
   constructor(runId: string) {
     super(`Run ${runId} has ended. It can receive no more secrets.`);

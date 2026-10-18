@@ -1,5 +1,5 @@
 export class SearchProposalsExhaustedError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(readonly max: number) {
     super(

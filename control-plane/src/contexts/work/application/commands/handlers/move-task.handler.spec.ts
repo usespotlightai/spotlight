@@ -79,7 +79,7 @@ const taskAt = (stationId = 'station_2', on = line()) =>
     at: StationId.of(stationId),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: new Date('2026-08-27T09:15:00.000Z'),
     newId: () => 'task_1',
   });
@@ -148,7 +148,7 @@ const access = (teamId = 'team_1') =>
             workspaceId: WorkspaceId.of('ws_1'),
             slug: 'acme',
             viewer: UserId.of('user_1'),
-            administers: false,
+            isAdmin: false,
           }
         : null,
     ),
@@ -215,9 +215,9 @@ describe('MoveTaskHandler', () => {
     ).rejects.toMatchObject({ kind: 'invalid' });
   });
 
-  it('answers with the person who raised it, not with nobody', async () => {
+  it('answers with the person who created it, not with nobody', async () => {
     await expect(move('station_2')).resolves.toMatchObject({
-      raisedBy: { id: 'user_1', name: 'Ada', image: null },
+      createdBy: { id: 'user_1', name: 'Ada', image: null },
     });
   });
 

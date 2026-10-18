@@ -1,5 +1,5 @@
 export class ToolBlockedByPersonError extends Error {
-  readonly violation = 'not-allowed' as const;
+  readonly kind = 'not-allowed' as const;
 
   constructor(tool: string, person: string) {
     super(

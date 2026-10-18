@@ -18,7 +18,7 @@ import { access, transaction } from '@identity/identity.resources.fake-spec';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
-import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -51,7 +51,12 @@ const trust = () =>
 
 const issued = () => {
   const token = trust().issueFor(
-    { issuer: ISSUER, subject: MAIN, audiences: ['spotlight'], named: {} },
+    {
+      issuer: ISSUER,
+      subject: MAIN,
+      audiences: ['spotlight'],
+      customClaims: {},
+    },
     {
       id: WorkspaceTokenId.of('token_9'),
       hash: TokenHash.of('b'.repeat(64)),
@@ -159,7 +164,7 @@ describe('DeleteWorkspaceTokenTrustHandler', () => {
   it('forbids a token deleting a trust that grants more than the token has', async () => {
     const { remove, save } = deleting(['plan', 'trusts']);
 
-    expect(await remove()).toEqual(forbiddenTo('manage-token-trusts'));
+    expect(await remove()).toEqual(forbiddenTo('trusts'));
     expect(save).not.toHaveBeenCalled();
   });
 

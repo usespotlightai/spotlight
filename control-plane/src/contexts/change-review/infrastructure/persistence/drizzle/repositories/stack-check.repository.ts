@@ -22,7 +22,7 @@ import {
 import { stackCheck } from '@change-review/infrastructure/persistence/drizzle/schemas/stack-check.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { placementMet } from '@platform/persistence/drizzle/placement-met';
+import { placementMatches } from '@platform/persistence/drizzle/placement-matches';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -51,7 +51,7 @@ const toStackCheck = (row: Row): StackCheck =>
     request: CheckRequest.of(
       row.command,
       row.setup,
-      RunnerPlacement.ofClauses(
+      RunnerPlacement.ofLabelGroups(
         row.placement,
         row.placementImage ? RunnerImage.of(row.placementImage) : null,
       ),
@@ -137,7 +137,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
           workspaceId: added.workspaceId.value,
           command: added.request.command,
           setup: added.request.setup,
-          placement: added.request.placement.clauses,
+          placement: added.request.placement.labelGroups,
           placementImage: added.request.placement.image?.value ?? null,
           version: added.version,
           ...valuesOf(added),
@@ -260,10 +260,10 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
             eq(stackCheck.reservedFor, by.runner.value),
             lte(stackCheck.reservedUntil, now),
           ),
-          placementMet(
+          placementMatches(
             stackCheck.placement,
             stackCheck.placementImage,
-            by.terms,
+            by.offer,
           ),
         ),
       )

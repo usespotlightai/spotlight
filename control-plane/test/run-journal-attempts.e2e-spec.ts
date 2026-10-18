@@ -178,7 +178,7 @@ describe('recording the usage of a run that paused for a person', () => {
       messageChunk(1, 0),
       messageChunk(2, 4),
     ]);
-    await journal.appendAside(RunAttempt.of(runId, 1), {
+    await journal.appendControlPlaneEntry(RunAttempt.of(runId, 1), {
       type: 'run.paused',
       at: new Date(Date.UTC(2026, 8, 17, 9, 0, 5)),
       message: 'Waiting for a person',
@@ -275,8 +275,8 @@ describe('recording the tokens a run used', () => {
   });
 });
 
-describe('journalling aside what happened around a run', () => {
-  const aside = (message: string, second: number) => ({
+describe('journalling what happened around a run', () => {
+  const controlPlaneEntry = (message: string, second: number) => ({
     type: 'hook.called',
     at: new Date(Date.UTC(2026, 8, 17, 9, 0, second)),
     message,
@@ -291,7 +291,10 @@ describe('journalling aside what happened around a run', () => {
     ]);
     const placed = await Promise.all(
       Array.from({ length: 4 }, (_, each) =>
-        journal.appendAside(attempt, aside(`hook-${each}`, each)),
+        journal.appendControlPlaneEntry(
+          attempt,
+          controlPlaneEntry(`hook-${each}`, each),
+        ),
       ),
     );
 
@@ -311,7 +314,10 @@ describe('journalling aside what happened around a run', () => {
     const attempt = RunAttempt.of(runId, 1);
 
     await journal.append(attempt, hooks('one', 'two', 'three'));
-    await journal.appendAside(attempt, aside('between', 1));
+    await journal.appendControlPlaneEntry(
+      attempt,
+      controlPlaneEntry('between', 1),
+    );
 
     const all = await events.eventsSince(runId, 1, 0, 50);
     expect(all.map((each) => each.message)).toEqual([

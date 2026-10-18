@@ -45,7 +45,7 @@ export class RunnerChangeStackController {
       'the runner hands over the diff of each checkout.',
   })
   @ApiNoContentResponse()
-  @ApiNotFoundResponse({ description: 'Not a run this runner worked' })
+  @ApiNotFoundResponse({ description: 'Not a run this runner claimed' })
   @ApiConflictResponse({
     description: 'The run is a search, which changes no repository',
   })
@@ -80,7 +80,7 @@ export class RunnerChangeStackController {
   })
   @ApiNoContentResponse()
   @ApiNotFoundResponse({
-    description: 'Not a run this runner worked, or no such stack of it',
+    description: 'Not a run this runner claimed, or no such stack of it',
   })
   @ApiConflictResponse({
     description:

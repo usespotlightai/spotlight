@@ -152,7 +152,7 @@ export class ReplayableRuns implements ReplayableRunsPort {
         taskId,
         stationId,
         'not-at-the-station',
-        'No line has the station that it worked at.',
+        'No line has the station of the run.',
       );
     }
 

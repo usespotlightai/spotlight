@@ -99,9 +99,9 @@ func TestAReplayHandsOverItsChangeBeforeItEndsFromABaseItsCheckCanFetch(t *testi
 		Spec: protocol.Spec{
 			Command: protocol.Command{Executable: harness(t,
 				`require("node:fs").writeFileSync("api/queue.js", "drain()\n"); output = "drained";`, "end_turn")},
-			Continuity: protocol.Continuity{Key: "replay-run_1"},
-			Checkouts:  []protocol.Checkout{{Remote: "spotlight:repository", Path: "api", Ref: served.commit}},
-			Diffs:      true,
+			Resume:    protocol.Resume{Key: "replay-run_1"},
+			Checkouts: []protocol.Checkout{{Remote: "spotlight:repository", Path: "api", Ref: served.commit}},
+			Diffs:     true,
 			Replay: &protocol.Replay{Checkouts: []protocol.StartedCheckout{
 				{Path: "api", Commit: served.commit},
 			}},
@@ -159,9 +159,9 @@ func TestATaskRunStillHandsOverItsChangeAfterItsTurnIsReported(t *testing.T) {
 		Spec: protocol.Spec{
 			Command: protocol.Command{Executable: harness(t,
 				`require("node:fs").writeFileSync("api/queue.js", "drain()\n"); output = "drained";`, "end_turn")},
-			Continuity: protocol.Continuity{Key: "task-1"},
-			Checkouts:  []protocol.Checkout{{Remote: "spotlight:repository", Path: "api", Ref: served.commit}},
-			Diffs:      true,
+			Resume:    protocol.Resume{Key: "task-1"},
+			Checkouts: []protocol.Checkout{{Remote: "spotlight:repository", Path: "api", Ref: served.commit}},
+			Diffs:     true,
 		},
 	}, session.Options{
 		Workspace:    t.TempDir(),

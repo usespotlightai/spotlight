@@ -8,8 +8,8 @@ import (
 
 func TestViaGitProxyServesEachRepositoryUnderItsOwnPath(t *testing.T) {
 	checkouts := []protocol.Checkout{
-		{Remote: protocol.ThroughSpotlight, Path: "api", Branch: "spotlight/task_1"},
-		{Remote: protocol.ThroughSpotlight, Path: "web", Branch: "spotlight/task_1"},
+		{Remote: protocol.RemoteViaGitProxy, Path: "api", Branch: "spotlight/task_1"},
+		{Remote: protocol.RemoteViaGitProxy, Path: "web", Branch: "spotlight/task_1"},
 	}
 
 	resolved := viaGitProxy(checkouts, "http://127.0.0.1:9000/run_1")

@@ -196,7 +196,7 @@ const task = (
   running: false,
   awaitingReview: null,
   pullRequest: null,
-  raisedBy: SAM,
+  createdBy: SAM,
   assignee: null,
   note: null,
   ...over,
@@ -207,7 +207,7 @@ export const PLATFORM_TASKS: TaskResponseDto[] = [
     id: 'task_checkout',
     title: 'Flaky checkout test on CI',
     stationId: 'station_triage',
-    raisedBy: TOM,
+    createdBy: TOM,
     createdAt: hoursAgo(5),
     description:
       'The `checkout completes with a saved card` test fails about one run in five on CI, never locally.',
@@ -236,7 +236,7 @@ export const PLATFORM_TASKS: TaskResponseDto[] = [
     id: 'task_billing',
     title: 'Reconcile open invoices after the retry drain',
     stationId: 'station_implementation',
-    raisedBy: PRIYA,
+    createdBy: PRIYA,
     createdAt: hoursAgo(28),
   }),
   task({
@@ -266,7 +266,7 @@ export const PLATFORM_TASKS: TaskResponseDto[] = [
     title: 'p99 latency alert on the payments API',
     stationId: 'station_investigate',
     running: true,
-    raisedBy: TOM,
+    createdBy: TOM,
     assignee: TOM,
     createdAt: hoursAgo(2),
     description:
@@ -276,7 +276,7 @@ export const PLATFORM_TASKS: TaskResponseDto[] = [
     id: 'task_disk',
     title: 'Worker disk filling up on eu-west-1',
     stationId: 'station_resolved',
-    raisedBy: TOM,
+    createdBy: TOM,
     createdAt: hoursAgo(80),
   }),
 ];

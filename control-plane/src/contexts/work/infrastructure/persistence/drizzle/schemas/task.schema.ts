@@ -91,11 +91,10 @@ export const task = pgTable(
     title: text('title').notNull(),
     description: text('description'),
     rank: text('rank').notNull().default('i'),
-    raisedAtStationId: text('raised_at_station_id').references(
-      () => station.id,
-      { onDelete: 'set null' },
-    ),
-    raisedById: text('raised_by_id'),
+    originStationId: text('origin_station_id').references(() => station.id, {
+      onDelete: 'set null',
+    }),
+    createdById: text('created_by_id'),
     openedFrom: text('opened_from').notNull(),
     assigneeId: text('assignee_id'),
     currentRunId: text('current_run_id'),

@@ -14,9 +14,9 @@ import { AddTaskHandler } from '@work/application/commands/handlers/add-task.han
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
+import { CreateTask } from '@work/application/services/create-task';
 import { FilesLoader } from '@work/application/services/files-loader.service';
 import { LineLoader } from '@work/application/services/line-loader.service';
-import { RaiseTask } from '@work/application/services/raise-task';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
@@ -37,8 +37,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ids: IdGeneratorPort = { generate: () => 'task_1' };
 
-const raised = new Date('2026-08-27T09:15:00.000Z');
-const clock: ClockPort = { now: () => raised, sleep: async () => {} };
+const created = new Date('2026-08-27T09:15:00.000Z');
+const clock: ClockPort = { now: () => created, sleep: async () => {} };
 
 const line = () =>
   Line.rehydrate({
@@ -130,7 +130,7 @@ const access = (teamId = 'team_1') =>
             workspaceId: WorkspaceId.of('ws_1'),
             slug: 'acme',
             viewer: UserId.of('user_1'),
-            administers: false,
+            isAdmin: false,
           }
         : null,
     ),
@@ -174,7 +174,7 @@ const addTask = (command: AddTaskCommand, board: LineRepository = lines()) =>
     new LineLoader(access(), board),
     ids,
     clock,
-    new RaiseTask(tasks(), dispatch(), transaction, files),
+    new CreateTask(tasks(), dispatch(), transaction, files),
     people,
     files,
   ).execute(command);
@@ -184,10 +184,10 @@ beforeEach(() => {
   dispatched.length = 0;
 });
 
-const raiser = { id: 'user_1', name: 'Ada', image: null };
+const creator = { id: 'user_1', name: 'Ada', image: null };
 
 const people: PersonReaderPort = {
-  find: async () => raiser,
+  find: async () => creator,
   findMany: async () => new Map(),
 };
 
@@ -211,13 +211,13 @@ describe('AddTaskHandler', () => {
       title: 'Fix the queue',
       description: null,
       attachments: [],
-      createdAt: raised.toISOString(),
+      createdAt: created.toISOString(),
       rank: added?.rank.value,
       running: true,
       awaitingReview: null,
       pullRequest: null,
-      raisedBy: raiser,
-      assignee: raiser,
+      createdBy: creator,
+      assignee: creator,
       note: null,
     });
   });
@@ -252,7 +252,7 @@ describe('AddTaskHandler', () => {
     expect(added?.description?.value).toBe('## Steps\n\nGo.');
   });
 
-  it('attaches what the raiser uploaded, and tells the agent where it is', async () => {
+  it('attaches what the creator uploaded, and tells the agent where it is', async () => {
     await addTask(
       new AddTaskCommand(
         'team_1',
@@ -275,7 +275,7 @@ describe('AddTaskHandler', () => {
     );
   });
 
-  it('hands the task to a runner as soon as it is raised', async () => {
+  it('hands the task to a runner as soon as it is created', async () => {
     await addTask(
       new AddTaskCommand(
         'team_1',

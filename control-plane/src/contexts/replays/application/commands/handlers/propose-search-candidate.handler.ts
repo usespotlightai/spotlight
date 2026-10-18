@@ -29,7 +29,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -229,7 +229,7 @@ export class ProposeSearchCandidateHandler
           ceiling: search.ceilingSplit.searchReplay,
           unpricedRate: search.ceilingSplit.perRun,
           at,
-          by: Attribution.spotlight(search.workspaceId),
+          by: ChangeActor.spotlight(search.workspaceId),
           runSubset: search.split.searchedRuns,
           repeats: search.budget.repeats,
           searchId: search.id,

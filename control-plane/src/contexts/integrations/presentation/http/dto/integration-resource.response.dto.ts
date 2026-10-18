@@ -35,7 +35,7 @@ export class ApiSpecResponseDto {
     nullable: true,
     example: null,
     description:
-      'Why Spotlight could not fetch the spec the last time, or null when it could. Spotlight fetches the spec again when its url, document, baseUrl, revision or depth changes, on each update after a failed fetch, and when the integration is connected. Spotlight lists the tools of an MCP server again every MCP_RELIST_SECONDS',
+      'Why Spotlight could not fetch the spec the last time, or null when it could. Spotlight fetches the spec again when its url, document, baseUrl, revision or depth changes, on each update after a failed fetch, and when the integration is connected. Spotlight lists the tools of an MCP server again every SPOTLIGHT_MCP_RELIST_SECONDS',
   })
   readonly problem: string | null;
 

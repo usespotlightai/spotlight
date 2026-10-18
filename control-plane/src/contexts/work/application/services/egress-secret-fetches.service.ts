@@ -132,7 +132,7 @@ export class EgressSecretFetches {
       : null;
   }
 
-  async attemptWorkedBy(
+  async attemptClaimedBy(
     runId: RunId,
     runner: RunnerId,
     workspaceId: string,
@@ -140,7 +140,7 @@ export class EgressSecretFetches {
     const run = await this.runs.findById(runId);
 
     return run?.workspaceId.value === workspaceId
-      ? run.attemptWorkedBy(runner)
+      ? run.attemptClaimedBy(runner)
       : null;
   }
 

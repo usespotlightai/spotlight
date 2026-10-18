@@ -56,7 +56,7 @@ const (
 	EnvConfig = "SPOTLIGHT_HOST_CONFIG"
 
 	envURL         = "SPOTLIGHT_URL"
-	envToken       = "SPOTLIGHT_TOKEN"
+	envPoolToken   = "SPOTLIGHT_POOL_TOKEN"
 	envTrust       = "SPOTLIGHT_TRUST"
 	envTokenFile   = "SPOTLIGHT_OIDC_TOKEN_FILE"
 	envCapacity    = "SPOTLIGHT_CAPACITY"
@@ -86,7 +86,7 @@ const (
 	Image             = "ghcr.io/usespotlightai/spotlight-runner"
 )
 
-var hostOnly = []string{envURL, envToken, envTrust, envTokenFile, "SPOTLIGHT_ASSIGNMENT_FILE", envAnswerWait}
+var hostOnly = []string{envURL, envPoolToken, envTrust, envTokenFile, "SPOTLIGHT_ASSIGNMENT_FILE", "SPOTLIGHT_RUN_TOKEN", envAnswerWait}
 
 func Path() string {
 	if path := strings.TrimSpace(os.Getenv(EnvConfig)); path != "" {
@@ -122,7 +122,7 @@ func Load(version string) (Config, error) {
 
 	cfg := Config{
 		URL:        strings.TrimSuffix(get(envURL), "/"),
-		PoolToken:  get(envToken),
+		PoolToken:  get(envPoolToken),
 		Workload:   trust.Workload{Trust: get(envTrust), TokenFile: get(envTokenFile)},
 		Network:    get(envNetwork),
 		ExtraHosts: list(get(envHosts)),
@@ -142,10 +142,10 @@ func Load(version string) (Config, error) {
 
 	switch {
 	case cfg.PoolToken != "" && (cfg.Workload.Trust != "" || cfg.Workload.TokenFile != ""):
-		note(fmt.Errorf("%s and %s are different ways in; set one", envToken, envTrust))
+		note(fmt.Errorf("%s and %s are two different authentication methods; set one", envPoolToken, envTrust))
 	case cfg.PoolToken == "" && cfg.Workload.Trust == "":
 		note(fmt.Errorf("%s (a pull pool's token) is required, or %s and %s to claim through a runner trust",
-			envToken, envTrust, envTokenFile))
+			envPoolToken, envTrust, envTokenFile))
 	case cfg.PoolToken == "" && cfg.Workload.TokenFile == "":
 		note(fmt.Errorf("%s names the workload token file, and is required with %s", envTokenFile, envTrust))
 	}

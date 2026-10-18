@@ -1,8 +1,8 @@
 import { useParams } from 'react-router';
 import { InboxItemConversation } from '@/components/features/inbox/conversation/InboxItemConversation';
-import { InboxAsidePage } from '@/components/features/inbox/InboxAsidePage';
 import { InboxGone } from '@/components/features/inbox/InboxGone';
 import { InboxItemSkeleton } from '@/components/features/inbox/InboxItemSkeleton';
+import { InboxRequestPage } from '@/components/features/inbox/InboxRequestPage';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import { useInbox } from '@/hooks/api/useInbox';
@@ -20,14 +20,17 @@ export function InboxItem() {
   useClearedParam('connected');
   const inbox = useInbox(slug);
   const item = taskItemOf(inbox.data, itemId);
-  const journal = useTaskJournal(slug, item?.aside ? undefined : item?.taskId);
+  const journal = useTaskJournal(
+    slug,
+    item?.inboxRequest ? undefined : item?.taskId,
+  );
 
   useInboxItemRefresh(slug, item);
   useReadOnSight(slug, item);
 
   const { trail } = useTrail(useInboxItemTrail(slug, item));
 
-  if (loading(inbox) || (item && !item.aside && loading(journal))) {
+  if (loading(inbox) || (item && !item.inboxRequest && loading(journal))) {
     return <InboxItemSkeleton />;
   }
 
@@ -47,12 +50,12 @@ export function InboxItem() {
     return <InboxGone />;
   }
 
-  if (item.aside) {
+  if (item.inboxRequest) {
     return (
-      <InboxAsidePage
+      <InboxRequestPage
         slug={slug}
         item={item}
-        aside={item.aside}
+        inboxRequest={item.inboxRequest}
         trail={trail}
       />
     );

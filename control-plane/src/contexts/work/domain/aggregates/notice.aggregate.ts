@@ -23,7 +23,7 @@ interface NoticeState {
   readonly subject: string;
   readonly link: NoticeLink;
   readonly wording: NoticeWording;
-  readonly raisedAt: Date;
+  readonly createdAt: Date;
   readonly resolvedAt: Date | null;
   readonly version: number;
 }
@@ -31,7 +31,7 @@ interface NoticeState {
 export class Notice {
   private constructor(private readonly state: NoticeState) {}
 
-  static raise(input: {
+  static create(input: {
     id: NoticeId;
     workspaceId: WorkspaceId;
     teamId: TeamId;
@@ -53,7 +53,7 @@ export class Notice {
     return new Notice({
       ...input,
       subject,
-      raisedAt: input.at,
+      createdAt: input.at,
       resolvedAt: null,
       version: 0,
     });
@@ -64,10 +64,10 @@ export class Notice {
   }
 
   static rehydrate(state: NoticeState): Notice {
-    if (state.resolvedAt && state.resolvedAt < state.raisedAt) {
+    if (state.resolvedAt && state.resolvedAt < state.createdAt) {
       throw new InconsistentStateError(
         'notice',
-        'was resolved before it was raised',
+        'was resolved before it was created',
       );
     }
 
@@ -106,8 +106,8 @@ export class Notice {
     return this.state.wording;
   }
 
-  get raisedAt(): Date {
-    return this.state.raisedAt;
+  get createdAt(): Date {
+    return this.state.createdAt;
   }
 
   get resolvedAt(): Date | null {

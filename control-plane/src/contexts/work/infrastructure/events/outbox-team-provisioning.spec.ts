@@ -34,7 +34,7 @@ describe('OutboxTeamProvisioning', () => {
 
     await read;
 
-    expect(pendingDeliveriesFor).toHaveBeenCalledWith('work.provision-team', {
+    expect(pendingDeliveriesFor).toHaveBeenCalledWith('work.seed-team', {
       teamId: 'team_1',
       origin: 'sign-up',
     });

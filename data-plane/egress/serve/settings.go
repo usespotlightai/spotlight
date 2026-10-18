@@ -18,16 +18,16 @@ import (
 )
 
 const (
-	envListen      = "SPOTLIGHT_EGRESS_LISTEN"
-	envCertificate = "SPOTLIGHT_EGRESS_TLS_CERT"
-	envKey         = "SPOTLIGHT_EGRESS_TLS_KEY"
-	envURL         = "SPOTLIGHT_URL"
-	envToken       = "SPOTLIGHT_EGRESS_TOKEN"
-	envAllow       = "SPOTLIGHT_EGRESS_ALLOW"
-	envSecretAllow = "SPOTLIGHT_EGRESS_SECRET_ALLOW"
-	envRate        = "SPOTLIGHT_EGRESS_RATE"
-	envConnections = "SPOTLIGHT_EGRESS_CONNECTIONS"
-	envCABundle    = "SPOTLIGHT_EGRESS_CA_BUNDLE"
+	envListen         = "SPOTLIGHT_EGRESS_LISTEN"
+	envCertificate    = "SPOTLIGHT_EGRESS_TLS_CERT"
+	envKey            = "SPOTLIGHT_EGRESS_TLS_KEY"
+	envURL            = "SPOTLIGHT_URL"
+	envToken          = "SPOTLIGHT_EGRESS_TOKEN"
+	envAllow          = "SPOTLIGHT_EGRESS_ALLOW"
+	envSecretAllow    = "SPOTLIGHT_EGRESS_SECRET_ALLOW"
+	envRateLimit      = "SPOTLIGHT_EGRESS_RATE_LIMIT"
+	envMaxConnections = "SPOTLIGHT_EGRESS_MAX_CONNECTIONS"
+	envCABundle       = "SPOTLIGHT_EGRESS_CA_BUNDLE"
 )
 
 const (
@@ -102,18 +102,18 @@ func Load() (Settings, error) {
 		settings.RootCAs = roots
 	}
 
-	if raw := get(envRate); raw != "" {
+	if raw := get(envRateLimit); raw != "" {
 		rate, err := strconv.ParseFloat(raw, 64)
 		if err != nil || rate < 0 {
-			note(fmt.Errorf("%s: %q is not a number of requests each second, or 0 for no limit", envRate, raw))
+			note(fmt.Errorf("%s: %q is not a number of requests each second, or 0 for no limit", envRateLimit, raw))
 		}
 		settings.Rate = rate
 	}
 
-	if raw := get(envConnections); raw != "" {
+	if raw := get(envMaxConnections); raw != "" {
 		most, err := strconv.Atoi(raw)
 		if err != nil || most < 0 {
-			note(fmt.Errorf("%s: %q is not a number of open connections, or 0 for no limit", envConnections, raw))
+			note(fmt.Errorf("%s: %q is not a number of open connections, or 0 for no limit", envMaxConnections, raw))
 		}
 		settings.Connections = most
 	}

@@ -1,16 +1,16 @@
 import { Environment } from '@marcbachmann/cel-js';
 import { Injectable } from '@nestjs/common';
-import type { Bindings } from '@platform/expressions/bindings';
+import type { CelVariables } from '@platform/expressions/cel-variables';
 import {
   ExpressionError,
   firstLine,
 } from '@platform/expressions/expression.errors';
 import type {
+  CompileOptions,
   Expression,
   ExpressionCheck,
   ExpressionEnginePort,
   ExpressionSpan,
-  Within,
 } from '@platform/expressions/expression-engine.port';
 import type { Scope } from '@platform/expressions/scope';
 import { suggestionFor } from '@platform/expressions/suggestion';
@@ -62,7 +62,7 @@ export class CelExpressionEngine implements ExpressionEnginePort {
     };
   }
 
-  compile(source: string, within: Within = {}): Expression {
+  compile(source: string, options: CompileOptions = {}): Expression {
     const written = source.trim();
 
     if (written.length === 0) {
@@ -76,11 +76,11 @@ export class CelExpressionEngine implements ExpressionEnginePort {
       );
     }
 
-    let evaluator: (context: Bindings) => unknown;
+    let evaluator: (context: CelVariables) => unknown;
 
     try {
       evaluator = PERMISSIVE.parse(written) as unknown as (
-        context: Bindings,
+        context: CelVariables,
       ) => unknown;
     } catch (error) {
       throw new ExpressionError(written, firstLine(error, 'will not parse'));
@@ -88,8 +88,8 @@ export class CelExpressionEngine implements ExpressionEnginePort {
 
     return {
       source: written,
-      at: within.at ?? null,
-      evaluate: (against: Bindings) => evaluator(against),
+      location: options.location ?? null,
+      evaluate: (against: CelVariables) => evaluator(against),
     };
   }
 

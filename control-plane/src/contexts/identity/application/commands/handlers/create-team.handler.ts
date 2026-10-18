@@ -17,8 +17,8 @@ import type {
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -69,14 +69,14 @@ export class CreateTeamHandler
 
       try {
         return await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
+          createIdempotently(this.creates, create, async () => {
             const created = Team.create({
               id: TeamId.of(this.ids.generate()),
               workspaceId: permissions.workspaceId,
               key: compiled.key,
               name: compiled.name,
               createdBy: principal.userId,
-              by: Attribution.of(command.actor, permissions.workspaceId),
+              by: ChangeActor.of(command.actor, permissions.workspaceId),
             });
 
             await this.teams.add(created);
@@ -86,7 +86,7 @@ export class CreateTeamHandler
         );
       } catch (error) {
         if (error instanceof TeamAlreadyExistsError) {
-          return { outcome: 'taken', address: compiled.key.value };
+          return { outcome: 'already-exists', address: compiled.key.value };
         }
 
         if (error instanceof NoSuchWorkspaceError) {

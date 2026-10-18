@@ -4,9 +4,9 @@ import { NetworkCalls } from '@work/application/services/network-calls.service';
 import { NetworkCall } from '@work/domain/aggregates/network-call.aggregate';
 import { NetworkCallVersionConflictError } from '@work/domain/exceptions/network-call-version-conflict.error';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
-import { NetworkAnswer } from '@work/domain/value-objects/network-answer.vo';
 import { NetworkCallId } from '@work/domain/value-objects/network-call-id.vo';
 import { NetworkRequest } from '@work/domain/value-objects/network-request.vo';
+import { NetworkResponse } from '@work/domain/value-objects/network-response.vo';
 import { DrizzleNetworkCallRepository } from '@work/infrastructure/persistence/drizzle/repositories/network-call.repository';
 import { networkCall } from '@work/infrastructure/persistence/drizzle/schemas/network-call.schema';
 import { pushSchema } from 'drizzle-kit/api';
@@ -128,11 +128,11 @@ describe('DrizzleNetworkCallRepository', () => {
     expect(new Set(claimedIds).size).toBe(3);
   });
 
-  it('stores the answer, and does not write over a call that changed', async () => {
+  it('stores the response, and does not write over a call that changed', async () => {
     const call = await queued();
     await calls.claimNext(WorkspaceId.of('ws_1'), HOST, NOW);
     const claimed = await calls.find(call.id);
-    const answer = NetworkAnswer.of({
+    const response = NetworkResponse.of({
       status: 200,
       headers: { 'content-type': 'application/json' },
       body: new TextEncoder().encode('{"deny":"not today"}'),
@@ -143,10 +143,10 @@ describe('DrizzleNetworkCallRepository', () => {
       throw new Error('nothing was claimed');
     }
 
-    await calls.save(claimed.answerWith(HOST, answer, later(1_000)));
+    await calls.save(claimed.recordResponse(HOST, response, later(1_000)));
 
     await expect(
-      calls.save(claimed.answerWith(HOST, answer, later(2_000))),
+      calls.save(claimed.recordResponse(HOST, response, later(2_000))),
     ).rejects.toThrow(NetworkCallVersionConflictError);
 
     const clock = { now: () => later(1_500), sleep: async () => {} };
@@ -158,7 +158,7 @@ describe('DrizzleNetworkCallRepository', () => {
       ).stateOf(claimed.id.value),
     ).toEqual({
       kind: 'answered',
-      answer: {
+      response: {
         status: 200,
         headers: { 'content-type': 'application/json' },
         body: new TextEncoder().encode('{"deny":"not today"}'),
@@ -178,9 +178,9 @@ describe('DrizzleNetworkCallRepository', () => {
     }
 
     await calls.save(
-      claimed.answerWith(
+      claimed.recordResponse(
         HOST,
-        NetworkAnswer.of({ status: 204, ms: 3 }),
+        NetworkResponse.of({ status: 204, ms: 3 }),
         later(1_000),
       ),
     );
@@ -199,7 +199,7 @@ describe('DrizzleNetworkCallRepository', () => {
         headers: networkCall.headers,
         body: networkCall.body,
         url: networkCall.url,
-        answerStatus: networkCall.answerStatus,
+        responseStatus: networkCall.responseStatus,
       })
       .from(networkCall);
 
@@ -211,7 +211,7 @@ describe('DrizzleNetworkCallRepository', () => {
           headers: {},
           body: '',
           url: 'http://audit.internal:8080/hooks',
-          answerStatus: 204,
+          responseStatus: 204,
         },
         {
           id: expired.id.value,
@@ -219,7 +219,7 @@ describe('DrizzleNetworkCallRepository', () => {
           headers: {},
           body: '',
           url: 'http://audit.internal:8080/hooks',
-          answerStatus: null,
+          responseStatus: null,
         },
       ].sort((one, other) => one.id.localeCompare(other.id)),
     );

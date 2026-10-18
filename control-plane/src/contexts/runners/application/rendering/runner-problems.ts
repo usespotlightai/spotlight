@@ -54,7 +54,7 @@ export const RunnerProblems = {
     });
   },
 
-  egressInTheClear(): ConfigurationProblem {
+  egressNotHttps(): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: EGRESS,
       at: FieldPath.of(['url']),
@@ -74,7 +74,7 @@ export const RunnerProblems = {
     });
   },
 
-  provisionedInTheClear(): ConfigurationProblem {
+  provisionNotHttps(): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: RUNNER_POOL,
       at: FieldPath.of(['provision', 'url']),

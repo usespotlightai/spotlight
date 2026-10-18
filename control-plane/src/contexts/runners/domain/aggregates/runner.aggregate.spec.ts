@@ -13,7 +13,7 @@ import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import { describe, expect, it } from 'vitest';
@@ -28,7 +28,7 @@ describe('Runner', () => {
       installed: [InstalledHarness.reported('claude-code', [], '2.1.0')],
     });
 
-    expect(runner.terms.values).toEqual(['linux']);
+    expect(runner.offer.values).toEqual(['linux']);
   });
 
   it('serves only work that requests the image it runs, or for none when that image is the default one', () => {
@@ -37,15 +37,15 @@ describe('Runner', () => {
     const runner = aRunner({ running: RunningImage.of(widgets, false) });
     const onDefault = aRunner({ running: RunningImage.of(widgets, true) });
 
-    expect(runner.terms.serves(widgets)).toBe(true);
-    expect(runner.terms.serves(gadgets)).toBe(false);
-    expect(runner.terms.serves(null)).toBe(false);
-    expect(onDefault.terms.serves(null)).toBe(true);
+    expect(runner.offer.supports(widgets)).toBe(true);
+    expect(runner.offer.supports(gadgets)).toBe(false);
+    expect(runner.offer.supports(null)).toBe(false);
+    expect(onDefault.offer.supports(null)).toBe(true);
   });
 
   it('serves any image while provisioned without one it names', () => {
     expect(
-      aRunner({ host: null }).terms.serves(
+      aRunner({ host: null }).offer.supports(
         RunnerImage.of('ghcr.io/acme/widgets:1'),
       ),
     ).toBe(true);
@@ -120,10 +120,12 @@ describe('Runner', () => {
     const waiting = aRunner();
     const working = waiting.claim(RUN, later(1));
 
-    expect(waiting.workEgressActsFor(later(2))).toBeNull();
-    expect(working.workEgressActsFor(later(2))?.equals(RUN)).toBe(true);
-    expect(working.workEgressActsFor(later(180_001))).toBeNull();
-    expect(working.ended(later(3)).workEgressActsFor(later(4))).toBeNull();
+    expect(waiting.authenticateEgressToken(later(2))).toBeNull();
+    expect(working.authenticateEgressToken(later(2))?.equals(RUN)).toBe(true);
+    expect(working.authenticateEgressToken(later(180_001))).toBeNull();
+    expect(
+      working.ended(later(3)).authenticateEgressToken(later(4)),
+    ).toBeNull();
   });
 
   it('lets an egress record for its work while it is alive, and for two minutes after it ends', () => {
@@ -131,20 +133,20 @@ describe('Runner', () => {
     const working = waiting.claim(RUN, later(1));
     const ended = working.ended(later(3));
 
-    expect(waiting.workEgressRecordsFor(later(2))).toBeNull();
-    expect(working.workEgressRecordsFor(later(2))?.equals(RUN)).toBe(true);
-    expect(ended.workEgressRecordsFor(later(3 + 120_000))?.equals(RUN)).toBe(
-      true,
-    );
-    expect(ended.workEgressRecordsFor(later(3 + 120_001))).toBeNull();
-    expect(working.workEgressRecordsFor(later(180_001))).toBeNull();
+    expect(waiting.workForConnectionRecords(later(2))).toBeNull();
+    expect(working.workForConnectionRecords(later(2))?.equals(RUN)).toBe(true);
+    expect(
+      ended.workForConnectionRecords(later(3 + 120_000))?.equals(RUN),
+    ).toBe(true);
+    expect(ended.workForConnectionRecords(later(3 + 120_001))).toBeNull();
+    expect(working.workForConnectionRecords(later(180_001))).toBeNull();
   });
 
-  it('has no egress when a pool provisioned it, since no host runs beside it', () => {
+  it('has no egress when a pool provisioned it, since no host runs an egress sidecar for it', () => {
     const provisioned = aRunner({ host: null }).claim(RUN, later(1));
 
     expect(provisioned.egressTokenHash).toBeNull();
-    expect(provisioned.workEgressActsFor(later(2))).toBeNull();
+    expect(provisioned.authenticateEgressToken(later(2))).toBeNull();
   });
 
   it('knows the work it leases', () => {
@@ -165,7 +167,7 @@ describe('Runner', () => {
   });
 
   it('answers to its trust’s labels when it started through a trust', () => {
-    expect(aRunner({ through: aTrust() }).terms.values).toEqual([
+    expect(aRunner({ through: aTrust() }).offer.values).toEqual([
       'vpc-internal',
     ]);
   });
@@ -176,11 +178,11 @@ describe('Runner', () => {
 
   it('is not started for a pool that is deleted, a trust that is deleted, nor with no time to claim', () => {
     expect(() =>
-      aRunner({ through: aPullPool().delete(attributedIn()) }),
+      aRunner({ through: aPullPool().delete(changeActorIn()) }),
     ).toThrow(InconsistentStateError);
-    expect(() => aRunner({ through: aTrust().delete(attributedIn()) })).toThrow(
-      InconsistentStateError,
-    );
+    expect(() =>
+      aRunner({ through: aTrust().delete(changeActorIn()) }),
+    ).toThrow(InconsistentStateError);
     expect(() => aRunner({ claimWithinMs: 0 })).toThrow(InconsistentStateError);
   });
 

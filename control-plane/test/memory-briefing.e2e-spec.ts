@@ -200,7 +200,7 @@ describe('briefing runs with what the team remembers', () => {
           command: { executable: 'codex-acp', args: [] },
           briefing: 'Fix the queue.',
           handover: { options: [], noteLimit: 0 },
-          continuity: { key: 'task_1' },
+          resume: { key: 'task_1' },
         }),
         briefedWith: BriefedMemories.of({
           briefed: [
@@ -322,7 +322,7 @@ describe('briefing runs with what the team remembers', () => {
           command: { executable: 'claude-agent-acp', args: [] },
           briefing: 'Fix the queue.',
           handover: { options: [], noteLimit: 0 },
-          continuity: { key: 'task_2' },
+          resume: { key: 'task_2' },
         }),
         briefedWith: BriefedMemories.of({
           briefed: [{ id: teamWide.id, handle: teamWide.handle }],

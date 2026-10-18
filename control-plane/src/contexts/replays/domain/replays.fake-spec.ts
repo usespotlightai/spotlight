@@ -32,7 +32,7 @@ import { StationChanges } from '@replays/domain/value-objects/station-changes.vo
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { StationPath } from '@replays/domain/value-objects/station-path.vo';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -65,7 +65,7 @@ export const LIVE_HASHES = StationHashes.of({
 
 export const AT = StationPath.of('core', 'delivery', 'build') as StationPath;
 
-export const BY = attributedIn(STATION.workspaceId);
+export const BY = changeActorIn(STATION.workspaceId);
 
 const versionOf = (text: string): string => {
   let hash = 0;

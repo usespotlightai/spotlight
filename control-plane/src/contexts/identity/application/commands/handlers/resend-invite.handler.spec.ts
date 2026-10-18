@@ -15,7 +15,7 @@ import type { WorkspaceRepository } from '@identity/domain/repositories/workspac
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
@@ -64,7 +64,7 @@ const sentInvite = (
     id: InviteId.of('invite_1'),
     workspaceId: over.workspaceId ?? ACME,
     email: EmailAddress.of('ada@example.com'),
-    terms: InviteTerms.of(WorkspaceRole.admin, [
+    spec: InviteSpec.of(WorkspaceRole.admin, [
       TeamId.of('team_1'),
       TeamId.of('team_gone'),
     ]),
@@ -140,7 +140,7 @@ describe('ResendInviteHandler', () => {
     });
   });
 
-  it('lets another admin resend it, on its current terms, as its inviter now', async () => {
+  it('lets another admin resend it, with its current settings, as its inviter now', async () => {
     const { handler, save, send } = resending({ role: WorkspaceRole.admin });
 
     await expect(handler.execute(resend)).resolves.toMatchObject({
@@ -149,7 +149,7 @@ describe('ResendInviteHandler', () => {
       invitedBy: { id: 'user_leon' },
     });
     expect(save.mock.calls[0]?.[0].invitedBy).toEqual(LEON);
-    expect(save.mock.calls[0]?.[0].terms.teams).toEqual([TeamId.of('team_1')]);
+    expect(save.mock.calls[0]?.[0].spec.teams).toEqual([TeamId.of('team_1')]);
     expect(save.mock.calls[0]?.[0].pullEvents()).toMatchObject([
       { kind: 'workspace-invite.created', resent: true, invitedBy: LEON },
     ]);

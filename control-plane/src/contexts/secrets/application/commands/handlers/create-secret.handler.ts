@@ -20,8 +20,8 @@ import type {
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -61,7 +61,7 @@ export class CreateSecretHandler
       }
 
       if (!permissions.managesSecrets) {
-        return forbiddenTo('manage-secrets');
+        return forbiddenTo('secrets');
       }
 
       const compiled = this.definitions.secret(command.definition);
@@ -73,7 +73,7 @@ export class CreateSecretHandler
       const secret = Secret.create(compiled, {
         id: SecretId.of(this.ids.generate()),
         workspaceId: permissions.workspaceId,
-        by: Attribution.of(command.actor, permissions.workspaceId),
+        by: ChangeActor.of(command.actor, permissions.workspaceId),
         at: this.clock.now(),
       });
       const create: IdempotentCreate = {
@@ -88,7 +88,7 @@ export class CreateSecretHandler
 
       try {
         return await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
+          createIdempotently(this.creates, create, async () => {
             await this.secrets.save(secret);
 
             return secret.id.value;
@@ -96,7 +96,7 @@ export class CreateSecretHandler
         );
       } catch (error) {
         if (error instanceof SecretAlreadyExistsError) {
-          return { outcome: 'taken', address: secret.name.value };
+          return { outcome: 'already-exists', address: secret.name.value };
         }
 
         throw error;

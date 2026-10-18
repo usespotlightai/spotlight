@@ -111,17 +111,17 @@ export class NetworkCalls implements NetworkCallsPort {
   }
 
   private viewOf(call: NetworkCall, now: Date): NetworkCallState {
-    const { answer } = call;
+    const { response } = call;
 
-    if (answer) {
+    if (response) {
       return {
         kind: 'answered',
-        answer: {
-          status: answer.status,
-          headers: answer.headers,
-          body: answer.body,
-          ms: answer.ms,
-          error: answer.error,
+        response: {
+          status: response.status,
+          headers: response.headers,
+          body: response.body,
+          ms: response.ms,
+          error: response.error,
         },
       };
     }

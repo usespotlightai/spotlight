@@ -13,9 +13,9 @@ import { useRunTrail } from '@/hooks/useRunTrail';
 import { decisionPending, type RunJournal, workedOn } from '@/lib/inbox';
 import { type TeamRun, working } from '@/lib/run';
 import {
-  type RunConversation as ConversationData,
+  type RunNotes as ConversationData,
   stayedQuiet,
-} from '@/lib/run-conversation';
+} from '@/lib/run-notes';
 import { TrailContext, useTrail } from '@/lib/trail';
 
 type RunPageProps = {

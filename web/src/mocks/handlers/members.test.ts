@@ -37,7 +37,7 @@ describe('the mock members', () => {
       'member',
     ]);
     expect(sam?.teams.map((each) => each.name)).toEqual(['Platform', 'Growth']);
-    expect(sam?.mayBeSetTo).toEqual([]);
+    expect(sam?.assignableRoles).toEqual([]);
     expect(lena?.teams).toEqual([]);
   });
 
@@ -170,7 +170,9 @@ describe('the mock members', () => {
     const { response } = await listWorkspaceInvites({ path: { slug: SLUG } });
 
     expect(everyone).toHaveLength(5);
-    expect(everyone.every((each) => each.mayBeSetTo.length === 0)).toBe(true);
+    expect(everyone.every((each) => each.assignableRoles.length === 0)).toBe(
+      true,
+    );
     expect(response?.status).toBe(404);
   });
 

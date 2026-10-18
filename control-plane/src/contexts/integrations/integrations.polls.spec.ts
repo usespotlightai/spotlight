@@ -165,9 +165,9 @@ describe('ProcessDuePolls', () => {
 
     const raised = react.mock.calls[0]?.[2];
     expect(raised).toHaveLength(1);
-    expect(raised?.[0]?.concerns.marks.map((each) => each.value)).toEqual([
-      'ENG-1',
-    ]);
+    expect(
+      raised?.[0]?.correlationKeys.marks.map((each) => each.value),
+    ).toEqual(['ENG-1']);
   });
 
   it('names what it received by the cursor it polled from, so a poll taken again acts once', async () => {

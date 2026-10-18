@@ -1,6 +1,6 @@
 import type {
   RunnerEgressPort,
-  SharedEgressFor,
+  SharedEgressAuthentication,
 } from '@runners/application/ports/runner-egress.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -54,7 +54,9 @@ export class CheckActiveRunsHandler
     }
   }
 
-  private async isStillActive(authorized: SharedEgressFor): Promise<boolean> {
+  private async isStillActive(
+    authorized: SharedEgressAuthentication,
+  ): Promise<boolean> {
     if (authorized.work?.kind !== 'run') {
       return true;
     }

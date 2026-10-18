@@ -1,5 +1,5 @@
 export class UpstreamError extends Error {
-  readonly violation = 'upstream-error' as const;
+  readonly kind = 'upstream-error' as const;
 
   constructor(
     operation: string,

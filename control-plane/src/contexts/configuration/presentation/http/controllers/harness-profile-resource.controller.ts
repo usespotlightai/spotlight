@@ -17,14 +17,14 @@ import { CurrentPrincipal } from '@platform/http/decorators/current-principal.de
 import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
-import {
-  answerCreated,
-  answerDeleted,
-  answerUpdated,
-  found,
-  listed,
-} from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
+import {
+  respondCreated,
+  respondDeleted,
+  respondFound,
+  respondListed,
+  respondUpdated,
+} from '@platform/http/resources/resource-responses';
 import type {
   ResourceCreated,
   ResourceDeleted,
@@ -118,13 +118,13 @@ export class HarnessProfileResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<HarnessProfileResourceResponseDto> {
-    return answerCreated(
+    return respondCreated(
       KIND,
       await this.commandBus.execute<
         CreateHarnessProfileCommand,
         ResourceCreated | null
       >(new CreateHarnessProfileCommand(teamId, actor, key, body)),
-      (id) => this.answer(id, actor.principal),
+      (id) => this.toResponse(id, actor.principal),
     );
   }
 
@@ -137,7 +137,7 @@ export class HarnessProfileResourceController {
     @Param('id') id: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<HarnessProfileResourceResponseDto> {
-    return this.answer(id, principal);
+    return this.toResponse(id, principal);
   }
 
   @HarnessProfileResource.Update(
@@ -152,13 +152,13 @@ export class HarnessProfileResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<HarnessProfileResourceResponseDto> {
-    return answerUpdated(
+    return respondUpdated(
       KIND,
       await this.commandBus.execute<
         UpdateHarnessProfileCommand,
         ResourceUpdated | null
       >(new UpdateHarnessProfileCommand(id, actor, version, body)),
-      (updated) => this.answer(updated, actor.principal),
+      (updated) => this.toResponse(updated, actor.principal),
     );
   }
 
@@ -172,7 +172,7 @@ export class HarnessProfileResourceController {
     @IfMatch() version: number,
     @CurrentActor() actor: Actor,
   ): Promise<void> {
-    answerDeleted(
+    respondDeleted(
       KIND,
       await this.commandBus.execute<
         DeleteHarnessProfileCommand,
@@ -191,7 +191,7 @@ export class HarnessProfileResourceController {
     @Query('address') address: string | undefined,
     @CurrentPrincipal() principal: Principal,
   ): Promise<HarnessProfileResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<
         ImportHarnessProfileQuery,
@@ -210,7 +210,7 @@ export class HarnessProfileResourceController {
     @Param('workspaceId') workspaceId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ResourceList<HarnessProfileResourceResponseDto>> {
-    return listed(
+    return respondListed(
       await this.queryBus.execute<
         ListHarnessProfileResourcesQuery,
         readonly HarnessProfileResourceDto[] | null
@@ -219,11 +219,11 @@ export class HarnessProfileResourceController {
     );
   }
 
-  private async answer(
+  private async toResponse(
     id: string,
     principal: Principal,
   ): Promise<HarnessProfileResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<
         ReadHarnessProfileQuery,

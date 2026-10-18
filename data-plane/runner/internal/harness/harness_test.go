@@ -25,7 +25,7 @@ func onPath(t *testing.T, name string) string {
 func TestReportsWhatIsThere(t *testing.T) {
 	executable := onPath(t, "here")
 
-	found := harness.Installed(context.Background(), []protocol.Installable{
+	found := harness.Installed(context.Background(), []protocol.HarnessProbe{
 		{ID: "the-one-here", Executable: executable},
 	})
 
@@ -37,7 +37,7 @@ func TestReportsWhatIsThere(t *testing.T) {
 func TestLeavesOutWhatIsNotThere(t *testing.T) {
 	onPath(t, "here")
 
-	found := harness.Installed(context.Background(), []protocol.Installable{
+	found := harness.Installed(context.Background(), []protocol.HarnessProbe{
 		{ID: "the-one-here", Executable: "here"},
 		{ID: "not-here", Executable: "nothing-of-that-name"},
 	})
@@ -61,7 +61,7 @@ func TestDiscoversModelsFromTheCommand(t *testing.T) {
 	}
 	t.Setenv("PATH", dir)
 
-	found := harness.Installed(context.Background(), []protocol.Installable{
+	found := harness.Installed(context.Background(), []protocol.HarnessProbe{
 		{ID: "lister", Executable: "lister", Discovery: []string{"lister"}},
 	})
 
@@ -83,7 +83,7 @@ func TestDiscoversModelsFromTheCommand(t *testing.T) {
 func TestReportsNoModelsWithoutDiscovery(t *testing.T) {
 	executable := onPath(t, "bare")
 
-	found := harness.Installed(context.Background(), []protocol.Installable{
+	found := harness.Installed(context.Background(), []protocol.HarnessProbe{
 		{ID: "bare", Executable: executable},
 	})
 
@@ -101,7 +101,7 @@ func TestNothingRequestedIsNothingReported(t *testing.T) {
 func TestSkipsAnEntryThatNamesNothing(t *testing.T) {
 	onPath(t, "here")
 
-	found := harness.Installed(context.Background(), []protocol.Installable{
+	found := harness.Installed(context.Background(), []protocol.HarnessProbe{
 		{ID: "", Executable: "here"},
 		{ID: "no-executable", Executable: ""},
 	})
@@ -130,7 +130,7 @@ func TestReadsTheVersionTheHarnessReports(t *testing.T) {
 		}
 		t.Setenv("PATH", dir)
 
-		found := harness.Installed(context.Background(), []protocol.Installable{
+		found := harness.Installed(context.Background(), []protocol.HarnessProbe{
 			{ID: "versioned", Executable: "versioned", VersionProbe: []string{"versioned", "--version"}},
 		})
 
@@ -147,7 +147,7 @@ func TestReportsNoVersionWhenItCannotBeRead(t *testing.T) {
 	}
 	t.Setenv("PATH", dir)
 
-	found := harness.Installed(context.Background(), []protocol.Installable{
+	found := harness.Installed(context.Background(), []protocol.HarnessProbe{
 		{ID: "broken", Executable: "broken", VersionProbe: []string{"broken"}},
 		{ID: "unrequested", Executable: "broken"},
 	})

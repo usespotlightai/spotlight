@@ -38,7 +38,7 @@ import {
   stationsFor,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
-import { SearchSights } from '@replays/application/services/search-sights.service';
+import { SearchVisibilities } from '@replays/application/services/search-visibilities.service';
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
@@ -949,7 +949,7 @@ describe('a search running its course', () => {
   });
 });
 
-describe('SearchSights', () => {
+describe('SearchVisibilities', () => {
   it('shows a search run the searched tasks and every candidate’s run on them, the seed’s included, and never a held-out task', async () => {
     await seeded();
     const run = activeRun();
@@ -962,26 +962,26 @@ describe('SearchSights', () => {
     await replayed(proposed.replayId, () => true);
 
     const search = theSearch();
-    const sight = await new SearchSights(
+    const visibility = await new SearchVisibilities(
       memory.searchRepository,
       memory.candidateRepository,
       memory.replayRepository,
     ).of(run);
     const heldOut = search.split.heldOutRuns.map((each) => each.value);
 
-    expect(sight.stationId).toBe(STATION.stationId);
-    expect([...sight.heldOutTasks].sort()).toEqual(
+    expect(visibility.stationId).toBe(STATION.stationId);
+    expect([...visibility.heldOutTasks].sort()).toEqual(
       search.split.heldOut.map((each) => each.taskId.value).sort(),
     );
-    expect([...sight.shownOriginals].sort()).toEqual(
+    expect([...visibility.shownOriginals].sort()).toEqual(
       search.split.searchedRuns.map((each) => each.value).sort(),
     );
-    expect(sight.candidates.map((each) => each.name)).toEqual([
+    expect(visibility.candidates.map((each) => each.name)).toEqual([
       'seed',
       'firmer',
     ]);
-    expect(sight.seedBlock).toEqual(SEED_BLOCK);
-    for (const candidate of sight.candidates) {
+    expect(visibility.seedBlock).toEqual(SEED_BLOCK);
+    for (const candidate of visibility.candidates) {
       expect(candidate.runs).toHaveLength(7);
       expect(
         candidate.runs.some((each) => heldOut.includes(each.original)),
@@ -994,7 +994,7 @@ describe('SearchSights', () => {
 
   it('sees no search for a run no search ran', async () => {
     await expect(
-      new SearchSights(
+      new SearchVisibilities(
         memory.searchRepository,
         memory.candidateRepository,
         memory.replayRepository,

@@ -1,8 +1,8 @@
 import type { JsonObject } from '@shared-kernel/domain/services/json-value';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 
 export interface RunCheckout {
@@ -25,10 +25,10 @@ interface RunHandover {
   readonly noteLimit: number;
 }
 
-export interface RunContinuity {
+export interface RunResume {
   readonly key: string;
   readonly sessionId?: string;
-  readonly resumes?: boolean;
+  readonly resumeSession?: boolean;
 }
 
 export interface RunToolInput {
@@ -96,7 +96,7 @@ export interface RunSpecParts {
   readonly command: RunCommand;
   readonly briefing: string;
   readonly handover: RunHandover;
-  readonly continuity: RunContinuity;
+  readonly resume: RunResume;
   readonly skills?: readonly RunFile[];
   readonly skillHomes?: readonly string[];
   readonly manifest?: readonly RunToolManifest[];
@@ -170,12 +170,12 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
     options: [...parts.handover.options],
     noteLimit: parts.handover.noteLimit,
   },
-  continuity: {
-    key: parts.continuity.key,
-    ...(parts.continuity.sessionId !== undefined
-      ? { sessionId: parts.continuity.sessionId }
+  resume: {
+    key: parts.resume.key,
+    ...(parts.resume.sessionId !== undefined
+      ? { sessionId: parts.resume.sessionId }
       : {}),
-    ...(parts.continuity.resumes ? { resumes: true } : {}),
+    ...(parts.resume.resumeSession ? { resumeSession: true } : {}),
   },
   ...(parts.skills
     ? { skills: parts.skills.map(({ path, text }) => ({ path, text })) }
@@ -258,7 +258,7 @@ const replayProblem = (parts: RunSpecParts): string | null => {
     return 'must not have a replay report where it started';
   }
 
-  if (parts.continuity.sessionId || parts.continuity.resumes) {
+  if (parts.resume.sessionId || parts.resume.resumeSession) {
     return 'must start a replay in a conversation of its own';
   }
 
@@ -331,7 +331,7 @@ const searchProblem = (parts: RunSpecParts): string | null => {
     return 'must not have a search report where it started';
   }
 
-  if (parts.continuity.sessionId || parts.continuity.resumes) {
+  if (parts.resume.sessionId || parts.resume.resumeSession) {
     return 'must start a search in a conversation of its own';
   }
 
@@ -478,32 +478,32 @@ export class RunSpec {
     );
   }
 
-  get continuity(): ContinuityKey | null {
-    return blank(this.parts.continuity.key)
+  get resumeKey(): ResumeKey | null {
+    return blank(this.parts.resume.key)
       ? null
-      : ContinuityKey.of(this.parts.continuity.key);
+      : ResumeKey.of(this.parts.resume.key);
   }
 
   get continuesASession(): boolean {
-    return Boolean(this.parts.continuity.sessionId);
+    return Boolean(this.parts.resume.sessionId);
   }
 
-  get resumes(): boolean {
-    return this.parts.continuity.resumes === true;
+  get resumesSession(): boolean {
+    return this.parts.resume.resumeSession === true;
   }
 
   resumingIn(session: HarnessSession | null): RunSpec {
     return new RunSpec(
       copied({
         ...this.parts,
-        continuity: {
-          key: this.parts.continuity.key,
+        resume: {
+          key: this.parts.resume.key,
           ...(session
             ? { sessionId: session.value }
-            : this.parts.continuity.sessionId !== undefined
-              ? { sessionId: this.parts.continuity.sessionId }
+            : this.parts.resume.sessionId !== undefined
+              ? { sessionId: this.parts.resume.sessionId }
               : {}),
-          resumes: true,
+          resumeSession: true,
         },
       }),
     );

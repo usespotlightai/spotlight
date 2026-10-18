@@ -60,8 +60,8 @@ func TestRejectsARecallOfNothing(t *testing.T) {
 }
 
 func TestCarriesAMemoryToSpotlight(t *testing.T) {
-	var got protocol.Remembering
-	server, _ := remembering(t, func(_ context.Context, received protocol.Remembering) (json.RawMessage, error) {
+	var got protocol.RememberRequest
+	server, _ := remembering(t, func(_ context.Context, received protocol.RememberRequest) (json.RawMessage, error) {
 		got = received
 		return json.RawMessage(`{"kind":"rationale"}`), nil
 	})
@@ -82,7 +82,7 @@ func TestSaysPlainlyWhySpotlightRejectedAMemory(t *testing.T) {
 		rejectedUpstream{message: "A memory is one of rationale, failure, not gossip"},
 		&agentapi.Error{Because: "A memory is one of rationale, failure, not gossip"},
 	} {
-		server, _ := remembering(t, func(context.Context, protocol.Remembering) (json.RawMessage, error) {
+		server, _ := remembering(t, func(context.Context, protocol.RememberRequest) (json.RawMessage, error) {
 			return nil, rejected
 		})
 
@@ -96,7 +96,7 @@ func TestSaysPlainlyWhySpotlightRejectedAMemory(t *testing.T) {
 }
 
 func TestSaysWhenSpotlightCouldNotBeReachedForAMemory(t *testing.T) {
-	server, _ := remembering(t, func(context.Context, protocol.Remembering) (json.RawMessage, error) {
+	server, _ := remembering(t, func(context.Context, protocol.RememberRequest) (json.RawMessage, error) {
 		return nil, errors.New("connection refused")
 	})
 
@@ -109,7 +109,7 @@ func TestSaysWhenSpotlightCouldNotBeReachedForAMemory(t *testing.T) {
 }
 
 func TestRejectsAMemoryWithoutAKindOrABody(t *testing.T) {
-	server, _ := remembering(t, func(context.Context, protocol.Remembering) (json.RawMessage, error) {
+	server, _ := remembering(t, func(context.Context, protocol.RememberRequest) (json.RawMessage, error) {
 		t.Error("remembered anyway")
 		return nil, nil
 	})

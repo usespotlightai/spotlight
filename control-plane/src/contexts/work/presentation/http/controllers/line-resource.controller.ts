@@ -6,14 +6,14 @@ import { CurrentPrincipal } from '@platform/http/decorators/current-principal.de
 import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
-import {
-  answerCreated,
-  answerDeleted,
-  answerUpdated,
-  found,
-  listed,
-} from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
+import {
+  respondCreated,
+  respondDeleted,
+  respondFound,
+  respondListed,
+  respondUpdated,
+} from '@platform/http/resources/resource-responses';
 import type {
   ResourceCreated,
   ResourceDeleted,
@@ -104,12 +104,12 @@ export class LineResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<LineResourceResponseDto> {
-    return answerCreated(
+    return respondCreated(
       KIND,
       await this.commandBus.execute<CreateLineCommand, ResourceCreated | null>(
         new CreateLineCommand(teamId, actor, key, body),
       ),
-      (id) => this.answer(id, actor.principal),
+      (id) => this.toResponse(id, actor.principal),
     );
   }
 
@@ -119,7 +119,7 @@ export class LineResourceController {
     @Param('id') id: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<LineResourceResponseDto> {
-    return this.answer(id, principal);
+    return this.toResponse(id, principal);
   }
 
   @LineResource.Update(
@@ -134,12 +134,12 @@ export class LineResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<LineResourceResponseDto> {
-    return answerUpdated(
+    return respondUpdated(
       KIND,
       await this.commandBus.execute<UpdateLineCommand, ResourceUpdated | null>(
         new UpdateLineCommand(id, actor, version, body),
       ),
-      (updated) => this.answer(updated, actor.principal),
+      (updated) => this.toResponse(updated, actor.principal),
     );
   }
 
@@ -150,7 +150,7 @@ export class LineResourceController {
     @IfMatch() version: number,
     @CurrentActor() actor: Actor,
   ): Promise<void> {
-    answerDeleted(
+    respondDeleted(
       KIND,
       await this.commandBus.execute<DeleteLineCommand, ResourceDeleted | null>(
         new DeleteLineCommand(id, actor, version),
@@ -168,7 +168,7 @@ export class LineResourceController {
     @Query('address') address: string | undefined,
     @CurrentPrincipal() principal: Principal,
   ): Promise<LineResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<ImportLineQuery, LineResourceDto | null>(
         new ImportLineQuery(workspaceId, address ?? '', principal),
@@ -186,7 +186,7 @@ export class LineResourceController {
     @Param('workspaceId') workspaceId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ResourceList<LineResourceResponseDto>> {
-    return listed(
+    return respondListed(
       await this.queryBus.execute<
         ListLineResourcesQuery,
         readonly LineResourceDto[] | null
@@ -195,11 +195,11 @@ export class LineResourceController {
     );
   }
 
-  private async answer(
+  private async toResponse(
     id: string,
     principal: Principal,
   ): Promise<LineResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<ReadLineQuery, LineResourceDto | null>(
         new ReadLineQuery(id, principal),

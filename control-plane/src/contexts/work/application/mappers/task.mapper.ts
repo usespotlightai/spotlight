@@ -29,7 +29,7 @@ export const TaskMapper = {
       running: summary.running,
       awaitingReview: summary.awaitingReview,
       pullRequest: summary.pullRequest,
-      raisedBy: summary.raisedBy,
+      createdBy: summary.createdBy,
       assignee: summary.assignee,
       note: summary.note
         ? {
@@ -43,7 +43,7 @@ export const TaskMapper = {
 
   taskToDto(
     task: Task,
-    raisedBy: TaskPersonDto | null,
+    createdBy: TaskPersonDto | null,
     assignee: TaskPersonDto | null,
   ): TaskDto {
     const last = task.notes[task.notes.length - 1];
@@ -64,7 +64,7 @@ export const TaskMapper = {
       running: task.working,
       awaitingReview: TaskMapper.awaited(task),
       pullRequest: task.pullRequest?.value ?? null,
-      raisedBy,
+      createdBy,
       assignee,
       note: last
         ? {

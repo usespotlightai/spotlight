@@ -4,7 +4,7 @@ import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 
 export const CHAT_READER = Symbol('CHAT_READER');
 
-interface ChatImprovingView {
+interface ChatTargetStationView {
   readonly lineId: string;
   readonly lineKey: string;
   readonly lineName: string;
@@ -26,7 +26,7 @@ export interface ChatSummary {
   readonly model: string | null;
   readonly effort: string | null;
   readonly repositories: readonly string[];
-  readonly improving: ChatImprovingView | null;
+  readonly targetStation: ChatTargetStationView | null;
   readonly setup: ChatSetupView | null;
   readonly createdAt: string;
   readonly updatedAt: string;

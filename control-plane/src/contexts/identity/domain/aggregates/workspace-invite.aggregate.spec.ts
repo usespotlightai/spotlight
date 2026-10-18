@@ -2,7 +2,7 @@ import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.ag
 import { InviteNotPendingError } from '@identity/domain/exceptions/invite-not-pending.error';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -19,8 +19,8 @@ const inviter = UserId.of('user_leon');
 const acme = WorkspaceId.of('ws_1');
 const hash = (of: string) => TokenHash.of(of.repeat(64).slice(0, 64));
 
-const terms = (role = WorkspaceRole.member, teams = ['team_1']) =>
-  InviteTerms.of(
+const spec = (role = WorkspaceRole.member, teams = ['team_1']) =>
+  InviteSpec.of(
     role,
     teams.map((id) => TeamId.of(id)),
   );
@@ -30,7 +30,7 @@ const created = (to = 'ada@example.com') =>
     id: InviteId.of('invite_1'),
     workspaceId: acme,
     email: EmailAddress.of(to),
-    terms: terms(),
+    spec: spec(),
     tokenHash: hash('a'),
     invitedBy: inviter,
     now: NOW,
@@ -41,7 +41,7 @@ const acceptedBy = (invite: WorkspaceInvite, as = 'ada@example.com') =>
 
 const resent = (invite: WorkspaceInvite, now = LATER) =>
   invite.resend({
-    terms: terms(WorkspaceRole.admin, ['team_2']),
+    spec: spec(WorkspaceRole.admin, ['team_2']),
     tokenHash: hash('b'),
     by: ada,
     now,
@@ -54,7 +54,7 @@ const stored = (
     id: InviteId.of('invite_1'),
     workspaceId: acme,
     email: EmailAddress.of('ada@example.com'),
-    terms: terms(),
+    spec: spec(),
     tokenHash: hash('a'),
     invitedBy: inviter,
     invitedAt: NOW,
@@ -72,7 +72,7 @@ describe('WorkspaceInvite', () => {
       {
         kind: 'workspace-invite.created',
         resent: false,
-        terms: { role: WorkspaceRole.member, teams: [{ value: 'team_1' }] },
+        spec: { role: WorkspaceRole.member, teams: [{ value: 'team_1' }] },
       },
     ]);
   });
@@ -86,7 +86,7 @@ describe('WorkspaceInvite', () => {
     expect(created().statusAt(AFTER_IT_RUNS_OUT)).toBe('expired');
   });
 
-  it('is taken up by the person it was sent to, carrying its terms to them', () => {
+  it('is taken up by the person it was sent to, carrying its settings to them', () => {
     const accepted = acceptedBy(created());
 
     expect(accepted.statusAt(LATER)).toBe('accepted');
@@ -96,7 +96,7 @@ describe('WorkspaceInvite', () => {
       {
         kind: 'workspace-invite.accepted',
         userId: ada,
-        terms: { role: WorkspaceRole.member },
+        spec: { role: WorkspaceRole.member },
       },
     ]);
   });
@@ -152,14 +152,14 @@ describe('WorkspaceInvite', () => {
     );
   });
 
-  it('a resent invite carries a new link, its new terms, and a fresh fortnight', () => {
+  it('a resent invite carries a new link, its new settings, and a fresh fortnight', () => {
     const invite = created();
     const resentInvite = resent(invite, AFTER_IT_RUNS_OUT);
 
     expect(resentInvite.id).toBe(invite.id);
     expect(resentInvite.tokenHash.value).toBe(hash('b').value);
-    expect(resentInvite.terms.role).toBe(WorkspaceRole.admin);
-    expect(resentInvite.terms.teams.map((each) => each.value)).toEqual([
+    expect(resentInvite.spec.role).toBe(WorkspaceRole.admin);
+    expect(resentInvite.spec.teams.map((each) => each.value)).toEqual([
       'team_2',
     ]);
     expect(resentInvite.invitedBy).toBe(ada);
@@ -226,7 +226,7 @@ describe('WorkspaceInvite', () => {
       id: InviteId.of('invite_2'),
       workspaceId: acme,
       email: EmailAddress.of('ada@example.com'),
-      terms: terms(),
+      spec: spec(),
       tokenHash: hash('c'),
       invitedBy: inviter,
       now: LATER,
@@ -237,13 +237,13 @@ describe('WorkspaceInvite', () => {
     expect(invite.invitedAt).toBe(LATER);
   });
 
-  it('resends the pending invite, on the terms requested now, rather than creating a second', () => {
+  it('resends the pending invite, with the settings requested now, rather than creating a second', () => {
     const pending = stored({ expiresAt: NOW });
     const { invite, resent } = WorkspaceInvite.createOrResend(pending, {
       id: InviteId.of('invite_2'),
       workspaceId: acme,
       email: EmailAddress.of('ada@example.com'),
-      terms: terms(WorkspaceRole.admin),
+      spec: spec(WorkspaceRole.admin),
       tokenHash: hash('c'),
       invitedBy: ada,
       now: LATER,
@@ -251,7 +251,7 @@ describe('WorkspaceInvite', () => {
 
     expect(resent).toBe(true);
     expect(invite.id.value).toBe('invite_1');
-    expect(invite.terms.invitedAs).toBe('admin');
+    expect(invite.spec.invitedAs).toBe('admin');
     expect(invite.invitedBy).toBe(ada);
     expect(invite.statusAt(LATER)).toBe('pending');
   });

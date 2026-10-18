@@ -125,7 +125,7 @@ export class DrizzleWorkspaceTokenRepository
     return this.one(eq(workspaceToken.id, id.value));
   }
 
-  bearing(hash: TokenHash): Promise<WorkspaceToken | null> {
+  findByHash(hash: TokenHash): Promise<WorkspaceToken | null> {
     return this.one(eq(workspaceToken.tokenHash, hash.value));
   }
 

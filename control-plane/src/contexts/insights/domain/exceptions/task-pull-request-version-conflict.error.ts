@@ -1,5 +1,5 @@
 export class TaskPullRequestVersionConflictError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(taskId: string) {
     super(

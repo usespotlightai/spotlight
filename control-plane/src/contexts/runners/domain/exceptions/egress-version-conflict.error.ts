@@ -1,5 +1,5 @@
 export class EgressVersionConflictError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(egressId: string) {
     super(

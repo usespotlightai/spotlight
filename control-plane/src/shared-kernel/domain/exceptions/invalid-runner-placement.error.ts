@@ -1,5 +1,5 @@
 export class InvalidRunnerPlacementError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(readonly because: string) {
     super(`Runners ${because}.`);

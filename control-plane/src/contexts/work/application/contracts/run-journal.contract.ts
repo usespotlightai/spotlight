@@ -37,9 +37,10 @@ export const parseEnforcement = (
   }
 };
 
-export const ASIDE_SEQ = -1_000_000;
+export const CONTROL_PLANE_SEQ = -1_000_000;
 
-export const isAside = (seq: number): boolean => seq <= ASIDE_SEQ;
+export const isControlPlaneEntry = (seq: number): boolean =>
+  seq <= CONTROL_PLANE_SEQ;
 
 export interface StepLocation {
   readonly path: string;

@@ -14,7 +14,7 @@ import { useCreateWorkspace } from '@/hooks/api/useCreateWorkspace';
 import { useSession } from '@/hooks/api/useSession';
 import { useSignOut } from '@/hooks/api/useSignOut';
 import { inboxPath } from '@/lib/inbox';
-import { markCreatedHere } from '@/lib/provisioning';
+import { markCreatedHere } from '@/lib/setup-status';
 import { sanitizeSlug, slugify } from '@/lib/slug';
 import { WORKSPACE_URL_PREFIX } from '@/lib/workspace';
 

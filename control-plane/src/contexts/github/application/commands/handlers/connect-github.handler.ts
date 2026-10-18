@@ -29,7 +29,7 @@ export class ConnectGitHubHandler
         return null;
       }
 
-      const administration = membership.administers
+      const administration = membership.isAdmin
         ? await this.administration.of(installation, by)
         : 'not-admin';
 
@@ -44,7 +44,7 @@ export class ConnectGitHubHandler
 
         await this.connections.save(
           connection.connectTo(installation, {
-            isWorkspaceAdmin: membership.administers,
+            isWorkspaceAdmin: membership.isAdmin,
             isInstallationAdmin: administration === 'admin',
             connectedWorkspace,
           }),

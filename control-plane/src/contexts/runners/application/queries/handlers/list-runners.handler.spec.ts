@@ -64,7 +64,7 @@ const MEMBER: WorkspaceMembership = {
   workspaceId: WorkspaceId.of('ws_1'),
   slug: 'acme',
   viewer: UserId.of('user_1'),
-  administers: false,
+  isAdmin: false,
 };
 
 const listing = (
@@ -82,8 +82,8 @@ const listing = (
       inWorkspace,
       hostsIn,
       readyToRun: vi.fn(),
-      hasAWayOut: vi.fn(),
-      advertisedModels: vi.fn(),
+      hasEgressCapableRunner: vi.fn(),
+      supportedModels: vi.fn(),
     } as RunnerReaderPort,
     clock(),
   );

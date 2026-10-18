@@ -57,7 +57,7 @@ export const ConventionalApiController = (path: string, tag: string) =>
       name: API_VERSION_HEADER,
       required: false,
       description:
-        'The API version the client was written against; every response names the version it was answered in',
+        'The API version the client was written against; every response names the version that it uses',
       schema: {
         type: 'string',
         enum: [...SUPPORTED_API_VERSIONS],

@@ -59,7 +59,7 @@ import type {
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -149,7 +149,7 @@ export class Search extends EventRecorder {
     split: HeldOutSplit;
     seed: { candidate: SeedCandidate; replayId: ReplayId };
     at: Date;
-    by: Attribution;
+    by: ChangeActor;
   }): Search {
     const { set, seed } = input;
 
@@ -649,7 +649,7 @@ export class Search extends EventRecorder {
     }).heldOutAt(at);
   }
 
-  stop(at: Date, by: Attribution): Search {
+  stop(at: Date, by: ChangeActor): Search {
     if (!this.isActive) {
       throw new SearchEndedError(this.id.value);
     }

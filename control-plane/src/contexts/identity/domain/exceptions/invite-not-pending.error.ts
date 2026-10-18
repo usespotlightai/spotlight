@@ -1,5 +1,5 @@
 export class InviteNotPendingError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(why: string) {
     super(`This invite ${why}.`);

@@ -7,7 +7,7 @@ import type { WorkspaceRepository } from '@identity/domain/repositories/workspac
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
@@ -35,7 +35,7 @@ const sentInvite = (over: { sentAt?: Date; revoked?: boolean } = {}) => {
     id: InviteId.of('invite_1'),
     workspaceId: workspace.id,
     email: EmailAddress.of('Ada@Example.com'),
-    terms: InviteTerms.of(WorkspaceRole.admin, [
+    spec: InviteSpec.of(WorkspaceRole.admin, [
       TeamId.of('team_1'),
       TeamId.of('team_2'),
     ]),
@@ -103,7 +103,7 @@ describe('AcceptInviteHandler', () => {
     expect(dispatched).toMatchObject([
       {
         kind: 'workspace-invite.accepted',
-        terms: {
+        spec: {
           role: WorkspaceRole.admin,
           teams: [{ value: 'team_1' }, { value: 'team_2' }],
         },

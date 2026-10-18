@@ -1,5 +1,5 @@
 export class StaleTaskRevisionError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(id: string, expected: number, current: number) {
     super(

@@ -104,14 +104,16 @@ export const turnEnded = (turn: {
     return { waiting: true, run, task: null };
   }
 
-  const worked = report.session ? task.recordSession(report.session, by) : task;
+  const recorded = report.session
+    ? task.recordSession(report.session, by)
+    : task;
 
   return {
     waiting: true,
     run: run.paused(by, outcome, report, now),
-    task: worked.awaitingReview
-      ? worked
-      : worked.putToAPerson(run.id, {
+    task: recorded.awaitingReview
+      ? recorded
+      : recorded.putToAPerson(run.id, {
           station:
             line?.stationAt(task.stationId)?.name ?? StationName.unknown(),
           body: handoverOf(task, ending).body,

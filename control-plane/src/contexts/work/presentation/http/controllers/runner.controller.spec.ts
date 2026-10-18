@@ -28,7 +28,7 @@ describe('RunnerController, taking a run’s completion', () => {
       runId: 'run_1',
       runnerId: 'runner_1',
       failed: true,
-      unprepared: false,
+      setupFailed: false,
       timedOut: true,
     });
   });

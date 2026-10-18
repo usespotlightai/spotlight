@@ -3,9 +3,9 @@ import type {
   RunTokenWanted,
 } from '@identity/application/ports/run-tokens.port';
 import type {
-  EgressFor,
+  EgressAuthentication,
   RunnerEgressPort,
-  SharedEgressFor,
+  SharedEgressAuthentication,
 } from '@runners/application/ports/runner-egress.port';
 import type { RunSecretFetch } from '@secrets/application/contracts/run-secret-fetch.contract';
 import type { RunSecretFetchesPort } from '@secrets/application/ports/run-secret-fetches.port';
@@ -65,7 +65,7 @@ const leasedRun = (
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task:station' },
+      resume: { key: 'task:station' },
       injectedSecrets: over.injectedSecrets ?? ['LINEAR_API_KEY', 'GONE'],
       ...(over.spotlightApi ? { spotlightApi: true } : {}),
     }),
@@ -80,10 +80,10 @@ const leaseExpiredRun = () => {
 };
 
 const fetching = (
-  egressFor: EgressFor | null,
+  egressFor: EgressAuthentication | null,
   run: Run | null = leasedRun(),
   after: Run | null = run,
-  shared: SharedEgressFor | null = null,
+  shared: SharedEgressAuthentication | null = null,
 ) => {
   const fetchesMade: RunSecretFetch[] = [];
   const lost: string[] = [];
@@ -99,7 +99,7 @@ const fetching = (
       through.egressId === 'egress_1' && credential === 'proxy-credential'
         ? shared
         : null,
-    recordsThrough: async () => null,
+    runnerForConnectionRecords: async () => null,
   };
   const fetches = new EgressSecretFetches(
     {
@@ -143,7 +143,7 @@ const fetching = (
   return { handler, through, fetches: fetchesMade, lost, issued, revoked };
 };
 
-const LEASED_RUN: EgressFor = {
+const LEASED_RUN: EgressAuthentication = {
   runnerId: RUNNER,
   workspaceId: 'ws_1',
   work: { kind: 'run', id: 'run_1' },
@@ -339,7 +339,10 @@ describe('FetchRunSecretsHandler', () => {
 });
 
 describe('FetchSharedRunSecretsHandler', () => {
-  const SHARED: SharedEgressFor = { ...LEASED_RUN, egressId: 'egress_1' };
+  const SHARED: SharedEgressAuthentication = {
+    ...LEASED_RUN,
+    egressId: 'egress_1',
+  };
 
   it('fetches for the run of the proxy credential, pinned to the shared egress', async () => {
     const { through, fetches } = fetching(
@@ -448,7 +451,7 @@ describe('FetchSharedRunSecretsHandler', () => {
     });
   });
 
-  it('never takes the egress token of the egress beside a sandbox', async () => {
+  it('never takes the egress token of an egress sidecar', async () => {
     const { through } = fetching(LEASED_RUN, leasedRun(), leasedRun(), SHARED);
 
     await expect(

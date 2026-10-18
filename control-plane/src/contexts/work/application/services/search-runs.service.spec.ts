@@ -29,7 +29,7 @@ const queued = (subject: RunSubject, search: boolean) =>
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Search.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'search-run_9' },
+      resume: { key: 'search-run_9' },
       ...(search ? { search: {} } : {}),
     }),
   });

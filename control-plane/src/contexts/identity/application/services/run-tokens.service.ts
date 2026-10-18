@@ -11,7 +11,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
@@ -75,7 +75,7 @@ export class RunTokens implements RunTokensPort {
     try {
       await this.transaction.inTransaction(() =>
         this.tokens.save(
-          token.revoke(Attribution.spotlight(token.workspaceId)),
+          token.revoke(ChangeActor.spotlight(token.workspaceId)),
         ),
       );
     } catch (error) {

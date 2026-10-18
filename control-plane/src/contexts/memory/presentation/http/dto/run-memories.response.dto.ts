@@ -65,7 +65,7 @@ export class RunMemoriesResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    example: 'aside_8f2c',
+    example: 'request_8f2c',
     description:
       'The inbox item where people approve or reject what the run proposed; null where it proposed nothing',
   })

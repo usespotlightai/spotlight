@@ -1,5 +1,5 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -67,7 +67,7 @@ describe('WORK_EVENT_MAPPERS', () => {
   it('publishes which stations an updated or deleted line had and has', () => {
     const change = ConfigurationChange.updated(
       { resource: 'line', id: 'line_1', key: 'default' },
-      attributedIn(),
+      changeActorIn(),
     );
     const stations = [StationId.of('station_1'), StationId.of('station_2')];
     const lineChanged = {
@@ -687,7 +687,7 @@ describe('WORK_EVENT_MAPPERS', () => {
         stationId: 'station_1',
         action: 'sent-back',
         by: 'user_1',
-        after: 'run_1',
+        afterRunId: 'run_1',
         at: '2026-09-26T09:00:00.000Z',
         tool: null,
         server: null,

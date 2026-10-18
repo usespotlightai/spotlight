@@ -21,18 +21,18 @@ import { CurrentPrincipal } from '@platform/http/decorators/current-principal.de
 import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
-import {
-  answerCreated,
-  answerDeleted,
-  answerUpdated,
-  found,
-  listed,
-} from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
 import {
   ETAG_HEADER,
   IDEMPOTENT_REPLAY_HEADER,
 } from '@platform/http/resources/resource-headers';
+import {
+  respondCreated,
+  respondDeleted,
+  respondFound,
+  respondListed,
+  respondUpdated,
+} from '@platform/http/resources/resource-responses';
 import type {
   ResourceDeleted,
   ResourceUpdated,
@@ -83,20 +83,20 @@ const DEFINITION = ApiBody({
 
 const CREATED = ApiResponse({
   status: HttpStatus.CREATED,
-  description: 'The token, as a read would answer it',
+  description: 'The token, as a read returns it',
   type: WorkspaceTokenResourceResponseDto,
   headers: {
     [ETAG_HEADER]: {
-      description: 'The version answered, to send back as If-Match',
+      description: 'The returned version, to send back as If-Match',
       schema: { type: 'string', example: '"0"' },
     },
     [IDEMPOTENT_REPLAY_HEADER]: {
-      description: 'true when this answers an earlier attempt',
+      description: 'true when this returns the result of an earlier attempt',
       schema: { type: 'string', enum: ['true'] },
     },
     [WORKSPACE_TOKEN_HEADER]: {
       description:
-        'The token to send as Authorization: Bearer; answered this once and never again, not even to a retry, and stored only as a hash',
+        'The token to send as Authorization: Bearer; returned once and never again, not even to a retry, and stored only as a hash',
       schema: {
         type: 'string',
         example: 'q3Vd0n8yXbT2c4kPzR7mW1sLhA9eJ5gUfN6oYiC0xEw',
@@ -141,21 +141,21 @@ export class WorkspaceTokenResourceController {
     @IdempotencyKeyHeader() key: string,
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
-    @Res({ passthrough: true }) response: Headed,
+    @Res({ passthrough: true }) httpResponse: Headed,
   ): Promise<WorkspaceTokenResourceResponseDto> {
     const issued = await this.commandBus.execute<
       CreateWorkspaceTokenCommand,
       WorkspaceTokenCreatedDto | null
     >(new CreateWorkspaceTokenCommand(workspaceId, actor, key, body));
-    const answered = await answerCreated(KIND, issued?.created ?? null, (id) =>
-      this.answer(id, actor.principal),
+    const response = await respondCreated(KIND, issued?.created ?? null, (id) =>
+      this.toResponse(id, actor.principal),
     );
 
     if (issued?.token) {
-      response.setHeader(WORKSPACE_TOKEN_HEADER, issued.token);
+      httpResponse.setHeader(WORKSPACE_TOKEN_HEADER, issued.token);
     }
 
-    return answered;
+    return response;
   }
 
   @WorkspaceTokenResource.Read('tokens/:id', 'Read a workspace token')
@@ -164,7 +164,7 @@ export class WorkspaceTokenResourceController {
     @Param('id') id: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<WorkspaceTokenResourceResponseDto> {
-    return this.answer(id, principal);
+    return this.toResponse(id, principal);
   }
 
   @WorkspaceTokenResource.Update(
@@ -179,13 +179,13 @@ export class WorkspaceTokenResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<WorkspaceTokenResourceResponseDto> {
-    return answerUpdated(
+    return respondUpdated(
       KIND,
       await this.commandBus.execute<
         UpdateWorkspaceTokenCommand,
         ResourceUpdated | null
       >(new UpdateWorkspaceTokenCommand(id, actor, version, body)),
-      (updated) => this.answer(updated, actor.principal),
+      (updated) => this.toResponse(updated, actor.principal),
     );
   }
 
@@ -199,7 +199,7 @@ export class WorkspaceTokenResourceController {
     @IfMatch() version: number,
     @CurrentActor() actor: Actor,
   ): Promise<void> {
-    answerDeleted(
+    respondDeleted(
       KIND,
       await this.commandBus.execute<
         DeleteWorkspaceTokenCommand,
@@ -218,7 +218,7 @@ export class WorkspaceTokenResourceController {
     @Query('address') address: string | undefined,
     @CurrentPrincipal() principal: Principal,
   ): Promise<WorkspaceTokenResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<
         ImportWorkspaceTokenQuery,
@@ -237,7 +237,7 @@ export class WorkspaceTokenResourceController {
     @Param('workspaceId') workspaceId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ResourceList<WorkspaceTokenResourceResponseDto>> {
-    return listed(
+    return respondListed(
       await this.queryBus.execute<
         ListWorkspaceTokenResourcesQuery,
         readonly WorkspaceTokenResourceDto[] | null
@@ -246,11 +246,11 @@ export class WorkspaceTokenResourceController {
     );
   }
 
-  private async answer(
+  private async toResponse(
     id: string,
     principal: Principal,
   ): Promise<WorkspaceTokenResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<
         ReadWorkspaceTokenQuery,

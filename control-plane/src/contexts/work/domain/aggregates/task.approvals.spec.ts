@@ -296,7 +296,7 @@ describe('deciding an approval', () => {
 
     expect(() =>
       task.answer(at, person('Dismissed.', 'user_2'), 'refused'),
-    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+    ).toThrowError(expect.objectContaining({ kind: 'conflict' }));
   });
 
   it('lets only the person it was asked of approve it, and anyone dismiss it', () => {
@@ -319,7 +319,7 @@ describe('deciding an approval', () => {
 
     expect(() =>
       asked.answer(at, person('Approved.', 'user_bob'), 'granted'),
-    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+    ).toThrowError(expect.objectContaining({ kind: 'conflict' }));
     expect(
       asked
         .answer(at, person('Approved.', 'user_alice'), 'granted')
@@ -383,7 +383,7 @@ describe('deciding an approval', () => {
         },
         'granted',
       ),
-    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+    ).toThrowError(expect.objectContaining({ kind: 'conflict' }));
   });
 
   it('names the tool it decided on in the act it records, and its server when it is one', () => {
@@ -537,14 +537,14 @@ describe('approving a tool call with changes', () => {
 
     expect(() =>
       asked.answer(at, person('Approved.'), 'granted', { body: 'Hi.' }),
-    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+    ).toThrowError(expect.objectContaining({ kind: 'conflict' }));
     expect(() =>
       asked.answer(at, person('Approved.'), 'granted', {
         issue: 'ENG-12',
         body: 'Hi.',
         title: 'Extra',
       }),
-    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+    ).toThrowError(expect.objectContaining({ kind: 'conflict' }));
   });
 
   it('rejects an input left blank, which would run with something else', () => {
@@ -555,7 +555,7 @@ describe('approving a tool call with changes', () => {
         issue: 'ENG-12',
         body: '  ',
       }),
-    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+    ).toThrowError(expect.objectContaining({ kind: 'conflict' }));
   });
 
   it('rejects a change that is not a value of the kind of the input', () => {
@@ -571,7 +571,7 @@ describe('approving a tool call with changes', () => {
 
     expect(() =>
       task.answer(at, person('Approved.'), 'granted', { limit: 'lots' }),
-    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+    ).toThrowError(expect.objectContaining({ kind: 'conflict' }));
   });
 
   it('rejects changes to a dismissed request, or to words that decide nothing', () => {
@@ -580,9 +580,9 @@ describe('approving a tool call with changes', () => {
 
     expect(() =>
       asked.answer(at, person('Dismissed.'), 'refused', edits),
-    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+    ).toThrowError(expect.objectContaining({ kind: 'conflict' }));
     expect(() => asked.answer(at, person('Hmm.'), null, edits)).toThrowError(
-      expect.objectContaining({ violation: 'conflict' }),
+      expect.objectContaining({ kind: 'conflict' }),
     );
   });
 
@@ -607,6 +607,6 @@ describe('approving a tool call with changes', () => {
       task.answer(at, person('Approved.'), 'granted', {
         title: 'kubectl logs web',
       }),
-    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+    ).toThrowError(expect.objectContaining({ kind: 'conflict' }));
   });
 });

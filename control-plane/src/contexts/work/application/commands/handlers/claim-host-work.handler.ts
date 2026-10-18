@@ -113,7 +113,7 @@ export class ClaimHostWorkHandler
       runner,
       workspaceId: heartbeat.workspaceId,
       harnesses: heartbeat.harnesses,
-      terms: heartbeat.terms,
+      offer: heartbeat.offer,
       claims: 'any',
     };
 
@@ -137,7 +137,7 @@ export class ClaimHostWorkHandler
         const check = await this.checks.claimNext(
           heartbeat.workspaceId,
           runner,
-          heartbeat.terms,
+          heartbeat.offer,
           this.clock.now(),
         );
 

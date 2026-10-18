@@ -172,7 +172,7 @@ export class FireHooks {
       key: `${happened.on}:${happened.task.taskId}:${happened.change}`,
       description: `${happened.on} of ${happened.task.title}${happened.change ? ` (${happened.change})` : ''}`,
     };
-    const cause = this.causation.current().followedBy(change);
+    const cause = this.causation.current().append(change);
     let fired = 0;
 
     for (const hook of await this.runtime.listening(
@@ -231,9 +231,8 @@ export class FireHooks {
 
     await unlessVersionConflict(async () => {
       try {
-        await this.causation.within(
-          claimed.cause.followedBy(claimed.link),
-          () => this.delivered(leased),
+        await this.causation.runWith(claimed.cause.append(claimed.link), () =>
+          this.delivered(leased),
         );
       } catch (error) {
         if (error instanceof HookFiringVersionConflictError) {

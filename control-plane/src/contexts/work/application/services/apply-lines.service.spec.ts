@@ -1,6 +1,6 @@
 import type { TeamProfile } from '@identity/application/ports/team-directory.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -10,7 +10,7 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import { LineAlreadyExistsError } from '@work/domain/exceptions/line-already-exists.error';
 import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
 import { LineRoleTakenError } from '@work/domain/exceptions/line-role-taken.error';
-import { StrandedWorkError } from '@work/domain/exceptions/stranded-work.error';
+import { StationNotEmptyError } from '@work/domain/exceptions/station-not-empty.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import {
   BUILT_IN_LINES,
@@ -35,7 +35,7 @@ const line = () => {
   let next = 0;
 
   return Line.create({
-    by: attributedIn(),
+    by: changeActorIn(),
     workspaceId: WORKSPACE,
     teamId: TeamId.of('team_1'),
     line: BUILT_IN_LINES[0] as LineOpening,
@@ -147,8 +147,8 @@ const applying = (
   return {
     applied: (): Promise<Line> =>
       plan.key.equals(existing.key)
-        ? applier.reconcile(existing, plan, attributedIn())
-        : applier.create(TEAM_PROFILE, plan, attributedIn()),
+        ? applier.reconcile(existing, plan, changeActorIn())
+        : applier.create(TEAM_PROFILE, plan, changeActorIn()),
     save,
     add,
     existing,
@@ -232,7 +232,7 @@ describe('ApplyLines', () => {
     const existing = line();
     const { applied, save } = applying(asPlan(existing), { existing });
 
-    save.mockRejectedValueOnce(new StrandedWorkError(['station_2']));
+    save.mockRejectedValueOnce(new StationNotEmptyError(['station_2']));
 
     await expect(applied()).rejects.toThrow(
       /cannot drop stations that still have tasks/,
@@ -270,7 +270,7 @@ describe('ApplyLines', () => {
     );
 
     await expect(
-      applier.create(TEAM_PROFILE, asPlan(existing), attributedIn()),
+      applier.create(TEAM_PROFILE, asPlan(existing), changeActorIn()),
     ).rejects.toThrow(LineAlreadyExistsError);
     expect(add).not.toHaveBeenCalled();
   });

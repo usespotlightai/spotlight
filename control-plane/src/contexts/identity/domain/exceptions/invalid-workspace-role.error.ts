@@ -1,7 +1,7 @@
 import { WORKSPACE_ROLES } from '@identity/domain/value-objects/workspace-role.vo';
 
 export class InvalidWorkspaceRoleError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(raw: string) {
     super(

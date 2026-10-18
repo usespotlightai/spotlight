@@ -29,7 +29,7 @@ const ROLES: readonly Role[] = ['owner', 'admin', 'member'];
 
 const ofWorkspace = (slug: unknown) => slug === world().workspace.slug;
 
-const administers = () => scenario().account !== 'member';
+const isAdmin = () => scenario().account !== 'member';
 
 const NOT_PENDING_BECAUSE: Record<EndedInvite | 'expired', string> = {
   accepted: 'This invite has already been accepted.',
@@ -52,7 +52,7 @@ const LAST_OWNER =
   'The workspace needs at least one owner. Please make someone else an owner first.';
 
 const myRole = (): Role =>
-  administers()
+  isAdmin()
     ? (membersWorld().people.find((each) => each.id === SIGNED_IN.id)?.role ??
       'owner')
     : 'member';
@@ -95,7 +95,7 @@ const teamsOf = (personId: string) =>
     (world().members[team.id] ?? []).some((each) => each.id === personId),
   );
 
-const mayBeSetToOf = (person: WorkspacePerson): Role[] => {
+const assignableRolesOf = (person: WorkspacePerson): Role[] => {
   const assignable = ROLES.filter(
     (each) => !roleAssignmentDenial(person, each),
   );
@@ -106,7 +106,7 @@ const mayBeSetToOf = (person: WorkspacePerson): Role[] => {
 const memberOf = (person: WorkspacePerson): WorkspaceMemberResponseDto => ({
   ...person,
   teams: teamsOf(person.id),
-  mayBeSetTo: mayBeSetToOf(person),
+  assignableRoles: assignableRolesOf(person),
 });
 
 const inviter = () => ({
@@ -117,13 +117,13 @@ const inviter = () => ({
 
 const createdFor = (
   email: string,
-  terms: InviteToWorkspaceRequestDto,
+  spec: InviteToWorkspaceRequestDto,
 ): WorkspaceInviteResponseDto => ({
   id: `invite_${crypto.randomUUID().slice(0, 8)}`,
   email,
-  role: terms.role,
+  role: spec.role,
   teams: world().workspace.teams.filter((team) =>
-    terms.teamIds.includes(team.id),
+    spec.teamIds.includes(team.id),
   ),
   invitedBy: inviter(),
   invitedAt: daysAgo(0),
@@ -141,7 +141,7 @@ const bounces = (email: string): boolean =>
 
 const inviteOne = (
   email: string,
-  terms: InviteToWorkspaceRequestDto,
+  spec: InviteToWorkspaceRequestDto,
 ): InviteOutcomeResponseDto['outcome'] => {
   const store = membersWorld();
 
@@ -153,7 +153,7 @@ const inviteOne = (
   if (pending) {
     resend(pending);
   } else {
-    store.invites.unshift(createdFor(email, terms));
+    store.invites.unshift(createdFor(email, spec));
   }
 
   if (bounces(email)) {
@@ -169,34 +169,31 @@ const inviteHandlers = [
       return notFound();
     }
 
-    return administers() ? json(membersWorld().invites) : notFound();
+    return isAdmin() ? json(membersWorld().invites) : notFound();
   }),
 
   api.post('/workspaces/:slug/invites', async ({ params, request }) => {
     if (!ofWorkspace(params.slug)) {
       return notFound();
     }
-    if (!administers()) {
+    if (!isAdmin()) {
       return notFound();
     }
 
-    const terms = (await request.json()) as InviteToWorkspaceRequestDto;
-    const stranger = terms.teamIds.find(
+    const spec = (await request.json()) as InviteToWorkspaceRequestDto;
+    const unknownTeam = spec.teamIds.find(
       (teamId) => !world().workspace.teams.some((team) => team.id === teamId),
     );
-    const notAnAddress = terms.emails.find(
+    const notAnAddress = spec.emails.find(
       (each) => !isEmailAddress(each.trim().toLowerCase()),
     );
-    if (
-      terms.emails.length === 0 ||
-      terms.emails.length > MAX_INVITED_AT_ONCE
-    ) {
+    if (spec.emails.length === 0 || spec.emails.length > MAX_INVITED_AT_ONCE) {
       return problem(
         422,
-        `Number of email addresses must be 1 to ${MAX_INVITED_AT_ONCE}. Received: ${terms.emails.length}`,
+        `Number of email addresses must be 1 to ${MAX_INVITED_AT_ONCE}. Received: ${spec.emails.length}`,
       );
     }
-    if ((terms.role as Role) === 'owner') {
+    if ((spec.role as Role) === 'owner') {
       return problem(
         403,
         'Nobody can be invited as an owner. Please invite them as an admin, then make them an owner.',
@@ -208,20 +205,20 @@ const inviteHandlers = [
         `Email address is not valid. Received: ${notAnAddress.trim()}`,
       );
     }
-    if (stranger) {
-      return problem(422, `Team ${stranger} is not in this workspace.`);
+    if (unknownTeam) {
+      return problem(422, `Team ${unknownTeam} is not in this workspace.`);
     }
 
     return json({
-      outcomes: terms.emails.map((email) => ({
+      outcomes: spec.emails.map((email) => ({
         email,
-        outcome: inviteOne(email, terms),
+        outcome: inviteOne(email, spec),
       })),
     });
   }),
 
   api.post('/workspaces/:slug/invites/:inviteId/resend', ({ params }) => {
-    if (!ofWorkspace(params.slug) || !administers()) {
+    if (!ofWorkspace(params.slug) || !isAdmin()) {
       return notFound();
     }
 
@@ -240,7 +237,7 @@ const inviteHandlers = [
   }),
 
   api.delete('/workspaces/:slug/invites/:inviteId', ({ params }) => {
-    if (!ofWorkspace(params.slug) || !administers()) {
+    if (!ofWorkspace(params.slug) || !isAdmin()) {
       return notFound();
     }
 
@@ -360,7 +357,9 @@ const memberHandlers = [
       name: person.name,
       image: person.image,
       role: person.role,
-      mayBeSetTo: mayBeSetToOf(person).filter((each) => each !== person.role),
+      assignableRoles: assignableRolesOf(person).filter(
+        (each) => each !== person.role,
+      ),
     });
     return noContent();
   }),

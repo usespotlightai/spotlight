@@ -57,7 +57,7 @@ describe('TeamTraceMapper', () => {
 
     expect(dto.cost).toBeCloseTo(0.75);
     expect(dto.steps).toBe(50);
-    expect(dto.faults).toBe(3);
+    expect(dto.errors).toBe(3);
     expect(dto.currency).toBe('USD');
   });
 
@@ -75,7 +75,7 @@ describe('TeamTraceMapper', () => {
     const dto = TeamTraceMapper.toDto(summary(), new Map());
 
     expect(dto.steps).toBe(0);
-    expect(dto.faults).toBe(0);
+    expect(dto.errors).toBe(0);
     expect(dto.cost).toBeNull();
   });
 

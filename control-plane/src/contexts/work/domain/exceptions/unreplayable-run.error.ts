@@ -24,7 +24,7 @@ export const isUnreplayableReason = (
   (UNREPLAYABLE_REASONS as readonly string[]).includes(value);
 
 export class UnreplayableRunError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(
     readonly runId: string,

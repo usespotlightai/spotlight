@@ -15,9 +15,9 @@ import { useFolds } from '@/hooks/useFolds';
 import {
   formatCount,
   formatStation,
-  improvingOf,
   type StationNames,
   signalHeadings,
+  targetStationOf,
   type WorthImproving,
 } from '@/lib/insights';
 import { stationPath } from '@/lib/station';
@@ -73,7 +73,7 @@ export function WorthImprovingList({
                       <ImproveStationLink
                         slug={slug}
                         teamId={teamId}
-                        improving={improvingOf(named)}
+                        targetStation={targetStationOf(named)}
                         className="h-5 justify-self-start px-2 text-[0.7rem] @4xl:justify-self-end"
                       />
                     ) : (

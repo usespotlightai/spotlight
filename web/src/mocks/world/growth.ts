@@ -92,7 +92,7 @@ const task = (
   running: false,
   awaitingReview: null,
   pullRequest: null,
-  raisedBy: PRIYA,
+  createdBy: PRIYA,
   assignee: PRIYA,
   note: null,
   ...over,

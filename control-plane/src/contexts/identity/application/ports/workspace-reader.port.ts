@@ -33,7 +33,7 @@ export interface WorkspaceReaderPort {
   listForMember(userId: UserId): Promise<WorkspaceListing[]>;
 
   // Not viewer-scoped. Use it only for webhook callers with a verified signature.
-  identify(slug: string): Promise<string | null>;
+  idForSlug(slug: string): Promise<string | null>;
 
   slugOf(workspaceId: string): Promise<string | null>;
 

@@ -10,9 +10,9 @@ import {
 } from '@insights/domain/services/grounded-verdict';
 import {
   type Fetch,
-  JsonShape,
+  JsonSchema,
+  OpenRouterEmptyCompletionError,
   OpenRouterRequestError,
-  OpenRouterUnansweredError,
   requestJson,
 } from '@platform/openrouter/openrouter-json';
 import { z } from 'zod';
@@ -29,17 +29,17 @@ const REASON = z.object({
 
 const REASONS = z.array(REASON).max(MAX_REASONS);
 
-const YES_NO = new JsonShape(
+const YES_NO = new JsonSchema(
   'yes_no_verdict',
   z.object({ passes: z.boolean(), reasons: REASONS }),
 );
 
-const NUMBER = new JsonShape(
+const NUMBER = new JsonSchema(
   'number_verdict',
   z.object({ score: z.number().int(), reasons: REASONS }),
 );
 
-const CLAIMS = new JsonShape(
+const CLAIMS = new JsonSchema(
   'claims_verdict',
   z.object({
     claims: z.array(
@@ -169,14 +169,14 @@ export class OpenRouterJudge implements JudgePort {
       fetch: this.fetch,
       system: systemOf(request),
       prompt: evidenceOf(request),
-      max: request.scale === 'claims' ? MAX_CLAIMS_OUTPUT : MAX_OUTPUT,
+      maxTokens: request.scale === 'claims' ? MAX_CLAIMS_OUTPUT : MAX_OUTPUT,
     };
 
     try {
       if (request.scale === 'claims') {
         const { answer, usage } = await requestJson({
           ...call,
-          shape: CLAIMS,
+          responseSchema: CLAIMS,
         });
         return { verdict: { claims: answer.claims }, usage };
       }
@@ -184,7 +184,7 @@ export class OpenRouterJudge implements JudgePort {
       if (request.scale === 'yes-no') {
         const { answer, usage } = await requestJson({
           ...call,
-          shape: YES_NO,
+          responseSchema: YES_NO,
         });
         return {
           verdict: { value: answer.passes, reasons: answer.reasons },
@@ -192,7 +192,10 @@ export class OpenRouterJudge implements JudgePort {
         };
       }
 
-      const { answer, usage } = await requestJson({ ...call, shape: NUMBER });
+      const { answer, usage } = await requestJson({
+        ...call,
+        responseSchema: NUMBER,
+      });
       return {
         verdict: { value: answer.score, reasons: answer.reasons },
         usage,
@@ -201,7 +204,7 @@ export class OpenRouterJudge implements JudgePort {
       if (error instanceof OpenRouterRequestError) {
         throw new JudgingError('request-failed', error.message, null);
       }
-      if (error instanceof OpenRouterUnansweredError) {
+      if (error instanceof OpenRouterEmptyCompletionError) {
         throw new JudgingError('unreadable', error.message, error.usage);
       }
       throw error;

@@ -16,7 +16,7 @@ import { InvalidToolInputError } from '@work/domain/exceptions/invalid-tool-inpu
 import { NotASetupChatError } from '@work/domain/exceptions/not-a-setup-chat.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import { ConfigHome } from '@work/domain/value-objects/config-home.vo';
+import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -40,7 +40,7 @@ const using = (options: { setup?: boolean } = {}) => {
     setup:
       options.setup === false
         ? null
-        : ConfigHome.of({ repository: 'acme/infra', folder: 'spotlight' }),
+        : ConfigFolder.of({ repository: 'acme/infra', folder: 'spotlight' }),
     now: NOW,
     newId: () => 'chat_1',
   }).assignRun(RunId.of('run_1'), NOW);

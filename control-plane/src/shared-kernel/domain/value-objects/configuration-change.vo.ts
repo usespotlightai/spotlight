@@ -1,4 +1,4 @@
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export const CONFIGURED_RESOURCES = [
   'workspace',
@@ -52,13 +52,13 @@ export class ConfigurationChange {
     readonly resourceId: string,
     readonly key: string,
     readonly action: ConfigurationAction,
-    readonly by: Attribution,
+    readonly by: ChangeActor,
     readonly detail: ChangeDetail | null,
   ) {}
 
   static created(
     changed: Changed,
-    by: Attribution,
+    by: ChangeActor,
     detail: ChangeDetail | null = null,
   ): ConfigurationChange {
     return ConfigurationChange.of(changed, 'created', by, detail);
@@ -66,13 +66,13 @@ export class ConfigurationChange {
 
   static updated(
     changed: Changed,
-    by: Attribution,
+    by: ChangeActor,
     detail: ChangeDetail | null = null,
   ): ConfigurationChange {
     return ConfigurationChange.of(changed, 'updated', by, detail);
   }
 
-  static deleted(changed: Changed, by: Attribution): ConfigurationChange {
+  static deleted(changed: Changed, by: ChangeActor): ConfigurationChange {
     return ConfigurationChange.of(changed, 'deleted', by, null);
   }
 
@@ -83,7 +83,7 @@ export class ConfigurationChange {
   private static of(
     changed: Changed,
     action: ConfigurationAction,
-    by: Attribution,
+    by: ChangeActor,
     detail: ChangeDetail | null,
   ): ConfigurationChange {
     return new ConfigurationChange(

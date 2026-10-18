@@ -12,7 +12,7 @@ const task = (id: string, stationId: string): Task => ({
   createdAt: '2026-08-04T09:15:00.000Z',
   running: false,
   awaitingReview: null,
-  raisedBy: null,
+  createdBy: null,
   assignee: null,
   pullRequest: null,
   note: null,

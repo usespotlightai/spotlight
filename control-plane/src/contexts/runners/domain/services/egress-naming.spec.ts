@@ -6,7 +6,7 @@ import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runne
 import { validateEgress } from '@runners/domain/services/egress-naming';
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -59,7 +59,7 @@ describe('validateEgress', () => {
 
     expect(problemOf(reference)).toBe(reason);
     expect(
-      problemOf(reference, { named: anEgress().delete([], attributedIn()) }),
+      problemOf(reference, { named: anEgress().delete([], changeActorIn()) }),
     ).toBe(reason);
     expect(
       problemOf(reference, {

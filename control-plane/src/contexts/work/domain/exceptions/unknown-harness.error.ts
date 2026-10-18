@@ -1,5 +1,5 @@
 export class UnknownHarnessError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(id: string) {
     super(`Harness ${id} not found.`);

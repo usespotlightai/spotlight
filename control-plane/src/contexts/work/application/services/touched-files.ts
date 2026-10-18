@@ -6,7 +6,7 @@ import type { RunJournalReaderPort } from '@work/application/ports/run-journal-r
 import type { TouchedFile } from '@work/application/ports/team-memories.port';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import { repositoriesWorkedOn } from '@work/domain/services/task-checkouts';
+import { repositoriesForTask } from '@work/domain/services/task-checkouts';
 import { filesChangedIn } from '@work/domain/services/workspace-path';
 
 const MAX_WAIT_MS = 5_000;
@@ -26,7 +26,7 @@ export class TouchedFiles {
   ) {}
 
   async onTask(task: Task, line: Line): Promise<readonly TouchedFile[]> {
-    const repositories = repositoriesWorkedOn(task, line);
+    const repositories = repositoriesForTask(task, line);
     const earlier = await this.earlierRuns(task, repositories);
     const pulled = await this.pullRequestFiles(task);
 

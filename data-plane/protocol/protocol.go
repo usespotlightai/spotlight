@@ -16,18 +16,18 @@ type HarnessReport struct {
 	Version string   `json:"version,omitempty"`
 }
 
-type Installable struct {
+type HarnessProbe struct {
 	ID           string   `json:"id"`
 	Executable   string   `json:"executable"`
 	Discovery    []string `json:"discovery,omitempty"`
 	VersionProbe []string `json:"versionProbe,omitempty"`
 }
 
-type Registered struct {
+type RegisterResponse struct {
 	RunnerID string `json:"runnerId"`
 }
 
-const ThroughSpotlight = "spotlight:repository"
+const RemoteViaGitProxy = "spotlight:repository"
 
 type Checkout struct {
 	Remote string `json:"remote"`
@@ -57,7 +57,7 @@ type Spec struct {
 	Briefing      string         `json:"briefing,omitempty"`
 	Handover      HandoverSpec   `json:"handover,omitzero"`
 	Manifest      []ToolManifest `json:"manifest,omitempty"`
-	Continuity    Continuity     `json:"continuity,omitzero"`
+	Resume        Resume         `json:"resume,omitzero"`
 	Attachments   []Attachment   `json:"attachments,omitempty"`
 	Skills        []SkillFile    `json:"skills,omitempty"`
 	SkillHomes    []string       `json:"skillHomes,omitempty"`
@@ -105,14 +105,14 @@ const (
 	PermissionEscalated = "asked"
 )
 
-type PermissionAsked struct {
+type PermissionRequest struct {
 	SessionID string          `json:"sessionId"`
 	Kind      string          `json:"kind"`
 	Title     string          `json:"title"`
 	Input     json.RawMessage `json:"input,omitempty"`
 }
 
-type PermissionAnswer struct {
+type PermissionResponse struct {
 	Decision string `json:"decision"`
 }
 
@@ -221,10 +221,10 @@ type SkillFile struct {
 	Text string `json:"text"`
 }
 
-type Continuity struct {
-	Key       string `json:"key,omitempty"`
-	SessionID string `json:"sessionId,omitempty"`
-	Resumes   bool   `json:"resumes,omitempty"`
+type Resume struct {
+	Key           string `json:"key,omitempty"`
+	SessionID     string `json:"sessionId,omitempty"`
+	ResumeSession bool   `json:"resumeSession,omitempty"`
 }
 
 type Run struct {
@@ -267,22 +267,22 @@ type Handover struct {
 }
 
 type Completion struct {
-	ExitCode   int       `json:"exitCode"`
-	Failed     bool      `json:"failed"`
-	Unprepared bool      `json:"unprepared,omitempty"`
-	TimedOut   bool      `json:"timedOut,omitempty"`
-	Stopped    bool      `json:"stopped,omitempty"`
-	Message    string    `json:"message,omitempty"`
-	Handover   *Handover `json:"handover,omitempty"`
-	SessionID  string    `json:"sessionId,omitempty"`
-	Archived   bool      `json:"archived,omitempty"`
+	ExitCode    int       `json:"exitCode"`
+	Failed      bool      `json:"failed"`
+	SetupFailed bool      `json:"setupFailed,omitempty"`
+	TimedOut    bool      `json:"timedOut,omitempty"`
+	Stopped     bool      `json:"stopped,omitempty"`
+	Message     string    `json:"message,omitempty"`
+	Handover    *Handover `json:"handover,omitempty"`
+	SessionID   string    `json:"sessionId,omitempty"`
+	Archived    bool      `json:"archived,omitempty"`
 }
 
 type TurnAwaitsPerson struct {
 	AwaitsPerson bool `json:"awaitsPerson"`
 }
 
-type Completed struct {
+type CompleteResponse struct {
 	Waiting bool `json:"waiting"`
 }
 
@@ -340,17 +340,17 @@ const (
 	ClaimedCheck = "check"
 )
 
-type Claimed struct {
+type ClaimResponse struct {
 	Kind  string      `json:"kind"`
 	Run   *Run        `json:"run"`
 	Check *StackCheck `json:"check"`
 }
 
 type Assignment struct {
-	RunnerID    string  `json:"runnerId"`
-	Token       string  `json:"token"`
-	EgressToken string  `json:"egressToken,omitempty"`
-	Work        Claimed `json:"work"`
+	RunnerID    string        `json:"runnerId"`
+	Token       string        `json:"token"`
+	EgressToken string        `json:"egressToken,omitempty"`
+	Work        ClaimResponse `json:"work"`
 }
 
 type StackCheck struct {
@@ -386,12 +386,12 @@ type SkippedCheck struct {
 	Detail string `json:"detail,omitempty"`
 }
 
-type StackChecked struct {
-	Skipped *SkippedCheck `json:"skipped,omitempty"`
-	Steps   []CheckedStep `json:"steps,omitempty"`
+type StackCheckResult struct {
+	Skipped *SkippedCheck     `json:"skipped,omitempty"`
+	Steps   []CheckStepResult `json:"steps,omitempty"`
 }
 
-type CheckedStep struct {
+type CheckStepResult struct {
 	Step       string `json:"step"`
 	Passed     bool   `json:"passed"`
 	Output     string `json:"output"`

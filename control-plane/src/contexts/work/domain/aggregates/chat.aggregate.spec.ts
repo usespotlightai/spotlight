@@ -24,10 +24,9 @@ import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import { ConfigHome } from '@work/domain/value-objects/config-home.vo';
+import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
@@ -36,6 +35,7 @@ import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { describe, expect, it } from 'vitest';
@@ -60,14 +60,14 @@ const started = (body = 'Plan how retries back off.\nThen split it up.') =>
     newId: () => 'chat_1',
   });
 
-const improving = (stationTeam: TeamId) =>
+const targetingStation = (stationTeam: TeamId) =>
   Chat.start({
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     startedBy: LEON,
     harness: HarnessId.of('claude-code'),
     body: ChatMessageBody.fromInput('Improve this station.'),
-    improving: ImprovedStation.rehydrate({
+    targetStation: TargetStation.rehydrate({
       teamId: stationTeam,
       lineId: LineId.of('line_1'),
       lineKey: LineKey.of('delivery'),
@@ -186,14 +186,16 @@ describe('Chat', () => {
   });
 
   it('keeps the station it was opened to improve', () => {
-    const chat = improving(TeamId.of('team_1'));
+    const chat = targetingStation(TeamId.of('team_1'));
 
-    expect(chat.improving?.stationKey.value).toBe('implementation');
-    expect(chat.improving?.lineKey.value).toBe('delivery');
+    expect(chat.targetStation?.stationKey.value).toBe('implementation');
+    expect(chat.targetStation?.lineKey.value).toBe('delivery');
   });
 
   it('improves no station of another team, as if there were no such station', () => {
-    expect(() => improving(TeamId.of('team_2'))).toThrow(UnknownStationError);
+    expect(() => targetingStation(TeamId.of('team_2'))).toThrow(
+      UnknownStationError,
+    );
   });
 
   it('shares only so many traces at once', () => {
@@ -401,7 +403,7 @@ describe('Chat', () => {
     it('keeps the session the run worked in and follows up on the messages sent meanwhile', () => {
       const ended = messagedMeanwhile().runEnded(RunId.of('run_1'), {
         session: SESSION,
-        workedBy: RUNNER,
+        claimedBy: RUNNER,
         stopped: false,
       });
 
@@ -413,7 +415,7 @@ describe('Chat', () => {
     it('does not follow up after a run with a stop request', () => {
       const ended = messagedMeanwhile().runEnded(RunId.of('run_1'), {
         session: SESSION,
-        workedBy: RUNNER,
+        claimedBy: RUNNER,
         stopped: true,
       });
 
@@ -424,7 +426,7 @@ describe('Chat', () => {
     it('unacknowledges what a run that ended without a session acknowledged, and leaves the follow-up for later', () => {
       const ended = messagedMeanwhile().runEnded(RunId.of('run_1'), {
         session: null,
-        workedBy: RUNNER,
+        claimedBy: RUNNER,
         stopped: false,
       });
 
@@ -439,7 +441,7 @@ describe('Chat', () => {
       const chat = working();
       const ended = chat.runEnded(RunId.of('run_2'), {
         session: SESSION,
-        workedBy: RUNNER,
+        claimedBy: RUNNER,
         stopped: false,
       });
 
@@ -466,15 +468,15 @@ describe('Chat', () => {
   });
 
   it('carries on in the same workspace, taking up the session it was worked in', () => {
-    const plain = started().continuity();
-    const worked = started()
+    const plain = started().resume();
+    const resume = started()
       .recordSession(HarnessSession.of('session_1'), RunnerId.of('runner_1'))
-      .continuity();
+      .resume();
 
     expect(plain.key.value).toBe('chat-chat_1');
     expect(plain.sessionId).toBeNull();
-    expect(worked.key.value).toBe('chat-chat_1');
-    expect(worked.sessionId?.value).toBe('session_1');
+    expect(resume.key.value).toBe('chat-chat_1');
+    expect(resume.sessionId?.value).toBe('session_1');
   });
 
   it('takes a proposal only from the run working it', () => {
@@ -579,7 +581,10 @@ describe('Chat', () => {
         harness: HarnessId.of('claude-code'),
         repositories: [Repository.of('acme/api')],
         body: ChatMessageBody.fromInput('Set up our configuration.'),
-        setup: ConfigHome.of({ repository: 'acme/infra', folder: 'spotlight' }),
+        setup: ConfigFolder.of({
+          repository: 'acme/infra',
+          folder: 'spotlight',
+        }),
         now: NOW,
         newId: () => 'chat_1',
       }).assignRun(RunId.of('run_1'), NOW);

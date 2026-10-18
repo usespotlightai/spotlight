@@ -6,7 +6,7 @@ import type { ReplaySetRepository } from '@replays/domain/repositories/replay-se
 import { needsBaseline } from '@replays/domain/services/baseline';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class StartWantedBaseline {
   constructor(
@@ -55,7 +55,7 @@ export class StartWantedBaseline {
           calibration: event.calibration,
           ...(event.unpricedRate ? { unpricedRate: event.unpricedRate } : {}),
           at: this.clock.now(),
-          by: Attribution.spotlight(set.workspaceId),
+          by: ChangeActor.spotlight(set.workspaceId),
         }),
       );
     });

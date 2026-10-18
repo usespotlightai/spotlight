@@ -25,7 +25,7 @@ const workload = (over: Partial<WorkloadClaims> = {}): WorkloadClaims => ({
   issuer: GITHUB,
   subject: 'repo:acme/platform:ref:refs/heads/main',
   audiences: ['spotlight'],
-  named: {
+  customClaims: {
     repository: 'acme/platform',
     ref: 'refs/heads/main',
     environment: 'production',
@@ -93,7 +93,7 @@ describe('WorkloadRule', () => {
       production.matches(
         workload({
           subject: 'repo:acme/platform:environment:staging',
-          named: { environment: 'staging', ref: 'refs/heads/main' },
+          customClaims: { environment: 'staging', ref: 'refs/heads/main' },
         }),
       ),
     ).toBe(false);
@@ -101,7 +101,7 @@ describe('WorkloadRule', () => {
       production.matches(
         workload({
           subject: 'repo:acme/platform:environment:production',
-          named: { environment: 'production' },
+          customClaims: { environment: 'production' },
         }),
       ),
     ).toBe(false);
@@ -109,7 +109,9 @@ describe('WorkloadRule', () => {
 
   it('finds no claim among what every object inherits', () => {
     expect(
-      rule({ claims: { constructor: '*' } }).matches(workload({ named: {} })),
+      rule({ claims: { constructor: '*' } }).matches(
+        workload({ customClaims: {} }),
+      ),
     ).toBe(false);
   });
 

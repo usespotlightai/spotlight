@@ -6,7 +6,7 @@ const MESSAGES: Record<ConnectDenial, string> = {
 };
 
 export class ConnectForbiddenError extends Error {
-  readonly violation = 'not-allowed' as const;
+  readonly kind = 'not-allowed' as const;
 
   constructor(readonly denial: ConnectDenial) {
     super(MESSAGES[denial]);

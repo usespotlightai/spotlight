@@ -204,7 +204,7 @@ export type ProblemResponseDto = {
   /**
    * The permission the caller lacks, when the request is forbidden: one its role in the workspace, or its token’s scopes, do not grant
    */
-  permission?: 'configure' | 'manage-secrets' | 'manage-runners' | 'manage-token-trusts' | 'administer' | 'create-workspaces' | 'plan';
+  permission?: 'configure' | 'secrets' | 'runners' | 'trusts' | 'administer' | 'create-workspaces' | 'plan';
 };
 
 export type LineResourceResponseDto = {
@@ -242,7 +242,7 @@ export type LineResourceResponseDto = {
 
 export type LineResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<LineResourceResponseDto>;
 };
@@ -253,7 +253,7 @@ export type EnqueueRunRequestDto = {
    */
   harness: string;
   /**
-   * Sent to the runner unchanged: checkouts, briefing, handover and continuity. The command is filled in from the harness, so it is not sent here.
+   * Sent to the runner unchanged: checkouts, briefing, handover and resume. The command is filled in from the harness, so it is not sent here.
    */
   spec: {
     [key: string]: unknown;
@@ -266,7 +266,7 @@ export type EnqueuedRunResponseDto = {
   state: string;
 };
 
-export type InstallableHarnessResponseDto = {
+export type HarnessProbeResponseDto = {
   id: string;
   /**
    * What to look for on the runner’s PATH.
@@ -470,9 +470,9 @@ export type TraceNodeResponseDto = {
    */
   ms: number;
   /**
-   * The agent working, the overhead around it, or a fault
+   * The agent working, the overhead around it, or an error
    */
-  tone: 'agent' | 'overhead' | 'failed';
+  category: 'agent' | 'overhead' | 'failed';
   cost: number | null;
   currency: string | null;
   step: JournalStepResponseDto | null;
@@ -498,7 +498,7 @@ export type TaskTraceResponseDto = {
    * How many rows it draws
    */
   rows: number;
-  faults: number;
+  errors: number;
   roots: Array<TraceNodeResponseDto>;
 };
 
@@ -845,7 +845,7 @@ export type CompleteRunRequestDto = {
   /**
    * With failed: it failed before the agent was handed the run, while the runner made its workspace ready
    */
-  unprepared?: boolean;
+  setupFailed?: boolean;
   /**
    * With failed: its host stopped it for running past its time; the run is then treated as a runner that went silent, as Work would after its lease expired
    */
@@ -861,7 +861,7 @@ export type CompleteRunRequestDto = {
    */
   stopped?: boolean;
   /**
-   * The workspace archive is sealed as this turn left it. A run waits for a person only when it is, so a later runner can take it up from there.
+   * The workspace archive is complete as this turn left it. A run waits for a person only when it is, so a later runner can take it up from there.
    */
   archived?: boolean;
 };
@@ -959,7 +959,7 @@ export type HostRequirementsResponseDto = {
   /**
    * What a host looks for in each runner image
    */
-  harnesses: Array<InstallableHarnessResponseDto>;
+  harnesses: Array<HarnessProbeResponseDto>;
   /**
    * The images this workspace’s lines name; a host serves those its allow-list allows, beside its default
    */
@@ -972,7 +972,7 @@ export type ClaimHostWorkRequestDto = {
    */
   host: string;
   /**
-   * The runner image this claim will run in, one the host reported serving; what it contains and whether it is the default come from that report
+   * The runner image this claim will run in, one the host reported that it supports; what it contains and whether it is the default come from that report
    */
   image: string;
 };
@@ -987,7 +987,7 @@ export type HostClaimResponseDto = {
    */
   token: string;
   /**
-   * The credential the egress beside the sandbox fetches the run’s secrets with; the host hands it to egress alone, never into the sandbox
+   * The credential the egress sidecar fetches the run’s secrets with; the host hands it to egress alone, never into the sandbox
    */
   egressToken: string;
   work: ClaimedWorkResponseDto;
@@ -1029,31 +1029,31 @@ export type HostCallResponseDto = {
   timeoutMs: number;
 };
 
-export type AnswerHostCallRequestDto = {
+export type RecordHostCallResponseRequestDto = {
   /**
-   * The host answering, the one that claimed the call
+   * The host that records the response, the one that claimed the call
    */
   host: string;
   /**
-   * The HTTP status the call was answered with, or 0 when nothing answered
+   * The HTTP status of the response, or 0 when no response came
    */
   status: number;
   /**
-   * The headers the call was answered with
+   * The headers of the response
    */
   headers?: {
     [key: string]: string;
   };
   /**
-   * The body the call was answered with, base64, at most 16 KiB
+   * The body of the response, base64, at most 16 KiB
    */
   body?: string;
   /**
-   * How long the call took to answer, in milliseconds
+   * How long the call took to get a response, in milliseconds
    */
   ms: number;
   /**
-   * Why nothing answered, when the status is 0
+   * Why no response came, when the status is 0
    */
   error?: string;
 };
@@ -1064,7 +1064,7 @@ export type FetchRunSecretsRequestDto = {
    */
   recipient: string;
   /**
-   * The run proxy credential a runner presented to a shared egress. A shared egress sends it with its own egress token; the egress beside a sandbox leaves it out
+   * The run proxy credential a runner presented to a shared egress. A shared egress sends it with its own egress token; an egress sidecar leaves it out
    */
   proxyCredential?: string;
 };
@@ -1285,9 +1285,9 @@ export type InboxFailureResponseDto = {
   occurrences: number;
 };
 
-export type InboxAsideResponseDto = {
+export type InboxRequestResponseDto = {
   /**
-   * What is put aside for a person to resolve, beside the task’s conversation: memories are proposed memories to approve or reject; grade asks a person to grade a judged run
+   * The kind of inbox request: memories are proposed memories to approve or reject; grade asks a person to grade a judged run
    */
   form: 'memories' | 'grade' | 'alert';
   /**
@@ -1405,7 +1405,7 @@ export type NoteResponseDto = {
 
 export type InboxItemResponseDto = {
   /**
-   * A task’s conversation or what was put aside beside it
+   * A task’s conversation or an inbox request on the task
    */
   kind: 'task';
   /**
@@ -1417,7 +1417,7 @@ export type InboxItemResponseDto = {
   title: string;
   description: string | null;
   /**
-   * The files the task was raised with
+   * The files the task was created with
    */
   attachments: Array<AttachmentResponseDto>;
   station: string;
@@ -1431,9 +1431,9 @@ export type InboxItemResponseDto = {
    */
   stationCount: number;
   /**
-   * Where it was raised, which it keeps as it moves
+   * The station where it was created. It keeps this station when it moves
    */
-  raisedAt: InboxStationResponseDto;
+  originStation: InboxStationResponseDto;
   /**
    * Where the task is now, which is where it ended up
    */
@@ -1465,9 +1465,9 @@ export type InboxItemResponseDto = {
    */
   failure: InboxFailureResponseDto | null;
   /**
-   * What this item puts aside for a person to resolve, where it is not a conversation; it never blocks the task
+   * The inbox request of this item, where it is not a conversation. It never blocks the task
    */
-  aside: InboxAsideResponseDto | null;
+  inboxRequest: InboxRequestResponseDto | null;
   notes: Array<NoteResponseDto>;
 };
 
@@ -1631,7 +1631,7 @@ export type TaskResponseDto = {
    */
   description: string | null;
   /**
-   * The files it was raised with
+   * The files it was created with
    */
   attachments: Array<AttachmentResponseDto>;
   createdAt: string;
@@ -1648,9 +1648,9 @@ export type TaskResponseDto = {
    */
   pullRequest: string | null;
   /**
-   * Who raised it, and so who it comes back to
+   * The person who created it. The task comes back to this person
    */
-  raisedBy: TaskPersonResponseDto | null;
+  createdBy: TaskPersonResponseDto | null;
   /**
    * The team member who owns the work, or nobody where unclaimed
    */
@@ -1722,9 +1722,9 @@ export type TraceVolumeBucketResponseDto = {
    */
   count: number;
   /**
-   * Every fault the traces that started in it came to
+   * Every error in the traces that started in it
    */
-  faults: number;
+  errors: number;
 };
 
 export type TraceStationResponseDto = {
@@ -1742,14 +1742,14 @@ export type TeamTraceResponseDto = {
   title: string;
   station: TraceStationResponseDto | null;
   /**
-   * Every station that has worked it, in the line’s own order
+   * Every station that has run it, in the line’s order
    */
   stations: Array<TraceStationResponseDto>;
   harness: string;
   state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
   startedAt: string;
   /**
-   * How many runs worked the task
+   * How many runs the task has had
    */
   runs: number;
   /**
@@ -1762,7 +1762,7 @@ export type TeamTraceResponseDto = {
   output: string | null;
   ms: number | null;
   steps: number;
-  faults: number;
+  errors: number;
   cost: number | null;
   currency: string | null;
 };
@@ -1885,13 +1885,13 @@ export type RunSpendResponseDto = {
   cacheWriteTokens: number | null;
 };
 
-export type RunConversationResponseDto = {
+export type RunNotesResponseDto = {
   runId: string;
   taskId: string;
   title: string;
   description: string | null;
   /**
-   * The files the task was raised with
+   * The files the task was created with
    */
   attachments: Array<AttachmentResponseDto>;
   station: RunStationResponseDto | null;
@@ -1982,7 +1982,7 @@ export type ReplayedRunResponseDto = {
   runId: string;
   taskId: string | null;
   /**
-   * The title of the task it worked, as it reads now; null once the task is deleted
+   * The title of the task of the run, as it reads now; null once the task is deleted
    */
   title: string | null;
 };
@@ -2098,7 +2098,7 @@ export type SearchRunResponseDto = {
   briefing: string;
 };
 
-export type ChatImprovingResponseDto = {
+export type ChatTargetStationResponseDto = {
   lineId: string;
   lineKey: string;
   lineName: string;
@@ -2124,9 +2124,9 @@ export type ChatSummaryResponseDto = {
   effort: string | null;
   repositories: Array<string>;
   /**
-   * The station the chat is about improving, if any
+   * The station that the chat must improve, if any
    */
-  improving: ChatImprovingResponseDto | null;
+  targetStation: ChatTargetStationResponseDto | null;
   /**
    * Where the chat sets up the team’s configuration as code, for a setup chat
    */
@@ -2180,9 +2180,9 @@ export type StartChatRequestDto = {
    */
   traces?: Array<string>;
   /**
-   * A station the chat is about improving, by its id; the agent is briefed to study its recent runs
+   * The id of the station that the chat must improve. The agent gets an instruction to study the recent runs of the station
    */
-  improving?: string;
+  targetStation?: string;
   /**
    * Makes this the team’s setup chat: the agent surveys the team’s tools and opens a pull request with its configuration as code there
    */
@@ -2243,9 +2243,9 @@ export type ChatResponseDto = {
   effort: string | null;
   repositories: Array<string>;
   /**
-   * The station the chat is about improving, if any
+   * The station that the chat must improve, if any
    */
-  improving: ChatImprovingResponseDto | null;
+  targetStation: ChatTargetStationResponseDto | null;
   /**
    * Where the chat sets up the team’s configuration as code, for a setup chat
    */
@@ -2359,7 +2359,7 @@ export type WorkspaceResourceResponseDto = {
 
 export type WorkspaceResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<WorkspaceResourceResponseDto>;
 };
@@ -2397,7 +2397,7 @@ export type TeamResourceResponseDto = {
 
 export type TeamResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<TeamResourceResponseDto>;
 };
@@ -2448,7 +2448,7 @@ export type WorkspaceTokenResourceResponseDto = {
 
 export type WorkspaceTokenResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<WorkspaceTokenResourceResponseDto>;
 };
@@ -2512,7 +2512,7 @@ export type WorkspaceTokenTrustResourceResponseDto = {
 
 export type WorkspaceTokenTrustResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<WorkspaceTokenTrustResourceResponseDto>;
 };
@@ -2530,7 +2530,7 @@ export type ExchangeWorkloadTokenRequestDto = {
 
 export type IssuedTokenResponseDto = {
   /**
-   * The token to send as Authorization: Bearer until it expires; answered this once, and stored only as a hash
+   * The token to send as Authorization: Bearer until it expires; returned once, and stored only as a hash
    */
   token: string;
   tokenId: string;
@@ -2585,7 +2585,7 @@ export type WorkspaceResponseDto = {
   /**
    * Whether Spotlight has created the first team of the workspace. The value is failed after Spotlight stopped its attempts.
    */
-  provisioning: 'pending' | 'done' | 'failed';
+  setupStatus: 'pending' | 'done' | 'failed';
 };
 
 export type TeamReferenceResponseDto = {
@@ -2602,9 +2602,9 @@ export type WorkspaceMemberResponseDto = {
    */
   role: 'owner' | 'admin' | 'member';
   /**
-   * What the caller may set them to, which is empty where that is not theirs to do. Worked out by the same rule the workspace enforces.
+   * The roles that the caller can assign to this member. The list is empty when the caller cannot change the role of this member. The workspace uses the same rule when it changes a role.
    */
-  mayBeSetTo: Array<'owner' | 'admin' | 'member'>;
+  assignableRoles: Array<'owner' | 'admin' | 'member'>;
   email: string;
   /**
    * The teams of this workspace they are on.
@@ -2674,9 +2674,9 @@ export type MemberResponseDto = {
    */
   role: 'owner' | 'admin' | 'member';
   /**
-   * What the caller may set them to, which is empty where that is not theirs to do. Worked out by the same rule the workspace enforces.
+   * The roles that the caller can assign to this member. The list is empty when the caller cannot change the role of this member. The workspace uses the same rule when it changes a role.
    */
-  mayBeSetTo: Array<'owner' | 'admin' | 'member'>;
+  assignableRoles: Array<'owner' | 'admin' | 'member'>;
 };
 
 export type AddTeamMemberRequestDto = {
@@ -2837,7 +2837,7 @@ export type SecretResourceResponseDto = {
    */
   bindings: Array<SecretBindingResponseDto>;
   /**
-   * Changing it rotates the value to the valueWo sent with it; the value itself is write-only and never answered
+   * Changing it rotates the value to the valueWo sent with it; the value itself is write-only and never returned
    */
   valueWoVersion: number | null;
   /**
@@ -2848,7 +2848,7 @@ export type SecretResourceResponseDto = {
 
 export type SecretResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<SecretResourceResponseDto>;
 };
@@ -2950,7 +2950,7 @@ export type HostHeartbeatRequestDto = {
    */
   running?: Array<string>;
   /**
-   * The runner images it serves or cannot use, each with what it found inside
+   * The runner images it supports or cannot use, each with what it found inside
    */
   images?: Array<Array<unknown>>;
 };
@@ -3014,7 +3014,7 @@ export type HostResponseDto = {
    */
   running: Array<string>;
   /**
-   * The runner images it serves or cannot use, and what each contains
+   * The runner images it supports or cannot use, and what each contains
    */
   images: Array<HostImageResponseDto>;
   firstHeartbeatAt: string;
@@ -3109,7 +3109,7 @@ export type RunnerTrustResourceResponseDto = {
 
 export type RunnerTrustResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<RunnerTrustResourceResponseDto>;
 };
@@ -3120,7 +3120,7 @@ export type PoolProvisionResponseDto = {
    */
   url: string;
   /**
-   * Changed to rotate provision.secret, which is write-only and never answered
+   * Changed to rotate provision.secret, which is write-only and never returned
    */
   secretVersion: number | null;
   /**
@@ -3171,7 +3171,7 @@ export type RunnerPoolResourceResponseDto = {
    */
   mode: 'pull' | 'push';
   /**
-   * Changed, with a new token, to rotate the pool token of a pull pool, which is write-only and never answered
+   * Changed, with a new token, to rotate the pool token of a pull pool, which is write-only and never returned
    */
   tokenVersion: number | null;
   /**
@@ -3182,7 +3182,7 @@ export type RunnerPoolResourceResponseDto = {
 
 export type RunnerPoolResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<RunnerPoolResourceResponseDto>;
 };
@@ -3217,14 +3217,14 @@ export type EgressResourceResponseDto = {
    */
   url: string;
   /**
-   * Changed, with a new token, to rotate the egress token, which is write-only and never answered
+   * Changed, with a new token, to rotate the egress token, which is write-only and never returned
    */
   tokenVersion: number | null;
 };
 
 export type EgressResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<EgressResourceResponseDto>;
 };
@@ -3262,7 +3262,7 @@ export type WorkspaceRunnersResourceResponseDto = {
 
 export type WorkspaceRunnersResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<WorkspaceRunnersResourceResponseDto>;
 };
@@ -3379,7 +3379,7 @@ export type SkillResourceResponseDto = {
 
 export type SkillResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<SkillResourceResponseDto>;
 };
@@ -3454,7 +3454,7 @@ export type HarnessProfileResourceResponseDto = {
 
 export type HarnessProfileResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<HarnessProfileResourceResponseDto>;
 };
@@ -3469,7 +3469,7 @@ export type TerraformFileResponseDto = {
 
 export type WorkspaceTerraformResponseDto = {
   /**
-   * main.tf, with an import block beside each resource and references between them; variables.tf, declaring a sensitive variable for each value Spotlight never answers (secret values, runner tokens); and every prompt and skill file main.tf reads with file(), byte for byte; ordered by path
+   * main.tf, with an import block beside each resource and references between them; variables.tf, declaring a sensitive variable for each value Spotlight never returns (secret values, runner tokens); and every prompt and skill file main.tf reads with file(), byte for byte; ordered by path
    */
   files: Array<TerraformFileResponseDto>;
 };
@@ -3952,7 +3952,7 @@ export type ApiSpecResponseDto = {
    */
   readAt: string;
   /**
-   * Why Spotlight could not fetch the spec the last time, or null when it could. Spotlight fetches the spec again when its url, document, baseUrl, revision or depth changes, on each update after a failed fetch, and when the integration is connected. Spotlight lists the tools of an MCP server again every MCP_RELIST_SECONDS
+   * Why Spotlight could not fetch the spec the last time, or null when it could. Spotlight fetches the spec again when its url, document, baseUrl, revision or depth changes, on each update after a failed fetch, and when the integration is connected. Spotlight lists the tools of an MCP server again every SPOTLIGHT_MCP_RELIST_SECONDS
    */
   problem: string | null;
   /**
@@ -4006,7 +4006,7 @@ export type IntegrationResourceResponseDto = {
 
 export type IntegrationResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<IntegrationResourceResponseDto>;
 };
@@ -4210,7 +4210,7 @@ export type HookDefinitionRequestDto = {
 
 export type HookSigningDto = {
   /**
-   * The version of the HMAC secret; changed to rotate secret, which is write-only and never answered
+   * The version of the HMAC secret; changed to rotate secret, which is write-only and never returned
    */
   secretVersion?: number;
   /**
@@ -4273,7 +4273,7 @@ export type HookResourceResponseDto = {
 
 export type HookResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<HookResourceResponseDto>;
 };
@@ -4627,7 +4627,7 @@ export type RememberRequestDto = {
 
 export type MemoryFileResponseDto = {
   /**
-   * Where to lay it, relative to the run’s workspace
+   * Where to write it, relative to the run’s workspace
    */
   path: string;
   body: string;
@@ -7113,7 +7113,7 @@ export type ReplayCandidateResourceResponseDto = {
 
 export type ReplayCandidateResourceListResponseDto = {
   /**
-   * Every one there is, each as a read would answer it, in address order
+   * Every one there is, each as a read returns it, in address order
    */
   items: Array<ReplayCandidateResourceResponseDto>;
 };
@@ -7396,7 +7396,7 @@ export type ReplaySetEntryResponseDto = {
    */
   outcome: 'accepted' | 'sent-back' | 'asked' | 'failed' | 'other';
   /**
-   * Where its task came from: person when a person raised it at this station, the integration whose happening opened it here, as in slack or github, or station when another station passed it on; null once the task is deleted
+   * Where its task came from: person when a person created it at this station, the integration whose happening opened it here, as in slack or github, or station when another station passed it on; null once the task is deleted
    */
   origin: string | null;
 };
@@ -9385,7 +9385,7 @@ export type CreateLineData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -9393,7 +9393,7 @@ export type CreateLineData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -9435,7 +9435,7 @@ export type CreateLineError = CreateLineErrors[keyof CreateLineErrors];
 
 export type CreateLineResponses = {
   /**
-   * The line, as a read would answer it
+   * The line, as a read returns it
    */
   201: LineResourceResponseDto;
 };
@@ -9446,7 +9446,7 @@ export type DeleteLineData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -9507,7 +9507,7 @@ export type ReadLineData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -9554,7 +9554,7 @@ export type UpdateLineData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -9608,7 +9608,7 @@ export type UpdateLineError = UpdateLineErrors[keyof UpdateLineErrors];
 
 export type UpdateLineResponses = {
   /**
-   * The line, as a read would answer it
+   * The line, as a read returns it
    */
   200: LineResourceResponseDto;
 };
@@ -9619,7 +9619,7 @@ export type ImportLineData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -9658,7 +9658,7 @@ export type ImportLineError = ImportLineErrors[keyof ImportLineErrors];
 
 export type ImportLineResponses = {
   /**
-   * The line, as a read would answer it
+   * The line, as a read returns it
    */
   200: LineResourceResponseDto;
 };
@@ -9669,7 +9669,7 @@ export type ListLinesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -9703,7 +9703,7 @@ export type ListLinesError = ListLinesErrors[keyof ListLinesErrors];
 
 export type ListLinesResponses = {
   /**
-   * Every line there, each as a read would answer it, in address order
+   * Every line there, each as a read returns it, in address order
    */
   200: LineResourceListResponseDto;
 };
@@ -9768,25 +9768,25 @@ export type StreamRunResponses = {
   200: unknown;
 };
 
-export type InstallableHarnessesData = {
+export type ListHarnessProbesData = {
   body?: never;
   path?: never;
   query?: never;
   url: '/runners/harnesses';
 };
 
-export type InstallableHarnessesErrors = {
+export type ListHarnessProbesErrors = {
   /**
    * Missing, no longer valid or wrong runner token
    */
   401: unknown;
 };
 
-export type InstallableHarnessesResponses = {
-  200: Array<InstallableHarnessResponseDto>;
+export type ListHarnessProbesResponses = {
+  200: Array<HarnessProbeResponseDto>;
 };
 
-export type InstallableHarnessesResponse = InstallableHarnessesResponses[keyof InstallableHarnessesResponses];
+export type ListHarnessProbesResponse = ListHarnessProbesResponses[keyof ListHarnessProbesResponses];
 
 export type ClaimRunData = {
   body?: never;
@@ -10335,17 +10335,17 @@ export type GrantWorkspaceArchiveResponses = {
 
 export type GrantWorkspaceArchiveResponse = GrantWorkspaceArchiveResponses[keyof GrantWorkspaceArchiveResponses];
 
-export type SealWorkspaceArchiveData = {
+export type CompleteWorkspaceArchiveData = {
   body?: never;
   path: {
     runId: string;
     archiveId: string;
   };
   query?: never;
-  url: '/runs/{runId}/workspace-archive/{archiveId}/sealed';
+  url: '/runs/{runId}/workspace-archive/{archiveId}/complete';
 };
 
-export type SealWorkspaceArchiveErrors = {
+export type CompleteWorkspaceArchiveErrors = {
   /**
    * Missing, no longer valid or wrong runner token
    */
@@ -10360,11 +10360,11 @@ export type SealWorkspaceArchiveErrors = {
   409: unknown;
 };
 
-export type SealWorkspaceArchiveResponses = {
+export type CompleteWorkspaceArchiveResponses = {
   204: void;
 };
 
-export type SealWorkspaceArchiveResponse = SealWorkspaceArchiveResponses[keyof SealWorkspaceArchiveResponses];
+export type CompleteWorkspaceArchiveResponse = CompleteWorkspaceArchiveResponses[keyof CompleteWorkspaceArchiveResponses];
 
 export type PoolQueueData = {
   body?: never;
@@ -10433,7 +10433,7 @@ export type ClaimHostWorkErrors = {
    */
   401: unknown;
   /**
-   * The host has not reported through this pool or trust (`host-unreported`), or has not reported serving the image it claims for (`image-unreported`)
+   * The host has not reported through this pool or trust (`host-unreported`), or has not reported that it supports the image it claims for (`image-unreported`)
    */
   409: unknown;
 };
@@ -10482,8 +10482,8 @@ export type ClaimHostCallResponses = {
 
 export type ClaimHostCallResponse = ClaimHostCallResponses[keyof ClaimHostCallResponses];
 
-export type AnswerHostCallData = {
-  body: AnswerHostCallRequestDto;
+export type RecordHostCallResponseData = {
+  body: RecordHostCallResponseRequestDto;
   headers?: {
     /**
      * The runner trust to claim through; the bearer is then the workload’s token
@@ -10494,10 +10494,10 @@ export type AnswerHostCallData = {
     id: string;
   };
   query?: never;
-  url: '/hosts/calls/{id}/answer';
+  url: '/hosts/calls/{id}/response';
 };
 
-export type AnswerHostCallErrors = {
+export type RecordHostCallResponseErrors = {
   /**
    * Missing, rotated or unknown pool token, or a workload the trust does not match
    */
@@ -10507,19 +10507,19 @@ export type AnswerHostCallErrors = {
    */
   404: unknown;
   /**
-   * The call was already answered, expired before it was answered, or was never claimed (`call-completed`), or another host claimed it (`not-this-hosts-call`)
+   * The call already has a response, expired before it got a response, or was never claimed (`call-completed`), or another host claimed it (`not-this-hosts-call`)
    */
   409: unknown;
 };
 
-export type AnswerHostCallResponses = {
+export type RecordHostCallResponseResponses = {
   /**
-   * The answer was taken
+   * Spotlight recorded the response
    */
   204: void;
 };
 
-export type AnswerHostCallResponse = AnswerHostCallResponses[keyof AnswerHostCallResponses];
+export type RecordHostCallResponseResponse = RecordHostCallResponseResponses[keyof RecordHostCallResponseResponses];
 
 export type FetchRunSecretsData = {
   body: FetchRunSecretsRequestDto;
@@ -10613,7 +10613,7 @@ export type RecordEgressConnectionsErrors = {
 
 export type RecordEgressConnectionsResponses = {
   /**
-   * The records were taken
+   * Spotlight accepted the records
    */
   204: void;
 };
@@ -10762,35 +10762,35 @@ export type ReadInboxItemResponses = {
 
 export type ReadInboxItemResponse = ReadInboxItemResponses[keyof ReadInboxItemResponses];
 
-export type ReadInboxAsideData = {
+export type ReadInboxRequestData = {
   body?: never;
   path: {
-    asideId: string;
+    requestId: string;
     slug: string;
   };
   query?: never;
-  url: '/workspaces/{slug}/inbox/asides/{asideId}/read';
+  url: '/workspaces/{slug}/inbox/requests/{requestId}/read';
 };
 
-export type ReadInboxAsideErrors = {
+export type ReadInboxRequestErrors = {
   /**
    * No valid session
    */
   401: unknown;
   /**
-   * No such aside for this caller
+   * No such inbox request for this caller
    */
   404: unknown;
 };
 
-export type ReadInboxAsideResponses = {
+export type ReadInboxRequestResponses = {
   /**
    * It is no longer unread
    */
   204: void;
 };
 
-export type ReadInboxAsideResponse = ReadInboxAsideResponses[keyof ReadInboxAsideResponses];
+export type ReadInboxRequestResponse = ReadInboxRequestResponses[keyof ReadInboxRequestResponses];
 
 export type ResolveInboxNoticeData = {
   body?: never;
@@ -11038,17 +11038,17 @@ export type ReadRunNetworkResponses = {
 
 export type ReadRunNetworkResponse = ReadRunNetworkResponses[keyof ReadRunNetworkResponses];
 
-export type ReadRunConversationData = {
+export type ReadRunNotesData = {
   body?: never;
   path: {
     runId: string;
     teamId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/runs/{runId}/conversation';
+  url: '/teams/{teamId}/runs/{runId}/notes';
 };
 
-export type ReadRunConversationErrors = {
+export type ReadRunNotesErrors = {
   /**
    * No valid session
    */
@@ -11059,11 +11059,11 @@ export type ReadRunConversationErrors = {
   404: unknown;
 };
 
-export type ReadRunConversationResponses = {
-  200: RunConversationResponseDto;
+export type ReadRunNotesResponses = {
+  200: RunNotesResponseDto;
 };
 
-export type ReadRunConversationResponse = ReadRunConversationResponses[keyof ReadRunConversationResponses];
+export type ReadRunNotesResponse = ReadRunNotesResponses[keyof ReadRunNotesResponses];
 
 export type SendMessageData = {
   body: SendMessageRequestDto;
@@ -11119,7 +11119,7 @@ export type StopRunErrors = {
    */
   404: unknown;
   /**
-   * The run is no longer being worked
+   * The run is no longer in progress
    */
   409: unknown;
 };
@@ -11308,7 +11308,7 @@ export type ReadReplayRunData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -11351,7 +11351,7 @@ export type ReadSearchRunData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -11676,7 +11676,7 @@ export type ImportWorkspaceData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -11713,7 +11713,7 @@ export type ImportWorkspaceError = ImportWorkspaceErrors[keyof ImportWorkspaceEr
 
 export type ImportWorkspaceResponses = {
   /**
-   * The workspace, as a read would answer it
+   * The workspace, as a read returns it
    */
   200: WorkspaceResourceResponseDto;
 };
@@ -11724,7 +11724,7 @@ export type ListWorkspacesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -11752,7 +11752,7 @@ export type ListWorkspacesError = ListWorkspacesErrors[keyof ListWorkspacesError
 
 export type ListWorkspacesResponses = {
   /**
-   * Every workspace there, each as a read would answer it, in address order
+   * Every workspace there, each as a read returns it, in address order
    */
   200: WorkspaceResourceListResponseDto;
 };
@@ -11766,7 +11766,7 @@ export type CreateWorkspaceData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -11774,7 +11774,7 @@ export type CreateWorkspaceData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -11814,7 +11814,7 @@ export type CreateWorkspaceError = CreateWorkspaceErrors[keyof CreateWorkspaceEr
 
 export type CreateWorkspaceResponses = {
   /**
-   * The workspace, as a read would answer it
+   * The workspace, as a read returns it
    */
   201: WorkspaceResourceResponseDto;
 };
@@ -11825,7 +11825,7 @@ export type DeleteWorkspaceData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -11886,7 +11886,7 @@ export type ReadWorkspaceData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -11934,7 +11934,7 @@ export type UpdateWorkspaceData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -11988,7 +11988,7 @@ export type UpdateWorkspaceError = UpdateWorkspaceErrors[keyof UpdateWorkspaceEr
 
 export type UpdateWorkspaceResponses = {
   /**
-   * The workspace, as a read would answer it
+   * The workspace, as a read returns it
    */
   200: WorkspaceResourceResponseDto;
 };
@@ -11999,7 +11999,7 @@ export type ListTeamsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12033,7 +12033,7 @@ export type ListTeamsError = ListTeamsErrors[keyof ListTeamsErrors];
 
 export type ListTeamsResponses = {
   /**
-   * Every team there, each as a read would answer it, in address order
+   * Every team there, each as a read returns it, in address order
    */
   200: TeamResourceListResponseDto;
 };
@@ -12047,7 +12047,7 @@ export type CreateTeamData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12055,7 +12055,7 @@ export type CreateTeamData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -12097,7 +12097,7 @@ export type CreateTeamError = CreateTeamErrors[keyof CreateTeamErrors];
 
 export type CreateTeamResponses = {
   /**
-   * The team, as a read would answer it
+   * The team, as a read returns it
    */
   201: TeamResourceResponseDto;
 };
@@ -12108,7 +12108,7 @@ export type DeleteTeamData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12169,7 +12169,7 @@ export type ReadTeamData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12217,7 +12217,7 @@ export type UpdateTeamData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12271,7 +12271,7 @@ export type UpdateTeamError = UpdateTeamErrors[keyof UpdateTeamErrors];
 
 export type UpdateTeamResponses = {
   /**
-   * The team, as a read would answer it
+   * The team, as a read returns it
    */
   200: TeamResourceResponseDto;
 };
@@ -12282,7 +12282,7 @@ export type ImportTeamData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12321,7 +12321,7 @@ export type ImportTeamError = ImportTeamErrors[keyof ImportTeamErrors];
 
 export type ImportTeamResponses = {
   /**
-   * The team, as a read would answer it
+   * The team, as a read returns it
    */
   200: TeamResourceResponseDto;
 };
@@ -12332,7 +12332,7 @@ export type ListWorkspaceTokensData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12366,7 +12366,7 @@ export type ListWorkspaceTokensError = ListWorkspaceTokensErrors[keyof ListWorks
 
 export type ListWorkspaceTokensResponses = {
   /**
-   * Every workspace-token there, each as a read would answer it, in address order
+   * Every workspace-token there, each as a read returns it, in address order
    */
   200: WorkspaceTokenResourceListResponseDto;
 };
@@ -12382,7 +12382,7 @@ export type CreateWorkspaceTokenData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12390,7 +12390,7 @@ export type CreateWorkspaceTokenData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -12432,9 +12432,9 @@ export type CreateWorkspaceTokenError = CreateWorkspaceTokenErrors[keyof CreateW
 
 export type CreateWorkspaceTokenResponses = {
   /**
-   * The workspace-token, as a read would answer it
+   * The workspace-token, as a read returns it
    *
-   * The token, as a read would answer it
+   * The token, as a read returns it
    */
   201: WorkspaceTokenResourceResponseDto;
 };
@@ -12445,7 +12445,7 @@ export type DeleteWorkspaceTokenData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12506,7 +12506,7 @@ export type ReadWorkspaceTokenData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12556,7 +12556,7 @@ export type UpdateWorkspaceTokenData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12610,7 +12610,7 @@ export type UpdateWorkspaceTokenError = UpdateWorkspaceTokenErrors[keyof UpdateW
 
 export type UpdateWorkspaceTokenResponses = {
   /**
-   * The workspace-token, as a read would answer it
+   * The workspace-token, as a read returns it
    */
   200: WorkspaceTokenResourceResponseDto;
 };
@@ -12621,7 +12621,7 @@ export type ImportWorkspaceTokenData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12660,7 +12660,7 @@ export type ImportWorkspaceTokenError = ImportWorkspaceTokenErrors[keyof ImportW
 
 export type ImportWorkspaceTokenResponses = {
   /**
-   * The workspace-token, as a read would answer it
+   * The workspace-token, as a read returns it
    */
   200: WorkspaceTokenResourceResponseDto;
 };
@@ -12671,7 +12671,7 @@ export type ListWorkspaceTokenTrustsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12705,7 +12705,7 @@ export type ListWorkspaceTokenTrustsError = ListWorkspaceTokenTrustsErrors[keyof
 
 export type ListWorkspaceTokenTrustsResponses = {
   /**
-   * Every workspace-token-trust there, each as a read would answer it, in address order
+   * Every workspace-token-trust there, each as a read returns it, in address order
    */
   200: WorkspaceTokenTrustResourceListResponseDto;
 };
@@ -12726,7 +12726,7 @@ export type CreateWorkspaceTokenTrustData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12734,7 +12734,7 @@ export type CreateWorkspaceTokenTrustData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -12776,7 +12776,7 @@ export type CreateWorkspaceTokenTrustError = CreateWorkspaceTokenTrustErrors[key
 
 export type CreateWorkspaceTokenTrustResponses = {
   /**
-   * The workspace-token-trust, as a read would answer it
+   * The workspace-token-trust, as a read returns it
    */
   201: WorkspaceTokenTrustResourceResponseDto;
 };
@@ -12787,7 +12787,7 @@ export type DeleteWorkspaceTokenTrustData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12848,7 +12848,7 @@ export type ReadWorkspaceTokenTrustData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12903,7 +12903,7 @@ export type UpdateWorkspaceTokenTrustData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -12957,7 +12957,7 @@ export type UpdateWorkspaceTokenTrustError = UpdateWorkspaceTokenTrustErrors[key
 
 export type UpdateWorkspaceTokenTrustResponses = {
   /**
-   * The workspace-token-trust, as a read would answer it
+   * The workspace-token-trust, as a read returns it
    */
   200: WorkspaceTokenTrustResourceResponseDto;
 };
@@ -12968,7 +12968,7 @@ export type ImportWorkspaceTokenTrustData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -13007,7 +13007,7 @@ export type ImportWorkspaceTokenTrustError = ImportWorkspaceTokenTrustErrors[key
 
 export type ImportWorkspaceTokenTrustResponses = {
   /**
-   * The workspace-token-trust, as a read would answer it
+   * The workspace-token-trust, as a read returns it
    */
   200: WorkspaceTokenTrustResourceResponseDto;
 };
@@ -13463,7 +13463,7 @@ export type ListSecretsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -13497,7 +13497,7 @@ export type ListSecretsError = ListSecretsErrors[keyof ListSecretsErrors];
 
 export type ListSecretsResponses = {
   /**
-   * Every secret there, each as a read would answer it, in address order
+   * Every secret there, each as a read returns it, in address order
    */
   200: SecretResourceListResponseDto;
 };
@@ -13522,7 +13522,7 @@ export type CreateSecretData = {
       prefix?: string;
     }>;
     /**
-     * The value to store; accepted on create and whenever valueWoVersion changes, and never answered
+     * The value to store; accepted on create and whenever valueWoVersion changes, and never returned
      */
     valueWo?: string;
     /**
@@ -13532,7 +13532,7 @@ export type CreateSecretData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -13540,7 +13540,7 @@ export type CreateSecretData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -13582,7 +13582,7 @@ export type CreateSecretError = CreateSecretErrors[keyof CreateSecretErrors];
 
 export type CreateSecretResponses = {
   /**
-   * The secret, as a read would answer it
+   * The secret, as a read returns it
    */
   201: SecretResourceResponseDto;
 };
@@ -13593,7 +13593,7 @@ export type DeleteSecretData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -13654,7 +13654,7 @@ export type ReadSecretData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -13713,7 +13713,7 @@ export type UpdateSecretData = {
       prefix?: string;
     }>;
     /**
-     * The value to store; accepted on create and whenever valueWoVersion changes, and never answered
+     * The value to store; accepted on create and whenever valueWoVersion changes, and never returned
      */
     valueWo?: string;
     /**
@@ -13723,7 +13723,7 @@ export type UpdateSecretData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -13777,7 +13777,7 @@ export type UpdateSecretError = UpdateSecretErrors[keyof UpdateSecretErrors];
 
 export type UpdateSecretResponses = {
   /**
-   * The secret, as a read would answer it
+   * The secret, as a read returns it
    */
   200: SecretResourceResponseDto;
 };
@@ -13788,7 +13788,7 @@ export type ImportSecretData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -13827,7 +13827,7 @@ export type ImportSecretError = ImportSecretErrors[keyof ImportSecretErrors];
 
 export type ImportSecretResponses = {
   /**
-   * The secret, as a read would answer it
+   * The secret, as a read returns it
    */
   200: SecretResourceResponseDto;
 };
@@ -13838,7 +13838,7 @@ export type ReadCatalogToolData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -13855,7 +13855,7 @@ export type ReadCatalogToolData = {
      */
     name: unknown;
     /**
-     * The versions you accept, as Terraform writes a constraint; the newest it accepts is answered
+     * The versions you accept, as Terraform writes a constraint; Spotlight returns the newest version that matches
      */
     version: unknown;
   };
@@ -13900,7 +13900,7 @@ export type ReadCatalogSkillData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -13917,7 +13917,7 @@ export type ReadCatalogSkillData = {
      */
     name: unknown;
     /**
-     * The versions you accept, as Terraform writes a constraint; the newest it accepts is answered
+     * The versions you accept, as Terraform writes a constraint; Spotlight returns the newest version that matches
      */
     version: unknown;
   };
@@ -14160,7 +14160,7 @@ export type ListRunnerTrustsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14194,7 +14194,7 @@ export type ListRunnerTrustsError = ListRunnerTrustsErrors[keyof ListRunnerTrust
 
 export type ListRunnerTrustsResponses = {
   /**
-   * Every runner-trust there, each as a read would answer it, in address order
+   * Every runner-trust there, each as a read returns it, in address order
    */
   200: RunnerTrustResourceListResponseDto;
 };
@@ -14211,7 +14211,7 @@ export type CreateRunnerTrustData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14219,7 +14219,7 @@ export type CreateRunnerTrustData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -14261,7 +14261,7 @@ export type CreateRunnerTrustError = CreateRunnerTrustErrors[keyof CreateRunnerT
 
 export type CreateRunnerTrustResponses = {
   /**
-   * The runner-trust, as a read would answer it
+   * The runner-trust, as a read returns it
    */
   201: RunnerTrustResourceResponseDto;
 };
@@ -14272,7 +14272,7 @@ export type DeleteRunnerTrustData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14333,7 +14333,7 @@ export type ReadRunnerTrustData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14384,7 +14384,7 @@ export type UpdateRunnerTrustData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14438,7 +14438,7 @@ export type UpdateRunnerTrustError = UpdateRunnerTrustErrors[keyof UpdateRunnerT
 
 export type UpdateRunnerTrustResponses = {
   /**
-   * The runner-trust, as a read would answer it
+   * The runner-trust, as a read returns it
    */
   200: RunnerTrustResourceResponseDto;
 };
@@ -14449,7 +14449,7 @@ export type ImportRunnerTrustData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14488,7 +14488,7 @@ export type ImportRunnerTrustError = ImportRunnerTrustErrors[keyof ImportRunnerT
 
 export type ImportRunnerTrustResponses = {
   /**
-   * The runner-trust, as a read would answer it
+   * The runner-trust, as a read returns it
    */
   200: RunnerTrustResourceResponseDto;
 };
@@ -14499,7 +14499,7 @@ export type ListRunnerPoolsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14533,7 +14533,7 @@ export type ListRunnerPoolsError = ListRunnerPoolsErrors[keyof ListRunnerPoolsEr
 
 export type ListRunnerPoolsResponses = {
   /**
-   * Every runner-pool there, each as a read would answer it, in address order
+   * Every runner-pool there, each as a read returns it, in address order
    */
   200: RunnerPoolResourceListResponseDto;
 };
@@ -14549,7 +14549,7 @@ export type CreateRunnerPoolData = {
      */
     maxRuns?: number | null;
     /**
-     * Write-only, and only for a pool without provision: the token its hosts claim with, stored only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Pool-Token
+     * Write-only, and only for a pool without provision: the token its hosts claim with, stored only as a hash and never returned. Left out on create, Spotlight issues one and returns it once in Spotlight-Pool-Token
      */
     token?: string;
     /**
@@ -14581,7 +14581,7 @@ export type CreateRunnerPoolData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14589,7 +14589,7 @@ export type CreateRunnerPoolData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -14631,9 +14631,9 @@ export type CreateRunnerPoolError = CreateRunnerPoolErrors[keyof CreateRunnerPoo
 
 export type CreateRunnerPoolResponses = {
   /**
-   * The runner-pool, as a read would answer it
+   * The runner-pool, as a read returns it
    *
-   * The runner pool, as a read would answer it
+   * The runner pool, as a read returns it
    */
   201: RunnerPoolResourceResponseDto;
 };
@@ -14644,7 +14644,7 @@ export type DeleteRunnerPoolData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14705,7 +14705,7 @@ export type ReadRunnerPoolData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14755,7 +14755,7 @@ export type UpdateRunnerPoolData = {
      */
     maxRuns?: number | null;
     /**
-     * Write-only, and only for a pool without provision: the token its hosts claim with, stored only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Pool-Token
+     * Write-only, and only for a pool without provision: the token its hosts claim with, stored only as a hash and never returned. Left out on create, Spotlight issues one and returns it once in Spotlight-Pool-Token
      */
     token?: string;
     /**
@@ -14787,7 +14787,7 @@ export type UpdateRunnerPoolData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14841,7 +14841,7 @@ export type UpdateRunnerPoolError = UpdateRunnerPoolErrors[keyof UpdateRunnerPoo
 
 export type UpdateRunnerPoolResponses = {
   /**
-   * The runner-pool, as a read would answer it
+   * The runner-pool, as a read returns it
    */
   200: RunnerPoolResourceResponseDto;
 };
@@ -14852,7 +14852,7 @@ export type ImportRunnerPoolData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14891,7 +14891,7 @@ export type ImportRunnerPoolError = ImportRunnerPoolErrors[keyof ImportRunnerPoo
 
 export type ImportRunnerPoolResponses = {
   /**
-   * The runner-pool, as a read would answer it
+   * The runner-pool, as a read returns it
    */
   200: RunnerPoolResourceResponseDto;
 };
@@ -14902,7 +14902,7 @@ export type ListEgressesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14936,7 +14936,7 @@ export type ListEgressesError = ListEgressesErrors[keyof ListEgressesErrors];
 
 export type ListEgressesResponses = {
   /**
-   * Every egress there, each as a read would answer it, in address order
+   * Every egress there, each as a read returns it, in address order
    */
   200: EgressResourceListResponseDto;
 };
@@ -14951,7 +14951,7 @@ export type CreateEgressData = {
      */
     url: string;
     /**
-     * Write-only: the token the egress calls Spotlight with, stored only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Egress-Token
+     * Write-only: the token the egress calls Spotlight with, stored only as a hash and never returned. Left out on create, Spotlight issues one and returns it once in Spotlight-Egress-Token
      */
     token?: string;
     /**
@@ -14961,7 +14961,7 @@ export type CreateEgressData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -14969,7 +14969,7 @@ export type CreateEgressData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -15011,9 +15011,9 @@ export type CreateEgressError = CreateEgressErrors[keyof CreateEgressErrors];
 
 export type CreateEgressResponses = {
   /**
-   * The egress, as a read would answer it
+   * The egress, as a read returns it
    *
-   * The egress, as a read would answer it
+   * The egress, as a read returns it
    */
   201: EgressResourceResponseDto;
 };
@@ -15024,7 +15024,7 @@ export type DeleteEgressData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15085,7 +15085,7 @@ export type ReadEgressData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15134,7 +15134,7 @@ export type UpdateEgressData = {
      */
     url: string;
     /**
-     * Write-only: the token the egress calls Spotlight with, stored only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Egress-Token
+     * Write-only: the token the egress calls Spotlight with, stored only as a hash and never returned. Left out on create, Spotlight issues one and returns it once in Spotlight-Egress-Token
      */
     token?: string;
     /**
@@ -15144,7 +15144,7 @@ export type UpdateEgressData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15198,7 +15198,7 @@ export type UpdateEgressError = UpdateEgressErrors[keyof UpdateEgressErrors];
 
 export type UpdateEgressResponses = {
   /**
-   * The egress, as a read would answer it
+   * The egress, as a read returns it
    */
   200: EgressResourceResponseDto;
 };
@@ -15209,7 +15209,7 @@ export type ImportEgressData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15248,7 +15248,7 @@ export type ImportEgressError = ImportEgressErrors[keyof ImportEgressErrors];
 
 export type ImportEgressResponses = {
   /**
-   * The egress, as a read would answer it
+   * The egress, as a read returns it
    */
   200: EgressResourceResponseDto;
 };
@@ -15259,7 +15259,7 @@ export type ListWorkspaceRunnersData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15293,7 +15293,7 @@ export type ListWorkspaceRunnersError = ListWorkspaceRunnersErrors[keyof ListWor
 
 export type ListWorkspaceRunnersResponses = {
   /**
-   * Every workspace-runners there, each as a read would answer it, in address order
+   * Every workspace-runners there, each as a read returns it, in address order
    */
   200: WorkspaceRunnersResourceListResponseDto;
 };
@@ -15308,7 +15308,7 @@ export type CreateWorkspaceRunnersData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15316,7 +15316,7 @@ export type CreateWorkspaceRunnersData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -15358,7 +15358,7 @@ export type CreateWorkspaceRunnersError = CreateWorkspaceRunnersErrors[keyof Cre
 
 export type CreateWorkspaceRunnersResponses = {
   /**
-   * The workspace-runners, as a read would answer it
+   * The workspace-runners, as a read returns it
    */
   201: WorkspaceRunnersResourceResponseDto;
 };
@@ -15369,7 +15369,7 @@ export type DeleteWorkspaceRunnersData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15430,7 +15430,7 @@ export type ReadWorkspaceRunnersData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15479,7 +15479,7 @@ export type UpdateWorkspaceRunnersData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15533,7 +15533,7 @@ export type UpdateWorkspaceRunnersError = UpdateWorkspaceRunnersErrors[keyof Upd
 
 export type UpdateWorkspaceRunnersResponses = {
   /**
-   * The workspace-runners, as a read would answer it
+   * The workspace-runners, as a read returns it
    */
   200: WorkspaceRunnersResourceResponseDto;
 };
@@ -15544,7 +15544,7 @@ export type ImportWorkspaceRunnersData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15583,7 +15583,7 @@ export type ImportWorkspaceRunnersError = ImportWorkspaceRunnersErrors[keyof Imp
 
 export type ImportWorkspaceRunnersResponses = {
   /**
-   * The workspace-runners, as a read would answer it
+   * The workspace-runners, as a read returns it
    */
   200: WorkspaceRunnersResourceResponseDto;
 };
@@ -15651,7 +15651,7 @@ export type CreateSkillData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15659,7 +15659,7 @@ export type CreateSkillData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -15701,7 +15701,7 @@ export type CreateSkillError = CreateSkillErrors[keyof CreateSkillErrors];
 
 export type CreateSkillResponses = {
   /**
-   * The skill, as a read would answer it
+   * The skill, as a read returns it
    */
   201: SkillResourceResponseDto;
 };
@@ -15712,7 +15712,7 @@ export type DeleteSkillData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15773,7 +15773,7 @@ export type ReadSkillData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15823,7 +15823,7 @@ export type UpdateSkillData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15877,7 +15877,7 @@ export type UpdateSkillError = UpdateSkillErrors[keyof UpdateSkillErrors];
 
 export type UpdateSkillResponses = {
   /**
-   * The skill, as a read would answer it
+   * The skill, as a read returns it
    */
   200: SkillResourceResponseDto;
 };
@@ -15888,7 +15888,7 @@ export type ImportSkillData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15927,7 +15927,7 @@ export type ImportSkillError = ImportSkillErrors[keyof ImportSkillErrors];
 
 export type ImportSkillResponses = {
   /**
-   * The skill, as a read would answer it
+   * The skill, as a read returns it
    */
   200: SkillResourceResponseDto;
 };
@@ -15938,7 +15938,7 @@ export type ListSkillsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -15972,7 +15972,7 @@ export type ListSkillsError = ListSkillsErrors[keyof ListSkillsErrors];
 
 export type ListSkillsResponses = {
   /**
-   * Every skill there, each as a read would answer it, in address order
+   * Every skill there, each as a read returns it, in address order
    */
   200: SkillResourceListResponseDto;
 };
@@ -16004,7 +16004,7 @@ export type CreateHarnessProfileData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -16012,7 +16012,7 @@ export type CreateHarnessProfileData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -16054,7 +16054,7 @@ export type CreateHarnessProfileError = CreateHarnessProfileErrors[keyof CreateH
 
 export type CreateHarnessProfileResponses = {
   /**
-   * The harness-profile, as a read would answer it
+   * The harness-profile, as a read returns it
    */
   201: HarnessProfileResourceResponseDto;
 };
@@ -16065,7 +16065,7 @@ export type DeleteHarnessProfileData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -16126,7 +16126,7 @@ export type ReadHarnessProfileData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -16192,7 +16192,7 @@ export type UpdateHarnessProfileData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -16246,7 +16246,7 @@ export type UpdateHarnessProfileError = UpdateHarnessProfileErrors[keyof UpdateH
 
 export type UpdateHarnessProfileResponses = {
   /**
-   * The harness-profile, as a read would answer it
+   * The harness-profile, as a read returns it
    */
   200: HarnessProfileResourceResponseDto;
 };
@@ -16257,7 +16257,7 @@ export type ImportHarnessProfileData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -16296,7 +16296,7 @@ export type ImportHarnessProfileError = ImportHarnessProfileErrors[keyof ImportH
 
 export type ImportHarnessProfileResponses = {
   /**
-   * The harness-profile, as a read would answer it
+   * The harness-profile, as a read returns it
    */
   200: HarnessProfileResourceResponseDto;
 };
@@ -16307,7 +16307,7 @@ export type ListHarnessProfilesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -16341,7 +16341,7 @@ export type ListHarnessProfilesError = ListHarnessProfilesErrors[keyof ListHarne
 
 export type ListHarnessProfilesResponses = {
   /**
-   * Every harness-profile there, each as a read would answer it, in address order
+   * Every harness-profile there, each as a read returns it, in address order
    */
   200: HarnessProfileResourceListResponseDto;
 };
@@ -16352,7 +16352,7 @@ export type ExportWorkspaceData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -16394,7 +16394,7 @@ export type ReadResourceHclData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -16601,7 +16601,7 @@ export type GenerateChangeStackErrors = {
    */
   401: unknown;
   /**
-   * Not a run this runner worked
+   * Not a run this runner claimed
    */
   404: unknown;
   /**
@@ -16637,7 +16637,7 @@ export type RecordChangeStackCheckErrors = {
    */
   401: unknown;
   /**
-   * Not a run this runner worked, or no such stack of it
+   * Not a run this runner claimed, or no such stack of it
    */
   404: unknown;
   /**
@@ -16905,7 +16905,7 @@ export type CreateIntegrationData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -16913,7 +16913,7 @@ export type CreateIntegrationData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -16955,7 +16955,7 @@ export type CreateIntegrationError = CreateIntegrationErrors[keyof CreateIntegra
 
 export type CreateIntegrationResponses = {
   /**
-   * The integration, as a read would answer it
+   * The integration, as a read returns it
    */
   201: IntegrationResourceResponseDto;
 };
@@ -16966,7 +16966,7 @@ export type DeleteIntegrationData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17027,7 +17027,7 @@ export type ReadIntegrationData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17074,7 +17074,7 @@ export type UpdateIntegrationData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17128,7 +17128,7 @@ export type UpdateIntegrationError = UpdateIntegrationErrors[keyof UpdateIntegra
 
 export type UpdateIntegrationResponses = {
   /**
-   * The integration, as a read would answer it
+   * The integration, as a read returns it
    */
   200: IntegrationResourceResponseDto;
 };
@@ -17139,7 +17139,7 @@ export type ImportIntegrationData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17178,7 +17178,7 @@ export type ImportIntegrationError = ImportIntegrationErrors[keyof ImportIntegra
 
 export type ImportIntegrationResponses = {
   /**
-   * The integration, as a read would answer it
+   * The integration, as a read returns it
    */
   200: IntegrationResourceResponseDto;
 };
@@ -17189,7 +17189,7 @@ export type ListIntegrationsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17223,7 +17223,7 @@ export type ListIntegrationsError = ListIntegrationsErrors[keyof ListIntegration
 
 export type ListIntegrationsResponses = {
   /**
-   * Every integration there, each as a read would answer it, in address order
+   * Every integration there, each as a read returns it, in address order
    */
   200: IntegrationResourceListResponseDto;
 };
@@ -17234,7 +17234,7 @@ export type CheckExpressionData = {
   body: CheckExpressionRequestDto;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17281,7 +17281,7 @@ export type ListExpressionPositionsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17343,7 +17343,7 @@ export type CreateHookData = {
   body: HookDefinitionRequestDtoWritable;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17351,7 +17351,7 @@ export type CreateHookData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -17393,7 +17393,7 @@ export type CreateHookError = CreateHookErrors[keyof CreateHookErrors];
 
 export type CreateHookResponses = {
   /**
-   * The hook, as a read would answer it
+   * The hook, as a read returns it
    */
   201: HookResourceResponseDto;
 };
@@ -17404,7 +17404,7 @@ export type DeleteHookData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17465,7 +17465,7 @@ export type ReadHookData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17510,7 +17510,7 @@ export type UpdateHookData = {
   body: HookDefinitionRequestDtoWritable;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17564,7 +17564,7 @@ export type UpdateHookError = UpdateHookErrors[keyof UpdateHookErrors];
 
 export type UpdateHookResponses = {
   /**
-   * The hook, as a read would answer it
+   * The hook, as a read returns it
    */
   200: HookResourceResponseDto;
 };
@@ -17575,7 +17575,7 @@ export type ImportHookData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17614,7 +17614,7 @@ export type ImportHookError = ImportHookErrors[keyof ImportHookErrors];
 
 export type ImportHookResponses = {
   /**
-   * The hook, as a read would answer it
+   * The hook, as a read returns it
    */
   200: HookResourceResponseDto;
 };
@@ -17625,7 +17625,7 @@ export type ListHooksData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -17659,7 +17659,7 @@ export type ListHooksError = ListHooksErrors[keyof ListHooksErrors];
 
 export type ListHooksResponses = {
   /**
-   * Every hook there, each as a read would answer it, in address order
+   * Every hook there, each as a read returns it, in address order
    */
   200: HookResourceListResponseDto;
 };
@@ -18931,7 +18931,7 @@ export type CreateReplayCandidateData = {
   };
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -18939,7 +18939,7 @@ export type CreateReplayCandidateData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more
+     * Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more
      */
     'Idempotency-Key': string;
   };
@@ -18982,7 +18982,7 @@ export type CreateReplayCandidateError = CreateReplayCandidateErrors[keyof Creat
 
 export type CreateReplayCandidateResponses = {
   /**
-   * The replay-candidate, as a read would answer it
+   * The replay-candidate, as a read returns it
    */
   201: ReplayCandidateResourceResponseDto;
 };
@@ -18993,7 +18993,7 @@ export type DeleteReplayCandidateData = {
   body?: never;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19054,7 +19054,7 @@ export type ReadReplayCandidateData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19099,7 +19099,7 @@ export type ImportReplayCandidateData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19138,7 +19138,7 @@ export type ImportReplayCandidateError = ImportReplayCandidateErrors[keyof Impor
 
 export type ImportReplayCandidateResponses = {
   /**
-   * The replay-candidate, as a read would answer it
+   * The replay-candidate, as a read returns it
    */
   200: ReplayCandidateResourceResponseDto;
 };
@@ -19149,7 +19149,7 @@ export type ListReplayCandidatesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19188,7 +19188,7 @@ export type ListReplayCandidatesError = ListReplayCandidatesErrors[keyof ListRep
 
 export type ListReplayCandidatesResponses = {
   /**
-   * Every replay-candidate there, each as a read would answer it, in address order
+   * Every replay-candidate there, each as a read returns it, in address order
    */
   200: ReplayCandidateResourceListResponseDto;
 };
@@ -19199,7 +19199,7 @@ export type ListReplaySetsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19243,7 +19243,7 @@ export type CreateReplaySetData = {
   body: CreateReplaySetRequestDto;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19295,7 +19295,7 @@ export type ListTeamReplaySetsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19350,7 +19350,7 @@ export type ListReplayableRunsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19394,7 +19394,7 @@ export type ListReplaySetSuggestionsData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19437,7 +19437,7 @@ export type DeleteReplaySetData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19491,7 +19491,7 @@ export type RenameReplaySetData = {
   body: RenameReplaySetRequestDto;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19545,7 +19545,7 @@ export type AddReplaySetEntryData = {
   body: AddReplaySetEntryRequestDto;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19603,7 +19603,7 @@ export type RemoveReplaySetEntryData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19654,7 +19654,7 @@ export type UngateChangesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19704,7 +19704,7 @@ export type GateChangesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19758,7 +19758,7 @@ export type ListReplaysData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19801,7 +19801,7 @@ export type StartReplayData = {
   body: StartReplayRequestDto;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19852,7 +19852,7 @@ export type ReadReplayData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19895,7 +19895,7 @@ export type ReadReplayOfRunData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19938,7 +19938,7 @@ export type StopReplayData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -19992,7 +19992,7 @@ export type ListSearchesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20036,7 +20036,7 @@ export type StartSearchData = {
   body: StartSearchRequestDto;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20092,7 +20092,7 @@ export type EstimateSearchData = {
   body: EstimateSearchRequestDto;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20140,7 +20140,7 @@ export type ListTeamSearchesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20191,7 +20191,7 @@ export type ReadSearchData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20234,7 +20234,7 @@ export type PickSearchCandidateData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20293,7 +20293,7 @@ export type StopSearchData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20347,7 +20347,7 @@ export type StartReplayCheckData = {
   body: StartReplayCheckRequestDto;
   headers: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20401,7 +20401,7 @@ export type StartReplayCheckResponses = {
    */
   200: ReplayCheckResponseDto;
   /**
-   * The check started, as a read would answer it; or, on a retry with the same Idempotency-Key, the check the first attempt answered
+   * The check started, as a read returns it; or, on a retry with the same Idempotency-Key, the check that the first attempt returned
    */
   201: ReplayCheckResponseDto;
 };
@@ -20412,7 +20412,7 @@ export type ListReplaySetChecksData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20464,7 +20464,7 @@ export type ReadReplayCheckData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20579,7 +20579,7 @@ export type ReadConfigPullRequestData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**
@@ -20622,7 +20622,7 @@ export type ReadReplayedCandidatesData = {
   body?: never;
   headers?: {
     /**
-     * The API version the client was written against; every response names the version it was answered in
+     * The API version the client was written against; every response names the version that it uses
      */
     'Spotlight-Api-Version'?: '2026-09-23';
     /**

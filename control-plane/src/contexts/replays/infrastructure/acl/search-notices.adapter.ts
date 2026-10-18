@@ -10,7 +10,7 @@ export class SearchNotices implements SearchNoticesPort {
   constructor(private readonly notices: NoticesPort) {}
 
   notify(notice: SearchNotice): Promise<void> {
-    return this.notices.raise({
+    return this.notices.create({
       workspaceId: notice.workspaceId,
       teamId: notice.teamId,
       addressee: notice.addressee,

@@ -2,13 +2,13 @@ import { RunActions } from '@/components/features/runs/RunActions';
 import { RunWaiting } from '@/components/features/runs/RunWaiting';
 import { lastNoteAt, type RunJournal } from '@/lib/inbox';
 import { type TeamRun, waitsOnPerson } from '@/lib/run';
-import { type RunConversation, runThreadText } from '@/lib/run-conversation';
+import { type RunNotes, runThreadText } from '@/lib/run-notes';
 
 type RunClosingProps = {
   slug: string;
   teamId: string;
   run: TeamRun;
-  conversation: RunConversation | undefined;
+  conversation: RunNotes | undefined;
   ran: readonly RunJournal[];
   deciding: boolean;
 };

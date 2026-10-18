@@ -23,7 +23,7 @@ import {
   ConventionalApiController,
   operationIdOf,
 } from '@platform/http/resources/conventional-api';
-import { found } from '@platform/http/resources/resource-answers';
+import { respondFound } from '@platform/http/resources/resource-responses';
 import { RESOURCES } from '@platform/http/routes';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
@@ -66,7 +66,7 @@ export class TerraformController {
     @Param('id') id: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<WorkspaceTerraformResponseDto> {
-    return found(
+    return respondFound(
       'workspace',
       await this.queryBus.execute<
         WorkspaceConfigurationQuery,
@@ -97,7 +97,7 @@ export class TerraformController {
   ): Promise<ResourceHclResponseDto> {
     const kind = kindIn(collection);
 
-    return found(
+    return respondFound(
       kind ?? 'resource',
       kind
         ? await this.queryBus.execute<

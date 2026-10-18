@@ -31,7 +31,7 @@ export const welcomeTask = (input: {
     title: TaskTitle.of(TITLE),
     description: TaskDescription.of(DESCRIPTION),
     rank: TaskRank.between(null, null),
-    raisedBy: input.owner,
+    createdBy: input.owner,
     now: input.now,
     newId: input.newId,
   }).askedAbout(

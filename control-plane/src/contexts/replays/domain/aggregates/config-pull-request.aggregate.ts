@@ -10,7 +10,7 @@ import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -85,7 +85,7 @@ export class ConfigPullRequest extends EventRecorder {
     lineKey: string;
     source: ConfigSourceOf | null;
     at: Date;
-    by: Attribution;
+    by: ChangeActor;
   }): ConfigPullRequest {
     const picked = new ConfigPullRequest({
       id: input.id,
@@ -281,7 +281,7 @@ export class ConfigPullRequest extends EventRecorder {
     lineKey: string;
     source: ConfigSourceOf | null;
     at: Date;
-    by: Attribution;
+    by: ChangeActor;
   }): ConfigPullRequest {
     if (!this.isRetryable) {
       throw new InconsistentStateError(
@@ -378,7 +378,7 @@ export class ConfigPullRequest extends EventRecorder {
 
   private wanted(
     action: 'created' | 'updated',
-    by: Attribution,
+    by: ChangeActor,
   ): ConfigPullRequestRequested {
     const changed = {
       resource: 'config-pull-request' as const,

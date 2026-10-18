@@ -5,7 +5,7 @@ import { RunSkeleton } from '@/components/features/runs/RunSkeleton';
 import { UntaskedRunOf } from '@/components/features/runs/UntaskedRunOf';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
-import { useRunConversation } from '@/hooks/api/useRunConversation';
+import { useRunNotes } from '@/hooks/api/useRunNotes';
 import { useRunRefresh } from '@/hooks/api/useRunRefresh';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useTeamRuns } from '@/hooks/api/useTeamRuns';
@@ -36,7 +36,7 @@ export function Run() {
   const { slug, teamId, runId } = useParams();
   const runs = useTeamRuns(teamId);
   const run = runs.data?.find((each) => each.id === runId);
-  const conversationQuery = useRunConversation(
+  const conversationQuery = useRunNotes(
     teamId,
     runs.data && !run ? undefined : runId,
   );

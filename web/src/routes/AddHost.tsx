@@ -7,7 +7,7 @@ import {
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
-import { managesRunners } from '@/lib/role';
+import { isAdmin } from '@/lib/role';
 import { runnersPath } from '@/lib/runner';
 import { useTrail } from '@/lib/trail';
 
@@ -24,7 +24,7 @@ export function AddHost() {
     return null;
   }
 
-  if (workspace && !managesRunners(workspace.role)) {
+  if (workspace && !isAdmin(workspace.role)) {
     return <Navigate to={runnersPath(slug)} replace />;
   }
 

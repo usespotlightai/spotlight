@@ -39,7 +39,7 @@ export class ListTeamTracesHandler
       const volume = traceVolumeOf(
         found.map((trace) => ({
           startedAt: trace.startedAt,
-          faults: trace.runIds.reduce(
+          errors: trace.runIds.reduce(
             (sum, runId) => sum + (usages.get(runId.value)?.errors ?? 0),
             0,
           ),

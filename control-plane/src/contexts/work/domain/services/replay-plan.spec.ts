@@ -16,6 +16,7 @@ import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
@@ -27,9 +28,8 @@ import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -55,7 +55,7 @@ const BUILD = StationId.of('station_build');
 const API = 'a'.repeat(40);
 const REPLAY_ID = RunId.of('run_2');
 
-const laidOut = (worked: StationId, key: string, ends = false) => [
+const laidOut = (stationId: StationId, key: string, ends = false) => [
   Station.of({
     id: StationId.of(`${key}_backlog`),
     key: StationKey.of('backlog'),
@@ -65,13 +65,13 @@ const laidOut = (worked: StationId, key: string, ends = false) => [
     kind: 'backlog',
   }),
   Station.of({
-    id: worked,
+    id: stationId,
     key: StationKey.of(key),
     name: StationName.of(key),
     position: 1,
     color: StationColor.plain(),
     harness: HarnessId.of('dev'),
-    wayOut: WayOut.of({ ends }),
+    routes: StationRoutes.of({ ends }),
   }),
   Station.of({
     id: StationId.of(`${key}_completed`),
@@ -94,7 +94,7 @@ const line = (
     key: LineKey.of('delivery'),
     name: LineName.of('Delivery'),
     repositories: repositories.map((each) =>
-      WorkedRepository.of(Repository.of(each), {
+      LineRepositoryConfig.of(Repository.of(each), {
         setup: each === 'acme/api' ? RepositorySetup.of('npm ci') : null,
       }),
     ),
@@ -139,7 +139,7 @@ const original = (
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'task-task_1' },
+      resume: { key: 'task-task_1' },
       ...(over.subject?.isReplay
         ? {
             replay: {
@@ -193,8 +193,8 @@ describe('planning a replay', () => {
     expect(plan.subject.replayedTaskId?.value).toBe('task_1');
     expect(plan.subject.taskId).toBeNull();
     expect(plan.at.stationId.equals(BUILD)).toBe(true);
-    expect(plan.at.continuity.key.value).toBe('replay-run_2');
-    expect(plan.at.continuity.sessionId).toBeNull();
+    expect(plan.at.resume.key.value).toBe('replay-run_2');
+    expect(plan.at.resume.sessionId).toBeNull();
     expect(plan.archive?.value).toBe('archive_1');
     expect(plan.replay).toEqual({
       archive: 'archive_1',

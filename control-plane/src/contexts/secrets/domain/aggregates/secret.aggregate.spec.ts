@@ -12,7 +12,7 @@ import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { BY, definition, NOW } from '@secrets/secrets.fakes.fake-spec';
 import { changesConfiguration } from '@shared-kernel/domain/events/configuration-changed';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -85,7 +85,7 @@ describe('Secret', () => {
           'LINEAR_API_KEY',
           'created',
           BY,
-          { valueVersion: 1, boundTo: ['api.linear.app'] },
+          { valueVersion: 1, targets: ['api.linear.app'] },
         ],
       ]);
     });
@@ -166,7 +166,7 @@ describe('Secret', () => {
           'LINEAR_API_KEY',
           'updated',
           BY,
-          { boundTo: ['uploads.linear.app'] },
+          { targets: ['uploads.linear.app'] },
         ],
       ]);
     });
@@ -232,7 +232,7 @@ describe('Secret', () => {
     });
 
     it('is deleted with its workspace, whatever still names it', () => {
-      const spotlight = Attribution.spotlight(WORKSPACE);
+      const spotlight = ChangeActor.spotlight(WORKSPACE);
       const deleted = stored().cascadeDelete(spotlight);
 
       expect(deleted.isDeleted).toBe(true);

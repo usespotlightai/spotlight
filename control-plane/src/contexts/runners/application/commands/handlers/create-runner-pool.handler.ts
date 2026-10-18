@@ -30,8 +30,8 @@ import type {
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -67,7 +67,7 @@ export class CreateRunnerPoolHandler
       }
 
       if (!permissions.managesRunners) {
-        return { created: forbiddenTo('manage-runners'), token: null };
+        return { created: forbiddenTo('runners'), token: null };
       }
 
       const compiled = this.definitions.pool(command.definition);
@@ -116,7 +116,7 @@ export class CreateRunnerPoolHandler
 
       try {
         const created = await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
+          createIdempotently(this.creates, create, async () => {
             if (supplied.mode === 'push') {
               await assertKnownEgress(
                 supplied.egress,
@@ -136,7 +136,7 @@ export class CreateRunnerPoolHandler
             const pool = RunnerPool.create({
               id,
               workspaceId: permissions.workspaceId,
-              by: Attribution.of(command.actor, permissions.workspaceId),
+              by: ChangeActor.of(command.actor, permissions.workspaceId),
               key: compiled.key,
               labels: compiled.labels,
               maxRuns: compiled.maxRuns,
@@ -160,7 +160,7 @@ export class CreateRunnerPoolHandler
       } catch (error) {
         if (error instanceof RunnerPoolAlreadyExistsError) {
           return {
-            created: { outcome: 'taken', address: compiled.key.value },
+            created: { outcome: 'already-exists', address: compiled.key.value },
             token: null,
           };
         }

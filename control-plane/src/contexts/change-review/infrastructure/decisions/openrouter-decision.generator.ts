@@ -10,7 +10,7 @@ import {
 import { latestWithin } from '@platform/openrouter/latest-within';
 import {
   type Fetch,
-  JsonShape,
+  JsonSchema,
   requestJson,
 } from '@platform/openrouter/openrouter-json';
 import { z } from 'zod';
@@ -21,7 +21,7 @@ const MAX_STEP = 2_000;
 
 const MAX_PROMPT_CHARS = 120_000;
 
-const DECISIONS = new JsonShape(
+const DECISIONS = new JsonSchema(
   'decisions',
   z.object({
     decisions: z.array(
@@ -96,10 +96,10 @@ export class OpenRouterDecisionGenerator implements DecisionGeneratorPort {
       apiKey: this.apiKey,
       model: this.model,
       fetch: this.fetch,
-      shape: DECISIONS,
+      responseSchema: DECISIONS,
       system: SYSTEM,
       prompt,
-      max: MAX_OUTPUT,
+      maxTokens: MAX_OUTPUT,
     });
 
     return decisions;

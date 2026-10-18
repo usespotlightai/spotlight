@@ -64,9 +64,9 @@ func (c *Client) ClaimCall(ctx context.Context) (*protocol.HostCall, error) {
 	return c.control.ClaimCall(ctx, c.host)
 }
 
-func (c *Client) AnswerCall(ctx context.Context, id string, answer protocol.HostCallAnswer) error {
-	answer.Host = c.host
-	return c.control.AnswerCall(ctx, id, answer)
+func (c *Client) RecordCallResponse(ctx context.Context, id string, response protocol.HostCallResponse) error {
+	response.Host = c.host
+	return c.control.RecordCallResponse(ctx, id, response)
 }
 
 func (c *Client) Heartbeat(ctx context.Context, heartbeat protocol.HostHeartbeat) (protocol.HeartbeatResponse, error) {

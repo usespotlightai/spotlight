@@ -1,13 +1,13 @@
 import { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
 import { WorkspaceTokenTrust } from '@identity/domain/aggregates/workspace-token-trust.aggregate';
 import { TokenAuthentication } from '@identity/domain/services/token-authentication';
-import { Grantor } from '@identity/domain/value-objects/grantor.vo';
+import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
 import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -41,7 +41,7 @@ const trustAt = (version: number) =>
   });
 
 const ISSUED_BY_TRUST = trustAt(1).issueFor(
-  { issuer: ISSUER, subject: MAIN, audiences: ['spotlight'], named: {} },
+  { issuer: ISSUER, subject: MAIN, audiences: ['spotlight'], customClaims: {} },
   {
     id: WorkspaceTokenId.of('token_1'),
     hash: TokenHash.of('d'.repeat(64)),
@@ -60,7 +60,7 @@ const ISSUED = WorkspaceToken.issue({
   hash: TokenHash.of('e'.repeat(64)),
   issuedBy: UserId.of('admin_1'),
   now: NOW,
-  by: attributedIn('ws_1'),
+  by: changeActorIn('ws_1'),
 });
 
 const FOR_RUN = WorkspaceToken.forRun({
@@ -82,7 +82,7 @@ describe('TokenAuthentication', () => {
     expect(TokenAuthentication.authenticates(FOR_RUN, null, LATER)).toBe(false);
     expect(
       TokenAuthentication.authenticates(
-        FOR_RUN.revoke(attributedIn('ws_1')),
+        FOR_RUN.revoke(changeActorIn('ws_1')),
         null,
         NOW,
       ),
@@ -93,7 +93,7 @@ describe('TokenAuthentication', () => {
     expect(TokenAuthentication.authenticates(ISSUED, null, LATER)).toBe(true);
     expect(
       TokenAuthentication.authenticates(
-        ISSUED.revoke(attributedIn('ws_1')),
+        ISSUED.revoke(changeActorIn('ws_1')),
         null,
         NOW,
       ),
@@ -113,7 +113,7 @@ describe('TokenAuthentication', () => {
     expect(
       TokenAuthentication.authenticates(
         ISSUED_BY_TRUST,
-        trustAt(1).delete(Grantor.unlimited, attributedIn('ws_1')),
+        trustAt(1).delete(ScopeCeiling.unlimited, changeActorIn('ws_1')),
         NOW,
       ),
     ).toBe(false);

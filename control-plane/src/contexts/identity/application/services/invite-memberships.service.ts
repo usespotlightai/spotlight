@@ -17,13 +17,13 @@ export class InviteMemberships {
       return;
     }
 
-    const workspace = found.join(accepted.userId, accepted.terms.role);
+    const workspace = found.join(accepted.userId, accepted.spec.role);
 
     if (workspace !== found) {
       await this.workspaces.save(workspace);
     }
 
-    for (const teamId of accepted.terms.teams) {
+    for (const teamId of accepted.spec.teams) {
       const team = await this.teams.find(teamId);
 
       if (!team?.workspaceId.equals(workspace.id)) {

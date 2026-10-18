@@ -18,15 +18,15 @@ export const openWorkloadIssuer = async (): Promise<WorkloadIssuer> => {
   let issuer = '';
 
   const server = createServer((request, response) => {
-    const answer = (body: unknown) => {
+    const respond = (body: unknown) => {
       response.setHeader('Content-Type', 'application/json');
       response.end(JSON.stringify(body));
     };
 
     if (request.url === '/.well-known/openid-configuration') {
-      answer({ issuer, jwks_uri: `${issuer}/keys` });
+      respond({ issuer, jwks_uri: `${issuer}/keys` });
     } else if (request.url === '/keys') {
-      answer({ keys: [published] });
+      respond({ keys: [published] });
     } else {
       response.statusCode = 404;
       response.end();

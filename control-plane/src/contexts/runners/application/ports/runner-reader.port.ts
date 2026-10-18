@@ -53,9 +53,9 @@ export interface RunnerReaderPort {
 
   readyToRun(workspaceId: WorkspaceId): Promise<boolean>;
 
-  hasAWayOut(workspaceId: WorkspaceId): Promise<boolean>;
+  hasEgressCapableRunner(workspaceId: WorkspaceId): Promise<boolean>;
 
-  advertisedModels(
+  supportedModels(
     workspaceId: WorkspaceId,
   ): Promise<ReadonlyMap<string, readonly string[]>>;
 }

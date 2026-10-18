@@ -65,7 +65,7 @@ describe('GitHubWebhookProvider', () => {
       summary: 'The pull request was merged.',
       answers: false,
       state: 'raised',
-      concerns: {
+      correlationKeys: {
         branch: 'spotlight/task_1',
         marks: [
           {
@@ -129,10 +129,12 @@ describe('GitHubWebhookProvider', () => {
   });
 
   it('reads activity known only by its pull request or only by its branch', async () => {
-    expect((await readOne({ ...MERGED, branch: null })).concerns).toMatchObject(
-      { branch: null, marks: [{ kind: PULL_REQUEST_MARK }] },
-    );
-    expect((await readOne({ ...MERGED, pullRequest: null })).concerns).toEqual({
+    expect(
+      (await readOne({ ...MERGED, branch: null })).correlationKeys,
+    ).toMatchObject({ branch: null, marks: [{ kind: PULL_REQUEST_MARK }] });
+    expect(
+      (await readOne({ ...MERGED, pullRequest: null })).correlationKeys,
+    ).toEqual({
       branch: 'spotlight/task_1',
       marks: [],
     });
@@ -158,7 +160,7 @@ describe('GitHubWebhookProvider', () => {
       summary: 'A pull request was opened for review.',
       answers: false,
       state: 'raised',
-      concerns: {
+      correlationKeys: {
         branch: null,
         marks: [
           { kind: REVIEW_MARK, value: 'https://github.com/acme/api/pull/7' },
@@ -198,7 +200,7 @@ describe('GitHubWebhookProvider', () => {
 
     expect(reviewRequest).toMatchObject({
       happening: 'github.pull_request.labelled',
-      concerns: {
+      correlationKeys: {
         marks: [
           { kind: REVIEW_MARK, value: 'https://github.com/acme/api/pull/7' },
         ],
@@ -269,7 +271,7 @@ describe('GitHubWebhookProvider', () => {
   it('tells the task reviewing a pull request what happened to it, apart from the task that opened it', async () => {
     const read = await providerOver([MERGED]).provider.read(DELIVERED);
 
-    expect(read.map((each) => each.concerns)).toEqual([
+    expect(read.map((each) => each.correlationKeys)).toEqual([
       {
         branch: 'spotlight/task_1',
         marks: [

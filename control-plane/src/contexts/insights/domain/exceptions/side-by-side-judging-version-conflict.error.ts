@@ -1,5 +1,5 @@
 export class SideBySideJudgingVersionConflictError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(runId: string, otherRunId: string) {
     super(

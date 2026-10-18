@@ -133,7 +133,7 @@ const reviewRequestFor = (
     summary: raising.summary,
     answers: raising.answers,
     state: 'raised',
-    concerns: { branch: null, marks },
+    correlationKeys: { branch: null, marks },
     message: trigger === 'mentioned' ? messageOf(event) : null,
     ourOwn: event.byBot,
     opens: {
@@ -195,7 +195,7 @@ const happenedIn = (event: PullRequestActivity): readonly Happened[] => {
 // The task that opened a pull request and the task that reviews it each receive the word through their own mark.
 const toItsReview = (payload: Happened, pullRequest: string): Happened => ({
   ...payload,
-  concerns: {
+  correlationKeys: {
     branch: null,
     marks: [{ kind: REVIEW_MARK, value: PullRequestUrl.of(pullRequest).value }],
   },
@@ -228,7 +228,7 @@ const happened = (
     summary: raising.summary,
     answers: raising.answers,
     state: 'raised',
-    concerns,
+    correlationKeys: concerns,
     message: messageOf(event),
     ourOwn: event.byBot,
     opens: null,

@@ -305,11 +305,11 @@ describe('compileLine', () => {
       runners: ['vpc-internal'],
     });
 
-    expect(compiled.ok && compiled.line.placement.selectors).toEqual([
+    expect(compiled.ok && compiled.line.placement.requiredLabels).toEqual([
       'vpc-internal',
     ]);
     expect(
-      compiled.ok && compiled.line.stations[1]?.placement.selectors,
+      compiled.ok && compiled.line.stations[1]?.placement.requiredLabels,
     ).toEqual(['gpu']);
     expect(compiled.ok && compiled.line.stations[0]?.placement.isAnywhere).toBe(
       true,

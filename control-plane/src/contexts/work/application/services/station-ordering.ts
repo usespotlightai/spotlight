@@ -1,6 +1,6 @@
 import {
+  REMOTE_VIA_GIT_PROXY,
   RunSpecContract,
-  THROUGH_SPOTLIGHT,
   TRACE_PARENT_VAR,
 } from '@work/application/contracts/run-spec.contract';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
@@ -62,7 +62,7 @@ const laidOut = (
   laid: Laid,
 ): RunSpecParts => ({
   checkouts: order.checkouts.map((checkout) => ({
-    remote: THROUGH_SPOTLIGHT,
+    remote: REMOTE_VIA_GIT_PROXY,
     path: checkout.repository.name,
     ...(checkout.branch ? { branch: checkout.branch.value } : {}),
     ...(checkout.ref ? { ref: checkout.ref } : {}),
@@ -75,7 +75,7 @@ const laidOut = (
     options: order.options.map((each) => each.word),
     noteLimit: order.noteLimit,
   },
-  continuity: RunSpecContract.continuityOf(order.continuity),
+  resume: RunSpecContract.resumeOf(order.resume),
   skills: skillFilesOf(folders, home),
   skillHomes: laid.skillHomes,
   attachments: Attached.shapes(laid.attachments),

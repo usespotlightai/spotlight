@@ -41,7 +41,7 @@ export interface TeamRunSummary extends TaskRunSummary {
   readonly taskDescription: string | null;
 }
 
-export interface RunConversationSummary {
+export interface RunNotesSummary {
   readonly runId: string;
   readonly taskId: string;
   readonly title: string;
@@ -109,10 +109,7 @@ export interface RunReaderPort {
 
   listForTeam(teamId: TeamId, viewerId: UserId): Promise<TeamRunSummary[]>;
 
-  conversationFor(
-    runId: RunId,
-    viewerId: UserId,
-  ): Promise<RunConversationSummary | null>;
+  notesFor(runId: RunId, viewerId: UserId): Promise<RunNotesSummary | null>;
 
   configFor(runId: RunId, viewerId: UserId): Promise<RunConfigSummary | null>;
 

@@ -52,7 +52,7 @@ import type {
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { operationRequest } from '@integrations/infrastructure/outbound/operation-request';
 import { taskBinding } from '@integrations/infrastructure/outbound/task-binding';
-import { bound } from '@platform/expressions/bindings';
+import { sanitizedForCel } from '@platform/expressions/cel-variables';
 import { evaluateText, value } from '@platform/expressions/readings';
 import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -169,7 +169,10 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       return { kind: 'failed', error: serviceErrorOf(result) };
     }
 
-    const against = { body: bound(result.response), cursor: cursor ?? '' };
+    const against = {
+      body: sanitizedForCel(result.response),
+      cursor: cursor ?? '',
+    };
 
     const happenings = await readEvents(
       poll.events,

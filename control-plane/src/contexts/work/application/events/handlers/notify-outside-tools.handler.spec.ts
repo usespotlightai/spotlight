@@ -161,10 +161,10 @@ describe('NotifyOutsideTools', () => {
       new TaskAsked(task.id, WORKSPACE, STATION, null, new Date()),
     );
 
-    const [marked, taker] = save.mock.calls.map(([each]) => each);
+    const [marked, newTask] = save.mock.calls.map(([each]) => each);
     expect(marked?.id.value).toBe('task_0');
     expect(marked?.marks).toEqual([]);
-    expect(taker?.marks).toEqual([thread]);
+    expect(newTask?.marks).toEqual([thread]);
   });
 
   it('writes nothing where no tool handed a mark back', async () => {

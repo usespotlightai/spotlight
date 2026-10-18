@@ -1,7 +1,7 @@
 import { Check, ChevronDown } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { ConfigHomeForm } from '@/components/features/onboarding/ConfigHomeForm';
+import { ConfigFolderForm } from '@/components/features/onboarding/ConfigFolderForm';
 import { InstallGitHubLink } from '@/components/features/onboarding/InstallGitHubLink';
 import {
   SetupAbout,
@@ -185,7 +185,7 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
     }
 
     return onboarding.canSetUp ? (
-      <ConfigHomeForm slug={slug} teamId={teamId} />
+      <ConfigFolderForm slug={slug} teamId={teamId} />
     ) : (
       <p className="text-muted-foreground text-sm leading-6">
         The setup chat needs the GitHub App and egress. Connect a host, or name

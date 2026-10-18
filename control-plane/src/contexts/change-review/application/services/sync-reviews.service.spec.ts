@@ -139,7 +139,7 @@ const syncing = (over: {
     } as ReviewCommentRepository,
     {
       run: async () => null,
-      wasWorkedBy: async () => false,
+      wasClaimedBy: async () => false,
       teamOfRun: async () => null,
       reasoning: async () => null,
       task: async () => task,

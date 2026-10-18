@@ -21,7 +21,7 @@ describe('CausalChain', () => {
   });
 
   it('grows one link deeper with each cause', () => {
-    const chain = CausalChain.none().followedBy(moved).followedBy(hook);
+    const chain = CausalChain.none().append(moved).append(hook);
 
     expect(chain.depth).toBe(2);
     expect(chain.contains(hook.key)).toBe(true);
@@ -33,7 +33,7 @@ describe('CausalChain', () => {
   it('keeps its most recent links but remembers how deep it went', () => {
     let chain = CausalChain.none();
     for (let each = 0; each < 40; each += 1) {
-      chain = chain.followedBy({ ...moved, key: `k-${each}` });
+      chain = chain.append({ ...moved, key: `k-${each}` });
     }
 
     expect(chain.depth).toBe(40);
@@ -44,7 +44,7 @@ describe('CausalChain', () => {
   });
 
   it('reads back what it stored, and none from nothing stored', () => {
-    const chain = CausalChain.none().followedBy(moved);
+    const chain = CausalChain.none().append(moved);
 
     expect(CausalChain.read(chain.stored).equals(chain)).toBe(true);
     expect(CausalChain.read(null).started).toBe(false);

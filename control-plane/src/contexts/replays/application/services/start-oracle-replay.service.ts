@@ -18,7 +18,7 @@ import type { StationFingerprint } from '@replays/domain/value-objects/station-f
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const VALID_STATES: readonly ReplayState[] = ['queued', 'running', 'finished'];
@@ -100,7 +100,7 @@ export class StartOracleReplay {
             ? { unpricedRate: baseline.unpricedRate }
             : {}),
           at: oracle.createdAt,
-          by: Attribution.spotlight(locked.workspaceId),
+          by: ChangeActor.spotlight(locked.workspaceId),
         }),
       );
     });

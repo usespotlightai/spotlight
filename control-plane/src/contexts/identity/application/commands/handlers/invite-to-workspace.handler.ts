@@ -22,7 +22,7 @@ import type { TeamRepository } from '@identity/domain/repositories/team.reposito
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import type { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import type { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -36,7 +36,7 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 interface InviteInput {
   readonly workspace: Workspace;
   readonly email: EmailAddress;
-  readonly terms: InviteTerms;
+  readonly spec: InviteSpec;
   readonly by: UserId;
 }
 
@@ -82,12 +82,12 @@ export class InviteToWorkspaceHandler
       }
 
       const workspaceTeams = await this.teams.ofWorkspace(workspace.id);
-      const terms = workspace.inviteTerms({
+      const spec = workspace.inviteSpec({
         role: WorkspaceRole.of(command.role),
         teams: command.teamIds.map((teamId) => TeamId.of(teamId)),
         among: workspaceTeams,
       });
-      const joining = workspaceTeams.filter((team) => terms.joins(team.id));
+      const joining = workspaceTeams.filter((team) => spec.joins(team.id));
       const emails = distinct(command.emails.map(EmailAddress.of));
 
       if (emails.length === 0 || emails.length > MAX_INVITED_AT_ONCE) {
@@ -99,7 +99,7 @@ export class InviteToWorkspaceHandler
       for (const email of emails) {
         outcomes.push(
           await this.invited(
-            { workspace, email, terms, by },
+            { workspace, email, spec, by },
             { workspace, teams: joining, by: sender },
           ),
         );
@@ -146,7 +146,7 @@ export class InviteToWorkspaceHandler
         id: InviteId.of(this.ids.generate()),
         workspaceId: input.workspace.id,
         email: input.email,
-        terms: input.terms,
+        spec: input.spec,
         tokenHash: TokenHash.of(newToken.hash),
         invitedBy: input.by,
         now: this.clock.now(),

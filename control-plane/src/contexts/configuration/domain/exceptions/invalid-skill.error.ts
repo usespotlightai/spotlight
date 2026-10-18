@@ -1,5 +1,5 @@
 export class InvalidSkillError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(
     skill: string,

@@ -119,28 +119,33 @@ const UNSET: Readonly<Record<string, HclField['unset']>> = {
 
 const JUDGE: HclGuardedBlock = {
   type: 'judge',
-  was: { rubric: 'Good runs ship.\n', sample: 0.2, min_agreement: 0.6 },
+  expected: { rubric: 'Good runs ship.\n', sample: 0.2, min_agreement: 0.6 },
 };
 
 const fieldsOf = (
-  was: Readonly<Record<string, HclField['was']>>,
-  now: Readonly<Record<string, HclField['was']>> = {},
+  expected: Readonly<Record<string, HclField['expected']>>,
+  desired: Readonly<Record<string, HclField['expected']>> = {},
   station = 'build',
 ): readonly HclField[] =>
-  [...new Set([...Object.keys(was), ...Object.keys(now)])].map((name) => ({
-    name,
-    was: was[name] ?? UNSET[name] ?? null,
-    now: name in now ? (now[name] ?? null) : (was[name] ?? UNSET[name] ?? null),
-    unset: UNSET[name] ?? null,
-    ...(name === 'skills' ? { references: SKILLS } : {}),
-    ...(name === 'tools' ? { references: TOOLS } : {}),
-    ...(name === 'prompt'
-      ? { freshFile: `prompts/core/delivery/${station}.md` }
-      : {}),
-  }));
+  [...new Set([...Object.keys(expected), ...Object.keys(desired)])].map(
+    (name) => ({
+      name,
+      expected: expected[name] ?? UNSET[name] ?? null,
+      desired:
+        name in desired
+          ? (desired[name] ?? null)
+          : (expected[name] ?? UNSET[name] ?? null),
+      unset: UNSET[name] ?? null,
+      ...(name === 'skills' ? { references: SKILLS } : {}),
+      ...(name === 'tools' ? { references: TOOLS } : {}),
+      ...(name === 'prompt'
+        ? { freshFile: `prompts/core/delivery/${station}.md` }
+        : {}),
+    }),
+  );
 
 const editOf = (
-  now: Readonly<Record<string, HclField['was']>>,
+  desired: Readonly<Record<string, HclField['expected']>>,
   more: Partial<HclBlockEdit> = {},
   files: Readonly<Record<string, string>> = FILES,
 ): HclBlockEdit => ({
@@ -148,7 +153,7 @@ const editOf = (
   owner: { attribute: 'team_id', type: 'spotlight_team', key: 'core' },
   resource: { type: 'spotlight_line', key: 'delivery' },
   block: { type: 'station', key: 'build' },
-  fields: fieldsOf(BUILD, now),
+  fields: fieldsOf(BUILD, desired),
   blocks: [JUDGE],
   read: async (path) => files[path] ?? null,
   ...more,
@@ -195,7 +200,7 @@ describe('parsedHcl', () => {
       kind: 'list',
       items: [
         {
-          written: 'spotlight_skill.core_grafana.key',
+          sourceText: 'spotlight_skill.core_grafana.key',
           read: {
             kind: 'reference',
             type: 'spotlight_skill',
@@ -463,7 +468,9 @@ describe('editedHclBlock', () => {
           {},
           {
             block: { type: 'station', key: 'polish' },
-            fields: [{ name: 'effort', was: 'high', now: 'max', unset: null }],
+            fields: [
+              { name: 'effort', expected: 'high', desired: 'max', unset: null },
+            ],
             blocks: [],
           },
         ),
@@ -626,8 +633,8 @@ describe('editedHclBlock', () => {
       ...fieldsOf(BUILD),
       {
         name: 'description',
-        was: 'Build it.\n',
-        now: 'Builds the change.\n',
+        expected: 'Build it.\n',
+        desired: 'Builds the change.\n',
         unset: null,
         ...(fresh
           ? { freshFile: 'prompts/core/delivery/build.description.md' }

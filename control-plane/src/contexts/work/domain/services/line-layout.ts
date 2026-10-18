@@ -101,7 +101,7 @@ export const stationsProblem = (
     };
   }
 
-  const worked = new Set(
+  const agentStations = new Set(
     stations.filter((each) => each.kind === 'work').map((each) => each.key),
   );
 
@@ -120,7 +120,7 @@ export const stationsProblem = (
           part: passingOn(station),
         };
       }
-      if (!worked.has(to)) {
+      if (!agentStations.has(to)) {
         return {
           reason: `must pass to work stations, but ${station.name} does not`,
           part: passingOn(station),

@@ -111,7 +111,7 @@ const anOriginal = async (
     stationId?: string;
     startedFrom?: boolean;
     openedFrom?: string;
-    raisedAt?: string;
+    originStationId?: string;
   } = {},
 ): Promise<Original> => {
   const stationId = input.stationId ?? BUILD;
@@ -128,21 +128,21 @@ const anOriginal = async (
     stationId: taskAt,
     title: `Drain queue ${runId.slice(0, 4)}`,
     description: 'It stalls on restart.',
-    raisedAtStationId: input.raisedAt ?? taskAt,
-    raisedById: input.openedFrom ? null : team.owner.value,
+    originStationId: input.originStationId ?? taskAt,
+    createdById: input.openedFrom ? null : team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
   });
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    continuityKey: `task-${taskId}`,
+    resumeKey: `task-${taskId}`,
     taskId,
     grantedToRunId: randomUUID(),
     size: 1_024,
     sha256: 'a'.repeat(64),
     grantedAt: at,
-    sealedAt: at,
+    completedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
@@ -165,7 +165,7 @@ const anOriginal = async (
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship', 'review'], noteLimit: 0 },
-      continuity: { key: `task-${taskId}` },
+      resume: { key: `task-${taskId}` },
       startingPoint: true,
     },
     briefedTask: BriefedTask.of({
@@ -655,7 +655,7 @@ describe('a replay set', () => {
     }
     const fromSlack = await anOriginal({ openedFrom: 'slack' });
     await withDisposition(fromSlack, { ending: 'failed', humanAction: null });
-    const passedOn = await anOriginal({ raisedAt: SHIP });
+    const passedOn = await anOriginal({ originStationId: SHIP });
     await withDisposition(passedOn, { ending: 'failed', humanAction: null });
     const accepted = await anOriginal();
     await withDisposition(accepted, {

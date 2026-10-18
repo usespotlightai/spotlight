@@ -8,16 +8,16 @@ import { MEMORY_KINDS } from '@memory/domain/value-objects/memory-kind';
 import { MEMORY_SCOPE_LEVELS } from '@memory/domain/value-objects/memory-scope-level';
 import {
   type Fetch,
-  JsonShape,
+  JsonSchema,
+  OpenRouterEmptyCompletionError,
   OpenRouterRequestError,
-  OpenRouterUnansweredError,
   requestJson,
 } from '@platform/openrouter/openrouter-json';
 import { z } from 'zod';
 
 const MAX_OUTPUT = 8_000;
 
-const MEMORIES = new JsonShape(
+const MEMORIES = new JsonSchema(
   'memories',
   z.object({
     memories: z.array(
@@ -139,10 +139,10 @@ export class OpenRouterMemoryDrafter implements MemoryDrafterPort {
         apiKey: this.apiKey,
         model: this.model,
         fetch: this.fetch,
-        shape: MEMORIES,
+        responseSchema: MEMORIES,
         system: SYSTEM,
         prompt: buildPrompt(request),
-        max: MAX_OUTPUT,
+        maxTokens: MAX_OUTPUT,
       });
 
       return memories;
@@ -150,7 +150,7 @@ export class OpenRouterMemoryDrafter implements MemoryDrafterPort {
       if (error instanceof OpenRouterRequestError) {
         throw new MemoryDraftingError('request-failed', error.message);
       }
-      if (error instanceof OpenRouterUnansweredError) {
+      if (error instanceof OpenRouterEmptyCompletionError) {
         throw new MemoryDraftingError('unreadable', error.message);
       }
       throw error;

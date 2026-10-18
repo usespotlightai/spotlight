@@ -62,7 +62,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
-import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import {
   PersonPrincipal,
   type Principal,

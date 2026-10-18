@@ -5,17 +5,17 @@ import {
   type JsonObject,
 } from '@shared-kernel/domain/services/json-value';
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';
-import type { Continuity } from '@work/domain/value-objects/continuity.vo';
+import type { Resume } from '@work/domain/value-objects/resume.vo';
 import {
   checkoutFoldersOf,
   type RunAttachment,
   type RunCheckout,
   type RunCommand,
-  type RunContinuity,
   type RunFile,
   type RunHarnessSetup,
   type RunMcpServer,
   type RunReplay,
+  type RunResume,
   type RunSearch,
   RunSpec,
   type RunSpecParts,
@@ -30,7 +30,7 @@ export type AttachmentShape = RunAttachment;
 export type RunSpecShape = RunSpecParts;
 export type HarnessSetupShape = RunHarnessSetup;
 
-export const THROUGH_SPOTLIGHT = 'spotlight:repository';
+export const REMOTE_VIA_GIT_PROXY = 'spotlight:repository';
 
 export const TRACE_PARENT_VAR = 'TRACEPARENT';
 
@@ -235,22 +235,25 @@ const harnessSetupOf = (raw: unknown): RunHarnessSetup => {
   };
 };
 
-const continuityOf = (raw: unknown): RunContinuity => {
+const parsedResume = (raw: unknown): RunResume => {
   const input = objectAt(raw, 'where to carry on');
   const sessionId = optionalStringAt(
     input.sessionId,
     'which conversation to carry on',
   );
 
-  const resumes =
-    input.resumes === undefined
+  const resumeSession =
+    input.resumeSession === undefined
       ? false
-      : booleanAt(input.resumes, 'whether it takes up a paused conversation');
+      : booleanAt(
+          input.resumeSession,
+          'whether it takes up a paused conversation',
+        );
 
   return {
     key: stringAt(input.key, 'where to carry on'),
     ...(sessionId !== undefined ? { sessionId } : {}),
-    ...(resumes ? { resumes } : {}),
+    ...(resumeSession ? { resumeSession } : {}),
   };
 };
 
@@ -356,7 +359,7 @@ const read = (raw: unknown): RunSpec => {
     command: commandOf(input.command),
     briefing: stringAt(input.briefing, 'what the work is'),
     handover: handoverOf(input.handover),
-    continuity: continuityOf(input.continuity),
+    resume: parsedResume(input.resume),
     ...(skills ? { skills } : {}),
     ...(skillHomes ? { skillHomes } : {}),
     ...(manifest ? { manifest } : {}),
@@ -389,7 +392,7 @@ export const RunSpecContract = {
   ordered(raw: unknown, command: RunCommand): RunSpec {
     const input = objectAt(raw, 'the run');
     const handover = input.handover as Json | undefined;
-    const continuity = input.continuity as Json | undefined;
+    const resume = input.resume as Json | undefined;
 
     return read({
       checkouts: input.checkouts,
@@ -399,9 +402,9 @@ export const RunSpecContract = {
         options: handover?.options ?? [],
         noteLimit: handover?.noteLimit ?? 0,
       },
-      continuity: {
-        key: continuity?.key ?? '',
-        sessionId: continuity?.sessionId,
+      resume: {
+        key: resume?.key ?? '',
+        sessionId: resume?.sessionId,
       },
     });
   },
@@ -414,12 +417,10 @@ export const RunSpecContract = {
     );
   },
 
-  continuityOf(continuity: Continuity): RunContinuity {
+  resumeOf(resume: Resume): RunResume {
     return {
-      key: continuity.key.value,
-      ...(continuity.sessionId
-        ? { sessionId: continuity.sessionId.value }
-        : {}),
+      key: resume.key.value,
+      ...(resume.sessionId ? { sessionId: resume.sessionId.value } : {}),
     };
   },
 

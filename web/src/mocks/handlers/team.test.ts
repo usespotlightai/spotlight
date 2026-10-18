@@ -186,13 +186,13 @@ describe('the mock agent chats', () => {
     );
   });
 
-  it('starts a chat about improving a station and answers the message', async () => {
+  it('starts a chat about a target station and answers the message', async () => {
     const { data: started } = await startChat({
       path: team,
       body: {
         harness: 'claude-code',
         body: 'Why are its pull requests so large?',
-        improving: 'station_implementation',
+        targetStation: 'station_implementation',
       },
       throwOnError: true,
     });
@@ -206,7 +206,7 @@ describe('the mock agent chats', () => {
       throwOnError: true,
     });
 
-    expect(started.improving?.stationName).toBe('Implementation');
+    expect(started.targetStation?.stationName).toBe('Implementation');
     expect(journal).toHaveLength(2);
   });
 });

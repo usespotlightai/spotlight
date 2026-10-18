@@ -15,7 +15,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class UpdateSecretHandler
   implements CommandHandlerPort<UpdateSecretCommand, ResourceUpdated | null>
@@ -45,7 +45,7 @@ export class UpdateSecretHandler
       }
 
       if (!permissions.managesSecrets) {
-        return forbiddenTo('manage-secrets');
+        return forbiddenTo('secrets');
       }
 
       existing.assertVersion(command.expectedVersion);
@@ -58,7 +58,7 @@ export class UpdateSecretHandler
 
       const updated = existing.update(
         compiled,
-        Attribution.of(command.actor, existing.workspaceId),
+        ChangeActor.of(command.actor, existing.workspaceId),
         this.clock.now(),
       );
 

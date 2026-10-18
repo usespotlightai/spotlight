@@ -44,7 +44,7 @@ const listing = (member: boolean) => {
               workspaceId: WORKSPACE,
               slug: 'acme',
               viewer: UserId.of('user_1'),
-              administers: false,
+              isAdmin: false,
             }
           : null,
       ),

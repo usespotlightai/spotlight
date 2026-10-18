@@ -86,7 +86,7 @@ func (r *restoring) place(archive *tar.Reader, header *tar.Header, name string) 
 		}
 	}
 
-	if err := r.makeRoom(name, header.Typeflag == tar.TypeDir); err != nil {
+	if err := r.clearPath(name, header.Typeflag == tar.TypeDir); err != nil {
 		return err
 	}
 
@@ -137,7 +137,7 @@ func (r *restoring) write(archive *tar.Reader, header *tar.Header, name string, 
 	return r.root.Chtimes(name, header.ModTime, header.ModTime)
 }
 
-func (r *restoring) makeRoom(name string, dir bool) error {
+func (r *restoring) clearPath(name string, dir bool) error {
 	there, err := r.root.Lstat(name)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil

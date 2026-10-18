@@ -18,7 +18,7 @@ import type { WorkspaceRepository } from '@identity/domain/repositories/workspac
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
@@ -76,7 +76,7 @@ const pendingInvite = (
       id: InviteId.of(`invite_${email}`),
       workspaceId: ACME,
       email: EmailAddress.of(email),
-      terms: InviteTerms.of(WorkspaceRole.member, []),
+      spec: InviteSpec.of(WorkspaceRole.member, []),
       tokenHash: TokenHash.of('b'.repeat(64)),
       invitedBy: LEON,
       now: sentAt,
@@ -169,10 +169,10 @@ describe('InviteToWorkspaceHandler', () => {
 
     expect(add).toHaveBeenCalledTimes(3);
     expect(send).toHaveBeenCalledTimes(3);
-    expect(add.mock.calls[0]?.[0].terms.invitedAs).toBe('admin');
-    expect(
-      add.mock.calls[0]?.[0].terms.teams.map((each) => each.value),
-    ).toEqual(['team_1', 'team_2']);
+    expect(add.mock.calls[0]?.[0].spec.invitedAs).toBe('admin');
+    expect(add.mock.calls[0]?.[0].spec.teams.map((each) => each.value)).toEqual(
+      ['team_1', 'team_2'],
+    );
     expect(send.mock.calls[0]?.[0]).toEqual({
       to: 'ada@example.com',
       token: 'tok_1',
@@ -254,7 +254,7 @@ describe('InviteToWorkspaceHandler', () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 
-  it('resends a pending invite, on the terms requested now, rather than creating a second', async () => {
+  it('resends a pending invite, with the settings requested now, rather than creating a second', async () => {
     const { handler, add, save, send } = inviting({
       previous: () => pendingInvite(),
     });
@@ -269,7 +269,7 @@ describe('InviteToWorkspaceHandler', () => {
       id: { value: 'invite_ada@example.com' },
       invitedAt: NOW,
     });
-    expect(save.mock.calls[0]?.[0].terms.invitedAs).toBe('admin');
+    expect(save.mock.calls[0]?.[0].spec.invitedAs).toBe('admin');
     expect(send).toHaveBeenCalledTimes(1);
   });
 

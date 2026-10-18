@@ -9,13 +9,16 @@ import { InvalidReviewPolicyError } from '@work/domain/exceptions/invalid-review
 import { InvalidStationLayoutError } from '@work/domain/exceptions/invalid-station-layout.error';
 import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
 import { LineRoleTakenError } from '@work/domain/exceptions/line-role-taken.error';
-import { StrandedWorkError } from '@work/domain/exceptions/stranded-work.error';
+import { StationNotEmptyError } from '@work/domain/exceptions/station-not-empty.error';
 
 export const lineRejection = (
   key: string,
   error: unknown,
 ): Invalid | Extract<Rejected, { outcome: 'in-use' }> | null => {
-  if (error instanceof LineInUseError || error instanceof StrandedWorkError) {
+  if (
+    error instanceof LineInUseError ||
+    error instanceof StationNotEmptyError
+  ) {
     return { outcome: 'in-use', reason: error.message };
   }
 

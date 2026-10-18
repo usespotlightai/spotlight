@@ -24,7 +24,7 @@ import type {
   LeasedRunFacts,
   RunnerTraceReaderPort,
 } from '@work/application/ports/runner-trace-reader.port';
-import type { SearchSightPort } from '@work/application/ports/search-sight.port';
+import type { SearchVisibilityPort } from '@work/application/ports/search-visibility.port';
 import type {
   KeyedStation,
   StationRunReaderPort,
@@ -37,8 +37,8 @@ import {
   historyLength,
   turnedOut,
 } from '@work/application/read-models/history-selection';
-import { SightedHistory } from '@work/application/read-models/sighted-history';
 import { connectionsOf, traceOf } from '@work/application/read-models/trace-of';
+import { VisibleHistory } from '@work/application/read-models/visible-history';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 
@@ -92,7 +92,7 @@ export class ReadRunnerHistoryHandler
     private readonly stations: StationRunReaderPort,
     private readonly outcomes: RunOutcomesPort,
     private readonly usages: RunUsageReaderPort,
-    private readonly sights: SearchSightPort,
+    private readonly visibilities: SearchVisibilityPort,
     private readonly connections: RunConnectionsPort,
   ) {}
 
@@ -107,7 +107,7 @@ export class ReadRunnerHistoryHandler
         return { kind: 'unknown' };
       }
 
-      const sighted = await this.sightedBy(query.runId, leased);
+      const visible = await this.visibilityFor(query.runId, leased);
       const { wanted } = query;
       const keyed = (
         await this.stations.stationsKeyed(
@@ -115,7 +115,7 @@ export class ReadRunnerHistoryHandler
           wanted.station,
           wanted.line,
         )
-      ).filter((each) => sighted.seesRunAt(each.stationId));
+      ).filter((each) => visible.seesRunAt(each.stationId));
       const [only] = keyed;
 
       if (!only) {
@@ -136,9 +136,9 @@ export class ReadRunnerHistoryHandler
           since: sinceOf(wanted.since),
           until: leased.replaysFrom,
           max: wanted.outcome ? HISTORY_RUNS.matched : last,
-          excluding: sighted.heldOutTasks,
+          excluding: visible.heldOutTasks,
         })
-      ).filter((each) => !sighted.hides(each));
+      ).filter((each) => !visible.hides(each));
       const outcomes = await this.outcomes.of(
         ended.map((each) => each.runId),
         leased.replaysFrom,
@@ -150,7 +150,7 @@ export class ReadRunnerHistoryHandler
             turnedOut(outcomes.get(each.runId) ?? null, wanted.outcome),
         )
         .slice(0, last);
-      const shown = await this.shownBeyond(only.stationId, sighted, filtered);
+      const shown = await this.shownBeyond(only.stationId, visible, filtered);
       const shownOutcomes =
         shown.length > 0
           ? await this.outcomes.of(
@@ -159,7 +159,7 @@ export class ReadRunnerHistoryHandler
             )
           : new Map();
       const listed = [...filtered, ...shown];
-      const candidates = await this.candidatesAt(only, sighted);
+      const candidates = await this.candidatesAt(only, visible);
 
       return {
         kind: 'found',
@@ -184,7 +184,7 @@ export class ReadRunnerHistoryHandler
             new Map([...outcomes, ...shownOutcomes]),
           ),
           candidates,
-          seedBlock: sighted.seedBlock,
+          seedBlock: visible.seedBlock,
         },
       };
     } catch (error) {
@@ -192,45 +192,45 @@ export class ReadRunnerHistoryHandler
     }
   }
 
-  private async sightedBy(
+  private async visibilityFor(
     runId: string,
     leased: LeasedRunFacts,
-  ): Promise<SightedHistory> {
+  ): Promise<VisibleHistory> {
     return leased.isSearch
-      ? SightedHistory.through(await this.sights.of(runId))
-      : SightedHistory.unsighted();
+      ? VisibleHistory.limitedTo(await this.visibilities.of(runId))
+      : VisibleHistory.unrestricted();
   }
 
   private async shownBeyond(
     stationId: string,
-    sighted: SightedHistory,
+    visible: VisibleHistory,
     runs: readonly StationRunRow[],
   ): Promise<readonly StationRunRow[]> {
     return (
-      await this.stations.endedAmong(stationId, sighted.shownBeyond(runs))
-    ).filter((each) => !sighted.hides(each));
+      await this.stations.endedAmong(stationId, visible.shownBeyond(runs))
+    ).filter((each) => !visible.hides(each));
   }
 
   private async candidatesAt(
     station: KeyedStation,
-    sighted: SightedHistory,
+    visible: VisibleHistory,
   ): Promise<readonly HistoryCandidateDto[]> {
-    const sightedRuns = sighted.candidates.flatMap((candidate) =>
+    const visibleRuns = visible.candidates.flatMap((candidate) =>
       candidate.runs.map((run) => [run.runId, run] as const),
     );
     const rows = (
       await this.stations.endedAmong(
         station.stationId,
-        sightedRuns.map(([runId]) => runId),
+        visibleRuns.map(([runId]) => runId),
       )
-    ).filter((each) => !sighted.hides(each));
+    ).filter((each) => !visible.hides(each));
     const [written, usages] = await Promise.all([
       this.written(rows, station.stationName),
       this.usages.forRuns(rows.map((each) => RunId.of(each.runId))),
     ]);
     const writtenRuns = new Map(written.map((each) => [each.runId, each]));
 
-    return sighted.candidates.map((candidate) => ({
+    return visible.candidates.map((candidate) => ({
       candidateName: candidate.name,
       fingerprint: candidate.fingerprint,
       hypothesis: candidate.hypothesis,

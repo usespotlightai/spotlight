@@ -17,5 +17,5 @@ export interface NoticeOf {
 }
 
 export interface NoticesPort {
-  raise(notice: NoticeOf): Promise<void>;
+  create(notice: NoticeOf): Promise<void>;
 }
