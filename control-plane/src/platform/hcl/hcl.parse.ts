@@ -22,11 +22,11 @@ export interface HclReference {
 }
 
 interface HclListItem {
-  readonly written: string;
-  readonly read: HclRead;
+  readonly sourceText: string;
+  readonly read: ParsedValue;
 }
 
-export type HclRead =
+export type ParsedValue =
   | { readonly kind: 'literal'; readonly value: HclLiteral }
   | {
       readonly kind: 'file';
@@ -41,10 +41,10 @@ export interface ParsedAttribute {
   readonly name: string;
   readonly span: HclSpan;
   readonly value: HclSpan;
-  readonly written: string;
-  readonly read: HclRead;
+  readonly sourceText: string;
+  readonly read: ParsedValue;
   readonly items: readonly HclListItem[] | null;
-  readonly entries: Readonly<Record<string, HclRead>> | null;
+  readonly entries: Readonly<Record<string, ParsedValue>> | null;
 }
 
 export interface ParsedBlock {
@@ -116,10 +116,10 @@ const unescapedQuoted = (text: string): string =>
   unescapedTemplate(
     text.replace(
       /\\(u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8}|.)/g,
-      (written: string, sequence: string) =>
+      (raw: string, sequence: string) =>
         sequence.length > 1
           ? String.fromCodePoint(Number.parseInt(sequence.slice(1), 16))
-          : (ESCAPES[sequence] ?? written),
+          : (ESCAPES[sequence] ?? raw),
     ),
   );
 
@@ -143,7 +143,7 @@ const quotedTemplate = (node: Node): string | null =>
 
 const LEADING = /^[ \t]*/;
 
-const flushed = (lines: readonly string[]): string[] => {
+const dedent = (lines: readonly string[]): string[] => {
   const indents = lines
     .filter((each) => each.trim().length > 0)
     .map((each) => (LEADING.exec(each)?.[0] ?? '').length);
@@ -182,9 +182,9 @@ const heredoc = (node: Node, text: string): string | null => {
 
   const lines = text.slice(after + 1, closingLine + 1).split('\n');
   const content = lines.slice(0, -1);
-  const kept = start.text.startsWith('<<-') ? flushed(content) : content;
+  const unindented = start.text.startsWith('<<-') ? dedent(content) : content;
 
-  return unescapedTemplate(kept.map((each) => `${each}\n`).join(''));
+  return unescapedTemplate(unindented.map((each) => `${each}\n`).join(''));
 };
 
 const literalOf = (node: Node, text: string): HclLiteral | undefined => {
@@ -256,7 +256,7 @@ const isModulePath = (node: Node): boolean => {
   return expression?.text.replace(/\s+/g, '') === 'path.module';
 };
 
-const fileOf = (node: Node): HclRead | null => {
+const fileOf = (node: Node): ParsedValue | null => {
   const called = inner(node);
 
   if (
@@ -267,10 +267,10 @@ const fileOf = (node: Node): HclRead | null => {
   }
 
   const args = childOf(called, 'function_arguments');
-  const given = args ? namedOf(args) : [];
-  const [only] = given;
+  const named = args ? namedOf(args) : [];
+  const [only] = named;
 
-  if (!only || given.length !== 1 || args?.text.includes('...')) {
+  if (!only || named.length !== 1 || args?.text.includes('...')) {
     return null;
   }
 
@@ -359,21 +359,24 @@ function itemsOf(node: Node, text: string): HclListItem[] | null {
   return list?.type === 'tuple'
     ? namedOf(list)
         .filter((each) => each.type === 'expression')
-        .map((each) => ({ written: each.text, read: readOf(each, text) }))
+        .map((each) => ({ sourceText: each.text, read: readOf(each, text) }))
     : null;
 }
 
-function entriesOf(node: Node, text: string): Record<string, HclRead> | null {
+function entriesOf(
+  node: Node,
+  text: string,
+): Record<string, ParsedValue> | null {
   const object = inner(node);
-  const held =
+  const element =
     object.type === 'collection_value' ? namedOf(object)[0] : undefined;
 
-  if (held?.type !== 'object') {
+  if (element?.type !== 'object') {
     return null;
   }
 
   return Object.fromEntries(
-    namedOf(held)
+    namedOf(element)
       .filter((each) => each.type === 'object_elem')
       .flatMap((each) => {
         const [key, value] = namedOf(each).filter(
@@ -394,7 +397,7 @@ function entriesOf(node: Node, text: string): Record<string, HclRead> | null {
   );
 }
 
-function readOf(node: Node, text: string): HclRead {
+function readOf(node: Node, text: string): ParsedValue {
   const file = fileOf(node);
 
   if (file) {
@@ -438,7 +441,7 @@ const attributeOf = (node: Node, text: string): ParsedAttribute | null => {
         name: name.text,
         span: { start: node.startIndex, end: node.endIndex },
         value: { start: value.startIndex, end: value.endIndex },
-        written: value.text,
+        sourceText: value.text,
         read: readOf(value, text),
         items: itemsOf(value, text),
         entries: entriesOf(value, text),

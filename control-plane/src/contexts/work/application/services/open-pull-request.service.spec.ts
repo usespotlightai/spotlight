@@ -9,13 +9,13 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
-  HookedTaskDto,
-  HookedTasksPort,
-} from '@work/application/ports/hooked-tasks.port';
-import type {
-  BeforeMoment,
-  HookVerdict,
+  BeforeHookEvent,
+  HookDecision,
 } from '@work/application/ports/lifecycle-hooks.port';
+import type {
+  TaskViewDto,
+  TaskViewsPort,
+} from '@work/application/ports/task-views.port';
 import { OpenPullRequest } from '@work/application/services/open-pull-request.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -27,6 +27,7 @@ import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
@@ -35,14 +36,13 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-08-31T09:00:00.000Z');
 
 const RUN = RunId.of('run_1');
 
-const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
+const delivery = (workspaceId = 'ws_1', backlogId = 'station_1') =>
   Line.rehydrate({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of(workspaceId),
@@ -59,7 +59,7 @@ const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
         kind: 'backlog',
       }),
       Station.of({
-        id: StationId.of(standsAt),
+        id: StationId.of(backlogId),
         key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 1,
@@ -84,26 +84,26 @@ const task = () => {
     at: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.between(null, null),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
-  }).handedTo(RUN, delivery());
+  }).assignRun(RUN, delivery());
   added.pullEvents();
 
   return added;
 };
 
 const lineWorking = (repositories: readonly string[]): Line => {
-  const held = LineRepositories.of(
-    repositories.map((each) => WorkedRepository.of(Repository.of(each))),
+  const repositoriesOfLine = LineRepositories.of(
+    repositories.map((each) => LineRepositoryConfig.of(Repository.of(each))),
   );
 
   return {
-    opening: (name: string | null) => held.opening(name),
+    opening: (name: string | null) => repositoriesOfLine.opening(name),
   } as unknown as Line;
 };
 
-const asking = (repository: string | null = null, body = '') => ({
+const requested = (repository: string | null = null, body = '') => ({
   title: 'Fix the queue',
   body,
   repository,
@@ -113,28 +113,28 @@ const opening = (
   over: {
     connected?: boolean;
     repositories?: readonly string[];
-    wearer?: Task;
+    markedTask?: Task;
     meanwhile?: (task: Task) => Task;
-    verdict?: HookVerdict;
-    hooked?: boolean;
+    decision?: HookDecision;
+    viewed?: boolean;
     listening?: boolean;
   } = {},
 ) => {
   const saved: Task[] = [];
-  const asked: BeforeMoment[] = [];
+  const hookCalls: BeforeHookEvent[] = [];
   const compared: unknown[][] = [];
   const listened: [string, string][] = [];
-  let held: Task | null = null;
+  let stored: Task | null = null;
   const opened: Parameters<PullRequestPort['open']>[0][] = [];
 
   const pullRequests = {
-    open: async (asked: Parameters<PullRequestPort['open']>[0]) => {
+    open: async (request: Parameters<PullRequestPort['open']>[0]) => {
       if (over.connected === false) {
         throw new NoGitHubInstallationError();
       }
-      opened.push(asked);
-      if (held && over.meanwhile) {
-        held = over.meanwhile(held);
+      opened.push(request);
+      if (stored && over.meanwhile) {
+        stored = over.meanwhile(stored);
       }
       return { url: 'https://github.com/acme/widgets/pull/7' };
     },
@@ -144,8 +144,8 @@ const opening = (
     },
   } as unknown as PullRequestPort;
   const tasks = {
-    find: async () => held,
-    holding: async () => over.wearer ?? null,
+    find: async () => stored,
+    findByMarks: async () => over.markedTask ?? null,
     save: async (each: Task) => {
       saved.push(each);
     },
@@ -153,23 +153,23 @@ const opening = (
   const line = lineWorking(over.repositories ?? ['acme/widgets']);
   const service = new OpenPullRequest(
     tasks,
-    { holding: async () => line } as unknown as LineRepository,
+    { findByStation: async () => line } as unknown as LineRepository,
     pullRequests,
     { inTransaction: (work) => work() } satisfies TransactionPort,
     {
       of: async (taskId: string, runId: string | null) =>
-        over.hooked === false
+        over.viewed === false
           ? null
-          : ({ taskId, runId, teamId: 'team_1' } as unknown as HookedTaskDto),
-    } as unknown as HookedTasksPort,
+          : ({ taskId, runId, teamId: 'team_1' } as unknown as TaskViewDto),
+    } as unknown as TaskViewsPort,
     {
       listens: async (teamId, on) => {
         listened.push([teamId, on]);
         return over.listening ?? true;
       },
-      before: async (_task, moment) => {
-        asked.push(moment);
-        return over.verdict ?? { kind: 'allowed' };
+      before: async (_task, event) => {
+        hookCalls.push(event);
+        return over.decision ?? { kind: 'allowed' };
       },
       after: async () => {},
     },
@@ -177,16 +177,16 @@ const opening = (
   );
 
   return {
-    open: (task: Task, asked = asking(), runId = RUN) => {
-      held = task;
+    open: (task: Task, input = requested(), runId = RUN) => {
+      stored = task;
       return service.open(
         { runId, taskId: task.id, stationId: task.stationId },
-        asked,
+        input,
       );
     },
     opened,
     saved,
-    asked,
+    hookCalls,
     compared,
     listened,
   };
@@ -196,7 +196,7 @@ describe('OpenPullRequest', () => {
   it('opens one against the line’s only repository, for the task’s branch', async () => {
     const { open, opened } = opening();
 
-    const answered = await open(task(), asking(null, 'why'));
+    const answered = await open(task(), requested(null, 'why'));
 
     expect(answered.url).toBe('https://github.com/acme/widgets/pull/7');
     expect(opened).toEqual([
@@ -215,12 +215,12 @@ describe('OpenPullRequest', () => {
       repositories: ['acme/api', 'acme/web'],
     });
 
-    await open(task(), asking('web'));
+    await open(task(), requested('web'));
 
     expect(opened[0]?.repository).toEqual(Repository.of('acme/web'));
   });
 
-  it('refuses where several are worked and the agent named none', async () => {
+  it('rejects where several are worked and the agent named none', async () => {
     const { open, opened } = opening({
       repositories: ['acme/api', 'acme/web'],
     });
@@ -229,23 +229,23 @@ describe('OpenPullRequest', () => {
     expect(opened).toEqual([]);
   });
 
-  it('refuses a repository the line does not work', async () => {
+  it('rejects a repository the line does not work', async () => {
     const { open, opened } = opening({ repositories: ['acme/api'] });
 
-    await expect(open(task(), asking('web'))).rejects.toThrow(
+    await expect(open(task(), requested('web'))).rejects.toThrow(
       /no repository named web/,
     );
     expect(opened).toEqual([]);
   });
 
-  it('refuses where the line works no repository', async () => {
+  it('rejects where the line works no repository', async () => {
     const { open, opened } = opening({ repositories: [] });
 
     await expect(open(task())).rejects.toThrow(/no repository/);
     expect(opened).toEqual([]);
   });
 
-  it('refuses where the workspace reaches no GitHub installation', async () => {
+  it('rejects where the workspace has no GitHub installation', async () => {
     const { open, opened } = opening({ connected: false });
 
     await expect(open(task())).rejects.toThrow(NoGitHubInstallationError);
@@ -281,7 +281,7 @@ describe('OpenPullRequest', () => {
       now: NOW,
       newId: () => 'task_0',
     })
-      .handedTo(RunId.of('run_0'), delivery())
+      .assignRun(RunId.of('run_0'), delivery())
       .recordPullRequest(
         RunId.of('run_0'),
         PullRequestUrl.of('https://github.com/acme/widgets/pull/7'),
@@ -289,14 +289,14 @@ describe('OpenPullRequest', () => {
         delivery(),
       );
     before.pullEvents();
-    const { open, saved } = opening({ wearer: before });
+    const { open, saved } = opening({ markedTask: before });
 
     await open(task());
 
     expect(saved.map((each) => each.id.value)).toEqual(['task_0', 'task_1']);
     expect(saved[0]?.marks).toEqual([]);
     expect(saved[0]?.pullEvents().map((each) => each.kind)).toEqual([
-      'task.mark-taken',
+      'task.mark-reassigned',
     ]);
   });
 
@@ -316,10 +316,10 @@ describe('OpenPullRequest', () => {
     expect(saved).toEqual([]);
   });
 
-  it('records it on the task as it stands once GitHub answers, not as it was read before', async () => {
+  it('records it on the task as it is when GitHub answers, not as it was read before', async () => {
     const { open, saved } = opening({
       meanwhile: (task) =>
-        task.heard({
+        task.addMessage({
           station: StationName.of('Backlog'),
           body: TaskNoteBody.of('One more thing.'),
           at: NOW,
@@ -335,7 +335,7 @@ describe('OpenPullRequest', () => {
     );
   });
 
-  it('answers with the pull request recorded while GitHub was being asked', async () => {
+  it('answers with the pull request recorded while GitHub was being called', async () => {
     const { open, saved } = opening({
       meanwhile: (task) =>
         task.recordPullRequest(
@@ -352,18 +352,18 @@ describe('OpenPullRequest', () => {
     expect(saved).toEqual([]);
   });
 
-  it('records nothing for a run the task has let go of', async () => {
+  it('records nothing for a run the task detached', async () => {
     const { open, saved } = opening();
 
-    await expect(open(task(), asking(), RunId.of('run_2'))).rejects.toThrow(
+    await expect(open(task(), requested(), RunId.of('run_2'))).rejects.toThrow(
       InvalidTaskTransitionError,
     );
     expect(saved).toEqual([]);
   });
 
   describe('hooks', () => {
-    it('asks the hooks before it opens one, with what the branch changes', async () => {
-      const { open, asked, compared } = opening();
+    it('calls the hooks before it opens one, with what the branch changes', async () => {
+      const { open, hookCalls, compared } = opening();
 
       await open(task());
 
@@ -374,7 +374,7 @@ describe('OpenPullRequest', () => {
           'spotlight/task_1',
         ],
       ]);
-      expect(asked).toEqual([
+      expect(hookCalls).toEqual([
         {
           on: 'pull-request.opening',
           repository: 'acme/widgets',
@@ -385,23 +385,24 @@ describe('OpenPullRequest', () => {
       ]);
     });
 
-    it('opens nothing and tells the agent why when a hook refuses', async () => {
+    it('opens nothing and tells the agent why when a hook denies it', async () => {
       const { open, opened, saved } = opening({
-        verdict: {
-          kind: 'refused',
-          reason: 'The hook core/dba-review refused: migrations need a DBA.',
+        decision: {
+          kind: 'denied',
+          reason:
+            'The hook core/dba-review denied the pull request: migrations need a DBA.',
         },
       });
 
       await expect(open(task())).rejects.toThrow(
-        'A hook held back the pull request. No pull request was opened. The hook core/dba-review refused: migrations need a DBA.',
+        'A hook stopped the pull request. No pull request was opened. The hook core/dba-review denied the pull request: migrations need a DBA.',
       );
       expect(opened).toEqual([]);
       expect(saved).toEqual([]);
     });
 
-    it('asks no hooks for a task that already has one', async () => {
-      const { open, asked } = opening();
+    it('calls no hooks for a task that already has one', async () => {
+      const { open, hookCalls } = opening();
 
       await open(
         task().recordPullRequest(
@@ -412,11 +413,11 @@ describe('OpenPullRequest', () => {
         ),
       );
 
-      expect(asked).toEqual([]);
+      expect(hookCalls).toEqual([]);
     });
 
-    it('compares nothing where no hook can hear of the task', async () => {
-      const { open, compared, opened } = opening({ hooked: false });
+    it('compares nothing where no hook can learn of the task', async () => {
+      const { open, compared, opened } = opening({ viewed: false });
 
       await open(task());
 
@@ -424,8 +425,8 @@ describe('OpenPullRequest', () => {
       expect(opened).toHaveLength(1);
     });
 
-    it('asks GitHub nothing and no hook when none listens for a pull request opening', async () => {
-      const { open, compared, asked, listened, opened } = opening({
+    it('calls neither GitHub nor a hook when none listens for a pull request opening', async () => {
+      const { open, compared, hookCalls, listened, opened } = opening({
         listening: false,
       });
 
@@ -433,7 +434,7 @@ describe('OpenPullRequest', () => {
 
       expect(listened).toEqual([['team_1', 'pull-request.opening']]);
       expect(compared).toEqual([]);
-      expect(asked).toEqual([]);
+      expect(hookCalls).toEqual([]);
       expect(opened).toHaveLength(1);
     });
   });

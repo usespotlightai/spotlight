@@ -27,13 +27,13 @@ const cohort = (
     title: layer,
     summary: layer,
     dependsOn: [],
-    ranges: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
+    hunks: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
     notes: [],
   })),
 });
 
 const readying = (steps: ReturnType<typeof checkStepsOf>) =>
-  steps.map((step) => [step.id, step.installsAnew] as const);
+  steps.map((step) => [step.id, step.runsSetup] as const);
 
 describe('checkStepsOf, on making the checkout ready', () => {
   it('makes it ready for the whole change, and leaves it alone after', () => {
@@ -70,7 +70,7 @@ describe('checkStepsOf, on making the checkout ready', () => {
     ]);
   });
 
-  it('leaves it alone where the lockfile is set aside and every step holds it', () => {
+  it('leaves it alone where the lockfile is incidental and every step includes it', () => {
     const steps = checkStepsOf({
       hunks: ['h1', 'h2', 'h3', 'h4'].map(HunkId.of),
       facts: facts({ h4: 'lockfile' }),

@@ -10,7 +10,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class DeleteRunnerPoolHandler
   implements CommandHandlerPort<DeleteRunnerPoolCommand, ResourceDeleted | null>
@@ -27,28 +27,28 @@ export class DeleteRunnerPoolHandler
     const id = RunnerPoolId.of(command.poolId);
 
     try {
-      const standing = await this.pools.find(id);
-      const permissions = standing
+      const existing = await this.pools.find(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
       if (!permissions.managesRunners) {
-        return forbiddenTo('manage-runners');
+        return forbiddenTo('runners');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       await this.transaction.inTransaction(() =>
         this.pools.save(
-          standing.retire(
-            Attribution.of(command.actor, permissions.workspaceId),
+          existing.delete(
+            ChangeActor.of(command.actor, permissions.workspaceId),
           ),
         ),
       );

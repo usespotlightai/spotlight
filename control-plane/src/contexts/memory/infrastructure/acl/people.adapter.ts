@@ -1,10 +1,7 @@
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import type {
-  Membership,
-  PeoplePort,
-  Person,
-} from '@memory/application/ports/people.port';
+import type { PeoplePort, Person } from '@memory/application/ports/people.port';
+import type { Membership } from '@memory/domain/services/team-access';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class People implements PeoplePort {
@@ -14,9 +11,9 @@ export class People implements PeoplePort {
   ) {}
 
   async memberOf(teamId: string, userId: string): Promise<Membership | null> {
-    const standing = await this.access.onTeam(teamId, UserId.of(userId));
-    return standing
-      ? { workspaceId: standing.workspaceId, by: standing.viewer }
+    const membership = await this.access.onTeam(teamId, UserId.of(userId));
+    return membership
+      ? { workspaceId: membership.workspaceId, by: membership.viewer }
       : null;
   }
 

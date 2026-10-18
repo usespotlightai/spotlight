@@ -1,5 +1,5 @@
 import {
-  MEMORY_STANDING_NAMES,
+  MEMORY_STATUS_NAMES,
   type RunMemoriesDto,
   type RunProposalDto,
 } from '@memory/application/dto/team-memory.dto';
@@ -19,15 +19,15 @@ export class RunProposalResponseDto extends ProposedMemoryResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    example: 'stands',
-    description: `Once approved, whether it still stands: ${MEMORY_STANDING_NAMES.join(' or ')}`,
+    example: 'active',
+    description: `After approval, whether it is still active: ${MEMORY_STATUS_NAMES.join(' or ')}`,
   })
-  readonly standing: string | null;
+  readonly status: string | null;
 
   constructor(proposal: RunProposalDto) {
     super(proposal);
     this.handle = proposal.handle;
-    this.standing = proposal.standing;
+    this.status = proposal.status;
   }
 }
 
@@ -35,7 +35,7 @@ export class RunMemoriesResponseDto {
   @ApiProperty({
     type: TeamMemoryResponseDto,
     isArray: true,
-    description: 'What the run was briefed with, in the order it was told',
+    description: 'What the run was briefed with, in the order of the briefing',
   })
   readonly briefed: readonly TeamMemoryResponseDto[];
 
@@ -43,9 +43,9 @@ export class RunMemoriesResponseDto {
     type: TeamMemoryResponseDto,
     isArray: true,
     description:
-      'What reached the run but was left out of its briefing by the cap, the nearest first',
+      'What applied to the run but was left out of its briefing by the cap, the nearest first',
   })
-  readonly cut: readonly TeamMemoryResponseDto[];
+  readonly omitted: readonly TeamMemoryResponseDto[];
 
   @ApiProperty({
     type: TeamMemoryResponseDto,
@@ -58,16 +58,16 @@ export class RunMemoriesResponseDto {
   @ApiProperty({
     type: RunProposalResponseDto,
     isArray: true,
-    description: 'What the run proposed, drafted or asked to remember',
+    description: 'What the run proposed, drafted or remembered',
   })
   readonly proposed: readonly RunProposalResponseDto[];
 
   @ApiProperty({
     nullable: true,
     type: String,
-    example: 'aside_8f2c',
+    example: 'request_8f2c',
     description:
-      'The inbox item where people keep or reject what the run proposed; null where it proposed nothing',
+      'The inbox item where people approve or reject what the run proposed; null where it proposed nothing',
   })
   readonly reviewItemId: string | null;
 
@@ -75,7 +75,9 @@ export class RunMemoriesResponseDto {
     this.briefed = memories.briefed.map(
       (each) => new TeamMemoryResponseDto(each),
     );
-    this.cut = memories.cut.map((each) => new TeamMemoryResponseDto(each));
+    this.omitted = memories.omitted.map(
+      (each) => new TeamMemoryResponseDto(each),
+    );
     this.recalled = memories.recalled.map(
       (each) => new TeamMemoryResponseDto(each),
     );

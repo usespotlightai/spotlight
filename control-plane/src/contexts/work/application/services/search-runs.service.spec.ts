@@ -29,7 +29,7 @@ const queued = (subject: RunSubject, search: boolean) =>
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Search.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'search-run_9' },
+      resume: { key: 'search-run_9' },
       ...(search ? { search: {} } : {}),
     }),
   });
@@ -43,32 +43,34 @@ const SEARCHING = RunSubject.search(
 
 const NO_FACTS = { of: async () => [] };
 
-const holding = (run: Run | null) =>
+const leasedSearchRunOf = (run: Run | null) =>
   new SearchRuns(
     {
       findById: async () => run,
     } as unknown as RunRepository,
     NO_FACTS,
-  ).heldSearchRun('run_9', RUNNER.value);
+  ).leasedSearchRun('run_9', RUNNER.value);
 
 describe('SearchRuns', () => {
-  it('names the search and iteration of a search run its runner holds', async () => {
-    expect(await holding(queued(SEARCHING, true).claim(RUNNER, NOW))).toEqual({
+  it('names the search and iteration of a search run its runner leases', async () => {
+    expect(
+      await leasedSearchRunOf(queued(SEARCHING, true).claim(RUNNER, NOW)),
+    ).toEqual({
       searchId: 'search_1',
       iteration: 3,
     });
   });
 
-  it('names nothing for a search run nobody holds, one another runner holds, or a run that is no search', async () => {
-    expect(await holding(null)).toBeNull();
-    expect(await holding(queued(SEARCHING, true))).toBeNull();
+  it('names nothing for a search run nobody leases, one another runner leases, or a run that is no search', async () => {
+    expect(await leasedSearchRunOf(null)).toBeNull();
+    expect(await leasedSearchRunOf(queued(SEARCHING, true))).toBeNull();
     expect(
-      await holding(
+      await leasedSearchRunOf(
         queued(SEARCHING, true).claim(RunnerId.of('runner_2'), NOW),
       ),
     ).toBeNull();
     expect(
-      await holding(
+      await leasedSearchRunOf(
         queued(
           RunSubject.task(
             TaskId.of('task_1'),
@@ -92,7 +94,7 @@ describe('SearchRuns', () => {
       runId,
       state,
       askedAPerson: asked,
-      attempt: runId === 'lapsed' ? 2 : 1,
+      attempt: runId === 'expired' ? 2 : 1,
       queuedAt: at(0),
       startedAt: started,
       endedAt: state === 'queued' || state === 'claimed' ? null : at(9),
@@ -102,23 +104,23 @@ describe('SearchRuns', () => {
       fact('working', 'claimed', at(1)),
       fact('done', 'completed', at(1)),
       fact('asked', 'completed', at(1), true),
-      fact('withdrawn', 'superseded', null),
-      fact('lapsed', 'queued', null),
+      fact('cancelled', 'cancelled', null),
+      fact('expired', 'queued', null),
     ];
 
     expect(
       (
         await new SearchRuns({} as RunRepository, {
           of: async () => facts,
-        }).standing(facts.map((each) => each.runId))
+        }).statuses(facts.map((each) => each.runId))
       ).map((each) => [each.runId, each.phase, each.failed, each.started]),
     ).toEqual([
       ['waiting', 'queued', true, false],
       ['working', 'running', true, true],
       ['done', 'ended', false, true],
       ['asked', 'ended', true, true],
-      ['withdrawn', 'ended', true, false],
-      ['lapsed', 'queued', true, true],
+      ['cancelled', 'ended', true, false],
+      ['expired', 'queued', true, true],
     ]);
   });
 });

@@ -11,23 +11,25 @@ describe('RunFailure', () => {
     ['unprepared', false, 1],
     ['refused', false, 1],
     ['unprovisioned', false, 1],
+    ['cancelled', false, 1],
     ['superseded', false, 1],
     ['hooks-unanswered', true, 6],
     ['runner-lost', true, 3],
     ['timed-out', true, 3],
   ])(
     'states whether a run that %s may be retried (%s, %i attempts in all)',
-    (code, retries, max) => {
+    (code, allowsRetry, maxAttempts) => {
       const failure = RunFailure.of(code);
 
-      expect(failure.retry.retries).toBe(retries);
-      expect(failure.retry.max).toBe(max);
+      expect(failure.retry.allowsRetry).toBe(allowsRetry);
+      expect(failure.retry.maxAttempts).toBe(maxAttempts);
     },
   );
 
   it('states a retry for every code it knows', () => {
     expect(Object.keys(RUN_FAILURES).sort()).toEqual(
       [
+        'cancelled',
         'exited',
         'hooks-unanswered',
         'refused',
@@ -40,7 +42,7 @@ describe('RunFailure', () => {
     );
   });
 
-  it('refuses a code nobody knows', () => {
+  it('rejects a code nobody knows', () => {
     expect(() => RunFailure.of('exploded')).toThrow(InvalidRunOutcomeError);
   });
 });

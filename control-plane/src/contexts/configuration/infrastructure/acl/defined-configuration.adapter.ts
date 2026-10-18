@@ -13,14 +13,14 @@ export class DefinedConfiguration implements ConfigurationReaderPort {
 
     return {
       integrations: integrations.map((each) => ({
-        source: each.source,
+        integration: each.integration,
         name: each.name,
         path: each.path,
-        connectable: each.connects,
-        holding: each.holding,
-        linked: each.linked,
-        handle: each.handle,
-        described: each.described,
+        requiresConnection: each.requiresConnection,
+        actsAs: each.actsAs,
+        connected: each.connected,
+        linkedAccount: each.linkedAccount,
+        spec: each.spec,
       })),
     };
   }

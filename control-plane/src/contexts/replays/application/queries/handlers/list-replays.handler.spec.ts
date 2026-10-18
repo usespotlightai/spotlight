@@ -30,8 +30,8 @@ import {
 } from '@replays/domain/replays.fake-spec';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -65,10 +65,10 @@ const firstSucceeded = (original: string) =>
 const scoredOn = (replay: Replay, tasks: number): Replay => {
   const reserved = replay.reserving(replay.entries.length, runIds());
 
-  return reserved.entries.slice(0, tasks).reduce((held, entry) => {
+  return reserved.entries.slice(0, tasks).reduce((built, entry) => {
     const run = entry.run as RunId;
 
-    return held
+    return built
       .confirm(run, FINGERPRINT, NOW)
       .recordRunEnd(run, endOf('completed'))
       .recordReview(run, CONCLUDING_CHECKS, null, later(60_000))
@@ -86,7 +86,7 @@ const withTheAnswer = (against: Replay): Replay => {
       at: NOW,
     }),
     baseline: false,
-    ceiling: Spend.ceiling(10, 'USD'),
+    ceiling: Money.ceiling(10, 'USD'),
     at: later(3),
     by: BY,
     oracle: {
@@ -138,7 +138,11 @@ describe('ListReplaysHandler', () => {
     const old = replayedAs(aBaseline('replay_old', 0), succeeded);
     const fresh = replayedAs(aBaseline('replay_fresh', 1), failed);
     const paired = replayedAs(
-      aReplay({ id: 'replay_paired', pairsWith: 'replay_old', at: later(2) }),
+      aReplay({
+        id: 'replay_paired',
+        pairwiseReferenceId: 'replay_old',
+        at: later(2),
+      }),
       succeeded,
     );
     const answer = replayedAs(withTheAnswer(old), succeeded);
@@ -151,21 +155,23 @@ describe('ListReplaysHandler', () => {
     const oldRate = { replayId: 'replay_old', successRate: 1 };
     const freshRate = { replayId: 'replay_fresh', successRate: 0 };
 
-    expect(listedAs(replays, 'replay_paired').comparedWith).toMatchObject(
+    expect(listedAs(replays, 'replay_paired').referenceReplay).toMatchObject(
       oldRate,
     );
-    expect(listedAs(replays, 'replay_answer').comparedWith).toMatchObject(
+    expect(listedAs(replays, 'replay_answer').referenceReplay).toMatchObject(
       oldRate,
     );
-    expect(listedAs(replays, 'replay_proposed').comparedWith).toMatchObject(
+    expect(listedAs(replays, 'replay_proposed').referenceReplay).toMatchObject(
       freshRate,
     );
-    expect(listedAs(replays, 'replay_old').comparedWith).toMatchObject(
+    expect(listedAs(replays, 'replay_old').referenceReplay).toMatchObject(
       freshRate,
     );
-    expect(listedAs(replays, 'replay_fresh').comparedWith).toBeNull();
+    expect(listedAs(replays, 'replay_fresh').referenceReplay).toBeNull();
     for (const each of replays) {
-      expect(each.againstBaseline === null).toBe(each.comparedWith === null);
+      expect(each.gainOverReference === null).toBe(
+        each.referenceReplay === null,
+      );
     }
   });
 
@@ -184,7 +190,7 @@ describe('ListReplaysHandler', () => {
         id: 'replay_terse',
         candidate: terse,
         searchId: SEARCH_ID,
-        pairsWith: 'replay_seed',
+        pairwiseReferenceId: 'replay_seed',
         at: later(2),
       }),
       succeeded,
@@ -193,7 +199,7 @@ describe('ListReplaysHandler', () => {
 
     const replays = await listed([baseline, seed, searched]);
 
-    expect(listedAs(replays, 'replay_terse').comparedWith).toMatchObject({
+    expect(listedAs(replays, 'replay_terse').referenceReplay).toMatchObject({
       replayId: 'replay_seed',
       successRate: 1 / 3,
     });
@@ -206,11 +212,11 @@ describe('ListReplaysHandler', () => {
 
     const shown = listedAs(await listed([fresh, answer]), 'replay_answer');
 
-    expect(shown.comparedWith).toBeNull();
-    expect(shown.againstBaseline).toBeNull();
+    expect(shown.referenceReplay).toBeNull();
+    expect(shown.gainOverReference).toBeNull();
   });
 
-  it('shows no rate for a counterpart that has scored nothing yet', async () => {
+  it('shows no rate for a reference that has scored nothing yet', async () => {
     const running = aBaseline('replay_running', 1);
     const proposed = replayedAs(
       aReplay({ id: 'replay_proposed', at: later(4) }),
@@ -222,15 +228,15 @@ describe('ListReplaysHandler', () => {
       'replay_proposed',
     );
 
-    expect(shown.comparedWith).toEqual({
+    expect(shown.referenceReplay).toEqual({
       replayId: 'replay_running',
       successRate: null,
       interval: null,
     });
-    expect(shown.againstBaseline).toBeNull();
+    expect(shown.gainOverReference).toBeNull();
   });
 
-  it('rates the counterpart on the tasks the gain pairs, with their interval', async () => {
+  it('rates the reference on the tasks the gain pairs, with their interval', async () => {
     const fresh = replayedAs(aBaseline('replay_fresh', 1), firstSucceeded);
     const proposed = scoredOn(
       aReplay({ id: 'replay_proposed', at: later(4) }),
@@ -241,8 +247,8 @@ describe('ListReplaysHandler', () => {
     const shown = listedAs(replays, 'replay_proposed');
 
     expect(listedAs(replays, 'replay_fresh').totals.successRate).toBe(1 / 3);
-    expect(shown.againstBaseline?.tasks).toBe(2);
-    expect(shown.comparedWith).toMatchObject({
+    expect(shown.gainOverReference?.tasks).toBe(2);
+    expect(shown.referenceReplay).toMatchObject({
       replayId: 'replay_fresh',
       successRate: 0.5,
       interval: { rate: 0.5 },

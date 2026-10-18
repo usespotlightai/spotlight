@@ -29,13 +29,13 @@ export class ReadWorkspaceTokenTrustHandler
     query: ReadWorkspaceTokenTrustQuery,
   ): Promise<WorkspaceTokenTrustResourceDto | null> {
     try {
-      const kept = await this.resources.tokenTrustWithId(
+      const record = await this.resources.tokenTrustWithId(
         WorkspaceTokenTrustId.of(query.trustId),
       );
 
-      return kept &&
-        (await this.access.permissionsIn(kept.workspaceId, query.principal))
-        ? ResourceMapper.workspaceTokenTrust(kept)
+      return record &&
+        (await this.access.permissionsIn(record.workspaceId, query.principal))
+        ? ResourceMapper.workspaceTokenTrust(record)
         : null;
     } catch (error) {
       rethrowAsApplicationError(error);
@@ -63,14 +63,14 @@ export class ImportWorkspaceTokenTrustHandler
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
-      const kept = permissions
+      const record = permissions
         ? await this.resources.tokenTrustAt(
             permissions.workspaceId,
             TokenTrustKey.of(query.address).value,
           )
         : null;
 
-      return kept ? ResourceMapper.workspaceTokenTrust(kept) : null;
+      return record ? ResourceMapper.workspaceTokenTrust(record) : null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

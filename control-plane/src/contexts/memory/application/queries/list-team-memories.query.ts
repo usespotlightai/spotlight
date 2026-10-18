@@ -1,5 +1,5 @@
 export interface MemoryListing {
-  readonly standing: string | null;
+  readonly status: string | null;
   readonly kind: string | null;
   readonly lineId: string | null;
   readonly stationId: string | null;

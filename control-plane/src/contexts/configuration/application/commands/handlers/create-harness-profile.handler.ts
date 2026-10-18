@@ -3,8 +3,8 @@ import type { HarnessProfileCompilerPort } from '@configuration/application/port
 import type { SecretNamesPort } from '@configuration/application/ports/secret-names.port';
 import { HarnessProfileProblems } from '@configuration/application/rendering/harness-profile-problems';
 import { HarnessProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
-import { HarnessProfileAlreadyDefinedError } from '@configuration/domain/exceptions/harness-profile-already-defined.error';
-import { SecretsUnheldError } from '@configuration/domain/exceptions/secrets-unheld.error';
+import { HarnessProfileAlreadyExistsError } from '@configuration/domain/exceptions/harness-profile-already-exists.error';
+import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
 import type { HarnessProfileRepository } from '@configuration/domain/repositories/harness-profile.repository';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
@@ -21,8 +21,8 @@ import type {
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
 
@@ -81,32 +81,32 @@ export class CreateHarnessProfileHandler
 
       try {
         return await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
-            const defined = HarnessProfile.define({
+          createIdempotently(this.creates, create, async () => {
+            const created = HarnessProfile.create({
               key: compiled.key,
               settings: compiled.settings,
               id: HarnessProfileId.of(this.ids.generate()),
               teamId: team.id,
-              by: Attribution.of(command.actor, team.workspaceId),
-              held: await this.secrets.ofTeam(team.id),
+              by: ChangeActor.of(command.actor, team.workspaceId),
+              existingSecrets: await this.secrets.ofTeam(team.id),
             });
 
-            await this.profiles.save(defined);
+            await this.profiles.save(created);
 
-            return defined.id.value;
+            return created.id.value;
           }),
         );
       } catch (error) {
-        if (error instanceof SecretsUnheldError) {
+        if (error instanceof MissingSecretsError) {
           return {
             outcome: 'invalid',
-            problems: HarnessProfileProblems.unheld(error.key, error.unheld),
+            problems: HarnessProfileProblems.missing(error.key, error.missing),
           };
         }
 
-        if (error instanceof HarnessProfileAlreadyDefinedError) {
+        if (error instanceof HarnessProfileAlreadyExistsError) {
           return {
-            outcome: 'taken',
+            outcome: 'already-exists',
             address: TeamAddress.of(team.key, compiled.key.value).toString(),
           };
         }

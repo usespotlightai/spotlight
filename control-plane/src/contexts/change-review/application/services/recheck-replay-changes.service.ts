@@ -7,7 +7,7 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export const recheckable = (check: StackCheck): boolean =>
-  check.replay && !check.recheck && check.foundWhole;
+  check.replay && !check.recheck && check.hasWholeResult;
 
 export class RecheckReplayChanges implements ReplayRechecksPort {
   constructor(

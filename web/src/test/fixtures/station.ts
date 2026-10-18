@@ -17,17 +17,17 @@ export const JUDGE_AGREEMENT: StationJudgeAgreementResponseDto = {
     rubricVersion: RUBRIC,
     kind: 'yes-no',
     claims: [],
-    passShare: 1,
+    passThreshold: 1,
     sample: 0.2,
-    trust: 0.6,
+    minAgreement: 0.6,
   },
-  standing: {
-    trusted: true,
+  calibration: {
+    qualified: true,
     measure: 'kappa',
     agreement: 0.71,
     pairs: 24,
-    trust: 0.6,
-    hiddenBecause: null,
+    minAgreement: 0.6,
+    hiddenReason: null,
   },
   coverage: {
     runs: 50,
@@ -35,7 +35,7 @@ export const JUDGE_AGREEMENT: StationJudgeAgreementResponseDto = {
     judgeOnly: 6,
     peopleOnly: 14,
     neither: 6,
-    shares: { both: 0.48, judgeOnly: 0.12, peopleOnly: 0.28, neither: 0.12 },
+    rates: { both: 0.48, judgeOnly: 0.12, peopleOnly: 0.28, neither: 0.12 },
   },
   versions: [
     {

@@ -1,7 +1,7 @@
 import type { PeoplePort } from '@change-review/application/ports/people.port';
 import type {
-  ReviewedRun,
   ReviewedTask,
+  RunForReview,
   WorkPort,
 } from '@change-review/application/ports/work.port';
 import { ChangeStackAccess } from '@change-review/application/services/change-stack-access.service';
@@ -18,7 +18,7 @@ const access = (
   over: {
     member?: boolean;
     task?: Partial<ReviewedTask> | null;
-    run?: Partial<ReviewedRun> | null;
+    run?: Partial<RunForReview> | null;
     ranFor?: TeamId | null;
   } = {},
 ) =>
@@ -34,7 +34,7 @@ const access = (
             },
     } as unknown as PeoplePort,
     {
-      run: async (): Promise<ReviewedRun | null> =>
+      run: async (): Promise<RunForReview | null> =>
         over.run === null
           ? null
           : {

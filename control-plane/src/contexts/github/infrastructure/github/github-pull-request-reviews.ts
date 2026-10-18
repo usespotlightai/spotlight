@@ -4,19 +4,19 @@ import type {
   OnGitHub,
   OnPullRequest,
   PullRequestReviewsPort,
-  ReviewVerdict,
+  ReviewEvent,
   SubmittedReview,
 } from '@github/application/ports/pull-request-reviews.port';
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
+import { withByline } from '@github/infrastructure/github/byline';
 import { answered, call } from '@github/infrastructure/github/github.rest';
 import {
   type ChangedFile,
   PullRequestLines,
 } from '@github/infrastructure/github/pull-request-lines';
-import { signedBy } from '@github/infrastructure/github/spotlight-signature';
 import type { LinkedAccountsPort } from '@identity/application/ports/linked-accounts.port';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 
 interface Posted {
   readonly id: number;
@@ -30,24 +30,24 @@ interface ListedComment extends Posted {
   readonly body: string;
 }
 
-interface Speaker {
+interface Actor {
   readonly token: string;
-  readonly personally: boolean;
+  readonly viaUserToken: boolean;
 }
 
-const EVENTS: Record<ReviewVerdict, string> = {
+const GITHUB_EVENTS: Record<ReviewEvent, string> = {
   comment: 'COMMENT',
   approve: 'APPROVE',
   'request-changes': 'REQUEST_CHANGES',
 };
 
-const UNHEARD = new Set([401, 403, 404]);
+const USER_TOKEN_REJECTED_STATUSES = new Set([401, 403, 404]);
 
 const UNPROCESSABLE = 422;
 
 const OWN_PULL_REQUEST = /own pull request/i;
 
-const STANCES: Record<ReviewVerdict, string> = {
+const REVIEW_EVENT_TEXTS: Record<ReviewEvent, string> = {
   comment: '',
   approve: '**Approves.**',
   'request-changes': '**Requests changes.**',
@@ -57,14 +57,17 @@ const FILES_PER_PAGE = 100;
 
 const MAX_FILE_PAGES = 30;
 
-class UnheardError extends UpstreamRefusedError {}
+class UserTokenRejectedError extends UpstreamError {}
 
-const heard = async <T>(response: Response, asking: string): Promise<T> => {
-  if (UNHEARD.has(response.status)) {
-    throw new UnheardError(asking, `${response.status}`);
+const userAnswered = async <T>(
+  response: Response,
+  operation: string,
+): Promise<T> => {
+  if (USER_TOKEN_REJECTED_STATUSES.has(response.status)) {
+    throw new UserTokenRejectedError(operation, `${response.status}`);
   }
 
-  return answered<T>(response, asking);
+  return answered<T>(response, operation);
 };
 
 const located = (on: OnPullRequest): { repo: string; number: number } => {
@@ -97,28 +100,28 @@ const folded = (body: string, comments: readonly LineComment[]): string =>
 export class GitHubPullRequestReviews implements PullRequestReviewsPort {
   constructor(
     private readonly access: RepositoryAccessPort,
-    private readonly personal: LinkedAccountsPort,
+    private readonly accounts: LinkedAccountsPort,
   ) {}
 
   async submit(
     input: OnPullRequest & {
-      verdict: ReviewVerdict;
+      event: ReviewEvent;
       body: string;
       comments: readonly LineComment[];
     },
   ): Promise<SubmittedReview> {
     const { repo, number } = located(input);
 
-    return this.speaking(input, async (speaker) => {
-      const pull = await heard<{ head: { sha: string } }>(
-        await call(`/repos/${repo}/pulls/${number}`, speaker.token),
+    return this.asActor(input, async (actor) => {
+      const pull = await userAnswered<{ head: { sha: string } }>(
+        await call(`/repos/${repo}/pulls/${number}`, actor.token),
         'read the pull request',
       );
-      const signed = (body: string) => this.signed(body, input, speaker);
+      const bylined = (body: string) => this.withBylineFor(body, input, actor);
       const lines =
         input.comments.length > 0
           ? PullRequestLines.of(
-              await this.changedFiles(repo, number, speaker.token),
+              await this.changedFiles(repo, number, actor.token),
             )
           : null;
       const placed = input.comments.filter(
@@ -128,18 +131,18 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
         (comment) => !placed.includes(comment),
       );
 
-      let verdict = input.verdict;
+      let event = input.event;
       const posting = (inline: boolean) =>
-        call(`/repos/${repo}/pulls/${number}/reviews`, speaker.token, {
+        call(`/repos/${repo}/pulls/${number}/reviews`, actor.token, {
           method: 'POST',
           body: JSON.stringify({
             commit_id: pull.head.sha,
-            event: EVENTS[verdict],
-            body: signed(
+            event: GITHUB_EVENTS[event],
+            body: bylined(
               folded(
-                verdict === input.verdict
+                event === input.event
                   ? input.body
-                  : [STANCES[input.verdict], input.body]
+                  : [REVIEW_EVENT_TEXTS[input.event], input.body]
                       .filter(Boolean)
                       .join('\n\n'),
                 inline ? unplaced : input.comments,
@@ -156,7 +159,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
                         start_line: comment.startLine,
                         start_side: gitHubSide(comment),
                       }),
-                  body: signed(comment.body),
+                  body: bylined(comment.body),
                 }))
               : [],
           }),
@@ -168,10 +171,10 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
       // GitHub does not let a user approve or request changes on their own pull request. This is also true for the app.
       if (
         response.status === UNPROCESSABLE &&
-        verdict !== 'comment' &&
+        event !== 'comment' &&
         OWN_PULL_REQUEST.test(await response.clone().text())
       ) {
-        verdict = 'comment';
+        event = 'comment';
         response = await posting(true);
       }
 
@@ -180,7 +183,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
         inline = false;
       }
 
-      const review = await heard<Posted>(response, 'submit the review');
+      const review = await userAnswered<Posted>(response, 'submit the review');
 
       if (!inline || placed.length === 0) {
         return {
@@ -189,10 +192,10 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
         };
       }
 
-      const listed = await heard<ListedComment[]>(
+      const listed = await userAnswered<ListedComment[]>(
         await call(
           `/repos/${repo}/pulls/${number}/reviews/${review.id}/comments?per_page=100`,
-          speaker.token,
+          actor.token,
         ),
         'read the review’s comments',
       );
@@ -227,7 +230,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
     const files: ChangedFile[] = [];
 
     for (let page = 1; page <= MAX_FILE_PAGES; page += 1) {
-      const listed = await heard<ChangedFile[]>(
+      const listed = await userAnswered<ChangedFile[]>(
         await call(
           `/repos/${repo}/pulls/${number}/files?per_page=${FILES_PER_PAGE}&page=${page}`,
           token,
@@ -250,15 +253,15 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
   ): Promise<OnGitHub> {
     const { repo, number } = located(input);
 
-    return this.speaking(input, async (speaker) => {
-      const posted = await heard<Posted>(
+    return this.asActor(input, async (actor) => {
+      const posted = await userAnswered<Posted>(
         await call(
           `/repos/${repo}/pulls/${number}/comments/${input.to}/replies`,
-          speaker.token,
+          actor.token,
           {
             method: 'POST',
             body: JSON.stringify({
-              body: this.signed(input.body, input, speaker),
+              body: this.withBylineFor(input.body, input, actor),
             }),
           },
         ),
@@ -272,19 +275,19 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
   async commentOnFile(input: OnPullRequest & FileComment): Promise<OnGitHub> {
     const { repo, number } = located(input);
 
-    return this.speaking(input, async (speaker) => {
-      const pull = await heard<{ head: { sha: string } }>(
-        await call(`/repos/${repo}/pulls/${number}`, speaker.token),
+    return this.asActor(input, async (actor) => {
+      const pull = await userAnswered<{ head: { sha: string } }>(
+        await call(`/repos/${repo}/pulls/${number}`, actor.token),
         'read the pull request',
       );
-      const posted = await heard<Posted>(
-        await call(`/repos/${repo}/pulls/${number}/comments`, speaker.token, {
+      const posted = await userAnswered<Posted>(
+        await call(`/repos/${repo}/pulls/${number}/comments`, actor.token, {
           method: 'POST',
           body: JSON.stringify({
             commit_id: pull.head.sha,
             path: input.path,
             subject_type: 'file',
-            body: this.signed(input.body, input, speaker),
+            body: this.withBylineFor(input.body, input, actor),
           }),
         }),
         'comment on the file',
@@ -299,15 +302,15 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
   ): Promise<void> {
     const { repo } = located(input);
 
-    await this.speaking(input, async (speaker) => {
-      await heard(
+    await this.asActor(input, async (actor) => {
+      await userAnswered(
         await call(
           `/repos/${repo}/pulls/comments/${input.commentId}`,
-          speaker.token,
+          actor.token,
           {
             method: 'PATCH',
             body: JSON.stringify({
-              body: this.signed(input.body, input, speaker),
+              body: this.withBylineFor(input.body, input, actor),
             }),
           },
         ),
@@ -319,39 +322,39 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
   async remove(input: OnPullRequest & { commentId: number }): Promise<void> {
     const { repo } = located(input);
 
-    await this.speaking(input, async (speaker) => {
+    await this.asActor(input, async (actor) => {
       const response = await call(
         `/repos/${repo}/pulls/comments/${input.commentId}`,
-        speaker.token,
+        actor.token,
         { method: 'DELETE' },
       );
 
       if (!response.ok && response.status !== 404) {
-        await heard(response, 'delete the review comment');
+        await userAnswered(response, 'delete the review comment');
       }
     });
   }
 
-  private signed(body: string, on: OnPullRequest, speaker: Speaker): string {
-    return speaker.personally || on.by.kind === 'spotlight'
+  private withBylineFor(body: string, on: OnPullRequest, actor: Actor): string {
+    return actor.viaUserToken || on.by.kind === 'spotlight'
       ? body
-      : signedBy(on.by.name, body);
+      : withByline(on.by.name, body);
   }
 
-  private async speaking<T>(
+  private async asActor<T>(
     on: OnPullRequest,
-    work: (speaker: Speaker) => Promise<T>,
+    work: (actor: Actor) => Promise<T>,
   ): Promise<T> {
-    const personal =
+    const userToken =
       on.by.kind === 'person'
-        ? await this.personal.tokenFor(on.by.userId, 'github')
+        ? await this.accounts.tokenFor(on.by.userId, 'github')
         : null;
 
-    if (personal) {
+    if (userToken) {
       try {
-        return await work({ token: personal, personally: true });
+        return await work({ token: userToken, viaUserToken: true });
       } catch (error) {
-        if (!(error instanceof UnheardError)) {
+        if (!(error instanceof UserTokenRejectedError)) {
           throw error;
         }
       }
@@ -359,6 +362,6 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
 
     const { password } = await this.access.credential(on.workspaceId);
 
-    return work({ token: password, personally: false });
+    return work({ token: password, viaUserToken: false });
   }
 }

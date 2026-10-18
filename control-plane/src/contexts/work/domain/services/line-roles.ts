@@ -15,12 +15,12 @@ interface Claim {
 }
 
 export const rolesClaimedTwice = (
-  standing: readonly Line[],
+  existing: readonly Line[],
   plans: readonly LinePlan[],
 ): RoleClaimedTwice[] => {
   const planned = (key: LineKey) => plans.some((each) => each.key.equals(key));
   const claims: Claim[] = [
-    ...standing.flatMap((line) =>
+    ...existing.flatMap((line) =>
       line.role && !planned(line.key)
         ? [{ line: line.key, role: line.role }]
         : [],

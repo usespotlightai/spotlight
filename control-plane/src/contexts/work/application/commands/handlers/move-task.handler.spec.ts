@@ -17,7 +17,7 @@ import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
-import type { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
+import type { RunDetached } from '@work/domain/events/run-detached.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
@@ -73,13 +73,13 @@ const elsewhere = () =>
     ],
   });
 
-const standing = (stationId = 'station_2', on = line()) =>
+const taskAt = (stationId = 'station_2', on = line()) =>
   Task.add({
     line: on,
     at: StationId.of(stationId),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: new Date('2026-08-27T09:15:00.000Z'),
     newId: () => 'task_1',
   });
@@ -112,7 +112,7 @@ const dispatch = (runId: string | null = 'run_1'): TaskDispatching => ({
 
 let saved: Task | undefined;
 
-const tasks = (found: Task | null = standing()) =>
+const tasks = (found: Task | null = taskAt()) =>
   ({
     add: vi.fn(),
     save: vi.fn(async (task: Task) => {
@@ -120,9 +120,9 @@ const tasks = (found: Task | null = standing()) =>
     }),
     find: vi.fn(async () => found),
     remove: vi.fn(),
-    standingAt: vi.fn(async () => []),
+    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    holding: vi.fn(async () => null),
+    findByMarks: vi.fn(async () => null),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
@@ -134,21 +134,21 @@ const lines = (found: Line | null = line()) =>
     add: vi.fn(),
     save: vi.fn(),
     find: vi.fn(async () => found),
-    holding: vi.fn(async () => found),
+    findByStation: vi.fn(async () => found),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
   }) satisfies LineRepository;
 
 const access = (teamId = 'team_1') =>
   ({
-    onTeam: vi.fn(async (asked: string) =>
-      asked === teamId
+    onTeam: vi.fn(async (requested: string) =>
+      requested === teamId
         ? {
             teamId: TeamId.of(teamId),
             workspaceId: WorkspaceId.of('ws_1'),
             slug: 'acme',
             viewer: UserId.of('user_1'),
-            administers: false,
+            isAdmin: false,
           }
         : null,
     ),
@@ -167,13 +167,13 @@ const people: PersonReaderPort = {
 const move = (
   stationId: string,
   board: LineRepository = lines(),
-  held: TaskRepository & TaskPlacementsPort = tasks(),
+  stored: TaskRepository & TaskPlacementsPort = tasks(),
   teamId = 'team_1',
   revision = 0,
 ) =>
   new MoveTaskHandler(
-    held,
-    held,
+    stored,
+    stored,
     new LineLoader(access(), board),
     transaction,
     dispatch(),
@@ -202,32 +202,32 @@ describe('MoveTaskHandler', () => {
     expect(saved?.revision.value).toBe(1);
   });
 
-  it('refuses a move based on a revision the task has moved on from', async () => {
+  it('rejects a move based on a revision the task has moved on from', async () => {
     await expect(
       move('station_1', lines(), tasks(), 'team_1', 4),
     ).rejects.toMatchObject({ kind: 'conflict' });
     expect(saved).toBeUndefined();
   });
 
-  it('refuses a revision that is no whole number of moves', async () => {
+  it('rejects a revision that is no whole number of moves', async () => {
     await expect(
       move('station_1', lines(), tasks(), 'team_1', -1),
     ).rejects.toMatchObject({ kind: 'invalid' });
   });
 
-  it('answers with the person who raised it, not with nobody', async () => {
+  it('answers with the person who created it, not with nobody', async () => {
     await expect(move('station_2')).resolves.toMatchObject({
-      raisedBy: { id: 'user_1', name: 'Ada', image: null },
+      createdBy: { id: 'user_1', name: 'Ada', image: null },
     });
   });
 
-  it('stands the task at the station it was moved to', async () => {
+  it('puts the task at the station it was moved to', async () => {
     await move('station_1');
 
     expect(saved?.stationId).toEqual(StationId.of('station_1'));
   });
 
-  it('hands back the task as it now stands', async () => {
+  it('hands back the task as it is now', async () => {
     await expect(move('station_1')).resolves.toMatchObject({
       id: 'task_1',
       stationId: 'station_1',
@@ -236,7 +236,7 @@ describe('MoveTaskHandler', () => {
   });
 
   it('hands the task over when it arrives at a worked station', async () => {
-    await move('station_2', lines(), tasks(standing('station_1')));
+    await move('station_2', lines(), tasks(taskAt('station_1')));
 
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0]).toMatchObject({ harness: 'dev', priority: 1 });
@@ -244,9 +244,9 @@ describe('MoveTaskHandler', () => {
     expect(saved?.currentRunId?.value).toBe('run_1');
   });
 
-  it('lets go of the run working it, so that run is stopped, before handing it to a new one', async () => {
+  it('detaches the run working it, so that run is stopped, before it assigns a new one', async () => {
     const working = Task.rehydrate({
-      ...standing('station_1'),
+      ...taskAt('station_1'),
       currentRunId: RunId.of('run_0'),
     });
 
@@ -257,35 +257,34 @@ describe('MoveTaskHandler', () => {
       saved
         ?.pullEvents()
         .map((each) =>
-          each.kind === 'task.let-go-of-run' ||
-          each.kind === 'task.handed-to-run'
-            ? [each.kind, (each as TaskLetGoOfRun).runId.value]
+          each.kind === 'task.run-detached' || each.kind === 'task.dispatched'
+            ? [each.kind, (each as RunDetached).runId.value]
             : [each.kind],
         ),
     ).toEqual([
       ['task.moved'],
-      ['task.let-go-of-run', 'run_0'],
+      ['task.run-detached', 'run_0'],
       ['task.acted-on'],
-      ['task.handed-to-run', 'run_1'],
+      ['task.dispatched', 'run_1'],
     ]);
   });
 
   it('hands nothing over for a move within the same station', async () => {
-    await move('station_2', lines(), tasks(standing('station_2')));
+    await move('station_2', lines(), tasks(taskAt('station_2')));
 
     expect(dispatched).toEqual([]);
   });
 
-  it('holds work back at a station no runners answer for', async () => {
-    await move('station_1', lines(), tasks(standing('station_2')));
+  it('keeps work back at a station no runners answer for', async () => {
+    await move('station_1', lines(), tasks(taskAt('station_2')));
 
     expect(dispatched).toEqual([]);
     expect(saved?.currentRunId).toBeNull();
   });
 
-  it('refuses a person moving work between work stations, and saves nothing', async () => {
+  it('denies a person moving work between work stations, and saves nothing', async () => {
     await expect(
-      move('station_4', lines(), tasks(standing('station_2'))),
+      move('station_4', lines(), tasks(taskAt('station_2'))),
     ).rejects.toMatchObject({
       kind: 'invalid',
       message: expect.stringContaining('from Triage to Spec'),
@@ -294,60 +293,60 @@ describe('MoveTaskHandler', () => {
     expect(dispatched).toEqual([]);
   });
 
-  it('refuses a person moving a completed task back out', async () => {
+  it('denies a person moving a completed task back out', async () => {
     await expect(
-      move('station_1', lines(), tasks(standing('station_3'))),
+      move('station_1', lines(), tasks(taskAt('station_3'))),
     ).rejects.toMatchObject({ kind: 'invalid' });
     expect(saved).toBeUndefined();
   });
 
   it('lets a person close a task from the backlog', async () => {
     await expect(
-      move('station_3', lines(), tasks(standing('station_1'))),
+      move('station_3', lines(), tasks(taskAt('station_1'))),
     ).resolves.toMatchObject({ stationId: 'station_3' });
   });
 
-  it('refuses a station that is not on this line', async () => {
+  it('rejects a station that is not on this line', async () => {
     await expect(move('station_elsewhere')).rejects.toThrow(ApplicationError);
   });
 
-  it('refuses to move a task standing on another line', async () => {
+  it('does not move a task on another line', async () => {
     await expect(
       move(
         'station_1',
         lines(),
-        tasks(standing('station_elsewhere', elsewhere())),
+        tasks(taskAt('station_elsewhere', elsewhere())),
       ),
     ).rejects.toThrow(ApplicationError);
   });
 
-  it('refuses a task that does not exist', async () => {
+  it('rejects a task that does not exist', async () => {
     await expect(move('station_1', lines(), tasks(null))).rejects.toThrow(
       ApplicationError,
     );
   });
 
-  it('refuses a line of a team the mover does not stand on', async () => {
+  it('rejects a line of a team the mover is not a member of', async () => {
     await expect(move('station_1', lines(), tasks(), 'team_2')).rejects.toThrow(
       ApplicationError,
     );
     expect(saved).toBeUndefined();
   });
 
-  it('refuses a line that does not exist', async () => {
+  it('rejects a line that does not exist', async () => {
     await expect(move('station_1', lines(null))).rejects.toThrow(
       ApplicationError,
     );
   });
 
   it('gives unclaimed work to whoever moves it from the backlog into active', async () => {
-    await move('station_2', lines(), tasks(standing('station_1').unassign()));
+    await move('station_2', lines(), tasks(taskAt('station_1').unassign()));
 
     expect(saved?.assignee?.value).toBe('user_mover');
   });
 
-  it('leaves work its owner already holds with them when moved active', async () => {
-    const owned = standing('station_1').assign(UserId.of('user_other'));
+  it('leaves work its owner already has with them when moved active', async () => {
+    const owned = taskAt('station_1').assign(UserId.of('user_other'));
 
     await move('station_2', lines(), tasks(owned));
 
@@ -355,7 +354,7 @@ describe('MoveTaskHandler', () => {
   });
 
   it('assigns nobody when the move is not out of the backlog', async () => {
-    await move('station_3', lines(), tasks(standing('station_2').unassign()));
+    await move('station_3', lines(), tasks(taskAt('station_2').unassign()));
 
     expect(saved?.assignee).toBeNull();
   });

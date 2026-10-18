@@ -1,11 +1,11 @@
-export const CHANGE_JUDGED = 'outcomes.change-judged.v1';
+export const CHANGE_JUDGED = 'insights.change-judged.v1';
 
 type JudgedScale = 'yes-no' | 'number' | 'claims';
 
 export type ChangeJudgedIntegrationEvent = {
   readonly kind: typeof CHANGE_JUDGED;
   readonly runId: string;
-  readonly round: 1 | 2;
+  readonly attempt: 1 | 2;
   readonly workspaceId: string;
   readonly spentCosts: readonly {
     readonly amount: number;
@@ -14,9 +14,9 @@ export type ChangeJudgedIntegrationEvent = {
   readonly unpricedCalls: number;
   readonly scale: JudgedScale;
   readonly value: number;
-  readonly marks: readonly boolean[] | null;
+  readonly claimResults: readonly boolean[] | null;
   readonly claims: readonly string[];
-  readonly passShare: number;
+  readonly passThreshold: number;
   readonly model: string;
   readonly reasons: readonly {
     readonly text: string;

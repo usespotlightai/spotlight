@@ -15,13 +15,13 @@ import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   CheckProvisioningPort,
-  LapsedCheck,
+  ExpiredCheck,
   WaitingCheck,
 } from '@work/application/ports/check-provisioning.port';
 import { ProvisionFailures } from '@work/application/services/provision-failures.service';
@@ -42,7 +42,7 @@ const waiting = (
   placement: string[] = [],
   workspace = 'ws_1',
   image: RunnerImage | null = null,
-  wears: string[] = [],
+  injectedSecrets: string[] = [],
 ) =>
   Run.enqueue({
     id: RunId.of(id),
@@ -53,8 +53,8 @@ const waiting = (
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task:station' },
-      ...(wears.length > 0 ? { wears } : {}),
+      resume: { key: 'task:station' },
+      ...(injectedSecrets.length > 0 ? { injectedSecrets } : {}),
     }),
     placement: RunnerPlacement.of(placement).in(image),
   });
@@ -81,7 +81,7 @@ const aPool = (
   poolId: `pool_${key}`,
   workspaceId: WorkspaceId.of('ws_1'),
   key,
-  labels: RunnerTerms.of(labels),
+  labels: RunnerOffer.of(labels),
   egress,
   maxRuns: null,
 });
@@ -94,11 +94,11 @@ const provisioning = (
   running = 0,
   waitingChecks: {
     readonly awaiting?: readonly WaitingCheck[];
-    readonly lapsed?: readonly LapsedCheck[];
+    readonly expired?: readonly ExpiredCheck[];
     readonly reserves?: boolean;
   } = {},
 ) => {
-  const held = new Map(queue.map((each) => [each.id.value, each]));
+  const stored = new Map(queue.map((each) => [each.id.value, each]));
   const awaitingProvision = vi.fn(
     async (
       workspaceId: WorkspaceId,
@@ -109,7 +109,7 @@ const provisioning = (
         readonly withSecrets: boolean;
       },
     ) =>
-      [...held.values()]
+      [...stored.values()]
         .filter(
           (each) =>
             each.workspaceId.equals(workspaceId) &&
@@ -119,20 +119,20 @@ const provisioning = (
   );
   const recorded: DomainEvent[] = [];
   const runs = {
-    findById: async (id: RunId) => held.get(id.value) ?? null,
+    findById: async (id: RunId) => stored.get(id.value) ?? null,
     save: async (run: Run) => {
       recorded.push(...run.pullEvents());
-      held.set(run.id.value, run);
+      stored.set(run.id.value, run);
     },
     awaitingProvision,
-    withLapsedReservations: async (at: Date) =>
-      [...held.values()].filter((each) => each.reservationLapsedAt(at)),
+    withExpiredReservations: async (at: Date) =>
+      [...stored.values()].filter((each) => each.reservationExpiredAt(at)),
   } as unknown as RunRepository;
   const provision = vi.fn(
     async (request: ProvisionRequest): Promise<ProvisionedRunner> =>
       answers[request.poolId] ?? { outcome: 'provisioned' },
   );
-  const letGo = vi.fn(async () => {});
+  const release = vi.fn(async () => {});
   const checks = {
     awaiting: vi.fn(async (_workspaceId: WorkspaceId, _at: Date, page) =>
       page.skip === 0 ? (waitingChecks.awaiting ?? []) : [],
@@ -144,22 +144,22 @@ const provisioning = (
     ),
     unreserve: vi.fn(async () => {}),
     failed: vi.fn(async () => {}),
-    lapsed: vi.fn(async () => waitingChecks.lapsed ?? []),
+    expired: vi.fn(async () => waitingChecks.expired ?? []),
   } satisfies CheckProvisioningPort;
   let generated = 0;
   const failures = new ProvisionFailures(
     runs,
-    { append: async () => {}, appendAside: async () => -1_000_000 },
+    { append: async () => {}, appendControlPlaneEntry: async () => -1_000_000 },
     { publish: () => {}, subscribe: () => () => {} },
   );
 
   return {
     provision,
-    letGo,
+    release,
     recorded,
     checks,
     awaitingProvision,
-    run: (id: string) => held.get(id) as Run,
+    run: (id: string) => stored.get(id) as Run,
     provisioner: new ProvisionWork(
       runs,
       checks,
@@ -172,7 +172,7 @@ const provisioning = (
           return maxRuns === null ? null : Math.max(0, maxRuns - running);
         },
       } as unknown as RunnerPoolsPort,
-      { provision, letGo } as unknown as RunnersPort,
+      { provision, release } as unknown as RunnersPort,
       failures,
       {
         generate: () => {
@@ -204,7 +204,7 @@ describe('ProvisionWork', () => {
     );
 
     expect(run('run_1').reservation).toBeNull();
-    expect(run('run_1').provisioning.failures).toBe(0);
+    expect(run('run_1').provisioning.attempts).toBe(0);
     expect(run('run_2').reservation?.pool.value).toBe('pool_burst');
   });
 
@@ -317,7 +317,7 @@ describe('ProvisionWork', () => {
     ]);
   });
 
-  it('reserves a waiting run for a new runner and asks a fitting pool to start it', async () => {
+  it('reserves a waiting run for a new runner and requests a fitting pool to start it', async () => {
     const { provisioner, provision, run } = provisioning(
       [waiting('run_1', ['gpu'])],
       [aPool('burst', ['gpu'])],
@@ -343,7 +343,7 @@ describe('ProvisionWork', () => {
     expect(run('run_1').reservation?.pool.value).toBe('pool_burst');
   });
 
-  it('asks the pool to start its runner in the image the run is placed in', async () => {
+  it('requests the pool to start its runner in the image the run is placed in', async () => {
     const { provisioner, provision } = provisioning(
       [waiting('run_1', ['gpu'], 'ws_1', WIDGETS)],
       [aPool('burst', ['gpu'])],
@@ -373,7 +373,7 @@ describe('ProvisionWork', () => {
     await provisioner.due();
 
     expect(run('run_1').reservation).toBeNull();
-    expect(run('run_1').provisioning.failures).toBe(1);
+    expect(run('run_1').provisioning.attempts).toBe(1);
     expect(run('run_1').provisionableAt(NOON)).toBe(false);
   });
 
@@ -397,20 +397,20 @@ describe('ProvisionWork', () => {
       'pool_b-burst',
     ]);
     expect(run('run_1').reservation?.pool.value).toBe('pool_b-burst');
-    expect(run('run_1').provisioning.failures).toBe(0);
+    expect(run('run_1').provisioning.attempts).toBe(0);
   });
 
   it('counts one failure, the last, when every fitting pool fails', async () => {
     const { provisioner, run } = provisioning(
       [waiting('run_1')],
-      [aPool('a-dead'), aPool('b-refusing')],
+      [aPool('a-dead'), aPool('b-unusable')],
       {
         'pool_a-dead': {
           outcome: 'failed',
           kind: 'unreachable',
           detail: 'connect ECONNREFUSED',
         },
-        'pool_b-refusing': {
+        'pool_b-unusable': {
           outcome: 'failed',
           kind: 'unusable',
           detail: 'the pool’s provision secret does not open',
@@ -421,7 +421,7 @@ describe('ProvisionWork', () => {
     await provisioner.due();
 
     expect(run('run_1').reservation).toBeNull();
-    expect(run('run_1').provisioning.failures).toBe(1);
+    expect(run('run_1').provisioning.attempts).toBe(1);
   });
 
   it('provisions on the next fitting pool when the first throws, and still says why', async () => {
@@ -442,7 +442,7 @@ describe('ProvisionWork', () => {
     );
 
     expect(run('run_1').reservation?.pool.value).toBe('pool_b-burst');
-    expect(run('run_1').provisioning.failures).toBe(0);
+    expect(run('run_1').provisioning.attempts).toBe(0);
   });
 
   it('says both when provisioning throws and releasing its reservation does too', async () => {
@@ -484,7 +484,7 @@ describe('ProvisionWork', () => {
       'pool_b-spare',
     ]);
     expect(run('run_1').reservation?.pool.value).toBe('pool_b-spare');
-    expect(run('run_1').provisioning.failures).toBe(0);
+    expect(run('run_1').provisioning.attempts).toBe(0);
   });
 
   it('counts nothing when a failing pool is followed by one that filled up meanwhile', async () => {
@@ -504,7 +504,7 @@ describe('ProvisionWork', () => {
     await provisioner.due();
 
     expect(run('run_1').reservation).toBeNull();
-    expect(run('run_1').provisioning.failures).toBe(0);
+    expect(run('run_1').provisioning.attempts).toBe(0);
   });
 
   it('leaves the run unreserved and unfailed when every fitting pool is gone', async () => {
@@ -517,10 +517,10 @@ describe('ProvisionWork', () => {
     await provisioner.due();
 
     expect(run('run_1').reservation).toBeNull();
-    expect(run('run_1').provisioning.failures).toBe(0);
+    expect(run('run_1').provisioning.attempts).toBe(0);
   });
 
-  it('gives a run that wears secrets only to a pool that names an egress', async () => {
+  it('hands a run with injected secrets only to a pool that names an egress', async () => {
     const { provisioner, provision, run, awaitingProvision } = provisioning(
       [waiting('run_1', [], 'ws_1', null, ['LINEAR_API_KEY'])],
       [aPool('burst'), aPool('shared', [], true)],
@@ -541,7 +541,7 @@ describe('ProvisionWork', () => {
     expect(run('run_1').reservation?.pool.value).toBe('pool_shared');
   });
 
-  it('leaves alone a run that wears secrets where no pool names an egress', async () => {
+  it('leaves alone a run with injected secrets where no pool names an egress', async () => {
     const { provisioner, provision, awaitingProvision } = provisioning(
       [waiting('run_1', [], 'ws_1', null, ['LINEAR_API_KEY'])],
       [aPool('burst')],
@@ -580,14 +580,14 @@ describe('ProvisionWork', () => {
     expect(provision).not.toHaveBeenCalled();
   });
 
-  it('fails a reservation nobody claimed in time, saving that its runner is to be let go', async () => {
-    const lapsing = waiting('run_1').reservedFor(
+  it('fails a reservation nobody claimed in time, saving that its runner is to be released', async () => {
+    const expiring = waiting('run_1').reservedFor(
       RunnerId.of('pooled_9'),
       PoolId.of('pool_burst'),
       NOON,
     );
-    const { provisioner, provision, letGo, recorded, run } = provisioning(
-      [lapsing],
+    const { provisioner, provision, release, recorded, run } = provisioning(
+      [expiring],
       [],
       {},
       LATER,
@@ -596,7 +596,7 @@ describe('ProvisionWork', () => {
     await provisioner.due();
 
     expect(run('run_1').reservation).toBeNull();
-    expect(run('run_1').provisioning.failures).toBe(1);
+    expect(run('run_1').provisioning.attempts).toBe(1);
     expect(recorded).toContainEqual(
       new RunReservationDropped(
         RunId.of('run_1'),
@@ -604,12 +604,12 @@ describe('ProvisionWork', () => {
         RunnerId.of('pooled_9'),
       ),
     );
-    expect(letGo).not.toHaveBeenCalled();
+    expect(release).not.toHaveBeenCalled();
     expect(provision).not.toHaveBeenCalled();
   });
 
-  it('keeps a reservation that still holds', async () => {
-    const { provisioner, letGo, run } = provisioning(
+  it('keeps a reservation that is still active', async () => {
+    const { provisioner, release, run } = provisioning(
       [
         waiting('run_1').reservedFor(
           RunnerId.of('pooled_9'),
@@ -622,12 +622,12 @@ describe('ProvisionWork', () => {
 
     await provisioner.due();
 
-    expect(letGo).not.toHaveBeenCalled();
+    expect(release).not.toHaveBeenCalled();
     expect(run('run_1').reservation?.runner.value).toBe('pooled_9');
   });
 
   describe('for change-stack checks', () => {
-    it('reserves a waiting check for a new runner and asks a fitting pool to start it for that check', async () => {
+    it('reserves a waiting check for a new runner and requests a fitting pool to start it for that check', async () => {
       const { provisioner, provision, checks } = provisioning(
         [],
         [aPool('burst', ['gpu'])],
@@ -663,7 +663,7 @@ describe('ProvisionWork', () => {
       expect(checks.unreserve).not.toHaveBeenCalled();
     });
 
-    it('asks the pool to start its runner in the image the check is placed in', async () => {
+    it('requests the pool to start its runner in the image the check is placed in', async () => {
       const { provisioner, provision } = provisioning(
         [],
         [aPool('burst', ['gpu'])],
@@ -684,7 +684,7 @@ describe('ProvisionWork', () => {
       );
     });
 
-    it('asks only for checks in a workspace whose pools provision', async () => {
+    it('requests only checks in a workspace whose pools provision', async () => {
       const { provisioner, checks } = provisioning(
         [],
         [aPool('burst')],
@@ -785,7 +785,7 @@ describe('ProvisionWork', () => {
         {
           pool_burst: {
             outcome: 'failed',
-            kind: 'refused',
+            kind: 'http-error',
             detail: 'answered 503',
           },
         },
@@ -799,7 +799,7 @@ describe('ProvisionWork', () => {
       expect(checks.failed).toHaveBeenCalledWith(
         'stack_1',
         RunnerId.of('pooled_1'),
-        ProvisionFailure.of('refused', 'answered 503'),
+        ProvisionFailure.of('http-error', 'answered 503'),
         NOON,
       );
       expect(checks.unreserve).not.toHaveBeenCalled();
@@ -845,7 +845,7 @@ describe('ProvisionWork', () => {
       );
     });
 
-    it('lets the reservation go and tries the next fitting pool when the first is full', async () => {
+    it('drops the reservation and tries the next fitting pool when the first is full', async () => {
       const { provisioner, provision, checks } = provisioning(
         [],
         [aPool('b-spare'), aPool('a-burst')],
@@ -874,14 +874,14 @@ describe('ProvisionWork', () => {
     });
 
     it('fails a check reservation nobody claimed in time', async () => {
-      const { provisioner, checks, letGo } = provisioning(
+      const { provisioner, checks, release } = provisioning(
         [],
         [],
         {},
         LATER,
         0,
         {
-          lapsed: [
+          expired: [
             {
               stackId: 'stack_1',
               runner: RunnerId.of('pooled_9'),
@@ -896,10 +896,10 @@ describe('ProvisionWork', () => {
       expect(checks.failed).toHaveBeenCalledWith(
         'stack_1',
         RunnerId.of('pooled_9'),
-        ProvisionFailure.lapsed(LATER),
+        ProvisionFailure.expired(LATER),
         LATER,
       );
-      expect(letGo).not.toHaveBeenCalled();
+      expect(release).not.toHaveBeenCalled();
     });
   });
 });

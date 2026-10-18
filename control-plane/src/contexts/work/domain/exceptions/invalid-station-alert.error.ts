@@ -7,7 +7,7 @@ export type StationAlertField =
   | 'over';
 
 export class InvalidStationAlertError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(
     readonly field: StationAlertField | null,

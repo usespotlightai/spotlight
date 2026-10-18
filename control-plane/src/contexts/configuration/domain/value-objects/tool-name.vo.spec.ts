@@ -10,7 +10,7 @@ describe('ToolName', () => {
   });
 
   it.each(['', 'Linear.Comment', 'linear.comment.more', 'linear.'])(
-    'refuses %o',
+    'rejects %o',
     (raw) => {
       expect(() => ToolName.of(raw)).toThrow(InvalidIdentifierError);
     },

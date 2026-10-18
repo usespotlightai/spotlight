@@ -5,12 +5,12 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 const EGRESS_FIELD = 'provision.egress';
 
-export const refuseUnfitEgress = (
+export const validateEgress = (
   reference: EgressReference | null,
   input: {
     readonly workspaceId: WorkspaceId;
     readonly named: Egress | null;
-    readonly platformKept: boolean;
+    readonly platformStored: boolean;
   },
 ): void => {
   if (!reference) {
@@ -18,7 +18,7 @@ export const refuseUnfitEgress = (
   }
 
   if (reference.isPlatform) {
-    if (!input.platformKept) {
+    if (!input.platformStored) {
       throw new InvalidRunnerPoolError(
         EGRESS_FIELD,
         `names ${reference.value}. This deployment has no platform egress. Please name an egress of this workspace, or leave provision.egress out`,
@@ -32,7 +32,7 @@ export const refuseUnfitEgress = (
 
   if (
     !named ||
-    named.isRetired ||
+    named.isDeleted ||
     !named.belongsTo(input.workspaceId) ||
     !reference.egressId?.equals(named.id)
   ) {

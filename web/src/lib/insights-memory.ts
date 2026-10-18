@@ -37,10 +37,10 @@ const benchmarkTile = (benchmark: MemoryBenchmark | null): MemoryTile =>
 
 export const memoryTiles = (memory: InsightsMemory): MemoryTile[] => [
   {
-    id: 'standing',
-    label: 'Standing memories',
-    value: formatCount(memory.standing),
-    detail: 'Kept by the team now',
+    id: 'active',
+    label: 'Active memories',
+    value: formatCount(memory.activeCount),
+    detail: 'Approved by the team now',
   },
   {
     id: 'briefed',
@@ -49,8 +49,8 @@ export const memoryTiles = (memory: InsightsMemory): MemoryTile[] => [
     detail: `to ${runs(memory.runsBriefed)}`,
   },
   {
-    id: 'read',
-    label: 'Read',
+    id: 'recalled',
+    label: 'Recalled',
     value: formatCount(memory.memoriesRecalled),
     detail: `by ${runs(memory.runsRecalled)}`,
   },
@@ -64,7 +64,7 @@ export const memoryTiles = (memory: InsightsMemory): MemoryTile[] => [
 ];
 
 export const usedNoMemory = (memory: InsightsMemory): boolean =>
-  memory.standing === 0 &&
+  memory.activeCount === 0 &&
   memory.memoriesBriefed === 0 &&
   memory.memoriesRecalled === 0 &&
   memory.flagged.length === 0;

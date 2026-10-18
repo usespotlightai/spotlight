@@ -1,5 +1,5 @@
 export class NotATeamMemberError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor() {
     super('Assignee is not a member of this team.');

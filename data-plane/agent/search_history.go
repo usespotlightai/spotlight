@@ -59,27 +59,27 @@ func searchFiles(files map[string]string, history protocol.History) error {
 		}
 		files[filepath.Join(at, "score.json")] = string(score) + "\n"
 
-		copied := repeatsOf(candidate) > 1
+		repeated := repeatsOf(candidate) > 1
 		for _, run := range candidate.Runs {
 			ran := filepath.Join(at, "runs", run.Original)
-			if copied {
+			if repeated {
 				ran = filepath.Join(ran, strconv.Itoa(run.Repeat))
 			}
 			files[filepath.Join(ran, "journal.md")] = journalMarkdown(run.Run())
 
 			result, err := json.MarshalIndent(struct {
-				RunID       string            `json:"runId"`
-				Original    string            `json:"original"`
-				Repeat      int               `json:"repeat"`
-				TaskID      string            `json:"taskId"`
-				Fingerprint *string           `json:"fingerprint"`
-				State       string            `json:"state"`
-				Cost        *protocol.RunCost `json:"cost"`
-				Succeeded   *bool             `json:"succeeded"`
-				Reasons     []string          `json:"reasons"`
-				Verdict     *string           `json:"verdict"`
+				RunID       string             `json:"runId"`
+				Original    string             `json:"original"`
+				Repeat      int                `json:"repeat"`
+				TaskID      string             `json:"taskId"`
+				Fingerprint *string            `json:"fingerprint"`
+				State       string             `json:"state"`
+				Usage       *protocol.RunUsage `json:"usage"`
+				Succeeded   *bool              `json:"succeeded"`
+				Reasons     []string           `json:"reasons"`
+				Verdict     *string            `json:"verdict"`
 			}{
-				run.RunID, run.Original, run.Repeat, run.TaskID, run.Fingerprint, run.State, run.Cost,
+				run.RunID, run.Original, run.Repeat, run.TaskID, run.Fingerprint, run.State, run.Usage,
 				run.Succeeded, nonNil(run.Reasons), run.Verdict,
 			}, "", "  ")
 			if err != nil {
@@ -107,13 +107,13 @@ func repeatsOf(candidate protocol.HistoryCandidate) int {
 
 func scoreOf(candidate protocol.HistoryCandidate) candidateScore {
 	score := candidateScore{Repeats: repeatsOf(candidate), Failed: []string{}, Verdicts: map[string]int{}, Spent: map[string]float64{}}
-	type copies struct{ succeeded, scored int }
-	tasks := map[string]*copies{}
+	type taskRepeats struct{ succeeded, scored int }
+	tasks := map[string]*taskRepeats{}
 	failed := map[string]bool{}
 
 	for _, run := range candidate.Runs {
-		if run.Cost != nil && run.Cost.Cost != nil && run.Cost.Currency != nil {
-			score.Spent[*run.Cost.Currency] += *run.Cost.Cost
+		if run.Usage != nil && run.Usage.Cost != nil && run.Usage.Currency != nil {
+			score.Spent[*run.Usage.Currency] += *run.Usage.Cost
 		} else {
 			score.Unpriced++
 		}
@@ -126,7 +126,7 @@ func scoreOf(candidate protocol.HistoryCandidate) candidateScore {
 		score.Scored++
 		task := tasks[run.Original]
 		if task == nil {
-			task = &copies{}
+			task = &taskRepeats{}
 			tasks[run.Original] = task
 		}
 		task.scored++
@@ -181,7 +181,7 @@ func candidatesIndex(history protocol.History) string {
 		)
 	}
 	if anyRepeated(history) {
-		out.WriteString("\nA candidate replayed each run more than once keeps each copy under runs/<original>/<copy>/; its rate is per task, the share of the task's copies that succeeded, averaged over the tasks.\n")
+		out.WriteString("\nA candidate replayed each run more than once keeps each repeat under runs/<original>/<repeat>/; its rate is per task, the share of the task's repeats that succeeded, averaged over the tasks.\n")
 	}
 
 	return out.String()
@@ -206,10 +206,10 @@ func indented(raw json.RawMessage) (string, error) {
 	return out.String() + "\n", nil
 }
 
-func nonNil(said []string) []string {
-	if said == nil {
+func nonNil(values []string) []string {
+	if values == nil {
 		return []string{}
 	}
 
-	return said
+	return values
 }

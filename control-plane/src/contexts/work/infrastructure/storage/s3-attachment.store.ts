@@ -37,9 +37,9 @@ const keyOf = (workspaceId: WorkspaceId, id: AttachmentId): string =>
 
 const encoded = (name: string): string => encodeURIComponent(name);
 
-const decoded = (held: string | undefined, fallback: string): string => {
+const decoded = (name: string | undefined, fallback: string): string => {
   try {
-    return held ? decodeURIComponent(held) : fallback;
+    return name ? decodeURIComponent(name) : fallback;
   } catch {
     return fallback;
   }
@@ -61,7 +61,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
     uploader: UserId,
     file: Attachment,
   ): Promise<UploadGrant> {
-    this.refuseWithoutABucket();
+    this.assertBucket();
 
     const headers = {
       'content-type': file.contentType,
@@ -96,34 +96,34 @@ export class S3AttachmentStore implements AttachmentStorePort {
       return [];
     }
 
-    this.refuseWithoutABucket();
+    this.assertBucket();
 
     return Promise.all(
       [...new Set(ids)].map(async (id) => {
-        const held =
-          (await this.kept(workspaceId, id)) ??
+        const head =
+          (await this.stored(workspaceId, id)) ??
           (await this.pending(workspaceId, id));
 
-        if (!held) {
+        if (!head) {
           throw new InvalidAttachmentError('was never uploaded');
         }
 
         return Attachment.of({
           id: id.value,
-          name: decoded(held.Metadata?.[NAME], id.value),
-          contentType: held.ContentType,
-          size: held.ContentLength ?? -1,
+          name: decoded(head.Metadata?.[NAME], id.value),
+          contentType: head.ContentType,
+          size: head.ContentLength ?? -1,
         });
       }),
     );
   }
 
-  async keep(
+  async save(
     workspaceId: WorkspaceId,
     file: Attachment,
     bytes: Uint8Array,
   ): Promise<void> {
-    this.refuseWithoutABucket();
+    this.assertBucket();
 
     await this.store.send(
       new PutObjectCommand({
@@ -141,7 +141,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
     file: Attachment,
     wanted: Wanted,
   ): Promise<string> {
-    this.refuseWithoutABucket();
+    this.assertBucket();
 
     // Non-image files and SVG files download and do not render, so they cannot run as pages.
     const shown =
@@ -163,7 +163,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
     workspaceId: WorkspaceId,
     file: Attachment,
   ): Promise<AttachmentContent> {
-    this.refuseWithoutABucket();
+    this.assertBucket();
 
     const read = await this.store.send(
       new GetObjectCommand({
@@ -190,7 +190,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
       return;
     }
 
-    this.refuseWithoutABucket();
+    this.assertBucket();
 
     await Promise.all(files.map((file) => this.movedIn(workspaceId, file.id)));
   }
@@ -199,7 +199,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
     workspaceId: WorkspaceId,
     id: AttachmentId,
   ): Promise<void> {
-    if (await this.kept(workspaceId, id)) {
+    if (await this.stored(workspaceId, id)) {
       return;
     }
 
@@ -216,7 +216,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
       .catch(missing);
 
     if (!copied) {
-      if (!(await this.kept(workspaceId, id))) {
+      if (!(await this.stored(workspaceId, id))) {
         throw new InvalidAttachmentError('was never uploaded');
       }
 
@@ -228,7 +228,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
       .catch(missing);
   }
 
-  private kept(
+  private stored(
     workspaceId: WorkspaceId,
     id: AttachmentId,
   ): Promise<HeadObjectCommandOutput | null> {
@@ -248,7 +248,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
     });
   }
 
-  private refuseWithoutABucket(): void {
+  private assertBucket(): void {
     if (!this.bucket) {
       throw new InvalidAttachmentError(
         'storage is not configured on this deployment',

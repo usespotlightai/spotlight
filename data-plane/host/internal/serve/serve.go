@@ -28,15 +28,15 @@ const (
 	LabelRunner = "ai.usespotlight.runner"
 	LabelCall   = "ai.usespotlight.call"
 
-	HandedPath = "/run/spotlight/handed.json"
-	MirrorRoot = "/spotlight/mirrors"
+	AssignmentPath = "/run/spotlight/assignment.json"
+	MirrorRoot     = "/spotlight/mirrors"
 
-	AuthorityPath = protocol.SandboxAuthority
-	BundlePath    = protocol.SandboxBundle
-	EgressTrusts  = "/etc/spotlight/trust"
-	EgressAlias   = "egress"
+	AuthorityPath     = protocol.SandboxAuthority
+	BundlePath        = protocol.SandboxBundle
+	EgressCABundleDir = "/etc/spotlight/trust"
+	EgressAlias       = "egress"
 
-	presenceEvery   = 20 * time.Second
+	heartbeatEvery  = 20 * time.Second
 	refreshEvery    = time.Minute
 	leaseEvery      = 20 * time.Second
 	stopGrace       = 30 * time.Second
@@ -55,20 +55,20 @@ const (
 
 type Pool interface {
 	Requirements(ctx context.Context) (protocol.HostRequirements, error)
-	Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.Handed, error)
+	Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.Assignment, error)
 	ClaimCall(ctx context.Context) (*protocol.HostCall, error)
-	AnswerCall(ctx context.Context, id string, answer protocol.HostCallAnswer) error
-	Present(ctx context.Context, presence protocol.HostPresence) (protocol.HostStanding, error)
-	Leave(ctx context.Context) error
-	Seat(handed protocol.Handed) (Worker, error)
+	RecordCallResponse(ctx context.Context, id string, response protocol.HostCallResponse) error
+	Heartbeat(ctx context.Context, heartbeat protocol.HostHeartbeat) (protocol.HeartbeatResponse, error)
+	Deregister(ctx context.Context) error
+	ForRun(assignment protocol.Assignment) (RunClient, error)
 }
 
-type Worker interface {
+type RunClient interface {
 	RenewLease(ctx context.Context, runID string) (bool, error)
 	RenewCheckLease(ctx context.Context, runID, stackID string, recheck bool) (bool, error)
 	RecordImage(ctx context.Context, runID, image string) error
-	Complete(ctx context.Context, runID string, done protocol.Completion) (protocol.Completed, error)
-	RecordChangeStackCheck(ctx context.Context, runID, stackID string, recheck bool, checked protocol.StackChecked) error
+	Complete(ctx context.Context, runID string, done protocol.Completion) (protocol.CompleteResponse, error)
+	RecordChangeStackCheck(ctx context.Context, runID, stackID string, recheck bool, checked protocol.StackCheckResult) error
 }
 
 type Registry interface {
@@ -96,11 +96,11 @@ type Options struct {
 }
 
 type Egress struct {
-	Image string
-	Allow []string
-	Reads []string
-	Env   []string
-	Trust []byte
+	Image       string
+	Allow       []string
+	SecretAllow []string
+	Env         []string
+	CABundle    []byte
 }
 
 type Host struct {
@@ -110,38 +110,38 @@ type Host struct {
 	mirrors *mirror.Mirrors
 	log     *slog.Logger
 
-	slots     chan struct{}
-	loops     sync.WaitGroup
-	sandboxes sync.WaitGroup
-	answering sync.WaitGroup
-	refreshes sync.WaitGroup
-	workspace string
-	engineIs  string
-	session   string
+	slots            chan struct{}
+	loops            sync.WaitGroup
+	sandboxes        sync.WaitGroup
+	responding       sync.WaitGroup
+	refreshes        sync.WaitGroup
+	workspace        string
+	containerRuntime string
+	bootID           string
 
-	mu         sync.Mutex
-	served     map[string]*served
-	unadmitted []string
-	required   protocol.HostRequirements
-	running    map[string]string
-	held       map[string]time.Time
-	failures   map[string]int
-	egressIs   string
+	mu           sync.Mutex
+	served       map[string]*served
+	disallowed   []string
+	required     protocol.HostRequirements
+	running      map[string]string
+	claimBackoff map[string]time.Time
+	failures     map[string]int
+	egressIs     string
 }
 
 func New(opts Options, pool Pool, engine sandbox.Engine, mirrors *mirror.Mirrors, log *slog.Logger) *Host {
 	return &Host{
-		opts:     opts,
-		pool:     pool,
-		engine:   engine,
-		mirrors:  mirrors,
-		log:      log,
-		slots:    make(chan struct{}, max(opts.Capacity, 1)),
-		session:  crand.Text(),
-		served:   map[string]*served{},
-		running:  map[string]string{},
-		held:     map[string]time.Time{},
-		failures: map[string]int{},
+		opts:         opts,
+		pool:         pool,
+		engine:       engine,
+		mirrors:      mirrors,
+		log:          log,
+		slots:        make(chan struct{}, max(opts.Capacity, 1)),
+		bootID:       crand.Text(),
+		served:       map[string]*served{},
+		running:      map[string]string{},
+		claimBackoff: map[string]time.Time{},
+		failures:     map[string]int{},
 	}
 }
 
@@ -163,16 +163,16 @@ func (h *Host) Serve(ctx context.Context) error {
 	}
 
 	if err := retried(ctx, h.log, "the container runtime is not answering yet", func() (err error) {
-		h.engineIs, err = h.engine.Describe(ctx)
+		h.containerRuntime, err = h.engine.Describe(ctx)
 		return err
 	}); err != nil {
 		return quiet(ctx, err)
 	}
-	h.log.Info("reached the container runtime", "engine", h.engineIs)
+	h.log.Info("reached the container runtime", "containerRuntime", h.containerRuntime)
 
 	if err := retried(ctx, h.log, "could not report to the control plane, still trying", func() error {
-		standing, err := h.pool.Present(ctx, h.presence())
-		h.workspace = standing.Workspace
+		heartbeat, err := h.pool.Heartbeat(ctx, h.heartbeat())
+		h.workspace = heartbeat.Workspace
 		return err
 	}); err != nil {
 		return quiet(ctx, err)
@@ -187,7 +187,7 @@ func (h *Host) Serve(ctx context.Context) error {
 	}()
 	reporting.Go(func() { h.report(claiming, stop) })
 
-	if err := retried(claiming, h.log, "could not ask what to serve, still trying", func() error {
+	if err := retried(claiming, h.log, "could not read what to serve, still trying", func() error {
 		return h.refresh(claiming, claiming, ctx, stop)
 	}); err != nil {
 		if final(err) {
@@ -210,13 +210,13 @@ func (h *Host) Serve(ctx context.Context) error {
 	reporting.Wait()
 	h.loops.Wait()
 	h.sandboxes.Wait()
-	h.answering.Wait()
+	h.responding.Wait()
 	h.refreshes.Wait()
 
-	leaving, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	deregistering, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer cancel()
-	if err := h.pool.Leave(leaving); err != nil {
-		h.log.Warn("could not say it is leaving", "error", err)
+	if err := h.pool.Deregister(deregistering); err != nil {
+		h.log.Warn("could not deregister", "error", err)
 	}
 
 	return failure
@@ -278,14 +278,14 @@ func (h *Host) watch(claiming, serving context.Context, stop func(error)) {
 				return
 			}
 			if claiming.Err() == nil {
-				h.log.Warn("could not ask what to serve", "error", err)
+				h.log.Warn("could not read what to serve", "error", err)
 			}
 		}
 	}
 }
 
 func (h *Host) report(ctx context.Context, stop func(error)) {
-	ticker := time.NewTicker(presenceEvery)
+	ticker := time.NewTicker(heartbeatEvery)
 	defer ticker.Stop()
 
 	for {
@@ -295,19 +295,19 @@ func (h *Host) report(ctx context.Context, stop func(error)) {
 		case <-ticker.C:
 		}
 
-		if _, err := h.pool.Present(ctx, h.presence()); err != nil {
+		if _, err := h.pool.Heartbeat(ctx, h.heartbeat()); err != nil {
 			if final(err) {
 				stop(err)
 				return
 			}
 			if ctx.Err() == nil {
-				h.log.Warn("could not report presence", "error", err)
+				h.log.Warn("could not send a heartbeat", "error", err)
 			}
 		}
 	}
 }
 
-func (h *Host) presence() protocol.HostPresence {
+func (h *Host) heartbeat() protocol.HostHeartbeat {
 	h.mu.Lock()
 	running := make([]string, 0, len(h.running))
 	for runner := range h.running {
@@ -316,14 +316,14 @@ func (h *Host) presence() protocol.HostPresence {
 	h.mu.Unlock()
 	slices.Sort(running)
 
-	return protocol.HostPresence{
-		Session:  h.session,
-		Name:     h.opts.Name,
-		Release:  h.opts.Version,
-		Executor: h.engineIs,
-		Capacity: cap(h.slots),
-		Running:  running,
-		Images:   h.reportedImages(),
+	return protocol.HostHeartbeat{
+		BootID:           h.bootID,
+		Name:             h.opts.Name,
+		Release:          h.opts.Version,
+		ContainerRuntime: h.containerRuntime,
+		Capacity:         cap(h.slots),
+		Running:          running,
+		Images:           h.reportedImages(),
 	}
 }
 
@@ -335,14 +335,14 @@ func (h *Host) claim(ctx, serving context.Context, image string) error {
 		if !ok {
 			return nil
 		}
-		if current.refused != "" {
+		if current.unavailableReason != "" {
 			if !sleep(ctx, jitter(retryCeiling)) {
 				return nil
 			}
 			continue
 		}
 
-		if wait := h.heldFor(image); wait > 0 {
+		if wait := h.claimBackoffFor(image); wait > 0 {
 			if !sleep(ctx, wait) {
 				return nil
 			}
@@ -355,14 +355,14 @@ func (h *Host) claim(ctx, serving context.Context, image string) error {
 			return nil
 		}
 
-		if h.heldFor(image) > 0 {
+		if h.claimBackoffFor(image) > 0 {
 			<-h.slots
 			continue
 		}
 
-		asked := time.Now()
-		handed, err := h.pool.Claim(ctx, protocol.HostClaim{Image: image})
-		if err != nil || handed == nil {
+		claimedAt := time.Now()
+		assignment, err := h.pool.Claim(ctx, protocol.HostClaim{Image: image})
+		if err != nil || assignment == nil {
 			<-h.slots
 
 			if ctx.Err() != nil {
@@ -377,7 +377,7 @@ func (h *Host) claim(ctx, serving context.Context, image string) error {
 					return nil
 				}
 				backoff = min(backoff*2, retryCeiling)
-			} else if time.Since(asked) < quickAnswer && !sleep(ctx, jitter(retryFloor)) {
+			} else if time.Since(claimedAt) < quickAnswer && !sleep(ctx, jitter(retryFloor)) {
 				return nil
 			}
 			continue
@@ -386,16 +386,16 @@ func (h *Host) claim(ctx, serving context.Context, image string) error {
 		backoff = retryFloor
 		h.sandboxes.Go(func() {
 			defer func() { <-h.slots }()
-			h.sandbox(serving, image, *handed)
+			h.sandbox(serving, image, *assignment)
 		})
 	}
 }
 
-func (h *Host) heldFor(image string) time.Duration {
+func (h *Host) claimBackoffFor(image string) time.Duration {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	return time.Until(h.held[image])
+	return time.Until(h.claimBackoff[image])
 }
 
 func (h *Host) started(image string, ok bool) {
@@ -404,13 +404,13 @@ func (h *Host) started(image string, ok bool) {
 
 	if ok {
 		delete(h.failures, image)
-		delete(h.held, image)
+		delete(h.claimBackoff, image)
 		return
 	}
 
 	h.failures[image]++
 	pause := min(retryFloor<<min(h.failures[image], 5), retryCeiling)
-	h.held[image] = time.Now().Add(jitter(pause))
+	h.claimBackoff[image] = time.Now().Add(jitter(pause))
 }
 
 func Final(err error) bool {
@@ -418,18 +418,18 @@ func Final(err error) bool {
 }
 
 func final(err error) bool {
-	return errors.Is(err, control.ErrRefused) ||
-		control.Rejected(err, "host-taken") ||
-		control.Rejected(err, "host-unreported")
+	return errors.Is(err, control.ErrUnauthorized) ||
+		control.HasReason(err, "host-in-use") ||
+		control.HasReason(err, "host-unreported")
 }
 
-func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed) {
-	log := h.log.With("runner", handed.RunnerID)
-	if handed.Work.Run != nil {
-		log = log.With("run", handed.Work.Run.ID)
+func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.Assignment) {
+	log := h.log.With("runner", assignment.RunnerID)
+	if assignment.Work.Run != nil {
+		log = log.With("run", assignment.Work.Run.ID)
 	}
-	if handed.Work.Check != nil {
-		log = log.With("stack", handed.Work.Check.StackID)
+	if assignment.Work.Check != nil {
+		log = log.With("stack", assignment.Work.Check.StackID)
 	}
 
 	if ctx.Err() != nil {
@@ -437,35 +437,35 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 		return
 	}
 
-	inSandbox := handed
+	inSandbox := assignment
 	inSandbox.EgressToken = ""
 	body, err := json.Marshal(inSandbox)
 	if err != nil {
-		log.Error("could not hand over the work", "error", err)
-		h.reported(err, handed)
+		log.Error("could not encode the assignment", "error", err)
+		h.reported(err, assignment)
 		return
 	}
 
-	worker, err := h.pool.Seat(handed)
+	client, err := h.pool.ForRun(assignment)
 	if err != nil {
-		log.Error("could not act for the runner it was handed", "error", err)
-		h.reported(err, handed)
+		log.Error("could not act for the runner of its assignment", "error", err)
+		h.reported(err, assignment)
 		return
 	}
 
-	held, told := h.holding(ctx, handed, worker, log)
-	defer held()
+	stopRenewing, stopRequested := h.renewingLease(ctx, assignment, client, log)
+	defer stopRenewing()
 
-	ready, ok := h.readied(ctx, image, handed, worker, log)
+	ready, ok := h.readied(ctx, image, assignment, client, log)
 	if !ok {
 		return
 	}
-	if told() {
-		log.Info("told to stop the work, so no sandbox starts")
+	if stopRequested() {
+		log.Info("a stop was requested, so no sandbox starts")
 		return
 	}
 
-	mounts := h.borrow(ctx, handed, log)
+	mounts := h.mountMirrors(ctx, assignment, log)
 	if ctx.Err() != nil {
 		log.Info("the host is stopping, so the work is left to be claimed again")
 		return
@@ -476,24 +476,24 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 
 	sandboxEnv, keys := standInsFor(h.opts.SandboxEnv)
 
-	way, err := h.egress(starting, handed, keys, log)
-	defer way.close()
+	sidecar, err := h.egress(starting, assignment, keys, log)
+	defer sidecar.close()
 	if err != nil {
-		log.Warn("gave up the work: its way out did not start", "error", err)
-		h.reported(err, handed)
-		h.giveUp(ctx, handed, worker, fmt.Sprintf("The sandbox's egress didn't start. Error: %v", err), log)
+		log.Warn("failed the work: its egress sidecar did not start", "error", err)
+		h.reported(err, assignment)
+		h.failWork(ctx, assignment, client, fmt.Sprintf("The sandbox's egress didn't start. Error: %v", err), log)
 		return
 	}
 
-	if told() {
-		log.Info("told to stop the work, so no sandbox starts")
+	if stopRequested() {
+		log.Info("a stop was requested, so no sandbox starts")
 		return
 	}
 
-	env := append(sandboxEnv, way.env()...)
+	env := append(sandboxEnv, sidecar.env()...)
 	env = append(env,
 		"SPOTLIGHT_URL="+h.opts.SandboxURL,
-		"SPOTLIGHT_HANDED="+HandedPath,
+		"SPOTLIGHT_ASSIGNMENT_FILE="+AssignmentPath,
 		protocol.AnswerWaitVar+"="+h.opts.AnswerWait.String(),
 	)
 	if len(mounts) > 0 {
@@ -501,25 +501,25 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 	}
 
 	id, err := h.engine.Start(starting, sandbox.Spec{
-		Name:    "spotlight-" + handed.RunnerID,
+		Name:    "spotlight-" + assignment.RunnerID,
 		Image:   ready.id,
 		Env:     env,
-		Labels:  map[string]string{LabelHost: h.opts.HostID, LabelRunner: handed.RunnerID},
+		Labels:  map[string]string{LabelHost: h.opts.HostID, LabelRunner: assignment.RunnerID},
 		Mounts:  mounts,
-		Files:   append([]sandbox.File{{Path: HandedPath, Mode: 0o400, Body: body}}, way.files()...),
-		Network: way.network,
+		Files:   append([]sandbox.File{{Path: AssignmentPath, Mode: 0o400, Body: body}}, sidecar.files()...),
+		Network: sidecar.network,
 	})
 	defer h.destroy(id)
 	h.started(image, err == nil)
 	if err != nil {
 		log.Error("could not start a sandbox; claiming from this image pauses", "image", ready.digest, "error", err)
-		h.reported(err, handed)
+		h.reported(err, assignment)
 		return
 	}
 
-	held()
-	h.track(handed.RunnerID, id)
-	defer h.untrack(handed.RunnerID)
+	stopRenewing()
+	h.track(assignment.RunnerID, id)
+	defer h.untrack(assignment.RunnerID)
 	log.Info("started a sandbox", "sandbox", id)
 
 	watching, stopWatching := context.WithCancel(context.WithoutCancel(ctx))
@@ -569,13 +569,13 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 	drain()
 
 	if ranOut {
-		held()
-		h.timedOut(ctx, handed, worker, log)
+		stopRenewing()
+		h.timedOut(ctx, assignment, client, log)
 	}
 }
 
-func (h *Host) timedOut(ctx context.Context, handed protocol.Handed, worker Worker, log *slog.Logger) {
-	run := handed.Work.Run
+func (h *Host) timedOut(ctx context.Context, assignment protocol.Assignment, client RunClient, log *slog.Logger) {
+	run := assignment.Work.Run
 	if run == nil {
 		return
 	}
@@ -583,18 +583,18 @@ func (h *Host) timedOut(ctx context.Context, handed protocol.Handed, worker Work
 	telling, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
 	defer cancel()
 
-	if _, err := worker.Complete(telling, run.ID, protocol.Completion{
+	if _, err := client.Complete(telling, run.ID, protocol.Completion{
 		ExitCode: -1,
 		Failed:   true,
 		TimedOut: true,
 		Message:  fmt.Sprintf("Sandbox stopped at the host's time limit. Time limit: %s", h.opts.RunTimeout),
 	}); err != nil {
-		log.Warn("could not say the run ran out of time; its lease will lapse instead", "error", err)
+		log.Warn("could not say the run ran out of time; its lease will expire instead", "error", err)
 	}
 }
 
 func (h *Host) readied(
-	ctx context.Context, image string, handed protocol.Handed, worker Worker, log *slog.Logger,
+	ctx context.Context, image string, assignment protocol.Assignment, client RunClient, log *slog.Logger,
 ) (examined, bool) {
 	h.mu.Lock()
 	each, ok := h.served[image]
@@ -614,26 +614,26 @@ func (h *Host) readied(
 	switch {
 	case err != nil:
 		reason = fmt.Sprintf("Runner image %s can't be pulled. Error: %v", image, err)
-	case ready.refused != "":
-		reason = fmt.Sprintf("Runner image %s is refused. %s", image, ready.refused)
-	case handed.Work.Run != nil && handed.Work.Run.Harness != "" && !ready.holds(handed.Work.Run.Harness):
-		reason = fmt.Sprintf("Runner image %s no longer holds the %s harness.", ready.digest, handed.Work.Run.Harness)
+	case ready.unavailableReason != "":
+		reason = fmt.Sprintf("Runner image %s is unavailable. %s", image, ready.unavailableReason)
+	case assignment.Work.Run != nil && assignment.Work.Run.Harness != "" && !ready.hasHarness(assignment.Work.Run.Harness):
+		reason = fmt.Sprintf("Runner image %s no longer has the %s harness.", ready.digest, assignment.Work.Run.Harness)
 	}
 
-	if ok && (ready.id != before.id || ready.refused != before.refused) {
-		if _, err := h.pool.Present(ctx, h.presence()); err != nil {
+	if ok && (ready.id != before.id || ready.unavailableReason != before.unavailableReason) {
+		if _, err := h.pool.Heartbeat(ctx, h.heartbeat()); err != nil {
 			log.Warn("could not report what it serves", "error", err)
 		}
 	}
 
 	if reason != "" {
-		log.Warn("gave up the work it could not start", "reason", reason)
-		h.giveUp(ctx, handed, worker, reason, log)
+		log.Warn("failed the work it could not start", "reason", reason)
+		h.failWork(ctx, assignment, client, reason, log)
 		return examined{}, false
 	}
 
-	if run := handed.Work.Run; run != nil {
-		if err := worker.RecordImage(ctx, run.ID, ready.digest); err != nil {
+	if run := assignment.Work.Run; run != nil {
+		if err := client.RecordImage(ctx, run.ID, ready.digest); err != nil {
 			log.Warn("could not record the image the run starts from", "image", ready.digest, "error", err)
 		}
 	}
@@ -641,10 +641,10 @@ func (h *Host) readied(
 	return ready, true
 }
 
-func (h *Host) holding(
-	ctx context.Context, handed protocol.Handed, worker Worker, log *slog.Logger,
-) (release func(), told func() bool) {
-	renew := renewal(handed.Work, worker)
+func (h *Host) renewingLease(
+	ctx context.Context, assignment protocol.Assignment, client RunClient, log *slog.Logger,
+) (release func(), stopRequested func() bool) {
+	renew := renewal(assignment.Work, client)
 	if renew == nil {
 		return func() {}, func() bool { return false }
 	}
@@ -671,7 +671,7 @@ func (h *Host) holding(
 				stop, err := renew(renewing)
 				switch {
 				case err == nil && stop:
-					log.Info("told to stop the work while the sandbox starts")
+					log.Info("a stop was requested while the sandbox starts")
 					stopped.Store(true)
 					return
 				case err != nil && renewing.Err() == nil:
@@ -689,17 +689,17 @@ func (h *Host) holding(
 	return release, stopped.Load
 }
 
-func renewal(work protocol.Claimed, worker Worker) func(context.Context) (bool, error) {
+func renewal(work protocol.ClaimResponse, client RunClient) func(context.Context) (bool, error) {
 	switch {
 	case work.Run != nil:
 		return func(ctx context.Context) (bool, error) {
 			// A run with a request to stop still starts. Only its runner can say that it stopped.
-			_, err := worker.RenewLease(ctx, work.Run.ID)
+			_, err := client.RenewLease(ctx, work.Run.ID)
 			return false, err
 		}
 	case work.Check != nil:
 		return func(ctx context.Context) (bool, error) {
-			stop, err := worker.RenewCheckLease(ctx, work.Check.RunID, work.Check.StackID, work.Check.Recheck)
+			stop, err := client.RenewCheckLease(ctx, work.Check.RunID, work.Check.StackID, work.Check.Recheck)
 			if control.CheckLeaseLost(err) {
 				return true, nil
 			}
@@ -710,27 +710,27 @@ func renewal(work protocol.Claimed, worker Worker) func(context.Context) (bool, 
 	return nil
 }
 
-func (h *Host) reported(err error, handed protocol.Handed) {
-	tags := telemetry.Tags{"host": h.opts.HostID, "workspace": h.workspace, "runner": handed.RunnerID}
-	if run := handed.Work.Run; run != nil {
+func (h *Host) reported(err error, assignment protocol.Assignment) {
+	tags := telemetry.Tags{"host": h.opts.HostID, "workspace": h.workspace, "runner": assignment.RunnerID}
+	if run := assignment.Work.Run; run != nil {
 		tags["run"] = run.ID
 	}
-	if check := handed.Work.Check; check != nil {
+	if check := assignment.Work.Check; check != nil {
 		tags["run"], tags["stack"] = check.RunID, check.StackID
 	}
 	telemetry.Report(err, tags)
 }
 
-func (h *Host) giveUp(ctx context.Context, handed protocol.Handed, worker Worker, reason string, log *slog.Logger) {
+func (h *Host) failWork(ctx context.Context, assignment protocol.Assignment, client RunClient, reason string, log *slog.Logger) {
 	telling, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
 	defer cancel()
 
 	var err error
-	switch work := handed.Work; {
+	switch work := assignment.Work; {
 	case work.Run != nil:
-		_, err = worker.Complete(telling, work.Run.ID, protocol.Completion{ExitCode: -1, Failed: true, Unprepared: true, Message: reason})
+		_, err = client.Complete(telling, work.Run.ID, protocol.Completion{ExitCode: -1, Failed: true, SetupFailed: true, Message: reason})
 	case work.Check != nil:
-		err = worker.RecordChangeStackCheck(telling, work.Check.RunID, work.Check.StackID, work.Check.Recheck, protocol.StackChecked{
+		err = client.RecordChangeStackCheck(telling, work.Check.RunID, work.Check.StackID, work.Check.Recheck, protocol.StackCheckResult{
 			Skipped: &protocol.SkippedCheck{Code: protocol.SkipNoImage, Detail: reason},
 		})
 	}
@@ -750,29 +750,29 @@ func (h *Host) waited(ctx context.Context, id string, log *slog.Logger) int {
 			return code
 		}
 
-		log.Warn("lost sight of the sandbox, waiting on it again", "error", err)
+		log.Warn("lost track of the sandbox, waiting on it again", "error", err)
 		if !sleep(ctx, retryFloor) {
 			return code
 		}
 	}
 }
 
-func (h *Host) borrow(ctx context.Context, handed protocol.Handed, log *slog.Logger) []sandbox.Mount {
+func (h *Host) mountMirrors(ctx context.Context, assignment protocol.Assignment, log *slog.Logger) []sandbox.Mount {
 	if h.mirrors == nil || h.workspace == "" {
 		return nil
 	}
 
-	runID, repositories := worked(handed.Work)
+	runID, repositories := proxiedRepositories(assignment.Work)
 
 	budget, cancel := context.WithTimeout(ctx, mirrorWait)
 	defer cancel()
 
-	type borrowed struct{ repository, dir string }
-	found := make(chan borrowed, len(repositories))
+	type mirrorDir struct{ repository, dir string }
+	found := make(chan mirrorDir, len(repositories))
 	for _, repository := range repositories {
 		go func() {
-			dir, _ := h.mirrored(ctx, budget, runID, repository, handed.Token, log)
-			found <- borrowed{repository, dir}
+			dir, _ := h.mirrored(ctx, budget, runID, repository, assignment.Token, log)
+			found <- mirrorDir{repository, dir}
 		}()
 	}
 
@@ -827,12 +827,12 @@ func (h *Host) mirrored(ctx, budget context.Context, runID, repository, token st
 	return "", false
 }
 
-func worked(work protocol.Claimed) (string, []string) {
+func proxiedRepositories(work protocol.ClaimResponse) (string, []string) {
 	switch {
 	case work.Run != nil:
 		var repositories []string
 		for _, checkout := range work.Run.Spec.Checkouts {
-			if checkout.Remote == protocol.ThroughSpotlight {
+			if checkout.Remote == protocol.RemoteViaGitProxy {
 				repositories = append(repositories, checkout.Path)
 			}
 		}

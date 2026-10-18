@@ -3,7 +3,7 @@ import type {
   TeamRoster,
   WorkspaceMemberSummary,
 } from '@identity/application/ports/member-reader.port';
-import type { TeamNamed } from '@identity/application/read-models/team-named';
+import type { TeamRef } from '@identity/application/read-models/team-ref';
 import { user } from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
 import {
   team,
@@ -111,13 +111,13 @@ export class DrizzleMemberReader implements MemberReaderPort {
       .where(eq(team.workspaceId, workspaceId.value))
       .orderBy(asc(team.name));
 
-    const teamsOf = new Map<string, TeamNamed[]>();
+    const teamsOf = new Map<string, TeamRef[]>();
 
     for (const each of onTeams) {
-      const held = teamsOf.get(each.userId) ?? [];
+      const memberTeams = teamsOf.get(each.userId) ?? [];
 
-      held.push({ id: each.id, name: each.name });
-      teamsOf.set(each.userId, held);
+      memberTeams.push({ id: each.id, name: each.name });
+      teamsOf.set(each.userId, memberTeams);
     }
 
     return rows.map((row) => ({ ...row, teams: teamsOf.get(row.id) ?? [] }));

@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import type { ExpressionErrorDto } from '@integrations/application/dto/expression-check.dto';
 import type {
-  DescribedOperations,
   IntegrationCompilerPort,
   ParsedIntegration,
+  SpecOperations,
 } from '@integrations/application/ports/integration-compiler.port';
 import {
   INTEGRATIONS,
@@ -16,29 +16,29 @@ import {
   type ApprovalOverride,
   generatedTools,
 } from '@integrations/domain/services/generated-tools';
+import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
+import { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
 import { Binding } from '@integrations/domain/value-objects/binding.vo';
-import { ConnectionHolding } from '@integrations/domain/value-objects/connection-holding.vo';
 import { CronExpression } from '@integrations/domain/value-objects/cron-expression.vo';
 import { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
-import { DescribedSource } from '@integrations/domain/value-objects/described-source.vo';
 import { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
-import { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
 import { Opening } from '@integrations/domain/value-objects/opening.vo';
 import { OperationFilter } from '@integrations/domain/value-objects/operation-filter.vo';
 import { Poll } from '@integrations/domain/value-objects/poll.vo';
+import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import { Schedule } from '@integrations/domain/value-objects/schedule.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { Webhook } from '@integrations/domain/value-objects/webhook.vo';
 import { cronCalendar } from '@integrations/infrastructure/integrations/cron-calendar';
 import type { Additions } from '@integrations/infrastructure/integrations/expression-position';
 import {
+  hintProblems,
   orderedTypes,
-  refusedHints,
   type Shape,
 } from '@integrations/infrastructure/integrations/hints';
 import {
@@ -132,11 +132,11 @@ export interface RequestIR {
 
 export interface RaiseIR {
   readonly happening: string;
-  readonly spoken: boolean;
-  readonly say: Expression | null;
+  readonly answers: boolean;
+  readonly message: Expression | null;
   readonly opens: {
-    readonly onto: string;
-    readonly at: string | null;
+    readonly lineRole: string;
+    readonly station: string | null;
     readonly title: Expression;
     readonly description: Expression | null;
     readonly assignBy: { readonly email: Expression } | null;
@@ -147,10 +147,10 @@ export interface RaiseIR {
     value: Expression;
     finds: boolean;
   }[];
-  readonly attaches: AttachesIR | null;
+  readonly attachments: AttachmentsIR | null;
 }
 
-export interface AttachesIR {
+export interface AttachmentsIR {
   readonly each: Expression;
   readonly name: Expression;
   readonly type: Expression | null;
@@ -176,7 +176,7 @@ interface WebhookIR {
     readonly when: Expression;
     readonly body: Expression;
   } | null;
-  readonly mine: Expression | null;
+  readonly ignoreWhen: Expression | null;
   readonly route: Expression | null;
   readonly parse: 'json' | 'form';
   readonly delivery: Expression | null;
@@ -209,7 +209,7 @@ export type OAuth2IR =
     };
 
 interface ConnectionIR {
-  readonly holding: ConnectionHolding;
+  readonly actsAs: ActsAs;
   readonly oauth2: OAuth2IR | null;
   readonly manual: { readonly secrets: readonly string[] } | null;
 }
@@ -227,7 +227,7 @@ interface ToolInputIR {
   readonly description: string | null;
   readonly required: boolean;
   readonly default: Templated | null;
-  readonly piped: boolean;
+  readonly stdin: boolean;
 }
 
 interface ToolIR {
@@ -236,8 +236,8 @@ interface ToolIR {
   readonly output: Expression | null;
 }
 
-interface DescribedIR {
-  readonly source: DescribedSource;
+interface ApiSpecIR {
+  readonly spec: ApiSpec;
   readonly auth: AuthIR | null;
   readonly filter: OperationFilter;
   readonly approvals: ReadonlyMap<string, ApprovalOverride>;
@@ -246,7 +246,7 @@ interface DescribedIR {
 export interface ReadableIntegration {
   readonly path: string;
   readonly integration: Integration;
-  readonly described: DescribedIR | null;
+  readonly apiSpec: ApiSpecIR | null;
   readonly webhook: WebhookIR | null;
   readonly poll: PollIR | null;
   readonly connection: ConnectionIR | null;
@@ -260,7 +260,7 @@ export type Compiled =
       readonly ok: true;
       readonly readable: ReadableIntegration;
       readonly definition: IntegrationFile;
-      readonly passedOver: readonly string[];
+      readonly skipped: readonly string[];
       readonly warnings: readonly ConfigurationProblem[];
       readonly places: ReadonlyMap<string, Place>;
     }
@@ -318,15 +318,18 @@ class Compiler {
   declared(
     event: EventFile,
     where: FieldPath,
-    source: SourceKey,
+    integration: IntegrationKey,
   ): DeclaredHappening | null {
     const happening = this.part(where.to('raise', 'happening'), () =>
-      source.claim(HappeningName.of(event.raise.happening)),
+      integration.claim(HappeningName.of(event.raise.happening)),
     );
     const opens = event.raise.opens;
     const opening = opens
       ? this.part(where.to('raise', 'opens'), () =>
-          Opening.of({ onto: opens.onto, at: opens.at ?? null }),
+          Opening.of({
+            lineRole: opens.lineRole,
+            station: opens.station ?? null,
+          }),
         )
       : null;
 
@@ -338,8 +341,8 @@ class Compiler {
       DeclaredHappening.of({
         happening,
         label: event.raise.label ?? event.raise.happening,
-        told: event.raise.told ?? event.raise.happening,
-        spoken: event.raise.spoken,
+        summary: event.raise.summary ?? event.raise.happening,
+        answers: event.raise.answers,
         finds: event.raise.marks
           .filter((mark) => mark.find)
           .map((mark) => MarkKind.of(mark.kind)),
@@ -349,35 +352,35 @@ class Compiler {
     );
   }
 
-  expression(held: string, place: Place): Expression | null {
-    if (READS_A_SECRET.test(held)) {
+  expression(raw: string, place: Place): Expression | null {
+    if (READS_A_SECRET.test(raw)) {
       this.problems.push(
         ConfigurationProblem.of({
           path: this.path,
           at: place.field,
           reason:
-            'reads a secret’s value. No expression may read a secret. Please name the secret in auth.secrets, and Spotlight wears it toward the hosts it is bound to',
+            'reads a secret’s value. No expression may read a secret. Please name the secret in auth.secrets, and Spotlight injects it for the hosts it is bound to',
         }),
       );
 
       return null;
     }
 
-    const source = written(held);
+    const source = written(raw);
 
     try {
       const compiled = this.expressions.compile(source, {
-        at: place.field.rendered,
+        location: place.field.rendered,
       });
-      const verdict = place.checked(this.expressions, source);
+      const result = place.checked(this.expressions, source);
 
       this.places.set(place.field.rendered, place);
 
-      for (const error of verdict.errors) {
+      for (const error of result.errors) {
         this.warn(place.field, doubted(error));
       }
 
-      for (const warning of verdict.warnings) {
+      for (const warning of result.warnings) {
         this.warn(warning.field, warning.message);
       }
 
@@ -412,9 +415,9 @@ class Compiler {
     }
   }
 
-  templated(held: string, place: Place): Templated {
-    if (isExpression(held)) {
-      const whole = this.expression(held, place);
+  templated(raw: string, place: Place): Templated {
+    if (isExpression(raw)) {
+      const whole = this.expression(raw, place);
 
       return { parts: whole ? [whole] : [] };
     }
@@ -422,11 +425,11 @@ class Compiler {
     const parts: (string | Expression)[] = [];
     let from = 0;
 
-    for (const found of held.matchAll(PIECE)) {
+    for (const found of raw.matchAll(PIECE)) {
       const start = found.index ?? 0;
 
       if (start > from) {
-        parts.push(held.slice(from, start));
+        parts.push(raw.slice(from, start));
       }
 
       const piece = this.expression(found[0], place);
@@ -437,31 +440,31 @@ class Compiler {
       from = start + found[0].length;
     }
 
-    if (from < held.length || parts.length === 0) {
-      parts.push(held.slice(from));
+    if (from < raw.length || parts.length === 0) {
+      parts.push(raw.slice(from));
     }
 
     return { parts };
   }
 
-  structured(held: unknown, place: Place): Structured {
-    if (typeof held === 'string') {
-      return { kind: 'templated', templated: this.templated(held, place) };
+  structured(raw: unknown, place: Place): Structured {
+    if (typeof raw === 'string') {
+      return { kind: 'templated', templated: this.templated(raw, place) };
     }
 
-    if (Array.isArray(held)) {
+    if (Array.isArray(raw)) {
       return {
         kind: 'list',
-        items: held.map((each, index) =>
+        items: raw.map((each, index) =>
           this.structured(each, place.inside(index)),
         ),
       };
     }
 
-    if (held !== null && typeof held === 'object') {
+    if (raw !== null && typeof raw === 'object') {
       return {
         kind: 'map',
-        entries: Object.entries(held).map(([key, each]) => ({
+        entries: Object.entries(raw).map(([key, each]) => ({
           key,
           value: this.structured(each, place.inside(key)),
         })),
@@ -470,8 +473,7 @@ class Compiler {
 
     return {
       kind: 'value',
-      value:
-        typeof held === 'number' || typeof held === 'boolean' ? held : null,
+      value: typeof raw === 'number' || typeof raw === 'boolean' ? raw : null,
     };
   }
 
@@ -643,12 +645,14 @@ class Compiler {
   raise(raise: RaiseFile, place: Place): RaiseIR {
     return {
       happening: raise.happening,
-      spoken: raise.spoken,
-      say: raise.say ? this.expression(raise.say, place.to('say')) : null,
+      answers: raise.answers,
+      message: raise.message
+        ? this.expression(raise.message, place.to('message'))
+        : null,
       opens: raise.opens
         ? {
-            onto: raise.opens.onto,
-            at: raise.opens.at ?? null,
+            lineRole: raise.opens.lineRole,
+            station: raise.opens.station ?? null,
             title: this.expression(
               raise.opens.title,
               place.to('opens.title'),
@@ -680,25 +684,31 @@ class Compiler {
         ) as Expression,
         finds: mark.find,
       })),
-      attaches: raise.attaches
+      attachments: raise.attachments
         ? {
             each: this.expression(
-              raise.attaches.each,
-              place.to('attaches.each'),
+              raise.attachments.each,
+              place.to('attachments.each'),
             ) as Expression,
             name: this.expression(
-              raise.attaches.name,
-              place.to('attaches.name'),
+              raise.attachments.name,
+              place.to('attachments.name'),
             ) as Expression,
-            type: raise.attaches.type
-              ? this.expression(raise.attaches.type, place.to('attaches.type'))
+            type: raise.attachments.type
+              ? this.expression(
+                  raise.attachments.type,
+                  place.to('attachments.type'),
+                )
               : null,
-            size: raise.attaches.size
-              ? this.expression(raise.attaches.size, place.to('attaches.size'))
+            size: raise.attachments.size
+              ? this.expression(
+                  raise.attachments.size,
+                  place.to('attachments.size'),
+                )
               : null,
             fetch: this.request(
-              raise.attaches.fetch,
-              place.to('attaches.fetch'),
+              raise.attachments.fetch,
+              place.to('attachments.fetch'),
             ),
           }
         : null,
@@ -706,12 +716,12 @@ class Compiler {
   }
 }
 
-type SourceFile =
+type SpecFile =
   | { readonly kind: 'openapi'; readonly file: OpenApiFile }
   | { readonly kind: 'graphql'; readonly file: GraphQlFile }
   | { readonly kind: 'mcp'; readonly file: McpFile };
 
-const sourceFileOf = (file: IntegrationFile): SourceFile | null =>
+const specFileOf = (file: IntegrationFile): SpecFile | null =>
   file.openapi
     ? { kind: 'openapi', file: file.openapi }
     : file.graphql
@@ -720,17 +730,17 @@ const sourceFileOf = (file: IntegrationFile): SourceFile | null =>
         ? { kind: 'mcp', file: file.mcp }
         : null;
 
-const documentOf = (written: SourceFile): string | null =>
+const documentOf = (written: SpecFile): string | null =>
   written.kind === 'mcp' || written.file.document === undefined
     ? null
     : typeof written.file.document === 'string'
       ? written.file.document
       : JSON.stringify(written.file.document);
 
-const revisionOf = (written: SourceFile): string | null =>
+const revisionOf = (written: SpecFile): string | null =>
   written.kind === 'mcp' ? null : (written.file.revision ?? null);
 
-const fingerprintOf = (written: SourceFile): string =>
+const fingerprintOf = (written: SpecFile): string =>
   createHash('sha256')
     .update(
       JSON.stringify({
@@ -746,19 +756,16 @@ const fingerprintOf = (written: SourceFile): string =>
     )
     .digest('hex');
 
-const describedSourceOf = (
-  written: SourceFile,
-  auth: AuthIR | null,
-): DescribedSource => {
+const apiSpecOf = (written: SpecFile, auth: AuthIR | null): ApiSpec => {
   const document = documentOf(written);
 
-  return DescribedSource.of({
+  return ApiSpec.of({
     kind: written.kind,
     url: written.file.url ?? null,
     document,
     baseUrl: written.kind === 'openapi' ? (written.file.baseUrl ?? null) : null,
     depth: written.kind === 'graphql' ? (written.file.depth ?? null) : null,
-    wears:
+    injectedSecrets:
       auth?.kind === 'secrets'
         ? auth.secrets.map((each) => SecretName.of(each))
         : [],
@@ -809,15 +816,15 @@ const inputSchemaOf = (input: ToolInputFile): InputSchema =>
       )
     : InputSchema.ofType(input.type ?? 'string', input.description ?? null);
 
-const addressOf = (held: unknown): string => {
-  const source =
-    typeof held === 'object' && held !== null && 'integration' in held
-      ? held.integration
+const addressOf = (raw: unknown): string => {
+  const integration =
+    typeof raw === 'object' && raw !== null && 'integration' in raw
+      ? raw.integration
       : null;
 
   try {
-    return typeof source === 'string'
-      ? integrationAt(SourceKey.of(source).value)
+    return typeof integration === 'string'
+      ? integrationAt(IntegrationKey.of(integration).value)
       : INTEGRATIONS;
   } catch {
     return INTEGRATIONS;
@@ -825,14 +832,14 @@ const addressOf = (held: unknown): string => {
 };
 
 export const compileIntegration = (
-  held: unknown,
+  raw: unknown,
   expressions: ExpressionEnginePort,
-  described: DescribedOperations | null = null,
+  specOperations: SpecOperations | null = null,
 ): Compiled => {
-  const read = integrationSchema.safeParse(held);
+  const read = integrationSchema.safeParse(raw);
 
   if (!read.success) {
-    const path = addressOf(held);
+    const path = addressOf(raw);
 
     return {
       ok: false,
@@ -875,7 +882,7 @@ export const compileIntegration = (
     .adding(
       hinted(file.poll?.shape ? { body: file.poll.shape as SchemaFields } : {}),
     );
-  const source = SourceKey.of(file.integration);
+  const key = IntegrationKey.of(file.integration);
 
   const webhook: WebhookIR | null = file.webhook
     ? {
@@ -892,8 +899,11 @@ export const compileIntegration = (
               ) as Expression,
             }
           : null,
-        mine: file.webhook.mine
-          ? compiler.expression(file.webhook.mine, hooked.to('mine'))
+        ignoreWhen: file.webhook.ignoreWhen
+          ? compiler.expression(
+              file.webhook.ignoreWhen,
+              hooked.to('ignoreWhen'),
+            )
           : null,
         route: file.webhook.route
           ? compiler.expression(file.webhook.route.by, hooked.to('route.by'))
@@ -922,13 +932,13 @@ export const compileIntegration = (
 
   const inputsOf = new Map<string, Record<string, string>>();
   for (const tool of Object.values(file.tools)) {
-    const held = inputsOf.get(tool.does) ?? {};
+    const typed = inputsOf.get(tool.action) ?? {};
     for (const [name, input] of Object.entries(tool.inputs)) {
       const type = seenAs(inputSchemaOf(input));
-      held[name] =
-        held[name] === undefined || held[name] === type ? type : 'dyn';
+      typed[name] =
+        typed[name] === undefined || typed[name] === type ? type : 'dyn';
     }
-    inputsOf.set(tool.does, held);
+    inputsOf.set(tool.action, typed);
   }
 
   const actions = new Map<string, RequestIR>();
@@ -955,10 +965,10 @@ export const compileIntegration = (
   const tools = new Map<string, ToolIR>();
   for (const [name, tool] of Object.entries(file.tools)) {
     const at = `tools.${name}`;
-    const offered = root.to('tools').each(name);
+    const placed = root.to('tools').each(name);
 
-    compiler.part(FieldPath.of(['tools', name, 'does']), () =>
-      defined?.named(tool.does, at),
+    compiler.part(FieldPath.of(['tools', name, 'action']), () =>
+      defined?.named(tool.action, at),
     );
 
     tools.set(name, {
@@ -968,21 +978,21 @@ export const compileIntegration = (
         schema: inputSchemaOf(declared),
         description: declared.description ?? null,
         required: declared.required,
-        piped: declared.piped,
+        stdin: declared.stdin,
         default:
           declared.default !== undefined
             ? compiler.templated(
                 declared.default,
-                offered.to('inputs').each(input).to('default'),
+                placed.to('inputs').each(input).to('default'),
               )
             : null,
       })),
       output: tool.output
         ? compiler.expression(
             tool.output,
-            offered
+            placed
               .to('output')
-              .adding({ inputs: inputsOf.get(tool.does) ?? {} }),
+              .adding({ inputs: inputsOf.get(tool.action) ?? {} }),
           )
         : null,
     });
@@ -991,7 +1001,7 @@ export const compileIntegration = (
   const oauth2File = file.connection?.oauth2;
   const connection: ConnectionIR | null = file.connection
     ? {
-        holding: ConnectionHolding.of(file.connection.holder),
+        actsAs: ActsAs.of(file.connection.actsAs),
         oauth2: oauth2File
           ? compiler.part(FieldPath.of(['connection', 'oauth2']), () =>
               oauth2Of(
@@ -1018,7 +1028,7 @@ export const compileIntegration = (
       }
     : null;
 
-  const written = sourceFileOf(file);
+  const written = specFileOf(file);
   const filter = written
     ? compiler.part(FieldPath.of([written.kind, 'tools']), () =>
         OperationFilter.of(written.file.tools),
@@ -1038,17 +1048,17 @@ export const compileIntegration = (
       }
     }
   }
-  const describedIR: DescribedIR | null =
+  const apiSpecIR: ApiSpecIR | null =
     written && filter
       ? (() => {
           const auth = written.file.auth
             ? compiler.auth(written.file.auth, root.to(written.kind).to('auth'))
             : null;
-          const source = compiler.part(FieldPath.of([written.kind]), () =>
-            describedSourceOf(written, auth),
+          const spec = compiler.part(FieldPath.of([written.kind]), () =>
+            apiSpecOf(written, auth),
           );
 
-          return source ? { source, auth, filter, approvals } : null;
+          return spec ? { spec, auth, filter, approvals } : null;
         })()
       : null;
 
@@ -1058,24 +1068,24 @@ export const compileIntegration = (
         const cron = compiler.part(FieldPath.of(['schedule', 'cron']), () =>
           CronExpression.of(written.cron, cronCalendar),
         );
-        const does = compiler.part(FieldPath.of(['schedule', 'do']), () =>
-          defined?.named(written.do, 'schedule'),
+        const action = compiler.part(FieldPath.of(['schedule', 'action']), () =>
+          defined?.named(written.action, 'schedule'),
         );
 
-        return cron && does ? Schedule.of({ cron, does }) : null;
+        return cron && action ? Schedule.of({ cron, action }) : null;
       })()
     : null;
 
   const bindings: Binding[] = [];
   const on: OnBindingIR[] = Object.entries(file.on).map(([event, binding]) => {
     const bound = compiler.part(FieldPath.of(['on', event]), () =>
-      Binding.of({ event, does: binding.do, known: ON_EVENTS }),
+      Binding.of({ event, action: binding.action, known: ON_EVENTS }),
     );
-    const does = compiler.part(FieldPath.of(['on', event, 'do']), () =>
-      defined?.named(binding.do, `binding on ${event}`),
+    const action = compiler.part(FieldPath.of(['on', event, 'action']), () =>
+      defined?.named(binding.action, `binding on ${event}`),
     );
 
-    if (bound && does) {
+    if (bound && action) {
       bindings.push(bound);
     }
 
@@ -1100,10 +1110,10 @@ export const compileIntegration = (
   });
 
   const webhookDeclares = (file.webhook?.events ?? []).map((event, at) =>
-    compiler.declared(event, FieldPath.of(['webhook', 'events', at]), source),
+    compiler.declared(event, FieldPath.of(['webhook', 'events', at]), key),
   );
   const pollDeclares = (file.poll?.events ?? []).map((event, at) =>
-    compiler.declared(event, FieldPath.of(['poll', 'events', at]), source),
+    compiler.declared(event, FieldPath.of(['poll', 'events', at]), key),
   );
   const approvalOf = (
     written: { because: string } | undefined,
@@ -1111,13 +1121,13 @@ export const compileIntegration = (
   ): ApprovalNeeded | null =>
     written ? ApprovalNeeded.of(written, `tools.${name}.approval`) : null;
 
-  const offers = [...tools.values()].map((tool) =>
+  const providedTools = [...tools.values()].map((tool) =>
     compiler.part(FieldPath.of(['tools', tool.name]), () =>
-      OfferedTool.of({
-        source,
+      ProvidedTool.of({
+        integration: key,
         name: tool.name,
         description: file.tools[tool.name]?.description ?? '',
-        backing: ToolBacking.action(file.tools[tool.name]?.does ?? ''),
+        backing: ToolBacking.action(file.tools[tool.name]?.action ?? ''),
         approval: approvalOf(file.tools[tool.name]?.approval, tool.name),
         inputs: tool.inputs.map((input) => ({
           name: input.name,
@@ -1125,36 +1135,36 @@ export const compileIntegration = (
           description: input.description,
           required: input.required,
           defaulted: input.default !== null,
-          piped: input.piped,
+          stdin: input.stdin,
         })),
       }),
     ),
   );
 
   const generation =
-    described && describedIR && written
+    specOperations && apiSpecIR && written
       ? compiler.part(FieldPath.of([written.kind, 'tools']), () =>
           generatedTools({
-            source,
-            integration: file.name?.trim() || source.value,
-            described: describedIR.source,
-            hash: described.hash,
-            operations: described.operations,
-            filter: describedIR.filter,
-            approvals: describedIR.approvals,
+            integration: key,
+            integrationName: file.name?.trim() || key.value,
+            spec: apiSpecIR.spec,
+            hash: specOperations.hash,
+            operations: specOperations.operations,
+            filter: apiSpecIR.filter,
+            approvals: apiSpecIR.approvals,
             handWritten: Object.keys(file.tools),
           }),
         )
       : null;
 
-  if (written && described) {
-    const named = new Set(described.operations.map((each) => each.name));
+  if (written && specOperations) {
+    const named = new Set(specOperations.operations.map((each) => each.name));
 
     for (const name of approvals.keys()) {
       if (!named.has(name)) {
         compiler.warn(
           FieldPath.of([written.kind, 'tools', 'approval', name]),
-          `names ${name}, but no operation of its ${describedIR?.source.described ?? 'description'} has that name`,
+          `names ${name}, but no operation of its ${apiSpecIR?.spec.label ?? 'spec'} has that name`,
         );
       }
     }
@@ -1169,7 +1179,7 @@ export const compileIntegration = (
 
   try {
     const integration = Integration.of({
-      source,
+      key,
       name: file.name,
       webhook: file.webhook
         ? Webhook.of({ declares: webhookDeclares.filter(isPresent) })
@@ -1183,10 +1193,11 @@ export const compileIntegration = (
       schedule,
       actions: defined,
       bindings,
-      connects: connection?.oauth2 !== null && connection?.oauth2 !== undefined,
-      holding: connection?.holding,
+      requiresConnection:
+        connection?.oauth2 !== null && connection?.oauth2 !== undefined,
+      actsAs: connection?.actsAs,
       credentials: [...compiler.secrets].map((name) => SecretName.of(name)),
-      offers: [...offers.filter(isPresent), ...(generation?.tools ?? [])],
+      tools: [...providedTools.filter(isPresent), ...(generation?.tools ?? [])],
     });
 
     return {
@@ -1194,7 +1205,7 @@ export const compileIntegration = (
       readable: {
         path,
         integration,
-        described: describedIR,
+        apiSpec: apiSpecIR,
         webhook,
         poll,
         connection,
@@ -1203,7 +1214,7 @@ export const compileIntegration = (
         tools,
       },
       definition: file,
-      passedOver: generation?.passedOver ?? [],
+      skipped: generation?.skipped ?? [],
       warnings: compiler.warnings,
       places: compiler.places,
     };
@@ -1260,13 +1271,13 @@ const hintProblemsOf = (
     ),
   ] as [Shape, FieldPath][];
 
-  const refused = shapes.flatMap(([shape, at]) =>
-    refusedHints(shape, at, known),
+  const problems = shapes.flatMap(([shape, at]) =>
+    hintProblems(shape, at, known),
   );
   const { cycle } = orderedTypes(file.types as Record<string, Shape>);
 
   return [
-    ...refused,
+    ...problems,
     ...(cycle
       ? [
           {
@@ -1290,18 +1301,18 @@ export class IntegrationCompiler implements IntegrationCompilerPort {
   constructor(private readonly expressions: ExpressionEnginePort) {}
 
   compile(
-    held: unknown,
-    described: DescribedOperations | null = null,
+    raw: unknown,
+    specOperations: SpecOperations | null = null,
   ): ParsedIntegration {
-    const compiled = compileIntegration(held, this.expressions, described);
+    const compiled = compileIntegration(raw, this.expressions, specOperations);
 
     return compiled.ok
       ? {
           ok: true,
           integration: compiled.readable.integration,
           document: DefinitionDocument.of(compiled.definition),
-          source: compiled.readable.described?.source ?? null,
-          passedOver: compiled.passedOver,
+          spec: compiled.readable.apiSpec?.spec ?? null,
+          skipped: compiled.skipped,
           warnings: compiled.warnings,
         }
       : compiled;

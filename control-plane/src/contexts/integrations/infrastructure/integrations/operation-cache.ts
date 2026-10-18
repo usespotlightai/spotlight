@@ -1,38 +1,35 @@
-import type { DescribedDocumentRepository } from '@integrations/domain/repositories/described-document.repository';
+import type { SpecDocumentRepository } from '@integrations/domain/repositories/spec-document.repository';
 import type { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
-import type { DescribedOperation } from '@integrations/domain/value-objects/described-operation.vo';
+import type { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
 
-const MAX_HELD = 2000;
+const MAX_ENTRIES = 2000;
 
 export class OperationCache {
-  readonly #held = new Map<string, DescribedOperation>();
+  readonly #entries = new Map<string, SpecOperation>();
 
-  constructor(private readonly documents: DescribedDocumentRepository) {}
+  constructor(private readonly documents: SpecDocumentRepository) {}
 
-  async of(
-    hash: ContentHash,
-    name: string,
-  ): Promise<DescribedOperation | null> {
+  async of(hash: ContentHash, name: string): Promise<SpecOperation | null> {
     const key = `${hash.value}:${name}`;
-    const held = this.#held.get(key);
+    const cached = this.#entries.get(key);
 
-    if (held) {
-      this.#held.delete(key);
-      this.#held.set(key, held);
+    if (cached) {
+      this.#entries.delete(key);
+      this.#entries.set(key, cached);
 
-      return held;
+      return cached;
     }
 
     const found = await this.documents.operation(hash, name);
 
     if (found) {
-      this.#held.set(key, found);
+      this.#entries.set(key, found);
 
-      for (const oldest of this.#held.keys()) {
-        if (this.#held.size <= MAX_HELD) {
+      for (const oldest of this.#entries.keys()) {
+        if (this.#entries.size <= MAX_ENTRIES) {
           break;
         }
-        this.#held.delete(oldest);
+        this.#entries.delete(oldest);
       }
     }
 

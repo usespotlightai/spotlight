@@ -1,8 +1,8 @@
 import type { JsonObject } from '@shared-kernel/domain/services/json-value';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 
 export interface RunCheckout {
@@ -25,10 +25,10 @@ interface RunHandover {
   readonly noteLimit: number;
 }
 
-export interface RunContinuity {
+export interface RunResume {
   readonly key: string;
   readonly sessionId?: string;
-  readonly resumes?: boolean;
+  readonly resumeSession?: boolean;
 }
 
 export interface RunToolInput {
@@ -37,7 +37,7 @@ export interface RunToolInput {
   readonly description?: string;
   readonly required: boolean;
   readonly defaulted: boolean;
-  readonly piped: boolean;
+  readonly stdin: boolean;
 }
 
 export interface RunToolApproval {
@@ -69,7 +69,7 @@ export interface RunHarnessSetup {
   readonly files: readonly RunFile[];
   readonly session?: Readonly<Record<string, unknown>>;
   readonly mcpServers: readonly RunMcpServer[];
-  readonly asks: readonly string[];
+  readonly askKinds: readonly string[];
 }
 
 export interface RunAttachment {
@@ -96,7 +96,7 @@ export interface RunSpecParts {
   readonly command: RunCommand;
   readonly briefing: string;
   readonly handover: RunHandover;
-  readonly continuity: RunContinuity;
+  readonly resume: RunResume;
   readonly skills?: readonly RunFile[];
   readonly skillHomes?: readonly string[];
   readonly manifest?: readonly RunToolManifest[];
@@ -107,7 +107,7 @@ export interface RunSpecParts {
   readonly startingPoint?: boolean;
   readonly harnessSetup?: RunHarnessSetup;
   readonly settingFiles?: readonly string[];
-  readonly wears?: readonly string[];
+  readonly injectedSecrets?: readonly string[];
   readonly spotlightApi?: boolean;
   readonly replay?: RunReplay;
   readonly search?: RunSearch;
@@ -118,9 +118,9 @@ const outside = (path: string): boolean =>
 
 const blank = (text: string): boolean => text.trim().length === 0;
 
-const isSecretName = (worn: string): boolean => {
+const isSecretName = (name: string): boolean => {
   try {
-    return SecretName.of(worn).value === worn;
+    return SecretName.of(name).value === name;
   } catch {
     return false;
   }
@@ -144,7 +144,7 @@ const setupCopied = (setup: RunHarnessSetup): RunHarnessSetup => ({
     args: [...server.args],
     env: server.env.map(({ name, value }) => ({ name, value })),
   })),
-  asks: [...setup.asks],
+  askKinds: [...setup.askKinds],
 });
 
 const copied = (parts: RunSpecParts): RunSpecParts => ({
@@ -170,12 +170,12 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
     options: [...parts.handover.options],
     noteLimit: parts.handover.noteLimit,
   },
-  continuity: {
-    key: parts.continuity.key,
-    ...(parts.continuity.sessionId !== undefined
-      ? { sessionId: parts.continuity.sessionId }
+  resume: {
+    key: parts.resume.key,
+    ...(parts.resume.sessionId !== undefined
+      ? { sessionId: parts.resume.sessionId }
       : {}),
-    ...(parts.continuity.resumes ? { resumes: true } : {}),
+    ...(parts.resume.resumeSession ? { resumeSession: true } : {}),
   },
   ...(parts.skills
     ? { skills: parts.skills.map(({ path, text }) => ({ path, text })) }
@@ -194,7 +194,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
               : {}),
             required: input.required,
             defaulted: input.defaulted,
-            piped: input.piped,
+            stdin: input.stdin,
           })),
           approval: each.approval ? { because: each.approval.because } : null,
           ...(each.integration !== undefined
@@ -219,7 +219,9 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
   ...(parts.settingFiles?.length
     ? { settingFiles: [...parts.settingFiles] }
     : {}),
-  ...(parts.wears?.length ? { wears: [...parts.wears] } : {}),
+  ...(parts.injectedSecrets?.length
+    ? { injectedSecrets: [...parts.injectedSecrets] }
+    : {}),
   ...(parts.spotlightApi ? { spotlightApi: true } : {}),
   ...(parts.replay
     ? {
@@ -235,7 +237,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
   ...(parts.search ? { search: {} } : {}),
 });
 
-const replayRefusal = (parts: RunSpecParts): string | null => {
+const replayProblem = (parts: RunSpecParts): string | null => {
   const replay = parts.replay;
 
   if (!replay) {
@@ -243,20 +245,20 @@ const replayRefusal = (parts: RunSpecParts): string | null => {
   }
 
   if (
-    (parts.wears?.length ?? 0) > 0 ||
+    (parts.injectedSecrets?.length ?? 0) > 0 ||
     parts.spotlightApi ||
     (parts.manifest?.length ?? 0) > 0 ||
     (parts.catalog?.length ?? 0) > 0 ||
     (parts.harnessSetup?.mcpServers.length ?? 0) > 0
   ) {
-    return 'must give a replay no tools, MCP servers or secrets';
+    return 'must enable no tools, MCP servers or secrets for a replay';
   }
 
   if (parts.startingPoint) {
     return 'must not have a replay report where it started';
   }
 
-  if (parts.continuity.sessionId || parts.continuity.resumes) {
+  if (parts.resume.sessionId || parts.resume.resumeSession) {
     return 'must start a replay in a conversation of its own';
   }
 
@@ -282,7 +284,7 @@ const replayRefusal = (parts: RunSpecParts): string | null => {
   return null;
 };
 
-const searchRefusal = (parts: RunSpecParts): string | null => {
+const searchProblem = (parts: RunSpecParts): string | null => {
   if (!parts.search) {
     return null;
   }
@@ -292,20 +294,20 @@ const searchRefusal = (parts: RunSpecParts): string | null => {
   }
 
   if ((parts.checkouts?.length ?? 0) > 0) {
-    return 'must give a search no checkouts';
+    return 'must have no checkouts for a search';
   }
 
   if (
-    (parts.wears?.length ?? 0) > 0 ||
+    (parts.injectedSecrets?.length ?? 0) > 0 ||
     (parts.manifest?.length ?? 0) > 0 ||
     (parts.catalog?.length ?? 0) > 0 ||
     (parts.harnessSetup?.mcpServers.length ?? 0) > 0
   ) {
-    return 'must give a search no tools, MCP servers or secrets';
+    return 'must enable no tools, MCP servers or secrets for a search';
   }
 
   if ((parts.attachments?.length ?? 0) > 0) {
-    return 'must give a search no attachments';
+    return 'must have no attachments for a search';
   }
 
   if (
@@ -314,7 +316,7 @@ const searchRefusal = (parts: RunSpecParts): string | null => {
     (parts.settingFiles?.length ?? 0) > 0 ||
     parts.harnessSetup
   ) {
-    return 'must give a search no skills or harness settings';
+    return 'must have no skills or harness settings for a search';
   }
 
   if (parts.diffs || parts.check !== undefined) {
@@ -322,14 +324,14 @@ const searchRefusal = (parts: RunSpecParts): string | null => {
   }
 
   if (parts.handover.options.length > 0 || parts.handover.noteLimit > 0) {
-    return 'must give a search nothing to hand over to';
+    return 'must have no handover options for a search';
   }
 
   if (parts.startingPoint) {
     return 'must not have a search report where it started';
   }
 
-  if (parts.continuity.sessionId || parts.continuity.resumes) {
+  if (parts.resume.sessionId || parts.resume.resumeSession) {
     return 'must start a search in a conversation of its own';
   }
 
@@ -387,26 +389,26 @@ export class RunSpec {
         throw new InvalidRunSpecError('must say where a checkout comes from');
       }
       if (checkout.path !== undefined && outside(checkout.path)) {
-        throw new InvalidRunSpecError('must keep a checkout in the workspace');
+        throw new InvalidRunSpecError('must put a checkout in the workspace');
       }
     }
 
     for (const skill of parts.skills ?? []) {
       if (!skill.path || outside(skill.path)) {
-        throw new InvalidRunSpecError('must keep a skill in the workspace');
+        throw new InvalidRunSpecError('must put a skill in the workspace');
       }
     }
 
     for (const home of parts.skillHomes ?? []) {
       if (!home || outside(home)) {
-        throw new InvalidRunSpecError('must keep skills in the workspace');
+        throw new InvalidRunSpecError('must put skills in the workspace');
       }
     }
 
     for (const file of parts.harnessSetup?.files ?? []) {
       if (!file.path || outside(file.path)) {
         throw new InvalidRunSpecError(
-          'must keep a harness setting in the state directory',
+          'must put a harness setting in the state directory',
         );
       }
     }
@@ -414,21 +416,23 @@ export class RunSpec {
     for (const path of parts.settingFiles ?? []) {
       if (!path || outside(path)) {
         throw new InvalidRunSpecError(
-          'must keep a harness setting in the state directory',
+          'must put a harness setting in the state directory',
         );
       }
     }
 
-    for (const worn of parts.wears ?? []) {
-      if (!isSecretName(worn)) {
-        throw new InvalidRunSpecError('must name each secret it wears');
+    for (const secret of parts.injectedSecrets ?? []) {
+      if (!isSecretName(secret)) {
+        throw new InvalidRunSpecError(
+          'must name each secret that egress injects for it',
+        );
       }
     }
 
     for (const attachment of parts.attachments ?? []) {
       if (!attachment.path || outside(attachment.path)) {
         throw new InvalidRunSpecError(
-          'must keep an attachment in the workspace',
+          'must put an attachment in the workspace',
         );
       }
     }
@@ -437,10 +441,10 @@ export class RunSpec {
       throw new InvalidRunSpecError('must say what checks its change');
     }
 
-    const refused = replayRefusal(parts) ?? searchRefusal(parts);
+    const problem = replayProblem(parts) ?? searchProblem(parts);
 
-    if (refused) {
-      throw new InvalidRunSpecError(refused);
+    if (problem) {
+      throw new InvalidRunSpecError(problem);
     }
 
     return new RunSpec(copied(parts));
@@ -462,7 +466,7 @@ export class RunSpec {
     return this.parts.briefing;
   }
 
-  gives(tool: Tool): boolean {
+  enables(tool: Tool): boolean {
     return (this.parts.manifest ?? []).some((each) => each.name === tool.value);
   }
 
@@ -474,42 +478,44 @@ export class RunSpec {
     );
   }
 
-  get continuity(): ContinuityKey | null {
-    return blank(this.parts.continuity.key)
+  get resumeKey(): ResumeKey | null {
+    return blank(this.parts.resume.key)
       ? null
-      : ContinuityKey.of(this.parts.continuity.key);
+      : ResumeKey.of(this.parts.resume.key);
   }
 
   get continuesASession(): boolean {
-    return Boolean(this.parts.continuity.sessionId);
+    return Boolean(this.parts.resume.sessionId);
   }
 
-  get resumes(): boolean {
-    return this.parts.continuity.resumes === true;
+  get resumesSession(): boolean {
+    return this.parts.resume.resumeSession === true;
   }
 
   resumingIn(session: HarnessSession | null): RunSpec {
     return new RunSpec(
       copied({
         ...this.parts,
-        continuity: {
-          key: this.parts.continuity.key,
+        resume: {
+          key: this.parts.resume.key,
           ...(session
             ? { sessionId: session.value }
-            : this.parts.continuity.sessionId !== undefined
-              ? { sessionId: this.parts.continuity.sessionId }
+            : this.parts.resume.sessionId !== undefined
+              ? { sessionId: this.parts.resume.sessionId }
               : {}),
-          resumes: true,
+          resumeSession: true,
         },
       }),
     );
   }
 
-  get wears(): readonly SecretName[] {
-    return (this.parts.wears ?? []).map((each) => SecretName.of(each));
+  get injectedSecrets(): readonly SecretName[] {
+    return (this.parts.injectedSecrets ?? []).map((each) =>
+      SecretName.of(each),
+    );
   }
 
-  get wearsSpotlightApi(): boolean {
+  get injectsSpotlightApi(): boolean {
     return this.parts.spotlightApi === true;
   }
 

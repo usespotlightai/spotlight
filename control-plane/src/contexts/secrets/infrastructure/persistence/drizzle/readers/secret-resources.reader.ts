@@ -1,4 +1,4 @@
-import type { WorkspaceHolder } from '@identity/application/ports/workspace-holdings.port';
+import type { WorkspaceDependentSource } from '@identity/application/ports/workspace-dependents.port';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { DefinedSecretsPort } from '@secrets/application/ports/defined-secrets.port';
@@ -11,7 +11,7 @@ import { secret } from '@secrets/infrastructure/persistence/drizzle/schemas/secr
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, type SQL } from 'drizzle-orm';
 
-const keptFrom = (row: typeof secret.$inferSelect): SecretRecord => ({
+const recordOf = (row: typeof secret.$inferSelect): SecretRecord => ({
   id: row.id,
   version: row.version,
   workspaceId: WorkspaceId.of(row.workspaceId),
@@ -28,7 +28,7 @@ const keptFrom = (row: typeof secret.$inferSelect): SecretRecord => ({
 
 @Injectable()
 export class DrizzleSecretResources
-  implements SecretResourcesPort, DefinedSecretsPort, WorkspaceHolder
+  implements SecretResourcesPort, DefinedSecretsPort, WorkspaceDependentSource
 {
   constructor(private readonly context: DrizzleContext) {}
 
@@ -48,7 +48,7 @@ export class DrizzleSecretResources
         .select()
         .from(secret)
         .where(eq(secret.workspaceId, workspaceId.value))
-    ).map(keptFrom);
+    ).map(recordOf);
   }
 
   async namesIn(workspaceId: string): Promise<readonly string[]> {
@@ -61,7 +61,7 @@ export class DrizzleSecretResources
     ).map((each) => each.name);
   }
 
-  async heldBy(workspaceId: WorkspaceId): Promise<readonly string[]> {
+  async dependentsOf(workspaceId: WorkspaceId): Promise<readonly string[]> {
     return (await this.namesIn(workspaceId.value)).map(
       (name) => `secret ${name}`,
     );
@@ -74,6 +74,6 @@ export class DrizzleSecretResources
       .where(where)
       .limit(1);
 
-    return found ? keptFrom(found) : null;
+    return found ? recordOf(found) : null;
   }
 }

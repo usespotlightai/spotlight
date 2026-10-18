@@ -33,7 +33,7 @@ export class ListRunnersHandler
       const [hosts, runners] = await Promise.all([
         this.runners.hostsIn(
           membership.workspaceId,
-          RunnerHost.rememberedSince(now),
+          RunnerHost.staleBefore(now),
         ),
         this.runners.inWorkspace(membership.workspaceId),
       ]);
@@ -42,7 +42,7 @@ export class ListRunnersHandler
         hosts: hosts.map((host) =>
           RunnerFleetMapper.host(
             host,
-            RunnerHost.answering(host.lastSeenAt, now),
+            RunnerHost.isOnline(host.lastHeartbeatAt, now),
           ),
         ),
         runners: runners.map(RunnerFleetMapper.runner),

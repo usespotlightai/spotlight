@@ -2,7 +2,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { JournalStep } from '@work/application/contracts/run-journal.contract';
 import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
-import type { ContentDigestPort } from '@work/application/ports/content-digest.port';
+import type { ContentHashPort } from '@work/application/ports/content-hash.port';
 import type {
   EvidencedHunk,
   EvidencedRun,
@@ -23,27 +23,27 @@ import type { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 
 const MAX_TEXT = 4_000;
 
-interface AskedOfRun {
+interface TaskOfRun {
   readonly taskId: string;
   readonly title: string;
   readonly description: string | null;
 }
 
-const MAX_TOLD = 2_000;
+const MAX_TOOL_IO_CHARS = 2_000;
 
 const clipped = (text: string, max: number): string =>
   text.length > max ? `${text.slice(0, max)} …` : text;
 
 const clippedOrNone = (text: string | null): string | null =>
-  text === null ? null : clipped(text, MAX_TOLD);
+  text === null ? null : clipped(text, MAX_TOOL_IO_CHARS);
 
 const evidenced = (step: JournalStep, index: number): EvidencedStep => ({
   index,
   kind: step.kind,
   tool: step.tool,
   text: clipped(step.text, MAX_TEXT),
-  given: clippedOrNone(step.given),
-  returned: clippedOrNone(step.returned),
+  input: clippedOrNone(step.input),
+  output: clippedOrNone(step.output),
 });
 
 const hunksIn = (
@@ -83,10 +83,10 @@ export class RunEvidences implements RunEvidencePort {
     private readonly lines: LineRepository,
     private readonly journals: RunJournalReaderPort,
     private readonly briefed: BriefedTasksPort,
-    private readonly digest: ContentDigestPort,
+    private readonly hash: ContentHashPort,
   ) {}
 
-  async holds(runId: string): Promise<boolean> {
+  async hasTask(runId: string): Promise<boolean> {
     const run = await this.runs.findById(RunId.of(runId));
 
     return Boolean(run?.taskId && (await this.tasks.find(run.taskId)));
@@ -94,10 +94,10 @@ export class RunEvidences implements RunEvidencePort {
 
   async of(runId: string): Promise<EvidencedRun | null> {
     const run = await this.runs.findById(RunId.of(runId));
-    const asked = run ? await this.askedOf(run) : null;
+    const task = run ? await this.taskOf(run) : null;
     const attempts = run ? await this.journals.attemptsOfRun(run.id) : [];
 
-    if (!run || !asked || attempts.length === 0) {
+    if (!run || !task || attempts.length === 0) {
       return null;
     }
 
@@ -105,13 +105,13 @@ export class RunEvidences implements RunEvidencePort {
 
     return {
       runId: run.id.value,
-      ...asked,
+      ...task,
       steps: steps.map(evidenced),
       hunks: hunksIn(steps, run.spec.checkoutFolders),
     };
   }
 
-  private async askedOf(run: Run): Promise<AskedOfRun | null> {
+  private async taskOf(run: Run): Promise<TaskOfRun | null> {
     if (run.replayOf) {
       const original = await this.runs.findById(run.replayOf);
       const briefed = await this.briefed.of(run.replayOf);
@@ -138,7 +138,7 @@ export class RunEvidences implements RunEvidencePort {
 
   async judgeAt(stationId: string): Promise<StationJudgeSettings | null> {
     const at = StationId.of(stationId);
-    const line = await this.lines.holding(at);
+    const line = await this.lines.findByStation(at);
     const judge = line?.stationAt(at)?.judge ?? null;
 
     return line && judge ? this.settingsOf(line, judge) : null;
@@ -171,10 +171,10 @@ export class RunEvidences implements RunEvidencePort {
       lineId: line.id.value,
       rubric: judge.rubric,
       claims: judge.claims,
-      passShare: judge.passShare,
-      rubricVersion: this.digest.sha256(judge.criteria),
+      passThreshold: judge.passThreshold,
+      rubricVersion: this.hash.sha256(judge.criteria),
       sample: judge.sample,
-      trust: judge.trust,
+      minAgreement: judge.minAgreement,
     };
   }
 }

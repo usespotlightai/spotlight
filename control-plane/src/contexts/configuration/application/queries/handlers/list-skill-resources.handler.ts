@@ -36,7 +36,7 @@ export class ListSkillResourcesHandler
       }
 
       const teams = await this.teams.inWorkspace(workspace.workspaceId);
-      const held = await Promise.all(
+      const perTeam = await Promise.all(
         teams.map(async (team) =>
           (await this.resources.ofTeam(team.id)).map((each) =>
             this.views.onTeam(each, team.key),
@@ -44,7 +44,7 @@ export class ListSkillResourcesHandler
         ),
       );
 
-      return held.flat();
+      return perTeam.flat();
     } catch (error) {
       rethrowAsApplicationError(error);
     }

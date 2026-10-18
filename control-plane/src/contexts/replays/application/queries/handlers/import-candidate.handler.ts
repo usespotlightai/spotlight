@@ -3,7 +3,7 @@ import type { PeoplePort } from '@replays/application/ports/people.port';
 import type { ImportCandidateQuery } from '@replays/application/queries/import-candidate.query';
 import { candidateResourceView } from '@replays/application/services/replay-views';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
-import { CandidateAddress } from '@replays/domain/value-objects/candidate-address.vo';
+import { CandidatePath } from '@replays/domain/value-objects/candidate-path.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -19,7 +19,7 @@ export class ImportCandidateHandler
     query: ImportCandidateQuery,
   ): Promise<CandidateResourceDto | null> {
     try {
-      const address = CandidateAddress.parse(query.address);
+      const address = CandidatePath.parse(query.address);
       const teams = await this.people.readableTeams(
         query.workspaceId,
         query.principal,

@@ -1,5 +1,5 @@
-import type { HostCredential } from '@runners/application/ports/runner-admissions.port';
+import type { HostCredentials } from '@runners/application/ports/runner-authenticator.port';
 
 export class HostRequirementsQuery {
-  constructor(readonly credential: HostCredential) {}
+  constructor(readonly credential: HostCredentials) {}
 }

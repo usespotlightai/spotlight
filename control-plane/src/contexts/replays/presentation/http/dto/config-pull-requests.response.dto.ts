@@ -5,16 +5,16 @@ import type {
   ConfigPullRequestReasonDto,
 } from '@replays/application/dto/config-pull-requests.dto';
 import {
-  CONFIG_PULL_REQUEST_REFUSALS,
+  CONFIG_PULL_REQUEST_ERRORS,
   CONFIG_PULL_REQUEST_STATES,
 } from '@replays/domain/value-objects/config-pull-request-state';
 
 export class ConfigPullRequestReasonResponseDto {
   @ApiProperty({
-    enum: CONFIG_PULL_REQUEST_REFUSALS,
+    enum: CONFIG_PULL_REQUEST_ERRORS,
     example: 'computed-attribute',
     description:
-      'Why Spotlight would not open it: the line names no source; the GitHub App cannot reach the repository; the file is missing or does not parse; the station’s block was not found exactly once; an attribute it would change is computed in Terraform; the file changed since the search began; or GitHub refused',
+      'Why Spotlight would not open it: the line names no source; the GitHub App cannot access the repository; the file is missing or does not parse; the station’s block was not found exactly once; an attribute it would change is computed in Terraform; the file changed since the search began; or GitHub answered with an error',
   })
   readonly code: string;
 
@@ -81,7 +81,7 @@ export class CandidatePullRequestResponseDto {
   @ApiProperty({
     type: ConfigPullRequestReasonResponseDto,
     nullable: true,
-    description: 'Why it was refused; null unless it was',
+    description: 'Why it failed; null unless it failed',
   })
   readonly reason: ConfigPullRequestReasonResponseDto | null;
 
@@ -122,7 +122,7 @@ export class ConfigPullRequestResponseDto extends CandidatePullRequestResponseDt
     type: String,
     example: 'acme/platform',
     description:
-      'The repository the line’s source names, as it stood when it was picked; null when the line named none',
+      'The repository that the line’s source named when it was picked; null when the line named none',
   })
   readonly repository: string | null;
 
@@ -142,9 +142,9 @@ export class ConfigPullRequestResponseDto extends CandidatePullRequestResponseDt
   @ApiProperty({
     example: 1,
     description:
-      'How many times a person picked it; each pick after a refusal tries again',
+      'How many times a person picked it. Each pick after a failure starts a new generation',
   })
-  readonly attempts: number;
+  readonly generation: number;
 
   @ApiProperty({ example: '2026-10-02T09:00:00.000Z' })
   readonly createdAt: string;
@@ -164,7 +164,7 @@ export class ConfigPullRequestResponseDto extends CandidatePullRequestResponseDt
     this.repository = pullRequest.repository;
     this.path = pullRequest.path;
     this.branch = pullRequest.branch;
-    this.attempts = pullRequest.attempts;
+    this.generation = pullRequest.generation;
     this.createdAt = pullRequest.createdAt;
     this.updatedAt = pullRequest.updatedAt;
   }

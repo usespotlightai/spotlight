@@ -7,17 +7,17 @@ import {
 import { HarnessLogos } from '@/components/features/runners/HarnessLogos';
 import { HiddenRunTitle } from '@/components/features/runners/HiddenRunTitle';
 import { ImagePill } from '@/components/features/runners/ImagePill';
-import { StandingDot } from '@/components/features/runners/StandingDot';
+import { StatusDot } from '@/components/features/runners/StatusDot';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
   type ActiveRunner,
   formatRun,
   harnessesOf,
-  heldRunPath,
   hiddenFromViewer,
   hiddenRunTip,
+  leasedRunPath,
   type NamedHarness,
-  runnerStanding,
+  runnerStatus,
 } from '@/lib/runner';
 import { since } from '@/lib/since';
 import { cn } from '@/lib/utils';
@@ -30,7 +30,7 @@ type RunnerRowProps = {
 
 export function RunnerRow({ slug, runner, harnesses }: RunnerRowProps) {
   const label = formatRun(runner.currentRun);
-  const path = heldRunPath(slug, runner.currentRun);
+  const path = leasedRunPath(slug, runner.currentRun);
 
   return (
     <li
@@ -56,9 +56,9 @@ export function RunnerRow({ slug, runner, harnesses }: RunnerRowProps) {
         )}
       </span>
 
-      <StandingDot tone={runner.currentRun ? 'busy' : 'ready'}>
-        {runnerStanding(runner)}
-      </StandingDot>
+      <StatusDot tone={runner.currentRun ? 'busy' : 'ready'}>
+        {runnerStatus(runner)}
+      </StatusDot>
 
       <span className="flex min-w-0">
         {runner.image && (

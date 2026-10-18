@@ -1,16 +1,16 @@
-import { CONNECTION_HOLDINGS } from '@integrations/domain/value-objects/connection-holding.vo';
-import { TOOL_INPUT_NAME } from '@integrations/domain/value-objects/offered-tool.vo';
+import { ACTS_AS } from '@integrations/domain/value-objects/acts-as.vo';
+import { TOOL_INPUT_NAME } from '@integrations/domain/value-objects/provided-tool.vo';
 import {
-  CATALOG_SOURCE,
+  CATALOG_INTEGRATION,
   DOTTED_NAME,
+  INTEGRATION_KEY_SHAPE,
   SECRET_NAME_SHAPE,
   SLUG_SHAPE,
-  SOURCE_KEY_SHAPE,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { BINDABLE_TASK_EVENTS } from '@work/application/contracts/bindable-task-events.contract';
 import { z } from 'zod';
 
-const NAME = new RegExp(`^${SOURCE_KEY_SHAPE}$`);
+const NAME = new RegExp(`^${INTEGRATION_KEY_SHAPE}$`);
 const HAPPENING = new RegExp(`^${DOTTED_NAME}$`);
 const MARK_KIND = HAPPENING;
 const KEY = new RegExp(`^${SLUG_SHAPE}$`);
@@ -94,7 +94,10 @@ const authOptions = z.object({
   jwt: jwtSchema.optional(),
   secrets: z
     .array(secretRef)
-    .min(1, 'names each secret the request wears, as in secret.LINEAR_API_KEY')
+    .min(
+      1,
+      'names each secret that Spotlight injects into the request, as in secret.LINEAR_API_KEY',
+    )
     .optional(),
 });
 
@@ -114,7 +117,7 @@ const requestAuthSchema = authOptions
   .refine(namesOne, 'names exactly one way to authenticate')
   .refine(
     (auth) => auth.oauth2 !== undefined || auth.secrets !== undefined,
-    'authenticates a request by its oauth2 connection, or by the secrets it wears toward the hosts they are bound to',
+    'authenticates a request by its oauth2 connection, or by the secrets that Spotlight injects for the hosts they are bound to',
   );
 
 const captureSchema = z.record(z.string(), expression);
@@ -157,7 +160,7 @@ const toolInputSchema = z
     description: z.string().optional(),
     required: z.boolean().default(false),
     default: templated.optional(),
-    piped: z.boolean().default(false),
+    stdin: z.boolean().default(false),
   })
   .refine(
     (input) => input.type === undefined || input.schema === undefined,
@@ -174,7 +177,7 @@ const approvalSchema = z.object({
 });
 
 const toolSchema = z.object({
-  does: key('comment'),
+  action: key('comment'),
   approval: approvalSchema.optional(),
   description: z
     .string()
@@ -195,7 +198,7 @@ const toolSchema = z.object({
 
 const approvalOverrideSchema = z.union([approvalSchema, z.literal(false)]);
 
-const describedToolsSchema = z
+const specToolsSchema = z
   .object({
     include: z.array(z.string().min(1)).default([]),
     exclude: z.array(z.string().min(1)).default([]),
@@ -210,10 +213,10 @@ const openapiSchema = z
     baseUrl: z.string().url().optional(),
     revision: z.string().min(1).optional(),
     auth: requestAuthSchema.optional(),
-    tools: describedToolsSchema,
+    tools: specToolsSchema,
   })
   .refine(
-    (source) => (source.url === undefined) !== (source.document === undefined),
+    (spec) => (spec.url === undefined) !== (spec.document === undefined),
     'is read from a url, or written out in full as its document, but not both',
   );
 
@@ -223,19 +226,19 @@ const graphqlSchema = z.object({
   revision: z.string().min(1).optional(),
   depth: z.number().int().min(1).max(5).optional(),
   auth: requestAuthSchema.optional(),
-  tools: describedToolsSchema,
+  tools: specToolsSchema,
 });
 
 const mcpSchema = z.object({
   url: z.string().url(),
   auth: requestAuthSchema.optional(),
-  tools: describedToolsSchema,
+  tools: specToolsSchema,
 });
 
 const markSchema = z.object({
   kind: z
     .string()
-    .regex(MARK_KIND, 'names its source first, as in linear.issue'),
+    .regex(MARK_KIND, 'names its integration first, as in linear.issue'),
   value: expression,
   find: z.boolean().default(true),
 });
@@ -243,15 +246,15 @@ const markSchema = z.object({
 const raiseSchema = z.object({
   happening: z
     .string()
-    .regex(HAPPENING, 'names its source first, as in slack.app_mention'),
+    .regex(HAPPENING, 'names its integration first, as in slack.app_mention'),
   label: z.string().min(1).optional(),
-  told: z.string().min(1).optional(),
-  spoken: z.boolean().default(false),
-  say: expression.optional(),
+  summary: z.string().min(1).optional(),
+  answers: z.boolean().default(false),
+  message: expression.optional(),
   opens: z
     .object({
-      onto: z.string().regex(KEY, 'is the role of the lines this opens on'),
-      at: key('triage').optional(),
+      lineRole: z.string().regex(KEY, 'is the role of the lines this opens on'),
+      station: key('triage').optional(),
       title: expression,
       description: expression.optional(),
       assignBy: z.object({ email: expression }).optional(),
@@ -259,7 +262,7 @@ const raiseSchema = z.object({
     .optional(),
   branch: expression.optional(),
   marks: z.array(markSchema).default([]),
-  attaches: z
+  attachments: z
     .object({
       each: expression,
       name: expression,
@@ -283,11 +286,11 @@ const webhookSchema = z.object({
   shape: shapeSchema.optional(),
   verify: verifySchema,
   respond: z.object({ when: expression, body: expression }).optional(),
-  mine: expression.optional(),
+  ignoreWhen: expression.optional(),
   route: z.object({ by: expression }).optional(),
   parse: z.enum(['json', 'form']).default('json'),
   delivery: expression.optional(),
-  events: z.array(eventSchema).min(1, 'is what this host can raise'),
+  events: z.array(eventSchema).min(1, 'is what this integration can raise'),
 });
 
 const pollSchema = z.object({
@@ -300,11 +303,11 @@ const pollSchema = z.object({
 
 const scheduleSchema = z.object({
   cron: z.string().min(1),
-  do: key('post-message'),
+  action: key('post-message'),
 });
 
 const connectionSchema = z.object({
-  holder: z.enum(CONNECTION_HOLDINGS).default('team'),
+  actsAs: z.enum(ACTS_AS).default('team'),
   oauth2: z
     .discriminatedUnion('discover', [
       z
@@ -335,10 +338,10 @@ export const integrationSchema = z
   .object({
     integration: z
       .string()
-      .regex(NAME, 'is the name this host is addressed by, as in slack')
+      .regex(NAME, 'is the name of the integration, as in slack')
       .refine(
-        (named) => named !== CATALOG_SOURCE,
-        'is catalog, which is the name of Spotlight’s catalog. Please address this host by another name',
+        (named) => named !== CATALOG_INTEGRATION,
+        'is catalog, which is the name of Spotlight’s catalog. Please give the integration another name',
       ),
     name: z.string().min(1).optional(),
     types: z
@@ -360,7 +363,7 @@ export const integrationSchema = z
       .record(
         z.string(),
         z.object({
-          do: key('post-message'),
+          action: key('post-message'),
           to: z.record(z.string(), expression).default({}),
           routes: z.record(z.string(), z.string()).default({}),
           mark: z.array(markSchema).default([]),
@@ -378,11 +381,11 @@ export const integrationSchema = z
       file.openapi ||
       file.graphql ||
       file.mcp,
-    'must do something: a webhook, a poll, a schedule, an action to run, or an API description or MCP server to offer tools from',
+    'must do something: a webhook, a poll, a schedule, an action to run, or an API spec or MCP server to provide tools from',
   )
   .refine(
     (file) => [file.openapi, file.graphql, file.mcp].filter(Boolean).length < 2,
-    'offers tools from one source: an openapi, a graphql or an mcp, not two',
+    'offers tools from one API spec: an openapi, a graphql or an mcp, not two',
   );
 
 export type IntegrationFile = z.infer<typeof integrationSchema>;
@@ -395,13 +398,13 @@ export type GraphQlFile = z.infer<typeof graphqlSchema>;
 export type McpFile = z.infer<typeof mcpSchema>;
 export type ToolInputFile = z.infer<typeof toolInputSchema>;
 
-export const written = (held: string): string => {
-  const [, inside] = EXPRESSION.exec(held) ?? [];
+export const written = (raw: string): string => {
+  const [, inside] = EXPRESSION.exec(raw) ?? [];
 
-  return (inside ?? held).trim();
+  return (inside ?? raw).trim();
 };
 
-export const isExpression = (held: string): boolean => EXPRESSION.test(held);
+export const isExpression = (raw: string): boolean => EXPRESSION.test(raw);
 
 export const secretOf = (reference: string): string =>
   reference.slice('secret.'.length);

@@ -9,10 +9,10 @@ export class Teams implements TeamsPort {
   constructor(private readonly access: WorkspaceAccessPort) {}
 
   async viewedBy(teamId: string, viewer: UserId): Promise<TeamProfile | null> {
-    const standing = await this.access.onTeam(teamId, viewer);
+    const membership = await this.access.onTeam(teamId, viewer);
 
-    return standing
-      ? { teamId: standing.teamId, workspaceId: standing.workspaceId }
+    return membership
+      ? { teamId: membership.teamId, workspaceId: membership.workspaceId }
       : null;
   }
 }

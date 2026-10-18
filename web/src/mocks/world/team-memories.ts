@@ -1,6 +1,6 @@
 import type {
-  MemoryGroundNoteResponseDto,
   MemoryPersonResponseDto,
+  MemoryProvenanceNoteResponseDto,
   TeamMemoryDetailResponseDto,
 } from '@/lib/api';
 import { daysAgo, hoursAgo } from '@/mocks/clock';
@@ -15,17 +15,17 @@ import {
 import { minutesAfter, runEnded } from '@/mocks/world/inbox-places';
 import { MAYA, PRIYA, SAM, TOM } from '@/mocks/world/people';
 import {
-  DISK_DUMPS_SAID,
+  DISK_DUMPS_MESSAGE,
   DRAIN_ANSWER,
   GONE_REMEMBER,
   GONE_THOUGHT,
-  groundStep,
   PAID_AT_MIGRATION,
-  PRICING_FLAG_SAID,
+  PRICING_FLAG_MESSAGE,
+  provenanceStep,
   SEARCH_SCAN_THOUGHT,
 } from '@/mocks/world/work-stories';
 
-const SETTLED_DRAIN = () => minutesAfter(runEnded('run_retries_2'), 20);
+const DRAIN_APPROVED = () => minutesAfter(runEnded('run_retries_2'), 20);
 
 export type MemoryRecord = Omit<
   TeamMemoryDetailResponseDto,
@@ -38,11 +38,11 @@ const person = ({ id, name, image }: MemoryPersonResponseDto) => ({
   image,
 });
 
-const said = (
+const personNote = (
   position: number,
   author: MemoryPersonResponseDto,
   text: string,
-): MemoryGroundNoteResponseDto => ({
+): MemoryProvenanceNoteResponseDto => ({
   position,
   by: 'person',
   author: person(author),
@@ -52,7 +52,7 @@ const said = (
 const fromAnotherTool = (
   position: number,
   text: string,
-): MemoryGroundNoteResponseDto => ({
+): MemoryProvenanceNoteResponseDto => ({
   position,
   by: 'world',
   author: null,
@@ -63,12 +63,12 @@ const memory = (
   over: Partial<MemoryRecord> &
     Pick<MemoryRecord, 'id' | 'handle' | 'kind' | 'body' | 'approvedAt'>,
 ): MemoryRecord => {
-  const reach = over.stationId ? 'station' : over.lineId ? 'line' : 'team';
+  const scope = over.stationId ? 'station' : over.lineId ? 'line' : 'team';
 
   return {
     source: 'person',
-    standing: 'stands',
-    reach,
+    status: 'active',
+    scope,
     lineId: null,
     stationId: null,
     repository: null,
@@ -76,7 +76,7 @@ const memory = (
     approvedBy: person(SAM),
     supersedes: null,
     retirement: null,
-    grounds: null,
+    provenance: null,
     runs: 0,
     harness: null,
     steps: [],
@@ -92,11 +92,11 @@ const PLATFORM_MEMORIES: MemoryRecord[] = [
     kind: 'correction',
     body: 'Leave billing-retries alone while billing is being reconciled; drain webhook-retries first.',
     approvedBy: person(MAYA),
-    approvedAt: SETTLED_DRAIN(),
-    grounds: { taskId: 'task_retries', runId: 'run_retries_2' },
+    approvedAt: DRAIN_APPROVED(),
+    provenance: { taskId: 'task_retries', runId: 'run_retries_2' },
     runs: 2,
     harness: 'claude-code',
-    notes: [said(1, MAYA, DRAIN_ANSWER)],
+    notes: [personNote(1, MAYA, DRAIN_ANSWER)],
   }),
   memory({
     id: 'memory_gone',
@@ -109,13 +109,13 @@ const PLATFORM_MEMORIES: MemoryRecord[] = [
     paths: ['src/retries/deliver.ts'],
     body: 'A 410 Gone from a webhook endpoint is permanent, so its deliveries are dropped rather than retried.',
     approvedBy: person(MAYA),
-    approvedAt: SETTLED_DRAIN(),
-    grounds: { taskId: 'task_retries', runId: 'run_retries_2' },
+    approvedAt: DRAIN_APPROVED(),
+    provenance: { taskId: 'task_retries', runId: 'run_retries_2' },
     runs: 1,
     harness: 'claude-code',
     steps: [
-      groundStep('run_retries_2', GONE_THOUGHT),
-      groundStep('run_retries_2', GONE_REMEMBER, 'remember'),
+      provenanceStep('run_retries_2', GONE_THOUGHT),
+      provenanceStep('run_retries_2', GONE_REMEMBER, 'remember'),
     ],
   }),
   memory({
@@ -127,7 +127,7 @@ const PLATFORM_MEMORIES: MemoryRecord[] = [
     repository: 'acme/worker',
     body: 'The staging queue worker must be restarted after every deploy, or it keeps the old retry limits.',
     approvedAt: hoursAgo(5),
-    grounds: { taskId: 'task_retries', runId: 'run_retries_1' },
+    provenance: { taskId: 'task_retries', runId: 'run_retries_1' },
     runs: 3,
     harness: 'claude-code',
     notes: [
@@ -149,12 +149,12 @@ const PLATFORM_MEMORIES: MemoryRecord[] = [
     body: 'pg 8.13 returns timestamptz values with microseconds; tests that compare paid_at as strings fail until the API cuts timestamps to milliseconds.',
     approvedBy: person(MAYA),
     approvedAt: hoursAgo(28),
-    grounds: { taskId: 'task_postgres', runId: 'run_postgres_2' },
+    provenance: { taskId: 'task_postgres', runId: 'run_postgres_2' },
     runs: 5,
     harness: 'claude-code',
     steps: [
-      groundStep('run_postgres_2', 'npm test'),
-      groundStep('run_postgres_2', 'src/db/timestamps.ts'),
+      provenanceStep('run_postgres_2', 'npm test'),
+      provenanceStep('run_postgres_2', 'src/db/timestamps.ts'),
     ],
   }),
   memory({
@@ -179,10 +179,10 @@ const PLATFORM_MEMORIES: MemoryRecord[] = [
     body: 'Workers in eu-west-1 write core dumps to /var/crash; clear them before resizing a disk, or the resize fills up again within a day.',
     approvedBy: person(TOM),
     approvedAt: hoursAgo(77),
-    grounds: { taskId: 'task_disk', runId: 'run_disk_1' },
+    provenance: { taskId: 'task_disk', runId: 'run_disk_1' },
     runs: 1,
     harness: 'claude-code',
-    steps: [groundStep('run_disk_1', DISK_DUMPS_SAID)],
+    steps: [provenanceStep('run_disk_1', DISK_DUMPS_MESSAGE)],
   }),
   memory({
     id: 'memory_search_index',
@@ -196,10 +196,10 @@ const PLATFORM_MEMORIES: MemoryRecord[] = [
     body: 'Searching task titles with ILIKE and a leading wildcard scans the whole table, 1.8 seconds on the largest workspace; search them through the trigram index instead.',
     approvedBy: person(SAM),
     approvedAt: daysAgo(16),
-    grounds: { taskId: 'task_search', runId: 'run_search_2' },
+    provenance: { taskId: 'task_search', runId: 'run_search_2' },
     runs: 7,
     harness: 'claude-code',
-    steps: [groundStep('run_search_2', SEARCH_SCAN_THOUGHT)],
+    steps: [provenanceStep('run_search_2', SEARCH_SCAN_THOUGHT)],
   }),
   memory({
     id: 'memory_branches_ticket',
@@ -215,7 +215,7 @@ const PLATFORM_MEMORIES: MemoryRecord[] = [
     id: 'memory_branches',
     handle: 'M-12',
     kind: 'preference',
-    standing: 'retired',
+    status: 'retired',
     body: 'Name branches after the person who opened the task.',
     approvedBy: person(MAYA),
     approvedAt: daysAgo(40),
@@ -231,7 +231,7 @@ const PLATFORM_MEMORIES: MemoryRecord[] = [
     id: 'memory_flaky',
     handle: 'M-27',
     kind: 'failure',
-    standing: 'retired',
+    status: 'retired',
     lineId: DELIVERY_ID,
     repository: 'acme/api',
     body: 'The checkout end-to-end test flakes when the card iframe loads slowly; rerun it once before calling it broken.',
@@ -269,10 +269,10 @@ const GROWTH_MEMORIES: MemoryRecord[] = [
     body: 'The annual toggle stays behind the pricing_annual flag until finance signs off on the discount.',
     approvedBy: person(PRIYA),
     approvedAt: hoursAgo(37),
-    grounds: { taskId: 'task_pricing_toggle', runId: 'run_pricing_1' },
+    provenance: { taskId: 'task_pricing_toggle', runId: 'run_pricing_1' },
     runs: 1,
     harness: 'claude-code',
-    steps: [groundStep('run_pricing_1', PRICING_FLAG_SAID)],
+    steps: [provenanceStep('run_pricing_1', PRICING_FLAG_MESSAGE)],
   }),
   memory({
     id: 'memory_posthog',
@@ -289,7 +289,7 @@ const GROWTH_MEMORIES: MemoryRecord[] = [
     id: 'memory_referral_copy',
     handle: 'M-33',
     kind: 'correction',
-    standing: 'retired',
+    status: 'retired',
     lineId: EXPERIMENTS_ID,
     body: 'Invite emails carry no referral link while the referral programme is paused.',
     approvedBy: person(PRIYA),

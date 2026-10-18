@@ -1,7 +1,7 @@
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { GitService } from '@work/application/ports/git-gateway.port';
-import type { ConnectionWantedDto } from '@work/application/ports/integration-tool-calls.port';
+import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
 import type { ToolContext } from '@work/application/ports/integration-tools.port';
 import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -13,23 +13,23 @@ import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 
 export type Cleared =
   | {
-      readonly kind: 'given';
+      readonly kind: 'approved';
       readonly edited: ToolInputs | null;
       returned(): Promise<void>;
     }
-  | { readonly kind: 'asked' }
-  | { readonly kind: 'refused'; readonly reason: string };
+  | { readonly kind: 'pending' }
+  | { readonly kind: 'dismissed'; readonly reason: string };
 
 export type PermissionCleared = Cleared['kind'];
 
 export type ConnectionAsked =
   | { readonly kind: 'asked' }
-  | { readonly kind: 'refused'; readonly reason: string };
+  | { readonly kind: 'denied'; readonly reason: string };
 
 export interface RunWork {
   readonly workspaceId: WorkspaceId;
-  deliverUpTo(position: number, at: Date): Promise<void>;
-  gave(attachmentId: string): Attachment | null;
+  acknowledgeUpTo(position: number, at: Date): Promise<void>;
+  attachment(attachmentId: string): Attachment | null;
   repositoryNamed(
     name: string,
     service: GitService,
@@ -42,7 +42,7 @@ export interface RunWork {
   ): Promise<Cleared>;
   askToConnect(
     declared: DeclaredTool,
-    wanted: ConnectionWantedDto,
+    missing: ConnectionMissingDto,
   ): Promise<ConnectionAsked>;
   clearPermission(
     permission: HarnessPermission,

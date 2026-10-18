@@ -48,7 +48,7 @@ describe('github', () => {
     });
   });
 
-  it('refuses to hand back anywhere but a page of this site', () => {
+  it('hands back only to a page of this site', () => {
     for (const away of [
       '//evil.example.com',
       'https://evil.example.com',

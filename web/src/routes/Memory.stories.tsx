@@ -15,7 +15,7 @@ import {
 } from '@/stories/application';
 
 type MemoryArgs = {
-  readonly standing: 'stands' | 'retired';
+  readonly status: 'active' | 'retired';
   readonly kind: string;
   readonly opened: string;
   readonly writing: boolean;
@@ -25,9 +25,9 @@ type MemoryArgs = {
 const meta = {
   title: 'Team/Memory',
   ...pageStory<MemoryArgs>({
-    at: ({ standing, kind, opened, writing }) => {
+    at: ({ status, kind, opened, writing }) => {
       const path = memoryListPath(SLUG, PLATFORM_ID, {
-        standing,
+        status,
         kind: kind === 'any' ? null : kind,
         lineId: null,
         stationId: null,
@@ -41,14 +41,14 @@ const meta = {
       return `${path.split('?')[0]}?${query}`;
     },
     args: {
-      standing: 'stands',
+      status: 'active',
       kind: 'any',
       opened: 'none',
       writing: false,
       editing: false,
     },
     argTypes: {
-      standing: choice('Standing', { stands: 'Standing', retired: 'Retired' }),
+      status: choice('Status', { active: 'Active', retired: 'Retired' }),
       kind: choice('Kind', { any: 'Every kind', ...KIND_LABELS }),
       opened: choice('Opened memory', {
         none: 'None',

@@ -71,7 +71,7 @@ func TestMirrorsARepositoryThenKeepsItUpToDate(t *testing.T) {
 	}
 }
 
-func TestACheckoutBorrowsFromTheMirrorAndStandsAlone(t *testing.T) {
+func TestACheckoutBorrowsFromTheMirrorAndIsIndependent(t *testing.T) {
 	source := upstream(t)
 	mirrors := mirror.At(t.TempDir())
 
@@ -110,7 +110,7 @@ func TestAFailedFirstFetchLeavesNoMirrorBehind(t *testing.T) {
 	}
 }
 
-func TestRefusesANameThatWouldLeaveTheMirrors(t *testing.T) {
+func TestRejectsANameThatWouldLeaveTheMirrors(t *testing.T) {
 	mirrors := mirror.At(t.TempDir())
 
 	for _, repository := range []string{"../escape", "a/b", ""} {
@@ -122,7 +122,7 @@ func TestRefusesANameThatWouldLeaveTheMirrors(t *testing.T) {
 	}
 }
 
-func TestTidyingClearsWhatAKilledFetchLeft(t *testing.T) {
+func TestPruneClearsWhatAKilledFetchLeft(t *testing.T) {
 	source := upstream(t)
 	root := t.TempDir()
 	mirrors := mirror.At(root)
@@ -141,8 +141,8 @@ func TestTidyingClearsWhatAKilledFetchLeft(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := mirrors.Tidy(); err != nil {
-		t.Fatalf("tidy: %v", err)
+	if err := mirrors.Prune(); err != nil {
+		t.Fatalf("prune: %v", err)
 	}
 
 	for _, left := range []string{stale, aside} {

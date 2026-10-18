@@ -20,25 +20,25 @@ type channel struct {
 	granted  []string
 	manifest []protocol.ToolManifest
 	use      func(ctx context.Context, name string, input json.RawMessage) (json.RawMessage, error)
-	answer   func(ctx context.Context, said protocol.Remark) error
+	reply    func(ctx context.Context, reply protocol.ReviewCommentReply) error
 	trace    func(ctx context.Context, taskID string) (json.RawMessage, error)
-	history  func(asked protocol.HistoryRequest) (json.RawMessage, error)
-	recall   func(asked protocol.RecallRequest) (json.RawMessage, error)
-	remember func(asked protocol.Remembering) (json.RawMessage, error)
-	propose  func(asked protocol.CandidateProposal) (int, string)
-	cause    func(asked protocol.CauseRecord) (int, string)
+	history  func(received protocol.HistoryRequest) (json.RawMessage, error)
+	recall   func(received protocol.RecallRequest) (json.RawMessage, error)
+	remember func(received protocol.RememberRequest) (json.RawMessage, error)
+	propose  func(received protocol.CandidateProposal) (int, string)
+	cause    func(received protocol.CauseRecord) (int, string)
 
 	mu       sync.Mutex
-	declared *protocol.Outcome
+	handover *protocol.Handover
 }
 
 const handoverToken = "handover-token"
 
 func serveHandover(
 	options []string,
-	answer func(ctx context.Context, said protocol.Remark) error,
+	reply func(ctx context.Context, reply protocol.ReviewCommentReply) error,
 ) (*channel, error) {
-	served := &channel{options: options, answer: answer}
+	served := &channel{options: options, reply: reply}
 	served.server = httptest.NewServer(served)
 
 	return served, nil
@@ -67,40 +67,40 @@ func (h *channel) Traces(trace func(ctx context.Context, taskID string) (json.Ra
 	h.trace = trace
 }
 
-func (h *channel) Histories(history func(asked protocol.HistoryRequest) (json.RawMessage, error)) {
+func (h *channel) Histories(history func(received protocol.HistoryRequest) (json.RawMessage, error)) {
 	h.history = history
 }
 
 func (h *channel) Memories(
-	recall func(asked protocol.RecallRequest) (json.RawMessage, error),
-	remember func(asked protocol.Remembering) (json.RawMessage, error),
+	recall func(received protocol.RecallRequest) (json.RawMessage, error),
+	remember func(received protocol.RememberRequest) (json.RawMessage, error),
 ) {
 	h.recall = recall
 	h.remember = remember
 }
 
-func (h *channel) Candidates(propose func(asked protocol.CandidateProposal) (int, string)) {
+func (h *channel) Candidates(propose func(received protocol.CandidateProposal) (int, string)) {
 	h.propose = propose
 }
 
-func (h *channel) Causes(cause func(asked protocol.CauseRecord) (int, string)) {
+func (h *channel) Causes(cause func(received protocol.CauseRecord) (int, string)) {
 	h.cause = cause
 }
 
-func (h *channel) Declared() *protocol.Outcome {
+func (h *channel) Handover() *protocol.Handover {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	return h.declared
+	return h.handover
 }
 
 func (h *channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Authorization") != "Bearer "+handoverToken {
-		refuse(w, http.StatusUnauthorized, "not this run's token")
+		fail(w, http.StatusUnauthorized, "not this run's token")
 		return
 	}
 
-	tools := strings.TrimSuffix(protocol.HandoverToolsPath, "/")
+	tools := strings.TrimSuffix(protocol.AgentAPIToolsPath, "/")
 
 	switch {
 	case r.Method == http.MethodGet && r.URL.Path == tools:
@@ -111,82 +111,82 @@ func (h *channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		answerJSON(w, shown)
-	case strings.HasPrefix(r.URL.Path, protocol.HandoverToolsPath):
-		h.tool(w, r, strings.TrimPrefix(r.URL.Path, protocol.HandoverToolsPath))
-	case r.URL.Path == protocol.HandoverRemarkPath:
-		h.remark(w, r)
-	case r.URL.Path == protocol.HandoverTracePath:
+	case strings.HasPrefix(r.URL.Path, protocol.AgentAPIToolsPath):
+		h.tool(w, r, strings.TrimPrefix(r.URL.Path, protocol.AgentAPIToolsPath))
+	case r.URL.Path == protocol.AgentAPIReviewCommentReplyPath:
+		h.replyToReviewComment(w, r)
+	case r.URL.Path == protocol.AgentAPITracePath:
 		h.traceOf(w, r)
-	case r.URL.Path == protocol.HandoverHistoryPath:
-		var asked protocol.HistoryRequest
-		if h.history == nil || json.NewDecoder(r.Body).Decode(&asked) != nil {
-			refuse(w, http.StatusBadRequest, "unreadable history request")
+	case r.URL.Path == protocol.AgentAPIHistoryPath:
+		var received protocol.HistoryRequest
+		if h.history == nil || json.NewDecoder(r.Body).Decode(&received) != nil {
+			fail(w, http.StatusBadRequest, "unreadable history request")
 			return
 		}
-		answered(w)(h.history(asked))
-	case r.URL.Path == protocol.HandoverRecallPath:
-		var asked protocol.RecallRequest
-		if h.recall == nil || json.NewDecoder(r.Body).Decode(&asked) != nil {
-			refuse(w, http.StatusBadRequest, "unreadable recall")
+		answered(w)(h.history(received))
+	case r.URL.Path == protocol.AgentAPIRecallPath:
+		var received protocol.RecallRequest
+		if h.recall == nil || json.NewDecoder(r.Body).Decode(&received) != nil {
+			fail(w, http.StatusBadRequest, "unreadable recall")
 			return
 		}
-		answered(w)(h.recall(asked))
-	case r.URL.Path == protocol.HandoverRememberPath:
-		var asked protocol.Remembering
-		if h.remember == nil || json.NewDecoder(r.Body).Decode(&asked) != nil {
-			refuse(w, http.StatusBadRequest, "unreadable memory")
+		answered(w)(h.recall(received))
+	case r.URL.Path == protocol.AgentAPIRememberPath:
+		var received protocol.RememberRequest
+		if h.remember == nil || json.NewDecoder(r.Body).Decode(&received) != nil {
+			fail(w, http.StatusBadRequest, "unreadable memory")
 			return
 		}
-		answered(w)(h.remember(asked))
-	case r.URL.Path == protocol.HandoverCandidatePath:
+		answered(w)(h.remember(received))
+	case r.URL.Path == protocol.AgentAPICandidatePath:
 		if h.propose == nil {
-			refuse(w, http.StatusNotImplemented, "this run cannot propose a candidate: only a search's runs do")
+			fail(w, http.StatusNotImplemented, "this run cannot propose a candidate: only a search's runs do")
 			return
 		}
-		var asked protocol.CandidateProposal
-		if json.NewDecoder(r.Body).Decode(&asked) != nil {
-			refuse(w, http.StatusBadRequest, "unreadable candidate")
+		var received protocol.CandidateProposal
+		if json.NewDecoder(r.Body).Decode(&received) != nil {
+			fail(w, http.StatusBadRequest, "unreadable candidate")
 			return
 		}
-		status, body := h.propose(asked)
+		status, body := h.propose(received)
 		if strings.HasPrefix(body, "{") {
 			w.Header().Set("Content-Type", "application/json")
 		}
 		w.WriteHeader(status)
 		_, _ = w.Write([]byte(body))
-	case r.URL.Path == protocol.HandoverCausePath:
+	case r.URL.Path == protocol.AgentAPICausePath:
 		if h.cause == nil {
-			refuse(w, http.StatusNotImplemented, "this run cannot record a cause: only a search's runs do")
+			fail(w, http.StatusNotImplemented, "this run cannot record a cause: only a search's runs do")
 			return
 		}
-		var asked protocol.CauseRecord
-		if json.NewDecoder(r.Body).Decode(&asked) != nil {
-			refuse(w, http.StatusBadRequest, "unreadable cause")
+		var received protocol.CauseRecord
+		if json.NewDecoder(r.Body).Decode(&received) != nil {
+			fail(w, http.StatusBadRequest, "unreadable cause")
 			return
 		}
-		status, body := h.cause(asked)
+		status, body := h.cause(received)
 		w.WriteHeader(status)
 		_, _ = w.Write([]byte(body))
 	default:
-		h.outcome(w, r)
+		h.recordHandover(w, r)
 	}
 }
 
 func (h *channel) tool(w http.ResponseWriter, r *http.Request, name string) {
 	if h.use == nil || !slices.Contains(h.granted, name) {
-		refuse(w, http.StatusForbidden, fmt.Sprintf("this run was not given %q", name))
+		fail(w, http.StatusForbidden, fmt.Sprintf("this run has no tool %q enabled", name))
 		return
 	}
 
 	input, _ := io.ReadAll(r.Body)
 	if !json.Valid(input) {
-		refuse(w, http.StatusBadRequest, "unreadable input: hand the tool JSON")
+		fail(w, http.StatusBadRequest, "unreadable input: hand the tool JSON")
 		return
 	}
 
 	answered, err := h.use(r.Context(), name, input)
 	if err != nil {
-		refuse(w, http.StatusBadGateway, err.Error())
+		fail(w, http.StatusBadGateway, err.Error())
 		return
 	}
 
@@ -194,20 +194,20 @@ func (h *channel) tool(w http.ResponseWriter, r *http.Request, name string) {
 	_, _ = w.Write(answered)
 }
 
-func (h *channel) remark(w http.ResponseWriter, r *http.Request) {
-	var said protocol.Remark
-	if h.answer == nil || json.NewDecoder(r.Body).Decode(&said) != nil {
-		refuse(w, http.StatusBadRequest, "unreadable answer")
+func (h *channel) replyToReviewComment(w http.ResponseWriter, r *http.Request) {
+	var reply protocol.ReviewCommentReply
+	if h.reply == nil || json.NewDecoder(r.Body).Decode(&reply) != nil {
+		fail(w, http.StatusBadRequest, "unreadable reply")
 		return
 	}
 
-	if strings.TrimSpace(said.Handle) == "" {
-		refuse(w, http.StatusUnprocessableEntity, "say which remark")
+	if strings.TrimSpace(reply.Handle) == "" {
+		fail(w, http.StatusUnprocessableEntity, "name the review comment")
 		return
 	}
 
-	if err := h.answer(r.Context(), said); err != nil {
-		refuse(w, http.StatusBadGateway, err.Error())
+	if err := h.reply(r.Context(), reply); err != nil {
+		fail(w, http.StatusBadGateway, err.Error())
 		return
 	}
 
@@ -215,15 +215,15 @@ func (h *channel) remark(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *channel) traceOf(w http.ResponseWriter, r *http.Request) {
-	var asked protocol.TraceRequest
-	if h.trace == nil || json.NewDecoder(r.Body).Decode(&asked) != nil {
-		refuse(w, http.StatusBadRequest, "unreadable trace request")
+	var received protocol.TraceRequest
+	if h.trace == nil || json.NewDecoder(r.Body).Decode(&received) != nil {
+		fail(w, http.StatusBadRequest, "unreadable trace request")
 		return
 	}
 
-	trace, err := h.trace(r.Context(), asked.Task)
+	trace, err := h.trace(r.Context(), received.Task)
 	if err != nil {
-		refuse(w, http.StatusBadGateway, err.Error())
+		fail(w, http.StatusBadGateway, err.Error())
 		return
 	}
 
@@ -231,25 +231,25 @@ func (h *channel) traceOf(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(trace)
 }
 
-func (h *channel) outcome(w http.ResponseWriter, r *http.Request) {
-	var spoken protocol.Outcome
-	if json.NewDecoder(r.Body).Decode(&spoken) != nil {
-		refuse(w, http.StatusBadRequest, "unreadable handover")
+func (h *channel) recordHandover(w http.ResponseWriter, r *http.Request) {
+	var handover protocol.Handover
+	if json.NewDecoder(r.Body).Decode(&handover) != nil {
+		fail(w, http.StatusBadRequest, "unreadable handover")
 		return
 	}
 
 	at := slices.IndexFunc(h.options, func(option string) bool {
-		return strings.EqualFold(option, spoken.Next)
+		return strings.EqualFold(option, handover.Next)
 	})
 	if at < 0 {
-		refuse(w, http.StatusUnprocessableEntity, fmt.Sprintf(
-			"%q is not one of: %s", spoken.Next, strings.Join(h.options, ", "),
+		fail(w, http.StatusUnprocessableEntity, fmt.Sprintf(
+			"%q is not one of: %s", handover.Next, strings.Join(h.options, ", "),
 		))
 		return
 	}
 
 	h.mu.Lock()
-	h.declared = &protocol.Outcome{Next: h.options[at], Note: spoken.Note}
+	h.handover = &protocol.Handover{Next: h.options[at], Note: handover.Note}
 	h.mu.Unlock()
 
 	w.WriteHeader(http.StatusNoContent)
@@ -258,7 +258,7 @@ func (h *channel) outcome(w http.ResponseWriter, r *http.Request) {
 func answered(w http.ResponseWriter) func(json.RawMessage, error) {
 	return func(answer json.RawMessage, err error) {
 		if err != nil {
-			refuse(w, http.StatusUnprocessableEntity, err.Error())
+			fail(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 
@@ -272,7 +272,7 @@ func answerJSON(w http.ResponseWriter, body any) {
 	_ = json.NewEncoder(w).Encode(body)
 }
 
-func refuse(w http.ResponseWriter, status int, because string) {
+func fail(w http.ResponseWriter, status int, because string) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(status)
 	_, _ = w.Write([]byte(because + "\n"))

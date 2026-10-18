@@ -28,9 +28,9 @@ export function TeamNavItem({
   const atTask = useMatch(`/w/${slug}/team/${team.id}/tasks/:taskId/*`);
   const { data: tasks } = useTasks(atTask ? team.id : undefined);
 
-  const standing = tasks?.find((each) => each.id === atTask?.params.taskId);
+  const viewedTask = tasks?.find((each) => each.id === atTask?.params.taskId);
   const shownLine = lines?.find((line) =>
-    line.stations.some((station) => station.id === standing?.stationId),
+    line.stations.some((station) => station.id === viewedTask?.stationId),
   );
 
   return (

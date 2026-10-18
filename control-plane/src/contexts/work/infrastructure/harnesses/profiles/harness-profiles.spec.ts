@@ -30,13 +30,13 @@ const profile = (
 
 const prepared = (
   harness: string,
-  given: HarnessProfileShape,
+  shape: HarnessProfileShape,
   chosen: { model?: string; effort?: string } = {},
 ) => {
   const ready = harnesses.preparedFor(HarnessId.of(harness), {
     model: chosen.model ? HarnessModel.of(chosen.model) : null,
     effort: chosen.effort ? Effort.of(chosen.effort) : null,
-    profile: { ...given, key: ProfileKey.of(given.key), wears: [] },
+    profile: { ...shape, key: ProfileKey.of(shape.key), injectedSecrets: [] },
   });
 
   if (!ready?.setup) {
@@ -55,9 +55,9 @@ const json = (text: string | undefined) => JSON.parse(text ?? 'null');
 
 const PUSHY = profile({ rules: [rule('ask', 'execute', 'git push *')] });
 
-const warned = (given: HarnessProfileShape, about: string) =>
+const warned = (shape: HarnessProfileShape, about: string) =>
   harnesses
-    .review(given)
+    .review(shape)
     .warnings.filter((each) => each.reason.includes(about));
 
 const CAREFUL = profile({
@@ -82,8 +82,8 @@ describe('one harness profile, told to each harness in its own terms', () => {
     const claude = prepared('claude-code', CAREFUL);
     const cursor = prepared('cursor', CAREFUL);
 
-    expect(claude.setup.asks).toEqual(['execute']);
-    expect(cursor.setup.asks).toEqual(['execute']);
+    expect(claude.setup.askKinds).toEqual(['execute']);
+    expect(cursor.setup.askKinds).toEqual(['execute']);
     expect(claude.setup.mcpServers).toEqual([
       {
         name: 'linear',
@@ -101,7 +101,7 @@ describe('one harness profile, told to each harness in its own terms', () => {
   });
 
   describe('Claude Code', () => {
-    it('writes what may be relaxed at user level, and what must hold as managed settings', () => {
+    it('writes what may be relaxed at user level, and what must apply as managed settings', () => {
       const { setup } = prepared('claude-code', CAREFUL);
 
       expect(json(fileAt(setup, 'claude/settings.json'))).toEqual({
@@ -188,14 +188,14 @@ describe('one harness profile, told to each harness in its own terms', () => {
     });
 
     it('warns that a looser rule under a denied kind stays denied', () => {
-      const given = profile({
+      const shape = profile({
         rules: [
           rule('deny', 'execute', null),
           rule('allow', 'execute', 'npm test *'),
         ],
       });
 
-      expect(warned(given, 'Claude Code lets a deny rule outrank')).toEqual([
+      expect(warned(shape, 'Claude Code lets a deny rule outrank')).toEqual([
         expect.objectContaining({
           about: 'rule',
           rule: rule('allow', 'execute', 'npm test *'),
@@ -203,7 +203,7 @@ describe('one harness profile, told to each harness in its own terms', () => {
       ]);
       expect(
         json(
-          fileAt(prepared('claude-code', given).setup, 'claude/settings.json'),
+          fileAt(prepared('claude-code', shape).setup, 'claude/settings.json'),
         ).permissions.allow,
       ).toEqual([]);
     });
@@ -291,7 +291,7 @@ describe('one harness profile, told to each harness in its own terms', () => {
       );
     });
 
-    it('says a read rule is not held, since its sandbox reads anything', () => {
+    it('says a read rule does not apply, since its sandbox reads anything', () => {
       expect(
         warned(CAREFUL, 'Codex reads whatever its sandbox can see'),
       ).toEqual([
@@ -311,7 +311,7 @@ describe('one harness profile, told to each harness in its own terms', () => {
       ]);
     });
 
-    it('says an edit rule is not held, since codex-acp sets the sandbox on every turn', () => {
+    it('says an edit rule does not apply, since codex-acp sets the sandbox on every turn', () => {
       expect(
         warned(
           profile({ rules: [rule('deny', 'edit', null)] }),
@@ -344,15 +344,15 @@ describe('one harness profile, told to each harness in its own terms', () => {
 
 describe('what a harness asks Spotlight about', () => {
   it('is only the kinds of thing a rule the profile puts in ask covers', () => {
-    const asks = (given: HarnessProfileShape) =>
-      prepared('claude-code', given).setup.asks;
+    const askKinds = (shape: HarnessProfileShape) =>
+      prepared('claude-code', shape).setup.askKinds;
 
-    expect(asks(profile())).toEqual([]);
-    expect(asks(profile({ rules: [rule('deny', 'execute', null)] }))).toEqual(
-      [],
-    );
+    expect(askKinds(profile())).toEqual([]);
     expect(
-      asks(
+      askKinds(profile({ rules: [rule('deny', 'execute', null)] })),
+    ).toEqual([]);
+    expect(
+      askKinds(
         profile({
           rules: [rule('ask', 'read', '.env'), rule('ask', 'edit', null)],
         }),
@@ -362,7 +362,7 @@ describe('what a harness asks Spotlight about', () => {
 });
 
 describe('reviewing a harness profile', () => {
-  it('refuses native settings for a harness Spotlight does not run', () => {
+  it('rejects native settings for a harness Spotlight does not run', () => {
     expect(
       harnesses.review(profile({ native: { aider: {} } })).problems,
     ).toEqual([
@@ -374,7 +374,7 @@ describe('reviewing a harness profile', () => {
     ]);
   });
 
-  it('refuses Codex settings that do not read as TOML', () => {
+  it('rejects Codex settings that do not read as TOML', () => {
     expect(
       harnesses.review(profile({ native: { codex: 'model = ' } })).problems,
     ).toEqual([
@@ -386,7 +386,7 @@ describe('reviewing a harness profile', () => {
     ]);
   });
 
-  it('refuses Claude Code settings that are not an object', () => {
+  it('rejects Claude Code settings that are not an object', () => {
     expect(
       harnesses.review(profile({ native: { 'claude-code': 'yes' } })).problems,
     ).toEqual([

@@ -38,7 +38,7 @@ const LINEAR = {
     },
   },
   tools: {
-    comment: { description: 'Comment on an issue', does: 'comment' },
+    comment: { description: 'Comment on an issue', action: 'comment' },
   },
 };
 
@@ -46,19 +46,19 @@ const WITHOUT_TOOLS = { ...LINEAR, tools: {} };
 
 const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   const db = app.get<DrizzleDatabase>(DRIZZLE);
-  const held = `integrations-${randomUUID().slice(0, 8)}`;
-  const seat = await seatTeam(db, held);
+  const workspaceId = `integrations-${randomUUID().slice(0, 8)}`;
+  const seat = await seatTeam(db, workspaceId);
 
   return {
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/teams/${held}/integrations`,
+    collection: `/api/resources/teams/${workspaceId}/integrations`,
     item: (id) => `/api/resources/integrations/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${held}/integrations/import?address=${encodeURIComponent(address)}`,
+      `/api/resources/workspaces/${workspaceId}/integrations/import?address=${encodeURIComponent(address)}`,
     listing: (workspaceId) =>
       `/api/resources/workspaces/${workspaceId}/integrations`,
-    workspaceOf: () => held,
+    workspaceOf: () => workspaceId,
     address: 'team/linear',
     valid: LINEAR,
     changed: { ...LINEAR, name: 'Linear, again' },
@@ -73,7 +73,7 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
     close: async () => {
       await db
         .delete(schema.integrationDefinition)
-        .where(eq(schema.integrationDefinition.teamId, held));
+        .where(eq(schema.integrationDefinition.teamId, workspaceId));
       await db
         .delete(schema.idempotentCreate)
         .where(
@@ -108,7 +108,7 @@ describe('an integration, created through the resource API (e2e)', () => {
         .set('If-Match', `"${version}"`),
   });
 
-  const giveOnAStation = async (tool: string) => {
+  const enableOnAStation = async (tool: string) => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     const [team] = await db
       .select()
@@ -171,7 +171,7 @@ describe('an integration, created through the resource API (e2e)', () => {
         .ofTeam(teamId),
     ).toEqual([
       expect.objectContaining({
-        source: 'linear',
+        integration: 'linear',
         definition: expect.objectContaining({ name: 'Linear' }),
       }),
     ]);
@@ -179,12 +179,12 @@ describe('an integration, created through the resource API (e2e)', () => {
       (
         await app
           .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
-          .offered(teamId, ['linear.comment'])
+          .provided(teamId, ['linear.comment'])
       ).map((each) => each.tool),
     ).toEqual(['linear.comment']);
   });
 
-  it('keeps the host it was created for', async () => {
+  it('keeps the integration name it was created with', async () => {
     const made = await create(LINEAR);
     const moved = await served(app)
       .put(fixture.item(made.body.id))
@@ -198,10 +198,10 @@ describe('an integration, created through the resource API (e2e)', () => {
     ]);
   });
 
-  it('will not be deleted, or stop offering a tool, while a station gives it', async () => {
+  it('will not be deleted, or stop providing a tool, while a station enables it', async () => {
     const made = await create(LINEAR);
 
-    await giveOnAStation('linear.comment');
+    await enableOnAStation('linear.comment');
 
     const stripped = await as().put(
       made.body.id,
@@ -210,9 +210,9 @@ describe('an integration, created through the resource API (e2e)', () => {
     );
     const deleted = await as().delete(made.body.id, made.body.version);
 
-    for (const refused of [stripped, deleted]) {
-      expect(refused.status).toBe(409);
-      expect(refused.body).toMatchObject({
+    for (const rejected of [stripped, deleted]) {
+      expect(rejected.status).toBe(409);
+      expect(rejected.body).toMatchObject({
         type: 'urn:spotlight:problem:in-use',
         detail: expect.stringContaining('delivery/implementation'),
       });

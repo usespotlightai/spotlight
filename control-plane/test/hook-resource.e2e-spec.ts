@@ -29,7 +29,7 @@ const GRAFANA = {
     },
   },
   tools: {
-    search: { description: 'Search dashboards', does: 'search' },
+    search: { description: 'Search dashboards', action: 'search' },
   },
 };
 
@@ -53,26 +53,26 @@ const GRAFANA_READS = {
 
 const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   const db = app.get<DrizzleDatabase>(DRIZZLE);
-  const held = `hooks-${randomUUID().slice(0, 8)}`;
-  const seat = await seatTeam(db, held);
+  const workspaceId = `hooks-${randomUUID().slice(0, 8)}`;
+  const seat = await seatTeam(db, workspaceId);
 
   await db.insert(schema.integrationDefinition).values({
     id: randomUUID(),
-    teamId: held,
-    source: 'grafana',
+    teamId: workspaceId,
+    integration: 'grafana',
     definition: GRAFANA,
-    offers: ['grafana.search'],
+    tools: ['grafana.search'],
   });
 
   return {
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/teams/${held}/hooks`,
+    collection: `/api/resources/teams/${workspaceId}/hooks`,
     item: (id) => `/api/resources/hooks/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${held}/hooks/import?address=${encodeURIComponent(address)}`,
+      `/api/resources/workspaces/${workspaceId}/hooks/import?address=${encodeURIComponent(address)}`,
     listing: (workspaceId) => `/api/resources/workspaces/${workspaceId}/hooks`,
-    workspaceOf: () => held,
+    workspaceOf: () => workspaceId,
     address: 'team/grafana-reads',
     valid: GRAFANA_READS,
     changed: { ...GRAFANA_READS, timeoutSeconds: 20 },
@@ -84,10 +84,10 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
     close: async () => {
       await db
         .delete(schema.hookDefinition)
-        .where(eq(schema.hookDefinition.teamId, held));
+        .where(eq(schema.hookDefinition.teamId, workspaceId));
       await db
         .delete(schema.integrationDefinition)
-        .where(eq(schema.integrationDefinition.teamId, held));
+        .where(eq(schema.integrationDefinition.teamId, workspaceId));
       await db
         .delete(schema.idempotentCreate)
         .where(
@@ -145,7 +145,7 @@ describe('a hook, created through the resource API (e2e)', () => {
     expect(row?.signingSecret).toEqual(expect.any(String));
   });
 
-  it('refuses a tool no integration of the team offers, pointing at it', async () => {
+  it('rejects a tool no integration of the team provides, pointing at it', async () => {
     const made = await create({
       ...GRAFANA_READS,
       match: { tools: ['grafana.dashboard'] },
@@ -173,17 +173,17 @@ describe('a hook, created through the resource API (e2e)', () => {
           fixture.collection.split('/')[4] ?? '',
         ),
       );
-    const withdrawn = await served(app)
+    const removed = await served(app)
       .put(`/api/resources/integrations/${integration?.id}`)
       .set(TEST_USER_HEADER, fixture.admin)
       .set('If-Match', `"${integration?.version}"`)
       .send({ ...GRAFANA, tools: {} });
 
-    expect(withdrawn.status).toBe(409);
-    expect(withdrawn.body.detail).toMatch(/used by the hook grafana-reads/);
+    expect(removed.status).toBe(409);
+    expect(removed.body.detail).toMatch(/used by the hook grafana-reads/);
   });
 
-  it('refuses a request to a host this Spotlight does not call', async () => {
+  it('rejects a request to a host this Spotlight does not call', async () => {
     const made = await create({
       ...GRAFANA_READS,
       steps: [
@@ -200,7 +200,7 @@ describe('a hook, created through the resource API (e2e)', () => {
     ]);
   });
 
-  it('refuses to block an event that has already happened', async () => {
+  it('rejects a hook that blocks an event that has already happened', async () => {
     const made = await create({ ...GRAFANA_READS, failure: 'block' });
 
     expect(made.status).toBe(422);
@@ -209,7 +209,7 @@ describe('a hook, created through the resource API (e2e)', () => {
     ]);
   });
 
-  it('refuses OIDC signing where no key signs hook tokens', async () => {
+  it('rejects OIDC signing where no key signs hook tokens', async () => {
     const made = await create({
       ...GRAFANA_READS,
       signing: { oidc: { audience: 'https://audit.example.com' } },

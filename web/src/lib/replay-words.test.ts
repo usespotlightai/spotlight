@@ -5,7 +5,6 @@ import {
   formatBalanceWarning,
   formatBaselineNote,
   formatChecks,
-  formatCopiesSucceeded,
   formatEndedSpan,
   formatFailure,
   formatFlipped,
@@ -18,16 +17,17 @@ import {
   formatPairTally,
   formatPerRepeat,
   formatReason,
-  formatRefusal,
   formatRepeats,
+  formatRepeatsSucceeded,
   formatReplayable,
+  formatRunOutcome,
   formatRunState,
   formatSpendNote,
   formatState,
-  formatTurnedOut,
   formatUncompared,
   formatUnpricedCalls,
   formatUnpricedRuns,
+  formatUnreplayableReason,
   healthReadingsOf,
   healthReplayOf,
   type SetHealth,
@@ -66,26 +66,28 @@ describe('replay words', () => {
   });
 
   it('says why a run cannot be replayed in plain words', () => {
-    expect(formatRefusal('archive-gone')).toBe(
-      'Starting workspace is no longer kept',
+    expect(formatUnreplayableReason('archive-gone')).toBe(
+      'Starting workspace is no longer stored',
     );
-    expect(formatRefusal('unchecked')).toBe('Couldn’t be checked just now');
+    expect(formatUnreplayableReason('unchecked')).toBe(
+      'Couldn’t be checked just now',
+    );
   });
 
-  it('says a run with no refusal can be replayed', () => {
+  it('says a run with no unreplayable reason can be replayed', () => {
     expect(formatReplayable(null)).toBe('Can be replayed');
     expect(formatReplayable('task-gone')).toBe('Task was deleted');
   });
 
-  it('names over budget as such, and says what it means', () => {
-    expect(formatState('over-budget')).toBe('Over budget');
-    expect(stateNote('over-budget')).toBe(
+  it('names a reached ceiling as such, and says what it means', () => {
+    expect(formatState('ceiling-reached')).toBe('Ceiling reached');
+    expect(stateNote('ceiling-reached')).toBe(
       'The replay reached its ceiling. No more runs start.',
     );
     expect(stateNote('finished')).toBeNull();
   });
 
-  it('turns a refusal named as a reason’s detail into words', () => {
+  it('turns an unreplayable reason named as a reason’s detail into words', () => {
     expect(formatReason(reason('unreplayable', 'task-gone'))).toBe(
       'Couldn’t be replayed or started: task was deleted',
     );
@@ -108,8 +110,8 @@ describe('replay words', () => {
       formatChecks({ state: 'failed', failedAt: ['npm test'], why: null }),
     ).toBe('Checks failed at npm test');
     expect(
-      formatChecks({ state: 'unchecked', failedAt: [], why: 'undrafted' }),
-    ).toBe('Unchecked: change never drafted');
+      formatChecks({ state: 'unchecked', failedAt: [], why: 'not-generated' }),
+    ).toBe('Unchecked: change not generated');
   });
 
   it('says why the judge could not judge', () => {
@@ -147,9 +149,9 @@ describe('replay words', () => {
     expect(formatMinGain(0.05)).toBe('+5 pts');
   });
 
-  it('counts copies, repeats and the tasks that went both ways', () => {
-    expect(formatCopiesSucceeded(2, 3)).toBe('2 of 3 copies succeeded');
-    expect(formatCopiesSucceeded(0, 0)).toBe('No copy scored yet');
+  it('counts repeats and the tasks that went both ways', () => {
+    expect(formatRepeatsSucceeded(2, 3)).toBe('2 of 3 repeats succeeded');
+    expect(formatRepeatsSucceeded(0, 0)).toBe('No repeat scored yet');
     expect(formatRepeats(1)).toBe('Each run once');
     expect(formatRepeats(3)).toBe('Each run 3 times');
     expect(formatFlipped(0)).toBe('No task went both ways');
@@ -160,7 +162,7 @@ describe('replay words', () => {
   it('says plainly that a set’s health was never read, and how to read it', () => {
     const readings = healthReadingsOf(NEVER_READ, 0.05);
 
-    expect(readings.map((each) => [each.label, each.said, each.tone])).toEqual([
+    expect(readings.map((each) => [each.label, each.text, each.tone])).toEqual([
       ['Noise', 'Not measured', 'unknown'],
       ['Room to improve', 'Not measured', 'unknown'],
       ['Judge agreeing with itself', 'Not checked', 'unknown'],
@@ -183,7 +185,7 @@ describe('replay words', () => {
           spread: 0.06,
           flippedTasks: [],
           measuredAt: '2026-10-02T09:00:00.000Z',
-          noisyInOneCopy: false,
+          noisyInOneRepeat: false,
         },
       },
       0.05,
@@ -204,7 +206,7 @@ describe('replay words', () => {
           spread: 0.2,
           flippedTasks: [],
           measuredAt: '2026-10-02T09:00:00.000Z',
-          noisyInOneCopy: true,
+          noisyInOneRepeat: true,
         },
         saturation: {
           replayId: 'r',
@@ -240,8 +242,8 @@ describe('replay words', () => {
           candidateId: 'c',
           repeats: 1,
           state: 'finished',
-          againstReplayId: 'r',
-          againstState: 'finished',
+          referenceReplayId: 'r',
+          referenceState: 'finished',
           answered: 6,
           live: 0.95,
           withAnswer: 0.97,
@@ -249,7 +251,7 @@ describe('replay words', () => {
             gain: 0.02,
             low: -0.05,
             high: 0.08,
-            verdict: 'within-noise',
+            significance: 'within-noise',
             minGain: 0.05,
             tasks: 6,
           },
@@ -259,14 +261,14 @@ describe('replay words', () => {
       0.05,
     );
 
-    expect(readings.map((each) => [each.said, each.tone])).toEqual([
-      ['Success moved 20 pts between 3 copies', 'bad'],
+    expect(readings.map((each) => [each.text, each.tone])).toEqual([
+      ['Success moved 20 pts between 3 repeats', 'bad'],
       ['Little: +2 pts with the answer', 'bad'],
       ['Same verdict on 70% of 10 changes', 'bad'],
       ['1 of 12 changes flipped', 'bad'],
     ]);
     expect(readings[0]?.advice).toBe(
-      'One copy can’t tell a real gain from chance. Search with more repeats per run, or raise the line’s min_gain. Minimum real gain: +5 pts',
+      'One repeat can’t tell a real gain from chance. Search with more repeats per run, or raise the line’s min_gain. Minimum real gain: +5 pts',
     );
     expect(readings[1]?.advice).toMatch(
       /^Live config: 95% on 6 runs\. With the answer: 97%\. Even the answer barely helps\./,
@@ -282,8 +284,8 @@ describe('replay words', () => {
       candidateId: 'c',
       repeats: 1,
       state: 'finished',
-      againstReplayId: 'r',
-      againstState: 'finished',
+      referenceReplayId: 'r',
+      referenceState: 'finished',
       answered: 5,
       live: 0.6,
       withAnswer: 0.8,
@@ -291,7 +293,7 @@ describe('replay words', () => {
         gain: 0.2,
         low: 0.04,
         high: 0.4,
-        verdict: 'better',
+        significance: 'better',
         minGain: 0.05,
         tasks: 5,
       },
@@ -303,24 +305,24 @@ describe('replay words', () => {
         0.05,
       )[1];
 
-    expect(roomOf({})?.said).toBe('Up to +20 pts with the answer');
+    expect(roomOf({})?.text).toBe('Up to +20 pts with the answer');
     expect(roomOf({})?.tone).toBe('good');
     expect(roomOf({})?.advice).toMatch(
       /^Live config: 60% on 5 runs\. With the answer: 80%\./,
     );
-    expect(roomOf({ state: 'running' })?.said).toBe(
+    expect(roomOf({ state: 'running' })?.text).toBe(
       'Measuring with the answer',
     );
-    expect(roomOf({ state: 'stopped' })?.said).toBe(
+    expect(roomOf({ state: 'stopped' })?.text).toBe(
       'Couldn’t measure with the answer',
     );
-    expect(roomOf({ againstState: 'gone' })?.tone).toBe('unknown');
+    expect(roomOf({ referenceState: 'gone' })?.tone).toBe('unknown');
     expect(healthReplayOf({ ...NEVER_READ, oracle }, 'saturation')).toBe('o');
   });
 
   it('names how a run turned out and where its task came from', () => {
-    expect(formatTurnedOut('sent-back')).toBe('Sent back');
-    expect(formatTurnedOut('asked')).toBe('Asked a person');
+    expect(formatRunOutcome('sent-back')).toBe('Sent back');
+    expect(formatRunOutcome('asked')).toBe('Asked a person');
     expect(formatOrigin('person')).toBe('A person');
     expect(formatOrigin('station')).toBe('Another station');
     expect(formatOrigin('github')).toBe('GitHub');
@@ -363,7 +365,7 @@ describe('replay words', () => {
 
   it('says when the first baseline also checks the set, and only for a set of 5 or more runs', () => {
     expect(formatBaselineNote(false, null, 1, true)).toBe(
-      'The set has no baseline yet. This replay of the live config becomes the baseline. The first baseline checks the set. It replays each run 3 times with 3 times the ceiling. It judges and checks each change twice.',
+      'The set has no baseline yet. This replay of the live config becomes the baseline. The first baseline calibrates the set. It replays each run 3 times with 3 times the ceiling. It judges and checks each change twice.',
     );
     expect(formatBaselineNote(false, null, 1)).not.toMatch(/checks the set/);
     expect(
@@ -381,7 +383,7 @@ describe('replay words', () => {
 describe('formatSpendNote', () => {
   const parts = {
     runs: '$2.75',
-    drafting: '$0.12',
+    generation: '$0.12',
     judging: '$0.18',
     pairing: null,
     elsewhere: [],
@@ -392,13 +394,13 @@ describe('formatSpendNote', () => {
 
   it('says what the spend went on, and nothing more when everything was priced in the ceiling’s currency', () => {
     expect(formatSpendNote(parts)).toBe(
-      'Runs $2.75 · Drafting $0.12 · Judging $0.18.',
+      'Runs $2.75 · Generation $0.12 · Judging $0.18.',
     );
   });
 
-  it('counts side-by-side judging against the ceiling, not toward cost per run', () => {
+  it('counts side-by-side judging against the ceiling, not in cost per run', () => {
     expect(formatSpendNote({ ...parts, pairing: '$0.24' })).toBe(
-      'Runs $2.75 · Drafting $0.12 · Judging $0.18 · Side by side $0.24. Side-by-side judging counts against the ceiling. It doesn’t count toward cost per run.',
+      'Runs $2.75 · Generation $0.12 · Judging $0.18 · Side by side $0.24. Side-by-side judging counts against the ceiling. It doesn’t add to cost per run.',
     );
   });
 
@@ -412,7 +414,7 @@ describe('formatSpendNote', () => {
         over: true,
       }),
     ).toBe(
-      'Runs $2.75 · Drafting $0.12 · Judging $0.18. Runs that are underway at the ceiling still finish. A replay can end slightly over its ceiling. Also spent €1.00. These amounts are in another currency. They don’t count against the ceiling. Not priced: 2 runs · 1 model call.',
+      'Runs $2.75 · Generation $0.12 · Judging $0.18. Runs that are in progress at the ceiling still finish. A replay can end slightly over its ceiling. Also spent €1.00. These amounts are in another currency. They don’t count against the ceiling. Not priced: 2 runs · 1 model call.',
     );
   });
 });

@@ -1,9 +1,9 @@
-import type { AbandonTeamProfiles } from '@configuration/application/services/abandon-team-profiles.service';
-import type { AbandonTeamSkills } from '@configuration/application/services/abandon-team-skills.service';
+import type { DeleteTeamProfiles } from '@configuration/application/services/delete-team-profiles.service';
+import type { DeleteTeamSkills } from '@configuration/application/services/delete-team-skills.service';
 import {
-  TEAM_DISBANDED,
-  type TeamDisbandedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
+  TEAM_DELETED,
+  type TeamDeletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import {
   type DomainEventSubscriber,
   subscribing,
@@ -12,20 +12,23 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const configurationSubscribers = (
-  abandoning: AbandonTeamSkills,
-  abandoningProfiles: AbandonTeamProfiles,
+  deletingSkills: DeleteTeamSkills,
+  deletingProfiles: DeleteTeamProfiles,
 ): readonly DomainEventSubscriber[] => [
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'configuration.abandon-skills-of-disbanded-team',
-    [TEAM_DISBANDED],
+  subscribing<TeamDeletedIntegrationEvent>(
+    'configuration.delete-skills-of-deleted-team',
+    [TEAM_DELETED],
     (event) =>
-      abandoning.of(TeamId.of(event.teamId), WorkspaceId.of(event.workspaceId)),
+      deletingSkills.deleteForTeam(
+        TeamId.of(event.teamId),
+        WorkspaceId.of(event.workspaceId),
+      ),
   ),
-  subscribing<TeamDisbandedIntegrationEvent>(
-    'configuration.abandon-harness-profiles-of-disbanded-team',
-    [TEAM_DISBANDED],
+  subscribing<TeamDeletedIntegrationEvent>(
+    'configuration.delete-harness-profiles-of-deleted-team',
+    [TEAM_DELETED],
     (event) =>
-      abandoningProfiles.of(
+      deletingProfiles.deleteForTeam(
         TeamId.of(event.teamId),
         WorkspaceId.of(event.workspaceId),
       ),

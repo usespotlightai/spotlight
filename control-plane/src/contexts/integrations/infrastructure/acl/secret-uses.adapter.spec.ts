@@ -2,7 +2,7 @@ import type { TeamDirectoryPort } from '@identity/application/ports/team-directo
 import { IntegrationSecretUses } from '@integrations/infrastructure/acl/secret-uses.adapter';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
-import { operationsHolding } from '@integrations/integrations.documents.fake-spec';
+import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -50,16 +50,16 @@ describe('IntegrationSecretUses', () => {
       ofTeam: async () => [defined(LINEAR), defined(SENTRY)],
       everywhere: vi.fn(),
     },
-    new IntegrationReader(new CelExpressionEngine(), operationsHolding()),
+    new IntegrationReader(new CelExpressionEngine(), operationsContaining()),
   );
 
-  it('names each integration of the workspace that wears the secret', async () => {
+  it('names each integration of the workspace that uses the secret', async () => {
     expect(
       await uses.usesOf({ workspaceId: 'ws_1', name: 'LINEAR_API_KEY' }),
     ).toEqual(['integration core/linear']);
   });
 
-  it('names nothing for a secret no integration wears', async () => {
+  it('names nothing for a secret that no integration uses', async () => {
     expect(
       await uses.usesOf({
         workspaceId: WorkspaceId.of('ws_1').value,

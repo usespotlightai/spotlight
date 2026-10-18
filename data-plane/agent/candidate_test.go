@@ -19,22 +19,22 @@ func proposer(t *testing.T, status int, body string) *[]protocol.CandidatePropos
 	}
 	t.Cleanup(func() { _ = server.Close() })
 
-	var asked []protocol.CandidateProposal
+	var received []protocol.CandidateProposal
 	server.Candidates(func(proposal protocol.CandidateProposal) (int, string) {
-		asked = append(asked, proposal)
+		received = append(received, proposal)
 		return status, body
 	})
 
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 
-	return &asked
+	return &received
 }
 
 const proposedTerse = `{"candidateId":"cand_1","name":"terse","replayId":"replay_1"}`
 
 func TestCandidateReadsTheStationBlockFromStdin(t *testing.T) {
-	asked := proposer(t, 200, proposedTerse)
+	received := proposer(t, 200, proposedTerse)
 	out := new(bytes.Buffer)
 
 	err := run([]string{
@@ -44,23 +44,23 @@ func TestCandidateReadsTheStationBlockFromStdin(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	if len(*asked) != 1 {
-		t.Fatalf("asked %+v", *asked)
+	if len(*received) != 1 {
+		t.Fatalf("received %+v", *received)
 	}
-	got := (*asked)[0]
+	got := (*received)[0]
 	if got.Name != "terse" || got.Hypothesis != "Shorter prompts finish sooner." ||
 		string(got.Station) != `{"prompt":"Be brief.","effort":"low"}` {
 		t.Errorf("proposed %+v (station %s)", got, got.Station)
 	}
 	for _, want := range []string{"Proposed terse as candidate cand_1.", "replays it as replay_1"} {
 		if !strings.Contains(out.String(), want) {
-			t.Errorf("said %q, missing %q", out, want)
+			t.Errorf("output %q, missing %q", out, want)
 		}
 	}
 }
 
 func TestCandidateReadsTheBlockAndTheHypothesisFromFiles(t *testing.T) {
-	asked := proposer(t, 201, proposedTerse)
+	received := proposer(t, 201, proposedTerse)
 	dir := t.TempDir()
 	block := filepath.Join(dir, "station.json")
 	hypothesis := filepath.Join(dir, "hypothesis.md")
@@ -77,9 +77,9 @@ func TestCandidateReadsTheBlockAndTheHypothesisFromFiles(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	if len(*asked) != 1 || (*asked)[0].Hypothesis != "A smaller model is enough\nfor this station." ||
-		string((*asked)[0].Station) != `{"model":"sonnet"}` {
-		t.Errorf("proposed %+v", *asked)
+	if len(*received) != 1 || (*received)[0].Hypothesis != "A smaller model is enough\nfor this station." ||
+		string((*received)[0].Station) != `{"model":"sonnet"}` {
+		t.Errorf("proposed %+v", *received)
 	}
 }
 
@@ -94,16 +94,16 @@ func TestCandidatePrintsTheProblemsSpotlightFound(t *testing.T) {
 		strings.NewReader(`{"check":"npm test"}`), out)
 
 	if err == nil {
-		t.Fatal("a refused candidate passed")
+		t.Fatal("a rejected candidate passed")
 	}
 	for _, want := range []string{
-		"Spotlight refused the candidate:\n",
+		"Spotlight rejected the candidate:\n",
 		"\nstation.check: a search may not change the check\n",
 		"\nstation.effort: effort is one of low, medium, high\n",
-		"\nstation.prompt: the prompt is long (warning, not why it was refused)\n",
+		"\nstation.prompt: the prompt is long (warning, not why it was rejected)\n",
 	} {
 		if !strings.Contains(err.Error(), want) {
-			t.Errorf("said %q, missing %q", err, want)
+			t.Errorf("output %q, missing %q", err, want)
 		}
 	}
 	if out.Len() != 0 {
@@ -111,7 +111,7 @@ func TestCandidatePrintsTheProblemsSpotlightFound(t *testing.T) {
 	}
 }
 
-func TestCandidateCarriesARefusalWithoutProblems(t *testing.T) {
+func TestCandidateCarriesAnErrorWithoutProblems(t *testing.T) {
 	proposer(t, 422, "this iteration has proposed all the candidates it may\n")
 
 	err := run([]string{"candidate", "--name", "terse", "--hypothesis", "x", "-"},
@@ -122,8 +122,8 @@ func TestCandidateCarriesARefusalWithoutProblems(t *testing.T) {
 	}
 }
 
-func TestCandidateRefusesMisuseBeforeAskingSpotlight(t *testing.T) {
-	asked := proposer(t, 200, proposedTerse)
+func TestCandidateRejectsMisuseBeforeCallingSpotlight(t *testing.T) {
+	received := proposer(t, 200, proposedTerse)
 
 	for _, args := range [][]string{
 		{"candidate"},
@@ -141,16 +141,16 @@ func TestCandidateRefusesMisuseBeforeAskingSpotlight(t *testing.T) {
 	} {
 		err := run(args, strings.NewReader(`{}`), new(bytes.Buffer))
 		if err == nil || !strings.Contains(err.Error(), "usage:") {
-			t.Errorf("%v said %v", args, err)
+			t.Errorf("%v returned %v", args, err)
 		}
 	}
-	if len(*asked) != 0 {
-		t.Errorf("proposed anyway: %+v", *asked)
+	if len(*received) != 0 {
+		t.Errorf("proposed anyway: %+v", *received)
 	}
 }
 
 func TestCandidateNeedsAJSONObject(t *testing.T) {
-	asked := proposer(t, 200, proposedTerse)
+	received := proposer(t, 200, proposedTerse)
 	hcl := filepath.Join(t.TempDir(), "line.tf")
 	if err := os.WriteFile(hcl, []byte(`station "build" {}`), 0o644); err != nil {
 		t.Fatal(err)
@@ -161,9 +161,9 @@ func TestCandidateNeedsAJSONObject(t *testing.T) {
 		in   string
 		want string
 	}{
-		{[]string{"-"}, `["prompt"]`, "holds no JSON object"},
-		{[]string{"-"}, `null`, "holds no JSON object"},
-		{[]string{"-"}, `prompt: x`, "holds no JSON object"},
+		{[]string{"-"}, `["prompt"]`, "contains no JSON object"},
+		{[]string{"-"}, `null`, "contains no JSON object"},
+		{[]string{"-"}, `prompt: x`, "contains no JSON object"},
 		{[]string{hcl}, ``, "is HCL"},
 		{[]string{filepath.Join(t.TempDir(), "gone.json")}, ``, "read the station block"},
 	} {
@@ -173,8 +173,8 @@ func TestCandidateNeedsAJSONObject(t *testing.T) {
 			t.Errorf("%v with %q: %v", attempt.args, attempt.in, err)
 		}
 	}
-	if len(*asked) != 0 {
-		t.Errorf("proposed anyway: %+v", *asked)
+	if len(*received) != 0 {
+		t.Errorf("proposed anyway: %+v", *received)
 	}
 }
 
@@ -184,8 +184,8 @@ func TestCandidateSaysWhenTheRunCannotProposeOne(t *testing.T) {
 		t.Fatalf("serve: %v", err)
 	}
 	t.Cleanup(func() { _ = server.Close() })
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 
 	err = run([]string{"candidate", "--name", "terse", "--hypothesis", "x", "-"}, strings.NewReader(`{}`), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "only a search's runs do") {
@@ -194,8 +194,8 @@ func TestCandidateSaysWhenTheRunCannotProposeOne(t *testing.T) {
 }
 
 func TestCandidateOutsideARunSaysSo(t *testing.T) {
-	t.Setenv(protocol.HandoverURLVar, "")
-	t.Setenv(protocol.HandoverTokenVar, "")
+	t.Setenv(protocol.AgentAPIURLVar, "")
+	t.Setenv(protocol.AgentAPITokenVar, "")
 
 	err := run([]string{"candidate", "--name", "terse", "--hypothesis", "x", "-"}, strings.NewReader(`{}`), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "no run") {

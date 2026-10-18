@@ -49,13 +49,13 @@ export function Shortened({
   className?: string;
 }) {
   const [shown, setShown] = useState(text);
-  const held = useRef<HTMLSpanElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     let reading = true;
 
     const cut = () => {
-      const node = held.current;
+      const node = textRef.current;
 
       if (!node) {
         return;
@@ -83,7 +83,7 @@ export function Shortened({
 
   return (
     <span
-      ref={held}
+      ref={textRef}
       className={className}
       title={shown === text ? undefined : text}
     >

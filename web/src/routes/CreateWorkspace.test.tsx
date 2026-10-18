@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { wasOpenedHere } from '@/lib/provisioning';
+import { wasCreatedHere } from '@/lib/setup-status';
 import { CreateWorkspace } from '@/routes/CreateWorkspace';
 
 vi.mock('@/hooks/api/useSession', () => ({
@@ -104,7 +104,7 @@ describe('CreateWorkspace', () => {
     expect(submit).toBeEnabled();
   });
 
-  it('asks for the team name before creating anything', async () => {
+  it('needs the team name before creating anything', async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -134,7 +134,7 @@ describe('CreateWorkspace', () => {
     ).toBeEnabled();
   });
 
-  it('holds on to the workspace name when stepped back', async () => {
+  it('keeps the workspace name when stepped back', async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -195,6 +195,6 @@ describe('CreateWorkspace', () => {
     expect(navigate).toHaveBeenCalledWith('/w/acme-inc/inbox', {
       replace: true,
     });
-    expect(wasOpenedHere('acme-inc')).toBe(true);
+    expect(wasCreatedHere('acme-inc')).toBe(true);
   });
 });

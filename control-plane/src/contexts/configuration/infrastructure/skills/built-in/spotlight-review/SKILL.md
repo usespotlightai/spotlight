@@ -17,7 +17,7 @@ spotlight review-comment --path "<file>" --line <line> --body "<what is wrong an
 - A comment on a line the pull request removes takes `--side old`, and its
   line is the one it had before.
 - A body of more than one line is piped in, never quoted: `\n` inside quotes
-  reaches GitHub as a backslash and an n, not a new line.
+  arrives at GitHub as a backslash and an n, not a new line.
 
   ```
   spotlight review-comment --path "<file>" --line <line> <<'EOF'
@@ -32,7 +32,7 @@ or near one. A comment on any other line is folded into the review's body
 instead, so say anything about the change as a whole, or about a file it does
 not touch, in the body.
 
-Comments are held until you submit them, all together, as one review:
+Comments stay pending until you submit them, all together, as one review:
 
 ```
 spotlight review --verdict comment --body "<what it comes down to>"

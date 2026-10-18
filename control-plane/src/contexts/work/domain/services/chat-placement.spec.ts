@@ -1,7 +1,7 @@
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -13,12 +13,12 @@ import {
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { describe, expect, it } from 'vitest';
 
 const API = Repository.of('acme/api');
@@ -27,7 +27,7 @@ const DOCS = Repository.of('acme/docs');
 
 const line = (
   key: string,
-  repositories: readonly (Repository | WorkedRepository)[],
+  repositories: readonly (Repository | LineRepositoryConfig)[],
   runners: string[],
 ) =>
   Line.rehydrate({
@@ -37,7 +37,9 @@ const line = (
     key: LineKey.of(key),
     name: LineName.of(key),
     repositories: repositories.map((each) =>
-      each instanceof WorkedRepository ? each : WorkedRepository.of(each),
+      each instanceof LineRepositoryConfig
+        ? each
+        : LineRepositoryConfig.of(each),
     ),
     placement: RunnerPlacement.of(runners),
     stations: [
@@ -70,8 +72,8 @@ describe('chatPlacement', () => {
   it('places a chat where every line working in one of its repositories would run', () => {
     const placed = chatPlacement([API, WEB], LINES);
 
-    expect(placed?.admits(RunnerTerms.of(['vpc-internal']))).toBe(true);
-    expect(placed?.admits(RunnerTerms.of(['build-1']))).toBe(false);
+    expect(placed?.matches(RunnerOffer.of(['vpc-internal']))).toBe(true);
+    expect(placed?.matches(RunnerOffer.of(['build-1']))).toBe(false);
   });
 
   it('places a chat anywhere when its repositories are worked only by lines placed anywhere, or by none', () => {
@@ -86,11 +88,17 @@ describe('chatPlacement', () => {
     const image = RunnerImage.of('ghcr.io/acme/api:1');
     const placed = chatPlacement(
       [API],
-      [line('api', [WorkedRepository.of(API, { image })], ['vpc-internal'])],
+      [
+        line(
+          'api',
+          [LineRepositoryConfig.of(API, { image })],
+          ['vpc-internal'],
+        ),
+      ],
     );
 
     expect(placed?.image?.equals(image)).toBe(true);
-    expect(placed?.selectors).toEqual(['vpc-internal']);
+    expect(placed?.requiredLabels).toEqual(['vpc-internal']);
   });
 
   it('places no chat whose repositories are worked in two images', () => {
@@ -98,7 +106,7 @@ describe('chatPlacement', () => {
       line(
         'api',
         [
-          WorkedRepository.of(API, {
+          LineRepositoryConfig.of(API, {
             image: RunnerImage.of('ghcr.io/acme/api:1'),
           }),
         ],
@@ -107,7 +115,7 @@ describe('chatPlacement', () => {
       line(
         'web',
         [
-          WorkedRepository.of(WEB, {
+          LineRepositoryConfig.of(WEB, {
             image: RunnerImage.of('ghcr.io/acme/web:1'),
           }),
         ],
@@ -128,7 +136,7 @@ describe('chatSetupOf', () => {
       line('web', [WEB], []),
       line(
         'api',
-        [WorkedRepository.of(API, { setup: RepositorySetup.of('npm ci') })],
+        [LineRepositoryConfig.of(API, { setup: RepositorySetup.of('npm ci') })],
         [],
       ),
     ];

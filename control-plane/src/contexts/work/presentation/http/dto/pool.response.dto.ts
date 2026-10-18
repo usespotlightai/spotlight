@@ -13,7 +13,7 @@ export class PoolQueueResponseDto {
     type: 'integer',
     example: 1,
     description:
-      'The pool’s runners standing now: holding a run or check, or started and yet to claim',
+      'The pool’s runners that are active now: with a lease on a run or check, or started and yet to claim',
   })
   readonly running: number;
 

@@ -149,7 +149,7 @@ export const INVITATIONS: ChangeStackResponseDto = {
           title: 'Add the invitation data model',
           summary:
             'A table for pending invitations, each with a unique token, the role it grants and when it expires.',
-          ranges: [{ hunk: 'h1' }],
+          hunks: [{ hunk: 'h1' }],
           notes: [
             {
               path: 'control-plane/src/schemas/invitation.schema.ts',
@@ -162,11 +162,11 @@ export const INVITATIONS: ChangeStackResponseDto = {
           title: 'Add the invitation API and emails',
           summary:
             'Endpoints to invite and to accept, the invitation email, and the admin-only permission gate.',
-          ranges: [{ hunk: 'h2' }, { hunk: 'h3' }],
+          hunks: [{ hunk: 'h2' }, { hunk: 'h3' }],
           notes: [
             {
               path: 'control-plane/src/invitations/invitation.controller.ts',
-              note: 'Adds the invite and accept endpoints. Only admins may invite; anyone holding a token may accept.',
+              note: 'Adds the invite and accept endpoints. Only admins may invite; anyone with a token may accept.',
             },
             {
               path: 'control-plane/src/mail/invitation.mail.ts',
@@ -179,7 +179,7 @@ export const INVITATIONS: ChangeStackResponseDto = {
           title: 'Build the invite & members UI',
           summary:
             'Admins see an invite form on the members page, and everyone sees who is still to accept.',
-          ranges: [{ hunk: 'h4' }],
+          hunks: [{ hunk: 'h4' }],
           notes: [
             {
               path: 'web/src/routes/TeamMembers.tsx',
@@ -199,7 +199,7 @@ export const INVITATIONS: ChangeStackResponseDto = {
           id: 'c2.l1',
           title: 'Update the lockfile',
           summary: 'A patch release of zod, with no code depending on it.',
-          ranges: [{ hunk: 'h5' }],
+          hunks: [{ hunk: 'h5' }],
           notes: [],
         },
       ],
@@ -245,7 +245,7 @@ export const LARGE_FILE: ChangeStackResponseDto = {
             layer.id === 'c1.l1'
               ? {
                   ...layer,
-                  ranges: [...layer.ranges, { hunk: 'h6', summary: null }],
+                  hunks: [...layer.hunks, { hunk: 'h6', summary: null }],
                   notes: [
                     ...layer.notes,
                     {
@@ -275,8 +275,8 @@ export const REVIEW: CodeReviewResponseDto = {
       authorName: 'octocat',
       authorLogin: 'octocat',
       authorImage: 'https://github.com/octocat.png?size=64',
-      yours: false,
-      byAgent: false,
+      viewerIsAuthor: false,
+      isAgentAuthored: false,
       replyTo: null,
       state: 'posted',
       failure: null,
@@ -294,8 +294,8 @@ export const REVIEW: CodeReviewResponseDto = {
       authorName: 'Spotlight',
       authorLogin: null,
       authorImage: null,
-      yours: false,
-      byAgent: true,
+      viewerIsAuthor: false,
+      isAgentAuthored: true,
       replyTo: null,
       state: 'posted',
       failure: null,
@@ -313,8 +313,8 @@ export const REVIEW: CodeReviewResponseDto = {
       authorName: 'Ada Lovelace',
       authorLogin: null,
       authorImage: null,
-      yours: true,
-      byAgent: false,
+      viewerIsAuthor: true,
+      isAgentAuthored: false,
       replyTo: 'comment_expiry',
       state: 'sending',
       failure: null,
@@ -332,8 +332,8 @@ export const REVIEW: CodeReviewResponseDto = {
       authorName: 'Ada Lovelace',
       authorLogin: null,
       authorImage: null,
-      yours: true,
-      byAgent: false,
+      viewerIsAuthor: true,
+      isAgentAuthored: false,
       replyTo: null,
       state: 'draft',
       failure: null,

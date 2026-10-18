@@ -1,4 +1,4 @@
-import type { MintedTokens } from '@identity/application/services/minted-tokens.service';
+import type { IssuedTokens } from '@identity/application/services/issued-tokens.service';
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -11,7 +11,7 @@ export class ExpiredTokensWorker implements OnModuleDestroy {
   #stopped = false;
 
   constructor(
-    private readonly minted: MintedTokens,
+    private readonly issuedTokens: IssuedTokens,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -26,16 +26,16 @@ export class ExpiredTokensWorker implements OnModuleDestroy {
       return;
     }
 
-    this.#ticking = this.pruned();
+    this.#ticking = this.expireDue();
     await this.#ticking;
     this.#ticking = null;
   }
 
-  private async pruned(): Promise<void> {
+  private async expireDue(): Promise<void> {
     try {
-      await this.minted.pruneExpired();
+      await this.issuedTokens.expireDue();
     } catch (error) {
-      this.logger.error({ err: error }, this.minted.name);
+      this.logger.error({ err: error }, this.issuedTokens.name);
     }
   }
 }

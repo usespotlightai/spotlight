@@ -1,12 +1,12 @@
 import { StationIcon } from '@/components/features/board/column/StationIcon';
-import { SaidCard } from '@/components/features/inbox/conversation/SaidCard';
+import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import type { Attachment } from '@/lib/attachment';
-import type { Conversing } from '@/lib/inbox';
+import type { ConversationItem } from '@/lib/inbox';
 import { stationShare } from '@/lib/station';
 
 type InboxAskedProps = {
-  station: Conversing['station'] | null;
+  station: ConversationItem['station'] | null;
   title: string | null;
   description: string | null;
   attachments: readonly Attachment[];
@@ -20,7 +20,7 @@ export function InboxAsked({
 }: InboxAskedProps) {
   return (
     <div className="flex flex-col gap-1.5">
-      <SaidCard>
+      <MessageCard>
         {station && (
           <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
             <StationIcon
@@ -42,7 +42,7 @@ export function InboxAsked({
             </p>
           )}
         </div>
-      </SaidCard>
+      </MessageCard>
 
       <AttachmentTiles attachments={attachments} />
     </div>

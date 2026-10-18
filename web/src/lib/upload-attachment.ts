@@ -28,7 +28,9 @@ export const uploadAttachment = async ({
   const put = await fetch(url, { method: 'PUT', headers, body: file });
 
   if (!put.ok) {
-    throw new Error(`Sorry, storage refused the upload. Status: ${put.status}`);
+    throw new Error(
+      `Sorry, the upload to storage failed. Status: ${put.status}`,
+    );
   }
 
   return { id };

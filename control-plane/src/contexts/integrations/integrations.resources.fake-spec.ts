@@ -4,26 +4,26 @@ import type {
   IntegrationCompilerPort,
   ParsedIntegration,
 } from '@integrations/application/ports/integration-compiler.port';
-import type { HostReach } from '@integrations/application/services/host-reach.service';
-import { IntegrationSources } from '@integrations/application/services/integration-sources.service';
-import type { ToolsGiven } from '@integrations/application/services/tools-given.service';
+import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
+import type { EnabledTools } from '@integrations/application/services/enabled-tools.service';
+import { IntegrationSpecs } from '@integrations/application/services/integration-specs.service';
 import { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
 import { Integration } from '@integrations/domain/entities/integration.entity';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
-import { documentsHolding } from '@integrations/integrations.documents.fake-spec';
+import { documentsContaining } from '@integrations/integrations.documents.fake-spec';
 import type {
-  IdempotentClaim,
   IdempotentCreatesPort,
+  IdempotentReservation,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type {
-  IdempotentRecall,
-  IdempotentRecallsPort,
-} from '@shared-kernel/application/ports/idempotent-recalls.port';
+  IdempotentLookup,
+  IdempotentLookupsPort,
+} from '@shared-kernel/application/ports/idempotent-lookups.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
@@ -37,24 +37,24 @@ export const LINEAR = { integration: 'linear', name: 'Linear' };
 
 export const SLACK = { integration: 'slack', name: 'Slack' };
 
-const compiledFor = (source: string, held: object): ParsedIntegration => ({
+const compiledFor = (integration: string, raw: object): ParsedIntegration => ({
   ok: true,
   integration: Integration.of({
-    source: SourceKey.of(source),
+    key: IntegrationKey.of(integration),
     actions: DefinedActions.of(['comment']),
   }),
-  document: DefinitionDocument.of(held),
-  source: null,
-  passedOver: [],
+  document: DefinitionDocument.of(raw),
+  spec: null,
+  skipped: [],
   warnings: [],
 });
 
 const compiler: IntegrationCompilerPort = {
-  compile: (held): ParsedIntegration =>
-    held === LINEAR
-      ? compiledFor('linear', held)
-      : held === SLACK
-        ? compiledFor('slack', held)
+  compile: (raw): ParsedIntegration =>
+    raw === LINEAR
+      ? compiledFor('linear', raw)
+      : raw === SLACK
+        ? compiledFor('slack', raw)
         : {
             ok: false,
             problems: [
@@ -67,21 +67,21 @@ const compiler: IntegrationCompilerPort = {
           },
 };
 
-export const standingAt = (
+export const storedAt = (
   version: number,
-  offers: string[] = [],
+  tools: string[] = [],
 ): IntegrationDefinition =>
   IntegrationDefinition.rehydrate({
     id: IntegrationDefinitionId.of('integration_1'),
     teamId: TEAM,
-    source: SourceKey.of('linear'),
+    integration: IntegrationKey.of('linear'),
     document: DefinitionDocument.of({ integration: 'linear' }),
-    offers,
+    tools,
     reading: null,
     version,
   });
 
-export const access = (administers = true) => teamAccess(TEAM, administers);
+export const access = (isAdmin = true) => teamAccess(TEAM, isAdmin);
 
 export const teams = (): TeamDirectoryPort => ({
   find: vi.fn(async () => ({
@@ -94,49 +94,49 @@ export const teams = (): TeamDirectoryPort => ({
   inWorkspace: vi.fn(async () => []),
 });
 
-export const sources = new IntegrationSources(
+export const specs = new IntegrationSpecs(
   compiler,
-  documentsHolding(),
+  documentsContaining(),
   {
     read: vi.fn(async () => ({ kind: 'unread' as const, problem: 'unread' })),
   },
-  {} as HostReach,
+  {} as CallAuthResolver,
   { now: () => new Date('2026-10-05T12:00:00.000Z'), sleep: async () => {} },
 );
 
-export const creates = (claim: IdempotentClaim = { kind: 'fresh' }) =>
+export const creates = (reservation: IdempotentReservation = { kind: 'new' }) =>
   ({
-    claim: vi.fn(async () => claim),
-    created: vi.fn(async () => {}),
+    reserve: vi.fn(async () => reservation),
+    recordCreated: vi.fn(async () => {}),
   }) satisfies IdempotentCreatesPort;
 
-export const recalls = (recall: IdempotentRecall = { kind: 'unseen' }) =>
+export const lookups = (lookup: IdempotentLookup = { kind: 'new' }) =>
   ({
-    recall: vi.fn(async () => recall),
-  }) satisfies IdempotentRecallsPort;
+    lookup: vi.fn(async () => lookup),
+  }) satisfies IdempotentLookupsPort;
 
-export const toolsGiven = (given = ToolUses.none()): ToolsGiven =>
-  ({ onTeam: vi.fn(async () => given) }) as unknown as ToolsGiven;
+export const enabledTools = (enabled = ToolUses.none()): EnabledTools =>
+  ({ onTeam: vi.fn(async () => enabled) }) as unknown as EnabledTools;
 
 export const transaction: TransactionPort = { inTransaction: (work) => work() };
 
 export const definitions = (
   over: {
-    standing?: IntegrationDefinition | null;
-    refusing?: Error;
+    stored?: IntegrationDefinition | null;
+    failing?: Error;
     thenAt?: IntegrationDefinition | null;
   } = {},
 ) => {
-  const read = vi.fn(async () => over.standing ?? null);
+  const read = vi.fn(async () => over.stored ?? null);
 
   return {
     withId: read,
     of: read,
-    ofTeam: vi.fn(async () => (over.standing ? [over.standing] : [])),
+    ofTeam: vi.fn(async () => (over.stored ? [over.stored] : [])),
     save: vi.fn(async (_: IntegrationDefinition) => {
-      if (over.refusing) {
+      if (over.failing) {
         read.mockResolvedValue(over.thenAt ?? null);
-        throw over.refusing;
+        throw over.failing;
       }
     }),
   } satisfies IntegrationDefinitionRepository;

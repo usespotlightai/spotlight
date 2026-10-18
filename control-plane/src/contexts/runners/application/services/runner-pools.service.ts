@@ -1,4 +1,4 @@
-import type { RunnerAdmissionsPort } from '@runners/application/ports/runner-admissions.port';
+import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-authenticator.port';
 import type {
   PoolAtWork,
   RunnerPoolsPort,
@@ -10,11 +10,11 @@ import type {
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 
 const PLATFORM = 'spotlight';
 
-const goesOut = (egress: string | null, platform: boolean): boolean =>
+const usesEgress = (egress: string | null, platform: boolean): boolean =>
   egress !== null && (egress !== PLATFORM || platform);
 
 export class RunnerPools implements RunnerPoolsPort {
@@ -22,7 +22,7 @@ export class RunnerPools implements RunnerPoolsPort {
     private readonly pools: RunnerPoolRepository,
     private readonly runners: RunnerRepository,
     private readonly resources: RunnerResourcesPort,
-    private readonly admissions: RunnerAdmissionsPort,
+    private readonly authenticator: RunnerAuthenticatorPort,
     private readonly platform: boolean,
   ) {}
 
@@ -30,16 +30,16 @@ export class RunnerPools implements RunnerPoolsPort {
     token: string | undefined,
     poolId: string,
   ): Promise<PoolAtWork | null> {
-    const admitted = await this.admissions.admit({
+    const authenticated = await this.authenticator.authenticate({
       bearer: token,
       trust: undefined,
     });
 
-    if (admitted?.way.kind !== 'pool') {
+    if (authenticated?.source.kind !== 'pool') {
       return null;
     }
 
-    const id = RunnerPoolId.of(admitted.way.id);
+    const id = RunnerPoolId.of(authenticated.source.id);
     const pool = id.equals(RunnerPoolId.of(poolId))
       ? await this.pools.find(id)
       : null;
@@ -49,8 +49,8 @@ export class RunnerPools implements RunnerPoolsPort {
           poolId: pool.id.value,
           workspaceId: pool.workspaceId,
           key: pool.key.value,
-          labels: RunnerTerms.of(pool.labels.values),
-          egress: goesOut(pool.egress?.value ?? null, this.platform),
+          labels: RunnerOffer.of(pool.labels.values),
+          egress: usesEgress(pool.egress?.value ?? null, this.platform),
         }
       : null;
   }
@@ -62,7 +62,7 @@ export class RunnerPools implements RunnerPoolsPort {
   }
 
   async running(poolId: string, now: Date): Promise<number> {
-    return (await this.runners.standingIn(RunnerPoolId.of(poolId), now)).length;
+    return (await this.runners.aliveIn(RunnerPoolId.of(poolId), now)).length;
   }
 
   async roomIn(poolId: string, now: Date): Promise<number | null> {
@@ -70,7 +70,7 @@ export class RunnerPools implements RunnerPoolsPort {
     const pool = await this.pools.find(id);
 
     return pool
-      ? pool.roomFor((await this.runners.standingIn(id, now)).length)
+      ? pool.roomFor((await this.runners.aliveIn(id, now)).length)
       : 0;
   }
 
@@ -79,8 +79,8 @@ export class RunnerPools implements RunnerPoolsPort {
       poolId: pool.id,
       workspaceId: pool.workspaceId,
       key: pool.key,
-      labels: RunnerTerms.of(pool.labels),
-      egress: goesOut(pool.provision?.egress ?? null, this.platform),
+      labels: RunnerOffer.of(pool.labels),
+      egress: usesEgress(pool.provision?.egress ?? null, this.platform),
     };
   }
 }

@@ -2,7 +2,7 @@ import { APPROVAL_INTENT_INPUT } from '@shared-kernel/domain/value-objects/appro
 import type { ToolManifestShape } from '@work/application/contracts/run-spec.contract';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 
-const told = (declared: DeclaredTool): string =>
+const descriptionOf = (declared: DeclaredTool): string =>
   declared.approval
     ? [
         declared.description,
@@ -18,12 +18,12 @@ const INTENT = {
     'What you want to do and why it needs a person, as one short phrase that completes “Spotlight would like to …”, in the words of the reason above, as in: post the drain summary on ENG-412, publicly under the team’s name',
   required: false,
   defaulted: false,
-  piped: false,
+  stdin: false,
 };
 
 export const toolManifestOf = (declared: DeclaredTool): ToolManifestShape => ({
   name: declared.tool.called,
-  description: told(declared),
+  description: descriptionOf(declared),
   inputs: [
     ...declared.inputs.map((each) => ({
       name: each.name,
@@ -31,11 +31,11 @@ export const toolManifestOf = (declared: DeclaredTool): ToolManifestShape => ({
       ...(each.description ? { description: each.description } : {}),
       required: each.required,
       defaulted: each.defaulted,
-      piped: each.piped,
+      stdin: each.stdin,
     })),
     ...(declared.approval ? [INTENT] : []),
   ],
   approval: declared.approval ? { because: declared.approval.because } : null,
-  ...(declared.offeredBy ? { integration: declared.offeredBy } : {}),
-  ...(declared.learnedOutput ? { output: declared.learnedOutput } : {}),
+  ...(declared.providedBy ? { integration: declared.providedBy } : {}),
+  ...(declared.inferredOutput ? { output: declared.inferredOutput } : {}),
 });

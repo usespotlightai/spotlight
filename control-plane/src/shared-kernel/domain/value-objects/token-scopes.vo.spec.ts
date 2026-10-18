@@ -4,9 +4,9 @@ import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo
 import { describe, expect, it } from 'vitest';
 
 const allowed = (scopes: readonly string[]) => {
-  const held = TokenScopes.named(scopes);
+  const granted = TokenScopes.named(scopes);
 
-  return TokenScope.all.filter((each) => held.allow(each)).map(String);
+  return TokenScope.all.filter((each) => granted.allow(each)).map(String);
 };
 
 describe('TokenScopes', () => {
@@ -43,11 +43,11 @@ describe('TokenScopes', () => {
     [['runners']],
     [['trusts']],
     [['secrets', 'runners']],
-  ])('refuses %j granted without a rung of the ladder', (scopes) => {
+  ])('rejects %j granted without a rung of the ladder', (scopes) => {
     expect(() => TokenScopes.named(scopes)).toThrow(InvalidTokenScopeError);
   });
 
-  it('refuses a scope named twice', () => {
+  it('rejects a scope named twice', () => {
     expect(() => TokenScopes.named(['read', 'read'])).toThrow(
       /name each scope once/,
     );

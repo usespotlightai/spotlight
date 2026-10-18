@@ -1,35 +1,41 @@
 import type { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import type {
-  AttachesIR,
+  AttachmentsIR,
   EventIR,
   RaiseIR,
   RequestIR,
 } from '@integrations/infrastructure/integrations/integration.compile';
-import { type Bindings, bound } from '@platform/expressions/bindings';
-import { holds, reads, value } from '@platform/expressions/readings';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import {
+  type CelVariables,
+  sanitizedForCel,
+} from '@platform/expressions/cel-variables';
+import { evaluateText, isTrue, value } from '@platform/expressions/readings';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type {
   Arriving,
   Happened,
-  MarkWorn,
+  TaskMark,
 } from '@work/application/contracts/happenings.contract';
 
 const identity = async (
   _event: EventIR,
-  against: Bindings,
-): Promise<Bindings> => against;
+  against: CelVariables,
+): Promise<CelVariables> => against;
 
 export type Fetching = (
   request: RequestIR,
-  against: Bindings,
+  against: CelVariables,
 ) => Promise<Uint8Array>;
 
 export const readEvents = async (
   events: readonly EventIR[],
   declaring: (happening: string) => DeclaredHappening | null,
-  against: Bindings,
-  ourOwn: (against: Bindings) => boolean,
-  enrich: (event: EventIR, against: Bindings) => Promise<Bindings> = identity,
+  against: CelVariables,
+  ourOwn: (against: CelVariables) => boolean,
+  enrich: (
+    event: EventIR,
+    against: CelVariables,
+  ) => Promise<CelVariables> = identity,
   fetching: Fetching | null = null,
 ): Promise<Happened[]> => {
   const raised: Happened[] = [];
@@ -46,9 +52,9 @@ export const readEvents = async (
 
       if (Array.isArray(list)) {
         for (const item of list) {
-          const per = { ...against, item: bound(item) };
+          const per = { ...against, item: sanitizedForCel(item) };
 
-          if (holds(event.when, per)) {
+          if (isTrue(event.when, per)) {
             const filled = await enrich(event, per);
             raised.push(
               raiseFrom(
@@ -66,7 +72,7 @@ export const readEvents = async (
       continue;
     }
 
-    if (holds(event.when, against)) {
+    if (isTrue(event.when, against)) {
       const filled = await enrich(event, against);
       raised.push(
         raiseFrom(event.raise, declared, filled, ourOwn(filled), fetching),
@@ -78,28 +84,32 @@ export const readEvents = async (
 };
 
 const arriving = (
-  attaches: AttachesIR,
-  against: Bindings,
+  attachments: AttachmentsIR,
+  against: CelVariables,
   fetching: Fetching,
 ): Arriving[] => {
-  const files = value(attaches.each, against);
+  const files = value(attachments.each, against);
 
   if (!Array.isArray(files)) {
     return [];
   }
 
   return files.flatMap((file) => {
-    const per = { ...against, file: bound(file) };
-    const name = reads(attaches.name, per);
-    const size = attaches.size ? Number(value(attaches.size, per)) : Number.NaN;
+    const per = { ...against, file: sanitizedForCel(file) };
+    const name = evaluateText(attachments.name, per);
+    const size = attachments.size
+      ? Number(value(attachments.size, per))
+      : Number.NaN;
 
     return name
       ? [
           {
             name,
-            contentType: attaches.type ? reads(attaches.type, per) : null,
+            contentType: attachments.type
+              ? evaluateText(attachments.type, per)
+              : null,
             size: Number.isFinite(size) ? size : null,
-            fetch: () => fetching(attaches.fetch, per),
+            fetch: () => fetching(attachments.fetch, per),
           },
         ]
       : [];
@@ -109,63 +119,67 @@ const arriving = (
 const raiseFrom = (
   raise: RaiseIR,
   declared: DeclaredHappening,
-  against: Bindings,
+  against: CelVariables,
   ourOwn: boolean,
   fetching: Fetching | null,
 ): Happened => {
   const marked = raise.marks
     .map((mark) => {
-      const read = reads(mark.value, against);
+      const read = evaluateText(mark.value, against);
 
       return read
         ? { mark: { kind: mark.kind.value, value: read }, finds: mark.finds }
         : null;
     })
     .filter(
-      (each): each is { mark: MarkWorn; finds: boolean } => each !== null,
+      (each): each is { mark: TaskMark; finds: boolean } => each !== null,
     );
 
   const marks = marked.map((each) => each.mark);
 
-  const branch = raise.branch ? reads(raise.branch, against) || null : null;
+  const branch = raise.branch
+    ? evaluateText(raise.branch, against) || null
+    : null;
   const finding = marked.filter((each) => each.finds).map((each) => each.mark);
 
   if (!branch && finding.length === 0) {
-    throw new UpstreamRefusedError(
+    throw new UpstreamError(
       `reading a ${declared.happening.value}`,
       'it names neither a branch nor anything this line knows a task by',
     );
   }
 
-  const title = raise.opens ? reads(raise.opens.title, against) : null;
-  const saying = raise.say ? (reads(raise.say, against) ?? '').trim() : '';
+  const title = raise.opens ? evaluateText(raise.opens.title, against) : null;
+  const messageText = raise.message
+    ? (evaluateText(raise.message, against) ?? '').trim()
+    : '';
 
   return {
     happening: declared.happening.value,
-    told: declared.told,
-    spoken: declared.spoken,
+    summary: declared.summary,
+    answers: declared.answers,
     state: 'raised',
-    concerns: { branch, marks: finding },
-    said: saying ? { body: saying } : null,
+    correlationKeys: { branch, marks: finding },
+    message: messageText ? { body: messageText } : null,
     ourOwn,
     opens:
       declared.opens && raise.opens && title
         ? {
-            onto: declared.opens.onto,
-            at: declared.opens.at,
+            lineRole: declared.opens.lineRole,
+            station: declared.opens.station,
             title,
             description: raise.opens.description
-              ? reads(raise.opens.description, against)
+              ? evaluateText(raise.opens.description, against)
               : null,
             assignEmail: raise.opens.assignBy
-              ? reads(raise.opens.assignBy.email, against)
+              ? evaluateText(raise.opens.assignBy.email, against)
               : null,
             marks,
           }
         : null,
     attachments:
-      raise.attaches && fetching
-        ? arriving(raise.attaches, against, fetching)
+      raise.attachments && fetching
+        ? arriving(raise.attachments, against, fetching)
         : [],
   };
 };

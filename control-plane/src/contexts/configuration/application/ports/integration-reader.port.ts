@@ -4,7 +4,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export const INTEGRATION_READER = Symbol('INTEGRATION_READER');
 
-export interface DescribedSummary {
+export interface ApiSpecSummary {
   readonly kind: string;
   readonly tools: number;
   readonly readAt: Date;
@@ -12,15 +12,15 @@ export interface DescribedSummary {
 }
 
 interface IntegrationSummary {
-  readonly source: string;
+  readonly integration: string;
   readonly path: string;
   readonly name: string;
-  readonly connects: boolean;
-  readonly holding: 'team' | 'requester';
-  readonly linked: boolean;
-  readonly handle: string | null;
+  readonly requiresConnection: boolean;
+  readonly actsAs: 'team' | 'requester';
+  readonly connected: boolean;
+  readonly linkedAccount: string | null;
   readonly credentials: readonly SecretName[];
-  readonly described: DescribedSummary | null;
+  readonly spec: ApiSpecSummary | null;
 }
 
 export interface ReadIntegrations {

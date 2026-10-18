@@ -14,14 +14,14 @@ import { CurrentPrincipal } from '@platform/http/decorators/current-principal.de
 import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
-import {
-  answerCreated,
-  answerDeleted,
-  answerUpdated,
-  found,
-  listed,
-} from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
+import {
+  respondCreated,
+  respondDeleted,
+  respondFound,
+  respondListed,
+  respondUpdated,
+} from '@platform/http/resources/resource-responses';
 import type {
   ResourceCreated,
   ResourceDeleted,
@@ -87,13 +87,13 @@ export class IntegrationResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<IntegrationResourceResponseDto> {
-    return answerCreated(
+    return respondCreated(
       KIND,
       await this.commandBus.execute<
         CreateIntegrationCommand,
         ResourceCreated | null
       >(new CreateIntegrationCommand(teamId, actor, key, body)),
-      (id) => this.answer(id, actor.principal),
+      (id) => this.toResponse(id, actor.principal),
     );
   }
 
@@ -103,7 +103,7 @@ export class IntegrationResourceController {
     @Param('id') id: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<IntegrationResourceResponseDto> {
-    return this.answer(id, principal);
+    return this.toResponse(id, principal);
   }
 
   @IntegrationResource.Update(
@@ -118,13 +118,13 @@ export class IntegrationResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<IntegrationResourceResponseDto> {
-    return answerUpdated(
+    return respondUpdated(
       KIND,
       await this.commandBus.execute<
         UpdateIntegrationCommand,
         ResourceUpdated | null
       >(new UpdateIntegrationCommand(id, actor, version, body)),
-      (updated) => this.answer(updated, actor.principal),
+      (updated) => this.toResponse(updated, actor.principal),
     );
   }
 
@@ -135,7 +135,7 @@ export class IntegrationResourceController {
     @IfMatch() version: number,
     @CurrentActor() actor: Actor,
   ): Promise<void> {
-    answerDeleted(
+    respondDeleted(
       KIND,
       await this.commandBus.execute<
         DeleteIntegrationCommand,
@@ -154,7 +154,7 @@ export class IntegrationResourceController {
     @Query('address') address: string | undefined,
     @CurrentPrincipal() principal: Principal,
   ): Promise<IntegrationResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<
         ImportIntegrationQuery,
@@ -173,7 +173,7 @@ export class IntegrationResourceController {
     @Param('workspaceId') workspaceId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ResourceList<IntegrationResourceResponseDto>> {
-    return listed(
+    return respondListed(
       await this.queryBus.execute<
         ListIntegrationResourcesQuery,
         readonly IntegrationResourceDto[] | null
@@ -182,11 +182,11 @@ export class IntegrationResourceController {
     );
   }
 
-  private async answer(
+  private async toResponse(
     id: string,
     principal: Principal,
   ): Promise<IntegrationResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<
         ReadIntegrationQuery,

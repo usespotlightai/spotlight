@@ -12,8 +12,8 @@ vi.mock('@/hooks/api/useConnectIntegration', () => ({
 }));
 
 const ASKED: InboxConnectionResponseDto = {
-  source: 'linear',
-  integration: 'Linear',
+  integration: 'linear',
+  integrationName: 'Linear',
   personId: 'user_maya',
   personName: 'Maya Chen',
   met: false,
@@ -34,15 +34,15 @@ beforeEach(() => {
 });
 
 describe('ConnectionCard', () => {
-  it('lets the person asked connect, landing back on this item', async () => {
+  it('lets the person asked connect, returning to this item', async () => {
     showing(ASKED, 'user_maya');
 
     await userEvent.click(screen.getByRole('button', { name: 'Connect' }));
 
     expect(connect).toHaveBeenCalledWith({
-      source: 'linear',
-      for: 'me',
-      back: '/w/acme/inbox/task_comment:0',
+      integration: 'linear',
+      actsAs: 'requester',
+      returnTo: '/w/acme/inbox/task_comment:0',
     });
   });
 

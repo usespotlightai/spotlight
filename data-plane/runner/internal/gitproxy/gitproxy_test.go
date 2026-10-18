@@ -10,7 +10,7 @@ import (
 	"usespotlight.ai/data-plane/runner/internal/gitproxy"
 )
 
-type reached struct {
+type forwarded struct {
 	path       string
 	auth       string
 	body       string
@@ -18,7 +18,7 @@ type reached struct {
 	gitService string
 }
 
-func upstream(t *testing.T, seen *reached) *httptest.Server {
+func upstream(t *testing.T, seen *forwarded) *httptest.Server {
 	t.Helper()
 
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +36,7 @@ func upstream(t *testing.T, seen *reached) *httptest.Server {
 }
 
 func TestCarriesTheRunnerTokenTheWorkspaceNeverSees(t *testing.T) {
-	seen := &reached{}
+	seen := &forwarded{}
 	control := upstream(t, seen)
 	defer control.Close()
 
@@ -66,8 +66,8 @@ func TestCarriesTheRunnerTokenTheWorkspaceNeverSees(t *testing.T) {
 	}
 }
 
-func TestRefusesAnotherRunsPath(t *testing.T) {
-	seen := &reached{}
+func TestRejectsAnotherRunsPath(t *testing.T) {
+	seen := &forwarded{}
 	control := upstream(t, seen)
 	defer control.Close()
 
@@ -94,7 +94,7 @@ func TestRefusesAnotherRunsPath(t *testing.T) {
 }
 
 func TestCarriesAPackBothWays(t *testing.T) {
-	seen := &reached{}
+	seen := &forwarded{}
 	control := upstream(t, seen)
 	defer control.Close()
 
@@ -127,8 +127,8 @@ func TestCarriesAPackBothWays(t *testing.T) {
 	}
 }
 
-func TestStopsAnsweringWhenTheRunIsOver(t *testing.T) {
-	seen := &reached{}
+func TestStopsServingWhenTheRunIsOver(t *testing.T) {
+	seen := &forwarded{}
 	control := upstream(t, seen)
 	defer control.Close()
 
@@ -148,7 +148,7 @@ func TestStopsAnsweringWhenTheRunIsOver(t *testing.T) {
 }
 
 func TestAFetchOnlyRunFetchesButNeverPushes(t *testing.T) {
-	seen := &reached{}
+	seen := &forwarded{}
 	control := upstream(t, seen)
 	defer control.Close()
 

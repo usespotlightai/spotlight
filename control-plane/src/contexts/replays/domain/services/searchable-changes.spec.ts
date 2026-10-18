@@ -20,7 +20,7 @@ const SEED = {
   alerts: [{ when: 'failed', notify: 'slack' }],
   passesTo: ['ship'],
   ends: false,
-  judge: { rubric: 'scores: 1-5', sample: 0.1, trust: 0.6 },
+  judge: { rubric: 'scores: 1-5', sample: 0.1, minAgreement: 0.6 },
   check: 'npm test',
 };
 
@@ -55,10 +55,10 @@ describe('unsearchableChanges', () => {
     ['alerts', []],
     ['passesTo', ['completed']],
     ['ends', true],
-    ['judge', { rubric: 'scores: 1-5', sample: 1, trust: 0.6 }],
+    ['judge', { rubric: 'scores: 1-5', sample: 1, minAgreement: 0.6 }],
     ['check', 'npm run lint'],
     ['runners', { pool: 'gpu' }],
-  ])('refuses a change to %s, naming its path', (field, value) => {
+  ])('rejects a change to %s, naming its path', (field, value) => {
     const problems = changed({ [field]: value });
 
     expect(problems).toHaveLength(1);
@@ -66,7 +66,7 @@ describe('unsearchableChanges', () => {
     expect(problems[0]?.reason).toContain(field);
   });
 
-  it('refuses taking away a field the live config has', () => {
+  it('rejects taking away a field the live config has', () => {
     const { judge: _, ...withoutJudge } = SEED;
 
     expect(
@@ -79,7 +79,9 @@ describe('unsearchableChanges', () => {
 
   it('ignores the order of keys, never of lists', () => {
     expect(
-      changed({ judge: { trust: 0.6, sample: 0.1, rubric: 'scores: 1-5' } }),
+      changed({
+        judge: { minAgreement: 0.6, sample: 0.1, rubric: 'scores: 1-5' },
+      }),
     ).toEqual([]);
     expect(changed({ passesTo: ['ship', 'completed'] })).toHaveLength(1);
   });

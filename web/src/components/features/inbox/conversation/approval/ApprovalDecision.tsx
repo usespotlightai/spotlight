@@ -30,7 +30,7 @@ export function ApprovalDecision({
       <ApprovalApproveButton
         approval={approval}
         disabled={pending || !onApprove}
-        refusedBecause={onlyFor ? `Only ${onlyFor} can approve this` : null}
+        disabledBecause={onlyFor ? `Only ${onlyFor} can approve this` : null}
         onApprove={onApprove}
       />
     </DecisionControls>

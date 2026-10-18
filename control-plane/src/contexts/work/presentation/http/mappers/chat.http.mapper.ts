@@ -1,11 +1,11 @@
 import type { ChatDto, ChatSummaryDto } from '@work/application/dto/chat.dto';
 import {
-  ChatImprovingResponseDto,
   ChatMessageResponseDto,
   ChatProposalResponseDto,
   ChatResponseDto,
   ChatSetupResponseDto,
   ChatSummaryResponseDto,
+  ChatTargetStationResponseDto,
   ChatTraceResponseDto,
 } from '@work/presentation/http/dto/chat.response.dto';
 import { InboxAuthorResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
@@ -20,7 +20,9 @@ export const ChatHttpMapper = {
       dto.model,
       dto.effort,
       dto.repositories,
-      dto.improving ? new ChatImprovingResponseDto(dto.improving) : null,
+      dto.targetStation
+        ? new ChatTargetStationResponseDto(dto.targetStation)
+        : null,
       dto.setup ? new ChatSetupResponseDto(dto.setup) : null,
       dto.createdAt,
       dto.updatedAt,

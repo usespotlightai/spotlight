@@ -2,9 +2,9 @@ import type { UpdateHarnessProfileCommand } from '@configuration/application/com
 import type { HarnessProfileCompilerPort } from '@configuration/application/ports/harness-profile-compiler.port';
 import type { SecretNamesPort } from '@configuration/application/ports/secret-names.port';
 import { HarnessProfileProblems } from '@configuration/application/rendering/harness-profile-problems';
-import { HarnessProfileKeyFixedError } from '@configuration/domain/exceptions/harness-profile-key-fixed.error';
+import type { HarnessProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
 import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
-import { SecretsUnheldError } from '@configuration/domain/exceptions/secrets-unheld.error';
+import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
 import type { HarnessProfileRepository } from '@configuration/domain/repositories/harness-profile.repository';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
@@ -15,7 +15,8 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class UpdateHarnessProfileHandler
   implements
@@ -34,16 +35,19 @@ export class UpdateHarnessProfileHandler
   ): Promise<ResourceUpdated | null> {
     const id = HarnessProfileId.of(command.profileId);
 
+    let loaded: HarnessProfile | null = null;
+
     try {
-      const standing = await this.profiles.withId(id);
-      const permissions = standing
+      const existing = await this.profiles.withId(id);
+      loaded = existing;
+      const permissions = existing
         ? await this.access.permissionsOnTeam(
-            standing.teamId.value,
+            existing.teamId.value,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -51,7 +55,7 @@ export class UpdateHarnessProfileHandler
         return forbiddenTo('configure');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const compiled = this.compiler.compile(command.definition);
 
@@ -61,10 +65,10 @@ export class UpdateHarnessProfileHandler
 
       await this.transaction.inTransaction(async () =>
         this.profiles.save(
-          standing.redefinedAs(
+          existing.update(
             compiled,
-            Attribution.of(command.actor, permissions.workspaceId),
-            await this.secrets.ofTeam(standing.teamId),
+            ChangeActor.of(command.actor, permissions.workspaceId),
+            await this.secrets.ofTeam(existing.teamId),
           ),
         ),
       );
@@ -79,17 +83,22 @@ export class UpdateHarnessProfileHandler
           : null;
       }
 
-      if (error instanceof SecretsUnheldError) {
+      if (error instanceof MissingSecretsError) {
         return {
           outcome: 'invalid',
-          problems: HarnessProfileProblems.unheld(error.key, error.unheld),
+          problems: HarnessProfileProblems.missing(error.key, error.missing),
         };
       }
 
-      if (error instanceof HarnessProfileKeyFixedError) {
+      if (error instanceof ImmutableFieldError) {
         return {
           outcome: 'invalid',
-          problems: [HarnessProfileProblems.keyFixed(error)],
+          problems: [
+            HarnessProfileProblems.immutableField(
+              loaded?.key.value ?? '',
+              error,
+            ),
+          ],
         };
       }
 

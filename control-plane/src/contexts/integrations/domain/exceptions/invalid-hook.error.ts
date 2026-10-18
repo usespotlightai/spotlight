@@ -1,7 +1,7 @@
 import type { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 export class InvalidHookError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(
     readonly at: FieldPath,

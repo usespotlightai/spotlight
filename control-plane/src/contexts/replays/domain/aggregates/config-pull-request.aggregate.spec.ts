@@ -1,10 +1,10 @@
 import {
   ConfigPullRequest,
-  MAX_TRIES,
+  MAX_RETRIES,
 } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
-import { ConfigPullRequestWanted } from '@replays/domain/events/config-pull-request-wanted.event';
+import { ConfigPullRequestRequested } from '@replays/domain/events/config-pull-request-requested.event';
 import { CandidateUnpickableError } from '@replays/domain/exceptions/candidate-unpickable.error';
 import { UnknownCandidateError } from '@replays/domain/exceptions/unknown-candidate.error';
 import {
@@ -20,16 +20,16 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const charged = { spent: Spend.of(1, 'USD'), unpriced: 0 };
+const charged = { spent: Money.of(1, 'USD'), unpriced: 0 };
 
 const PROPOSED = StationFingerprint.of('e'.repeat(64));
 
@@ -40,7 +40,7 @@ const SOURCE = {
 
 const withCandidates = (finished: boolean): Search => {
   const runIds = searchRunIds();
-  const seeded = aSearch().recordReplayEnd(
+  const seeded = aSearch().recordReplayStopReason(
     ReplayId.of('replay_seed'),
     'finished',
     charged,
@@ -48,9 +48,9 @@ const withCandidates = (finished: boolean): Search => {
     runIds,
     true,
   );
-  const admitted = ['terse', 'in-order'].reduce(
-    (held, name) =>
-      held.admitted(RunId.of('search_run_1'), {
+  const accepted = ['terse', 'in-order'].reduce(
+    (built, name) =>
+      built.acceptProposal(RunId.of('search_run_1'), {
         candidateId: CandidateId.of(`candidate_${name}`),
         name: CandidateName.searched(name),
         replayId: ReplayId.of(`replay_${name}`),
@@ -59,7 +59,7 @@ const withCandidates = (finished: boolean): Search => {
   );
 
   return finished
-    ? admitted.recordReplayEnd(
+    ? accepted.recordReplayStopReason(
         ReplayId.of('replay_terse'),
         'finished',
         charged,
@@ -67,7 +67,7 @@ const withCandidates = (finished: boolean): Search => {
         runIds,
         true,
       )
-    : admitted;
+    : accepted;
 };
 
 const picked = (source: typeof SOURCE | null = SOURCE) =>
@@ -92,7 +92,7 @@ describe('picking a search candidate', () => {
     ).toBe('terse');
   });
 
-  it('refuses the seed, a candidate the search never proposed and one still replaying', () => {
+  it('rejects the seed, a candidate the search never proposed and one still replaying', () => {
     const search = withCandidates(false);
 
     expect(() => pickedFrom(search, search.seed.candidateId)).toThrow(
@@ -116,24 +116,24 @@ describe('ConfigPullRequest', () => {
     expect(pullRequest.branch).toBe('spotlight/search-5d1e2f3a-terse');
     expect(pullRequest.repository).toBe('acme/platform');
     expect(pullRequest.isDue(NOW)).toBe(true);
-    expect(wanted).toBeInstanceOf(ConfigPullRequestWanted);
-    expect((wanted as ConfigPullRequestWanted).attempt).toBe(1);
-    expect((wanted as ConfigPullRequestWanted).change).toMatchObject({
+    expect(wanted).toBeInstanceOf(ConfigPullRequestRequested);
+    expect((wanted as ConfigPullRequestRequested).generation).toBe(1);
+    expect((wanted as ConfigPullRequestRequested).change).toMatchObject({
       resource: 'config-pull-request',
       action: 'created',
       key: 'spotlight/search-5d1e2f3a-terse',
     });
   });
 
-  it('is refused at once when the line names no source', () => {
+  it('fails at once when the line names no source', () => {
     const pullRequest = picked(null);
 
-    expect(pullRequest.current).toBe('refused');
+    expect(pullRequest.current).toBe('failed');
     expect(pullRequest.reason?.code).toBe('no-source');
     expect(pullRequest.dueAt).toBeNull();
   });
 
-  it('tries again later after a failure, and gives up after the last try', () => {
+  it('retries later after a failure, and fails after the last try', () => {
     let pullRequest = picked();
 
     pullRequest = pullRequest.tried('GitHub is down', NOW);
@@ -142,13 +142,13 @@ describe('ConfigPullRequest', () => {
     expect(pullRequest.isDue(NOW)).toBe(false);
     expect(pullRequest.isDue(later(30_000))).toBe(true);
 
-    for (let tries = 1; tries < MAX_TRIES; tries += 1) {
+    for (let retries = 1; retries < MAX_RETRIES; retries += 1) {
       pullRequest = pullRequest.tried('GitHub is down', NOW);
     }
 
-    expect(pullRequest.current).toBe('refused');
+    expect(pullRequest.current).toBe('failed');
     expect(pullRequest.reason).toMatchObject({
-      code: 'github-refused',
+      code: 'github-error',
       message: 'GitHub is down',
     });
   });
@@ -180,7 +180,7 @@ describe('ConfigPullRequest', () => {
     });
   });
 
-  it('is tried again only once refused, as a new attempt', () => {
+  it('is tried again only after it failed, as a new attempt', () => {
     const opening = picked();
 
     opening.pullEvents();
@@ -189,11 +189,11 @@ describe('ConfigPullRequest', () => {
       opening.retried({ lineKey: 'delivery', source: SOURCE, at: NOW, by: BY }),
     ).toThrow();
 
-    const refused = opening.refused(
-      ConfigPullRequestReason.of({ code: 'drifted', message: 'moved on' }),
+    const failed = opening.failed(
+      ConfigPullRequestReason.of({ code: 'base-changed', message: 'moved on' }),
       NOW,
     );
-    const retried = refused.retried({
+    const retried = failed.retried({
       lineKey: 'delivery',
       source: SOURCE,
       at: later(5),
@@ -202,11 +202,11 @@ describe('ConfigPullRequest', () => {
     const [wanted] = retried.pullEvents();
 
     expect(retried.current).toBe('opening');
-    expect(retried.attempts).toBe(2);
+    expect(retried.generation).toBe(2);
     expect(retried.reason).toBeNull();
     expect(retried.isOpening(1)).toBe(false);
     expect(retried.isOpening(2)).toBe(true);
-    expect((wanted as ConfigPullRequestWanted).change).toMatchObject({
+    expect((wanted as ConfigPullRequestRequested).change).toMatchObject({
       action: 'updated',
     });
   });

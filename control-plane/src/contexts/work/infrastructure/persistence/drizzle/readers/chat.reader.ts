@@ -35,7 +35,7 @@ const summaryOf = (row: Row): ChatSummary => ({
   model: row.model,
   effort: row.effort,
   repositories: row.repositories,
-  improving: row.improving ?? null,
+  targetStation: row.targetStation ?? null,
   setup: row.setup ?? null,
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
@@ -141,7 +141,7 @@ export class DrizzleChatReader implements ChatReaderPort {
             .innerJoin(line, eq(line.id, station.lineId))
             .where(inArray(station.id, proposedAt))
         : [];
-    const held = await stationsPerLine(
+    const stationCounts = await stationsPerLine(
       this.db,
       stations.map((each) => each.lineId),
     );
@@ -184,7 +184,9 @@ export class DrizzleChatReader implements ChatReaderPort {
             stationName: placed?.name ?? null,
             stationColor: placed?.color ?? null,
             stationPosition: placed?.position ?? null,
-            stationCount: placed ? (held.get(placed.lineId) ?? 1) : null,
+            stationCount: placed
+              ? (stationCounts.get(placed.lineId) ?? 1)
+              : null,
             title: proposal.title,
             description: proposal.description,
             state: proposal.state,

@@ -23,9 +23,9 @@ const NOW = new Date('2026-08-31T09:00:00.000Z');
 
 const spec = RunSpec.of({
   command: { executable: 'claude-agent-acp', args: ['--acp'] },
-  briefing: 'work out what is being asked for',
+  briefing: 'work out what the request wants',
   handover: { options: ['Spec'], noteLimit: 4_000 },
-  continuity: { key: 'task-task_1' },
+  resume: { key: 'task-task_1' },
 });
 
 const claimedRun = () =>
@@ -64,7 +64,7 @@ const stopping = (run: Run, task: Task | null) => {
 };
 
 describe('StopRunHandler', () => {
-  it('records the stop when the person it is assigned to asks', async () => {
+  it('records the stop when the person it is assigned to requests it', async () => {
     const { handler, save } = stopping(claimedRun(), taskAssignedTo('user_1'));
 
     await handler.execute(new StopRunCommand('run_1', 'user_1'));
@@ -75,7 +75,7 @@ describe('StopRunHandler', () => {
     expect(saved.stopRequestedAt).toEqual(NOW);
   });
 
-  it('announces that the run was asked to stop', async () => {
+  it('announces that the run has a stop request', async () => {
     const { handler, dispatch } = stopping(
       claimedRun(),
       taskAssignedTo('user_1'),
@@ -87,7 +87,7 @@ describe('StopRunHandler', () => {
     expect(raised.some((each) => each instanceof RunStopRequested)).toBe(true);
   });
 
-  it('refuses anyone the task is not assigned to', async () => {
+  it('rejects anyone the task is not assigned to', async () => {
     const { handler, save } = stopping(claimedRun(), taskAssignedTo('user_1'));
 
     await expect(
@@ -96,7 +96,7 @@ describe('StopRunHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses to stop a run that is no longer being worked', async () => {
+  it('does not stop a run that is no longer being worked', async () => {
     const ended = claimedRun().complete(
       RunnerId.of('runner_1'),
       RunOutcome.of({ exitCode: 0, failed: false }),

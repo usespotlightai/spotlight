@@ -1,6 +1,6 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { DeleteIntegrationCommand } from '@integrations/application/commands/delete-integration.command';
-import type { ToolsGiven } from '@integrations/application/services/tools-given.service';
+import type { EnabledTools } from '@integrations/application/services/enabled-tools.service';
 import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
 import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/integration-tools-in-use.error';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
@@ -12,7 +12,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class DeleteIntegrationHandler
   implements
@@ -21,7 +21,7 @@ export class DeleteIntegrationHandler
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: IntegrationDefinitionRepository,
-    private readonly given: ToolsGiven,
+    private readonly enabledTools: EnabledTools,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -31,15 +31,15 @@ export class DeleteIntegrationHandler
     const id = IntegrationDefinitionId.of(command.integrationId);
 
     try {
-      const standing = await this.definitions.withId(id);
-      const permissions = standing
+      const existing = await this.definitions.withId(id);
+      const permissions = existing
         ? await this.access.permissionsOnTeam(
-            standing.teamId.value,
+            existing.teamId.value,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -47,15 +47,15 @@ export class DeleteIntegrationHandler
         return forbiddenTo('configure');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
-      const given = await this.given.onTeam(standing.teamId);
+      const enabled = await this.enabledTools.onTeam(existing.teamId);
 
       await this.transaction.inTransaction(() =>
         this.definitions.save(
-          standing.retire(
-            given,
-            Attribution.of(command.actor, permissions.workspaceId),
+          existing.delete(
+            enabled,
+            ChangeActor.of(command.actor, permissions.workspaceId),
           ),
         ),
       );

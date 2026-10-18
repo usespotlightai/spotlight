@@ -2,14 +2,14 @@ import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid
 
 export type HookTiming = 'before' | 'after';
 
-interface Described {
+interface HookEventTraits {
   readonly timing: HookTiming;
   readonly inRun: boolean;
   readonly aboutTool: boolean;
   readonly aboutChanges: boolean;
 }
 
-const DESCRIBED = {
+const HOOK_EVENT_TRAITS = {
   'tool.using': {
     timing: 'before',
     inRun: true,
@@ -34,7 +34,7 @@ const DESCRIBED = {
     aboutTool: false,
     aboutChanges: false,
   },
-  'handover.giving': {
+  'handover.submitting': {
     timing: 'before',
     inRun: true,
     aboutTool: false,
@@ -64,11 +64,13 @@ const DESCRIBED = {
     aboutTool: false,
     aboutChanges: false,
   },
-} as const satisfies Readonly<Record<string, Described>>;
+} as const satisfies Readonly<Record<string, HookEventTraits>>;
 
-export type HookEventName = keyof typeof DESCRIBED;
+export type HookEventName = keyof typeof HOOK_EVENT_TRAITS;
 
-export const HOOK_EVENTS = Object.keys(DESCRIBED) as readonly HookEventName[];
+export const HOOK_EVENTS = Object.keys(
+  HOOK_EVENT_TRAITS,
+) as readonly HookEventName[];
 
 const NAMES: ReadonlySet<string> = new Set(HOOK_EVENTS);
 
@@ -91,7 +93,7 @@ export class HookEvent {
   }
 
   get timing(): HookTiming {
-    return DESCRIBED[this.name].timing;
+    return HOOK_EVENT_TRAITS[this.name].timing;
   }
 
   get isBefore(): boolean {
@@ -99,15 +101,15 @@ export class HookEvent {
   }
 
   get inRun(): boolean {
-    return DESCRIBED[this.name].inRun;
+    return HOOK_EVENT_TRAITS[this.name].inRun;
   }
 
   get aboutTool(): boolean {
-    return DESCRIBED[this.name].aboutTool;
+    return HOOK_EVENT_TRAITS[this.name].aboutTool;
   }
 
   get aboutChanges(): boolean {
-    return DESCRIBED[this.name].aboutChanges;
+    return HOOK_EVENT_TRAITS[this.name].aboutChanges;
   }
 
   equals(other: HookEvent): boolean {

@@ -180,7 +180,7 @@ export class DrizzleHookFirings implements HookFiringRepository {
             and(eq(hookFiring.state, 'pending'), lte(hookFiring.dueAt, now)),
             and(
               eq(hookFiring.state, 'working'),
-              lt(hookFiring.claimedAt, HookFiring.leaseLapsedBefore(now)),
+              lt(hookFiring.claimedAt, HookFiring.leaseExpiredBefore(now)),
             ),
           ),
         )

@@ -45,10 +45,10 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
 
 vi.mock('@/hooks/api/useRunStream', () => ({ useRunStream: () => undefined }));
 
-const said = vi.fn();
+const send = vi.fn();
 
-vi.mock('@/hooks/api/useSayInChat', () => ({
-  useSayInChat: () => ({ mutate: said, isPending: false }),
+vi.mock('@/hooks/api/useSendChatMessage', () => ({
+  useSendChatMessage: () => ({ mutate: send, isPending: false }),
 }));
 
 vi.mock('@/hooks/api/useStopChat', () => ({
@@ -94,7 +94,7 @@ const planning = (over: Record<string, unknown> = {}) => ({
   messages: [
     {
       position: 0,
-      kind: 'said',
+      kind: 'message',
       body: 'Help me plan the retries.',
       at: '2026-08-29T09:00:00.000Z',
       author: { id: 'user_1', name: 'Leon', image: null },
@@ -130,7 +130,7 @@ describe('AgentChat', () => {
   });
 
   describe('while it loads', () => {
-    it('holds the shape of the chat rather than calling it gone', () => {
+    it('keeps the shape of the chat rather than calling it gone', () => {
       chat.mockReturnValue(undefined);
 
       renderChat();
@@ -172,7 +172,7 @@ describe('AgentChat', () => {
       expect(screen.queryByText(/Chat not found/)).not.toBeInTheDocument();
     });
 
-    it('tries again when asked', async () => {
+    it('tries again on request', async () => {
       renderChat();
 
       await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
@@ -194,16 +194,16 @@ describe('AgentChat', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('shows what was said to the agent', () => {
+  it('shows the messages sent to the agent', () => {
     renderChat();
 
     expect(screen.getByText('Help me plan the retries.')).toBeInTheDocument();
     expect(
-      screen.getByRole('textbox', { name: 'Say something to the agent' }),
+      screen.getByRole('textbox', { name: 'Message the agent' }),
     ).toBeInTheDocument();
   });
 
-  it('shows the traces shared with the agent inside what the person said, each leading to its trace', () => {
+  it('shows the traces shared with the agent inside the message of the person, each leading to its trace', () => {
     renderChat();
 
     const trace = screen.getByRole('link', {
@@ -216,10 +216,10 @@ describe('AgentChat', () => {
     expect(trace.closest('p')).toHaveTextContent('Help me plan the retries.');
   });
 
-  it('names the station it is improving in the first message, leading to it', () => {
+  it('names the target station in the first message, leading to it', () => {
     chat.mockReturnValue(
       planning({
-        improving: {
+        targetStation: {
           lineId: 'line_1',
           lineKey: 'delivery',
           lineName: 'Delivery',
@@ -248,14 +248,14 @@ describe('AgentChat', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('says nothing has been said yet in a chat without a word in it', () => {
+  it('says that nobody sent a message yet in a chat without messages', () => {
     chat.mockReturnValue(planning({ messages: [] }));
 
     renderChat();
 
-    expect(screen.getByText('Nothing said yet')).toBeInTheDocument();
+    expect(screen.getByText('No messages yet')).toBeInTheDocument();
     expect(
-      screen.getByRole('textbox', { name: 'Say something to the agent' }),
+      screen.getByRole('textbox', { name: 'Message the agent' }),
     ).toBeInTheDocument();
   });
 
@@ -264,11 +264,11 @@ describe('AgentChat', () => {
 
     renderChat();
 
-    expect(screen.queryByText('Nothing said yet')).not.toBeInTheDocument();
+    expect(screen.queryByText('No messages yet')).not.toBeInTheDocument();
   });
 
   it('answers with the model and effort picked, but keeps the chat on its harness', async () => {
-    said.mockReset();
+    send.mockReset();
     renderChat();
 
     await userEvent.click(screen.getByRole('button', { name: /^Agent/ }));
@@ -288,12 +288,12 @@ describe('AgentChat', () => {
     );
 
     await write(
-      screen.getByRole('textbox', { name: 'Say something to the agent' }),
+      screen.getByRole('textbox', { name: 'Message the agent' }),
       'Think harder.',
     );
     await userEvent.click(screen.getByRole('button', { name: 'Send' }));
 
-    expect(said).toHaveBeenCalledWith(
+    expect(send).toHaveBeenCalledWith(
       expect.objectContaining({ model: 'opus', effort: 'high' }),
       expect.anything(),
     );

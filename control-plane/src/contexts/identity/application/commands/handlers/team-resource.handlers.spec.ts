@@ -5,11 +5,11 @@ import { DeleteTeamHandler } from '@identity/application/commands/handlers/delet
 import { UpdateTeamHandler } from '@identity/application/commands/handlers/update-team.handler';
 import { UpdateTeamCommand } from '@identity/application/commands/update-team.command';
 import type { Team } from '@identity/domain/aggregates/team.aggregate';
-import { TeamAlreadyDefinedError } from '@identity/domain/exceptions/team-already-defined.error';
+import { TeamAlreadyExistsError } from '@identity/domain/exceptions/team-already-exists.error';
 import {
   access,
   creates,
-  holdings,
+  dependents,
   OWNER,
   teamAt,
   teams,
@@ -17,19 +17,19 @@ import {
 } from '@identity/identity.resources.fake-spec';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const CORE = { key: 'core', name: 'Core' };
 
 describe('CreateTeamHandler', () => {
-  const creating = (over: { administers?: boolean; refusing?: Error } = {}) => {
-    const kept = teams({ refusing: over.refusing });
+  const creating = (over: { isAdmin?: boolean; throwing?: Error } = {}) => {
+    const stored = teams({ throwing: over.throwing });
     const handler = new CreateTeamHandler(
-      access(over.administers),
+      access(over.isAdmin),
       new IdentityDefinitions(),
-      kept,
+      stored,
       creates(),
       { generate: () => 'team_new' },
       transaction,
@@ -45,19 +45,19 @@ describe('CreateTeamHandler', () => {
             definition,
           ),
         ),
-      kept,
+      stored,
     };
   };
 
-  it('defines a bare team keyed as asked', async () => {
-    const { create, kept } = creating();
+  it('creates a bare team keyed as requested', async () => {
+    const { create, stored } = creating();
 
     expect(await create(CORE)).toMatchObject({
       outcome: 'created',
       id: 'team_new',
     });
 
-    const [added] = kept.add.mock.calls[0] as [Team];
+    const [added] = stored.add.mock.calls[0] as [Team];
 
     expect(added.key.value).toBe('core');
     expect(added.pullEvents()).toEqual([
@@ -67,26 +67,26 @@ describe('CreateTeamHandler', () => {
 
   it('says a key the workspace already has is taken', async () => {
     expect(
-      await creating({ refusing: new TeamAlreadyDefinedError('core') }).create(
+      await creating({ throwing: new TeamAlreadyExistsError('core') }).create(
         CORE,
       ),
-    ).toEqual({ outcome: 'taken', address: 'core' });
+    ).toEqual({ outcome: 'already-exists', address: 'core' });
   });
 
   it('forbids a member who does not administer the workspace', async () => {
-    expect(await creating({ administers: false }).create(CORE)).toEqual(
+    expect(await creating({ isAdmin: false }).create(CORE)).toEqual(
       forbiddenTo('configure'),
     );
   });
 });
 
 describe('UpdateTeamHandler', () => {
-  const updating = (administers = true) => {
-    const kept = teams({ standing: teamAt(3) });
+  const updating = (isAdmin = true) => {
+    const stored = teams({ existing: teamAt(3) });
     const handler = new UpdateTeamHandler(
-      access(administers),
+      access(isAdmin),
       new IdentityDefinitions(),
-      kept,
+      stored,
       transaction,
     );
 
@@ -100,28 +100,28 @@ describe('UpdateTeamHandler', () => {
             definition,
           ),
         ),
-      kept,
+      stored,
     };
   };
 
   it('renames the team', async () => {
-    const { update, kept } = updating();
+    const { update, stored } = updating();
 
     expect(await update({ key: 'core', name: 'Core platform' })).toEqual({
       outcome: 'updated',
       id: 'team_1',
     });
-    expect((kept.save.mock.calls[0] as [Team])[0].name.value).toBe(
+    expect((stored.save.mock.calls[0] as [Team])[0].name.value).toBe(
       'Core platform',
     );
   });
 
-  it('points at the key when asked to change it', async () => {
-    const refused = await updating().update({ key: 'platform', name: 'Core' });
+  it('points at the key when a request changes it', async () => {
+    const rejected = await updating().update({ key: 'platform', name: 'Core' });
 
     expect(
-      refused?.outcome === 'invalid' &&
-        refused.problems.map((each) => dottedOf(each.field)),
+      rejected?.outcome === 'invalid' &&
+        rejected.problems.map((each) => dottedOf(each.field)),
     ).toEqual(['key']);
   });
 
@@ -140,12 +140,12 @@ describe('UpdateTeamHandler', () => {
 });
 
 describe('DeleteTeamHandler', () => {
-  const deleting = (held: readonly string[] = []) => {
-    const kept = teams({ standing: teamAt(3) });
+  const deleting = (names: readonly string[] = []) => {
+    const stored = teams({ existing: teamAt(3) });
     const handler = new DeleteTeamHandler(
       access(),
-      kept,
-      holdings(held),
+      stored,
+      dependents(names),
       transaction,
     );
 
@@ -154,24 +154,27 @@ describe('DeleteTeamHandler', () => {
         handler.execute(
           new DeleteTeamCommand('team_1', actorFor(OWNER.value), 3),
         ),
-      kept,
+      stored,
     };
   };
 
-  it('disbands a team that holds nothing', async () => {
-    const { remove, kept } = deleting();
+  it('deletes a team that has nothing', async () => {
+    const { remove, stored } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
-    expect((kept.save.mock.calls[0] as [Team])[0].isDisbanded).toBe(true);
+    expect((stored.save.mock.calls[0] as [Team])[0].isDeleted).toBe(true);
   });
 
-  it('will not disband a team that still holds configuration, and says what', async () => {
-    const { remove, kept } = deleting(['line delivery', 'integration linear']);
+  it('will not delete a team that still has configuration, and says what', async () => {
+    const { remove, stored } = deleting([
+      'line delivery',
+      'integration linear',
+    ]);
 
     expect(await remove()).toEqual({
       outcome: 'in-use',
       reason: expect.stringContaining('integration linear, line delivery'),
     });
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(stored.save).not.toHaveBeenCalled();
   });
 });

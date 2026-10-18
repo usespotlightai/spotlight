@@ -1,14 +1,14 @@
 import type { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
-import type { ChangeStackShaped } from '@change-review/domain/events/change-stack-shaped.event';
-import type { ReplayStackSettled } from '@change-review/domain/events/replay-stack-settled.event';
+import type { ChangeStackReady } from '@change-review/domain/events/change-stack-ready.event';
+import type { ReplayStackCompleted } from '@change-review/domain/events/replay-stack-completed.event';
 import {
   CHANGE_CHECKED,
   type ChangeCheckedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/change-checked.integration-event';
 import {
-  CHANGE_STACK_SHAPED,
-  type ChangeStackShapedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/change-stack-shaped.integration-event';
+  CHANGE_STACK_READY,
+  type ChangeStackReadyIntegrationEvent,
+} from '@shared-kernel/application/integration-events/change-stack-ready.integration-event';
 import {
   REPLAY_CHANGE_CHECKED,
   type ReplayChangeCheckedIntegrationEvent,
@@ -18,9 +18,9 @@ import {
   type ReplayChangeRecheckedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/replay-change-rechecked.integration-event';
 import {
-  REPLAY_STACK_SETTLED,
-  type ReplayStackSettledIntegrationEvent,
-} from '@shared-kernel/application/integration-events/replay-stack-settled.integration-event';
+  REPLAY_STACK_COMPLETED,
+  type ReplayStackCompletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/replay-stack-completed.integration-event';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 
 export const CHANGE_REVIEW_EVENT_MAPPERS = [
@@ -57,13 +57,13 @@ export const CHANGE_REVIEW_EVENT_MAPPERS = [
           };
     },
   ),
-  mapping<ChangeStackShaped>(
-    'change-stack.shaped',
-    (event): ChangeStackShapedIntegrationEvent => {
+  mapping<ChangeStackReady>(
+    'change-stack.ready',
+    (event): ChangeStackReadyIntegrationEvent => {
       const changes = event.cohorts.filter((each) => each.kind === 'change');
 
       return {
-        kind: CHANGE_STACK_SHAPED,
+        kind: CHANGE_STACK_READY,
         runId: event.runId.value,
         taskId: event.taskId?.value ?? null,
         workspaceId: event.workspaceId.value,
@@ -73,10 +73,10 @@ export const CHANGE_REVIEW_EVENT_MAPPERS = [
       };
     },
   ),
-  mapping<ReplayStackSettled>(
-    'change-stack.replay-settled',
-    (event): ReplayStackSettledIntegrationEvent => ({
-      kind: REPLAY_STACK_SETTLED,
+  mapping<ReplayStackCompleted>(
+    'change-stack.replay-completed',
+    (event): ReplayStackCompletedIntegrationEvent => ({
+      kind: REPLAY_STACK_COMPLETED,
       runId: event.runId.value,
       workspaceId: event.workspaceId.value,
     }),

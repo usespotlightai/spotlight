@@ -3,9 +3,9 @@ type LineDefinitionStationKind = 'backlog' | 'work' | 'completed';
 export type LineDefinitionJudge = {
   readonly rubric?: string;
   readonly claims?: readonly string[];
-  readonly passShare?: number;
+  readonly passThreshold?: number;
   readonly sample: number;
-  readonly trust: number;
+  readonly minAgreement: number;
 };
 
 export type LineDefinitionAlert = {

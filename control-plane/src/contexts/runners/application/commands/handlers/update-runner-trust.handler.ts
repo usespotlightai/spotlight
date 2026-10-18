@@ -2,7 +2,6 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { UpdateRunnerTrustCommand } from '@runners/application/commands/runner-resource.commands';
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
-import { RunnerTrustKeyFixedError } from '@runners/domain/exceptions/runner-trust-key-fixed.error';
 import { RunnerTrustVersionConflictError } from '@runners/domain/exceptions/runner-trust-version-conflict.error';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
@@ -13,7 +12,8 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class UpdateRunnerTrustHandler
   implements
@@ -32,23 +32,23 @@ export class UpdateRunnerTrustHandler
     const id = RunnerTrustId.of(command.trustId);
 
     try {
-      const standing = await this.trusts.find(id);
-      const permissions = standing
+      const existing = await this.trusts.find(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
       if (!permissions.managesRunners) {
-        return forbiddenTo('manage-runners');
+        return forbiddenTo('runners');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.trust(command.definition);
 
@@ -58,9 +58,9 @@ export class UpdateRunnerTrustHandler
 
       await this.transaction.inTransaction(() =>
         this.trusts.save(
-          standing.redefinedAs(
+          existing.update(
             compiled,
-            Attribution.of(command.actor, permissions.workspaceId),
+            ChangeActor.of(command.actor, permissions.workspaceId),
           ),
         ),
       );
@@ -75,10 +75,10 @@ export class UpdateRunnerTrustHandler
           : null;
       }
 
-      if (error instanceof RunnerTrustKeyFixedError) {
+      if (error instanceof ImmutableFieldError) {
         return {
           outcome: 'invalid',
-          problems: [RunnerProblems.keyFixed(error)],
+          problems: [RunnerProblems.immutableField(error)],
         };
       }
 

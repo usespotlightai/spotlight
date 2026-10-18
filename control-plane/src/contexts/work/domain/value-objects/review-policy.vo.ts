@@ -1,9 +1,9 @@
 import { InvalidReviewPolicyError } from '@work/domain/exceptions/invalid-review-policy.error';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import type {
-  ReviewAsked,
-  ReviewAsking,
-} from '@work/domain/value-objects/review-asked.vo';
+  ReviewRequestReceived,
+  ReviewTrigger,
+} from '@work/domain/value-objects/review-request.vo';
 
 export const REVIEW_STARTS = ['opened', 'mentioned'] as const;
 
@@ -80,8 +80,8 @@ export class ReviewPolicy {
     });
   }
 
-  asks(asking: ReviewAsking): boolean {
-    return asking !== 'opened' || this.start === 'opened';
+  accepts(trigger: ReviewTrigger): boolean {
+    return trigger !== 'opened' || this.start === 'opened';
   }
 
   mentionedIn(text: string): boolean {
@@ -91,35 +91,35 @@ export class ReviewPolicy {
     ).test(text);
   }
 
-  takes(asked: ReviewAsked): boolean {
-    if (!this.asks(asked.asking)) {
+  takes(request: ReviewRequestReceived): boolean {
+    if (!this.accepts(request.trigger)) {
       return false;
     }
 
     if (
-      asked.asking === 'mentioned' &&
-      !this.mentionedIn(asked.said?.body ?? '')
+      request.trigger === 'mentioned' &&
+      !this.mentionedIn(request.anchor?.body ?? '')
     ) {
       return false;
     }
 
     if (
-      asked.asking === 'labelled' &&
-      asked.label?.toLowerCase() !== this.label.toLowerCase()
+      request.trigger === 'labelled' &&
+      request.label?.toLowerCase() !== this.label.toLowerCase()
     ) {
       return false;
     }
 
-    if (this.skip.spotlight && asked.ours) {
+    if (this.skip.spotlight && request.ours) {
       return false;
     }
 
-    if (this.skip.drafts && asked.draft && asked.asking === 'opened') {
+    if (this.skip.drafts && request.draft && request.trigger === 'opened') {
       return false;
     }
 
     return !(
-      asked.author && this.skip.authors.includes(asked.author.toLowerCase())
+      request.author && this.skip.authors.includes(request.author.toLowerCase())
     );
   }
 

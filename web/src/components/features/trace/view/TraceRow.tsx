@@ -12,7 +12,7 @@ type TraceRowProps = {
   node: TraceNode;
   teamId: string;
   depth: number;
-  holding: number;
+  childCount: number;
   trace: Trace;
   picked: boolean;
   open: boolean;
@@ -24,7 +24,7 @@ export const TraceRow = memo(function TraceRow({
   node,
   teamId,
   depth,
-  holding,
+  childCount,
   trace,
   picked,
   open,
@@ -44,12 +44,12 @@ export const TraceRow = memo(function TraceRow({
         className="flex min-w-0 shrink-0 items-center gap-1 pr-3"
         style={{ width: 'var(--names)', paddingLeft: depth * INDENT + 8 }}
       >
-        {holding > 0 ? (
+        {childCount > 0 ? (
           <button
             type="button"
             onClick={() => onToggle(node.id)}
             aria-expanded={open}
-            aria-label={open ? `Fold ${node.name}` : `Unfold ${node.name}`}
+            aria-label={open ? `Collapse ${node.name}` : `Expand ${node.name}`}
             className="relative z-10 flex shrink-0 items-center rounded text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ChevronRight
@@ -68,7 +68,7 @@ export const TraceRow = memo(function TraceRow({
           onClick={() => onPick(node.id)}
           className={cn(
             'min-w-0 truncate text-left outline-none after:absolute after:inset-0',
-            node.tone === 'failed'
+            node.category === 'failed'
               ? 'text-destructive'
               : 'text-muted-foreground',
           )}
@@ -76,12 +76,12 @@ export const TraceRow = memo(function TraceRow({
           {node.name}
         </button>
 
-        {node.connection && node.connection.times > 1 && (
+        {node.connection && node.connection.count > 1 && (
           <span className="ml-1 shrink-0 text-muted-foreground text-xs tabular-nums">
-            ×{node.connection.times}
+            ×{node.connection.count}
           </span>
         )}
-        {node.egress === 'not-enforced' && <TraceEgressMark />}
+        {node.egressEnforcement === 'not-enforced' && <TraceEgressMark />}
         {runId && <TraceRunVerdict teamId={teamId} runId={runId} />}
       </div>
 

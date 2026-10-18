@@ -92,7 +92,11 @@ const WRITTEN = {
       [
         attribute('tools', [
           HclExpression.template(
-            HclExpression.traversal('example_source', 'main_feed', 'source'),
+            HclExpression.traversal(
+              'example_integration',
+              'main_feed',
+              'integration',
+            ),
             // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
             '.comment "${x}"',
           ),
@@ -159,7 +163,7 @@ describe('formatHcl', () => {
     );
   });
 
-  it('writes a list asked to span lines one item to a line, even where each fits on one', () => {
+  it('writes a list set to span lines one item to a line, even where each fits on one', () => {
     expect(
       formatHcl([
         block(
@@ -167,21 +171,21 @@ describe('formatHcl', () => {
           [],
           [
             attribute('claims', HclLines.of(['It adds a test.', 'Two.'])),
-            attribute('pass_share', 0.5),
+            attribute('pass_threshold', 0.5),
             attribute('sample', 0.2),
           ],
         ),
       ]),
     ).toBe(
-      'judge {\n  claims = [\n    "It adds a test.",\n    "Two.",\n  ]\n  pass_share = 0.5\n  sample     = 0.2\n}\n',
+      'judge {\n  claims = [\n    "It adds a test.",\n    "Two.",\n  ]\n  pass_threshold = 0.5\n  sample         = 0.2\n}\n',
     );
   });
 
-  it('picks a heredoc marker the text does not hold', () => {
+  it('picks a heredoc marker the text does not contain', () => {
     expect(WRITTEN.marker).toContain('text = <<EOT1\na\n  EOT\nb\nEOT1\n');
   });
 
-  it('escapes what a quoted string cannot hold, and interpolation', () => {
+  it('escapes what a quoted string cannot contain, and interpolation', () => {
     expect(WRITTEN.escaped).toContain(
       'text = "$${a} %%{b} \\"c\\" \\\\ \\t\\u0001"',
     );
@@ -205,7 +209,7 @@ describe('formatHcl', () => {
   it('interpolates an expression into text, escaping the text around it', () => {
     expect(WRITTEN.template).toContain(
       // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
-      'tools = ["${example_source.main_feed.source}.comment \\"$${x}\\""]',
+      'tools = ["${example_integration.main_feed.integration}.comment \\"$${x}\\""]',
     );
   });
 

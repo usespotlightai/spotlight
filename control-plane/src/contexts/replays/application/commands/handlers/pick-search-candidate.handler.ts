@@ -15,7 +15,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class PickSearchCandidateHandler
   implements CommandHandlerPort<PickSearchCandidateCommand, CandidatePicked>
@@ -63,7 +63,7 @@ export class PickSearchCandidateHandler
         throw new UnknownStationError(search.station.stationId);
       }
 
-      const by = Attribution.of(command.actor, search.workspaceId);
+      const by = ChangeActor.of(command.actor, search.workspaceId);
       const at = this.clock.now();
 
       if (existing) {
@@ -96,13 +96,13 @@ export class PickSearchCandidateHandler
         at,
         by,
       });
-      const kept = await this.transaction.inTransaction(() =>
+      const stored = await this.transaction.inTransaction(() =>
         this.pullRequests.add(fresh),
       );
 
       return {
-        outcome: kept.id.equals(fresh.id) ? 'picked' : 'already',
-        pullRequest: configPullRequestView(kept),
+        outcome: stored.id.equals(fresh.id) ? 'picked' : 'already',
+        pullRequest: configPullRequestView(stored),
       };
     } catch (error) {
       rethrowAsApplicationError(error);

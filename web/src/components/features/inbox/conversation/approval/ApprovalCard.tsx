@@ -30,7 +30,7 @@ export function ApprovalCard({
   const [mode, setMode] = useState<ApprovalMode>('viewing');
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [reason, setReason] = useState('');
-  const deciding = approval.standing === 'asked' ? onDecide : undefined;
+  const deciding = approval.status === 'pending' ? onDecide : undefined;
   const changed = differs(approval.inputs, edits);
   const onlyFor = approvedOnlyBy(approval, viewerId);
 
@@ -45,7 +45,7 @@ export function ApprovalCard({
   const approveEdited = () =>
     deciding?.({
       approve: true,
-      said: '',
+      body: '',
       inputs: changed
         ? approval.inputs.map((input) => ({
             name: input.name,

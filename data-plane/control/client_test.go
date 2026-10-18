@@ -29,10 +29,10 @@ func serve(t *testing.T, handler http.HandlerFunc) *control.Client {
 	return client
 }
 
-func TestNewRefusesAnAddressItCannotCall(t *testing.T) {
+func TestNewRejectsAnAddressItCannotCall(t *testing.T) {
 	for _, bad := range []string{"", "localhost:3000", "/api"} {
 		if _, err := control.New(bad, "tok"); err == nil {
-			t.Errorf("%q should be refused", bad)
+			t.Errorf("%q should be rejected", bad)
 		}
 	}
 }
@@ -41,7 +41,7 @@ func TestRegisterCarriesTheBearerTokenAndKeepsTheId(t *testing.T) {
 	var seenAuth string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		seenAuth = r.Header.Get("Authorization")
-		_ = json.NewEncoder(w).Encode(protocol.Registered{RunnerID: "runner_1"})
+		_ = json.NewEncoder(w).Encode(protocol.RegisterResponse{RunnerID: "runner_1"})
 	})
 
 	if err := client.Register(context.Background(), protocol.Registration{}); err != nil {
@@ -56,7 +56,7 @@ func TestRegisterCarriesTheBearerTokenAndKeepsTheId(t *testing.T) {
 	}
 }
 
-func TestRegisterRefusesAnAnswerWithoutAnId(t *testing.T) {
+func TestRegisterRejectsAnAnswerWithoutAnId(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{}`))
 	})
@@ -69,7 +69,7 @@ func TestRegisterRefusesAnAnswerWithoutAnId(t *testing.T) {
 func TestClaimTreatsAnEmptyQueueAsOrdinary(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/runners/register" {
-			_ = json.NewEncoder(w).Encode(protocol.Registered{RunnerID: "runner_1"})
+			_ = json.NewEncoder(w).Encode(protocol.RegisterResponse{RunnerID: "runner_1"})
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -92,11 +92,11 @@ func TestClaimReturnsTheRun(t *testing.T) {
 	var claimPath string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/runners/register" {
-			_ = json.NewEncoder(w).Encode(protocol.Registered{RunnerID: "runner_1"})
+			_ = json.NewEncoder(w).Encode(protocol.RegisterResponse{RunnerID: "runner_1"})
 			return
 		}
 		claimPath = r.URL.Path
-		_ = json.NewEncoder(w).Encode(protocol.Claimed{
+		_ = json.NewEncoder(w).Encode(protocol.ClaimResponse{
 			Kind: protocol.ClaimedRun,
 			Run:  &protocol.Run{ID: "run_1"},
 		})
@@ -118,7 +118,7 @@ func TestClaimReturnsTheRun(t *testing.T) {
 	}
 }
 
-func TestAppendEventsSaysNothingWhenThereIsNothingToSay(t *testing.T) {
+func TestAppendEventsSendsNothingWhenThereIsNothingToSend(t *testing.T) {
 	called := false
 	client := serve(t, func(http.ResponseWriter, *http.Request) { called = true })
 
@@ -147,9 +147,9 @@ func TestAFailureCarriesTheServersExplanation(t *testing.T) {
 }
 
 func TestRenewLeaseReadsBackAStopRequest(t *testing.T) {
-	var asked string
+	var received string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
-		asked = r.URL.Path
+		received = r.URL.Path
 		_, _ = w.Write([]byte(`{"stop":true}`))
 	})
 
@@ -160,12 +160,12 @@ func TestRenewLeaseReadsBackAStopRequest(t *testing.T) {
 	if !stop {
 		t.Error("expected the renewal to report a stop")
 	}
-	if asked != "/api/runs/run_1/lease" {
-		t.Errorf("asked %q", asked)
+	if received != "/api/runs/run_1/lease" {
+		t.Errorf("received %q", received)
 	}
 }
 
-func TestRenewLeaseCarriesOnWhenNoStopIsAsked(t *testing.T) {
+func TestRenewLeaseCarriesOnWhenNoStopIsRequested(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"stop":false}`))
 	})
@@ -175,14 +175,14 @@ func TestRenewLeaseCarriesOnWhenNoStopIsAsked(t *testing.T) {
 		t.Fatalf("renew: %v", err)
 	}
 	if stop {
-		t.Error("no stop was asked, yet one was reported")
+		t.Error("no stop was requested, yet one was reported")
 	}
 }
 
 func TestAttachmentFetchesTheFileItself(t *testing.T) {
-	var asked, auth string
+	var received, auth string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
-		asked = r.URL.EscapedPath()
+		received = r.URL.EscapedPath()
 		auth = r.Header.Get("Authorization")
 		_, _ = w.Write([]byte(`{"not": "decoded"`))
 	})
@@ -192,8 +192,8 @@ func TestAttachmentFetchesTheFileItself(t *testing.T) {
 		t.Fatalf("attachment: %v", err)
 	}
 
-	if asked != "/api/runs/run_1/attachments/att%2F1" {
-		t.Errorf("asked %q", asked)
+	if received != "/api/runs/run_1/attachments/att%2F1" {
+		t.Errorf("received %q", received)
 	}
 	if auth != "Bearer tok" {
 		t.Errorf("authorization %q", auth)
@@ -248,7 +248,7 @@ func TestUseToolCarriesTheInputWholeAndAnswersWithWhatCameBack(t *testing.T) {
 	}
 }
 
-func TestUseToolSaysWhichToolTheControlPlaneRefused(t *testing.T) {
+func TestUseToolSaysWhichToolTheControlPlaneRejected(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, `{"message":"pull-request needs a title"}`, http.StatusUnprocessableEntity)
 	})
@@ -263,7 +263,7 @@ func TestUseToolSaysWhichToolTheControlPlaneRefused(t *testing.T) {
 func TestClaimReadsAChangeStackCheck(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/runners/register" {
-			_ = json.NewEncoder(w).Encode(protocol.Registered{RunnerID: "runner_1"})
+			_ = json.NewEncoder(w).Encode(protocol.RegisterResponse{RunnerID: "runner_1"})
 			return
 		}
 		_, _ = w.Write([]byte(`{"kind":"check","run":null,"check":{"stackId":"s1","runId":"run_1","repository":"widgets","base":"abc","setup":"npm ci","command":"npm test","steps":[{"id":"whole","patch":"diff","stopsOnFailure":true}]}}`))
@@ -290,17 +290,17 @@ func TestClaimReadsAChangeStackCheck(t *testing.T) {
 	}
 }
 
-func TestDraftChangeStackHandsOverTheDiffOfOneCheckout(t *testing.T) {
+func TestGenerateChangeStackHandsOverTheDiffOfOneCheckout(t *testing.T) {
 	var seenPath string
-	var seen protocol.ChangeStackDraft
+	var seen protocol.ChangeStackGenerationRequest
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		seenPath = r.URL.Path
 		_ = json.NewDecoder(r.Body).Decode(&seen)
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	if err := client.DraftChangeStack(context.Background(), "run_1", "widgets", "diff --git a b", "0123456789abcdef0123456789abcdef01234567"); err != nil {
-		t.Fatalf("draft: %v", err)
+	if err := client.GenerateChangeStack(context.Background(), "run_1", "widgets", "diff --git a b", "0123456789abcdef0123456789abcdef01234567"); err != nil {
+		t.Fatalf("generate: %v", err)
 	}
 
 	if seenPath != "/api/runs/run_1/change-stacks" {
@@ -314,15 +314,15 @@ func TestDraftChangeStackHandsOverTheDiffOfOneCheckout(t *testing.T) {
 
 func TestRecordChangeStackCheckPostsEachStep(t *testing.T) {
 	var seenPath string
-	var seen protocol.StackChecked
+	var seen protocol.StackCheckResult
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		seenPath = r.URL.Path
 		_ = json.NewDecoder(r.Body).Decode(&seen)
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	err := client.RecordChangeStackCheck(context.Background(), "run_1", "s1", false, protocol.StackChecked{
-		Steps: []protocol.CheckedStep{{Step: "whole", Passed: true, Output: "ok", TookMs: 12}},
+	err := client.RecordChangeStackCheck(context.Background(), "run_1", "s1", false, protocol.StackCheckResult{
+		Steps: []protocol.CheckStepResult{{Step: "whole", Passed: true, Output: "ok", DurationMs: 12}},
 	})
 	if err != nil {
 		t.Fatalf("record: %v", err)
@@ -337,9 +337,9 @@ func TestRecordChangeStackCheckPostsEachStep(t *testing.T) {
 }
 
 func TestRenewCheckLeaseReadsBackWhetherToStop(t *testing.T) {
-	var asked, method string
+	var received, method string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
-		asked, method = r.URL.EscapedPath(), r.Method
+		received, method = r.URL.EscapedPath(), r.Method
 		_, _ = w.Write([]byte(`{"stop":true}`))
 	})
 
@@ -350,15 +350,15 @@ func TestRenewCheckLeaseReadsBackWhetherToStop(t *testing.T) {
 	if !stop {
 		t.Error("expected the renewal to say the check should stop")
 	}
-	if method != http.MethodPost || asked != "/api/runs/run_1/change-stack-checks/stack%2F1/lease" {
-		t.Errorf("asked %s %q", method, asked)
+	if method != http.MethodPost || received != "/api/runs/run_1/change-stack-checks/stack%2F1/lease" {
+		t.Errorf("received %s %q", method, received)
 	}
 }
 
 func TestRecheckCallsNameTheRecheck(t *testing.T) {
-	var asked []string
+	var received []string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
-		asked = append(asked, r.URL.Path+"?"+r.URL.RawQuery)
+		received = append(received, r.URL.Path+"?"+r.URL.RawQuery)
 		if strings.HasSuffix(r.URL.Path, "/lease") {
 			_, _ = w.Write([]byte(`{"stop":false}`))
 			return
@@ -369,7 +369,7 @@ func TestRecheckCallsNameTheRecheck(t *testing.T) {
 	if _, err := client.RenewCheckLease(context.Background(), "run_1", "stack_1", true); err != nil {
 		t.Fatalf("renew: %v", err)
 	}
-	if err := client.RecordChangeStackCheck(context.Background(), "run_1", "stack_1", true, protocol.StackChecked{}); err != nil {
+	if err := client.RecordChangeStackCheck(context.Background(), "run_1", "stack_1", true, protocol.StackCheckResult{}); err != nil {
 		t.Fatalf("record: %v", err)
 	}
 
@@ -377,12 +377,12 @@ func TestRecheckCallsNameTheRecheck(t *testing.T) {
 		"/api/runs/run_1/change-stack-checks/stack_1/lease?recheck=true",
 		"/api/runs/run_1/change-stack-checks/stack_1?recheck=true",
 	}
-	if strings.Join(asked, " ") != strings.Join(want, " ") {
-		t.Errorf("asked %q", asked)
+	if strings.Join(received, " ") != strings.Join(want, " ") {
+		t.Errorf("received %q", received)
 	}
 }
 
-func TestRenewCheckLeaseCarriesOnWhileTheCheckIsHeld(t *testing.T) {
+func TestRenewCheckLeaseCarriesOnWhileTheRunnerHasTheLease(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"stop":false}`))
 	})
@@ -392,11 +392,11 @@ func TestRenewCheckLeaseCarriesOnWhileTheCheckIsHeld(t *testing.T) {
 		t.Fatalf("renew: %v", err)
 	}
 	if stop {
-		t.Error("the check is still held, yet a stop was reported")
+		t.Error("the runner still has the lease on the check, yet a stop was reported")
 	}
 }
 
-func TestRenewCheckLeaseRejectedWhenTheRunnerNoLongerHoldsIt(t *testing.T) {
+func TestRenewCheckLeaseRejectedWhenTheRunnerHasNoLease(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/problem+json")
 		w.WriteHeader(http.StatusConflict)
@@ -405,7 +405,7 @@ func TestRenewCheckLeaseRejectedWhenTheRunnerNoLongerHoldsIt(t *testing.T) {
 
 	_, err := client.RenewCheckLease(context.Background(), "run_1", "stack_1", false)
 
-	var rejection *control.Rejection
+	var rejection *control.ResponseError
 	if !errors.As(err, &rejection) || rejection.Status != http.StatusConflict {
 		t.Fatalf("err %v", err)
 	}
@@ -418,10 +418,10 @@ func TestAskPermissionPostsWhatWasAskedAndReadsTheDecision(t *testing.T) {
 		body := new(bytes.Buffer)
 		_, _ = body.ReadFrom(r.Body)
 		carried = body.String()
-		_, _ = w.Write([]byte(`{"decision":"asked"}`))
+		_, _ = w.Write([]byte(`{"decision":"pending"}`))
 	})
 
-	answer, err := client.AskPermission(context.Background(), "run_1", protocol.PermissionAsked{
+	answer, err := client.AskPermission(context.Background(), "run_1", protocol.PermissionRequest{
 		SessionID: "sess-1",
 		Kind:      "execute",
 		Title:     "`rm -rf build`",
@@ -438,7 +438,7 @@ func TestAskPermissionPostsWhatWasAskedAndReadsTheDecision(t *testing.T) {
 	if carried != want {
 		t.Errorf("carried %s, want %s", carried, want)
 	}
-	if answer.Decision != protocol.PermissionPutToPerson {
+	if answer.Decision != protocol.PermissionPending {
 		t.Errorf("decision %q", answer.Decision)
 	}
 }
@@ -450,7 +450,7 @@ func TestAskPermissionLeavesOutAnInputThereWasNone(t *testing.T) {
 		_, _ = w.Write([]byte(`{"decision":"allow"}`))
 	})
 
-	answer, err := client.AskPermission(context.Background(), "run_1", protocol.PermissionAsked{SessionID: "sess-1"})
+	answer, err := client.AskPermission(context.Background(), "run_1", protocol.PermissionRequest{SessionID: "sess-1"})
 	if err != nil {
 		t.Fatalf("ask: %v", err)
 	}
@@ -468,7 +468,7 @@ func TestAskPermissionFailsRatherThanDecidingOnItsOwn(t *testing.T) {
 		http.Error(w, "no such run", http.StatusNotFound)
 	})
 
-	answer, err := client.AskPermission(context.Background(), "run_1", protocol.PermissionAsked{})
+	answer, err := client.AskPermission(context.Background(), "run_1", protocol.PermissionRequest{})
 
 	if err == nil || !strings.Contains(err.Error(), "404") {
 		t.Fatalf("expected a 404, got %v", err)
@@ -478,23 +478,23 @@ func TestAskPermissionFailsRatherThanDecidingOnItsOwn(t *testing.T) {
 	}
 }
 
-func TestAsksForTheWorkspaceToRestoreAndHearsWhenThereIsNone(t *testing.T) {
-	var asked string
+func TestReadsTheWorkspaceToRestoreAndLearnsWhenThereIsNone(t *testing.T) {
+	var received string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
-		asked = r.Method + " " + r.URL.Path
+		received = r.Method + " " + r.URL.Path
 		if strings.HasSuffix(r.URL.Path, "/run_2/workspace-archive") {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(protocol.HeldArchive{ID: "archive_1", URL: "https://storage.test/a", Size: 12, SHA256: "ab"})
+		_ = json.NewEncoder(w).Encode(protocol.StoredArchive{ID: "archive_1", URL: "https://storage.test/a", Size: 12, SHA256: "ab"})
 	})
 
-	held, err := client.WorkspaceArchive(context.Background(), "run_1")
-	if err != nil || held == nil || held.ID != "archive_1" || held.Size != 12 {
-		t.Fatalf("held %+v, %v", held, err)
+	stored, err := client.WorkspaceArchive(context.Background(), "run_1")
+	if err != nil || stored == nil || stored.ID != "archive_1" || stored.Size != 12 {
+		t.Fatalf("stored %+v, %v", stored, err)
 	}
-	if asked != "GET /api/runs/run_1/workspace-archive" {
-		t.Errorf("asked %s", asked)
+	if received != "GET /api/runs/run_1/workspace-archive" {
+		t.Errorf("received %s", received)
 	}
 
 	none, err := client.WorkspaceArchive(context.Background(), "run_2")
@@ -503,13 +503,13 @@ func TestAsksForTheWorkspaceToRestoreAndHearsWhenThereIsNone(t *testing.T) {
 	}
 }
 
-func TestAsksToKeepTheWorkspaceThenSealsIt(t *testing.T) {
+func TestRequestsAWorkspaceArchiveThenCompletesIt(t *testing.T) {
 	var calls []string
-	var asked protocol.ArchiveRequest
+	var received protocol.ArchiveRequest
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		calls = append(calls, r.Method+" "+r.URL.Path)
 		if r.URL.Path == "/api/runs/run_1/workspace-archive" {
-			_ = json.NewDecoder(r.Body).Decode(&asked)
+			_ = json.NewDecoder(r.Body).Decode(&received)
 			_ = json.NewEncoder(w).Encode(protocol.ArchiveGrant{
 				ID: "archive_1", URL: "https://storage.test/put", Headers: map[string]string{"content-type": "application/gzip"},
 			})
@@ -522,15 +522,15 @@ func TestAsksToKeepTheWorkspaceThenSealsIt(t *testing.T) {
 	if err != nil || grant.ID != "archive_1" || grant.Headers["content-type"] != "application/gzip" {
 		t.Fatalf("grant %+v, %v", grant, err)
 	}
-	if asked.Size != 42 || asked.SHA256 != "ab" {
-		t.Errorf("asked for %+v", asked)
+	if received.Size != 42 || received.SHA256 != "ab" {
+		t.Errorf("received %+v", received)
 	}
 
-	if err := client.SealArchive(context.Background(), "run_1", grant.ID); err != nil {
-		t.Fatalf("seal: %v", err)
+	if err := client.CompleteArchive(context.Background(), "run_1", grant.ID); err != nil {
+		t.Fatalf("complete: %v", err)
 	}
-	if calls[1] != "POST /api/runs/run_1/workspace-archive/archive_1/sealed" {
-		t.Errorf("sealed with %s", calls[1])
+	if calls[1] != "POST /api/runs/run_1/workspace-archive/archive_1/complete" {
+		t.Errorf("completed with %s", calls[1])
 	}
 }
 
@@ -568,30 +568,30 @@ func TestSaysWhereTheRunStartedNamingAnArchiveOrNone(t *testing.T) {
 	}
 }
 
-func TestSaysWhyTheWorkspaceCannotBeKept(t *testing.T) {
+func TestSaysWhyTheWorkspaceCannotBeArchived(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, `{"message":"A workspace archive cannot be kept, because this deployment has nowhere to keep one"}`, http.StatusUnprocessableEntity)
+		http.Error(w, `{"message":"A workspace archive cannot be stored, because this deployment has nowhere to store one"}`, http.StatusUnprocessableEntity)
 	})
 
 	_, err := client.GrantArchive(context.Background(), "run_1", 42, "ab")
-	if err == nil || !strings.Contains(err.Error(), "nowhere to keep one") {
+	if err == nil || !strings.Contains(err.Error(), "nowhere to store one") {
 		t.Errorf("err %v", err)
 	}
 }
 
-func TestARejectionCarriesTheReasonTheControlPlaneGave(t *testing.T) {
+func TestARejectionCarriesTheReasonTheControlPlaneSent(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusConflict)
-		_, _ = w.Write([]byte(`{"reason":"host-taken","message":"serving elsewhere"}`))
+		_, _ = w.Write([]byte(`{"reason":"host-in-use","message":"serving elsewhere"}`))
 	})
 
 	_, err := client.Request(context.Background(), http.MethodPut, "/api/hosts/x", nil, nil)
 
-	if !control.Rejected(err, "host-taken") || control.Rejected(err, "host-unreported") {
+	if !control.HasReason(err, "host-in-use") || control.HasReason(err, "host-unreported") {
 		t.Fatalf("got %v", err)
 	}
-	if errors.Is(err, control.ErrRefused) {
-		t.Error("a conflict read as a refused credential")
+	if errors.Is(err, control.ErrUnauthorized) {
+		t.Error("a conflict read as an unauthorized credential")
 	}
 }
 
@@ -605,10 +605,10 @@ func (trusted) Authorize(request *http.Request) error {
 
 func TestClaimCallNamesTheHostAndTakesTheCall(t *testing.T) {
 	var path, auth string
-	var asked protocol.HostCallClaim
+	var received protocol.HostCallClaim
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		path, auth = r.URL.Path, r.Header.Get("Authorization")
-		_ = json.NewDecoder(r.Body).Decode(&asked)
+		_ = json.NewDecoder(r.Body).Decode(&received)
 		_ = json.NewEncoder(w).Encode(protocol.HostCall{
 			ID: "call_1", Method: http.MethodPost, URL: "https://audit.acme.internal/", Body: "e30=", TimeoutMs: 10000,
 		})
@@ -618,11 +618,11 @@ func TestClaimCallNamesTheHostAndTakesTheCall(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if path != "/api/hosts/calls/claim" || auth != "Bearer tok" || asked.Host != "host_1" {
-		t.Errorf("asked %s with %q for %+v", path, auth, asked)
+	if path != "/api/hosts/calls/claim" || auth != "Bearer tok" || received.Host != "host_1" {
+		t.Errorf("received %s with %q for %+v", path, auth, received)
 	}
 	if call.ID != "call_1" || call.URL != "https://audit.acme.internal/" || call.TimeoutMs != 10000 {
-		t.Errorf("took %+v", call)
+		t.Errorf("claimed %+v", call)
 	}
 }
 
@@ -657,69 +657,69 @@ func TestClaimCallGoesThroughATrustLikeAnyHostClaim(t *testing.T) {
 	}
 }
 
-func TestClaimCallTellsARefusedCredentialAndAnUnreportedHost(t *testing.T) {
-	refused := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+func TestClaimCallTellsAnUnauthorizedCredentialAndAnUnreportedHost(t *testing.T) {
+	unauthorized := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "no", http.StatusUnauthorized)
 	})
-	if _, err := refused.ClaimCall(context.Background(), "host_1"); !errors.Is(err, control.ErrRefused) {
-		t.Errorf("a refused credential came back as %v", err)
+	if _, err := unauthorized.ClaimCall(context.Background(), "host_1"); !errors.Is(err, control.ErrUnauthorized) {
+		t.Errorf("an unauthorized credential came back as %v", err)
 	}
 
 	unreported := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusConflict)
 		_, _ = w.Write([]byte(`{"reason":"host-unreported"}`))
 	})
-	if _, err := unreported.ClaimCall(context.Background(), "host_1"); !control.Rejected(err, "host-unreported") {
+	if _, err := unreported.ClaimCall(context.Background(), "host_1"); !control.HasReason(err, "host-unreported") {
 		t.Errorf("an unreported host came back as %v", err)
 	}
 }
 
-func TestClaimCallRefusesACallWithNoAddress(t *testing.T) {
+func TestClaimCallRejectsACallWithNoAddress(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(protocol.HostCall{ID: "call_1"})
 	})
 
 	if _, err := client.ClaimCall(context.Background(), "host_1"); err == nil {
-		t.Fatal("took a call with nowhere to send it")
+		t.Fatal("claimed a call with nowhere to send it")
 	}
 }
 
-func TestAnswerCallPostsTheAnswerToTheCall(t *testing.T) {
+func TestRecordCallResponsePostsTheResponseOfTheCall(t *testing.T) {
 	var path string
-	var answered protocol.HostCallAnswer
+	var recorded protocol.HostCallResponse
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		path = r.URL.Path
-		_ = json.NewDecoder(r.Body).Decode(&answered)
+		_ = json.NewDecoder(r.Body).Decode(&recorded)
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	answer := protocol.HostCallAnswer{Status: 200, Headers: map[string]string{"content-type": "application/json"}, Body: "e30=", Ms: 12}
-	if err := client.AnswerCall(context.Background(), "call_1", answer); err != nil {
+	response := protocol.HostCallResponse{Status: 200, Headers: map[string]string{"content-type": "application/json"}, Body: "e30=", Ms: 12}
+	if err := client.RecordCallResponse(context.Background(), "call_1", response); err != nil {
 		t.Fatal(err)
 	}
-	if path != "/api/hosts/calls/call_1/answer" || answered.Status != 200 || answered.Body != "e30=" || answered.Ms != 12 {
-		t.Errorf("answered %s with %+v", path, answered)
+	if path != "/api/hosts/calls/call_1/response" || recorded.Status != 200 || recorded.Body != "e30=" || recorded.Ms != 12 {
+		t.Errorf("recorded %s with %+v", path, recorded)
 	}
 }
 
-func TestAnswerCallTellsACallAlreadyAnswered(t *testing.T) {
+func TestRecordCallResponseTellsACallAlreadyAnswered(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusConflict)
 		_, _ = w.Write([]byte(`{"reason":"call-answered"}`))
 	})
 
-	err := client.AnswerCall(context.Background(), "call_1", protocol.HostCallAnswer{Error: "timed out after 10s"})
-	var rejection *control.Rejection
+	err := client.RecordCallResponse(context.Background(), "call_1", protocol.HostCallResponse{Error: "timed out after 10s"})
+	var rejection *control.ResponseError
 	if !errors.As(err, &rejection) || rejection.Status != http.StatusConflict {
-		t.Errorf("answered with %v", err)
+		t.Errorf("recorded with %v", err)
 	}
 }
 
 func TestRecallsByWordsAndByHandle(t *testing.T) {
-	var asked []string
+	var received []string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
-		asked = append(asked, strings.TrimSpace(r.Method+" "+r.URL.RequestURI()+" "+string(body)))
+		received = append(received, strings.TrimSpace(r.Method+" "+r.URL.RequestURI()+" "+string(body)))
 		_, _ = w.Write([]byte(`[]`))
 	})
 
@@ -734,49 +734,49 @@ func TestRecallsByWordsAndByHandle(t *testing.T) {
 		`POST /api/runs/run_1/memories/recall {"words":"upload retries"}`,
 		"POST /api/runs/run_1/memories/M-12/recall",
 	}
-	if strings.Join(asked, "\n") != strings.Join(want, "\n") {
-		t.Errorf("asked %v", asked)
+	if strings.Join(received, "\n") != strings.Join(want, "\n") {
+		t.Errorf("received %v", received)
 	}
 }
 
-func TestARefusedMemorySaysWhatSpotlightSaid(t *testing.T) {
+func TestARejectedMemorySaysWhySpotlightRejectedIt(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		_, _ = w.Write([]byte(`{"message":"A memory is one of rationale, not gossip","error":"Unprocessable Entity","statusCode":422}`))
 	})
 
-	_, err := client.Remember(context.Background(), "run_1", protocol.Remembering{Kind: "gossip", Body: "x"})
+	_, err := client.Remember(context.Background(), "run_1", protocol.RememberRequest{Kind: "gossip", Body: "x"})
 
-	var rejection *control.Rejection
+	var rejection *control.ResponseError
 	if !errors.As(err, &rejection) {
 		t.Fatalf("got %v", err)
 	}
-	if said, ok := rejection.Refused(); !ok || said != "A memory is one of rationale, not gossip" {
-		t.Errorf("refused %q, %v", said, ok)
+	if message, ok := rejection.ClientErrorMessage(); !ok || message != "A memory is one of rationale, not gossip" {
+		t.Errorf("rejected with %q, %v", message, ok)
 	}
 }
 
-func TestAnUnreachableSpotlightIsNoRefusal(t *testing.T) {
+func TestAnUnreachableSpotlightIsNoClientError(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadGateway)
 		_, _ = w.Write([]byte(`{"message":"upstream down"}`))
 	})
 
-	_, err := client.Remember(context.Background(), "run_1", protocol.Remembering{Kind: "rationale", Body: "x"})
+	_, err := client.Remember(context.Background(), "run_1", protocol.RememberRequest{Kind: "rationale", Body: "x"})
 
-	var rejection *control.Rejection
+	var rejection *control.ResponseError
 	if errors.As(err, &rejection) {
-		if _, ok := rejection.Refused(); ok {
-			t.Error("a 502 should not read as a refusal")
+		if _, ok := rejection.ClientErrorMessage(); ok {
+			t.Error("a 502 should not read as a client error")
 		}
 	}
 }
 
 func TestReadsTheMemoryFilesOfARun(t *testing.T) {
-	var asked string
+	var received string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
-		asked = r.Method + " " + r.URL.RequestURI()
+		received = r.Method + " " + r.URL.RequestURI()
 		_, _ = w.Write([]byte(`[{"path":".spotlight/memory/team/M-1.md","body":"# M-1"}]`))
 	})
 
@@ -785,17 +785,17 @@ func TestReadsTheMemoryFilesOfARun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if asked != "GET /api/runs/run_1/memory-files" || len(files) != 1 || files[0].Body != "# M-1" {
-		t.Errorf("asked %s, got %+v", asked, files)
+	if received != "GET /api/runs/run_1/memory-files" || len(files) != 1 || files[0].Body != "# M-1" {
+		t.Errorf("received %s, got %+v", received, files)
 	}
 }
 
-func TestCompleteHearsWhetherTheRunNowWaitsForAPerson(t *testing.T) {
-	var asked string
-	var told protocol.Completion
+func TestCompleteReadsWhetherTheRunNowWaitsForAPerson(t *testing.T) {
+	var received string
+	var sent protocol.Completion
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
-		asked = r.Method + " " + r.URL.Path
-		_ = json.NewDecoder(r.Body).Decode(&told)
+		received = r.Method + " " + r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&sent)
 		_, _ = w.Write([]byte(`{"waiting":true}`))
 	})
 
@@ -804,14 +804,14 @@ func TestCompleteHearsWhetherTheRunNowWaitsForAPerson(t *testing.T) {
 		t.Fatalf("complete: %v", err)
 	}
 	if !completed.Waiting {
-		t.Error("the run waits for a person, yet the runner heard it ended")
+		t.Error("the run waits for a person, yet the runner read that it ended")
 	}
-	if asked != "POST /api/runs/run_1/completion" || told.SessionID != "session_1" {
-		t.Errorf("asked %q with %+v", asked, told)
+	if received != "POST /api/runs/run_1/completion" || sent.SessionID != "session_1" {
+		t.Errorf("received %q with %+v", received, sent)
 	}
 }
 
-func TestCompleteHearsThatTheRunEnded(t *testing.T) {
+func TestCompleteReadsThatTheRunEnded(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"waiting":false}`))
 	})
@@ -821,82 +821,82 @@ func TestCompleteHearsThatTheRunEnded(t *testing.T) {
 		t.Fatalf("complete: %v", err)
 	}
 	if completed.Waiting {
-		t.Error("the run ended, yet the runner heard it waits")
+		t.Error("the run ended, yet the runner read that it waits")
 	}
 }
 
-func TestParkHearsWhetherTheRunWasLetGo(t *testing.T) {
+func TestSuspendReadsWhetherTheRunWasSuspended(t *testing.T) {
 	for _, answer := range []bool{true, false} {
-		var asked string
+		var received string
 		client := serve(t, func(w http.ResponseWriter, r *http.Request) {
-			asked = r.Method + " " + r.URL.Path
-			_ = json.NewEncoder(w).Encode(protocol.Parking{Parked: answer})
+			received = r.Method + " " + r.URL.Path
+			_ = json.NewEncoder(w).Encode(protocol.Suspension{Suspended: answer})
 		})
 
-		parking, err := client.Park(context.Background(), "run_1", false)
+		suspension, err := client.Suspend(context.Background(), "run_1", false)
 		if err != nil {
-			t.Fatalf("park: %v", err)
+			t.Fatalf("suspend: %v", err)
 		}
-		if parking.Parked != answer {
-			t.Errorf("the control plane said parked %t, the runner heard %t", answer, parking.Parked)
+		if suspension.Suspended != answer {
+			t.Errorf("the control plane said suspended %t, the runner read %t", answer, suspension.Suspended)
 		}
-		if asked != "POST /api/runs/run_1/parked" {
-			t.Errorf("asked %q", asked)
+		if received != "POST /api/runs/run_1/suspended" {
+			t.Errorf("received %q", received)
 		}
 	}
 }
 
-func TestParkSaysWhyItCouldNotPark(t *testing.T) {
+func TestSuspendSaysWhyItCouldNotSuspend(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "run is not waiting", http.StatusConflict)
 	})
 
-	if _, err := client.Park(context.Background(), "run_1", false); err == nil || !strings.Contains(err.Error(), "409") {
+	if _, err := client.Suspend(context.Background(), "run_1", false); err == nil || !strings.Contains(err.Error(), "409") {
 		t.Fatalf("got %v", err)
 	}
 }
 
-func TestAsksHearsWhetherTheTurnWouldWaitForAPerson(t *testing.T) {
+func TestAwaitsPersonReadsWhetherTheTurnWouldWaitForAPerson(t *testing.T) {
 	for _, answer := range []bool{true, false} {
-		var asked string
+		var received string
 		var sent protocol.Completion
 		client := serve(t, func(w http.ResponseWriter, r *http.Request) {
-			asked = r.Method + " " + r.URL.Path
+			received = r.Method + " " + r.URL.Path
 			_ = json.NewDecoder(r.Body).Decode(&sent)
-			_ = json.NewEncoder(w).Encode(protocol.TurnAsks{Asks: answer})
+			_ = json.NewEncoder(w).Encode(protocol.TurnAwaitsPerson{AwaitsPerson: answer})
 		})
 
-		asks, err := client.Asks(context.Background(), "run_1", protocol.Completion{
-			Outcome: &protocol.Outcome{Next: "review"},
+		awaits, err := client.AwaitsPerson(context.Background(), "run_1", protocol.Completion{
+			Handover: &protocol.Handover{Next: "review"},
 		})
 		if err != nil {
-			t.Fatalf("asks: %v", err)
+			t.Fatalf("awaits person: %v", err)
 		}
-		if asks != answer {
-			t.Errorf("the control plane said %t, the runner heard %t", answer, asks)
+		if awaits != answer {
+			t.Errorf("the control plane said %t, the runner read %t", answer, awaits)
 		}
-		if asked != "POST /api/runs/run_1/completion/asks" || sent.Outcome == nil || sent.Outcome.Next != "review" {
-			t.Errorf("asked %q with %+v", asked, sent)
+		if received != "POST /api/runs/run_1/completion/awaits-person" || sent.Handover == nil || sent.Handover.Next != "review" {
+			t.Errorf("received %q with %+v", received, sent)
 		}
 	}
 }
 
-func TestParkColdAsksForTheRunToGoBackOnTheQueue(t *testing.T) {
-	var sent protocol.ParkRequest
+func TestSuspendWithRequeueRequestsThatTheRunGoesBackOnTheQueue(t *testing.T) {
+	var sent protocol.SuspendRequest
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&sent)
-		_ = json.NewEncoder(w).Encode(protocol.Parking{Parked: true})
+		_ = json.NewEncoder(w).Encode(protocol.Suspension{Suspended: true})
 	})
 
-	if _, err := client.Park(context.Background(), "run_1", true); err != nil {
-		t.Fatalf("park: %v", err)
+	if _, err := client.Suspend(context.Background(), "run_1", true); err != nil {
+		t.Fatalf("suspend: %v", err)
 	}
-	if !sent.Cold {
-		t.Errorf("asked to park %+v", sent)
+	if !sent.Requeue {
+		t.Errorf("requested to suspend %+v", sent)
 	}
 }
 
-func TestARefusedCredentialLosesTheRun(t *testing.T) {
+func TestAnUnauthorizedCredentialLosesTheRun(t *testing.T) {
 	for status, want := range map[int]bool{
 		http.StatusNotFound:     true,
 		http.StatusUnauthorized: true,
@@ -909,9 +909,9 @@ func TestARefusedCredentialLosesTheRun(t *testing.T) {
 		})
 
 		_, err := client.RenewLease(context.Background(), "run_1")
-		var rejection *control.Rejection
-		if !errors.As(err, &rejection) || rejection.Lost() != want {
-			t.Errorf("a %d renewal lost the run %v, wanted %v", status, rejection != nil && rejection.Lost(), want)
+		var rejection *control.ResponseError
+		if !errors.As(err, &rejection) || rejection.RunNoLongerLeased() != want {
+			t.Errorf("a %d renewal lost the run %v, wanted %v", status, rejection != nil && rejection.RunNoLongerLeased(), want)
 		}
 	}
 }
@@ -923,60 +923,60 @@ func TestOnlyAMissingRunIsGone(t *testing.T) {
 		})
 
 		_, err := client.RenewLease(context.Background(), "run_1")
-		var rejection *control.Rejection
-		if !errors.As(err, &rejection) || rejection.Gone() != want {
-			t.Errorf("a %d renewal was gone %v, wanted %v", status, rejection != nil && rejection.Gone(), want)
+		var rejection *control.ResponseError
+		if !errors.As(err, &rejection) || rejection.IsNotFound() != want {
+			t.Errorf("a %d renewal was gone %v, wanted %v", status, rejection != nil && rejection.IsNotFound(), want)
 		}
 	}
 }
 
 func TestTheEgressCallsCarryTheContract(t *testing.T) {
-	asked := map[string]string{}
+	received := map[string]string{}
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
-		asked[r.URL.Path] = string(body)
+		received[r.URL.Path] = string(body)
 		switch r.URL.Path {
-		case "/api/egress/admit":
-			_, _ = w.Write([]byte(`{"runnerId":"runner_1","workspaceId":"ws_1","controlPlaneHost":"spotlight.example.com","controlPlanePort":443,"reaches":["storage.example.com"]}`))
-		case "/api/egress/redeem":
-			_, _ = w.Write([]byte(`{"runId":"run_1","reaches":[],"secrets":[],"withheld":[],"bound":["mcp.example.com"]}`))
-		case "/api/egress/holds":
-			_, _ = w.Write([]byte(`{"held":["one"]}`))
+		case "/api/egress/authorize":
+			_, _ = w.Write([]byte(`{"runnerId":"runner_1","workspaceId":"ws_1","controlPlaneHost":"spotlight.example.com","controlPlanePort":443,"extraAllowedHosts":["storage.example.com"]}`))
+		case "/api/egress/secrets":
+			_, _ = w.Write([]byte(`{"runId":"run_1","extraAllowedHosts":[],"secrets":[],"denied":[],"bound":["mcp.example.com"]}`))
+		case "/api/egress/active-runs":
+			_, _ = w.Write([]byte(`{"active":["one"]}`))
 		case "/api/egress/connections":
 			w.WriteHeader(http.StatusNoContent)
 		}
 	})
 	ctx := context.Background()
 
-	admitted, err := client.AdmitEgress(ctx, "one")
-	if err != nil || admitted.RunnerID != "runner_1" || admitted.WorkspaceID != "ws_1" ||
-		admitted.ControlPlaneHost != "spotlight.example.com" || admitted.ControlPlanePort != 443 || len(admitted.Reaches) != 1 || admitted.Reaches[0] != "storage.example.com" {
-		t.Errorf("admitted %+v: %v", admitted, err)
+	authorized, err := client.AuthorizeEgress(ctx, "one")
+	if err != nil || authorized.RunnerID != "runner_1" || authorized.WorkspaceID != "ws_1" ||
+		authorized.ControlPlaneHost != "spotlight.example.com" || authorized.ControlPlanePort != 443 || len(authorized.ExtraAllowedHosts) != 1 || authorized.ExtraAllowedHosts[0] != "storage.example.com" {
+		t.Errorf("authorized %+v: %v", authorized, err)
 	}
-	redeemed, err := client.RedeemEgressFor(ctx, "one", "recipient")
-	if err != nil || redeemed.RunID != "run_1" || len(redeemed.Bound) != 1 || redeemed.Bound[0] != "mcp.example.com" {
-		t.Errorf("redeemed %+v: %v", redeemed, err)
+	fetched, err := client.FetchRunSecretsFor(ctx, "one", "recipient")
+	if err != nil || fetched.RunID != "run_1" || len(fetched.Bound) != 1 || fetched.Bound[0] != "mcp.example.com" {
+		t.Errorf("fetched %+v: %v", fetched, err)
 	}
-	held, err := client.EgressHolds(ctx, []string{"one", "two"})
-	if err != nil || len(held) != 1 || held[0] != "one" {
-		t.Errorf("held %v: %v", held, err)
+	active, err := client.ActiveRuns(ctx, []string{"one", "two"})
+	if err != nil || len(active) != 1 || active[0] != "one" {
+		t.Errorf("active %v: %v", active, err)
 	}
 	at := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
 	if err := client.RecordConnections(ctx, []protocol.EgressConnection{{
-		ProxyCredential: "one", Host: "api.example.com", Port: 443, BytesOut: 10, BytesIn: 20, Ms: 30, Outcome: protocol.ConnectionTunnelled, At: at,
+		ProxyCredential: "one", Host: "api.example.com", Port: 443, BytesOut: 10, BytesIn: 20, Ms: 30, Outcome: protocol.ConnectionPassthrough, At: at,
 	}}); err != nil {
 		t.Errorf("record: %v", err)
 	}
 
 	want := map[string]string{
-		"/api/egress/admit":       `{"proxyCredential":"one"}`,
-		"/api/egress/redeem":      `{"proxyCredential":"one","recipient":"recipient"}`,
-		"/api/egress/holds":       `{"proxyCredentials":["one","two"]}`,
-		"/api/egress/connections": `{"records":[{"proxyCredential":"one","host":"api.example.com","port":443,"bytesOut":10,"bytesIn":20,"ms":30,"outcome":"tunnelled","at":"2026-10-16T12:00:00Z"}]}`,
+		"/api/egress/authorize":   `{"proxyCredential":"one"}`,
+		"/api/egress/secrets":     `{"proxyCredential":"one","recipient":"recipient"}`,
+		"/api/egress/active-runs": `{"proxyCredentials":["one","two"]}`,
+		"/api/egress/connections": `{"records":[{"proxyCredential":"one","host":"api.example.com","port":443,"bytesOut":10,"bytesIn":20,"ms":30,"outcome":"passthrough","at":"2026-10-16T12:00:00Z"}]}`,
 	}
 	for path, body := range want {
-		if asked[path] != body {
-			t.Errorf("%s sent %s", path, asked[path])
+		if received[path] != body {
+			t.Errorf("%s sent %s", path, received[path])
 		}
 	}
 }

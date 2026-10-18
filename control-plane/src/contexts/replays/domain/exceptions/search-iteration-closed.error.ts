@@ -1,9 +1,9 @@
 export class SearchIterationClosedError extends Error {
-  readonly violation = 'not-found' as const;
+  readonly kind = 'not-found' as const;
 
   constructor(runId: string) {
     super(
-      `The search no longer holds the run ${runId}, so it takes no more candidates from it`,
+      `The run ${runId} is no longer the active run of the search, so the search takes no more candidates from it`,
     );
     this.name = 'SearchIterationClosedError';
   }

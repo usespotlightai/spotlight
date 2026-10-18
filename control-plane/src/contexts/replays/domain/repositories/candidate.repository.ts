@@ -1,6 +1,6 @@
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import type { CandidateAddress } from '@replays/domain/value-objects/candidate-address.vo';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import type { CandidatePath } from '@replays/domain/value-objects/candidate-path.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export interface CandidateRepository {
@@ -12,10 +12,7 @@ export interface CandidateRepository {
 
   findMany(ids: readonly CandidateId[]): Promise<readonly Candidate[]>;
 
-  proposedAt(
-    teamId: TeamId,
-    address: CandidateAddress,
-  ): Promise<Candidate | null>;
+  proposedAt(teamId: TeamId, address: CandidatePath): Promise<Candidate | null>;
 
   add(candidate: Candidate): Promise<void>;
 

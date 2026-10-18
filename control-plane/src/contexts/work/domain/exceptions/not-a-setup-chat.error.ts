@@ -1,5 +1,5 @@
 export class NotASetupChatError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(chatId: string) {
     super(

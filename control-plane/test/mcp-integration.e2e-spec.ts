@@ -17,15 +17,15 @@ import {
   TEAM_INTEGRATIONS,
   type TeamIntegrationsPort,
 } from '@work/application/ports/team-integrations.port';
-import { givenIntegrations } from '@work/domain/services/given-integrations';
+import { enabledIntegrations } from '@work/domain/services/enabled-integrations';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const HOST = `host-mcp-${randomUUID().slice(0, 8)}`;
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -39,7 +39,7 @@ interface InboxItem {
   readonly taskId: string;
 }
 
-interface Heard {
+interface ReceivedRequest {
   readonly path: string;
   readonly form: URLSearchParams;
 }
@@ -57,7 +57,7 @@ const answer = (reply: ServerResponse, body: unknown, status = 200) => {
   reply.end(JSON.stringify(body));
 };
 
-const authorizing = (asked: Heard[]) => {
+const authorizing = (received: ReceivedRequest[]) => {
   return async (
     request: IncomingMessage,
     reply: ServerResponse,
@@ -88,7 +88,7 @@ const authorizing = (asked: Heard[]) => {
     }
 
     if (path === '/as/register' && request.method === 'POST') {
-      asked.push({ path, form: new URLSearchParams() });
+      received.push({ path, form: new URLSearchParams() });
       answer(reply, { client_id: 'dcr-client', client_secret: 'dcr-secret' });
       return true;
     }
@@ -96,7 +96,7 @@ const authorizing = (asked: Heard[]) => {
     if (path === '/as/token' && request.method === 'POST') {
       const form = new URLSearchParams(await bodyOf(request));
 
-      asked.push({ path, form });
+      received.push({ path, form });
       answer(reply, {
         access_token: ISSUED,
         refresh_token: 'issued-refresh',
@@ -111,10 +111,10 @@ const authorizing = (asked: Heard[]) => {
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 let tracker: FakeMcpServer;
 let guarded: FakeMcpServer;
-const authorized: Heard[] = [];
+const authorized: ReceivedRequest[] = [];
 
 const http = () => served(app);
 
@@ -137,26 +137,26 @@ const runner = (token: string) => ({
       .send(body ?? {}),
 });
 
-const integrationNamed = async (source: string) =>
+const integrationNamed = async (integration: string) =>
   (
     (
       await asOwner
         .get(`/api/resources/workspaces/${team.workspaceId.value}/integrations`)
         .expect(200)
     ).body.items as {
-      source: string;
+      integration: string;
       version: number;
       tools: Record<string, string>;
-      described: {
+      spec: {
         kind: string;
         problem: string | null;
         tools: number;
         readAt: string;
       };
     }[]
-  ).find((each) => each.source === source);
+  ).find((each) => each.integration === integration);
 
-const defineIntegration = (body: object) =>
+const createIntegration = (body: object) =>
   asOwner.post(`/api/resources/teams/${team.teamId.value}/integrations`, body);
 
 const TOOLS = [
@@ -180,8 +180,8 @@ const aClaimedRun = async (): Promise<{
     workspaceId: team.workspaceId.value,
     stationId: BUILD,
     title: 'Tidy the tracker',
-    raisedAtStationId: BUILD,
-    raisedById: team.owner.value,
+    originStationId: BUILD,
+    createdById: team.owner.value,
     assigneeId: team.owner.value,
     currentRunId: runId,
   });
@@ -198,7 +198,7 @@ const aClaimedRun = async (): Promise<{
       command: { executable: 'sh', args: [] },
       briefing: 'Tidy the tracker.',
       handover: { options: ['review', 'done'], noteLimit: 0 },
-      continuity: { key: `${taskId}:${BUILD}` },
+      resume: { key: `${taskId}:${BUILD}` },
       manifest: TOOLS.map((name) => ({
         name,
         description: name,
@@ -213,19 +213,23 @@ const aClaimedRun = async (): Promise<{
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'build-box',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 4,
       running: [],
       images: [
-        { image: IMAGE, usual: true, harnesses: [{ id: 'dev', models: [] }] },
+        {
+          image: IMAGE,
+          isDefault: true,
+          harnesses: [{ id: 'dev', models: [] }],
+        },
       ],
     })
     .expect(200);
 
-  const handed = (
+  const assignment = (
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
@@ -233,9 +237,9 @@ const aClaimedRun = async (): Promise<{
       .expect(200)
   ).body as { token: string; work: { run: { id: string } } };
 
-  expect(handed.work.run.id).toBe(runId);
+  expect(assignment.work.run.id).toBe(runId);
 
-  return { taskId, runId, token: handed.token };
+  return { taskId, runId, token: assignment.token };
 };
 
 const toolsUsed = async (runId: string) =>
@@ -258,12 +262,12 @@ beforeAll(async () => {
     other: authorizing(authorized),
   });
   vi.stubEnv(
-    'OUTBOUND_ALLOWED_HOSTS',
+    'SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS',
     [new URL(tracker.url).host, new URL(guarded.url).host].join(','),
   );
   app = await openApp();
   db = app.get<DrizzleDatabase>(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `mcp-${randomUUID().slice(0, 8)}`,
@@ -311,7 +315,7 @@ beforeAll(async () => {
     .send({ key: 'hosts', labels: ['linux'], token: POOL_TOKEN })
     .expect(201);
 
-  const made = await defineIntegration({
+  const made = await createIntegration({
     integration: 'tracker',
     name: 'Tracker',
     mcp: { url: tracker.url },
@@ -321,7 +325,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await forgetRunnersOf(db, team.workspaceId.value);
+  await deleteRunnersOf(db, team.workspaceId.value);
   await app?.close();
   await tracker?.close();
   await guarded?.close();
@@ -329,7 +333,7 @@ afterAll(async () => {
 });
 
 describe('an integration naming a remote MCP server (e2e)', () => {
-  it('offers the tools the server lists, asking approval for those that may write', async () => {
+  it('provides the tools the server lists, asking approval for those that may write', async () => {
     const integration = await integrationNamed('tracker');
 
     expect(integration?.tools).toEqual({
@@ -338,18 +342,18 @@ describe('an integration naming a remote MCP server (e2e)', () => {
       'check-policy': 'tracker.check-policy',
       'ask-first': 'tracker.ask-first',
     });
-    expect(integration?.described).toMatchObject({
+    expect(integration?.spec).toMatchObject({
       kind: 'mcp',
       problem: null,
       tools: 4,
     });
 
-    const offered = await app
+    const provided = await app
       .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
-      .offered(team.teamId, ['tracker.search-issues', 'tracker.delete-issue']);
+      .provided(team.teamId, ['tracker.search-issues', 'tracker.delete-issue']);
 
     expect(
-      offered.map((each) => [
+      provided.map((each) => [
         each.tool,
         each.integrationName,
         each.approval?.because ?? null,
@@ -373,7 +377,7 @@ describe('an integration naming a remote MCP server (e2e)', () => {
       ],
     ]);
 
-    const declared = offered.map((each) =>
+    const declared = provided.map((each) =>
       ToolDeclarationMapper.toDeclared(each),
     );
 
@@ -389,7 +393,7 @@ describe('an integration naming a remote MCP server (e2e)', () => {
         approval: { because: 'It changes data in Tracker.' },
       }),
     ]);
-    expect(givenIntegrations(declared)).toEqual([
+    expect(enabledIntegrations(declared)).toEqual([
       { name: 'Tracker', tools: 2 },
     ]);
   });
@@ -406,14 +410,14 @@ describe('an integration naming a remote MCP server (e2e)', () => {
     ]);
     const claimed = [...one, ...other]
       .filter((each) => each.teamId.equals(team.teamId))
-      .map((each) => each.source.value);
+      .map((each) => each.integration.value);
 
     expect(claimed).toEqual(['tracker']);
 
     const after = await integrationNamed('tracker');
 
     expect(after?.version).toBe(before?.version);
-    expect(after?.described.readAt).toBe(at.toISOString());
+    expect(after?.spec.readAt).toBe(at.toISOString());
   });
 
   it('runs a tool that only reads for a station, and journals it', async () => {
@@ -441,21 +445,21 @@ describe('an integration naming a remote MCP server (e2e)', () => {
 
     expect(JSON.stringify(journalled)).toContain('tracker.search-issues');
 
-    const learned = await eventually(async () => {
+    const inferred = await eventually(async () => {
       const [found] = await app
         .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
-        .offered(team.teamId, ['tracker.search-issues']);
+        .provided(team.teamId, ['tracker.search-issues']);
 
-      return found?.learnedOutput ?? null;
+      return found?.inferredOutput ?? null;
     });
 
-    expect(JSON.stringify(learned)).not.toContain('Queue stuck');
-    expect(learned).toMatchObject({
+    expect(JSON.stringify(inferred)).not.toContain('Queue stuck');
+    expect(inferred).toMatchObject({
       properties: { issues: { type: 'array' } },
     });
   });
 
-  it('holds a tool that may destroy data for a person, and runs it with what they changed', async () => {
+  it('stops a tool that may destroy data until a person approves it, and runs it with what they changed', async () => {
     const { taskId, runId, token } = await aClaimedRun();
 
     await runner(token)
@@ -492,7 +496,7 @@ describe('an integration naming a remote MCP server (e2e)', () => {
     ).toEqual([{ tool: 'delete_issue', args: { id: 'ENG-2' } }]);
   });
 
-  it('lets a tool.using hook refuse a call to the server', async () => {
+  it('lets a tool.using hook deny a call to the server', async () => {
     const hooked = await asOwner.post(
       `/api/resources/teams/${team.teamId.value}/hooks`,
       {
@@ -516,13 +520,13 @@ describe('an integration naming a remote MCP server (e2e)', () => {
       const { runId, token } = await aClaimedRun();
       const searched = tracker.called.length;
 
-      const refused = await runner(token)
+      const denied = await runner(token)
         .post(`/api/runs/${runId}/tools/tracker.search-issues`, {
           query: 'stuck',
         })
         .expect(403);
 
-      expect(refused.body.detail ?? refused.body.message).toMatch(
+      expect(denied.body.detail ?? denied.body.message).toMatch(
         /searches-need-policy/,
       );
       expect(tracker.called.slice(searched)).toEqual([
@@ -535,20 +539,20 @@ describe('an integration naming a remote MCP server (e2e)', () => {
     }
   });
 
-  it('refuses a call the server asks a question in the middle of', async () => {
+  it('fails a call the server asks a question in the middle of', async () => {
     const { runId, token } = await aClaimedRun();
 
-    const refused = await runner(token)
+    const failed = await runner(token)
       .post(`/api/runs/${runId}/tools/tracker.ask-first`, {})
       .expect(502);
 
-    expect(JSON.stringify(refused.body)).toMatch(
+    expect(JSON.stringify(failed.body)).toMatch(
       /asked a question in the middle of the call/,
     );
   });
 
   it('connects to a server behind OAuth by what it publishes, registering Spotlight, with PKCE and the resource', async () => {
-    const made = await defineIntegration({
+    const made = await createIntegration({
       integration: 'secure',
       name: 'Secure tracker',
       connection: { oauth2: { discover: true } },
@@ -556,7 +560,7 @@ describe('an integration naming a remote MCP server (e2e)', () => {
     });
 
     expect(made.status).toBe(201);
-    expect(made.body.described.problem).toMatch(/answered 401/);
+    expect(made.body.spec.problem).toMatch(/answered 401/);
 
     const begun = await asOwner.post(
       `/api/teams/${team.teamId.value}/integrations/secure/connect`,
@@ -593,15 +597,15 @@ describe('an integration naming a remote MCP server (e2e)', () => {
     expect(exchanged?.form.get('resource')).toBe(guarded.url);
     expect(exchanged?.form.get('code_verifier')).toEqual(expect.any(String));
 
-    const reread = await eventually(async () => {
+    const refreshed = await eventually(async () => {
       const secure = await integrationNamed('secure');
 
-      return secure?.described.tools === 4 ? secure : null;
+      return secure?.spec.tools === 4 ? secure : null;
     });
 
-    expect(reread.described.problem).toBeNull();
+    expect(refreshed.spec.problem).toBeNull();
     expect(
-      guarded.heard.some(
+      guarded.received.some(
         (each) =>
           each.path === '/mcp' && each.authorization === `Bearer ${ISSUED}`,
       ),

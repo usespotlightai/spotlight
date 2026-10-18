@@ -1,8 +1,8 @@
-import type { WorkspaceProvisioningPort } from '@identity/application/ports/workspace-provisioning.port';
 import type {
   WorkspaceDetail,
   WorkspaceReaderPort,
 } from '@identity/application/ports/workspace-reader.port';
+import type { WorkspaceSetupStatusPort } from '@identity/application/ports/workspace-setup-status.port';
 import { GetWorkspaceQuery } from '@identity/application/queries/get-workspace.query';
 import { GetWorkspaceHandler } from '@identity/application/queries/handlers/get-workspace.handler';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -19,7 +19,7 @@ const acme: WorkspaceDetail = {
 
 const reader = (found: WorkspaceDetail | null): WorkspaceReaderPort => ({
   listForMember: vi.fn().mockResolvedValue([]),
-  identify: vi.fn().mockResolvedValue(found?.id ?? null),
+  idForSlug: vi.fn().mockResolvedValue(found?.id ?? null),
   slugOf: vi.fn(),
   profileOf: vi.fn(),
   isOpen: vi.fn(),
@@ -28,7 +28,7 @@ const reader = (found: WorkspaceDetail | null): WorkspaceReaderPort => ({
   findForMember: vi.fn().mockResolvedValue(found),
 });
 
-const settled: WorkspaceProvisioningPort = {
+const settled: WorkspaceSetupStatusPort = {
   of: vi.fn().mockResolvedValue('done'),
 };
 
@@ -38,23 +38,23 @@ describe('GetWorkspaceHandler', () => {
       new GetWorkspaceHandler(reader(acme), settled).execute(
         new GetWorkspaceQuery('acme-inc', 'user_1'),
       ),
-    ).resolves.toEqual({ ...acme, provisioning: 'done' });
+    ).resolves.toEqual({ ...acme, setupStatus: 'done' });
   });
 
-  it('says whether Spotlight still opens the first team of the workspace', async () => {
-    const opening: WorkspaceProvisioningPort = {
+  it('says whether Spotlight still creates the first team of the workspace', async () => {
+    const setupStatus: WorkspaceSetupStatusPort = {
       of: vi.fn().mockResolvedValue('pending'),
     };
 
     await expect(
-      new GetWorkspaceHandler(reader(acme), opening).execute(
+      new GetWorkspaceHandler(reader(acme), setupStatus).execute(
         new GetWorkspaceQuery('acme-inc', 'user_1'),
       ),
-    ).resolves.toMatchObject({ provisioning: 'pending' });
-    expect(opening.of).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
+    ).resolves.toMatchObject({ setupStatus: 'pending' });
+    expect(setupStatus.of).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
   });
 
-  it('asks only for workspaces the viewer belongs to', async () => {
+  it('reads only workspaces the viewer belongs to', async () => {
     const workspaces = reader(acme);
 
     await new GetWorkspaceHandler(workspaces, settled).execute(
@@ -75,7 +75,7 @@ describe('GetWorkspaceHandler', () => {
     ).resolves.toBeNull();
   });
 
-  it('refuses an unusable slug rather than asking the database', async () => {
+  it('rejects an unusable slug rather than querying the database', async () => {
     const workspaces = reader(null);
 
     await expect(

@@ -21,12 +21,12 @@ export class MemberResponseDto {
 
   @ApiProperty({
     description:
-      'What the caller may set them to, which is empty where that is not theirs to do. Worked out by the same rule the workspace enforces.',
+      'The roles that the caller can assign to this member. The list is empty when the caller cannot change the role of this member. The workspace uses the same rule when it changes a role.',
     example: ['admin', 'member'],
     enum: ['owner', 'admin', 'member'],
     isArray: true,
   })
-  readonly mayBeSetTo!: MemberDto['mayBeSetTo'];
+  readonly assignableRoles!: MemberDto['assignableRoles'];
 }
 
 export class WorkspaceMemberResponseDto extends MemberResponseDto {

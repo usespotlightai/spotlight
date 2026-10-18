@@ -9,13 +9,13 @@ import {
   Breadcrumbs,
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
-import { useRunConversation } from '@/hooks/api/useRunConversation';
+import { useRunNotes } from '@/hooks/api/useRunNotes';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { useRunDeciding } from '@/hooks/useRunDeciding';
-import { decisionOwed } from '@/lib/inbox';
+import { decisionPending } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
-import { lastNoteOf } from '@/lib/run-conversation';
+import { lastNoteOf } from '@/lib/run-notes';
 
 type RunThreadProps = {
   slug: string;
@@ -34,14 +34,14 @@ export function RunThread({
   trail,
   after,
 }: RunThreadProps) {
-  const conversation = useRunConversation(teamId, runId);
+  const conversationQuery = useRunNotes(teamId, runId);
   const journal = useTaskJournal(slug, taskId);
   const runs = useTeamRuns(teamId);
-  const said = conversation.data;
+  const conversation = conversationQuery.data;
   const run = runs.data?.find((each) => each.id === runId);
   const decide = useRunDeciding(slug, run);
 
-  if (loading(conversation) || loading(journal)) {
+  if (loading(conversationQuery) || loading(journal)) {
     return <InboxItemSkeleton />;
   }
 
@@ -49,12 +49,12 @@ export function RunThread({
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader title={<Breadcrumbs segments={trail} />} />
 
-      {failed(conversation) || !said ? (
+      {failed(conversationQuery) || !conversation ? (
         <div className="mx-auto w-full max-w-3xl px-8 py-8">
           <CouldNotLoad
             what="The run’s conversation"
-            retrying={conversation.isFetching}
-            onRetry={() => void conversation.refetch()}
+            retrying={conversationQuery.isFetching}
+            onRetry={() => void conversationQuery.refetch()}
             className="items-start"
           />
         </div>
@@ -62,17 +62,17 @@ export function RunThread({
         <RunSidePanel>
           <RunConversation
             teamId={teamId}
-            said={said}
+            conversation={conversation}
             worked={journal.data ?? []}
-            openAt={lastNoteOf(said.notes, runId)}
+            openAt={lastNoteOf(conversation.notes, runId)}
             footer={
               run ? (
                 <RunFooter
                   slug={slug}
                   teamId={teamId}
                   run={run}
-                  said={said}
-                  deciding={decisionOwed(said.notes)}
+                  conversation={conversation}
+                  deciding={decisionPending(conversation.notes)}
                 />
               ) : null
             }

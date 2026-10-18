@@ -1,10 +1,12 @@
-import type { Holdings } from '@identity/domain/value-objects/holdings.vo';
+import type { Dependents } from '@identity/domain/value-objects/dependents.vo';
 
 export class TeamInUseError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
-  constructor(key: string, holdings: Holdings) {
-    super(`Team ${key} is not empty. Still holds: ${holdings.held.join(', ')}`);
+  constructor(key: string, dependents: Dependents) {
+    super(
+      `Team ${key} is not empty. It still has: ${dependents.names.join(', ')}`,
+    );
     this.name = 'TeamInUseError';
   }
 }

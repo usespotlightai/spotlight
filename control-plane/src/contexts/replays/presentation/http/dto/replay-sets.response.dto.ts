@@ -13,7 +13,7 @@ import {
   ORIGINAL_OUTCOMES,
   type OriginalOutcome,
 } from '@replays/domain/services/composition';
-import { REPLAY_REFUSALS } from '@replays/domain/value-objects/replay-refusal';
+import { UNREPLAYABLE_REASONS } from '@replays/domain/value-objects/unreplayable-reason';
 import { SetHealthResponseDto } from '@replays/presentation/http/dto/replays.response.dto';
 
 export class ReplaySetEntryResponseDto {
@@ -36,7 +36,8 @@ export class ReplaySetEntryResponseDto {
     nullable: true,
     type: String,
     example: 'completed',
-    description: 'How the run stands now; null where there is no such run',
+    description:
+      'The current state of the run; null where there is no such run',
   })
   readonly state: string | null;
 
@@ -52,13 +53,12 @@ export class ReplaySetEntryResponseDto {
   readonly addedAt: string;
 
   @ApiProperty({
-    enum: [...REPLAY_REFUSALS, null],
+    enum: [...UNREPLAYABLE_REASONS, null],
     nullable: true,
     type: String,
-    description:
-      'Why the run can no longer be replayed, as it stands now; null while it can',
+    description: 'Why the run can no longer be replayed; null while it can',
   })
-  readonly refusal: string | null;
+  readonly unreplayableReason: string | null;
 
   @ApiProperty({ nullable: true, type: String })
   readonly reason: string | null;
@@ -75,7 +75,7 @@ export class ReplaySetEntryResponseDto {
     type: String,
     example: 'slack',
     description:
-      'Where its task came from: person when a person raised it at this station, the integration whose happening opened it here, as in slack or github, or station when another station handed it on; null once the task is deleted',
+      'Where its task came from: person when a person created it at this station, the integration whose happening opened it here, as in slack or github, or station when another station passed it on; null once the task is deleted',
   })
   readonly origin: string | null;
 
@@ -86,7 +86,7 @@ export class ReplaySetEntryResponseDto {
     this.state = entry.state;
     this.endedAt = entry.endedAt;
     this.addedAt = entry.addedAt;
-    this.refusal = entry.refusal;
+    this.unreplayableReason = entry.unreplayableReason;
     this.reason = entry.reason;
     this.outcome = entry.outcome;
     this.origin = entry.origin;
@@ -216,20 +216,20 @@ export class ReplaySetResponseDto {
 
   @ApiProperty({
     description:
-      'Its station is gone from its line: it takes no more runs, starts no replays and keeps no archives; it may still be renamed, have runs taken out, or be deleted',
+      'Its station is gone from its line: it takes no more runs, starts no replays and holds no archives; it may still be renamed, have runs taken out, or be deleted',
   })
   readonly stationGone: boolean;
 
   @ApiProperty({
     description:
-      'Planned changes of its station are checked against it, as `spotlight replay check` asks; a station has at most one such set',
+      'Planned changes of its station are checked against it, as `spotlight replay check` requests; a station has at most one such set',
   })
-  readonly guardsChanges: boolean;
+  readonly gatesChanges: boolean;
 
   @ApiProperty({
     type: SetHealthResponseDto,
     description:
-      'Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check give the same answer twice, and how much better the live config does when handed each run’s answer',
+      'Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check return the same answer twice, and how much better the live config does when handed each run’s answer',
   })
   readonly health: SetHealthResponseDto;
 
@@ -257,7 +257,7 @@ export class ReplaySetResponseDto {
     this.name = set.name;
     this.createdAt = set.createdAt;
     this.stationGone = set.stationGone;
-    this.guardsChanges = set.guardsChanges;
+    this.gatesChanges = set.gatesChanges;
     this.health = new SetHealthResponseDto(set.health);
     this.minGain = set.minGain;
     this.composition = new SetCompositionResponseDto(set.composition);
@@ -284,12 +284,12 @@ export class ReplayableRunResponseDto {
   readonly endedAt: string;
 
   @ApiProperty({
-    enum: [...REPLAY_REFUSALS, null],
+    enum: [...UNREPLAYABLE_REASONS, null],
     nullable: true,
     type: String,
     description: 'Why it cannot be replayed; null when it can',
   })
-  readonly refusal: string | null;
+  readonly unreplayableReason: string | null;
 
   @ApiProperty({ nullable: true, type: String })
   readonly reason: string | null;
@@ -300,7 +300,7 @@ export class ReplayableRunResponseDto {
     this.title = run.title;
     this.state = run.state;
     this.endedAt = run.endedAt;
-    this.refusal = run.refusal;
+    this.unreplayableReason = run.unreplayableReason;
     this.reason = run.reason;
   }
 }
@@ -318,7 +318,7 @@ export class SuggestedRunResponseDto extends ReplayableRunResponseDto {
   }
 }
 
-export class OpenReplaySetRequestDto {
+export class CreateReplaySetRequestDto {
   @ApiProperty({ example: 'Queue fixes', minLength: 1, maxLength: 100 })
   readonly name!: string;
 }
@@ -340,7 +340,7 @@ export class AddReplaySetEntryRequestDto {
   readonly runId!: string;
 }
 
-export class ReplaySetOpenedResponseDto {
+export class ReplaySetCreatedResponseDto {
   @ApiProperty()
   readonly id: string;
 

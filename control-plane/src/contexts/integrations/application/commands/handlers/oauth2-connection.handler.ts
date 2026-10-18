@@ -7,47 +7,47 @@ import type { FinishOAuth2ConnectionCommand } from '@integrations/application/co
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import type {
-  OAuth2Begun,
-  OAuth2Holding,
+  ConnectionOwnerKind,
   OAuth2LinkingPort,
+  OAuth2Start,
 } from '@integrations/application/ports/oauth2-linking.port';
-import { landingBack } from '@integrations/application/services/landing-back';
-import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
-import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
-import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { returnPathOf } from '@integrations/application/services/return-to';
+import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
+import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
+import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-const holderFor = (holding: OAuth2Holding, by: string): ConnectionHolder =>
-  holding === 'person'
-    ? ConnectionHolder.person(UserId.of(by))
-    : ConnectionHolder.team();
+const ownerFor = (kind: ConnectionOwnerKind, by: string): ConnectionOwner =>
+  kind === 'person'
+    ? ConnectionOwner.person(UserId.of(by))
+    : ConnectionOwner.team();
 
 const mayConnect = (
   membership: TeamMembership | null,
-  holder: ConnectionHolder,
+  owner: ConnectionOwner,
 ): membership is TeamMembership =>
-  membership !== null && (holder.isPerson || membership.administers);
+  membership !== null && (owner.isPerson || membership.isAdmin);
 
 const takesConnection = async (
   defined: DefinedIntegrationsPort,
   runtime: IntegrationRuntimePort,
   teamId: string,
-  source: SourceKey,
-  holder: ConnectionHolder,
+  integration: IntegrationKey,
+  owner: ConnectionOwner,
 ): Promise<boolean> =>
   runtime
     .integrations(await defined.ofTeam(TeamId.of(teamId)))
-    .find((each) => each.source.equals(source))
-    ?.takesConnectionFrom(holder) ?? false;
+    .find((each) => each.key.equals(integration))
+    ?.takesConnectionFrom(owner) ?? false;
 
 export class BeginOAuth2ConnectionHandler
   implements
-    CommandHandlerPort<BeginOAuth2ConnectionCommand, OAuth2Begun | null>
+    CommandHandlerPort<BeginOAuth2ConnectionCommand, OAuth2Start | null>
 {
   constructor(
     private readonly access: WorkspaceAccessPort,
@@ -58,15 +58,15 @@ export class BeginOAuth2ConnectionHandler
 
   async execute(
     command: BeginOAuth2ConnectionCommand,
-  ): Promise<OAuth2Begun | null> {
+  ): Promise<OAuth2Start | null> {
     try {
-      const holder = holderFor(command.holder, command.viewerId);
+      const owner = ownerFor(command.owner, command.viewerId);
       const membership = await this.access.onTeam(
         command.teamId,
         UserId.of(command.viewerId),
       );
 
-      if (!mayConnect(membership, holder)) {
+      if (!mayConnect(membership, owner)) {
         return null;
       }
 
@@ -75,8 +75,8 @@ export class BeginOAuth2ConnectionHandler
           this.defined,
           this.runtime,
           command.teamId,
-          SourceKey.of(command.source),
-          holder,
+          IntegrationKey.of(command.integration),
+          owner,
         ))
       ) {
         return null;
@@ -84,10 +84,10 @@ export class BeginOAuth2ConnectionHandler
 
       return await this.linking.begin({
         teamId: command.teamId,
-        source: command.source,
+        integration: command.integration,
         by: command.viewerId,
-        holder: command.holder,
-        back: landingBack(command.back),
+        owner: command.owner,
+        returnTo: returnPathOf(command.returnTo),
       });
     } catch (error) {
       rethrowAsApplicationError(error);
@@ -100,7 +100,7 @@ export class FinishOAuth2ConnectionHandler
 {
   constructor(
     private readonly linking: OAuth2LinkingPort,
-    private readonly connections: HostConnectionRepository,
+    private readonly connections: IntegrationConnectionRepository,
     private readonly access: WorkspaceAccessPort,
     private readonly defined: DefinedIntegrationsPort,
     private readonly runtime: IntegrationRuntimePort,
@@ -122,33 +122,33 @@ export class FinishOAuth2ConnectionHandler
         return null;
       }
 
-      const holder = holderFor(authorized.holder, authorized.by);
+      const owner = ownerFor(authorized.owner, authorized.by);
       const membership = await this.access.onTeam(
         authorized.teamId,
         UserId.of(authorized.by),
       );
 
-      const source = SourceKey.of(authorized.source);
+      const integration = IntegrationKey.of(authorized.integration);
 
       if (
-        !mayConnect(membership, holder) ||
+        !mayConnect(membership, owner) ||
         !(await takesConnection(
           this.defined,
           this.runtime,
           authorized.teamId,
-          source,
-          holder,
+          integration,
+          owner,
         ))
       ) {
         return null;
       }
 
-      const connection = HostConnection.linkFrom({
+      const connection = IntegrationConnection.connectFrom({
         workspaceId: membership.workspaceId,
         teamId: TeamId.of(authorized.teamId),
-        source,
-        holder,
-        grant: authorized.grant,
+        integration,
+        owner,
+        tokens: authorized.tokens,
       });
 
       await this.transaction.inTransaction(() =>
@@ -157,8 +157,8 @@ export class FinishOAuth2ConnectionHandler
 
       return await this.linking.landingFor(
         authorized.teamId,
-        authorized.source,
-        authorized.back,
+        authorized.integration,
+        authorized.returnTo,
       );
     } catch (error) {
       rethrowAsApplicationError(error);

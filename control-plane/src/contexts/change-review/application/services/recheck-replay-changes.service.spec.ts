@@ -4,9 +4,9 @@ import type { StackCheckRepository } from '@change-review/domain/repositories/st
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckClaim } from '@change-review/domain/value-objects/check-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
-import type { CheckPhase } from '@change-review/domain/value-objects/stack-check.vo';
+import type { StackCheckStatus } from '@change-review/domain/value-objects/stack-check.vo';
 import {
-  nobodyChecked,
+  queueTimeout,
   WHOLE_STEP,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
@@ -20,7 +20,7 @@ const RUN = RunId.of('replay-1');
 
 const checkOf = (
   id: string,
-  phase: Exclude<CheckPhase, 'reordering'>,
+  status: Exclude<StackCheckStatus, 'redrafting'>,
   over: { replay?: boolean; recheck?: boolean } = {},
 ) =>
   StackCheck.rehydrate({
@@ -31,18 +31,18 @@ const checkOf = (
     recheck: over.recheck ?? false,
     workspaceId: WorkspaceId.of('ws-1'),
     request: CheckRequest.of('npm test', null),
-    phase,
+    status,
     entries: [],
-    rounds: 0,
+    redraftCount: 0,
     outcome:
-      phase === 'waiting'
+      status === 'waiting'
         ? null
         : {
-            state: phase === 'checked' ? 'checked' : 'skipped',
-            skip: phase === 'checked' ? null : nobodyChecked(),
+            status: status === 'checked' ? 'checked' : 'skipped',
+            skip: status === 'checked' ? null : queueTimeout(),
             whole:
-              phase === 'checked'
-                ? { step: WHOLE_STEP, passed: true, output: '', tookMs: 1 }
+              status === 'checked'
+                ? { step: WHOLE_STEP, passed: true, output: '', durationMs: 1 }
                 : null,
             layers: [],
             checkedAt: NOW,
@@ -54,9 +54,9 @@ const checkOf = (
     version: 0,
   });
 
-const rechecking = (held: StackCheck[]) => {
+const rechecking = (stored: StackCheck[]) => {
   const added: StackCheck[] = [];
-  const all = () => [...held, ...added];
+  const all = () => [...stored, ...added];
   const checks = {
     ofRun: async () => all(),
     find: async (stackId: { value: string }, recheck: boolean) =>
@@ -91,7 +91,7 @@ describe('RecheckReplayChanges', () => {
     expect(await service.recheckable(RUN.value)).toEqual(['passed']);
   });
 
-  it('checks one stack again, once however often it is asked', async () => {
+  it('checks one stack again, once however often it is requested', async () => {
     const { added, service } = rechecking([checkOf('passed', 'checked')]);
 
     await service.recheck(RUN.value, 'passed');
@@ -102,7 +102,7 @@ describe('RecheckReplayChanges', () => {
     ]);
   });
 
-  it('checks nothing again that nobody checked, or that is another run’s', async () => {
+  it('checks nothing again that no runner checked, or that is another run’s', async () => {
     const { added, service } = rechecking([
       checkOf('skipped', 'skipped'),
       checkOf('passed', 'checked'),

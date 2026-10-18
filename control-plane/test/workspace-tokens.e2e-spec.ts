@@ -56,12 +56,12 @@ const GRAFANA = {
 };
 
 const seats = async (db: DrizzleDatabase, about: string) => {
-  const held = `${about}-${randomUUID().slice(0, 8)}`;
-  const seat = await seatTeam(db, held);
+  const workspaceId = `${about}-${randomUUID().slice(0, 8)}`;
+  const seat = await seatTeam(db, workspaceId);
 
   return {
     ...seat,
-    held,
+    workspaceId,
     unseat: async () => {
       await db
         .delete(schema.idempotentCreate)
@@ -73,14 +73,16 @@ const seats = async (db: DrizzleDatabase, about: string) => {
         );
       await db
         .delete(schema.configurationChange)
-        .where(eq(schema.configurationChange.workspaceId, held));
-      await db.delete(schema.secret).where(eq(schema.secret.workspaceId, held));
+        .where(eq(schema.configurationChange.workspaceId, workspaceId));
+      await db
+        .delete(schema.secret)
+        .where(eq(schema.secret.workspaceId, workspaceId));
       await db
         .delete(schema.secretDataKey)
-        .where(eq(schema.secretDataKey.workspaceId, held));
+        .where(eq(schema.secretDataKey.workspaceId, workspaceId));
       await db
         .delete(schema.workspaceToken)
-        .where(eq(schema.workspaceToken.workspaceId, held));
+        .where(eq(schema.workspaceToken.workspaceId, workspaceId));
       await seat.unseat();
     },
   };
@@ -92,12 +94,12 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   return {
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/workspaces/${seat.held}/tokens`,
+    collection: `/api/resources/workspaces/${seat.workspaceId}/tokens`,
     item: (id) => `/api/resources/tokens/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${seat.held}/tokens/import?address=${encodeURIComponent(address)}`,
+      `/api/resources/workspaces/${seat.workspaceId}/tokens/import?address=${encodeURIComponent(address)}`,
     listing: (workspaceId) => `/api/resources/workspaces/${workspaceId}/tokens`,
-    workspaceOf: () => seat.held,
+    workspaceOf: () => seat.workspaceId,
     address: 'ci',
     valid: { name: 'ci', scopes: ['plan'], description: 'Plans every PR' },
     changed: { name: 'ci', scopes: ['plan'], description: 'Plans, again' },
@@ -126,7 +128,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
 
   const issue = async (scopes: readonly string[], name = scopes.join('-')) => {
     const answer = await http()
-      .post(`/api/resources/workspaces/${seat.held}/tokens`)
+      .post(`/api/resources/workspaces/${seat.workspaceId}/tokens`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
       .send({ name, scopes });
@@ -164,7 +166,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
         .set('If-Match', `"${version}"`),
   });
 
-  const teams = () => `/api/resources/workspaces/${seat.held}/teams`;
+  const teams = () => `/api/resources/workspaces/${seat.workspaceId}/teams`;
 
   const revoke = async (token: string) => {
     const [issued] = await db
@@ -185,7 +187,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
 
   const audit = (who: string) =>
     http()
-      .get(`/api/workspaces/${seat.held}/configuration-changes`)
+      .get(`/api/workspaces/${seat.workspaceId}/configuration-changes`)
       .set(TEST_USER_HEADER, who);
 
   beforeAll(async () => {
@@ -211,13 +213,13 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     await seat.unseat();
   });
 
-  it('answers the token once, on its create, and keeps only its hash', async () => {
+  it('answers the token once, on its create, and stores only its hash', async () => {
     const answer = await issue(['plan'], 'survey');
     const token = answer.headers[TOKEN_HEADER] as string;
     const read = await http()
       .get(`/api/resources/tokens/${answer.body.id}`)
       .set(TEST_USER_HEADER, seat.owner);
-    const [kept] = await db
+    const [stored] = await db
       .select({ hash: schema.workspaceToken.tokenHash })
       .from(schema.workspaceToken)
       .where(eq(schema.workspaceToken.id, answer.body.id));
@@ -226,7 +228,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     expect(JSON.stringify(answer.body)).not.toContain(token);
     expect(read.headers[TOKEN_HEADER]).toBeUndefined();
     expect(JSON.stringify(read.body)).not.toContain(token);
-    expect(kept?.hash).toBe(createHash('sha256').update(token).digest('hex'));
+    expect(stored?.hash).toBe(createHash('sha256').update(token).digest('hex'));
   });
 
   it('lets a read token read its workspace, and nothing more', async () => {
@@ -238,7 +240,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     });
 
     expect(
-      (await read.get(`/api/resources/workspaces/${seat.held}`)).status,
+      (await read.get(`/api/resources/workspaces/${seat.workspaceId}`)).status,
     ).toBe(200);
     expect(checked.status).toBe(403);
     expect(checked.headers['content-type']).toContain(
@@ -375,7 +377,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
   });
 
   it('lets only a token with the secrets scope manage secrets, and any token read them', async () => {
-    const secrets = `/api/resources/workspaces/${seat.held}/secrets`;
+    const secrets = `/api/resources/workspaces/${seat.workspaceId}/secrets`;
     const linear = {
       name: 'LINEAR_API_KEY',
       bindings: [{ host: 'api.linear.app', prefix: 'Bearer ' }],
@@ -387,13 +389,13 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
       bindings: [{ host: 'attacker.example' }],
     };
 
-    const refused = await as(tokens.configure).post(secrets, linear);
+    const forbidden = await as(tokens.configure).post(secrets, linear);
 
-    expect(refused.status).toBe(403);
-    expect(refused.body).toMatchObject({
+    expect(forbidden.status).toBe(403);
+    expect(forbidden.body).toMatchObject({
       ...FORBIDDEN_PROBLEM,
       title: 'Not allowed to change the secret',
-      permission: 'manage-secrets',
+      permission: 'secrets',
     });
 
     const made = await as(tokens.secrets).post(secrets, linear);
@@ -434,19 +436,19 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     ).toEqual([
       ['deleted', 'token', {}],
       ['updated', 'token', { valueVersion: 2 }],
-      ['created', 'token', { valueVersion: 1, boundTo: ['api.linear.app'] }],
+      ['created', 'token', { valueVersion: 1, targets: ['api.linear.app'] }],
     ]);
   });
 
-  it('refuses scopes that name no rung of the ladder, or name one twice', async () => {
-    const refused = await http()
-      .post(`/api/resources/workspaces/${seat.held}/tokens`)
+  it('rejects scopes that name no rung of the ladder, or name one twice', async () => {
+    const rejected = await http()
+      .post(`/api/resources/workspaces/${seat.workspaceId}/tokens`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
       .send({ name: 'vault', scopes: ['secrets'] });
 
-    expect(refused.status).toBe(422);
-    expect(refused.body.errors).toEqual([
+    expect(rejected.status).toBe(422);
+    expect(rejected.body.errors).toEqual([
       expect.objectContaining({
         path: 'scopes',
         message: expect.stringContaining('need one of them'),
@@ -454,15 +456,18 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     ]);
   });
 
-  it('never lets a token manage tokens, open a workspace or read the audit', async () => {
+  it('never lets a token manage tokens, create a workspace or read the audit', async () => {
     const configure = as(tokens.configure);
 
     expect(
       (
-        await configure.post(`/api/resources/workspaces/${seat.held}/tokens`, {
-          name: 'another',
-          scopes: ['configure'],
-        })
+        await configure.post(
+          `/api/resources/workspaces/${seat.workspaceId}/tokens`,
+          {
+            name: 'another',
+            scopes: ['configure'],
+          },
+        )
       ).status,
     ).toBe(403);
     expect(
@@ -475,12 +480,12 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     ).toMatchObject({
       ...FORBIDDEN_PROBLEM,
       detail:
-        'A workspace token cannot open a workspace. Only a person can create one.',
+        'A workspace token cannot create a workspace. Only a person can create one.',
     });
     expect(
       (
         await configure.get(
-          `/api/workspaces/${seat.held}/configuration-changes`,
+          `/api/workspaces/${seat.workspaceId}/configuration-changes`,
         )
       ).status,
     ).toBe(401);
@@ -498,14 +503,14 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
       expect(
         (
           await as(tokens.configure).get(
-            `/api/resources/workspaces/${elsewhere.held}`,
+            `/api/resources/workspaces/${elsewhere.workspaceId}`,
           )
         ).status,
       ).toBe(404);
       expect(
         (
           await as(tokens.configure).post(
-            `/api/resources/workspaces/${elsewhere.held}/teams`,
+            `/api/resources/workspaces/${elsewhere.workspaceId}/teams`,
             { key: 'ops', name: 'Ops' },
           )
         ).status,
@@ -515,14 +520,14 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
 
       expect(listed.status).toBe(200);
       expect(listed.body.items.map((each: { id: string }) => each.id)).toEqual([
-        seat.held,
+        seat.workspaceId,
       ]);
 
       for (const kind of ['teams', 'lines']) {
         expect(
           (
             await as(tokens.read).get(
-              `/api/resources/workspaces/${elsewhere.held}/${kind}`,
+              `/api/resources/workspaces/${elsewhere.workspaceId}/${kind}`,
             )
           ).status,
           kind,
@@ -533,8 +538,8 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     }
   });
 
-  it('admits nobody once revoked or expired', async () => {
-    const workspace = `/api/resources/workspaces/${seat.held}`;
+  it('allows nobody once revoked or expired', async () => {
+    const workspace = `/api/resources/workspaces/${seat.workspaceId}`;
     const [plan] = await db
       .select({ id: schema.workspaceToken.id })
       .from(schema.workspaceToken)
@@ -559,19 +564,21 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     expect((await as('made-up').get(workspace)).status).toBe(401);
   });
 
-  it('keeps its workspace open until every token is revoked', async () => {
-    await db.delete(schema.team).where(eq(schema.team.workspaceId, seat.held));
+  it('keeps its workspace from being deleted until every token is revoked', async () => {
+    await db
+      .delete(schema.team)
+      .where(eq(schema.team.workspaceId, seat.workspaceId));
 
-    const workspace = `/api/resources/workspaces/${seat.held}`;
-    const close = () =>
+    const workspace = `/api/resources/workspaces/${seat.workspaceId}`;
+    const deleteWorkspace = () =>
       http()
         .delete(workspace)
         .set(TEST_USER_HEADER, seat.owner)
         .set('If-Match', '"0"');
-    const refused = await close();
+    const rejected = await deleteWorkspace();
 
-    expect(refused.status).toBe(409);
-    expect(refused.body.detail).toContain(
+    expect(rejected.status).toBe(409);
+    expect(rejected.body.detail).toContain(
       'token configure, token configure-secrets, token plan, token read',
     );
 
@@ -579,21 +586,23 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
       await revoke(token);
     }
 
-    expect((await close()).status).toBe(204);
+    expect((await deleteWorkspace()).status).toBe(204);
   });
 
-  it('never lets a configure token close its workspace, even one that holds nothing but that token', async () => {
-    await db.delete(schema.team).where(eq(schema.team.workspaceId, seat.held));
+  it('never lets a configure token delete its workspace, even one that has nothing but that token', async () => {
+    await db
+      .delete(schema.team)
+      .where(eq(schema.team.workspaceId, seat.workspaceId));
 
     for (const token of [tokens.read, tokens.plan, tokens.secrets]) {
       expect((await revoke(token)).status).toBe(204);
     }
 
-    const workspace = `/api/resources/workspaces/${seat.held}`;
-    const refused = await as(tokens.configure).delete(workspace, 0);
+    const workspace = `/api/resources/workspaces/${seat.workspaceId}`;
+    const forbidden = await as(tokens.configure).delete(workspace, 0);
 
-    expect(refused.status).toBe(403);
-    expect(refused.body).toMatchObject({
+    expect(forbidden.status).toBe(403);
+    expect(forbidden.body).toMatchObject({
       ...FORBIDDEN_PROBLEM,
       detail: expect.stringContaining('A token can never administer'),
     });

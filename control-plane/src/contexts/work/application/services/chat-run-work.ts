@@ -1,7 +1,7 @@
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { GitService } from '@work/application/ports/git-gateway.port';
-import type { ConnectionWantedDto } from '@work/application/ports/integration-tool-calls.port';
+import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
 import type { ChatToolContext } from '@work/application/ports/integration-tools.port';
 import type {
   Cleared,
@@ -27,17 +27,13 @@ export class ChatRunWork implements RunWork {
     return this.chat.workspaceId;
   }
 
-  async deliverUpTo(position: number, at: Date): Promise<void> {
+  async acknowledgeUpTo(position: number, at: Date): Promise<void> {
     await this.chats.save(
-      this.chat.markDeliveredUpTo(
-        this.run.id,
-        MessagePosition.of(position),
-        at,
-      ),
+      this.chat.acknowledgeUpTo(this.run.id, MessagePosition.of(position), at),
     );
   }
 
-  gave(attachmentId: string): Attachment | null {
+  attachment(attachmentId: string): Attachment | null {
     return (
       this.chat.allAttachments.find((each) => each.id.value === attachmentId) ??
       null
@@ -56,24 +52,24 @@ export class ChatRunWork implements RunWork {
   async clearFor(declared: DeclaredTool): Promise<Cleared> {
     return declared.approval
       ? {
-          kind: 'refused',
+          kind: 'dismissed',
           reason: `${declared.tool.value} has to be approved by a person on a task, and a chat has nobody to put it to.`,
         }
-      : { kind: 'given', edited: null, returned: async () => {} };
+      : { kind: 'approved', edited: null, returned: async () => {} };
   }
 
   async askToConnect(
     _declared: DeclaredTool,
-    wanted: ConnectionWantedDto,
+    missing: ConnectionMissingDto,
   ): Promise<ConnectionAsked> {
     return {
-      kind: 'refused',
-      reason: `${wanted.integration} acts as each person who starts a task, and a chat has no task to ask anyone to connect it on`,
+      kind: 'denied',
+      reason: `${missing.integrationName} acts as each person who starts a task, and a chat has no task to ask anyone to connect it on`,
     };
   }
 
   async clearPermission(): Promise<PermissionCleared> {
-    return 'refused';
+    return 'dismissed';
   }
 
   async toolContext(): Promise<ChatToolContext> {

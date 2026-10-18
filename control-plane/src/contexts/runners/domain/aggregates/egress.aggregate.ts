@@ -1,8 +1,7 @@
-import { EgressDefined } from '@runners/domain/events/egress-defined.event';
-import { EgressRedefined } from '@runners/domain/events/egress-redefined.event';
-import { EgressRetired } from '@runners/domain/events/egress-retired.event';
+import { EgressCreated } from '@runners/domain/events/egress-created.event';
+import { EgressDeleted } from '@runners/domain/events/egress-deleted.event';
+import { EgressUpdated } from '@runners/domain/events/egress-updated.event';
 import { EgressInUseError } from '@runners/domain/exceptions/egress-in-use.error';
-import { EgressKeyFixedError } from '@runners/domain/exceptions/egress-key-fixed.error';
 import { EgressVersionConflictError } from '@runners/domain/exceptions/egress-version-conflict.error';
 import { InvalidEgressError } from '@runners/domain/exceptions/invalid-egress.error';
 import { EgressChangeDetail } from '@runners/domain/value-objects/egress-change-detail.vo';
@@ -11,8 +10,9 @@ import type { EgressKey } from '@runners/domain/value-objects/egress-key.vo';
 import type { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import type { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -22,7 +22,7 @@ export interface EgressDefinition {
   readonly url: EgressUrl;
 }
 
-export interface GivenEgressToken {
+export interface EgressTokenInput {
   readonly tokenHash: TokenHash | null;
   readonly tokenVersion: number | null;
 }
@@ -36,27 +36,27 @@ export class Egress extends EventRecorder {
     readonly tokenHash: TokenHash,
     readonly tokenVersion: number | null,
     readonly version: number,
-    readonly isRetired: boolean,
+    readonly isDeleted: boolean,
   ) {
     super();
   }
 
-  static define(
+  static create(
     input: EgressDefinition & {
       id: EgressId;
       workspaceId: WorkspaceId;
-      token: GivenEgressToken;
-      by: Attribution;
+      token: EgressTokenInput;
+      by: ChangeActor;
     },
   ): Egress {
     if (!input.token.tokenHash) {
       throw new InconsistentStateError(
         'egress',
-        'was defined with no token to call Spotlight with',
+        'was created with no token to call Spotlight with',
       );
     }
 
-    const defined = new Egress(
+    const created = new Egress(
       input.id,
       input.workspaceId,
       input.key,
@@ -67,16 +67,16 @@ export class Egress extends EventRecorder {
       false,
     );
 
-    defined.record(
-      new EgressDefined(
-        defined.id,
-        defined.workspaceId,
-        defined.key,
-        ConfigurationChange.created(defined.whatChanged, input.by),
+    created.record(
+      new EgressCreated(
+        created.id,
+        created.workspaceId,
+        created.key,
+        ConfigurationChange.created(created.whatChanged, input.by),
       ),
     );
 
-    return defined;
+    return created;
   }
 
   static rehydrate(
@@ -117,54 +117,60 @@ export class Egress extends EventRecorder {
     }
   }
 
-  redefinedAs(
+  update(
     definition: EgressDefinition,
-    given: GivenEgressToken,
-    by: Attribution,
+    tokenInput: EgressTokenInput,
+    by: ChangeActor,
   ): Egress {
-    this.guardStanding();
+    this.assertNotDeleted();
 
     if (!definition.key.equals(this.key)) {
-      throw new EgressKeyFixedError(
-        this.key.value,
-        `can't change its key to ${definition.key.value}. Please replace the egress instead`,
+      const because = `can't change its key to ${definition.key.value}. Please replace the egress instead`;
+
+      throw new ImmutableFieldError(
+        'key',
+        because,
+        `Egress ${this.key.value} ${because}.`,
       );
     }
 
-    if (!given.tokenHash && given.tokenVersion !== this.tokenVersion) {
+    if (
+      !tokenInput.tokenHash &&
+      tokenInput.tokenVersion !== this.tokenVersion
+    ) {
       throw new InvalidEgressError(
         'token',
         'is required whenever tokenVersion changes',
       );
     }
 
-    const tokenHash = given.tokenHash ?? this.tokenHash;
-    const redefined = this.with({
+    const tokenHash = tokenInput.tokenHash ?? this.tokenHash;
+    const updated = this.with({
       url: definition.url,
       tokenHash,
-      tokenVersion: given.tokenVersion,
+      tokenVersion: tokenInput.tokenVersion,
     });
 
-    redefined.record(
-      new EgressRedefined(
+    updated.record(
+      new EgressUpdated(
         this.id,
         this.workspaceId,
         this.key,
         ConfigurationChange.updated(
           this.whatChanged,
           by,
-          EgressChangeDetail.redefined({
-            rekeyed: !tokenHash.equals(this.tokenHash),
+          EgressChangeDetail.updated({
+            tokenRotated: !tokenHash.equals(this.tokenHash),
           }),
         ),
       ),
     );
 
-    return redefined;
+    return updated;
   }
 
-  retire(namedBy: readonly PoolKey[], by: Attribution): Egress {
-    this.guardStanding();
+  delete(namedBy: readonly PoolKey[], by: ChangeActor): Egress {
+    this.assertNotDeleted();
 
     if (namedBy.length > 0) {
       throw new EgressInUseError(
@@ -173,10 +179,10 @@ export class Egress extends EventRecorder {
       );
     }
 
-    const retired = this.with({ retired: true });
+    const deleted = this.with({ deleted: true });
 
-    retired.record(
-      new EgressRetired(
+    deleted.record(
+      new EgressDeleted(
         this.id,
         this.workspaceId,
         this.key,
@@ -184,7 +190,7 @@ export class Egress extends EventRecorder {
       ),
     );
 
-    return retired;
+    return deleted;
   }
 
   private get whatChanged() {
@@ -195,11 +201,11 @@ export class Egress extends EventRecorder {
     };
   }
 
-  private guardStanding(): void {
-    if (this.isRetired) {
+  private assertNotDeleted(): void {
+    if (this.isDeleted) {
       throw new InconsistentStateError(
         'egress',
-        'was changed after it was retired',
+        'was changed after it was deleted',
       );
     }
   }
@@ -208,7 +214,7 @@ export class Egress extends EventRecorder {
     url?: EgressUrl;
     tokenHash?: TokenHash;
     tokenVersion?: number | null;
-    retired?: boolean;
+    deleted?: boolean;
   }): Egress {
     const next = new Egress(
       this.id,
@@ -218,7 +224,7 @@ export class Egress extends EventRecorder {
       part.tokenHash ?? this.tokenHash,
       part.tokenVersion !== undefined ? part.tokenVersion : this.tokenVersion,
       this.version,
-      part.retired ?? this.isRetired,
+      part.deleted ?? this.isDeleted,
     );
 
     next.inheritEvents(this);

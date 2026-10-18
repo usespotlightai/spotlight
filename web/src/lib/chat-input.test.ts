@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type Reference, stationImprovedBy } from '@/lib/chat-input';
+import { type Reference, targetStationIdIn } from '@/lib/chat-input';
 
 const SPEC: Reference = { kind: 'station', key: 'station_spec', name: 'Spec' };
 const REVIEW: Reference = {
@@ -9,16 +9,16 @@ const REVIEW: Reference = {
 };
 const RETRIES: Reference = { kind: 'trace', key: 'task_1', name: 'Retries' };
 
-describe('stationImprovedBy', () => {
+describe('targetStationIdIn', () => {
   it('improves no station when the message names none', () => {
-    expect(stationImprovedBy([RETRIES])).toBeNull();
+    expect(targetStationIdIn([RETRIES])).toBeNull();
   });
 
   it('improves the station the message names', () => {
-    expect(stationImprovedBy([RETRIES, SPEC])).toBe('station_spec');
+    expect(targetStationIdIn([RETRIES, SPEC])).toBe('station_spec');
   });
 
   it('improves only one station, the first the message names', () => {
-    expect(stationImprovedBy([SPEC, REVIEW])).toBe('station_spec');
+    expect(targetStationIdIn([SPEC, REVIEW])).toBe('station_spec');
   });
 });

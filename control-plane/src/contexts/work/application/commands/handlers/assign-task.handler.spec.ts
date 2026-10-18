@@ -36,7 +36,7 @@ const team = (): TeamProfile => ({
   members: [UserId.of('user_1'), UserId.of('user_2')],
 });
 
-const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
+const delivery = (workspaceId = 'ws_1', backlogId = 'station_1') =>
   Line.rehydrate({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of(workspaceId),
@@ -45,7 +45,7 @@ const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
     name: LineName.of('Delivery'),
     stations: [
       Station.of({
-        id: StationId.of(standsAt),
+        id: StationId.of(backlogId),
         key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
@@ -83,9 +83,9 @@ const tasks = (found: Task | null = task()) =>
     }),
     find: vi.fn(async () => found),
     remove: vi.fn(),
-    standingAt: vi.fn(async () => []),
+    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    holding: vi.fn(async () => null),
+    findByMarks: vi.fn(async () => null),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
@@ -106,10 +106,10 @@ const people: PersonReaderPort = {
 const assign = (
   assigneeId: string | null,
   viewerId = 'user_1',
-  held: TaskRepository = tasks(),
+  stored: TaskRepository = tasks(),
   team: TeamDirectoryPort = teams(),
 ) =>
-  new AssignTaskHandler(held, team, transaction, people).execute(
+  new AssignTaskHandler(stored, team, transaction, people).execute(
     new AssignTaskCommand('team_1', 'task_1', assigneeId, viewerId),
   );
 
@@ -126,15 +126,15 @@ describe('AssignTaskHandler', () => {
   });
 
   it('takes a task back to unclaimed', async () => {
-    const held = tasks(task().assign(UserId.of('user_2')));
+    const stored = tasks(task().assign(UserId.of('user_2')));
 
-    const dto = await assign(null, 'user_1', held);
+    const dto = await assign(null, 'user_1', stored);
 
     expect(saved?.assignee).toBeNull();
     expect(dto.assignee).toBeNull();
   });
 
-  it('refuses to give work to someone not on the team', async () => {
+  it('does not give work to someone not on the team', async () => {
     await expect(assign('user_stranger')).rejects.toThrow(ApplicationError);
   });
 
@@ -144,7 +144,7 @@ describe('AssignTaskHandler', () => {
     );
   });
 
-  it('turns away a task the team does not hold', async () => {
+  it('turns away a task the team does not have', async () => {
     await expect(
       assign('user_2', 'user_1', tasks(task('ws_other'))),
     ).rejects.toThrow(ApplicationError);

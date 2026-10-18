@@ -14,7 +14,7 @@ const ORIGINAL = 'run_original';
 const REPLAY = 'run_replay';
 
 let claims: Map<string, ReplayRunClaim>;
-let held: Map<string, Run>;
+let stored: Map<string, Run>;
 let saved: string[];
 let enqueued: string[];
 
@@ -31,15 +31,15 @@ const aRun = (input: {
     hasEnded: false,
     replayOf: input.replayOf ? RunId.of(input.replayOf) : null,
     configuredAs: { fingerprint: 'f'.repeat(64) },
-    withdrawn: () => ({ ...run, state: 'withdrawn', hasEnded: true }),
-    letGo: () => ({ ...run, stopRequested: true }),
+    cancelQueued: () => ({ ...run, state: 'cancelled', hasEnded: true }),
+    cancel: () => ({ ...run, stopRequested: true }),
   };
 
   return run as unknown as Run;
 };
 
 const runs = {
-  findById: async (id: RunId) => held.get(id.value) ?? null,
+  findById: async (id: RunId) => stored.get(id.value) ?? null,
   save: async (run: Run) => {
     saved.push(`${run.id.value}:${run.state}`);
   },
@@ -47,9 +47,9 @@ const runs = {
 
 const claiming: ReplayRunClaimsPort = {
   claim: async (first) => {
-    const held = claims.get(first.runId.value) ?? first;
-    claims.set(first.runId.value, held);
-    return held;
+    const taken = claims.get(first.runId.value) ?? first;
+    claims.set(first.runId.value, taken);
+    return taken;
   },
   save: async (claim) => {
     claims.set(claim.runId.value, claim);
@@ -61,14 +61,14 @@ const replayRuns = () =>
     runs,
     claiming,
     {
-      standing: async () => ({ line: {}, station: {}, kept: {} }),
+      live: async () => ({ line: {}, station: {}, record: {} }),
       withStation: async () => ({ ok: true, line: {}, station: {} }),
     } as unknown as CandidateLines,
     {
-      alreadyQueued: async (id: RunId) => held.has(id.value),
+      alreadyQueued: async (id: RunId) => stored.has(id.value),
       enqueue: async ({ id }: { id: RunId }) => {
         enqueued.push(id.value);
-        held.set(id.value, aRun({ id: id.value, replayOf: ORIGINAL }));
+        stored.set(id.value, aRun({ id: id.value, replayOf: ORIGINAL }));
         return id;
       },
     } as unknown as DispatchReplay,
@@ -90,14 +90,14 @@ const order = (workspaceId = 'ws_1') => ({
 
 beforeEach(() => {
   claims = new Map();
-  held = new Map([[ORIGINAL, aRun({ id: ORIGINAL, state: 'completed' })]]);
+  stored = new Map([[ORIGINAL, aRun({ id: ORIGINAL, state: 'completed' })]]);
   saved = [];
   enqueued = [];
 });
 
 describe('ReplayRuns', () => {
   it('says which runs have an answer to hand a replay', async () => {
-    held.set(ORIGINAL, aRun({ id: ORIGINAL }));
+    stored.set(ORIGINAL, aRun({ id: ORIGINAL }));
 
     await expect(
       replayRuns().answerable([
@@ -122,57 +122,57 @@ describe('ReplayRuns', () => {
   it('knows no original of another workspace, and answers the same on a retry, leaving no claim to queue it', async () => {
     expect(await replayRuns().enqueue(order('ws_2'))).toMatchObject({
       outcome: 'unreplayable',
-      refusal: 'unknown-run',
+      unreplayableReason: 'unknown-run',
     });
     expect(await replayRuns().enqueue(order())).toMatchObject({
       outcome: 'unreplayable',
-      refusal: 'unknown-run',
+      unreplayableReason: 'unknown-run',
     });
-    expect(claims.get(REPLAY)?.claimedAs).toBe('refused');
-    expect(await replayRuns().forgo(REPLAY, false)).toEqual({
+    expect(claims.get(REPLAY)?.claimedAs).toBe('unreplayable');
+    expect(await replayRuns().cancel(REPLAY, false)).toEqual({
       outcome: 'never-queued',
     });
     expect(enqueued).toEqual([]);
   });
 
-  it('leaves a tombstone when it forgoes a run never queued, so a later queueing of it is refused', async () => {
-    expect(await replayRuns().forgo(REPLAY, false)).toEqual({
+  it('leaves a tombstone when it cancels a run never queued, so a later queueing of it is unreplayable', async () => {
+    expect(await replayRuns().cancel(REPLAY, false)).toEqual({
       outcome: 'never-queued',
     });
     expect(await replayRuns().enqueue(order())).toMatchObject({
       outcome: 'unreplayable',
-      refusal: 'forgone',
+      unreplayableReason: 'cancelled',
     });
     expect(enqueued).toEqual([]);
   });
 
-  it('stops a queued run it forgoes, saying it was queued and under which fingerprint', async () => {
+  it('stops a queued run it cancels, saying it was queued and under which fingerprint', async () => {
     await replayRuns().enqueue(order());
 
-    expect(await replayRuns().forgo(REPLAY, false)).toEqual({
+    expect(await replayRuns().cancel(REPLAY, false)).toEqual({
       outcome: 'queued',
       fingerprint: 'f'.repeat(64),
     });
-    expect(saved).toEqual([`${REPLAY}:withdrawn`]);
+    expect(saved).toEqual([`${REPLAY}:cancelled`]);
   });
 
-  it('keeps a queued run it is asked to keep, only saying it was queued', async () => {
+  it('leaves a queued run running when requested, only saying it was queued', async () => {
     await replayRuns().enqueue(order());
 
-    expect(await replayRuns().forgo(REPLAY, true)).toMatchObject({
+    expect(await replayRuns().cancel(REPLAY, true)).toMatchObject({
       outcome: 'queued',
     });
     expect(saved).toEqual([]);
   });
 
-  it('takes a claim left by a queueing that was refused as never queued, and tombstones it', async () => {
+  it('takes a claim left by a queueing that failed as never queued, and tombstones it', async () => {
     claims.set(REPLAY, ReplayRunClaim.toQueue(RunId.of(REPLAY)));
 
-    expect(await replayRuns().forgo(REPLAY, false)).toEqual({
+    expect(await replayRuns().cancel(REPLAY, false)).toEqual({
       outcome: 'never-queued',
     });
     expect(await replayRuns().enqueue(order())).toMatchObject({
-      refusal: 'forgone',
+      unreplayableReason: 'cancelled',
     });
   });
 });

@@ -1,16 +1,16 @@
 import type {
   DecisionDto,
-  StandingDecisionsDto,
+  MergedDecisionsDto,
   TaskDecisionsDto,
 } from '@change-review/application/dto/decision.dto';
 import { ranked } from '@change-review/application/mappers/ranked-decisions';
 import type {
   DecisionReaderPort,
-  StandingSought,
+  MergedSought,
 } from '@change-review/application/ports/decision-reader.port';
 import {
   type DecisionSetRow,
-  draftedRunOf,
+  generationRunOf,
   mergeRowOf,
 } from '@change-review/infrastructure/persistence/drizzle/repositories/decision-set.rows';
 import {
@@ -65,7 +65,7 @@ const toDecision = (
   why: row.why,
   alternatives: row.alternatives,
   paths: row.paths,
-  steps: row.steps,
+  journalSteps: row.journalSteps,
   disputes: disputes
     .filter((dispute) => dispute.decisionId === row.id)
     .map((dispute) => ({
@@ -82,11 +82,11 @@ const decisionsIn = (
   set: DecisionSetRow,
   decisions: readonly DecisionRow[],
   disputes: readonly DisputeRow[],
-  kept: (row: DecisionRow) => boolean = () => true,
+  included: (row: DecisionRow) => boolean = () => true,
 ): DecisionDto[] =>
   ranked(
     decisions
-      .filter((each) => each.setId === set.id && kept(each))
+      .filter((each) => each.setId === set.id && included(each))
       .map((each) => toDecision(each, disputes)),
   );
 
@@ -105,25 +105,25 @@ export class DrizzleDecisionReader implements DecisionReaderPort {
       return null;
     }
 
-    const { decisions, disputes } = await this.held([set.id]);
+    const { decisions, disputes } = await this.decisionRowsOf([set.id]);
 
     return {
-      runId: set.decidedIn,
-      drafting: draftedRunOf(set) !== null,
-      standing: set.standing,
+      runId: set.sourceRunId,
+      generating: generationRunOf(set) !== null,
+      status: set.status,
       merge: mergeRowOf(set),
       decisions: decisionsIn(set, decisions, disputes),
     };
   }
 
-  async standing(sought: StandingSought): Promise<StandingDecisionsDto[]> {
+  async merged(sought: MergedSought): Promise<MergedDecisionsDto[]> {
     const sets = await this.context.db
       .select()
       .from(decisionSet)
       .where(
         and(
           eq(decisionSet.workspaceId, sought.workspaceId.value),
-          eq(decisionSet.standing, 'stands'),
+          eq(decisionSet.status, 'merged'),
           sought.repository
             ? eq(decisionSet.mergedRepository, sought.repository.value)
             : undefined,
@@ -135,7 +135,7 @@ export class DrizzleDecisionReader implements DecisionReaderPort {
       .orderBy(desc(decisionSet.mergedAt))
       .limit(sought.max);
 
-    const { decisions, disputes } = await this.held(
+    const { decisions, disputes } = await this.decisionRowsOf(
       sets.map((each) => each.id),
     );
 
@@ -146,26 +146,26 @@ export class DrizzleDecisionReader implements DecisionReaderPort {
         return [];
       }
 
-      const held = decisionsIn(set, decisions, disputes, (each) =>
+      const matching = decisionsIn(set, decisions, disputes, (each) =>
         each.paths.some((path) => lies(path, sought.within)),
       );
 
-      return held.length > 0
+      return matching.length > 0
         ? [
             {
               taskId: set.taskId,
-              runId: set.decidedIn,
+              runId: set.sourceRunId,
               repository: merge.repository,
               commit: merge.commit,
               mergedAt: merge.at,
-              decisions: held,
+              decisions: matching,
             },
           ]
         : [];
     });
   }
 
-  private async held(setIds: readonly string[]): Promise<{
+  private async decisionRowsOf(setIds: readonly string[]): Promise<{
     decisions: DecisionRow[];
     disputes: DisputeRow[];
   }> {

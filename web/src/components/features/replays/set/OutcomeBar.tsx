@@ -1,12 +1,12 @@
 import type { SetComposition } from '@/lib/replay';
 import {
-  formatTurnedOut,
-  TURNED_OUT_LABEL,
-  type TurnedOut,
+  formatRunOutcome,
+  RUN_OUTCOME_LABEL,
+  type RunOutcome,
 } from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
 
-const SWATCHES: Record<TurnedOut, string> = {
+const SWATCHES: Record<RunOutcome, string> = {
   accepted: 'bg-chart-success',
   'sent-back': 'bg-chart-3',
   asked: 'bg-chart-2',
@@ -40,7 +40,7 @@ export function OutcomeBar({ outcomes }: OutcomeBarProps) {
       </div>
 
       <ul
-        aria-label={TURNED_OUT_LABEL}
+        aria-label={RUN_OUTCOME_LABEL}
         className="flex flex-wrap gap-x-3 gap-y-1 text-xs"
       >
         {outcomes
@@ -56,7 +56,7 @@ export function OutcomeBar({ outcomes }: OutcomeBarProps) {
                 className={cn('size-2 rounded-sm', SWATCHES[each.outcome])}
               />
               <span className="text-foreground">
-                {formatTurnedOut(each.outcome)}
+                {formatRunOutcome(each.outcome)}
               </span>
               <span className="tabular-nums">{each.count}</span>
             </li>

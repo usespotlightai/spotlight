@@ -20,19 +20,19 @@ import {
   type SearchRunsPort,
 } from '@work/application/ports/search-runs.port';
 import {
-  aSight,
+  aSearchVisibility,
   BUILD_BLOCK,
-  sightsInMemory,
-} from '@work/application/ports/search-sight.fake-spec';
-import { SEARCH_SIGHT } from '@work/application/ports/search-sight.port';
+  searchVisibilitiesInMemory,
+} from '@work/application/ports/search-visibility.fake-spec';
+import { SEARCH_VISIBILITY } from '@work/application/ports/search-visibility.port';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served } from './support/app';
 import { eventually } from './support/eventually';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const HOST = `host-search-${randomUUID().slice(0, 8)}`;
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -41,7 +41,7 @@ const DELIVERY = randomUUID();
 const BUILD = randomUUID();
 const SHIP = randomUUID();
 
-const sights = sightsInMemory({
+const visibilities = searchVisibilitiesInMemory({
   of: async (runId) => {
     throw new UnknownSearchRunError(runId);
   },
@@ -49,7 +49,7 @@ const sights = sightsInMemory({
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 let memoryHandle: number;
 
 const http = () => served(app);
@@ -88,23 +88,23 @@ const claimed = async (
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'build-box',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 8,
       running: [],
       images: [
         {
           image: IMAGE,
-          usual: true,
+          isDefault: true,
           harnesses: [{ id: 'claude-code', models: [] }],
         },
       ],
     })
     .expect(200);
 
-  const handed = (
+  const assignment = (
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
@@ -112,21 +112,21 @@ const claimed = async (
       .expect(200)
   ).body as { token: string; work: { run: Claimed } };
 
-  expect(handed.work.run.id).toBe(runId);
+  expect(assignment.work.run.id).toBe(runId);
 
-  return { token: handed.token, run: handed.work.run };
+  return { token: assignment.token, run: assignment.work.run };
 };
 
 const aClaimedSearch = async (over: Partial<SearchOrder> = {}) => {
-  const asked = order(over);
+  const queued = order(over);
 
   expect(
-    await app.get<SearchDispatchPort>(SEARCH_DISPATCH).enqueue(asked),
+    await app.get<SearchDispatchPort>(SEARCH_DISPATCH).enqueue(queued),
   ).toEqual({ outcome: 'queued' });
 
-  const { token, run } = await claimed(asked.id);
+  const { token, run } = await claimed(queued.id);
 
-  return { order: asked, runId: asked.id, token, run };
+  return { order: queued, runId: queued.id, token, run };
 };
 
 const aTask = async (title: string): Promise<string> => {
@@ -138,8 +138,8 @@ const aTask = async (title: string): Promise<string> => {
     workspaceId: team.workspaceId.value,
     stationId: BUILD,
     title,
-    raisedAtStationId: BUILD,
-    raisedById: team.owner.value,
+    originStationId: BUILD,
+    createdById: team.owner.value,
     assigneeId: team.owner.value,
   });
 
@@ -171,7 +171,7 @@ const aTaskRun = async (
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship'], noteLimit: 0 },
-      continuity: { key: `task-${taskId}` },
+      resume: { key: `task-${taskId}` },
     },
     ...ended(at),
   });
@@ -212,7 +212,7 @@ const aCandidateRun = async (original: string, at: string): Promise<string> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship'], noteLimit: 0 },
-      continuity: { key: `replay-${runId}` },
+      resume: { key: `replay-${runId}` },
       replay: { archive: null, checkouts: [], movesOnAfter: ['ship'] },
     },
     ...ended(at),
@@ -276,7 +276,7 @@ const published = (kind: string, runId: string) =>
       ),
     );
 
-const settled = (runId: string) =>
+const untilUsageRecorded = (runId: string) =>
   eventually(async () => {
     const pending = await db
       .select({ subscriber: schema.eventDelivery.subscriber })
@@ -291,25 +291,28 @@ const settled = (runId: string) =>
           sql`(${schema.eventOutbox.payload} ->> 'runId' = ${runId} OR ${schema.eventOutbox.payload} -> 'runId' ->> 'value' = ${runId})`,
         ),
       );
-    const digested = await published('work.search-run-digested.v1', runId);
+    const usageRecorded = await published(
+      'work.search-run-usage-recorded.v1',
+      runId,
+    );
 
-    return pending.length === 0 && digested.length > 0;
+    return pending.length === 0 && usageRecorded.length > 0;
   });
 
 const finishing = (next: string) => ({
   exitCode: 0,
   failed: false,
-  outcome: { next, note: 'Proposed two candidates.' },
+  handover: { next, note: 'Proposed two candidates.' },
   sessionId: 'session_1',
-  kept: true,
+  archived: true,
 });
 
 beforeAll(async () => {
   app = await openApp((module) =>
-    module.overrideProvider(SEARCH_SIGHT).useValue(sights),
+    module.overrideProvider(SEARCH_VISIBILITY).useValue(visibilities),
   );
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `search-${randomUUID().slice(0, 8)}`,
@@ -364,7 +367,7 @@ beforeAll(async () => {
     },
   ]);
 
-  const [kept] = await db
+  const [stored] = await db
     .insert(schema.memory)
     .values({
       id: randomUUID(),
@@ -379,7 +382,7 @@ beforeAll(async () => {
       approvedAt: new Date(),
     })
     .returning({ handle: schema.memory.handle });
-  memoryHandle = kept?.handle ?? 0;
+  memoryHandle = stored?.handle ?? 0;
 
   await http()
     .post(`/api/resources/workspaces/${team.workspaceId.value}/runner-pools`)
@@ -390,14 +393,14 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await forgetRunnersOf(db, team.workspaceId.value);
+  await deleteRunnersOf(db, team.workspaceId.value);
   await app?.close();
 });
 
 describe('a search run claimed by a runner', () => {
-  it('is handed only the briefing it was dispatched with: nothing to check out, no tools, skills, attachments or memories', async () => {
+  it('receives only the briefing it was dispatched with: nothing to check out, no tools, skills, attachments or memories', async () => {
     const {
-      order: asked,
+      order: queued,
       runId,
       run,
     } = await aClaimedSearch({
@@ -406,9 +409,9 @@ describe('a search run claimed by a runner', () => {
 
     expect(run.spec).toEqual({
       command: expect.objectContaining({ args: expect.any(Array) }),
-      briefing: asked.briefing,
+      briefing: queued.briefing,
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: `search-${runId}` },
+      resume: { key: `search-${runId}` },
       search: {},
     });
 
@@ -416,30 +419,32 @@ describe('a search run claimed by a runner', () => {
 
     expect(row?.taskId).toBeNull();
     expect(row?.replayOfRunId).toBeNull();
-    expect(row?.searchId).toBe(asked.searchId);
+    expect(row?.searchId).toBe(queued.searchId);
     expect(row?.searchIteration).toBe(2);
     expect(row?.ranForTeamId).toBe(team.teamId.value);
     expect(row?.stationId).toBe(BUILD);
     expect(row?.priority).toBe(-1);
-    expect(row?.briefedMemories).toEqual({ briefed: [], cut: [] });
+    expect(row?.briefedMemories).toEqual({ briefed: [], omitted: [] });
   });
 
-  it('is named to the replays context by its search and iteration, only while its runner holds it', async () => {
-    const { order: asked, runId } = await aClaimedSearch({ iteration: 3 });
+  it('is named to the replays context by its search and iteration, only while its runner has a lease on it', async () => {
+    const { order: queued, runId } = await aClaimedSearch({ iteration: 3 });
     const searches = app.get<SearchRunsPort>(SEARCH_RUNS);
     const [host] = await db
       .select({ claimedBy: schema.run.claimedBy })
       .from(schema.run)
       .where(eq(schema.run.id, runId));
 
-    expect(await searches.heldSearchRun(runId, host?.claimedBy ?? '')).toEqual({
-      searchId: asked.searchId,
+    expect(
+      await searches.leasedSearchRun(runId, host?.claimedBy ?? ''),
+    ).toEqual({
+      searchId: queued.searchId,
       iteration: 3,
     });
-    expect(await searches.heldSearchRun(runId, randomUUID())).toBeNull();
+    expect(await searches.leasedSearchRun(runId, randomUUID())).toBeNull();
   });
 
-  it('reaches no repository, uses no tool, answers no remark, takes up nothing said, keeps no workspace and reaches no memory', async () => {
+  it('touches no repository, uses no tool, replies to no review comment, acknowledges no message, archives no workspace and reads no memory', async () => {
     const { runId, token } = await aClaimedSearch();
 
     await runner(token)
@@ -452,14 +457,14 @@ describe('a search run claimed by a runner', () => {
       .post(`/api/runs/${runId}/tools/linear.comment`, { body: 'hi' })
       .expect(403);
     await runner(token)
-      .post(`/api/runs/${runId}/remark`, {
+      .post(`/api/runs/${runId}/review-comment-replies`, {
         handle: 'R-1',
         body: 'Fixed.',
         resolve: true,
       })
       .expect(409);
     await runner(token)
-      .post(`/api/runs/${runId}/messages/delivered`, { upTo: 0 })
+      .post(`/api/runs/${runId}/messages/ack`, { upTo: 0 })
       .expect(409);
     await runner(token)
       .post(`/api/runs/${runId}/workspace-archive`, {
@@ -514,11 +519,11 @@ describe('a search run reading its station’s history', () => {
       '2026-09-30T10:00:00Z',
     );
 
-    sights.sees(
+    visibilities.sees(
       runId,
-      aSight({
+      aSearchVisibility({
         stationId: BUILD,
-        hiddenTasks: [heldOut],
+        heldOutTasks: [heldOut],
         shownOriginals: [original, shown],
         candidates: [
           {
@@ -616,7 +621,10 @@ describe('a search run reading its station’s history', () => {
     const atShip = await aTaskRun(seen, '2026-09-21T10:00:00Z', SHIP);
     await aTaskRun(heldOut, '2026-09-22T09:00:00Z');
     await aTaskRun(elsewhere, '2026-09-23T09:00:00Z', SHIP);
-    sights.sees(runId, aSight({ stationId: BUILD, hiddenTasks: [heldOut] }));
+    visibilities.sees(
+      runId,
+      aSearchVisibility({ stationId: BUILD, heldOutTasks: [heldOut] }),
+    );
 
     const trace = JSON.stringify(
       (await runner(token).get(`/api/runs/${runId}/trace/${seen}`).expect(200))
@@ -645,9 +653,9 @@ describe('a search run reading its station’s history', () => {
 });
 
 describe('a search run ending', () => {
-  it('says so as a search run’s end and digest, and wakes none of what a task run’s or replay’s end wakes', async () => {
+  it('says so as a search run’s end and usage, and wakes none of what a task run’s or replay’s end wakes', async () => {
     const {
-      order: asked,
+      order: queued,
       runId,
       token,
     } = await aClaimedSearch({
@@ -657,14 +665,14 @@ describe('a search run ending', () => {
     await runner(token)
       .post(`/api/runs/${runId}/completion`, finishing('review'))
       .expect(200);
-    await settled(runId);
+    await untilUsageRecorded(runId);
 
     expect((await runRow(runId))?.state).toBe('completed');
 
     const [endedEvent] = await published('work.search-run-ended.v1', runId);
 
     expect(endedEvent?.payload).toMatchObject({
-      searchId: asked.searchId,
+      searchId: queued.searchId,
       iteration: 4,
       teamId: team.teamId.value,
       stationId: BUILD,
@@ -682,20 +690,22 @@ describe('a search run ending', () => {
         ),
       ),
     ).toBe(false);
-    expect(await published('work.search-run-digested.v1', runId)).toEqual([
-      {
-        payload: expect.objectContaining({
-          kind: 'work.search-run-digested.v1',
-          searchId: asked.searchId,
-        }),
-      },
-    ]);
+    expect(await published('work.search-run-usage-recorded.v1', runId)).toEqual(
+      [
+        {
+          payload: expect.objectContaining({
+            kind: 'work.search-run-usage-recorded.v1',
+            searchId: queued.searchId,
+          }),
+        },
+      ],
+    );
 
     for (const kind of [
       'work.run-ended.v1',
       'work.replay-ended.v1',
-      'work.run-digested.v1',
-      'work.replay-digested.v1',
+      'work.run-usage-recorded.v1',
+      'work.replay-run-usage-recorded.v1',
       'work.run-briefed.v1',
     ]) {
       expect(await published(kind, runId)).toEqual([]);
@@ -728,7 +738,7 @@ describe('a search run ending', () => {
           })
           .expect(200)
       ).body,
-    ).toEqual({ decision: 'asked' });
+    ).toEqual({ decision: 'pending' });
     expect(
       (
         await runner(token)
@@ -736,7 +746,7 @@ describe('a search run ending', () => {
           .expect(200)
       ).body,
     ).toEqual({ waiting: false });
-    await settled(runId);
+    await untilUsageRecorded(runId);
 
     expect((await runRow(runId))?.askedAPerson).toBe(true);
 
@@ -745,35 +755,35 @@ describe('a search run ending', () => {
     expect(endedEvent?.payload).toMatchObject({ asked: true });
   });
 
-  it('is withdrawn before a runner takes it up, still saying so as a search’s end', async () => {
-    const asked = order();
+  it('is cancelled before a runner claims it, still saying so as a search’s end', async () => {
+    const queued = order();
     const dispatch = app.get<SearchDispatchPort>(SEARCH_DISPATCH);
 
-    await dispatch.enqueue(asked);
-    await dispatch.withdraw(asked.id);
+    await dispatch.enqueue(queued);
+    await dispatch.cancel(queued.id);
 
-    expect((await runRow(asked.id))?.state).toBe('superseded');
+    expect((await runRow(queued.id))?.state).toBe('cancelled');
     await eventually(
       async () =>
-        (await published('work.search-run-ended.v1', asked.id)).length === 1,
+        (await published('work.search-run-ended.v1', queued.id)).length === 1,
     );
-    expect(await published('work.run-ended.v1', asked.id)).toEqual([]);
+    expect(await published('work.run-ended.v1', queued.id)).toEqual([]);
   });
 });
 
 describe('who may watch a search run', () => {
   it('is someone who reads its team, never someone outside it', async () => {
-    const asked = order();
+    const queued = order();
 
-    await app.get<SearchDispatchPort>(SEARCH_DISPATCH).enqueue(asked);
+    await app.get<SearchDispatchPort>(SEARCH_DISPATCH).enqueue(queued);
 
     const reader = app.get<RunEventReaderPort>(RUN_EVENT_READER);
 
     expect(
-      await reader.findForViewer(RunId.of(asked.id), team.owner),
+      await reader.findForViewer(RunId.of(queued.id), team.owner),
     ).not.toBeNull();
     expect(
-      await reader.findForViewer(RunId.of(asked.id), UserId.of(randomUUID())),
+      await reader.findForViewer(RunId.of(queued.id), UserId.of(randomUUID())),
     ).toBeNull();
   });
 });

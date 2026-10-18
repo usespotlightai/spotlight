@@ -3,11 +3,14 @@ import type {
   JournalStepDto,
   RunSpanDto,
 } from '@work/application/dto/run-journal.dto';
-import type { NodeKind, Tone } from '@work/application/read-models/trace-of';
 import type {
+  Category,
+  NodeKind,
+} from '@work/application/read-models/trace-of';
+import type {
+  ConnectionError,
   ConnectionOutcome,
   ConnectionReason,
-  ConnectionTrouble,
 } from '@work/domain/value-objects/run-connection.vo';
 
 export interface TraceConnectionDto {
@@ -16,8 +19,8 @@ export interface TraceConnectionDto {
   readonly outcome: ConnectionOutcome;
   readonly status: number | null;
   readonly reason: ConnectionReason | null;
-  readonly trouble: ConnectionTrouble | null;
-  readonly times: number;
+  readonly error: ConnectionError | null;
+  readonly count: number;
 }
 
 export interface TraceNodeDto {
@@ -26,13 +29,13 @@ export interface TraceNodeDto {
   readonly name: string;
   readonly startedAt: string;
   readonly ms: number;
-  readonly tone: Tone;
+  readonly category: Category;
   readonly cost: number | null;
   readonly currency: string | null;
   readonly step: JournalStepDto | null;
   readonly span: RunSpanDto | null;
   readonly connection: TraceConnectionDto | null;
-  readonly egress: EgressEnforcement | null;
+  readonly egressEnforcement: EgressEnforcement | null;
   readonly children: readonly TraceNodeDto[];
 }
 
@@ -40,6 +43,6 @@ export interface TaskTraceDto {
   readonly startedAt: string | null;
   readonly ms: number;
   readonly rows: number;
-  readonly faults: number;
+  readonly errors: number;
   readonly roots: readonly TraceNodeDto[];
 }

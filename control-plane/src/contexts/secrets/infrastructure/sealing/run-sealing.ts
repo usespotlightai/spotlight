@@ -7,7 +7,7 @@ import {
   type KeyObject,
   randomBytes,
 } from 'node:crypto';
-import { UnsealableRecipientError } from '@secrets/application/errors/unsealable-recipient.error';
+import { InvalidRecipientError } from '@secrets/application/errors/invalid-recipient.error';
 import type {
   RunSealingPort,
   SealedFor,
@@ -30,7 +30,7 @@ const parsed = (written: string): { key: KeyObject; raw: Buffer } => {
   const raw = Buffer.from(written, 'base64');
 
   if (raw.length !== KEY_BYTES || raw.toString('base64') !== written) {
-    throw new UnsealableRecipientError();
+    throw new InvalidRecipientError();
   }
 
   try {
@@ -42,11 +42,11 @@ const parsed = (written: string): { key: KeyObject; raw: Buffer } => {
       raw,
     };
   } catch {
-    throw new UnsealableRecipientError();
+    throw new InvalidRecipientError();
   }
 };
 
-const boundTo = (sealedFor: SealedFor): string =>
+const aadFor = (sealedFor: SealedFor): string =>
   ['spotlight:egress:v1', sealedFor.runId, sealedFor.secretName].join('\u0000');
 
 export class X25519RunSealing implements RunSealingPort {
@@ -59,7 +59,7 @@ export class X25519RunSealing implements RunSealingPort {
         publicKey: recipient.key,
       });
     } catch {
-      throw new UnsealableRecipientError();
+      throw new InvalidRecipientError();
     }
 
     return { key: written };
@@ -85,7 +85,7 @@ export class X25519RunSealing implements RunSealingPort {
 
     const iv = randomBytes(IV_BYTES);
     const cipher = createCipheriv('aes-256-gcm', key, iv);
-    cipher.setAAD(Buffer.from(boundTo(sealedFor), 'utf8'));
+    cipher.setAAD(Buffer.from(aadFor(sealedFor), 'utf8'));
 
     const encrypted = Buffer.concat([
       cipher.update(value.revealed(), 'utf8'),

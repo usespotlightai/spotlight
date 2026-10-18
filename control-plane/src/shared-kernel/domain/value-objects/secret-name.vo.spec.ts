@@ -15,7 +15,7 @@ describe('SecretName', () => {
     expect(SecretName.of('A_B').equals(SecretName.of('A_C'))).toBe(false);
   });
 
-  it('refuses anything but capitals, digits and underscores', () => {
+  it('rejects anything but capitals, digits and underscores', () => {
     for (const named of ['linear', 'Linear_Secret', 'A-B', 'A B', '', '1A']) {
       expect(() => SecretName.of(named)).toThrow(InvalidIdentifierError);
     }
@@ -36,7 +36,7 @@ describe('SecretName', () => {
     }
   });
 
-  it('refuses one longer than anybody would type', () => {
+  it('rejects one longer than anybody would type', () => {
     expect(() => SecretName.of('A'.repeat(65))).toThrow(InvalidIdentifierError);
   });
 });

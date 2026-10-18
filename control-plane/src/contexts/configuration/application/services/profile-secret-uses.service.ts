@@ -22,7 +22,7 @@ export class ProfileSecretUses implements SecretUser {
       WorkspaceId.of(secret.workspaceId),
     )) {
       for (const profile of await this.profiles.ofTeam(team.id)) {
-        if (!profile.isRetired && profile.settings.wears(name)) {
+        if (!profile.isDeleted && profile.settings.uses(name)) {
           uses.push(
             `harness profile ${TeamAddress.of(team.key, profile.key.value)}`,
           );

@@ -9,8 +9,8 @@ import { describe, expect, it } from 'vitest';
 const NOW = new Date('2026-09-26T09:00:00.000Z');
 const RUN = RunId.of('run_1');
 
-const said = () =>
-  ChatMessage.said({
+const message = () =>
+  ChatMessage.sent({
     position: MessagePosition.of(0),
     by: UserId.of('user_1'),
     body: ChatMessageBody.of('Split it.'),
@@ -18,38 +18,38 @@ const said = () =>
   });
 
 describe('ChatMessage', () => {
-  it('remembers the run it was delivered to', () => {
-    const delivered = said().delivered(RUN, NOW);
+  it('remembers the run that acknowledged it', () => {
+    const acknowledged = message().acknowledge(RUN, NOW);
 
-    expect(delivered.undelivered).toBe(false);
-    expect(delivered.wasDeliveredTo(RUN)).toBe(true);
-    expect(delivered.wasDeliveredTo(RunId.of('run_2'))).toBe(false);
+    expect(acknowledged.unacknowledged).toBe(false);
+    expect(acknowledged.wasAcknowledgedBy(RUN)).toBe(true);
+    expect(acknowledged.wasAcknowledgedBy(RunId.of('run_2'))).toBe(false);
   });
 
-  it('keeps the run it first went to', () => {
-    const delivered = said()
-      .delivered(RUN, NOW)
-      .delivered(RunId.of('run_2'), NOW);
+  it('keeps the run that acknowledged it first', () => {
+    const acknowledged = message()
+      .acknowledge(RUN, NOW)
+      .acknowledge(RunId.of('run_2'), NOW);
 
-    expect(delivered.wasDeliveredTo(RUN)).toBe(true);
+    expect(acknowledged.wasAcknowledgedBy(RUN)).toBe(true);
   });
 
-  it('waits to be delivered again once taken back', () => {
-    const back = said().delivered(RUN, NOW).takenBack();
+  it('waits to be acknowledged again once unacknowledged', () => {
+    const back = message().acknowledge(RUN, NOW).unacknowledge();
 
-    expect(back.undelivered).toBe(true);
-    expect(back.wasDeliveredTo(RUN)).toBe(false);
+    expect(back.unacknowledged).toBe(true);
+    expect(back.wasAcknowledgedBy(RUN)).toBe(false);
   });
 
-  it('refuses to be taken back when it was never delivered to a run', () => {
-    expect(() => said().takenBack()).toThrow(InconsistentStateError);
+  it('cannot be unacknowledged when no run acknowledged it', () => {
+    expect(() => message().unacknowledge()).toThrow(InconsistentStateError);
   });
 
-  it('refuses to name a run it was delivered to without saying when', () => {
+  it('does not name the run that acknowledged it without the time', () => {
     expect(() =>
       ChatMessage.rehydrate({
         position: MessagePosition.of(0),
-        kind: 'said',
+        kind: 'message',
         body: ChatMessageBody.of('Split it.'),
         at: NOW,
         author: UserId.of('user_1'),
@@ -57,8 +57,8 @@ describe('ChatMessage', () => {
         attachments: [],
         traces: [],
         proposal: null,
-        deliveredAt: null,
-        deliveredTo: RUN,
+        acknowledgedAt: null,
+        acknowledgedBy: RUN,
       }),
     ).toThrow(InconsistentStateError);
   });

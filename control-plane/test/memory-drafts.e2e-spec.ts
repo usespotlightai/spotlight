@@ -2,10 +2,10 @@ import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import type { ProposedMemory } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoryDraftVersionConflictError } from '@memory/domain/exceptions/memory-draft-version-conflict.error';
 import { DraftEvidence } from '@memory/domain/services/draft-evidence';
-import { rejectionsHeededAt } from '@memory/domain/services/rejections-heeded';
+import { recentRejectionsAt } from '@memory/domain/services/recent-rejections';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
-import type { StationSite } from '@memory/domain/value-objects/run-site';
+import type { StationContext } from '@memory/domain/value-objects/run-context';
 import { DrizzleMemoryRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory.repository';
 import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-draft.repository';
 import { DrizzleRejectedMemories } from '@memory/infrastructure/persistence/drizzle/repositories/rejected-memories.reader';
@@ -27,7 +27,7 @@ const SECOND = RunId.of('run_2');
 const TEAM = TeamId.of('team_1');
 const API = Repository.of('acme/api');
 
-const SITE: StationSite = {
+const STATION_CONTEXT: StationContext = {
   teamId: TEAM,
   lineId: 'line_1',
   stationId: 'station_1',
@@ -36,8 +36,8 @@ const SITE: StationSite = {
 
 const remembered = (change: Partial<ProposedMemory> = {}): ProposedMemory => ({
   kind: 'correction',
-  body: 'Never retry an upload the bucket refused with a 403.',
-  reach: 'station',
+  body: 'Never retry an upload the bucket rejected with a 403.',
+  scope: 'station',
   repository: 'acme/api',
   paths: ['src/uploads.ts'],
   steps: [5],
@@ -46,15 +46,15 @@ const remembered = (change: Partial<ProposedMemory> = {}): ProposedMemory => ({
   ...change,
 });
 
-let held: TestDatabase;
+let database: TestDatabase;
 let drafts: DrizzleMemoryDraftRepository;
 let memories: DrizzleMemoryRepository;
 let rejections: DrizzleRejectedMemories;
 let next = 0;
 
-const opened = () => {
+const newDraft = () => {
   next += 1;
-  return MemoryDraft.open({
+  return MemoryDraft.create({
     id: MemoryDraftId.of(`draft_${next}`),
     taskId: TaskId.of(`task_${next}`),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -73,8 +73,8 @@ const drafting = (
     evidence: DraftEvidence.of({
       taskId: draft.taskId,
       runId,
-      site: SITE,
-      steps: [{ index: 5, kind: 'said', text: 'Retrying in the request.' }],
+      runContext: STATION_CONTEXT,
+      steps: [{ index: 5, kind: 'message', text: 'Retrying in the request.' }],
       notes: [{ position: 4, by: 'person', text: 'Never retry on a 403.' }],
       notesRead: 0,
       changed: [{ repository: API, path: 'src/uploads.ts' }],
@@ -96,8 +96,8 @@ const stored = async (draft: MemoryDraft): Promise<MemoryDraft> => {
 };
 
 beforeAll(async () => {
-  held = await openDatabase('memory_drafts');
-  const context = new DrizzleContext(held.db);
+  database = await openDatabase('memory_drafts');
+  const context = new DrizzleContext(database.db);
   drafts = new DrizzleMemoryDraftRepository(context, {
     dispatch: async () => {},
   } as unknown as DomainEventDispatcher);
@@ -108,19 +108,19 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 describe('storing a task’s memory draft', () => {
-  it('keeps what a run proposed, where it applies and what it rests on', async () => {
-    const draft = opened().asked(FIRST, NOW);
+  it('stores what a run proposed, where it applies and what it cites', async () => {
+    const draft = newDraft().requestDrafting(FIRST, NOW);
     await drafts.add(draft);
 
     await drafts.save(drafting(await stored(draft), FIRST, [remembered()]));
 
     const read = await stored(draft);
     const [proposal] = read.proposals;
-    expect(read.owesWork).toBe(false);
+    expect(read.hasPendingJob).toBe(false);
     expect(read.draftedIn?.equals(FIRST)).toBe(true);
     expect(read.notesRead).toBe(5);
     expect(proposal?.kind).toBe('correction');
@@ -134,13 +134,13 @@ describe('storing a task’s memory draft', () => {
     expect(proposal?.scope.paths.map((each) => each.value)).toEqual([
       'src/uploads.ts',
     ]);
-    expect(proposal?.grounds.steps).toEqual([5]);
-    expect(proposal?.grounds.notes).toEqual([4]);
-    expect(proposal?.grounds.runId.equals(FIRST)).toBe(true);
+    expect(proposal?.provenance.steps).toEqual([5]);
+    expect(proposal?.provenance.notes).toEqual([4]);
+    expect(proposal?.provenance.runId.equals(FIRST)).toBe(true);
   });
 
   it('replaces what an earlier run proposed with what the latest proposed', async () => {
-    const draft = opened().asked(FIRST, NOW);
+    const draft = newDraft().requestDrafting(FIRST, NOW);
     await drafts.add(draft);
     await drafts.save(
       drafting(await stored(draft), FIRST, [
@@ -149,7 +149,7 @@ describe('storing a task’s memory draft', () => {
       ]),
     );
 
-    await drafts.save((await stored(draft)).asked(SECOND, LATER));
+    await drafts.save((await stored(draft)).requestDrafting(SECOND, LATER));
     await drafts.save(
       drafting(await stored(draft), SECOND, [
         remembered({ kind: 'failure', body: 'The upload test flakes.' }),
@@ -160,17 +160,17 @@ describe('storing a task’s memory draft', () => {
       (await stored(draft)).proposals.map((each) => each.body.value),
     ).toEqual(['The upload test flakes.']);
     const [{ n }] = (
-      await held.db.execute(
+      await database.db.execute(
         sql`select count(*)::int as n from memory_proposal where draft_id = ${draft.id.value}`,
       )
     ).rows as { n: number }[];
     expect(n).toBe(1);
   });
 
-  it('keeps a failure that allows no other attempt, and the draft it ended', async () => {
-    const draft = opened().asked(FIRST, NOW);
+  it('stores a failure that allows no other attempt, and the draft it ended', async () => {
+    const draft = newDraft().requestDrafting(FIRST, NOW);
     await drafts.add(draft);
-    const leased = (await stored(draft)).leased(NOW);
+    const leased = (await stored(draft)).leaseJob(NOW);
     await drafts.save(leased);
 
     await drafts.save(
@@ -180,45 +180,45 @@ describe('storing a task’s memory draft', () => {
     );
 
     const read = await stored(draft);
-    expect(read.owesWork).toBe(false);
+    expect(read.hasPendingJob).toBe(false);
     expect(read.failure?.code).toBe('no-evidence');
     expect(read.failure?.at).toEqual(LATER);
   });
 
-  it('refuses to write over a draft that changed since it was read', async () => {
-    const draft = opened().asked(FIRST, NOW);
+  it('does not write over a draft that changed since it was read', async () => {
+    const draft = newDraft().requestDrafting(FIRST, NOW);
     await drafts.add(draft);
     const read = await stored(draft);
-    await drafts.save(read.leased(NOW));
+    await drafts.save(read.leaseJob(NOW));
 
-    await expect(drafts.save(read.leased(NOW))).rejects.toBeInstanceOf(
+    await expect(drafts.save(read.leaseJob(NOW))).rejects.toBeInstanceOf(
       MemoryDraftVersionConflictError,
     );
   });
 
   it('hands out the oldest draft that is due, and none that is waiting', async () => {
-    await held.db.execute(sql`delete from memory_draft`);
-    const waiting = opened().asked(FIRST, NOW);
-    const due = opened().asked(SECOND, LATER);
+    await database.db.execute(sql`delete from memory_draft`);
+    const waiting = newDraft().requestDrafting(FIRST, NOW);
+    const due = newDraft().requestDrafting(SECOND, LATER);
     await drafts.add(waiting);
     await drafts.add(due);
     await drafts.save(
       (await stored(waiting))
-        .leased(NOW)
-        .failed(MemoryDraftingFailure.of('refused', NOW)),
+        .leaseJob(NOW)
+        .failed(MemoryDraftingFailure.of('request-failed', NOW)),
     );
 
-    const handed = await held.db.transaction(async (tx) =>
+    const handed = await database.db.transaction(async (tx) =>
       new DrizzleMemoryDraftRepository(new DrizzleContext(tx), {
         dispatch: async () => {},
-      } as unknown as DomainEventDispatcher).dueForWork(NOW),
+      } as unknown as DomainEventDispatcher).nextDueJob(NOW),
     );
 
     expect(handed?.id.equals(due.id)).toBe(true);
   });
 
-  it('forgets the draft of a deleted task, and its proposals with it', async () => {
-    const draft = opened().asked(FIRST, NOW);
+  it('deletes the draft of a deleted task, and its proposals with it', async () => {
+    const draft = newDraft().requestDrafting(FIRST, NOW);
     await drafts.add(draft);
     await drafts.save(drafting(await stored(draft), FIRST, [remembered()]));
 
@@ -226,7 +226,7 @@ describe('storing a task’s memory draft', () => {
 
     expect(await drafts.forTask(draft.taskId)).toBeNull();
     const [{ n }] = (
-      await held.db.execute(
+      await database.db.execute(
         sql`select count(*)::int as n from memory_proposal where draft_id = ${draft.id.value}`,
       )
     ).rows as { n: number }[];
@@ -235,41 +235,47 @@ describe('storing a task’s memory draft', () => {
 });
 
 describe('reading what the team already knows', () => {
-  const keeping = async (
+  const approvedMemory = async (
     id: string,
     scope: {
       team?: string;
       line?: string | null;
       station?: string | null;
       repository?: string | null;
-      standing?: 'stands' | 'retired';
+      status?: 'active' | 'retired';
     },
   ) =>
-    held.db.execute(sql`
+    database.db.execute(sql`
       insert into memory (id, handle, workspace_id, kind, body, team_id, line_id, station_id, repository, paths,
-        task_id, run_id, steps, notes, source, standing, approved_by, approved_at)
+        task_id, run_id, steps, notes, source, status, approved_by, approved_at)
       values (${id}, nextval('memory_handle_seq'), 'ws_1', 'preference', ${`Memory ${id}`}, ${scope.team ?? 'team_1'},
         ${scope.line ?? null}, ${scope.station ?? null}, ${scope.repository ?? null}, '[]'::jsonb,
         'task_1', 'run_1', '[]'::jsonb, '[2]'::jsonb, 'person',
-        ${scope.standing ?? 'stands'}, 'user_ada', ${NOW.toISOString()})
+        ${scope.status ?? 'active'}, 'user_ada', ${NOW.toISOString()})
     `);
 
-  it('reads the standing memories that reach this station, and none that do not', async () => {
-    await keeping('team_wide', {});
-    await keeping('this_line', { line: 'line_1' });
-    await keeping('this_station', { line: 'line_1', station: 'station_1' });
-    await keeping('this_repository', { repository: 'acme/api' });
-    await keeping('other_team', { team: 'team_2' });
-    await keeping('other_line', { line: 'line_2' });
-    await keeping('other_station', { line: 'line_1', station: 'station_2' });
-    await keeping('other_repository', { repository: 'acme/web' });
-    await keeping('retired', { standing: 'retired' });
+  it('reads the active memories that apply to this station, and none that do not', async () => {
+    await approvedMemory('team_wide', {});
+    await approvedMemory('this_line', { line: 'line_1' });
+    await approvedMemory('this_station', {
+      line: 'line_1',
+      station: 'station_1',
+    });
+    await approvedMemory('this_repository', { repository: 'acme/api' });
+    await approvedMemory('other_team', { team: 'team_2' });
+    await approvedMemory('other_line', { line: 'line_2' });
+    await approvedMemory('other_station', {
+      line: 'line_1',
+      station: 'station_2',
+    });
+    await approvedMemory('other_repository', { repository: 'acme/web' });
+    await approvedMemory('retired', { status: 'retired' });
 
-    const standing = (await memories.mayReach(SITE)).filter((each) =>
-      each.appliesAt(SITE),
+    const active = (await memories.mayApplyAt(STATION_CONTEXT)).filter((each) =>
+      each.appliesAt(STATION_CONTEXT),
     );
 
-    expect(standing.map((each) => each.id.value).sort()).toEqual([
+    expect(active.map((each) => each.id.value).sort()).toEqual([
       'team_wide',
       'this_line',
       'this_repository',
@@ -277,8 +283,8 @@ describe('reading what the team already knows', () => {
     ]);
   });
 
-  it('reads the proposals people turned down lately, in reach', async () => {
-    const draft = opened().asked(FIRST, NOW);
+  it('reads the proposals people turned down lately, in scope', async () => {
+    const draft = newDraft().requestDrafting(FIRST, NOW);
     await drafts.add(draft);
     await drafts.save(
       drafting(await stored(draft), FIRST, [
@@ -288,16 +294,16 @@ describe('reading what the team already knows', () => {
       ]),
     );
     const [lately, longAgo] = (await stored(draft)).proposals;
-    await held.db.execute(
+    await database.db.execute(
       sql`update memory_proposal set state = 'rejected', decided_by = 'user_ada', decided_at = ${LATER.toISOString()} where id = ${lately?.id.value ?? ''}`,
     );
-    await held.db.execute(
+    await database.db.execute(
       sql`update memory_proposal set state = 'rejected', decided_by = 'user_ada', decided_at = '2026-01-01T00:00:00Z' where id = ${longAgo?.id.value ?? ''}`,
     );
 
-    const rejected = rejectionsHeededAt(
+    const rejected = recentRejectionsAt(
       await rejections.rejectedOnTeam(TEAM, NOW),
-      SITE,
+      STATION_CONTEXT,
     );
 
     expect(rejected.map((each) => each.body)).toEqual(['Turned down lately']);

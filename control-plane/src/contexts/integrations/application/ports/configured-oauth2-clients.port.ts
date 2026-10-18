@@ -7,5 +7,5 @@ export interface ConfiguredOAuth2Client extends OAuth2Client {
 }
 
 export interface ConfiguredOAuth2ClientsPort {
-  of(source: string): ConfiguredOAuth2Client | null;
+  of(integration: string): ConfiguredOAuth2Client | null;
 }

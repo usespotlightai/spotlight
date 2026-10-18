@@ -29,6 +29,7 @@ import {
   LinePlan,
   type StationPlan,
 } from '@work/domain/value-objects/line-plan.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { ReplayCheckPolicy } from '@work/domain/value-objects/replay-check-policy.vo';
@@ -43,7 +44,6 @@ import { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import {
   type LineFields,
   lineSchema,
@@ -60,10 +60,10 @@ type Read<T> =
 const reasoned = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-const addressOf = (held: unknown): string => {
+const addressOf = (input: unknown): string => {
   const key =
-    typeof held === 'object' && held !== null && 'key' in held
-      ? held.key
+    typeof input === 'object' && input !== null && 'key' in input
+      ? input.key
       : null;
 
   try {
@@ -78,7 +78,7 @@ const compileStation = (
   at: number,
   station: StationDefinition,
 ): Read<StationPlan> => {
-  const refused = (
+  const invalid = (
     within: readonly FieldSegment[],
     error: unknown,
   ): Read<StationPlan> => ({
@@ -97,7 +97,7 @@ const compileStation = (
   try {
     agentPrompt = station.prompt ? AgentPrompt.of(station.prompt) : null;
   } catch (error) {
-    return refused(['prompt'], error);
+    return invalid(['prompt'], error);
   }
 
   let check: StationCheck | null = null;
@@ -105,7 +105,7 @@ const compileStation = (
   try {
     check = station.check ? StationCheck.of(station.check) : null;
   } catch (error) {
-    return refused(['check'], error);
+    return invalid(['check'], error);
   }
 
   let name: StationName;
@@ -113,7 +113,7 @@ const compileStation = (
   try {
     name = StationName.of(station.name);
   } catch (error) {
-    return refused(['name'], error);
+    return invalid(['name'], error);
   }
 
   let description: StationDescription | null = null;
@@ -123,7 +123,7 @@ const compileStation = (
       ? StationDescription.of(station.description)
       : null;
   } catch (error) {
-    return refused(['description'], error);
+    return invalid(['description'], error);
   }
 
   let harness: HarnessId | null = null;
@@ -131,7 +131,7 @@ const compileStation = (
   try {
     harness = station.harness ? HarnessId.of(station.harness) : null;
   } catch (error) {
-    return refused(['harness'], error);
+    return invalid(['harness'], error);
   }
 
   let model: HarnessModel | null = null;
@@ -139,7 +139,7 @@ const compileStation = (
   try {
     model = station.model ? HarnessModel.of(station.model) : null;
   } catch (error) {
-    return refused(['model'], error);
+    return invalid(['model'], error);
   }
 
   let effort: Effort | null = null;
@@ -147,7 +147,7 @@ const compileStation = (
   try {
     effort = station.effort ? Effort.of(station.effort) : null;
   } catch (error) {
-    return refused(['effort'], error);
+    return invalid(['effort'], error);
   }
 
   let placement = RunnerPlacement.anywhere();
@@ -155,7 +155,7 @@ const compileStation = (
   try {
     placement = RunnerPlacement.of(station.runners ?? []);
   } catch (error) {
-    return refused(['runners'], error);
+    return invalid(['runners'], error);
   }
 
   let judge: StationJudge | null = null;
@@ -163,7 +163,7 @@ const compileStation = (
   try {
     judge = station.judge ? StationJudge.of(station.judge) : null;
   } catch (error) {
-    return refused(
+    return invalid(
       error instanceof InvalidStationJudgeError
         ? ['judge', error.field]
         : ['judge'],
@@ -177,7 +177,7 @@ const compileStation = (
     try {
       alerts.push(StationAlert.of(alert).alongside(alerts));
     } catch (error) {
-      return refused(
+      return invalid(
         error instanceof InvalidStationAlertError && error.field
           ? ['alerts', place, error.field]
           : ['alerts', place],
@@ -220,8 +220,11 @@ const compileRepository = (
   path: string,
   at: number,
   repository: RepositoryDefinition,
-): Read<WorkedRepository> => {
-  const refused = (field: string, error: unknown): Read<WorkedRepository> => ({
+): Read<LineRepositoryConfig> => {
+  const invalid = (
+    field: string,
+    error: unknown,
+  ): Read<LineRepositoryConfig> => ({
     ok: false,
     problems: [
       ConfigurationProblem.of({
@@ -237,7 +240,7 @@ const compileRepository = (
   try {
     named = Repository.of(repository.name);
   } catch (error) {
-    return refused('name', error);
+    return invalid('name', error);
   }
 
   let image: RunnerImage | null = null;
@@ -245,7 +248,7 @@ const compileRepository = (
   try {
     image = repository.image ? RunnerImage.of(repository.image) : null;
   } catch (error) {
-    return refused('image', error);
+    return invalid('image', error);
   }
 
   let setup: RepositorySetup | null = null;
@@ -253,10 +256,10 @@ const compileRepository = (
   try {
     setup = repository.setup ? RepositorySetup.of(repository.setup) : null;
   } catch (error) {
-    return refused('setup', error);
+    return invalid('setup', error);
   }
 
-  return { ok: true, value: WorkedRepository.of(named, { image, setup }) };
+  return { ok: true, value: LineRepositoryConfig.of(named, { image, setup }) };
 };
 
 const placed = (definition: LineFields, part: LinePart): FieldPath => {
@@ -281,11 +284,11 @@ const placed = (definition: LineFields, part: LinePart): FieldPath => {
   }
 };
 
-export const compileLine = (held: unknown): ParsedLine => {
-  const read = lineSchema.safeParse(held);
+export const compileLine = (input: unknown): ParsedLine => {
+  const read = lineSchema.safeParse(input);
 
   if (!read.success) {
-    const path = addressOf(held);
+    const path = addressOf(input);
 
     return {
       ok: false,
@@ -303,7 +306,7 @@ export const compileLine = (held: unknown): ParsedLine => {
   const key = LineKey.of(definition.key);
   const path = lineAt(key.value);
   const problems: ConfigurationProblem[] = [];
-  const repositories: WorkedRepository[] = [];
+  const repositories: LineRepositoryConfig[] = [];
   let name: LineName | null = null;
 
   try {
@@ -450,7 +453,7 @@ export const compileLine = (held: unknown): ParsedLine => {
 };
 
 export class LineCompiler implements LineCompilerPort {
-  compile(held: unknown): ParsedLine {
-    return compileLine(held);
+  compile(input: unknown): ParsedLine {
+    return compileLine(input);
   }
 }

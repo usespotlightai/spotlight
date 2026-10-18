@@ -1,7 +1,7 @@
-import type { RereadIntegrationSourceCommand } from '@integrations/application/commands/reread-integration-source.command';
+import type { RefreshIntegrationSpecCommand } from '@integrations/application/commands/refresh-integration-spec.command';
 import type { ListedServersPort } from '@integrations/application/ports/listed-servers.port';
 import { RelistServers } from '@integrations/application/services/relist-servers.service';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -12,18 +12,18 @@ const TEN_MINUTES = 10 * 60_000;
 
 const NOW = new Date('2026-10-05T10:00:00.000Z');
 
-const server = (source: string) => ({
+const server = (integration: string) => ({
   teamId: TeamId.of('team_1'),
-  source: SourceKey.of(source),
+  integration: IntegrationKey.of(integration),
 });
 
 const relisting = (claimed: readonly ReturnType<typeof server>[]) => {
   const claimListedBefore = vi.fn(async () => claimed);
-  const execute = vi.fn(async (_command: RereadIntegrationSourceCommand) => {});
+  const execute = vi.fn(async (_command: RefreshIntegrationSpecCommand) => {});
   const log = { error: vi.fn() } as unknown as LoggerPort;
   const servers = new RelistServers(
     { claimListedBefore } as ListedServersPort,
-    { execute } as CommandHandlerPort<RereadIntegrationSourceCommand, void>,
+    { execute } as CommandHandlerPort<RefreshIntegrationSpecCommand, void>,
     { now: () => NOW } as ClockPort,
     log,
     TEN_MINUTES,
@@ -52,7 +52,7 @@ describe('RelistServers', () => {
 
     await servers.processDue();
 
-    expect(execute.mock.calls.map(([command]) => command.source)).toEqual([
+    expect(execute.mock.calls.map(([command]) => command.integration)).toEqual([
       'tracker',
       'notes',
     ]);

@@ -31,11 +31,11 @@ import { AddTaskCommand } from '@work/application/commands/add-task.command';
 import { AssignTaskCommand } from '@work/application/commands/assign-task.command';
 import { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
-import { SayToRunCommand } from '@work/application/commands/say-to-run.command';
+import { SendMessageCommand } from '@work/application/commands/send-message.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import type { RunConfigDto } from '@work/application/dto/run-config.dto';
-import type { RunConversationDto } from '@work/application/dto/run-conversation.dto';
 import type { RunNetworkDto } from '@work/application/dto/run-network.dto';
+import type { RunNotesDto } from '@work/application/dto/run-notes.dto';
 import type { TaskDto } from '@work/application/dto/task.dto';
 import type {
   TaskRunDto,
@@ -48,8 +48,8 @@ import { ListTasksQuery } from '@work/application/queries/list-tasks.query';
 import { ListTeamRunsQuery } from '@work/application/queries/list-team-runs.query';
 import { ListTeamTracesQuery } from '@work/application/queries/list-team-traces.query';
 import { ReadRunConfigQuery } from '@work/application/queries/read-run-config.query';
-import { ReadRunConversationQuery } from '@work/application/queries/read-run-conversation.query';
 import { ReadRunNetworkQuery } from '@work/application/queries/read-run-network.query';
+import { ReadRunNotesQuery } from '@work/application/queries/read-run-notes.query';
 import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import {
   DEFAULT_TRACE_RANGE,
@@ -62,24 +62,24 @@ import {
   InboxAuthorResponseDto,
   InboxConnectionResponseDto,
   InboxFailureResponseDto,
-  InboxMessageResponseDto,
+  NoteResponseDto,
 } from '@work/presentation/http/dto/inbox.response.dto';
 import { MoveTaskRequestDto } from '@work/presentation/http/dto/move-task.request.dto';
 import { RunConfigResponseDto } from '@work/presentation/http/dto/run-config.response.dto';
 import { RunNetworkResponseDto } from '@work/presentation/http/dto/run-network.response.dto';
 import { TaskResponseDto } from '@work/presentation/http/dto/task.response.dto';
 import {
-  RunConversationResponseDto,
+  RunNotesResponseDto,
   RunSpendResponseDto,
   RunStationResponseDto,
-  SayToRunRequestDto,
+  SendMessageRequestDto,
   TaskRunResponseDto,
   TeamRunResponseDto,
 } from '@work/presentation/http/dto/task-run.response.dto';
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
 import { TeamTracesResponseDto } from '@work/presentation/http/dto/team-trace.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
-import { givenIds } from '@work/presentation/http/mappers/given-ids';
+import { idsInput } from '@work/presentation/http/mappers/ids-input';
 import { TaskHttpMapper } from '@work/presentation/http/mappers/task.http.mapper';
 import { TaskRunHttpMapper } from '@work/presentation/http/mappers/task-run.http.mapper';
 import { TaskTraceHttpMapper } from '@work/presentation/http/mappers/task-trace.http.mapper';
@@ -110,7 +110,7 @@ export class TaskController {
   @Get('tasks')
   @ApiOperation({
     operationId: 'listTasks',
-    summary: 'List the tasks standing at a team’s stations, oldest first',
+    summary: 'List the tasks at a team’s stations, oldest first',
   })
   @ApiOkResponse({ type: TaskResponseDto, isArray: true })
   @ApiNotFoundResponse({ description: 'No such team for this caller' })
@@ -132,7 +132,7 @@ export class TaskController {
   @Get('runs')
   @ApiOperation({
     operationId: 'listTeamRuns',
-    summary: 'Every run the team has worked, across its stations',
+    summary: 'Every run of the team, across its stations',
   })
   @ApiOkResponse({ type: TeamRunResponseDto, isArray: true })
   async teamRuns(
@@ -149,7 +149,7 @@ export class TaskController {
   @Get('traces')
   @ApiOperation({
     operationId: 'listTeamTraces',
-    summary: 'Every task the team has worked, as one trace each',
+    summary: 'Every task of the team, as one trace each',
   })
   @ApiQuery({
     name: 'range',
@@ -157,7 +157,7 @@ export class TaskController {
     enum: TRACE_RANGES,
     example: '7d',
     description:
-      'How far back from now to look, counting runs started since; 30d unless asked',
+      'How far back from now to look, counting runs started since; 30d by default',
   })
   @ApiOkResponse({ type: TeamTracesResponseDto })
   @ApiUnprocessableEntityResponse({ description: 'No such range' })
@@ -225,28 +225,28 @@ export class TaskController {
     return new RunNetworkResponseDto(found);
   }
 
-  @Get('runs/:runId/conversation')
+  @Get('runs/:runId/notes')
   @ApiOperation({
-    operationId: 'readRunConversation',
-    summary: 'The task and the trail since it reached this run’s station',
+    operationId: 'readRunNotes',
+    summary: 'The task and the trail since it arrived at this run’s station',
   })
   @ApiParam({ name: 'runId', type: String })
-  @ApiOkResponse({ type: RunConversationResponseDto })
+  @ApiOkResponse({ type: RunNotesResponseDto })
   @ApiNotFoundResponse({ description: 'No such run for this caller' })
-  async conversation(
+  async notes(
     @Param('runId') runId: string,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<RunConversationResponseDto> {
+  ): Promise<RunNotesResponseDto> {
     const found = await this.queryBus.execute<
-      ReadRunConversationQuery,
-      RunConversationDto | null
-    >(new ReadRunConversationQuery(runId, user.id));
+      ReadRunNotesQuery,
+      RunNotesDto | null
+    >(new ReadRunNotesQuery(runId, user.id));
 
     if (!found) {
       throw new NotFoundException();
     }
 
-    return new RunConversationResponseDto(
+    return new RunNotesResponseDto(
       found.runId,
       found.taskId,
       found.title,
@@ -266,7 +266,7 @@ export class TaskController {
       found.working,
       found.notes.map(
         (note) =>
-          new InboxMessageResponseDto(
+          new NoteResponseDto(
             note.position,
             note.kind,
             note.form,
@@ -305,32 +305,32 @@ export class TaskController {
     );
   }
 
-  @Post('runs/:runId/say')
+  @Post('runs/:runId/messages')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'sayToRun',
-    summary: 'Say something to the agent working a run',
+    operationId: 'sendMessage',
+    summary: 'Send a message to the agent of a run',
   })
   @ApiParam({ name: 'runId', type: String })
   @ApiNoContentResponse({
     description:
-      'It joined the task’s trail, and starts the station again if the task stood idle there',
+      'It joined the task’s trail, and starts the station again if the task was idle there',
   })
   @ApiNotFoundResponse({ description: 'No such run for this caller' })
   @ApiConflictResponse({
     description: 'The task has moved on from that station',
   })
-  async say(
+  async sendMessage(
     @Param('runId') runId: string,
     @CurrentUser() user: AuthenticatedUser,
-    @Body() body: SayToRunRequestDto,
+    @Body() body: SendMessageRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
-      new SayToRunCommand(
+      new SendMessageCommand(
         runId,
         user.id,
         body.body ?? '',
-        givenIds(body.attachments),
+        idsInput(body.attachments),
       ),
     );
   }
@@ -342,9 +342,9 @@ export class TaskController {
     summary: 'Stop the agent working a run',
   })
   @ApiParam({ name: 'runId', type: String })
-  @ApiNoContentResponse({ description: 'The run was asked to stop' })
+  @ApiNoContentResponse({ description: 'The run received a stop request' })
   @ApiNotFoundResponse({ description: 'No such run for this caller' })
-  @ApiConflictResponse({ description: 'The run is no longer being worked' })
+  @ApiConflictResponse({ description: 'The run is no longer in progress' })
   async stop(
     @Param('runId') runId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -373,7 +373,7 @@ export class TaskController {
   @Get('tasks/:taskId/trace')
   @ApiOperation({
     operationId: 'readTaskTrace',
-    summary: 'Every run that worked a task, as one trace',
+    summary: 'Every run of a task, as one trace',
   })
   @ApiParam({ name: 'taskId' })
   @ApiOkResponse({ type: TaskTraceResponseDto })
@@ -446,7 +446,7 @@ export class TaskController {
         body.title,
         body.description ?? null,
         user.id,
-        givenIds(body.attachments),
+        idsInput(body.attachments),
       ),
     );
 
@@ -497,7 +497,7 @@ export class TaskController {
   @Put('tasks/:taskId/assignee')
   @ApiOperation({
     operationId: 'assignTask',
-    summary: 'Give a task to a team member, or clear its assignee',
+    summary: 'Assign a task to a team member, or clear its assignee',
   })
   @ApiParam({
     name: 'taskId',

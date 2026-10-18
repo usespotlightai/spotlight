@@ -1,5 +1,5 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -10,28 +10,28 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
-import { LineRedefined } from '@work/domain/events/line-redefined.event';
-import { LineRetired } from '@work/domain/events/line-retired.event';
+import { LineDeleted } from '@work/domain/events/line-deleted.event';
+import { LineUpdated } from '@work/domain/events/line-updated.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
-import { ReplayDigested } from '@work/domain/events/replay-digested.event';
-import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
+import { ReplayRunUsageRecorded } from '@work/domain/events/replay-run-usage-recorded.event';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
+import { RunCancelled } from '@work/domain/events/run-cancelled.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
-import { RunDigested } from '@work/domain/events/run-digested.event';
+import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { RunSuperseded } from '@work/domain/events/run-superseded.event';
-import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
-import { SearchDigested } from '@work/domain/events/search-digested.event';
+import { RunUsageRecorded } from '@work/domain/events/run-usage-recorded.event';
+import { SearchRunUsageRecorded } from '@work/domain/events/search-run-usage-recorded.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
-import { TaskHandedOn } from '@work/domain/events/task-handed-on.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
+import { TaskPassed } from '@work/domain/events/task-passed.event';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { Declaration } from '@work/domain/value-objects/declaration.vo';
+import { Handover } from '@work/domain/value-objects/handover.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { Money } from '@work/domain/value-objects/money.vo';
@@ -64,14 +64,14 @@ const SUBJECT = RunSubject.task(
 );
 
 describe('WORK_EVENT_MAPPERS', () => {
-  it('publishes which stations a redefined or retired line had and has', () => {
+  it('publishes which stations an updated or deleted line had and has', () => {
     const change = ConfigurationChange.updated(
       { resource: 'line', id: 'line_1', key: 'default' },
-      attributedIn(),
+      changeActorIn(),
     );
     const stations = [StationId.of('station_1'), StationId.of('station_2')];
-    const told = {
-      kind: 'work.line-redefined.v1',
+    const lineChanged = {
+      kind: 'work.line-changed.v1',
       lineId: 'line_1',
       workspaceId: 'ws_1',
       teamId: 'team_1',
@@ -80,7 +80,7 @@ describe('WORK_EVENT_MAPPERS', () => {
 
     expect(
       published(
-        new LineRedefined(
+        new LineUpdated(
           LineId.of('line_1'),
           WORKSPACE,
           TeamId.of('team_1'),
@@ -89,10 +89,10 @@ describe('WORK_EVENT_MAPPERS', () => {
           stations,
         ),
       ),
-    ).toEqual([told]);
+    ).toEqual([lineChanged]);
     expect(
       published(
-        new LineRetired(
+        new LineDeleted(
           LineId.of('line_1'),
           WORKSPACE,
           TeamId.of('team_1'),
@@ -101,7 +101,7 @@ describe('WORK_EVENT_MAPPERS', () => {
           stations,
         ),
       ),
-    ).toEqual([told]);
+    ).toEqual([lineChanged]);
   });
 
   it('publishes a task opening, on which team and line, by whom and when', () => {
@@ -174,10 +174,10 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes what a run cost once it is digested', () => {
+  it('publishes what a run cost once its usage is recorded', () => {
     expect(
       published(
-        new RunDigested(
+        new RunUsageRecorded(
           RUN,
           WORKSPACE,
           TASK,
@@ -205,16 +205,16 @@ describe('WORK_EVENT_MAPPERS', () => {
       ),
     ).toEqual([
       {
-        kind: 'work.run-digested.v1',
+        kind: 'work.run-usage-recorded.v1',
         runId: 'run_1',
         workspaceId: 'ws_1',
         taskId: 'task_1',
         ms: 60_000,
         steps: 12,
-        faults: 1,
+        errors: 1,
         changedLines: 40,
-        used: 40_000,
-        size: 200_000,
+        contextTokens: 40_000,
+        contextWindow: 200_000,
         cost: 0.42,
         currency: 'USD',
         inputTokens: 1_200,
@@ -235,10 +235,10 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes what a replay cost as a replay’s digest, naming the run it replayed', () => {
+  it('publishes what a replay cost as a replay’s usage, naming the run it replayed', () => {
     expect(
       published(
-        new ReplayDigested(
+        new ReplayRunUsageRecorded(
           RUN,
           WORKSPACE,
           RunId.of('run_0'),
@@ -251,7 +251,7 @@ describe('WORK_EVENT_MAPPERS', () => {
       ),
     ).toEqual([
       {
-        kind: 'work.replay-digested.v1',
+        kind: 'work.replay-run-usage-recorded.v1',
         runId: 'run_1',
         replayOf: 'run_0',
         workspaceId: 'ws_1',
@@ -268,10 +268,10 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes what a search run cost as a search’s digest, naming its search', () => {
+  it('publishes what a search run cost as a search’s usage, naming its search', () => {
     expect(
       published(
-        new SearchDigested(
+        new SearchRunUsageRecorded(
           RUN,
           WORKSPACE,
           SearchId.of('search_1'),
@@ -284,7 +284,7 @@ describe('WORK_EVENT_MAPPERS', () => {
       ),
     ).toEqual([
       {
-        kind: 'work.search-run-digested.v1',
+        kind: 'work.search-run-usage-recorded.v1',
         runId: 'run_1',
         searchId: 'search_1',
         workspaceId: 'ws_1',
@@ -300,10 +300,10 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes a run handing its task on to another station', () => {
+  it('publishes a run passing its task on to another station', () => {
     expect(
       published(
-        new TaskHandedOn(
+        new TaskPassed(
           TASK,
           WORKSPACE,
           RUN,
@@ -314,7 +314,7 @@ describe('WORK_EVENT_MAPPERS', () => {
       ),
     ).toEqual([
       {
-        kind: 'work.task-handed-on.v1',
+        kind: 'work.task-passed.v1',
         taskId: 'task_1',
         workspaceId: 'ws_1',
         runId: 'run_1',
@@ -459,7 +459,9 @@ describe('WORK_EVENT_MAPPERS', () => {
           RUN,
           WORKSPACE,
           SUBJECT,
-          RunOutcome.refused([{ saying: 'The hook core/freeze refused.' }]),
+          RunOutcome.refused([
+            { description: 'The hook core/freeze denied the run.' },
+          ]),
           null,
           null,
           null,
@@ -481,11 +483,11 @@ describe('WORK_EVENT_MAPPERS', () => {
         ),
       ),
     ).toBe('completed');
-    expect(ended(new RunAbandoned(RUN, WORKSPACE, SUBJECT, 3, 3))).toBe(
-      'abandoned',
+    expect(ended(new RunExhausted(RUN, WORKSPACE, SUBJECT, 3, 3))).toBe(
+      'exhausted',
     );
-    expect(ended(new RunWithdrawn(RUN, WORKSPACE, SUBJECT, 1))).toBe(
-      'withdrawn',
+    expect(ended(new RunCancelled(RUN, WORKSPACE, SUBJECT, 1))).toBe(
+      'cancelled',
     );
   });
 
@@ -505,7 +507,7 @@ describe('WORK_EVENT_MAPPERS', () => {
           replay,
           RunOutcome.of({ exitCode: 0, failed: false }),
           null,
-          Declaration.of({ next: 'review', note: 'Over to you.' }),
+          Handover.of({ next: 'review', note: 'Over to you.' }),
           null,
           1,
           true,
@@ -527,7 +529,7 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
     expect(
       published(
-        new RunAbandoned(RUN, WORKSPACE, replay, 3, 3, false, 'runner-lost'),
+        new RunExhausted(RUN, WORKSPACE, replay, 3, 3, false, 'runner-lost'),
       ),
     ).toEqual([
       {
@@ -535,7 +537,7 @@ describe('WORK_EVENT_MAPPERS', () => {
         runId: 'run_1',
         replayOf: 'run_0',
         workspaceId: 'ws_1',
-        outcome: 'abandoned',
+        outcome: 'exhausted',
         failure: 'runner-lost',
         stopped: false,
         asked: false,
@@ -544,7 +546,7 @@ describe('WORK_EVENT_MAPPERS', () => {
       },
     ]);
     expect(
-      published(new RunWithdrawn(RUN, WORKSPACE, replay, 1)).map(
+      published(new RunCancelled(RUN, WORKSPACE, replay, 1)).map(
         (each) => each.kind,
       ),
     ).toEqual(['work.replay-ended.v1']);
@@ -566,7 +568,7 @@ describe('WORK_EVENT_MAPPERS', () => {
           search,
           RunOutcome.of({ exitCode: 0, failed: false }),
           null,
-          Declaration.of({ next: 'review' }),
+          Handover.of({ next: 'review' }),
           null,
           1,
           true,
@@ -591,37 +593,37 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
     expect(
       published(
-        new RunAbandoned(RUN, WORKSPACE, search, 3, 3, false, 'runner-lost'),
+        new RunExhausted(RUN, WORKSPACE, search, 3, 3, false, 'runner-lost'),
       ),
     ).toEqual([
       expect.objectContaining({
         kind: 'work.search-run-ended.v1',
-        outcome: 'abandoned',
+        outcome: 'exhausted',
         failure: 'runner-lost',
         asked: false,
       }),
     ]);
-    expect(published(new RunWithdrawn(RUN, WORKSPACE, search, 1))).toEqual([
+    expect(published(new RunCancelled(RUN, WORKSPACE, search, 1))).toEqual([
       expect.objectContaining({
         kind: 'work.search-run-ended.v1',
-        outcome: 'withdrawn',
+        outcome: 'cancelled',
         started: false,
       }),
     ]);
-    expect(published(new RunWithdrawn(RUN, WORKSPACE, search, 2))).toEqual([
-      expect.objectContaining({ outcome: 'withdrawn', started: true }),
+    expect(published(new RunCancelled(RUN, WORKSPACE, search, 2))).toEqual([
+      expect.objectContaining({ outcome: 'cancelled', started: true }),
     ]);
   });
 
   it('publishes a run with no task as ending for no task', () => {
-    expect(published(new RunWithdrawn(RUN, WORKSPACE, null, 1))).toEqual([
+    expect(published(new RunCancelled(RUN, WORKSPACE, null, 1))).toEqual([
       {
         kind: 'work.run-ended.v1',
         runId: 'run_1',
         workspaceId: 'ws_1',
         taskId: null,
         stationId: null,
-        outcome: 'withdrawn',
+        outcome: 'cancelled',
         failure: null,
         stopped: false,
         asked: false,
@@ -683,9 +685,9 @@ describe('WORK_EVENT_MAPPERS', () => {
         taskId: 'task_1',
         workspaceId: 'ws_1',
         stationId: 'station_1',
-        act: 'sent-back',
+        action: 'sent-back',
         by: 'user_1',
-        after: 'run_1',
+        afterRunId: 'run_1',
         at: '2026-09-26T09:00:00.000Z',
         tool: null,
         server: null,
@@ -693,14 +695,14 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes the tool a person refused, and its server', () => {
+  it('publishes the tool a person dismissed, and its server', () => {
     expect(
       published(
         new TaskActedOn(
           TASK,
           WORKSPACE,
           StationId.of('station_1'),
-          'refused',
+          'dismissed',
           UserId.of('user_1'),
           RUN,
           new Date('2026-09-26T09:00:00Z'),
@@ -709,14 +711,14 @@ describe('WORK_EVENT_MAPPERS', () => {
       ),
     ).toEqual([
       expect.objectContaining({
-        act: 'refused',
+        action: 'dismissed',
         tool: 'create_issue',
         server: 'linear',
       }),
     ]);
   });
 
-  it('publishes the memories a run was briefed with, and never those the cap cut', () => {
+  it('publishes the memories a run was briefed with, and never those the cap omitted', () => {
     expect(
       published(
         new RunBriefed(
@@ -725,7 +727,7 @@ describe('WORK_EVENT_MAPPERS', () => {
           TASK,
           BriefedMemories.of({
             briefed: [{ id: 'memory_1', handle: 'M-1' }],
-            cut: [{ id: 'memory_2', handle: 'M-2' }],
+            omitted: [{ id: 'memory_2', handle: 'M-2' }],
           }),
         ),
       ),

@@ -7,7 +7,7 @@ import type {
 } from '@work/application/ports/run-connections.port';
 import type { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import {
-  REFUSED_STATUSES,
+  AUTH_FAILED_STATUSES,
   RunConnection,
   SERVER_ERROR,
   STOPPED_OUTCOMES,
@@ -26,14 +26,14 @@ import {
   sql,
 } from 'drizzle-orm';
 
-export const MAX_WENT_WRONG_FOR_A_RUN = 500;
+export const MAX_ERRORS_PER_RUN = 500;
 
-const wentWrong = or(
+const isError = or(
   inArray(runConnection.outcome, [...STOPPED_OUTCOMES]),
   and(
-    eq(runConnection.outcome, 'forwarded'),
+    eq(runConnection.outcome, 'injected'),
     or(
-      inArray(runConnection.status, [...REFUSED_STATUSES]),
+      inArray(runConnection.status, [...AUTH_FAILED_STATUSES]),
       gte(runConnection.status, SERVER_ERROR),
     ),
   ),
@@ -81,7 +81,7 @@ export class DrizzleRunConnections implements RunConnectionsPort {
     }));
   }
 
-  async wentWrongIn(
+  async errorsIn(
     runIds: readonly string[],
   ): Promise<readonly ConnectionOfRun[]> {
     if (runIds.length === 0) {
@@ -98,14 +98,14 @@ export class DrizzleRunConnections implements RunConnectionsPort {
             ),
         })
         .from(runConnection)
-        .where(and(inArray(runConnection.runId, [...runIds]), wentWrong)),
+        .where(and(inArray(runConnection.runId, [...runIds]), isError)),
     );
 
     const rows = await this.context.db
       .with(ranked)
       .select()
       .from(ranked)
-      .where(lte(ranked.place, MAX_WENT_WRONG_FOR_A_RUN))
+      .where(lte(ranked.place, MAX_ERRORS_PER_RUN))
       .orderBy(asc(ranked.at), asc(ranked.id));
 
     return rows.map((row) => ({
@@ -115,17 +115,17 @@ export class DrizzleRunConnections implements RunConnectionsPort {
     }));
   }
 
-  async forgetBefore(before: Date, max: number): Promise<number> {
+  async purgeBefore(before: Date, max: number): Promise<number> {
     const doomed = this.context.db
       .select({ id: runConnection.id })
       .from(runConnection)
       .where(lt(runConnection.at, before))
       .limit(max);
-    const forgotten = await this.context.db
+    const purged = await this.context.db
       .delete(runConnection)
       .where(inArray(runConnection.id, doomed))
       .returning({ id: runConnection.id });
 
-    return forgotten.length;
+    return purged.length;
   }
 }

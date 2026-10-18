@@ -16,7 +16,7 @@ import {
   PERCENTILES,
   type Percentile,
   ROUNDS,
-  type StationPart,
+  type StationStage,
 } from '@/lib/insights-shipping';
 import { type HistoryRun, history } from '@/mocks/world/insights-history';
 import {
@@ -59,12 +59,12 @@ const percentilesOf = (values: readonly number[]): PercentilesResponseDto => ({
 const isSpotlight = (fact: PullRequestFact) => fact.by === 'spotlight';
 
 const isPeople = (fact: PullRequestFact) =>
-  fact.by === 'people' || fact.by === 'touched';
+  fact.by === 'people' || fact.by === 'reviewed';
 
 const durations = (facts: readonly PullRequestFact[]): number[] =>
   facts.flatMap((fact) => {
-    const took = toMergeOf(fact);
-    return took === null ? [] : [took];
+    const toMerge = toMergeOf(fact);
+    return toMerge === null ? [] : [toMerge];
   });
 
 const byAuthor = (facts: readonly PullRequestFact[]): ByAuthorResponseDto => ({
@@ -104,12 +104,12 @@ const weekEnding = (day: string): Window => {
 const roundsCounts = (facts: readonly PullRequestFact[]) =>
   ROUNDS.map((rounds) => {
     const merged = facts.filter((fact) => roundsOf(fact) === rounds).length;
-    return { rounds, merged, share: shareOf(merged, facts.length) };
+    return { rounds, merged, rate: shareOf(merged, facts.length) };
   });
 
 type Sample = { readonly type: PullRequestType; readonly ms: number };
 
-type PartSamples = Record<StationPart, Sample[]>;
+type PartSamples = Record<StationStage, Sample[]>;
 
 const UNJUDGED = { p50: 0, p75: 0, p90: 0, p95: 0 };
 
@@ -117,7 +117,7 @@ const NOT_WORST = { p50: false, p75: false, p90: false, p95: false };
 
 const timesOf = (
   total: readonly number[],
-  parts: Record<StationPart, readonly number[]> | null,
+  parts: Record<StationStage, readonly number[]> | null,
 ): StageTimesResponseDto => {
   const partTimes = parts && {
     queued: percentilesOf(parts.queued),
@@ -125,7 +125,7 @@ const timesOf = (
     inbox: percentilesOf(parts.inbox),
   };
   const longest = (percentile: Percentile) =>
-    (['queued', 'running', 'inbox'] as const).reduce<StationPart>(
+    (['queued', 'running', 'inbox'] as const).reduce<StationStage>(
       (max, part) =>
         (partTimes?.[part][PERCENTILE_MS[percentile]] ?? 0) >
         (partTimes?.[max][PERCENTILE_MS[percentile]] ?? 0)
@@ -137,7 +137,7 @@ const timesOf = (
   return {
     total: percentilesOf(total),
     parts: partTimes,
-    jam: UNJUDGED,
+    bottleneckRatio: UNJUDGED,
     worst: NOT_WORST,
     longestPart: partTimes
       ? {
@@ -176,7 +176,7 @@ const byType = (
   };
 };
 
-const jammed = (
+const withBottleneckRatios = (
   stages: readonly FlowStageResponseDto[],
 ): FlowStageResponseDto[] => {
   const totalOf = (
@@ -193,7 +193,7 @@ const jammed = (
     at: number,
     type: PullRequestType | null,
   ): StageTimesResponseDto => {
-    const of = <T>(each: (lasted: number[]) => T) =>
+    const of = <T>(each: (stageMs: number[]) => T) =>
       Object.fromEntries(
         PERCENTILES.map((percentile) => [
           percentile,
@@ -203,11 +203,11 @@ const jammed = (
 
     return {
       ...times,
-      jam: of((lasted) => {
-        const max = Math.max(0, ...lasted);
-        return max === 0 ? 0 : (lasted[at] ?? 0) / max;
+      bottleneckRatio: of((stageMs) => {
+        const max = Math.max(0, ...stageMs);
+        return max === 0 ? 0 : (stageMs[at] ?? 0) / max;
       }),
-      worst: of((lasted) => lasted.indexOf(Math.max(...lasted)) === at),
+      worst: of((stageMs) => stageMs.indexOf(Math.max(...stageMs)) === at),
     };
   };
 
@@ -283,7 +283,11 @@ const stationStages = (
       const queued = sumOf(runs.map((run) => run.queuedMs ?? 0));
       const running = sumOf(runs.map((run) => run.runningMs ?? 0));
       const inbox = sumOf(
-        runs.map((run) => (run.next ? Date.parse(run.next.at) - run.at : 0)),
+        runs.map((run) =>
+          run.firstHumanAction
+            ? Date.parse(run.firstHumanAction.at) - run.at
+            : 0,
+        ),
       );
       total.push({ type: fact.type, ms: queued + running + inbox });
       parts.queued.push({ type: fact.type, ms: queued });
@@ -339,11 +343,11 @@ const BOTS: readonly (readonly [string, number, number, number])[] = [
 const botsOf = (active: number): ReviewBotResponseDto[] =>
   active === 0
     ? []
-    : BOTS.map(([login, comments, reviews, resolvedShare]) => ({
+    : BOTS.map(([login, comments, reviews, resolvedRate]) => ({
         login,
         comments: Math.round(comments * active),
         reviews: Math.round(reviews * active),
-        resolvedShare,
+        resolvedRate,
       }));
 
 export const shippingOf = (
@@ -452,11 +456,11 @@ export const shippingOf = (
         return count === 0 ? [] : [{ type, merged: count }];
       }),
       layouts: {
-        stations: jammed([
+        stations: withBottleneckRatios([
           ...stationStages(teamId, spotlightMerged),
           ...reviewStagesNow,
         ]),
-        stages: jammed([
+        stages: withBottleneckRatios([
           codingStage(teamId, spotlightMerged),
           ...reviewStagesNow,
         ]),

@@ -1,4 +1,4 @@
-import { OpenReplaySetAction } from '@/components/features/replays/station/OpenReplaySetAction';
+import { CreateReplaySetAction } from '@/components/features/replays/station/CreateReplaySetAction';
 import { ReplaySets } from '@/components/features/replays/station/ReplaySets';
 import { StationSearches } from '@/components/features/searches/station/StationSearches';
 import { ImproveStationLink } from '@/components/features/stations/ImproveStationLink';
@@ -7,7 +7,7 @@ import { ImproveSection } from '@/components/features/stations/improve/ImproveSe
 import { WorthImproving } from '@/components/features/stations/improve/WorthImproving';
 import { useSearchStart } from '@/hooks/useSearchStart';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
-import { signalAsk } from '@/lib/insights';
+import { signalPrompt } from '@/lib/insights';
 import { loading } from '@/lib/query';
 import { REPLAYS_ANCHOR } from '@/lib/replay';
 import { SEARCHES_ANCHOR } from '@/lib/search';
@@ -27,7 +27,7 @@ export function StationImproveTab({
 }: StationImproveTabProps) {
   const at = { slug, teamId, lineId: line.id, stationId: station.id };
   const { searches, sets } = useSearchStart(at);
-  const improving = {
+  const targetStation = {
     lineId: line.id,
     lineKey: line.key,
     lineName: line.name,
@@ -38,7 +38,7 @@ export function StationImproveTab({
 
   return (
     <>
-      <ImproveSection title="What stands out">
+      <ImproveSection title="What needs attention">
         <WorthImproving
           teamId={teamId}
           stationId={station.id}
@@ -46,18 +46,18 @@ export function StationImproveTab({
             <ImproveStationLink
               slug={slug}
               teamId={teamId}
-              improving={improving}
+              targetStation={targetStation}
               label="Review with the agent"
               variant="default"
             />
           }
-          askAbout={(reading) => (
+          actionFor={(reading) => (
             <ImproveStationLink
               slug={slug}
               teamId={teamId}
-              improving={improving}
+              targetStation={targetStation}
               label="Ask the agent"
-              ask={signalAsk(reading)}
+              prompt={signalPrompt(reading)}
             />
           )}
         />
@@ -74,7 +74,7 @@ export function StationImproveTab({
             footer
           >
             <ReplaySets at={at} />
-            <OpenReplaySetAction at={at} />
+            <CreateReplaySetAction at={at} />
           </ImproveCard>
 
           <ImproveCard

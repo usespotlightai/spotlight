@@ -128,7 +128,7 @@ describe('InputSchema', () => {
     expect(coded.problemWith(`${'a'.repeat(40)}!`)).toBeNull();
   });
 
-  it('refuses a value nested too deep to be JSON it reads', () => {
+  it('rejects a value nested too deep to be JSON it reads', () => {
     let deep: unknown = 'x';
     for (let level = 0; level < 100; level += 1) {
       deep = [deep];

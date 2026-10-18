@@ -17,7 +17,7 @@ const calling = (
 ): ProvisionCall => ({
   url: ProvisionUrl.of(url),
   secret: SECRET,
-  attempt: 'runner_1',
+  messageId: 'runner_1',
   at: AT,
   pool: 'sandboxes',
   workspaceId: 'ws_1',
@@ -115,7 +115,7 @@ describe('SignedProvisionCalls', () => {
     });
   });
 
-  it('names no image when the work asks for the usual one', async () => {
+  it('names no image when the work requests the default one', async () => {
     const { fetch, provision } = calls(
       async () => new Response(null, { status: 202 }),
     );
@@ -160,13 +160,13 @@ describe('SignedProvisionCalls', () => {
     });
   });
 
-  it('says what the endpoint answered when it refuses', async () => {
+  it('says what the endpoint answered when it fails', async () => {
     const { provision } = calls(
       async () => new Response('no capacity', { status: 503 }),
     );
 
     await expect(provision.call(calling())).resolves.toEqual({
-      outcome: 'refused',
+      outcome: 'http-error',
       detail: 'Provision URL answered 503. Response: no capacity',
     });
   });

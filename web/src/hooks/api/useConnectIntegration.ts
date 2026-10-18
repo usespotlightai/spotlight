@@ -4,13 +4,13 @@ import {
   connectIntegration,
 } from '@/lib/api';
 
-type Connecting = ConnectIntegrationRequestDto & { source: string };
+type Connecting = ConnectIntegrationRequestDto & { integration: string };
 
 export function useConnectIntegration(teamId: string | undefined) {
   return useMutation({
-    mutationFn: async ({ source, ...body }: Connecting) => {
+    mutationFn: async ({ integration, ...body }: Connecting) => {
       const { data } = await connectIntegration({
-        path: { teamId: teamId as string, source },
+        path: { teamId: teamId as string, integration },
         body,
         throwOnError: true,
       });

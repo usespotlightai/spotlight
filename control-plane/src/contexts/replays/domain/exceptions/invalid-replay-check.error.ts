@@ -1,5 +1,5 @@
 export class InvalidReplayCheckError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(readonly reason: string) {
     super(`Replay check ${reason}.`);

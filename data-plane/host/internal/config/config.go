@@ -16,12 +16,12 @@ import (
 	"syscall"
 	"time"
 
+	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/host/internal/images"
 	"usespotlight.ai/data-plane/host/internal/registry"
 	"usespotlight.ai/data-plane/host/internal/trust"
 	"usespotlight.ai/data-plane/protocol"
-	"usespotlight.ai/data-plane/reach"
 	"usespotlight.ai/data-plane/telemetry"
 )
 
@@ -45,39 +45,39 @@ type Config struct {
 }
 
 type Egress struct {
-	Image string
-	Allow []string
-	Reads []string
-	Env   []string
-	Trust []byte
+	Image       string
+	Allow       []string
+	SecretAllow []string
+	Env         []string
+	CABundle    []byte
 }
 
 const (
 	EnvConfig = "SPOTLIGHT_HOST_CONFIG"
 
-	envURL        = "SPOTLIGHT_URL"
-	envToken      = "SPOTLIGHT_TOKEN"
-	envTrust      = "SPOTLIGHT_TRUST"
-	envTokenFile  = "SPOTLIGHT_OIDC_TOKEN_FILE"
-	envCapacity   = "SPOTLIGHT_CAPACITY"
-	envImage      = "SPOTLIGHT_RUNNER_IMAGE"
-	envRegistry   = "SPOTLIGHT_REGISTRY_CONFIG"
-	envRunTimeout = "SPOTLIGHT_RUN_TIMEOUT"
-	envAnswerWait = protocol.AnswerWaitVar
-	envSandboxURL = "SPOTLIGHT_SANDBOX_URL"
-	envSandboxEnv = "SPOTLIGHT_SANDBOX_ENV"
-	envPass       = "SPOTLIGHT_SANDBOX_PASS"
-	envNetwork    = "SPOTLIGHT_SANDBOX_NETWORK"
-	envHosts      = "SPOTLIGHT_SANDBOX_HOSTS"
-	envEgressImg  = "SPOTLIGHT_EGRESS_IMAGE"
-	envEgressOK   = "SPOTLIGHT_EGRESS_ALLOW"
-	envEgressEnv  = "SPOTLIGHT_EGRESS_ENV"
-	envEgressPass = "SPOTLIGHT_EGRESS_PASS"
-	envEgressCA   = "SPOTLIGHT_EGRESS_TRUST"
-	envEgressRead = "SPOTLIGHT_EGRESS_READS"
-	envState      = "SPOTLIGHT_STATE"
-	envName       = "SPOTLIGHT_HOST_NAME"
-	envDocker     = "DOCKER_HOST"
+	envURL         = "SPOTLIGHT_URL"
+	envPoolToken   = "SPOTLIGHT_POOL_TOKEN"
+	envTrust       = "SPOTLIGHT_TRUST"
+	envTokenFile   = "SPOTLIGHT_OIDC_TOKEN_FILE"
+	envCapacity    = "SPOTLIGHT_CAPACITY"
+	envImage       = "SPOTLIGHT_RUNNER_IMAGE"
+	envRegistry    = "SPOTLIGHT_REGISTRY_CONFIG"
+	envRunTimeout  = "SPOTLIGHT_RUN_TIMEOUT"
+	envAnswerWait  = protocol.AnswerWaitVar
+	envSandboxURL  = "SPOTLIGHT_SANDBOX_URL"
+	envSandboxEnv  = "SPOTLIGHT_SANDBOX_ENV"
+	envPass        = "SPOTLIGHT_SANDBOX_PASS"
+	envNetwork     = "SPOTLIGHT_SANDBOX_NETWORK"
+	envHosts       = "SPOTLIGHT_SANDBOX_HOSTS"
+	envEgressImg   = "SPOTLIGHT_EGRESS_IMAGE"
+	envEgressOK    = "SPOTLIGHT_EGRESS_ALLOW"
+	envEgressEnv   = "SPOTLIGHT_EGRESS_ENV"
+	envEgressPass  = "SPOTLIGHT_EGRESS_PASS"
+	envCABundle    = "SPOTLIGHT_EGRESS_CA_BUNDLE"
+	envSecretAllow = "SPOTLIGHT_EGRESS_SECRET_ALLOW"
+	envState       = "SPOTLIGHT_STATE"
+	envName        = "SPOTLIGHT_HOST_NAME"
+	envDocker      = "DOCKER_HOST"
 )
 
 const (
@@ -86,7 +86,7 @@ const (
 	Image             = "ghcr.io/usespotlightai/spotlight-runner"
 )
 
-var hostOnly = []string{envURL, envToken, envTrust, envTokenFile, "SPOTLIGHT_HANDED", envAnswerWait}
+var hostOnly = []string{envURL, envPoolToken, envTrust, envTokenFile, "SPOTLIGHT_ASSIGNMENT_FILE", "SPOTLIGHT_RUN_TOKEN", envAnswerWait}
 
 func Path() string {
 	if path := strings.TrimSpace(os.Getenv(EnvConfig)); path != "" {
@@ -122,7 +122,7 @@ func Load(version string) (Config, error) {
 
 	cfg := Config{
 		URL:        strings.TrimSuffix(get(envURL), "/"),
-		PoolToken:  get(envToken),
+		PoolToken:  get(envPoolToken),
 		Workload:   trust.Workload{Trust: get(envTrust), TokenFile: get(envTokenFile)},
 		Network:    get(envNetwork),
 		ExtraHosts: list(get(envHosts)),
@@ -142,10 +142,10 @@ func Load(version string) (Config, error) {
 
 	switch {
 	case cfg.PoolToken != "" && (cfg.Workload.Trust != "" || cfg.Workload.TokenFile != ""):
-		note(fmt.Errorf("%s and %s are different ways in; give one", envToken, envTrust))
+		note(fmt.Errorf("%s and %s are two different authentication methods; set one", envPoolToken, envTrust))
 	case cfg.PoolToken == "" && cfg.Workload.Trust == "":
 		note(fmt.Errorf("%s (a pull pool's token) is required, or %s and %s to claim through a runner trust",
-			envToken, envTrust, envTokenFile))
+			envPoolToken, envTrust, envTokenFile))
 	case cfg.PoolToken == "" && cfg.Workload.TokenFile == "":
 		note(fmt.Errorf("%s names the workload token file, and is required with %s", envTokenFile, envTrust))
 	}
@@ -180,7 +180,7 @@ func Load(version string) (Config, error) {
 	if raw := get(envAnswerWait); raw != "" {
 		cfg.AnswerWait, err = time.ParseDuration(raw)
 		if err != nil || cfg.AnswerWait < 0 {
-			note(fmt.Errorf("%s: %q is not a duration such as 5m, or 0 to park at once", envAnswerWait, raw))
+			note(fmt.Errorf("%s: %q is not a duration such as 5m, or 0 to suspend at once", envAnswerWait, raw))
 		}
 	}
 
@@ -238,13 +238,13 @@ func withReporting(allow []string) []string {
 }
 
 func egressOf(get func(string) string, version, poolToken string) (Egress, error) {
-	egress := Egress{Image: get(envEgressImg), Allow: list(get(envEgressOK)), Reads: list(get(envEgressRead))}
+	egress := Egress{Image: get(envEgressImg), Allow: list(get(envEgressOK)), SecretAllow: list(get(envSecretAllow))}
 	if egress.Image == "" {
 		egress.Image = DefaultImage(version)
 	}
 
 	var problems []error
-	if _, err := reach.Parse(egress.Allow); err != nil {
+	if _, err := allowlist.Parse(egress.Allow); err != nil {
 		problems = append(problems, fmt.Errorf("%s: %w", envEgressOK, err))
 	}
 
@@ -267,13 +267,13 @@ func egressOf(get func(string) string, version, poolToken string) (Egress, error
 		problems = append(problems, fmt.Errorf("egress: %w", err))
 	}
 
-	if path := get(envEgressCA); path != "" {
-		egress.Trust, err = os.ReadFile(path)
+	if path := get(envCABundle); path != "" {
+		egress.CABundle, err = os.ReadFile(path)
 		switch {
 		case err != nil:
-			problems = append(problems, fmt.Errorf("%s: %w", envEgressCA, err))
-		case !x509.NewCertPool().AppendCertsFromPEM(egress.Trust):
-			problems = append(problems, fmt.Errorf("%s: %s holds no PEM certificate", envEgressCA, path))
+			problems = append(problems, fmt.Errorf("%s: %w", envCABundle, err))
+		case !x509.NewCertPool().AppendCertsFromPEM(egress.CABundle):
+			problems = append(problems, fmt.Errorf("%s: %s has no PEM certificate", envCABundle, path))
 		}
 	}
 
@@ -303,7 +303,7 @@ func sandboxed(values map[string]string, poolToken string) ([]string, error) {
 	env := make([]string, 0, len(values))
 	for key, value := range values {
 		if slices.Contains(hostOnly, key) {
-			return nil, fmt.Errorf("the sandbox environment sets %s, which only the host holds", key)
+			return nil, fmt.Errorf("the sandbox environment sets %s, which only the host has", key)
 		}
 		if poolToken != "" && strings.Contains(value, poolToken) {
 			return nil, fmt.Errorf("the sandbox environment carries the pool token in %s", key)
@@ -375,13 +375,13 @@ func HostID(state string) (string, error) {
 
 	id := rand.Text()
 	if err := os.WriteFile(path, []byte(id+"\n"), 0o600); err != nil {
-		return "", fmt.Errorf("keep the host's id: %w", err)
+		return "", fmt.Errorf("store the host's id: %w", err)
 	}
 
 	return id, nil
 }
 
-func Hold(state string) (func(), error) {
+func Lock(state string) (func(), error) {
 	if err := os.MkdirAll(state, 0o700); err != nil {
 		return nil, fmt.Errorf("make the host's state directory: %w", err)
 	}

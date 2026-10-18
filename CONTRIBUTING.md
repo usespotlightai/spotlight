@@ -62,6 +62,41 @@ docker compose up -d
 Migrations are generated, never hand-written. Auth tables come from the
 better-auth config: run `npm run auth:generate` first.
 
+## Naming
+
+- Identifiers, API fields, routes, DB columns, event names, environment
+  variables, Terraform attributes and CLI flags use the common industry term,
+  also when it is technical: inject, lease, reconcile, status, version conflict.
+- ASD-STE100 applies to comments, messages, UI text and docs prose. It does not
+  apply to identifiers.
+- Use one name for one concept. Before you name a new concept, read the
+  [docs glossary](https://docs.usespotlight.ai/docs/reference/glossary) and the
+  developer glossary below. If a name exists, use it.
+- Do not use a preposition, a past tense or a phrase as a name. A command is an
+  imperative verb, such as `renew`, `cancel` or `processDue`.
+
+### Developer glossary
+
+These terms are for the code only. The docs glossary has the terms that users
+see.
+
+| Term | Meaning |
+|---|---|
+| Built-in secret source | The secret source `built-in`: Spotlight stores the value encrypted in its own database (`secret_value`). The other sources read the value from outside. |
+| Change actor | The person, token or Spotlight that made a configuration change in one workspace (`ChangeActor`). |
+| Event delivery | One outbox event for one subscriber (`event_delivery`). A webhook delivery is one incoming webhook request; its body is the payload. |
+| Error kind | The class of a domain or application error (`ErrorKind`), such as `invalid` or `conflict`. The HTTP filters map it to a status code. |
+| Job loop | The loop that processes the due pending jobs of one kind (`JobLoop`, `PendingJobsPort.processDue`). |
+| Ledger | A table gateway that is not an aggregate repository (`*.ledger.ts`). |
+| Metered call | One usage row for each catalog tool call (`MeteredCall`). |
+| Pending job | A row that a job loop must process, with its attempts and next attempt time (`job_attempts`, `job_due_at`). |
+| Processed event | A record that a subscriber processed one event, so it does not process the event again (`processed_event`). |
+| Provisioning | The retry state when Spotlight asks a push pool for a runner (`provision_attempts`, `next_provision_attempt_at`). |
+| Recipient | The public key that Spotlight seals a run's secrets to: one key for each run in an egress sidecar, one key for each process in a shared egress. |
+| Resume key | The key of a workspace archive (`task-<id>` or `chat-<id>`). A run restores the archive of its resume key. |
+| Tombstone | A row that Spotlight keeps after it deletes data, so that it does not restore the data (`deleted_*` tables). |
+| Worker | An interval poller in the control plane (`*.worker.ts`). It runs no Spotlight runs. A runner runs Spotlight runs. |
+
 ## Releases
 
 Harnesses live only in the runner image (`.docker/runner/Dockerfile`, built

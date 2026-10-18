@@ -29,23 +29,24 @@ export class ConnectGitHubHandler
         return null;
       }
 
-      const administration = membership.administers
+      const administration = membership.isAdmin
         ? await this.administration.of(installation, by)
-        : 'does-not';
+        : 'not-admin';
 
-      if (administration === 'cannot-tell') {
+      if (administration === 'unknown') {
         throw new InstallationUnverifiableError();
       }
 
       await this.transaction.inTransaction(async () => {
-        const claimedBy = await this.connections.claimantOf(installation);
+        const connectedWorkspace =
+          await this.connections.connectedWorkspaceOf(installation);
         const connection = await this.connections.of(membership.workspaceId);
 
         await this.connections.save(
           connection.connectTo(installation, {
-            workspaceAdministered: membership.administers,
-            installationAdministered: administration === 'administers',
-            claimedBy,
+            isWorkspaceAdmin: membership.isAdmin,
+            isInstallationAdmin: administration === 'admin',
+            connectedWorkspace,
           }),
         );
       });

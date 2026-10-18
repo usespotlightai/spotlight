@@ -17,7 +17,7 @@ interface FlaggedMemory {
 }
 
 export interface TeamMemoryUse {
-  readonly standing: number;
+  readonly activeCount: number;
   readonly flagged: readonly FlaggedMemory[];
 }
 

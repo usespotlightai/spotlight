@@ -1,7 +1,7 @@
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
-import { RunnerSpentError } from '@runners/domain/exceptions/runner-spent.error';
-import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { RunnerAlreadyClaimedError } from '@runners/domain/exceptions/runner-already-claimed.error';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
 import type { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
@@ -13,28 +13,30 @@ import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export type RunnerClaims = 'reserved' | 'nothing';
 
-const HOLDS_UNSEEN_MS: Readonly<Record<RunnerWorkKind, number>> = {
+const HEARTBEAT_TIMEOUT_MS: Readonly<Record<RunnerWorkKind, number>> = {
   run: 3 * 60_000,
   check: 12 * 60_000,
 };
 
-const LONGEST_HOLD_UNSEEN_MS = Math.max(...Object.values(HOLDS_UNSEEN_MS));
+const MAX_HEARTBEAT_TIMEOUT_MS = Math.max(
+  ...Object.values(HEARTBEAT_TIMEOUT_MS),
+);
 
-const REMEMBERED_AFTER_ENDING_MS = 24 * 60 * 60_000;
+const ENDED_RETENTION_MS = 24 * 60 * 60_000;
 
 const RECORDS_AFTER_ENDING_MS = 2 * 60_000;
 
 interface State {
   readonly id: RunnerId;
   readonly workspaceId: WorkspaceId;
-  readonly admission: Admission;
+  readonly source: CredentialSource;
   readonly hostId: HostId | null;
   readonly labels: RunnerLabels;
   readonly tokenHash: TokenHash;
@@ -45,7 +47,7 @@ interface State {
   readonly work: RunnerWork | null;
   readonly claimBy: Date;
   readonly startedAt: Date;
-  readonly lastSeenAt: Date | null;
+  readonly lastHeartbeatAt: Date | null;
   readonly endedAt: Date | null;
   readonly version: number;
 }
@@ -72,19 +74,16 @@ export class Runner extends EventRecorder {
   }): Runner {
     const { through } = input;
 
-    if (
-      through instanceof RunnerPool ? through.isRetired : through.isWithdrawn
-    ) {
+    if (through.isDeleted) {
       throw new InconsistentStateError(
         'runner',
         'was started through a pool or trust that is gone',
       );
     }
 
-    const goesOutThroughEgress =
-      through instanceof RunnerPool && through.egress !== null;
+    const usesEgress = through instanceof RunnerPool && through.egress !== null;
 
-    if (goesOutThroughEgress !== (input.proxyCredentialHash !== null)) {
+    if (usesEgress !== (input.proxyCredentialHash !== null)) {
       throw new InconsistentStateError(
         'runner',
         'was given a proxy credential that does not match the egress of its pool',
@@ -102,7 +101,7 @@ export class Runner extends EventRecorder {
       {
         id: input.id,
         workspaceId: through.workspaceId,
-        admission: Admission.through(through.id),
+        source: CredentialSource.ofId(through.id),
         hostId: input.host,
         labels: through.labels,
         tokenHash: input.tokenHash,
@@ -113,7 +112,7 @@ export class Runner extends EventRecorder {
         work: null,
         claimBy: input.claimBy,
         startedAt: input.at,
-        lastSeenAt: null,
+        lastHeartbeatAt: null,
         endedAt: null,
         version: 0,
       },
@@ -144,8 +143,8 @@ export class Runner extends EventRecorder {
     return this.state.workspaceId;
   }
 
-  get admission(): Admission {
-    return this.state.admission;
+  get source(): CredentialSource {
+    return this.state.source;
   }
 
   get hostId(): HostId | null {
@@ -188,8 +187,8 @@ export class Runner extends EventRecorder {
     return this.state.startedAt;
   }
 
-  get lastSeenAt(): Date | null {
-    return this.state.lastSeenAt;
+  get lastHeartbeatAt(): Date | null {
+    return this.state.lastHeartbeatAt;
   }
 
   get endedAt(): Date | null {
@@ -208,42 +207,42 @@ export class Runner extends EventRecorder {
     return this.state.installed.map((each) => each.id);
   }
 
-  get terms(): RunnerTerms {
-    return RunnerTerms.of(this.state.labels.values).runningIn(
+  get offer(): RunnerOffer {
+    return RunnerOffer.of(this.state.labels.values).runningIn(
       this.state.running,
     );
   }
 
-  standsAt(now: Date): boolean {
-    return !this.hasEnded && now.getTime() < this.standsUntil.getTime();
+  isAlive(now: Date): boolean {
+    return !this.hasEnded && now.getTime() < this.leaseExpiresAt.getTime();
   }
 
-  private get standsUntil(): Date {
-    const { work, lastSeenAt, claimBy } = this.state;
+  private get leaseExpiresAt(): Date {
+    const { work, lastHeartbeatAt, claimBy } = this.state;
 
-    return work !== null && lastSeenAt
-      ? new Date(lastSeenAt.getTime() + HOLDS_UNSEEN_MS[work.kind])
+    return work !== null && lastHeartbeatAt
+      ? new Date(lastHeartbeatAt.getTime() + HEARTBEAT_TIMEOUT_MS[work.kind])
       : claimBy;
   }
 
-  static unseenSinceLongestHold(now: Date): Date {
-    return new Date(now.getTime() - LONGEST_HOLD_UNSEEN_MS);
+  static heartbeatTimedOutBefore(now: Date): Date {
+    return new Date(now.getTime() - MAX_HEARTBEAT_TIMEOUT_MS);
   }
 
-  static rememberedEndingSince(now: Date): Date {
-    return new Date(now.getTime() - REMEMBERED_AFTER_ENDING_MS);
+  static endedRetentionSince(now: Date): Date {
+    return new Date(now.getTime() - ENDED_RETENTION_MS);
   }
 
-  workEgressActsFor(now: Date): RunnerWork | null {
-    return this.state.egressTokenHash !== null && this.standsAt(now)
+  authenticateEgressToken(now: Date): RunnerWork | null {
+    return this.state.egressTokenHash !== null && this.isAlive(now)
       ? this.state.work
       : null;
   }
 
-  workEgressRecordsFor(now: Date): RunnerWork | null {
+  workForConnectionRecords(now: Date): RunnerWork | null {
     const { endedAt, work } = this.state;
     const recordsStill =
-      this.standsAt(now) ||
+      this.isAlive(now) ||
       (endedAt !== null &&
         now.getTime() <= endedAt.getTime() + RECORDS_AFTER_ENDING_MS);
 
@@ -251,32 +250,32 @@ export class Runner extends EventRecorder {
   }
 
   claimsAt(now: Date): RunnerClaims {
-    return this.state.work === null && this.standsAt(now)
+    return this.state.work === null && this.isAlive(now)
       ? 'reserved'
       : 'nothing';
   }
 
   register(installed: readonly InstalledHarness[], at: Date): Runner {
-    this.refuseEnded();
+    this.assertNotEnded();
 
-    return this.with({ installed: [...installed], lastSeenAt: at });
+    return this.with({ installed: [...installed], lastHeartbeatAt: at });
   }
 
-  seen(at: Date): Runner {
-    this.refuseEnded();
+  heartbeat(at: Date): Runner {
+    this.assertNotEnded();
 
-    return this.with({ lastSeenAt: at });
+    return this.with({ lastHeartbeatAt: at });
   }
 
-  took(work: RunnerWork, at: Date): Runner {
-    if (this.state.work !== null || !this.standsAt(at)) {
-      throw new RunnerSpentError(this.state.id.value);
+  claim(work: RunnerWork, at: Date): Runner {
+    if (this.state.work !== null || !this.isAlive(at)) {
+      throw new RunnerAlreadyClaimedError(this.state.id.value);
     }
 
-    return this.with({ work, lastSeenAt: at });
+    return this.with({ work, lastHeartbeatAt: at });
   }
 
-  holds(work: RunnerWork): boolean {
+  hasLeaseOn(work: RunnerWork): boolean {
     return this.state.work?.equals(work) ?? false;
   }
 
@@ -288,7 +287,7 @@ export class Runner extends EventRecorder {
     return this.with({ endedAt: at });
   }
 
-  letGo(at: Date): Runner {
+  release(at: Date): Runner {
     if (this.state.work !== null) {
       return this.ended(at);
     }
@@ -300,12 +299,12 @@ export class Runner extends EventRecorder {
   }
 
   reservationDropped(at: Date): Runner {
-    return this.state.work === null ? this.letGo(at) : this;
+    return this.state.work === null ? this.release(at) : this;
   }
 
-  private refuseEnded(): void {
+  private assertNotEnded(): void {
     if (this.hasEnded) {
-      throw new RunnerSpentError(this.state.id.value);
+      throw new RunnerAlreadyClaimedError(this.state.id.value);
     }
   }
 

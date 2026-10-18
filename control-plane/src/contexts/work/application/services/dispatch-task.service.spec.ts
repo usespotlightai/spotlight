@@ -1,6 +1,6 @@
 import type {
-  CatalogGiving,
-  CatalogNamed,
+  CatalogRequest,
+  EntitledItems,
 } from '@catalog/application/contracts/catalog.contract';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -24,7 +24,7 @@ import type {
   SkillsHome,
 } from '@work/application/ports/harness-launch.port';
 import type {
-  BriefingPlace,
+  BriefingContext,
   BriefingSelection,
   TouchedFile,
 } from '@work/application/ports/team-memories.port';
@@ -57,6 +57,7 @@ import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
@@ -65,12 +66,11 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
-import { Sha256ContentDigest } from '@work/infrastructure/hashing/sha256-content-digest';
+import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-08-28T12:00:00.000Z');
@@ -134,7 +134,7 @@ const launch: HarnessLaunchPort = {
                     value,
                   })),
                 })),
-                asks: ['execute'],
+                askKinds: ['execute'],
               }
             : null,
         }
@@ -155,7 +155,7 @@ const at = (
   position: number,
   harness?: HarnessId,
   passesTo: string[] = [],
-  gives: { tools?: string[]; skills?: SkillKey[] } = {},
+  enables: { tools?: string[]; skills?: SkillKey[] } = {},
 ) =>
   Station.of({
     id: StationId.of(id),
@@ -164,11 +164,11 @@ const at = (
     position,
     color: StationColor.of('#a3a8b0'),
     harness,
-    wayOut: WayOut.of({ stations: passesTo.map(StationId.of) }),
+    routes: StationRoutes.of({ stations: passesTo.map(StationId.of) }),
     kind:
       position === 0 ? 'backlog' : name === 'Completed' ? 'completed' : 'work',
-    tools: (gives.tools ?? []).map((each) => Tool.of(each)),
-    skills: gives.skills ?? [],
+    tools: (enables.tools ?? []).map((each) => Tool.of(each)),
+    skills: enables.skills ?? [],
   });
 
 const stations = [
@@ -178,55 +178,60 @@ const stations = [
   at('station_4', 'Completed', 3),
 ];
 
-const triage = (gives: { tools?: string[]; skills?: SkillKey[] }) =>
-  at('station_2', 'Triage', 1, DEV.id, ['station_3'], gives);
+const triage = (enables: { tools?: string[]; skills?: SkillKey[] }) =>
+  at('station_2', 'Triage', 1, DEV.id, ['station_3'], enables);
 
 const task = (stationId: string, title = 'Fix the queue') =>
   Task.add({
-    line: held(),
+    line: lineWith(),
     at: StationId.of(stationId),
     title: TaskTitle.of(title),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
   });
 
 let queued: Run[] = [];
-let kept: RunExtras[] = [];
+let extras: RunExtras[] = [];
 
 const runs = {
   add: async (run: Run, alongside: RunExtras = {}) => {
     queued.push(run);
-    kept.push(alongside);
+    extras.push(alongside);
   },
 } as unknown as RunRepository;
 
 const ids: IdGeneratorPort = { generate: () => 'run_1' };
 
-type Worked = string | WorkedRepository;
+type RepositoryInput = string | LineRepositoryConfig;
 
-const worked = (each: Worked): WorkedRepository =>
-  typeof each === 'string' ? WorkedRepository.of(Repository.of(each)) : each;
+const repositoryConfig = (each: RepositoryInput): LineRepositoryConfig =>
+  typeof each === 'string'
+    ? LineRepositoryConfig.of(Repository.of(each))
+    : each;
 
-const held = (changed?: Station, repositories: readonly Worked[] = []) =>
+const lineWith = (
+  changed?: Station,
+  repositories: readonly RepositoryInput[] = [],
+) =>
   Line.rehydrate({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     key: LineKey.of('default'),
     name: LineName.of('Default'),
-    repositories: repositories.map(worked),
+    repositories: repositories.map(repositoryConfig),
     stations: changed
       ? stations.map((each) => (each.equals(changed) ? changed : each))
       : stations,
   });
 
-const SHIPPED_SKILLS: ReadySkillFolder[] = [
+const BUILT_IN_SKILL_FOLDERS: ReadySkillFolder[] = [
   {
     skill: {
       key: HANDING_OVER.value,
-      description: 'Handing a task on.',
+      description: 'Passing a task on.',
       tools: [],
     },
     files: [
@@ -258,30 +263,31 @@ const SHIPPED_SKILLS: ReadySkillFolder[] = [
   },
 ];
 
-const SHIPPED: BuiltInSkillsPort = {
-  named: (key) => SHIPPED_SKILLS.find((each) => each.skill.key === key) ?? null,
+const BUILT_IN: BuiltInSkillsPort = {
+  named: (key) =>
+    BUILT_IN_SKILL_FOLDERS.find((each) => each.skill.key === key) ?? null,
 };
 
-let offeredTools: DeclaredTool[] = [];
-let offeredAsked: string[] = [];
+let providedTools: DeclaredTool[] = [];
+let providedRequested: string[] = [];
 
 const integrations = {
-  offered: async (_line: unknown, tools: readonly Tool[]) => {
-    offeredAsked = tools.map((each) => each.value);
-    return offeredTools;
+  provided: async (_line: unknown, tools: readonly Tool[]) => {
+    providedRequested = tools.map((each) => each.value);
+    return providedTools;
   },
 } as unknown as TeamIntegrations;
 
-let keptSkills: ReadySkillFolder[] = [];
+let readySkills: ReadySkillFolder[] = [];
 
 const teamSkills = {
   readyAt: async (_line: Line, station: Station) =>
-    keptSkills.filter((each) =>
+    readySkills.filter((each) =>
       station.skills.some((key) => key.value === each.skill.key),
     ),
 } as unknown as StationSkills;
 
-const toolsGiven = (run?: Run) =>
+const enabledTools = (run?: Run) =>
   (run ? (RunSpecContract.toWire(run.spec).manifest ?? []) : []).map(
     (each) => each.name,
   );
@@ -295,13 +301,13 @@ const tracing = {
     `trace:${searchId.value}:${runId.value}`,
 };
 
-let catalogGiving: CatalogGiving = { tools: [], skills: [], refused: [] };
-let catalogAsked: CatalogNamed[] = [];
+let entitledItems: EntitledItems = { tools: [], skills: [], denied: [] };
+let catalogRequested: CatalogRequest[] = [];
 
 const catalog = new StationCatalog({
-  givenTo: async (_workspace, named) => {
-    catalogAsked.push(named);
-    return catalogGiving;
+  entitledTo: async (_workspace, named) => {
+    catalogRequested.push(named);
+    return entitledItems;
   },
   call: async () => ({ kind: 'answered', output: null }),
 });
@@ -316,20 +322,20 @@ const WEB_SEARCH = {
       description: null,
       required: true,
       defaulted: false,
-      piped: false,
+      stdin: false,
     },
   ],
 };
 
-let briefedAt: BriefingPlace[] = [];
-let remembered: BriefingSelection = { briefed: [], cut: [], folder: null };
+let briefedAt: BriefingContext[] = [];
+let remembered: BriefingSelection = { briefed: [], omitted: [], folder: null };
 let touchedOnTask: TouchedFile[] = [];
 let memoryFails = false;
 
 const dispatch = async (
   station: Station,
-  standing?: Task,
-  repositories?: readonly Worked[],
+  existing?: Task,
+  repositories?: readonly RepositoryInput[],
 ) => {
   const service = new DispatchTask(
     runs,
@@ -337,14 +343,14 @@ const dispatch = async (
     harnesses,
     launch,
     tracing,
-    SHIPPED,
+    BUILT_IN,
     teamSkills,
     integrations,
     { ofTask: async () => [] },
     catalog,
     profiles,
     {
-      forBriefing: async (place: BriefingPlace) => {
+      forBriefing: async (place: BriefingContext) => {
         briefedAt.push(place);
         if (memoryFails) {
           throw new Error('memory is down');
@@ -360,14 +366,18 @@ const dispatch = async (
       error: () => undefined,
     },
     { inSavepoint: (work) => work() },
-    new Sha256ContentDigest(),
+    new Sha256ContentHash(),
   );
-  const working = standing ?? task(station.id.value);
-  const line = held(station, repositories);
+  const working = existing ?? task(station.id.value);
+  const line = lineWith(station, repositories);
   const runId = await service.runIdFor({ task: working, line });
 
   if (runId) {
-    await service.enqueue({ task: working.handedTo(runId, line), line, runId });
+    await service.enqueue({
+      task: working.assignRun(runId, line),
+      line,
+      runId,
+    });
   }
 
   return runId;
@@ -376,16 +386,16 @@ const dispatch = async (
 describe('DispatchTask', () => {
   beforeEach(() => {
     briefedAt = [];
-    remembered = { briefed: [], cut: [], folder: null };
+    remembered = { briefed: [], omitted: [], folder: null };
     touchedOnTask = [];
     queued = [];
-    kept = [];
-    catalogGiving = { tools: [], skills: [], refused: [] };
-    catalogAsked = [];
+    extras = [];
+    entitledItems = { tools: [], skills: [], denied: [] };
+    catalogRequested = [];
   });
 
-  describe('what it gives from the catalog', () => {
-    it('asks the catalog only for what the station names from it', async () => {
+  describe('what it enables from the catalog', () => {
+    it('requests from the catalog only what the station names from it', async () => {
       await dispatch(
         triage({
           tools: ['pull-request', 'catalog.web-search@1.1.0'],
@@ -393,7 +403,7 @@ describe('DispatchTask', () => {
         }),
       );
 
-      expect(catalogAsked).toEqual([
+      expect(catalogRequested).toEqual([
         {
           tools: ['catalog.web-search@1.1.0'],
           skills: ['catalog.research@1.0.0'],
@@ -401,24 +411,24 @@ describe('DispatchTask', () => {
       ]);
     });
 
-    it('asks it nothing where the station names nothing from it', async () => {
+    it('requests nothing from it where the station names nothing from it', async () => {
       await dispatch(triage({ tools: ['pull-request'] }));
 
-      expect(catalogAsked).toEqual([]);
+      expect(catalogRequested).toEqual([]);
     });
 
     it('names a catalog tool without its version, and pins the version in the run', async () => {
-      catalogGiving = { tools: [WEB_SEARCH], skills: [], refused: [] };
+      entitledItems = { tools: [WEB_SEARCH], skills: [], denied: [] };
 
       await dispatch(triage({ tools: ['catalog.web-search@1.1.0'] }));
 
-      expect(toolsGiven(queued[0])).toEqual(['catalog.web-search']);
+      expect(enabledTools(queued[0])).toEqual(['catalog.web-search']);
       expect(written(queued[0]).catalog).toEqual(['catalog.web-search@1.1.0']);
       expect(queued[0]?.state).toBe('queued');
     });
 
-    it('lays a catalog skill in its own folder and gives the tools it brings', async () => {
-      catalogGiving = {
+    it('lays a catalog skill in its own folder and enables the tools it uses', async () => {
+      entitledItems = {
         tools: [WEB_SEARCH],
         skills: [
           {
@@ -428,7 +438,7 @@ describe('DispatchTask', () => {
             tools: [WEB_SEARCH.id],
           },
         ],
-        refused: [],
+        denied: [],
       };
 
       await dispatch(
@@ -438,19 +448,19 @@ describe('DispatchTask', () => {
       expect(written(queued[0]).skills?.map((each) => each.path)).toContain(
         '.claude/skills/spotlight-catalog-research/SKILL.md',
       );
-      expect(toolsGiven(queued[0])).toEqual(['catalog.web-search']);
+      expect(enabledTools(queued[0])).toEqual(['catalog.web-search']);
     });
 
-    it('fails the run as entitlement_lapsed, rather than running without it, when the plan has lapsed', async () => {
-      catalogGiving = {
+    it('fails the run as entitlement_expired, rather than running without it, when the plan has expired', async () => {
+      entitledItems = {
         tools: [],
         skills: [],
-        refused: [
+        denied: [
           {
             id: WEB_SEARCH.id,
-            reason: 'lapsed',
+            reason: 'expired',
             because:
-              'catalog.web-search@1.1.0 needs the Team plan, and this workspace’s Team plan lapsed at 2026-09-01T00:00:00.000Z',
+              'catalog.web-search@1.1.0 requires the Team plan, and this workspace’s Team plan expired at 2026-09-01T00:00:00.000Z',
           },
         ],
       };
@@ -459,7 +469,7 @@ describe('DispatchTask', () => {
 
       expect(queued[0]?.state).toBe('failed');
       expect(queued[0]?.outcome?.message).toBe(
-        'entitlement_lapsed: catalog.web-search@1.1.0 needs the Team plan, and this workspace’s Team plan lapsed at 2026-09-01T00:00:00.000Z',
+        'entitlement_expired: catalog.web-search@1.1.0 requires the Team plan, and this workspace’s Team plan expired at 2026-09-01T00:00:00.000Z',
       );
       expect(queued[0]?.pullEvents().map((each) => each.kind)).toEqual([
         'run.completed',
@@ -467,30 +477,30 @@ describe('DispatchTask', () => {
     });
   });
 
-  describe('why it refuses a run the catalog withholds from', () => {
+  describe('why it refuses a run that the catalog denies an item to', () => {
     it.each([
       ['unknown', 'catalog_item_unknown'],
       ['wrong-kind', 'catalog_item_wrong_kind'],
       ['not-entitled', 'not_entitled'],
-      ['lapsed', 'entitlement_lapsed'],
+      ['expired', 'entitlement_expired'],
     ] as const)('names a refusal for %s as %s', async (reason, code) => {
-      catalogGiving = {
+      entitledItems = {
         tools: [],
         skills: [],
-        refused: [{ id: WEB_SEARCH.id, reason, because: 'withheld here' }],
+        denied: [{ id: WEB_SEARCH.id, reason, because: 'denied here' }],
       };
 
       await dispatch(triage({ tools: ['catalog.web-search@1.1.0'] }));
 
-      expect(queued[0]?.outcome?.message).toBe(`${code}: withheld here`);
+      expect(queued[0]?.outcome?.message).toBe(`${code}: denied here`);
     });
 
     it('names every refusal, each by its own reason', async () => {
-      catalogGiving = {
+      entitledItems = {
         tools: [],
         skills: [],
-        refused: [
-          { id: WEB_SEARCH.id, reason: 'lapsed', because: 'lapsed here' },
+        denied: [
+          { id: WEB_SEARCH.id, reason: 'expired', because: 'expired here' },
           {
             id: 'catalog.research@9.0.0',
             reason: 'unknown',
@@ -507,7 +517,7 @@ describe('DispatchTask', () => {
       );
 
       expect(queued[0]?.outcome?.message).toBe(
-        'entitlement_lapsed: lapsed here; catalog_item_unknown: unknown here',
+        'entitlement_expired: expired here; catalog_item_unknown: unknown here',
       );
     });
   });
@@ -570,7 +580,7 @@ describe('DispatchTask', () => {
 
     it('makes each checkout ready as its repository says', async () => {
       await dispatch(stations[1] as Station, undefined, [
-        WorkedRepository.of(Repository.of('acme/api'), {
+        LineRepositoryConfig.of(Repository.of('acme/api'), {
           setup: RepositorySetup.of('npm ci'),
         }),
         'acme/web',
@@ -591,7 +601,7 @@ describe('DispatchTask', () => {
       ]);
     });
 
-    it('records the station’s check on the run its change is drafted from, so later edits to the station leave it be', async () => {
+    it('records the station’s check on the run its change stack is generated from, so later edits to the station leave it be', async () => {
       const checking = (diffs: boolean) =>
         Station.of({
           id: StationId.of('station_2'),
@@ -600,7 +610,7 @@ describe('DispatchTask', () => {
           position: 1,
           color: StationColor.of('#a3a8b0'),
           harness: DEV.id,
-          wayOut: WayOut.of({ stations: [StationId.of('station_3')] }),
+          routes: StationRoutes.of({ stations: [StationId.of('station_3')] }),
           kind: 'work',
           diffs,
           check: StationCheck.of('npm test'),
@@ -615,16 +625,16 @@ describe('DispatchTask', () => {
 
     it('places the run in the image the line’s repositories name', async () => {
       await dispatch(stations[1] as Station, undefined, [
-        WorkedRepository.of(Repository.of('acme/api'), {
+        LineRepositoryConfig.of(Repository.of('acme/api'), {
           image: RunnerImage.of('ghcr.io/acme/api:1'),
         }),
       ]);
 
       expect(queued[0]?.placement.image?.value).toBe('ghcr.io/acme/api:1');
-      expect(queued[0]?.placement.clauses).toEqual([]);
+      expect(queued[0]?.placement.labelGroups).toEqual([]);
     });
 
-    it('asks for no checkout where the line works no repository', async () => {
+    it('requests no checkout where the line works no repository', async () => {
       await dispatch(stations[1] as Station);
 
       expect(written(queued[0]).checkouts).toEqual([]);
@@ -648,7 +658,7 @@ describe('DispatchTask', () => {
         color: StationColor.of('#a3a8b0'),
         harness: DEV.id,
         profile: ProfileKey.of(profile),
-        wayOut: WayOut.of({ stations: [StationId.of('station_3')] }),
+        routes: StationRoutes.of({ stations: [StationId.of('station_3')] }),
       });
 
     beforeEach(() => {
@@ -661,11 +671,11 @@ describe('DispatchTask', () => {
       expect(written(queued[0]).harnessSetup).toEqual({
         files: [{ path: 'dev/settings.json', text: 'careful' }],
         mcpServers: [],
-        asks: ['execute'],
+        askKinds: ['execute'],
       });
     });
 
-    it('hands an MCP server a stand-in for each secret it wears, and the run the secrets to redeem', async () => {
+    it('hands an MCP server a stand-in for each secret that egress injects, and the run the secrets to fetch', async () => {
       teamProfiles = {
         careful,
         linear: {
@@ -702,10 +712,10 @@ describe('DispatchTask', () => {
         ],
         [{ name: 'TOKEN', value: 'spotlight-egress:LINEAR_API_KEY' }],
       ]);
-      expect(spec.wears).toEqual(['LINEAR_API_KEY']);
+      expect(spec.injectedSecrets).toEqual(['LINEAR_API_KEY']);
     });
 
-    it('fails the run, saying why, where the team holds no such profile', async () => {
+    it('fails the run, saying why, where the team has no such profile', async () => {
       const id = await dispatch(naming('reckless'));
 
       expect(id).not.toBeNull();
@@ -720,7 +730,7 @@ describe('DispatchTask', () => {
       await dispatch(stations[1] as Station);
 
       expect(written(queued[0]).harnessSetup).toBeUndefined();
-      expect(written(queued[0]).wears).toBeUndefined();
+      expect(written(queued[0]).injectedSecrets).toBeUndefined();
       expect(queued[0]?.placement.isAnywhere).toBe(true);
     });
   });
@@ -733,16 +743,16 @@ describe('DispatchTask', () => {
     expect(queued[0]?.harness.value).toBe(DEV.id.value);
   });
 
-  it('hands the run what its station may reach for', async () => {
+  it('hands the run what its station enables', async () => {
     await dispatch(triage({ tools: ['pull-request'] }));
 
-    expect(toolsGiven(queued[0])).toEqual(['pull-request']);
+    expect(enabledTools(queued[0])).toEqual(['pull-request']);
   });
 
   it('hands a station with no tools none', async () => {
     await dispatch(stations[1] as Station);
 
-    expect(toolsGiven(queued[0])).toEqual([]);
+    expect(enabledTools(queued[0])).toEqual([]);
   });
 
   it('queues nothing for a station nothing works', async () => {
@@ -759,7 +769,7 @@ describe('DispatchTask', () => {
     expect(queued).toHaveLength(0);
   });
 
-  it('gives a run the standing of the station it serves', async () => {
+  it('gives a run the priority of the station it serves', async () => {
     await dispatch(stations[2] as Station);
 
     expect(queued[0]?.priority.value).toBe(2);
@@ -798,7 +808,7 @@ describe('DispatchTask', () => {
     expect(spec.command.args).toEqual([...DEV_ARGS]);
   });
 
-  it('briefs the agent in the same words it gives the runner', async () => {
+  it('briefs the agent in the same words that it sends the runner', async () => {
     await dispatch(stations[1] as Station);
 
     const spec = written(queued[0]);
@@ -810,33 +820,33 @@ describe('DispatchTask', () => {
 
   it('records on the run the task exactly as it was briefed', async () => {
     const station = stations[1] as Station;
-    const worked = task(station.id.value, 'Drain the queue');
+    const dispatched = task(station.id.value, 'Drain the queue');
 
-    await dispatch(station, worked);
+    await dispatch(station, dispatched);
 
     const run = queued[0] as Run;
 
-    expect(kept[0]?.briefed?.equals(worked.briefed)).toBe(true);
-    expect(kept[0]?.briefed?.title).toBe('Drain the queue');
+    expect(extras[0]?.briefed?.equals(dispatched.briefed)).toBe(true);
+    expect(extras[0]?.briefed?.title).toBe('Drain the queue');
     expect(written(run).briefing).toContain('## Drain the queue');
   });
 
-  it('asks the runner to say where the run started', async () => {
+  it('requests the runner to say where the run started', async () => {
     await dispatch(stations[1] as Station);
 
     expect(written(queued[0]).startingPoint).toBe(true);
   });
 
   describe('carrying on where the last run stopped', () => {
-    const continuityOf = (at: number) => {
+    const resumeOf = (at: number) => {
       const run = queued[at];
       if (!run) {
         throw new Error(`nothing was queued at ${at}`);
       }
-      return written(run).continuity;
+      return written(run).resume;
     };
 
-    const worked = (station: Station) =>
+    const taskAt = (station: Station) =>
       task(station.id.value).recordSession(
         HarnessSession.of('session_1'),
         RunnerId.of('runner_1'),
@@ -846,18 +856,18 @@ describe('DispatchTask', () => {
       const station = stations[1] as Station;
 
       await dispatch(station);
-      await dispatch(station, worked(station));
+      await dispatch(station, taskAt(station));
 
-      expect(continuityOf(0).key).toBe('task-task_1');
-      expect(continuityOf(1).key).toBe(continuityOf(0).key);
+      expect(resumeOf(0).key).toBe('task-task_1');
+      expect(resumeOf(1).key).toBe(resumeOf(0).key);
     });
 
     it('gives it the same one at the next station', async () => {
       await dispatch(stations[1] as Station);
       await dispatch(stations[2] as Station);
 
-      expect(continuityOf(0).key).toBe('task-task_1');
-      expect(continuityOf(1).key).toBe(continuityOf(0).key);
+      expect(resumeOf(0).key).toBe('task-task_1');
+      expect(resumeOf(1).key).toBe(resumeOf(0).key);
     });
 
     it('names every skill home and harness setting, so what an earlier station left is cleared', async () => {
@@ -873,32 +883,32 @@ describe('DispatchTask', () => {
       ]);
     });
 
-    it('asks for the conversation the task was last worked in', async () => {
+    it('requests the conversation the task was last worked in', async () => {
       const station = stations[1] as Station;
 
-      await dispatch(station, worked(station));
+      await dispatch(station, taskAt(station));
 
-      expect(continuityOf(0).sessionId).toBe('session_1');
+      expect(resumeOf(0).sessionId).toBe('session_1');
     });
 
-    it('asks for no conversation when there is nothing to resume', async () => {
+    it('requests no conversation when there is nothing to resume', async () => {
       const station = stations[1] as Station;
 
       await dispatch(station);
 
-      expect(continuityOf(0).sessionId).toBeUndefined();
+      expect(resumeOf(0).sessionId).toBeUndefined();
     });
   });
 });
 
-describe('DispatchTask, the skills a run is given', () => {
+describe('DispatchTask, the skills a station enables for a run', () => {
   const laid = () => (written(queued[0]).skills ?? []).map((each) => each.path);
 
   beforeEach(() => {
     queued = [];
-    kept = [];
+    extras = [];
     skillsHome = { directory: '.claude/skills', readByHarness: true };
-    keptSkills = [];
+    readySkills = [];
   });
 
   it('lays the handover skill where the harness reads skills, and lists none', async () => {
@@ -911,7 +921,7 @@ describe('DispatchTask, the skills a run is given', () => {
     expect(written(queued[0]).briefing).not.toContain('## Skills');
   });
 
-  it('lays a tool’s skill only for a station given the tool', async () => {
+  it('lays a tool’s skill only for a station that enables the tool', async () => {
     await dispatch(triage({ tools: ['pull-request'] }));
 
     expect(laid()).toEqual([
@@ -921,28 +931,28 @@ describe('DispatchTask, the skills a run is given', () => {
   });
 
   it('lays the skill of finding and calling tools, and briefs where they come from, where an integration’s tool is described', async () => {
-    offeredTools = [
+    providedTools = [
       DeclaredTool.of({
         tool: Tool.of('linear.comment'),
         description: 'Comment on the issue.',
-        offeredBy: 'Linear',
+        providedBy: 'Linear',
       }),
     ];
 
     await dispatch(triage({ tools: ['linear.comment'] }));
-    offeredTools = [];
+    providedTools = [];
 
     expect(laid()).toEqual([
       '.claude/skills/spotlight-handover/SKILL.md',
       '.claude/skills/spotlight-tools/SKILL.md',
     ]);
     expect(written(queued[0]).briefing).toContain(
-      'You were given tools from Linear (1).',
+      'Your station enables tools from Linear (1).',
     );
   });
 
   it('lays no skill of finding tools where nothing describes the integration’s tool', async () => {
-    offeredTools = [];
+    providedTools = [];
 
     await dispatch(triage({ tools: ['linear.missing'] }));
 
@@ -957,7 +967,7 @@ describe('DispatchTask, the skills a run is given', () => {
 
     expect(laid()).toEqual(['.spotlight/skills/spotlight-handover/SKILL.md']);
     expect(written(queued[0]).briefing).toContain(
-      '- `.spotlight/skills/spotlight-handover/SKILL.md` — Handing a task on.',
+      '- `.spotlight/skills/spotlight-handover/SKILL.md` — Passing a task on.',
     );
   });
 });
@@ -968,11 +978,11 @@ describe('DispatchTask, the team’s own skills', () => {
 
   beforeEach(() => {
     queued = [];
-    kept = [];
+    extras = [];
     skillsHome = { directory: '.claude/skills', readByHarness: true };
-    offeredTools = [];
-    offeredAsked = [];
-    keptSkills = [
+    providedTools = [];
+    providedRequested = [];
+    readySkills = [
       {
         skill: {
           key: OURS.value,
@@ -997,8 +1007,8 @@ describe('DispatchTask, the team’s own skills', () => {
     ]);
   });
 
-  it('gives the run the tools a skill it lays brings, and the skill of each of Spotlight’s', async () => {
-    keptSkills = [
+  it('enables the tools that a skill it lays uses, and the skill of each of Spotlight’s', async () => {
+    readySkills = [
       {
         skill: {
           key: OURS.value,
@@ -1008,7 +1018,7 @@ describe('DispatchTask, the team’s own skills', () => {
         files: [{ path: 'SKILL.md', text: `---\nname: ${OURS.value}\n---\n` }],
       },
     ];
-    offeredTools = [
+    providedTools = [
       DeclaredTool.of({
         tool: Tool.of('grafana.search'),
         description: 'Search the dashboards.',
@@ -1017,7 +1027,7 @@ describe('DispatchTask, the team’s own skills', () => {
 
     await dispatch(triage({ skills: [OURS] }));
 
-    expect(toolsGiven(queued[0])).toEqual(['grafana.search', 'pull-request']);
+    expect(enabledTools(queued[0])).toEqual(['grafana.search', 'pull-request']);
     expect(
       (written(queued[0]).manifest ?? []).map((each) => each.name),
     ).toEqual(['grafana.search', 'pull-request']);
@@ -1029,8 +1039,8 @@ describe('DispatchTask, the team’s own skills', () => {
     ]);
   });
 
-  it('leaves out one the team no longer keeps', async () => {
-    keptSkills = [];
+  it('leaves out one the team no longer has', async () => {
+    readySkills = [];
 
     await dispatch(triage({ skills: [OURS] }));
 
@@ -1043,9 +1053,9 @@ describe('DispatchTask, the tools a run is told about', () => {
 
   beforeEach(() => {
     queued = [];
-    kept = [];
-    offeredTools = [];
-    offeredAsked = [];
+    extras = [];
+    providedTools = [];
+    providedRequested = [];
   });
 
   it('describes Spotlight’s own tools, and what they take, without reading the team’s', async () => {
@@ -1057,11 +1067,11 @@ describe('DispatchTask, the tools a run is told about', () => {
       'body',
       'repository',
     ]);
-    expect(offeredAsked).toEqual(['pull-request']);
+    expect(providedRequested).toEqual(['pull-request']);
   });
 
   it('describes a tool a team’s integration offers, where the station names it', async () => {
-    offeredTools = [
+    providedTools = [
       DeclaredTool.of({
         tool: Tool.of('linear.comment'),
         description: 'Comment on the issue.',
@@ -1072,7 +1082,7 @@ describe('DispatchTask, the tools a run is told about', () => {
             description: null,
             required: true,
             defaulted: false,
-            piped: true,
+            stdin: true,
           },
         ],
       }),
@@ -1097,7 +1107,7 @@ describe('DispatchTask, the tools a run is told about', () => {
           schema: { type: 'string' },
           required: true,
           defaulted: false,
-          piped: true,
+          stdin: true,
         },
       ],
       approval: null,
@@ -1108,11 +1118,11 @@ describe('DispatchTask, the tools a run is told about', () => {
     await dispatch(triage({ tools: ['linear.missing'] }));
 
     expect(manifest()).toEqual([]);
-    expect(toolsGiven(queued[0])).toEqual([]);
+    expect(enabledTools(queued[0])).toEqual([]);
   });
 
   describe('what the team has learned', () => {
-    it('briefs the run with the memories that reach its place, and records them on it', async () => {
+    it('briefs the run with the memories that apply to its place, and records them on it', async () => {
       const station = stations[1] as Station;
       remembered = {
         briefed: [
@@ -1123,8 +1133,12 @@ describe('DispatchTask, the tools a run is told about', () => {
             body: 'Name branches after the ticket.',
           },
         ],
-        cut: [{ id: 'memory_2', handle: 'M-13' }],
-        folder: { path: '.spotlight/memory', layout: [], mirroring: null },
+        omitted: [{ id: 'memory_2', handle: 'M-13' }],
+        folder: {
+          path: '.spotlight/memory',
+          layout: [],
+          repositoryFolder: null,
+        },
       };
       touchedOnTask = [
         { repository: Repository.of('acme/api'), path: 'src/uploads.ts' },
@@ -1132,7 +1146,7 @@ describe('DispatchTask, the tools a run is told about', () => {
 
       await dispatch(station, undefined, [
         { repository: Repository.of('acme/api') },
-      ] as unknown as readonly Worked[]);
+      ] as unknown as readonly RepositoryInput[]);
 
       const place = briefedAt.slice(-1)[0];
       expect(place?.stationId).toBe(station.id.value);
@@ -1144,7 +1158,7 @@ describe('DispatchTask, the tools a run is told about', () => {
       const run = queued.slice(-1)[0];
       expect(run?.briefedWith.value).toEqual({
         briefed: [{ id: 'memory_1', handle: 'M-12' }],
-        cut: [{ id: 'memory_2', handle: 'M-13' }],
+        omitted: [{ id: 'memory_2', handle: 'M-13' }],
       });
       expect(run?.spec.value.briefing).not.toContain('M-13');
       expect(run?.pullEvents().map((each) => each.kind)).toContain(
@@ -1163,7 +1177,7 @@ describe('DispatchTask, the tools a run is told about', () => {
 
       memoryFails = false;
       const run = queued.slice(-1)[0];
-      expect(run?.briefedWith.value).toEqual({ briefed: [], cut: [] });
+      expect(run?.briefedWith.value).toEqual({ briefed: [], omitted: [] });
       expect(run?.spec.value.briefing).not.toContain(
         'What the team has learned',
       );
@@ -1176,10 +1190,10 @@ describe('DispatchTask, the tools a run is told about', () => {
     const configOf = async (
       station: Station,
       title?: string,
-      repositories?: readonly Worked[],
+      repositories?: readonly RepositoryInput[],
     ) => {
       queued = [];
-      kept = [];
+      extras = [];
       await dispatch(station, task(station.id.value, title), repositories);
       const config = queued[0]?.configuredAs;
 
@@ -1197,7 +1211,7 @@ describe('DispatchTask, the tools a run is told about', () => {
           .atEffort(Effort.of('high')),
         undefined,
         [
-          WorkedRepository.of(Repository.of('acme/api'), {
+          LineRepositoryConfig.of(Repository.of('acme/api'), {
             setup: RepositorySetup.of('npm ci'),
           }),
         ],
@@ -1227,7 +1241,7 @@ describe('DispatchTask, the tools a run is told about', () => {
         await configOf(triageAt.atEffort(Effort.of('xhigh'))),
         await configOf(triage({ tools: ['pull-request'] })),
         await configOf(triageAt, undefined, [
-          WorkedRepository.of(Repository.of('acme/api'), {
+          LineRepositoryConfig.of(Repository.of('acme/api'), {
             setup: RepositorySetup.of('make deps'),
           }),
         ]),
@@ -1239,7 +1253,7 @@ describe('DispatchTask, the tools a run is told about', () => {
       );
     });
 
-    it('keeps a digest of each MCP server env value, never the value', async () => {
+    it('keeps a hash of each MCP server env value, never the value', async () => {
       teamProfiles = {
         tokened: {
           key: 'tokened',
@@ -1265,7 +1279,7 @@ describe('DispatchTask, the tools a run is told about', () => {
           color: StationColor.of('#a3a8b0'),
           harness: DEV.id,
           profile: ProfileKey.of('tokened'),
-          wayOut: WayOut.of({ stations: [StationId.of('station_3')] }),
+          routes: StationRoutes.of({ stations: [StationId.of('station_3')] }),
         }),
       );
 

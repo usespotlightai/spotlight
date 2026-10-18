@@ -9,7 +9,7 @@ export class ApprovalNeeded {
     if (because.length === 0) {
       throw new InvalidIntegrationPartError(
         by,
-        'needs approval but gives no reason',
+        'needs approval but states no reason',
       );
     }
 

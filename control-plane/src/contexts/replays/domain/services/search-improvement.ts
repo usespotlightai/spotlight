@@ -1,6 +1,6 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
-import { gainBetween } from '@replays/domain/services/gain-reading';
+import { gainBetween } from '@replays/domain/services/gain-estimate';
 import { rankedOf } from '@replays/domain/services/search-ranking';
 import { scoredOn, scoresOf } from '@replays/domain/services/search-scores';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -42,22 +42,22 @@ export const improvedOnBestBefore = (
     return false;
   }
 
-  const among = search.split.searchedRuns;
-  const reading = gainBetween(candidate, bestReplay, minGain, among);
+  const runSubset = search.split.searchedRuns;
+  const estimate = gainBetween(candidate, bestReplay, minGain, runSubset);
 
-  if (!reading) {
+  if (!estimate) {
     return false;
   }
   if (search.objective === 'success') {
-    return reading.verdict === 'better';
+    return estimate.significance === 'better';
   }
 
   const currency = search.budget.ceiling.currency;
-  const cost = scoredOn(candidate, among, currency).costPerRun;
-  const bestCost = scoredOn(bestReplay, among, currency).costPerRun;
+  const cost = scoredOn(candidate, runSubset, currency).costPerRun;
+  const bestCost = scoredOn(bestReplay, runSubset, currency).costPerRun;
 
   return (
-    reading.verdict !== 'worse' &&
+    estimate.significance !== 'worse' &&
     cost !== null &&
     bestCost !== null &&
     cost < bestCost

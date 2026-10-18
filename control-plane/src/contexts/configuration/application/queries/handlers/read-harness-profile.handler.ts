@@ -20,19 +20,19 @@ export class ReadHarnessProfileHandler
     query: ReadHarnessProfileQuery,
   ): Promise<HarnessProfileResourceDto | null> {
     try {
-      const kept = await this.resources.withId(query.profileId);
+      const record = await this.resources.withId(query.profileId);
 
       if (
-        !kept ||
+        !record ||
         !(await this.access.permissionsOnTeam(
-          kept.teamId.value,
+          record.teamId.value,
           query.principal,
         ))
       ) {
         return null;
       }
 
-      return this.views.of(kept);
+      return this.views.of(record);
     } catch (error) {
       rethrowAsApplicationError(error);
     }

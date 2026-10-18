@@ -1,11 +1,11 @@
 import { useId } from 'react';
-import { AgentInstrument } from '@/components/features/stations/config/AgentInstrument';
-import { AlertsInstrument } from '@/components/features/stations/config/AlertsInstrument';
-import { JudgeInstrument } from '@/components/features/stations/config/JudgeInstrument';
-import { LineInstrument } from '@/components/features/stations/config/LineInstrument';
-import { SkillsInstrument } from '@/components/features/stations/config/SkillsInstrument';
+import { AgentCard } from '@/components/features/stations/config/AgentCard';
+import { AlertsCard } from '@/components/features/stations/config/AlertsCard';
+import { FingerprintCard } from '@/components/features/stations/config/FingerprintCard';
+import { JudgeCard } from '@/components/features/stations/config/JudgeCard';
+import { LineCard } from '@/components/features/stations/config/LineCard';
+import { SkillsCard } from '@/components/features/stations/config/SkillsCard';
 import { StationPrompt } from '@/components/features/stations/config/StationPrompt';
-import { VersionInstrument } from '@/components/features/stations/config/VersionInstrument';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 
 type StationConfigProps = {
@@ -30,21 +30,19 @@ export function StationConfig({
       </h2>
 
       <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <AgentInstrument station={station} />
+        <AgentCard station={station} />
         <StationPrompt stationId={station.id} prompt={station.agentPrompt} />
-        <SkillsInstrument skills={station.skills} />
-        <JudgeInstrument
+        <SkillsCard skills={station.skills} />
+        <JudgeCard
           slug={slug}
           teamId={teamId}
           lineId={line.id}
           stationId={station.id}
           judge={station.judge}
         />
-        <LineInstrument line={line} />
-        {station.alerts.length > 0 && (
-          <AlertsInstrument alerts={station.alerts} />
-        )}
-        <VersionInstrument
+        <LineCard line={line} />
+        {station.alerts.length > 0 && <AlertsCard alerts={station.alerts} />}
+        <FingerprintCard
           slug={slug}
           teamId={teamId}
           lineId={line.id}

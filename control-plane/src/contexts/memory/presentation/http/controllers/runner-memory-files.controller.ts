@@ -16,7 +16,7 @@ import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({
-  description: 'Missing, spent or wrong runner token',
+  description: 'Missing, no longer valid or wrong runner token',
 })
 @ApiParam({ name: 'runId', type: String })
 @RunnerOnly()
@@ -28,10 +28,10 @@ export class RunnerMemoryFilesController {
   @ApiOperation({
     operationId: 'readMemoryFiles',
     summary:
-      'Every standing memory that applies to the run, as files to lay in its workspace',
+      'Every active memory that applies to the run, as files to write into its workspace',
   })
   @ApiOkResponse({ type: MemoryFileResponseDto, isArray: true })
-  @ApiNotFoundResponse({ description: 'No such run held by this runner' })
+  @ApiNotFoundResponse({ description: 'No such run leased by this runner' })
   async files(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,

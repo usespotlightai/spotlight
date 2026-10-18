@@ -21,7 +21,7 @@ export function LiveConfigTile({ search }: { search: SearchDetail }) {
           : NO_VALUE
       }
       detail={scored ? formatRunsScored(seed.searchScored) : NOT_SCORED_YET}
-      note={formatSentences(
+      tooltip={formatSentences(
         formatLikely(seed.searchInterval),
         `${minGainSentence(search.minGain)}.`,
       )}

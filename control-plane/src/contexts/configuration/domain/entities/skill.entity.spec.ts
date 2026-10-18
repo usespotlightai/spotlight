@@ -33,7 +33,7 @@ describe('Skill', () => {
     expect(() => defined({ named: undefined })).toThrow(InvalidSkillError);
   });
 
-  it('refuses a folder holding more than a run is given', () => {
+  it('rejects a folder that contains more than a run receives', () => {
     expect(() => defined({ files: 3 })).toThrow(/more than 2 files/);
     expect(() => defined({ characters: 101 })).toThrow(
       /more than 100 characters/,

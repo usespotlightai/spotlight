@@ -6,7 +6,7 @@ export const DECISION_KIND_NAMES = [
   'deviation',
 ] as const;
 
-export const DECISION_STANDING_NAMES = ['proposed', 'stands'] as const;
+export const DECISION_STATUS_NAMES = ['proposed', 'merged'] as const;
 
 export interface DisputeDto {
   readonly id: string;
@@ -24,7 +24,7 @@ export interface DecisionDto {
   readonly why: string;
   readonly alternatives: readonly string[];
   readonly paths: readonly string[];
-  readonly steps: readonly number[];
+  readonly journalSteps: readonly number[];
   readonly disputes: readonly DisputeDto[];
 }
 
@@ -36,13 +36,13 @@ export interface DecisionMergeDto {
 
 export interface TaskDecisionsDto {
   readonly runId: string | null;
-  readonly drafting: boolean;
-  readonly standing: (typeof DECISION_STANDING_NAMES)[number];
+  readonly generating: boolean;
+  readonly status: (typeof DECISION_STATUS_NAMES)[number];
   readonly merge: DecisionMergeDto | null;
   readonly decisions: readonly DecisionDto[];
 }
 
-export interface StandingDecisionsDto {
+export interface MergedDecisionsDto {
   readonly taskId: string;
   readonly runId: string | null;
   readonly repository: string;
@@ -53,8 +53,8 @@ export interface StandingDecisionsDto {
 
 export const NO_DECISIONS: TaskDecisionsDto = {
   runId: null,
-  drafting: false,
-  standing: 'proposed',
+  generating: false,
+  status: 'proposed',
   merge: null,
   decisions: [],
 };

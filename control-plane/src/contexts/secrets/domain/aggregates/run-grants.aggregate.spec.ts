@@ -1,10 +1,10 @@
 import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
-import { RedemptionRecipientPinnedError } from '@secrets/domain/exceptions/redemption-recipient-pinned.error';
+import { RecipientPinnedError } from '@secrets/domain/exceptions/recipient-pinned.error';
 import { RunGrantsEndedError } from '@secrets/domain/exceptions/run-grants-ended.error';
-import { RunHoldOverError } from '@secrets/domain/exceptions/run-hold-over.error';
-import { Redeemer } from '@secrets/domain/value-objects/redeemer.vo';
-import { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-recipient.vo';
-import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
+import { RunLeaseOverError } from '@secrets/domain/exceptions/run-lease-over.error';
+import { Recipient } from '@secrets/domain/value-objects/recipient.vo';
+import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
+import { SecretFetcher } from '@secrets/domain/value-objects/secret-fetcher.vo';
 import { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -14,20 +14,17 @@ import { describe, expect, it } from 'vitest';
 
 const RUN = RunId.of('run_1');
 const WORKSPACE = WorkspaceId.of('ws_1');
-const FIRST = RunHold.of(RUN, 1);
-const SECOND = RunHold.of(RUN, 2);
-const EGRESS = Redeemer.beside(RedemptionRecipient.of('recipient-key'));
-const RESTARTED = Redeemer.beside(RedemptionRecipient.of('another-key'));
-const SHARED = Redeemer.shared(
-  RedemptionRecipient.of('recipient-key'),
+const FIRST = RunLease.of(RUN, 1);
+const SECOND = RunLease.of(RUN, 2);
+const SIDECAR = SecretFetcher.sidecar(Recipient.of('recipient-key'));
+const RESTARTED = SecretFetcher.sidecar(Recipient.of('another-key'));
+const SHARED = SecretFetcher.shared(Recipient.of('recipient-key'), 'egress_1');
+const ANOTHER_NODE = SecretFetcher.shared(
+  Recipient.of('another-key'),
   'egress_1',
 );
-const ANOTHER_NODE = Redeemer.shared(
-  RedemptionRecipient.of('another-key'),
-  'egress_1',
-);
-const ANOTHER_EGRESS = Redeemer.shared(
-  RedemptionRecipient.of('another-key'),
+const ANOTHER_EGRESS = SecretFetcher.shared(
+  Recipient.of('another-key'),
   'egress_2',
 );
 const ENDED_AT = new Date('2026-09-23T12:00:00.000Z');
@@ -49,7 +46,7 @@ const begun = () => RunGrants.start(FIRST, WORKSPACE);
 const endedAfter = (ms: number) => new Date(ENDED_AT.getTime() + ms);
 
 describe('RunGrants', () => {
-  it('allows a secret toward each host its hold was granted, once however often granted', () => {
+  it('allows a secret for each host its lease was granted, once however often granted', () => {
     const granted = begun().grant(FIRST, [
       grant(),
       grant(),
@@ -64,144 +61,144 @@ describe('RunGrants', () => {
     ).toBe(false);
   });
 
-  it('changes nothing when granted what it already holds', () => {
+  it('changes nothing when granted what it already has', () => {
     const granted = begun().grant(FIRST, [grant()]);
 
     expect(granted.grant(FIRST, [grant()])).toBe(granted);
   });
 
-  it('holds only grants to its own run, for holds of its own run', () => {
+  it('keeps only grants to its own run, for leases of its own run', () => {
     expect(() =>
       begun().grant(FIRST, [grant('api.linear.app', { runId: 'run_2' })]),
     ).toThrow(InconsistentStateError);
     expect(() =>
-      begun().grant(RunHold.of(RunId.of('run_2'), 1), [grant()]),
+      begun().grant(RunLease.of(RunId.of('run_2'), 1), [grant()]),
     ).toThrow(InconsistentStateError);
   });
 
-  it('pins the recipient a hold first redeems for, answering it again and refusing any other', () => {
-    const pinned = begun().redeemFor(FIRST, EGRESS);
+  it('pins the recipient a lease first fetches for, answering it again and rejecting any other', () => {
+    const pinned = begun().recordFetch(FIRST, SIDECAR);
 
-    expect(pinned.redeemer).toEqual(EGRESS);
-    expect(pinned.redeemFor(FIRST, EGRESS)).toBe(pinned);
-    expect(() => pinned.redeemFor(FIRST, RESTARTED)).toThrow(
-      RedemptionRecipientPinnedError,
+    expect(pinned.fetcher).toEqual(SIDECAR);
+    expect(pinned.recordFetch(FIRST, SIDECAR)).toBe(pinned);
+    expect(() => pinned.recordFetch(FIRST, RESTARTED)).toThrow(
+      RecipientPinnedError,
     );
-    expect(() => pinned.redeemFor(FIRST, SHARED)).toThrow(
-      RedemptionRecipientPinnedError,
-    );
-  });
-
-  it('pins a shared egress, not its key, so another node of that egress can redeem again', () => {
-    const pinned = begun().redeemFor(FIRST, SHARED);
-
-    expect(pinned.redeemFor(FIRST, SHARED)).toBe(pinned);
-    expect(pinned.redeemFor(FIRST, ANOTHER_NODE).recipient).toEqual(
-      RedemptionRecipient.of('another-key'),
-    );
-    expect(() => pinned.redeemFor(FIRST, ANOTHER_EGRESS)).toThrow(
-      RedemptionRecipientPinnedError,
-    );
-    expect(() => pinned.redeemFor(FIRST, EGRESS)).toThrow(
-      RedemptionRecipientPinnedError,
+    expect(() => pinned.recordFetch(FIRST, SHARED)).toThrow(
+      RecipientPinnedError,
     );
   });
 
-  it('starts afresh when the run is held again, dropping the earlier hold’s grants and pin', () => {
-    const held = begun().grant(FIRST, [grant()]).redeemFor(FIRST, EGRESS);
+  it('pins a shared egress, not its key, so another node of that egress can fetch again', () => {
+    const pinned = begun().recordFetch(FIRST, SHARED);
 
-    const again = held.redeemFor(SECOND, RESTARTED);
+    expect(pinned.recordFetch(FIRST, SHARED)).toBe(pinned);
+    expect(pinned.recordFetch(FIRST, ANOTHER_NODE).recipient).toEqual(
+      Recipient.of('another-key'),
+    );
+    expect(() => pinned.recordFetch(FIRST, ANOTHER_EGRESS)).toThrow(
+      RecipientPinnedError,
+    );
+    expect(() => pinned.recordFetch(FIRST, SIDECAR)).toThrow(
+      RecipientPinnedError,
+    );
+  });
 
-    expect(again.hold).toEqual(SECOND);
-    expect(again.redeemer).toEqual(RESTARTED);
+  it('starts afresh when the run is leased again, dropping the grants and pin of the earlier lease', () => {
+    const pinned = begun().grant(FIRST, [grant()]).recordFetch(FIRST, SIDECAR);
+
+    const again = pinned.recordFetch(SECOND, RESTARTED);
+
+    expect(again.lease).toEqual(SECOND);
+    expect(again.fetcher).toEqual(RESTARTED);
     expect(again.grants).toEqual([]);
     expect(again.grant(SECOND, [grant()]).allows(SECOND, grant())).toBe(true);
   });
 
-  it('allows nothing to, and grants and redeems nothing for, a hold the run has moved past', () => {
+  it('allows nothing to, and grants and fetches nothing for, a lease the run has moved past', () => {
     const moved = begun().grant(FIRST, [grant()]).grant(SECOND, [grant()]);
 
     expect(moved.allows(FIRST, grant())).toBe(false);
-    expect(() => moved.grant(FIRST, [grant()])).toThrow(RunHoldOverError);
-    expect(() => moved.redeemFor(FIRST, EGRESS)).toThrow(RunHoldOverError);
+    expect(() => moved.grant(FIRST, [grant()])).toThrow(RunLeaseOverError);
+    expect(() => moved.recordFetch(FIRST, SIDECAR)).toThrow(RunLeaseOverError);
   });
 
-  it('lets a lost hold’s grants go without ending the run, so its next hold is granted afresh', () => {
+  it('lets the grants of a lost lease go without ending the run, so its next lease is granted afresh', () => {
     const lost = begun()
       .grant(FIRST, [grant()])
-      .redeemFor(FIRST, EGRESS)
-      .loseHold(FIRST);
+      .recordFetch(FIRST, SIDECAR)
+      .loseLease(FIRST);
 
-    expect(lost.isHoldLost).toBe(true);
+    expect(lost.isLeaseLost).toBe(true);
     expect(lost.isEnded).toBe(false);
     expect(lost.grants).toEqual([]);
     expect(lost.allows(FIRST, grant())).toBe(false);
-    expect(lost.loseHold(FIRST)).toBe(lost);
-    expect(() => lost.grant(FIRST, [grant()])).toThrow(RunHoldOverError);
-    expect(() => lost.redeemFor(FIRST, EGRESS)).toThrow(RunHoldOverError);
+    expect(lost.loseLease(FIRST)).toBe(lost);
+    expect(() => lost.grant(FIRST, [grant()])).toThrow(RunLeaseOverError);
+    expect(() => lost.recordFetch(FIRST, SIDECAR)).toThrow(RunLeaseOverError);
 
     const regranted = lost
-      .redeemFor(SECOND, RESTARTED)
+      .recordFetch(SECOND, RESTARTED)
       .grant(SECOND, [grant()]);
 
-    expect(regranted.isHoldLost).toBe(false);
+    expect(regranted.isLeaseLost).toBe(false);
     expect(regranted.allows(SECOND, grant())).toBe(true);
   });
 
-  it('keeps a later hold when an earlier one is lost', () => {
+  it('keeps a later lease when an earlier one is lost', () => {
     const later = begun().grant(SECOND, [grant()]);
 
-    expect(later.loseHold(FIRST)).toBe(later);
+    expect(later.loseLease(FIRST)).toBe(later);
   });
 
-  it('lets every grant go once its run ends, and grants and redeems nothing after, whatever the hold', () => {
+  it('releases every grant once its run ends, and grants and fetches nothing after, whatever the lease', () => {
     const ended = begun()
       .grant(FIRST, [grant()])
-      .redeemFor(FIRST, EGRESS)
+      .recordFetch(FIRST, SIDECAR)
       .end(ENDED_AT);
 
     expect(ended.isEnded).toBe(true);
     expect(ended.grants).toEqual([]);
     expect(ended.allows(FIRST, grant())).toBe(false);
     expect(ended.end(endedAfter(1))).toBe(ended);
-    expect(ended.loseHold(SECOND)).toBe(ended);
+    expect(ended.loseLease(SECOND)).toBe(ended);
     expect(() => ended.grant(SECOND, [grant()])).toThrow(RunGrantsEndedError);
-    expect(() => ended.redeemFor(SECOND, RESTARTED)).toThrow(
+    expect(() => ended.recordFetch(SECOND, RESTARTED)).toThrow(
       RunGrantsEndedError,
     );
   });
 
-  it('is forgotten a week after its run ends, and not before', () => {
+  it('is purged a week after its run ends, and not before', () => {
     const ended = begun().grant(FIRST, [grant()]).end(ENDED_AT);
 
-    expect(begun().isForgettableAt(endedAfter(WEEK * 52))).toBe(false);
-    expect(ended.isForgettableAt(endedAfter(WEEK - 1))).toBe(false);
+    expect(begun().isPastRetention(endedAfter(WEEK * 52))).toBe(false);
+    expect(ended.isPastRetention(endedAfter(WEEK - 1))).toBe(false);
     expect(() => ended.purge(endedAfter(WEEK - 1))).toThrow(
       InconsistentStateError,
     );
     expect(ended.purge(endedAfter(WEEK)).isDiscarded).toBe(true);
-    expect(RunGrants.endedForgettablyBy(endedAfter(WEEK))).toEqual(ENDED_AT);
+    expect(RunGrants.retentionCutoff(endedAfter(WEEK))).toEqual(ENDED_AT);
   });
 
-  it('is forgotten at once when its workspace is abandoned, ended or not', () => {
-    expect(begun().grant(FIRST, [grant()]).abandon().isDiscarded).toBe(true);
+  it('is deleted at once when its workspace is deleted, ended or not', () => {
+    expect(begun().grant(FIRST, [grant()]).delete().isDiscarded).toBe(true);
   });
 
-  it('is kept only at a version it could have been saved at, never granted past its hold', () => {
-    const kept = {
-      hold: FIRST,
+  it('is stored only at a version it could have been saved at, never granted past its lease', () => {
+    const record = {
+      lease: FIRST,
       workspaceId: WORKSPACE,
-      redeemer: null,
-      holdLost: false,
+      fetcher: null,
+      leaseLost: false,
       endedAt: null,
     };
 
     expect(() =>
-      RunGrants.rehydrate({ ...kept, grants: [], version: 0 }),
+      RunGrants.rehydrate({ ...record, grants: [], version: 0 }),
     ).toThrow(InconsistentStateError);
     expect(() =>
       RunGrants.rehydrate({
-        ...kept,
+        ...record,
         grants: [grant()],
         endedAt: ENDED_AT,
         version: 2,
@@ -209,9 +206,9 @@ describe('RunGrants', () => {
     ).toThrow(InconsistentStateError);
     expect(() =>
       RunGrants.rehydrate({
-        ...kept,
+        ...record,
         grants: [grant()],
-        holdLost: true,
+        leaseLost: true,
         version: 2,
       }),
     ).toThrow(InconsistentStateError);

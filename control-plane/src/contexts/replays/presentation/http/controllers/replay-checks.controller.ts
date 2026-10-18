@@ -26,11 +26,11 @@ import {
 } from '@platform/http/resources/conventional-api';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { ProblemException } from '@platform/http/resources/problem.exception';
-import { answerCreated } from '@platform/http/resources/resource-answers';
 import {
   IDEMPOTENCY_KEY_HEADER,
   IDEMPOTENT_REPLAY_HEADER,
 } from '@platform/http/resources/resource-headers';
+import { respondCreated } from '@platform/http/resources/resource-responses';
 import { StartReplayCheckCommand } from '@replays/application/commands/start-replay-check.command';
 import type {
   ReplayCheckDto,
@@ -67,14 +67,14 @@ const fieldsOf = (body: unknown): Record<string, unknown> =>
     ? (body as Record<string, unknown>)
     : {};
 
-const nothingToReplay = (keptLive: readonly string[]): never => {
+const nothingToReplay = (scoringPinnedToLive: readonly string[]): never => {
   throw ProblemException.of({
     slug: 'nothing-to-replay',
     title: 'Planned station runs the same as the live one',
     status: HttpStatus.CONFLICT,
     detail:
-      keptLive.length > 0
-        ? `There is nothing to replay. A check keeps these changed fields at their live values: ${keptLive.join(', ')}`
+      scoringPinnedToLive.length > 0
+        ? `There is nothing to replay. A check pins these changed fields to their live values: ${scoringPinnedToLive.join(', ')}`
         : 'There is nothing to replay. The plan changes nothing that affects how the station’s runs go.',
   });
 };
@@ -95,24 +95,24 @@ export class ReplayChecksController {
   @ApiOperation({
     operationId: 'startReplayCheck',
     summary:
-      'Check a planned change of a station against the replay set that guards its changes, under the live line’s replay_check; a change already checked against the same live config answers its check',
+      'Check a planned change of a station against the replay set that gates its changes, under the live line’s replay_check; a change already checked against the same live config answers its check',
   })
   @ApiHeader({
     name: IDEMPOTENCY_KEY_HEADER,
     required: true,
     description:
-      'Unique per check asked for; a retry with the same key and body answers the check the first attempt started, and starts nothing more',
+      'Unique per requested check; a retry with the same key and body answers the check the first attempt started, and starts nothing more',
     schema: { type: 'string', maxLength: 255 },
   })
   @ApiBody({ type: StartReplayCheckRequestDto })
   @ApiResponse({
     status: HttpStatus.CREATED,
     description:
-      'The check started, as a read would answer it; or, on a retry with the same Idempotency-Key, the check the first attempt answered',
+      'The check started, as a read returns it; or, on a retry with the same Idempotency-Key, the check that the first attempt returned',
     type: ReplayCheckResponseDto,
     headers: {
       [IDEMPOTENT_REPLAY_HEADER]: {
-        description: 'true when this answers an earlier attempt',
+        description: 'true when this returns the result of an earlier attempt',
         schema: { type: 'string', enum: ['true'] },
       },
     },
@@ -128,7 +128,7 @@ export class ReplayChecksController {
   )
   @ApiProblemResponse(
     HttpStatus.CONFLICT,
-    'The line has no replay_check, no replay set guards the station’s changes, or the plan changes nothing that changes how its runs go (nothing-to-replay)',
+    'The line has no replay_check, no replay set gates the station’s changes, or the plan changes nothing that changes how its runs go (nothing-to-replay)',
   )
   @ApiProblemResponse(
     HttpStatus.FORBIDDEN,
@@ -169,17 +169,17 @@ export class ReplayChecksController {
     );
 
     if (started.outcome === 'unchanged') {
-      return nothingToReplay(started.keptLive);
+      return nothingToReplay(started.scoringPinnedToLive);
     }
 
     if (started.outcome === 'reused') {
       response.status(HttpStatus.OK);
 
-      return this.answer(teamId, started.id, actor.principal, true);
+      return this.toResponse(teamId, started.id, actor.principal, true);
     }
 
-    return answerCreated(KIND, started, (id) =>
-      this.answer(teamId, id, actor.principal),
+    return respondCreated(KIND, started, (id) =>
+      this.toResponse(teamId, id, actor.principal),
     );
   }
 
@@ -187,7 +187,7 @@ export class ReplayChecksController {
   @ApiOperation({
     operationId: 'listReplaySetChecks',
     summary:
-      'The checks of planned changes replayed over a replay set, newest first, a page at a time, with each one’s verdict',
+      'The checks of planned changes replayed over a replay set, newest first, a page at a time, with the result of each',
   })
   @ApiParam({ name: 'setId', type: String })
   @ApiQuery({
@@ -195,7 +195,7 @@ export class ReplayChecksController {
     required: false,
     type: String,
     description:
-      'Only checks started before this one, by its id; a check the set does not hold answers an empty page',
+      'Only checks started before this one, by its id; a check that the set does not contain answers an empty page',
   })
   @ApiQuery({
     name: 'limit',
@@ -230,7 +230,7 @@ export class ReplayChecksController {
   @ApiOperation({
     operationId: 'readReplayCheck',
     summary:
-      'Read a replay check and its verdict: running, passed, failed or undecided, with the tasks it regressed on and why',
+      'Read a replay check and its result: running, passed, failed or undecided, with the tasks it regressed on and why',
   })
   @ApiParam({ name: 'checkId', type: String })
   @ApiOkResponse({ type: ReplayCheckResponseDto })
@@ -239,10 +239,10 @@ export class ReplayChecksController {
     @Param('checkId') checkId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ReplayCheckResponseDto> {
-    return this.answer(teamId, checkId, principal);
+    return this.toResponse(teamId, checkId, principal);
   }
 
-  private async answer(
+  private async toResponse(
     teamId: string,
     checkId: string,
     principal: Principal,

@@ -1,11 +1,11 @@
 package protocol
 
 const (
-	HostCallClaimPath  = "/api/hosts/calls/claim"
-	HostCallAnswerPath = "/api/hosts/calls/{id}/answer"
+	HostCallClaimPath    = "/api/hosts/calls/claim"
+	HostCallResponsePath = "/api/hosts/calls/{id}/response"
 
-	EgressSendPath = "/run/spotlight/egress/answer.json"
-	AnswerBodyMost = 16 << 10
+	EgressSendPath  = "/run/spotlight/egress/response.json"
+	MaxResponseBody = 16 << 10
 )
 
 type HostCall struct {
@@ -21,7 +21,7 @@ type HostCallClaim struct {
 	Host string `json:"host"`
 }
 
-type HostCallAnswer struct {
+type HostCallResponse struct {
 	Host    string            `json:"host"`
 	Status  int               `json:"status"`
 	Headers map[string]string `json:"headers,omitempty"`

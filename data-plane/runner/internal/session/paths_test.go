@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"usespotlight.ai/data-plane/protocol"
-	"usespotlight.ai/data-plane/runner/internal/declare"
+	"usespotlight.ai/data-plane/runner/internal/agentapi"
 )
 
 func TestNamesAPathByItsCheckoutWithinTheWorkspace(t *testing.T) {
@@ -27,7 +27,7 @@ func TestNamesAPathByItsCheckoutWithinTheWorkspace(t *testing.T) {
 	}
 }
 
-func TestRefusesAPathOutsideTheCheckoutsNamingWhereToLook(t *testing.T) {
+func TestRejectsAPathOutsideTheCheckoutsNamingWhereToLook(t *testing.T) {
 	dir := t.TempDir()
 	checkouts := []protocol.Checkout{{Path: "api"}}
 
@@ -39,12 +39,12 @@ func TestRefusesAPathOutsideTheCheckoutsNamingWhereToLook(t *testing.T) {
 	} {
 		_, err := checkedOutPaths(dir, checkouts, []string{outside})
 
-		var refusal *declare.Refusal
-		if !errors.As(err, &refusal) {
+		var rejected *agentapi.Error
+		if !errors.As(err, &rejected) {
 			t.Fatalf("%s: got %v", outside, err)
 		}
-		if !strings.Contains(refusal.Because, filepath.Join(dir, "api")) {
-			t.Errorf("%s: refusal names nowhere to look: %s", outside, refusal.Because)
+		if !strings.Contains(rejected.Because, filepath.Join(dir, "api")) {
+			t.Errorf("%s: the error names nowhere to look: %s", outside, rejected.Because)
 		}
 	}
 }

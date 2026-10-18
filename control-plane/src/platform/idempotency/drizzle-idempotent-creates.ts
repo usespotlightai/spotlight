@@ -3,17 +3,17 @@ import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { idempotentCreate } from '@platform/persistence/drizzle/schemas/idempotency.schema';
 import type {
-  IdempotentClaim,
   IdempotentCreate,
   IdempotentCreatesPort,
+  IdempotentReservation,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type {
-  IdempotentRecall,
-  IdempotentRecallsPort,
-} from '@shared-kernel/application/ports/idempotent-recalls.port';
+  IdempotentLookup,
+  IdempotentLookupsPort,
+} from '@shared-kernel/application/ports/idempotent-lookups.port';
 import { and, eq, type SQL, sql } from 'drizzle-orm';
 
-const KEPT_FOR = '24 hours';
+const RETENTION = '24 hours';
 
 const sortedKeys = (_key: string, value: unknown): unknown =>
   value && typeof value === 'object' && !Array.isArray(value)
@@ -35,63 +35,63 @@ const matching = (create: IdempotentCreate) =>
 
 @Injectable()
 export class DrizzleIdempotentCreates
-  implements IdempotentCreatesPort, IdempotentRecallsPort
+  implements IdempotentCreatesPort, IdempotentLookupsPort
 {
   constructor(private readonly context: DrizzleContext) {}
 
-  async recall(create: IdempotentCreate): Promise<IdempotentRecall> {
-    const held = await this.held(
+  async lookup(create: IdempotentCreate): Promise<IdempotentLookup> {
+    const existing = await this.find(
       and(
         matching(create),
-        sql`${idempotentCreate.createdAt} >= now() - ${KEPT_FOR}::interval`,
+        sql`${idempotentCreate.createdAt} >= now() - ${RETENTION}::interval`,
       ),
     );
 
-    if (!held) {
-      return { kind: 'unseen' };
+    if (!existing) {
+      return { kind: 'new' };
     }
 
-    if (held.fingerprint !== fingerprintOf(create)) {
-      return { kind: 'reused' };
+    if (existing.fingerprint !== fingerprintOf(create)) {
+      return { kind: 'key-reused' };
     }
 
-    return held.createdId
-      ? { kind: 'replay', createdId: held.createdId }
-      : { kind: 'unseen' };
+    return existing.createdId
+      ? { kind: 'already-created', createdId: existing.createdId }
+      : { kind: 'new' };
   }
 
-  async claim(create: IdempotentCreate): Promise<IdempotentClaim> {
+  async reserve(create: IdempotentCreate): Promise<IdempotentReservation> {
     const fingerprint = fingerprintOf(create);
-    const [claimed] = await this.context.db
+    const [reserved] = await this.context.db
       .insert(idempotentCreate)
       .values({ scope: create.by, key: create.key.value, fingerprint })
       .onConflictDoUpdate({
         target: [idempotentCreate.scope, idempotentCreate.key],
         set: { fingerprint, createdId: null, createdAt: sql`now()` },
-        setWhere: sql`${idempotentCreate.createdAt} < now() - ${KEPT_FOR}::interval`,
+        setWhere: sql`${idempotentCreate.createdAt} < now() - ${RETENTION}::interval`,
       })
       .returning({ key: idempotentCreate.key });
 
-    if (claimed) {
-      return { kind: 'fresh' };
+    if (reserved) {
+      return { kind: 'new' };
     }
 
-    const held = await this.held(matching(create));
+    const existing = await this.find(matching(create));
 
-    return held?.fingerprint === fingerprint && held.createdId
-      ? { kind: 'replay', createdId: held.createdId }
-      : { kind: 'reused' };
+    return existing?.fingerprint === fingerprint && existing.createdId
+      ? { kind: 'already-created', createdId: existing.createdId }
+      : { kind: 'key-reused' };
   }
 
-  async created(create: IdempotentCreate, id: string): Promise<void> {
+  async recordCreated(create: IdempotentCreate, id: string): Promise<void> {
     await this.context.db
       .update(idempotentCreate)
       .set({ createdId: id })
       .where(matching(create));
   }
 
-  private async held(where: SQL | undefined) {
-    const [held] = await this.context.db
+  private async find(where: SQL | undefined) {
+    const [row] = await this.context.db
       .select({
         fingerprint: idempotentCreate.fingerprint,
         createdId: idempotentCreate.createdId,
@@ -99,6 +99,6 @@ export class DrizzleIdempotentCreates
       .from(idempotentCreate)
       .where(where);
 
-    return held;
+    return row;
   }
 }

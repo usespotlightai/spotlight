@@ -1,5 +1,5 @@
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
-import { DescribedOperation } from '@integrations/domain/value-objects/described-operation.vo';
+import { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
 import {
   compileIntegration,
   IntegrationCompiler,
@@ -25,7 +25,7 @@ const EVENTS = `  events:
       raise:
         happening: linear.issue.completed
         label: Issue completed
-        told: The issue was moved to Done.
+        summary: The issue was moved to Done.
         marks:
           - kind: linear.issue
             value: \${{ body.data.identifier }}
@@ -55,7 +55,7 @@ describe('compiling an integration', () => {
     const read = compileIntegration(parseYaml(WHOLE), expressions);
 
     expect(read.ok).toBe(true);
-    expect(read.ok && read.readable.integration.source.value).toBe('linear');
+    expect(read.ok && read.readable.integration.key.value).toBe('linear');
     expect(read.ok && read.readable.integration.declares).toHaveLength(1);
     expect(read.ok && read.readable.webhook?.verify.kind).toBe('hmac');
   });
@@ -69,7 +69,7 @@ describe('compiling an integration', () => {
     ).toEqual(['LINEAR_WEBHOOK_SECRET']);
   });
 
-  it('calls it by its source where the file gives no name', () => {
+  it('uses the integration name as its name when the file names none', () => {
     const read = compileIntegration(parseYaml(WHOLE), expressions);
 
     expect(read.ok && read.readable.integration.name).toBe('linear');
@@ -88,7 +88,7 @@ describe('compiling an integration', () => {
       expect(problem?.path).toBe('integrations');
     });
 
-    it('refuses to address a host as catalog, which names Spotlight’s catalog', () => {
+    it('rejects an integration named catalog, which is the name of Spotlight’s catalog', () => {
       expect(
         complaining(
           WHOLE.replace('integration: linear', 'integration: catalog'),
@@ -97,7 +97,7 @@ describe('compiling an integration', () => {
       ).not.toHaveLength(0);
     });
 
-    it('refuses what is not an integration at all', () => {
+    it('rejects what is not an integration at all', () => {
       expect(compileIntegration('linear', expressions)).toMatchObject({
         ok: false,
         problems: [{ path: 'integrations', field: FieldPath.root() }],
@@ -120,11 +120,11 @@ describe('compiling an integration', () => {
       );
     });
 
-    it('refuses a webhook that would verify nothing', () => {
+    it('rejects a webhook that would verify nothing', () => {
       expect(complaining(WITHOUT_VERIFY, 'webhook.verify')).not.toHaveLength(0);
     });
 
-    it('refuses an algorithm it does not sign by', () => {
+    it('rejects an algorithm it does not sign by', () => {
       expect(
         complaining(
           WHOLE.replace('algorithm: sha256', 'algorithm: md5'),
@@ -133,7 +133,7 @@ describe('compiling an integration', () => {
       ).toHaveLength(1);
     });
 
-    it('refuses a secret named as anything but a secret reference', () => {
+    it('rejects a secret named as anything but a secret reference', () => {
       expect(
         complaining(
           WHOLE.replace('secret.LINEAR_WEBHOOK_SECRET', 'my-secret'),
@@ -142,7 +142,7 @@ describe('compiling an integration', () => {
       ).toHaveLength(1);
     });
 
-    it('refuses a source named unlike a source', () => {
+    it('rejects an integration name that is not one word', () => {
       expect(
         complaining(
           WHOLE.replace('integration: linear', 'integration: Linear'),
@@ -151,7 +151,7 @@ describe('compiling an integration', () => {
       ).toHaveLength(1);
     });
 
-    it('refuses a word named for another source', () => {
+    it('rejects a word named for another integration', () => {
       const [problem] = complaining(
         WHOLE.replace('linear.issue.completed', 'github.issue.completed'),
         'webhook.events.0.raise.happening',
@@ -160,7 +160,7 @@ describe('compiling an integration', () => {
       expect(problem?.reason).toMatch(/without the linear\. prefix/);
     });
 
-    it('refuses an expression that will not parse', () => {
+    it('rejects an expression that will not parse', () => {
       const [problem] = complaining(
         WHOLE.replace('body.type == "Issue"', 'body.type =='),
         'webhook.events.0.when',
@@ -169,7 +169,7 @@ describe('compiling an integration', () => {
       expect(problem?.reason).toMatch(/body\.type/);
     });
 
-    it('refuses a rule written as anything but an expression', () => {
+    it('rejects a rule written as anything but an expression', () => {
       expect(
         complaining(
           // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
@@ -179,7 +179,7 @@ describe('compiling an integration', () => {
       ).toHaveLength(1);
     });
 
-    it('refuses a rule that could never find a task', () => {
+    it('rejects a rule that could never find a task', () => {
       const text = WHOLE.split('\n')
         .filter(
           (each) =>
@@ -192,11 +192,11 @@ describe('compiling an integration', () => {
       expect(complaining(text, 'webhook.events.0.raise')).not.toHaveLength(0);
     });
 
-    it('refuses an integration with no trigger at all', () => {
+    it('rejects an integration with no trigger at all', () => {
       expect(complaining('integration: linear', '')).not.toHaveLength(0);
     });
 
-    it('refuses a mark kind that names no source', () => {
+    it('rejects a mark kind that names no integration', () => {
       expect(
         complaining(
           WHOLE.replace('kind: linear.issue', 'kind: issue'),
@@ -205,23 +205,23 @@ describe('compiling an integration', () => {
       ).toHaveLength(1);
     });
 
-    it('refuses an on-binding to an action that is not defined', () => {
+    it('rejects an on-binding to an action that is not defined', () => {
       const text = `${WHOLE}on:
   task.asked:
-    do: missing
+    action: missing
 `;
 
-      expect(complaining(text, 'on.task.asked.do')).toHaveLength(1);
+      expect(complaining(text, 'on.task.asked.action')).toHaveLength(1);
     });
 
-    it('refuses an on-binding to an event Spotlight never raises', () => {
+    it('rejects an on-binding to an event Spotlight never raises', () => {
       const text = `${WHOLE}actions:
   post:
     request:
       url: https://example.com
 on:
   task.moved:
-    do: post
+    action: post
 `;
 
       const [problem] = problems(text).filter(
@@ -248,7 +248,7 @@ poll:
       raise:
         happening: linear.issue.completed
         label: Issue completed
-        told: The issue was moved to Done.
+        summary: The issue was moved to Done.
         marks:
           - kind: linear.issue
             value: \${{ item.id }}
@@ -292,7 +292,7 @@ poll:
     const withCron = (cron: string, action = 'digest') => `integration: linear
 schedule:
   cron: '${cron}'
-  do: ${action}
+  action: ${action}
 actions:
   digest:
     request:
@@ -309,20 +309,20 @@ actions:
       expect(read.ok && read.readable.integration.schedule?.cron.value).toBe(
         '0 9 * * *',
       );
-      expect(read.ok && read.readable.integration.schedule?.does).toBe(
+      expect(read.ok && read.readable.integration.schedule?.action).toBe(
         'digest',
       );
     });
 
-    it('refuses a cron that is not a cron', () => {
+    it('rejects a cron that is not a cron', () => {
       expect(complaining(withCron('not a cron'), 'schedule.cron')).toHaveLength(
         1,
       );
     });
 
-    it('refuses a schedule whose action is not defined', () => {
+    it('rejects a schedule whose action is not defined', () => {
       expect(
-        complaining(withCron('0 9 * * *', 'missing'), 'schedule.do'),
+        complaining(withCron('0 9 * * *', 'missing'), 'schedule.action'),
       ).toHaveLength(1);
     });
   });
@@ -370,7 +370,7 @@ webhook:
         parseYaml(
           WHOLE_OAUTH.replace(
             'connection:\n',
-            'connection:\n  holder: requester\n',
+            'connection:\n  actsAs: requester\n',
           ).replace(
             '    scopes:\n',
             '    registration: https://slack.com/oauth/register\n    resource: https://mcp.slack.com/\n    scopes:\n',
@@ -379,8 +379,8 @@ webhook:
         expressions,
       );
 
-      expect(read.ok && read.readable.integration.holding.kind).toBe('team');
-      expect(requester.ok && requester.readable.integration.holding.kind).toBe(
+      expect(read.ok && read.readable.integration.actsAs.kind).toBe('team');
+      expect(requester.ok && requester.readable.integration.actsAs.kind).toBe(
         'requester',
       );
       expect(
@@ -391,12 +391,12 @@ webhook:
       ).toBe('https://mcp.slack.com/');
     });
 
-    it('refuses to take each requester’s connection without oauth2', () => {
+    it('rejects actsAs requester without oauth2', () => {
       const read = compileIntegration(
         parseYaml(
           WHOLE_OAUTH.replace(
             /connection:\n(.|\n)*?webhook:/,
-            'connection:\n  holder: requester\nwebhook:',
+            'connection:\n  actsAs: requester\nwebhook:',
           ),
         ),
         expressions,
@@ -457,7 +457,7 @@ webhook:
       raise:
         happening: slack.app_mention
         opens:
-          onto: delivery
+          lineRole: delivery
           title: \${{ body.event.text }}
           assignBy:
             email: \${{ email }}
@@ -503,7 +503,7 @@ webhook:
       raise:
         happening: slack.app_mention
         opens:
-          onto: delivery
+          lineRole: delivery
           title: \${{ body.event.text }}
         marks:
           - kind: slack.thread
@@ -531,7 +531,7 @@ webhook:
       ).toEqual(['slack.thread']);
     });
 
-    it('refuses a happening nothing could find a task from', () => {
+    it('rejects a happening nothing could find a task from', () => {
       const onlyAmbient = `integration: slack
 webhook:
   verify:
@@ -568,7 +568,7 @@ webhook:
       body: '\${{ {"text": ask.body, "thread": target.thread} }}'
 on:
   task.asked:
-    do: post
+    action: post
     to:
       thread: \${{ task.marks["slack.thread"] }}
 `;
@@ -649,7 +649,7 @@ on:
       ]);
     });
 
-    it('warns about a raised word reading a name no lookup kept', () => {
+    it('warns about a raised word reading a name no lookup captured', () => {
       expect(
         warnings(
           WHOLE.replace(
@@ -693,7 +693,7 @@ actions:
     expect(request(ACTION)?.headers[0]?.value.parts).toHaveLength(2);
   });
 
-  it('collects each secret the request wears, once', () => {
+  it('collects each secret that the request injects, once', () => {
     const read = compileIntegration(parseYaml(ACTION), expressions);
 
     expect(
@@ -706,7 +706,7 @@ actions:
     });
   });
 
-  it('refuses a request that reads a secret’s value, rather than wearing it', () => {
+  it('rejects a request that reads a secret’s value, rather than injecting it', () => {
     const read = compileIntegration(
       parseYaml(
         ACTION.replace(
@@ -725,7 +725,7 @@ actions:
     expect(!read.ok && read.problems[0]?.reason).toMatch(/auth\.secrets/);
   });
 
-  it('refuses a request that authenticates by a token it would have to read', () => {
+  it('rejects a request that authenticates by a token it would have to read', () => {
     const read = compileIntegration(
       parseYaml(
         ACTION.replace(
@@ -761,7 +761,7 @@ actions:
 });
 
 describe('the tools an integration offers', () => {
-  const OFFERING = `integration: linear
+  const PROVIDING = `integration: linear
 actions:
   comment:
     request:
@@ -778,14 +778,14 @@ actions:
         url: '\${{ response.data.commentCreate.comment.url }}'
 tools:
   comment:
-    does: comment
+    action: comment
     description: Comment on the Linear issue this task came from.
     inputs:
       issue:
         default: '\${{ task.marks["linear.issue"] }}'
       body:
         required: true
-        piped: true
+        stdin: true
     output: '\${{ capture.url }}'
 `;
 
@@ -793,23 +793,23 @@ tools:
     compileIntegration(parseYaml(text), expressions);
 
   it('offers each as a tool named for the integration, with what it takes', () => {
-    const compiled = read(OFFERING);
-    const offered = compiled.ok
-      ? compiled.readable.integration.offers.find(
+    const compiled = read(PROVIDING);
+    const provided = compiled.ok
+      ? compiled.readable.integration.tools.find(
           (each) => each.tool === 'linear.comment',
         )
       : undefined;
 
     expect(compiled.ok && compiled.warnings).toEqual([]);
-    expect(offered?.description).toBe(
+    expect(provided?.description).toBe(
       'Comment on the Linear issue this task came from.',
     );
     expect(
-      offered?.inputs.map((each) => [
+      provided?.inputs.map((each) => [
         each.name,
         each.required,
         each.defaulted,
-        each.piped,
+        each.stdin,
       ]),
     ).toEqual([
       ['issue', false, true, false],
@@ -818,76 +818,77 @@ tools:
   });
 
   it('keeps the action it runs, and what it answers with', () => {
-    const compiled = read(OFFERING);
+    const compiled = read(PROVIDING);
     const tool = compiled.ok
       ? compiled.readable.tools.get('comment')
       : undefined;
 
     expect(
       compiled.ok &&
-        compiled.readable.integration.offered('linear.comment')?.backing.action,
+        compiled.readable.integration.providedTool('linear.comment')?.backing
+          .action,
     ).toBe('comment');
     expect(tool?.output).not.toBeNull();
     expect(tool?.inputs[0]?.default?.parts).toHaveLength(1);
   });
 
   it('checks what an action reads of its tools’ inputs', () => {
-    const compiled = read(OFFERING.replace('inputs.body', 'inputs.bdy'));
+    const compiled = read(PROVIDING.replace('inputs.body', 'inputs.bdy'));
 
     expect(
       compiled.ok && compiled.warnings.map((each) => dottedOf(each.field)),
     ).toEqual(['actions.comment.request.body.variables.body']);
   });
 
-  it('refuses a tool whose action is not defined', () => {
+  it('rejects a tool whose action is not defined', () => {
     expect(
       complaining(
-        OFFERING.replace('does: comment', 'does: missing'),
-        'tools.comment.does',
+        PROVIDING.replace('action: comment', 'action: missing'),
+        'tools.comment.action',
       ),
     ).toHaveLength(1);
   });
 
-  it('offers a tool no approval where the file asks for none', () => {
-    const compiled = read(OFFERING);
+  it('offers a tool no approval where the file requests none', () => {
+    const compiled = read(PROVIDING);
 
     expect(
       compiled.ok &&
-        compiled.readable.integration.offered('linear.comment')?.approval,
+        compiled.readable.integration.providedTool('linear.comment')?.approval,
     ).toBeNull();
   });
 
   it('reads the approval a tool may only run with, and why', () => {
     const compiled = read(
-      OFFERING.replace(
-        '    does: comment\n',
-        '    does: comment\n    approval:\n      because: It posts publicly, under the team’s name.\n',
+      PROVIDING.replace(
+        '    action: comment\n',
+        '    action: comment\n    approval:\n      because: It posts publicly, under the team’s name.\n',
       ),
     );
 
     expect(compiled.ok && compiled.warnings).toEqual([]);
     expect(
       compiled.ok &&
-        compiled.readable.integration.offered('linear.comment')?.approval
+        compiled.readable.integration.providedTool('linear.comment')?.approval
           ?.because,
     ).toBe('It posts publicly, under the team’s name.');
   });
 
-  it('refuses an approval that says nothing about why', () => {
+  it('rejects an approval that says nothing about why', () => {
     expect(
       problems(
-        OFFERING.replace(
-          '    does: comment\n',
-          '    does: comment\n    approval:\n      because: "  "\n',
+        PROVIDING.replace(
+          '    action: comment\n',
+          '    action: comment\n    approval:\n      because: "  "\n',
         ),
       ),
     ).not.toEqual([]);
   });
 
-  it('refuses a tool that does not say what it is for', () => {
+  it('rejects a tool that does not say what it is for', () => {
     expect(
       problems(
-        OFFERING.replace(
+        PROVIDING.replace(
           '    description: Comment on the Linear issue this task came from.\n',
           '',
         ),
@@ -998,10 +999,10 @@ describe('IntegrationCompiler', () => {
       parseYaml(WHOLE),
     );
 
-    expect(compiled.ok && compiled.integration.source.value).toBe('linear');
-    expect(compiled.ok && compiled.document.says('integration', 'linear')).toBe(
-      true,
-    );
+    expect(compiled.ok && compiled.integration.key.value).toBe('linear');
+    expect(
+      compiled.ok && compiled.document.hasValue('integration', 'linear'),
+    ).toBe(true);
   });
 
   it('says what is wrong with one that will not compile', () => {
@@ -1011,7 +1012,7 @@ describe('IntegrationCompiler', () => {
   });
 });
 
-describe('the tools an API description offers', () => {
+describe('the tools an API spec provides', () => {
   const PETSTORE = `integration: petstore
 name: Petstore
 openapi:
@@ -1027,7 +1028,7 @@ openapi:
   const HASH = ContentHash.of('d'.repeat(64));
 
   const operation = (name: string, writes: boolean) =>
-    DescribedOperation.of({
+    SpecOperation.of({
       name,
       upstream: name,
       description: `Does ${name}.`,
@@ -1062,35 +1063,35 @@ openapi:
     ],
   };
 
-  const read = (text: string, described = OPERATIONS) =>
-    compileIntegration(parseYaml(text), expressions, described);
+  const read = (text: string, specOperations = OPERATIONS) =>
+    compileIntegration(parseYaml(text), expressions, specOperations);
 
-  it('names the description it offers tools from, and what it wears to read it', () => {
+  it('names the spec it provides tools from, and what it injects to fetch it', () => {
     const compiled = new IntegrationCompiler(expressions).compile(
       parseYaml(PETSTORE),
     );
 
-    expect(compiled.ok && compiled.source).toMatchObject({
+    expect(compiled.ok && compiled.spec).toMatchObject({
       kind: 'openapi',
       url: 'https://petstore3.swagger.io/api/v3/openapi.json',
       document: null,
     });
     expect(
-      compiled.ok && compiled.source?.wears.map((each) => each.value),
+      compiled.ok && compiled.spec?.injectedSecrets.map((each) => each.value),
     ).toEqual(['PETSTORE_KEY']);
     expect(
       compiled.ok && compiled.integration.credentials.map((each) => each.value),
     ).toEqual(['PETSTORE_KEY']);
-    expect(compiled.ok && compiled.integration.offers).toEqual([]);
+    expect(compiled.ok && compiled.integration.tools).toEqual([]);
   });
 
-  it('fingerprints where a description is read from, but not what is offered from it', () => {
+  it('fingerprints where a spec is fetched from, but not what is provided from it', () => {
     const fingerprint = (text: string) => {
       const compiled = new IntegrationCompiler(expressions).compile(
         parseYaml(text),
       );
 
-      return compiled.ok ? compiled.source?.fingerprint : null;
+      return compiled.ok ? compiled.spec?.fingerprint : null;
     };
 
     expect(fingerprint(PETSTORE)).toBe(
@@ -1109,7 +1110,7 @@ openapi:
 
     expect(
       compiled.ok &&
-        compiled.readable.integration.offers.map((each) => [
+        compiled.readable.integration.tools.map((each) => [
           each.tool,
           each.approval?.because ?? null,
         ]),
@@ -1120,8 +1121,8 @@ openapi:
     ]);
     expect(
       compiled.ok &&
-        compiled.readable.integration.offers.map(
-          (each) => each.backing.described?.operation,
+        compiled.readable.integration.tools.map(
+          (each) => each.backing.spec?.operation,
         ),
     ).toEqual(['find-pet', 'add-pet', 'delete-pet']);
   });
@@ -1137,7 +1138,7 @@ openapi:
     ).toEqual([
       [
         'openapi.tools.approval.add-pets',
-        'names add-pets, but no operation of its OpenAPI description has that name',
+        'names add-pets, but no operation of its OpenAPI spec has that name',
       ],
     ]);
   });
@@ -1150,17 +1151,17 @@ openapi:
       url: https://petstore3.swagger.io/api/v3/pet/1
 tools:
   delete-pet:
-    does: remove
+    action: remove
     description: Remove the pet this task is about.
 `);
-    const offered = compiled.ok
-      ? compiled.readable.integration.offered('petstore.delete-pet')
+    const provided = compiled.ok
+      ? compiled.readable.integration.providedTool('petstore.delete-pet')
       : null;
 
-    expect(offered?.backing.action).toBe('remove');
+    expect(provided?.backing.action).toBe('remove');
     expect(
       compiled.ok &&
-        compiled.readable.integration.offers.filter(
+        compiled.readable.integration.tools.filter(
           (each) => each.name === 'delete-pet',
         ),
     ).toHaveLength(1);
@@ -1175,7 +1176,7 @@ tools:
       body: \${{ inputs.filter }}
 tools:
   search:
-    does: search
+    action: search
     description: Search the pets.
     inputs:
       filter:
@@ -1189,7 +1190,7 @@ tools:
 `,
     );
     const inputs = compiled.ok
-      ? compiled.readable.integration.offered('petstore.search')?.inputs
+      ? compiled.readable.integration.providedTool('petstore.search')?.inputs
       : [];
 
     expect(inputs?.map((each) => [each.name, each.schema.written])).toEqual([
@@ -1205,7 +1206,7 @@ tools:
     ]);
   });
 
-  it('refuses an input given both a type and a schema', () => {
+  it('rejects an input given both a type and a schema', () => {
     expect(
       compileIntegration(
         parseYaml(`${PETSTORE}actions:
@@ -1214,7 +1215,7 @@ tools:
       url: https://petstore3.swagger.io/api/v3/pet/search
 tools:
   search:
-    does: search
+    action: search
     description: Search the pets.
     inputs:
       filter:
@@ -1229,24 +1230,24 @@ tools:
     });
   });
 
-  it('refuses a description that is both read from a url and written out, or two descriptions', () => {
-    const refusals = (text: string) => {
+  it('rejects a description that is both read from a url and written out, or two descriptions', () => {
+    const problems = (text: string) => {
       const compiled = compileIntegration(parseYaml(text), expressions);
 
       return compiled.ok ? [] : compiled.problems.map((each) => each.reason);
     };
 
     expect(
-      refusals(
+      problems(
         PETSTORE.replace('  auth:', '  document: { openapi: 3.1.0 }\n  auth:'),
       ),
     ).toEqual([expect.stringMatching(/but not both/)]);
     expect(
-      refusals(`${PETSTORE}graphql:\n  url: https://api.linear.app/graphql\n`),
-    ).toEqual([expect.stringMatching(/one source/)]);
+      problems(`${PETSTORE}graphql:\n  url: https://api.linear.app/graphql\n`),
+    ).toEqual([expect.stringMatching(/one API spec/)]);
   });
 
-  it('refuses more tools than a station can choose between, at the filter', () => {
+  it('rejects more tools than a station can choose between, at the filter', () => {
     const many = {
       hash: HASH,
       operations: Array.from({ length: 1001 }, (_, at) =>
@@ -1278,8 +1279,8 @@ graphql:
     ).toMatchObject({
       ok: true,
       readable: {
-        described: {
-          source: { kind: 'graphql', depth: 3, connected: true },
+        apiSpec: {
+          spec: { kind: 'graphql', depth: 3, connected: true },
           auth: { kind: 'oauth2' },
         },
       },
@@ -1304,7 +1305,7 @@ mcp:
 `;
 
   const tool = (name: string, writes: boolean) =>
-    DescribedOperation.of({
+    SpecOperation.of({
       name,
       upstream: name.replaceAll('-', '_'),
       description: `Does ${name}.`,
@@ -1327,16 +1328,16 @@ mcp:
       parseYaml(TRACKER),
     );
 
-    expect(compiled.ok && compiled.source).toMatchObject({
+    expect(compiled.ok && compiled.spec).toMatchObject({
       kind: 'mcp',
       url: 'https://mcp.tracker.example/mcp',
       document: null,
       connected: true,
     });
-    expect(compiled.ok && compiled.integration.connects).toBe(true);
+    expect(compiled.ok && compiled.integration.requiresConnection).toBe(true);
   });
 
-  it('asks approval for a tool that writes, unless the definition says not to', () => {
+  it('requires approval for a tool that writes, unless the definition says not to', () => {
     const compiled = compileIntegration(
       parseYaml(TRACKER),
       expressions,
@@ -1344,8 +1345,8 @@ mcp:
     );
     const approval = (name: string) =>
       compiled.ok
-        ? compiled.readable.integration.offered(`tracker.${name}`)?.approval
-            ?.because
+        ? compiled.readable.integration.providedTool(`tracker.${name}`)
+            ?.approval?.because
         : undefined;
 
     expect(approval('search-issues')).toBeUndefined();
@@ -1364,7 +1365,7 @@ mcp:
     });
   });
 
-  it('refuses to discover how to connect without a server to ask, or with endpoints already named', () => {
+  it('rejects discovery of how to connect without a server to query, or with endpoints already named', () => {
     expect(
       problems(
         TRACKER.replace(

@@ -7,7 +7,7 @@ import {
   type SearchBudget,
   type SearchEstimate,
   type SearchField,
-  setRefusal,
+  setProblemOf,
   typedIn,
 } from '@/lib/search';
 import {
@@ -17,7 +17,7 @@ import {
 
 type SetSaturation = ReplaySet['health']['saturation'];
 
-export type EstimateAsked = {
+export type EstimateInput = {
   readonly setId: string;
   readonly budget: SearchBudget;
 };
@@ -26,7 +26,7 @@ export type SearchProblemSources = {
   readonly problems: FieldProblems;
   readonly inputs: BudgetInputs;
   readonly tried: boolean;
-  readonly refused: readonly FieldProblems[];
+  readonly rejected: readonly FieldProblems[];
 };
 
 export const FIRST_BUDGET: BudgetInputs = {
@@ -43,7 +43,7 @@ export const NO_SET_CHOSEN = 'Choose a replay set.';
 const NO_ESTIMATE = 'Please fix the marked field to see an estimate.';
 
 export const firstStartable = (sets: readonly ReplaySet[]): string =>
-  sets.find((set) => setRefusal(set) === null)?.id ?? '';
+  sets.find((set) => setProblemOf(set) === null)?.id ?? '';
 
 export const harnessOf = (
   harnesses: readonly HarnessResponseDto[] | undefined,
@@ -59,12 +59,12 @@ export const estimateKey = (
 ): string | null =>
   setId && budget ? JSON.stringify({ setId, budget }) : null;
 
-export const estimateAskedOf = (key: string | null): EstimateAsked | null =>
-  key ? (JSON.parse(key) as EstimateAsked) : null;
+export const estimateInputOf = (key: string | null): EstimateInput | null =>
+  key ? (JSON.parse(key) as EstimateInput) : null;
 
 export const searchProblemOf = (
   field: SearchField,
-  { problems, inputs, tried, refused }: SearchProblemSources,
+  { problems, inputs, tried, rejected }: SearchProblemSources,
 ): string | null => {
   const local = problems[field];
 
@@ -73,7 +73,7 @@ export const searchProblemOf = (
   }
 
   return (
-    refused
+    rejected
       .map((fields) => fields[field])
       .find((problem) => problem !== undefined) ?? null
   );
@@ -86,9 +86,9 @@ export const saturationOf = (
   sets.find((each) => each.id === setId)?.health.saturation ?? null;
 
 export const objectiveOf = (
-  asked: SearchObjective | null,
+  requested: SearchObjective | null,
   saturation: SetSaturation,
-): SearchObjective => asked ?? (saturation?.saturated ? 'cost' : 'success');
+): SearchObjective => requested ?? (saturation?.saturated ? 'cost' : 'success');
 
 export const saturatedRateOf = (
   suggested: SearchEstimate | null,
@@ -111,7 +111,7 @@ export const objectiveSuggestionOf = (
     ? formatObjectiveSuggested(saturatedRate)
     : null;
 
-export const estimateRefusalOf = (
-  refused: boolean,
+export const estimateProblemOf = (
+  rejected: boolean,
   general: string | null,
-): string | null => (refused ? (general ?? NO_ESTIMATE) : null);
+): string | null => (rejected ? (general ?? NO_ESTIMATE) : null);

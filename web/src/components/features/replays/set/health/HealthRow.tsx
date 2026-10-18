@@ -6,7 +6,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { InfoNote } from '@/components/features/insights/InfoNote';
+import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
 import {
   EDGE_INDENT,
   LEAD_CELL,
@@ -55,19 +55,19 @@ export function HealthRow({ reading, replayTo, children }: HealthRowProps) {
         <span className="truncate font-medium text-foreground">
           {reading.label}
         </span>
-        <InfoNote note={reading.advice} />
+        <InfoTooltip tooltip={reading.advice} />
       </span>
       <span className="col-span-full flex min-w-0 flex-col gap-1 @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1">
         <span className="flex min-w-0 flex-wrap items-center gap-x-3">
           <span
-            data-slot="health-said"
+            data-slot="health-text"
             className={cn(
               'inline-flex items-center gap-2',
               TONES[reading.tone],
             )}
           >
             <Icon aria-hidden className="size-3 shrink-0" />
-            {reading.said}
+            {reading.text}
           </span>
           {replayTo && (
             <TrailLink

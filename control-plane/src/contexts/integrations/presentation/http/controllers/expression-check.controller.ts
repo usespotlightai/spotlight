@@ -29,12 +29,12 @@ const POSITION = FieldPath.of(['position']);
 const DEFINITION = FieldPath.of(['definition']);
 
 const POSITION_WRITTEN =
-  'names the attribute that holds the expression, as in integration.webhook.events[0].when';
+  'names the attribute that contains the expression, as in integration.webhook.events[0].when';
 
 const problemAt = (at: FieldPath, reason: string): ConfigurationProblem =>
   ConfigurationProblem.of({ path: '', at, reason });
 
-const refusalOf = (
+const problemsOf = (
   checked: Exclude<CheckedExpression, { outcome: 'checked' }>,
 ): ConfigurationProblem[] => {
   switch (checked.outcome) {
@@ -53,7 +53,7 @@ const refusalOf = (
       return [
         problemAt(
           POSITION,
-          'holds no expression in the definition. Nothing is written there to check',
+          'contains no expression in the definition. Nothing is written there to check',
         ),
       ];
   }
@@ -76,7 +76,7 @@ export class ExpressionCheckController {
   })
   @ApiProblemResponse(
     HttpStatus.UNPROCESSABLE_ENTITY,
-    'The request is not shaped as a check, the definition holds errors, each listed under definition, or the position names no expression in it',
+    'The request is not shaped as a check, the definition has errors, each listed under definition, or the position names no expression in it',
   )
   @ApiProblemResponse(
     HttpStatus.FORBIDDEN,
@@ -117,7 +117,7 @@ export class ExpressionCheckController {
     }
 
     if (checked.outcome !== 'checked') {
-      throw ProblemException.invalid(REQUEST, refusalOf(checked));
+      throw ProblemException.invalid(REQUEST, problemsOf(checked));
     }
 
     return new ExpressionCheckResponseDto(checked.check);
@@ -126,7 +126,8 @@ export class ExpressionCheckController {
   @Get('positions')
   @ApiOperation({
     operationId: 'listExpressionPositions',
-    summary: 'Every position an expression is written at, and what it sees',
+    summary:
+      'Every position an expression is written at, and the variables it can read',
   })
   @ApiOkResponse({ type: ExpressionPositionResponseDto, isArray: true })
   async positions(): Promise<ExpressionPositionResponseDto[]> {

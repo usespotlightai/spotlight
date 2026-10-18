@@ -6,14 +6,14 @@ import { CurrentPrincipal } from '@platform/http/decorators/current-principal.de
 import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
-import {
-  answerCreated,
-  answerDeleted,
-  answerUpdated,
-  found,
-  listed,
-} from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
+import {
+  respondCreated,
+  respondDeleted,
+  respondFound,
+  respondListed,
+  respondUpdated,
+} from '@platform/http/resources/resource-responses';
 import type {
   ResourceCreated,
   ResourceDeleted,
@@ -95,7 +95,7 @@ export class LineResourceController {
     private readonly commandBus: CommandBus,
   ) {}
 
-  @LineResource.Create('teams/:teamId/lines', 'Open a line for a team')
+  @LineResource.Create('teams/:teamId/lines', 'Create a line for a team')
   @ApiParam({ name: 'teamId', example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84' })
   @DEFINITION
   async create(
@@ -104,27 +104,27 @@ export class LineResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<LineResourceResponseDto> {
-    return answerCreated(
+    return respondCreated(
       KIND,
       await this.commandBus.execute<CreateLineCommand, ResourceCreated | null>(
         new CreateLineCommand(teamId, actor, key, body),
       ),
-      (id) => this.answer(id, actor.principal),
+      (id) => this.toResponse(id, actor.principal),
     );
   }
 
-  @LineResource.Read('lines/:id', 'Read a line as it stands')
+  @LineResource.Read('lines/:id', 'Read the current form of a line')
   @ID
   read(
     @Param('id') id: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<LineResourceResponseDto> {
-    return this.answer(id, principal);
+    return this.toResponse(id, principal);
   }
 
   @LineResource.Update(
     'lines/:id',
-    'Reconcile a line with its definition, keeping each station it keeps',
+    'Reconcile a line with its definition, and keep each station that the definition still names',
   )
   @ID
   @DEFINITION
@@ -134,23 +134,23 @@ export class LineResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<LineResourceResponseDto> {
-    return answerUpdated(
+    return respondUpdated(
       KIND,
       await this.commandBus.execute<UpdateLineCommand, ResourceUpdated | null>(
         new UpdateLineCommand(id, actor, version, body),
       ),
-      (updated) => this.answer(updated, actor.principal),
+      (updated) => this.toResponse(updated, actor.principal),
     );
   }
 
-  @LineResource.Delete('lines/:id', 'Delete a line no task stands on')
+  @LineResource.Delete('lines/:id', 'Delete a line that has no tasks')
   @ID
   async delete(
     @Param('id') id: string,
     @IfMatch() version: number,
     @CurrentActor() actor: Actor,
   ): Promise<void> {
-    answerDeleted(
+    respondDeleted(
       KIND,
       await this.commandBus.execute<DeleteLineCommand, ResourceDeleted | null>(
         new DeleteLineCommand(id, actor, version),
@@ -168,7 +168,7 @@ export class LineResourceController {
     @Query('address') address: string | undefined,
     @CurrentPrincipal() principal: Principal,
   ): Promise<LineResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<ImportLineQuery, LineResourceDto | null>(
         new ImportLineQuery(workspaceId, address ?? '', principal),
@@ -179,14 +179,14 @@ export class LineResourceController {
 
   @LineResource.List(
     'workspaces/:workspaceId/lines',
-    'List every line in a workspace, across its teams, each as it stands',
+    'List every line in a workspace, across its teams, each in its current form',
   )
   @WORKSPACE
   async list(
     @Param('workspaceId') workspaceId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ResourceList<LineResourceResponseDto>> {
-    return listed(
+    return respondListed(
       await this.queryBus.execute<
         ListLineResourcesQuery,
         readonly LineResourceDto[] | null
@@ -195,11 +195,11 @@ export class LineResourceController {
     );
   }
 
-  private async answer(
+  private async toResponse(
     id: string,
     principal: Principal,
   ): Promise<LineResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<ReadLineQuery, LineResourceDto | null>(
         new ReadLineQuery(id, principal),

@@ -17,13 +17,13 @@ export function useTeamMemories(
   return useQuery({
     queryKey: teamMemoryKeys.listed(teamId, filter),
     enabled: Boolean(teamId),
-    placeholderData: (previous, held) =>
-      held?.queryKey[1] === teamId ? previous : undefined,
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === teamId ? previous : undefined,
     queryFn: async () => {
       const { data } = await listTeamMemories({
         path: { teamId: teamId as string },
         query: {
-          standing: filter.standing,
+          status: filter.status,
           ...(filter.kind ? { kind: filter.kind } : {}),
           ...(filter.lineId ? { lineId: filter.lineId } : {}),
           ...(filter.stationId ? { stationId: filter.stationId } : {}),

@@ -1,13 +1,13 @@
 export const RUN_GRANTS = Symbol('RUN_GRANTS');
 
-export interface RunHoldDto {
+export interface RunLeaseDto {
   readonly workspaceId: string;
   readonly runId: string;
   readonly attempt: number;
 }
 
 export interface RunGrantsPort {
-  holdLost(hold: RunHoldDto): Promise<void>;
+  leaseLost(lease: RunLeaseDto): Promise<void>;
 
-  endedFor(hold: RunHoldDto): Promise<void>;
+  endedFor(lease: RunLeaseDto): Promise<void>;
 }

@@ -4,7 +4,7 @@ import { CreateWorkspaceHandler } from '@identity/application/commands/handlers/
 import { DeleteWorkspaceHandler } from '@identity/application/commands/handlers/delete-workspace.handler';
 import { UpdateWorkspaceHandler } from '@identity/application/commands/handlers/update-workspace.handler';
 import { UpdateWorkspaceCommand } from '@identity/application/commands/update-workspace.command';
-import { HoldingsRegistry } from '@identity/application/services/holdings-registry.service';
+import { DependentsRegistry } from '@identity/application/services/dependents-registry.service';
 import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import {
@@ -19,7 +19,7 @@ import {
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
-import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
@@ -42,11 +42,11 @@ const CONFIGURE_TOKEN = Actor.of(
 
 describe('CreateWorkspaceHandler', () => {
   const creating = (over: { taken?: boolean; by?: Actor } = {}) => {
-    const kept = workspaces({ taken: over.taken });
+    const stored = workspaces({ taken: over.taken });
     const keys = creates();
     const handler = new CreateWorkspaceHandler(
       new IdentityDefinitions(),
-      kept,
+      stored,
       keys,
       { generate: () => 'ws_new' },
       transaction,
@@ -61,13 +61,13 @@ describe('CreateWorkspaceHandler', () => {
             definition,
           ),
         ),
-      kept,
+      stored,
       keys,
     };
   };
 
-  it('opens a workspace owned by whoever asked, with no first team', async () => {
-    const { create, kept, keys } = creating();
+  it('creates a workspace owned by the caller, with no first team', async () => {
+    const { create, stored, keys } = creating();
 
     expect(await create(ACME)).toEqual({
       outcome: 'created',
@@ -75,44 +75,47 @@ describe('CreateWorkspaceHandler', () => {
       replayed: false,
     });
 
-    const [added] = kept.add.mock.calls[0] as [Workspace];
+    const [added] = stored.add.mock.calls[0] as [Workspace];
 
     expect(added.roleOf(OWNER)?.isOwner).toBe(true);
-    expect(keys.created).toHaveBeenCalledWith(expect.anything(), 'ws_new');
+    expect(keys.recordCreated).toHaveBeenCalledWith(
+      expect.anything(),
+      'ws_new',
+    );
   });
 
-  it('forbids a token to open a workspace, since it acts only inside its own', async () => {
-    const { create, kept } = creating({ by: CONFIGURE_TOKEN });
+  it('forbids a token to create a workspace, since it acts only inside its own', async () => {
+    const { create, stored } = creating({ by: CONFIGURE_TOKEN });
 
-    expect(await create(ACME)).toEqual(forbiddenTo('open-workspaces'));
-    expect(kept.add).not.toHaveBeenCalled();
+    expect(await create(ACME)).toEqual(forbiddenTo('create-workspaces'));
+    expect(stored.add).not.toHaveBeenCalled();
   });
 
-  it('says a slug somebody holds is taken', async () => {
+  it('says a slug that another workspace uses is taken', async () => {
     expect(await creating({ taken: true }).create(ACME)).toEqual({
-      outcome: 'taken',
+      outcome: 'already-exists',
       address: 'acme',
     });
   });
 
-  it('says what is wrong, and opens nothing', async () => {
-    const { create, kept } = creating();
-    const refused = await create({ name: 'Acme' });
+  it('says what is wrong, and creates nothing', async () => {
+    const { create, stored } = creating();
+    const rejected = await create({ name: 'Acme' });
 
     expect(
-      refused?.outcome === 'invalid' &&
-        refused.problems.map((each) => dottedOf(each.field)),
+      rejected?.outcome === 'invalid' &&
+        rejected.problems.map((each) => dottedOf(each.field)),
     ).toEqual(['slug']);
-    expect(kept.add).not.toHaveBeenCalled();
+    expect(stored.add).not.toHaveBeenCalled();
   });
 });
 
 describe('UpdateWorkspaceHandler', () => {
   const updating = (over: Parameters<typeof workspaces>[0] = {}) => {
-    const kept = workspaces({ standing: workspaceAt(3), ...over });
+    const stored = workspaces({ existing: workspaceAt(3), ...over });
     const handler = new UpdateWorkspaceHandler(
       new IdentityDefinitions(),
-      kept,
+      stored,
       transaction,
     );
 
@@ -126,32 +129,32 @@ describe('UpdateWorkspaceHandler', () => {
             definition,
           ),
         ),
-      kept,
+      stored,
     };
   };
 
-  it('renames the version it was asked to', async () => {
-    const { update, kept } = updating();
+  it('renames the version in the request', async () => {
+    const { update, stored } = updating();
 
     expect(await update({ name: 'Acme Inc', slug: 'acme' })).toEqual({
       outcome: 'updated',
       id: 'ws_1',
     });
 
-    const [saved] = kept.save.mock.calls[0] as [Workspace];
+    const [saved] = stored.save.mock.calls[0] as [Workspace];
 
     expect(saved.name.value).toBe('Acme Inc');
   });
 
-  it('points at the slug when asked to move it', async () => {
-    const refused = await updating().update({
+  it('points at the slug when a request moves it', async () => {
+    const rejected = await updating().update({
       name: 'Acme',
       slug: 'elsewhere',
     });
 
     expect(
-      refused?.outcome === 'invalid' &&
-        refused.problems.map((each) => dottedOf(each.field)),
+      rejected?.outcome === 'invalid' &&
+        rejected.problems.map((each) => dottedOf(each.field)),
     ).toEqual(['slug']);
   });
 
@@ -162,7 +165,7 @@ describe('UpdateWorkspaceHandler', () => {
     });
     expect(
       await updating({
-        refusing: new WorkspaceVersionConflictError('acme'),
+        throwing: new WorkspaceVersionConflictError('acme'),
         thenAt: workspaceAt(4),
       }).update(ACME),
     ).toEqual({ outcome: 'version-conflict', currentVersion: 4 });
@@ -172,97 +175,99 @@ describe('UpdateWorkspaceHandler', () => {
     expect(await updating().update(ACME, { by: MEMBER })).toEqual(
       forbiddenTo('configure'),
     );
-    expect(await updating({ standing: null }).update(ACME)).toBeNull();
+    expect(await updating({ existing: null }).update(ACME)).toBeNull();
   });
 });
 
 describe('DeleteWorkspaceHandler', () => {
   const deleting = (
     over: {
-      held?: boolean;
+      hasTeam?: boolean;
       issued?: boolean;
       trusted?: boolean;
-      minting?: boolean;
-      holding?: readonly string[];
+      issuing?: boolean;
+      dependents?: readonly string[];
     } = {},
   ) => {
-    const kept = workspaces({ standing: workspaceAt(3) });
-    const holdings = new HoldingsRegistry<WorkspaceId>();
-    holdings.register({ heldBy: async () => over.holding ?? [] });
+    const stored = workspaces({ existing: workspaceAt(3) });
+    const registry = new DependentsRegistry<WorkspaceId>();
+    registry.register({ dependentsOf: async () => over.dependents ?? [] });
     const handler = new DeleteWorkspaceHandler(
-      kept,
+      stored,
       teamKeys(
-        over.held ? ['core'] : [],
+        over.hasTeam ? ['core'] : [],
         over.issued ? ['ci'] : [],
         over.trusted ? ['github-main'] : [],
-        over.minting ? ['github-main'] : [],
+        over.issuing ? ['github-main'] : [],
       ),
-      holdings,
+      registry,
       transaction,
     );
 
     return {
       remove: (by: Actor = actorFor(OWNER.value)) =>
         handler.execute(new DeleteWorkspaceCommand('ws_1', by, 3)),
-      kept,
+      stored,
     };
   };
 
-  it('closes a workspace that holds no team', async () => {
-    const { remove, kept } = deleting();
+  it('deletes a workspace that has no team', async () => {
+    const { remove, stored } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
-    expect((kept.save.mock.calls[0] as [Workspace])[0].isClosed).toBe(true);
+    expect((stored.save.mock.calls[0] as [Workspace])[0].isDeleted).toBe(true);
   });
 
-  it('will not close a workspace that still holds a team', async () => {
-    const { remove, kept } = deleting({ held: true });
+  it('will not delete a workspace that still has a team', async () => {
+    const { remove, stored } = deleting({ hasTeam: true });
 
     expect(await remove()).toMatchObject({
       outcome: 'in-use',
       reason: expect.stringContaining('core'),
     });
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(stored.save).not.toHaveBeenCalled();
   });
 
-  it('will not close a workspace that still holds a token', async () => {
-    const { remove, kept } = deleting({ issued: true });
+  it('will not delete a workspace that still has a token', async () => {
+    const { remove, stored } = deleting({ issued: true });
 
     expect(await remove()).toMatchObject({
       outcome: 'in-use',
       reason: expect.stringContaining('token ci'),
     });
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(stored.save).not.toHaveBeenCalled();
   });
 
-  it('will not close a workspace that still holds a token trust', async () => {
-    const { remove, kept } = deleting({ trusted: true });
+  it('will not delete a workspace that still has a token trust', async () => {
+    const { remove, stored } = deleting({ trusted: true });
 
     expect(await remove()).toMatchObject({
       outcome: 'in-use',
       reason: expect.stringContaining('token trust github-main'),
     });
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(stored.save).not.toHaveBeenCalled();
   });
 
-  it('will not close a workspace that still holds tokens minted through a trust withdrawn a moment ago', async () => {
-    const { remove, kept } = deleting({ minting: true });
+  it('will not delete a workspace that still has tokens issued by a trust deleted a moment ago', async () => {
+    const { remove, stored } = deleting({ issuing: true });
 
     expect(await remove()).toMatchObject({
       outcome: 'in-use',
-      reason: expect.stringContaining('tokens minted through github-main'),
+      reason: expect.stringContaining('tokens issued by github-main'),
     });
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(stored.save).not.toHaveBeenCalled();
   });
 
-  it('will not close a workspace another context still holds something in', async () => {
-    const { remove, kept } = deleting({ holding: ['secret LINEAR_API_KEY'] });
+  it('will not delete a workspace in which another context still has something', async () => {
+    const { remove, stored } = deleting({
+      dependents: ['secret LINEAR_API_KEY'],
+    });
 
     expect(await remove()).toMatchObject({
       outcome: 'in-use',
       reason: expect.stringContaining('secret LINEAR_API_KEY'),
     });
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(stored.save).not.toHaveBeenCalled();
   });
 
   it('forbids a member who does not administer it', async () => {
@@ -271,10 +276,10 @@ describe('DeleteWorkspaceHandler', () => {
     );
   });
 
-  it('forbids a token that configures it, since closing is administration', async () => {
-    const { remove, kept } = deleting();
+  it('forbids a token that configures it, since deleting is administration', async () => {
+    const { remove, stored } = deleting();
 
     expect(await remove(CONFIGURE_TOKEN)).toEqual(forbiddenTo('administer'));
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(stored.save).not.toHaveBeenCalled();
   });
 });

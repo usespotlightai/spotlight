@@ -23,22 +23,22 @@ const consistent = `! grep -q lib app.txt || test -f lib.txt`
 
 type reporter struct {
 	mu       sync.Mutex
-	recorded []protocol.StackChecked
+	recorded []protocol.StackCheckResult
 	stacks   []string
 	renewals int
 	stop     bool
-	refusal  error
+	renewErr error
 }
 
 func (r *reporter) RenewCheckLease(_ context.Context, _, _ string, _ bool) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.renewals++
-	return r.stop, r.refusal
+	return r.stop, r.renewErr
 }
 
 func (r *reporter) RecordChangeStackCheck(
-	_ context.Context, _ string, stackID string, _ bool, checked protocol.StackChecked,
+	_ context.Context, _ string, stackID string, _ bool, checked protocol.StackCheckResult,
 ) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -53,7 +53,7 @@ func (r *reporter) renewed() int {
 	return r.renewals
 }
 
-func (r *reporter) only() protocol.StackChecked {
+func (r *reporter) only() protocol.StackCheckResult {
 	if len(r.recorded) != 1 {
 		panic("nothing recorded")
 	}
@@ -157,9 +157,9 @@ func whole(patch string) protocol.CheckStep {
 
 func TestPerformChecksTheWholeChangeThenEachLayerOnItsOwn(t *testing.T) {
 	r := setUp(t)
-	told := &reporter{}
+	reported := &reporter{}
 
-	stackcheck.Perform(context.Background(), told, r.check(
+	stackcheck.Perform(context.Background(), reported, r.check(
 		whole(r.whole),
 		protocol.CheckStep{ID: "c1.l1", Patch: r.appOnly},
 		protocol.CheckStep{
@@ -168,7 +168,7 @@ func TestPerformChecksTheWholeChangeThenEachLayerOnItsOwn(t *testing.T) {
 		},
 	), r.options())
 
-	checked := told.only()
+	checked := reported.only()
 	if checked.Skipped != nil || len(checked.Steps) != 3 {
 		t.Fatalf("checked %+v", checked)
 	}
@@ -183,21 +183,21 @@ func TestPerformChecksTheWholeChangeThenEachLayerOnItsOwn(t *testing.T) {
 	if !strings.Contains(checked.Steps[2].Output, "don't apply") {
 		t.Fatalf("output %q", checked.Steps[2].Output)
 	}
-	if told.stacks[0] != "stack-1" {
-		t.Fatalf("reported against %q", told.stacks[0])
+	if reported.stacks[0] != "stack-1" {
+		t.Fatalf("reported against %q", reported.stacks[0])
 	}
 }
 
 func TestPerformStopsWhereAStepSaysItShould(t *testing.T) {
 	r := setUp(t)
-	told := &reporter{}
+	reported := &reporter{}
 
 	check := r.check(whole(r.whole), protocol.CheckStep{ID: "c1.l1", Patch: r.appOnly})
 	check.Command = "echo broken; exit 3"
 
-	stackcheck.Perform(context.Background(), told, check, r.options())
+	stackcheck.Perform(context.Background(), reported, check, r.options())
 
-	steps := told.only().Steps
+	steps := reported.only().Steps
 	if len(steps) != 1 || steps[0].Passed || steps[0].Output != "broken" {
 		t.Fatalf("steps %+v", steps)
 	}
@@ -205,7 +205,7 @@ func TestPerformStopsWhereAStepSaysItShould(t *testing.T) {
 
 func TestPerformRunsEveryStepWhereNoneStopsTheRest(t *testing.T) {
 	r := setUp(t)
-	told := &reporter{}
+	reported := &reporter{}
 
 	check := r.check(
 		protocol.CheckStep{ID: "whole", Patch: r.whole},
@@ -213,24 +213,24 @@ func TestPerformRunsEveryStepWhereNoneStopsTheRest(t *testing.T) {
 	)
 	check.Command = "exit 1"
 
-	stackcheck.Perform(context.Background(), told, check, r.options())
+	stackcheck.Perform(context.Background(), reported, check, r.options())
 
-	if steps := told.only().Steps; len(steps) != 2 {
+	if steps := reported.only().Steps; len(steps) != 2 {
 		t.Fatalf("steps %+v", steps)
 	}
 }
 
 func TestPerformMakesTheCheckoutReadyFirst(t *testing.T) {
 	r := setUp(t)
-	told := &reporter{}
+	reported := &reporter{}
 
 	check := r.check(whole(r.whole))
 	check.Setup = "mkdir -p deps && echo installed > deps/tool.txt"
 	check.Command = "test -f deps/tool.txt"
 
-	stackcheck.Perform(context.Background(), told, check, r.options())
+	stackcheck.Perform(context.Background(), reported, check, r.options())
 
-	steps := told.only().Steps
+	steps := reported.only().Steps
 	if len(steps) != 1 || !steps[0].Passed {
 		t.Fatalf("steps %+v", steps)
 	}
@@ -238,14 +238,14 @@ func TestPerformMakesTheCheckoutReadyFirst(t *testing.T) {
 
 func TestPerformSaysWhenTheCheckoutCouldNotBeMadeReady(t *testing.T) {
 	r := setUp(t)
-	told := &reporter{}
+	reported := &reporter{}
 
 	check := r.check(whole(r.whole))
 	check.Setup = "echo no network; exit 1"
 
-	stackcheck.Perform(context.Background(), told, check, r.options())
+	stackcheck.Perform(context.Background(), reported, check, r.options())
 
-	skipped := told.only().Skipped
+	skipped := reported.only().Skipped
 	if skipped == nil || skipped.Code != protocol.SkipSetupFailed {
 		t.Fatalf("skipped %+v", skipped)
 	}
@@ -256,7 +256,7 @@ func TestPerformSaysWhenTheCheckoutCouldNotBeMadeReady(t *testing.T) {
 
 func TestPerformKeepsWhatSetupLaidDownBetweenSteps(t *testing.T) {
 	r := setUp(t)
-	told := &reporter{}
+	reported := &reporter{}
 
 	check := r.check(
 		whole(r.whole),
@@ -265,9 +265,9 @@ func TestPerformKeepsWhatSetupLaidDownBetweenSteps(t *testing.T) {
 	check.Setup = "mkdir -p deps && echo installed > deps/tool.txt"
 	check.Command = "test -f deps/tool.txt"
 
-	stackcheck.Perform(context.Background(), told, check, r.options())
+	stackcheck.Perform(context.Background(), reported, check, r.options())
 
-	for _, step := range told.only().Steps {
+	for _, step := range reported.only().Steps {
 		if !step.Passed {
 			t.Fatalf("%s lost what setup laid down: %q", step.Step, step.Output)
 		}
@@ -290,13 +290,13 @@ func TestPerformSaysWhyItCouldNotCheck(t *testing.T) {
 		{"no such repository", protocol.SkipCheckoutFailed, func(c *protocol.StackCheck) { c.Repository = "other" }},
 	} {
 		t.Run(missing.name, func(t *testing.T) {
-			told := &reporter{}
+			reported := &reporter{}
 			check := r.check(whole(r.whole))
 			missing.spoil(&check)
 
-			stackcheck.Perform(context.Background(), told, check, r.options())
+			stackcheck.Perform(context.Background(), reported, check, r.options())
 
-			skipped := told.only().Skipped
+			skipped := reported.only().Skipped
 			if skipped == nil || skipped.Code != missing.code {
 				t.Fatalf("skipped %+v, want %s", skipped, missing.code)
 			}
@@ -306,7 +306,7 @@ func TestPerformSaysWhyItCouldNotCheck(t *testing.T) {
 
 func TestPerformStopsAStepThatRunsTooLong(t *testing.T) {
 	r := setUp(t)
-	told := &reporter{}
+	reported := &reporter{}
 
 	check := r.check(whole(r.whole))
 	check.Command = "sleep 30"
@@ -314,9 +314,9 @@ func TestPerformStopsAStepThatRunsTooLong(t *testing.T) {
 	options := r.options()
 	options.Step = 200 * time.Millisecond
 
-	stackcheck.Perform(context.Background(), told, check, options)
+	stackcheck.Perform(context.Background(), reported, check, options)
 
-	steps := told.only().Steps
+	steps := reported.only().Steps
 	if len(steps) != 1 || steps[0].Passed {
 		t.Fatalf("steps %+v", steps)
 	}
@@ -327,7 +327,7 @@ func TestPerformStopsAStepThatRunsTooLong(t *testing.T) {
 
 func TestPerformKeepsTheCheckLeasedWhileItRuns(t *testing.T) {
 	r := setUp(t)
-	told := &reporter{}
+	reported := &reporter{}
 
 	check := r.check(whole(r.whole))
 	check.Command = "sleep 0.3"
@@ -335,19 +335,19 @@ func TestPerformKeepsTheCheckLeasedWhileItRuns(t *testing.T) {
 	options := r.options()
 	options.Renew = 20 * time.Millisecond
 
-	stackcheck.Perform(context.Background(), told, check, options)
+	stackcheck.Perform(context.Background(), reported, check, options)
 
-	if renewed := told.renewed(); renewed < 3 {
+	if renewed := reported.renewed(); renewed < 3 {
 		t.Errorf("renewed %d times over a 300ms check", renewed)
 	}
-	if steps := told.only().Steps; len(steps) != 1 || !steps[0].Passed {
+	if steps := reported.only().Steps; len(steps) != 1 || !steps[0].Passed {
 		t.Fatalf("steps %+v", steps)
 	}
 }
 
 func TestPerformKeepsCheckingThroughARenewalThatCouldNotReachTheControlPlane(t *testing.T) {
 	r := setUp(t)
-	told := &reporter{refusal: errors.New("connection refused")}
+	reported := &reporter{renewErr: errors.New("connection refused")}
 
 	check := r.check(whole(r.whole))
 	check.Command = "sleep 0.2"
@@ -355,17 +355,17 @@ func TestPerformKeepsCheckingThroughARenewalThatCouldNotReachTheControlPlane(t *
 	options := r.options()
 	options.Renew = 20 * time.Millisecond
 
-	stackcheck.Perform(context.Background(), told, check, options)
+	stackcheck.Perform(context.Background(), reported, check, options)
 
-	if steps := told.only().Steps; len(steps) != 1 || !steps[0].Passed {
+	if steps := reported.only().Steps; len(steps) != 1 || !steps[0].Passed {
 		t.Fatalf("steps %+v", steps)
 	}
 }
 
-func TestPerformStopsACheckItNoLongerHolds(t *testing.T) {
-	for name, told := range map[string]*reporter{
-		"told to stop": {stop: true},
-		"refused": {refusal: &control.Rejection{
+func TestPerformStopsACheckItNoLongerLeases(t *testing.T) {
+	for name, reported := range map[string]*reporter{
+		"a stop was requested": {stop: true},
+		"not found": {renewErr: &control.ResponseError{
 			Status: http.StatusNotFound, Reason: "not-found", Err: errors.New("404 Not Found"),
 		}},
 	} {
@@ -379,13 +379,13 @@ func TestPerformStopsACheckItNoLongerHolds(t *testing.T) {
 			options.Renew = 20 * time.Millisecond
 
 			started := time.Now()
-			stackcheck.Perform(context.Background(), told, check, options)
+			stackcheck.Perform(context.Background(), reported, check, options)
 
 			if took := time.Since(started); took > 10*time.Second {
 				t.Errorf("kept checking for %s once the check was gone", took)
 			}
-			if len(told.recorded) != 0 {
-				t.Errorf("reported %+v for a check it no longer holds", told.recorded)
+			if len(reported.recorded) != 0 {
+				t.Errorf("reported %+v for a check it no longer leases", reported.recorded)
 			}
 		})
 	}
@@ -401,7 +401,7 @@ func TestPerformKeepsCheckingThroughARenewalRejectedForAWhile(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			r := setUp(t)
-			told := &reporter{refusal: &control.Rejection{
+			reported := &reporter{renewErr: &control.ResponseError{
 				Status: status, Err: errors.New(http.StatusText(status)),
 			}}
 
@@ -411,12 +411,12 @@ func TestPerformKeepsCheckingThroughARenewalRejectedForAWhile(t *testing.T) {
 			options := r.options()
 			options.Renew = 20 * time.Millisecond
 
-			stackcheck.Perform(context.Background(), told, check, options)
+			stackcheck.Perform(context.Background(), reported, check, options)
 
-			if renewed := told.renewed(); renewed < 2 {
-				t.Errorf("gave up renewing after %d tries", renewed)
+			if renewed := reported.renewed(); renewed < 2 {
+				t.Errorf("stopped renewing after %d tries", renewed)
 			}
-			if steps := told.only().Steps; len(steps) != 1 || !steps[0].Passed {
+			if steps := reported.only().Steps; len(steps) != 1 || !steps[0].Passed {
 				t.Fatalf("steps %+v", steps)
 			}
 		})
@@ -425,7 +425,7 @@ func TestPerformKeepsCheckingThroughARenewalRejectedForAWhile(t *testing.T) {
 
 func TestPerformChecksOnTopOfACheckoutTheImageBaked(t *testing.T) {
 	r := setUp(t)
-	told := &reporter{}
+	reported := &reporter{}
 	options := r.options()
 
 	baked := filepath.Join(options.Dir, "widgets")
@@ -435,10 +435,10 @@ func TestPerformChecksOnTopOfACheckoutTheImageBaked(t *testing.T) {
 	check := r.check(whole(r.whole))
 	check.Setup = "test -f deps/installed.txt"
 
-	stackcheck.Perform(context.Background(), told, check, options)
+	stackcheck.Perform(context.Background(), reported, check, options)
 
-	if steps := told.only().Steps; len(steps) != 1 || !steps[0].Passed {
-		t.Fatalf("checked %+v", told.only())
+	if steps := reported.only().Steps; len(steps) != 1 || !steps[0].Passed {
+		t.Fatalf("checked %+v", reported.only())
 	}
 	if _, err := os.Stat(filepath.Join(baked, "deps", "installed.txt")); err != nil {
 		t.Errorf("what the image installed is gone: %v", err)
@@ -466,7 +466,7 @@ func TestDiffGathersEverythingChangedSinceTheRunBegan(t *testing.T) {
 		}
 	}
 	if strings.Contains(diff, "deps/tool.txt") {
-		t.Errorf("diff holds an ignored file:\n%s", diff)
+		t.Errorf("diff contains an ignored file:\n%s", diff)
 	}
 	if after := git(t, checkout, "status", "--porcelain"); after != before {
 		t.Errorf("the checkout's index changed:\nbefore %q\nafter  %q", before, after)
@@ -492,11 +492,11 @@ func TestCommittedDiffsOnlyWhatWasCommittedSinceTheRunBegan(t *testing.T) {
 		t.Errorf("diff lacks what was committed:\n%s", diff)
 	}
 	if strings.Contains(diff, "lib.txt") {
-		t.Errorf("diff holds what was left in the working tree:\n%s", diff)
+		t.Errorf("diff contains what was left in the working tree:\n%s", diff)
 	}
 }
 
-func TestDiffRefusesACheckoutWithNoRecordOfWhereItBegan(t *testing.T) {
+func TestDiffRejectsACheckoutWithNoRecordOfWhereItBegan(t *testing.T) {
 	r := setUp(t)
 
 	if _, err := r.options().Diff(context.Background(), filepath.Join(r.origin, "widgets")); err == nil {
@@ -504,9 +504,9 @@ func TestDiffRefusesACheckoutWithNoRecordOfWhereItBegan(t *testing.T) {
 	}
 }
 
-func TestPerformMakesTheCheckoutReadyAgainOnlyWhereAStepAsksFor(t *testing.T) {
+func TestPerformMakesTheCheckoutReadyAgainOnlyWhereAStepRequestsIt(t *testing.T) {
 	r := setUp(t)
-	told := &reporter{}
+	reported := &reporter{}
 
 	check := r.check(
 		whole(r.whole),
@@ -518,9 +518,9 @@ func TestPerformMakesTheCheckoutReadyAgainOnlyWhereAStepAsksFor(t *testing.T) {
 
 	options := r.options()
 
-	stackcheck.Perform(context.Background(), told, check, options)
+	stackcheck.Perform(context.Background(), reported, check, options)
 
-	if steps := told.only().Steps; len(steps) != 3 {
+	if steps := reported.only().Steps; len(steps) != 3 {
 		t.Fatalf("steps %+v", steps)
 	}
 
@@ -534,13 +534,13 @@ func TestPerformMakesTheCheckoutReadyAgainOnlyWhereAStepAsksFor(t *testing.T) {
 		t.Fatalf("read what setup left: %v", err)
 	}
 	if string(ready) != "xx" {
-		t.Fatalf("setup ran %d times, want once for the whole change and once for the step that asked", len(ready))
+		t.Fatalf("setup ran %d times, want once for the whole change and once for the step that requested it", len(ready))
 	}
 }
 
 func TestPerformJudgesAStepThatCannotBeMadeReady(t *testing.T) {
 	r := setUp(t)
-	told := &reporter{}
+	reported := &reporter{}
 
 	check := r.check(
 		whole(r.whole),
@@ -549,9 +549,9 @@ func TestPerformJudgesAStepThatCannotBeMadeReady(t *testing.T) {
 	check.Setup = "test -f lib.txt || { echo cannot install; exit 1; }"
 	check.Command = "true"
 
-	stackcheck.Perform(context.Background(), told, check, r.options())
+	stackcheck.Perform(context.Background(), reported, check, r.options())
 
-	checked := told.only()
+	checked := reported.only()
 	if checked.Skipped != nil {
 		t.Fatalf("skipped the whole check for one step: %+v", checked.Skipped)
 	}
@@ -565,7 +565,7 @@ func TestPerformJudgesAStepThatCannotBeMadeReady(t *testing.T) {
 
 func TestPerformBorrowsTheHostsMirrorWhereThereIsOne(t *testing.T) {
 	r := setUp(t)
-	told := &reporter{}
+	reported := &reporter{}
 
 	mirrors := filepath.Join(r.dir, "mirrors")
 	git(t, r.dir, "clone", "--quiet", "--bare", filepath.Join(r.origin, "widgets"), filepath.Join(mirrors, "widgets.git"))
@@ -573,33 +573,33 @@ func TestPerformBorrowsTheHostsMirrorWhereThereIsOne(t *testing.T) {
 	options := r.options()
 	options.Mirrors = mirrors
 
-	stackcheck.Perform(context.Background(), told, r.check(whole(r.whole)), options)
+	stackcheck.Perform(context.Background(), reported, r.check(whole(r.whole)), options)
 
-	if steps := told.only().Steps; len(steps) != 1 || !steps[0].Passed {
-		t.Fatalf("steps %+v", told.only())
+	if steps := reported.only().Steps; len(steps) != 1 || !steps[0].Passed {
+		t.Fatalf("steps %+v", reported.only())
 	}
 
-	borrowed, err := os.ReadFile(filepath.Join(
+	alternates, err := os.ReadFile(filepath.Join(
 		r.dir, "workspace", "widgets", ".git", "objects", "info", "alternates"))
 	if err != nil {
-		t.Fatalf("the checkout did not borrow: %v", err)
+		t.Fatalf("the checkout does not use the mirror alternates: %v", err)
 	}
-	if want := filepath.Join(mirrors, "widgets.git", "objects"); strings.TrimSpace(string(borrowed)) != want {
-		t.Errorf("borrowed from %q, want %q", borrowed, want)
+	if want := filepath.Join(mirrors, "widgets.git", "objects"); strings.TrimSpace(string(alternates)) != want {
+		t.Errorf("alternates are %q, want %q", alternates, want)
 	}
 }
 
-func TestPerformRunsTheCheckThroughTheWayOut(t *testing.T) {
+func TestPerformRunsTheCheckThroughTheLocalProxy(t *testing.T) {
 	r := setUp(t)
-	told := &reporter{}
+	reported := &reporter{}
 	check := r.check(whole(r.whole))
 	check.Command = `test "$HTTPS_PROXY" = http://127.0.0.1:3128`
 	options := r.options()
 	options.Env = map[string]string{"HTTPS_PROXY": "http://127.0.0.1:3128"}
 
-	stackcheck.Perform(context.Background(), told, check, options)
+	stackcheck.Perform(context.Background(), reported, check, options)
 
-	if checked := told.only(); len(checked.Steps) != 1 || !checked.Steps[0].Passed {
+	if checked := reported.only(); len(checked.Steps) != 1 || !checked.Steps[0].Passed {
 		t.Errorf("checked %+v", checked)
 	}
 }

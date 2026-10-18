@@ -1,6 +1,6 @@
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { WorkspaceArchive } from '@work/domain/aggregates/workspace-archive.aggregate';
-import type { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
+import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import type { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
 export interface WorkspaceArchiveRepository {
@@ -10,8 +10,8 @@ export interface WorkspaceArchiveRepository {
 
   find(id: WorkspaceArchiveId): Promise<WorkspaceArchive | null>;
 
-  newestSealed(
+  newestCompleted(
     workspaceId: WorkspaceId,
-    continuity: ContinuityKey,
+    resumeKey: ResumeKey,
   ): Promise<WorkspaceArchive | null>;
 }

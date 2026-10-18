@@ -15,7 +15,7 @@ import { RegisteredRunnerResponseDto } from '@runners/presentation/http/dto/regi
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({
-  description: 'Missing, spent or wrong runner token',
+  description: 'Missing, no longer valid or wrong runner token',
 })
 @RunnerOnly()
 @Controller()

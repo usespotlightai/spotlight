@@ -6,7 +6,7 @@ import { RunId as RunIdOf } from '@shared-kernel/domain/value-objects/run-id.vo'
 import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
-import type { ContentDigestPort } from '@work/application/ports/content-digest.port';
+import type { ContentHashPort } from '@work/application/ports/content-hash.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { StationProfilesPort } from '@work/application/ports/station-profiles.port';
 import type { TaskDecisionsPort } from '@work/application/ports/task-decisions.port';
@@ -27,10 +27,10 @@ import type { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
-import { describedTools } from '@work/domain/services/given-to-run';
+import { describedTools } from '@work/domain/services/enabled-for-run';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import { orderFor, taskOrderedAt } from '@work/domain/services/run-order';
-import { repositoriesWorkedOn } from '@work/domain/services/task-checkouts';
+import { repositoriesForTask } from '@work/domain/services/task-checkouts';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
@@ -54,7 +54,7 @@ export class DispatchTask implements TaskDispatching {
     private readonly touched: TouchedFiles,
     private readonly logger: LoggerPort,
     private readonly savepoint: SavepointPort,
-    digest: ContentDigestPort,
+    hash: ContentHashPort,
   ) {
     this.ordering = new StationOrdering(
       harnesses,
@@ -63,7 +63,7 @@ export class DispatchTask implements TaskDispatching {
       teamSkills,
       catalog,
       profiles,
-      digest,
+      hash,
     );
   }
 
@@ -112,12 +112,12 @@ export class DispatchTask implements TaskDispatching {
       return false;
     }
 
-    const offered = await this.integrations.offered(
+    const provided = await this.integrations.provided(
       line,
-      found.order.given.tools,
+      found.order.enabled.tools,
     );
-    const described = describedTools(found.order.given.tools, [
-      ...offered,
+    const described = describedTools(found.order.enabled.tools, [
+      ...provided,
       ...found.catalogTools,
     ]);
     const ordered = this.ordering.equipped(found, described);
@@ -131,7 +131,7 @@ export class DispatchTask implements TaskDispatching {
           teamId: line.teamId,
           lineId: line.id.value,
           stationId: task.stationId.value,
-          repositories: repositoriesWorkedOn(task, line),
+          repositories: repositoriesForTask(task, line),
           about: taskWords(task),
           touched: () => this.touched.onTask(task, line),
         }),
@@ -155,8 +155,10 @@ export class DispatchTask implements TaskDispatching {
       memoryFolder: memories.folder,
       tools: described,
     });
-    const worn = (order.given.profile?.wears ?? []).map((each) => each.value);
-    const catalog = order.given.pinned.map((each) => each.value);
+    const injected = (order.enabled.profile?.injectedSecrets ?? []).map(
+      (each) => each.value,
+    );
+    const catalog = order.enabled.pinned.map((each) => each.value);
 
     const queued = Run.enqueue({
       id,
@@ -167,7 +169,7 @@ export class DispatchTask implements TaskDispatching {
       placement: order.placement,
       briefedWith: BriefedMemories.of({
         briefed: memories.briefed,
-        cut: memories.cut,
+        omitted: memories.omitted,
       }),
       briefedTask: briefed,
       configuredAs: this.ordering.configuredAs(ordered, line),
@@ -180,7 +182,7 @@ export class DispatchTask implements TaskDispatching {
         manifest: described.map(toolManifestOf),
         ...(catalog.length > 0 ? { catalog } : {}),
         startingPoint: true,
-        ...(worn.length > 0 ? { wears: worn } : {}),
+        ...(injected.length > 0 ? { injectedSecrets: injected } : {}),
       }),
     });
 

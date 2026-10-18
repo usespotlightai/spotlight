@@ -30,7 +30,7 @@ describe('Diff', () => {
     expect(diff.fileOf('h99')).toBeNull();
   });
 
-  it('refuses no files, a file with nothing to place, and a hunk named twice', () => {
+  it('rejects no files, a file with nothing to place, and a hunk named twice', () => {
     expect(() => Diff.of([])).toThrow(InvalidDiffError);
     expect(() => Diff.of([file('a.ts')])).toThrow(InvalidDiffError);
     expect(() => Diff.of([file('a.ts', 'h1'), file('b.ts', 'h1')])).toThrow(

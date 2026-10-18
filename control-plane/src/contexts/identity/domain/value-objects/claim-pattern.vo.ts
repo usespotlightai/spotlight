@@ -10,16 +10,16 @@ export class ClaimPattern {
   private constructor(readonly value: string) {}
 
   static of(raw: string, field = 'subject'): ClaimPattern {
-    const held = raw.trim();
+    const trimmed = raw.trim();
 
-    if (!held || held.length > LONGEST || /\s/.test(held)) {
+    if (!trimmed || trimmed.length > LONGEST || /\s/.test(trimmed)) {
       throw new InvalidTokenTrustError(
         field,
         `must be one word of at most ${LONGEST} characters, as in repo:acme/platform:ref:refs/heads/*`,
       );
     }
 
-    return new ClaimPattern(held);
+    return new ClaimPattern(trimmed);
   }
 
   get isExact(): boolean {

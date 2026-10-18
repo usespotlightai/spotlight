@@ -31,7 +31,7 @@ const invite = {
 };
 
 describe('InviteByMail', () => {
-  it('points the link at the app, at the invite it stands for', async () => {
+  it('points the link at the app, at the invite it is for', async () => {
     const { mail, delivered } = sending();
 
     await mail.send(invite);
@@ -56,7 +56,7 @@ describe('InviteByMail', () => {
     );
   });
 
-  it('says who asked and which workspace they were asked into', async () => {
+  it('says who invited them and which workspace they were invited into', async () => {
     const { mail, delivered } = sending();
 
     await mail.send(invite);

@@ -8,22 +8,22 @@ import {
   SCORING_FIELDS,
   type ScoringField,
 } from '@replays/domain/services/live-scoring';
-import type { CheckVerdict } from '@replays/domain/services/replay-check-verdict';
-import type { BaselineStanding } from '@replays/domain/value-objects/baseline-standing';
+import type { CheckResult } from '@replays/domain/services/replay-check-result';
+import type { BaselineStatus } from '@replays/domain/value-objects/baseline-status';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import type { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import {
-  holdsRepeats,
+  isValidRepeatCount,
   MAX_REPEATS,
 } from '@replays/domain/value-objects/replay-repeats';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
-import type { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import type { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -40,16 +40,16 @@ interface State {
   readonly reference: PlannedReference;
   readonly liveFingerprint: StationFingerprint;
   readonly candidateFingerprint: StationFingerprint;
-  readonly liveDigests: StationDigests;
-  readonly candidateDigests: StationDigests;
+  readonly liveHashes: StationHashes;
+  readonly candidateHashes: StationHashes;
   readonly threshold: ReplayThreshold;
   readonly repeats: number;
-  readonly keptLive: readonly ScoringField[];
-  readonly baseline: BaselineStanding;
+  readonly scoringPinnedToLive: readonly ScoringField[];
+  readonly baseline: BaselineStatus;
   readonly createdAt: Date;
 }
 
-const REUSABLE: readonly CheckVerdict[] = ['running', 'passed', 'failed'];
+const REUSABLE: readonly CheckResult[] = ['running', 'passed', 'failed'];
 
 const inScoringOrder = (fields: readonly ScoringField[]): ScoringField[] =>
   SCORING_FIELDS.filter((field) => fields.includes(field));
@@ -57,18 +57,18 @@ const inScoringOrder = (fields: readonly ScoringField[]): ScoringField[] =>
 export class ReplayCheck extends EventRecorder {
   private constructor(
     private readonly state: State,
-    readonly isAbandoned = false,
+    readonly isDeleted = false,
   ) {
     super();
   }
 
   static start(
-    input: Omit<State, 'baseline'> & { by: Attribution },
+    input: Omit<State, 'baseline'> & { by: ChangeActor },
   ): ReplayCheck {
     const { by, ...rest } = input;
     const state: State = { ...rest, baseline: 'awaiting' };
 
-    if (state.candidateDigests.runsAs(state.liveDigests)) {
+    if (state.candidateHashes.runsAs(state.liveHashes)) {
       throw new InvalidReplayCheckError(
         'must check a planned change, not the live config',
       );
@@ -76,7 +76,7 @@ export class ReplayCheck extends EventRecorder {
     if (!Number.isInteger(state.attempt) || state.attempt < 1) {
       throw new InvalidReplayCheckError('attempts must count from 1');
     }
-    if (!holdsRepeats(state.repeats)) {
+    if (!isValidRepeatCount(state.repeats)) {
       throw new InvalidReplayCheckError(
         `repeats must be from 1 to ${MAX_REPEATS}`,
       );
@@ -105,7 +105,7 @@ export class ReplayCheck extends EventRecorder {
   static rehydrate(state: State): ReplayCheck {
     return new ReplayCheck({
       ...state,
-      keptLive: inScoringOrder(state.keptLive),
+      scoringPinnedToLive: inScoringOrder(state.scoringPinnedToLive),
     });
   }
 
@@ -161,12 +161,12 @@ export class ReplayCheck extends EventRecorder {
     return this.state.candidateFingerprint;
   }
 
-  get liveDigests(): StationDigests {
-    return this.state.liveDigests;
+  get liveHashes(): StationHashes {
+    return this.state.liveHashes;
   }
 
-  get candidateDigests(): StationDigests {
-    return this.state.candidateDigests;
+  get candidateHashes(): StationHashes {
+    return this.state.candidateHashes;
   }
 
   get threshold(): ReplayThreshold {
@@ -177,15 +177,15 @@ export class ReplayCheck extends EventRecorder {
     return this.state.repeats;
   }
 
-  get keptLive(): readonly ScoringField[] {
-    return this.state.keptLive;
+  get scoringPinnedToLive(): readonly ScoringField[] {
+    return this.state.scoringPinnedToLive;
   }
 
   get createdAt(): Date {
     return this.state.createdAt;
   }
 
-  get baseline(): BaselineStanding {
+  get baseline(): BaselineStatus {
     return this.state.baseline;
   }
 
@@ -194,16 +194,16 @@ export class ReplayCheck extends EventRecorder {
   }
 
   recordBaseline(): ReplayCheck {
-    return this.baselineSettled('found');
+    return this.withBaseline('found');
   }
 
   markBaselineUnavailable(): ReplayCheck {
-    return this.baselineSettled('unavailable');
+    return this.withBaseline('unavailable');
   }
 
-  private baselineSettled(baseline: BaselineStanding): ReplayCheck {
+  private withBaseline(baseline: BaselineStatus): ReplayCheck {
     return this.state.baseline === 'awaiting'
-      ? new ReplayCheck({ ...this.state, baseline }, this.isAbandoned)
+      ? new ReplayCheck({ ...this.state, baseline }, this.isDeleted)
       : this;
   }
 
@@ -212,18 +212,18 @@ export class ReplayCheck extends EventRecorder {
     setEntries: string,
     threshold: ReplayThreshold,
     repeats: number,
-    verdict: CheckVerdict,
+    result: CheckResult,
   ): boolean {
     return (
       set.id.equals(this.state.setId) &&
       setEntries === this.state.setEntries &&
       threshold.equals(this.state.threshold) &&
       repeats === this.state.repeats &&
-      REUSABLE.includes(verdict)
+      REUSABLE.includes(result)
     );
   }
 
-  abandon(): ReplayCheck {
+  delete(): ReplayCheck {
     return new ReplayCheck(this.state, true);
   }
 }

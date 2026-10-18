@@ -12,7 +12,7 @@ const UNKNOWN_ORIGIN = 'unknown';
 
 const MIN_ENTRIES_TO_WARN = 6;
 
-const DOMINANT_SHARE = 2 / 3;
+const DOMINANT_RATE = 2 / 3;
 
 export interface ComposedOriginal {
   readonly outcome: OriginalOutcome;
@@ -46,10 +46,10 @@ export interface SetComposition {
   readonly balanceWarning: BalanceWarning | null;
 }
 
-export const turnedOutOf = (
-  turnouts: ReadonlyMap<string, OriginalOutcome>,
+export const originalOutcomeOf = (
+  originalOutcomes: ReadonlyMap<string, OriginalOutcome>,
   runId: string,
-): OriginalOutcome => turnouts.get(runId) ?? 'other';
+): OriginalOutcome => originalOutcomes.get(runId) ?? 'other';
 
 const medianOf = (times: readonly number[]): number | null => {
   if (times.length === 0) {
@@ -75,7 +75,7 @@ const warningOf = (
   }
 
   const dominant = outcomes.find(
-    (each) => each.outcome !== 'other' && each.count > entries * DOMINANT_SHARE,
+    (each) => each.outcome !== 'other' && each.count > entries * DOMINANT_RATE,
   );
 
   return dominant

@@ -17,8 +17,8 @@ vi.mock('@/hooks/api/useStartReplay', () => ({
 
 vi.mock('@/hooks/api/useStationCandidates', () => ({
   useStationCandidates: () => ({
-    address: 'core/delivery/build',
-    addressFailed: false,
+    path: 'core/delivery/build',
+    pathFailed: false,
     candidates: {
       data: [
         {
@@ -105,7 +105,7 @@ describe('StartReplayDialog', () => {
     ).toBeInTheDocument();
   });
 
-  it('says a new baseline starts when the set’s baseline copied each run fewer times than asked', async () => {
+  it('says a new baseline starts when the set’s baseline copied each run fewer times than requested', async () => {
     await openDialog(1);
 
     const repeats = screen.getByRole('textbox', { name: 'Repeats' });
@@ -129,7 +129,7 @@ describe('StartReplayDialog', () => {
     ).toBeInTheDocument();
   });
 
-  it('refuses a ceiling of nothing, saying why', async () => {
+  it('rejects a ceiling of nothing, saying why', async () => {
     await openDialog(1);
 
     await userEvent.click(screen.getByRole('button', { name: 'Start replay' }));
@@ -161,7 +161,7 @@ describe('StartReplayDialog', () => {
     );
   });
 
-  it('replays each run as many times as asked, from 1 to 5', async () => {
+  it('replays each run as many times as requested, from 1 to 5', async () => {
     await openDialog(1);
 
     const repeats = screen.getByRole('textbox', { name: 'Repeats' });

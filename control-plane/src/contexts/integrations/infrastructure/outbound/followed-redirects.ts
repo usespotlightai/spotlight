@@ -1,4 +1,4 @@
-import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
+import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 
 type Fetch = typeof globalThis.fetch;
@@ -7,7 +7,7 @@ const MAX_REDIRECTS = 5;
 
 const REDIRECTS = [301, 302, 303, 307, 308];
 
-const KEEPS_ITS_METHOD = [307, 308];
+const PRESERVES_METHOD = [307, 308];
 
 export interface Hop {
   readonly method: string;
@@ -51,18 +51,18 @@ export const followed = async (
     const next = new URL(location, hop.url);
 
     if (new URL(hop.url).protocol === 'https:' && next.protocol !== 'https:') {
-      throw new OutboundRefusedError(
+      throw new EgressBlockedError(
         next.host.toLowerCase(),
         'is where an https request was redirected to over plain http, which Spotlight does not follow',
       );
     }
 
-    hop = KEEPS_ITS_METHOD.includes(reply.status)
+    hop = PRESERVES_METHOD.includes(reply.status)
       ? { ...hop, url: next.href }
       : { method: 'GET', url: next.href };
   }
 
-  throw new OutboundRefusedError(
+  throw new EgressBlockedError(
     new URL(hop.url).host.toLowerCase(),
     `redirected more than ${MAX_REDIRECTS} times`,
   );

@@ -19,7 +19,7 @@ export function usePreloadedLanguages(paths: readonly string[]): void {
       return;
     }
 
-    // A failure here has no effect, because each diff asks for its language when it mounts.
+    // A failure here has no effect, because each diff requests its language when it mounts.
     void preloadHighlighter({
       themes: DIFF_THEMES,
       langs: langs.split(' ') as SupportedLanguages[],

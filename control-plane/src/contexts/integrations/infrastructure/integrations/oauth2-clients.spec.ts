@@ -2,7 +2,7 @@ import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-
 import { describe, expect, it } from 'vitest';
 
 describe('OAuth2Clients', () => {
-  it('reads a source’s app from the deployment map', () => {
+  it('reads the app of an integration from the deployment map', () => {
     const clients = OAuth2Clients.from('{"slack":{"id":"c-1","secret":"s-1"}}');
 
     expect(clients.of('slack')).toEqual({
@@ -12,7 +12,7 @@ describe('OAuth2Clients', () => {
     });
   });
 
-  it('has nothing for a host the deployment did not register', () => {
+  it('has nothing for an integration that the deployment did not register', () => {
     const clients = OAuth2Clients.from('{"slack":{"id":"c-1","secret":"s-1"}}');
 
     expect(clients.of('linear')).toBeNull();
@@ -23,11 +23,11 @@ describe('OAuth2Clients', () => {
     expect(OAuth2Clients.from('{}').of('slack')).toBeNull();
   });
 
-  it('refuses a value that is not JSON', () => {
+  it('rejects a value that is not JSON', () => {
     expect(() => OAuth2Clients.from('not json')).toThrow(/OAUTH_CLIENTS/);
   });
 
-  it('refuses an app missing its id or secret', () => {
+  it('rejects an app missing its id or secret', () => {
     expect(() => OAuth2Clients.from('{"slack":{"id":"c-1"}}')).toThrow(
       /id, secret/,
     );

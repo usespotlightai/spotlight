@@ -4,7 +4,7 @@ import type { SecretDefinitionsPort } from '@secrets/application/ports/secret-de
 import { SecretProblems } from '@secrets/application/rendering/secret-problems';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
-import { SecretAlreadyDefinedError } from '@secrets/domain/exceptions/secret-already-defined.error';
+import { SecretAlreadyExistsError } from '@secrets/domain/exceptions/secret-already-exists.error';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import {
@@ -20,8 +20,8 @@ import type {
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -30,7 +30,7 @@ const withoutValue = (definition: unknown): unknown => {
     return definition;
   }
 
-  const { valueWo: _withheld, ...rest } = definition as Record<string, unknown>;
+  const { valueWo: _valueWo, ...rest } = definition as Record<string, unknown>;
 
   return rest;
 };
@@ -61,7 +61,7 @@ export class CreateSecretHandler
       }
 
       if (!permissions.managesSecrets) {
-        return forbiddenTo('manage-secrets');
+        return forbiddenTo('secrets');
       }
 
       const compiled = this.definitions.secret(command.definition);
@@ -70,10 +70,10 @@ export class CreateSecretHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      const secret = Secret.set(compiled, {
+      const secret = Secret.create(compiled, {
         id: SecretId.of(this.ids.generate()),
         workspaceId: permissions.workspaceId,
-        by: Attribution.of(command.actor, permissions.workspaceId),
+        by: ChangeActor.of(command.actor, permissions.workspaceId),
         at: this.clock.now(),
       });
       const create: IdempotentCreate = {
@@ -88,15 +88,15 @@ export class CreateSecretHandler
 
       try {
         return await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
+          createIdempotently(this.creates, create, async () => {
             await this.secrets.save(secret);
 
             return secret.id.value;
           }),
         );
       } catch (error) {
-        if (error instanceof SecretAlreadyDefinedError) {
-          return { outcome: 'taken', address: secret.name.value };
+        if (error instanceof SecretAlreadyExistsError) {
+          return { outcome: 'already-exists', address: secret.name.value };
         }
 
         throw error;

@@ -3,9 +3,9 @@ import {
   type DecisionKind,
 } from '@change-review/domain/entities/decision.entity';
 import {
-  DECISION_STANDINGS,
-  type DecisionStandingState,
-} from '@change-review/domain/value-objects/decision-standing.vo';
+  DECISION_STATUSES,
+  type DecisionStatusValue,
+} from '@change-review/domain/value-objects/decision-status.vo';
 import {
   index,
   integer,
@@ -18,7 +18,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 export const decisionKind = pgEnum('decision_kind', DECISION_KINDS);
-export const decisionStanding = pgEnum('decision_standing', DECISION_STANDINGS);
+export const decisionStatus = pgEnum('decision_status', DECISION_STATUSES);
 
 export const decisionSet = pgTable(
   'decision_set',
@@ -26,13 +26,13 @@ export const decisionSet = pgTable(
     id: text('id').primaryKey(),
     taskId: text('task_id').notNull(),
     workspaceId: text('workspace_id').notNull(),
-    decidedIn: text('decided_in'),
-    draftRunId: text('draft_run_id'),
-    draftAskedAt: timestamp('draft_asked_at'),
-    workAttempts: integer('work_attempts').notNull().default(0),
-    workDueAt: timestamp('work_due_at'),
-    standing: decisionStanding('standing')
-      .$type<DecisionStandingState>()
+    sourceRunId: text('source_run_id'),
+    generationRunId: text('generation_run_id'),
+    generationRequestedAt: timestamp('generation_requested_at'),
+    jobAttempts: integer('job_attempts').notNull().default(0),
+    jobDueAt: timestamp('job_due_at'),
+    status: decisionStatus('status')
+      .$type<DecisionStatusValue>()
       .notNull()
       .default('proposed'),
     mergedRepository: text('merged_repository'),
@@ -42,7 +42,7 @@ export const decisionSet = pgTable(
   },
   (table) => [
     uniqueIndex('decision_set_task_idx').on(table.taskId),
-    index('decision_set_draft_idx').on(table.draftAskedAt),
+    index('decision_set_generation_idx').on(table.generationRequestedAt),
     index('decision_set_merged_idx').on(
       table.workspaceId,
       table.mergedRepository,
@@ -64,7 +64,7 @@ export const decision = pgTable(
     why: text('why').notNull(),
     alternatives: jsonb('alternatives').$type<string[]>().notNull(),
     paths: jsonb('paths').$type<string[]>().notNull(),
-    steps: jsonb('steps').$type<number[]>().notNull(),
+    journalSteps: jsonb('journal_steps').$type<number[]>().notNull(),
   },
   (table) => [
     uniqueIndex('decision_position_idx').on(table.setId, table.position),

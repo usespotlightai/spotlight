@@ -15,7 +15,7 @@ import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOON = new Date('2026-09-24T12:00:00.000Z');
-const REFUSED = ProvisionFailure.of('refused', 'the pool is draining');
+const HTTP_ERROR = ProvisionFailure.of('http-error', 'the pool is draining');
 
 const waiting = () =>
   Run.enqueue({
@@ -26,7 +26,7 @@ const waiting = () =>
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task:station' },
+      resume: { key: 'task:station' },
     }),
   });
 
@@ -35,16 +35,16 @@ const POOLED = RunnerId.of('pooled_1');
 const reserved = () => waiting().reservedFor(POOLED, PoolId.of('pool_1'), NOON);
 
 const failing = (stored: Run, conflicts = 0) => {
-  let held = stored;
+  let current = stored;
   let clashes = conflicts;
   const runs = {
-    findById: vi.fn(async () => held),
+    findById: vi.fn(async () => current),
     save: vi.fn(async (run: Run) => {
       if (clashes > 0) {
         clashes -= 1;
         throw new RunVersionConflictError(run.id.value);
       }
-      held = run;
+      current = run;
     }),
   };
   const append = vi.fn(async () => {});
@@ -54,7 +54,7 @@ const failing = (stored: Run, conflicts = 0) => {
     runs,
     append,
     publish,
-    held: () => held,
+    current: () => current,
     failures: new ProvisionFailures(
       runs as unknown as RunRepository,
       { append } as unknown as RunJournalPort,
@@ -65,30 +65,30 @@ const failing = (stored: Run, conflicts = 0) => {
 
 describe('ProvisionFailures', () => {
   it('records the failure on the run and drops its reservation', async () => {
-    const { failures, held } = failing(reserved());
+    const { failures, current } = failing(reserved());
 
     const failed = await failures.failed(
       RunId.of('run_1'),
       POOLED,
-      REFUSED,
+      HTTP_ERROR,
       NOON,
     );
 
-    expect(failed?.provisioning.failures).toBe(1);
-    expect(held().reservation).toBeNull();
-    expect(held().state).toBe('queued');
+    expect(failed?.provisioning.attempts).toBe(1);
+    expect(current().reservation).toBeNull();
+    expect(current().state).toBe('queued');
   });
 
   it('journals the failure under the run’s current attempt, before anything the runner says', async () => {
     const { failures, append } = failing(reserved());
 
-    await failures.failed(RunId.of('run_1'), POOLED, REFUSED, NOON);
+    await failures.failed(RunId.of('run_1'), POOLED, HTTP_ERROR, NOON);
 
     expect(append).toHaveBeenCalledWith(RunAttempt.of(RunId.of('run_1'), 1), [
       {
         seq: -1,
         type: 'provision.failed',
-        message: 'Provisioning failed · refused',
+        message: 'Provisioning failed · http-error',
         data: Buffer.from('the pool is draining', 'utf8').toString('base64'),
         at: NOON,
       },
@@ -98,7 +98,7 @@ describe('ProvisionFailures', () => {
   it('numbers each further failure further back', async () => {
     const { failures, append } = failing(
       reserved()
-        .provisionFailed(POOLED, REFUSED, NOON)
+        .provisionFailed(POOLED, HTTP_ERROR, NOON)
         .reservedFor(
           POOLED,
           PoolId.of('pool_1'),
@@ -106,7 +106,7 @@ describe('ProvisionFailures', () => {
         ),
     );
 
-    await failures.failed(RunId.of('run_1'), POOLED, REFUSED, NOON);
+    await failures.failed(RunId.of('run_1'), POOLED, HTTP_ERROR, NOON);
 
     expect(append).toHaveBeenCalledWith(expect.anything(), [
       expect.objectContaining({ seq: -2 }),
@@ -116,7 +116,7 @@ describe('ProvisionFailures', () => {
   it('shows the failure to anyone watching the run', async () => {
     const { failures, publish } = failing(reserved());
 
-    await failures.failed(RunId.of('run_1'), POOLED, REFUSED, NOON);
+    await failures.failed(RunId.of('run_1'), POOLED, HTTP_ERROR, NOON);
 
     expect(publish).toHaveBeenCalledWith('run_1', [
       expect.objectContaining({
@@ -132,7 +132,7 @@ describe('ProvisionFailures', () => {
     const { failures, runs } = failing(reserved(), 1);
 
     expect(
-      await failures.failed(RunId.of('run_1'), POOLED, REFUSED, NOON),
+      await failures.failed(RunId.of('run_1'), POOLED, HTTP_ERROR, NOON),
     ).not.toBeNull();
     expect(runs.save).toHaveBeenCalledTimes(2);
   });
@@ -143,7 +143,7 @@ describe('ProvisionFailures', () => {
     );
 
     expect(
-      await failures.failed(RunId.of('run_1'), POOLED, REFUSED, NOON),
+      await failures.failed(RunId.of('run_1'), POOLED, HTTP_ERROR, NOON),
     ).toBeNull();
     expect(runs.save).not.toHaveBeenCalled();
     expect(append).not.toHaveBeenCalled();
@@ -157,7 +157,7 @@ describe('ProvisionFailures', () => {
       await failures.failed(
         RunId.of('run_1'),
         RunnerId.of('pooled_2'),
-        REFUSED,
+        HTTP_ERROR,
         NOON,
       ),
     ).toBeNull();
@@ -167,12 +167,12 @@ describe('ProvisionFailures', () => {
   });
 
   it('drops a reservation when unreserved', async () => {
-    const { failures, held } = failing(reserved());
+    const { failures, current } = failing(reserved());
 
     await failures.unreserved(RunId.of('run_1'), POOLED);
 
-    expect(held().reservation).toBeNull();
-    expect(held().provisioning.failures).toBe(0);
+    expect(current().reservation).toBeNull();
+    expect(current().provisioning.attempts).toBe(0);
   });
 
   it('leaves a run with no reservation alone when unreserved', async () => {
@@ -183,12 +183,12 @@ describe('ProvisionFailures', () => {
     expect(runs.save).not.toHaveBeenCalled();
   });
 
-  it('keeps a reservation another runner lets go of', async () => {
-    const { failures, runs, held } = failing(reserved());
+  it('keeps a reservation another runner drops', async () => {
+    const { failures, runs, current } = failing(reserved());
 
     await failures.unreserved(RunId.of('run_1'), RunnerId.of('pooled_2'));
 
     expect(runs.save).not.toHaveBeenCalled();
-    expect(held().reservation?.runner.value).toBe('pooled_1');
+    expect(current().reservation?.runner.value).toBe('pooled_1');
   });
 });

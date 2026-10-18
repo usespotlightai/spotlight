@@ -1,7 +1,7 @@
-import type { WayInKind } from '@runners/application/ports/runner-admissions.port';
+import type { CredentialSourceKind } from '@runners/application/ports/runner-authenticator.port';
 
-export interface AdmittedThroughDto {
-  readonly kind: WayInKind;
+export interface CredentialSourceDto {
+  readonly kind: CredentialSourceKind;
   readonly key: string | null;
 }
 
@@ -13,35 +13,35 @@ interface HostHarnessDto {
 interface HostImageDto {
   readonly image: string;
   readonly digest: string | null;
-  readonly usual: boolean;
+  readonly isDefault: boolean;
   readonly release: string | null;
   readonly harnesses: readonly HostHarnessDto[];
-  readonly refused: string | null;
+  readonly unavailableReason: string | null;
 }
 
 export interface HostDto {
   readonly id: string;
   readonly name: string;
-  readonly through: AdmittedThroughDto;
+  readonly source: CredentialSourceDto;
   readonly release: string;
-  readonly executor: string;
+  readonly containerRuntime: string;
   readonly capacity: number;
   readonly running: readonly string[];
   readonly images: readonly HostImageDto[];
-  readonly firstSeenAt: string;
-  readonly upSince: string;
-  readonly lastSeenAt: string;
-  readonly answering: boolean;
+  readonly firstHeartbeatAt: string;
+  readonly onlineSince: string;
+  readonly lastHeartbeatAt: string;
+  readonly online: boolean;
 }
 
 export interface LiveRunnerDto {
   readonly id: string;
-  readonly through: AdmittedThroughDto;
+  readonly source: CredentialSourceDto;
   readonly hostId: string | null;
   readonly image: string | null;
   readonly harnesses: readonly string[];
   readonly startedAt: string;
-  readonly lastSeenAt: string | null;
+  readonly lastHeartbeatAt: string | null;
 }
 
 export interface RunnerFleetDto {

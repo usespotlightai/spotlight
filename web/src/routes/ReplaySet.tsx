@@ -20,7 +20,7 @@ import { useSearches } from '@/hooks/api/useSearches';
 import { useStation } from '@/hooks/api/useStation';
 import { useStationTrail } from '@/hooks/useStationTrail';
 import { failed, loading } from '@/lib/query';
-import { anyUnderway, replaysAnchorPath } from '@/lib/replay';
+import { anyInProgress, replaysAnchorPath } from '@/lib/replay';
 import { replayedStationOf } from '@/lib/replayed-station';
 import { ongoing } from '@/lib/search';
 import { setCrumbs } from '@/lib/station-crumbs';
@@ -88,7 +88,7 @@ export function ReplaySet() {
           <ReplaySetActions
             teamId={at.teamId}
             set={set}
-            running={anyUnderway(replays.data ?? []) || searching}
+            running={anyInProgress(replays.data ?? []) || searching}
             deletedTo={replaysAnchorPath(at)}
           />
         }

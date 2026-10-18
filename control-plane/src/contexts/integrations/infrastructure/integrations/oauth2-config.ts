@@ -9,14 +9,14 @@ export async function oauth2Of(
   reader: IntegrationReader,
   discovery: OAuth2Discovery,
   teamId: TeamId,
-  source: string,
+  integration: string,
 ): Promise<OAuth2Endpoints | null> {
   const definitions = await defined.ofTeam(teamId);
 
   for (const readable of reader.readable(definitions).integrations) {
     const oauth2 = readable.connection?.oauth2;
 
-    if (readable.integration.source.value === source && oauth2) {
+    if (readable.integration.key.value === integration && oauth2) {
       return discovery.endpoints(oauth2);
     }
   }

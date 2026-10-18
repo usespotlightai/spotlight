@@ -46,8 +46,8 @@ const SCALARS = ['null', 'boolean', 'number', 'string', 'unknown'] as const;
 const namesAField = (key: string): boolean =>
   FIELD_NAME.test(key) && !ID_LIKE.test(key);
 
-const churns = (held: number, given: number, unseen: number): boolean =>
-  held > 0 && given > 0 && unseen * 2 > given;
+const churns = (known: number, incoming: number, unseen: number): boolean =>
+  known > 0 && incoming > 0 && unseen * 2 > incoming;
 
 const keyedByData = (keys: readonly string[]): boolean =>
   keys.length > MAX_FIELDS || !keys.every(namesAField);
@@ -146,7 +146,7 @@ const objectsMerged = (
     ...new Set([...one.fields, ...other.fields].map((each) => each.name)),
   ].sort();
   const unseen = other.fields.filter(
-    (each) => !one.fields.some((held) => held.name === each.name),
+    (each) => !one.fields.some((field) => field.name === each.name),
   ).length;
 
   if (
@@ -206,7 +206,7 @@ const merged = (one: ShapeNode, other: ShapeNode): ShapeNode => {
   const choices = [...choicesOf(one)];
 
   for (const each of choicesOf(other)) {
-    const at = choices.findIndex((held) => sameKind(held, each));
+    const at = choices.findIndex((choice) => sameKind(choice, each));
 
     if (at < 0) {
       choices.push(each);
@@ -287,38 +287,38 @@ const schemaOf = (node: ShapeNode): JsonObject => {
 const isScalar = (kind: string): kind is (typeof SCALARS)[number] =>
   (SCALARS as readonly string[]).includes(kind);
 
-const read = (held: unknown, depth: number): ShapeNode => {
-  const refuse = () =>
+const read = (raw: unknown, depth: number): ShapeNode => {
+  const invalid = () =>
     new InconsistentStateError(
-      'learned output shape',
-      'was kept in a form Spotlight does not read',
+      'inferred output schema',
+      'was stored in a form Spotlight does not read',
     );
 
-  if (!isJsonObject(held) || typeof held.kind !== 'string' || depth > 64) {
-    throw refuse();
+  if (!isJsonObject(raw) || typeof raw.kind !== 'string' || depth > 64) {
+    throw invalid();
   }
 
-  if (held.kind === 'nothing' || isScalar(held.kind)) {
-    return { kind: held.kind } as ShapeNode;
+  if (raw.kind === 'nothing' || isScalar(raw.kind)) {
+    return { kind: raw.kind } as ShapeNode;
   }
 
-  if (held.kind === 'list' || held.kind === 'record') {
-    return { kind: held.kind, of: read(held.of, depth + 1) };
+  if (raw.kind === 'list' || raw.kind === 'record') {
+    return { kind: raw.kind, of: read(raw.of, depth + 1) };
   }
 
-  if (held.kind === 'oneOf' && Array.isArray(held.shapes)) {
+  if (raw.kind === 'oneOf' && Array.isArray(raw.shapes)) {
     return {
       kind: 'oneOf',
-      shapes: held.shapes.map((each) => read(each, depth + 1)),
+      shapes: raw.shapes.map((each) => read(each, depth + 1)),
     };
   }
 
-  if (held.kind === 'object' && Array.isArray(held.fields)) {
+  if (raw.kind === 'object' && Array.isArray(raw.fields)) {
     return {
       kind: 'object',
-      fields: held.fields.map((each) => {
+      fields: raw.fields.map((each) => {
         if (!isJsonObject(each) || typeof each.name !== 'string') {
-          throw refuse();
+          throw invalid();
         }
 
         return {
@@ -330,7 +330,7 @@ const read = (held: unknown, depth: number): ShapeNode => {
     };
   }
 
-  throw refuse();
+  throw invalid();
 };
 
 export class OutputShape {
@@ -340,8 +340,8 @@ export class OutputShape {
     return new OutputShape(inferred(answer, 0, new Budget()));
   }
 
-  static kept(held: unknown): OutputShape {
-    return new OutputShape(bounded(read(held, 0), 0, new Budget()));
+  static fromStored(raw: unknown): OutputShape {
+    return new OutputShape(bounded(read(raw, 0), 0, new Budget()));
   }
 
   mergedWith(other: OutputShape): OutputShape {

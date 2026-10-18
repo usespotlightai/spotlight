@@ -10,10 +10,6 @@ import { UpdateHarnessProfileHandler } from '@configuration/application/commands
 import { UpdateSkillHandler } from '@configuration/application/commands/handlers/update-skill.handler';
 import { UpdateHarnessProfileCommand } from '@configuration/application/commands/update-harness-profile.command';
 import { UpdateSkillCommand } from '@configuration/application/commands/update-skill.command';
-import {
-  APPLIED_CONFIGURATION,
-  type AppliedConfigurationPort,
-} from '@configuration/application/ports/applied-configuration.port';
 import { CONFIGURATION_READER } from '@configuration/application/ports/configuration-reader.port';
 import {
   HARNESS_PROFILE_COMPILER,
@@ -55,6 +51,10 @@ import {
   SKILL_RESOURCES,
   type SkillResourcesPort,
 } from '@configuration/application/ports/skill-resources.port';
+import {
+  TEAM_SKILL_FILES,
+  type TeamSkillFilesPort,
+} from '@configuration/application/ports/team-skill-files.port';
 import { TEAMS } from '@configuration/application/ports/teams.port';
 import { ImportHarnessProfileHandler } from '@configuration/application/queries/handlers/import-harness-profile.handler';
 import { ImportSkillHandler } from '@configuration/application/queries/handlers/import-skill.handler';
@@ -76,13 +76,13 @@ import { ReadSkillQuery } from '@configuration/application/queries/read-skill.qu
 import { ResourceConfigurationQuery } from '@configuration/application/queries/resource-configuration.query';
 import { TeamSkillsQuery } from '@configuration/application/queries/team-skills.query';
 import { WorkspaceConfigurationQuery } from '@configuration/application/queries/workspace-configuration.query';
-import { AbandonTeamProfiles } from '@configuration/application/services/abandon-team-profiles.service';
-import { AbandonTeamSkills } from '@configuration/application/services/abandon-team-skills.service';
+import { DeleteTeamProfiles } from '@configuration/application/services/delete-team-profiles.service';
+import { DeleteTeamSkills } from '@configuration/application/services/delete-team-skills.service';
+import { ExportableConfigurations } from '@configuration/application/services/exportable-configurations.service';
 import { HarnessProfileViews } from '@configuration/application/services/harness-profile-views.service';
-import { HeldConfigurations } from '@configuration/application/services/held-configurations.service';
 import { ProfileSecretUses } from '@configuration/application/services/profile-secret-uses.service';
 import { SkillViews } from '@configuration/application/services/skill-views.service';
-import { StationGifts } from '@configuration/application/services/station-gifts.service';
+import { StationReferences } from '@configuration/application/services/station-references.service';
 import { CONFIGURATION_PAYLOAD_TYPES } from '@configuration/domain/payload-types';
 import {
   HARNESS_PROFILES,
@@ -97,17 +97,17 @@ import { StationProfiles } from '@configuration/infrastructure/acl/station-profi
 import { TeamSkills } from '@configuration/infrastructure/acl/team-skills.adapter';
 import { Teams } from '@configuration/infrastructure/acl/teams.adapter';
 import { WorkspaceSecrets } from '@configuration/infrastructure/acl/workspace-secrets.adapter';
-import { DrizzleAppliedSkills } from '@configuration/infrastructure/persistence/drizzle/readers/applied-skills.reader';
+import { DrizzleHarnessProfileDependents } from '@configuration/infrastructure/persistence/drizzle/readers/harness-profile-dependents.reader';
 import { DrizzleHarnessProfileResources } from '@configuration/infrastructure/persistence/drizzle/readers/harness-profile-resources.reader';
-import { DrizzleHarnessProfilesHeld } from '@configuration/infrastructure/persistence/drizzle/readers/harness-profiles-held.reader';
+import { DrizzleSkillDependents } from '@configuration/infrastructure/persistence/drizzle/readers/skill-dependents.reader';
 import { DrizzleSkillResources } from '@configuration/infrastructure/persistence/drizzle/readers/skill-resources.reader';
-import { DrizzleSkillsHeld } from '@configuration/infrastructure/persistence/drizzle/readers/skills-held.reader';
+import { DrizzleTeamSkillFiles } from '@configuration/infrastructure/persistence/drizzle/readers/team-skill-files.reader';
 import { DrizzleHarnessProfiles } from '@configuration/infrastructure/persistence/drizzle/repositories/harness-profiles.repository';
 import { DrizzleSkillDefinitions } from '@configuration/infrastructure/persistence/drizzle/repositories/skill-definitions.repository';
 import { HarnessProfileCompiler } from '@configuration/infrastructure/profiles/harness-profile.compile';
 import { BuiltInSkillFiles } from '@configuration/infrastructure/skills/built-in-skill-files';
 import { SkillCompiler } from '@configuration/infrastructure/skills/skill.compile';
-import { TeamSkillFiles } from '@configuration/infrastructure/skills/team-skill-files';
+import { SkillFileParser } from '@configuration/infrastructure/skills/skill-file-parser';
 import { configurationSubscribers } from '@configuration/presentation/events/configuration.subscribers';
 import { ConfigurationController } from '@configuration/presentation/http/controllers/configuration.controller';
 import { HarnessProfileResourceController } from '@configuration/presentation/http/controllers/harness-profile-resource.controller';
@@ -115,13 +115,13 @@ import { SkillController } from '@configuration/presentation/http/controllers/sk
 import { SkillResourceController } from '@configuration/presentation/http/controllers/skill-resource.controller';
 import { TerraformController } from '@configuration/presentation/http/controllers/terraform.controller';
 import {
+  TEAM_DEPENDENTS,
+  type TeamDependentsPort,
+} from '@identity/application/ports/team-dependents.port';
+import {
   TEAM_DIRECTORY,
   type TeamDirectoryPort,
 } from '@identity/application/ports/team-directory.port';
-import {
-  TEAM_HOLDINGS,
-  type TeamHoldingsPort,
-} from '@identity/application/ports/team-holdings.port';
 import {
   TOKEN_TRUST_CONFIGURATION,
   type TokenTrustConfigurationPort,
@@ -157,13 +157,13 @@ import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import {
+  BUILT_IN_SKILL_KEYS,
   BUILT_IN_SKILLS,
-  SHIPPED_SKILL_KEYS,
 } from '@work/application/ports/built-in-skills.port';
 import {
-  GIVEN_AT_STATIONS,
-  type GivenAtStationsPort,
-} from '@work/application/ports/given-at-stations.port';
+  ENABLED_AT_STATIONS,
+  type EnabledAtStationsPort,
+} from '@work/application/ports/enabled-at-stations.port';
 import {
   HARNESS_PROFILE_REVIEW,
   type HarnessProfileReviewPort,
@@ -177,7 +177,7 @@ import { TEAM_SKILLS } from '@work/application/ports/team-skills.port';
 
 const CONFIGURATION_EVENTS = Symbol('CONFIGURATION_EVENTS');
 
-const CONFIGURATION_HOLDINGS = Symbol('CONFIGURATION_HOLDINGS');
+const CONFIGURATION_DEPENDENTS = Symbol('CONFIGURATION_DEPENDENTS');
 
 const PROFILE_SECRET_USES = Symbol('PROFILE_SECRET_USES');
 
@@ -200,11 +200,11 @@ const upstream: Provider[] = [
 const adapters: Provider[] = [
   {
     provide: BUILT_IN_SKILLS,
-    inject: [SHIPPED_SKILL_KEYS],
+    inject: [BUILT_IN_SKILL_KEYS],
     useFactory: (keys: readonly string[]) =>
       new BuiltInSkills(new BuiltInSkillFiles(keys)),
   },
-  { provide: SKILL_READER, useFactory: () => new TeamSkillFiles() },
+  { provide: SKILL_READER, useFactory: () => new SkillFileParser() },
   {
     provide: SECRET_NAMES,
     inject: [TEAM_DIRECTORY, DEFINED_SECRETS],
@@ -221,9 +221,10 @@ const adapters: Provider[] = [
   { provide: SKILL_DEFINITIONS, useClass: DrizzleSkillDefinitions },
   { provide: SKILL_RESOURCES, useClass: DrizzleSkillResources },
   {
-    provide: StationGifts,
-    inject: [GIVEN_AT_STATIONS],
-    useFactory: (given: GivenAtStationsPort) => new StationGifts(given),
+    provide: StationReferences,
+    inject: [ENABLED_AT_STATIONS],
+    useFactory: (enabledAtStations: EnabledAtStationsPort) =>
+      new StationReferences(enabledAtStations),
   },
   {
     provide: HARNESS_REVIEW,
@@ -251,7 +252,7 @@ const adapters: Provider[] = [
     ) => new HarnessProfileViews(teams, compiler),
   },
   {
-    provide: HeldConfigurations,
+    provide: ExportableConfigurations,
     inject: [
       TEAM_DIRECTORY,
       LINE_RESOURCES,
@@ -276,7 +277,7 @@ const adapters: Provider[] = [
       runners: RunnerConfigurationPort,
       tokenTrusts: TokenTrustConfigurationPort,
     ) =>
-      new HeldConfigurations(
+      new ExportableConfigurations(
         teams,
         lines,
         skills,
@@ -304,7 +305,7 @@ const handlers: Provider[] = [
   ]),
   ...bindQueryHandler(TeamSkillsQuery, TeamSkillsHandler, [
     TEAMS,
-    APPLIED_CONFIGURATION,
+    TEAM_SKILL_FILES,
     SKILL_READER,
   ]),
   ...bindCommandHandler(CreateSkillCommand, CreateSkillHandler, [
@@ -325,7 +326,7 @@ const handlers: Provider[] = [
   ...bindCommandHandler(DeleteSkillCommand, DeleteSkillHandler, [
     WORKSPACE_ACCESS,
     SKILL_DEFINITIONS,
-    StationGifts,
+    StationReferences,
     TRANSACTION,
   ]),
   ...bindCommandHandler(
@@ -356,7 +357,7 @@ const handlers: Provider[] = [
   ...bindCommandHandler(
     DeleteHarnessProfileCommand,
     DeleteHarnessProfileHandler,
-    [WORKSPACE_ACCESS, HARNESS_PROFILES, StationGifts, TRANSACTION],
+    [WORKSPACE_ACCESS, HARNESS_PROFILES, StationReferences, TRANSACTION],
   ),
   ...bindQueryHandler(ReadHarnessProfileQuery, ReadHarnessProfileHandler, [
     WORKSPACE_ACCESS,
@@ -387,7 +388,7 @@ const handlers: Provider[] = [
   ...bindQueryHandler(
     WorkspaceConfigurationQuery,
     WorkspaceConfigurationHandler,
-    [WORKSPACE_ACCESS, WORKSPACE_READER, HeldConfigurations],
+    [WORKSPACE_ACCESS, WORKSPACE_READER, ExportableConfigurations],
   ),
   ...bindQueryHandler(
     ResourceConfigurationQuery,
@@ -404,7 +405,7 @@ const handlers: Provider[] = [
       SECRET_CONFIGURATION,
       RUNNER_CONFIGURATION,
       TOKEN_TRUST_CONFIGURATION,
-      HeldConfigurations,
+      ExportableConfigurations,
     ],
   ),
   ...bindQueryHandler(ImportSkillQuery, ImportSkillHandler, [
@@ -422,19 +423,23 @@ const handlers: Provider[] = [
 ];
 
 const published: Provider[] = [
-  { provide: APPLIED_CONFIGURATION, useClass: DrizzleAppliedSkills },
-  DrizzleSkillsHeld,
-  DrizzleHarnessProfilesHeld,
+  { provide: TEAM_SKILL_FILES, useClass: DrizzleTeamSkillFiles },
+  DrizzleSkillDependents,
+  DrizzleHarnessProfileDependents,
   {
-    provide: CONFIGURATION_HOLDINGS,
-    inject: [TEAM_HOLDINGS, DrizzleSkillsHeld, DrizzleHarnessProfilesHeld],
+    provide: CONFIGURATION_DEPENDENTS,
+    inject: [
+      TEAM_DEPENDENTS,
+      DrizzleSkillDependents,
+      DrizzleHarnessProfileDependents,
+    ],
     useFactory: (
-      holdings: TeamHoldingsPort,
-      skills: DrizzleSkillsHeld,
-      profiles: DrizzleHarnessProfilesHeld,
+      dependents: TeamDependentsPort,
+      skills: DrizzleSkillDependents,
+      profiles: DrizzleHarnessProfileDependents,
     ) => {
-      holdings.register(skills);
-      holdings.register(profiles);
+      dependents.register(skills);
+      dependents.register(profiles);
       return true;
     },
   },
@@ -460,12 +465,12 @@ const published: Provider[] = [
   },
   {
     provide: TEAM_SKILLS,
-    inject: [APPLIED_CONFIGURATION, SKILL_READER, SECRET_NAMES],
+    inject: [TEAM_SKILL_FILES, SKILL_READER, SECRET_NAMES],
     useFactory: (
-      applied: AppliedConfigurationPort,
+      teamSkillFiles: TeamSkillFilesPort,
       reader: SkillReaderPort,
       secrets: SecretNamesPort,
-    ) => new TeamSkills(applied, reader, secrets),
+    ) => new TeamSkills(teamSkillFiles, reader, secrets),
   },
 ];
 
@@ -489,8 +494,8 @@ export const CONFIGURATION_PROVIDERS: readonly Provider[] = [
       types.register('configuration', CONFIGURATION_PAYLOAD_TYPES);
       subscribers.register(
         configurationSubscribers(
-          new AbandonTeamSkills(skills, transaction),
-          new AbandonTeamProfiles(profiles, transaction),
+          new DeleteTeamSkills(skills, transaction),
+          new DeleteTeamProfiles(profiles, transaction),
         ),
       );
       return true;

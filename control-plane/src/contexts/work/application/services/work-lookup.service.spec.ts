@@ -1,4 +1,4 @@
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -25,7 +25,7 @@ import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { BUILT_IN_LINES } from '@work/domain/services/built-in-lines';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
-import type { Concerns } from '@work/domain/value-objects/concerns.vo';
+import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
@@ -47,8 +47,8 @@ const fresh = () => {
 
 const [opening] = BUILT_IN_LINES;
 
-const line = Line.open({
-  by: attributedIn(),
+const line = Line.create({
+  by: changeActorIn(),
   workspaceId: WORKSPACE,
   teamId: TeamId.of('team_1'),
   // biome-ignore lint/style/noNonNullAssertion: Spotlight has built-in lines
@@ -67,18 +67,18 @@ const task = () =>
     newId: fresh,
   });
 
-const lookingUp = (wearers: readonly Task[]) =>
+const lookingUp = (markedTasks: readonly Task[]) =>
   new WorkLookup(
     {} as RunRepository,
     {
-      holding: async (_at: WorkspaceId, concerns: Concerns) =>
-        wearers.find((each) =>
-          concerns.marks.some((mark) =>
-            each.marks.some((worn) => worn.equals(mark)),
+      findByMarks: async (_at: WorkspaceId, correlationKeys: CorrelationKeys) =>
+        markedTasks.find((each) =>
+          correlationKeys.marks.some((mark) =>
+            each.marks.some((marked) => marked.equals(mark)),
           ),
         ) ?? null,
     } as unknown as TaskRepository,
-    { holding: async () => line } as unknown as LineRepository,
+    { findByStation: async () => line } as unknown as LineRepository,
     {} as ChatRepository,
     {} as RunJournalReaderPort,
   );
@@ -147,13 +147,13 @@ describe('WorkLookup, looking up a run', () => {
             command: { executable: 'claude', args: [] },
             briefing: 'Retry uploads',
             handover: { options: [], noteLimit: 0 },
-            continuity: { key: 'task_1' },
+            resume: { key: 'task_1' },
             check: 'npm run verify',
           }),
         }),
       } as unknown as RunRepository,
       {} as TaskRepository,
-      { holding: async () => line } as unknown as LineRepository,
+      { findByStation: async () => line } as unknown as LineRepository,
       {} as ChatRepository,
       {} as RunJournalReaderPort,
     );
@@ -165,9 +165,10 @@ describe('WorkLookup, looking up a run', () => {
     placement = RunnerPlacement.anywhere(),
   ) => lookingUpAt(key, state, placement).run(RunId.of('run_1'));
 
-  const placeAt = (key: string) => lookingUpAt(key).placeOf(RunId.of('run_1'));
+  const locationAt = (key: string) =>
+    lookingUpAt(key).locationOf(RunId.of('run_1'));
 
-  it('hands a check the command its run was dispatched with, not the station’s as it stands now', async () => {
+  it('hands a check the command its run was dispatched with, not the station’s current command', async () => {
     expect((await runAt('implementation'))?.check).toBe('npm run verify');
     expect((await runAt('gone'))?.check).toBe('npm run verify');
   });
@@ -184,31 +185,31 @@ describe('WorkLookup, looking up a run', () => {
     expect((await runAt('spec'))?.decisions).toBe(false);
   });
 
-  it('asks a check to run where its station runs', async () => {
+  it('places a check where its station runs', async () => {
     expect((await runAt('implementation'))?.placement.isAnywhere).toBe(true);
   });
 
-  it('asks a check to run where its run was placed once its station is gone', async () => {
+  it('places a check where its run was placed once its station is gone', async () => {
     expect(
       (await runAt('gone', 'completed', RunnerPlacement.of(['vpc-internal'])))
-        ?.placement.clauses,
+        ?.placement.labelGroups,
     ).toEqual([['vpc-internal']]);
   });
 
   it('says where the run worked: its team, line and station', async () => {
-    const place = await placeAt('implementation');
+    const location = await locationAt('implementation');
 
-    expect(place?.teamId.value).toBe('team_1');
-    expect(place?.lineId).toBe(line.id.value);
-    expect(place?.lineName).toBe(line.name.value);
-    expect(place?.stationName).toBe('Implementation');
+    expect(location?.teamId.value).toBe('team_1');
+    expect(location?.lineId).toBe(line.id.value);
+    expect(location?.lineName).toBe(line.name.value);
+    expect(location?.stationName).toBe('Implementation');
   });
 
   it('says a run whose station is gone worked nowhere it can name', async () => {
-    expect(await placeAt('gone')).toBeNull();
+    expect(await locationAt('gone')).toBeNull();
   });
 
-  it('says the run is remembered from only where its station asks for it', async () => {
+  it('says the run is remembered from only where its station requires it', async () => {
     expect((await runAt('implementation'))?.memories).toBe(false);
   });
 
@@ -232,8 +233,8 @@ describe('WorkLookup, reading how a run reasoned', () => {
     ms: 0,
     startedAt: new Date('2026-09-21T10:00:00.000Z'),
     locations: [],
-    given: null,
-    returned: null,
+    input: null,
+    output: null,
     change: null,
     ...change,
   });
@@ -250,7 +251,7 @@ describe('WorkLookup, reading how a run reasoned', () => {
       command: { executable: 'claude', args: [] },
       briefing: 'Retry uploads',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'task_1' },
+      resume: { key: 'task_1' },
     });
 
   const changesOf = (
@@ -290,19 +291,19 @@ describe('WorkLookup, reading how a run reasoned', () => {
       } as unknown as RunJournalReaderPort,
     ).reasoning(RunId.of('run_1'));
 
-  it('offers what the agent said, thought and planned, where it stands in the journal', async () => {
+  it('offers the messages, thoughts and plans of the agent, where it is in the journal', async () => {
     const reasoned = await reading([
       step({ kind: 'planned', text: '[pending] Retry uploads' }),
       step({ kind: 'tool', text: 'Edit uploads.ts' }),
       step({ kind: 'thought', text: 'A queue needs a worker.' }),
-      step({ kind: 'said', text: '  ' }),
-      step({ kind: 'said', text: 'Retrying in the request.' }),
+      step({ kind: 'message', text: '  ' }),
+      step({ kind: 'message', text: 'Retrying in the request.' }),
     ]);
 
     expect(reasoned?.steps.map((each) => [each.index, each.kind])).toEqual([
       [0, 'planned'],
       [2, 'thought'],
-      [4, 'said'],
+      [4, 'message'],
     ]);
   });
 
@@ -383,13 +384,13 @@ describe('WorkLookup, reading what a run changed', () => {
             command: { executable: 'claude', args: [] },
             briefing: 'Retry uploads',
             handover: { options: [], noteLimit: 0 },
-            continuity: { key: 'task_1' },
+            resume: { key: 'task_1' },
           }),
         }),
       } as unknown as RunRepository,
       {} as TaskRepository,
       {
-        holding: async () => ({ repositories: { all: [API, WEB] } }),
+        findByStation: async () => ({ repositories: { all: [API, WEB] } }),
       } as unknown as LineRepository,
       {} as ChatRepository,
       {
@@ -421,7 +422,7 @@ describe('WorkLookup, reading what a run changed', () => {
   });
 });
 
-describe('WorkLookup, reading what people said on a task', () => {
+describe('WorkLookup, reading the notes of people on a task', () => {
   const AT = new Date('2026-09-21T10:00:00.000Z');
 
   const note = (position: number, voice: Voice, body: string) =>
@@ -434,8 +435,8 @@ describe('WorkLookup, reading what people said on a task', () => {
       kind: 'answered',
     });
 
-  it('reads what people and the world said, and who of the team said it, and nothing the stations did', async () => {
-    const spoken = await new WorkLookup(
+  it('reads the notes of people and the world, and who of the team wrote them, and nothing the stations did', async () => {
+    const views = await new WorkLookup(
       {} as RunRepository,
       {
         find: async () => ({
@@ -449,9 +450,9 @@ describe('WorkLookup, reading what people said on a task', () => {
       {} as LineRepository,
       {} as ChatRepository,
       {} as RunJournalReaderPort,
-    ).spokenOn(TaskId.of('task_1'));
+    ).notesOf(TaskId.of('task_1'));
 
-    expect(spoken).toEqual([
+    expect(views).toEqual([
       {
         position: 1,
         by: 'person',
@@ -465,12 +466,12 @@ describe('WorkLookup, reading what people said on a task', () => {
 
 describe('WorkLookup, reading a team’s lines', () => {
   it('names each line still in use, with the stations that work and its repositories', async () => {
-    const retired = { ...line, isRetired: true, id: { value: 'line_old' } };
+    const deleted = { ...line, isDeleted: true, id: { value: 'line_old' } };
 
     const lines = await new WorkLookup(
       {} as RunRepository,
       {} as TaskRepository,
-      { ofTeam: async () => [line, retired] } as unknown as LineRepository,
+      { ofTeam: async () => [line, deleted] } as unknown as LineRepository,
       {} as ChatRepository,
       {} as RunJournalReaderPort,
     ).linesOf(TeamId.of('team_1'));
@@ -478,7 +479,7 @@ describe('WorkLookup, reading a team’s lines', () => {
     expect(lines.map((each) => each.id)).toEqual([line.id.value]);
     expect(lines[0]?.stations.map((each) => each.name)).toEqual(
       line.stations
-        .filter((each) => each.isWorked)
+        .filter((each) => each.isAgentStation)
         .map((each) => each.name.value),
     );
     expect(lines[0]?.stations.some((each) => each.name === 'Backlog')).toBe(
@@ -487,14 +488,14 @@ describe('WorkLookup, reading a team’s lines', () => {
   });
 });
 
-describe('WorkLookup, finding the run a runner holds', () => {
+describe('WorkLookup, finding the run a runner leases', () => {
   const API = Repository.of('acme/api');
   const WEB = Repository.of('acme/web');
   const RUNNER = RunnerId.of('runner_1');
   const TEAM = TeamId.of('team_1');
 
   const lookingAt = (run: {
-    held: boolean;
+    leased: boolean;
     chatId?: string | null;
     stationId?: string | null;
     ranFor?: TeamId;
@@ -513,12 +514,12 @@ describe('WorkLookup, finding the run a runner holds', () => {
           isSearch: run.isSearch ?? false,
           isReplay: !run.isSearch,
           ...(run.isSearch ? {} : { replayedRepositories: [WEB] }),
-          isHeldBy: (by: RunnerId) => run.held && by.equals(RUNNER),
+          isLeasedBy: (by: RunnerId) => run.leased && by.equals(RUNNER),
         }),
       } as unknown as RunRepository,
       { find: async () => null } as unknown as TaskRepository,
       {
-        holding: async () =>
+        findByStation: async () =>
           run.lineGone
             ? null
             : {
@@ -536,34 +537,34 @@ describe('WorkLookup, finding the run a runner holds', () => {
       {} as RunJournalReaderPort,
     );
 
-  const holding = (run: Parameters<typeof lookingAt>[0]) =>
-    lookingAt(run).heldBy(RunId.of('run_1'), RUNNER);
+  const leasedRun = (run: Parameters<typeof lookingAt>[0]) =>
+    lookingAt(run).leasedBy(RunId.of('run_1'), RUNNER);
 
-  it('names the team, task and workspace of a task’s run the runner holds', async () => {
-    const held = await holding({ held: true, stationId: 'station_1' });
+  it('names the team, task and workspace of a task’s run the runner leases', async () => {
+    const found = await leasedRun({ leased: true, stationId: 'station_1' });
 
-    expect(held?.teamId.equals(TEAM)).toBe(true);
-    expect(held?.lineId).toBe('line_1');
-    expect(held?.stationId).toBe('station_1');
-    expect(held?.repositories).toEqual([API]);
-    expect(held?.taskId?.value).toBe('task_1');
-    expect(held?.workspaceId.equals(WORKSPACE)).toBe(true);
+    expect(found?.teamId.equals(TEAM)).toBe(true);
+    expect(found?.lineId).toBe('line_1');
+    expect(found?.stationId).toBe('station_1');
+    expect(found?.repositories).toEqual([API]);
+    expect(found?.taskId?.value).toBe('task_1');
+    expect(found?.workspaceId.equals(WORKSPACE)).toBe(true);
   });
 
   it('names the team a replay runs for, and the repositories it replays, even once its station is gone', async () => {
-    const held = await holding({
-      held: true,
+    const found = await leasedRun({
+      leased: true,
       ranFor: TEAM,
       lineGone: true,
     });
 
-    expect(held?.teamId.equals(TEAM)).toBe(true);
-    expect(held?.lineId).toBeNull();
-    expect(held?.stationId).toBeNull();
-    expect(held?.repositories).toEqual([WEB]);
+    expect(found?.teamId.equals(TEAM)).toBe(true);
+    expect(found?.lineId).toBeNull();
+    expect(found?.stationId).toBeNull();
+    expect(found?.repositories).toEqual([WEB]);
 
-    const atItsStation = await holding({
-      held: true,
+    const atItsStation = await leasedRun({
+      leased: true,
       ranFor: TEAM,
       stationId: 'station_1',
     });
@@ -573,50 +574,52 @@ describe('WorkLookup, finding the run a runner holds', () => {
   });
 
   it('says a search searches, for its team at its station, with no repositories', async () => {
-    const held = await holding({
-      held: true,
+    const found = await leasedRun({
+      leased: true,
       ranFor: TEAM,
       stationId: 'station_1',
       isSearch: true,
     });
 
-    expect(held?.isSearch).toBe(true);
-    expect(held?.teamId.equals(TEAM)).toBe(true);
-    expect(held?.stationId).toBe('station_1');
-    expect(held?.repositories).toEqual([]);
+    expect(found?.isSearch).toBe(true);
+    expect(found?.teamId.equals(TEAM)).toBe(true);
+    expect(found?.stationId).toBe('station_1');
+    expect(found?.repositories).toEqual([]);
     expect(
-      (await holding({ held: true, stationId: 'station_1' }))?.isSearch,
+      (await leasedRun({ leased: true, stationId: 'station_1' }))?.isSearch,
     ).toBe(false);
   });
 
   it('names a chat’s own team for a chat’s run', async () => {
-    const held = await holding({ held: true, chatId: 'chat_1' });
+    const found = await leasedRun({ leased: true, chatId: 'chat_1' });
 
-    expect(held?.teamId.value).toBe('team_chat');
-    expect(held?.taskId).toBeNull();
+    expect(found?.teamId.value).toBe('team_chat');
+    expect(found?.taskId).toBeNull();
   });
 
-  it('knows no run the runner does not hold, or one belonging to no team', async () => {
-    expect(await holding({ held: false, stationId: 'station_1' })).toBeNull();
-    expect(await holding({ held: true })).toBeNull();
+  it('knows no run the runner does not lease, or one belonging to no team', async () => {
+    expect(
+      await leasedRun({ leased: false, stationId: 'station_1' }),
+    ).toBeNull();
+    expect(await leasedRun({ leased: true })).toBeNull();
   });
 
-  it('names the team of any run, held or not, by its chat or its line', async () => {
+  it('names the team of any run, leased or not, by its chat or its line', async () => {
     const teamOf = (run: Parameters<typeof lookingAt>[0]) =>
-      lookingAt(run).siteOfRun(RunId.of('run_1'));
+      lookingAt(run).contextOfRun(RunId.of('run_1'));
 
-    expect(await teamOf({ held: false, stationId: 'station_1' })).toEqual({
+    expect(await teamOf({ leased: false, stationId: 'station_1' })).toEqual({
       teamId: TEAM,
       lineId: 'line_1',
       stationId: 'station_1',
       repositories: [API],
     });
-    expect(await teamOf({ held: false, chatId: 'chat_1' })).toEqual({
+    expect(await teamOf({ leased: false, chatId: 'chat_1' })).toEqual({
       teamId: TeamId.of('team_chat'),
       lineId: null,
       stationId: null,
       repositories: [WEB],
     });
-    expect(await teamOf({ held: false })).toBeNull();
+    expect(await teamOf({ leased: false })).toBeNull();
   });
 });

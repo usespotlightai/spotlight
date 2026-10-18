@@ -33,7 +33,7 @@ export class ProvisionFailures {
     }
 
     const entry = {
-      seq: -failed.provisioning.failures,
+      seq: -failed.provisioning.attempts,
       type: PROVISION_FAILED,
       message: `Provisioning failed · ${failure.kind}`,
       data: Buffer.from(failure.detail, 'utf8').toString('base64'),

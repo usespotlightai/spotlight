@@ -1,7 +1,7 @@
 import type {
-  AdmittedHost,
-  RunnerAdmissionsPort,
-} from '@runners/application/ports/runner-admissions.port';
+  AuthenticatedHost,
+  RunnerAuthenticatorPort,
+} from '@runners/application/ports/runner-authenticator.port';
 import type {
   RunnerPoolRecord,
   RunnerResourcesPort,
@@ -16,7 +16,7 @@ import {
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -25,43 +25,43 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 const NOW = new Date('2026-09-24T10:00:00.000Z');
 
 const pooling = (
-  admitted: AdmittedHost | null,
-  held: {
+  authenticated: AuthenticatedHost | null,
+  stored: {
     pool?: RunnerPool | null;
-    standing?: readonly Runner[];
+    alive?: readonly Runner[];
     provisioning?: readonly RunnerPoolRecord[];
     platform?: boolean;
   } = {},
 ) => {
-  const admit = vi.fn(async () => admitted);
+  const authenticate = vi.fn(async () => authenticated);
   const find = vi.fn(async () =>
-    held.pool === undefined ? aPullPool({ maxRuns: 2 }) : held.pool,
+    stored.pool === undefined ? aPullPool({ maxRuns: 2 }) : stored.pool,
   );
 
   const pools = new RunnerPools(
     { find } as unknown as RunnerPoolRepository,
     {
-      standingIn: vi.fn(async () => held.standing ?? []),
+      aliveIn: vi.fn(async () => stored.alive ?? []),
     } as unknown as RunnerRepository,
     {
-      provisioningPools: vi.fn(async () => held.provisioning ?? []),
+      provisioningPools: vi.fn(async () => stored.provisioning ?? []),
     } as unknown as RunnerResourcesPort,
-    { admit } satisfies RunnerAdmissionsPort,
-    held.platform ?? true,
+    { authenticate } satisfies RunnerAuthenticatorPort,
+    stored.platform ?? true,
   );
 
-  return { pools, admit, find };
+  return { pools, authenticate, find };
 };
 
-const THROUGH_POOL: AdmittedHost = {
-  way: { kind: 'pool', id: POOL_ID.value },
+const THROUGH_POOL: AuthenticatedHost = {
+  source: { kind: 'pool', id: POOL_ID.value },
   workspaceId: WORKSPACE,
 };
 
 describe('RunnerPools', () => {
   describe('the pool a token pulls with', () => {
-    it('answers the pool the admissions let the token in through, at work', async () => {
-      const { pools, admit } = pooling(THROUGH_POOL);
+    it('answers the pool the authenticator accepts the token for, at work', async () => {
+      const { pools, authenticate } = pooling(THROUGH_POOL);
 
       await expect(
         pools.pulledWith('pool-token', POOL_ID.value),
@@ -72,7 +72,7 @@ describe('RunnerPools', () => {
         labels: expect.objectContaining({ values: ['linux'] }),
         egress: false,
       });
-      expect(admit).toHaveBeenCalledWith({
+      expect(authenticate).toHaveBeenCalledWith({
         bearer: 'pool-token',
         trust: undefined,
       });
@@ -87,7 +87,7 @@ describe('RunnerPools', () => {
       expect(find).not.toHaveBeenCalled();
     });
 
-    it('answers no pool where the admissions let nothing in', async () => {
+    it('answers no pool where the authenticator accepts nothing', async () => {
       const { pools, find } = pooling(null);
 
       await expect(
@@ -96,9 +96,9 @@ describe('RunnerPools', () => {
       expect(find).not.toHaveBeenCalled();
     });
 
-    it('answers no pool for a way in that is a trust', async () => {
+    it('answers no pool for a credential source that is a trust', async () => {
       const { pools, find } = pooling({
-        way: { kind: 'trust', id: 'trust_1' },
+        source: { kind: 'trust', id: 'trust_1' },
         workspaceId: WORKSPACE,
       });
 
@@ -110,7 +110,7 @@ describe('RunnerPools', () => {
   });
 
   describe('the pools that provision', () => {
-    const kept = (egress: string | null): RunnerPoolRecord => ({
+    const stored = (egress: string | null): RunnerPoolRecord => ({
       id: `pool_${egress ?? 'none'}`,
       version: 0,
       workspaceId: WORKSPACE,
@@ -128,7 +128,7 @@ describe('RunnerPools', () => {
 
     it('says of each whether it names an egress', async () => {
       const { pools } = pooling(null, {
-        provisioning: [kept('spotlight'), kept('egress_1'), kept(null)],
+        provisioning: [stored('spotlight'), stored('egress_1'), stored(null)],
       });
 
       await expect(pools.provisioning()).resolves.toEqual([
@@ -140,7 +140,7 @@ describe('RunnerPools', () => {
 
     it('counts the platform egress only where the deployment has one', async () => {
       const { pools } = pooling(null, {
-        provisioning: [kept('spotlight'), kept('egress_1')],
+        provisioning: [stored('spotlight'), stored('egress_1')],
         platform: false,
       });
 
@@ -152,8 +152,8 @@ describe('RunnerPools', () => {
   });
 
   describe('the room a pool has left', () => {
-    it('is what maxRuns leaves beside the runners standing in it', async () => {
-      const { pools } = pooling(null, { standing: [aRunner()] });
+    it('is what maxRuns leaves beside the runners that are alive in it', async () => {
+      const { pools } = pooling(null, { alive: [aRunner()] });
 
       await expect(pools.roomIn(POOL_ID.value, NOW)).resolves.toBe(1);
     });
@@ -161,19 +161,19 @@ describe('RunnerPools', () => {
     it('is unbounded for a pool without maxRuns', async () => {
       const { pools } = pooling(null, {
         pool: aPullPool(),
-        standing: [aRunner(), aRunner({ id: 'pooled_2' })],
+        alive: [aRunner(), aRunner({ id: 'pooled_2' })],
       });
 
       await expect(pools.roomIn(POOL_ID.value, NOW)).resolves.toBeNull();
     });
 
-    it('is none for a pool that is gone or retired', async () => {
+    it('is none for a pool that is gone or deleted', async () => {
       await expect(
         pooling(null, { pool: null }).pools.roomIn(POOL_ID.value, NOW),
       ).resolves.toBe(0);
       await expect(
         pooling(null, {
-          pool: aPullPool().retire(attributedIn()),
+          pool: aPullPool().delete(changeActorIn()),
         }).pools.roomIn(POOL_ID.value, NOW),
       ).resolves.toBe(0);
     });

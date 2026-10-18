@@ -3,12 +3,12 @@ import { APP_FILTER, HttpAdapterHost } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
 import { ConfigModule } from '@platform/config/config.module';
 import { SentryErrorReports } from '@platform/errors/sentry-error-reports';
-import { AmbientCausation } from '@platform/events/ambient-causation';
+import { AsyncLocalCausation } from '@platform/events/async-local-causation';
+import { DeliveryBacklog } from '@platform/events/delivery-backlog';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventDeliveryWorker } from '@platform/events/event-delivery.worker';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
-import { EventReactions } from '@platform/events/event-reactions';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
@@ -26,7 +26,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DrizzleModule } from '@platform/persistence/drizzle/drizzle.module';
 import { DrizzleReading } from '@platform/persistence/drizzle/drizzle.reading';
 import { SystemClock } from '@platform/time/system-clock';
-import { TokenMint } from '@platform/tokens/token-mint.service';
+import { RandomTokenIssuer } from '@platform/tokens/random-token-issuer.service';
 import { JoseWorkloadTokens } from '@platform/workload/jose-workload-tokens';
 import { SentryGlobalFilter } from '@sentry/nestjs/setup';
 import { CAUSATION } from '@shared-kernel/application/ports/causation.port';
@@ -35,13 +35,13 @@ import { DOMAIN_EVENT_DISPATCHER } from '@shared-kernel/application/ports/domain
 import { ERROR_REPORTS } from '@shared-kernel/application/ports/error-reports.port';
 import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
 import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
-import { IDEMPOTENT_RECALLS } from '@shared-kernel/application/ports/idempotent-recalls.port';
+import { IDEMPOTENT_LOOKUPS } from '@shared-kernel/application/ports/idempotent-lookups.port';
 import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
 import { SAVEPOINT } from '@shared-kernel/application/ports/savepoint.port';
-import { TOKEN_MINT } from '@shared-kernel/application/ports/token-mint.port';
+import { TOKEN_ISSUER } from '@shared-kernel/application/ports/token-issuer.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import { WORKLOAD_TOKENS } from '@shared-kernel/application/ports/workload-tokens.port';
 import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types';
@@ -64,7 +64,7 @@ import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types
     DrizzleReading,
     { provide: TRANSACTION, useExisting: DrizzleContext },
     { provide: SAVEPOINT, useExisting: DrizzleContext },
-    { provide: CAUSATION, useClass: AmbientCausation },
+    { provide: CAUSATION, useClass: AsyncLocalCausation },
     {
       provide: PayloadTypes,
       useFactory: () => {
@@ -80,15 +80,15 @@ import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types
     { provide: DOMAIN_EVENT_DISPATCHER, useExisting: EventOutbox },
     EventDelivery,
     EventDeliveryWorker,
-    EventReactions,
+    DeliveryBacklog,
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
     { provide: CLOCK, useClass: SystemClock },
     { provide: ERROR_REPORTS, useClass: SentryErrorReports },
     { provide: EXPRESSION_ENGINE, useClass: CelExpressionEngine },
-    TokenMint,
-    { provide: TOKEN_MINT, useClass: TokenMint },
+    RandomTokenIssuer,
+    { provide: TOKEN_ISSUER, useClass: RandomTokenIssuer },
     { provide: IDEMPOTENT_CREATES, useClass: DrizzleIdempotentCreates },
-    { provide: IDEMPOTENT_RECALLS, useExisting: IDEMPOTENT_CREATES },
+    { provide: IDEMPOTENT_LOOKUPS, useExisting: IDEMPOTENT_CREATES },
     { provide: WORKLOAD_TOKENS, useClass: JoseWorkloadTokens },
   ],
   exports: [
@@ -109,14 +109,14 @@ import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types
     EventOutbox,
     DOMAIN_EVENT_DISPATCHER,
     EventDelivery,
-    EventReactions,
+    DeliveryBacklog,
     ID_GENERATOR,
     CLOCK,
     EXPRESSION_ENGINE,
-    TokenMint,
-    TOKEN_MINT,
+    RandomTokenIssuer,
+    TOKEN_ISSUER,
     IDEMPOTENT_CREATES,
-    IDEMPOTENT_RECALLS,
+    IDEMPOTENT_LOOKUPS,
     WORKLOAD_TOKENS,
   ],
 })

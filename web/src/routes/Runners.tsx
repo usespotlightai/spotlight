@@ -9,9 +9,9 @@ import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useRunners } from '@/hooks/api/useRunners';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
-import { useRemembered } from '@/hooks/useRemembered';
+import { useStoredState } from '@/hooks/useStoredState';
 import { failed, loading } from '@/lib/query';
-import { managesRunners } from '@/lib/role';
+import { isAdmin } from '@/lib/role';
 import { asRunnerFilter, FALLBACK_RUNNER_FILTER } from '@/lib/runner';
 import { TrailContext, useTrail } from '@/lib/trail';
 
@@ -22,14 +22,14 @@ export function Runners() {
   const fleet = useRunners(slug);
   const { data: harnesses } = useHarnesses();
   const { data: workspace } = useWorkspace(slug);
-  const [held, remember] = useRemembered(FILTER_KEY, FALLBACK_RUNNER_FILTER);
+  const [stored, store] = useStoredState(FILTER_KEY, FALLBACK_RUNNER_FILTER);
   const { trail, forward } = useTrail([{ label: 'Runners' }]);
 
   if (!slug) {
     return null;
   }
 
-  const adds = workspace ? managesRunners(workspace.role) : false;
+  const adds = workspace ? isAdmin(workspace.role) : false;
   const hosts = fleet.data?.hosts;
   const pools = fleet.data?.pools ?? [];
 
@@ -53,8 +53,8 @@ export function Runners() {
       ) : (
         <FilteredRunners
           slug={slug}
-          filter={asRunnerFilter(held)}
-          onFilter={remember}
+          filter={asRunnerFilter(stored)}
+          onFilter={store}
           loading={loading(fleet)}
           hosts={hosts ?? []}
           pools={pools}

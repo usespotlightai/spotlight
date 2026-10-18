@@ -1,10 +1,10 @@
 import { FixedAgent } from '@/components/features/stations/FixedAgent';
 import { FixedRepositories } from '@/components/features/stations/FixedRepositories';
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
-import { useSayToRun } from '@/hooks/api/useSayToRun';
+import { useSendMessage } from '@/hooks/api/useSendMessage';
 import { useStopRun } from '@/hooks/api/useStopRun';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
-import { startsAgainWhenTold } from '@/lib/task';
+import { startsAgainOnMessage } from '@/lib/task';
 
 type RunComposerProps = {
   slug: string;
@@ -27,10 +27,15 @@ export function RunComposer({
   running,
   answering,
 }: RunComposerProps) {
-  const say = useSayToRun();
+  const send = useSendMessage();
   const stop = useStopRun();
-  const { line, station: standing, task } = useTaskStation(teamId, taskId);
-  const restarts = !answering && startsAgainWhenTold(task, standing, stationId);
+  const {
+    line,
+    station: currentStation,
+    task,
+  } = useTaskStation(teamId, taskId);
+  const restarts =
+    !answering && startsAgainOnMessage(task, currentStation, stationId);
 
   return (
     <ChatInput
@@ -40,18 +45,18 @@ export function RunComposer({
           ? `Answer ${station}`
           : restarts
             ? `Send it back to ${station}`
-            : `Say something to ${station}`
+            : `Message ${station}`
       }
       placeholder={
         answering
           ? 'Answer the question to continue the run…'
           : restarts
             ? `Say what to change. ${station} starts again…`
-            : 'Say something…'
+            : 'Write a message…'
       }
-      pending={say.isPending}
+      pending={send.isPending}
       running={running}
-      settings={<FixedAgent agent={standing} />}
+      settings={<FixedAgent agent={currentStation} />}
       below={
         <FixedRepositories
           slug={slug}
@@ -60,7 +65,7 @@ export function RunComposer({
       }
       onStop={() => stop.mutate({ teamId, runId })}
       onSend={({ body, attachments }, sent) =>
-        say.mutate({ teamId, runId, body, attachments }, { onSuccess: sent })
+        send.mutate({ teamId, runId, body, attachments }, { onSuccess: sent })
       }
     />
   );

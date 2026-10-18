@@ -12,7 +12,7 @@ export interface ProvisionEgress {
 export interface ProvisionCall {
   readonly url: ProvisionUrl;
   readonly secret: ProvisionSecret;
-  readonly attempt: string;
+  readonly messageId: string;
   readonly at: Date;
   readonly pool: string;
   readonly workspaceId: string;
@@ -31,7 +31,7 @@ export interface ProvisionCall {
 export type ProvisionAnswer =
   | { readonly outcome: 'accepted' }
   | {
-      readonly outcome: 'unreachable' | 'refused' | 'not-allowed';
+      readonly outcome: 'unreachable' | 'http-error' | 'not-allowed';
       readonly detail: string;
     };
 

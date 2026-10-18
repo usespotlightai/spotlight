@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { DiffTally } from '@/components/shared/DiffTally';
+import { DiffStat } from '@/components/shared/DiffStat';
 import { type FileChange, fileName, tallyFile } from '@/lib/changes';
 import { useRunSidePanel } from '@/lib/run-side-panel';
 import { cn } from '@/lib/utils';
@@ -25,7 +25,7 @@ export function RunChangeFile({ file }: { file: FileChange }) {
           {fileName(file.path)}
         </span>
 
-        <DiffTally added={added} removed={removed} />
+        <DiffStat added={added} removed={removed} />
       </button>
     </li>
   );

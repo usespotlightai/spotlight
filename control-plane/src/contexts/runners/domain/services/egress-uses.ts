@@ -10,6 +10,6 @@ export const poolsNaming = (
   const reference = EgressReference.to(egress.id);
 
   return pools
-    .filter((each) => each.goesOutThrough(reference))
+    .filter((each) => each.usesEgress(reference))
     .map((each) => each.key);
 };

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
-import { TEAM_DISBANDED } from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
+import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { eq, inArray } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
@@ -12,6 +12,7 @@ import {
   app,
   BUILD,
   bearing,
+  createSet,
   DELIVERY,
   db,
   delivered,
@@ -19,12 +20,11 @@ import {
   endedSearchRun,
   entryOf,
   fiveTasks,
-  heldSearchRun,
   http,
   type InboxEntry,
+  leasedSearchRun,
   liveBlock,
   openSearchFlow,
-  openSet,
   owner,
   POLISH,
   proposing,
@@ -43,7 +43,7 @@ openSearchFlow();
 
 describe('a search for a better station config, when it stalls or loses its station', () => {
   it('looks into why once two iterations in a row came to nothing, takes a cause for each failing searched task and none for a held-out one, ends stalled and tells who started it', async () => {
-    const setId = await openSet('Stalling', fiveTasks);
+    const setId = await createSet('Stalling', fiveTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 4,
       perIteration: 1,
@@ -53,10 +53,10 @@ describe('a search for a better station config, when it stalls or loses its stat
     await drained(() => ({ score: 2, cost: 0.1 }));
     expect(await replayEnded(seedReplayId)).toBe('finished');
 
-    await endedSearchRun(await heldSearchRun(id, 1), true);
-    await endedSearchRun(await heldSearchRun(id, 2), true);
+    await endedSearchRun(await leasedSearchRun(id, 1), true);
+    await endedSearchRun(await leasedSearchRun(id, 2), true);
 
-    const reflecting = await heldSearchRun(id, 3);
+    const reflecting = await leasedSearchRun(id, 3);
     const looking = await searchOf(id);
     const reflection = looking.iterations[2]?.reflection;
     const searchedTasks = looking.split.searched.map((each) => each.taskId);
@@ -76,7 +76,7 @@ describe('a search for a better station config, when it stalls or loses its stat
     const [first, second, third] = reflection?.tasks ?? [];
     const causing = (taskId: string, cause: string, suggestion?: string) =>
       bearing(reflecting.token).post(
-        `/api/runs/${reflecting.runId}/search-causes`,
+        `/api/runs/${reflecting.runId}/failure-causes`,
         {
           taskId,
           cause,
@@ -106,7 +106,7 @@ describe('a search for a better station config, when it stalls or loses its stat
         await causing(
           first?.taskId as string,
           'judge',
-          'Drop the line of the rubric that asks for tests.',
+          'Drop the line of the rubric that requires tests.',
         ).expect(201)
       ).body,
     ).toEqual({
@@ -130,10 +130,10 @@ describe('a search for a better station config, when it stalls or loses its stat
     const stalled = await searchOf(id);
     const looked = stalled.iterations[2]?.reflection;
 
-    expect(stalled.ending).toBe('stalled');
+    expect(stalled.stopReason).toBe('stalled');
     expect(stalled.iterations).toHaveLength(3);
     expect(looked?.endedSearch).toBe(true);
-    expect(looked?.outcome).toBe('no-config-cause');
+    expect(looked?.result).toBe('no-config-cause');
     expect(
       looked?.causes.map((each) => [each.taskId, each.cause, each.replayRunId]),
     ).toEqual([
@@ -175,7 +175,7 @@ describe('a search for a better station config, when it stalls or loses its stat
         /^No config change can fix the \d+ tasks? still failing\. The rest of the budget stays unspent\.$/,
       ),
       expect.stringMatching(
-        /^Fix the judge’s rubric, for “Drain (the )?queue[^”]*”: Drop the line of the rubric that asks for tests\.$/,
+        /^Fix the judge’s rubric, for “Drain (the )?queue[^”]*”: Drop the line of the rubric that requires tests\.$/,
       ),
       expect.stringMatching(
         /^Take the task out of the replay set, or reword it, for “Drain (the )?queue[^”]*”: Take it out of the set\.$/,
@@ -187,28 +187,28 @@ describe('a search for a better station config, when it stalls or loses its stat
     expect(notice?.points.join('\n')).not.toContain(first?.taskId);
 
     await http()
-      .post(`/api/workspaces/${team.slug}/inbox/notices/${notice?.id}/settle`)
+      .post(`/api/workspaces/${team.slug}/inbox/notices/${notice?.id}/resolve`)
       .set(TEST_USER_HEADER, randomUUID())
       .expect(404);
     await owner()
-      .post(`/api/workspaces/elsewhere/inbox/notices/${notice?.id}/settle`)
+      .post(`/api/workspaces/elsewhere/inbox/notices/${notice?.id}/resolve`)
       .expect(404);
     await owner()
-      .post(`/api/workspaces/${team.slug}/inbox/notices/${notice?.id}/settle`)
+      .post(`/api/workspaces/${team.slug}/inbox/notices/${notice?.id}/resolve`)
       .expect(204);
 
-    const settled = (
+    const resolved = (
       (await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200))
         .body as InboxEntry[]
     ).find((each) => each.id === notice?.id);
 
-    expect(settled).toMatchObject({ unread: false, resolved: true });
+    expect(resolved).toMatchObject({ unread: false, resolved: true });
 
     const longAgo = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
 
     await db
       .update(schema.notice)
-      .set({ raisedAt: longAgo, settledAt: longAgo })
+      .set({ createdAt: longAgo, resolvedAt: longAgo })
       .where(eq(schema.notice.id, notice?.id as string));
 
     expect(
@@ -220,7 +220,7 @@ describe('a search for a better station config, when it stalls or loses its stat
   }, 120_000);
 
   it('searches on once looking into why it stalled finds a cause the config can fix, telling no one', async () => {
-    const setId = await openSet('Stalling again', fiveTasks);
+    const setId = await createSet('Stalling again', fiveTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 4,
       perIteration: 1,
@@ -230,15 +230,15 @@ describe('a search for a better station config, when it stalls or loses its stat
     await drained(() => ({ score: 2, cost: 0.1 }));
     expect(await replayEnded(seedReplayId)).toBe('finished');
 
-    await endedSearchRun(await heldSearchRun(id, 1), true);
-    await endedSearchRun(await heldSearchRun(id, 2), true);
+    await endedSearchRun(await leasedSearchRun(id, 1), true);
+    await endedSearchRun(await leasedSearchRun(id, 2), true);
 
-    const reflecting = await heldSearchRun(id, 3);
+    const reflecting = await leasedSearchRun(id, 3);
     const [failing] =
       (await searchOf(id)).iterations[2]?.reflection?.tasks ?? [];
 
     await bearing(reflecting.token)
-      .post(`/api/runs/${reflecting.runId}/search-causes`, {
+      .post(`/api/runs/${reflecting.runId}/failure-causes`, {
         taskId: failing?.taskId,
         cause: 'config',
         evidence: 'It never ran the migrations the prompt leaves out.',
@@ -247,7 +247,7 @@ describe('a search for a better station config, when it stalls or loses its stat
       .expect(201);
     await endedSearchRun(reflecting);
 
-    const next = await heldSearchRun(id, 4);
+    const next = await leasedSearchRun(id, 4);
     const goingOn = await searchOf(id);
 
     expect(goingOn.state).toBe('searching');
@@ -258,7 +258,7 @@ describe('a search for a better station config, when it stalls or loses its stat
       'propose',
     ]);
     expect(goingOn.iterations[2]?.reflection?.endedSearch).toBe(false);
-    expect(goingOn.iterations[2]?.reflection?.outcome).toBe('went-on');
+    expect(goingOn.iterations[2]?.reflection?.result).toBe('continued');
     const briefed = (await searchRunsOf(id)).find(
       (each) => each.id === next.runId,
     )?.spec as { briefing?: string } | undefined;
@@ -273,7 +273,7 @@ describe('a search for a better station config, when it stalls or loses its stat
       WITHIN,
     );
 
-    expect((await searchRow(id))?.ending).toBe('iterations-spent');
+    expect((await searchRow(id))?.stopReason).toBe('iterations-spent');
 
     const inbox = (
       await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200)
@@ -291,7 +291,7 @@ describe('a search for a better station config, when it stalls or loses its stat
     for (let each = 0; each < 5; each += 1) {
       originals.push(await anOriginal(POLISH));
     }
-    const setId = await openSet('Polished', originals, POLISH);
+    const setId = await createSet('Polished', originals, POLISH);
     const { id, seedReplayId } = await startSearch(
       setId,
       { iterations: 1, perIteration: 1, ceiling: 20 },
@@ -319,12 +319,12 @@ describe('a search for a better station config, when it stalls or loses its stat
 
     await eventually(async () => (await searchState(id)) === 'stopped', WITHIN);
 
-    expect((await searchRow(id))?.ending).toBe('station-gone');
+    expect((await searchRow(id))?.stopReason).toBe('station-gone');
     expect(await replayEnded(seedReplayId)).not.toBe('running');
   }, 120_000);
 
-  it('is abandoned with its team, withdrawing the agent run it held', async () => {
-    const setId = await openSet('Disbanded', fiveTasks);
+  it('is deleted with its team, cancelling its active agent run', async () => {
+    const setId = await createSet('Deleted', fiveTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 2,
       perIteration: 1,
@@ -334,14 +334,14 @@ describe('a search for a better station config, when it stalls or loses its stat
     await drained(() => ({ score: 4, cost: 0.1 }));
     expect(await replayEnded(seedReplayId)).toBe('finished');
     await eventually(async () => {
-      await app.get(AdvanceSearches).workDue();
+      await app.get(AdvanceSearches).processDue();
       return (await searchRunsOf(id)).some((each) => each.state === 'queued');
     }, WITHIN);
 
     const [agentRun] = await searchRunsOf(id);
 
     await delivered({
-      kind: TEAM_DISBANDED,
+      kind: TEAM_DELETED,
       workspaceId: team.workspaceId.value,
       teamId: team.teamId.value,
       key: 'core',

@@ -12,7 +12,7 @@ import type {
 } from '@work/application/ports/inbox-reader.port';
 import type { RunReview } from '@work/application/ports/run-reader.port';
 import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
-import { owedIn, reviewsIn } from '@work/domain/services/conversations';
+import { pendingIn, reviewsIn } from '@work/domain/services/conversations';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import {
@@ -34,30 +34,30 @@ import { alias } from 'drizzle-orm/pg-core';
 
 export interface TaskAttachments {
   readonly own: readonly AttachmentSummary[];
-  readonly said: ReadonlyMap<number, readonly AttachmentSummary[]>;
+  readonly byNote: ReadonlyMap<number, readonly AttachmentSummary[]>;
 }
 
-const NONE: TaskAttachments = { own: [], said: new Map() };
+const NONE: TaskAttachments = { own: [], byNote: new Map() };
 
 interface Gathered {
   own: AttachmentSummary[];
-  said: Map<number, AttachmentSummary[]>;
+  byNote: Map<number, AttachmentSummary[]>;
 }
 
 export const attachmentsOf = (
-  held: ReadonlyMap<string, TaskAttachments>,
+  byTask: ReadonlyMap<string, TaskAttachments>,
   taskId: string,
-): TaskAttachments => held.get(taskId) ?? NONE;
+): TaskAttachments => byTask.get(taskId) ?? NONE;
 
 export const attachmentsFor = async (
   db: DrizzleDatabase,
   taskIds: readonly string[],
 ): Promise<Map<string, TaskAttachments>> => {
-  const held = new Map<string, Gathered>();
+  const byTask = new Map<string, Gathered>();
   const named = [...new Set(taskIds)];
 
   if (named.length === 0) {
-    return held;
+    return byTask;
   }
 
   const rows = await db
@@ -74,24 +74,27 @@ export const attachmentsFor = async (
     .orderBy(asc(taskAttachment.notePosition), asc(taskAttachment.place));
 
   for (const { taskId, notePosition, ...file } of rows) {
-    const files: Gathered = held.get(taskId) ?? { own: [], said: new Map() };
+    const files: Gathered = byTask.get(taskId) ?? {
+      own: [],
+      byNote: new Map(),
+    };
 
     if (notePosition === null) {
       files.own.push(file);
     } else {
-      files.said.set(notePosition, [
-        ...(files.said.get(notePosition) ?? []),
+      files.byNote.set(notePosition, [
+        ...(files.byNote.get(notePosition) ?? []),
         file,
       ]);
     }
 
-    held.set(taskId, files);
+    byTask.set(taskId, files);
   }
 
-  return held;
+  return byTask;
 };
 
-const asked = (
+const approvalOf = (
   parts: ApprovalRow | null,
   named: ReadonlyMap<string, { readonly name: string }>,
 ): InboxApproval | null => {
@@ -105,9 +108,9 @@ const asked = (
     kind: subject.kind,
     name: subject.name,
     because: parts.because,
-    inputs: subject.given,
-    standing: parts.standing,
-    edited: toEditedCall(parts)?.given ?? null,
+    inputs: subject.writtenInputs,
+    status: parts.status,
+    edited: toEditedCall(parts)?.writtenInputs ?? null,
     intent: parts.intent ?? null,
     askedOf: parts.askedOf
       ? { id: parts.askedOf, name: named.get(parts.askedOf)?.name ?? '' }
@@ -130,8 +133,8 @@ const connecting = (
 ): InboxConnection | null =>
   parts
     ? {
-        source: parts.source,
         integration: parts.integration,
+        integrationName: parts.integrationName,
         personId: parts.personId,
         personName: named.get(parts.personId)?.name ?? '',
         met: parts.met,
@@ -155,7 +158,7 @@ export const trailsFor = async (
     return trail;
   }
 
-  const spoke = alias(station, 'spoke');
+  const noteStation = alias(station, 'note_station');
 
   const attached = await attachmentsFor(db, taskIds);
 
@@ -164,8 +167,8 @@ export const trailsFor = async (
       taskId: taskNote.taskId,
       position: taskNote.position,
       station: taskNote.station,
-      stationColor: spoke.color,
-      stationPosition: spoke.position,
+      stationColor: noteStation.color,
+      stationPosition: noteStation.position,
       runId: taskNote.runId,
       kind: taskNote.kind,
       form: taskNote.form,
@@ -182,8 +185,11 @@ export const trailsFor = async (
     .innerJoin(task, eq(task.id, taskNote.taskId))
     .innerJoin(station, eq(station.id, task.stationId))
     .leftJoin(
-      spoke,
-      and(eq(spoke.lineId, station.lineId), eq(spoke.name, taskNote.station)),
+      noteStation,
+      and(
+        eq(noteStation.lineId, station.lineId),
+        eq(noteStation.name, taskNote.station),
+      ),
     )
     .where(inArray(taskNote.taskId, [...taskIds]))
     .orderBy(asc(taskNote.taskId), asc(taskNote.position));
@@ -197,10 +203,10 @@ export const trailsFor = async (
   );
 
   for (const row of rows) {
-    const told = trail.get(row.taskId) ?? [];
+    const notes = trail.get(row.taskId) ?? [];
     const author = row.authorId ? authors.get(row.authorId) : undefined;
 
-    told.push({
+    notes.push({
       position: row.position,
       station: row.station,
       stationColor: row.stationColor ?? StationColor.plain().value,
@@ -211,7 +217,7 @@ export const trailsFor = async (
       voice: row.voice,
       body: row.body,
       attachments:
-        attachmentsOf(attached, row.taskId).said.get(row.position) ?? [],
+        attachmentsOf(attached, row.taskId).byNote.get(row.position) ?? [],
       at: row.at,
       readAt: row.readAt,
       author: row.authorId
@@ -221,12 +227,12 @@ export const trailsFor = async (
             image: author?.image ?? null,
           }
         : null,
-      approval: asked(row.approval, authors),
+      approval: approvalOf(row.approval, authors),
       failure: failed(row.failure),
       connection: connecting(row.connectionAsk, authors),
     });
 
-    trail.set(row.taskId, told);
+    trail.set(row.taskId, notes);
   }
 
   return trail;
@@ -236,24 +242,24 @@ export const stationsPerLine = async (
   db: DrizzleDatabase,
   lineIds: readonly string[],
 ): Promise<Map<string, number>> => {
-  const held = new Map<string, number>();
+  const counts = new Map<string, number>();
   const named = [...new Set(lineIds)];
 
   if (named.length === 0) {
-    return held;
+    return counts;
   }
 
   const rows = await db
-    .select({ lineId: station.lineId, held: count() })
+    .select({ lineId: station.lineId, stations: count() })
     .from(station)
     .where(inArray(station.lineId, named))
     .groupBy(station.lineId);
 
   for (const row of rows) {
-    held.set(row.lineId, row.held);
+    counts.set(row.lineId, row.stations);
   }
 
-  return held;
+  return counts;
 };
 
 export const awaitedReviewsFor = async (
@@ -276,18 +282,19 @@ export const awaitedReviewsFor = async (
   const trails = new Map<string, { kind: TaskNoteKind }[]>();
 
   for (const row of rows) {
-    const told = trails.get(row.taskId) ?? [];
-    told.push({ kind: row.kind });
-    trails.set(row.taskId, told);
+    const notes = trails.get(row.taskId) ?? [];
+    notes.push({ kind: row.kind });
+    trails.set(row.taskId, notes);
   }
 
   for (const [taskId, trail] of trails) {
-    const owed = owedIn(trail);
+    const pending = pendingIn(trail);
 
-    if (owed) {
+    if (pending) {
       awaited.set(
         taskId,
-        ConversationId.of({ taskId: TaskId.of(taskId), from: owed.from }).value,
+        ConversationId.of({ taskId: TaskId.of(taskId), from: pending.from })
+          .value,
       );
     }
   }
@@ -295,7 +302,7 @@ export const awaitedReviewsFor = async (
   return awaited;
 };
 
-type Asked = {
+type TrailNote = {
   taskId: string;
   position: number;
   kind: TaskNoteKind;
@@ -324,26 +331,26 @@ export const reviewsBy = async (
     .where(inArray(taskNote.taskId, named))
     .orderBy(asc(taskNote.taskId), asc(taskNote.position));
 
-  const trails = new Map<string, Asked[]>();
+  const trails = new Map<string, TrailNote[]>();
 
   for (const row of rows) {
-    const told = trails.get(row.taskId) ?? [];
-    told.push({
+    const notes = trails.get(row.taskId) ?? [];
+    notes.push({
       taskId: row.taskId,
       position: row.position,
       kind: row.kind,
       runId: row.runId,
     });
-    trails.set(row.taskId, told);
+    trails.set(row.taskId, notes);
   }
 
   for (const [taskId, trail] of trails) {
-    for (const [runId, asked] of reviewsIn(trail)) {
+    for (const [runId, reviewed] of reviewsIn(trail)) {
       review.set(runId, {
-        state: asked.state,
+        state: reviewed.state,
         conversationId: ConversationId.of({
           taskId: TaskId.of(taskId),
-          from: asked.from,
+          from: reviewed.from,
         }).value,
       });
     }
@@ -356,11 +363,11 @@ export const briefingsFor = async (
   db: DrizzleDatabase,
   runIds: readonly string[],
 ): Promise<Map<string, string>> => {
-  const given = new Map<string, string>();
+  const briefings = new Map<string, string>();
   const named = [...new Set(runIds)];
 
   if (named.length === 0) {
-    return given;
+    return briefings;
   }
 
   const rows = await db
@@ -369,8 +376,8 @@ export const briefingsFor = async (
     .where(inArray(run.id, named));
 
   for (const row of rows) {
-    given.set(row.id, RunSpecContract.from(row.spec).briefing);
+    briefings.set(row.id, RunSpecContract.from(row.spec).briefing);
   }
 
-  return given;
+  return briefings;
 };

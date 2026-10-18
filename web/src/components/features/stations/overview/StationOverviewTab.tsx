@@ -1,6 +1,6 @@
 import { StationConfig } from '@/components/features/stations/config/StationConfig';
-import { StationGlance } from '@/components/features/stations/overview/StationGlance';
 import { StationRuns } from '@/components/features/stations/overview/StationRuns';
+import { StationSummary } from '@/components/features/stations/overview/StationSummary';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 
 type StationOverviewTabProps = {
@@ -20,7 +20,7 @@ export function StationOverviewTab({
 
   return (
     <>
-      <StationGlance {...at} />
+      <StationSummary {...at} />
 
       <StationConfig
         slug={slug}

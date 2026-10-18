@@ -1,12 +1,12 @@
 import { StationItemHeading } from '@/components/features/stations/StationItemHeading';
-import { Noted } from '@/components/shared/Noted';
 import { Pill } from '@/components/shared/Pill';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import type { ReplaySet } from '@/lib/replay';
 import { STATION_GONE_FROM_LINE } from '@/lib/replay-words';
 import { since } from '@/lib/since';
 
-const STATION_GONE = `${STATION_GONE_FROM_LINE} The set starts no replays, takes no runs and keeps no workspaces.`;
+const STATION_GONE = `${STATION_GONE_FROM_LINE} The set starts no replays, takes no runs and retains no workspaces.`;
 
 type ReplaySetHeadingProps = {
   set: ReplaySet;
@@ -28,15 +28,15 @@ export function ReplaySetHeading({
       title={set.name}
       marks={
         set.stationGone && (
-          <Noted note={STATION_GONE}>
+          <WithTooltip tooltip={STATION_GONE}>
             <span className="flex">
               <Pill>Station gone</Pill>
             </span>
-          </Noted>
+          </WithTooltip>
         )
       }
     >
-      {runs === 1 ? '1 run' : `${runs} runs`} · opened {since(set.createdAt)}
+      {runs === 1 ? '1 run' : `${runs} runs`} · created {since(set.createdAt)}
     </StationItemHeading>
   );
 }

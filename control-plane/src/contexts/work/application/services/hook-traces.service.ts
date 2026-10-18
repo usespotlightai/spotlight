@@ -35,7 +35,7 @@ export class HookTraces implements HookTracesPort {
     };
     const at = new Date(call.startedAt.getTime() + call.ms);
 
-    const seq = await this.journal.appendAside(run.currentAttempt, {
+    const seq = await this.journal.appendControlPlaneEntry(run.currentAttempt, {
       ...entry,
       at,
     });

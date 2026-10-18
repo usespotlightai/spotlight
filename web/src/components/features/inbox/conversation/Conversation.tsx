@@ -1,51 +1,51 @@
 import { Fragment, type ReactNode, useLayoutEffect, useRef } from 'react';
-import { InboxMessage } from '@/components/features/inbox/conversation/InboxMessage';
+import { InboxNote } from '@/components/features/inbox/conversation/InboxNote';
 import { InboxWorking } from '@/components/features/inbox/conversation/InboxWorking';
-import { PersonSaid } from '@/components/features/inbox/conversation/PersonSaid';
+import { PersonMessage } from '@/components/features/inbox/conversation/PersonMessage';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { PaneScroller } from '@/components/shared/PaneScroller';
 import type { ApprovalAnswer } from '@/lib/approval';
 import { togglesDisclosure } from '@/lib/disclosure';
 import {
-  type Conversing,
-  HELD_AT_TOP,
-  type InboxMessage as Message,
+  type ConversationItem,
+  type Note,
   openedAt,
   type RunJournal,
+  STICKY_AT_TOP,
   workedOn,
 } from '@/lib/inbox';
-import { lastNoteOf } from '@/lib/run-conversation';
+import { lastNoteOf } from '@/lib/run-notes';
 import { useRunSidePanel } from '@/lib/run-side-panel';
 
 interface Turn {
-  readonly prompt: Message | null;
-  readonly messages: Message[];
+  readonly prompt: Note | null;
+  readonly notes: Note[];
 }
 
-const turnsOf = (item: Conversing): Turn[] => {
-  const cut: Turn[] = [{ prompt: null, messages: [] }];
+const turnsOf = (item: ConversationItem): Turn[] => {
+  const cut: Turn[] = [{ prompt: null, notes: [] }];
 
   for (const note of item.notes) {
     if (note.voice === 'person') {
-      cut.push({ prompt: note, messages: [] });
+      cut.push({ prompt: note, notes: [] });
     } else {
-      cut[cut.length - 1]?.messages.push(note);
+      cut[cut.length - 1]?.notes.push(note);
     }
   }
 
   return cut;
 };
 
-const marksIn = (item: Conversing): Set<number> => {
-  let standing = openedAt(item.createdAt);
+const marksIn = (item: ConversationItem): Set<number> => {
+  let current = openedAt(item.createdAt);
   const marked = new Set<number>();
 
   for (const note of item.notes) {
     const reads = openedAt(note.at);
 
-    if (reads !== standing) {
-      standing = reads;
+    if (reads !== current) {
+      current = reads;
       marked.add(note.position);
     }
   }
@@ -78,10 +78,10 @@ export type Deciding = {
 };
 
 type ConversationProps = {
-  item: Conversing;
+  item: ConversationItem;
   worked: readonly RunJournal[];
   openAt?: number | null;
-  opening?: ReactNode;
+  briefing?: ReactNode;
   live?: ReactNode;
   closing?: ReactNode;
   footer: ReactNode;
@@ -93,7 +93,7 @@ export function Conversation({
   item,
   worked,
   openAt,
-  opening,
+  briefing,
   live,
   closing,
   footer,
@@ -101,11 +101,11 @@ export function Conversation({
   afterRun,
 }: ConversationProps) {
   const marked = marksIn(item);
-  const { aside } = useRunSidePanel();
+  const { sidePanel } = useRunSidePanel();
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const following = useRef(true);
-  const held = useRef<number | null>(null);
+  const pinnedAt = useRef<number | null>(null);
   const ours = useRef(false);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new item starts the conversation again, but the effect reads only the nodes
@@ -117,13 +117,13 @@ export function Conversation({
       return;
     }
 
-    held.current = openAt ?? null;
-    following.current = held.current === null;
-    ours.current = put(box, inside, held.current);
+    pinnedAt.current = openAt ?? null;
+    following.current = pinnedAt.current === null;
+    ours.current = put(box, inside, pinnedAt.current);
 
     const grew = new ResizeObserver(() => {
-      if (held.current !== null) {
-        ours.current = put(box, inside, held.current) || ours.current;
+      if (pinnedAt.current !== null) {
+        ours.current = put(box, inside, pinnedAt.current) || ours.current;
         return;
       }
 
@@ -139,7 +139,7 @@ export function Conversation({
 
     const toggled = (event: Event) => {
       if (togglesDisclosure(event.target)) {
-        held.current = null;
+        pinnedAt.current = null;
         following.current = false;
       }
     };
@@ -163,7 +163,7 @@ export function Conversation({
       return;
     }
 
-    held.current = null;
+    pinnedAt.current = null;
     following.current =
       box.scrollHeight - box.scrollTop - box.clientHeight < CLOSE;
   };
@@ -172,7 +172,7 @@ export function Conversation({
     <PaneScroller
       ref={scroller}
       onScroll={watched}
-      aside={aside}
+      sidePanel={sidePanel}
       footer={<ComposerFooter>{footer}</ComposerFooter>}
     >
       <div
@@ -183,15 +183,15 @@ export function Conversation({
 
         {turnsOf(item).map((turn, at, all) => {
           const head = turn.prompt ? (
-            <PersonSaid
+            <PersonMessage
               body={turn.prompt.body}
               attachments={turn.prompt.attachments}
             />
           ) : at === 0 ? (
-            opening
+            briefing
           ) : null;
 
-          if (!head && turn.messages.length === 0) {
+          if (!head && turn.notes.length === 0) {
             return null;
           }
 
@@ -207,11 +207,11 @@ export function Conversation({
                 </div>
               )}
 
-              {head && <div className={HELD_AT_TOP}>{head}</div>}
+              {head && <div className={STICKY_AT_TOP}>{head}</div>}
 
               <ol className="mt-6 flex flex-col gap-6">
-                {turn.messages.map((note, place) => {
-                  const before = turn.messages[place - 1];
+                {turn.notes.map((note, place) => {
+                  const before = turn.notes[place - 1];
                   const closesRun =
                     note.runId &&
                     lastNoteOf(item.notes, note.runId) === note.position
@@ -227,8 +227,8 @@ export function Conversation({
                           </li>
                         )}
 
-                      <InboxMessage
-                        message={note}
+                      <InboxNote
+                        note={note}
                         stationCount={item.station.count}
                         teamId={item.teamId}
                         about={item.about}

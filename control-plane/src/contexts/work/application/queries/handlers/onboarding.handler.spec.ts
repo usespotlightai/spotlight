@@ -6,14 +6,14 @@ import type {
 } from '@work/application/ports/team-provisioning.port';
 import { OnboardingHandler } from '@work/application/queries/handlers/onboarding.handler';
 import { OnboardingQuery } from '@work/application/queries/onboarding.query';
-import type { SetupStanding } from '@work/application/services/setup-standing.service';
+import type { SetupStatus } from '@work/application/services/setup-status.service';
 import { SETUP_STEPS, type SetupState } from '@work/domain/services/setup-list';
 import { describe, expect, it, vi } from 'vitest';
 
-type Given = {
+type Options = {
   member?: boolean;
   state?: Partial<SetupState>;
-  hasAWayOut?: boolean;
+  hasEgressCapableRunner?: boolean;
   chat?: SetupChatView | null;
   provisioning?: Provisioning;
 };
@@ -24,10 +24,10 @@ const nothing: SetupState = {
   configured: false,
 };
 
-const handler = (given: Given = {}) => {
+const handler = (options: Options = {}) => {
   const workspaces = {
     findTeamForMember: vi.fn().mockResolvedValue(
-      given.member === false
+      options.member === false
         ? null
         : {
             teamId: 'team_1',
@@ -40,21 +40,21 @@ const handler = (given: Given = {}) => {
 
   const setup = {
     of: vi.fn().mockResolvedValue({
-      state: { ...nothing, ...given.state },
-      hasAWayOut: given.hasAWayOut ?? false,
-      chat: given.chat ?? null,
+      state: { ...nothing, ...options.state },
+      hasEgressCapableRunner: options.hasEgressCapableRunner ?? false,
+      chat: options.chat ?? null,
     }),
-  } as unknown as SetupStanding;
+  } as unknown as SetupStatus;
 
   const provisioning: TeamProvisioningPort = {
-    of: vi.fn().mockResolvedValue(given.provisioning ?? 'done'),
+    of: vi.fn().mockResolvedValue(options.provisioning ?? 'done'),
   };
 
   return new OnboardingHandler(workspaces, setup, provisioning);
 };
 
-const read = (given: Given = {}) =>
-  handler(given).execute(new OnboardingQuery('team_1', 'user_1'));
+const read = (options: Options = {}) =>
+  handler(options).execute(new OnboardingQuery('team_1', 'user_1'));
 
 const step = (of: Awaited<ReturnType<typeof read>>, key: string) =>
   of?.steps.find((each) => each.key === key);
@@ -87,12 +87,15 @@ describe('OnboardingHandler', () => {
 
   it('offers a setup chat once the GitHub App is installed and a host runs sandboxes', async () => {
     await expect(
-      read({ state: { connectedToGitHub: true }, hasAWayOut: true }),
+      read({
+        state: { connectedToGitHub: true },
+        hasEgressCapableRunner: true,
+      }),
     ).resolves.toMatchObject({ canSetUp: true });
     await expect(
       read({
         state: { connectedToGitHub: true, hasHarness: true },
-        hasAWayOut: false,
+        hasEgressCapableRunner: false,
       }),
     ).resolves.toMatchObject({ canSetUp: false });
   });

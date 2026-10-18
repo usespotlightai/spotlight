@@ -6,9 +6,9 @@ import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo
 import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 
 const clipped = (raw: string | undefined, max: number): string | null => {
-  const held = raw?.trim() ?? '';
+  const trimmed = raw?.trim() ?? '';
 
-  return held ? held.slice(0, max) : null;
+  return trimmed ? trimmed.slice(0, max) : null;
 };
 
 const imageAt = (field: string, raw: string): RunnerImage => {
@@ -25,24 +25,24 @@ const imageAt = (field: string, raw: string): RunnerImage => {
 export interface ReportedImage {
   readonly image: string;
   readonly digest?: string;
-  readonly usual: boolean;
+  readonly isDefault: boolean;
   readonly release?: string;
   readonly harnesses: readonly {
     readonly id: string;
     readonly models: readonly string[];
     readonly version?: string;
   }[];
-  readonly refused?: string;
+  readonly unavailableReason?: string;
 }
 
 export class HostImage {
   private constructor(
     readonly image: RunnerImage,
     readonly digest: RunnerImage | null,
-    readonly usual: boolean,
+    readonly isDefault: boolean,
     readonly release: string | null,
     readonly harnesses: readonly InstalledHarness[],
-    readonly refused: string | null,
+    readonly unavailableReason: string | null,
   ) {}
 
   static reported(input: ReportedImage): HostImage {
@@ -60,34 +60,34 @@ export class HostImage {
     return new HostImage(
       imageAt('images', input.image),
       digest,
-      input.usual,
+      input.isDefault,
       clipped(input.release, 64),
       input.harnesses.map((each) =>
         InstalledHarness.reported(each.id, each.models, each.version),
       ),
-      clipped(input.refused, 500),
+      clipped(input.unavailableReason, 500),
     );
   }
 
-  get isServed(): boolean {
-    return this.refused === null;
+  get isSupported(): boolean {
+    return this.unavailableReason === null;
   }
 
-  get servesAHarness(): boolean {
-    return this.isServed && this.harnesses.length > 0;
+  get supportsAHarness(): boolean {
+    return this.isSupported && this.harnesses.length > 0;
   }
 
   get running(): RunningImage {
-    return RunningImage.of(this.image, this.usual);
+    return RunningImage.of(this.image, this.isDefault);
   }
 
   equals(other: HostImage): boolean {
     return (
       this.image.equals(other.image) &&
       sameOrBothNone(this.digest, other.digest) &&
-      this.usual === other.usual &&
+      this.isDefault === other.isDefault &&
       this.release === other.release &&
-      this.refused === other.refused &&
+      this.unavailableReason === other.unavailableReason &&
       this.harnesses.length === other.harnesses.length &&
       this.harnesses.every((each, at) => {
         const theirs = other.harnesses[at];

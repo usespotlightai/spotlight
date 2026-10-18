@@ -1,10 +1,10 @@
 import { sha256 } from '@replays/domain/replays.fake-spec';
 import { estimateOf } from '@replays/domain/services/search-estimate';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -22,9 +22,9 @@ const setOf = (runsPerTask: readonly number[]): ReplaySetEntry[] =>
     ),
   );
 
-const allotted = (budget: SearchBudget, split: HeldOutSplit) => {
+const ceilingSplit = (budget: SearchBudget, split: HeldOutSplit) => {
   try {
-    return budget.allot(split);
+    return budget.splitCeiling(split);
   } catch {
     return null;
   }
@@ -35,7 +35,7 @@ describe('estimateOf', () => {
     const budget = SearchBudget.of({
       iterations: 2,
       perIteration: 2,
-      ceiling: Spend.ceiling(100, 'USD'),
+      ceiling: Money.ceiling(100, 'USD'),
     });
     const split = HeldOutSplit.costliest(
       setOf([1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
@@ -54,16 +54,16 @@ describe('estimateOf', () => {
     expect(estimateOf(budget, split, []).ms).toBeNull();
   });
 
-  it('counts every copy when each replay replays its runs more than once', () => {
+  it('counts every repeat when each replay replays its runs more than once', () => {
     const once = SearchBudget.of({
       iterations: 2,
       perIteration: 2,
-      ceiling: Spend.ceiling(100, 'USD'),
+      ceiling: Money.ceiling(100, 'USD'),
     });
     const thrice = SearchBudget.of({
       iterations: 2,
       perIteration: 2,
-      ceiling: Spend.ceiling(100, 'USD'),
+      ceiling: Money.ceiling(100, 'USD'),
       repeats: 3,
     });
     const split = HeldOutSplit.costliest(
@@ -78,19 +78,21 @@ describe('estimateOf', () => {
       agent: 2,
       total: 134,
     });
-    expect(thrice.allot(split).perRun.amount).toBeLessThan(
-      once.allot(split).perRun.amount,
+    expect(thrice.splitCeiling(split).perRun.amount).toBeLessThan(
+      once.splitCeiling(split).perRun.amount,
     );
     expect(
       thrice
-        .allot(split)
+        .splitCeiling(split)
         .searchReplay.equals(
-          thrice.allot(split).perRun.scaled(split.searched.length * 3, 1),
+          thrice
+            .splitCeiling(split)
+            .perRun.scaled(split.searched.length * 3, 1),
         ),
     ).toBe(true);
   });
 
-  it('holds out the tasks that leave each run the smallest share, so no search of the set the estimate accepts is refused or gets less per run', () => {
+  it('holds out the tasks that leave each run the smallest share, so no search of the set the estimate accepts is rejected or gets less per run', () => {
     const shapes = [
       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
       [5, 1, 1, 1, 1, 1, 1],
@@ -107,21 +109,21 @@ describe('estimateOf', () => {
           const budget = SearchBudget.of({
             iterations,
             perIteration: 5,
-            ceiling: Spend.ceiling(ceiling, 'USD'),
+            ceiling: Money.ceiling(ceiling, 'USD'),
             concurrency: 4,
           });
           const worst = HeldOutSplit.costliest(entries, (searched, heldOut) =>
             budget.unitsFor(searched, heldOut),
           );
-          const estimated = allotted(budget, worst);
+          const estimated = ceilingSplit(budget, worst);
 
           for (let id = 0; id < 20; id += 1) {
             const drawn = HeldOutSplit.drawn({
               searchId: SearchId.of(`search_${id}`),
               entries,
-              digest: sha256,
+              hash: sha256,
             });
-            const started = allotted(budget, drawn);
+            const started = ceilingSplit(budget, drawn);
 
             expect(drawn.heldOutTasks).toBe(worst.heldOutTasks);
             if (estimated) {

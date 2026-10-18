@@ -7,19 +7,19 @@ import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 export class HookViews {
   constructor(private readonly teams: TeamDirectoryPort) {}
 
-  async of(kept: HookRecord): Promise<HookResourceDto | null> {
-    const team = await this.teams.find(kept.teamId);
+  async of(record: HookRecord): Promise<HookResourceDto | null> {
+    const team = await this.teams.find(record.teamId);
 
-    return team ? this.onTeam(kept, team.key) : null;
+    return team ? this.onTeam(record, team.key) : null;
   }
 
-  onTeam(kept: HookRecord, teamKey: string): HookResourceDto {
+  onTeam(record: HookRecord, teamKey: string): HookResourceDto {
     return {
-      id: kept.id,
-      version: kept.version,
-      address: HookAddress.of(teamKey, HookKey.of(kept.key)).toString(),
-      teamId: kept.teamId.value,
-      definition: kept.definition,
+      id: record.id,
+      version: record.version,
+      address: HookAddress.of(teamKey, HookKey.of(record.key)).toString(),
+      teamId: record.teamId.value,
+      definition: record.definition,
       warnings: [],
     };
   }

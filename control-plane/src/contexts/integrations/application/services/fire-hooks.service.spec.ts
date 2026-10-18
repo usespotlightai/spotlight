@@ -3,29 +3,29 @@ import type { HookFiringHistoryPort } from '@integrations/application/ports/hook
 import type {
   HookRuntimePort,
   ListeningHook,
-  StepAsked,
-  StepTaken,
+  StepRequest,
+  StepResult,
 } from '@integrations/application/ports/hook-runtime.port';
 import type {
-  HookedTask,
   TasksForHooksPort,
+  TaskView,
 } from '@integrations/application/ports/tasks-for-hooks.port';
 import { FireHooks } from '@integrations/application/services/fire-hooks.service';
 import { HookFiring } from '@integrations/domain/aggregates/hook-firing.aggregate';
 import { Hook } from '@integrations/domain/entities/hook.entity';
 import { HookFiringVersionConflictError } from '@integrations/domain/exceptions/hook-firing-version-conflict.error';
 import type { HookFiringRepository } from '@integrations/domain/repositories/hook-firing.repository';
+import { HookDecision } from '@integrations/domain/value-objects/hook-decision.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import {
   HookFailure,
   type HookFailureCode,
 } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
-import { HookVerdict } from '@integrations/domain/value-objects/hook-verdict.vo';
 import { causationInMemory } from '@shared-kernel/application/ports/causation.fake-spec';
 import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import type {
-  HookFailureHeard,
+  HookFailureNotice,
   HookFailureReport,
   TaskNotesFromHooksPort,
 } from '@work/application/ports/task-notes-from-hooks.port';
@@ -33,7 +33,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-26T10:00:00.000Z');
 
-const TASK: HookedTask = {
+const TASK: TaskView = {
   taskId: 'task_1',
   workspaceId: 'workspace_1',
   teamId: 'team_1',
@@ -76,9 +76,9 @@ const hookNamed = (
   }),
 });
 
-const done = (name: string, output: unknown = null): StepTaken => ({
+const done = (name: string, output: unknown = null): StepResult => ({
   outcome: { name, status: 'done', output },
-  refusal: null,
+  denyReason: null,
   trace: {
     hook: 'k',
     step: name,
@@ -97,9 +97,9 @@ const failed = (
   name: string,
   reason = 'was answered 503',
   code: HookFailureCode = 'server-error',
-): StepTaken => ({
+): StepResult => ({
   outcome: { name, status: 'failed', code, reason, output: null },
-  refusal: null,
+  denyReason: null,
   trace: null,
 });
 
@@ -126,13 +126,13 @@ const stateOf = (firing: HookFiring) => ({
 });
 
 const firingsInMemory = (stored: HookFiring | null) => {
-  const kept = new Map<string, HookFiring>(stored ? [[stored.id, stored]] : []);
+  const byId = new Map<string, HookFiring>(stored ? [[stored.id, stored]] : []);
   const saved: HookFiring[] = [];
   const firings = {
     add: vi.fn(async (_firing: HookFiring) => true),
-    withId: vi.fn(async (id: string) => kept.get(id) ?? null),
+    withId: vi.fn(async (id: string) => byId.get(id) ?? null),
     claimNext: vi.fn(async (now: Date) => {
-      const due = [...kept.values()].find(
+      const due = [...byId.values()].find(
         (each) =>
           each.progress.kind === 'pending' &&
           each.progress.dueAt.getTime() <= now.getTime(),
@@ -142,7 +142,7 @@ const firingsInMemory = (stored: HookFiring | null) => {
         return null;
       }
 
-      kept.set(
+      byId.set(
         due.id,
         HookFiring.rehydrate({
           ...stateOf(due.claimed(now)),
@@ -150,15 +150,15 @@ const firingsInMemory = (stored: HookFiring | null) => {
         }),
       );
 
-      return kept.get(due.id) ?? null;
+      return byId.get(due.id) ?? null;
     }),
     save: vi.fn(async (firing: HookFiring) => {
-      if (kept.get(firing.id)?.version !== firing.version) {
+      if (byId.get(firing.id)?.version !== firing.version) {
         throw new HookFiringVersionConflictError(firing.id);
       }
 
       saved.push(firing);
-      kept.set(
+      byId.set(
         firing.id,
         HookFiring.rehydrate({
           ...stateOf(firing),
@@ -180,20 +180,20 @@ const firingsInMemory = (stored: HookFiring | null) => {
 
 const setUp = (
   hooks: ListeningHook[],
-  step: (asked: StepAsked) => StepTaken,
+  step: (request: StepRequest) => StepResult,
   {
     matches = () => true,
     stored = null,
-    standing = TASK,
+    task = TASK,
     repeats = 0,
-    heard = 'reported',
+    notice = 'reported',
     movedOn = false,
   }: {
     matches?: () => boolean;
     stored?: HookFiring | null;
-    standing?: HookedTask | null;
+    task?: TaskView | null;
     repeats?: number;
-    heard?: HookFailureHeard;
+    notice?: HookFailureNotice;
     movedOn?: boolean;
   } = {},
 ) => {
@@ -201,20 +201,20 @@ const setUp = (
     listening: vi.fn(async () => hooks),
     hook: vi.fn(async (id) => hooks.find((each) => each.id === id) ?? null),
     matches: vi.fn(matches),
-    step: vi.fn(async (asked) => step(asked)),
+    step: vi.fn(async (request) => step(request)),
   };
-  const kept = firingsInMemory(stored);
+  const inMemory = firingsInMemory(stored);
   const history = {
     recentRepeats: vi.fn(async () => repeats),
     chainOf: vi.fn(async () => null),
   } satisfies HookFiringHistoryPort;
   const tasks = {
-    of: vi.fn(async () => standing),
-    ofPullRequest: vi.fn(async () => standing),
+    of: vi.fn(async () => task),
+    ofPullRequest: vi.fn(async () => task),
   } satisfies TasksForHooksPort;
   const notes = {
     noted: vi.fn(async () => true),
-    failed: vi.fn(async (_report: HookFailureReport) => heard),
+    failed: vi.fn(async (_report: HookFailureReport) => notice),
     movedOn: vi.fn(async () => movedOn),
   } satisfies TaskNotesFromHooksPort;
   const causation = causationInMemory();
@@ -223,13 +223,13 @@ const setUp = (
 
   return {
     runtime,
-    ...kept,
+    ...inMemory,
     calls,
     notes,
     causation,
     hooked: new FireHooks(
       runtime,
-      kept.firings,
+      inMemory.firings,
       history,
       tasks,
       notes,
@@ -249,12 +249,12 @@ const setUp = (
 
 const EVENT = { tool: 'grafana.search', inputs: { query: 'cpu' } };
 
-const ALLOWED = HookVerdict.allowed();
+const ALLOWED = HookDecision.allowed();
 
 describe('FireHooks.before', () => {
   it('allows the event when every step succeeds, tracing each call', async () => {
-    const { hooked, calls } = setUp([hookNamed('audit', ['tell'])], (asked) =>
-      done(asked.step),
+    const { hooked, calls } = setUp([hookNamed('audit', ['tell'])], (request) =>
+      done(request.step),
     );
 
     await expect(hooked.before(TASK, 'tool.using', EVENT)).resolves.toEqual(
@@ -266,43 +266,43 @@ describe('FireHooks.before', () => {
     );
   });
 
-  it('refuses when an endpoint says so', async () => {
-    const { hooked } = setUp([hookNamed('dba', ['ask'])], () => ({
-      ...done('ask'),
-      refusal: 'the migration drops a column in use',
+  it('denies when an endpoint says so', async () => {
+    const { hooked } = setUp([hookNamed('dba', ['check'])], () => ({
+      ...done('check'),
+      denyReason: 'the migration drops a column in use',
     }));
 
     await expect(hooked.before(TASK, 'tool.using', EVENT)).resolves.toEqual(
-      HookVerdict.refused(
-        'Hook dba refused. Reason: the migration drops a column in use',
+      HookDecision.denied(
+        'Hook dba denied the event. Reason: the migration drops a column in use',
       ),
     );
   });
 
-  it('refuses plainly when a blocking hook cannot reach its endpoint', async () => {
-    const { hooked } = setUp([hookNamed('dba', ['ask'], true)], () =>
-      failed('ask', 'could not reach https://dba.example.com: timed out'),
+  it('denies plainly when a blocking hook cannot reach its endpoint', async () => {
+    const { hooked } = setUp([hookNamed('dba', ['check'], true)], () =>
+      failed('check', 'could not reach https://dba.example.com: timed out'),
     );
 
     await expect(hooked.before(TASK, 'tool.using', EVENT)).resolves.toEqual(
-      HookVerdict.refused(
-        'Hook dba failed at step ask and blocks on failure. Reason: could not reach https://dba.example.com: timed out',
+      HookDecision.denied(
+        'Hook dba failed at step check and blocks on failure. Reason: could not reach https://dba.example.com: timed out',
       ),
     );
   });
 
   it('treats a step that throws as failed, blocking only when the hook blocks', async () => {
     const throwing = () => {
-      throw new Error('the callback token could not be minted');
+      throw new Error('the callback token could not be issued');
     };
-    const blocking = setUp([hookNamed('dba', ['ask'], true)], throwing);
-    const continuing = setUp([hookNamed('audit', ['ask'])], throwing);
+    const blocking = setUp([hookNamed('dba', ['check'], true)], throwing);
+    const continuing = setUp([hookNamed('audit', ['check'])], throwing);
 
     await expect(
       blocking.hooked.before(TASK, 'tool.using', EVENT),
     ).resolves.toEqual(
-      HookVerdict.refused(
-        'Hook dba failed at step ask and blocks on failure. Reason: the callback token could not be minted',
+      HookDecision.denied(
+        'Hook dba failed at step check and blocks on failure. Reason: the callback token could not be issued',
       ),
     );
     await expect(
@@ -314,8 +314,8 @@ describe('FireHooks.before', () => {
     const deadlines: Date[] = [];
     const { hooked } = setUp(
       [{ ...hookNamed('slow', ['tell']), timeoutSeconds: 30 }],
-      (asked) => {
-        deadlines.push(asked.deadline);
+      (request) => {
+        deadlines.push(request.deadline);
         return done('tell');
       },
     );
@@ -325,19 +325,19 @@ describe('FireHooks.before', () => {
     expect(deadlines).toEqual([new Date(NOW.getTime() + 30_000)]);
   });
 
-  it('refuses when a blocking hook no longer reads as it was written, and skips one that continues', async () => {
+  it('denies when a blocking hook no longer reads as it was written, and skips one that continues', async () => {
     const broken = (blocks: boolean) => ({
-      ...hookNamed('dba', ['ask'], blocks),
+      ...hookNamed('dba', ['check'], blocks),
       broken: 'when No such key: gone',
       written: null,
     });
-    const blocking = setUp([broken(true)], () => done('ask'));
-    const continuing = setUp([broken(false)], () => done('ask'));
+    const blocking = setUp([broken(true)], () => done('check'));
+    const continuing = setUp([broken(false)], () => done('check'));
 
     await expect(
       blocking.hooked.before(TASK, 'tool.using', EVENT),
     ).resolves.toEqual(
-      HookVerdict.refused(
+      HookDecision.denied(
         'Hook dba is broken and blocks on failure. Reason: when No such key: gone',
       ),
     );
@@ -349,8 +349,8 @@ describe('FireHooks.before', () => {
 
   it('keeps every hook within the deadline it is given', async () => {
     const deadlines: Date[] = [];
-    const { hooked } = setUp([hookNamed('audit', ['tell'])], (asked) => {
-      deadlines.push(asked.deadline);
+    const { hooked } = setUp([hookNamed('audit', ['tell'])], (request) => {
+      deadlines.push(request.deadline);
       return done('tell');
     });
     const until = new Date(NOW.getTime() + 3_000);
@@ -372,7 +372,7 @@ describe('FireHooks.before', () => {
     expect(runtime.step).toHaveBeenCalledTimes(1);
   });
 
-  it('skips hooks whose match does not hold', async () => {
+  it('skips hooks whose match does not apply', async () => {
     const { hooked, runtime } = setUp(
       [hookNamed('audit', ['tell'])],
       () => done('tell'),
@@ -386,9 +386,9 @@ describe('FireHooks.before', () => {
 
   it('hands later steps the outputs of earlier ones', async () => {
     const seen: number[] = [];
-    const { hooked } = setUp([hookNamed('audit', ['a', 'b'])], (asked) => {
-      seen.push(asked.earlier.length);
-      return done(asked.step, 'out');
+    const { hooked } = setUp([hookNamed('audit', ['a', 'b'])], (request) => {
+      seen.push(request.earlier.length);
+      return done(request.step, 'out');
     });
 
     await hooked.before(TASK, 'tool.using', EVENT);
@@ -423,7 +423,7 @@ describe('FireHooks.happened', () => {
       link: {
         kind: 'hook',
         key: 'hook:a_id:tool.used:task_1:grafana.search',
-        saying: 'the hook a',
+        description: 'the hook a',
       },
       progress: { kind: 'pending', dueAt: NOW },
     });
@@ -433,13 +433,13 @@ describe('FireHooks.happened', () => {
     const { hooked, firings, causation } = setUp([hookNamed('a', ['x'])], () =>
       done('x'),
     );
-    const delivered = CausalChain.none().followedBy({
+    const delivered = CausalChain.none().append({
       kind: 'delivery',
       key: 'delivery:slack',
-      saying: 'a delivery from slack',
+      description: 'a delivery from slack',
     });
 
-    await causation.within(delivered, () =>
+    await causation.runWith(delivered, () =>
       hooked.happened({
         on: 'task.moved',
         occurrence: 'moved_1',
@@ -450,7 +450,7 @@ describe('FireHooks.happened', () => {
     );
 
     const [fired] = vi.mocked(firings.add).mock.calls[0] ?? [];
-    expect(fired?.cause.saying).toBe(
+    expect(fired?.cause.description).toBe(
       'a delivery from slack → task.moved of Add a column (triage → build)',
     );
   });
@@ -459,13 +459,13 @@ describe('FireHooks.happened', () => {
 const MOVED = {
   kind: 'event' as const,
   key: 'task.moved:task_1:triage → build',
-  saying: 'task.moved of Add a column (triage → build)',
+  description: 'task.moved of Add a column (triage → build)',
 };
 
 const AUDIT = {
   kind: 'hook' as const,
   key: `hook:audit_id:${MOVED.key}`,
-  saying: 'the hook audit',
+  description: 'the hook audit',
 };
 
 const stored = (
@@ -486,7 +486,7 @@ const stored = (
         firedAt: NOW,
         event: EVENT,
         matched: true,
-        cause: CausalChain.none().followedBy(MOVED),
+        cause: CausalChain.none().append(MOVED),
         link: AUDIT,
       }),
     ),
@@ -511,7 +511,7 @@ describe('FireHooks.workOne', () => {
   it('delivers every step and marks the firing worked', async () => {
     const { hooked, last } = setUp(
       [hookNamed('audit', ['a', 'b'])],
-      (asked) => done(asked.step),
+      (request) => done(request.step),
       { stored: stored() },
     );
 
@@ -530,11 +530,11 @@ describe('FireHooks.workOne', () => {
   });
 
   it('retries from the failed step, keeping the steps already done', async () => {
-    const asked: number[] = [];
+    const requested: number[] = [];
     const { hooked, last } = setUp(
       [hookNamed('audit', ['a', 'b'])],
       (each) => {
-        asked.push(each.earlier.length);
+        requested.push(each.earlier.length);
         return failed('b');
       },
       {
@@ -547,7 +547,7 @@ describe('FireHooks.workOne', () => {
 
     await hooked.workOne();
 
-    expect(asked).toEqual([1]);
+    expect(requested).toEqual([1]);
     expect(last()?.progress).toEqual({ kind: 'pending', dueAt: later(4_000) });
     expect(last()?.failure).toEqual(
       HookFailure.of(
@@ -557,7 +557,7 @@ describe('FireHooks.workOne', () => {
     );
   });
 
-  it('gives up after the last attempt', async () => {
+  it('fails the firing after the last attempt', async () => {
     const { hooked, last } = setUp(
       [hookNamed('audit', ['a'])],
       () => failed('a'),
@@ -570,7 +570,7 @@ describe('FireHooks.workOne', () => {
     expect(last()?.failure?.code).toBe('server-error');
   });
 
-  it('gives up at once on a failure that may not be retried', async () => {
+  it('fails the firing at once on a failure that allows no retry', async () => {
     const { hooked, last } = setUp(
       [hookNamed('audit', ['a'])],
       () => failed('a', 'was answered 404', 'rejected'),
@@ -596,7 +596,7 @@ describe('FireHooks.workOne', () => {
     expect(last()?.progress).toEqual({ kind: 'superseded', at: NOW });
   });
 
-  it('asks nothing of the task while the firing will be tried again', async () => {
+  it('requests nothing about the task while the firing waits for a retry', async () => {
     const { hooked, notes } = setUp(
       [hookNamed('audit', ['a'])],
       () => failed('a'),
@@ -612,7 +612,7 @@ describe('FireHooks.workOne', () => {
     const { hooked, last, runtime } = setUp(
       [hookNamed('audit', ['a'])],
       () => done('a'),
-      { stored: stored(), standing: null },
+      { stored: stored(), task: null },
     );
 
     await hooked.workOne();
@@ -645,7 +645,7 @@ describe('FireHooks.workOne', () => {
     const { hooked, causation } = setUp(
       [hookNamed('audit', ['a'])],
       () => {
-        chains.push(causation.current().saying);
+        chains.push(causation.current().description);
         return done('a');
       },
       { stored: stored() },
@@ -658,12 +658,12 @@ describe('FireHooks.workOne', () => {
     ]);
   });
 
-  it('names the firing to the steps, so what they reach can say what caused it', async () => {
+  it('names the firing to the steps, so what they call can say what caused it', async () => {
     const firings: (string | null)[] = [];
     const { hooked } = setUp(
       [hookNamed('audit', ['a'])],
-      (asked) => {
-        firings.push(asked.moment.firing);
+      (request) => {
+        firings.push(request.instance.firing);
         return done('a');
       },
       { stored: stored() },
@@ -677,16 +677,16 @@ describe('FireHooks.workOne', () => {
 
 describe('FireHooks.workOne, guarding against loops', () => {
   const looped = CausalChain.none()
-    .followedBy(MOVED)
-    .followedBy(AUDIT)
-    .followedBy({
+    .append(MOVED)
+    .append(AUDIT)
+    .append({
       kind: 'delivery',
       key: 'delivery:slack',
-      saying: 'a delivery from slack',
+      description: 'a delivery from slack',
     })
-    .followedBy(MOVED);
+    .append(MOVED);
 
-  it('stops a hook that its own firing caused again, and asks about the task, naming the chain', async () => {
+  it('stops a hook that its own firing caused again, and reports it on the task, naming the chain', async () => {
     const { hooked, saved, last, runtime, notes } = setUp(
       [hookNamed('audit', ['a'])],
       () => done('a'),
@@ -701,9 +701,9 @@ describe('FireHooks.workOne, guarding against loops', () => {
       stationKey: 'implementation',
       hook: 'audit',
       code: 'loop',
-      saying:
+      reason:
         'Hook audit was stopped to prevent a loop. It would fire again for the change that caused it. Cause chain: task.moved of Add a column (triage → build) → the hook audit → a delivery from slack → task.moved of Add a column (triage → build) → the hook audit',
-      heardAs: 'loop:firing_1',
+      receivedAs: 'loop:firing_1',
     });
     expect(saved[0]?.stoppedForLooping).toBe(true);
     expect(saved[0]?.progress.kind).toBe('working');
@@ -714,7 +714,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
   it('stops a chain that has grown too deep', async () => {
     let deep = CausalChain.none();
     for (let each = 0; each < 8; each += 1) {
-      deep = deep.followedBy({ ...MOVED, key: `step-${each}` });
+      deep = deep.append({ ...MOVED, key: `step-${each}` });
     }
     const { hooked, notes, runtime } = setUp(
       [hookNamed('audit', ['a'])],
@@ -725,7 +725,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
     await hooked.workOne();
 
     expect(runtime.step).not.toHaveBeenCalled();
-    expect(vi.mocked(notes.failed).mock.calls[0]?.[0]?.saying).toContain(
+    expect(vi.mocked(notes.failed).mock.calls[0]?.[0]?.reason).toContain(
       'Maximum depth: 8',
     );
   });
@@ -740,7 +740,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
     await hooked.workOne();
 
     expect(runtime.step).not.toHaveBeenCalled();
-    expect(vi.mocked(notes.failed).mock.calls[0]?.[0]?.saying).toContain(
+    expect(vi.mocked(notes.failed).mock.calls[0]?.[0]?.reason).toContain(
       'fired 3 times for the same change in the last 10 minutes',
     );
   });
@@ -758,12 +758,15 @@ describe('FireHooks.workOne, guarding against loops', () => {
     expect(notes.failed).not.toHaveBeenCalled();
   });
 
-  it('reports a stop it already kept again, however the chain reads now', async () => {
-    const kept = HookFailure.of('loop', 'The hook audit was stopped: before');
+  it('reports a stop it already stored again, however the chain reads now', async () => {
+    const stoppedBefore = HookFailure.of(
+      'loop',
+      'The hook audit was stopped: before',
+    );
     const { hooked, saved, runtime, notes } = setUp(
       [hookNamed('audit', ['a'])],
       () => done('a'),
-      { stored: stored({ failure: kept }), repeats: 0 },
+      { stored: stored({ failure: stoppedBefore }), repeats: 0 },
     );
 
     await hooked.workOne();
@@ -772,13 +775,13 @@ describe('FireHooks.workOne, guarding against loops', () => {
     expect(saved).toHaveLength(1);
     expect(notes.failed).toHaveBeenCalledWith(
       expect.objectContaining({
-        saying: 'The hook audit was stopped: before',
-        heardAs: 'loop:firing_1',
+        reason: 'The hook audit was stopped: before',
+        receivedAs: 'loop:firing_1',
       }),
     );
   });
 
-  it('reports nothing when another worker took the firing before its stop was kept', async () => {
+  it('reports nothing when another worker claimed the firing before its stop was stored', async () => {
     const { hooked, firings, notes } = setUp(
       [hookNamed('audit', ['a'])],
       () => done('a'),
@@ -807,7 +810,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
     expect(last()?.progress.kind).toBe('done');
   });
 
-  it('keeps a stop it could not yet tell of, to tell of it again later', async () => {
+  it('stores a stop it could not yet report, to report it again later', async () => {
     const { hooked, last, notes } = setUp(
       [hookNamed('audit', ['a'])],
       () => done('a'),
@@ -821,7 +824,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
     expect(last()?.failure?.code).toBe('loop');
   });
 
-  it('ends a stop it could never tell of as a loop, after its last attempt', async () => {
+  it('ends a stop it could never report as a loop, after its last attempt', async () => {
     const { hooked, last, notes } = setUp(
       [hookNamed('audit', ['a'])],
       () => done('a'),
@@ -835,25 +838,28 @@ describe('FireHooks.workOne, guarding against loops', () => {
     expect(last()?.failure?.code).toBe('loop');
   });
 
-  it('keeps a stop it kept when something else fails before it is told of', async () => {
-    const kept = HookFailure.of('loop', 'The hook audit was stopped: before');
+  it('keeps a stop it stored when something else fails before the notice', async () => {
+    const stoppedBefore = HookFailure.of(
+      'loop',
+      'The hook audit was stopped: before',
+    );
     const { hooked, last, runtime } = setUp(
       [hookNamed('audit', ['a'])],
       () => done('a'),
-      { stored: stored({ failure: kept }) },
+      { stored: stored({ failure: stoppedBefore }) },
     );
     vi.mocked(runtime.hook).mockRejectedValueOnce(new Error('db went away'));
 
     await hooked.workOne();
 
     expect(last()?.progress.kind).toBe('pending');
-    expect(last()?.failure).toBe(kept);
+    expect(last()?.failure).toBe(stoppedBefore);
   });
 
   it('never stops a firing already partway through its steps', async () => {
     const { hooked, runtime, notes } = setUp(
       [hookNamed('audit', ['a', 'b'])],
-      (asked) => done(asked.step),
+      (request) => done(request.step),
       {
         stored: stored({
           cause: looped,
@@ -869,11 +875,11 @@ describe('FireHooks.workOne, guarding against loops', () => {
     expect(runtime.step).toHaveBeenCalledTimes(1);
   });
 
-  it('supersedes a loop on a task that has moved on, asking nobody', async () => {
+  it('supersedes a loop on a task that has moved on, and reports nothing', async () => {
     const { hooked, last } = setUp(
       [hookNamed('audit', ['a'])],
       () => done('a'),
-      { stored: stored({ cause: looped }), heard: 'superseded' },
+      { stored: stored({ cause: looped }), notice: 'superseded' },
     );
 
     await hooked.workOne();
@@ -891,7 +897,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
           call: 'call_1',
           until: '2026-09-26T10:05:00.000Z',
         },
-        refusal: null,
+        denyReason: null,
         trace: null,
       }),
       { stored: stored() },
@@ -916,8 +922,8 @@ describe('FireHooks.workOne, guarding against loops', () => {
     };
     const { hooked } = setUp(
       [hookNamed('audit', ['a'])],
-      (asked) => {
-        resumed.push(asked.resuming);
+      (request) => {
+        resumed.push(request.resuming);
         return done('a');
       },
       { stored: stored({ steps: [waiting] }) },
@@ -932,8 +938,8 @@ describe('FireHooks.workOne, guarding against loops', () => {
     const seen: unknown[] = [];
     const { hooked, saved } = setUp(
       [hookNamed('dba', ['tell'])],
-      (asked) => {
-        seen.push(asked.moment.event);
+      (request) => {
+        seen.push(request.instance.event);
         return done('tell');
       },
       { stored: stored(MERGED) },
@@ -964,11 +970,11 @@ describe('FireHooks.workOne, guarding against loops', () => {
   });
 
   it('keeps steps done under their names when the hook changes between attempts', async () => {
-    const asked: string[] = [];
+    const requested: string[] = [];
     const { hooked } = setUp(
       [hookNamed('audit', ['first', 'added', 'second'])],
       (each) => {
-        asked.push(each.step);
+        requested.push(each.step);
         return done(each.step);
       },
       {
@@ -983,15 +989,15 @@ describe('FireHooks.workOne, guarding against loops', () => {
 
     await hooked.workOne();
 
-    expect(asked).toEqual(['added']);
+    expect(requested).toEqual(['added']);
   });
 
-  it('stops delivering once another worker holds the firing', async () => {
-    const asked: string[] = [];
+  it('stops delivering once another worker has the lease on the firing', async () => {
+    const requested: string[] = [];
     const { hooked, firings, last } = setUp(
       [hookNamed('audit', ['a', 'b'])],
       (each) => {
-        asked.push(each.step);
+        requested.push(each.step);
         return done(each.step);
       },
       { stored: stored() },
@@ -1002,7 +1008,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
 
     await expect(hooked.workOne()).resolves.toBe(true);
 
-    expect(asked).toEqual(['a']);
+    expect(requested).toEqual(['a']);
     expect(last()).toBeUndefined();
   });
 
@@ -1017,8 +1023,8 @@ describe('FireHooks.workOne, guarding against loops', () => {
   });
 });
 
-describe('FireHooks.forgetFinished', () => {
-  it('forgets each firing finished a month ago', async () => {
+describe('FireHooks.purgeFinished', () => {
+  it('purges each firing that finished a month ago', async () => {
     const finished = HookFiring.rehydrate({
       ...stateOf(stored()),
       progress: { kind: 'done', at: new Date(NOW.getTime() - 31 * 86_400_000) },
@@ -1028,7 +1034,7 @@ describe('FireHooks.forgetFinished', () => {
     });
     vi.mocked(firings.finishedBefore).mockResolvedValueOnce([finished]);
 
-    await expect(hooked.forgetFinished()).resolves.toBe(1);
+    await expect(hooked.purgeFinished()).resolves.toBe(1);
 
     expect(firings.finishedBefore).toHaveBeenCalledWith(
       new Date(NOW.getTime() - 30 * 86_400_000),

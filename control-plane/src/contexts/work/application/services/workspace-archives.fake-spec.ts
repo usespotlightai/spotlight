@@ -15,22 +15,22 @@ import type {
 import { WorkspaceArchiveVersionConflictError } from '@work/domain/exceptions/workspace-archive-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { WorkspaceArchiveRepository } from '@work/domain/repositories/workspace-archive.repository';
-import type { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
-import { ContinuityKey as Key } from '@work/domain/value-objects/continuity-key.vo';
+import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
+import { ResumeKey as Key } from '@work/domain/value-objects/resume-key.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import type { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
-const HELD_AT = new Date('2026-09-25T09:00:00.000Z');
+const CLAIMED_AT = new Date('2026-09-25T09:00:00.000Z');
 
-export const aHeldRun = (
+export const aLeasedRun = (
   over: {
     id?: string;
     runner?: string;
     session?: string | null;
-    carriesOn?: boolean;
+    restoresWorkspace?: boolean;
     checkouts?: readonly string[];
   } = {},
 ): Run =>
@@ -39,7 +39,7 @@ export const aHeldRun = (
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('claude-code'),
     subject:
-      over.carriesOn === false
+      over.restoresWorkspace === false
         ? null
         : RunSubject.task(
             TaskId.of('task_1'),
@@ -58,63 +58,64 @@ export const aHeldRun = (
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'keep the workspace',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: {
+      resume: {
         key: Key.forTask('task_1').value,
         ...(over.session === null
           ? {}
           : { sessionId: over.session ?? 'session_1' }),
       },
     }),
-  }).claim(RunnerId.of(over.runner ?? 'runner_1'), HELD_AT);
+  }).claim(RunnerId.of(over.runner ?? 'runner_1'), CLAIMED_AT);
 
-export const holding = (...held: readonly Run[]): RunRepository =>
+export const runsOf = (...runs: readonly Run[]): RunRepository =>
   ({
     findById: async (id: RunId) =>
-      held.find((each) => each.id.equals(id)) ?? null,
+      runs.find((each) => each.id.equals(id)) ?? null,
   }) as unknown as RunRepository;
 
 export class InMemoryArchives implements WorkspaceArchiveRepository {
-  readonly kept = new Map<string, WorkspaceArchive>();
+  readonly stored = new Map<string, WorkspaceArchive>();
 
   async add(archive: WorkspaceArchive): Promise<void> {
-    this.kept.set(archive.id.value, archive);
+    this.stored.set(archive.id.value, archive);
   }
 
   async save(archive: WorkspaceArchive): Promise<void> {
-    const held = this.kept.get(archive.id.value);
+    const existing = this.stored.get(archive.id.value);
 
-    if (!held || held.version !== archive.version) {
+    if (!existing || existing.version !== archive.version) {
       throw new WorkspaceArchiveVersionConflictError(archive.id.value);
     }
 
     if (archive.isDiscarded) {
-      this.kept.delete(archive.id.value);
+      this.stored.delete(archive.id.value);
       return;
     }
 
-    this.kept.set(archive.id.value, archive);
+    this.stored.set(archive.id.value, archive);
   }
 
   async find(id: WorkspaceArchiveId): Promise<WorkspaceArchive | null> {
-    return this.kept.get(id.value) ?? null;
+    return this.stored.get(id.value) ?? null;
   }
 
-  async newestSealed(
+  async newestCompleted(
     workspaceId: WorkspaceId,
-    continuity: ContinuityKey,
+    resumeKey: ResumeKey,
   ): Promise<WorkspaceArchive | null> {
-    const sealed = [...this.kept.values()]
+    const completed = [...this.stored.values()]
       .filter(
         (each) =>
-          each.isSealed &&
+          each.isCompleted &&
           each.workspaceId.equals(workspaceId) &&
-          each.continuity.equals(continuity),
+          each.resumeKey.equals(resumeKey),
       )
       .sort(
-        (a, b) => (b.sealedAt?.getTime() ?? 0) - (a.sealedAt?.getTime() ?? 0),
+        (a, b) =>
+          (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0),
       );
 
-    return sealed[0] ?? null;
+    return completed[0] ?? null;
   }
 }
 

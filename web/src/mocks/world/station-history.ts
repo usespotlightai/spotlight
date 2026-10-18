@@ -38,7 +38,7 @@ export const added = (
 
 type PastShape =
   | 'accepted'
-  | 'handed'
+  | 'passed'
   | 'sent-back'
   | 'failed'
   | 'stopped'
@@ -50,7 +50,7 @@ export type PastRun = {
   readonly title: string;
   readonly endedHoursAgo: number;
   readonly shape: PastShape;
-  readonly round?: number;
+  readonly visit?: number;
 };
 
 const past = (
@@ -59,8 +59,8 @@ const past = (
   title: string,
   endedHoursAgo: number,
   shape: PastShape,
-  round = 1,
-): PastRun => ({ runId, taskId, title, endedHoursAgo, shape, round });
+  visit = 1,
+): PastRun => ({ runId, taskId, title, endedHoursAgo, shape, visit });
 
 export const IMPLEMENTATION_HISTORY: readonly PastRun[] = [
   past(
@@ -83,7 +83,7 @@ export const IMPLEMENTATION_HISTORY: readonly PastRun[] = [
     'task_ledger',
     'Backfill the ledger after the currency fix',
     52,
-    'handed',
+    'passed',
   ),
   past(
     'run_flaky_billing_3',

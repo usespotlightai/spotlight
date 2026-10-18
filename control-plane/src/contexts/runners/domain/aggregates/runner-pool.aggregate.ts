@@ -1,11 +1,11 @@
-import { RunnerPoolDefined } from '@runners/domain/events/runner-pool-defined.event';
-import { RunnerPoolRedefined } from '@runners/domain/events/runner-pool-redefined.event';
-import { RunnerPoolRetired } from '@runners/domain/events/runner-pool-retired.event';
+import { RunnerPoolCreated } from '@runners/domain/events/runner-pool-created.event';
+import { RunnerPoolDeleted } from '@runners/domain/events/runner-pool-deleted.event';
+import { RunnerPoolUpdated } from '@runners/domain/events/runner-pool-updated.event';
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
-import { RunnerPoolFixedError } from '@runners/domain/exceptions/runner-pool-fixed.error';
 import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
 import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
+import type { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypted-provision-secret.vo';
 import type { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import {
   type PoolAccess,
@@ -13,16 +13,16 @@ import {
   PullAccess,
   PushAccess,
 } from '@runners/domain/value-objects/pool-access.vo';
+import type { PoolCapacity } from '@runners/domain/value-objects/pool-capacity';
 import type { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolChangeDetail } from '@runners/domain/value-objects/runner-pool-change-detail.vo';
 import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
-import type { SealedProvisionSecret } from '@runners/domain/value-objects/sealed-provision-secret.vo';
-import type { StartVerdict } from '@runners/domain/value-objects/start-verdict';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -33,7 +33,7 @@ export interface PoolDefinition {
   readonly maxRuns: MaxRuns | null;
 }
 
-export type GivenAccess =
+export type AccessInput =
   | {
       readonly mode: 'pull';
       readonly tokenHash: TokenHash | null;
@@ -42,7 +42,7 @@ export type GivenAccess =
   | {
       readonly mode: 'push';
       readonly url: ProvisionUrl;
-      readonly secret: SealedProvisionSecret | null;
+      readonly secret: EncryptedProvisionSecret | null;
       readonly secretVersion: number | null;
       readonly egress: EgressReference | null;
       readonly egressTraffic?: EgressTraffic;
@@ -65,21 +65,21 @@ export class RunnerPool extends EventRecorder {
     readonly maxRuns: MaxRuns | null,
     readonly access: PoolAccess,
     readonly version: number,
-    readonly isRetired: boolean,
+    readonly isDeleted: boolean,
   ) {
     super();
   }
 
-  static define(
+  static create(
     input: PoolDefinition & {
       id: RunnerPoolId;
       workspaceId: WorkspaceId;
-      access: GivenAccess;
-      by: Attribution;
+      access: AccessInput;
+      by: ChangeActor;
     },
   ): RunnerPool {
     const access = RunnerPool.firstAccess(input.access);
-    const defined = new RunnerPool(
+    const created = new RunnerPool(
       input.id,
       input.workspaceId,
       input.key,
@@ -90,20 +90,20 @@ export class RunnerPool extends EventRecorder {
       false,
     );
 
-    defined.record(
-      new RunnerPoolDefined(
-        defined.id,
-        defined.workspaceId,
-        defined.key,
+    created.record(
+      new RunnerPoolCreated(
+        created.id,
+        created.workspaceId,
+        created.key,
         ConfigurationChange.created(
-          defined.whatChanged,
+          created.whatChanged,
           input.by,
-          RunnerPoolChangeDetail.defined(defined.mode),
+          RunnerPoolChangeDetail.created(created.mode),
         ),
       ),
     );
 
-    return defined;
+    return created;
   }
 
   static rehydrate(
@@ -133,19 +133,19 @@ export class RunnerPool extends EventRecorder {
     );
   }
 
-  private static firstAccess(given: GivenAccess): PoolAccess {
-    if (given.mode === 'pull') {
-      if (!given.tokenHash) {
+  private static firstAccess(accessInput: AccessInput): PoolAccess {
+    if (accessInput.mode === 'pull') {
+      if (!accessInput.tokenHash) {
         throw new InconsistentStateError(
           'runner pool',
-          'was defined to pull with no token to claim with',
+          'was created to pull with no token to claim with',
         );
       }
 
-      return PullAccess.of(given.tokenHash, given.tokenVersion);
+      return PullAccess.of(accessInput.tokenHash, accessInput.tokenVersion);
     }
 
-    if (!given.secret) {
+    if (!accessInput.secret) {
       throw new InvalidRunnerPoolError(
         SECRET_FIELD,
         'is required for a pool that provisions',
@@ -153,11 +153,11 @@ export class RunnerPool extends EventRecorder {
     }
 
     return PushAccess.of(
-      given.url,
-      given.secret,
-      given.secretVersion,
-      given.egress,
-      given.egressTraffic,
+      accessInput.url,
+      accessInput.secret,
+      accessInput.secretVersion,
+      accessInput.egress,
+      accessInput.egressTraffic,
     );
   }
 
@@ -185,28 +185,28 @@ export class RunnerPool extends EventRecorder {
     return this.provision?.egressTraffic ?? EgressTraffic.all();
   }
 
-  goesOutThrough(egress: EgressReference): boolean {
-    return !this.isRetired && (this.provision?.goesOutThrough(egress) ?? false);
+  usesEgress(egress: EgressReference): boolean {
+    return !this.isDeleted && (this.provision?.usesEgress(egress) ?? false);
   }
 
   hasRoomFor(running: number): boolean {
-    return !this.isRetired && (this.maxRuns?.allows(running) ?? true);
+    return !this.isDeleted && (this.maxRuns?.allows(running) ?? true);
   }
 
   roomFor(running: number): number | null {
-    if (this.isRetired) {
+    if (this.isDeleted) {
       return 0;
     }
 
     return this.maxRuns ? this.maxRuns.roomAfter(running) : null;
   }
 
-  startVerdict(mode: PoolMode, standing: number): StartVerdict {
-    if (this.isRetired || mode !== this.mode) {
+  capacity(mode: PoolMode, running: number): PoolCapacity {
+    if (this.isDeleted || mode !== this.mode) {
       return 'gone';
     }
 
-    return this.hasRoomFor(standing) ? 'open' : 'full';
+    return this.hasRoomFor(running) ? 'open' : 'full';
   }
 
   assertVersion(version: number): void {
@@ -215,69 +215,74 @@ export class RunnerPool extends EventRecorder {
     }
   }
 
-  redefinedAs(
+  update(
     definition: PoolDefinition,
-    given: GivenAccess,
-    by: Attribution,
+    accessInput: AccessInput,
+    by: ChangeActor,
   ): RunnerPool {
-    this.guardStanding();
+    this.assertNotDeleted();
 
     if (!definition.key.equals(this.key)) {
-      throw new RunnerPoolFixedError(
-        this.key.value,
+      const because = `can't change its key to ${definition.key.value}. Please replace the pool instead`;
+
+      throw new ImmutableFieldError(
         'key',
-        `can't change its key to ${definition.key.value}. Please replace the pool instead`,
+        because,
+        `Runner pool ${this.key.value} ${because}.`,
       );
     }
 
-    if (given.mode !== this.mode) {
-      throw new RunnerPoolFixedError(
-        this.key.value,
+    if (accessInput.mode !== this.mode) {
+      const because = `can't change from ${this.mode === 'push' ? 'provisioning' : 'being pulled from'} to ${accessInput.mode === 'push' ? 'provisioning' : 'being pulled from'}. Please replace the pool instead`;
+
+      throw new ImmutableFieldError(
         'provision',
-        `can't change from ${this.mode === 'push' ? 'provisioning' : 'being pulled from'} to ${given.mode === 'push' ? 'provisioning' : 'being pulled from'}. Please replace the pool instead`,
+        because,
+        `Runner pool ${this.key.value} ${because}.`,
       );
     }
 
-    const access = this.nextAccess(given);
-    const rekeyed =
+    const access = this.nextAccess(accessInput);
+    const tokenRotated =
       access.mode === 'pull' &&
       this.access.mode === 'pull' &&
       !access.tokenHash.equals(this.access.tokenHash);
-    const redefined = this.with({
+    const updated = this.with({
       labels: definition.labels,
       maxRuns: definition.maxRuns,
       access,
     });
 
-    redefined.record(
-      new RunnerPoolRedefined(
+    updated.record(
+      new RunnerPoolUpdated(
         this.id,
         this.workspaceId,
         this.key,
         ConfigurationChange.updated(
           this.whatChanged,
           by,
-          RunnerPoolChangeDetail.redefined(this.mode, {
-            rekeyed,
-            secretRotated: given.mode === 'push' && given.secret !== null,
-            egressMoved:
-              !sameEgress(this.egress, redefined.egress) ||
-              !this.egressTraffic.equals(redefined.egressTraffic),
+          RunnerPoolChangeDetail.updated(this.mode, {
+            tokenRotated,
+            secretRotated:
+              accessInput.mode === 'push' && accessInput.secret !== null,
+            egressChanged:
+              !sameEgress(this.egress, updated.egress) ||
+              !this.egressTraffic.equals(updated.egressTraffic),
           }),
         ),
       ),
     );
 
-    return redefined;
+    return updated;
   }
 
-  retire(by: Attribution): RunnerPool {
-    this.guardStanding();
+  delete(by: ChangeActor): RunnerPool {
+    this.assertNotDeleted();
 
-    const retired = this.with({ retired: true });
+    const deleted = this.with({ deleted: true });
 
-    retired.record(
-      new RunnerPoolRetired(
+    deleted.record(
+      new RunnerPoolDeleted(
         this.id,
         this.workspaceId,
         this.key,
@@ -285,12 +290,15 @@ export class RunnerPool extends EventRecorder {
       ),
     );
 
-    return retired;
+    return deleted;
   }
 
-  private nextAccess(given: GivenAccess): PoolAccess {
-    if (given.mode === 'pull' && this.access.mode === 'pull') {
-      if (!given.tokenHash && this.access.rotatesOn(given.tokenVersion)) {
+  private nextAccess(accessInput: AccessInput): PoolAccess {
+    if (accessInput.mode === 'pull' && this.access.mode === 'pull') {
+      if (
+        !accessInput.tokenHash &&
+        this.access.rotatesOn(accessInput.tokenVersion)
+      ) {
         throw new InvalidRunnerPoolError(
           'token',
           'is required whenever tokenVersion changes',
@@ -298,13 +306,16 @@ export class RunnerPool extends EventRecorder {
       }
 
       return PullAccess.of(
-        given.tokenHash ?? this.access.tokenHash,
-        given.tokenVersion,
+        accessInput.tokenHash ?? this.access.tokenHash,
+        accessInput.tokenVersion,
       );
     }
 
-    if (given.mode === 'push' && this.access.mode === 'push') {
-      if (!given.secret && this.access.rotatesOn(given.secretVersion)) {
+    if (accessInput.mode === 'push' && this.access.mode === 'push') {
+      if (
+        !accessInput.secret &&
+        this.access.rotatesOn(accessInput.secretVersion)
+      ) {
         throw new InvalidRunnerPoolError(
           SECRET_FIELD,
           'is required whenever provision.secretVersion changes',
@@ -312,11 +323,11 @@ export class RunnerPool extends EventRecorder {
       }
 
       return PushAccess.of(
-        given.url,
-        given.secret ?? this.access.secret,
-        given.secretVersion,
-        given.egress,
-        given.egressTraffic,
+        accessInput.url,
+        accessInput.secret ?? this.access.secret,
+        accessInput.secretVersion,
+        accessInput.egress,
+        accessInput.egressTraffic,
       );
     }
 
@@ -334,11 +345,11 @@ export class RunnerPool extends EventRecorder {
     };
   }
 
-  private guardStanding(): void {
-    if (this.isRetired) {
+  private assertNotDeleted(): void {
+    if (this.isDeleted) {
       throw new InconsistentStateError(
         'runner pool',
-        'was changed after it was retired',
+        'was changed after it was deleted',
       );
     }
   }
@@ -347,7 +358,7 @@ export class RunnerPool extends EventRecorder {
     labels?: RunnerLabels;
     maxRuns?: MaxRuns | null;
     access?: PoolAccess;
-    retired?: boolean;
+    deleted?: boolean;
   }): RunnerPool {
     const next = new RunnerPool(
       this.id,
@@ -357,7 +368,7 @@ export class RunnerPool extends EventRecorder {
       part.maxRuns !== undefined ? part.maxRuns : this.maxRuns,
       part.access ?? this.access,
       this.version,
-      part.retired ?? this.isRetired,
+      part.deleted ?? this.isDeleted,
     );
 
     next.inheritEvents(this);

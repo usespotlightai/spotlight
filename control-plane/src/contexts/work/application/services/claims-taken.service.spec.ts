@@ -23,16 +23,16 @@ const claimed = () =>
     harness: HarnessId.of('claude-code'),
     spec: RunSpec.of({
       command: { executable: 'claude-agent-acp', args: [] },
-      briefing: 'work out what is being asked for',
+      briefing: 'work out what the request wants',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task-task_1' },
+      resume: { key: 'task-task_1' },
     }),
   }).claim(RUNNER, NOW);
 
 const taking = (
   over: {
-    refuses?: boolean;
-    held?: Run | null;
+    tookFails?: boolean;
+    stored?: Run | null;
     clashes?: number;
     saveFails?: boolean;
   } = {},
@@ -42,7 +42,7 @@ const taking = (
   const warn = vi.fn();
   const runs = {
     findById: vi.fn(async () =>
-      over.held === undefined ? claimed() : over.held,
+      over.stored === undefined ? claimed() : over.stored,
     ),
     save: vi.fn(async (run: Run) => {
       if (over.saveFails) {
@@ -57,8 +57,8 @@ const taking = (
   } as unknown as RunRepository;
   const checks = { unclaim: vi.fn(async () => {}) };
   const runners = {
-    took: vi.fn(async () => {
-      if (over.refuses) {
+    claim: vi.fn(async () => {
+      if (over.tookFails) {
         throw new Error('pooled_1 is spent');
       }
     }),
@@ -80,12 +80,12 @@ const taking = (
 };
 
 describe('ClaimsTaken', () => {
-  it('records that the runner took the run, and leaves the claim standing', async () => {
+  it('records that the runner claimed the run, and leaves the claim in place', async () => {
     const { taken, runners, saved } = taking();
 
     await taken.run(claimed(), RUNNER);
 
-    expect(runners.took).toHaveBeenCalledWith(
+    expect(runners.claim).toHaveBeenCalledWith(
       RUNNER,
       { kind: 'run', id: 'run_1' },
       NOW,
@@ -94,7 +94,7 @@ describe('ClaimsTaken', () => {
   });
 
   it('unclaims the run its runner could not take, and still says why', async () => {
-    const { taken, saved } = taking({ refuses: true });
+    const { taken, saved } = taking({ tookFails: true });
 
     await expect(taken.run(claimed(), RUNNER)).rejects.toThrow(
       'pooled_1 is spent',
@@ -103,7 +103,7 @@ describe('ClaimsTaken', () => {
   });
 
   it('tries again when the run changed while it was unclaimed', async () => {
-    const { taken, saved } = taking({ refuses: true, clashes: 1 });
+    const { taken, saved } = taking({ tookFails: true, clashes: 1 });
 
     await expect(taken.run(claimed(), RUNNER)).rejects.toThrow(
       'pooled_1 is spent',
@@ -111,8 +111,8 @@ describe('ClaimsTaken', () => {
     expect(saved).toHaveLength(1);
   });
 
-  it('leaves a run its runner no longer holds as it is', async () => {
-    const { taken, saved } = taking({ refuses: true, held: null });
+  it('leaves a run its runner no longer leases as it is', async () => {
+    const { taken, saved } = taking({ tookFails: true, stored: null });
 
     await expect(taken.run(claimed(), RUNNER)).rejects.toThrow(
       'pooled_1 is spent',
@@ -121,7 +121,7 @@ describe('ClaimsTaken', () => {
   });
 
   it('leaves the run to its lease, saying why, where it cannot be unclaimed', async () => {
-    const { taken, warn } = taking({ refuses: true, saveFails: true });
+    const { taken, warn } = taking({ tookFails: true, saveFails: true });
 
     await expect(taken.run(claimed(), RUNNER)).rejects.toThrow(
       'pooled_1 is spent',
@@ -130,7 +130,7 @@ describe('ClaimsTaken', () => {
   });
 
   it('unclaims the check its runner could not take', async () => {
-    const { taken, checks } = taking({ refuses: true });
+    const { taken, checks } = taking({ tookFails: true });
 
     await expect(
       taken.check(

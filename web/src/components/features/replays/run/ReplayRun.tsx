@@ -74,7 +74,7 @@ export function ReplayRun({ slug, teamId, runId }: ReplayRunProps) {
       forward={forward}
       run={run}
       banner={<ReplayRunBanner slug={slug} teamId={teamId} run={run} />}
-      opening={run.original.title}
+      threadBriefing={run.original.title}
       title={formatTitle(run.original.title)}
       briefing={run.briefing}
       footer={

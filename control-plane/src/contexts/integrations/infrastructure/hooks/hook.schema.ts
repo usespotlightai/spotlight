@@ -29,16 +29,16 @@ const tool = z
     'names a tool as the integration and the tool, as in grafana.search',
   );
 
-type Held = string | number | boolean | null | Held[] | { [key: string]: Held };
+type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
 
-const held: z.ZodType<Held> = z.lazy(() =>
+const json: z.ZodType<Json> = z.lazy(() =>
   z.union([
     z.string(),
     z.number(),
     z.boolean(),
     z.null(),
-    z.array(held),
-    z.record(z.string(), held),
+    z.array(json),
+    z.record(z.string(), json),
   ]),
 );
 
@@ -54,7 +54,7 @@ const requestSchema = z
   .object({
     url: z.string().min(1, 'is the address to send the request to'),
     headers: z.record(header, z.string()).default({}),
-    body: held.optional(),
+    body: json.optional(),
     from: z.enum(['spotlight', 'network']).default('spotlight'),
   })
   .strict();
@@ -63,7 +63,7 @@ const stepSchema = z
   .object({
     name: key('notify'),
     call: tool.optional(),
-    with: z.record(z.string(), held).optional(),
+    with: z.record(z.string(), json).optional(),
     request: requestSchema.optional(),
   })
   .strict()
@@ -80,7 +80,7 @@ const stepSchema = z
       context.addIssue({
         code: 'custom',
         path: ['with'],
-        message: 'gives inputs to a tool. It goes only with call',
+        message: 'sets inputs for a tool. It goes only with call',
       });
     }
   });

@@ -6,8 +6,8 @@ import type {
 } from '@work/application/contracts/run-journal.contract';
 import {
   paired,
+  type TracedRun,
   traceOf,
-  type WorkedRun,
 } from '@work/application/read-models/trace-of';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { RunConnection } from '@work/domain/value-objects/run-connection.vo';
@@ -26,8 +26,8 @@ const step = (
   tool: 'execute',
   detail: null,
   locations: [],
-  given: null,
-  returned: null,
+  input: null,
+  output: null,
   change: null,
   ...part,
 });
@@ -52,16 +52,16 @@ const journal = (part: Partial<RunJournal> = {}): RunJournal => ({
   marks: {
     startedAt: at(0),
     readyAt: at(10_000),
-    spokeFrom: at(12_000),
-    spokeTo: at(50_000),
+    firstAgentUpdateAt: at(12_000),
+    lastAgentUpdateAt: at(50_000),
     endedAt: at(60_000),
   },
   spent: null,
-  egress: null,
+  egressEnforcement: null,
   ...part,
 });
 
-const worked = (part: Partial<WorkedRun> = {}): WorkedRun => ({
+const tracedRun = (part: Partial<TracedRun> = {}): TracedRun => ({
   id: RunId.of('run_1'),
   station: StationName.of('Implementation'),
   harness: HarnessName.of('claude-code'),
@@ -93,15 +93,15 @@ const names = (nodes: readonly { name: string }[]) =>
   nodes.map((node) => node.name);
 
 describe('traceOf', () => {
-  it('holds every run that worked the task', () => {
+  it('has every run that worked the task', () => {
     const trace = traceOf([
-      worked({
+      tracedRun({
         id: RunId.of('run_2'),
         startedAt: at(70_000),
         endedAt: at(90_000),
         journal: null,
       }),
-      worked({ journal: null }),
+      tracedRun({ journal: null }),
     ]);
 
     expect(trace.roots).toHaveLength(2);
@@ -111,7 +111,7 @@ describe('traceOf', () => {
   });
 
   it('lays a run out as what it prepared, worked and published', () => {
-    expect(names(traceOf([worked()]).roots[0]?.children ?? [])).toEqual([
+    expect(names(traceOf([tracedRun()]).roots[0]?.children ?? [])).toEqual([
       'Prepare',
       'Turn · claude-code',
       'Publish',
@@ -120,13 +120,13 @@ describe('traceOf', () => {
 
   it('draws only the phases the journal can account for', () => {
     const trace = traceOf([
-      worked({
+      tracedRun({
         journal: journal({
           marks: {
             startedAt: at(0),
             readyAt: null,
-            spokeFrom: null,
-            spokeTo: null,
+            firstAgentUpdateAt: null,
+            lastAgentUpdateAt: null,
             endedAt: at(6_000),
           },
         }),
@@ -136,9 +136,9 @@ describe('traceOf', () => {
     expect(trace.roots[0]?.children ?? []).toEqual([]);
   });
 
-  it('puts each step into the phase that holds it', () => {
+  it('puts each step into the phase that contains it', () => {
     const trace = traceOf([
-      worked({
+      tracedRun({
         journal: journal({
           steps: [
             step({
@@ -167,7 +167,7 @@ describe('traceOf', () => {
 
   it('counts what went wrong, however deep it sits', () => {
     const trace = traceOf([
-      worked({
+      tracedRun({
         journal: journal({
           steps: [
             step({
@@ -181,16 +181,16 @@ describe('traceOf', () => {
       }),
     ]);
 
-    expect(trace.faults).toBe(1);
+    expect(trace.errors).toBe(1);
   });
 
   it('tells the agent’s own work from the overhead around it', () => {
     const trace = traceOf([
-      worked({
+      tracedRun({
         journal: journal({
           steps: [
             step({
-              kind: 'said',
+              kind: 'message',
               text: 'Done.',
               startedAt: at(20_000),
               ms: 100,
@@ -207,14 +207,14 @@ describe('traceOf', () => {
     ]);
 
     expect(
-      trace.roots[0]?.children[1]?.children.map((node) => node.tone),
+      trace.roots[0]?.children[1]?.children.map((node) => node.category),
     ).toEqual(['agent', 'overhead']);
   });
 
   describe('where the harness reports on itself', () => {
     it('draws one row where a span and a step are the same call', () => {
       const trace = traceOf([
-        worked({
+        tracedRun({
           journal: journal({
             steps: [
               step({ text: 'npm test', startedAt: at(20_000), ms: 5_000 }),
@@ -233,7 +233,7 @@ describe('traceOf', () => {
 
     it('keeps a span that matches nothing, without inventing detail for it', () => {
       const trace = traceOf([
-        worked({
+        tracedRun({
           journal: journal({
             spans: [
               span({
@@ -253,7 +253,7 @@ describe('traceOf', () => {
 
     it('keeps a step the harness never mentioned', () => {
       const trace = traceOf([
-        worked({
+        tracedRun({
           journal: journal({
             steps: [
               step({ text: 'npm test', startedAt: at(20_000), ms: 5_000 }),
@@ -275,9 +275,9 @@ describe('traceOf', () => {
       ]);
     });
 
-    it('hangs a span under the one that holds it', () => {
+    it('hangs a span under the one that contains it', () => {
       const trace = traceOf([
-        worked({
+        tracedRun({
           journal: journal({
             spans: [
               span({
@@ -304,7 +304,7 @@ describe('traceOf', () => {
 
     it('draws a span whose parent is nowhere to be found', () => {
       const trace = traceOf([
-        worked({
+        tracedRun({
           journal: journal({
             spans: [
               span({
@@ -320,22 +320,22 @@ describe('traceOf', () => {
       expect(trace.roots[0]?.children[1]?.children).toHaveLength(1);
     });
 
-    it('carries a failing span through as a fault', () => {
+    it('carries a failing span through as an error', () => {
       const trace = traceOf([
-        worked({
+        tracedRun({
           journal: journal({
             spans: [span({ id: 's1', startedAt: at(20_000), failed: true })],
           }),
         }),
       ]);
 
-      expect(trace.faults).toBe(1);
+      expect(trace.errors).toBe(1);
     });
   });
 
   it('reads a run whose harness reported nothing', () => {
     const trace = traceOf([
-      worked({
+      tracedRun({
         journal: journal({
           steps: [step({ text: 'npm test', startedAt: at(20_000), ms: 5_000 })],
         }),
@@ -352,9 +352,9 @@ describe('traceOf', () => {
       steps: [step({ text: 'npm test', startedAt: at(20_000), ms: 5_000 })],
     });
 
-    it('puts a connection that went wrong under the step that was open when it started', () => {
+    it('puts a connection with an error under the step that was open when it started', () => {
       const trace = traceOf([
-        worked({
+        tracedRun({
           journal: npmTest,
           connections: [connection({ at: at(21_000) })],
         }),
@@ -367,17 +367,17 @@ describe('traceOf', () => {
           id: 'run_1:connection:0',
           kind: 'connection',
           name: 'paste.example.net',
-          tone: 'failed',
+          category: 'failed',
           from: at(21_000),
-          connection: { times: 1 },
+          connection: { count: 1 },
         },
       ]);
-      expect(trace.faults).toBe(0);
+      expect(trace.errors).toBe(0);
     });
 
-    it('ends a connection row no later than the row that holds it', () => {
+    it('ends a connection row no later than the row that contains it', () => {
       const trace = traceOf([
-        worked({
+        tracedRun({
           journal: npmTest,
           connections: [connection({ at: at(24_000), ms: 9_000 })],
         }),
@@ -388,9 +388,9 @@ describe('traceOf', () => {
       );
     });
 
-    it('puts a connection no step held into the phase or the run', () => {
+    it('puts a connection that no step contains into the phase or the run', () => {
       const trace = traceOf([
-        worked({
+        tracedRun({
           journal: npmTest,
           connections: [
             connection({ at: at(30_000) }),
@@ -412,15 +412,15 @@ describe('traceOf', () => {
       ]);
     });
 
-    it('draws the same failure in one place as one row, and counts the times', () => {
+    it('draws the same failure in one place as one row, and counts it', () => {
       const trace = traceOf([
-        worked({
+        tracedRun({
           journal: npmTest,
           connections: [
             connection({ at: at(21_000) }),
             connection({ at: at(22_000) }),
             connection({ at: at(23_000), ms: 500 }),
-            connection({ at: at(24_000), reason: 'address-refused' }),
+            connection({ at: at(24_000), reason: 'private-address' }),
           ],
         }),
       ]);
@@ -430,33 +430,37 @@ describe('traceOf', () => {
       expect(rows[0]).toMatchObject({
         from: at(21_000),
         to: at(23_500),
-        connection: { times: 3 },
+        connection: { count: 3 },
       });
-      expect(rows[1]?.connection?.connection.reason).toBe('address-refused');
+      expect(rows[1]?.connection?.connection.reason).toBe('private-address');
     });
 
-    it('leaves out connections that did not go wrong', () => {
+    it('leaves out connections without an error', () => {
       const trace = traceOf([
-        worked({
+        tracedRun({
           journal: npmTest,
           connections: [
-            connection({ at: at(21_000), outcome: 'tunnelled', reason: null }),
+            connection({
+              at: at(21_000),
+              outcome: 'passthrough',
+              reason: null,
+            }),
             connection({
               at: at(21_200),
-              outcome: 'forwarded',
+              outcome: 'injected',
               reason: null,
               status: 429,
             }),
             connection({
               at: at(21_500),
-              outcome: 'forwarded',
+              outcome: 'injected',
               reason: null,
               status: 404,
             }),
             connection({
               at: at(22_000),
               host: 'api.linear.app',
-              outcome: 'forwarded',
+              outcome: 'injected',
               reason: null,
               status: 401,
             }),
@@ -470,7 +474,7 @@ describe('traceOf', () => {
 
     it('names the port when it is not 443', () => {
       const trace = traceOf([
-        worked({
+        tracedRun({
           journal: null,
           connections: [connection({ at: at(1_000), port: 5432 })],
         }),
@@ -484,10 +488,13 @@ describe('traceOf', () => {
 
   it('tells on the run row whether egress was enforced', () => {
     expect(
-      traceOf([worked({ journal: journal({ egress: 'not-enforced' }) })])
-        .roots[0]?.egress,
+      traceOf([
+        tracedRun({ journal: journal({ egressEnforcement: 'not-enforced' }) }),
+      ]).roots[0]?.egressEnforcement,
     ).toBe('not-enforced');
-    expect(traceOf([worked({ journal: null })]).roots[0]?.egress).toBeNull();
+    expect(
+      traceOf([tracedRun({ journal: null })]).roots[0]?.egressEnforcement,
+    ).toBeNull();
   });
 });
 

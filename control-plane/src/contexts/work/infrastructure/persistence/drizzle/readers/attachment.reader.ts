@@ -27,14 +27,14 @@ export class DrizzleAttachmentReader implements AttachmentReaderPort {
       .where(eq(attachmentClaim.id, id))
       .limit(1);
 
-    const held = found?.tasked ?? found?.chatted;
+    const attachment = found?.tasked ?? found?.chatted;
 
-    return found && held
+    return found && attachment
       ? {
-          id: held.id,
-          name: held.name,
-          contentType: held.contentType,
-          size: held.size,
+          id: attachment.id,
+          name: attachment.name,
+          contentType: attachment.contentType,
+          size: attachment.size,
           workspaceId: found.workspaceId,
         }
       : null;

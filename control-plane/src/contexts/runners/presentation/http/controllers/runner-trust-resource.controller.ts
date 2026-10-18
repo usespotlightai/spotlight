@@ -6,14 +6,14 @@ import { CurrentPrincipal } from '@platform/http/decorators/current-principal.de
 import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
-import {
-  answerCreated,
-  answerDeleted,
-  answerUpdated,
-  found,
-  listed,
-} from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
+import {
+  respondCreated,
+  respondDeleted,
+  respondFound,
+  respondListed,
+  respondUpdated,
+} from '@platform/http/resources/resource-responses';
 import {
   CreateRunnerTrustCommand,
   DeleteRunnerTrustCommand,
@@ -100,13 +100,13 @@ export class RunnerTrustResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<RunnerTrustResourceResponseDto> {
-    return answerCreated(
+    return respondCreated(
       KIND,
       await this.commandBus.execute<
         CreateRunnerTrustCommand,
         ResourceCreated | null
       >(new CreateRunnerTrustCommand(workspaceId, actor, key, body)),
-      (id) => this.answer(id, actor.principal),
+      (id) => this.toResponse(id, actor.principal),
     );
   }
 
@@ -116,12 +116,12 @@ export class RunnerTrustResourceController {
     @Param('id') id: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<RunnerTrustResourceResponseDto> {
-    return this.answer(id, principal);
+    return this.toResponse(id, principal);
   }
 
   @RunnerTrustResource.Update(
     'runner-trusts/:id',
-    'Change which workload a runner trust admits, or how its runners are labelled',
+    'Change which workload a runner trust matches, or how its runners are labelled',
   )
   @ID
   @DEFINITION
@@ -131,19 +131,19 @@ export class RunnerTrustResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<RunnerTrustResourceResponseDto> {
-    return answerUpdated(
+    return respondUpdated(
       KIND,
       await this.commandBus.execute<
         UpdateRunnerTrustCommand,
         ResourceUpdated | null
       >(new UpdateRunnerTrustCommand(id, actor, version, body)),
-      (updated) => this.answer(updated, actor.principal),
+      (updated) => this.toResponse(updated, actor.principal),
     );
   }
 
   @RunnerTrustResource.Delete(
     'runner-trusts/:id',
-    'Stop trusting a workload, so it can claim no more work through the trust',
+    'Delete a runner trust; no workload can claim more work through it',
   )
   @ID
   async delete(
@@ -151,7 +151,7 @@ export class RunnerTrustResourceController {
     @IfMatch() version: number,
     @CurrentActor() actor: Actor,
   ): Promise<void> {
-    answerDeleted(
+    respondDeleted(
       KIND,
       await this.commandBus.execute<
         DeleteRunnerTrustCommand,
@@ -170,7 +170,7 @@ export class RunnerTrustResourceController {
     @Query('address') address: string | undefined,
     @CurrentPrincipal() principal: Principal,
   ): Promise<RunnerTrustResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<
         ImportRunnerTrustQuery,
@@ -189,7 +189,7 @@ export class RunnerTrustResourceController {
     @Param('workspaceId') workspaceId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ResourceList<RunnerTrustResourceResponseDto>> {
-    return listed(
+    return respondListed(
       await this.queryBus.execute<
         ListRunnerTrustResourcesQuery,
         readonly RunnerTrustResourceDto[] | null
@@ -198,11 +198,11 @@ export class RunnerTrustResourceController {
     );
   }
 
-  private async answer(
+  private async toResponse(
     id: string,
     principal: Principal,
   ): Promise<RunnerTrustResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<
         ReadRunnerTrustQuery,

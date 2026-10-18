@@ -31,7 +31,7 @@ import { StartSearchCommand } from '@replays/application/commands/start-search.c
 import { StopSearchCommand } from '@replays/application/commands/stop-search.command';
 import type {
   CandidatePicked,
-  SearchRefused,
+  SearchRejected,
   SearchStartedOutcome,
   SearchStoppedOutcome,
 } from '@replays/application/dto/replay-outcomes.dto';
@@ -67,7 +67,7 @@ const SEARCH = 'replay search';
 
 const STATION = 'lines/:lineId/stations/:stationId';
 
-const accepted = <T extends object>(answer: T | SearchRefused): T => {
+const accepted = <T extends object>(answer: T | SearchRejected): T => {
   if ('problems' in answer) {
     throw ProblemException.invalid(SEARCH, answer.problems);
   }
@@ -79,7 +79,7 @@ const PAGE = 50;
 
 const LONGEST_PAGE = 200;
 
-const SET_SAYS = 'Replay set must be one of the station’s replay sets.';
+const SET_PROBLEM = 'Replay set must be one of the station’s replay sets.';
 
 interface Answerable {
   status(code: number): unknown;
@@ -148,13 +148,13 @@ export class SearchesController {
       accepted(
         await this.queryBus.execute<
           EstimateSearchQuery,
-          SearchEstimateDto | SearchRefused
+          SearchEstimateDto | SearchRejected
         >(
           new EstimateSearchQuery(
             teamId,
             lineId,
             stationId,
-            textAt(body, 'setId', SET_SAYS),
+            textAt(body, 'setId', SET_PROBLEM),
             searchBudgetIn(body),
             objectiveIn(body),
             principal,
@@ -207,7 +207,7 @@ export class SearchesController {
               teamId,
               lineId,
               stationId,
-              textAt(body, 'setId', SET_SAYS),
+              textAt(body, 'setId', SET_PROBLEM),
               searchAgentIn(body),
               searchBudgetIn(body),
               objectiveIn(body),
@@ -230,7 +230,7 @@ export class SearchesController {
     required: false,
     type: String,
     description:
-      'Only searches started before this one, by its id; a search the team does not hold answers an empty page',
+      'Only searches started before this one, by its id; a search that the team does not own answers an empty page',
   })
   @ApiQuery({
     name: 'limit',
@@ -286,13 +286,13 @@ export class SearchesController {
     summary:
       'Pick a candidate of a search: Spotlight opens a pull request that changes the station in the line’s Terraform, in the repository its source names',
     description:
-      'Spotlight never applies the change itself. It edits the station block of the line’s spotlight_line resource (and a prompt file read with file()), commits to its own branch and opens the pull request; until then the pull request is opening. Picking it again answers the same one, unless it was refused, which tries again.',
+      'Spotlight never applies the change itself. It edits the station block of the line’s spotlight_line resource (and a prompt file read with file()), commits to its own branch and opens the pull request; until then the pull request is opening. Picking it again answers the same one, unless it failed, which tries again.',
   })
   @ApiParam({ name: 'searchId', type: String })
   @ApiParam({ name: 'candidateId', type: String })
   @ApiCreatedResponse({
     type: ConfigPullRequestResponseDto,
-    description: 'Picked, or tried again after a refusal',
+    description: 'Picked, or tried again after a failure',
   })
   @ApiOkResponse({
     type: ConfigPullRequestResponseDto,

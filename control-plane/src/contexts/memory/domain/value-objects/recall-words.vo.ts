@@ -12,7 +12,7 @@ export class RecallWords {
 
     if (!words || words.length > MAX_CHARACTERS) {
       throw new InvalidMemoryError(
-        `is recalled by at most ${MAX_CHARACTERS} characters of words it holds, or by its handle, like M-12`,
+        `is recalled by at most ${MAX_CHARACTERS} characters of words it contains, or by its handle, like M-12`,
       );
     }
 

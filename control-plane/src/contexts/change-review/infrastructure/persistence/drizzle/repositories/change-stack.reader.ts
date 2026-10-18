@@ -9,9 +9,9 @@ import type {
 import { checkReasonOf } from '@change-review/application/rendering/check-reason';
 import { tallyOf } from '@change-review/domain/value-objects/diff.vo';
 import {
-  checkStateAt,
-  keptSkipOf,
-  nobodyChecked,
+  checkStatusAt,
+  parseStoredSkip,
+  queueTimeout,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import {
   checkedStepOf,
@@ -28,13 +28,13 @@ import { and, asc, desc, eq, ne } from 'drizzle-orm';
 const PROGRESS = {
   state: changeStack.state,
   failure: changeStack.failure,
-  draftedAt: changeStack.draftedAt,
-  settledAt: changeStack.settledAt,
+  startedAt: changeStack.startedAt,
+  completedAt: changeStack.completedAt,
 };
 
 const CHECK = {
   command: stackCheck.command,
-  phase: stackCheck.phase,
+  status: stackCheck.status,
   outcome: stackCheck.outcome,
   waitingSince: stackCheck.waitingSince,
   leaseExpiresAt: stackCheck.leaseExpiresAt,
@@ -46,33 +46,34 @@ type CheckRow = {
 };
 
 const checkOf = (row: CheckRow | null, now: Date): StackCheckDto | null => {
-  if (!row?.command || !row.phase || !row.waitingSince) {
+  if (!row?.command || !row.status || !row.waitingSince) {
     return null;
   }
 
-  const state = checkStateAt(
+  const status = checkStatusAt(
     {
-      phase: row.phase,
+      status: row.status,
       waitingSince: row.waitingSince,
-      hold: { leaseExpiresAt: row.leaseExpiresAt, claimedAt: row.claimedAt },
+      lease: { leaseExpiresAt: row.leaseExpiresAt, claimedAt: row.claimedAt },
     },
     now,
   );
 
   const skipped =
-    state === 'skipped'
+    status === 'skipped'
       ? row.outcome?.skip
-        ? keptSkipOf(row.outcome.skip.code, row.outcome.skip.detail)
-        : nobodyChecked()
+        ? parseStoredSkip(row.outcome.skip.code, row.outcome.skip.detail)
+        : queueTimeout()
       : null;
 
   return {
     command: row.command,
-    state,
+    status,
     reason: checkReasonOf({
       skipped,
       wholeFailed:
-        row.outcome?.state === 'checked' && row.outcome.whole?.passed === false,
+        row.outcome?.status === 'checked' &&
+        row.outcome.whole?.passed === false,
     }),
     whole: row.outcome?.whole ? checkedStepOf(row.outcome.whole) : null,
     layers: row.outcome?.layers.map(checkedStepOf) ?? [],
@@ -105,7 +106,7 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
           ne(changeStack.state, 'failed'),
         ),
       )
-      .orderBy(desc(changeStack.draftedAt))
+      .orderBy(desc(changeStack.startedAt))
       .limit(1);
 
     if (!row) {
@@ -139,15 +140,15 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
       .from(changeStack)
       .leftJoin(stackCheck, eq(stackCheck.stackId, changeStack.id))
       .where(eq(changeStack.runId, runId.value))
-      .orderBy(asc(changeStack.draftedAt));
+      .orderBy(asc(changeStack.startedAt));
 
     return rows.map((row) => ({
       id: row.id,
       repository: row.repository,
       state: row.state,
       failure: row.failure,
-      draftedAt: row.draftedAt.toISOString(),
-      settledAt: row.settledAt?.toISOString() ?? null,
+      startedAt: row.startedAt.toISOString(),
+      completedAt: row.completedAt?.toISOString() ?? null,
       files: row.files,
       cohorts: row.cohorts,
       check: checkOf(row.check, now),

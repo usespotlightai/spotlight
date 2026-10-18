@@ -37,19 +37,19 @@ export class Skill {
     readonly instructions: string,
     readonly secrets: readonly SkillSecret[],
     readonly tools: readonly ToolName[],
-    readonly isShipped: boolean,
+    readonly isBuiltIn: boolean,
   ) {}
 
   static define(input: SkillInput): Skill {
-    if (input.key.isSpotlights) {
+    if (input.key.isReserved) {
       throw new SkillKeyReservedError(input.key.value);
     }
 
     return Skill.make(input, false);
   }
 
-  static ship(input: SkillInput): Skill {
-    if (!input.key.isSpotlights) {
+  static builtIn(input: SkillInput): Skill {
+    if (!input.key.isReserved) {
       throw new InvalidSkillError(
         input.key.value,
         'is built in and must start with spotlight-',
@@ -59,7 +59,7 @@ export class Skill {
     return Skill.make(input, true);
   }
 
-  private static make(input: SkillInput, isShipped: boolean): Skill {
+  private static make(input: SkillInput, isBuiltIn: boolean): Skill {
     const description = input.description.trim();
     const instructions = input.instructions.trim();
     const folder = input.folder;
@@ -102,18 +102,18 @@ export class Skill {
       instructions,
       input.secrets,
       input.tools,
-      isShipped,
+      isBuiltIn,
     );
   }
 
-  missingFrom(held: readonly SecretName[]): readonly SkillSecret[] {
+  missingFrom(existing: readonly SecretName[]): readonly SkillSecret[] {
     return this.secrets.filter(
-      (needed) => !held.some((each) => each.equals(needed.name)),
+      (needed) => !existing.some((each) => each.equals(needed.name)),
     );
   }
 
-  isReadyWith(held: readonly SecretName[]): boolean {
-    return this.missingFrom(held).length === 0;
+  isReadyWith(existing: readonly SecretName[]): boolean {
+    return this.missingFrom(existing).length === 0;
   }
 
   equals(other: Skill): boolean {

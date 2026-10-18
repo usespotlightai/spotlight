@@ -52,12 +52,13 @@ export const currentStacks = (
   });
 };
 
-export const drafting = (stacks: readonly ChangeStack[]): boolean =>
-  currentStacks(stacks).some((stack) => stack.state === 'drafting');
+export const generating = (stacks: readonly ChangeStack[]): boolean =>
+  currentStacks(stacks).some((stack) => stack.state === 'generating');
 
-export const settling = (stacks: readonly ChangeStack[]): boolean =>
+export const inProgress = (stacks: readonly ChangeStack[]): boolean =>
   currentStacks(stacks).some(
-    (stack) => stack.state === 'drafting' || stack.check?.state === 'waiting',
+    (stack) =>
+      stack.state === 'generating' || stack.check?.status === 'waiting',
   );
 
 export const layersOf = (stack: ChangeStack): LocatedLayer[] =>
@@ -79,11 +80,11 @@ export const layerAt = (
 };
 
 export const filesOf = (stack: ChangeStack, layer: StackLayer): LayerFile[] => {
-  const placed = new Set(layer.ranges.map((range) => range.hunk));
+  const assigned = new Set(layer.hunks.map((each) => each.hunk));
   const notes = new Map(layer.notes.map((each) => [each.path, each.note]));
 
   return stack.files.flatMap((file) => {
-    const hunks = file.hunks.filter((hunk) => placed.has(hunk.id));
+    const hunks = file.hunks.filter((hunk) => assigned.has(hunk.id));
 
     return hunks.length > 0
       ? [{ file, hunks, note: notes.get(file.path) ?? null }]

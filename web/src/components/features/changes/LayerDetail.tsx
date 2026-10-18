@@ -18,14 +18,17 @@ type LayerDetailProps = {
   onPick: (layerId: string) => void;
 };
 
-interface Folded {
+interface CollapsedFiles {
   readonly layerId: string;
   readonly paths: ReadonlySet<string>;
 }
 
 const TOO_LARGE = 800;
 
-const foldedFor = (located: LocatedLayer, files: readonly LayerFile[]) => ({
+const collapsedFilesFor = (
+  located: LocatedLayer,
+  files: readonly LayerFile[],
+) => ({
   layerId: located.layer.id,
   paths: new Set(
     files
@@ -46,15 +49,17 @@ export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
   const previous = layers[at - 1];
   const next = layers[at + 1];
   const files = filesOf(stack, layer);
-  const [folded, setFolded] = useState<Folded>(() => foldedFor(located, files));
+  const [collapsedFiles, setCollapsedFiles] = useState<CollapsedFiles>(() =>
+    collapsedFilesFor(located, files),
+  );
   const collapsed =
-    folded.layerId === layer.id
-      ? folded.paths
-      : foldedFor(located, files).paths;
+    collapsedFiles.layerId === layer.id
+      ? collapsedFiles.paths
+      : collapsedFilesFor(located, files).paths;
 
-  // Because the pane remains mounted between layers, each layer must set its folded files again.
-  if (folded.layerId !== layer.id) {
-    setFolded(foldedFor(located, files));
+  // Because the pane remains mounted between layers, each layer must set its collapsed files again.
+  if (collapsedFiles.layerId !== layer.id) {
+    setCollapsedFiles(collapsedFilesFor(located, files));
   }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new layer starts at the top
@@ -66,15 +71,15 @@ export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
     files.length > 0 &&
     files.every((placed) => collapsed.has(placed.file.path));
 
-  const fold = (paths: ReadonlySet<string>) =>
-    setFolded({ layerId: layer.id, paths });
+  const setCollapsedPaths = (paths: ReadonlySet<string>) =>
+    setCollapsedFiles({ layerId: layer.id, paths });
 
   const toggle = (path: string) => {
     const next = new Set(collapsed);
     if (!next.delete(path)) {
       next.add(path);
     }
-    fold(next);
+    setCollapsedPaths(next);
   };
 
   return (
@@ -92,7 +97,7 @@ export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
               size="sm"
               className="h-7 text-muted-foreground text-xs"
               onClick={() =>
-                fold(
+                setCollapsedPaths(
                   new Set(
                     allCollapsed ? [] : files.map((placed) => placed.file.path),
                   ),

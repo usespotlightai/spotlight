@@ -4,8 +4,8 @@ import type { DefinedIntegrationsPort } from '@integrations/application/ports/de
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import { PersonToolPolicy } from '@integrations/domain/aggregates/person-tool-policy.aggregate';
 import type { PersonToolPolicyRepository } from '@integrations/domain/repositories/person-tool-policy.repository';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { PersonToolRule } from '@integrations/domain/value-objects/person-tool-rule.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -31,25 +31,28 @@ export class SetPersonToolRuleHandler
       }
 
       const teamId = TeamId.of(command.teamId);
-      const source = SourceKey.of(command.source);
+      const integration = IntegrationKey.of(command.integration);
       const tool = ToolName.of(command.tool);
       const rule = PersonToolRule.of(command.rule);
       const definitions = await this.defined.ofTeam(teamId);
-      const offered = definitions.some(
+      const provided = definitions.some(
         (each) =>
-          each.source === source.value && each.offers.includes(tool.value),
+          each.integration === integration.value &&
+          each.tools.includes(tool.value),
       );
       const actsAsEachPerson = this.runtime
         .integrations(definitions)
-        .some((each) => each.source.equals(source) && each.holding.byRequester);
+        .some(
+          (each) => each.key.equals(integration) && each.actsAs.byRequester,
+        );
 
-      if (!offered || !actsAsEachPerson) {
+      if (!provided || !actsAsEachPerson) {
         return false;
       }
 
       const policy =
-        (await this.policies.of(teamId, viewer, source)) ??
-        PersonToolPolicy.none({ teamId, personId: viewer, source });
+        (await this.policies.of(teamId, viewer, integration)) ??
+        PersonToolPolicy.none({ teamId, personId: viewer, integration });
 
       await this.policies.save(policy.set(tool, rule));
 

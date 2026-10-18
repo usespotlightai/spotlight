@@ -1,6 +1,6 @@
 import { ChoiceCard } from '@/components/shared/form/ChoiceCard';
 import type { ReplaySet } from '@/lib/replay';
-import { setRefusal, tasksIn } from '@/lib/search';
+import { setProblemOf, tasksIn } from '@/lib/search';
 
 type SetChoiceProps = {
   set: ReplaySet;
@@ -15,7 +15,7 @@ export function SetChoice({
   disabled,
   onChange,
 }: SetChoiceProps) {
-  const refusal = setRefusal(set);
+  const problem = setProblemOf(set);
   const tasks = tasksIn(set);
 
   return (
@@ -23,9 +23,9 @@ export function SetChoice({
       group="set"
       value={set.id}
       checked={checked}
-      disabled={disabled || refusal !== null}
+      disabled={disabled || problem !== null}
       onChange={onChange}
-      note={refusal}
+      note={problem}
     >
       <span className="min-w-0 truncate text-foreground">{set.name}</span>
       <span className="ml-auto shrink-0 text-muted-foreground text-xs tabular-nums">

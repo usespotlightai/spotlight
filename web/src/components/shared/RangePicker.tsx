@@ -17,7 +17,7 @@ export function RangePicker({
   onChange: (id: string) => void;
   ranges?: readonly Range[];
 }) {
-  const standing = rangeOf(value);
+  const selected = rangeOf(value);
 
   return (
     <DropdownMenu>
@@ -26,9 +26,9 @@ export function RangePicker({
         className="flex h-7 items-center gap-2 rounded-md border border-border px-2 text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent"
       >
         <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground text-xs tabular-nums">
-          {standing.short}
+          {selected.short}
         </span>
-        <span className="text-foreground">{standing.label}</span>
+        <span className="text-foreground">{selected.label}</span>
         <ChevronDown
           className="size-3 shrink-0 text-muted-foreground"
           aria-hidden

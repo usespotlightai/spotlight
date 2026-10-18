@@ -17,11 +17,11 @@ export class ReadTeamHandler
 
   async execute(query: ReadTeamQuery): Promise<TeamResourceDto | null> {
     try {
-      const kept = await this.resources.teamWithId(TeamId.of(query.teamId));
+      const record = await this.resources.teamWithId(TeamId.of(query.teamId));
 
-      return kept &&
-        (await this.access.permissionsIn(kept.workspaceId, query.principal))
-        ? ResourceMapper.team(kept)
+      return record &&
+        (await this.access.permissionsIn(record.workspaceId, query.principal))
+        ? ResourceMapper.team(record)
         : null;
     } catch (error) {
       rethrowAsApplicationError(error);

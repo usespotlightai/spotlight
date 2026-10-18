@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { SECRET_CARRIERS } from '@shared-kernel/domain/value-objects/secret-carriers';
+import { SECRET_LOCATIONS } from '@shared-kernel/domain/value-objects/secret-locations';
 
-export class ReadInNetworkResponseDto {
+export class ExternalSecretRefResponseDto {
   @ApiProperty({ enum: ['aws-secrets-manager'] })
   readonly kind: 'aws-secrets-manager';
 
@@ -25,27 +25,27 @@ export class ReadInNetworkResponseDto {
   }
 }
 
-export class RedeemedSecretResponseDto {
+export class FetchedSecretResponseDto {
   @ApiProperty({ example: 'LINEAR_API_KEY' })
   readonly secret: string;
 
   @ApiProperty({
     example: 'mcp.linear.app',
-    description: 'The one host egress wears it toward',
+    description: 'The one host that egress injects it for',
   })
   readonly host: string;
 
   @ApiProperty({
-    enum: SECRET_CARRIERS,
+    enum: SECRET_LOCATIONS,
     example: 'header',
     description:
-      'Whether egress wears it in a request header or a query parameter',
+      'Whether egress injects it in a request header or in a query parameter',
   })
-  readonly carrier: string;
+  readonly location: string;
 
   @ApiProperty({
     example: 'authorization',
-    description: 'The header or query parameter that holds its stand-in',
+    description: 'The header or query parameter that contains its stand-in',
   })
   readonly name: string;
 
@@ -61,39 +61,39 @@ export class RedeemedSecretResponseDto {
   readonly sealed: string | null;
 
   @ApiProperty({
-    type: ReadInNetworkResponseDto,
+    type: ExternalSecretRefResponseDto,
     nullable: true,
     description:
       'Where egress reads the value with its host’s own identity; null when Spotlight sealed it',
   })
-  readonly readInNetwork: ReadInNetworkResponseDto | null;
+  readonly externalRef: ExternalSecretRefResponseDto | null;
 
   constructor(
     secret: string,
     host: string,
-    carrier: string,
+    location: string,
     name: string,
     prefix: string,
     sealed: string | null,
-    readInNetwork: ReadInNetworkResponseDto | null,
+    externalRef: ExternalSecretRefResponseDto | null,
   ) {
     this.secret = secret;
     this.host = host;
-    this.carrier = carrier;
+    this.location = location;
     this.name = name;
     this.prefix = prefix;
     this.sealed = sealed;
-    this.readInNetwork = readInNetwork;
+    this.externalRef = externalRef;
   }
 }
 
-export class WithheldSecretResponseDto {
+export class DeniedSecretResponseDto {
   @ApiProperty({ example: 'LINEAR_API_KEY' })
   readonly secret: string;
 
   @ApiProperty({
     example:
-      'The workspace holds no secret named LINEAR_API_KEY; define it before anything uses it',
+      'The workspace has no secret named LINEAR_API_KEY; create it before anything uses it',
   })
   readonly reason: string;
 
@@ -106,7 +106,7 @@ export class WithheldSecretResponseDto {
 export class SpotlightApiResponseDto {
   @ApiProperty({
     description:
-      'A read and plan token for this run alone, sealed to the recipient; egress wears it toward the control plane as a bearer token',
+      'A read and plan token for this run alone, sealed to the recipient; egress injects it for the control plane as a bearer token',
   })
   readonly sealed: string;
 
@@ -115,13 +115,13 @@ export class SpotlightApiResponseDto {
   }
 }
 
-export class EgressRedemptionResponseDto {
+export class EgressSecretsResponseDto {
   @ApiProperty({
     type: String,
     nullable: true,
     example: 'run_1',
     description:
-      'The run the sealed values are bound to; null when the sandbox checks a change stack and wears nothing',
+      'The run the sealed values are bound to; null when the sandbox checks a change stack and gets no secrets',
   })
   readonly runId: string | null;
 
@@ -129,9 +129,9 @@ export class EgressRedemptionResponseDto {
     type: [String],
     example: ['storage.example.com'],
     description:
-      'Hosts every sandbox must reach besides the control plane, whatever else the host allows',
+      'Hosts that every sandbox is allowed to connect to besides the control plane, whatever else the host allows',
   })
-  readonly reaches: readonly string[];
+  readonly extraAllowedHosts: readonly string[];
 
   @ApiProperty({
     type: [String],
@@ -141,41 +141,41 @@ export class EgressRedemptionResponseDto {
   })
   readonly bound: readonly string[];
 
-  @ApiProperty({ type: [RedeemedSecretResponseDto] })
-  readonly secrets: readonly RedeemedSecretResponseDto[];
+  @ApiProperty({ type: [FetchedSecretResponseDto] })
+  readonly secrets: readonly FetchedSecretResponseDto[];
 
   @ApiProperty({
-    type: [WithheldSecretResponseDto],
-    description: 'Secrets the run wears that egress will not get, and why',
+    type: [DeniedSecretResponseDto],
+    description: 'The secrets of the run that egress does not get, and why',
   })
-  readonly withheld: readonly WithheldSecretResponseDto[];
+  readonly denied: readonly DeniedSecretResponseDto[];
 
   @ApiProperty({
     type: SpotlightApiResponseDto,
     nullable: true,
     description:
-      'Where the run reaches Spotlight’s own API, the token it reaches it with',
+      'Where the run uses Spotlight’s own API, the token that it uses',
   })
   readonly spotlightApi: SpotlightApiResponseDto | null;
 
   constructor(
     runId: string | null,
-    reaches: readonly string[],
+    extraAllowedHosts: readonly string[],
     bound: readonly string[],
-    secrets: readonly RedeemedSecretResponseDto[],
-    withheld: readonly WithheldSecretResponseDto[],
+    secrets: readonly FetchedSecretResponseDto[],
+    denied: readonly DeniedSecretResponseDto[],
     spotlightApi: SpotlightApiResponseDto | null,
   ) {
     this.runId = runId;
-    this.reaches = reaches;
+    this.extraAllowedHosts = extraAllowedHosts;
     this.bound = bound;
     this.secrets = secrets;
-    this.withheld = withheld;
+    this.denied = denied;
     this.spotlightApi = spotlightApi;
   }
 }
 
-export class EgressAdmissionResponseDto {
+export class EgressAuthorizationResponseDto {
   @ApiProperty({ example: 'runner_1' })
   readonly runnerId: string;
 
@@ -185,14 +185,14 @@ export class EgressAdmissionResponseDto {
   @ApiProperty({
     example: 'app.usespotlight.ai',
     description:
-      'The host of the control plane URL the runner was handed. Before the runner has a run, egress lets it reach only this host',
+      'The host of the control plane URL the runner was handed. Before the runner has a run, egress allows it to connect only to this host',
   })
   readonly controlPlaneHost: string;
 
   @ApiProperty({
     example: 443,
     description:
-      'The port of the control plane URL the runner was handed. Egress lets a sandbox reach the control plane host only on this port',
+      'The port of the control plane URL the runner was handed. Egress allows a sandbox to connect to the control plane host only on this port',
   })
   readonly controlPlanePort: number;
 
@@ -200,34 +200,34 @@ export class EgressAdmissionResponseDto {
     type: [String],
     example: ['storage.example.com'],
     description:
-      'Hosts every sandbox must reach besides the control plane, whatever else the egress allows',
+      'Hosts that every sandbox is allowed to connect to besides the control plane, whatever else the egress allows',
   })
-  readonly reaches: readonly string[];
+  readonly extraAllowedHosts: readonly string[];
 
   constructor(
     runnerId: string,
     workspaceId: string,
     controlPlaneHost: string,
     controlPlanePort: number,
-    reaches: readonly string[],
+    extraAllowedHosts: readonly string[],
   ) {
     this.runnerId = runnerId;
     this.workspaceId = workspaceId;
     this.controlPlaneHost = controlPlaneHost;
     this.controlPlanePort = controlPlanePort;
-    this.reaches = reaches;
+    this.extraAllowedHosts = extraAllowedHosts;
   }
 }
 
-export class EgressHoldsResponseDto {
+export class EgressActiveRunsResponseDto {
   @ApiProperty({
     type: [String],
     description:
-      'The proxy credentials whose runner still holds its work. Egress forgets every other run',
+      'The proxy credentials whose runner still leases its work, or has no work yet. Egress evicts the secrets of every other run',
   })
-  readonly held: readonly string[];
+  readonly active: readonly string[];
 
-  constructor(held: readonly string[]) {
-    this.held = held;
+  constructor(active: readonly string[]) {
+    this.active = active;
   }
 }

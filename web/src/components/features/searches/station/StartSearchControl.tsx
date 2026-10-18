@@ -3,7 +3,7 @@ import { useSearchStart } from '@/hooks/useSearchStart';
 import type { ReplayedStation } from '@/lib/replay';
 
 export function StartSearchControl({ at }: { at: ReplayedStation }) {
-  const { searches, sets, held, refusal } = useSearchStart(at);
+  const { searches, sets, replaySets, problem } = useSearchStart(at);
   const nothingToSearch =
     (searches.data ?? []).length === 0 && sets.data?.length === 0;
 
@@ -11,5 +11,7 @@ export function StartSearchControl({ at }: { at: ReplayedStation }) {
     return null;
   }
 
-  return <StartSearchButton at={at} sets={held} refusedBecause={refusal} />;
+  return (
+    <StartSearchButton at={at} sets={replaySets} disabledBecause={problem} />
+  );
 }

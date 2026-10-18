@@ -1,6 +1,6 @@
 import type { CatalogItem } from '@catalog/domain/entities/catalog-item.entity';
 
-export const catalogRefused = (
+export const catalogProblem = (
   items: readonly CatalogItem[],
 ): string | null => {
   for (const item of items) {
@@ -8,11 +8,11 @@ export const catalogRefused = (
       return `lists ${item.id.value} twice`;
     }
 
-    for (const brought of item.kind === 'skill' ? item.brings : []) {
+    for (const toolId of item.kind === 'skill' ? item.tools : []) {
       if (
-        !items.some((each) => each.kind === 'tool' && each.id.equals(brought))
+        !items.some((each) => each.kind === 'tool' && each.id.equals(toolId))
       ) {
-        return `has the skill ${item.id.value} bring ${brought.value}, which it has no tool for`;
+        return `has the skill ${item.id.value} use ${toolId.value}, which it has no tool for`;
       }
     }
   }

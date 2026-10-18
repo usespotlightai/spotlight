@@ -1,19 +1,19 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
 import {
-  McpAuthorizationRefused,
-  McpQuestionRefused,
-  refusedAuthorization,
+  isUnauthorized,
+  McpQuestionUnsupportedError,
+  McpUnauthorizedError,
   sessionGone,
 } from '@integrations/infrastructure/mcp/mcp-failures';
 import { cappedReply } from '@integrations/infrastructure/outbound/capped-body';
 import { sameHost } from '@integrations/infrastructure/outbound/followed-redirects';
+import {
+  type GuardedFetch,
+  guardedFetch,
+} from '@integrations/infrastructure/outbound/guarded-fetch';
 import { MAX_ANSWER_BYTES } from '@integrations/infrastructure/outbound/http-outbound';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
-import {
-  type PolicedFetch,
-  policedFetch,
-} from '@integrations/infrastructure/outbound/policed-fetch';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {
@@ -24,22 +24,22 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import type { OnModuleDestroy } from '@nestjs/common';
 import {
-  type WornRequest,
-  WornSecrets,
-} from '@secrets/application/contracts/worn-secrets.contract';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+  InjectedSecrets,
+  type InjectionRequest,
+} from '@secrets/application/contracts/injected-secrets.contract';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 
 type Fetch = typeof globalThis.fetch;
 
-export interface McpWearing {
+export interface McpInjection {
   readonly connection: string | null;
   readonly secrets: readonly string[];
   readonly credentials: Credentials;
 }
 
-interface Worn extends McpWearing {
+interface InjectedSession extends McpInjection {
   readonly server: string;
-  seen: WornSecrets;
+  seen: InjectedSecrets;
 }
 
 interface Session {
@@ -55,39 +55,39 @@ const ANSWERS_WITHIN_MS = 60_000;
 
 const MAX_PAGES = 50;
 
-const ASKS = 'elicitation/create';
+const ELICITATION_METHOD = 'elicitation/create';
 
 const NO_STREAM = 405;
 
 const SPOTLIGHT = { name: 'spotlight', version: '1.0.0' };
 
-const unechoedIn = (error: unknown, worn: WornSecrets): void => {
+const unechoedIn = (error: unknown, injected: InjectedSecrets): void => {
   if (!(error instanceof Error)) {
     return;
   }
 
-  error.message = worn.redact(error.message);
+  error.message = injected.redact(error.message);
 
   const { cause } = error as { cause?: unknown };
 
   if (cause instanceof Error) {
-    cause.message = worn.redact(cause.message);
+    cause.message = injected.redact(cause.message);
   }
 };
 
 export class McpSessions implements OnModuleDestroy {
   readonly #idle = new Map<string, Session[]>();
   readonly #busy = new Set<Session>();
-  readonly #worn = new AsyncLocalStorage<Worn>();
-  readonly #fetch: PolicedFetch;
+  readonly #injected = new AsyncLocalStorage<InjectedSession>();
+  readonly #fetch: GuardedFetch;
 
   constructor(
     policy: OutboundPolicy,
     fetch: Fetch = globalThis.fetch,
     private readonly idleMs = IDLE_MS,
   ) {
-    const policed = policedFetch(fetch, policy, (hop, request) =>
-      this.wear(hop.url, request),
+    const guarded = guardedFetch(fetch, policy, (hop, request) =>
+      this.inject(hop.url, request),
     );
 
     this.#fetch = async (url, init) => {
@@ -97,13 +97,13 @@ export class McpSessions implements OnModuleDestroy {
         return new Response(null, { status: NO_STREAM });
       }
 
-      const reply = await policed(url, init);
+      const reply = await guarded(url, init);
 
       return cappedReply(
         reply,
         MAX_ANSWER_BYTES,
         () =>
-          new UpstreamRefusedError(
+          new UpstreamError(
             `reading what ${new URL(url.toString()).host} answered`,
             `it is larger than the ${MAX_ANSWER_BYTES / 1024 / 1024} MB Spotlight reads from a tool`,
           ),
@@ -111,11 +111,15 @@ export class McpSessions implements OnModuleDestroy {
     };
   }
 
-  tools(server: string, wearing: McpWearing): Promise<readonly Tool[]> {
-    const worn: Worn = { ...wearing, server, seen: WornSecrets.none() };
+  tools(server: string, injection: McpInjection): Promise<readonly Tool[]> {
+    const injected: InjectedSession = {
+      ...injection,
+      server,
+      seen: InjectedSecrets.none(),
+    };
 
-    return this.#worn.run(worn, () =>
-      this.unechoed(worn, () => this.listing(server)),
+    return this.#injected.run(injected, () =>
+      this.unechoed(injected, () => this.listing(server)),
     );
   }
 
@@ -124,14 +128,18 @@ export class McpSessions implements OnModuleDestroy {
     server: string,
     tool: string,
     args: Readonly<Record<string, unknown>>,
-    wearing: McpWearing,
+    injection: McpInjection,
   ): Promise<CallToolResult> {
     const pool = `${server} ${key}`;
 
-    const worn: Worn = { ...wearing, server, seen: WornSecrets.none() };
+    const injected: InjectedSession = {
+      ...injection,
+      server,
+      seen: InjectedSecrets.none(),
+    };
 
-    return this.#worn.run(worn, async () =>
-      this.unechoed(worn, () => this.calling(pool, server, tool, args)),
+    return this.#injected.run(injected, async () =>
+      this.unechoed(injected, () => this.calling(pool, server, tool, args)),
     );
   }
 
@@ -160,9 +168,7 @@ export class McpSessions implements OnModuleDestroy {
 
       return tools;
     } catch (error) {
-      throw refusedAuthorization(error)
-        ? new McpAuthorizationRefused(server)
-        : error;
+      throw isUnauthorized(error) ? new McpUnauthorizedError(server) : error;
     } finally {
       if (session) {
         await this.closed(session);
@@ -185,7 +191,7 @@ export class McpSessions implements OnModuleDestroy {
       );
     } catch (error) {
       if (!sessionGone(error)) {
-        throw this.refused(server, error);
+        throw this.unauthorizedOr(server, error);
       }
 
       try {
@@ -196,22 +202,22 @@ export class McpSessions implements OnModuleDestroy {
           args,
         );
       } catch (again) {
-        throw this.refused(server, again);
+        throw this.unauthorizedOr(server, again);
       }
     }
   }
 
   private async unechoed<T>(
-    worn: Worn,
+    injected: InjectedSession,
     answering: () => Promise<T>,
   ): Promise<T> {
     try {
       const answer = await answering();
 
-      return worn.seen.redactedIn(answer) as T;
+      return injected.seen.redactedIn(answer) as T;
     } catch (error) {
-      if (!worn.seen.isEmpty) {
-        unechoedIn(error, worn.seen);
+      if (!injected.seen.isEmpty) {
+        unechoedIn(error, injected.seen);
       }
 
       throw error;
@@ -240,7 +246,7 @@ export class McpSessions implements OnModuleDestroy {
     this.#busy.add(session);
     session.asked = false;
 
-    let kept = false;
+    let reusable = false;
 
     try {
       const result = (await session.client.callTool(
@@ -249,21 +255,21 @@ export class McpSessions implements OnModuleDestroy {
         { timeout: ANSWERS_WITHIN_MS },
       )) as CallToolResult;
 
-      kept = true;
+      reusable = true;
 
       if (result.isError && session.asked) {
-        throw new McpQuestionRefused();
+        throw new McpQuestionUnsupportedError();
       }
 
       return result;
     } catch (error) {
-      kept = error instanceof McpError;
+      reusable = error instanceof McpError;
 
-      throw session.asked ? new McpQuestionRefused() : error;
+      throw session.asked ? new McpQuestionUnsupportedError() : error;
     } finally {
       this.#busy.delete(session);
 
-      if (kept) {
+      if (reusable) {
         this.returned(pool, session);
       } else {
         void this.closed(session);
@@ -291,11 +297,11 @@ export class McpSessions implements OnModuleDestroy {
 
     idle.push(session);
     this.#idle.set(pool, idle);
-    session.idle = setTimeout(() => this.forget(pool, session), this.idleMs);
+    session.idle = setTimeout(() => this.evict(pool, session), this.idleMs);
     session.idle.unref();
   }
 
-  private forget(pool: string, session: Session): void {
+  private evict(pool: string, session: Session): void {
     const idle = this.#idle.get(pool) ?? [];
     const at = idle.indexOf(session);
 
@@ -320,7 +326,7 @@ export class McpSessions implements OnModuleDestroy {
     const session: Session = { client, transport, asked: false, idle: null };
 
     client.fallbackRequestHandler = async (request) => {
-      if (request.method === ASKS) {
+      if (request.method === ELICITATION_METHOD) {
         session.asked = true;
       }
 
@@ -350,30 +356,34 @@ export class McpSessions implements OnModuleDestroy {
     await session.client.close().catch(() => {});
   }
 
-  private refused(server: string, error: unknown): unknown {
-    return refusedAuthorization(error)
-      ? new McpAuthorizationRefused(server)
-      : error;
+  private unauthorizedOr(server: string, error: unknown): unknown {
+    return isUnauthorized(error) ? new McpUnauthorizedError(server) : error;
   }
 
-  private async wear(url: string, request: WornRequest): Promise<WornSecrets> {
-    const worn = this.#worn.getStore();
+  private async inject(
+    url: string,
+    request: InjectionRequest,
+  ): Promise<InjectedSecrets> {
+    const injected = this.#injected.getStore();
 
-    if (!worn || !sameHost(url, worn.server)) {
-      return WornSecrets.none();
+    if (!injected || !sameHost(url, injected.server)) {
+      return InjectedSecrets.none();
     }
 
-    if (worn.connection) {
-      request.headers.authorization = `Bearer ${worn.connection}`;
+    if (injected.connection) {
+      request.headers.authorization = `Bearer ${injected.connection}`;
     }
 
-    if (worn.secrets.length === 0) {
-      return WornSecrets.none();
+    if (injected.secrets.length === 0) {
+      return InjectedSecrets.none();
     }
 
-    const secrets = await worn.credentials.wornToward(url, worn.secrets);
+    const secrets = await injected.credentials.injectedFor(
+      url,
+      injected.secrets,
+    );
     secrets.applyTo(request);
-    worn.seen = secrets;
+    injected.seen = secrets;
 
     return secrets;
   }

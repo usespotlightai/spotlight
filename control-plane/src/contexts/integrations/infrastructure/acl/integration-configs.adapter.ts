@@ -8,20 +8,23 @@ import type {
   IntegrationResourcesPort,
 } from '@integrations/application/ports/integration-resources.port';
 import { IntegrationAddress } from '@integrations/domain/value-objects/integration-address.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
-import { secretsWornBy } from '@integrations/infrastructure/integrations/worn-secrets';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { secretReferencesIn } from '@integrations/infrastructure/integrations/secret-references';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-const heldOn = (
+const configOf = (
   teamKey: string,
-  kept: IntegrationRecord,
+  record: IntegrationRecord,
 ): IntegrationConfig => ({
-  id: kept.id,
-  address: IntegrationAddress.of(teamKey, SourceKey.of(kept.source)).toString(),
-  teamId: kept.teamId,
-  source: kept.source,
-  definition: kept.definition,
-  secretsWorn: secretsWornBy(kept.definition),
+  id: record.id,
+  address: IntegrationAddress.of(
+    teamKey,
+    IntegrationKey.of(record.integration),
+  ).toString(),
+  teamId: record.teamId,
+  integration: record.integration,
+  definition: record.definition,
+  secretReferences: secretReferencesIn(record.definition),
 });
 
 export class IntegrationConfigs implements IntegrationConfigsPort {
@@ -31,10 +34,10 @@ export class IntegrationConfigs implements IntegrationConfigsPort {
   ) {}
 
   async withId(id: string): Promise<IntegrationConfig | null> {
-    const kept = await this.resources.withId(id);
-    const team = kept && (await this.teams.find(kept.teamId));
+    const record = await this.resources.withId(id);
+    const team = record && (await this.teams.find(record.teamId));
 
-    return kept && team ? heldOn(team.key, kept) : null;
+    return record && team ? configOf(team.key, record) : null;
   }
 
   async ofTeam(teamId: TeamId): Promise<readonly IntegrationConfig[]> {
@@ -42,7 +45,7 @@ export class IntegrationConfigs implements IntegrationConfigsPort {
 
     return team
       ? (await this.resources.ofTeam(teamId)).map((each) =>
-          heldOn(team.key, each),
+          configOf(team.key, each),
         )
       : [];
   }

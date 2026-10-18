@@ -29,21 +29,21 @@ export class Scope {
   fieldsAt(path: readonly string[]): readonly string[] {
     const [name, ...within] = path;
     const declared = name === undefined ? undefined : this.declared[name];
-    let held: string | SchemaFields | undefined =
+    let fields: string | SchemaFields | undefined =
       typeof declared === 'object' ? declared.schema : declared;
 
     for (const field of within) {
-      held = this.fieldsOf(held)?.[field];
+      fields = this.fieldsOf(fields)?.[field];
     }
 
-    return Object.keys(this.fieldsOf(held) ?? {}).sort();
+    return Object.keys(this.fieldsOf(fields) ?? {}).sort();
   }
 
   private fieldsOf(
-    held: string | SchemaFields | undefined,
+    fields: string | SchemaFields | undefined,
   ): SchemaFields | undefined {
-    return typeof held === 'string'
-      ? this.types.find(([name]) => name === held)?.[1]
-      : held;
+    return typeof fields === 'string'
+      ? this.types.find(([name]) => name === fields)?.[1]
+      : fields;
   }
 }

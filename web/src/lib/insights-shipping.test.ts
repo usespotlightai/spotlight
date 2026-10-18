@@ -28,7 +28,7 @@ const times = (
 ): StageTimesResponseDto => ({
   total: spread(hours),
   parts: null,
-  jam: UNJUDGED,
+  bottleneckRatio: UNJUDGED,
   worst: NOT_WORST,
   longestPart: null,
   ...over,
@@ -119,8 +119,8 @@ describe('shippingOf', () => {
           week: '2026-09-28',
           merged: 3,
           rounds: [
-            { rounds: '1', merged: 2, share: 2 / 3 },
-            { rounds: '3+', merged: 1, share: 1 / 3 },
+            { rounds: '1', merged: 2, rate: 2 / 3 },
+            { rounds: '3+', merged: 1, rate: 1 / 3 },
           ],
         },
       ],
@@ -147,7 +147,12 @@ describe('shippingOf', () => {
                     running: spread(0.5),
                     inbox: spread(0.25),
                   },
-                  jam: { p50: 1 / 6, p75: 1 / 6, p90: 1 / 6, p95: 1 / 6 },
+                  bottleneckRatio: {
+                    p50: 1 / 6,
+                    p75: 1 / 6,
+                    p90: 1 / 6,
+                    p95: 1 / 6,
+                  },
                   longestPart: {
                     p50: 'running',
                     p75: 'running',
@@ -162,7 +167,7 @@ describe('shippingOf', () => {
             stage('station', byType(2), 'station_gone'),
             stage('inReview', {
               all: times(6, {
-                jam: { p50: 1, p75: 1, p90: 1, p95: 1 },
+                bottleneckRatio: { p50: 1, p75: 1, p90: 1, p95: 1 },
                 worst: { p50: true, p75: true, p90: false, p95: true },
               }),
               types: [{ type: 'fix', times: times(6) }],
@@ -228,7 +233,7 @@ describe('shippingOf', () => {
     ).toEqual(['Coding', 'In review']);
   });
 
-  it('picks the times, jam, worst stage and longest part at the percentile', () => {
+  it('picks the times, bottleneck ratio, worst stage and longest part at the percentile', () => {
     const [build, gone, inReview] = flowStages(
       shipping.pipeline,
       'stations',
@@ -239,12 +244,16 @@ describe('shippingOf', () => {
     expect(build).toMatchObject({
       ms: 3 * HOUR,
       parts: { queued: 0.75 * HOUR, running: 1.5 * HOUR, inbox: 0.75 * HOUR },
-      jam: 1 / 6,
+      bottleneckRatio: 1 / 6,
       worst: false,
       longestPart: 'queued',
     });
     expect(gone?.parts).toBeNull();
-    expect(inReview).toMatchObject({ ms: 18 * HOUR, jam: 1, worst: false });
+    expect(inReview).toMatchObject({
+      ms: 18 * HOUR,
+      bottleneckRatio: 1,
+      worst: false,
+    });
     expect(
       flowStages(shipping.pipeline, 'stations', 'p50', null)[2]?.worst,
     ).toBe(true);
@@ -261,7 +270,7 @@ describe('shippingOf', () => {
     expect(build).toMatchObject({
       ms: null,
       parts: null,
-      jam: 0,
+      bottleneckRatio: 0,
       worst: false,
       longestPart: null,
     });

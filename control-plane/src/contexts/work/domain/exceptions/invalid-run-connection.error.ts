@@ -1,5 +1,5 @@
 export class InvalidRunConnectionError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(field: string, reason: string) {
     super(`The connection record ${field} ${reason}.`);

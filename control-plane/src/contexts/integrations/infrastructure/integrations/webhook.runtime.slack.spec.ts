@@ -39,16 +39,16 @@ webhook:
   respond:
     when: '\${{ body.type == "url_verification" }}'
     body: '\${{ body.challenge }}'
-  mine: '\${{ body.event.bot_id != "" }}'
+  ignoreWhen: '\${{ body.event.bot_id != "" }}'
   events:
     - when: '\${{ body.event.type == "app_mention" }}'
       raise:
         happening: slack.app_mention
         label: Mentioned
-        told: Mentioned Spotlight in Slack.
+        summary: Mentioned Spotlight in Slack.
         opens:
-          onto: delivery
-          at: triage
+          lineRole: delivery
+          station: triage
           title: '\${{ body.event.text }}'
         marks:
           - kind: slack.thread
@@ -60,9 +60,9 @@ webhook:
       raise:
         happening: slack.message.replied
         label: Replied
-        told: Replied in a Slack thread.
-        spoken: true
-        say: '\${{ body.event.text }}'
+        summary: Replied in a Slack thread.
+        answers: true
+        message: '\${{ body.event.text }}'
         marks:
           - kind: slack.thread
             value: '\${{ body.event.channel + ":" + body.event.thread_ts }}'
@@ -82,7 +82,7 @@ actions:
 
 on:
   task.asked:
-    do: post-message
+    action: post-message
     to:
       channel: '\${{ task.marks["slack.channel"] }}'
       thread: '\${{ task.marks["slack.thread"] }}'
@@ -151,19 +151,19 @@ describe('the Slack webhook runtime', () => {
       expect(await runtime().verifies(delivered(mention))).toBe(true);
     });
 
-    it('refuses one signed with another secret', async () => {
+    it('rejects one signed with another secret', async () => {
       expect(await runtime().verifies(delivered(mention, NOW, 'wrong'))).toBe(
         false,
       );
     });
 
-    it('fails one where the workspace holds no such secret', async () => {
+    it('fails one where the workspace has no such secret', async () => {
       await expect(runtime(null).verifies(delivered(mention))).rejects.toThrow(
-        'Secret SLACK_SIGNING_SECRET not found. Please define it first.',
+        'Secret SLACK_SIGNING_SECRET not found. Please create it first.',
       );
     });
 
-    it('refuses a replay outside the freshness window', async () => {
+    it('rejects a replay outside the freshness window', async () => {
       expect(await runtime().verifies(delivered(mention, NOW - 301))).toBe(
         false,
       );
@@ -193,17 +193,17 @@ describe('the Slack webhook runtime', () => {
       const [read] = await runtime().read(delivered(mention));
 
       expect(read?.happening).toBe('slack.app_mention');
-      expect(read?.opens?.onto).toBe('delivery');
-      expect(read?.opens?.at).toBe('triage');
-      expect(read?.concerns.marks).toEqual([
+      expect(read?.opens?.lineRole).toBe('delivery');
+      expect(read?.opens?.station).toBe('triage');
+      expect(read?.correlationKeys.marks).toEqual([
         { kind: 'slack.thread', value: 'C0REQ:170.1' },
       ]);
     });
 
-    it('wears an ambient mark without finding a task by it', async () => {
+    it('has an ambient mark without finding a task by it', async () => {
       const [read] = await runtime().read(delivered(mention));
 
-      expect(read?.concerns.marks.map((each) => each.kind)).toEqual([
+      expect(read?.correlationKeys.marks.map((each) => each.kind)).toEqual([
         'slack.thread',
       ]);
       expect(read?.opens?.marks.map((each) => each.kind)).toEqual([
@@ -216,8 +216,8 @@ describe('the Slack webhook runtime', () => {
       const [read] = await runtime().read(delivered(reply));
 
       expect(read?.happening).toBe('slack.message.replied');
-      expect(read?.spoken).toBe(true);
-      expect(read?.said?.body).toBe('the queue');
+      expect(read?.answers).toBe(true);
+      expect(read?.message?.body).toBe('the queue');
     });
 
     it('marks its own posts as its own doing', async () => {
@@ -260,7 +260,7 @@ webhook:
       raise:
         happening: slack.app_mention
         opens:
-          onto: delivery
+          lineRole: delivery
           title: '\${{ body.event.text }}'
           assignBy:
             email: '\${{ email }}'
@@ -319,7 +319,7 @@ webhook:
       expect(read?.opens?.assignEmail).toBe('dev@acme.test');
     });
 
-    it('opens unassigned where the lookup is refused', async () => {
+    it('opens unassigned where the lookup fails', async () => {
       const { runtime } = looking(null, false);
 
       const [read] = await runtime.read({

@@ -3,9 +3,8 @@ import type { UpdateHookCommand } from '@integrations/application/commands/updat
 import type { HookCompilerPort } from '@integrations/application/ports/hook-compiler.port';
 import { HookProblems } from '@integrations/application/rendering/hook-problems';
 import type { HookAllowancesService } from '@integrations/application/services/hook-allowances.service';
-import { secretGiven } from '@integrations/application/services/signing-secrets';
+import { signingSecretChange } from '@integrations/application/services/signing-secrets';
 import { HookDefinitionVersionConflictError } from '@integrations/domain/exceptions/hook-definition-version-conflict.error';
-import { HookKeyFixedError } from '@integrations/domain/exceptions/hook-key-fixed.error';
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
@@ -16,7 +15,8 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class UpdateHookHandler
   implements CommandHandlerPort<UpdateHookCommand, ResourceUpdated | null>
@@ -33,15 +33,15 @@ export class UpdateHookHandler
     const id = HookDefinitionId.of(command.hookId);
 
     try {
-      const standing = await this.definitions.withId(id);
-      const permissions = standing
+      const existing = await this.definitions.withId(id);
+      const permissions = existing
         ? await this.access.permissionsOnTeam(
-            standing.teamId.value,
+            existing.teamId.value,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -49,7 +49,7 @@ export class UpdateHookHandler
         return forbiddenTo('configure');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const compiled = this.compiler.compile(command.definition);
 
@@ -59,11 +59,11 @@ export class UpdateHookHandler
 
       await this.transaction.inTransaction(async () =>
         this.definitions.save(
-          standing.redefinedAs(
+          existing.update(
             compiled,
-            secretGiven(compiled.secret),
-            await this.allowances.onTeam(standing.teamId),
-            Attribution.of(command.actor, permissions.workspaceId),
+            signingSecretChange(compiled.secret),
+            await this.allowances.onTeam(existing.teamId),
+            ChangeActor.of(command.actor, permissions.workspaceId),
           ),
         ),
       );
@@ -78,12 +78,14 @@ export class UpdateHookHandler
           : null;
       }
 
-      if (error instanceof HookKeyFixedError) {
+      if (error instanceof ImmutableFieldError) {
         const current = await this.definitions.withId(id);
 
         return {
           outcome: 'invalid',
-          problems: [HookProblems.keyFixed(current?.key.value ?? '', error)],
+          problems: [
+            HookProblems.immutableField(current?.key.value ?? '', error),
+          ],
         };
       }
 

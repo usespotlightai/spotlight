@@ -7,9 +7,9 @@ import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo'
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryDrafting } from '@memory/domain/value-objects/memory-drafting.vo';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
-import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
+import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import {
   memoryDraft,
@@ -22,7 +22,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -38,19 +38,19 @@ const draftingOf = (row: DraftRow): MemoryDrafting | null => {
   if (!row.draftingRunId) {
     return null;
   }
-  if (!row.draftingAskedAt) {
+  if (!row.draftingRequestedAt) {
     throw new InconsistentStateError(
       'memory draft',
-      'drafts a run without saying when it was asked',
+      'drafts a run without saying when it was requested',
     );
   }
 
   return MemoryDrafting.rehydrate({
     runId: RunId.of(row.draftingRunId),
-    askedAt: row.draftingAskedAt,
-    work: OwedWork.rehydrate({
-      attempts: row.workAttempts,
-      dueAt: row.workDueAt,
+    requestedAt: row.draftingRequestedAt,
+    job: PendingJob.rehydrate({
+      attempts: row.jobAttempts,
+      nextAttemptAt: row.jobDueAt,
     }),
   });
 };
@@ -80,14 +80,14 @@ const toProposal = (row: ProposalRow): MemoryProposal =>
       repository: row.repository ? Repository.of(row.repository) : null,
       paths: row.paths.map(MemoryPath.of),
     }),
-    grounds: MemoryGrounds.of({
+    provenance: MemoryProvenance.of({
       taskId: TaskId.of(row.taskId),
       runId: RunId.of(row.runId),
       steps: row.steps,
       notes: row.notes,
     }),
     source: row.source,
-    origin: row.origin,
+    proposedBy: row.proposedBy,
     supersedes: row.supersedes ? MemoryId.of(row.supersedes) : null,
     recordedAt: row.recordedAt,
     state: row.state,
@@ -120,9 +120,9 @@ const toDraft = (
 
 const columnsOf = (draft: MemoryDraft) => ({
   draftingRunId: draft.drafting?.runId.value ?? null,
-  draftingAskedAt: draft.drafting?.askedAt ?? null,
-  workAttempts: draft.drafting?.work.attempts ?? 0,
-  workDueAt: draft.drafting?.work.dueAt ?? null,
+  draftingRequestedAt: draft.drafting?.requestedAt ?? null,
+  jobAttempts: draft.drafting?.job.attempts ?? 0,
+  jobDueAt: draft.drafting?.job.nextAttemptAt ?? null,
   draftedIn: draft.draftedIn?.value ?? null,
   notesRead: draft.notesRead,
   failure: draft.failure?.code ?? null,
@@ -141,12 +141,12 @@ const proposalRows = (draft: MemoryDraft) =>
     stationId: each.scope.stationId,
     repository: each.scope.repository?.value ?? null,
     paths: each.scope.paths.map((path) => path.value),
-    taskId: each.grounds.taskId.value,
-    runId: each.grounds.runId.value,
-    steps: [...each.grounds.steps],
-    notes: [...each.grounds.notes],
+    taskId: each.provenance.taskId.value,
+    runId: each.provenance.runId.value,
+    steps: [...each.provenance.steps],
+    notes: [...each.provenance.notes],
     source: each.source,
-    origin: each.origin,
+    proposedBy: each.proposedBy,
     supersedes: each.supersedes?.value ?? null,
     recordedAt: each.recordedAt,
     state: each.state,
@@ -229,17 +229,17 @@ export class DrizzleMemoryDraftRepository implements MemoryDraftRepository {
     return row ? this.withProposals(row) : null;
   }
 
-  async dueForWork(now: Date): Promise<MemoryDraft | null> {
+  async nextDueJob(now: Date): Promise<MemoryDraft | null> {
     const [row] = await this.context.db
       .select()
       .from(memoryDraft)
       .where(
         and(
           isNotNull(memoryDraft.draftingRunId),
-          or(isNull(memoryDraft.workDueAt), lte(memoryDraft.workDueAt, now)),
+          or(isNull(memoryDraft.jobDueAt), lte(memoryDraft.jobDueAt, now)),
         ),
       )
-      .orderBy(asc(memoryDraft.draftingAskedAt))
+      .orderBy(asc(memoryDraft.draftingRequestedAt))
       .limit(1)
       .for('update', { skipLocked: true });
 

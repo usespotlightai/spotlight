@@ -9,6 +9,7 @@ import {
   LinePlan,
   type StationPlan,
 } from '@work/domain/value-objects/line-plan.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { StationAlert } from '@work/domain/value-objects/station-alert.vo';
 import { StationCheck } from '@work/domain/value-objects/station-check.vo';
@@ -16,7 +17,6 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { describe, expect, it } from 'vitest';
 
 const MERGED = Happening.of('github.pull_request.merged');
@@ -67,8 +67,8 @@ const plan = (over: Partial<Parameters<typeof LinePlan.of>[0]> = {}) =>
     ...over,
   });
 
-const worked = (name: string, setup?: string) =>
-  WorkedRepository.of(Repository.of(name), {
+const repositoryConfig = (name: string, setup?: string) =>
+  LineRepositoryConfig.of(Repository.of(name), {
     setup: setup ? RepositorySetup.of(setup) : null,
   });
 
@@ -86,7 +86,7 @@ const withStations = (middle: StationPlan) => [
   completed(),
 ];
 
-const refusal = (make: () => unknown): InvalidLinePlanError => {
+const errorOf = (make: () => unknown): InvalidLinePlanError => {
   try {
     make();
   } catch (error) {
@@ -95,12 +95,12 @@ const refusal = (make: () => unknown): InvalidLinePlanError => {
     }
     throw error;
   }
-  throw new Error('was not refused');
+  throw new Error('was not rejected');
 };
 
 describe('LinePlan', () => {
   it('describes a line, its stations and what words do to a task', () => {
-    const held = plan({
+    const parsed = plan({
       reactions: [
         {
           happening: MERGED,
@@ -109,34 +109,34 @@ describe('LinePlan', () => {
         },
       ],
       repositories: [
-        WorkedRepository.of(Repository.of('acme/api'), {
+        LineRepositoryConfig.of(Repository.of('acme/api'), {
           image: RunnerImage.of('ghcr.io/acme/api:1'),
         }),
       ],
     });
 
-    expect(held.key.value).toBe('default');
-    expect(held.stations.map((each) => each.key.value)).toEqual([
+    expect(parsed.key.value).toBe('default');
+    expect(parsed.stations.map((each) => each.key.value)).toEqual([
       'backlog',
       'code-review',
       'completed',
     ]);
-    expect(held.reactions).toHaveLength(1);
-    expect(held.role).toBeNull();
-    expect(held.repositories.all.map((each) => each.value)).toEqual([
+    expect(parsed.reactions).toHaveLength(1);
+    expect(parsed.role).toBeNull();
+    expect(parsed.repositories.all.map((each) => each.value)).toEqual([
       'acme/api',
     ]);
-    expect(held.repositories.image?.value).toBe('ghcr.io/acme/api:1');
+    expect(parsed.repositories.image?.value).toBe('ghcr.io/acme/api:1');
   });
 
-  it('refuses one describing no stations at all', () => {
-    const refused = refusal(() => plan({ stations: [] }));
+  it('rejects one describing no stations at all', () => {
+    const error = errorOf(() => plan({ stations: [] }));
 
-    expect(refused.message).toMatch(/at least one/);
-    expect(refused.part).toEqual({ of: 'line', field: 'stations' });
+    expect(error.message).toMatch(/at least one/);
+    expect(error.part).toEqual({ of: 'line', field: 'stations' });
   });
 
-  it('refuses one naming a station twice', () => {
+  it('rejects one naming a station twice', () => {
     expect(() =>
       plan({
         stations: [
@@ -149,7 +149,7 @@ describe('LinePlan', () => {
     ).toThrow(/code-review repeats/);
   });
 
-  it('refuses one that does not open with its backlog', () => {
+  it('rejects one that does not open with its backlog', () => {
     expect(() =>
       plan({ stations: [station('code-review'), backlog(), completed()] }),
     ).toThrow(/must start with the backlog/);
@@ -158,7 +158,7 @@ describe('LinePlan', () => {
     ).toThrow(/exactly one backlog, not 0/);
   });
 
-  it('refuses one that does not close with completed', () => {
+  it('rejects one that does not close with completed', () => {
     expect(() =>
       plan({ stations: [backlog(), completed(), station('code-review')] }),
     ).toThrow(/must end with the completed station/);
@@ -167,8 +167,8 @@ describe('LinePlan', () => {
     ).toThrow(/exactly one completed station, not 0/);
   });
 
-  it('refuses work passing on from where the line ends', () => {
-    const refused = refusal(() =>
+  it('rejects work passing on from where the line ends', () => {
+    const error = errorOf(() =>
       plan({
         stations: [
           backlog(),
@@ -178,18 +178,16 @@ describe('LinePlan', () => {
       }),
     );
 
-    expect(refused.message).toMatch(
-      /cannot pass on from the completed station/,
-    );
-    expect(refused.part).toEqual({
+    expect(error.message).toMatch(/cannot pass on from the completed station/);
+    expect(error.part).toEqual({
       of: 'station',
       station: 'completed',
       field: 'passesTo',
     });
   });
 
-  it('refuses a station handing work on to itself', () => {
-    const refused = refusal(() =>
+  it('rejects a station passing work to itself', () => {
+    const error = errorOf(() =>
       plan({
         stations: [
           backlog(),
@@ -201,16 +199,16 @@ describe('LinePlan', () => {
       }),
     );
 
-    expect(refused.message).toMatch(/cannot pass to themselves/);
-    expect(refused.part).toEqual({
+    expect(error.message).toMatch(/cannot pass to themselves/);
+    expect(error.part).toEqual({
       of: 'station',
       station: 'code-review',
       field: 'passesTo',
     });
   });
 
-  it('refuses work passing to a station it does not describe', () => {
-    const refused = refusal(() =>
+  it('rejects work passing to a station it does not describe', () => {
+    const error = errorOf(() =>
       plan({
         stations: [
           backlog({ passesTo: [StationKey.of('nowhere')] }),
@@ -220,16 +218,16 @@ describe('LinePlan', () => {
       }),
     );
 
-    expect(refused.message).toMatch(/must pass to work stations/);
-    expect(refused.part).toEqual({
+    expect(error.message).toMatch(/must pass to work stations/);
+    expect(error.part).toEqual({
       of: 'station',
       station: 'backlog',
       field: 'passesTo',
     });
   });
 
-  it('refuses a judge at the backlog, where nothing runs to be judged', () => {
-    const refused = refusal(() =>
+  it('rejects a judge at the backlog, where nothing runs to be judged', () => {
+    const error = errorOf(() =>
       plan({
         stations: [
           backlog({
@@ -237,7 +235,7 @@ describe('LinePlan', () => {
             judge: StationJudge.of({
               rubric: 'A good run.',
               sample: 0.2,
-              trust: 0.6,
+              minAgreement: 0.6,
             }),
           }),
           station('code-review', { ends: true }),
@@ -246,16 +244,16 @@ describe('LinePlan', () => {
       }),
     );
 
-    expect(refused.message).toMatch(/no runs to judge/);
-    expect(refused.part).toEqual({
+    expect(error.message).toMatch(/no runs to judge/);
+    expect(error.part).toEqual({
       of: 'station',
       station: 'backlog',
       field: 'judge',
     });
   });
 
-  it('refuses alerts where the line ends, since nothing runs there', () => {
-    const refused = refusal(() =>
+  it('rejects alerts where the line ends, since nothing runs there', () => {
+    const error = errorOf(() =>
       plan({
         stations: [
           backlog({ passesTo: [StationKey.of('code-review')] }),
@@ -269,7 +267,7 @@ describe('LinePlan', () => {
       }),
     );
 
-    expect(refused.part).toEqual({
+    expect(error.part).toEqual({
       of: 'station',
       station: 'completed',
       field: 'alerts',
@@ -285,7 +283,7 @@ describe('LinePlan', () => {
             judge: StationJudge.of({
               rubric: 'A good run.',
               sample: 0.2,
-              trust: 0.6,
+              minAgreement: 0.6,
             }),
             alerts: [
               StationAlert.of({
@@ -300,7 +298,7 @@ describe('LinePlan', () => {
     ).not.toThrow();
   });
 
-  it('refuses work passing to a station nobody works', () => {
+  it('rejects work passing to a station nobody works', () => {
     expect(() =>
       plan({
         stations: [
@@ -312,8 +310,8 @@ describe('LinePlan', () => {
     ).toThrow(/must pass to work stations/);
   });
 
-  it('refuses a word taking a task to a station it does not describe', () => {
-    const refused = refusal(() =>
+  it('rejects a word taking a task to a station it does not describe', () => {
+    const error = errorOf(() =>
       plan({
         reactions: [
           {
@@ -325,12 +323,12 @@ describe('LinePlan', () => {
       }),
     );
 
-    expect(refused.message).toMatch(/to a station on this line/);
-    expect(refused.part).toEqual({ of: 'reaction', place: 0, field: 'to' });
+    expect(error.message).toMatch(/to a station on this line/);
+    expect(error.part).toEqual({ of: 'reaction', place: 0, field: 'to' });
   });
 
-  it('refuses a word waiting at a station it does not describe', () => {
-    const refused = refusal(() =>
+  it('rejects a word waiting at a station it does not describe', () => {
+    const error = errorOf(() =>
       plan({
         reactions: [
           {
@@ -342,12 +340,12 @@ describe('LinePlan', () => {
       }),
     );
 
-    expect(refused.message).toMatch(/at a station on this line/);
-    expect(refused.part).toEqual({ of: 'reaction', place: 0, field: 'from' });
+    expect(error.message).toMatch(/at a station on this line/);
+    expect(error.part).toEqual({ of: 'reaction', place: 0, field: 'from' });
   });
 
-  it('refuses two stations waiting for the same word from the same place', () => {
-    const refused = refusal(() =>
+  it('rejects two stations waiting for the same word from the same place', () => {
+    const error = errorOf(() =>
       plan({
         reactions: [
           { happening: MERGED, from: null, to: StationKey.of('code-review') },
@@ -356,75 +354,81 @@ describe('LinePlan', () => {
       }),
     );
 
-    expect(refused.message).toMatch(/two wait for/);
-    expect(refused.part).toEqual({ of: 'reaction', place: 1, field: null });
+    expect(error.message).toMatch(/two wait for/);
+    expect(error.part).toEqual({ of: 'reaction', place: 1, field: null });
   });
 
-  it('refuses repositories it could not work in', () => {
-    const repository = WorkedRepository.of(Repository.of('acme/api'));
-    const refused = refusal(() =>
+  it('rejects repositories it could not work in', () => {
+    const repository = LineRepositoryConfig.of(Repository.of('acme/api'));
+    const error = errorOf(() =>
       plan({ repositories: [repository, repository] }),
     );
 
-    expect(refused.part).toEqual({ of: 'line', field: 'repositories' });
+    expect(error.part).toEqual({ of: 'line', field: 'repositories' });
   });
 
-  it('refuses repositories that would run in different images', () => {
-    const refused = refusal(() =>
+  it('rejects repositories that would run in different images', () => {
+    const error = errorOf(() =>
       plan({
         repositories: [
-          WorkedRepository.of(Repository.of('acme/api'), {
+          LineRepositoryConfig.of(Repository.of('acme/api'), {
             image: RunnerImage.of('ghcr.io/acme/api:1'),
           }),
-          WorkedRepository.of(Repository.of('acme/web'), {
+          LineRepositoryConfig.of(Repository.of('acme/web'), {
             image: RunnerImage.of('ghcr.io/acme/web:1'),
           }),
         ],
       }),
     );
 
-    expect(refused.part).toEqual({ of: 'line', field: 'repositories' });
+    expect(error.part).toEqual({ of: 'line', field: 'repositories' });
   });
 
-  it('refuses a station checking its layers while a repository says nothing of how its checkout is made ready', () => {
-    const refused = refusal(() =>
+  it('rejects a station checking its layers while a repository says nothing of how its checkout is made ready', () => {
+    const error = errorOf(() =>
       plan({
         stations: withStations(checking()),
-        repositories: [worked('acme/api', 'npm ci'), worked('acme/web')],
+        repositories: [
+          repositoryConfig('acme/api', 'npm ci'),
+          repositoryConfig('acme/web'),
+        ],
       }),
     );
 
-    expect(refused.message).toMatch(/Station code-review checks its layers/);
-    expect(refused.message).toMatch(/acme\/web/);
-    expect(refused.part).toEqual({
+    expect(error.message).toMatch(/Station code-review checks its layers/);
+    expect(error.message).toMatch(/acme\/web/);
+    expect(error.part).toEqual({
       of: 'repository',
       place: 1,
       field: 'setup',
     });
   });
 
-  it('holds a station checking its layers once every repository says how its checkout is made ready', () => {
-    const held = plan({
+  it('accepts a station checking its layers once every repository says how its checkout is made ready', () => {
+    const parsed = plan({
       stations: withStations(checking()),
-      repositories: [worked('acme/api', 'npm ci'), worked('acme/web', 'make')],
+      repositories: [
+        repositoryConfig('acme/api', 'npm ci'),
+        repositoryConfig('acme/web', 'make'),
+      ],
     });
 
-    expect(held.repositories.setupOf(Repository.of('acme/web'))?.value).toBe(
+    expect(parsed.repositories.setupOf(Repository.of('acme/web'))?.value).toBe(
       'make',
     );
   });
 
-  it('asks no setup of repositories when no station checks its layers', () => {
+  it('requires no setup of repositories when no station checks its layers', () => {
     expect(() =>
       plan({
         stations: withStations(checking({ diffs: false })),
-        repositories: [worked('acme/api')],
+        repositories: [repositoryConfig('acme/api')],
       }),
     ).not.toThrow();
     expect(() =>
       plan({
         stations: withStations(checking({ check: null })),
-        repositories: [worked('acme/api')],
+        repositories: [repositoryConfig('acme/api')],
       }),
     ).not.toThrow();
   });

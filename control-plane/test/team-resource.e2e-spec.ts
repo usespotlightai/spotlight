@@ -1,15 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import {
-  TEAM_HOLDINGS,
-  type TeamHoldingsPort,
-} from '@identity/application/ports/team-holdings.port';
+  TEAM_DEPENDENTS,
+  type TeamDependentsPort,
+} from '@identity/application/ports/team-dependents.port';
 import type { INestApplication } from '@nestjs/common';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { TEAM_DISBANDED } from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
+import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -38,18 +38,18 @@ import { seatTeam } from './support/team';
 
 const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   const db = app.get<DrizzleDatabase>(DRIZZLE);
-  const held = `teams-${randomUUID().slice(0, 8)}`;
-  const seat = await seatTeam(db, held);
+  const workspaceId = `teams-${randomUUID().slice(0, 8)}`;
+  const seat = await seatTeam(db, workspaceId);
 
   return {
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/workspaces/${held}/teams`,
+    collection: `/api/resources/workspaces/${workspaceId}/teams`,
     item: (id) => `/api/resources/teams/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${held}/teams/import?address=${encodeURIComponent(address)}`,
+      `/api/resources/workspaces/${workspaceId}/teams/import?address=${encodeURIComponent(address)}`,
     listing: (workspaceId) => `/api/resources/workspaces/${workspaceId}/teams`,
-    workspaceOf: () => held,
+    workspaceOf: () => workspaceId,
     address: 'core',
     valid: { key: 'core', name: 'Core' },
     changed: { key: 'core', name: 'Core, again' },
@@ -113,7 +113,7 @@ describe('a team, created through the resource API (e2e)', () => {
     await fixture.close();
   });
 
-  it('opens bare, with none of the lines or the welcome a team made at sign-up gets', async () => {
+  it('is created bare, with none of the lines or the welcome a team made at sign-up gets', async () => {
     const made = await create(fixture.valid);
     const recorded = await app
       .get<DrizzleDatabase>(DRIZZLE)
@@ -162,7 +162,7 @@ describe('a team, created through the resource API (e2e)', () => {
     ]);
   });
 
-  it('will not be deleted while it holds a line', async () => {
+  it('will not be deleted while it has a line', async () => {
     const made = await create(fixture.valid);
 
     await app.get<DrizzleDatabase>(DRIZZLE).insert(schema.line).values({
@@ -173,10 +173,10 @@ describe('a team, created through the resource API (e2e)', () => {
       name: 'Delivery',
     });
 
-    const refused = await remove(made.body.id, made.body.version);
+    const rejected = await remove(made.body.id, made.body.version);
 
-    expect(refused.status).toBe(409);
-    expect(refused.body).toMatchObject({
+    expect(rejected.status).toBe(409);
+    expect(rejected.body).toMatchObject({
       type: 'urn:spotlight:problem:in-use',
       detail: expect.stringContaining('line delivery'),
     });
@@ -192,12 +192,12 @@ describe('a team, created through the resource API (e2e)', () => {
       );
   });
 
-  const holdEverything = async (teamId: string) => {
+  const addEveryDependent = async (teamId: string) => {
     let next = 0;
 
     await app.get(DrizzleLineRepository).add(
-      Line.open({
-        by: attributedIn(),
+      Line.create({
+        by: changeActorIn(),
         workspaceId: WorkspaceId.of(workspaceId),
         teamId: TeamId.of(teamId),
         line: BUILT_IN_LINES[0] as LineOpening,
@@ -216,9 +216,9 @@ describe('a team, created through the resource API (e2e)', () => {
     await db.insert(schema.integrationDefinition).values({
       id: randomUUID(),
       teamId,
-      source: 'linear',
+      integration: 'linear',
       definition: { integration: 'linear' },
-      offers: [],
+      tools: [],
     });
     await db.insert(schema.harnessProfile).values({
       id: randomUUID(),
@@ -230,7 +230,7 @@ describe('a team, created through the resource API (e2e)', () => {
     });
   };
 
-  const heldBy = async (teamId: string) => {
+  const dependentsOf = async (teamId: string) => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
 
     return [
@@ -243,7 +243,7 @@ describe('a team, created through the resource API (e2e)', () => {
         .from(schema.skillDefinition)
         .where(eq(schema.skillDefinition.teamId, teamId))),
       ...(await db
-        .select({ key: schema.integrationDefinition.source })
+        .select({ key: schema.integrationDefinition.integration })
         .from(schema.integrationDefinition)
         .where(eq(schema.integrationDefinition.teamId, teamId))),
       ...(await db
@@ -261,21 +261,21 @@ describe('a team, created through the resource API (e2e)', () => {
     }
   };
 
-  const abandon = (teamId: string) =>
+  const deleteTeam = (teamId: string) =>
     delivered({
-      kind: TEAM_DISBANDED,
+      kind: TEAM_DELETED,
       workspaceId,
       teamId,
       key: 'core',
     } as DomainEvent);
 
-  it('counts every kind of thing a team can hold, from every context', async () => {
+  it('counts every kind of dependent a team can have, from every context', async () => {
     const teamId = randomUUID();
 
-    await holdEverything(teamId);
+    await addEveryDependent(teamId);
 
     expect(
-      await app.get<TeamHoldingsPort>(TEAM_HOLDINGS).of(TeamId.of(teamId)),
+      await app.get<TeamDependentsPort>(TEAM_DEPENDENTS).of(TeamId.of(teamId)),
     ).toEqual(
       expect.arrayContaining([
         `line ${(BUILT_IN_LINES[0] as LineOpening).key.value}`,
@@ -285,42 +285,42 @@ describe('a team, created through the resource API (e2e)', () => {
       ]),
     );
 
-    await abandon(teamId);
+    await deleteTeam(teamId);
   });
 
-  it('abandons, in every context, whatever reached a team as it disbanded', async () => {
+  it('deletes, in every context, whatever arrived for a team as it was deleted', async () => {
     const teamId = randomUUID();
 
-    await holdEverything(teamId);
-    await abandon(teamId);
+    await addEveryDependent(teamId);
+    await deleteTeam(teamId);
 
     expect(
       app
         .get(EventSubscribers)
-        .listeningTo(TEAM_DISBANDED)
+        .listeningTo(TEAM_DELETED)
         .map((each) => each.name)
         .sort(),
     ).toEqual([
-      'configuration.abandon-harness-profiles-of-disbanded-team',
-      'configuration.abandon-skills-of-disbanded-team',
-      'integrations.abandon-integrations-of-disbanded-team',
-      'integrations.forget-connections-of-disbanded-team',
-      'outcomes.forget-alerts-of-disbanded-team',
-      'outcomes.forget-chats-of-disbanded-team',
-      'outcomes.forget-config-pull-requests-of-disbanded-team',
-      'outcomes.forget-deliveries-of-disbanded-team',
-      'outcomes.forget-failures-of-disbanded-team',
-      'outcomes.forget-judgings-and-scores-of-disbanded-team',
-      'outcomes.forget-pull-requests-of-disbanded-team',
-      'outcomes.forget-runs-of-disbanded-team',
-      'outcomes.forget-touches-of-disbanded-team',
-      'replays.abandon-config-pull-requests-of-disbanded-team',
-      'replays.abandon-replay-checks-of-disbanded-team',
-      'replays.abandon-replays-of-disbanded-team',
-      'replays.abandon-searches-of-disbanded-team',
-      'work.abandon-lines-of-disbanded-team',
-      'work.forget-notices-of-disbanded-team',
+      'configuration.delete-harness-profiles-of-deleted-team',
+      'configuration.delete-skills-of-deleted-team',
+      'insights.delete-alerts-of-deleted-team',
+      'insights.delete-chats-of-deleted-team',
+      'insights.delete-config-pull-requests-of-deleted-team',
+      'insights.delete-failures-of-deleted-team',
+      'insights.delete-human-actions-of-deleted-team',
+      'insights.delete-judgings-and-scores-of-deleted-team',
+      'insights.delete-pull-requests-of-deleted-team',
+      'insights.delete-runs-of-deleted-team',
+      'insights.delete-task-pull-requests-of-deleted-team',
+      'integrations.delete-connections-of-deleted-team',
+      'integrations.delete-integrations-of-deleted-team',
+      'replays.delete-config-pull-requests-of-deleted-team',
+      'replays.delete-replay-checks-of-deleted-team',
+      'replays.delete-replays-of-deleted-team',
+      'replays.delete-searches-of-deleted-team',
+      'work.delete-lines-of-deleted-team',
+      'work.delete-notices-of-deleted-team',
     ]);
-    expect(await heldBy(teamId)).toEqual([]);
+    expect(await dependentsOf(teamId)).toEqual([]);
   });
 });

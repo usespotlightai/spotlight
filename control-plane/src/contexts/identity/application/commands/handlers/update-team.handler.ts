@@ -1,8 +1,10 @@
 import type { UpdateTeamCommand } from '@identity/application/commands/update-team.command';
 import type { IdentityDefinitionsPort } from '@identity/application/ports/identity-definitions.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import { IdentityProblems } from '@identity/application/rendering/identity-problems';
-import { TeamKeyFixedError } from '@identity/domain/exceptions/team-key-fixed.error';
+import {
+  IdentityProblems,
+  TEAM,
+} from '@identity/application/rendering/identity-problems';
 import { TeamVersionConflictError } from '@identity/domain/exceptions/team-version-conflict.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import {
@@ -12,7 +14,8 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class UpdateTeamHandler
@@ -29,15 +32,15 @@ export class UpdateTeamHandler
     const id = TeamId.of(command.teamId);
 
     try {
-      const standing = await this.teams.find(id);
-      const permissions = standing
+      const existing = await this.teams.find(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -45,7 +48,7 @@ export class UpdateTeamHandler
         return forbiddenTo('configure');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.team(command.definition);
 
@@ -55,9 +58,9 @@ export class UpdateTeamHandler
 
       await this.transaction.inTransaction(() =>
         this.teams.save(
-          standing.redefinedAs(
+          existing.update(
             compiled,
-            Attribution.of(command.actor, standing.workspaceId),
+            ChangeActor.of(command.actor, existing.workspaceId),
           ),
         ),
       );
@@ -72,10 +75,10 @@ export class UpdateTeamHandler
           : null;
       }
 
-      if (error instanceof TeamKeyFixedError) {
+      if (error instanceof ImmutableFieldError) {
         return {
           outcome: 'invalid',
-          problems: [IdentityProblems.keyFixed(error)],
+          problems: [IdentityProblems.immutableField(TEAM, error)],
         };
       }
 

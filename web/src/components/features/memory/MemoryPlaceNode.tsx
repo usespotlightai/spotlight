@@ -1,4 +1,4 @@
-import { MemoryPlaceFold } from '@/components/features/memory/MemoryPlaceFold';
+import { MemoryPlaceToggle } from '@/components/features/memory/MemoryPlaceToggle';
 import type { PlaceNode } from '@/lib/memory';
 import { cn } from '@/lib/utils';
 
@@ -28,8 +28,8 @@ type MemoryPlaceNodeProps = {
   root?: boolean;
   last: boolean;
   open: boolean;
-  folded: ReadonlySet<string>;
-  onFold: (at: string) => void;
+  collapsed: ReadonlySet<string>;
+  onToggle: (at: string) => void;
 };
 
 export function MemoryPlaceNode({
@@ -38,11 +38,11 @@ export function MemoryPlaceNode({
   root = false,
   last,
   open,
-  folded,
-  onFold,
+  collapsed,
+  onToggle,
 }: MemoryPlaceNodeProps) {
   const branches = node.children.length > 0;
-  const hidden = folded.has(at);
+  const hidden = collapsed.has(at);
 
   return (
     <li
@@ -58,11 +58,11 @@ export function MemoryPlaceNode({
         )}
       >
         {branches && (
-          <MemoryPlaceFold
+          <MemoryPlaceToggle
             label={node.label}
             hidden={hidden}
             open={open}
-            onFold={() => onFold(at)}
+            onToggle={() => onToggle(at)}
           />
         )}
         {node.joinedBy && (
@@ -74,7 +74,7 @@ export function MemoryPlaceNode({
           </span>
         )}
         <span
-          data-glide-part
+          data-transition-part
           className="min-w-0 truncate group-data-clamped/row:shrink-0 group-data-clamped/row:overflow-visible"
         >
           {node.label}
@@ -95,8 +95,8 @@ export function MemoryPlaceNode({
               at={`${at}/${child.label}`}
               last={index === node.children.length - 1}
               open={open}
-              folded={folded}
-              onFold={onFold}
+              collapsed={collapsed}
+              onToggle={onToggle}
             />
           ))}
         </ul>

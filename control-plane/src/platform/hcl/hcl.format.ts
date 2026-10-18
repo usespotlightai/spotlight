@@ -17,7 +17,7 @@ type Line =
       readonly assigned: string;
     };
 
-interface Shown {
+interface Rendered {
   readonly first: string;
   readonly rest: readonly Line[];
 }
@@ -85,11 +85,11 @@ const closedWithComma = (lines: readonly Line[]): readonly Line[] =>
       : line,
   );
 
-const spanned = (items: readonly HclValue[], indent: number): Shown => ({
+const spanned = (items: readonly HclValue[], indent: number): Rendered => ({
   first: '[',
   rest: [
     ...items.flatMap((each) => {
-      const item = shown(each, indent + 1, false);
+      const item = rendered(each, indent + 1, false);
 
       return item.rest.length === 0
         ? [{ indent: indent + 1, text: `${item.first},` }]
@@ -102,9 +102,13 @@ const spanned = (items: readonly HclValue[], indent: number): Shown => ({
   ],
 });
 
-const shown = (value: HclValue, indent: number, spans: boolean): Shown => {
+const rendered = (
+  value: HclValue,
+  indent: number,
+  spans: boolean,
+): Rendered => {
   if (value instanceof HclExpression) {
-    return { first: value.written, rest: [] };
+    return { first: value.sourceText, rest: [] };
   }
 
   if (typeof value === 'string') {
@@ -121,7 +125,7 @@ const shown = (value: HclValue, indent: number, spans: boolean): Shown => {
   if (isList(value)) {
     if (value.every(fitsOnOneLine)) {
       return {
-        first: `[${value.map((each) => shown(each, indent, false).first).join(', ')}]`,
+        first: `[${value.map((each) => rendered(each, indent, false).first).join(', ')}]`,
         rest: [],
       };
     }
@@ -153,7 +157,7 @@ const assignment = (
   value: HclValue,
   indent: number,
 ): readonly Line[] => {
-  const { first, rest } = shown(value, indent, true);
+  const { first, rest } = rendered(value, indent, true);
 
   return rest.length === 0
     ? [{ indent, lead, assigned: first }]
@@ -190,14 +194,14 @@ const blockLines = (block: HclBlock, indent: number): readonly Line[] => {
 };
 
 const aligned = (lines: readonly Line[]): string[] => {
-  const written: string[] = [];
+  const output: string[] = [];
   let run: { indent: number; lead: string; assigned: string }[] = [];
 
-  const settle = () => {
+  const flush = () => {
     const width = Math.max(...run.map((each) => each.lead.length));
 
     for (const each of run) {
-      written.push(
+      output.push(
         `${'  '.repeat(each.indent)}${each.lead.padEnd(width)} = ${each.assigned}`,
       );
     }
@@ -211,15 +215,15 @@ const aligned = (lines: readonly Line[]): string[] => {
       continue;
     }
 
-    settle();
-    written.push(
+    flush();
+    output.push(
       line.text === '' ? '' : `${'  '.repeat(line.indent)}${line.text}`,
     );
   }
 
-  settle();
+  flush();
 
-  return written;
+  return output;
 };
 
 export const formatHcl = (blocks: readonly HclBlock[]): string =>
@@ -230,7 +234,7 @@ export const formatHclValue = (
   indent: number,
   spans = true,
 ): string => {
-  const { first, rest } = shown(value, indent, spans);
+  const { first, rest } = rendered(value, indent, spans);
 
   return [first, ...aligned(rest)].join('\n');
 };

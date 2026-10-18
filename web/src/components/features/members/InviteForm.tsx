@@ -29,7 +29,7 @@ type InviteFormProps = {
   teamIds: readonly string[];
   sending: boolean;
   failure: string | null;
-  onSend: (terms: InviteToWorkspaceRequestDto) => void;
+  onSend: (spec: InviteToWorkspaceRequestDto) => void;
   onEdit: () => void;
 };
 

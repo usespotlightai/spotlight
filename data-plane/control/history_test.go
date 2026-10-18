@@ -10,11 +10,11 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-type refusal interface {
-	Refused() (string, bool)
+type clientError interface {
+	ClientErrorMessage() (string, bool)
 }
 
-func TestHistoryAsksForTheStationWithEscapedFilters(t *testing.T) {
+func TestHistoryRequestsTheStationWithEscapedFilters(t *testing.T) {
 	var path, query, auth string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		path, query, auth = r.URL.EscapedPath(), r.URL.RawQuery, r.Header.Get("Authorization")
@@ -43,7 +43,7 @@ func TestHistoryAsksForTheStationWithEscapedFilters(t *testing.T) {
 	}
 }
 
-func TestHistoryLeavesOutFiltersThatWereNotGiven(t *testing.T) {
+func TestHistoryLeavesOutFiltersThatWereNotSet(t *testing.T) {
 	var query string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		query = r.URL.RawQuery
@@ -67,12 +67,12 @@ func TestHistoryCarriesTheReasonSeveralLinesHaveTheStation(t *testing.T) {
 
 	_, err := client.History(context.Background(), "run_1", protocol.HistoryRequest{Station: "review"})
 
-	var refused refusal
-	if !errors.As(err, &refused) {
-		t.Fatalf("err = %v, want a refusal", err)
+	var rejected clientError
+	if !errors.As(err, &rejected) {
+		t.Fatalf("err = %v, want a client error", err)
 	}
-	if because, ok := refused.Refused(); !ok || !strings.Contains(because, "name one with --line") {
-		t.Errorf("refused because %q", because)
+	if because, ok := rejected.ClientErrorMessage(); !ok || !strings.Contains(because, "name one with --line") {
+		t.Errorf("rejected because %q", because)
 	}
 }
 
@@ -84,11 +84,11 @@ func TestHistorySaysWhichStationWasNotFound(t *testing.T) {
 
 	_, err := client.History(context.Background(), "run_1", protocol.HistoryRequest{Station: "reviw", Line: "delivery"})
 
-	var refused refusal
-	if !errors.As(err, &refused) {
-		t.Fatalf("err = %v, want a refusal", err)
+	var rejected clientError
+	if !errors.As(err, &rejected) {
+		t.Fatalf("err = %v, want a client error", err)
 	}
-	if because, _ := refused.Refused(); because != `line "delivery" has no station "reviw" in this team` {
-		t.Errorf("refused because %q", because)
+	if because, _ := rejected.ClientErrorMessage(); because != `line "delivery" has no station "reviw" in this team` {
+		t.Errorf("rejected because %q", because)
 	}
 }

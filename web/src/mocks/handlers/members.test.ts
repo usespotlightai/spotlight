@@ -37,7 +37,7 @@ describe('the mock members', () => {
       'member',
     ]);
     expect(sam?.teams.map((each) => each.name)).toEqual(['Platform', 'Growth']);
-    expect(sam?.mayBeSetTo).toEqual([]);
+    expect(sam?.assignableRoles).toEqual([]);
     expect(lena?.teams).toEqual([]);
   });
 
@@ -73,7 +73,7 @@ describe('the mock members', () => {
     );
 
     expect(data.outcomes.map((each) => each.outcome)).toEqual([
-      'sent-again',
+      'resent',
       'already-a-member',
       'invited',
     ]);
@@ -144,7 +144,7 @@ describe('the mock members', () => {
   });
 
   it('reads an invite link and accepts it once', async () => {
-    const { data: offer } = await readInvite({
+    const { data: preview } = await readInvite({
       path: { token: 'invite_platform' },
       throwOnError: true,
     });
@@ -154,11 +154,11 @@ describe('the mock members', () => {
     });
     const again = await acceptInvite({ path: { token: 'invite_platform' } });
 
-    expect(offer).toMatchObject({
+    expect(preview).toMatchObject({
       workspaceName: 'Acme',
       role: 'member',
       teamNames: ['Platform'],
-      standing: 'open',
+      status: 'pending',
     });
     expect(joined).toEqual({ workspaceSlug: SLUG });
     expect(again.response?.status).toBe(409);
@@ -170,7 +170,9 @@ describe('the mock members', () => {
     const { response } = await listWorkspaceInvites({ path: { slug: SLUG } });
 
     expect(everyone).toHaveLength(5);
-    expect(everyone.every((each) => each.mayBeSetTo.length === 0)).toBe(true);
+    expect(everyone.every((each) => each.assignableRoles.length === 0)).toBe(
+      true,
+    );
     expect(response?.status).toBe(404);
   });
 
@@ -193,7 +195,7 @@ describe('the mock members', () => {
     );
   });
 
-  it('answers a revoked invite sent again with a conflict, and revoking it again with nothing', async () => {
+  it('answers a revoked invite resent with a conflict, and revoking it again with nothing', async () => {
     const at = { path: { slug: SLUG, inviteId: 'invite_jordan' } };
     await revokeInvite({ ...at, throwOnError: true });
 
@@ -216,7 +218,7 @@ describe('the mock members', () => {
     expect((await revokeInvite(at)).response?.status).toBe(404);
   });
 
-  it('refuses a member changing a role, and adding someone already on the team', async () => {
+  it('rejects a member changing a role, and adding someone already on the team', async () => {
     const added = await addTeamMember({
       path: { teamId: PLATFORM_ID },
       body: { userId: 'user_1' },
@@ -237,7 +239,7 @@ describe('the mock members', () => {
     });
   });
 
-  it('refuses an invite for an address that is not one', async () => {
+  it('rejects an invite for an address that is not one', async () => {
     const { response } = await inviteToWorkspace({
       path: { slug: SLUG },
       body: { emails: ['ada'], role: 'member', teamIds: [] },

@@ -15,9 +15,9 @@ import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-d
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
-import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -30,7 +30,7 @@ const TEAM = TeamId.of('team_1');
 const WORKSPACE = WorkspaceId.of('ws_1');
 
 let made = 0;
-const kept = (body: string, teamId = TEAM) => {
+const approved = (body: string, teamId = TEAM) => {
   made += 1;
   return Memory.write({
     id: MemoryId.of(`memory_${made}`),
@@ -39,7 +39,7 @@ const kept = (body: string, teamId = TEAM) => {
     kind: 'preference',
     body: MemoryBody.of(body),
     scope: MemoryScope.of({ teamId }),
-    grounds: null,
+    provenance: null,
     by: MemoryDecision.of({
       by: UserId.of('user_1'),
       at: new Date('2026-09-27T10:00:00.000Z'),
@@ -61,14 +61,14 @@ const draftProposing = () =>
         kind: 'preference',
         body: MemoryBody.of('Ask before retrying.'),
         scope: MemoryScope.of({ teamId: TEAM }),
-        grounds: MemoryGrounds.of({
+        provenance: MemoryProvenance.of({
           taskId: TaskId.of('task_1'),
           runId: RunId.of('run_1'),
           steps: [1],
           notes: [],
         }),
         source: 'run',
-        origin: 'drafted',
+        proposedBy: 'drafter',
         supersedes: null,
         recordedAt: new Date('2026-09-27T10:00:00.000Z'),
       }),
@@ -79,9 +79,9 @@ const draftProposing = () =>
 
 const reading = (input: {
   teamOfRun: TeamId | null;
-  held: readonly Memory[];
+  stored: readonly Memory[];
   briefed: readonly Memory[];
-  cut: readonly Memory[];
+  omitted: readonly Memory[];
   recalled: readonly Memory[];
   proposed?: boolean;
 }) => {
@@ -93,12 +93,12 @@ const reading = (input: {
       completed: true,
       memories: false,
       briefed: input.briefed.map((each) => each.id.value),
-      cut: input.cut.map((each) => each.id.value),
+      omitted: input.omitted.map((each) => each.id.value),
     }),
     reasoning: async () => [],
-    spokenOn: async () => [],
+    notesOf: async () => [],
     harnessOf: async () => 'claude-code',
-    siteOfRun: async () =>
+    contextOfRun: async () =>
       input.teamOfRun && {
         teamId: input.teamOfRun,
         lineId: null,
@@ -115,13 +115,13 @@ const reading = (input: {
   } as unknown as PeoplePort;
   const memories = {
     findAll: async (ids: readonly MemoryId[]) =>
-      ids.flatMap((id) => input.held.filter((each) => each.id.equals(id))),
+      ids.flatMap((id) => input.stored.filter((each) => each.id.equals(id))),
   } as unknown as MemoryRepository;
   const uses = {
     ofRun: async () =>
       input.recalled.map((each) => ({
         memoryId: each.id,
-        way: 'recalled' as const,
+        via: 'recalled' as const,
       })),
     runsUsing: async () => new Map(),
   } as unknown as MemoryUsesPort;
@@ -136,27 +136,27 @@ const reading = (input: {
     uses,
     new MemoryReviews(work, people),
     new TeamMemoryViews(memories, work, people, uses),
-    { reviewItemOf: async () => 'aside_1' } as unknown as ReviewsPort,
+    { reviewItemOf: async () => 'request_1' } as unknown as ReviewsPort,
   ).execute(new ReadRunMemoriesQuery('team_1', 'run_1', 'user_1'));
 };
 
 describe('ReadRunMemoriesHandler', () => {
-  it('keeps what was briefed, cut and recalled apart, and shows nothing of another team', async () => {
-    const briefed = kept('Briefed.');
-    const cut = kept('Cut.');
-    const recalled = kept('Recalled.');
-    const theirs = kept('Theirs.', TeamId.of('team_other'));
+  it('keeps what was briefed, omitted and recalled apart, and shows nothing of another team', async () => {
+    const briefed = approved('Briefed.');
+    const omitted = approved('Omitted.');
+    const recalled = approved('Recalled.');
+    const theirs = approved('Theirs.', TeamId.of('team_other'));
 
     const read = await reading({
       teamOfRun: TEAM,
-      held: [briefed, cut, recalled, theirs],
+      stored: [briefed, omitted, recalled, theirs],
       briefed: [briefed, theirs],
-      cut: [cut],
+      omitted: [omitted],
       recalled: [recalled, recalled],
     });
 
     expect(read.briefed.map((each) => each.body)).toEqual(['Briefed.']);
-    expect(read.cut.map((each) => each.body)).toEqual(['Cut.']);
+    expect(read.omitted.map((each) => each.body)).toEqual(['Omitted.']);
     expect(read.recalled.map((each) => each.body)).toEqual(['Recalled.']);
     expect(read.proposed).toEqual([]);
     expect(read.reviewItemId).toBeNull();
@@ -165,25 +165,25 @@ describe('ReadRunMemoriesHandler', () => {
   it('leads to the review of what the run proposed, naming the harness it ran on', async () => {
     const read = await reading({
       teamOfRun: TEAM,
-      held: [],
+      stored: [],
       briefed: [],
-      cut: [],
+      omitted: [],
       recalled: [],
       proposed: true,
     });
 
     expect(read.proposed.map((each) => each.id)).toEqual(['memory_proposed']);
     expect(read.proposed[0]?.harness).toBe('claude-code');
-    expect(read.reviewItemId).toBe('aside_1');
+    expect(read.reviewItemId).toBe('request_1');
   });
 
   it('knows no run of another team', async () => {
     await expect(
       reading({
         teamOfRun: TeamId.of('team_other'),
-        held: [],
+        stored: [],
         briefed: [],
-        cut: [],
+        omitted: [],
         recalled: [],
       }),
     ).rejects.toMatchObject({ kind: 'not-found' });

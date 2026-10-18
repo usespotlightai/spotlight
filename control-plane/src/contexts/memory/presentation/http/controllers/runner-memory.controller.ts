@@ -47,10 +47,10 @@ const optional = (value: unknown): string | null =>
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({
-  description: 'Missing, spent or wrong runner token',
+  description: 'Missing, no longer valid or wrong runner token',
 })
 @ApiParam({ name: 'runId', type: String })
-@ApiNotFoundResponse({ description: 'No such run held by this runner' })
+@ApiNotFoundResponse({ description: 'No such run leased by this runner' })
 @RunnerOnly()
 @Controller('runs/:runId/memories')
 export class RunnerMemoryController {
@@ -61,7 +61,7 @@ export class RunnerMemoryController {
   @ApiOperation({
     operationId: 'recallMemories',
     summary:
-      'Search what the run’s team remembers, for an agent reaching past its briefing, noting what it recalled',
+      'Search what the run’s team remembers, for an agent that needs more than its briefing. It records what the run recalled',
   })
   @ApiBody({ type: RecallMemoriesRequestDto })
   @ApiOkResponse({ type: TeamMemoryResponseDto, isArray: true })
@@ -88,7 +88,7 @@ export class RunnerMemoryController {
   @ApiOperation({
     operationId: 'recallMemory',
     summary:
-      'Read one of the team’s memories in full, by its handle, noting the run recalled it',
+      'Read one of the team’s memories in full, by its handle. It records that the run recalled it',
   })
   @ApiParam({ name: 'handle', type: String, example: 'M-12' })
   @ApiOkResponse({ type: TeamMemoryDetailResponseDto })
@@ -113,7 +113,7 @@ export class RunnerMemoryController {
   @ApiOperation({
     operationId: 'remember',
     summary:
-      'Propose a memory from inside the run, grounded in the step it was asked from',
+      'Propose a memory from inside the run that cites the step that proposed it',
     description:
       'It waits in the inbox beside the task for a person to approve, like a drafted memory.',
   })
@@ -125,7 +125,7 @@ export class RunnerMemoryController {
   })
   @ApiUnprocessableEntityResponse({
     description:
-      'An unknown kind or reach, a path outside the run’s repositories, or a chat run',
+      'An unknown kind or scope, a path outside the run’s repositories, or a chat run',
   })
   async remember(
     @Param('runId') runId: string,
@@ -137,7 +137,7 @@ export class RunnerMemoryController {
         new RememberCommand(runId, runnerId, {
           kind: text(body?.kind),
           body: text(body?.body),
-          reach: optional(body?.reach),
+          scope: optional(body?.scope),
           paths: Array.isArray(body?.paths)
             ? body.paths.filter(
                 (each): each is string => typeof each === 'string',

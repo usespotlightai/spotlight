@@ -147,7 +147,7 @@ describe('ReadReplayedCandidatesHandler', () => {
 
   it('shows nothing of another team', async () => {
     const other = { ...STATION, teamId: TeamId.of('team_2') };
-    const set = ReplaySet.open({
+    const set = ReplaySet.create({
       id: ReplaySetId.of('set_other'),
       station: other,
       name: ReplaySetName.of('Theirs'),
@@ -157,7 +157,7 @@ describe('ReadReplayedCandidatesHandler', () => {
         runId: RunId.of('original_theirs'),
         taskId: TaskId.of('task_theirs'),
         stationId: other.stationId,
-        refusal: null,
+        unreplayableReason: null,
         reason: null,
       },
       NOW,
@@ -243,7 +243,7 @@ describe('ReadReplayedCandidatesHandler', () => {
     ).toBeNull();
   });
 
-  it('refuses a period it does not take', async () => {
+  it('rejects a period it does not take', async () => {
     await expect(read('14d')).rejects.toThrow(ApplicationError);
   });
 });

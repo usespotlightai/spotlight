@@ -1,14 +1,14 @@
 import type { OracleAnswer } from '@replays/domain/services/oracle-answer';
 import type { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
-import type { ReplayRefusal } from '@replays/domain/value-objects/replay-refusal';
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import type { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
-import type { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import type { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
+import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -38,11 +38,11 @@ export interface RunReplayability {
   readonly runId: RunId;
   readonly taskId: TaskId | null;
   readonly stationId: string | null;
-  readonly refusal: ReplayRefusal | null;
+  readonly unreplayableReason: UnreplayableReason | null;
   readonly reason: string | null;
 }
 
-export interface StandingRun extends RunReplayability {
+export interface RunSummary extends RunReplayability {
   readonly title: string | null;
   readonly state: string | null;
   readonly endedAt: Date | null;
@@ -56,12 +56,12 @@ export interface PickableRun extends RunReplayability {
   readonly origin: string | null;
 }
 
-export type ExaminedCandidate =
+export type ValidatedCandidate =
   | {
       readonly ok: true;
       readonly fingerprint: StationFingerprint;
-      readonly digests: StationDigests;
-      readonly liveDigests: StationDigests;
+      readonly hashes: StationHashes;
+      readonly liveHashes: StationHashes;
       readonly scoring: CandidateScoring;
       readonly changedFrom: StationChanges;
       readonly block: StationBlock;
@@ -73,11 +73,11 @@ export interface LiveConfig {
   readonly block: StationBlock;
   readonly fingerprint: StationFingerprint;
   readonly scoring: CandidateScoring;
-  readonly digests: StationDigests;
+  readonly hashes: StationHashes;
   readonly threshold: ReplayThreshold | null;
 }
 
-export interface OracleAnswerAsked {
+export interface OracleAnswerInput {
   readonly run: RunId;
   readonly answer: OracleAnswer;
 }
@@ -95,9 +95,9 @@ export interface ReplayRunOrder {
 
 export type ReplayRunQueued =
   | { readonly queued: true; readonly fingerprint: StationFingerprint | null }
-  | { readonly queued: false; readonly refusal: ReplayRefusal };
+  | { readonly queued: false; readonly unreplayableReason: UnreplayableReason };
 
-export type RunForgone =
+export type CancelledRun =
   | { readonly queued: false }
   | { readonly queued: true; readonly fingerprint: StationFingerprint | null };
 
@@ -115,12 +115,12 @@ export type SearchRunQueued =
   | { readonly queued: true }
   | { readonly queued: false; readonly reason: string };
 
-export interface HeldSearchRun {
+export interface LeasedSearchRun {
   readonly searchId: SearchId;
   readonly iteration: number;
 }
 
-export interface SearchRunStanding {
+export interface SearchRunStatus {
   readonly run: RunId;
   readonly phase: 'queued' | 'running' | 'ended';
   readonly failed: boolean;
@@ -129,12 +129,12 @@ export interface SearchRunStanding {
   readonly endedAt: Date | null;
 }
 
-export type UnclaimedWithdrawal =
-  | { readonly outcome: 'withdrawn'; readonly started: boolean }
+export type UnclaimedCancellation =
+  | { readonly outcome: 'cancelled'; readonly started: boolean }
   | { readonly outcome: 'claimed' }
   | { readonly outcome: 'ended' };
 
-export interface AgentRefusal {
+export interface AgentProblem {
   readonly field: 'harness' | 'model' | 'effort';
   readonly reason: string;
 }
@@ -149,10 +149,10 @@ export interface WorkPort {
     runs: readonly RunId[],
   ): Promise<readonly RunReplayability[]>;
 
-  standing(
+  runSummaries(
     workspaceId: WorkspaceId,
     runs: readonly RunId[],
-  ): Promise<readonly StandingRun[]>;
+  ): Promise<readonly RunSummary[]>;
 
   recentAt(
     workspaceId: WorkspaceId,
@@ -160,38 +160,41 @@ export interface WorkPort {
     max: number,
   ): Promise<readonly PickableRun[]>;
 
-  examine(
+  validate(
     lineId: string,
     stationId: string,
     block: unknown,
     line?: PlannedLine | null,
-  ): Promise<ExaminedCandidate | null>;
+  ): Promise<ValidatedCandidate | null>;
 
   live(lineId: string, stationId: string): Promise<LiveConfig | null>;
 
   dispatch(order: ReplayRunOrder): Promise<ReplayRunQueued>;
 
-  answerable(asked: readonly OracleAnswerAsked[]): Promise<readonly RunId[]>;
+  answerable(inputs: readonly OracleAnswerInput[]): Promise<readonly RunId[]>;
 
-  withdraw(runs: readonly RunId[]): Promise<void>;
+  cancelQueued(runs: readonly RunId[]): Promise<void>;
 
-  forgo(run: RunId, keep: boolean): Promise<RunForgone>;
+  cancel(run: RunId, leaveRunAsIs: boolean): Promise<CancelledRun>;
 
   durations(runs: readonly RunId[]): Promise<ReadonlyMap<string, number>>;
 
-  agentRefusal(agent: SearchAgent): AgentRefusal | null;
+  agentProblem(agent: SearchAgent): AgentProblem | null;
 
   dispatchSearch(order: SearchRunOrder): Promise<SearchRunQueued>;
 
-  withdrawSearch(run: RunId): Promise<void>;
+  cancelSearchRun(run: RunId): Promise<void>;
 
-  withdrawUnclaimedSearch(run: RunId): Promise<UnclaimedWithdrawal>;
+  cancelUnclaimedSearchRun(run: RunId): Promise<UnclaimedCancellation>;
 
-  heldSearchRun(run: RunId, runnerId: string): Promise<HeldSearchRun | null>;
+  leasedSearchRun(
+    run: RunId,
+    runnerId: string,
+  ): Promise<LeasedSearchRun | null>;
 
-  searchRunStandings(
+  searchRunStatuses(
     runs: readonly RunId[],
-  ): Promise<readonly SearchRunStanding[]>;
+  ): Promise<readonly SearchRunStatus[]>;
 
   hold(
     holder: string,

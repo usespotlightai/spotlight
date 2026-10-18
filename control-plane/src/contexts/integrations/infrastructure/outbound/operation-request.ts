@@ -1,7 +1,7 @@
 import type {
-  DescribedOperation,
   OperationParameter,
-} from '@integrations/domain/value-objects/described-operation.vo';
+  SpecOperation,
+} from '@integrations/domain/value-objects/spec-operation.vo';
 import type { PlainRequest } from '@integrations/infrastructure/outbound/http-outbound';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import {
@@ -61,16 +61,16 @@ const queried = (
 };
 
 const httpRequest = (
-  call: Extract<DescribedOperation['call'], { kind: 'http' }>,
+  call: Extract<SpecOperation['call'], { kind: 'http' }>,
   inputs: ToolInputValues,
 ): PlainRequest => {
-  const given = (name: string): JsonValue | undefined => inputs[name];
+  const inputOf = (name: string): JsonValue | undefined => inputs[name];
   let path = call.path;
   const query = new URLSearchParams();
   const headers: Record<string, string> = { accept: JSON_CONTENT };
 
   for (const parameter of call.params) {
-    const value = given(parameter.name);
+    const value = inputOf(parameter.name);
 
     if (value === undefined || value === null) {
       continue;
@@ -90,7 +90,7 @@ const httpRequest = (
     }
   }
 
-  const body = call.body ? given(call.body.input) : undefined;
+  const body = call.body ? inputOf(call.body.input) : undefined;
 
   if (call.body && body !== undefined) {
     headers['content-type'] = call.body.contentType;
@@ -105,7 +105,7 @@ const httpRequest = (
 };
 
 export const operationRequest = (
-  operation: DescribedOperation,
+  operation: SpecOperation,
   inputs: ToolInputValues,
 ): PlainRequest => {
   const call = operation.call;
@@ -116,7 +116,7 @@ export const operationRequest = (
 
   if (call.kind === 'mcp') {
     throw new InconsistentStateError(
-      'described operation',
+      'spec operation',
       `${operation.name} calls an MCP tool, which is not sent as a plain request`,
     );
   }

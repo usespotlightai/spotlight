@@ -6,6 +6,7 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { type Outcome, ReactionFor } from '@work/domain/services/reaction-for';
+import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import {
@@ -16,7 +17,6 @@ import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
-import { Said } from '@work/domain/value-objects/said.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
@@ -84,7 +84,7 @@ const LINE = Line.rehydrate({
   ],
 });
 
-const standing = (stationId: string) =>
+const taskAt = (stationId: string) =>
   Task.add({
     line: LINE,
     at: StationId.of(stationId),
@@ -94,10 +94,13 @@ const standing = (stationId: string) =>
     newId: () => 'task_1',
   });
 
-const payloadOf = (happening: Happening, told: string): HappeningPayload => ({
+const payloadOf = (
+  happening: Happening,
+  summary: string,
+): HappeningPayload => ({
   happening,
-  told,
-  spoken: happening.equals(COMMENTED),
+  summary,
+  answers: happening.equals(COMMENTED),
   state: 'raised',
 });
 
@@ -106,19 +109,19 @@ const commented = payloadOf(COMMENTED, 'The pull request was commented on.');
 
 const reaction = (
   task: Task,
-  heard: HappeningPayload,
-  said: Said | null = null,
-) => ReactionFor.happened({ task, line: LINE, payload: heard, said });
+  payload: HappeningPayload,
+  anchor: Anchor | null = null,
+) => ReactionFor.happened({ task, line: LINE, payload, anchor });
 
 const destination = (outcome: Outcome) =>
-  outcome.kind === 'moves' || outcome.kind === 'heldBack'
+  outcome.kind === 'moves' || outcome.kind === 'deferredMove'
     ? outcome.to.id
     : null;
 
-const held = (stationId: string) => standing(stationId).handedTo(RUN, LINE);
+const handed = (stationId: string) => taskAt(stationId).assignRun(RUN, LINE);
 
 const paused = (stationId: string) =>
-  held(stationId).putToAPerson(RUN, {
+  handed(stationId).putToAPerson(RUN, {
     station: StationName.of('Implementation'),
     body: TaskNoteBody.of('Which queue should I drain?'),
     at: NOW,
@@ -126,54 +129,54 @@ const paused = (stationId: string) =>
   });
 
 describe('ReactionFor.happened', () => {
-  it('moves a task no run holds to the station the rule names', () => {
-    const outcome = reaction(standing('station_1'), commented);
+  it('moves a task with no current run to the station the rule names', () => {
+    const outcome = reaction(taskAt('station_1'), commented);
 
     expect(outcome.kind).toBe('moves');
     expect(destination(outcome)).toEqual(StationId.of('station_2'));
   });
 
-  it('moves a task no run holds to the end of the line when the pull request merges', () => {
-    const outcome = reaction(standing('station_1'), merged);
+  it('moves a task with no current run to the end of the line when the pull request merges', () => {
+    const outcome = reaction(taskAt('station_1'), merged);
 
     expect(outcome.kind).toBe('moves');
     expect(destination(outcome)).toEqual(StationId.of('station_3'));
   });
 
-  it('holds back a move while a run holds the task, noted where the task stands', () => {
+  it('defers a move while the task has a current run, noted where the task is', () => {
     const outcome = reaction(
-      held('station_1'),
+      handed('station_1'),
       commented,
-      Said.of({ body: 'This retries forever.', path: 'upload.ts', from: 12 }),
+      Anchor.of({ body: 'This retries forever.', path: 'upload.ts', from: 12 }),
     );
 
-    expect(outcome.kind).toBe('heldBack');
+    expect(outcome.kind).toBe('deferredMove');
     expect(destination(outcome)).toEqual(StationId.of('station_2'));
     expect(outcome).toMatchObject({
       station: StationName.of('Implementation'),
     });
   });
 
-  it('notes what was heard while a run held the task, and where it moves once the run ends', () => {
-    const said = Said.of({ body: 'This retries forever.' });
-    const outcome = reaction(held('station_1'), commented, said);
+  it('notes what arrived while a run was in progress on the task, and where it moves once the run ends', () => {
+    const anchor = Anchor.of({ body: 'This retries forever.' });
+    const outcome = reaction(handed('station_1'), commented, anchor);
 
-    expect(outcome.kind === 'heldBack' && outcome.body.value).toBe(
-      'Heard while a run held the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\nThis retries forever.',
+    expect(outcome.kind === 'deferredMove' && outcome.body.value).toBe(
+      'This arrived while a run was in progress on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\nThis retries forever.',
     );
-    expect(outcome.kind === 'heldBack' && outcome.said).toBe(said);
+    expect(outcome.kind === 'deferredMove' && outcome.anchor).toBe(anchor);
   });
 
-  it('holds back a spoken word with nothing said as what happened', () => {
-    const outcome = reaction(held('station_1'), commented);
+  it('defers a comment with no anchor as the summary of what happened', () => {
+    const outcome = reaction(handed('station_1'), commented);
 
-    expect(outcome.kind === 'heldBack' && outcome.body.value).toContain(
+    expect(outcome.kind === 'deferredMove' && outcome.body.value).toContain(
       'moves to Code Review when the run ends.\n\nThe pull request was commented on.',
     );
   });
 
-  it('interrupts the run and puts it to a person where a merge would finish the task a run holds', () => {
-    const outcome = reaction(held('station_2'), merged);
+  it('interrupts the run and puts it to a person where a merge would finish a task that has a current run', () => {
+    const outcome = reaction(handed('station_2'), merged);
 
     expect(outcome.kind).toBe('interrupts');
     expect(outcome).toMatchObject({ station: StationName.of('Code Review') });
@@ -184,7 +187,7 @@ describe('ReactionFor.happened', () => {
 
   it('says what closed the pull request when it interrupts a run', () => {
     const outcome = reaction(
-      held('station_1'),
+      handed('station_1'),
       payloadOf(CLOSED, 'The pull request was closed without being merged.'),
     );
 
@@ -193,10 +196,10 @@ describe('ReactionFor.happened', () => {
     );
   });
 
-  it('holds back a move while the run holding the task waits on a person', () => {
+  it('defers a move while the current run of the task waits on a person', () => {
     const outcome = reaction(paused('station_1'), commented);
 
-    expect(outcome.kind).toBe('heldBack');
+    expect(outcome.kind).toBe('deferredMove');
     expect(destination(outcome)).toEqual(StationId.of('station_2'));
   });
 
@@ -210,13 +213,13 @@ describe('ReactionFor.happened', () => {
   });
 
   it('says the station was working where the task awaits only a tool approval', () => {
-    const asking = held('station_2').putToAPerson(RUN, {
+    const asking = handed('station_2').putToAPerson(RUN, {
       station: StationName.of('Code Review'),
       body: TaskNoteBody.of('Approve linear.comment?'),
       at: NOW,
       voice: Voice.station(RUN),
       form: 'approval',
-      approval: Approval.asked(
+      approval: Approval.request(
         ApprovalSubject.toolCall(
           ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
         ),
@@ -233,7 +236,7 @@ describe('ReactionFor.happened', () => {
     );
   });
 
-  it('names no station of the line when the task a merge interrupts stands on none of it', () => {
+  it('names no station of the line when the task a merge interrupts is on none of it', () => {
     const elsewhere = Line.rehydrate({
       id: LineId.of('line_9'),
       workspaceId: WorkspaceId.of('ws_1'),
@@ -253,7 +256,7 @@ describe('ReactionFor.happened', () => {
       rank: TaskRank.of('i'),
       now: NOW,
       newId: () => 'task_9',
-    }).handedTo(RUN, elsewhere);
+    }).assignRun(RUN, elsewhere);
 
     const outcome = reaction(task, merged);
 
@@ -262,14 +265,14 @@ describe('ReactionFor.happened', () => {
     );
   });
 
-  it('keeps a task where the rule names the station it stands at, run or no run', () => {
-    const said = Said.of({ body: 'Pin it to a version.' });
+  it('keeps a task where the rule names the station it is at, run or no run', () => {
+    const anchor = Anchor.of({ body: 'Pin it to a version.' });
 
-    expect(reaction(standing('station_2'), commented, said).kind).toBe('stays');
-    expect(reaction(held('station_2'), commented, said).kind).toBe('stays');
+    expect(reaction(taskAt('station_2'), commented, anchor).kind).toBe('stays');
+    expect(reaction(handed('station_2'), commented, anchor).kind).toBe('stays');
   });
 
   it('says nothing to a task that has landed at the end of the line', () => {
-    expect(reaction(standing('station_3'), merged).kind).toBe('nothing');
+    expect(reaction(taskAt('station_3'), merged).kind).toBe('nothing');
   });
 });

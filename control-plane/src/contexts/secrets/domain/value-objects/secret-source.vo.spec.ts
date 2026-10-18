@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest';
 
 describe('SecretSource', () => {
   it('is read in the network where an external store holds it, and there alone', () => {
-    expect(SecretSource.builtIn().readInNetwork).toBeNull();
+    expect(SecretSource.builtIn().externalRef).toBeNull();
     expect(
       SecretSource.awsSecretsManager({
         secretId: 'sentry-token',
         field: 'token',
-      }).readInNetwork,
+      }).externalRef,
     ).toEqual({
       kind: 'aws-secrets-manager',
       secretId: 'sentry-token',

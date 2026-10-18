@@ -17,19 +17,19 @@ export class ReadSkillHandler
 
   async execute(query: ReadSkillQuery): Promise<SkillResourceDto | null> {
     try {
-      const kept = await this.resources.withId(query.skillId);
+      const record = await this.resources.withId(query.skillId);
 
       if (
-        !kept ||
+        !record ||
         !(await this.access.permissionsOnTeam(
-          kept.teamId.value,
+          record.teamId.value,
           query.principal,
         ))
       ) {
         return null;
       }
 
-      return this.views.of(kept);
+      return this.views.of(record);
     } catch (error) {
       rethrowAsApplicationError(error);
     }

@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
-import { Holdings } from '@identity/domain/value-objects/holdings.vo';
+import { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq, inArray } from 'drizzle-orm';
 import {
@@ -28,8 +28,8 @@ import { seatTeam } from './support/team';
 
 const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   const db = app.get<DrizzleDatabase>(DRIZZLE);
-  const held = `workspaces-${randomUUID().slice(0, 8)}`;
-  const seat = await seatTeam(db, held);
+  const workspaceId = `workspaces-${randomUUID().slice(0, 8)}`;
+  const seat = await seatTeam(db, workspaceId);
   const slug = `acme-${randomUUID().slice(0, 8)}`;
 
   return {
@@ -48,7 +48,7 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
     changedAgain: { name: 'Acme, once more', slug },
     invalid: { body: { name: '', slug }, path: 'name' },
     anyoneCreates: true,
-    admit: async (created) => {
+    allowViewer: async (created) => {
       await db.insert(schema.workspaceMember).values({
         workspaceId: created.id,
         userId: seat.member,
@@ -125,7 +125,7 @@ describe('a workspace, created through the resource API (e2e)', () => {
     await fixture.close();
   });
 
-  it('is owned by whoever created it, and holds no team yet', async () => {
+  it('is owned by whoever created it, and has no team yet', async () => {
     const made = await as(fixture.admin).create(fixture.valid);
     const db = app.get<DrizzleDatabase>(DRIZZLE);
 
@@ -159,7 +159,7 @@ describe('a workspace, created through the resource API (e2e)', () => {
     ]);
   });
 
-  it('will not be deleted while it holds a team', async () => {
+  it('will not be deleted while it has a team', async () => {
     const made = await as(fixture.admin).create(fixture.valid);
 
     const db = app.get<DrizzleDatabase>(DRIZZLE);
@@ -175,24 +175,24 @@ describe('a workspace, created through the resource API (e2e)', () => {
       .insert(schema.teamMember)
       .values({ teamId, userId: fixture.admin });
 
-    const refused = await as(fixture.admin).delete(
+    const rejected = await as(fixture.admin).delete(
       made.body.id,
       made.body.version,
     );
 
-    expect(refused.status).toBe(409);
-    expect(refused.body).toMatchObject({
+    expect(rejected.status).toBe(409);
+    expect(rejected.body).toMatchObject({
       type: 'urn:spotlight:problem:in-use',
       detail: expect.stringContaining('core'),
     });
   });
 
-  it('will not be closed under a team even past the check before writing', async () => {
+  it('will not be deleted under a team even past the check before writing', async () => {
     const made = await as(fixture.admin).create(fixture.valid);
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     const workspaces = app.get(DrizzleWorkspaceRepository);
     const teamId = randomUUID();
-    const standing = await workspaces.find(WorkspaceId.of(made.body.id));
+    const existing = await workspaces.find(WorkspaceId.of(made.body.id));
 
     await db.insert(schema.team).values({
       id: teamId,
@@ -203,13 +203,13 @@ describe('a workspace, created through the resource API (e2e)', () => {
 
     await expect(
       workspaces.save(
-        standing?.close(
+        existing?.delete(
           [],
           [],
           [],
           [],
-          Holdings.none(),
-          attributedIn(made.body.id),
+          Dependents.none(),
+          changeActorIn(made.body.id),
         ) as Workspace,
       ),
     ).rejects.toThrow(WorkspaceInUseError);

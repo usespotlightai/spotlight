@@ -1,5 +1,5 @@
 import type { PersonSummary } from '@identity/application/ports/person-reader.port';
-import type { TeamNamed } from '@identity/application/read-models/team-named';
+import type { TeamRef } from '@identity/application/read-models/team-ref';
 import type { WorkspaceRoleName } from '@identity/domain/value-objects/workspace-role.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -20,7 +20,7 @@ export interface TeamRoster {
 export interface WorkspaceMemberSummary extends PersonSummary {
   readonly email: string;
   readonly role: WorkspaceRoleName;
-  readonly teams: readonly TeamNamed[];
+  readonly teams: readonly TeamRef[];
   readonly joinedAt: Date;
 }
 

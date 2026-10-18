@@ -38,18 +38,18 @@ const GRAFANA = {
 
 const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   const db = app.get<DrizzleDatabase>(DRIZZLE);
-  const held = `skills-${randomUUID().slice(0, 8)}`;
-  const seat = await seatTeam(db, held);
+  const workspaceId = `skills-${randomUUID().slice(0, 8)}`;
+  const seat = await seatTeam(db, workspaceId);
 
   return {
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/teams/${held}/skills`,
+    collection: `/api/resources/teams/${workspaceId}/skills`,
     item: (id) => `/api/resources/skills/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${held}/skills/import?address=${encodeURIComponent(address)}`,
+      `/api/resources/workspaces/${workspaceId}/skills/import?address=${encodeURIComponent(address)}`,
     listing: (workspaceId) => `/api/resources/workspaces/${workspaceId}/skills`,
-    workspaceOf: () => held,
+    workspaceOf: () => workspaceId,
     address: 'team/grafana',
     valid: GRAFANA,
     changed: {
@@ -124,7 +124,7 @@ describe('a skill, created through the resource API (e2e)', () => {
     });
   });
 
-  it('is laid out for every run that is given it', async () => {
+  it('is laid out for every run that has it enabled', async () => {
     await create(GRAFANA);
 
     const ready = await app
@@ -141,19 +141,19 @@ describe('a skill, created through the resource API (e2e)', () => {
     ]);
   });
 
-  it('refuses a file outside the skill’s folder', async () => {
-    const refused = await create({
+  it('rejects a file outside the skill’s folder', async () => {
+    const rejected = await create({
       ...GRAFANA,
       files: { ...GRAFANA.files, '../escape.sh': 'rm -rf /' },
     });
 
-    expect(refused.status).toBe(422);
-    expect(refused.body.errors).toEqual([
+    expect(rejected.status).toBe(422);
+    expect(rejected.body.errors).toEqual([
       expect.objectContaining({ path: 'files["../escape.sh"]' }),
     ]);
   });
 
-  it('will not be deleted while a station gives it', async () => {
+  it('will not be deleted while a station enables it', async () => {
     const made = await create(GRAFANA);
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     const lineId = randomUUID();
@@ -177,13 +177,13 @@ describe('a skill, created through the resource API (e2e)', () => {
       .insert(schema.stationSkill)
       .values({ stationId, skill: 'grafana', position: 0 });
 
-    const refused = await served(app)
+    const rejected = await served(app)
       .delete(fixture.item(made.body.id))
       .set(TEST_USER_HEADER, fixture.admin)
       .set('If-Match', `"${made.body.version}"`);
 
-    expect(refused.status).toBe(409);
-    expect(refused.body).toMatchObject({
+    expect(rejected.status).toBe(409);
+    expect(rejected.body).toMatchObject({
       type: 'urn:spotlight:problem:in-use',
       detail: expect.stringContaining('delivery/implementation'),
     });

@@ -9,7 +9,7 @@ import type {
   RunSpanDto,
 } from '@work/application/dto/run-journal.dto';
 
-const spoken = (at: Date | null): string | null => at?.toISOString() ?? null;
+const isoOrNull = (at: Date | null): string | null => at?.toISOString() ?? null;
 
 export const stepToDto = (step: JournalStep): JournalStepDto => ({
   kind: step.kind,
@@ -23,8 +23,8 @@ export const stepToDto = (step: JournalStep): JournalStepDto => ({
     path: where.path,
     line: where.line,
   })),
-  given: step.given,
-  returned: step.returned,
+  input: step.input,
+  output: step.output,
   change: step.change && {
     path: step.change.path,
     before: step.change.before,
@@ -39,9 +39,9 @@ export const spanToDto = (span: RunSpan): RunSpanDto => ({
   startedAt: span.startedAt.toISOString(),
   ms: span.ms,
   failed: span.failed,
-  attributes: span.attributes.map((held) => ({
-    name: held.name,
-    value: held.value,
+  attributes: span.attributes.map((attribute) => ({
+    name: attribute.name,
+    value: attribute.value,
   })),
 });
 
@@ -54,11 +54,11 @@ export const RunJournalMapper = {
       spans: journal.spans.map(spanToDto),
       ms: journal.ms,
       marks: {
-        startedAt: spoken(journal.marks.startedAt),
-        readyAt: spoken(journal.marks.readyAt),
-        spokeFrom: spoken(journal.marks.spokeFrom),
-        spokeTo: spoken(journal.marks.spokeTo),
-        endedAt: spoken(journal.marks.endedAt),
+        startedAt: isoOrNull(journal.marks.startedAt),
+        readyAt: isoOrNull(journal.marks.readyAt),
+        firstAgentUpdateAt: isoOrNull(journal.marks.firstAgentUpdateAt),
+        lastAgentUpdateAt: isoOrNull(journal.marks.lastAgentUpdateAt),
+        endedAt: isoOrNull(journal.marks.endedAt),
       },
       spent: journal.spent && {
         used: journal.spent.used,

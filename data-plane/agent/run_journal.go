@@ -23,7 +23,7 @@ func journalMarkdown(run protocol.HistoryRun) string {
 	fmt.Fprintf(&out, "- ended: %s\n", shown(run.EndedAt))
 	fmt.Fprintf(&out, "- ms: %d\n", run.Trace.Ms)
 	fmt.Fprintf(&out, "- nodes: %d\n", run.Trace.Rows)
-	fmt.Fprintf(&out, "- faults: %d\n", run.Trace.Faults)
+	fmt.Fprintf(&out, "- errors: %d\n", run.Trace.Errors)
 	if run.Outcome != nil {
 		fmt.Fprintf(&out, "- ending: %s\n", ending(run.Outcome))
 	}
@@ -40,7 +40,7 @@ func writeNode(out *strings.Builder, node protocol.TraceNode, number string, dep
 
 	facts := []string{
 		"kind: " + node.Kind,
-		"tone: " + node.Tone,
+		"category: " + node.Category,
 		"ms: " + strconv.Itoa(node.Ms),
 		"id: " + node.ID,
 	}
@@ -90,11 +90,11 @@ func writeStep(out *strings.Builder, step *protocol.TraceStep) {
 			}
 		}
 	}
-	if step.Given != nil {
-		writeBlock(out, "Given", "", *step.Given)
+	if step.Input != nil {
+		writeBlock(out, "Input", "", *step.Input)
 	}
-	if step.Returned != nil {
-		writeBlock(out, "Returned", "", *step.Returned)
+	if step.Output != nil {
+		writeBlock(out, "Output", "", *step.Output)
 	}
 	if change := step.Change; change != nil {
 		path := shown(change.Path)

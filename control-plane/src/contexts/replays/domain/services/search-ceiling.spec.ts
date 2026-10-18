@@ -17,9 +17,9 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import type { ReplayEnd } from '@replays/domain/value-objects/replay-state';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
+import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -48,17 +48,17 @@ const replayed = (
   concurrency: number,
   priced: Pricing,
 ): Replay => {
-  let held = replay;
+  let current = replay;
   let place = 0;
 
-  while (held.hasWaiting) {
-    held = held.reserving(concurrency, ids('replay_run'));
+  while (current.hasWaiting) {
+    current = current.reserving(concurrency, ids('replay_run'));
 
-    for (const entry of held.occupying) {
+    for (const entry of current.occupying) {
       const run = entry.run as RunId;
       const cost = priced(place++);
 
-      held = held
+      current = current
         .confirm(run, FINGERPRINT, NOW)
         .recordRunEnd(run, endOf('completed'))
         .recordReview(run, PASSED, null, later(1))
@@ -66,15 +66,15 @@ const replayed = (
     }
   }
 
-  return held;
+  return current;
 };
 
 const started = (
   search: Search,
   id: string,
   candidate: string,
-  ceiling: Spend,
-  among?: readonly RunId[],
+  ceiling: Money,
+  runSubset?: readonly RunId[],
 ): Replay =>
   Replay.start({
     id: ReplayId.of(id),
@@ -82,17 +82,17 @@ const started = (
     candidate: candidateOf(id === SEED ? 'live' : 'proposed', candidate),
     baseline: id === SEED,
     ceiling,
-    unpricedRate: search.allotment.perRun,
+    unpricedRate: search.ceilingSplit.perRun,
     at: NOW,
     by: BY,
     searchId: search.id,
-    ...(among ? { among } : {}),
+    ...(runSubset ? { runSubset } : {}),
   });
 
-const ended = (replay: Replay): ReplayEnd => {
+const ended = (replay: Replay): ReplayStopReason => {
   expect(replay.isDispatching).toBe(false);
 
-  return replay.current as ReplayEnd;
+  return replay.current as ReplayStopReason;
 };
 
 const searched = (
@@ -103,13 +103,13 @@ const searched = (
   const runIds = ids('search_run');
   let search = aSearch({ set: SET, budget });
   const seed = replayed(
-    started(search, SEED, 'candidate_live', search.allotment.seed),
+    started(search, SEED, 'candidate_live', search.ceilingSplit.seed),
     budget.concurrency,
     priced,
   );
   const replays = [seed];
 
-  search = search.recordReplayEnd(
+  search = search.recordReplayStopReason(
     seed.id,
     ended(seed),
     chargeOf(seed),
@@ -130,11 +130,11 @@ const searched = (
         search,
         `replay_${name}`,
         `candidate_${name}`,
-        search.allotment.searchReplay,
+        search.ceilingSplit.searchReplay,
         search.split.searchedRuns,
       );
 
-      search = search.admitted(run, {
+      search = search.acceptProposal(run, {
         candidateId: CandidateId.of(`candidate_${name}`),
         name: CandidateName.searched(name),
         replayId: replay.id,
@@ -146,7 +146,7 @@ const searched = (
       .recordAgentSpend(run, agentSpend(iteration.number), later(4), runIds);
     for (const replay of proposed) {
       replays.push(replay);
-      search = search.recordReplayEnd(
+      search = search.recordReplayStopReason(
         replay.id,
         ended(replay),
         chargeOf(replay),
@@ -161,23 +161,23 @@ const searched = (
     search = search.heldOutFrom(
       replays,
       0.05,
-      () => ReplayId.of(`held_${next++}`),
+      () => ReplayId.of(`held_out_${next++}`),
       later(6),
     );
-    for (const held of search.heldOut) {
+    for (const heldOut of search.heldOut) {
       const replay = replayed(
         started(
           search,
-          held.replay.replayId.value,
-          held.candidateId.value,
-          search.allotment.heldOutReplay,
+          heldOut.replay.replayId.value,
+          heldOut.candidateId.value,
+          search.ceilingSplit.heldOutReplay,
           search.split.heldOutRuns,
         ),
         budget.concurrency,
         priced,
       );
 
-      search = search.recordReplayEnd(
+      search = search.recordReplayStopReason(
         replay.id,
         ended(replay),
         chargeOf(replay),
@@ -205,14 +205,15 @@ describe('a search’s ceiling', () => {
         const search = searched(
           budget,
           (place) => {
-            const perRun = aSearch({ set: SET, budget }).allotment.perRun;
+            const perRun = aSearch({ set: SET, budget }).ceilingSplit.perRun;
 
             return unpricedEvery > 0 && place % unpricedEvery === 0
               ? null
               : perRun.amount;
           },
           (iteration) => {
-            const agentRun = aSearch({ set: SET, budget }).allotment.agentRun;
+            const agentRun = aSearch({ set: SET, budget }).ceilingSplit
+              .agentRun;
 
             return iteration % 2 === 0
               ? ModelSpent.of([], 1)
@@ -230,8 +231,8 @@ describe('a search’s ceiling', () => {
 
   it('is passed by at most what one agent run spent past its share, since it learns an agent run’s spend only after it ran', () => {
     for (const budget of BUDGETS) {
-      const share = aSearch({ set: SET, budget }).allotment;
-      const greedy = Spend.of(share.agentRun.amount * 3, 'USD');
+      const share = aSearch({ set: SET, budget }).ceilingSplit;
+      const greedy = Money.of(share.agentRun.amount * 3, 'USD');
       const search = searched(
         budget,
         () => share.perRun.amount,
@@ -242,7 +243,7 @@ describe('a search’s ceiling', () => {
           ),
       );
 
-      const overshoot = Spend.of(greedy.amount - share.agentRun.amount, 'USD');
+      const overshoot = Money.of(greedy.amount - share.agentRun.amount, 'USD');
 
       expect(search.spent.isWithin(budget.ceiling.plus(overshoot))).toBe(true);
     }

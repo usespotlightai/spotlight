@@ -14,7 +14,7 @@ const nodeToDto = (node: TraceNode): TraceNodeDto => ({
   name: node.name,
   startedAt: node.from.toISOString(),
   ms: node.to.getTime() - node.from.getTime(),
-  tone: node.tone,
+  category: node.category,
   cost: node.cost?.amount ?? null,
   currency: node.cost?.currency ?? null,
   step: node.step && stepToDto(node.step),
@@ -25,10 +25,10 @@ const nodeToDto = (node: TraceNode): TraceNodeDto => ({
     outcome: node.connection.connection.outcome,
     status: node.connection.connection.status,
     reason: node.connection.connection.reason,
-    trouble: node.connection.connection.trouble,
-    times: node.connection.times,
+    error: node.connection.connection.error,
+    count: node.connection.count,
   },
-  egress: node.egress,
+  egressEnforcement: node.egressEnforcement,
   children: node.children.map(nodeToDto),
 });
 
@@ -39,7 +39,7 @@ export const TaskTraceMapper = {
       ms:
         trace.from && trace.to ? trace.to.getTime() - trace.from.getTime() : 0,
       rows: trace.rows,
-      faults: trace.faults,
+      errors: trace.errors,
       roots: trace.roots.map(nodeToDto),
     };
   },

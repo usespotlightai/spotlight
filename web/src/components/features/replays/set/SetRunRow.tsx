@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import { NotedWarning } from '@/components/shared/NotedWarning';
+import { DisabledReasonTooltip } from '@/components/shared/DisabledReasonTooltip';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   EDGE_INDENT,
@@ -7,7 +7,7 @@ import {
   ROW_DIVIDER,
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
-import { RefusalTooltip } from '@/components/shared/RefusalTooltip';
+import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { Button } from '@/components/ui/button';
 import { useRemoveReplaySetEntry } from '@/hooks/api/useRemoveReplaySetEntry';
@@ -19,7 +19,7 @@ import {
 import {
   formatReplayable,
   formatRunState,
-  RUNS_HELD_BY_SEARCH,
+  RUNS_FROZEN_BY_SEARCH,
 } from '@/lib/replay-words';
 import { runPath } from '@/lib/run';
 import { since } from '@/lib/since';
@@ -45,11 +45,11 @@ export function SetRunRow({ at, setId, entry, frozen }: SetRunRowProps) {
         >
           {title}
         </TrailLink>
-        {entry.refusal && (
-          <NotedWarning
+        {entry.unreplayableReason && (
+          <WarningTooltip
             tone="destructive"
-            label={formatReplayable(entry.refusal)}
-            note={formatReplayable(entry.refusal)}
+            label={formatReplayable(entry.unreplayableReason)}
+            tooltip={formatReplayable(entry.unreplayableReason)}
             className="relative z-10"
           />
         )}
@@ -61,7 +61,7 @@ export function SetRunRow({ at, setId, entry, frozen }: SetRunRowProps) {
         {entry.endedAt ? since(entry.endedAt) : '–'}
       </NestedCell>
       <span className="relative z-10 flex h-4 items-center justify-end">
-        <RefusalTooltip reason={frozen ? RUNS_HELD_BY_SEARCH : null}>
+        <DisabledReasonTooltip reason={frozen ? RUNS_FROZEN_BY_SEARCH : null}>
           {(describedBy) => (
             <Button
               type="button"
@@ -78,7 +78,7 @@ export function SetRunRow({ at, setId, entry, frozen }: SetRunRowProps) {
               <X aria-hidden />
             </Button>
           )}
-        </RefusalTooltip>
+        </DisabledReasonTooltip>
       </span>
     </li>
   );

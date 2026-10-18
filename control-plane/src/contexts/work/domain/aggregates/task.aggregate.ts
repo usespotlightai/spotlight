@@ -17,21 +17,21 @@ import {
 } from '@work/domain/entities/task-note.entity';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
+import { RunDetached } from '@work/domain/events/run-detached.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
+import { TaskDispatched } from '@work/domain/events/task-dispatched.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
-import { TaskHandedOn } from '@work/domain/events/task-handed-on.event';
-import { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
-import { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
-import { TaskMarkTaken } from '@work/domain/events/task-mark-taken.event';
+import { TaskMarkReassigned } from '@work/domain/events/task-mark-reassigned.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
+import { TaskPassed } from '@work/domain/events/task-passed.event';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
-import { MoveRefusedError } from '@work/domain/exceptions/move-refused.error';
+import { MoveDeniedError } from '@work/domain/exceptions/move-denied.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
 import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
@@ -41,6 +41,7 @@ import {
   notesIn,
 } from '@work/domain/services/conversations';
 import { anyUnread } from '@work/domain/services/unread';
+import type { Anchor } from '@work/domain/value-objects/anchor.vo';
 import {
   Approval,
   type ApprovalDecision,
@@ -54,12 +55,9 @@ import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import type { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
-import { Continuity } from '@work/domain/value-objects/continuity.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
-import type { Handover } from '@work/domain/value-objects/handover.vo';
+import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import type { Happening } from '@work/domain/value-objects/happening.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { HeldBack } from '@work/domain/value-objects/held-back.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
@@ -67,8 +65,10 @@ import {
   PullRequestLink,
   type ReviewedHead,
 } from '@work/domain/value-objects/pull-request-link.vo';
-import type { Remark } from '@work/domain/value-objects/remark.vo';
-import type { Said } from '@work/domain/value-objects/said.vo';
+import type { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
+import { Resume } from '@work/domain/value-objects/resume.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
+import type { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
@@ -82,23 +82,23 @@ import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import type { Voice } from '@work/domain/value-objects/voice.vo';
 
-export interface OpenRemark {
+export interface OpenReviewComment {
   readonly at: NotePosition;
-  readonly said: Said;
+  readonly anchor: Anchor;
 }
 
-export interface AnswerableRemark {
+export interface ReviewCommentToReply {
   readonly pullRequest: PullRequestUrl;
   readonly repository: Repository;
-  readonly remark: Remark;
+  readonly reviewComment: ReviewComment;
 }
 
-export interface Saying {
+export interface NewNote {
   readonly station: StationName;
   readonly body: TaskNoteBody;
   readonly at: Date;
   readonly voice: Voice;
-  readonly said?: Said | null;
+  readonly anchor?: Anchor | null;
   readonly form?: TaskNoteForm;
   readonly attachments?: readonly Attachment[];
   readonly approval?: Approval | null;
@@ -106,7 +106,7 @@ export interface Saying {
   readonly connectionAsk?: ConnectionAsk | null;
 }
 
-export interface StandingApproval {
+export interface CurrentApproval {
   readonly at: NotePosition;
   readonly approval: Approval;
 }
@@ -134,8 +134,8 @@ export class Task extends EventRecorder {
     readonly runnerId: RunnerId | null,
     readonly notes: readonly TaskNote[],
     readonly createdAt: Date,
-    readonly raisedAt: StationId | null,
-    readonly raisedBy: UserId | null,
+    readonly originStationId: StationId | null,
+    readonly createdBy: UserId | null,
     readonly openedFrom: TaskOrigin,
     readonly pullRequestLink: PullRequestLink | null,
     readonly marks: readonly Mark[],
@@ -155,15 +155,15 @@ export class Task extends EventRecorder {
     description?: TaskDescription | null;
     attachments?: readonly Attachment[];
     rank: TaskRank;
-    raisedBy?: UserId | null;
-    heardFrom?: Happening | null;
+    createdBy?: UserId | null;
+    receivedFrom?: Happening | null;
     proposedIn?: ProposalOrigin | null;
     now: Date;
     newId: () => string;
   }): Task {
     const station = Task.stationOn(input.line, input.at);
-    const raisedBy = input.raisedBy ?? null;
-    const heardFrom = input.heardFrom ?? null;
+    const createdBy = input.createdBy ?? null;
+    const receivedFrom = input.receivedFrom ?? null;
 
     const task = new Task(
       TaskId.of(input.newId()),
@@ -178,12 +178,14 @@ export class Task extends EventRecorder {
       [],
       input.now,
       station.id,
-      raisedBy,
-      heardFrom ? TaskOrigin.heardFrom(heardFrom) : TaskOrigin.person(),
+      createdBy,
+      receivedFrom
+        ? TaskOrigin.receivedFrom(receivedFrom)
+        : TaskOrigin.person(),
       null,
       [],
       null,
-      raisedBy,
+      createdBy,
       input.attachments ?? [],
     );
 
@@ -194,9 +196,9 @@ export class Task extends EventRecorder {
         input.line.teamId,
         input.line.id,
         task.stationId,
-        raisedBy,
+        createdBy,
         input.now,
-        heardFrom !== null,
+        receivedFrom !== null,
         input.proposedIn ?? null,
       ),
     );
@@ -216,8 +218,8 @@ export class Task extends EventRecorder {
     runnerId: RunnerId | null;
     notes: readonly TaskNote[];
     createdAt: Date;
-    raisedAt: StationId | null;
-    raisedBy: UserId | null;
+    originStationId: StationId | null;
+    createdBy: UserId | null;
     openedFrom: TaskOrigin;
     pullRequestLink?: PullRequestLink | null;
     marks?: readonly Mark[];
@@ -230,7 +232,7 @@ export class Task extends EventRecorder {
     if (input.finishedAt !== null && input.currentRunId !== null) {
       throw new InconsistentStateError(
         'task',
-        'is finished yet still held by a run',
+        'is finished yet still has a current run',
       );
     }
 
@@ -257,8 +259,8 @@ export class Task extends EventRecorder {
       input.runnerId,
       input.notes,
       input.createdAt,
-      input.raisedAt,
-      input.raisedBy,
+      input.originStationId,
+      input.createdBy,
       input.openedFrom,
       input.pullRequestLink ?? null,
       input.marks ?? [],
@@ -282,7 +284,7 @@ export class Task extends EventRecorder {
     return this;
   }
 
-  standsAt(revision: TaskRevision): boolean {
+  isAtRevision(revision: TaskRevision): boolean {
     return this.revision.equals(revision);
   }
 
@@ -290,13 +292,13 @@ export class Task extends EventRecorder {
     line: Line,
     to: StationId,
     rank: TaskRank,
-    saying: Saying,
+    newNote: NewNote,
     handMove: { mover: UserId },
   ): Task {
-    this.refuseHandMove(line, to);
+    this.assertHandMoveAllowed(line, to);
 
     const into = Task.stationOn(line, to);
-    const moved = this.relocated(line, to, rank, saying, handMove).lettingGoOf(
+    const moved = this.relocated(line, to, rank, newNote, handMove).detachRun(
       this.currentRunId,
     );
 
@@ -305,52 +307,54 @@ export class Task extends EventRecorder {
         this.id,
         this.workspaceId,
         this.stationId,
-        into.isCompleted ? 'closed' : into.isBacklog ? 'parked' : 'started',
+        into.isCompleted ? 'accepted' : into.isBacklog ? 'parked' : 'started',
         handMove.mover,
         this.lastRun,
-        saying.at,
+        newNote.at,
       ),
     );
 
     return moved;
   }
 
-  react(line: Line, to: StationId, rank: TaskRank, saying: Saying): Task {
+  react(line: Line, to: StationId, rank: TaskRank, newNote: NewNote): Task {
     if (this.running) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is being worked by a run. A happening cannot move it.`,
+        `Task ${this.id.value} has a run in progress. A happening cannot move it.`,
       );
     }
 
-    return this.relocated(line, to, rank, saying, null);
+    return this.relocated(line, to, rank, newNote, null);
   }
 
-  heldBack(line: Line, to: StationId, saying: Saying): Task {
+  deferMove(line: Line, to: StationId, newNote: NewNote): Task {
     if (!this.running) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is not being worked by a run. There is no move to hold back.`,
+        `Task ${this.id.value} has no run in progress. There is no move to defer.`,
       );
     }
 
     if (this.stationId.equals(to)) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} already stands at that station.`,
+        `Task ${this.id.value} is already at that station.`,
       );
     }
 
     if (line.completed.id.equals(to)) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} cannot hold back a move to the end of its line. That move interrupts its run.`,
+        `Task ${this.id.value} cannot defer a move to the end of its line. That move interrupts its run.`,
       );
     }
 
-    return this.with(this.spoke(saying, 'said', HeldBack.moveTo(to)));
+    return this.with(
+      this.appendNote(newNote, 'message', DeferredMove.moveTo(to)),
+    );
   }
 
-  get heldBackTo(): StationId | null {
+  get deferredMoveTo(): StationId | null {
     for (const note of [...this.notes].reverse()) {
-      if (note.heldBack) {
-        return note.heldBack.to;
+      if (note.deferredMove) {
+        return note.deferredMove.to;
       }
 
       if (
@@ -364,18 +368,18 @@ export class Task extends EventRecorder {
     return null;
   }
 
-  movedAsHeldBack(
+  moveAsDeferred(
     by: RunId,
     line: Line,
     to: StationId,
     rank: TaskRank,
-    ending: { saying: Saying; handover: Handover },
+    ending: { newNote: NewNote; handover: ResolvedHandover },
   ): Task {
-    this.refuseAnotherRun(by, 'move it where it was held back to');
+    this.assertNoOtherRun(by, 'make its deferred move');
 
-    if (!this.heldBackTo?.equals(to)) {
+    if (!this.deferredMoveTo?.equals(to)) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} has no move held back to that station.`,
+        `Task ${this.id.value} has no deferred move to that station.`,
       );
     }
 
@@ -384,7 +388,7 @@ export class Task extends EventRecorder {
     const failure =
       raised?.following(this.openFailure?.failure ?? null) ?? null;
     const failing = failure
-      ? this.failing(failure, by, ending.saying.at, line)
+      ? this.failing(failure, by, ending.newNote.at, line)
       : this;
 
     const moved = failing.relocated(
@@ -392,8 +396,8 @@ export class Task extends EventRecorder {
       to,
       rank,
       {
-        ...ending.saying,
-        body: TaskNoteBody.movedAsHeldBack(
+        ...ending.newNote,
+        body: TaskNoteBody.movedAsDeferred(
           Task.stationOn(line, to).name,
           ending.handover.account,
         ),
@@ -404,13 +408,13 @@ export class Task extends EventRecorder {
     );
 
     moved.record(
-      new TaskHandedOn(
+      new TaskPassed(
         this.id,
         this.workspaceId,
         by,
         this.stationId,
         to,
-        ending.saying.at,
+        ending.newNote.at,
       ),
     );
 
@@ -427,18 +431,20 @@ export class Task extends EventRecorder {
       : undefined;
   }
 
-  interrupt(saying: Saying): Task {
+  interrupt(newNote: NewNote): Task {
     if (!this.running) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is not being worked by a run.`,
+        `Task ${this.id.value} has no run in progress.`,
       );
     }
 
     if (this.awaitsAnAnswer) {
-      return this.with(this.spoke(saying, 'said', HeldBack.cleared()));
+      return this.with(
+        this.appendNote(newNote, 'message', DeferredMove.cleared()),
+      );
     }
 
-    return this.stopped(saying.at).asked(saying, null, null, {
+    return this.stopped(newNote.at).asked(newNote, null, null, {
       overAnApproval: true,
     });
   }
@@ -447,16 +453,19 @@ export class Task extends EventRecorder {
     line: Line,
     to: StationId,
     rank: TaskRank,
-    saying: Saying,
+    newNote: NewNote,
     handMove: { mover: UserId } | null,
   ): Task {
     const from = Task.stationOn(line, this.stationId);
     const into = Task.stationOn(line, to);
 
-    this.refuseStandingStill(into.id);
+    this.assertNotAtStation(into.id);
 
     const takesOwnership =
-      handMove !== null && !this.assignee && from.isBacklog && into.isWorked;
+      handMove !== null &&
+      !this.assignee &&
+      from.isBacklog &&
+      into.isAgentStation;
 
     const moved = this.with({
       stationId: into.id,
@@ -464,19 +473,25 @@ export class Task extends EventRecorder {
       currentRunId: null,
       sessionId: null,
       runnerId: null,
-      ...this.spoke(saying, 'passed'),
-      finishedAt: into.isCompleted ? saying.at : null,
+      ...this.appendNote(newNote, 'passed'),
+      finishedAt: into.isCompleted ? newNote.at : null,
       ...(takesOwnership ? { assignee: handMove.mover } : {}),
       revision: this.revision.next(),
-    }).handedOnAt(saying.at);
+    }).acknowledgeNotesAt(newNote.at);
 
     moved.record(
-      new TaskMoved(moved.id, moved.workspaceId, from.key, into.key, saying.at),
+      new TaskMoved(
+        moved.id,
+        moved.workspaceId,
+        from.key,
+        into.key,
+        newNote.at,
+      ),
     );
 
     if (into.isCompleted) {
       moved.record(
-        new TaskFinished(moved.id, moved.workspaceId, into.id, saying.at),
+        new TaskFinished(moved.id, moved.workspaceId, into.id, newNote.at),
       );
     }
 
@@ -509,7 +524,7 @@ export class Task extends EventRecorder {
     at: Date,
     line: Line,
   ): Task {
-    this.refuseAnotherRun(by, 'open a pull request for it');
+    this.assertNoOtherRun(by, 'open a pull request for it');
 
     if (this.pullRequest) {
       return this;
@@ -576,27 +591,29 @@ export class Task extends EventRecorder {
       : this.with({ marks: [...this.marks, mark] });
   }
 
-  markTakenBy(mark: Mark, taker: TaskId): Task {
+  reassignMark(mark: Mark, newTaskId: TaskId): Task {
     if (
-      taker.equals(this.id) ||
+      newTaskId.equals(this.id) ||
       !this.marks.some((each) => each.equals(mark))
     ) {
       return this;
     }
 
-    const given = this.with({
+    const marked = this.with({
       marks: this.marks.filter((each) => !each.equals(mark)),
     });
-    given.record(new TaskMarkTaken(this.id, this.workspaceId, mark, taker));
+    marked.record(
+      new TaskMarkReassigned(this.id, this.workspaceId, mark, newTaskId),
+    );
 
-    return given;
+    return marked;
   }
 
   get running(): boolean {
     return this.currentRunId !== null;
   }
 
-  heldBy(runId: RunId): boolean {
+  hasCurrentRun(runId: RunId): boolean {
     return this.currentRunId?.equals(runId) ?? false;
   }
 
@@ -609,7 +626,7 @@ export class Task extends EventRecorder {
   }
 
   takesUp(runId: RunId): boolean {
-    return this.heldBy(runId) && !this.awaitingReview;
+    return this.hasCurrentRun(runId) && !this.awaitingReview;
   }
 
   get idle(): boolean {
@@ -620,31 +637,31 @@ export class Task extends EventRecorder {
     return this.finishedAt !== null;
   }
 
-  heard(saying: Saying, at: StationId | null = null): Task {
+  addMessage(newNote: NewNote, at: StationId | null = null): Task {
     if (at && !this.stationId.equals(at)) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} has moved on from that station.`,
       );
     }
 
-    return this.with(this.spoke(saying, 'said'));
+    return this.with(this.appendNote(newNote, 'message'));
   }
 
-  spokenTo(by: RunId, saying: Saying, at: StationId | null): Task {
+  receiveMessage(by: RunId, newNote: NewNote, at: StationId | null): Task {
     const answering =
-      this.heldBy(by) ||
+      this.hasCurrentRun(by) ||
       (!this.running && at !== null && this.stationId.equals(at));
-    const owed = answering ? this.owedConversation : null;
+    const pending = answering ? this.pendingConversation : null;
 
-    if (owed && !this.owesADecision) {
-      return this.answer(NotePosition.of(owed.from), saying);
+    if (pending && !this.decisionPending) {
+      return this.answer(NotePosition.of(pending.from), newNote);
     }
 
-    const heard = this.heard(saying, at);
-    const sender = saying.voice.isPerson ? saying.voice.author : null;
+    const withMessage = this.addMessage(newNote, at);
+    const sender = newNote.voice.isPerson ? newNote.voice.author : null;
 
     if (sender && !this.running) {
-      heard.record(
+      withMessage.record(
         new TaskActedOn(
           this.id,
           this.workspaceId,
@@ -652,19 +669,19 @@ export class Task extends EventRecorder {
           'sent-back',
           sender,
           by,
-          saying.at,
+          newNote.at,
         ),
       );
     }
 
-    return heard;
+    return withMessage;
   }
 
   get awaitsAnAnswer(): boolean {
-    return this.running && this.awaitingReview && !this.owesADecision;
+    return this.running && this.awaitingReview && !this.decisionPending;
   }
 
-  get owesADecision(): boolean {
+  get decisionPending(): boolean {
     const asked = [...this.notes]
       .reverse()
       .find((note) => note.kind === 'asked');
@@ -672,14 +689,14 @@ export class Task extends EventRecorder {
     return this.awaitingReview && Boolean(asked?.approval);
   }
 
-  settled(saying: Saying): Task {
+  closeConversation(newNote: NewNote): Task {
     if (!this.trail.open) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} has nothing open to settle.`,
+        `Task ${this.id.value} has no open conversation to close.`,
       );
     }
 
-    return this.with(this.spoke(saying, 'passed'));
+    return this.with(this.appendNote(newNote, 'passed'));
   }
 
   passedOn(
@@ -687,36 +704,36 @@ export class Task extends EventRecorder {
     line: Line,
     to: StationId,
     rank: TaskRank,
-    saying: Saying,
+    newNote: NewNote,
   ): Task {
-    this.refuseAnotherRun(by, 'pass it on');
+    this.assertNoOtherRun(by, 'pass it on');
 
     const into = Task.stationOn(line, to);
 
-    if (line.refusalToPass(this.stationId, into) !== null) {
+    if (line.passDenial(this.stationId, into) !== null) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} cannot pass to station ${into.name.value}.`,
       );
     }
 
-    const passed = this.relocated(line, into.id, rank, saying, null);
+    const passed = this.relocated(line, into.id, rank, newNote, null);
 
     passed.record(
-      new TaskHandedOn(
+      new TaskPassed(
         this.id,
         this.workspaceId,
         by,
         this.stationId,
         into.id,
-        saying.at,
+        newNote.at,
       ),
     );
 
     return passed;
   }
 
-  finishHere(by: RunId, line: Line, saying: Saying): Task {
-    this.refuseAnotherRun(by, 'finish it');
+  finishHere(by: RunId, line: Line, newNote: NewNote): Task {
+    this.assertNoOtherRun(by, 'finish it');
 
     if (!line.endsAt(this.stationId)) {
       throw new InvalidTaskTransitionError(
@@ -726,27 +743,27 @@ export class Task extends EventRecorder {
 
     const finished = this.with({
       currentRunId: null,
-      ...this.spoke(saying, 'passed'),
-      finishedAt: saying.at,
+      ...this.appendNote(newNote, 'passed'),
+      finishedAt: newNote.at,
       revision: this.revision.next(),
-    }).handedOnAt(saying.at);
+    }).acknowledgeNotesAt(newNote.at);
 
     finished.record(
       new TaskFinished(
         finished.id,
         finished.workspaceId,
         finished.stationId,
-        saying.at,
+        newNote.at,
       ),
     );
 
     return finished;
   }
 
-  handedTo(runId: RunId, line: Line): Task {
+  assignRun(runId: RunId, line: Line): Task {
     if (this.currentRunId) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is already being worked by a run.`,
+        `Task ${this.id.value} already has a run in progress.`,
       );
     }
 
@@ -756,11 +773,11 @@ export class Task extends EventRecorder {
       );
     }
 
-    const handed = this.with({ currentRunId: runId });
+    const assigned = this.with({ currentRunId: runId });
 
-    handed.record(new TaskHandedToRun(this.id, this.workspaceId, runId));
+    assigned.record(new TaskDispatched(this.id, this.workspaceId, runId));
 
-    return handed;
+    return assigned;
   }
 
   wantsRun(line: Line): boolean {
@@ -768,52 +785,52 @@ export class Task extends EventRecorder {
   }
 
   dropUnstartedRun(runId: RunId): Task {
-    return this.heldBy(runId) ? this.with({ currentRunId: null }) : this;
+    return this.hasCurrentRun(runId) ? this.with({ currentRunId: null }) : this;
   }
 
   leaveRun(runId: RunId, at: Date): Task {
-    return this.heldBy(runId)
-      ? this.with({ currentRunId: null }).handedOnAt(at)
+    return this.hasCurrentRun(runId)
+      ? this.with({ currentRunId: null }).acknowledgeNotesAt(at)
       : this;
   }
 
-  private handedOnAt(at: Date): Task {
+  private acknowledgeNotesAt(at: Date): Task {
     return this.notes.length === 0
       ? this
-      : this.markDeliveredUpTo(NotePosition.of(this.notes.length - 1), at);
+      : this.acknowledgeUpTo(NotePosition.of(this.notes.length - 1), at);
   }
 
   recordSession(sessionId: HarnessSession, runnerId: RunnerId | null): Task {
     return this.with({ sessionId, runnerId });
   }
 
-  continuity(): Continuity {
-    return Continuity.of({
-      key: ContinuityKey.forTask(this.id.value),
+  resume(): Resume {
+    return Resume.of({
+      key: ResumeKey.forTask(this.id.value),
       sessionId: this.sessionId,
     });
   }
 
   private get lastRun(): RunId | null {
-    const spoken = this.notes.filter((note) => note.voice.run !== null);
+    const byRuns = this.notes.filter((note) => note.voice.run !== null);
 
-    return this.currentRunId ?? spoken[spoken.length - 1]?.voice.run ?? null;
+    return this.currentRunId ?? byRuns[byRuns.length - 1]?.voice.run ?? null;
   }
 
   private get trail(): Trail {
     return Trail.of(this.notes);
   }
 
-  get owedConversation(): Conversation | null {
-    return this.trail.owed;
+  get pendingConversation(): Conversation | null {
+    return this.trail.pending;
   }
 
   get openConversation(): Conversation | null {
     return this.trail.open;
   }
 
-  raisedByThem(userId: UserId): boolean {
-    return this.raisedBy?.equals(userId) ?? false;
+  createdByThem(userId: UserId): boolean {
+    return this.createdBy?.equals(userId) ?? false;
   }
 
   assignedToThem(userId: UserId): boolean {
@@ -846,9 +863,11 @@ export class Task extends EventRecorder {
     return conversation;
   }
 
-  get openRemarks(): readonly OpenRemark[] {
+  get openReviewComments(): readonly OpenReviewComment[] {
     return this.notes.flatMap((note) =>
-      note.open && note.said ? [{ at: note.position, said: note.said }] : [],
+      note.open && note.anchor
+        ? [{ at: note.position, anchor: note.anchor }]
+        : [],
     );
   }
 
@@ -864,34 +883,34 @@ export class Task extends EventRecorder {
         body: note.body.value,
         attachments: note.attachments,
       })),
-      openRemarks: this.openRemarks.map((each) => ({
+      openReviewComments: this.openReviewComments.map((each) => ({
         at: each.at,
-        place: each.said.place,
-        body: each.said.body,
+        place: each.anchor.place,
+        body: each.anchor.body,
       })),
     });
   }
 
-  remarkAt(at: NotePosition): Remark {
-    const remark = this.notes[at.value]?.open
-      ? this.notes[at.value]?.remark
+  reviewCommentAt(at: NotePosition): ReviewComment {
+    const reviewComment = this.notes[at.value]?.open
+      ? this.notes[at.value]?.reviewComment
       : null;
 
-    if (!remark) {
+    if (!reviewComment) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} has no answerable remark at that note.`,
+        `Task ${this.id.value} has no review comment to reply to at that note.`,
       );
     }
 
-    return remark;
+    return reviewComment;
   }
 
-  remarkAnswerableFrom(
+  reviewCommentToReplyFrom(
     by: RunId,
     stationId: StationId | null,
     at: NotePosition,
-  ): AnswerableRemark {
-    this.refuseAnotherRun(by, 'answer a remark on it');
+  ): ReviewCommentToReply {
+    this.assertNoOtherRun(by, 'reply to a review comment on it');
 
     const repository = this.pullRequest?.repository ?? null;
 
@@ -908,29 +927,29 @@ export class Task extends EventRecorder {
     return {
       pullRequest: this.pullRequest,
       repository,
-      remark: this.remarkAt(at),
+      reviewComment: this.reviewCommentAt(at),
     };
   }
 
-  repliedTo(
+  recordReviewCommentReply(
     by: RunId,
     from: StationId | null,
     at: NotePosition,
-    saying: Saying,
+    newNote: NewNote,
   ): Task {
-    this.remarkAnswerableFrom(by, from, at);
+    this.reviewCommentToReplyFrom(by, from, at);
 
-    const said = this.with(this.spoke(saying, 'said'));
+    const replied = this.with(this.appendNote(newNote, 'message'));
 
-    return said.with({
-      notes: said.notes.map((note) =>
-        note.position.equals(at) ? note.answered(saying.at) : note,
+    return replied.with({
+      notes: replied.notes.map((note) =>
+        note.position.equals(at) ? note.answered(newNote.at) : note,
       ),
     });
   }
 
-  get undelivered(): readonly TaskNote[] {
-    return this.trail.undelivered;
+  get unacknowledged(): readonly TaskNote[] {
+    return this.trail.unacknowledged;
   }
 
   get allAttachments(): readonly Attachment[] {
@@ -940,43 +959,45 @@ export class Task extends EventRecorder {
     ];
   }
 
-  markDeliveredUpTo(position: NotePosition, at: Date): Task {
+  acknowledgeUpTo(position: NotePosition, at: Date): Task {
     return this.with({
       notes: this.notes.map((note) =>
-        note.position.isAtOrBefore(position) ? note.delivered(at) : note,
+        note.position.isAtOrBefore(position) ? note.acknowledge(at) : note,
       ),
     });
   }
 
-  askedAbout(saying: Saying, by: RunId | null): Task {
-    return this.asked(saying, by, null);
+  askedAbout(newNote: NewNote, by: RunId | null): Task {
+    return this.asked(newNote, by, null);
   }
 
-  putToAPerson(by: RunId, saying: Saying): Task {
-    return this.asked(saying, by, by);
+  putToAPerson(by: RunId, newNote: NewNote): Task {
+    return this.asked(newNote, by, by);
   }
 
   private asked(
-    saying: Saying,
+    newNote: NewNote,
     by: RunId | null,
     waiting: RunId | null,
     { overAnApproval } = { overAnApproval: false },
   ): Task {
-    this.refuseAnotherRun(by, 'put it to a person');
+    this.assertNoOtherRun(by, 'put it to a person');
 
-    if (this.awaitingReview && !(overAnApproval && this.owesADecision)) {
+    if (this.awaitingReview && !(overAnApproval && this.decisionPending)) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} is already waiting on a person.`,
       );
     }
 
-    const spoken = this.with({
+    const noted = this.with({
       currentRunId: waiting,
-      assignee: this.assignee ?? this.raisedBy,
-      ...this.spoke(saying, 'asked'),
+      assignee: this.assignee ?? this.createdBy,
+      ...this.appendNote(newNote, 'asked'),
     });
     const asked =
-      waiting === null && this.running ? spoken.handedOnAt(saying.at) : spoken;
+      waiting === null && this.running
+        ? noted.acknowledgeNotesAt(newNote.at)
+        : noted;
 
     asked.record(
       new TaskAsked(
@@ -984,7 +1005,7 @@ export class Task extends EventRecorder {
         asked.workspaceId,
         asked.stationId,
         asked.assignee,
-        saying.at,
+        newNote.at,
       ),
     );
 
@@ -999,10 +1020,10 @@ export class Task extends EventRecorder {
 
   failed(
     failure: TaskFailure,
-    saying: Saying,
+    newNote: NewNote,
     by: RunId | null,
     line: Line | null,
-    heldBackRank: TaskRank | null = null,
+    deferredMoveRank: TaskRank | null = null,
   ): Task {
     if (this.finished) {
       throw new InvalidTaskTransitionError(
@@ -1011,32 +1032,32 @@ export class Task extends EventRecorder {
     }
 
     if (by) {
-      this.refuseAnotherRun(by, 'report a failure of it');
+      this.assertNoOtherRun(by, 'report a failure of it');
     }
 
-    const heldBackTo = by || !this.running ? null : this.heldBackTo;
+    const deferredMoveTo = by || !this.running ? null : this.deferredMoveTo;
 
-    if (heldBackTo && heldBackRank && line?.stationAt(heldBackTo)) {
-      return this.failing(failure, by, saying.at, line)
+    if (deferredMoveTo && deferredMoveRank && line?.stationAt(deferredMoveTo)) {
+      return this.failing(failure, by, newNote.at, line)
         .relocated(
           line,
-          heldBackTo,
-          heldBackRank,
+          deferredMoveTo,
+          deferredMoveRank,
           {
-            ...saying,
-            body: TaskNoteBody.movedAsHeldBack(
-              Task.stationOn(line, heldBackTo).name,
-              saying.body,
+            ...newNote,
+            body: TaskNoteBody.movedAsDeferred(
+              Task.stationOn(line, deferredMoveTo).name,
+              newNote.body,
             ),
             form: 'failure',
             failure,
           },
           null,
         )
-        .lettingGoOf(this.currentRunId);
+        .detachRun(this.currentRunId);
     }
 
-    const free = by ? this : this.stopped(saying.at);
+    const free = by ? this : this.stopped(newNote.at);
     const earlier = free.openFailure;
 
     if (free.awaitingReview && earlier?.failure?.sameAs(failure)) {
@@ -1048,21 +1069,21 @@ export class Task extends EventRecorder {
             note.equals(earlier) ? note.recurred(recurred) : note,
           ),
         })
-        .failing(recurred, by, saying.at, line);
+        .failing(recurred, by, newNote.at, line);
     }
 
     const following = failure.following(earlier?.failure ?? null);
-    const reported: Saying = {
-      ...saying,
+    const reported: NewNote = {
+      ...newNote,
       form: 'failure',
       failure: following,
     };
 
     return (
       free.awaitingReview
-        ? free.with(free.spoke(reported, 'said'))
+        ? free.with(free.appendNote(reported, 'message'))
         : free.askedAbout(reported, by)
-    ).failing(following, by, saying.at, line);
+    ).failing(following, by, newNote.at, line);
   }
 
   private failing(
@@ -1093,47 +1114,45 @@ export class Task extends EventRecorder {
   private stopped(at: Date): Task {
     return this.running
       ? this.with({ currentRunId: null })
-          .handedOnAt(at)
-          .lettingGoOf(this.currentRunId)
+          .acknowledgeNotesAt(at)
+          .detachRun(this.currentRunId)
       : this;
   }
 
   clearFor(
     subject: ApprovalSubject,
     needed: ApprovalNeeded,
-    asking: Saying,
+    asking: NewNote,
     by: RunId,
     intent: ApprovalIntent | null,
   ): Cleared {
-    this.refuseAnotherRun(by, 'use a tool on it');
+    this.assertNoOtherRun(by, 'use a tool on it');
 
-    const standing = this.approvalFor(subject);
+    const current = this.approvalFor(subject);
 
-    if (standing?.approval.refuses) {
+    if (current?.approval.dismisses) {
       return {
         task: this,
         check: {
-          kind: 'refused',
-          reason: standing.approval.decided?.reason ?? '',
+          kind: 'dismissed',
+          reason: current.approval.decided?.reason ?? '',
         },
       };
     }
 
-    if (standing?.approval.grantedFor(needed.askedOf)) {
+    if (current?.approval.grantedFor(needed.askedOf)) {
       return {
-        task: this.withApprovalAt(standing.at, (note) =>
-          note.approvalClaimed(),
-        ),
+        task: this.withApprovalAt(current.at, (note) => note.approvalClaimed()),
         check: {
-          kind: 'given',
-          claimed: standing.at,
-          edited: standing.approval.goesAheadWith,
+          kind: 'approved',
+          claimed: current.at,
+          edited: current.approval.goesAheadWith,
         },
       };
     }
 
     if (this.awaitingReview) {
-      return { task: this, check: { kind: 'asked' } };
+      return { task: this, check: { kind: 'pending' } };
     }
 
     const askedOf = needed.askedOf;
@@ -1144,7 +1163,7 @@ export class Task extends EventRecorder {
         {
           ...asking,
           form: 'approval',
-          approval: Approval.asked(
+          approval: Approval.request(
             subject,
             this.stationId,
             needed.because,
@@ -1153,12 +1172,12 @@ export class Task extends EventRecorder {
           ),
         },
       ),
-      check: { kind: 'asked' },
+      check: { kind: 'pending' },
     };
   }
 
-  askToConnect(by: RunId, asking: Saying, ask: ConnectionAsk): AskedToConnect {
-    this.refuseAnotherRun(by, 'ask a person to connect');
+  askToConnect(by: RunId, asking: NewNote, ask: ConnectionAsk): AskedToConnect {
+    this.assertNoOtherRun(by, 'ask a person to connect');
 
     if (this.awaitingReview) {
       const open = this.openConversation;
@@ -1167,7 +1186,8 @@ export class Task extends EventRecorder {
       return {
         task: this,
         asked:
-          waiting?.answeredBy(ask.teamId, ask.source, ask.personId) ?? false,
+          waiting?.answeredBy(ask.teamId, ask.integration, ask.personId) ??
+          false,
       };
     }
 
@@ -1183,22 +1203,22 @@ export class Task extends EventRecorder {
 
   connectionMade(
     teamId: TeamId,
-    source: string,
+    integration: string,
     personId: UserId,
-    saying: Saying,
+    newNote: NewNote,
   ): Task | null {
     const open = this.openConversation;
     const asked = open ? this.notes[open.from] : undefined;
 
     if (
       !open ||
-      !asked?.connectionAsk?.answeredBy(teamId, source, personId) ||
-      !saying.voice.author?.equals(personId)
+      !asked?.connectionAsk?.answeredBy(teamId, integration, personId) ||
+      !newNote.voice.author?.equals(personId)
     ) {
       return null;
     }
 
-    const answered = this.answer(NotePosition.of(open.from), saying);
+    const answered = this.answer(NotePosition.of(open.from), newNote);
 
     return answered.with({
       notes: answered.notes.map((note) =>
@@ -1211,12 +1231,12 @@ export class Task extends EventRecorder {
     return this.withApprovalAt(at, (note) => note.returnApproval());
   }
 
-  approvalFor(subject: ApprovalSubject): StandingApproval | null {
+  approvalFor(subject: ApprovalSubject): CurrentApproval | null {
     for (let at = this.notes.length - 1; at >= 0; at--) {
       const note = this.notes[at];
       const approval = note?.approval;
 
-      if (note && approval?.standsFor(subject, this.stationId)) {
+      if (note && approval?.appliesTo(subject, this.stationId)) {
         return { at: note.position, approval };
       }
     }
@@ -1231,7 +1251,7 @@ export class Task extends EventRecorder {
   ): ToolCall | null {
     if (
       this.openConversation?.from !== from.value ||
-      decision !== 'granted' ||
+      decision !== 'approved' ||
       !edits
     ) {
       return null;
@@ -1242,7 +1262,7 @@ export class Task extends EventRecorder {
 
   answer(
     from: NotePosition,
-    saying: Saying,
+    newNote: NewNote,
     decision: ApprovalDecision | null = null,
     edits: ApprovalEdits | null = null,
   ): Task {
@@ -1252,7 +1272,7 @@ export class Task extends EventRecorder {
       );
     }
 
-    const by = saying.voice.author;
+    const by = newNote.voice.author;
 
     if (decision && !this.notes[from.value]?.approval) {
       throw new InvalidApprovalAnswerError(
@@ -1272,13 +1292,15 @@ export class Task extends EventRecorder {
       );
     }
 
-    const spoken = this.with(
-      this.spoke(
-        decision ? { ...saying, form: 'approval' } : saying,
+    const noted = this.with(
+      this.appendNote(
+        decision ? { ...newNote, form: 'approval' } : newNote,
         'answered',
       ),
     );
-    const answered = spoken.running ? spoken : spoken.handedOnAt(saying.at);
+    const answered = noted.running
+      ? noted
+      : noted.acknowledgeNotesAt(newNote.at);
 
     if (this.currentRunId) {
       answered.record(
@@ -1286,20 +1308,16 @@ export class Task extends EventRecorder {
       );
     }
 
-    if (by && saying.voice.isPerson) {
+    if (by && newNote.voice.isPerson) {
       answered.record(
         new TaskActedOn(
           this.id,
           this.workspaceId,
           this.stationId,
-          decision === 'granted'
-            ? 'approved'
-            : decision === 'refused'
-              ? 'refused'
-              : 'answered',
+          decision ?? 'answered',
           by,
           this.lastRun,
-          saying.at,
+          newNote.at,
           decision
             ? (this.notes[from.value]?.approval?.subject.tool ?? null)
             : null,
@@ -1313,8 +1331,8 @@ export class Task extends EventRecorder {
             decision,
             {
               by,
-              at: saying.at,
-              reason: saying.body.value,
+              at: newNote.at,
+              reason: newNote.body.value,
             },
             edits,
           ),
@@ -1333,18 +1351,18 @@ export class Task extends EventRecorder {
     });
   }
 
-  private lettingGoOf(runId: RunId | null): Task {
+  private detachRun(runId: RunId | null): Task {
     if (runId) {
-      this.record(new TaskLetGoOfRun(this.id, this.workspaceId, runId));
+      this.record(new RunDetached(this.id, this.workspaceId, runId));
     }
 
     return this;
   }
 
-  private refuseAnotherRun(by: RunId | null, doing: string): void {
-    const holding = by ? this.heldBy(by) : !this.running;
+  private assertNoOtherRun(by: RunId | null, doing: string): void {
+    const isCurrentRun = by ? this.hasCurrentRun(by) : !this.running;
 
-    if (!holding) {
+    if (!isCurrentRun) {
       throw new InvalidTaskTransitionError(
         `Only the run working task ${this.id.value} can ${doing}.`,
       );
@@ -1361,40 +1379,40 @@ export class Task extends EventRecorder {
     return station;
   }
 
-  private refuseHandMove(line: Line, to: StationId): void {
+  private assertHandMoveAllowed(line: Line, to: StationId): void {
     const from = Task.stationOn(line, this.stationId);
     const into = Task.stationOn(line, to);
-    const refused = line.refusalToMove(from, into);
+    const denial = line.moveDenial(from, into);
 
-    if (refused) {
-      throw new MoveRefusedError(refused, from.name.value, into.name.value);
+    if (denial) {
+      throw new MoveDeniedError(denial, from.name.value, into.name.value);
     }
   }
 
-  private refuseStandingStill(stationId: StationId): void {
+  private assertNotAtStation(stationId: StationId): void {
     if (this.stationId.equals(stationId)) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} already stands at station ${stationId.value}.`,
+        `Task ${this.id.value} is already at station ${stationId.value}.`,
       );
     }
   }
 
-  private spoke(
-    saying: Saying,
+  private appendNote(
+    newNote: NewNote,
     kind: TaskNoteKind,
-    heldBack: HeldBack | null = null,
+    deferredMove: DeferredMove | null = null,
   ): { notes: readonly TaskNote[]; finishedAt?: null } {
     return {
       notes: [
         ...this.notes,
         TaskNote.of({
-          ...saying,
+          ...newNote,
           kind,
           position: NotePosition.of(this.notes.length),
-          heldBack,
+          deferredMove,
         }),
       ],
-      ...(saying.voice.isStation ? {} : { finishedAt: null }),
+      ...(newNote.voice.isStation ? {} : { finishedAt: null }),
     };
   }
 
@@ -1423,8 +1441,8 @@ export class Task extends EventRecorder {
       part.runnerId !== undefined ? part.runnerId : this.runnerId,
       part.notes ?? this.notes,
       this.createdAt,
-      this.raisedAt,
-      this.raisedBy,
+      this.originStationId,
+      this.createdBy,
       this.openedFrom,
       part.pullRequestLink !== undefined
         ? part.pullRequestLink
@@ -1443,9 +1461,7 @@ export class Task extends EventRecorder {
   }
 
   deleted(): Task {
-    const gone = this.with({ currentRunId: null }).lettingGoOf(
-      this.currentRunId,
-    );
+    const gone = this.with({ currentRunId: null }).detachRun(this.currentRunId);
 
     gone.record(new TaskDeleted(this.id, this.workspaceId));
 

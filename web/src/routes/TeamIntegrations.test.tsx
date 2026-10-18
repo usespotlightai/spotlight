@@ -34,8 +34,8 @@ vi.mock('@/hooks/api/useGitHub', () => ({
   useGitHub: () => query(github()),
 }));
 
-vi.mock('@/hooks/api/useConnections', () => ({
-  useConnections: () => query(connections()),
+vi.mock('@/hooks/api/useIntegrationConnections', () => ({
+  useIntegrationConnections: () => query(connections()),
 }));
 
 vi.mock('@/hooks/api/useMembers', () => ({
@@ -65,8 +65,8 @@ vi.mock('@/hooks/api/useConnectIntegration', () => ({
   }),
 }));
 
-vi.mock('@/hooks/api/useDisconnect', () => ({
-  useDisconnect: () => ({
+vi.mock('@/hooks/api/useDisconnectIntegration', () => ({
+  useDisconnectIntegration: () => ({
     mutate: disconnect,
     isPending: false,
     isError: disconnectFailed(),
@@ -84,24 +84,24 @@ const ready = (over: Record<string, unknown> = {}) => ({
 });
 
 const integration = (over: Record<string, unknown> = {}) => ({
-  source: 'pagerduty',
+  integration: 'pagerduty',
   name: 'PagerDuty',
   path: 'integrations/pagerduty.tf',
-  standing: 'listens',
-  holding: 'team',
-  handle: null,
-  described: null,
+  connectionStatus: 'not-required',
+  actsAs: 'team',
+  linkedAccount: null,
+  spec: null,
   ...over,
 });
 
 const personal = (over: Record<string, unknown> = {}) =>
   integration({
-    source: 'linear',
+    integration: 'linear',
     name: 'Linear',
     path: 'integrations/linear.tf',
-    standing: 'linked',
-    holding: 'requester',
-    handle: '@acme-bot',
+    connectionStatus: 'connected',
+    actsAs: 'requester',
+    linkedAccount: '@acme-bot',
     ...over,
   });
 
@@ -173,7 +173,7 @@ beforeEach(() => {
 });
 
 describe('TeamIntegrations', () => {
-  it('holds the shape of the list while it loads', () => {
+  it('keeps the shape of the list while it loads', () => {
     configuration.mockReturnValue(undefined);
     showing();
 
@@ -182,7 +182,7 @@ describe('TeamIntegrations', () => {
     ).toBeInTheDocument();
   });
 
-  it('says the integrations could not be loaded, and tries again when asked', async () => {
+  it('says the integrations could not be loaded, and tries again on request', async () => {
     configuration.mockReturnValue(undefined);
     failing.mockReturnValue(true);
     showing();
@@ -221,37 +221,37 @@ describe('TeamIntegrations', () => {
     ).toBeInTheDocument();
   });
 
-  it('says which repositories the App reaches, and keeps managing it in the opened row', async () => {
+  it('says which repositories the App can access, and keeps managing it in the opened row', async () => {
     showing();
 
-    expect(screen.getByText('Reaches 2 repositories')).toBeInTheDocument();
+    expect(screen.getByText('Can access 2 repositories')).toBeInTheDocument();
     expect(
       head('GitHub').queryByRole('link', { name: 'Manage on GitHub' }),
     ).not.toBeInTheDocument();
 
     const opened = await opening('GitHub');
 
-    expect(fact(opened, 'Reaches')).toHaveTextContent('acme/api, acme/web');
+    expect(fact(opened, 'Can access')).toHaveTextContent('acme/api, acme/web');
     expect(fact(opened, 'Lines use')).toHaveTextContent('acme/api');
     expect(
       within(opened).getByRole('link', { name: 'Manage on GitHub' }),
     ).toHaveAttribute('href', INSTALL);
   });
 
-  it('marks a repository the team’s lines use that the App cannot reach', async () => {
+  it('marks a repository the team’s lines use that the App cannot access', async () => {
     lines.mockReturnValue([
       { id: 'line_1', repositories: ['acme/api', 'acme/infra'] },
     ]);
     showing();
 
     expect(
-      head('GitHub').getByRole('img', { name: 'Repositories not reached' }),
-    ).toHaveAccessibleDescription('The App can’t reach acme/infra.');
+      head('GitHub').getByRole('img', { name: 'Repositories not accessible' }),
+    ).toHaveAccessibleDescription('The App can’t access acme/infra.');
 
     const used = fact(await opening('GitHub'), 'Lines use');
 
     expect(
-      within(used).getByRole('img', { name: 'Not reached' }),
+      within(used).getByRole('img', { name: 'Not accessible' }),
     ).toBeInTheDocument();
   });
 
@@ -275,9 +275,9 @@ describe('TeamIntegrations', () => {
     configuration.mockReturnValue(
       read([
         integration({
-          standing: 'unlinked',
+          connectionStatus: 'disconnected',
           name: 'Grafana',
-          source: 'grafana',
+          integration: 'grafana',
         }),
       ]),
     );
@@ -289,7 +289,7 @@ describe('TeamIntegrations', () => {
       }),
     );
 
-    expect(connect).toHaveBeenCalledWith({ source: 'grafana' });
+    expect(connect).toHaveBeenCalledWith({ integration: 'grafana' });
     expect(screen.getByRole('button', { name: 'Grafana' })).toHaveAttribute(
       'aria-expanded',
       'false',
@@ -301,9 +301,9 @@ describe('TeamIntegrations', () => {
     configuration.mockReturnValue(
       read([
         integration({
-          standing: 'unlinked',
+          connectionStatus: 'disconnected',
           name: 'Grafana',
-          source: 'grafana',
+          integration: 'grafana',
         }),
       ]),
     );
@@ -319,11 +319,11 @@ describe('TeamIntegrations', () => {
     configuration.mockReturnValue(
       read([
         integration({
-          standing: 'linked',
-          handle: 'acme-production',
+          connectionStatus: 'connected',
+          linkedAccount: 'acme-production',
           name: 'Honeycomb',
-          source: 'honeycomb',
-          described: {
+          integration: 'honeycomb',
+          spec: {
             kind: 'mcp',
             tools: 24,
             readAt: new Date().toISOString(),
@@ -361,11 +361,11 @@ describe('TeamIntegrations', () => {
     );
   });
 
-  it('marks an unreadable API description with an icon that says why', () => {
+  it('marks an unreadable API spec with an icon that says why', () => {
     configuration.mockReturnValue(
       read([
         integration({
-          described: {
+          spec: {
             kind: 'graphql',
             tools: 0,
             readAt: new Date().toISOString(),
@@ -396,9 +396,9 @@ describe('TeamIntegrations', () => {
     );
 
     expect(connect).toHaveBeenCalledWith({
-      source: 'linear',
-      for: 'me',
-      back: '/w/acme/settings/team/team_1/integrations',
+      integration: 'linear',
+      actsAs: 'requester',
+      returnTo: '/w/acme/settings/team/team_1/integrations',
     });
   });
 
@@ -408,8 +408,8 @@ describe('TeamIntegrations', () => {
       joined({
         mine: [
           {
-            source: 'linear',
-            handle: '@sam',
+            integration: 'linear',
+            linkedAccount: '@sam',
             connectedAt: new Date().toISOString(),
             tools: [{ tool: 'linear.issue-create', rule: 'needs-approval' }],
           },
@@ -427,7 +427,7 @@ describe('TeamIntegrations', () => {
     const yours = fact(opened, 'Your account');
 
     expect(yours).toHaveTextContent('@sam');
-    expect(fact(opened, 'Acting as you')).toHaveTextContent('issue-create');
+    expect(fact(opened, 'Your tool rules')).toHaveTextContent('issue-create');
 
     expect(
       within(yours).queryByRole('button', { name: /^Disconnect/ }),
@@ -463,7 +463,7 @@ describe('TeamIntegrations', () => {
       await screen.findByRole('menuitem', { name: 'Change account' }),
     );
 
-    expect(connect).toHaveBeenCalledWith({ source: 'linear' });
+    expect(connect).toHaveBeenCalledWith({ integration: 'linear' });
   });
 
   it('shows an admin who has connected their own account, and who has not', async () => {
@@ -472,8 +472,8 @@ describe('TeamIntegrations', () => {
       joined({
         people: [
           {
-            source: 'linear',
-            handle: '@sam',
+            integration: 'linear',
+            linkedAccount: '@sam',
             connectedAt: new Date().toISOString(),
             personId: 'user_1',
             name: 'Sam Rivera',
@@ -487,14 +487,14 @@ describe('TeamIntegrations', () => {
         name: 'Sam Rivera',
         image: null,
         role: 'owner',
-        mayBeSetTo: [],
+        assignableRoles: [],
       },
       {
         id: 'user_2',
         name: 'Maya Chen',
         image: null,
         role: 'member',
-        mayBeSetTo: [],
+        assignableRoles: [],
       },
     ]);
     showing();
@@ -510,9 +510,9 @@ describe('TeamIntegrations', () => {
     configuration.mockReturnValue(
       read([
         integration({
-          standing: 'unlinked',
+          connectionStatus: 'disconnected',
           name: 'Grafana',
-          source: 'grafana',
+          integration: 'grafana',
         }),
       ]),
     );
@@ -540,8 +540,8 @@ describe('TeamIntegrations', () => {
       joined({
         mine: [
           {
-            source: 'linear',
-            handle: '@sam',
+            integration: 'linear',
+            linkedAccount: '@sam',
             connectedAt: new Date().toISOString(),
             tools: [],
           },

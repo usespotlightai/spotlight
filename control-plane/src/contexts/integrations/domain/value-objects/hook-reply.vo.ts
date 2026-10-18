@@ -21,14 +21,14 @@ export class HookReply {
     return this.status !== null && this.status >= 200 && this.status < 300;
   }
 
-  get refusal(): string | null {
+  get denyReason(): string | null {
     if (!this.succeeded || !isRecord(this.body)) {
       return null;
     }
 
-    const { refuse } = this.body;
+    const { deny } = this.body;
 
-    return typeof refuse === 'string' && refuse.trim() ? refuse.trim() : null;
+    return typeof deny === 'string' && deny.trim() ? deny.trim() : null;
   }
 
   failure(reason: string): HookFailure | null {

@@ -1,18 +1,18 @@
-import type { HeldWork } from '@runners/application/ports/runners.port';
+import type { LeasedWork } from '@runners/application/ports/runners.port';
 
 export const RUNNER_EGRESS = Symbol('RUNNER_EGRESS');
 
-export interface EgressFor {
+export interface EgressAuthentication {
   readonly runnerId: string;
   readonly workspaceId: string;
-  readonly work: HeldWork;
+  readonly work: LeasedWork;
 }
 
-export interface SharedEgressFor {
+export interface SharedEgressAuthentication {
   readonly egressId: string;
   readonly runnerId: string;
   readonly workspaceId: string;
-  readonly work: HeldWork | null;
+  readonly work: LeasedWork | null;
 }
 
 export interface SharedEgress {
@@ -20,19 +20,22 @@ export interface SharedEgress {
 }
 
 export interface RunnerEgressPort {
-  admit(token: string | undefined, at: Date): Promise<EgressFor | null>;
+  authenticate(
+    token: string | undefined,
+    at: Date,
+  ): Promise<EgressAuthentication | null>;
 
   sharedWith(token: string | undefined): Promise<SharedEgress | null>;
 
-  admitThrough(
+  authorizeRunner(
     egress: SharedEgress,
     proxyCredential: string,
     at: Date,
-  ): Promise<SharedEgressFor | null>;
+  ): Promise<SharedEgressAuthentication | null>;
 
-  recordsThrough(
+  runnerForConnectionRecords(
     egress: SharedEgress,
     proxyCredential: string,
     at: Date,
-  ): Promise<SharedEgressFor | null>;
+  ): Promise<SharedEgressAuthentication | null>;
 }

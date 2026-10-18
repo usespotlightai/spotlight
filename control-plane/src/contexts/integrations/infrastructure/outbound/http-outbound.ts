@@ -1,5 +1,5 @@
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
-import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
+import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import type {
   AuthIR,
   RequestIR,
@@ -17,10 +17,10 @@ import {
   sameHost,
 } from '@integrations/infrastructure/outbound/followed-redirects';
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
-import type { Bindings } from '@platform/expressions/bindings';
-import { holds, value } from '@platform/expressions/readings';
-import { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import type { CelVariables } from '@platform/expressions/cel-variables';
+import { isTrue, value } from '@platform/expressions/readings';
+import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 
 export interface OutboundResult {
   readonly ok: boolean;
@@ -46,12 +46,12 @@ type Fetch = typeof globalThis.fetch;
 
 interface Dispatched {
   readonly reply: Response;
-  readonly worn: WornSecrets;
+  readonly injected: InjectedSecrets;
 }
 
 export const MAX_ANSWER_BYTES = 4 * 1024 * 1024;
 
-const connectionOf = (against: Bindings): string | null =>
+const connectionOf = (against: CelVariables): string | null =>
   typeof against.connection === 'string' && against.connection !== ''
     ? against.connection
     : null;
@@ -68,7 +68,7 @@ export class HttpOutbound {
 
   async run(
     request: RequestIR,
-    against: Bindings,
+    against: CelVariables,
     credentials: Credentials,
   ): Promise<OutboundResult> {
     const sent = await this.send(request, against, credentials);
@@ -77,10 +77,10 @@ export class HttpOutbound {
       return { ok: false, status: 0, response: null, capture: {} };
     }
 
-    const { reply, worn } = sent;
-    const response = worn.redactedIn(await parse(reply));
+    const { reply, injected } = sent;
+    const response = injected.redactedIn(await parse(reply));
     const status = reply.status;
-    const beside: Bindings = { ...against, response, status };
+    const beside: CelVariables = { ...against, response, status };
 
     const capture: Record<string, unknown> = {};
     for (const each of request.capture) {
@@ -92,20 +92,20 @@ export class HttpOutbound {
 
   async bytes(
     request: RequestIR,
-    against: Bindings,
+    against: CelVariables,
     credentials: Credentials,
   ): Promise<Uint8Array> {
     const sent = await this.send(request, against, credentials);
 
     if (!sent) {
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         'fetching a file',
         'it names nowhere to fetch it from',
       );
     }
 
     const { reply } = sent;
-    const beside: Bindings = {
+    const beside: CelVariables = {
       ...against,
       status: reply.status,
       headers: Object.fromEntries(reply.headers),
@@ -114,7 +114,7 @@ export class HttpOutbound {
     if (!succeeded(request, beside)) {
       await reply.body?.cancel();
 
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         'fetching a file',
         `the host answered ${reply.status} without it`,
       );
@@ -129,7 +129,7 @@ export class HttpOutbound {
     connection: string | null,
     credentials: Credentials,
   ): Promise<Answered> {
-    const { reply, worn } = await this.dispatch(
+    const { reply, injected } = await this.dispatch(
       request,
       auth,
       connection,
@@ -140,13 +140,13 @@ export class HttpOutbound {
     return {
       ok: status >= 200 && status < 300,
       status,
-      response: worn.redactedIn(
+      response: injected.redactedIn(
         parsed(
           await cappedText(
             reply,
             MAX_ANSWER_BYTES,
             () =>
-              new UpstreamRefusedError(
+              new UpstreamError(
                 `reading what ${new URL(request.url).host} answered`,
                 `it is larger than the ${MAX_ANSWER_BYTES / 1024 / 1024} MB Spotlight reads from a tool`,
               ),
@@ -158,7 +158,7 @@ export class HttpOutbound {
 
   private async send(
     request: RequestIR,
-    against: Bindings,
+    against: CelVariables,
     credentials: Credentials,
   ): Promise<Dispatched | null> {
     const plain = this.render(request, against);
@@ -168,7 +168,10 @@ export class HttpOutbound {
       : null;
   }
 
-  private render(request: RequestIR, against: Bindings): PlainRequest | null {
+  private render(
+    request: RequestIR,
+    against: CelVariables,
+  ): PlainRequest | null {
     const url = this.templated(request.url, against);
 
     if (!url) {
@@ -211,7 +214,7 @@ export class HttpOutbound {
     connection: string | null,
     credentials: Credentials,
   ): Promise<Dispatched> {
-    let worn = WornSecrets.none();
+    let injected = InjectedSecrets.none();
 
     try {
       const { reply } = await followed(
@@ -221,7 +224,7 @@ export class HttpOutbound {
         async (hop): Promise<Dressed> => {
           if (!sameHost(hop.url, request.url)) {
             return {
-              url: worn.redact(hop.url),
+              url: injected.redact(hop.url),
               headers: Object.fromEntries(
                 Object.entries(request.headers).filter(
                   ([name]) => name.toLowerCase() !== 'authorization',
@@ -232,7 +235,7 @@ export class HttpOutbound {
 
           const url = new URL(hop.url);
           const headers = { ...request.headers };
-          worn = await this.authorize(
+          injected = await this.authorize(
             auth,
             connection,
             url,
@@ -244,26 +247,26 @@ export class HttpOutbound {
         },
       );
 
-      return { reply, worn };
+      return { reply, injected };
     } catch (error) {
-      if (worn.isEmpty || error instanceof OutboundRefusedError) {
+      if (injected.isEmpty || error instanceof EgressBlockedError) {
         throw error;
       }
 
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         `reaching ${new URL(request.url).host}`,
-        worn.redact(error instanceof Error ? error.message : String(error)),
+        injected.redact(error instanceof Error ? error.message : String(error)),
       );
     }
   }
 
-  private templated(held: Templated, against: Bindings): string | null {
-    return requiredTextOf(held, against);
+  private templated(template: Templated, against: CelVariables): string | null {
+    return requiredTextOf(template, against);
   }
 
   private body(
     request: RequestIR,
-    against: Bindings,
+    against: CelVariables,
   ): { text: string; json: boolean } | undefined {
     if (!request.body) {
       return undefined;
@@ -287,27 +290,27 @@ export class HttpOutbound {
     url: URL,
     headers: Record<string, string>,
     credentials: Credentials,
-  ): Promise<WornSecrets> {
+  ): Promise<InjectedSecrets> {
     if (auth?.kind === 'oauth2' && connection) {
       headers.authorization = `Bearer ${connection}`;
     }
 
     if (auth?.kind !== 'secrets') {
-      return WornSecrets.none();
+      return InjectedSecrets.none();
     }
 
-    const worn = await credentials.wornToward(url.href, auth.secrets);
-    worn.applyTo({ url, headers });
+    const injected = await credentials.injectedFor(url.href, auth.secrets);
+    injected.applyTo({ url, headers });
 
-    return worn;
+    return injected;
   }
 }
 
-const succeeded = (request: RequestIR, beside: Bindings): boolean => {
+const succeeded = (request: RequestIR, beside: CelVariables): boolean => {
   const status = beside.status as number;
 
   return request.expect?.success
-    ? holds(request.expect.success, beside)
+    ? isTrue(request.expect.success, beside)
     : request.expect?.status
       ? request.expect.status.includes(status)
       : status >= 200 && status < 300;

@@ -16,7 +16,10 @@ const hourly: CronCalendar = {
 };
 
 const schedule = () =>
-  Schedule.of({ cron: CronExpression.of('0 * * * *', hourly), does: 'digest' });
+  Schedule.of({
+    cron: CronExpression.of('0 * * * *', hourly),
+    action: 'digest',
+  });
 
 describe('Schedule', () => {
   it('starts its clock the first time it is seen', () => {
@@ -34,7 +37,7 @@ describe('Schedule', () => {
     );
   });
 
-  it('refuses a cron its calendar cannot read', () => {
+  it('rejects a cron its calendar cannot read', () => {
     expect(() => CronExpression.of('not a cron', hourly)).toThrow(
       /is not a valid cron expression/,
     );

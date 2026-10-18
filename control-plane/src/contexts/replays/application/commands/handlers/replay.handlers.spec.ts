@@ -14,9 +14,9 @@ import {
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
 import { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
-import { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
+import { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
-import { ReplayStopAsked } from '@replays/domain/events/replay-stop-asked.event';
+import { ReplayStopRequested } from '@replays/domain/events/replay-stop-requested.event';
 import { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import {
   aReplay,
@@ -24,8 +24,8 @@ import {
   candidateOf,
   runIds,
 } from '@replays/domain/replays.fake-spec';
-import { PROBE_REPEATS } from '@replays/domain/value-objects/replay-repeats';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
+import { CALIBRATION_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -58,9 +58,9 @@ const baselines = () =>
 
 const wantedBaselines = async () => {
   for (const event of memory.events.splice(0)) {
-    if (event instanceof ReplayBaselineWanted) {
-      await baselines().wanted(event);
-      await baselines().wanted(event);
+    if (event instanceof ReplayBaselineRequested) {
+      await baselines().requested(event);
+      await baselines().requested(event);
     }
   }
 };
@@ -85,7 +85,7 @@ beforeEach(async () => {
 });
 
 describe('StartReplayHandler', () => {
-  it('answers why it could not start, though letting go of the live snapshot fails too', async () => {
+  it('answers why it could not start, though releasing the live snapshot fails too', async () => {
     memory.candidateRepository.save = async () => {
       throw new Error('the database went away');
     };
@@ -96,11 +96,11 @@ describe('StartReplayHandler', () => {
     });
   });
 
-  it('starts a proposed candidate, and asks for a baseline of the live config beside it, with a ceiling of its own, under an id it names', async () => {
+  it('starts a proposed candidate, and requests a baseline of the live config beside it, with a ceiling of its own, under an id it names', async () => {
     const started = await start('candidate_proposed');
 
     if (started.outcome !== 'started' || !started.baseline) {
-      throw new Error('no baseline was asked for');
+      throw new Error('no baseline was requested');
     }
 
     expect(started.ceiling).toEqual(CEILING);
@@ -115,7 +115,7 @@ describe('StartReplayHandler', () => {
 
     const baseline = memory.replays.get(started.baseline.id);
     expect(baseline?.baseline).toBe(true);
-    expect(baseline?.probe).toBe(false);
+    expect(baseline?.calibration).toBe(false);
     expect(baseline?.ceiling.amount).toBe(5);
     expect(memory.candidates.get(baseline?.candidateId.value ?? '')?.kind).toBe(
       'live',
@@ -123,11 +123,11 @@ describe('StartReplayHandler', () => {
     expect(memory.replays.size).toBe(2);
   });
 
-  it('replays each run of the set as many times as asked, its wanted baseline as many', async () => {
+  it('replays each run of the set as many times as requested, its requested baseline as many', async () => {
     const started = await start('candidate_proposed', true, 3);
 
     if (started.outcome !== 'started' || !started.baseline) {
-      throw new Error('no baseline was asked for');
+      throw new Error('no baseline was requested');
     }
 
     await wantedBaselines();
@@ -143,7 +143,7 @@ describe('StartReplayHandler', () => {
     expect(baseline?.repeats).toBe(3);
   });
 
-  it('refuses to replay a run more than five times', async () => {
+  it('does not replay a run more than five times', async () => {
     await expect(start('candidate_proposed', true, 6)).rejects.toBeInstanceOf(
       ApplicationError,
     );
@@ -157,11 +157,11 @@ describe('StartReplayHandler', () => {
       throw new Error('the baseline did not start');
     }
 
-    const probe = memory.replays.get(started.id);
+    const calibration = memory.replays.get(started.id);
 
-    expect(probe?.baseline).toBe(true);
-    expect(probe?.probe).toBe(true);
-    expect(probe?.repeats).toBe(PROBE_REPEATS);
+    expect(calibration?.baseline).toBe(true);
+    expect(calibration?.calibration).toBe(true);
+    expect(calibration?.repeats).toBe(CALIBRATION_REPEATS);
     expect(started.ceiling).toEqual({ amount: 15, currency: 'USD' });
   });
 
@@ -170,7 +170,7 @@ describe('StartReplayHandler', () => {
     const started = await start('candidate_proposed');
 
     if (started.outcome !== 'started' || !started.baseline) {
-      throw new Error('no baseline was asked for');
+      throw new Error('no baseline was requested');
     }
 
     expect(started.baseline.ceiling).toEqual({ amount: 15, currency: 'USD' });
@@ -178,8 +178,8 @@ describe('StartReplayHandler', () => {
     await wantedBaselines();
 
     const baseline = memory.replays.get(started.baseline.id);
-    expect(baseline?.probe).toBe(true);
-    expect(baseline?.repeats).toBe(PROBE_REPEATS);
+    expect(baseline?.calibration).toBe(true);
+    expect(baseline?.repeats).toBe(CALIBRATION_REPEATS);
     expect(baseline?.ceiling.amount).toBe(15);
   });
 
@@ -188,23 +188,23 @@ describe('StartReplayHandler', () => {
     const started = await start('candidate_proposed');
     const wanted = memory.events
       .splice(0)
-      .find((each) => each instanceof ReplayBaselineWanted);
+      .find((each) => each instanceof ReplayBaselineRequested);
 
     if (
-      !(wanted instanceof ReplayBaselineWanted) ||
+      !(wanted instanceof ReplayBaselineRequested) ||
       started.outcome !== 'started'
     ) {
-      throw new Error('no baseline was asked for');
+      throw new Error('no baseline was requested');
     }
 
-    await baselines().wanted(
-      new ReplayBaselineWanted(
+    await baselines().requested(
+      new ReplayBaselineRequested(
         wanted.replayId,
         wanted.workspaceId,
         wanted.setId,
         wanted.baselineId,
         wanted.candidateId,
-        Spend.ceiling(4, 'USD'),
+        Money.ceiling(4, 'USD'),
         null,
         1,
         1,
@@ -213,7 +213,7 @@ describe('StartReplayHandler', () => {
     );
 
     const baseline = memory.replays.get(wanted.baselineId.value);
-    expect(baseline?.probe).toBe(false);
+    expect(baseline?.calibration).toBe(false);
     expect(baseline?.repeats).toBe(1);
     expect(baseline?.ceiling.amount).toBe(4);
   });
@@ -222,11 +222,12 @@ describe('StartReplayHandler', () => {
     const started = await start('live');
 
     expect(
-      started.outcome === 'started' && memory.replays.get(started.id)?.probe,
+      started.outcome === 'started' &&
+        memory.replays.get(started.id)?.calibration,
     ).toBe(false);
   });
 
-  it('replays the live config plainly once a check of it stands', async () => {
+  it('replays the live config plainly once a valid check of it exists', async () => {
     memory.sets.set('set_1', aSet(5));
     await start('live');
     const again = await start('live');
@@ -237,12 +238,12 @@ describe('StartReplayHandler', () => {
 
     const plain = memory.replays.get(again.id);
 
-    expect(plain?.probe).toBe(false);
+    expect(plain?.calibration).toBe(false);
     expect(plain?.repeats).toBe(1);
     expect(again.ceiling).toEqual(CEILING);
   });
 
-  it('starts no baseline once another covers the set by the time the wish is heard', async () => {
+  it('starts no baseline once another covers the set by the time the request arrives', async () => {
     const first = await start('candidate_proposed');
     const second = await start('candidate_proposed');
     await wantedBaselines();
@@ -261,7 +262,7 @@ describe('StartReplayHandler', () => {
     ).toHaveLength(1);
   });
 
-  it('refuses to start, to be started again, when the set came to need a baseline after it looked', async () => {
+  it('does not start, to be started again, when the set came to need a baseline after it looked', async () => {
     await start('candidate_proposed');
     await wantedBaselines();
     const baseline = [...memory.replays.values()].find((each) => each.baseline);
@@ -280,7 +281,7 @@ describe('StartReplayHandler', () => {
     });
   });
 
-  it('lets go of the live config it took for a baseline the set no longer needed once it looked again', async () => {
+  it('releases the live snapshot it made for a baseline the set no longer needed once it looked again', async () => {
     const ofSet = memory.replayRepository.ofSet;
     let looked = 0;
     memory.replayRepository.ofSet = async (setId) => {
@@ -306,7 +307,7 @@ describe('StartReplayHandler', () => {
     ).toHaveLength(0);
   });
 
-  it('lets go of the live config it took when the replay cannot start after all', async () => {
+  it('releases the live snapshot it made when the replay cannot start after all', async () => {
     memory.setRepository.locked = async () => aSet(0);
 
     for (const candidate of ['live', 'candidate_proposed']) {
@@ -319,7 +320,7 @@ describe('StartReplayHandler', () => {
     ).toHaveLength(0);
   });
 
-  it('asks for no baseline while one covers the set', async () => {
+  it('requests no baseline while one covers the set', async () => {
     await start('candidate_proposed');
     await wantedBaselines();
     const again = await start('candidate_proposed');
@@ -359,7 +360,7 @@ describe('StartReplayHandler', () => {
     );
   });
 
-  it('refuses a ceiling of nothing', async () => {
+  it('rejects a ceiling of nothing', async () => {
     await expect(
       starting().execute(
         new StartReplayCommand(
@@ -374,7 +375,7 @@ describe('StartReplayHandler', () => {
     ).rejects.toMatchObject({ kind: 'invalid' });
   });
 
-  it('refuses one who may not plan', async () => {
+  it('denies one who may not plan', async () => {
     expect(await start('live', false)).toEqual({
       outcome: 'forbidden',
       act: 'plan',
@@ -383,7 +384,7 @@ describe('StartReplayHandler', () => {
 });
 
 describe('StopReplayHandler', () => {
-  it('stops a replay, asking for its runs in flight to be stopped', async () => {
+  it('stops a replay, requesting its runs in flight to be stopped', async () => {
     await memory.replayRepository.add(
       aReplay({ count: 2 }).reserving(1, runIds()),
     );
@@ -398,7 +399,7 @@ describe('StopReplayHandler', () => {
     expect(memory.events.slice(-3).map((each) => each.constructor)).toEqual([
       ReplayStopped,
       ReplayEnded,
-      ReplayStopAsked,
+      ReplayStopRequested,
     ]);
   });
 });

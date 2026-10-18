@@ -20,17 +20,19 @@ import {
 } from '@work/domain/services/built-in-skills';
 import { builtInTool } from '@work/domain/services/built-in-tools';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
+import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { Said } from '@work/domain/value-objects/said.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
@@ -38,8 +40,6 @@ import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
-import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { describe, expect, it } from 'vitest';
 
 const withNotes = (task: Task, ...notes: TaskNote[]) =>
@@ -58,8 +58,8 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
       TaskNote.of({ ...each, position: NotePosition.of(at) }),
     ),
     createdAt: task.createdAt,
-    raisedAt: task.raisedAt,
-    raisedBy: task.raisedBy,
+    originStationId: task.originStationId,
+    createdBy: task.createdBy,
     openedFrom: task.openedFrom,
     pullRequestLink: task.pullRequestLink,
     finishedAt: task.finishedAt,
@@ -82,7 +82,10 @@ const at = (
     color: StationColor.of('#93a1b5'),
     harness: HarnessId.of('dev'),
     agentPrompt: prompt,
-    wayOut: WayOut.of({ stations: passesTo.map(StationId.of), ends: finishes }),
+    routes: StationRoutes.of({
+      stations: passesTo.map(StationId.of),
+      ends: finishes,
+    }),
   });
 
 const triage = () => at('station_1', 'Triage', 0, undefined, ['station_2']);
@@ -109,12 +112,12 @@ const atPlace = (station: Station, position: number) =>
     agentPrompt: station.agentPrompt,
     kind: station.kind,
     decisions: station.decisions,
-    wayOut: station.wayOut,
+    routes: station.routes,
     tools: station.tools,
     skills: station.skills,
   });
 
-const held = (...stations: Station[]) =>
+const lineOf = (...stations: Station[]) =>
   Line.rehydrate({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -130,20 +133,20 @@ const held = (...stations: Station[]) =>
 
 const task = (stationId: string, description?: TaskDescription) =>
   Task.add({
-    line: held(at(stationId, 'Standing', 0)),
+    line: lineOf(at(stationId, 'Current', 0)),
     at: StationId.of(stationId),
     title: TaskTitle.of('Fix the queue'),
     description,
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: new Date('2026-08-28T09:15:00.000Z'),
     newId: () => 'task_1',
   });
 
-const HANDOVER_SAYS = 'How to write the note, as the handover skill says it.';
-const PULL_REQUEST_SAYS = 'How to open one, as the pull-request skill says it.';
+const HANDOVER_TEXT = 'How to write the note, as the handover skill says it.';
+const PULL_REQUEST_TEXT = 'How to open one, as the pull-request skill says it.';
 
-const shipped = [
+const builtIn = [
   {
     key: HANDING_OVER.value,
     description: 'Handing over.',
@@ -158,16 +161,16 @@ const shipped = [
 
 const brief = (
   station: Station,
-  worked?: Task,
+  noted?: Task,
   decisions: readonly BriefedDecision[] = [],
   memories: readonly BriefedMemory[] = [],
   memoryFolder: MemoryFolder | null = null,
   tools: readonly DeclaredTool[] = [],
 ) =>
   TaskBriefing.brief({
-    task: (worked ?? task(station.id.value)).briefed.withDecisions(decisions),
-    line: held(station, at('station_2', 'Spec', 1)),
-    skills: shipped,
+    task: (noted ?? task(station.id.value)).briefed.withDecisions(decisions),
+    line: lineOf(station, at('station_2', 'Spec', 1)),
+    skills: builtIn,
     listedIn: null,
     memories,
     memoryFolder,
@@ -175,7 +178,7 @@ const brief = (
   });
 
 describe('TaskBriefing', () => {
-  it('leads with the station’s standing instructions', () => {
+  it('leads with the station’s instructions', () => {
     const briefing = brief(
       at('station_1', 'Triage', 0, AgentPrompt.of('## Role\n\nSort it.')),
       task('station_1', TaskDescription.of('It hangs on restart.')),
@@ -186,7 +189,7 @@ describe('TaskBriefing', () => {
     );
   });
 
-  it('lists the decisions an earlier run recorded, asking that they still hold', () => {
+  it('lists the decisions an earlier run recorded, and requests a check that they still apply', () => {
     const briefing = brief(triage(), undefined, [
       {
         kind: 'rejected-approach',
@@ -206,7 +209,7 @@ describe('TaskBriefing', () => {
     );
   });
 
-  it('asks a station that records decisions to say them as it works', () => {
+  it('tells a station that records decisions to say them as it works', () => {
     const deciding = Station.of({
       id: StationId.of('station_1'),
       key: StationKey.of('implementation'),
@@ -215,7 +218,10 @@ describe('TaskBriefing', () => {
       color: StationColor.of('#93a1b5'),
       harness: HarnessId.of('dev'),
       decisions: true,
-      wayOut: WayOut.of({ stations: [StationId.of('station_2')], ends: false }),
+      routes: StationRoutes.of({
+        stations: [StationId.of('station_2')],
+        ends: false,
+      }),
     });
 
     const briefing = brief(deciding);
@@ -224,7 +230,7 @@ describe('TaskBriefing', () => {
     expect(briefing).toContain('- a limitation or gap you leave in place;');
   });
 
-  it('asks nothing of the kind where the station records no decisions', () => {
+  it('requests nothing of the kind where the station records no decisions', () => {
     expect(brief(triage())).not.toContain('Say what you decide');
   });
 
@@ -237,7 +243,7 @@ describe('TaskBriefing', () => {
   });
 
   it('carries forward what earlier stations left behind', () => {
-    const worked = withNotes(
+    const noted = withNotes(
       task('station_1'),
 
       TaskNote.of({
@@ -250,7 +256,7 @@ describe('TaskBriefing', () => {
       }),
     );
 
-    expect(brief(triage(), worked)).toContain(
+    expect(brief(triage(), noted)).toContain(
       '## Already done\n\n### Triage\n\nReproduced on restart.',
     );
   });
@@ -269,14 +275,14 @@ describe('TaskBriefing', () => {
       size: 3 * 1024 * 1024,
     });
 
-    const worked = withNotes(
+    const noted = withNotes(
       Task.add({
-        line: held(triage(), at('station_2', 'Spec', 1)),
+        line: lineOf(triage(), at('station_2', 'Spec', 1)),
         at: StationId.of('station_1'),
         title: TaskTitle.of('Fix the queue'),
         attachments: [queue],
         rank: TaskRank.of('i'),
-        raisedBy: UserId.of('user_1'),
+        createdBy: UserId.of('user_1'),
         now: new Date('2026-08-28T09:15:00.000Z'),
         newId: () => 'task_1',
       }),
@@ -286,12 +292,12 @@ describe('TaskBriefing', () => {
         station: StationName.of('Triage'),
         body: TaskNoteBody.of('Here is the log.'),
         at: new Date('2026-08-28T10:00:00.000Z'),
-        kind: 'said',
+        kind: 'message',
         attachments: [log],
       }),
     );
 
-    const briefing = brief(triage(), worked);
+    const briefing = brief(triage(), noted);
 
     expect(briefing).toContain(
       '## Fix the queue\n\nAttached, in the workspace:\n- `.spotlight/attachments/file_1/queue.png` (image/png, 2 KB)',
@@ -301,7 +307,7 @@ describe('TaskBriefing', () => {
     );
   });
 
-  it('says how to declare where the task goes next', () => {
+  it('says how to hand over the task to the next station', () => {
     const briefing = brief(triage());
 
     expect(briefing).toContain('spotlight handover --next');
@@ -335,7 +341,7 @@ describe('TaskBriefing', () => {
     expect(briefing).toContain('That is not a station');
   });
 
-  it('does not offer the station the task is standing at', () => {
+  it('does not offer the station the task is at', () => {
     expect(brief(triage())).not.toContain('"triage"');
   });
 
@@ -346,29 +352,29 @@ describe('TaskBriefing', () => {
     expect(briefing).toContain('put the question in the note');
   });
 
-  describe('the tools a run is given', () => {
-    const given = (tool: string, offeredBy: string) =>
+  describe('the tools a station enables for a run', () => {
+    const enabled = (tool: string, providedBy: string) =>
       DeclaredTool.of({
         tool: Tool.of(tool),
         description: 'Does it.',
-        offeredBy,
+        providedBy,
       });
 
     it('names the integrations its tools come from, and how to find and call one', () => {
       const briefing = brief(triage(), undefined, [], [], null, [
-        given('linear.issue-create', 'Linear'),
-        given('linear.comment', 'Linear'),
-        given('petstore.pet-add', 'Petstore'),
+        enabled('linear.issue-create', 'Linear'),
+        enabled('linear.comment', 'Linear'),
+        enabled('petstore.pet-add', 'Petstore'),
       ]);
 
       expect(briefing).toContain(
-        '## Tools\n\nYou were given tools from Linear (2) and Petstore (1).',
+        '## Tools\n\nYour station enables tools from Linear (2) and Petstore (1).',
       );
       expect(briefing).toContain('`spotlight tools search "<words>"`');
       expect(briefing).toContain('`spotlight tools describe <tool>`');
     });
 
-    it('says nothing of tools where it was given only Spotlight’s own', () => {
+    it('says nothing of tools where it has only Spotlight’s own enabled', () => {
       const pullRequest = builtInTool(Tool.of('pull-request'))?.declared;
 
       expect(
@@ -385,16 +391,16 @@ describe('TaskBriefing', () => {
     });
   });
 
-  it('says that saying nothing puts the task in front of a person', () => {
+  it('says that a handover to no station puts the task in front of a person', () => {
     expect(brief(triage())).toContain('puts the task in front of a person');
   });
 
-  describe('the skills a run is given', () => {
+  describe('the skills a station enables for a run', () => {
     const listed = (station: Station) =>
       TaskBriefing.brief({
         task: task(station.id.value).briefed,
-        line: held(station, at('station_2', 'Spec', 1)),
-        skills: shipped,
+        line: lineOf(station, at('station_2', 'Spec', 1)),
+        skills: builtIn,
         listedIn: '.spotlight/skills',
         memories: [],
         memoryFolder: null,
@@ -404,8 +410,8 @@ describe('TaskBriefing', () => {
     it('pastes no skill in, and lists none, where the harness reads them itself', () => {
       const briefing = brief(triage());
 
-      expect(briefing).not.toContain(HANDOVER_SAYS);
-      expect(briefing).not.toContain(PULL_REQUEST_SAYS);
+      expect(briefing).not.toContain(HANDOVER_TEXT);
+      expect(briefing).not.toContain(PULL_REQUEST_TEXT);
       expect(briefing).not.toContain('## Skills');
     });
 
@@ -416,7 +422,7 @@ describe('TaskBriefing', () => {
       expect(briefing).toContain(
         '- `.spotlight/skills/spotlight-handover/SKILL.md` — Handing over.',
       );
-      expect(briefing).not.toContain(HANDOVER_SAYS);
+      expect(briefing).not.toContain(HANDOVER_TEXT);
     });
 
     it('keeps the station’s own instructions above the skills it lists', () => {
@@ -432,30 +438,30 @@ describe('TaskBriefing', () => {
     });
   });
 
-  describe('what the pull request is waiting to hear back on', () => {
-    const heard = (body: string, named: string | null) =>
+  describe('the review comments that wait for a reply', () => {
+    const received = (body: string, named: string | null) =>
       TaskNote.of({
         position: NotePosition.of(0),
         station: StationName.of('Code Review'),
         body: TaskNoteBody.of(body),
         at: new Date('2026-08-31T12:00:00.000Z'),
         voice: Voice.world(),
-        said: named
-          ? Said.of({
+        anchor: named
+          ? Anchor.of({
               body: 'pin this.',
               path: 'compose.yml',
               from: 22,
-              remark: named,
+              reviewComment: named,
             })
           : null,
-        kind: 'said',
+        kind: 'message',
       });
 
     const reviewed = () =>
       withNotes(
         task('station_1'),
-        heard('The pull request was merged.', null),
-        heard(
+        received('The pull request was merged.', null),
+        received(
           'The pull request was commented on.\n\ncompose.yml:22\npin this.',
           'PRRC_kwDO',
         ),
@@ -464,7 +470,7 @@ describe('TaskBriefing', () => {
     it('names each one the way the agent must name it back', () => {
       const briefing = brief(triage(), reviewed());
 
-      expect(briefing).toContain('## Answering the pull request');
+      expect(briefing).toContain('## Replying to review comments');
       expect(briefing).toContain('- `c1` — compose.yml:22 — pin this.');
     });
 
@@ -479,17 +485,17 @@ describe('TaskBriefing', () => {
       expect(brief(triage(), reviewed())).not.toContain('--to c0');
     });
 
-    it('leaves out what was said nowhere answerable', () => {
+    it('leaves out a review comment that has no place to reply to', () => {
       expect(brief(triage(), reviewed())).not.toContain('`c0`');
     });
 
-    it('says nothing about answering where there is nothing to answer', () => {
-      expect(brief(triage())).not.toContain('## Answering the pull request');
+    it('says nothing about replies where there is no review comment', () => {
+      expect(brief(triage())).not.toContain('## Replying to review comments');
     });
   });
 
   describe('what the team has learned', () => {
-    it('gives the memories the team keeps, each by its handle', () => {
+    it('lists the memories that the team approved, each by its handle', () => {
       const briefing = brief(
         triage(),
         undefined,
@@ -510,7 +516,7 @@ describe('TaskBriefing', () => {
       );
     });
 
-    it('says nothing of memory when the team keeps none that bear on it', () => {
+    it('says nothing of memory when the team has approved none that bear on it', () => {
       expect(brief(triage())).not.toContain('What the team has learned');
     });
 
@@ -530,10 +536,10 @@ describe('TaskBriefing', () => {
         {
           path: '.spotlight/memory',
           layout: [
-            { folder: 'team/', holds: 'the whole team' },
-            { folder: 'station/', holds: 'this station' },
+            { folder: 'team/', level: 'the whole team' },
+            { folder: 'station/', level: 'this station' },
           ],
-          mirroring: null,
+          repositoryFolder: null,
         },
       );
 
@@ -561,17 +567,17 @@ describe('TaskBriefing', () => {
   });
   describe('the workspace', () => {
     const inBoth = () =>
-      held(triage(), at('station_2', 'Spec', 1)).worksIn(
+      lineOf(triage(), at('station_2', 'Spec', 1)).worksIn(
         ['acme/api', 'acme/web'].map((name) =>
-          WorkedRepository.of(Repository.of(name)),
+          LineRepositoryConfig.of(Repository.of(name)),
         ),
       );
 
-    const briefed = (worked: Task) =>
+    const briefed = (noted: Task) =>
       TaskBriefing.brief({
-        task: worked.briefed,
+        task: noted.briefed,
         line: inBoth(),
-        skills: shipped,
+        skills: builtIn,
         listedIn: null,
         memories: [],
         memoryFolder: null,
@@ -601,7 +607,7 @@ describe('TaskBriefing', () => {
       expect(briefing).not.toContain('acme/api');
     });
 
-    it('says the workspace is kept from one run and station to the next', () => {
+    it('says the workspace persists from one run and station to the next', () => {
       expect(briefed(task('station_1'))).toContain(
         'The task keeps this workspace from one run and station to the next',
       );

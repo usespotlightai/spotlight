@@ -11,7 +11,7 @@ import { StationWaitsTable } from '@/components/features/insights/StationWaitsTa
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import {
-  lasted,
+  formatDuration,
   type StationFlow,
   type StationNames,
   type WaitRow,
@@ -26,7 +26,7 @@ const WAITS = [
   { key: 'inbox', label: 'In the inbox', fill: 'var(--chart-5)' },
 ] as const;
 
-const Said = ({
+const TipContent = ({
   placement,
   active,
   payload,
@@ -46,7 +46,7 @@ const Said = ({
       <p className="text-foreground">{row.label}, typically</p>
       {WAITS.map((wait) => (
         <p key={wait.key} className="text-muted-foreground">
-          {wait.label} {lasted(row[wait.key])}
+          {wait.label} {formatDuration(row[wait.key])}
         </p>
       ))}
     </ChartTip>
@@ -118,7 +118,7 @@ export function StationWaits({
                 />
                 <Tooltip
                   {...cursor.tooltip}
-                  content={<Said placement={cursor.placement} />}
+                  content={<TipContent placement={cursor.placement} />}
                   cursor={{ fill: 'var(--accent)' }}
                 />
                 {WAITS.map((wait) => (

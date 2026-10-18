@@ -10,7 +10,7 @@ import type { TaskDescription } from '@work/domain/value-objects/task-descriptio
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 
-export const CHAT_MESSAGE_KINDS = ['said', 'proposed'] as const;
+export const CHAT_MESSAGE_KINDS = ['message', 'proposed'] as const;
 
 export type ChatMessageKind = (typeof CHAT_MESSAGE_KINDS)[number];
 
@@ -25,11 +25,11 @@ export class ChatMessage {
     readonly attachments: readonly Attachment[],
     readonly traces: readonly TraceReference[],
     readonly proposal: TaskProposal | null,
-    readonly deliveredAt: Date | null,
-    readonly deliveredTo: RunId | null,
+    readonly acknowledgedAt: Date | null,
+    readonly acknowledgedBy: RunId | null,
   ) {}
 
-  static said(input: {
+  static sent(input: {
     position: MessagePosition;
     by: UserId;
     body: ChatMessageBody;
@@ -39,7 +39,7 @@ export class ChatMessage {
   }): ChatMessage {
     return new ChatMessage(
       input.position,
-      'said',
+      'message',
       input.body,
       input.at,
       input.by,
@@ -85,20 +85,20 @@ export class ChatMessage {
     attachments: readonly Attachment[];
     traces: readonly TraceReference[];
     proposal: TaskProposal | null;
-    deliveredAt: Date | null;
-    deliveredTo: RunId | null;
+    acknowledgedAt: Date | null;
+    acknowledgedBy: RunId | null;
   }): ChatMessage {
     if (input.proposal && !input.proposal.position.equals(input.position)) {
       throw new InconsistentStateError(
         'chat message',
-        'holds a proposal made somewhere else',
+        'has a proposal made somewhere else',
       );
     }
 
-    if (input.deliveredTo && !input.deliveredAt) {
+    if (input.acknowledgedBy && !input.acknowledgedAt) {
       throw new InconsistentStateError(
         'chat message',
-        'names a run it was delivered to without saying when',
+        'names the run that acknowledged it but not when',
       );
     }
 
@@ -112,37 +112,37 @@ export class ChatMessage {
       input.attachments,
       input.traces,
       input.proposal,
-      input.deliveredAt,
-      input.deliveredTo,
+      input.acknowledgedAt,
+      input.acknowledgedBy,
     );
   }
 
-  get undelivered(): boolean {
-    return this.kind === 'said' && this.deliveredAt === null;
+  get unacknowledged(): boolean {
+    return this.kind === 'message' && this.acknowledgedAt === null;
   }
 
-  wasDeliveredTo(runId: RunId): boolean {
-    return this.deliveredTo?.equals(runId) ?? false;
+  wasAcknowledgedBy(runId: RunId): boolean {
+    return this.acknowledgedBy?.equals(runId) ?? false;
   }
 
-  delivered(runId: RunId, at: Date): ChatMessage {
-    return this.undelivered
-      ? this.with({ deliveredAt: at, deliveredTo: runId })
+  acknowledge(runId: RunId, at: Date): ChatMessage {
+    return this.unacknowledged
+      ? this.with({ acknowledgedAt: at, acknowledgedBy: runId })
       : this;
   }
 
-  takenBack(): ChatMessage {
-    if (this.deliveredTo === null) {
+  unacknowledge(): ChatMessage {
+    if (this.acknowledgedBy === null) {
       throw new InconsistentStateError(
         'chat message',
-        'was never delivered to a run, so it cannot be taken back',
+        'was never acknowledged by a run, so it cannot be unacknowledged',
       );
     }
 
-    return this.with({ deliveredAt: null, deliveredTo: null });
+    return this.with({ acknowledgedAt: null, acknowledgedBy: null });
   }
 
-  settled(proposal: TaskProposal): ChatMessage {
+  withProposal(proposal: TaskProposal): ChatMessage {
     if (!this.proposal?.equals(proposal)) {
       throw new InconsistentStateError(
         'chat message',
@@ -158,8 +158,8 @@ export class ChatMessage {
   }
 
   private with(part: {
-    deliveredAt?: Date | null;
-    deliveredTo?: RunId | null;
+    acknowledgedAt?: Date | null;
+    acknowledgedBy?: RunId | null;
     proposal?: TaskProposal | null;
   }): ChatMessage {
     return new ChatMessage(
@@ -172,8 +172,12 @@ export class ChatMessage {
       this.attachments,
       this.traces,
       part.proposal !== undefined ? part.proposal : this.proposal,
-      part.deliveredAt !== undefined ? part.deliveredAt : this.deliveredAt,
-      part.deliveredTo !== undefined ? part.deliveredTo : this.deliveredTo,
+      part.acknowledgedAt !== undefined
+        ? part.acknowledgedAt
+        : this.acknowledgedAt,
+      part.acknowledgedBy !== undefined
+        ? part.acknowledgedBy
+        : this.acknowledgedBy,
     );
   }
 }

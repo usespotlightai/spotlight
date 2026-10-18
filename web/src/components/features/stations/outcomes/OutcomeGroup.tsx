@@ -1,14 +1,14 @@
 import { OutcomeTableRow } from '@/components/features/stations/outcomes/OutcomeTableRow';
-import { Noted } from '@/components/shared/Noted';
-import { FoldingRows } from '@/components/shared/nested-table/FoldingRows';
+import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
 import { Pill } from '@/components/shared/Pill';
-import type { Folds } from '@/hooks/useFolds';
+import { WithTooltip } from '@/components/shared/WithTooltip';
+import type { Collapsibles } from '@/hooks/useCollapsibles';
 import { useBeforeAfterPanel } from '@/lib/before-after-panel';
 import { COMPACT_PILL, pillClass } from '@/lib/pill';
 import { runPath } from '@/lib/run';
-import { type FingerprintGroup, groupSummary } from '@/lib/station-outcomes';
+import { type FingerprintGroup, groupSummary } from '@/lib/station-insights';
 import { cn } from '@/lib/utils';
 
 type OutcomeGroupProps = {
@@ -16,7 +16,7 @@ type OutcomeGroupProps = {
   teamId: string;
   stationId: string;
   group: FingerprintGroup;
-  folds: Folds;
+  collapsibles: Collapsibles;
 };
 
 export function OutcomeGroup({
@@ -24,11 +24,11 @@ export function OutcomeGroup({
   teamId,
   stationId,
   group,
-  folds,
+  collapsibles,
 }: OutcomeGroupProps) {
   const panel = useBeforeAfterPanel();
   const summary = groupSummary(group);
-  const open = folds.isOpen(group.firstRunId);
+  const open = collapsibles.isOpen(group.firstRunId);
   const name = (
     <span className="truncate font-medium text-foreground">
       {summary.name}
@@ -50,21 +50,21 @@ export function OutcomeGroup({
         label={summary.name}
         open={open}
         depth={0}
-        onToggle={() => folds.toggle(group.firstRunId)}
+        onToggle={() => collapsibles.toggle(group.firstRunId)}
         cells={
           <>
             <span aria-hidden />
             <NestedCell heading="Checks" numeric={false} strong>
               {summary.checks}
             </NestedCell>
-            <NestedCell heading="Next" numeric={false} strong>
-              {summary.next}
+            <NestedCell heading="Human action" numeric={false} strong>
+              {summary.humanAction}
             </NestedCell>
-            <NestedCell heading="Delivery" numeric={false} strong>
-              {summary.delivery}
+            <NestedCell heading="Pull request" numeric={false} strong>
+              {summary.pullRequestState}
             </NestedCell>
-            <NestedCell heading="Took" strong>
-              {summary.took}
+            <NestedCell heading="Duration" strong>
+              {summary.duration}
             </NestedCell>
             <NestedCell heading="Cost" strong>
               {summary.cost}
@@ -96,19 +96,23 @@ export function OutcomeGroup({
           data-slot="config-group"
           className="flex min-w-0 items-center gap-2"
         >
-          {summary.note ? <Noted note={summary.note}>{name}</Noted> : name}
+          {summary.tooltip ? (
+            <WithTooltip tooltip={summary.tooltip}>{name}</WithTooltip>
+          ) : (
+            name
+          )}
           {!group.ran && (
-            <Noted note="No run started on this config. Its runs failed before starting or were withdrawn.">
+            <WithTooltip tooltip="No run started on this config. Its runs failed before starting or were cancelled.">
               <span className="inline-flex shrink-0">
                 <Pill className={cn(COMPACT_PILL, 'text-foreground')}>
                   Never started
                 </Pill>
               </span>
-            </Noted>
+            </WithTooltip>
           )}
         </div>
       </NestedGroupRow>
-      <FoldingRows open={open} label="Runs">
+      <CollapsibleRows open={open} label="Runs">
         {group.runs.map((run) => (
           <OutcomeTableRow
             key={run.runId}
@@ -116,7 +120,7 @@ export function OutcomeGroup({
             to={runPath(slug, teamId, run.runId)}
           />
         ))}
-      </FoldingRows>
+      </CollapsibleRows>
     </>
   );
 }

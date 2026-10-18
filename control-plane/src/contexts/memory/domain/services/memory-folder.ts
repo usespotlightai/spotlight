@@ -1,7 +1,7 @@
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
-import type { RunSite } from '@memory/domain/value-objects/run-site';
+import type { RunContext } from '@memory/domain/value-objects/run-context';
 
 export const MEMORY_FOLDER = '.spotlight/memory';
 
@@ -13,7 +13,7 @@ const foldersOf = (memory: Memory): string[] => {
   const { repository, paths, stationId, lineId } = memory.scope;
 
   if (repository) {
-    const at = `${MIRRORING}${repository.owner}/${repository.name}`;
+    const at = `${REPOSITORY_FOLDER}${repository.owner}/${repository.name}`;
     return paths.length > 0 ? paths.map((each) => `${at}/${each.value}`) : [at];
   }
 
@@ -24,29 +24,29 @@ const foldersOf = (memory: Memory): string[] => {
   return [lineId ? 'line' : 'team'];
 };
 
-export type FolderHolding = 'team' | 'line' | 'station' | 'repository';
+export type FolderLevel = 'team' | 'line' | 'station' | 'repository';
 
 export interface LaidOutFolder {
   readonly folder: string;
-  readonly holds: FolderHolding;
+  readonly level: FolderLevel;
 }
 
-const MIRRORING = 'repositories/';
+const REPOSITORY_FOLDER = 'repositories/';
 
-export const mirroringAt = (site: RunSite): string | null =>
-  site.repositories.length > 0 ? MIRRORING : null;
+export const repositoryFolderAt = (runContext: RunContext): string | null =>
+  runContext.repositories.length > 0 ? REPOSITORY_FOLDER : null;
 
-export const layoutAt = (site: RunSite): LaidOutFolder[] => [
-  { folder: 'team/', holds: 'team' },
-  ...(site.lineId ? [{ folder: 'line/', holds: 'line' } as const] : []),
-  ...(site.stationId
-    ? [{ folder: 'station/', holds: 'station' } as const]
+export const layoutAt = (runContext: RunContext): LaidOutFolder[] => [
+  { folder: 'team/', level: 'team' },
+  ...(runContext.lineId ? [{ folder: 'line/', level: 'line' } as const] : []),
+  ...(runContext.stationId
+    ? [{ folder: 'station/', level: 'station' } as const]
     : []),
-  ...(site.repositories.length > 0
+  ...(runContext.repositories.length > 0
     ? [
         {
-          folder: `${MIRRORING}<owner>/<name>/<path>/`,
-          holds: 'repository',
+          folder: `${REPOSITORY_FOLDER}<owner>/<name>/<path>/`,
+          level: 'repository',
         } as const,
       ]
     : []),

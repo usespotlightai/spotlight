@@ -15,7 +15,7 @@ import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { workspaceArchive } from '@work/infrastructure/persistence/drizzle/schemas/workspace-archive.schema';
 import { and, desc, eq, isNotNull } from 'drizzle-orm';
@@ -41,13 +41,13 @@ const toArchive = (row: Row): WorkspaceArchive =>
   WorkspaceArchive.rehydrate({
     id: WorkspaceArchiveId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
-    continuity: ContinuityKey.of(row.continuityKey),
+    resumeKey: ResumeKey.of(row.resumeKey),
     holder: holderOf(row),
     grantedTo: RunId.of(row.grantedToRunId),
     size: ArchiveSize.of(row.size),
     digest: ArchiveDigest.of(row.sha256),
     grantedAt: row.grantedAt,
-    sealedAt: row.sealedAt,
+    completedAt: row.completedAt,
     version: row.version,
   });
 
@@ -71,13 +71,13 @@ export class DrizzleWorkspaceArchiveRepository
       await this.context.db.insert(workspaceArchive).values({
         id: added.id.value,
         workspaceId: added.workspaceId.value,
-        continuityKey: added.continuity.value,
+        resumeKey: added.resumeKey.value,
         ...holderColumns(added.holder),
         grantedToRunId: added.grantedTo.value,
         size: added.size.bytes,
         sha256: added.digest.sha256,
         grantedAt: added.grantedAt,
-        sealedAt: added.sealedAt,
+        completedAt: added.completedAt,
         version: added.version,
       });
 
@@ -98,7 +98,7 @@ export class DrizzleWorkspaceArchiveRepository
             .returning({ id: workspaceArchive.id })
         : await this.context.db
             .update(workspaceArchive)
-            .set({ sealedAt: saved.sealedAt, version: saved.version + 1 })
+            .set({ completedAt: saved.completedAt, version: saved.version + 1 })
             .where(matching)
             .returning({ id: workspaceArchive.id });
 
@@ -120,9 +120,9 @@ export class DrizzleWorkspaceArchiveRepository
     return row ? toArchive(row) : null;
   }
 
-  async newestSealed(
+  async newestCompleted(
     workspaceId: WorkspaceId,
-    continuity: ContinuityKey,
+    resumeKey: ResumeKey,
   ): Promise<WorkspaceArchive | null> {
     const [row] = await this.context.db
       .select()
@@ -130,11 +130,11 @@ export class DrizzleWorkspaceArchiveRepository
       .where(
         and(
           eq(workspaceArchive.workspaceId, workspaceId.value),
-          eq(workspaceArchive.continuityKey, continuity.value),
-          isNotNull(workspaceArchive.sealedAt),
+          eq(workspaceArchive.resumeKey, resumeKey.value),
+          isNotNull(workspaceArchive.completedAt),
         ),
       )
-      .orderBy(desc(workspaceArchive.sealedAt))
+      .orderBy(desc(workspaceArchive.completedAt))
       .limit(1);
 
     return row ? toArchive(row) : null;

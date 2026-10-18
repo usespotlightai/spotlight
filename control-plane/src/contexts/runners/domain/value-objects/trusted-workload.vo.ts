@@ -10,16 +10,16 @@ const bounded = (
   raw: string,
   example: string,
 ): string => {
-  const held = raw.trim();
+  const trimmed = raw.trim();
 
-  if (!held || held.length > LONGEST || /\s/.test(held)) {
+  if (!trimmed || trimmed.length > LONGEST || /\s/.test(trimmed)) {
     throw new InvalidTrustedWorkloadError(
       field,
       `must be one word of at most ${LONGEST} characters, as in ${example}`,
     );
   }
 
-  return held;
+  return trimmed;
 };
 
 export class TrustedWorkload {
@@ -32,17 +32,17 @@ export class TrustedWorkload {
   ) {}
 
   static issuerOf(raw: string): string {
-    const held = raw.trim();
-    const refused = new InvalidTrustedWorkloadError(
+    const trimmed = raw.trim();
+    const invalid = new InvalidTrustedWorkloadError(
       'issuer',
       'must be the https URL the platform signs its tokens as, with no query or fragment',
     );
     let url: URL;
 
     try {
-      url = new URL(held);
+      url = new URL(trimmed);
     } catch {
-      throw refused;
+      throw invalid;
     }
 
     const secure =
@@ -55,12 +55,12 @@ export class TrustedWorkload {
       url.hash ||
       url.username ||
       url.password ||
-      held.length > LONGEST
+      trimmed.length > LONGEST
     ) {
-      throw refused;
+      throw invalid;
     }
 
-    return held;
+    return trimmed;
   }
 
   static subjectOf(raw: string): string {
@@ -83,7 +83,7 @@ export class TrustedWorkload {
     );
   }
 
-  admits(claims: WorkloadClaims): boolean {
+  matches(claims: WorkloadClaims): boolean {
     return (
       claims.issuer === this.issuer &&
       claims.subject === this.subject &&

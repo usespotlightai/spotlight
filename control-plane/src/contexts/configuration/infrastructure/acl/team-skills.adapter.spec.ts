@@ -1,9 +1,9 @@
-import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
 import type { SecretNamesPort } from '@configuration/application/ports/secret-names.port';
 import type {
   SkillFolder,
   SkillReaderPort,
 } from '@configuration/application/ports/skill-reader.port';
+import type { TeamSkillFilesPort } from '@configuration/application/ports/team-skill-files.port';
 import { Skill } from '@configuration/domain/entities/skill.entity';
 import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
@@ -58,22 +58,22 @@ const FRONTEND: SkillFolder = {
 
 const naming = (...skills: string[]) => skills;
 
-const keeping = (
+const withSkills = (
   folders: readonly SkillFolder[],
-  held: readonly string[] = [],
+  existing: readonly string[] = [],
 ) => {
   const secrets = {
-    ofTeam: vi.fn(async () => held.map((each) => SecretName.of(each))),
+    ofTeam: vi.fn(async () => existing.map((each) => SecretName.of(each))),
   } satisfies SecretNamesPort;
   const reader: SkillReaderPort = {
-    read: () => ({ skills: folders, problems: [] }),
+    parse: () => ({ skills: folders, problems: [] }),
     folder: vi.fn(),
   };
 
   return new TeamSkills(
     {
       of: vi.fn(async () => ({ teamId: TEAM, skills: [] })),
-    } satisfies AppliedConfigurationPort,
+    } satisfies TeamSkillFilesPort,
     reader,
     secrets,
   );
@@ -83,16 +83,16 @@ const keysOf = (folders: readonly ReadySkillFolder[]) =>
   folders.map((each) => each.skill.key);
 
 describe('TeamSkills', () => {
-  it('gives a run each skill the station names whose secrets the team holds', async () => {
-    const skills = keeping([GRAFANA, FRONTEND], ['GRAFANA_TOKEN']);
+  it('returns each skill the station names whose secrets the team has', async () => {
+    const skills = withSkills([GRAFANA, FRONTEND], ['GRAFANA_TOKEN']);
 
     const ready = await skills.readyFor(TEAM, naming('grafana-dashboards'));
 
     expect(keysOf(ready)).toEqual(['grafana-dashboards']);
   });
 
-  it('gives each skill whole, with every file of its folder', async () => {
-    const skills = keeping([MIGRATIONS]);
+  it('returns each skill whole, with every file of its folder', async () => {
+    const skills = withSkills([MIGRATIONS]);
 
     const ready = await skills.readyFor(TEAM, naming('our-migrations'));
 
@@ -102,8 +102,8 @@ describe('TeamSkills', () => {
     ]);
   });
 
-  it('leaves out a skill that needs a secret the team does not hold', async () => {
-    const skills = keeping([GRAFANA, MIGRATIONS]);
+  it('leaves out a skill that needs a secret the team does not have', async () => {
+    const skills = withSkills([GRAFANA, MIGRATIONS]);
 
     const ready = await skills.readyFor(
       TEAM,
@@ -113,8 +113,8 @@ describe('TeamSkills', () => {
     expect(keysOf(ready)).toEqual(['our-migrations']);
   });
 
-  it('names every skill the team defines, whether or not its secrets are held', async () => {
-    const skills = keeping([GRAFANA, MIGRATIONS]);
+  it('names every skill the team defines, whether or not the team has its secrets', async () => {
+    const skills = withSkills([GRAFANA, MIGRATIONS]);
 
     expect(await skills.definedFor(TEAM)).toEqual([
       'grafana-dashboards',
@@ -122,8 +122,8 @@ describe('TeamSkills', () => {
     ]);
   });
 
-  it('gives nothing where no skill is named', async () => {
-    const skills = keeping([MIGRATIONS, FRONTEND]);
+  it('returns nothing where no skill is named', async () => {
+    const skills = withSkills([MIGRATIONS, FRONTEND]);
 
     await expect(skills.readyFor(TEAM, naming())).resolves.toEqual([]);
   });

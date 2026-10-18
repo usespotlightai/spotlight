@@ -1,6 +1,6 @@
 import {
   MEMORY_KIND_NAMES,
-  MEMORY_REACH_NAMES,
+  MEMORY_SCOPE_NAMES,
 } from '@memory/application/dto/memory-review.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -12,18 +12,18 @@ export class RememberRequestDto {
   readonly body!: string;
 
   @ApiPropertyOptional({
-    enum: MEMORY_REACH_NAMES,
+    enum: MEMORY_SCOPE_NAMES,
     nullable: true,
     description: 'Where it applies; the run’s line when left out',
   })
-  readonly reach?: string | null;
+  readonly scope?: string | null;
 
   @ApiPropertyOptional({
     type: String,
     isArray: true,
     example: ['api/src/uploads'],
     description:
-      'Paths it bears on, relative to the run’s workspace, each starting with the checkout folder',
+      'Paths it is about, relative to the run’s workspace, each starting with the checkout folder',
   })
   readonly paths?: readonly string[];
 
@@ -31,7 +31,7 @@ export class RememberRequestDto {
     nullable: true,
     type: String,
     example: 'M-7',
-    description: 'The standing memory it corrects, by handle',
+    description: 'The active memory it corrects, by handle',
   })
   readonly supersedes?: string | null;
 }

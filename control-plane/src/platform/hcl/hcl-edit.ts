@@ -8,12 +8,12 @@ import {
 import { formatHclAttributes, formatHclValue } from '@platform/hcl/hcl.format';
 import {
   type HclLiteral,
-  type HclRead,
   type HclReference,
   HclSyntaxError,
   type ParsedAttribute,
   type ParsedBlock,
   type ParsedBody,
+  type ParsedValue,
   parsedHcl,
 } from '@platform/hcl/hcl.parse';
 
@@ -25,14 +25,14 @@ interface HclFile {
 export interface HclReferenceRule {
   readonly type: string;
   readonly attribute: string;
-  readonly heldAt: string;
+  readonly storedAt: string;
   readonly tool: boolean;
 }
 
 export interface HclField {
   readonly name: string;
-  readonly was: HclLiteral;
-  readonly now: HclLiteral;
+  readonly expected: HclLiteral;
+  readonly desired: HclLiteral;
   readonly unset: HclLiteral;
   readonly references?: HclReferenceRule;
   readonly freshFile?: string;
@@ -40,7 +40,7 @@ export interface HclField {
 
 export interface HclGuardedBlock {
   readonly type: string;
-  readonly was: Readonly<Record<string, HclLiteral>> | null;
+  readonly expected: Readonly<Record<string, HclLiteral>> | null;
   readonly unset?: Readonly<Record<string, HclLiteral>>;
 }
 
@@ -58,17 +58,17 @@ export interface HclBlockEdit {
   readonly read: (path: string) => Promise<string | null>;
 }
 
-export type HclEditRefusalCode =
+export type HclEditErrorCode =
   | 'unparsable'
   | 'block-not-found'
   | 'blocks-ambiguous'
   | 'computed-attribute'
-  | 'drifted'
+  | 'base-changed'
   | 'file-missing'
   | 'edit-failed';
 
-interface HclEditRefusal {
-  readonly code: HclEditRefusalCode;
+interface HclEditError {
+  readonly code: HclEditErrorCode;
   readonly message: string;
   readonly attribute: string | null;
   readonly expression: string | null;
@@ -81,9 +81,9 @@ export type HclBlockEdited =
       readonly files: readonly HclFile[];
       readonly unchecked: readonly string[];
     }
-  | { readonly ok: false; readonly refusal: HclEditRefusal };
+  | { readonly ok: false; readonly error: HclEditError };
 
-interface Splice {
+interface TextEdit {
   readonly start: number;
   readonly end: number;
   readonly text: string;
@@ -93,20 +93,20 @@ type Resolved =
   | { readonly ok: true; readonly value: HclLiteral; readonly path?: string }
   | { readonly ok: false; readonly why: string };
 
-class Refused extends Error {
-  constructor(readonly refusal: HclEditRefusal) {
-    super(refusal.message);
+class HclEditFailure extends Error {
+  constructor(readonly error: HclEditError) {
+    super(error.message);
   }
 }
 
 class OneLineBlock extends Error {}
 
-const refused = (
-  code: HclEditRefusalCode,
+const fail = (
+  code: HclEditErrorCode,
   message: string,
-  more: Partial<Omit<HclEditRefusal, 'code' | 'message'>> = {},
+  more: Partial<Omit<HclEditError, 'code' | 'message'>> = {},
 ): never => {
-  throw new Refused({
+  throw new HclEditFailure({
     code,
     message,
     attribute: more.attribute ?? null,
@@ -177,7 +177,7 @@ const inRepository = (from: string, path: string): string => {
   );
 
   return posix.isAbsolute(path) || joined === '..' || joined.startsWith('../')
-    ? refused(
+    ? fail(
         'file-missing',
         `The file ${quotedKey(path)} is outside the repository.`,
       )
@@ -200,7 +200,7 @@ const everyAttribute = (body: ParsedBody): ParsedAttribute[] => [
 class Editing {
   private readonly eol: string;
   private readonly reads = new Map<string, Promise<string | null>>();
-  private readonly written = new Map<string, string>();
+  private readonly pendingFiles = new Map<string, string>();
 
   constructor(
     private readonly edit: HclBlockEdit,
@@ -214,17 +214,17 @@ class Editing {
   }
 
   private read(path: string): Promise<string | null> {
-    const kept = this.written.get(path);
+    const pending = this.pendingFiles.get(path);
 
-    if (kept !== undefined) {
-      return Promise.resolve(kept);
+    if (pending !== undefined) {
+      return Promise.resolve(pending);
     }
 
-    const held = this.reads.get(path) ?? this.edit.read(path);
+    const content = this.reads.get(path) ?? this.edit.read(path);
 
-    this.reads.set(path, held);
+    this.reads.set(path, content);
 
-    return held;
+    return content;
   }
 
   private get resources(): readonly ParsedBlock[] {
@@ -238,16 +238,16 @@ class Editing {
 
   private ownedBy(block: ParsedBlock, key: string): boolean | null {
     const { owner } = this.edit;
-    const held = block.body.attributes.find(
+    const existing = block.body.attributes.find(
       (each) => each.name === owner.attribute,
     );
 
     if (
-      held?.read.kind === 'reference' &&
-      held.read.type === owner.type &&
-      held.read.suffix === null
+      existing?.read.kind === 'reference' &&
+      existing.read.type === owner.type &&
+      existing.read.suffix === null
     ) {
-      return held.read.name === nameOf(owner.key);
+      return existing.read.name === nameOf(owner.key);
     }
 
     return block.labels[1] === nameOf(owner.key, key) ? true : null;
@@ -288,16 +288,16 @@ class Editing {
       const counted = `${countOf(lines.length, `resource "${resource.type}"`, `resources "${resource.type}"`)} in the file, ${keyed.length} with key ${quotedKey(resource.key)}`;
 
       return keyed.length === 0
-        ? refused(
+        ? fail(
             'block-not-found',
             `The file has no resource "${resource.type}" with key ${quotedKey(resource.key)}. Found: ${counted}`,
           )
         : unknown > 0
-          ? refused(
+          ? fail(
               'blocks-ambiguous',
               `More than one resource "${resource.type}" with key ${quotedKey(resource.key)} can belong to team ${owner.key}. Found: ${counted}`,
             )
-          : refused(
+          : fail(
               'block-not-found',
               `The file has no resource "${resource.type}" with key ${quotedKey(resource.key)} for team ${owner.key}. Found: ${counted}`,
             );
@@ -323,7 +323,7 @@ class Editing {
       ...(dynamic > 0 ? [countOf(dynamic, 'dynamic block')] : []),
     ].join(', ');
 
-    return refused(
+    return fail(
       matching.length === 0 ? 'block-not-found' : 'blocks-ambiguous',
       matching.length === 0
         ? `The resource has no ${block.type} block with key ${quotedKey(block.key)}. Found: ${counted}`
@@ -336,37 +336,37 @@ class Editing {
       (each) =>
         each.labels[0] === reference.type && each.labels[1] === reference.name,
     );
-    const heldAt =
+    const storedAt =
       this.edit.fields.find(
         (each) =>
           each.references?.type === reference.type &&
           each.references.attribute === reference.attribute,
-      )?.references?.heldAt ?? reference.attribute;
-    const value = target ? literalAt(target.body, heldAt) : null;
+      )?.references?.storedAt ?? reference.attribute;
+    const value = target ? literalAt(target.body, storedAt) : null;
 
     return value === null ? undefined : `${value}${reference.suffix ?? ''}`;
   }
 
   private async resolved(
-    held: ParsedAttribute | undefined,
+    existing: ParsedAttribute | undefined,
     unset: HclLiteral,
     name: string,
   ): Promise<Resolved> {
-    if (!held) {
+    if (!existing) {
       return { ok: true, value: unset };
     }
 
     const computed = {
       ok: false as const,
-      why: `Terraform computes \`${name}\` from \`${held.written}\`. Please change it by hand.`,
+      why: `Terraform computes \`${name}\` from \`${existing.sourceText}\`. Please change it by hand.`,
     };
-    const literalOf = (read: HclRead): HclLiteral | undefined =>
+    const literalOf = (read: ParsedValue): HclLiteral | undefined =>
       read.kind === 'literal'
         ? read.value
         : read.kind === 'reference'
           ? this.referenced(read)
           : undefined;
-    const { read } = held;
+    const { read } = existing;
 
     switch (read.kind) {
       case 'literal':
@@ -387,7 +387,7 @@ class Editing {
         if (!read.fromModule) {
           return {
             ok: false,
-            why: `\`${name}\` reads \`${held.written}\`. Terraform resolves this path from its working directory. Please write it as file("\${path.module}/${read.path}") or change it by hand.`,
+            why: `\`${name}\` reads \`${existing.sourceText}\`. Terraform resolves this path from its working directory. Please write it as file("\${path.module}/${read.path}") or change it by hand.`,
           };
         }
 
@@ -395,10 +395,10 @@ class Editing {
         const content = await this.read(path);
 
         return content === null
-          ? refused(
+          ? fail(
               'file-missing',
               `\`${name}\` reads ${quotedKey(path)}. The repository doesn't have this file.`,
-              { attribute: name, expression: held.written },
+              { attribute: name, expression: existing.sourceText },
             )
           : { ok: true, value: content, path };
       }
@@ -426,9 +426,9 @@ class Editing {
       this.resources.filter(
         (each) =>
           each.labels[0] === rule.type &&
-          literalAt(each.body, rule.heldAt) === key,
+          literalAt(each.body, rule.storedAt) === key,
       ),
-      (each) => literalAt(each.body, rule.heldAt),
+      (each) => literalAt(each.body, rule.storedAt),
     );
 
     if (!found) {
@@ -446,15 +446,15 @@ class Editing {
       : traversal;
   }
 
-  private valueFor(field: HclField, held: ParsedAttribute | undefined) {
+  private valueFor(field: HclField, existing: ParsedAttribute | undefined) {
     const { references: rule } = field;
 
     if (!rule) {
-      return field.now as HclValue;
+      return field.desired as HclValue;
     }
 
-    const kept = (held?.items ?? []).map((each) => ({
-      written: each.written,
+    const previous = (existing?.items ?? []).map((each) => ({
+      sourceText: each.sourceText,
       value:
         each.read.kind === 'literal'
           ? each.read.value
@@ -464,24 +464,24 @@ class Editing {
       used: false,
     }));
     const element = (value: HclLiteral): HclValue => {
-      const original = kept.find(
+      const original = previous.find(
         (each) =>
           !each.used && each.value !== undefined && same(each.value, value),
       );
 
       if (original) {
         original.used = true;
-        return HclExpression.verbatim(original.written);
+        return HclExpression.verbatim(original.sourceText);
       }
 
       return this.referenceFor(value, rule) ?? (value as HclValue);
     };
 
-    return Array.isArray(field.now)
-      ? field.now.map(element)
-      : field.now === null
+    return Array.isArray(field.desired)
+      ? field.desired.map(element)
+      : field.desired === null
         ? null
-        : element(field.now);
+        : element(field.desired);
   }
 
   private lined(text: string): string {
@@ -506,7 +506,7 @@ class Editing {
     if (
       inRepository(this.edit.file.path, fresh) === current &&
       !referenced(current) &&
-      !this.written.has(current)
+      !this.pendingFiles.has(current)
     ) {
       return fresh;
     }
@@ -518,7 +518,7 @@ class Editing {
       if (
         path !== current &&
         !referenced(path) &&
-        !this.written.has(path) &&
+        !this.pendingFiles.has(path) &&
         (await this.edit.read(path)) === null
       ) {
         return chosen;
@@ -558,7 +558,7 @@ class Editing {
     const block = this.located();
     const keyLine = block.body.attributes.find((each) => each.name === 'key');
     const indent = keyLine ? indentAt(this.text, keyLine.span.start) : '';
-    const splices: Splice[] = [];
+    const edits: TextEdit[] = [];
     const inserted: HclAttribute[] = [];
     const unchecked: string[] = [];
     const changed: HclField[] = [];
@@ -570,31 +570,31 @@ class Editing {
       );
 
       if (found.length > 1) {
-        refused(
+        fail(
           'unparsable',
           `The ${this.edit.block.type} block sets \`${field.name}\` more than once.`,
           { attribute: field.name },
         );
       }
 
-      const [held] = found;
-      const current = await this.resolved(held, field.unset, field.name);
-      const changes = !same(field.was, field.now);
+      const [existing] = found;
+      const current = await this.resolved(existing, field.unset, field.name);
+      const changes = !same(field.expected, field.desired);
 
       if (!current.ok) {
         if (changes) {
-          refused('computed-attribute', current.why, {
+          fail('computed-attribute', current.why, {
             attribute: field.name,
-            expression: held?.written ?? null,
-            wanted: field.now,
+            expression: existing?.sourceText ?? null,
+            wanted: field.desired,
           });
         }
         unchecked.push(field.name);
         continue;
       }
-      if (!same(current.value, field.was)) {
-        refused(
-          'drifted',
+      if (!same(current.value, field.expected)) {
+        fail(
+          'base-changed',
           `\`${field.name}\` changed in the repository after the search began. The file no longer has the value that the search started from.`,
           { attribute: field.name },
         );
@@ -605,60 +605,67 @@ class Editing {
 
       changed.push(field);
 
-      if (!held) {
-        inserted.push(attribute(field.name, this.valueFor(field, held)));
+      if (!existing) {
+        inserted.push(attribute(field.name, this.valueFor(field, existing)));
         continue;
       }
 
       if (
-        held.read.kind === 'file' &&
-        typeof field.now === 'string' &&
+        existing.read.kind === 'file' &&
+        typeof field.desired === 'string' &&
         field.freshFile &&
         current.path
       ) {
-        const was = current.value as string;
+        const expected = current.value as string;
         const path = current.path;
-        const now = field.now;
+        const desired = field.desired;
 
         writes.push(async () => {
-          const chosen = await this.freshPath(field, path, held);
+          const chosen = await this.freshPath(field, path, existing);
           const target = inRepository(this.edit.file.path, chosen);
 
-          this.written.set(
+          this.pendingFiles.set(
             target,
-            was.includes('\r\n') ? now.replace(/\r?\n/g, '\r\n') : now,
+            expected.includes('\r\n')
+              ? desired.replace(/\r?\n/g, '\r\n')
+              : desired,
           );
 
           if (target !== path) {
-            splices.push({
-              start: held.value.start,
-              end: held.value.end,
-              text: HclExpression.moduleFile(chosen).written,
+            edits.push({
+              start: existing.value.start,
+              end: existing.value.end,
+              text: HclExpression.moduleFile(chosen).sourceText,
             });
           }
         });
         continue;
       }
 
-      if (held.read.kind === 'file' && typeof field.now === 'string') {
-        refused(
+      if (existing.read.kind === 'file' && typeof field.desired === 'string') {
+        fail(
           'edit-failed',
-          `\`${field.name}\` reads \`${held.written}\`. Spotlight writes only the station's own files. Please change it by hand.`,
+          `\`${field.name}\` reads \`${existing.sourceText}\`. Spotlight writes only the station's own files. Please change it by hand.`,
           {
             attribute: field.name,
-            expression: held.written,
-            wanted: field.now,
+            expression: existing.sourceText,
+            wanted: field.desired,
           },
         );
       }
 
-      const oneLine = restOfLine(this.text, held.value.end).trim().length > 0;
+      const oneLine =
+        restOfLine(this.text, existing.value.end).trim().length > 0;
 
-      splices.push({
-        start: held.value.start,
-        end: held.value.end,
+      edits.push({
+        start: existing.value.start,
+        end: existing.value.end,
         text: this.lined(
-          formatHclValue(this.valueFor(field, held), levelOf(indent), !oneLine),
+          formatHclValue(
+            this.valueFor(field, existing),
+            levelOf(indent),
+            !oneLine,
+          ),
         ),
       });
     }
@@ -672,21 +679,21 @@ class Editing {
     }
 
     if (inserted.length > 0) {
-      splices.push(
+      edits.push(
         this.insertion(block.body, indent, formatHclAttributes(inserted)),
       );
     }
 
-    const files = [...this.written].map(([path, content]) => ({
+    const files = [...this.pendingFiles].map(([path, content]) => ({
       path,
       content,
     }));
 
-    if (splices.length === 0) {
+    if (edits.length === 0) {
       return { files, unchecked };
     }
 
-    const content = [...splices]
+    const content = [...edits]
       .sort((one, other) => other.start - one.start)
       .reduce(
         (text, each) =>
@@ -710,37 +717,37 @@ class Editing {
     const found = block.body.blocks.filter(
       (each) => each.type === guarded.type && each.labels.length === 0,
     );
-    const drifted = () =>
-      refused(
-        'drifted',
+    const baseChanged = () =>
+      fail(
+        'base-changed',
         `\`${guarded.type}\` changed in the repository after the search began. The file no longer has the value that the search started from.`,
         { attribute: guarded.type },
       );
 
-    if (!guarded.was) {
+    if (!guarded.expected) {
       if (found.length > 0) {
-        drifted();
+        baseChanged();
       }
       return;
     }
 
-    const [held] = found;
+    const [nested] = found;
 
-    if (!held || found.length > 1) {
-      return drifted();
+    if (!nested || found.length > 1) {
+      return baseChanged();
     }
 
-    for (const [name, was] of Object.entries(guarded.was)) {
+    for (const [name, expected] of Object.entries(guarded.expected)) {
       const current = await this.resolved(
-        held.body.attributes.find((each) => each.name === name),
+        nested.body.attributes.find((each) => each.name === name),
         guarded.unset?.[name] ?? null,
         `${guarded.type}.${name}`,
       );
 
       if (!current.ok) {
         unchecked.push(`${guarded.type}.${name}`);
-      } else if (!same(current.value, was)) {
-        drifted();
+      } else if (!same(current.value, expected)) {
+        baseChanged();
       }
     }
   }
@@ -755,7 +762,7 @@ class Editing {
       parsed = await parsedHcl(content);
     } catch (error) {
       if (error instanceof HclSyntaxError) {
-        refused(
+        fail(
           'edit-failed',
           `Spotlight's edit of the file ${error.message}. Please change the file by hand.`,
         );
@@ -768,8 +775,8 @@ class Editing {
       parsed,
     );
 
-    for (const [path, written] of this.written) {
-      again.written.set(path, written);
+    for (const [path, text] of this.pendingFiles) {
+      again.pendingFiles.set(path, text);
     }
 
     const block = again.located();
@@ -781,11 +788,11 @@ class Editing {
         field.name,
       );
 
-      if (!read.ok || !same(read.value, field.now)) {
-        refused(
+      if (!read.ok || !same(read.value, field.desired)) {
+        fail(
           'edit-failed',
           `Spotlight's edit of \`${field.name}\` reads back with a different value. Please change it by hand.`,
-          { attribute: field.name, wanted: field.now },
+          { attribute: field.name, wanted: field.desired },
         );
       }
     }
@@ -796,7 +803,7 @@ class Editing {
     const { body } = block;
 
     if (body.commented || body.blocks.length > 0) {
-      return refused(
+      return fail(
         'edit-failed',
         `The ${this.edit.block.type} block is written on one line. Spotlight can add to a block only if it spans several lines.`,
       );
@@ -806,7 +813,7 @@ class Editing {
     const header = this.text.slice(block.span.start, body.opensAt).trimEnd();
     const lines = formatHclAttributes(
       body.attributes.map((each) =>
-        attribute(each.name, HclExpression.verbatim(each.written)),
+        attribute(each.name, HclExpression.verbatim(each.sourceText)),
       ),
     ).map((each) => `${indent}  ${each}`);
 
@@ -814,19 +821,19 @@ class Editing {
   }
 }
 
-const parsedOrRefused = async (text: string): Promise<ParsedBody> => {
+const parsedOrFailed = async (text: string): Promise<ParsedBody> => {
   try {
     return await parsedHcl(text);
   } catch (error) {
     if (error instanceof HclSyntaxError) {
-      return refused('unparsable', `The file ${error.message}.`);
+      return fail('unparsable', `The file ${error.message}.`);
     }
     throw error;
   }
 };
 
 const edited = async (edit: HclBlockEdit) => {
-  const editing = new Editing(edit, await parsedOrRefused(edit.file.content));
+  const editing = new Editing(edit, await parsedOrFailed(edit.file.content));
 
   try {
     return await editing.edited();
@@ -839,7 +846,7 @@ const edited = async (edit: HclBlockEdit) => {
 
     return new Editing(
       { ...edit, file: { ...edit.file, content } },
-      await parsedOrRefused(content),
+      await parsedOrFailed(content),
     ).edited();
   }
 };
@@ -850,8 +857,8 @@ export const editedHclBlock = async (
   try {
     return { ok: true, ...(await edited(edit)) };
   } catch (error) {
-    if (error instanceof Refused) {
-      return { ok: false, refusal: error.refusal };
+    if (error instanceof HclEditFailure) {
+      return { ok: false, error: error.error };
     }
     throw error;
   }

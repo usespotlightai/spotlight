@@ -1,4 +1,4 @@
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Line, type LineLayout } from '@work/domain/aggregates/line.aggregate';
@@ -8,7 +8,7 @@ import type { LinePlan } from '@work/domain/value-objects/line-plan.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { WayOut } from '@work/domain/value-objects/way-out.vo';
+import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 
 export interface Stranded {
   readonly key: string;
@@ -16,7 +16,7 @@ export interface Stranded {
   readonly tasks: number;
 }
 
-export type TasksStanding = ReadonlyMap<string, number>;
+export type TaskCounts = ReadonlyMap<string, number>;
 
 export interface LineIdentity {
   readonly id: LineId;
@@ -29,23 +29,23 @@ export type Reconciled =
   | { readonly ok: false; readonly stranded: readonly Stranded[] };
 
 export const reconcileLine = (input: {
-  standing: Line;
+  existing: Line;
   plan: LinePlan;
-  tasksStanding: TasksStanding;
+  taskCounts: TaskCounts;
   newId: () => string;
-  by: Attribution;
+  by: ChangeActor;
 }): Reconciled => {
-  const held = new Map(
-    input.standing.stations.map((each) => [each.key.value, each]),
+  const existingByKey = new Map(
+    input.existing.stations.map((each) => [each.key.value, each]),
   );
   const planned = new Set(input.plan.stations.map((each) => each.key.value));
 
-  const stranded: Stranded[] = input.standing.stations
+  const stranded: Stranded[] = input.existing.stations
     .filter((each) => !planned.has(each.key.value))
     .map((each) => ({
       key: each.key.value,
       name: each.name.value,
-      tasks: input.tasksStanding.get(each.id.value) ?? 0,
+      tasks: input.taskCounts.get(each.id.value) ?? 0,
     }))
     .filter((each) => each.tasks > 0);
 
@@ -55,20 +55,24 @@ export const reconcileLine = (input: {
 
   return {
     ok: true,
-    line: input.standing.relaidAs(
-      assemble(input.plan, (key) => held.get(key)?.id ?? null, input.newId),
+    line: input.existing.update(
+      assemble(
+        input.plan,
+        (key) => existingByKey.get(key)?.id ?? null,
+        input.newId,
+      ),
       input.by,
     ),
   };
 };
 
-export const openLine = (input: {
+export const createLine = (input: {
   identity: LineIdentity;
   plan: LinePlan;
   newId: () => string;
-  by: Attribution;
+  by: ChangeActor;
 }): Line =>
-  Line.layOut({
+  Line.createFromLayout({
     ...input.identity,
     by: input.by,
     ...assemble(input.plan, () => null, input.newId),
@@ -76,13 +80,13 @@ export const openLine = (input: {
 
 const assemble = (
   plan: LinePlan,
-  kept: (key: string) => StationId | null,
+  existing: (key: string) => StationId | null,
   newId: () => string,
 ): LineLayout => {
   const idOf = new Map<string, StationId>(
     plan.stations.map((each) => [
       each.key.value,
-      kept(each.key.value) ?? StationId.of(newId()),
+      existing(each.key.value) ?? StationId.of(newId()),
     ]),
   );
 
@@ -111,7 +115,7 @@ const assemble = (
       alerts: planned.alerts,
       tools: planned.tools,
       skills: planned.skills,
-      wayOut: WayOut.of({
+      routes: StationRoutes.of({
         stations: planned.passesTo.map((each) => at(each)),
         ends: planned.ends,
       }),

@@ -8,7 +8,7 @@ vi.mock('@/components/features/replays/outcome/EntryOutcome', () => ({
   EntryOutcome: () => null,
 }));
 
-const copy = (repeat: number): ReplayEntry =>
+const repeat = (repeat: number): ReplayEntry =>
   ({
     originalRunId: 'run_1',
     repeat,
@@ -20,23 +20,25 @@ const copy = (repeat: number): ReplayEntry =>
     pair: null,
   }) as unknown as ReplayEntry;
 
-const row = (baselineCopies: number): EntryComparison =>
+const row = (baselineRepeats: number): EntryComparison =>
   ({
     originalRunId: 'run_1',
     taskId: 'task_1',
     title: 'Fix the queue',
-    candidate: [copy(1)],
-    baseline: Array.from({ length: baselineCopies }, (_, at) => copy(at + 1)),
+    candidate: [repeat(1)],
+    baseline: Array.from({ length: baselineRepeats }, (_, at) =>
+      repeat(at + 1),
+    ),
   }) as unknown as EntryComparison;
 
-const shown = (counterpartLabel: string, baselineCopies = 1) =>
+const shown = (referenceLabel: string, baselineRepeats = 1) =>
   render(
     <MemoryRouter>
       <EntryDetail
         slug="acme"
         teamId="team_1"
-        row={row(baselineCopies)}
-        counterpartLabel={counterpartLabel}
+        row={row(baselineRepeats)}
+        referenceLabel={referenceLabel}
         open
         onClose={vi.fn()}
       />
@@ -44,7 +46,7 @@ const shown = (counterpartLabel: string, baselineCopies = 1) =>
   );
 
 describe('EntryDetail', () => {
-  it('names the side the replay is compared with by its counterpart', () => {
+  it('names the side the replay is compared with by its reference', () => {
     shown('Live config');
 
     expect(screen.getByText('This replay')).toBeInTheDocument();
@@ -52,14 +54,14 @@ describe('EntryDetail', () => {
     expect(screen.queryByText('Baseline')).toBeNull();
   });
 
-  it('names each copy of the counterpart', () => {
+  it('names each repeat of the reference', () => {
     shown('Search’s starting config', 2);
 
     expect(
-      screen.getByText('Search’s starting config, copy 1'),
+      screen.getByText('Search’s starting config, repeat 1'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('Search’s starting config, copy 2'),
+      screen.getByText('Search’s starting config, repeat 2'),
     ).toBeInTheDocument();
   });
 });

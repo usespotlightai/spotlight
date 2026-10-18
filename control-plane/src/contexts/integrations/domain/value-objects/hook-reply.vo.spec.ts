@@ -7,15 +7,15 @@ describe('HookReply', () => {
     expect(HookReply.answered(200, { ok: true }).failure('why')).toBeNull();
   });
 
-  it('refuses only through a 2xx answer that says refuse', () => {
+  it('denies only through a 2xx answer that says deny', () => {
     expect(
-      HookReply.answered(200, { refuse: '  drops a column  ' }).refusal,
+      HookReply.answered(200, { deny: '  drops a column  ' }).denyReason,
     ).toBe('drops a column');
     expect(
-      HookReply.answered(422, { refuse: 'drops a column' }).refusal,
+      HookReply.answered(422, { deny: 'drops a column' }).denyReason,
     ).toBeNull();
-    expect(HookReply.answered(200, { refuse: '   ' }).refusal).toBeNull();
-    expect(HookReply.answered(200, ['refuse']).refusal).toBeNull();
+    expect(HookReply.answered(200, { deny: '   ' }).denyReason).toBeNull();
+    expect(HookReply.answered(200, ['deny']).denyReason).toBeNull();
   });
 
   it('fails as unreachable when nothing answered', () => {

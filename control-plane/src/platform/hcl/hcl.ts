@@ -2,10 +2,10 @@
 const MODULE_PATH = '${path.module}';
 
 export class HclExpression {
-  private constructor(readonly written: string) {}
+  private constructor(readonly sourceText: string) {}
 
-  static verbatim(written: string): HclExpression {
-    return new HclExpression(written);
+  static verbatim(sourceText: string): HclExpression {
+    return new HclExpression(sourceText);
   }
 
   static traversal(...names: readonly string[]): HclExpression {
@@ -13,7 +13,7 @@ export class HclExpression {
   }
 
   static indexed(of: HclExpression, key: string): HclExpression {
-    return new HclExpression(`${of.written}["${escapedLiteral(key)}"]`);
+    return new HclExpression(`${of.sourceText}["${escapedLiteral(key)}"]`);
   }
 
   static moduleFile(path: string): HclExpression {
@@ -27,7 +27,7 @@ export class HclExpression {
       `"${parts
         .map((part) =>
           part instanceof HclExpression
-            ? `\${${part.written}}`
+            ? `\${${part.sourceText}}`
             : escapedLiteral(part),
         )
         .join('')}"`,

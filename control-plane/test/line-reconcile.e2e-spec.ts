@@ -9,7 +9,7 @@ import {
   type ResourceCreated,
   type ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { CreateLineCommand } from '@work/application/commands/create-line.command';
@@ -54,35 +54,40 @@ describe('a line reconciled with its definition (e2e)', () => {
   let lines: DrizzleLineRepository;
   let db: DrizzleDatabase;
   let commands: CommandBus;
-  const held = `reconcile-${Date.now()}`;
+  const workspaceId = `reconcile-${Date.now()}`;
   let seat: Awaited<ReturnType<typeof seatTeam>>;
 
-  const define = async <T extends { readonly key: string }>(
+  const apply = async <T extends { readonly key: string }>(
     definition: T,
     by = seat.owner,
   ): Promise<ResourceCreated | ResourceUpdated | null> => {
-    const standing = (await lines.ofTeam(TeamId.of(held))).find(
+    const existing = (await lines.ofTeam(TeamId.of(workspaceId))).find(
       (each) => each.key.value === definition.key,
     );
 
-    return standing
+    return existing
       ? commands.execute<UpdateLineCommand, ResourceUpdated | null>(
           new UpdateLineCommand(
-            standing.id.value,
+            existing.id.value,
             actorFor(by),
-            standing.version,
+            existing.version,
             definition,
           ),
         )
       : commands.execute<CreateLineCommand, ResourceCreated | null>(
-          new CreateLineCommand(held, actorFor(by), randomUUID(), definition),
+          new CreateLineCommand(
+            workspaceId,
+            actorFor(by),
+            randomUUID(),
+            definition,
+          ),
         );
   };
 
-  const defined = async <T extends { readonly key: string }>(
+  const applied = async <T extends { readonly key: string }>(
     definition: T,
   ): Promise<Line> => {
-    const result = await define(definition);
+    const result = await apply(definition);
 
     if (result?.outcome !== 'created' && result?.outcome !== 'updated') {
       throw new Error(JSON.stringify(result));
@@ -102,7 +107,7 @@ describe('a line reconciled with its definition (e2e)', () => {
     db = app.get(DRIZZLE);
     commands = app.get(CommandBus);
 
-    seat = await seatTeam(db, held);
+    seat = await seatTeam(db, workspaceId);
   });
 
   afterEach(async () => {
@@ -110,50 +115,50 @@ describe('a line reconciled with its definition (e2e)', () => {
     await app.close();
   });
 
-  it('opens a line the team does not have, as its definition says', async () => {
-    const opened = await defined(DELIVERY);
+  it('creates a line the team does not have, as its definition says', async () => {
+    const created = await applied(DELIVERY);
 
-    expect(opened.stations.map((each) => each.key.value)).toEqual(
+    expect(created.stations.map((each) => each.key.value)).toEqual(
       DELIVERY.stations.map((each) => each.key),
     );
   });
 
   it('adds a station the definition describes and drops one it no longer does', async () => {
-    const opened = await defined(DELIVERY);
-    const read = await defined(withDesign(DELIVERY));
+    const created = await applied(DELIVERY);
+    const read = await applied(withDesign(DELIVERY));
     const rows = await db
       .select({ key: schema.station.key })
       .from(schema.station)
-      .where(eq(schema.station.lineId, opened.id.value));
+      .where(eq(schema.station.lineId, created.id.value));
 
     const keys = DELIVERY.stations.map((each) =>
       each.key === 'spec' ? 'design' : each.key,
     );
-    expect(read.id).toEqual(opened.id);
+    expect(read.id).toEqual(created.id);
     expect(read.stations.map((each) => each.key.value)).toEqual(keys);
     expect(rows.map((each) => each.key).sort()).toEqual([...keys].sort());
     expect(
       read.stations
         .find((each) => each.key.value === 'design')
-        ?.wayOut.stations.map((to) => read.stationAt(to)?.key.value),
+        ?.routes.stations.map((to) => read.stationAt(to)?.key.value),
     ).toEqual(['implementation']);
   });
 
   it('leaves every station it keeps the station it was', async () => {
-    const opened = await defined(DELIVERY);
-    const read = await defined({ ...DELIVERY, name: 'Shipping' });
+    const created = await applied(DELIVERY);
+    const read = await applied({ ...DELIVERY, name: 'Shipping' });
 
     expect(read.name.value).toBe('Shipping');
     expect(read.stations.map((each) => each.id.value)).toEqual(
-      opened.stations.map((each) => each.id.value),
+      created.stations.map((each) => each.id.value),
     );
   });
 
   it('says where a definition is wrong, and changes nothing', async () => {
-    const opened = await defined(DELIVERY);
+    const created = await applied(DELIVERY);
 
     expect(
-      await define({
+      await apply({
         ...DELIVERY,
         name: 'Broken',
         reactions: [{ happening: 'github.checks.failed', to: 'nowhere' }],
@@ -164,13 +169,13 @@ describe('a line reconciled with its definition (e2e)', () => {
         { path: 'lines/delivery', field: FieldPath.dotted('reactions.0.to') },
       ],
     });
-    expect((await lines.find(opened.id))?.name.value).toBe(DELIVERY.name);
+    expect((await lines.find(created.id))?.name.value).toBe(DELIVERY.name);
   });
 
-  it('forbids a member who does not administer the workspace, defining nothing', async () => {
-    expect(await define(DELIVERY, seat.member)).toEqual(
+  it('forbids a member who does not administer the workspace, changing nothing', async () => {
+    expect(await apply(DELIVERY, seat.member)).toEqual(
       forbiddenTo('configure'),
     );
-    expect(await lines.ofTeam(TeamId.of(held))).toEqual([]);
+    expect(await lines.ofTeam(TeamId.of(workspaceId))).toEqual([]);
   });
 });

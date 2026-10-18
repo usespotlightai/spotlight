@@ -29,7 +29,7 @@ const DEFINITION = {
   },
   on: {
     'task.opened': {
-      do: 'comment',
+      action: 'comment',
       // biome-ignore lint/suspicious/noTemplateCurlyInString: the definition's own expression syntax
       to: { thread: '${{ ask.body }}' },
     },
@@ -53,7 +53,7 @@ describe('checking expressions for a plan', () => {
     await app.close();
   });
 
-  it('answers the type of a sound expression, in the API version asked', async () => {
+  it('answers the type of a sound expression, in the API version requested', async () => {
     const answer = await check({
       position: WHEN,
       expression: 'body.type == "Issue"',
@@ -92,7 +92,7 @@ describe('checking expressions for a plan', () => {
     ]);
   });
 
-  it('refuses a position the definition holds no expression at, as a problem', async () => {
+  it('rejects a position where the definition has no expression, as a problem', async () => {
     const answer = await check({
       position: 'integration.webhook.events[0].wehn',
       expression: 'true',
@@ -106,7 +106,7 @@ describe('checking expressions for a plan', () => {
     });
   });
 
-  it('refuses a position that is not an integration’s', async () => {
+  it('rejects a position that is not an integration’s', async () => {
     const answer = await check({
       position: 'line.stations[0].check',
       expression: 'true',
@@ -121,7 +121,7 @@ describe('checking expressions for a plan', () => {
     ]);
   });
 
-  it('refuses a definition that is not valid, naming each error in it', async () => {
+  it('rejects a definition that is not valid, naming each error in it', async () => {
     const answer = await check({
       position: WHEN,
       expression: 'true',
@@ -134,7 +134,7 @@ describe('checking expressions for a plan', () => {
     ]);
   });
 
-  it('lists every position with what it sees', async () => {
+  it('lists every position with its variables', async () => {
     const answer = await served(app)
       .get('/api/expressions/positions')
       .set(TEST_USER_HEADER, 'expression-checker');
@@ -144,7 +144,7 @@ describe('checking expressions for a plan', () => {
       expect.objectContaining({
         position: 'integration.webhook.events[*].when',
         returns: 'bool',
-        alsoSees: ['item'],
+        addedVariables: ['item'],
       }),
     );
   });

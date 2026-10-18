@@ -10,8 +10,8 @@ const failing = vi.fn(() => false);
 const more = vi.fn(() => false);
 const fetchNextPage = vi.fn();
 
-vi.mock('@/hooks/api/useGuardChanges', () => ({
-  useGuardChanges: () => ({ mutate: vi.fn(), isPending: false }),
+vi.mock('@/hooks/api/useGateChanges', () => ({
+  useGateChanges: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 vi.mock('@/hooks/api/useReplaySetChecks', () => ({
@@ -34,7 +34,7 @@ const SET: ReplaySet = {
   name: 'Queue fixes',
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
-  guardsChanges: false,
+  gatesChanges: false,
   health: {
     noise: null,
     saturation: null,
@@ -64,7 +64,7 @@ const check = (over: Partial<ReplayCheckSummary>): ReplayCheckSummary => ({
   id: 'check_1',
   stationId: 'station_1',
   stationKey: 'implementation',
-  verdict: 'passed',
+  result: 'passed',
   undecidedBecause: null,
   regressions: 0,
   attempt: 1,
@@ -83,7 +83,7 @@ describe('SetChecks', () => {
     fetchNextPage.mockClear();
   });
 
-  it('holds the checks’ place while they load', () => {
+  it('keeps the checks’ place while they load', () => {
     render(
       <MemoryRouter>
         <SetChecks teamId="team_1" set={SET} replayCheck={null} />
@@ -95,7 +95,7 @@ describe('SetChecks', () => {
     ).toBeInTheDocument();
   });
 
-  it('says the set guards nothing yet, beside the switch that lets it', () => {
+  it('says the set gates nothing yet, beside the switch that lets it', () => {
     pages.mockReturnValue([[]]);
 
     render(
@@ -106,10 +106,10 @@ describe('SetChecks', () => {
 
     expect(screen.getByText('No checks yet')).toBeInTheDocument();
     expect(
-      screen.getByText('The set doesn’t guard config changes.'),
+      screen.getByText('The set doesn’t gate config changes.'),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('switch', { name: 'Guards config changes' }),
+      screen.getByRole('switch', { name: 'Gates config changes' }),
     ).not.toBeChecked();
   });
 
@@ -127,13 +127,13 @@ describe('SetChecks', () => {
     ).toBeInTheDocument();
   });
 
-  it('lists each check with its change, verdict, regressions and attempt, opening its replay, and pages back', () => {
+  it('lists each check with its change, result, regressions and attempt, opening its replay, and pages back', () => {
     pages.mockReturnValue([
       [
         check({}),
         check({
           id: 'check_2',
-          verdict: 'undecided',
+          result: 'undecided',
           undecidedBecause: 'over-ceiling',
           regressions: 2,
           attempt: 2,

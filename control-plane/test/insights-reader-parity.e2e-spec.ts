@@ -1,119 +1,122 @@
 import {
-  heldCarriedOf,
-  heldHistoryOf,
-  pullRequestsHeldIn,
+  pullRequestsStoredIn,
   runsListedIn,
-} from '@outcomes/application/ports/insights-reader.fake-spec';
-import type { TeamInPeriod } from '@outcomes/application/ports/insights-reader.port';
-import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
+  storedCarriedOf,
+  storedHistoryOf,
+} from '@insights/application/ports/insights-reader.fake-spec';
+import type { TeamInPeriod } from '@insights/application/ports/insights-reader.port';
+import { InsightsAccess } from '@insights/application/services/insights-access.service';
 import {
   TeamScopes,
   windowOf,
-} from '@outcomes/application/services/team-scopes.service';
-import { ChatRecord } from '@outcomes/domain/aggregates/chat-record.aggregate';
+} from '@insights/application/services/team-scopes.service';
+import { ChatRecord } from '@insights/domain/aggregates/chat-record.aggregate';
 import {
   type BotActivity,
   PullRequestRecord,
   type SeenPullRequest,
-} from '@outcomes/domain/aggregates/pull-request-record.aggregate';
-import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
-import { Score } from '@outcomes/domain/aggregates/score.aggregate';
-import { TaskChangeShape } from '@outcomes/domain/aggregates/task-change-shape.aggregate';
-import { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
-import { TaskFailures } from '@outcomes/domain/aggregates/task-failures.aggregate';
-import { TaskTouches } from '@outcomes/domain/aggregates/task-touches.aggregate';
-import { changeCountsOf } from '@outcomes/domain/services/before-after';
+} from '@insights/domain/aggregates/pull-request-record.aggregate';
+import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
+import { Score } from '@insights/domain/aggregates/score.aggregate';
+import { TaskChangeShape } from '@insights/domain/aggregates/task-change-shape.aggregate';
+import { TaskFailures } from '@insights/domain/aggregates/task-failures.aggregate';
+import { TaskHumanActions } from '@insights/domain/aggregates/task-human-actions.aggregate';
+import { TaskPullRequest } from '@insights/domain/aggregates/task-pull-request.aggregate';
+import {
+  agentConfigCountsOf,
+  agentConfigRunsWithin,
+} from '@insights/domain/services/agent-config-comparison';
+import { changeCountsOf } from '@insights/domain/services/before-after';
 import {
   type CostCounts,
   type CostPlace,
   costBreakdownFrom,
   costCountsOf,
-} from '@outcomes/domain/services/cost-breakdown';
-import { flowCountsOf, flowFrom } from '@outcomes/domain/services/flow';
-import { judgedRunsOf } from '@outcomes/domain/services/judge-shares';
-import { memoryCountsOf } from '@outcomes/domain/services/memory-comparison';
-import { overviewCountsOf } from '@outcomes/domain/services/overview-counts';
-import { peopleCountsOf } from '@outcomes/domain/services/people-counts';
+} from '@insights/domain/services/cost-breakdown';
+import { flowCountsOf, flowFrom } from '@insights/domain/services/flow';
+import { judgedRunsOf } from '@insights/domain/services/judge-rates';
+import { memoryCountsOf } from '@insights/domain/services/memory-comparison';
+import { overviewCountsOf } from '@insights/domain/services/overview-counts';
+import { peopleCountsOf } from '@insights/domain/services/people-counts';
 import {
   filteredPullRequests,
   type PullRequestFilter,
-} from '@outcomes/domain/services/pull-request-filter';
+} from '@insights/domain/services/pull-request-filter';
 import {
   pullRequestCountsOf,
   pullRequestInsightsFrom,
   weekOf,
   weekWindowOf,
-} from '@outcomes/domain/services/pull-request-insights';
+} from '@insights/domain/services/pull-request-insights';
 import {
   HARNESS_DEFAULT_MODEL,
   NO_REPOSITORY,
   NO_SERVER,
-  type RunFilterAsked,
+  type RunFilterQuery,
   runFilterOf,
-} from '@outcomes/domain/services/run-filter';
-import { RUN_SIZES, type RunSize } from '@outcomes/domain/services/run-size';
-import {
-  setupCountsOf,
-  setupRunsWithin,
-} from '@outcomes/domain/services/setup-comparison';
+} from '@insights/domain/services/run-filter';
+import { RUN_SIZES, type RunSize } from '@insights/domain/services/run-size';
 import {
   pipelineCountsOf,
   type Stage,
   shippedTaskIdsOf,
   shippingCountsOf,
   type Timed,
-} from '@outcomes/domain/services/shipping';
+} from '@insights/domain/services/shipping';
 import {
   stationReportsFrom,
   teamCountsOf,
   teamReportFrom,
-} from '@outcomes/domain/services/station-reports';
+} from '@insights/domain/services/station-reports';
 import {
   openingsOf,
   type TeamHistory,
-} from '@outcomes/domain/services/team-history';
-import { toolCountsOf } from '@outcomes/domain/services/tool-insights';
-import { Citation } from '@outcomes/domain/value-objects/citation.vo';
-import { FailureOccurrence } from '@outcomes/domain/value-objects/failure-occurrence.vo';
-import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
-import { InboxAsk } from '@outcomes/domain/value-objects/inbox-ask.vo';
+} from '@insights/domain/services/team-history';
+import { toolCountsOf } from '@insights/domain/services/tool-insights';
+import { Citation } from '@insights/domain/value-objects/citation.vo';
+import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
+import { FailureOccurrence } from '@insights/domain/value-objects/failure-occurrence.vo';
+import {
+  HumanAction,
+  TASK_ACTIONS,
+} from '@insights/domain/value-objects/human-action.vo';
+import { InboxAsk } from '@insights/domain/value-objects/inbox-ask.vo';
 import {
   dayOf,
   INSIGHTS_PERIODS,
   InsightsPeriod,
-} from '@outcomes/domain/value-objects/insights-period.vo';
-import { JudgeReason } from '@outcomes/domain/value-objects/judge-reason.vo';
-import { NEXT_ACTS, NextAct } from '@outcomes/domain/value-objects/next-act.vo';
-import { PersonTouch } from '@outcomes/domain/value-objects/person-touch.vo';
-import { Refusal } from '@outcomes/domain/value-objects/refusal.vo';
-import { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
-import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
-import type { RunEnding } from '@outcomes/domain/value-objects/run-ending';
-import { MEMORY_WAYS } from '@outcomes/domain/value-objects/run-memories.vo';
-import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
-import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
+} from '@insights/domain/value-objects/insights-period.vo';
+import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
+import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
+import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
+import type { RunEnding } from '@insights/domain/value-objects/run-ending';
+import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
+import { MEMORY_VIAS } from '@insights/domain/value-objects/run-memories.vo';
 import {
   RunTools,
   type ServerCalls,
-} from '@outcomes/domain/value-objects/run-tools.vo';
-import { ScoreId } from '@outcomes/domain/value-objects/score-id.vo';
+} from '@insights/domain/value-objects/run-tools.vo';
+import { RunUsage } from '@insights/domain/value-objects/run-usage.vo';
+import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
 import {
+  metRate,
   SCORE_KINDS,
   ScoreScale,
-  shareMet,
-} from '@outcomes/domain/value-objects/score-scale.vo';
-import { SeenEvidence } from '@outcomes/domain/value-objects/seen-evidence.vo';
-import { TaskOpening } from '@outcomes/domain/value-objects/task-opening.vo';
-import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
-import { DrizzleInsightsReader } from '@outcomes/infrastructure/persistence/drizzle/readers/insights.reader';
-import { DrizzleChatRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/chat-record.repository';
-import { DrizzlePullRequestRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
-import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
-import { DrizzleScoreRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/score.repository';
-import { DrizzleTaskChangeShapeRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-change-shape.repository';
-import { DrizzleTaskDeliveryRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-delivery.repository';
-import { DrizzleTaskFailuresRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-failures.repository';
-import { DrizzleTaskTouchesRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-touches.repository';
+} from '@insights/domain/value-objects/score-scale.vo';
+import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
+import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
+import { TaskHumanAction } from '@insights/domain/value-objects/task-human-action.vo';
+import { TaskOpening } from '@insights/domain/value-objects/task-opening.vo';
+import { DrizzleRunFactProjection } from '@insights/infrastructure/persistence/drizzle/projections/run-fact.projection';
+import { DrizzleInsightsReader } from '@insights/infrastructure/persistence/drizzle/readers/insights.reader';
+import { DrizzleChatRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/chat-record.repository';
+import { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
+import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
+import { DrizzleScoreRepository } from '@insights/infrastructure/persistence/drizzle/repositories/score.repository';
+import { DrizzleTaskChangeShapeRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-change-shape.repository';
+import { DrizzleTaskFailuresRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-failures.repository';
+import { DrizzleTaskHumanActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-human-actions.repository';
+import { DrizzleTaskPullRequestRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-pull-request.repository';
 import type { Env } from '@platform/config/env.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DrizzleReading } from '@platform/persistence/drizzle/drizzle.reading';
@@ -132,9 +135,9 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import {
-  type HeldRepositories,
-  historyHeldIn,
-  pullRequestsHeld,
+  historyRepositoriesOf,
+  pullRequestRepositoriesOf,
+  type ReferenceRepositories,
 } from './support/insights-reference';
 
 const WORKSPACE = WorkspaceId.of('workspace_parity');
@@ -188,8 +191,8 @@ const ENDINGS: readonly RunEnding[] = [
   'completed',
   'failed',
   'stopped',
-  'abandoned',
-  'withdrawn',
+  'exhausted',
+  'cancelled',
 ];
 
 const seeded = (seed: number) => {
@@ -212,9 +215,9 @@ const toolPick = <T>(from: readonly T[]): T =>
 const toolChance = (share: number): boolean => toolRandom() < share;
 const upTo = (max: number): number => Math.floor(toolRandom() * (max + 1));
 
-const setupRandom = seeded(SEED * 17 + 3);
-const setupPick = <T>(from: readonly T[]): T =>
-  from[Math.floor(setupRandom() * from.length)] as T;
+const agentConfigRandom = seeded(SEED * 17 + 3);
+const agentConfigPick = <T>(from: readonly T[]): T =>
+  from[Math.floor(agentConfigRandom() * from.length)] as T;
 const RUBRICS = ['a'.repeat(64), 'b'.repeat(64)];
 
 const prRandom = seeded(SEED * 19 + 7);
@@ -265,23 +268,23 @@ const memoryRandom = seeded(SEED * 13 + 5);
 const MEMORIES = ['mem_a', 'mem_b', 'mem_c', 'mem_d'];
 
 const rememberedIn = (record: RunRecord): RunRecord =>
-  MEMORY_WAYS.reduce(
-    (held, way) =>
+  MEMORY_VIAS.reduce(
+    (remembered, way) =>
       memoryRandom() < 0.35
-        ? held.recordMemories(
+        ? remembered.recordMemories(
             way,
             MEMORIES.filter(() => memoryRandom() < 0.4),
           )
-        : held,
+        : remembered,
     record,
   );
 
-const refusedIn = (record: RunRecord, endedAt: Date): RunRecord => {
-  let refused = record;
+const dismissedIn = (record: RunRecord, endedAt: Date): RunRecord => {
+  let dismissed = record;
 
   for (let each = upTo(2); each > 0; each -= 1) {
-    refused = refused.refused(
-      Refusal.of({
+    dismissed = dismissed.dismissed(
+      Dismissal.of({
         tool: toolPick(['create_issue', 'merge', 'Deploy']),
         server: toolPick(['linear', 'github', null]),
         at: new Date(endedAt.getTime() - each * 60_000),
@@ -289,9 +292,9 @@ const refusedIn = (record: RunRecord, endedAt: Date): RunRecord => {
     );
   }
 
-  return refused;
+  return dismissed;
 };
-const NO_RUN_FILTER: RunFilterAsked = {
+const NO_RUN_FILTER: RunFilterQuery = {
   lineId: null,
   stationId: null,
   outcome: null,
@@ -304,15 +307,15 @@ const NO_RUN_FILTER: RunFilterAsked = {
   personId: null,
   day: null,
   week: null,
-  skillGiven: null,
+  skillEnabled: null,
   skillUsed: null,
   server: null,
   serverFailed: null,
   failedAfter: null,
-  refusedTool: null,
-  refusedServer: null,
-  delivery: null,
-  next: null,
+  dismissedTool: null,
+  dismissedServer: null,
+  pullRequestState: null,
+  humanAction: null,
   asked: null,
 };
 
@@ -332,11 +335,11 @@ const ordered = (counts: CostCounts): CostCounts => ({
   cacheByStation: [...counts.cacheByStation].sort((a, b) => a.first - b.first),
 });
 
-let held: TestDatabase;
+let database: TestDatabase;
 let scopes: TeamScopes;
 let reader: DrizzleInsightsReader;
-let touches: DrizzleTaskTouchesRepository;
-let deliveries: DrizzleTaskDeliveryRepository;
+let humanActions: DrizzleTaskHumanActionsRepository;
+let taskPullRequests: DrizzleTaskPullRequestRepository;
 let failures: DrizzleTaskFailuresRepository;
 let chats: DrizzleChatRecordRepository;
 let scores: DrizzleScoreRepository;
@@ -344,11 +347,11 @@ let runs: DrizzleRunRecordRepository;
 let pullRequests: DrizzlePullRequestRecordRepository;
 let shapes: DrizzleTaskChangeShapeRepository;
 
-const heldRepositories = (): HeldRepositories => ({
-  db: held.db,
+const referenceRepositories = (): ReferenceRepositories => ({
+  db: database.db,
   runs,
-  deliveries,
-  touches,
+  taskPullRequests,
+  humanActions,
   failures,
   chats,
   pullRequests,
@@ -371,25 +374,37 @@ const historyOver = async (
     access,
     period,
     team,
-    history: await heldHistoryOf(historyHeldIn(heldRepositories()), team),
+    history: await storedHistoryOf(
+      historyRepositoriesOf(referenceRepositories()),
+      team,
+    ),
   };
 };
 
 const carriedOver = (over: {
   readonly team: TeamInPeriod;
   readonly history: TeamHistory;
-}) => heldCarriedOf(historyHeldIn(heldRepositories()), over.team, over.history);
+}) =>
+  storedCarriedOf(
+    historyRepositoriesOf(referenceRepositories()),
+    over.team,
+    over.history,
+  );
 
 beforeAll(async () => {
-  held = await openDatabase('insights_parity');
-  const context = new DrizzleContext(held.db);
+  database = await openDatabase('insights_parity');
+  const context = new DrizzleContext(database.db);
   const quiet = {
     dispatch: async () => {},
   } as unknown as DomainEventDispatcher;
   const facts = new DrizzleRunFactProjection(context);
   const records = new DrizzleRunRecordRepository(context, facts, quiet);
-  deliveries = new DrizzleTaskDeliveryRepository(context, facts, quiet);
-  touches = new DrizzleTaskTouchesRepository(context, facts);
+  taskPullRequests = new DrizzleTaskPullRequestRepository(
+    context,
+    facts,
+    quiet,
+  );
+  humanActions = new DrizzleTaskHumanActionsRepository(context, facts);
   failures = new DrizzleTaskFailuresRepository(context);
   chats = new DrizzleChatRecordRepository(context);
   runs = records;
@@ -398,14 +413,16 @@ beforeAll(async () => {
   scores = new DrizzleScoreRepository(context, quiet);
 
   scopes = new TeamScopes(
-    new OutcomesAccess({
+    new InsightsAccess({
       namesOf: async () => new Map(),
       membershipOnTeam: async () => ({ workspaceId: WORKSPACE, by: VIEWER }),
     }),
     { now: () => NOW, sleep: async () => {} },
   );
   reader = new DrizzleInsightsReader(
-    new DrizzleReading(held.db, { DATABASE_READ_TIMEOUT_MS: 15_000 } as Env),
+    new DrizzleReading(database.db, {
+      DATABASE_READ_TIMEOUT_MS: 15_000,
+    } as Env),
   );
 
   await context.inTransaction(async () => {
@@ -425,18 +442,18 @@ beforeAll(async () => {
       const startedAt = chance(0.9)
         ? new Date(endedAt.getTime() - Math.floor(random() * 2 * HOUR))
         : null;
-      let record = RunRecord.heardOf(
+      let record = RunRecord.empty(
         RunId.of(`run_${String(index).padStart(4, '0')}`),
         home.workspaceId,
       ).recordEnd(
         RunEnd.of({
-          place: RunPlace.of({ teamId: home.teamId, ...station, taskId }),
+          location: RunLocation.of({ teamId: home.teamId, ...station, taskId }),
           fingerprint: pick(['a'.repeat(64), 'b'.repeat(64)]),
-          setup: RunSetup.of({
+          agentConfig: RunAgentConfig.of({
             harness: pick(['claude-code', 'codex']),
             model: pick(['opus', 'sonnet', null]),
-            effort: setupPick([null, null, 'high']),
-            profileKey: setupPick([null, null, 'fast']),
+            effort: agentConfigPick([null, null, 'high']),
+            profileKey: agentConfigPick([null, null, 'fast']),
             repositories: pick(REPOSITORIES),
             skills: toolPick(SKILLS),
           }),
@@ -445,20 +462,20 @@ beforeAll(async () => {
           endedAt,
           ending: pick(ENDINGS),
           failure: pick(['exited', 'timed-out', null]),
-          round: 1,
+          visit: 1,
           asked: chance(0.2),
         }),
       );
 
       if (chance(0.75)) {
-        record = record.recordDigest(
-          RunCost.of({
+        record = record.recordUsage(
+          RunUsage.of({
             ms: chance(0.9) ? Math.floor(random() * 3_600_000) : null,
-            steps: setupPick([3, 20, 21, 80, 81]),
-            faults: 0,
-            changedLines: setupPick([0, 0, 10, 50, 51, 400, 401]),
-            used: null,
-            size: null,
+            steps: agentConfigPick([3, 20, 21, 80, 81]),
+            errors: 0,
+            changedLines: agentConfigPick([0, 0, 10, 50, 51, 400, 401]),
+            contextTokens: null,
+            contextWindow: null,
             amount: chance(0.85) ? Math.round(random() * 1000) / 100 : null,
             currency:
               station.stationId === 'ship' &&
@@ -487,15 +504,15 @@ beforeAll(async () => {
       }
       if (chance(0.5)) {
         record = record.recordAction(
-          NextAct.of(
-            pick(['started', 'parked', 'closed', 'answered', 'sent-back']),
+          HumanAction.of(
+            pick(['started', 'parked', 'accepted', 'answered', 'sent-back']),
             new Date(endedAt.getTime() + HOUR),
           ),
         );
       }
       if (chance(0.1)) {
-        record = record.handedOnTo(
-          HandedOn.of('ship', new Date(endedAt.getTime() + 2 * HOUR)),
+        record = record.passTo(
+          StationPass.of('ship', new Date(endedAt.getTime() + 2 * HOUR)),
         );
       }
       if (chance(0.1)) {
@@ -504,18 +521,18 @@ beforeAll(async () => {
         );
       }
 
-      record = rememberedIn(refusedIn(record, endedAt));
+      record = rememberedIn(dismissedIn(record, endedAt));
 
       await records.add(record);
 
       for (const rubricVersion of RUBRICS) {
-        if (setupRandom() < 0.4) {
-          const kind = setupPick(SCORE_KINDS);
-          const marks =
+        if (agentConfigRandom() < 0.4) {
+          const kind = agentConfigPick(SCORE_KINDS);
+          const claimResults =
             kind === 'claims'
               ? Array.from(
-                  { length: setupPick([1, 2, 3, 4]) },
-                  () => setupRandom() < 0.5,
+                  { length: agentConfigPick([1, 2, 3, 4]) },
+                  () => agentConfigRandom() < 0.5,
                 )
               : null;
 
@@ -524,26 +541,28 @@ beforeAll(async () => {
               id: ScoreId.of(`score_${index}_${rubricVersion.slice(0, 1)}`),
               runId: record.runId,
               workspaceId: home.workspaceId,
-              place: RunPlace.of({
+              location: RunLocation.of({
                 teamId: home.teamId,
-                ...(setupRandom() < 0.1 ? setupPick(STATIONS) : station),
+                ...(agentConfigRandom() < 0.1
+                  ? agentConfigPick(STATIONS)
+                  : station),
                 taskId,
               }),
               fingerprint: null,
               scale: ScoreScale.of(kind),
-              value: marks
-                ? shareMet(marks)
+              value: claimResults
+                ? metRate(claimResults)
                 : kind === 'yes-no'
-                  ? setupPick([0, 1])
-                  : setupPick([1, 2, 3, 4, 5]),
-              marks,
+                  ? agentConfigPick([0, 1])
+                  : agentConfigPick([1, 2, 3, 4, 5]),
+              claimResults,
               rubricVersion,
               model: 'judge/model',
-              reasons: (marks ?? [true]).map((_, at) =>
+              reasons: (claimResults ?? [true]).map((_, at) =>
                 JudgeReason.of({
                   text: `Reason ${at}.`,
                   citations: [Citation.ofStep(1)],
-                  claim: marks ? at : null,
+                  claim: claimResults ? at : null,
                 }),
               ),
               seen: SeenEvidence.none(),
@@ -556,7 +575,10 @@ beforeAll(async () => {
       if (index % 2 === 0) {
         const far = chance(0.15);
         const person = () => UserId.of(far ? FAR : pick(PEOPLE));
-        let touched = TaskTouches.heardOf(taskId, home.workspaceId).recordOpen(
+        let taskActions = TaskHumanActions.empty(
+          taskId,
+          home.workspaceId,
+        ).recordOpen(
           TaskOpening.of({
             teamId: far ? NEXT_DOOR : home.teamId,
             lineId: station.lineId,
@@ -567,9 +589,9 @@ beforeAll(async () => {
         );
 
         for (let acted = Math.floor(random() * 4); acted > 0; acted -= 1) {
-          touched = touched.recordAction(
-            PersonTouch.of({
-              act: pick([...NEXT_ACTS, 'approved', 'refused'] as const),
+          taskActions = taskActions.recordAction(
+            TaskHumanAction.of({
+              kind: pick([...TASK_ACTIONS, 'approved', 'dismissed'] as const),
               by: person(),
               stationId: station.stationId,
               at: ago(Math.floor(random() * 200 * DAY)),
@@ -578,7 +600,7 @@ beforeAll(async () => {
         }
 
         for (let asked = Math.floor(random() * 3); asked > 0; asked -= 1) {
-          touched = touched.asked(
+          taskActions = taskActions.asked(
             InboxAsk.of(
               pick([station.stationId, pick(STATIONS).stationId]),
               ago(Math.floor(random() * 200 * DAY)),
@@ -586,13 +608,13 @@ beforeAll(async () => {
           );
         }
 
-        await touches.add(touched);
+        await humanActions.add(taskActions);
 
         if (chance(0.5)) {
           const pullRequest = PullRequestUrl.of(
             `https://github.com/acme/api/pull/${index}`,
           );
-          const fresh = TaskDelivery.open({
+          const fresh = TaskPullRequest.open({
             taskId,
             workspaceId: home.workspaceId,
             teamId: far ? NEXT_DOOR : home.teamId,
@@ -609,7 +631,7 @@ beforeAll(async () => {
               })
             : fresh;
 
-          await deliveries.add(
+          await taskPullRequests.add(
             chance(0.6)
               ? opened.close({
                   pullRequest,
@@ -621,7 +643,7 @@ beforeAll(async () => {
         }
 
         if (chance(0.3)) {
-          let failed = TaskFailures.heardOf(
+          let failed = TaskFailures.empty(
             taskId,
             home.workspaceId,
             home.teamId,
@@ -634,7 +656,7 @@ beforeAll(async () => {
           ) {
             failed = failed.raise(
               FailureOccurrence.of({
-                stationId: chance(0.1) ? 'retired' : station.stationId,
+                stationId: chance(0.1) ? 'deleted_station' : station.stationId,
                 runId: null,
                 source: pick(['run', 'hook:deploy']),
                 code: pick(['exited', 'timed-out', 'refused']),
@@ -671,16 +693,16 @@ beforeAll(async () => {
       ['run_euro', ago(75 * DAY), 1, STATIONS[3], 'sonnet', 'EUR'],
     ] as const) {
       await records.add(
-        RunRecord.heardOf(RunId.of(runId), WORKSPACE)
+        RunRecord.empty(RunId.of(runId), WORKSPACE)
           .recordEnd(
             RunEnd.of({
-              place: RunPlace.of({
+              location: RunLocation.of({
                 teamId: TEAM,
                 ...station,
                 taskId: TaskId.of(`task_${runId}`),
               }),
               fingerprint: 'a'.repeat(64),
-              setup: RunSetup.of({
+              agentConfig: RunAgentConfig.of({
                 harness: 'claude-code',
                 model,
                 effort: null,
@@ -693,18 +715,18 @@ beforeAll(async () => {
               endedAt,
               ending: 'completed',
               failure: null,
-              round: 1,
+              visit: 1,
               asked: false,
             }),
           )
-          .recordDigest(
-            RunCost.of({
+          .recordUsage(
+            RunUsage.of({
               ms: 1_000,
               steps: 1,
-              faults: 0,
+              errors: 0,
               changedLines: 1,
-              used: null,
-              size: null,
+              contextTokens: null,
+              contextWindow: null,
               amount: 0.5,
               currency,
               tokens: {
@@ -719,8 +741,8 @@ beforeAll(async () => {
       );
     }
 
-    await touches.add(
-      TaskTouches.heardOf(TaskId.of('task_both_windows'), WORKSPACE)
+    await humanActions.add(
+      TaskHumanActions.empty(TaskId.of('task_both_windows'), WORKSPACE)
         .recordOpen(
           TaskOpening.of({
             teamId: TEAM,
@@ -733,16 +755,16 @@ beforeAll(async () => {
         .asked(InboxAsk.of(STATIONS[2].stationId, ago(2 * DAY)))
         .asked(InboxAsk.of(STATIONS[2].stationId, ago(12 * HOUR)))
         .recordAction(
-          PersonTouch.of({
-            act: 'started',
+          TaskHumanAction.of({
+            kind: 'started',
             by: UserId.of('user_bob'),
             stationId: STATIONS[2].stationId,
             at: ago(20 * DAY),
           }),
         )
         .recordAction(
-          PersonTouch.of({
-            act: 'refused',
+          TaskHumanAction.of({
+            kind: 'dismissed',
             by: UserId.of('user_bob'),
             stationId: STATIONS[2].stationId,
             at: ago(DAY),
@@ -787,7 +809,8 @@ beforeAll(async () => {
         closedAt: state === 'open' ? null : later(1 + prRandom() * 90),
         updatedAt: later(100),
         readyForReviewAt: prRandom() < 0.9 ? later(0.5) : null,
-        draftSpells: prRandom() < 0.2 ? [{ from: later(1), to: later(2) }] : [],
+        draftPeriods:
+          prRandom() < 0.2 ? [{ from: later(1), to: later(2) }] : [],
         firstReviewAt: prRandom() < 0.6 ? later(3) : null,
         firstUnblockingReviewAt: prRandom() < 0.5 ? later(4) : null,
         firstApprovedAt: prRandom() < 0.4 ? later(5) : null,
@@ -847,15 +870,15 @@ beforeAll(async () => {
     );
 
     await records.add(
-      RunRecord.heardOf(RunId.of('run_stale'), WORKSPACE).recordEnd(
+      RunRecord.empty(RunId.of('run_stale'), WORKSPACE).recordEnd(
         RunEnd.of({
-          place: RunPlace.of({
+          location: RunLocation.of({
             teamId: TEAM,
             ...STATIONS[0],
             taskId: TaskId.of('task_stale'),
           }),
           fingerprint: 'a'.repeat(64),
-          setup: RunSetup.of({
+          agentConfig: RunAgentConfig.of({
             harness: 'claude-code',
             model: 'sonnet',
             effort: null,
@@ -868,13 +891,13 @@ beforeAll(async () => {
           endedAt: ago(300 * DAY),
           ending: 'completed',
           failure: null,
-          round: 1,
+          visit: 1,
           asked: false,
         }),
       ),
     );
-    await deliveries.add(
-      TaskDelivery.open({
+    await taskPullRequests.add(
+      TaskPullRequest.open({
         taskId: TaskId.of('task_stale'),
         workspaceId: WORKSPACE,
         teamId: TEAM,
@@ -882,13 +905,13 @@ beforeAll(async () => {
         at: ago(300 * DAY),
       }).recordReview({ pullRequest: stalePull, byBot: false, at: ago(DAY) }),
     );
-    await deliveries.add(
-      TaskDelivery.open({
-        taskId: TaskId.of('task_abandoned'),
+    await taskPullRequests.add(
+      TaskPullRequest.open({
+        taskId: TaskId.of('task_left_open'),
         workspaceId: WORKSPACE,
         teamId: TEAM,
         pullRequest: PullRequestUrl.of(
-          'https://github.com/acme/api/pull/abandoned',
+          'https://github.com/acme/api/pull/left-open',
         ),
         at: ago(300 * DAY),
       }),
@@ -897,7 +920,7 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 describe('the insights reader against the team history', () => {
@@ -917,7 +940,9 @@ describe('the insights reader against the team history', () => {
       const expected = teamCountsOf(
         {
           ...history,
-          touches: await historyHeldIn(heldRepositories()).touches.forTasks(
+          taskHumanActions: await historyRepositoriesOf(
+            referenceRepositories(),
+          ).taskHumanActions.forTasks(
             history.failures.map((each) => each.taskId),
           ),
         },
@@ -948,25 +973,25 @@ describe('the insights reader against the team history', () => {
       period,
     );
 
-    expect(stations.map((each) => each.stationId)).toContain('retired');
+    expect(stations.map((each) => each.stationId)).toContain('deleted_station');
     expect(stations.map((each) => each.stationId)).not.toContain(
       'elsewhere_only',
     );
     expect(stations.some((each) => each.tally.mixedCurrencies)).toBe(true);
     expect(stations.some((each) => each.tally.merged > 0)).toBe(true);
-    expect(stations.some((each) => each.tally.withdrawn > 0)).toBe(true);
+    expect(stations.some((each) => each.tally.cancelled > 0)).toBe(true);
     expect(stations.some((each) => each.taskFailures.length > 1)).toBe(true);
     expect(stations.some((each) => each.runFailures.length > 1)).toBe(true);
   });
   it.each(INSIGHTS_PERIODS)(
     'counts the same overview as the domain over %s',
     async (name) => {
-      const held = await historyOver(
+      const over = await historyOver(
         TEAM.value,
         PersonPrincipal.of(VIEWER),
         name,
       );
-      const { history, period } = held;
+      const { history, period } = over;
       const counts = await reader.overviewCounts({
         workspaceId: WORKSPACE,
         teamId: TEAM,
@@ -975,11 +1000,13 @@ describe('the insights reader against the team history', () => {
       const expected = overviewCountsOf(
         history,
         period,
-        await carriedOver(held),
+        await carriedOver(over),
         openingsOf(
-          await historyHeldIn(heldRepositories()).touches.forTasks([
+          await historyRepositoriesOf(
+            referenceRepositories(),
+          ).taskHumanActions.forTasks([
             ...history.failures.map((each) => each.taskId),
-            ...history.deliveries.map((each) => each.taskId),
+            ...history.taskPullRequests.map((each) => each.taskId),
           ]),
         ),
       );
@@ -1004,7 +1031,7 @@ describe('the insights reader against the team history', () => {
     expect(merged.some((each) => each.taskOpenedAt !== null)).toBe(true);
     expect(counts.resolved.some((each) => !each.merged)).toBe(true);
     expect(counts.current.people).toContain(FAR);
-    expect(counts.current.touches).toBeGreaterThan(0);
+    expect(counts.current.humanActions).toBeGreaterThan(0);
     expect(counts.previous.runs).toBeGreaterThan(0);
     expect(counts.spending.size).toBeGreaterThan(10);
     expect(counts.failingBefore.length).toBeGreaterThan(0);
@@ -1105,8 +1132,10 @@ describe('the insights reader against the team history', () => {
         history,
         period,
         openingsOf(
-          await historyHeldIn(heldRepositories()).touches.forTasks(
-            history.deliveries.map((each) => each.taskId),
+          await historyRepositoriesOf(
+            referenceRepositories(),
+          ).taskHumanActions.forTasks(
+            history.taskPullRequests.map((each) => each.taskId),
           ),
         ),
       );
@@ -1157,7 +1186,7 @@ describe('the insights reader against the team history', () => {
     expect(deliveries.some((each) => each.taskOpenedAt !== null)).toBe(true);
     expect(deliveries.map((each) => each.taskId)).toContain('task_stale');
     expect(deliveries.map((each) => each.taskId)).not.toContain(
-      'task_abandoned',
+      'task_left_open',
     );
   });
 
@@ -1190,8 +1219,8 @@ describe('the insights reader against the team history', () => {
       period,
     });
 
-    expect(load.current.refused).toBeGreaterThan(1);
-    expect(load.current.refusedTaskIds.length).toBeGreaterThan(1);
+    expect(load.current.dismissed).toBeGreaterThan(1);
+    expect(load.current.dismissedTaskIds.length).toBeGreaterThan(1);
     expect(load.current.askedTaskIds.length).toBeGreaterThan(1);
     expect(load.current.unanswered).toBeGreaterThan(0);
     expect(load.current.sentBack).toBeGreaterThan(0);
@@ -1232,9 +1261,9 @@ describe('the Shipping numbers of a team', () => {
       name,
     );
     const team = { workspaceId: WORKSPACE, teamId: TEAM, period };
-    const reached = await pullRequestsHeldIn(
+    const stored = await pullRequestsStoredIn(
       runs,
-      pullRequestsHeld(heldRepositories()),
+      pullRequestRepositoriesOf(referenceRepositories()),
       team,
       { repositories: REPOSITORIES, from: period.previous.from, max: 10_000 },
     );
@@ -1242,8 +1271,8 @@ describe('the Shipping numbers of a team', () => {
     return {
       team,
       expected: shippingCountsOf(
-        reached,
-        pipelineCountsOf(history, shippedTaskIdsOf(reached, period), period),
+        stored,
+        pipelineCountsOf(history, shippedTaskIdsOf(stored, period), period),
         period,
       ),
     };
@@ -1302,7 +1331,7 @@ describe('how the Shipping numbers treat a day’s edges, drafts, bots and the p
   });
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const added = new DrizzlePullRequestRecordRepository(context);
     const seenAt = (
       repository: string,
@@ -1314,7 +1343,7 @@ describe('how the Shipping numbers treat a day’s edges, drafts, bots and the p
           | 'state'
           | 'closedAt'
           | 'readyForReviewAt'
-          | 'draftSpells'
+          | 'draftPeriods'
           | 'firstUnblockingReviewAt'
           | 'humanReviewedAt'
           | 'botActivity'
@@ -1339,7 +1368,7 @@ describe('how the Shipping numbers treat a day’s edges, drafts, bots and the p
         closedAt: null,
         updatedAt: dayAt(-5),
         readyForReviewAt: null,
-        draftSpells: [],
+        draftPeriods: [],
         firstReviewAt: null,
         firstUnblockingReviewAt: null,
         firstApprovedAt: null,
@@ -1377,7 +1406,7 @@ describe('how the Shipping numbers treat a day’s edges, drafts, bots and the p
           state: 'merged',
           closedAt: dayAt(3, 12),
           readyForReviewAt: dayAt(3),
-          draftSpells: [{ from: dayAt(3, -3), to: dayAt(3, -2) }],
+          draftPeriods: [{ from: dayAt(3, -3), to: dayAt(3, -2) }],
           firstUnblockingReviewAt: dayAt(3, 2),
         }),
       );
@@ -1412,9 +1441,9 @@ describe('how the Shipping numbers treat a day’s edges, drafts, bots and the p
       PersonPrincipal.of(VIEWER),
       '7d',
     );
-    const reached = await pullRequestsHeldIn(
+    const stored = await pullRequestsStoredIn(
       runs,
-      pullRequestsHeld(heldRepositories()),
+      pullRequestRepositoriesOf(referenceRepositories()),
       team,
       { repositories: REPOSITORIES, from: period.previous.from, max: 100 },
     );
@@ -1437,8 +1466,8 @@ describe('how the Shipping numbers treat a day’s edges, drafts, bots and the p
     expect(counts.toMergeBefore.people.count).toBe(1);
     expect(counts).toEqual(
       shippingCountsOf(
-        reached,
-        pipelineCountsOf(history, shippedTaskIdsOf(reached, period), period),
+        stored,
+        pipelineCountsOf(history, shippedTaskIdsOf(stored, period), period),
         period,
       ),
     );
@@ -1468,9 +1497,9 @@ describe('how Shipping clips review and pipeline times at their edges', () => {
       PersonPrincipal.of(VIEWER),
       '7d',
     );
-    const reached = await pullRequestsHeldIn(
+    const stored = await pullRequestsStoredIn(
       runs,
-      pullRequestsHeld(heldRepositories()),
+      pullRequestRepositoriesOf(referenceRepositories()),
       team,
       { repositories, from: period.previous.from, max: 100 },
     );
@@ -1478,18 +1507,18 @@ describe('how Shipping clips review and pipeline times at their edges', () => {
     return {
       counts: await reader.shippingCounts(team, repositories),
       expected: shippingCountsOf(
-        reached,
-        pipelineCountsOf(history, shippedTaskIdsOf(reached, period), period),
+        stored,
+        pipelineCountsOf(history, shippedTaskIdsOf(stored, period), period),
         period,
       ),
     };
   };
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const facts = new DrizzleRunFactProjection(context);
     const added = new DrizzlePullRequestRecordRepository(context);
-    const touching = new DrizzleTaskTouchesRepository(context, facts);
+    const humanActions = new DrizzleTaskHumanActionsRepository(context, facts);
     const seenAt = (
       repository: string,
       number: number,
@@ -1513,7 +1542,7 @@ describe('how Shipping clips review and pipeline times at their edges', () => {
         closedAt: null,
         updatedAt: dayAt(-1),
         readyForReviewAt: dayAt(1),
-        draftSpells: [],
+        draftPeriods: [],
         firstReviewAt: null,
         firstUnblockingReviewAt: null,
         firstApprovedAt: null,
@@ -1530,22 +1559,22 @@ describe('how Shipping clips review and pipeline times at their edges', () => {
 
     await context.inTransaction(async () => {
       for (const [number, over] of [
-        [1, { draftSpells: [{ from: dayAt(1, 2), to: dayAt(3) }] }],
-        [2, { draftSpells: [{ from: dayAt(3), to: dayAt(4) }] }],
-        [3, { draftSpells: [{ from: dayAt(2, 5), to: null }] }],
+        [1, { draftPeriods: [{ from: dayAt(1, 2), to: dayAt(3) }] }],
+        [2, { draftPeriods: [{ from: dayAt(3), to: dayAt(4) }] }],
+        [3, { draftPeriods: [{ from: dayAt(2, 5), to: null }] }],
         [4, { state: 'merged', closedAt: dayAt(3) }],
         [5, { firstUnblockingReviewAt: dayAt(3) }],
         [
           6,
           {
-            draftSpells: [{ from: dayAt(1, 1), to: null }],
+            draftPeriods: [{ from: dayAt(1, 1), to: null }],
             firstUnblockingReviewAt: dayAt(1, 3),
           },
         ],
         [
           7,
           {
-            draftSpells: [{ from: dayAt(1, 1), to: dayAt(1, 5) }],
+            draftPeriods: [{ from: dayAt(1, 1), to: dayAt(1, 5) }],
             firstUnblockingReviewAt: dayAt(1, 3),
           },
         ],
@@ -1553,7 +1582,7 @@ describe('how Shipping clips review and pipeline times at their edges', () => {
           8,
           {
             readyForReviewAt: dayAt(2),
-            draftSpells: [
+            draftPeriods: [
               { from: dayAt(2), to: dayAt(2, 2) },
               { from: dayAt(2), to: dayAt(2, 2) },
             ],
@@ -1578,8 +1607,8 @@ describe('how Shipping clips review and pipeline times at their edges', () => {
       }
 
       const opening = (taskId: string, at: Date) =>
-        touching.add(
-          TaskTouches.heardOf(TaskId.of(taskId), WORKSPACE).recordOpen(
+        humanActions.add(
+          TaskHumanActions.empty(TaskId.of(taskId), WORKSPACE).recordOpen(
             TaskOpening.of({
               teamId: CLIPS,
               lineId: 'line_clips',
@@ -1689,22 +1718,22 @@ describe('the runs a team ran, a page at a time', () => {
     ['the person who opened the task', { personId: PEOPLE[0] }],
     ['a day', { day: dayOf(ago(3 * DAY)) }],
     ['a week', { week: weekOf(ago(10 * DAY)) }],
-    ['a skill given', { skillGiven: 'grafana' }],
+    ['a skill enabled', { skillEnabled: 'grafana' }],
     ['a skill used', { skillUsed: 'grafana' }],
     ['a server', { server: 'linear' }],
     ['a server that failed', { serverFailed: 'github' }],
     ['a server it failed after', { failedAfter: 'sentry' }],
-    ['a refused tool', { refusedTool: 'merge' }],
-    ['a refused tool of no server', { refusedServer: NO_SERVER }],
-    ['a delivery', { delivery: 'merged' }],
-    ['a next act', { next: NEXT_ACTS[0] }],
+    ['a dismissed tool', { dismissedTool: 'merge' }],
+    ['a dismissed tool of no server', { dismissedServer: NO_SERVER }],
+    ['a pull request state', { pullRequestState: 'merged' }],
+    ['a human action', { humanAction: TASK_ACTIONS[0] }],
     ['a task that asked', { asked: 'true' }],
     [
       'a station and a person',
       { stationId: STATIONS[1].stationId, personId: PEOPLE[1] },
     ],
   ] as const)(
-    'lists the same runs as the records when it asks for %s',
+    'lists the same runs as the records when it requests %s',
     async (_, over) => {
       const { access, period } = await scopes.scope(
         TEAM.value,
@@ -1724,7 +1753,7 @@ describe('the runs a team ran, a page at a time', () => {
       for (let page = 1; page <= Math.ceil(first.total / size) + 1; page++) {
         expect(await reader.runPage(listingOf(page))).toEqual(
           await runsListedIn(
-            historyHeldIn(heldRepositories()),
+            historyRepositoriesOf(referenceRepositories()),
             listingOf(page),
           ),
         );
@@ -1746,9 +1775,9 @@ describe('the runs a team ran, a page at a time', () => {
     });
 
     expect(listed.some((each) => each.openedBy !== null)).toBe(true);
-    expect(listed.some((each) => each.delivery !== null)).toBe(true);
-    expect(listed.some((each) => each.next !== null)).toBe(true);
-    expect(listed.some((each) => each.handedOn !== null)).toBe(true);
+    expect(listed.some((each) => each.pullRequestState !== null)).toBe(true);
+    expect(listed.some((each) => each.firstHumanAction !== null)).toBe(true);
+    expect(listed.some((each) => each.passed !== null)).toBe(true);
     expect(listed.some((each) => each.cost !== null)).toBe(true);
     expect(listed.some((each) => each.ending === 'superseded')).toBe(true);
     expect(listed.some((each) => each.tokens === null)).toBe(true);
@@ -1769,31 +1798,34 @@ describe('how the run list treats the window’s edges and runs that ended toget
   const { from, to } = period.current;
   const dayAt = (days: number, hours = 0) =>
     new Date(from.getTime() + days * DAY + hours * HOUR);
-  const listingOf = (over: Partial<RunFilterAsked>) => ({
+  const listingOf = (over: Partial<RunFilterQuery>) => ({
     window: { workspaceId: WORKSPACE, teamId: EDGES, from, to },
     filter: runFilterOf({ ...NO_RUN_FILTER, ...over }, period.current),
     offset: 0,
     limit: 20,
   });
-  const listed = async (over: Partial<RunFilterAsked>) => {
+  const listed = async (over: Partial<RunFilterQuery>) => {
     const listing = listingOf(over);
     const read = await reader.runPage(listing);
 
     expect(read).toEqual(
-      await runsListedIn(historyHeldIn(heldRepositories()), listing),
+      await runsListedIn(
+        historyRepositoriesOf(referenceRepositories()),
+        listing,
+      ),
     );
 
     return read.runs.map((each) => each.runId);
   };
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const quiet = {
       dispatch: async () => {},
     } as unknown as DomainEventDispatcher;
     const facts = new DrizzleRunFactProjection(context);
     const records = new DrizzleRunRecordRepository(context, facts, quiet);
-    const touching = new DrizzleTaskTouchesRepository(context, facts);
+    const humanActions = new DrizzleTaskHumanActionsRepository(context, facts);
 
     await context.inTransaction(async () => {
       for (const [runId, endedAt, started] of [
@@ -1809,16 +1841,16 @@ describe('how the run list treats the window’s edges and runs that ended toget
         ['run_ask_elsewhere', dayAt(6), true],
       ] as const) {
         await records.add(
-          RunRecord.heardOf(RunId.of(runId), WORKSPACE).recordEnd(
+          RunRecord.empty(RunId.of(runId), WORKSPACE).recordEnd(
             RunEnd.of({
-              place: RunPlace.of({
+              location: RunLocation.of({
                 teamId: EDGES,
                 lineId: 'line_edges',
                 stationId: 'edges',
                 taskId: TaskId.of(`task_${runId}`),
               }),
               fingerprint: 'a'.repeat(64),
-              setup: RunSetup.of({
+              agentConfig: RunAgentConfig.of({
                 harness: 'claude-code',
                 model: 'sonnet',
                 effort: null,
@@ -1829,9 +1861,9 @@ describe('how the run list treats the window’s edges and runs that ended toget
               queuedAt: new Date(endedAt.getTime() - 3 * HOUR),
               startedAt: started ? new Date(endedAt.getTime() - HOUR) : null,
               endedAt,
-              ending: started ? 'completed' : 'withdrawn',
+              ending: started ? 'completed' : 'cancelled',
               failure: null,
-              round: 1,
+              visit: 1,
               asked: false,
             }),
           ),
@@ -1843,8 +1875,8 @@ describe('how the run list treats the window’s edges and runs that ended toget
         ['run_ask_to', WORKSPACE, to],
         ['run_ask_elsewhere', WorkspaceId.of('workspace_elsewhere'), dayAt(1)],
       ] as const) {
-        await touching.add(
-          TaskTouches.heardOf(TaskId.of(`task_${runId}`), workspaceId).asked(
+        await humanActions.add(
+          TaskHumanActions.empty(TaskId.of(`task_${runId}`), workspaceId).asked(
             InboxAsk.of('edges', askedAt),
           ),
         );
@@ -1908,7 +1940,7 @@ describe('the tools a team’s runs used', () => {
       PersonPrincipal.of(VIEWER),
       '90d',
     );
-    const { skills, servers, refusals } = await reader.toolCounts({
+    const { skills, servers, dismissals } = await reader.toolCounts({
       workspaceId: WORKSPACE,
       teamId: TEAM,
       period,
@@ -1916,13 +1948,17 @@ describe('the tools a team’s runs used', () => {
     const timed = (latency: readonly number[]) =>
       latency.reduce((sum, each) => sum + each, 0);
 
-    expect(skills.some((each) => each.given === 0 && each.used > 0)).toBe(true);
-    expect(skills.some((each) => each.given > 0 && each.used === 0)).toBe(true);
+    expect(skills.some((each) => each.enabled === 0 && each.used > 0)).toBe(
+      true,
+    );
+    expect(skills.some((each) => each.enabled > 0 && each.used === 0)).toBe(
+      true,
+    );
     expect(servers.length).toBe(3);
     expect(servers.some((each) => timed(each.latency) < each.calls)).toBe(true);
     expect(servers.every((each) => each.failingRuns > 0)).toBe(true);
-    expect(servers.some((each) => each.refused > 0)).toBe(true);
-    expect(refusals.some((each) => each.server === null)).toBe(true);
+    expect(servers.some((each) => each.dismissed > 0)).toBe(true);
+    expect(dismissals.some((each) => each.server === null)).toBe(true);
   });
 });
 
@@ -1944,7 +1980,7 @@ describe('how the tool counts fall into weeks and leave out what did not run', (
   });
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const quiet = {
       dispatch: async () => {},
     } as unknown as DomainEventDispatcher;
@@ -1961,17 +1997,17 @@ describe('how the tool counts fall into weeks and leave out what did not run', (
       skills: readonly string[],
       tools: RunTools,
     ) =>
-      RunRecord.heardOf(RunId.of(runId), WORKSPACE)
+      RunRecord.empty(RunId.of(runId), WORKSPACE)
         .recordEnd(
           RunEnd.of({
-            place: RunPlace.of({
+            location: RunLocation.of({
               teamId: TOOLS,
               lineId: 'line_tools',
               stationId,
               taskId: TaskId.of(`task_${runId}`),
             }),
             fingerprint: 'a'.repeat(64),
-            setup: RunSetup.of({
+            agentConfig: RunAgentConfig.of({
               harness: 'claude-code',
               model: 'sonnet',
               effort: null,
@@ -1984,18 +2020,18 @@ describe('how the tool counts fall into weeks and leave out what did not run', (
             endedAt,
             ending,
             failure: null,
-            round: 1,
+            visit: 1,
             asked: false,
           }),
         )
-        .recordDigest(
-          RunCost.of({
+        .recordUsage(
+          RunUsage.of({
             ms: 1_000,
             steps: 1,
-            faults: 0,
+            errors: 0,
             changedLines: 1,
-            used: null,
-            size: null,
+            contextTokens: null,
+            contextWindow: null,
             amount: null,
             currency: null,
             tokens: { input: 1, output: 1, cacheRead: null, cacheWrite: null },
@@ -2030,29 +2066,29 @@ describe('how the tool counts fall into weeks and leave out what did not run', (
           }),
         )
           .supersededByItsTask(monday)
-          .refused(
-            Refusal.of({
+          .dismissed(
+            Dismissal.of({
               tool: 'merge',
               server: 'linear',
               at: new Date(monday.getTime() - HOUR),
             }),
           )
-          .refused(
-            Refusal.of({
+          .dismissed(
+            Dismissal.of({
               tool: 'merge',
               server: 'linear',
               at: new Date(monday.getTime() - 2 * HOUR),
             }),
           )
-          .refused(
-            Refusal.of({
+          .dismissed(
+            Dismissal.of({
               tool: 'merge',
               server: null,
               at: new Date(monday.getTime() - HOUR),
             }),
           )
-          .refused(
-            Refusal.of({
+          .dismissed(
+            Dismissal.of({
               tool: 'search',
               server: 'sentry',
               at: new Date(monday.getTime() - HOUR),
@@ -2061,21 +2097,23 @@ describe('how the tool counts fall into weeks and leave out what did not run', (
       );
       await records.add(
         ended(
-          'tools_withdrawn',
+          'tools_cancelled',
           'tool_c',
           monday,
-          'withdrawn',
+          'cancelled',
           ['grafana'],
           RunTools.of({
             servers: [served('linear', 1, [50])],
             skillsRead: ['grafana'],
           }),
-        ).refused(Refusal.of({ tool: 'merge', server: 'linear', at: monday })),
+        ).dismissed(
+          Dismissal.of({ tool: 'merge', server: 'linear', at: monday }),
+        ),
       );
     });
   });
 
-  it('puts a run that ends at midnight on Monday in the new week, counts a failing call only on a run that still failed, and counts a refusal at a server the run did not call', async () => {
+  it('puts a run that ends at midnight on Monday in the new week, counts a failing call only on a run that still failed, and counts a dismissal at a server the run did not call', async () => {
     const counts = await reader.toolCounts({
       workspaceId: WORKSPACE,
       teamId: TOOLS,
@@ -2104,20 +2142,26 @@ describe('how the tool counts fall into weeks and leave out what did not run', (
         { lineId: 'line_tools', stationId: 'tool_a' },
       ],
       skills: [
-        { key: 'Search', stationId: null, week: null, given: 0, used: 1 },
-        { key: 'Search', stationId: null, week: before, given: 0, used: 1 },
-        { key: 'Search', stationId: 'tool_b', week: null, given: 0, used: 1 },
+        { key: 'Search', stationId: null, week: null, enabled: 0, used: 1 },
+        { key: 'Search', stationId: null, week: before, enabled: 0, used: 1 },
+        { key: 'Search', stationId: 'tool_b', week: null, enabled: 0, used: 1 },
         {
           key: 'Search',
           stationId: 'tool_b',
           week: before,
-          given: 0,
+          enabled: 0,
           used: 1,
         },
-        { key: 'grafana', stationId: null, week: null, given: 1, used: 1 },
-        { key: 'grafana', stationId: null, week, given: 1, used: 1 },
-        { key: 'grafana', stationId: 'tool_a', week: null, given: 1, used: 1 },
-        { key: 'grafana', stationId: 'tool_a', week, given: 1, used: 1 },
+        { key: 'grafana', stationId: null, week: null, enabled: 1, used: 1 },
+        { key: 'grafana', stationId: null, week, enabled: 1, used: 1 },
+        {
+          key: 'grafana',
+          stationId: 'tool_a',
+          week: null,
+          enabled: 1,
+          used: 1,
+        },
+        { key: 'grafana', stationId: 'tool_a', week, enabled: 1, used: 1 },
       ],
       servers: [
         {
@@ -2127,7 +2171,7 @@ describe('how the tool counts fall into weeks and leave out what did not run', (
           failedCalls: 2,
           latency: bucketOf100,
           failingRuns: 1,
-          refused: 1,
+          dismissed: 1,
         },
         {
           server: 'sentry',
@@ -2136,13 +2180,13 @@ describe('how the tool counts fall into weeks and leave out what did not run', (
           failedCalls: 0,
           latency: LatencyHistogram.timing([50]).counts,
           failingRuns: 0,
-          refused: 1,
+          dismissed: 1,
         },
       ],
-      refusals: [
-        { tool: 'merge', server: null, refused: 1 },
-        { tool: 'merge', server: 'linear', refused: 1 },
-        { tool: 'search', server: 'sentry', refused: 1 },
+      dismissals: [
+        { tool: 'merge', server: null, dismissed: 1 },
+        { tool: 'merge', server: 'linear', dismissed: 1 },
+        { tool: 'search', server: 'sentry', dismissed: 1 },
       ],
     });
     expect(counts).toEqual(toolCountsOf(history, period.current));
@@ -2182,11 +2226,13 @@ describe('the memories a team’s runs used', () => {
 
     expect(groups.every((each) => each.tally.runs > 10)).toBe(true);
     expect(
-      groups.some((each) => each.settled.finished > each.settled.finishedTasks),
+      groups.some(
+        (each) => each.measured.finished > each.measured.finishedTasks,
+      ),
     ).toBe(true);
-    expect(groups.every((each) => each.settled.acted > 0)).toBe(true);
+    expect(groups.every((each) => each.measured.acted > 0)).toBe(true);
     expect(
-      groups.every((each) => each.settled.digested < each.tally.runs),
+      groups.every((each) => each.measured.usageRecorded < each.tally.runs),
     ).toBe(true);
     expect(counts.runsBriefed).toBeLessThan(counts.withMemories.tally.runs);
     expect(counts.runsRecalled).toBeLessThan(counts.withMemories.tally.runs);
@@ -2199,24 +2245,28 @@ describe('how the memory counts leave out what did not run', () => {
   const period = InsightsPeriod.of('7d', NOW);
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const quiet = {
       dispatch: async () => {},
     } as unknown as DomainEventDispatcher;
     const facts = new DrizzleRunFactProjection(context);
     const records = new DrizzleRunRecordRepository(context, facts, quiet);
-    const deliveries = new DrizzleTaskDeliveryRepository(context, facts, quiet);
+    const taskPullRequests = new DrizzleTaskPullRequestRepository(
+      context,
+      facts,
+      quiet,
+    );
     const ended = (runId: string, ending: RunEnding, hoursAgo: number) =>
-      RunRecord.heardOf(RunId.of(runId), WORKSPACE).recordEnd(
+      RunRecord.empty(RunId.of(runId), WORKSPACE).recordEnd(
         RunEnd.of({
-          place: RunPlace.of({
+          location: RunLocation.of({
             teamId: REMEMBERING,
             lineId: 'line_remembering',
             stationId: 'remember',
             taskId: TaskId.of(`task_${runId}`),
           }),
           fingerprint: 'a'.repeat(64),
-          setup: RunSetup.of({
+          agentConfig: RunAgentConfig.of({
             harness: 'claude-code',
             model: 'sonnet',
             effort: null,
@@ -2229,15 +2279,15 @@ describe('how the memory counts leave out what did not run', () => {
           endedAt: ago(hoursAgo * HOUR),
           ending,
           failure: null,
-          round: 1,
+          visit: 1,
           asked: false,
         }),
       );
-    const delivered = (runId: string, state: 'merged' | 'open') => {
+    const withPullRequest = (runId: string, state: 'merged' | 'open') => {
       const pullRequest = PullRequestUrl.of(
         `https://github.com/acme/remember/pull/${runId.length}${state.length}`,
       );
-      const opened = TaskDelivery.open({
+      const opened = TaskPullRequest.open({
         taskId: TaskId.of(`task_${runId}`),
         workspaceId: WORKSPACE,
         teamId: REMEMBERING,
@@ -2253,30 +2303,30 @@ describe('how the memory counts leave out what did not run', () => {
     await context.inTransaction(async () => {
       await records.add(
         ended('remembered', 'completed', 2)
-          .recordAction(NextAct.of('closed', ago(HOUR)))
+          .recordAction(HumanAction.of('accepted', ago(HOUR)))
           .recordMemories('briefed', ['mem_one']),
       );
       await records.add(
-        ended('withdrawn_remembering', 'withdrawn', 2).recordMemories(
+        ended('cancelled_remembering', 'cancelled', 2).recordMemories(
           'briefed',
-          ['mem_withdrawn'],
+          ['mem_cancelled'],
         ),
       );
       await records.add(
         ended('recalling', 'failed', 3).recordMemories('recalled', ['mem_one']),
       );
-      await records.add(ended('forgetful', 'completed', 4));
+      await records.add(ended('without_memories', 'completed', 4));
       await records.add(
         ended('long_ago', 'completed', 24 * 30).recordMemories('briefed', [
           'mem_old',
         ]),
       );
-      await deliveries.add(delivered('remembered', 'merged'));
-      await deliveries.add(delivered('forgetful', 'open'));
+      await taskPullRequests.add(withPullRequest('remembered', 'merged'));
+      await taskPullRequests.add(withPullRequest('without_memories', 'open'));
     });
   });
 
-  it('counts the memories of a withdrawn run but not the run, and settles merges only on finished deliveries', async () => {
+  it('counts the memories of a cancelled run but not the run, and counts merges only on finished pull requests', async () => {
     const counts = await reader.memoryCounts({
       workspaceId: WORKSPACE,
       teamId: REMEMBERING,
@@ -2294,34 +2344,34 @@ describe('how the memory counts leave out what did not run', () => {
       memoriesBriefed: 2,
       memoriesRecalled: 1,
       withMemories: {
-        tally: { runs: 2, withdrawn: 0, failed: 1, accepted: 1, merged: 1 },
-        settled: { acted: 1, finished: 1, finishedTasks: 1, digested: 0 },
+        tally: { runs: 2, cancelled: 0, failed: 1, accepted: 1, merged: 1 },
+        measured: { acted: 1, finished: 1, finishedTasks: 1, usageRecorded: 0 },
       },
       withoutMemories: {
         tally: { runs: 1, merged: 0 },
-        settled: { acted: 0, finished: 0, finishedTasks: 0, digested: 0 },
+        measured: { acted: 0, finished: 0, finishedTasks: 0, usageRecorded: 0 },
       },
     });
     expect(counts).toEqual(memoryCountsOf(history, period.current));
   });
 });
 
-const setupsExpected = async (
+const agentConfigsExpected = async (
   history: TeamHistory,
   period: InsightsPeriod,
   stationId: string | null,
   size: RunSize | null,
 ) => {
-  const records = setupRunsWithin(
+  const records = agentConfigRunsWithin(
     history.records,
     period.current,
     stationId,
     size,
   );
 
-  return setupCountsOf(
+  return agentConfigCountsOf(
     records,
-    history.deliveries,
+    history.taskPullRequests,
     stationId === null
       ? []
       : judgedRunsOf(
@@ -2331,13 +2381,13 @@ const setupsExpected = async (
   );
 };
 
-describe('the setups a team’s runs used', () => {
+describe('the agent configs a team’s runs used', () => {
   const FILTERS = [null, 'review', 'plan', 'elsewhere_only'].flatMap(
     (stationId) => [null, ...RUN_SIZES].map((size) => ({ stationId, size })),
   );
 
   it.each(INSIGHTS_PERIODS)(
-    'counts the same setups as the domain over %s, for every station and size',
+    'counts the same agent configs as the domain over %s, for every station and size',
     async (name) => {
       const { history, period } = await historyOver(
         TEAM.value,
@@ -2347,40 +2397,48 @@ describe('the setups a team’s runs used', () => {
 
       for (const { stationId, size } of FILTERS) {
         expect(
-          await reader.setupCounts(
+          await reader.agentConfigCounts(
             { workspaceId: WORKSPACE, teamId: TEAM, period },
             { stationId, size },
           ),
-        ).toEqual(await setupsExpected(history, period, stationId, size));
+        ).toEqual(await agentConfigsExpected(history, period, stationId, size));
       }
     },
   );
 
-  it('covers what makes setup counts hard to get right', async () => {
+  it('covers what makes agent config counts hard to get right', async () => {
     const { period } = await scopes.scope(
       TEAM.value,
       PersonPrincipal.of(VIEWER),
       '90d',
     );
     const at = (stationId: string | null, size: RunSize | null) =>
-      reader.setupCounts(
+      reader.agentConfigCounts(
         { workspaceId: WORKSPACE, teamId: TEAM, period },
         { stationId, size },
       );
     const all = await at(null, null);
     const review = await at('review', null);
 
-    expect(all.setups.length).toBeGreaterThan(3);
-    expect(all.setups.some((each) => each.model === null)).toBe(true);
-    expect(all.setups.some((each) => each.effort === null)).toBe(true);
-    expect(all.setups.some((each) => each.profileKey !== null)).toBe(true);
-    expect(all.setups.every((each) => each.rubrics.length === 0)).toBe(true);
+    expect(all.agentConfigs.length).toBeGreaterThan(3);
+    expect(all.agentConfigs.some((each) => each.model === null)).toBe(true);
+    expect(all.agentConfigs.some((each) => each.effort === null)).toBe(true);
+    expect(all.agentConfigs.some((each) => each.profileKey !== null)).toBe(
+      true,
+    );
+    expect(all.agentConfigs.every((each) => each.rubrics.length === 0)).toBe(
+      true,
+    );
     expect(
-      all.setups.some((each) => each.answered > each.counts.settled.acted),
+      all.agentConfigs.some(
+        (each) => each.answered > each.counts.measured.acted,
+      ),
     ).toBe(true);
-    expect(review.setups.some((each) => each.rubrics.length === 2)).toBe(true);
+    expect(review.agentConfigs.some((each) => each.rubrics.length === 2)).toBe(
+      true,
+    );
     for (const size of RUN_SIZES) {
-      expect((await at(null, size)).setups.length).toBeGreaterThan(0);
+      expect((await at(null, size)).agentConfigs.length).toBeGreaterThan(0);
     }
   });
 });
@@ -2389,12 +2447,12 @@ describe('the config changes of a team', () => {
   it.each(INSIGHTS_PERIODS)(
     'counts the same changes as the domain over %s',
     async (name) => {
-      const held = await historyOver(
+      const over = await historyOver(
         TEAM.value,
         PersonPrincipal.of(VIEWER),
         name,
       );
-      const { history, period } = held;
+      const { history, period } = over;
       expect(
         await reader.changeCounts({
           workspaceId: WORKSPACE,
@@ -2405,7 +2463,7 @@ describe('the config changes of a team', () => {
         changeCountsOf(
           history,
           period,
-          await carriedOver(held),
+          await carriedOver(over),
           await scores.ofRuns(history.records.map((each) => each.runId)),
         ),
       );
@@ -2429,7 +2487,7 @@ describe('the config changes of a team', () => {
     expect(new Set(changes.map((each) => each.marker.stationId)).size).toBe(
       STATIONS.length,
     );
-    expect(sides.some((each) => each.tally.withdrawn > 0)).toBe(true);
+    expect(sides.some((each) => each.tally.cancelled > 0)).toBe(true);
     expect(
       changes.some(
         (each) => each.judgedBefore.length > 0 && each.judgedAfter.length > 0,
@@ -2446,7 +2504,7 @@ describe('how a config change splits a station’s runs', () => {
   const RUBRIC = 'd'.repeat(64);
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const quiet = {
       dispatch: async () => {},
     } as unknown as DomainEventDispatcher;
@@ -2465,16 +2523,16 @@ describe('how a config change splits a station’s runs', () => {
       endedHoursAgo = beganHoursAgo - 0.5,
     ) =>
       records.add(
-        RunRecord.heardOf(RunId.of(runId), WORKSPACE).recordEnd(
+        RunRecord.empty(RunId.of(runId), WORKSPACE).recordEnd(
           RunEnd.of({
-            place: RunPlace.of({
+            location: RunLocation.of({
               teamId: CHANGING,
               lineId: 'line_changing',
               stationId,
               taskId: TaskId.of(`task_${runId}`),
             }),
             fingerprint,
-            setup: RunSetup.of({
+            agentConfig: RunAgentConfig.of({
               harness: 'claude-code',
               model: 'sonnet',
               effort: null,
@@ -2484,24 +2542,24 @@ describe('how a config change splits a station’s runs', () => {
             }),
             queuedAt: null,
             startedAt:
-              ending === 'withdrawn' ? null : ago(beganHoursAgo * HOUR),
+              ending === 'cancelled' ? null : ago(beganHoursAgo * HOUR),
             endedAt: ago(endedHoursAgo * HOUR),
             ending,
             failure: null,
-            round: 1,
+            visit: 1,
             asked: false,
           }),
         ),
       );
     const judgedAt = (runId: string, stationId: string, met: number) => {
-      const marks = Array.from({ length: 10 }, (_, at) => at < met);
+      const claimResults = Array.from({ length: 10 }, (_, at) => at < met);
 
       return judged.add(
         Score.judge({
           id: ScoreId.of(`score_${runId}`),
           runId: RunId.of(runId),
           workspaceId: WORKSPACE,
-          place: RunPlace.of({
+          location: RunLocation.of({
             teamId: CHANGING,
             lineId: 'line_changing',
             stationId,
@@ -2509,11 +2567,11 @@ describe('how a config change splits a station’s runs', () => {
           }),
           fingerprint: B,
           scale: ScoreScale.claims(),
-          value: shareMet(marks),
-          marks,
+          value: metRate(claimResults),
+          claimResults,
           rubricVersion: RUBRIC,
           model: 'judge/model',
-          reasons: marks.map((_, at) =>
+          reasons: claimResults.map((_, at) =>
             JudgeReason.of({
               text: `Reason ${at}.`,
               citations: [Citation.ofStep(1)],
@@ -2528,9 +2586,9 @@ describe('how a config change splits a station’s runs', () => {
 
     await context.inTransaction(async () => {
       await ran('flip_a1', 'flip', A, 100);
-      await ran('flip_b_early', 'flip', B, 90, 'withdrawn');
+      await ran('flip_b_early', 'flip', B, 90, 'cancelled');
       await ran('flip_b1', 'flip', B, 80);
-      await ran('flip_a_early', 'flip', A, 70, 'withdrawn');
+      await ran('flip_a_early', 'flip', A, 70, 'cancelled');
       await ran('flip_a2', 'flip', A, 60);
       await ran('carry_old', 'carry', A, 24 * 60);
       await ran('carry_new', 'carry', B, 50);
@@ -2565,7 +2623,7 @@ describe('how a config change splits a station’s runs', () => {
     });
   });
 
-  it('splits at each change, counts a withdrawn run of the new config before it as after, leaves a side empty, breaks ties by run, and sums judge shares in end order', async () => {
+  it('splits at each change, counts a cancelled run of the new config before it as after, leaves a side empty, breaks ties by run, and sums judge rates in end order', async () => {
     const changes = await reader.changeCounts({
       workspaceId: WORKSPACE,
       teamId: CHANGING,
@@ -2582,9 +2640,9 @@ describe('how a config change splits a station’s runs', () => {
       return change
         ? [
             change.before.tally.runs,
-            change.before.tally.withdrawn,
+            change.before.tally.cancelled,
             change.after.tally.runs,
-            change.after.tally.withdrawn,
+            change.after.tally.cancelled,
           ]
         : null;
     };
@@ -2639,7 +2697,7 @@ describe('how a config change splits a station’s runs', () => {
   });
 });
 
-describe('how setups fall into sizes and judges', () => {
+describe('how agent configs fall into sizes and judges', () => {
   const SIZED = TeamId.of('team_sized');
   const period = InsightsPeriod.of('7d', NOW);
   const SIZES: readonly (readonly [string, number, number, boolean])[] = [
@@ -2652,7 +2710,7 @@ describe('how setups fall into sizes and judges', () => {
   ];
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const quiet = {
       dispatch: async () => {},
     } as unknown as DomainEventDispatcher;
@@ -2662,8 +2720,8 @@ describe('how setups fall into sizes and judges', () => {
       quiet,
     );
     const judged = new DrizzleScoreRepository(context, quiet);
-    const placeOf = (runId: string) =>
-      RunPlace.of({
+    const locationOf = (runId: string) =>
+      RunLocation.of({
         teamId: SIZED,
         lineId: 'line_sized',
         stationId: 'sizing',
@@ -2674,11 +2732,11 @@ describe('how setups fall into sizes and judges', () => {
       for (const [runId, changedLines, steps, digested] of [
         ...SIZES,
       ].reverse()) {
-        const ended = RunRecord.heardOf(RunId.of(runId), WORKSPACE).recordEnd(
+        const ended = RunRecord.empty(RunId.of(runId), WORKSPACE).recordEnd(
           RunEnd.of({
-            place: placeOf(runId),
+            location: locationOf(runId),
             fingerprint: 'a'.repeat(64),
-            setup: RunSetup.of({
+            agentConfig: RunAgentConfig.of({
               harness: 'claude-code',
               model: 'sonnet',
               effort: null,
@@ -2691,21 +2749,21 @@ describe('how setups fall into sizes and judges', () => {
             endedAt: ago(HOUR),
             ending: 'completed',
             failure: null,
-            round: 1,
+            visit: 1,
             asked: false,
           }),
         );
 
         await records.add(
           digested
-            ? ended.recordDigest(
-                RunCost.of({
+            ? ended.recordUsage(
+                RunUsage.of({
                   ms: 1_000,
                   steps,
-                  faults: 0,
+                  errors: 0,
                   changedLines,
-                  used: null,
-                  size: null,
+                  contextTokens: null,
+                  contextWindow: null,
                   amount: 1,
                   currency: 'USD',
                   tokens: {
@@ -2724,7 +2782,7 @@ describe('how setups fall into sizes and judges', () => {
       const oneIn = (met: number, of: number) =>
         Array.from({ length: of }, (_, at) => at < met);
 
-      for (const [runId, marks] of [
+      for (const [runId, claimResults] of [
         ['steps_20', oneIn(3, 10)],
         ['lines_51', oneIn(1, 5)],
         ['lines_50', oneIn(1, 10)],
@@ -2734,14 +2792,14 @@ describe('how setups fall into sizes and judges', () => {
             id: ScoreId.of(`score_${runId}`),
             runId: RunId.of(runId),
             workspaceId: WORKSPACE,
-            place: placeOf(runId),
+            location: locationOf(runId),
             fingerprint: null,
             scale: ScoreScale.claims(),
-            value: shareMet(marks),
-            marks,
+            value: metRate(claimResults),
+            claimResults,
             rubricVersion: 'c'.repeat(64),
             model: 'judge/model',
-            reasons: marks.map((_, at) =>
+            reasons: claimResults.map((_, at) =>
               JudgeReason.of({
                 text: `Reason ${at}.`,
                 citations: [Citation.ofStep(1)],
@@ -2756,7 +2814,7 @@ describe('how setups fall into sizes and judges', () => {
     });
   });
 
-  it('puts a run at each limit in the right size, leaves an undigested run out of every size, and sums each judge share', async () => {
+  it('puts a run at each limit in the right size, leaves a run with no recorded usage out of every size, and sums each judge rate', async () => {
     const { history } = await historyOver(
       SIZED.value,
       PersonPrincipal.of(VIEWER),
@@ -2764,12 +2822,12 @@ describe('how setups fall into sizes and judges', () => {
     );
     const runsOf = async (size: RunSize | null) =>
       (
-        await reader.setupCounts(
+        await reader.agentConfigCounts(
           { workspaceId: WORKSPACE, teamId: SIZED, period },
           { stationId: 'sizing', size },
         )
-      ).setups[0]?.counts.tally.runs ?? 0;
-    const all = await reader.setupCounts(
+      ).agentConfigs[0]?.counts.tally.runs ?? 0;
+    const all = await reader.agentConfigCounts(
       { workspaceId: WORKSPACE, teamId: SIZED, period },
       { stationId: 'sizing', size: null },
     );
@@ -2778,7 +2836,7 @@ describe('how setups fall into sizes and judges', () => {
     expect(await runsOf('medium')).toBe(2);
     expect(await runsOf('large')).toBe(1);
     expect(await runsOf(null)).toBe(6);
-    expect(all.setups[0]?.rubrics).toEqual([
+    expect(all.agentConfigs[0]?.rubrics).toEqual([
       {
         rubricVersion: 'c'.repeat(64),
         // Keep this order: 0.1 + 0.2 + 0.3 is not equal to 0.6.
@@ -2786,7 +2844,9 @@ describe('how setups fall into sizes and judges', () => {
         judged: 3,
       },
     ]);
-    expect(all).toEqual(await setupsExpected(history, period, 'sizing', null));
+    expect(all).toEqual(
+      await agentConfigsExpected(history, period, 'sizing', null),
+    );
   });
 });
 
@@ -2832,12 +2892,17 @@ describe('the pull requests a team made or reviewed', () => {
 
 describe('the pull request numbers and list of a team', () => {
   const REPOSITORIES = ['Acme/API', 'acme/web'];
-  const heldFor = (team: TeamInPeriod) =>
-    pullRequestsHeldIn(runs, pullRequestsHeld(heldRepositories()), team, {
-      repositories: REPOSITORIES,
-      from: team.period.current.from,
-      max: 10_000,
-    });
+  const pullRequestsFor = (team: TeamInPeriod) =>
+    pullRequestsStoredIn(
+      runs,
+      pullRequestRepositoriesOf(referenceRepositories()),
+      team,
+      {
+        repositories: REPOSITORIES,
+        from: team.period.current.from,
+        max: 10_000,
+      },
+    );
   const teamOver = async (name: string): Promise<TeamInPeriod> => {
     const { period } = await scopes.scope(
       TEAM.value,
@@ -2865,7 +2930,7 @@ describe('the pull request numbers and list of a team', () => {
       const team = await teamOver(name);
 
       expect(await reader.pullRequestCounts(team, REPOSITORIES)).toEqual(
-        pullRequestCountsOf(await heldFor(team), team.period.current),
+        pullRequestCountsOf(await pullRequestsFor(team), team.period.current),
       );
     },
   );
@@ -2891,7 +2956,7 @@ describe('the pull request numbers and list of a team', () => {
       counts.depth.every((each) => each.spotlight > 0 && each.people > 0),
     ).toBe(true);
     expect(
-      insights.penetration.repositories.map((each) => each.repository),
+      insights.spotlightShare.repositories.map((each) => each.repository),
     ).toContain('other/tool');
   });
 
@@ -2901,7 +2966,7 @@ describe('the pull request numbers and list of a team', () => {
     ['merged', { state: 'merged' }],
     ['closed', { state: 'closed' }],
     ['made by Spotlight', { author: 'spotlight' }],
-    ['touched by Spotlight', { author: 'touched' }],
+    ['reviewed by Spotlight', { author: 'reviewed' }],
     ['made by people', { author: 'people' }],
     ['made by bots', { author: 'bots' }],
     ['a fix', { type: 'fix' }],
@@ -2920,12 +2985,12 @@ describe('the pull request numbers and list of a team', () => {
       { compared: true, author: 'people', state: 'merged' },
     ],
   ] as const)(
-    'lists the same pages as the domain when it asks for %s',
+    'lists the same pages as the domain when it requests %s',
     async (_, over) => {
       const team = await teamOver('30d');
       const filter = filterOf(over);
       const listed = filteredPullRequests(
-        await heldFor(team),
+        await pullRequestsFor(team),
         filter,
         team.period.current,
       );
@@ -2951,7 +3016,7 @@ describe('the pull request numbers and list of a team', () => {
     const team = await teamOver('30d');
     const filter = filterOf({ week: weekWindowOf(weekOf(ago(10 * DAY))) });
     const listed = filteredPullRequests(
-      await heldFor(team),
+      await pullRequestsFor(team),
       filter,
       team.period.current,
     );
@@ -2976,7 +3041,7 @@ describe('how pull requests fall into the window and what their task spent', () 
     PullRequestUrl.of(`https://github.com/acme/pulls/pull/${number}`);
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const quiet = {
       dispatch: async () => {},
     } as unknown as DomainEventDispatcher;
@@ -3002,7 +3067,7 @@ describe('how pull requests fall into the window and what their task spent', () 
         closedAt,
         updatedAt: openedAt,
         readyForReviewAt: openedAt,
-        draftSpells: [],
+        draftPeriods: [],
         firstReviewAt: null,
         firstUnblockingReviewAt: null,
         firstApprovedAt: null,
@@ -3058,17 +3123,17 @@ describe('how pull requests fall into the window and what their task spent', () 
         ['pulls_c', 0.1, 3],
       ] as const) {
         await records.add(
-          RunRecord.heardOf(RunId.of(runId), WORKSPACE)
+          RunRecord.empty(RunId.of(runId), WORKSPACE)
             .recordEnd(
               RunEnd.of({
-                place: RunPlace.of({
+                location: RunLocation.of({
                   teamId: PULLS,
                   lineId: 'line_pulls',
                   stationId: 'pulls',
                   taskId: TaskId.of('task_pulls_spent'),
                 }),
                 fingerprint: 'a'.repeat(64),
-                setup: RunSetup.of({
+                agentConfig: RunAgentConfig.of({
                   harness: 'claude-code',
                   model: 'sonnet',
                   effort: null,
@@ -3081,18 +3146,18 @@ describe('how pull requests fall into the window and what their task spent', () 
                 endedAt: ago(endedHoursAgo * HOUR),
                 ending: 'completed',
                 failure: null,
-                round: 1,
+                visit: 1,
                 asked: false,
               }),
             )
-            .recordDigest(
-              RunCost.of({
+            .recordUsage(
+              RunUsage.of({
                 ms: 1_000,
                 steps: 1,
-                faults: 0,
+                errors: 0,
                 changedLines: 1,
-                used: null,
-                size: null,
+                contextTokens: null,
+                contextWindow: null,
                 amount,
                 currency: 'USD',
                 tokens: {
@@ -3142,9 +3207,9 @@ describe('how pull requests fall into the window and what their task spent', () 
     });
     expect(read).toEqual(
       filteredPullRequests(
-        await pullRequestsHeldIn(
+        await pullRequestsStoredIn(
           runs,
-          pullRequestsHeld(heldRepositories()),
+          pullRequestRepositoriesOf(referenceRepositories()),
           team,
           { repositories: [], from, max: 100 },
         ),
@@ -3163,7 +3228,12 @@ describe('how the pull request numbers round, sum and sort', () => {
   const hoursIn = (hours: number) => new Date(from.getTime() + hours * HOUR);
   const pullOf = (repository: string, number: number) =>
     PullRequestUrl.of(`https://github.com/${repository}/pull/${number}`);
-  const REPOSITORIES = ['acme/maths', 'acme/lone', 'acme/open', 'acme/touched'];
+  const REPOSITORIES = [
+    'acme/maths',
+    'acme/lone',
+    'acme/open',
+    'acme/reviewed',
+  ];
   const team = { workspaceId: WORKSPACE, teamId: MATHS, period };
   const peopleListed = async (compared: boolean, page = 1) =>
     reader.pullRequestPage(team, {
@@ -3183,7 +3253,7 @@ describe('how the pull request numbers round, sum and sort', () => {
     });
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const quiet = {
       dispatch: async () => {},
     } as unknown as DomainEventDispatcher;
@@ -3226,7 +3296,7 @@ describe('how the pull request numbers round, sum and sort', () => {
         closedAt,
         updatedAt: closedAt ?? openedAt,
         readyForReviewAt: openedAt,
-        draftSpells: [],
+        draftPeriods: [],
         firstReviewAt: over.firstReviewAt ?? null,
         firstUnblockingReviewAt: null,
         firstApprovedAt: null,
@@ -3251,17 +3321,17 @@ describe('how the pull request numbers round, sum and sort', () => {
       currency: string,
     ) =>
       records.add(
-        RunRecord.heardOf(RunId.of(runId), WORKSPACE)
+        RunRecord.empty(RunId.of(runId), WORKSPACE)
           .recordEnd(
             RunEnd.of({
-              place: RunPlace.of({
+              location: RunLocation.of({
                 teamId: MATHS,
                 lineId: 'line_maths',
                 stationId: 'maths',
                 taskId,
               }),
               fingerprint: 'a'.repeat(64),
-              setup: RunSetup.of({
+              agentConfig: RunAgentConfig.of({
                 harness: 'claude-code',
                 model: 'sonnet',
                 effort: null,
@@ -3274,18 +3344,18 @@ describe('how the pull request numbers round, sum and sort', () => {
               endedAt: ago(HOUR),
               ending: 'completed',
               failure: null,
-              round: 1,
+              visit: 1,
               asked: false,
             }),
           )
-          .recordDigest(
-            RunCost.of({
+          .recordUsage(
+            RunUsage.of({
               ms: 1_000,
               steps: 1,
-              faults: 0,
+              errors: 0,
               changedLines: 1,
-              used: null,
-              size: null,
+              contextTokens: null,
+              contextWindow: null,
               amount,
               currency,
               tokens: {
@@ -3349,7 +3419,7 @@ describe('how the pull request numbers round, sum and sort', () => {
         ['acme/maths', 5],
         ['acme/lone', 6],
         ['acme/open', 13],
-        ['acme/touched', 15],
+        ['acme/reviewed', 15],
       ] as const) {
         await added.add(seenAt(repository, number));
       }
@@ -3357,7 +3427,9 @@ describe('how the pull request numbers round, sum and sort', () => {
       await added.add(seenAt('acme/maths', 4, { spelled: 'Acme/maths' }));
 
       await added.add(
-        seenAt('acme/touched', 14).recordReview(TaskId.of('task_maths_review')),
+        seenAt('acme/reviewed', 14).recordReview(
+          TaskId.of('task_maths_review'),
+        ),
       );
       await added.add(
         seenAt('acme/maths', 16, {
@@ -3396,9 +3468,9 @@ describe('how the pull request numbers round, sum and sort', () => {
     });
     expect(counts).toEqual(
       pullRequestCountsOf(
-        await pullRequestsHeldIn(
+        await pullRequestsStoredIn(
           runs,
-          pullRequestsHeld(heldRepositories()),
+          pullRequestRepositoriesOf(referenceRepositories()),
           team,
           { repositories: REPOSITORIES, from, max: 100 },
         ),
@@ -3407,7 +3479,7 @@ describe('how the pull request numbers round, sum and sort', () => {
     );
   });
 
-  it('lists pull requests closed at the same time in the order of their code units, and leaves out repositories without a merged pull request Spotlight made when it asks for compared ones', async () => {
+  it('lists pull requests closed at the same time in the order of their code units, and leaves out repositories without a merged pull request Spotlight made when it requests compared ones', async () => {
     const listed = async (compared: boolean) =>
       (await peopleListed(compared)).pullRequests.map(
         (each) => each.pullRequest,
@@ -3418,7 +3490,7 @@ describe('how the pull request numbers round, sum and sort', () => {
       pullOf('acme/lone', 6).value,
       pullOf('acme/maths', 5).value,
       pullOf('acme/open', 13).value,
-      pullOf('acme/touched', 15).value,
+      pullOf('acme/reviewed', 15).value,
     ]);
     expect(await listed(true)).toEqual([
       pullOf('Acme/maths', 4).value,
@@ -3442,7 +3514,7 @@ describe('how the inbox pairs answers with asks', () => {
   const none = { p50: null, p90: null, count: 0 };
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const quiet = {
       dispatch: async () => {},
     } as unknown as DomainEventDispatcher;
@@ -3454,15 +3526,15 @@ describe('how the inbox pairs answers with asks', () => {
       endedAt: Date,
       ending: RunEnding,
     ) =>
-      RunRecord.heardOf(RunId.of(runId), WORKSPACE).recordEnd(
+      RunRecord.empty(RunId.of(runId), WORKSPACE).recordEnd(
         RunEnd.of({
-          place: RunPlace.of({
+          location: RunLocation.of({
             teamId: WAITS,
             ...place,
             taskId: TaskId.of(`task_${runId}`),
           }),
           fingerprint: 'a'.repeat(64),
-          setup: RunSetup.of({
+          agentConfig: RunAgentConfig.of({
             harness: 'claude-code',
             model: 'sonnet',
             effort: null,
@@ -3475,7 +3547,7 @@ describe('how the inbox pairs answers with asks', () => {
           endedAt,
           ending,
           failure: null,
-          round: 1,
+          visit: 1,
           asked: false,
         }),
       );
@@ -3485,7 +3557,7 @@ describe('how the inbox pairs answers with asks', () => {
         'idle',
         { lineId: 'line_c', stationId: 'idle' },
         asked,
-        'withdrawn',
+        'cancelled',
       ),
     );
     await records.add(
@@ -3496,8 +3568,8 @@ describe('how the inbox pairs answers with asks', () => {
         'completed',
       ),
     );
-    await new DrizzleTaskTouchesRepository(context, facts).add(
-      TaskTouches.heardOf(TaskId.of('task_waits'), WORKSPACE)
+    await new DrizzleTaskHumanActionsRepository(context, facts).add(
+      TaskHumanActions.empty(TaskId.of('task_waits'), WORKSPACE)
         .recordOpen(
           TaskOpening.of({
             teamId: WAITS,
@@ -3511,16 +3583,16 @@ describe('how the inbox pairs answers with asks', () => {
         .asked(InboxAsk.of('plan', askedAgain))
         .asked(InboxAsk.of('ship', period.current.from))
         .recordAction(
-          PersonTouch.of({
-            act: 'answered',
+          TaskHumanAction.of({
+            kind: 'answered',
             by: VIEWER,
             stationId: 'build',
             at: asked,
           }),
         )
         .recordAction(
-          PersonTouch.of({
-            act: 'answered',
+          TaskHumanAction.of({
+            kind: 'answered',
             by: VIEWER,
             stationId: 'plan',
             at: askedAgain,
@@ -3592,15 +3664,15 @@ describe('how the inbox pairs answers with asks', () => {
       tasks: 1,
       runs: 1,
       sentBack: 0,
-      refused: 0,
-      refusedTaskIds: [],
+      dismissed: 0,
+      dismissedTaskIds: [],
     });
     expect(people.adoption).toEqual({
       people: [
         {
           personId: VIEWER.value,
           opened: 1,
-          acts: 2,
+          actions: 2,
           chats: 0,
           lastActiveAt: askedAgain,
           firstAt: new Date(asked.getTime() - DAY),
@@ -3648,13 +3720,13 @@ describe('how the pipeline sums a task’s time at each station', () => {
   ];
 
   beforeAll(async () => {
-    const context = new DrizzleContext(held.db);
+    const context = new DrizzleContext(database.db);
     const quiet = {
       dispatch: async () => {},
     } as unknown as DomainEventDispatcher;
     const facts = new DrizzleRunFactProjection(context);
     const records = new DrizzleRunRecordRepository(context, facts, quiet);
-    const touching = new DrizzleTaskTouchesRepository(context, facts);
+    const humanActions = new DrizzleTaskHumanActionsRepository(context, facts);
     const added = new DrizzlePullRequestRecordRepository(context);
     const ran = (
       runId: string,
@@ -3670,16 +3742,16 @@ describe('how the pipeline sums a task’s time at each station', () => {
       ending: RunEnding = 'completed',
     ) =>
       records.add(
-        RunRecord.heardOf(RunId.of(runId), WORKSPACE).recordEnd(
+        RunRecord.empty(RunId.of(runId), WORKSPACE).recordEnd(
           RunEnd.of({
-            place: RunPlace.of({
+            location: RunLocation.of({
               teamId,
               lineId,
               stationId,
               taskId: TaskId.of(taskId),
             }),
             fingerprint: 'a'.repeat(64),
-            setup: RunSetup.of({
+            agentConfig: RunAgentConfig.of({
               harness: 'claude-code',
               model: 'sonnet',
               effort: null,
@@ -3690,13 +3762,13 @@ describe('how the pipeline sums a task’s time at each station', () => {
             ...times,
             ending,
             failure: null,
-            round: 1,
+            visit: 1,
             asked: false,
           }),
         ),
       );
     const openedOn = (taskId: string, teamId: TeamId, openedAt: Date) =>
-      TaskTouches.heardOf(TaskId.of(taskId), WORKSPACE).recordOpen(
+      TaskHumanActions.empty(TaskId.of(taskId), WORKSPACE).recordOpen(
         TaskOpening.of({
           teamId,
           lineId: 'line_piped',
@@ -3724,7 +3796,7 @@ describe('how the pipeline sums a task’s time at each station', () => {
         'check',
         'line_piped',
         { queuedAt: at(2), startedAt: null, endedAt: at(3.5) },
-        'withdrawn',
+        'cancelled',
       );
       await ran('run_piped_d', 'task_piped', PIPED, 'draft', 'line_moved', {
         queuedAt: null,
@@ -3753,44 +3825,44 @@ describe('how the pipeline sums a task’s time at each station', () => {
           endedAt: at(2),
         },
       );
-      await touching.add(
+      await humanActions.add(
         openedOn('task_piped', PIPED, opened)
           .asked(InboxAsk.of('draft', at(3)))
           .asked(InboxAsk.of('check', at(5)))
           .asked(InboxAsk.of('draft', at(6)))
           .asked(InboxAsk.of('review', at(8)))
           .recordAction(
-            PersonTouch.of({
-              act: 'answered',
+            TaskHumanAction.of({
+              kind: 'answered',
               by: VIEWER,
               stationId: 'draft',
               at: at(3.5),
             }),
           )
           .recordAction(
-            PersonTouch.of({
-              act: 'answered',
+            TaskHumanAction.of({
+              kind: 'answered',
               by: VIEWER,
               stationId: 'check',
               at: at(5.25),
             }),
           )
           .recordAction(
-            PersonTouch.of({
-              act: 'answered',
+            TaskHumanAction.of({
+              kind: 'answered',
               by: VIEWER,
               stationId: 'review',
               at: at(9),
             }),
           ),
       );
-      await touching.add(openedOn('task_long_ago', PIPED, ago(60 * DAY)));
-      await touching.add(
-        TaskTouches.heardOf(TaskId.of('task_unopened'), WORKSPACE).asked(
+      await humanActions.add(openedOn('task_long_ago', PIPED, ago(60 * DAY)));
+      await humanActions.add(
+        TaskHumanActions.empty(TaskId.of('task_unopened'), WORKSPACE).asked(
           InboxAsk.of('late', at(2)),
         ),
       );
-      await touching.add(openedOn('task_next_door', NEXT_DOOR, opened));
+      await humanActions.add(openedOn('task_next_door', NEXT_DOOR, opened));
 
       for (const [number, taskId] of TASKS.entries()) {
         const url = PullRequestUrl.of(
@@ -3814,7 +3886,7 @@ describe('how the pipeline sums a task’s time at each station', () => {
               closedAt: at(10),
               updatedAt: at(10),
               readyForReviewAt: at(7),
-              draftSpells: [{ from: at(7), to: at(8) }],
+              draftPeriods: [{ from: at(7), to: at(8) }],
               firstReviewAt: at(8.5),
               firstUnblockingReviewAt: at(8.5),
               firstApprovedAt: at(9),
@@ -3833,7 +3905,7 @@ describe('how the pipeline sums a task’s time at each station', () => {
     });
   });
 
-  it('adds up every run and every answered ask of a task opened in reach, and times its review', async () => {
+  it('adds up every run and every answered ask of a task opened in the period, and times its review', async () => {
     const team = { workspaceId: WORKSPACE, teamId: PIPED, period };
     const counts = await reader.shippingCounts(team, []);
     const { history } = await historyOver(
@@ -3841,9 +3913,9 @@ describe('how the pipeline sums a task’s time at each station', () => {
       PersonPrincipal.of(VIEWER),
       '7d',
     );
-    const reached = await pullRequestsHeldIn(
+    const stored = await pullRequestsStoredIn(
       runs,
-      pullRequestsHeld(heldRepositories()),
+      pullRequestRepositoriesOf(referenceRepositories()),
       team,
       { repositories: [], from: period.previous.from, max: 100 },
     );
@@ -3855,7 +3927,7 @@ describe('how the pipeline sums a task’s time at each station', () => {
     });
 
     expect(counts.pipeline.merged).toBe(1);
-    expect(counts.pipeline.stations.map((each) => each.place)).toEqual([
+    expect(counts.pipeline.stations.map((each) => each.location)).toEqual([
       { lineId: 'line_piped', stationId: 'draft' },
       { lineId: 'line_piped', stationId: 'check' },
     ]);
@@ -3875,8 +3947,8 @@ describe('how the pipeline sums a task’s time at each station', () => {
     ).toEqual([7 * HOUR, 0.5 * HOUR, 0.5 * HOUR, 1 * HOUR]);
     expect(counts).toEqual(
       shippingCountsOf(
-        reached,
-        pipelineCountsOf(history, shippedTaskIdsOf(reached, period), period),
+        stored,
+        pipelineCountsOf(history, shippedTaskIdsOf(stored, period), period),
         period,
       ),
     );

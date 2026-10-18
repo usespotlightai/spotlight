@@ -4,21 +4,21 @@ import {
   type RunSubjectKind,
 } from '@work/domain/value-objects/run-subject.vo';
 
-export const HELD_RUN_KINDS = [...RUN_SUBJECT_KINDS, 'spec'] as const;
+export const LEASED_RUN_KINDS = [...RUN_SUBJECT_KINDS, 'spec'] as const;
 
-export type HeldRunKind = RunSubjectKind | 'spec';
+export type LeasedRunKind = RunSubjectKind | 'spec';
 
 export const RUNNER_ACTIVITY_READER = Symbol('RUNNER_ACTIVITY_READER');
 
-export interface HeldRun {
+export interface LeasedRun {
   readonly runnerId: string;
   readonly runId: string;
   readonly state: string;
-  readonly kind: HeldRunKind;
+  readonly kind: LeasedRunKind;
   readonly teamId: string | null;
   readonly title: string | null;
 }
 
 export interface RunnerActivityReaderPort {
-  heldIn(workspaceId: WorkspaceId): Promise<readonly HeldRun[]>;
+  leasedIn(workspaceId: WorkspaceId): Promise<readonly LeasedRun[]>;
 }

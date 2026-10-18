@@ -1,6 +1,6 @@
 export const TASKS_FOR_HOOKS = Symbol('TASKS_FOR_HOOKS');
 
-export interface HookedTask {
+export interface TaskView {
   readonly taskId: string;
   readonly workspaceId: string;
   readonly teamId: string;
@@ -16,10 +16,10 @@ export interface HookedTask {
 }
 
 export interface TasksForHooksPort {
-  of(taskId: string, runId: string | null): Promise<HookedTask | null>;
+  of(taskId: string, runId: string | null): Promise<TaskView | null>;
 
   ofPullRequest(
     workspaceId: string,
     pullRequest: string,
-  ): Promise<HookedTask | null>;
+  ): Promise<TaskView | null>;
 }

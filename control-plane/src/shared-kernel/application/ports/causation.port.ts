@@ -5,5 +5,5 @@ export const CAUSATION = Symbol('CAUSATION');
 export interface CausationPort {
   current(): CausalChain;
 
-  within<T>(chain: CausalChain, work: () => Promise<T>): Promise<T>;
+  runWith<T>(chain: CausalChain, work: () => Promise<T>): Promise<T>;
 }

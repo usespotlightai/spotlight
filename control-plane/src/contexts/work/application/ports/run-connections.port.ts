@@ -20,7 +20,7 @@ export interface RunConnectionsPort {
 
   of(runId: string): Promise<readonly RecordedConnection[]>;
 
-  wentWrongIn(runIds: readonly string[]): Promise<readonly ConnectionOfRun[]>;
+  errorsIn(runIds: readonly string[]): Promise<readonly ConnectionOfRun[]>;
 
-  forgetBefore(before: Date, max: number): Promise<number>;
+  purgeBefore(before: Date, max: number): Promise<number>;
 }

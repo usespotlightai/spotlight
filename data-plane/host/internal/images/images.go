@@ -8,8 +8,8 @@ import (
 )
 
 type Wanted struct {
-	Image string
-	Usual bool
+	Image     string
+	IsDefault bool
 }
 
 type Allowed struct {
@@ -44,7 +44,7 @@ func Parse(entries []string, fallback string) (Allowed, error) {
 	return allowed, nil
 }
 
-func (a Allowed) Admits(image string) bool {
+func (a Allowed) Allows(image string) bool {
 	return slices.ContainsFunc(a.entries, func(entry string) bool {
 		if prefix, pattern := strings.CutSuffix(entry, "*"); pattern {
 			return strings.HasPrefix(image, prefix)
@@ -54,13 +54,13 @@ func (a Allowed) Admits(image string) bool {
 }
 
 func (a Allowed) Wanted(named []string) []Wanted {
-	wanted := []Wanted{{Image: a.Default, Usual: true}}
+	wanted := []Wanted{{Image: a.Default, IsDefault: true}}
 
 	for _, image := range named {
-		if image == a.Default || !a.Admits(image) {
+		if image == a.Default || !a.Allows(image) {
 			continue
 		}
-		if !slices.ContainsFunc(wanted, func(held Wanted) bool { return held.Image == image }) {
+		if !slices.ContainsFunc(wanted, func(each Wanted) bool { return each.Image == image }) {
 			wanted = append(wanted, Wanted{Image: image})
 		}
 	}
@@ -68,14 +68,14 @@ func (a Allowed) Wanted(named []string) []Wanted {
 	return wanted
 }
 
-func (a Allowed) Refused(named []string) []string {
-	var refused []string
+func (a Allowed) Disallowed(named []string) []string {
+	var disallowed []string
 	for _, image := range named {
-		if !a.Admits(image) && !slices.Contains(refused, image) {
-			refused = append(refused, image)
+		if !a.Allows(image) && !slices.Contains(disallowed, image) {
+			disallowed = append(disallowed, image)
 		}
 	}
-	return refused
+	return disallowed
 }
 
 var (
@@ -86,7 +86,7 @@ var (
 	)
 )
 
-func RunnerRefusal(release, minimum string) string {
+func RunnerTooOld(release, minimum string) string {
 	if release == "" {
 		return fmt.Sprintf("Runner doesn't report its release number. Minimum version required: %s", minimum)
 	}

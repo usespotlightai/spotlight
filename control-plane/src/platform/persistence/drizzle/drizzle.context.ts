@@ -5,33 +5,33 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { SavepointPort } from '@shared-kernel/application/ports/savepoint.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 
-interface Ambient {
+interface AsyncLocal {
   readonly db: DrizzleDatabase;
   readonly committed: (() => void)[];
 }
 
 @Injectable()
 export class DrizzleContext implements TransactionPort, SavepointPort {
-  private readonly ambient = new AsyncLocalStorage<Ambient>();
+  private readonly asyncLocal = new AsyncLocalStorage<AsyncLocal>();
 
   constructor(@Inject(DRIZZLE) private readonly root: DrizzleDatabase) {}
 
   get db(): DrizzleDatabase {
-    return this.ambient.getStore()?.db ?? this.root;
+    return this.asyncLocal.getStore()?.db ?? this.root;
   }
 
   get transacting(): boolean {
-    return this.ambient.getStore() !== undefined;
+    return this.asyncLocal.getStore() !== undefined;
   }
 
   async inTransaction<T>(work: () => Promise<T>): Promise<T> {
-    if (this.ambient.getStore()) {
+    if (this.asyncLocal.getStore()) {
       return work();
     }
 
     const committed: (() => void)[] = [];
     const result = await this.root.transaction((tx) =>
-      this.ambient.run(
+      this.asyncLocal.run(
         { db: tx as unknown as DrizzleDatabase, committed },
         work,
       ),
@@ -45,17 +45,17 @@ export class DrizzleContext implements TransactionPort, SavepointPort {
   }
 
   async inSavepoint<T>(work: () => Promise<T>): Promise<T> {
-    const held = this.ambient.getStore();
+    const current = this.asyncLocal.getStore();
 
-    if (!held) {
+    if (!current) {
       return this.inTransaction(work);
     }
 
-    return held.db.transaction((savepoint) =>
-      this.ambient.run(
+    return current.db.transaction((savepoint) =>
+      this.asyncLocal.run(
         {
           db: savepoint as unknown as DrizzleDatabase,
-          committed: held.committed,
+          committed: current.committed,
         },
         work,
       ),
@@ -63,10 +63,10 @@ export class DrizzleContext implements TransactionPort, SavepointPort {
   }
 
   afterCommit(then: () => void): void {
-    const held = this.ambient.getStore();
+    const current = this.asyncLocal.getStore();
 
-    if (held) {
-      held.committed.push(then);
+    if (current) {
+      current.committed.push(then);
     } else {
       then();
     }

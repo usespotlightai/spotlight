@@ -16,8 +16,8 @@ const later = (ms: number) => new Date(NOW.getTime() + ms);
 
 const PERSON = UserId.of('user_1');
 
-const raised = (subject = 'replay-search search_1 iteration 3') =>
-  Notice.raise({
+const created = (subject = 'replay-search search_1 iteration 3') =>
+  Notice.create({
     id: NoticeId.of('notice_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -36,24 +36,24 @@ const raised = (subject = 'replay-search search_1 iteration 3') =>
   });
 
 describe('Notice', () => {
-  it('is raised open, for one person only', () => {
-    const notice = raised();
+  it('is created open, for one person only', () => {
+    const notice = created();
 
-    expect(notice.settledAt).toBeNull();
+    expect(notice.resolvedAt).toBeNull();
     expect(notice.version).toBe(0);
     expect(notice.isFor(PERSON)).toBe(true);
     expect(notice.isFor(UserId.of('user_2'))).toBe(false);
   });
 
-  it('settles once', () => {
-    const settled = raised().settled(later(3));
+  it('resolves once', () => {
+    const resolved = created().resolve(later(3));
 
-    expect(settled.settledAt).toEqual(later(3));
-    expect(settled.settled(later(4))).toBe(settled);
+    expect(resolved.resolvedAt).toEqual(later(3));
+    expect(resolved.resolve(later(4))).toBe(resolved);
   });
 
-  it('refuses a subject it cannot name, a form it does not know, a link out of its team or unnamed, and wording out of bounds', () => {
-    expect(() => raised(' ')).toThrow(InvalidNoticeError);
+  it('rejects a subject it cannot name, a form it does not know, a link out of its team or unnamed, and wording out of bounds', () => {
+    expect(() => created(' ')).toThrow(InvalidNoticeError);
     expect(() => noticeForm('gossip')).toThrow(InvalidNoticeError);
     for (const path of ['', '/lines/1', 'lines/../x', 'https://x.test/y']) {
       expect(() => NoticeLink.of({ path, label: 'Open it' })).toThrow(
@@ -79,14 +79,14 @@ describe('Notice', () => {
     ).toThrow(InvalidNoticeError);
   });
 
-  it('keeps showing a settled notice for 30 days', () => {
-    expect(Notice.settledShownSince(NOW)).toEqual(
+  it('keeps showing a resolved notice for 30 days', () => {
+    expect(Notice.resolvedShownSince(NOW)).toEqual(
       new Date('2026-09-01T09:00:00.000Z'),
     );
   });
 
-  it('refuses a stored notice settled before it was raised', () => {
-    const notice = raised();
+  it('rejects a stored notice resolved before it was created', () => {
+    const notice = created();
     const state = {
       id: notice.id,
       workspaceId: notice.workspaceId,
@@ -96,13 +96,13 @@ describe('Notice', () => {
       subject: notice.subject,
       link: notice.link,
       wording: notice.wording,
-      raisedAt: NOW,
-      settledAt: null,
+      createdAt: NOW,
+      resolvedAt: null,
       version: 1,
     };
 
     expect(Notice.rehydrate(state).version).toBe(1);
-    expect(() => Notice.rehydrate({ ...state, settledAt: later(-1) })).toThrow(
+    expect(() => Notice.rehydrate({ ...state, resolvedAt: later(-1) })).toThrow(
       InconsistentStateError,
     );
   });

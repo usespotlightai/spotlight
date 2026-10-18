@@ -1,10 +1,10 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { UpdateIntegrationCommand } from '@integrations/application/commands/update-integration.command';
 import { IntegrationProblems } from '@integrations/application/rendering/integration-problems';
-import type { IntegrationSources } from '@integrations/application/services/integration-sources.service';
-import type { ToolsGiven } from '@integrations/application/services/tools-given.service';
+import type { EnabledTools } from '@integrations/application/services/enabled-tools.service';
+import type { IntegrationSpecs } from '@integrations/application/services/integration-specs.service';
+import type { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
 import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
-import { IntegrationHostFixedError } from '@integrations/domain/exceptions/integration-host-fixed.error';
 import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/integration-tools-in-use.error';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
@@ -15,7 +15,8 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class UpdateIntegrationHandler
   implements
@@ -23,9 +24,9 @@ export class UpdateIntegrationHandler
 {
   constructor(
     private readonly access: WorkspaceAccessPort,
-    private readonly sources: IntegrationSources,
+    private readonly specs: IntegrationSpecs,
     private readonly definitions: IntegrationDefinitionRepository,
-    private readonly given: ToolsGiven,
+    private readonly enabledTools: EnabledTools,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -34,16 +35,19 @@ export class UpdateIntegrationHandler
   ): Promise<ResourceUpdated | null> {
     const id = IntegrationDefinitionId.of(command.integrationId);
 
+    let loaded: IntegrationDefinition | null = null;
+
     try {
-      const standing = await this.definitions.withId(id);
-      const permissions = standing
+      const existing = await this.definitions.withId(id);
+      loaded = existing;
+      const permissions = existing
         ? await this.access.permissionsOnTeam(
-            standing.teamId.value,
+            existing.teamId.value,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -51,27 +55,27 @@ export class UpdateIntegrationHandler
         return forbiddenTo('configure');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
-      const { compiled, reading } = await this.sources.compiled({
+      const { compiled, reading } = await this.specs.compiled({
         definition: command.definition,
-        teamId: standing.teamId,
-        standing: standing.reading,
+        teamId: existing.teamId,
+        current: existing.reading,
       });
 
       if (!compiled.ok) {
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      const given = await this.given.onTeam(standing.teamId);
+      const enabled = await this.enabledTools.onTeam(existing.teamId);
 
       await this.transaction.inTransaction(() =>
         this.definitions.save(
-          standing.redefinedAs(
+          existing.update(
             compiled,
             reading,
-            given,
-            Attribution.of(command.actor, permissions.workspaceId),
+            enabled,
+            ChangeActor.of(command.actor, permissions.workspaceId),
           ),
         ),
       );
@@ -86,10 +90,15 @@ export class UpdateIntegrationHandler
           : null;
       }
 
-      if (error instanceof IntegrationHostFixedError) {
+      if (error instanceof ImmutableFieldError) {
         return {
           outcome: 'invalid',
-          problems: [IntegrationProblems.hostFixed(error)],
+          problems: [
+            IntegrationProblems.immutableField(
+              loaded?.integration.value ?? '',
+              error,
+            ),
+          ],
         };
       }
 

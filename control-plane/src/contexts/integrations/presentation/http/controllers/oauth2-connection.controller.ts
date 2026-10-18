@@ -2,12 +2,10 @@ import { BeginOAuth2ConnectionCommand } from '@integrations/application/commands
 import { FinishOAuth2ConnectionCommand } from '@integrations/application/commands/finish-oauth2-connection.command';
 import {
   OAUTH2_CALLBACK_ROUTE,
-  type OAuth2Begun,
+  type OAuth2Start,
 } from '@integrations/application/ports/oauth2-linking.port';
-import {
-  CONNECTING_FOR,
-  ConnectIntegrationRequestDto,
-} from '@integrations/presentation/http/dto/connect-integration.request.dto';
+import { ACTS_AS } from '@integrations/domain/value-objects/acts-as.vo';
+import { ConnectIntegrationRequestDto } from '@integrations/presentation/http/dto/connect-integration.request.dto';
 import { OAuth2StartResponseDto } from '@integrations/presentation/http/dto/oauth2-start.response.dto';
 import {
   type CookieJar,
@@ -51,7 +49,7 @@ export interface Redirectable extends CookieJar {
   redirect(url: string): void;
 }
 
-export const WENT_WRONG = '/?integration=failed';
+export const FAILED_REDIRECT = '/?integration=failed';
 
 @ApiTags('integrations')
 @Controller()
@@ -62,58 +60,60 @@ export class OAuth2ConnectionController {
     @Inject(OAuth2NonceCookie) private readonly nonceCookie: OAuth2NonceCookie,
   ) {}
 
-  @Post('teams/:teamId/integrations/:source/connect')
+  @Post('teams/:teamId/integrations/:integration/connect')
   @ApiOperation({
     operationId: 'connectIntegration',
-    summary: 'Begin connecting the team, or the caller, to a host over OAuth2',
+    summary:
+      'Begin connecting the team, or the caller, to an integration over OAuth2',
   })
   @ApiParam({ name: 'teamId', example: 'team_1' })
-  @ApiParam({ name: 'source', example: 'slack' })
+  @ApiParam({ name: 'integration', example: 'slack' })
   @ApiBody({ type: ConnectIntegrationRequestDto, required: false })
   @ApiOkResponse({ type: OAuth2StartResponseDto })
   @ApiBadRequestResponse({
-    description: 'It asks to connect for someone other than the team or me',
+    description:
+      'It requests a connection that acts as someone other than the team or the requester',
   })
   @ApiUnauthorizedResponse({ description: 'No valid session' })
   @ApiNotFoundResponse({
     description:
-      'No such team, not yours to link, or the host does not link so',
+      'No such team, not yours to connect, or the integration does not take this connection',
   })
   async connect(
     @Param('teamId') teamId: string,
-    @Param('source') source: string,
+    @Param('integration') integration: string,
     @CurrentUser() user: AuthenticatedUser,
     @Res({ passthrough: true }) response: CookieJar,
     @Body() body: ConnectIntegrationRequestDto = {},
   ): Promise<OAuth2StartResponseDto> {
-    const connecting = body?.for ?? 'team';
+    const actsAs = body?.actsAs ?? 'team';
 
-    if (!CONNECTING_FOR.includes(connecting)) {
+    if (!ACTS_AS.includes(actsAs)) {
       throw new BadRequestException(
-        `A connection must be for ${CONNECTING_FOR.join(' or ')}. Received: ${String(connecting)}`,
+        `A connection must act as ${ACTS_AS.join(' or ')}. Received: ${String(actsAs)}`,
       );
     }
 
-    const begun = await this.commandBus.execute<
+    const started = await this.commandBus.execute<
       BeginOAuth2ConnectionCommand,
-      OAuth2Begun | null
+      OAuth2Start | null
     >(
       new BeginOAuth2ConnectionCommand(
         teamId,
-        source,
+        integration,
         user.id,
-        connecting === 'me' ? 'person' : 'team',
-        typeof body?.back === 'string' ? body.back : null,
+        actsAs === 'requester' ? 'person' : 'team',
+        typeof body?.returnTo === 'string' ? body.returnTo : null,
       ),
     );
 
-    if (!begun) {
+    if (!started) {
       throw new NotFoundException();
     }
 
-    this.nonceCookie.set(response, begun.nonce, begun.expiresAt);
+    this.nonceCookie.set(response, started.nonce, started.expiresAt);
 
-    return new OAuth2StartResponseDto(begun.url);
+    return new OAuth2StartResponseDto(started.url);
   }
 
   @Get(OAUTH2_CALLBACK_ROUTE)
@@ -129,14 +129,14 @@ export class OAuth2ConnectionController {
     this.nonceCookie.clear(response);
 
     if (!state || !code || !nonce) {
-      response.redirect(WENT_WRONG);
+      response.redirect(FAILED_REDIRECT);
       return;
     }
 
     const viewer = await this.sessions.read(request.headers);
 
     if (!viewer) {
-      response.redirect(WENT_WRONG);
+      response.redirect(FAILED_REDIRECT);
       return;
     }
 
@@ -145,6 +145,6 @@ export class OAuth2ConnectionController {
       string | null
     >(new FinishOAuth2ConnectionCommand(state, code, nonce, viewer.id));
 
-    response.redirect(url ?? WENT_WRONG);
+    response.redirect(url ?? FAILED_REDIRECT);
   }
 }

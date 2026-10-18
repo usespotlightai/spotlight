@@ -46,8 +46,8 @@ const step = (
     ms: 600,
     startedAt: hoursAgo(at),
     locations: [],
-    given: null,
-    returned: null,
+    input: null,
+    output: null,
     change: null,
     ...rest,
   };
@@ -91,7 +91,7 @@ const readingStepsOf = (
     ms: 300,
     at: startedHoursAgo - 0.02,
   }),
-  step({ kind: 'said', text: summary, ms: 500, at: startedHoursAgo - 0.05 }),
+  step({ kind: 'message', text: summary, ms: 500, at: startedHoursAgo - 0.05 }),
 ];
 
 const stepsOf = (
@@ -140,7 +140,7 @@ const stepsOf = (
     ms: 41_000,
     at: startedHoursAgo - 0.09,
   }),
-  step({ kind: 'said', text: summary, ms: 500, at: startedHoursAgo - 0.11 }),
+  step({ kind: 'message', text: summary, ms: 500, at: startedHoursAgo - 0.11 }),
 ];
 
 export const replayRun = (runId: string): ReplayRunResponseDto | null => {
@@ -154,7 +154,7 @@ export const replayRun = (runId: string): ReplayRunResponseDto | null => {
   const original = runOfStation(entry.originalRunId);
   const title = original?.title ?? null;
   const { startedHoursAgo } = entryTiming(replay, entry.position);
-  const settled = entry.phase === 'settled';
+  const ended = entry.phase === 'ended';
   const endedHoursAgo = startedHoursAgo - (entry.ms ?? 0) / 3_600_000;
   const place = placeOfSet(replay.setId);
   const stations =
@@ -171,11 +171,11 @@ export const replayRun = (runId: string): ReplayRunResponseDto | null => {
 
   return {
     id: runId,
-    state: settled ? 'completed' : 'claimed',
+    state: ended ? 'completed' : 'claimed',
     attempt: 1,
-    exitCode: settled ? 0 : null,
+    exitCode: ended ? 0 : null,
     startedAt: hoursAgo(startedHoursAgo),
-    updatedAt: hoursAgo(settled ? endedHoursAgo : 0),
+    updatedAt: hoursAgo(ended ? endedHoursAgo : 0),
     harness,
     image: null,
     station: runStationOf(stations, place?.stationId ?? ''),
@@ -209,7 +209,7 @@ export const replayRun = (runId: string): ReplayRunResponseDto | null => {
           cacheWriteTokens: entry.cacheWriteTokens,
         }
       : null,
-    journals: settled
+    journals: ended
       ? [
           {
             runId,
@@ -219,8 +219,8 @@ export const replayRun = (runId: string): ReplayRunResponseDto | null => {
             marks: {
               startedAt: hoursAgo(startedHoursAgo),
               readyAt: null,
-              spokeFrom: null,
-              spokeTo: null,
+              firstAgentUpdateAt: null,
+              lastAgentUpdateAt: null,
               endedAt: hoursAgo(endedHoursAgo),
             },
             spent: { used: 52_000, size: 200_000, cost: null, currency: null },

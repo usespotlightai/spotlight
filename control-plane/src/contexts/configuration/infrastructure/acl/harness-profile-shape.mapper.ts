@@ -1,18 +1,18 @@
 import { HarnessProfileMapper } from '@configuration/application/mappers/harness-profile.mapper';
-import type { ReadProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
+import type { ParsedProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
 import type { HarnessProfileShape } from '@work/application/contracts/harness-profile.contract';
 
 export const HarnessProfileShapeMapper = {
-  toShape(read: ReadProfile): HarnessProfileShape {
+  toShape(parsed: ParsedProfile): HarnessProfileShape {
     return {
-      key: read.key.value,
-      rules: read.settings.rules.map((rule) => ({
+      key: parsed.key.value,
+      rules: parsed.settings.rules.map((rule) => ({
         decision: rule.decision,
         kind: rule.kind,
         pattern: rule.pattern,
       })),
-      mcpServers: HarnessProfileMapper.servers(read.settings),
-      native: read.settings.native,
+      mcpServers: HarnessProfileMapper.servers(parsed.settings),
+      native: parsed.settings.native,
     };
   },
 };

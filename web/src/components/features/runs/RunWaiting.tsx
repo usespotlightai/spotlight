@@ -1,7 +1,7 @@
 import { CirclePause, Inbox } from 'lucide-react';
 import { PillLink } from '@/components/shared/PillLink';
 import { inboxItemPath, inboxPath } from '@/lib/inbox';
-import { type Run, standing } from '@/lib/run';
+import { type Run, runStatus } from '@/lib/run';
 
 type RunWaitingProps = {
   slug: string;
@@ -17,7 +17,7 @@ export function RunWaiting({ slug, run, deciding }: RunWaitingProps) {
     >
       <CirclePause className="size-4 shrink-0" aria-hidden />
 
-      <span className="font-medium text-foreground">{standing(run)}</span>
+      <span className="font-medium text-foreground">{runStatus(run)}</span>
 
       <PillLink
         to={

@@ -4,11 +4,11 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Tokens } from '@/routes/Tokens';
 
-const held = vi.fn();
+const listed = vi.fn();
 const failing = vi.fn();
 const refetch = vi.fn();
 const workspace = vi.fn();
-const asked = vi.fn();
+const requested = vi.fn();
 const create = vi.fn();
 const revoke = vi.fn();
 
@@ -19,11 +19,11 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
 vi.mock('@/hooks/api/useWorkspaceTokens', () => ({
   tokenKeys: { forWorkspace: (id?: string) => ['workspace-tokens', id] },
   useWorkspaceTokens: (workspaceId: string | undefined) => {
-    asked(workspaceId);
+    requested(workspaceId);
 
     return {
-      data: held(),
-      isPending: held() === undefined,
+      data: listed(),
+      isPending: listed() === undefined,
       errorUpdateCount: failing() ? 1 : 0,
       isFetching: false,
       refetch,
@@ -84,16 +84,16 @@ const openCreate = async () => {
 
 describe('Tokens', () => {
   beforeEach(() => {
-    held.mockReturnValue([]);
+    listed.mockReturnValue([]);
     failing.mockReturnValue(false);
     workspace.mockReturnValue({ id: 'workspace_acme', role: 'owner' });
-    for (const each of [refetch, asked, create, revoke]) {
+    for (const each of [refetch, requested, create, revoke]) {
       each.mockClear();
     }
   });
 
-  it('holds the shape of a token while they load, keeping what never changes', () => {
-    held.mockReturnValue(undefined);
+  it('keeps the shape of a token while they load, keeping what never changes', () => {
+    listed.mockReturnValue(undefined);
 
     renderPage();
 
@@ -106,9 +106,9 @@ describe('Tokens', () => {
     expect(screen.queryByText(/No tokens yet/)).not.toBeInTheDocument();
   });
 
-  it('says the tokens could not be loaded, and tries again when asked', async () => {
+  it('says the tokens could not be loaded, and tries again on request', async () => {
     const person = userEvent.setup();
-    held.mockReturnValue(undefined);
+    listed.mockReturnValue(undefined);
     failing.mockReturnValue(true);
 
     renderPage();
@@ -142,7 +142,7 @@ describe('Tokens', () => {
   });
 
   it('counts the tokens beside the section’s name, and says of each when it was made, when it expires and what it may do', () => {
-    held.mockReturnValue([
+    listed.mockReturnValue([
       token(),
       token({
         id: 'token_2',
@@ -170,13 +170,13 @@ describe('Tokens', () => {
     ).toBeInTheDocument();
   });
 
-  it('sends a member back to the workspace, asking for no tokens', () => {
+  it('sends a member back to the workspace, requesting no tokens', () => {
     workspace.mockReturnValue({ id: 'workspace_acme', role: 'member' });
 
     renderPage();
 
     expect(screen.getByText('the workspace')).toBeInTheDocument();
-    expect(asked).not.toHaveBeenCalledWith('workspace_acme');
+    expect(requested).not.toHaveBeenCalledWith('workspace_acme');
   });
 
   it('creates a token that configures and expires, unless told otherwise', async () => {
@@ -198,7 +198,7 @@ describe('Tokens', () => {
     );
   });
 
-  it('creates a token with the reach and the grants chosen beside it', async () => {
+  it('creates a token with the level and the grants chosen beside it', async () => {
     const { person, dialog } = await openCreate();
 
     await person.type(within(dialog).getByLabelText('Name'), 'reader');
@@ -233,7 +233,7 @@ describe('Tokens', () => {
   });
 
   it('shows a new token once, to copy, until the person says it is copied', async () => {
-    create.mockImplementation((_terms, { onSuccess }) =>
+    create.mockImplementation((_spec, { onSuccess }) =>
       onSuccess({ name: 'terraform', token: 'token_secret' }),
     );
     const { person, dialog } = await openCreate();
@@ -261,7 +261,7 @@ describe('Tokens', () => {
 
   it('revokes a token only once the person confirms', async () => {
     const person = userEvent.setup();
-    held.mockReturnValue([token()]);
+    listed.mockReturnValue([token()]);
 
     renderPage();
 
@@ -288,7 +288,7 @@ describe('Tokens', () => {
 
   it('keeps a token the person decides to keep', async () => {
     const person = userEvent.setup();
-    held.mockReturnValue([token()]);
+    listed.mockReturnValue([token()]);
 
     renderPage();
 

@@ -1,4 +1,4 @@
-import type { Saying } from '@work/domain/aggregates/task.aggregate';
+import type { NewNote } from '@work/domain/aggregates/task.aggregate';
 import type { TaskNote } from '@work/domain/entities/task-note.entity';
 import {
   conversationsOf,
@@ -26,23 +26,23 @@ export const TAKEN: Record<SetupStepKey, (state: SetupState) => boolean> = {
 const setUp = (state: SetupState): boolean =>
   SETUP_STEPS.every((step) => TAKEN[step](state));
 
-const SETTLED = 'Everything on this list is done.';
+const ALL_DONE = 'Everything on this list is done.';
 
 export const openSetupList = (notes: readonly TaskNote[]): TaskNote | null => {
-  const standing = conversationsOf(notes.map((each) => each.kind)).find(
+  const openConversation = conversationsOf(notes.map((each) => each.kind)).find(
     stillOpen,
   );
 
-  const opened = standing ? notes[standing.from] : undefined;
+  const opened = openConversation ? notes[openConversation.from] : undefined;
 
   return opened?.form === 'setup' ? opened : null;
 };
 
-export const settling = (
+export const setupDoneNote = (
   notes: readonly TaskNote[],
   state: SetupState,
   at: Date,
-): Saying | null => {
+): NewNote | null => {
   const opened = openSetupList(notes);
 
   if (!opened || !setUp(state)) {
@@ -51,8 +51,8 @@ export const settling = (
 
   return {
     station: opened.station,
-    body: TaskNoteBody.of(SETTLED),
-    form: 'settled',
+    body: TaskNoteBody.of(ALL_DONE),
+    form: 'resolved',
     at,
     voice: Voice.station(),
   };

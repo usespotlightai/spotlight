@@ -5,7 +5,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { TeamTracesDto } from '@work/application/dto/team-trace.dto';
 import { TeamTraceMapper } from '@work/application/mappers/team-trace.mapper';
-import type { RunDigestReaderPort } from '@work/application/ports/run-digest-reader.port';
+import type { RunUsageReaderPort } from '@work/application/ports/run-usage-reader.port';
 import type { TeamTraceReaderPort } from '@work/application/ports/team-trace-reader.port';
 import type { ListTeamTracesQuery } from '@work/application/queries/list-team-traces.query';
 import { traceVolumeOf } from '@work/domain/services/trace-volume';
@@ -16,7 +16,7 @@ export class ListTeamTracesHandler
 {
   constructor(
     private readonly traces: TeamTraceReaderPort,
-    private readonly digests: RunDigestReaderPort,
+    private readonly usages: RunUsageReaderPort,
     private readonly clock: ClockPort,
   ) {}
 
@@ -30,19 +30,17 @@ export class ListTeamTracesHandler
         range.from,
       );
 
-      const digests = await this.digests.forRuns(
+      const usages = await this.usages.forRuns(
         found.flatMap((trace) => [...trace.runIds]),
       );
 
-      const traces = found.map((trace) =>
-        TeamTraceMapper.toDto(trace, digests),
-      );
+      const traces = found.map((trace) => TeamTraceMapper.toDto(trace, usages));
 
       const volume = traceVolumeOf(
         found.map((trace) => ({
           startedAt: trace.startedAt,
-          faults: trace.runIds.reduce(
-            (sum, runId) => sum + (digests.get(runId.value)?.faults ?? 0),
+          errors: trace.runIds.reduce(
+            (sum, runId) => sum + (usages.get(runId.value)?.errors ?? 0),
             0,
           ),
         })),

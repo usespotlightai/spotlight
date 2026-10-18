@@ -2,20 +2,17 @@ import type {
   InboxApprovalInputResponseDto,
   InboxApprovalResponseDto,
 } from '@/lib/api';
-import {
-  type DecisionStanding,
-  WAITING_FOR_APPROVAL,
-} from '@/lib/decision-standing';
+import { WAITING_FOR_APPROVAL } from '@/lib/approval-status';
 
 export type Approval = InboxApprovalResponseDto;
 
 export type ApprovalInput = InboxApprovalInputResponseDto;
 
-export type ApprovalMode = 'viewing' | 'editing' | 'refusing';
+export type ApprovalMode = 'viewing' | 'editing' | 'dismissing';
 
 export type ApprovalAnswer = {
   readonly approve: boolean;
-  readonly said: string;
+  readonly body: string;
   readonly inputs?: readonly ApprovalInput[];
 };
 
@@ -95,25 +92,16 @@ const sentence = (words: string): string =>
   ENDED.test(words) ? words : `${words}.`;
 
 export const titleOf = (approval: Approval): string => {
-  if (approval.standing === 'granted') {
+  if (approval.status === 'approved') {
     return approval.edited
       ? 'Request approved with changes'
       : 'Request approved';
   }
 
-  return approval.standing === 'refused'
+  return approval.status === 'dismissed'
     ? 'Request dismissed'
     : WAITING_FOR_APPROVAL;
 };
-
-const STANDINGS: Record<Approval['standing'], DecisionStanding> = {
-  asked: 'waiting',
-  granted: 'approved',
-  refused: 'declined',
-};
-
-export const standingOf = (approval: Approval): DecisionStanding =>
-  STANDINGS[approval.standing];
 
 export const askedFor = (approval: Approval): string => {
   const wanted = approval.intent ?? `use ${approval.name}`;

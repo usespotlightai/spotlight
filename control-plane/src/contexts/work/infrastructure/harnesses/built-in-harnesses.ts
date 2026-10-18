@@ -163,9 +163,12 @@ const DEFINITIONS: readonly Definition[] = [CLAUDE_CODE, CURSOR, CODEX];
 
 export const DEFAULT_HARNESS = HarnessId.of(CLAUDE_CODE.id);
 
-const nativeProblem = (def: Definition, given: unknown): HarnessNote | null => {
+const nativeProblem = (
+  def: Definition,
+  native: unknown,
+): HarnessNote | null => {
   if (def.profile.native === 'json') {
-    return isObject(given)
+    return isObject(native)
       ? null
       : noteOnNative(
           def.id,
@@ -174,7 +177,7 @@ const nativeProblem = (def: Definition, given: unknown): HarnessNote | null => {
         );
   }
 
-  if (typeof given !== 'string') {
+  if (typeof native !== 'string') {
     return noteOnNative(
       def.id,
       [],
@@ -183,7 +186,7 @@ const nativeProblem = (def: Definition, given: unknown): HarnessNote | null => {
   }
 
   try {
-    parse(given);
+    parse(native);
     return null;
   } catch (error) {
     return noteOnNative(
@@ -261,8 +264,8 @@ export class BuiltInHarnesses
       );
 
     for (const def of DEFINITIONS) {
-      const given = profile.native[def.id];
-      const problem = given === undefined ? null : nativeProblem(def, given);
+      const native = profile.native[def.id];
+      const problem = native === undefined ? null : nativeProblem(def, native);
 
       if (problem) {
         problems.push(problem);
@@ -344,7 +347,7 @@ const ACP_KINDS: Readonly<Record<PermissionKind, readonly string[]>> = {
   execute: ['execute'],
 };
 
-const asksOf = (profile: HarnessSettings): string[] => [
+const askKindsOf = (profile: HarnessSettings): string[] => [
   ...new Set(
     profile.rules
       .filter((rule) => rule.decision === 'ask')
@@ -364,7 +367,7 @@ const setupOf = (
     args: [...server.args],
     env: Object.entries(server.env).map(([name, value]) => ({ name, value })),
   })),
-  asks: asksOf(profile),
+  askKinds: askKindsOf(profile),
 });
 
 const named = (def: Definition): Harness =>

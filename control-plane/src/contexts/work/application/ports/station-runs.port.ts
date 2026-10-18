@@ -10,7 +10,7 @@ export interface EndedStationRun {
   readonly stationId: string;
   readonly taskId: string;
   readonly fingerprint: string | null;
-  readonly round: number;
+  readonly visit: number;
   readonly harness: string;
   readonly model: string | null;
   readonly effort: string | null;

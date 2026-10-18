@@ -30,7 +30,7 @@ vi.mock('@/hooks/api/useWorkspaces', () => ({
   }),
 }));
 
-const renderMenu = (noneAnswering = false, admin = true) =>
+const renderMenu = (noneOnline = false, admin = true) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter>
@@ -38,7 +38,7 @@ const renderMenu = (noneAnswering = false, admin = true) =>
           name="Acme Inc."
           slug="acme-inc"
           admin={admin}
-          noneAnswering={noneAnswering}
+          noneOnline={noneOnline}
         />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -135,12 +135,12 @@ describe('WorkspaceMenu', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('flags the menu and its settings when no host is answering', async () => {
+  it('flags the menu and its settings when no host is online', async () => {
     const user = userEvent.setup();
     renderMenu(true);
 
     expect(
-      screen.getByRole('img', { name: 'No host is answering' }),
+      screen.getByRole('img', { name: 'No host is online' }),
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Acme Inc\./ }));
@@ -148,7 +148,7 @@ describe('WorkspaceMenu', () => {
     expect(
       within(
         await screen.findByRole('menuitem', { name: /Settings/ }),
-      ).getByRole('img', { name: 'No host is answering' }),
+      ).getByRole('img', { name: 'No host is online' }),
     ).toBeInTheDocument();
   });
 

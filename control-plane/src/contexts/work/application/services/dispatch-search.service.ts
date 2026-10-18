@@ -8,11 +8,11 @@ import { TRACE_PARENT_VAR } from '@work/application/contracts/run-spec.contract'
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type {
   SearchAgent,
-  SearchAgentRefusal,
+  SearchAgentProblem,
   SearchDispatched,
   SearchDispatchPort,
   SearchOrder,
-  UnclaimedWithdrawal,
+  UnclaimedCancellation,
 } from '@work/application/ports/search-dispatch.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { Run } from '@work/domain/aggregates/run.aggregate';
@@ -29,14 +29,14 @@ import { StationId } from '@work/domain/value-objects/station-id.vo';
 
 const QUEUED: SearchDispatched = { outcome: 'queued' };
 
-const STOPPED = 'Search stopped before a runner took the run.';
+const STOPPED = 'Search stopped before a runner claimed the run.';
 
 const LEFT_UNCLAIMED =
-  'No runner took the run in time. Its search released it.';
+  'No runner claimed the run in time. Its search cancelled it.';
 
-const ENDED: UnclaimedWithdrawal = { outcome: 'ended' };
+const ENDED: UnclaimedCancellation = { outcome: 'ended' };
 
-const CLAIMED: UnclaimedWithdrawal = { outcome: 'claimed' };
+const CLAIMED: UnclaimedCancellation = { outcome: 'claimed' };
 
 const MAX_MODEL = 60;
 
@@ -45,7 +45,7 @@ const unstartable = (reason: string): SearchDispatched => ({
   reason,
 });
 
-const holds = (made: () => unknown): boolean => {
+const succeeds = (made: () => unknown): boolean => {
   try {
     made();
     return true;
@@ -64,7 +64,7 @@ export class DispatchSearch implements SearchDispatchPort {
     private readonly clock: ClockPort,
   ) {}
 
-  refusalOf(agent: SearchAgent): SearchAgentRefusal | null {
+  problemOf(agent: SearchAgent): SearchAgentProblem | null {
     const known = this.launch.catalogue().map((each) => each.id);
 
     if (!known.includes(agent.harness)) {
@@ -75,13 +75,13 @@ export class DispatchSearch implements SearchDispatchPort {
     }
     const { model, effort } = agent;
 
-    if (model !== null && !holds(() => HarnessModel.of(model))) {
+    if (model !== null && !succeeds(() => HarnessModel.of(model))) {
       return {
         field: 'model',
         reason: `Model must be 1 to ${MAX_MODEL} characters, or empty.`,
       };
     }
-    if (effort !== null && !holds(() => Effort.of(effort))) {
+    if (effort !== null && !succeeds(() => Effort.of(effort))) {
       return {
         field: 'effort',
         reason: `Effort must be one of ${EFFORTS.join(', ')}, or empty.`,
@@ -104,7 +104,11 @@ export class DispatchSearch implements SearchDispatchPort {
       const stationId = StationId.of(order.stationId);
       const line = await this.lines.find(LineId.of(order.lineId));
 
-      if (!line || line.isRetired || !line.stationAt(stationId)?.isWorked) {
+      if (
+        !line ||
+        line.isDeleted ||
+        !line.stationAt(stationId)?.isAgentStation
+      ) {
         return unstartable('the line no longer has the station it searches');
       }
 
@@ -139,7 +143,7 @@ export class DispatchSearch implements SearchDispatchPort {
             }),
             briefing: order.briefing,
             handover: { options: [], noteLimit: 0 },
-            continuity: { key: `search-${id.value}` },
+            resume: { key: `search-${id.value}` },
             search: {},
           }),
         }),
@@ -149,7 +153,7 @@ export class DispatchSearch implements SearchDispatchPort {
     });
   }
 
-  withdraw(runId: string): Promise<void> {
+  cancel(runId: string): Promise<void> {
     return this.transaction.inTransaction(async () => {
       const run = await this.runs.findById(RunId.of(runId));
 
@@ -159,8 +163,8 @@ export class DispatchSearch implements SearchDispatchPort {
 
       const changed =
         run.state === 'queued'
-          ? run.withdrawn(STOPPED)
-          : run.letGo(this.clock.now());
+          ? run.cancelQueued(STOPPED)
+          : run.cancel(this.clock.now());
 
       if (changed !== run) {
         await this.runs.save(changed);
@@ -168,7 +172,7 @@ export class DispatchSearch implements SearchDispatchPort {
     });
   }
 
-  withdrawUnclaimed(runId: string): Promise<UnclaimedWithdrawal> {
+  cancelUnclaimed(runId: string): Promise<UnclaimedCancellation> {
     return this.transaction.inTransaction(async () => {
       const run = await this.runs.findById(RunId.of(runId));
 
@@ -179,9 +183,9 @@ export class DispatchSearch implements SearchDispatchPort {
         return CLAIMED;
       }
 
-      await this.runs.save(run.withdrawn(LEFT_UNCLAIMED));
+      await this.runs.save(run.cancelQueued(LEFT_UNCLAIMED));
 
-      return { outcome: 'withdrawn', started: run.attempt > 1 } as const;
+      return { outcome: 'cancelled', started: run.attempt > 1 } as const;
     });
   }
 

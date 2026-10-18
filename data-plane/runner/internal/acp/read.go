@@ -20,24 +20,24 @@ func (c *Client) read(stdout io.Reader) {
 			continue
 		}
 
-		var spoke struct {
+		var message struct {
 			ID     json.RawMessage `json:"id"`
 			Method string          `json:"method"`
 			Params json.RawMessage `json:"params"`
 			Result json.RawMessage `json:"result"`
 			Error  *responseError  `json:"error"`
 		}
-		if err := json.Unmarshal(line, &spoke); err != nil {
+		if err := json.Unmarshal(line, &message); err != nil {
 			continue
 		}
 
 		switch {
-		case spoke.Method == "" && len(spoke.ID) > 0:
-			c.answered(spoke.ID, spoke.Result, spoke.Error)
-		case len(spoke.ID) > 0:
-			c.asked(spoke.ID, spoke.Method, spoke.Params)
+		case message.Method == "" && len(message.ID) > 0:
+			c.answered(message.ID, message.Result, message.Error)
+		case len(message.ID) > 0:
+			c.requested(message.ID, message.Method, message.Params)
 		default:
-			c.told(spoke.Method, spoke.Params)
+			c.onNotification(message.Method, message.Params)
 		}
 	}
 
@@ -59,12 +59,12 @@ func (c *Client) answered(id json.RawMessage, result json.RawMessage, failed *re
 	}
 }
 
-func (c *Client) told(method string, params json.RawMessage) {
+func (c *Client) onNotification(method string, params json.RawMessage) {
 	if method != "session/update" {
 		return
 	}
 
-	var said struct {
+	var notification struct {
 		Update struct {
 			SessionUpdate string `json:"sessionUpdate"`
 			Content       struct {
@@ -72,7 +72,7 @@ func (c *Client) told(method string, params json.RawMessage) {
 			} `json:"content"`
 		} `json:"update"`
 	}
-	_ = json.Unmarshal(params, &said)
+	_ = json.Unmarshal(params, &notification)
 
 	c.mu.Lock()
 	watching := c.watching
@@ -83,13 +83,13 @@ func (c *Client) told(method string, params json.RawMessage) {
 	}
 
 	watching(Update{
-		Kind: said.Update.SessionUpdate,
-		Text: said.Update.Content.Text,
+		Kind: notification.Update.SessionUpdate,
+		Text: notification.Update.Content.Text,
 		Raw:  params,
 	})
 }
 
-func (c *Client) asked(id json.RawMessage, method string, params json.RawMessage) {
+func (c *Client) requested(id json.RawMessage, method string, params json.RawMessage) {
 	switch method {
 	case "session/request_permission":
 		go c.permit(id, params)
@@ -98,7 +98,7 @@ func (c *Client) asked(id json.RawMessage, method string, params json.RawMessage
 	case "fs/write_text_file":
 		c.writeFile(id, params)
 	default:
-		c.refuse(id, "this client does not do that")
+		c.reject(id, "this client does not do that")
 	}
 }
 
@@ -145,7 +145,7 @@ func (c *Client) permit(id json.RawMessage, params json.RawMessage) {
 	}
 
 	if chosen == "" {
-		c.refuse(id, "no option this client could choose")
+		c.reject(id, "no option this client could choose")
 		return
 	}
 
@@ -183,20 +183,20 @@ func (c *Client) within(path string) (string, bool) {
 }
 
 func (c *Client) readFile(id json.RawMessage, params json.RawMessage) {
-	var asked struct {
+	var request struct {
 		Path string `json:"path"`
 	}
-	_ = json.Unmarshal(params, &asked)
+	_ = json.Unmarshal(params, &request)
 
-	full, ok := c.within(asked.Path)
+	full, ok := c.within(request.Path)
 	if !ok {
-		c.refuse(id, "outside the workspace")
+		c.reject(id, "outside the workspace")
 		return
 	}
 
 	content, err := os.ReadFile(full)
 	if err != nil {
-		c.refuse(id, err.Error())
+		c.reject(id, err.Error())
 		return
 	}
 
@@ -204,24 +204,24 @@ func (c *Client) readFile(id json.RawMessage, params json.RawMessage) {
 }
 
 func (c *Client) writeFile(id json.RawMessage, params json.RawMessage) {
-	var asked struct {
+	var request struct {
 		Path    string `json:"path"`
 		Content string `json:"content"`
 	}
-	_ = json.Unmarshal(params, &asked)
+	_ = json.Unmarshal(params, &request)
 
-	full, ok := c.within(asked.Path)
+	full, ok := c.within(request.Path)
 	if !ok {
-		c.refuse(id, "outside the workspace")
+		c.reject(id, "outside the workspace")
 		return
 	}
 
 	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
-		c.refuse(id, err.Error())
+		c.reject(id, err.Error())
 		return
 	}
-	if err := os.WriteFile(full, []byte(asked.Content), 0o644); err != nil {
-		c.refuse(id, err.Error())
+	if err := os.WriteFile(full, []byte(request.Content), 0o644); err != nil {
+		c.reject(id, err.Error())
 		return
 	}
 
@@ -232,7 +232,7 @@ func (c *Client) reply(id json.RawMessage, result any) {
 	_ = c.write(response{JSONRPC: "2.0", ID: id, Result: result})
 }
 
-func (c *Client) refuse(id json.RawMessage, because string) {
+func (c *Client) reject(id json.RawMessage, because string) {
 	_ = c.write(response{
 		JSONRPC: "2.0",
 		ID:      id,

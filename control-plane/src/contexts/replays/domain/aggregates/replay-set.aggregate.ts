@@ -1,22 +1,22 @@
 import { ReplaySetDeleted } from '@replays/domain/events/replay-set-deleted.event';
 import { ReplaySetEntriesChanged } from '@replays/domain/events/replay-set-entries-changed.event';
-import { ReplaySetGuardChanged } from '@replays/domain/events/replay-set-guard-changed.event';
+import { ReplaySetGateChanged } from '@replays/domain/events/replay-set-gate-changed.event';
 import { ReplaySetStationGone } from '@replays/domain/events/replay-set-station-gone.event';
-import { ChangesGuardedElsewhereError } from '@replays/domain/exceptions/changes-guarded-elsewhere.error';
+import { ChangesGatedElsewhereError } from '@replays/domain/exceptions/changes-gated-elsewhere.error';
 import { ReplaySetEntryElsewhereError } from '@replays/domain/exceptions/replay-set-entry-elsewhere.error';
 import { ReplaySetEntryTakenError } from '@replays/domain/exceptions/replay-set-entry-taken.error';
 import { ReplaySetFullError } from '@replays/domain/exceptions/replay-set-full.error';
+import { ReplaySetInUseError } from '@replays/domain/exceptions/replay-set-in-use.error';
 import { ReplaySetStationGoneError } from '@replays/domain/exceptions/replay-set-station-gone.error';
-import { ReplaySetUnderwayError } from '@replays/domain/exceptions/replay-set-underway.error';
 import { UnknownReplaySetEntryError } from '@replays/domain/exceptions/unknown-replay-set-entry.error';
 import { UnreplayableEntryError } from '@replays/domain/exceptions/unreplayable-entry.error';
-import { ChangesGuardDetail } from '@replays/domain/value-objects/changes-guard-detail.vo';
-import type { ReplayRefusal } from '@replays/domain/value-objects/replay-refusal';
+import { ChangesGateDetail } from '@replays/domain/value-objects/changes-gate-detail.vo';
 import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
+import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -36,7 +36,7 @@ export interface Replayable {
   readonly runId: RunId;
   readonly taskId: TaskId | null;
   readonly stationId: string | null;
-  readonly refusal: ReplayRefusal | null;
+  readonly unreplayableReason: UnreplayableReason | null;
   readonly reason: string | null;
 }
 
@@ -45,7 +45,7 @@ interface State {
   readonly station: ReplayedStation;
   readonly name: ReplaySetName;
   readonly entries: readonly ReplaySetEntry[];
-  readonly guardsChanges: boolean;
+  readonly gatesChanges: boolean;
   readonly createdAt: Date;
   readonly stationGoneAt: Date | null;
   readonly version: number;
@@ -61,7 +61,7 @@ export class ReplaySet extends EventRecorder {
     super();
   }
 
-  static open(input: {
+  static create(input: {
     id: ReplaySetId;
     station: ReplayedStation;
     name: ReplaySetName;
@@ -73,7 +73,7 @@ export class ReplaySet extends EventRecorder {
         station: input.station,
         name: input.name,
         entries: [],
-        guardsChanges: false,
+        gatesChanges: false,
         createdAt: input.at,
         stationGoneAt: null,
         version: 0,
@@ -114,8 +114,8 @@ export class ReplaySet extends EventRecorder {
     return this.state.entries.map((each) => each.runId);
   }
 
-  get guardsChanges(): boolean {
-    return this.state.guardsChanges;
+  get gatesChanges(): boolean {
+    return this.state.gatesChanges;
   }
 
   get createdAt(): Date {
@@ -142,7 +142,7 @@ export class ReplaySet extends EventRecorder {
     return ReplaySet.holderOf(this.state.id);
   }
 
-  holds(run: RunId): boolean {
+  includes(run: RunId): boolean {
     return this.state.entries.some((each) => each.runId.equals(run));
   }
 
@@ -178,36 +178,36 @@ export class ReplaySet extends EventRecorder {
     return this.with({});
   }
 
-  guardingChanges(atStation: readonly ReplaySet[], by: Attribution): ReplaySet {
+  gatingChanges(atStation: readonly ReplaySet[], by: ChangeActor): ReplaySet {
     this.stillAtItsStation();
 
     const checking = atStation.find(
       (each) =>
-        each.guardsChanges &&
+        each.gatesChanges &&
         !each.id.equals(this.id) &&
         each.isAtStation(this.state.station.stationId),
     );
 
     if (checking) {
-      throw new ChangesGuardedElsewhereError(this.state.station.stationId);
+      throw new ChangesGatedElsewhereError(this.state.station.stationId);
     }
 
-    return this.guarding(true, by);
+    return this.gating(true, by);
   }
 
-  notGuardingChanges(by: Attribution): ReplaySet {
-    return this.guarding(false, by);
+  notGatingChanges(by: ChangeActor): ReplaySet {
+    return this.gating(false, by);
   }
 
-  private guarding(guardsChanges: boolean, by: Attribution): ReplaySet {
-    if (this.state.guardsChanges === guardsChanges) {
+  private gating(gatesChanges: boolean, by: ChangeActor): ReplaySet {
+    if (this.state.gatesChanges === gatesChanges) {
       return this;
     }
 
-    const changed = this.with({ guardsChanges });
+    const changed = this.with({ gatesChanges });
 
     changed.record(
-      new ReplaySetGuardChanged(
+      new ReplaySetGateChanged(
         this.id,
         this.teamId,
         ConfigurationChange.updated(
@@ -217,7 +217,7 @@ export class ReplaySet extends EventRecorder {
             key: this.state.name.value,
           },
           by,
-          ChangesGuardDetail.of(guardsChanges),
+          ChangesGateDetail.of(gatesChanges),
         ),
       ),
     );
@@ -231,7 +231,7 @@ export class ReplaySet extends EventRecorder {
     this.stillAtItsStation();
     this.unsearched(searched);
 
-    if (this.holds(run)) {
+    if (this.includes(run)) {
       throw new ReplaySetEntryTakenError(run.value);
     }
 
@@ -239,10 +239,10 @@ export class ReplaySet extends EventRecorder {
       throw new ReplaySetFullError(MAX_SET_ENTRIES);
     }
 
-    if (replayable.refusal !== null || replayable.taskId === null) {
+    if (replayable.unreplayableReason !== null || replayable.taskId === null) {
       throw new UnreplayableEntryError(
         run.value,
-        replayable.refusal ?? 'not-a-task-run',
+        replayable.unreplayableReason ?? 'not-a-task-run',
         replayable.reason ?? 'It did not work a task of its own.',
       );
     }
@@ -270,7 +270,7 @@ export class ReplaySet extends EventRecorder {
   withoutEntry(run: RunId, searched: boolean): ReplaySet {
     this.unsearched(searched);
 
-    if (!this.holds(run)) {
+    if (!this.includes(run)) {
       throw new UnknownReplaySetEntryError(run.value);
     }
 
@@ -283,9 +283,9 @@ export class ReplaySet extends EventRecorder {
     return changed;
   }
 
-  deleted(underway: boolean): ReplaySet {
-    if (underway) {
-      throw new ReplaySetUnderwayError(this.id.value);
+  delete(inProgress: boolean): ReplaySet {
+    if (inProgress) {
+      throw new ReplaySetInUseError(this.id.value);
     }
 
     const deleted = new ReplaySet(this.state, true);
@@ -298,7 +298,7 @@ export class ReplaySet extends EventRecorder {
 
   private unsearched(searched: boolean): void {
     if (searched) {
-      throw new ReplaySetUnderwayError(this.id.value);
+      throw new ReplaySetInUseError(this.id.value);
     }
   }
 

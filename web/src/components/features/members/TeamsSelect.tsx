@@ -5,7 +5,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { teamsTold } from '@/lib/members';
+import { describeTeams } from '@/lib/members';
 import type { Team } from '@/lib/team';
 import { cn } from '@/lib/utils';
 
@@ -25,7 +25,7 @@ export function TeamsSelect({
   className,
 }: TeamsSelectProps) {
   const chosen = new Set(value);
-  const shown = teamsTold(teams.filter((each) => chosen.has(each.id)));
+  const shown = describeTeams(teams.filter((each) => chosen.has(each.id)));
 
   const toggle = (teamId: string, checked: boolean) =>
     onChange(

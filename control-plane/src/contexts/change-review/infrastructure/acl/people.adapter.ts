@@ -27,12 +27,12 @@ export class People implements PeoplePort {
   }
 
   async memberOf(teamId: string, userId: string): Promise<Membership | null> {
-    const standing = await this.access.onTeam(teamId, UserId.of(userId));
-    return standing
+    const membership = await this.access.onTeam(teamId, UserId.of(userId));
+    return membership
       ? {
-          workspaceId: standing.workspaceId,
-          teamId: standing.teamId,
-          by: standing.viewer,
+          workspaceId: membership.workspaceId,
+          teamId: membership.teamId,
+          by: membership.viewer,
         }
       : null;
   }

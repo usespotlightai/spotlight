@@ -4,30 +4,30 @@ export const REVIEW_MARK = 'github.review';
 
 export const REVIEW_ROLE = 'review';
 
-export type ReviewAsking = 'opened' | 'mentioned' | 'labelled';
+export type ReviewTrigger = 'opened' | 'mentioned' | 'labelled';
 
 type HappeningState = 'raised' | 'resolved';
 
-export interface MarkWorn {
+export interface TaskMark {
   readonly kind: string;
   readonly value: string;
 }
 
-interface SaidPayload {
+interface MessagePayload {
   readonly body: string;
   readonly path?: string | null;
   readonly from?: number | null;
   readonly to?: number | null;
-  readonly remark?: string | null;
+  readonly reviewComment?: string | null;
 }
 
-interface ConcernsPayload {
+interface CorrelationKeysPayload {
   readonly branch: string | null;
-  readonly marks: readonly MarkWorn[];
+  readonly marks: readonly TaskMark[];
 }
 
 export interface ReviewPayload {
-  readonly asking: ReviewAsking;
+  readonly trigger: ReviewTrigger;
   readonly label?: string | null;
   readonly pullRequest: string;
   readonly author: string | null;
@@ -37,12 +37,12 @@ export interface ReviewPayload {
 }
 
 interface OpensPayload {
-  readonly onto: string;
-  readonly at: string | null;
+  readonly lineRole: string;
+  readonly station: string | null;
   readonly title: string;
   readonly description: string | null;
   readonly assignEmail: string | null;
-  readonly marks: readonly MarkWorn[];
+  readonly marks: readonly TaskMark[];
   readonly review?: ReviewPayload | null;
 }
 
@@ -55,11 +55,11 @@ export interface Arriving {
 
 export interface Happened {
   readonly happening: string;
-  readonly told: string;
-  readonly spoken: boolean;
+  readonly summary: string;
+  readonly answers: boolean;
   readonly state: HappeningState;
-  readonly concerns: ConcernsPayload;
-  readonly said: SaidPayload | null;
+  readonly correlationKeys: CorrelationKeysPayload;
+  readonly message: MessagePayload | null;
   readonly ourOwn: boolean;
   readonly opens: OpensPayload | null;
   readonly attachments?: readonly Arriving[];

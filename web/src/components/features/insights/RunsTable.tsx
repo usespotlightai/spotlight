@@ -1,27 +1,27 @@
-import { Noted } from '@/components/shared/Noted';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
   EDGE_INDENT,
   ROW_DIVIDER,
 } from '@/components/shared/nested-table/nested-rows';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { HarnessResponseDto } from '@/lib/api';
 import {
+  formatDurationOrNone,
   formatHarness,
   formatModel,
   formatPerson,
   formatSpend,
   formatStation,
   type InsightsRun,
-  lastedOrNone,
   type PersonName,
   type StationNames,
 } from '@/lib/insights';
 import { SPREAD } from '@/lib/nested-table';
 import { runPath } from '@/lib/run';
 import { since } from '@/lib/since';
-import { endedBadly, formatEnding } from '@/lib/station-outcomes';
+import { endedBadly, formatEnding } from '@/lib/station-insights';
 import { cn } from '@/lib/utils';
 
 const HEADINGS = [
@@ -29,8 +29,8 @@ const HEADINGS = [
   { label: 'Failure', size: 'minmax(10rem,2fr)' },
   { label: 'Station', size: SPREAD },
   { label: 'Person', size: SPREAD },
-  { label: 'Setup', size: SPREAD },
-  { label: 'Took', numeric: true, size: SPREAD },
+  { label: 'Agent config', size: SPREAD },
+  { label: 'Duration', numeric: true, size: SPREAD },
   { label: 'Cost', numeric: true, size: SPREAD },
   { label: 'Ended', numeric: true, size: SPREAD },
 ];
@@ -78,9 +78,9 @@ export function RunsTable({
           </span>
           <NestedCell heading="Failure" numeric={false}>
             {run.failure ? (
-              <Noted note={run.failure}>
+              <WithTooltip tooltip={run.failure}>
                 <span className="relative block truncate">{run.failure}</span>
-              </Noted>
+              </WithTooltip>
             ) : (
               '–'
             )}
@@ -91,10 +91,12 @@ export function RunsTable({
           <NestedCell heading="Person" numeric={false}>
             {formatPerson(people, run.openedBy)}
           </NestedCell>
-          <NestedCell heading="Setup" numeric={false}>
+          <NestedCell heading="Agent config" numeric={false}>
             {formatHarness(harnesses, run.harness)} · {formatModel(run.model)}
           </NestedCell>
-          <NestedCell heading="Took">{lastedOrNone(run.ms)}</NestedCell>
+          <NestedCell heading="Duration">
+            {formatDurationOrNone(run.ms)}
+          </NestedCell>
           <NestedCell heading="Cost" strong>
             {formatSpend(run.cost)}
           </NestedCell>

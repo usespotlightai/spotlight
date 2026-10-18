@@ -1,7 +1,7 @@
 import { type ReactNode, useMemo, useState } from 'react';
 import { BeforeAfterPanel } from '@/components/features/insights/changes/BeforeAfterPanel';
 import { PaneScroller } from '@/components/shared/PaneScroller';
-import { useLingering } from '@/hooks/useLingering';
+import { useDelayedValue } from '@/hooks/useDelayedValue';
 import { BeforeAfterPanelContext } from '@/lib/before-after-panel';
 import type { InsightsPeriod, StationNames } from '@/lib/insights';
 import type { ChangeAt } from '@/lib/insights-changes';
@@ -24,7 +24,7 @@ export function BeforeAfterHost({
   children,
 }: BeforeAfterHostProps) {
   const [shown, setShown] = useState<ChangeAt | null>(null);
-  const held = useLingering(shown, LEAVING);
+  const displayed = useDelayedValue(shown, LEAVING);
 
   const value = useMemo(
     () => ({
@@ -38,13 +38,13 @@ export function BeforeAfterHost({
   return (
     <BeforeAfterPanelContext value={value}>
       <PaneScroller
-        aside={
-          held && (
+        sidePanel={
+          displayed && (
             <BeforeAfterPanel
               slug={slug}
               teamId={teamId}
               period={period}
-              change={held}
+              change={displayed}
               names={names}
               open={shown !== null}
               onClose={() => setShown(null)}

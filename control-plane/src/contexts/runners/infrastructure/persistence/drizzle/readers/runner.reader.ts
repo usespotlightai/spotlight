@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type {
-  AdmittedThrough,
+  CredentialSourceSummary,
   HostSummary,
   LiveRunnerSummary,
   RunnerReaderPort,
@@ -23,11 +23,11 @@ import {
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, gt, isNotNull, isNull, ne, or } from 'drizzle-orm';
 
-const through = (row: {
+const sourceOf = (row: {
   poolId: string | null;
   poolKey: string | null;
   trustKey: string | null;
-}): AdmittedThrough =>
+}): CredentialSourceSummary =>
   row.poolId !== null
     ? { kind: 'pool', key: row.poolKey }
     : { kind: 'trust', key: row.trustKey };
@@ -58,11 +58,11 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       return true;
     }
 
-    return this.hasAWayOut(workspaceId);
+    return this.hasEgressCapableRunner(workspaceId);
   }
 
-  async hasAWayOut(workspaceId: WorkspaceId): Promise<boolean> {
-    const [goingOut] = await this.db
+  async hasEgressCapableRunner(workspaceId: WorkspaceId): Promise<boolean> {
+    const [egressPool] = await this.db
       .select({ id: runnerPool.id })
       .from(runnerPool)
       .where(
@@ -75,7 +75,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       )
       .limit(1);
 
-    if (goingOut) {
+    if (egressPool) {
       return true;
     }
 
@@ -83,7 +83,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       .select({
         name: runnerHost.name,
         release: runnerHost.release,
-        executor: runnerHost.executor,
+        containerRuntime: runnerHost.containerRuntime,
         capacity: runnerHost.capacity,
         running: runnerHost.running,
         images: runnerHost.images,
@@ -93,21 +93,21 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
         and(
           eq(runnerHost.workspaceId, workspaceId.value),
           gt(
-            runnerHost.lastSeenAt,
-            RunnerHost.rememberedSince(this.clock.now()),
+            runnerHost.lastHeartbeatAt,
+            RunnerHost.staleBefore(this.clock.now()),
           ),
         ),
       );
 
-    return hosts.some((row) => HostReport.of(row).servesAHarness);
+    return hosts.some((row) => HostReport.of(row).supportsAHarness);
   }
 
-  async advertisedModels(
+  async supportedModels(
     workspaceId: WorkspaceId,
   ): Promise<ReadonlyMap<string, readonly string[]>> {
     const now = this.clock.now();
-    const hostsSeenSince = RunnerHost.rememberedSince(now);
-    const runnersEndedSince = Runner.rememberedEndingSince(now);
+    const hostsWithHeartbeatSince = RunnerHost.staleBefore(now);
+    const runnersEndedSince = Runner.endedRetentionSince(now);
     const [hosts, runners] = await Promise.all([
       this.db
         .select({ images: runnerHost.images })
@@ -115,11 +115,11 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
         .where(
           and(
             eq(runnerHost.workspaceId, workspaceId.value),
-            gt(runnerHost.lastSeenAt, hostsSeenSince),
+            gt(runnerHost.lastHeartbeatAt, hostsWithHeartbeatSince),
           ),
         ),
       this.db
-        .select({ advertised: runner.advertisedModels })
+        .select({ supported: runner.supportedModels })
         .from(runner)
         .where(
           and(
@@ -130,27 +130,29 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
     ]);
 
     const byHarness = new Map<string, string[]>();
-    const hold = (harness: string, models: readonly string[]) => {
-      const held = byHarness.get(harness) ?? [];
+    const collect = (harness: string, models: readonly string[]) => {
+      const known = byHarness.get(harness) ?? [];
 
       for (const model of models) {
-        if (!held.includes(model)) {
-          held.push(model);
+        if (!known.includes(model)) {
+          known.push(model);
         }
       }
-      byHarness.set(harness, held);
+      byHarness.set(harness, known);
     };
 
     for (const row of hosts) {
-      for (const image of row.images.filter((each) => !each.refused)) {
+      for (const image of row.images.filter(
+        (each) => !each.unavailableReason,
+      )) {
         for (const each of image.harnesses) {
-          hold(each.id, each.models);
+          collect(each.id, each.models);
         }
       }
     }
     for (const row of runners) {
-      for (const [harness, models] of Object.entries(row.advertised)) {
-        hold(harness, models);
+      for (const [harness, models] of Object.entries(row.supported)) {
+        collect(harness, models);
       }
     }
 
@@ -168,7 +170,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
         image: runner.image,
         harnesses: runner.harnesses,
         startedAt: runner.startedAt,
-        lastSeenAt: runner.lastSeenAt,
+        lastHeartbeatAt: runner.lastHeartbeatAt,
       })
       .from(runner)
       .leftJoin(runnerPool, eq(runnerPool.id, runner.poolId))
@@ -184,12 +186,12 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
 
     return rows.map((row) => ({
       id: row.id,
-      through: through(row),
+      source: sourceOf(row),
       hostId: row.hostId,
       image: row.image,
       harnesses: row.harnesses,
       startedAt: row.startedAt,
-      lastSeenAt: row.lastSeenAt,
+      lastHeartbeatAt: row.lastHeartbeatAt,
     }));
   }
 
@@ -207,7 +209,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       .where(
         and(
           eq(runnerHost.workspaceId, workspaceId.value),
-          gt(runnerHost.lastSeenAt, since),
+          gt(runnerHost.lastHeartbeatAt, since),
         ),
       )
       .orderBy(runnerHost.name);
@@ -215,25 +217,25 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
     return rows.map(({ host, ...keys }) => ({
       id: host.id,
       name: host.name,
-      through: through(keys),
+      source: sourceOf(keys),
       release: host.release,
-      executor: host.executor,
+      containerRuntime: host.containerRuntime,
       capacity: host.capacity,
       running: host.running,
       images: host.images.map((each) => ({
         image: each.image,
         digest: each.digest ?? null,
-        usual: each.usual,
+        isDefault: each.isDefault,
         release: each.release ?? null,
         harnesses: each.harnesses.map((harness) => ({
           id: harness.id,
           version: harness.version ?? null,
         })),
-        refused: each.refused ?? null,
+        unavailableReason: each.unavailableReason ?? null,
       })),
-      firstSeenAt: host.firstSeenAt,
-      upSince: host.upSince,
-      lastSeenAt: host.lastSeenAt,
+      firstHeartbeatAt: host.firstHeartbeatAt,
+      onlineSince: host.onlineSince,
+      lastHeartbeatAt: host.lastHeartbeatAt,
     }));
   }
 }

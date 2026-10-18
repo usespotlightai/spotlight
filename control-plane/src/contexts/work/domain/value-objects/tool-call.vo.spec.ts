@@ -26,8 +26,8 @@ const CALL = ToolCall.of(
 );
 
 describe('ToolCall', () => {
-  it('shows what it was given, structured values as JSON', () => {
-    expect(CALL.given).toEqual([
+  it('shows its inputs, structured values as JSON', () => {
+    expect(CALL.writtenInputs).toEqual([
       { name: 'draft', value: 'false' },
       { name: 'first', value: '3' },
       {
@@ -54,16 +54,16 @@ describe('ToolCall', () => {
     });
   });
 
-  it('refuses an edit a structured value cannot be read from', () => {
+  it('rejects an edit a structured value cannot be read from', () => {
     const editing = (input: string) =>
       CALL.editedTo({ input, first: '3', draft: 'false', teamId: 'ENG' });
 
-    expect(editing('{not json')).toEqual({ refused: null });
-    expect(editing('["a list"]')).toEqual({ refused: null });
-    expect(editing('')).toEqual({ refused: null });
+    expect(editing('{not json')).toEqual({ problem: null });
+    expect(editing('["a list"]')).toEqual({ problem: null });
+    expect(editing('')).toEqual({ problem: null });
   });
 
-  it('refuses an edit the tool would not take, saying where and why', () => {
+  it('rejects an edit the tool would not take, saying where and why', () => {
     expect(
       CALL.editedTo({
         input: '{"labelIds": ["bug", 3]}',
@@ -71,7 +71,7 @@ describe('ToolCall', () => {
         draft: 'false',
         teamId: 'ENG',
       }),
-    ).toEqual({ refused: 'input needs title' });
+    ).toEqual({ problem: 'input needs title' });
     expect(
       CALL.editedTo({
         input: '{"title": "x", "labelIds": [3]}',
@@ -79,15 +79,20 @@ describe('ToolCall', () => {
         draft: 'false',
         teamId: 'ENG',
       }),
-    ).toEqual({ refused: 'input.labelIds[0] is not text' });
+    ).toEqual({ problem: 'input.labelIds[0] is not text' });
   });
 
-  it('keeps the shapes it was asked with through its parts', () => {
-    const kept = ToolCall.rehydrate(CALL.parts);
+  it('keeps the input shapes through its parts', () => {
+    const stored = ToolCall.rehydrate(CALL.parts);
 
     expect(
-      kept.editedTo({ input: '{}', first: '3', draft: 'false', teamId: 'ENG' }),
-    ).toEqual({ refused: 'input needs title' });
+      stored.editedTo({
+        input: '{}',
+        first: '3',
+        draft: 'false',
+        teamId: 'ENG',
+      }),
+    ).toEqual({ problem: 'input needs title' });
   });
 
   it('is the same call whatever order its structured values were written in', () => {

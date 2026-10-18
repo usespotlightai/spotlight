@@ -37,8 +37,8 @@ const journalStep = (
   detail: null,
   ms: draft.kind === 'tool' ? 1_800 : 0,
   locations: [],
-  given: null,
-  returned: null,
+  input: null,
+  output: null,
   change: null,
   ...draft,
   startedAt,
@@ -46,10 +46,10 @@ const journalStep = (
 
 export const chatTurn = (
   runId: string,
-  heardAt: string,
+  sentAt: string,
   steps: readonly StepDraft[],
 ): RunJournalResponseDto => {
-  const startedAt = secondsAfter(heardAt, 8);
+  const startedAt = secondsAfter(sentAt, 8);
   const endedAt = secondsAfter(startedAt, steps.length * STEP_SECONDS + 5);
 
   return {
@@ -60,8 +60,8 @@ export const chatTurn = (
     marks: {
       startedAt,
       readyAt: secondsAfter(startedAt, 3),
-      spokeFrom: secondsAfter(startedAt, 4),
-      spokeTo: endedAt,
+      firstAgentUpdateAt: secondsAfter(startedAt, 4),
+      lastAgentUpdateAt: endedAt,
       endedAt,
     },
     spent: {
@@ -79,7 +79,7 @@ export const chatTurn = (
 export const turnEndsAt = (journal: RunJournalResponseDto): string =>
   journal.marks.endedAt ?? new Date().toISOString();
 
-export const saidBy = (
+export const messageBy = (
   author: ChatMessageResponseDto['author'],
   position: number,
   body: string,
@@ -87,7 +87,7 @@ export const saidBy = (
   traces: ChatMessageResponseDto['traces'] = [],
 ): ChatMessageResponseDto => ({
   position,
-  kind: 'said',
+  kind: 'message',
   body,
   at,
   author,
@@ -147,7 +147,7 @@ const chatOf = (
   model: null,
   effort: null,
   repositories: [],
-  improving: null,
+  targetStation: null,
   setup: null,
   updatedAt: over.createdAt,
   working: false,
@@ -156,8 +156,8 @@ const chatOf = (
 });
 
 const retriesChat = (): ChatRecord => {
-  const asked = hoursAgo(31);
-  const first = chatTurn('run_chat_retries_1', asked, [
+  const sentAt = hoursAgo(31);
+  const first = chatTurn('run_chat_retries_1', sentAt, [
     {
       kind: 'thought',
       text: 'The retry schedule and the queue consumers both live in the worker.',
@@ -170,7 +170,7 @@ const retriesChat = (): ChatRecord => {
       text: 'kubectl -n worker get deploy retry-worker -o yaml | rg RETRY_CONCURRENCY',
     },
     {
-      kind: 'said',
+      kind: 'message',
       text: 'Retries pile up because Friday’s redeploy brought the retry worker back without `RETRY_CONCURRENCY`, so it takes no jobs at all: 1,204 sit in `webhook-retries` and 87 in `billing-retries`.\n\nOn top of that, endpoints that answer `410 Gone` are retried forever, so the queue never drains on its own. I would drain the stuck queues first, then add an alert so this cannot go quiet again.',
     },
   ]);
@@ -179,7 +179,7 @@ const retriesChat = (): ChatRecord => {
   const second = chatTurn('run_chat_retries_2', followed, [
     { kind: 'tool', tool: 'read', text: 'src/billing/reconcile.ts' },
     {
-      kind: 'said',
+      kind: 'message',
       text: 'Leave `billing-retries` alone until billing is reconciled: replaying those jobs now would charge some customers twice. Drain `webhook-retries` first, and watch the dead-letter count while you do. It should fall by about 1,200 an hour.',
     },
   ]);
@@ -191,14 +191,14 @@ const retriesChat = (): ChatRecord => {
       model: 'claude-opus-5',
       effort: 'high',
       repositories: ['acme/worker'],
-      createdAt: asked,
+      createdAt: sentAt,
       updatedAt: turnEndsAt(second),
       messages: [
-        saidBy(
+        messageBy(
           SAM,
           0,
           'Why do retries pile up? Webhook deliveries have been failing since Friday’s deploy.',
-          asked,
+          sentAt,
         ),
         proposed(
           1,
@@ -217,7 +217,7 @@ const retriesChat = (): ChatRecord => {
           'run_chat_retries_1',
           secondsAfter(proposedAt, 2),
           proposalAt(PLATFORM_ID, 'station_spec', {
-            title: 'Alert when a retry queue holds jobs older than an hour',
+            title: 'Alert when a retry queue has jobs older than an hour',
             description:
               'Page whoever is on call when the oldest job in any retry queue is more than an hour old.',
           }),
@@ -232,7 +232,7 @@ const retriesChat = (): ChatRecord => {
             state: 'dismissed',
           }),
         ),
-        saidBy(
+        messageBy(
           SAM,
           4,
           'The drain is under way. Anything to watch for while billing is being reconciled?',
@@ -246,11 +246,11 @@ const retriesChat = (): ChatRecord => {
 };
 
 const implementationChat = (): ChatRecord => {
-  const asked = hoursAgo(5);
-  const answer = chatTurn('run_chat_small_prs_1', asked, [
+  const sentAt = hoursAgo(5);
+  const answer = chatTurn('run_chat_small_prs_1', sentAt, [
     {
       kind: 'thought',
-      text: 'The station was asked to study its recent runs, so I start with the reviews that sent work back.',
+      text: 'The chat is about the station’s recent runs, so I start with the reviews that sent work back.',
     },
     {
       kind: 'tool',
@@ -263,8 +263,8 @@ const implementationChat = (): ChatRecord => {
       text: 'gh pr view 431 --repo acme/api --json additions,deletions',
     },
     {
-      kind: 'said',
-      text: 'Two of the last runs were sent back for size, and the Postgres driver upgrade mixed a migration that rewrites 1.3M invoice rows into the same pull request.\n\nI would add this to the Implementation prompt:\n\n> Before opening a pull request, count the changed lines. Above 400, split the work into a stack, and always put migrations in a pull request of their own.\n\nThat matches what the team already asks for in memory M-47.',
+      kind: 'message',
+      text: 'Two of the last runs were sent back for size, and the Postgres driver upgrade mixed a migration that rewrites 1.3M invoice rows into the same pull request.\n\nI would add this to the Implementation prompt:\n\n> Before opening a pull request, count the changed lines. Above 400, split the work into a stack, and always put migrations in a pull request of their own.\n\nThat matches what the team already requires in memory M-47.',
     },
   ]);
 
@@ -273,7 +273,7 @@ const implementationChat = (): ChatRecord => {
       id: 'chat_small_prs',
       title: 'Make Implementation keep pull requests small',
       repositories: ['acme/api'],
-      improving: {
+      targetStation: {
         lineId: DELIVERY_ID,
         lineKey: 'delivery',
         lineName: 'Delivery',
@@ -281,14 +281,14 @@ const implementationChat = (): ChatRecord => {
         stationKey: 'implementation',
         stationName: 'Implementation',
       },
-      createdAt: asked,
+      createdAt: sentAt,
       updatedAt: turnEndsAt(answer),
       messages: [
-        saidBy(
+        messageBy(
           SAM,
           0,
           'Its last runs were sent back twice for sprawling diffs. What should it do better?',
-          asked,
+          sentAt,
         ),
       ],
     }),
@@ -297,11 +297,11 @@ const implementationChat = (): ChatRecord => {
 };
 
 const rateLimitsChat = (): ChatRecord => {
-  const asked = hoursAgo(52);
-  const answer = chatTurn('run_chat_rate_limits_1', asked, [
+  const sentAt = hoursAgo(52);
+  const answer = chatTurn('run_chat_rate_limits_1', sentAt, [
     { kind: 'tool', tool: 'read', text: 'src/http/middleware/index.ts' },
     {
-      kind: 'said',
+      kind: 'message',
       text: 'There is no limit today: three partner tokens send up to 1,800 requests in the first minute after their nightly sync. A token bucket per API token, 600 requests a minute with bursts of 100, would cover every partner’s normal traffic and leave the dashboard alone, since it uses session cookies.',
     },
   ]);
@@ -312,14 +312,14 @@ const rateLimitsChat = (): ChatRecord => {
       id: 'chat_rate_limits',
       title: 'Rate limiting for the public API',
       repositories: ['acme/api'],
-      createdAt: asked,
+      createdAt: sentAt,
       updatedAt: secondsAfter(proposedAt, 2),
       messages: [
-        saidBy(
+        messageBy(
           SAM,
           0,
           'Partners hit the public API in bursts. How should we limit them without breaking the dashboard?',
-          asked,
+          sentAt,
         ),
         proposed(
           1,
@@ -350,16 +350,16 @@ const rateLimitsChat = (): ChatRecord => {
 };
 
 const quarterChat = (): ChatRecord => {
-  const asked = hoursAgo(98);
-  const answer = chatTurn('run_chat_quarter_1', asked, [
+  const sentAt = hoursAgo(98);
+  const answer = chatTurn('run_chat_quarter_1', sentAt, [
     {
       kind: 'tool',
       tool: 'bash',
       text: 'spotlight tasks --team platform --done --since 90d',
     },
     {
-      kind: 'said',
-      text: 'Most of last quarter went to incidents on the worker fleet. Three themes stand out for next quarter:\n\n1. **Queues**: retries, dead letters and alerts on queue age.\n2. **Postgres**: the driver upgrade and connection pooling.\n3. **Public API**: rate limits and published docs.',
+      kind: 'message',
+      text: 'Most of last quarter went to incidents on the worker fleet. Three themes are important for next quarter:\n\n1. **Queues**: retries, dead letters and alerts on queue age.\n2. **Postgres**: the driver upgrade and connection pooling.\n3. **Public API**: rate limits and published docs.',
     },
   ]);
 
@@ -368,14 +368,14 @@ const quarterChat = (): ChatRecord => {
       id: 'chat_quarter',
       title: 'What should the platform team take on next quarter?',
       harness: 'codex',
-      createdAt: asked,
+      createdAt: sentAt,
       updatedAt: turnEndsAt(answer),
       messages: [
-        saidBy(
+        messageBy(
           SAM,
           0,
           'What should the platform team take on next quarter?',
-          asked,
+          sentAt,
         ),
       ],
     }),
@@ -384,11 +384,11 @@ const quarterChat = (): ChatRecord => {
 };
 
 const onboardingChat = (): ChatRecord => {
-  const asked = hoursAgo(22);
-  const answer = chatTurn('run_chat_onboarding_1', asked, [
+  const sentAt = hoursAgo(22);
+  const answer = chatTurn('run_chat_onboarding_1', sentAt, [
     { kind: 'tool', tool: 'read', text: 'src/onboarding/Checklist.tsx' },
     {
-      kind: 'said',
+      kind: 'message',
       text: 'The checklist has seven steps and 38% of new workspaces stop at step four, “Invite your team”. Cutting it to four steps, with inviting moved to the end, is worth an experiment.',
     },
   ]);
@@ -399,14 +399,14 @@ const onboardingChat = (): ChatRecord => {
       id: 'chat_onboarding',
       title: 'Shorten the onboarding checklist',
       repositories: ['acme/web'],
-      createdAt: asked,
+      createdAt: sentAt,
       updatedAt: proposedAt,
       messages: [
-        saidBy(
+        messageBy(
           PRIYA,
           0,
           'New workspaces drop off during onboarding. Where would you cut?',
-          asked,
+          sentAt,
         ),
         proposed(
           1,
@@ -429,12 +429,12 @@ const onboardingChat = (): ChatRecord => {
 const SETUP_PULL_REQUEST = 'https://github.com/acme/infra/pull/12';
 
 const setupChat = (): ChatRecord => {
-  const asked = hoursAgo(4300);
-  const answer = chatTurn('run_chat_setup_1', asked, [
+  const sentAt = hoursAgo(4300);
+  const answer = chatTurn('run_chat_setup_1', sentAt, [
     { kind: 'tool', tool: 'read', text: 'api/.github/workflows/ci.yml' },
     { kind: 'tool', tool: 'bash', text: 'spotlight linear.labels' },
     {
-      kind: 'said',
+      kind: 'message',
       text: 'The API runs `npm test` and `npm run lint` in CI, and Linear issues are triaged with the `bug`, `feature` and `chore` labels. I adapted the triage prompt to those labels and gave Implementation the CI commands as its check.\n\nThe pull request is open: https://github.com/acme/infra/pull/12',
     },
   ]);
@@ -450,14 +450,14 @@ const setupChat = (): ChatRecord => {
         folder: 'spotlight',
         pullRequest: SETUP_PULL_REQUEST,
       },
-      createdAt: asked,
+      createdAt: sentAt,
       updatedAt: turnEndsAt(answer),
       messages: [
-        saidBy(
+        messageBy(
           SAM,
           0,
           'Set up our configuration as code in acme/infra, under spotlight/.',
-          asked,
+          sentAt,
         ),
       ],
     }),

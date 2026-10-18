@@ -36,8 +36,8 @@ const comment = (over: Partial<ReviewComment>): ReviewComment =>
     authorName: 'Maya Chen',
     authorLogin: null,
     authorImage: null,
-    yours: false,
-    byAgent: false,
+    viewerIsAuthor: false,
+    isAgentAuthored: false,
     replyTo: null,
     state: 'posted',
     failure: null,
@@ -117,7 +117,7 @@ describe('FileThread', () => {
     );
   });
 
-  it('shows nothing where there is nothing said and nothing to say', () => {
+  it('shows nothing where there is no comment and nothing to write', () => {
     shown([], null, false);
 
     expect(screen.queryByRole('region')).not.toBeInTheDocument();

@@ -3,7 +3,7 @@ import {
   drawn,
   filesIn,
   type PendingAttachment,
-  refused,
+  sizeProblem,
 } from '@/lib/attachment';
 import { uploadAttachment } from '@/lib/upload-attachment';
 
@@ -15,7 +15,7 @@ export function useAttachments(slug: string) {
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const counted = useRef(0);
 
-  const settle = (key: string, outcome: Outcome) =>
+  const finish = (key: string, outcome: Outcome) =>
     setAttachments((all) =>
       all.map((each) => (each.key === key ? { ...each, ...outcome } : each)),
     );
@@ -24,7 +24,7 @@ export function useAttachments(slug: string) {
     const added = files.map((file) => {
       counted.current += 1;
 
-      const problem = refused(file);
+      const problem = sizeProblem(file);
 
       const pending: PendingAttachment = {
         key: String(counted.current),
@@ -45,9 +45,9 @@ export function useAttachments(slug: string) {
       }
 
       uploadAttachment({ slug, file }).then(
-        ({ id }) => settle(pending.key, { state: 'ready', id }),
+        ({ id }) => finish(pending.key, { state: 'ready', id }),
         () =>
-          settle(pending.key, { state: 'failed', problem: 'Upload failed' }),
+          finish(pending.key, { state: 'failed', problem: 'Upload failed' }),
       );
     }
 

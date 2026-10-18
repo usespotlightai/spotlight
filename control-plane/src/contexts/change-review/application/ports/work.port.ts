@@ -8,7 +8,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const WORK = Symbol('WORK');
 
-export interface ReviewedRun {
+export interface RunForReview {
   readonly id: RunId;
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
@@ -41,11 +41,11 @@ export interface ReviewedTask {
 }
 
 export interface WorkPort {
-  run(runId: RunId): Promise<ReviewedRun | null>;
+  run(runId: RunId): Promise<RunForReview | null>;
 
   teamOfRun(runId: RunId): Promise<TeamId | null>;
 
-  wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean>;
+  wasClaimedBy(runId: RunId, runner: RunnerId): Promise<boolean>;
 
   reasoning(runId: RunId): Promise<RunReasoning | null>;
 

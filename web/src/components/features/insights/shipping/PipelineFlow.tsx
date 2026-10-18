@@ -7,7 +7,7 @@ import { PipelineFlowLegend } from '@/components/features/insights/shipping/Pipe
 import { PipelineFlowTable } from '@/components/features/insights/shipping/PipelineFlowTable';
 import { Segmented } from '@/components/shared/Segmented';
 import { Button } from '@/components/ui/button';
-import { formatCount, lastedOrNone } from '@/lib/insights';
+import { formatCount, formatDurationOrNone } from '@/lib/insights';
 import { formatType, type PullRequestType } from '@/lib/insights-pull-requests';
 import {
   DEFAULT_PERCENTILE,
@@ -70,8 +70,10 @@ export function PipelineFlow({ flow }: { flow: Flow }) {
         focus={focus}
         playing={playing}
         label={`${formatCount(merged)} merged ${which}pull requests at ${percentile}: ${stages
-          .map((stage) => `${stage.label} ${lastedOrNone(stage.ms)}`)
-          .join(', ')}.${worst ? ` The worst jam is ${worst.label}.` : ''}`}
+          .map((stage) => `${stage.label} ${formatDurationOrNone(stage.ms)}`)
+          .join(
+            ', ',
+          )}.${worst ? ` The worst bottleneck is ${worst.label}.` : ''}`}
       />
       <PipelineFlowLegend
         shares={flow.types}

@@ -9,7 +9,7 @@ const candidate = (
   over: Partial<SetCandidate> &
     Pick<
       SetCandidate,
-      'candidateId' | 'name' | 'kind' | 'replayId' | 'charted' | 'shown'
+      'candidateId' | 'name' | 'kind' | 'replayId' | 'chartStatus' | 'shown'
     >,
 ): SetCandidate => ({
   hypothesis: null,
@@ -31,7 +31,7 @@ const candidate = (
   costPerRunOnCompared: null,
   regressions: null,
   compared: 0,
-  againstLive: null,
+  gainOverLive: null,
   onFrontier: null,
   search: null,
   pullRequest: null,
@@ -48,7 +48,7 @@ const SEARCH = {
     interval: null,
     costPerRun: 0.6,
     scored: 18,
-    charted: 'priced' as const,
+    chartStatus: 'priced' as const,
   },
 };
 
@@ -56,7 +56,7 @@ const IMPLEMENTATION_SET: CandidatesSet = {
   setId: 'set_implementation',
   name: 'Migrations and billing',
   stationGone: false,
-  guardsChanges: true,
+  gatesChanges: true,
   health: {
     tasks: 24,
     runs: 27,
@@ -71,7 +71,7 @@ const IMPLEMENTATION_SET: CandidatesSet = {
       spread: 0.13,
       flippedTasks: ['task_3', 'task_9', 'task_14'],
       measuredAt: daysAgo(4),
-      noisyInOneCopy: true,
+      noisyInOneRepeat: true,
     },
     saturation: {
       replayId: 'replay_live_impl_noise',
@@ -107,7 +107,7 @@ const IMPLEMENTATION_SET: CandidatesSet = {
     costPerRun: 0.62,
     currency: 'USD',
     endedAt: daysAgo(6),
-    charted: 'priced',
+    chartStatus: 'priced',
   },
   chartCurrency: 'USD',
   candidates: [
@@ -116,7 +116,7 @@ const IMPLEMENTATION_SET: CandidatesSet = {
       name: 'opus-with-migrations-skill',
       kind: 'searched',
       replayId: 'replay_opus_skill',
-      charted: 'priced',
+      chartStatus: 'priced',
       shown: {
         basis: 'compared',
         costBasis: 'compared',
@@ -130,7 +130,7 @@ const IMPLEMENTATION_SET: CandidatesSet = {
       tasks: 16,
       runs: 18,
       hypothesis:
-        'Sent-back runs mostly forgot the migration order; the skill spells it out, and opus follows long skills better.',
+        'Sent-back runs mostly missed the migration order; the skill spells it out, and opus follows long skills better.',
       changes: [
         {
           part: 'model',
@@ -169,11 +169,11 @@ const IMPLEMENTATION_SET: CandidatesSet = {
       costPerRunOnCompared: 0.82,
       regressions: 1,
       compared: 18,
-      againstLive: {
+      gainOverLive: {
         gain: 0.16,
         low: 0.02,
         high: 0.3,
-        verdict: 'better',
+        significance: 'better',
         minGain: 0.05,
         tasks: 16,
       },
@@ -191,7 +191,7 @@ const IMPLEMENTATION_SET: CandidatesSet = {
       name: 'sonnet-terse-prompt',
       kind: 'searched',
       replayId: 'replay_terse',
-      charted: 'priced',
+      chartStatus: 'priced',
       shown: {
         basis: 'compared',
         costBasis: 'compared',
@@ -226,11 +226,11 @@ const IMPLEMENTATION_SET: CandidatesSet = {
       intervalOnCompared: { rate: 0.5, low: 0.3, high: 0.68 },
       regressions: 3,
       compared: 18,
-      againstLive: {
+      gainOverLive: {
         gain: -0.06,
         low: -0.22,
         high: 0.1,
-        verdict: 'within-noise',
+        significance: 'within-noise',
         minGain: 0.05,
         tasks: 16,
       },
@@ -242,7 +242,7 @@ const IMPLEMENTATION_SET: CandidatesSet = {
       name: 'cursor-careful-profile',
       kind: 'searched',
       replayId: 'replay_cursor',
-      charted: 'unpriced',
+      chartStatus: 'unpriced',
       shown: {
         basis: 'compared',
         costBasis: 'compared',
@@ -283,7 +283,7 @@ const IMPLEMENTATION_SET: CandidatesSet = {
       name: 'sonnet-plan-first',
       kind: 'searched',
       replayId: 'replay_plan_first',
-      charted: 'unfinished',
+      chartStatus: 'unfinished',
       shown: {
         basis: 'overall',
         costBasis: 'overall',
@@ -309,7 +309,7 @@ const REVIEW_SET: CandidatesSet = {
   setId: 'set_review',
   name: 'Reviews sent back',
   stationGone: false,
-  guardsChanges: false,
+  gatesChanges: false,
   health: {
     tasks: 12,
     runs: 12,
@@ -333,7 +333,7 @@ const REVIEW_SET: CandidatesSet = {
     costPerRun: 0.21,
     currency: 'USD',
     endedAt: daysAgo(9),
-    charted: 'priced',
+    chartStatus: 'priced',
   },
   chartCurrency: 'USD',
   candidates: [
@@ -342,7 +342,7 @@ const REVIEW_SET: CandidatesSet = {
       name: 'one-comment-per-problem',
       kind: 'proposed',
       replayId: 'replay_one_comment',
-      charted: 'priced',
+      chartStatus: 'priced',
       shown: {
         basis: 'compared',
         costBasis: 'compared',
@@ -371,11 +371,11 @@ const REVIEW_SET: CandidatesSet = {
       costPerRunOnCompared: 0.21,
       regressions: 0,
       compared: 12,
-      againstLive: {
+      gainOverLive: {
         gain: 0,
         low: -0.08,
         high: 0.08,
-        verdict: 'within-noise',
+        significance: 'within-noise',
         minGain: 0.05,
         tasks: 12,
       },
@@ -385,7 +385,7 @@ const REVIEW_SET: CandidatesSet = {
       name: 'review-against-spec',
       kind: 'proposed',
       replayId: 'replay_spec_review',
-      charted: 'priced',
+      chartStatus: 'priced',
       shown: {
         basis: 'compared',
         costBasis: 'compared',
@@ -421,11 +421,11 @@ const REVIEW_SET: CandidatesSet = {
       costPerRunOnCompared: 0.24,
       regressions: 2,
       compared: 12,
-      againstLive: {
+      gainOverLive: {
         gain: -0.08,
         low: -0.25,
         high: 0.08,
-        verdict: 'within-noise',
+        significance: 'within-noise',
         minGain: 0.05,
         tasks: 12,
       },

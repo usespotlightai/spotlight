@@ -18,7 +18,7 @@ const works = (run: object | null) =>
     {} as TaskRepository,
     {} as ChatRepository,
     {
-      holding: async () => {
+      findByStation: async () => {
         throw new Error('a replay names its repositories itself');
       },
     } as unknown as LineRepository,

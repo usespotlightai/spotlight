@@ -4,9 +4,9 @@ import { PaneScroller } from '@/components/shared/PaneScroller';
 import { useRunSidePanel } from '@/lib/run-side-panel';
 
 function Scrolled({ children }: { children: ReactNode }) {
-  const { aside } = useRunSidePanel();
+  const { sidePanel } = useRunSidePanel();
 
-  return <PaneScroller aside={aside}>{children}</PaneScroller>;
+  return <PaneScroller sidePanel={sidePanel}>{children}</PaneScroller>;
 }
 
 export function WithRunSidePanel({ children }: { children: ReactNode }) {

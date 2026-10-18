@@ -1,7 +1,7 @@
 import { MAX_INVITED_AT_ONCE } from '@identity/application/commands/invite-to-workspace.command';
 
 export class InviteeCountError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(count: number) {
     super(

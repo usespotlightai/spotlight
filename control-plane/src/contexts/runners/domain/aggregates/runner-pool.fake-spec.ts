@@ -4,12 +4,13 @@ import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { RunnerHostVersionConflictError } from '@runners/domain/exceptions/runner-host-version-conflict.error';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
-import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { BootId } from '@runners/domain/value-objects/boot-id.vo';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import type { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
+import { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypted-provision-secret.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
-import { HostSession } from '@runners/domain/value-objects/host-session.vo';
 import type { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
@@ -18,10 +19,9 @@ import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
-import { SealedProvisionSecret } from '@runners/domain/value-objects/sealed-provision-secret.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -54,7 +54,7 @@ export const aPullPool = (
     tokenVersion?: number;
   } = {},
 ): RunnerPool =>
-  RunnerPool.define({
+  RunnerPool.create({
     id: input.id ?? POOL_ID,
     workspaceId: POOL_WORKSPACE,
     key: PoolKey.of('ephemeral'),
@@ -65,11 +65,11 @@ export const aPullPool = (
       tokenHash: hashOf('a'),
       tokenVersion: input.tokenVersion ?? null,
     },
-    by: attributedIn(),
+    by: changeActorIn(),
   });
 
-export const sealedOf = (character: string): SealedProvisionSecret =>
-  SealedProvisionSecret.of(`sealed:${character}`);
+export const encryptedOf = (character: string): EncryptedProvisionSecret =>
+  EncryptedProvisionSecret.of(`encrypted:${character}`);
 
 export const aPushPool = (
   input: {
@@ -80,7 +80,7 @@ export const aPushPool = (
     egressTraffic?: EgressTraffic;
   } = {},
 ): RunnerPool =>
-  RunnerPool.define({
+  RunnerPool.create({
     id: POOL_ID,
     workspaceId: POOL_WORKSPACE,
     key: PoolKey.of('sandboxes'),
@@ -89,16 +89,16 @@ export const aPushPool = (
     access: {
       mode: 'push',
       url: ProvisionUrl.of(input.url ?? 'https://provision.example.com/runs'),
-      secret: sealedOf('s'),
+      secret: encryptedOf('s'),
       secretVersion: 1,
       egress: input.egress ?? null,
       egressTraffic: input.egressTraffic,
     },
-    by: attributedIn(),
+    by: changeActorIn(),
   });
 
 export const aTrust = (input: { labels?: string[] } = {}): RunnerTrust =>
-  RunnerTrust.define({
+  RunnerTrust.create({
     id: TRUST_ID,
     workspaceId: POOL_WORKSPACE,
     key: TrustKey.of('cluster'),
@@ -108,7 +108,7 @@ export const aTrust = (input: { labels?: string[] } = {}): RunnerTrust =>
       audience: 'spotlight',
     }),
     labels: RunnerLabels.of(input.labels ?? ['vpc-internal']),
-    by: attributedIn(),
+    by: changeActorIn(),
   });
 
 export const aRunner = (
@@ -139,21 +139,21 @@ export const aHostReport = (running: string[] = []): HostReport =>
   HostReport.of({
     name: 'build-box',
     release: '0.9.0',
-    executor: 'docker',
+    containerRuntime: 'docker',
     capacity: 4,
     running,
     images: [
       {
         image: 'ghcr.io/acme/runner:main',
-        usual: true,
+        isDefault: true,
         harnesses: [{ id: 'claude-code', models: [], version: '2.1.0' }],
       },
-      { image: 'ghcr.io/acme/widgets:1', usual: false, harnesses: [] },
+      { image: 'ghcr.io/acme/widgets:1', isDefault: false, harnesses: [] },
       {
         image: 'ghcr.io/acme/old:1',
-        usual: false,
+        isDefault: false,
         harnesses: [],
-        refused:
+        unavailableReason:
           "Runner doesn't report its release number. Minimum version required: 20260925-01",
       },
     ],
@@ -164,69 +164,69 @@ export const aHost = (
 ): RunnerHost => {
   const through = input.through ?? aPullPool();
 
-  return RunnerHost.present({
+  return RunnerHost.fromHeartbeat({
     id: input.id ?? HOST_ID,
     workspaceId: through.workspaceId,
-    admission: Admission.through(through.id),
-    session: HostSession.of('session_1'),
+    source: CredentialSource.ofId(through.id),
+    bootId: BootId.of('boot_1'),
     report: aHostReport(),
     at: input.at ?? STARTED_AT,
   });
 };
 
-export const heldHosts = (...known: RunnerHost[]) => {
-  const held = new Map(known.map((host) => [host.id.value, host]));
+export const storedHosts = (...known: RunnerHost[]) => {
+  const stored = new Map(known.map((host) => [host.id.value, host]));
   const hosts = {
-    find: vi.fn(async (id: HostId) => held.get(id.value) ?? null),
+    find: vi.fn(async (id: HostId) => stored.get(id.value) ?? null),
     add: vi.fn(async (host: RunnerHost) => {
-      if (held.has(host.id.value)) {
+      if (stored.has(host.id.value)) {
         throw new RunnerHostVersionConflictError(host.id.value);
       }
-      held.set(host.id.value, host);
+      stored.set(host.id.value, host);
     }),
     save: vi.fn(async (host: RunnerHost) => {
-      if (held.get(host.id.value)?.version !== host.version) {
+      if (stored.get(host.id.value)?.version !== host.version) {
         throw new RunnerHostVersionConflictError(host.id.value);
       }
-      held.set(
+      stored.set(
         host.id.value,
         RunnerHost.rehydrate({
           id: host.id,
           workspaceId: host.workspaceId,
-          admission: host.admission,
-          session: host.session,
+          source: host.source,
+          bootId: host.bootId,
           report: host.report,
-          firstSeenAt: host.firstSeenAt,
-          upSince: host.upSince,
-          lastSeenAt: host.lastSeenAt,
+          firstHeartbeatAt: host.firstHeartbeatAt,
+          onlineSince: host.onlineSince,
+          lastHeartbeatAt: host.lastHeartbeatAt,
           version: host.version + 1,
         }),
       );
     }),
     remove: vi.fn(async (host: RunnerHost) => {
-      if (held.get(host.id.value)?.version !== host.version) {
+      if (stored.get(host.id.value)?.version !== host.version) {
         throw new RunnerHostVersionConflictError(host.id.value);
       }
-      held.delete(host.id.value);
+      stored.delete(host.id.value);
     }),
-    removeUnseenSince: vi.fn(async (since: Date) => {
+    removeStaleBefore: vi.fn(async (cutoff: Date) => {
       let removed = 0;
-      for (const [id, host] of held) {
-        if (host.lastSeenAt <= since) {
-          held.delete(id);
+      for (const [id, host] of stored) {
+        if (host.lastHeartbeatAt <= cutoff) {
+          stored.delete(id);
           removed++;
         }
       }
       return removed;
     }),
-    removeThrough: vi.fn(async (admission: Admission) => {
-      for (const [id, host] of held) {
-        if (host.servesThrough(admission)) {
-          held.delete(id);
+    removeThrough: vi.fn(async (source: CredentialSource) => {
+      for (const [id, host] of stored) {
+        if (host.hasSource(source)) {
+          stored.delete(id);
         }
       }
     }),
   } satisfies RunnerHostRepository;
 
-  return { held, hosts };
+  return { stored, hosts };
 };

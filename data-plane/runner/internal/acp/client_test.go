@@ -23,7 +23,7 @@ func pretend(t *testing.T, script string) string {
 	return path
 }
 
-const answering = `
+const responsiveHarness = `
 const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
 let buffered = "";
 process.stdin.on("data", (chunk) => {
@@ -64,8 +64,8 @@ func start(t *testing.T, script string, answer acp.Permission) (*acp.Client, str
 	return client, root
 }
 
-func TestOpensASessionAndReportsWhatWasSaid(t *testing.T) {
-	client, _ := start(t, answering, nil)
+func TestOpensASessionAndReportsTheAgentsOutput(t *testing.T) {
+	client, _ := start(t, responsiveHarness, nil)
 
 	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
@@ -78,16 +78,16 @@ func TestOpensASessionAndReportsWhatWasSaid(t *testing.T) {
 		t.Fatalf("got %q", sessionID)
 	}
 
-	var said string
+	var output string
 	result, err := client.Prompt(ctx, sessionID, "do the thing", func(update acp.Update) {
-		said += update.Text
+		output += update.Text
 	})
 	if err != nil {
 		t.Fatalf("prompt: %v", err)
 	}
 
-	if said != "half done" {
-		t.Errorf("heard %q", said)
+	if output != "half done" {
+		t.Errorf("output %q", output)
 	}
 	if result.StopReason != "end_turn" {
 		t.Errorf("stopped for %q", result.StopReason)
@@ -97,7 +97,7 @@ func TestOpensASessionAndReportsWhatWasSaid(t *testing.T) {
 	}
 }
 
-const asking = `
+const permissionRequest = `
 const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
 let buffered = "", promptId = null;
 process.stdin.on("data", (chunk) => {
@@ -121,7 +121,7 @@ process.stdin.on("data", (chunk) => {
 });
 `
 
-const reaching = `
+const fileAccess = `
 const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
 let buffered = "", promptId = null;
 process.stdin.on("data", (chunk) => {
@@ -141,14 +141,14 @@ process.stdin.on("data", (chunk) => {
              params: { path: "echo.txt", content: msg.result.content.toUpperCase() } });
     }
     if (msg.id === 901 && msg.error) {
-      send({ jsonrpc: "2.0", id: promptId, result: { stopReason: "refused" } });
+      send({ jsonrpc: "2.0", id: promptId, result: { stopReason: "rejected" } });
     }
     if (msg.id === 902) send({ jsonrpc: "2.0", id: promptId, result: { stopReason: "end_turn" } });
   }
 });
 `
 
-const reachingOut = `
+const fileAccessOutside = `
 const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
 let buffered = "", promptId = null;
 process.stdin.on("data", (chunk) => {
@@ -164,7 +164,7 @@ process.stdin.on("data", (chunk) => {
       send({ jsonrpc: "2.0", id: 903, method: "fs/read_text_file", params: { path: "../outside.txt" } });
     }
     if (msg.id === 903) {
-      send({ jsonrpc: "2.0", id: promptId, result: { stopReason: msg.error ? "refused" : "leaked" } });
+      send({ jsonrpc: "2.0", id: promptId, result: { stopReason: msg.error ? "rejected" : "leaked" } });
     }
   }
 });
@@ -216,12 +216,12 @@ func TestCancelEndsTheTurnInFlight(t *testing.T) {
 	}
 }
 
-func TestAnswersThePermissionTheAgentAsksFor(t *testing.T) {
+func TestAnswersThePermissionTheAgentRequests(t *testing.T) {
 	for _, expected := range []struct {
 		allowed bool
 		stopped string
 	}{{true, "allowed"}, {false, "refused"}} {
-		client, _ := start(t, asking, func(context.Context, acp.Asked) acp.Verdict {
+		client, _ := start(t, permissionRequest, func(context.Context, acp.Asked) acp.Verdict {
 			if expected.allowed {
 				return acp.Allow
 			}
@@ -236,13 +236,13 @@ func TestAnswersThePermissionTheAgentAsksFor(t *testing.T) {
 			t.Fatalf("allowed=%v: %v", expected.allowed, err)
 		}
 		if result.StopReason != expected.stopped {
-			t.Errorf("allowed=%v: the agent was told %q", expected.allowed, result.StopReason)
+			t.Errorf("allowed=%v: the agent got %q", expected.allowed, result.StopReason)
 		}
 	}
 }
 
 func TestReadsAndWritesWithinTheWorkspace(t *testing.T) {
-	client, root := start(t, reaching, nil)
+	client, root := start(t, fileAccess, nil)
 	if err := os.WriteFile(filepath.Join(root, "hello.txt"), []byte("in the workspace"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -260,8 +260,8 @@ func TestReadsAndWritesWithinTheWorkspace(t *testing.T) {
 	}
 }
 
-func TestRefusesAPathOutsideTheWorkspace(t *testing.T) {
-	client, root := start(t, reachingOut, nil)
+func TestRejectsAPathOutsideTheWorkspace(t *testing.T) {
+	client, root := start(t, fileAccessOutside, nil)
 	if err := os.WriteFile(filepath.Join(filepath.Dir(root), "outside.txt"), []byte("secret"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -269,16 +269,16 @@ func TestRefusesAPathOutsideTheWorkspace(t *testing.T) {
 	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
 
-	result, err := client.Prompt(ctx, "session_1", "reach out", func(acp.Update) {})
+	result, err := client.Prompt(ctx, "session_1", "read outside", func(acp.Update) {})
 	if err != nil {
 		t.Fatalf("prompt: %v", err)
 	}
-	if result.StopReason != "refused" {
+	if result.StopReason != "rejected" {
 		t.Errorf("the agent got outside the workspace: %q", result.StopReason)
 	}
 }
 
-const refusing = `
+const failingLoads = `
 const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
 let buffered = "";
 process.stdin.on("data", (chunk) => {
@@ -297,26 +297,26 @@ process.stdin.on("data", (chunk) => {
 });
 `
 
-func TestForgottenTellsAMissingSessionFromAnyOtherRefusal(t *testing.T) {
-	client, _ := start(t, refusing, nil)
+func TestIsSessionNotFoundTellsAMissingSessionFromAnyOtherError(t *testing.T) {
+	client, _ := start(t, failingLoads, nil)
 
 	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
 
 	missing := client.Resume(ctx, "gone")
-	if missing == nil || !acp.Forgotten(missing) {
-		t.Errorf("a missing session did not read as forgotten: %v", missing)
+	if missing == nil || !acp.IsSessionNotFound(missing) {
+		t.Errorf("a missing session did not read as not found: %v", missing)
 	}
 
-	other := client.Resume(ctx, "held")
-	if other == nil || acp.Forgotten(other) {
-		t.Errorf("an unrelated refusal read as forgotten: %v", other)
+	other := client.Resume(ctx, "other")
+	if other == nil || acp.IsSessionNotFound(other) {
+		t.Errorf("an unrelated error read as a missing session: %v", other)
 	}
 }
 
 const permitting = `
 const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
-let buffered = "", promptId = null, cancelled = "untold";
+let buffered = "", promptId = null, cancelled = "not cancelled";
 process.stdin.on("data", (chunk) => {
   buffered += chunk.toString();
   const lines = buffered.split("\n");
@@ -325,7 +325,7 @@ process.stdin.on("data", (chunk) => {
     if (!line.trim()) continue;
     const msg = JSON.parse(line);
     if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
-    if (msg.method === "session/cancel") cancelled = "told " + msg.params.sessionId;
+    if (msg.method === "session/cancel") cancelled = "cancel sent to " + msg.params.sessionId;
     if (msg.method === "session/prompt") {
       promptId = msg.id;
       send({ jsonrpc: "2.0", id: 900, method: "session/request_permission",
@@ -349,11 +349,11 @@ process.stdin.on("data", (chunk) => {
 func TestAPermissionIsAnsweredOnceNotForever(t *testing.T) {
 	for _, expected := range []struct {
 		verdict acp.Verdict
-		told    string
+		answer  string
 	}{
 		{acp.Allow, "once"},
 		{acp.Reject, "not now"},
-		{acp.Cancel, "cancelled, told session_1"},
+		{acp.Cancel, "cancelled, cancel sent to session_1"},
 	} {
 		var asked acp.Asked
 		client, _ := start(t, permitting, func(_ context.Context, seen acp.Asked) acp.Verdict {
@@ -368,8 +368,8 @@ func TestAPermissionIsAnsweredOnceNotForever(t *testing.T) {
 		if err != nil {
 			t.Fatalf("verdict %v: %v", expected.verdict, err)
 		}
-		if result.StopReason != expected.told {
-			t.Errorf("verdict %v: the agent was told %q, wanted %q", expected.verdict, result.StopReason, expected.told)
+		if result.StopReason != expected.answer {
+			t.Errorf("verdict %v: the agent got %q, wanted %q", expected.verdict, result.StopReason, expected.answer)
 		}
 		if asked.SessionID != "session_1" || asked.ToolCallID != "toolu_1" ||
 			asked.Kind != "execute" || asked.Title != "rm -rf build" ||
@@ -390,7 +390,7 @@ func TestAPermissionIsRefusedWhenNobodyAnswers(t *testing.T) {
 		t.Fatalf("prompt: %v", err)
 	}
 	if result.StopReason != "not now" {
-		t.Errorf("the agent was told %q", result.StopReason)
+		t.Errorf("the agent got %q", result.StopReason)
 	}
 }
 
@@ -459,20 +459,20 @@ func TestASessionOpensWithWhatTheHarnessIsSetUpWith(t *testing.T) {
 				t.Fatalf("%s, resuming=%v: %v", expected.name, resuming, err)
 			}
 
-			var heard string
-			if _, err := client.Prompt(ctx, "session_1", "go", func(update acp.Update) { heard += update.Text }); err != nil {
+			var output string
+			if _, err := client.Prompt(ctx, "session_1", "go", func(update acp.Update) { output += update.Text }); err != nil {
 				t.Fatalf("%s, resuming=%v: prompt: %v", expected.name, resuming, err)
 			}
 			stop()
 			_ = client.Close()
 
 			var got, want any
-			if err := json.Unmarshal([]byte(heard), &got); err != nil {
-				t.Fatalf("%s, resuming=%v: heard %q: %v", expected.name, resuming, heard, err)
+			if err := json.Unmarshal([]byte(output), &got); err != nil {
+				t.Fatalf("%s, resuming=%v: output %q: %v", expected.name, resuming, output, err)
 			}
 			_ = json.Unmarshal([]byte(expected.opened), &want)
 			if !reflect.DeepEqual(got, want) {
-				t.Errorf("%s, resuming=%v: opened with %s, wanted %s", expected.name, resuming, heard, expected.opened)
+				t.Errorf("%s, resuming=%v: opened with %s, wanted %s", expected.name, resuming, output, expected.opened)
 			}
 		}
 	}

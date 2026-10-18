@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-17T09:00:00.000Z');
 
-const held = Run.enqueue({
+const leased = Run.enqueue({
   id: RunId.of('run_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   harness: HarnessId.of('dev'),
@@ -21,11 +21,11 @@ const held = Run.enqueue({
     command: { executable: 'sh', args: [] },
     briefing: 'do the thing',
     handover: { options: [], noteLimit: 4_000 },
-    continuity: { key: 'task:station' },
+    resume: { key: 'task:station' },
   }),
 })
   .claim(RunnerId.of('runner_1'), NOW)
-  .requeue(new Date(NOW.getTime() + 60_000))
+  .expireLease(new Date(NOW.getTime() + 60_000))
   .claim(RunnerId.of('runner_1'), NOW);
 
 const journalling = () => {
@@ -34,11 +34,11 @@ const journalling = () => {
   const published: string[] = [];
 
   const handler = new AppendRunJournalHandler(
-    { findById: async () => held } as unknown as RunRepository,
+    { findById: async () => leased } as unknown as RunRepository,
     {
       append: async (attempt, entries) =>
         void appended.push({ attempt, entries }),
-      appendAside: async () => -1_000_000,
+      appendControlPlaneEntry: async () => -1_000_000,
     },
     { publish: (runId: string) => void published.push(runId) } as never,
   );
@@ -54,7 +54,7 @@ const entry = {
 };
 
 describe('AppendRunJournalHandler', () => {
-  it('journals under the attempt the run is on, for the runner holding it', async () => {
+  it('journals under the attempt the run is on, for the runner that leases it', async () => {
     const { handler, appended, published } = journalling();
 
     await handler.execute(
@@ -67,7 +67,7 @@ describe('AppendRunJournalHandler', () => {
     expect(published).toEqual(['run_1']);
   });
 
-  it('refuses another runner, and journals and streams nothing', async () => {
+  it('rejects another runner, and journals and streams nothing', async () => {
     const { handler, appended, published } = journalling();
 
     await expect(

@@ -1,25 +1,27 @@
-import type { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
+import type { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import type { ToolDeclaration } from '@work/application/contracts/tools.contract';
 
 export const ToolDeclarationMapper = {
   toDeclaration(
-    offered: OfferedTool,
+    provided: ProvidedTool,
     integrationName: string,
   ): ToolDeclaration {
     return {
-      tool: offered.tool,
+      tool: provided.tool,
       integrationName,
-      description: offered.description,
-      inputs: offered.inputs.map((each) => ({
+      description: provided.description,
+      inputs: provided.inputs.map((each) => ({
         name: each.name,
         schema: each.schema.written,
         description: each.description,
         required: each.required,
         defaulted: each.defaulted,
-        piped: each.piped,
+        stdin: each.stdin,
       })),
-      approval: offered.approval ? { because: offered.approval.because } : null,
-      learnedOutput: null,
+      approval: provided.approval
+        ? { because: provided.approval.because }
+        : null,
+      inferredOutput: null,
     };
   },
 };

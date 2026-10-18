@@ -46,7 +46,7 @@ export class ReplayedCandidatesController {
     required: false,
     enum: REPLAYED_PERIODS,
     description:
-      'How many whole UTC days, up to and including today, to look at; 30d unless asked',
+      'How many whole UTC days, up to and including today, to look at; 30d by default',
   })
   @ApiOkResponse({ type: ReplayedCandidatesResponseDto })
   @ApiProblemResponse(HttpStatus.UNPROCESSABLE_ENTITY, 'No such period')

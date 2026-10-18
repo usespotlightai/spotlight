@@ -3,21 +3,23 @@ import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid
 import { describe, expect, it } from 'vitest';
 
 describe('Opening', () => {
-  it('keeps the role of the line a task opens onto, and the station it starts at', () => {
-    const opening = Opening.of({ onto: ' review ', at: 'triage' });
+  it('keeps the role of the line where a task opens, and the station it starts at', () => {
+    const opening = Opening.of({ lineRole: ' review ', station: 'triage' });
 
-    expect(opening.onto).toBe('review');
-    expect(opening.at).toBe('triage');
+    expect(opening.lineRole).toBe('review');
+    expect(opening.station).toBe('triage');
   });
 
   it('leaves the station to the line when none is named', () => {
-    expect(Opening.of({ onto: 'delivery', at: '  ' }).at).toBeNull();
+    expect(
+      Opening.of({ lineRole: 'delivery', station: '  ' }).station,
+    ).toBeNull();
   });
 
-  it.each([{ onto: 'Delivery Line' }, { onto: 'delivery', at: 'code review' }])(
-    'refuses %o, which is not named in words',
-    (input) => {
-      expect(() => Opening.of(input)).toThrow(InvalidIdentifierError);
-    },
-  );
+  it.each([
+    { lineRole: 'Delivery Line' },
+    { lineRole: 'delivery', station: 'code review' },
+  ])('rejects %o, which is not named in words', (input) => {
+    expect(() => Opening.of(input)).toThrow(InvalidIdentifierError);
+  });
 });

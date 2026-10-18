@@ -9,8 +9,8 @@ import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -22,7 +22,7 @@ const RUNNER = RunnerId.of('pooled_1');
 
 const OTHER = RunnerId.of('pooled_2');
 
-const REFUSED = ProvisionFailure.of('refused', 'answered 503');
+const HTTP_ERROR = ProvisionFailure.of('http-error', 'answered 503');
 
 const waiting = (stack: string, placement: string[] = []) =>
   StackCheck.begin({
@@ -41,45 +41,45 @@ const provisioning = (
   conflicts = 0,
   listed: readonly StackCheck[] = checks,
 ) => {
-  const held = new Map(checks.map((each) => [each.stackId.value, each]));
-  let refusing = conflicts;
-  const find = vi.fn(async (id: ChangeStackId) => held.get(id.value) ?? null);
+  const stored = new Map(checks.map((each) => [each.stackId.value, each]));
+  let conflicting = conflicts;
+  const find = vi.fn(async (id: ChangeStackId) => stored.get(id.value) ?? null);
   const save = vi.fn(async (check: StackCheck) => {
-    if (refusing > 0) {
-      refusing -= 1;
+    if (conflicting > 0) {
+      conflicting -= 1;
       throw new StackCheckVersionConflictError(check.stackId.value);
     }
-    held.set(check.stackId.value, check);
+    stored.set(check.stackId.value, check);
   });
   const awaitingProvision = vi.fn(async () => listed);
-  const withLapsedReservations = vi.fn(async () => listed);
+  const withExpiredReservations = vi.fn(async () => listed);
 
   return {
     find,
     save,
     awaitingProvision,
-    check: (stack: string) => held.get(stack) as StackCheck,
+    check: (stack: string) => stored.get(stack) as StackCheck,
     service: new ProvisionChangeStackChecks({
       open: find,
       save,
       awaitingProvision,
-      withLapsedReservations,
+      withExpiredReservations,
     } as unknown as StackCheckRepository),
   };
 };
 
 describe('ProvisionChangeStackChecks', () => {
   it('offers only the checks still waiting for a runner to be provisioned', async () => {
-    const backedOff = waiting('stack_3')
+    const retryScheduled = waiting('stack_3')
       .reservedFor(RUNNER, PoolId.of('pool_burst'), NOW)
-      .provisionFailed(RUNNER, REFUSED, NOW);
+      .provisionFailed(RUNNER, HTTP_ERROR, NOW);
     const { service, awaitingProvision } = provisioning([
       waiting('stack_1', ['gpu']),
       waiting('stack_2').reservedFor(RUNNER, PoolId.of('pool_burst'), NOW),
-      backedOff,
+      retryScheduled,
       waiting('stack_4')
-        .claimedFor(OTHER, RunnerTerms.none(), NOW)
-        .skip(OTHER, skipOf('no-room', null), NOW),
+        .claimedFor(OTHER, RunnerOffer.none(), NOW)
+        .skip(OTHER, skipOf('workspace-failed', null), NOW),
     ]);
 
     const offered = await service.awaiting(WorkspaceId.of('ws_1'), NOW, {
@@ -141,7 +141,7 @@ describe('ProvisionChangeStackChecks', () => {
     expect(find).toHaveBeenCalledTimes(3);
   });
 
-  it('lets a reservation go, and leaves alone a check that has none', async () => {
+  it('drops a reservation, and leaves alone a check that has none', async () => {
     const { service, save, check } = provisioning([
       waiting('stack_1').reservedFor(RUNNER, PoolId.of('pool_burst'), NOW),
       waiting('stack_2'),
@@ -154,7 +154,7 @@ describe('ProvisionChangeStackChecks', () => {
     expect(save).toHaveBeenCalledOnce();
   });
 
-  it('keeps a reservation another runner lets go of', async () => {
+  it('keeps a reservation another runner drops', async () => {
     const { service, save, check } = provisioning([
       waiting('stack_1').reservedFor(RUNNER, PoolId.of('pool_burst'), NOW),
     ]);
@@ -177,16 +177,16 @@ describe('ProvisionChangeStackChecks', () => {
     expect(check('stack_1').reservation).toBeNull();
   });
 
-  it('records a failed provision on the check and backs off', async () => {
+  it('records a failed provision on the check and schedules a retry', async () => {
     const { service, check } = provisioning(
       [waiting('stack_1').reservedFor(RUNNER, PoolId.of('pool_burst'), NOW)],
       1,
     );
 
-    await service.failed('stack_1', RUNNER, REFUSED, NOW);
+    await service.failed('stack_1', RUNNER, HTTP_ERROR, NOW);
 
     expect(check('stack_1').reservation).toBeNull();
-    expect(check('stack_1').provisioning.failures).toBe(1);
+    expect(check('stack_1').provisioning.attempts).toBe(1);
     expect(check('stack_1').provisionableAt(NOW)).toBe(false);
   });
 
@@ -197,7 +197,7 @@ describe('ProvisionChangeStackChecks', () => {
     );
 
     await expect(
-      service.failed('stack_1', RUNNER, REFUSED, NOW),
+      service.failed('stack_1', RUNNER, HTTP_ERROR, NOW),
     ).rejects.toThrow(StackCheckVersionConflictError);
     expect(find).toHaveBeenCalledTimes(3);
   });
@@ -205,11 +205,11 @@ describe('ProvisionChangeStackChecks', () => {
   it('records no failure on a check that is no longer waiting', async () => {
     const { service, save } = provisioning([
       waiting('stack_1')
-        .claimedFor(OTHER, RunnerTerms.none(), NOW)
-        .skip(OTHER, skipOf('no-room', null), NOW),
+        .claimedFor(OTHER, RunnerOffer.none(), NOW)
+        .skip(OTHER, skipOf('workspace-failed', null), NOW),
     ]);
 
-    await service.failed('stack_1', RUNNER, REFUSED, NOW);
+    await service.failed('stack_1', RUNNER, HTTP_ERROR, NOW);
 
     expect(save).not.toHaveBeenCalled();
   });
@@ -219,21 +219,21 @@ describe('ProvisionChangeStackChecks', () => {
       waiting('stack_1').reservedFor(RUNNER, PoolId.of('pool_burst'), NOW),
     ]);
 
-    await service.failed('stack_1', OTHER, REFUSED, NOW);
+    await service.failed('stack_1', OTHER, HTTP_ERROR, NOW);
 
     expect(save).not.toHaveBeenCalled();
-    expect(check('stack_1').provisioning.failures).toBe(0);
+    expect(check('stack_1').provisioning.attempts).toBe(0);
   });
 
-  it('lists only the reservations that lapsed, with the runner each was for', async () => {
-    const lapsing = waiting('stack_1').reservedFor(
+  it('lists only the reservations that expired, with the runner each was for', async () => {
+    const expiring = waiting('stack_1').reservedFor(
       RUNNER,
       PoolId.of('pool_burst'),
       NOW,
     );
     const later = new Date(UNTIL.getTime() + 1);
     const { service } = provisioning([
-      lapsing,
+      expiring,
       waiting('stack_2').reservedFor(
         RunnerId.of('pooled_9'),
         PoolId.of('pool_a'),
@@ -242,7 +242,7 @@ describe('ProvisionChangeStackChecks', () => {
       waiting('stack_3'),
     ]);
 
-    await expect(service.lapsed(later)).resolves.toEqual([
+    await expect(service.expired(later)).resolves.toEqual([
       { stackId: 'stack_1', runner: RUNNER, until: UNTIL },
     ]);
   });

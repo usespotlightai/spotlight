@@ -85,11 +85,11 @@ const person = (body: string, who = 'user_1') => ({
   voice: Voice.person(UserId.of(who)),
 });
 
-const heldAt = (task: Task, at: StationId = task.stationId): Task =>
+const runningAt = (task: Task, at: StationId = task.stationId): Task =>
   Task.rehydrate({ ...task, stationId: at, currentRunId: RUN });
 
 const working = () =>
-  heldAt(
+  runningAt(
     Task.add({
       line,
       at: IMPLEMENTATION,
@@ -115,8 +115,8 @@ const askedOnce = () => {
 };
 
 const decided = (
-  decision: 'granted' | 'refused',
-  words = decision === 'granted' ? 'Approved.' : 'Dismissed.',
+  decision: 'approved' | 'dismissed',
+  words = decision === 'approved' ? 'Approved.' : 'Dismissed.',
 ) => {
   const { asked, at } = askedOnce();
 
@@ -126,19 +126,19 @@ const decided = (
 const kindOf = (check: ApprovalCheck) => check.kind;
 
 describe('clearing a tool call that needs approval', () => {
-  it('asks the person, at the station the run stands at, the run keeping the task while it waits', () => {
+  it('asks the person, at the station the run is at, the run keeping the task while it waits', () => {
     const { task, check } = clear(working());
-    const standing = task.approvalFor(CALL);
+    const current = task.approvalFor(CALL);
 
-    expect(kindOf(check)).toBe('asked');
-    expect(standing?.approval.open).toBe(true);
-    expect(standing?.approval.at.equals(IMPLEMENTATION)).toBe(true);
+    expect(kindOf(check)).toBe('pending');
+    expect(current?.approval.open).toBe(true);
+    expect(current?.approval.at.equals(IMPLEMENTATION)).toBe(true);
     expect(task.awaitingReview).toBe(true);
-    expect(task.heldBy(RUN)).toBe(true);
+    expect(task.hasCurrentRun(RUN)).toBe(true);
     expect(task.working).toBe(false);
   });
 
-  it('asks nothing more while a person still owes an answer, so the run waits for it', () => {
+  it('asks nothing more while an answer from a person is still pending, so the run waits for it', () => {
     const { asked } = askedOnce();
     const other = ApprovalSubject.toolCall(
       ToolCall.of(Tool.of('linear.close'), ToolInputs.of({ issue: 'ENG-12' })),
@@ -146,17 +146,17 @@ describe('clearing a tool call that needs approval', () => {
 
     const again = clear(asked, other);
 
-    expect(kindOf(again.check)).toBe('asked');
+    expect(kindOf(again.check)).toBe('pending');
     expect(again.task.notes).toHaveLength(asked.notes.length);
   });
 
-  it('keeps what the agent first said it wants to do while a person still owes an answer', () => {
+  it('keeps the first intent of the agent while an answer from a person is still pending', () => {
     const asked = working().clearFor(
       CALL,
       NEEDED,
       asking(),
       RUN,
-      ApprovalIntent.said('post the fix on ENG-12'),
+      ApprovalIntent.from('post the fix on ENG-12'),
     ).task;
 
     const again = asked.clearFor(
@@ -164,7 +164,7 @@ describe('clearing a tool call that needs approval', () => {
       NEEDED,
       asking(),
       RUN,
-      ApprovalIntent.said('post something else'),
+      ApprovalIntent.from('post something else'),
     ).task;
 
     expect(again.approvalFor(CALL)?.approval.intent?.value).toBe(
@@ -172,51 +172,51 @@ describe('clearing a tool call that needs approval', () => {
     );
   });
 
-  it('claims a grant as it gives it, so a second call finds nothing to use', () => {
-    const { task } = decided('granted');
-    const first = clear(heldAt(task));
-    const second = clear(heldAt(first.task));
+  it('claims a grant as it grants it, so a second call finds nothing to use', () => {
+    const { task } = decided('approved');
+    const first = clear(runningAt(task));
+    const second = clear(runningAt(first.task));
 
-    expect(kindOf(first.check)).toBe('given');
+    expect(kindOf(first.check)).toBe('approved');
     expect(first.task.approvalFor(CALL)?.approval.spent).toBe(true);
-    expect(kindOf(second.check)).toBe('asked');
+    expect(kindOf(second.check)).toBe('pending');
   });
 
   it('hands a claimed grant back, so a call that failed can be tried again', () => {
-    const { task, at } = decided('granted');
-    const claimed = clear(heldAt(task)).task;
+    const { task, at } = decided('approved');
+    const claimed = clear(runningAt(task)).task;
 
-    const returned = heldAt(claimed.returnApproval(at));
+    const returned = runningAt(claimed.returnApproval(at));
 
     expect(returned.approvalFor(CALL)?.approval.grants).toBe(true);
-    expect(kindOf(clear(returned).check)).toBe('given');
+    expect(kindOf(clear(returned).check)).toBe('approved');
   });
 
-  it('refuses a rejected call with the person’s own reason, and asks nothing', () => {
-    const { task } = decided('refused', 'Not before the release.');
-    const { task: after, check } = clear(heldAt(task));
+  it('dismisses a dismissed call with the person’s own reason, and asks nothing', () => {
+    const { task } = decided('dismissed', 'Not before the release.');
+    const { task: after, check } = clear(runningAt(task));
 
     expect(check).toEqual({
-      kind: 'refused',
+      kind: 'dismissed',
       reason: 'Not before the release.',
     });
     expect(after.notes).toHaveLength(task.notes.length);
   });
 
-  it('asks again at another station, where a grant from the last one does not reach', () => {
-    const { task } = decided('granted');
+  it('asks again at another station, where a grant from the last one does not apply', () => {
+    const { task } = decided('approved');
 
-    expect(kindOf(clear(heldAt(task, REVIEW)).check)).toBe('asked');
+    expect(kindOf(clear(runningAt(task, REVIEW)).check)).toBe('pending');
   });
 
-  it('asks again at another station, where a rejection from the last one does not reach', () => {
-    const { task } = decided('refused');
+  it('asks again at another station, where a rejection from the last one does not apply', () => {
+    const { task } = decided('dismissed');
 
-    expect(kindOf(clear(heldAt(task, REVIEW)).check)).toBe('asked');
+    expect(kindOf(clear(runningAt(task, REVIEW)).check)).toBe('pending');
   });
 
   it('asks again where the call would send something else', () => {
-    const { task } = decided('granted');
+    const { task } = decided('approved');
     const other = ApprovalSubject.toolCall(
       ToolCall.of(
         Tool.of('linear.comment'),
@@ -224,7 +224,7 @@ describe('clearing a tool call that needs approval', () => {
       ),
     );
 
-    expect(kindOf(clear(heldAt(task), other).check)).toBe('asked');
+    expect(kindOf(clear(runningAt(task), other).check)).toBe('pending');
   });
 
   it('keeps a harness permission and a tool named like it apart, each way', () => {
@@ -251,24 +251,24 @@ describe('clearing a tool call that needs approval', () => {
         throw new Error('nothing was asked');
       }
 
-      return heldAt(asked.answer(at, person('Go ahead.'), 'granted'));
+      return runningAt(asked.answer(at, person('Go ahead.'), 'approved'));
     };
 
     expect(grantedFor(permission).approvalFor(lookalike)).toBeNull();
     expect(kindOf(clear(grantedFor(permission), lookalike).check)).toBe(
-      'asked',
+      'pending',
     );
     expect(grantedFor(lookalike).approvalFor(permission)).toBeNull();
     expect(kindOf(clear(grantedFor(lookalike), permission).check)).toBe(
-      'asked',
+      'pending',
     );
     expect(kindOf(clear(grantedFor(permission), permission).check)).toBe(
-      'given',
+      'approved',
     );
   });
 
-  it('refuses a run that does not hold the task', () => {
-    const { task } = decided('granted');
+  it('rejects a run that is not the current run of the task', () => {
+    const { task } = decided('approved');
 
     expect(() => clear(task.leaveRun(RUN, NOW))).toThrow();
   });
@@ -276,34 +276,34 @@ describe('clearing a tool call that needs approval', () => {
 
 describe('deciding an approval', () => {
   it('records who decided, when, and the reason they gave', () => {
-    const { task } = decided('refused', 'Not before the release.');
+    const { task } = decided('dismissed', 'Not before the release.');
     const approval = task.approvalFor(CALL)?.approval;
 
-    expect(approval?.standing).toBe('refused');
+    expect(approval?.status).toBe('dismissed');
     expect(approval?.decided?.by.value).toBe('user_1');
     expect(approval?.decided?.at).toEqual(NOW);
     expect(approval?.decided?.reason).toBe('Not before the release.');
   });
 
   it('marks the person’s answer as the approval’s, from the aggregate itself', () => {
-    const { task } = decided('granted');
+    const { task } = decided('approved');
 
     expect(task.notes[task.notes.length - 1]?.form).toBe('approval');
   });
 
-  it('refuses a second decision as a conflict, not a fault', () => {
-    const { task, at } = decided('granted');
+  it('rejects a second decision as a conflict, not a fault', () => {
+    const { task, at } = decided('approved');
 
     expect(() =>
-      task.answer(at, person('Dismissed.', 'user_2'), 'refused'),
-    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+      task.answer(at, person('Dismissed.', 'user_2'), 'dismissed'),
+    ).toThrowError(expect.objectContaining({ kind: 'conflict' }));
   });
 
   it('lets only the person it was asked of approve it, and anyone dismiss it', () => {
     const askedOfTheTeam = clear(working()).task;
     const alice = ApprovalNeeded.of(
       'linear.comment',
-      'Alice asks to approve each call made with their Linear connection.',
+      'Alice wants to approve each call made with their Linear connection.',
       UserId.of('user_alice'),
     );
     const asked = working().clearFor(CALL, alice, asking(), RUN, null).task;
@@ -318,24 +318,24 @@ describe('deciding an approval', () => {
     }
 
     expect(() =>
-      asked.answer(at, person('Approved.', 'user_bob'), 'granted'),
-    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+      asked.answer(at, person('Approved.', 'user_bob'), 'approved'),
+    ).toThrowError(expect.objectContaining({ kind: 'conflict' }));
     expect(
       asked
-        .answer(at, person('Approved.', 'user_alice'), 'granted')
-        .approvalFor(CALL)?.approval.standing,
-    ).toBe('granted');
+        .answer(at, person('Approved.', 'user_alice'), 'approved')
+        .approvalFor(CALL)?.approval.status,
+    ).toBe('approved');
     expect(
       asked
-        .answer(at, person('Not now.', 'user_bob'), 'refused')
-        .approvalFor(CALL)?.approval.standing,
-    ).toBe('refused');
+        .answer(at, person('Not now.', 'user_bob'), 'dismissed')
+        .approvalFor(CALL)?.approval.status,
+    ).toBe('dismissed');
   });
 
   it('puts a call asked of one person to that person', () => {
     const alice = ApprovalNeeded.of(
       'linear.comment',
-      'Alice asks to approve each call made with their Linear connection.',
+      'Alice wants to approve each call made with their Linear connection.',
       UserId.of('user_alice'),
     );
 
@@ -345,11 +345,11 @@ describe('deciding an approval', () => {
     expect(clear(working()).task.assignee).toEqual(working().assignee);
   });
 
-  it('spends a grant on a call asked of one person only where that person gave it', () => {
-    const { task } = decided('granted');
+  it('spends a grant on a call asked of one person only where that person granted it', () => {
+    const { task } = decided('approved');
     const alice = ApprovalNeeded.of(
       'linear.comment',
-      'Alice asks to approve each call made with their Linear connection.',
+      'Alice wants to approve each call made with their Linear connection.',
       UserId.of('user_alice'),
     );
     const user1 = ApprovalNeeded.of(
@@ -357,19 +357,19 @@ describe('deciding an approval', () => {
       'It posts publicly.',
       UserId.of('user_1'),
     );
-    const held = heldAt(task);
+    const running = runningAt(task);
 
-    const reasked = held.clearFor(CALL, alice, asking(), RUN, null);
-    expect(reasked.check.kind).toBe('asked');
+    const reasked = running.clearFor(CALL, alice, asking(), RUN, null);
+    expect(reasked.check.kind).toBe('pending');
     expect(reasked.task.approvalFor(CALL)?.approval.askedOf?.value).toBe(
       'user_alice',
     );
-    expect(held.clearFor(CALL, user1, asking(), RUN, null).check.kind).toBe(
-      'given',
+    expect(running.clearFor(CALL, user1, asking(), RUN, null).check.kind).toBe(
+      'approved',
     );
   });
 
-  it('refuses a decision nobody can be named for', () => {
+  it('rejects a decision nobody can be named for', () => {
     const { asked, at } = askedOnce();
 
     expect(() =>
@@ -381,13 +381,13 @@ describe('deciding an approval', () => {
           at: NOW,
           voice: Voice.world(),
         },
-        'granted',
+        'approved',
       ),
-    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+    ).toThrowError(expect.objectContaining({ kind: 'conflict' }));
   });
 
   it('names the tool it decided on in the act it records, and its server when it is one', () => {
-    const refusedTool = (subject: ApprovalSubject) => {
+    const dismissedTool = (subject: ApprovalSubject) => {
       const asked = clear(working(), subject).task;
       const at = asked.approvalFor(subject)?.at;
 
@@ -396,7 +396,7 @@ describe('deciding an approval', () => {
       }
 
       return asked
-        .answer(at, person('Dismissed.'), 'refused')
+        .answer(at, person('Dismissed.'), 'dismissed')
         .pullEvents()
         .find((each): each is TaskActedOn => each instanceof TaskActedOn)?.tool;
     };
@@ -411,16 +411,19 @@ describe('deciding an approval', () => {
         }),
       );
 
-    expect(refusedTool(CALL)).toEqual({ tool: 'linear.comment', server: null });
+    expect(dismissedTool(CALL)).toEqual({
+      tool: 'linear.comment',
+      server: null,
+    });
     expect(
-      refusedTool(
+      dismissedTool(
         permission(
           'mcp__sentry__resolve_issue',
           CalledTool.of({ server: 'sentry', tool: 'resolve_issue' }),
         ),
       ),
     ).toEqual({ tool: 'resolve_issue', server: 'sentry' });
-    expect(refusedTool(permission('rm -rf build', null))).toEqual({
+    expect(dismissedTool(permission('rm -rf build', null))).toEqual({
       tool: 'claude-code other',
       server: null,
     });
@@ -433,12 +436,12 @@ describe('deciding an approval', () => {
       .pullEvents()
       .find((each): each is TaskActedOn => each instanceof TaskActedOn);
 
-    expect(acted?.act).toBe('answered');
+    expect(acted?.action).toBe('answered');
     expect(acted?.tool).toBeNull();
   });
 
-  it('records approving or refusing as the act a person took', () => {
-    const decidedAs = (decision: 'granted' | 'refused') => {
+  it('records approving or dismissing as the act of a person', () => {
+    const decidedAs = (decision: 'approved' | 'dismissed') => {
       const { asked, at } = askedOnce();
 
       return asked
@@ -447,11 +450,11 @@ describe('deciding an approval', () => {
         .find((each): each is TaskActedOn => each instanceof TaskActedOn);
     };
 
-    expect(decidedAs('granted')).toMatchObject({
-      act: 'approved',
+    expect(decidedAs('approved')).toMatchObject({
+      action: 'approved',
     });
-    expect(decidedAs('refused')).toMatchObject({
-      act: 'refused',
+    expect(decidedAs('dismissed')).toMatchObject({
+      action: 'dismissed',
     });
   });
 
@@ -467,7 +470,7 @@ describe('approving a tool call with changes', () => {
   const edited = (edits: Readonly<Record<string, string>>) => {
     const { asked, at } = askedOnce();
 
-    return heldAt(asked.answer(at, person('Approved.'), 'granted', edits));
+    return runningAt(asked.answer(at, person('Approved.'), 'approved', edits));
   };
   const EDITED = ApprovalSubject.toolCall(
     ToolCall.of(
@@ -476,22 +479,22 @@ describe('approving a tool call with changes', () => {
     ),
   );
 
-  it('gives the call as asked, to run with the person’s inputs instead', () => {
+  it('grants the call as requested, to run with the person’s inputs instead', () => {
     const { check } = clear(edited({ issue: 'ENG-12', body: 'Fixed in #41.' }));
 
-    expect(check.kind === 'given' && check.edited?.values).toEqual({
+    expect(check.kind === 'approved' && check.edited?.values).toEqual({
       issue: 'ENG-12',
       body: 'Fixed in #41.',
     });
   });
 
-  it('gives it too where the agent calls with the inputs the person chose', () => {
+  it('grants it too where the agent calls with the inputs the person chose', () => {
     const { check } = clear(
       edited({ issue: 'ENG-12', body: 'Fixed in #41.' }),
       EDITED,
     );
 
-    expect(kindOf(check)).toBe('given');
+    expect(kindOf(check)).toBe('approved');
   });
 
   it('records nothing changed where the person left every input as it was', () => {
@@ -499,7 +502,7 @@ describe('approving a tool call with changes', () => {
     const { check } = clear(task);
 
     expect(task.approvalFor(CALL)?.approval.edited).toBeNull();
-    expect(check.kind === 'given' && check.edited).toBeNull();
+    expect(check.kind === 'approved' && check.edited).toBeNull();
   });
 
   it('types each change as the input it replaces', () => {
@@ -516,8 +519,8 @@ describe('approving a tool call with changes', () => {
       throw new Error('nothing was asked');
     }
 
-    const granted = heldAt(
-      task.answer(at, person('Approved.'), 'granted', {
+    const granted = runningAt(
+      task.answer(at, person('Approved.'), 'approved', {
         queue: 'retries',
         limit: '100',
         dry: 'false',
@@ -525,40 +528,40 @@ describe('approving a tool call with changes', () => {
     );
     const { check } = clear(granted, asked);
 
-    expect(check.kind === 'given' && check.edited?.values).toEqual({
+    expect(check.kind === 'approved' && check.edited?.values).toEqual({
       queue: 'retries',
       limit: 100,
       dry: false,
     });
   });
 
-  it('refuses changes that name other inputs than it asked with', () => {
+  it('rejects changes that name other inputs than it was called with', () => {
     const { asked, at } = askedOnce();
 
     expect(() =>
-      asked.answer(at, person('Approved.'), 'granted', { body: 'Hi.' }),
-    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+      asked.answer(at, person('Approved.'), 'approved', { body: 'Hi.' }),
+    ).toThrowError(expect.objectContaining({ kind: 'conflict' }));
     expect(() =>
-      asked.answer(at, person('Approved.'), 'granted', {
+      asked.answer(at, person('Approved.'), 'approved', {
         issue: 'ENG-12',
         body: 'Hi.',
         title: 'Extra',
       }),
-    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+    ).toThrowError(expect.objectContaining({ kind: 'conflict' }));
   });
 
-  it('refuses an input left blank, which would run with something else', () => {
+  it('rejects an input left blank, which would run with something else', () => {
     const { asked, at } = askedOnce();
 
     expect(() =>
-      asked.answer(at, person('Approved.'), 'granted', {
+      asked.answer(at, person('Approved.'), 'approved', {
         issue: 'ENG-12',
         body: '  ',
       }),
-    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+    ).toThrowError(expect.objectContaining({ kind: 'conflict' }));
   });
 
-  it('refuses a change that is not a value of the kind asked', () => {
+  it('rejects a change that is not a value of the kind of the input', () => {
     const asked = ApprovalSubject.toolCall(
       ToolCall.of(Tool.of('queue.drain'), ToolInputs.of({ limit: 500 })),
     );
@@ -570,23 +573,23 @@ describe('approving a tool call with changes', () => {
     }
 
     expect(() =>
-      task.answer(at, person('Approved.'), 'granted', { limit: 'lots' }),
-    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+      task.answer(at, person('Approved.'), 'approved', { limit: 'lots' }),
+    ).toThrowError(expect.objectContaining({ kind: 'conflict' }));
   });
 
-  it('refuses changes to a rejection, or to words that decide nothing', () => {
+  it('rejects changes to a dismissed request, or to words that decide nothing', () => {
     const { asked, at } = askedOnce();
     const edits = { issue: 'ENG-12', body: 'Hi.' };
 
     expect(() =>
-      asked.answer(at, person('Dismissed.'), 'refused', edits),
-    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+      asked.answer(at, person('Dismissed.'), 'dismissed', edits),
+    ).toThrowError(expect.objectContaining({ kind: 'conflict' }));
     expect(() => asked.answer(at, person('Hmm.'), null, edits)).toThrowError(
-      expect.objectContaining({ violation: 'conflict' }),
+      expect.objectContaining({ kind: 'conflict' }),
     );
   });
 
-  it('refuses changes to what a harness asked, which only takes a yes or a no', () => {
+  it('rejects changes to what a harness asked, which only takes a yes or a no', () => {
     const permission = ApprovalSubject.harnessPermission(
       HarnessPermission.asked({
         harness: HarnessId.of('claude-code'),
@@ -604,9 +607,9 @@ describe('approving a tool call with changes', () => {
     }
 
     expect(() =>
-      task.answer(at, person('Approved.'), 'granted', {
+      task.answer(at, person('Approved.'), 'approved', {
         title: 'kubectl logs web',
       }),
-    ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
+    ).toThrowError(expect.objectContaining({ kind: 'conflict' }));
   });
 });

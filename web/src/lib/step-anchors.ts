@@ -4,14 +4,14 @@ import type { JournalStep } from '@/lib/inbox';
 export interface StepAnchors {
   readonly focused: string | null;
   anchorOf(step: JournalStep): string | null;
-  holds(index: number): boolean;
+  has(index: number): boolean;
   focus(index: number): void;
 }
 
 const NONE: StepAnchors = {
   focused: null,
   anchorOf: () => null,
-  holds: () => false,
+  has: () => false,
   focus: () => {},
 };
 

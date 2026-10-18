@@ -52,7 +52,7 @@ export interface ResourceKind {
 
 const ETAG = {
   [ETAG_HEADER]: {
-    description: 'The version answered, to send back as If-Match',
+    description: 'The returned version, to send back as If-Match',
     schema: { type: 'string', example: '"3"' },
   },
 };
@@ -61,7 +61,7 @@ const IF_MATCH = ApiHeader({
   name: IF_MATCH_HEADER,
   required: true,
   description:
-    'The ETag of the version this write was based on; a write to any other version is refused with 409',
+    'The ETag of the version this write was based on; a write to any other version fails with 409',
   schema: { type: 'string', example: '"3"' },
 });
 
@@ -81,7 +81,7 @@ export const resourceApi = (resource: ResourceKind) => {
       }),
     );
 
-  const answered = (status: number, description: string) =>
+  const resourceResponse = (status: number, description: string) =>
     ApiResponse({
       status,
       description,
@@ -96,7 +96,7 @@ export const resourceApi = (resource: ResourceKind) => {
 
   const listed = ApiResponse({
     status: HttpStatus.OK,
-    description: `Every ${resource.kind} there, each as a read would answer it, in address order`,
+    description: `Every ${resource.kind} there, each as a read returns it, in address order`,
     type: resourceListOf(resource.representation),
   });
 
@@ -117,17 +117,18 @@ export const resourceApi = (resource: ResourceKind) => {
           name: IDEMPOTENCY_KEY_HEADER,
           required: true,
           description:
-            'Unique per create; a retry with the same key and body answers the resource the first attempt created, and creates nothing more',
+            'Unique per create; a retry with the same key and body returns the resource that the first attempt created, and creates nothing more',
           schema: { type: 'string', maxLength: 255 },
         }),
         ApiResponse({
           status: HttpStatus.CREATED,
-          description: `The ${resource.kind}, as a read would answer it`,
+          description: `The ${resource.kind}, as a read returns it`,
           type: resource.representation,
           headers: {
             ...ETAG,
             [IDEMPOTENT_REPLAY_HEADER]: {
-              description: 'true when this answers an earlier attempt',
+              description:
+                'true when this returns the result of an earlier attempt',
               schema: { type: 'string', enum: ['true'] },
             },
           },
@@ -148,7 +149,10 @@ export const resourceApi = (resource: ResourceKind) => {
       applyDecorators(
         Get(path),
         operation('read', summary),
-        answered(HttpStatus.OK, `The ${resource.kind}, every field of it`),
+        resourceResponse(
+          HttpStatus.OK,
+          `The ${resource.kind}, every field of it`,
+        ),
         missing,
       ),
 
@@ -157,9 +161,9 @@ export const resourceApi = (resource: ResourceKind) => {
         Put(path),
         operation('update', summary),
         IF_MATCH,
-        answered(
+        resourceResponse(
           HttpStatus.OK,
-          `The ${resource.kind}, as a read would answer it`,
+          `The ${resource.kind}, as a read returns it`,
         ),
         missing,
         forbidden,
@@ -206,9 +210,9 @@ export const resourceApi = (resource: ResourceKind) => {
           description: `The ${resource.kind}'s address within the workspace`,
           example: resource.addressExample,
         }),
-        answered(
+        resourceResponse(
           HttpStatus.OK,
-          `The ${resource.kind}, as a read would answer it`,
+          `The ${resource.kind}, as a read returns it`,
         ),
         missing,
       ),

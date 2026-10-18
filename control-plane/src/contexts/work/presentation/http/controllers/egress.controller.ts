@@ -23,53 +23,53 @@ import {
 import { bearerIn } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import {
-  AdmitThroughEgressCommand,
-  KeepEgressHoldsCommand,
+  AuthorizeRunnerCommand,
+  CheckActiveRunsCommand,
+  FetchRunSecretsCommand,
+  FetchSharedRunSecretsCommand,
   RecordEgressConnectionsCommand,
-  RedeemEgressCommand,
-  RedeemThroughEgressCommand,
 } from '@work/application/commands/egress.commands';
 import type {
-  EgressAdmissionDto,
-  EgressHoldsDto,
-} from '@work/application/dto/egress-admission.dto';
+  EgressActiveRunsDto,
+  EgressAuthorizationDto,
+} from '@work/application/dto/egress-authorization.dto';
 import type { EgressConnectionsRecordedDto } from '@work/application/dto/egress-connections.dto';
-import type { EgressRedemptionDto } from '@work/application/dto/egress-redemption.dto';
+import type { EgressSecretsDto } from '@work/application/dto/egress-secrets.dto';
 import {
-  AdmitThroughEgressRequestDto,
-  KeepEgressHoldsRequestDto,
+  AuthorizeRunnerRequestDto,
+  CheckActiveRunsRequestDto,
+  FetchRunSecretsRequestDto,
   RecordEgressConnectionsRequestDto,
-  SharedRedeemEgressRequestDto,
 } from '@work/presentation/http/dto/egress.request.dto';
 import {
-  EgressAdmissionResponseDto,
-  EgressHoldsResponseDto,
-  EgressRedemptionResponseDto,
-  ReadInNetworkResponseDto,
-  RedeemedSecretResponseDto,
+  DeniedSecretResponseDto,
+  EgressActiveRunsResponseDto,
+  EgressAuthorizationResponseDto,
+  EgressSecretsResponseDto,
+  ExternalSecretRefResponseDto,
+  FetchedSecretResponseDto,
   SpotlightApiResponseDto,
-  WithheldSecretResponseDto,
 } from '@work/presentation/http/dto/egress.response.dto';
 
-const REFUSED =
-  'Missing or unknown egress token, or its runner no longer holds work';
+const UNAUTHORIZED =
+  'Missing or unknown egress token, or its runner no longer has a lease on work';
 
 const tooMany = (max: number, what: string): string =>
-  `The call holds more than ${max} ${what}. Please send at most ${max} in one call.`;
+  `The request has more than ${max} ${what}. Please send at most ${max} in one request.`;
 
 const WAITING =
-  'The runner of this proxy credential holds no run yet. Please redeem again after it claims one';
+  'The runner of this proxy credential has no lease on a run yet. Please fetch the secrets again after it claims one';
 
-const texts = (given: unknown): readonly string[] =>
-  Array.isArray(given)
-    ? given.filter((each): each is string => typeof each === 'string')
+const texts = (value: unknown): readonly string[] =>
+  Array.isArray(value)
+    ? value.filter((each): each is string => typeof each === 'string')
     : [];
 
 const records = (
-  given: unknown,
+  value: unknown,
 ): RecordEgressConnectionsRequestDto['records'] =>
-  Array.isArray(given)
-    ? given.filter(
+  Array.isArray(value)
+    ? value.filter(
         (each): each is RecordEgressConnectionsRequestDto['records'][number] =>
           typeof each === 'object' &&
           each !== null &&
@@ -88,155 +88,158 @@ const records = (
 
 @ApiTags('runners')
 @ApiBearerAuth()
-@ApiUnauthorizedResponse({ description: REFUSED })
+@ApiUnauthorizedResponse({ description: UNAUTHORIZED })
 @AllowAnonymous()
 @Controller('egress')
 export class EgressController {
   constructor(private readonly commandBus: CommandBus) {}
 
-  @Post('redeem')
+  @Post('secrets')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    operationId: 'redeemEgress',
+    operationId: 'fetchRunSecrets',
     summary:
-      'The secrets the run a sandbox holds may wear, for the egress beside it to inject toward their hosts',
+      'The secrets that egress injects into the run’s requests, for their bound hosts',
     description:
-      'Called by the egress beside a sandbox with the credential its host was handed for this run alone, or by a shared egress with its egress token and the run proxy credential the runner presented. Each call grants the secrets the run wears; values Spotlight keeps come back sealed to the recipient, and values read from an external store come back as where egress reads them.',
+      'Called by an egress sidecar with the credential its host was handed for this run alone, or by a shared egress with its egress token and the run proxy credential the runner presented. Each call grants the secrets that egress injects for the run. Values that Spotlight stores come back sealed to the recipient. For a value in an external store, the response gives the external reference that egress reads.',
   })
-  @ApiOkResponse({ type: EgressRedemptionResponseDto })
+  @ApiOkResponse({ type: EgressSecretsResponseDto })
   @ApiUnprocessableEntityResponse({
     description: 'The recipient is not an X25519 public key',
   })
   @ApiConflictResponse({ description: WAITING })
-  async redeem(
+  async fetchRunSecrets(
     @Headers('authorization') authorization: string | undefined,
-    @Body() body: SharedRedeemEgressRequestDto,
-  ): Promise<EgressRedemptionResponseDto> {
+    @Body() body: FetchRunSecretsRequestDto,
+  ): Promise<EgressSecretsResponseDto> {
     const token = bearerIn(authorization);
     const recipient = typeof body?.recipient === 'string' ? body.recipient : '';
-    const redeemed = await this.commandBus.execute<
-      RedeemEgressCommand | RedeemThroughEgressCommand,
-      EgressRedemptionDto
+    const fetched = await this.commandBus.execute<
+      FetchRunSecretsCommand | FetchSharedRunSecretsCommand,
+      EgressSecretsDto
     >(
       typeof body?.proxyCredential === 'string'
-        ? new RedeemThroughEgressCommand(token, body.proxyCredential, recipient)
-        : new RedeemEgressCommand(token, recipient),
+        ? new FetchSharedRunSecretsCommand(
+            token,
+            body.proxyCredential,
+            recipient,
+          )
+        : new FetchRunSecretsCommand(token, recipient),
     );
 
-    if (redeemed.outcome === 'refused') {
-      throw new UnauthorizedException(REFUSED);
+    if (fetched.outcome === 'unauthorized') {
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
-    if (redeemed.outcome === 'waiting') {
+    if (fetched.outcome === 'waiting') {
       throw new ConflictException(WAITING);
     }
 
-    return new EgressRedemptionResponseDto(
-      redeemed.runId,
-      redeemed.reaches,
-      redeemed.bound,
-      redeemed.secrets.map(
+    return new EgressSecretsResponseDto(
+      fetched.runId,
+      fetched.extraAllowedHosts,
+      fetched.bound,
+      fetched.secrets.map(
         (each) =>
-          new RedeemedSecretResponseDto(
+          new FetchedSecretResponseDto(
             each.secret,
             each.host,
-            each.carrier,
+            each.location,
             each.name,
             each.prefix,
             each.sealed,
-            each.readInNetwork
-              ? new ReadInNetworkResponseDto(
-                  each.readInNetwork.kind,
-                  each.readInNetwork.secretId,
-                  each.readInNetwork.field,
+            each.externalRef
+              ? new ExternalSecretRefResponseDto(
+                  each.externalRef.kind,
+                  each.externalRef.secretId,
+                  each.externalRef.field,
                 )
               : null,
           ),
       ),
-      redeemed.withheld.map(
-        (each) => new WithheldSecretResponseDto(each.secret, each.reason),
+      fetched.denied.map(
+        (each) => new DeniedSecretResponseDto(each.secret, each.reason),
       ),
-      redeemed.spotlightApi
-        ? new SpotlightApiResponseDto(redeemed.spotlightApi.sealed)
+      fetched.spotlightApi
+        ? new SpotlightApiResponseDto(fetched.spotlightApi.sealed)
         : null,
     );
   }
 
-  @Post('admit')
+  @Post('authorize')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    operationId: 'admitThroughEgress',
+    operationId: 'authorizeRunner',
     summary:
       'Whether a shared egress may serve the runner that presented a run proxy credential',
     description:
-      'Called by a shared egress with its egress token. Before the runner has a run, the egress lets it reach only the control plane.',
+      'Called by a shared egress with its egress token. Before the runner has a run, the egress allows it to connect only to the control plane.',
   })
-  @ApiOkResponse({ type: EgressAdmissionResponseDto })
-  async admit(
+  @ApiOkResponse({ type: EgressAuthorizationResponseDto })
+  async authorize(
     @Headers('authorization') authorization: string | undefined,
-    @Body() body: AdmitThroughEgressRequestDto,
-  ): Promise<EgressAdmissionResponseDto> {
-    const admitted = await this.commandBus.execute<
-      AdmitThroughEgressCommand,
-      EgressAdmissionDto
+    @Body() body: AuthorizeRunnerRequestDto,
+  ): Promise<EgressAuthorizationResponseDto> {
+    const authorized = await this.commandBus.execute<
+      AuthorizeRunnerCommand,
+      EgressAuthorizationDto
     >(
-      new AdmitThroughEgressCommand(
+      new AuthorizeRunnerCommand(
         bearerIn(authorization),
         typeof body?.proxyCredential === 'string' ? body.proxyCredential : '',
       ),
     );
 
-    if (admitted.outcome === 'refused') {
-      throw new UnauthorizedException(REFUSED);
+    if (authorized.outcome === 'unauthorized') {
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
-    return new EgressAdmissionResponseDto(
-      admitted.runnerId,
-      admitted.workspaceId,
-      admitted.controlPlaneHost,
-      admitted.controlPlanePort,
-      admitted.reaches,
+    return new EgressAuthorizationResponseDto(
+      authorized.runnerId,
+      authorized.workspaceId,
+      authorized.controlPlaneHost,
+      authorized.controlPlanePort,
+      authorized.extraAllowedHosts,
     );
   }
 
-  @Post('holds')
+  @Post('active-runs')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    operationId: 'keepEgressHolds',
-    summary:
-      'The runs a shared egress serves whose runner still holds its work',
+    operationId: 'checkActiveRuns',
+    summary: 'The runs of a shared egress that their runners still lease',
     description:
-      'Called by each node of a shared egress about every 30 seconds. The node forgets the secrets of every run that is not in the answer.',
+      'Called by each node of a shared egress about every 30 seconds. The node evicts the secrets of every run that is not in the response.',
   })
-  @ApiOkResponse({ type: EgressHoldsResponseDto })
+  @ApiOkResponse({ type: EgressActiveRunsResponseDto })
   @ApiUnprocessableEntityResponse({
-    description: 'The call holds more than 500 proxy credentials',
+    description: 'The request has more than 500 proxy credentials',
   })
-  async holds(
+  async checkActiveRuns(
     @Headers('authorization') authorization: string | undefined,
-    @Body() body: KeepEgressHoldsRequestDto,
-  ): Promise<EgressHoldsResponseDto> {
-    const kept = await this.commandBus.execute<
-      KeepEgressHoldsCommand,
-      EgressHoldsDto
+    @Body() body: CheckActiveRunsRequestDto,
+  ): Promise<EgressActiveRunsResponseDto> {
+    const checked = await this.commandBus.execute<
+      CheckActiveRunsCommand,
+      EgressActiveRunsDto
     >(
-      new KeepEgressHoldsCommand(
+      new CheckActiveRunsCommand(
         bearerIn(authorization),
         texts(body?.proxyCredentials),
       ),
     );
 
-    if (kept.outcome === 'refused') {
-      throw new UnauthorizedException(REFUSED);
+    if (checked.outcome === 'unauthorized') {
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
-    if (kept.outcome === 'too-many') {
+    if (checked.outcome === 'too-many') {
       throw new UnprocessableEntityException(
-        tooMany(kept.max, 'proxy credentials'),
+        tooMany(checked.max, 'proxy credentials'),
       );
     }
 
-    return new EgressHoldsResponseDto(kept.held);
+    return new EgressActiveRunsResponseDto(checked.active);
   }
 
   @Post('connections')
@@ -245,11 +248,11 @@ export class EgressController {
     operationId: 'recordEgressConnections',
     summary: 'Records the connections a shared egress made for its runs',
     description:
-      'Called by a shared egress with its egress token. Spotlight keeps each record with its run for 30 days. It keeps a record only when the run still names the runner of the proxy credential, and that runner stands or ended at most 2 minutes before.',
+      'Called by a shared egress with its egress token. Spotlight stores each record with its run for 30 days. It stores a record only when the run still names the runner of the proxy credential, and that runner is active, or ended at most 2 minutes before.',
   })
-  @ApiNoContentResponse({ description: 'The records were taken' })
+  @ApiNoContentResponse({ description: 'Spotlight accepted the records' })
   @ApiUnprocessableEntityResponse({
-    description: 'The call holds more than 2000 records',
+    description: 'The request has more than 2000 records',
   })
   async connections(
     @Headers('authorization') authorization: string | undefined,
@@ -265,8 +268,8 @@ export class EgressController {
       ),
     );
 
-    if (recorded.outcome === 'refused') {
-      throw new UnauthorizedException(REFUSED);
+    if (recorded.outcome === 'unauthorized') {
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
     if (recorded.outcome === 'too-many') {

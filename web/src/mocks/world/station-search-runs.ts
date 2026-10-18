@@ -3,14 +3,14 @@ import { hoursAgo } from '@/mocks/clock';
 import { world } from '@/mocks/world';
 import { searchStore } from '@/mocks/world/station-searches';
 import { SEARCH_NOTES } from '@/mocks/world/station-seeds';
-import { placeOfSet, type StationPlace } from '@/mocks/world/station-sets';
+import { placeOfSet, type StationLocation } from '@/mocks/world/station-sets';
 import { runStationOf } from '@/mocks/world/stations';
 
-const historyCommandOf = (place: StationPlace | undefined): string =>
+const historyCommandOf = (place: StationLocation | undefined): string =>
   `spotlight history --station ${place?.stationKey ?? ''} --line ${place?.lineKey ?? ''}`;
 
 const briefingOf = (
-  place: StationPlace | undefined,
+  place: StationLocation | undefined,
   iteration: number,
   perIteration: number,
 ): string =>
@@ -32,12 +32,12 @@ const briefingOf = (
 
 const stepsOf = (
   runId: string,
-  place: StationPlace | undefined,
+  place: StationLocation | undefined,
   proposed: readonly string[],
   startedHoursAgo: number,
   running: boolean,
 ): JournalStepResponseDto[] => {
-  const [thought, said] = SEARCH_NOTES[runId] ?? [
+  const [thought, message] = SEARCH_NOTES[runId] ?? [
     'Reading how the earlier candidates did.',
     `Proposed ${proposed.length} candidate${proposed.length === 1 ? '' : 's'}`,
   ];
@@ -46,8 +46,8 @@ const stepsOf = (
     tool: null,
     detail: null,
     locations: [],
-    given: null,
-    returned: null,
+    input: null,
+    output: null,
     change: null,
   };
 
@@ -82,8 +82,8 @@ const stepsOf = (
       : [
           {
             ...base,
-            kind: 'said' as const,
-            text: said,
+            kind: 'message' as const,
+            text: message,
             ms: 400,
             startedAt: hoursAgo(startedHoursAgo - 0.25),
           },
@@ -157,8 +157,8 @@ export const searchRun = (runId: string): SearchRunResponseDto | null => {
               marks: {
                 startedAt: hoursAgo(startedHoursAgo),
                 readyAt: null,
-                spokeFrom: null,
-                spokeTo: null,
+                firstAgentUpdateAt: null,
+                lastAgentUpdateAt: null,
                 endedAt: running ? null : hoursAgo(endedHoursAgo),
               },
               spent: {

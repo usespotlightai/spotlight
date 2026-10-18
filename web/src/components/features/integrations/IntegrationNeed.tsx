@@ -19,7 +19,7 @@ export function IntegrationNeed({
   admin,
   mine,
 }: IntegrationNeedProps) {
-  if (integration.standing === 'unlinked') {
+  if (integration.connectionStatus === 'disconnected') {
     return admin ? (
       <TeamAccountButton integration={integration} teamId={teamId} />
     ) : (

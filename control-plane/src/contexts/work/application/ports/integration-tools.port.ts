@@ -3,7 +3,7 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { ConnectionWantedDto } from '@work/application/ports/integration-tool-calls.port';
+import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
 import type { PersonRule } from '@work/domain/services/stricter-rule';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type {
@@ -38,20 +38,20 @@ export interface ChatToolContext {
 
 export type ToolContext = TaskToolContext | ChatToolContext;
 
-export interface ReachableTool {
+export interface ResolvedTool {
   readonly declared: DeclaredTool;
   readonly actingAs: ToolActingAs | null;
-  readonly wants: ConnectionWantedDto | null;
+  readonly missing: ConnectionMissingDto | null;
   readonly personRule: PersonRule | null;
   defaultFor(input: ToolInput): unknown;
   call(inputs: ToolInputs): Promise<unknown>;
 }
 
 export interface IntegrationToolsPort {
-  reach(
+  resolve(
     tool: Tool,
     context: ToolContext,
     attempt: RunAttempt,
     runnerId: string,
-  ): Promise<ReachableTool | null>;
+  ): Promise<ResolvedTool | null>;
 }

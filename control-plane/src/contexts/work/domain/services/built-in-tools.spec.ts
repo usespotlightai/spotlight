@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 const offered = (settingUp: boolean) =>
   builtInToolsForChat(settingUp).map((each) => each.declared.tool.value);
 
-describe('the tools Spotlight gives a chat', () => {
+describe('the tools Spotlight enables for a chat', () => {
   it('let any chat propose a task', () => {
     expect(offered(false)).toContain(PROPOSE_TASK.value);
     expect(offered(true)).toContain(PROPOSE_TASK.value);

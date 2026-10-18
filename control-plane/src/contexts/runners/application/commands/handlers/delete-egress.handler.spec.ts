@@ -12,7 +12,7 @@ import type { EgressRepository } from '@runners/domain/repositories/egress.repos
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const deleting = (pools: readonly RunnerPool[]) => {
@@ -27,7 +27,7 @@ const deleting = (pools: readonly RunnerPool[]) => {
     } as unknown as WorkspaceAccessPort,
     {
       find: vi.fn(async () => egress),
-      findToRetire: vi.fn(async () => egress),
+      findToDelete: vi.fn(async () => egress),
       save: vi.fn(async (each: Egress) => {
         saved.push(each);
       }),
@@ -46,16 +46,16 @@ const deleting = (pools: readonly RunnerPool[]) => {
 const command = () => new DeleteEgressCommand(EGRESS_ID.value, actorFor(), 0);
 
 describe('DeleteEgressHandler', () => {
-  it('retires an egress that no runner pool names', async () => {
+  it('deletes an egress that no runner pool names', async () => {
     const { handler, saved } = deleting([aPushPool()]);
 
     await expect(handler.execute(command())).resolves.toEqual({
       outcome: 'deleted',
     });
-    expect(saved[0]?.isRetired).toBe(true);
+    expect(saved[0]?.isDeleted).toBe(true);
   });
 
-  it('refuses to retire an egress that a runner pool names, and says which', async () => {
+  it('does not delete an egress that a runner pool names, and says which', async () => {
     const { handler, saved } = deleting([
       aPushPool({ egress: EgressReference.to(EGRESS_ID) }),
     ]);

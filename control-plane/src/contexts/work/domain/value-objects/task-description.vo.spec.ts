@@ -9,19 +9,19 @@ describe('TaskDescription', () => {
     );
   });
 
-  it('refuses one longer than it allows', () => {
+  it('rejects one longer than it allows', () => {
     expect(() => TaskDescription.of('x'.repeat(20_001))).toThrow(
       InvalidTaskDescriptionError,
     );
   });
 
-  it('clamps a description from outside to fit, rather than refusing it', () => {
+  it('clamps a description from outside to fit, rather than rejecting it', () => {
     expect(TaskDescription.clamp('x'.repeat(30_000)).value).toHaveLength(
       20_000,
     );
   });
 
-  it('still refuses an empty description when clamping', () => {
+  it('still rejects an empty description when clamping', () => {
     expect(() => TaskDescription.clamp('   ')).toThrow(
       InvalidTaskDescriptionError,
     );

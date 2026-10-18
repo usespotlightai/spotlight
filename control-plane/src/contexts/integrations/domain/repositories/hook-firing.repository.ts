@@ -7,7 +7,7 @@ export interface HookFiringRepository {
 
   withId(id: string): Promise<HookFiring | null>;
 
-  // Must be atomic: two workers must never hold the same firing.
+  // Must be atomic: two workers must never have a lease on the same firing.
   claimNext(now: Date): Promise<HookFiring | null>;
 
   save(firing: HookFiring): Promise<void>;

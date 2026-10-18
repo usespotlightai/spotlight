@@ -6,18 +6,18 @@ import { CurrentPrincipal } from '@platform/http/decorators/current-principal.de
 import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
-import {
-  answerCreated,
-  answerDeleted,
-  answerUpdated,
-  found,
-  listed,
-} from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
 import {
   ETAG_HEADER,
   IDEMPOTENT_REPLAY_HEADER,
 } from '@platform/http/resources/resource-headers';
+import {
+  respondCreated,
+  respondDeleted,
+  respondFound,
+  respondListed,
+  respondUpdated,
+} from '@platform/http/resources/resource-responses';
 import {
   CreateEgressCommand,
   DeleteEgressCommand,
@@ -70,14 +70,14 @@ const DEFINITION = ApiBody({
         minLength: 32,
         maxLength: 255,
         description:
-          'Write-only: the token the egress calls Spotlight with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Egress-Token',
+          'Write-only: the token the egress calls Spotlight with, stored only as a hash and never returned. Left out on create, Spotlight issues one and returns it once in Spotlight-Egress-Token',
       },
       tokenVersion: {
         type: 'integer',
         minimum: 0,
         nullable: true,
         description:
-          'Changed, with a new token, to rotate the egress token in place: the old token is refused at once',
+          'Changed, with a new token, to rotate the egress token in place: the old token stops working at once',
       },
     },
   },
@@ -85,20 +85,20 @@ const DEFINITION = ApiBody({
 
 const CREATED = ApiResponse({
   status: HttpStatus.CREATED,
-  description: 'The egress, as a read would answer it',
+  description: 'The egress, as a read returns it',
   type: EgressResourceResponseDto,
   headers: {
     [ETAG_HEADER]: {
-      description: 'The version answered, to send back as If-Match',
+      description: 'The version returned, to send back as If-Match',
       schema: { type: 'string', example: '"0"' },
     },
     [IDEMPOTENT_REPLAY_HEADER]: {
-      description: 'true when this answers an earlier attempt',
+      description: 'true when this returns the result of an earlier attempt',
       schema: { type: 'string', enum: ['true'] },
     },
     [EGRESS_TOKEN_HEADER]: {
       description:
-        'The egress token Spotlight issued, when none was given; answered this once and never again, not even to a retry',
+        'The egress token Spotlight issued, when none was given; returned once and never again, not even to a retry',
       schema: { type: 'string' },
     },
   },
@@ -131,7 +131,7 @@ export class EgressResourceController {
   @CREATED
   @EgressResource.Create(
     'workspaces/:workspaceId/egresses',
-    'Define an egress that the runners of push pools send their traffic through',
+    'Create an egress that the runners of push pools send their traffic through',
   )
   @WORKSPACE
   @DEFINITION
@@ -140,21 +140,21 @@ export class EgressResourceController {
     @IdempotencyKeyHeader() key: string,
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
-    @Res({ passthrough: true }) response: Headed,
+    @Res({ passthrough: true }) httpResponse: Headed,
   ): Promise<EgressResourceResponseDto> {
     const made = await this.commandBus.execute<
       CreateEgressCommand,
       EgressCreatedDto | null
     >(new CreateEgressCommand(workspaceId, actor, key, body));
-    const answered = await answerCreated(KIND, made?.created ?? null, (id) =>
-      this.answer(id, actor.principal),
+    const response = await respondCreated(KIND, made?.created ?? null, (id) =>
+      this.toResponse(id, actor.principal),
     );
 
     if (made?.token) {
-      response.setHeader(EGRESS_TOKEN_HEADER, made.token);
+      httpResponse.setHeader(EGRESS_TOKEN_HEADER, made.token);
     }
 
-    return answered;
+    return response;
   }
 
   @EgressResource.Read('egresses/:id', 'Read an egress')
@@ -163,7 +163,7 @@ export class EgressResourceController {
     @Param('id') id: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<EgressResourceResponseDto> {
-    return this.answer(id, principal);
+    return this.toResponse(id, principal);
   }
 
   @EgressResource.Update(
@@ -178,19 +178,19 @@ export class EgressResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<EgressResourceResponseDto> {
-    return answerUpdated(
+    return respondUpdated(
       KIND,
       await this.commandBus.execute<
         UpdateEgressCommand,
         ResourceUpdated | null
       >(new UpdateEgressCommand(id, actor, version, body)),
-      (updated) => this.answer(updated, actor.principal),
+      (updated) => this.toResponse(updated, actor.principal),
     );
   }
 
   @EgressResource.Delete(
     'egresses/:id',
-    'Retire an egress that no runner pool names',
+    'Delete an egress that no runner pool names',
   )
   @ID
   async delete(
@@ -198,7 +198,7 @@ export class EgressResourceController {
     @IfMatch() version: number,
     @CurrentActor() actor: Actor,
   ): Promise<void> {
-    answerDeleted(
+    respondDeleted(
       KIND,
       await this.commandBus.execute<
         DeleteEgressCommand,
@@ -217,7 +217,7 @@ export class EgressResourceController {
     @Query('address') address: string | undefined,
     @CurrentPrincipal() principal: Principal,
   ): Promise<EgressResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<ImportEgressQuery, EgressResourceDto | null>(
         new ImportEgressQuery(workspaceId, address ?? '', principal),
@@ -235,7 +235,7 @@ export class EgressResourceController {
     @Param('workspaceId') workspaceId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ResourceList<EgressResourceResponseDto>> {
-    return listed(
+    return respondListed(
       await this.queryBus.execute<
         ListEgressResourcesQuery,
         readonly EgressResourceDto[] | null
@@ -244,11 +244,11 @@ export class EgressResourceController {
     );
   }
 
-  private async answer(
+  private async toResponse(
     id: string,
     principal: Principal,
   ): Promise<EgressResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<ReadEgressQuery, EgressResourceDto | null>(
         new ReadEgressQuery(id, principal),

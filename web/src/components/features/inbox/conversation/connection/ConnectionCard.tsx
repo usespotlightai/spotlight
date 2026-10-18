@@ -23,13 +23,13 @@ export function ConnectionCard({
   const who = connection.personName || 'the person who started this task';
 
   return (
-    <DecisionCard aria-label={`Connect ${connection.integration}`}>
+    <DecisionCard aria-label={`Connect ${connection.integrationName}`}>
       <DecisionHeader
         title={
-          <DecisionTitle standing={connection.met ? 'approved' : 'waiting'}>
+          <DecisionTitle status={connection.met ? 'approved' : 'pending'}>
             {connection.met
-              ? `Connected ${connection.integration}`
-              : `Connect ${connection.integration}`}
+              ? `Connected ${connection.integrationName}`
+              : `Connect ${connection.integrationName}`}
           </DecisionTitle>
         }
         trailing={
@@ -41,9 +41,9 @@ export function ConnectionCard({
               disabled={connect.isPending}
               onClick={() =>
                 connect.mutate({
-                  source: connection.source,
-                  for: 'me',
-                  back: pathname,
+                  integration: connection.integration,
+                  actsAs: 'requester',
+                  returnTo: pathname,
                 })
               }
             >
@@ -56,11 +56,11 @@ export function ConnectionCard({
       <p className="text-muted-foreground text-xs leading-5">
         {connection.met
           ? theirs
-            ? `You connected ${connection.integration}. The run carried on.`
-            : `${who} connected ${connection.integration}. The run carried on.`
+            ? `You connected ${connection.integrationName}. The run carried on.`
+            : `${who} connected ${connection.integrationName}. The run carried on.`
           : theirs
-            ? `If you connect your ${connection.integration} account, the run carries on.`
-            : `The run is waiting for ${who} to connect ${connection.integration}.`}
+            ? `If you connect your ${connection.integrationName} account, the run carries on.`
+            : `The run is waiting for ${who} to connect ${connection.integrationName}.`}
       </p>
     </DecisionCard>
   );

@@ -1,4 +1,4 @@
-import { DeltaMark } from '@/components/features/insights/DeltaMark';
+import { DeltaGlyph } from '@/components/features/insights/DeltaGlyph';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import {
   type InsightsColumn,
@@ -7,13 +7,13 @@ import {
 import { SpreadShown } from '@/components/features/insights/SpreadShown';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
-  changeDelta,
   formatCount,
   formatMedian,
   formatStation,
   formatTail,
   type StationFlow,
   type StationNames,
+  shownDeltaOf,
 } from '@/lib/insights';
 import { stationPath } from '@/lib/station';
 
@@ -48,14 +48,14 @@ export function StationWaitsTable({
       header: 'Tasks',
       numeric: true,
       cell: (station) => {
-        const delta = changeDelta(station.tasksChange);
+        const delta = shownDeltaOf(station.tasksChange);
 
         return (
           <span className="inline-flex items-center gap-2">
             <InsightsLink tab="runs" filter={{ stationId: station.stationId }}>
               {formatCount(station.tasks)}
             </InsightsLink>
-            {delta && <DeltaMark delta={delta} />}
+            {delta && <DeltaGlyph delta={delta} />}
           </span>
         );
       },

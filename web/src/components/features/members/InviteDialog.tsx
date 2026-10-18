@@ -29,9 +29,9 @@ export function InviteDialog({
   const [round, setRound] = useState(0);
   const sending = invite.isPending;
 
-  const send = (terms: InviteToWorkspaceRequestDto) => {
+  const send = (spec: InviteToWorkspaceRequestDto) => {
     if (slug && !sending) {
-      invite.mutate(terms, { onSuccess: setSent });
+      invite.mutate(spec, { onSuccess: setSent });
     }
   };
 
@@ -43,8 +43,8 @@ export function InviteDialog({
           onOpenChange(next);
         }
       }}
-      onOpenChangeComplete={(settled) => {
-        if (!settled) {
+      onOpenChangeComplete={(open) => {
+        if (!open) {
           setSent(null);
           setRound((was) => was + 1);
           invite.reset();

@@ -22,14 +22,14 @@ export class ImportEgressHandler
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
-      const kept = permissions
+      const record = permissions
         ? await this.resources.egressAt(
             permissions.workspaceId,
             EgressKey.of(query.address).value,
           )
         : null;
 
-      return kept ? RunnerResourceMapper.egress(kept) : null;
+      return record ? RunnerResourceMapper.egress(record) : null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

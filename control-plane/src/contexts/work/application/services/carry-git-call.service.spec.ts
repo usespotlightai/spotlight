@@ -66,7 +66,7 @@ const call: GitCall = {
   body: null,
 };
 
-const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
+const delivery = (workspaceId = 'ws_1', backlogId = 'station_1') =>
   Line.rehydrate({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of(workspaceId),
@@ -75,7 +75,7 @@ const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
     name: LineName.of('Delivery'),
     stations: [
       Station.of({
-        id: StationId.of(standsAt),
+        id: StationId.of(backlogId),
         key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
@@ -99,7 +99,7 @@ const added = () =>
     at: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.between(null, null),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
   });
@@ -120,9 +120,9 @@ const chat = () =>
   });
 
 const lineWorking = (repositories: readonly string[]): Line => {
-  const held = repositories.map((each) => Repository.of(each));
+  const repos = repositories.map((each) => Repository.of(each));
 
-  return { repositories: { all: held } } as unknown as Line;
+  return { repositories: { all: repos } } as unknown as Line;
 };
 
 const COMMIT = 'c'.repeat(40);
@@ -139,7 +139,7 @@ const specFor = (subject: RunSubject) =>
     command: { executable: 'sh', args: [] },
     briefing: 'do the thing',
     handover: { options: [], noteLimit: 4_000 },
-    continuity: { key: 'task:station' },
+    resume: { key: 'task:station' },
     ...(subject.isReplay
       ? {
           checkouts: [
@@ -177,7 +177,7 @@ const claimedBy = (runner: string, subject?: RunSubject) =>
 
 const carrying = (
   run: Run | null,
-  held: Task | null,
+  existing: Task | null,
   repositories: readonly string[] = ['acme/widgets'],
   checking = false,
 ) => {
@@ -188,10 +188,10 @@ const carrying = (
   const service = new CarryGitCall(
     new RunWorks(
       { findById: vi.fn(async () => run) } as unknown as RunRepository,
-      { find: vi.fn(async () => held) } as unknown as TaskRepository,
+      { find: vi.fn(async () => existing) } as unknown as TaskRepository,
       { find: vi.fn(async () => chat()) } as unknown as ChatRepository,
       {
-        holding: vi.fn(async () => lineWorking(repositories)),
+        findByStation: vi.fn(async () => lineWorking(repositories)),
       } as unknown as LineRepository,
       { of: async () => null },
       { now: () => new Date(), sleep: async () => {} },
@@ -200,7 +200,7 @@ const carrying = (
       isConnected: vi.fn(async () => true),
     } as unknown as WorkspaceConnectionsPort,
     git as unknown as RepositoryGitPort,
-    { holdsCheckOfRun: vi.fn(async () => checking) },
+    { isCheckOfRunLeasedBy: vi.fn(async () => checking) },
     { now: () => NOW, sleep: async () => {} },
   );
 
@@ -226,7 +226,7 @@ describe('CarryGitCall', () => {
     );
   });
 
-  it('carries a chat’s call to a repository the chat was given', async () => {
+  it('carries a chat’s call to a repository of the chat', async () => {
     const { service, git } = carrying(
       claimedBy('runner_1', RunSubject.chat(ChatId.of('chat_1'))),
       null,
@@ -259,7 +259,7 @@ describe('CarryGitCall', () => {
     expect(git.call).not.toHaveBeenCalled();
   });
 
-  it('carries nothing for a run its task has let go of', async () => {
+  it('carries nothing for a run its task detached', async () => {
     const { service, git } = carrying(claimedBy('runner_1'), added());
 
     await expect(
@@ -268,7 +268,7 @@ describe('CarryGitCall', () => {
     expect(git.call).not.toHaveBeenCalled();
   });
 
-  it('refuses a runner that does not hold the run', async () => {
+  it('rejects a runner that does not lease the run', async () => {
     const { service, git } = carrying(claimedBy('runner_1'), task());
 
     await expect(
@@ -277,7 +277,7 @@ describe('CarryGitCall', () => {
     expect(git.call).not.toHaveBeenCalled();
   });
 
-  it('refuses a run nobody is holding', async () => {
+  it('rejects a run nobody leases', async () => {
     const { service, git } = carrying(enqueued(), task());
 
     await expect(
@@ -295,7 +295,7 @@ describe('CarryGitCall', () => {
     expect(git.call).not.toHaveBeenCalled();
   });
 
-  it('refuses a run that does not exist', async () => {
+  it('rejects a run that does not exist', async () => {
     const { service } = carrying(null, null);
 
     await expect(
@@ -331,7 +331,7 @@ describe('CarryGitCall', () => {
       expect(git.call).not.toHaveBeenCalled();
     });
 
-    it('reaches no repository it does not check out', async () => {
+    it('allows no repository it does not check out', async () => {
       const { service, git } = carrying(claimedBy('runner_1', REPLAY), null, [
         'acme/widgets',
         'acme/gadgets',
@@ -344,8 +344,8 @@ describe('CarryGitCall', () => {
     });
   });
 
-  describe('a runner holding a check of the run', () => {
-    it('reads the repository though it never held the run', async () => {
+  describe('a runner that leases a check of the run', () => {
+    it('reads the repository though it never leased the run', async () => {
       const { service, git } = carrying(
         claimedBy('runner_1'),
         task(),
@@ -416,7 +416,7 @@ describe('CarryGitCall', () => {
     });
   });
 
-  describe('a runner holding a check of a replay', () => {
+  describe('a runner that leases a check of a replay', () => {
     it('reads the repository the replay checked out, though its line no longer works it', async () => {
       const { service, git } = carrying(
         claimedBy('runner_1', REPLAY),
@@ -454,7 +454,7 @@ describe('CarryGitCall', () => {
       expect(git.call).not.toHaveBeenCalled();
     });
 
-    it('reaches no repository the replay did not check out', async () => {
+    it('allows no repository the replay did not check out', async () => {
       const { service, git } = carrying(
         claimedBy('runner_1', REPLAY),
         null,

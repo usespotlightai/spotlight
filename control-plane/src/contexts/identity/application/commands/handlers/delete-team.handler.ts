@@ -1,10 +1,10 @@
 import type { DeleteTeamCommand } from '@identity/application/commands/delete-team.command';
-import type { TeamHoldingsPort } from '@identity/application/ports/team-holdings.port';
+import type { TeamDependentsPort } from '@identity/application/ports/team-dependents.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { TeamInUseError } from '@identity/domain/exceptions/team-in-use.error';
 import { TeamVersionConflictError } from '@identity/domain/exceptions/team-version-conflict.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
-import { Holdings } from '@identity/domain/value-objects/holdings.vo';
+import { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import {
   forbiddenTo,
   type ResourceDeleted,
@@ -12,7 +12,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class DeleteTeamHandler
@@ -21,7 +21,7 @@ export class DeleteTeamHandler
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly teams: TeamRepository,
-    private readonly holdings: TeamHoldingsPort,
+    private readonly dependents: TeamDependentsPort,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -29,15 +29,15 @@ export class DeleteTeamHandler
     const id = TeamId.of(command.teamId);
 
     try {
-      const standing = await this.teams.find(id);
-      const permissions = standing
+      const existing = await this.teams.find(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -45,15 +45,15 @@ export class DeleteTeamHandler
         return forbiddenTo('configure');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
-      const held = Holdings.of(await this.holdings.of(id));
+      const remaining = Dependents.of(await this.dependents.of(id));
 
       await this.transaction.inTransaction(() =>
         this.teams.save(
-          standing.disband(
-            held,
-            Attribution.of(command.actor, standing.workspaceId),
+          existing.delete(
+            remaining,
+            ChangeActor.of(command.actor, existing.workspaceId),
           ),
         ),
       );

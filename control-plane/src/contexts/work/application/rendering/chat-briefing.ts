@@ -3,7 +3,7 @@ import type {
   MemoryFolder,
 } from '@work/application/ports/team-memories.port';
 import { Attached } from '@work/application/rendering/attached';
-import { Improving } from '@work/application/rendering/improving';
+import { ImproveStation } from '@work/application/rendering/improve-station';
 import { Learned } from '@work/application/rendering/learned';
 import { SettingUp } from '@work/application/rendering/setting-up';
 import { Traced } from '@work/application/rendering/traced';
@@ -54,7 +54,7 @@ const workspaceOf = (chat: Chat): string =>
 
 const proposing = [
   '## Proposing tasks',
-  'Once the two of you have settled on a piece of work, propose it, from anywhere in the workspace:',
+  'Once the two of you have agreed on a piece of work, propose it, from anywhere in the workspace:',
   '```\nspotlight propose-task --line <line> --station <station> --title "…" < description.md\n```',
   'Name the line and the station by their keys. Propose one task for each piece of work that can be done and reviewed on its own, and put in the description everything whoever works it needs to know, since they will not see this conversation.',
   'The person sees each proposal here and decides whether to create it. Nothing is created until they do, so do not propose anything they have not agreed to.',
@@ -104,8 +104,8 @@ export const ChatBriefing = {
     memories: readonly BriefedMemory[];
     memoryFolder: MemoryFolder | null;
   }): string {
-    const said = input.chat.messages.filter(
-      (message) => message.kind === 'said',
+    const messages = input.chat.messages.filter(
+      (message) => message.kind === 'message',
     );
 
     const setup = input.chat.setup;
@@ -115,8 +115,8 @@ export const ChatBriefing = {
       linesOf(input.lines),
       workspaceOf(input.chat),
       setup ? SettingUp.section(setup, input.chat.workspaceId.value) : null,
-      input.chat.improving
-        ? Improving.section(input.chat.improving, input.lines)
+      input.chat.targetStation
+        ? ImproveStation.section(input.chat.targetStation, input.lines)
         : null,
       Learned.section(input.memories),
       Learned.rest({
@@ -125,23 +125,23 @@ export const ChatBriefing = {
       }),
       proposing,
       proposedSoFar(input.chat, input.lines),
-      tracing(said) ? Traced.reading : null,
-      ['## What they said', ...said.map(words)].join('\n\n'),
+      tracing(messages) ? Traced.reading : null,
+      ['## Their messages', ...messages.map(words)].join('\n\n'),
     ]
       .filter(Boolean)
       .join('\n\n');
   },
 
   followUp(chat: Chat, handed: readonly MessagePosition[]): string {
-    const given = chat.messagesAt(handed);
+    const delivered = chat.messagesAt(handed);
     const earlier = chat.messages.filter(
       (message) =>
-        !given.includes(message) &&
-        given.some((each) => message.position.isAtOrBefore(each.position)),
+        !delivered.includes(message) &&
+        delivered.some((each) => message.position.isAtOrBefore(each.position)),
     );
-    const firstTraces = tracing(given) && !tracing(earlier);
+    const firstTraces = tracing(delivered) && !tracing(earlier);
 
-    return [firstTraces ? Traced.reading : null, ...given.map(words)]
+    return [firstTraces ? Traced.reading : null, ...delivered.map(words)]
       .filter(Boolean)
       .join('\n\n');
   },

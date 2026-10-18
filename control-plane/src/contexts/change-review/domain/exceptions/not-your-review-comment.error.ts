@@ -1,5 +1,5 @@
 export class NotYourReviewCommentError extends Error {
-  readonly violation = 'not-allowed' as const;
+  readonly kind = 'not-allowed' as const;
 
   constructor() {
     super('Only the author can change a review comment.');

@@ -22,8 +22,8 @@ export interface JournalStepDto {
   readonly ms: number;
   readonly startedAt: string;
   readonly locations: readonly StepLocationDto[];
-  readonly given: string | null;
-  readonly returned: string | null;
+  readonly input: string | null;
+  readonly output: string | null;
   readonly change: StepChangeDto | null;
 }
 
@@ -45,8 +45,8 @@ export interface RunSpanDto {
 interface RunMarksDto {
   readonly startedAt: string | null;
   readonly readyAt: string | null;
-  readonly spokeFrom: string | null;
-  readonly spokeTo: string | null;
+  readonly firstAgentUpdateAt: string | null;
+  readonly lastAgentUpdateAt: string | null;
   readonly endedAt: string | null;
 }
 

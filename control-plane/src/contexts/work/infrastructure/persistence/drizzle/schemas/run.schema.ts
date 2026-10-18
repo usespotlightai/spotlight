@@ -58,17 +58,17 @@ export const run = pgTable(
     reservedFor: text('reserved_for'),
     reservedPool: text('reserved_pool'),
     reservedUntil: timestamp('reserved_until'),
-    provisionFailures: integer('provision_failures').notNull().default(0),
-    nextProvisionAt: timestamp('next_provision_at'),
-    handBacks: integer('hand_backs').notNull().default(0),
-    parkedAttempts: integer('parked_attempts')
+    provisionAttempts: integer('provision_attempts').notNull().default(0),
+    nextProvisionAttemptAt: timestamp('next_provision_attempt_at'),
+    requeueCount: integer('requeue_count').notNull().default(0),
+    suspendedAttempts: integer('suspended_attempts')
       .array()
       .notNull()
       .default(sql`'{}'::integer[]`),
     briefedMemories: jsonb('briefed_memories')
       .$type<BriefedMemoriesParts>()
       .notNull()
-      .default({ briefed: [], cut: [] }),
+      .default({ briefed: [], omitted: [] }),
     startedAt: timestamp('started_at'),
     endedAt: timestamp('ended_at'),
     stationFingerprint: text('station_fingerprint'),
@@ -137,7 +137,7 @@ export const runJournalEntry = pgTable(
   (table) => [primaryKey({ columns: [table.runId, table.attempt, table.seq] })],
 );
 
-export interface RunDigestServerCalls {
+export interface RunUsageServerCalls {
   readonly server: string;
   readonly calls: number;
   readonly failed: number;
@@ -145,13 +145,13 @@ export interface RunDigestServerCalls {
   readonly lastCallFailed: boolean;
 }
 
-export interface RunDigestTools {
-  readonly servers: readonly RunDigestServerCalls[];
+export interface RunUsageTools {
+  readonly servers: readonly RunUsageServerCalls[];
   readonly skills: readonly string[];
 }
 
-export const runDigest = pgTable(
-  'run_digest',
+export const runUsage = pgTable(
+  'run_usage',
   {
     runId: text('run_id')
       .notNull()
@@ -159,10 +159,10 @@ export const runDigest = pgTable(
     attempt: integer('attempt').notNull(),
     ms: integer('ms'),
     steps: integer('steps').notNull().default(0),
-    faults: integer('faults').notNull().default(0),
+    errors: integer('errors').notNull().default(0),
     changedLines: integer('changed_lines').notNull().default(0),
-    used: integer('used'),
-    size: integer('size'),
+    contextTokens: integer('context_tokens'),
+    contextWindow: integer('context_window'),
     cost: doublePrecision('cost'),
     currency: text('currency'),
     inputTokens: bigint('input_tokens', { mode: 'number' }),
@@ -170,10 +170,10 @@ export const runDigest = pgTable(
     cacheReadTokens: bigint('cache_read_tokens', { mode: 'number' }),
     cacheWriteTokens: bigint('cache_write_tokens', { mode: 'number' }),
     tools: jsonb('tools')
-      .$type<RunDigestTools>()
+      .$type<RunUsageTools>()
       .notNull()
       .default({ servers: [], skills: [] }),
-    digestedAt: timestamp('digested_at').defaultNow().notNull(),
+    recordedAt: timestamp('recorded_at').defaultNow().notNull(),
   },
   (table) => [primaryKey({ columns: [table.runId, table.attempt] })],
 );

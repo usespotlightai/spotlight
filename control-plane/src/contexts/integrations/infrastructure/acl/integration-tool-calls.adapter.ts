@@ -1,13 +1,13 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
-import type { HostReach } from '@integrations/application/services/host-reach.service';
-import type { LearnOutputShapes } from '@integrations/application/services/learn-output-shapes.service';
+import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
+import type { InferOutputSchemas } from '@integrations/application/services/infer-output-schemas.service';
 import type { PersonToolRules } from '@integrations/application/services/person-tool-rules.service';
-import { BoundTaskMapper } from '@integrations/infrastructure/acl/bound-task.mapper';
+import { IntegrationTaskViewMapper } from '@integrations/infrastructure/acl/integration-task-view.mapper';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
+import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import type {
   IntegrationTool,
   IntegrationToolCallsPort,
@@ -18,47 +18,47 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
   constructor(
     private readonly defined: DefinedIntegrationsPort,
     private readonly runtime: IntegrationRuntimePort,
-    private readonly hosts: HostReach,
-    private readonly learning: LearnOutputShapes,
+    private readonly callAuthResolver: CallAuthResolver,
+    private readonly inferring: InferOutputSchemas,
     private readonly personRules: PersonToolRules,
   ) {}
 
-  async reach(
+  async resolve(
     tool: string,
-    task: BoundTaskDto,
+    task: IntegrationTaskViewDto,
     run: RunAttemptDto,
     requester: string | null,
   ): Promise<IntegrationTool | null> {
     const teamId = TeamId.of(task.teamId);
     const definitions = await this.defined.ofTeam(teamId);
-    const reachable = await this.runtime.tool(
+    const resolved = await this.runtime.tool(
       definitions,
       tool,
-      BoundTaskMapper.toBound(task),
+      IntegrationTaskViewMapper.toView(task),
     );
 
-    if (!reachable) {
+    if (!resolved) {
       return null;
     }
 
-    const found = await this.hosts.connectionFor(
+    const found = await this.callAuthResolver.connectionFor(
       teamId,
-      reachable.integration,
+      resolved.integration,
       requester ? UserId.of(requester) : null,
     );
 
-    if (found.kind === 'wanted') {
+    if (found.kind === 'missing') {
       return {
-        declared: reachable.declared,
+        declared: resolved.declared,
         actingAs: null,
         personRule: null,
-        wants: {
-          source: found.wanted.source.value,
-          integration: found.wanted.integrationName,
-          personId: found.wanted.personId?.value ?? null,
-          because: found.wanted.because,
+        missing: {
+          integration: found.missing.integration.value,
+          integrationName: found.missing.integrationName,
+          personId: found.missing.personId?.value ?? null,
+          because: found.missing.because,
         },
-        defaultFor: (input) => reachable.defaultFor(input),
+        defaultFor: (input) => resolved.defaultFor(input),
         call: async () => {
           throw new InconsistentStateError(
             'integration tool',
@@ -68,46 +68,46 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
       };
     }
 
-    const held = await this.personRules.ruleFor(
+    const personRule = await this.personRules.ruleFor(
       teamId,
-      reachable.integration.source,
-      found.holder,
+      resolved.integration.key,
+      found.owner,
       tool,
     );
 
     return {
-      declared: reachable.declared,
-      personRule: held
+      declared: resolved.declared,
+      personRule: personRule
         ? {
-            rule: held.rule.name,
-            personId: held.personId.value,
-            personName: held.personName,
+            rule: personRule.rule.name,
+            personId: personRule.personId.value,
+            personName: personRule.personName,
           }
         : null,
-      actingAs: reachable.integration.connects
+      actingAs: resolved.integration.requiresConnection
         ? {
-            holder: found.holder.isPerson ? 'person' : 'team',
-            personId: found.holder.personId?.value ?? null,
-            handle: found.connection?.handle ?? null,
+            actsAs: found.owner.isPerson ? 'requester' : 'team',
+            personId: found.owner.personId?.value ?? null,
+            linkedAccount: found.connection?.linkedAccount ?? null,
           }
         : null,
-      wants: null,
-      defaultFor: (input) => reachable.defaultFor(input),
+      missing: null,
+      defaultFor: (input) => resolved.defaultFor(input),
       call: async (inputs) => {
-        const answer = await reachable.call(
+        const answer = await resolved.call(
           inputs,
-          await this.hosts.forRun(
+          await this.callAuthResolver.forRun(
             {
               teamId,
               workspaceId: task.workspaceId,
               runId: run.runId,
               attempt: run.attempt,
-              wears: reachable.wears,
+              injectedSecrets: resolved.injectedSecrets,
             },
             found.connection,
           ),
         );
-        void this.learning.learn(teamId, tool, answer);
+        void this.inferring.infer(teamId, tool, answer);
 
         return answer;
       },

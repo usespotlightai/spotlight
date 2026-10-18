@@ -1,5 +1,5 @@
 import { ClaimVerdicts } from '@/components/features/runs/judge/ClaimVerdicts';
-import { formatPassShare } from '@/lib/judge';
+import { formatPassThreshold } from '@/lib/judge';
 import type { ReplayEntry } from '@/lib/replay';
 
 type EntryJudgeClaimsProps = {
@@ -15,9 +15,9 @@ export function EntryJudgeClaims({ judge, marks }: EntryJudgeClaimsProps) {
         marks={marks}
         reasons={judge.reasons}
       />
-      {judge.passShare !== null && (
+      {judge.passThreshold !== null && (
         <p className="text-muted-foreground">
-          {formatPassShare(judge.passShare)}
+          {formatPassThreshold(judge.passThreshold)}
         </p>
       )}
     </div>

@@ -74,9 +74,9 @@ func TestASandboxRunsWithItsFilesAndIsGoneAfterwards(t *testing.T) {
 
 	id, err := engine.Start(ctx, sandbox.Spec{
 		Image:  image,
-		Args:   []string{"sh", "-c", "cat /run/spotlight/handed.json; stat -c %a /run/spotlight/handed.json;"},
+		Args:   []string{"sh", "-c", "cat /run/spotlight/assignment.json; stat -c %a /run/spotlight/assignment.json;"},
 		Labels: map[string]string{"ai.usespotlight.test": "sandbox"},
-		Files:  []sandbox.File{{Path: "/run/spotlight/handed.json", Mode: 0o400, Body: []byte("handed\n")}},
+		Files:  []sandbox.File{{Path: "/run/spotlight/assignment.json", Mode: 0o400, Body: []byte("assignment\n")}},
 	})
 	if id != "" {
 		defer func() { _ = engine.Destroy(context.Background(), id) }()
@@ -94,7 +94,7 @@ func TestASandboxRunsWithItsFilesAndIsGoneAfterwards(t *testing.T) {
 	if err := engine.Follow(ctx, id, &out); err != nil {
 		t.Fatalf("follow: %v", err)
 	}
-	if !strings.Contains(out.String(), "handed") || !strings.Contains(out.String(), "400") {
+	if !strings.Contains(out.String(), "assignment") || !strings.Contains(out.String(), "400") {
 		t.Errorf("said %q", out.String())
 	}
 
@@ -135,7 +135,7 @@ func TestLayingAFileLeavesItsParentsAsTheImageHasThem(t *testing.T) {
 	id, err := engine.Start(ctx, sandbox.Spec{
 		Image: image,
 		Args:  []string{"stat", "-c", "%a", "/etc"},
-		Files: []sandbox.File{{Path: "/etc/spotlight/handed.json", Mode: 0o400, Body: []byte("handed")}},
+		Files: []sandbox.File{{Path: "/etc/spotlight/assignment.json", Mode: 0o400, Body: []byte("assignment")}},
 	})
 	if id != "" {
 		defer func() { _ = engine.Destroy(context.Background(), id) }()
@@ -157,7 +157,7 @@ func TestLayingAFileLeavesItsParentsAsTheImageHasThem(t *testing.T) {
 	}
 }
 
-func TestASandboxOnItsOwnNetworkReachesOnlyWhatJoinedIt(t *testing.T) {
+func TestASandboxOnItsOwnNetworkConnectsOnlyToWhatJoinedIt(t *testing.T) {
 	engine, err := Connect("")
 	if err != nil {
 		t.Skip("no container runtime: ", err)
@@ -178,30 +178,30 @@ func TestASandboxOnItsOwnNetworkReachesOnlyWhatJoinedIt(t *testing.T) {
 	}
 	defer func() { _ = engine.Unnetwork(context.Background(), network) }()
 
-	way, err := engine.Start(ctx, sandbox.Spec{
+	sidecar, err := engine.Start(ctx, sandbox.Spec{
 		Image:      image,
 		Entrypoint: []string{"sh", "-c"},
 		Args:       []string{"mkdir -p /srv && echo reached > /srv/index.html && touch /tmp/ready && httpd -f -p 8080 -h /srv"},
 		Labels:     labels,
 		Joins:      []sandbox.Join{{Network: network, Aliases: []string{"egress"}}},
 	})
-	if way != "" {
-		defer func() { _ = engine.Destroy(context.Background(), way) }()
+	if sidecar != "" {
+		defer func() { _ = engine.Destroy(context.Background(), sidecar) }()
 	}
 	if err != nil {
-		t.Fatalf("start the way out: %v", err)
+		t.Fatalf("start the egress sidecar: %v", err)
 	}
 
 	for deadline := time.Now().Add(30 * time.Second); ; {
-		if _, err := engine.Read(ctx, way, "/tmp/ready"); err == nil {
+		if _, err := engine.Read(ctx, sidecar, "/tmp/ready"); err == nil {
 			break
 		} else if !errors.Is(err, os.ErrNotExist) || time.Now().After(deadline) {
-			t.Fatalf("the way out never readied: %v", err)
+			t.Fatalf("the egress sidecar did not become ready: %v", err)
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	if said, err := engine.Read(ctx, way, "/srv/index.html"); err != nil || string(said) != "reached\n" {
-		t.Errorf("read %q: %v", said, err)
+	if content, err := engine.Read(ctx, sidecar, "/srv/index.html"); err != nil || string(content) != "reached\n" {
+		t.Errorf("read %q: %v", content, err)
 	}
 
 	id, err := engine.Start(ctx, sandbox.Spec{

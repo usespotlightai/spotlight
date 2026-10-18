@@ -98,10 +98,10 @@ func TestAReplayHandsOverItsChangeBeforeItEndsFromABaseItsCheckCanFetch(t *testi
 		ID: "run_1",
 		Spec: protocol.Spec{
 			Command: protocol.Command{Executable: harness(t,
-				`require("node:fs").writeFileSync("api/queue.js", "drain()\n"); said = "drained";`, "end_turn")},
-			Continuity: protocol.Continuity{Key: "replay-run_1"},
-			Checkouts:  []protocol.Checkout{{Remote: "spotlight:repository", Path: "api", Ref: served.commit}},
-			Diffs:      true,
+				`require("node:fs").writeFileSync("api/queue.js", "drain()\n"); output = "drained";`, "end_turn")},
+			Resume:    protocol.Resume{Key: "replay-run_1"},
+			Checkouts: []protocol.Checkout{{Remote: "spotlight:repository", Path: "api", Ref: served.commit}},
+			Diffs:     true,
 			Replay: &protocol.Replay{Checkouts: []protocol.StartedCheckout{
 				{Path: "api", Commit: served.commit},
 			}},
@@ -117,18 +117,18 @@ func TestAReplayHandsOverItsChangeBeforeItEndsFromABaseItsCheckCanFetch(t *testi
 		t.Fatalf("execute: %v", err)
 	}
 
-	if len(written.drafted) != 1 {
-		t.Fatalf("drafted %d stacks, want the one checkout's", len(written.drafted))
+	if len(written.generated) != 1 {
+		t.Fatalf("generated %d stacks, want the one checkout's", len(written.generated))
 	}
-	drafted := written.drafted[0]
-	if !strings.Contains(drafted.diff, "+drain()") {
-		t.Errorf("drafted %q, want the replay's change", drafted.diff)
+	generated := written.generated[0]
+	if !strings.Contains(generated.diff, "+drain()") {
+		t.Errorf("generated %q, want the replay's change", generated.diff)
 	}
-	if drafted.base != served.commit {
-		t.Errorf("drafted from base %q, want the commit the replay started at, %q", drafted.base, served.commit)
+	if generated.base != served.commit {
+		t.Errorf("generated from base %q, want the commit the replay started at, %q", generated.base, served.commit)
 	}
-	if got := strings.Join(written.calls, ","); !strings.HasSuffix(got, "draft,complete") {
-		t.Errorf("called %s, want the stack drafted before the run completed", got)
+	if got := strings.Join(written.calls, ","); !strings.HasSuffix(got, "generate,complete") {
+		t.Errorf("called %s, want the stack generated before the run completed", got)
 	}
 
 	fetching, err := gitproxy.Serve(served.url, "check-token", "run_1", true, nil)
@@ -139,7 +139,7 @@ func TestAReplayHandsOverItsChangeBeforeItEndsFromABaseItsCheckCanFetch(t *testi
 
 	checking := t.TempDir()
 	inRepository(t, checking, "init", "--quiet")
-	inRepository(t, checking, "fetch", "--quiet", fetching.Remote+"/api", drafted.base)
+	inRepository(t, checking, "fetch", "--quiet", fetching.Remote+"/api", generated.base)
 	if got := inRepository(t, checking, "rev-parse", "FETCH_HEAD"); got != served.commit {
 		t.Errorf("a check fetched %q, want the base %q", got, served.commit)
 	}
@@ -158,10 +158,10 @@ func TestATaskRunStillHandsOverItsChangeAfterItsTurnIsReported(t *testing.T) {
 		ID: "run_1",
 		Spec: protocol.Spec{
 			Command: protocol.Command{Executable: harness(t,
-				`require("node:fs").writeFileSync("api/queue.js", "drain()\n"); said = "drained";`, "end_turn")},
-			Continuity: protocol.Continuity{Key: "task-1"},
-			Checkouts:  []protocol.Checkout{{Remote: "spotlight:repository", Path: "api", Ref: served.commit}},
-			Diffs:      true,
+				`require("node:fs").writeFileSync("api/queue.js", "drain()\n"); output = "drained";`, "end_turn")},
+			Resume:    protocol.Resume{Key: "task-1"},
+			Checkouts: []protocol.Checkout{{Remote: "spotlight:repository", Path: "api", Ref: served.commit}},
+			Diffs:     true,
 		},
 	}, session.Options{
 		Workspace:    t.TempDir(),
@@ -174,7 +174,7 @@ func TestATaskRunStillHandsOverItsChangeAfterItsTurnIsReported(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 
-	if got := strings.Join(written.calls, ","); !strings.HasSuffix(got, "complete,draft") {
-		t.Errorf("called %s, want the stack drafted after the turn was reported", got)
+	if got := strings.Join(written.calls, ","); !strings.HasSuffix(got, "complete,generate") {
+		t.Errorf("called %s, want the stack generated after the turn was reported", got)
 	}
 }

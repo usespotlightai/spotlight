@@ -3,7 +3,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { RunnerVersionConflictError } from '@runners/domain/exceptions/runner-version-conflict.error';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
-import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HarnessVersion } from '@runners/domain/value-objects/harness-version.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
@@ -42,19 +42,19 @@ const workOf = (row: Row): RunnerWork | null => {
   if (!kind) {
     throw new InconsistentStateError(
       'runner',
-      `holds work of an unknown kind (${row.workKind})`,
+      `has a lease on work of an unknown kind (${row.workKind})`,
     );
   }
 
   return RunnerWork.of(kind, row.workId);
 };
 
-const admissionOf = (row: Row): Admission => {
+const credentialSourceOf = (row: Row): CredentialSource => {
   if (row.poolId !== null) {
-    return Admission.of('pool', row.poolId);
+    return CredentialSource.of('pool', row.poolId);
   }
   if (row.trustId !== null) {
-    return Admission.of('trust', row.trustId);
+    return CredentialSource.of('trust', row.trustId);
   }
 
   throw new InconsistentStateError(
@@ -67,7 +67,7 @@ const toRunner = (row: Row): Runner =>
   Runner.rehydrate({
     id: RunnerId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
-    admission: admissionOf(row),
+    source: credentialSourceOf(row),
     hostId: row.hostId === null ? null : HostId.of(row.hostId),
     labels: RunnerLabels.of(row.labels),
     tokenHash: TokenHash.of(row.tokenHash),
@@ -80,7 +80,7 @@ const toRunner = (row: Row): Runner =>
     installed: row.harnesses.map((id) =>
       InstalledHarness.of(
         HarnessId.of(id),
-        row.advertisedModels[id].map(HarnessModel.of),
+        row.supportedModels[id].map(HarnessModel.of),
         row.harnessVersions[id]
           ? HarnessVersion.of(row.harnessVersions[id])
           : null,
@@ -89,18 +89,18 @@ const toRunner = (row: Row): Runner =>
     running:
       row.image === null
         ? null
-        : RunningImage.of(RunnerImage.of(row.image), row.usual),
+        : RunningImage.of(RunnerImage.of(row.image), row.isDefault),
     work: workOf(row),
     claimBy: row.claimBy,
     startedAt: row.startedAt,
-    lastSeenAt: row.lastSeenAt,
+    lastHeartbeatAt: row.lastHeartbeatAt,
     endedAt: row.endedAt,
     version: row.version,
   });
 
-const heldOf = (runner: Runner) => ({
+const columnsOf = (runner: Runner) => ({
   harnesses: runner.installed.map((each) => each.id.value),
-  advertisedModels: Object.fromEntries(
+  supportedModels: Object.fromEntries(
     runner.installed.map((each) => [
       each.id.value,
       each.models.map((model) => model.value),
@@ -113,7 +113,7 @@ const heldOf = (runner: Runner) => ({
   ),
   workKind: runner.work?.kind ?? null,
   workId: runner.work?.id ?? null,
-  lastSeenAt: runner.lastSeenAt,
+  lastHeartbeatAt: runner.lastHeartbeatAt,
   endedAt: runner.endedAt,
 });
 
@@ -130,18 +130,18 @@ export class DrizzleRunnerRepository implements RunnerRepository {
       await this.context.db.insert(runner).values({
         id: added.id.value,
         workspaceId: added.workspaceId.value,
-        poolId: added.admission.poolId?.value ?? null,
-        trustId: added.admission.trustId?.value ?? null,
+        poolId: added.source.poolId?.value ?? null,
+        trustId: added.source.trustId?.value ?? null,
         hostId: added.hostId?.value ?? null,
         labels: [...added.labels.values],
         tokenHash: added.tokenHash.value,
         egressTokenHash: added.egressTokenHash?.value ?? null,
         proxyCredentialHash: added.proxyCredentialHash?.value ?? null,
         image: added.running?.image.value ?? null,
-        usual: added.running?.usual ?? false,
+        isDefault: added.running?.isDefault ?? false,
         claimBy: added.claimBy,
         startedAt: added.startedAt,
-        ...heldOf(added),
+        ...columnsOf(added),
         version: added.version,
       });
 
@@ -162,7 +162,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
             .returning({ id: runner.id })
         : await this.context.db
             .update(runner)
-            .set({ ...heldOf(saved), version: saved.version + 1 })
+            .set({ ...columnsOf(saved), version: saved.version + 1 })
             .where(matching)
             .returning({ id: runner.id });
 
@@ -214,10 +214,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
     return found ? toRunner(found) : null;
   }
 
-  async standingIn(
-    poolId: RunnerPoolId,
-    now: Date,
-  ): Promise<readonly Runner[]> {
+  async aliveIn(poolId: RunnerPoolId, now: Date): Promise<readonly Runner[]> {
     const rows = await this.context.db
       .select()
       .from(runner)
@@ -228,17 +225,17 @@ export class DrizzleRunnerRepository implements RunnerRepository {
           or(
             and(
               isNotNull(runner.workId),
-              gt(runner.lastSeenAt, Runner.unseenSinceLongestHold(now)),
+              gt(runner.lastHeartbeatAt, Runner.heartbeatTimedOutBefore(now)),
             ),
             and(isNull(runner.workId), gt(runner.claimBy, now)),
           ),
         ),
       );
 
-    return rows.map(toRunner).filter((each) => each.standsAt(now));
+    return rows.map(toRunner).filter((each) => each.isAlive(now));
   }
 
-  async holding(work: RunnerWork): Promise<readonly Runner[]> {
+  async findByWork(work: RunnerWork): Promise<readonly Runner[]> {
     const rows = await this.context.db
       .select()
       .from(runner)

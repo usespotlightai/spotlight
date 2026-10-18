@@ -2,12 +2,12 @@ import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
-import type { MemoryStanding } from '@memory/domain/value-objects/memory-standing';
-import type { RunSite } from '@memory/domain/value-objects/run-site';
+import type { MemoryStatus } from '@memory/domain/value-objects/memory-status';
+import type { RunContext } from '@memory/domain/value-objects/run-context';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export interface MemoryCriteria {
-  readonly standing: MemoryStanding;
+  readonly status: MemoryStatus;
   readonly kind: MemoryKind | null;
   readonly lineId: string | null;
   readonly stationId: string | null;
@@ -35,7 +35,10 @@ export interface MemoryRepository {
 
   nextHandle(): Promise<MemoryHandle>;
 
-  mayReach(site: RunSite, standingAt?: Date | null): Promise<readonly Memory[]>;
+  mayApplyAt(
+    runContext: RunContext,
+    asOf?: Date | null,
+  ): Promise<readonly Memory[]>;
 
   ofTeam(teamId: TeamId, criteria: MemoryCriteria): Promise<readonly Memory[]>;
 }

@@ -1,15 +1,15 @@
 import { useState } from 'react';
+import { AgentConfigComparison } from '@/components/features/insights/changes/AgentConfigComparison';
 import { ChangeMarkerList } from '@/components/features/insights/changes/ChangeMarkerList';
 import { ChangesSkeleton } from '@/components/features/insights/changes/ChangesSkeleton';
-import { SetupComparison } from '@/components/features/insights/changes/SetupComparison';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
+import {
+  type AgentConfigsNarrowed,
+  useInsightsAgentConfigs,
+} from '@/hooks/api/useInsightsAgentConfigs';
 import { useInsightsCandidates } from '@/hooks/api/useInsightsCandidates';
 import { useInsightsChanges } from '@/hooks/api/useInsightsChanges';
-import {
-  type SetupsNarrowed,
-  useInsightsSetups,
-} from '@/hooks/api/useInsightsSetups';
 import type { InsightsPeriod, StationNames } from '@/lib/insights';
 import { DEFAULT_OUTCOME, type OutcomeMeasure } from '@/lib/insights-changes';
 import { failed, loading } from '@/lib/query';
@@ -21,16 +21,20 @@ type ChangesTabProps = {
   names: StationNames;
 };
 
-const EVERY_SETUP: SetupsNarrowed = { stationId: null, size: null };
+const EVERY_AGENT_CONFIG: AgentConfigsNarrowed = {
+  stationId: null,
+  size: null,
+};
 
 export function ChangesTab({ slug, teamId, period, names }: ChangesTabProps) {
-  const [narrowed, setNarrowed] = useState<SetupsNarrowed>(EVERY_SETUP);
+  const [narrowed, setNarrowed] =
+    useState<AgentConfigsNarrowed>(EVERY_AGENT_CONFIG);
   const [measure, setMeasure] = useState<OutcomeMeasure>(DEFAULT_OUTCOME);
   const changes = useInsightsChanges(teamId, period);
-  const setups = useInsightsSetups(teamId, period, narrowed);
+  const agentConfigs = useInsightsAgentConfigs(teamId, period, narrowed);
   const candidates = useInsightsCandidates(teamId, period);
 
-  if (loading(changes) || loading(setups)) {
+  if (loading(changes) || loading(agentConfigs)) {
     return <ChangesSkeleton />;
   }
 
@@ -38,15 +42,15 @@ export function ChangesTab({ slug, teamId, period, names }: ChangesTabProps) {
     return <InsightsFailed what="The changes" query={changes} />;
   }
 
-  if (failed(setups) || !setups.data) {
-    return <InsightsFailed what="The setups" query={setups} />;
+  if (failed(agentConfigs) || !agentConfigs.data) {
+    return <InsightsFailed what="The agent configs" query={agentConfigs} />;
   }
 
   const narrowing = narrowed.stationId !== null || narrowed.size !== null;
 
   if (
     changes.data.markers.length === 0 &&
-    setups.data.setups.length === 0 &&
+    agentConfigs.data.agentConfigs.length === 0 &&
     !narrowing
   ) {
     return (
@@ -66,10 +70,10 @@ export function ChangesTab({ slug, teamId, period, names }: ChangesTabProps) {
         names={names}
       />
 
-      <SetupComparison
+      <AgentConfigComparison
         slug={slug}
         teamId={teamId}
-        setups={setups.data}
+        comparison={agentConfigs.data}
         candidates={candidates}
         narrowed={narrowed}
         measure={measure}

@@ -1,7 +1,7 @@
 import type { RoleClaimedTwice } from '@work/domain/services/line-roles';
 
 export class LineRoleTakenError extends Error {
-  readonly violation = 'invalid' as const;
+  readonly kind = 'invalid' as const;
 
   constructor(readonly claim: RoleClaimedTwice) {
     super(

@@ -47,7 +47,7 @@ export function StepAnchorsProvider({
         const index = places.get(step);
         return index === undefined ? null : stepAnchor(runId, index);
       },
-      holds: (index: number) => index < places.size,
+      has: (index: number) => index < places.size,
       focus: (index: number) => setFocused(stepAnchor(runId, index)),
     }),
     [focused, places, runId],

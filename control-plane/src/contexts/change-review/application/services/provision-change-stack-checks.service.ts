@@ -8,7 +8,7 @@ import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo'
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   CheckProvisioningPort,
-  LapsedCheck,
+  ExpiredCheck,
   WaitingCheck,
 } from '@work/application/ports/check-provisioning.port';
 
@@ -69,9 +69,9 @@ export class ProvisionChangeStackChecks implements CheckProvisioningPort {
     );
   }
 
-  async lapsed(now: Date): Promise<readonly LapsedCheck[]> {
-    return (await this.checks.withLapsedReservations(now)).flatMap((each) =>
-      each.reservation && each.reservationLapsedAt(now)
+  async expired(now: Date): Promise<readonly ExpiredCheck[]> {
+    return (await this.checks.withExpiredReservations(now)).flatMap((each) =>
+      each.reservation && each.reservationExpiredAt(now)
         ? [
             {
               stackId: each.stackId.value,

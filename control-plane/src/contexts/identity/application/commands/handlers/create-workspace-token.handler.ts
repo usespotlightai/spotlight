@@ -20,16 +20,16 @@ import type {
   IdempotentCreate,
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 
-const refused = (created: ResourceCreated): WorkspaceTokenCreatedDto => ({
+const rejected = (created: ResourceCreated): WorkspaceTokenCreatedDto => ({
   created,
   token: null,
 });
@@ -47,7 +47,7 @@ export class CreateWorkspaceTokenHandler
     private readonly tokens: WorkspaceTokenRepository,
     private readonly creates: IdempotentCreatesPort,
     private readonly ids: IdGeneratorPort,
-    private readonly mint: TokenMintPort,
+    private readonly issuer: TokenIssuer,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
   ) {}
@@ -66,17 +66,17 @@ export class CreateWorkspaceTokenHandler
         return null;
       }
 
-      if (!permissions.administers) {
-        return refused(forbiddenTo('administer'));
+      if (!permissions.isAdmin) {
+        return rejected(forbiddenTo('administer'));
       }
 
       const compiled = this.definitions.workspaceToken(command.definition);
 
       if (!compiled.ok) {
-        return refused({ outcome: 'invalid', problems: compiled.problems });
+        return rejected({ outcome: 'invalid', problems: compiled.problems });
       }
 
-      const minted = this.mint.mint();
+      const newToken = this.issuer.issue();
       const create: IdempotentCreate = {
         by: principal.toString(),
         key: IdempotencyKey.of(command.idempotencyKey),
@@ -89,15 +89,15 @@ export class CreateWorkspaceTokenHandler
 
       try {
         const created = await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
+          createIdempotently(this.creates, create, async () => {
             const issued = WorkspaceToken.issue({
-              ...compiled.terms,
+              ...compiled.spec,
               id: WorkspaceTokenId.of(this.ids.generate()),
               workspaceId: permissions.workspaceId,
-              hash: TokenHash.of(minted.hash),
+              hash: TokenHash.of(newToken.hash),
               issuedBy: principal.userId,
               now: this.clock.now(),
-              by: Attribution.of(command.actor, permissions.workspaceId),
+              by: ChangeActor.of(command.actor, permissions.workspaceId),
             });
 
             await this.tokens.add(issued);
@@ -110,18 +110,21 @@ export class CreateWorkspaceTokenHandler
           created,
           token:
             created.outcome === 'created' && !created.replayed
-              ? minted.token
+              ? newToken.token
               : null,
         };
       } catch (error) {
         if (error instanceof WorkspaceTokenAlreadyIssuedError) {
-          return refused({ outcome: 'taken', address: error.tokenName });
+          return rejected({
+            outcome: 'already-exists',
+            address: error.tokenName,
+          });
         }
 
         if (error instanceof InvalidWorkspaceTokenError) {
-          return refused({
+          return rejected({
             outcome: 'invalid',
-            problems: [IdentityProblems.tokenRefused(error)],
+            problems: [IdentityProblems.tokenInvalid(error)],
           });
         }
 

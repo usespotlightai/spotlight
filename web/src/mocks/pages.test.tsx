@@ -16,7 +16,7 @@ vi.mock('@/hooks/api/useSession', async () => ({
 }));
 
 const EMPTY =
-  /^(No [a-z’' ]+ (yet|match)|Nobody has|Nothing (here|to show|stands out))|could not be loaded|couldn’t be loaded|not found|no longer here/i;
+  /^(No [a-z’' ]+ (yet|match)|Nobody has|Nothing (here|to show|needs attention))|could not be loaded|couldn’t be loaded|not found|no longer here/i;
 
 const NOT_REPLAYED_YET = 'set_docs';
 
@@ -100,7 +100,7 @@ const loadingShown = () =>
   document.querySelectorAll('[role="status"], [data-slot="skeleton"]').length >
   0;
 
-const settled = async () => {
+const loaded = async () => {
   let quiet = 0;
   for (let waited = 0; waited < 5000 && quiet < 3; waited += 100) {
     await pause(100);
@@ -117,7 +117,7 @@ describe('every page with data', () => {
 
     for (const page of PAGES()) {
       const { unmount } = render(<MockApplication at={page} />);
-      await settled();
+      await loaded();
       const found = [
         ...document.body.querySelectorAll<HTMLElement>('p, h2, h3, span, div'),
       ]

@@ -45,12 +45,12 @@ const run = (
   taskDescription: null,
 });
 
-const owed = run('run_1', 'Fix the login bug', {
-  state: 'owed',
+const pending = run('run_1', 'Fix the login bug', {
+  state: 'pending',
   conversationId: 'conv_1',
 });
-const settled = run('run_2', 'Tidy the settings page', {
-  state: 'settled',
+const answered = run('run_2', 'Tidy the settings page', {
+  state: 'answered',
   conversationId: 'conv_2',
 });
 const unreviewed = run('run_3', 'Upgrade the harness', null);
@@ -66,7 +66,7 @@ const filter = (name: string) => screen.getByRole('button', { name });
 
 beforeEach(() => {
   localStorage.clear();
-  runs.mockReturnValue([owed, settled, unreviewed]);
+  runs.mockReturnValue([pending, answered, unreviewed]);
   failing.mockReturnValue(false);
   refetch.mockClear();
 });
@@ -81,7 +81,7 @@ describe('TeamRuns', () => {
     expect(screen.getByText('Upgrade the harness')).toBeInTheDocument();
   });
 
-  it('narrows to runs still owed a review under Waiting for you', async () => {
+  it('narrows to runs with a pending review under Waiting for you', async () => {
     showing();
 
     await userEvent.click(filter('Waiting for you'));
@@ -96,7 +96,7 @@ describe('TeamRuns', () => {
   });
 
   it('says so when nothing is waiting for you', async () => {
-    runs.mockReturnValue([settled, unreviewed]);
+    runs.mockReturnValue([answered, unreviewed]);
     showing();
 
     await userEvent.click(filter('Waiting for you'));
@@ -120,7 +120,7 @@ describe('TeamRuns', () => {
     expect(screen.queryByText('Upgrade the harness')).not.toBeInTheDocument();
   });
 
-  it('holds the shape of a run while they load, with the filters already there', () => {
+  it('keeps the shape of a run while they load, with the filters already there', () => {
     runs.mockReturnValue(undefined);
     showing();
 
@@ -131,7 +131,7 @@ describe('TeamRuns', () => {
     expect(screen.queryByText('No runs yet')).not.toBeInTheDocument();
   });
 
-  it('says the runs could not be loaded, and tries again when asked', async () => {
+  it('says the runs could not be loaded, and tries again on request', async () => {
     runs.mockReturnValue(undefined);
     failing.mockReturnValue(true);
     showing();

@@ -12,7 +12,7 @@ export class TraceStationResponseDto {
   @ApiProperty({ example: 1 })
   readonly position: number;
 
-  @ApiProperty({ example: 3, description: 'How many the line holds' })
+  @ApiProperty({ example: 3, description: 'How many stations the line has' })
   readonly count: number;
 
   constructor(name: string, color: string, position: number, count: number) {
@@ -36,7 +36,7 @@ export class TeamTraceResponseDto {
   @ApiProperty({
     type: TraceStationResponseDto,
     isArray: true,
-    description: 'Every station that has worked it, in the line’s own order',
+    description: 'Every station that has run it, in the line’s order',
   })
   readonly stations: readonly TraceStationResponseDto[];
 
@@ -49,7 +49,7 @@ export class TeamTraceResponseDto {
   @ApiProperty({ example: '2026-08-29T12:00:00.000Z' })
   readonly startedAt: string;
 
-  @ApiProperty({ example: 3, description: 'How many runs worked the task' })
+  @ApiProperty({ example: 3, description: 'How many runs the task has had' })
   readonly runs: number;
 
   @ApiProperty({
@@ -62,7 +62,7 @@ export class TeamTraceResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    description: 'What it said when it handed the task on',
+    description: 'The last note that the run wrote on the task',
   })
   readonly output: string | null;
 
@@ -73,7 +73,7 @@ export class TeamTraceResponseDto {
   readonly steps: number;
 
   @ApiProperty({ example: 2 })
-  readonly faults: number;
+  readonly errors: number;
 
   @ApiProperty({ nullable: true, type: Number, example: 0.4213 })
   readonly cost: number | null;
@@ -94,7 +94,7 @@ export class TeamTraceResponseDto {
     output: string | null,
     ms: number | null,
     steps: number,
-    faults: number,
+    errors: number,
     cost: number | null,
     currency: string | null,
   ) {
@@ -110,7 +110,7 @@ export class TeamTraceResponseDto {
     this.output = output;
     this.ms = ms;
     this.steps = steps;
-    this.faults = faults;
+    this.errors = errors;
     this.cost = cost;
     this.currency = currency;
   }
@@ -134,15 +134,15 @@ export class TraceVolumeBucketResponseDto {
 
   @ApiProperty({
     example: 1,
-    description: 'Every fault the traces that started in it came to',
+    description: 'Every error in the traces that started in it',
   })
-  readonly faults: number;
+  readonly errors: number;
 
-  constructor(from: string, to: string, count: number, faults: number) {
+  constructor(from: string, to: string, count: number, errors: number) {
     this.from = from;
     this.to = to;
     this.count = count;
-    this.faults = faults;
+    this.errors = errors;
   }
 }
 
@@ -158,7 +158,7 @@ export class TeamTracesResponseDto {
 
   @ApiProperty({
     example: '2026-08-29T12:00:00.000Z',
-    description: 'Where the range ends: when it was asked',
+    description: 'Where the range ends: when it was requested',
   })
   readonly to: string;
 
@@ -166,7 +166,7 @@ export class TeamTracesResponseDto {
     type: TraceVolumeBucketResponseDto,
     isArray: true,
     description:
-      'Every trace in the range, counted into evenly long bars from start to end, empty bars kept',
+      'Every trace in the range, counted into evenly long bars from start to end, empty bars included',
   })
   readonly volume: readonly TraceVolumeBucketResponseDto[];
 

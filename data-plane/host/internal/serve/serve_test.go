@@ -235,7 +235,7 @@ func (e *fakeEngine) Read(_ context.Context, id, path string) ([]byte, error) {
 		if e.callMute || path != protocol.EgressSendPath {
 			return nil, os.ErrNotExist
 		}
-		return json.Marshal(protocol.HostCallAnswer{Status: 200, Body: "c2VudA==", Ms: 7})
+		return json.Marshal(protocol.HostCallResponse{Status: 200, Body: "c2VudA==", Ms: 7})
 	}
 	return authorityFor(id), nil
 }
@@ -335,7 +335,7 @@ func (e *fakeEngine) pulled() []string {
 	return slices.Clone(e.pulls)
 }
 
-type worker struct {
+type runClient struct {
 	mu         sync.Mutex
 	renewed    []string
 	renewedBy  map[string]int
@@ -343,101 +343,101 @@ type worker struct {
 	checkLost  error
 	images     map[string]string
 	completed  map[string]protocol.Completion
-	checked    map[string]protocol.StackChecked
+	checked    map[string]protocol.StackCheckResult
 }
 
-func (w *worker) RenewLease(_ context.Context, runID string) (bool, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.renewed = append(w.renewed, runID)
+func (c *runClient) RenewLease(_ context.Context, runID string) (bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.renewed = append(c.renewed, runID)
 	return false, nil
 }
 
-func (w *worker) RenewCheckLease(_ context.Context, _, stackID string, _ bool) (bool, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.renewed = append(w.renewed, stackID)
-	return w.checksGone, w.checkLost
+func (c *runClient) RenewCheckLease(_ context.Context, _, stackID string, _ bool) (bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.renewed = append(c.renewed, stackID)
+	return c.checksGone, c.checkLost
 }
 
-func (w *worker) RecordImage(_ context.Context, runID, image string) error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.images[runID] = image
+func (c *runClient) RecordImage(_ context.Context, runID, image string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.images[runID] = image
 	return nil
 }
 
-func (w *worker) Complete(_ context.Context, runID string, done protocol.Completion) (protocol.Completed, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.completed[runID] = done
-	if w.renewedBy == nil {
-		w.renewedBy = map[string]int{}
+func (c *runClient) Complete(_ context.Context, runID string, done protocol.Completion) (protocol.CompleteResponse, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.completed[runID] = done
+	if c.renewedBy == nil {
+		c.renewedBy = map[string]int{}
 	}
-	w.renewedBy[runID] = len(w.renewed)
-	return protocol.Completed{}, nil
+	c.renewedBy[runID] = len(c.renewed)
+	return protocol.CompleteResponse{}, nil
 }
 
-func (w *worker) RecordChangeStackCheck(_ context.Context, _, stackID string, _ bool, checked protocol.StackChecked) error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.checked[stackID] = checked
+func (c *runClient) RecordChangeStackCheck(_ context.Context, _, stackID string, _ bool, checked protocol.StackCheckResult) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.checked[stackID] = checked
 	return nil
 }
 
-func (w *worker) imageOf(runID string) string {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.images[runID]
+func (c *runClient) imageOf(runID string) string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.images[runID]
 }
 
-func (w *worker) completion(runID string) (protocol.Completion, bool) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	done, ok := w.completed[runID]
+func (c *runClient) completion(runID string) (protocol.Completion, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	done, ok := c.completed[runID]
 	return done, ok
 }
 
-func (w *worker) check(stackID string) (protocol.StackChecked, bool) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	checked, ok := w.checked[stackID]
+func (c *runClient) check(stackID string) (protocol.StackCheckResult, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	checked, ok := c.checked[stackID]
 	return checked, ok
 }
 
 type pool struct {
-	instant  bool
-	claims   int
-	taken    bool
-	work     chan protocol.Handed
-	refuse   chan struct{}
-	offered  chan protocol.HostClaim
-	named    []string
-	minimum  string
-	unoffer  bool
-	worker   *worker
-	mu       sync.Mutex
-	presence []protocol.HostPresence
-	left     bool
+	instant      bool
+	claims       int
+	inUse        bool
+	work         chan protocol.Assignment
+	revoke       chan struct{}
+	offered      chan protocol.HostClaim
+	named        []string
+	minimum      string
+	unoffer      bool
+	runClient    *runClient
+	mu           sync.Mutex
+	heartbeats   []protocol.HostHeartbeat
+	deregistered bool
 
 	calls       chan protocol.HostCall
-	refuseCalls chan struct{}
-	answers     map[string]protocol.HostCallAnswer
+	revokeCalls chan struct{}
+	responses   map[string]protocol.HostCallResponse
 }
 
 func newPool() *pool {
 	return &pool{
-		work:    make(chan protocol.Handed, 8),
-		refuse:  make(chan struct{}),
+		work:    make(chan protocol.Assignment, 8),
+		revoke:  make(chan struct{}),
 		offered: make(chan protocol.HostClaim, 256),
 
 		calls:       make(chan protocol.HostCall, 8),
-		refuseCalls: make(chan struct{}),
-		answers:     map[string]protocol.HostCallAnswer{},
-		worker: &worker{
+		revokeCalls: make(chan struct{}),
+		responses:   map[string]protocol.HostCallResponse{},
+		runClient: &runClient{
 			images:    map[string]string{},
 			completed: map[string]protocol.Completion{},
-			checked:   map[string]protocol.StackChecked{},
+			checked:   map[string]protocol.StackCheckResult{},
 		},
 	}
 }
@@ -448,7 +448,7 @@ func (p *pool) Requirements(context.Context) (protocol.HostRequirements, error) 
 
 	return protocol.HostRequirements{
 		Runner:    protocol.RunnerRequirement{Minimum: p.minimumOr()},
-		Harnesses: []protocol.Installable{{ID: "claude-code", Executable: "claude"}},
+		Harnesses: []protocol.HarnessProbe{{ID: "claude-code", Executable: "claude"}},
 		Images:    slices.Clone(p.named),
 	}, nil
 }
@@ -472,7 +472,7 @@ func (p *pool) name(images ...string) {
 	p.named = images
 }
 
-func (p *pool) Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.Handed, error) {
+func (p *pool) Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.Assignment, error) {
 	p.mu.Lock()
 	p.claims++
 	instant := p.instant
@@ -481,7 +481,7 @@ func (p *pool) Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.H
 
 	if unoffer {
 		return nil, fmt.Errorf("claim: %w",
-			&control.Rejection{Status: 409, Reason: "image-unreported", Err: errors.New("unreported")})
+			&control.ResponseError{Status: 409, Reason: "image-unreported", Err: errors.New("unreported")})
 	}
 
 	select {
@@ -491,18 +491,18 @@ func (p *pool) Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.H
 
 	if instant {
 		select {
-		case handed := <-p.work:
-			return &handed, nil
+		case assignment := <-p.work:
+			return &assignment, nil
 		default:
 			return nil, nil
 		}
 	}
 
 	select {
-	case handed := <-p.work:
-		return &handed, nil
-	case <-p.refuse:
-		return nil, fmt.Errorf("claim: %w", control.ErrRefused)
+	case assignment := <-p.work:
+		return &assignment, nil
+	case <-p.revoke:
+		return nil, fmt.Errorf("claim: %w", control.ErrUnauthorized)
 	case <-time.After(20 * time.Millisecond):
 		return nil, nil
 	case <-ctx.Done():
@@ -514,8 +514,8 @@ func (p *pool) ClaimCall(ctx context.Context) (*protocol.HostCall, error) {
 	select {
 	case call := <-p.calls:
 		return &call, nil
-	case <-p.refuseCalls:
-		return nil, fmt.Errorf("claim a call: %w", control.ErrRefused)
+	case <-p.revokeCalls:
+		return nil, fmt.Errorf("claim a call: %w", control.ErrUnauthorized)
 	case <-time.After(20 * time.Millisecond):
 		return nil, nil
 	case <-ctx.Done():
@@ -523,53 +523,53 @@ func (p *pool) ClaimCall(ctx context.Context) (*protocol.HostCall, error) {
 	}
 }
 
-func (p *pool) AnswerCall(_ context.Context, id string, answer protocol.HostCallAnswer) error {
+func (p *pool) RecordCallResponse(_ context.Context, id string, response protocol.HostCallResponse) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.answers[id] = answer
+	p.responses[id] = response
 	return nil
 }
 
-func (p *pool) answered(id string) (protocol.HostCallAnswer, bool) {
+func (p *pool) responded(id string) (protocol.HostCallResponse, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	answer, ok := p.answers[id]
-	return answer, ok
+	response, ok := p.responses[id]
+	return response, ok
 }
 
-func (p *pool) Present(_ context.Context, presence protocol.HostPresence) (protocol.HostStanding, error) {
+func (p *pool) Heartbeat(_ context.Context, heartbeat protocol.HostHeartbeat) (protocol.HeartbeatResponse, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.taken {
-		return protocol.HostStanding{}, fmt.Errorf("report presence: %w",
-			&control.Rejection{Status: 409, Reason: "host-taken", Err: errors.New("taken")})
+	if p.inUse {
+		return protocol.HeartbeatResponse{}, fmt.Errorf("send a heartbeat: %w",
+			&control.ResponseError{Status: 409, Reason: "host-in-use", Err: errors.New("in use")})
 	}
-	p.presence = append(p.presence, presence)
-	return protocol.HostStanding{Workspace: "workspace_1"}, nil
+	p.heartbeats = append(p.heartbeats, heartbeat)
+	return protocol.HeartbeatResponse{Workspace: "workspace_1"}, nil
 }
 
-func (p *pool) Leave(context.Context) error {
+func (p *pool) Deregister(context.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.left = true
+	p.deregistered = true
 	return nil
 }
 
-func (p *pool) Seat(protocol.Handed) (serve.Worker, error) {
-	return p.worker, nil
+func (p *pool) ForRun(protocol.Assignment) (serve.RunClient, error) {
+	return p.runClient, nil
 }
 
-func (p *pool) lastPresence() protocol.HostPresence {
+func (p *pool) lastHeartbeat() protocol.HostHeartbeat {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if len(p.presence) == 0 {
-		return protocol.HostPresence{}
+	if len(p.heartbeats) == 0 {
+		return protocol.HostHeartbeat{}
 	}
-	return p.presence[len(p.presence)-1]
+	return p.heartbeats[len(p.heartbeats)-1]
 }
 
 func (p *pool) reported(image string) (protocol.HostImage, bool) {
-	for _, each := range p.lastPresence().Images {
+	for _, each := range p.lastHeartbeat().Images {
 		if each.Image == image {
 			return each, true
 		}
@@ -581,12 +581,12 @@ type registry struct{}
 
 func (registry) For(image string) (string, error) { return "auth-for-" + image, nil }
 
-func handed(runner string) protocol.Handed {
-	return protocol.Handed{
+func assignment(runner string) protocol.Assignment {
+	return protocol.Assignment{
 		RunnerID:    runner,
 		Token:       "one-run-" + runner,
 		EgressToken: "egress-" + runner,
-		Work: protocol.Claimed{Kind: protocol.ClaimedRun, Run: &protocol.Run{
+		Work: protocol.ClaimResponse{Kind: protocol.ClaimedRun, Run: &protocol.Run{
 			ID: "run-" + runner, Harness: "claude-code",
 		}},
 	}
@@ -615,10 +615,10 @@ func options(t *testing.T) serve.Options {
 		SandboxURL:   "https://spotlight.test",
 		SandboxEnv:   []string{"ANTHROPIC_API_KEY=sk-test"},
 		Egress: serve.Egress{
-			Image: egressImage,
-			Allow: []string{"api.anthropic.com"},
-			Reads: []string{"prod/*"},
-			Env:   []string{"AWS_REGION=eu-west-1"},
+			Image:       egressImage,
+			Allow:       []string{"api.anthropic.com"},
+			SecretAllow: []string{"prod/*"},
+			Env:         []string{"AWS_REGION=eu-west-1"},
 		},
 	}
 }
@@ -662,11 +662,11 @@ func servingWithin(t *testing.T, parent context.Context, opts serve.Options, eng
 	return cancel, stopped
 }
 
-func eventually(t *testing.T, what string, holds func() bool) {
+func eventually(t *testing.T, what string, isTrue func() bool) {
 	t.Helper()
 
 	deadline := time.Now().Add(3 * time.Second)
-	for !holds() {
+	for !isTrue() {
 		if time.Now().After(deadline) {
 			t.Fatalf("never saw: %s", what)
 		}
@@ -680,20 +680,20 @@ func TestEveryPieceOfWorkGetsAFreshSandboxThatIsDestroyedAfterwards(t *testing.T
 	opts.Capacity = 2
 	serving(t, opts, engine, pool)
 
-	pool.work <- handed("runner_1")
-	pool.work <- handed("runner_2")
+	pool.work <- assignment("runner_1")
+	pool.work <- assignment("runner_2")
 	eventually(t, "two sandboxes", func() bool { return len(engine.workSandboxes()) == 2 })
 
 	ids := engine.workSandboxes()
 	for _, id := range ids {
 		spec := engine.sandbox(id)
 
-		if len(spec.Files) == 0 || spec.Files[0].Path != serve.HandedPath || spec.Files[0].Mode != 0o400 {
-			t.Fatalf("%s was handed %+v", id, spec.Files)
+		if len(spec.Files) == 0 || spec.Files[0].Path != serve.AssignmentPath || spec.Files[0].Mode != 0o400 {
+			t.Fatalf("%s got %+v", id, spec.Files)
 		}
-		var given protocol.Handed
-		if err := json.Unmarshal(spec.Files[0].Body, &given); err != nil || !strings.HasPrefix(given.Token, "one-run-") {
-			t.Errorf("%s was handed %+v (%v)", id, given, err)
+		var got protocol.Assignment
+		if err := json.Unmarshal(spec.Files[0].Body, &got); err != nil || !strings.HasPrefix(got.Token, "one-run-") {
+			t.Errorf("%s got %+v (%v)", id, got, err)
 		}
 		if !slices.Contains(spec.Env, "ANTHROPIC_API_KEY=spotlight-egress:ANTHROPIC_API_KEY") {
 			t.Errorf("%s lacks the stand-in for the harness key: %v", id, spec.Env)
@@ -720,12 +720,12 @@ func TestEverySandboxIsToldHowLongToWaitWarmForAnAnswer(t *testing.T) {
 	opts.AnswerWait = 90 * time.Second
 	serving(t, opts, engine, pool)
 
-	pool.work <- handed("runner_1")
+	pool.work <- assignment("runner_1")
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 
 	id := engine.workSandboxes()[0]
 	if spec := engine.sandbox(id); !slices.Contains(spec.Env, "SPOTLIGHT_ANSWER_WAIT=1m30s") {
-		t.Errorf("the sandbox was not told how long to wait: %v", spec.Env)
+		t.Errorf("the sandbox did not get the wait time: %v", spec.Env)
 	}
 
 	engine.finish(id)
@@ -736,8 +736,8 @@ func TestTakesNoMoreWorkThanItsCapacity(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	serving(t, options(t), engine, pool)
 
-	pool.work <- handed("runner_1")
-	pool.work <- handed("runner_2")
+	pool.work <- assignment("runner_1")
+	pool.work <- assignment("runner_2")
 	eventually(t, "one sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 
 	time.Sleep(100 * time.Millisecond)
@@ -761,7 +761,7 @@ func TestStoppingTheHostStopsAndDestroysItsSandboxes(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	cancel, stopped := serving(t, options(t), engine, pool)
 
-	pool.work <- handed("runner_1")
+	pool.work <- assignment("runner_1")
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 	id := engine.workSandboxes()[0]
 
@@ -773,8 +773,8 @@ func TestStoppingTheHostStopsAndDestroysItsSandboxes(t *testing.T) {
 	if !slices.Contains(engine.stopped, id) || !engine.wasDestroyed(id) {
 		t.Errorf("stopped %v, destroyed %v", engine.stopped, engine.destroyed)
 	}
-	if !pool.left {
-		t.Error("never said it was leaving")
+	if !pool.deregistered {
+		t.Error("never deregistered")
 	}
 }
 
@@ -784,7 +784,7 @@ func TestASandboxThatRunsPastItsTimeIsStoppedAndDestroyed(t *testing.T) {
 	opts.RunTimeout = 50 * time.Millisecond
 	serving(t, opts, engine, pool)
 
-	pool.work <- handed("runner_1")
+	pool.work <- assignment("runner_1")
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 	id := engine.workSandboxes()[0]
 
@@ -800,10 +800,10 @@ func TestARunWhoseSandboxRanPastItsTimeIsReportedAsTimedOut(t *testing.T) {
 	opts.RunTimeout = 50 * time.Millisecond
 	serving(t, opts, engine, pool)
 
-	pool.work <- handed("runner_1")
+	pool.work <- assignment("runner_1")
 	eventually(t, "the run reported timed out", func() bool {
-		done, ok := pool.worker.completion("run-runner_1")
-		return ok && done.Failed && done.TimedOut && !done.Unprepared && strings.Contains(done.Message, "time limit")
+		done, ok := pool.runClient.completion("run-runner_1")
+		return ok && done.Failed && done.TimedOut && !done.SetupFailed && strings.Contains(done.Message, "time limit")
 	})
 }
 
@@ -814,18 +814,18 @@ func TestStopsRenewingTheLeaseBeforeSayingTheRunRanOutOfTime(t *testing.T) {
 	opts.LeaseEvery = 5 * time.Millisecond
 	serving(t, opts, engine, pool)
 
-	pool.work <- handed("runner_1")
+	pool.work <- assignment("runner_1")
 	eventually(t, "the run reported timed out", func() bool {
-		done, ok := pool.worker.completion("run-runner_1")
+		done, ok := pool.runClient.completion("run-runner_1")
 		return ok && done.TimedOut
 	})
 	time.Sleep(40 * time.Millisecond)
 
-	pool.worker.mu.Lock()
-	defer pool.worker.mu.Unlock()
-	atReport := pool.worker.renewedBy["run-runner_1"]
-	if len(pool.worker.renewed) != atReport {
-		t.Errorf("renewed the lease %d times after saying the run ran out of time", len(pool.worker.renewed)-atReport)
+	pool.runClient.mu.Lock()
+	defer pool.runClient.mu.Unlock()
+	atReport := pool.runClient.renewedBy["run-runner_1"]
+	if len(pool.runClient.renewed) != atReport {
+		t.Errorf("renewed the lease %d times after saying the run ran out of time", len(pool.runClient.renewed)-atReport)
 	}
 }
 
@@ -833,13 +833,13 @@ func TestARunWhoseSandboxFinishesInTimeIsLeftToItsRunnerToReport(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	serving(t, options(t), engine, pool)
 
-	pool.work <- handed("runner_1")
+	pool.work <- assignment("runner_1")
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 	id := engine.workSandboxes()[0]
 	engine.finish(id)
 
 	eventually(t, "destroyed once finished", func() bool { return engine.wasDestroyed(id) })
-	if done, ok := pool.worker.completion("run-runner_1"); ok {
+	if done, ok := pool.runClient.completion("run-runner_1"); ok {
 		t.Errorf("the host reported the run itself: %+v", done)
 	}
 }
@@ -857,9 +857,9 @@ func TestReportsAnImageBeforeClaimingForIt(t *testing.T) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 	reported := false
-	for _, each := range pool.presence {
+	for _, each := range pool.heartbeats {
 		for _, image := range each.Images {
-			if image.Image == "runner:1" && image.Usual && len(image.Harnesses) == 1 && image.Harnesses[0].Version == "2.1.0" {
+			if image.Image == "runner:1" && image.IsDefault && len(image.Harnesses) == 1 && image.Harnesses[0].Version == "2.1.0" {
 				reported = true
 			}
 		}
@@ -869,13 +869,13 @@ func TestReportsAnImageBeforeClaimingForIt(t *testing.T) {
 	}
 }
 
-func TestAHostWhoseCredentialIsRefusedStops(t *testing.T) {
+func TestAHostWhoseCredentialIsUnauthorizedStops(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	_, stopped := serving(t, options(t), engine, pool)
 
-	close(pool.refuse)
+	close(pool.revoke)
 
-	if err := stopped(); !errors.Is(err, control.ErrRefused) {
+	if err := stopped(); !errors.Is(err, control.ErrUnauthorized) {
 		t.Fatalf("stopped with %v", err)
 	}
 }
@@ -884,22 +884,22 @@ func TestReportsWhatItIsRunning(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	serving(t, options(t), engine, pool)
 
-	var first protocol.HostPresence
+	var first protocol.HostHeartbeat
 	eventually(t, "a report", func() bool {
 		pool.mu.Lock()
 		defer pool.mu.Unlock()
-		if len(pool.presence) > 0 {
-			first = pool.presence[0]
+		if len(pool.heartbeats) > 0 {
+			first = pool.heartbeats[0]
 		}
-		return len(pool.presence) > 0
+		return len(pool.heartbeats) > 0
 	})
 
-	if first.Name != "build-box" || first.Capacity != 1 || first.Executor != "fake engine" {
+	if first.Name != "build-box" || first.Capacity != 1 || first.ContainerRuntime != "fake engine" {
 		t.Errorf("reported %+v", first)
 	}
 
-	if first.Session == "" {
-		t.Errorf("reported no session: %+v", first)
+	if first.BootID == "" {
+		t.Errorf("reported no boot id: %+v", first)
 	}
 
 	engine.found = nil
@@ -914,9 +914,9 @@ func TestReportsTheHarnessesItsImagesOffer(t *testing.T) {
 	serving(t, opts, engine, pool)
 
 	eventually(t, "a report with each image's harnesses", func() bool {
-		reported := pool.lastPresence().Images
-		return len(reported) == 2 && reported[0].Image == "runner:1" && reported[0].Usual &&
-			reported[1].Image == "runner:2" && !reported[1].Usual &&
+		reported := pool.lastHeartbeat().Images
+		return len(reported) == 2 && reported[0].Image == "runner:1" && reported[0].IsDefault &&
+			reported[1].Image == "runner:2" && !reported[1].IsDefault &&
 			len(reported[1].Harnesses) == 1 && reported[1].Harnesses[0].Models[0] == "opus" &&
 			reported[1].Release == leastRelease
 	})
@@ -930,7 +930,7 @@ func TestAHostStoppedBySignalStopsCleanly(t *testing.T) {
 	eventually(t, "a report", func() bool {
 		pool.mu.Lock()
 		defer pool.mu.Unlock()
-		return len(pool.presence) > 0
+		return len(pool.heartbeats) > 0
 	})
 	signal(errors.New("terminated signal received"))
 
@@ -945,7 +945,7 @@ func TestPausesAnImageWhoseSandboxesWillNotStart(t *testing.T) {
 	serving(t, options(t), engine, pool)
 
 	for runner := range 4 {
-		pool.work <- handed(fmt.Sprintf("runner_%d", runner))
+		pool.work <- assignment(fmt.Sprintf("runner_%d", runner))
 	}
 
 	eventually(t, "a failed start", func() bool {
@@ -976,13 +976,13 @@ func TestDoesNotSpinOnAQueueThatAnswersAtOnce(t *testing.T) {
 	}
 }
 
-func TestAHostWhoseIDServesAnotherWayInStops(t *testing.T) {
+func TestAHostWhoseIDServesAnotherCredentialSourceStops(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	engine.left = []string{"someone_elses"}
-	pool.taken = true
+	pool.inUse = true
 	_, stopped := serving(t, options(t), engine, pool)
 
-	if err := stopped(); !control.Rejected(err, "host-taken") {
+	if err := stopped(); !control.HasReason(err, "host-in-use") {
 		t.Fatalf("stopped with %v", err)
 	}
 	if engine.wasDestroyed("someone_elses") {
@@ -995,7 +995,7 @@ func TestKeepsWaitingOnASandboxItLostSightOf(t *testing.T) {
 	engine.waitFails = 1
 	serving(t, options(t), engine, pool)
 
-	pool.work <- handed("runner_1")
+	pool.work <- assignment("runner_1")
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 	id := engine.workSandboxes()[0]
 
@@ -1008,28 +1008,28 @@ func TestKeepsWaitingOnASandboxItLostSightOf(t *testing.T) {
 	eventually(t, "destroyed once it finished", func() bool { return engine.wasDestroyed(id) })
 }
 
-func TestARefusedCredentialStopsClaimingButLetsRunningSandboxesFinish(t *testing.T) {
+func TestAnUnauthorizedCredentialStopsClaimingButLetsRunningSandboxesFinish(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	opts := options(t)
 	opts.Capacity = 2
 	_, stopped := serving(t, opts, engine, pool)
 
-	pool.work <- handed("runner_1")
+	pool.work <- assignment("runner_1")
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 	id := engine.workSandboxes()[0]
 
-	close(pool.refuse)
+	close(pool.revoke)
 	time.Sleep(300 * time.Millisecond)
 
 	engine.mu.Lock()
 	stoppedEarly := slices.Contains(engine.stopped, id)
 	engine.mu.Unlock()
 	if stoppedEarly || engine.wasDestroyed(id) {
-		t.Fatal("a refused credential stopped a sandbox running on its own")
+		t.Fatal("an unauthorized credential stopped a sandbox running on its own")
 	}
 
 	engine.finish(id)
-	if err := stopped(); !errors.Is(err, control.ErrRefused) {
+	if err := stopped(); !errors.Is(err, control.ErrUnauthorized) {
 		t.Fatalf("stopped with %v", err)
 	}
 	if !engine.wasDestroyed(id) {
@@ -1038,8 +1038,8 @@ func TestARefusedCredentialStopsClaimingButLetsRunningSandboxesFinish(t *testing
 }
 
 func TestATransientConflictDoesNotStopTheHost(t *testing.T) {
-	err := fmt.Errorf("claim: %w", &control.Rejection{Status: 409, Err: errors.New("the runner changed")})
-	if control.Rejected(err, "host-taken") || errors.Is(err, control.ErrRefused) {
+	err := fmt.Errorf("claim: %w", &control.ResponseError{Status: 409, Err: errors.New("the runner changed")})
+	if control.HasReason(err, "host-in-use") || errors.Is(err, control.ErrUnauthorized) {
 		t.Fatal("a plain conflict read as final")
 	}
 }
@@ -1048,14 +1048,14 @@ func TestStartsEachRunFromTheDigestItPulledForIt(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	serving(t, options(t), engine, pool)
 
-	pool.work <- handed("runner_1")
+	pool.work <- assignment("runner_1")
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 
 	digest := "runner@sha256:" + strings.Repeat("a", 64)
 	if got := engine.sandbox(engine.workSandboxes()[0]).Image; got != "sha256:"+strings.Repeat("a", 64) {
 		t.Errorf("started from %q, not the image it pulled", got)
 	}
-	if got := pool.worker.imageOf("run-runner_1"); got != digest {
+	if got := pool.runClient.imageOf("run-runner_1"); got != digest {
 		t.Errorf("recorded %q on the run", got)
 	}
 	if pulls := engine.pulled(); len(pulls) < 2 {
@@ -1081,15 +1081,15 @@ func TestLooksInsideAgainWhenATagMovesAndFailsARunItsHarnessLeft(t *testing.T) {
 		e.pullTo["runner:1"] = imageAt("runner", strings.Repeat("b", 64))
 		e.found = []protocol.HarnessReport{{ID: "codex"}}
 	})
-	pool.work <- handed("runner_1")
+	pool.work <- assignment("runner_1")
 
 	eventually(t, "the run failed", func() bool {
-		_, ok := pool.worker.completion("run-runner_1")
+		_, ok := pool.runClient.completion("run-runner_1")
 		return ok
 	})
 
-	done, _ := pool.worker.completion("run-runner_1")
-	if !done.Failed || !done.Unprepared || !strings.Contains(done.Message, "no longer holds the claude-code harness") {
+	done, _ := pool.runClient.completion("run-runner_1")
+	if !done.Failed || !done.SetupFailed || !strings.Contains(done.Message, "no longer has the claude-code harness") {
 		t.Errorf("completed %+v", done)
 	}
 	if got := len(engine.workSandboxes()); got != 0 {
@@ -1112,17 +1112,17 @@ func TestRunsTheCopyItHasWhenAPullFails(t *testing.T) {
 	})
 	engine.set(func(e *fakeEngine) { e.failPull = true })
 
-	pool.work <- handed("runner_1")
+	pool.work <- assignment("runner_1")
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 }
 
-func TestGivesUpACheckWhenThereIsNoImageAtAll(t *testing.T) {
+func TestSkipsACheckWhenThereIsNoImageAtAll(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	serving(t, options(t), engine, pool)
 
 	eventually(t, "the image served", func() bool {
 		each, ok := pool.reported("runner:1")
-		return ok && each.Refused == ""
+		return ok && each.UnavailableReason == ""
 	})
 
 	engine.set(func(e *fakeEngine) {
@@ -1130,25 +1130,25 @@ func TestGivesUpACheckWhenThereIsNoImageAtAll(t *testing.T) {
 		delete(e.images, "runner:1")
 	})
 
-	pool.work <- protocol.Handed{
+	pool.work <- protocol.Assignment{
 		RunnerID: "runner_1",
 		Token:    "one-run",
-		Work: protocol.Claimed{Kind: protocol.ClaimedCheck, Check: &protocol.StackCheck{
+		Work: protocol.ClaimResponse{Kind: protocol.ClaimedCheck, Check: &protocol.StackCheck{
 			StackID: "stack_1", RunID: "run_1",
 		}},
 	}
 
 	eventually(t, "the check skipped", func() bool {
-		_, ok := pool.worker.check("stack_1")
+		_, ok := pool.runClient.check("stack_1")
 		return ok
 	})
-	checked, _ := pool.worker.check("stack_1")
+	checked, _ := pool.runClient.check("stack_1")
 	if checked.Skipped == nil || checked.Skipped.Code != protocol.SkipNoImage {
 		t.Errorf("checked %+v", checked)
 	}
-	eventually(t, "the image refused until it can be pulled", func() bool {
+	eventually(t, "the image unavailable until it can be pulled", func() bool {
 		each, _ := pool.reported("runner:1")
-		return strings.Contains(each.Refused, "can't be pulled")
+		return strings.Contains(each.UnavailableReason, "can't be pulled")
 	})
 }
 
@@ -1160,15 +1160,15 @@ func TestDoesNotPullADigestItAlreadyHas(t *testing.T) {
 	opts.Images = allowed(t, pinned)
 	serving(t, opts, engine, pool)
 
-	pool.work <- handed("runner_1")
+	pool.work <- assignment("runner_1")
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 
 	if pulls := engine.pulled(); len(pulls) != 0 {
-		t.Errorf("pulled %v though it held the digest", pulls)
+		t.Errorf("pulled %v though it had the digest", pulls)
 	}
 }
 
-func TestServesTheImagesLinesNameThatItsAllowListAdmits(t *testing.T) {
+func TestServesTheImagesLinesNameThatItsAllowListAllows(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	opts := options(t)
 	opts.Images = allowed(t, "runner:1", "ghcr.io/acme/*")
@@ -1186,11 +1186,11 @@ func TestServesTheImagesLinesNameThatItsAllowListAdmits(t *testing.T) {
 	})
 
 	if seen["ghcr.io/someone-else/runner:main"] {
-		t.Error("claimed for an image its allow-list does not admit")
+		t.Error("claimed for an image its allow-list does not allow")
 	}
-	eventually(t, "the refusal reported", func() bool {
+	eventually(t, "the unavailable reason reported", func() bool {
 		each, ok := pool.reported("ghcr.io/someone-else/runner:main")
-		return ok && strings.Contains(each.Refused, "doesn't admit")
+		return ok && strings.Contains(each.UnavailableReason, "doesn't allow")
 	})
 }
 
@@ -1224,14 +1224,14 @@ func TestStopsServingAnImageNoLineNamesAnyMore(t *testing.T) {
 	}
 }
 
-func TestRefusesAnImageWhoseRunnerIsTooOld(t *testing.T) {
+func TestAnImageWhoseRunnerIsTooOldIsUnavailable(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	engine.release = "20260101-01"
 	serving(t, options(t), engine, pool)
 
-	eventually(t, "the refusal reported", func() bool {
+	eventually(t, "the unavailable reason reported", func() bool {
 		each, ok := pool.reported("runner:1")
-		return ok && strings.Contains(each.Refused, "Minimum version required: "+leastRelease)
+		return ok && strings.Contains(each.UnavailableReason, "Minimum version required: "+leastRelease)
 	})
 
 	time.Sleep(100 * time.Millisecond)
@@ -1240,20 +1240,20 @@ func TestRefusesAnImageWhoseRunnerIsTooOld(t *testing.T) {
 	}
 }
 
-func TestAnImageItCannotLookInsideIsRefusedAndTheHostKeepsServing(t *testing.T) {
+func TestAnImageItCannotLookInsideIsUnavailableAndTheHostKeepsServing(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	engine.failProbe = true
 	serving(t, options(t), engine, pool)
 
-	eventually(t, "the refusal reported", func() bool {
+	eventually(t, "the unavailable reason reported", func() bool {
 		each, ok := pool.reported("runner:1")
-		return ok && strings.Contains(each.Refused, "can't be inspected")
+		return ok && strings.Contains(each.UnavailableReason, "can't be inspected")
 	})
 
 	engine.set(func(e *fakeEngine) { e.failProbe = false })
 	eventually(t, "served once it can look inside", func() bool {
 		each, ok := pool.reported("runner:1")
-		return ok && each.Refused == "" && len(each.Harnesses) == 1
+		return ok && each.UnavailableReason == "" && len(each.Harnesses) == 1
 	})
 
 	engine.mu.Lock()
@@ -1275,12 +1275,12 @@ func TestKeepsTheRunLeasedWhileItPullsAndStarts(t *testing.T) {
 	})
 	engine.set(func(e *fakeEngine) { e.pullTakes = 200 * time.Millisecond })
 
-	pool.work <- handed("runner_1")
+	pool.work <- assignment("runner_1")
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 
-	pool.worker.mu.Lock()
-	renewed := slices.Clone(pool.worker.renewed)
-	pool.worker.mu.Unlock()
+	pool.runClient.mu.Lock()
+	renewed := slices.Clone(pool.runClient.renewed)
+	pool.runClient.mu.Unlock()
 	if len(renewed) < 3 || !slices.Contains(renewed, "run-runner_1") {
 		t.Errorf("renewed %v while pulling for 200ms", renewed)
 	}
@@ -1298,29 +1298,29 @@ func TestKeepsTheCheckLeasedWhileItPullsAndStarts(t *testing.T) {
 	})
 	engine.set(func(e *fakeEngine) { e.pullTakes = 200 * time.Millisecond })
 
-	pool.work <- protocol.Handed{
+	pool.work <- protocol.Assignment{
 		RunnerID:    "runner_1",
 		Token:       "one-run",
 		EgressToken: "egress-runner_1",
-		Work: protocol.Claimed{Kind: protocol.ClaimedCheck, Check: &protocol.StackCheck{
+		Work: protocol.ClaimResponse{Kind: protocol.ClaimedCheck, Check: &protocol.StackCheck{
 			StackID: "stack_1", RunID: "run_1",
 		}},
 	}
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 
-	pool.worker.mu.Lock()
-	renewed := slices.Clone(pool.worker.renewed)
-	pool.worker.mu.Unlock()
+	pool.runClient.mu.Lock()
+	renewed := slices.Clone(pool.runClient.renewed)
+	pool.runClient.mu.Unlock()
 	if len(renewed) < 3 || !slices.Contains(renewed, "stack_1") {
 		t.Errorf("renewed %v while pulling for 200ms", renewed)
 	}
 }
 
-func TestStartsNoSandboxForACheckItNoLongerHoldsWhileItPulls(t *testing.T) {
-	for name, gone := range map[string]func(w *worker){
-		"told to stop": func(w *worker) { w.checksGone = true },
-		"refused": func(w *worker) {
-			w.checkLost = &control.Rejection{Status: http.StatusNotFound, Err: errors.New("404 Not Found")}
+func TestStartsNoSandboxForACheckItNoLongerLeasesWhileItPulls(t *testing.T) {
+	for name, gone := range map[string]func(c *runClient){
+		"a stop was requested": func(c *runClient) { c.checksGone = true },
+		"not found": func(c *runClient) {
+			c.checkLost = &control.ResponseError{Status: http.StatusNotFound, Err: errors.New("404 Not Found")}
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -1334,32 +1334,32 @@ func TestStartsNoSandboxForACheckItNoLongerHoldsWhileItPulls(t *testing.T) {
 				return ok
 			})
 			engine.set(func(e *fakeEngine) { e.pullTakes = 200 * time.Millisecond })
-			pool.worker.mu.Lock()
-			gone(pool.worker)
-			pool.worker.mu.Unlock()
+			pool.runClient.mu.Lock()
+			gone(pool.runClient)
+			pool.runClient.mu.Unlock()
 
-			pool.work <- protocol.Handed{
+			pool.work <- protocol.Assignment{
 				RunnerID:    "runner_1",
 				Token:       "one-run",
 				EgressToken: "egress-runner_1",
-				Work: protocol.Claimed{Kind: protocol.ClaimedCheck, Check: &protocol.StackCheck{
+				Work: protocol.ClaimResponse{Kind: protocol.ClaimedCheck, Check: &protocol.StackCheck{
 					StackID: "stack_1", RunID: "run_1",
 				}},
 			}
 			eventually(t, "the check renewed", func() bool {
-				pool.worker.mu.Lock()
-				defer pool.worker.mu.Unlock()
-				return slices.Contains(pool.worker.renewed, "stack_1")
+				pool.runClient.mu.Lock()
+				defer pool.runClient.mu.Unlock()
+				return slices.Contains(pool.runClient.renewed, "stack_1")
 			})
 
 			time.Sleep(400 * time.Millisecond)
 			if started := engine.workSandboxes(); len(started) != 0 {
-				t.Errorf("started %v for a check it no longer holds", started)
+				t.Errorf("started %v for a check it no longer leases", started)
 			}
-			pool.worker.mu.Lock()
-			defer pool.worker.mu.Unlock()
-			if len(pool.worker.checked) != 0 {
-				t.Errorf("reported %v for a check it no longer holds", pool.worker.checked)
+			pool.runClient.mu.Lock()
+			defer pool.runClient.mu.Unlock()
+			if len(pool.runClient.checked) != 0 {
+				t.Errorf("reported %v for a check it no longer leases", pool.runClient.checked)
 			}
 		})
 	}
@@ -1380,7 +1380,7 @@ func TestAClaimForAnImageNotYetReportedBacksOffWithoutStopping(t *testing.T) {
 		t.Errorf("claimed %d times in half a second while the image went unreported", claims)
 	}
 
-	pool.work <- handed("runner_1")
+	pool.work <- assignment("runner_1")
 	eventually(t, "a sandbox once the image is reported", func() bool { return len(engine.workSandboxes()) == 1 })
 }
 
@@ -1390,13 +1390,13 @@ func TestJudgesAnImageAgainWhenTheControlPlaneNeedsANewerRunner(t *testing.T) {
 
 	eventually(t, "the image served", func() bool {
 		each, ok := pool.reported("runner:1")
-		return ok && each.Refused == ""
+		return ok && each.UnavailableReason == ""
 	})
 
 	pool.need("20261001-01")
-	eventually(t, "the image refused as too old", func() bool {
+	eventually(t, "the image unavailable as too old", func() bool {
 		each, _ := pool.reported("runner:1")
-		return strings.Contains(each.Refused, "Minimum version required: 20261001-01")
+		return strings.Contains(each.UnavailableReason, "Minimum version required: 20261001-01")
 	})
 }
 
@@ -1407,7 +1407,7 @@ func TestEverySandboxGoesOutOnlyThroughAnEgressOfItsOwn(t *testing.T) {
 	opts.ExtraHosts = []string{"app.test:host-gateway"}
 	serving(t, opts, engine, pool)
 
-	pool.work <- handed("runner_1")
+	pool.work <- assignment("runner_1")
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 
 	egressID, egress, ok := engine.egressOf("runner_1")
@@ -1423,14 +1423,14 @@ func TestEverySandboxGoesOutOnlyThroughAnEgressOfItsOwn(t *testing.T) {
 		t.Errorf("egress joined %+v", egress.Joins)
 	}
 
-	var told protocol.EgressHanded
-	if len(egress.Files) != 1 || egress.Files[0].Path != protocol.EgressHandedPath || egress.Files[0].Mode != 0o400 ||
-		json.Unmarshal(egress.Files[0].Body, &told) != nil {
-		t.Fatalf("egress was handed %+v", egress.Files)
+	var config protocol.EgressConfig
+	if len(egress.Files) != 1 || egress.Files[0].Path != protocol.EgressConfigPath || egress.Files[0].Mode != 0o400 ||
+		json.Unmarshal(egress.Files[0].Body, &config) != nil {
+		t.Fatalf("egress got %+v", egress.Files)
 	}
-	if told.Token != "egress-runner_1" || told.URL != opts.SandboxURL || !slices.Equal(told.Allow, []string{"api.anthropic.com"}) ||
-		!slices.Equal(told.Reads, []string{"prod/*"}) || len(told.Credential) < 16 {
-		t.Errorf("egress was told %+v", told)
+	if config.Token != "egress-runner_1" || config.URL != opts.SandboxURL || !slices.Equal(config.Allow, []string{"api.anthropic.com"}) ||
+		!slices.Equal(config.SecretAllow, []string{"prod/*"}) || len(config.Credential) < 16 {
+		t.Errorf("egress got %+v", config)
 	}
 
 	sandboxID := engine.workSandboxes()[0]
@@ -1439,13 +1439,13 @@ func TestEverySandboxGoesOutOnlyThroughAnEgressOfItsOwn(t *testing.T) {
 		t.Errorf("the sandbox is on %q with %v, not its egress's network alone", spec.Network, spec.ExtraHosts)
 	}
 
-	var given protocol.Handed
-	if err := json.Unmarshal(spec.Files[0].Body, &given); err != nil || given.EgressToken != "" ||
+	var got protocol.Assignment
+	if err := json.Unmarshal(spec.Files[0].Body, &got); err != nil || got.EgressToken != "" ||
 		strings.Contains(string(spec.Files[0].Body), "egress-runner_1") {
-		t.Errorf("the sandbox was handed egress's credential: %s", spec.Files[0].Body)
+		t.Errorf("the sandbox got egress's credential: %s", spec.Files[0].Body)
 	}
 
-	proxy := "http://sandbox:" + told.Credential + "@egress:3128"
+	proxy := "http://sandbox:" + config.Credential + "@egress:3128"
 	for _, want := range []string{
 		"HTTPS_PROXY=" + proxy,
 		"https_proxy=" + proxy,
@@ -1462,7 +1462,7 @@ func TestEverySandboxGoesOutOnlyThroughAnEgressOfItsOwn(t *testing.T) {
 
 	if len(spec.Files) != 2 || spec.Files[1].Path != serve.AuthorityPath || spec.Files[1].Mode != 0o644 ||
 		spec.Files[1].DirMode != 0o755 || !strings.Contains(string(spec.Files[1].Body), "BEGIN CERTIFICATE") {
-		t.Errorf("the sandbox was handed %+v", spec.Files[1:])
+		t.Errorf("the sandbox got %+v", spec.Files[1:])
 	}
 
 	engine.finish(sandboxID)
@@ -1481,35 +1481,35 @@ func TestEverySandboxGoesOutOnlyThroughAnEgressOfItsOwn(t *testing.T) {
 	}
 }
 
-func TestGivesUpTheRunWhenItsEgressIsNeverReady(t *testing.T) {
+func TestFailsTheRunWhenItsEgressIsNeverReady(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	engine.egressMute = true
 	opts := options(t)
 	opts.EgressWait = 100 * time.Millisecond
 	serving(t, opts, engine, pool)
 
-	pool.work <- handed("runner_1")
-	eventually(t, "the run given up", func() bool {
-		done, ok := pool.worker.completion("run-runner_1")
-		return ok && done.Failed && done.Unprepared && strings.Contains(done.Message, "egress didn't start")
+	pool.work <- assignment("runner_1")
+	eventually(t, "the run failed", func() bool {
+		done, ok := pool.runClient.completion("run-runner_1")
+		return ok && done.Failed && done.SetupFailed && strings.Contains(done.Message, "egress didn't start")
 	})
 
 	if got := len(engine.workSandboxes()); got != 0 {
-		t.Errorf("started %d sandboxes with no way out", got)
+		t.Errorf("started %d sandboxes with no egress sidecar", got)
 	}
 	egressID, _, _ := engine.egressOf("runner_1")
 	eventually(t, "the egress destroyed", func() bool { return engine.wasDestroyed(egressID) })
 }
 
-func TestGivesUpTheRunWhenTheControlPlaneHandsNoEgressCredential(t *testing.T) {
+func TestFailsTheRunWhenItsAssignmentHasNoEgressCredential(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	serving(t, options(t), engine, pool)
 
-	work := handed("runner_1")
+	work := assignment("runner_1")
 	work.EgressToken = ""
 	pool.work <- work
-	eventually(t, "the run given up", func() bool {
-		done, ok := pool.worker.completion("run-runner_1")
+	eventually(t, "the run failed", func() bool {
+		done, ok := pool.runClient.completion("run-runner_1")
 		return ok && done.Failed
 	})
 
@@ -1533,24 +1533,24 @@ func TestRemovesTheNetworksACrashedHostLeftBehind(t *testing.T) {
 func TestHandsEgressTheAuthoritiesItTrustsForPrivateHosts(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	opts := options(t)
-	opts.Egress.Trust = []byte("acme authority")
+	opts.Egress.CABundle = []byte("acme authority")
 	serving(t, opts, engine, pool)
 
-	pool.work <- handed("runner_1")
+	pool.work <- assignment("runner_1")
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 
 	_, egress, _ := engine.egressOf("runner_1")
-	if !slices.Contains(egress.Env, "SSL_CERT_DIR="+serve.EgressTrusts) {
+	if !slices.Contains(egress.Env, "SSL_CERT_DIR="+serve.EgressCABundleDir) {
 		t.Errorf("egress env %v", egress.Env)
 	}
-	if len(egress.Files) != 2 || egress.Files[1].Path != serve.EgressTrusts+"/trusted.pem" || string(egress.Files[1].Body) != "acme authority" {
+	if len(egress.Files) != 2 || egress.Files[1].Path != serve.EgressCABundleDir+"/trusted.pem" || string(egress.Files[1].Body) != "acme authority" {
 		t.Errorf("egress files %+v", egress.Files)
 	}
 
 	sandboxed := engine.sandbox(engine.workSandboxes()[0])
 	for _, file := range sandboxed.Files {
 		if string(file.Body) == "acme authority" {
-			t.Error("the sandbox was handed what egress trusts upstream")
+			t.Error("the sandbox got what egress trusts upstream")
 		}
 	}
 }
@@ -1561,18 +1561,18 @@ func TestEachRunsEgressAnswersOnlyToACredentialOfItsOwn(t *testing.T) {
 	opts.Capacity = 2
 	serving(t, opts, engine, pool)
 
-	pool.work <- handed("runner_1")
-	pool.work <- handed("runner_2")
+	pool.work <- assignment("runner_1")
+	pool.work <- assignment("runner_2")
 	eventually(t, "two sandboxes", func() bool { return len(engine.workSandboxes()) == 2 })
 
 	credentials := map[string]bool{}
 	for _, runner := range []string{"runner_1", "runner_2"} {
 		_, egress, _ := engine.egressOf(runner)
-		var told protocol.EgressHanded
-		if err := json.Unmarshal(egress.Files[0].Body, &told); err != nil {
+		var config protocol.EgressConfig
+		if err := json.Unmarshal(egress.Files[0].Body, &config); err != nil {
 			t.Fatal(err)
 		}
-		credentials[told.Credential] = true
+		credentials[config.Credential] = true
 	}
 	if len(credentials) != 2 {
 		t.Errorf("two runs' egresses share a credential: %v", credentials)
@@ -1587,7 +1587,7 @@ func TestPullsTheEgressImageOnceAndRunsEveryEgressFromIt(t *testing.T) {
 	serving(t, options(t), engine, pool)
 
 	for _, runner := range []string{"runner_1", "runner_2"} {
-		pool.work <- handed(runner)
+		pool.work <- assignment(runner)
 		eventually(t, "a sandbox for "+runner, func() bool {
 			_, _, ok := engine.egressOf(runner)
 			return ok && len(engine.workSandboxes()) > 0
@@ -1612,21 +1612,21 @@ func TestHandsHarnessKeysToEgressAndTheSandboxAndProbeOnlyStandIns(t *testing.T)
 	opts.SandboxEnv = []string{"ANTHROPIC_API_KEY=sk-test", "CURSOR_API_KEY=cursor-test", "GIT_AUTHOR=spotlight"}
 	serving(t, opts, engine, pool)
 
-	pool.work <- handed("runner_1")
+	pool.work <- assignment("runner_1")
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 
-	told := func(spec sandbox.Spec) protocol.EgressHanded {
-		var handed protocol.EgressHanded
-		if err := json.Unmarshal(spec.Files[0].Body, &handed); err != nil {
+	egressConfigOf := func(spec sandbox.Spec) protocol.EgressConfig {
+		var config protocol.EgressConfig
+		if err := json.Unmarshal(spec.Files[0].Body, &config); err != nil {
 			t.Fatal(err)
 		}
-		return handed
+		return config
 	}
-	wantHeld := []protocol.HeldByTheHost{{Name: "ANTHROPIC_API_KEY", Host: "api.anthropic.com", Header: "x-api-key", Value: "sk-test"}}
+	wantHarnessKeys := []protocol.HarnessKey{{Name: "ANTHROPIC_API_KEY", Host: "api.anthropic.com", Header: "x-api-key", Value: "sk-test"}}
 
 	_, runEgress, _ := engine.egressOf("runner_1")
-	if held := told(runEgress).Held; !slices.Equal(held, wantHeld) {
-		t.Errorf("the run's egress holds %+v", held)
+	if harnessKeys := egressConfigOf(runEgress).HarnessKeys; !slices.Equal(harnessKeys, wantHarnessKeys) {
+		t.Errorf("the run's egress has %+v", harnessKeys)
 	}
 
 	sandboxed := engine.sandbox(engine.workSandboxes()[0])
@@ -1636,7 +1636,7 @@ func TestHandsHarnessKeysToEgressAndTheSandboxAndProbeOnlyStandIns(t *testing.T)
 		}
 	}
 	if slices.Contains(sandboxed.Env, "ANTHROPIC_API_KEY=sk-test") {
-		t.Error("the sandbox holds the harness key")
+		t.Error("the sandbox has the harness key")
 	}
 
 	engine.mu.Lock()
@@ -1658,8 +1658,8 @@ func TestHandsHarnessKeysToEgressAndTheSandboxAndProbeOnlyStandIns(t *testing.T)
 	for _, spec := range engine.egresses {
 		if spec.Labels[serve.LabelRunner] == "" {
 			probeEgress = true
-			if handed := told(spec); handed.Token != "" || !slices.Equal(handed.Held, wantHeld) {
-				t.Errorf("the probe's egress was told %+v", handed)
+			if config := egressConfigOf(spec); config.Token != "" || !slices.Equal(config.HarnessKeys, wantHarnessKeys) {
+				t.Errorf("the probe's egress got %+v", config)
 			}
 		}
 	}
@@ -1668,20 +1668,20 @@ func TestHandsHarnessKeysToEgressAndTheSandboxAndProbeOnlyStandIns(t *testing.T)
 	}
 }
 
-func handedTo(t *testing.T, spec sandbox.Spec) protocol.EgressHanded {
+func egressConfigIn(t *testing.T, spec sandbox.Spec) protocol.EgressConfig {
 	t.Helper()
 
 	for _, file := range spec.Files {
-		if file.Path == protocol.EgressHandedPath {
-			var handed protocol.EgressHanded
-			if err := json.Unmarshal(file.Body, &handed); err != nil {
+		if file.Path == protocol.EgressConfigPath {
+			var config protocol.EgressConfig
+			if err := json.Unmarshal(file.Body, &config); err != nil {
 				t.Fatal(err)
 			}
-			return handed
+			return config
 		}
 	}
-	t.Fatal("egress was handed nothing")
-	return protocol.EgressHanded{}
+	t.Fatal("egress got no config")
+	return protocol.EgressConfig{}
 }
 
 func hookCall(id string) protocol.HostCall {
@@ -1691,7 +1691,7 @@ func hookCall(id string) protocol.HostCall {
 	}
 }
 
-func TestSendsACallThroughAnEgressOfItsOwnAndAnswersWhatItSaid(t *testing.T) {
+func TestSendsACallThroughAnEgressOfItsOwnAndRecordsItsResponse(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	opts := options(t)
 	opts.Network = "spotlight"
@@ -1699,11 +1699,11 @@ func TestSendsACallThroughAnEgressOfItsOwnAndAnswersWhatItSaid(t *testing.T) {
 	serving(t, opts, engine, pool)
 
 	pool.calls <- hookCall("call_1")
-	eventually(t, "the call answered", func() bool { _, ok := pool.answered("call_1"); return ok })
+	eventually(t, "the call response recorded", func() bool { _, ok := pool.responded("call_1"); return ok })
 
-	answer, _ := pool.answered("call_1")
-	if answer.Status != 200 || answer.Body != "c2VudA==" || answer.Ms != 7 || answer.Error != "" {
-		t.Errorf("answered %+v", answer)
+	response, _ := pool.responded("call_1")
+	if response.Status != 200 || response.Body != "c2VudA==" || response.Ms != 7 || response.Error != "" {
+		t.Errorf("recorded %+v", response)
 	}
 
 	id, spec, ok := engine.egressFor("call_1")
@@ -1714,10 +1714,10 @@ func TestSendsACallThroughAnEgressOfItsOwnAndAnswersWhatItSaid(t *testing.T) {
 		!slices.Equal(spec.ExtraHosts, opts.ExtraHosts) || !slices.Contains(spec.Env, "AWS_REGION=eu-west-1") {
 		t.Errorf("started the call's egress as %+v", spec)
 	}
-	handed := handedTo(t, spec)
-	if handed.Send == nil || handed.Send.ID != "call_1" || handed.Send.URL != "https://audit.acme.internal/hooks" ||
-		handed.Token != "" || handed.Credential == "" || !slices.Equal(handed.Allow, opts.Egress.Allow) {
-		t.Errorf("handed the call's egress %+v", handed)
+	config := egressConfigIn(t, spec)
+	if config.Send == nil || config.Send.ID != "call_1" || config.Send.URL != "https://audit.acme.internal/hooks" ||
+		config.Token != "" || config.Credential == "" || !slices.Equal(config.Allow, opts.Egress.Allow) {
+		t.Errorf("the call's egress got %+v", config)
 	}
 	eventually(t, "the call's egress destroyed", func() bool { return engine.wasDestroyed(id) })
 
@@ -1730,21 +1730,21 @@ func TestSendsACallThroughAnEgressOfItsOwnAndAnswersWhatItSaid(t *testing.T) {
 	}
 }
 
-func TestAnswersACallWhoseEgressWillNotStart(t *testing.T) {
+func TestRecordsACallWhoseEgressWillNotStart(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	engine.egressFails = true
 	serving(t, options(t), engine, pool)
 
 	pool.calls <- hookCall("call_1")
-	eventually(t, "the call answered", func() bool { _, ok := pool.answered("call_1"); return ok })
+	eventually(t, "the call response recorded", func() bool { _, ok := pool.responded("call_1"); return ok })
 
-	answer, _ := pool.answered("call_1")
-	if answer.Status != 0 || answer.Error != "The host's egress didn't start. Error: the egress image will not run" {
-		t.Errorf("answered %+v", answer)
+	response, _ := pool.responded("call_1")
+	if response.Status != 0 || response.Error != "The host's egress didn't start. Error: the egress image will not run" {
+		t.Errorf("recorded %+v", response)
 	}
 }
 
-func TestAnswersACallWhoseEgressNeverAnswers(t *testing.T) {
+func TestRecordsACallWhoseEgressNeverResponds(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	engine.callMute = true
 	opts := options(t)
@@ -1752,23 +1752,23 @@ func TestAnswersACallWhoseEgressNeverAnswers(t *testing.T) {
 	serving(t, opts, engine, pool)
 
 	pool.calls <- hookCall("call_1")
-	eventually(t, "the call answered", func() bool { _, ok := pool.answered("call_1"); return ok })
+	eventually(t, "the call response recorded", func() bool { _, ok := pool.responded("call_1"); return ok })
 
-	answer, _ := pool.answered("call_1")
-	if answer.Status != 0 || answer.Error != "The host's egress didn't answer in time. Time limit: 150ms" {
-		t.Errorf("answered %+v", answer)
+	response, _ := pool.responded("call_1")
+	if response.Status != 0 || response.Error != "The host's egress didn't respond in time. Time limit: 150ms" {
+		t.Errorf("recorded %+v", response)
 	}
 	id, _, _ := engine.egressFor("call_1")
 	eventually(t, "the call's egress destroyed", func() bool { return engine.wasDestroyed(id) })
 }
 
-func TestAHostWhoseCallsAreRefusedStops(t *testing.T) {
+func TestAHostWhoseCallClaimsAreUnauthorizedStops(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	_, stopped := serving(t, options(t), engine, pool)
 
-	close(pool.refuseCalls)
+	close(pool.revokeCalls)
 
-	if err := stopped(); !errors.Is(err, control.ErrRefused) {
+	if err := stopped(); !errors.Is(err, control.ErrUnauthorized) {
 		t.Fatalf("stopped with %v", err)
 	}
 }

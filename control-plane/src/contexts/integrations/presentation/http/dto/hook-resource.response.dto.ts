@@ -7,10 +7,10 @@ import { HOOK_EVENTS } from '@integrations/domain/value-objects/hook-event.vo';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
 
-type Held = Readonly<Record<string, unknown>>;
+type Raw = Readonly<Record<string, unknown>>;
 
-const listOf = (held: unknown): string[] =>
-  Array.isArray(held) ? held.map(String) : [];
+const listOf = (raw: unknown): string[] =>
+  Array.isArray(raw) ? raw.map(String) : [];
 
 export class HookMatchDto {
   @ApiProperty({
@@ -50,12 +50,12 @@ export class HookMatchDto {
   })
   readonly paths: string[];
 
-  constructor(held: Held) {
-    this.tools = listOf(held.tools);
-    this.lines = listOf(held.lines);
-    this.stations = listOf(held.stations);
-    this.repositories = listOf(held.repositories);
-    this.paths = listOf(held.paths);
+  constructor(raw: Raw) {
+    this.tools = listOf(raw.tools);
+    this.lines = listOf(raw.lines);
+    this.stations = listOf(raw.stations);
+    this.repositories = listOf(raw.repositories);
+    this.paths = listOf(raw.paths);
   }
 }
 
@@ -63,7 +63,7 @@ export class HookRequestDto {
   @ApiProperty({
     example: 'https://dba.acme.dev/review',
     // biome-ignore lint/suspicious/noTemplateCurlyInString: how a hook expression is written
-    description: 'Where the request goes; may hold ${{ }} expressions',
+    description: 'Where the request goes; may contain ${{ }} expressions',
   })
   readonly url: string;
 
@@ -78,7 +78,7 @@ export class HookRequestDto {
   @ApiPropertyOptional({
     description:
       // biome-ignore lint/suspicious/noTemplateCurlyInString: how a hook expression is written
-      'The JSON body, any JSON value; strings may hold ${{ }} expressions. Left out, Spotlight sends the event, task and run',
+      'The JSON body, any JSON value; strings may contain ${{ }} expressions. Left out, Spotlight sends the event, task and run',
     oneOf: [
       { type: 'object', additionalProperties: true },
       { type: 'array', items: {} },
@@ -97,11 +97,11 @@ export class HookRequestDto {
   })
   readonly from: 'spotlight' | 'network';
 
-  constructor(held: Held) {
-    this.url = String(held.url ?? '');
-    this.headers = { ...((held.headers ?? {}) as Record<string, string>) };
-    this.body = held.body;
-    this.from = held.from === 'network' ? 'network' : 'spotlight';
+  constructor(raw: Raw) {
+    this.url = String(raw.url ?? '');
+    this.headers = { ...((raw.headers ?? {}) as Record<string, string>) };
+    this.body = raw.body;
+    this.from = raw.from === 'network' ? 'network' : 'spotlight';
   }
 }
 
@@ -126,7 +126,7 @@ export class HookStepDto {
       // biome-ignore lint/suspicious/noTemplateCurlyInString: how a hook expression is written
       text: 'Agent searched ${{ event.inputs.query }}',
     },
-    description: 'The inputs the step gives its tool',
+    description: 'The inputs the step sends to its tool',
   })
   readonly with?: Record<string, unknown>;
 
@@ -136,16 +136,16 @@ export class HookStepDto {
   })
   readonly request?: HookRequestDto;
 
-  constructor(held: Held) {
-    this.name = String(held.name ?? '');
+  constructor(raw: Raw) {
+    this.name = String(raw.name ?? '');
 
-    if (typeof held.call === 'string') {
-      this.call = held.call;
-      this.with = { ...((held.with ?? {}) as Record<string, unknown>) };
+    if (typeof raw.call === 'string') {
+      this.call = raw.call;
+      this.with = { ...((raw.with ?? {}) as Record<string, unknown>) };
     }
 
-    if (held.request && typeof held.request === 'object') {
-      this.request = new HookRequestDto(held.request as Held);
+    if (raw.request && typeof raw.request === 'object') {
+      this.request = new HookRequestDto(raw.request as Raw);
     }
   }
 }
@@ -157,8 +157,8 @@ export class HookOidcDto {
   })
   readonly audience: string;
 
-  constructor(held: Held) {
-    this.audience = String(held.audience ?? '');
+  constructor(raw: Raw) {
+    this.audience = String(raw.audience ?? '');
   }
 }
 
@@ -166,7 +166,7 @@ export class HookSigningDto {
   @ApiPropertyOptional({
     example: 1,
     description:
-      'The version of the HMAC secret; changed to rotate secret, which is write-only and never answered',
+      'The version of the HMAC secret; changed to rotate secret, which is write-only and never returned',
   })
   readonly secretVersion?: number;
 
@@ -176,13 +176,13 @@ export class HookSigningDto {
   })
   readonly oidc?: HookOidcDto;
 
-  constructor(held: Held) {
-    if (typeof held.secretVersion === 'number') {
-      this.secretVersion = held.secretVersion;
+  constructor(raw: Raw) {
+    if (typeof raw.secretVersion === 'number') {
+      this.secretVersion = raw.secretVersion;
     }
 
-    if (held.oidc && typeof held.oidc === 'object') {
-      this.oidc = new HookOidcDto(held.oidc as Held);
+    if (raw.oidc && typeof raw.oidc === 'object') {
+      this.oidc = new HookOidcDto(raw.oidc as Raw);
     }
   }
 }
@@ -197,7 +197,7 @@ export class HookResourceResponseDto extends ResourceResponseDto {
   @ApiProperty({
     example: 'migrations-need-a-dba',
     description:
-      'Names the hook within its team; fixed for its life, so changing it means replacing the hook',
+      'Names the hook within its team. Immutable: changing it means replacing the hook',
   })
   readonly key: string;
 
@@ -247,28 +247,28 @@ export class HookResourceResponseDto extends ResourceResponseDto {
 
   constructor(hook: HookResourceDto) {
     super(hook);
-    const held = hook.definition;
+    const raw = hook.definition;
 
     this.teamId = hook.teamId;
-    this.key = String(held.key ?? '');
-    this.on = String(held.on ?? '');
-    this.match = new HookMatchDto((held.match ?? {}) as Held);
+    this.key = String(raw.key ?? '');
+    this.on = String(raw.on ?? '');
+    this.match = new HookMatchDto((raw.match ?? {}) as Raw);
 
-    if (typeof held.when === 'string') {
-      this.when = held.when;
+    if (typeof raw.when === 'string') {
+      this.when = raw.when;
     }
 
-    this.vars = { ...((held.vars ?? {}) as Record<string, string>) };
-    this.steps = ((held.steps ?? []) as Held[]).map(
+    this.vars = { ...((raw.vars ?? {}) as Record<string, string>) };
+    this.steps = ((raw.steps ?? []) as Raw[]).map(
       (step) => new HookStepDto(step),
     );
     this.signing =
-      held.signing && typeof held.signing === 'object'
-        ? new HookSigningDto(held.signing as Held)
+      raw.signing && typeof raw.signing === 'object'
+        ? new HookSigningDto(raw.signing as Raw)
         : null;
-    this.failure = String(held.failure ?? Hook.DEFAULTS.failure);
+    this.failure = String(raw.failure ?? Hook.DEFAULTS.failure);
     this.timeoutSeconds = Number(
-      held.timeoutSeconds ?? Hook.DEFAULTS.timeoutSeconds,
+      raw.timeoutSeconds ?? Hook.DEFAULTS.timeoutSeconds,
     );
   }
 }

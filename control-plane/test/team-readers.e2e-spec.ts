@@ -7,17 +7,17 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 const ADMIN = randomUUID();
 const ELSEWHERE_IN_WORKSPACE = randomUUID();
 const RUN = randomUUID();
 
 const outcomes = () =>
-  `/api/teams/${team.teamId.value}/lines/${team.line.id.value}/stations/${team.stationId.value}/outcomes`;
+  `/api/teams/${team.teamId.value}/lines/${team.line.id.value}/stations/${team.stationId.value}/insights`;
 
 const judge = () =>
   `/api/teams/${team.teamId.value}/lines/${team.line.id.value}/stations/${team.stationId.value}/judge`;
@@ -31,46 +31,46 @@ const grades = () => `/api/teams/${team.teamId.value}/runs/${RUN}/grades`;
 
 const inbox = () => `/api/workspaces/${team.slug}/inbox`;
 
-const asidesIn = async (userId: string): Promise<string[]> => {
+const inboxRequestsIn = async (userId: string): Promise<string[]> => {
   const answer = await as(userId, inbox());
 
   expect(answer.status).toBe(200);
 
-  return (answer.body as { id: string; aside: unknown }[]).flatMap((each) =>
-    each.aside ? [each.id] : [],
+  return (answer.body as { id: string; inboxRequest: unknown }[]).flatMap(
+    (each) => (each.inboxRequest ? [each.id] : []),
   );
 };
 
-const raiseAside = async (
-  form: (typeof schema.taskAside.$inferInsert)['form'],
+const createInboxRequest = async (
+  form: (typeof schema.inboxRequest.$inferInsert)['form'],
   assigneeId: string | null,
 ): Promise<string> => {
   const taskId = randomUUID();
-  const asideId = randomUUID();
+  const requestId = randomUUID();
 
   await db.insert(schema.task).values({
     id: taskId,
     openedFrom: 'person',
     workspaceId: team.workspaceId.value,
     stationId: team.stationId.value,
-    title: `A ${form} aside`,
+    title: `A ${form} inbox request`,
     assigneeId,
   });
-  await db.insert(schema.taskAside).values({
-    id: asideId,
+  await db.insert(schema.inboxRequest).values({
+    id: requestId,
     workspaceId: team.workspaceId.value,
     taskId,
     form,
     about: RUN,
-    raisedAt: new Date(),
+    createdAt: new Date(),
   });
 
-  return asideId;
+  return requestId;
 };
 
-const readAside = (userId: string, asideId: string) =>
+const markInboxRequestRead = (userId: string, requestId: string) =>
   served(app)
-    .post(`${inbox()}/asides/${asideId}/read`)
+    .post(`${inbox()}/requests/${requestId}/read`)
     .set(TEST_USER_HEADER, userId);
 
 const overview = () =>
@@ -91,7 +91,7 @@ const readToken = async (of = team): Promise<string> => {
 beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `readers-${randomUUID().slice(0, 8)}`,
@@ -133,7 +133,7 @@ beforeAll(async () => {
     skills: [],
     endedAt: new Date(),
     ending: 'completed',
-    round: 1,
+    visit: 1,
   });
 });
 
@@ -192,29 +192,32 @@ describe('who may grade a team’s runs and read their scores', () => {
 });
 
 describe('who is told which memories a run used', () => {
-  let memoriesAside: string;
+  let memoriesRequest: string;
 
   beforeAll(async () => {
-    memoriesAside = await raiseAside('memories', null);
+    memoriesRequest = await createInboxRequest('memories', null);
   });
 
   it('tells a workspace member who is only on another team while nobody is assigned', async () => {
-    expect(await asidesIn(ELSEWHERE_IN_WORKSPACE)).toContain(memoriesAside);
+    expect(await inboxRequestsIn(ELSEWHERE_IN_WORKSPACE)).toContain(
+      memoriesRequest,
+    );
     expect(
-      (await readAside(ELSEWHERE_IN_WORKSPACE, memoriesAside)).status,
+      (await markInboxRequestRead(ELSEWHERE_IN_WORKSPACE, memoriesRequest))
+        .status,
     ).toBe(204);
   });
 });
 
 describe('who is told which memories a run used on a deleted team’s line', () => {
-  let memoriesAside: string;
+  let memoriesRequest: string;
 
   beforeAll(async () => {
     const teamId = randomUUID();
     const lineId = randomUUID();
     const stationId = randomUUID();
     const taskId = randomUUID();
-    memoriesAside = randomUUID();
+    memoriesRequest = randomUUID();
 
     await db.insert(schema.team).values({
       id: teamId,
@@ -252,23 +255,26 @@ describe('who is told which memories a run used on a deleted team’s line', () 
       openedFrom: 'person',
       workspaceId: team.workspaceId.value,
       stationId,
-      title: 'A memories aside on a deleted team’s line',
+      title: 'A memories inbox request on a deleted team’s line',
     });
-    await db.insert(schema.taskAside).values({
-      id: memoriesAside,
+    await db.insert(schema.inboxRequest).values({
+      id: memoriesRequest,
       workspaceId: team.workspaceId.value,
       taskId,
       form: 'memories',
       about: RUN,
-      raisedAt: new Date(),
+      createdAt: new Date(),
     });
     await db.delete(schema.team).where(eq(schema.team.id, teamId));
   });
 
   it('neither lists nor reads it for a workspace member while nobody is assigned', async () => {
-    expect(await asidesIn(ELSEWHERE_IN_WORKSPACE)).not.toContain(memoriesAside);
+    expect(await inboxRequestsIn(ELSEWHERE_IN_WORKSPACE)).not.toContain(
+      memoriesRequest,
+    );
     expect(
-      (await readAside(ELSEWHERE_IN_WORKSPACE, memoriesAside)).status,
+      (await markInboxRequestRead(ELSEWHERE_IN_WORKSPACE, memoriesRequest))
+        .status,
     ).toBe(404);
   });
 });
@@ -278,32 +284,36 @@ describe('who is asked to grade a team’s run in their inbox', () => {
   let assignedElsewhere: string;
 
   beforeAll(async () => {
-    unassigned = await raiseAside('grade', null);
-    assignedElsewhere = await raiseAside('grade', ELSEWHERE_IN_WORKSPACE);
+    unassigned = await createInboxRequest('grade', null);
+    assignedElsewhere = await createInboxRequest(
+      'grade',
+      ELSEWHERE_IN_WORKSPACE,
+    );
   });
 
   it('asks a member of the team, whoever the task is assigned to', async () => {
-    expect(await asidesIn(team.owner.value)).toEqual(
+    expect(await inboxRequestsIn(team.owner.value)).toEqual(
       expect.arrayContaining([unassigned, assignedElsewhere]),
     );
   });
 
   it('asks an admin of the workspace who is not on the team, whoever the task is assigned to', async () => {
-    expect(await asidesIn(ADMIN)).toEqual(
+    expect(await inboxRequestsIn(ADMIN)).toEqual(
       expect.arrayContaining([unassigned, assignedElsewhere]),
     );
   });
 
   it('asks no workspace member who is only on another team, nor lets them read it, even when the task is theirs', async () => {
-    const asides = await asidesIn(ELSEWHERE_IN_WORKSPACE);
+    const inboxRequests = await inboxRequestsIn(ELSEWHERE_IN_WORKSPACE);
 
-    expect(asides).not.toContain(unassigned);
-    expect(asides).not.toContain(assignedElsewhere);
-    expect((await readAside(ELSEWHERE_IN_WORKSPACE, unassigned)).status).toBe(
-      404,
-    );
+    expect(inboxRequests).not.toContain(unassigned);
+    expect(inboxRequests).not.toContain(assignedElsewhere);
     expect(
-      (await readAside(ELSEWHERE_IN_WORKSPACE, assignedElsewhere)).status,
+      (await markInboxRequestRead(ELSEWHERE_IN_WORKSPACE, unassigned)).status,
+    ).toBe(404);
+    expect(
+      (await markInboxRequestRead(ELSEWHERE_IN_WORKSPACE, assignedElsewhere))
+        .status,
     ).toBe(404);
   });
 });
@@ -335,7 +345,7 @@ describe('who may read a team’s Insights', () => {
 
   it('finds no team for a workspace token from another workspace', async () => {
     const token = await readToken(
-      await openTeam(
+      await createTeam(
         db,
         app.get(DrizzleTaskRepository),
         `elsewhere-${randomUUID().slice(0, 8)}`,
@@ -353,24 +363,26 @@ describe('who may read a team’s Insights', () => {
 });
 
 describe('who is alerted about a team’s station in their inbox', () => {
-  let alertAside: string;
+  let alertRequest: string;
 
   beforeAll(async () => {
-    alertAside = await raiseAside('alert', null);
+    alertRequest = await createInboxRequest('alert', null);
   });
 
   it('alerts a member of the team', async () => {
-    expect(await asidesIn(team.owner.value)).toContain(alertAside);
+    expect(await inboxRequestsIn(team.owner.value)).toContain(alertRequest);
   });
 
   it('alerts an admin of the workspace who is not on the team', async () => {
-    expect(await asidesIn(ADMIN)).toContain(alertAside);
+    expect(await inboxRequestsIn(ADMIN)).toContain(alertRequest);
   });
 
   it('alerts no workspace member who is only on another team, nor lets them read it', async () => {
-    expect(await asidesIn(ELSEWHERE_IN_WORKSPACE)).not.toContain(alertAside);
-    expect((await readAside(ELSEWHERE_IN_WORKSPACE, alertAside)).status).toBe(
-      404,
+    expect(await inboxRequestsIn(ELSEWHERE_IN_WORKSPACE)).not.toContain(
+      alertRequest,
     );
+    expect(
+      (await markInboxRequestRead(ELSEWHERE_IN_WORKSPACE, alertRequest)).status,
+    ).toBe(404);
   });
 });

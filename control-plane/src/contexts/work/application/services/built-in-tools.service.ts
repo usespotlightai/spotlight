@@ -1,5 +1,5 @@
 import type {
-  ReachableTool,
+  ResolvedTool,
   ToolContext,
 } from '@work/application/ports/integration-tools.port';
 import {
@@ -27,7 +27,7 @@ export class BuiltInTools {
     }
   }
 
-  reach(tool: Tool, context: ToolContext): ReachableTool | null {
+  resolve(tool: Tool, context: ToolContext): ResolvedTool | null {
     const built = builtInTool(tool);
     const use = this.uses.find((each) => each.tool.equals(tool));
 
@@ -35,7 +35,7 @@ export class BuiltInTools {
       ? {
           declared: built.declared,
           actingAs: null,
-          wants: null,
+          missing: null,
           personRule: null,
           defaultFor: () => undefined,
           call: (inputs) => use.call(context, inputs),

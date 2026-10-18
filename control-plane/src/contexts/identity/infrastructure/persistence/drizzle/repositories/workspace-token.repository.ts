@@ -39,13 +39,13 @@ const rehydrated = (row: Row): WorkspaceToken =>
     issuedBy: UserId.of(row.issuedBy),
     issuedAt: row.issuedAt,
     expiresAt: row.expiresAt,
-    mintedThrough:
-      row.mintedThrough === null
+    issuedByTrustId:
+      row.issuedByTrustId === null
         ? null
-        : WorkspaceTokenTrustId.of(row.mintedThrough),
-    mintedUnder: row.mintedUnder,
-    mintedForRun: row.mintedForRun === null ? null : RunId.of(row.mintedForRun),
-    mintedForAttempt: row.mintedForAttempt,
+        : WorkspaceTokenTrustId.of(row.issuedByTrustId),
+    trustVersion: row.trustVersion,
+    runId: row.runId === null ? null : RunId.of(row.runId),
+    runAttempt: row.runAttempt,
     version: row.version,
   });
 
@@ -72,10 +72,10 @@ export class DrizzleWorkspaceTokenRepository
           issuedBy: added.issuedBy.value,
           issuedAt: added.issuedAt,
           expiresAt: added.expiresAt,
-          mintedThrough: added.mintedThrough?.value ?? null,
-          mintedUnder: added.mintedUnder,
-          mintedForRun: added.mintedForRun?.value ?? null,
-          mintedForAttempt: added.mintedForAttempt,
+          issuedByTrustId: added.issuedByTrustId?.value ?? null,
+          trustVersion: added.trustVersion,
+          runId: added.runId?.value ?? null,
+          runAttempt: added.runAttempt,
         });
       } catch (error) {
         if (codeOf(error) === UNIQUE_VIOLATION) {
@@ -95,14 +95,14 @@ export class DrizzleWorkspaceTokenRepository
 
   async save(saved: WorkspaceToken): Promise<void> {
     await this.context.inTransaction(async () => {
-      const standing = and(
+      const sameVersion = and(
         eq(workspaceToken.id, saved.id.value),
         eq(workspaceToken.version, saved.version),
       );
       const written = saved.isRevoked
         ? await this.context.db
             .delete(workspaceToken)
-            .where(standing)
+            .where(sameVersion)
             .returning({ id: workspaceToken.id })
         : await this.context.db
             .update(workspaceToken)
@@ -110,7 +110,7 @@ export class DrizzleWorkspaceTokenRepository
               description: saved.description.value,
               version: saved.version + 1,
             })
-            .where(standing)
+            .where(sameVersion)
             .returning({ id: workspaceToken.id });
 
       if (written.length === 0) {
@@ -125,22 +125,22 @@ export class DrizzleWorkspaceTokenRepository
     return this.one(eq(workspaceToken.id, id.value));
   }
 
-  bearing(hash: TokenHash): Promise<WorkspaceToken | null> {
+  findByHash(hash: TokenHash): Promise<WorkspaceToken | null> {
     return this.one(eq(workspaceToken.tokenHash, hash.value));
   }
 
-  async mintedThrough(
+  async issuedByTrust(
     trustId: WorkspaceTokenTrustId,
   ): Promise<readonly WorkspaceToken[]> {
     const rows = await this.context.db
       .select()
       .from(workspaceToken)
-      .where(eq(workspaceToken.mintedThrough, trustId.value));
+      .where(eq(workspaceToken.issuedByTrustId, trustId.value));
 
     return rows.map(rehydrated);
   }
 
-  async mintedForRun(
+  async issuedForRun(
     workspaceId: WorkspaceId,
     runId: RunId,
     attempt: number | null,
@@ -151,17 +151,15 @@ export class DrizzleWorkspaceTokenRepository
       .where(
         and(
           eq(workspaceToken.workspaceId, workspaceId.value),
-          eq(workspaceToken.mintedForRun, runId.value),
-          attempt === null
-            ? undefined
-            : eq(workspaceToken.mintedForAttempt, attempt),
+          eq(workspaceToken.runId, runId.value),
+          attempt === null ? undefined : eq(workspaceToken.runAttempt, attempt),
         ),
       );
 
     return rows.map(rehydrated);
   }
 
-  async mintedAndExpiredBy(
+  async issuedAndExpiredBy(
     now: Date,
     limit: number,
   ): Promise<readonly WorkspaceToken[]> {
@@ -171,8 +169,8 @@ export class DrizzleWorkspaceTokenRepository
       .where(
         and(
           or(
-            isNotNull(workspaceToken.mintedThrough),
-            isNotNull(workspaceToken.mintedForRun),
+            isNotNull(workspaceToken.issuedByTrustId),
+            isNotNull(workspaceToken.runId),
           ),
           lte(workspaceToken.expiresAt, now),
         ),

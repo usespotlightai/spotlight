@@ -20,15 +20,15 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 let chats: DrizzleChatRepository;
 let traces: DrizzleRunnerTraceReader;
 let traced: DrizzleTracedTaskReader;
 
 beforeAll(async () => {
-  held = await openDatabase('chat_traces');
-  db = held.db;
+  database = await openDatabase('chat_traces');
+  db = database.db;
   chats = new DrizzleChatRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
@@ -37,7 +37,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 const RUNNER = 'runner_1';
@@ -54,7 +54,7 @@ const started = () =>
     teamId: TeamId.of('team_1'),
     startedBy: UserId.of('user_1'),
     harness: HarnessId.of('dev'),
-    body: ChatMessageBody.given('Why did this fail?'),
+    body: ChatMessageBody.fromInput('Why did this fail?'),
     traces: [RETRIES],
     now: new Date(),
     newId: () => randomUUID(),
@@ -135,15 +135,15 @@ describe('traces shared in a chat', () => {
     ).toEqual([{ taskId, title: 'Fix the queue', teamId: 'team_2' }]);
   });
 
-  it('reads traces for the runner holding a task run, as its line’s team', async () => {
+  it('reads traces for the runner with the lease on a task run, as its line’s team', async () => {
     const runId = await taskRun('team_3');
 
     expect(
-      (await traces.heldRunStanding(runId, RunnerId.of(RUNNER)))?.teamId.value,
+      (await traces.leasedRunFacts(runId, RunnerId.of(RUNNER)))?.teamId.value,
     ).toBe('team_3');
   });
 
-  it('keeps the traces a message shared', async () => {
+  it('stores the traces a message shared', async () => {
     const chat = started();
 
     await chats.add(chat);
@@ -157,11 +157,11 @@ describe('traces shared in a chat', () => {
     ).toEqual([['task_1', 'Retries back off']]);
   });
 
-  it('reads traces for the runner holding a chat run, as its chat’s team', async () => {
+  it('reads traces for the runner with the lease on a chat run, as its chat’s team', async () => {
     const runId = await chatRun('claimed');
 
     expect(
-      (await traces.heldRunStanding(runId, RunnerId.of(RUNNER)))?.teamId.value,
+      (await traces.leasedRunFacts(runId, RunnerId.of(RUNNER)))?.teamId.value,
     ).toBe('team_1');
   });
 
@@ -170,10 +170,10 @@ describe('traces shared in a chat', () => {
     const finished = await chatRun('completed');
 
     await expect(
-      traces.heldRunStanding(claimed, RunnerId.of('runner_2')),
+      traces.leasedRunFacts(claimed, RunnerId.of('runner_2')),
     ).resolves.toBeNull();
     await expect(
-      traces.heldRunStanding(finished, RunnerId.of(RUNNER)),
+      traces.leasedRunFacts(finished, RunnerId.of(RUNNER)),
     ).resolves.toBeNull();
   });
 });

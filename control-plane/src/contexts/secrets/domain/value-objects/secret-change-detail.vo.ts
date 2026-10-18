@@ -7,33 +7,33 @@ export class SecretChangeDetail implements ChangeDetail {
   private constructor(
     readonly valueMoved: boolean,
     readonly valueVersion: number | null,
-    readonly boundTo: readonly string[] | null,
+    readonly targets: readonly string[] | null,
   ) {}
 
-  static set(
+  static created(
     valueVersion: number | null,
-    boundTo: readonly string[],
+    targets: readonly string[],
   ): SecretChangeDetail {
-    return new SecretChangeDetail(true, valueVersion, [...boundTo]);
+    return new SecretChangeDetail(true, valueVersion, [...targets]);
   }
 
-  static redefined(moved: {
+  static updated(moved: {
     valueMoved: boolean;
     valueVersion: number | null;
     rebound: boolean;
-    boundTo: readonly string[];
+    targets: readonly string[];
   }): SecretChangeDetail {
     return new SecretChangeDetail(
       moved.valueMoved,
       moved.valueMoved ? moved.valueVersion : null,
-      moved.rebound ? [...moved.boundTo] : null,
+      moved.rebound ? [...moved.targets] : null,
     );
   }
 
   recorded(): RecordedDetail {
     return {
       ...(this.valueMoved ? { valueVersion: this.valueVersion } : {}),
-      ...(this.boundTo ? { boundTo: this.boundTo } : {}),
+      ...(this.targets ? { targets: this.targets } : {}),
     };
   }
 }

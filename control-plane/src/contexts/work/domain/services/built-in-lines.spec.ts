@@ -21,13 +21,13 @@ describe('what the built-in line tells its agents', () => {
       const named = BUILT_IN_TOOLS.map((each) => each.declared.tool)
         .filter((tool) => prompt.includes(`spotlight ${tool.value}`))
         .map((tool) => tool.value);
-      const held = opening.tools.map((tool) => tool.value);
+      const enabled = opening.tools.map((tool) => tool.value);
 
-      expect(held).toEqual(expect.arrayContaining(named));
+      expect(enabled).toEqual(expect.arrayContaining(named));
     }
   });
 
-  it('gives every tool it hands out to a station that exists here', () => {
+  it('enables every tool it hands out at a station that exists here', () => {
     const known = BUILT_IN_TOOLS.map((each) => each.declared.tool.value);
 
     for (const opening of BUILT_IN_STATIONS) {

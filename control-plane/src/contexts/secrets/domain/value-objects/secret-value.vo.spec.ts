@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 describe('SecretValue', () => {
   const value = SecretValue.of('lin_api_1');
 
-  it('says its value only when asked outright', () => {
+  it('says its value only when revealed outright', () => {
     expect(value.revealed()).toBe('lin_api_1');
   });
 
@@ -21,7 +21,7 @@ describe('SecretValue', () => {
     expect(isSecret(value)).toBe(true);
   });
 
-  it('refuses nothing at all, and more than any credential needs', () => {
+  it('rejects nothing at all, and more than any credential needs', () => {
     expect(() => SecretValue.of('')).toThrow(/must not be empty/);
     expect(() => SecretValue.of('x'.repeat(64 * 1024 + 1))).toThrow(
       /must be at most/,

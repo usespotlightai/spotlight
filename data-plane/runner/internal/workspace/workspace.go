@@ -34,7 +34,7 @@ func (w *Workspace) State() (string, error) {
 	return dir, nil
 }
 
-func (w *Workspace) GiveTo(uid, gid uint32) error {
+func (w *Workspace) ChownAll(uid, gid uint32) error {
 	return filepath.WalkDir(w.Dir, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -52,11 +52,11 @@ func (w *Workspace) GiveTo(uid, gid uint32) error {
 	})
 }
 
-func (w *Workspace) Clear(keep []string) error {
-	return clearAt(w.Dir, "", keep)
+func (w *Workspace) Clear(preserve []string) error {
+	return clearAt(w.Dir, "", preserve)
 }
 
-func clearAt(dir, at string, keep []string) error {
+func clearAt(dir, at string, preserve []string) error {
 	entries, err := os.ReadDir(filepath.Join(dir, at))
 	if err != nil {
 		return err
@@ -67,9 +67,9 @@ func clearAt(dir, at string, keep []string) error {
 		name := filepath.ToSlash(filepath.Join(at, entry.Name()))
 
 		switch {
-		case slices.Contains(keep, name):
-		case entry.IsDir() && holds(keep, name):
-			problems = append(problems, clearAt(dir, name, keep))
+		case slices.Contains(preserve, name):
+		case entry.IsDir() && containsPreserved(preserve, name):
+			problems = append(problems, clearAt(dir, name, preserve))
 		default:
 			problems = append(problems, os.RemoveAll(filepath.Join(dir, name)))
 		}
@@ -78,8 +78,8 @@ func clearAt(dir, at string, keep []string) error {
 	return errors.Join(problems...)
 }
 
-func holds(keep []string, name string) bool {
-	for _, each := range keep {
+func containsPreserved(preserve []string, name string) bool {
+	for _, each := range preserve {
 		if strings.HasPrefix(each, name+"/") {
 			return true
 		}

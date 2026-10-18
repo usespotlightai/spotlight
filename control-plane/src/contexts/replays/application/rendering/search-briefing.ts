@@ -1,8 +1,8 @@
 import { SEARCHABLE_FIELDS } from '@replays/domain/services/searchable-changes';
 import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
-import type { SearchCause } from '@replays/domain/value-objects/search-cause.vo';
+import type { FailureCause } from '@replays/domain/value-objects/failure-cause.vo';
+import type { Money } from '@replays/domain/value-objects/money.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
-import type { Spend } from '@replays/domain/value-objects/spend.vo';
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 
 export const SEED_HYPOTHESIS =
@@ -16,12 +16,12 @@ export interface SearchBriefingFacts {
   readonly iteration: number;
   readonly iterations: number;
   readonly perIteration: number;
-  readonly left: Spend;
-  readonly ceiling: Spend;
+  readonly left: Money;
+  readonly ceiling: Money;
   readonly searchedTasks: number;
   readonly heldOutTasks: number;
   readonly objective: SearchObjective;
-  readonly configCauses: readonly SearchCause[];
+  readonly configCauses: readonly FailureCause[];
 }
 
 const AIMS: Readonly<Record<SearchObjective, string>> = {
@@ -29,7 +29,7 @@ const AIMS: Readonly<Record<SearchObjective, string>> = {
   cost: `## What counts as better\n\nThe live config already succeeds on nearly every task, so this search looks for the same success at less cost. A candidate is better when it costs less per run and succeeds as often as the live config, within noise. One that succeeds clearly less often is out, however cheap. Look for what the station spends without needing to: a cheaper model or a lower effort, a shorter prompt, fewer tools or skills.`,
 };
 
-const foundOf = (causes: readonly SearchCause[]): string[] =>
+const foundOf = (causes: readonly FailureCause[]): string[] =>
   causes.length === 0
     ? []
     : [
@@ -45,7 +45,7 @@ const foundOf = (causes: readonly SearchCause[]): string[] =>
         ].join('\n'),
       ];
 
-const money = (spend: Spend): string =>
+const money = (spend: Money): string =>
   `${spend.amount.toFixed(2)} ${spend.currency}`;
 
 const plural = (count: number, one: string, many = `${one}s`): string =>
@@ -74,7 +74,7 @@ export const SearchBriefing = {
       [
         '## What may change',
         '',
-        `A candidate may change only the station's ${SEARCHABLE_FIELDS.map((each) => `\`${each}\``).join(', ')}. Keep every other field exactly as the block above has it: its key, name, kind, check, judge, alerts, passesTo, ends, runners and the rest. A candidate that changes one of them is refused.`,
+        `A candidate may change only the station's ${SEARCHABLE_FIELDS.map((each) => `\`${each}\``).join(', ')}. Keep every other field exactly as the block above has it: its key, name, kind, check, judge, alerts, passesTo, ends, runners and the rest. Spotlight rejects a candidate that changes one of them.`,
       ].join('\n'),
       [
         '## How to go about it',
@@ -82,7 +82,7 @@ export const SearchBriefing = {
         `1. Write the station's runs and this search's results to files:\n\n   \`\`\`\n   spotlight history --station ${key} --line ${line}\n   \`\`\`\n\n   It prints where it wrote them: \`${folder}/index.md\` has one line per run and a table of the candidates so far; \`current.json\` is the block above; each run has \`runs/<run>/journal.md\`, \`outcome.json\` and, where it changed code, \`diff.patch\`; each candidate has \`candidates/<name>/block.json\`, \`changes.diff\`, \`hypothesis.md\`, \`score.json\` and the journal and result of each of its replay runs under \`runs/<original run>/\`. The candidate named \`${SEED_NAME}\` is the block above, replayed as it is. Read and \`grep -r\` across those files with your own tools.`,
         '2. Find what made runs fail, then change the block to fix that. Change one thing per candidate, or say why two changes cannot be separated.',
         `3. Propose each candidate, from a file or from stdin:\n\n   \`\`\`\n   spotlight candidate --name <name> --hypothesis <text | @file> <station.json | ->\n   \`\`\`\n\n   The name is a slug: lowercase letters, digits and hyphens, starting with a letter or digit, at most 63 characters, unique in this search, and not \`${SEED_NAME}\`. The hypothesis says what you expect the change to improve, and why.`,
-        '4. A refused candidate comes back with the problems in it; fix them and propose it again. A refused one does not count towards your candidates, but you may only try so often.',
+        '4. A rejected candidate comes back with the problems in it; fix them and propose it again. A rejected one does not count as one of your candidates, but you may only try so often.',
         '5. End the run once you have proposed your candidates. Spotlight replays them after you, and the next iteration sees how they did.',
       ].join('\n'),
     ].join('\n\n');

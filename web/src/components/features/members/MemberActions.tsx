@@ -14,7 +14,7 @@ import { nameOfRole, type Role } from '@/lib/role';
 type MemberActionsProps = {
   name: string;
   role: Role;
-  mayBeSetTo: readonly Role[];
+  assignableRoles: readonly Role[];
   disabled: boolean;
   onChangeRole: (role: Role) => void;
 };
@@ -22,11 +22,11 @@ type MemberActionsProps = {
 export function MemberActions({
   name,
   role,
-  mayBeSetTo,
+  assignableRoles,
   disabled,
   onChangeRole,
 }: MemberActionsProps) {
-  const offered = rolesOffered(role, mayBeSetTo);
+  const offered = rolesOffered(role, assignableRoles);
 
   if (offered.length < 2) {
     return <span aria-hidden className="size-7 shrink-0" />;

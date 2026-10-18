@@ -1,5 +1,5 @@
 import type { WorkPort } from '@replays/application/ports/work.port';
-import type { CheckReadings } from '@replays/application/services/check-readings.service';
+import type { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
 import type { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
@@ -11,16 +11,16 @@ import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
+import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
-export class EnsureCheckBaselines implements OwedWorkPort {
+export class EnsureCheckBaselines implements PendingJobsPort {
   readonly name = 'EnsureCheckBaselines';
 
   constructor(
     private readonly checks: ReplayCheckRepository,
-    private readonly readings: CheckReadings,
+    private readonly evaluations: CheckEvaluations,
     private readonly sets: ReplaySetRepository,
     private readonly replays: ReplayRepository,
     private readonly work: WorkPort,
@@ -31,21 +31,21 @@ export class EnsureCheckBaselines implements OwedWorkPort {
     private readonly logger: LoggerPort,
   ) {}
 
-  async workDue(): Promise<void> {
+  async processDue(): Promise<void> {
     for (const check of await this.checks.awaitingBaseline()) {
       try {
         await this.ensure(check);
       } catch (error) {
         this.logger.warn(
           { checkId: check.id.value, error },
-          'A replay check’s baseline could not be ensured; it is tried again',
+          'A replay check’s baseline could not be ensured; Spotlight retries it later',
         );
       }
     }
   }
 
   private async ensure(check: ReplayCheck): Promise<void> {
-    const { baseline, set, replay } = await this.readings.of(check);
+    const { baseline, set, replay } = await this.evaluations.of(check);
 
     if (baseline) {
       await this.checks.save(check.recordBaseline());
@@ -57,7 +57,7 @@ export class EnsureCheckBaselines implements OwedWorkPort {
         ? await this.work.live(set.station.lineId, set.station.stationId)
         : null;
 
-    if (!live || live.digests.scoring !== check.liveDigests.scoring) {
+    if (!live || live.hashes.scoring !== check.liveHashes.scoring) {
       await this.checks.save(check.markBaselineUnavailable());
       return;
     }
@@ -70,7 +70,7 @@ export class EnsureCheckBaselines implements OwedWorkPort {
         !needsBaseline(
           locked,
           await this.replays.ofSet(locked.id),
-          check.liveDigests.scoring,
+          check.liveHashes.scoring,
           check.repeats,
         )
       ) {
@@ -89,7 +89,7 @@ export class EnsureCheckBaselines implements OwedWorkPort {
           ),
           repeats: check.repeats,
           at: this.clock.now(),
-          by: Attribution.spotlight(locked.workspaceId),
+          by: ChangeActor.spotlight(locked.workspaceId),
         }),
       );
     });

@@ -15,7 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const NOW = new Date('2026-09-27T10:00:00.000Z');
 const API = Repository.of('acme/api');
@@ -36,13 +36,16 @@ interface InboxBody {
   readonly taskId: string;
   readonly resolved: boolean;
   readonly unread: boolean;
-  readonly aside: { readonly form: string; readonly about: string } | null;
+  readonly inboxRequest: {
+    readonly form: string;
+    readonly about: string;
+  } | null;
 }
 
 const remembered = (body: string): ProposedMemory => ({
   kind: 'preference',
   body,
-  reach: 'team',
+  scope: 'team',
   repository: null,
   paths: [],
   steps: [5],
@@ -52,7 +55,7 @@ const remembered = (body: string): ProposedMemory => ({
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 
 const proposing = async (
   bodies: readonly string[],
@@ -60,29 +63,29 @@ const proposing = async (
 ): Promise<RunId> => {
   const runId = RunId.of(`run_${randomUUID().slice(0, 8)}`);
   const drafts = app.get(DrizzleMemoryDraftRepository);
-  const held = await drafts.forTask(team.list.id);
-  const asked = (
-    held ??
-    MemoryDraft.open({
+  const existing = await drafts.forTask(team.list.id);
+  const requested = (
+    existing ??
+    MemoryDraft.create({
       id: MemoryDraftId.of(randomUUID()),
       taskId: team.list.id,
       workspaceId: team.workspaceId,
     })
-  ).asked(runId, NOW);
-  const drafted = asked.recordDraft({
+  ).requestDrafting(runId, NOW);
+  const drafted = requested.recordDraft({
     runId,
     proposed: bodies.map(remembered),
     evidence: DraftEvidence.of({
       taskId: team.list.id,
       runId,
-      site: {
+      runContext: {
         teamId: team.teamId,
         lineId: team.line.id.value,
         stationId: team.stationId.value,
         repositories: [API],
       },
       steps: [
-        { index: 5, kind: 'said', text: 'Branches are named for tickets.' },
+        { index: 5, kind: 'message', text: 'Branches are named for tickets.' },
       ],
       notes: [],
       notesRead: 0,
@@ -94,7 +97,7 @@ const proposing = async (
     now: NOW,
   });
 
-  if (held) {
+  if (existing) {
     await drafts.save(drafted);
   } else {
     await drafts.add(drafted);
@@ -113,16 +116,17 @@ const inbox = async (as: string): Promise<readonly InboxBody[]> =>
       .set(TEST_USER_HEADER, as)
   ).body;
 
-const asideFor = (items: readonly InboxBody[], runId: RunId) =>
+const inboxRequestFor = (items: readonly InboxBody[], runId: RunId) =>
   items.find(
     (each) =>
-      each.aside?.form === 'memories' && each.aside.about === runId.value,
+      each.inboxRequest?.form === 'memories' &&
+      each.inboxRequest.about === runId.value,
   );
 
 beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `memories-${randomUUID().slice(0, 8)}`,
@@ -138,7 +142,7 @@ describe('reviewing the memories a run proposed', () => {
     const runId = await proposing(['One.', 'Two.', 'Three.']);
 
     const item = await eventually(async () =>
-      asideFor(await inbox(team.owner.value), runId),
+      inboxRequestFor(await inbox(team.owner.value), runId),
     );
     const review = await served(app)
       .get(reviewPath(runId))
@@ -151,12 +155,12 @@ describe('reviewing the memories a run proposed', () => {
     ).toEqual(['One.', 'Two.', 'Three.']);
   });
 
-  it('lets approved memories stand, edited or not, and settles the item once all are decided', async () => {
-    const runId = await proposing(['Keep me.', 'Edit me.', 'Drop me.']);
+  it('makes approved memories active, edited or not, and resolves the item once all are decided', async () => {
+    const runId = await proposing(['Approve me.', 'Edit me.', 'Drop me.']);
     await eventually(async () =>
-      asideFor(await inbox(team.owner.value), runId),
+      inboxRequestFor(await inbox(team.owner.value), runId),
     );
-    const [keep, edit, drop] = (
+    const [approve, edit, drop] = (
       (
         await served(app)
           .get(reviewPath(runId))
@@ -168,7 +172,7 @@ describe('reviewing the memories a run proposed', () => {
       .post(`${reviewPath(runId)}/approve`)
       .set(TEST_USER_HEADER, team.owner.value)
       .send({
-        memories: [{ id: keep?.id }, { id: edit?.id, body: 'Edited.' }],
+        memories: [{ id: approve?.id }, { id: edit?.id, body: 'Edited.' }],
       });
     const rejected = await served(app)
       .post(`${reviewPath(runId)}/${drop?.id}/reject`)
@@ -183,36 +187,36 @@ describe('reviewing the memories a run proposed', () => {
         each.decision?.name,
       ]),
     ).toEqual([
-      ['approved', 'Keep me.', 'Ada'],
+      ['approved', 'Approve me.', 'Ada'],
       ['approved', 'Edited.', 'Ada'],
       ['rejected', 'Drop me.', 'Ada'],
     ]);
 
-    const standing = await eventually(async () => {
+    const active = await eventually(async () => {
       const rows = await db
         .select()
         .from(schema.memory)
         .where(eq(schema.memory.runId, runId.value));
       return rows.length === 2 && rows;
     });
-    expect(standing.map((each) => each.body).sort()).toEqual([
+    expect(active.map((each) => each.body).sort()).toEqual([
+      'Approve me.',
       'Edited.',
-      'Keep me.',
     ]);
-    expect(standing.every((each) => each.approvedBy === team.owner.value)).toBe(
+    expect(active.every((each) => each.approvedBy === team.owner.value)).toBe(
       true,
     );
-    expect(standing.every((each) => each.steps?.join() === '5')).toBe(true);
+    expect(active.every((each) => each.steps?.join() === '5')).toBe(true);
 
-    const settled = await eventually(async () => {
-      const item = asideFor(await inbox(team.owner.value), runId);
+    const resolvedItem = await eventually(async () => {
+      const item = inboxRequestFor(await inbox(team.owner.value), runId);
       return item?.resolved && item;
     });
-    expect(settled.resolved).toBe(true);
+    expect(resolvedItem.resolved).toBe(true);
   });
 
-  it('never keeps a rejected memory', async () => {
-    const runId = await proposing(['Never keep me.']);
+  it('never stores a rejected memory', async () => {
+    const runId = await proposing(['Never approve me.']);
     const [only] = (
       (
         await served(app)
@@ -225,15 +229,15 @@ describe('reviewing the memories a run proposed', () => {
       .post(`${reviewPath(runId)}/${only?.id}/reject`)
       .set(TEST_USER_HEADER, team.owner.value);
     await eventually(async () => {
-      const item = asideFor(await inbox(team.owner.value), runId);
+      const item = inboxRequestFor(await inbox(team.owner.value), runId);
       return item?.resolved;
     });
 
-    const kept = await db
+    const stored = await db
       .select()
       .from(schema.memory)
       .where(eq(schema.memory.id, only?.id ?? ''));
-    expect(kept).toEqual([]);
+    expect(stored).toEqual([]);
   });
 
   it('approves a memory from outside the team only on its own', async () => {
@@ -316,7 +320,7 @@ describe('reviewing the memories a run proposed', () => {
       .get(reviewPath(runId))
       .set(TEST_USER_HEADER, stranger);
     await eventually(async () =>
-      asideFor(await inbox(team.owner.value), runId),
+      inboxRequestFor(await inbox(team.owner.value), runId),
     );
 
     expect(read.status).toBe(404);
@@ -347,24 +351,26 @@ describe('reviewing the memories a run proposed', () => {
       .values({ teamId: team.teamId.value, userId: teammate });
 
     await eventually(async () =>
-      asideFor(await inbox(team.owner.value), runId),
+      inboxRequestFor(await inbox(team.owner.value), runId),
     );
-    expect(asideFor(await inbox(teammate), runId)).toBeUndefined();
+    expect(inboxRequestFor(await inbox(teammate), runId)).toBeUndefined();
 
     await db
       .update(schema.task)
       .set({ assigneeId: null })
       .where(eq(schema.task.id, team.list.id.value));
 
-    const seen = asideFor(await inbox(teammate), runId);
+    const seen = inboxRequestFor(await inbox(teammate), runId);
     expect(seen?.resolved).toBe(false);
 
     const read = await served(app)
-      .post(`/api/workspaces/${team.slug}/inbox/asides/${seen?.id}/read`)
+      .post(`/api/workspaces/${team.slug}/inbox/requests/${seen?.id}/read`)
       .set(TEST_USER_HEADER, teammate);
     expect(read.status).toBe(204);
-    expect(asideFor(await inbox(teammate), runId)?.unread).toBe(false);
-    expect(asideFor(await inbox(team.owner.value), runId)?.unread).toBe(true);
+    expect(inboxRequestFor(await inbox(teammate), runId)?.unread).toBe(false);
+    expect(inboxRequestFor(await inbox(team.owner.value), runId)?.unread).toBe(
+      true,
+    );
 
     await db
       .update(schema.task)

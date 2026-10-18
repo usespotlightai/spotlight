@@ -2,21 +2,21 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { ReplayRefusalCode } from '@work/application/contracts/replay-refusal.contract';
+import type { UnreplayableReasonCode } from '@work/application/contracts/unreplayable-reason.contract';
 import type { ReplayFactsPort } from '@work/application/ports/replay-facts.port';
 import type {
   RecentRun,
   Replayability,
   ReplayableRunsPort,
-  StandingRun,
+  RunSummary,
 } from '@work/application/ports/replayable-runs.port';
-import type { RunDigestReaderPort } from '@work/application/ports/run-digest-reader.port';
+import type { RunUsageReaderPort } from '@work/application/ports/run-usage-reader.port';
 import type { StationRunReaderPort } from '@work/application/ports/station-run-reader.port';
 import type { DispatchReplay } from '@work/application/services/dispatch-replay.service';
 import { UnreplayableRunError } from '@work/domain/exceptions/unreplayable-run.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
-import { standingOf } from '@work/domain/services/replay-standing';
+import { replayBlockOf } from '@work/domain/services/replay-block';
 
 export class ReplayableRuns implements ReplayableRunsPort {
   constructor(
@@ -25,7 +25,7 @@ export class ReplayableRuns implements ReplayableRunsPort {
     private readonly lines: LineRepository,
     private readonly dispatch: DispatchReplay,
     private readonly stationRuns: StationRunReaderPort,
-    private readonly digests: RunDigestReaderPort,
+    private readonly usages: RunUsageReaderPort,
     private readonly ids: IdGeneratorPort,
     private readonly logger: LoggerPort,
   ) {}
@@ -44,23 +44,23 @@ export class ReplayableRuns implements ReplayableRunsPort {
     return checked;
   }
 
-  async standing(
+  async summaries(
     workspaceId: string,
     runIds: readonly string[],
-  ): Promise<readonly StandingRun[]> {
+  ): Promise<readonly RunSummary[]> {
     const known = await this.facts.of(workspaceId, runIds);
 
     return [...new Set(runIds)].map((runId) => {
       const facts = known.get(runId) ?? null;
-      const standing = standingOf(facts);
+      const block = replayBlockOf(facts);
       const placed = facts?.inWorkspace ? facts : null;
 
       return {
         runId,
         taskId: placed?.taskId ?? null,
         stationId: placed?.stationId ?? null,
-        refusal: standing?.refusal ?? null,
-        reason: standing?.reason ?? null,
+        unreplayableReason: block?.unreplayableReason ?? null,
+        reason: block?.reason ?? null,
         title: placed?.title ?? null,
         state: placed?.state ?? null,
         endedAt: placed?.endedAt ?? null,
@@ -76,13 +76,13 @@ export class ReplayableRuns implements ReplayableRunsPort {
       return new Map();
     }
 
-    const digests = await this.digests.forRuns(
+    const usages = await this.usages.forRuns(
       [...new Set(runIds)].map((each) => RunId.of(each)),
     );
 
     return new Map(
-      [...digests].flatMap(([runId, digest]) =>
-        digest.ms === null ? [] : [[runId, digest.ms] as const],
+      [...usages].flatMap(([runId, usage]) =>
+        usage.ms === null ? [] : [[runId, usage.ms] as const],
       ),
     );
   }
@@ -101,7 +101,7 @@ export class ReplayableRuns implements ReplayableRunsPort {
     });
     const checked = new Map(
       (
-        await this.standing(
+        await this.summaries(
           workspaceId,
           ended.map((each) => each.runId),
         )
@@ -111,7 +111,7 @@ export class ReplayableRuns implements ReplayableRunsPort {
     return ended.flatMap((each) => {
       const replayable = checked.get(each.runId);
 
-      return replayable && replayable.refusal !== 'unknown-run'
+      return replayable && replayable.unreplayableReason !== 'unknown-run'
         ? [
             {
               ...replayable,
@@ -131,7 +131,7 @@ export class ReplayableRuns implements ReplayableRunsPort {
     const run = await this.runs.findById(RunId.of(runId));
 
     if (!run?.workspaceId.equals(workspaceId)) {
-      return refused(
+      return unreplayable(
         runId,
         null,
         null,
@@ -142,15 +142,17 @@ export class ReplayableRuns implements ReplayableRunsPort {
 
     const taskId = run.taskId?.value ?? null;
     const stationId = run.stationId?.value ?? null;
-    const line = run.stationId ? await this.lines.holding(run.stationId) : null;
+    const line = run.stationId
+      ? await this.lines.findByStation(run.stationId)
+      : null;
 
     if (!line) {
-      return refused(
+      return unreplayable(
         runId,
         taskId,
         stationId,
         'not-at-the-station',
-        'No line holds the station that it worked at.',
+        'No line has the station of the run.',
       );
     }
 
@@ -158,14 +160,20 @@ export class ReplayableRuns implements ReplayableRunsPort {
       await this.dispatch.planned(run, line, RunId.of(this.ids.generate()));
     } catch (error) {
       if (error instanceof UnreplayableRunError) {
-        return refused(runId, taskId, stationId, error.refusal, error.reason);
+        return unreplayable(
+          runId,
+          taskId,
+          stationId,
+          error.unreplayableReason,
+          error.reason,
+        );
       }
 
       this.logger.warn(
         { err: error, runId },
         'A run could not be checked for replaying',
       );
-      return refused(
+      return unreplayable(
         runId,
         taskId,
         stationId,
@@ -174,14 +182,14 @@ export class ReplayableRuns implements ReplayableRunsPort {
       );
     }
 
-    return { runId, taskId, stationId, refusal: null, reason: null };
+    return { runId, taskId, stationId, unreplayableReason: null, reason: null };
   }
 }
 
-const refused = (
+const unreplayable = (
   runId: string,
   taskId: string | null,
   stationId: string | null,
-  refusal: ReplayRefusalCode,
+  unreplayableReason: UnreplayableReasonCode,
   reason: string,
-): Replayability => ({ runId, taskId, stationId, refusal, reason });
+): Replayability => ({ runId, taskId, stationId, unreplayableReason, reason });

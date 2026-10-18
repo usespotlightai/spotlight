@@ -4,17 +4,18 @@ import {
   type ErrorKind,
 } from '@shared-kernel/domain/exceptions/error-kind';
 
-type RuleViolation = Error & { readonly violation: ErrorKind };
+type ErrorWithKind = Error & { readonly kind: ErrorKind };
 
-const isRuleViolation = (error: unknown): error is RuleViolation =>
+const hasErrorKind = (error: unknown): error is ErrorWithKind =>
   error instanceof Error &&
-  'violation' in error &&
-  typeof error.violation === 'string' &&
-  (ERROR_KINDS as readonly string[]).includes(error.violation);
+  !(error instanceof ApplicationError) &&
+  'kind' in error &&
+  typeof error.kind === 'string' &&
+  (ERROR_KINDS as readonly string[]).includes(error.kind);
 
 export function rethrowAsApplicationError(error: unknown): never {
-  if (isRuleViolation(error)) {
-    throw new ApplicationError(error.violation, error.message);
+  if (hasErrorKind(error)) {
+    throw new ApplicationError(error.kind, error.message);
   }
 
   throw error;

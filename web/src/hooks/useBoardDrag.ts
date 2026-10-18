@@ -41,7 +41,7 @@ export function useBoardDrag(board: Board) {
   const moveTask = useMoveTask();
   const swallowNextClick = useDragGuard();
 
-  const [lifted, setLifted] = useState<string | null>(null);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
   const [landing, setLanding] = useState<Landing | null>(null);
 
   const sensors = useSensors(
@@ -49,12 +49,12 @@ export function useBoardDrag(board: Board) {
   );
 
   const clear = () => {
-    setLifted(null);
+    setDraggedId(null);
     setLanding(null);
   };
 
   const landingOver = (moving: Task, over: DragOverEvent['over']) => {
-    const held =
+    const target =
       over &&
       landingFor(board.tasks, moving.id, {
         kind: over.data.current?.kind === 'task' ? 'task' : 'station',
@@ -62,8 +62,8 @@ export function useBoardDrag(board: Board) {
         stationId: String(over.data.current?.stationId ?? over.id),
       });
 
-    return held && mayLand(board.stations, moving, held.stationId)
-      ? held
+    return target && mayLand(board.stations, moving, target.stationId)
+      ? target
       : null;
   };
 
@@ -78,7 +78,7 @@ export function useBoardDrag(board: Board) {
     setLanding(landingOver(moving, over));
   };
 
-  const settle = ({ active, over }: DragEndEvent) => {
+  const drop = ({ active, over }: DragEndEvent) => {
     if (
       !over ||
       !board.teamId ||
@@ -89,15 +89,15 @@ export function useBoardDrag(board: Board) {
     }
 
     const moving = board.tasks.find((each) => each.id === active.id);
-    const held = moving ? landingOver(moving, over) : null;
+    const target = moving ? landingOver(moving, over) : null;
 
-    if (moving && held) {
+    if (moving && target) {
       moveTask.mutate({
         teamId: board.teamId,
         lineId: board.lineId,
         taskId: moving.id,
         revision: moving.revision,
-        ...held,
+        ...target,
       });
     }
   };
@@ -105,10 +105,11 @@ export function useBoardDrag(board: Board) {
   return {
     sensors,
     collisionDetection: dropping,
-    lifted,
+    draggedId,
     landing,
     handlers: {
-      onDragStart: ({ active }: DragStartEvent) => setLifted(String(active.id)),
+      onDragStart: ({ active }: DragStartEvent) =>
+        setDraggedId(String(active.id)),
       onDragOver,
       onDragCancel: () => {
         clear();
@@ -117,7 +118,7 @@ export function useBoardDrag(board: Board) {
       onDragEnd: (event: DragEndEvent) => {
         clear();
         swallowNextClick();
-        settle(event);
+        drop(event);
       },
     },
   };

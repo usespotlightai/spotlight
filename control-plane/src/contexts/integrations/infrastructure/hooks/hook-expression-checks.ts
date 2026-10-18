@@ -34,10 +34,10 @@ const OBJECT = 'object';
 const fieldsOf = (fields: SchemaFields): ExpressionDeclarationDto[] =>
   Object.entries(fields)
     .sort(([one], [other]) => one.localeCompare(other))
-    .map(([name, held]) =>
-      typeof held === 'string'
-        ? { name, type: held, fields: [] }
-        : { name, type: OBJECT, fields: fieldsOf(held) },
+    .map(([name, field]) =>
+      typeof field === 'string'
+        ? { name, type: field, fields: [] }
+        : { name, type: OBJECT, fields: fieldsOf(field) },
     );
 
 const declarationsOf = (
@@ -45,9 +45,9 @@ const declarationsOf = (
 ): ExpressionDeclarationDto[] =>
   fieldsOf(
     Object.fromEntries(
-      Object.entries(declared).map(([name, held]) => [
+      Object.entries(declared).map(([name, each]) => [
         name,
-        typeof held === 'string' ? held : held.schema,
+        typeof each === 'string' ? each : each.schema,
       ]),
     ),
   );
@@ -59,8 +59,8 @@ const positioned = (
 ): ExpressionPositionDto => ({
   position: FieldPath.dotted(`${HOOK_RESOURCE}.${dotted}`),
   returns,
-  sees: declarationsOf(scope.declared),
-  alsoSees: [],
+  variables: declarationsOf(scope.declared),
+  addedVariables: [],
 });
 
 const STEP = `steps.${ANY_SEGMENT}`;
@@ -139,7 +139,7 @@ export class HookExpressionChecks {
       return { outcome: 'no-expression-there' };
     }
 
-    const verdict = checkedAgainst(
+    const result = checkedAgainst(
       this.expressions,
       expression,
       place.scope,
@@ -148,7 +148,7 @@ export class HookExpressionChecks {
 
     return {
       outcome: 'checked',
-      check: { type: verdict.type, errors: verdict.errors, warnings: [] },
+      check: { type: result.type, errors: result.errors, warnings: [] },
     };
   }
 

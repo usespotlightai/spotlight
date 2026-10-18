@@ -1,8 +1,8 @@
 import { mcpOutput } from '@integrations/infrastructure/mcp/mcp-output';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { describe, expect, it } from 'vitest';
 
-const text = (said: string) => ({ type: 'text' as const, text: said });
+const text = (value: string) => ({ type: 'text' as const, text: value });
 
 describe('mcpOutput', () => {
   it('answers with the structured content when there is some', () => {
@@ -40,18 +40,18 @@ describe('mcpOutput', () => {
     ]);
   });
 
-  it('refuses with what the server said when it answers with an error', () => {
-    const refusing = () =>
+  it('fails with the output of the server when it answers with an error', () => {
+    const failing = () =>
       mcpOutput(
         { isError: true, content: [text('Deleting is frozen.')] },
         'tracker.delete',
       );
 
-    expect(refusing).toThrow(UpstreamRefusedError);
-    expect(() => refusing()).toThrow(
+    expect(failing).toThrow(UpstreamError);
+    expect(() => failing()).toThrow(
       expect.objectContaining({ retryable: false }),
     );
-    expect(refusing).toThrow(
+    expect(failing).toThrow(
       'using tracker.delete: the MCP server answered with an error: Deleting is frozen.',
     );
   });

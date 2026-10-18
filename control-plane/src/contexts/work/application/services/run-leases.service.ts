@@ -5,22 +5,22 @@ import type { RunRepository } from '@work/domain/repositories/run.repository';
 export class RunLeases {
   constructor(private readonly runs: RunRepository) {}
 
-  async requeueLapsed(now: Date): Promise<readonly Run[]> {
-    const requeued: Run[] = [];
+  async expireLeases(now: Date): Promise<readonly Run[]> {
+    const expired: Run[] = [];
 
-    for (const lapsing of await this.runs.lapsedClaims(now)) {
-      if (!lapsing.lapsed(now)) {
+    for (const expiring of await this.runs.expiredLeases(now)) {
+      if (!expiring.leaseExpired(now)) {
         continue;
       }
 
-      const next = lapsing.requeue(now);
+      const next = expiring.expireLease(now);
 
       if (await this.saved(next)) {
-        requeued.push(next);
+        expired.push(next);
       }
     }
 
-    return requeued;
+    return expired;
   }
 
   private async saved(run: Run): Promise<boolean> {

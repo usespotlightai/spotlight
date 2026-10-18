@@ -6,7 +6,7 @@ import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-sp
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it } from 'vitest';
 
-const HELD = {
+const DOCUMENT = {
   key: 'careful',
   permissions: { allow: ['read'], ask: ['execute(git push *)'] },
   native: { gone: {} },
@@ -23,8 +23,8 @@ const DROPPED = reviewed({
 });
 
 describe('HarnessProfileCompiler', () => {
-  it('refuses a profile a harness cannot take when it is written', () => {
-    const compiled = DROPPED.compile(HELD);
+  it('rejects a profile a harness cannot take when it is written', () => {
+    const compiled = DROPPED.compile(DOCUMENT);
 
     expect(compiled.ok).toBe(false);
     expect(
@@ -32,21 +32,21 @@ describe('HarnessProfileCompiler', () => {
     ).toEqual(['native.gone']);
   });
 
-  it('reads a stored profile back without asking the harnesses again', () => {
-    const read = DROPPED.read(HELD);
+  it('reads a stored profile back without calling the harnesses again', () => {
+    const parsed = DROPPED.parse(DOCUMENT);
 
-    expect(read.ok).toBe(true);
-    expect(read.ok ? read.settings.permissions : null).toEqual({
+    expect(parsed.ok).toBe(true);
+    expect(parsed.ok ? parsed.settings.permissions : null).toEqual({
       allow: ['read'],
       ask: ['execute(git push *)'],
       deny: [],
     });
   });
 
-  it('refuses a shape that does not read, whichever way it is read', () => {
+  it('rejects a shape that does not read, whichever way it is read', () => {
     const shapeless = { key: 'careful', permissions: { maybe: [] } };
 
-    expect(DROPPED.read(shapeless).ok).toBe(false);
+    expect(DROPPED.parse(shapeless).ok).toBe(false);
     expect(DROPPED.compile(shapeless).ok).toBe(false);
   });
 
@@ -61,7 +61,7 @@ describe('HarnessProfileCompiler', () => {
       ],
     }).warningsOf({
       key: ProfileKey.of('careful'),
-      settings: ProfileSettings.written({
+      settings: ProfileSettings.fromRaw({
         permissions: { allow: [], ask: ['execute(git push *)'], deny: [] },
         mcpServers: [],
         native: {},

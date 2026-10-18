@@ -29,12 +29,12 @@ export const withSentRequest = (
     path: pathOf(request.url),
     status: response?.status ?? null,
   };
-  const carrier =
+  const failure =
     typeof thrown === 'object' && thrown !== null
       ? thrown
       : { message: typeof thrown === 'string' ? thrown : undefined };
 
-  return Object.assign(carrier, { [SENT]: sent });
+  return Object.assign(failure, { [SENT]: sent });
 };
 
 export const sentRequestOf = (thrown: unknown): SentRequest | null => {
@@ -60,8 +60,8 @@ const STATUS_TEXT: Record<number, string> = {
 };
 
 const statusOf = (thrown: unknown): number | null => {
-  const said = thrown as { status?: unknown; statusCode?: unknown } | null;
-  const status = said?.status ?? said?.statusCode;
+  const body = thrown as { status?: unknown; statusCode?: unknown } | null;
+  const status = body?.status ?? body?.statusCode;
   return typeof status === 'number' ? status : null;
 };
 
@@ -70,11 +70,11 @@ export const failureHeadline = (thrown: unknown): string => {
   const status = sent?.status ?? statusOf(thrown);
 
   if (status !== null) {
-    const said = thrown as { error?: unknown; title?: unknown } | null;
+    const body = thrown as { error?: unknown; title?: unknown } | null;
     const reason =
       STATUS_TEXT[status] ??
-      (typeof said?.error === 'string' ? said.error : null) ??
-      (typeof said?.title === 'string' ? said.title : null);
+      (typeof body?.error === 'string' ? body.error : null) ??
+      (typeof body?.title === 'string' ? body.title : null);
     return reason ? `${status} ${reason}` : `HTTP ${status}`;
   }
 

@@ -1,29 +1,29 @@
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
-import { placementMet } from '@platform/persistence/drizzle/placement-met';
+import { placementMatches } from '@platform/persistence/drizzle/placement-matches';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 
 beforeAll(async () => {
-  held = await openDatabase('runner_placement');
-  db = held.db;
+  database = await openDatabase('runner_placement');
+  db = database.db;
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 const WIDGETS = 'ghcr.io/acme/widgets:1';
 const GADGETS = `ghcr.io/acme/gadgets@sha256:${'d'.repeat(64)}`;
 
-const CLAUSES: readonly (readonly (readonly string[])[])[] = [
+const LABEL_GROUPS: readonly (readonly (readonly string[])[])[] = [
   [],
   [['gpu']],
   [['vpc-internal', 'build-1']],
@@ -50,55 +50,55 @@ const RUNNING: readonly (RunningImage | null)[] = [
   RunningImage.of(RunnerImage.of(GADGETS), false),
 ];
 
-const admittedInSql = async (
-  clauses: readonly (readonly string[])[],
+const matchesInSql = async (
+  labelGroups: readonly (readonly string[])[],
   image: string | null,
-  terms: RunnerTerms,
+  offer: RunnerOffer,
 ): Promise<boolean> => {
-  const answered = await db.execute<{ admitted: boolean }>(
-    sql`SELECT ${placementMet(
-      sql`${JSON.stringify(clauses)}::jsonb`,
+  const answered = await db.execute<{ matches: boolean }>(
+    sql`SELECT ${placementMatches(
+      sql`${JSON.stringify(labelGroups)}::jsonb`,
       sql`${image}::text`,
-      terms,
-    )} AS admitted`,
+      offer,
+    )} AS matches`,
   );
 
-  return answered.rows[0]?.admitted === true;
+  return answered.rows[0]?.matches === true;
 };
 
 const described = (
-  clauses: readonly (readonly string[])[],
+  labelGroups: readonly (readonly string[])[],
   image: string | null,
-  terms: RunnerTerms,
+  offer: RunnerOffer,
 ): string =>
-  `${JSON.stringify(clauses)} in ${image ?? 'the usual image'} / ${JSON.stringify(
-    terms.values,
+  `${JSON.stringify(labelGroups)} in ${image ?? 'the default image'} / ${JSON.stringify(
+    offer.values,
   )} running ${
-    terms.running
-      ? `${terms.running.image.value}${terms.running.usual ? ' (usual)' : ''}`
+    offer.running
+      ? `${offer.running.image.value}${offer.running.isDefault ? ' (default)' : ''}`
       : 'nothing named'
   }`;
 
 describe('placement said in SQL', () => {
-  it('admits exactly the runners RunnerPlacement admits', async () => {
+  it('matches exactly the runners RunnerPlacement matches', async () => {
     const disagreements: string[] = [];
 
-    for (const clauses of CLAUSES) {
+    for (const labelGroups of LABEL_GROUPS) {
       for (const image of IMAGES) {
-        const placement = RunnerPlacement.ofClauses(
-          clauses,
+        const placement = RunnerPlacement.ofLabelGroups(
+          labelGroups,
           image ? RunnerImage.of(image) : null,
         );
 
         for (const labels of LABELS) {
           for (const running of RUNNING) {
-            const terms = RunnerTerms.of(labels).runningIn(running);
+            const offer = RunnerOffer.of(labels).runningIn(running);
 
             if (
-              (await admittedInSql(clauses, image, terms)) !==
-              placement.admits(terms)
+              (await matchesInSql(labelGroups, image, offer)) !==
+              placement.matches(offer)
             ) {
-              disagreements.push(described(clauses, image, terms));
+              disagreements.push(described(labelGroups, image, offer));
             }
           }
         }
@@ -108,17 +108,19 @@ describe('placement said in SQL', () => {
     expect(disagreements).toEqual([]);
   });
 
-  it('claims work naming an image only for a runner running that image, and work naming none only for one running the usual image', async () => {
+  it('claims work naming an image only for a runner running that image, and work naming none only for one running the default image', async () => {
     const widgets = RunnerImage.of(WIDGETS);
-    const usual = RunnerTerms.none().runningIn(RunningImage.of(widgets, true));
-    const offered = RunnerTerms.none().runningIn(
+    const inDefaultImage = RunnerOffer.none().runningIn(
+      RunningImage.of(widgets, true),
+    );
+    const offered = RunnerOffer.none().runningIn(
       RunningImage.of(RunnerImage.of(GADGETS), false),
     );
 
-    expect(await admittedInSql([], WIDGETS, usual)).toBe(true);
-    expect(await admittedInSql([], WIDGETS, offered)).toBe(false);
-    expect(await admittedInSql([], GADGETS, offered)).toBe(true);
-    expect(await admittedInSql([], null, usual)).toBe(true);
-    expect(await admittedInSql([], null, offered)).toBe(false);
+    expect(await matchesInSql([], WIDGETS, inDefaultImage)).toBe(true);
+    expect(await matchesInSql([], WIDGETS, offered)).toBe(false);
+    expect(await matchesInSql([], GADGETS, offered)).toBe(true);
+    expect(await matchesInSql([], null, inDefaultImage)).toBe(true);
+    expect(await matchesInSql([], null, offered)).toBe(false);
   });
 });

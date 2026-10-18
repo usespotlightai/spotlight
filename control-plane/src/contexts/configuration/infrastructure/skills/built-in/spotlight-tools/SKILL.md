@@ -1,6 +1,6 @@
 ---
 name: spotlight-tools
-description: Find, read and call the tools this run was given from its integrations, through `spotlight tools`. Use when the work needs something from another service, such as an issue tracker or an API the team connected.
+description: Find, read and call the tools enabled for this run from its integrations, through `spotlight tools`. Use when the work needs something from another service, such as an issue tracker or an API the team connected.
 ---
 
 ## Finding a tool
@@ -14,7 +14,7 @@ spotlight tools search "create issue"
 The best match comes first, with how it is called and what it is for. Add
 `--limit <n>` to see more than ten. `spotlight tools` lists every tool where
 there are few of them, and names the integrations and how many tools each
-gives where there are many.
+offers where there are many.
 
 ## Reading one
 
@@ -27,7 +27,7 @@ spotlight tools describe linear.issue-create
 It prints what the tool does, its inputs as a TypeScript type, whether a
 person has to approve it, and one call to start from. An input marked `?` can
 be left out. Where the tool answered an earlier call, it also prints what it
-answers with, as a type learned from those answers: a field it did not always
+answers with, as a type inferred from those answers: a field it did not always
 answer with is marked `?`, and a field it never answered with may be missing.
 
 ## Calling one
@@ -58,7 +58,7 @@ id=$(spotlight linear issue-create --title "…" --team-id ENG | jq -r '.id')
 spotlight linear comment --issue "$id" --body "…"
 ```
 
-When a tool refuses, it says why on standard error and exits with a failure:
+When a tool fails, it says why on standard error and exits with a failure:
 read what it says, fix the inputs, and call it again.
 
 ## Tools a person approves

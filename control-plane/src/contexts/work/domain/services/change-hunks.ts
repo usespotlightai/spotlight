@@ -67,25 +67,25 @@ const middleEdits = (
     edits.push({ sign, text, old: from + old, now: from + now });
 
   while (old < before.length || now < after.length) {
-    const kept = before[old];
+    const previous = before[old];
     const added = after[now];
 
     if (
       lengths &&
-      kept !== undefined &&
+      previous !== undefined &&
       added !== undefined &&
-      kept === added
+      previous === added
     ) {
-      push(' ', kept);
+      push(' ', previous);
       old += 1;
       now += 1;
     } else if (
-      kept !== undefined &&
+      previous !== undefined &&
       (added === undefined ||
         !lengths ||
         (lengths[old + 1]?.[now] ?? 0) >= (lengths[old]?.[now + 1] ?? 0))
     ) {
-      push('-', kept);
+      push('-', previous);
       old += 1;
     } else {
       push('+', added as string);

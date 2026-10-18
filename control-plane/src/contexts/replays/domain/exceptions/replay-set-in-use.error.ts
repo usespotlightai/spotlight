@@ -1,0 +1,10 @@
+export class ReplaySetInUseError extends Error {
+  readonly kind = 'conflict' as const;
+
+  constructor(setId: string) {
+    super(
+      `Replay set ${setId} is being replayed or searched. Please stop its replays and searches first.`,
+    );
+    this.name = 'ReplaySetInUseError';
+  }
+}

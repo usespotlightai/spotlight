@@ -6,9 +6,9 @@ import { ListTasksHandler } from '@work/application/queries/handlers/list-tasks.
 import { ListTasksQuery } from '@work/application/queries/list-tasks.query';
 import { describe, expect, it, vi } from 'vitest';
 
-const raised = new Date('2026-08-27T09:15:00.000Z');
+const created = new Date('2026-08-27T09:15:00.000Z');
 
-const standing: TaskSummary[] = [
+const summaries: TaskSummary[] = [
   {
     id: 'task_1',
     revision: 0,
@@ -16,11 +16,11 @@ const standing: TaskSummary[] = [
     title: 'Fix the queue',
     description: null,
     attachments: [],
-    createdAt: raised,
+    createdAt: created,
     running: false,
     awaitingReview: null,
     pullRequest: null,
-    raisedBy: null,
+    createdBy: null,
     assignee: null,
     note: null,
   },
@@ -31,11 +31,11 @@ const standing: TaskSummary[] = [
     title: 'Write the spec',
     description: '## Steps',
     attachments: [],
-    createdAt: raised,
+    createdAt: created,
     running: false,
     awaitingReview: null,
     pullRequest: null,
-    raisedBy: null,
+    createdBy: null,
     assignee: null,
     note: null,
   },
@@ -54,9 +54,9 @@ const handle = (tasks: TaskReaderPort) =>
   new ListTasksHandler(tasks).execute(new ListTasksQuery('team_1', 'user_1'));
 
 describe('ListTasksHandler', () => {
-  it('hands back each task with the station it stands at', async () => {
-    await expect(handle(reader(standing))).resolves.toEqual(
-      standing.map(asDto),
+  it('hands back each task with the station it is at', async () => {
+    await expect(handle(reader(summaries))).resolves.toEqual(
+      summaries.map(asDto),
     );
   });
 

@@ -34,7 +34,7 @@ const INTEGRATION = {
     },
   },
   tools: {
-    comment: { description: 'Comment on an issue', does: 'comment' },
+    comment: { description: 'Comment on an issue', action: 'comment' },
   },
 };
 
@@ -63,15 +63,15 @@ const LINE = {
 
 const eventually = async <T>(
   read: () => Promise<T>,
-  done: (held: T) => boolean,
+  done: (value: T) => boolean,
 ): Promise<T> => {
   const until = Date.now() + 20_000;
 
   for (;;) {
-    const held = await read();
+    const value = await read();
 
-    if (done(held) || Date.now() > until) {
-      return held;
+    if (done(value) || Date.now() > until) {
+      return value;
     }
 
     await new Promise((resolve) => setTimeout(resolve, 200));
@@ -195,17 +195,17 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
       ),
     ).toMatchObject({ tools: ['linear.comment'], skills: ['grafana'] });
 
-    const refusals = await Promise.all([
+    const rejections = await Promise.all([
       api().delete(`workspaces/${workspace.id}`, workspace.version),
       api().delete(`teams/${team.id}`, team.version),
       api().delete(`skills/${skill.id}`, skill.version),
       api().delete(`integrations/${integration.id}`, integration.version),
     ]);
 
-    expect(refusals.map((each) => [each.status, each.body.type])).toEqual(
-      refusals.map(() => [409, 'urn:spotlight:problem:in-use']),
+    expect(rejections.map((each) => [each.status, each.body.type])).toEqual(
+      rejections.map(() => [409, 'urn:spotlight:problem:in-use']),
     );
-    expect(refusals[1]?.body.detail).toMatch(
+    expect(rejections[1]?.body.detail).toMatch(
       /line delivery, skill grafana, integration linear|integration linear, line delivery, skill grafana/,
     );
 
@@ -213,19 +213,19 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
       key: 'core',
       name: 'Core platform',
     });
-    const relaid = await api().update(`lines/${line.id}`, line.version, {
+    const updated = await api().update(`lines/${line.id}`, line.version, {
       ...LINE,
       name: 'Shipping',
     });
 
     expect(renamed.body).toMatchObject({ name: 'Core platform' });
-    expect(relaid.body).toMatchObject({
+    expect(updated.body).toMatchObject({
       address: 'core/delivery',
       definition: { name: 'Shipping' },
     });
 
     for (const [path, version] of [
-      [`lines/${line.id}`, relaid.body.version],
+      [`lines/${line.id}`, updated.body.version],
       [`skills/${skill.id}`, skill.version],
       [`integrations/${integration.id}`, integration.version],
       [`teams/${team.id}`, renamed.body.version],
@@ -240,39 +240,39 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
     }
   });
 
-  it('imports what a workspace held before Terraform, built-in lines included', async () => {
+  it('imports what a workspace had before Terraform, built-in lines included', async () => {
     const slug = `acme-${randomUUID().slice(0, 8)}`;
     slugs.push(slug);
 
-    const opened = await served(app)
+    const created = await served(app)
       .post('/api/workspaces')
       .set(TEST_USER_HEADER, owner)
       .send({ name: 'Acme', slug, teamName: 'Core' });
 
-    expect(opened.status).toBe(201);
+    expect(created.status).toBe(201);
 
-    const teamId = opened.body.teams[0].id as string;
+    const teamId = created.body.teams[0].id as string;
     const lines = await eventually(
       () =>
         db
           .select({ key: schema.line.key })
           .from(schema.line)
           .where(eq(schema.line.teamId, teamId)),
-      (held) => held.length > 0,
+      (value) => value.length > 0,
     );
     const imported = (path: string, address: string) =>
       api().read(`${path}/import?address=${encodeURIComponent(address)}`);
 
     const workspace = await imported('workspaces', slug);
-    const team = await imported(`workspaces/${opened.body.id}/teams`, 'core');
+    const team = await imported(`workspaces/${created.body.id}/teams`, 'core');
 
-    expect(workspace.body).toMatchObject({ id: opened.body.id, slug });
+    expect(workspace.body).toMatchObject({ id: created.body.id, slug });
     expect(team.body).toMatchObject({ id: teamId, key: 'core' });
     expect(lines.length).toBeGreaterThan(0);
 
     for (const { key } of lines) {
       const line = await imported(
-        `workspaces/${opened.body.id}/lines`,
+        `workspaces/${created.body.id}/lines`,
         `core/${key}`,
       );
 

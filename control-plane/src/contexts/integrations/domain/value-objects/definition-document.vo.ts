@@ -10,8 +10,8 @@ type Fields = Readonly<Record<string, unknown>>;
 export class DefinitionDocument {
   private constructor(readonly fields: Fields) {}
 
-  static of(held: unknown): DefinitionDocument {
-    if (typeof held !== 'object' || held === null || Array.isArray(held)) {
+  static of(raw: unknown): DefinitionDocument {
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
       throw new InvalidIdentifierError(
         'definition',
         'is a document of named fields',
@@ -19,11 +19,11 @@ export class DefinitionDocument {
     }
 
     return new DefinitionDocument(
-      deepFrozen(structuredClone(held) as Record<string, unknown>),
+      deepFrozen(structuredClone(raw) as Record<string, unknown>),
     );
   }
 
-  says(field: string, value: string): boolean {
+  hasValue(field: string, value: string): boolean {
     return this.fields[field] === value;
   }
 

@@ -3,9 +3,9 @@ import {
   createRunnerPool,
   createWorkspaceToken,
   deleteWorkspaceToken,
-  disconnectMine,
-  listConnections,
+  disconnectIntegration,
   listHarnesses,
+  listIntegrationConnections,
   listRepositories,
   listRunnerActivity,
   listRunnerPools,
@@ -135,17 +135,18 @@ describe('the mock settings', () => {
 
   it('answers the team’s integrations, connections and skills', async () => {
     const { data: configuration } = await readConfiguration(platform);
-    const { data: connections } = await listConnections(platform);
+    const { data: connections } = await listIntegrationConnections(platform);
     const { data: skills } = await listTeamSkills(platform);
 
     expect(
-      configuration.integrations.find((each) => each.source === 'linear'),
-    ).toMatchObject({ standing: 'linked', handle: '@acme-bot' });
+      configuration.integrations.find((each) => each.integration === 'linear'),
+    ).toMatchObject({
+      connectionStatus: 'connected',
+      linkedAccount: '@acme-bot',
+    });
     expect(
-      configuration.integrations.flatMap(({ source, described }) =>
-        described
-          ? [[source, described.kind, described.tools, described.problem]]
-          : [],
+      configuration.integrations.flatMap(({ integration, spec }) =>
+        spec ? [[integration, spec.kind, spec.tools, spec.problem]] : [],
       ),
     ).toEqual([
       ['payments-api', 'openapi', 14, null],
@@ -158,25 +159,28 @@ describe('the mock settings', () => {
         'could not be read: status.acme.dev answered 401',
       ],
     ]);
-    expect(connections.mine.map((each) => each.source)).toEqual(['linear']);
+    expect(connections.mine.map((each) => each.integration)).toEqual([
+      'linear',
+    ]);
     expect(connections.people?.length).toBe(4);
     expect(skills.skills.map((each) => each.key)).toContain(
       'grafana-dashboards',
     );
   });
 
-  it('forgets only my own account when I disconnect, leaving the team’s', async () => {
-    await disconnectMine({
-      path: { teamId: PLATFORM_ID, source: 'linear' },
+  it('deletes only my own account when I disconnect, leaving the team’s', async () => {
+    await disconnectIntegration({
+      path: { teamId: PLATFORM_ID, integration: 'linear' },
       throwOnError: true,
     });
     const { data } = await readConfiguration(platform);
-    const { data: connections } = await listConnections(platform);
+    const { data: connections } = await listIntegrationConnections(platform);
 
     expect(connections.mine).toEqual([]);
     expect(
-      data.integrations.find((each) => each.source === 'linear')?.standing,
-    ).toBe('linked');
+      data.integrations.find((each) => each.integration === 'linear')
+        ?.connectionStatus,
+    ).toBe('connected');
   });
 
   it('answers setup done for a set-up workspace', async () => {

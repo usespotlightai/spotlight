@@ -2,16 +2,17 @@ import { Placement } from '@work/domain/services/placement';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { describe, expect, it } from 'vitest';
 
-const standing = (...ranks: string[]) => ranks.map((rank) => TaskRank.of(rank));
+const ranksOf = (...values: string[]) =>
+  values.map((rank) => TaskRank.of(rank));
 
-const board = standing('a', 'm', 'z');
+const board = ranksOf('a', 'm', 'z');
 
 describe('Placement', () => {
-  it('puts a task above everything already standing there', () => {
+  it('puts a task above everything already there', () => {
     expect(Placement.atTheTop(board).value < 'a').toBe(true);
   });
 
-  it('puts a task behind everything already standing there', () => {
+  it('puts a task behind everything already there', () => {
     expect(Placement.atTheBack(board).value > 'z').toBe(true);
   });
 
@@ -25,7 +26,7 @@ describe('Placement', () => {
     expect(Placement.below(board, board[2] ?? null).value > 'z').toBe(true);
   });
 
-  it('follows nothing by standing first', () => {
+  it('follows nothing by going first', () => {
     expect(Placement.below(board, null)).toEqual(Placement.atTheTop(board));
   });
 

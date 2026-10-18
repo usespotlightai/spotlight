@@ -21,14 +21,14 @@ import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-
 import { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
 import { and, asc, eq, isNotNull, isNull, type SQL } from 'drizzle-orm';
 
-const KEPT_WORKSPACE = {
+const WORKSPACE_COLUMNS = {
   id: workspace.id,
   version: workspace.version,
   name: workspace.name,
   slug: workspace.slug,
 };
 
-const KEPT_TEAM = {
+const TEAM_COLUMNS = {
   id: team.id,
   version: team.version,
   workspaceId: team.workspaceId,
@@ -36,7 +36,7 @@ const KEPT_TEAM = {
   name: team.name,
 };
 
-const KEPT_TOKEN = {
+const TOKEN_COLUMNS = {
   id: workspaceToken.id,
   version: workspaceToken.version,
   workspaceId: workspaceToken.workspaceId,
@@ -48,7 +48,7 @@ const KEPT_TOKEN = {
   expiresAt: workspaceToken.expiresAt,
 };
 
-const KEPT_TRUST = {
+const TRUST_COLUMNS = {
   id: workspaceTokenTrust.id,
   version: workspaceTokenTrust.version,
   workspaceId: workspaceTokenTrust.workspaceId,
@@ -59,36 +59,38 @@ const KEPT_TRUST = {
   claims: workspaceTokenTrust.claims,
   scopes: workspaceTokenTrust.scopes,
   lifetimeMinutes: workspaceTokenTrust.lifetimeMinutes,
-  definedBy: workspaceTokenTrust.definedBy,
+  createdBy: workspaceTokenTrust.createdBy,
 };
 
 const issuedByHand = and(
-  isNull(workspaceToken.mintedThrough),
-  isNull(workspaceToken.mintedForRun),
+  isNull(workspaceToken.issuedByTrustId),
+  isNull(workspaceToken.runId),
 );
 
-type Row<Kept> = Omit<Kept, 'id' | 'workspaceId'> & {
+type Row<T> = Omit<T, 'id' | 'workspaceId'> & {
   readonly id: string;
   readonly workspaceId: string;
 };
 
-const keptWorkspace = (
+const workspaceRecordOf = (
   row: Omit<WorkspaceRecord, 'id'> & { readonly id: string },
 ): WorkspaceRecord => ({ ...row, id: WorkspaceId.of(row.id) });
 
-const keptTeam = (row: Row<TeamRecord>): TeamRecord => ({
+const teamRecordOf = (row: Row<TeamRecord>): TeamRecord => ({
   ...row,
   id: TeamId.of(row.id),
   workspaceId: WorkspaceId.of(row.workspaceId),
 });
 
-const keptToken = (row: Row<WorkspaceTokenRecord>): WorkspaceTokenRecord => ({
+const tokenRecordOf = (
+  row: Row<WorkspaceTokenRecord>,
+): WorkspaceTokenRecord => ({
   ...row,
   id: WorkspaceTokenId.of(row.id),
   workspaceId: WorkspaceId.of(row.workspaceId),
 });
 
-const keptTrust = (
+const trustRecordOf = (
   row: Row<WorkspaceTokenTrustRecord>,
 ): WorkspaceTokenTrustRecord => ({
   ...row,
@@ -113,14 +115,14 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
   ): Promise<readonly WorkspaceRecord[]> {
     return (
       await this.context.db
-        .select(KEPT_WORKSPACE)
+        .select(WORKSPACE_COLUMNS)
         .from(workspace)
         .innerJoin(
           workspaceMember,
           eq(workspaceMember.workspaceId, workspace.id),
         )
         .where(eq(workspaceMember.userId, userId.value))
-    ).map(keptWorkspace);
+    ).map(workspaceRecordOf);
   }
 
   teamWithId(id: TeamId): Promise<TeamRecord | null> {
@@ -136,10 +138,10 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
   async teamsIn(workspaceId: WorkspaceId): Promise<readonly TeamRecord[]> {
     return (
       await this.context.db
-        .select(KEPT_TEAM)
+        .select(TEAM_COLUMNS)
         .from(team)
         .where(eq(team.workspaceId, workspaceId.value))
-    ).map(keptTeam);
+    ).map(teamRecordOf);
   }
 
   async teamKeysIn(workspaceId: WorkspaceId): Promise<readonly string[]> {
@@ -164,7 +166,7 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
     ).map((each) => each.name);
   }
 
-  async mintingTrustKeysIn(
+  async issuingTrustKeysIn(
     workspaceId: WorkspaceId,
   ): Promise<readonly string[]> {
     return (
@@ -174,7 +176,7 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
         .where(
           and(
             eq(workspaceToken.workspaceId, workspaceId.value),
-            isNotNull(workspaceToken.mintedThrough),
+            isNotNull(workspaceToken.issuedByTrustId),
           ),
         )
         .orderBy(asc(workspaceToken.name))
@@ -186,12 +188,12 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
   ): Promise<readonly WorkspaceTokenRecord[]> {
     return (
       await this.context.db
-        .select(KEPT_TOKEN)
+        .select(TOKEN_COLUMNS)
         .from(workspaceToken)
         .where(
           and(eq(workspaceToken.workspaceId, workspaceId.value), issuedByHand),
         )
-    ).map(keptToken);
+    ).map(tokenRecordOf);
   }
 
   tokenWithId(id: WorkspaceTokenId): Promise<WorkspaceTokenRecord | null> {
@@ -215,12 +217,12 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
     where: SQL | undefined,
   ): Promise<WorkspaceTokenRecord | null> {
     const [found] = await this.context.db
-      .select(KEPT_TOKEN)
+      .select(TOKEN_COLUMNS)
       .from(workspaceToken)
       .where(where)
       .limit(1);
 
-    return found ? keptToken(found) : null;
+    return found ? tokenRecordOf(found) : null;
   }
 
   tokenTrustWithId(
@@ -246,10 +248,10 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
   ): Promise<readonly WorkspaceTokenTrustRecord[]> {
     return (
       await this.context.db
-        .select(KEPT_TRUST)
+        .select(TRUST_COLUMNS)
         .from(workspaceTokenTrust)
         .where(eq(workspaceTokenTrust.workspaceId, workspaceId.value))
-    ).map(keptTrust);
+    ).map(trustRecordOf);
   }
 
   async tokenTrustKeysIn(workspaceId: WorkspaceId): Promise<readonly string[]> {
@@ -266,31 +268,31 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
     where: SQL | undefined,
   ): Promise<WorkspaceTokenTrustRecord | null> {
     const [found] = await this.context.db
-      .select(KEPT_TRUST)
+      .select(TRUST_COLUMNS)
       .from(workspaceTokenTrust)
       .where(where)
       .limit(1);
 
-    return found ? keptTrust(found) : null;
+    return found ? trustRecordOf(found) : null;
   }
 
   private async workspace(where: SQL): Promise<WorkspaceRecord | null> {
     const [found] = await this.context.db
-      .select(KEPT_WORKSPACE)
+      .select(WORKSPACE_COLUMNS)
       .from(workspace)
       .where(where)
       .limit(1);
 
-    return found ? keptWorkspace(found) : null;
+    return found ? workspaceRecordOf(found) : null;
   }
 
   private async team(where: SQL | undefined): Promise<TeamRecord | null> {
     const [found] = await this.context.db
-      .select(KEPT_TEAM)
+      .select(TEAM_COLUMNS)
       .from(team)
       .where(where)
       .limit(1);
 
-    return found ? keptTeam(found) : null;
+    return found ? teamRecordOf(found) : null;
   }
 }

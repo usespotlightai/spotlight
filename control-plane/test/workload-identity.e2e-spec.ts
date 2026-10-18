@@ -19,7 +19,7 @@ import {
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { awaitingCheck } from './support/change-stacks';
 import { eventually } from './support/eventually';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -31,7 +31,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
   let app: INestApplication;
   let db: DrizzleDatabase;
   let platform: WorkloadIssuer;
-  let held: string;
+  let workspaceId: string;
   let owner: string;
   let unseat: () => Promise<void>;
 
@@ -39,7 +39,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
 
   const trusted = async (labels: string[] = ['vpc-internal']) => {
     const made = await http()
-      .post(`/api/resources/workspaces/${held}/runner-trusts`)
+      .post(`/api/resources/workspaces/${workspaceId}/runner-trusts`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send({
@@ -66,22 +66,22 @@ describe('a host claiming through a runner trust, as a platform workload with no
         image: 'ghcr.io/acme/runner:main',
       });
 
-  const present = (trust: string, token: string, running: string[] = []) =>
+  const heartbeat = (trust: string, token: string, running: string[] = []) =>
     http()
       .put(`/api/hosts/${HOST}`)
       .set('Authorization', `Bearer ${token}`)
       .set('Spotlight-Trust', trust)
       .send({
-        session: 'session_1',
+        bootId: 'boot_1',
         name: 'pod-a',
         release: '0.1.0',
-        executor: 'docker',
+        containerRuntime: 'docker',
         capacity: 2,
         running,
         images: [
           {
             image: 'ghcr.io/acme/runner:main',
-            usual: true,
+            isDefault: true,
             harnesses: [{ id: 'dev', models: [] }],
           },
         ],
@@ -101,7 +101,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
 
     await db.insert(schema.run).values({
       id,
-      workspaceId: held,
+      workspaceId,
       harness: 'dev',
       state: 'queued',
       priority: 1000,
@@ -110,7 +110,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
         handover: { options: [], noteLimit: 0 },
-        continuity: { key: 'task:station' },
+        resume: { key: 'task:station' },
       },
     });
 
@@ -129,8 +129,8 @@ describe('a host claiming through a runner trust, as a platform workload with no
   });
 
   beforeEach(async () => {
-    held = `workload-${randomUUID().slice(0, 8)}`;
-    const seat = await seatTeam(db, held);
+    workspaceId = `workload-${randomUUID().slice(0, 8)}`;
+    const seat = await seatTeam(db, workspaceId);
     owner = seat.owner;
     unseat = seat.unseat;
   });
@@ -139,14 +139,14 @@ describe('a host claiming through a runner trust, as a platform workload with no
     await db
       .delete(schema.idempotentCreate)
       .where(eq(schema.idempotentCreate.scope, `person:${owner}`));
-    await forgetRunnersOf(db, held);
+    await deleteRunnersOf(db, workspaceId);
     await unseat();
   });
 
   it('claims work placed on its trust’s label with the token its platform issued, through a one-run runner of that trust', async () => {
     const trust = await trusted();
     const placed = await queue(['vpc-internal']);
-    await present(trust.id, await workload()).expect(200);
+    await heartbeat(trust.id, await workload()).expect(200);
 
     const claimed = await claim(trust.id, await workload());
 
@@ -185,7 +185,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
   it('leaves work placed on a label its trust does not carry', async () => {
     const trust = await trusted();
     const placed = await queue(['gpu']);
-    await present(trust.id, await workload()).expect(200);
+    await heartbeat(trust.id, await workload()).expect(200);
 
     await claim(trust.id, await workload()).expect(204);
 
@@ -199,8 +199,8 @@ describe('a host claiming through a runner trust, as a platform workload with no
 
   it('hands over a check placed on its trust’s label', async () => {
     const trust = await trusted();
-    const stackId = await awaitingCheck(db, held, [['vpc-internal']]);
-    await present(trust.id, await workload()).expect(200);
+    const stackId = await awaitingCheck(db, workspaceId, [['vpc-internal']]);
+    await heartbeat(trust.id, await workload()).expect(200);
 
     const claimed = await claim(trust.id, await workload());
 
@@ -211,7 +211,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
     });
   });
 
-  it('refuses a token for another workload, another audience, or signed by anyone else', async () => {
+  it('does not accept a token for another workload, another audience, or signed by anyone else', async () => {
     const trust = await trusted();
 
     for (const token of [
@@ -223,7 +223,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
       await platform.forge({ sub: SUBJECT, aud: 'spotlight' }),
     ]) {
       expect((await claim(trust.id, token)).status).toBe(401);
-      expect((await present(trust.id, token)).status).toBe(401);
+      expect((await heartbeat(trust.id, token)).status).toBe(401);
     }
 
     expect((await claim(randomUUID(), await workload())).status).toBe(401);
@@ -237,10 +237,10 @@ describe('a host claiming through a runner trust, as a platform workload with no
     ).toBe(401);
   });
 
-  it('refuses anyone through a trust once it is withdrawn, and forgets the hosts that came in by it', async () => {
+  it('does not accept anyone through a trust once it is deleted, and deletes the hosts that came in by it', async () => {
     const trust = await trusted();
     await queue(['vpc-internal']);
-    await present(trust.id, await workload()).expect(200);
+    await heartbeat(trust.id, await workload()).expect(200);
 
     await http()
       .delete(`/api/resources/runner-trusts/${trust.id}`)
@@ -249,11 +249,11 @@ describe('a host claiming through a runner trust, as a platform workload with no
       .expect(204);
 
     expect((await claim(trust.id, await workload())).status).toBe(401);
-    expect((await present(trust.id, await workload())).status).toBe(401);
+    expect((await heartbeat(trust.id, await workload())).status).toBe(401);
     await eventually(async () => (await hostRow()) === null);
   });
 
-  it('refuses anyone into a workspace that has closed', async () => {
+  it('does not accept anyone into a workspace that is deleted', async () => {
     const trust = await trusted();
 
     await unseat();
@@ -261,10 +261,10 @@ describe('a host claiming through a runner trust, as a platform workload with no
     expect((await claim(trust.id, await workload())).status).toBe(401);
   });
 
-  it('lets a host through a trust say it is here, what it holds and what it runs, and ask what it should serve', async () => {
+  it('lets a host through a trust send a heartbeat with what it has and what it runs, and request what it should serve', async () => {
     const trust = await trusted();
 
-    const answered = await present(trust.id, await workload(), ['run-1']);
+    const answered = await heartbeat(trust.id, await workload(), ['run-1']);
 
     expect(answered.status).toBe(200);
     expect(answered.body).toEqual({ workspace: expect.any(String) });
@@ -273,10 +273,10 @@ describe('a host claiming through a runner trust, as a platform workload with no
       workspaceId: answered.body.workspace,
       trustId: trust.id,
       poolId: null,
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'pod-a',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 2,
       running: ['run-1'],
     });

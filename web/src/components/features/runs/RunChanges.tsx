@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { RunChangeFile } from '@/components/features/runs/RunChangeFile';
-import { DiffTally } from '@/components/shared/DiffTally';
+import { DiffStat } from '@/components/shared/DiffStat';
 import { changesOf, tallyOf } from '@/lib/changes';
 import type { RunJournal } from '@/lib/inbox';
 
@@ -25,7 +25,7 @@ export function RunChanges({ journals }: { journals: readonly RunJournal[] }) {
         <span className="font-medium text-foreground">
           {files.length} {files.length === 1 ? 'file' : 'files'} changed
         </span>
-        <DiffTally
+        <DiffStat
           added={tally.added}
           removed={tally.removed}
           always

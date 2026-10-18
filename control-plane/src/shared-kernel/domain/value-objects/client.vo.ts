@@ -12,13 +12,13 @@ export class Client {
   ) {}
 
   static named(header: string | undefined): Client {
-    const held = header?.trim() ?? '';
+    const value = header?.trim() ?? '';
 
-    if (held === WEB) {
+    if (value === WEB) {
       return new Client('web', null);
     }
 
-    const versioned = VERSIONED.exec(held);
+    const versioned = VERSIONED.exec(value);
 
     return versioned
       ? new Client(versioned[1] as ClientKind, versioned[2] as string)

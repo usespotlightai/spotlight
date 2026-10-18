@@ -14,9 +14,9 @@ import { AddTaskHandler } from '@work/application/commands/handlers/add-task.han
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
+import { CreateTask } from '@work/application/services/create-task';
 import { FilesLoader } from '@work/application/services/files-loader.service';
 import { LineLoader } from '@work/application/services/line-loader.service';
-import { RaiseTask } from '@work/application/services/raise-task';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
@@ -37,8 +37,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ids: IdGeneratorPort = { generate: () => 'task_1' };
 
-const raised = new Date('2026-08-27T09:15:00.000Z');
-const clock: ClockPort = { now: () => raised, sleep: async () => {} };
+const created = new Date('2026-08-27T09:15:00.000Z');
+const clock: ClockPort = { now: () => created, sleep: async () => {} };
 
 const line = () =>
   Line.rehydrate({
@@ -112,9 +112,9 @@ const tasks = () =>
     save: vi.fn(),
     find: vi.fn(async () => null),
     remove: vi.fn(),
-    standingAt: vi.fn(async () => []),
+    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    holding: vi.fn(async () => null),
+    findByMarks: vi.fn(async () => null),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
@@ -123,14 +123,14 @@ const tasks = () =>
 
 const access = (teamId = 'team_1') =>
   ({
-    onTeam: vi.fn(async (asked: string) =>
-      asked === teamId
+    onTeam: vi.fn(async (requested: string) =>
+      requested === teamId
         ? {
             teamId: TeamId.of(teamId),
             workspaceId: WorkspaceId.of('ws_1'),
             slug: 'acme',
             viewer: UserId.of('user_1'),
-            administers: false,
+            isAdmin: false,
           }
         : null,
     ),
@@ -143,15 +143,15 @@ const lines = (found: Line | null = line()) =>
     add: vi.fn(),
     save: vi.fn(),
     find: vi.fn(async () => found),
-    holding: vi.fn(async () => found),
+    findByStation: vi.fn(async () => found),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
   }) satisfies LineRepository;
 
 const store = {
   grant: vi.fn(),
-  received: vi.fn(async (_at, given: readonly AttachmentId[]) =>
-    given.map((id) =>
+  received: vi.fn(async (_at, ids: readonly AttachmentId[]) =>
+    ids.map((id) =>
       Attachment.of({
         id: id.value,
         name: 'queue.png',
@@ -160,7 +160,7 @@ const store = {
       }),
     ),
   ),
-  keep: vi.fn(),
+  save: vi.fn(),
   taken: vi.fn(),
   link: vi.fn(),
   open: vi.fn(),
@@ -174,7 +174,7 @@ const addTask = (command: AddTaskCommand, board: LineRepository = lines()) =>
     new LineLoader(access(), board),
     ids,
     clock,
-    new RaiseTask(tasks(), dispatch(), transaction, files),
+    new CreateTask(tasks(), dispatch(), transaction, files),
     people,
     files,
   ).execute(command);
@@ -184,10 +184,10 @@ beforeEach(() => {
   dispatched.length = 0;
 });
 
-const raiser = { id: 'user_1', name: 'Ada', image: null };
+const creator = { id: 'user_1', name: 'Ada', image: null };
 
 const people: PersonReaderPort = {
-  find: async () => raiser,
+  find: async () => creator,
   findMany: async () => new Map(),
 };
 
@@ -211,13 +211,13 @@ describe('AddTaskHandler', () => {
       title: 'Fix the queue',
       description: null,
       attachments: [],
-      createdAt: raised.toISOString(),
+      createdAt: created.toISOString(),
       rank: added?.rank.value,
       running: true,
       awaitingReview: null,
       pullRequest: null,
-      raisedBy: raiser,
-      assignee: raiser,
+      createdBy: creator,
+      assignee: creator,
       note: null,
     });
   });
@@ -252,7 +252,7 @@ describe('AddTaskHandler', () => {
     expect(added?.description?.value).toBe('## Steps\n\nGo.');
   });
 
-  it('attaches what the raiser uploaded, and tells the agent where it is', async () => {
+  it('attaches what the creator uploaded, and tells the agent where it is', async () => {
     await addTask(
       new AddTaskCommand(
         'team_1',
@@ -275,7 +275,7 @@ describe('AddTaskHandler', () => {
     );
   });
 
-  it('hands the task to a runner as soon as it is raised', async () => {
+  it('hands the task to a runner as soon as it is created', async () => {
     await addTask(
       new AddTaskCommand(
         'team_1',
@@ -293,7 +293,7 @@ describe('AddTaskHandler', () => {
     expect(added?.currentRunId?.value).toBe('run_1');
   });
 
-  it('holds work back at a station no runners answer for', async () => {
+  it('keeps work back at a station no runners answer for', async () => {
     await addTask(
       new AddTaskCommand(
         'team_1',
@@ -309,7 +309,7 @@ describe('AddTaskHandler', () => {
     expect(added?.currentRunId).toBeNull();
   });
 
-  it('refuses a station the line does not hold', async () => {
+  it('rejects a station the line does not have', async () => {
     await expect(
       addTask(
         new AddTaskCommand(
@@ -324,7 +324,7 @@ describe('AddTaskHandler', () => {
     ).rejects.toThrow(ApplicationError);
   });
 
-  it('refuses a line that does not exist', async () => {
+  it('rejects a line that does not exist', async () => {
     await expect(
       addTask(
         new AddTaskCommand(
@@ -340,7 +340,7 @@ describe('AddTaskHandler', () => {
     ).rejects.toThrow(ApplicationError);
   });
 
-  it('refuses a task with no title', async () => {
+  it('rejects a task with no title', async () => {
     await expect(
       addTask(
         new AddTaskCommand(

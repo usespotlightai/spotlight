@@ -14,11 +14,11 @@ func TestConfigYAMLWritesEveryField(t *testing.T) {
 		Harness: "codex", Model: nil, Effort: text("high"), Image: text("ghcr.io/acme/dev:1"),
 		Profile:      &protocol.ConfigProfile{Key: "quiet", Settings: json.RawMessage(`{"z":"x: y","n":1.5,"e":-1e5,"list":[],"map":{}}`)},
 		Repositories: []protocol.ConfigRepository{{Name: "api", Setup: nil}},
-		Skills:       []protocol.ConfigSkill{{Key: "tdd", Digest: "abc"}},
+		Skills:       []protocol.ConfigSkill{{Key: "tdd", Hash: "abc"}},
 		Tools:        nil,
 		Decisions:    false,
 		Memories:     true,
-		Judge:        &protocol.ConfigJudge{RubricDigest: "beef", Sample: 0.2, Trust: 1},
+		Judge:        &protocol.ConfigJudge{RubricHash: "beef", Sample: 0.2, MinAgreement: 1},
 	})
 	if err != nil {
 		t.Fatalf("yaml: %v", err)
@@ -42,14 +42,14 @@ repositories:
     setup: null
 skills:
   - key: "tdd"
-    digest: "abc"
+    hash: "abc"
 tools: []
 decisions: false
 memories: true
 judge:
-  rubricDigest: "beef"
+  rubricHash: "beef"
   sample: 0.2
-  trust: 1
+  minAgreement: 1
 prompt: |2
   Do it.
 `

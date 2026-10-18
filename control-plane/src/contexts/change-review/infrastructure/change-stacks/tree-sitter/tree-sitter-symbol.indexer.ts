@@ -182,16 +182,16 @@ const walk = (grammar: Grammar, root: Node): Walked => {
     if (call && !route) {
       const verb = calleeName(field(node, call[0])).toLowerCase();
       const argument = firstString(grammar, field(node, call[1]));
-      const given = argument ? stringText(grammar, argument) : '';
+      const literal = argument ? stringText(grammar, argument) : '';
 
       if (
         argument &&
         !skipped.has(argument.id) &&
-        given.startsWith('/') &&
+        literal.startsWith('/') &&
         (HTTP_VERBS.has(verb) || ANY_VERBS.has(verb))
       ) {
         walked.symbols.push({
-          name: `${HTTP_VERBS.has(verb) ? verb.toUpperCase() : 'ANY'} ${routePath(given)}`,
+          name: `${HTTP_VERBS.has(verb) ? verb.toUpperCase() : 'ANY'} ${routePath(literal)}`,
           kind: 'route',
           line: lineOf(node),
           endLine: node.endPosition.row + 1,

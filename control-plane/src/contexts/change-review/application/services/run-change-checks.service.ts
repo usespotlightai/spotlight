@@ -1,5 +1,5 @@
 import type {
-  ChangeCheckState,
+  ChangeCheckStatus,
   CheckedChange,
   RunChangeChecksPort,
 } from '@change-review/application/ports/run-change-checks.port';
@@ -29,25 +29,25 @@ const failedAt = (stack: ChangeStack, check: StackCheck): string[] => {
   ];
 };
 
-const stateOf = (
+const statusOf = (
   stack: ChangeStack,
   check: StackCheck | null,
   now: Date,
-): ChangeCheckState => {
-  if (stack.state === 'drafting') {
-    return 'drafting';
+): ChangeCheckStatus => {
+  if (stack.state === 'generating') {
+    return 'generating';
   }
   if (stack.state === 'failed') {
-    return 'undrafted';
+    return 'not-generated';
   }
   if (!stack.request) {
     return 'unchecked';
   }
-  if (!check || check.reordering) {
+  if (!check || check.redrafting) {
     return 'checking';
   }
 
-  switch (check.stateAt(now)) {
+  switch (check.statusAt(now)) {
     case 'waiting':
       return 'checking';
     case 'skipped':
@@ -65,14 +65,14 @@ export class RunChangeChecks implements RunChangeChecksPort {
   ) {}
 
   ofRun(runId: string): Promise<readonly CheckedChange[]> {
-    return this.standings(runId, false);
+    return this.checkedChanges(runId, false);
   }
 
   rechecksOfRun(runId: string): Promise<readonly CheckedChange[]> {
-    return this.standings(runId, true);
+    return this.checkedChanges(runId, true);
   }
 
-  private async standings(
+  private async checkedChanges(
     runId: string,
     rechecks: boolean,
   ): Promise<readonly CheckedChange[]> {
@@ -88,17 +88,17 @@ export class RunChangeChecks implements RunChangeChecksPort {
         checks.find(
           (each) => each.recheck === rechecks && each.stackId.equals(stack.id),
         ) ?? null;
-      const state = stateOf(stack, check, now);
+      const status = statusOf(stack, check, now);
 
       return {
         repository: stack.repository?.value ?? null,
-        state,
+        status,
         skip:
-          state === 'skipped' ? (check?.skippedAt(now)?.code ?? null) : null,
-        failedAt: state === 'failed' && check ? failedAt(stack, check) : [],
-        spent: {
-          costs: stack.spent.costs.map((each) => ({ ...each })),
-          unpriced: stack.spent.unpriced,
+          status === 'skipped' ? (check?.skippedAt(now)?.code ?? null) : null,
+        failedAt: status === 'failed' && check ? failedAt(stack, check) : [],
+        usage: {
+          costs: stack.usage.costs.map((each) => ({ ...each })),
+          unpriced: stack.usage.unpriced,
         },
       };
     });

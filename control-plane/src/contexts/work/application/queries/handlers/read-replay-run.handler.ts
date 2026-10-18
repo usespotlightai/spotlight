@@ -6,9 +6,9 @@ import type { ReplayRunDto } from '@work/application/dto/replay-run.dto';
 import { RunJournalMapper } from '@work/application/mappers/run-journal.mapper';
 import { RunSpendMapper } from '@work/application/mappers/run-spend.mapper';
 import { TaskRunMapper } from '@work/application/mappers/task-run.mapper';
-import type { RunDigestReaderPort } from '@work/application/ports/run-digest-reader.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { RunReaderPort } from '@work/application/ports/run-reader.port';
+import type { RunUsageReaderPort } from '@work/application/ports/run-usage-reader.port';
 import type { ReadReplayRunQuery } from '@work/application/queries/read-replay-run.query';
 
 export class ReadReplayRunHandler
@@ -18,7 +18,7 @@ export class ReadReplayRunHandler
     private readonly access: WorkspaceAccessPort,
     private readonly runs: RunReaderPort,
     private readonly journals: RunJournalReaderPort,
-    private readonly digests: RunDigestReaderPort,
+    private readonly usages: RunUsageReaderPort,
   ) {}
 
   async execute(query: ReadReplayRunQuery): Promise<ReplayRunDto | null> {
@@ -36,16 +36,16 @@ export class ReadReplayRunHandler
         return null;
       }
 
-      const [journals, digests] = await Promise.all([
+      const [journals, usages] = await Promise.all([
         this.journals.attemptsOfRun(runId),
-        this.digests.forRuns([runId]),
+        this.usages.forRuns([runId]),
       ]);
-      const digest = digests.get(runId.value);
+      const usage = usages.get(runId.value);
 
       return {
         ...TaskRunMapper.summaryToDto(found),
         original: { ...found.original },
-        spend: digest ? RunSpendMapper.toDto(digest) : null,
+        spend: usage ? RunSpendMapper.toDto(usage) : null,
         journals: journals.map(RunJournalMapper.toDto),
         briefing: found.briefing,
         agent: found.agent,

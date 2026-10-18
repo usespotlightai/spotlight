@@ -3,7 +3,7 @@ package protocol
 import "time"
 
 const (
-	EgressHandedPath = "/run/spotlight/egress.json"
+	EgressConfigPath = "/run/spotlight/egress.json"
 	EgressAuthority  = "/run/spotlight/egress/authority.pem"
 	EgressPort       = 3128
 
@@ -11,17 +11,17 @@ const (
 	SandboxBundle    = "/etc/spotlight/egress/bundle.pem"
 )
 
-type EgressHanded struct {
-	URL        string          `json:"url"`
-	Token      string          `json:"token,omitempty"`
-	Credential string          `json:"credential"`
-	Allow      []string        `json:"allow,omitempty"`
-	Reads      []string        `json:"reads,omitempty"`
-	Held       []HeldByTheHost `json:"held,omitempty"`
-	Send       *HostCall       `json:"send,omitempty"`
+type EgressConfig struct {
+	URL         string       `json:"url"`
+	Token       string       `json:"token,omitempty"`
+	Credential  string       `json:"credential"`
+	Allow       []string     `json:"allow,omitempty"`
+	SecretAllow []string     `json:"secretAllow,omitempty"`
+	HarnessKeys []HarnessKey `json:"harnessKeys,omitempty"`
+	Send        *HostCall    `json:"send,omitempty"`
 }
 
-type HeldByTheHost struct {
+type HarnessKey struct {
 	Name   string `json:"name"`
 	Host   string `json:"host"`
 	Header string `json:"header"`
@@ -32,22 +32,22 @@ type HeldByTheHost struct {
 const StandInPrefix = "spotlight-egress:"
 
 const (
-	CarriedInHeader = "header"
-	CarriedInQuery  = "query"
+	LocationHeader = "header"
+	LocationQuery  = "query"
 )
 
-type EgressRedeem struct {
+type EgressSecretsRequest struct {
 	ProxyCredential string `json:"proxyCredential,omitempty"`
 	Recipient       string `json:"recipient"`
 }
 
-type EgressRedemption struct {
-	RunID        string           `json:"runId,omitempty"`
-	Reaches      []string         `json:"reaches"`
-	Secrets      []RedeemedSecret `json:"secrets"`
-	Withheld     []WithheldSecret `json:"withheld"`
-	SpotlightAPI *SpotlightAPI    `json:"spotlightApi,omitempty"`
-	Bound        []string         `json:"bound,omitempty"`
+type EgressSecrets struct {
+	RunID             string          `json:"runId,omitempty"`
+	ExtraAllowedHosts []string        `json:"extraAllowedHosts"`
+	Secrets           []FetchedSecret `json:"secrets"`
+	Denied            []DeniedSecret  `json:"denied"`
+	SpotlightAPI      *SpotlightAPI   `json:"spotlightApi,omitempty"`
+	Bound             []string        `json:"bound,omitempty"`
 }
 
 type SpotlightAPI struct {
@@ -58,17 +58,17 @@ const SpotlightAPISecret = "spotlight-api"
 
 const SpotlightAPIStandIn = StandInPrefix + SpotlightAPISecret
 
-type RedeemedSecret struct {
-	Secret        string         `json:"secret"`
-	Host          string         `json:"host"`
-	Carrier       string         `json:"carrier"`
-	Name          string         `json:"name"`
-	Prefix        string         `json:"prefix"`
-	Sealed        string         `json:"sealed,omitempty"`
-	ReadInNetwork *ReadInNetwork `json:"readInNetwork,omitempty"`
+type FetchedSecret struct {
+	Secret      string             `json:"secret"`
+	Host        string             `json:"host"`
+	Location    string             `json:"location"`
+	Name        string             `json:"name"`
+	Prefix      string             `json:"prefix"`
+	Sealed      string             `json:"sealed,omitempty"`
+	ExternalRef *ExternalSecretRef `json:"externalRef,omitempty"`
 }
 
-type ReadInNetwork struct {
+type ExternalSecretRef struct {
 	Kind     string `json:"kind"`
 	SecretID string `json:"secretId"`
 	Field    string `json:"field,omitempty"`
@@ -76,57 +76,57 @@ type ReadInNetwork struct {
 
 const ReadFromAWSSecretsManager = "aws-secrets-manager"
 
-type WithheldSecret struct {
+type DeniedSecret struct {
 	Secret string `json:"secret"`
 	Reason string `json:"reason"`
 }
 
 const (
-	EgressURLVar        = "SPOTLIGHT_EGRESS_URL"
-	EgressCredentialVar = "SPOTLIGHT_EGRESS_CREDENTIAL"
-	EgressTrafficVar    = "SPOTLIGHT_EGRESS_TRAFFIC"
-	EgressTrafficAll    = "all"
-	EgressTrafficBound  = "bound"
-	EgressTargetHeader  = "Spotlight-Egress-Target"
-	EgressBoundPath     = "/.well-known/spotlight/bound"
-	EgressProxyUser     = "sandbox"
+	EgressURLVar             = "SPOTLIGHT_EGRESS_URL"
+	EgressProxyCredentialVar = "SPOTLIGHT_EGRESS_PROXY_CREDENTIAL"
+	EgressTrafficVar         = "SPOTLIGHT_EGRESS_TRAFFIC"
+	EgressTrafficAll         = "all"
+	EgressTrafficBound       = "bound"
+	EgressTargetHeader       = "Spotlight-Egress-Target"
+	EgressBoundPath          = "/.well-known/spotlight/bound"
+	EgressProxyUser          = "sandbox"
 )
 
-type EgressAdmit struct {
+type EgressAuthorizeRequest struct {
 	ProxyCredential string `json:"proxyCredential"`
 }
 
-type EgressAdmitted struct {
-	RunnerID         string   `json:"runnerId"`
-	WorkspaceID      string   `json:"workspaceId"`
-	ControlPlaneHost string   `json:"controlPlaneHost"`
-	ControlPlanePort int      `json:"controlPlanePort"`
-	Reaches          []string `json:"reaches"`
+type EgressAuthorizeResponse struct {
+	RunnerID          string   `json:"runnerId"`
+	WorkspaceID       string   `json:"workspaceId"`
+	ControlPlaneHost  string   `json:"controlPlaneHost"`
+	ControlPlanePort  int      `json:"controlPlanePort"`
+	ExtraAllowedHosts []string `json:"extraAllowedHosts"`
 }
 
 const (
-	MaxHoldsAtOnce   = 500
+	MaxRunsAtOnce    = 500
 	MaxRecordsAtOnce = 2000
 )
 
-type EgressHolds struct {
+type ActiveRunsRequest struct {
 	ProxyCredentials []string `json:"proxyCredentials"`
 }
 
-type EgressHeld struct {
-	Held []string `json:"held"`
+type ActiveRunsResponse struct {
+	Active []string `json:"active"`
 }
 
 const (
-	ConnectionTunnelled = "tunnelled"
-	ConnectionForwarded = "forwarded"
-	ConnectionBlocked   = "blocked"
-	ConnectionFailed    = "failed"
+	ConnectionPassthrough = "passthrough"
+	ConnectionInjected    = "injected"
+	ConnectionBlocked     = "blocked"
+	ConnectionFailed      = "failed"
 )
 
 const (
 	ReasonNotAllowed     = "not-allowed"
-	ReasonAddressRefused = "address-refused"
+	ReasonPrivateAddress = "private-address"
 	ReasonNotBound       = "not-bound"
 	ReasonNoSuchHost     = "no-such-host"
 	ReasonTimedOut       = "timed-out"
@@ -155,6 +155,6 @@ type EgressBound struct {
 	Hosts []string `json:"hosts"`
 }
 
-type EgressChecked struct {
+type EgressCheckResult struct {
 	Enforced bool `json:"enforced"`
 }

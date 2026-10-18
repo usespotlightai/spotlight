@@ -14,10 +14,10 @@ import {
   type TaskCheckout,
 } from '@work/domain/services/task-checkouts';
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { Continuity } from '@work/domain/value-objects/continuity.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
-import { Declaration } from '@work/domain/value-objects/declaration.vo';
+import { Handover } from '@work/domain/value-objects/handover.vo';
 import { DONE } from '@work/domain/value-objects/handover-word';
+import { Resume } from '@work/domain/value-objects/resume.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import type { RunReplay } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import type { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
@@ -34,12 +34,12 @@ export interface ReplayPlan {
   readonly replay: RunReplay;
 }
 
-const refused = (
+const unreplayable = (
   original: Run,
-  refusal: UnreplayableRunError['refusal'],
+  unreplayableReason: UnreplayableRunError['unreplayableReason'],
   reason: string,
 ): never => {
-  throw new UnreplayableRunError(original.id.value, refusal, reason);
+  throw new UnreplayableRunError(original.id.value, unreplayableReason, reason);
 };
 
 const checkoutsAt = (
@@ -48,12 +48,12 @@ const checkoutsAt = (
   briefed: BriefedTask,
   candidate: Line,
 ): TaskCheckout[] => {
-  const worked = repositoriesReviewedOrAll(briefed.reviewing, candidate);
+  const repositories = repositoriesReviewedOrAll(briefed.reviewing, candidate);
 
   return started.map((each) => {
     const repository =
-      worked.find((repository) => repository.name === each.path) ??
-      refused(
+      repositories.find((repository) => repository.name === each.path) ??
+      unreplayable(
         original,
         'repository-gone',
         `The line no longer has repository ${each.path}.`,
@@ -69,7 +69,7 @@ const checkoutsAt = (
   });
 };
 
-const UNHELD = { awaitingReview: false, heldBackTo: null } as const;
+const NOT_DEFERRED = { awaitingReview: false, deferredMoveTo: null } as const;
 
 const movesOnAfter = (candidate: Line, stationId: StationId): string[] =>
   [
@@ -81,13 +81,9 @@ const movesOnAfter = (candidate: Line, stationId: StationId): string[] =>
     .map((word) => word.toLowerCase())
     .filter((word) => {
       const routing = routeAfterRun(
-        HandoverFor.declared(
-          Declaration.of({ next: word }),
-          candidate,
-          stationId,
-        ),
+        HandoverFor.resolve(Handover.of({ next: word }), candidate, stationId),
         candidate,
-        UNHELD,
+        NOT_DEFERRED,
       );
 
       return !putsItToAPerson(routing);
@@ -106,27 +102,27 @@ export const replayPlanFor = ({
 }): ReplayPlan => {
   const taskId =
     original.taskId ??
-    refused(original, 'not-a-task-run', 'It worked no task.');
+    unreplayable(original, 'not-a-task-run', 'It has no task.');
   const stationId =
     original.stationId ??
-    refused(original, 'not-a-task-run', 'It worked at no station.');
+    unreplayable(original, 'not-a-task-run', 'It ran at no station.');
   if (!original.hasEnded) {
-    refused(original, 'still-running', 'It has not ended yet.');
+    unreplayable(original, 'still-running', 'It has not ended yet.');
   }
 
   const started =
     original.startedFrom ??
-    refused(
+    unreplayable(
       original,
       'no-starting-point',
       'It never reported a starting point.',
     );
   const task =
     briefed ??
-    refused(original, 'no-briefing', 'Its task briefing was not kept.');
+    unreplayable(original, 'no-briefing', 'Its task briefing was not stored.');
 
   if (!candidate.stationAt(stationId)) {
-    refused(
+    unreplayable(
       original,
       'not-at-the-station',
       `The candidate line has no station ${stationId.value}.`,
@@ -146,7 +142,7 @@ export const replayPlanFor = ({
     briefed: task,
     at: {
       stationId,
-      continuity: Continuity.of({ key: ContinuityKey.forReplay(id.value) }),
+      resume: Resume.of({ key: ResumeKey.forReplay(id.value) }),
       checkouts,
     },
     archive: started.archive,

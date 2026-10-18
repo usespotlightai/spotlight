@@ -7,33 +7,37 @@ import type {
 export class RunnerPoolChangeDetail implements ChangeDetail {
   private constructor(
     readonly mode: PoolMode,
-    readonly rekeyed: boolean,
+    readonly tokenRotated: boolean,
     readonly secretRotated: boolean,
-    readonly egressMoved: boolean,
+    readonly egressChanged: boolean,
   ) {}
 
-  static defined(mode: PoolMode): RunnerPoolChangeDetail {
+  static created(mode: PoolMode): RunnerPoolChangeDetail {
     return new RunnerPoolChangeDetail(mode, false, false, false);
   }
 
-  static redefined(
+  static updated(
     mode: PoolMode,
-    moved: { rekeyed: boolean; secretRotated: boolean; egressMoved?: boolean },
+    moved: {
+      tokenRotated: boolean;
+      secretRotated: boolean;
+      egressChanged?: boolean;
+    },
   ): RunnerPoolChangeDetail {
     return new RunnerPoolChangeDetail(
       mode,
-      moved.rekeyed,
+      moved.tokenRotated,
       moved.secretRotated,
-      moved.egressMoved ?? false,
+      moved.egressChanged ?? false,
     );
   }
 
   recorded(): RecordedDetail {
     return {
       mode: this.mode,
-      ...(this.rekeyed ? { rekeyed: true } : {}),
+      ...(this.tokenRotated ? { tokenRotated: true } : {}),
       ...(this.secretRotated ? { secretRotated: true } : {}),
-      ...(this.egressMoved ? { egressMoved: true } : {}),
+      ...(this.egressChanged ? { egressChanged: true } : {}),
     };
   }
 }

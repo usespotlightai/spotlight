@@ -1,8 +1,8 @@
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
+import { DismissedTools } from '@/components/features/insights/tools/DismissedTools';
 import { McpServers } from '@/components/features/insights/tools/McpServers';
 import { NoToolsUsed } from '@/components/features/insights/tools/NoToolsUsed';
-import { RefusedTools } from '@/components/features/insights/tools/RefusedTools';
 import { SkillUse } from '@/components/features/insights/tools/SkillUse';
 import { ToolsSkeleton } from '@/components/features/insights/tools/ToolsSkeleton';
 import { UnusedSkills } from '@/components/features/insights/tools/UnusedSkills';
@@ -61,8 +61,8 @@ export function ToolsTab({ slug, teamId, period, names }: ToolsTabProps) {
 
       <McpServers servers={insights.servers} />
 
-      {insights.refusals.length > 0 && (
-        <RefusedTools refusals={insights.refusals} />
+      {insights.dismissals.length > 0 && (
+        <DismissedTools dismissals={insights.dismissals} />
       )}
     </div>
   );

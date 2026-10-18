@@ -1,7 +1,7 @@
 import { Repeat } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { StateBox } from '@/components/features/replays/StateBox';
-import { OpenReplaySetButton } from '@/components/features/replays/station/OpenReplaySetButton';
+import { CreateReplaySetButton } from '@/components/features/replays/station/CreateReplaySetButton';
 import { ReplaySetRow } from '@/components/features/replays/station/ReplaySetRow';
 import { MembersOnlyOrCouldNotLoad } from '@/components/features/team/MembersOnlyOrCouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -18,7 +18,7 @@ type ReplaySetsProps = {
 export function ReplaySets({ at }: ReplaySetsProps) {
   const sets = useReplaySets(at.teamId, at.lineId, at.stationId);
   const listed = sets.data ?? [];
-  const open = <OpenReplaySetButton at={at} />;
+  const create = <CreateReplaySetButton at={at} />;
 
   let body: ReactNode;
 
@@ -43,9 +43,9 @@ export function ReplaySets({ at }: ReplaySetsProps) {
   } else if (listed.length === 0) {
     body = (
       <StateBox flat>
-        <EmptyState icon={Repeat} title="No replay sets yet" action={open}>
-          A replay set holds past runs to replay under a candidate. Create one
-          to start comparing.
+        <EmptyState icon={Repeat} title="No replay sets yet" action={create}>
+          A replay set contains past runs to replay under a candidate. Create
+          one to start comparing.
         </EmptyState>
       </StateBox>
     );

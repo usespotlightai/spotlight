@@ -1,6 +1,6 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
-export const skillFileRefusal = (path: string): string | null => {
+export const skillFileProblem = (path: string): string | null => {
   if (path.length === 0) {
     return 'must not be empty';
   }
@@ -19,14 +19,14 @@ export const skillFileRefusal = (path: string): string | null => {
 export class SkillFiles {
   private readonly kind = 'skill-files';
 
-  private constructor(private readonly held: ReadonlyMap<string, string>) {}
+  private constructor(private readonly byPath: ReadonlyMap<string, string>) {}
 
   static of(files: Readonly<Record<string, string>>): SkillFiles {
     for (const path of Object.keys(files)) {
-      const refused = skillFileRefusal(path);
+      const problem = skillFileProblem(path);
 
-      if (refused) {
-        throw new InvalidIdentifierError('skill file', refused);
+      if (problem) {
+        throw new InvalidIdentifierError('skill file', problem);
       }
     }
 
@@ -38,17 +38,17 @@ export class SkillFiles {
   }
 
   get entries(): readonly { readonly path: string; readonly text: string }[] {
-    return [...this.held].map(([path, text]) => ({ path, text }));
+    return [...this.byPath].map(([path, text]) => ({ path, text }));
   }
 
   get fields(): Readonly<Record<string, string>> {
-    return Object.fromEntries(this.held);
+    return Object.fromEntries(this.byPath);
   }
 
   equals(other: SkillFiles): boolean {
     return (
       this.kind === other.kind &&
-      JSON.stringify([...this.held]) === JSON.stringify([...other.held])
+      JSON.stringify([...this.byPath]) === JSON.stringify([...other.byPath])
     );
   }
 }

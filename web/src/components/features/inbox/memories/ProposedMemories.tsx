@@ -2,9 +2,9 @@ import { Spool } from 'lucide-react';
 import { useState } from 'react';
 import { MemoryReview } from '@/components/features/inbox/memories/MemoryReview';
 import { ProposedMemoriesSkeleton } from '@/components/features/inbox/memories/ProposedMemoriesSkeleton';
+import { Collapsible } from '@/components/shared/Collapsible';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { DisclosureToggle } from '@/components/shared/DisclosureToggle';
-import { Unfold } from '@/components/shared/Unfold';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useMemoryReview } from '@/hooks/api/useMemoryReview';
 import { proposedSummary } from '@/lib/memory';
@@ -58,7 +58,7 @@ export function ProposedMemories({
         {proposedSummary(memories, agent)}
       </DisclosureToggle>
 
-      <Unfold open={open} appear={false}>
+      <Collapsible open={open} appear={false}>
         <div className="pt-3">
           <MemoryReview
             slug={slug}
@@ -68,7 +68,7 @@ export function ProposedMemories({
             memories={memories}
           />
         </div>
-      </Unfold>
+      </Collapsible>
     </div>
   );
 }

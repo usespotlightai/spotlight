@@ -14,7 +14,7 @@ import {
   type StationNames,
 } from '@/lib/insights';
 import { formatDay } from '@/lib/judge';
-import { formatEnding } from '@/lib/station-outcomes';
+import { formatEnding } from '@/lib/station-insights';
 
 const PICKED: readonly RunFilterKey[] = ['stationId', 'outcome'];
 

@@ -1,6 +1,6 @@
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-export const HOOK_CONFIGS = Symbol('HELD_HOOKS');
+export const HOOK_CONFIGS = Symbol('HOOK_CONFIGS');
 
 export interface HookConfigMatch {
   readonly tools: readonly string[];

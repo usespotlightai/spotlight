@@ -8,9 +8,9 @@ const SCOPED: readonly (readonly [TokenScope, Permission])[] = [
   [TokenScope.read, 'read'],
   [TokenScope.plan, 'plan'],
   [TokenScope.configure, 'configure'],
-  [TokenScope.secrets, 'manage-secrets'],
-  [TokenScope.runners, 'manage-runners'],
-  [TokenScope.trusts, 'manage-token-trusts'],
+  [TokenScope.secrets, 'secrets'],
+  [TokenScope.runners, 'runners'],
+  [TokenScope.trusts, 'trusts'],
 ];
 
 const MEMBER: readonly Permission[] = ['read', 'plan'];
@@ -19,9 +19,9 @@ const ADMIN: readonly Permission[] = [
   'read',
   'plan',
   'configure',
-  'manage-secrets',
-  'manage-runners',
-  'manage-token-trusts',
+  'secrets',
+  'runners',
+  'trusts',
   'administer',
 ];
 
@@ -49,9 +49,9 @@ export class Permissions {
     return new Permissions(grantedBy(scopes));
   }
 
-  static beyondWorkspaces(principal: Principal): Permissions {
+  static global(principal: Principal): Permissions {
     return principal.kind === 'person'
-      ? new Permissions(['plan', 'open-workspaces'])
+      ? new Permissions(['plan', 'create-workspaces'])
       : new Permissions(
           principal.scopes.allow(TokenScope.plan) ? ['plan'] : [],
         );
@@ -70,22 +70,22 @@ export class Permissions {
   }
 
   get managesSecrets(): boolean {
-    return this.granted.has('manage-secrets');
+    return this.granted.has('secrets');
   }
 
   get managesRunners(): boolean {
-    return this.granted.has('manage-runners');
+    return this.granted.has('runners');
   }
 
   get managesTokenTrusts(): boolean {
-    return this.granted.has('manage-token-trusts');
+    return this.granted.has('trusts');
   }
 
-  get administers(): boolean {
+  get isAdmin(): boolean {
     return this.granted.has('administer');
   }
 
-  get opensWorkspaces(): boolean {
-    return this.granted.has('open-workspaces');
+  get createsWorkspaces(): boolean {
+    return this.granted.has('create-workspaces');
   }
 }

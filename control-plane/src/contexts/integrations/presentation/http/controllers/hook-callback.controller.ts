@@ -1,6 +1,6 @@
 import type { NotedByCallback } from '@integrations/application/commands/handlers/note-by-callback.handler';
 import { NoteByCallbackCommand } from '@integrations/application/commands/note-by-callback.command';
-import type { CallbackTaskDto } from '@integrations/application/dto/callback-task.dto';
+import type { CallbackTaskView } from '@integrations/application/dto/callback-task-view.dto';
 import { CallbackTaskQuery } from '@integrations/application/queries/callback-task.query';
 import { CallbackNoteRequestDto } from '@integrations/presentation/http/dto/callback-note.request.dto';
 import { CallbackTaskResponseDto } from '@integrations/presentation/http/dto/callback-task.response.dto';
@@ -30,12 +30,12 @@ import { bearerIn } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import { HOOK_CALLBACKS } from '@platform/http/routes';
 
-const REFUSED =
+const UNAUTHORIZED =
   'The callback token is missing, expired or unknown. Each hook request carries a fresh token in spotlight-callback-token.';
 
 @ApiTags('hooks')
 @ApiBearerAuth()
-@ApiUnauthorizedResponse({ description: REFUSED })
+@ApiUnauthorizedResponse({ description: UNAUTHORIZED })
 @AllowAnonymous()
 @Controller(HOOK_CALLBACKS)
 export class HookCallbackController {
@@ -55,11 +55,11 @@ export class HookCallbackController {
   ): Promise<CallbackTaskResponseDto> {
     const task = await this.queryBus.execute<
       CallbackTaskQuery,
-      CallbackTaskDto | null
+      CallbackTaskView | null
     >(new CallbackTaskQuery(bearerIn(authorization) ?? ''));
 
     if (!task) {
-      throw new UnauthorizedException(REFUSED);
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
     return new CallbackTaskResponseDto(task);
@@ -69,7 +69,7 @@ export class HookCallbackController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'noteOnHookTask',
-    summary: 'Say something on the task a hook request was about',
+    summary: 'Add a note to the task that a hook request was about',
   })
   @ApiBody({ type: CallbackNoteRequestDto })
   @ApiNoContentResponse({ description: 'The note is on the task' })
@@ -77,7 +77,7 @@ export class HookCallbackController {
     name: 'Idempotency-Key',
     required: false,
     description:
-      'The same on every retry of one note, so a retried note is said once',
+      'The same on every retry of one note, so a retried note is added once',
   })
   async note(
     @Headers('authorization') authorization: string | undefined,
@@ -101,8 +101,8 @@ export class HookCallbackController {
       );
     }
 
-    if (noted === 'refused') {
-      throw new UnauthorizedException(REFUSED);
+    if (noted === 'rejected') {
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
   }
 }

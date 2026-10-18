@@ -6,7 +6,7 @@ import { TeamInsights } from '@/components/features/insights/TeamInsights';
 import type { InsightsRun, RunFilter } from '@/lib/insights';
 
 const refetch = vi.fn();
-const asked: { filter: RunFilter; page: number }[] = [];
+const requested: { filter: RunFilter; page: number }[] = [];
 const runsState = {
   data: undefined as unknown,
   isPending: false,
@@ -22,7 +22,7 @@ vi.mock('@/hooks/api/useInsightsRuns', () => ({
     filter: RunFilter,
     page: number,
   ) => {
-    asked.push({ filter, page });
+    requested.push({ filter, page });
     return runsState;
   },
 }));
@@ -86,9 +86,9 @@ const run = (over: Partial<InsightsRun>): InsightsRun => ({
   ending: 'completed',
   failure: null,
   checks: null,
-  next: null,
-  handedOn: null,
-  delivery: null,
+  firstHumanAction: null,
+  passed: null,
+  pullRequestState: null,
   ...over,
 });
 
@@ -126,7 +126,7 @@ const showing = (search: string) =>
 const address = () => screen.getByRole('status', { name: 'Address' });
 
 beforeEach(() => {
-  asked.length = 0;
+  requested.length = 0;
   refetch.mockReset();
   runsState.data = page([
     run({}),
@@ -151,7 +151,7 @@ describe('the runs tab', () => {
     ).getAllByRole('listitem');
 
     expect(first).toHaveTextContent(
-      'CompletedFailure–StationImplementationPersonSam RiveraSetupClaude Code · Harness defaultTook5m 12sCost$1.84Endedjust now',
+      'CompletedFailure–StationImplementationPersonSam RiveraAgent configClaude Code · Harness defaultDuration5m 12sCost$1.84Endedjust now',
     );
     expect(second).toHaveTextContent('FailedFailureThe agent ran out of turns');
     expect(second).toHaveTextContent('No one');
@@ -160,10 +160,10 @@ describe('the runs tab', () => {
     ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_2');
   });
 
-  it('asks for the runs the address narrows to', () => {
+  it('requests the runs the address narrows to', () => {
     showing('?tab=runs&stationId=station_build&outcome=failed&page=2');
 
-    expect(asked.at(-1)).toEqual({
+    expect(requested.at(-1)).toEqual({
       filter: { stationId: 'station_build', outcome: 'failed' },
       page: 2,
     });
@@ -241,7 +241,7 @@ describe('the runs tab', () => {
     expect(refetch).toHaveBeenCalled();
   });
 
-  it('holds the shape of the table while the runs load', () => {
+  it('keeps the shape of the table while the runs load', () => {
     runsState.data = undefined;
     runsState.isPending = true;
 

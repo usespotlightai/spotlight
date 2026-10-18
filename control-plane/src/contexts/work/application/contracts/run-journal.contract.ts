@@ -15,7 +15,7 @@ export const EGRESS_CHECKED = 'egress.checked';
 
 export type EgressEnforcement = 'enforced' | 'not-enforced';
 
-export const enforcementTold = (
+export const parseEnforcement = (
   data: string | null | undefined,
 ): EgressEnforcement | null => {
   if (!data) {
@@ -23,23 +23,24 @@ export const enforcementTold = (
   }
 
   try {
-    const told = JSON.parse(Buffer.from(data, 'base64').toString('utf8')) as {
+    const parsed = JSON.parse(Buffer.from(data, 'base64').toString('utf8')) as {
       enforced?: unknown;
     };
 
-    if (typeof told.enforced !== 'boolean') {
+    if (typeof parsed.enforced !== 'boolean') {
       return null;
     }
 
-    return told.enforced ? 'enforced' : 'not-enforced';
+    return parsed.enforced ? 'enforced' : 'not-enforced';
   } catch {
     return null;
   }
 };
 
-export const ASIDE_SEQ = -1_000_000;
+export const CONTROL_PLANE_SEQ = -1_000_000;
 
-export const isAside = (seq: number): boolean => seq <= ASIDE_SEQ;
+export const isControlPlaneEntry = (seq: number): boolean =>
+  seq <= CONTROL_PLANE_SEQ;
 
 export interface StepLocation {
   readonly path: string;
@@ -61,8 +62,8 @@ export interface JournalStep {
   readonly ms: number;
   readonly startedAt: Date;
   readonly locations: readonly StepLocation[];
-  readonly given: string | null;
-  readonly returned: string | null;
+  readonly input: string | null;
+  readonly output: string | null;
   readonly change: StepChange | null;
 }
 
@@ -75,8 +76,8 @@ export interface RunSpent {
 export interface RunMarks {
   readonly startedAt: Date | null;
   readonly readyAt: Date | null;
-  readonly spokeFrom: Date | null;
-  readonly spokeTo: Date | null;
+  readonly firstAgentUpdateAt: Date | null;
+  readonly lastAgentUpdateAt: Date | null;
   readonly endedAt: Date | null;
 }
 
@@ -103,7 +104,7 @@ export interface RunJournal {
   readonly ms: number | null;
   readonly marks: RunMarks;
   readonly spent: RunSpent | null;
-  readonly egress: EgressEnforcement | null;
+  readonly egressEnforcement: EgressEnforcement | null;
 }
 
 export interface RunChanges {

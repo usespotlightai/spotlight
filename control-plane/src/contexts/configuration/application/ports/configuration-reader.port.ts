@@ -1,17 +1,17 @@
-import type { DescribedSummary } from '@configuration/application/ports/integration-reader.port';
+import type { ApiSpecSummary } from '@configuration/application/ports/integration-reader.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export const CONFIGURATION_READER = Symbol('CONFIGURATION_READER');
 
 interface ReadIntegrationView {
-  readonly source: string;
+  readonly integration: string;
   readonly name: string;
   readonly path: string;
-  readonly connectable: boolean;
-  readonly holding: 'team' | 'requester';
-  readonly linked: boolean;
-  readonly handle: string | null;
-  readonly described: DescribedSummary | null;
+  readonly requiresConnection: boolean;
+  readonly actsAs: 'team' | 'requester';
+  readonly connected: boolean;
+  readonly linkedAccount: string | null;
+  readonly spec: ApiSpecSummary | null;
 }
 
 export interface ConfigurationView {

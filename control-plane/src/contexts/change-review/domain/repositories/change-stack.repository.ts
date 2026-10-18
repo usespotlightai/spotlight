@@ -12,7 +12,7 @@ export interface ChangeStackRepository {
 
   ofRun(runId: RunId): Promise<readonly ChangeStack[]>;
 
-  dueForWork(now: Date): Promise<ChangeStack | null>;
+  nextDueJob(now: Date): Promise<ChangeStack | null>;
 
   removeForTask(taskId: TaskId): Promise<void>;
 }

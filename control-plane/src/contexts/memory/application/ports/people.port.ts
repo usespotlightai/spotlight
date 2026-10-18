@@ -1,12 +1,7 @@
+import type { Membership } from '@memory/domain/services/team-access';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const PEOPLE = Symbol('PEOPLE');
-
-export interface Membership {
-  readonly workspaceId: WorkspaceId;
-  readonly by: UserId;
-}
 
 export interface Person {
   readonly name: string | null;

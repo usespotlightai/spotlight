@@ -12,7 +12,7 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ChatMessage } from '@work/domain/entities/chat-message.entity';
 import type { TaskProposal } from '@work/domain/entities/task-proposal.entity';
-import { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
+import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
@@ -30,14 +30,14 @@ import type { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
-import type { ConfigHome } from '@work/domain/value-objects/config-home.vo';
-import { Continuity } from '@work/domain/value-objects/continuity.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
+import type { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import type { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import type { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
+import { Resume } from '@work/domain/value-objects/resume.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
+import type { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import type { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
@@ -58,8 +58,8 @@ export class Chat extends EventRecorder {
     readonly model: HarnessModel | null,
     readonly effort: Effort | null,
     readonly repositories: readonly Repository[],
-    readonly improving: ImprovedStation | null,
-    readonly setup: ConfigHome | null,
+    readonly targetStation: TargetStation | null,
+    readonly setup: ConfigFolder | null,
     readonly messages: readonly ChatMessage[],
     readonly currentRunId: RunId | null,
     readonly sessionId: HarnessSession | null,
@@ -81,15 +81,15 @@ export class Chat extends EventRecorder {
     body: ChatMessageBody;
     attachments?: readonly Attachment[];
     traces?: readonly TraceReference[];
-    improving?: ImprovedStation | null;
-    setup?: ConfigHome | null;
+    targetStation?: TargetStation | null;
+    setup?: ConfigFolder | null;
     now: Date;
     newId: () => string;
   }): Chat {
-    Chat.refuseForeignTraces(input.teamId, input.traces ?? []);
-    Chat.refuseForeignStation(input.teamId, input.improving ?? null);
+    Chat.assertNoForeignTraces(input.teamId, input.traces ?? []);
+    Chat.assertNoForeignStation(input.teamId, input.targetStation ?? null);
 
-    const opening = ChatMessage.said({
+    const opening = ChatMessage.sent({
       position: MessagePosition.of(0),
       by: input.startedBy,
       body: input.body,
@@ -111,7 +111,7 @@ export class Chat extends EventRecorder {
         ...(input.setup ? [input.setup.repository] : []),
         ...(input.repositories ?? []),
       ]),
-      input.improving ?? null,
+      input.targetStation ?? null,
       input.setup ?? null,
       [opening],
       null,
@@ -144,8 +144,8 @@ export class Chat extends EventRecorder {
     model: HarnessModel | null;
     effort: Effort | null;
     repositories: readonly Repository[];
-    improving?: ImprovedStation | null;
-    setup?: ConfigHome | null;
+    targetStation?: TargetStation | null;
+    setup?: ConfigFolder | null;
     messages: readonly ChatMessage[];
     currentRunId: RunId | null;
     sessionId: HarnessSession | null;
@@ -156,7 +156,7 @@ export class Chat extends EventRecorder {
     if (
       input.messages.some((message, place) => message.position.value !== place)
     ) {
-      throw new InconsistentStateError('chat', 'has a gap in what was said');
+      throw new InconsistentStateError('chat', 'has a gap in its messages');
     }
 
     return new Chat(
@@ -169,7 +169,7 @@ export class Chat extends EventRecorder {
       input.model,
       input.effort,
       input.repositories,
-      input.improving ?? null,
+      input.targetStation ?? null,
       input.setup ?? null,
       input.messages,
       input.currentRunId,
@@ -197,16 +197,16 @@ export class Chat extends EventRecorder {
     return this.currentRunId !== null;
   }
 
-  heldBy(runId: RunId): boolean {
+  hasCurrentRun(runId: RunId): boolean {
     return this.currentRunId?.equals(runId) ?? false;
   }
 
   get wantsFollowUp(): boolean {
-    return !this.running && this.undelivered.length > 0;
+    return !this.running && this.unacknowledged.length > 0;
   }
 
-  get undelivered(): readonly ChatMessage[] {
-    return this.messages.filter((message) => message.undelivered);
+  get unacknowledged(): readonly ChatMessage[] {
+    return this.messages.filter((message) => message.unacknowledged);
   }
 
   get allAttachments(): readonly Attachment[] {
@@ -233,7 +233,7 @@ export class Chat extends EventRecorder {
     return named && this.setup?.repository.equals(named) ? named : null;
   }
 
-  said(input: {
+  addMessage(input: {
     by: UserId;
     body: ChatMessageBody;
     attachments?: readonly Attachment[];
@@ -242,33 +242,33 @@ export class Chat extends EventRecorder {
     effort?: Effort | null;
     at: Date;
   }): Chat {
-    this.refuseStranger(input.by);
-    Chat.refuseForeignTraces(this.teamId, input.traces ?? []);
+    this.assertStarter(input.by);
+    Chat.assertNoForeignTraces(this.teamId, input.traces ?? []);
 
     return this.with({
       messages: [
         ...this.messages,
-        ChatMessage.said({ ...input, position: this.nextPosition }),
+        ChatMessage.sent({ ...input, position: this.nextPosition }),
       ],
       model: input.model,
       effort: input.effort,
     });
   }
 
-  mayOpenSetupFrom(runId: RunId, branch: Branch): ConfigHome {
+  mayOpenSetupFrom(runId: RunId, branch: Branch): ConfigFolder {
     const setup = this.setup;
 
     if (!setup) {
       throw new NotASetupChatError(this.id.value);
     }
 
-    if (!this.heldBy(runId)) {
+    if (!this.hasCurrentRun(runId)) {
       throw new InvalidChatTransitionError(
         `Run ${runId.value} no longer works chat ${this.id.value}.`,
       );
     }
 
-    if (branch.isSpotlights) {
+    if (branch.isReserved) {
       throw new InvalidSetupBranchError(branch.value);
     }
 
@@ -308,38 +308,38 @@ export class Chat extends EventRecorder {
     return opened;
   }
 
-  handedTo(runId: RunId, at: Date): Chat {
+  assignRun(runId: RunId, at: Date): Chat {
     if (this.running) {
       throw new InvalidChatTransitionError(
-        `Chat ${this.id.value} is already being worked by a run.`,
+        `Chat ${this.id.value} already has a run in progress.`,
       );
     }
 
-    const handed = this.with({
+    const assigned = this.with({
       currentRunId: runId,
-      messages: this.messages.map((message) => message.delivered(runId, at)),
+      messages: this.messages.map((message) => message.acknowledge(runId, at)),
     });
 
-    handed.record(
-      new ChatHandedToRun(
+    assigned.record(
+      new ChatDispatched(
         this.id,
         runId,
-        this.undelivered.map((message) => message.position),
+        this.unacknowledged.map((message) => message.position),
       ),
     );
 
-    return handed;
+    return assigned;
   }
 
-  runKeptNothing(runId: RunId): Chat {
-    if (!this.heldBy(runId)) {
+  runEndedWithoutSession(runId: RunId): Chat {
+    if (!this.hasCurrentRun(runId)) {
       return this;
     }
 
     return this.with({
       currentRunId: null,
       messages: this.messages.map((message) =>
-        message.wasDeliveredTo(runId) ? message.takenBack() : message,
+        message.wasAcknowledgedBy(runId) ? message.unacknowledge() : message,
       ),
     });
   }
@@ -348,24 +348,27 @@ export class Chat extends EventRecorder {
     runId: RunId,
     ending: {
       readonly session: HarnessSession | null;
-      readonly workedBy: RunnerId | null;
+      readonly claimedBy: RunnerId | null;
       readonly stopped: boolean;
     },
   ): ChatAfterRun {
-    if (!this.heldBy(runId)) {
+    if (!this.hasCurrentRun(runId)) {
       return { chat: this, followsUp: false };
     }
 
     if (!ending.session) {
-      return { chat: this.runKeptNothing(runId), followsUp: false };
+      return { chat: this.runEndedWithoutSession(runId), followsUp: false };
     }
 
-    const worked = this.endRun(runId).recordSession(
+    const recorded = this.endRun(runId).recordSession(
       ending.session,
-      ending.workedBy,
+      ending.claimedBy,
     );
 
-    return { chat: worked, followsUp: !ending.stopped && worked.wantsFollowUp };
+    return {
+      chat: recorded,
+      followsUp: !ending.stopped && recorded.wantsFollowUp,
+    };
   }
 
   endRun(runId: RunId): Chat {
@@ -378,35 +381,35 @@ export class Chat extends EventRecorder {
     return this.with({ sessionId, runnerId });
   }
 
-  markDeliveredUpTo(runId: RunId, position: MessagePosition, at: Date): Chat {
-    if (!this.heldBy(runId)) {
+  acknowledgeUpTo(runId: RunId, position: MessagePosition, at: Date): Chat {
+    if (!this.hasCurrentRun(runId)) {
       return this;
     }
 
     return this.with({
       messages: this.messages.map((message) =>
         message.position.isAtOrBefore(position)
-          ? message.delivered(runId, at)
+          ? message.acknowledge(runId, at)
           : message,
       ),
     });
   }
 
   stoppableBy(by: UserId): RunId {
-    this.refuseStranger(by);
+    this.assertStarter(by);
 
     if (!this.currentRunId) {
       throw new InvalidChatTransitionError(
-        `Chat ${this.id.value} is not being worked. There is nothing to stop.`,
+        `Chat ${this.id.value} has no run in progress. There is nothing to stop.`,
       );
     }
 
     return this.currentRunId;
   }
 
-  continuity(): Continuity {
-    return Continuity.of({
-      key: ContinuityKey.forChat(this.id.value),
+  resume(): Resume {
+    return Resume.of({
+      key: ResumeKey.forChat(this.id.value),
       sessionId: this.sessionId,
     });
   }
@@ -448,10 +451,10 @@ export class Chat extends EventRecorder {
   }
 
   accept(position: MessagePosition, by: UserId, at: Date): Chat {
-    this.refuseStranger(by);
+    this.assertStarter(by);
 
     const proposal = this.proposalAt(position).accept(at);
-    const next = this.settle(proposal);
+    const next = this.replaceProposal(proposal);
 
     next.record(
       new ProposalAccepted(
@@ -469,17 +472,19 @@ export class Chat extends EventRecorder {
   }
 
   proposalBecame(position: MessagePosition, taskId: TaskId, at: Date): Chat {
-    return this.settle(this.proposalAt(position).createdAs(taskId, at));
+    return this.replaceProposal(
+      this.proposalAt(position).createdAs(taskId, at),
+    );
   }
 
   recordAcceptanceFailure(position: MessagePosition): Chat {
-    return this.settle(this.proposalAt(position).reopen());
+    return this.replaceProposal(this.proposalAt(position).reopen());
   }
 
   dismiss(position: MessagePosition, by: UserId, at: Date): Chat {
-    this.refuseStranger(by);
+    this.assertStarter(by);
 
-    const next = this.settle(this.proposalAt(position).dismiss(at));
+    const next = this.replaceProposal(this.proposalAt(position).dismiss(at));
 
     next.record(new ProposalDismissed(this.id, position));
 
@@ -490,7 +495,7 @@ export class Chat extends EventRecorder {
     return MessagePosition.of(this.messages.length);
   }
 
-  private static refuseForeignTraces(
+  private static assertNoForeignTraces(
     teamId: TeamId,
     traces: readonly TraceReference[],
   ): void {
@@ -503,26 +508,26 @@ export class Chat extends EventRecorder {
     }
   }
 
-  private static refuseForeignStation(
+  private static assertNoForeignStation(
     teamId: TeamId,
-    improving: ImprovedStation | null,
+    targetStation: TargetStation | null,
   ): void {
-    if (improving && !improving.teamId.equals(teamId)) {
-      throw new UnknownStationError(improving.stationId.value);
+    if (targetStation && !targetStation.teamId.equals(teamId)) {
+      throw new UnknownStationError(targetStation.stationId.value);
     }
   }
 
-  private refuseStranger(by: UserId): void {
+  private assertStarter(by: UserId): void {
     if (!this.startedBy.equals(by)) {
       throw new NotTheChatStarterError(this.id.value);
     }
   }
 
-  private settle(proposal: TaskProposal): Chat {
+  private replaceProposal(proposal: TaskProposal): Chat {
     return this.with({
       messages: this.messages.map((message) =>
         message.position.equals(proposal.position)
-          ? message.settled(proposal)
+          ? message.withProposal(proposal)
           : message,
       ),
     });
@@ -535,7 +540,7 @@ export class Chat extends EventRecorder {
     currentRunId?: RunId | null;
     sessionId?: HarnessSession | null;
     runnerId?: RunnerId | null;
-    setup?: ConfigHome | null;
+    setup?: ConfigFolder | null;
   }): Chat {
     const next = new Chat(
       this.id,
@@ -547,7 +552,7 @@ export class Chat extends EventRecorder {
       part.model !== undefined ? part.model : this.model,
       part.effort !== undefined ? part.effort : this.effort,
       this.repositories,
-      this.improving,
+      this.targetStation,
       part.setup !== undefined ? part.setup : this.setup,
       part.messages ?? this.messages,
       part.currentRunId !== undefined ? part.currentRunId : this.currentRunId,

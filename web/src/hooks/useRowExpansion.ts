@@ -1,18 +1,18 @@
 import { type RefObject, useLayoutEffect, useRef, useState } from 'react';
-import { useGlide } from '@/hooks/useGlide';
+import { useLayoutTransition } from '@/hooks/useLayoutTransition';
 import {
-  glideBetween,
+  layoutTransitionBetween,
   type Placement,
   placementOf,
   type Spots,
   shiftBetween,
   spotsOf,
-} from '@/lib/flip';
-import { canGlide } from '@/lib/glide';
+} from '@/lib/layout-transition';
+import { canAnimate } from '@/lib/motion';
 
 const CLAMPED = 'data-clamped';
 
-const PART = '[data-glide-part]';
+const PART = '[data-transition-part]';
 
 type RowExpansion = {
   readonly row: RefObject<HTMLLIElement | null>;
@@ -45,7 +45,7 @@ const measuredAs = <T>(
   return measured;
 };
 
-type Glide = ReturnType<typeof useGlide>;
+type LayoutTransition = ReturnType<typeof useLayoutTransition>;
 
 type RowControl = {
   readonly open: boolean;
@@ -54,23 +54,27 @@ type RowControl = {
 
 const collapse = (
   element: HTMLLIElement | null,
-  glide: Glide,
+  transition: LayoutTransition,
   clamp: () => void,
 ) => {
-  if (glide.reverse(clamp)) {
+  if (transition.reverse(clamp)) {
     return;
   }
 
-  if (!canGlide(element)) {
+  if (!canAnimate(element)) {
     clamp();
     return;
   }
 
   const open = placedWithCells(element);
   const spots = partSpots(element);
-  glide.play(
+  transition.play(
     [
-      ...glideBetween(open, open, measuredAs(element, true, placedWithCells)),
+      ...layoutTransitionBetween(
+        open,
+        open,
+        measuredAs(element, true, placedWithCells),
+      ),
       ...shiftBetween(spots, spots, measuredAs(element, true, partSpots)),
     ],
     clamp,
@@ -79,15 +83,15 @@ const collapse = (
 
 const expand = (
   element: HTMLLIElement | null,
-  glide: Glide,
+  transition: LayoutTransition,
   pending: RefObject<Pending | null>,
   unclamp: () => void,
 ) => {
-  if (glide.reverse()) {
+  if (transition.reverse()) {
     return;
   }
 
-  if (canGlide(element)) {
+  if (canAnimate(element)) {
     pending.current = {
       from: placedWithCells(element),
       spots: partSpots(element),
@@ -103,7 +107,7 @@ export function useRowExpansion(control?: RowControl): RowExpansion {
   const expanded = control ? control.open : own;
   const [clamped, setClamped] = useState(!expanded);
   const shown = useRef(expanded);
-  const glide = useGlide();
+  const transition = useLayoutTransition();
 
   useLayoutEffect(() => {
     if (shown.current === expanded) {
@@ -112,27 +116,27 @@ export function useRowExpansion(control?: RowControl): RowExpansion {
     shown.current = expanded;
 
     if (expanded) {
-      expand(row.current, glide, pending, () => setClamped(false));
+      expand(row.current, transition, pending, () => setClamped(false));
     } else {
-      collapse(row.current, glide, () => setClamped(true));
+      collapse(row.current, transition, () => setClamped(true));
     }
-  }, [expanded, glide]);
+  }, [expanded, transition]);
 
   useLayoutEffect(() => {
     const element = row.current;
-    const glided = pending.current;
+    const moved = pending.current;
     pending.current = null;
 
-    if (element && glided && !clamped) {
+    if (element && moved && !clamped) {
       const now = placedWithCells(element);
       const spots = partSpots(element);
 
-      glide.play([
-        ...glideBetween(now, glided.from, now),
-        ...shiftBetween(spots, glided.spots, spots),
+      transition.play([
+        ...layoutTransitionBetween(now, moved.from, now),
+        ...shiftBetween(spots, moved.spots, spots),
       ]);
     }
-  }, [clamped, glide]);
+  }, [clamped, transition]);
 
   const toggle = () =>
     control ? control.onOpenChange(!expanded) : setOwn(!expanded);

@@ -17,7 +17,7 @@ beforeEach(() => {
 });
 
 describe('useAttachments', () => {
-  it('uploads a file the moment it is added, and holds its id once done', async () => {
+  it('uploads a file the moment it is added, and keeps its id once done', async () => {
     uploaded.mockResolvedValue({ id: 'att_1' });
     const { result } = renderHook(() => useAttachments('acme'));
 
@@ -35,7 +35,7 @@ describe('useAttachments', () => {
   });
 
   it('keeps a failed upload in view, with nothing to send for it', async () => {
-    uploaded.mockRejectedValue(new Error('refused'));
+    uploaded.mockRejectedValue(new Error('failed'));
     const { result } = renderHook(() => useAttachments('acme'));
 
     act(() => result.current.add([text()]));
@@ -79,7 +79,7 @@ describe('useAttachments', () => {
     expect(result.current.attachments).toHaveLength(1);
   });
 
-  it('forgets a file removed while it was still going up', async () => {
+  it('clears a file removed while it was still going up', async () => {
     let land: (granted: { id: string }) => void = () => {};
     uploaded.mockReturnValue(
       new Promise((resolve) => {

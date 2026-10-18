@@ -1,13 +1,13 @@
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
+import { MemoryCreated } from '@memory/domain/events/memory-created.event';
 import { MemoryRetired } from '@memory/domain/events/memory-retired.event';
-import { MemoryStood } from '@memory/domain/events/memory-stood.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryAlreadyRetiredError } from '@memory/domain/exceptions/memory-already-retired.error';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
-import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -24,21 +24,21 @@ const NEW = MemoryId.of('memory_new');
 
 const TEAM = TeamId.of('team_1');
 
-const stood = (
+const created = (
   change: {
     id?: MemoryId;
     supersedes?: Memory | null;
     scope?: MemoryScope;
   } = {},
 ) =>
-  Memory.stood({
+  Memory.create({
     id: change.id ?? NEW,
     handle: MemoryHandle.of(1),
     workspaceId: WorkspaceId.of('ws_1'),
     kind: 'preference',
     body: MemoryBody.of(' Name branches after the ticket. '),
     scope: change.scope ?? MemoryScope.of({ teamId: TEAM }),
-    grounds: MemoryGrounds.of({
+    provenance: MemoryProvenance.of({
       taskId: TaskId.of('task_1'),
       runId: RunId.of('run_1'),
       steps: [],
@@ -49,73 +49,75 @@ const stood = (
     approval: MemoryDecision.of({ by: UserId.of('user_ada'), at: NOW }),
   });
 
-const old = () => stood({ id: OLD });
+const old = () => created({ id: OLD });
 
 describe('Memory', () => {
-  it('stands once approved, saying what it supersedes', () => {
-    const memory = stood({ supersedes: old() });
+  it('is active once approved and says what it supersedes', () => {
+    const memory = created({ supersedes: old() });
 
-    expect(memory.standing).toBe('stands');
+    expect(memory.status).toBe('active');
     expect(memory.body.value).toBe('Name branches after the ticket.');
-    expect(memory.pullEvents()).toEqual([new MemoryStood(NEW, OLD)]);
+    expect(memory.pullEvents()).toEqual([new MemoryCreated(NEW, OLD)]);
   });
 
-  it('supersedes only a memory that still stands', () => {
+  it('supersedes only a memory that is still active', () => {
     const retired = old().retire({
       by: UserId.of('user_bea'),
       reason: 'Wrong.',
       at: LATER,
     });
 
-    expect(stood({ supersedes: retired }).supersedes).toBeNull();
+    expect(created({ supersedes: retired }).supersedes).toBeNull();
   });
 
-  it('refuses superseding itself', () => {
-    expect(() => stood({ supersedes: stood() })).toThrow(InvalidMemoryError);
+  it('rejects superseding itself', () => {
+    expect(() => created({ supersedes: created() })).toThrow(
+      InvalidMemoryError,
+    );
   });
 
-  it('applies only where its scope reaches, and only while it stands', () => {
+  it('applies only where its scope matches, and only while it is active', () => {
     const api = Repository.of('acme/api');
-    const site = {
+    const runContext = {
       teamId: TEAM,
       lineId: 'line_1',
       stationId: 'station_1',
       repositories: [api],
     };
-    const atLine = stood({
+    const atLine = created({
       scope: MemoryScope.of({ teamId: TEAM, lineId: 'line_1' }),
     });
 
-    expect(atLine.appliesAt(site)).toBe(true);
-    expect(atLine.appliesAt({ ...site, lineId: 'line_2' })).toBe(false);
+    expect(atLine.appliesAt(runContext)).toBe(true);
+    expect(atLine.appliesAt({ ...runContext, lineId: 'line_2' })).toBe(false);
     expect(
       atLine
         .retire({ by: UserId.of('user_bea'), reason: 'Gone.', at: LATER })
-        .appliesAt(site),
+        .appliesAt(runContext),
     ).toBe(false);
   });
 
   it('retires when a newer memory supersedes it, and says by which', () => {
-    const memory = stood();
+    const memory = created();
     memory.pullEvents();
 
     const retired = memory.supersedeWith(OLD, LATER);
 
-    expect(retired.standing).toBe('retired');
+    expect(retired.status).toBe('retired');
     expect(retired.retirement?.supersededBy?.equals(OLD)).toBe(true);
     expect(retired.retirement?.at).toEqual(LATER);
     expect(retired.pullEvents()).toEqual([new MemoryRetired(NEW, OLD)]);
   });
 
   it('retires once', () => {
-    const retired = stood().supersedeWith(OLD, LATER);
+    const retired = created().supersedeWith(OLD, LATER);
 
     expect(retired.supersedeWith(MemoryId.of('memory_other'), NOW)).toBe(
       retired,
     );
   });
 
-  it('stands at once when a person writes it, as theirs and resting on nothing', () => {
+  it('is active at once when a person writes it, as theirs and citing nothing', () => {
     const written = Memory.write({
       id: NEW,
       handle: MemoryHandle.of(2),
@@ -123,35 +125,35 @@ describe('Memory', () => {
       kind: 'environment',
       body: MemoryBody.of('Staging needs a restart after deploys.'),
       scope: MemoryScope.of({ teamId: TEAM }),
-      grounds: null,
+      provenance: null,
       by: MemoryDecision.of({ by: UserId.of('user_bea'), at: NOW }),
     });
 
-    expect(written.standing).toBe('stands');
+    expect(written.status).toBe('active');
     expect(written.source).toBe('person');
-    expect(written.grounds).toBeNull();
+    expect(written.provenance).toBeNull();
     expect(written.approval.by.value).toBe('user_bea');
   });
 
   it('retires with a reason, saying who retired it', () => {
-    const retired = stood().retire({
+    const retired = created().retire({
       by: UserId.of('user_bea'),
       reason: ' The retry worker was removed. ',
       at: LATER,
     });
 
-    expect(retired.standing).toBe('retired');
+    expect(retired.status).toBe('retired');
     expect(retired.retirement?.reason).toBe('The retry worker was removed.');
     expect(retired.retirement?.by?.value).toBe('user_bea');
     expect(retired.retirement?.supersededBy).toBeNull();
   });
 
-  it('refuses to retire without a reason, or twice', () => {
+  it('does not retire without a reason, or twice', () => {
     expect(() =>
-      stood().retire({ by: UserId.of('user_bea'), reason: '  ', at: LATER }),
+      created().retire({ by: UserId.of('user_bea'), reason: '  ', at: LATER }),
     ).toThrow(InvalidMemoryError);
 
-    const retired = stood().retire({
+    const retired = created().retire({
       by: UserId.of('user_bea'),
       reason: 'Gone.',
       at: LATER,
@@ -165,11 +167,11 @@ describe('Memory', () => {
     ).toThrow(MemoryAlreadyRetiredError);
   });
 
-  it('is corrected by a successor that keeps what it rests on and stands to supersede it, leaving it untouched', () => {
-    const held = stood();
-    held.pullEvents();
+  it('is corrected by a successor that keeps what it cites and becomes active to supersede it, leaving it untouched', () => {
+    const original = created();
+    original.pullEvents();
 
-    const successor = held.correct({
+    const successor = original.correct({
       id: OLD,
       handle: MemoryHandle.of(3),
       kind: 'preference',
@@ -178,16 +180,18 @@ describe('Memory', () => {
       by: MemoryDecision.of({ by: UserId.of('user_bea'), at: LATER }),
     });
 
-    expect(held.standing).toBe('stands');
-    expect(held.pullEvents()).toEqual([]);
+    expect(original.status).toBe('active');
+    expect(original.pullEvents()).toEqual([]);
     expect(successor.supersedes?.equals(NEW)).toBe(true);
     expect(successor.source).toBe('person');
-    expect(successor.grounds?.equals(held.grounds as MemoryGrounds)).toBe(true);
-    expect(successor.pullEvents()).toEqual([new MemoryStood(OLD, NEW)]);
+    expect(
+      successor.provenance?.equals(original.provenance as MemoryProvenance),
+    ).toBe(true);
+    expect(successor.pullEvents()).toEqual([new MemoryCreated(OLD, NEW)]);
   });
 
-  it('refuses to correct a memory that was already retired', () => {
-    const retired = stood().retire({
+  it('does not correct a memory that was already retired', () => {
+    const retired = created().retire({
       by: UserId.of('user_bea'),
       reason: 'Gone.',
       at: LATER,

@@ -7,7 +7,7 @@ import {
   putsItToAPerson,
   routeAfterRun,
 } from '@work/domain/services/route-after-run';
-import type { Declaration } from '@work/domain/value-objects/declaration.vo';
+import type { Handover } from '@work/domain/value-objects/handover.vo';
 import type { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import type { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
@@ -24,16 +24,21 @@ interface Turn {
   readonly task: Task | null;
   readonly line: Line | null;
   readonly outcome: RunOutcome;
-  readonly declared: Declaration | null;
+  readonly handover: Handover | null;
 }
 
-const handoverOf = (task: Task, { outcome, declared, line }: Turn) =>
-  HandoverFor.after({ outcome, declared, line, standingAt: task.stationId });
+const handoverOf = (task: Task, { outcome, handover, line }: Turn) =>
+  HandoverFor.after({
+    outcome,
+    handover,
+    line,
+    currentStation: task.stationId,
+  });
 
 const asksAPerson = (turn: Turn): boolean => {
   const { run, task, line, outcome } = turn;
 
-  if (!task?.heldBy(run.id) || run.stopRequested || !outcome.handsOver) {
+  if (!task?.hasCurrentRun(run.id) || run.stopRequested || !outcome.handsOver) {
     return false;
   }
 
@@ -43,18 +48,20 @@ const asksAPerson = (turn: Turn): boolean => {
 };
 
 export const turnWaits = (
-  turn: Turn & { readonly by: RunnerId; readonly mayBeWithheld: boolean },
+  turn: Turn & { readonly by: RunnerId; readonly mayBeSentToReview: boolean },
 ): boolean => {
   if (turn.run.pausedBy(turn.by)) {
     return !turn.outcome.stopped;
   }
 
-  const withheld =
-    turn.mayBeWithheld && turn.declared
-      ? { ...turn, declared: turn.declared.withheld('') }
+  const sentToReview =
+    turn.mayBeSentToReview && turn.handover
+      ? { ...turn, handover: turn.handover.sentToReview('') }
       : null;
 
-  return asksAPerson(turn) || (withheld !== null && asksAPerson(withheld));
+  return (
+    asksAPerson(turn) || (sentToReview !== null && asksAPerson(sentToReview))
+  );
 };
 
 export const turnEnded = (turn: {
@@ -64,12 +71,12 @@ export const turnEnded = (turn: {
   line: Line | null;
   outcome: RunOutcome;
   report: HandoverReport;
-  kept: boolean;
+  archived: boolean;
   now: Date;
 }): TurnEnd => {
-  const { run, by, task, line, outcome, report, kept, now } = turn;
+  const { run, by, task, line, outcome, report, archived, now } = turn;
 
-  const asked = { run, task, line, outcome, declared: report.declared };
+  const ending = { run, task, line, outcome, handover: report.handover };
 
   if (run.leavesNothingBehind) {
     return {
@@ -79,13 +86,13 @@ export const turnEnded = (turn: {
     };
   }
 
-  const waits = turnWaits({ ...asked, by, mayBeWithheld: false });
+  const waits = turnWaits({ ...ending, by, mayBeSentToReview: false });
 
   if (waits && run.pausedBy(by)) {
     return { waiting: true, run, task: null };
   }
 
-  if (!task || !kept || !waits) {
+  if (!task || !archived || !waits) {
     return {
       waiting: false,
       run: run.complete(by, outcome, report),
@@ -93,21 +100,23 @@ export const turnEnded = (turn: {
     };
   }
 
-  if (task.undelivered.length > 0) {
+  if (task.unacknowledged.length > 0) {
     return { waiting: true, run, task: null };
   }
 
-  const worked = report.session ? task.recordSession(report.session, by) : task;
+  const recorded = report.session
+    ? task.recordSession(report.session, by)
+    : task;
 
   return {
     waiting: true,
     run: run.paused(by, outcome, report, now),
-    task: worked.awaitingReview
-      ? worked
-      : worked.putToAPerson(run.id, {
+    task: recorded.awaitingReview
+      ? recorded
+      : recorded.putToAPerson(run.id, {
           station:
             line?.stationAt(task.stationId)?.name ?? StationName.unknown(),
-          body: handoverOf(task, asked).body,
+          body: handoverOf(task, ending).body,
           at: now,
           voice: Voice.station(run.id),
         }),

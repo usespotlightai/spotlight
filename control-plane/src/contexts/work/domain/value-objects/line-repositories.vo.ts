@@ -4,16 +4,16 @@ import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-ima
 import { DuplicateRepositoryError } from '@work/domain/exceptions/duplicate-repository.error';
 import { MixedRunnerImagesError } from '@work/domain/exceptions/mixed-runner-images.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
+import type { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import type { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
-import type { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 
 export class LineRepositories {
   private constructor(
-    readonly entries: readonly WorkedRepository[],
+    readonly entries: readonly LineRepositoryConfig[],
     readonly image: RunnerImage | null,
   ) {}
 
-  static of(entries: readonly WorkedRepository[]): LineRepositories {
+  static of(entries: readonly LineRepositoryConfig[]): LineRepositories {
     const names = new Set<string>();
 
     for (const { repository } of entries) {

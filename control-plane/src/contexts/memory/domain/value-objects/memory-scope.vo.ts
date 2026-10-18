@@ -1,10 +1,10 @@
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import type { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
-import type { MemoryReach } from '@memory/domain/value-objects/memory-reach';
+import type { MemoryScopeLevel } from '@memory/domain/value-objects/memory-scope-level';
 import type {
-  RunSite,
-  TouchedSite,
-} from '@memory/domain/value-objects/run-site';
+  RunContext,
+  TouchedContext,
+} from '@memory/domain/value-objects/run-context';
 import { distinct } from '@shared-kernel/domain/services/distinct';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -47,33 +47,34 @@ export class MemoryScope {
     return new MemoryScope(input.teamId, lineId, stationId, repository, paths);
   }
 
-  appliesAt(site: RunSite): boolean {
-    if (!this.teamId.equals(site.teamId)) {
+  appliesAt(runContext: RunContext): boolean {
+    if (!this.teamId.equals(runContext.teamId)) {
       return false;
     }
 
-    if (this.lineId && this.lineId !== site.lineId) {
+    if (this.lineId && this.lineId !== runContext.lineId) {
       return false;
     }
 
-    if (this.stationId && this.stationId !== site.stationId) {
+    if (this.stationId && this.stationId !== runContext.stationId) {
       return false;
     }
 
     const { repository } = this;
 
     return (
-      !repository || site.repositories.some((each) => each.equals(repository))
+      !repository ||
+      runContext.repositories.some((each) => each.equals(repository))
     );
   }
 
-  reaches(site: TouchedSite): boolean {
+  matches(runContext: TouchedContext): boolean {
     const { repository } = this;
 
     return (
-      this.appliesAt(site) &&
+      this.appliesAt(runContext) &&
       (this.paths.length === 0 ||
-        site.touched.some(
+        runContext.touched.some(
           (touched) =>
             repository?.equals(touched.repository) &&
             this.paths.some((path) => path.covers(touched.path)),
@@ -94,7 +95,7 @@ export class MemoryScope {
     return this.repository ? 1 : 0;
   }
 
-  get reach(): MemoryReach {
+  get level(): MemoryScopeLevel {
     return this.stationId ? 'station' : this.lineId ? 'line' : 'team';
   }
 

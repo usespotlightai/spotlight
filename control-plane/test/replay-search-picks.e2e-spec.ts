@@ -10,15 +10,15 @@ import {
   CONFIG,
   CONFIG_FILE,
   CONFIG_LINE,
+  createSet,
   drained,
   endedSearchRun,
   fiveTasks,
   github,
-  heldSearchRun,
   judged,
+  leasedSearchRun,
   liveBlock,
   openSearchFlow,
-  openSet,
   owner,
   PROMPT_FILE,
   proposing,
@@ -41,7 +41,7 @@ openSearchFlow();
 
 describe('a search for a better station config, ranking and picking its candidates', () => {
   it('looks for the same success at less cost on a set its live config saturates, ranking the cheapest candidate that succeeds as often first and leaving out a cheaper one that succeeds less', async () => {
-    const setId = await openSet('Saturated', tenTasks);
+    const setId = await createSet('Saturated', tenTasks);
     const live = (
       await owner()
         .post(`${teamPath()}/replay-sets/${setId}/replays`, {
@@ -66,7 +66,7 @@ describe('a search for a better station config, ranking and picking its candidat
         })
         .expect(200)
     ).body as { objective: string; warnings: { kind: string }[] };
-    const told = (
+    const withObjective = (
       await owner()
         .post(`${stationPath()}/searches/estimate`, {
           setId,
@@ -78,7 +78,7 @@ describe('a search for a better station config, ranking and picking its candidat
 
     expect(estimate.objective).toBe('cost');
     expect(estimate.warnings).toContainEqual({ kind: 'saturated', rate: 1 });
-    expect(told.objective).toBe('success');
+    expect(withObjective.objective).toBe('success');
     await owner()
       .post(`${stationPath()}/searches/estimate`, {
         setId,
@@ -103,7 +103,7 @@ describe('a search for a better station config, ranking and picking its candidat
     await drained(() => ({ score: 5, cost: 0.2 }));
     expect(await replayEnded(started.seedReplayId)).toBe('finished');
 
-    const agent = await heldSearchRun(started.id, 1);
+    const agent = await leasedSearchRun(started.id, 1);
     const block = await liveBlock();
     const proposed = async (name: string, prompt: string) =>
       (
@@ -127,9 +127,9 @@ describe('a search for a better station config, ranking and picking its candidat
 
     await endedSearchRun(agent);
     await drained(plan);
-    await endedSearchRun(await heldSearchRun(started.id, 2));
+    await endedSearchRun(await leasedSearchRun(started.id, 2));
     await eventually(async () => {
-      await app.get(AdvanceSearches).workDue();
+      await app.get(AdvanceSearches).processDue();
       return (await searchRow(started.id))?.heldOut.length === 1;
     }, WITHIN);
     await drained(plan);
@@ -164,8 +164,8 @@ describe('a search for a better station config, ranking and picking its candidat
     ]);
   }, 120_000);
 
-  it('opens one pull request in the line’s config repository for a picked candidate, records why one was refused, and tries again when picked again', async () => {
-    const setId = await openSet('Picked', fiveTasks);
+  it('opens one pull request in the line’s config repository for a picked candidate, records why one failed, and tries again when picked again', async () => {
+    const setId = await createSet('Picked', fiveTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 1,
       perIteration: 1,
@@ -175,7 +175,7 @@ describe('a search for a better station config, ranking and picking its candidat
     await drained(() => ({ score: 3, cost: 0.1 }));
     expect(await replayEnded(seedReplayId)).toBe('finished');
 
-    const agent = await heldSearchRun(id, 1);
+    const agent = await leasedSearchRun(id, 1);
     const block = await liveBlock();
     const proposed = (
       await proposing(agent, {
@@ -213,13 +213,13 @@ describe('a search for a better station config, ranking and picking its candidat
       repository: CONFIG,
       path: CONFIG_FILE,
       branch: `spotlight/search-${id.slice(0, 8)}-in-order`,
-      attempts: 1,
+      generation: 1,
     });
 
     const pullRequestPath = `${teamPath()}/config-pull-requests/${one.body.id}`;
-    const settled = () =>
+    const attempted = () =>
       eventually(async () => {
-        await app.get(OpenConfigPullRequests).workDue();
+        await app.get(OpenConfigPullRequests).processDue();
         const read = (await owner().get(pullRequestPath).expect(200)).body as {
           state: string;
         };
@@ -227,10 +227,10 @@ describe('a search for a better station config, ranking and picking its candidat
         return read.state === 'opening' ? null : read;
       }, WITHIN);
 
-    expect(await settled()).toMatchObject({
-      state: 'refused',
+    expect(await attempted()).toMatchObject({
+      state: 'failed',
       url: null,
-      reason: { code: 'drifted', attribute: 'prompt' },
+      reason: { code: 'base-changed', attribute: 'prompt' },
     });
     expect(github.commits).toEqual([]);
 
@@ -242,16 +242,16 @@ describe('a search for a better station config, ranking and picking its candidat
     expect(retried.body).toMatchObject({
       id: one.body.id,
       state: 'opening',
-      attempts: 2,
+      generation: 2,
       reason: null,
     });
-    expect(await settled()).toMatchObject({
+    expect(await attempted()).toMatchObject({
       state: 'opened',
       url: `https://github.com/${CONFIG}/pull/1`,
       reason: null,
     });
     await owner().post(pickPath(proposed.candidateId)).expect(200);
-    await app.get(OpenConfigPullRequests).workDue();
+    await app.get(OpenConfigPullRequests).processDue();
 
     expect(github.opened).toHaveLength(1);
     expect(github.opened[0]).toMatchObject({

@@ -9,8 +9,8 @@ const OPENS = 'Open the search';
 export class SearchNotices implements SearchNoticesPort {
   constructor(private readonly notices: NoticesPort) {}
 
-  told(notice: SearchNotice): Promise<void> {
-    return this.notices.raise({
+  notify(notice: SearchNotice): Promise<void> {
+    return this.notices.create({
       workspaceId: notice.workspaceId,
       teamId: notice.teamId,
       addressee: notice.addressee,

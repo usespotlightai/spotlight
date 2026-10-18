@@ -1,11 +1,11 @@
-import type { ReplayRefusal } from '@replays/domain/value-objects/replay-refusal';
+import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 
 export class UnreplayableEntryError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(
     readonly runId: string,
-    readonly refusal: ReplayRefusal,
+    readonly unreplayableReason: UnreplayableReason,
     reason: string,
   ) {
     super(`Run ${runId} cannot be replayed. ${reason}`);

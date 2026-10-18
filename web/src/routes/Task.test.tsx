@@ -162,11 +162,11 @@ describe('Task', () => {
 
     it('marks each run that put the task to a person', () => {
       worked.mockReturnValue([
-        run({ review: { state: 'owed', conversationId: 'task_1:5' } }),
+        run({ review: { state: 'pending', conversationId: 'task_1:5' } }),
         run({ id: 'run_2' }),
         run({
           id: 'run_3',
-          review: { state: 'settled', conversationId: 'task_1:0' },
+          review: { state: 'answered', conversationId: 'task_1:0' },
         }),
       ]);
       renderAt('task_1');
@@ -179,7 +179,7 @@ describe('Task', () => {
       worked.mockReturnValue([
         run({
           id: 'run_7',
-          review: { state: 'owed', conversationId: 'task_1:5' },
+          review: { state: 'pending', conversationId: 'task_1:5' },
         }),
       ]);
       renderAt('task_1');
@@ -199,26 +199,26 @@ describe('Task', () => {
     it('puts the asking above the run that raised it', () => {
       worked.mockReturnValue([
         run({ id: 'run_2' }),
-        run({ review: { state: 'owed', conversationId: 'task_1:5' } }),
+        run({ review: { state: 'pending', conversationId: 'task_1:5' } }),
       ]);
       renderAt('task_1');
 
-      const told = screen
+      const rows = screen
         .getAllByRole('listitem')
         .map((each) => each.textContent);
 
-      expect(told[1]).toContain('Waiting for you');
-      expect(told[2]).toContain('Implementation');
+      expect(rows[1]).toContain('Waiting for you');
+      expect(rows[2]).toContain('Implementation');
     });
   });
 
-  it('links the changes of the newest stack drafted for the task', () => {
+  it('links the changes of the newest stack generated for the task', () => {
     stacked.mockReturnValue({
       latest: {
         runId: 'run_9',
         repository: 'spotlight',
         state: 'ready',
-        checkState: 'checked',
+        checkStatus: 'checked',
         added: 61,
         removed: 4,
       },
@@ -235,7 +235,7 @@ describe('Task', () => {
     expect(changes).toHaveTextContent('−4');
   });
 
-  it('offers no change stack where none was drafted', () => {
+  it('offers no change stack where none was generated', () => {
     renderAt('task_1');
 
     expect(
@@ -260,7 +260,7 @@ describe('Task', () => {
     );
   });
 
-  it('names the station it stands at', () => {
+  it('names the station it is at', () => {
     renderAt('task_1');
 
     expect(screen.getByRole('button', { name: /Station/ })).toHaveTextContent(
@@ -286,7 +286,7 @@ describe('Task', () => {
     });
   });
 
-  it('offers only the backlog, completed and where it stands to a task at a work station', async () => {
+  it('offers only the backlog, completed and its current station to a task at a work station', async () => {
     const user = userEvent.setup();
     renderAt('task_1');
 
@@ -311,7 +311,7 @@ describe('Task', () => {
     ).toEqual(['Completed']);
   });
 
-  it('asks before taking a task away', async () => {
+  it('confirms before taking a task away', async () => {
     const user = userEvent.setup();
     renderAt('task_1');
 
@@ -325,7 +325,7 @@ describe('Task', () => {
     expect(deleted).not.toHaveBeenCalled();
   });
 
-  it('takes the task away once it is asked to', async () => {
+  it('takes the task away once the person confirms', async () => {
     const user = userEvent.setup();
     renderAt('task_1');
 
@@ -342,7 +342,7 @@ describe('Task', () => {
     );
   });
 
-  it('keeps the task when the asking is declined', async () => {
+  it('keeps the task when the person declines', async () => {
     const user = userEvent.setup();
     renderAt('task_1');
 
@@ -366,7 +366,7 @@ describe('Task', () => {
     );
   });
 
-  it('holds the shape of a task while it loads, keeping what never changes', () => {
+  it('keeps the shape of a task while it loads, keeping what never changes', () => {
     listed.mockReturnValue(undefined);
 
     renderAt('task_1');
@@ -382,7 +382,7 @@ describe('Task', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('says the task could not be loaded, and tries again when asked', async () => {
+  it('says the task could not be loaded, and tries again on request', async () => {
     const user = userEvent.setup();
     listed.mockReturnValue(undefined);
     failing.mockReturnValue(true);

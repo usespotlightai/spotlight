@@ -17,22 +17,22 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
-import { MarkWornElsewhereError } from '@work/domain/exceptions/mark-worn-elsewhere.error';
+import { MarkAlreadyClaimedError } from '@work/domain/exceptions/mark-already-claimed.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { openSetupList } from '@work/domain/services/setup-list';
+import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
-import type { Concerns } from '@work/domain/value-objects/concerns.vo';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
+import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
+import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { HeldBack } from '@work/domain/value-objects/held-back.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
-import { Said } from '@work/domain/value-objects/said.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
@@ -56,7 +56,7 @@ import {
 import {
   type ApprovalRow,
   type ConnectionAskRow,
-  type HeldBackRow,
+  type DeferredMoveRow,
   task,
   taskAttachment,
   taskMark,
@@ -82,7 +82,7 @@ const toApproval = (row: ApprovalRow): Approval =>
     subject: toApprovalSubject(row.subject),
     at: StationId.of(row.stationId),
     because: row.because,
-    standing: row.standing,
+    status: row.status,
     decided:
       row.decidedBy && row.decidedAt
         ? {
@@ -101,7 +101,7 @@ const toApprovalRow = (approval: Approval): ApprovalRow => ({
   subject: toApprovalSubjectRow(approval.subject),
   stationId: approval.at.value,
   because: approval.because,
-  standing: approval.standing,
+  status: approval.status,
   decidedBy: approval.decided?.by.value ?? null,
   decidedAt: approval.decided?.at.toISOString() ?? null,
   reason: approval.decided?.reason ?? null,
@@ -111,27 +111,27 @@ const toApprovalRow = (approval: Approval): ApprovalRow => ({
   askedOf: approval.askedOf?.value ?? null,
 });
 
-const toHeldBack = (row: HeldBackRow): HeldBack =>
+const toDeferredMove = (row: DeferredMoveRow): DeferredMove =>
   row.kind === 'moves'
-    ? HeldBack.moveTo(StationId.of(row.to))
-    : HeldBack.cleared();
+    ? DeferredMove.moveTo(StationId.of(row.to))
+    : DeferredMove.cleared();
 
-const toHeldBackRow = (held: HeldBack): HeldBackRow =>
-  held.to ? { kind: 'moves', to: held.to.value } : { kind: 'cleared' };
+const toDeferredMoveRow = (move: DeferredMove): DeferredMoveRow =>
+  move.to ? { kind: 'moves', to: move.to.value } : { kind: 'cleared' };
 
 const toConnectionAsk = (row: ConnectionAskRow): ConnectionAsk =>
   ConnectionAsk.of({
     teamId: TeamId.of(row.teamId),
-    source: row.source,
     integration: row.integration,
+    integrationName: row.integrationName,
     personId: UserId.of(row.personId),
     met: row.met,
   });
 
 const toConnectionAskRow = (ask: ConnectionAsk): ConnectionAskRow => ({
   teamId: ask.teamId.value,
-  source: ask.source,
   integration: ask.integration,
+  integrationName: ask.integrationName,
   personId: ask.personId.value,
   met: ask.met,
 });
@@ -144,15 +144,15 @@ const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
     body: TaskNoteBody.of(row.body),
     at: row.at,
     voice: Voice.of({ by: row.voice, author: row.authorId, run: row.runId }),
-    said: row.said ? Said.of(row.said) : null,
+    anchor: row.anchor ? Anchor.of(row.anchor) : null,
     answeredAt: row.answeredAt,
     kind: row.kind,
     readAt: row.readAt,
-    deliveredAt: row.deliveredAt,
+    acknowledgedAt: row.acknowledgedAt,
     form: row.form,
     approval: row.approval ? toApproval(row.approval) : null,
     failure: row.failure ? TaskFailure.rehydrate(row.failure) : null,
-    heldBack: row.heldBack ? toHeldBack(row.heldBack) : null,
+    deferredMove: row.deferredMove ? toDeferredMove(row.deferredMove) : null,
     connectionAsk: row.connectionAsk
       ? toConnectionAsk(row.connectionAsk)
       : null,
@@ -177,10 +177,10 @@ const toTask = (
     runnerId: row.runnerId ? RunnerId.of(row.runnerId) : null,
     notes: notes.map((note) => toNote(note, attachments)),
     createdAt: row.createdAt,
-    raisedAt: row.raisedAtStationId
-      ? StationId.of(row.raisedAtStationId)
+    originStationId: row.originStationId
+      ? StationId.of(row.originStationId)
       : null,
-    raisedBy: row.raisedById ? UserId.of(row.raisedById) : null,
+    createdBy: row.createdById ? UserId.of(row.createdById) : null,
     openedFrom: TaskOrigin.of(row.openedFrom),
     assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
     finishedAt: row.finishedAt,
@@ -230,8 +230,8 @@ export class DrizzleTaskRepository implements TaskRepository {
         sessionId: added.sessionId?.value ?? null,
         runnerId: added.runnerId?.value ?? null,
         createdAt: added.createdAt,
-        raisedAtStationId: added.raisedAt?.value ?? null,
-        raisedById: added.raisedBy?.value ?? null,
+        originStationId: added.originStationId?.value ?? null,
+        createdById: added.createdBy?.value ?? null,
         openedFrom: added.openedFrom.value,
         assigneeId: added.assignee?.value ?? null,
         pullRequest: added.pullRequest?.value ?? null,
@@ -305,7 +305,7 @@ export class DrizzleTaskRepository implements TaskRepository {
   }
 
   private async writeMarks(written: Task): Promise<void> {
-    const worn = or(
+    const marked = or(
       ...written.marks.map((mark) =>
         and(eq(taskMark.kind, mark.kind), eq(taskMark.value, mark.value)),
       ),
@@ -316,7 +316,7 @@ export class DrizzleTaskRepository implements TaskRepository {
       .where(
         and(
           eq(taskMark.taskId, written.id.value),
-          worn ? not(worn) : undefined,
+          marked ? not(marked) : undefined,
         ),
       );
 
@@ -324,7 +324,7 @@ export class DrizzleTaskRepository implements TaskRepository {
       return;
     }
 
-    const kept = await this.context.db
+    const stored = await this.context.db
       .insert(taskMark)
       .values(
         written.marks.map((mark) => ({
@@ -343,13 +343,13 @@ export class DrizzleTaskRepository implements TaskRepository {
 
     const taken = written.marks.find(
       (mark) =>
-        !kept.some(
+        !stored.some(
           (each) => each.kind === mark.kind && each.value === mark.value,
         ),
     );
 
     if (taken) {
-      throw new MarkWornElsewhereError(taken.toString());
+      throw new MarkAlreadyClaimedError(taken.toString());
     }
   }
 
@@ -367,9 +367,9 @@ export class DrizzleTaskRepository implements TaskRepository {
       .from(taskMark)
       .where(inArray(taskMark.taskId, taskIds));
 
-    return rows.reduce((worn, row) => {
-      worn.set(row.taskId, [...(worn.get(row.taskId) ?? []), row]);
-      return worn;
+    return rows.reduce((marked, row) => {
+      marked.set(row.taskId, [...(marked.get(row.taskId) ?? []), row]);
+      return marked;
     }, new Map<string, MarkRow[]>());
   }
 
@@ -405,15 +405,15 @@ export class DrizzleTaskRepository implements TaskRepository {
     return whole ?? null;
   }
 
-  async holding(
+  async findByMarks(
     workspaceId: WorkspaceId,
-    concerns: Concerns,
+    correlationKeys: CorrelationKeys,
   ): Promise<Task | null> {
-    const named = concerns.taskId
-      ? eq(task.id, concerns.taskId.value)
+    const named = correlationKeys.taskId
+      ? eq(task.id, correlationKeys.taskId.value)
       : undefined;
 
-    const worn = concerns.marks.length
+    const marked = correlationKeys.marks.length
       ? inArray(
           task.id,
           this.context.db
@@ -423,7 +423,7 @@ export class DrizzleTaskRepository implements TaskRepository {
               and(
                 eq(taskMark.workspaceId, workspaceId.value),
                 or(
-                  ...concerns.marks.map((mark) =>
+                  ...correlationKeys.marks.map((mark) =>
                     and(
                       eq(taskMark.kind, mark.kind),
                       eq(taskMark.value, mark.value),
@@ -435,7 +435,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         )
       : undefined;
 
-    if (!named && !worn) {
+    if (!named && !marked) {
       return null;
     }
 
@@ -445,7 +445,7 @@ export class DrizzleTaskRepository implements TaskRepository {
       .where(
         and(
           eq(task.workspaceId, workspaceId.value),
-          named && worn ? or(named, worn) : (named ?? worn),
+          named && marked ? or(named, marked) : (named ?? marked),
         ),
       )
       .limit(1)
@@ -467,7 +467,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     });
   }
 
-  async standingAt(stationId: StationId): Promise<Task[]> {
+  async allAtStation(stationId: StationId): Promise<Task[]> {
     const found = await this.context.db
       .select()
       .from(task)
@@ -478,23 +478,23 @@ export class DrizzleTaskRepository implements TaskRepository {
   }
 
   async settingUpFor(teamId: TeamId): Promise<Task | null> {
-    const [found] = await this.standingSetups(eq(line.teamId, teamId.value));
+    const [found] = await this.openSetups(eq(line.teamId, teamId.value));
 
     return found ?? null;
   }
 
   async settingUpIn(workspaceId: WorkspaceId): Promise<readonly Task[]> {
-    return this.standingSetups(eq(task.workspaceId, workspaceId.value));
+    return this.openSetups(eq(task.workspaceId, workspaceId.value));
   }
 
   async settingUp(): Promise<readonly Task[]> {
-    return this.standingSetups();
+    return this.openSetups();
   }
 
   async awaitingConnection(
     teamId: TeamId,
     personId: UserId,
-    source: string,
+    integration: string,
   ): Promise<readonly Task[]> {
     const found = await this.context.db
       .select()
@@ -509,7 +509,7 @@ export class DrizzleTaskRepository implements TaskRepository {
               and(
                 sql`${taskNote.connectionAsk} is not null`,
                 sql`(${taskNote.connectionAsk}->>'personId') = ${personId.value}`,
-                sql`(${taskNote.connectionAsk}->>'source') = ${source}`,
+                sql`(${taskNote.connectionAsk}->>'integration') = ${integration}`,
                 sql`(${taskNote.connectionAsk}->>'teamId') = ${teamId.value}`,
                 sql`(${taskNote.connectionAsk}->>'met')::boolean = false`,
               ),
@@ -520,7 +520,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     return this.whole(found);
   }
 
-  private async standingSetups(of?: ReturnType<typeof eq>): Promise<Task[]> {
+  private async openSetups(of?: ReturnType<typeof eq>): Promise<Task[]> {
     const closing = alias(taskNote, 'closing');
 
     const open = notExists(
@@ -551,8 +551,8 @@ export class DrizzleTaskRepository implements TaskRepository {
       ...new Map(found.map((each) => [each.task.id, each.task])).values(),
     ];
 
-    return (await this.whole(unique)).filter((standing) =>
-      openSetupList(standing.notes),
+    return (await this.whole(unique)).filter((each) =>
+      openSetupList(each.notes),
     );
   }
 
@@ -567,9 +567,9 @@ export class DrizzleTaskRepository implements TaskRepository {
       .where(inArray(taskNote.taskId, taskIds))
       .orderBy(taskNote.position);
 
-    return rows.reduce((standing, row) => {
-      standing.set(row.taskId, [...(standing.get(row.taskId) ?? []), row]);
-      return standing;
+    return rows.reduce((byTask, row) => {
+      byTask.set(row.taskId, [...(byTask.get(row.taskId) ?? []), row]);
+      return byTask;
     }, new Map<string, NoteRow[]>());
   }
 
@@ -586,9 +586,9 @@ export class DrizzleTaskRepository implements TaskRepository {
       .where(inArray(taskAttachment.taskId, taskIds))
       .orderBy(taskAttachment.notePosition, taskAttachment.place);
 
-    return rows.reduce((held, row) => {
-      held.set(row.taskId, [...(held.get(row.taskId) ?? []), row]);
-      return held;
+    return rows.reduce((byTask, row) => {
+      byTask.set(row.taskId, [...(byTask.get(row.taskId) ?? []), row]);
+      return byTask;
     }, new Map<string, AttachmentRow[]>());
   }
 
@@ -645,14 +645,14 @@ export class DrizzleTaskRepository implements TaskRepository {
           station: note.station.value,
           body: note.body.value,
           at: note.at,
-          said: note.said?.parts ?? null,
+          anchor: note.anchor?.parts ?? null,
           answeredAt: note.answeredAt,
           voice: note.voice.by,
           authorId: note.voice.author?.value ?? null,
           runId: note.voice.run?.value ?? null,
           kind: note.kind,
           readAt: note.readAt,
-          deliveredAt: note.deliveredAt,
+          acknowledgedAt: note.acknowledgedAt,
           form: note.form,
           approval: note.approval ? toApprovalRow(note.approval) : null,
           failure: note.failure
@@ -662,7 +662,9 @@ export class DrizzleTaskRepository implements TaskRepository {
                 occurrences: note.failure.occurrences,
               }
             : null,
-          heldBack: note.heldBack ? toHeldBackRow(note.heldBack) : null,
+          deferredMove: note.deferredMove
+            ? toDeferredMoveRow(note.deferredMove)
+            : null,
           connectionAsk: note.connectionAsk
             ? toConnectionAskRow(note.connectionAsk)
             : null,
@@ -672,7 +674,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         target: [taskNote.taskId, taskNote.position],
         set: {
           readAt: sql`excluded.read_at`,
-          deliveredAt: sql`excluded.delivered_at`,
+          acknowledgedAt: sql`excluded.acknowledged_at`,
           answeredAt: sql`excluded.answered_at`,
           approval: sql`excluded.approval`,
           failure: sql`excluded.failure`,

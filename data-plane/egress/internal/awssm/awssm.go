@@ -37,7 +37,7 @@ func With(client Client) *Reader {
 	return &Reader{client: client}
 }
 
-func (r *Reader) Read(ctx context.Context, source protocol.ReadInNetwork) (string, error) {
+func (r *Reader) Read(ctx context.Context, source protocol.ExternalSecretRef) (string, error) {
 	if source.Kind != protocol.ReadFromAWSSecretsManager {
 		return "", fmt.Errorf("egress reads no %s", source.Kind)
 	}
@@ -48,25 +48,25 @@ func (r *Reader) Read(ctx context.Context, source protocol.ReadInNetwork) (strin
 		if errors.As(err, &failed) {
 			return "", fmt.Errorf("AWS Secrets Manager answered %s", failed.ErrorCode())
 		}
-		return "", fmt.Errorf("AWS Secrets Manager could not be asked: %w", err)
+		return "", fmt.Errorf("could not call AWS Secrets Manager: %w", err)
 	}
 
-	held := aws.ToString(answer.SecretString)
-	if held == "" {
-		return "", errors.New("AWS Secrets Manager holds no text for it")
+	text := aws.ToString(answer.SecretString)
+	if text == "" {
+		return "", errors.New("AWS Secrets Manager has no text for it")
 	}
 	if source.Field == "" {
-		return held, nil
+		return text, nil
 	}
 
 	var fields map[string]any
-	if err := json.Unmarshal([]byte(held), &fields); err != nil {
+	if err := json.Unmarshal([]byte(text), &fields); err != nil {
 		return "", fmt.Errorf("its value in AWS Secrets Manager is not JSON, so it has no %s field", source.Field)
 	}
 
 	read, ok := fields[source.Field].(string)
 	if !ok || read == "" {
-		return "", fmt.Errorf("its value in AWS Secrets Manager holds no text at %s", source.Field)
+		return "", fmt.Errorf("its value in AWS Secrets Manager has no text at %s", source.Field)
 	}
 
 	return read, nil

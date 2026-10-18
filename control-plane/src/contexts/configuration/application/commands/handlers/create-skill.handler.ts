@@ -1,7 +1,7 @@
 import type { CreateSkillCommand } from '@configuration/application/commands/create-skill.command';
 import type { SkillCompilerPort } from '@configuration/application/ports/skill-compiler.port';
 import { SkillDefinition } from '@configuration/domain/aggregates/skill-definition.aggregate';
-import { SkillAlreadyDefinedError } from '@configuration/domain/exceptions/skill-already-defined.error';
+import { SkillAlreadyExistsError } from '@configuration/domain/exceptions/skill-already-exists.error';
 import type { SkillDefinitionRepository } from '@configuration/domain/repositories/skill-definition.repository';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
@@ -18,8 +18,8 @@ import type {
   IdempotentCreatesPort,
 } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
 
@@ -74,23 +74,23 @@ export class CreateSkillHandler
 
       try {
         return await this.transaction.inTransaction(() =>
-          createdOnce(this.creates, create, async () => {
-            const defined = SkillDefinition.define({
+          createIdempotently(this.creates, create, async () => {
+            const created = SkillDefinition.create({
               ...compiled,
               id: SkillDefinitionId.of(this.ids.generate()),
               teamId: team.id,
-              by: Attribution.of(command.actor, team.workspaceId),
+              by: ChangeActor.of(command.actor, team.workspaceId),
             });
 
-            await this.definitions.save(defined);
+            await this.definitions.save(created);
 
-            return defined.id.value;
+            return created.id.value;
           }),
         );
       } catch (error) {
-        if (error instanceof SkillAlreadyDefinedError) {
+        if (error instanceof SkillAlreadyExistsError) {
           return {
-            outcome: 'taken',
+            outcome: 'already-exists',
             address: TeamAddress.of(
               team.key,
               compiled.skill.key.value,

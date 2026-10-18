@@ -80,7 +80,7 @@ describe('SubmitReviewHandler', () => {
     expect(comments.get('comment_1')?.state).toBe('submitted');
   });
 
-  it('submits the same drafts only once, however often it is asked', async () => {
+  it('submits the same drafts only once, however often it is requested', async () => {
     const { handler, reviews } = submitting();
 
     await handler.execute(command());
@@ -89,7 +89,7 @@ describe('SubmitReviewHandler', () => {
     expect(reviews).toHaveLength(1);
   });
 
-  it('refuses a submit that raced another for the same drafts', async () => {
+  it('rejects a submit that raced another for the same drafts', async () => {
     const { handler, reviews } = submitting({ racing: true });
 
     await expect(handler.execute(command())).rejects.toMatchObject({

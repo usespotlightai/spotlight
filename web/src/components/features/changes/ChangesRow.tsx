@@ -1,16 +1,21 @@
 import { CircleDashed, FileDiff } from 'lucide-react';
-import { DiffTally } from '@/components/shared/DiffTally';
+import { DiffStat } from '@/components/shared/DiffStat';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 
 type ChangesRowProps = {
   to: string;
-  drafting: boolean;
+  generating: boolean;
   added: number;
   removed: number;
 };
 
-export function ChangesRow({ to, drafting, added, removed }: ChangesRowProps) {
-  const Icon = drafting ? CircleDashed : FileDiff;
+export function ChangesRow({
+  to,
+  generating,
+  added,
+  removed,
+}: ChangesRowProps) {
+  const Icon = generating ? CircleDashed : FileDiff;
 
   return (
     <TrailLink
@@ -21,7 +26,7 @@ export function ChangesRow({ to, drafting, added, removed }: ChangesRowProps) {
 
       <span className="truncate text-foreground">Changes</span>
 
-      <DiffTally added={added} removed={removed} className="ml-auto text-xs" />
+      <DiffStat added={added} removed={removed} className="ml-auto text-xs" />
     </TrailLink>
   );
 }

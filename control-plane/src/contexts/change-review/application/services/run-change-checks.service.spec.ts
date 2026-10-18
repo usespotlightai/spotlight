@@ -48,9 +48,9 @@ const DIFF = Diff.of([
 const stackOf = (
   id: string,
   request: CheckRequest | null,
-  settled: 'ready' | 'failed' | 'drafting' = 'ready',
+  state: 'ready' | 'failed' | 'generating' = 'ready',
 ) => {
-  const drafting = ChangeStack.draft({
+  const generating = ChangeStack.startGeneration({
     id: ChangeStackId.of(id),
     runId: RUN,
     taskId: null,
@@ -65,13 +65,13 @@ const stackOf = (
     now: NOW,
   });
 
-  if (settled === 'drafting') {
-    return drafting;
+  if (state === 'generating') {
+    return generating;
   }
 
-  return settled === 'failed'
-    ? drafting.fail('No.', NOW)
-    : drafting.propose(
+  return state === 'failed'
+    ? generating.fail('No.', NOW)
+    : generating.propose(
         [
           {
             kind: 'change',
@@ -82,7 +82,7 @@ const stackOf = (
                 title: 'Drain in order',
                 summary: 'Drain',
                 dependsOn: [],
-                ranges: [{ hunk: HunkId.of('h1') }],
+                hunks: [{ hunk: HunkId.of('h1') }],
                 notes: [{ path: 'api.ts', note: 'Drains' }],
               },
             ],
@@ -106,9 +106,9 @@ const checkOf = (
     recheck,
     workspaceId: WorkspaceId.of('ws-1'),
     request: CheckRequest.of('npm test', null),
-    phase: outcome?.state ?? 'waiting',
+    status: outcome?.status ?? 'waiting',
     entries: [],
-    rounds: 0,
+    redraftCount: 0,
     outcome,
     claim: CheckClaim.none(),
     waitingSince: since,
@@ -118,9 +118,9 @@ const checkOf = (
   });
 
 const checked = (passed: boolean): CheckOutcome => ({
-  state: 'checked',
+  status: 'checked',
   skip: null,
-  whole: { step: WHOLE_STEP, passed, output: '', tookMs: 1 },
+  whole: { step: WHOLE_STEP, passed, output: '', durationMs: 1 },
   layers: [],
   checkedAt: NOW,
 });
@@ -145,11 +145,11 @@ const reading = (
 const REQUEST = CheckRequest.of('npm test', null);
 
 describe('RunChangeChecks', () => {
-  it('says where each of a run’s stacks stands, by its repository', async () => {
-    const standing = await reading(
+  it('says the state of each stack of a run, by its repository', async () => {
+    const changes = await reading(
       [
-        stackOf('drafting', REQUEST, 'drafting'),
-        stackOf('undrafted', REQUEST, 'failed'),
+        stackOf('generating', REQUEST, 'generating'),
+        stackOf('not-generated', REQUEST, 'failed'),
         stackOf('unchecked', null),
         stackOf('checking', REQUEST),
         stackOf('passed', REQUEST),
@@ -159,10 +159,10 @@ describe('RunChangeChecks', () => {
     );
 
     expect(
-      standing.map((each) => [each.repository, each.state, each.failedAt]),
+      changes.map((each) => [each.repository, each.status, each.failedAt]),
     ).toEqual([
-      ['drafting', 'drafting', []],
-      ['undrafted', 'undrafted', []],
+      ['generating', 'generating', []],
+      ['not-generated', 'not-generated', []],
       ['unchecked', 'unchecked', []],
       ['checking', 'checking', []],
       ['passed', 'passed', []],
@@ -170,36 +170,36 @@ describe('RunChangeChecks', () => {
     ]);
   });
 
-  it('says nobody checked a stack whose check waited too long', async () => {
-    const [standing] = await reading(
-      [stackOf('lapsed', REQUEST)],
-      [checkOf('lapsed', null)],
+  it('says a stack whose check waited too long is a queue timeout', async () => {
+    const [change] = await reading(
+      [stackOf('expired', REQUEST)],
+      [checkOf('expired', null)],
       new Date(NOW.getTime() + WAITING_LIMIT_MS + 1),
     );
 
-    expect(standing).toMatchObject({
-      state: 'skipped',
-      skip: 'nobody-checked',
+    expect(change).toMatchObject({
+      status: 'skipped',
+      skip: 'queue-timeout',
     });
   });
 });
 
 describe('RunChangeChecks, with rechecks', () => {
-  const stacks = [stackOf('kept', REQUEST), stackOf('flipped', REQUEST)];
+  const stacks = [stackOf('unchanged', REQUEST), stackOf('flipped', REQUEST)];
   const checks = [
-    checkOf('kept', checked(true)),
+    checkOf('unchanged', checked(true)),
     checkOf('flipped', checked(true)),
     checkOf('flipped', checked(false), NOW, true),
   ];
 
-  it('reads a run’s first checks as they stood, whatever a recheck found', async () => {
+  it('reads the first checks of a run as they were, whatever a recheck found', async () => {
     expect(
       (await readingOf(stacks, checks).ofRun(RUN.value)).map((each) => [
         each.repository,
-        each.state,
+        each.status,
       ]),
     ).toEqual([
-      ['kept', 'passed'],
+      ['unchanged', 'passed'],
       ['flipped', 'passed'],
     ]);
   });
@@ -208,10 +208,10 @@ describe('RunChangeChecks, with rechecks', () => {
     expect(
       (await readingOf(stacks, checks).rechecksOfRun(RUN.value)).map((each) => [
         each.repository,
-        each.state,
+        each.status,
       ]),
     ).toEqual([
-      ['kept', 'checking'],
+      ['unchanged', 'checking'],
       ['flipped', 'failed'],
     ]);
   });
@@ -219,8 +219,8 @@ describe('RunChangeChecks, with rechecks', () => {
   it('reads no recheck of a stack its first check never found anything in', async () => {
     expect(
       await readingOf(
-        [stackOf('lapsed', REQUEST)],
-        [checkOf('lapsed', null)],
+        [stackOf('expired', REQUEST)],
+        [checkOf('expired', null)],
       ).rechecksOfRun(RUN.value),
     ).toEqual([]);
   });

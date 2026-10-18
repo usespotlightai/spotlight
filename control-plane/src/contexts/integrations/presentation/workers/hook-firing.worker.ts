@@ -5,12 +5,12 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 
 const EVERY_MS = 1_000;
 
-const FORGET_EVERY_MS = 10 * 60 * 1000;
+const PURGE_EVERY_MS = 10 * 60 * 1000;
 
 @Injectable()
 export class HookFiringWorker implements OnModuleDestroy {
   #ticking: Promise<void> | null = null;
-  #forgetting: Promise<void> | null = null;
+  #purging: Promise<void> | null = null;
   #stopped = false;
 
   constructor(
@@ -20,7 +20,7 @@ export class HookFiringWorker implements OnModuleDestroy {
 
   async onModuleDestroy(): Promise<void> {
     this.#stopped = true;
-    await Promise.all([this.#ticking, this.#forgetting]);
+    await Promise.all([this.#ticking, this.#purging]);
   }
 
   @Interval(EVERY_MS)
@@ -37,18 +37,18 @@ export class HookFiringWorker implements OnModuleDestroy {
     this.#ticking = null;
   }
 
-  @Interval(FORGET_EVERY_MS)
-  async forget(): Promise<void> {
-    if (this.#forgetting || this.#stopped) {
+  @Interval(PURGE_EVERY_MS)
+  async purge(): Promise<void> {
+    if (this.#purging || this.#stopped) {
       return;
     }
 
-    this.#forgetting = this.logged(
-      () => this.firings.forgetFinished(),
-      'Forgetting finished hook firings',
+    this.#purging = this.logged(
+      () => this.firings.purgeFinished(),
+      'Purging finished hook firings',
     );
-    await this.#forgetting;
-    this.#forgetting = null;
+    await this.#purging;
+    this.#purging = null;
   }
 
   private async logged(

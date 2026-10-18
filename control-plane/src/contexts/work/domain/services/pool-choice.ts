@@ -1,11 +1,11 @@
 import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
+import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { poolCouldTake } from '@work/domain/services/pool-fit';
 
 export interface PoolOnOffer {
   readonly pool: PoolId;
-  readonly labels: RunnerTerms;
+  readonly labels: RunnerOffer;
   readonly egress: boolean;
 }
 
@@ -14,7 +14,7 @@ export class PoolRoom {
     private readonly left: ReadonlyMap<string, number | null>,
   ) {}
 
-  static told(rooms: readonly (readonly [PoolId, number | null])[]): PoolRoom {
+  static of(rooms: readonly (readonly [PoolId, number | null])[]): PoolRoom {
     return new PoolRoom(
       new Map(rooms.map(([pool, left]) => [pool.value, left])),
     );

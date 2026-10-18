@@ -36,7 +36,7 @@ type DeeplySameKeys<A, B> = [A] extends [readonly (infer OfA)[]]
       : false
     : true;
 
-type ExactlyHeld<T extends LineDefinition> =
+type Exact<T extends LineDefinition> =
   DeeplySameKeys<T, LineDefinition> extends true ? T : never;
 
 type StationFields = LineFields['stations'][number];
@@ -69,7 +69,7 @@ type StationRow = Pick<
   | 'finishes'
 >;
 
-interface Given {
+interface StationItem {
   readonly stationId: string;
   readonly name: string;
 }
@@ -84,8 +84,8 @@ export interface LineRows {
     typeof stationRoute.$inferSelect,
     'stationId' | 'toStationId'
   >[];
-  readonly tools: readonly Given[];
-  readonly skills: readonly Given[];
+  readonly tools: readonly StationItem[];
+  readonly skills: readonly StationItem[];
   readonly reactions: readonly Pick<
     typeof lineReaction.$inferSelect,
     'happening' | 'fromStationId' | 'toStationId'
@@ -95,15 +95,20 @@ export interface LineRows {
 
 const present = <K extends string, V>(
   key: K,
-  held: V | null,
+  value: V | null,
 ): Partial<Record<K, V>> =>
-  held === null ? {} : ({ [key]: held } as Record<K, V>);
+  value === null ? {} : ({ [key]: value } as Record<K, V>);
 
 const placed = (runners: readonly string[]): string[] | null =>
   runners.length > 0 ? [...runners] : null;
 
-const givenAt = (given: readonly Given[], stationId: string): string[] =>
-  given.filter((each) => each.stationId === stationId).map((each) => each.name);
+const enabledAt = (
+  enabled: readonly StationItem[],
+  stationId: string,
+): string[] =>
+  enabled
+    .filter((each) => each.stationId === stationId)
+    .map((each) => each.name);
 
 type ReactionRow = LineRows['reactions'][number];
 
@@ -114,9 +119,7 @@ const inReactionOrder =
     place(one.fromStationId) - place(other.fromStationId) ||
     place(one.toStationId) - place(other.toStationId);
 
-export const renderLineRows = (
-  rows: LineRows,
-): ExactlyHeld<Rendered<LineFields>> => {
+export const renderLineRows = (rows: LineRows): Exact<Rendered<LineFields>> => {
   const keyOf = new Map(rows.stations.map((each) => [each.id, each.key]));
   const positionOf = new Map(rows.stations.map((each, at) => [each.id, at]));
   const at = (stationId: string): string => keyOf.get(stationId) ?? '';
@@ -149,11 +152,11 @@ export const renderLineRows = (
             ...(row.judge.claims.length > 0
               ? {
                   claims: [...row.judge.claims],
-                  passShare: row.judge.passShare,
+                  passThreshold: row.judge.passThreshold,
                 }
               : {}),
             sample: row.judge.sample,
-            trust: row.judge.trust,
+            minAgreement: row.judge.minAgreement,
           }
         : null,
     ),
@@ -165,8 +168,8 @@ export const renderLineRows = (
       ...present('below', each.below),
       over: each.over,
     })),
-    tools: givenAt(rows.tools, row.id),
-    skills: givenAt(rows.skills, row.id),
+    tools: enabledAt(rows.tools, row.id),
+    skills: enabledAt(rows.skills, row.id),
     passesTo: rows.routes
       .filter((each) => each.stationId === row.id)
       .sort((one, other) => place(one.toStationId) - place(other.toStationId))

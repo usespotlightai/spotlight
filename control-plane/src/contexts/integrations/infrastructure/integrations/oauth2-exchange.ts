@@ -1,8 +1,8 @@
 import type { OAuth2Client } from '@integrations/application/ports/oauth2-clients.port';
-import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
+import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import type { OAuth2Endpoints } from '@integrations/infrastructure/integrations/integration.compile';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
-import { bound } from '@platform/expressions/bindings';
+import { sanitizedForCel } from '@platform/expressions/cel-variables';
 import type { Expression } from '@platform/expressions/expression-engine.port';
 import { value } from '@platform/expressions/readings';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -31,7 +31,7 @@ export class OAuth2Exchange {
     code: string,
     redirectUri: string,
     verifier: string,
-  ): Promise<HostGrant | null> {
+  ): Promise<OAuthTokens | null> {
     return this.post(oauth2, client, oauth2.identity, {
       grant_type: 'authorization_code',
       code,
@@ -44,7 +44,7 @@ export class OAuth2Exchange {
     oauth2: OAuth2Endpoints,
     client: OAuth2Client,
     refreshToken: string,
-  ): Promise<HostGrant | null> {
+  ): Promise<OAuthTokens | null> {
     return this.post(oauth2, client, oauth2.identity, {
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
@@ -56,7 +56,7 @@ export class OAuth2Exchange {
     client: OAuth2Client,
     identity: Expression | null,
     grant: Record<string, string>,
-  ): Promise<HostGrant | null> {
+  ): Promise<OAuthTokens | null> {
     this.policy.allow(oauth2.token);
 
     const form = new URLSearchParams({ ...grant, client_id: client.id });
@@ -101,13 +101,13 @@ export class OAuth2Exchange {
       ? response.scope.split(/[\s,]+/).filter(Boolean)
       : [...oauth2.scopes];
 
-    return HostGrant.of({
+    return OAuthTokens.of({
       accessToken: response.access_token,
       refreshToken: response.refresh_token ?? null,
       expiresAt,
       scopes,
-      handle: identity
-        ? this.named(value(identity, { response: bound(response) }))
+      linkedAccount: identity
+        ? this.named(value(identity, { response: sanitizedForCel(response) }))
         : null,
     });
   }

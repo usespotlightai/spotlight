@@ -4,7 +4,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const PULL_REQUEST_REVIEWS = Symbol('PULL_REQUEST_REVIEWS');
 
-export type ReviewVerdict = 'comment' | 'approve' | 'request-changes';
+export type ReviewEvent = 'comment' | 'approve' | 'request-changes';
 
 export type ReviewSide = 'new' | 'old';
 
@@ -13,7 +13,7 @@ export interface OnGitHub {
   readonly url: string;
 }
 
-export type ReviewWriter =
+export type ReviewActor =
   | {
       readonly kind: 'person';
       readonly userId: UserId;
@@ -21,12 +21,12 @@ export type ReviewWriter =
     }
   | { readonly kind: 'spotlight' };
 
-export const SPOTLIGHT_WRITES: ReviewWriter = { kind: 'spotlight' };
+export const SPOTLIGHT_ACTOR: ReviewActor = { kind: 'spotlight' };
 
 export interface OnPullRequest {
   readonly workspaceId: WorkspaceId;
   readonly pullRequest: PullRequestUrl;
-  readonly by: ReviewWriter;
+  readonly by: ReviewActor;
 }
 
 export interface FileComment {
@@ -48,7 +48,7 @@ export interface SubmittedReview {
 export interface PullRequestReviewsPort {
   submit(
     input: OnPullRequest & {
-      readonly verdict: ReviewVerdict;
+      readonly event: ReviewEvent;
       readonly body: string;
       readonly comments: readonly LineComment[];
     },

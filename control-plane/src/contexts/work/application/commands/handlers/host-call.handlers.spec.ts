@@ -1,25 +1,25 @@
 import type {
-  HostCredential,
-  RunnerAdmissionsPort,
-} from '@runners/application/ports/runner-admissions.port';
+  HostCredentials,
+  RunnerAuthenticatorPort,
+} from '@runners/application/ports/runner-authenticator.port';
 import type { RunnersPort } from '@runners/application/ports/runners.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { AnswerHostCallHandler } from '@work/application/commands/handlers/answer-host-call.handler';
 import { ClaimHostCallHandler } from '@work/application/commands/handlers/claim-host-call.handler';
+import { RecordHostCallResponseHandler } from '@work/application/commands/handlers/record-host-call-response.handler';
 import {
-  AnswerHostCallCommand,
   ClaimHostCallCommand,
-  type SentHostCallAnswer,
+  RecordHostCallResponseCommand,
+  type SentHostCallResponse,
 } from '@work/application/commands/host-call.commands';
 import { LongPoll } from '@work/application/services/long-poll';
 import { NetworkCall } from '@work/domain/aggregates/network-call.aggregate';
 import { NetworkCallVersionConflictError } from '@work/domain/exceptions/network-call-version-conflict.error';
 import type { NetworkCallRepository } from '@work/domain/repositories/network-call.repository';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
-import { NetworkAnswer } from '@work/domain/value-objects/network-answer.vo';
 import { NetworkCallId } from '@work/domain/value-objects/network-call-id.vo';
 import { NetworkRequest } from '@work/domain/value-objects/network-request.vo';
+import { NetworkResponse } from '@work/domain/value-objects/network-response.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-26T09:00:00.000Z');
@@ -38,7 +38,7 @@ const queued = (workspace = 'ws_1') =>
       body: new TextEncoder().encode('{"hook":"core/audit"}'),
       timeoutMs: 10_000,
     }),
-    lapsesAt: later(15_000),
+    expiresAt: later(15_000),
     now: NOW,
   });
 
@@ -60,11 +60,11 @@ const hosting = (
       now = new Date(now.getTime() + ms);
     },
   };
-  const admissions: RunnerAdmissionsPort = {
-    admit: vi.fn(async (credential: HostCredential) =>
+  const authenticator: RunnerAuthenticatorPort = {
+    authenticate: vi.fn(async (credential: HostCredentials) =>
       credential.bearer === 'pool-token'
         ? {
-            way: { kind: 'pool' as const, id: 'pool_1' },
+            source: { kind: 'pool' as const, id: 'pool_1' },
             workspaceId: WorkspaceId.of('ws_1'),
           }
         : null,
@@ -92,42 +92,42 @@ const hosting = (
     saved,
     runners,
     claim: new ClaimHostCallHandler(
-      admissions,
+      authenticator,
       runners,
       calls as unknown as NetworkCallRepository,
       clock,
       new LongPoll(clock),
     ),
-    answer: new AnswerHostCallHandler(
-      admissions,
+    response: new RecordHostCallResponseHandler(
+      authenticator,
       calls as unknown as NetworkCallRepository,
       clock,
     ),
   };
 };
 
-const ANSWER: SentHostCallAnswer = {
+const RESPONSE: SentHostCallResponse = {
   host: HOST,
   status: 200,
   headers: { 'content-type': 'application/json', ignored: 7 },
-  body: Buffer.from('{"refuse":"not today"}').toString('base64'),
+  body: Buffer.from('{"deny":"not today"}').toString('base64'),
   ms: 84,
   error: undefined,
 };
 
 describe('ClaimHostCallHandler', () => {
-  it('refuses a host no pool or trust admits', async () => {
+  it('rejects a host that no pool or trust accepts', async () => {
     const { claim, calls } = hosting();
 
     expect(
       await claim.execute(
         new ClaimHostCallCommand({ bearer: 'stolen', trust: undefined }, HOST),
       ),
-    ).toEqual({ outcome: 'refused' });
+    ).toEqual({ outcome: 'unauthorized' });
     expect(calls.claimNext).not.toHaveBeenCalled();
   });
 
-  it('hands over the next call waiting for the admitted workspace, body in base64', async () => {
+  it('hands over the next call waiting for the authenticated workspace, body in base64', async () => {
     const { claim, calls } = hosting({ next: claimedCall() });
 
     expect(await claim.execute(new ClaimHostCallCommand(POOL, HOST))).toEqual({
@@ -148,11 +148,11 @@ describe('ClaimHostCallHandler', () => {
     );
   });
 
-  it('answers a host that never reported through this way in as a stranger', async () => {
+  it('answers a host that never reported through this pool or trust as host-unreported', async () => {
     const { claim, calls, runners } = hosting({ reported: false });
 
     expect(await claim.execute(new ClaimHostCallCommand(POOL, HOST))).toEqual({
-      outcome: 'stranger',
+      outcome: 'host-unreported',
     });
     expect(runners.reports).toHaveBeenCalledWith(
       { kind: 'pool', id: 'pool_1' },
@@ -175,7 +175,7 @@ describe('ClaimHostCallHandler', () => {
     );
   });
 
-  it('refuses a host that names itself nothing', async () => {
+  it('rejects a host that names itself nothing', async () => {
     const { claim } = hosting();
 
     await expect(
@@ -185,27 +185,29 @@ describe('ClaimHostCallHandler', () => {
 });
 
 describe('AnswerHostCallHandler', () => {
-  it('keeps the answer the host sent', async () => {
-    const { answer, saved } = hosting();
+  it('keeps the response the host sent', async () => {
+    const { response, saved } = hosting();
 
     expect(
-      await answer.execute(new AnswerHostCallCommand(POOL, 'call_1', ANSWER)),
+      await response.execute(
+        new RecordHostCallResponseCommand(POOL, 'call_1', RESPONSE),
+      ),
     ).toEqual({ outcome: 'answered' });
 
-    const kept = saved[0]?.answer;
-    expect(kept?.status).toBe(200);
-    expect(kept?.headers).toEqual({ 'content-type': 'application/json' });
-    expect(Buffer.from(kept?.body ?? []).toString()).toBe(
-      '{"refuse":"not today"}',
+    const stored = saved[0]?.response;
+    expect(stored?.status).toBe(200);
+    expect(stored?.headers).toEqual({ 'content-type': 'application/json' });
+    expect(Buffer.from(stored?.body ?? []).toString()).toBe(
+      '{"deny":"not today"}',
     );
-    expect(kept?.ms).toBe(84);
+    expect(stored?.ms).toBe(84);
   });
 
   it('keeps why nothing answered', async () => {
-    const { answer, saved } = hosting();
+    const { response, saved } = hosting();
 
-    await answer.execute(
-      new AnswerHostCallCommand(POOL, 'call_1', {
+    await response.execute(
+      new RecordHostCallResponseCommand(POOL, 'call_1', {
         host: HOST,
         status: 0,
         headers: undefined,
@@ -215,31 +217,31 @@ describe('AnswerHostCallHandler', () => {
       }),
     );
 
-    expect(saved[0]?.answer?.error).toBe('timed out after 10s');
+    expect(saved[0]?.response?.error).toBe('timed out after 10s');
   });
 
-  it('refuses a host no pool or trust admits', async () => {
-    const { answer, calls } = hosting();
+  it('rejects a host that no pool or trust accepts', async () => {
+    const { response, calls } = hosting();
 
     expect(
-      await answer.execute(
-        new AnswerHostCallCommand(
+      await response.execute(
+        new RecordHostCallResponseCommand(
           { bearer: 'stolen', trust: undefined },
           'call_1',
-          ANSWER,
+          RESPONSE,
         ),
       ),
-    ).toEqual({ outcome: 'refused' });
+    ).toEqual({ outcome: 'unauthorized' });
     expect(calls.find).not.toHaveBeenCalled();
   });
 
-  it('refuses an answer from a host other than the one that claimed the call', async () => {
-    const { answer, saved } = hosting();
+  it('rejects a response from a host other than the one that claimed the call', async () => {
+    const { response, saved } = hosting();
 
     expect(
-      await answer.execute(
-        new AnswerHostCallCommand(POOL, 'call_1', {
-          ...ANSWER,
+      await response.execute(
+        new RecordHostCallResponseCommand(POOL, 'call_1', {
+          ...RESPONSE,
           host: '01J8ZQ4Y7N3K5V2W9X6RTBHXXX',
         }),
       ),
@@ -247,78 +249,91 @@ describe('AnswerHostCallHandler', () => {
     expect(saved).toEqual([]);
   });
 
-  it('forgets what the call sent once it keeps the answer', async () => {
-    const { answer, saved } = hosting();
+  it('discards what the call sent once it stores the response', async () => {
+    const { response, saved } = hosting();
 
-    await answer.execute(new AnswerHostCallCommand(POOL, 'call_1', ANSWER));
+    await response.execute(
+      new RecordHostCallResponseCommand(POOL, 'call_1', RESPONSE),
+    );
 
     expect(saved[0]?.request.headers).toEqual({});
     expect(saved[0]?.request.body.byteLength).toBe(0);
   });
 
   it('knows no call of another workspace', async () => {
-    const { answer, saved } = hosting({ found: claimedCall('ws_2') });
+    const { response, saved } = hosting({ found: claimedCall('ws_2') });
 
     expect(
-      await answer.execute(new AnswerHostCallCommand(POOL, 'call_1', ANSWER)),
+      await response.execute(
+        new RecordHostCallResponseCommand(POOL, 'call_1', RESPONSE),
+      ),
     ).toEqual({ outcome: 'unknown' });
     expect(saved).toEqual([]);
   });
 
   it('knows no call that is not there', async () => {
-    const { answer } = hosting({ found: null });
+    const { response } = hosting({ found: null });
 
     expect(
-      await answer.execute(new AnswerHostCallCommand(POOL, 'call_1', ANSWER)),
+      await response.execute(
+        new RecordHostCallResponseCommand(POOL, 'call_1', RESPONSE),
+      ),
     ).toEqual({ outcome: 'unknown' });
   });
 
-  it('says a call already answered is settled', async () => {
-    const { answer } = hosting({
-      found: claimedCall().answerWith(
+  it('says a call already answered is completed', async () => {
+    const { response } = hosting({
+      found: claimedCall().recordResponse(
         CallingHost.of(HOST),
-        NetworkAnswer.of({ status: 204, ms: 3 }),
+        NetworkResponse.of({ status: 204, ms: 3 }),
         NOW,
       ),
     });
 
     expect(
-      await answer.execute(new AnswerHostCallCommand(POOL, 'call_1', ANSWER)),
+      await response.execute(
+        new RecordHostCallResponseCommand(POOL, 'call_1', RESPONSE),
+      ),
     ).toEqual({
-      outcome: 'settled',
+      outcome: 'completed',
       reason: 'Network call call_1 was already answered.',
     });
   });
 
-  it('says a call that was never claimed is settled no other way', async () => {
-    const { answer } = hosting({ found: queued() });
+  it('sets the completed outcome on a call that was never claimed', async () => {
+    const { response } = hosting({ found: queued() });
 
     expect(
-      await answer.execute(new AnswerHostCallCommand(POOL, 'call_1', ANSWER)),
-    ).toMatchObject({ outcome: 'settled' });
+      await response.execute(
+        new RecordHostCallResponseCommand(POOL, 'call_1', RESPONSE),
+      ),
+    ).toMatchObject({ outcome: 'completed' });
   });
 
-  it('refuses an answer that is no answer', async () => {
-    const { answer } = hosting();
+  it('rejects a response that is no response', async () => {
+    const { response } = hosting();
 
     await expect(
-      answer.execute(
-        new AnswerHostCallCommand(POOL, 'call_1', {
-          ...ANSWER,
+      response.execute(
+        new RecordHostCallResponseCommand(POOL, 'call_1', {
+          ...RESPONSE,
           status: 'teapot',
         }),
       ),
     ).rejects.toMatchObject({ kind: 'invalid' });
   });
 
-  it('says a call settled meanwhile is settled, not a fault', async () => {
-    const { answer } = hosting({ clash: true });
+  it('says a call completed meanwhile is completed, not a fault', async () => {
+    const { response } = hosting({ clash: true });
 
     expect(
-      await answer.execute(new AnswerHostCallCommand(POOL, 'call_1', ANSWER)),
+      await response.execute(
+        new RecordHostCallResponseCommand(POOL, 'call_1', RESPONSE),
+      ),
     ).toEqual({
-      outcome: 'settled',
-      reason: 'The network call was settled while the host answered it.',
+      outcome: 'completed',
+      reason:
+        'The network call completed while the host recorded its response.',
     });
   });
 });

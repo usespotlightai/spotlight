@@ -4,14 +4,14 @@ import { describe, expect, it } from 'vitest';
 
 const definitions = new SecretDefinitions();
 
-const problemsAt = (held: unknown) => {
-  const read = definitions.secret(held);
+const problemsAt = (input: unknown) => {
+  const read = definitions.secret(input);
 
   return read.ok ? [] : read.problems.map((each) => dottedOf(each.field));
 };
 
 describe('SecretDefinitions', () => {
-  it('reads a secret Spotlight keeps, with its value and bindings', () => {
+  it('reads a secret Spotlight stores, with its value and bindings', () => {
     const read = definitions.secret({
       name: 'LINEAR_API_KEY',
       bindings: [{ host: 'api.linear.app', prefix: 'Bearer ' }],
@@ -25,7 +25,7 @@ describe('SecretDefinitions', () => {
     expect(read.ok && read.bindings.hosts).toEqual(['api.linear.app']);
   });
 
-  it('reads a secret AWS Secrets Manager holds', () => {
+  it('reads a secret that AWS Secrets Manager stores', () => {
     const read = definitions.secret({
       name: 'LINEAR_API_KEY',
       source: {
@@ -58,7 +58,7 @@ describe('SecretDefinitions', () => {
     ).toEqual(['source.secretId']);
   });
 
-  it('never repeats a value it refuses', () => {
+  it('never repeats a value it rejects', () => {
     const read = definitions.secret({
       name: 'LINEAR_API_KEY',
       valueWo: 'x'.repeat(70_000),

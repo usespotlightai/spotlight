@@ -1,16 +1,16 @@
-import { AskForPairJudging } from '@replays/application/services/ask-for-pair-judging.service';
-import { NoteReplayPaired } from '@replays/application/services/note-replay-paired.service';
 import { PairReplayEntries } from '@replays/application/services/pair-replay-entries.service';
+import { RecordReplayPairVerdict } from '@replays/application/services/record-replay-pair-verdict.service';
 import {
-  FakeOutcomes,
+  FakeInsights,
   InMemoryReplays,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
+import { RequestReplaySideBySideJudging } from '@replays/application/services/request-replay-side-by-side-judging.service';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
-import type { ReplayPairJudgingWanted } from '@replays/domain/events/replay-pair-judging-wanted.event';
-import type { ReplayPairingDue } from '@replays/domain/events/replay-pairing-due.event';
-import { ReplayPairingRefused } from '@replays/domain/events/replay-pairing-refused.event';
+import { ReplayPairingFailed } from '@replays/domain/events/replay-pairing-failed.event';
+import type { ReplayPairingRequested } from '@replays/domain/events/replay-pairing-requested.event';
+import type { ReplaySideBySideJudgingRequested } from '@replays/domain/events/replay-side-by-side-judging-requested.event';
 import {
   aReplay,
   BY,
@@ -21,8 +21,8 @@ import {
   runOf,
 } from '@replays/domain/replays.fake-spec';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -31,14 +31,14 @@ const proposed = candidateOf('proposed', 'candidate_proposed', RUBRIC);
 const live = candidateOf('live', 'candidate_live', RUBRIC);
 
 let memory: InMemoryReplays;
-let outcomes: FakeOutcomes;
+let insights: FakeInsights;
 
-const held = async (replay: Replay) => {
+const stored = async (replay: Replay) => {
   await memory.replayRepository.add(replay);
 };
 
 const pairing = () =>
-  new PairReplayEntries(memory.replayRepository, outcomes, TRANSACTION);
+  new PairReplayEntries(memory.replayRepository, insights, TRANSACTION);
 
 const concludedEvent = (replay: Replay) =>
   new ReplayEntryConcluded(
@@ -50,22 +50,22 @@ const concludedEvent = (replay: Replay) =>
 
 beforeEach(async () => {
   memory = new InMemoryReplays();
-  outcomes = new FakeOutcomes();
-  outcomes.accepted.add('original_0');
-  outcomes.accepted.add('original_1');
+  insights = new FakeInsights();
+  insights.accepted.add('original_0');
+  insights.accepted.add('original_1');
   await memory.candidateRepository.add(proposed);
-  await held(
+  await stored(
     concludedAll(
       aReplay({ id: 'baseline_1', count: 2, baseline: true, candidate: live }),
     ),
   );
-  await held(
+  await stored(
     concludedAll(
       aReplay({
         id: 'replay_1',
         count: 2,
         candidate: proposed,
-        pairsWith: 'baseline_1',
+        pairwiseReferenceId: 'baseline_1',
       }),
     ),
   );
@@ -79,7 +79,7 @@ describe('PairReplayEntries', () => {
     );
     const due = (await pairing().concluded(
       concludedEvent(baseline as Replay),
-    )) as ReplayPairingDue[];
+    )) as ReplayPairingRequested[];
 
     expect(due.map((each) => each.replayId.value)).toEqual(['replay_1']);
   });
@@ -93,7 +93,7 @@ describe('PairReplayEntries', () => {
       (
         (await pairing().concluded(
           concludedEvent(replay),
-        )) as ReplayPairingDue[]
+        )) as ReplayPairingRequested[]
       ).map((each) => each.replayId.value),
     ).toEqual(['replay_1']);
 
@@ -103,7 +103,7 @@ describe('PairReplayEntries', () => {
         id: 'replay_2',
         count: 2,
         candidate: proposed,
-        pairsWith: 'baseline_1',
+        pairwiseReferenceId: 'baseline_1',
       }).stop(NOW, BY),
     );
     const baseline = (await memory.replayRepository.find(
@@ -114,97 +114,101 @@ describe('PairReplayEntries', () => {
       (
         (await pairing().concluded(
           concludedEvent(baseline),
-        )) as ReplayPairingDue[]
+        )) as ReplayPairingRequested[]
       ).map((each) => each.replayId.value),
     ).toEqual(['replay_1']);
   });
 
-  it('asks a side-by-side judging only for tasks people accepted a change for', async () => {
-    outcomes.accepted.delete('original_1');
+  it('requests a side-by-side judging only for tasks people accepted a change for', async () => {
+    insights.accepted.delete('original_1');
 
-    await pairing().due(ReplayId.of('replay_1'));
+    await pairing().requested(ReplayId.of('replay_1'));
 
     const wanted = memory.events.filter(
-      (each): each is ReplayPairJudgingWanted =>
-        each.kind === 'replay.pair-judging-wanted',
+      (each): each is ReplaySideBySideJudgingRequested =>
+        each.kind === 'replay.side-by-side-judging-requested',
     );
-    expect(wanted.map((each) => [each.run.value, each.against.value])).toEqual([
+    expect(wanted.map((each) => [each.run.value, each.other.value])).toEqual([
       ['replay_1_run_0', 'baseline_1_run_0'],
     ]);
   });
 
-  it('asks nothing for a replay with no baseline to be set beside', async () => {
+  it('requests nothing for a replay with no baseline to be set beside', async () => {
     memory.replays.delete('baseline_1');
 
-    await pairing().due(ReplayId.of('replay_1'));
+    await pairing().requested(ReplayId.of('replay_1'));
 
     expect(memory.events).toEqual([]);
   });
 });
 
-describe('AskForPairJudging and NoteReplayPaired', () => {
+describe('RequestReplaySideBySideJudging and RecordReplayPairVerdict', () => {
   const wanted = async () => {
-    await pairing().due(ReplayId.of('replay_1'));
+    await pairing().requested(ReplayId.of('replay_1'));
 
     return memory.events.find(
-      (each): each is ReplayPairJudgingWanted =>
-        each.kind === 'replay.pair-judging-wanted',
-    ) as ReplayPairJudgingWanted;
+      (each): each is ReplaySideBySideJudgingRequested =>
+        each.kind === 'replay.side-by-side-judging-requested',
+    ) as ReplaySideBySideJudgingRequested;
   };
 
-  it('asks the judge with the candidate’s criteria and the original as the reference', async () => {
+  it('requests judging with the candidate’s criteria and the original as the reference', async () => {
     const event = await wanted();
 
     expect(
-      await new AskForPairJudging(
+      await new RequestReplaySideBySideJudging(
         memory.replayRepository,
         memory.candidateRepository,
-        outcomes,
-      ).wanted(event),
+        insights,
+      ).requested(event),
     ).toEqual([]);
-    expect(outcomes.pairsAsked).toEqual([
+    expect(insights.sideBySideJudgingRequests).toEqual([
       expect.objectContaining({
         run: RunId.of('replay_1_run_0'),
-        against: RunId.of('baseline_1_run_0'),
+        other: RunId.of('baseline_1_run_0'),
         reference: RunId.of('original_0'),
         judge: proposed.judge,
       }),
     ]);
   });
 
-  it('says why it could not ask, and the replay keeps that as the entry’s answer', async () => {
+  it('says why it could not request judging, and the replay records that as the entry’s answer', async () => {
     const event = await wanted();
-    outcomes.pairAnswer = 'unavailable';
+    insights.pairAnswer = 'unavailable';
 
-    const [refused] = (await new AskForPairJudging(
+    const [failed] = (await new RequestReplaySideBySideJudging(
       memory.replayRepository,
       memory.candidateRepository,
-      outcomes,
-    ).wanted(event)) as ReplayPairingRefused[];
-    await new NoteReplayPaired(memory.replayRepository, TRANSACTION).refused(
-      refused as ReplayPairingRefused,
-    );
+      insights,
+    ).requested(event)) as ReplayPairingFailed[];
+    await new RecordReplayPairVerdict(
+      memory.replayRepository,
+      TRANSACTION,
+    ).requestFailed(failed as ReplayPairingFailed);
 
-    expect(refused?.why).toBe('unavailable');
+    expect(failed?.why).toBe('unavailable');
     expect(
       (await memory.replayRepository.find(event.replayId))?.entries[0]?.pairing
         ?.unpaired,
     ).toBe('unavailable');
   });
 
-  it('keeps the verdict heard back, with what it cost', async () => {
+  it('records the verdict it received, with what it cost', async () => {
     const event = await wanted();
 
-    await new NoteReplayPaired(memory.replayRepository, TRANSACTION).paired({
+    await new RecordReplayPairVerdict(
+      memory.replayRepository,
+      TRANSACTION,
+    ).paired({
       runId: event.run.value,
-      againstRunId: event.against.value,
-      winner: 'against',
+      otherRunId: event.other.value,
+      winner: 'other',
       model: 'judge/model',
-      readings: [
-        { runShownFirst: true, winner: 'against', reasons: [] },
-        { runShownFirst: false, winner: 'against', reasons: [] },
+      passes: [
+        { runShownFirst: true, winner: 'other', reasons: [] },
+        { runShownFirst: false, winner: 'other', reasons: [] },
       ],
-      spent: ModelSpent.of([Spend.of(0.02, 'USD')], 0),
+      spent: ModelSpent.of([Money.of(0.02, 'USD')], 0),
     });
 
     const entry = (await memory.replayRepository.find(event.replayId))

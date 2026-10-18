@@ -38,7 +38,7 @@ const fieldsOf = (body: unknown): Record<string, unknown> =>
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({
-  description: 'Missing, spent or wrong runner token',
+  description: 'Missing, no longer valid or wrong runner token',
 })
 @ApiParam({ name: 'runId', type: String })
 @ApiExtraModels(ProblemResponseDto)
@@ -54,21 +54,21 @@ export class RunnerSearchCandidatesController {
     summary:
       'Propose a candidate from inside a search’s agent run; Spotlight replays it on the search’s searched tasks',
     description:
-      'Proposing the same name again from the same run answers with the candidate it proposed. A refused proposal does not count towards the iteration’s candidates, but the run may only try so often.',
+      'Proposing the same name again from the same run answers with the candidate it proposed. A rejected proposal does not count as one of the iteration’s candidates, but the run may only try so often.',
   })
   @ApiBody({ type: ProposeSearchCandidateRequestDto })
   @ApiCreatedResponse({ type: SearchCandidateProposedResponseDto })
   @ApiProblemResponse(
     HttpStatus.NOT_FOUND,
-    'The search no longer holds this run, or it is no search run this runner holds',
+    'This run is no longer the active run of the search, or it is not a search run that this runner leases',
   )
   @ApiProblemResponse(
     HttpStatus.CONFLICT,
-    'The iteration proposed all the candidates it may, or tried too often, or another iteration took the name',
+    'The iteration proposed all the candidates it may, or tried too often, or another iteration uses the name already',
   )
   @ApiProblemResponse(
     HttpStatus.UNPROCESSABLE_ENTITY,
-    'A name that is no slug, no hypothesis, or a station block the line refuses or that changes what a search may not; errors name each problem’s path',
+    'A name that is no slug, no hypothesis, or a station block the line rejects or that changes what a search may not; errors name each problem’s path',
   )
   async propose(
     @Param('runId') runId: string,

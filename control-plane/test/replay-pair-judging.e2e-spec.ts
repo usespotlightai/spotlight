@@ -1,26 +1,26 @@
 import { randomUUID } from 'node:crypto';
 import {
-  CHANGE_STACK_DRAFTER,
-  type ChangeStackDrafterPort,
-} from '@change-review/application/ports/change-stack-drafter.port';
+  CHANGE_STACK_GENERATOR,
+  type ChangeStackGeneratorPort,
+} from '@change-review/application/ports/change-stack-generator.port';
 import { WorkChangeStacks } from '@change-review/application/services/work-change-stacks.service';
-import type { INestApplication } from '@nestjs/common';
 import {
   JUDGE,
-  type JudgeAsk,
   type JudgePort,
-} from '@outcomes/application/ports/judge.port';
+  type JudgeRequest,
+} from '@insights/application/ports/judge.port';
 import {
-  PAIR_JUDGE,
-  type PairJudgeAsk,
-  type PairJudgePort,
-} from '@outcomes/application/ports/pair-judge.port';
-import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
-import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
-import { WorkPairJudgings } from '@outcomes/application/services/work-pair-judgings.service';
-import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
-import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
-import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
+  SIDE_BY_SIDE_JUDGE,
+  type SideBySideJudgePort,
+  type SideBySideJudgeRequest,
+} from '@insights/application/ports/side-by-side-judge.port';
+import { DeleteInsights } from '@insights/application/services/delete-insights.service';
+import { WorkChangeJudgings } from '@insights/application/services/work-change-judgings.service';
+import { WorkSideBySideJudgings } from '@insights/application/services/work-side-by-side-judgings.service';
+import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
+import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
+import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -51,7 +51,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const HOST = `host-pairing-${randomUUID().slice(0, 8)}`;
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -89,9 +89,9 @@ const archiveStore: WorkspaceArchiveStorePort = {
   remove: async () => {},
 };
 
-const drafter: ChangeStackDrafterPort = {
+const generator: ChangeStackGeneratorPort = {
   available: true,
-  draft: async ({ diff }) => ({
+  generate: async ({ diff }) => ({
     usage: {
       inputTokens: 1_000,
       outputTokens: 100,
@@ -107,7 +107,7 @@ const drafter: ChangeStackDrafterPort = {
             title: 'Drain in order',
             summary: 'Drains the queue oldest first',
             dependsOn: [],
-            ranges: diff.hunks.map((each) => ({ hunk: each.id })),
+            hunks: diff.hunks.map((each) => ({ hunk: each.id })),
             notes: [
               ...new Set(
                 diff.hunks.flatMap((each) => diff.fileOf(each.id)?.path ?? []),
@@ -120,17 +120,17 @@ const drafter: ChangeStackDrafterPort = {
   }),
 };
 
-const asked: JudgeAsk[] = [];
+const requests: JudgeRequest[] = [];
 
 const judge: JudgePort = {
   available: true,
   model: 'stub/judge',
-  judge: async (ask) => {
-    asked.push(ask);
-    const fast = ask.hunks.some((each) =>
+  judge: async (request) => {
+    requests.push(request);
+    const fast = request.hunks.some((each) =>
       each.lines.some((line) => line.includes(FAST)),
     );
-    const cited = ask.hunks.slice(0, 1).map((each) => each.id);
+    const cited = request.hunks.slice(0, 1).map((each) => each.id);
 
     return {
       usage: {
@@ -139,7 +139,7 @@ const judge: JudgePort = {
         cost: { amount: 0.01, currency: 'USD' },
       },
       verdict: {
-        claims: ask.claims.map((claim, index) => ({
+        claims: request.claims.map((claim, index) => ({
           index,
           met: index === 0 || !fast,
           reasons: [{ text: `On "${claim}".`, steps: [], hunks: cited }],
@@ -149,17 +149,17 @@ const judge: JudgePort = {
   },
 };
 
-const pairsAsked: PairJudgeAsk[] = [];
+const pairRequests: SideBySideJudgeRequest[] = [];
 
-const pairJudge: PairJudgePort = {
+const pairJudge: SideBySideJudgePort = {
   available: true,
   model: 'stub/pair-judge',
-  judgePair: async (ask) => {
-    pairsAsked.push(ask);
-    const fastIsA = ask.a.hunks.some((each) =>
+  judgePair: async (request) => {
+    pairRequests.push(request);
+    const fastIsA = request.a.hunks.some((each) =>
       each.lines.some((line) => line.includes(FAST)),
     );
-    const wanted = PREFERRED[ask.title] ?? 'tie';
+    const wanted = PREFERRED[request.title] ?? 'tie';
     const preferred =
       wanted === 'tie'
         ? ('tie' as const)
@@ -178,7 +178,7 @@ const pairJudge: PairJudgePort = {
         reasons: [
           {
             text: 'One drains in order, the other does not.',
-            hunks: [ask.a.hunks[0]?.id ?? '', ask.b.hunks[0]?.id ?? ''],
+            hunks: [request.a.hunks[0]?.id ?? '', request.b.hunks[0]?.id ?? ''],
           },
         ],
       },
@@ -188,7 +188,7 @@ const pairJudge: PairJudgePort = {
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 
 const http = () => served(app);
 
@@ -218,14 +218,14 @@ const sent = (update: Record<string, unknown>): string =>
     'base64',
   );
 
-const changing = (from: number, said: string, line: string) => [
+const changing = (from: number, message: string, line: string) => [
   {
     seq: from,
     type: 'output',
     at: new Date().toISOString(),
     data: sent({
       sessionUpdate: 'agent_message_chunk',
-      content: { type: 'text', text: said },
+      content: { type: 'text', text: message },
     }),
   },
   {
@@ -289,21 +289,21 @@ const anOriginal = async (title: string): Promise<Original> => {
     stationId: BUILD,
     title,
     description: 'It stalls on restart.',
-    raisedAtStationId: BUILD,
-    raisedById: team.owner.value,
+    originStationId: BUILD,
+    createdById: team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
   });
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    continuityKey: `task-${taskId}`,
+    resumeKey: `task-${taskId}`,
     taskId,
     grantedToRunId: randomUUID(),
     size: 1_024,
     sha256: 'a'.repeat(64),
     grantedAt: at,
-    sealedAt: at,
+    completedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
@@ -326,7 +326,7 @@ const anOriginal = async (title: string): Promise<Original> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship'], noteLimit: 0 },
-      continuity: { key: `task-${taskId}` },
+      resume: { key: `task-${taskId}` },
       startingPoint: true,
     },
     briefedTask: BriefedTask.of({
@@ -336,9 +336,9 @@ const anOriginal = async (title: string): Promise<Original> => {
       reviewing: null,
       attachments: [],
       notes: [],
-      openRemarks: [],
+      openReviewComments: [],
     }).parts,
-    briefedMemories: { briefed: [], cut: [] },
+    briefedMemories: { briefed: [], omitted: [] },
     startedFromArchiveId: archiveId,
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
@@ -353,11 +353,11 @@ const anOriginal = async (title: string): Promise<Original> => {
   await app
     .get(DrizzleRunRecordRepository)
     .add(
-      RunRecord.heardOf(
+      RunRecord.empty(
         RunId.of(runId),
         team.workspaceId,
         TaskId.of(taskId),
-      ).recordAction(NextAct.of('closed', at)),
+      ).recordAction(HumanAction.of('accepted', at)),
     );
 
   return { taskId, runId };
@@ -389,7 +389,7 @@ interface Claimed {
 }
 
 const claimed = async (): Promise<Claimed> => {
-  const handed = (
+  const assignment = (
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
@@ -405,10 +405,10 @@ const claimed = async (): Promise<Claimed> => {
   };
 
   return {
-    token: handed.token,
-    kind: handed.work.kind,
-    runId: handed.work.run?.id ?? handed.work.check?.runId ?? '',
-    stackId: handed.work.check?.stackId ?? null,
+    token: assignment.token,
+    kind: assignment.work.kind,
+    runId: assignment.work.run?.id ?? assignment.work.check?.runId ?? '',
+    stackId: assignment.work.check?.stackId ?? null,
   };
 };
 
@@ -430,13 +430,13 @@ const replayState = async (replayId: string) => {
   return row?.state;
 };
 
-const worked = async () => {
-  await app.get(WorkChangeStacks).workDue();
+const processed = async () => {
+  await app.get(WorkChangeStacks).processDue();
   await app.get(WorkChangeStacks).idle();
-  await app.get(WorkChangeJudgings).workDue();
+  await app.get(WorkChangeJudgings).processDue();
   await app.get(WorkChangeJudgings).idle();
-  await app.get(WorkPairJudgings).workDue();
-  await app.get(WorkPairJudgings).idle();
+  await app.get(WorkSideBySideJudgings).processDue();
+  await app.get(WorkSideBySideJudgings).idle();
 };
 
 beforeAll(async () => {
@@ -446,15 +446,15 @@ beforeAll(async () => {
       .useValue(archiveStore)
       .overrideProvider(ATTACHMENT_STORE)
       .useValue(attachmentStore)
-      .overrideProvider(CHANGE_STACK_DRAFTER)
-      .useValue(drafter)
+      .overrideProvider(CHANGE_STACK_GENERATOR)
+      .useValue(generator)
       .overrideProvider(JUDGE)
       .useValue(judge)
-      .overrideProvider(PAIR_JUDGE)
+      .overrideProvider(SIDE_BY_SIDE_JUDGE)
       .useValue(pairJudge),
   );
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `pairing-${randomUUID().slice(0, 8)}`,
@@ -495,9 +495,9 @@ beforeAll(async () => {
       judge: {
         rubric: null,
         claims: [...CLAIMS],
-        passShare: 0.5,
+        passThreshold: 0.5,
         sample: 0.1,
-        trust: 0.6,
+        minAgreement: 0.6,
       },
     },
     {
@@ -534,15 +534,15 @@ beforeAll(async () => {
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
       name: 'pairing-box',
-      session: 'session_1',
+      bootId: 'boot_1',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 8,
       running: [],
       images: [
         {
           image: IMAGE,
-          usual: true,
+          isDefault: true,
           harnesses: [{ id: 'claude-code', models: [] }],
         },
       ],
@@ -561,10 +561,10 @@ describe('a replay at a station whose judge goes by claims', () => {
       await anOriginal('Drain queue second'),
       await anOriginal('Drain queue third'),
     ];
-    const opened = await owner()
+    const created = await owner()
       .post(`${stationPath()}/replay-sets`, { name: 'Paired' })
       .expect(201);
-    const setId = opened.body.id as string;
+    const setId = created.body.id as string;
     for (const each of originals) {
       await owner()
         .post(`${teamPath()}/replay-sets/${setId}/entries`, {
@@ -589,43 +589,45 @@ describe('a replay at a station whose judge goes by claims', () => {
     const both = [id, baselineId];
     const reported = new Set<string>();
 
-    const finish = async (handed: Claimed) => {
-      const entry = await entryOf(handed.runId);
+    const finish = async (assignment: Claimed) => {
+      const entry = await entryOf(assignment.runId);
       const line = entry?.replayId === id ? FAST : PLAIN;
 
-      await bearing(handed.token)
-        .post(`/api/runs/${handed.runId}/events`, {
+      await bearing(assignment.token)
+        .post(`/api/runs/${assignment.runId}/events`, {
           events: changing(1, 'Drained it.', line),
         })
         .expect(204);
-      await bearing(handed.token)
-        .post(`/api/runs/${handed.runId}/change-stacks`, {
+      await bearing(assignment.token)
+        .post(`/api/runs/${assignment.runId}/change-stacks`, {
           diff: diffOf(line),
           repository: 'api',
           base: COMMIT,
         })
         .expect(204);
-      await bearing(handed.token)
-        .post(`/api/runs/${handed.runId}/completion`, {
+      await bearing(assignment.token)
+        .post(`/api/runs/${assignment.runId}/completion`, {
           exitCode: 0,
           failed: false,
-          outcome: { next: 'ship', note: 'Drained.' },
+          handover: { next: 'ship', note: 'Drained.' },
           sessionId: 'session_1',
-          kept: true,
+          archived: true,
         })
         .expect(200);
     };
 
-    const check = async (handed: Claimed) => {
-      await bearing(handed.token)
+    const check = async (assignment: Claimed) => {
+      await bearing(assignment.token)
         .post(
-          `/api/runs/${handed.runId}/change-stack-checks/${handed.stackId}`,
+          `/api/runs/${assignment.runId}/change-stack-checks/${assignment.stackId}`,
           {
-            steps: [{ step: 'whole', passed: true, output: 'ok', tookMs: 900 }],
+            steps: [
+              { step: 'whole', passed: true, output: 'ok', durationMs: 900 },
+            ],
           },
         )
         .expect(204);
-      reported.add(handed.stackId ?? '');
+      reported.add(assignment.stackId ?? '');
     };
 
     const replayRunIds = async () =>
@@ -656,7 +658,7 @@ describe('a replay at a station whose judge goes by claims', () => {
           .where(
             and(
               inArray(schema.stackCheck.runId, runs),
-              eq(schema.stackCheck.phase, 'waiting'),
+              eq(schema.stackCheck.status, 'waiting'),
             ),
           )
       ).filter((each) => !reported.has(each.stackId));
@@ -684,13 +686,15 @@ describe('a replay at a station whose judge goes by claims', () => {
     };
 
     await eventually(async () => {
-      await app.get(DispatchReplayRuns).workDue();
-      await worked();
+      await app.get(DispatchReplayRuns).processDue();
+      await processed();
 
       if (await workWaiting()) {
-        const handed = await claimed();
+        const assignment = await claimed();
 
-        await (handed.kind === 'run' ? finish(handed) : check(handed));
+        await (assignment.kind === 'run'
+          ? finish(assignment)
+          : check(assignment));
       }
 
       return allPaired();
@@ -700,8 +704,8 @@ describe('a replay at a station whose judge goes by claims', () => {
       await owner().get(`${teamPath()}/replays/${id}`).expect(200)
     ).body as {
       totals: { successRate: number };
-      pairedWith: string | null;
-      pairsAgainstBaseline: { wins: number; losses: number; ties: number };
+      pairwiseReference: string | null;
+      referencePairs: { wins: number; losses: number; ties: number };
       comparison: {
         title: string;
         pair: string | null;
@@ -709,8 +713,8 @@ describe('a replay at a station whose judge goes by claims', () => {
           judge: {
             scale: string;
             score: number;
-            marks: boolean[];
-            passShare: number;
+            claimResults: boolean[];
+            passThreshold: number;
             passed: boolean;
             claims: string[];
             reasons: { claim: number | null; citations: { kind: string }[] }[];
@@ -718,22 +722,22 @@ describe('a replay at a station whose judge goes by claims', () => {
           pair: {
             state: string;
             outcome: string;
-            againstRunId: string;
-            readings: { ownShownFirst: boolean; outcome: string }[];
+            otherRunId: string;
+            passes: { ownShownFirst: boolean; outcome: string }[];
           };
           pairingSpent: { spends: { amount: number }[] } | null;
         }[];
         baseline: {
           runId: string;
-          judge: { marks: boolean[]; passed: boolean };
+          judge: { claimResults: boolean[]; passed: boolean };
           pair: unknown;
         }[];
       }[];
     };
 
     expect(detail.totals.successRate).toBe(1);
-    expect(detail.pairedWith).toBe(baselineId);
-    expect(detail.pairsAgainstBaseline).toEqual({
+    expect(detail.pairwiseReference).toBe(baselineId);
+    expect(detail.referencePairs).toEqual({
       wins: 1,
       losses: 1,
       ties: 1,
@@ -755,34 +759,34 @@ describe('a replay at a station whose judge goes by claims', () => {
       expect(mine?.judge).toMatchObject({
         scale: 'claims',
         score: 0.5,
-        marks: [true, false],
-        passShare: 0.5,
+        claimResults: [true, false],
+        passThreshold: 0.5,
         passed: true,
         claims: [...CLAIMS],
       });
       expect(mine?.judge.reasons.map((each) => each.claim)).toEqual([0, 1]);
       expect(mine?.judge.reasons[0]?.citations[0]?.kind).toBe('hunk');
       expect(
-        mine?.pair.readings.map((each) => each.ownShownFirst).sort(),
+        mine?.pair.passes.map((each) => each.ownShownFirst).sort(),
       ).toEqual([false, true]);
       expect(theirs?.judge).toMatchObject({
-        marks: [true, true],
+        claimResults: [true, true],
         passed: true,
       });
       expect(mine?.pair).toMatchObject({
         state: 'judged',
         outcome: row.pair,
-        againstRunId: theirs?.runId,
+        otherRunId: theirs?.runId,
       });
       expect(mine?.pairingSpent?.spends[0]?.amount).toBe(0.04);
       expect(theirs?.pair).toBeNull();
     }
 
-    expect(asked.every((each) => each.scale === 'claims')).toBe(true);
-    expect(asked.every((each) => each.claims.length === 2)).toBe(true);
-    expect(pairsAsked).toHaveLength(6);
+    expect(requests.every((each) => each.scale === 'claims')).toBe(true);
+    expect(requests.every((each) => each.claims.length === 2)).toBe(true);
+    expect(pairRequests).toHaveLength(6);
     expect(
-      pairsAsked.every(
+      pairRequests.every(
         (each) =>
           each.claims.length === 2 &&
           each.reference.hunks.some((hunk) =>
@@ -800,18 +804,18 @@ describe('a replay at a station whose judge goes by claims', () => {
     expect(
       await db
         .select()
-        .from(schema.pairJudging)
-        .where(inArray(schema.pairJudging.runId, runs)),
+        .from(schema.sideBySideJudging)
+        .where(inArray(schema.sideBySideJudging.runId, runs)),
     ).toHaveLength(3);
 
     await app
-      .get(ForgetOutcomes)
+      .get(DeleteInsights)
       .judgingsAndScoresOfTeam(team.workspaceId, team.teamId);
     expect(
       await db
         .select()
-        .from(schema.pairJudging)
-        .where(inArray(schema.pairJudging.runId, runs)),
+        .from(schema.sideBySideJudging)
+        .where(inArray(schema.sideBySideJudging.runId, runs)),
     ).toEqual([]);
   }, 180_000);
 });

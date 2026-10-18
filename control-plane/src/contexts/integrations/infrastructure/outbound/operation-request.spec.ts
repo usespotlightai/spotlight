@@ -1,8 +1,8 @@
 import {
-  DescribedOperation,
   type OperationCall,
   type OperationParameter,
-} from '@integrations/domain/value-objects/described-operation.vo';
+  SpecOperation,
+} from '@integrations/domain/value-objects/spec-operation.vo';
 import { operationRequest } from '@integrations/infrastructure/outbound/operation-request';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { describe, expect, it } from 'vitest';
@@ -20,7 +20,7 @@ const param = (
 });
 
 const operation = (call: OperationCall, names: readonly string[]) =>
-  DescribedOperation.of({
+  SpecOperation.of({
     name: 'find-pets',
     upstream: 'findPets',
     description: 'Find pets.',

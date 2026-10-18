@@ -23,7 +23,7 @@ import {
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
-import type { StationSite } from '@memory/domain/value-objects/run-site';
+import type { StationContext } from '@memory/domain/value-objects/run-context';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -36,10 +36,10 @@ interface Remembrance {
   readonly remembering: Remembering;
   readonly runId: RunId;
   readonly task: RememberedTask;
-  readonly site: StationSite;
+  readonly runContext: StationContext;
   readonly steps: readonly RememberedStep[];
   readonly supersedes: Memory | null;
-  readonly asked: MemoryRemembering;
+  readonly input: MemoryRemembering;
   readonly id: MemoryId;
 }
 
@@ -59,33 +59,33 @@ export class RememberHandler
 
   async execute(command: RememberCommand): Promise<ProposedMemoryDto> {
     try {
-      const held = await this.loader.held(command.runId, command.runnerId);
+      const run = await this.loader.leased(command.runId, command.runnerId);
       const remembering = Remembering.of({
-        taskId: held.taskId,
-        runId: held.id,
-        replay: held.replaysFrom !== null,
-        isSearch: held.isSearch,
+        taskId: run.taskId,
+        runId: run.id,
+        replay: run.replaysFrom !== null,
+        isSearch: run.isSearch,
       });
 
-      const [task, site, steps, supersedes] = await Promise.all([
+      const [task, runContext, steps, supersedes] = await Promise.all([
         this.work.task(remembering.taskId),
-        this.work.stationSiteOf(held.id),
-        this.work.reasoning(held.id),
-        this.superseded(held.teamId, command.remembering.supersedes),
+        this.work.stationContextOf(run.id),
+        this.work.reasoning(run.id),
+        this.superseded(run.teamId, command.remembering.supersedes),
       ]);
 
-      if (!task || !site || !steps) {
+      if (!task || !runContext || !steps) {
         throw new UnknownRunError(command.runId);
       }
 
       const remembrance: Remembrance = {
         remembering,
-        runId: held.id,
+        runId: run.id,
         task,
-        site,
+        runContext,
         steps,
         supersedes,
-        asked: command.remembering,
+        input: command.remembering,
         id: MemoryId.of(this.ids.generate()),
       };
       const remembered = await this.rememberedOnce(remembrance).catch(
@@ -96,7 +96,7 @@ export class RememberHandler
           throw error;
         },
       );
-      const review = await this.reviews.of(remembered.draft, held.id);
+      const review = await this.reviews.of(remembered.draft, run.id);
       const shown = review.memories.find(
         (each) => each.id === remembered.id.value,
       );
@@ -132,13 +132,13 @@ export class RememberHandler
   private rememberedOnce(
     remembrance: Remembrance,
   ): Promise<{ draft: MemoryDraft; id: MemoryId }> {
-    const { remembering, runId, task, site, asked } = remembrance;
+    const { remembering, runId, task, runContext, input } = remembrance;
 
     return this.transaction.inTransaction(async () => {
       const found = await this.drafts.forTask(remembering.taskId);
       const draft =
         found ??
-        MemoryDraft.open({
+        MemoryDraft.create({
           id: MemoryDraftId.of(this.ids.generate()),
           taskId: remembering.taskId,
           workspaceId: task.workspaceId,
@@ -146,14 +146,14 @@ export class RememberHandler
       const proposal = remembering.proposalOf({
         id: remembrance.id,
         remembered: {
-          kind: asked.kind,
-          body: asked.body,
-          reach: asked.reach,
-          paths: asked.paths,
+          kind: input.kind,
+          body: input.body,
+          scope: input.scope,
+          paths: input.paths,
           supersedes: remembrance.supersedes,
         },
         at: {
-          site,
+          runContext,
           steps: remembrance.steps,
           cited: draft.stepsRemembered(runId),
           fromOutside: task.fromOutside,
@@ -166,13 +166,13 @@ export class RememberHandler
         await (found ? this.drafts.save(next) : this.drafts.add(next));
       }
 
-      const kept = next.holding(proposal);
+      const stored = next.findProposal(proposal);
 
-      if (!kept) {
+      if (!stored) {
         throw new UnknownMemoryError(proposal.id.value);
       }
 
-      return { draft: next, id: kept.id };
+      return { draft: next, id: stored.id };
     });
   }
 }

@@ -121,7 +121,7 @@ describe('TouchedFiles', () => {
     expect(waiting?.aborted).toBe(true);
   });
 
-  it('goes on without the pull request’s files when GitHub does not give them', async () => {
+  it('goes on without the pull request’s files when GitHub does not send them', async () => {
     const { onTask, warn } = touching({
       changes: [changes('run_1', ['/runs/run_1/api/src/uploads.ts'])],
       pullRequest: PULL,

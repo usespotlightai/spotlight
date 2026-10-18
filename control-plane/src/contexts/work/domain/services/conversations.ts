@@ -42,14 +42,14 @@ export const conversationsOf = (
   return cut;
 };
 
-export type ReviewState = 'owed' | 'settled';
+export type ReviewState = 'pending' | 'answered';
 
 export interface Review {
   readonly from: number;
   readonly state: ReviewState;
 }
 
-const settledAfter = <T extends { kind: TaskNoteKind }>(
+const answeredAfter = <T extends { kind: TaskNoteKind }>(
   notes: readonly T[],
   at: number,
 ): boolean =>
@@ -57,7 +57,7 @@ const settledAfter = <T extends { kind: TaskNoteKind }>(
     .slice(at + 1)
     .some((later) => later.kind === 'answered' || later.kind === 'passed');
 
-const holding = (cut: readonly Conversation[], at: number) =>
+const containing = (cut: readonly Conversation[], at: number) =>
   cut.find((each) => each.from <= at && (each.to === null || at <= each.to));
 
 export const reviewsIn = <
@@ -73,12 +73,12 @@ export const reviewsIn = <
       return;
     }
 
-    const conversation = holding(cut, at);
+    const conversation = containing(cut, at);
 
     if (conversation) {
       reviews.set(note.runId, {
         from: conversation.from,
-        state: settledAfter(notes, at) ? 'settled' : 'owed',
+        state: answeredAfter(notes, at) ? 'answered' : 'pending',
       });
     }
   });
@@ -97,10 +97,10 @@ export const awaitsAPerson = <T extends { kind: TaskNoteKind }>(
     }
   });
 
-  return asked !== -1 && !settledAfter(notes, asked);
+  return asked !== -1 && !answeredAfter(notes, asked);
 };
 
-export const owedIn = <T extends { kind: TaskNoteKind }>(
+export const pendingIn = <T extends { kind: TaskNoteKind }>(
   notes: readonly T[],
 ): Conversation | null => {
   if (!awaitsAPerson(notes)) {
@@ -116,11 +116,11 @@ export const owedIn = <T extends { kind: TaskNoteKind }>(
 export const turnOf = <T extends { runId: string | null }>(
   notes: readonly T[],
   runId: string,
-  holding = false,
+  isCurrentRun = false,
 ): T[] => {
   const first = notes.findIndex((note) => note.runId === runId);
   const last = notes.map((note) => note.runId).lastIndexOf(runId);
-  const ends = holding || last === -1 ? notes.length - 1 : last;
+  const ends = isCurrentRun || last === -1 ? notes.length - 1 : last;
 
   if (ends < 0) {
     return [];

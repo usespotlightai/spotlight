@@ -1,18 +1,18 @@
 import type { Skill } from '@configuration/domain/entities/skill.entity';
-import { SkillDefined } from '@configuration/domain/events/skill-defined.event';
-import { SkillRedefined } from '@configuration/domain/events/skill-redefined.event';
-import { SkillRetired } from '@configuration/domain/events/skill-retired.event';
+import { SkillCreated } from '@configuration/domain/events/skill-created.event';
+import { SkillDeleted } from '@configuration/domain/events/skill-deleted.event';
+import { SkillUpdated } from '@configuration/domain/events/skill-updated.event';
 import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skill.error';
 import { SkillDefinitionVersionConflictError } from '@configuration/domain/exceptions/skill-definition-version-conflict.error';
 import { SkillInUseError } from '@configuration/domain/exceptions/skill-in-use.error';
-import { SkillKeyFixedError } from '@configuration/domain/exceptions/skill-key-fixed.error';
 import type { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import type { SkillFiles } from '@configuration/domain/value-objects/skill-files.vo';
 import type { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import type { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
@@ -25,18 +25,18 @@ interface Props {
 }
 
 interface State extends Props {
-  readonly retired: boolean;
+  readonly deleted: boolean;
 }
 
-export interface ReadSkill {
+export interface ParsedSkill {
   readonly skill: Skill;
   readonly files: SkillFiles;
 }
 
-const guardDefinedHere = (read: ReadSkill): void => {
-  if (read.skill.isShipped) {
+const guardDefinedHere = (parsed: ParsedSkill): void => {
+  if (parsed.skill.isBuiltIn) {
     throw new InvalidSkillError(
-      read.skill.key.value,
+      parsed.skill.key.value,
       'is built in and cannot be defined by a team',
     );
   }
@@ -47,45 +47,45 @@ export class SkillDefinition extends EventRecorder {
     super();
   }
 
-  static define(
-    input: ReadSkill & {
+  static create(
+    input: ParsedSkill & {
       id: SkillDefinitionId;
       teamId: TeamId;
-      by: Attribution;
+      by: ChangeActor;
     },
   ): SkillDefinition {
     guardDefinedHere(input);
 
-    const defined = new SkillDefinition({
+    const created = new SkillDefinition({
       id: input.id,
       teamId: input.teamId,
       key: input.skill.key,
       files: input.files,
       version: 0,
-      retired: false,
+      deleted: false,
     });
 
-    defined.record(
-      new SkillDefined(
-        defined.id,
-        defined.teamId,
-        defined.key,
-        ConfigurationChange.created(defined.whatChanged, input.by),
+    created.record(
+      new SkillCreated(
+        created.id,
+        created.teamId,
+        created.key,
+        ConfigurationChange.created(created.whatChanged, input.by),
       ),
     );
 
-    return defined;
+    return created;
   }
 
   static rehydrate(input: Props): SkillDefinition {
     if (input.version < 1) {
       throw new InconsistentStateError(
         'skill definition',
-        'was kept without a version',
+        'was stored without a version',
       );
     }
 
-    return new SkillDefinition({ ...input, retired: false });
+    return new SkillDefinition({ ...input, deleted: false });
   }
 
   assertVersion(version: number): void {
@@ -94,21 +94,24 @@ export class SkillDefinition extends EventRecorder {
     }
   }
 
-  redefinedAs(read: ReadSkill, by: Attribution): SkillDefinition {
+  update(parsed: ParsedSkill, by: ChangeActor): SkillDefinition {
     this.guardLive();
-    guardDefinedHere(read);
+    guardDefinedHere(parsed);
 
-    if (!read.skill.key.equals(this.key)) {
-      throw new SkillKeyFixedError(
-        this.key.value,
-        `cannot be renamed to ${read.skill.key.value}. Please replace it instead`,
+    if (!parsed.skill.key.equals(this.key)) {
+      const because = `cannot be renamed to ${parsed.skill.key.value}. Please replace it instead`;
+
+      throw new ImmutableFieldError(
+        'key',
+        because,
+        `Skill ${this.key.value} ${because}.`,
       );
     }
 
-    const redefined = this.with({ files: read.files });
+    const updated = this.with({ files: parsed.files });
 
-    redefined.record(
-      new SkillRedefined(
+    updated.record(
+      new SkillUpdated(
         this.id,
         this.teamId,
         this.key,
@@ -116,33 +119,33 @@ export class SkillDefinition extends EventRecorder {
       ),
     );
 
-    return redefined;
+    return updated;
   }
 
-  retire(given: StationUses, by: Attribution): SkillDefinition {
+  delete(uses: StationUses, by: ChangeActor): SkillDefinition {
     this.guardLive();
 
-    const using = given.of(this.key);
+    const using = uses.of(this.key);
 
     if (!using.isEmpty) {
       throw new SkillInUseError(this.key.value, using);
     }
 
-    const retired = this.with({ retired: true });
+    const deleted = this.with({ deleted: true });
 
-    retired.record(this.retiredBy(by));
+    deleted.record(this.deletedBy(by));
 
-    return retired;
+    return deleted;
   }
 
-  abandon(by: Attribution): SkillDefinition {
+  cascadeDelete(by: ChangeActor): SkillDefinition {
     this.guardLive();
 
-    const abandoned = this.with({ retired: true });
+    const deleted = this.with({ deleted: true });
 
-    abandoned.record(this.retiredBy(by));
+    deleted.record(this.deletedBy(by));
 
-    return abandoned;
+    return deleted;
   }
 
   get id(): SkillDefinitionId {
@@ -169,12 +172,12 @@ export class SkillDefinition extends EventRecorder {
     return this.state.version === 0;
   }
 
-  get isRetired(): boolean {
-    return this.state.retired;
+  get isDeleted(): boolean {
+    return this.state.deleted;
   }
 
-  private retiredBy(by: Attribution): SkillRetired {
-    return new SkillRetired(
+  private deletedBy(by: ChangeActor): SkillDeleted {
+    return new SkillDeleted(
       this.id,
       this.teamId,
       this.key,
@@ -199,10 +202,10 @@ export class SkillDefinition extends EventRecorder {
   }
 
   private guardLive(): void {
-    if (this.isRetired) {
+    if (this.isDeleted) {
       throw new InconsistentStateError(
         'skill definition',
-        'was changed after it was retired',
+        'was changed after it was deleted',
       );
     }
   }

@@ -1,14 +1,14 @@
 import type { ReactNode } from 'react';
 import { AgentWorking } from '@/components/features/agent/AgentWorking';
 import { ChatEmpty } from '@/components/features/agent/ChatEmpty';
+import { ChatPersonMessage } from '@/components/features/agent/ChatPersonMessage';
 import { ChatProposal } from '@/components/features/agent/ChatProposal';
-import { ChatSaid } from '@/components/features/agent/ChatSaid';
 import { ChatWork } from '@/components/features/agent/ChatWork';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { type Chat, type ChatMoment, momentsOf, turnsOf } from '@/lib/chat';
-import { HELD_AT_TOP, type RunJournal } from '@/lib/inbox';
+import { type RunJournal, STICKY_AT_TOP } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
 
 type ChatThreadProps = {
@@ -55,13 +55,13 @@ export function ChatThread({
                 key={at}
                 className={cn('flex flex-col', at > 0 && 'mt-6')}
               >
-                {turn.said && (
-                  <div className={HELD_AT_TOP}>
-                    <ChatSaid
+                {turn.message && (
+                  <div className={STICKY_AT_TOP}>
+                    <ChatPersonMessage
                       slug={slug}
                       teamId={teamId}
-                      message={turn.said}
-                      improving={at === 0 ? chat.improving : null}
+                      message={turn.message}
+                      targetStation={at === 0 ? chat.targetStation : null}
                     />
                   </div>
                 )}
@@ -94,7 +94,7 @@ export function ChatThread({
                             readOnly
                             initialValue={moment.text}
                             placeholder=""
-                            ariaLabel="What the agent said"
+                            ariaLabel="Agent message"
                             className="border-none bg-transparent p-0"
                           />
                         )}

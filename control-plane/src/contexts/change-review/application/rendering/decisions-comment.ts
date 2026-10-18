@@ -22,7 +22,10 @@ const inRepository = (path: string, repository: Repository): string => {
     : path;
 };
 
-const told = (decision: DecisionDto, repository: Repository): string =>
+const describeDecision = (
+  decision: DecisionDto,
+  repository: Repository,
+): string =>
   [
     `**${LABELS[decision.kind]}** · ${decision.title}`,
     decision.why,
@@ -45,7 +48,7 @@ export const DecisionsComment = {
     return [
       '### Decisions the agent made',
       `The agent recorded these while it built this pull request, each from its own reasoning: **[read them with that reasoning in Spotlight](${link})**`,
-      ...found.decisions.map((each) => told(each, repository)),
+      ...found.decisions.map((each) => describeDecision(each, repository)),
     ].join('\n\n');
   },
 };

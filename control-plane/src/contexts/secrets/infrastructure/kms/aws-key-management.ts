@@ -5,7 +5,7 @@ import {
   InvalidCiphertextException,
   type KMSClient,
 } from '@aws-sdk/client-kms';
-import { UnopenableEnvelopeError } from '@secrets/infrastructure/crypto/envelope';
+import { DecryptionFailedError } from '@secrets/infrastructure/crypto/envelope';
 import type {
   IssuedDataKey,
   KeyContext,
@@ -53,7 +53,7 @@ export class AwsKeyManagement implements KeyManagement {
           error instanceof InvalidCiphertextException ||
           error instanceof IncorrectKeyException
         ) {
-          throw new UnopenableEnvelopeError(
+          throw new DecryptionFailedError(
             `AWS KMS does not unwrap the data key (${error.name})`,
           );
         }

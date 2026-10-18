@@ -23,11 +23,11 @@ const onSecondAttempt = () =>
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      continuity: { key: 'task:station' },
+      resume: { key: 'task:station' },
     }),
   })
     .claim(RunnerId.of('runner_1'), NOW)
-    .requeue(new Date(NOW.getTime() + 60_000));
+    .expireLease(new Date(NOW.getTime() + 60_000));
 
 const CALL: HookCallTrace = {
   hook: 'core/grafana-reads',
@@ -44,15 +44,15 @@ const CALL: HookCallTrace = {
 
 const tracing = (run: Run | null = onSecondAttempt()) => {
   let seq = -1_000_000;
-  const appendAside = vi.fn(async () => seq--);
+  const appendControlPlaneEntry = vi.fn(async () => seq--);
   const publish = vi.fn();
 
   return {
-    appendAside,
+    appendControlPlaneEntry,
     publish,
     traces: new HookTraces(
       { findById: async () => run } as unknown as RunRepository,
-      { appendAside } as unknown as RunJournalPort,
+      { appendControlPlaneEntry } as unknown as RunJournalPort,
       { publish } as unknown as RunStreamPort,
     ),
   };
@@ -62,12 +62,12 @@ const decoded = (data: string | undefined) =>
   JSON.parse(Buffer.from(data ?? '', 'base64').toString('utf8'));
 
 describe('HookTraces', () => {
-  it('journals a hook’s call aside on the run’s current attempt', async () => {
-    const { traces, appendAside } = tracing();
+  it('journals a hook’s call as a control-plane entry on the run’s current attempt', async () => {
+    const { traces, appendControlPlaneEntry } = tracing();
 
     await traces.record('run_1', CALL);
 
-    expect(appendAside).toHaveBeenCalledWith(
+    expect(appendControlPlaneEntry).toHaveBeenCalledWith(
       RunAttempt.of(RunId.of('run_1'), 2),
       expect.objectContaining({
         type: 'hook.called',
@@ -75,7 +75,7 @@ describe('HookTraces', () => {
         at: new Date(NOW.getTime() + 120),
       }),
     );
-    const [[, entry]] = appendAside.mock.calls as unknown as [
+    const [[, entry]] = appendControlPlaneEntry.mock.calls as unknown as [
       [RunAttempt, { data: string }],
     ];
     expect(decoded(entry.data)).toEqual({
@@ -84,7 +84,7 @@ describe('HookTraces', () => {
     });
   });
 
-  it('streams the call at the place the journal gave it', async () => {
+  it('streams the call at the place the journal put it', async () => {
     const { traces, publish } = tracing();
 
     await traces.record('run_1', CALL);
@@ -104,11 +104,11 @@ describe('HookTraces', () => {
   });
 
   it('journals nothing for a run that is gone', async () => {
-    const { traces, appendAside, publish } = tracing(null);
+    const { traces, appendControlPlaneEntry, publish } = tracing(null);
 
     await traces.record('run_1', CALL);
 
-    expect(appendAside).not.toHaveBeenCalled();
+    expect(appendControlPlaneEntry).not.toHaveBeenCalled();
     expect(publish).not.toHaveBeenCalled();
   });
 });

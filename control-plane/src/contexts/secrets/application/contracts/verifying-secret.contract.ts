@@ -3,7 +3,7 @@ import {
   type Secret,
 } from '@shared-kernel/domain/value-objects/secret';
 
-const WITHHELD = '[secret]';
+const REDACTED = '[secret]';
 
 export class VerifyingSecret implements Secret {
   readonly #value: string;
@@ -25,14 +25,14 @@ export class VerifyingSecret implements Secret {
   }
 
   toString(): string {
-    return WITHHELD;
+    return REDACTED;
   }
 
   toJSON(): string {
-    return WITHHELD;
+    return REDACTED;
   }
 
   [Symbol.for('nodejs.util.inspect.custom')](): string {
-    return `VerifyingSecret ${WITHHELD}`;
+    return `VerifyingSecret ${REDACTED}`;
   }
 }

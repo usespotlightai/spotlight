@@ -30,10 +30,10 @@ import * as schema from './support/schema';
 const OPENED = {
   kind: 'event' as const,
   key: 'task.opened:task_1:triage',
-  saying: 'task.opened of Fix the queue (triage)',
+  description: 'task.opened of Fix the queue (triage)',
 };
 
-describe('hook firings, kept in the database (e2e)', () => {
+describe('hook firings, stored in the database (e2e)', () => {
   let app: INestApplication;
   let firings: HookFiringRepository;
   let history: HookFiringHistoryPort;
@@ -58,11 +58,11 @@ describe('hook firings, kept in the database (e2e)', () => {
       firedAt,
       event: {},
       matched: true,
-      cause: CausalChain.none().followedBy(OPENED),
+      cause: CausalChain.none().append(OPENED),
       link: {
         kind: 'hook',
         key: `hook:${hookId}:${OPENED.key}`,
-        saying: 'the hook opened',
+        description: 'the hook opened',
       },
     });
 
@@ -120,7 +120,7 @@ describe('hook firings, kept in the database (e2e)', () => {
     await expect(firings.add(firing('occurrence_1'))).resolves.toBe(false);
   });
 
-  it('lets only the worker that holds a firing write to it', async () => {
+  it('lets only the worker with the lease on a firing write to it', async () => {
     await firings.add(firing('occurrence_2'));
     const first = await claimed();
     const later = at(11 * 60);
@@ -142,7 +142,7 @@ describe('hook firings, kept in the database (e2e)', () => {
     });
   });
 
-  it('forgets finished firings once they are old, and nothing still owed', async () => {
+  it('purges finished firings once they are old, and nothing still pending', async () => {
     await firings.add(firing('occurrence_3'));
     await firings.add(firing('occurrence_4'));
     const finished = await claimed();
@@ -156,7 +156,7 @@ describe('hook firings, kept in the database (e2e)', () => {
     expect(old.map((each) => each.id)).toEqual([finished.id]);
 
     for (const each of old) {
-      await firings.save(each.forgotten(at(31 * 86_400)));
+      await firings.save(each.purge(at(31 * 86_400)));
     }
 
     const left = await db
@@ -167,17 +167,19 @@ describe('hook firings, kept in the database (e2e)', () => {
     expect(left.map((each) => each.state)).toEqual(['pending']);
   });
 
-  it('keeps the chain of causes a firing came from, and hands it on with the firing itself', async () => {
+  it('stores the chain of causes a firing came from, and hands it on with the firing itself', async () => {
     const fired = firing('occurrence_5');
     await firings.add(fired);
 
     const next = await claimed();
 
-    expect(next.cause.saying).toBe(OPENED.saying);
+    expect(next.cause.description).toBe(OPENED.description);
     expect(next.link.key).toBe(`hook:${hookId}:${OPENED.key}`);
     await expect(
-      history.chainOf('workspace_1', fired.id).then((chain) => chain?.saying),
-    ).resolves.toBe(`${OPENED.saying} → the hook opened`);
+      history
+        .chainOf('workspace_1', fired.id)
+        .then((chain) => chain?.description),
+    ).resolves.toBe(`${OPENED.description} → the hook opened`);
     await expect(history.chainOf('workspace_2', fired.id)).resolves.toBeNull();
   });
 
@@ -198,7 +200,7 @@ describe('hook firings, kept in the database (e2e)', () => {
     await expect(history.recentRepeats(first)).resolves.toBe(0);
   });
 
-  it('keeps what kind of failure ended a firing, and a superseded one apart from a failed one', async () => {
+  it('stores what kind of failure ended a firing, and a superseded one apart from a failed one', async () => {
     await firings.add(firing('occurrence_9'));
     await firings.add(firing('occurrence_10'));
     const first = await claimed();

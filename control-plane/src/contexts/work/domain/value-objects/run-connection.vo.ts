@@ -1,8 +1,8 @@
 import { InvalidRunConnectionError } from '@work/domain/exceptions/invalid-run-connection.error';
 
 export const CONNECTION_OUTCOMES = [
-  'tunnelled',
-  'forwarded',
+  'passthrough',
+  'injected',
   'blocked',
   'failed',
 ] as const;
@@ -11,7 +11,7 @@ export type ConnectionOutcome = (typeof CONNECTION_OUTCOMES)[number];
 
 export const CONNECTION_REASONS = [
   'not-allowed',
-  'address-refused',
+  'private-address',
   'not-bound',
   'no-such-host',
   'timed-out',
@@ -23,22 +23,22 @@ export type ConnectionReason = (typeof CONNECTION_REASONS)[number];
 
 export const STOPPED_OUTCOMES = ['blocked', 'failed'] as const;
 
-export const REFUSED_STATUSES = [401, 403] as const;
+export const AUTH_FAILED_STATUSES = [401, 403] as const;
 
 export const SERVER_ERROR = 500;
 
-export const CONNECTION_TROUBLES = [
+export const CONNECTION_ERRORS = [
   ...STOPPED_OUTCOMES,
-  'refused',
+  'auth-failed',
   'server-error',
 ] as const;
 
-export type ConnectionTrouble = (typeof CONNECTION_TROUBLES)[number];
+export type ConnectionError = (typeof CONNECTION_ERRORS)[number];
 
 const REASONS_OF: Record<ConnectionOutcome, readonly ConnectionReason[]> = {
-  tunnelled: [],
-  forwarded: [],
-  blocked: ['not-allowed', 'address-refused', 'not-bound'],
+  passthrough: [],
+  injected: [],
+  blocked: ['not-allowed', 'private-address', 'not-bound'],
   failed: ['no-such-host', 'timed-out', 'tls-failed', 'unreachable'],
 };
 
@@ -91,7 +91,7 @@ export class RunConnection {
     readonly at: Date,
   ) {}
 
-  get trouble(): ConnectionTrouble | null {
+  get error(): ConnectionError | null {
     if (isStopped(this.outcome)) {
       return this.outcome;
     }
@@ -100,22 +100,22 @@ export class RunConnection {
       return null;
     }
 
-    if ((REFUSED_STATUSES as readonly number[]).includes(this.status)) {
-      return 'refused';
+    if ((AUTH_FAILED_STATUSES as readonly number[]).includes(this.status)) {
+      return 'auth-failed';
     }
 
     return this.status >= SERVER_ERROR ? 'server-error' : null;
   }
 
-  get wentWrong(): boolean {
-    return this.trouble !== null;
+  get isError(): boolean {
+    return this.error !== null;
   }
 
   static record(parts: Parts, now: Date): RunConnection {
-    const told = parts.at.getTime();
+    const reportedAt = parts.at.getTime();
     const near =
-      told >= now.getTime() - EARLIEST_BEFORE_MS &&
-      told <= now.getTime() + LATEST_AFTER_MS;
+      reportedAt >= now.getTime() - EARLIEST_BEFORE_MS &&
+      reportedAt <= now.getTime() + LATEST_AFTER_MS;
 
     return RunConnection.of({ ...parts, at: near ? parts.at : now });
   }
@@ -156,10 +156,10 @@ export class RunConnection {
 
     const outcome = parts.outcome as ConnectionOutcome;
 
-    if (parts.status !== null && outcome !== 'forwarded') {
+    if (parts.status !== null && outcome !== 'injected') {
       throw new InvalidRunConnectionError(
         'status',
-        'can be given only for a forwarded request',
+        'can be set only for an injected request',
       );
     }
 
@@ -171,7 +171,7 @@ export class RunConnection {
         'reason',
         REASONS_OF[outcome].length > 0
           ? `of a ${outcome} connection must be one of ${REASONS_OF[outcome].join(', ')}`
-          : `can be given only for a blocked or failed connection`,
+          : `can be set only for a blocked or failed connection`,
       );
     }
 

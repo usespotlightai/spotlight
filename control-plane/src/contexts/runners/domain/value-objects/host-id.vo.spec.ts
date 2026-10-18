@@ -13,7 +13,7 @@ describe('HostId', () => {
     );
   });
 
-  it('refuses a name too short, too long, or with characters beyond letters, digits, _ and -', () => {
+  it('rejects a name too short, too long, or with characters beyond letters, digits, _ and -', () => {
     for (const raw of [
       'host-0001',
       'a'.repeat(15),

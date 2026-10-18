@@ -1,5 +1,5 @@
 import type {
-  HeldWork,
+  LeasedWork,
   RunnersPort,
 } from '@runners/application/ports/runners.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -43,12 +43,12 @@ export class ClaimsTaken {
 
   private async taken(
     runner: RunnerId,
-    work: HeldWork,
+    work: LeasedWork,
     unclaimed: () => Promise<void>,
   ): Promise<void> {
     try {
-      await this.runners.took(runner, work, this.clock.now());
-    } catch (refused) {
+      await this.runners.claim(runner, work, this.clock.now());
+    } catch (notTaken) {
       try {
         await unclaimed();
       } catch (error) {
@@ -58,24 +58,24 @@ export class ClaimsTaken {
             work: work.id,
             error: error instanceof Error ? error.message : String(error),
           },
-          'Work its runner could not take was not unclaimed, so it waits for its lease to lapse',
+          'Work that its runner could not claim stayed claimed, so it waits until its lease expires',
         );
       }
 
-      throw refused;
+      throw notTaken;
     }
   }
 
   private async runUnclaimed(claimed: Run, runner: RunnerId): Promise<void> {
     for (let attempt = 1; ; attempt++) {
-      const held = await this.runs.findById(claimed.id);
+      const existing = await this.runs.findById(claimed.id);
 
-      if (!held?.isHeldBy(runner)) {
+      if (!existing?.isLeasedBy(runner)) {
         return;
       }
 
       try {
-        await this.runs.save(held.unclaimedBy(runner));
+        await this.runs.save(existing.unclaimedBy(runner));
         return;
       } catch (error) {
         if (

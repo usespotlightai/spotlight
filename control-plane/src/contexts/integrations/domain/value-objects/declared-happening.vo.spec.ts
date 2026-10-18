@@ -11,20 +11,20 @@ const declaring = (over: Record<string, unknown> = {}) =>
   DeclaredHappening.of({
     happening: COMPLETED,
     label: 'Issue completed',
-    told: 'The issue was moved to Done.',
+    summary: 'The issue was moved to Done.',
     finds: [ISSUE],
     ...over,
   });
 
 describe('DeclaredHappening', () => {
-  it('holds what a person picking one of these reads', () => {
+  it('contains what a person picking one of these reads', () => {
     expect(declaring().label).toBe('Issue completed');
-    expect(declaring().told).toBe('The issue was moved to Done.');
+    expect(declaring().summary).toBe('The issue was moved to Done.');
   });
 
-  it('is the world reporting unless it says otherwise', () => {
-    expect(declaring().spoken).toBe(false);
-    expect(declaring({ spoken: true }).spoken).toBe(true);
+  it('is not an answer unless it says otherwise', () => {
+    expect(declaring().answers).toBe(false);
+    expect(declaring({ answers: true }).answers).toBe(true);
   });
 
   it('says what it can find a task by', () => {
@@ -32,12 +32,12 @@ describe('DeclaredHappening', () => {
     expect(declaring({ findsByBranch: true }).findsByBranch).toBe(true);
   });
 
-  it('refuses one nobody could read in a note', () => {
-    expect(() => declaring({ told: '  ' })).toThrow(InvalidIdentifierError);
+  it('rejects one nobody could read in a note', () => {
+    expect(() => declaring({ summary: '  ' })).toThrow(InvalidIdentifierError);
     expect(() => declaring({ label: '' })).toThrow(InvalidIdentifierError);
   });
 
-  it('refuses one that could never find a task', () => {
+  it('rejects one that could never find a task', () => {
     expect(() => declaring({ finds: [], findsByBranch: false })).toThrow(
       /no task can be found/,
     );

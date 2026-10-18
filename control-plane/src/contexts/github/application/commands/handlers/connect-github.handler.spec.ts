@@ -19,18 +19,18 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
-const membership = (administers = true): WorkspaceMembership => ({
+const membership = (isAdmin = true): WorkspaceMembership => ({
   workspaceId: WorkspaceId.of('ws_1'),
   slug: 'acme',
   viewer: UserId.of('user_1'),
-  administers,
+  isAdmin,
 });
 
 const connecting = (
   over: {
     membership?: WorkspaceMembership | null;
     administration?: InstallationAdministration;
-    claimedBy?: WorkspaceId | null;
+    connectedWorkspace?: WorkspaceId | null;
   } = {},
 ) => {
   const events = { dispatch: vi.fn().mockResolvedValue(undefined) };
@@ -49,7 +49,7 @@ const connecting = (
     await events.dispatch(connection.pullEvents());
   });
   const administration = {
-    of: vi.fn(async () => over.administration ?? 'administers'),
+    of: vi.fn(async () => over.administration ?? 'admin'),
   } satisfies InstallationAdministrationPort;
 
   const handler = new ConnectGitHubHandler(
@@ -67,8 +67,10 @@ const connecting = (
     } satisfies WorkspaceAccessPort,
     {
       of: vi.fn(async (id: WorkspaceId) => GitHubConnection.none(id)),
-      claimantOf: vi.fn(async () => over.claimedBy ?? null),
-      heldClaimantOf: vi.fn(async () => over.claimedBy ?? null),
+      connectedWorkspaceOf: vi.fn(async () => over.connectedWorkspace ?? null),
+      lockedConnectedWorkspaceOf: vi.fn(
+        async () => over.connectedWorkspace ?? null,
+      ),
       save,
     } satisfies GitHubConnectionRepository,
     administration,
@@ -102,7 +104,7 @@ describe('ConnectGitHubHandler', () => {
     );
   });
 
-  it('asks GitHub before any transaction is open', async () => {
+  it('calls GitHub before any transaction is open', async () => {
     const { handler, administration, inTransaction } = connecting();
 
     await handler.execute(command());
@@ -123,7 +125,7 @@ describe('ConnectGitHubHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses a member who is neither owner nor admin, without asking GitHub', async () => {
+  it('denies a member who is neither owner nor admin, without calling GitHub', async () => {
     const { handler, save, administration } = connecting({
       membership: membership(false),
     });
@@ -135,8 +137,8 @@ describe('ConnectGitHubHandler', () => {
     expect(administration.of).not.toHaveBeenCalled();
   });
 
-  it('refuses an installation the caller does not administer', async () => {
-    const { handler, save } = connecting({ administration: 'does-not' });
+  it('denies an installation when the caller is not its admin', async () => {
+    const { handler, save } = connecting({ administration: 'not-admin' });
 
     await expect(handler.execute(command())).rejects.toBeInstanceOf(
       ApplicationError,
@@ -144,9 +146,9 @@ describe('ConnectGitHubHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses an installation another workspace holds', async () => {
+  it('denies an installation another workspace has', async () => {
     const { handler, save } = connecting({
-      claimedBy: WorkspaceId.of('ws_2'),
+      connectedWorkspace: WorkspaceId.of('ws_2'),
     });
 
     await expect(handler.execute(command())).rejects.toMatchObject({
@@ -155,8 +157,8 @@ describe('ConnectGitHubHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses, saying so, where GitHub would not answer at all', async () => {
-    const { handler, save } = connecting({ administration: 'cannot-tell' });
+  it('fails, saying so, where GitHub would not answer at all', async () => {
+    const { handler, save } = connecting({ administration: 'unknown' });
 
     await expect(handler.execute(command())).rejects.toThrow(
       /could not confirm this installation is yours/,
@@ -164,7 +166,7 @@ describe('ConnectGitHubHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses anything that is not a number GitHub could have given', async () => {
+  it('rejects anything that is not a number GitHub could have assigned', async () => {
     const { handler, save } = connecting();
 
     await expect(handler.execute(command('../../etc'))).rejects.toBeInstanceOf(

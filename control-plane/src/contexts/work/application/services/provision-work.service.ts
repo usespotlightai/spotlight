@@ -3,7 +3,7 @@ import type {
   RunnerPoolsPort,
 } from '@runners/application/ports/runner-pools.port';
 import type {
-  HeldWork,
+  LeasedWork,
   ProvisionedRunner,
   RunnersPort,
 } from '@runners/application/ports/runners.port';
@@ -33,7 +33,7 @@ const PAGE = 200;
 
 const MAX_PAGES = 10;
 
-type Provisioned = 'settled' | 'try-another';
+type Provisioned = 'done' | 'try-another';
 
 type OfferedPool = PoolAtWork & PoolOnOffer;
 
@@ -58,7 +58,7 @@ const rethrown = (thrown: readonly unknown[]): void => {
   }
 };
 
-const everySettled = async (
+const awaitAll = async (
   attempts: readonly Promise<unknown>[],
 ): Promise<void> => {
   rethrown(
@@ -76,13 +76,13 @@ const byWorkspace = (
   const grouped = new Map<string, PoolAtWork[]>();
 
   for (const pool of pools) {
-    const held = grouped.get(pool.workspaceId.value) ?? [];
-    held.push(pool);
-    grouped.set(pool.workspaceId.value, held);
+    const inWorkspace = grouped.get(pool.workspaceId.value) ?? [];
+    inWorkspace.push(pool);
+    grouped.set(pool.workspaceId.value, inWorkspace);
   }
 
-  for (const held of grouped.values()) {
-    held.sort((one, other) =>
+  for (const group of grouped.values()) {
+    group.sort((one, other) =>
       one.key < other.key ? -1 : one.key > other.key ? 1 : 0,
     );
   }
@@ -102,9 +102,9 @@ export class ProvisionWork {
   ) {}
 
   async due(): Promise<void> {
-    await this.lapsed();
+    await this.expired();
 
-    await everySettled(
+    await awaitAll(
       [...byWorkspace(await this.pools.provisioning()).values()].map((pools) =>
         this.inWorkspace(pools),
       ),
@@ -122,7 +122,7 @@ export class ProvisionWork {
       return;
     }
 
-    let room = PoolRoom.told(
+    let room = PoolRoom.of(
       await Promise.all(
         pools.map(
           async (offered) =>
@@ -183,7 +183,7 @@ export class ProvisionWork {
       }
     }
 
-    await everySettled(
+    await awaitAll(
       placed.map(async ({ provisionable, fitting }) => {
         const thrown: unknown[] = [];
 
@@ -205,27 +205,27 @@ export class ProvisionWork {
     );
   }
 
-  private async lapsed(): Promise<void> {
+  private async expired(): Promise<void> {
     const now = this.clock.now();
 
-    for (const run of await this.runs.withLapsedReservations(now)) {
+    for (const run of await this.runs.withExpiredReservations(now)) {
       const { reservation } = run;
 
-      if (reservation && run.reservationLapsedAt(now)) {
+      if (reservation && run.reservationExpiredAt(now)) {
         await this.failures.failed(
           run.id,
           reservation.runner,
-          ProvisionFailure.lapsed(reservation.until),
+          ProvisionFailure.expired(reservation.until),
           now,
         );
       }
     }
 
-    for (const check of await this.checks.lapsed(now)) {
+    for (const check of await this.checks.expired(now)) {
       await this.checks.failed(
         check.stackId,
         check.runner,
-        ProvisionFailure.lapsed(check.until),
+        ProvisionFailure.expired(check.until),
         now,
       );
     }
@@ -234,7 +234,7 @@ export class ProvisionWork {
   private provisionableRun(queued: Run): Provisionable {
     return {
       placement: queued.placement,
-      needsEgress: queued.wearsSecrets,
+      needsEgress: queued.injectsSecrets,
       on: (pool, last) => this.runOn(queued, pool, last),
     };
   }
@@ -255,7 +255,7 @@ export class ProvisionWork {
     const current = await this.runs.findById(queued.id);
 
     if (!current?.provisionableAt(this.clock.now(), pool.egress)) {
-      return 'settled';
+      return 'done';
     }
 
     const runnerId = RunnerId.of(this.ids.generate());
@@ -268,14 +268,14 @@ export class ProvisionWork {
     const { reservation } = reserved;
 
     if (!reservation) {
-      return 'settled';
+      return 'done';
     }
 
     try {
       await this.runs.save(reserved);
     } catch (error) {
       if (error instanceof RunVersionConflictError) {
-        return 'settled';
+        return 'done';
       }
 
       throw error;
@@ -288,7 +288,7 @@ export class ProvisionWork {
           runId: reserved.id.value,
           taskId: reserved.taskId?.value ?? null,
           placement: reserved.placement,
-          needsEgress: reserved.wearsSecrets,
+          needsEgress: reserved.injectsSecrets,
           claimBy: reservation.until,
         }),
       {
@@ -319,7 +319,7 @@ export class ProvisionWork {
     );
 
     if (!until) {
-      return 'settled';
+      return 'done';
     }
 
     return this.attempted(
@@ -350,7 +350,7 @@ export class ProvisionWork {
     pool: PoolAtWork,
     runnerId: RunnerId,
     reserved: {
-      readonly work: HeldWork;
+      readonly work: LeasedWork;
       readonly runId: string;
       readonly taskId: string | null;
       readonly placement: RunnerPlacement;
@@ -365,7 +365,7 @@ export class ProvisionWork {
         work: reserved.work,
         runId: reserved.runId,
         taskId: reserved.taskId,
-        labels: reserved.placement.selectors,
+        labels: reserved.placement.requiredLabels,
         image: reserved.placement.image?.value ?? null,
         needsEgress: reserved.needsEgress,
         claimBy: reserved.claimBy,
@@ -402,14 +402,14 @@ export class ProvisionWork {
     last: boolean,
   ): Promise<Provisioned> {
     if (provisioned.outcome === 'provisioned') {
-      return 'settled';
+      return 'done';
     }
 
     if (provisioned.outcome === 'failed' && last) {
       await then.failed(
         ProvisionFailure.of(provisioned.kind, provisioned.detail),
       );
-      return 'settled';
+      return 'done';
     }
 
     await then.unreserved();

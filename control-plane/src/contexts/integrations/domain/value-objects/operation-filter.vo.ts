@@ -33,7 +33,7 @@ export class OperationFilter {
     return new OperationFilter(include, exclude);
   }
 
-  admits(name: string): boolean {
+  matches(name: string): boolean {
     const matches = (glob: string) => matcherOf(glob).test(name);
 
     return (

@@ -36,14 +36,18 @@ export interface ReviewThread {
 export const VERDICTS: readonly {
   readonly id: ReviewVerdict;
   readonly label: string;
-  readonly told: string;
+  readonly description: string;
 }[] = [
-  { id: 'comment', label: 'Comment', told: 'Feedback without a verdict' },
-  { id: 'approve', label: 'Approve', told: 'Good to merge' },
+  {
+    id: 'comment',
+    label: 'Comment',
+    description: 'Feedback without a verdict',
+  },
+  { id: 'approve', label: 'Approve', description: 'Good to merge' },
   {
     id: 'request-changes',
     label: 'Request changes',
-    told: 'Needs another pass before merging',
+    description: 'Needs another pass before merging',
   },
 ];
 
@@ -142,4 +146,4 @@ export const drafts = (review: CodeReview | undefined): number =>
   review?.comments.filter((comment) => comment.state === 'draft').length ?? 0;
 
 export const whoWrote = (comment: ReviewComment): string =>
-  comment.yours ? 'You' : comment.authorName;
+  comment.viewerIsAuthor ? 'You' : comment.authorName;

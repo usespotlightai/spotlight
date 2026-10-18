@@ -5,7 +5,7 @@ import {
 import { GainWithPairs } from '@/components/features/replays/GainWithPairs';
 import { HeldOutScore } from '@/components/features/replays/HeldOutScore';
 import { ScoredRate } from '@/components/features/replays/ScoredRate';
-import { OnlyOnSeenTasksBadge } from '@/components/features/searches/OnlyOnSeenTasksBadge';
+import { OverfitBadge } from '@/components/features/searches/OverfitBadge';
 import { THE_SEARCH_START } from '@/lib/replay-words';
 import {
   candidateName,
@@ -30,9 +30,9 @@ export function FrontierTable({ candidates, currency }: FrontierTableProps) {
           {candidate.onFrontier && (
             <span className="ml-1.5 text-primary">frontier</span>
           )}
-          {candidate.onlyOnSeenTasks && (
-            <OnlyOnSeenTasksBadge
-              mark={candidate.onlyOnSeenTasks}
+          {candidate.overfit && (
+            <OverfitBadge
+              mark={candidate.overfit}
               className="ml-1.5 align-middle"
             />
           )}

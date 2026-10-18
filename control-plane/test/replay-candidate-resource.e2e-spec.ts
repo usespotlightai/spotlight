@@ -56,7 +56,7 @@ const DELIVERY = {
 type Block = Record<string, unknown>;
 
 interface Seated extends ResourceFixture {
-  readonly held: string;
+  readonly workspaceId: string;
   readonly lineId: string;
   readonly live: Block;
   readonly tokenWith: (scopes: readonly string[]) => Promise<string>;
@@ -69,23 +69,23 @@ const proposal = (live: Block, name: string, prompt: string) => ({
 
 const seated = async (app: INestApplication): Promise<Seated> => {
   const db = app.get<DrizzleDatabase>(DRIZZLE);
-  const held = `candidates-${randomUUID().slice(0, 8)}`;
-  const seat = await seatTeam(db, held);
-  const opened = await served(app)
-    .post(`/api/resources/teams/${held}/lines`)
+  const workspaceId = `candidates-${randomUUID().slice(0, 8)}`;
+  const seat = await seatTeam(db, workspaceId);
+  const created = await served(app)
+    .post(`/api/resources/teams/${workspaceId}/lines`)
     .set(TEST_USER_HEADER, seat.owner)
     .set('Idempotency-Key', randomUUID())
     .send(DELIVERY);
 
-  expect(opened.status).toBe(201);
+  expect(created.status).toBe(201);
 
-  const lineId = opened.body.id as string;
-  const live = (opened.body.definition.stations as { key: string }[]).find(
+  const lineId = created.body.id as string;
+  const live = (created.body.definition.stations as { key: string }[]).find(
     (each) => each.key === 'build',
   ) as Block;
   const tokenWith = async (scopes: readonly string[]) => {
     const issued = await served(app)
-      .post(`/api/resources/workspaces/${held}/tokens`)
+      .post(`/api/resources/workspaces/${workspaceId}/tokens`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
       .send({ name: `candidates-${randomUUID().slice(0, 8)}`, scopes });
@@ -96,7 +96,7 @@ const seated = async (app: INestApplication): Promise<Seated> => {
   };
 
   return {
-    held,
+    workspaceId,
     lineId,
     live,
     tokenWith,
@@ -106,10 +106,10 @@ const seated = async (app: INestApplication): Promise<Seated> => {
     collection: `/api/resources/lines/${lineId}/stations/build/replay-candidates`,
     item: (id) => `/api/resources/replay-candidates/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${held}/replay-candidates/import?address=${encodeURIComponent(address)}`,
+      `/api/resources/workspaces/${workspaceId}/replay-candidates/import?address=${encodeURIComponent(address)}`,
     listing: (workspaceId) =>
       `/api/resources/workspaces/${workspaceId}/replay-candidates`,
-    workspaceOf: () => held,
+    workspaceOf: () => workspaceId,
     address: 'team/delivery/build/Shorter prompt',
     valid: proposal(live, 'Shorter prompt', 'Build it, briefly.'),
     changed: proposal(live, 'Longer prompt', 'Build it, and say why.'),
@@ -119,10 +119,12 @@ const seated = async (app: INestApplication): Promise<Seated> => {
       path: 'station.harness',
     },
     close: async () => {
-      await db.delete(schema.replay).where(eq(schema.replay.workspaceId, held));
+      await db
+        .delete(schema.replay)
+        .where(eq(schema.replay.workspaceId, workspaceId));
       await db
         .delete(schema.replayCandidate)
-        .where(eq(schema.replayCandidate.workspaceId, held));
+        .where(eq(schema.replayCandidate.workspaceId, workspaceId));
       await db
         .delete(schema.idempotentCreate)
         .where(
@@ -133,10 +135,10 @@ const seated = async (app: INestApplication): Promise<Seated> => {
         );
       await db
         .delete(schema.configurationChange)
-        .where(eq(schema.configurationChange.workspaceId, held));
+        .where(eq(schema.configurationChange.workspaceId, workspaceId));
       await db
         .delete(schema.workspaceToken)
-        .where(eq(schema.workspaceToken.workspaceId, held));
+        .where(eq(schema.workspaceToken.workspaceId, workspaceId));
       await seat.unseat();
     },
   };
@@ -224,15 +226,15 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
     await fixture.close();
   });
 
-  it('is proposed by a token that may plan, refused to one that may only read, and unseen from another workspace', async () => {
+  it('is proposed by a token that may plan, forbidden to one that may only read, and unseen from another workspace', async () => {
     const planner = await fixture.tokenWith(['plan']);
     const reader = await fixture.tokenWith(['read']);
     const body = proposal(fixture.live, 'Planned', 'Build it, planned.');
 
-    const refused = await bearing(reader).post(fixture.collection, body);
+    const forbidden = await bearing(reader).post(fixture.collection, body);
 
-    expect(refused.status).toBe(403);
-    expect(refused.body).toMatchObject({
+    expect(forbidden.status).toBe(403);
+    expect(forbidden.body).toMatchObject({
       type: 'urn:spotlight:problem:forbidden',
       permission: 'plan',
     });
@@ -242,7 +244,7 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
     expect(made.status).toBe(201);
     expect(made.body).toMatchObject({
       address: 'team/delivery/build/Planned',
-      stationAddress: 'team/delivery/build',
+      stationPath: 'team/delivery/build',
       kind: 'proposed',
       lineId: fixture.lineId,
     });
@@ -302,8 +304,8 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
     });
   });
 
-  it('refuses what the line resource would, field by field under station, and a candidate with no name', async () => {
-    const refused = async (body: object) => {
+  it('rejects what the line resource would, field by field under station, and a candidate with no name', async () => {
+    const rejectedPaths = async (body: object) => {
       const answer = await owner().post(fixture.collection, body);
 
       expect(answer.status).toBe(422);
@@ -313,44 +315,46 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
     };
 
     expect(
-      await refused({
+      await rejectedPaths({
         name: 'Blank judge',
         station: {
           ...fixture.live,
-          judge: { rubric: '   ', sample: 0.2, trust: 0.6 },
+          judge: { rubric: '   ', sample: 0.2, minAgreement: 0.6 },
         },
       }),
     ).toContain('station.judge.rubric');
     expect(
-      await refused({
+      await rejectedPaths({
         name: 'Unreadable judge',
         station: {
           ...fixture.live,
           judge: {
             rubric: 'scores: 1-10\nIs it good?',
             sample: 0.2,
-            trust: 0.6,
+            minAgreement: 0.6,
           },
         },
       }),
     ).toContain('station.judge.rubric');
     expect(
-      await refused({
+      await rejectedPaths({
         name: 'Elsewhere',
         station: { ...fixture.live, key: 'ship' },
       }),
     ).toContain('station.key');
     expect(
-      await refused({
+      await rejectedPaths({
         name: 'Nowhere',
         station: { ...fixture.live, passesTo: ['nowhere'] },
       }),
     ).toContain('station.passesTo');
-    expect(await refused({ station: fixture.live })).toEqual(['name']);
+    expect(await rejectedPaths({ station: fixture.live })).toEqual(['name']);
     for (const name of ['Live config, 2026-10-02', ' Padded', 'a/b']) {
-      expect(await refused({ name, station: fixture.live })).toEqual(['name']);
+      expect(await rejectedPaths({ name, station: fixture.live })).toEqual([
+        'name',
+      ]);
     }
-    expect(await refused({ name: 'Blockless' })).toContain('station');
+    expect(await rejectedPaths({ name: 'Blockless' })).toContain('station');
 
     expect(
       (
@@ -362,14 +366,14 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
     ).toBe(404);
   });
 
-  it('lists and imports only proposed candidates, of one station when asked, and refuses a station or address that is none', async () => {
+  it('lists and imports only proposed candidates, of one station on request, and rejects a station or address that is none', async () => {
     const made = await proposed('Listed', 'Build it, listed.');
     const live = randomUUID();
 
     await db.insert(schema.replayCandidate).values({
       id: live,
-      workspaceId: fixture.held,
-      teamId: fixture.held,
+      workspaceId: fixture.workspaceId,
+      teamId: fixture.workspaceId,
       lineId: fixture.lineId,
       stationId: made.stationId,
       teamKey: 'team',
@@ -379,8 +383,8 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
       kind: 'live',
       station: fixture.live,
       fingerprint: made.fingerprint,
-      behaviourDigest: made.fingerprint,
-      scoringDigest: made.fingerprint,
+      behaviourHash: made.fingerprint,
+      scoringHash: made.fingerprint,
       checksChanges: false,
       changedFrom: made.fingerprint,
       changes: [],
@@ -388,7 +392,7 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
     });
 
     const listed = await owner().get(
-      `${fixture.listing(fixture.held)}?station=team/delivery/build`,
+      `${fixture.listing(fixture.workspaceId)}?station=team/delivery/build`,
     );
 
     expect(listed.status).toBe(200);
@@ -411,45 +415,48 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
       'team/delivery/build',
       'team/delivery/build/a/b',
     ]) {
-      const refused = await owner().get(fixture.importing(malformed));
+      const rejected = await owner().get(fixture.importing(malformed));
 
-      expect(refused.status).toBe(422);
-      expect(refused.headers['content-type']).toContain(
+      expect(rejected.status).toBe(422);
+      expect(rejected.headers['content-type']).toContain(
         'application/problem+json',
       );
     }
     expect(
       (
         await owner().get(
-          `${fixture.listing(fixture.held)}?station=team/delivery/ship`,
+          `${fixture.listing(fixture.workspaceId)}?station=team/delivery/ship`,
         )
       ).body.items,
     ).toEqual([]);
     expect(
-      (await owner().get(`${fixture.listing(fixture.held)}?station=team`))
-        .status,
+      (
+        await owner().get(
+          `${fixture.listing(fixture.workspaceId)}?station=team`,
+        )
+      ).status,
     ).toBe(422);
 
-    const kept = await owner().delete(fixture.item(live), 0);
+    const refused = await owner().delete(fixture.item(live), 0);
 
-    expect(kept.status).toBe(409);
-    expect(kept.body.type).toBe('urn:spotlight:problem:in-use');
+    expect(refused.status).toBe(409);
+    expect(refused.body.type).toBe('urn:spotlight:problem:in-use');
   });
 
-  it('is not withdrawn while a replay of it is running, and is once it has ended', async () => {
+  it('is not deleted while a replay of it is running, and is once it has ended', async () => {
     const made = await proposed('Running', 'Build it, running.');
     const replayId = randomUUID();
 
     await db.insert(schema.replay).values({
       id: replayId,
-      workspaceId: fixture.held,
-      teamId: fixture.held,
+      workspaceId: fixture.workspaceId,
+      teamId: fixture.workspaceId,
       lineId: fixture.lineId,
       stationId: made.stationId,
       setId: randomUUID(),
       candidateId: made.id,
       baseline: false,
-      scoringDigest: made.fingerprint,
+      scoringHash: made.fingerprint,
       judges: false,
       checked: false,
       ceilingAmount: 1,
@@ -459,10 +466,10 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
       startedAt: new Date(),
     });
 
-    const refused = await owner().delete(fixture.item(made.id), made.version);
+    const rejected = await owner().delete(fixture.item(made.id), made.version);
 
-    expect(refused.status).toBe(409);
-    expect(refused.body).toMatchObject({
+    expect(rejected.status).toBe(409);
+    expect(rejected.body).toMatchObject({
       type: 'urn:spotlight:problem:in-use',
     });
 
@@ -476,7 +483,7 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
     ).toBe(204);
   });
 
-  it('records each proposal and withdrawal in the configuration audit, naming the token and its client', async () => {
+  it('records each proposal and deletion in the configuration audit, naming the token and its client', async () => {
     const planner = await fixture.tokenWith(['plan']);
     const made = await bearing(planner).post(
       fixture.collection,

@@ -40,7 +40,7 @@ const once = (all: readonly string[], context: z.RefinementCtx) => {
       context.addIssue({
         code: 'custom',
         path: [at],
-        message: `gives ${each} twice`,
+        message: `names ${each} twice`,
       });
     }
   }
@@ -125,8 +125,8 @@ const workspaceRunnersSchema = z.object({
 });
 
 export class RunnerDefinitions implements RunnerDefinitionsPort {
-  trust(held: unknown): ParsedTrust {
-    const read = trustSchema.safeParse(held);
+  trust(input: unknown): ParsedTrust {
+    const read = trustSchema.safeParse(input);
 
     return read.success
       ? {
@@ -138,8 +138,8 @@ export class RunnerDefinitions implements RunnerDefinitionsPort {
       : { ok: false, problems: problemsIn(RUNNER_TRUST, read.error) };
   }
 
-  pool(held: unknown): ParsedPool {
-    const read = poolSchema.safeParse(held);
+  pool(input: unknown): ParsedPool {
+    const read = poolSchema.safeParse(input);
 
     if (!read.success) {
       return { ok: false, problems: problemsIn(RUNNER_POOL, read.error) };
@@ -178,8 +178,8 @@ export class RunnerDefinitions implements RunnerDefinitionsPort {
     };
   }
 
-  egress(held: unknown): ParsedEgress {
-    const read = egressSchema.safeParse(held);
+  egress(input: unknown): ParsedEgress {
+    const read = egressSchema.safeParse(input);
 
     return read.success
       ? {
@@ -192,8 +192,8 @@ export class RunnerDefinitions implements RunnerDefinitionsPort {
       : { ok: false, problems: problemsIn(EGRESS, read.error) };
   }
 
-  workspaceRunners(held: unknown): ParsedWorkspaceRunners {
-    const read = workspaceRunnersSchema.safeParse(held);
+  workspaceRunners(input: unknown): ParsedWorkspaceRunners {
+    const read = workspaceRunnersSchema.safeParse(input);
 
     return read.success
       ? {

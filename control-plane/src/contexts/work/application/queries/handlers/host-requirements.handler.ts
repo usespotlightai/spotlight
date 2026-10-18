@@ -1,4 +1,4 @@
-import type { RunnerAdmissionsPort } from '@runners/application/ports/runner-admissions.port';
+import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-authenticator.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import type { HostRequirementsDto } from '@work/application/dto/host-requirements.dto';
@@ -13,7 +13,7 @@ export class HostRequirementsHandler
 {
   constructor(
     private readonly launch: HarnessLaunchPort,
-    private readonly admissions: RunnerAdmissionsPort,
+    private readonly authenticator: RunnerAuthenticatorPort,
     private readonly images: LineImagesPort,
   ) {}
 
@@ -21,9 +21,11 @@ export class HostRequirementsHandler
     query: HostRequirementsQuery,
   ): Promise<HostRequirementsDto | null> {
     try {
-      const admitted = await this.admissions.admit(query.credential);
+      const authenticated = await this.authenticator.authenticate(
+        query.credential,
+      );
 
-      if (!admitted) {
+      if (!authenticated) {
         return null;
       }
 
@@ -32,7 +34,7 @@ export class HostRequirementsHandler
         harnesses: this.launch
           .catalogue()
           .map((entry) => HarnessMapper.toDto(entry, [])),
-        images: await this.images.namedIn(admitted.workspaceId),
+        images: await this.images.namedIn(authenticated.workspaceId),
       };
     } catch (error) {
       rethrowAsApplicationError(error);

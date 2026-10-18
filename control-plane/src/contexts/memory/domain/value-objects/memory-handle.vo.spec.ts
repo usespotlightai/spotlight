@@ -8,7 +8,7 @@ describe('MemoryHandle', () => {
     expect(MemoryHandle.parse(' m-12 ').equals(MemoryHandle.of(12))).toBe(true);
   });
 
-  it('refuses a number below one or past what a handle holds, or a name in any other shape', () => {
+  it('rejects a number below one or past what a handle can contain, or a name in any other shape', () => {
     expect(() => MemoryHandle.of(0)).toThrow(InvalidMemoryError);
     expect(() => MemoryHandle.parse('M-99999999999')).toThrow(
       InvalidMemoryError,

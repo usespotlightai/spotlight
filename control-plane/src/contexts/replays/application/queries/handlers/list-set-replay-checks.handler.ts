@@ -1,7 +1,7 @@
 import type { ReplayCheckSummaryDto } from '@replays/application/dto/replay-checks.dto';
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type { ListSetReplayChecksQuery } from '@replays/application/queries/list-set-replay-checks.query';
-import type { CheckReadings } from '@replays/application/services/check-readings.service';
+import type { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
 import { replayUrlOf } from '@replays/application/services/replay-check-views';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
@@ -17,7 +17,7 @@ export class ListSetReplayChecksHandler
     private readonly access: ReplaysAccess,
     private readonly people: PeoplePort,
     private readonly checks: ReplayCheckRepository,
-    private readonly readings: CheckReadings,
+    private readonly evaluations: CheckEvaluations,
     private readonly webOrigin: string,
   ) {}
 
@@ -39,15 +39,15 @@ export class ListSetReplayChecksHandler
 
       return await Promise.all(
         page.map(async (check) => {
-          const { reading } = await this.readings.of(check);
+          const { evaluation } = await this.evaluations.of(check);
 
           return {
             id: check.id.value,
             stationId: check.station.stationId,
             stationKey: check.stationKey,
-            verdict: reading.verdict,
-            undecidedBecause: reading.because,
-            regressions: reading.regressions.length,
+            result: evaluation.result,
+            undecidedBecause: evaluation.because,
+            regressions: evaluation.regressions.length,
             attempt: check.attempt,
             reference: {
               commit: check.reference.commit,

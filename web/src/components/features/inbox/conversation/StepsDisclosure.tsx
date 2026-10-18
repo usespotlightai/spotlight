@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { InboxStep } from '@/components/features/inbox/conversation/InboxStep';
+import { Collapsible } from '@/components/shared/Collapsible';
 import { DisclosureToggle } from '@/components/shared/DisclosureToggle';
 import { FadingScroll } from '@/components/shared/FadingScroll';
-import { Unfold } from '@/components/shared/Unfold';
 import { useOpenWhenFocused } from '@/hooks/useOpenWhenFocused';
 import type { JournalStep } from '@/lib/inbox';
 import { useStepAnchors } from '@/lib/step-anchors';
@@ -21,12 +21,12 @@ export function StepsDisclosure({
   children,
 }: StepsDisclosureProps) {
   const anchors = useStepAnchors();
-  const holdsFocus = steps.some(
+  const hasFocus = steps.some(
     (step) =>
       anchors.focused !== null && anchors.anchorOf(step) === anchors.focused,
   );
 
-  const { open, toggle } = useOpenWhenFocused(holdsFocus);
+  const { open, toggle } = useOpenWhenFocused(hasFocus);
 
   return (
     <div className="py-1.5">
@@ -36,7 +36,7 @@ export function StepsDisclosure({
 
       {children}
 
-      <Unfold open={open} appear={false}>
+      <Collapsible open={open} appear={false}>
         <FadingScroll className="max-h-[min(18rem,50dvh)]">
           <ol className="flex flex-col gap-px pt-1">
             {steps.map((step, at) => (
@@ -45,7 +45,7 @@ export function StepsDisclosure({
             ))}
           </ol>
         </FadingScroll>
-      </Unfold>
+      </Collapsible>
     </div>
   );
 }

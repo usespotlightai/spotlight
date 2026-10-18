@@ -14,7 +14,7 @@ func (f *Failure) Error() string {
 	return f.Method + ": " + f.Message
 }
 
-func Forgotten(err error) bool {
+func IsSessionNotFound(err error) bool {
 	var failure *Failure
 	return errors.As(err, &failure) && failure.Code == CodeNotFound
 }

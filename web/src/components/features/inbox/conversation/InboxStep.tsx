@@ -20,14 +20,14 @@ export function InboxStep({ step, live = false }: InboxStepProps) {
     className: cn('scroll-mt-16 rounded-md', focused && 'bg-accent/60'),
   };
 
-  if (step.kind === 'said') {
+  if (step.kind === 'message') {
     return (
       <li {...place} className={cn(place.className, 'px-1 py-0.5')}>
         <MarkdownEditor
           readOnly
           initialValue={step.text}
           placeholder=""
-          ariaLabel="What the agent said"
+          ariaLabel="Agent message"
           className="border-none bg-transparent p-0"
         />
       </li>

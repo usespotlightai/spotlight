@@ -1,11 +1,11 @@
 import {
-  type ChartedReading,
+  type ChartPoint,
   chartCurrencyOf,
-  chartedAs,
+  chartStatusOf,
 } from '@replays/domain/services/replayed-chart';
 import { describe, expect, it } from 'vitest';
 
-const reading = (part: Partial<ChartedReading> = {}): ChartedReading => ({
+const point = (part: Partial<ChartPoint> = {}): ChartPoint => ({
   finished: true,
   success: 0.7,
   cost: 0.4,
@@ -21,27 +21,27 @@ describe('chartCurrencyOf', () => {
   });
 });
 
-describe('chartedAs', () => {
+describe('chartStatusOf', () => {
   it('prices a finished, scored and costed point in the chart currency', () => {
-    expect(chartedAs(reading(), 'USD')).toBe('priced');
+    expect(chartStatusOf(point(), 'USD')).toBe('priced');
   });
 
   it('keeps a point costed in another currency off the chart', () => {
-    expect(chartedAs(reading(), 'EUR')).toBe('other-currency');
-    expect(chartedAs(reading(), null)).toBe('other-currency');
+    expect(chartStatusOf(point(), 'EUR')).toBe('other-currency');
+    expect(chartStatusOf(point(), null)).toBe('other-currency');
   });
 
   it('keeps an unpriced point off the chart', () => {
-    expect(chartedAs(reading({ cost: null }), 'USD')).toBe('unpriced');
+    expect(chartStatusOf(point({ cost: null }), 'USD')).toBe('unpriced');
   });
 
-  it('keeps an unscored point off the chart before asking for its cost', () => {
-    expect(chartedAs(reading({ success: null, cost: null }), 'USD')).toBe(
+  it('keeps an unscored point off the chart before it requests its cost', () => {
+    expect(chartStatusOf(point({ success: null, cost: null }), 'USD')).toBe(
       'unscored',
     );
   });
 
   it('keeps an unfinished replay off the chart whatever it scored', () => {
-    expect(chartedAs(reading({ finished: false }), 'USD')).toBe('unfinished');
+    expect(chartStatusOf(point({ finished: false }), 'USD')).toBe('unfinished');
   });
 });

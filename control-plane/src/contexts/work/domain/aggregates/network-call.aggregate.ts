@@ -5,9 +5,9 @@ import { InvalidNetworkCallError } from '@work/domain/exceptions/invalid-network
 import { InvalidNetworkCallTransitionError } from '@work/domain/exceptions/invalid-network-call-transition.error';
 import { NotThisHostsCallError } from '@work/domain/exceptions/not-this-hosts-call.error';
 import type { CallingHost } from '@work/domain/value-objects/calling-host.vo';
-import type { NetworkAnswer } from '@work/domain/value-objects/network-answer.vo';
 import type { NetworkCallId } from '@work/domain/value-objects/network-call-id.vo';
 import type { NetworkRequest } from '@work/domain/value-objects/network-request.vo';
+import type { NetworkResponse } from '@work/domain/value-objects/network-response.vo';
 
 export type NetworkCallProgress =
   | { readonly kind: 'waiting' }
@@ -17,10 +17,10 @@ export type NetworkCallProgress =
       readonly by: CallingHost;
       readonly claimedAt: Date;
       readonly at: Date;
-      readonly answer: NetworkAnswer;
+      readonly response: NetworkResponse;
     }
-  | { readonly kind: 'lapsed'; readonly at: Date }
-  | { readonly kind: 'given-up'; readonly at: Date };
+  | { readonly kind: 'expired'; readonly at: Date }
+  | { readonly kind: 'cancelled'; readonly at: Date };
 
 export type NetworkCallState = NetworkCallProgress['kind'];
 
@@ -29,15 +29,15 @@ interface State {
   readonly workspaceId: WorkspaceId;
   readonly request: NetworkRequest;
   readonly queuedAt: Date;
-  readonly lapsesAt: Date;
+  readonly expiresAt: Date;
   readonly progress: NetworkCallProgress;
   readonly version: number;
 }
 
-const KEPT_MS = 7 * 24 * 60 * 60_000;
+const RETENTION_MS = 7 * 24 * 60 * 60_000;
 
-const givenUp = (id: string): string =>
-  `Network call ${id} was given up. The hook stopped waiting for it.`;
+const cancelledMessage = (id: string): string =>
+  `Network call ${id} was cancelled. The hook stopped waiting for it.`;
 
 export class NetworkCall extends EventRecorder {
   private constructor(
@@ -51,12 +51,12 @@ export class NetworkCall extends EventRecorder {
     id: NetworkCallId;
     workspaceId: WorkspaceId;
     request: NetworkRequest;
-    lapsesAt: Date;
+    expiresAt: Date;
     now: Date;
   }): NetworkCall {
-    if (input.lapsesAt.getTime() <= input.now.getTime()) {
+    if (input.expiresAt.getTime() <= input.now.getTime()) {
       throw new InvalidNetworkCallError(
-        'must give a host time to send it before it lapses',
+        'must give a host time to send it before it expires',
       );
     }
 
@@ -65,7 +65,7 @@ export class NetworkCall extends EventRecorder {
       workspaceId: input.workspaceId,
       request: input.request,
       queuedAt: input.now,
-      lapsesAt: input.lapsesAt,
+      expiresAt: input.expiresAt,
       progress: { kind: 'waiting' },
       version: 0,
     });
@@ -86,14 +86,14 @@ export class NetworkCall extends EventRecorder {
     ) {
       throw new InconsistentStateError(
         'network call',
-        'still holds what it sent once it was settled',
+        'still has what it sent after it completed',
       );
     }
 
-    if (state.lapsesAt < state.queuedAt) {
+    if (state.expiresAt < state.queuedAt) {
       throw new InconsistentStateError(
         'network call',
-        'lapses before it was queued',
+        'expires before it was queued',
       );
     }
 
@@ -116,8 +116,8 @@ export class NetworkCall extends EventRecorder {
     return this.state.queuedAt;
   }
 
-  get lapsesAt(): Date {
-    return this.state.lapsesAt;
+  get expiresAt(): Date {
+    return this.state.expiresAt;
   }
 
   get progress(): NetworkCallProgress {
@@ -128,25 +128,25 @@ export class NetworkCall extends EventRecorder {
     return this.state.version;
   }
 
-  get answer(): NetworkAnswer | null {
+  get response(): NetworkResponse | null {
     return this.state.progress.kind === 'answered'
-      ? this.state.progress.answer
+      ? this.state.progress.response
       : null;
   }
 
   stateAt(now: Date): NetworkCallState {
     const { kind } = this.state.progress;
 
-    return (kind === 'waiting' || kind === 'claimed') && this.lapsedAt(now)
-      ? 'lapsed'
+    return (kind === 'waiting' || kind === 'claimed') && this.isExpiredAt(now)
+      ? 'expired'
       : kind;
   }
 
-  get settled(): boolean {
-    return this.settledAt !== null;
+  get isCompleted(): boolean {
+    return this.completedAt !== null;
   }
 
-  get settledAt(): Date | null {
+  get completedAt(): Date | null {
     const { progress } = this.state;
 
     return progress.kind === 'waiting' || progress.kind === 'claimed'
@@ -154,27 +154,30 @@ export class NetworkCall extends EventRecorder {
       : progress.at;
   }
 
-  static settledForgettablyBy(now: Date): Date {
-    return new Date(now.getTime() - KEPT_MS);
+  static retentionCutoff(now: Date): Date {
+    return new Date(now.getTime() - RETENTION_MS);
   }
 
-  isForgettableAt(now: Date): boolean {
-    const settledAt = this.settledAt;
+  isPastRetention(now: Date): boolean {
+    const completedAt = this.completedAt;
 
-    return settledAt !== null && now.getTime() >= settledAt.getTime() + KEPT_MS;
+    return (
+      completedAt !== null &&
+      now.getTime() >= completedAt.getTime() + RETENTION_MS
+    );
   }
 
-  forgotten(now: Date): NetworkCall {
-    if (!this.isForgettableAt(now)) {
+  purge(now: Date): NetworkCall {
+    if (!this.isPastRetention(now)) {
       throw new InvalidNetworkCallTransitionError(
-        `Network call ${this.state.id.value} is kept for a week after it settles.`,
+        `Network call ${this.state.id.value} is stored for a week after it completes.`,
       );
     }
 
-    const forgotten = new NetworkCall(this.state, true);
-    forgotten.inheritEvents(this);
+    const purged = new NetworkCall(this.state, true);
+    purged.inheritEvents(this);
 
-    return forgotten;
+    return purged;
   }
 
   belongsTo(workspaceId: WorkspaceId): boolean {
@@ -182,38 +185,46 @@ export class NetworkCall extends EventRecorder {
   }
 
   claimedBy(host: CallingHost, now: Date): NetworkCall {
-    const standing = this.stateAt(now);
+    const phase = this.stateAt(now);
 
-    if (standing === 'given-up') {
-      throw new InvalidNetworkCallTransitionError(givenUp(this.state.id.value));
+    if (phase === 'cancelled') {
+      throw new InvalidNetworkCallTransitionError(
+        cancelledMessage(this.state.id.value),
+      );
     }
 
-    if (standing !== 'waiting') {
+    if (phase !== 'waiting') {
       throw new InvalidNetworkCallTransitionError(
-        `Network call ${this.state.id.value} is ${standing}. It cannot be claimed.`,
+        `Network call ${this.state.id.value} is ${phase}. It cannot be claimed.`,
       );
     }
 
     return this.with({ progress: { kind: 'claimed', by: host, at: now } });
   }
 
-  answerWith(host: CallingHost, answer: NetworkAnswer, now: Date): NetworkCall {
+  recordResponse(
+    host: CallingHost,
+    response: NetworkResponse,
+    now: Date,
+  ): NetworkCall {
     const { progress } = this.state;
-    const standing = this.stateAt(now);
+    const phase = this.stateAt(now);
 
-    if (standing === 'answered') {
+    if (phase === 'answered') {
       throw new InvalidNetworkCallTransitionError(
         `Network call ${this.state.id.value} was already answered.`,
       );
     }
 
-    if (standing === 'given-up') {
-      throw new InvalidNetworkCallTransitionError(givenUp(this.state.id.value));
+    if (phase === 'cancelled') {
+      throw new InvalidNetworkCallTransitionError(
+        cancelledMessage(this.state.id.value),
+      );
     }
 
-    if (standing === 'lapsed') {
+    if (phase === 'expired') {
       throw new InvalidNetworkCallTransitionError(
-        `Network call ${this.state.id.value} lapsed before it was answered.`,
+        `Network call ${this.state.id.value} expired before it was answered.`,
       );
     }
 
@@ -234,41 +245,41 @@ export class NetworkCall extends EventRecorder {
         by: progress.by,
         claimedAt: progress.at,
         at: now,
-        answer,
+        response,
       },
     });
   }
 
-  lapsed(now: Date): NetworkCall {
-    if (this.settled) {
+  expire(now: Date): NetworkCall {
+    if (this.isCompleted) {
       return this;
     }
 
-    if (!this.lapsedAt(now)) {
+    if (!this.isExpiredAt(now)) {
       throw new InvalidNetworkCallTransitionError(
-        `Network call ${this.state.id.value} cannot lapse before its time is up.`,
+        `Network call ${this.state.id.value} cannot expire before its time is up.`,
       );
     }
 
     return this.with({
       request: this.state.request.spent(),
-      progress: { kind: 'lapsed', at: now },
+      progress: { kind: 'expired', at: now },
     });
   }
 
-  givenUp(now: Date): NetworkCall {
-    if (this.settled) {
+  cancel(now: Date): NetworkCall {
+    if (this.isCompleted) {
       return this;
     }
 
     return this.with({
       request: this.state.request.spent(),
-      progress: { kind: 'given-up', at: now },
+      progress: { kind: 'cancelled', at: now },
     });
   }
 
-  private lapsedAt(now: Date): boolean {
-    return now.getTime() >= this.state.lapsesAt.getTime();
+  private isExpiredAt(now: Date): boolean {
+    return now.getTime() >= this.state.expiresAt.getTime();
   }
 
   private with(part: Partial<State>): NetworkCall {

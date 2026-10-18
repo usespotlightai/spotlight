@@ -20,5 +20,5 @@ A long body is easier piped in, as `spotlight pull-request --title "…" < body.
 Where the line works in several repositories, name the one the change is in
 with `--repository <name>`.
 
-One task has one pull request. Asking again where one is already open answers
+One task has one pull request. Calling it again where one is already open answers
 with the one that is there rather than opening another.

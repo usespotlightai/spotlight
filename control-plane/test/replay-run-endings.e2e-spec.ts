@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
-import type { ReplayRunEnded } from '@replays/application/services/note-replay-ended.service';
-import { NoteReplayEnded } from '@replays/application/services/note-replay-ended.service';
+import type { ReplayRunEnded } from '@replays/application/services/record-replay-run-ending.service';
+import { RecordReplayRunEnding } from '@replays/application/services/record-replay-run-ending.service';
 import { aReplay, FINGERPRINT } from '@replays/domain/replays.fake-spec';
 import { resultOf } from '@replays/domain/services/entry-result';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -21,7 +21,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
-import { Declaration } from '@work/domain/value-objects/declaration.vo';
+import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
@@ -53,14 +53,14 @@ const replayRun = (id = 'run_1') =>
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: ['review'], noteLimit: 0 },
-      continuity: { key: 'replay-run_1' },
+      resume: { key: 'replay-run_1' },
       replay: {
         archive: 'archive_1',
         checkouts: [{ path: 'api', commit: COMMIT, repository: 'acme/api' }],
         movesOnAfter: ['build', 'done'],
       },
     }),
-    briefedWith: BriefedMemories.of({ briefed: [], cut: [] }),
+    briefedWith: BriefedMemories.of({ briefed: [], omitted: [] }),
     configuredAs: StationConfig.rehydrate(
       {
         prompt: null,
@@ -79,12 +79,12 @@ const replayRun = (id = 'run_1') =>
     ),
   });
 
-const heardBy = async (
+const receivedBy = async (
   events: readonly DomainEvent[],
 ): Promise<ReplayRunEnded> => {
-  const heard: ReplayRunEnded[] = [];
+  const received: ReplayRunEnded[] = [];
   const subscribers = replaysSubscribers({
-    ending: { ended: async (ended: ReplayRunEnded) => heard.push(ended) },
+    ending: { ended: async (ended: ReplayRunEnded) => received.push(ended) },
   } as unknown as ReplaysReactions);
   const published = events.flatMap((event) =>
     WORK_EVENT_MAPPERS.filter((each) => each.from === event.kind).map((each) =>
@@ -100,10 +100,10 @@ const heardBy = async (
     }
   }
 
-  const [ended] = heard;
+  const [ended] = received;
 
   if (!ended) {
-    throw new Error('Replays never heard the run end');
+    throw new Error('Replays never received the run end');
   }
 
   return ended;
@@ -112,9 +112,9 @@ const heardBy = async (
 const scored = (ended: ReplayRunEnded) =>
   resultOf(
     {
-      refusal: null,
+      unreplayableReason: null,
       notRun: false,
-      end: RunEnd.of({ ...ended, at: NOW }),
+      end: RunEnd.of({ ...ended, result: ended.outcome, at: NOW }),
       measures: null,
       checks: null,
       judging: null,
@@ -122,19 +122,19 @@ const scored = (ended: ReplayRunEnded) =>
     { judges: false, checks: false },
   );
 
-describe('how a replay run’s ending reaches its score, from Work’s events to Replays (e2e)', () => {
-  it('leaves unscored a replay run no runner finished, which Work gave up on', async () => {
+describe('how a replay run’s ending becomes its score, from Work’s events to Replays (e2e)', () => {
+  it('leaves unscored a replay run no runner finished, after Work used all its attempts', async () => {
     let run = replayRun();
     for (let attempt = 0; attempt < 3; attempt += 1) {
       run = run
         .claim(RUNNER, NOW)
-        .requeue(new Date(NOW.getTime() + (attempt + 1) * 600_000));
+        .expireLease(new Date(NOW.getTime() + (attempt + 1) * 600_000));
     }
 
-    const ended = await heardBy(run.pullEvents());
+    const ended = await receivedBy(run.pullEvents());
 
     expect(ended).toMatchObject({
-      outcome: 'abandoned',
+      outcome: 'exhausted',
       failure: 'runner-lost',
     });
     expect(scored(ended)).toMatchObject({
@@ -143,15 +143,15 @@ describe('how a replay run’s ending reaches its score, from Work’s events to
     });
   });
 
-  it('leaves unscored a replay run that failed before its agent was handed it', async () => {
+  it('leaves unscored a replay run that failed before its agent received it', async () => {
     const run = replayRun()
       .claim(RUNNER, NOW)
       .complete(
         RUNNER,
-        RunOutcome.of({ exitCode: -1, failed: true, unprepared: true }),
+        RunOutcome.of({ exitCode: -1, failed: true, setupFailed: true }),
       );
 
-    const ended = await heardBy(run.pullEvents());
+    const ended = await receivedBy(run.pullEvents());
 
     expect(ended).toMatchObject({ outcome: 'failed', failure: 'unprepared' });
     expect(scored(ended).succeeded).toBeNull();
@@ -162,7 +162,7 @@ describe('how a replay run’s ending reaches its score, from Work’s events to
       .claim(RUNNER, NOW)
       .complete(RUNNER, RunOutcome.of({ exitCode: 1, failed: true }));
 
-    const ended = await heardBy(run.pullEvents());
+    const ended = await receivedBy(run.pullEvents());
 
     expect(ended).toMatchObject({ outcome: 'failed', failure: 'exited' });
     expect(scored(ended).succeeded).toBe(false);
@@ -193,7 +193,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
 
     const ended = end(replayRun(runId).claim(RUNNER, NOW));
     const subscribers = replaysSubscribers({
-      ending: app.get(NoteReplayEnded),
+      ending: app.get(RecordReplayRunEnding),
     } as unknown as ReplaysReactions);
     const published = ended
       .pullEvents()
@@ -234,7 +234,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
           RUNNER,
           RunOutcome.of({ exitCode: 0, failed: false }),
           HandoverReport.of({
-            declared: Declaration.of({ next: 'build' }),
+            handover: Handover.of({ next: 'build' }),
             session: null,
           }),
         ),
@@ -242,32 +242,37 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
     ).toEqual({ succeeded: false, reasons: [['asked-a-person', null]] });
   });
 
-  it('stores a run that failed before its agent was handed it as unscored', async () => {
+  it('stores a run that failed before its agent received it as unscored', async () => {
     expect(
       await storedAfter((run) =>
         run.complete(
           RUNNER,
-          RunOutcome.of({ exitCode: -1, failed: true, unprepared: true }),
+          RunOutcome.of({ exitCode: -1, failed: true, setupFailed: true }),
         ),
       ),
     ).toEqual({ succeeded: null, reasons: [['run-failed', 'unprepared']] });
   });
 
   it('stores a run no runner finished as unscored, and one that kept running past its time as failed', async () => {
-    const lapsing = (lose: (run: Run, at: Date) => Run) => (run: Run) => {
-      let held = lose(run, NOW);
-      for (let attempt = 1; attempt < 3; attempt += 1) {
-        held = lose(held.claim(RUNNER, NOW), NOW);
-      }
-      return held;
-    };
+    const losingEveryAttempt =
+      (lose: (run: Run, at: Date) => Run) => (run: Run) => {
+        let lost = lose(run, NOW);
+        for (let attempt = 1; attempt < 3; attempt += 1) {
+          lost = lose(lost.claim(RUNNER, NOW), NOW);
+        }
+        return lost;
+      };
     const later = (at: Date) => new Date(at.getTime() + 3_600_000);
 
     expect(
-      await storedAfter(lapsing((run, at) => run.requeue(later(at)))),
+      await storedAfter(
+        losingEveryAttempt((run, at) => run.expireLease(later(at))),
+      ),
     ).toEqual({ succeeded: null, reasons: [['run-failed', 'runner-lost']] });
     expect(
-      await storedAfter(lapsing((run, at) => run.timedOut(RUNNER, at))),
+      await storedAfter(
+        losingEveryAttempt((run, at) => run.timedOut(RUNNER, at)),
+      ),
     ).toEqual({ succeeded: false, reasons: [['run-failed', 'timed-out']] });
   });
 });

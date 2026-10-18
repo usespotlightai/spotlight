@@ -1,12 +1,12 @@
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
-import type { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
+import type { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import { needsBaseline } from '@replays/domain/services/baseline';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class StartWantedBaseline {
   constructor(
@@ -17,7 +17,7 @@ export class StartWantedBaseline {
     private readonly transaction: TransactionPort,
   ) {}
 
-  wanted(event: ReplayBaselineWanted): Promise<void> {
+  requested(event: ReplayBaselineRequested): Promise<void> {
     return this.transaction.inTransaction(async () => {
       if (await this.replays.find(event.baselineId)) {
         return;
@@ -36,11 +36,11 @@ export class StartWantedBaseline {
         !needsBaseline(
           set,
           await this.replays.ofSet(set.id),
-          candidate.scoringDigest,
+          candidate.scoringHash,
           event.repeats,
         )
       ) {
-        await this.candidates.save(candidate.abandon());
+        await this.candidates.save(candidate.cascadeDelete());
         return;
       }
 
@@ -52,10 +52,10 @@ export class StartWantedBaseline {
           baseline: true,
           ceiling: event.ceiling,
           repeats: event.baselineRepeats,
-          probe: event.probe,
+          calibration: event.calibration,
           ...(event.unpricedRate ? { unpricedRate: event.unpricedRate } : {}),
           at: this.clock.now(),
-          by: Attribution.spotlight(set.workspaceId),
+          by: ChangeActor.spotlight(set.workspaceId),
         }),
       );
     });

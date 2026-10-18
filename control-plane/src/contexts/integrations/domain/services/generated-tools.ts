@@ -1,11 +1,11 @@
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
+import type { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
 import type { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
-import type { DescribedOperation } from '@integrations/domain/value-objects/described-operation.vo';
-import type { DescribedSource } from '@integrations/domain/value-objects/described-source.vo';
-import { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { OperationFilter } from '@integrations/domain/value-objects/operation-filter.vo';
-import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
+import type { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { APPROVAL_INTENT_INPUT } from '@shared-kernel/domain/value-objects/approval-intent-input';
 
@@ -14,12 +14,12 @@ export const MAX_GENERATED = 1000;
 export type ApprovalOverride = ApprovalNeeded | false;
 
 export interface GeneratedTools {
-  readonly tools: readonly OfferedTool[];
-  readonly passedOver: readonly string[];
+  readonly tools: readonly ProvidedTool[];
+  readonly skipped: readonly string[];
 }
 
 const approvalFor = (
-  operation: DescribedOperation,
+  operation: SpecOperation,
   integration: string,
   overrides: ReadonlyMap<string, ApprovalOverride>,
   by: string,
@@ -36,49 +36,49 @@ const approvalFor = (
 };
 
 export const generatedTools = (input: {
-  source: SourceKey;
-  integration: string;
-  described: DescribedSource;
+  integration: IntegrationKey;
+  integrationName: string;
+  spec: ApiSpec;
   hash: ContentHash;
-  operations: readonly DescribedOperation[];
+  operations: readonly SpecOperation[];
   filter: OperationFilter;
   approvals: ReadonlyMap<string, ApprovalOverride>;
   handWritten: readonly string[];
 }): GeneratedTools => {
-  const kind = input.described.kind;
+  const kind = input.spec.kind;
   const chosen = input.operations.filter(
     (each) =>
-      input.filter.admits(each.name) && !input.handWritten.includes(each.name),
+      input.filter.matches(each.name) && !input.handWritten.includes(each.name),
   );
 
   if (chosen.length > MAX_GENERATED) {
     throw new InvalidIntegrationError(
-      input.source.value,
-      `offers ${chosen.length} tools from its ${input.described.described}. A station can choose between at most ${MAX_GENERATED} tools. Please name the tools to offer in ${kind}.tools.include`,
+      input.integration.value,
+      `offers ${chosen.length} tools from its ${input.spec.label}. A station can choose between at most ${MAX_GENERATED} tools. Please name the tools to offer in ${kind}.tools.include`,
     );
   }
 
-  const tools: OfferedTool[] = [];
-  const passedOver: string[] = [];
+  const tools: ProvidedTool[] = [];
+  const skipped: string[] = [];
 
   for (const operation of chosen) {
     const approval = approvalFor(
       operation,
-      input.integration,
+      input.integrationName,
       input.approvals,
       `${kind}.tools.approval.${operation.name}`,
     );
 
     if (approval && operation.takes(APPROVAL_INTENT_INPUT)) {
-      passedOver.push(
-        `passes over ${operation.name}. It needs approval and takes ${APPROVAL_INTENT_INPUT}, an input that Spotlight keeps for the agent to say what it wants to do. To offer it, switch its approval off in ${kind}.tools.approval`,
+      skipped.push(
+        `skips ${operation.name}. It needs approval and takes ${APPROVAL_INTENT_INPUT}, an input that Spotlight reserves for the agent to say what it wants to do. To offer it, switch its approval off in ${kind}.tools.approval`,
       );
       continue;
     }
 
     tools.push(
-      OfferedTool.of({
-        source: input.source,
+      ProvidedTool.of({
+        integration: input.integration,
         name: operation.name,
         description: operation.description,
         backing: ToolBacking.operation(input.hash, operation.name),
@@ -89,11 +89,11 @@ export const generatedTools = (input: {
           description: each.description,
           required: each.required,
           defaulted: false,
-          piped: false,
+          stdin: false,
         })),
       }),
     );
   }
 
-  return { tools, passedOver };
+  return { tools, skipped };
 };

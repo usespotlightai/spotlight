@@ -1,5 +1,5 @@
 import type { DispatchChat } from '@work/application/services/dispatch-chat.service';
-import type { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
+import type { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 
@@ -10,7 +10,7 @@ export class EnqueueChatRun {
     private readonly dispatching: DispatchChat,
   ) {}
 
-  async on(event: ChatHandedToRun): Promise<void> {
+  async on(event: ChatDispatched): Promise<void> {
     const chat = await this.chats.find(event.chatId);
 
     if (!chat?.currentRunId?.equals(event.runId)) {
@@ -21,10 +21,10 @@ export class EnqueueChatRun {
       return;
     }
 
-    if (await this.dispatching.enqueue(chat, event.runId, event.handed)) {
+    if (await this.dispatching.enqueue(chat, event.runId, event.acknowledged)) {
       return;
     }
 
-    await this.chats.save(chat.runKeptNothing(event.runId));
+    await this.chats.save(chat.runEndedWithoutSession(event.runId));
   }
 }

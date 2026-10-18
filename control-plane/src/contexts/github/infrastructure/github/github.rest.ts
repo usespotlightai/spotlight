@@ -1,4 +1,4 @@
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 
 const API = 'https://api.github.com';
 
@@ -10,7 +10,7 @@ const FORBIDDEN = 403;
 
 const SERVER_ERROR = 500;
 
-interface Refusal {
+interface GitHubError {
   readonly message?: string;
   readonly errors?: { readonly message?: string }[];
 }
@@ -32,7 +32,7 @@ export const call = (
     },
   });
 
-const retryable = (response: Response, body: Refusal): boolean => {
+const retryable = (response: Response, body: GitHubError): boolean => {
   const headers = response.headers as Headers | undefined;
   const rateLimited =
     headers?.get?.('x-ratelimit-remaining') === '0' ||
@@ -48,13 +48,13 @@ const retryable = (response: Response, body: Refusal): boolean => {
 
 export const answered = async <T>(
   response: Response,
-  asking: string,
+  operation: string,
 ): Promise<T> => {
-  const body = (await response.json().catch(() => ({}))) as T & Refusal;
+  const body = (await response.json().catch(() => ({}))) as T & GitHubError;
 
   if (!response.ok) {
-    throw new UpstreamRefusedError(
-      asking,
+    throw new UpstreamError(
+      operation,
       body.errors?.[0]?.message ?? body.message ?? `${response.status}`,
       response.status,
       retryable(response, body),

@@ -1,9 +1,9 @@
 import { type ReactNode, useMemo, useState } from 'react';
 import { ChangeDetail } from '@/components/features/runs/ChangeDetail';
-import { RememberedDetail } from '@/components/features/runs/remembered/RememberedDetail';
-import { useLingering } from '@/hooks/useLingering';
+import { RunMemoriesDetail } from '@/components/features/runs/memories/RunMemoriesDetail';
+import { useDelayedValue } from '@/hooks/useDelayedValue';
 import type { FileChange, LineRange } from '@/lib/changes';
-import { type RememberedRun, RunSidePanelContext } from '@/lib/run-side-panel';
+import { type MemoriesRun, RunSidePanelContext } from '@/lib/run-side-panel';
 
 const LEAVING = 240;
 
@@ -13,27 +13,27 @@ type Showing =
       readonly file: FileChange;
       readonly lines: LineRange | null;
     }
-  | { readonly kind: 'remembered'; readonly run: RememberedRun };
+  | { readonly kind: 'memories'; readonly run: MemoriesRun };
 
 export function RunSidePanel({ children }: { children: ReactNode }) {
   const [showing, setShowing] = useState<Showing | null>(null);
-  const held = useLingering(showing, LEAVING);
+  const displayed = useDelayedValue(showing, LEAVING);
 
   const value = useMemo(() => {
-    const aside =
-      held?.kind === 'change' ? (
+    const sidePanel =
+      displayed?.kind === 'change' ? (
         <ChangeDetail
           key="change"
-          file={held.file}
-          lines={held.lines}
-          open={showing === held}
+          file={displayed.file}
+          lines={displayed.lines}
+          open={showing === displayed}
           onClose={() => setShowing(null)}
         />
-      ) : held?.kind === 'remembered' ? (
-        <RememberedDetail
-          key="remembered"
-          {...held.run}
-          open={showing === held}
+      ) : displayed?.kind === 'memories' ? (
+        <RunMemoriesDetail
+          key="memories"
+          {...displayed.run}
+          open={showing === displayed}
           onClose={() => setShowing(null)}
         />
       ) : null;
@@ -41,15 +41,14 @@ export function RunSidePanel({ children }: { children: ReactNode }) {
     return {
       selected: showing?.kind === 'change' ? showing.file : null,
       lines: showing?.kind === 'change' ? showing.lines : null,
-      remembered: showing?.kind === 'remembered' ? showing.run : null,
-      aside,
+      memories: showing?.kind === 'memories' ? showing.run : null,
+      sidePanel,
       open: (file: FileChange, at?: LineRange) =>
         setShowing({ kind: 'change', file, lines: at ?? null }),
-      openRemembered: (run: RememberedRun) =>
-        setShowing({ kind: 'remembered', run }),
+      openMemories: (run: MemoriesRun) => setShowing({ kind: 'memories', run }),
       close: () => setShowing(null),
     };
-  }, [showing, held]);
+  }, [showing, displayed]);
 
   return (
     <RunSidePanelContext value={value}>

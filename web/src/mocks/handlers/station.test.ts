@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addReplaySetEntry,
+  createReplaySet,
   listReplayableRuns,
   listReplayCandidates,
   listReplaySetChecks,
@@ -8,9 +9,7 @@ import {
   listReplaySets,
   listReplays,
   listSearches,
-  listStationOutcomes,
   listTeamReplaySets,
-  openReplaySet,
   pickSearchCandidate,
   readReplay,
   readReplayedCandidates,
@@ -18,6 +17,7 @@ import {
   readReplayRun,
   readSearch,
   readSearchRun,
+  readStationInsights,
   readStationJudge,
   startReplay,
   stopSearch,
@@ -37,7 +37,7 @@ describe('the mock station', () => {
   serveMockApi();
 
   it('groups the implementation runs by config version, newest from the tests-first pull request', async () => {
-    const { data } = await listStationOutcomes({
+    const { data } = await readStationInsights({
       path: IMPLEMENTATION,
       query: { last: 200 },
       throwOnError: true,
@@ -63,7 +63,7 @@ describe('the mock station', () => {
   });
 
   it('gives other stations lighter history of their own', async () => {
-    const { data } = await listStationOutcomes({
+    const { data } = await readStationInsights({
       path: TRIAGE,
       throwOnError: true,
     });
@@ -87,9 +87,9 @@ describe('the mock station', () => {
       throwOnError: true,
     });
 
-    expect(judged.standing.trusted).toBe(true);
+    expect(judged.calibration.qualified).toBe(true);
     expect(judged.versions[0]?.current).toBe(true);
-    expect(unjudged.standing.hiddenBecause).toBe('no-judge');
+    expect(unjudged.calibration.hiddenReason).toBe('no-judge');
   });
 
   it('lists the station’s replay sets and the team’s', async () => {
@@ -148,7 +148,7 @@ describe('the mock station', () => {
       throwOnError: true,
     });
 
-    expect(replay.comparedWith).toMatchObject({
+    expect(replay.referenceReplay).toMatchObject({
       replayId: 'replay_live_4',
       successRate: expect.any(Number),
     });
@@ -173,11 +173,11 @@ describe('the mock station', () => {
       throwOnError: true,
     });
 
-    expect(checks.map((each) => each.verdict)).toEqual(['running', 'passed']);
+    expect(checks.map((each) => each.result)).toEqual(['running', 'passed']);
     expect(suggestions.map((each) => each.runId)).toContain('run_billing_1');
-    expect(replayable.some((each) => each.refusal === 'archive-gone')).toBe(
-      true,
-    );
+    expect(
+      replayable.some((each) => each.unreplayableReason === 'archive-gone'),
+    ).toBe(true);
   });
 
   it('lists the replay candidates at the station’s address', async () => {
@@ -209,7 +209,7 @@ describe('the mock station', () => {
       ['search_live', 'stopped'],
     ]);
     expect(search.best?.name).toBe('tests-first');
-    expect(search.best?.onlyOnSeenTasks).toBe('marked');
+    expect(search.best?.overfit).toBe('likely');
     expect(search.split.searchedTasks + search.split.heldOutTasks).toBe(7);
     expect(run.searchId).toBe('search_tests_first');
   });
@@ -229,24 +229,24 @@ describe('the mock station', () => {
     );
   });
 
-  it('opens a set, adds a run and replays it', async () => {
-    const { data: opened } = await openReplaySet({
+  it('creates a set, adds a run and replays it', async () => {
+    const { data: created } = await createReplaySet({
       path: IMPLEMENTATION,
       body: { name: 'Refund fixes' },
       throwOnError: true,
     });
     await addReplaySetEntry({
-      path: { teamId: PLATFORM_ID, setId: opened.id },
+      path: { teamId: PLATFORM_ID, setId: created.id },
       body: { runId: 'run_refunds_2' },
       throwOnError: true,
     });
     const { data: replay } = await startReplay({
-      path: { teamId: PLATFORM_ID, setId: opened.id },
+      path: { teamId: PLATFORM_ID, setId: created.id },
       body: { candidate: 'live', ceiling: { amount: 5, currency: 'USD' } },
       throwOnError: true,
     });
     const { data: replays } = await listReplays({
-      path: { teamId: PLATFORM_ID, setId: opened.id },
+      path: { teamId: PLATFORM_ID, setId: created.id },
       throwOnError: true,
     });
 
@@ -277,7 +277,7 @@ describe('the mock station in an empty workspace', () => {
   serveMockApi('empty');
 
   it('answers empty', async () => {
-    const { data: outcomes } = await listStationOutcomes({
+    const { data: outcomes } = await readStationInsights({
       path: IMPLEMENTATION,
       throwOnError: true,
     });

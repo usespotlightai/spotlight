@@ -30,18 +30,18 @@ import {
 } from '@nestjs/swagger';
 import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
 import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
-import { AnswerRemarkCommand } from '@work/application/commands/answer-remark.command';
+import { AckMessagesCommand } from '@work/application/commands/ack-messages.command';
 import { AskPermissionCommand } from '@work/application/commands/ask-permission.command';
-import { DeliverSaidCommand } from '@work/application/commands/deliver-said.command';
+import { ReplyToReviewCommentCommand } from '@work/application/commands/reply-to-review-comment.command';
 import {
   AppendRunJournalCommand,
   ClaimRunCommand,
   CompleteRunCommand,
-  ParkRunCommand,
   RecordRunImageCommand,
   RecordStartingPointCommand,
   RenewCheckLeaseCommand,
   RenewLeaseCommand,
+  SuspendRunCommand,
 } from '@work/application/commands/runner.commands';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
 import type { HarnessDto } from '@work/application/dto/harness.dto';
@@ -50,7 +50,7 @@ import type { PermissionAnswerDto } from '@work/application/dto/permission-answe
 import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
 import type {
   RunCompletionDto,
-  RunParkingDto,
+  RunSuspensionDto,
 } from '@work/application/dto/run-completion.dto';
 import type { RunnerHistoryAnswer } from '@work/application/dto/runner-history.dto';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
@@ -63,19 +63,19 @@ import { ReadRunAttachmentQuery } from '@work/application/queries/read-run-attac
 import { ReadRunnerHistoryQuery } from '@work/application/queries/read-runner-history.query';
 import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
 import { RunStopRequestedQuery } from '@work/application/queries/run-stop-requested.query';
-import { TurnAsksAPersonQuery } from '@work/application/queries/turn-asks-a-person.query';
-import { InstallableHarnessResponseDto } from '@work/presentation/http/dto/installable-harness.response.dto';
+import { TurnAwaitsPersonQuery } from '@work/application/queries/turn-awaits-person.query';
+import { HarnessProbeResponseDto } from '@work/presentation/http/dto/harness-probe.response.dto';
 import {
-  AnswerRemarkRequestDto,
+  AckMessagesRequestDto,
   AppendRunEventsRequestDto,
   AskPermissionRequestDto,
   CompleteRunRequestDto,
-  DeliverSaidRequestDto,
-  ParkRunRequestDto,
   PendingMessageResponseDto,
   RecordRunImageRequestDto,
   RecordStartingPointRequestDto,
+  ReplyToReviewCommentRequestDto,
   RunAttachmentResponseDto,
+  SuspendRunRequestDto,
 } from '@work/presentation/http/dto/runner.request.dto';
 import {
   ClaimedWorkResponseDto,
@@ -83,10 +83,10 @@ import {
   RenewCheckLeaseResponseDto,
   RenewLeaseResponseDto,
   RunCompletionResponseDto,
-  RunParkingResponseDto,
+  RunSuspensionResponseDto,
   ToolActingAsResponseDto,
   ToolAnswerResponseDto,
-  TurnAsksAPersonResponseDto,
+  TurnAwaitsPersonResponseDto,
 } from '@work/presentation/http/dto/runner.response.dto';
 import { RunnerHistoryResponseDto } from '@work/presentation/http/dto/runner-history.response.dto';
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
@@ -114,7 +114,7 @@ interface Answerable {
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({
-  description: 'Missing, spent or wrong runner token',
+  description: 'Missing, no longer valid or wrong runner token',
 })
 @RunnerOnly()
 @Controller()
@@ -126,11 +126,11 @@ export class RunnerController {
 
   @Get('runners/harnesses')
   @ApiOperation({
-    operationId: 'installableHarnesses',
+    operationId: 'listHarnessProbes',
     summary: 'What to look for on this runner, so it can say what it has',
   })
-  @ApiOkResponse({ type: InstallableHarnessResponseDto, isArray: true })
-  async harnesses(): Promise<InstallableHarnessResponseDto[]> {
+  @ApiOkResponse({ type: HarnessProbeResponseDto, isArray: true })
+  async harnesses(): Promise<HarnessProbeResponseDto[]> {
     const harnesses = await this.queryBus.execute<
       HarnessCatalogueQuery,
       HarnessDto[]
@@ -138,7 +138,7 @@ export class RunnerController {
 
     return harnesses.map(
       (harness) =>
-        new InstallableHarnessResponseDto(
+        new HarnessProbeResponseDto(
           harness.id,
           harness.executable,
           harness.discovery,
@@ -177,10 +177,10 @@ export class RunnerController {
   @Get('runs/:runId/messages')
   @ApiOperation({
     operationId: 'pendingMessages',
-    summary: 'What a person has said to the agent working this run',
+    summary: 'The messages that a person sent to the agent of this run',
   })
   @ApiOkResponse({ type: PendingMessageResponseDto, isArray: true })
-  @ApiNotFoundResponse({ description: 'No such run held by this runner' })
+  @ApiNotFoundResponse({ description: 'No such run leased by this runner' })
   async messages(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
@@ -205,7 +205,7 @@ export class RunnerController {
   @Get('runs/:runId/attachments/:attachmentId')
   @ApiOperation({
     operationId: 'readRunAttachment',
-    summary: 'A file the run’s task was given, to lay out in its workspace',
+    summary: 'A file attached to the run’s task, to lay out in its workspace',
   })
   @ApiOkResponse({ description: 'The file, byte for byte' })
   @ApiNotFoundResponse({
@@ -316,36 +316,36 @@ export class RunnerController {
     }
   }
 
-  @Post('runs/:runId/messages/delivered')
+  @Post('runs/:runId/messages/ack')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'deliverSaid',
-    summary: 'Say what the agent has been given',
+    operationId: 'ackMessages',
+    summary: 'Acknowledge the messages that the agent got',
   })
   @ApiNoContentResponse()
-  @ApiConflictResponse({ description: 'The run is not held by this runner' })
-  async delivered(
+  @ApiConflictResponse({ description: 'The run is not leased by this runner' })
+  async ackMessages(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
-    @Body() body: DeliverSaidRequestDto,
+    @Body() body: AckMessagesRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
-      new DeliverSaidCommand(runId, runnerId, body.upTo),
+      new AckMessagesCommand(runId, runnerId, body.upTo),
     );
   }
 
   @Post('runs/:runId/lease')
   @ApiOperation({
     operationId: 'renewLease',
-    summary: 'Say the run is still being worked on',
+    summary: 'Say the run is still in progress',
     description:
-      'The answer carries back whether a person has asked the run to stop, ' +
-      'so the heartbeat doubles as how a stop reaches the runner.',
+      'The answer carries back whether a person has requested that the run stop, ' +
+      'so the heartbeat also tells the runner about a stop.',
   })
   @ApiOkResponse({ type: RenewLeaseResponseDto })
   @ApiNotFoundResponse({
     description:
-      'The run is no longer held by this runner: it ended, was parked, or its task let it go. The runner lets its sandbox go.',
+      'The run is no longer leased by this runner: it ended, was suspended, or its task cancelled it. The runner releases its sandbox.',
   })
   @ApiConflictResponse({
     description:
@@ -368,10 +368,10 @@ export class RunnerController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'renewCheckLease',
-    summary: 'Say the check of a change stack is still being worked on',
+    summary: 'Say the check of a change stack is still in progress',
     description:
-      'The runner holding a check renews its lease while the check runs, ' +
-      'so a long check is not handed to a second runner. The answer ' +
+      'The runner with the lease on a check renews that lease while the check runs, ' +
+      'so a second runner does not claim a long check. The answer ' +
       'carries back whether the runner should stop checking.',
   })
   @ApiQuery({
@@ -384,7 +384,7 @@ export class RunnerController {
   @ApiOkResponse({ type: RenewCheckLeaseResponseDto })
   @ApiNotFoundResponse({
     description:
-      'No such runner, or the check this runner holds is of another run',
+      'No such runner, or the check this runner leases is of another run',
   })
   @ApiConflictResponse({
     description: 'The check kept moving on while it was renewed',
@@ -412,7 +412,7 @@ export class RunnerController {
       'The host pulls the image named for the run just after it claims it, and records the digest it pulled here, so the run shows the environment it had.',
   })
   @ApiNoContentResponse()
-  @ApiConflictResponse({ description: 'The run is not held by this runner' })
+  @ApiConflictResponse({ description: 'The run is not leased by this runner' })
   async recordImage(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
@@ -436,11 +436,11 @@ export class RunnerController {
   @ApiNotFoundResponse({ description: 'No such run' })
   @ApiConflictResponse({
     description:
-      'The run is not held by this runner on that attempt, works no task, or already started from somewhere else',
+      'The run is not leased by this runner on that attempt, works no task, or already started from somewhere else',
   })
   @ApiUnprocessableEntityResponse({
     description:
-      'An archive the run could not have restored, a commit that is not a full SHA, or checkouts other than the ones the run was given',
+      'An archive the run could not have restored, a commit that is not a full SHA, or checkouts that are not the run’s own',
   })
   async recordStartingPoint(
     @Param('runId') runId: string,
@@ -471,7 +471,7 @@ export class RunnerController {
     summary: 'Add to the run’s journal',
   })
   @ApiNoContentResponse()
-  @ApiConflictResponse({ description: 'The run is not held by this runner' })
+  @ApiConflictResponse({ description: 'The run is not leased by this runner' })
   async appendEvents(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
@@ -486,10 +486,10 @@ export class RunnerController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'useTool',
-    summary: 'Do what a tool the run was given does',
+    summary: 'Do what a tool enabled for the run does',
     description:
-      'The input and the answer are the tool\u2019s own. Only for a tool the ' +
-      'run was given; any credential it needs is added by Spotlight, never ' +
+      'The input and the answer are the tool\u2019s own. Only for a tool ' +
+      'enabled for the run; any credential it needs is added by Spotlight, never ' +
       'sent by the run.',
   })
   @ApiParam({ name: 'tool', example: 'pull-request' })
@@ -501,7 +501,7 @@ export class RunnerController {
     },
   })
   @ApiOkResponse({ type: ToolAnswerResponseDto })
-  @ApiForbiddenResponse({ description: 'The run was not given this tool' })
+  @ApiForbiddenResponse({ description: 'This tool is not enabled for the run' })
   @ApiNotFoundResponse({
     description: 'No such run, station or tool for this runner',
   })
@@ -510,7 +510,7 @@ export class RunnerController {
     description: 'What the agent handed the tool is not what it takes',
   })
   @ApiBadGatewayResponse({
-    description: 'The integration the tool calls refused',
+    description: 'The integration the tool calls answered with an error',
   })
   async useTool(
     @Param('runId') runId: string,
@@ -536,11 +536,11 @@ export class RunnerController {
     summary: 'Ask whether the harness may do what it asked to',
     description:
       'Only for a run whose station names a harness profile. An approval the ' +
-      'task already holds for this exact call is spent on it; otherwise a ' +
+      'task already has for this exact call is spent on it; otherwise a ' +
       'person is asked in their inbox, and the run waits for their answer once its turn ends.',
   })
   @ApiOkResponse({ type: PermissionAnswerResponseDto })
-  @ApiConflictResponse({ description: 'The run is not held by this runner' })
+  @ApiConflictResponse({ description: 'The run is not leased by this runner' })
   async askPermission(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
@@ -561,23 +561,23 @@ export class RunnerController {
     return new PermissionAnswerResponseDto(answered.decision);
   }
 
-  @Post('runs/:runId/remark')
+  @Post('runs/:runId/review-comment-replies')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'answerRemark',
-    summary: 'Answer something said on the pull request, and resolve it',
+    operationId: 'replyToReviewComment',
+    summary: 'Reply to a review comment on the pull request, and resolve it',
     description:
-      'Answered under Spotlight\u2019s own credential. Nothing that reaches ' +
-      'GitHub is ever sent to a runner.',
+      'Spotlight replies with its own credential. No GitHub credential ' +
+      'is ever sent to a runner.',
   })
   @ApiNoContentResponse()
-  async answerRemark(
+  async replyToReviewComment(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
-    @Body() body: AnswerRemarkRequestDto,
+    @Body() body: ReplyToReviewCommentRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
-      new AnswerRemarkCommand(
+      new ReplyToReviewCommentCommand(
         runId,
         runnerId,
         body.handle,
@@ -611,11 +611,11 @@ export class RunnerController {
         body.exitCode,
         body.failed,
         body.message,
-        body.outcome ?? null,
+        body.handover ?? null,
         body.sessionId ?? null,
         body.stopped ?? false,
-        body.kept ?? false,
-        body.unprepared ?? false,
+        body.archived ?? false,
+        body.setupFailed ?? false,
         body.timedOut ?? false,
       ),
     );
@@ -623,55 +623,59 @@ export class RunnerController {
     return new RunCompletionResponseDto(completed.waiting);
   }
 
-  @Post('runs/:runId/completion/asks')
+  @Post('runs/:runId/completion/awaits-person')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    operationId: 'turnAsksAPerson',
+    operationId: 'turnAwaitsPerson',
     summary: 'Whether a turn reported like this would wait for a person',
     description:
-      'Asked before the runner keeps the workspace at the end of a turn. Nothing changes: the completion decides.',
+      'The runner calls this before it archives the workspace at the end of a turn. Nothing changes: the completion decides.',
   })
-  @ApiOkResponse({ type: TurnAsksAPersonResponseDto })
-  @ApiNotFoundResponse({ description: 'No such run held by this runner' })
-  async asks(
+  @ApiOkResponse({ type: TurnAwaitsPersonResponseDto })
+  @ApiNotFoundResponse({ description: 'No such run leased by this runner' })
+  async awaitsPerson(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
     @Body() body: CompleteRunRequestDto,
-  ): Promise<TurnAsksAPersonResponseDto> {
-    const asks = await this.queryBus.execute<TurnAsksAPersonQuery, boolean>(
-      new TurnAsksAPersonQuery(
+  ): Promise<TurnAwaitsPersonResponseDto> {
+    const awaitsPerson = await this.queryBus.execute<
+      TurnAwaitsPersonQuery,
+      boolean
+    >(
+      new TurnAwaitsPersonQuery(
         runId,
         runnerId,
         body.exitCode,
         body.failed,
         body.stopped ?? false,
-        body.outcome ?? null,
+        body.handover ?? null,
       ),
     );
 
-    return new TurnAsksAPersonResponseDto(asks);
+    return new TurnAwaitsPersonResponseDto(awaitsPerson);
   }
 
-  @Post('runs/:runId/parked')
+  @Post('runs/:runId/suspended')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    operationId: 'parkRun',
-    summary: 'Park a run whose person did not answer within the grace period',
+    operationId: 'suspendRun',
+    summary:
+      'Suspend a run whose person did not answer within the grace period',
     description:
-      'The runner has sealed the workspace archive and lets its sandbox go. A later answer requeues the same run, and any runner takes it up from the archive. If the answer arrived first, the run is not parked: it is working again, and the runner delivers the answer to the live session.',
+      'The runner has completed the workspace archive and releases its sandbox. A later answer requeues the same run, and any runner claims it and restores it from the archive. If the answer arrived first, the run is not suspended: it is working again, and the runner delivers the answer to the live session.',
   })
-  @ApiOkResponse({ type: RunParkingResponseDto })
-  @ApiConflictResponse({ description: 'The run is not held by this runner' })
-  async park(
+  @ApiOkResponse({ type: RunSuspensionResponseDto })
+  @ApiConflictResponse({ description: 'The run is not leased by this runner' })
+  async suspend(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
-    @Body() body: ParkRunRequestDto,
-  ): Promise<RunParkingResponseDto> {
-    const parking = await this.commandBus.execute<
-      ParkRunCommand,
-      RunParkingDto
-    >(new ParkRunCommand(runId, runnerId, body?.cold ?? false));
+    @Body() body: SuspendRunRequestDto,
+  ): Promise<RunSuspensionResponseDto> {
+    const suspension = await this.commandBus.execute<
+      SuspendRunCommand,
+      RunSuspensionDto
+    >(new SuspendRunCommand(runId, runnerId, body?.requeue ?? false));
 
-    return new RunParkingResponseDto(parking.parked);
+    return new RunSuspensionResponseDto(suspension.suspended);
   }
 }

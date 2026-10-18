@@ -17,44 +17,44 @@ const DEFINED = {
   id: integrationDefinition.id,
   version: integrationDefinition.version,
   teamId: integrationDefinition.teamId,
-  source: integrationDefinition.source,
+  integration: integrationDefinition.integration,
   definition: integrationDefinition.definition,
-  offers: integrationDefinition.offers,
-  generatedFrom: integrationDefinition.sourceHash,
-  readAt: integrationDefinition.sourceReadAt,
-  problem: integrationDefinition.sourceProblem,
-  passedOver: integrationDefinition.sourcePassedOver,
+  tools: integrationDefinition.tools,
+  generatedFrom: integrationDefinition.specHash,
+  readAt: integrationDefinition.specReadAt,
+  problem: integrationDefinition.specProblem,
+  skipped: integrationDefinition.specSkipped,
 };
 
 interface DefinedRow {
   readonly id: string;
   readonly version: number;
-  readonly source: string;
+  readonly integration: string;
   readonly definition: Record<string, unknown>;
-  readonly offers: string[];
+  readonly tools: string[];
   readonly generatedFrom: string | null;
   readonly readAt: Date | null;
   readonly problem: string | null;
-  readonly passedOver: string[] | null;
+  readonly skipped: string[] | null;
 }
 
 const definedOf = (row: DefinedRow): DefinedIntegration => ({
   id: row.id,
   version: row.version,
-  source: row.source,
+  integration: row.integration,
   definition: row.definition,
-  offers: row.offers,
+  tools: row.tools,
   generatedFrom: row.generatedFrom,
   reading: row.readAt
     ? {
         readAt: row.readAt,
         problem: row.problem,
-        passedOver: row.passedOver ?? [],
+        skipped: row.skipped ?? [],
       }
     : null,
 });
 
-const keptOf = (row: DefinedRow, teamId: TeamId): IntegrationRecord => ({
+const recordOf = (row: DefinedRow, teamId: TeamId): IntegrationRecord => ({
   ...definedOf(row),
   teamId,
 });
@@ -70,9 +70,9 @@ export class DrizzleDefinedIntegrations
       .select(DEFINED)
       .from(integrationDefinition)
       .where(eq(integrationDefinition.teamId, teamId.value))
-      .orderBy(asc(integrationDefinition.source));
+      .orderBy(asc(integrationDefinition.integration));
 
-    return found.map((each) => keptOf(each, teamId));
+    return found.map((each) => recordOf(each, teamId));
   }
 
   async everywhere(): Promise<readonly TeamDefinedIntegrations[]> {
@@ -81,7 +81,7 @@ export class DrizzleDefinedIntegrations
       .from(integrationDefinition)
       .orderBy(
         asc(integrationDefinition.teamId),
-        asc(integrationDefinition.source),
+        asc(integrationDefinition.integration),
       );
     const teams = new Map<string, DefinedIntegration[]>();
 
@@ -96,19 +96,19 @@ export class DrizzleDefinedIntegrations
   }
 
   withId(id: string): Promise<IntegrationRecord | null> {
-    return this.kept(eq(integrationDefinition.id, id));
+    return this.findOne(eq(integrationDefinition.id, id));
   }
 
-  at(teamId: TeamId, source: string): Promise<IntegrationRecord | null> {
-    return this.kept(
+  at(teamId: TeamId, integration: string): Promise<IntegrationRecord | null> {
+    return this.findOne(
       and(
         eq(integrationDefinition.teamId, teamId.value),
-        eq(integrationDefinition.source, source),
+        eq(integrationDefinition.integration, integration),
       ),
     );
   }
 
-  private async kept(
+  private async findOne(
     where: SQL | undefined,
   ): Promise<IntegrationRecord | null> {
     const [found] = await this.context.db
@@ -117,6 +117,6 @@ export class DrizzleDefinedIntegrations
       .where(where)
       .limit(1);
 
-    return found ? keptOf(found, TeamId.of(found.teamId)) : null;
+    return found ? recordOf(found, TeamId.of(found.teamId)) : null;
   }
 }

@@ -32,16 +32,16 @@ export class GrantWorkspaceArchiveHandler
     try {
       const run = await this.runs.findById(RunId.of(command.runId));
 
-      if (!run?.isHeldBy(RunnerId.of(command.runnerId))) {
+      if (!run?.isLeasedBy(RunnerId.of(command.runnerId))) {
         return null;
       }
 
-      run.mayReachBeyondItself('keep a workspace for a later run');
+      run.mayActBeyondItself('archive a workspace for a later run');
 
       const archive = WorkspaceArchive.grant({
         id: WorkspaceArchiveId.of(this.ids.generate()),
         workspaceId: run.workspaceId,
-        continuity: run.continuity,
+        resumeKey: run.resumeKey,
         holder: run.archiveHolder,
         run: run.id,
         size: ArchiveSize.of(command.size),

@@ -89,21 +89,21 @@ func historyCmd(args []string, out io.Writer) error {
 	return nil
 }
 
-func fetchHistory(asked protocol.HistoryRequest) (protocol.History, error) {
-	endpoint, token := os.Getenv(protocol.HandoverURLVar), os.Getenv(protocol.HandoverTokenVar)
+func fetchHistory(request protocol.HistoryRequest) (protocol.History, error) {
+	endpoint, token := os.Getenv(protocol.AgentAPIURLVar), os.Getenv(protocol.AgentAPITokenVar)
 	if endpoint == "" || token == "" {
 		return protocol.History{}, fmt.Errorf(
 			"no run to read history from: spotlight runs inside a Spotlight workspace",
 		)
 	}
 
-	body, err := json.Marshal(asked)
+	body, err := json.Marshal(request)
 	if err != nil {
 		return protocol.History{}, err
 	}
 
 	answered, err := post(
-		strings.TrimSuffix(endpoint, "/")+protocol.HandoverHistoryPath, token, body,
+		strings.TrimSuffix(endpoint, "/")+protocol.AgentAPIHistoryPath, token, body,
 	)
 	if err != nil {
 		return protocol.History{}, err
@@ -228,7 +228,7 @@ func historyIndex(history protocol.History) string {
 	if len(history.Runs) == 0 {
 		out.WriteString("No runs match.\n")
 	} else {
-		out.WriteString("| Run | Task | Config | Ending | Checks | Next | Delivery | Round | Cost | Steps | Duration | Started |\n")
+		out.WriteString("| Run | Task | Config | Ending | Checks | Human action | Pull request | Visit | Cost | Steps | Duration | Started |\n")
 		out.WriteString("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n")
 		for _, run := range history.Runs {
 			out.WriteString("| " + strings.Join(runRow(run), " | ") + " |\n")
@@ -297,26 +297,26 @@ func runRow(run protocol.HistoryRun) []string {
 		return append(row, run.State, "", "", "", "", "", "", tookMs(run.Trace.Ms), shown(run.StartedAt))
 	}
 
-	next, cost, steps, took := "", "", "", tookMs(run.Trace.Ms)
-	if outcome.Next != nil {
-		next = outcome.Next.Act
+	humanAction, cost, steps, took := "", "", "", tookMs(run.Trace.Ms)
+	if outcome.FirstHumanAction != nil {
+		humanAction = outcome.FirstHumanAction.Kind
 	}
-	if spent := outcome.Cost; spent != nil {
-		steps = strconv.Itoa(spent.Steps)
-		if spent.Cost != nil {
-			cost = money(*spent.Cost, spent.Currency)
+	if usage := outcome.Usage; usage != nil {
+		steps = strconv.Itoa(usage.Steps)
+		if usage.Cost != nil {
+			cost = money(*usage.Cost, usage.Currency)
 		}
-		if spent.Ms != nil {
-			took = tookMs(*spent.Ms)
+		if usage.Ms != nil {
+			took = tookMs(*usage.Ms)
 		}
 	}
 
 	return append(row,
 		cell(ending(outcome)),
 		shown(outcome.Checks),
-		cell(next),
-		shown(outcome.Delivery),
-		strconv.Itoa(outcome.Round),
+		cell(humanAction),
+		shown(outcome.PullRequestState),
+		strconv.Itoa(outcome.Visit),
 		cost, steps, took,
 		shown(run.StartedAt),
 	)

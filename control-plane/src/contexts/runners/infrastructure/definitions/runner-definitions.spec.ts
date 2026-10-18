@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 const definitions = new RunnerDefinitions();
 
-const refusedAt = (
+const invalidAt = (
   compiled:
     | { ok: true }
     | { ok: false; problems: readonly ConfigurationProblem[] },
@@ -25,7 +25,7 @@ describe('RunnerDefinitions', () => {
 
   it('points at each trust field it cannot read', () => {
     expect(
-      refusedAt(
+      invalidAt(
         definitions.trust({
           key: 'Production',
           issuer: 'http://oidc.example.com',
@@ -36,17 +36,17 @@ describe('RunnerDefinitions', () => {
     ).toEqual(['key', 'issuer', 'subject', 'labels.0']);
   });
 
-  it('leaves a trust the workspace declares twice for the declaration to refuse', () => {
+  it('leaves a trust the workspace declares twice for the declaration to reject', () => {
     expect(
-      refusedAt(
+      invalidAt(
         definitions.workspaceRunners({ trusts: ['production', 'production'] }),
       ),
     ).toEqual([]);
   });
 
-  it('points at a label a pool is given twice', () => {
+  it('points at a label a pool names twice', () => {
     expect(
-      refusedAt(definitions.pool({ key: 'ephemeral', labels: ['gpu', 'gpu'] })),
+      invalidAt(definitions.pool({ key: 'ephemeral', labels: ['gpu', 'gpu'] })),
     ).toEqual(['labels.1']);
   });
 
@@ -75,7 +75,7 @@ describe('RunnerDefinitions', () => {
 
     it('points at a token too short or too strange to be generated', () => {
       expect(
-        refusedAt(definitions.pool({ key: 'ephemeral', token: 'hunter2' })),
+        invalidAt(definitions.pool({ key: 'ephemeral', token: 'hunter2' })),
       ).toEqual(['token']);
     });
 
@@ -98,9 +98,9 @@ describe('RunnerDefinitions', () => {
       expect(compiled.ok && compiled.maxRuns).toBeNull();
     });
 
-    it('gives a pool that provisions no token', () => {
+    it('rejects a token on a pool that provisions', () => {
       expect(
-        refusedAt(
+        invalidAt(
           definitions.pool({
             key: 'sandboxes',
             token: 'x'.repeat(40),
@@ -113,7 +113,7 @@ describe('RunnerDefinitions', () => {
 
     it('points at a secret not in the Standard Webhooks shape, a URL it cannot call and a limit of no runs', () => {
       expect(
-        refusedAt(
+        invalidAt(
           definitions.pool({
             key: 'sandboxes',
             maxRuns: 0,
@@ -140,7 +140,7 @@ describe('RunnerDefinitions', () => {
 
       return compiled.ok && compiled.access.mode === 'push'
         ? (compiled.access.egress?.value ?? null)
-        : 'refused';
+        : 'invalid';
     };
 
     it('reads spotlight, the id of an egress, or none', () => {
@@ -151,8 +151,8 @@ describe('RunnerDefinitions', () => {
     });
 
     it('points at an egress that is not a string, or empty', () => {
-      expect(refusedAt(provisioning(7))).toEqual(['provision.egress']);
-      expect(refusedAt(provisioning(' '))).toEqual(['provision.egress']);
+      expect(invalidAt(provisioning(7))).toEqual(['provision.egress']);
+      expect(invalidAt(provisioning(' '))).toEqual(['provision.egress']);
     });
 
     const sending = (egress: unknown, egressTraffic: unknown) =>
@@ -170,7 +170,7 @@ describe('RunnerDefinitions', () => {
 
       return compiled.ok && compiled.access.mode === 'push'
         ? compiled.access.egressTraffic.value
-        : 'refused';
+        : 'invalid';
     };
 
     it('sends all traffic through the egress unless the pool says only bound traffic', () => {
@@ -179,11 +179,11 @@ describe('RunnerDefinitions', () => {
       expect(trafficOf('spotlight', 'bound')).toBe('bound');
     });
 
-    it('refuses a traffic setting it does not know, or one with no egress', () => {
-      expect(refusedAt(sending('spotlight', 'some'))).toEqual([
+    it('rejects a traffic setting it does not know, or one with no egress', () => {
+      expect(invalidAt(sending('spotlight', 'some'))).toEqual([
         'provision.egressTraffic',
       ]);
-      expect(refusedAt(sending(null, 'bound'))).toEqual([
+      expect(invalidAt(sending(null, 'bound'))).toEqual([
         'provision.egressTraffic',
       ]);
     });
@@ -222,7 +222,7 @@ describe('RunnerDefinitions', () => {
 
     it('points at each egress field it cannot read', () => {
       expect(
-        refusedAt(
+        invalidAt(
           definitions.egress({
             key: 'Shared',
             url: 'egress.example.com',

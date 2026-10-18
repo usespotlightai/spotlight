@@ -16,10 +16,10 @@ import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { repositoryWorkedOnNamed } from '@work/domain/services/task-checkouts';
+import { repositoryForTaskNamed } from '@work/domain/services/task-checkouts';
 import type { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 
-export interface WorkedRun {
+export interface LeasedRunWork {
   readonly run: Run;
   readonly work: RunWork | null;
 }
@@ -39,22 +39,22 @@ export class RunWorks {
     private readonly clock: ClockPort,
   ) {}
 
-  async heldBy(runId: string, runnerId: string): Promise<WorkedRun> {
+  async leasedBy(runId: string, runnerId: string): Promise<LeasedRunWork> {
     const run = await this.runs.findById(RunId.of(runId));
 
     if (!run) {
       throw new UnknownRunError(`Run ${runId} not found.`);
     }
 
-    run.assertHeldBy(RunnerId.of(runnerId));
+    run.assertLeasedBy(RunnerId.of(runnerId));
 
     return { run, work: await this.workOf(run) };
   }
 
-  async workHeldBy(runId: string, runnerId: string): Promise<RunWork | null> {
+  async workLeasedBy(runId: string, runnerId: string): Promise<RunWork | null> {
     const run = await this.runs.findById(RunId.of(runId));
 
-    return run?.isHeldBy(RunnerId.of(runnerId)) ? this.workOf(run) : null;
+    return run?.isLeasedBy(RunnerId.of(runnerId)) ? this.workOf(run) : null;
   }
 
   async stillOn(attempt: RunAttempt, runnerId: string): Promise<void> {
@@ -92,8 +92,8 @@ export class RunWorks {
         replay: async () => null,
         search: async () => null,
       })) ?? null;
-    const line = await this.lines.holding(run.stationId);
-    const repository = line ? repositoryWorkedOnNamed(name, task, line) : null;
+    const line = await this.lines.findByStation(run.stationId);
+    const repository = line ? repositoryForTaskNamed(name, task, line) : null;
 
     return repository ? { workspaceId: run.workspaceId, repository } : null;
   }
@@ -107,7 +107,7 @@ export class RunWorks {
       task: async (taskId) => {
         const task = await this.tasks.find(taskId);
 
-        return task?.heldBy(run.id)
+        return task?.hasCurrentRun(run.id)
           ? new TaskRunWork(run, task, this.tasks, this.lines, this.clock)
           : null;
       },

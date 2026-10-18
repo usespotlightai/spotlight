@@ -31,8 +31,10 @@ export const planOf = (
       rules
         .filter((each) => each.kind === kind && each.pattern === null)
         .reduce<PermissionRuleParts | null>(
-          (held, each) =>
-            !held || stricter(each.decision, held.decision) ? each : held,
+          (strictest, each) =>
+            !strictest || stricter(each.decision, strictest.decision)
+              ? each
+              : strictest,
           null,
         ) ?? null;
 

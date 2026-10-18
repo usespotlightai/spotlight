@@ -11,12 +11,12 @@ import { describe, expect, it } from 'vitest';
 const PULL = PullRequestUrl.of('https://github.com/acme/api/pull/7');
 
 describe('the words Work publishes for happenings', () => {
-  it('name the marks a task wears for its pull request, as the task names them', () => {
+  it('name the marks a task has for its pull request, as the task names them', () => {
     expect(Mark.pullRequest(PULL).kind).toBe(PULL_REQUEST_MARK);
     expect(Mark.review(PULL).kind).toBe(REVIEW_MARK);
   });
 
-  it('name the role a review opens onto, as the line names it', () => {
+  it('names the line role that a review opens a task on, as the line names it', () => {
     expect(LineRole.REVIEW.value).toBe(REVIEW_ROLE);
   });
 });

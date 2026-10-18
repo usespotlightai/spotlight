@@ -3,7 +3,7 @@ import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid
 import { describe, expect, it } from 'vitest';
 
 describe('HappeningName', () => {
-  it('takes a word named by its source', () => {
+  it('takes a word named by its integration', () => {
     expect(HappeningName.of('github.pull_request.merged').value).toBe(
       'github.pull_request.merged',
     );
@@ -15,15 +15,15 @@ describe('HappeningName', () => {
     );
   });
 
-  it('says which source raises it', () => {
-    expect(HappeningName.of('github.pull_request.merged').source).toBe(
+  it('says which integration raises it', () => {
+    expect(HappeningName.of('github.pull_request.merged').integration).toBe(
       'github',
     );
-    expect(HappeningName.of('sentry.alert.firing').source).toBe('sentry');
+    expect(HappeningName.of('sentry.alert.firing').integration).toBe('sentry');
   });
 
   it.each(['', '   ', 'merged', 'github.', '.merged', 'github..merged'])(
-    'refuses %o, which names no source',
+    'rejects %o, which names no integration',
     (raw) => {
       expect(() => HappeningName.of(raw)).toThrow(InvalidIdentifierError);
     },
@@ -34,11 +34,11 @@ describe('HappeningName', () => {
     'github.Merged',
     'github.pull request.merged',
     'github.-merged',
-  ])('refuses %o, which is not how a word is written', (raw) => {
+  ])('rejects %o, which is not how a word is written', (raw) => {
     expect(() => HappeningName.of(raw)).toThrow(InvalidIdentifierError);
   });
 
-  it('takes the underscores and dashes hosts actually use', () => {
+  it('takes the underscores and dashes services actually use', () => {
     expect(
       HappeningName.of('github.pull_request.changes-requested').value,
     ).toBe('github.pull_request.changes-requested');
@@ -52,7 +52,7 @@ describe('HappeningName', () => {
     ).toBe(true);
   });
 
-  it('is not the same word as another source’s', () => {
+  it('is not the same word as another integration’s', () => {
     expect(
       HappeningName.of('github.checks.failed').equals(
         HappeningName.of('buildkite.checks.failed'),

@@ -2,16 +2,16 @@ import { AlertLegendMark } from '@/components/features/inbox/alerts/AlertLegendM
 import {
   ALERT_LEVEL,
   BEFORE_LEVEL,
-  CROSSING_RUN,
+  FIRING_RUN,
   formatMeasureValue,
-  type StationAlertCrossing,
+  type StationAlertFiring,
   thresholdLine,
 } from '@/lib/station-alert';
 
-export function AlertChartLegend({ alert }: { alert: StationAlertCrossing }) {
+export function AlertChartLegend({ alert }: { alert: StationAlertFiring }) {
   const level = thresholdLine(alert);
   const shown = (value: number) =>
-    formatMeasureValue(alert.threshold.measure, value, alert.currency);
+    formatMeasureValue(alert.rule.measure, value, alert.currency);
 
   return (
     <ul
@@ -33,7 +33,7 @@ export function AlertChartLegend({ alert }: { alert: StationAlertCrossing }) {
         />
       )}
       <AlertLegendMark
-        label={CROSSING_RUN}
+        label={FIRING_RUN}
         stroke="var(--destructive)"
         opacity={0.4}
       />

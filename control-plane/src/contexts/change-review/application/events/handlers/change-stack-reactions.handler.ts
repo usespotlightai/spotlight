@@ -1,20 +1,20 @@
-import type { ChangeStackAnnouncerPort } from '@change-review/application/ports/change-stack-announcer.port';
+import type { StickyCommentPosterPort } from '@change-review/application/ports/sticky-comment-poster.port';
 import type { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
-import type { ChangeStackSettled } from '@change-review/domain/events/change-stack-settled.event';
-import { reachesBeyondSpotlight } from '@change-review/domain/services/replay-isolation';
+import type { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
+import { actsOutsideSpotlight } from '@change-review/domain/services/replay-isolation';
 
 export class ChangeStackReactions {
-  constructor(private readonly announcer: ChangeStackAnnouncerPort) {}
+  constructor(private readonly poster: StickyCommentPosterPort) {}
 
-  async onSettled(event: ChangeStackSettled): Promise<void> {
-    if (reachesBeyondSpotlight(event)) {
-      await this.announcer.ofRun(event.runId);
+  async onCompleted(event: ChangeStackCompleted): Promise<void> {
+    if (actsOutsideSpotlight(event)) {
+      await this.poster.ofRun(event.runId);
     }
   }
 
   async onChecked(event: ChangeStackChecked): Promise<void> {
-    if (reachesBeyondSpotlight(event)) {
-      await this.announcer.ofRun(event.runId);
+    if (actsOutsideSpotlight(event)) {
+      await this.poster.ofRun(event.runId);
     }
   }
 }

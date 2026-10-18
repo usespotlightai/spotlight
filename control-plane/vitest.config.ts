@@ -20,7 +20,7 @@ const E2E_ENV = {
   BETTER_AUTH_SECRET: 'test-better-auth-secret-not-a-real-one',
   BETTER_AUTH_URL: 'http://localhost:3000',
   SPOTLIGHT_SECRETS_KEY: 'S9+m23g9lI8X4VNFd0ayFXJH7P14Q3GZGsNvjCglc/Q=',
-  OUTBOUND_ALLOWED_HOSTS: '127.0.0.1',
+  SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS: '127.0.0.1',
   S3_BUCKET: 'files',
   SPOTLIGHT_LONG_POLL_MS: String(E2E_LONG_POLL_MS),
 };
@@ -35,7 +35,7 @@ const shared = {
       '@runners': resolve(__dirname, 'src/contexts/runners'),
       '@change-review': resolve(__dirname, 'src/contexts/change-review'),
       '@memory': resolve(__dirname, 'src/contexts/memory'),
-      '@outcomes': resolve(__dirname, 'src/contexts/outcomes'),
+      '@insights': resolve(__dirname, 'src/contexts/insights'),
       '@replays': resolve(__dirname, 'src/contexts/replays'),
       '@github': resolve(__dirname, 'src/contexts/github'),
       '@integrations': resolve(__dirname, 'src/contexts/integrations'),

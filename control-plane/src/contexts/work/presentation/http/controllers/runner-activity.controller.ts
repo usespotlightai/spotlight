@@ -13,7 +13,7 @@ import type { AuthenticatedUser } from '@shared-kernel/application/ports/session
 import type { RunnerActivityDto } from '@work/application/dto/runner-activity.dto';
 import { ListRunnerActivityQuery } from '@work/application/queries/list-runner-activity.query';
 import {
-  HeldRunResponseDto,
+  LeasedRunResponseDto,
   RunnerActivityResponseDto,
 } from '@work/presentation/http/dto/runner-activity.response.dto';
 
@@ -27,7 +27,7 @@ export class RunnerActivityController {
   @ApiOperation({
     operationId: 'listRunnerActivity',
     summary: 'Which run each of the workspace’s runners is working on',
-    description: 'A runner that holds no run is idle, and is not listed.',
+    description: 'A runner with no lease on a run is idle, and is not listed.',
   })
   @ApiParam({ name: 'slug', example: 'acme' })
   @ApiOkResponse({ type: RunnerActivityResponseDto, isArray: true })
@@ -49,7 +49,7 @@ export class RunnerActivityController {
       (each) =>
         new RunnerActivityResponseDto(
           each.runnerId,
-          new HeldRunResponseDto(each.currentRun),
+          new LeasedRunResponseDto(each.currentRun),
         ),
     );
   }

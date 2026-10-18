@@ -5,11 +5,11 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { OpenedPullRequest } from '@work/application/dto/pull-request.dto';
-import type { HookedTasksPort } from '@work/application/ports/hooked-tasks.port';
 import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
-import { takeWornMarks } from '@work/application/services/worn-marks';
+import type { TaskViewsPort } from '@work/application/ports/task-views.port';
+import { reassignTaskMarks } from '@work/application/services/task-marks';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import { PullRequestHookRefusedError } from '@work/domain/exceptions/pull-request-hook-refused.error';
+import { PullRequestHookDeniedError } from '@work/domain/exceptions/pull-request-hook-denied.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
@@ -22,7 +22,7 @@ interface PullRequestFor {
   readonly stationId: StationId;
 }
 
-interface PullRequestAsked {
+interface PullRequestInput {
   readonly title: string;
   readonly body: string;
   readonly repository: string | null;
@@ -34,14 +34,14 @@ export class OpenPullRequest {
     private readonly lines: LineRepository,
     private readonly pullRequests: PullRequestPort,
     private readonly transaction: TransactionPort,
-    private readonly hookedTasks: HookedTasksPort,
+    private readonly taskViews: TaskViewsPort,
     private readonly hooks: LifecycleHooksPort,
     private readonly clock: ClockPort,
   ) {}
 
   async open(
     target: PullRequestFor,
-    asked: PullRequestAsked,
+    input: PullRequestInput,
   ): Promise<OpenedPullRequest> {
     const task = await this.found(target.taskId);
 
@@ -49,27 +49,27 @@ export class OpenPullRequest {
       return { url: task.pullRequest.value };
     }
 
-    const line = await this.lines.holding(target.stationId);
+    const line = await this.lines.findByStation(target.stationId);
 
     if (!line) {
       throw new UnknownStationError(target.stationId.value);
     }
 
-    const repository = line.opening(asked.repository);
-    const hooked = await this.hookedTasks.of(
+    const repository = line.opening(input.repository);
+    const taskView = await this.taskViews.of(
       target.taskId.value,
       target.runId.value,
     );
 
     if (
-      hooked &&
-      (await this.hooks.listens(hooked.teamId, 'pull-request.opening'))
+      taskView &&
+      (await this.hooks.listens(taskView.teamId, 'pull-request.opening'))
     ) {
-      const verdict = await this.hooks.before(hooked, {
+      const decision = await this.hooks.before(taskView, {
         on: 'pull-request.opening',
         repository: repository.value,
         branch: task.branch.value,
-        title: asked.title,
+        title: input.title,
         changed: await this.pullRequests.changedOn(
           task.workspaceId,
           repository,
@@ -77,8 +77,8 @@ export class OpenPullRequest {
         ),
       });
 
-      if (verdict.kind === 'refused') {
-        throw new PullRequestHookRefusedError(verdict.reason);
+      if (decision.kind === 'denied') {
+        throw new PullRequestHookDeniedError(decision.reason);
       }
     }
 
@@ -86,8 +86,8 @@ export class OpenPullRequest {
       workspaceId: task.workspaceId,
       repository,
       branch: task.branch.value,
-      title: asked.title,
-      body: asked.body,
+      title: input.title,
+      body: input.body,
     });
 
     return this.transaction.inTransaction(async () => {
@@ -104,7 +104,7 @@ export class OpenPullRequest {
         line,
       );
 
-      await takeWornMarks(this.tasks, marked);
+      await reassignTaskMarks(this.tasks, marked);
       await this.tasks.save(marked);
 
       return opened;

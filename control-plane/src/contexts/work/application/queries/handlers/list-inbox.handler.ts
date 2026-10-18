@@ -20,7 +20,7 @@ export class ListInboxHandler
       const waiting = await this.inbox.listForWorkspaceMember(
         query.slug,
         UserId.of(query.viewerId),
-        Notice.settledShownSince(this.clock.now()),
+        Notice.resolvedShownSince(this.clock.now()),
       );
 
       return (

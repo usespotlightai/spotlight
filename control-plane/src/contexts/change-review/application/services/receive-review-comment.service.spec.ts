@@ -32,15 +32,15 @@ const noticed = (
     line: 12,
     startLine: null,
     body: 'Why not a constant?',
-    answers: null,
+    inReplyToId: null,
     login: 'octocat',
     writtenAt: new Date('2026-09-16T09:00:00Z'),
     ...over,
   },
 });
 
-const receiving = (held: ReviewComment[] = []) => {
-  const comments = new Map(held.map((each) => [each.id.value, each]));
+const receiving = (stored: ReviewComment[] = []) => {
+  const comments = new Map(stored.map((each) => [each.id.value, each]));
   let generated = 0;
 
   const repository = {
@@ -57,7 +57,7 @@ const receiving = (held: ReviewComment[] = []) => {
   const service = new ReceiveReviewComment(
     {
       run: async () => null,
-      wasWorkedBy: async () => false,
+      wasClaimedBy: async () => false,
       teamOfRun: async () => null,
       reasoning: async () => null,
       task: async () => null,
@@ -93,28 +93,28 @@ const onGitHub = (githubId: number, body = 'Earlier') =>
   });
 
 describe('ReceiveReviewComment', () => {
-  it('keeps a comment made on GitHub, on its line', async () => {
+  it('stores a comment made on GitHub, on its line', async () => {
     const { service, comments } = receiving();
 
     await service.receive(noticed({ side: 'old' }));
 
-    const [kept] = [...comments.values()];
-    expect(kept?.state).toBe('posted');
-    expect(kept?.anchor.lines?.side).toBe('old');
-    expect(kept?.anchor.lines?.line).toBe(12);
-    expect(kept?.author.equals(ReviewAuthor.onGitHub('octocat'))).toBe(true);
-    expect(kept?.github?.id).toBe(300);
+    const [stored] = [...comments.values()];
+    expect(stored?.state).toBe('posted');
+    expect(stored?.anchor.lines?.side).toBe('old');
+    expect(stored?.anchor.lines?.line).toBe(12);
+    expect(stored?.author.equals(ReviewAuthor.onGitHub('octocat'))).toBe(true);
+    expect(stored?.github?.id).toBe(300);
   });
 
   it('threads a reply under the comment it answers', async () => {
     const { service, comments } = receiving([onGitHub(200)]);
 
-    await service.receive(noticed({ answers: 200 }));
+    await service.receive(noticed({ inReplyToId: 200 }));
 
     expect(comments.get('comment_new_1')?.replyTo?.value).toBe('comment_200');
   });
 
-  it('keeps nothing twice', async () => {
+  it('stores nothing twice', async () => {
     const { service, comments } = receiving([onGitHub(300)]);
 
     await service.receive(noticed());
@@ -122,7 +122,7 @@ describe('ReceiveReviewComment', () => {
     expect(comments.size).toBe(1);
   });
 
-  it('ignores the echo of a comment edited while Spotlight was posting it', async () => {
+  it('ignores its own copy of a comment edited while Spotlight was posting it', async () => {
     const posting = ReviewComment.draft({
       id: ReviewCommentId.of('comment_mine'),
       workspaceId: WORKSPACE,
@@ -133,7 +133,7 @@ describe('ReceiveReviewComment', () => {
       now: NOW,
     })
       .submittedIn(ReviewId.of('review_1'))
-      .rewritten('Why not an enum?', UserId.of('user_ada'), NOW);
+      .edited('Why not an enum?', UserId.of('user_ada'), NOW);
     const { service, comments } = receiving([posting]);
 
     await service.receive(
@@ -143,7 +143,7 @@ describe('ReceiveReviewComment', () => {
     expect(comments.size).toBe(1);
   });
 
-  it('ignores the echo of a comment Spotlight is posting itself', async () => {
+  it('ignores its own copy of a comment that Spotlight is posting', async () => {
     const posting = ReviewComment.draft({
       id: ReviewCommentId.of('comment_mine'),
       workspaceId: WORKSPACE,
@@ -172,7 +172,7 @@ describe('ReceiveReviewComment', () => {
     expect(comments.get('comment_300')?.state).toBe('deleted');
   });
 
-  it('keeps an edit made in Spotlight when the echo of an earlier one arrives', async () => {
+  it('keeps an edit made in Spotlight when its own earlier edit is received', async () => {
     const mine = ReviewComment.draft({
       id: ReviewCommentId.of('comment_mine'),
       workspaceId: WORKSPACE,
@@ -184,9 +184,9 @@ describe('ReceiveReviewComment', () => {
     })
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 300, url: 'https://github.com/c/300' })
-      .rewritten('First', UserId.of('user_ada'), NOW)
+      .edited('First', UserId.of('user_ada'), NOW)
       .editSent('First')
-      .rewritten('Second', UserId.of('user_ada'), NOW);
+      .edited('Second', UserId.of('user_ada'), NOW);
     const { service, comments } = receiving([mine]);
 
     await service.receive(noticed({ body: 'First' }, 'edited'));
@@ -195,13 +195,13 @@ describe('ReceiveReviewComment', () => {
     expect(comments.get('comment_mine')?.editPending).toBe(true);
   });
 
-  it('keeps a comment made on GitHub on the whole file', async () => {
+  it('stores a comment made on GitHub on the whole file', async () => {
     const { service, comments } = receiving();
 
     await service.receive(noticed({ subject: 'file' }));
 
-    const [kept] = [...comments.values()];
-    expect(kept?.anchor.wholeFile).toBe(true);
+    const [stored] = [...comments.values()];
+    expect(stored?.anchor.wholeFile).toBe(true);
   });
 
   it('never takes a comment on lines GitHub no longer places for one on the whole file', async () => {

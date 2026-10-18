@@ -8,7 +8,7 @@ import {
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
 export const GRANTED_AT = new Date('2026-09-25T10:00:00.000Z');
@@ -28,7 +28,7 @@ export const anArchive = (
   WorkspaceArchive.grant({
     id: WorkspaceArchiveId.of(overrides.id ?? 'archive_1'),
     workspaceId: WorkspaceId.of('ws_1'),
-    continuity: ContinuityKey.forTask('task_1'),
+    resumeKey: ResumeKey.forTask('task_1'),
     holder: { kind: 'task', taskId: TaskId.of('task_1') },
     run: RunId.of(overrides.run ?? 'run_1'),
     size: ArchiveSize.of(overrides.bytes ?? 1_024),
@@ -36,18 +36,18 @@ export const anArchive = (
     at: GRANTED_AT,
   });
 
-export const aSealedArchive = (
+export const aCompletedArchive = (
   overrides: { id?: string; run?: string } = {},
-): WorkspaceArchive => anArchive(overrides).seal(storedAs(1_024), later(0));
+): WorkspaceArchive => anArchive(overrides).complete(storedAs(1_024), later(0));
 
-export const aSealedChatArchive = (): WorkspaceArchive =>
+export const aCompletedChatArchive = (): WorkspaceArchive =>
   WorkspaceArchive.grant({
     id: WorkspaceArchiveId.of('archive_1'),
     workspaceId: WorkspaceId.of('ws_1'),
-    continuity: ContinuityKey.forChat('chat_1'),
+    resumeKey: ResumeKey.forChat('chat_1'),
     holder: { kind: 'chat', chatId: ChatId.of('chat_1') },
     run: RunId.of('run_1'),
     size: ArchiveSize.of(1_024),
     digest: ArchiveDigest.of(SHA256),
     at: GRANTED_AT,
-  }).seal(storedAs(1_024), later(0));
+  }).complete(storedAs(1_024), later(0));

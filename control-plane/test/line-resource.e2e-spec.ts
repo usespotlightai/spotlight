@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -35,9 +35,9 @@ import { seatTeam } from './support/team';
 const DELIVERY = definitionOf(BUILT_IN_LINES[0] as LineOpening);
 
 const JUDGE = {
-  rubric: 'A good run changes only what the task asks for.\n',
+  rubric: 'A good run changes only what the task requests.\n',
   sample: 0.2,
-  trust: 0.6,
+  minAgreement: 0.6,
 };
 
 const ALERTS = [
@@ -60,21 +60,21 @@ const judged = (
 
 const seated = async (
   app: INestApplication,
-): Promise<ResourceFixture & { readonly held: string }> => {
+): Promise<ResourceFixture & { readonly workspaceId: string }> => {
   const db = app.get<DrizzleDatabase>(DRIZZLE);
-  const held = `lines-${randomUUID().slice(0, 8)}`;
-  const seat = await seatTeam(db, held);
+  const workspaceId = `lines-${randomUUID().slice(0, 8)}`;
+  const seat = await seatTeam(db, workspaceId);
 
   return {
-    held,
+    workspaceId,
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/teams/${held}/lines`,
+    collection: `/api/resources/teams/${workspaceId}/lines`,
     item: (id) => `/api/resources/lines/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${held}/lines/import?address=${encodeURIComponent(address)}`,
+      `/api/resources/workspaces/${workspaceId}/lines/import?address=${encodeURIComponent(address)}`,
     listing: (workspaceId) => `/api/resources/workspaces/${workspaceId}/lines`,
-    workspaceOf: () => held,
+    workspaceOf: () => workspaceId,
     address: `team/${DELIVERY.key}`,
     valid: judged(JUDGE, ALERTS),
     changed: {
@@ -126,7 +126,7 @@ describe('a line, created through the resource API (e2e)', () => {
       .set(TEST_USER_HEADER, fixture.admin)
       .set('If-Match', `"${version}"`);
 
-  const standOn = async (lineId: string, key: string) => {
+  const putTaskAt = async (lineId: string, key: string) => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     const [station] = await db
       .select({ id: schema.station.id, workspaceId: schema.line.workspaceId })
@@ -141,7 +141,7 @@ describe('a line, created through the resource API (e2e)', () => {
       openedFrom: 'person',
       workspaceId: station?.workspaceId ?? '',
       stationId: station?.id ?? '',
-      title: 'Stand here',
+      title: 'Wait here',
     });
   };
 
@@ -161,7 +161,7 @@ describe('a line, created through the resource API (e2e)', () => {
     await fixture.close();
   });
 
-  it('reads back as it stands, every field a definition may leave out filled in', async () => {
+  it('reads back as it is now, with every optional field filled in', async () => {
     const made = await create(DELIVERY);
     const [station] = made.body.definition.stations;
 
@@ -186,7 +186,7 @@ describe('a line, created through the resource API (e2e)', () => {
     );
   });
 
-  it('keeps a prompt exactly as written, so applying it again reads back the same', async () => {
+  it('stores a prompt exactly as written, so applying it again reads back the same', async () => {
     const written = {
       ...DELIVERY,
       stations: DELIVERY.stations.map((each, at) =>
@@ -207,7 +207,7 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(again.body.definition).toEqual(read.body.definition);
   });
 
-  it('keeps a station remembering its runs, and forgets it once told to stop', async () => {
+  it('keeps a station remembering its runs, and clears it once told to stop', async () => {
     const remembering = (memories: boolean) => ({
       ...DELIVERY,
       stations: DELIVERY.stations.map((each, at) =>
@@ -228,14 +228,14 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(stopped.body.definition.stations[1].memories).toBe(false);
   });
 
-  it('keeps a station’s judge and its alerts as written, in their order, and forgets them once left out', async () => {
+  it('stores a station’s judge and its alerts as written, in their order, and clears them once left out', async () => {
     const made = await create(judged(JUDGE, ALERTS));
     const again = await change(
       made.body.id,
       made.body.version,
       judged(JUDGE, ALERTS),
     );
-    const dropped = await change(
+    const cleared = await change(
       made.body.id,
       again.body.version,
       judged(undefined, []),
@@ -248,12 +248,12 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(made.body.definition.stations[0].alerts).toEqual([]);
     expect(again.status).toBe(200);
     expect(again.body.definition).toEqual(made.body.definition);
-    expect(dropped.status).toBe(200);
-    expect(dropped.body.definition.stations[1]).not.toHaveProperty('judge');
-    expect(dropped.body.definition.stations[1].alerts).toEqual([]);
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.definition.stations[1]).not.toHaveProperty('judge');
+    expect(cleared.body.definition.stations[1].alerts).toEqual([]);
   });
 
-  it('refuses a wrong alert at its field, an alert repeating one before it, a rubric whose scale it cannot read, and a judge or alerts where nothing runs', async () => {
+  it('rejects a wrong alert at its field, an alert repeating one before it, a rubric whose scale it cannot read, and a judge or alerts where nothing runs', async () => {
     const wrongAlert = await create(
       judged(JUDGE, [
         ALERTS[0] as object,
@@ -284,7 +284,7 @@ describe('a line, created through the resource API (e2e)', () => {
       judged(undefined, ALERTS, DELIVERY.stations.length - 1),
     );
 
-    for (const [refused, path] of [
+    for (const [rejected, path] of [
       [wrongAlert, 'stations[1].alerts[1].below'],
       [neither, 'stations[1].alerts[0]'],
       [several, 'stations[1].alerts[1]'],
@@ -293,87 +293,97 @@ describe('a line, created through the resource API (e2e)', () => {
       [unknownScale, 'stations[1].judge.rubric'],
       [atCompleted, `stations[${DELIVERY.stations.length - 1}].alerts`],
     ] as const) {
-      expect(refused.status).toBe(422);
-      expect(refused.body.errors).toEqual([expect.objectContaining({ path })]);
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.errors).toEqual([expect.objectContaining({ path })]);
     }
   });
 
-  it('keeps a judge of checkable claims, with or without a rubric, and the share of claims a run must meet', async () => {
+  it('stores a judge of checkable claims, with or without a rubric, and the pass threshold of claims a run must meet', async () => {
     const claims = [
       'The change adds a test that fails without it.',
       'The change touches only the files the task names.',
     ];
     const alone = await create(
-      judged({ claims, passShare: 0.5, sample: 0.2, trust: 0.6 }, []),
+      judged(
+        { claims, passThreshold: 0.5, sample: 0.2, minAgreement: 0.6 },
+        [],
+      ),
     );
     const both = await change(
       alone.body.id,
       alone.body.version,
-      judged({ ...JUDGE, claims, passShare: 1 }, []),
+      judged({ ...JUDGE, claims, passThreshold: 1 }, []),
     );
 
     expect(alone.status).toBe(201);
     expect(alone.body.definition.stations[1].judge).toEqual({
       claims,
-      passShare: 0.5,
+      passThreshold: 0.5,
       sample: 0.2,
-      trust: 0.6,
+      minAgreement: 0.6,
     });
     expect(both.status).toBe(200);
     expect(both.body.definition.stations[1].judge).toEqual({
       ...JUDGE,
       claims,
-      passShare: 1,
+      passThreshold: 1,
     });
   });
 
-  it('refuses a judge with neither a rubric nor claims, too many or too long claims, a pass share out of bounds, and a pass share without claims', async () => {
+  it('rejects a judge with neither a rubric nor claims, too many or too long claims, a pass threshold out of bounds, and a pass threshold without claims', async () => {
     const claims = ['The change adds a test.'];
-    const neither = await create(judged({ sample: 0.2, trust: 0.6 }, []));
+    const neither = await create(
+      judged({ sample: 0.2, minAgreement: 0.6 }, []),
+    );
     const none = await create(
-      judged({ claims: [], sample: 0.2, trust: 0.6 }, []),
+      judged({ claims: [], sample: 0.2, minAgreement: 0.6 }, []),
     );
     const tooMany = await create(
       judged(
         {
           claims: Array.from({ length: 21 }, (_, at) => `Claim ${at}.`),
           sample: 0.2,
-          trust: 0.6,
+          minAgreement: 0.6,
         },
         [],
       ),
     );
     const tooLong = await create(
-      judged({ claims: ['x'.repeat(501)], sample: 0.2, trust: 0.6 }, []),
+      judged({ claims: ['x'.repeat(501)], sample: 0.2, minAgreement: 0.6 }, []),
     );
     const blank = await create(
-      judged({ claims: ['  '], sample: 0.2, trust: 0.6 }, []),
+      judged({ claims: ['  '], sample: 0.2, minAgreement: 0.6 }, []),
     );
-    const share = await create(
-      judged({ claims, passShare: 1.5, sample: 0.2, trust: 0.6 }, []),
+    const badThreshold = await create(
+      judged(
+        { claims, passThreshold: 1.5, sample: 0.2, minAgreement: 0.6 },
+        [],
+      ),
     );
-    const shareAlone = await create(judged({ ...JUDGE, passShare: 0.5 }, []));
+    const thresholdAlone = await create(
+      judged({ ...JUDGE, passThreshold: 0.5 }, []),
+    );
 
-    for (const [refused, path] of [
+    for (const [rejected, path] of [
       [neither, 'stations[1].judge.rubric'],
       [none, 'stations[1].judge.claims'],
       [tooMany, 'stations[1].judge.claims'],
       [tooLong, 'stations[1].judge.claims'],
       [blank, 'stations[1].judge.claims'],
-      [share, 'stations[1].judge.passShare'],
-      [shareAlone, 'stations[1].judge.passShare'],
+      [badThreshold, 'stations[1].judge.passThreshold'],
+      [thresholdAlone, 'stations[1].judge.passThreshold'],
     ] as const) {
-      expect(refused.status).toBe(422);
-      expect(refused.body.errors).toEqual([expect.objectContaining({ path })]);
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.errors).toEqual([expect.objectContaining({ path })]);
     }
   });
 
-  it('keeps the threshold a planned change is checked against, filling in what it leaves out, and forgets it once left out', async () => {
+  it('stores the threshold a planned change is checked against, filling in what it leaves out, and clears it once left out', async () => {
     const made = await create({
       ...DELIVERY,
       replayCheck: { maxRegressions: 1, currency: 'eur' },
     });
-    const dropped = await change(made.body.id, made.body.version, DELIVERY);
+    const cleared = await change(made.body.id, made.body.version, DELIVERY);
 
     expect(made.status).toBe(201);
     expect(made.body.definition.replayCheck).toEqual({
@@ -382,11 +392,11 @@ describe('a line, created through the resource API (e2e)', () => {
       currency: 'EUR',
       minGain: 0.05,
     });
-    expect(dropped.status).toBe(200);
-    expect(dropped.body.definition).not.toHaveProperty('replayCheck');
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.definition).not.toHaveProperty('replayCheck');
   });
 
-  it('refuses a threshold setting at its field', async () => {
+  it('rejects a threshold setting at its field', async () => {
     for (const [replayCheck, path] of [
       [{ maxRegressions: -1 }, 'replayCheck.maxRegressions'],
       [{ ceiling: 0 }, 'replayCheck.ceiling'],
@@ -394,32 +404,32 @@ describe('a line, created through the resource API (e2e)', () => {
       [{ minGain: 0 }, 'replayCheck.minGain'],
       [{ minGain: 1.5 }, 'replayCheck.minGain'],
     ] as const) {
-      const refused = await create({ ...DELIVERY, replayCheck });
+      const rejected = await create({ ...DELIVERY, replayCheck });
 
-      expect(refused.status).toBe(422);
-      expect(refused.body.errors).toEqual([expect.objectContaining({ path })]);
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.errors).toEqual([expect.objectContaining({ path })]);
     }
   });
 
-  it('refuses a station’s harness, model or name at its field', async () => {
+  it('rejects a station’s harness, model or name at its field', async () => {
     for (const [setting, path] of [
       [{ harness: 'h'.repeat(61) }, 'stations[1].harness'],
       [{ model: 'm'.repeat(61) }, 'stations[1].model'],
       [{ name: '   ' }, 'stations[1].name'],
     ] as const) {
-      const refused = await create({
+      const rejected = await create({
         ...DELIVERY,
         stations: DELIVERY.stations.map((each, place) =>
           place === 1 ? { ...each, ...setting } : each,
         ),
       });
 
-      expect(refused.status).toBe(422);
-      expect(refused.body.errors).toEqual([expect.objectContaining({ path })]);
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.errors).toEqual([expect.objectContaining({ path })]);
     }
   });
 
-  it('keeps where the line’s Terraform lives, shows it on the team’s lines, and forgets it once set to null', async () => {
+  it('stores where the line’s Terraform lives, shows it on the team’s lines, and clears it once set to null', async () => {
     const source = {
       repository: 'acme/platform',
       path: 'teams/core/delivery.tf',
@@ -429,7 +439,7 @@ describe('a line, created through the resource API (e2e)', () => {
     const listed = await served(app)
       .get(`/api/teams/${teamId}/lines`)
       .set(TEST_USER_HEADER, fixture.admin);
-    const dropped = await change(made.body.id, made.body.version, {
+    const cleared = await change(made.body.id, made.body.version, {
       ...DELIVERY,
       source: null,
     });
@@ -441,24 +451,24 @@ describe('a line, created through the resource API (e2e)', () => {
         (each) => each.id === made.body.id,
       )?.source,
     ).toEqual(source);
-    expect(dropped.status).toBe(200);
-    expect(dropped.body.definition).not.toHaveProperty('source');
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.definition).not.toHaveProperty('source');
   });
 
-  it('refuses a source setting at its field', async () => {
+  it('rejects a source setting at its field', async () => {
     for (const [source, path] of [
       [{ repository: 'platform', path: 'main.tf' }, 'source.repository'],
       [{ repository: 'acme/platform', path: '../main.tf' }, 'source.path'],
       [{ repository: 'acme/platform', path: 'main.hcl' }, 'source.path'],
     ] as const) {
-      const refused = await create({ ...DELIVERY, source });
+      const rejected = await create({ ...DELIVERY, source });
 
-      expect(refused.status).toBe(422);
-      expect(refused.body.errors).toEqual([expect.objectContaining({ path })]);
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.errors).toEqual([expect.objectContaining({ path })]);
     }
   });
 
-  it('keeps the image and setup each repository names, and reads them back as written', async () => {
+  it('stores the image and setup each repository names, and reads them back as written', async () => {
     const written = {
       ...DELIVERY,
       repositories: [
@@ -480,7 +490,7 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(again.body.definition).toEqual(made.body.definition);
   });
 
-  it('refuses repositories naming different images, and a station checking its layers while a repository says no setup', async () => {
+  it('rejects repositories naming different images, and a station checking its layers while a repository says no setup', async () => {
     const mixed = await create({
       ...DELIVERY,
       repositories: [
@@ -522,13 +532,13 @@ describe('a line, created through the resource API (e2e)', () => {
     ]);
   });
 
-  it('will not be deleted, or drop a station, while a task stands on it', async () => {
+  it('will not be deleted, or drop a station, while a task is at it', async () => {
     const made = await create(DELIVERY);
     const going = DELIVERY.stations[1]?.key as string;
 
-    await standOn(made.body.id, going);
+    await putTaskAt(made.body.id, going);
 
-    const dropped = await change(made.body.id, made.body.version, {
+    const cleared = await change(made.body.id, made.body.version, {
       ...DELIVERY,
       stations: DELIVERY.stations
         .filter((each) => each.key !== going)
@@ -540,39 +550,39 @@ describe('a line, created through the resource API (e2e)', () => {
     });
     const deleted = await remove(made.body.id, made.body.version);
 
-    for (const refused of [dropped, deleted]) {
-      expect(refused.status).toBe(409);
-      expect(refused.body).toMatchObject({
+    for (const rejected of [cleared, deleted]) {
+      expect(rejected.status).toBe(409);
+      expect(rejected.body).toMatchObject({
         type: 'urn:spotlight:problem:in-use',
         detail: expect.stringContaining('(1)'),
       });
     }
   });
 
-  it('holds a role to one line per team even past the check before writing', async () => {
+  it('limits a role to one line per team even past the check before writing', async () => {
     const lines = app.get(DrizzleLineRepository);
-    const teamId = fixture.held;
+    const teamId = fixture.workspaceId;
     const opening = BUILT_IN_LINES.find((each) => each.role) as LineOpening;
     let next = 0;
-    const opened = (key: string) =>
-      Line.open({
-        by: attributedIn(),
+    const newLine = (key: string) =>
+      Line.create({
+        by: changeActorIn(),
         workspaceId: WorkspaceId.of(teamId),
         teamId: TeamId.of(teamId),
         line: { ...opening, key: LineKey.of(key) },
         newId: () => `${teamId}-${key}-${++next}`,
       });
 
-    await lines.add(opened('first'));
+    await lines.add(newLine('first'));
 
-    await expect(lines.add(opened('second'))).rejects.toThrow(
+    await expect(lines.add(newLine('second'))).rejects.toThrow(
       LineRoleTakenError,
     );
   });
 
   it('lists every line across the workspace’s teams in address order, each as its read answers it', async () => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
-    const workspaceId = fixture.held;
+    const workspaceId = fixture.workspaceId;
     const alpha = await served(app)
       .post(`/api/resources/workspaces/${workspaceId}/teams`)
       .set(TEST_USER_HEADER, fixture.admin)
@@ -604,7 +614,7 @@ describe('a line, created through the resource API (e2e)', () => {
 
   it('reads several lines across teams at once, each exactly as it reads alone', async () => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
-    const workspaceId = fixture.held;
+    const workspaceId = fixture.workspaceId;
     const alpha = await served(app)
       .post(`/api/resources/workspaces/${workspaceId}/teams`)
       .set(TEST_USER_HEADER, fixture.admin)

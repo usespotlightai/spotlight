@@ -9,8 +9,8 @@ import { UnknownStationError } from '@replays/domain/exceptions/unknown-station.
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
-import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
+import { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import {
   forbiddenTo,
   type ResourceCreated,
@@ -21,8 +21,8 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createdOnce } from '@shared-kernel/application/services/created-once';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 
@@ -44,16 +44,16 @@ const nameOf = (written: unknown): Named => {
   }
 };
 
-class ProposalRefusedError extends Error {
+class ProposalRejectedError extends Error {
   constructor(readonly problems: readonly ConfigurationProblem[]) {
     super('Candidate proposal is invalid.');
-    this.name = 'ProposalRefusedError';
+    this.name = 'ProposalRejectedError';
   }
 }
 
-const fieldsOf = (held: unknown): Readonly<Record<string, unknown>> =>
-  typeof held === 'object' && held !== null && !Array.isArray(held)
-    ? (held as Record<string, unknown>)
+const fieldsOf = (raw: unknown): Readonly<Record<string, unknown>> =>
+  typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+    ? (raw as Record<string, unknown>)
     : {};
 
 export class ProposeCandidateHandler
@@ -74,8 +74,8 @@ export class ProposeCandidateHandler
   ): Promise<ResourceCreated | null> {
     try {
       const station = await this.work.keyed(command.lineId, command.stationKey);
-      const standing = station
-        ? await this.people.standingOn(
+      const membership = station
+        ? await this.people.membershipOn(
             station.teamId.value,
             command.actor.principal,
           )
@@ -85,14 +85,14 @@ export class ProposeCandidateHandler
         : null;
       const address =
         station && teamKey
-          ? StationAddress.of(teamKey, station.lineKey, station.key)
+          ? StationPath.of(teamKey, station.lineKey, station.key)
           : null;
 
-      if (!station || !standing || !address) {
+      if (!station || !membership || !address) {
         return null;
       }
 
-      if (!standing.mayPlan) {
+      if (!membership.mayPlan) {
         return forbiddenTo('plan');
       }
 
@@ -101,7 +101,7 @@ export class ProposeCandidateHandler
 
       try {
         return await this.transaction.inTransaction(() =>
-          createdOnce(
+          createIdempotently(
             this.creates,
             {
               by: command.actor.principal.toString(),
@@ -114,20 +114,20 @@ export class ProposeCandidateHandler
               },
             },
             async () => {
-              const examined = await this.work.examine(
+              const validated = await this.work.validate(
                 station.lineId,
                 station.stationId,
                 block,
               );
 
-              if (!examined) {
+              if (!validated) {
                 throw new UnknownStationError(command.stationKey);
               }
 
-              if (!named.ok || !examined.ok) {
-                throw new ProposalRefusedError([
+              if (!named.ok || !validated.ok) {
+                throw new ProposalRejectedError([
                   ...(named.ok ? [] : [CandidateProblems.name(named.reason)]),
-                  ...(examined.ok ? [] : examined.problems),
+                  ...(validated.ok ? [] : validated.problems),
                 ]);
               }
 
@@ -137,12 +137,12 @@ export class ProposeCandidateHandler
                 address,
                 name: named.name,
                 block: StationBlock.of(block),
-                fingerprint: examined.fingerprint,
-                digests: examined.digests,
-                scoring: examined.scoring,
-                changedFrom: examined.changedFrom,
+                fingerprint: validated.fingerprint,
+                hashes: validated.hashes,
+                scoring: validated.scoring,
+                changedFrom: validated.changedFrom,
                 at: this.clock.now(),
-                by: Attribution.of(command.actor, station.workspaceId),
+                by: ChangeActor.of(command.actor, station.workspaceId),
               });
 
               await this.candidates.add(proposed);
@@ -153,9 +153,9 @@ export class ProposeCandidateHandler
         );
       } catch (error) {
         if (error instanceof CandidateNameTakenError) {
-          return { outcome: 'taken', address: error.address };
+          return { outcome: 'already-exists', address: error.address };
         }
-        if (error instanceof ProposalRefusedError) {
+        if (error instanceof ProposalRejectedError) {
           return { outcome: 'invalid', problems: error.problems };
         }
 

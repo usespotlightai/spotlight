@@ -23,9 +23,9 @@ import {
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 import { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
-import { ReadInboxAsideCommand } from '@work/application/commands/read-inbox-aside.command';
-import { ReadInboxItemCommand } from '@work/application/commands/read-inbox-item.command';
-import { SettleNoticeCommand } from '@work/application/commands/settle-notice.command';
+import { MarkInboxItemReadCommand } from '@work/application/commands/mark-inbox-item-read.command';
+import { MarkInboxRequestReadCommand } from '@work/application/commands/mark-inbox-request-read.command';
+import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
 import type {
   InboxEntryDto,
   InboxItemDto,
@@ -37,19 +37,19 @@ import {
   AnswerInboxItemRequestDto,
   INBOX_ENTRY_SCHEMA,
   InboxApprovalResponseDto,
-  InboxAsideResponseDto,
   InboxAuthorResponseDto,
   InboxConnectionResponseDto,
   InboxFailureResponseDto,
   InboxItemResponseDto,
-  InboxMessageResponseDto,
   InboxNoticeResponseDto,
+  InboxRequestResponseDto,
   InboxStationResponseDto,
+  NoteResponseDto,
 } from '@work/presentation/http/dto/inbox.response.dto';
 import { RunJournalResponseDto } from '@work/presentation/http/dto/run-journal.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
-import { givenEdits } from '@work/presentation/http/mappers/given-edits';
-import { givenIds } from '@work/presentation/http/mappers/given-ids';
+import { editsInput } from '@work/presentation/http/mappers/edits-input';
+import { idsInput } from '@work/presentation/http/mappers/ids-input';
 import { RunJournalHttpMapper } from '@work/presentation/http/mappers/run-journal.http.mapper';
 
 const taskItemResponse = (item: InboxItemDto): InboxItemResponseDto =>
@@ -65,14 +65,14 @@ const taskItemResponse = (item: InboxItemDto): InboxItemResponseDto =>
     item.stationPosition,
     item.stationCount,
     new InboxStationResponseDto(
-      item.raisedAt.name,
-      item.raisedAt.color,
-      item.raisedAt.position,
+      item.originStation.name,
+      item.originStation.color,
+      item.originStation.position,
     ),
     new InboxStationResponseDto(
-      item.standsAt.name,
-      item.standsAt.color,
-      item.standsAt.position,
+      item.currentStation.name,
+      item.currentStation.color,
+      item.currentStation.position,
     ),
     item.createdAt,
     item.askedAt,
@@ -82,10 +82,10 @@ const taskItemResponse = (item: InboxItemDto): InboxItemResponseDto =>
     item.unread,
     item.briefing,
     item.failure ? new InboxFailureResponseDto(item.failure) : null,
-    item.aside ? new InboxAsideResponseDto(item.aside) : null,
+    item.inboxRequest ? new InboxRequestResponseDto(item.inboxRequest) : null,
     item.notes.map(
       (note) =>
-        new InboxMessageResponseDto(
+        new NoteResponseDto(
           note.position,
           note.kind,
           note.form,
@@ -164,7 +164,7 @@ export class InboxController {
   @ApiNotFoundResponse({ description: 'No such conversation for this caller' })
   @ApiConflictResponse({
     description:
-      'Only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it asked with',
+      'Only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with',
   })
   async answer(
     @Param('itemId') itemId: string,
@@ -176,13 +176,13 @@ export class InboxController {
         itemId,
         user.id,
         body.body ?? '',
-        givenIds(body.attachments),
+        idsInput(body.attachments),
         body.approve === undefined
           ? null
           : body.approve
-            ? 'granted'
-            : 'refused',
-        givenEdits(body.inputs),
+            ? 'approved'
+            : 'dismissed',
+        editsInput(body.inputs),
       ),
     );
   }
@@ -190,61 +190,65 @@ export class InboxController {
   @Post(':itemId/read')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'readInboxItem',
+    operationId: 'markInboxItemRead',
     summary: 'Mark what was put to a person as seen',
   })
   @ApiParam({ name: 'slug', type: String, example: 'acme' })
   @ApiParam({ name: 'itemId', type: String, example: 'task_1:0' })
   @ApiNoContentResponse({ description: 'It is no longer unread' })
   @ApiNotFoundResponse({ description: 'No such conversation for this caller' })
-  async read(
+  async markInboxItemRead(
     @Param('itemId') itemId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.commandBus.execute(new ReadInboxItemCommand(itemId, user.id));
+    await this.commandBus.execute(
+      new MarkInboxItemReadCommand(itemId, user.id),
+    );
   }
 
-  @Post('asides/:asideId/read')
+  @Post('requests/:requestId/read')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'readInboxAside',
-    summary: 'Mark what was put aside for a person as seen',
+    operationId: 'markInboxRequestRead',
+    summary: 'Mark an inbox request as seen',
   })
   @ApiParam({ name: 'slug', type: String, example: 'acme' })
-  @ApiParam({ name: 'asideId', type: String, example: 'aside_1' })
+  @ApiParam({ name: 'requestId', type: String, example: 'request_1' })
   @ApiNoContentResponse({ description: 'It is no longer unread' })
-  @ApiNotFoundResponse({ description: 'No such aside for this caller' })
-  async readAside(
-    @Param('asideId') asideId: string,
+  @ApiNotFoundResponse({ description: 'No such inbox request for this caller' })
+  async markInboxRequestRead(
+    @Param('requestId') requestId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.commandBus.execute(new ReadInboxAsideCommand(asideId, user.id));
+    await this.commandBus.execute(
+      new MarkInboxRequestReadCommand(requestId, user.id),
+    );
   }
 
-  @Post('notices/:noticeId/settle')
+  @Post('notices/:noticeId/resolve')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'settleInboxNotice',
-    summary: 'Settle a notice, once its person has dealt with it',
+    operationId: 'resolveInboxNotice',
+    summary: 'Resolve a notice, once its person has dealt with it',
   })
   @ApiParam({ name: 'slug', type: String, example: 'acme' })
   @ApiParam({ name: 'noticeId', type: String })
-  @ApiNoContentResponse({ description: 'It is settled' })
+  @ApiNoContentResponse({ description: 'It is resolved' })
   @ApiNotFoundResponse({ description: 'No such notice for this caller' })
-  async settleNotice(
+  async resolveNotice(
     @Param('slug') slug: string,
     @Param('noticeId') noticeId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     await this.commandBus.execute(
-      new SettleNoticeCommand(noticeId, slug, user.id),
+      new ResolveNoticeCommand(noticeId, slug, user.id),
     );
   }
 
   @Get('tasks/:taskId/journal')
   @ApiOperation({
     operationId: 'readTaskJournal',
-    summary: 'What each run did to arrive at what it said',
+    summary: 'What each run did to arrive at its result',
   })
   @ApiParam({ name: 'slug', type: String, example: 'acme' })
   @ApiParam({ name: 'taskId' })
@@ -254,15 +258,15 @@ export class InboxController {
     @Param('taskId') taskId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<RunJournalResponseDto[]> {
-    const worked = await this.queryBus.execute<
+    const entries = await this.queryBus.execute<
       ReadTaskJournalQuery,
       RunJournalDto[] | null
     >(new ReadTaskJournalQuery(taskId, user.id));
 
-    if (!worked) {
+    if (!entries) {
       throw new NotFoundException();
     }
 
-    return worked.map(RunJournalHttpMapper.toResponse);
+    return entries.map(RunJournalHttpMapper.toResponse);
   }
 }

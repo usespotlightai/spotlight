@@ -17,7 +17,7 @@ import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it } from 'vitest';
 
 const stepOf = (change: Partial<JournalStep>): JournalStep => ({
-  kind: 'said',
+  kind: 'message',
   text: '',
   status: null,
   tool: null,
@@ -25,8 +25,8 @@ const stepOf = (change: Partial<JournalStep>): JournalStep => ({
   ms: 0,
   startedAt: new Date('2026-09-30T10:00:00.000Z'),
   locations: [],
-  given: null,
-  returned: null,
+  input: null,
+  output: null,
   change: null,
   ...change,
 });
@@ -40,7 +40,7 @@ const journal: RunJournal = {
       kind: 'tool',
       tool: 'edit',
       text: 'src/uploads.ts',
-      given: 'x'.repeat(5_000),
+      input: 'x'.repeat(5_000),
       change: {
         path: '/workspace/api/src/uploads.ts',
         before: 'a\nb\nc\n',
@@ -63,12 +63,12 @@ const journal: RunJournal = {
   marks: {
     startedAt: null,
     readyAt: null,
-    spokeFrom: null,
-    spokeTo: null,
+    firstAgentUpdateAt: null,
+    lastAgentUpdateAt: null,
     endedAt: null,
   },
   spent: null,
-  egress: null,
+  egressEnforcement: null,
 };
 
 const TASK_RUN = {
@@ -99,7 +99,7 @@ const evidences = (judge: StationJudge | null = null) =>
       }),
     } as unknown as TaskRepository,
     {
-      holding: async () => ({
+      findByStation: async () => ({
         teamId: TeamId.of('team_1'),
         id: { value: 'line_1' },
         stationAt: () => ({ judge }),
@@ -145,7 +145,7 @@ describe('RunEvidences', () => {
     expect(evidence?.title).toBe('Retry uploads');
     expect(evidence?.description).toBe('They fail on a flaky network.');
     expect(evidence?.steps.map((each) => each.index)).toEqual([0, 1, 2]);
-    expect(evidence?.steps[1]?.given?.length).toBeLessThan(2_100);
+    expect(evidence?.steps[1]?.input?.length).toBeLessThan(2_100);
     expect(evidence?.steps[1]?.tool).toBe('edit');
   });
 
@@ -177,9 +177,13 @@ describe('RunEvidences', () => {
     ]);
   });
 
-  it('versions the station’s judge by the digest of its rubric, claims and pass share together', async () => {
+  it('versions the station’s judge by the hash of its rubric, claims and pass threshold together', async () => {
     const judge = await evidences(
-      StationJudge.of({ rubric: 'Did it retry?', sample: 0.5, trust: 0.6 }),
+      StationJudge.of({
+        rubric: 'Did it retry?',
+        sample: 0.5,
+        minAgreement: 0.6,
+      }),
     ).judgeAt('station_1');
 
     expect(judge).toEqual({
@@ -187,10 +191,10 @@ describe('RunEvidences', () => {
       lineId: 'line_1',
       rubric: 'Did it retry?',
       claims: [],
-      passShare: 1,
-      rubricVersion: `sha of ${JSON.stringify({ rubric: 'Did it retry?', claims: [], passShare: 1 })}`,
+      passThreshold: 1,
+      rubricVersion: `sha of ${JSON.stringify({ rubric: 'Did it retry?', claims: [], passThreshold: 1 })}`,
       sample: 0.5,
-      trust: 0.6,
+      minAgreement: 0.6,
     });
   });
 
@@ -198,38 +202,42 @@ describe('RunEvidences', () => {
     const judge = await evidences(
       StationJudge.of({
         claims: ['It retries.', 'It adds a test.'],
-        passShare: 0.5,
+        passThreshold: 0.5,
         sample: 0.5,
-        trust: 0.6,
+        minAgreement: 0.6,
       }),
     ).judgeAt('station_1');
 
     expect(judge).toMatchObject({
       rubric: null,
       claims: ['It retries.', 'It adds a test.'],
-      passShare: 0.5,
+      passThreshold: 0.5,
     });
     expect(judge?.rubricVersion).not.toBe(
       (
         await evidences(
           StationJudge.of({
             claims: ['It retries.', 'It adds a test.'],
-            passShare: 1,
+            passThreshold: 1,
             sample: 0.5,
-            trust: 0.6,
+            minAgreement: 0.6,
           }),
         ).judgeAt('station_1')
       )?.rubricVersion,
     );
   });
 
-  it('gives the judges of a team’s stations on every line as the station gives each one', async () => {
-    const held = evidences(
-      StationJudge.of({ rubric: 'Did it retry?', sample: 0.5, trust: 0.6 }),
+  it('gives the judges of a team’s stations on every line as the station sets each one', async () => {
+    const reader = evidences(
+      StationJudge.of({
+        rubric: 'Did it retry?',
+        sample: 0.5,
+        minAgreement: 0.6,
+      }),
     );
-    const judge = await held.judgeAt('station_1');
+    const judge = await reader.judgeAt('station_1');
 
-    expect(await held.judgesOnTeam('team_1')).toEqual(
+    expect(await reader.judgesOnTeam('team_1')).toEqual(
       new Map([
         ['station_1', judge],
         ['station_3', judge && { ...judge, lineId: 'line_2' }],
@@ -241,7 +249,7 @@ describe('RunEvidences', () => {
     expect(await evidences().judgeAt('station_1')).toBeNull();
   });
 
-  it('holds a run while its task is still there', async () => {
-    expect(await evidences().holds('run_1')).toBe(true);
+  it('says a run has a task while its task is still there', async () => {
+    expect(await evidences().hasTask('run_1')).toBe(true);
   });
 });

@@ -38,7 +38,7 @@ export function Inbox() {
   }
 
   const entries = inbox.data ?? [];
-  const owed = entries.filter((each) => !each.resolved);
+  const unresolved = entries.filter((each) => !each.resolved);
   const done = entries.filter((each) => each.resolved);
 
   return (
@@ -64,18 +64,18 @@ export function Inbox() {
               />
             )}
 
-            {owed.length > 0 && (
+            {unresolved.length > 0 && (
               <div>
                 <DisclosureRow
                   label="Open"
-                  count={owed.length}
+                  count={unresolved.length}
                   open={sections.isExpanded(OPEN)}
                   onToggle={() => sections.toggle(OPEN)}
                   className="pl-2 font-medium text-xs"
                 />
 
                 <Disclosure open={sections.isExpanded(OPEN)}>
-                  {owed.map((entry) => (
+                  {unresolved.map((entry) => (
                     <li key={`${entry.kind}:${entry.id}`}>
                       <InboxEntryRow slug={slug} entry={entry} />
                     </li>
@@ -85,7 +85,7 @@ export function Inbox() {
             )}
 
             {done.length > 0 && (
-              <div className={cn(owed.length > 0 && 'pt-4')}>
+              <div className={cn(unresolved.length > 0 && 'pt-4')}>
                 <DisclosureRow
                   label="Resolved"
                   count={done.length}

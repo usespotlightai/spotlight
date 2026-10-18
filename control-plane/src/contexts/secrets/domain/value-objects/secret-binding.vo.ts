@@ -1,7 +1,7 @@
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
-import { SecretCarrier } from '@secrets/domain/value-objects/secret-carrier.vo';
+import { SecretTarget } from '@secrets/domain/value-objects/secret-target.vo';
 import type { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
-import type { SecretCarrierKind } from '@shared-kernel/domain/value-objects/secret-carriers';
+import type { SecretLocation } from '@shared-kernel/domain/value-objects/secret-locations';
 
 const LABEL = '[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?';
 
@@ -9,8 +9,8 @@ const HOST = new RegExp(`^(?=.{1,253}$)${LABEL}(?:\\.${LABEL})+$`);
 
 const PREFIX = /^[\x20-\x7e]{0,64}$/;
 
-export interface WornSecret {
-  readonly carrier: SecretCarrierKind;
+export interface InjectedSecret {
+  readonly location: SecretLocation;
   readonly name: string;
   readonly value: string;
   readonly bare: string;
@@ -19,13 +19,13 @@ export interface WornSecret {
 export class SecretBinding {
   private constructor(
     readonly host: string,
-    readonly carrier: SecretCarrier,
+    readonly target: SecretTarget,
     readonly prefix: string,
   ) {}
 
   static of(input: {
     host: string;
-    carrier?: string | null;
+    location?: string | null;
     name?: string | null;
     prefix?: string | null;
   }): SecretBinding {
@@ -39,7 +39,7 @@ export class SecretBinding {
       );
     }
 
-    const carrier = SecretCarrier.of(input);
+    const target = SecretTarget.of(input);
 
     if (!PREFIX.test(prefix)) {
       throw new InvalidSecretError(
@@ -48,17 +48,17 @@ export class SecretBinding {
       );
     }
 
-    return new SecretBinding(host, carrier, prefix);
+    return new SecretBinding(host, target, prefix);
   }
 
-  toward(url: URL): boolean {
+  matches(url: URL): boolean {
     return url.protocol === 'https:' && url.hostname === this.host;
   }
 
-  wear(value: SecretValue): WornSecret {
+  inject(value: SecretValue): InjectedSecret {
     return {
-      carrier: this.carrier.kind,
-      name: this.carrier.name,
+      location: this.target.location,
+      name: this.target.name,
       value: `${this.prefix}${value.revealed()}`,
       bare: value.revealed(),
     };
@@ -67,7 +67,7 @@ export class SecretBinding {
   equals(other: SecretBinding): boolean {
     return (
       this.host === other.host &&
-      this.carrier.equals(other.carrier) &&
+      this.target.equals(other.target) &&
       this.prefix === other.prefix
     );
   }

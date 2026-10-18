@@ -7,8 +7,8 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { ResourceCreated } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import {
   actorFor,
-  attributedIn,
-} from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+  changeActorIn,
+} from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { CreateLineCommand } from '@work/application/commands/create-line.command';
@@ -34,8 +34,8 @@ const shapeOf = (line: Line) =>
     color: station.color.value,
     prompt: station.agentPrompt?.value ?? null,
     tools: station.tools.map((each) => each.value),
-    ends: station.wayOut.ends,
-    passesTo: station.wayOut.stations
+    ends: station.routes.ends,
+    passesTo: station.routes.stations
       .map((id) => line.stationAt(id)?.name.value)
       .sort(),
   }));
@@ -49,13 +49,13 @@ const reactionsOf = (line: Line) =>
     }))
     .sort((a, b) => a.happening.localeCompare(b.happening));
 
-describe('a line, defined and read back (e2e)', () => {
+describe('a line, created and read back (e2e)', () => {
   let app: INestApplication;
   let lines: DrizzleLineRepository;
   let db: DrizzleDatabase;
   let commands: CommandBus;
   let seat: Awaited<ReturnType<typeof seatTeam>>;
-  const held = `shape-${Date.now()}`;
+  const workspaceId = `shape-${Date.now()}`;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -67,7 +67,7 @@ describe('a line, defined and read back (e2e)', () => {
     lines = app.get(DrizzleLineRepository);
     db = app.get(DRIZZLE);
     commands = app.get(CommandBus);
-    seat = await seatTeam(db, held);
+    seat = await seatTeam(db, workspaceId);
   });
 
   afterEach(async () => {
@@ -75,35 +75,35 @@ describe('a line, defined and read back (e2e)', () => {
     await app.close();
   });
 
-  it('holds every station, its ways out and what it waits for, as its definition says', async () => {
-    const defined = await commands.execute<
+  it('stores every station, its ways out and what it waits for, as its definition says', async () => {
+    const result = await commands.execute<
       CreateLineCommand,
       ResourceCreated | null
     >(
       new CreateLineCommand(
-        held,
+        workspaceId,
         actorFor(seat.owner),
         randomUUID(),
         definitionOf(BUILT_IN),
       ),
     );
 
-    if (defined?.outcome !== 'created') {
-      throw new Error(JSON.stringify(defined));
+    if (result?.outcome !== 'created') {
+      throw new Error(JSON.stringify(result));
     }
 
-    const read = (await lines.find(LineId.of(defined.id))) as Line;
+    const read = (await lines.find(LineId.of(result.id))) as Line;
     let next = 0;
-    const opened = Line.open({
-      by: attributedIn(),
-      workspaceId: WorkspaceId.of(held),
-      teamId: TeamId.of(held),
+    const created = Line.create({
+      by: changeActorIn(),
+      workspaceId: WorkspaceId.of(workspaceId),
+      teamId: TeamId.of(workspaceId),
       line: BUILT_IN,
-      newId: () => `${held}_${++next}`,
+      newId: () => `${workspaceId}_${++next}`,
     });
 
-    expect(shapeOf(read)).toEqual(shapeOf(opened));
-    expect(reactionsOf(read)).toEqual(reactionsOf(opened));
+    expect(shapeOf(read)).toEqual(shapeOf(created));
+    expect(reactionsOf(read)).toEqual(reactionsOf(created));
     expect(reactionsOf(read)).not.toHaveLength(0);
     expect(read.stations.map((each) => each.name.value)).toEqual(
       BUILT_IN.stations.map((each) => each.name.value),

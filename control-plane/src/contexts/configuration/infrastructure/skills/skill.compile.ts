@@ -1,6 +1,6 @@
 import type {
-  ParsedSkill,
   SkillCompilerPort,
+  SkillParseResult,
 } from '@configuration/application/ports/skill-compiler.port';
 import {
   SKILLS,
@@ -10,7 +10,7 @@ import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skil
 import { SkillKeyReservedError } from '@configuration/domain/exceptions/skill-key-reserved.error';
 import {
   SkillFiles,
-  skillFileRefusal,
+  skillFileProblem,
 } from '@configuration/domain/value-objects/skill-files.vo';
 import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { readSkillFolder } from '@configuration/infrastructure/skills/skill-file';
@@ -21,10 +21,10 @@ import { SKILL_FILE } from '@work/application/contracts/run-spec.contract';
 import { z } from 'zod';
 
 const filePath = z.string().superRefine((path, context) => {
-  const refused = skillFileRefusal(path);
+  const problem = skillFileProblem(path);
 
-  if (refused) {
-    context.addIssue({ code: 'custom', message: refused });
+  if (problem) {
+    context.addIssue({ code: 'custom', message: problem });
   }
 });
 
@@ -33,23 +33,23 @@ const skillSchema = z.object({
   files: z.record(filePath, z.string()),
 });
 
-export const compileSkill = (held: unknown): ParsedSkill => {
-  const read = skillSchema.safeParse(held);
+export const compileSkill = (input: unknown): SkillParseResult => {
+  const read = skillSchema.safeParse(input);
 
   if (!read.success) {
     return { ok: false, problems: problemsIn(SKILLS, read.error) };
   }
 
   const { key, files } = read.data;
-  const refused = (at: FieldPath, reason: string): ParsedSkill => ({
+  const invalid = (at: FieldPath, reason: string): SkillParseResult => ({
     ok: false,
     problems: [ConfigurationProblem.of({ path: skillAt(key), at, reason })],
   });
 
   if (!(SKILL_FILE in files)) {
-    return refused(
+    return invalid(
       FieldPath.of(['files']),
-      `holds no ${SKILL_FILE}. Spotlight reads each skill from its ${SKILL_FILE}`,
+      `has no ${SKILL_FILE}. Spotlight reads each skill from its ${SKILL_FILE}`,
     );
   }
 
@@ -63,11 +63,11 @@ export const compileSkill = (held: unknown): ParsedSkill => {
     };
   } catch (error) {
     if (error instanceof SkillKeyReservedError) {
-      return refused(FieldPath.of([error.field]), error.because);
+      return invalid(FieldPath.of([error.field]), error.because);
     }
 
     if (error instanceof InvalidSkillError) {
-      return refused(FieldPath.of(['files', SKILL_FILE]), error.because);
+      return invalid(FieldPath.of(['files', SKILL_FILE]), error.because);
     }
 
     throw error;
@@ -75,7 +75,7 @@ export const compileSkill = (held: unknown): ParsedSkill => {
 };
 
 export class SkillCompiler implements SkillCompilerPort {
-  compile(held: unknown): ParsedSkill {
-    return compileSkill(held);
+  compile(input: unknown): SkillParseResult {
+    return compileSkill(input);
   }
 }

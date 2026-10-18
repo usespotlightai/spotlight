@@ -1,4 +1,4 @@
-import { DiffTally } from '@/components/shared/DiffTally';
+import { DiffStat } from '@/components/shared/DiffStat';
 import {
   type ChangeStack,
   cohortTallyOf,
@@ -18,7 +18,7 @@ export function CohortTally({ stack, cohort }: CohortTallyProps) {
       <span>
         {tally.files} {tally.files === 1 ? 'file' : 'files'}
       </span>
-      <DiffTally added={tally.added} removed={tally.removed} always />
+      <DiffStat added={tally.added} removed={tally.removed} always />
     </span>
   );
 }

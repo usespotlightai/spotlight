@@ -19,13 +19,13 @@ const nodeToResponse = (node: TraceNodeDto): TraceNodeResponseDto =>
     node.name,
     node.startedAt,
     node.ms,
-    node.tone,
+    node.category,
     node.cost,
     node.currency,
     node.step && stepToResponse(node.step),
     node.span && spanToResponse(node.span),
     node.connection && new TraceConnectionResponseDto(node.connection),
-    node.egress,
+    node.egressEnforcement,
     node.children.map(nodeToResponse),
   );
 
@@ -35,7 +35,7 @@ export const TaskTraceHttpMapper = {
       trace.startedAt,
       trace.ms,
       trace.rows,
-      trace.faults,
+      trace.errors,
       trace.roots.map(nodeToResponse),
     );
   },

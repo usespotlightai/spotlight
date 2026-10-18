@@ -28,7 +28,7 @@ import type { AuthenticatedUser } from '@shared-kernel/application/ports/session
 import {
   AcceptProposalCommand,
   DismissProposalCommand,
-  SayInChatCommand,
+  SendChatMessageCommand,
   StartChatCommand,
   StopChatCommand,
 } from '@work/application/commands/chat.commands';
@@ -40,7 +40,7 @@ import {
   ReadChatQuery,
 } from '@work/application/queries/chat.queries';
 import {
-  SayInChatRequestDto,
+  SendChatMessageRequestDto,
   StartChatRequestDto,
 } from '@work/presentation/http/dto/chat.request.dto';
 import {
@@ -49,10 +49,10 @@ import {
 } from '@work/presentation/http/dto/chat.response.dto';
 import { RunJournalResponseDto } from '@work/presentation/http/dto/run-journal.response.dto';
 import { ChatHttpMapper } from '@work/presentation/http/mappers/chat.http.mapper';
-import { givenChoice } from '@work/presentation/http/mappers/given-choice';
-import { givenIds } from '@work/presentation/http/mappers/given-ids';
-import { givenSetup } from '@work/presentation/http/mappers/given-setup';
+import { choiceInput } from '@work/presentation/http/mappers/choice-input';
+import { idsInput } from '@work/presentation/http/mappers/ids-input';
 import { RunJournalHttpMapper } from '@work/presentation/http/mappers/run-journal.http.mapper';
+import { setupInput } from '@work/presentation/http/mappers/setup-input';
 
 @ApiTags('chats')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -105,7 +105,7 @@ export class ChatController {
   @ApiNotFoundResponse({ description: 'No such team for this caller' })
   @ApiUnprocessableEntityResponse({
     description:
-      'An unknown harness, model, effort or repository, or a setup the GitHub App cannot reach or no host can run',
+      'An unknown harness, model, effort or repository, or a setup the GitHub App cannot access or no host can run',
   })
   async start(
     @Param('teamId') teamId: string,
@@ -120,16 +120,16 @@ export class ChatController {
         teamId,
         user.id,
         body.harness,
-        givenChoice(body.model, 'model') ?? null,
-        givenChoice(body.effort, 'effort') ?? null,
+        choiceInput(body.model, 'model') ?? null,
+        choiceInput(body.effort, 'effort') ?? null,
         Array.isArray(body.repositories) ? body.repositories : [],
         body.body ?? '',
-        givenIds(body.attachments),
-        givenIds(body.traces),
-        typeof body.improving === 'string' && body.improving.trim()
-          ? body.improving.trim()
+        idsInput(body.attachments),
+        idsInput(body.traces),
+        typeof body.targetStation === 'string' && body.targetStation.trim()
+          ? body.targetStation.trim()
           : null,
-        givenSetup(body.setup),
+        setupInput(body.setup),
       ),
     );
 
@@ -143,7 +143,7 @@ export class ChatController {
   @Get(':chatId')
   @ApiOperation({
     operationId: 'readChat',
-    summary: 'A chat, with everything said and proposed in it',
+    summary: 'A chat, with all its messages and proposals',
   })
   @ApiParam({ name: 'chatId', type: String })
   @ApiOkResponse({ type: ChatResponseDto })
@@ -167,7 +167,7 @@ export class ChatController {
   @Get(':chatId/journal')
   @ApiOperation({
     operationId: 'readChatJournal',
-    summary: 'What the agent did and said in each run of a chat',
+    summary: 'What the agent did and wrote in each run of a chat',
   })
   @ApiParam({ name: 'chatId', type: String })
   @ApiOkResponse({ type: RunJournalResponseDto, isArray: true })
@@ -192,30 +192,30 @@ export class ChatController {
   @Post(':chatId/messages')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'sayInChat',
-    summary: 'Say something to the agent in a chat',
+    operationId: 'sendChatMessage',
+    summary: 'Send a message to the agent in a chat',
   })
   @ApiParam({ name: 'chatId', type: String })
-  @ApiNoContentResponse({ description: 'The agent hears it' })
+  @ApiNoContentResponse({ description: 'The agent gets the message' })
   @ApiBadRequestResponse({ description: 'A model or effort that is not text' })
   @ApiNotFoundResponse({ description: 'No such chat for this caller' })
   @ApiUnprocessableEntityResponse({ description: 'An unknown model or effort' })
-  async say(
+  async sendChatMessage(
     @Param('teamId') teamId: string,
     @Param('chatId') chatId: string,
-    @Body() body: SayInChatRequestDto,
+    @Body() body: SendChatMessageRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     await this.commandBus.execute(
-      new SayInChatCommand(
+      new SendChatMessageCommand(
         teamId,
         chatId,
         user.id,
         body.body ?? '',
-        givenIds(body.attachments),
-        givenIds(body.traces),
-        givenChoice(body.model, 'model'),
-        givenChoice(body.effort, 'effort'),
+        idsInput(body.attachments),
+        idsInput(body.traces),
+        choiceInput(body.model, 'model'),
+        choiceInput(body.effort, 'effort'),
       ),
     );
   }
@@ -227,7 +227,7 @@ export class ChatController {
     summary: 'Stop the agent answering in a chat',
   })
   @ApiParam({ name: 'chatId', type: String })
-  @ApiNoContentResponse({ description: 'The agent was asked to stop' })
+  @ApiNoContentResponse({ description: 'The agent received a stop request' })
   @ApiNotFoundResponse({ description: 'No such chat for this caller' })
   @ApiConflictResponse({ description: 'The agent is not answering' })
   async stop(
@@ -248,7 +248,7 @@ export class ChatController {
   @ApiParam({ name: 'position', type: Number })
   @ApiNoContentResponse({ description: 'The task is being created' })
   @ApiNotFoundResponse({ description: 'No such chat for this caller' })
-  @ApiConflictResponse({ description: 'The proposal is already settled' })
+  @ApiConflictResponse({ description: 'The proposal is already decided' })
   async accept(
     @Param('teamId') teamId: string,
     @Param('chatId') chatId: string,
@@ -270,7 +270,7 @@ export class ChatController {
   @ApiParam({ name: 'position', type: Number })
   @ApiNoContentResponse({ description: 'The proposal was dismissed' })
   @ApiNotFoundResponse({ description: 'No such chat for this caller' })
-  @ApiConflictResponse({ description: 'The proposal is already settled' })
+  @ApiConflictResponse({ description: 'The proposal is already decided' })
   async dismiss(
     @Param('teamId') teamId: string,
     @Param('chatId') chatId: string,

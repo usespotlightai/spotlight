@@ -13,8 +13,8 @@ const ARRIVALS = {
       },
     ],
   },
-  improving: {
-    improving: {
+  targetStation: {
+    targetStation: {
       lineId: 'line_delivery',
       lineKey: 'delivery',
       lineName: 'Delivery',
@@ -39,7 +39,7 @@ const meta = {
       arrival: choice('Opened with', {
         none: 'Nothing',
         traces: 'Sharing traces',
-        improving: 'Improving a station',
+        targetStation: 'Improving a station',
       }),
     },
   }),

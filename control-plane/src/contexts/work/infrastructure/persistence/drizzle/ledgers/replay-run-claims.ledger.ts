@@ -24,18 +24,18 @@ export class DrizzleReplayRunClaims implements ReplayRunClaimsPort {
       .values({ runId: first.runId.value, claimedAs: first.claimedAs })
       .onConflictDoNothing({ target: replayRunClaim.runId });
 
-    const [held] = await this.context.db
+    const [claim] = await this.context.db
       .select()
       .from(replayRunClaim)
       .where(eq(replayRunClaim.runId, first.runId.value))
       .for('update');
 
-    return held
+    return claim
       ? ReplayRunClaim.rehydrate({
-          runId: RunId.of(held.runId),
-          claimedAs: held.claimedAs,
-          refusal: held.refusal,
-          reason: held.reason,
+          runId: RunId.of(claim.runId),
+          claimedAs: claim.claimedAs,
+          unreplayableReason: claim.unreplayableReason,
+          reason: claim.reason,
         })
       : first;
   }
@@ -45,7 +45,7 @@ export class DrizzleReplayRunClaims implements ReplayRunClaimsPort {
       .update(replayRunClaim)
       .set({
         claimedAs: claim.claimedAs,
-        refusal: claim.refusal,
+        unreplayableReason: claim.unreplayableReason,
         reason: claim.reason,
       })
       .where(eq(replayRunClaim.runId, claim.runId.value));

@@ -9,8 +9,8 @@ import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import {
   AT,
   candidateOf,
-  DIGESTS,
   FINGERPRINT,
+  HASHES,
   LIVE_FINGERPRINT,
   NOW,
   SEARCH_ID,
@@ -31,7 +31,7 @@ const made = {
   address: AT,
   block: StationBlock.of({ key: 'build', name: 'Build', prompt: 'Go.' }),
   fingerprint: FINGERPRINT,
-  digests: DIGESTS,
+  hashes: HASHES,
   scoring: UNSCORED,
   changedFrom: StationChanges.none(LIVE_FINGERPRINT),
   at: NOW,
@@ -72,7 +72,7 @@ describe('ReadCandidateHandler', () => {
     expect((await read('candidate_proposed'))?.id).toBe('candidate_proposed');
   });
 
-  it('shows no candidate a search found or a plan held, as if there were none', async () => {
+  it('shows no candidate a search found or a plan made, as if there were none', async () => {
     expect(await read('candidate_searched')).toBeNull();
     expect(await read('candidate_planned')).toBeNull();
   });

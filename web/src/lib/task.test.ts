@@ -4,7 +4,7 @@ import {
   movableByHand,
   moveTargetFor,
   placed,
-  startsAgainWhenTold,
+  startsAgainOnMessage,
   type Task,
 } from '@/lib/task';
 
@@ -18,7 +18,7 @@ const task = (id: string, stationId: string): Task => ({
   createdAt: '2026-08-04T09:15:00.000Z',
   running: false,
   awaitingReview: null,
-  raisedBy: null,
+  createdBy: null,
   assignee: null,
   pullRequest: null,
   note: null,
@@ -62,7 +62,7 @@ describe('placed', () => {
     ]);
   });
 
-  it('leaves the board alone for a task it does not hold', () => {
+  it('leaves the board alone for a task it does not have', () => {
     expect(titles(placed(board, 'missing', 'triage', null))).toEqual(
       titles(board),
     );
@@ -94,7 +94,7 @@ describe('movableByHand', () => {
     expect(movableByHand(build, backlog)).toBe(true);
   });
 
-  it('reorders work within the station it stands at', () => {
+  it('reorders work within the station it is at', () => {
     expect(movableByHand(spec, spec)).toBe(true);
     expect(movableByHand(completed, completed)).toBe(true);
   });
@@ -153,22 +153,22 @@ describe('moveTargetFor', () => {
   });
 });
 
-describe('startsAgainWhenTold', () => {
+describe('startsAgainOnMessage', () => {
   const worked = { id: 'spec', harness: 'claude-code' };
 
   it('starts a task idle at the station its run worked again', () => {
-    expect(startsAgainWhenTold(task('a', 'spec'), worked, 'spec')).toBe(true);
+    expect(startsAgainOnMessage(task('a', 'spec'), worked, 'spec')).toBe(true);
   });
 
   it('starts nothing from a run at a station the task has since left', () => {
-    expect(startsAgainWhenTold(task('a', 'spec'), worked, 'triage')).toBe(
+    expect(startsAgainOnMessage(task('a', 'spec'), worked, 'triage')).toBe(
       false,
     );
   });
 
-  it('leaves a task a run still holds to that run', () => {
+  it('leaves a task that still has a current run to that run', () => {
     expect(
-      startsAgainWhenTold(
+      startsAgainOnMessage(
         { ...task('a', 'spec'), running: true },
         worked,
         'spec',
@@ -178,7 +178,7 @@ describe('startsAgainWhenTold', () => {
 
   it('leaves a task waiting on a person to the answer', () => {
     expect(
-      startsAgainWhenTold(
+      startsAgainOnMessage(
         { ...task('a', 'spec'), awaitingReview: { conversationId: 'a:0' } },
         worked,
         'spec',
@@ -188,7 +188,7 @@ describe('startsAgainWhenTold', () => {
 
   it('starts nothing where nothing runs', () => {
     expect(
-      startsAgainWhenTold(
+      startsAgainOnMessage(
         task('a', 'backlog'),
         { id: 'backlog', harness: null },
         'backlog',

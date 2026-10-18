@@ -21,8 +21,10 @@ export class GitHubWebhookSignature implements WebhookSignaturePort {
           .update(payload)
           .digest('hex'),
     );
-    const given = Buffer.from(signature);
+    const received = Buffer.from(signature);
 
-    return expected.length === given.length && timingSafeEqual(expected, given);
+    return (
+      expected.length === received.length && timingSafeEqual(expected, received)
+    );
   }
 }

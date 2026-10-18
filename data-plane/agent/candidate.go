@@ -22,7 +22,7 @@ func candidateCmd(args []string, in io.Reader, out io.Writer) error {
 	flags := flag.NewFlagSet("candidate", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	name := flags.String("name", "", "tells the candidate from the search's others")
-	hypothesis := flags.String("hypothesis", "", "what you expect the change to do, or @file holding it")
+	hypothesis := flags.String("hypothesis", "", "what you expect the change to do, or @file that contains it")
 
 	var positional []string
 	for {
@@ -46,7 +46,7 @@ func candidateCmd(args []string, in io.Reader, out io.Writer) error {
 		return fmt.Errorf("--hypothesis is required\n%s", candidateUsage)
 	}
 	if len(positional) != 1 {
-		return fmt.Errorf("name one file holding the station block, or - to read it from stdin\n%s", candidateUsage)
+		return fmt.Errorf("name one file that contains the station block, or - to read it from stdin\n%s", candidateUsage)
 	}
 
 	expected, err := hypothesisOf(*hypothesis)
@@ -59,7 +59,7 @@ func candidateCmd(args []string, in io.Reader, out io.Writer) error {
 		return err
 	}
 
-	endpoint, token := os.Getenv(protocol.HandoverURLVar), os.Getenv(protocol.HandoverTokenVar)
+	endpoint, token := os.Getenv(protocol.AgentAPIURLVar), os.Getenv(protocol.AgentAPITokenVar)
 	if endpoint == "" || token == "" {
 		return fmt.Errorf("no run to propose a candidate from: spotlight runs inside a Spotlight workspace")
 	}
@@ -71,7 +71,7 @@ func candidateCmd(args []string, in io.Reader, out io.Writer) error {
 		return err
 	}
 
-	answered, err := proposeTo(strings.TrimSuffix(endpoint, "/")+protocol.HandoverCandidatePath, token, body)
+	answered, err := proposeTo(strings.TrimSuffix(endpoint, "/")+protocol.AgentAPICandidatePath, token, body)
 	if err != nil {
 		return err
 	}
@@ -87,10 +87,10 @@ func candidateCmd(args []string, in io.Reader, out io.Writer) error {
 	return nil
 }
 
-func hypothesisOf(given string) (string, error) {
-	file, found := strings.CutPrefix(given, "@")
+func hypothesisOf(value string) (string, error) {
+	file, found := strings.CutPrefix(value, "@")
 	if !found {
-		return strings.TrimSpace(given), nil
+		return strings.TrimSpace(value), nil
 	}
 
 	read, err := os.ReadFile(file)
@@ -98,17 +98,17 @@ func hypothesisOf(given string) (string, error) {
 		return "", fmt.Errorf("read the hypothesis: %w", err)
 	}
 
-	said := strings.TrimSpace(string(read))
-	if said == "" {
-		return "", fmt.Errorf("%s holds no hypothesis; say what you expect the change to do", file)
+	text := strings.TrimSpace(string(read))
+	if text == "" {
+		return "", fmt.Errorf("%s contains no hypothesis; say what you expect the change to do", file)
 	}
 
-	return said, nil
+	return text, nil
 }
 
 func stationBlock(path string, in io.Reader) (json.RawMessage, error) {
 	if ext := strings.ToLower(filepath.Ext(path)); ext == ".tf" || ext == ".hcl" {
-		return nil, fmt.Errorf("%s is HCL; give the station block as JSON, as the line resource holds a station", path)
+		return nil, fmt.Errorf("%s is HCL; supply the station block as JSON, as the line resource contains a station", path)
 	}
 
 	var read []byte
@@ -124,7 +124,7 @@ func stationBlock(path string, in io.Reader) (json.RawMessage, error) {
 
 	var block map[string]json.RawMessage
 	if err := json.Unmarshal(read, &block); err != nil || block == nil {
-		return nil, fmt.Errorf("%s holds no JSON object; it holds the station block, as the line resource holds a station", path)
+		return nil, fmt.Errorf("%s contains no JSON object; it must contain the station block, as the line resource contains a station", path)
 	}
 
 	return bytes.TrimSpace(read), nil
@@ -144,29 +144,29 @@ func proposeTo(url, token string, body []byte) ([]byte, error) {
 	}
 	defer response.Body.Close()
 
-	said, _ := io.ReadAll(response.Body)
+	read, _ := io.ReadAll(response.Body)
 
 	if response.StatusCode < 300 {
-		return said, nil
+		return read, nil
 	}
 
-	var refused protocol.FieldErrors
+	var invalid protocol.FieldErrors
 	if response.StatusCode == http.StatusUnprocessableEntity &&
-		json.Unmarshal(said, &refused) == nil && protocol.Refuses(refused.Errors) {
-		return nil, errors.New(problemsOf(refused.Errors))
+		json.Unmarshal(read, &invalid) == nil && protocol.HasErrors(invalid.Errors) {
+		return nil, errors.New(problemsOf(invalid.Errors))
 	}
 
-	return nil, fmt.Errorf("%s", strings.TrimSpace(string(said)))
+	return nil, fmt.Errorf("%s", strings.TrimSpace(string(read)))
 }
 
 func problemsOf(found []protocol.FieldError) string {
 	var shown strings.Builder
 
-	shown.WriteString("Spotlight refused the candidate:\n")
+	shown.WriteString("Spotlight rejected the candidate:\n")
 	for _, each := range found {
 		fmt.Fprintf(&shown, "%s: %s", each.Path, flat(each.Message))
 		if each.Severity != protocol.SeverityError {
-			shown.WriteString(" (" + each.Severity + ", not why it was refused)")
+			shown.WriteString(" (" + each.Severity + ", not why it was rejected)")
 		}
 		shown.WriteString("\n")
 	}

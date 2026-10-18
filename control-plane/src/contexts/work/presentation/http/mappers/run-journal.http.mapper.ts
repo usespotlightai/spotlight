@@ -26,8 +26,8 @@ export const stepToResponse = (step: JournalStepDto): JournalStepResponseDto =>
     step.locations.map(
       (where) => new StepLocationResponseDto(where.path, where.line),
     ),
-    step.given,
-    step.returned,
+    step.input,
+    step.output,
     step.change
       ? new StepChangeResponseDto(
           step.change.path,
@@ -46,7 +46,8 @@ export const spanToResponse = (span: RunSpanDto): RunSpanResponseDto =>
     span.ms,
     span.failed,
     span.attributes.map(
-      (held) => new SpanAttributeResponseDto(held.name, held.value),
+      (attribute) =>
+        new SpanAttributeResponseDto(attribute.name, attribute.value),
     ),
   );
 
@@ -61,8 +62,8 @@ export const RunJournalHttpMapper = {
       new RunMarksResponseDto(
         journal.marks.startedAt,
         journal.marks.readyAt,
-        journal.marks.spokeFrom,
-        journal.marks.spokeTo,
+        journal.marks.firstAgentUpdateAt,
+        journal.marks.lastAgentUpdateAt,
         journal.marks.endedAt,
       ),
       journal.spent

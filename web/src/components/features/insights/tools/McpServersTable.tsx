@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
-import { Noted } from '@/components/shared/Noted';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
   EDGE_INDENT,
   ROW_DIVIDER,
 } from '@/components/shared/nested-table/nested-rows';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import {
   formatCount,
   formatPer,
@@ -14,9 +14,9 @@ import {
   type InsightsFilter,
 } from '@/lib/insights';
 import {
+  dismissedServerFilter,
   failedAfterFilter,
   formatLatency,
-  refusedServerFilter,
   SERVER_HEADINGS,
   type ServerReport,
   serverFailedFilter,
@@ -71,8 +71,8 @@ export function McpServersTable({
             </NestedCell>
             <NestedCell heading="Error rate" strong>
               {server.failedCalls > 0 ? (
-                <Noted
-                  note={`${server.failedCalls} of ${server.calls} calls, unfinished included`}
+                <WithTooltip
+                  tooltip={`${server.failedCalls} of ${server.calls} calls, unfinished included`}
                 >
                   <span>
                     {toRuns(
@@ -80,7 +80,7 @@ export function McpServersTable({
                       serverFailedFilter(server.server),
                     )}
                   </span>
-                </Noted>
+                </WithTooltip>
               ) : (
                 formatShare(server.errorRate)
               )}
@@ -93,11 +93,11 @@ export function McpServersTable({
                   )
                 : formatCount(0)}
             </NestedCell>
-            <NestedCell heading="Refused">
-              {server.refused > 0
+            <NestedCell heading="Dismissed">
+              {server.dismissed > 0
                 ? toRuns(
-                    formatCount(server.refused),
-                    refusedServerFilter(server.server),
+                    formatCount(server.dismissed),
+                    dismissedServerFilter(server.server),
                   )
                 : formatCount(0)}
             </NestedCell>

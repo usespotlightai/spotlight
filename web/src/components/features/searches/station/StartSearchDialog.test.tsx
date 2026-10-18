@@ -59,7 +59,7 @@ const setOf = (id: string, name: string, tasks: number): ReplaySet => ({
   name,
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
-  guardsChanges: false,
+  gatesChanges: false,
   health: {
     noise: null,
     saturation: null,
@@ -89,7 +89,7 @@ const setOf = (id: string, name: string, tasks: number): ReplaySet => ({
     state: 'completed',
     endedAt: null,
     addedAt: '2026-10-01T09:00:00.000Z',
-    refusal: null,
+    unreplayableReason: null,
     reason: null,
     outcome: 'other',
     origin: 'person',
@@ -104,7 +104,7 @@ const ESTIMATE: SearchEstimate = {
   heldOutTasks: 2,
   runs: { seed: 7, searchReplays: 30, heldOutReplays: 8, agent: 3, total: 48 },
   ceiling: { amount: 20, currency: 'USD' },
-  perReplayAllotments: {
+  perReplayLimits: {
     seed: { amount: 2.5, currency: 'USD' },
     searchReplay: { amount: 1.8, currency: 'USD' },
     heldOutReplay: { amount: 0.7, currency: 'USD' },
@@ -130,7 +130,7 @@ describe('StartSearchDialog', () => {
     estimateError.mockReturnValue(null);
   });
 
-  it('points to the field an estimate refused rather than waiting on it', () => {
+  it('points to the field an estimate rejected rather than waiting on it', () => {
     estimateError.mockReturnValue({
       status: 422,
       errors: [
@@ -199,7 +199,7 @@ describe('StartSearchDialog', () => {
     expect(summary).toHaveTextContent('$20.00');
     expect(summary).toHaveTextContent('$1.80 per candidate');
     expect(summary).toHaveTextContent('About 1h 30m');
-    expect(summary).toHaveTextContent('CopiesEach run once');
+    expect(summary).toHaveTextContent('RepeatsEach run once');
     expect(screen.queryByRole('list', { name: 'Warnings' })).toBeNull();
   });
 
@@ -245,7 +245,7 @@ describe('StartSearchDialog', () => {
     );
 
     expect(screen.getByRole('list', { name: 'Warnings' })).toHaveTextContent(
-      'Success moved 15 pts between copies of the same runs. This is more than the line’s minimum real gain. If you replay each run 5 times, the noise falls below it. Minimum real gain: +5 pts',
+      'Success moved 15 pts between repeats of the same runs. This is more than the line’s minimum real gain. If you replay each run 5 times, the noise falls below it. Minimum real gain: +5 pts',
     );
 
     fireEvent.click(
@@ -328,7 +328,7 @@ describe('StartSearchDialog', () => {
     );
   });
 
-  it('shows the aim a saturated set takes before the estimate arrives, without asking for it', () => {
+  it('shows the aim a saturated set takes before the estimate arrives, without requesting it', () => {
     const big = setOf('big', 'Billing work', 7);
     renderDialog([
       {
@@ -400,7 +400,7 @@ describe('StartSearchDialog', () => {
     );
   });
 
-  it('shows a refusal on the field it names', () => {
+  it('shows a rejection on the field it names', () => {
     startError.mockReturnValue({
       status: 422,
       detail: 'The request is invalid',
@@ -423,7 +423,7 @@ describe('StartSearchDialog', () => {
     ).toBeInTheDocument();
   });
 
-  it('refuses to start without a ceiling', () => {
+  it('does not start without a ceiling', () => {
     renderDialog();
 
     fireEvent.click(screen.getByRole('button', { name: 'Start search' }));

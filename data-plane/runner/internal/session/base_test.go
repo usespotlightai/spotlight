@@ -58,7 +58,7 @@ func TestMarkBasesRecordsWhereEachCheckoutBegan(t *testing.T) {
 	if marked["widgets"] != began {
 		t.Fatalf("reported %q, want %s", marked["widgets"], began)
 	}
-	if _, told := marked["missing"]; told {
+	if _, found := marked["missing"]; found {
 		t.Fatalf("reported a base for a checkout that is not there: %q", marked["missing"])
 	}
 }
@@ -95,9 +95,9 @@ func TestMarkBasesRecordsWhereTheBranchLeftTheDefaultBranch(t *testing.T) {
 }
 
 func TestToolNamesAreTheManifestsOwn(t *testing.T) {
-	given := []protocol.ToolManifest{{Name: "pull-request"}, {Name: "propose-task"}}
+	manifest := []protocol.ToolManifest{{Name: "pull-request"}, {Name: "propose-task"}}
 
-	got := toolNames(given)
+	got := toolNames(manifest)
 	if len(got) != 2 || got[0] != "pull-request" || got[1] != "propose-task" {
 		t.Fatalf("tool names %v", got)
 	}

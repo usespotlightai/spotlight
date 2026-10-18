@@ -23,7 +23,7 @@ describe('EgressReference', () => {
     );
   });
 
-  it('refuses an empty reference', () => {
+  it('rejects an empty reference', () => {
     expect(() => EgressReference.of(' ')).toThrow();
   });
 });

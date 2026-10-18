@@ -54,7 +54,7 @@ describe('WorkspaceGeneral', () => {
     expect(screen.getByText('usespotlight.ai/w/acme-inc')).toBeVisible();
   });
 
-  it('holds the place of the name while the workspace loads', () => {
+  it('keeps the place of the name while the workspace loads', () => {
     workspace.mockReturnValue(undefined);
 
     showing();
@@ -64,7 +64,7 @@ describe('WorkspaceGeneral', () => {
     ).toBeInTheDocument();
   });
 
-  it('says the settings could not be loaded, and tries again when asked', async () => {
+  it('says the settings could not be loaded, and tries again on request', async () => {
     workspace.mockReturnValue(undefined);
     failing.mockReturnValue(true);
 

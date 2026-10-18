@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import type { INestApplication } from '@nestjs/common';
 import {
   RUN_ACCEPTANCE,
   type RunAcceptancePort,
-} from '@outcomes/application/ports/run-acceptance.port';
-import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
+} from '@insights/application/ports/run-acceptance.port';
+import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
+import type { INestApplication } from '@nestjs/common';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -18,13 +18,13 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
-import type { PersonAct } from '@work/domain/value-objects/person-act';
+import type { HumanActionKind } from '@work/domain/value-objects/human-action-kind';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const MINUTE = 60_000;
 const NOW = Date.now();
@@ -32,24 +32,24 @@ const ago = (minutes: number) => new Date(NOW - minutes * MINUTE);
 
 const TOOL = CalledTool.of({ server: 'linear', tool: 'create_issue' });
 
-type Acted = readonly [PersonAct, number];
+type Acted = readonly [HumanActionKind, number];
 
 const RUNS = {
   approvedThenClosed: [
     ['approved', 100],
-    ['closed', 90],
+    ['accepted', 90],
   ],
   approvedThenSentBack: [
     ['approved', 100],
     ['sent-back', 90],
   ],
   onlyApproved: [['approved', 100]],
-  closedHeardBeforeTheRefusalBeforeIt: [
-    ['closed', 90],
-    ['refused', 100],
+  closedReceivedBeforeTheDismissalBeforeIt: [
+    ['accepted', 90],
+    ['dismissed', 100],
   ],
-  sentBackHeardAfterTheCloseAfterIt: [
-    ['closed', 80],
+  sentBackReceivedAfterTheCloseAfterIt: [
+    ['accepted', 80],
     ['sent-back', 85],
   ],
 } satisfies Record<string, readonly Acted[]>;
@@ -57,7 +57,7 @@ const RUNS = {
 type RunName = keyof typeof RUNS;
 
 let app: INestApplication;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 const runIds = new Map<RunName, RunId>();
 
 const runOf = (name: RunName): RunId => {
@@ -78,21 +78,21 @@ const insights = (tab: string, query = 'period=7d') =>
 beforeAll(async () => {
   app = await openApp();
   const db: DrizzleDatabase = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `approvals-${randomUUID().slice(0, 8)}`,
   );
   const records = app.get(DrizzleRunRecordRepository);
 
-  const heard = async (
+  const delivered = async (
     events: readonly unknown[],
-    held: () => Promise<unknown>,
+    check: () => Promise<unknown>,
   ) => {
     await app.get(EventOutbox).record(events as DomainEvent[]);
     await eventually(async () => {
       await app.get(EventDelivery).drain(2_000);
-      return held();
+      return check();
     }, 60_000);
   };
 
@@ -116,7 +116,7 @@ beforeAll(async () => {
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
         handover: { options: [], noteLimit: 0 },
-        continuity: { key: 'task:station' },
+        resume: { key: 'task:station' },
       },
       createdAt: ago(130),
       startedAt: ago(125),
@@ -134,12 +134,12 @@ beforeAll(async () => {
       stopped: false,
       asked: false,
     };
-    await heard([ended], async () => (await records.of(runId))?.hasEnded);
+    await delivered([ended], async () => (await records.of(runId))?.hasEnded);
 
     for (const [act, minutesAgo] of acts) {
       const before = await records.of(runId);
 
-      await heard(
+      await delivered(
         [
           new TaskActedOn(
             taskId,
@@ -149,7 +149,7 @@ beforeAll(async () => {
             team.owner,
             runId,
             ago(minutesAgo),
-            act === 'approved' || act === 'refused' ? TOOL : null,
+            act === 'approved' || act === 'dismissed' ? TOOL : null,
           ),
         ],
         async () => (await records.of(runId))?.version !== before?.version,
@@ -169,27 +169,32 @@ describe('a run a person decided a tool approval for (e2e)', () => {
       acceptance.acceptedAfter(runOf(name).value);
 
     expect(await accepted('approvedThenClosed')).toBe(true);
-    expect(await accepted('closedHeardBeforeTheRefusalBeforeIt')).toBe(true);
+    expect(await accepted('closedReceivedBeforeTheDismissalBeforeIt')).toBe(
+      true,
+    );
     expect(await accepted('approvedThenSentBack')).toBe(false);
     expect(await accepted('onlyApproved')).toBe(false);
-    expect(await accepted('sentBackHeardAfterTheCloseAfterIt')).toBe(false);
+    expect(await accepted('sentBackReceivedAfterTheCloseAfterIt')).toBe(false);
   });
 
-  it('turns out asking when the person only decided the approval', async () => {
-    const turnouts = await app
+  it('gives each run its disposition when the person only decided the approval', async () => {
+    const dispositions = await app
       .get<RunAcceptancePort>(RUN_ACCEPTANCE)
-      .turnouts([...runIds.values()].map((each) => each.value));
+      .dispositions([...runIds.values()].map((each) => each.value));
 
     expect(
       Object.fromEntries(
-        [...runIds].map(([name, runId]) => [name, turnouts.get(runId.value)]),
+        [...runIds].map(([name, runId]) => [
+          name,
+          dispositions.get(runId.value),
+        ]),
       ),
     ).toEqual({
       approvedThenClosed: 'accepted',
       approvedThenSentBack: 'sent-back',
       onlyApproved: 'asked',
-      closedHeardBeforeTheRefusalBeforeIt: 'accepted',
-      sentBackHeardAfterTheCloseAfterIt: 'sent-back',
+      closedReceivedBeforeTheDismissalBeforeIt: 'accepted',
+      sentBackReceivedAfterTheCloseAfterIt: 'sent-back',
     });
   });
 
@@ -207,18 +212,19 @@ describe('a run a person decided a tool approval for (e2e)', () => {
     expect(people.body.load).toMatchObject({
       sentBack: 2,
       sentBackRate: 0.4,
-      refused: 1,
+      dismissed: 1,
     });
   });
 
   it('drills down to the runs by what people did next, never by an approval', async () => {
-    const total = async (next: string) =>
-      (await insights('runs', `period=7d&next=${next}`)).body.total;
+    const total = async (humanAction: string) =>
+      (await insights('runs', `period=7d&humanAction=${humanAction}`)).body
+        .total;
 
-    expect(await total('closed')).toBe(2);
+    expect(await total('accepted')).toBe(2);
     expect(await total('sent-back')).toBe(2);
-    expect((await insights('runs', 'period=7d&next=approved')).status).toBe(
-      422,
-    );
+    expect(
+      (await insights('runs', 'period=7d&humanAction=approved')).status,
+    ).toBe(422);
   });
 });

@@ -1,5 +1,5 @@
 import type { DeleteSkillCommand } from '@configuration/application/commands/delete-skill.command';
-import type { StationGifts } from '@configuration/application/services/station-gifts.service';
+import type { StationReferences } from '@configuration/application/services/station-references.service';
 import { SkillDefinitionVersionConflictError } from '@configuration/domain/exceptions/skill-definition-version-conflict.error';
 import { SkillInUseError } from '@configuration/domain/exceptions/skill-in-use.error';
 import type { SkillDefinitionRepository } from '@configuration/domain/repositories/skill-definition.repository';
@@ -12,7 +12,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class DeleteSkillHandler
   implements CommandHandlerPort<DeleteSkillCommand, ResourceDeleted | null>
@@ -20,7 +20,7 @@ export class DeleteSkillHandler
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: SkillDefinitionRepository,
-    private readonly given: StationGifts,
+    private readonly stationReferences: StationReferences,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -28,15 +28,15 @@ export class DeleteSkillHandler
     const id = SkillDefinitionId.of(command.skillId);
 
     try {
-      const standing = await this.definitions.withId(id);
-      const permissions = standing
+      const existing = await this.definitions.withId(id);
+      const permissions = existing
         ? await this.access.permissionsOnTeam(
-            standing.teamId.value,
+            existing.teamId.value,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
@@ -44,15 +44,18 @@ export class DeleteSkillHandler
         return forbiddenTo('configure');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
-      const given = await this.given.onTeam(standing.teamId, 'skill');
+      const references = await this.stationReferences.onTeam(
+        existing.teamId,
+        'skill',
+      );
 
       await this.transaction.inTransaction(() =>
         this.definitions.save(
-          standing.retire(
-            given,
-            Attribution.of(command.actor, permissions.workspaceId),
+          existing.delete(
+            references,
+            ChangeActor.of(command.actor, permissions.workspaceId),
           ),
         ),
       );

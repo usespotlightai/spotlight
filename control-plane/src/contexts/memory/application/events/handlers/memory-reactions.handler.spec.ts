@@ -3,15 +3,15 @@ import type { ReviewsPort } from '@memory/application/ports/reviews.port';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
-import { MemoryReviewSettled } from '@memory/domain/events/memory-review-settled.event';
-import { MemoryStood } from '@memory/domain/events/memory-stood.event';
+import { MemoryCreated } from '@memory/domain/events/memory-created.event';
+import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
-import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -27,7 +27,7 @@ const RUN = RunId.of('run_1');
 const OLD = MemoryId.of('memory_old');
 const NEW = MemoryId.of('memory_new');
 const SCOPE = MemoryScope.of({ teamId: TeamId.of('team_1') });
-const GROUNDS = MemoryGrounds.of({
+const PROVENANCE = MemoryProvenance.of({
   taskId: TASK,
   runId: RUN,
   steps: [3],
@@ -44,14 +44,14 @@ const approved = (supersedes: MemoryId | null = null) =>
     'preference',
     MemoryBody.of('Name branches after the ticket.'),
     SCOPE,
-    GROUNDS,
+    PROVENANCE,
     'run',
     supersedes,
     ADA,
   );
 
-const reacting = (held: Memory[] = []) => {
-  const reviews = { raise: vi.fn(), settle: vi.fn() };
+const reacting = (stored: Memory[] = []) => {
+  const reviews = { create: vi.fn(), resolve: vi.fn() };
   let handles = 100;
   const memories = {
     nextHandle: async () => {
@@ -59,13 +59,13 @@ const reacting = (held: Memory[] = []) => {
       return MemoryHandle.of(handles);
     },
     find: async (id: MemoryId) =>
-      held.find((each) => each.id.equals(id)) ?? null,
+      stored.find((each) => each.id.equals(id)) ?? null,
     add: vi.fn(async (memory: Memory) => {
-      held.push(memory);
+      stored.push(memory);
     }),
     save: vi.fn(async (memory: Memory) => {
-      held.splice(
-        held.findIndex((each) => each.id.equals(memory.id)),
+      stored.splice(
+        stored.findIndex((each) => each.id.equals(memory.id)),
         1,
         memory,
       );
@@ -81,107 +81,109 @@ const reacting = (held: Memory[] = []) => {
     ),
     reviews,
     memories,
-    held,
+    stored,
   };
 };
 
 describe('reacting to memories being proposed and decided', () => {
-  it('raises a review on the task for a run that proposed memories', async () => {
+  it('creates a review on the task for a run that proposed memories', async () => {
     const { reactions, reviews } = reacting();
 
     await reactions.onProposed(new MemoriesProposed(DRAFT, TASK, RUN, 3, 0, 0));
 
-    expect(reviews.raise).toHaveBeenCalledWith(TASK, RUN);
+    expect(reviews.create).toHaveBeenCalledWith(TASK, RUN);
   });
 
-  it('raises nothing for a run that proposed none', async () => {
+  it('creates nothing for a run that proposed none', async () => {
     const { reactions, reviews } = reacting();
 
     await reactions.onProposed(new MemoriesProposed(DRAFT, TASK, RUN, 0, 2, 0));
 
-    expect(reviews.raise).not.toHaveBeenCalled();
+    expect(reviews.create).not.toHaveBeenCalled();
   });
 
-  it('settles a run’s review once nothing is left to decide', async () => {
+  it('resolves a run’s review once nothing is left to decide', async () => {
     const { reactions, reviews } = reacting();
 
-    await reactions.onReviewSettled(new MemoryReviewSettled(DRAFT, TASK, RUN));
+    await reactions.onReviewResolved(
+      new MemoryReviewResolved(DRAFT, TASK, RUN),
+    );
 
-    expect(reviews.settle).toHaveBeenCalledWith(TASK, RUN);
+    expect(reviews.resolve).toHaveBeenCalledWith(TASK, RUN);
   });
 
-  it('keeps an approved memory standing, once however often it hears so', async () => {
-    const { reactions, memories, held } = reacting();
+  it('creates an approved memory once, however often the event arrives', async () => {
+    const { reactions, memories, stored } = reacting();
 
     await reactions.onApproved(approved());
     await reactions.onApproved(approved());
 
     expect(memories.add).toHaveBeenCalledTimes(1);
-    expect(held[0]?.standing).toBe('stands');
-    expect(held[0]?.approval.equals(ADA)).toBe(true);
+    expect(stored[0]?.status).toBe('active');
+    expect(stored[0]?.approval.equals(ADA)).toBe(true);
   });
 
-  it('keeps an approved memory without claiming to replace one that no longer stands', async () => {
-    const gone = Memory.stood({
+  it('creates an approved memory without claiming to replace one that is no longer active', async () => {
+    const gone = Memory.create({
       id: OLD,
       handle: MemoryHandle.of(1),
       workspaceId: WorkspaceId.of('ws_1'),
       kind: 'preference',
       body: MemoryBody.of('Name branches after the author.'),
       scope: SCOPE,
-      grounds: GROUNDS,
+      provenance: PROVENANCE,
       source: 'run',
       supersedes: null,
       approval: ADA,
     }).retire({ by: UserId.of('user_bea'), reason: 'Wrong.', at: NOW });
-    const { reactions, held } = reacting([gone]);
+    const { reactions, stored } = reacting([gone]);
 
     await reactions.onApproved(approved(OLD));
 
-    expect(held.find((each) => each.id.equals(NEW))?.supersedes).toBeNull();
+    expect(stored.find((each) => each.id.equals(NEW))?.supersedes).toBeNull();
   });
 
-  it('retires the memory a newly standing one supersedes', async () => {
-    const old = Memory.stood({
+  it('retires the memory that a newly active one supersedes', async () => {
+    const old = Memory.create({
       id: OLD,
       handle: MemoryHandle.of(2),
       workspaceId: WorkspaceId.of('ws_1'),
       kind: 'preference',
       body: MemoryBody.of('Name branches after the author.'),
       scope: SCOPE,
-      grounds: GROUNDS,
+      provenance: PROVENANCE,
       source: 'run',
       supersedes: null,
       approval: ADA,
     });
-    const { reactions, held } = reacting([old]);
+    const { reactions, stored } = reacting([old]);
 
-    await reactions.onStood(new MemoryStood(NEW, OLD));
+    await reactions.onCreated(new MemoryCreated(NEW, OLD));
 
-    expect(held[0]?.standing).toBe('retired');
-    expect(held[0]?.retirement?.supersededBy?.equals(NEW)).toBe(true);
+    expect(stored[0]?.status).toBe('retired');
+    expect(stored[0]?.retirement?.supersededBy?.equals(NEW)).toBe(true);
   });
 
-  it('leaves a memory already superseded by another standing as it was', async () => {
-    const old = Memory.stood({
+  it('leaves a memory already superseded by another active one as it was', async () => {
+    const old = Memory.create({
       id: OLD,
       handle: MemoryHandle.of(3),
       workspaceId: WorkspaceId.of('ws_1'),
       kind: 'preference',
       body: MemoryBody.of('Name branches after the author.'),
       scope: SCOPE,
-      grounds: GROUNDS,
+      provenance: PROVENANCE,
       source: 'run',
       supersedes: null,
       approval: ADA,
     }).supersedeWith(MemoryId.of('memory_first'), NOW);
-    const { reactions, memories, held } = reacting([old]);
+    const { reactions, memories, stored } = reacting([old]);
 
-    await reactions.onStood(new MemoryStood(NEW, OLD));
+    await reactions.onCreated(new MemoryCreated(NEW, OLD));
 
     expect(memories.save).not.toHaveBeenCalled();
     expect(
-      held[0]?.retirement?.supersededBy?.equals(MemoryId.of('memory_first')),
+      stored[0]?.retirement?.supersededBy?.equals(MemoryId.of('memory_first')),
     ).toBe(true);
   });
 });

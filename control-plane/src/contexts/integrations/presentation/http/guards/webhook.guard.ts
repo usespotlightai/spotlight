@@ -4,9 +4,9 @@ import {
 } from '@identity/application/ports/workspace-reader.port';
 import type {
   Delivered,
-  WebhookSourcePort,
-} from '@integrations/application/ports/webhook-source.port';
-import { SourceForDelivery } from '@integrations/application/services/source-for-delivery.service';
+  WebhookProviderPort,
+} from '@integrations/application/ports/webhook-provider.port';
+import { ProviderForDelivery } from '@integrations/application/services/provider-for-delivery.service';
 import {
   type CanActivate,
   type ExecutionContext,
@@ -31,7 +31,7 @@ interface DeliveredRequest {
 @Injectable()
 export class WebhookGuard implements CanActivate {
   constructor(
-    private readonly sources: SourceForDelivery,
+    private readonly providers: ProviderForDelivery,
     @Inject(WORKSPACE_READER)
     private readonly workspaces: WorkspaceReaderPort,
     @Inject(LOGGER)
@@ -48,12 +48,12 @@ export class WebhookGuard implements CanActivate {
         ? await this.workspaces.identifyTeam(slug, teamKey)
         : { workspaceId: '', teamId: '' };
 
-    const source = at
-      ? await this.sources.find({
+    const provider = at
+      ? await this.providers.find({
           workspaceId: at.workspaceId,
           teamId: at.teamId,
           teamKey: teamKey ?? '',
-          source: request.params?.source ?? '',
+          integration: request.params?.integration ?? '',
         })
       : null;
 
@@ -63,26 +63,26 @@ export class WebhookGuard implements CanActivate {
       raw: request.rawBody ?? null,
     };
 
-    // Unknown teams and sources fail as bad signatures do. This gives no data to the caller.
-    if (!source || !(await this.trusts(source, delivered))) {
+    // Unknown teams and providers fail as bad signatures do. This shows no data to the caller.
+    if (!provider || !(await this.trusts(provider, delivered))) {
       throw new UnauthorizedException();
     }
 
     request.deliveredTo = at ?? { workspaceId: '', teamId: '' };
-    request.answered = source.answer?.(delivered) ?? null;
+    request.answered = provider.answer?.(delivered) ?? null;
 
     return true;
   }
 
   private async trusts(
-    source: WebhookSourcePort,
+    provider: WebhookProviderPort,
     delivered: Delivered,
   ): Promise<boolean> {
     try {
-      return await source.verifies(delivered);
+      return await provider.verifies(delivered);
     } catch (error) {
       this.logger.warn(
-        { source: source.key, error: (error as Error).message },
+        { integration: provider.key, error: (error as Error).message },
         'A webhook delivery could not be verified',
       );
 

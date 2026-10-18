@@ -26,7 +26,7 @@ export class Branch {
       : null;
   }
 
-  get isSpotlights(): boolean {
+  get isReserved(): boolean {
     return this.value.startsWith(UNDER);
   }
 

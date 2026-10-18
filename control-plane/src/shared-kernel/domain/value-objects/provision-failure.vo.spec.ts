@@ -8,22 +8,24 @@ import { describe, expect, it } from 'vitest';
 describe('ProvisionFailure', () => {
   it.each([
     ['unreachable', true],
-    ['refused', true],
-    ['lapsed', true],
+    ['http-error', true],
+    ['expired', true],
     ['not-allowed', false],
     ['unusable', false],
     ['harness-missing', false],
-  ])('states whether a %s failure may be retried (%s)', (kind, retries) => {
-    expect(ProvisionFailure.of(kind, 'why').retry.retries).toBe(retries);
+  ])('states whether a %s failure may be retried (%s)', (kind, allowsRetry) => {
+    expect(ProvisionFailure.of(kind, 'why').retry.allowsRetry).toBe(
+      allowsRetry,
+    );
   });
 
   it('knows no kind it does not state a retry for', () => {
     expect(Object.keys(PROVISION_FAILURES).sort()).toEqual(
       [
         'harness-missing',
-        'lapsed',
+        'expired',
         'not-allowed',
-        'refused',
+        'http-error',
         'unreachable',
         'unusable',
       ].sort(),
@@ -32,32 +34,32 @@ describe('ProvisionFailure', () => {
 
   it('says what kind of failure it was and why', () => {
     expect(
-      ProvisionFailure.of('unreachable', 'connection refused').saying,
+      ProvisionFailure.of('unreachable', 'connection refused').description,
     ).toBe('unreachable: connection refused');
   });
 
-  it('refuses a kind it does not know', () => {
+  it('rejects a kind it does not know', () => {
     expect(() => ProvisionFailure.of('exploded', 'boom')).toThrow(
       InconsistentStateError,
     );
   });
 
   it('trims its detail and keeps no more than a thousand characters of it', () => {
-    expect(ProvisionFailure.of('refused', '  no room  ').detail).toBe(
+    expect(ProvisionFailure.of('http-error', '  no room  ').detail).toBe(
       'no room',
     );
     expect(
-      ProvisionFailure.of('refused', 'x'.repeat(1_500)).detail,
+      ProvisionFailure.of('http-error', 'x'.repeat(1_500)).detail,
     ).toHaveLength(1_000);
   });
 
-  it('says when a reservation lapsed without a claim', () => {
-    const lapsed = ProvisionFailure.lapsed(
+  it('says when a reservation expired without a claim', () => {
+    const expired = ProvisionFailure.expired(
       new Date('2026-09-24T12:05:00.000Z'),
     );
 
-    expect(lapsed.kind).toBe('lapsed');
-    expect(lapsed.detail).toBe(
+    expect(expired.kind).toBe('expired');
+    expect(expired.detail).toBe(
       'The pool accepted the work. No runner claimed it by 2026-09-24T12:05:00.000Z.',
     );
   });
@@ -71,12 +73,12 @@ describe('ProvisionFailure', () => {
 
   it('equals another of the same kind and detail', () => {
     expect(
-      ProvisionFailure.of('refused', 'full').equals(
-        ProvisionFailure.of('refused', 'full'),
+      ProvisionFailure.of('http-error', 'full').equals(
+        ProvisionFailure.of('http-error', 'full'),
       ),
     ).toBe(true);
     expect(
-      ProvisionFailure.of('refused', 'full').equals(
+      ProvisionFailure.of('http-error', 'full').equals(
         ProvisionFailure.of('unreachable', 'full'),
       ),
     ).toBe(false);

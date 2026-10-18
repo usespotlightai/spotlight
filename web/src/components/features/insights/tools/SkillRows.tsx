@@ -2,7 +2,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { SkillTrendMark } from '@/components/features/insights/tools/SkillTrendMark';
 import { SkillWeeksChart } from '@/components/features/insights/tools/SkillWeeksChart';
-import { FoldingRows } from '@/components/shared/nested-table/FoldingRows';
+import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
 import {
@@ -11,7 +11,7 @@ import {
   OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import type { Folds } from '@/hooks/useFolds';
+import type { Collapsibles } from '@/hooks/useCollapsibles';
 import {
   formatCount,
   formatStation,
@@ -21,7 +21,7 @@ import {
 } from '@/lib/insights';
 import {
   type SkillReport,
-  skillGivenFilter,
+  skillEnabledFilter,
   skillUsedFilter,
 } from '@/lib/insights-tools';
 import { skillPath } from '@/lib/skills';
@@ -32,7 +32,7 @@ type SkillRowsProps = {
   teamId: string;
   skill: SkillReport;
   names: StationNames;
-  folds: Folds;
+  collapsibles: Collapsibles;
 };
 
 export function SkillRows({
@@ -40,9 +40,9 @@ export function SkillRows({
   teamId,
   skill,
   names,
-  folds,
+  collapsibles,
 }: SkillRowsProps) {
-  const open = folds.isOpen(skill.key);
+  const open = collapsibles.isOpen(skill.key);
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { period } = viewOf(params);
@@ -54,7 +54,9 @@ export function SkillRows({
         open={open}
         depth={0}
         onToggle={
-          skill.stations.length > 0 ? () => folds.toggle(skill.key) : undefined
+          skill.stations.length > 0
+            ? () => collapsibles.toggle(skill.key)
+            : undefined
         }
         cells={
           <>
@@ -74,9 +76,9 @@ export function SkillRows({
               />
             </span>
             <span aria-hidden className="hidden @4xl:block" />
-            <NestedCell heading="Given" strong>
-              <InsightsLink tab="runs" filter={skillGivenFilter(skill.key)}>
-                {formatCount(skill.given)}
+            <NestedCell heading="Enabled" strong>
+              <InsightsLink tab="runs" filter={skillEnabledFilter(skill.key)}>
+                {formatCount(skill.enabled)}
               </InsightsLink>
             </NestedCell>
             <NestedCell heading="Read" strong>
@@ -105,7 +107,7 @@ export function SkillRows({
       </NestedGroupRow>
 
       {skill.stations.length > 0 && (
-        <FoldingRows open={open} label={`Stations using ${skill.key}`}>
+        <CollapsibleRows open={open} label={`Stations using ${skill.key}`}>
           {skill.stations.map((station) => (
             <li
               key={station.stationId}
@@ -136,8 +138,8 @@ export function SkillRows({
               <NestedCell heading="Runs">
                 {formatCount(station.runs)}
               </NestedCell>
-              <NestedCell heading="Given">
-                {formatCount(station.given)}
+              <NestedCell heading="Enabled">
+                {formatCount(station.enabled)}
               </NestedCell>
               <NestedCell heading="Read">
                 {formatCount(station.used)}
@@ -147,7 +149,7 @@ export function SkillRows({
               </NestedCell>
             </li>
           ))}
-        </FoldingRows>
+        </CollapsibleRows>
       )}
     </>
   );

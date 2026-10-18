@@ -7,7 +7,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
-import { settling } from '@work/domain/services/setup-list';
+import { setupDoneNote } from '@work/domain/services/setup-list';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -16,7 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');
 
@@ -26,28 +26,28 @@ const DONE = {
   configured: true,
 };
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 let tasks: DrizzleTaskRepository;
 
 beforeAll(async () => {
-  held = await openDatabase('task_writes');
-  db = held.db;
+  database = await openDatabase('task_writes');
+  db = database.db;
   tasks = new DrizzleTaskRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
-const heldBy = (task: Task, runId: RunId): Task =>
+const withCurrentRun = (task: Task, runId: RunId): Task =>
   Task.rehydrate({ ...task, currentRunId: runId });
 
 describe('writing a task somebody else has written', () => {
   const opened = async () => {
-    const { list } = await openTeam(db, tasks, `nolan-${randomUUID()}`);
+    const { list } = await createTeam(db, tasks, `nolan-${randomUUID()}`);
     const id = list.id;
 
     const one = await tasks.find(id);
@@ -60,8 +60,8 @@ describe('writing a task somebody else has written', () => {
     return { one, other };
   };
 
-  const settled = (task: NonNullable<Awaited<ReturnType<typeof tasks.find>>>) =>
-    task.settled({
+  const closed = (task: NonNullable<Awaited<ReturnType<typeof tasks.find>>>) =>
+    task.closeConversation({
       station: StationName.of('Backlog'),
       body: TaskNoteBody.of('Everything on this list is done.'),
       at: NOW,
@@ -71,15 +71,15 @@ describe('writing a task somebody else has written', () => {
   it('takes the first of them', async () => {
     const { one } = await opened();
 
-    await expect(tasks.save(settled(one))).resolves.toBeUndefined();
+    await expect(tasks.save(closed(one))).resolves.toBeUndefined();
   });
 
-  it('refuses the second, rather than laying it over the first', async () => {
+  it('rejects the second, rather than laying it over the first', async () => {
     const { one, other } = await opened();
 
-    await tasks.save(heldBy(one, RunId.of(randomUUID())));
+    await tasks.save(withCurrentRun(one, RunId.of(randomUUID())));
 
-    await expect(tasks.save(settled(other))).rejects.toBeInstanceOf(
+    await expect(tasks.save(closed(other))).rejects.toBeInstanceOf(
       TaskVersionConflictError,
     );
   });
@@ -88,8 +88,8 @@ describe('writing a task somebody else has written', () => {
     const { one, other } = await opened();
     const runId = RunId.of(randomUUID());
 
-    await tasks.save(heldBy(one, runId));
-    await tasks.save(settled(other)).catch(() => {});
+    await tasks.save(withCurrentRun(one, runId));
+    await tasks.save(closed(other)).catch(() => {});
 
     const read = await tasks.find(one.id);
 
@@ -99,28 +99,28 @@ describe('writing a task somebody else has written', () => {
   it('takes the same change once it is read again', async () => {
     const { one, other } = await opened();
 
-    await tasks.save(heldBy(one, RunId.of(randomUUID())));
-    await tasks.save(settled(other)).catch(() => {});
+    await tasks.save(withCurrentRun(one, RunId.of(randomUUID())));
+    await tasks.save(closed(other)).catch(() => {});
 
     const again = await tasks.find(one.id);
-    const saying = settling(again?.notes ?? [], DONE, NOW);
+    const newNote = setupDoneNote(again?.notes ?? [], DONE, NOW);
 
     await expect(
       tasks.save(
-        (again as NonNullable<typeof again>).settled(
-          saying as NonNullable<typeof saying>,
+        (again as NonNullable<typeof again>).closeConversation(
+          newNote as NonNullable<typeof newNote>,
         ),
       ),
     ).resolves.toBeUndefined();
   });
 
-  it('refuses a second write from the same reading', async () => {
+  it('rejects a second write from the same reading', async () => {
     const { one } = await opened();
 
-    await tasks.save(settled(one));
+    await tasks.save(closed(one));
 
     await expect(
-      tasks.save(heldBy(one, RunId.of(randomUUID()))),
+      tasks.save(withCurrentRun(one, RunId.of(randomUUID()))),
     ).rejects.toBeInstanceOf(TaskVersionConflictError);
   });
 });
@@ -132,12 +132,12 @@ describe('a person moving a task by hand', () => {
   const SHIP = randomUUID();
 
   let app: INestApplication;
-  let team: Awaited<ReturnType<typeof openTeam>>;
+  let team: Awaited<ReturnType<typeof createTeam>>;
 
   beforeAll(async () => {
     app = await openApp();
     const servedDb = app.get<DrizzleDatabase>(DRIZZLE);
-    team = await openTeam(
+    team = await createTeam(
       servedDb,
       app.get(DrizzleTaskRepository),
       `movers-${randomUUID().slice(0, 8)}`,
@@ -190,7 +190,7 @@ describe('a person moving a task by hand', () => {
     await app?.close();
   });
 
-  const standingAt = async (stationId: string) => {
+  const taskAt = async (stationId: string) => {
     const id = randomUUID();
 
     await app.get<DrizzleDatabase>(DRIZZLE).insert(schema.task).values({
@@ -199,8 +199,8 @@ describe('a person moving a task by hand', () => {
       workspaceId: team.workspaceId.value,
       stationId,
       title: 'Drain the queue',
-      raisedAtStationId: stationId,
-      raisedById: team.owner.value,
+      originStationId: stationId,
+      createdById: team.owner.value,
       assigneeId: team.owner.value,
     });
 
@@ -215,12 +215,12 @@ describe('a person moving a task by hand', () => {
       .set(TEST_USER_HEADER, team.owner.value)
       .send({ stationId, revision: 0 });
 
-  it('refuses a move from one work station to another, saying why', async () => {
-    const taskId = await standingAt(BUILD);
+  it('denies a move from one work station to another, saying why', async () => {
+    const taskId = await taskAt(BUILD);
 
-    const refused = await moving(taskId, SHIP).expect(422);
+    const denied = await moving(taskId, SHIP).expect(422);
 
-    expect(refused.body.message).toContain('from Build to Ship');
+    expect(denied.body.message).toContain('from Build to Ship');
     expect(
       (await app.get(DrizzleTaskRepository).find(TaskId.of(taskId)))?.stationId
         .value,
@@ -228,7 +228,7 @@ describe('a person moving a task by hand', () => {
   });
 
   it('parks work from a work station back in the backlog', async () => {
-    const taskId = await standingAt(BUILD);
+    const taskId = await taskAt(BUILD);
 
     const parked = await moving(taskId, BACKLOG).expect(200);
 

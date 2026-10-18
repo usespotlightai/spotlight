@@ -1,7 +1,7 @@
 import type {
   ChangeStackResponseDto,
-  InboxMessageResponseDto,
   JournalStepResponseDto,
+  NoteResponseDto,
   RunJournalResponseDto,
   TaskRunResponseDto,
 } from '@/lib/api';
@@ -31,13 +31,13 @@ import {
   edit,
   execute,
   failedWith,
+  messageStep,
   type NoteScript,
   passed,
   RUN_STORIES,
   type RunStory,
   read,
   type StepScript,
-  said,
   spend,
   thought,
 } from '@/mocks/world/work-stories';
@@ -50,6 +50,7 @@ const CONTEXT_SIZE = 200_000;
 export const finished = (run: TaskRunResponseDto) =>
   run.state === 'completed' ||
   run.state === 'failed' ||
+  run.state === 'cancelled' ||
   run.state === 'superseded';
 
 export const endOf = (run: TaskRunResponseDto): number =>
@@ -186,17 +187,17 @@ const opened = (context: Context): string =>
     : 'the pull request';
 
 const answerOf = (context: Context, yes: string, no: string): NoteScript[] =>
-  context.run.next
+  context.run.firstHumanAction
     ? [
         answered(
           context.person,
-          context.run.next.act === 'sent-back' ? no : yes,
+          context.run.firstHumanAction.kind === 'sent-back' ? no : yes,
           context.answerAfter,
         ),
       ]
     : [];
 
-const settleNotes = (
+const closingNotes = (
   context: Context,
   ask: string,
   pass: string,
@@ -214,7 +215,7 @@ const settleNotes = (
   if (run.ending === 'stopped') {
     return [];
   }
-  if (run.next) {
+  if (run.firstHumanAction) {
     return [asked(ask), ...answerOf(context, yes, no)];
   }
   return [passed(pass)];
@@ -246,13 +247,13 @@ const triageStory = (context: Context): Omit<RunStory, 'spend'> => {
       ...failingStep(context),
       ...(context.run.ending === 'completed'
         ? [
-            said(
+            messageStep(
               `Reproduced it. The failing path is \`${context.path}\`; a fix needs a test that covers it.`,
             ),
           ]
         : []),
     ],
-    notes: settleNotes(
+    notes: closingNotes(
       context,
       `Reproduced it in \`${context.path}\`. Should it go to ${context.next ?? 'the next station'}?`,
       `Passed to ${context.next ?? 'the next station'}. Reproduced it: the failing path is \`${context.path}\`, and a fix needs a test that covers it.`,
@@ -280,10 +281,10 @@ const specStory = (context: Context): Omit<RunStory, 'spend'> => {
       ),
       ...failingStep(context),
       ...(context.run.ending === 'completed'
-        ? [said('The spec is ready for review.')]
+        ? [messageStep('The spec is ready for review.')]
         : []),
     ],
-    notes: settleNotes(
+    notes: closingNotes(
       context,
       `The spec is in \`${spec}\`: change \`${context.path}\` and cover it in \`${testPathOf(context.path)}\`. Hand it to ${context.next ?? 'Implementation'}?`,
       `Passed to ${context.next ?? 'Implementation'}. The spec is in \`${spec}\`.`,
@@ -348,7 +349,7 @@ const buildStory = (context: Context): Omit<RunStory, 'spend'> => {
   const known = knownTaskNote(context.run.taskId);
   const summary = failedChecks
     ? (known?.fail ?? 'One test still fails.')
-    : (known?.pass ?? 'Did what the spec asks and kept the tests passing.');
+    : (known?.pass ?? 'Did what the spec says and kept the tests passing.');
   const brief =
     context.run.stationId === 'station_build'
       ? `docs/experiments/${slugOf(context.title)}.md`
@@ -384,9 +385,9 @@ const buildStory = (context: Context): Omit<RunStory, 'spend'> => {
             ),
           ]
         : []),
-      ...(context.run.ending === 'completed' ? [said(summary)] : []),
+      ...(context.run.ending === 'completed' ? [messageStep(summary)] : []),
     ],
-    notes: settleNotes(
+    notes: closingNotes(
       context,
       failedChecks
         ? `${summary} Send it back, or let me try again?`
@@ -419,7 +420,7 @@ const reviewStory = (context: Context): Omit<RunStory, 'spend'> => {
       thought('Check what would break in production before anything else.'),
       ...failingStep(context),
     ],
-    notes: settleNotes(
+    notes: closingNotes(
       context,
       `Reviewed ${opened(context)}. Nothing in \`${context.path}\` would break in production. Approve the merge?`,
       `Reviewed ${opened(context)} and passed it on.`,
@@ -461,7 +462,7 @@ const investigateStory = (context: Context): Omit<RunStory, 'spend'> => {
       ),
       ...failingStep(context),
     ],
-    notes: settleNotes(
+    notes: closingNotes(
       context,
       `“${context.title}” started with the ${deployed} deploy and stays on one service. Should Mitigate roll it back?`,
       `Passed to ${context.next ?? 'Mitigate'}. The errors start with the ${deployed} deploy.`,
@@ -489,7 +490,7 @@ const mitigateStory = (context: Context): Omit<RunStory, 'spend'> => {
       ),
       ...failingStep(context),
     ],
-    notes: settleNotes(
+    notes: closingNotes(
       context,
       `Rolled back to revision ${revision}; the error rate is back at 0.3%. Close the incident?`,
       `Rolled back to revision ${revision}; the error rate is back at 0.3%.`,
@@ -515,7 +516,7 @@ const designStory = (context: Context): Omit<RunStory, 'spend'> => {
       ),
       ...failingStep(context),
     ],
-    notes: settleNotes(
+    notes: closingNotes(
       context,
       `The experiment brief is in \`${brief}\`: half of new workspaces, measured by first projects within 24 hours. Build it?`,
       `Passed to Build. The brief is in \`${brief}\`.`,
@@ -550,16 +551,18 @@ const pastStoryOf = (run: HistoryRun): RunStory => {
     title: task?.title ?? '',
     path: pathOf(run.taskId, task?.title ?? '', run.lineId),
     person: PEOPLE.find((each) => each.id === task?.openedBy) ?? SAM,
-    next: run.handedOn ? (stationOfId(run.handedOn.to)?.name ?? null) : null,
-    finishing: run.handedOn
-      ? stationOfId(run.handedOn.to)?.kind === 'completed'
+    next: run.passed ? (stationOfId(run.passed.to)?.name ?? null) : null,
+    finishing: run.passed
+      ? stationOfId(run.passed.to)?.kind === 'completed'
       : false,
     pullRequest: task?.pullRequest
       ? pullRequestUrlOf(task.teamId, task.id)
       : null,
-    answerAfter: run.next
+    answerAfter: run.firstHumanAction
       ? Math.round(
-          (Date.parse(run.next.at) - Date.parse(run.endedAt ?? '')) / MINUTE_MS,
+          (Date.parse(run.firstHumanAction.at) -
+            Date.parse(run.endedAt ?? '')) /
+            MINUTE_MS,
         )
       : 0,
     before: previous ? storyOf(previous.runId).output : undefined,
@@ -643,7 +646,7 @@ const pastStacksOf = (runId: string): ChangeStackResponseDto[] => {
                 id: `c1.l${place + 1}`,
                 title: `Change ${change.path ?? ''}`,
                 summary: storyOf(runId).output ?? '',
-                ranges: [{ hunk: `${runId}_h${place + 1}` }],
+                hunks: [{ hunk: `${runId}_h${place + 1}` }],
                 notes: [],
               })),
             },
@@ -706,8 +709,8 @@ export const timedSteps = (
       ms: timed.ms,
       startedAt: new Date(timed.startedAt).toISOString(),
       locations: script.locations ?? [],
-      given: null,
-      returned: null,
+      input: null,
+      output: null,
       change: script.change ?? null,
     };
   });
@@ -738,8 +741,8 @@ const journalOf = (run: TaskRunResponseDto): RunJournalResponseDto => {
     marks: {
       startedAt: run.startedAt,
       readyAt: ready,
-      spokeFrom: ready,
-      spokeTo: steps.at(-1)?.startedAt ?? null,
+      firstAgentUpdateAt: ready,
+      lastAgentUpdateAt: steps.at(-1)?.startedAt ?? null,
       endedAt: finished(run) ? run.updatedAt : null,
     },
     spent: {
@@ -757,14 +760,14 @@ export const journalsOfTask = (taskId: string): RunJournalResponseDto[] =>
     .filter((run) => run.state !== 'queued')
     .map(journalOf);
 
-export type StoryMessage = Omit<InboxMessageResponseDto, 'position'>;
+export type StoryNote = Omit<NoteResponseDto, 'position'>;
 
-export const messageOf = (
+export const storyNoteOf = (
   run: TaskRunResponseDto,
   script: NoteScript,
-): StoryMessage => {
+): StoryNote => {
   const station = run.station;
-  const fromPerson = script.kind === 'answered' || script.kind === 'said';
+  const fromPerson = script.kind === 'answered' || script.kind === 'message';
   const at =
     script.minutesIn !== undefined
       ? Date.parse(run.startedAt) + script.minutesIn * MINUTE_MS
@@ -788,5 +791,5 @@ export const messageOf = (
   };
 };
 
-export const messagesOfRun = (run: TaskRunResponseDto): StoryMessage[] =>
-  storyOf(run.id).notes.map((script) => messageOf(run, script));
+export const notesOfRun = (run: TaskRunResponseDto): StoryNote[] =>
+  storyOf(run.id).notes.map((script) => storyNoteOf(run, script));

@@ -1,5 +1,5 @@
+import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
-import { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
 import type {
   RunGrant,
   RunRequest,
@@ -7,16 +7,16 @@ import type {
   SpotlightRequest,
   VerifyingRequest,
 } from '@secrets/application/ports/secret-injection.port';
-import type { RunGrantsKept } from '@secrets/application/services/run-grants-kept';
+import type { RunGrantsUnitOfWork } from '@secrets/application/services/run-grants-unit-of-work';
 import type { SecretSources } from '@secrets/application/services/secret-sources.service';
 import type { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { NoSuchSecretError } from '@secrets/domain/exceptions/no-such-secret.error';
 import { SecretNotGrantedError } from '@secrets/domain/exceptions/secret-not-granted.error';
-import { SecretSlotTakenError } from '@secrets/domain/exceptions/secret-slot-taken.error';
+import { SecretTargetConflictError } from '@secrets/domain/exceptions/secret-target-conflict.error';
 import type { RunGrantsRepository } from '@secrets/domain/repositories/run-grants.repository';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
-import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
-import type { WornSecret } from '@secrets/domain/value-objects/secret-binding.vo';
+import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
+import type { InjectedSecret } from '@secrets/domain/value-objects/secret-binding.vo';
 import type { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
@@ -26,90 +26,96 @@ export class SecretInjection implements SecretInjectionPort {
   constructor(
     private readonly secrets: SecretRepository,
     private readonly grants: RunGrantsRepository,
-    private readonly kept: RunGrantsKept,
+    private readonly unitOfWork: RunGrantsUnitOfWork,
     private readonly sources: SecretSources,
   ) {}
 
   async grant(grant: RunGrant): Promise<void> {
-    const hold = RunHold.of(RunId.of(grant.runId), grant.attempt);
+    const lease = RunLease.of(RunId.of(grant.runId), grant.attempt);
     const granted: SecretGrant[] = [];
 
-    for (const secret of await this.held(grant.workspaceId, grant.secrets)) {
-      granted.push(...secret.grantTo(hold.runId));
+    for (const secret of await this.named(grant.workspaceId, grant.secrets)) {
+      granted.push(...secret.grantTo(lease.runId));
     }
 
-    await this.kept.changed(
-      { hold, workspaceId: WorkspaceId.of(grant.workspaceId) },
-      (held) => held.grant(hold, granted),
+    await this.unitOfWork.changed(
+      { lease, workspaceId: WorkspaceId.of(grant.workspaceId) },
+      (current) => current.grant(lease, granted),
     );
   }
 
-  async forRun(request: RunRequest): Promise<WornSecrets> {
-    const hold = RunHold.of(RunId.of(request.runId), request.attempt);
-    const held = await this.grants.find(hold.runId);
+  async forRun(request: RunRequest): Promise<InjectedSecrets> {
+    const lease = RunLease.of(RunId.of(request.runId), request.attempt);
+    const existing = await this.grants.find(lease.runId);
 
-    return this.worn(request, (secret) => {
-      const grant = secret.grantToward(hold.runId, request.url);
+    return this.injected(request, (secret) => {
+      const grant = secret.grantForUrl(lease.runId, request.url);
 
-      if (!held?.allows(hold, grant)) {
+      if (!existing?.allows(lease, grant)) {
         throw new SecretNotGrantedError(secret.name.value, grant.host);
       }
     });
   }
 
-  forSpotlight(request: SpotlightRequest): Promise<WornSecrets> {
-    return this.worn(request, () => undefined);
+  forSpotlight(request: SpotlightRequest): Promise<InjectedSecrets> {
+    return this.injected(request, () => undefined);
   }
 
   async forVerifying(request: VerifyingRequest): Promise<VerifyingSecret> {
-    const [secret] = await this.held(request.workspaceId, [request.secret]);
+    const [secret] = await this.named(request.workspaceId, [request.secret]);
 
     return VerifyingSecret.of((await this.sources.read(secret)).revealed());
   }
 
-  private async worn(
+  private async injected(
     request: SpotlightRequest,
     allowed: (secret: Secret) => void,
-  ): Promise<WornSecrets> {
-    const worn: { readonly secret: string; readonly worn: WornSecret }[] = [];
+  ): Promise<InjectedSecrets> {
+    const injected: {
+      readonly secret: string;
+      readonly injected: InjectedSecret;
+    }[] = [];
 
-    for (const secret of await this.held(
+    for (const secret of await this.named(
       request.workspaceId,
       request.secrets,
     )) {
-      const binding = secret.bindingToward(request.url);
-      const taken = worn.find(
+      const binding = secret.bindingForUrl(request.url);
+      const taken = injected.find(
         (each) =>
-          each.worn.carrier === binding.carrier.kind &&
-          each.worn.name === binding.carrier.name,
+          each.injected.location === binding.target.location &&
+          each.injected.name === binding.target.name,
       );
 
       if (taken) {
-        throw new SecretSlotTakenError(
+        throw new SecretTargetConflictError(
           secret.name.value,
           taken.secret,
-          binding.carrier.kind === 'query'
-            ? `?${binding.carrier.name}`
-            : binding.carrier.name,
+          binding.target.location === 'query'
+            ? `?${binding.target.name}`
+            : binding.target.name,
         );
       }
 
       allowed(secret);
-      worn.push({
+      injected.push({
         secret: secret.name.value,
-        worn: secret.wornToward(request.url, await this.sources.read(secret)),
+        injected: secret.injectedFor(
+          request.url,
+          await this.sources.read(secret),
+        ),
       });
     }
 
-    return WornSecrets.of(worn.map((each) => each.worn));
+    return InjectedSecrets.of(injected.map((each) => each.injected));
   }
 
-  private async held(
+  private async named(
     workspaceId: string,
     names: readonly string[],
   ): Promise<readonly Secret[]> {
     const workspace = WorkspaceId.of(workspaceId);
-    const held: Secret[] = [];
+    const found: Secret[] = [];
 
     for (const name of new Set(names)) {
       const secret = await this.secrets.named(workspace, SecretName.of(name));
@@ -118,9 +124,9 @@ export class SecretInjection implements SecretInjectionPort {
         throw new NoSuchSecretError(name);
       }
 
-      held.push(secret);
+      found.push(secret);
     }
 
-    return held;
+    return found;
   }
 }

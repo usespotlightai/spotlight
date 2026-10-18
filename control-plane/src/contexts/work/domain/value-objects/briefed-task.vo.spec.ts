@@ -68,14 +68,14 @@ const SCREENSHOT = Attachment.of({
   size: 2_048,
 });
 
-const standing = () =>
+const withBriefing = () =>
   Task.add({
     line,
     at: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     description: TaskDescription.of('It stalls on restart.'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: new Date('2026-10-01T09:00:00.000Z'),
     newId: () => 'task_1',
     attachments: [SCREENSHOT],
@@ -83,7 +83,7 @@ const standing = () =>
 
 describe('BriefedTask', () => {
   it('takes what a briefing reads from the task', () => {
-    const briefed = standing().briefed;
+    const briefed = withBriefing().briefed;
 
     expect(briefed.stationId.value).toBe('station_1');
     expect(briefed.title).toBe('Fix the queue');
@@ -91,11 +91,11 @@ describe('BriefedTask', () => {
     expect(briefed.reviewing).toBeNull();
     expect(briefed.allAttachments).toEqual([SCREENSHOT]);
     expect(briefed.notes).toEqual([]);
-    expect(briefed.openRemarks).toEqual([]);
+    expect(briefed.openReviewComments).toEqual([]);
   });
 
   it('reads back as it was stored', () => {
-    const briefed = standing().briefed;
+    const briefed = withBriefing().briefed;
     const read = BriefedTask.rehydrate(
       JSON.parse(JSON.stringify(briefed.parts)),
     );
@@ -106,7 +106,7 @@ describe('BriefedTask', () => {
 
   it('reads back what was briefed though a task could no longer say it today', () => {
     const parts = {
-      ...standing().briefed.parts,
+      ...withBriefing().briefed.parts,
       title: 'x'.repeat(10_000),
       notes: [{ station: '', body: '', attachments: [] }],
     };
@@ -120,7 +120,7 @@ describe('a run briefed with a task', () => {
     command: { executable: 'sh', args: [] },
     briefing: 'Fix the queue.',
     handover: { options: [], noteLimit: 0 },
-    continuity: { key: 'chat-chat_1' },
+    resume: { key: 'chat-chat_1' },
   });
 
   it('records it only when it works a task', () => {
@@ -131,7 +131,7 @@ describe('a run briefed with a task', () => {
         harness: HarnessId.of('dev'),
         subject: RunSubject.chat(ChatId.of('chat_1')),
         spec,
-        briefedTask: standing().briefed,
+        briefedTask: withBriefing().briefed,
       }),
     ).toThrow(InvalidRunTransitionError);
   });
@@ -148,7 +148,7 @@ describe('a run briefed with a task', () => {
           TaskRevision.of(1),
         ),
         spec,
-        briefedTask: standing().briefed,
+        briefedTask: withBriefing().briefed,
       }),
     ).toThrow(InvalidRunTransitionError);
   });

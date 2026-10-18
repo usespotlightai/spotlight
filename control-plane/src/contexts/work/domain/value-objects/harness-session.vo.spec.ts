@@ -16,11 +16,11 @@ describe('HarnessSession', () => {
     expect(one.equals(HarnessSession.of('session_2'))).toBe(false);
   });
 
-  it('needs something to hand back', () => {
+  it('rejects a blank session', () => {
     expect(() => HarnessSession.of('  ')).toThrow(InvalidHarnessSessionError);
   });
 
-  it('refuses a name no harness would have given', () => {
+  it('rejects a name no harness would have given', () => {
     expect(() => HarnessSession.of('x'.repeat(201))).toThrow(
       InvalidHarnessSessionError,
     );

@@ -1,4 +1,4 @@
-export const CHARTED_AS = [
+export const CHART_STATUSES = [
   'priced',
   'unpriced',
   'other-currency',
@@ -6,9 +6,9 @@ export const CHARTED_AS = [
   'unfinished',
 ] as const;
 
-export type ChartedAs = (typeof CHARTED_AS)[number];
+export type ChartStatus = (typeof CHART_STATUSES)[number];
 
-export interface ChartedReading {
+export interface ChartPoint {
   readonly finished: boolean;
   readonly success: number | null;
   readonly cost: number | null;
@@ -20,19 +20,19 @@ export const chartCurrencyOf = (
   newestCandidate: string | null,
 ): string | null => baseline ?? newestCandidate;
 
-export const chartedAs = (
-  reading: ChartedReading,
+export const chartStatusOf = (
+  point: ChartPoint,
   chartCurrency: string | null,
-): ChartedAs => {
-  if (!reading.finished) {
+): ChartStatus => {
+  if (!point.finished) {
     return 'unfinished';
   }
-  if (reading.success === null) {
+  if (point.success === null) {
     return 'unscored';
   }
-  if (reading.cost === null) {
+  if (point.cost === null) {
     return 'unpriced';
   }
 
-  return reading.currency === chartCurrency ? 'priced' : 'other-currency';
+  return point.currency === chartCurrency ? 'priced' : 'other-currency';
 };

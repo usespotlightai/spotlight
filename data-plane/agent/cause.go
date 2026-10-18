@@ -19,8 +19,8 @@ func causeCmd(args []string, out io.Writer) error {
 	flags.SetOutput(io.Discard)
 	task := flags.String("task", "", "the failing task the cause is for")
 	cause := flags.String("cause", "", "what made it fail")
-	evidence := flags.String("evidence", "", "what in the runs shows it, or @file holding it")
-	suggestion := flags.String("suggestion", "", "what to change, or @file holding it")
+	evidence := flags.String("evidence", "", "what in the runs shows it, or @file that contains it")
+	suggestion := flags.String("suggestion", "", "what to change, or @file that contains it")
 
 	if err := flags.Parse(args); err != nil || flags.NArg() > 0 {
 		return fmt.Errorf("%s", causeUsage)
@@ -28,8 +28,8 @@ func causeCmd(args []string, out io.Writer) error {
 	if strings.TrimSpace(*task) == "" {
 		return fmt.Errorf("--task is required\n%s", causeUsage)
 	}
-	if !protocol.IsSearchCause(*cause) {
-		return fmt.Errorf("--cause is one of %s\n%s", strings.Join(protocol.SearchCauses, ", "), causeUsage)
+	if !protocol.IsFailureCause(*cause) {
+		return fmt.Errorf("--cause is one of %s\n%s", strings.Join(protocol.FailureCauses, ", "), causeUsage)
 	}
 	if strings.TrimSpace(*evidence) == "" {
 		return fmt.Errorf("--evidence is required\n%s", causeUsage)
@@ -46,7 +46,7 @@ func causeCmd(args []string, out io.Writer) error {
 		}
 	}
 
-	endpoint, token := os.Getenv(protocol.HandoverURLVar), os.Getenv(protocol.HandoverTokenVar)
+	endpoint, token := os.Getenv(protocol.AgentAPIURLVar), os.Getenv(protocol.AgentAPITokenVar)
 	if endpoint == "" || token == "" {
 		return fmt.Errorf("no run to record a cause from: spotlight runs inside a Spotlight workspace")
 	}
@@ -58,12 +58,12 @@ func causeCmd(args []string, out io.Writer) error {
 		return err
 	}
 
-	answered, err := proposeTo(strings.TrimSuffix(endpoint, "/")+protocol.HandoverCausePath, token, body)
+	answered, err := proposeTo(strings.TrimSuffix(endpoint, "/")+protocol.AgentAPICausePath, token, body)
 	if err != nil {
 		return err
 	}
 
-	var recorded protocol.RecordedCause
+	var recorded protocol.RecordCauseResponse
 	if err := json.Unmarshal(answered, &recorded); err != nil || recorded.TaskID == "" {
 		return fmt.Errorf("Spotlight answered with %q", strings.TrimSpace(string(answered)))
 	}
@@ -74,10 +74,10 @@ func causeCmd(args []string, out io.Writer) error {
 	return nil
 }
 
-func textOf(given, what string) (string, error) {
-	file, found := strings.CutPrefix(given, "@")
+func textOf(value, what string) (string, error) {
+	file, found := strings.CutPrefix(value, "@")
 	if !found {
-		return strings.TrimSpace(given), nil
+		return strings.TrimSpace(value), nil
 	}
 
 	read, err := os.ReadFile(file)
@@ -85,10 +85,10 @@ func textOf(given, what string) (string, error) {
 		return "", fmt.Errorf("read the %s: %w", what, err)
 	}
 
-	said := strings.TrimSpace(string(read))
-	if said == "" {
-		return "", fmt.Errorf("%s holds no %s", file, what)
+	text := strings.TrimSpace(string(read))
+	if text == "" {
+		return "", fmt.Errorf("%s contains no %s", file, what)
 	}
 
-	return said, nil
+	return text, nil
 }

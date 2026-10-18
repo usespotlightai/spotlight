@@ -25,11 +25,11 @@ export class AppendRunEventsRequestDto {
   readonly events!: RunEventRequestDto[];
 }
 
-export class DeclaredOutcomeDto {
+export class HandoverDto {
   @ApiProperty({
     example: 'code-review',
     description:
-      'The key of the station to pass the task to, as in code-review; "review" to ask a person; or "done" to close the task where it stands. Anything this line does not know is treated as a question for a person.',
+      'The key of the station to pass the task to, as in code-review; "review" to ask a person; or "done" to close the task at its current station. Anything this line does not know is treated as a question for a person.',
   })
   readonly next!: string;
 
@@ -52,20 +52,20 @@ export class CompleteRunRequestDto {
     description:
       'With failed: it failed before the agent was handed the run, while the runner made its workspace ready',
   })
-  readonly unprepared?: boolean;
+  readonly setupFailed?: boolean;
 
   @ApiPropertyOptional({
     example: false,
     description:
-      'With failed: its host stopped it for running past its time; the run is then treated as a runner that went silent, as Work would after its lease lapsed',
+      'With failed: its host stopped it for running past its time; the run is then treated as a runner that went silent, as Work would after its lease expired',
   })
   readonly timedOut?: boolean;
 
   @ApiPropertyOptional()
   readonly message?: string;
 
-  @ApiPropertyOptional({ type: DeclaredOutcomeDto })
-  readonly outcome?: DeclaredOutcomeDto;
+  @ApiPropertyOptional({ type: HandoverDto })
+  readonly handover?: HandoverDto;
 
   @ApiPropertyOptional({
     example: '67e5ddad-0fc6-4a33-90df-3c17732132c8',
@@ -84,9 +84,9 @@ export class CompleteRunRequestDto {
   @ApiPropertyOptional({
     example: true,
     description:
-      'The workspace archive is sealed as this turn left it. A run waits for a person only when it is, so a later runner can take it up from there.',
+      'The workspace archive is complete as this turn left it. A run waits for a person only when it is, so a later runner can take it up from there.',
   })
-  readonly kept?: boolean;
+  readonly archived?: boolean;
 }
 
 export class EnqueueRunRequestDto {
@@ -99,9 +99,9 @@ export class EnqueueRunRequestDto {
 
   @ApiProperty({
     description:
-      'Handed to the runner untouched: checkouts, briefing, handover and ' +
-      'continuity. The command is filled in from the harness, so it is not ' +
-      'given here.',
+      'Sent to the runner unchanged: checkouts, briefing, handover and ' +
+      'resume. The command is filled in from the harness, so it is not ' +
+      'sent here.',
     example: {
       checkouts: [
         { remote: 'https://github.com/org/service', path: 'service' },
@@ -111,19 +111,19 @@ export class EnqueueRunRequestDto {
   readonly spec!: Record<string, unknown>;
 }
 
-export class ParkRunRequestDto {
+export class SuspendRunRequestDto {
   @ApiPropertyOptional({
     example: false,
     description:
       'The harness has already closed, so an answer that arrived first cannot be delivered warm: the run goes back on the queue from its archive instead of staying with this runner.',
   })
-  readonly cold?: boolean;
+  readonly requeue?: boolean;
 }
 
-export class DeliverSaidRequestDto {
+export class AckMessagesRequestDto {
   @ApiProperty({
     example: 4,
-    description: 'Everything said up to and including this note was given',
+    description: 'The agent got all the messages up to and including this note',
   })
   readonly upTo!: number;
 }
@@ -141,7 +141,7 @@ export class StartedCheckoutRequestDto {
   @ApiProperty({
     example: 'service',
     description:
-      'The checkout, by its path in the workspace, as the run was given it',
+      'The checkout, by its path in the workspace, as the run received it',
   })
   readonly path!: string;
 
@@ -157,7 +157,7 @@ export class RecordStartingPointRequestDto {
   @ApiProperty({
     example: 1,
     description:
-      'The attempt of the run the runner was handed, as the claim named it',
+      'The attempt of the run assigned to the runner, as the claim named it',
   })
   readonly attempt!: number;
 
@@ -205,7 +205,7 @@ export class PendingMessageResponseDto {
   @ApiProperty({
     type: RunAttachmentResponseDto,
     isArray: true,
-    description: 'Files to lay out before the words are given',
+    description: 'Files to lay out before the words are sent',
   })
   readonly attachments: readonly RunAttachmentResponseDto[];
 
@@ -220,8 +220,11 @@ export class PendingMessageResponseDto {
   }
 }
 
-export class AnswerRemarkRequestDto {
-  @ApiProperty({ example: 'c3', description: 'Which remark, as briefed' })
+export class ReplyToReviewCommentRequestDto {
+  @ApiProperty({
+    example: 'c3',
+    description: 'Which review comment, as the briefing named it',
+  })
   readonly handle!: string;
 
   @ApiProperty({ example: 'Split out in 4a1c2b0.' })
@@ -229,7 +232,7 @@ export class AnswerRemarkRequestDto {
 
   @ApiPropertyOptional({
     example: true,
-    description: 'Resolve the thread as well as answering it',
+    description: 'Resolve the thread as well as replying to it',
   })
   readonly resolve?: boolean;
 }
@@ -245,7 +248,7 @@ export class AskPermissionRequestDto {
   @ApiPropertyOptional({
     example: 'execute',
     description:
-      'The ACP tool kind the harness gave, as in read, edit or execute',
+      'The ACP tool kind the harness sent, as in read, edit or execute',
   })
   readonly kind?: string;
 
@@ -259,7 +262,7 @@ export class AskPermissionRequestDto {
     type: 'object',
     additionalProperties: true,
     example: { command: 'git push origin main' },
-    description: 'The tool call’s raw input, as the harness gave it',
+    description: 'The tool call’s raw input, as the harness sent it',
   })
   readonly input?: unknown;
 }

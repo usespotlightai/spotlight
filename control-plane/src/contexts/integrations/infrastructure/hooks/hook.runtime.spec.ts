@@ -1,24 +1,24 @@
 import type {
-  HookMoment,
-  StepAsked,
+  HookEventInstance,
+  StepRequest,
 } from '@integrations/application/ports/hook-runtime.port';
 import type {
   IntegrationRuntimePort,
-  ReachableTool,
+  ResolvedTool,
 } from '@integrations/application/ports/integration-runtime.port';
-import type { HostReach } from '@integrations/application/services/host-reach.service';
+import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import { HookDefinition } from '@integrations/domain/aggregates/hook-definition.aggregate';
 import { Integration } from '@integrations/domain/entities/integration.entity';
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
+import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
-import { ConnectionHolding } from '@integrations/domain/value-objects/connection-holding.vo';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import type { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
-import { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { CompiledHookRuntime } from '@integrations/infrastructure/hooks/hook.runtime';
@@ -52,7 +52,7 @@ const DOCUMENT = {
   timeoutSeconds: 2,
 };
 
-const MOMENT: HookMoment = {
+const INSTANCE: HookEventInstance = {
   on: 'tool.used',
   occurrence: 'occurrence_1',
   firing: null,
@@ -80,18 +80,18 @@ const MOMENT: HookMoment = {
 };
 
 const tool = (
-  call: ReachableTool['call'],
+  call: ResolvedTool['call'],
   approval: { because: string } | null = null,
-  holding: ConnectionHolding = ConnectionHolding.team(),
-): ReachableTool =>
+  actsAs: ActsAs = ActsAs.team(),
+): ResolvedTool =>
   ({
     integration: Integration.of({
-      source: SourceKey.of('slack'),
-      connects: holding.byRequester,
-      holding,
+      key: IntegrationKey.of('slack'),
+      requiresConnection: actsAs.byRequester,
+      actsAs,
     }),
-    offered: OfferedTool.of({
-      source: SourceKey.of('slack'),
+    provided: ProvidedTool.of({
+      integration: IntegrationKey.of('slack'),
       name: 'post-message',
       description: 'Post',
       backing: ToolBacking.action('post'),
@@ -107,7 +107,7 @@ const tool = (
           description: null,
           required: true,
           defaulted: false,
-          piped: false,
+          stdin: false,
         },
         {
           name: 'text',
@@ -115,18 +115,18 @@ const tool = (
           description: null,
           required: true,
           defaulted: false,
-          piped: false,
+          stdin: false,
         },
       ],
       approval,
     },
-    wears: [],
+    injectedSecrets: [],
     defaultFor: () => undefined,
     call,
-  }) as unknown as ReachableTool;
+  }) as unknown as ResolvedTool;
 
 const setUp = (
-  reachable: ReachableTool | null,
+  resolved: ResolvedTool | null,
   document: Record<string, unknown> = DOCUMENT,
 ) => {
   const definition = HookDefinition.rehydrate({
@@ -147,15 +147,15 @@ const setUp = (
     save: vi.fn(),
   } satisfies HookDefinitionRepository;
   const runtime = {
-    tool: vi.fn(() => reachable),
+    tool: vi.fn(() => resolved),
   } as unknown as IntegrationRuntimePort;
   const requests = {
     sent: vi.fn(async (request: { step: string }) => ({
       outcome: { name: request.step, status: 'done' as const, output: null },
-      refusal: null,
+      denyReason: null,
       trace: null,
     })),
-    refused: vi.fn((request: { step: string }, failure: HookFailure) => ({
+    notSent: vi.fn((request: { step: string }, failure: HookFailure) => ({
       outcome: {
         name: request.step,
         status: 'failed' as const,
@@ -163,7 +163,7 @@ const setUp = (
         reason: failure.reason,
         output: null,
       },
-      refusal: null,
+      denyReason: null,
       trace: null,
     })),
   };
@@ -181,28 +181,28 @@ const setUp = (
       runtime,
       {
         of: vi.fn(async () => ({ connection: null, credentials: {} })),
-      } as unknown as HostReach,
+      } as unknown as CallAuthResolver,
       requests as unknown as HookRequests,
       { now: () => now, sleep: async () => {} },
     ),
   };
 };
 
-const asking = async (
+const stepRequest = async (
   hooked: CompiledHookRuntime,
   step: string,
-  overrides: Partial<StepAsked> = {},
-): Promise<StepAsked> => {
+  overrides: Partial<StepRequest> = {},
+): Promise<StepRequest> => {
   const [hook] = await hooked.listening('team_1', 'tool.used');
 
   return {
     hook: hook as NonNullable<typeof hook>,
     step,
-    moment: MOMENT,
+    instance: INSTANCE,
     earlier: [],
     resuming: null,
     deadline: new Date(NOW.getTime() + 2_000),
-    waiting: 'until-answered',
+    waitMode: 'wait',
     ...overrides,
   };
 };
@@ -212,18 +212,18 @@ describe('CompiledHookRuntime', () => {
     const call = vi.fn(async () => ({ ok: true }));
     const { hooked } = setUp(tool(call));
 
-    const taken = await hooked.step(await asking(hooked, 'notify'));
+    const stepResult = await hooked.step(await stepRequest(hooked, 'notify'));
 
     expect(call).toHaveBeenCalledWith(
       { channel: 'C1', text: 'Searched cpu' },
       expect.anything(),
     );
-    expect(taken.outcome).toEqual({
+    expect(stepResult.outcome).toEqual({
       name: 'notify',
       status: 'done',
       output: { ok: true },
     });
-    expect(taken.trace).toMatchObject({
+    expect(stepResult.trace).toMatchObject({
       kind: 'call',
       target: 'slack.post-message',
       request: { channel: 'C1', text: 'Searched cpu' },
@@ -234,13 +234,13 @@ describe('CompiledHookRuntime', () => {
   it('fails a call that outlasts the hook', async () => {
     const { hooked } = setUp(tool(() => new Promise(() => {})));
 
-    const taken = await hooked.step(
-      await asking(hooked, 'notify', {
+    const stepResult = await hooked.step(
+      await stepRequest(hooked, 'notify', {
         deadline: new Date(NOW.getTime() + 20),
       }),
     );
 
-    expect(taken.outcome).toMatchObject({
+    expect(stepResult.outcome).toMatchObject({
       status: 'failed',
       code: 'timeout',
       reason: "took longer than the hook's 2 seconds",
@@ -252,37 +252,37 @@ describe('CompiledHookRuntime', () => {
       tool(() => Promise.reject(new Error('channel_not_found'))),
     );
 
-    const taken = await hooked.step(await asking(hooked, 'notify'));
+    const stepResult = await hooked.step(await stepRequest(hooked, 'notify'));
 
-    expect(taken.outcome).toMatchObject({
+    expect(stepResult.outcome).toMatchObject({
       status: 'failed',
       code: 'tool-failed',
       reason: 'channel_not_found',
     });
   });
 
-  it('refuses to call a tool that asks a person first', async () => {
+  it('does not call a tool that asks a person first', async () => {
     const call = vi.fn();
     const { hooked } = setUp(tool(call, { because: 'It posts publicly' }));
 
-    const taken = await hooked.step(await asking(hooked, 'notify'));
+    const stepResult = await hooked.step(await stepRequest(hooked, 'notify'));
 
     expect(call).not.toHaveBeenCalled();
-    expect(taken.outcome).toMatchObject({
+    expect(stepResult.outcome).toMatchObject({
       status: 'failed',
       code: 'not-allowed',
       reason: expect.stringMatching(/approval/),
     });
   });
 
-  it('refuses to call a tool that acts as the person who started a task', async () => {
+  it('does not call a tool that acts as the person who started a task', async () => {
     const call = vi.fn();
-    const { hooked } = setUp(tool(call, null, ConnectionHolding.requester()));
+    const { hooked } = setUp(tool(call, null, ActsAs.requester()));
 
-    const taken = await hooked.step(await asking(hooked, 'notify'));
+    const stepResult = await hooked.step(await stepRequest(hooked, 'notify'));
 
     expect(call).not.toHaveBeenCalled();
-    expect(taken.outcome).toMatchObject({
+    expect(stepResult.outcome).toMatchObject({
       status: 'failed',
       code: 'not-allowed',
       reason: expect.stringMatching(/A hook acts as nobody/),
@@ -293,7 +293,7 @@ describe('CompiledHookRuntime', () => {
     const { hooked } = setUp(null);
 
     await expect(
-      hooked.step(await asking(hooked, 'notify')),
+      hooked.step(await stepRequest(hooked, 'notify')),
     ).resolves.toMatchObject({
       outcome: {
         status: 'failed',
@@ -307,23 +307,25 @@ describe('CompiledHookRuntime', () => {
   it('does not start a step past the hook’s deadline', async () => {
     const { hooked, requests } = setUp(tool(vi.fn()));
 
-    const taken = await hooked.step(
-      await asking(hooked, 'audit', { deadline: new Date(NOW.getTime() - 1) }),
+    const stepResult = await hooked.step(
+      await stepRequest(hooked, 'audit', {
+        deadline: new Date(NOW.getTime() - 1),
+      }),
     );
 
     expect(requests.sent).not.toHaveBeenCalled();
-    expect(taken.outcome).toMatchObject({
+    expect(stepResult.outcome).toMatchObject({
       status: 'failed',
       code: 'timeout',
-      reason: "was not reached within the hook's 2 seconds",
+      reason: "did not start within the hook's 2 seconds",
     });
   });
 
-  it('asks for steps by name, and fails one the hook no longer has', async () => {
+  it('requests steps by name, and fails one the hook no longer has', async () => {
     const { hooked, requests } = setUp(tool(vi.fn()));
 
-    await hooked.step(await asking(hooked, 'audit'));
-    const gone = await hooked.step(await asking(hooked, 'gone'));
+    await hooked.step(await stepRequest(hooked, 'audit'));
+    const gone = await hooked.step(await stepRequest(hooked, 'gone'));
 
     expect(requests.sent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -343,7 +345,7 @@ describe('CompiledHookRuntime', () => {
   it('sends the event, task and run when a request writes no body', async () => {
     const { hooked, requests } = setUp(tool(vi.fn()));
 
-    await hooked.step(await asking(hooked, 'audit'));
+    await hooked.step(await stepRequest(hooked, 'audit'));
 
     const [sent] = requests.sent.mock.calls[0] as unknown as [{ body: string }];
     expect(JSON.parse(sent.body)).toMatchObject({
@@ -360,11 +362,11 @@ describe('CompiledHookRuntime', () => {
     const { hooked } = setUp(tool(vi.fn()));
     const [hook] = await hooked.listening('team_1', 'tool.used');
 
-    expect(hooked.matches(hook as never, MOMENT)).toBe(true);
+    expect(hooked.matches(hook as never, INSTANCE)).toBe(true);
     expect(
       hooked.matches(hook as never, {
-        ...MOMENT,
-        event: { ...MOMENT.event, tool: 'grafana.dashboard' },
+        ...INSTANCE,
+        event: { ...INSTANCE.event, tool: 'grafana.dashboard' },
       }),
     ).toBe(false);
   });
@@ -373,7 +375,7 @@ describe('CompiledHookRuntime', () => {
     const { hooked, requests } = setUp(tool(vi.fn()));
 
     await expect(
-      hooked.step(await asking(hooked, 'plain')),
+      hooked.step(await stepRequest(hooked, 'plain')),
     ).resolves.toMatchObject({
       outcome: {
         status: 'failed',

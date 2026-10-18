@@ -10,7 +10,7 @@ import type {
   InsightsPeriod,
 } from '@/lib/insights';
 
-type Held = {
+type Queried = {
   data: unknown;
   isPending: boolean;
   isFetching: boolean;
@@ -18,7 +18,7 @@ type Held = {
   refetch: () => void;
 };
 
-const held = (data: unknown): Held => ({
+const queried = (data: unknown): Queried => ({
   data,
   isPending: data === undefined,
   isFetching: false,
@@ -26,13 +26,13 @@ const held = (data: unknown): Held => ({
   refetch: vi.fn(),
 });
 
-const asked: { tab: string; period: InsightsPeriod }[] = [];
-const answers: Record<string, Held> = {};
+const requested: { tab: string; period: InsightsPeriod }[] = [];
+const answers: Record<string, Queried> = {};
 
 const answering =
   (tab: string) => (_teamId: string, period: InsightsPeriod) => {
-    asked.push({ tab, period });
-    return answers[tab] ?? held(undefined);
+    requested.push({ tab, period });
+    return answers[tab] ?? queried(undefined);
   };
 
 vi.mock('@/hooks/api/useInsightsOverview', () => ({
@@ -67,9 +67,9 @@ vi.mock('@/hooks/api/useInsightsChanges', () => ({
   useInsightsChanges: (teamId: string, period: InsightsPeriod) =>
     answering('changes')(teamId, period),
 }));
-vi.mock('@/hooks/api/useInsightsSetups', () => ({
-  useInsightsSetups: (teamId: string, period: InsightsPeriod) =>
-    answering('setups')(teamId, period),
+vi.mock('@/hooks/api/useInsightsAgentConfigs', () => ({
+  useInsightsAgentConfigs: (teamId: string, period: InsightsPeriod) =>
+    answering('agent-configs')(teamId, period),
 }));
 vi.mock('@/hooks/api/useInsightsCandidates', () => ({
   useInsightsCandidates: (teamId: string, period: InsightsPeriod) =>
@@ -88,7 +88,7 @@ vi.mock('@/hooks/api/useInsightsRuns', () => ({
     answering('runs')(teamId, period),
 }));
 vi.mock('@/hooks/api/useInsightsPullRequestList', () => ({
-  useInsightsPullRequestList: () => held(undefined),
+  useInsightsPullRequestList: () => queried(undefined),
 }));
 vi.mock('@/hooks/api/useConfigOrigins', () => ({
   useConfigOrigins: () => ({ origins: [], failed: false, retry: vi.fn() }),
@@ -139,8 +139,8 @@ const headline = (over: Partial<Headline> = {}): Headline => ({
   mergeRate: 0.8,
   costPerMerge: { amount: 15, currency: 'USD' },
   taskToMerge: { p50Ms: 26 * HOUR, p90Ms: 72 * HOUR, count: 8 },
-  touches: 30,
-  touchesPerTask: 3,
+  humanActions: 30,
+  humanActionsPerTask: 3,
   activePeople: 4,
   mergedTaskIds: [],
   peopleIds: [],
@@ -162,7 +162,7 @@ const OVERVIEW = {
     mergeRate: null,
     costPerMerge: null,
     taskToMerge: null,
-    touchesPerTask: null,
+    humanActionsPerTask: null,
     activePeople: null,
   },
   output: [
@@ -213,7 +213,7 @@ const MIXED_COST = {
     mixedCurrencies: false,
     nodes: [],
     links: [],
-    cache: { input: null, cacheRead: null, cacheWrite: null, cacheShare: null },
+    cache: { input: null, cacheRead: null, cacheWrite: null, cacheRate: null },
     cacheByStation: [],
   },
   spendChange: null,
@@ -245,7 +245,7 @@ const address = () => screen.getByRole('status', { name: 'Address' });
 
 const tabs = () => screen.getByRole('navigation', { name: 'Insights' });
 
-const tabsAsked = () => asked.map((each) => each.tab);
+const tabsRequested = () => requested.map((each) => each.tab);
 
 const sections = () =>
   screen
@@ -253,11 +253,11 @@ const sections = () =>
     .map((heading) => heading.textContent);
 
 beforeEach(() => {
-  asked.length = 0;
+  requested.length = 0;
   for (const tab of Object.keys(answers)) {
     delete answers[tab];
   }
-  answers.overview = held(OVERVIEW);
+  answers.overview = queried(OVERVIEW);
 });
 
 describe('TeamInsights', () => {
@@ -267,8 +267,8 @@ describe('TeamInsights', () => {
     expect(
       screen.getByRole('link', { name: 'Cost', current: 'page' }),
     ).toBeInTheDocument();
-    expect(asked).toContainEqual({ tab: 'cost', period: '7d' });
-    expect(asked.some((each) => each.tab === 'overview')).toBe(false);
+    expect(requested).toContainEqual({ tab: 'cost', period: '7d' });
+    expect(requested.some((each) => each.tab === 'overview')).toBe(false);
   });
 
   it('lists the eight tabs, Overview first', () => {
@@ -299,7 +299,7 @@ describe('TeamInsights', () => {
     expect(
       within(tabs()).getByRole('link', { name: 'Overview', current: 'page' }),
     ).toBeInTheDocument();
-    expect(asked).toEqual([{ tab: 'overview', period: '90d' }]);
+    expect(requested).toEqual([{ tab: 'overview', period: '90d' }]);
   });
 
   it('shows runs at each station, config changes and candidates on the Stations tab, all over the period', () => {
@@ -310,7 +310,7 @@ describe('TeamInsights', () => {
       'Config changes',
       'Candidates',
     ]);
-    expect(asked).toEqual(
+    expect(requested).toEqual(
       expect.arrayContaining([
         { tab: 'stations', period: '90d' },
         { tab: 'changes', period: '90d' },
@@ -335,7 +335,7 @@ describe('TeamInsights', () => {
       within(tabs()).getByRole('link', { name: 'Stations', current: 'page' }),
     ).toBeInTheDocument();
     expect(sections()).toEqual([]);
-    expect(tabsAsked()).toEqual(['stations']);
+    expect(tabsRequested()).toEqual(['stations']);
   });
 
   it('shows where work waits, what the agents ship and the pull requests on the Productivity tab', () => {
@@ -346,7 +346,7 @@ describe('TeamInsights', () => {
       'What the agents ship',
       'Pull requests',
     ]);
-    expect(asked).toEqual(
+    expect(requested).toEqual(
       expect.arrayContaining([
         { tab: 'flow', period: '7d' },
         { tab: 'shipping', period: '7d' },
@@ -362,7 +362,7 @@ describe('TeamInsights', () => {
     showing('?tab=tools&period=7d');
 
     expect(sections()).toEqual(['Skills and tools', 'Memory']);
-    expect(asked).toEqual(
+    expect(requested).toEqual(
       expect.arrayContaining([
         { tab: 'tools', period: '7d' },
         { tab: 'memory', period: '7d' },
@@ -376,7 +376,7 @@ describe('TeamInsights', () => {
     ).toBeInTheDocument();
   });
 
-  it('folds a section away and back', async () => {
+  it('collapses a section and expands it again', async () => {
     showing('?tab=tools');
 
     const memory = screen.getByRole('button', { name: 'Memory' });
@@ -412,7 +412,7 @@ describe('TeamInsights', () => {
     );
 
     expect(address()).toHaveTextContent('?tab=stations&period=7d');
-    expect(asked).toContainEqual({ tab: 'stations', period: '7d' });
+    expect(requested).toContainEqual({ tab: 'stations', period: '7d' });
   });
 
   it('keeps the period but drops the filters and page when moving to another tab', () => {
@@ -483,8 +483,8 @@ describe('TeamInsights', () => {
     ).toBeInTheDocument();
   });
 
-  it('holds the shape of the overview while it loads', () => {
-    answers.overview = held(undefined);
+  it('keeps the shape of the overview while it loads', () => {
+    answers.overview = queried(undefined);
 
     showing();
 
@@ -495,7 +495,7 @@ describe('TeamInsights', () => {
 
   it('says the overview could not be loaded, and tries again', async () => {
     const failing = {
-      ...held(undefined),
+      ...queried(undefined),
       isPending: true,
       errorUpdateCount: 1,
     };
@@ -511,7 +511,7 @@ describe('TeamInsights', () => {
   });
 
   it('says there were no runs in the period, and offers the board', () => {
-    answers.overview = held({
+    answers.overview = queried({
       ...OVERVIEW,
       headline: headline({ runs: 0, mergedPullRequests: 0 }),
     });
@@ -526,7 +526,7 @@ describe('TeamInsights', () => {
   });
 
   it('says plainly why there is no spend to break down', () => {
-    answers.cost = held({
+    answers.cost = queried({
       ...MIXED_COST,
       cost: { ...MIXED_COST.cost, mixedCurrencies: true },
     });
@@ -539,7 +539,7 @@ describe('TeamInsights', () => {
   });
 
   it('leaves daily spend out of the overview, saying why, when the period’s prices came in more than one currency', () => {
-    answers.overview = held({
+    answers.overview = queried({
       ...OVERVIEW,
       outputCurrency: null,
       outputMixedCurrencies: true,
@@ -555,7 +555,7 @@ describe('TeamInsights', () => {
   });
 
   it('says when nothing in the period was priced', () => {
-    answers.cost = held({
+    answers.cost = queried({
       ...MIXED_COST,
       cost: { ...MIXED_COST.cost, unpriced: 3 },
     });
@@ -566,7 +566,7 @@ describe('TeamInsights', () => {
   });
 
   it('reads cache share as not reported where it is unknown', () => {
-    answers.cost = held({
+    answers.cost = queried({
       ...MIXED_COST,
       cost: {
         ...MIXED_COST.cost,
@@ -577,7 +577,7 @@ describe('TeamInsights', () => {
             input: 100,
             cacheRead: 300,
             cacheWrite: null,
-            cacheShare: 0.75,
+            cacheRate: 0.75,
           },
         ],
       },
@@ -599,7 +599,7 @@ describe('TeamInsights', () => {
   });
 
   it('drills from people’s load into the runs that asked them', () => {
-    answers.people = held({
+    answers.people = queried({
       period: { name: '30d' },
       load: {
         asks: 4,
@@ -609,15 +609,15 @@ describe('TeamInsights', () => {
         unanswered: 0,
         sentBack: 1,
         sentBackRate: 0.5,
-        refused: 1,
+        dismissed: 1,
         askedTaskIds: [],
-        refusedTaskIds: ['task_9'],
+        dismissedTaskIds: ['task_9'],
       },
       loadChanges: {
         asksPerTask: null,
         toAnswer: null,
         sentBackRate: null,
-        refused: null,
+        dismissed: null,
       },
       adoption: {
         activeCount: 1,
@@ -638,7 +638,7 @@ describe('TeamInsights', () => {
     );
     expect(screen.getByRole('link', { name: '50%' })).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/insights?tab=runs&next=sent-back',
+      '/w/acme/team/team_1/insights?tab=runs&humanAction=sent-back',
     );
     expect(screen.getByRole('link', { name: '1' })).toHaveAttribute(
       'href',

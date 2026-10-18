@@ -7,7 +7,7 @@ const INK: Record<ReplayState, string> = {
   running: 'text-foreground',
   finished: 'text-muted-foreground',
   stopped: 'text-muted-foreground',
-  'over-budget': 'text-destructive',
+  'ceiling-reached': 'text-destructive',
 };
 
 type ReplayStatePillProps = {

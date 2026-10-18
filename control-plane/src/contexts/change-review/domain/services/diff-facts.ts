@@ -197,15 +197,15 @@ export const factsOf = (
 
   const link = (kind: LinkKind, from: HunkId, to: HunkId, because: string) => {
     const key = `${kind}:${from}>${to}`;
-    const held = linked.get(key) ?? {
+    const entry = linked.get(key) ?? {
       kind,
       from,
       to,
       because: new Set<string>(),
     };
 
-    held.because.add(because);
-    linked.set(key, held);
+    entry.because.add(because);
+    linked.set(key, entry);
   };
 
   for (const { file, hunk } of entries) {

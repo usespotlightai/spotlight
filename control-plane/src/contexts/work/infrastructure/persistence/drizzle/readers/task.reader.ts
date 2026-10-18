@@ -67,7 +67,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
         createdAt: task.createdAt,
         currentRunId: task.currentRunId,
         pullRequest: task.pullRequest,
-        raisedById: task.raisedById,
+        createdById: task.createdById,
         assigneeId: task.assigneeId,
       })
       .from(task)
@@ -92,7 +92,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
       ),
       this.people.findMany(
         rows.flatMap((row) =>
-          [row.raisedById, row.assigneeId].flatMap((id) =>
+          [row.createdById, row.assigneeId].flatMap((id) =>
             id ? [UserId.of(id)] : [],
           ),
         ),
@@ -104,14 +104,14 @@ export class DrizzleTaskReader implements TaskReaderPort {
       image: people.get(id)?.image ?? null,
     });
 
-    return rows.map(({ currentRunId, raisedById, assigneeId, ...rest }) => ({
+    return rows.map(({ currentRunId, createdById, assigneeId, ...rest }) => ({
       ...rest,
       attachments: attachmentsOf(attached, rest.id).own,
       running: currentRunId !== null && !awaited.has(rest.id),
       awaitingReview: awaited.has(rest.id)
         ? { conversationId: awaited.get(rest.id) as string }
         : null,
-      raisedBy: raisedById ? person(raisedById) : null,
+      createdBy: createdById ? person(createdById) : null,
       assignee: assigneeId ? person(assigneeId) : null,
       note: notes.get(rest.id) ?? null,
     }));

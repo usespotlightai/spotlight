@@ -1,109 +1,113 @@
 import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
-import type { Declaration } from '@work/domain/value-objects/declaration.vo';
-import { Handover } from '@work/domain/value-objects/handover.vo';
-import type { PassRefusal } from '@work/domain/value-objects/line-refusal';
+import type { Handover } from '@work/domain/value-objects/handover.vo';
+import type { PassDenial } from '@work/domain/value-objects/line-denial';
+import { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
 import type { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 
-const spoken = (declaration: Declaration, fallback: string) =>
-  TaskNoteBody.of(declaration.note === '' ? fallback : declaration.note);
+const bodyOf = (handover: Handover, fallback: string) =>
+  TaskNoteBody.of(handover.note === '' ? fallback : handover.note);
 
-const ownWords = (declaration: Declaration): TaskNoteBody | null =>
-  declaration.note === '' ? null : TaskNoteBody.of(declaration.note);
+const ownWords = (handover: Handover): TaskNoteBody | null =>
+  handover.note === '' ? null : TaskNoteBody.of(handover.note);
 
-const REFUSED: Record<PassRefusal, (key: string) => string> = {
-  'standing-there': (key) =>
-    `The run asked for station "${key}". The task already stands there.`,
+const DENIALS: Record<PassDenial, (key: string) => string> = {
+  'already-there': (key) =>
+    `The run requested station "${key}". The task is already there.`,
   'nothing-runs': (key) =>
-    `The run asked for station "${key}". Nothing runs there to take up the task.`,
-  'no-way': (key) =>
-    `The run asked for station "${key}". Work does not pass there from the task’s station.`,
+    `The run requested station "${key}". Nothing runs there to take up the task.`,
+  'no-route': (key) =>
+    `The run requested station "${key}". Work does not pass there from the task’s station.`,
 };
 
 export const HandoverFor = {
   after(input: {
     outcome: RunOutcome;
-    declared: Declaration | null;
+    handover: Handover | null;
     line: Line | null;
-    standingAt: StationId;
-  }): Handover {
+    currentStation: StationId;
+  }): ResolvedHandover {
     if (input.outcome.stopped) {
       return HandoverFor.stopped();
     }
 
-    if (input.declared && !input.outcome.failed) {
-      return HandoverFor.declared(input.declared, input.line, input.standingAt);
+    if (input.handover && !input.outcome.failed) {
+      return HandoverFor.resolve(
+        input.handover,
+        input.line,
+        input.currentStation,
+      );
     }
 
     return HandoverFor.outcome(input.outcome);
   },
 
-  declared(
-    declaration: Declaration,
+  resolve(
+    handover: Handover,
     line: Line | null,
-    standingAt: StationId,
-  ): Handover {
-    if (declaration.asksForReview()) {
-      return Handover.review(
-        spoken(declaration, 'The run asked for someone to look at this.'),
-        ownWords(declaration),
+    currentStation: StationId,
+  ): ResolvedHandover {
+    if (handover.requestsReview()) {
+      return ResolvedHandover.review(
+        bodyOf(handover, 'The run asked for someone to look at this.'),
+        ownWords(handover),
       );
     }
 
-    if (declaration.saysItIsDone()) {
-      return line?.endsAt(standingAt)
-        ? Handover.done(
-            spoken(declaration, 'The work is done.'),
-            ownWords(declaration),
+    if (handover.isDone()) {
+      return line?.endsAt(currentStation)
+        ? ResolvedHandover.done(
+            bodyOf(handover, 'The work is done.'),
+            ownWords(handover),
           )
-        : Handover.review(
+        : ResolvedHandover.review(
             TaskNoteBody.of(
-              'The run said the work is done. The task is not at the end of its line.',
+              'The run handed over the task as done. The task is not at the end of its line.',
             ),
-            ownWords(declaration),
+            ownWords(handover),
           );
     }
 
-    const named = line?.stations.find((each) => declaration.names(each.key));
+    const named = line?.stations.find((each) => handover.names(each.key));
 
     if (!line || !named) {
-      return Handover.review(
+      return ResolvedHandover.review(
         TaskNoteBody.of(
-          `The run asked for station "${declaration.next}". This line has no such station.`,
+          `The run requested station "${handover.next}". This line has no such station.`,
         ),
-        ownWords(declaration),
+        ownWords(handover),
       );
     }
 
-    const refused = line.refusalToPass(standingAt, named);
+    const denial = line.passDenial(currentStation, named);
 
-    if (refused) {
-      return Handover.review(
-        TaskNoteBody.of(REFUSED[refused](named.key.value)),
-        ownWords(declaration),
+    if (denial) {
+      return ResolvedHandover.review(
+        TaskNoteBody.of(DENIALS[denial](named.key.value)),
+        ownWords(handover),
       );
     }
 
-    return Handover.pass(
+    return ResolvedHandover.pass(
       named.id,
-      spoken(declaration, `Passed on to ${named.name.value}.`),
+      bodyOf(handover, `Passed on to ${named.name.value}.`),
     );
   },
 
-  outcome(outcome: RunOutcome | null): Handover {
+  outcome(outcome: RunOutcome | null): ResolvedHandover {
     if (!outcome) {
       const unreported = TaskNoteBody.of(
         'The run ended without reporting an outcome.',
       );
 
-      return Handover.review(unreported, unreported);
+      return ResolvedHandover.review(unreported, unreported);
     }
 
     if (outcome.failure) {
-      return Handover.failed(
+      return ResolvedHandover.failed(
         TaskNoteBody.of(
           outcome.message
             ? `The run failed: ${outcome.message}`
@@ -113,24 +117,24 @@ export const HandoverFor = {
       );
     }
 
-    return Handover.review(
+    return ResolvedHandover.review(
       TaskNoteBody.of(
         'The run finished without saying where the task should go next.',
       ),
     );
   },
 
-  exhausted(attempts: number, failure: RunFailureCode): Handover {
-    return Handover.failed(
+  exhausted(attempts: number, failure: RunFailureCode): ResolvedHandover {
+    return ResolvedHandover.failed(
       TaskNoteBody.of(
-        `Spotlight gave up on the run after ${attempts} attempts. The run did not finish.`,
+        `The run did not finish after ${attempts} attempts. Spotlight does not try it again.`,
       ),
       TaskFailure.fromRun(failure),
     );
   },
 
-  stopped(): Handover {
-    return Handover.review(
+  stopped(): ResolvedHandover {
+    return ResolvedHandover.review(
       TaskNoteBody.of('A person stopped the run. The task is back with you.'),
       TaskNoteBody.of('A person stopped the run.'),
     );

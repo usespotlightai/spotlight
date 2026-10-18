@@ -1,4 +1,4 @@
-import { DiffTally } from '@/components/shared/DiffTally';
+import { DiffStat } from '@/components/shared/DiffStat';
 import type { LocatedLayer } from '@/lib/change-stack';
 import { cn } from '@/lib/utils';
 
@@ -50,7 +50,7 @@ export function StackNavLayer({
             <span>
               {files} {files === 1 ? 'file' : 'files'}
             </span>
-            <DiffTally added={tally.added} removed={tally.removed} />
+            <DiffStat added={tally.added} removed={tally.removed} />
           </span>
         </span>
       </button>

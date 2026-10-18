@@ -16,11 +16,11 @@ export class ReadEgressHandler
 
   async execute(query: ReadEgressQuery): Promise<EgressResourceDto | null> {
     try {
-      const kept = await this.resources.egressWithId(query.egressId);
+      const record = await this.resources.egressWithId(query.egressId);
 
-      return kept &&
-        (await this.access.permissionsIn(kept.workspaceId, query.principal))
-        ? RunnerResourceMapper.egress(kept)
+      return record &&
+        (await this.access.permissionsIn(record.workspaceId, query.principal))
+        ? RunnerResourceMapper.egress(record)
         : null;
     } catch (error) {
       rethrowAsApplicationError(error);

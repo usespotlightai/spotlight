@@ -16,7 +16,7 @@ import { z } from 'zod';
 
 const bindingSchema = z.object({
   host: z.string(),
-  carrier: z.string().optional(),
+  location: z.string().optional(),
   name: z.string().optional(),
   prefix: z.string().optional(),
 });
@@ -43,8 +43,8 @@ const secretSchema = z.object({
 });
 
 export class SecretDefinitions implements SecretDefinitionsPort {
-  secret(held: unknown): ParsedSecret {
-    const read = secretSchema.safeParse(held);
+  secret(input: unknown): ParsedSecret {
+    const read = secretSchema.safeParse(input);
 
     if (!read.success) {
       return { ok: false, problems: problemsIn(SECRET, read.error) };

@@ -67,16 +67,16 @@ import { HookIssuerQuery } from '@integrations/application/queries/hook-issuer.q
 import { ImportHookQuery } from '@integrations/application/queries/import-hook.query';
 import { ListHookResourcesQuery } from '@integrations/application/queries/list-hook-resources.query';
 import { ReadHookQuery } from '@integrations/application/queries/read-hook.query';
+import { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import { FireHooks } from '@integrations/application/services/fire-hooks.service';
 import { HookAllowancesService } from '@integrations/application/services/hook-allowances.service';
-import { HookCallbackGrants } from '@integrations/application/services/hook-callback-grants.service';
+import { HookCallbackTokens } from '@integrations/application/services/hook-callback-tokens.service';
 import { HookViews } from '@integrations/application/services/hook-views.service';
-import { HookedHappenings } from '@integrations/application/services/hooked-happenings.service';
-import { HostReach } from '@integrations/application/services/host-reach.service';
+import { LifecycleHookTriggers } from '@integrations/application/services/lifecycle-hook-triggers.service';
 import {
-  HOOK_CALLBACK_GRANTS,
-  type HookCallbackGrantRepository,
-} from '@integrations/domain/repositories/hook-callback-grant.repository';
+  HOOK_CALLBACK_TOKENS,
+  type HookCallbackTokenRepository,
+} from '@integrations/domain/repositories/hook-callback-token.repository';
 import {
   HOOK_DEFINITIONS,
   type HookDefinitionRepository,
@@ -99,7 +99,7 @@ import { HookRequests } from '@integrations/infrastructure/hooks/hook-requests';
 import { JoseHookTokens } from '@integrations/infrastructure/hooks/jose-hook-tokens';
 import { DrizzleHookFiringHistory } from '@integrations/infrastructure/persistence/drizzle/readers/hook-firing-history.reader';
 import { DrizzleHookResources } from '@integrations/infrastructure/persistence/drizzle/readers/hook-resources.reader';
-import { DrizzleHookCallbackGrants } from '@integrations/infrastructure/persistence/drizzle/repositories/hook-callback-grants.repository';
+import { DrizzleHookCallbackTokens } from '@integrations/infrastructure/persistence/drizzle/repositories/hook-callback-tokens.repository';
 import { DrizzleHookDefinitions } from '@integrations/infrastructure/persistence/drizzle/repositories/hook-definitions.repository';
 import { DrizzleHookFirings } from '@integrations/infrastructure/persistence/drizzle/repositories/hook-firings.repository';
 import { HookCallbackController } from '@integrations/presentation/http/controllers/hook-callback.controller';
@@ -136,18 +136,14 @@ import {
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
 import {
-  TOKEN_MINT,
-  type TokenMintPort,
-} from '@shared-kernel/application/ports/token-mint.port';
+  TOKEN_ISSUER,
+  type TokenIssuer,
+} from '@shared-kernel/application/ports/token-issuer.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import {
   HOOK_TRACES,
   type HookTracesPort,
 } from '@work/application/ports/hook-traces.port';
-import {
-  HOOKED_TASKS,
-  type HookedTasksPort,
-} from '@work/application/ports/hooked-tasks.port';
 import { LIFECYCLE_HOOKS } from '@work/application/ports/lifecycle-hooks.port';
 import {
   NETWORK_CALLS,
@@ -157,6 +153,10 @@ import {
   TASK_NOTES_FROM_HOOKS,
   type TaskNotesFromHooksPort,
 } from '@work/application/ports/task-notes-from-hooks.port';
+import {
+  TASK_VIEWS,
+  type TaskViewsPort,
+} from '@work/application/ports/task-views.port';
 
 export const HOOKS_CONTROLLERS: readonly Type[] = [
   HookResourceController,
@@ -171,22 +171,22 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
   { provide: HOOK_RESOURCES, useClass: DrizzleHookResources },
   { provide: HOOK_FIRINGS, useClass: DrizzleHookFirings },
   { provide: HOOK_FIRING_HISTORY, useClass: DrizzleHookFiringHistory },
-  { provide: HOOK_CALLBACK_GRANTS, useClass: DrizzleHookCallbackGrants },
+  { provide: HOOK_CALLBACK_TOKENS, useClass: DrizzleHookCallbackTokens },
 
   {
-    provide: HookCallbackGrants,
-    inject: [HOOK_CALLBACK_GRANTS, TOKEN_MINT, CLOCK],
+    provide: HookCallbackTokens,
+    inject: [HOOK_CALLBACK_TOKENS, TOKEN_ISSUER, CLOCK],
     useFactory: (
-      grants: HookCallbackGrantRepository,
-      mint: TokenMintPort,
+      callbackTokens: HookCallbackTokenRepository,
+      issuer: TokenIssuer,
       clock: ClockPort,
-    ) => new HookCallbackGrants(grants, mint, clock),
+    ) => new HookCallbackTokens(callbackTokens, issuer, clock),
   },
 
   {
     provide: TASKS_FOR_HOOKS,
-    inject: [HOOKED_TASKS],
-    useFactory: (tasks: HookedTasksPort) => new TasksForHooks(tasks),
+    inject: [TASK_VIEWS],
+    useFactory: (tasks: TaskViewsPort) => new TasksForHooks(tasks),
   },
 
   {
@@ -223,7 +223,9 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
     provide: OUTBOUND_HOSTS,
     inject: [ENV],
     useFactory: (env: Env): OutboundHostsPort => {
-      const hosts = new OutboundHosts(env.OUTBOUND_ALLOWED_HOSTS.split(','));
+      const hosts = new OutboundHosts(
+        env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(','),
+      );
 
       return { allows: (host) => hosts.allow(host) };
     },
@@ -251,20 +253,20 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       ENV,
       HOOK_SIGNING_SECRETS,
       HOOK_TOKENS,
-      HookCallbackGrants,
+      HookCallbackTokens,
       NETWORK_CALLS,
     ],
     useFactory: (
       env: Env,
       secrets: HookSigningSecretsPort,
       tokens: HookTokensPort,
-      callbacks: HookCallbackGrants,
+      callbacks: HookCallbackTokens,
       network: NetworkCallsPort,
     ) =>
       new HookRequests(
         {
           publicUrl: publicUrlOf(env),
-          allowed: env.OUTBOUND_ALLOWED_HOSTS.split(','),
+          allowed: env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(','),
         },
         secrets,
         tokens,
@@ -280,7 +282,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       EXPRESSION_ENGINE,
       DEFINED_INTEGRATIONS,
       INTEGRATION_RUNTIME,
-      HostReach,
+      CallAuthResolver,
       HookRequests,
       CLOCK,
     ],
@@ -289,7 +291,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       expressions: ExpressionEnginePort,
       defined: DefinedIntegrationsPort,
       runtime: IntegrationRuntimePort,
-      reach: HostReach,
+      callAuthResolver: CallAuthResolver,
       requests: HookRequests,
       clock: ClockPort,
     ) =>
@@ -298,7 +300,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
         expressions,
         defined,
         runtime,
-        reach,
+        callAuthResolver,
         requests,
         clock,
       ),
@@ -348,10 +350,10 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: HookedHappenings,
+    provide: LifecycleHookTriggers,
     inject: [FireHooks, TASKS_FOR_HOOKS],
     useFactory: (firings: FireHooks, tasks: TasksForHooksPort) =>
-      new HookedHappenings(firings, tasks),
+      new LifecycleHookTriggers(firings, tasks),
   },
 
   {
@@ -415,12 +417,12 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(HookIssuerQuery, HookIssuerHandler, [HOOK_TOKENS]),
 
   ...bindQueryHandler(CallbackTaskQuery, CallbackTaskHandler, [
-    HookCallbackGrants,
+    HookCallbackTokens,
     TASKS_FOR_HOOKS,
   ]),
 
   ...bindCommandHandler(NoteByCallbackCommand, NoteByCallbackHandler, [
-    HookCallbackGrants,
+    HookCallbackTokens,
     TASK_NOTES_FROM_HOOKS,
     HOOK_FIRING_HISTORY,
     CAUSATION,

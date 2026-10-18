@@ -1,12 +1,12 @@
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { GitHubPullRequestReviews } from '@github/infrastructure/github/github-pull-request-reviews';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-interface Asked {
+interface SentRequest {
   readonly url: string;
   readonly method: string;
   readonly token: string;
@@ -20,14 +20,14 @@ const ON = {
 };
 
 const answering = (
-  reply: (asked: Asked) => { status: number; body: unknown },
+  reply: (request: SentRequest) => { status: number; body: unknown },
 ) => {
-  const asked: Asked[] = [];
+  const requests: SentRequest[] = [];
 
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init: RequestInit = {}) => {
-      const request: Asked = {
+      const request: SentRequest = {
         url,
         method: init.method ?? 'GET',
         token: String(
@@ -35,14 +35,14 @@ const answering = (
         ).replace('Bearer ', ''),
         body: init.body ? JSON.parse(String(init.body)) : null,
       };
-      asked.push(request);
+      requests.push(request);
       const { status, body } = reply(request);
 
       return new Response(JSON.stringify(body), { status });
     }),
   );
 
-  return asked;
+  return requests;
 };
 
 const reviews = (personal: string | null) =>
@@ -85,9 +85,9 @@ const FILES = [
 const isFiles = (url: string) => url.includes('/files');
 
 describe('GitHubPullRequestReviews', () => {
-  it('submits an agent’s review as the app, unsigned, asking nobody for a token', async () => {
+  it('submits an agent’s review as the app, without a byline, requesting no token from anyone', async () => {
     const tokenFor = vi.fn(async () => 'personal');
-    const asked = answering(({ url, method }) =>
+    const requests = answering(({ url, method }) =>
       method === 'GET' && url.endsWith('/pulls/7')
         ? { status: 200, body: { head: { sha: 'abc123' } } }
         : method === 'POST'
@@ -106,19 +106,19 @@ describe('GitHubPullRequestReviews', () => {
     ).submit({
       ...ON,
       by: { kind: 'spotlight' },
-      verdict: 'comment',
+      event: 'comment',
       body: 'One thing',
       comments: [],
     });
 
-    const posted = asked.find((each) => each.method === 'POST');
+    const posted = requests.find((each) => each.method === 'POST');
     expect(tokenFor).not.toHaveBeenCalled();
     expect(posted?.token).toBe('app');
     expect(posted?.body?.body).toBe('One thing');
   });
 
   it('submits a review as the person, on the head of the pull request', async () => {
-    const asked = answering(({ url, method }) => {
+    const requests = answering(({ url, method }) => {
       if (method === 'GET' && url.endsWith('/pulls/7')) {
         return { status: 200, body: { head: { sha: 'abc123' } } };
       }
@@ -153,12 +153,12 @@ describe('GitHubPullRequestReviews', () => {
 
     const submitted = await reviews('personal').submit({
       ...ON,
-      verdict: 'request-changes',
+      event: 'request-changes',
       body: 'Two things',
       comments: COMMENTS,
     });
 
-    const posted = asked.find((each) => each.method === 'POST');
+    const posted = requests.find((each) => each.method === 'POST');
     expect(posted?.url).toBe(
       'https://api.github.com/repos/acme/web/pulls/7/reviews',
     );
@@ -189,7 +189,7 @@ describe('GitHubPullRequestReviews', () => {
   });
 
   it('folds the comments into the review where GitHub will not place them on lines', async () => {
-    const asked = answering(({ url, method, body }) => {
+    const requests = answering(({ url, method, body }) => {
       if (isFiles(url)) {
         return { status: 200, body: FILES };
       }
@@ -203,12 +203,12 @@ describe('GitHubPullRequestReviews', () => {
 
     const submitted = await reviews('personal').submit({
       ...ON,
-      verdict: 'comment',
+      event: 'comment',
       body: '',
       comments: COMMENTS,
     });
 
-    const [, , , folded] = asked;
+    const [, , , folded] = requests;
     expect(folded?.body?.comments).toEqual([]);
     expect(folded?.body?.body).toContain('`src/a.ts` lines 1–3');
     expect(folded?.body?.body).toContain('`src/b.ts` line 8');
@@ -243,7 +243,7 @@ describe('GitHubPullRequestReviews', () => {
 
     const submitted = await reviews(null).submit({
       ...ON,
-      verdict: 'comment',
+      event: 'comment',
       body: '',
       comments: [COMMENTS[0] as (typeof COMMENTS)[number]],
     });
@@ -252,7 +252,7 @@ describe('GitHubPullRequestReviews', () => {
   });
 
   it('places the comments the pull request shows on their lines, and folds the rest into the review', async () => {
-    const asked = answering(({ url, method }) => {
+    const requests = answering(({ url, method }) => {
       if (isFiles(url)) {
         return { status: 200, body: FILES };
       }
@@ -279,7 +279,7 @@ describe('GitHubPullRequestReviews', () => {
 
     const submitted = await reviews('personal').submit({
       ...ON,
-      verdict: 'comment',
+      event: 'comment',
       body: 'Two things',
       comments: [
         COMMENTS[0] as (typeof COMMENTS)[number],
@@ -293,7 +293,7 @@ describe('GitHubPullRequestReviews', () => {
       ],
     });
 
-    const posted = asked.filter((each) => each.method === 'POST');
+    const posted = requests.filter((each) => each.method === 'POST');
     expect(posted).toHaveLength(1);
     expect(posted[0]?.body?.comments).toEqual([
       expect.objectContaining({ path: 'src/a.ts', line: 3, start_line: 1 }),
@@ -307,8 +307,8 @@ describe('GitHubPullRequestReviews', () => {
     });
   });
 
-  it('comments, saying its verdict, where GitHub refuses a verdict on the app’s own pull request', async () => {
-    const asked = answering(({ url, method, body }) => {
+  it('comments, saying its review event, where GitHub rejects that event on the app’s own pull request', async () => {
+    const requests = answering(({ url, method, body }) => {
       if (isFiles(url)) {
         return { status: 200, body: FILES };
       }
@@ -334,12 +334,12 @@ describe('GitHubPullRequestReviews', () => {
     const submitted = await reviews(null).submit({
       ...ON,
       by: { kind: 'spotlight' },
-      verdict: 'request-changes',
+      event: 'request-changes',
       body: 'The rename is backwards.',
       comments: [],
     });
 
-    const posted = asked.filter((each) => each.method === 'POST');
+    const posted = requests.filter((each) => each.method === 'POST');
     expect(posted.map((each) => each.body?.event)).toEqual([
       'REQUEST_CHANGES',
       'COMMENT',
@@ -350,8 +350,8 @@ describe('GitHubPullRequestReviews', () => {
     expect(submitted.githubId).toBe(904);
   });
 
-  it('speaks as Spotlight, naming the person, where their own token is refused', async () => {
-    const asked = answering(({ token }) =>
+  it('acts as Spotlight, naming the person, where their own token is not accepted', async () => {
+    const requests = answering(({ token }) =>
       token === 'personal'
         ? { status: 403, body: { message: 'Resource not accessible' } }
         : { status: 201, body: { id: 555, html_url: 'c555' } },
@@ -363,20 +363,22 @@ describe('GitHubPullRequestReviews', () => {
       body: 'Done',
     });
 
-    expect(asked.map((each) => each.token)).toEqual(['personal', 'app']);
-    expect(asked[1]?.url).toBe(
+    expect(requests.map((each) => each.token)).toEqual(['personal', 'app']);
+    expect(requests[1]?.url).toBe(
       'https://api.github.com/repos/acme/web/pulls/7/comments/77/replies',
     );
-    expect(asked[1]?.body).toEqual({ body: '**Ada** via Spotlight:\n\nDone' });
+    expect(requests[1]?.body).toEqual({
+      body: '**Ada** via Spotlight:\n\nDone',
+    });
     expect(posted).toEqual({ id: 555, url: 'c555' });
   });
 
-  it('speaks as Spotlight where the person never signed in with GitHub', async () => {
-    const asked = answering(() => ({ status: 200, body: {} }));
+  it('acts as Spotlight where the person never signed in with GitHub', async () => {
+    const requests = answering(() => ({ status: 200, body: {} }));
 
     await reviews(null).edit({ ...ON, commentId: 77, body: 'Clearer' });
 
-    expect(asked).toEqual([
+    expect(requests).toEqual([
       {
         url: 'https://api.github.com/repos/acme/web/pulls/comments/77',
         method: 'PATCH',
@@ -394,11 +396,11 @@ describe('GitHubPullRequestReviews', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('passes on any other refusal', async () => {
+  it('passes on any other upstream error', async () => {
     answering(() => ({ status: 500, body: { message: 'Server Error' } }));
 
     await expect(
       reviews('personal').edit({ ...ON, commentId: 77, body: 'x' }),
-    ).rejects.toThrow(UpstreamRefusedError);
+    ).rejects.toThrow(UpstreamError);
   });
 });

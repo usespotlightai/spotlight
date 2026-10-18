@@ -36,7 +36,7 @@ func Main(args []string, version string) int {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "spotlight host:", err)
 		if serve.Final(err) {
-			return install.RefusedExit
+			return install.StopExit
 		}
 		return 1
 	}
@@ -56,7 +56,7 @@ func run(version string) error {
 		return err
 	}
 
-	release, err := config.Hold(cfg.State)
+	release, err := config.Lock(cfg.State)
 	if err != nil {
 		return err
 	}
@@ -78,8 +78,8 @@ func run(version string) error {
 	}
 
 	mirrors := mirror.At(filepath.Join(cfg.State, "mirrors"))
-	if err := mirrors.Tidy(); err != nil {
-		log.Warn("could not tidy the mirrors a stopped host left", "error", err)
+	if err := mirrors.Prune(); err != nil {
+		log.Warn("could not prune the mirrors a stopped host left", "error", err)
 	}
 
 	host := serve.New(serve.Options{
@@ -95,8 +95,8 @@ func run(version string) error {
 		SandboxURL: cfg.SandboxURL,
 		SandboxEnv: cfg.SandboxEnv,
 		Egress: serve.Egress{
-			Image: cfg.Egress.Image, Allow: cfg.Egress.Allow, Reads: cfg.Egress.Reads,
-			Env: cfg.Egress.Env, Trust: cfg.Egress.Trust,
+			Image: cfg.Egress.Image, Allow: cfg.Egress.Allow, SecretAllow: cfg.Egress.SecretAllow,
+			Env: cfg.Egress.Env, CABundle: cfg.Egress.CABundle,
 		},
 		Network:    cfg.Network,
 		ExtraHosts: cfg.ExtraHosts,

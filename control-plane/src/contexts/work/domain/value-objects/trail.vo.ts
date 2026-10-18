@@ -4,7 +4,7 @@ import {
   type Conversation,
   conversationsOf,
   notesIn,
-  owedIn,
+  pendingIn,
   stillOpen,
 } from '@work/domain/services/conversations';
 import type { NotePosition } from '@work/domain/value-objects/note-position.vo';
@@ -20,8 +20,8 @@ export class Trail {
     return awaitsAPerson(this.notes);
   }
 
-  get owed(): Conversation | null {
-    return owedIn(this.notes);
+  get pending(): Conversation | null {
+    return pendingIn(this.notes);
   }
 
   get open(): Conversation | null {
@@ -39,7 +39,7 @@ export class Trail {
     return conversation ? notesIn(conversation, this.notes) : null;
   }
 
-  get undelivered(): readonly TaskNote[] {
-    return this.notes.filter((each) => each.undelivered);
+  get unacknowledged(): readonly TaskNote[] {
+    return this.notes.filter((each) => each.unacknowledged);
   }
 }

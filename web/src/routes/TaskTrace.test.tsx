@@ -50,7 +50,7 @@ const run = {
   name: 'Implementation',
   startedAt: AT,
   ms: 60_000,
-  tone: 'agent',
+  category: 'agent',
   cost: null,
   currency: null,
   step: null,
@@ -62,7 +62,7 @@ const trace = (roots: unknown[]) => ({
   startedAt: roots.length > 0 ? AT : null,
   ms: roots.length > 0 ? 60_000 : 0,
   rows: roots.length,
-  faults: 0,
+  errors: 0,
   roots,
 });
 
@@ -95,7 +95,7 @@ describe('TaskTrace', () => {
     expect(screen.getByText('Implementation')).toBeInTheDocument();
   });
 
-  it('holds the shape of the trace while it loads, keeping the way back', () => {
+  it('keeps the shape of the trace while it loads, keeping the way back', () => {
     traced.mockReturnValue(undefined);
 
     renderPage();
@@ -110,7 +110,7 @@ describe('TaskTrace', () => {
     expect(screen.queryByText('No runs yet')).not.toBeInTheDocument();
   });
 
-  it('holds the place of the task’s name until the task has loaded', () => {
+  it('keeps the place of the task’s name until the task has loaded', () => {
     listed.mockReturnValue(undefined);
 
     renderPage();
@@ -120,7 +120,7 @@ describe('TaskTrace', () => {
     expect(screen.getByText('Implementation')).toBeInTheDocument();
   });
 
-  it('says the trace could not be loaded, and tries again when asked', async () => {
+  it('says the trace could not be loaded, and tries again on request', async () => {
     const person = userEvent.setup();
     traced.mockReturnValue(undefined);
     failing.mockReturnValue(true);

@@ -1,12 +1,12 @@
 import type { RequestHandler } from 'msw';
 import type {
-  ChatImprovingResponseDto,
   ChatResponseDto,
   ChatSummaryResponseDto,
+  ChatTargetStationResponseDto,
   ProposedMemoryResponseDto,
   RememberRequestDto,
   RetireMemoryRequestDto,
-  SayInChatRequestDto,
+  SendChatMessageRequestDto,
   StartChatRequestDto,
   TeamMemoryDetailResponseDto,
   TeamMemoryResponseDto,
@@ -18,7 +18,7 @@ import { SAM } from '@/mocks/world/people';
 import {
   type ChatRecord,
   chatTurn,
-  saidBy,
+  messageBy,
   teamChats,
   turnEndsAt,
 } from '@/mocks/world/team-chats';
@@ -37,11 +37,11 @@ const MAX_BODY = 1_000;
 const MAX_REASON = 500;
 const TITLE_LENGTH = 60;
 
-let minted = 0;
+let idCount = 0;
 
-const mint = (prefix: string): string => {
-  minted += 1;
-  return `${prefix}_${Date.now().toString(36)}${minted}`;
+const nextId = (prefix: string): string => {
+  idCount += 1;
+  return `${prefix}_${Date.now().toString(36)}${idCount}`;
 };
 
 const now = (): string => new Date().toISOString();
@@ -79,7 +79,7 @@ const sinceOf = (memory: MemoryRecord): number =>
   Date.parse(memory.retirement?.at ?? memory.approvedAt);
 
 const listed = (memories: readonly MemoryRecord[], query: URLSearchParams) => {
-  const standing = query.get('standing') || 'stands';
+  const status = query.get('status') || 'active';
   const kind = query.get('kind');
   const lineId = query.get('lineId');
   const stationId = query.get('stationId');
@@ -89,7 +89,7 @@ const listed = (memories: readonly MemoryRecord[], query: URLSearchParams) => {
   return memories
     .filter(
       (memory) =>
-        memory.standing === standing &&
+        memory.status === status &&
         (!kind || memory.kind === kind) &&
         (!lineId || memory.lineId === lineId) &&
         (!stationId || memory.stationId === stationId) &&
@@ -111,7 +111,7 @@ const nextHandle = (): string => {
 
 type Placed = Pick<
   MemoryRecord,
-  'kind' | 'body' | 'reach' | 'lineId' | 'stationId' | 'repository' | 'paths'
+  'kind' | 'body' | 'scope' | 'lineId' | 'stationId' | 'repository' | 'paths'
 >;
 
 const placedFrom = (
@@ -147,7 +147,7 @@ const placedFrom = (
   return {
     kind: writing.kind,
     body,
-    reach: station ? 'station' : line ? 'line' : 'team',
+    scope: station ? 'station' : line ? 'line' : 'team',
     lineId: line?.id ?? null,
     stationId: station?.id ?? null,
     repository: writing.repository || null,
@@ -156,15 +156,15 @@ const placedFrom = (
 };
 
 const writtenBySam = (placed: Placed): MemoryRecord => ({
-  id: mint('memory'),
+  id: nextId('memory'),
   handle: nextHandle(),
   source: 'person',
-  standing: 'stands',
+  status: 'active',
   approvedBy: SAM,
   approvedAt: now(),
   supersedes: null,
   retirement: null,
-  grounds: null,
+  provenance: null,
   runs: 0,
   harness: null,
   steps: [],
@@ -180,13 +180,13 @@ const memoryHandlers = [
     }
 
     const query = new URL(request.url).searchParams;
-    const standing = query.get('standing');
+    const status = query.get('status');
     const kind = query.get('kind');
     if (
-      (standing && standing !== 'stands' && standing !== 'retired') ||
+      (status && status !== 'active' && status !== 'retired') ||
       (kind && !isKind(kind))
     ) {
-      return problem(422, 'Sorry, no memory has that standing or kind.');
+      return problem(422, 'Sorry, no memory has that status or kind.');
     }
 
     return json(listed(memories, query));
@@ -244,12 +244,12 @@ const memoryHandlers = [
       const successor: MemoryRecord = {
         ...writtenBySam(placed),
         supersedes: old.id,
-        grounds: old.grounds,
+        provenance: old.provenance,
         harness: old.harness,
         steps: old.steps,
         notes: old.notes,
       };
-      old.standing = 'retired';
+      old.status = 'retired';
       old.retirement = {
         at: successor.approvedAt,
         by: null,
@@ -283,7 +283,7 @@ const memoryHandlers = [
         );
       }
 
-      memory.standing = 'retired';
+      memory.status = 'retired';
       memory.retirement = {
         at: now(),
         by: SAM,
@@ -303,26 +303,26 @@ const memoryHandlers = [
       return notFound();
     }
 
-    const asked = (await request.json()) as RememberRequestDto;
-    if (!isKind(asked.kind) || !asked.body?.trim()) {
-      return problem(422, 'Sorry, that is not a memory the team can keep.');
+    const input = (await request.json()) as RememberRequestDto;
+    if (!isKind(input.kind) || !input.body?.trim()) {
+      return problem(422, 'Sorry, that is not a memory the team can approve.');
     }
 
-    const supersedes = asked.supersedes
+    const supersedes = input.supersedes
       ? (Object.values(teamMemories())
           .flat()
-          .find((memory) => memory.handle === asked.supersedes)?.id ?? null)
+          .find((memory) => memory.handle === input.supersedes)?.id ?? null)
       : null;
     const remembered: ProposedMemoryResponseDto = {
-      id: mint('memory'),
-      kind: asked.kind,
-      body: asked.body.trim(),
+      id: nextId('memory'),
+      kind: input.kind,
+      body: input.body.trim(),
       source: 'run',
-      origin: 'remembered',
+      proposedBy: 'agent',
       state: 'proposed',
-      reach: asked.reach ?? 'line',
+      scope: input.scope ?? 'line',
       repository: null,
-      paths: asked.paths ?? [],
+      paths: input.paths ?? [],
       supersedes,
       decision: null,
       harness: run.harness,
@@ -330,7 +330,7 @@ const memoryHandlers = [
         {
           index: 0,
           kind: 'remember',
-          text: `spotlight remember --kind ${asked.kind} --body "${asked.body.trim()}"`,
+          text: `spotlight remember --kind ${input.kind} --body "${input.body.trim()}"`,
         },
       ],
       notes: [],
@@ -355,10 +355,10 @@ const summaryOfChat = ({
   ...summary
 }: ChatResponseDto): ChatSummaryResponseDto => summary;
 
-const improvingOf = (
+const targetStationOf = (
   teamId: string,
   stationId: string,
-): ChatImprovingResponseDto | null => {
+): ChatTargetStationResponseDto | null => {
   for (const line of world().lines[teamId] ?? []) {
     const station = line.stations.find((each) => each.id === stationId);
     if (station) {
@@ -383,7 +383,7 @@ const tracesOf = (teamId: string, taskIds: readonly string[]) =>
 
 const titleOf = (
   body: string,
-  improving: ChatImprovingResponseDto | null,
+  targetStation: ChatTargetStationResponseDto | null,
   traces: readonly { title: string }[],
 ): string => {
   const firstLine = body.trim().split('\n')[0]?.trim() ?? '';
@@ -392,8 +392,8 @@ const titleOf = (
       ? `${firstLine.slice(0, TITLE_LENGTH - 1).trimEnd()}…`
       : firstLine;
   }
-  if (improving) {
-    return `Improve ${improving.stationName}`;
+  if (targetStation) {
+    return `Improve ${targetStation.stationName}`;
   }
 
   return traces[0]?.title ?? 'New chat';
@@ -406,11 +406,11 @@ const runsAtStation = (stationId: string): number =>
 
 const answerTo = (
   body: string,
-  improving: ChatImprovingResponseDto | null,
+  targetStation: ChatTargetStationResponseDto | null,
 ): string => {
-  if (improving) {
-    const runs = runsAtStation(improving.stationId);
-    return `I read the last ${runs} ${runs === 1 ? 'run' : 'runs'} at ${improving.stationName} on ${improving.lineName}. The clearest pattern is work sent back from review for size: the agent keeps going after the change is done. Asking it to stop and open the pull request once the checks pass would have saved two of those round trips.`;
+  if (targetStation) {
+    const runs = runsAtStation(targetStation.stationId);
+    return `I read the last ${runs} ${runs === 1 ? 'run' : 'runs'} at ${targetStation.stationName} on ${targetStation.lineName}. The clearest pattern is work sent back from review for size: the agent keeps going after the change is done. Telling it to stop and open the pull request once the checks pass would have saved two of those round trips.`;
   }
   if (!body.trim()) {
     return 'I read what you shared. Tell me what you would like to change, and I will propose tasks for it.';
@@ -419,16 +419,16 @@ const answerTo = (
   return 'Here is how I would break this down: first find where it happens in the code, then fix the cause rather than the symptom, then add a check so it cannot come back quietly. Say the word and I will propose those as tasks.';
 };
 
-const answered = (record: ChatRecord, heardAt: string, body: string): void => {
+const answered = (record: ChatRecord, sentAt: string, body: string): void => {
   const runId = `run_${record.chat.id}_${record.journals.length + 1}`;
-  const journal = chatTurn(runId, heardAt, [
+  const journal = chatTurn(runId, sentAt, [
     { kind: 'thought', text: 'Reading what the team already has on this.' },
     {
       kind: 'tool',
       tool: 'bash',
       text: `spotlight recall "${body.trim().slice(0, 40)}"`,
     },
-    { kind: 'said', text: answerTo(body, record.chat.improving) },
+    { kind: 'message', text: answerTo(body, record.chat.targetStation) },
   ]);
   record.journals.push(journal);
   record.chat.updatedAt = turnEndsAt(journal);
@@ -451,43 +451,43 @@ const chatHandlers = [
       return notFound();
     }
 
-    const asked = (await request.json()) as StartChatRequestDto;
-    const improving = asked.improving
-      ? improvingOf(teamId, asked.improving)
+    const input = (await request.json()) as StartChatRequestDto;
+    const targetStation = input.targetStation
+      ? targetStationOf(teamId, input.targetStation)
       : null;
-    if (asked.improving && !improving) {
+    if (input.targetStation && !targetStation) {
       return problem(422, 'Sorry, the team has no such station.');
     }
-    if (!asked.harness) {
+    if (!input.harness) {
       return problem(422, 'A chat needs a harness.');
     }
 
-    const traces = tracesOf(teamId, asked.traces ?? []);
+    const traces = tracesOf(teamId, input.traces ?? []);
     const at = now();
     const record: ChatRecord = {
       chat: {
-        id: mint('chat'),
-        title: titleOf(asked.body, improving, traces),
-        harness: asked.harness,
-        model: asked.model ?? null,
-        effort: asked.effort ?? null,
+        id: nextId('chat'),
+        title: titleOf(input.body, targetStation, traces),
+        harness: input.harness,
+        model: input.model ?? null,
+        effort: input.effort ?? null,
         repositories: [
           ...new Set([
-            ...(asked.setup ? [asked.setup.repository] : []),
-            ...(asked.repositories ?? []),
+            ...(input.setup ? [input.setup.repository] : []),
+            ...(input.repositories ?? []),
           ]),
         ],
-        improving,
-        setup: asked.setup ? { ...asked.setup, pullRequest: null } : null,
+        targetStation,
+        setup: input.setup ? { ...input.setup, pullRequest: null } : null,
         createdAt: at,
         updatedAt: at,
         working: false,
         runId: null,
-        messages: [saidBy(SAM, 0, asked.body, at, traces)],
+        messages: [messageBy(SAM, 0, input.body, at, traces)],
       },
       journals: [],
     };
-    answered(record, at, asked.body);
+    answered(record, at, input.body);
     chatsOf(teamId).push(record);
 
     return json(record.chat, 201);
@@ -512,10 +512,10 @@ const chatHandlers = [
       }
 
       const { body, model, effort } =
-        (await request.json()) as SayInChatRequestDto;
+        (await request.json()) as SendChatMessageRequestDto;
       const at = now();
       record.chat.messages.push(
-        saidBy(SAM, record.chat.messages.length, body, at),
+        messageBy(SAM, record.chat.messages.length, body, at),
       );
       record.chat.model = model ?? record.chat.model;
       record.chat.effort = effort ?? record.chat.effort;
@@ -537,10 +537,10 @@ const chatHandlers = [
         return notFound();
       }
       if (proposal.state !== 'open') {
-        return problem(409, 'Sorry, that proposal was already settled.');
+        return problem(409, 'Sorry, that proposal was already decided.');
       }
 
-      const taskId = mint('task');
+      const taskId = nextId('task');
       world().tasks[teamId] = [
         ...(world().tasks[teamId] ?? []),
         {
@@ -554,7 +554,7 @@ const chatHandlers = [
           running: false,
           awaitingReview: null,
           pullRequest: null,
-          raisedBy: SAM,
+          createdBy: SAM,
           assignee: null,
           note: null,
         },
@@ -577,7 +577,7 @@ const chatHandlers = [
         return notFound();
       }
       if (proposal.state !== 'open') {
-        return problem(409, 'Sorry, that proposal was already settled.');
+        return problem(409, 'Sorry, that proposal was already decided.');
       }
 
       proposal.state = 'dismissed';

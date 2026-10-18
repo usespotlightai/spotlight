@@ -1,4 +1,4 @@
-import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
+import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -25,7 +25,7 @@ const waiting = () =>
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'task_1:station_1' },
+      resume: { key: 'task_1:station_1' },
     }),
   })
     .claim(RUNNER, NOW)
@@ -52,7 +52,7 @@ const renewing = (reads: Run[], conflictsFirst = false) => {
         saved.push(run);
       },
     } as unknown as RunRepository,
-    { seen: async () => true } as unknown as RunnerPresencePort,
+    { heartbeat: async () => true } as unknown as RunnerHeartbeatsPort,
     { now: () => NOW, sleep: async () => {} },
   );
 
@@ -63,7 +63,7 @@ const renewing = (reads: Run[], conflictsFirst = false) => {
 };
 
 describe('RenewLeaseHandler', () => {
-  it('renews again when a person’s answer took the run up at the same moment', async () => {
+  it('renews again when a person’s answer resumed the run at the same moment', async () => {
     const { renew, saved } = renewing([waiting(), waiting().resumed()], true);
 
     await renew();
@@ -71,8 +71,8 @@ describe('RenewLeaseHandler', () => {
     expect(saved[0]?.state).toBe('claimed');
   });
 
-  it('says a run its runner no longer holds is not there, rather than a conflict', async () => {
-    const { renew } = renewing([waiting().letGo(NOW)]);
+  it('says a run its runner no longer leases is not there, rather than a conflict', async () => {
+    const { renew } = renewing([waiting().cancel(NOW)]);
 
     await expect(renew()).rejects.toMatchObject({ kind: 'not-found' });
   });

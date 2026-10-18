@@ -16,7 +16,7 @@ import type { FrontierPoint } from '@/lib/search';
 
 const HEIGHT = 240;
 
-const Said = ({
+const TipContent = ({
   placement,
   active,
   payload,
@@ -116,7 +116,10 @@ export function FrontierChart({ points, currency }: FrontierChartProps) {
                 {...cursor.tooltip}
                 {...hover.tooltip}
                 content={
-                  <Said placement={cursor.placement} currency={currency} />
+                  <TipContent
+                    placement={cursor.placement}
+                    currency={currency}
+                  />
                 }
                 cursor={false}
               />

@@ -14,58 +14,58 @@ import (
 )
 
 type conversation struct {
-	run         protocol.Run
-	harness     *acp.Client
-	sessionID   string
-	journal     *journalWriter
-	control     Journal
-	keeper      *keeper
-	lifecycle   *progress
-	declared    func() *protocol.Outcome
-	attached    func(context.Context, protocol.Attachment) error
-	putToPerson *atomic.Bool
-	handOver    func(context.Context)
-	closed      bool
-	heartbeat   time.Duration
-	answerWait  time.Duration
-	log         *slog.Logger
+	run          protocol.Run
+	harness      *acp.Client
+	sessionID    string
+	journal      *journalWriter
+	control      Journal
+	archiver     *archiver
+	lifecycle    *progress
+	takeHandover func() *protocol.Handover
+	attached     func(context.Context, protocol.Attachment) error
+	escalated    *atomic.Bool
+	handOver     func(context.Context)
+	closed       bool
+	heartbeat    time.Duration
+	answerWait   time.Duration
+	log          *slog.Logger
 
 	stopped chan struct{}
 	lost    chan struct{}
 	losing  sync.Once
 }
 
-const unheardParkings = 3
+const maxUnreadAnswers = 3
 
-const carryOn = "The runner working on this was lost before your turn ended. Carry on where you left off."
+const resumeAfterLostRunner = "The runner working on this was lost before your turn ended. Carry on where you left off."
 
 type lostRun interface {
-	Lost() bool
+	RunNoLongerLeased() bool
 }
 
-type wake int
+type awaitResult int
 
 const (
-	answered wake = iota
-	toldToStop
-	letGo
+	answered awaitResult = iota
+	stopRequested
+	released
 )
 
 func (c *conversation) opening(ctx context.Context) string {
 	briefing := c.run.Spec.Briefing
-	if !c.run.Spec.Continuity.Resumes {
+	if !c.run.Spec.Resume.ResumeSession {
 		return briefing
 	}
 
-	resumed := c.sessionID == c.run.Spec.Continuity.SessionID
-	said, heard := c.hear(ctx)
+	resumed := c.sessionID == c.run.Spec.Resume.SessionID
+	message, received := c.pollMessages(ctx)
 	switch {
-	case heard && resumed:
-		return said
-	case heard:
-		return briefing + "\n\n" + said
+	case received && resumed:
+		return message
+	case received:
+		return briefing + "\n\n" + message
 	case resumed:
-		return carryOn
+		return resumeAfterLostRunner
 	default:
 		return briefing
 	}
@@ -89,32 +89,32 @@ func (c *conversation) work(ctx context.Context, prompt string) (bool, error) {
 		c.lifecycle.note(PersonAsked, c.log)
 		c.log.Info("waiting warm for a person to answer", "for", c.answerWait)
 
-		said, woke := c.await(ctx)
+		message, woke := c.await(ctx)
 		switch woke {
-		case letGo:
-			c.lifecycle.note(RunParked, c.log)
+		case released:
+			c.lifecycle.note(RunSuspended, c.log)
 			return true, nil
-		case toldToStop:
+		case stopRequested:
 			_, err := c.complete(ctx, 0)
 			return false, err
 		}
 
 		c.lifecycle.note(PersonAnswered, c.log)
-		c.putToPerson.Store(false)
-		prompt = said
+		c.escalated.Store(false)
+		prompt = message
 	}
 }
 
 func (c *conversation) converse(ctx context.Context, prompt string) int {
-	steered, resaid := false, false
+	steered, resent := false, false
 
 	for {
 		turn, endTurn := context.WithCancel(ctx)
 		go c.steer(turn)
 
-		heard := 0
+		updates := 0
 		result, err := c.harness.Prompt(ctx, c.sessionID, prompt, func(update acp.Update) {
-			heard++
+			updates++
 			c.journal.append(protocol.Event{
 				Type: protocol.EventOutput,
 				Data: update.Raw,
@@ -127,23 +127,23 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 		}
 		c.journal.flush(ctx)
 
-		if c.told() {
+		if c.stopWasRequested() {
 			return 0
 		}
 
-		if c.putToPerson.Load() {
+		if c.escalated.Load() {
 			if replays(c.run) {
 				c.log.Info("a replay asked a person for permission; it ends there")
 				return 0
 			}
 
-			said, answered := c.hear(ctx)
-			if !answered {
+			message, received := c.pollMessages(ctx)
+			if !received {
 				c.log.Info("a person was asked for permission; the turn ends")
 				return 0
 			}
-			c.putToPerson.Store(false)
-			prompt = said
+			c.escalated.Store(false)
+			prompt = message
 			continue
 		}
 
@@ -155,12 +155,12 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 		c.log.Info("turn finished", "stopReason", result.StopReason)
 
 		// A harness can end the turn immediately after a cancel and not read the prompt.
-		if steered && !resaid && heard == 0 && result.StopReason == "end_turn" {
-			c.log.Info("the harness let what was said go unread; saying it again")
-			resaid = true
+		if steered && !resent && updates == 0 && result.StopReason == "end_turn" {
+			c.log.Info("the harness did not read the message; sending it again")
+			resent = true
 			continue
 		}
-		steered, resaid = result.StopReason == "cancelled", false
+		steered, resent = result.StopReason == "cancelled", false
 
 		if result.StopReason != "end_turn" &&
 			result.StopReason != "max_tokens" &&
@@ -168,33 +168,33 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 			return 1
 		}
 
-		said, heardMore := c.hear(ctx)
-		if !heardMore {
+		message, receivedMore := c.pollMessages(ctx)
+		if !receivedMore {
 			return 0
 		}
-		prompt = said
+		prompt = message
 	}
 }
 
 func (c *conversation) complete(ctx context.Context, exitCode int) (waiting bool, err error) {
-	stopped := c.told()
+	stopped := c.stopWasRequested()
 	turn := protocol.Completion{
 		ExitCode:  exitCode,
 		Failed:    !stopped && exitCode != 0,
 		Stopped:   stopped,
-		Outcome:   c.declared(),
+		Handover:  c.takeHandover(),
 		SessionID: c.sessionID,
 	}
 
-	asks, err := c.control.Asks(ctx, c.run.ID, turn)
+	awaits, err := c.control.AwaitsPerson(ctx, c.run.ID, turn)
 	if err != nil {
-		c.log.Warn("could not ask whether the turn waits for a person; ending it as the run ends", "error", err)
+		c.log.Warn("could not read whether the turn waits for a person; ending it as the run ends", "error", err)
 	}
-	if !asks {
+	if !awaits {
 		c.close()
 	}
 
-	turn.Kept = c.keeper.keep(ctx)
+	turn.Archived = c.archiver.archive(ctx)
 	c.journal.flush(ctx)
 
 	if c.handOver != nil && !stopped {
@@ -220,14 +220,14 @@ func (c *conversation) lose() {
 	c.losing.Do(func() { close(c.lost) })
 }
 
-func (c *conversation) await(ctx context.Context) (string, wake) {
+func (c *conversation) await(ctx context.Context) (string, awaitResult) {
 	wait := c.answerWait
 	if c.closed {
 		wait = 0
 	}
 	grace := time.NewTimer(wait)
 	defer grace.Stop()
-	unheard := 0
+	unread := 0
 
 	listening := time.NewTicker(c.heartbeat)
 	defer listening.Stop()
@@ -235,64 +235,64 @@ func (c *conversation) await(ctx context.Context) (string, wake) {
 	for {
 		select {
 		case <-ctx.Done():
-			c.log.Info("the runner is stopping; the run is parked once its lease lapses")
-			return "", letGo
+			c.log.Info("the runner is stopping; the run is suspended once its lease expires")
+			return "", released
 		case <-c.stopped:
-			return "", toldToStop
+			return "", stopRequested
 		case <-c.lost:
-			c.log.Info("the run is no longer this runner's; letting the sandbox go")
-			return "", letGo
+			c.log.Info("the run is no longer this runner's; releasing the sandbox")
+			return "", released
 		case <-listening.C:
 			if c.closed {
 				continue
 			}
-			if said, heard := c.hear(ctx); heard {
-				return said, answered
+			if message, received := c.pollMessages(ctx); received {
+				return message, answered
 			}
 		case <-grace.C:
-			parking, err := c.control.Park(ctx, c.run.ID, false)
+			suspension, err := c.control.Suspend(ctx, c.run.ID, false)
 			if err != nil {
-				c.log.Warn("could not park the run; it is parked once its lease lapses", "error", err)
-				return "", letGo
+				c.log.Warn("could not suspend the run; it is suspended once its lease expires", "error", err)
+				return "", released
 			}
-			if parking.Parked {
-				c.log.Info("nobody answered in time; the run is parked")
-				return "", letGo
+			if suspension.Suspended {
+				c.log.Info("nobody answered in time; the run is suspended")
+				return "", released
 			}
 
 			if c.closed {
-				c.log.Info("answered while parking a run whose harness has closed; it goes back on the queue for the next runner")
-				if _, err := c.control.Park(ctx, c.run.ID, true); err != nil {
-					c.log.Warn("could not hand the run back; it is taken up again once its lease lapses", "error", err)
+				c.log.Info("answered while suspending a run whose harness has closed; it is requeued for the next runner")
+				if _, err := c.control.Suspend(ctx, c.run.ID, true); err != nil {
+					c.log.Warn("could not requeue the run; a runner claims it again once its lease expires", "error", err)
 				}
-				return "", letGo
+				return "", released
 			}
 
-			c.log.Info("answered while parking")
-			if said, heard := c.hear(ctx); heard {
-				return said, answered
+			c.log.Info("answered while suspending")
+			if message, received := c.pollMessages(ctx); received {
+				return message, answered
 			}
-			if unheard++; unheard >= unheardParkings {
-				c.log.Warn("told the run works again, yet nothing is there to hear; letting it go")
-				return "", letGo
+			if unread++; unread >= maxUnreadAnswers {
+				c.log.Warn("the run works again, but no message is there to read; releasing it")
+				return "", released
 			}
 			grace.Reset(max(c.answerWait, c.heartbeat))
 		}
 	}
 }
 
-func (c *conversation) hear(ctx context.Context) (string, bool) {
-	said, err := c.control.Said(ctx, c.run.ID)
+func (c *conversation) pollMessages(ctx context.Context) (string, bool) {
+	messages, err := c.control.Messages(ctx, c.run.ID)
 	if err != nil {
-		c.log.Warn("could not read what was said", "error", err)
+		c.log.Warn("could not read the messages", "error", err)
 		return "", false
 	}
-	if len(said) == 0 {
+	if len(messages) == 0 {
 		return "", false
 	}
 
-	bodies := make([]string, 0, len(said))
-	for _, each := range said {
+	bodies := make([]string, 0, len(messages))
+	for _, each := range messages {
 		for _, attachment := range each.Attachments {
 			if err := c.attached(ctx, attachment); err != nil {
 				c.log.Warn("could not fetch what was attached", "error", err)
@@ -301,13 +301,13 @@ func (c *conversation) hear(ctx context.Context) (string, bool) {
 		bodies = append(bodies, each.Body)
 	}
 
-	upTo := said[len(said)-1].Position
-	if err := c.control.Delivered(ctx, c.run.ID, upTo); err != nil {
-		c.log.Warn("could not mark what was said delivered", "error", err)
+	upTo := messages[len(messages)-1].Position
+	if err := c.control.AckMessages(ctx, c.run.ID, upTo); err != nil {
+		c.log.Warn("could not acknowledge the messages", "error", err)
 		return "", false
 	}
 
-	c.log.Info("a person said something", "upTo", upTo)
+	c.log.Info("a person sent a message", "upTo", upTo)
 	return strings.Join(bodies, "\n\n"), true
 }
 
@@ -320,15 +320,15 @@ func (c *conversation) steer(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			said, err := c.control.Said(ctx, c.run.ID)
+			messages, err := c.control.Messages(ctx, c.run.ID)
 			if err != nil {
 				if ctx.Err() == nil {
-					c.log.Warn("could not look for anything said", "error", err)
+					c.log.Warn("could not look for messages", "error", err)
 				}
 				continue
 			}
-			if len(said) > 0 {
-				c.log.Info("a person spoke mid-turn; steering")
+			if len(messages) > 0 {
+				c.log.Info("a person sent a message mid-turn; steering")
 				if err := c.harness.Cancel(c.sessionID); err != nil {
 					c.log.Warn("could not cancel the turn", "error", err)
 				}
@@ -343,7 +343,7 @@ func (c *conversation) stop() {
 	_ = c.harness.Close()
 }
 
-func (c *conversation) told() bool {
+func (c *conversation) stopWasRequested() bool {
 	select {
 	case <-c.stopped:
 		return true
@@ -371,8 +371,8 @@ func renew(
 		case <-ticker.C:
 			stop, err := lease.RenewLease(ctx, runID)
 			var lost lostRun
-			if errors.As(err, &lost) && lost.Lost() {
-				log.Info("the run is no longer held by this runner", "error", err)
+			if errors.As(err, &lost) && lost.RunNoLongerLeased() {
+				log.Info("the run is no longer leased by this runner", "error", err)
 				onLost()
 				return
 			}
@@ -381,7 +381,7 @@ func renew(
 				continue
 			}
 			if stop {
-				log.Info("a person asked the run to stop")
+				log.Info("a person requested a stop")
 				onStop()
 				return
 			}

@@ -10,9 +10,9 @@ export class PayloadTypes {
   register(scope: string, types: readonly EventType[]): void {
     for (const type of types) {
       const name = `${scope}.${type.name}`;
-      const held = this.#named.get(name);
+      const existing = this.#named.get(name);
 
-      if (held && held !== type) {
+      if (existing && existing !== type) {
         throw new Error(
           `Two event types in ${scope} are both called ${type.name}; give one another name`,
         );

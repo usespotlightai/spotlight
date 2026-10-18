@@ -36,8 +36,8 @@ const ranAt = alias(station, 'ran_at');
 const PREVIEW_LIMIT = 300;
 
 const shortened = (text: string | null | undefined): string | null => {
-  const said = text?.trim();
-  return said ? said.slice(0, PREVIEW_LIMIT) : null;
+  const trimmed = text?.trim();
+  return trimmed ? trimmed.slice(0, PREVIEW_LIMIT) : null;
 };
 
 @Injectable()
@@ -66,10 +66,10 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
         ranColor: ranAt.color,
         ranPosition: ranAt.position,
         ranLineId: ranAt.lineId,
-        standsName: station.name,
-        standsColor: station.color,
-        standsPosition: station.position,
-        standsLineId: station.lineId,
+        currentStationName: station.name,
+        currentStationColor: station.color,
+        currentStationPosition: station.position,
+        currentLineId: station.lineId,
         workspaceId: run.workspaceId,
       })
       .from(run)
@@ -84,31 +84,31 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
       viewerId,
       rows.map((row) => WorkspaceId.of(row.workspaceId)),
     );
-    const worked = rows.flatMap((row) =>
+    const traced = rows.flatMap((row) =>
       row.taskId && visible.has(row.workspaceId) ? [row] : [],
     );
 
-    if (worked.length === 0) {
+    if (traced.length === 0) {
       return [];
     }
 
-    const said = await this.db
+    const runNotes = await this.db
       .select({ runId: taskNote.runId, body: taskNote.body })
       .from(taskNote)
       .where(
         inArray(
           taskNote.runId,
-          worked.map((row) => row.runId),
+          traced.map((row) => row.runId),
         ),
       )
       .orderBy(asc(taskNote.position));
 
-    const answers = new Map(said.map((each) => [each.runId, each.body]));
+    const answers = new Map(runNotes.map((each) => [each.runId, each.body]));
 
-    const held = await stationsPerLine(
+    const stationCounts = await stationsPerLine(
       this.db,
-      worked.flatMap((row) =>
-        [row.ranLineId, row.standsLineId].flatMap((each) =>
+      traced.flatMap((row) =>
+        [row.ranLineId, row.currentLineId].flatMap((each) =>
           each ? [each] : [],
         ),
       ),
@@ -128,7 +128,7 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
             name: called,
             color: shade,
             position,
-            count: held.get(lineId ?? '') ?? 1,
+            count: stationCounts.get(lineId ?? '') ?? 1,
           }
         : null;
     };
@@ -136,7 +136,7 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
     const traces = new Map<string, TeamTraceSummary>();
     const passed = new Map<string, Map<string, TraceStation>>();
 
-    for (const row of worked) {
+    for (const row of traced) {
       const taskId = row.taskId as string;
 
       const ran = stationOf(
@@ -151,18 +151,18 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
       }
       passed.set(taskId, marks);
 
-      const standing = traces.get(taskId);
+      const existing = traces.get(taskId);
 
-      if (!standing) {
+      if (!existing) {
         traces.set(taskId, {
           taskId: TaskId.of(taskId),
           title: row.title,
           runIds: [RunId.of(row.runId)],
           station: stationOf(
-            row.standsName,
-            row.standsColor,
-            row.standsPosition,
-            row.standsLineId,
+            row.currentStationName,
+            row.currentStationColor,
+            row.currentStationPosition,
+            row.currentLineId,
           ),
           stations: [],
           harness: HarnessName.of(row.harness),
@@ -177,9 +177,9 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
       }
 
       traces.set(taskId, {
-        ...standing,
-        runIds: [...standing.runIds, RunId.of(row.runId)],
-        runs: standing.runs + 1,
+        ...existing,
+        runIds: [...existing.runIds, RunId.of(row.runId)],
+        runs: existing.runs + 1,
         startedAt: row.startedAt,
       });
     }

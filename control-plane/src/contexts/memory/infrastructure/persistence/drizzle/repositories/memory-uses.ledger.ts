@@ -16,7 +16,7 @@ export class DrizzleMemoryUses implements MemoryUsesPort {
 
   async record(
     runId: RunId,
-    way: MemoryUse,
+    via: MemoryUse,
     memories: readonly MemoryId[],
     at: Date,
   ): Promise<void> {
@@ -30,7 +30,7 @@ export class DrizzleMemoryUses implements MemoryUsesPort {
         memories.map((each) => ({
           memoryId: each.value,
           runId: runId.value,
-          way,
+          via,
           at,
         })),
       )
@@ -39,20 +39,20 @@ export class DrizzleMemoryUses implements MemoryUsesPort {
 
   async ofRun(runId: RunId): Promise<readonly UsedMemory[]> {
     const rows = await this.context.db
-      .select({ memoryId: memoryUse.memoryId, way: memoryUse.way })
+      .select({ memoryId: memoryUse.memoryId, via: memoryUse.via })
       .from(memoryUse)
       .where(eq(memoryUse.runId, runId.value))
       .orderBy(asc(memoryUse.at));
 
     return rows.map((row) => ({
       memoryId: MemoryId.of(row.memoryId),
-      way: row.way,
+      via: row.via,
     }));
   }
 
   async runsUsing(
     memories: readonly MemoryId[],
-    way?: MemoryUse,
+    via?: MemoryUse,
   ): Promise<ReadonlyMap<string, number>> {
     if (memories.length === 0) {
       return new Map();
@@ -70,7 +70,7 @@ export class DrizzleMemoryUses implements MemoryUsesPort {
             memoryUse.memoryId,
             memories.map((each) => each.value),
           ),
-          way ? eq(memoryUse.way, way) : undefined,
+          via ? eq(memoryUse.via, via) : undefined,
         ),
       )
       .groupBy(memoryUse.memoryId);

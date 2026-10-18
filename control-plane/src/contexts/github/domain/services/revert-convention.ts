@@ -9,22 +9,24 @@ const REVERTS_IN_BODY =
 
 const REVERT_TITLE = /^Revert\s+"(.+)"\s*$/;
 
-export const revertTargetOf = (said: {
+export const revertTargetOf = (pullRequest: {
   readonly title: string;
   readonly body: string | null;
   readonly repository: Repository;
 }): RevertTarget | null => {
-  const named = said.body ? REVERTS_IN_BODY.exec(said.body) : null;
+  const named = pullRequest.body
+    ? REVERTS_IN_BODY.exec(pullRequest.body)
+    : null;
 
   if (
     named?.[1] &&
     named[2] &&
-    named[1].toLowerCase() === said.repository.value.toLowerCase()
+    named[1].toLowerCase() === pullRequest.repository.value.toLowerCase()
   ) {
     return { kind: 'number', number: Number(named[2]) };
   }
 
-  const titled = REVERT_TITLE.exec(said.title.trim());
+  const titled = REVERT_TITLE.exec(pullRequest.title.trim());
 
   return titled?.[1] ? { kind: 'title', title: titled[1] } : null;
 };

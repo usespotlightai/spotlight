@@ -23,13 +23,13 @@ const (
 	workKind        = "work"
 )
 
-var errStreamingLog = errors.New("this is the log `terraform plan -json` streams, which holds no station blocks; save the plan with `" + planOutCommand + "`, then give this the output of `" + showCommand + "`")
+var errStreamingLog = errors.New("this is the log `terraform plan -json` streams, which contains no station blocks; save the plan with `" + planOutCommand + "`, then pass this the output of `" + showCommand + "`")
 
 type plannedStation struct {
 	Resource  string
 	LineID    string
 	TeamID    string
-	Address   string
+	Path      string
 	Key       string
 	Block     map[string]any
 	Line      map[string]any
@@ -77,14 +77,14 @@ var textAttributes = []string{"key", "name", "kind", "color", "description", "ha
 
 var flagAttributes = []string{"diffs", "decisions", "memories"}
 
-var listAttributes = []struct{ held, sent string }{
+var listAttributes = []struct{ stored, sent string }{
 	{"tools", "tools"},
 	{"skills", "skills"},
 	{"runners", "runners"},
 	{"passes_to", "passesTo"},
 }
 
-var alertAttributes = []struct{ held, sent string }{
+var alertAttributes = []struct{ stored, sent string }{
 	{"measure", "measure"},
 	{"rises_by", "risesBy"},
 	{"above", "above"},
@@ -110,7 +110,7 @@ func readPlan(in io.Reader) (planned, error) {
 
 	var first map[string]any
 	if err := decoder.Decode(&first); err != nil {
-		return planned{}, fmt.Errorf("the plan is not JSON; give this the output of `%s`", showCommand)
+		return planned{}, fmt.Errorf("the plan is not JSON; pass this the output of `%s`", showCommand)
 	}
 
 	_, logged := first["@level"]
@@ -122,7 +122,7 @@ func readPlan(in io.Reader) (planned, error) {
 	strict := json.NewDecoder(bytes.NewReader(read))
 	strict.UseNumber()
 	if err := strict.Decode(&shown); err != nil || shown.FormatVersion == "" {
-		return planned{}, fmt.Errorf("this is not a saved plan shown as JSON; give this the output of `%s`", showCommand)
+		return planned{}, fmt.Errorf("this is not a saved plan shown as JSON; pass this the output of `%s`", showCommand)
 	}
 
 	var lines []resourceChange
@@ -156,27 +156,27 @@ func catalogChangeOf(change resourceChange) *catalogChange {
 		return nil
 	}
 
-	held := change.Change.Before
-	if held == nil {
-		held = change.Change.After
+	values := change.Change.Before
+	if values == nil {
+		values = change.Change.After
 	}
-	teamID, _ := held["team_id"].(string)
+	teamID, _ := values["team_id"].(string)
 	changed := &catalogChange{address: change.Address, teamID: teamID}
 
 	switch change.Type {
 	case skillType:
 		changed.kind = "skill"
-		changed.key, _ = held["key"].(string)
+		changed.key, _ = values["key"].(string)
 	case profileType:
 		changed.kind = "harness profile"
-		changed.key, _ = held["key"].(string)
+		changed.key, _ = values["key"].(string)
 	case integrationType:
 		changed.kind = "integration"
-		changed.key, _ = held["source"].(string)
+		changed.key, _ = values["integration"].(string)
 	case hookType:
 		changed.kind = "hook"
 		changed.key = "*"
-		if stations, ok := objectAt(held["match"])["stations"].([]any); ok && len(stations) > 0 {
+		if stations, ok := objectAt(values["match"])["stations"].([]any); ok && len(stations) > 0 {
 			for _, each := range stations {
 				if key, ok := each.(string); ok {
 					changed.stations = append(changed.stations, key)
@@ -269,7 +269,7 @@ func (p *planned) add(change resourceChange, catalog []catalogChange) {
 	var removed []string
 	if actions == "update" {
 		for _, key := range sortedKeys(was) {
-			if _, kept := now[key]; !kept {
+			if _, present := now[key]; !present {
 				p.note("%s removes station %s, which leaves nothing to replay", change.Address, key)
 				if kind, _ := was[key].values["kind"].(string); kind == workKind {
 					removed = append(removed, key)
@@ -279,8 +279,8 @@ func (p *planned) add(change resourceChange, catalog []catalogChange) {
 	}
 
 	for _, key := range sortedKeys(now) {
-		held := now[key]
-		if held.unknownKey {
+		current := now[key]
+		if current.unknownKey {
 			p.note("%s has a station whose key is known only after apply, so it is not checked", change.Address)
 			continue
 		}
@@ -288,11 +288,11 @@ func (p *planned) add(change resourceChange, catalog []catalogChange) {
 		old, existed := was[key]
 		if !existed {
 			p.note("%s adds station %s, with no live config to check it against", change.Address, key)
-			if kind, _ := held.values["kind"].(string); kind == workKind && len(removed) > 0 {
+			if kind, _ := current.values["kind"].(string); kind == workKind && len(removed) > 0 {
 				p.Stations = append(p.Stations, plannedStation{
 					Resource:  change.Address,
 					TeamID:    teamID,
-					Address:   stationAddress(address, change.Address, key),
+					Path:      stationPath(address, change.Address, key),
 					Key:       key,
 					Undecided: true,
 					Because:   fmt.Sprintf("not checked, since the plan removes %s and adds this station, which may be a station renamed; a renamed station starts with no live config to check it against", strings.Join(removed, ", ")),
@@ -301,10 +301,10 @@ func (p *planned) add(change resourceChange, catalog []catalogChange) {
 			continue
 		}
 
-		changed, unknownParts := held.changedFrom(old.values)
+		changed, unknownParts := current.changedFrom(old.values)
 		var feeding []string
 		for _, each := range catalog {
-			if each.feeds(teamID, key, old.values) || each.feeds(teamID, key, held.values) {
+			if each.feeds(teamID, key, old.values) || each.feeds(teamID, key, current.values) {
 				feeding = append(feeding, fmt.Sprintf("%s %s", each.kind, each.address))
 			}
 		}
@@ -314,7 +314,7 @@ func (p *planned) add(change resourceChange, catalog []catalogChange) {
 			continue
 		}
 
-		if kind, _ := held.values["kind"].(string); kind != workKind {
+		if kind, _ := current.values["kind"].(string); kind != workKind {
 			if changed {
 				p.note("%s changes station %s, where nothing runs, so there is nothing to replay", change.Address, key)
 			}
@@ -325,9 +325,9 @@ func (p *planned) add(change resourceChange, catalog []catalogChange) {
 			Resource: change.Address,
 			LineID:   lineID,
 			TeamID:   teamID,
-			Address:  stationAddress(address, change.Address, key),
+			Path:     stationPath(address, change.Address, key),
 			Key:      key,
-			Block:    held.block(),
+			Block:    current.block(),
 		}
 
 		switch {
@@ -365,7 +365,7 @@ func (p *planned) replaced(change resourceChange) {
 		p.Stations = append(p.Stations, plannedStation{
 			Resource:  change.Address,
 			TeamID:    teamID,
-			Address:   stationAddress(address, change.Address, key),
+			Path:      stationPath(address, change.Address, key),
 			Key:       key,
 			Undecided: true,
 			Because:   "not checked, since the plan replaces its line, so it starts with no live config to check it against",
@@ -377,18 +377,18 @@ func (p *planned) note(format string, args ...any) {
 	p.Notes = append(p.Notes, fmt.Sprintf(format, args...))
 }
 
-func stationAddress(lineAddress, resource, key string) string {
-	if lineAddress != "" {
-		return lineAddress + "/" + key
+func stationPath(linePath, resource, key string) string {
+	if linePath != "" {
+		return linePath + "/" + key
 	}
 
 	return resource + "/" + key
 }
 
-func repositoriesOf(held any) []any {
+func repositoriesOf(node any) []any {
 	out := []any{}
 
-	for _, each := range listAt(held) {
+	for _, each := range listAt(node) {
 		repository := objectAt(each)
 		written := map[string]any{}
 		for _, name := range repositoryAttributes {
@@ -408,16 +408,16 @@ func repositoriesOf(held any) []any {
 	return out
 }
 
-type heldStation struct {
+type stationState struct {
 	values     map[string]any
 	unknown    map[string]any
 	unknownKey bool
 }
 
-func stationsByKey(held any, unknown []any) map[string]heldStation {
-	out := map[string]heldStation{}
+func stationsByKey(node any, unknown []any) map[string]stationState {
+	out := map[string]stationState{}
 
-	for at, each := range listAt(held) {
+	for at, each := range listAt(node) {
 		values := objectAt(each)
 		var whatsUnknown map[string]any
 		if at < len(unknown) {
@@ -426,17 +426,17 @@ func stationsByKey(held any, unknown []any) map[string]heldStation {
 
 		key, ok := values["key"].(string)
 		if !ok || isUnknown(whatsUnknown["key"]) {
-			out[fmt.Sprintf("\x00unknown-%d", at)] = heldStation{unknownKey: true}
+			out[fmt.Sprintf("\x00unknown-%d", at)] = stationState{unknownKey: true}
 			continue
 		}
 
-		out[key] = heldStation{values: values, unknown: whatsUnknown}
+		out[key] = stationState{values: values, unknown: whatsUnknown}
 	}
 
 	return out
 }
 
-func (s heldStation) changedFrom(before map[string]any) (bool, []string) {
+func (s stationState) changedFrom(before map[string]any) (bool, []string) {
 	var unknownParts []string
 	changed := false
 
@@ -459,7 +459,7 @@ func (s heldStation) changedFrom(before map[string]any) (bool, []string) {
 	return changed, unknownParts
 }
 
-func (s heldStation) block() map[string]any {
+func (s stationState) block() map[string]any {
 	sent := map[string]any{}
 
 	for _, name := range textAttributes {
@@ -475,8 +475,8 @@ func (s heldStation) block() map[string]any {
 	}
 
 	for _, each := range listAttributes {
-		if held, ok := s.known(each.held).([]any); ok {
-			sent[each.sent] = held
+		if list, ok := s.known(each.stored).([]any); ok {
+			sent[each.sent] = list
 		}
 	}
 
@@ -486,9 +486,9 @@ func (s heldStation) block() map[string]any {
 
 	if judge, ok := s.known("judge").(map[string]any); ok {
 		written := map[string]any{}
-		for _, name := range []string{"rubric", "sample", "trust"} {
+		for name, key := range map[string]string{"rubric": "rubric", "sample": "sample", "min_agreement": "minAgreement"} {
 			if value := judge[name]; value != nil {
-				written[name] = value
+				written[key] = value
 			}
 		}
 		sent["judge"] = written
@@ -499,7 +499,7 @@ func (s heldStation) block() map[string]any {
 		alert := objectAt(each)
 		written := map[string]any{}
 		for _, attribute := range alertAttributes {
-			if value := alert[attribute.held]; value != nil {
+			if value := alert[attribute.stored]; value != nil {
 				written[attribute.sent] = value
 			}
 		}
@@ -510,7 +510,7 @@ func (s heldStation) block() map[string]any {
 	return sent
 }
 
-func (s heldStation) known(name string) any {
+func (s stationState) known(name string) any {
 	if isUnknown(s.unknown[name]) {
 		return nil
 	}
@@ -518,8 +518,8 @@ func (s heldStation) known(name string) any {
 	return s.values[name]
 }
 
-func isUnknown(held any) bool {
-	switch value := held.(type) {
+func isUnknown(node any) bool {
+	switch value := node.(type) {
 	case bool:
 		return value
 	case map[string]any:
@@ -546,8 +546,8 @@ func sameValue(one, other any) bool {
 	return bytes.Equal(written, again)
 }
 
-func normalised(held any) any {
-	switch value := held.(type) {
+func normalised(node any) any {
+	switch value := node.(type) {
 	case []any:
 		if len(value) == 0 {
 			return nil
@@ -560,8 +560,8 @@ func normalised(held any) any {
 	case map[string]any:
 		out := map[string]any{}
 		for key, each := range value {
-			if kept := normalised(each); kept != nil {
-				out[key] = kept
+			if normal := normalised(each); normal != nil {
+				out[key] = normal
 			}
 		}
 		if len(out) == 0 {
@@ -573,8 +573,8 @@ func normalised(held any) any {
 	}
 }
 
-func objectAt(held any) map[string]any {
-	object, _ := held.(map[string]any)
+func objectAt(node any) map[string]any {
+	object, _ := node.(map[string]any)
 	if object == nil {
 		return map[string]any{}
 	}
@@ -582,8 +582,8 @@ func objectAt(held any) map[string]any {
 	return object
 }
 
-func listAt(held any) []any {
-	list, _ := held.([]any)
+func listAt(node any) []any {
+	list, _ := node.([]any)
 
 	return list
 }
@@ -599,9 +599,9 @@ func unionOf(maps ...map[string]any) map[string]any {
 	return out
 }
 
-func sortedKeys[T any](held map[string]T) []string {
-	keys := make([]string, 0, len(held))
-	for key := range held {
+func sortedKeys[T any](entries map[string]T) []string {
+	keys := make([]string, 0, len(entries))
+	for key := range entries {
 		keys = append(keys, key)
 	}
 	sort.Slice(keys, func(one, other int) bool { return keys[one] < keys[other] })

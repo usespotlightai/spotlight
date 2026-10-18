@@ -1,5 +1,5 @@
 export class RunnerPoolVersionConflictError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(poolId: string) {
     super(

@@ -7,10 +7,10 @@ import {
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { RunnerHostVersionConflictError } from '@runners/domain/exceptions/runner-host-version-conflict.error';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
-import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { BootId } from '@runners/domain/value-objects/boot-id.vo';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
-import { HostSession } from '@runners/domain/value-objects/host-session.vo';
 import {
   type HostImageRecord,
   runnerHost,
@@ -25,12 +25,12 @@ import { and, eq, lte } from 'drizzle-orm';
 
 type Row = typeof runnerHost.$inferSelect;
 
-const admissionOf = (row: Row): Admission => {
+const credentialSourceOf = (row: Row): CredentialSource => {
   if (row.poolId !== null) {
-    return Admission.of('pool', row.poolId);
+    return CredentialSource.of('pool', row.poolId);
   }
   if (row.trustId !== null) {
-    return Admission.of('trust', row.trustId);
+    return CredentialSource.of('trust', row.trustId);
   }
 
   throw new InconsistentStateError(
@@ -43,36 +43,36 @@ const toHost = (row: Row): RunnerHost =>
   RunnerHost.rehydrate({
     id: HostId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
-    admission: admissionOf(row),
-    session: HostSession.of(row.session),
+    source: credentialSourceOf(row),
+    bootId: BootId.of(row.bootId),
     report: HostReport.of({
       name: row.name,
       release: row.release,
-      executor: row.executor,
+      containerRuntime: row.containerRuntime,
       capacity: row.capacity,
       running: row.running,
       images: row.images,
     }),
-    firstSeenAt: row.firstSeenAt,
-    upSince: row.upSince,
-    lastSeenAt: row.lastSeenAt,
+    firstHeartbeatAt: row.firstHeartbeatAt,
+    onlineSince: row.onlineSince,
+    lastHeartbeatAt: row.lastHeartbeatAt,
     version: row.version,
   });
 
-const heldOf = (host: RunnerHost) => ({
+const columnsOf = (host: RunnerHost) => ({
   workspaceId: host.workspaceId.value,
-  poolId: host.admission.poolId?.value ?? null,
-  trustId: host.admission.trustId?.value ?? null,
-  session: host.session.value,
+  poolId: host.source.poolId?.value ?? null,
+  trustId: host.source.trustId?.value ?? null,
+  bootId: host.bootId.value,
   name: host.report.name,
   release: host.report.release,
-  executor: host.report.executor,
+  containerRuntime: host.report.containerRuntime,
   capacity: host.report.capacity,
   running: host.report.running.map((each) => each.value),
   images: host.report.images.map(
     (each): HostImageRecord => ({
       image: each.image.value,
-      usual: each.usual,
+      isDefault: each.isDefault,
       harnesses: each.harnesses.map((harness) => ({
         id: harness.id.value,
         models: harness.models.map((model) => model.value),
@@ -80,12 +80,14 @@ const heldOf = (host: RunnerHost) => ({
       })),
       ...(each.digest ? { digest: each.digest.value } : {}),
       ...(each.release ? { release: each.release } : {}),
-      ...(each.refused ? { refused: each.refused } : {}),
+      ...(each.unavailableReason
+        ? { unavailableReason: each.unavailableReason }
+        : {}),
     }),
   ),
-  firstSeenAt: host.firstSeenAt,
-  upSince: host.upSince,
-  lastSeenAt: host.lastSeenAt,
+  firstHeartbeatAt: host.firstHeartbeatAt,
+  onlineSince: host.onlineSince,
+  lastHeartbeatAt: host.lastHeartbeatAt,
 });
 
 @Injectable()
@@ -111,7 +113,7 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
       try {
         await this.context.db.insert(runnerHost).values({
           id: host.id.value,
-          ...heldOf(host),
+          ...columnsOf(host),
           version: host.version,
         });
       } catch (error) {
@@ -130,7 +132,7 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
     await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(runnerHost)
-        .set({ ...heldOf(host), version: host.version + 1 })
+        .set({ ...columnsOf(host), version: host.version + 1 })
         .where(
           and(
             eq(runnerHost.id, host.id.value),
@@ -163,20 +165,20 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
     }
   }
 
-  async removeThrough(admission: Admission): Promise<void> {
+  async removeThrough(source: CredentialSource): Promise<void> {
     await this.context.db
       .delete(runnerHost)
       .where(
-        admission.kind === 'pool'
-          ? eq(runnerHost.poolId, admission.id)
-          : eq(runnerHost.trustId, admission.id),
+        source.kind === 'pool'
+          ? eq(runnerHost.poolId, source.id)
+          : eq(runnerHost.trustId, source.id),
       );
   }
 
-  async removeUnseenSince(since: Date): Promise<number> {
+  async removeStaleBefore(cutoff: Date): Promise<number> {
     const removed = await this.context.db
       .delete(runnerHost)
-      .where(lte(runnerHost.lastSeenAt, since))
+      .where(lte(runnerHost.lastHeartbeatAt, cutoff))
       .returning({ id: runnerHost.id });
 
     return removed.length;

@@ -3,8 +3,8 @@ import {
   CAUSE_HEADER,
   type HookFiringHistoryPort,
 } from '@integrations/application/ports/hook-firing-history.port';
-import type { WebhookHeaders } from '@integrations/application/ports/webhook-source.port';
-import type { SourceForDelivery } from '@integrations/application/services/source-for-delivery.service';
+import type { WebhookHeaders } from '@integrations/application/ports/webhook-provider.port';
+import type { ProviderForDelivery } from '@integrations/application/services/provider-for-delivery.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CausationPort } from '@shared-kernel/application/ports/causation.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -23,7 +23,7 @@ export class ReadDeliveryHandler
   implements CommandHandlerPort<ReadDeliveryCommand, void>
 {
   constructor(
-    private readonly sources: SourceForDelivery,
+    private readonly providers: ProviderForDelivery,
     private readonly reactions: HappeningReactionsPort,
     private readonly history: HookFiringHistoryPort,
     private readonly causation: CausationPort,
@@ -32,14 +32,14 @@ export class ReadDeliveryHandler
   async execute(command: ReadDeliveryCommand): Promise<void> {
     try {
       const stored = command.delivered;
-      const source = await this.sources.find({
-        source: stored.source,
+      const provider = await this.providers.find({
+        integration: stored.integration,
         workspaceId: stored.workspaceId,
         teamId: stored.teamId,
         teamKey: stored.teamKey,
       });
 
-      if (!source) {
+      if (!provider) {
         return;
       }
 
@@ -49,7 +49,7 @@ export class ReadDeliveryHandler
         raw: null,
       };
 
-      const news = (await source.read(delivered)).filter(
+      const news = (await provider.read(delivered)).filter(
         (each) => !each.ourOwn,
       );
 
@@ -57,7 +57,7 @@ export class ReadDeliveryHandler
         return;
       }
 
-      const workspaceId = await source.routes(delivered);
+      const workspaceId = await provider.routes(delivered);
 
       if (!workspaceId) {
         return;
@@ -68,25 +68,30 @@ export class ReadDeliveryHandler
         ? await this.history.chainOf(workspaceId.value, cause)
         : null;
 
-      await this.causation.within(this.heardFrom(fired, stored.source), () =>
-        this.reactions.react(
-          workspaceId,
-          stored.teamId ? TeamId.of(stored.teamId) : null,
-          news,
-          `delivery:${stored.source}:${stored.teamId}:${stored.id}`,
-        ),
+      await this.causation.runWith(
+        this.deliveryChain(fired, stored.integration),
+        () =>
+          this.reactions.react(
+            workspaceId,
+            stored.teamId ? TeamId.of(stored.teamId) : null,
+            news,
+            `delivery:${stored.integration}:${stored.teamId}:${stored.id}`,
+          ),
       );
     } catch (error) {
       rethrowAsApplicationError(error);
     }
   }
 
-  private heardFrom(fired: CausalChain | null, source: string): CausalChain {
+  private deliveryChain(
+    fired: CausalChain | null,
+    integration: string,
+  ): CausalChain {
     return fired
-      ? fired.followedBy({
+      ? fired.append({
           kind: 'delivery',
-          key: `delivery:${source}`,
-          saying: `a delivery from ${source}`,
+          key: `delivery:${integration}`,
+          description: `a delivery from ${integration}`,
         })
       : CausalChain.none();
   }

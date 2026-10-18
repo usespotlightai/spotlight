@@ -16,8 +16,8 @@ const step = (
   ms: 1,
   startedAt: new Date('2026-09-30T10:00:00Z'),
   locations: [],
-  given: null,
-  returned: null,
+  input: null,
+  output: null,
   change,
 });
 
@@ -30,12 +30,12 @@ const journal = (steps: JournalStep[]): RunJournal => ({
   marks: {
     startedAt: null,
     readyAt: null,
-    spokeFrom: null,
-    spokeTo: null,
+    firstAgentUpdateAt: null,
+    lastAgentUpdateAt: null,
     endedAt: null,
   },
   spent: null,
-  egress: null,
+  egressEnforcement: null,
 });
 
 describe('fileChangesOf', () => {

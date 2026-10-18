@@ -13,8 +13,8 @@ import { notFound } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
 import {
   connectionGroups,
+  ENFORCEMENT_DESCRIPTION,
   ENFORCEMENT_LABELS,
-  ENFORCEMENT_TOLD,
 } from '@/lib/run-network';
 import { cn } from '@/lib/utils';
 
@@ -62,7 +62,7 @@ export function RunNetwork({
 
   if (
     !network ||
-    (network.egress === null && network.connections.length === 0)
+    (network.egressEnforcement === null && network.connections.length === 0)
   ) {
     return null;
   }
@@ -74,7 +74,7 @@ export function RunNetwork({
       <DetailSection title="Egress">
         <dl data-slot="run-network">
           <DetailProperty name={ENFORCEMENT}>
-            {network.egress ? (
+            {network.egressEnforcement ? (
               <Tooltip>
                 <TooltipTrigger
                   render={
@@ -87,15 +87,15 @@ export function RunNetwork({
                   <span
                     data-slot="egress-enforcement"
                     className={cn(
-                      network.egress === 'not-enforced' &&
+                      network.egressEnforcement === 'not-enforced' &&
                         'text-amber-600 dark:text-amber-400',
                     )}
                   >
-                    {ENFORCEMENT_LABELS[network.egress]}
+                    {ENFORCEMENT_LABELS[network.egressEnforcement]}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-80">
-                  {ENFORCEMENT_TOLD[network.egress]}
+                  {ENFORCEMENT_DESCRIPTION[network.egressEnforcement]}
                 </TooltipContent>
               </Tooltip>
             ) : (

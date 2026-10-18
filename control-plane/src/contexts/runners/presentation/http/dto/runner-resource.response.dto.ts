@@ -26,14 +26,14 @@ export class RunnerTrustResourceResponseDto extends ResourceResponseDto {
 
   @ApiProperty({
     example: 'production-cluster',
-    description: 'Names the trust; fixed for its life',
+    description: 'Names the trust. Immutable',
   })
   readonly key: string;
 
   @ApiProperty({
     example: 'https://oidc.eks.eu-west-1.amazonaws.com/id/EXAMPLE',
     description:
-      'The issuer of the tokens the platform gives its workloads; its keys are found through OIDC discovery',
+      'The issuer of the tokens the platform issues to its workloads; its keys are found through OIDC discovery',
   })
   readonly issuer: string;
 
@@ -76,7 +76,7 @@ export class PoolProvisionResponseDto {
     nullable: true,
     example: 1,
     description:
-      'Changed to rotate provision.secret, which is write-only and never answered',
+      'Changed to rotate provision.secret, which is write-only and never returned',
   })
   readonly secretVersion: number | null;
 
@@ -116,7 +116,7 @@ export class RunnerPoolResourceResponseDto extends ResourceResponseDto {
 
   @ApiProperty({
     example: 'ephemeral',
-    description: 'Names the pool, and is its address; fixed for its life',
+    description: 'Names the pool, and is its address. Immutable',
   })
   readonly key: string;
 
@@ -135,7 +135,7 @@ export class RunnerPoolResourceResponseDto extends ResourceResponseDto {
     enum: ['pull', 'push'],
     example: 'pull',
     description:
-      'pull when hosts claim with the pool token, push when Spotlight calls provision; fixed for its life, and not settable',
+      'pull when hosts claim with the pool token, push when Spotlight calls provision. Immutable, and not settable',
   })
   readonly mode: 'pull' | 'push';
 
@@ -144,7 +144,7 @@ export class RunnerPoolResourceResponseDto extends ResourceResponseDto {
     nullable: true,
     example: 1,
     description:
-      'Changed, with a new token, to rotate the pool token of a pull pool, which is write-only and never answered',
+      'Changed, with a new token, to rotate the pool token of a pull pool, which is write-only and never returned',
   })
   readonly tokenVersion: number | null;
 
@@ -208,7 +208,7 @@ export class EgressResourceResponseDto extends ResourceResponseDto {
 
   @ApiProperty({
     example: 'shared',
-    description: 'Names the egress, and is its address; fixed for its life',
+    description: 'Names the egress, and is its address. Immutable',
   })
   readonly key: string;
 
@@ -224,7 +224,7 @@ export class EgressResourceResponseDto extends ResourceResponseDto {
     nullable: true,
     example: 1,
     description:
-      'Changed, with a new token, to rotate the egress token, which is write-only and never answered',
+      'Changed, with a new token, to rotate the egress token, which is write-only and never returned',
   })
   readonly tokenVersion: number | null;
 

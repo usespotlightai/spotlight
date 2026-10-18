@@ -1,4 +1,4 @@
-import type { GitHubStandingDto } from '@github/application/dto/github-standing.dto';
+import type { GitHubConnectionStatusDto } from '@github/application/dto/github-connection-status.dto';
 import type { GitHubAppPort } from '@github/application/ports/github-app.port';
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
 import type { ReadGitHubQuery } from '@github/application/queries/read-github.query';
@@ -9,7 +9,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ReadGitHubHandler
-  implements QueryHandlerPort<ReadGitHubQuery, GitHubStandingDto | null>
+  implements QueryHandlerPort<ReadGitHubQuery, GitHubConnectionStatusDto | null>
 {
   constructor(
     private readonly workspaces: WorkspaceReaderPort,
@@ -17,7 +17,9 @@ export class ReadGitHubHandler
     private readonly app: GitHubAppPort,
   ) {}
 
-  async execute(query: ReadGitHubQuery): Promise<GitHubStandingDto | null> {
+  async execute(
+    query: ReadGitHubQuery,
+  ): Promise<GitHubConnectionStatusDto | null> {
     try {
       const workspace = await this.workspaces.findForMember(
         query.slug,

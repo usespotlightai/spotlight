@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   appliesTo,
+  authorOf,
   filterOf,
-  givenMemories,
+  memoryCounts,
   memoryFilesOf,
   memoryPath,
   narrowed,
@@ -13,8 +14,7 @@ import {
   proposalTitleOf,
   proposedSummary,
   type RunProposal,
-  rememberedCounts,
-  speakerOf,
+  suppliedMemories,
   type TeamMemory,
 } from '@/lib/memory';
 
@@ -23,9 +23,9 @@ const memory = (over: Partial<ProposedMemory> = {}): ProposedMemory => ({
   kind: 'preference',
   body: 'Name branches after the ticket.',
   source: 'person',
-  origin: 'drafted',
+  proposedBy: 'drafter',
   state: 'proposed',
-  reach: 'team',
+  scope: 'team',
   repository: null,
   paths: [],
   supersedes: null,
@@ -37,12 +37,12 @@ const memory = (over: Partial<ProposedMemory> = {}): ProposedMemory => ({
 });
 
 describe('appliesTo and memoryFilesOf', () => {
-  it('says where a memory applies, and the files it bears on', () => {
+  it('says where a memory applies, and the files it is about', () => {
     expect(appliesTo(memory())).toBe('The whole team');
     expect(memoryFilesOf(memory())).toBeNull();
 
     const scoped = memory({
-      reach: 'station',
+      scope: 'station',
       repository: 'acme/api',
       paths: ['src/uploads.ts'],
     });
@@ -88,11 +88,11 @@ describe('proposalTitleOf', () => {
 describe('filterOf and paramsOf', () => {
   it('reads a filter from the address and writes back only what narrows it', () => {
     const filter = filterOf(
-      new URLSearchParams('standing=retired&kind=failure&path=src'),
+      new URLSearchParams('status=retired&kind=failure&path=src'),
     );
 
     expect(filter).toEqual({
-      standing: 'retired',
+      status: 'retired',
       kind: 'failure',
       lineId: null,
       stationId: null,
@@ -101,7 +101,7 @@ describe('filterOf and paramsOf', () => {
     });
     expect(narrowed(filter)).toBe(true);
     expect(paramsOf(filter)).toEqual({
-      standing: 'retired',
+      status: 'retired',
       kind: 'failure',
       path: 'src',
     });
@@ -214,10 +214,10 @@ describe('placeTreeOf', () => {
   });
 });
 
-describe('speakerOf', () => {
-  it('names the teammate who said it, and says words came from another tool', () => {
+describe('authorOf', () => {
+  it('names the teammate who wrote the note, and names another tool as the author of a note from it', () => {
     expect(
-      speakerOf({
+      authorOf({
         position: 1,
         by: 'person',
         author: { id: 'user_1', name: 'Maya Chen', image: null },
@@ -225,31 +225,31 @@ describe('speakerOf', () => {
       }),
     ).toBe('Maya Chen');
     expect(
-      speakerOf({ position: 1, by: 'person', author: null, text: 'A.' }),
+      authorOf({ position: 1, by: 'person', author: null, text: 'A.' }),
     ).toBe('A teammate');
     expect(
-      speakerOf({ position: 2, by: 'world', author: null, text: 'B.' }),
-    ).toBe('From another tool');
+      authorOf({ position: 2, by: 'world', author: null, text: 'B.' }),
+    ).toBe('Another tool');
   });
 });
 
-describe('what a run remembered', () => {
+describe('the memories of a run', () => {
   const proposal = (over: Partial<RunProposal>): RunProposal => ({
     ...memory(),
     handle: null,
-    standing: null,
+    status: null,
     ...over,
   });
 
-  it('gives what was briefed, then what was recalled on top of it, once each', () => {
+  it('supplies what was briefed, then what was recalled on top of it, once each', () => {
     const briefed = { id: 'memory_b' } as TeamMemory;
     const both = { id: 'memory_both' } as TeamMemory;
     const recalled = { id: 'memory_r' } as TeamMemory;
 
     expect(
-      givenMemories({
+      suppliedMemories({
         briefed: [briefed, both],
-        cut: [{ id: 'memory_c' } as TeamMemory],
+        omitted: [{ id: 'memory_c' } as TeamMemory],
         recalled: [both, recalled],
         proposed: [],
         reviewItemId: null,
@@ -259,9 +259,9 @@ describe('what a run remembered', () => {
 
   it('counts only what there was', () => {
     expect(
-      rememberedCounts({
+      memoryCounts({
         briefed: [],
-        cut: [],
+        omitted: [],
         recalled: [],
         proposed: [proposal({})],
         reviewItemId: null,
@@ -269,15 +269,15 @@ describe('what a run remembered', () => {
     ).toEqual([{ what: 'Proposed', count: 1 }]);
   });
 
-  it('says where a proposal stands', () => {
+  it('says the state of a proposal', () => {
     expect(proposalStateOf(proposal({}))).toBe('Waiting for you');
     expect(proposalStateOf(proposal({ state: 'rejected' }))).toBe('Rejected');
     expect(
-      proposalStateOf(proposal({ state: 'approved', standing: 'stands' })),
-    ).toBe('Kept');
+      proposalStateOf(proposal({ state: 'approved', status: 'active' })),
+    ).toBe('Approved');
     expect(
-      proposalStateOf(proposal({ state: 'approved', standing: 'retired' })),
-    ).toBe('Kept, now retired');
+      proposalStateOf(proposal({ state: 'approved', status: 'retired' })),
+    ).toBe('Approved, now retired');
   });
 
   it('links to one memory on the team’s memory page', () => {

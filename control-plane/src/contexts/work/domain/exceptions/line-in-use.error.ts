@@ -1,7 +1,7 @@
 import type { Stranded } from '@work/domain/services/reconcile-line';
 
 export class LineInUseError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(key: string, stranded: readonly Stranded[]) {
     super(

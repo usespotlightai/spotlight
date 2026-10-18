@@ -1,6 +1,6 @@
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
@@ -11,7 +11,7 @@ import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
-import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import {
   PersonPrincipal,
@@ -26,9 +26,9 @@ import { RubricScale } from '@shared-kernel/domain/value-objects/rubric-scale.vo
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -45,7 +45,7 @@ import { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/works
 export const SHARED_KERNEL_PAYLOAD_TYPES = [
   RubricScale,
   Actor,
-  Attribution,
+  ChangeActor,
   Client,
   ConfigurationChange,
   ConfigurationProblem,
@@ -56,7 +56,7 @@ export const SHARED_KERNEL_PAYLOAD_TYPES = [
   InputSchema,
   LatencyHistogram,
   ModelUsage,
-  OwedWork,
+  PendingJob,
   PersonPrincipal,
   PullRequestUrl,
   Repository,
@@ -64,7 +64,7 @@ export const SHARED_KERNEL_PAYLOAD_TYPES = [
   RunnerId,
   RunnerImage,
   RunnerPlacement,
-  RunnerTerms,
+  RunnerOffer,
   RunningImage,
   SecretName,
   TaskId,

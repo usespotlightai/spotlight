@@ -1,4 +1,4 @@
-import { MemoryGroundList } from '@/components/features/memory/MemoryGroundList';
+import { MemoryProvenanceList } from '@/components/features/memory/MemoryProvenanceList';
 import { SectionLink } from '@/components/shared/SectionLink';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { useTeamMemory } from '@/hooks/api/useTeamMemory';
@@ -30,12 +30,14 @@ export function MemorySource({ slug, teamId, memoryId }: MemorySourceProps) {
   }
 
   const memory = query.data;
-  const { grounds } = memory;
+  const { provenance } = memory;
 
   return (
     <div className="flex flex-col gap-2">
-      {citesAnything(memory) && <MemoryGroundList grounds={memory} compact />}
-      {grounds && (
+      {citesAnything(memory) && (
+        <MemoryProvenanceList provenance={memory} compact />
+      )}
+      {provenance && (
         <div
           className={cn(
             'flex flex-wrap items-center gap-x-3',
@@ -43,13 +45,13 @@ export function MemorySource({ slug, teamId, memoryId }: MemorySourceProps) {
           )}
         >
           <SectionLink
-            to={runPath(slug, teamId, grounds.runId)}
+            to={runPath(slug, teamId, provenance.runId)}
             className="hover:bg-border/70"
           >
             Open its run
           </SectionLink>
           <SectionLink
-            to={taskPath(slug, teamId, grounds.taskId)}
+            to={taskPath(slug, teamId, provenance.taskId)}
             className="hover:bg-border/70"
           >
             Open its task

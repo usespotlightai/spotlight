@@ -12,12 +12,12 @@ export class HookAllowancesService {
   ) {}
 
   async onTeam(teamId: TeamId): Promise<HookAllowances> {
-    const offered = (await this.integrations.ofTeam(teamId)).flatMap(
-      (each) => each.offers,
+    const provided = (await this.integrations.ofTeam(teamId)).flatMap(
+      (each) => each.tools,
     );
 
     return {
-      offered,
+      provided,
       signsTokens: this.tokens.signs,
       allowsHost: (host) => this.hosts.allows(host),
     };

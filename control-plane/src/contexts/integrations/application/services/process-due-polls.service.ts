@@ -5,7 +5,7 @@ import type {
 } from '@integrations/application/ports/defined-integrations.port';
 import type { IntegrationCursorsPort } from '@integrations/application/ports/integration-cursors.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
-import type { HostReach } from '@integrations/application/services/host-reach.service';
+import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { Integration } from '@integrations/domain/entities/integration.entity';
 import type { Poll } from '@integrations/domain/value-objects/poll.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -18,7 +18,7 @@ export class ProcessDuePolls {
     private readonly defined: DefinedIntegrationsPort,
     private readonly runtime: IntegrationRuntimePort,
     private readonly teams: TeamDirectoryPort,
-    private readonly reach: HostReach,
+    private readonly callAuthResolver: CallAuthResolver,
     private readonly cursors: IntegrationCursorsPort,
     private readonly reactions: HappeningReactionsPort,
     private readonly clock: ClockPort,
@@ -52,8 +52,8 @@ export class ProcessDuePolls {
     poll: Poll,
     now: Date,
   ): Promise<void> {
-    const source = integration.source.value;
-    const state = await this.cursors.read(teamId, source);
+    const integrationKey = integration.key.value;
+    const state = await this.cursors.read(teamId, integrationKey);
 
     if (!poll.isDue(state.ranAt, now)) {
       return;
@@ -65,7 +65,7 @@ export class ProcessDuePolls {
       return;
     }
 
-    if (!(await this.cursors.claimTurn(teamId, source, state, now))) {
+    if (!(await this.cursors.claimTurn(teamId, integrationKey, state, now))) {
       return;
     }
 
@@ -74,13 +74,17 @@ export class ProcessDuePolls {
         definitions,
         integration,
         state.cursor,
-        await this.reach.of(teamId, integration),
+        await this.callAuthResolver.of(teamId, integration),
       );
 
-      if (polled.kind === 'refused') {
+      if (polled.kind === 'failed') {
         this.log.warn(
-          { team: teamId.value, source, refusal: polled.refusal },
-          'A host refused a poll',
+          {
+            team: teamId.value,
+            integration: integrationKey,
+            error: polled.error,
+          },
+          'A service answered a poll with an error',
         );
         return;
       }
@@ -91,19 +95,26 @@ export class ProcessDuePolls {
         polled.happenings,
         polled.cursor === null
           ? null
-          : `poll:${source}:${teamId.value}:${state.cursor ?? ''}`,
+          : `poll:${integrationKey}:${teamId.value}:${state.cursor ?? ''}`,
       );
 
-      if (!(await this.cursors.advance(teamId, source, polled.cursor, now))) {
+      if (
+        !(await this.cursors.advance(
+          teamId,
+          integrationKey,
+          polled.cursor,
+          now,
+        ))
+      ) {
         this.log.warn(
-          { team: teamId.value, source },
-          'A later poll took the turn before this one kept its cursor',
+          { team: teamId.value, integration: integrationKey },
+          'A later poll got the turn before this one stored its cursor',
         );
       }
     } catch (error) {
       this.log.warn(
-        { err: error, team: teamId.value, source },
-        'Polling a host',
+        { err: error, team: teamId.value, integration: integrationKey },
+        'Polling a service',
       );
     }
   }

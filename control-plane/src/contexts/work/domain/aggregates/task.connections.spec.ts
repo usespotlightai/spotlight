@@ -65,7 +65,7 @@ const working = () =>
       at: IMPLEMENTATION,
       title: TaskTitle.of('Comment on ENG-12'),
       rank: TaskRank.of('i'),
-      raisedBy: BOB,
+      createdBy: BOB,
       now: NOW,
       newId: () => 'task_1',
     }),
@@ -75,8 +75,8 @@ const working = () =>
 const ask = (personId = ALICE) =>
   ConnectionAsk.of({
     teamId: TEAM,
-    source: 'linear',
-    integration: 'Linear',
+    integration: 'linear',
+    integrationName: 'Linear',
     personId,
   });
 
@@ -136,15 +136,15 @@ describe('Task connection asks', () => {
         asking,
         ConnectionAsk.of({
           teamId: TEAM,
-          source: 'notion',
-          integration: 'Notion',
+          integration: 'notion',
+          integrationName: 'Notion',
           personId: ALICE,
         }),
       ).asked,
     ).toBe(false);
   });
 
-  it('refuses an ask from a run that does not hold it', () => {
+  it('rejects an ask from a run that is not its current run', () => {
     expect(() =>
       working().askToConnect(RunId.of('run_2'), asking, ask()),
     ).toThrow(InvalidTaskTransitionError);

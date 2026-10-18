@@ -12,7 +12,7 @@ export interface WaitingCheck {
   readonly placement: RunnerPlacement;
 }
 
-export interface LapsedCheck {
+export interface ExpiredCheck {
   readonly stackId: string;
   readonly runner: RunnerId;
   readonly until: Date;
@@ -41,5 +41,5 @@ export interface CheckProvisioningPort {
     now: Date,
   ): Promise<void>;
 
-  lapsed(now: Date): Promise<readonly LapsedCheck[]>;
+  expired(now: Date): Promise<readonly ExpiredCheck[]>;
 }

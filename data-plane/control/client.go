@@ -21,9 +21,9 @@ const (
 	CallPollTimeout = 25 * time.Second
 )
 
-var ErrRefused = errors.New("the control plane refused the credential")
+var ErrUnauthorized = errors.New("the control plane did not accept the credential")
 
-type Rejection struct {
+type ResponseError struct {
 	Status  int
 	Reason  string
 	Message string
@@ -31,9 +31,9 @@ type Rejection struct {
 	Err     error
 }
 
-func (r *Rejection) Error() string { return r.Err.Error() }
+func (r *ResponseError) Error() string { return r.Err.Error() }
 
-func (r *Rejection) Refusal() bool {
+func (r *ResponseError) IsClientError() bool {
 	switch r.Status {
 	case http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity:
 		return true
@@ -42,31 +42,33 @@ func (r *Rejection) Refusal() bool {
 	return false
 }
 
-func (r *Rejection) Refused() (string, bool) {
-	if !r.Refusal() {
+func (r *ResponseError) ClientErrorMessage() (string, bool) {
+	if !r.IsClientError() {
 		return "", false
 	}
 
 	return r.Message, r.Message != ""
 }
 
-func (r *Rejection) Unfit() ([]protocol.FieldError, bool) {
-	return r.Errors, r.Status == http.StatusUnprocessableEntity && protocol.Refuses(r.Errors)
+func (r *ResponseError) InvalidFields() ([]protocol.FieldError, bool) {
+	return r.Errors, r.Status == http.StatusUnprocessableEntity && protocol.HasErrors(r.Errors)
 }
 
-func (r *Rejection) Unwrap() error { return r.Err }
+func (r *ResponseError) Unwrap() error { return r.Err }
 
-func (r *Rejection) Gone() bool { return r.Status == http.StatusNotFound }
+func (r *ResponseError) IsNotFound() bool { return r.Status == http.StatusNotFound }
 
-func (r *Rejection) Lost() bool { return r.Gone() || errors.Is(r.Err, ErrRefused) }
+func (r *ResponseError) RunNoLongerLeased() bool {
+	return r.IsNotFound() || errors.Is(r.Err, ErrUnauthorized)
+}
 
 func CheckLeaseLost(err error) bool {
-	var rejection *Rejection
-	return errors.As(err, &rejection) && rejection.Refusal() && rejection.Status != http.StatusConflict
+	var rejection *ResponseError
+	return errors.As(err, &rejection) && rejection.IsClientError() && rejection.Status != http.StatusConflict
 }
 
-func Rejected(err error, reason string) bool {
-	var rejection *Rejection
+func HasReason(err error, reason string) bool {
+	var rejection *ResponseError
 	return errors.As(err, &rejection) && rejection.Reason == reason
 }
 
@@ -118,7 +120,7 @@ func (c *Client) RunnerID() string { return c.runnerID }
 func (c *Client) Token() string { return c.token }
 
 func (c *Client) Register(ctx context.Context, in protocol.Registration) error {
-	var out protocol.Registered
+	var out protocol.RegisterResponse
 	if err := c.do(ctx, http.MethodPost, "/api/runners/register", in, &out); err != nil {
 		return fmt.Errorf("register: %w", err)
 	}
@@ -130,10 +132,10 @@ func (c *Client) Register(ctx context.Context, in protocol.Registration) error {
 	return nil
 }
 
-func (c *Client) Installable(ctx context.Context) ([]protocol.Installable, error) {
-	var out []protocol.Installable
+func (c *Client) HarnessProbes(ctx context.Context) ([]protocol.HarnessProbe, error) {
+	var out []protocol.HarnessProbe
 	if err := c.do(ctx, http.MethodGet, "/api/runners/harnesses", nil, &out); err != nil {
-		return nil, fmt.Errorf("ask what to look for: %w", err)
+		return nil, fmt.Errorf("read the harness probes: %w", err)
 	}
 
 	return out, nil
@@ -153,25 +155,25 @@ func (c *Client) UseTool(
 }
 
 func (c *Client) AskPermission(
-	ctx context.Context, runID string, asked protocol.PermissionAsked,
-) (protocol.PermissionAnswer, error) {
-	var out protocol.PermissionAnswer
+	ctx context.Context, runID string, asked protocol.PermissionRequest,
+) (protocol.PermissionResponse, error) {
+	var out protocol.PermissionResponse
 	path := fmt.Sprintf("/api/runs/%s/permissions", url.PathEscape(runID))
 
 	if err := c.do(ctx, http.MethodPost, path, asked, &out); err != nil {
-		return protocol.PermissionAnswer{}, fmt.Errorf("ask for permission: %w", err)
+		return protocol.PermissionResponse{}, fmt.Errorf("ask for permission: %w", err)
 	}
 
 	return out, nil
 }
 
-func (c *Client) AnswerRemark(
-	ctx context.Context, runID string, said protocol.Remark,
+func (c *Client) ReplyToReviewComment(
+	ctx context.Context, runID string, reply protocol.ReviewCommentReply,
 ) error {
-	path := "/api/runs/" + runID + "/remark"
+	path := "/api/runs/" + runID + "/review-comment-replies"
 
-	if err := c.do(ctx, http.MethodPost, path, said, nil); err != nil {
-		return fmt.Errorf("answer a remark: %w", err)
+	if err := c.do(ctx, http.MethodPost, path, reply, nil); err != nil {
+		return fmt.Errorf("reply to a review comment: %w", err)
 	}
 
 	return nil
@@ -191,40 +193,40 @@ func (c *Client) Trace(
 }
 
 func (c *Client) History(
-	ctx context.Context, runID string, asked protocol.HistoryRequest,
+	ctx context.Context, runID string, request protocol.HistoryRequest,
 ) (json.RawMessage, error) {
-	query := url.Values{"station": {asked.Station}}
+	query := url.Values{"station": {request.Station}}
 	for name, value := range map[string]string{
-		"line": asked.Line, "fingerprint": asked.Fingerprint, "outcome": asked.Outcome, "since": asked.Since,
+		"line": request.Line, "fingerprint": request.Fingerprint, "outcome": request.Outcome, "since": request.Since,
 	} {
 		if value != "" {
 			query.Set(name, value)
 		}
 	}
-	if asked.Last > 0 {
-		query.Set("last", strconv.Itoa(asked.Last))
+	if request.Last > 0 {
+		query.Set("last", strconv.Itoa(request.Last))
 	}
 
 	var out json.RawMessage
 	path := fmt.Sprintf("/api/runs/%s/history?%s", url.PathEscape(runID), query.Encode())
 
 	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
-		var rejection *Rejection
-		if errors.As(err, &rejection) && rejection.Gone() {
-			rejection.Message = unknownStation(asked)
+		var rejection *ResponseError
+		if errors.As(err, &rejection) && rejection.IsNotFound() {
+			rejection.Message = unknownStation(request)
 		}
-		return nil, fmt.Errorf("read the history of %s: %w", asked.Station, err)
+		return nil, fmt.Errorf("read the history of %s: %w", request.Station, err)
 	}
 
 	return out, nil
 }
 
-func unknownStation(asked protocol.HistoryRequest) string {
-	if asked.Line != "" {
-		return fmt.Sprintf("line %q has no station %q in this team", asked.Line, asked.Station)
+func unknownStation(request protocol.HistoryRequest) string {
+	if request.Line != "" {
+		return fmt.Sprintf("line %q has no station %q in this team", request.Line, request.Station)
 	}
 
-	return fmt.Sprintf("no line in this team has a station %q", asked.Station)
+	return fmt.Sprintf("no line in this team has a station %q", request.Station)
 }
 
 func (c *Client) RecallMemories(
@@ -232,11 +234,11 @@ func (c *Client) RecallMemories(
 ) (json.RawMessage, error) {
 	var out json.RawMessage
 	path := fmt.Sprintf("/api/runs/%s/memories/recall", url.PathEscape(runID))
-	asked := struct {
+	body := struct {
 		Words string `json:"words"`
 	}{Words: words}
 
-	if err := c.do(ctx, http.MethodPost, path, asked, &out); err != nil {
+	if err := c.do(ctx, http.MethodPost, path, body, &out); err != nil {
 		return nil, fmt.Errorf("recall: %w", err)
 	}
 
@@ -268,7 +270,7 @@ func (c *Client) MemoryFiles(ctx context.Context, runID string) ([]protocol.Memo
 }
 
 func (c *Client) Remember(
-	ctx context.Context, runID string, remembered protocol.Remembering,
+	ctx context.Context, runID string, remembered protocol.RememberRequest,
 ) (json.RawMessage, error) {
 	var out json.RawMessage
 	path := fmt.Sprintf("/api/runs/%s/memories", url.PathEscape(runID))
@@ -287,14 +289,14 @@ func (c *Client) ProposeCandidate(
 	path := fmt.Sprintf("/api/runs/%s/search-candidates", url.PathEscape(runID))
 
 	if err := c.do(ctx, http.MethodPost, path, proposal, &out); err != nil {
-		var rejection *Rejection
+		var rejection *ResponseError
 		if errors.As(err, &rejection) {
 			switch {
 			case rejection.Message != "":
 			case rejection.Status == http.StatusConflict:
-				rejection.Message = "this iteration has proposed all the candidates it may, or the search no longer holds this run"
-			case rejection.Gone():
-				rejection.Message = "the search no longer holds this run"
+				rejection.Message = "this iteration has proposed all the candidates it may, or this run is no longer the active run of the search"
+			case rejection.IsNotFound():
+				rejection.Message = "this run is no longer the active run of the search"
 			}
 		}
 		return nil, fmt.Errorf("propose %s: %w", proposal.Name, err)
@@ -307,17 +309,17 @@ func (c *Client) RecordCause(
 	ctx context.Context, runID string, record protocol.CauseRecord,
 ) (json.RawMessage, error) {
 	var out json.RawMessage
-	path := fmt.Sprintf("/api/runs/%s/search-causes", url.PathEscape(runID))
+	path := fmt.Sprintf("/api/runs/%s/failure-causes", url.PathEscape(runID))
 
 	if err := c.do(ctx, http.MethodPost, path, record, &out); err != nil {
-		var rejection *Rejection
+		var rejection *ResponseError
 		if errors.As(err, &rejection) {
 			switch {
 			case rejection.Message != "":
 			case rejection.Status == http.StatusConflict:
 				rejection.Message = "this run proposes candidates; only a run looking into why a search stalled records causes"
-			case rejection.Gone():
-				rejection.Message = "the search no longer holds this run, or the task is none it looks into"
+			case rejection.IsNotFound():
+				rejection.Message = "this run is no longer the active run of the search, or the task is none it looks into"
 			}
 		}
 		return nil, fmt.Errorf("record the cause of %s: %w", record.TaskID, err)
@@ -326,11 +328,11 @@ func (c *Client) RecordCause(
 	return out, nil
 }
 
-func (c *Client) Claim(ctx context.Context) (*protocol.Claimed, error) {
+func (c *Client) Claim(ctx context.Context) (*protocol.ClaimResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, PollTimeout+15*time.Second)
 	defer cancel()
 
-	var claimed protocol.Claimed
+	var claimed protocol.ClaimResponse
 	const path = "/api/runners/claim"
 
 	status, err := c.request(ctx, http.MethodPost, path, nil, &claimed)
@@ -349,8 +351,8 @@ func (c *Client) ClaimCall(ctx context.Context, host string) (*protocol.HostCall
 	defer cancel()
 
 	var call protocol.HostCall
-	asked := protocol.HostCallClaim{Host: host}
-	status, err := c.request(ctx, http.MethodPost, protocol.HostCallClaimPath, asked, &call)
+	body := protocol.HostCallClaim{Host: host}
+	status, err := c.request(ctx, http.MethodPost, protocol.HostCallClaimPath, body, &call)
 	if err != nil {
 		return nil, fmt.Errorf("claim a call: %w", err)
 	}
@@ -358,40 +360,40 @@ func (c *Client) ClaimCall(ctx context.Context, host string) (*protocol.HostCall
 		return nil, nil
 	}
 	if call.ID == "" || call.URL == "" {
-		return nil, fmt.Errorf("claim a call: the control plane handed a call with no id or url")
+		return nil, fmt.Errorf("claim a call: the control plane sent a call with no id or url")
 	}
 
 	return &call, nil
 }
 
-func (c *Client) AnswerCall(ctx context.Context, id string, answer protocol.HostCallAnswer) error {
-	path := strings.Replace(protocol.HostCallAnswerPath, "{id}", url.PathEscape(id), 1)
-	if err := c.do(ctx, http.MethodPost, path, answer, nil); err != nil {
-		return fmt.Errorf("answer a call: %w", err)
+func (c *Client) RecordCallResponse(ctx context.Context, id string, response protocol.HostCallResponse) error {
+	path := strings.Replace(protocol.HostCallResponsePath, "{id}", url.PathEscape(id), 1)
+	if err := c.do(ctx, http.MethodPost, path, response, nil); err != nil {
+		return fmt.Errorf("record the response of a call: %w", err)
 	}
 
 	return nil
 }
 
-func (c *Client) Said(ctx context.Context, runID string) ([]protocol.Said, error) {
+func (c *Client) Messages(ctx context.Context, runID string) ([]protocol.Message, error) {
 	path := fmt.Sprintf("/api/runs/%s/messages", url.PathEscape(runID))
 
-	var said []protocol.Said
-	if err := c.do(ctx, http.MethodGet, path, nil, &said); err != nil {
-		return nil, fmt.Errorf("read what was said: %w", err)
+	var messages []protocol.Message
+	if err := c.do(ctx, http.MethodGet, path, nil, &messages); err != nil {
+		return nil, fmt.Errorf("read the messages: %w", err)
 	}
 
-	return said, nil
+	return messages, nil
 }
 
-func (c *Client) Delivered(ctx context.Context, runID string, upTo int) error {
-	path := fmt.Sprintf("/api/runs/%s/messages/delivered", url.PathEscape(runID))
+func (c *Client) AckMessages(ctx context.Context, runID string, upTo int) error {
+	path := fmt.Sprintf("/api/runs/%s/messages/ack", url.PathEscape(runID))
 	body := struct {
 		UpTo int `json:"upTo"`
 	}{UpTo: upTo}
 
 	if err := c.do(ctx, http.MethodPost, path, body, nil); err != nil {
-		return fmt.Errorf("mark what was said delivered: %w", err)
+		return fmt.Errorf("acknowledge the messages: %w", err)
 	}
 
 	return nil
@@ -434,37 +436,37 @@ func (c *Client) RecordImage(ctx context.Context, runID, image string) error {
 	return nil
 }
 
-func (c *Client) Complete(ctx context.Context, runID string, done protocol.Completion) (protocol.Completed, error) {
+func (c *Client) Complete(ctx context.Context, runID string, done protocol.Completion) (protocol.CompleteResponse, error) {
 	path := fmt.Sprintf("/api/runs/%s/completion", url.PathEscape(runID))
 
-	var completed protocol.Completed
+	var completed protocol.CompleteResponse
 	if err := c.do(ctx, http.MethodPost, path, done, &completed); err != nil {
-		return protocol.Completed{}, fmt.Errorf("complete: %w", err)
+		return protocol.CompleteResponse{}, fmt.Errorf("complete: %w", err)
 	}
 
 	return completed, nil
 }
 
-func (c *Client) Asks(ctx context.Context, runID string, turn protocol.Completion) (bool, error) {
-	path := fmt.Sprintf("/api/runs/%s/completion/asks", url.PathEscape(runID))
+func (c *Client) AwaitsPerson(ctx context.Context, runID string, turn protocol.Completion) (bool, error) {
+	path := fmt.Sprintf("/api/runs/%s/completion/awaits-person", url.PathEscape(runID))
 
-	var asks protocol.TurnAsks
-	if err := c.do(ctx, http.MethodPost, path, turn, &asks); err != nil {
-		return false, fmt.Errorf("ask whether the turn waits: %w", err)
+	var answer protocol.TurnAwaitsPerson
+	if err := c.do(ctx, http.MethodPost, path, turn, &answer); err != nil {
+		return false, fmt.Errorf("read whether the turn waits for a person: %w", err)
 	}
 
-	return asks.Asks, nil
+	return answer.AwaitsPerson, nil
 }
 
-func (c *Client) Park(ctx context.Context, runID string, cold bool) (protocol.Parking, error) {
-	path := fmt.Sprintf("/api/runs/%s/parked", url.PathEscape(runID))
+func (c *Client) Suspend(ctx context.Context, runID string, requeue bool) (protocol.Suspension, error) {
+	path := fmt.Sprintf("/api/runs/%s/suspended", url.PathEscape(runID))
 
-	var parking protocol.Parking
-	if err := c.do(ctx, http.MethodPost, path, protocol.ParkRequest{Cold: cold}, &parking); err != nil {
-		return protocol.Parking{}, fmt.Errorf("park: %w", err)
+	var suspension protocol.Suspension
+	if err := c.do(ctx, http.MethodPost, path, protocol.SuspendRequest{Requeue: requeue}, &suspension); err != nil {
+		return protocol.Suspension{}, fmt.Errorf("suspend: %w", err)
 	}
 
-	return parking, nil
+	return suspension, nil
 }
 
 func (c *Client) Attachment(
@@ -482,7 +484,7 @@ func (c *Client) Attachment(
 	defer response.Body.Close()
 
 	if response.StatusCode >= 300 {
-		return fmt.Errorf("fetch an attachment: %w", refused(http.MethodGet, path, response))
+		return fmt.Errorf("fetch an attachment: %w", statusError(http.MethodGet, path, response))
 	}
 
 	if _, err := io.Copy(into, response.Body); err != nil {
@@ -492,19 +494,19 @@ func (c *Client) Attachment(
 	return nil
 }
 
-func (c *Client) WorkspaceArchive(ctx context.Context, runID string) (*protocol.HeldArchive, error) {
+func (c *Client) WorkspaceArchive(ctx context.Context, runID string) (*protocol.StoredArchive, error) {
 	path := fmt.Sprintf("/api/runs/%s/workspace-archive", url.PathEscape(runID))
 
-	var held protocol.HeldArchive
-	status, err := c.request(ctx, http.MethodGet, path, nil, &held)
+	var stored protocol.StoredArchive
+	status, err := c.request(ctx, http.MethodGet, path, nil, &stored)
 	if err != nil {
-		return nil, fmt.Errorf("ask for the workspace to restore: %w", err)
+		return nil, fmt.Errorf("read the workspace to restore: %w", err)
 	}
 	if status == http.StatusNoContent {
 		return nil, nil
 	}
 
-	return &held, nil
+	return &stored, nil
 }
 
 func (c *Client) GrantArchive(
@@ -513,22 +515,22 @@ func (c *Client) GrantArchive(
 	path := fmt.Sprintf("/api/runs/%s/workspace-archive", url.PathEscape(runID))
 
 	var granted protocol.ArchiveGrant
-	asked := protocol.ArchiveRequest{Size: size, SHA256: sha256}
-	if err := c.do(ctx, http.MethodPost, path, asked, &granted); err != nil {
-		return protocol.ArchiveGrant{}, fmt.Errorf("ask to keep the workspace: %w", err)
+	body := protocol.ArchiveRequest{Size: size, SHA256: sha256}
+	if err := c.do(ctx, http.MethodPost, path, body, &granted); err != nil {
+		return protocol.ArchiveGrant{}, fmt.Errorf("request a workspace archive: %w", err)
 	}
 
 	return granted, nil
 }
 
-func (c *Client) SealArchive(ctx context.Context, runID, archiveID string) error {
+func (c *Client) CompleteArchive(ctx context.Context, runID, archiveID string) error {
 	path := fmt.Sprintf(
-		"/api/runs/%s/workspace-archive/%s/sealed",
+		"/api/runs/%s/workspace-archive/%s/complete",
 		url.PathEscape(runID), url.PathEscape(archiveID),
 	)
 
 	if err := c.do(ctx, http.MethodPost, path, nil, nil); err != nil {
-		return fmt.Errorf("seal the workspace kept: %w", err)
+		return fmt.Errorf("complete the workspace archive: %w", err)
 	}
 
 	return nil
@@ -544,11 +546,11 @@ func (c *Client) RecordStartingPoint(ctx context.Context, runID string, point pr
 	return nil
 }
 
-func (c *Client) DraftChangeStack(ctx context.Context, runID, repository, diff, base string) error {
+func (c *Client) GenerateChangeStack(ctx context.Context, runID, repository, diff, base string) error {
 	path := fmt.Sprintf("/api/runs/%s/change-stacks", url.PathEscape(runID))
-	handed := protocol.ChangeStackDraft{Diff: diff, Repository: repository, Base: base}
+	request := protocol.ChangeStackGenerationRequest{Diff: diff, Repository: repository, Base: base}
 
-	if err := c.do(ctx, http.MethodPost, path, handed, nil); err != nil {
+	if err := c.do(ctx, http.MethodPost, path, request, nil); err != nil {
 		return fmt.Errorf("hand over what a run changed: %w", err)
 	}
 
@@ -568,7 +570,7 @@ func checkPath(runID, stackID string, recheck bool, rest string) string {
 }
 
 func (c *Client) RecordChangeStackCheck(
-	ctx context.Context, runID, stackID string, recheck bool, checked protocol.StackChecked,
+	ctx context.Context, runID, stackID string, recheck bool, checked protocol.StackCheckResult,
 ) error {
 	path := checkPath(runID, stackID, recheck, "")
 
@@ -592,51 +594,51 @@ func (c *Client) RenewCheckLease(ctx context.Context, runID, stackID string, rec
 	return out.Stop, nil
 }
 
-func (c *Client) RedeemEgress(ctx context.Context, recipient string) (protocol.EgressRedemption, error) {
-	var redeemed protocol.EgressRedemption
-	asked := protocol.EgressRedeem{Recipient: recipient}
-	if err := c.do(ctx, http.MethodPost, "/api/egress/redeem", asked, &redeemed); err != nil {
-		return protocol.EgressRedemption{}, fmt.Errorf("redeem the run's secrets: %w", err)
+func (c *Client) FetchRunSecrets(ctx context.Context, recipient string) (protocol.EgressSecrets, error) {
+	var fetched protocol.EgressSecrets
+	body := protocol.EgressSecretsRequest{Recipient: recipient}
+	if err := c.do(ctx, http.MethodPost, "/api/egress/secrets", body, &fetched); err != nil {
+		return protocol.EgressSecrets{}, fmt.Errorf("fetch the run's secrets: %w", err)
 	}
 
-	return redeemed, nil
+	return fetched, nil
 }
 
-func (c *Client) AdmitEgress(ctx context.Context, proxyCredential string) (protocol.EgressAdmitted, error) {
-	var admitted protocol.EgressAdmitted
-	asked := protocol.EgressAdmit{ProxyCredential: proxyCredential}
-	if err := c.do(ctx, http.MethodPost, "/api/egress/admit", asked, &admitted); err != nil {
-		return protocol.EgressAdmitted{}, fmt.Errorf("admit a sandbox: %w", err)
+func (c *Client) AuthorizeEgress(ctx context.Context, proxyCredential string) (protocol.EgressAuthorizeResponse, error) {
+	var authorized protocol.EgressAuthorizeResponse
+	body := protocol.EgressAuthorizeRequest{ProxyCredential: proxyCredential}
+	if err := c.do(ctx, http.MethodPost, "/api/egress/authorize", body, &authorized); err != nil {
+		return protocol.EgressAuthorizeResponse{}, fmt.Errorf("authorize a sandbox: %w", err)
 	}
 
-	return admitted, nil
+	return authorized, nil
 }
 
-func (c *Client) RedeemEgressFor(
+func (c *Client) FetchRunSecretsFor(
 	ctx context.Context, proxyCredential, recipient string,
-) (protocol.EgressRedemption, error) {
-	var redeemed protocol.EgressRedemption
-	asked := protocol.EgressRedeem{ProxyCredential: proxyCredential, Recipient: recipient}
-	if err := c.do(ctx, http.MethodPost, "/api/egress/redeem", asked, &redeemed); err != nil {
-		return protocol.EgressRedemption{}, fmt.Errorf("redeem a run's secrets: %w", err)
+) (protocol.EgressSecrets, error) {
+	var fetched protocol.EgressSecrets
+	body := protocol.EgressSecretsRequest{ProxyCredential: proxyCredential, Recipient: recipient}
+	if err := c.do(ctx, http.MethodPost, "/api/egress/secrets", body, &fetched); err != nil {
+		return protocol.EgressSecrets{}, fmt.Errorf("fetch a run's secrets: %w", err)
 	}
 
-	return redeemed, nil
+	return fetched, nil
 }
 
-func (c *Client) EgressHolds(ctx context.Context, proxyCredentials []string) ([]string, error) {
-	var held protocol.EgressHeld
-	asked := protocol.EgressHolds{ProxyCredentials: proxyCredentials}
-	if err := c.do(ctx, http.MethodPost, "/api/egress/holds", asked, &held); err != nil {
-		return nil, fmt.Errorf("ask which runs are held: %w", err)
+func (c *Client) ActiveRuns(ctx context.Context, proxyCredentials []string) ([]string, error) {
+	var answer protocol.ActiveRunsResponse
+	body := protocol.ActiveRunsRequest{ProxyCredentials: proxyCredentials}
+	if err := c.do(ctx, http.MethodPost, "/api/egress/active-runs", body, &answer); err != nil {
+		return nil, fmt.Errorf("read which runs are active: %w", err)
 	}
 
-	return held.Held, nil
+	return answer.Active, nil
 }
 
 func (c *Client) RecordConnections(ctx context.Context, records []protocol.EgressConnection) error {
-	asked := protocol.EgressConnections{Records: records}
-	if err := c.do(ctx, http.MethodPost, "/api/egress/connections", asked, nil); err != nil {
+	body := protocol.EgressConnections{Records: records}
+	if err := c.do(ctx, http.MethodPost, "/api/egress/connections", body, nil); err != nil {
 		return fmt.Errorf("record connections: %w", err)
 	}
 
@@ -712,13 +714,13 @@ const (
 func rejection(method, path string, response *http.Response) error {
 	read, _ := io.ReadAll(io.LimitReader(response.Body, maxProblem))
 
-	var said struct {
+	var errorBody struct {
 		Reason  string                `json:"reason"`
 		Message json.RawMessage       `json:"message"`
 		Detail  string                `json:"detail"`
 		Errors  []protocol.FieldError `json:"errors"`
 	}
-	_ = json.Unmarshal(read, &said)
+	_ = json.Unmarshal(read, &errorBody)
 
 	detail := read
 	if len(detail) > maxDetail {
@@ -727,16 +729,16 @@ func rejection(method, path string, response *http.Response) error {
 
 	err := fmt.Errorf("%s %s: %s: %s", method, path, response.Status, strings.TrimSpace(string(detail)))
 	if response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden {
-		err = fmt.Errorf("%w: %w", ErrRefused, err)
+		err = fmt.Errorf("%w: %w", ErrUnauthorized, err)
 	}
 
-	message := messageOf(said.Message)
+	message := messageOf(errorBody.Message)
 	if message == "" {
-		message = said.Detail
+		message = errorBody.Detail
 	}
 
-	return &Rejection{
-		Status: response.StatusCode, Reason: said.Reason, Message: message, Errors: said.Errors, Err: err,
+	return &ResponseError{
+		Status: response.StatusCode, Reason: errorBody.Reason, Message: message, Errors: errorBody.Errors, Err: err,
 	}
 }
 
@@ -754,7 +756,7 @@ func messageOf(raw json.RawMessage) string {
 	return ""
 }
 
-func refused(method, path string, response *http.Response) error {
+func statusError(method, path string, response *http.Response) error {
 	detail, _ := io.ReadAll(io.LimitReader(response.Body, 1024))
 	return fmt.Errorf(
 		"%s %s: %s: %s",
@@ -762,12 +764,12 @@ func refused(method, path string, response *http.Response) error {
 	)
 }
 
-func Seated(baseURL string, handed protocol.Handed) (*Client, error) {
-	client, err := New(baseURL, handed.Token)
+func ForRun(baseURL string, assignment protocol.Assignment) (*Client, error) {
+	client, err := New(baseURL, assignment.Token)
 	if err != nil {
 		return nil, err
 	}
 
-	client.runnerID = handed.RunnerID
+	client.runnerID = assignment.RunnerID
 	return client, nil
 }

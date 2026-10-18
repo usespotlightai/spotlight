@@ -47,14 +47,14 @@ const showing = () =>
     </MemoryRouter>,
   );
 
-const offered = (over: Record<string, unknown> = {}) => ({
+const preview = (over: Record<string, unknown> = {}) => ({
   data: {
     email: 'ada@example.com',
     workspaceName: 'Acme',
     invitedBy: 'Leon Liang',
     role: 'member',
     teamNames: ['Platform'],
-    standing: 'open',
+    status: 'pending',
     ...over,
   },
   isPending: false,
@@ -64,7 +64,7 @@ const offered = (over: Record<string, unknown> = {}) => ({
 });
 
 beforeEach(() => {
-  invite.mockReturnValue(offered());
+  invite.mockReturnValue(preview());
   session.mockReturnValue({ data: null, isPending: false });
   accept.mockReset();
   signIn.mockReset();
@@ -73,7 +73,7 @@ beforeEach(() => {
 });
 
 describe('AcceptInvite', () => {
-  it('says who asked, to which workspace, and as what', () => {
+  it('says who sent the invite, to which workspace, and as what', () => {
     showing();
 
     expect(
@@ -86,8 +86,8 @@ describe('AcceptInvite', () => {
     ).toBeInTheDocument();
   });
 
-  it('says someone who has left asked, where their account is gone', () => {
-    invite.mockReturnValue(offered({ invitedBy: null }));
+  it('says someone who has left sent it, where their account is gone', () => {
+    invite.mockReturnValue(preview({ invitedBy: null }));
     showing();
 
     expect(
@@ -99,7 +99,7 @@ describe('AcceptInvite', () => {
 
   it('names every team an invitation joins', () => {
     invite.mockReturnValue(
-      offered({ teamNames: ['Platform', 'Growth', 'Mobile'] }),
+      preview({ teamNames: ['Platform', 'Growth', 'Mobile'] }),
     );
     showing();
 
@@ -111,7 +111,7 @@ describe('AcceptInvite', () => {
   });
 
   it('says an admin invitation onto no team joins the workspace only', () => {
-    invite.mockReturnValue(offered({ role: 'admin', teamNames: [] }));
+    invite.mockReturnValue(preview({ role: 'admin', teamNames: [] }));
     showing();
 
     expect(
@@ -119,7 +119,7 @@ describe('AcceptInvite', () => {
     ).toBeInTheDocument();
   });
 
-  it('asks somebody signed out to sign in with GitHub', async () => {
+  it('tells somebody signed out to sign in with GitHub', async () => {
     showing();
 
     expect(screen.queryByText(/Sign in as/)).not.toBeInTheDocument();
@@ -163,7 +163,7 @@ describe('AcceptInvite', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('refuses somebody signed in as anybody else', () => {
+  it('does not let somebody signed in as anybody else accept', () => {
     session.mockReturnValue({
       data: { user: { email: 'grace@example.com' } },
       isPending: false,
@@ -180,23 +180,23 @@ describe('AcceptInvite', () => {
 
   it.each([
     ['accepted', 'This invitation is already accepted.'],
-    ['revoked', 'This invitation is withdrawn.'],
-    ['expired', 'This invitation has expired. Please ask for a new one.'],
-  ])('says an invitation that is %s is no longer open', (standing, said) => {
-    invite.mockReturnValue(offered({ standing }));
+    ['revoked', 'This invitation is revoked.'],
+    ['expired', 'This invitation has expired. Please request a new one.'],
+  ])('says an invitation that is %s is no longer open', (status, text) => {
+    invite.mockReturnValue(preview({ status }));
     session.mockReturnValue({
       data: { user: { email: 'ada@example.com' } },
       isPending: false,
     });
     showing();
 
-    expect(screen.getByText(said)).toBeInTheDocument();
+    expect(screen.getByText(text)).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Accept invitation' }),
     ).not.toBeInTheDocument();
   });
 
-  it('says so when the link stands for no invitation', () => {
+  it('says so when the link matches no invitation', () => {
     invite.mockReturnValue({
       data: null,
       isPending: false,
@@ -229,7 +229,7 @@ describe('AcceptInvite', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('says the invitation could not be loaded, and tries again when asked', async () => {
+  it('says the invitation could not be loaded, and tries again on request', async () => {
     invite.mockReturnValue({
       data: undefined,
       isPending: false,

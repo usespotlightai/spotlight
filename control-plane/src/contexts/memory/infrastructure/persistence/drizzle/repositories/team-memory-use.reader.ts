@@ -21,10 +21,10 @@ export class DrizzleTeamMemoryUse implements TeamMemoryUsePort {
       eq(memory.workspaceId, window.workspaceId),
       eq(memory.teamId, window.teamId),
     );
-    const [standing] = await this.context.db
+    const [active] = await this.context.db
       .select({ memories: count() })
       .from(memory)
-      .where(and(ofTeam, eq(memory.standing, 'stands')));
+      .where(and(ofTeam, eq(memory.status, 'active')));
 
     const retired = await this.context.db
       .select({
@@ -47,7 +47,7 @@ export class DrizzleTeamMemoryUse implements TeamMemoryUsePort {
       .orderBy(desc(memory.retiredAt));
 
     return {
-      standing: Number(standing?.memories ?? 0),
+      activeCount: Number(active?.memories ?? 0),
       flagged: retired.flatMap((row) => {
         if (!row.at) {
           return [];

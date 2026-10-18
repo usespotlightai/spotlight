@@ -68,7 +68,7 @@ export class DrizzleReviewReader implements ReviewReaderPort {
       })
       .from(review)
       .where(
-        and(eq(review.taskId, taskId.value), ne(review.state, 'withdrawn')),
+        and(eq(review.taskId, taskId.value), ne(review.state, 'discarded')),
       )
       .orderBy(asc(review.submittedAt));
   }

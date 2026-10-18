@@ -17,7 +17,7 @@ export const asBoardView = (raw: string | null): BoardView =>
 
 const BOARD_VIEW_STORAGE_KEY = 'spotlight.board-view';
 
-export const rememberedBoardView = (): BoardView => {
+export const storedBoardView = (): BoardView => {
   try {
     return asBoardView(localStorage.getItem(BOARD_VIEW_STORAGE_KEY));
   } catch {
@@ -25,7 +25,7 @@ export const rememberedBoardView = (): BoardView => {
   }
 };
 
-export const rememberBoardView = (view: BoardView): void => {
+export const storeBoardView = (view: BoardView): void => {
   try {
     localStorage.setItem(BOARD_VIEW_STORAGE_KEY, view);
   } catch {}

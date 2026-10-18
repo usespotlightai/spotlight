@@ -18,7 +18,7 @@ const DESCRIPTION =
 export const welcomeTask = (input: {
   line: Line;
   teamId: TeamId;
-  saying: TaskNoteBody;
+  noteBody: TaskNoteBody;
   at: StationId;
   station: StationName;
   owner: UserId;
@@ -31,13 +31,13 @@ export const welcomeTask = (input: {
     title: TaskTitle.of(TITLE),
     description: TaskDescription.of(DESCRIPTION),
     rank: TaskRank.between(null, null),
-    raisedBy: input.owner,
+    createdBy: input.owner,
     now: input.now,
     newId: input.newId,
   }).askedAbout(
     {
       station: input.station,
-      body: input.saying,
+      body: input.noteBody,
       at: input.now,
       voice: Voice.station(),
       form: 'setup',

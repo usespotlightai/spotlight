@@ -1,4 +1,4 @@
-import type { StandingRun } from '@replays/application/ports/work.port';
+import type { RunSummary } from '@replays/application/ports/work.port';
 import { ReadReplayHandler } from '@replays/application/queries/handlers/read-replay.handler';
 import { ReadReplayQuery } from '@replays/application/queries/read-replay.query';
 import {
@@ -33,15 +33,15 @@ import {
   SEARCH_ID,
   STATION,
 } from '@replays/domain/replays.fake-spec';
-import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-reading';
+import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-estimate';
 import { UNREAD_HEALTH } from '@replays/domain/services/set-health';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
 import { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -51,11 +51,11 @@ let world: ReplayedWorld;
 
 let STANDARDS: ReadonlyMap<string, SetStandard>;
 
-const ended = (original: number, at: string | null): StandingRun => ({
+const ended = (original: number, at: string | null): RunSummary => ({
   runId: RunId.of(`original_${original}`),
   taskId: null,
   stationId: STATION.stationId,
-  refusal: null,
+  unreplayableReason: null,
   reason: null,
   title: null,
   state: 'completed',
@@ -77,7 +77,7 @@ const seenIn = (
   baselines: world.replays.filter((each) => each.baseline),
   candidates: world.candidates,
   pullRequests: [],
-  standing: [],
+  summaries: [],
   standards: STANDARDS,
   ...more,
 });
@@ -236,7 +236,7 @@ describe('replayedCandidatesView', () => {
 
   it('ranks a set’s candidates by their gain against live, those without one last', () => {
     const gains = onlySet().candidates.map(
-      (each) => each.againstLive?.gain ?? null,
+      (each) => each.gainOverLive?.gain ?? null,
     );
     const known = gains.filter((each) => each !== null);
 
@@ -250,14 +250,14 @@ describe('replayedCandidatesView', () => {
     const set = onlySet();
 
     expect(set.chartCurrency).toBe('USD');
-    expect(set.baseline?.charted).toBe('priced');
-    expect(candidateNamed('Shorter prompt').charted).toBe('priced');
+    expect(set.baseline?.chartStatus).toBe('priced');
+    expect(candidateNamed('Shorter prompt').chartStatus).toBe('priced');
   });
 
-  it('tells how the set stands from its oldest and newest run ends and its last addition', () => {
+  it('tells the health of the set from its oldest and newest run ends and its last addition', () => {
     expect(
       onlySet({
-        standing: [
+        summaries: [
           ended(0, '2026-08-03T10:00:00.000Z'),
           ended(1, '2026-09-28T16:20:00.000Z'),
           ended(2, '2026-07-14T10:00:00.000Z'),
@@ -283,14 +283,14 @@ describe('replayedCandidatesView', () => {
     });
   });
 
-  it('gives the baseline’s cost in its own currency, apart from the candidate’s', () => {
+  it('shows the baseline’s cost in its own currency, apart from the candidate’s', () => {
     const euros = replayedAs(
       Replay.start({
         id: ReplayId.of('replay_euros'),
         set: world.set,
         candidate: candidateOf('live'),
         baseline: true,
-        ceiling: Spend.ceiling(100, 'EUR'),
+        ceiling: Money.ceiling(100, 'EUR'),
         at: later(5),
         by: BY,
       }),
@@ -328,7 +328,7 @@ describe('replayedCandidatesView', () => {
     ).toBe('replay_running');
   });
 
-  it('gives a held-out score apart from the search score, as the search page does', () => {
+  it('shows a held-out score apart from the search score, as the search page does', () => {
     world = replayedWorld(true);
     const page = searchDetailView(
       world.search,
@@ -401,7 +401,7 @@ describe('replayedCandidatesView', () => {
       interval: page.seed.searchInterval,
       costPerRun: page.seed.costPerRun,
       scored: page.seed.searchScored,
-      charted: 'priced',
+      chartStatus: 'priced',
     });
     expect(candidateNamed('terse').search?.seed.scored).toBe(
       world.search.split.searched.length,
@@ -448,13 +448,13 @@ describe('replayedCandidatesView', () => {
             runId: RunId.of(run as string),
             taskId: TaskId.of(task as string),
             stationId: STATION.stationId,
-            refusal: null,
+            unreplayableReason: null,
             reason: null,
           },
           NOW,
           false,
         ),
-      ReplaySet.open({
+      ReplaySet.create({
         id: ReplaySetId.of('set_twice'),
         station: STATION,
         name: ReplaySetName.of('Twice'),
@@ -513,7 +513,7 @@ describe('replayedCandidatesView', () => {
         baselines: world.replays,
         candidates: world.candidates,
         pullRequests: [],
-        standing: [],
+        summaries: [],
         standards: STANDARDS,
       }),
     ).toMatchObject({ truncated: true, stations: [] });

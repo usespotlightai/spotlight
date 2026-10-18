@@ -44,8 +44,8 @@ const item = (failure: InboxItemSummary['failure']): InboxItemSummary => ({
   stationColor: '#edc12b',
   stationPosition: 1,
   stationCount: 3,
-  raisedAt: { name: 'Triage', color: '#edc12b', position: 0 },
-  standsAt: { name: 'Implementation', color: '#edc12b', position: 1 },
+  originStation: { name: 'Triage', color: '#edc12b', position: 0 },
+  currentStation: { name: 'Implementation', color: '#edc12b', position: 1 },
   createdAt: asked,
   askedAt: asked,
   resolved: false,
@@ -54,7 +54,7 @@ const item = (failure: InboxItemSummary['failure']): InboxItemSummary => ({
   unread: true,
   briefing: null,
   failure,
-  aside: null,
+  inboxRequest: null,
   notes: [note(failure)],
 });
 
@@ -134,7 +134,7 @@ describe('ListInboxHandler', () => {
     });
   });
 
-  it('asks only for the notices settled in the last 30 days, beside every open one', async () => {
+  it('requests only the notices resolved in the last 30 days, beside every open one', async () => {
     const inbox = reader([]);
 
     await handle(inbox);

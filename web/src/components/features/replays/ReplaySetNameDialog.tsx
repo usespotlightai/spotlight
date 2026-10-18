@@ -54,8 +54,8 @@ export function ReplaySetNameDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      onOpenChangeComplete={(settled) => {
-        if (!settled) {
+      onOpenChangeComplete={(open) => {
+        if (!open) {
           setName(initial);
           onClosed();
         }

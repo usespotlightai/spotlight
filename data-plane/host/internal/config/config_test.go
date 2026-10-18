@@ -25,12 +25,12 @@ func isolated(t *testing.T) string {
 
 	dir := t.TempDir()
 	for _, name := range []string{
-		"SPOTLIGHT_URL", "SPOTLIGHT_TOKEN", "SPOTLIGHT_TRUST", "SPOTLIGHT_OIDC_TOKEN_FILE",
+		"SPOTLIGHT_URL", "SPOTLIGHT_POOL_TOKEN", "SPOTLIGHT_TRUST", "SPOTLIGHT_OIDC_TOKEN_FILE",
 		"SPOTLIGHT_CAPACITY", "SPOTLIGHT_RUNNER_IMAGE", "SPOTLIGHT_RUN_TIMEOUT", "SPOTLIGHT_ANSWER_WAIT", "SPOTLIGHT_SANDBOX_URL",
 		"SPOTLIGHT_SANDBOX_ENV", "SPOTLIGHT_SANDBOX_NETWORK", "SPOTLIGHT_SANDBOX_HOSTS", "SPOTLIGHT_STATE",
 		"SPOTLIGHT_HOST_NAME", "DOCKER_HOST", "SPOTLIGHT_SANDBOX_PASS",
 		"SPOTLIGHT_EGRESS_IMAGE", "SPOTLIGHT_EGRESS_ALLOW", "SPOTLIGHT_EGRESS_ENV", "SPOTLIGHT_EGRESS_PASS",
-		"SPOTLIGHT_EGRESS_TRUST", "SPOTLIGHT_EGRESS_READS", "SENTRY_DSN", "SENTRY_ENVIRONMENT",
+		"SPOTLIGHT_EGRESS_CA_BUNDLE", "SPOTLIGHT_EGRESS_SECRET_ALLOW", "SENTRY_DSN", "SENTRY_ENVIRONMENT",
 	} {
 		t.Setenv(name, "")
 	}
@@ -48,7 +48,7 @@ func write(t *testing.T, path, body string) {
 
 func TestLoadsWhatTheInstallerWrote(t *testing.T) {
 	dir := isolated(t)
-	write(t, filepath.Join(dir, "host.env"), "SPOTLIGHT_URL=https://spotlight.test/\nSPOTLIGHT_TOKEN=pool-token\n")
+	write(t, filepath.Join(dir, "host.env"), "SPOTLIGHT_URL=https://spotlight.test/\nSPOTLIGHT_POOL_TOKEN=pool-token\n")
 
 	cfg, err := config.Load("v1.4.0")
 	if err != nil {
@@ -64,10 +64,10 @@ func TestLoadsWhatTheInstallerWrote(t *testing.T) {
 	if cfg.Capacity != 1 || cfg.RunTimeout != 6*time.Hour || cfg.AnswerWait != 5*time.Minute {
 		t.Errorf("capacity %d, timeout %v, answer wait %v", cfg.Capacity, cfg.RunTimeout, cfg.AnswerWait)
 	}
-	if cfg.Images.Default != config.Image+":v1.4.0" || !cfg.Images.Admits(config.Image+":v1.4.0") {
+	if cfg.Images.Default != config.Image+":v1.4.0" || !cfg.Images.Allows(config.Image+":v1.4.0") {
 		t.Errorf("images %+v: the runner image is pinned to the host's version", cfg.Images)
 	}
-	if cfg.Images.Admits("ghcr.io/acme/runner:main") {
+	if cfg.Images.Allows("ghcr.io/acme/runner:main") {
 		t.Error("a host with no allow-list serves only its default")
 	}
 	if cfg.State == "" || cfg.Name == "" {
@@ -77,7 +77,7 @@ func TestLoadsWhatTheInstallerWrote(t *testing.T) {
 
 func TestTheEnvironmentWinsOverTheFile(t *testing.T) {
 	dir := isolated(t)
-	write(t, filepath.Join(dir, "host.env"), "SPOTLIGHT_URL=https://file.test\nSPOTLIGHT_TOKEN=pool-token\n")
+	write(t, filepath.Join(dir, "host.env"), "SPOTLIGHT_URL=https://file.test\nSPOTLIGHT_POOL_TOKEN=pool-token\n")
 	t.Setenv("SPOTLIGHT_URL", "https://env.test")
 	t.Setenv("SPOTLIGHT_CAPACITY", "4")
 	t.Setenv("SPOTLIGHT_RUNNER_IMAGE", "ghcr.io/acme/*, runner:claude-2, runner:codex-1")
@@ -93,13 +93,13 @@ func TestTheEnvironmentWinsOverTheFile(t *testing.T) {
 	if cfg.Images.Default != "runner:claude-2" {
 		t.Errorf("default %q: the first exact image is the default", cfg.Images.Default)
 	}
-	for _, admitted := range []string{"runner:claude-2", "runner:codex-1", "ghcr.io/acme/api-runner:main"} {
-		if !cfg.Images.Admits(admitted) {
-			t.Errorf("%s is not admitted", admitted)
+	for _, image := range []string{"runner:claude-2", "runner:codex-1", "ghcr.io/acme/api-runner:main"} {
+		if !cfg.Images.Allows(image) {
+			t.Errorf("%s is not allowed", image)
 		}
 	}
-	if cfg.Images.Admits("ghcr.io/other/runner:main") {
-		t.Error("an image no entry names is admitted")
+	if cfg.Images.Allows("ghcr.io/other/runner:main") {
+		t.Error("an image no entry names is allowed")
 	}
 }
 
@@ -119,10 +119,10 @@ func TestClaimsThroughATrustWithAWorkloadToken(t *testing.T) {
 	}
 }
 
-func TestRefusesAmbiguousOrMissingCredentials(t *testing.T) {
+func TestRejectsAmbiguousOrMissingCredentials(t *testing.T) {
 	for name, env := range map[string]map[string]string{
 		"none":          {},
-		"both":          {"SPOTLIGHT_TOKEN": "pool-token", "SPOTLIGHT_TRUST": "trust_1"},
+		"both":          {"SPOTLIGHT_POOL_TOKEN": "pool-token", "SPOTLIGHT_TRUST": "trust_1"},
 		"trust no file": {"SPOTLIGHT_TRUST": "trust_1"},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -133,7 +133,7 @@ func TestRefusesAmbiguousOrMissingCredentials(t *testing.T) {
 			}
 
 			if _, err := config.Load("dev"); err == nil {
-				t.Fatal("expected a refusal")
+				t.Fatal("expected an error")
 			}
 		})
 	}
@@ -143,7 +143,7 @@ func TestReadsHowLongARunWaitsWarmForAnAnswer(t *testing.T) {
 	for raw, want := range map[string]time.Duration{"0": 0, "90s": 90 * time.Second, "1h": time.Hour} {
 		isolated(t)
 		t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
-		t.Setenv("SPOTLIGHT_TOKEN", "pool-token")
+		t.Setenv("SPOTLIGHT_POOL_TOKEN", "pool-token")
 		t.Setenv("SPOTLIGHT_ANSWER_WAIT", raw)
 
 		cfg, err := config.Load("dev")
@@ -156,15 +156,15 @@ func TestReadsHowLongARunWaitsWarmForAnAnswer(t *testing.T) {
 	}
 }
 
-func TestRefusesAnAnswerWaitThatIsNoDurationOrIsNegative(t *testing.T) {
+func TestRejectsAnAnswerWaitThatIsNoDurationOrIsNegative(t *testing.T) {
 	for _, raw := range []string{"soon", "5", "-1m"} {
 		isolated(t)
 		t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
-		t.Setenv("SPOTLIGHT_TOKEN", "pool-token")
+		t.Setenv("SPOTLIGHT_POOL_TOKEN", "pool-token")
 		t.Setenv("SPOTLIGHT_ANSWER_WAIT", raw)
 
 		if _, err := config.Load("dev"); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_ANSWER_WAIT") {
-			t.Errorf("%q: expected a refusal, got %v", raw, err)
+			t.Errorf("%q: expected an error, got %v", raw, err)
 		}
 	}
 }
@@ -172,7 +172,7 @@ func TestRefusesAnAnswerWaitThatIsNoDurationOrIsNegative(t *testing.T) {
 func TestPassesTheSandboxEnvironmentButNeverTheHostsCredential(t *testing.T) {
 	dir := isolated(t)
 	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
-	t.Setenv("SPOTLIGHT_TOKEN", "pool-token")
+	t.Setenv("SPOTLIGHT_POOL_TOKEN", "pool-token")
 
 	write(t, filepath.Join(dir, "sandbox.env"), "# harness keys\nANTHROPIC_API_KEY=sk-test\n")
 	cfg, err := config.Load("dev")
@@ -183,10 +183,10 @@ func TestPassesTheSandboxEnvironmentButNeverTheHostsCredential(t *testing.T) {
 		t.Errorf("sandbox env %v", cfg.SandboxEnv)
 	}
 
-	for _, leaked := range []string{"SPOTLIGHT_TOKEN=anything\n", "SOMETHING=Bearer pool-token\n", "SPOTLIGHT_ANSWER_WAIT=1h\n"} {
+	for _, leaked := range []string{"SPOTLIGHT_POOL_TOKEN=anything\n", "SOMETHING=Bearer pool-token\n", "SPOTLIGHT_ANSWER_WAIT=1h\n", "SPOTLIGHT_RUN_TOKEN=anything\n"} {
 		write(t, filepath.Join(dir, "sandbox.env"), leaked)
 		if _, err := config.Load("dev"); err == nil || !strings.Contains(err.Error(), "sandbox environment") {
-			t.Errorf("%q: expected a refusal, got %v", leaked, err)
+			t.Errorf("%q: expected an error, got %v", leaked, err)
 		}
 	}
 }
@@ -208,7 +208,7 @@ func TestKeepsOneHostIDForItsLife(t *testing.T) {
 func TestPassesSentryToSandboxesAndEgressOnlyWhenTheHostReports(t *testing.T) {
 	isolated(t)
 	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
-	t.Setenv("SPOTLIGHT_TOKEN", "pool-token")
+	t.Setenv("SPOTLIGHT_POOL_TOKEN", "pool-token")
 
 	cfg, err := config.Load("dev")
 	if err != nil {
@@ -233,7 +233,7 @@ func TestPassesSentryToSandboxesAndEgressOnlyWhenTheHostReports(t *testing.T) {
 		t.Errorf("egress env %v", cfg.Egress.Env)
 	}
 	if len(cfg.Egress.Allow) != 0 {
-		t.Errorf("an egress that admits any host was narrowed to %v", cfg.Egress.Allow)
+		t.Errorf("an egress that allows any host was narrowed to %v", cfg.Egress.Allow)
 	}
 
 	t.Setenv("SPOTLIGHT_EGRESS_ALLOW", "api.anthropic.com")
@@ -242,14 +242,14 @@ func TestPassesSentryToSandboxesAndEgressOnlyWhenTheHostReports(t *testing.T) {
 		t.Fatalf("load: %v", err)
 	}
 	if !slices.Equal(cfg.Egress.Allow, []string{"api.anthropic.com", "sentry.test"}) {
-		t.Errorf("egress admits %v, not the Sentry host too", cfg.Egress.Allow)
+		t.Errorf("egress allows %v, not the Sentry host too", cfg.Egress.Allow)
 	}
 }
 
 func TestPassesNamedVariablesOfItsOwnIntoSandboxes(t *testing.T) {
 	isolated(t)
 	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
-	t.Setenv("SPOTLIGHT_TOKEN", "pool-token")
+	t.Setenv("SPOTLIGHT_POOL_TOKEN", "pool-token")
 	t.Setenv("CLAUDE_CODE_OAUTH_TOKEN", "oauth")
 	t.Setenv("SPOTLIGHT_SANDBOX_PASS", "CLAUDE_CODE_OAUTH_TOKEN, UNSET_ONE")
 
@@ -261,7 +261,7 @@ func TestPassesNamedVariablesOfItsOwnIntoSandboxes(t *testing.T) {
 		t.Errorf("sandbox env %v", cfg.SandboxEnv)
 	}
 
-	t.Setenv("SPOTLIGHT_SANDBOX_PASS", "SPOTLIGHT_TOKEN")
+	t.Setenv("SPOTLIGHT_SANDBOX_PASS", "SPOTLIGHT_POOL_TOKEN")
 	if _, err := config.Load("dev"); err == nil {
 		t.Error("passed the host's own credential into sandboxes")
 	}
@@ -270,27 +270,27 @@ func TestPassesNamedVariablesOfItsOwnIntoSandboxes(t *testing.T) {
 func TestOnlyOneHostServesFromAStateDirectory(t *testing.T) {
 	state := filepath.Join(t.TempDir(), "state")
 
-	release, err := config.Hold(state)
+	release, err := config.Lock(state)
 	if err != nil {
-		t.Fatalf("hold: %v", err)
+		t.Fatalf("lock: %v", err)
 	}
 
-	if _, err := config.Hold(state); err == nil || !strings.Contains(err.Error(), "another spotlight host") {
+	if _, err := config.Lock(state); err == nil || !strings.Contains(err.Error(), "another spotlight host") {
 		t.Fatalf("a second host was let in: %v", err)
 	}
 
 	release()
-	again, err := config.Hold(state)
+	again, err := config.Lock(state)
 	if err != nil {
-		t.Fatalf("hold after release: %v", err)
+		t.Fatalf("lock after release: %v", err)
 	}
 	again()
 }
 
-func TestRunsEgressFromTheHostsOwnReleaseAndLetsSandboxesReachAnywhereByDefault(t *testing.T) {
+func TestRunsEgressFromTheHostsOwnReleaseAndAllowsSandboxesAnyHostByDefault(t *testing.T) {
 	isolated(t)
 	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
-	t.Setenv("SPOTLIGHT_TOKEN", "pool-token")
+	t.Setenv("SPOTLIGHT_POOL_TOKEN", "pool-token")
 
 	cfg, err := config.Load("v1.4.0")
 	if err != nil {
@@ -301,13 +301,13 @@ func TestRunsEgressFromTheHostsOwnReleaseAndLetsSandboxesReachAnywhereByDefault(
 	}
 }
 
-func TestReadsWhatSandboxesMayReachAndWhatEgressRunsWith(t *testing.T) {
+func TestReadsWhatHostsSandboxesMayConnectToAndWhatEgressRunsWith(t *testing.T) {
 	dir := isolated(t)
 	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
-	t.Setenv("SPOTLIGHT_TOKEN", "pool-token")
+	t.Setenv("SPOTLIGHT_POOL_TOKEN", "pool-token")
 	t.Setenv("SPOTLIGHT_EGRESS_IMAGE", "spotlight-runner:dev")
 	t.Setenv("SPOTLIGHT_EGRESS_ALLOW", "api.anthropic.com, *.internal.acme.com")
-	t.Setenv("SPOTLIGHT_EGRESS_READS", "arn:aws:secretsmanager:eu-west-1:123456789012:secret:spotlight/*")
+	t.Setenv("SPOTLIGHT_EGRESS_SECRET_ALLOW", "arn:aws:secretsmanager:eu-west-1:123456789012:secret:spotlight/*")
 	t.Setenv("AWS_PROFILE", "egress")
 	t.Setenv("SPOTLIGHT_EGRESS_PASS", "AWS_PROFILE")
 	write(t, filepath.Join(dir, "egress.env"), "AWS_REGION=eu-west-1\n")
@@ -318,49 +318,49 @@ func TestReadsWhatSandboxesMayReachAndWhatEgressRunsWith(t *testing.T) {
 	}
 	if cfg.Egress.Image != "spotlight-runner:dev" ||
 		!slices.Equal(cfg.Egress.Allow, []string{"api.anthropic.com", "*.internal.acme.com"}) ||
-		!slices.Equal(cfg.Egress.Reads, []string{"arn:aws:secretsmanager:eu-west-1:123456789012:secret:spotlight/*"}) ||
+		!slices.Equal(cfg.Egress.SecretAllow, []string{"arn:aws:secretsmanager:eu-west-1:123456789012:secret:spotlight/*"}) ||
 		!slices.Equal(cfg.Egress.Env, []string{"AWS_PROFILE=egress", "AWS_REGION=eu-west-1"}) {
 		t.Errorf("egress %+v", cfg.Egress)
 	}
 	if slices.Contains(cfg.SandboxEnv, "AWS_REGION=eu-west-1") {
-		t.Error("gave the sandbox what only egress holds")
+		t.Error("sent the sandbox what only egress has")
 	}
 }
 
-func TestRefusesAnAllowListThatNamesNoHostAndAnEgressHoldingTheHostsCredential(t *testing.T) {
+func TestRejectsAnAllowListThatNamesNoHostAndAnEgressWithTheHostsCredential(t *testing.T) {
 	dir := isolated(t)
 	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
-	t.Setenv("SPOTLIGHT_TOKEN", "pool-token")
+	t.Setenv("SPOTLIGHT_POOL_TOKEN", "pool-token")
 
 	t.Setenv("SPOTLIGHT_EGRESS_ALLOW", "https://api.anthropic.com")
 	if _, err := config.Load("dev"); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_EGRESS_ALLOW") {
-		t.Errorf("took an allow-list of URLs: %v", err)
+		t.Errorf("accepted an allow-list of URLs: %v", err)
 	}
 
 	t.Setenv("SPOTLIGHT_EGRESS_ALLOW", "")
-	write(t, filepath.Join(dir, "egress.env"), "SPOTLIGHT_TOKEN=pool-token\n")
+	write(t, filepath.Join(dir, "egress.env"), "SPOTLIGHT_POOL_TOKEN=pool-token\n")
 	if _, err := config.Load("dev"); err == nil {
-		t.Error("handed egress the host's own credential")
+		t.Error("sent egress the host's own credential")
 	}
 }
 
 func TestReadsTheAuthoritiesEgressTrustsForPrivateHosts(t *testing.T) {
 	dir := isolated(t)
 	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
-	t.Setenv("SPOTLIGHT_TOKEN", "pool-token")
+	t.Setenv("SPOTLIGHT_POOL_TOKEN", "pool-token")
 	trust := filepath.Join(dir, "acme-ca.pem")
-	t.Setenv("SPOTLIGHT_EGRESS_TRUST", trust)
+	t.Setenv("SPOTLIGHT_EGRESS_CA_BUNDLE", trust)
 
 	write(t, trust, "not a certificate")
 	if _, err := config.Load("dev"); err == nil || !strings.Contains(err.Error(), "no PEM certificate") {
-		t.Errorf("took what holds no certificate: %v", err)
+		t.Errorf("accepted what has no certificate: %v", err)
 	}
 
 	authority := authorityPEM(t)
 	write(t, trust, authority)
 	cfg, err := config.Load("dev")
-	if err != nil || string(cfg.Egress.Trust) != authority {
-		t.Errorf("trust %q: %v", cfg.Egress.Trust, err)
+	if err != nil || string(cfg.Egress.CABundle) != authority {
+		t.Errorf("trust %q: %v", cfg.Egress.CABundle, err)
 	}
 }
 

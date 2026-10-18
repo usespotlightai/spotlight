@@ -12,14 +12,14 @@ import type {
   HolderState,
 } from '@work/domain/value-objects/archive-holder.vo';
 import type { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
-import type { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
+import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import type { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
-const KEPT_AFTER_LET_GO_MS = 7 * 24 * 60 * 60_000;
-const KEPT_AFTER_SUPERSEDED_MS = 60 * 60_000;
-const KEPT_AFTER_STARTED_FROM_MS = 30 * 24 * 60 * 60_000;
-const AWAITED_UNSEALED_MS = 24 * 60 * 60_000;
+const RETENTION_AFTER_RELEASE_MS = 7 * 24 * 60 * 60_000;
+const RETENTION_AFTER_SUPERSEDED_MS = 60 * 60_000;
+const RETENTION_AFTER_STARTED_FROM_MS = 30 * 24 * 60 * 60_000;
+const INCOMPLETE_ARCHIVE_WAIT_MS = 24 * 60 * 60_000;
 
 export interface StoredArchive {
   readonly size: ArchiveSize;
@@ -27,9 +27,9 @@ export interface StoredArchive {
 }
 
 export interface ArchiveRemovalCutoffs {
-  readonly grantedUnsealedBy: Date;
+  readonly grantedIncompleteBy: Date;
   readonly supersededBy: Date;
-  readonly letGoBy: Date;
+  readonly releasedBy: Date;
   readonly startedFromBy: Date;
 }
 
@@ -43,13 +43,13 @@ export interface ArchiveFacts {
 interface State {
   readonly id: WorkspaceArchiveId;
   readonly workspaceId: WorkspaceId;
-  readonly continuity: ContinuityKey;
+  readonly resumeKey: ResumeKey;
   readonly holder: ArchiveHolder;
   readonly grantedTo: RunId;
   readonly size: ArchiveSize;
   readonly digest: ArchiveDigest;
   readonly grantedAt: Date;
-  readonly sealedAt: Date | null;
+  readonly completedAt: Date | null;
   readonly version: number;
 }
 
@@ -66,18 +66,18 @@ export class WorkspaceArchive extends EventRecorder {
   static grant(input: {
     id: WorkspaceArchiveId;
     workspaceId: WorkspaceId;
-    continuity: ContinuityKey | null;
+    resumeKey: ResumeKey | null;
     holder: ArchiveHolder | null;
     run: RunId;
     size: ArchiveSize;
     digest: ArchiveDigest;
     at: Date;
   }): WorkspaceArchive {
-    const { continuity, holder } = input;
+    const { resumeKey, holder } = input;
 
-    if (!continuity || !holder) {
+    if (!resumeKey || !holder) {
       throw new InvalidWorkspaceArchiveError(
-        'is kept only for work that continues in a later run',
+        'is stored only for work that continues in a later run',
       );
     }
 
@@ -85,13 +85,13 @@ export class WorkspaceArchive extends EventRecorder {
       {
         id: input.id,
         workspaceId: input.workspaceId,
-        continuity,
+        resumeKey,
         holder,
         grantedTo: input.run,
         size: input.size,
         digest: input.digest,
         grantedAt: input.at,
-        sealedAt: null,
+        completedAt: null,
         version: 0,
       },
       false,
@@ -102,10 +102,10 @@ export class WorkspaceArchive extends EventRecorder {
     const before = (ms: number): Date => new Date(now.getTime() - ms);
 
     return {
-      grantedUnsealedBy: before(AWAITED_UNSEALED_MS),
-      supersededBy: before(KEPT_AFTER_SUPERSEDED_MS),
-      letGoBy: before(KEPT_AFTER_LET_GO_MS),
-      startedFromBy: before(KEPT_AFTER_STARTED_FROM_MS),
+      grantedIncompleteBy: before(INCOMPLETE_ARCHIVE_WAIT_MS),
+      supersededBy: before(RETENTION_AFTER_SUPERSEDED_MS),
+      releasedBy: before(RETENTION_AFTER_RELEASE_MS),
+      startedFromBy: before(RETENTION_AFTER_STARTED_FROM_MS),
     };
   }
 
@@ -117,10 +117,10 @@ export class WorkspaceArchive extends EventRecorder {
       );
     }
 
-    if (state.sealedAt && state.sealedAt < state.grantedAt) {
+    if (state.completedAt && state.completedAt < state.grantedAt) {
       throw new InconsistentStateError(
         'workspace archive',
-        'was sealed before it was granted',
+        'was completed before it was granted',
       );
     }
 
@@ -135,8 +135,8 @@ export class WorkspaceArchive extends EventRecorder {
     return this.state.workspaceId;
   }
 
-  get continuity(): ContinuityKey {
-    return this.state.continuity;
+  get resumeKey(): ResumeKey {
+    return this.state.resumeKey;
   }
 
   get holder(): ArchiveHolder {
@@ -159,12 +159,12 @@ export class WorkspaceArchive extends EventRecorder {
     return this.state.grantedAt;
   }
 
-  get sealedAt(): Date | null {
-    return this.state.sealedAt;
+  get completedAt(): Date | null {
+    return this.state.completedAt;
   }
 
-  get isSealed(): boolean {
-    return this.state.sealedAt !== null;
+  get isCompleted(): boolean {
+    return this.state.completedAt !== null;
   }
 
   get version(): number {
@@ -173,15 +173,15 @@ export class WorkspaceArchive extends EventRecorder {
 
   restoreInto(
     workspaceId: WorkspaceId,
-    continuity: ContinuityKey | null,
+    resumeKey: ResumeKey | null,
   ): RestoredArchive {
     const restored = RestoredArchive.of(
       this.state.id,
       this.state.workspaceId,
-      this.state.continuity,
+      this.state.resumeKey,
     );
 
-    if (!this.isSealed || !restored.restores(workspaceId, continuity)) {
+    if (!this.isCompleted || !restored.restores(workspaceId, resumeKey)) {
       throw new InvalidStartingPointError(
         `names archive ${this.state.id.value}, which the run did not restore`,
       );
@@ -190,9 +190,9 @@ export class WorkspaceArchive extends EventRecorder {
     return restored;
   }
 
-  isKeptIn(workspaceId: WorkspaceId): boolean {
+  isAvailableIn(workspaceId: WorkspaceId): boolean {
     return (
-      this.isSealed &&
+      this.isCompleted &&
       !this.isDiscarded &&
       this.state.workspaceId.equals(workspaceId)
     );
@@ -202,8 +202,8 @@ export class WorkspaceArchive extends EventRecorder {
     return this.state.grantedTo.equals(run);
   }
 
-  seal(stored: StoredArchive | null, at: Date): WorkspaceArchive {
-    if (this.isSealed) {
+  complete(stored: StoredArchive | null, at: Date): WorkspaceArchive {
+    if (this.isCompleted) {
       return this;
     }
 
@@ -224,15 +224,15 @@ export class WorkspaceArchive extends EventRecorder {
       );
     }
 
-    return this.with({ sealedAt: at });
+    return this.with({ completedAt: at });
   }
 
   removableAt(now: Date, facts: ArchiveFacts): boolean {
-    const { sealedAt, grantedAt } = this.state;
+    const { completedAt, grantedAt } = this.state;
     const at = now.getTime();
 
-    if (!sealedAt) {
-      return at >= after(grantedAt, AWAITED_UNSEALED_MS);
+    if (!completedAt) {
+      return at >= after(grantedAt, INCOMPLETE_ARCHIVE_WAIT_MS);
     }
 
     if (!facts.holder) {
@@ -245,31 +245,31 @@ export class WorkspaceArchive extends EventRecorder {
 
     if (
       facts.lastStartedFromAt &&
-      at < after(facts.lastStartedFromAt, KEPT_AFTER_STARTED_FROM_MS)
+      at < after(facts.lastStartedFromAt, RETENTION_AFTER_STARTED_FROM_MS)
     ) {
       return false;
     }
 
     if (
       facts.supersededAt &&
-      at >= after(facts.supersededAt, KEPT_AFTER_SUPERSEDED_MS)
+      at >= after(facts.supersededAt, RETENTION_AFTER_SUPERSEDED_MS)
     ) {
       return true;
     }
 
-    if (this.letGoBy(facts.holder)) {
+    if (this.isReleasedBy(facts.holder)) {
       const since = Math.max(
-        sealedAt.getTime(),
+        completedAt.getTime(),
         facts.holder.changedAt.getTime(),
       );
 
-      return at >= since + KEPT_AFTER_LET_GO_MS;
+      return at >= since + RETENTION_AFTER_RELEASE_MS;
     }
 
     return false;
   }
 
-  private letGoBy(now: HolderState): boolean {
+  private isReleasedBy(now: HolderState): boolean {
     return now.kind === 'task' ? now.finished : !now.conversing;
   }
 

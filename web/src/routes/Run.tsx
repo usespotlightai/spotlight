@@ -5,7 +5,7 @@ import { RunSkeleton } from '@/components/features/runs/RunSkeleton';
 import { UntaskedRunOf } from '@/components/features/runs/UntaskedRunOf';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
-import { useRunConversation } from '@/hooks/api/useRunConversation';
+import { useRunNotes } from '@/hooks/api/useRunNotes';
 import { useRunRefresh } from '@/hooks/api/useRunRefresh';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useTeamRuns } from '@/hooks/api/useTeamRuns';
@@ -13,7 +13,7 @@ import { failed, loading } from '@/lib/query';
 
 type Query = UseQueryResult<unknown>;
 
-const settling = (
+const stillLoading = (
   runs: Query,
   found: boolean,
   conversation: Query,
@@ -36,24 +36,29 @@ export function Run() {
   const { slug, teamId, runId } = useParams();
   const runs = useTeamRuns(teamId);
   const run = runs.data?.find((each) => each.id === runId);
-  const conversation = useRunConversation(
+  const conversationQuery = useRunNotes(
     teamId,
     runs.data && !run ? undefined : runId,
   );
-  const said = conversation.data;
-  const journal = useTaskJournal(slug, said?.taskId);
+  const conversation = conversationQuery.data;
+  const journal = useTaskJournal(slug, conversation?.taskId);
 
-  useRunRefresh({ teamId, runId, taskId: said?.taskId, state: run?.state });
+  useRunRefresh({
+    teamId,
+    runId,
+    taskId: conversation?.taskId,
+    state: run?.state,
+  });
 
   if (!slug || !teamId) {
     return null;
   }
 
-  if (settling(runs, Boolean(run), conversation, journal)) {
+  if (stillLoading(runs, Boolean(run), conversationQuery, journal)) {
     return <RunSkeleton />;
   }
 
-  const lost = lostOf(runs, Boolean(run), conversation);
+  const lost = lostOf(runs, Boolean(run), conversationQuery);
 
   if (lost) {
     return (
@@ -76,7 +81,7 @@ export function Run() {
       slug={slug}
       teamId={teamId}
       run={run}
-      said={said}
+      conversation={conversation}
       worked={journal.data ?? []}
       journalFailed={failed(journal)}
     />

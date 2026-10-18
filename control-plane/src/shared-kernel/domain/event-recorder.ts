@@ -9,9 +9,9 @@ export abstract class EventRecorder {
 
   protected inheritEvents(
     from: EventRecorder,
-    kept: (event: DomainEvent) => boolean = () => true,
+    included: (event: DomainEvent) => boolean = () => true,
   ): void {
-    this.pending.push(...from.pending.filter(kept));
+    this.pending.push(...from.pending.filter(included));
   }
 
   pullEvents(): readonly DomainEvent[] {

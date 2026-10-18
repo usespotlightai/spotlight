@@ -24,7 +24,7 @@ import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it, vi } from 'vitest';
 
-const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
+const delivery = (workspaceId = 'ws_1', backlogId = 'station_1') =>
   Line.rehydrate({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of(workspaceId),
@@ -33,7 +33,7 @@ const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
     name: LineName.of('Delivery'),
     stations: [
       Station.of({
-        id: StationId.of(standsAt),
+        id: StationId.of(backlogId),
         key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
@@ -51,26 +51,26 @@ const delivery = (workspaceId = 'ws_1', standsAt = 'station_1') =>
     ],
   });
 
-const standing = () =>
+const existing = () =>
   Task.add({
     line: delivery(),
     at: StationId.of('station_1'),
     title: TaskTitle.of('Fix the queue'),
     rank: TaskRank.of('i'),
-    raisedBy: UserId.of('user_1'),
+    createdBy: UserId.of('user_1'),
     now: new Date('2026-08-28T09:15:00.000Z'),
     newId: () => 'task_1',
   });
 
-const tasks = (found: Task | null = standing()) =>
+const tasks = (found: Task | null = existing()) =>
   ({
     add: vi.fn(),
     save: vi.fn(),
     find: vi.fn(async () => found),
     remove: vi.fn(),
-    standingAt: vi.fn(async () => []),
+    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    holding: vi.fn(async () => null),
+    findByMarks: vi.fn(async () => null),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
@@ -79,14 +79,14 @@ const tasks = (found: Task | null = standing()) =>
 
 const access = (teamId = 'team_1') =>
   ({
-    onTeam: vi.fn(async (asked: string) =>
-      asked === teamId
+    onTeam: vi.fn(async (requested: string) =>
+      requested === teamId
         ? {
             teamId: TeamId.of(teamId),
             workspaceId: WorkspaceId.of('ws_1'),
             slug: 'acme',
             viewer: UserId.of('user_1'),
-            administers: false,
+            isAdmin: false,
           }
         : null,
     ),
@@ -94,34 +94,34 @@ const access = (teamId = 'team_1') =>
 
 const lines = (teamId = 'team_1') =>
   new LineLoader(access(), {
-    holding: vi.fn(async () => ({ teamId: TeamId.of(teamId) }) as Line),
+    findByStation: vi.fn(async () => ({ teamId: TeamId.of(teamId) }) as Line),
   } as unknown as LineRepository);
 
 describe('DeleteTaskHandler', () => {
   it('takes the task away', async () => {
-    const held = tasks();
+    const stored = tasks();
 
-    await new DeleteTaskHandler(held, lines()).execute(
+    await new DeleteTaskHandler(stored, lines()).execute(
       new DeleteTaskCommand('team_1', 'task_1', 'user_1'),
     );
 
-    expect(held.remove.mock.calls[0]?.[0].id).toEqual(TaskId.of('task_1'));
+    expect(stored.remove.mock.calls[0]?.[0].id).toEqual(TaskId.of('task_1'));
   });
 
-  it('says the task was deleted, so what others keep of it can go too', async () => {
-    const held = tasks();
+  it('says the task was deleted, so what others store of it can go too', async () => {
+    const stored = tasks();
 
-    await new DeleteTaskHandler(held, lines()).execute(
+    await new DeleteTaskHandler(stored, lines()).execute(
       new DeleteTaskCommand('team_1', 'task_1', 'user_1'),
     );
 
-    const removed = held.remove.mock.calls[0]?.[0] as Task;
+    const removed = stored.remove.mock.calls[0]?.[0] as Task;
     expect(removed.pullEvents().map((each) => each.kind)).toContain(
       'task.deleted',
     );
   });
 
-  it('refuses a task that is not there', async () => {
+  it('rejects a task that is not there', async () => {
     await expect(
       new DeleteTaskHandler(tasks(null), lines()).execute(
         new DeleteTaskCommand('team_1', 'task_missing', 'user_1'),
@@ -130,23 +130,23 @@ describe('DeleteTaskHandler', () => {
   });
 
   it('leaves nothing behind when there was nothing to take', async () => {
-    const held = tasks(null);
+    const stored = tasks(null);
 
-    await new DeleteTaskHandler(held, lines())
+    await new DeleteTaskHandler(stored, lines())
       .execute(new DeleteTaskCommand('team_1', 'task_missing', 'user_1'))
       .catch(() => undefined);
 
-    expect(held.remove).not.toHaveBeenCalled();
+    expect(stored.remove).not.toHaveBeenCalled();
   });
 
-  it('refuses a task on another team’s line, and takes nothing away', async () => {
-    const held = tasks();
+  it('rejects a task on another team’s line, and takes nothing away', async () => {
+    const stored = tasks();
 
     await expect(
-      new DeleteTaskHandler(held, lines('team_2')).execute(
+      new DeleteTaskHandler(stored, lines('team_2')).execute(
         new DeleteTaskCommand('team_1', 'task_1', 'user_1'),
       ),
     ).rejects.toThrow(ApplicationError);
-    expect(held.remove).not.toHaveBeenCalled();
+    expect(stored.remove).not.toHaveBeenCalled();
   });
 });

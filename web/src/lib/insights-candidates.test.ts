@@ -99,7 +99,7 @@ describe('replayedPoints', () => {
               interval: null,
               costPerRun: 0.5,
               scored: 10,
-              charted: 'priced',
+              chartStatus: 'priced',
             },
           },
         },
@@ -145,7 +145,7 @@ describe('replayedFrontiersOf', () => {
 });
 
 describe('stationReplayedPoints', () => {
-  it('takes only the station’s sets charted in the setups’ currency', () => {
+  it('takes only the station’s sets priced in the agent configs’ currency', () => {
     expect(
       stationReplayedPoints(CANDIDATES, 'station_review', 'USD')?.map(
         (each) => each.label,

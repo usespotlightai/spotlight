@@ -10,19 +10,19 @@ import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { NAMES_PANE } from '@/lib/trace';
 
 const WATERFALL: readonly TraceRowShape[] = [
-  { depth: 0, holding: true, name: 'w-16', left: 0, width: 7 },
-  { depth: 1, holding: false, name: 'w-16', left: 0, width: 1 },
-  { depth: 1, holding: true, name: 'w-28', left: 1, width: 6 },
-  { depth: 2, holding: false, name: 'w-40', left: 1.5, width: 1 },
-  { depth: 2, holding: false, name: 'w-24', left: 2.5, width: 1 },
-  { depth: 2, holding: false, name: 'w-32', left: 3.5, width: 1 },
-  { depth: 1, holding: false, name: 'w-14', left: 7, width: 1 },
-  { depth: 0, holding: true, name: 'w-28', left: 45, width: 40 },
-  { depth: 1, holding: false, name: 'w-16', left: 45, width: 1 },
-  { depth: 1, holding: true, name: 'w-28', left: 46, width: 38 },
-  { depth: 2, holding: false, name: 'w-36', left: 47, width: 20 },
-  { depth: 2, holding: false, name: 'w-32', left: 69, width: 4 },
-  { depth: 1, holding: false, name: 'w-14', left: 85, width: 1 },
+  { depth: 0, hasChildren: true, name: 'w-16', left: 0, width: 7 },
+  { depth: 1, hasChildren: false, name: 'w-16', left: 0, width: 1 },
+  { depth: 1, hasChildren: true, name: 'w-28', left: 1, width: 6 },
+  { depth: 2, hasChildren: false, name: 'w-40', left: 1.5, width: 1 },
+  { depth: 2, hasChildren: false, name: 'w-24', left: 2.5, width: 1 },
+  { depth: 2, hasChildren: false, name: 'w-32', left: 3.5, width: 1 },
+  { depth: 1, hasChildren: false, name: 'w-14', left: 7, width: 1 },
+  { depth: 0, hasChildren: true, name: 'w-28', left: 45, width: 40 },
+  { depth: 1, hasChildren: false, name: 'w-16', left: 45, width: 1 },
+  { depth: 1, hasChildren: true, name: 'w-28', left: 46, width: 38 },
+  { depth: 2, hasChildren: false, name: 'w-36', left: 47, width: 20 },
+  { depth: 2, hasChildren: false, name: 'w-32', left: 69, width: 4 },
+  { depth: 1, hasChildren: false, name: 'w-14', left: 85, width: 1 },
 ];
 
 export function TraceViewSkeleton() {

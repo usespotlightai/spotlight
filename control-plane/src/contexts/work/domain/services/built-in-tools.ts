@@ -31,8 +31,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
     skill: OPENING_PULL_REQUESTS,
     declared: DeclaredTool.of({
       tool: PULL_REQUEST,
-      description:
-        'Open a pull request for the branch this task was worked on.',
+      description: 'Open a pull request for the branch of this task.',
       inputs: [
         {
           name: 'title',
@@ -40,7 +39,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           description: 'What it does',
           required: true,
           defaulted: false,
-          piped: false,
+          stdin: false,
         },
         {
           name: 'body',
@@ -48,7 +47,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           description: 'The detail, as Markdown',
           required: false,
           defaulted: false,
-          piped: true,
+          stdin: true,
         },
         {
           name: 'repository',
@@ -57,7 +56,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
             'Which of the line’s repositories, where it works several',
           required: false,
           defaulted: false,
-          piped: false,
+          stdin: false,
         },
       ],
     }),
@@ -68,7 +67,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
     declared: DeclaredTool.of({
       tool: REVIEW_COMMENT,
       description:
-        'Leave a comment on a line of the pull request this task reviews. It is held until the review is submitted.',
+        'Leave a comment on a line of the pull request this task reviews. Spotlight stores it until the review is submitted.',
       inputs: [
         {
           name: 'path',
@@ -76,7 +75,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           description: 'The file, from the root of the repository',
           required: true,
           defaulted: false,
-          piped: false,
+          stdin: false,
         },
         {
           name: 'line',
@@ -84,7 +83,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           description: 'The line it is about, or the last of several',
           required: true,
           defaulted: false,
-          piped: false,
+          stdin: false,
         },
         {
           name: 'start-line',
@@ -92,7 +91,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           description: 'The first line, where it is about several',
           required: false,
           defaulted: false,
-          piped: false,
+          stdin: false,
         },
         {
           name: 'side',
@@ -101,7 +100,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
             'new for a line the pull request leaves, old for one it removes',
           required: false,
           defaulted: false,
-          piped: false,
+          stdin: false,
         },
         {
           name: 'body',
@@ -109,7 +108,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           description: 'What is wrong and what would fix it, as Markdown',
           required: true,
           defaulted: false,
-          piped: true,
+          stdin: true,
         },
       ],
     }),
@@ -128,7 +127,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           description: 'comment, approve or request-changes',
           required: false,
           defaulted: false,
-          piped: false,
+          stdin: false,
         },
         {
           name: 'body',
@@ -136,7 +135,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           description: 'What the review comes down to, as Markdown',
           required: false,
           defaulted: false,
-          piped: true,
+          stdin: true,
         },
       ],
     }),
@@ -155,7 +154,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           description: 'The line it belongs on, by its key',
           required: true,
           defaulted: false,
-          piped: false,
+          stdin: false,
         },
         {
           name: 'station',
@@ -163,7 +162,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           description: 'The station on that line to start it at, by its key',
           required: true,
           defaulted: false,
-          piped: false,
+          stdin: false,
         },
         {
           name: 'title',
@@ -171,7 +170,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           description: 'What the task is, in a line',
           required: true,
           defaulted: false,
-          piped: false,
+          stdin: false,
         },
         {
           name: 'description',
@@ -179,7 +178,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           description: 'What whoever works it needs to know, as Markdown',
           required: false,
           defaulted: false,
-          piped: true,
+          stdin: true,
         },
       ],
     }),
@@ -198,7 +197,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           description: 'The branch pushed, as in spotlight-configuration',
           required: true,
           defaulted: false,
-          piped: false,
+          stdin: false,
         },
         {
           name: 'title',
@@ -206,7 +205,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           description: 'What it does',
           required: true,
           defaulted: false,
-          piped: false,
+          stdin: false,
         },
         {
           name: 'body',
@@ -214,7 +213,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           description: 'The decisions and the plan, as Markdown',
           required: false,
           defaulted: false,
-          piped: true,
+          stdin: true,
         },
       ],
     }),

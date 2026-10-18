@@ -1,4 +1,4 @@
-import type { GainVerdict } from '@replays/domain/services/gain-reading';
+import type { GainSignificance } from '@replays/domain/services/gain-estimate';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 
@@ -7,8 +7,8 @@ export interface RankedPoint {
   readonly seed: boolean;
   readonly searchScore: number | null;
   readonly heldOutScore: number | null;
-  readonly searchedVerdict: GainVerdict | null;
-  readonly heldOutVerdict: GainVerdict | null;
+  readonly searchedSignificance: GainSignificance | null;
+  readonly heldOutSignificance: GainSignificance | null;
   readonly costPerRun: number | null;
 }
 
@@ -25,10 +25,10 @@ const inIdOrder = (one: RankedPoint, other: RankedPoint): number =>
       ? 1
       : 0;
 
-export const holdsSuccess = (
-  verdict: GainVerdict | null,
+export const isSuccess = (
+  significance: GainSignificance | null,
   seed: boolean,
-): boolean => seed || (verdict !== null && verdict !== 'worse');
+): boolean => seed || (significance !== null && significance !== 'worse');
 
 export const rankedOf = <Point extends RankedPoint>(
   points: readonly Point[],
@@ -39,15 +39,15 @@ export const rankedOf = <Point extends RankedPoint>(
   );
   const scoreOf = (each: Point): number | null =>
     heldOut ? each.heldOutScore : each.searchScore;
-  const verdictOf = (each: Point): GainVerdict | null =>
-    heldOut ? each.heldOutVerdict : each.searchedVerdict;
+  const significanceOf = (each: Point): GainSignificance | null =>
+    heldOut ? each.heldOutSignificance : each.searchedSignificance;
   const better = (one: Point, other: Point): number =>
     (scoreOf(other) as number) - (scoreOf(one) as number);
   const scored = points.filter((each) => scoreOf(each) !== null);
 
   return objective === 'cost'
     ? scored
-        .filter((each) => holdsSuccess(verdictOf(each), each.seed))
+        .filter((each) => isSuccess(significanceOf(each), each.seed))
         .sort(
           (one, other) =>
             cheaper(one, other) || better(one, other) || inIdOrder(one, other),

@@ -27,28 +27,28 @@ export const tasksAt = (
   stationId: string,
 ): Task[] => (tasks ?? []).filter((each) => each.stationId === stationId);
 
-export const raisedOn = (createdAt: string): string => {
-  const raised = new Date(createdAt);
-  const thisYear = raised.getFullYear() === new Date().getFullYear();
+export const createdOn = (createdAt: string): string => {
+  const created = new Date(createdAt);
+  const thisYear = created.getFullYear() === new Date().getFullYear();
 
-  return raised.toLocaleDateString(undefined, {
+  return created.toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     ...(thisYear ? {} : { year: 'numeric' }),
   });
 };
 
-export const startsAgainWhenTold = (
+export const startsAgainOnMessage = (
   task: Task | undefined,
-  standing:
+  currentStation:
     | { readonly id: string; readonly harness: string | null }
     | undefined,
   ranAt: string | undefined,
 ): boolean =>
   Boolean(
     task &&
-      standing?.harness &&
-      standing.id === ranAt &&
+      currentStation?.harness &&
+      currentStation.id === ranAt &&
       !task.running &&
       !task.awaitingReview,
   );

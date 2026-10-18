@@ -1,13 +1,11 @@
-import type { EgressKeyFixedError } from '@runners/domain/exceptions/egress-key-fixed.error';
-import type { EgressTokenSpentError } from '@runners/domain/exceptions/egress-token-spent.error';
-import type { EgressTokenTakenError } from '@runners/domain/exceptions/egress-token-taken.error';
+import type { EgressTokenAlreadyUsedError } from '@runners/domain/exceptions/egress-token-already-used.error';
+import type { EgressTokenInUseError } from '@runners/domain/exceptions/egress-token-in-use.error';
 import type { InvalidEgressError } from '@runners/domain/exceptions/invalid-egress.error';
 import type { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
 import type { InvalidWorkspaceRunnersError } from '@runners/domain/exceptions/invalid-workspace-runners.error';
-import type { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
-import type { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
-import type { RunnerPoolFixedError } from '@runners/domain/exceptions/runner-pool-fixed.error';
-import type { RunnerTrustKeyFixedError } from '@runners/domain/exceptions/runner-trust-key-fixed.error';
+import type { PoolTokenAlreadyUsedError } from '@runners/domain/exceptions/pool-token-already-used.error';
+import type { PoolTokenInUseError } from '@runners/domain/exceptions/pool-token-in-use.error';
+import type { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
@@ -20,7 +18,7 @@ export const WORKSPACE_RUNNERS = 'workspace-runners';
 export const EGRESS = 'egress';
 
 export const RunnerProblems = {
-  keyFixed(error: RunnerTrustKeyFixedError): ConfigurationProblem {
+  immutableField(error: ImmutableFieldError): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: RUNNER_TRUST,
       at: FieldPath.of([error.field]),
@@ -28,11 +26,11 @@ export const RunnerProblems = {
     });
   },
 
-  poolRefused(
+  poolInvalid(
     error:
-      | RunnerPoolFixedError
-      | PoolTokenTakenError
-      | PoolTokenSpentError
+      | ImmutableFieldError
+      | PoolTokenInUseError
+      | PoolTokenAlreadyUsedError
       | InvalidRunnerPoolError,
   ): ConfigurationProblem {
     return ConfigurationProblem.of({
@@ -42,11 +40,11 @@ export const RunnerProblems = {
     });
   },
 
-  egressRefused(
+  egressInvalid(
     error:
-      | EgressKeyFixedError
-      | EgressTokenTakenError
-      | EgressTokenSpentError
+      | ImmutableFieldError
+      | EgressTokenInUseError
+      | EgressTokenAlreadyUsedError
       | InvalidEgressError,
   ): ConfigurationProblem {
     return ConfigurationProblem.of({
@@ -56,17 +54,17 @@ export const RunnerProblems = {
     });
   },
 
-  egressInTheClear(): ConfigurationProblem {
+  egressNotHttps(): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: EGRESS,
       at: FieldPath.of(['url']),
       reason:
-        'is not https. Runners send their proxy credential to it. A production deployment refuses to provision runners that use it',
+        'is not https. Runners send their proxy credential to it. A production deployment does not provision runners that use it',
       severity: 'warning',
     });
   },
 
-  declarationRefused(
+  declarationInvalid(
     error: InvalidWorkspaceRunnersError,
   ): ConfigurationProblem {
     return ConfigurationProblem.of({
@@ -76,12 +74,12 @@ export const RunnerProblems = {
     });
   },
 
-  provisionedInTheClear(): ConfigurationProblem {
+  provisionNotHttps(): ConfigurationProblem {
     return ConfigurationProblem.of({
       path: RUNNER_POOL,
       at: FieldPath.of(['provision', 'url']),
       reason:
-        'is not https. Its calls carry a one-run token. A production deployment refuses to make them',
+        'is not https. Its calls carry a one-run token. A production deployment does not make them',
       severity: 'warning',
     });
   },

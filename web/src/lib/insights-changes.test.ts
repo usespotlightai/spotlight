@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
-  formatSetup,
-  formatSetupWithin,
+  type AgentConfigOutcome,
+  agentConfigPoints,
+  formatAgentConfig,
+  formatAgentConfigWithin,
   formatSizeRule,
   frontierOf,
   harnessGroupsOf,
   type InsightsChanges,
   markerOf,
-  type SetupOutcome,
-  setupPoints,
 } from '@/lib/insights-changes';
 
-const setup = (over: Partial<SetupOutcome>): SetupOutcome =>
+const agentConfig = (over: Partial<AgentConfigOutcome>): AgentConfigOutcome =>
   ({
     harness: 'claude-code',
     model: 'sonnet',
@@ -24,7 +24,7 @@ const setup = (over: Partial<SetupOutcome>): SetupOutcome =>
     outcomes: {
       accepted: 0.5,
       sent_back: 0.2,
-      handed_on: null,
+      passed: null,
       checks_passed: null,
       merged: null,
       judge: null,
@@ -32,7 +32,7 @@ const setup = (over: Partial<SetupOutcome>): SetupOutcome =>
     judge: { mean: null, judged: 0 },
     frontier: [],
     ...over,
-  }) as SetupOutcome;
+  }) as AgentConfigOutcome;
 
 const HARNESSES = [
   {
@@ -44,29 +44,29 @@ const HARNESSES = [
   },
 ];
 
-describe('formatSetup', () => {
+describe('formatAgentConfig', () => {
   it('names the harness, model, effort and profile it ran with', () => {
     expect(
-      formatSetup(
-        setup({ model: null, effort: 'high', profileKey: 'careful' }),
+      formatAgentConfig(
+        agentConfig({ model: null, effort: 'high', profileKey: 'careful' }),
         HARNESSES,
       ),
     ).toBe('Claude Code · Harness default · high effort · careful profile');
   });
 });
 
-describe('harnessGroupsOf and formatSetupWithin', () => {
-  it('groups setups by harness in the order they come, naming each within its harness', () => {
+describe('harnessGroupsOf and formatAgentConfigWithin', () => {
+  it('groups agent configs by harness in the order they come, naming each within its harness', () => {
     const groups = harnessGroupsOf([
-      setup({ model: 'sonnet' }),
-      setup({ harness: 'cursor', model: null, profileKey: 'careful' }),
-      setup({ model: 'opus', effort: 'high' }),
+      agentConfig({ model: 'sonnet' }),
+      agentConfig({ harness: 'cursor', model: null, profileKey: 'careful' }),
+      agentConfig({ model: 'opus', effort: 'high' }),
     ]);
 
     expect(
       groups.map((group) => [
         group.harness,
-        group.setups.map(formatSetupWithin),
+        group.agentConfigs.map(formatAgentConfigWithin),
       ]),
     ).toEqual([
       ['claude-code', ['sonnet', 'opus · high effort']],
@@ -75,16 +75,16 @@ describe('harnessGroupsOf and formatSetupWithin', () => {
   });
 });
 
-describe('setupPoints', () => {
-  it('places each priced setup by cost and outcome, leaving out the rest', () => {
-    const points = setupPoints(
+describe('agentConfigPoints', () => {
+  it('places each priced agent config by cost and outcome, leaving out the rest', () => {
+    const points = agentConfigPoints(
       [
-        setup({ frontier: ['accepted'] }),
-        setup({ model: 'opus', costPerRun: null, priced: false }),
-        setup({ model: 'haiku', currency: 'EUR', priced: false }),
-        setup({
+        agentConfig({ frontier: ['accepted'] }),
+        agentConfig({ model: 'opus', costPerRun: null, priced: false }),
+        agentConfig({ model: 'haiku', currency: 'EUR', priced: false }),
+        agentConfig({
           model: 'judged',
-          outcomes: { ...setup({}).outcomes, accepted: null },
+          outcomes: { ...agentConfig({}).outcomes, accepted: null },
         }),
       ],
       'accepted',
@@ -105,7 +105,7 @@ describe('setupPoints', () => {
 });
 
 describe('frontierOf', () => {
-  it('runs along the frontier from the cheapest setup up', () => {
+  it('runs along the frontier from the cheapest agent config up', () => {
     const point = (key: string, cost: number, frontier: boolean) => ({
       key,
       label: key,

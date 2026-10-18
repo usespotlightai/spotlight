@@ -4,14 +4,14 @@ import { describe, expect, it } from 'vitest';
 import type { EntryReasonResponseDto } from '@/lib/api';
 import {
   formatChecks,
-  formatGainVerdict,
+  formatGainSignificance,
   formatReason,
-  formatRefusal,
   formatResult,
+  formatRunOutcome,
   formatState,
-  formatTurnedOut,
   formatUncompared,
   formatUnpaired,
+  formatUnreplayableReason,
 } from '@/lib/replay-words';
 
 type Schema = {
@@ -44,10 +44,10 @@ const reason = (
   detail: string | null = null,
 ): EntryReasonResponseDto => ({ code, detail, steps: [], hunks: [] });
 
-const worded = (said: string, code: string) => {
-  expect(said, code).toBeTruthy();
-  expect(said, code).not.toBe(code);
-  expect(said.endsWith(`: ${code}`), `${code} has no words`).toBe(false);
+const worded = (text: string, code: string) => {
+  expect(text, code).toBeTruthy();
+  expect(text, code).not.toBe(code);
+  expect(text.endsWith(`: ${code}`), `${code} has no words`).toBe(false);
 };
 
 describe('replay words cover every code the API can answer', () => {
@@ -71,9 +71,12 @@ describe('replay words cover every code the API can answer', () => {
         skip,
       );
     }
-    for (const refusal of codesOf('ReplayEntryResponseDto', 'refusal')) {
-      worded(formatReason(reason('unreplayable', refusal)), refusal);
-      worded(formatRefusal(refusal as never), refusal);
+    for (const code of codesOf(
+      'ReplayEntryResponseDto',
+      'unreplayableReason',
+    )) {
+      worded(formatReason(reason('unreplayable', code)), code);
+      worded(formatUnreplayableReason(code as never), code);
     }
     for (const failure of codesOf('ReplayEntryResponseDto', 'failure')) {
       worded(formatReason(reason('run-failed', failure)), failure);
@@ -106,13 +109,16 @@ describe('replay words cover every code the API can answer', () => {
 
   it('words every way a set’s run can have turned out', () => {
     for (const outcome of codesOf('ReplaySetEntryResponseDto', 'outcome')) {
-      worded(formatTurnedOut(outcome as never), outcome);
+      worded(formatRunOutcome(outcome as never), outcome);
     }
   });
 
-  it('words every verdict a gain reading can give', () => {
-    for (const verdict of codesOf('GainReadingResponseDto', 'verdict')) {
-      worded(formatGainVerdict(verdict as never), verdict);
+  it('words every significance a gain estimate can give', () => {
+    for (const significance of codesOf(
+      'GainEstimateResponseDto',
+      'significance',
+    )) {
+      worded(formatGainSignificance(significance as never), significance);
     }
   });
 });

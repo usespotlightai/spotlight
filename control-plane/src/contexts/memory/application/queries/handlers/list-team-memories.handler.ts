@@ -12,7 +12,7 @@ import type {
 } from '@memory/domain/repositories/memory.repository';
 import { parseMemoryKind } from '@memory/domain/value-objects/memory-kind';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
-import { parseMemoryStanding } from '@memory/domain/value-objects/memory-standing';
+import { parseMemoryStatus } from '@memory/domain/value-objects/memory-status';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -31,7 +31,7 @@ const criteriaOf = (listing: MemoryListing): MemoryCriteria => {
   const kind = listing.kind?.trim() || null;
 
   return {
-    standing: parseMemoryStanding(listing.standing ?? 'stands'),
+    status: parseMemoryStatus(listing.status ?? 'active'),
     kind: kind ? parseMemoryKind(kind) : null,
     lineId: listing.lineId?.trim() || null,
     stationId: listing.stationId?.trim() || null,

@@ -1,7 +1,7 @@
 import type { HclLiteral } from '@platform/hcl/hcl.parse';
 import {
   editedHclBlock,
-  type HclEditRefusalCode,
+  type HclEditErrorCode,
   type HclField,
   type HclGuardedBlock,
   type HclReferenceRule,
@@ -13,7 +13,7 @@ import type {
 } from '@replays/application/ports/station-source-editor.port';
 import { SEARCHABLE_FIELDS } from '@replays/domain/services/searchable-changes';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
-import type { ConfigPullRequestRefusal } from '@replays/domain/value-objects/config-pull-request-state';
+import type { ConfigPullRequestError } from '@replays/domain/value-objects/config-pull-request-state';
 
 type Searchable = (typeof SEARCHABLE_FIELDS)[number];
 
@@ -36,19 +36,19 @@ const REFERENCES: Partial<Record<Searchable, HclReferenceRule>> = {
   profile: {
     type: 'spotlight_harness_profile',
     attribute: 'key',
-    heldAt: 'key',
+    storedAt: 'key',
     tool: false,
   },
   skills: {
     type: 'spotlight_skill',
     attribute: 'key',
-    heldAt: 'key',
+    storedAt: 'key',
     tool: false,
   },
   tools: {
     type: 'spotlight_integration',
-    attribute: 'source',
-    heldAt: 'definition.integration',
+    attribute: 'integration',
+    storedAt: 'definition.integration',
     tool: true,
   },
 };
@@ -66,25 +66,26 @@ const JUDGE_FIELDS = [
   { name: 'rubric', from: 'rubric' },
   { name: 'claims', from: 'claims' },
   { name: 'sample', from: 'sample' },
-  { name: 'trust', from: 'trust' },
+  { name: 'min_agreement', from: 'minAgreement' },
 ] as const;
 
 const ALL_CLAIMS = 1;
 
-const REFUSALS: Readonly<Record<HclEditRefusalCode, ConfigPullRequestRefusal>> =
-  {
-    unparsable: 'file-unparsable',
-    'block-not-found': 'block-not-found',
-    'blocks-ambiguous': 'blocks-ambiguous',
-    'computed-attribute': 'computed-attribute',
-    drifted: 'drifted',
-    'file-missing': 'file-missing',
-    'edit-failed': 'edit-failed',
-  };
+const HCL_EDIT_ERRORS: Readonly<
+  Record<HclEditErrorCode, ConfigPullRequestError>
+> = {
+  unparsable: 'file-unparsable',
+  'block-not-found': 'block-not-found',
+  'blocks-ambiguous': 'blocks-ambiguous',
+  'computed-attribute': 'computed-attribute',
+  'base-changed': 'base-changed',
+  'file-missing': 'file-missing',
+  'edit-failed': 'edit-failed',
+};
 
 class UnwritableValue extends Error {}
 
-const FILE_HELD: ReadonlySet<string> = new Set([
+const FILE_FIELDS: ReadonlySet<string> = new Set([
   'prompt',
   'description',
   'harness',
@@ -120,11 +121,11 @@ const fieldsOf = (edit: StationSourceEdit): readonly HclField[] => {
     ...SEARCHABLE_FIELDS.map(
       (name): HclField => ({
         name,
-        was: literalIn(seed, name, UNSET[name]),
-        now: literalIn(candidate, name, UNSET[name]),
+        expected: literalIn(seed, name, UNSET[name]),
+        desired: literalIn(candidate, name, UNSET[name]),
         unset: UNSET[name],
         ...(REFERENCES[name] ? { references: REFERENCES[name] } : {}),
-        ...(FILE_HELD.has(name)
+        ...(FILE_FIELDS.has(name)
           ? {
               freshFile: `prompts/${edit.teamKey}/${edit.lineKey}/${edit.stationKey}${name === 'prompt' ? '' : `.${name}`}.md`,
             }
@@ -134,7 +135,7 @@ const fieldsOf = (edit: StationSourceEdit): readonly HclField[] => {
     ...GUARDED.map(({ name, from, unset }): HclField => {
       const was = literalIn(seed, from, unset);
 
-      return { name, was, now: was, unset };
+      return { name, expected: was, desired: was, unset };
     }),
   ];
 };
@@ -143,21 +144,21 @@ const judgeOf = (seed: Block): HclGuardedBlock => {
   const judge = seed.judge;
 
   if (typeof judge !== 'object' || judge === null) {
-    return { type: 'judge', was: null };
+    return { type: 'judge', expected: null };
   }
 
-  const passShare = literalIn(judge as Block, 'passShare', ALL_CLAIMS);
+  const passThreshold = literalIn(judge as Block, 'passThreshold', ALL_CLAIMS);
 
   return {
     type: 'judge',
-    was: Object.fromEntries([
+    expected: Object.fromEntries([
       ...JUDGE_FIELDS.map(({ name, from }) => [
         name,
         literalIn(judge as Block, from, null),
       ]),
-      ['pass_share', passShare],
+      ['pass_threshold', passThreshold],
     ]),
-    unset: { pass_share: ALL_CLAIMS },
+    unset: { pass_threshold: ALL_CLAIMS },
   };
 };
 
@@ -201,11 +202,11 @@ export class HclStationSourceEditor implements StationSourceEditorPort {
       : {
           ok: false,
           reason: ConfigPullRequestReason.of({
-            code: REFUSALS[edited.refusal.code],
-            message: edited.refusal.message,
-            attribute: edited.refusal.attribute,
-            expression: edited.refusal.expression,
-            wanted: edited.refusal.wanted,
+            code: HCL_EDIT_ERRORS[edited.error.code],
+            message: edited.error.message,
+            attribute: edited.error.attribute,
+            expression: edited.error.expression,
+            wanted: edited.error.wanted,
           }),
         };
   }

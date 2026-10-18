@@ -1,8 +1,8 @@
 import type { WorkPort } from '@replays/application/ports/work.port';
+import type { CancelSearch } from '@replays/application/services/cancel-search.service';
 import type { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
 import type { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
-import type { LetSearchGo } from '@replays/application/services/let-search-go.service';
-import type { NoteSearchProgress } from '@replays/application/services/note-search-progress.service';
+import type { RecordSearchProgress } from '@replays/application/services/record-search-progress.service';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
@@ -13,9 +13,9 @@ import {
 } from '@replays/domain/services/search-reconciliation';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
+import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 
-export class AdvanceSearches implements OwedWorkPort {
+export class AdvanceSearches implements PendingJobsPort {
   readonly name = 'Advancing searches';
 
   constructor(
@@ -23,14 +23,14 @@ export class AdvanceSearches implements OwedWorkPort {
     private readonly replays: ReplayRepository,
     private readonly work: WorkPort,
     private readonly dispatching: DispatchSearchIteration,
-    private readonly holding: HoldOutSearch,
-    private readonly noting: NoteSearchProgress,
-    private readonly lettingGo: LetSearchGo,
+    private readonly holdingOut: HoldOutSearch,
+    private readonly recording: RecordSearchProgress,
+    private readonly cancellingSearches: CancelSearch,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
   ) {}
 
-  async workDue(): Promise<void> {
+  async processDue(): Promise<void> {
     for (const search of await this.searches.advancing()) {
       await this.advance(search).catch((error: unknown) =>
         this.logger.warn(
@@ -42,7 +42,7 @@ export class AdvanceSearches implements OwedWorkPort {
   }
 
   private async advance(search: Search): Promise<void> {
-    await this.noting.reconcile(search, await this.runsOf(search));
+    await this.recording.reconcile(search, await this.runsOf(search));
 
     const fresh = await this.searches.find(search.id);
 
@@ -50,16 +50,16 @@ export class AdvanceSearches implements OwedWorkPort {
       return;
     }
     if (fresh.wantedIteration) {
-      await this.dispatching.wanted(fresh.id);
+      await this.dispatching.requested(fresh.id);
     }
     if (fresh.wantsHoldingOut) {
-      await this.holding.wanted(fresh.id);
+      await this.holdingOut.requested(fresh.id);
     }
     if (!fresh.isActive) {
-      if (fresh.heldRun) {
-        await this.work.withdrawSearch(fresh.heldRun);
+      if (fresh.activeRun) {
+        await this.work.cancelSearchRun(fresh.activeRun);
       }
-      await this.lettingGo.leftOver(
+      await this.cancellingSearches.leftOver(
         fresh,
         await this.replays.ofSearch(fresh.id),
       );
@@ -67,24 +67,26 @@ export class AdvanceSearches implements OwedWorkPort {
   }
 
   private async runsOf(search: Search): Promise<readonly SeenRun[]> {
-    const runs = await this.work.searchRunStandings(runsToSee(search));
+    const runs = await this.work.searchRunStatuses(runsToSee(search));
     const at = this.clock.now();
-    const overdue = search.isActive ? unclaimedTooLong(search, runs, at) : null;
+    const unclaimed = search.isActive
+      ? unclaimedTooLong(search, runs, at)
+      : null;
 
-    if (!overdue) {
+    if (!unclaimed) {
       return runs;
     }
 
-    const withdrawal = await this.work.withdrawUnclaimedSearch(overdue);
+    const cancellation = await this.work.cancelUnclaimedSearchRun(unclaimed);
 
-    return withdrawal.outcome === 'withdrawn'
+    return cancellation.outcome === 'cancelled'
       ? runs.map((each) =>
-          each.run.equals(overdue)
+          each.run.equals(unclaimed)
             ? {
                 ...each,
                 phase: 'ended' as const,
                 failed: true,
-                started: withdrawal.started,
+                started: cancellation.started,
                 endedAt: at,
               }
             : each,

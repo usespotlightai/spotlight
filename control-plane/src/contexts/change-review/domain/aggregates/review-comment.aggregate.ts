@@ -1,6 +1,6 @@
-import { ReviewCommentRemoved } from '@change-review/domain/events/review-comment-removed.event';
+import { ReviewCommentDeleted } from '@change-review/domain/events/review-comment-deleted.event';
+import { ReviewCommentEdited } from '@change-review/domain/events/review-comment-edited.event';
 import { ReviewCommentReplied } from '@change-review/domain/events/review-comment-replied.event';
-import { ReviewCommentRewritten } from '@change-review/domain/events/review-comment-rewritten.event';
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
 import { NotYourReviewCommentError } from '@change-review/domain/exceptions/not-your-review-comment.error';
 import type { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
@@ -25,7 +25,7 @@ export type ReviewCommentState = (typeof REVIEW_COMMENT_STATES)[number];
 
 const MAX_REVIEW_COMMENT = 65_000;
 
-const MAX_EDITS_AWAITING_ECHO = 5;
+const MAX_PENDING_OWN_EDITS = 5;
 
 export interface OnGitHub {
   readonly id: number;
@@ -61,7 +61,7 @@ export class ReviewComment extends EventRecorder {
     readonly github: OnGitHub | null,
     readonly sentBody: string | null,
     readonly editPending: boolean,
-    readonly editsAwaitingEcho: readonly string[],
+    readonly pendingOwnEdits: readonly string[],
     readonly createdAt: Date,
     readonly editedAt: Date | null,
     readonly version: number,
@@ -154,7 +154,7 @@ export class ReviewComment extends EventRecorder {
     github: OnGitHub | null;
     sentBody: string | null;
     editPending: boolean;
-    editsAwaitingEcho: readonly string[];
+    pendingOwnEdits: readonly string[];
     createdAt: Date;
     editedAt: Date | null;
     version: number;
@@ -168,7 +168,7 @@ export class ReviewComment extends EventRecorder {
     if (input.state === 'draft' && input.reviewId) {
       throw new InconsistentStateError(
         'review comment',
-        'is a draft that a review already holds',
+        'is a draft that a review already contains',
       );
     }
     if (
@@ -183,7 +183,7 @@ export class ReviewComment extends EventRecorder {
     if (input.editPending && !input.github) {
       throw new InconsistentStateError(
         'review comment',
-        'owes GitHub an edit without being on GitHub',
+        'has an edit to send to GitHub but is not on GitHub',
       );
     }
 
@@ -200,7 +200,7 @@ export class ReviewComment extends EventRecorder {
       input.github,
       input.sentBody,
       input.editPending,
-      input.editsAwaitingEcho,
+      input.pendingOwnEdits,
       input.createdAt,
       input.editedAt,
       input.version,
@@ -277,7 +277,7 @@ export class ReviewComment extends EventRecorder {
     return this.author.userId?.equals(viewer) ?? false;
   }
 
-  get byAgent(): boolean {
+  get isAgentAuthored(): boolean {
     return this.author.kind === 'agent';
   }
 
@@ -285,7 +285,7 @@ export class ReviewComment extends EventRecorder {
     return this.sentBody !== null;
   }
 
-  echoes(anchor: ReviewAnchor, body: string): boolean {
+  isOwnPostedCopy(anchor: ReviewAnchor, body: string): boolean {
     return (
       this.sentBody !== null &&
       this.anchor.equals(anchor) &&
@@ -293,7 +293,7 @@ export class ReviewComment extends EventRecorder {
     );
   }
 
-  heldBy(reviewId: ReviewId): boolean {
+  belongsTo(reviewId: ReviewId): boolean {
     return this.reviewId?.equals(reviewId) ?? false;
   }
 
@@ -311,34 +311,28 @@ export class ReviewComment extends EventRecorder {
     }
 
     const deleted = this.state === 'deleted';
-    const rewritten =
-      github !== null && !deleted && this.body !== this.sentBody;
+    const edited = github !== null && !deleted && this.body !== this.sentBody;
     const posted = this.with({
       state: deleted ? 'deleted' : 'posted',
       github,
       sentBody: null,
-      editPending: rewritten,
+      editPending: edited,
     });
 
     if (github && deleted) {
       posted.record(
-        new ReviewCommentRemoved(this.id, this.workspaceId, this.taskId, true),
+        new ReviewCommentDeleted(this.id, this.workspaceId, this.taskId, true),
       );
-    } else if (rewritten) {
+    } else if (edited) {
       posted.record(
-        new ReviewCommentRewritten(
-          this.id,
-          this.workspaceId,
-          this.taskId,
-          true,
-        ),
+        new ReviewCommentEdited(this.id, this.workspaceId, this.taskId, true),
       );
     }
 
     return posted;
   }
 
-  rewritten(body: string, by: UserId, now: Date): ReviewComment {
+  edited(body: string, by: UserId, now: Date): ReviewComment {
     this.assertWrittenBy(by);
 
     if (this.state === 'deleted') {
@@ -347,14 +341,14 @@ export class ReviewComment extends EventRecorder {
       );
     }
 
-    const rewritten = this.with({
+    const edited = this.with({
       body: written(body),
       editedAt: now,
       editPending: this.editPending || this.github !== null,
     });
 
-    rewritten.record(
-      new ReviewCommentRewritten(
+    edited.record(
+      new ReviewCommentEdited(
         this.id,
         this.workspaceId,
         this.taskId,
@@ -362,20 +356,20 @@ export class ReviewComment extends EventRecorder {
       ),
     );
 
-    return rewritten;
+    return edited;
   }
 
-  removed(by: UserId): ReviewComment {
+  deleted(by: UserId): ReviewComment {
     this.assertWrittenBy(by);
 
     if (this.state === 'deleted') {
       return this;
     }
 
-    const removed = this.with({ state: 'deleted' });
+    const deleted = this.with({ state: 'deleted' });
 
-    removed.record(
-      new ReviewCommentRemoved(
+    deleted.record(
+      new ReviewCommentDeleted(
         this.id,
         this.workspaceId,
         this.taskId,
@@ -383,7 +377,7 @@ export class ReviewComment extends EventRecorder {
       ),
     );
 
-    return removed;
+    return deleted;
   }
 
   notPosted(): ReviewComment {
@@ -402,10 +396,10 @@ export class ReviewComment extends EventRecorder {
   editSent(body: string): ReviewComment {
     return this.with({
       editPending: this.editPending && this.body !== body,
-      editsAwaitingEcho: [
-        ...this.editsAwaitingEcho.filter((each) => each !== body),
+      pendingOwnEdits: [
+        ...this.pendingOwnEdits.filter((each) => each !== body),
         body,
-      ].slice(-MAX_EDITS_AWAITING_ECHO),
+      ].slice(-MAX_PENDING_OWN_EDITS),
     });
   }
 
@@ -419,11 +413,9 @@ export class ReviewComment extends EventRecorder {
     if (this.state === 'deleted') {
       return this;
     }
-    if (this.editsAwaitingEcho.includes(edited)) {
+    if (this.pendingOwnEdits.includes(edited)) {
       return this.with({
-        editsAwaitingEcho: this.editsAwaitingEcho.filter(
-          (each) => each !== edited,
-        ),
+        pendingOwnEdits: this.pendingOwnEdits.filter((each) => each !== edited),
       });
     }
 
@@ -449,7 +441,7 @@ export class ReviewComment extends EventRecorder {
     github?: OnGitHub | null;
     sentBody?: string | null;
     editPending?: boolean;
-    editsAwaitingEcho?: readonly string[];
+    pendingOwnEdits?: readonly string[];
     editedAt?: Date;
   }): ReviewComment {
     const next = new ReviewComment(
@@ -465,7 +457,7 @@ export class ReviewComment extends EventRecorder {
       change.github === undefined ? this.github : change.github,
       change.sentBody === undefined ? this.sentBody : change.sentBody,
       change.editPending ?? this.editPending,
-      change.editsAwaitingEcho ?? this.editsAwaitingEcho,
+      change.pendingOwnEdits ?? this.pendingOwnEdits,
       this.createdAt,
       change.editedAt ?? this.editedAt,
       this.version,

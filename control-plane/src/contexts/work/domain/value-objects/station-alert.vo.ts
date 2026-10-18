@@ -19,13 +19,13 @@ const RATES: ReadonlySet<AlertMeasure> = new Set([
   'merged_rate',
 ]);
 
-const THRESHOLDS = ['risesBy', 'above', 'fallsBy', 'below'] as const;
+const CONDITIONS = ['risesBy', 'above', 'fallsBy', 'below'] as const;
 
-type Threshold = (typeof THRESHOLDS)[number];
+type Condition = (typeof CONDITIONS)[number];
 
-const MOVES: ReadonlySet<Threshold> = new Set(['risesBy', 'fallsBy']);
+const MOVES: ReadonlySet<Condition> = new Set(['risesBy', 'fallsBy']);
 
-const SAID: Record<Threshold, string> = {
+const CONDITION_DESCRIPTION: Record<Condition, string> = {
   risesBy: 'rises by',
   above: 'is above',
   fallsBy: 'falls by',
@@ -37,15 +37,15 @@ const isMeasure = (measure: string): measure is AlertMeasure =>
 
 const bounded = (
   measure: AlertMeasure,
-  threshold: Threshold,
+  condition: Condition,
   value: number,
 ): boolean =>
   Number.isFinite(value) &&
-  (MOVES.has(threshold) ? value > 0 : value >= 0) &&
+  (MOVES.has(condition) ? value > 0 : value >= 0) &&
   (!RATES.has(measure) || value <= 1);
 
-const bounds = (measure: AlertMeasure, threshold: Threshold): string => {
-  const moves = MOVES.has(threshold);
+const bounds = (measure: AlertMeasure, condition: Condition): string => {
+  const moves = MOVES.has(condition);
 
   if (RATES.has(measure)) {
     return moves ? 'a share above 0 and at most 1' : 'a share from 0 to 1';
@@ -73,8 +73,8 @@ export class StationAlert {
     over: number;
   }): StationAlert {
     const { measure } = input;
-    const set = THRESHOLDS.filter(
-      (threshold) => (input[threshold] ?? null) !== null,
+    const set = CONDITIONS.filter(
+      (condition) => (input[condition] ?? null) !== null,
     );
 
     if (!isMeasure(measure)) {
@@ -86,17 +86,17 @@ export class StationAlert {
     if (set.length !== 1) {
       throw new InvalidStationAlertError(
         null,
-        `must set exactly one of ${THRESHOLDS.join(', ')}`,
+        `must set exactly one of ${CONDITIONS.join(', ')}`,
       );
     }
 
-    const [threshold] = set as [Threshold];
-    const value = input[threshold] as number;
+    const [condition] = set as [Condition];
+    const value = input[condition] as number;
 
-    if (!bounded(measure, threshold, value)) {
+    if (!bounded(measure, condition, value)) {
       throw new InvalidStationAlertError(
-        threshold,
-        `"${SAID[threshold]}" value must be ${bounds(measure, threshold)}`,
+        condition,
+        `"${CONDITION_DESCRIPTION[condition]}" value must be ${bounds(measure, condition)}`,
       );
     }
     if (!Number.isInteger(input.over) || input.over < 1) {
@@ -106,8 +106,8 @@ export class StationAlert {
       );
     }
 
-    const at = (each: Threshold): number | null =>
-      each === threshold ? value : null;
+    const at = (each: Condition): number | null =>
+      each === condition ? value : null;
 
     return new StationAlert(
       measure,
@@ -123,19 +123,19 @@ export class StationAlert {
     return alerts.map((each, at) => each.alongside(alerts.slice(0, at)));
   }
 
-  get threshold(): Threshold {
-    return THRESHOLDS.find((each) => this[each] !== null) as Threshold;
+  get condition(): Condition {
+    return CONDITIONS.find((each) => this[each] !== null) as Condition;
   }
 
   watchesAsWell(other: StationAlert): boolean {
-    return this.measure === other.measure && this.threshold === other.threshold;
+    return this.measure === other.measure && this.condition === other.condition;
   }
 
   alongside(earlier: readonly StationAlert[]): StationAlert {
     if (earlier.some((each) => each.watchesAsWell(this))) {
       throw new InvalidStationAlertError(
         null,
-        `for "${this.measure} ${SAID[this.threshold]}" already exists on this station`,
+        `for "${this.measure} ${CONDITION_DESCRIPTION[this.condition]}" already exists on this station`,
       );
     }
 

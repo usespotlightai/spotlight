@@ -3,8 +3,8 @@ import { useSearchParams } from 'react-router';
 import {
   BOARD_VIEWS,
   type BoardView,
-  rememberBoardView,
-  rememberedBoardView,
+  storeBoardView,
+  storedBoardView,
 } from '@/lib/board';
 
 export function useBoardView(): [BoardView, (next: BoardView) => void] {
@@ -12,10 +12,10 @@ export function useBoardView(): [BoardView, (next: BoardView) => void] {
   const inUrl = params.get('view');
   const view: BoardView = BOARD_VIEWS.some((each) => each.id === inUrl)
     ? (inUrl as BoardView)
-    : rememberedBoardView();
+    : storedBoardView();
 
   useEffect(() => {
-    rememberBoardView(view);
+    storeBoardView(view);
   }, [view]);
 
   return [view, (next) => setParams({ view: next })];

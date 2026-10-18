@@ -1,12 +1,12 @@
 import { Minus, Triangle } from 'lucide-react';
-import { Noted } from '@/components/shared/Noted';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { formatTrend, type SkillTrend } from '@/lib/insights-tools';
 import { cn } from '@/lib/utils';
 
 const TONES: Record<SkillTrend, string> = {
-  spreading: 'text-emerald-700 dark:text-emerald-400',
-  fading: 'text-destructive',
-  steady: 'text-muted-foreground',
+  rising: 'text-emerald-700 dark:text-emerald-400',
+  falling: 'text-destructive',
+  flat: 'text-muted-foreground',
 };
 
 export function SkillTrendMark({ trend }: { trend: SkillTrend | null }) {
@@ -17,13 +17,13 @@ export function SkillTrendMark({ trend }: { trend: SkillTrend | null }) {
   const icon = cn('size-2.5 shrink-0', TONES[trend]);
 
   return (
-    <Noted note={formatTrend(trend)}>
+    <WithTooltip tooltip={formatTrend(trend)}>
       <span
         data-slot="skill-trend"
         data-trend={trend}
         className="inline-flex items-center"
       >
-        {trend === 'steady' ? (
+        {trend === 'flat' ? (
           <Minus aria-hidden className={icon} />
         ) : (
           <Triangle
@@ -31,12 +31,12 @@ export function SkillTrendMark({ trend }: { trend: SkillTrend | null }) {
             className={cn(
               icon,
               'fill-current',
-              trend === 'fading' && 'rotate-180',
+              trend === 'falling' && 'rotate-180',
             )}
           />
         )}
         <span className="sr-only">{formatTrend(trend)}</span>
       </span>
-    </Noted>
+    </WithTooltip>
   );
 }

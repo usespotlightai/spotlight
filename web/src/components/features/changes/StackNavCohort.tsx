@@ -2,7 +2,7 @@ import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { CohortTally } from '@/components/features/changes/CohortTally';
 import { StackNavLayer } from '@/components/features/changes/StackNavLayer';
-import { Unfold } from '@/components/shared/Unfold';
+import { Collapsible } from '@/components/shared/Collapsible';
 import {
   Tooltip,
   TooltipContent,
@@ -74,7 +74,7 @@ export function StackNavCohort({
         </TooltipContent>
       </Tooltip>
 
-      <Unfold open={open} appear={false}>
+      <Collapsible open={open} appear={false}>
         <ol className="flex flex-col gap-1">
           {cohort.layers.map((layer, place) => {
             const located = { cohort, layer, position: place + 1 };
@@ -92,7 +92,7 @@ export function StackNavCohort({
             );
           })}
         </ol>
-      </Unfold>
+      </Collapsible>
     </section>
   );
 }

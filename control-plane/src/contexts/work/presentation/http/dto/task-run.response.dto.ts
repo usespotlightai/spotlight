@@ -4,7 +4,7 @@ import {
   RUN_STATE_NAMES,
 } from '@work/application/dto/task-run.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
-import { InboxMessageResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
+import { NoteResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
 
 export class RunStationResponseDto {
   @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })
@@ -19,7 +19,7 @@ export class RunStationResponseDto {
   @ApiProperty({ example: 3 })
   readonly position: number;
 
-  @ApiProperty({ example: 5, description: 'How many stations the line holds' })
+  @ApiProperty({ example: 5, description: 'How many stations the line has' })
   readonly count: number;
 
   constructor(
@@ -112,7 +112,7 @@ export class RunSpendResponseDto {
   }
 }
 
-export class RunConversationResponseDto {
+export class RunNotesResponseDto {
   @ApiProperty({ example: '4e1e84a2-0c39-406d-bbbb-559f29e450be' })
   readonly runId: string;
 
@@ -128,7 +128,7 @@ export class RunConversationResponseDto {
   @ApiProperty({
     type: AttachmentResponseDto,
     isArray: true,
-    description: 'The files the task was raised with',
+    description: 'The files the task was created with',
   })
   readonly attachments: readonly AttachmentResponseDto[];
 
@@ -138,19 +138,20 @@ export class RunConversationResponseDto {
   @ApiProperty({ example: '2026-08-28T16:32:47.877Z' })
   readonly createdAt: string;
 
-  @ApiProperty({ description: 'What the run was given, word for word' })
+  @ApiProperty({ description: 'The briefing of the run, word for word' })
   readonly briefing: string;
 
   @ApiProperty({ example: false, description: 'A run is on the task now' })
   readonly working: boolean;
 
-  @ApiProperty({ type: InboxMessageResponseDto, isArray: true })
-  readonly notes: readonly InboxMessageResponseDto[];
+  @ApiProperty({ type: NoteResponseDto, isArray: true })
+  readonly notes: readonly NoteResponseDto[];
 
   @ApiProperty({
     type: RunSpendResponseDto,
     nullable: true,
-    description: 'What the run spent, once it has ended and been digested',
+    description:
+      'What the run spent, once it has ended and its usage is recorded',
   })
   readonly spend: RunSpendResponseDto | null;
 
@@ -164,7 +165,7 @@ export class RunConversationResponseDto {
     createdAt: string,
     briefing: string,
     working: boolean,
-    notes: readonly InboxMessageResponseDto[],
+    notes: readonly NoteResponseDto[],
     spend: RunSpendResponseDto | null,
   ) {
     this.runId = runId;
@@ -181,11 +182,11 @@ export class RunConversationResponseDto {
   }
 }
 
-export class SayToRunRequestDto {
+export class SendMessageRequestDto {
   @ApiProperty({
     example: 'Cap the retries at 500 while you are in there.',
     description:
-      'Reaches the agent when its current turn ends. May be empty where files are attached.',
+      'Goes to the agent when its current turn ends. May be empty where files are attached.',
   })
   readonly body!: string;
 
@@ -278,7 +279,7 @@ export class TeamRunResponseDto extends TaskRunResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    description: 'What was asked for, shown before a run has said anything',
+    description: 'What was requested, shown before a run has written a note',
   })
   readonly taskDescription: string | null;
 

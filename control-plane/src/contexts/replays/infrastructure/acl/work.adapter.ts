@@ -1,20 +1,20 @@
 import type {
-  AgentRefusal,
-  ExaminedCandidate,
-  HeldSearchRun,
+  AgentProblem,
+  CancelledRun,
+  LeasedSearchRun,
   LiveConfig,
-  OracleAnswerAsked,
+  OracleAnswerInput,
   PickableRun,
   ReplayRunOrder,
   ReplayRunQueued,
-  RunForgone,
   RunReplayability,
+  RunSummary,
   SearchRunOrder,
   SearchRunQueued,
-  SearchRunStanding,
-  StandingRun,
+  SearchRunStatus,
   StationView,
-  UnclaimedWithdrawal,
+  UnclaimedCancellation,
+  ValidatedCandidate,
   WorkPort,
 } from '@replays/application/ports/work.port';
 import type { OracleAnswer } from '@replays/domain/services/oracle-answer';
@@ -26,8 +26,8 @@ import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo'
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
-import { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -70,7 +70,7 @@ const replayabilityOf = (each: Replayability): RunReplayability => ({
   runId: RunId.of(each.runId),
   taskId: each.taskId ? TaskId.of(each.taskId) : null,
   stationId: each.stationId,
-  refusal: each.refusal,
+  unreplayableReason: each.unreplayableReason,
   reason: each.reason,
 });
 
@@ -91,7 +91,7 @@ export class Work implements WorkPort {
     private readonly runs: ReplayableRunsPort,
     private readonly candidates: ReplayCandidatesPort,
     private readonly dispatching: ReplayDispatchPort,
-    private readonly holds: StartingPointHoldsPort,
+    private readonly startingPointHolds: StartingPointHoldsPort,
     private readonly searching: SearchDispatchPort,
     private readonly searchRuns: SearchRunsPort,
   ) {}
@@ -127,16 +127,16 @@ export class Work implements WorkPort {
     ).map(replayabilityOf);
   }
 
-  async standing(
+  async runSummaries(
     workspaceId: WorkspaceId,
     runs: readonly RunId[],
-  ): Promise<readonly StandingRun[]> {
+  ): Promise<readonly RunSummary[]> {
     if (runs.length === 0) {
       return [];
     }
 
     return (
-      await this.runs.standing(
+      await this.runs.summaries(
         workspaceId.value,
         runs.map((each) => each.value),
       )
@@ -165,37 +165,37 @@ export class Work implements WorkPort {
     );
   }
 
-  async examine(
+  async validate(
     lineId: string,
     stationId: string,
     block: unknown,
     line: PlannedLine | null = null,
-  ): Promise<ExaminedCandidate | null> {
-    const examined = await this.candidates.examine(
+  ): Promise<ValidatedCandidate | null> {
+    const validated = await this.candidates.validate(
       lineId,
       stationId,
       block,
       line ? line.repositories : undefined,
     );
 
-    if (!examined) {
+    if (!validated) {
       return null;
     }
 
-    return examined.ok
+    return validated.ok
       ? {
           ok: true,
-          fingerprint: StationFingerprint.of(examined.fingerprint),
-          digests: StationDigests.of(examined.digests),
-          liveDigests: StationDigests.of(examined.liveDigests),
-          scoring: scoringOf(examined.scoring),
+          fingerprint: StationFingerprint.of(validated.fingerprint),
+          hashes: StationHashes.of(validated.hashes),
+          liveHashes: StationHashes.of(validated.liveHashes),
+          scoring: scoringOf(validated.scoring),
           changedFrom: StationChanges.of(
-            StationFingerprint.of(examined.live),
-            examined.changes,
+            StationFingerprint.of(validated.live),
+            validated.changes,
           ),
-          block: StationBlock.of(examined.station),
+          block: StationBlock.of(validated.station),
         }
-      : examined;
+      : validated;
   }
 
   async live(lineId: string, stationId: string): Promise<LiveConfig | null> {
@@ -207,17 +207,17 @@ export class Work implements WorkPort {
           block: StationBlock.of(live.station),
           fingerprint: StationFingerprint.of(live.fingerprint),
           scoring: scoringOf(live.scoring),
-          digests: StationDigests.of(live.digests),
+          hashes: StationHashes.of(live.hashes),
           threshold: live.replayCheck && ReplayThreshold.of(live.replayCheck),
         }
       : null;
   }
 
   async answerable(
-    asked: readonly OracleAnswerAsked[],
+    inputs: readonly OracleAnswerInput[],
   ): Promise<readonly RunId[]> {
     const answered = await this.dispatching.answerable(
-      asked.map((each) => ({
+      inputs.map((each) => ({
         original: each.run.value,
         answer: ANSWERS[each.answer],
       })),
@@ -247,22 +247,22 @@ export class Work implements WorkPort {
         }
       : {
           queued: false,
-          refusal: dispatched.refusal,
+          unreplayableReason: dispatched.unreplayableReason,
         };
   }
 
-  withdraw(runs: readonly RunId[]): Promise<void> {
-    return this.dispatching.withdraw(runs.map((each) => each.value));
+  cancelQueued(runs: readonly RunId[]): Promise<void> {
+    return this.dispatching.cancelQueued(runs.map((each) => each.value));
   }
 
-  async forgo(run: RunId, keep: boolean): Promise<RunForgone> {
-    const forgone = await this.dispatching.forgo(run.value, keep);
+  async cancel(run: RunId, leaveRunAsIs: boolean): Promise<CancelledRun> {
+    const cancelled = await this.dispatching.cancel(run.value, leaveRunAsIs);
 
-    return forgone.outcome === 'queued'
+    return cancelled.outcome === 'queued'
       ? {
           queued: true,
-          fingerprint: forgone.fingerprint
-            ? StationFingerprint.of(forgone.fingerprint)
+          fingerprint: cancelled.fingerprint
+            ? StationFingerprint.of(cancelled.fingerprint)
             : null,
         }
       : { queued: false };
@@ -272,8 +272,8 @@ export class Work implements WorkPort {
     return this.runs.durations(runs.map((each) => each.value));
   }
 
-  agentRefusal(agent: SearchAgent): AgentRefusal | null {
-    return this.searching.refusalOf({
+  agentProblem(agent: SearchAgent): AgentProblem | null {
+    return this.searching.problemOf({
       harness: agent.harness,
       model: agent.model,
       effort: agent.effort,
@@ -300,34 +300,34 @@ export class Work implements WorkPort {
       : { queued: false, reason: dispatched.reason };
   }
 
-  withdrawSearch(run: RunId): Promise<void> {
-    return this.searching.withdraw(run.value);
+  cancelSearchRun(run: RunId): Promise<void> {
+    return this.searching.cancel(run.value);
   }
 
-  withdrawUnclaimedSearch(run: RunId): Promise<UnclaimedWithdrawal> {
-    return this.searching.withdrawUnclaimed(run.value);
+  cancelUnclaimedSearchRun(run: RunId): Promise<UnclaimedCancellation> {
+    return this.searching.cancelUnclaimed(run.value);
   }
 
-  async heldSearchRun(
+  async leasedSearchRun(
     run: RunId,
     runnerId: string,
-  ): Promise<HeldSearchRun | null> {
-    const held = await this.searchRuns.heldSearchRun(run.value, runnerId);
+  ): Promise<LeasedSearchRun | null> {
+    const leased = await this.searchRuns.leasedSearchRun(run.value, runnerId);
 
-    return held
-      ? { searchId: SearchId.of(held.searchId), iteration: held.iteration }
+    return leased
+      ? { searchId: SearchId.of(leased.searchId), iteration: leased.iteration }
       : null;
   }
 
-  async searchRunStandings(
+  async searchRunStatuses(
     runs: readonly RunId[],
-  ): Promise<readonly SearchRunStanding[]> {
+  ): Promise<readonly SearchRunStatus[]> {
     if (runs.length === 0) {
       return [];
     }
 
-    return (await this.searchRuns.standing(runs.map((each) => each.value))).map(
-      ({ runId, ...standing }) => ({ ...standing, run: RunId.of(runId) }),
+    return (await this.searchRuns.statuses(runs.map((each) => each.value))).map(
+      ({ runId, ...status }) => ({ ...status, run: RunId.of(runId) }),
     );
   }
 
@@ -336,7 +336,7 @@ export class Work implements WorkPort {
     workspaceId: WorkspaceId,
     runs: readonly RunId[],
   ): Promise<void> {
-    return this.holds.hold(
+    return this.startingPointHolds.hold(
       holder,
       workspaceId.value,
       runs.map((each) => each.value),
@@ -344,6 +344,6 @@ export class Work implements WorkPort {
   }
 
   release(holder: string): Promise<void> {
-    return this.holds.release(holder);
+    return this.startingPointHolds.release(holder);
   }
 }

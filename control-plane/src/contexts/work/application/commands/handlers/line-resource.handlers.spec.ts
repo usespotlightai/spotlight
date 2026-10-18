@@ -5,8 +5,8 @@ import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/ide
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import {
   actorFor,
-  attributedIn,
-} from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+  changeActorIn,
+} from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -20,7 +20,7 @@ import type { StationTalliesPort } from '@work/application/ports/station-tallies
 import type { ApplyLines } from '@work/application/services/apply-lines.service';
 import { StationCatalog } from '@work/application/services/station-catalog.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
-import { LineAlreadyOpenedError } from '@work/domain/exceptions/line-already-opened.error';
+import { LineAlreadyExistsError } from '@work/domain/exceptions/line-already-exists.error';
 import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
 import { LineRoleTakenError } from '@work/domain/exceptions/line-role-taken.error';
 import { LineVersionConflictError } from '@work/domain/exceptions/line-version-conflict.error';
@@ -46,10 +46,10 @@ const DELIVERY = {
   ],
 };
 
-const standingAt = (version: number): Line => {
+const lineAt = (version: number): Line => {
   let next = 0;
-  const opened = Line.open({
-    by: attributedIn(),
+  const created = Line.create({
+    by: changeActorIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TEAM,
     line: BUILT_IN_LINES[0] as LineOpening,
@@ -57,18 +57,18 @@ const standingAt = (version: number): Line => {
   });
 
   return Line.rehydrate({
-    id: opened.id,
-    workspaceId: opened.workspaceId,
-    teamId: opened.teamId,
-    key: opened.key,
-    name: opened.name,
-    stations: opened.stations,
-    reactions: opened.reactions,
+    id: created.id,
+    workspaceId: created.workspaceId,
+    teamId: created.teamId,
+    key: created.key,
+    name: created.name,
+    stations: created.stations,
+    reactions: created.reactions,
     version,
   });
 };
 
-const access = (administers = true) => teamAccess(TEAM, administers);
+const access = (isAdmin = true) => teamAccess(TEAM, isAdmin);
 
 const teams = {
   find: vi.fn(async () => ({
@@ -84,10 +84,10 @@ const teams = {
 const transaction: TransactionPort = { inTransaction: (work) => work() };
 
 const NEEDS_TEAM = (id: string) =>
-  `${id} needs the Team plan, and this workspace is on the Free plan`;
+  `${id} requires the Team plan, and this workspace is on the Free plan`;
 
 const catalog = new StationCatalog({
-  givenTo: async (_workspace, named) => ({
+  entitledTo: async (_workspace, named) => ({
     tools: [],
     skills: named.skills
       .filter((each) => each.startsWith('catalog.research@'))
@@ -97,7 +97,7 @@ const catalog = new StationCatalog({
         files: [],
         tools: ['catalog.web-search@1.1.0'],
       })),
-    refused: [
+    denied: [
       ...named.tools.filter((each) => each.startsWith('catalog.web-search@')),
       ...(named.skills.some((each) => each.startsWith('catalog.research@'))
         ? ['catalog.web-search@1.1.0']
@@ -113,7 +113,7 @@ const catalog = new StationCatalog({
   },
 });
 
-const giving = (tools: string[], skills: string[] = []) => ({
+const enabling = (tools: string[], skills: string[] = []) => ({
   ...DELIVERY,
   stations: DELIVERY.stations.map((each, at) =>
     at === 1 ? { ...each, tools, skills } : each,
@@ -122,17 +122,17 @@ const giving = (tools: string[], skills: string[] = []) => ({
 
 const creates = () =>
   ({
-    claim: vi.fn(async () => ({ kind: 'fresh' as const })),
-    created: vi.fn(async () => {}),
+    reserve: vi.fn(async () => ({ kind: 'new' as const })),
+    recordCreated: vi.fn(async () => {}),
   }) satisfies IdempotentCreatesPort;
 
-const lines = (standing: Line | null, thenAt: Line | null = standing) => {
-  const find = vi.fn(async () => standing);
+const lines = (existing: Line | null, thenAt: Line | null = existing) => {
+  const find = vi.fn(async () => existing);
 
   return {
     find,
     save: vi.fn(async (saved: Line) => {
-      if (saved.isRetired && !thenAt) {
+      if (saved.isDeleted && !thenAt) {
         return;
       }
       find.mockResolvedValue(thenAt);
@@ -144,19 +144,19 @@ const lines = (standing: Line | null, thenAt: Line | null = standing) => {
 };
 
 describe('CreateLineHandler', () => {
-  const creating = (over: { administers?: boolean; refusing?: Error } = {}) => {
-    const open = vi.fn(async () => {
-      if (over.refusing) {
-        throw over.refusing;
+  const creating = (over: { isAdmin?: boolean; throwing?: Error } = {}) => {
+    const apply = vi.fn(async () => {
+      if (over.throwing) {
+        throw over.throwing;
       }
 
-      return standingAt(0);
+      return lineAt(0);
     });
     const handler = new CreateLineHandler(
-      access(over.administers),
+      access(over.isAdmin),
       teams,
       new LineCompiler(),
-      { open } as unknown as ApplyLines,
+      { create: apply } as unknown as ApplyLines,
       creates(),
       transaction,
       catalog,
@@ -172,39 +172,39 @@ describe('CreateLineHandler', () => {
             definition,
           ),
         ),
-      open,
+      apply,
     };
   };
 
-  it('opens the line its definition compiles to', async () => {
-    const { create, open } = creating();
+  it('creates the line its definition compiles to', async () => {
+    const { create, apply } = creating();
 
     expect(await create(DELIVERY)).toMatchObject({ outcome: 'created' });
-    expect(open).toHaveBeenCalledWith(
+    expect(apply).toHaveBeenCalledWith(
       expect.objectContaining({ key: 'core' }),
       expect.objectContaining({ key: LineKey.of('delivery') }),
-      attributedIn('ws_1', actorFor('user_1')),
+      changeActorIn('ws_1', actorFor('user_1')),
     );
   });
 
-  it('says what is wrong with a definition, and opens nothing', async () => {
-    const { create, open } = creating();
-    const refused = await create({ ...DELIVERY, stations: [] });
+  it('says what is wrong with a definition, and creates nothing', async () => {
+    const { create, apply } = creating();
+    const rejected = await create({ ...DELIVERY, stations: [] });
 
     expect(
-      refused?.outcome === 'invalid' &&
-        refused.problems.map((each) => dottedOf(each.field)),
+      rejected?.outcome === 'invalid' &&
+        rejected.problems.map((each) => dottedOf(each.field)),
     ).toEqual(['stations']);
-    expect(open).not.toHaveBeenCalled();
+    expect(apply).not.toHaveBeenCalled();
   });
 
-  it('refuses a catalog item the workspace’s plan does not include, pointing at where the station names it', async () => {
-    const { create, open } = creating();
-    const refused = await create(
-      giving(['pull-request', 'catalog.web-search@1.1.0']),
+  it('denies a catalog item the workspace’s plan does not include, pointing at where the station names it', async () => {
+    const { create, apply } = creating();
+    const rejected = await create(
+      enabling(['pull-request', 'catalog.web-search@1.1.0']),
     );
 
-    expect(refused).toEqual({
+    expect(rejected).toEqual({
       outcome: 'invalid',
       problems: [
         expect.objectContaining({
@@ -213,20 +213,20 @@ describe('CreateLineHandler', () => {
       ],
     });
     expect(
-      refused?.outcome === 'invalid' &&
-        refused.problems.map((each) => dottedOf(each.field)),
+      rejected?.outcome === 'invalid' &&
+        rejected.problems.map((each) => dottedOf(each.field)),
     ).toEqual(['stations.1.tools.1']);
-    expect(open).not.toHaveBeenCalled();
+    expect(apply).not.toHaveBeenCalled();
   });
 
-  it('refuses a catalog skill at the skill, where a tool it brings is not included', async () => {
-    const refused = await creating().create(
-      giving([], ['catalog.research@1.0.0']),
+  it('denies a catalog skill at the skill, where a tool it uses is not included', async () => {
+    const rejected = await creating().create(
+      enabling([], ['catalog.research@1.0.0']),
     );
 
     expect(
-      refused?.outcome === 'invalid' &&
-        refused.problems.map((each) => [dottedOf(each.field), each.reason]),
+      rejected?.outcome === 'invalid' &&
+        rejected.problems.map((each) => [dottedOf(each.field), each.reason]),
     ).toEqual([
       ['stations.1.skills.0', NEEDS_TEAM('catalog.web-search@1.1.0')],
     ]);
@@ -235,14 +235,14 @@ describe('CreateLineHandler', () => {
   it('says a key the team already has is taken', async () => {
     expect(
       await creating({
-        refusing: new LineAlreadyOpenedError('delivery'),
+        throwing: new LineAlreadyExistsError('delivery'),
       }).create(DELIVERY),
-    ).toEqual({ outcome: 'taken', address: 'core/delivery' });
+    ).toEqual({ outcome: 'already-exists', address: 'core/delivery' });
   });
 
   it('points at the role when another line already claims it', async () => {
-    const refused = await creating({
-      refusing: new LineRoleTakenError({
+    const rejected = await creating({
+      throwing: new LineRoleTakenError({
         line: LineKey.of('delivery'),
         role: LineRole.REVIEW,
         others: [LineKey.of('review')],
@@ -250,13 +250,13 @@ describe('CreateLineHandler', () => {
     }).create(DELIVERY);
 
     expect(
-      refused?.outcome === 'invalid' &&
-        refused.problems.map((each) => dottedOf(each.field)),
+      rejected?.outcome === 'invalid' &&
+        rejected.problems.map((each) => dottedOf(each.field)),
     ).toEqual(['role']);
   });
 
   it('forbids someone on the team who does not administer it', async () => {
-    expect(await creating({ administers: false }).create(DELIVERY)).toEqual(
+    expect(await creating({ isAdmin: false }).create(DELIVERY)).toEqual(
       forbiddenTo('configure'),
     );
   });
@@ -264,21 +264,21 @@ describe('CreateLineHandler', () => {
 
 describe('UpdateLineHandler', () => {
   const updating = (
-    over: { administers?: boolean; refusing?: Error; thenAt?: Line } = {},
+    over: { isAdmin?: boolean; throwing?: Error; thenAt?: Line } = {},
   ) => {
-    const kept = lines(standingAt(3));
+    const stored = lines(lineAt(3));
     const reconcile = vi.fn(async (line: Line) => {
-      if (over.refusing) {
-        kept.find.mockResolvedValue(over.thenAt ?? line);
-        throw over.refusing;
+      if (over.throwing) {
+        stored.find.mockResolvedValue(over.thenAt ?? line);
+        throw over.throwing;
       }
 
       return line;
     });
     const handler = new UpdateLineHandler(
-      access(over.administers),
+      access(over.isAdmin),
       new LineCompiler(),
-      kept,
+      stored,
       { reconcile } as unknown as ApplyLines,
       transaction,
       catalog,
@@ -298,7 +298,7 @@ describe('UpdateLineHandler', () => {
     };
   };
 
-  it('reconciles the version it was asked to with its definition', async () => {
+  it('reconciles the requested version with its definition', async () => {
     const { update, reconcile } = updating();
 
     expect(await update(DELIVERY)).toEqual({
@@ -318,25 +318,25 @@ describe('UpdateLineHandler', () => {
     expect(reconcile).not.toHaveBeenCalled();
     expect(
       await updating({
-        refusing: new LineVersionConflictError('line_1'),
-        thenAt: standingAt(4),
+        throwing: new LineVersionConflictError('line_1'),
+        thenAt: lineAt(4),
       }).update(DELIVERY),
     ).toEqual({ outcome: 'version-conflict', currentVersion: 4 });
   });
 
-  it('refuses a change to a catalog item the plan does not include, and reconciles nothing', async () => {
+  it('denies a change to a catalog item the plan does not include, and reconciles nothing', async () => {
     const { update, reconcile } = updating();
 
-    expect(await update(giving(['catalog.web-search@1.1.0']))).toMatchObject({
+    expect(await update(enabling(['catalog.web-search@1.1.0']))).toMatchObject({
       outcome: 'invalid',
     });
     expect(reconcile).not.toHaveBeenCalled();
   });
 
-  it('refuses a change that would strand work, as the line being in use', async () => {
+  it('rejects a change that would strand work, as the line being in use', async () => {
     expect(
       await updating({
-        refusing: new LineInUseError('delivery', [
+        throwing: new LineInUseError('delivery', [
           { key: 'build', name: 'Build', tasks: 2 },
         ]),
       }).update(DELIVERY),
@@ -347,7 +347,7 @@ describe('UpdateLineHandler', () => {
   });
 
   it('forbids someone on the team who does not administer it', async () => {
-    expect(await updating({ administers: false }).update(DELIVERY)).toEqual(
+    expect(await updating({ isAdmin: false }).update(DELIVERY)).toEqual(
       forbiddenTo('configure'),
     );
   });
@@ -355,47 +355,52 @@ describe('UpdateLineHandler', () => {
 
 describe('DeleteLineHandler', () => {
   const deleting = (tasks: Record<string, number> = {}) => {
-    const standing = standingAt(3);
-    const kept = lines(standing, null);
+    const existing = lineAt(3);
+    const stored = lines(existing, null);
     const tallies = {
-      standingAt: vi.fn(),
-      lockedStandingAt: vi.fn(
+      taskCountsAt: vi.fn(),
+      lockedTaskCountsAt: vi.fn(
         async () =>
           new Map(
-            standing.stations.map((each) => [
+            existing.stations.map((each) => [
               each.id.value,
               tasks[each.key.value] ?? 0,
             ]),
           ),
       ),
     } satisfies StationTalliesPort;
-    const handler = new DeleteLineHandler(access(), kept, tallies, transaction);
+    const handler = new DeleteLineHandler(
+      access(),
+      stored,
+      tallies,
+      transaction,
+    );
 
     return {
       remove: (version = 3) =>
         handler.execute(
           new DeleteLineCommand('line_1', actorFor('user_1'), version),
         ),
-      kept,
-      standing,
+      stored,
+      existing,
     };
   };
 
-  it('retires a line no task stands on', async () => {
-    const { remove, kept } = deleting();
+  it('deletes a line that has no tasks', async () => {
+    const { remove, stored } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
-    expect((kept.save.mock.calls[0] as [Line])[0].isRetired).toBe(true);
+    expect((stored.save.mock.calls[0] as [Line])[0].isDeleted).toBe(true);
   });
 
-  it('will not retire a line while a task stands on it', async () => {
-    const { remove, kept, standing } = deleting();
-    const [, working] = standing.stations;
+  it('will not delete a line while a task is on it', async () => {
+    const { remove, stored, existing } = deleting();
+    const [, working] = existing.stations;
     const busy = deleting({ [working?.key.value ?? '']: 1 });
 
     expect(await busy.remove()).toMatchObject({ outcome: 'in-use' });
-    expect(busy.kept.save).not.toHaveBeenCalled();
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(busy.stored.save).not.toHaveBeenCalled();
+    expect(stored.save).not.toHaveBeenCalled();
     expect(await remove(2)).toEqual({
       outcome: 'version-conflict',
       currentVersion: 3,

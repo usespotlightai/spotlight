@@ -5,7 +5,7 @@ import {
   violates,
 } from '@platform/persistence/drizzle/violations';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
-import { ChangesGuardedElsewhereError } from '@replays/domain/exceptions/changes-guarded-elsewhere.error';
+import { ChangesGatedElsewhereError } from '@replays/domain/exceptions/changes-gated-elsewhere.error';
 import { ReplaySetVersionConflictError } from '@replays/domain/exceptions/replay-set-version-conflict.error';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
@@ -29,7 +29,7 @@ type SetRow = typeof replaySet.$inferSelect;
 
 type EntryRow = typeof replaySetEntry.$inferSelect;
 
-const GUARDS_CHANGES_INDEX = 'replay_set_guards_changes_idx';
+const GATES_CHANGES_INDEX = 'replay_set_gates_changes_idx';
 
 const toSet = (row: SetRow, entries: readonly EntryRow[]): ReplaySet =>
   ReplaySet.rehydrate({
@@ -50,7 +50,7 @@ const toSet = (row: SetRow, entries: readonly EntryRow[]): ReplaySet =>
           addedAt: each.addedAt,
         }),
       ),
-    guardsChanges: row.guardsChanges,
+    gatesChanges: row.gatesChanges,
     createdAt: row.createdAt,
     stationGoneAt: row.stationGoneAt,
     version: row.version,
@@ -103,7 +103,7 @@ export class DrizzleReplaySetRepository implements ReplaySetRepository {
         lineId: added.station.lineId,
         stationId: added.station.stationId,
         name: added.name.value,
-        guardsChanges: added.guardsChanges,
+        gatesChanges: added.gatesChanges,
         createdAt: added.createdAt,
         version: added.version,
       });
@@ -127,15 +127,15 @@ export class DrizzleReplaySetRepository implements ReplaySetRepository {
             .update(replaySet)
             .set({
               name: saved.name.value,
-              guardsChanges: saved.guardsChanges,
+              gatesChanges: saved.gatesChanges,
               stationGoneAt: saved.stationGoneAt,
               version: saved.version + 1,
             })
             .where(at)
             .returning({ id: replaySet.id })
             .catch((error: unknown) => {
-              if (violates(error, UNIQUE_VIOLATION, GUARDS_CHANGES_INDEX)) {
-                throw new ChangesGuardedElsewhereError(saved.station.stationId);
+              if (violates(error, UNIQUE_VIOLATION, GATES_CHANGES_INDEX)) {
+                throw new ChangesGatedElsewhereError(saved.station.stationId);
               }
               throw error;
             });

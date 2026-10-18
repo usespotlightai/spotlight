@@ -17,7 +17,7 @@ export class AccessToken implements Secret {
     if (token.length === 0) {
       throw new InvalidIdentifierError(
         'access token',
-        'is what a host granted to act with, and a host always grants one',
+        'is what the service gave to act with, and the service always gives one',
       );
     }
 

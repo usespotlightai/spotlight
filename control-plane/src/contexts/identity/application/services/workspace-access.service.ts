@@ -35,7 +35,7 @@ const permissionsIn = (
         managesSecrets: permissions.managesSecrets,
         managesRunners: permissions.managesRunners,
         managesTokenTrusts: permissions.managesTokenTrusts,
-        administers: permissions.administers,
+        isAdmin: permissions.isAdmin,
       }
     : null;
 };
@@ -47,7 +47,7 @@ const membershipOf = (
   workspaceId: permissions.workspaceId,
   slug: permissions.slug,
   viewer,
-  administers: permissions.administers,
+  isAdmin: permissions.isAdmin,
 });
 
 export class WorkspaceAccess implements WorkspaceAccessPort {
@@ -123,7 +123,7 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
       : null;
 
     const permissions =
-      team && workspace && TeamAccess.admits(team, workspace, principal)
+      team && workspace && TeamAccess.allows(team, workspace, principal)
         ? permissionsIn(workspace, principal)
         : null;
 
@@ -131,6 +131,6 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
   }
 
   mayPlan(principal: Principal): boolean {
-    return Permissions.beyondWorkspaces(principal).plans;
+    return Permissions.global(principal).plans;
   }
 }

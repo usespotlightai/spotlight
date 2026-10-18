@@ -4,18 +4,18 @@ import type {
   ReplaySet,
 } from '@replays/domain/aggregates/replay-set.aggregate';
 import { SearchEnded } from '@replays/domain/events/search-ended.event';
-import { SearchHoldingOutWanted } from '@replays/domain/events/search-holding-out-wanted.event';
-import { SearchIterationWanted } from '@replays/domain/events/search-iteration-wanted.event';
+import { SearchHoldingOutRequested } from '@replays/domain/events/search-holding-out-requested.event';
+import { SearchIterationRequested } from '@replays/domain/events/search-iteration-requested.event';
 import { SearchReflected } from '@replays/domain/events/search-reflected.event';
 import { SearchStalledUnreflected } from '@replays/domain/events/search-stalled-unreflected.event';
 import { SearchStarted } from '@replays/domain/events/search-started.event';
-import { SearchStopAsked } from '@replays/domain/events/search-stop-asked.event';
+import { SearchStopRequested } from '@replays/domain/events/search-stop-requested.event';
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
 import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search-candidate-name-taken.error';
 import { SearchEndedError } from '@replays/domain/exceptions/search-ended.error';
 import { SearchIterationClosedError } from '@replays/domain/exceptions/search-iteration-closed.error';
 import { SearchNotReflectingError } from '@replays/domain/exceptions/search-not-reflecting.error';
-import { SearchProposalsSpentError } from '@replays/domain/exceptions/search-proposals-spent.error';
+import { SearchProposalsExhaustedError } from '@replays/domain/exceptions/search-proposals-exhausted.error';
 import { SearchReflectingError } from '@replays/domain/exceptions/search-reflecting.error';
 import { UnknownSearchTaskError } from '@replays/domain/exceptions/unknown-search-task.error';
 import { frontierOf } from '@replays/domain/services/frontier';
@@ -24,24 +24,20 @@ import { rankedOf } from '@replays/domain/services/search-ranking';
 import { scoresOf } from '@replays/domain/services/search-scores';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
+import { FailureCause } from '@replays/domain/value-objects/failure-cause.vo';
 import type { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
-import type { ReflectionOutcome } from '@replays/domain/value-objects/reflection-outcome';
+import type { ReflectionResult } from '@replays/domain/value-objects/reflection-result';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
-import type { ReplayEnd } from '@replays/domain/value-objects/replay-state';
+import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import type {
-  SearchAllotment,
   SearchBudget,
+  SearchCeilingSplit,
 } from '@replays/domain/value-objects/search-budget.vo';
-import { SearchCause } from '@replays/domain/value-objects/search-cause.vo';
-import type {
-  SearchCourseEnding,
-  SearchCutShort,
-  SearchEnding,
-} from '@replays/domain/value-objects/search-ending';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import {
   SearchIteration,
@@ -55,11 +51,15 @@ import {
   ACTIVE_SEARCH_STATES,
   type SearchState,
 } from '@replays/domain/value-objects/search-state';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
+import type {
+  SearchCourseStopReason,
+  SearchCutShort,
+  SearchStopReason,
+} from '@replays/domain/value-objects/search-stop-reason';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -97,14 +97,14 @@ export interface RunEnding {
   readonly started: boolean;
 }
 
-export interface CauseGiven {
+export interface CauseInput {
   readonly taskId: TaskId;
   readonly cause: unknown;
   readonly evidence: unknown;
   readonly suggestion: unknown;
 }
 
-interface Admission {
+interface AcceptedProposal {
   readonly candidateId: CandidateId;
   readonly name: CandidateName;
   readonly replayId: ReplayId;
@@ -122,7 +122,7 @@ interface State {
   readonly iterations: readonly SearchIteration[];
   readonly heldOut: readonly HeldOutReplay[];
   readonly state: SearchState;
-  readonly ending: SearchEnding | null;
+  readonly stopReason: SearchStopReason | null;
   readonly startedBy: UserId | null;
   readonly startedAt: Date;
   readonly endedAt: Date | null;
@@ -135,7 +135,7 @@ const isActive = (state: SearchState): boolean =>
 export class Search extends EventRecorder {
   private constructor(
     private readonly state: State,
-    readonly isAbandoned = false,
+    readonly isDeleted = false,
   ) {
     super();
   }
@@ -149,7 +149,7 @@ export class Search extends EventRecorder {
     split: HeldOutSplit;
     seed: { candidate: SeedCandidate; replayId: ReplayId };
     at: Date;
-    by: Attribution;
+    by: ChangeActor;
   }): Search {
     const { set, seed } = input;
 
@@ -169,7 +169,7 @@ export class Search extends EventRecorder {
       );
     }
 
-    input.budget.allot(input.split);
+    input.budget.splitCeiling(input.split);
 
     const started = new Search({
       id: input.id,
@@ -187,7 +187,7 @@ export class Search extends EventRecorder {
       iterations: [],
       heldOut: [],
       state: 'seeding',
-      ending: null,
+      stopReason: null,
       startedBy: input.by.actor?.principal.userId ?? null,
       startedAt: input.at,
       endedAt: null,
@@ -227,7 +227,7 @@ export class Search extends EventRecorder {
     }
     if (
       (state.state === 'seeding' || state.state === 'searching') !==
-      (state.ending === null)
+      (state.stopReason === null)
     ) {
       throw new InconsistentStateError(
         'search',
@@ -298,8 +298,8 @@ export class Search extends EventRecorder {
     return this.state.split;
   }
 
-  get allotment(): SearchAllotment {
-    return this.state.budget.allot(this.state.split);
+  get ceilingSplit(): SearchCeilingSplit {
+    return this.state.budget.splitCeiling(this.state.split);
   }
 
   get seed(): SearchSeed {
@@ -322,8 +322,8 @@ export class Search extends EventRecorder {
     return this.state.state;
   }
 
-  get ending(): SearchEnding | null {
-    return this.state.ending;
+  get stopReason(): SearchStopReason | null {
+    return this.state.stopReason;
   }
 
   get startedBy(): UserId | null {
@@ -346,35 +346,36 @@ export class Search extends EventRecorder {
     return isActive(this.state.state);
   }
 
-  get heldRun(): RunId | null {
+  get activeRun(): RunId | null {
     const last = this.lastIteration;
 
-    return last?.holdsItsRun ? last.runId : null;
+    return last?.ownsActiveRun ? last.runId : null;
   }
 
-  get spent(): Spend {
+  get spent(): Money {
     const ceiling = this.state.budget.ceiling;
-    const allotment = this.allotment;
-    const inCurrency = (spends: readonly Spend[]): Spend =>
+    const ceilingSplit = this.ceilingSplit;
+    const inCurrency = (spends: readonly Money[]): Money =>
       spends
         .filter((each) => each.sameCurrencyAs(ceiling))
-        .reduce((sum, each) => sum.plus(each), Spend.none(ceiling.currency));
+        .reduce((sum, each) => sum.plus(each), Money.none(ceiling.currency));
     const replays = this.replays.map((each) =>
       inCurrency(each.spent ? [each.spent] : []).plus(
-        allotment.perRun.scaled(each.unpriced, 1),
+        ceilingSplit.perRun.scaled(each.unpriced, 1),
       ),
     );
     const agents = this.state.iterations.map((each) => {
       const priced = inCurrency(each.agentSpent?.spends ?? []);
 
-      return each.agentUnpriced(ceiling) && priced.isWithin(allotment.agentRun)
-        ? allotment.agentRun
+      return each.agentUnpriced(ceiling) &&
+        priced.isWithin(ceilingSplit.agentRun)
+        ? ceilingSplit.agentRun
         : priced;
     });
 
     return [...replays, ...agents].reduce(
       (sum, each) => sum.plus(each),
-      Spend.none(ceiling.currency),
+      Money.none(ceiling.currency),
     );
   }
 
@@ -442,19 +443,19 @@ export class Search extends EventRecorder {
       .map((each) => each.replayId);
   }
 
-  admitted(run: RunId, admission: Admission): Search {
+  acceptProposal(run: RunId, proposal: AcceptedProposal): Search {
     const iteration = this.proposingIn(run);
 
-    if (this.proposals.some((each) => each.isNamed(admission.name))) {
-      throw new SearchCandidateNameTakenError(admission.name.value);
+    if (this.proposals.some((each) => each.isNamed(proposal.name))) {
+      throw new SearchCandidateNameTakenError(proposal.name.value);
     }
 
     return this.changingIteration(run, () =>
-      iteration.admitted(
+      iteration.acceptProposal(
         SearchProposal.of({
-          candidateId: admission.candidateId,
-          name: admission.name,
-          replay: SearchReplay.started(admission.replayId),
+          candidateId: proposal.candidateId,
+          name: proposal.name,
+          replay: SearchReplay.started(proposal.replayId),
           improved: null,
         }),
       ),
@@ -463,7 +464,7 @@ export class Search extends EventRecorder {
 
   reflectingOn(
     run: RunId,
-    standing: CandidateId,
+    incumbent: CandidateId,
     tasks: readonly ReflectedTask[],
     at: Date,
     runIds: () => RunId,
@@ -490,8 +491,8 @@ export class Search extends EventRecorder {
     }
 
     if (
-      !standing.equals(this.state.seed.candidateId) &&
-      !this.proposals.some((each) => each.candidateId.equals(standing))
+      !incumbent.equals(this.state.seed.candidateId) &&
+      !this.proposals.some((each) => each.candidateId.equals(incumbent))
     ) {
       throw new InvalidSearchError(
         'can look only into failures of its seed or its candidates',
@@ -499,40 +500,40 @@ export class Search extends EventRecorder {
     }
 
     return this.changingIteration(run, (each) =>
-      each.reflectingOn(standing, tasks),
+      each.reflectingOn(incumbent, tasks),
     ).advancedAt(at, runIds);
   }
 
-  recordCause(run: RunId, given: CauseGiven, at: Date): Search {
+  recordCause(run: RunId, input: CauseInput, at: Date): Search {
     const iteration = this.iterationOf(run);
 
-    if (this.state.state !== 'searching' || !iteration?.holdsItsRun) {
+    if (this.state.state !== 'searching' || !iteration?.ownsActiveRun) {
       throw new SearchIterationClosedError(run.value);
     }
     if (!iteration.reflects) {
       throw new SearchNotReflectingError();
     }
 
-    const task = iteration.taskReflectedOn(given.taskId);
+    const task = iteration.taskReflectedOn(input.taskId);
 
     if (!task) {
-      throw new UnknownSearchTaskError(given.taskId.value);
+      throw new UnknownSearchTaskError(input.taskId.value);
     }
 
-    const cause = SearchCause.of({ task, ...given, at });
+    const cause = FailureCause.of({ task, ...input, at });
 
     return this.changingIteration(run, (each) => each.causeRecorded(cause));
   }
 
-  proposalRefused(run: RunId): Search {
+  proposalRejected(run: RunId): Search {
     const iteration = this.proposingIn(run);
 
-    return this.changingIteration(run, () => iteration.refused());
+    return this.changingIteration(run, () => iteration.rejected());
   }
 
-  recordReplayEnd(
+  recordReplayStopReason(
     replayId: ReplayId,
-    end: ReplayEnd,
+    end: ReplayStopReason,
     charge: ReplayCharge,
     at: Date,
     runIds: () => RunId,
@@ -556,7 +557,7 @@ export class Search extends EventRecorder {
         return noted.searchingAt(at, runIds);
       }
 
-      return end === 'over-budget'
+      return end === 'ceiling-reached'
         ? noted.with({ state: 'searching' }).ranItsCourse('ceiling-reached', at)
         : noted.cutShort('seed-failed', at);
     }
@@ -648,7 +649,7 @@ export class Search extends EventRecorder {
     }).heldOutAt(at);
   }
 
-  stop(at: Date, by: Attribution): Search {
+  stop(at: Date, by: ChangeActor): Search {
     if (!this.isActive) {
       throw new SearchEndedError(this.id.value);
     }
@@ -656,7 +657,7 @@ export class Search extends EventRecorder {
     const stopped = this.cutShort('stopped', at);
 
     stopped.record(
-      new SearchStopAsked(
+      new SearchStopRequested(
         this.id,
         this.teamId,
         ConfigurationChange.updated(this.whatChanged, by),
@@ -674,12 +675,12 @@ export class Search extends EventRecorder {
     return this.isActive ? this.cutShort('set-gone', at) : this;
   }
 
-  abandon(): Search {
-    const abandoned = new Search(this.state, true);
+  delete(): Search {
+    const deleted = new Search(this.state, true);
 
-    abandoned.inheritEvents(this);
+    deleted.inheritEvents(this);
 
-    return abandoned;
+    return deleted;
   }
 
   private get whatChanged() {
@@ -700,7 +701,7 @@ export class Search extends EventRecorder {
     if (
       this.state.state !== 'searching' ||
       !iteration ||
-      !iteration.holdsItsRun
+      !iteration.ownsActiveRun
     ) {
       throw new SearchIterationClosedError(run.value);
     }
@@ -708,7 +709,7 @@ export class Search extends EventRecorder {
       throw new SearchReflectingError();
     }
     if (!iteration.mayPropose(this.state.budget.perIteration)) {
-      throw new SearchProposalsSpentError(this.state.budget.perIteration);
+      throw new SearchProposalsExhaustedError(this.state.budget.perIteration);
     }
 
     return iteration;
@@ -773,7 +774,7 @@ export class Search extends EventRecorder {
 
     return (
       budget.iterations - iterations.length >= REFLECTION_AND_ONE_MORE &&
-      budget.allowsIteration(this.spent.plus(this.allotment.agentRun), split)
+      budget.allowsIteration(this.spent.plus(this.ceilingSplit.agentRun), split)
     );
   }
 
@@ -799,8 +800,8 @@ export class Search extends EventRecorder {
     at: Date,
     runIds: () => RunId,
   ): Search {
-    const stalledAs: ReflectionOutcome | null =
-      reflection.outcome ??
+    const stalledAs: ReflectionResult | null =
+      reflection.result ??
       (reflection.foundConfigCause
         ? null
         : reflection.causes.length === 0 && reflection.current === 'failed'
@@ -815,7 +816,7 @@ export class Search extends EventRecorder {
           : this.ranItsCourse('ceiling-reached', at);
     const outcome =
       stalledAs ??
-      (next.state.state === 'searching' ? 'went-on' : 'out-of-budget');
+      (next.state.state === 'searching' ? 'continued' : 'ceiling-reached');
     const concluded = next.changingIteration(reflection.runId, (each) =>
       each.concluded(outcome),
     );
@@ -825,7 +826,7 @@ export class Search extends EventRecorder {
         this.id,
         this.workspaceId,
         reflection.number,
-        outcome !== 'went-on',
+        outcome !== 'continued',
       ),
     );
 
@@ -843,7 +844,7 @@ export class Search extends EventRecorder {
     });
 
     wanting.record(
-      new SearchIterationWanted(
+      new SearchIterationRequested(
         this.id,
         this.workspaceId,
         number,
@@ -854,38 +855,38 @@ export class Search extends EventRecorder {
     return wanting;
   }
 
-  private ranItsCourse(ending: SearchCourseEnding, at: Date): Search {
+  private ranItsCourse(stopReason: SearchCourseStopReason, at: Date): Search {
     if (!this.proposals.some((each) => each.replay.hasFinished)) {
-      return this.endedAs('finished', ending, at);
+      return this.endedAs('finished', stopReason, at);
     }
 
-    const holding = this.with({ state: 'holding-out', ending });
+    const holdingOut = this.with({ state: 'holding-out', stopReason });
 
-    holding.record(new SearchHoldingOutWanted(this.id, this.workspaceId));
+    holdingOut.record(new SearchHoldingOutRequested(this.id, this.workspaceId));
 
-    return holding;
+    return holdingOut;
   }
 
   private heldOutAt(at: Date): Search {
-    const ending = this.state.ending;
+    const stopReason = this.state.stopReason;
 
     return this.state.state === 'holding-out' &&
-      ending !== null &&
+      stopReason !== null &&
       this.state.heldOut.every((each) => each.replay.hasEnded)
-      ? this.endedAs('finished', ending, at)
+      ? this.endedAs('finished', stopReason, at)
       : this;
   }
 
-  private cutShort(ending: SearchCutShort, at: Date): Search {
-    return this.endedAs('stopped', ending, at);
+  private cutShort(stopReason: SearchCutShort, at: Date): Search {
+    return this.endedAs('stopped', stopReason, at);
   }
 
   private endedAs(
     state: 'finished' | 'stopped',
-    ending: SearchEnding,
+    stopReason: SearchStopReason,
     at: Date,
   ): Search {
-    const withdrawing = this.heldRun;
+    const runToCancel = this.activeRun;
     const stopping = [
       this.state.seed.replay,
       ...this.proposals.map((each) => each.replay),
@@ -893,15 +894,15 @@ export class Search extends EventRecorder {
     ]
       .filter((each) => !each.hasEnded)
       .map((each) => each.replayId);
-    const ended = this.with({ state, ending, endedAt: at });
+    const ended = this.with({ state, stopReason, endedAt: at });
 
     ended.record(
       new SearchEnded(
         this.id,
         this.workspaceId,
         state,
-        ending,
-        withdrawing,
+        stopReason,
+        runToCancel,
         stopping,
       ),
     );
@@ -910,7 +911,7 @@ export class Search extends EventRecorder {
   }
 
   private with(part: Partial<State>): Search {
-    const next = new Search({ ...this.state, ...part }, this.isAbandoned);
+    const next = new Search({ ...this.state, ...part }, this.isDeleted);
 
     next.inheritEvents(this);
 

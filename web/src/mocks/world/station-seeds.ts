@@ -1,8 +1,8 @@
 import type {
   CandidateResponseDto,
   ConfigChangeResponseDto,
+  MoneyResponseDto,
   SetHealthResponseDto,
-  SpendResponseDto,
 } from '@/lib/api';
 import { hoursAgo } from '@/mocks/clock';
 import { DELIVERY_ID, EXPERIMENTS_ID, INCIDENTS_ID } from '@/mocks/world';
@@ -17,7 +17,7 @@ export type SetPick = {
   readonly lineId: string;
   readonly stationId: string;
   readonly createdHoursAgo: number;
-  readonly guardsChanges: boolean;
+  readonly gatesChanges: boolean;
   readonly count: number;
   readonly matching: RegExp;
   readonly origins: readonly string[];
@@ -37,7 +37,7 @@ export type ReplaySeed = {
   readonly endedHoursAgo: number | null;
   readonly costFactor: number;
   readonly baseline?: boolean;
-  readonly comparedWith?: string;
+  readonly referenceReplayId?: string;
   readonly listed?: boolean;
   readonly search?: { searchId: string; candidateName: string };
 };
@@ -89,7 +89,7 @@ export const SET_PICKS: readonly SetPick[] = [
     lineId: DELIVERY_ID,
     stationId: TRIAGE_ID,
     createdHoursAgo: 130,
-    guardsChanges: false,
+    gatesChanges: false,
     count: 6,
     matching:
       /refund|charge|invoice|payment|stripe|coupon|dunning|billing|pricing|plan|receipt|credit/i,
@@ -102,7 +102,7 @@ export const SET_PICKS: readonly SetPick[] = [
     lineId: DELIVERY_ID,
     stationId: SPEC_ID,
     createdHoursAgo: 110,
-    guardsChanges: true,
+    gatesChanges: true,
     count: 7,
     matching: /api|post |get |429|endpoint|webhook|subscriptions/i,
     origins: ['station'],
@@ -114,7 +114,7 @@ export const SET_PICKS: readonly SetPick[] = [
     lineId: DELIVERY_ID,
     stationId: REVIEW_ID,
     createdHoursAgo: 100,
-    guardsChanges: true,
+    gatesChanges: true,
     count: 7,
     matching:
       /payment|refund|charge|invoice|index|table|backfill|card|balance|credit/i,
@@ -129,7 +129,7 @@ export const SET_PICKS: readonly SetPick[] = [
     lineId: INCIDENTS_ID,
     stationId: INVESTIGATE_ID,
     createdHoursAgo: 100,
-    guardsChanges: false,
+    gatesChanges: false,
     count: 6,
     matching: /database|replica|queue|cron|disk|memory|worker/i,
     origins: ['slack'],
@@ -141,7 +141,7 @@ export const SET_PICKS: readonly SetPick[] = [
     lineId: INCIDENTS_ID,
     stationId: MITIGATE_ID,
     createdHoursAgo: 90,
-    guardsChanges: false,
+    gatesChanges: false,
     count: 6,
     matching: /checkout|502|webhook|payments|logins|gateway/i,
     origins: ['station'],
@@ -153,7 +153,7 @@ export const SET_PICKS: readonly SetPick[] = [
     lineId: EXPERIMENTS_ID,
     stationId: DESIGN_ID,
     createdHoursAgo: 70,
-    guardsChanges: true,
+    gatesChanges: true,
     count: 6,
     matching: /pricing|plans|trial|cancellation|savings|sign-up|usage/i,
     origins: ['person', 'person', 'slack'],
@@ -167,7 +167,7 @@ export const SET_PICKS: readonly SetPick[] = [
     lineId: EXPERIMENTS_ID,
     stationId: BUILD_ID,
     createdHoursAgo: 80,
-    guardsChanges: false,
+    gatesChanges: false,
     count: 6,
     matching: /test|try|show|nudge|simplify/i,
     origins: ['station'],
@@ -430,7 +430,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 30,
     endedHoursAgo: 29.7,
     costFactor: 0.6,
-    comparedWith: 'replay_triage_live_1',
+    referenceReplayId: 'replay_triage_live_1',
     listed: true,
   },
   {
@@ -455,7 +455,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 2.4,
     endedHoursAgo: 2.1,
     costFactor: 0.25,
-    comparedWith: 'replay_str_seed',
+    referenceReplayId: 'replay_str_seed',
     search: ofSearch('search_triage_repro', SEEDED.triageRepro.name),
   },
   {
@@ -468,7 +468,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 1.1,
     endedHoursAgo: null,
     costFactor: 0.25,
-    comparedWith: 'replay_str_seed',
+    referenceReplayId: 'replay_str_seed',
     search: ofSearch('search_triage_repro', SEEDED.triageLogs.name),
   },
   {
@@ -518,7 +518,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 79.4,
     endedHoursAgo: 79,
     costFactor: 0.35,
-    comparedWith: 'replay_ssp_seed',
+    referenceReplayId: 'replay_ssp_seed',
     search: ofSearch('search_spec_cost', SEEDED.specSonnet.name),
   },
   {
@@ -531,7 +531,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 75,
     endedHoursAgo: 74.9,
     costFactor: 0.35,
-    comparedWith: 'replay_ssp_seed_held_out',
+    referenceReplayId: 'replay_ssp_seed_held_out',
     search: ofSearch('search_spec_cost', SEEDED.specSonnet.name),
   },
   {
@@ -544,7 +544,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 79.4,
     endedHoursAgo: 78.9,
     costFactor: 0.8,
-    comparedWith: 'replay_ssp_seed',
+    referenceReplayId: 'replay_ssp_seed',
     search: ofSearch('search_spec_cost', SEEDED.specTemplate.name),
   },
   {
@@ -557,7 +557,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 77,
     endedHoursAgo: 76.5,
     costFactor: 0.55,
-    comparedWith: 'replay_ssp_seed',
+    referenceReplayId: 'replay_ssp_seed',
     search: ofSearch('search_spec_cost', SEEDED.specSonnetHigh.name),
   },
   {
@@ -583,7 +583,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 40,
     endedHoursAgo: 39.6,
     costFactor: 0.65,
-    comparedWith: 'replay_review_live_2',
+    referenceReplayId: 'replay_review_live_2',
     listed: true,
   },
   {
@@ -620,7 +620,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 59.5,
     endedHoursAgo: 59.1,
     costFactor: 0.65,
-    comparedWith: 'replay_srv_seed',
+    referenceReplayId: 'replay_srv_seed',
     search: ofSearch('search_review_findings', SEEDED.reviewRisk.name),
   },
   {
@@ -633,7 +633,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 53,
     endedHoursAgo: 52.7,
     costFactor: 0.65,
-    comparedWith: 'replay_srv_seed_held_out',
+    referenceReplayId: 'replay_srv_seed_held_out',
     search: ofSearch('search_review_findings', SEEDED.reviewRisk.name),
   },
   {
@@ -646,7 +646,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 59.5,
     endedHoursAgo: 58.9,
     costFactor: 1.4,
-    comparedWith: 'replay_srv_seed',
+    referenceReplayId: 'replay_srv_seed',
     search: ofSearch('search_review_findings', SEEDED.reviewHigh.name),
   },
   {
@@ -659,7 +659,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 57.3,
     endedHoursAgo: 56.9,
     costFactor: 0.7,
-    comparedWith: 'replay_srv_seed',
+    referenceReplayId: 'replay_srv_seed',
     search: ofSearch('search_review_findings', SEEDED.reviewMigrations.name),
   },
   {
@@ -697,7 +697,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 49.5,
     endedHoursAgo: 49.1,
     costFactor: 1.1,
-    comparedWith: 'replay_sin_seed',
+    referenceReplayId: 'replay_sin_seed',
     search: ofSearch('search_investigate_logs', SEEDED.investigateLogs.name),
   },
   {
@@ -710,7 +710,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 47.3,
     endedHoursAgo: 46.6,
     costFactor: 2.1,
-    comparedWith: 'replay_sin_seed',
+    referenceReplayId: 'replay_sin_seed',
     search: ofSearch('search_investigate_logs', SEEDED.investigateOpus.name),
   },
   {
@@ -736,7 +736,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 0.5,
     endedHoursAgo: null,
     costFactor: 0.8,
-    comparedWith: 'replay_mitigate_live_1',
+    referenceReplayId: 'replay_mitigate_live_1',
     listed: true,
   },
   {
@@ -761,7 +761,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 19.5,
     endedHoursAgo: 19.2,
     costFactor: 0.25,
-    comparedWith: 'replay_smi_seed',
+    referenceReplayId: 'replay_smi_seed',
     search: ofSearch('search_mitigate_cost', SEEDED.mitigateHaiku.name),
   },
   {
@@ -811,7 +811,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 39.5,
     endedHoursAgo: 39.1,
     costFactor: 1.05,
-    comparedWith: 'replay_sde_seed',
+    referenceReplayId: 'replay_sde_seed',
     search: ofSearch('search_design_metrics', SEEDED.designMetric.name),
   },
   {
@@ -824,7 +824,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 34,
     endedHoursAgo: 33.8,
     costFactor: 1.05,
-    comparedWith: 'replay_sde_seed_held_out',
+    referenceReplayId: 'replay_sde_seed_held_out',
     search: ofSearch('search_design_metrics', SEEDED.designMetric.name),
   },
   {
@@ -837,7 +837,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 39.5,
     endedHoursAgo: 39,
     costFactor: 1.2,
-    comparedWith: 'replay_sde_seed',
+    referenceReplayId: 'replay_sde_seed',
     search: ofSearch('search_design_metrics', SEEDED.designBriefs.name),
   },
   {
@@ -850,7 +850,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 37.3,
     endedHoursAgo: 37,
     costFactor: 0.4,
-    comparedWith: 'replay_sde_seed',
+    referenceReplayId: 'replay_sde_seed',
     search: ofSearch('search_design_metrics', SEEDED.designSonnet.name),
   },
   {
@@ -900,7 +900,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 29.5,
     endedHoursAgo: 29.2,
     costFactor: 0.8,
-    comparedWith: 'replay_sbu_seed',
+    referenceReplayId: 'replay_sbu_seed',
     search: ofSearch('search_build_cost', SEEDED.buildMedium.name),
   },
   {
@@ -913,7 +913,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 25,
     endedHoursAgo: 24.9,
     costFactor: 0.8,
-    comparedWith: 'replay_sbu_seed_held_out',
+    referenceReplayId: 'replay_sbu_seed_held_out',
     search: ofSearch('search_build_cost', SEEDED.buildMedium.name),
   },
   {
@@ -926,7 +926,7 @@ export const REPLAY_SEEDS: readonly ReplaySeed[] = [
     startedHoursAgo: 29.5,
     endedHoursAgo: 28.9,
     costFactor: 1.5,
-    comparedWith: 'replay_sbu_seed',
+    referenceReplayId: 'replay_sbu_seed',
     search: ofSearch('search_build_cost', SEEDED.buildChecklist.name),
   },
 ];
@@ -936,7 +936,7 @@ const agentSpent = (amount: number) => ({
   unpriced: 0,
 });
 
-const ceiling = (amount: number): SpendResponseDto => ({
+const ceiling = (amount: number): MoneyResponseDto => ({
   amount,
   currency: 'USD',
 });
@@ -947,14 +947,14 @@ const seedOf = (
   heldOutReplayId: string | null,
 ) => ({
   candidate: liveOf(stationId),
-  seed: true,
+  isSeed: true,
   iteration: null,
   hypothesis: null,
   changes: [],
   replayId,
   heldOutReplayId,
   onFrontier: true,
-  onlyOnSeenTasks: null,
+  overfit: null,
   pullRequest: null,
 });
 
@@ -982,10 +982,10 @@ const searched = (
   > &
     Partial<SearchSeed['candidates'][number]>,
 ): SearchSeed['candidates'][number] => ({
-  seed: false,
+  isSeed: false,
   heldOutReplayId: null,
   onFrontier: false,
-  onlyOnSeenTasks: null,
+  overfit: null,
   pullRequest: null,
   ...over,
 });
@@ -997,7 +997,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
     id: 'search_triage_repro',
     setId: 'set_triage_billing',
     state: 'searching',
-    ending: null,
+    stopReason: null,
     agent: AGENT,
     budget: {
       iterations: 3,
@@ -1041,7 +1041,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
     id: 'search_spec_cost',
     setId: 'set_spec_api',
     state: 'finished',
-    ending: 'ceiling-reached',
+    stopReason: 'ceiling-reached',
     agent: AGENT,
     budget: {
       iterations: 4,
@@ -1101,7 +1101,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
     id: 'search_review_findings',
     setId: 'set_review_money',
     state: 'finished',
-    ending: 'iterations-spent',
+    stopReason: 'iterations-spent',
     agent: AGENT,
     budget: {
       iterations: 2,
@@ -1138,7 +1138,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
         replayId: 'replay_srv_risk',
         heldOutReplayId: 'replay_srv_risk_held_out',
         onFrontier: true,
-        onlyOnSeenTasks: 'marked',
+        overfit: 'likely',
       }),
       searched({
         candidate: SEEDED.reviewHigh,
@@ -1164,7 +1164,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
     id: 'search_investigate_logs',
     setId: 'set_incident_data',
     state: 'finished',
-    ending: 'stalled',
+    stopReason: 'stalled',
     agent: AGENT,
     budget: {
       iterations: 4,
@@ -1199,7 +1199,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
         candidate: SEEDED.investigateOpus,
         iteration: 2,
         hypothesis:
-          'The replica lag alerts need reasoning across three services. Opus may hold more of it at once.',
+          'The replica lag alerts need reasoning across three services. Opus may keep more of it in context at once.',
         changes: [changed('model', 'sonnet', 'opus')],
         replayId: 'replay_sin_opus',
       }),
@@ -1211,7 +1211,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
     id: 'search_mitigate_cost',
     setId: 'set_incident_customer',
     state: 'stopped',
-    ending: 'stopped',
+    stopReason: 'stopped',
     agent: AGENT,
     budget: {
       iterations: 3,
@@ -1244,7 +1244,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
     id: 'search_design_metrics',
     setId: 'set_experiment_pricing',
     state: 'finished',
-    ending: 'iterations-spent',
+    stopReason: 'iterations-spent',
     agent: AGENT,
     budget: {
       iterations: 2,
@@ -1271,7 +1271,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
         candidate: SEEDED.designMetric,
         iteration: 1,
         hypothesis:
-          'Designs fail the judge when they name a metric without today’s reading. Asking for the reading first should fix that.',
+          'Designs fail the judge when they name a metric without today’s reading. Requiring the reading first should fix that.',
         changes: [changed('prompt')],
         replayId: 'replay_sde_metric_first',
         heldOutReplayId: 'replay_sde_metric_first_held_out',
@@ -1287,7 +1287,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
         candidate: SEEDED.designBriefs,
         iteration: 1,
         hypothesis:
-          'The experiment-briefs skill already says how to set a stop rule. Giving it outright should stop the missing ones.',
+          'The experiment-briefs skill already says how to set a stop rule. Enabling it outright should stop the missing ones.',
         changes: [added('skill', 'experiment-briefs')],
         replayId: 'replay_sde_briefs',
       }),
@@ -1312,7 +1312,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
     id: 'search_build_cost',
     setId: 'set_experiment_variants',
     state: 'finished',
-    ending: 'iterations-spent',
+    stopReason: 'iterations-spent',
     agent: AGENT,
     budget: {
       iterations: 1,

@@ -22,28 +22,28 @@ import {
   aTrust,
   HOST_ID,
   hashOf,
-  heldHosts,
   POOL_ID,
   STARTED_AT,
   secretOf,
+  storedHosts,
   TRUST_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
-import { ProvisionSecretUnopenableError } from '@runners/domain/exceptions/provision-secret-unopenable.error';
+import { ProvisionSecretDecryptionFailedError } from '@runners/domain/exceptions/provision-secret-decryption-failed.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
-import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -66,77 +66,79 @@ const PLATFORM: PlatformEgressSettings = {
 
 const running = (
   pool: RunnerPool | null,
-  given: {
-    standing?: readonly Runner[];
-    held?: Runner | null;
+  input: {
+    alive?: readonly Runner[];
+    existing?: Runner | null;
     answer?: ProvisionAnswer;
     unsaved?: Error;
     trust?: RunnerTrust | null;
     host?: RunnerHost | null;
-    unopenable?: boolean;
+    decryptionFails?: boolean;
     insecureAllowed?: boolean;
     egress?: Egress | null;
     platform?: PlatformEgressSettings | null;
   } = {},
 ) => {
-  const known = given.host === undefined ? aHost() : given.host;
-  const { hosts } = known ? heldHosts(known) : heldHosts();
+  const known = input.host === undefined ? aHost() : input.host;
+  const { hosts } = known ? storedHosts(known) : storedHosts();
   const added: Runner[] = [];
   const logged: unknown[] = [];
   const saved: Runner[] = [];
   const called: ProvisionCall[] = [];
-  let minted = 0;
+  let issued = 0;
   const service = new Runners(
     {
       findForStart: vi.fn(async () => pool),
     } as unknown as RunnerPoolRepository,
     {
-      find: vi.fn(async () => given.trust ?? null),
+      find: vi.fn(async () => input.trust ?? null),
     } as unknown as RunnerTrustRepository,
     hosts,
     {
-      standingIn: vi.fn(async () => given.standing ?? []),
+      aliveIn: vi.fn(async () => input.alive ?? []),
       add: vi.fn(async (runner: Runner) => {
         added.push(runner);
       }),
-      find: vi.fn(async () => given.held ?? added[added.length - 1] ?? null),
+      find: vi.fn(
+        async () => input.existing ?? added[added.length - 1] ?? null,
+      ),
       save: vi.fn(async (runner: Runner) => {
-        if (given.unsaved) {
-          throw given.unsaved;
+        if (input.unsaved) {
+          throw input.unsaved;
         }
         saved.push(runner);
       }),
-      holding: vi.fn(async () => (given.held ? [given.held] : [])),
+      findByWork: vi.fn(async () => (input.existing ? [input.existing] : [])),
     } as unknown as RunnerRepository,
     {
-      find: vi.fn(async () => given.egress ?? null),
+      find: vi.fn(async () => input.egress ?? null),
     } as unknown as EgressRepository,
     {
       call: vi.fn(async (call: ProvisionCall) => {
         called.push(call);
-        return given.answer ?? { outcome: 'accepted' };
+        return input.answer ?? { outcome: 'accepted' };
       }),
     } as ProvisionCallsPort,
     {
-      sealed: vi.fn(),
-      opened: vi.fn(async () => {
-        if (given.unopenable) {
-          throw new ProvisionSecretUnopenableError(POOL_ID.value);
+      encrypt: vi.fn(),
+      decrypt: vi.fn(async () => {
+        if (input.decryptionFails) {
+          throw new ProvisionSecretDecryptionFailedError(POOL_ID.value);
         }
         return secretOf('s');
       }),
     } satisfies ProvisionSecretsPort,
     {
-      insecureAllowed: given.insecureAllowed ?? false,
-      platformEgress: given.platform ?? null,
+      insecureAllowed: input.insecureAllowed ?? false,
+      platformEgress: input.platform ?? null,
     },
     {
-      mint: () =>
-        minted++ % 2 === 0
+      issue: () =>
+        issued++ % 2 === 0
           ? { token: 'one-run-token', hash: 'c'.repeat(64) }
           : { token: 'egress-token', hash: 'e'.repeat(64) },
       hash: () => 'c'.repeat(64),
-    } as TokenMintPort,
+    } as TokenIssuer,
     { generate: () => 'pooled_9' } as IdGeneratorPort,
     {
       inTransaction: (work: () => Promise<unknown>) => work(),
@@ -153,7 +155,7 @@ const running = (
 
 describe('Runners', () => {
   describe('starting a runner for a pull pool', () => {
-    it('starts one, answering its one-run token once', async () => {
+    it('starts one, and returns its one-run token once', async () => {
       const { service, added } = running(aPullPool());
 
       await expect(
@@ -164,17 +166,19 @@ describe('Runners', () => {
         token: 'one-run-token',
         egressToken: 'egress-token',
       });
-      expect(added[0]?.terms.values).toEqual(['linux']);
+      expect(added[0]?.offer.values).toEqual(['linux']);
       expect(added[0]?.running?.image.value).toBe(IMAGE);
-      expect(added[0]?.running?.usual).toBe(true);
+      expect(added[0]?.running?.isDefault).toBe(true);
       expect(added[0]?.installed[0]?.version?.value).toBe('2.1.0');
-      expect(added[0]?.admission.equals(Admission.through(POOL_ID))).toBe(true);
+      expect(added[0]?.source.equals(CredentialSource.ofId(POOL_ID))).toBe(
+        true,
+      );
       expect(added[0]?.hostId?.value).toBe(HOST);
       expect(added[0]?.tokenHash.value).toBe('c'.repeat(64));
       expect(added[0]?.egressTokenHash?.value).toBe('e'.repeat(64));
     });
 
-    it('starts one that takes only work asking for the image it runs', async () => {
+    it('starts one that takes only work that requests the image it runs', async () => {
       const { service, added } = running(aPullPool());
 
       await service.start(
@@ -185,13 +189,13 @@ describe('Runners', () => {
         CLAIM_BY,
       );
 
-      const terms = added[0]?.terms;
+      const offer = added[0]?.offer;
 
-      expect(terms?.serves(RunnerImage.of('ghcr.io/acme/widgets:1'))).toBe(
+      expect(offer?.supports(RunnerImage.of('ghcr.io/acme/widgets:1'))).toBe(
         true,
       );
-      expect(terms?.serves(RunnerImage.of(IMAGE))).toBe(false);
-      expect(terms?.serves(null)).toBe(false);
+      expect(offer?.supports(RunnerImage.of(IMAGE))).toBe(false);
+      expect(offer?.supports(null)).toBe(false);
     });
 
     it('starts none for an image the host did not report serving', async () => {
@@ -200,14 +204,14 @@ describe('Runners', () => {
 
         await expect(
           service.start(THROUGH_POOL, HOST, image, STARTED_AT, CLAIM_BY),
-        ).resolves.toEqual({ outcome: 'unoffered' });
+        ).resolves.toEqual({ outcome: 'image-unreported' });
         expect(added).toEqual([]);
       }
     });
 
     it('starts none past maxRuns', async () => {
       const { service, added } = running(aPullPool({ maxRuns: 1 }), {
-        standing: [aRunner()],
+        alive: [aRunner()],
       });
 
       await expect(
@@ -244,11 +248,11 @@ describe('Runners', () => {
 
       await expect(
         service.start(THROUGH_POOL, HOST, IMAGE, STARTED_AT, CLAIM_BY),
-      ).resolves.toEqual({ outcome: 'stranger' });
+      ).resolves.toEqual({ outcome: 'host-unreported' });
       expect(added).toEqual([]);
     });
 
-    it('starts none for a host that reports through another way in', async () => {
+    it('starts none for a host that reports through another pool or trust', async () => {
       const { service, added } = running(aPullPool(), {
         trust: aTrust(),
         host: aHost({ through: aTrust() }),
@@ -256,7 +260,7 @@ describe('Runners', () => {
 
       await expect(
         service.start(THROUGH_POOL, HOST, IMAGE, STARTED_AT, CLAIM_BY),
-      ).resolves.toEqual({ outcome: 'stranger' });
+      ).resolves.toEqual({ outcome: 'host-unreported' });
       await expect(
         running(aPullPool()).service.start(
           THROUGH_TRUST,
@@ -265,19 +269,19 @@ describe('Runners', () => {
           STARTED_AT,
           CLAIM_BY,
         ),
-      ).resolves.toEqual({ outcome: 'stranger' });
+      ).resolves.toEqual({ outcome: 'host-unreported' });
       expect(added).toEqual([]);
     });
   });
 
-  describe('saying whether a host reports through a way in', () => {
+  describe('saying whether a host reports through a pool or trust', () => {
     it('says so for a host that reported through that pool', async () => {
       await expect(
         running(aPullPool()).service.reports(THROUGH_POOL, HOST),
       ).resolves.toBe(true);
     });
 
-    it('says not for a host that never reported, or through another way in', async () => {
+    it('says not for a host that never reported, or through another pool or trust', async () => {
       await expect(
         running(aPullPool(), { host: null }).service.reports(
           THROUGH_POOL,
@@ -297,7 +301,7 @@ describe('Runners', () => {
   });
 
   describe('starting a runner through a trust', () => {
-    it('starts one under the trust’s labels, answering its one-run token once', async () => {
+    it('starts one under the trust’s labels, and returns its one-run token once', async () => {
       const { service, added } = running(null, {
         trust: aTrust(),
         host: aHost({ through: aTrust() }),
@@ -311,18 +315,18 @@ describe('Runners', () => {
         token: 'one-run-token',
         egressToken: 'egress-token',
       });
-      expect(added[0]?.terms.values).toEqual(['vpc-internal']);
-      expect(added[0]?.terms.running?.image.value).toBe(IMAGE);
-      expect(added[0]?.admission.equals(Admission.through(TRUST_ID))).toBe(
+      expect(added[0]?.offer.values).toEqual(['vpc-internal']);
+      expect(added[0]?.offer.running?.image.value).toBe(IMAGE);
+      expect(added[0]?.source.equals(CredentialSource.ofId(TRUST_ID))).toBe(
         true,
       );
     });
 
-    it('starts one however many already stand, since a trust sets no maxRuns', async () => {
+    it('starts one however many are already alive, since a trust sets no maxRuns', async () => {
       const { service, added } = running(null, {
         trust: aTrust(),
         host: aHost({ through: aTrust() }),
-        standing: [aRunner(), aRunner({ id: 'pooled_2' })],
+        alive: [aRunner(), aRunner({ id: 'pooled_2' })],
       });
 
       await expect(
@@ -331,7 +335,7 @@ describe('Runners', () => {
       expect(added).toHaveLength(1);
     });
 
-    it('starts none for a trust that is gone or withdrawn', async () => {
+    it('starts none for a trust that is gone or deleted', async () => {
       await expect(
         running(null, {
           trust: null,
@@ -340,7 +344,7 @@ describe('Runners', () => {
       ).resolves.toEqual({ outcome: 'gone' });
       await expect(
         running(null, {
-          trust: aTrust().withdraw(attributedIn()),
+          trust: aTrust().delete(changeActorIn()),
           host: aHost({ through: aTrust() }),
         }).service.start(THROUGH_TRUST, HOST, IMAGE, STARTED_AT, CLAIM_BY),
       ).resolves.toEqual({ outcome: 'gone' });
@@ -379,7 +383,7 @@ describe('Runners', () => {
       expect(added[0]?.id.value).toBe('pooled_1');
       expect(added[0]?.hostId).toBeNull();
       expect(called[0]).toMatchObject({
-        attempt: 'pooled_1',
+        messageId: 'pooled_1',
         pool: 'sandboxes',
         runId: 'run_1',
         image: 'ghcr.io/acme/widgets:1',
@@ -439,14 +443,14 @@ describe('Runners', () => {
       });
     });
 
-    it('fails as unusable, calling nobody and letting the runner go, when the egress the pool names is not there', async () => {
-      for (const given of [
+    it('fails as unusable, calling nobody and releasing the runner, when the egress the pool names is not there', async () => {
+      for (const input of [
         { egress: null },
         { egress: anEgress({ workspaceId: WorkspaceId.of('ws_other') }) },
       ]) {
         const { service, saved, called } = running(
           aPushPool({ egress: EgressReference.to(EGRESS_ID) }),
-          given,
+          input,
         );
 
         await expect(
@@ -466,15 +470,15 @@ describe('Runners', () => {
       expect(platformless.called).toEqual([]);
     });
 
-    it('never sends a proxy credential toward an egress in the clear unless the deployment allows it', async () => {
+    it('never sends a proxy credential to an egress in the clear unless the deployment allows it', async () => {
       const pool = aPushPool({ egress: EgressReference.to(EGRESS_ID) });
       const egress = anEgress({ url: 'http://egress.example.com' });
-      const refusing = running(pool, { egress });
+      const blocked = running(pool, { egress });
 
       await expect(
-        refusing.service.provision(request, STARTED_AT),
+        blocked.service.provision(request, STARTED_AT),
       ).resolves.toMatchObject({ outcome: 'failed', kind: 'not-allowed' });
-      expect(refusing.called).toEqual([]);
+      expect(blocked.called).toEqual([]);
 
       await expect(
         running(pool, { egress, insecureAllowed: true }).service.provision(
@@ -512,35 +516,41 @@ describe('Runners', () => {
       expect(called[0]).toMatchObject({ kind: 'run', stackId: null });
     });
 
-    it('lets the runner go and says why when provision fails', async () => {
+    it('releases the runner and says why when provision fails', async () => {
       const { service, saved } = running(aPushPool(), {
-        answer: { outcome: 'refused', detail: 'Provision URL answered 500.' },
+        answer: {
+          outcome: 'http-error',
+          detail: 'Provision URL answered 500.',
+        },
       });
 
       await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
         outcome: 'failed',
-        kind: 'refused',
+        kind: 'http-error',
         detail: 'Provision URL answered 500.',
       });
       expect(saved[0]?.isDiscarded).toBe(true);
     });
 
-    it('still says why provision failed when letting the runner go fails, and logs it', async () => {
+    it('still says why provision failed when releasing the runner fails, and logs it', async () => {
       const lost = new Error('the database is down');
       const { service, logged } = running(aPushPool(), {
-        answer: { outcome: 'refused', detail: 'Provision URL answered 500.' },
+        answer: {
+          outcome: 'http-error',
+          detail: 'Provision URL answered 500.',
+        },
         unsaved: lost,
       });
 
       await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
         outcome: 'failed',
-        kind: 'refused',
+        kind: 'http-error',
         detail: 'Provision URL answered 500.',
       });
       expect(logged).toEqual([{ err: lost, runner: 'pooled_1' }]);
     });
 
-    it('signs the call with the pool’s secret, opened only to provision', async () => {
+    it('signs the call with the pool’s secret, decrypted only to provision', async () => {
       const { service, called } = running(aPushPool());
 
       await service.provision(request, STARTED_AT);
@@ -548,15 +558,16 @@ describe('Runners', () => {
       expect(called[0]?.secret.equals(secretOf('s'))).toBe(true);
     });
 
-    it('fails as unusable, calling nobody and letting the runner go, when the pool’s secret does not open here', async () => {
+    it('fails as unusable, calling nobody and releasing the runner, when the keys here cannot decrypt the pool’s secret', async () => {
       const { service, saved, called } = running(aPushPool(), {
-        unopenable: true,
+        decryptionFails: true,
       });
 
       await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
         outcome: 'failed',
         kind: 'unusable',
-        detail: 'Provision secret doesn’t open with this deployment’s keys.',
+        detail:
+          'Cannot decrypt the provision secret with the keys of this deployment.',
       });
       expect(called).toEqual([]);
       expect(saved[0]?.isDiscarded).toBe(true);
@@ -564,13 +575,13 @@ describe('Runners', () => {
 
     it('never sends a one-run token in the clear unless the deployment allows it', async () => {
       const clear = aPushPool({ url: 'http://provision.example.com/runs' });
-      const refusing = running(clear);
+      const blocked = running(clear);
 
       await expect(
-        refusing.service.provision(request, STARTED_AT),
+        blocked.service.provision(request, STARTED_AT),
       ).resolves.toMatchObject({ outcome: 'failed', kind: 'not-allowed' });
-      expect(refusing.called).toEqual([]);
-      expect(refusing.saved[0]?.isDiscarded).toBe(true);
+      expect(blocked.called).toEqual([]);
+      expect(blocked.saved[0]?.isDiscarded).toBe(true);
 
       const allowing = running(clear, { insecureAllowed: true });
 
@@ -593,7 +604,7 @@ describe('Runners', () => {
 
     it('calls nobody when the pool is full', async () => {
       const { service, called } = running(aPushPool({ maxRuns: 1 }), {
-        standing: [aRunner()],
+        alive: [aRunner()],
       });
 
       await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
@@ -603,24 +614,24 @@ describe('Runners', () => {
     });
   });
 
-  it('ends the runner holding work that ended', async () => {
-    const held = aRunner().took(RunnerWork.run('run_1'), STARTED_AT);
-    const { service, saved } = running(aPullPool(), { held });
+  it('ends the runner with a lease on work that ended', async () => {
+    const existing = aRunner().claim(RunnerWork.run('run_1'), STARTED_AT);
+    const { service, saved } = running(aPullPool(), { existing });
 
     await service.workEnded({ kind: 'run', id: 'run_1' }, STARTED_AT);
 
     expect(saved[0]?.hasEnded).toBe(true);
   });
 
-  it('records the work a runner took', async () => {
-    const { service, saved } = running(aPullPool(), { held: aRunner() });
+  it('records the work a runner claimed', async () => {
+    const { service, saved } = running(aPullPool(), { existing: aRunner() });
 
-    await service.took(
+    await service.claim(
       RunnerId.of('pooled_1'),
       { kind: 'check', id: 'stack_1' },
       STARTED_AT,
     );
 
-    expect(saved[0]?.holds(RunnerWork.check('stack_1'))).toBe(true);
+    expect(saved[0]?.hasLeaseOn(RunnerWork.check('stack_1'))).toBe(true);
   });
 });

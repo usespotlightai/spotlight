@@ -11,7 +11,7 @@ export interface LineRepository {
 
   find(id: LineId): Promise<Line | null>;
 
-  holding(stationId: StationId): Promise<Line | null>;
+  findByStation(stationId: StationId): Promise<Line | null>;
 
   ofWorkspace(workspaceId: WorkspaceId): Promise<readonly Line[]>;
 

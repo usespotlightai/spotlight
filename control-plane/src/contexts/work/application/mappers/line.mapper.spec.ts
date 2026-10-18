@@ -39,7 +39,7 @@ const line = Line.rehydrate({
 });
 
 describe('LineMapper.lineToDto', () => {
-  it('carries the line and every station it holds', () => {
+  it('carries the line and every station it has', () => {
     expect(LineMapper.lineToDto(line)).toEqual({
       id: 'line_1',
       key: 'default',

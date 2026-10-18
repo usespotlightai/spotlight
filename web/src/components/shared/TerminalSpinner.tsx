@@ -5,27 +5,27 @@ const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '
 
 const FRAME_MS = 80;
 
-const SETTLED = '⠿';
+const STOPPED = '⠿';
 
 const stillPreferred = () =>
   typeof window !== 'undefined' &&
   window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
 
 type TerminalSpinnerProps = {
-  settled?: 'filled' | 'faded' | null;
+  stopped?: 'filled' | 'faded' | null;
   className?: string;
   'aria-hidden'?: boolean;
 };
 
 export function TerminalSpinner({
-  settled = null,
+  stopped = null,
   className,
   'aria-hidden': hidden = true,
 }: TerminalSpinnerProps) {
   const [frame, setFrame] = useState(0);
 
   useEffect(() => {
-    if (settled || stillPreferred()) {
+    if (stopped || stillPreferred()) {
       return;
     }
     const ticking = window.setInterval(
@@ -34,7 +34,7 @@ export function TerminalSpinner({
     );
 
     return () => window.clearInterval(ticking);
-  }, [settled]);
+  }, [stopped]);
 
   return (
     <span
@@ -43,10 +43,10 @@ export function TerminalSpinner({
         'inline-flex h-4 shrink-0 select-none items-center text-base leading-none',
         className,
         'w-auto',
-        settled === 'faded' && 'text-faint',
+        stopped === 'faded' && 'text-faint',
       )}
     >
-      {settled ? SETTLED : FRAMES[frame]}
+      {stopped ? STOPPED : FRAMES[frame]}
     </span>
   );
 }

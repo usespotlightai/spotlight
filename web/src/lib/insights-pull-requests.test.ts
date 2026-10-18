@@ -33,7 +33,7 @@ describe('the filters behind each pull request number', () => {
     ).toEqual({ state: 'merged', author: 'spotlight', reverted: 'true' });
   });
 
-  it('asks for the compared repositories by name where there are too many to list', () => {
+  it('requests the compared repositories by name where there are too many to list', () => {
     expect(
       groupFilter(
         'people',
@@ -53,7 +53,7 @@ describe('the filters behind each pull request number', () => {
 
 describe('formatPullRequestFilterValue', () => {
   it('names what a filter narrows by in words', () => {
-    expect(formatPullRequestFilterValue('author', 'touched')).toBe(
+    expect(formatPullRequestFilterValue('author', 'reviewed')).toBe(
       'Others, with a Spotlight review task',
     );
     expect(formatPullRequestFilterValue('author', 'bots')).toBe('Bots alone');

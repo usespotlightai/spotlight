@@ -1,10 +1,10 @@
 import {
   DECISION_KIND_NAMES,
-  DECISION_STANDING_NAMES,
+  DECISION_STATUS_NAMES,
   type DecisionDto,
   type DecisionMergeDto,
   type DisputeDto,
-  type StandingDecisionsDto,
+  type MergedDecisionsDto,
   type TaskDecisionsDto,
 } from '@change-review/application/dto/decision.dto';
 import { ApiProperty } from '@nestjs/swagger';
@@ -62,7 +62,7 @@ export class DecisionResponseDto {
   @ApiProperty({
     type: [String],
     example: ['api/src/uploads.ts'],
-    description: 'The changed files it bears on, from the workspace root',
+    description: 'The changed files it covers, from the workspace root',
   })
   readonly paths: string[];
 
@@ -70,11 +70,11 @@ export class DecisionResponseDto {
     type: [Number],
     description: 'Where the agent reasoned it, as steps of the run’s journal',
   })
-  readonly steps: number[];
+  readonly journalSteps: number[];
 
   @ApiProperty({
     type: [DisputeResponseDto],
-    description: 'Who holds it wrong or out of date, and why',
+    description: 'Who says it is wrong or out of date, and why',
   })
   readonly disputes: DisputeResponseDto[];
 
@@ -85,7 +85,7 @@ export class DecisionResponseDto {
     this.why = decision.why;
     this.alternatives = [...decision.alternatives];
     this.paths = [...decision.paths];
-    this.steps = [...decision.steps];
+    this.journalSteps = [...decision.journalSteps];
     this.disputes = decision.disputes.map(
       (each) => new DisputeResponseDto(each),
     );
@@ -113,23 +113,23 @@ export class TaskDecisionsResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    description: 'The run the decisions were drafted from, if any was',
+    description: 'The run the decisions were generated from, if there is one',
   })
   readonly runId: string | null;
 
   @ApiProperty({
-    description: 'Whether a later run’s decisions are being drafted',
+    description: 'Whether decisions for a later run are being generated',
   })
-  readonly drafting: boolean;
+  readonly generating: boolean;
 
-  @ApiProperty({ enum: DECISION_STANDING_NAMES })
-  readonly standing: TaskDecisionsDto['standing'];
+  @ApiProperty({ enum: DECISION_STATUS_NAMES })
+  readonly status: TaskDecisionsDto['status'];
 
   @ApiProperty({
     nullable: true,
     type: DecisionMergeResponseDto,
     description:
-      'The merge the decisions stood in, once the pull request merged',
+      'The merge that contains the decisions, after the pull request merges',
   })
   readonly merge: DecisionMergeResponseDto | null;
 
@@ -141,8 +141,8 @@ export class TaskDecisionsResponseDto {
 
   constructor(found: TaskDecisionsDto) {
     this.runId = found.runId;
-    this.drafting = found.drafting;
-    this.standing = found.standing;
+    this.generating = found.generating;
+    this.status = found.status;
     this.merge = found.merge && new DecisionMergeResponseDto(found.merge);
     this.decisions = found.decisions.map(
       (each) => new DecisionResponseDto(each),
@@ -164,7 +164,7 @@ export class DisputeDecisionRequestDto {
   readonly path!: string;
 }
 
-export class StandingDecisionsResponseDto {
+export class MergedDecisionsResponseDto {
   @ApiProperty()
   readonly taskId: string;
 
@@ -183,11 +183,11 @@ export class StandingDecisionsResponseDto {
   @ApiProperty({
     type: [DecisionResponseDto],
     description:
-      'Those bearing on the paths asked about; deviations and limitations first',
+      'Those that cover the paths in the query; deviations and limitations first',
   })
   readonly decisions: DecisionResponseDto[];
 
-  constructor(found: StandingDecisionsDto) {
+  constructor(found: MergedDecisionsDto) {
     this.taskId = found.taskId;
     this.runId = found.runId;
     this.repository = found.repository;
@@ -199,14 +199,14 @@ export class StandingDecisionsResponseDto {
   }
 }
 
-export class StandingDecisionListResponseDto {
+export class MergedDecisionListResponseDto {
   @ApiProperty({
-    type: [StandingDecisionsResponseDto],
+    type: [MergedDecisionsResponseDto],
     description: 'Newest merge first, at most fifty',
   })
-  readonly merges: StandingDecisionsResponseDto[];
+  readonly merges: MergedDecisionsResponseDto[];
 
-  constructor(found: readonly StandingDecisionsDto[]) {
-    this.merges = found.map((each) => new StandingDecisionsResponseDto(each));
+  constructor(found: readonly MergedDecisionsDto[]) {
+    this.merges = found.map((each) => new MergedDecisionsResponseDto(each));
   }
 }

@@ -26,7 +26,7 @@ describe('TerminalSpinner', () => {
     expect(container.textContent).toBe('⠙');
   });
 
-  it('holds one frame for someone who prefers less motion', () => {
+  it('shows one frame for someone who prefers less motion', () => {
     vi.useFakeTimers();
     preferringStill(true);
     const { container } = render(<TerminalSpinner />);
@@ -44,11 +44,11 @@ describe('TerminalSpinner', () => {
     expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true');
   });
 
-  it('fills all six dots once settled, and greys them when faded', () => {
+  it('fills all six dots once stopped, and greys them when faded', () => {
     vi.useFakeTimers();
     preferringStill(false);
     const { container, rerender } = render(
-      <TerminalSpinner settled="filled" />,
+      <TerminalSpinner stopped="filled" />,
     );
 
     act(() => {
@@ -57,7 +57,7 @@ describe('TerminalSpinner', () => {
     expect(container.textContent).toBe('⠿');
     expect(container.firstElementChild).not.toHaveClass('text-faint');
 
-    rerender(<TerminalSpinner settled="faded" />);
+    rerender(<TerminalSpinner stopped="faded" />);
     expect(container.textContent).toBe('⠿');
     expect(container.firstElementChild).toHaveClass('text-faint');
   });

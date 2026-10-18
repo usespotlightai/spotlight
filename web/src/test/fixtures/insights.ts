@@ -9,11 +9,11 @@ import type {
   LineResponseDto,
   RunTallyResponseDto,
   StationResponseDto,
-  TallyChangesResponseDto,
+  TallyDeltasResponseDto,
 } from '@/lib/api';
 import {
-  type Change,
   DEFAULT_PERIOD,
+  type Delta,
   type InsightsStations,
 } from '@/lib/insights';
 import { SLUG, TEAM_ID, WORKSPACE } from '@/test/fixtures/team';
@@ -134,9 +134,9 @@ export const daysAgo = (days: number, hours = 12): string =>
 
 const change = (
   by: number | null,
-  tone: Change['tone'] = 'flat',
-  unit: Change['unit'] = 'percent',
-): Change => ({
+  tone: Delta['tone'] = 'flat',
+  unit: Delta['unit'] = 'percent',
+): Delta => ({
   unit,
   by,
   fromZero: by === null,
@@ -155,15 +155,15 @@ const tally = (over: Partial<RunTallyResponseDto>): RunTallyResponseDto => {
 
   return {
     runs,
-    withdrawn: 0,
+    cancelled: 0,
     failed,
-    failedShare: runs > 0 ? failed / runs : null,
+    failedRate: runs > 0 ? failed / runs : null,
     stopped: 0,
     checksPassed: 0,
     checksFailed: 0,
     accepted: 0,
     sentBack: 0,
-    handedOn: 0,
+    passed: 0,
     merged: 0,
     cost: null,
     unpriced: 0,
@@ -174,7 +174,7 @@ const tally = (over: Partial<RunTallyResponseDto>): RunTallyResponseDto => {
   };
 };
 
-const TALLY_UNCHANGED: TallyChangesResponseDto = {
+const TALLY_UNCHANGED: TallyDeltasResponseDto = {
   runs: NO_CHANGE,
   failed: NO_CHANGE,
   accepted: NO_CHANGE,
@@ -219,7 +219,7 @@ const STATION_REPORTS: InsightsStations['stations'] = [
     {
       runs: 58,
       failed: 2,
-      handedOn: 55,
+      passed: 55,
       cost: { amount: 11.4, currency: 'USD' },
       medianMs: 95_000,
       p90Ms: 190_000,
@@ -247,7 +247,7 @@ const STATION_REPORTS: InsightsStations['stations'] = [
     runs: 61,
     sentBack: 9,
     accepted: 30,
-    handedOn: 40,
+    passed: 40,
     cost: { amount: 38.7, currency: 'USD' },
     medianMs: 240_000,
     p90Ms: 520_000,
@@ -262,7 +262,7 @@ const STATION_REPORTS: InsightsStations['stations'] = [
       checksFailed: 9,
       sentBack: 13,
       accepted: 40,
-      handedOn: 45,
+      passed: 45,
       merged: 23,
       cost: { amount: 124.9, currency: 'USD' },
       medianMs: 780_000,
@@ -305,9 +305,9 @@ const COUNTED = [
   'checksFailed',
   'accepted',
   'sentBack',
-  'handedOn',
+  'passed',
   'merged',
-  'withdrawn',
+  'cancelled',
 ] as const;
 
 const countedOf = (
@@ -327,7 +327,7 @@ const STATIONS: InsightsStations = {
     checksFailed: 9,
     accepted: 70,
     sentBack: 22,
-    handedOn: 140,
+    passed: 140,
     merged: 23,
     cost: { amount: 184.32, currency: 'USD' },
     medianMs: 240_000,

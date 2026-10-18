@@ -15,7 +15,7 @@ import type { WorkspaceRepository } from '@identity/domain/repositories/workspac
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
@@ -23,7 +23,7 @@ import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo'
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -57,14 +57,14 @@ const PLATFORM = Team.rehydrate({
   version: 0,
 });
 
-const standing = (
+const sentInvite = (
   over: { workspaceId?: WorkspaceId; revoked?: boolean } = {},
 ) => {
-  const offered = WorkspaceInvite.offer({
+  const created = WorkspaceInvite.create({
     id: InviteId.of('invite_1'),
     workspaceId: over.workspaceId ?? ACME,
     email: EmailAddress.of('ada@example.com'),
-    terms: InviteTerms.of(WorkspaceRole.admin, [
+    spec: InviteSpec.of(WorkspaceRole.admin, [
       TeamId.of('team_1'),
       TeamId.of('team_gone'),
     ]),
@@ -73,8 +73,8 @@ const standing = (
     now: new Date('2026-09-01T09:00:00.000Z'),
   });
   const invite = over.revoked
-    ? offered.revoke(UserId.of('user_leon'), NOW)
-    : offered;
+    ? created.revoke(UserId.of('user_leon'), NOW)
+    : created;
 
   return WorkspaceInvite.rehydrate({ ...invite, version: 1 });
 };
@@ -90,7 +90,8 @@ const resending = (
       findBySlug: async () => workspace(over.role),
     } as unknown as WorkspaceRepository),
     {
-      find: async () => (over.invite === undefined ? standing() : over.invite),
+      find: async () =>
+        over.invite === undefined ? sentInvite() : over.invite,
       save,
     } as unknown as WorkspaceInviteRepository,
     { ofWorkspace: async () => [PLATFORM] } as unknown as TeamRepository,
@@ -106,8 +107,8 @@ const resending = (
       { warn: vi.fn() } as unknown as LoggerPort,
     ),
     {
-      mint: () => ({ token: 'fresh', hash: 'f'.repeat(64) }),
-    } as unknown as TokenMintPort,
+      issue: () => ({ token: 'fresh', hash: 'f'.repeat(64) }),
+    } as unknown as TokenIssuer,
     { now: () => NOW } as ClockPort,
   );
 
@@ -139,7 +140,7 @@ describe('ResendInviteHandler', () => {
     });
   });
 
-  it('lets another admin send it again, on its terms still standing, as its inviter now', async () => {
+  it('lets another admin resend it, with its current settings, as its inviter now', async () => {
     const { handler, save, send } = resending({ role: WorkspaceRole.admin });
 
     await expect(handler.execute(resend)).resolves.toMatchObject({
@@ -148,16 +149,16 @@ describe('ResendInviteHandler', () => {
       invitedBy: { id: 'user_leon' },
     });
     expect(save.mock.calls[0]?.[0].invitedBy).toEqual(LEON);
-    expect(save.mock.calls[0]?.[0].terms.teams).toEqual([TeamId.of('team_1')]);
+    expect(save.mock.calls[0]?.[0].spec.teams).toEqual([TeamId.of('team_1')]);
     expect(save.mock.calls[0]?.[0].pullEvents()).toMatchObject([
-      { kind: 'workspace-invite.offered', again: true, invitedBy: LEON },
+      { kind: 'workspace-invite.created', resent: true, invitedBy: LEON },
     ]);
     expect(send).toHaveBeenCalledTimes(1);
   });
 
-  it('refuses an invite that was taken back, and sends nothing', async () => {
+  it('rejects an invite that was taken back, and sends nothing', async () => {
     const { handler, save, send } = resending({
-      invite: standing({ revoked: true }),
+      invite: sentInvite({ revoked: true }),
     });
 
     await expect(handler.execute(resend)).rejects.toMatchObject({
@@ -177,7 +178,7 @@ describe('ResendInviteHandler', () => {
   it('is nothing to an invite of another workspace, or none', async () => {
     await expect(
       resending({
-        invite: standing({ workspaceId: WorkspaceId.of('ws_2') }),
+        invite: sentInvite({ workspaceId: WorkspaceId.of('ws_2') }),
       }).handler.execute(resend),
     ).resolves.toBeNull();
     await expect(

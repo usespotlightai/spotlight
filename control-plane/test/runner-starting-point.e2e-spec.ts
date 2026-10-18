@@ -6,9 +6,9 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
 const HOST = `host-start-${randomUUID().slice(0, 8)}`;
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -19,21 +19,21 @@ const COMMIT = '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a';
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 
 const http = () => served(app);
 
-interface Held {
+interface LeasedRun {
   readonly runId: string;
   readonly taskId: string | null;
   readonly token: string;
   readonly attempt: number;
 }
 
-const report = (held: Held, body: object, runId = held.runId) =>
+const report = (leased: LeasedRun, body: object, runId = leased.runId) =>
   http()
     .post(`/api/runs/${runId}/starting-point`)
-    .set('Authorization', `Bearer ${held.token}`)
+    .set('Authorization', `Bearer ${leased.token}`)
     .send(body);
 
 const atApi = (attempt = 1) => ({
@@ -47,19 +47,23 @@ const claimed = async (runId: string): Promise<string> => {
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'build-box',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 8,
       running: [],
       images: [
-        { image: IMAGE, usual: true, harnesses: [{ id: 'dev', models: [] }] },
+        {
+          image: IMAGE,
+          isDefault: true,
+          harnesses: [{ id: 'dev', models: [] }],
+        },
       ],
     })
     .expect(200);
 
-  const handed = (
+  const assignment = (
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
@@ -67,10 +71,10 @@ const claimed = async (runId: string): Promise<string> => {
       .expect(200)
   ).body as { token: string; work: { run: { id: string; attempt: number } } };
 
-  expect(handed.work.run.id).toBe(runId);
-  expect(handed.work.run.attempt).toBe(1);
+  expect(assignment.work.run.id).toBe(runId);
+  expect(assignment.work.run.attempt).toBe(1);
 
-  return handed.token;
+  return assignment.token;
 };
 
 const spec = (key: string) => ({
@@ -78,11 +82,11 @@ const spec = (key: string) => ({
   command: { executable: 'sh', args: [] },
   briefing: 'Drain the queue.',
   handover: { options: ['review'], noteLimit: 0 },
-  continuity: { key },
+  resume: { key },
   startingPoint: true,
 });
 
-const aHeldTaskRun = async (): Promise<Held> => {
+const aLeasedTaskRun = async (): Promise<LeasedRun> => {
   const taskId = randomUUID();
   const runId = randomUUID();
 
@@ -92,8 +96,8 @@ const aHeldTaskRun = async (): Promise<Held> => {
     workspaceId: team.workspaceId.value,
     stationId: BUILD,
     title: 'Drain the queue',
-    raisedAtStationId: BUILD,
-    raisedById: team.owner.value,
+    originStationId: BUILD,
+    createdById: team.owner.value,
     currentRunId: runId,
   });
   await db.insert(schema.run).values({
@@ -111,7 +115,7 @@ const aHeldTaskRun = async (): Promise<Held> => {
   return { runId, taskId, token: await claimed(runId), attempt: 1 };
 };
 
-const aHeldChatRun = async (): Promise<Held> => {
+const aLeasedChatRun = async (): Promise<LeasedRun> => {
   const chatId = randomUUID();
   const runId = randomUUID();
 
@@ -138,20 +142,20 @@ const aHeldChatRun = async (): Promise<Held> => {
 
 const anArchiveOf = async (
   taskId: string,
-  sealed: boolean,
+  completed: boolean,
 ): Promise<string> => {
   const id = randomUUID();
 
   await db.insert(schema.workspaceArchive).values({
     id,
     workspaceId: team.workspaceId.value,
-    continuityKey: `task-${taskId}`,
+    resumeKey: `task-${taskId}`,
     taskId,
     grantedToRunId: randomUUID(),
     size: 1_024,
     sha256: 'a'.repeat(64),
     grantedAt: new Date(),
-    sealedAt: sealed ? new Date() : null,
+    completedAt: completed ? new Date() : null,
   });
 
   return id;
@@ -169,7 +173,7 @@ const runRow = async (runId: string) => {
 beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `start-${randomUUID().slice(0, 8)}`,
@@ -219,19 +223,19 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await forgetRunnersOf(db, team.workspaceId.value);
+  await deleteRunnersOf(db, team.workspaceId.value);
   await app?.close();
 });
 
 describe('a runner saying where its run started', () => {
-  it('records the sealed archive the run restored and the commit each checkout began at', async () => {
-    const held = await aHeldTaskRun();
-    const archiveId = await anArchiveOf(held.taskId as string, true);
+  it('records the completed archive the run restored and the commit each checkout began at', async () => {
+    const leased = await aLeasedTaskRun();
+    const archiveId = await anArchiveOf(leased.taskId as string, true);
 
-    await report(held, { ...atApi(), archiveId }).expect(204);
-    await report(held, { ...atApi(), archiveId }).expect(204);
+    await report(leased, { ...atApi(), archiveId }).expect(204);
+    await report(leased, { ...atApi(), archiveId }).expect(204);
 
-    const row = await runRow(held.runId);
+    const row = await runRow(leased.runId);
     expect(row?.startedFromArchiveId).toBe(archiveId);
     expect(row?.startedFromCheckouts).toEqual([
       { path: 'api', commit: COMMIT },
@@ -239,56 +243,56 @@ describe('a runner saying where its run started', () => {
     expect(row?.startedFromAttempt).toBe(1);
   });
 
-  it('refuses a second report on the same attempt that says it started elsewhere', async () => {
-    const held = await aHeldTaskRun();
+  it('rejects a second report on the same attempt that says it started elsewhere', async () => {
+    const leased = await aLeasedTaskRun();
 
-    await report(held, atApi()).expect(204);
-    await report(held, {
+    await report(leased, atApi()).expect(204);
+    await report(leased, {
       ...atApi(),
       checkouts: [{ path: 'api', commit: 'b'.repeat(40) }],
     }).expect(409);
   });
 
-  it('refuses a report from an attempt the run is not on', async () => {
-    const held = await aHeldTaskRun();
+  it('rejects a report from an attempt the run is not on', async () => {
+    const leased = await aLeasedTaskRun();
 
-    await report(held, atApi(2)).expect(409);
-    expect((await runRow(held.runId))?.startedFromAt).toBeNull();
+    await report(leased, atApi(2)).expect(409);
+    expect((await runRow(leased.runId))?.startedFromAt).toBeNull();
   });
 
-  it('refuses a run that works a chat', async () => {
-    const held = await aHeldChatRun();
+  it('rejects a run that works a chat', async () => {
+    const leased = await aLeasedChatRun();
 
-    await report(held, { ...atApi(), checkouts: [] }).expect(409);
+    await report(leased, { ...atApi(), checkouts: [] }).expect(409);
   });
 
-  it('refuses a runner that does not hold the run', async () => {
-    const held = await aHeldTaskRun();
-    const other = await aHeldTaskRun();
+  it('denies a runner that does not have a lease on the run', async () => {
+    const leased = await aLeasedTaskRun();
+    const other = await aLeasedTaskRun();
 
-    await report(other, atApi(), held.runId).expect(409);
+    await report(other, atApi(), leased.runId).expect(409);
   });
 
   it('says there is no such run', async () => {
-    const held = await aHeldTaskRun();
+    const leased = await aLeasedTaskRun();
 
-    await report(held, atApi(), randomUUID()).expect(404);
+    await report(leased, atApi(), randomUUID()).expect(404);
   });
 
-  it('refuses an archive the run could not have restored', async () => {
-    const held = await aHeldTaskRun();
-    const other = await aHeldTaskRun();
-    const unsealed = await anArchiveOf(held.taskId as string, false);
+  it('rejects an archive the run could not have restored', async () => {
+    const leased = await aLeasedTaskRun();
+    const other = await aLeasedTaskRun();
+    const incomplete = await anArchiveOf(leased.taskId as string, false);
     const ofAnotherTask = await anArchiveOf(other.taskId as string, true);
 
-    for (const archiveId of [unsealed, ofAnotherTask, randomUUID()]) {
-      await report(held, { ...atApi(), archiveId }).expect(422);
+    for (const archiveId of [incomplete, ofAnotherTask, randomUUID()]) {
+      await report(leased, { ...atApi(), archiveId }).expect(422);
     }
-    expect((await runRow(held.runId))?.startedFromAt).toBeNull();
+    expect((await runRow(leased.runId))?.startedFromAt).toBeNull();
   });
 
-  it('refuses checkouts other than the ones the run was given, and a body it cannot read', async () => {
-    const held = await aHeldTaskRun();
+  it('rejects checkouts other than the ones the run received, and a body it cannot read', async () => {
+    const leased = await aLeasedTaskRun();
 
     for (const body of [
       { ...atApi(), checkouts: [{ path: 'web', commit: COMMIT }] },
@@ -305,8 +309,8 @@ describe('a runner saying where its run started', () => {
         })),
       },
     ]) {
-      await report(held, body).expect(422);
+      await report(leased, body).expect(422);
     }
-    expect((await runRow(held.runId))?.startedFromAt).toBeNull();
+    expect((await runRow(leased.runId))?.startedFromAt).toBeNull();
   });
 });

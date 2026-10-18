@@ -2,7 +2,7 @@ import type {
   CodeReviewResponseDto,
   MemoryReviewResponseDto,
   RunScoresResponseDto,
-  StationAlertCrossingResponseDto,
+  StationAlertFiringResponseDto,
   TaskDecisionsResponseDto,
 } from '@/lib/api';
 import { perWorld } from '@/mocks/world';
@@ -16,7 +16,7 @@ import { PLATFORM_RUNS } from '@/mocks/world/platform';
 export type InboxStore = {
   entries: InboxEntry[];
   scores: Record<string, RunScoresResponseDto>;
-  alerts: Record<string, StationAlertCrossingResponseDto>;
+  alerts: Record<string, StationAlertFiringResponseDto>;
   codeReviews: Record<string, CodeReviewResponseDto>;
   decisions: Record<string, TaskDecisionsResponseDto>;
   memoryReviews: Record<string, MemoryReviewResponseDto>;

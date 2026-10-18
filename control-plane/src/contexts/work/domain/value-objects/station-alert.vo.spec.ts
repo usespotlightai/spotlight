@@ -2,7 +2,7 @@ import { InvalidStationAlertError } from '@work/domain/exceptions/invalid-statio
 import { StationAlert } from '@work/domain/value-objects/station-alert.vo';
 import { describe, expect, it } from 'vitest';
 
-const refusal = (input: Parameters<typeof StationAlert.of>[0]) => {
+const errorOf = (input: Parameters<typeof StationAlert.of>[0]) => {
   try {
     StationAlert.of(input);
   } catch (error) {
@@ -13,7 +13,7 @@ const refusal = (input: Parameters<typeof StationAlert.of>[0]) => {
 };
 
 describe('StationAlert', () => {
-  it('holds a rise to watch for over a number of runs', () => {
+  it('keeps a rise to watch for over a number of runs', () => {
     expect(
       StationAlert.of({ measure: 'sent_back_rate', risesBy: 0.2, over: 20 }),
     ).toMatchObject({
@@ -26,13 +26,13 @@ describe('StationAlert', () => {
     });
   });
 
-  it('holds a fall to watch for, for a measure that is better higher', () => {
+  it('keeps a fall to watch for, for a measure that is better higher', () => {
     expect(
       StationAlert.of({ measure: 'accepted_rate', fallsBy: 0.1, over: 20 }),
     ).toMatchObject({ measure: 'accepted_rate', risesBy: null, fallsBy: 0.1 });
   });
 
-  it('holds a floor to stay over, down to 0', () => {
+  it('keeps a floor to stay over, down to 0', () => {
     expect(
       StationAlert.of({ measure: 'merged_rate', below: 0.4, over: 20 }),
     ).toMatchObject({ measure: 'merged_rate', above: null, below: 0.4 });
@@ -41,7 +41,7 @@ describe('StationAlert', () => {
     ).toMatchObject({ below: 0 });
   });
 
-  it('holds a cost to stay under, in whatever amount it is', () => {
+  it('keeps a cost to stay under, in whatever amount it is', () => {
     expect(
       StationAlert.of({ measure: 'cost_per_run', above: 5, over: 10 }),
     ).toMatchObject({ measure: 'cost_per_run', risesBy: null, above: 5 });
@@ -60,8 +60,8 @@ describe('StationAlert', () => {
     ['below', { measure: 'cost_per_run', below: -1, over: 5 }],
     ['over', { measure: 'failed_rate', above: 0.1, over: 0 }],
     ['over', { measure: 'failed_rate', above: 0.1, over: 2.5 }],
-  ] as const)('refuses a wrong %s, naming it', (field, input) => {
-    const error = refusal(input);
+  ] as const)('rejects a wrong %s, naming it', (field, input) => {
+    const error = errorOf(input);
 
     expect(error).toBeInstanceOf(InvalidStationAlertError);
     expect((error as InvalidStationAlertError).field).toBe(field);
@@ -86,16 +86,16 @@ describe('StationAlert', () => {
       },
     ],
   ] as const)(
-    'refuses an alert that sets %s of the thresholds, naming no one field',
+    'rejects an alert that sets %s of the conditions, naming no one field',
     (_, input) => {
-      const error = refusal(input);
+      const error = errorOf(input);
 
       expect(error).toBeInstanceOf(InvalidStationAlertError);
       expect((error as InvalidStationAlertError).field).toBeNull();
     },
   );
 
-  it('refuses a second alert watching the same measure for the same kind of threshold, at no one field', () => {
+  it('rejects a second alert watching the same measure for the same condition, at no one field', () => {
     const first = StationAlert.of({
       measure: 'cost_per_run',
       above: 5,

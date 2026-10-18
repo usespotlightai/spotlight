@@ -15,7 +15,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import type { InboxItemDto } from '@work/application/dto/inbox.dto';
 import { ListInboxHandler } from '@work/application/queries/handlers/list-inbox.handler';
 import { ListInboxQuery } from '@work/application/queries/list-inbox.query';
-import { settling } from '@work/domain/services/setup-list';
+import { setupDoneNote } from '@work/domain/services/setup-list';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -25,7 +25,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
-import { openTeam as opening } from './support/team';
+import { createTeam as createTeamIn } from './support/team';
 
 const access = (db: DrizzleDatabase) =>
   new WorkspaceAccess(
@@ -47,32 +47,32 @@ const DONE = {
   configured: true,
 };
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 let tasks: DrizzleTaskRepository;
 
-const openTeam = (slug: string) => opening(db, tasks, slug);
+const createTeam = (slug: string) => createTeamIn(db, tasks, slug);
 
 beforeAll(async () => {
-  held = await openDatabase('setup');
-  db = held.db;
+  database = await openDatabase('setup');
+  db = database.db;
   tasks = new DrizzleTaskRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
-describe('the setup lists a team still has standing', () => {
+describe('the open setup lists of a team', () => {
   it('finds a team’s own', async () => {
-    const { teamId, list } = await openTeam('acme');
+    const { teamId, list } = await createTeam('acme');
 
-    const standing = await tasks.settingUpFor(teamId);
+    const open = await tasks.settingUpFor(teamId);
 
-    expect(standing?.id).toEqual(list.id);
-    expect(standing?.notes.map((each) => each.form)).toEqual(['setup']);
+    expect(open?.id).toEqual(list.id);
+    expect(open?.notes.map((each) => each.form)).toEqual(['setup']);
   });
 
   it('finds nothing for a team that has none', async () => {
@@ -81,22 +81,22 @@ describe('the setup lists a team still has standing', () => {
     ).resolves.toBeNull();
   });
 
-  it('finds every one still standing', async () => {
-    const mine = await openTeam('borden');
-    const theirs = await openTeam('cutter');
+  it('finds every open one', async () => {
+    const mine = await createTeam('borden');
+    const theirs = await createTeam('cutter');
 
-    const standing = await tasks.settingUp();
+    const open = await tasks.settingUp();
 
-    expect(standing.map((each) => each.id.value)).toEqual(
+    expect(open.map((each) => each.id.value)).toEqual(
       expect.arrayContaining([mine.list.id.value, theirs.list.id.value]),
     );
   });
 
-  it('leaves a settled one out', async () => {
-    const { teamId, list } = await openTeam('fallon');
+  it('leaves a closed one out', async () => {
+    const { teamId, list } = await createTeam('fallon');
 
-    const saying = settling(list.notes, DONE, NOW);
-    const gone = list.settled(saying as NonNullable<typeof saying>);
+    const newNote = setupDoneNote(list.notes, DONE, NOW);
+    const gone = list.closeConversation(newNote as NonNullable<typeof newNote>);
 
     expect(gone.finishedAt).toBeNull();
     await tasks.save(gone);
@@ -107,20 +107,20 @@ describe('the setup lists a team still has standing', () => {
     ).not.toContain(list.id.value);
   });
 
-  it('keeps to the workspace it is asked about', async () => {
-    const mine = await openTeam('hendricks');
-    const theirs = await openTeam('sarah');
+  it('stays within the workspace it is requested for', async () => {
+    const mine = await createTeam('hendricks');
+    const theirs = await createTeam('sarah');
 
-    const standing = await tasks.settingUpIn(mine.workspaceId);
+    const open = await tasks.settingUpIn(mine.workspaceId);
 
-    expect(standing.map((each) => each.id.value)).toEqual([mine.list.id.value]);
-    expect(standing.map((each) => each.id.value)).not.toContain(
+    expect(open.map((each) => each.id.value)).toEqual([mine.list.id.value]);
+    expect(open.map((each) => each.id.value)).not.toContain(
       theirs.list.id.value,
     );
   });
 
   it('keeps one somebody answered', async () => {
-    const { teamId, list } = await openTeam('root');
+    const { teamId, list } = await createTeam('root');
 
     await tasks.save(
       list.answer(NotePosition.of(0), {
@@ -134,8 +134,8 @@ describe('the setup lists a team still has standing', () => {
     await expect(tasks.settingUpFor(teamId)).resolves.not.toBeNull();
   });
 
-  it('leaves a task that never held a list out', async () => {
-    const { workspaceId, teamId, stationId, list } = await openTeam('angier');
+  it('leaves out a task that never had a list', async () => {
+    const { workspaceId, teamId, stationId, list } = await createTeam('angier');
 
     await db.insert(schema.task).values({
       id: randomUUID(),
@@ -152,7 +152,7 @@ describe('the setup lists a team still has standing', () => {
   });
 });
 
-describe('the inbox item a setup list stands as', () => {
+describe('the inbox item of a setup list', () => {
   const inbox = () =>
     new ListInboxHandler(
       new DrizzleInboxReader(
@@ -170,24 +170,24 @@ describe('the inbox item a setup list stands as', () => {
         ),
       );
 
-  let waiting: Awaited<ReturnType<typeof openTeam>>;
+  let waiting: Awaited<ReturnType<typeof createTeam>>;
 
   beforeAll(async () => {
-    waiting = await openTeam('nolan');
+    waiting = await createTeam('nolan');
   });
 
-  it('stands owed while a step is still to be taken', async () => {
+  it('stays unresolved while a step is still to be taken', async () => {
     const [item] = await inbox();
 
     expect(item?.title).toBe('Set up your team');
     expect(item?.resolved).toBe(false);
   });
 
-  it('reads as resolved once the list has been settled', async () => {
-    const saying = settling(waiting.list.notes, DONE, NOW);
+  it('reads as resolved once the list has been closed', async () => {
+    const newNote = setupDoneNote(waiting.list.notes, DONE, NOW);
 
     await tasks.save(
-      waiting.list.settled(saying as NonNullable<typeof saying>),
+      waiting.list.closeConversation(newNote as NonNullable<typeof newNote>),
     );
 
     const [item] = await inbox();
@@ -240,7 +240,7 @@ describe('whether a workspace is ready to run', () => {
 
   const SERVING = {
     image: 'ghcr.io/usespotlightai/spotlight-runner:1.0.0',
-    usual: true,
+    isDefault: true,
     harnesses: [{ id: 'claude-code', models: [] }],
   };
 
@@ -248,22 +248,22 @@ describe('whether a workspace is ready to run', () => {
     workspaceId: WorkspaceId,
     over: {
       images?: (typeof schema.runnerHost.$inferInsert)['images'];
-      lastSeenAt?: Date;
+      lastHeartbeatAt?: Date;
     } = {},
   ) =>
     db.insert(schema.runnerHost).values({
       id: randomUUID(),
       workspaceId: workspaceId.value,
       poolId: await pooled(workspaceId, 'pull'),
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'build-box',
       release: '1.0.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 1,
       images: over.images ?? [SERVING],
-      firstSeenAt: over.lastSeenAt ?? NOW,
-      upSince: over.lastSeenAt ?? NOW,
-      lastSeenAt: over.lastSeenAt ?? NOW,
+      firstHeartbeatAt: over.lastHeartbeatAt ?? NOW,
+      onlineSince: over.lastHeartbeatAt ?? NOW,
+      lastHeartbeatAt: over.lastHeartbeatAt ?? NOW,
     });
 
   afterEach(async () => {
@@ -278,7 +278,7 @@ describe('whether a workspace is ready to run', () => {
     ).resolves.toBe(false);
   });
 
-  it('is not ready with only a pull pool or a runner trust, before any host reports in', async () => {
+  it('is not ready with only a pull pool or a runner trust, before any host sends a heartbeat', async () => {
     const workspace = WorkspaceId.of(randomUUID());
 
     await pooled(workspace, 'pull');
@@ -295,7 +295,7 @@ describe('whether a workspace is ready to run', () => {
     await expect(runners().readyToRun(workspace)).resolves.toBe(true);
   });
 
-  it('is ready once a host reports in serving a harness', async () => {
+  it('is ready once a host sends a heartbeat that reports a harness', async () => {
     const workspace = WorkspaceId.of(randomUUID());
 
     await hosted(workspace);
@@ -308,11 +308,11 @@ describe('whether a workspace is ready to run', () => {
 
     await hosted(workspace, {
       images: [
-        { ...SERVING, refused: 'pull access denied' },
+        { ...SERVING, unavailableReason: 'pull access denied' },
         {
           ...SERVING,
           image: 'ghcr.io/acme/bare:1',
-          usual: false,
+          isDefault: false,
           harnesses: [],
         },
       ],
@@ -321,11 +321,11 @@ describe('whether a workspace is ready to run', () => {
     await expect(runners().readyToRun(workspace)).resolves.toBe(false);
   });
 
-  it('is not ready with a host last seen more than a day ago', async () => {
+  it('is not ready with a host whose last heartbeat is more than a day old', async () => {
     const workspace = WorkspaceId.of(randomUUID());
 
     await hosted(workspace, {
-      lastSeenAt: new Date(NOW.getTime() - 24 * 60 * 60_000),
+      lastHeartbeatAt: new Date(NOW.getTime() - 24 * 60 * 60_000),
     });
 
     await expect(runners().readyToRun(workspace)).resolves.toBe(false);

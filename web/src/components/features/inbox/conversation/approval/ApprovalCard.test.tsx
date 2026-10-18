@@ -12,7 +12,7 @@ const COMMENT: Approval = {
     { name: 'body', value: 'Fixed.' },
     { name: 'issue', value: 'ENG-12' },
   ],
-  standing: 'asked',
+  status: 'pending',
   edited: null,
   intent: 'post the drain summary on the issue, publicly under the team’s name',
   askedOf: null,
@@ -23,7 +23,7 @@ const EXECUTE: Approval = {
   name: 'claude-code execute',
   because: 'The harness asked before doing it.',
   inputs: [{ name: 'title', value: 'kubectl logs deploy/api --since=1h' }],
-  standing: 'asked',
+  status: 'pending',
   edited: null,
   intent: null,
   askedOf: null,
@@ -54,7 +54,7 @@ describe('ApprovalCard', () => {
     ).toBeInTheDocument();
   });
 
-  it('names the tool and why it asks, where the agent said nothing', () => {
+  it('names the tool and why it asks, where the agent gave no intent', () => {
     showing(EXECUTE);
 
     expect(
@@ -64,14 +64,14 @@ describe('ApprovalCard', () => {
     ).toBeInTheDocument();
   });
 
-  it('approves it as it stands', async () => {
+  it('approves it unchanged', async () => {
     const onDecide = showing(COMMENT);
 
     await userEvent.click(
       screen.getByRole('button', { name: 'Approve linear.comment' }),
     );
 
-    expect(onDecide).toHaveBeenCalledWith({ approve: true, said: '' });
+    expect(onDecide).toHaveBeenCalledWith({ approve: true, body: '' });
   });
 
   it('lets only the person it was asked of approve it, and anyone dismiss it', async () => {
@@ -116,7 +116,7 @@ describe('ApprovalCard', () => {
       screen.getByRole('button', { name: 'Approve linear.comment' }),
     );
 
-    expect(onDecide).toHaveBeenCalledWith({ approve: true, said: '' });
+    expect(onDecide).toHaveBeenCalledWith({ approve: true, body: '' });
     expect(screen.queryByText(/Only .* can approve this/)).toBeNull();
   });
 
@@ -135,7 +135,7 @@ describe('ApprovalCard', () => {
 
     expect(onDecide).toHaveBeenCalledWith({
       approve: true,
-      said: '',
+      body: '',
       inputs: [
         { name: 'body', value: 'Fixed in #41.' },
         { name: 'issue', value: 'ENG-12' },
@@ -143,7 +143,7 @@ describe('ApprovalCard', () => {
     });
   });
 
-  it('approves it as it stands where the edits changed nothing', async () => {
+  it('approves it unchanged where the edits changed nothing', async () => {
     const onDecide = showing(COMMENT);
 
     await userEvent.click(
@@ -155,7 +155,7 @@ describe('ApprovalCard', () => {
 
     expect(onDecide).toHaveBeenCalledWith({
       approve: true,
-      said: '',
+      body: '',
       inputs: undefined,
     });
   });
@@ -173,7 +173,7 @@ describe('ApprovalCard', () => {
     ).toBeDisabled();
   });
 
-  it('forgets the reason on cancel, so dismissing again starts afresh', async () => {
+  it('clears the reason on cancel, so dismissing again starts afresh', async () => {
     showing(COMMENT);
 
     await userEvent.click(
@@ -222,7 +222,7 @@ describe('ApprovalCard', () => {
 
     expect(onDecide).toHaveBeenCalledWith({
       approve: false,
-      said: 'Not before the release.',
+      body: 'Not before the release.',
     });
   });
 
@@ -254,7 +254,7 @@ describe('ApprovalCard', () => {
   it('says it was approved with the person’s changes, and shows what runs', () => {
     showing({
       ...COMMENT,
-      standing: 'granted',
+      status: 'approved',
       edited: [
         { name: 'body', value: 'Fixed in #41.' },
         { name: 'issue', value: 'ENG-12' },
@@ -277,7 +277,7 @@ describe('ApprovalCard', () => {
   it('titles it as approved or dismissed', () => {
     const { rerender } = render(
       <ApprovalCard
-        approval={{ ...COMMENT, standing: 'granted' }}
+        approval={{ ...COMMENT, status: 'approved' }}
         pending={false}
       />,
     );
@@ -291,7 +291,7 @@ describe('ApprovalCard', () => {
 
     rerender(
       <ApprovalCard
-        approval={{ ...COMMENT, standing: 'refused' }}
+        approval={{ ...COMMENT, status: 'dismissed' }}
         pending={false}
       />,
     );

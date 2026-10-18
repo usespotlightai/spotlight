@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useParams } from 'react-router';
-import { AsideLayout } from '@/components/features/inbox/AsideLayout';
+import { InboxDetailLayout } from '@/components/features/inbox/InboxDetailLayout';
 import { InboxGone } from '@/components/features/inbox/InboxGone';
 import { NoticeCard } from '@/components/features/inbox/notices/NoticeCard';
 import { NoticeSkeleton } from '@/components/features/inbox/notices/NoticeSkeleton';
@@ -8,7 +8,7 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import { useInbox } from '@/hooks/api/useInbox';
-import { useSettleInboxNotice } from '@/hooks/api/useSettleInboxNotice';
+import { useResolveInboxNotice } from '@/hooks/api/useResolveInboxNotice';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { notFound } from '@/lib/error';
 import { noticeOf } from '@/lib/inbox';
@@ -21,7 +21,7 @@ export function InboxNotice() {
   const inbox = useInbox(slug);
   const notice = noticeOf(inbox.data, noticeId);
   const { data: workspace } = useWorkspace(slug);
-  const settle = useSettleInboxNotice();
+  const resolve = useResolveInboxNotice();
   const seen = useRef<string | null>(null);
 
   useEffect(() => {
@@ -30,8 +30,8 @@ export function InboxNotice() {
     }
 
     seen.current = notice.id;
-    settle.mutate({ slug, noticeId: notice.id });
-  }, [slug, notice, settle.mutate]);
+    resolve.mutate({ slug, noticeId: notice.id });
+  }, [slug, notice, resolve.mutate]);
 
   const team = workspace?.teams.find(
     (candidate) => candidate.id === notice?.teamId,
@@ -61,15 +61,15 @@ export function InboxNotice() {
     );
   }
 
-  if (!notice || !slug || notFound(settle.error)) {
+  if (!notice || !slug || notFound(resolve.error)) {
     return <InboxGone />;
   }
 
   return (
     <TrailContext value={forward}>
-      <AsideLayout trail={trail}>
+      <InboxDetailLayout trail={trail}>
         <NoticeCard slug={slug} notice={notice} />
-      </AsideLayout>
+      </InboxDetailLayout>
     </TrailContext>
   );
 }

@@ -7,12 +7,12 @@ import type { WorkspaceRepository } from '@identity/domain/repositories/workspac
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -30,12 +30,12 @@ const workspace = Workspace.rehydrate({
   version: 0,
 });
 
-const standing = (over: { sentAt?: Date; revoked?: boolean } = {}) => {
-  const offered = WorkspaceInvite.offer({
+const sentInvite = (over: { sentAt?: Date; revoked?: boolean } = {}) => {
+  const created = WorkspaceInvite.create({
     id: InviteId.of('invite_1'),
     workspaceId: workspace.id,
     email: EmailAddress.of('Ada@Example.com'),
-    terms: InviteTerms.of(WorkspaceRole.admin, [
+    spec: InviteSpec.of(WorkspaceRole.admin, [
       TeamId.of('team_1'),
       TeamId.of('team_2'),
     ]),
@@ -45,15 +45,15 @@ const standing = (over: { sentAt?: Date; revoked?: boolean } = {}) => {
   });
 
   const invite = over.revoked
-    ? offered.revoke(UserId.of('user_leon'), NOW)
-    : offered;
+    ? created.revoke(UserId.of('user_leon'), NOW)
+    : created;
 
   invite.pullEvents();
 
   return invite;
 };
 
-const accepting = (invite: WorkspaceInvite | null = standing()) => {
+const accepting = (invite: WorkspaceInvite | null = sentInvite()) => {
   const dispatched: DomainEvent[] = [];
   const save = vi.fn(async (saved: WorkspaceInvite) => {
     dispatched.push(...saved.pullEvents());
@@ -65,7 +65,7 @@ const accepting = (invite: WorkspaceInvite | null = standing()) => {
       save,
     } as unknown as WorkspaceInviteRepository,
     { find: async () => workspace } as unknown as WorkspaceRepository,
-    { hash: () => 'a'.repeat(64) } as unknown as TokenMintPort,
+    { hash: () => 'a'.repeat(64) } as unknown as TokenIssuer,
     { now: () => NOW } as ClockPort,
   );
 
@@ -103,7 +103,7 @@ describe('AcceptInviteHandler', () => {
     expect(dispatched).toMatchObject([
       {
         kind: 'workspace-invite.accepted',
-        terms: {
+        spec: {
           role: WorkspaceRole.admin,
           teams: [{ value: 'team_1' }, { value: 'team_2' }],
         },
@@ -111,14 +111,14 @@ describe('AcceptInviteHandler', () => {
     ]);
   });
 
-  it('is nothing to a link that stands for no invite', async () => {
+  it('is nothing to a link that points to no invite', async () => {
     const { handler, save } = accepting(null);
 
     await expect(handler.execute(accept())).resolves.toBeNull();
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses somebody signed in as anybody but the person invited, naming who to sign in as', async () => {
+  it('rejects somebody signed in as anybody but the person invited, naming who to sign in as', async () => {
     const { handler, save } = accepting();
 
     await expect(
@@ -130,23 +130,23 @@ describe('AcceptInviteHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses an invite that has been taken back', async () => {
-    const { handler, save } = accepting(standing({ revoked: true }));
+  it('rejects an invite that has been taken back', async () => {
+    const { handler, save } = accepting(sentInvite({ revoked: true }));
 
     await expect(handler.execute(accept())).rejects.toThrow(/been revoked/);
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses an invite that has run out', async () => {
+  it('rejects an invite that has run out', async () => {
     const { handler, save } = accepting(
-      standing({ sentAt: new Date('2026-08-01T09:00:00.000Z') }),
+      sentInvite({ sentAt: new Date('2026-08-01T09:00:00.000Z') }),
     );
 
     await expect(handler.execute(accept())).rejects.toThrow(/has expired/);
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses with a conflict where the invite was revoked while it was being accepted', async () => {
+  it('fails with a conflict where the invite was revoked while it was being accepted', async () => {
     const { handler, save, dispatched } = accepting();
     save.mockImplementationOnce(async () => {
       throw new InviteVersionConflictError('invite_1');

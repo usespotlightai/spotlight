@@ -1,6 +1,6 @@
 import { PickSearchCandidateHandler } from '@replays/application/commands/handlers/pick-search-candidate.handler';
 import { PickSearchCandidateCommand } from '@replays/application/commands/pick-search-candidate.command';
-import { ConfigRepositoryRefusedError } from '@replays/application/errors/config-repository-refused.error';
+import { ConfigRepositoryError } from '@replays/application/errors/config-repository.error';
 import type {
   ConfigCommit,
   ConfigPullRequestOpening,
@@ -29,7 +29,7 @@ import {
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import {
   ConfigPullRequest,
-  MAX_TRIES,
+  MAX_RETRIES,
 } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
@@ -44,8 +44,8 @@ import {
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -56,14 +56,14 @@ class FakeConfigs implements ConfigRepositoryPort {
   readonly commits: ConfigCommit[] = [];
   readonly openings: ConfigPullRequestOpening[] = [];
   failing: Error | null = null;
-  holds = true;
+  hasFile = true;
 
   async fileAt(_workspace: unknown, _repository: unknown, path: string) {
     if (this.failing) {
       throw this.failing;
     }
 
-    return this.holds
+    return this.hasFile
       ? { path, content: 'resource "spotlight_line" "x" {}\n', commit: 'c1' }
       : null;
   }
@@ -96,7 +96,7 @@ class FakeConfigs implements ConfigRepositoryPort {
 }
 
 class FakeEditor implements StationSourceEditorPort {
-  readonly asked: StationSourceEdit[] = [];
+  readonly edits: StationSourceEdit[] = [];
   answer: StationSourceEdited = {
     ok: true,
     files: [{ path: 'teams/core/delivery.tf', content: 'edited\n' }],
@@ -104,13 +104,13 @@ class FakeEditor implements StationSourceEditorPort {
   };
 
   async edited(edit: StationSourceEdit) {
-    this.asked.push(edit);
+    this.edits.push(edit);
 
     return this.answer;
   }
 }
 
-const charged = { spent: Spend.of(1, 'USD'), unpriced: 0 };
+const charged = { spent: Money.of(1, 'USD'), unpriced: 0 };
 
 const TERSE = CandidateId.of('candidate_terse');
 
@@ -120,7 +120,7 @@ const searchWithTerse = (): Search => {
   const runIds = searchRunIds();
 
   return aSearch()
-    .recordReplayEnd(
+    .recordReplayStopReason(
       ReplayId.of('replay_seed'),
       'finished',
       charged,
@@ -128,12 +128,12 @@ const searchWithTerse = (): Search => {
       runIds,
       true,
     )
-    .admitted(RunId.of('search_run_1'), {
+    .acceptProposal(RunId.of('search_run_1'), {
       candidateId: TERSE,
       name: CandidateName.searched('terse'),
       replayId: ReplayId.of('replay_terse'),
     })
-    .recordReplayEnd(
+    .recordReplayStopReason(
       ReplayId.of('replay_terse'),
       'finished',
       charged,
@@ -191,13 +191,13 @@ const opening = () =>
   );
 
 const only = (): ConfigPullRequest => {
-  const [kept, ...rest] = pullRequests.kept.values();
+  const [pullRequest, ...rest] = pullRequests.stored.values();
 
-  if (!kept || rest.length > 0) {
+  if (!pullRequest || rest.length > 0) {
     throw new Error(`expected one pull request, found ${rest.length + 1}`);
   }
 
-  return kept;
+  return pullRequest;
 };
 
 beforeEach(() => {
@@ -234,8 +234,8 @@ describe('picking a search candidate', () => {
     });
     expect(again).toMatchObject({ outcome: 'already' });
 
-    await opening().workDue();
-    await opening().workDue();
+    await opening().processDue();
+    await opening().processDue();
 
     expect(only()).toMatchObject({
       current: 'opened',
@@ -267,21 +267,21 @@ describe('picking a search candidate', () => {
     expect(configs.openings[0]?.body).toContain(
       `https://app.example.com/w/acme/team/${STATION_VIEW.teamId.value}/lines/${STATION_VIEW.lineId}/stations/${STATION_VIEW.stationId}/searches/${search.id.value}`,
     );
-    expect(editor.asked[0]).toMatchObject({
+    expect(editor.edits[0]).toMatchObject({
       lineKey: 'delivery',
       stationKey: 'build',
       file: { path: 'teams/core/delivery.tf' },
     });
   });
 
-  it('refuses the seed and a reader who may not plan', async () => {
+  it('rejects the seed and denies a reader who may not plan', async () => {
     await expect(pick(search.seed.candidateId.value)).rejects.toThrow(
       'The seed is already the station’s live config.',
     );
     expect(await pick(TERSE.value, false)).toMatchObject({
       outcome: 'forbidden',
     });
-    expect(pullRequests.kept.size).toBe(0);
+    expect(pullRequests.stored.size).toBe(0);
   });
 
   it('records why the file could not be edited, and tries again when picked again', async () => {
@@ -296,9 +296,9 @@ describe('picking a search candidate', () => {
       }),
     };
     await pick();
-    await opening().workDue();
+    await opening().processDue();
 
-    expect(only()).toMatchObject({ current: 'refused', attempts: 1 });
+    expect(only()).toMatchObject({ current: 'failed', generation: 1 });
     expect(only().reason).toMatchObject({
       code: 'computed-attribute',
       wanted: 'Build it.',
@@ -308,22 +308,22 @@ describe('picking a search candidate', () => {
     editor.answer = { ok: true, files: [], unchecked: ['judge.rubric'] };
     expect(await pick()).toMatchObject({
       outcome: 'picked',
-      pullRequest: { state: 'opening', attempts: 2, reason: null },
+      pullRequest: { state: 'opening', generation: 2, reason: null },
     });
-    await opening().workDue();
+    await opening().processDue();
 
     expect(only().current).toBe('opened');
     expect(configs.openings[0]?.body).toContain('## Not checked');
     expect(configs.openings[0]?.body).toContain('`judge.rubric`');
   });
 
-  it('refuses a repository the GitHub App cannot reach, and a file it does not hold', async () => {
-    configs.failing = new ConfigRepositoryRefusedError(
+  it('fails for a repository the GitHub App cannot access, and for a file it does not contain', async () => {
+    configs.failing = new ConfigRepositoryError(
       'repository-unreachable',
       'not installed',
     );
     await pick();
-    await opening().workDue();
+    await opening().processDue();
 
     expect(only().reason).toMatchObject({
       code: 'repository-unreachable',
@@ -331,39 +331,39 @@ describe('picking a search candidate', () => {
     });
 
     configs.failing = null;
-    configs.holds = false;
+    configs.hasFile = false;
     await pick();
-    await opening().workDue();
+    await opening().processDue();
 
     expect(only().reason?.code).toBe('file-missing');
   });
 
-  it('gives up at once on what GitHub refuses for good, and writes over only its own branch on a new attempt', async () => {
+  it('fails at once on what GitHub rejects for good, and writes over only its own branch on a new attempt', async () => {
     configs.failing = null;
     await pick();
     const opened = configs.opened.bind(configs);
 
     configs.opened = async () => {
-      throw new ConfigRepositoryRefusedError(
-        'github-refused',
+      throw new ConfigRepositoryError(
+        'github-error',
         'Resource not accessible by integration',
       );
     };
-    await opening().workDue();
+    await opening().processDue();
 
     expect(only()).toMatchObject({
-      current: 'refused',
-      tries: 0,
+      current: 'failed',
+      retries: 0,
       lastCommit: 'commit_1',
     });
     expect(only().reason).toMatchObject({
-      code: 'github-refused',
+      code: 'github-error',
       message: 'Resource not accessible by integration',
     });
 
     configs.opened = opened;
     await pick();
-    await opening().workDue();
+    await opening().processDue();
 
     expect(configs.commits[1]?.replacing).toBe('commit_1');
     expect(only()).toMatchObject({ current: 'opened', lastCommit: 'commit_2' });
@@ -377,13 +377,13 @@ describe('picking a search candidate', () => {
       await opened(...args);
       throw new Error('socket hang up');
     };
-    await opening().workDue();
+    await opening().processDue();
 
-    expect(only()).toMatchObject({ current: 'opening', tries: 1 });
+    expect(only()).toMatchObject({ current: 'opening', retries: 1 });
 
     configs.opened = opened;
     now = new Date(now.getTime() + 60 * 60_000);
-    await opening().workDue();
+    await opening().processDue();
 
     expect(only()).toMatchObject({
       current: 'opened',
@@ -393,41 +393,41 @@ describe('picking a search candidate', () => {
     expect(configs.commits[1]?.replacing).toBe('commit_1');
   });
 
-  it('tries again later when GitHub fails, and gives up after the last try', async () => {
+  it('retries later when GitHub fails, and fails after the last try', async () => {
     configs.failing = new Error('GitHub is down');
     await pick();
-    await opening().workDue();
+    await opening().processDue();
 
-    expect(only()).toMatchObject({ current: 'opening', tries: 1 });
-    await opening().workDue();
-    expect(only().tries).toBe(1);
+    expect(only()).toMatchObject({ current: 'opening', retries: 1 });
+    await opening().processDue();
+    expect(only().retries).toBe(1);
 
-    for (let tries = 1; tries < MAX_TRIES; tries += 1) {
+    for (let retries = 1; retries < MAX_RETRIES; retries += 1) {
       now = new Date(now.getTime() + 24 * 60 * 60_000);
-      await opening().workDue();
+      await opening().processDue();
     }
 
-    expect(only()).toMatchObject({ current: 'refused' });
+    expect(only()).toMatchObject({ current: 'failed' });
     expect(only().reason).toMatchObject({
-      code: 'github-refused',
+      code: 'github-error',
       message: 'GitHub is down',
     });
   });
 
-  it('is refused at once when the line names no source', async () => {
+  it('fails at once when the line names no source', async () => {
     work.station = async () => ({ ...STATION_VIEW, source: null });
     await pick();
-    await opening().workDue();
+    await opening().processDue();
 
     expect(only().reason?.code).toBe('no-source');
-    expect(editor.asked).toEqual([]);
+    expect(editor.edits).toEqual([]);
   });
 
   it('says the held-out result was still pending when its held-out replay had not finished', async () => {
     const world = replayedWorld(true);
     const pending = replayFor(
       world.set,
-      'replay_held_terse',
+      'replay_held_out_terse',
       'candidate_terse',
       world.search.split.heldOutRuns,
     );
@@ -442,7 +442,7 @@ describe('picking a search candidate', () => {
     }
 
     await pick();
-    await opening().workDue();
+    await opening().processDue();
 
     expect(configs.openings[0]?.body).toContain(
       'Its held-out replay had not finished when this pull request opened',

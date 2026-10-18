@@ -1,8 +1,8 @@
-import { NotOnTeamError } from '@replays/domain/exceptions/not-on-team.error';
+import { TeamNotFoundError } from '@replays/domain/exceptions/team-not-found.error';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface TeamStanding {
+export interface Membership {
   readonly workspaceId: WorkspaceId;
   readonly mayPlan: boolean;
 }
@@ -19,15 +19,15 @@ export class TeamAccess {
     readonly mayPlan: boolean,
   ) {}
 
-  static onTeam(teamId: string, standing: TeamStanding | null): TeamAccess {
-    if (!standing) {
-      throw new NotOnTeamError(teamId);
+  static onTeam(teamId: string, membership: Membership | null): TeamAccess {
+    if (!membership) {
+      throw new TeamNotFoundError(teamId);
     }
 
     return new TeamAccess(
       TeamId.of(teamId),
-      standing.workspaceId,
-      standing.mayPlan,
+      membership.workspaceId,
+      membership.mayPlan,
     );
   }
 

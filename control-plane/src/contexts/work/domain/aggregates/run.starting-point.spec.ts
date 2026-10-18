@@ -9,8 +9,8 @@ import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-t
 import { InvalidStartingPointError } from '@work/domain/exceptions/invalid-starting-point.error';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
@@ -50,7 +50,7 @@ const queued = (subject: RunSubject | null = ofTask) =>
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: [], noteLimit: 0 },
-      continuity: { key: 'task-task_1' },
+      resume: { key: 'task-task_1' },
     }),
   });
 
@@ -62,12 +62,12 @@ const on = (attempt = 1) => RunAttempt.of(RunId.of('run_1'), attempt);
 const archiveOf = (
   id: string,
   workspace = 'ws_1',
-  continuity = ContinuityKey.forTask('task_1'),
+  resume = ResumeKey.forTask('task_1'),
 ) =>
   RestoredArchive.of(
     WorkspaceArchiveId.of(id),
     WorkspaceId.of(workspace),
-    continuity,
+    resume,
   );
 
 const restored = (
@@ -100,10 +100,10 @@ describe('where a run started', () => {
     expect(run.startedFrom?.archive).toBeNull();
   });
 
-  it('refuses an archive of another workspace or another piece of work', () => {
+  it('rejects an archive of another workspace or another piece of work', () => {
     for (const elsewhere of [
       archiveOf('archive_1', 'ws_2'),
-      archiveOf('archive_1', 'ws_1', ContinuityKey.forTask('task_2')),
+      archiveOf('archive_1', 'ws_1', ResumeKey.forTask('task_2')),
     ]) {
       expect(() =>
         claimed().startsFrom(on(), RUNNER, restored(elsewhere), NOW),
@@ -119,7 +119,7 @@ describe('where a run started', () => {
     expect(again.startedFrom?.at).toEqual(NOW);
   });
 
-  it('refuses a second report that says it started somewhere else', () => {
+  it('rejects a second report that says it started somewhere else', () => {
     const first = claimed().startsFrom(on(), RUNNER, restored(), NOW);
 
     expect(() =>
@@ -137,8 +137,8 @@ describe('where a run started', () => {
 
   it('keeps where its first attempt started when a later attempt starts elsewhere', () => {
     const first = claimed().startsFrom(on(), RUNNER, restored(), NOW);
-    const lapsed = first.requeue(first.leaseExpiresAt as Date);
-    const retried = lapsed
+    const expired = first.expireLease(first.leaseExpiresAt as Date);
+    const retried = expired
       .claim(OTHER, later(120_000))
       .startsFrom(
         on(2),
@@ -152,9 +152,9 @@ describe('where a run started', () => {
     expect(retried.startedFrom?.attempt).toBe(1);
   });
 
-  it('refuses a report from an attempt that is over', () => {
-    const lapsed = claimed().requeue(later(60_000));
-    const retried = lapsed.claim(RUNNER, later(120_000));
+  it('rejects a report from an attempt that is over', () => {
+    const expired = claimed().expireLease(later(60_000));
+    const retried = expired.claim(RUNNER, later(120_000));
 
     expect(() =>
       retried.startsFrom(on(1), RUNNER, restored(), later(120_000)),
@@ -184,7 +184,7 @@ describe('where a run started', () => {
     ).toThrow(InvalidRunTransitionError);
   });
 
-  it('names exactly the checkouts the run was given', () => {
+  it('names exactly the checkouts of the run', () => {
     const missing: RunStart = {
       restored: null,
       checkouts: [StartedCheckout.of({ path: 'api', commit: API })],
@@ -238,13 +238,13 @@ describe('where a run started', () => {
         at: NOW,
       });
 
-    it('refuses to have started on an attempt it has not made', () => {
+    it('cannot have started on an attempt it has not made', () => {
       expect(() => rehydrated(ofTask, point(2))).toThrow(
         InconsistentStateError,
       );
     });
 
-    it('refuses to have started from somewhere when it works no task', () => {
+    it('cannot have started from somewhere when it works no task', () => {
       expect(() =>
         rehydrated(RunSubject.chat(ChatId.of('chat_1')), point(1)),
       ).toThrow(InconsistentStateError);

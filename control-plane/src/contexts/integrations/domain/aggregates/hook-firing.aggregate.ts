@@ -73,9 +73,9 @@ interface State extends Fired {
 
 const LEASE_MS = 10 * 60 * 1000;
 
-const KEPT_MS = 30 * 24 * 60 * 60 * 1000;
+const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
-const heldEvent = (
+const frozenEvent = (
   event: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> => deepFrozen(structuredClone(event));
 
@@ -93,7 +93,7 @@ export class HookFiring extends EventRecorder {
   static fire(input: Fired): HookFiring {
     return new HookFiring({
       ...input,
-      event: heldEvent(input.event),
+      event: frozenEvent(input.event),
       steps: [],
       progress: { kind: 'pending', dueAt: input.firedAt },
       attempts: 0,
@@ -134,15 +134,15 @@ export class HookFiring extends EventRecorder {
       );
     }
 
-    return new HookFiring({ ...state, event: heldEvent(state.event) });
+    return new HookFiring({ ...state, event: frozenEvent(state.event) });
   }
 
-  static leaseLapsedBefore(now: Date): Date {
+  static leaseExpiredBefore(now: Date): Date {
     return new Date(now.getTime() - LEASE_MS);
   }
 
-  static finishedForgettablyBefore(now: Date): Date {
-    return new Date(now.getTime() - KEPT_MS);
+  static retentionCutoff(now: Date): Date {
+    return new Date(now.getTime() - RETENTION_MS);
   }
 
   get id(): string {
@@ -251,12 +251,12 @@ export class HookFiring extends EventRecorder {
     const { progress } = this.state;
     const due =
       progress.kind === 'pending' && progress.dueAt.getTime() <= now.getTime();
-    const lapsed =
+    const leaseExpired =
       progress.kind === 'working' &&
       progress.claimedAt.getTime() <
-        HookFiring.leaseLapsedBefore(now).getTime();
+        HookFiring.leaseExpiredBefore(now).getTime();
 
-    if (!due && !lapsed) {
+    if (!due && !leaseExpired) {
       throw new InvalidHookFiringTransitionError(
         progress.kind === 'working'
           ? 'is still claimed'
@@ -280,7 +280,7 @@ export class HookFiring extends EventRecorder {
       throw new InvalidHookFiringTransitionError('was already matched');
     }
 
-    return this.with({ event: heldEvent(event), matched: true });
+    return this.with({ event: frozenEvent(event), matched: true });
   }
 
   waitUntil(at: Date): HookFiring {
@@ -307,7 +307,7 @@ export class HookFiring extends EventRecorder {
     return stop
       ? HookFailure.of(
           'loop',
-          `Hook ${hook} was stopped to prevent a loop. ${stop.saying}`,
+          `Hook ${hook} was stopped to prevent a loop. ${stop.description}`,
         )
       : null;
   }
@@ -328,8 +328,8 @@ export class HookFiring extends EventRecorder {
     return this.with({ failure: loop });
   }
 
-  toldOfLoop(now: Date, superseded: boolean): HookFiring {
-    this.guardWorking('be told of');
+  markLoopNotified(now: Date, superseded: boolean): HookFiring {
+    this.guardWorking('be marked as notified of a loop');
 
     const loop = this.state.failure;
 
@@ -342,7 +342,7 @@ export class HookFiring extends EventRecorder {
     return this.ended(superseded ? loop.superseded() : loop, now);
   }
 
-  retries(failure: HookFailure, now: Date): boolean {
+  willRetry(failure: HookFailure, now: Date): boolean {
     return this.retryOf(failure, now).at !== null;
   }
 
@@ -353,18 +353,18 @@ export class HookFiring extends EventRecorder {
   ): HookFiring {
     this.guardWorking('fail');
 
-    const { kept, at } = this.retryOf(failure, now);
+    const { recorded, at } = this.retryOf(failure, now);
 
     if (at) {
       return this.with({
         progress: { kind: 'pending', dueAt: at },
         attempts: this.state.attempts + 1,
-        failure: kept,
+        failure: recorded,
       });
     }
 
     return this.ended(
-      taskMovedOn && kept === failure ? failure.superseded() : kept,
+      taskMovedOn && recorded === failure ? failure.superseded() : recorded,
       now,
     );
   }
@@ -378,35 +378,35 @@ export class HookFiring extends EventRecorder {
     });
   }
 
-  isForgettableAt(now: Date): boolean {
+  isPastRetention(now: Date): boolean {
     const at = this.finishedAt;
 
-    return at !== null && at.getTime() + KEPT_MS <= now.getTime();
+    return at !== null && at.getTime() + RETENTION_MS <= now.getTime();
   }
 
-  forgotten(now: Date): HookFiring {
-    if (!this.isForgettableAt(now)) {
+  purge(now: Date): HookFiring {
+    if (!this.isPastRetention(now)) {
       throw new InvalidHookFiringTransitionError(
-        'is kept for 30 days after it finishes',
+        'is stored for 30 days after it finishes',
       );
     }
 
-    const forgotten = new HookFiring(this.state, true);
-    forgotten.inheritEvents(this);
+    const purged = new HookFiring(this.state, true);
+    purged.inheritEvents(this);
 
-    return forgotten;
+    return purged;
   }
 
   private retryOf(
     failure: HookFailure,
     now: Date,
-  ): { readonly kept: HookFailure; readonly at: Date | null } {
+  ): { readonly recorded: HookFailure; readonly at: Date | null } {
     const attempts = this.state.attempts + 1;
     const loop = this.state.failure;
 
-    return isLoop(loop) && failure.retry.retries
-      ? { kept: loop, at: DELIVERING.after(attempts, now) }
-      : { kept: failure, at: failure.nextAttemptAfter(attempts, now) };
+    return isLoop(loop) && failure.retry.allowsRetry
+      ? { recorded: loop, at: DELIVERING.nextAttemptAt(attempts, now) }
+      : { recorded: failure, at: failure.nextAttemptAfter(attempts, now) };
   }
 
   private ended(failure: HookFailure, now: Date): HookFiring {

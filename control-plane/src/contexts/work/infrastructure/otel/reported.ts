@@ -39,26 +39,26 @@ const plainly = (value: Record<string, unknown> | undefined): string | null => {
     return null;
   }
 
-  for (const held of Object.values(value)) {
-    if (held === null || held === undefined) {
+  for (const entry of Object.values(value)) {
+    if (entry === null || entry === undefined) {
       continue;
     }
-    if (typeof held === 'object') {
-      return JSON.stringify(held);
+    if (typeof entry === 'object') {
+      return JSON.stringify(entry);
     }
-    return String(held);
+    return String(entry);
   }
 
   return null;
 };
 
-const said = (span: Exported): SpanAttribute[] =>
+const attributesOf = (span: Exported): SpanAttribute[] =>
   (span.attributes ?? []).flatMap((each) => {
     const value = plainly(each?.value);
     return each?.key && value !== null ? [{ name: each.key, value }] : [];
   });
 
-const wentWrong = (span: Exported): boolean =>
+const isError = (span: Exported): boolean =>
   span.status?.code === 2 || span.status?.code === 'STATUS_CODE_ERROR';
 
 export class Reported {
@@ -89,8 +89,8 @@ export class Reported {
       name: sent.name ?? 'a span',
       startedAt: new Date(Number(from / NS_PER_MS)),
       ms: to === null ? 0 : Number((to - from) / NS_PER_MS),
-      failed: wentWrong(sent),
-      attributes: said(sent),
+      failed: isError(sent),
+      attributes: attributesOf(sent),
     });
   }
 

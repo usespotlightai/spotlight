@@ -25,7 +25,7 @@ export interface TaskSummary {
   readonly awaitingReview: TaskReviewSummary | null;
   readonly pullRequest: string | null;
   readonly note: TaskNoteSummary | null;
-  readonly raisedBy: PersonSummary | null;
+  readonly createdBy: PersonSummary | null;
   readonly assignee: PersonSummary | null;
 }
 

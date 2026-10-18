@@ -4,7 +4,7 @@ import { ImproveSection } from '@/components/features/stations/improve/ImproveSe
 export function StationImproveSkeleton() {
   return (
     <>
-      <ImproveSection title="What stands out">
+      <ImproveSection title="What needs attention">
         <ImproveCardSkeleton
           label="Loading the station’s signals"
           rows={2}

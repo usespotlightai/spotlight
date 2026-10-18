@@ -5,7 +5,7 @@ import {
   InsightsTable,
 } from '@/components/features/insights/InsightsTable';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { formatCount, formatSpend, lastedOrNone } from '@/lib/insights';
+import { formatCount, formatDurationOrNone, formatSpend } from '@/lib/insights';
 import {
   formatAuthor,
   formatSize,
@@ -114,13 +114,13 @@ export function PullRequestsTable({
       id: 'to-merge',
       header: 'To merge',
       numeric: true,
-      cell: (pullRequest) => lastedOrNone(pullRequest.toMergeMs),
+      cell: (pullRequest) => formatDurationOrNone(pullRequest.toMergeMs),
     },
     {
       id: 'in-review',
       header: 'In review',
       numeric: true,
-      cell: (pullRequest) => lastedOrNone(pullRequest.inReviewMs),
+      cell: (pullRequest) => formatDurationOrNone(pullRequest.inReviewMs),
     },
     {
       id: 'rounds',

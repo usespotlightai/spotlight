@@ -1,8 +1,8 @@
 import { ProblemException } from '@platform/http/resources/problem.exception';
 import type {
-  SearchAgentAsked,
-  SearchBudgetAsked,
-  SearchObjectiveAsked,
+  SearchAgentInput,
+  SearchBudgetInput,
+  SearchObjectiveInput,
 } from '@replays/application/commands/start-search.command';
 import { isSearchObjective } from '@replays/domain/value-objects/search-objective';
 import type { Forbidden } from '@shared-kernel/application/dto/resource-outcomes.dto';
@@ -11,7 +11,7 @@ import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 const REQUEST = 'request';
 
-const refusedAt = (field: readonly string[], reason: string): never => {
+const rejectAt = (field: readonly string[], reason: string): never => {
   throw ProblemException.invalid(REQUEST, [
     ConfigurationProblem.of({ path: '', at: FieldPath.of(field), reason }),
   ]);
@@ -22,21 +22,25 @@ const fieldsOf = (body: unknown): Record<string, unknown> =>
     ? (body as Record<string, unknown>)
     : {};
 
-export const textAt = (body: unknown, field: string, says: string): string => {
-  const held = fieldsOf(body)[field];
+export const textAt = (
+  body: unknown,
+  field: string,
+  reason: string,
+): string => {
+  const value = fieldsOf(body)[field];
 
-  return typeof held === 'string' ? held : refusedAt([field], says);
+  return typeof value === 'string' ? value : rejectAt([field], reason);
 };
 
 const ceilingAt = (
-  held: unknown,
+  raw: unknown,
   at: readonly string[],
   what: string,
 ): { readonly amount: number; readonly currency: string } => {
-  const { amount, currency } = fieldsOf(held);
+  const { amount, currency } = fieldsOf(raw);
 
   if (typeof amount !== 'number') {
-    return refusedAt(
+    return rejectAt(
       [...at, 'amount'],
       `Ceiling amount must be a number. It is the most the ${what} may spend.`,
     );
@@ -47,7 +51,7 @@ const ceilingAt = (
     currency:
       typeof currency === 'string'
         ? currency
-        : refusedAt(
+        : rejectAt(
             [...at, 'currency'],
             'Ceiling currency must be a currency code, such as USD.',
           ),
@@ -60,30 +64,30 @@ export const ceilingIn = (
   ceilingAt(fieldsOf(body).ceiling, ['ceiling'], 'replay');
 
 const countAt = (
-  held: Record<string, unknown>,
+  fields: Record<string, unknown>,
   at: readonly string[],
-  says: string,
+  reason: string,
 ): number => {
-  const count = held[at[at.length - 1] as string];
+  const count = fields[at[at.length - 1] as string];
 
-  return typeof count === 'number' ? count : refusedAt(at, says);
+  return typeof count === 'number' ? count : rejectAt(at, reason);
 };
 
 const optionalTextAt = (
-  held: Record<string, unknown>,
+  fields: Record<string, unknown>,
   at: readonly string[],
-  says: string,
+  reason: string,
 ): string | null => {
-  const text = held[at[at.length - 1] as string];
+  const text = fields[at[at.length - 1] as string];
 
   if (text === undefined || text === null) {
     return null;
   }
 
-  return typeof text === 'string' ? text : refusedAt(at, says);
+  return typeof text === 'string' ? text : rejectAt(at, reason);
 };
 
-export const searchBudgetIn = (body: unknown): SearchBudgetAsked => {
+export const searchBudgetIn = (body: unknown): SearchBudgetInput => {
   const budget = fieldsOf(fieldsOf(body).budget);
   const concurrency = budget.concurrency;
   const repeats = budget.repeats;
@@ -115,7 +119,7 @@ export const searchBudgetIn = (body: unknown): SearchBudgetAsked => {
   };
 };
 
-export const searchAgentIn = (body: unknown): SearchAgentAsked => {
+export const searchAgentIn = (body: unknown): SearchAgentInput => {
   const agent = fieldsOf(fieldsOf(body).agent);
   const harness = agent.harness;
 
@@ -123,7 +127,7 @@ export const searchAgentIn = (body: unknown): SearchAgentAsked => {
     harness:
       typeof harness === 'string'
         ? harness
-        : refusedAt(['agent', 'harness'], 'Agent harness is required.'),
+        : rejectAt(['agent', 'harness'], 'Agent harness is required.'),
     model: optionalTextAt(
       agent,
       ['agent', 'model'],
@@ -137,25 +141,25 @@ export const searchAgentIn = (body: unknown): SearchAgentAsked => {
   };
 };
 
-export const objectiveIn = (body: unknown): SearchObjectiveAsked => {
-  const held = fieldsOf(body).objective;
+export const objectiveIn = (body: unknown): SearchObjectiveInput => {
+  const value = fieldsOf(body).objective;
 
-  if (held === undefined || held === null) {
+  if (value === undefined || value === null) {
     return null;
   }
 
-  return isSearchObjective(held)
-    ? held
-    : refusedAt(['objective'], 'Objective must be success, cost or left out.');
+  return isSearchObjective(value)
+    ? value
+    : rejectAt(['objective'], 'Objective must be success, cost or left out.');
 };
 
 export const repeatsIn = (body: unknown): number => {
-  const held = fieldsOf(body);
-  const repeats = held.repeats;
+  const fields = fieldsOf(body);
+  const repeats = fields.repeats;
 
   return repeats === undefined || repeats === null
     ? 1
-    : countAt(held, ['repeats'], 'Repeats must be a number.');
+    : countAt(fields, ['repeats'], 'Repeats must be a number.');
 };
 
 export const referenceIn = (
@@ -194,9 +198,9 @@ export const keyedIn = (
 
   return line && station
     ? { lineId: line, key: station }
-    : refusedAt(
+    : rejectAt(
         [line ? 'station' : 'line'],
-        'Line and station must be given together.',
+        'Line and station must be sent together.',
       );
 };
 

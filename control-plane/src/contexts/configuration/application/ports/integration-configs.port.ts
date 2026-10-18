@@ -1,20 +1,15 @@
-import type { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
+import type { SecretReferenceAt } from '@configuration/domain/value-objects/secret-reference-at.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-export const INTEGRATION_CONFIGS = Symbol('HELD_INTEGRATIONS');
-
-export interface WornSecret {
-  readonly path: FieldPath;
-  readonly name: string;
-}
+export const INTEGRATION_CONFIGS = Symbol('INTEGRATION_CONFIGS');
 
 export interface IntegrationConfig {
   readonly id: string;
   readonly address: string;
   readonly teamId: TeamId;
-  readonly source: string;
+  readonly integration: string;
   readonly definition: Readonly<Record<string, unknown>>;
-  readonly secretsWorn: readonly WornSecret[];
+  readonly secretReferences: readonly SecretReferenceAt[];
 }
 
 export interface IntegrationConfigsPort {

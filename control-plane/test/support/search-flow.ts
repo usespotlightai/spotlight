@@ -10,9 +10,9 @@ import {
   type RepositoryCommit,
   type RepositoryContentsPort,
 } from '@github/application/ports/repository-contents.port';
+import { JUDGE, type JudgePort } from '@insights/application/ports/judge.port';
+import { WorkChangeJudgings } from '@insights/application/services/work-change-judgings.service';
 import type { INestApplication } from '@nestjs/common';
-import { JUDGE, type JudgePort } from '@outcomes/application/ports/judge.port';
-import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -40,7 +40,7 @@ import { afterAll, beforeAll, expect } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './app';
 import { eventually } from './eventually';
 import * as schema from './schema';
-import { openTeam } from './team';
+import { createTeam } from './team';
 
 const HOST = `host-search-flow-${randomUUID().slice(0, 8)}`;
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -74,9 +74,9 @@ const archiveStore: WorkspaceArchiveStorePort = {
 const judge: JudgePort = {
   available: true,
   model: 'stub/judge',
-  judge: async (ask) => {
-    const said = ask.steps.find((each) => SCORED.test(each.text));
-    const value = Number(SCORED.exec(said?.text ?? '')?.[1] ?? 1);
+  judge: async (request) => {
+    const scoredStep = request.steps.find((each) => SCORED.test(each.text));
+    const value = Number(SCORED.exec(scoredStep?.text ?? '')?.[1] ?? 1);
 
     return {
       usage: {
@@ -89,7 +89,7 @@ const judge: JudgePort = {
         reasons: [
           {
             text: `It drains the queue as a ${value}.`,
-            steps: said ? [said.index] : [],
+            steps: scoredStep ? [scoredStep.index] : [],
             hunks: [],
           },
         ],
@@ -115,9 +115,9 @@ export const CONFIG_LINE = `resource "spotlight_line" "core_delivery" {
     passes_to = ["ship"]
 
     judge {
-      rubric = ${JSON.stringify(RUBRIC)}
-      sample = 0.1
-      trust  = 0.6
+      rubric        = ${JSON.stringify(RUBRIC)}
+      sample        = 0.1
+      min_agreement = 0.6
     }
   }
 }
@@ -172,7 +172,7 @@ const pullRequests: PullRequestPort = {
 
 export let app: INestApplication;
 export let db: DrizzleDatabase;
-export let team: Awaited<ReturnType<typeof openTeam>>;
+export let team: Awaited<ReturnType<typeof createTeam>>;
 
 export const http = () => served(app);
 
@@ -226,21 +226,21 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
     stationId: BUILD,
     title: `Drain queue ${runId.slice(0, 4)}`,
     description: 'It stalls on restart.',
-    raisedAtStationId: BUILD,
-    raisedById: team.owner.value,
+    originStationId: BUILD,
+    createdById: team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
   });
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    continuityKey: `task-${taskId}`,
+    resumeKey: `task-${taskId}`,
     taskId,
     grantedToRunId: randomUUID(),
     size: 1_024,
     sha256: 'a'.repeat(64),
     grantedAt: at,
-    sealedAt: at,
+    completedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
@@ -263,7 +263,7 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship'], noteLimit: 0 },
-      continuity: { key: `task-${taskId}` },
+      resume: { key: `task-${taskId}` },
       startingPoint: true,
     },
     briefedTask: BriefedTask.of({
@@ -273,9 +273,9 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
       reviewing: null,
       attachments: [],
       notes: [],
-      openRemarks: [],
+      openReviewComments: [],
     }).parts,
-    briefedMemories: { briefed: [], cut: [] },
+    briefedMemories: { briefed: [], omitted: [] },
     startedFromArchiveId: archiveId,
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
@@ -285,15 +285,15 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
   return { taskId, runId };
 };
 
-export const openSet = async (
+export const createSet = async (
   name: string,
   originals: readonly Original[],
   stationId = BUILD,
 ): Promise<string> => {
-  const opened = await owner()
+  const created = await owner()
     .post(`${stationPath(stationId)}/replay-sets`, { name })
     .expect(201);
-  const setId = opened.body.id as string;
+  const setId = created.body.id as string;
 
   for (const each of originals) {
     await owner()
@@ -337,7 +337,7 @@ export const startSearch = async (
 
 export interface SearchRead {
   state: string;
-  ending: string | null;
+  stopReason: string | null;
   spent: { amount: number };
   split: {
     searched: { runId: string; taskId: string }[];
@@ -355,7 +355,7 @@ export interface SearchRead {
         cause: string;
         replayRunId: string;
       }[];
-      outcome: string | null;
+      result: string | null;
       endedSearch: boolean;
     } | null;
   }[];
@@ -368,13 +368,13 @@ export interface SearchRead {
     searchScore: number | null;
     heldOutScore: number | null;
     onFrontier: boolean;
-    onlyOnSeenTasks: 'marked' | 'too-few-held-out' | null;
+    overfit: 'likely' | 'too-few-held-out' | null;
   }[];
   frontier: string[];
-  onlyOnSeenTasks: number;
+  overfitCount: number;
   best: {
     name: string;
-    onlyOnSeenTasks: 'marked' | 'too-few-held-out' | null;
+    overfit: 'likely' | 'too-few-held-out' | null;
   } | null;
 }
 
@@ -464,16 +464,16 @@ export const claimed = async (): Promise<Claimed | null> => {
 
   expect(answer.status).toBe(200);
 
-  const handed = answer.body as {
+  const assignment = answer.body as {
     token: string;
     work: { run: { id: string } };
   };
 
-  return { token: handed.token, runId: handed.work.run.id };
+  return { token: assignment.token, runId: assignment.work.run.id };
 };
 
 export const judged = async () => {
-  await app.get(WorkChangeJudgings).workDue();
+  await app.get(WorkChangeJudgings).processDue();
   await app.get(WorkChangeJudgings).idle();
 };
 
@@ -512,9 +512,9 @@ export const finished = async (
     .post(`/api/runs/${runId}/completion`, {
       exitCode: 0,
       failed: false,
-      outcome: { next: 'ship', note: 'Drained.' },
+      handover: { next: 'ship', note: 'Drained.' },
       sessionId: 'session_1',
-      kept: true,
+      archived: true,
     })
     .expect(200);
 };
@@ -532,28 +532,28 @@ type Plan = (replayId: string) => { score: number; cost: number };
 
 export const drained = async (plan: Plan): Promise<void> => {
   for (let turn = 0; turn < 200; turn += 1) {
-    await app.get(DispatchReplayRuns).workDue();
+    await app.get(DispatchReplayRuns).processDue();
 
     if ((await queuedReplayRuns()).length === 0) {
       await judged();
       return;
     }
 
-    const handed = await claimed();
+    const assignment = await claimed();
 
-    if (!handed) {
+    if (!assignment) {
       continue;
     }
 
-    const entry = await entryOf(handed.runId);
+    const entry = await entryOf(assignment.runId);
 
     if (!entry) {
-      throw new Error(`claimed ${handed.runId}, which is no replay run`);
+      throw new Error(`claimed ${assignment.runId}, which is no replay run`);
     }
 
     const { score, cost } = plan(entry.replayId);
 
-    await finished(handed, score, cost);
+    await finished(assignment, score, cost);
     await judged();
   }
 
@@ -568,12 +568,12 @@ export const replayEnded = (replayId: string) =>
     return state !== 'queued' && state !== 'running' ? state : null;
   }, WITHIN);
 
-export const heldSearchRun = async (
+export const leasedSearchRun = async (
   searchId: string,
   iteration: number,
 ): Promise<Claimed> => {
   await eventually(async () => {
-    await app.get(AdvanceSearches).workDue();
+    await app.get(AdvanceSearches).processDue();
     const runs = await searchRunsOf(searchId);
 
     return runs.some(
@@ -581,15 +581,15 @@ export const heldSearchRun = async (
     );
   }, WITHIN);
 
-  const handed = await claimed();
+  const assignment = await claimed();
   const [row] = await db
     .select()
     .from(schema.run)
-    .where(eq(schema.run.id, handed?.runId ?? ''));
+    .where(eq(schema.run.id, assignment?.runId ?? ''));
 
   expect(row?.searchId).toBe(searchId);
 
-  return handed as Claimed;
+  return assignment as Claimed;
 };
 
 export const endedSearchRun = async (
@@ -617,9 +617,9 @@ export const endedSearchRun = async (
     .post(`/api/runs/${runId}/completion`, {
       exitCode: failed ? 1 : 0,
       failed,
-      outcome: failed ? undefined : { next: 'review', note: 'Proposed.' },
+      handover: failed ? undefined : { next: 'review', note: 'Proposed.' },
       sessionId: 'session_1',
-      kept: true,
+      archived: true,
     })
     .expect(200);
 };
@@ -636,9 +636,9 @@ export const liveBlock = async () => {
   return live.station;
 };
 
-export const proposing = (handed: Claimed, body: object) =>
-  bearing(handed.token).post(
-    `/api/runs/${handed.runId}/search-candidates`,
+export const proposing = (assignment: Claimed, body: object) =>
+  bearing(assignment.token).post(
+    `/api/runs/${assignment.runId}/search-candidates`,
     body,
   );
 
@@ -656,10 +656,7 @@ const handledAgain = async <T>(
   try {
     return await handle();
   } catch (error) {
-    if (
-      attempts > 1 &&
-      (error as { violation?: string }).violation === 'conflict'
-    ) {
+    if (attempts > 1 && (error as { kind?: string }).kind === 'conflict') {
       return handledAgain(handle, attempts - 1);
     }
 
@@ -712,7 +709,7 @@ export const openSearchFlow = (): void => {
         .useValue(pullRequests),
     );
     db = app.get(DRIZZLE);
-    team = await openTeam(
+    team = await createTeam(
       db,
       app.get(DrizzleTaskRepository),
       `search-flow-${randomUUID().slice(0, 8)}`,
@@ -733,9 +730,9 @@ export const openSearchFlow = (): void => {
     const judged = {
       rubric: RUBRIC,
       claims: [],
-      passShare: 1,
+      passThreshold: 1,
       sample: 0.1,
-      trust: 0.6,
+      minAgreement: 0.6,
     };
     await db.insert(schema.station).values([
       {
@@ -801,16 +798,16 @@ export const openSearchFlow = (): void => {
       .put(`/api/hosts/${HOST}`)
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
       .send({
-        session: 'session_1',
+        bootId: 'boot_1',
         name: 'search-box',
         release: '0.1.0',
-        executor: 'docker',
+        containerRuntime: 'docker',
         capacity: 64,
         running: [],
         images: [
           {
             image: IMAGE,
-            usual: true,
+            isDefault: true,
             harnesses: [{ id: 'claude-code', models: [] }],
           },
         ],

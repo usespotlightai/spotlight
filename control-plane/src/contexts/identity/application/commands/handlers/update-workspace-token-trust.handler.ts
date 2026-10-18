@@ -2,11 +2,10 @@ import type { UpdateWorkspaceTokenTrustCommand } from '@identity/application/com
 import type { IdentityDefinitionsPort } from '@identity/application/ports/identity-definitions.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { IdentityProblems } from '@identity/application/rendering/identity-problems';
-import { TokenTrustBeyondGrantorError } from '@identity/domain/exceptions/token-trust-beyond-grantor.error';
-import { TokenTrustKeyFixedError } from '@identity/domain/exceptions/token-trust-key-fixed.error';
+import { ScopesExceedCallerError } from '@identity/domain/exceptions/scopes-exceed-caller.error';
 import { TokenTrustVersionConflictError } from '@identity/domain/exceptions/token-trust-version-conflict.error';
 import type { WorkspaceTokenTrustRepository } from '@identity/domain/repositories/workspace-token-trust.repository';
-import { Grantor } from '@identity/domain/value-objects/grantor.vo';
+import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import {
   forbiddenTo,
   type ResourceUpdated,
@@ -14,7 +13,8 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
 
 export class UpdateWorkspaceTokenTrustHandler
@@ -34,23 +34,23 @@ export class UpdateWorkspaceTokenTrustHandler
     const id = WorkspaceTokenTrustId.of(command.trustId);
 
     try {
-      const standing = await this.trusts.find(id);
-      const permissions = standing
+      const existing = await this.trusts.find(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
       if (!permissions.managesTokenTrusts) {
-        return forbiddenTo('manage-token-trusts');
+        return forbiddenTo('trusts');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.workspaceTokenTrust(command.definition);
 
@@ -58,14 +58,14 @@ export class UpdateWorkspaceTokenTrustHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      const redefined = standing.redefinedAs(
-        compiled.terms,
-        Grantor.of(command.actor.principal),
-        Attribution.of(command.actor, permissions.workspaceId),
+      const updated = existing.update(
+        compiled.spec,
+        ScopeCeiling.of(command.actor.principal),
+        ChangeActor.of(command.actor, permissions.workspaceId),
       );
 
-      if (redefined !== standing) {
-        await this.transaction.inTransaction(() => this.trusts.save(redefined));
+      if (updated !== existing) {
+        await this.transaction.inTransaction(() => this.trusts.save(updated));
       }
 
       return { outcome: 'updated', id: id.value };
@@ -78,14 +78,14 @@ export class UpdateWorkspaceTokenTrustHandler
           : null;
       }
 
-      if (error instanceof TokenTrustBeyondGrantorError) {
-        return forbiddenTo('manage-token-trusts');
+      if (error instanceof ScopesExceedCallerError) {
+        return forbiddenTo('trusts');
       }
 
-      if (error instanceof TokenTrustKeyFixedError) {
+      if (error instanceof ImmutableFieldError) {
         return {
           outcome: 'invalid',
-          problems: [IdentityProblems.trustRefused(error)],
+          problems: [IdentityProblems.trustInvalid(error)],
         };
       }
 

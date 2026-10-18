@@ -12,7 +12,7 @@ export class LineResourceResponseDto extends ResourceResponseDto {
   @ApiProperty({
     example: 'delivery',
     description:
-      'Names the line within its team; fixed for its life, so changing it means replacing the line',
+      'Names the line within its team. Immutable: changing it means replacing the line',
   })
   readonly key: string;
 
@@ -20,7 +20,7 @@ export class LineResourceResponseDto extends ResourceResponseDto {
     type: 'object',
     additionalProperties: true,
     description:
-      'The line as it stands now, stations in order, with every field a definition may leave out filled in',
+      'The current line, stations in order, with every field a definition may leave out filled in',
     example: {
       key: 'delivery',
       name: 'Delivery',

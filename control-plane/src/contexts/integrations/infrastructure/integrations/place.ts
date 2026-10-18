@@ -18,7 +18,7 @@ interface PlaceWarning {
   readonly message: string;
 }
 
-export interface Verdict {
+export interface CheckResult {
   readonly type: string | null;
   readonly errors: readonly ExpressionErrorDto[];
   readonly warnings: readonly PlaceWarning[];
@@ -69,7 +69,7 @@ export class Place {
     });
   }
 
-  checked(expressions: ExpressionEnginePort, source: string): Verdict {
+  checked(expressions: ExpressionEnginePort, source: string): CheckResult {
     const position = this.position;
     const warnings = position.shadowedIn(this.additions).map((captured) => ({
       field: captured.field,
@@ -91,12 +91,12 @@ export class Place {
       };
     }
 
-    const refusal = position.refusal(checked.type);
+    const problem = position.problem(checked.type);
 
     return {
       type: checked.type,
-      errors: refusal
-        ? [{ message: refusal, span: extentOf(source), suggestion: null }]
+      errors: problem
+        ? [{ message: problem, span: extentOf(source), suggestion: null }]
         : [],
       warnings,
     };

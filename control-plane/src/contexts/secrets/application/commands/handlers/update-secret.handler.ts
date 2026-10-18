@@ -3,7 +3,6 @@ import type { UpdateSecretCommand } from '@secrets/application/commands/update-s
 import type { SecretDefinitionsPort } from '@secrets/application/ports/secret-definitions.port';
 import { SecretProblems } from '@secrets/application/rendering/secret-problems';
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
-import { SecretNameFixedError } from '@secrets/domain/exceptions/secret-name-fixed.error';
 import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
@@ -15,7 +14,8 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class UpdateSecretHandler
   implements CommandHandlerPort<UpdateSecretCommand, ResourceUpdated | null>
@@ -32,23 +32,23 @@ export class UpdateSecretHandler
     const id = SecretId.of(command.secretId);
 
     try {
-      const standing = await this.secrets.withId(id);
-      const permissions = standing
+      const existing = await this.secrets.withId(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
       if (!permissions.managesSecrets) {
-        return forbiddenTo('manage-secrets');
+        return forbiddenTo('secrets');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.secret(command.definition);
 
@@ -56,13 +56,13 @@ export class UpdateSecretHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      const redefined = standing.redefinedAs(
+      const updated = existing.update(
         compiled,
-        Attribution.of(command.actor, standing.workspaceId),
+        ChangeActor.of(command.actor, existing.workspaceId),
         this.clock.now(),
       );
 
-      await this.transaction.inTransaction(() => this.secrets.save(redefined));
+      await this.transaction.inTransaction(() => this.secrets.save(updated));
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {
@@ -81,10 +81,10 @@ export class UpdateSecretHandler
         };
       }
 
-      if (error instanceof SecretNameFixedError) {
+      if (error instanceof ImmutableFieldError) {
         return {
           outcome: 'invalid',
-          problems: [SecretProblems.nameFixed(error)],
+          problems: [SecretProblems.immutableField(error)],
         };
       }
 

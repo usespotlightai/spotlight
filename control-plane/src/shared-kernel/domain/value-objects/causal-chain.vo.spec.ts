@@ -5,13 +5,13 @@ import { describe, expect, it } from 'vitest';
 const moved = {
   kind: 'event' as const,
   key: 'task.moved:t-1:build>review',
-  saying: 'task.moved of t-1 from build to review',
+  description: 'task.moved of t-1 from build to review',
 };
 
 const hook = {
   kind: 'hook' as const,
   key: 'hook:h-1:task.moved:t-1:build>review',
-  saying: 'the hook notify',
+  description: 'the hook notify',
 };
 
 describe('CausalChain', () => {
@@ -21,11 +21,11 @@ describe('CausalChain', () => {
   });
 
   it('grows one link deeper with each cause', () => {
-    const chain = CausalChain.none().followedBy(moved).followedBy(hook);
+    const chain = CausalChain.none().append(moved).append(hook);
 
     expect(chain.depth).toBe(2);
-    expect(chain.holds(hook.key)).toBe(true);
-    expect(chain.saying).toBe(
+    expect(chain.contains(hook.key)).toBe(true);
+    expect(chain.description).toBe(
       'task.moved of t-1 from build to review → the hook notify',
     );
   });
@@ -33,31 +33,31 @@ describe('CausalChain', () => {
   it('keeps its most recent links but remembers how deep it went', () => {
     let chain = CausalChain.none();
     for (let each = 0; each < 40; each += 1) {
-      chain = chain.followedBy({ ...moved, key: `k-${each}` });
+      chain = chain.append({ ...moved, key: `k-${each}` });
     }
 
     expect(chain.depth).toBe(40);
     expect(chain.links).toHaveLength(32);
-    expect(chain.holds('k-39')).toBe(true);
-    expect(chain.holds('k-0')).toBe(false);
-    expect(chain.saying.startsWith('… → ')).toBe(true);
+    expect(chain.contains('k-39')).toBe(true);
+    expect(chain.contains('k-0')).toBe(false);
+    expect(chain.description.startsWith('… → ')).toBe(true);
   });
 
   it('reads back what it stored, and none from nothing stored', () => {
-    const chain = CausalChain.none().followedBy(moved);
+    const chain = CausalChain.none().append(moved);
 
     expect(CausalChain.read(chain.stored).equals(chain)).toBe(true);
     expect(CausalChain.read(null).started).toBe(false);
   });
 
-  it('refuses what is not a chain', () => {
+  it('rejects what is not a chain', () => {
     expect(() => CausalChain.read('nonsense')).toThrow(InconsistentStateError);
     expect(() => CausalChain.read({ depth: 1 })).toThrow(
       InconsistentStateError,
     );
   });
 
-  it('refuses a link that says nothing of what it was', () => {
+  it('rejects a link without a description', () => {
     expect(() =>
       CausalChain.read({ links: [{ kind: 'rumour', key: 'x' }], depth: 1 }),
     ).toThrow(InconsistentStateError);

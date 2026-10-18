@@ -2,7 +2,7 @@ import { Plus } from 'lucide-react';
 import { AddRunsDialog } from '@/components/features/replays/set/AddRunsDialog';
 import { DialogButton } from '@/components/shared/DialogButton';
 import type { ReplayedStation, ReplaySet } from '@/lib/replay';
-import { RUNS_HELD_BY_SEARCH } from '@/lib/replay-words';
+import { RUNS_FROZEN_BY_SEARCH } from '@/lib/replay-words';
 
 type AddRunsButtonProps = {
   at: ReplayedStation;
@@ -16,7 +16,7 @@ export function AddRunsButton({ at, set, disabled }: AddRunsButtonProps) {
       label="Add runs"
       icon={Plus}
       variant="outline"
-      refusedBecause={disabled ? RUNS_HELD_BY_SEARCH : null}
+      disabledBecause={disabled ? RUNS_FROZEN_BY_SEARCH : null}
       dialog={(open, onOpenChange) => (
         <AddRunsDialog
           at={at}

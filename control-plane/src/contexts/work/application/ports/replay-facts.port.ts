@@ -1,4 +1,4 @@
-import type { ReplayFacts } from '@work/domain/services/replay-standing';
+import type { ReplayFacts } from '@work/domain/services/replay-block';
 
 export const REPLAY_FACTS = Symbol('REPLAY_FACTS');
 

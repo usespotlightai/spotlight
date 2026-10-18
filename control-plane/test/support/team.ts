@@ -86,7 +86,7 @@ export const listSetUp = async (
   const list = welcomeTask({
     line,
     teamId: TeamId.of(teamId),
-    saying: TaskNoteBody.of(listed()),
+    noteBody: TaskNoteBody.of(listed()),
     at: StationId.of(stationId),
     station: StationName.of('Backlog'),
     owner: UserId.of(owner),
@@ -99,7 +99,7 @@ export const listSetUp = async (
   return { stationId: StationId.of(stationId), line, list };
 };
 
-export const openTeam = async (
+export const createTeam = async (
   db: DrizzleDatabase,
   tasks: DrizzleTaskRepository,
   slug: string,

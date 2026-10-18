@@ -55,7 +55,7 @@ const showing = (at = '/w/acme/team/team_1/memory') =>
 const where = () => screen.getByRole('status', { name: 'Where' });
 
 describe('MemoryFilterMenu', () => {
-  it('keeps the filters out of the page until they are asked for', async () => {
+  it('keeps the filters out of the page until they are requested', async () => {
     showing();
 
     expect(
@@ -74,7 +74,7 @@ describe('MemoryFilterMenu', () => {
     ).toBeDisabled();
   });
 
-  it('narrows the list to a kind, kept in the address', async () => {
+  it('narrows the list to a kind, held in the address', async () => {
     showing();
 
     await userEvent.click(
@@ -115,7 +115,7 @@ describe('MemoryFilterMenu', () => {
     ).toBeVisible();
   });
 
-  it('offers the paths the memories are kept for', async () => {
+  it('offers the paths the memories apply to', async () => {
     showing();
 
     await userEvent.click(
@@ -141,9 +141,7 @@ describe('MemoryFilterMenu', () => {
   });
 
   it('clears every filter at once, keeping which memories are shown', async () => {
-    showing(
-      '/w/acme/team/team_1/memory?standing=retired&kind=failure&path=src',
-    );
+    showing('/w/acme/team/team_1/memory?status=retired&kind=failure&path=src');
 
     await userEvent.click(
       screen.getByRole('button', { name: 'Filter memories, 2 applied' }),
@@ -152,7 +150,7 @@ describe('MemoryFilterMenu', () => {
       await screen.findByRole('button', { name: 'Clear filters' }),
     );
 
-    expect(where()).toHaveTextContent('?standing=retired');
+    expect(where()).toHaveTextContent('?status=retired');
     expect(
       screen.getByRole('button', { name: 'Filter memories' }),
     ).toBeInTheDocument();

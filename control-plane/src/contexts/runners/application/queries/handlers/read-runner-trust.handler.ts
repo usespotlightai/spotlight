@@ -19,11 +19,11 @@ export class ReadRunnerTrustHandler
     query: ReadRunnerTrustQuery,
   ): Promise<RunnerTrustResourceDto | null> {
     try {
-      const kept = await this.resources.trustWithId(query.trustId);
+      const record = await this.resources.trustWithId(query.trustId);
 
-      return kept &&
-        (await this.access.permissionsIn(kept.workspaceId, query.principal))
-        ? RunnerResourceMapper.trust(kept)
+      return record &&
+        (await this.access.permissionsIn(record.workspaceId, query.principal))
+        ? RunnerResourceMapper.trust(record)
         : null;
     } catch (error) {
       rethrowAsApplicationError(error);

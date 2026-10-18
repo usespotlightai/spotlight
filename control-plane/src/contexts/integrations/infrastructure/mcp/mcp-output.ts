@@ -1,9 +1,9 @@
 import type { ToolOutput } from '@integrations/application/ports/integration-runtime.port';
 import { asJson } from '@integrations/infrastructure/integrations/templating';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 
-const MAX_SAID = 500;
+const MAX_OUTPUT_CHARS = 500;
 
 const plainJson = (output: unknown): ToolOutput =>
   JSON.parse(asJson(output ?? null)) as ToolOutput;
@@ -22,14 +22,14 @@ const parsedOr = (text: string): ToolOutput => {
   }
 };
 
-const saidIn = (result: CallToolResult): string =>
-  (textOf(result) ?? asJson(result.content)).slice(0, MAX_SAID);
+const outputOf = (result: CallToolResult): string =>
+  (textOf(result) ?? asJson(result.content)).slice(0, MAX_OUTPUT_CHARS);
 
 export const mcpOutput = (result: CallToolResult, tool: string): ToolOutput => {
   if (result.isError) {
-    throw new UpstreamRefusedError(
+    throw new UpstreamError(
       `using ${tool}`,
-      `the MCP server answered with an error: ${saidIn(result)}`,
+      `the MCP server answered with an error: ${outputOf(result)}`,
       null,
       false,
     );

@@ -69,9 +69,9 @@ export class StartChatRequestDto {
   @ApiPropertyOptional({
     type: String,
     description:
-      'A station the chat is about improving, by its id; the agent is briefed to study its recent runs',
+      'The id of the station that the chat must improve. The agent gets an instruction to study the recent runs of the station',
   })
-  readonly improving?: string;
+  readonly targetStation?: string;
 
   @ApiPropertyOptional({
     type: () => ChatSetupRequestDto,
@@ -81,7 +81,7 @@ export class StartChatRequestDto {
   readonly setup?: ChatSetupRequestDto;
 }
 
-export class SayInChatRequestDto {
+export class SendChatMessageRequestDto {
   @ApiProperty({
     example: 'Split it into two tasks.',
     description: 'May be empty where files are attached or traces shared.',

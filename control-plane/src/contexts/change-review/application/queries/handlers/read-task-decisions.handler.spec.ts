@@ -10,10 +10,10 @@ import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-21T10:00:00Z');
 
-const HELD: TaskDecisionsDto = {
+const STORED: TaskDecisionsDto = {
   runId: 'run_1',
-  drafting: false,
-  standing: 'proposed',
+  generating: false,
+  status: 'proposed',
   merge: null,
   decisions: [
     {
@@ -23,7 +23,7 @@ const HELD: TaskDecisionsDto = {
       why: 'Because.',
       alternatives: [],
       paths: ['api/src/uploads.ts'],
-      steps: [3],
+      journalSteps: [3],
       disputes: [
         {
           id: 'dispute_1',
@@ -39,7 +39,7 @@ const HELD: TaskDecisionsDto = {
 };
 
 const reading = (
-  over: { held?: TaskDecisionsDto | null; allowed?: boolean } = {},
+  over: { stored?: TaskDecisionsDto | null; allowed?: boolean } = {},
 ) =>
   new ReadTaskDecisionsHandler(
     {
@@ -59,7 +59,7 @@ const reading = (
             },
     } as unknown as DecisionAccess,
     {
-      ofTask: async () => (over.held === undefined ? HELD : over.held),
+      ofTask: async () => (over.stored === undefined ? STORED : over.stored),
     } as unknown as DecisionReaderPort,
     {
       find: async () => ({ name: 'Maya Chen', image: null }),
@@ -76,8 +76,8 @@ describe('reading a task’s decisions', () => {
     expect(found?.decisions.map((each) => each.id)).toEqual(['decision_1']);
   });
 
-  it('reads none where no run was drafted', async () => {
-    expect(await reading({ held: null })).toMatchObject({
+  it('reads none where no decisions were generated for a run', async () => {
+    expect(await reading({ stored: null })).toMatchObject({
       runId: null,
       decisions: [],
     });

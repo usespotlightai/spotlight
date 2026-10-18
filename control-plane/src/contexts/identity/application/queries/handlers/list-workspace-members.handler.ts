@@ -25,7 +25,7 @@ export class ListWorkspaceMembersHandler
         WorkspaceSlug.of(query.slug),
       );
 
-      if (!workspace?.holds(viewer)) {
+      if (!workspace?.hasMember(viewer)) {
         return null;
       }
 
@@ -39,8 +39,8 @@ export class ListWorkspaceMembersHandler
         role: member.role,
         teams: member.teams,
         joinedAt: member.joinedAt.toISOString(),
-        mayBeSetTo: workspace
-          .rolesGivableTo(UserId.of(member.id), viewer)
+        assignableRoles: workspace
+          .assignableRolesFor(UserId.of(member.id), viewer)
           .map((role) => role.value),
       }));
     } catch (error) {

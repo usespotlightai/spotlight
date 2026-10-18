@@ -1,11 +1,11 @@
-import type { OAuth2Holding } from '@integrations/application/ports/oauth2-linking.port';
+import type { ConnectionOwnerKind } from '@integrations/application/ports/oauth2-linking.port';
 
 export class BeginOAuth2ConnectionCommand {
   constructor(
     readonly teamId: string,
-    readonly source: string,
+    readonly integration: string,
     readonly viewerId: string,
-    readonly holder: OAuth2Holding,
-    readonly back: string | null,
+    readonly owner: ConnectionOwnerKind,
+    readonly returnTo: string | null,
   ) {}
 }

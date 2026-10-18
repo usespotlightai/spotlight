@@ -20,14 +20,14 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 let journal: DrizzleRunJournal;
 let reader: DrizzleRunJournalReader;
 
 beforeAll(async () => {
-  held = await openDatabase('run_journal_changes');
-  db = held.db;
+  database = await openDatabase('run_journal_changes');
+  db = database.db;
   journal = new DrizzleRunJournal(new DrizzleContext(db));
   reader = new DrizzleRunJournalReader(db, {
     mayView: async () => true,
@@ -35,7 +35,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 const API = Repository.of('acme/api');
@@ -46,14 +46,14 @@ const sent = (update: Record<string, unknown>): string =>
     'base64',
   );
 
-type Said =
+type Notification =
   | { call: string }
   | { edit: string; path: string }
   | { hook: string }
   | { chunk: string };
 
-const entries = (...said: Said[]): JournalEntry[] =>
-  said.map((each, index) => {
+const entries = (...notifications: Notification[]): JournalEntry[] =>
+  notifications.map((each, index) => {
     const at = new Date(Date.UTC(2026, 8, 27, 9, 0, index));
     const seq = index + 1;
 
@@ -162,7 +162,7 @@ describe('reading what a task’s runs changed', () => {
       RunAttempt.of(second, 1),
       entries(
         { call: 'call_1' },
-        { edit: 'call_1', path: '/runs/r2/api/src/abandoned.ts' },
+        { edit: 'call_1', path: '/runs/r2/api/src/unused.ts' },
       ),
     );
     await requeued(second, 2);

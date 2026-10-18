@@ -1,11 +1,11 @@
 import { WorkspaceInviteAccepted } from '@identity/domain/events/workspace-invite-accepted.event';
-import { WorkspaceInviteOffered } from '@identity/domain/events/workspace-invite-offered.event';
+import { WorkspaceInviteCreated } from '@identity/domain/events/workspace-invite-created.event';
 import { WorkspaceInviteRevoked } from '@identity/domain/events/workspace-invite-revoked.event';
-import { InviteClosedError } from '@identity/domain/exceptions/invite-closed.error';
+import { InviteNotPendingError } from '@identity/domain/exceptions/invite-not-pending.error';
 import { NotYourInviteError } from '@identity/domain/exceptions/not-your-invite.error';
 import type { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import type { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import type { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import type { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -16,19 +16,19 @@ const INVITE_LASTS_FOR_DAYS = 14;
 
 const DAY = 24 * 60 * 60 * 1000;
 
-export type InviteStatus = 'open' | 'accepted' | 'revoked' | 'expired';
+export type InviteStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
 
-const CLOSED_BECAUSE: Record<Exclude<InviteStatus, 'open'>, string> = {
+const NOT_PENDING_BECAUSE: Record<Exclude<InviteStatus, 'pending'>, string> = {
   accepted: 'has already been accepted',
   revoked: 'has been revoked',
-  expired: 'has expired. Please ask for a new one',
+  expired: 'has expired. Please request a new one',
 };
 
-interface Standing {
+interface State {
   readonly id: InviteId;
   readonly workspaceId: WorkspaceId;
   readonly email: EmailAddress;
-  readonly terms: InviteTerms;
+  readonly spec: InviteSpec;
   readonly tokenHash: TokenHash;
   readonly invitedBy: UserId | null;
   readonly invitedAt: Date;
@@ -39,11 +39,11 @@ interface Standing {
   readonly version: number;
 }
 
-export class WorkspaceInvite extends EventRecorder implements Standing {
+export class WorkspaceInvite extends EventRecorder implements State {
   readonly id: InviteId;
   readonly workspaceId: WorkspaceId;
   readonly email: EmailAddress;
-  readonly terms: InviteTerms;
+  readonly spec: InviteSpec;
   readonly tokenHash: TokenHash;
   readonly invitedBy: UserId | null;
   readonly invitedAt: Date;
@@ -53,36 +53,36 @@ export class WorkspaceInvite extends EventRecorder implements Standing {
   readonly revokedAt: Date | null;
   readonly version: number;
 
-  private constructor(standing: Standing) {
+  private constructor(state: State) {
     super();
-    this.id = standing.id;
-    this.workspaceId = standing.workspaceId;
-    this.email = standing.email;
-    this.terms = standing.terms;
-    this.tokenHash = standing.tokenHash;
-    this.invitedBy = standing.invitedBy;
-    this.invitedAt = standing.invitedAt;
-    this.expiresAt = standing.expiresAt;
-    this.acceptedAt = standing.acceptedAt;
-    this.acceptedBy = standing.acceptedBy;
-    this.revokedAt = standing.revokedAt;
-    this.version = standing.version;
+    this.id = state.id;
+    this.workspaceId = state.workspaceId;
+    this.email = state.email;
+    this.spec = state.spec;
+    this.tokenHash = state.tokenHash;
+    this.invitedBy = state.invitedBy;
+    this.invitedAt = state.invitedAt;
+    this.expiresAt = state.expiresAt;
+    this.acceptedAt = state.acceptedAt;
+    this.acceptedBy = state.acceptedBy;
+    this.revokedAt = state.revokedAt;
+    this.version = state.version;
   }
 
-  static offer(input: {
+  static create(input: {
     id: InviteId;
     workspaceId: WorkspaceId;
     email: EmailAddress;
-    terms: InviteTerms;
+    spec: InviteSpec;
     tokenHash: TokenHash;
     invitedBy: UserId;
     now: Date;
   }): WorkspaceInvite {
-    const offered = new WorkspaceInvite({
+    const created = new WorkspaceInvite({
       id: input.id,
       workspaceId: input.workspaceId,
       email: input.email,
-      terms: input.terms,
+      spec: input.spec,
       tokenHash: input.tokenHash,
       invitedBy: input.invitedBy,
       invitedAt: input.now,
@@ -93,61 +93,61 @@ export class WorkspaceInvite extends EventRecorder implements Standing {
       version: 0,
     });
 
-    offered.record(offered.offered(input.invitedBy, false));
+    created.record(created.createdEvent(input.invitedBy, false));
 
-    return offered;
+    return created;
   }
 
-  static offerTo(
-    open: WorkspaceInvite | null,
+  static createOrResend(
+    existing: WorkspaceInvite | null,
     input: {
       id: InviteId;
       workspaceId: WorkspaceId;
       email: EmailAddress;
-      terms: InviteTerms;
+      spec: InviteSpec;
       tokenHash: TokenHash;
       invitedBy: UserId;
       now: Date;
     },
-  ): { invite: WorkspaceInvite; again: boolean } {
-    if (open && !open.isClosedAt(input.now)) {
+  ): { invite: WorkspaceInvite; resent: boolean } {
+    if (existing && !existing.hasEndedAt(input.now)) {
       return {
-        invite: open.resend({
-          terms: input.terms,
+        invite: existing.resend({
+          spec: input.spec,
           tokenHash: input.tokenHash,
           by: input.invitedBy,
           now: input.now,
         }),
-        again: true,
+        resent: true,
       };
     }
 
-    return { invite: WorkspaceInvite.offer(input), again: false };
+    return { invite: WorkspaceInvite.create(input), resent: false };
   }
 
-  static standingOf(
-    held: {
+  static statusOf(
+    invite: {
       readonly acceptedAt: Date | null;
       readonly revokedAt: Date | null;
       readonly expiresAt: Date;
     },
     now: Date,
   ): InviteStatus {
-    if (held.acceptedAt) {
+    if (invite.acceptedAt) {
       return 'accepted';
     }
-    if (held.revokedAt) {
+    if (invite.revokedAt) {
       return 'revoked';
     }
 
-    return held.expiresAt <= now ? 'expired' : 'open';
+    return invite.expiresAt <= now ? 'expired' : 'pending';
   }
 
-  static rehydrate(input: Standing): WorkspaceInvite {
+  static rehydrate(input: State): WorkspaceInvite {
     if (!Number.isInteger(input.version) || input.version < 1) {
       throw new InconsistentStateError(
         'invite',
-        'was kept without ever being written',
+        'was stored without ever being written',
       );
     }
     if (input.acceptedBy && !input.acceptedAt) {
@@ -167,17 +167,17 @@ export class WorkspaceInvite extends EventRecorder implements Standing {
   }
 
   statusAt(now: Date): InviteStatus {
-    return WorkspaceInvite.standingOf(this, now);
+    return WorkspaceInvite.statusOf(this, now);
   }
 
-  isClosedAt(now: Date): boolean {
+  hasEndedAt(now: Date): boolean {
     const status = this.statusAt(now);
 
     return status === 'accepted' || status === 'revoked';
   }
 
   resend(input: {
-    terms: InviteTerms;
+    spec: InviteSpec;
     tokenHash: TokenHash;
     by: UserId;
     now: Date;
@@ -185,20 +185,20 @@ export class WorkspaceInvite extends EventRecorder implements Standing {
     const status = this.statusAt(input.now);
 
     if (status === 'accepted' || status === 'revoked') {
-      throw new InviteClosedError(CLOSED_BECAUSE[status]);
+      throw new InviteNotPendingError(NOT_PENDING_BECAUSE[status]);
     }
 
-    const again = this.with({
-      terms: input.terms,
+    const resent = this.with({
+      spec: input.spec,
       tokenHash: input.tokenHash,
       invitedBy: input.by,
       invitedAt: input.now,
       expiresAt: WorkspaceInvite.expiryFrom(input.now),
     });
 
-    again.record(again.offered(input.by, true));
+    resent.record(resent.createdEvent(input.by, true));
 
-    return again;
+    return resent;
   }
 
   acceptBySomeone(
@@ -208,8 +208,8 @@ export class WorkspaceInvite extends EventRecorder implements Standing {
   ): WorkspaceInvite {
     const status = this.statusAt(now);
 
-    if (status !== 'open') {
-      throw new InviteClosedError(CLOSED_BECAUSE[status]);
+    if (status !== 'pending') {
+      throw new InviteNotPendingError(NOT_PENDING_BECAUSE[status]);
     }
     if (!this.email.equals(signedInAs)) {
       throw new NotYourInviteError(this.email.value);
@@ -218,7 +218,7 @@ export class WorkspaceInvite extends EventRecorder implements Standing {
     const accepted = this.with({ acceptedAt: now, acceptedBy: who });
 
     accepted.record(
-      new WorkspaceInviteAccepted(this.id, this.workspaceId, this.terms, who),
+      new WorkspaceInviteAccepted(this.id, this.workspaceId, this.spec, who),
     );
 
     return accepted;
@@ -226,7 +226,7 @@ export class WorkspaceInvite extends EventRecorder implements Standing {
 
   revoke(by: UserId, now: Date): WorkspaceInvite {
     if (this.acceptedAt) {
-      throw new InviteClosedError(CLOSED_BECAUSE.accepted);
+      throw new InviteNotPendingError(NOT_PENDING_BECAUSE.accepted);
     }
     if (this.revokedAt) {
       return this;
@@ -241,31 +241,31 @@ export class WorkspaceInvite extends EventRecorder implements Standing {
     return revoked;
   }
 
-  private offered(by: UserId, again: boolean): WorkspaceInviteOffered {
-    return new WorkspaceInviteOffered(
+  private createdEvent(by: UserId, resent: boolean): WorkspaceInviteCreated {
+    return new WorkspaceInviteCreated(
       this.id,
       this.workspaceId,
       this.email,
-      this.terms,
+      this.spec,
       by,
-      again,
+      resent,
     );
   }
 
-  private with(over: Partial<Standing>): WorkspaceInvite {
-    const next = new WorkspaceInvite({ ...this.standing, ...over });
+  private with(over: Partial<State>): WorkspaceInvite {
+    const next = new WorkspaceInvite({ ...this.state, ...over });
 
     next.inheritEvents(this);
 
     return next;
   }
 
-  private get standing(): Standing {
+  private get state(): State {
     return {
       id: this.id,
       workspaceId: this.workspaceId,
       email: this.email,
-      terms: this.terms,
+      spec: this.spec,
       tokenHash: this.tokenHash,
       invitedBy: this.invitedBy,
       invitedAt: this.invitedAt,

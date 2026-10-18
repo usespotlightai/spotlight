@@ -1,14 +1,14 @@
 import type { ReplayCharge } from '@replays/domain/services/replay-charge';
+import type { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import type { ReplayEnd } from '@replays/domain/value-objects/replay-state';
-import type { Spend } from '@replays/domain/value-objects/spend.vo';
+import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export class SearchReplay {
   private constructor(
     readonly replayId: ReplayId,
-    readonly end: ReplayEnd | null,
-    readonly spent: Spend | null,
+    readonly end: ReplayStopReason | null,
+    readonly spent: Money | null,
     readonly unpriced: number,
   ) {}
 
@@ -18,8 +18,8 @@ export class SearchReplay {
 
   static rehydrate(input: {
     replayId: ReplayId;
-    end: ReplayEnd | null;
-    spent: Spend | null;
+    end: ReplayStopReason | null;
+    spent: Money | null;
     unpriced: number;
   }): SearchReplay {
     if ((input.end === null) !== (input.spent === null)) {
@@ -55,27 +55,27 @@ export class SearchReplay {
     return this.replayId.equals(replayId);
   }
 
-  endedAs(end: ReplayEnd, charge: ReplayCharge): SearchReplay {
+  endedAs(end: ReplayStopReason, charge: ReplayCharge): SearchReplay {
     return this.end === null
       ? new SearchReplay(this.replayId, end, charge.spent, charge.unpriced)
       : this.spentAs(charge);
   }
 
   spentAs(charge: ReplayCharge): SearchReplay {
-    const held = this.spent;
+    const recorded = this.spent;
 
     if (
       this.end === null ||
-      held === null ||
-      !held.sameCurrencyAs(charge.spent)
+      recorded === null ||
+      !recorded.sameCurrencyAs(charge.spent)
     ) {
       return this;
     }
 
-    const spent = charge.spent.isWithin(held) ? held : charge.spent;
+    const spent = charge.spent.isWithin(recorded) ? recorded : charge.spent;
     const unpriced = Math.max(this.unpriced, charge.unpriced);
 
-    return spent === held && unpriced === this.unpriced
+    return spent === recorded && unpriced === this.unpriced
       ? this
       : new SearchReplay(this.replayId, this.end, spent, unpriced);
   }

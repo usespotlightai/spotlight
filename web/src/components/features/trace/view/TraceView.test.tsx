@@ -15,7 +15,12 @@ const scores = vi.fn();
 
 vi.mock('@/hooks/api/useRunNetwork', () => ({
   useRunNetwork: () => ({
-    data: { runId: 'run_1', attempt: 1, egress: null, connections: [] },
+    data: {
+      runId: 'run_1',
+      attempt: 1,
+      egressEnforcement: null,
+      connections: [],
+    },
     isPending: false,
     isFetching: false,
     errorUpdateCount: 0,
@@ -43,8 +48,8 @@ const step = (
   detail: null,
   ms: 1_000,
   locations: [],
-  given: null,
-  returned: null,
+  input: null,
+  output: null,
   change: null,
   ...part,
 });
@@ -55,13 +60,13 @@ const node = (
   kind: 'step',
   startedAt: iso(0),
   ms: 1_000,
-  tone: 'agent',
+  category: 'agent',
   cost: null,
   currency: null,
   step: null,
   span: null,
   connection: null,
-  egress: null,
+  egressEnforcement: null,
   children: [],
   ...part,
 });
@@ -70,7 +75,7 @@ const trace = (): Trace => ({
   startedAt: iso(0),
   ms: 60_000,
   rows: 8,
-  faults: 1,
+  errors: 1,
   roots: [
     node({
       id: 'run:run_1',
@@ -84,13 +89,13 @@ const trace = (): Trace => ({
           id: 'run_1:prepare',
           name: 'Prepare',
           kind: 'phase',
-          tone: 'overhead',
+          category: 'overhead',
           ms: 10_000,
           children: [
             node({
               id: 'run_1:step:0',
               name: 'prepare',
-              tone: 'overhead',
+              category: 'overhead',
               startedAt: iso(1_000),
               ms: 8_000,
               step: step({
@@ -112,7 +117,7 @@ const trace = (): Trace => ({
             node({
               id: 'run_1:step:1',
               name: 'npm test',
-              tone: 'failed',
+              category: 'failed',
               startedAt: iso(20_000),
               ms: 5_000,
               step: step({
@@ -145,11 +150,11 @@ const trace = (): Trace => ({
             }),
             node({
               id: 'run_1:step:2',
-              name: 'Said',
+              name: 'Message',
               startedAt: iso(35_000),
               ms: 400,
               step: step({
-                kind: 'said',
+                kind: 'message',
                 text: 'vitest is missing from the image',
                 startedAt: iso(35_000),
                 ms: 400,
@@ -161,7 +166,7 @@ const trace = (): Trace => ({
           id: 'run_1:publish',
           name: 'Publish',
           kind: 'phase',
-          tone: 'overhead',
+          category: 'overhead',
           startedAt: iso(50_000),
           ms: 10_000,
         }),
@@ -188,7 +193,7 @@ describe('TraceView', () => {
       expect.stringContaining('Turn · claude-code'),
       expect.stringContaining('npm test'),
       expect.stringContaining('llm_request'),
-      expect.stringContaining('Said'),
+      expect.stringContaining('Message'),
       expect.stringContaining('Publish'),
     ]);
   });
@@ -239,11 +244,11 @@ describe('TraceView', () => {
     expect(screen.getByText('"0.7"')).toBeInTheDocument();
   });
 
-  it('shows what was said, where the row only says that it spoke', async () => {
+  it('shows the message, where the row shows only the step kind', async () => {
     const user = userEvent.setup();
     view();
 
-    await user.click(screen.getByRole('button', { name: 'Said' }));
+    await user.click(screen.getByRole('button', { name: 'Message' }));
 
     expect(
       screen.getByText('vitest is missing from the image'),
@@ -292,14 +297,14 @@ describe('TraceView', () => {
       startedAt: iso(0),
       ms: 60_000,
       rows: 3,
-      faults: 1,
+      errors: 1,
       roots: [
         node({
           id: 'run:run_1',
           name: 'Implementation',
           kind: 'run',
           ms: 60_000,
-          egress: 'not-enforced',
+          egressEnforcement: 'not-enforced',
           children: [
             node({
               id: 'run_1:step:0',
@@ -311,7 +316,7 @@ describe('TraceView', () => {
                   id: 'run_1:connection:0',
                   name: 'paste.example.net',
                   kind: 'connection',
-                  tone: 'failed',
+                  category: 'failed',
                   startedAt: iso(21_000),
                   ms: 1_000,
                   connection: {
@@ -320,25 +325,25 @@ describe('TraceView', () => {
                     outcome: 'blocked',
                     status: null,
                     reason: 'not-allowed',
-                    trouble: 'blocked',
-                    times: 3,
+                    error: 'blocked',
+                    count: 3,
                   },
                 }),
                 node({
                   id: 'run_1:connection:1',
                   name: 'mcp.linear.app',
                   kind: 'connection',
-                  tone: 'failed',
+                  category: 'failed',
                   startedAt: iso(22_000),
                   ms: 200,
                   connection: {
                     host: 'mcp.linear.app',
                     port: 443,
-                    outcome: 'forwarded',
+                    outcome: 'injected',
                     status: 401,
                     reason: null,
-                    trouble: 'refused',
-                    times: 1,
+                    error: 'auth-failed',
+                    count: 1,
                   },
                 }),
               ],
@@ -353,7 +358,7 @@ describe('TraceView', () => {
       return render(<TraceView trace={blocked()} teamId="team_1" />);
     };
 
-    it('draws a connection that went wrong under its step as a failure, with how often', () => {
+    it('draws a connection with an error under its step as a failure, with its count', () => {
       viewNetwork();
 
       const [, , paste, linear] = rows();
@@ -371,7 +376,7 @@ describe('TraceView', () => {
       expect(rows()[0]).toHaveTextContent('Egress not enforced');
     });
 
-    it('says why a connection went wrong when it is picked', async () => {
+    it('gives the cause of a connection error when it is picked', async () => {
       const user = userEvent.setup();
       viewNetwork();
 
@@ -379,17 +384,17 @@ describe('TraceView', () => {
 
       expect(screen.getByText('Cause')).toBeInTheDocument();
       expect(
-        screen.getByText(/refused the request with status 401/),
+        screen.getByText(/did not accept the request\. Status: 401/),
       ).toBeInTheDocument();
     });
   });
 
-  it('folds a row away', async () => {
+  it('collapses a row', async () => {
     const user = userEvent.setup();
     view();
 
     await user.click(
-      screen.getByRole('button', { name: 'Fold Turn · claude-code' }),
+      screen.getByRole('button', { name: 'Collapse Turn · claude-code' }),
     );
 
     expect(rows().map((row) => row.textContent)).toEqual([

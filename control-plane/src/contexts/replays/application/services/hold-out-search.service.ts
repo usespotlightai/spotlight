@@ -10,7 +10,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class HoldOutSearch {
   constructor(
@@ -24,7 +24,7 @@ export class HoldOutSearch {
     private readonly healths: SetHealths,
   ) {}
 
-  async wanted(searchId: SearchId): Promise<void> {
+  async requested(searchId: SearchId): Promise<void> {
     const seen = await this.searches.find(searchId);
 
     if (!seen?.wantsHoldingOut) {
@@ -48,16 +48,16 @@ export class HoldOutSearch {
         return;
       }
 
-      const held = search.heldOutFrom(
+      const heldOutSearch = search.heldOutFrom(
         await this.replays.ofSearch(search.id),
         minGain,
         () => ReplayId.of(this.ids.generate()),
         at,
       );
       const candidates = await this.candidates.findMany(
-        held.heldOut.map((each) => each.candidateId),
+        heldOutSearch.heldOut.map((each) => each.candidateId),
       );
-      const starting = held.heldOut.map((each) => {
+      const starting = heldOutSearch.heldOut.map((each) => {
         const candidate = candidates.find((one) =>
           one.id.equals(each.candidateId),
         );
@@ -79,19 +79,19 @@ export class HoldOutSearch {
             set,
             candidate,
             baseline: false,
-            ceiling: search.allotment.heldOutReplay,
-            unpricedRate: search.allotment.perRun,
+            ceiling: search.ceilingSplit.heldOutReplay,
+            unpricedRate: search.ceilingSplit.perRun,
             at,
-            by: Attribution.spotlight(search.workspaceId),
-            among: search.split.heldOutRuns,
+            by: ChangeActor.spotlight(search.workspaceId),
+            runSubset: search.split.heldOutRuns,
             repeats: search.budget.repeats,
             searchId: search.id,
-            pairsWith: search.seed.replay.replayId,
+            pairwiseReferenceId: search.seed.replay.replayId,
           }),
         );
       }
 
-      await this.searches.save(held);
+      await this.searches.save(heldOutSearch);
     });
   }
 }

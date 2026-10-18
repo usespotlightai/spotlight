@@ -8,12 +8,12 @@ import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo'
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
+import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-export class DispatchReplayRuns implements OwedWorkPort {
+export class DispatchReplayRuns implements PendingJobsPort {
   readonly name = 'Dispatching replay runs';
 
   constructor(
@@ -27,7 +27,7 @@ export class DispatchReplayRuns implements OwedWorkPort {
     private readonly logger: LoggerPort,
   ) {}
 
-  async workDue(): Promise<void> {
+  async processDue(): Promise<void> {
     for (const team of await this.replays.teamsDispatching()) {
       await this.reserveFor(team).catch((error: unknown) =>
         this.logger.warn(
@@ -48,12 +48,12 @@ export class DispatchReplayRuns implements OwedWorkPort {
 
   private reserveFor(team: TeamId): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      const underway = await this.replays.underwayOfTeamLocked(team);
+      const inProgress = await this.replays.inProgressOfTeamLocked(team);
       const searches = await this.searches.findMany(
-        underway.flatMap((each) => (each.searchId ? [each.searchId] : [])),
+        inProgress.flatMap((each) => (each.searchId ? [each.searchId] : [])),
       );
       const changed = dispatchedInTurn(
-        underway,
+        inProgress,
         () => RunId.of(this.ids.generate()),
         (searchId) =>
           searches.find((each) => each.id.equals(searchId) && each.isActive)
@@ -68,11 +68,11 @@ export class DispatchReplayRuns implements OwedWorkPort {
 
   private resolve(replay: Replay, entry: ReplayEntry): Promise<void> {
     if (!replay.isDispatching) {
-      return this.forgo(replay, entry, false);
+      return this.cancel(replay, entry, false);
     }
 
-    return entry.isGivenUp
-      ? this.forgo(replay, entry, true)
+    return entry.isExhausted
+      ? this.cancel(replay, entry, true)
       : this.queue(replay, entry);
   }
 
@@ -85,8 +85,8 @@ export class DispatchReplayRuns implements OwedWorkPort {
     }
 
     if (!candidate) {
-      return this.forgo(replay, entry, false, (fresh, now) =>
-        fresh.refused(run, 'candidate-unfit', now),
+      return this.cancel(replay, entry, false, (fresh, now) =>
+        fresh.unreplayable(run, 'candidate-unfit', now),
       );
     }
 
@@ -101,21 +101,21 @@ export class DispatchReplayRuns implements OwedWorkPort {
       answer: replay.answerTo(entry.original),
     });
 
-    const held = await this.changed(replay, (fresh, now) =>
+    const updated = await this.changed(replay, (fresh, now) =>
       queued.queued
         ? fresh.confirm(run, queued.fingerprint, now)
-        : fresh.refused(run, queued.refusal, now),
+        : fresh.unreplayable(run, queued.unreplayableReason, now),
     );
 
-    if (queued.queued && held && !held.isDispatching) {
-      await this.work.forgo(run, false);
+    if (queued.queued && updated && !updated.isDispatching) {
+      await this.work.cancel(run, false);
     }
   }
 
-  private async forgo(
+  private async cancel(
     replay: Replay,
     entry: ReplayEntry,
-    keep: boolean,
+    leaveRunAsIs: boolean,
     neverQueued?: (fresh: Replay, now: Date) => Replay,
   ): Promise<void> {
     const run = entry.run;
@@ -124,17 +124,17 @@ export class DispatchReplayRuns implements OwedWorkPort {
       return;
     }
 
-    const forgone = await this.work.forgo(run, keep);
+    const cancelled = await this.work.cancel(run, leaveRunAsIs);
 
     await this.changed(replay, (fresh, now) => {
-      if (forgone.queued) {
-        return fresh.confirm(run, forgone.fingerprint, now);
+      if (cancelled.queued) {
+        return fresh.confirm(run, cancelled.fingerprint, now);
       }
       if (neverQueued) {
         return neverQueued(fresh, now);
       }
 
-      return keep ? fresh.gaveUp(run, now) : fresh.forgo(run, now);
+      return leaveRunAsIs ? fresh.exhaust(run, now) : fresh.cancel(run, now);
     });
   }
 

@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 const definitions = new IdentityDefinitions();
 
-const refusedAt = (
+const invalidAt = (
   compiled: ParsedWorkspace | ParsedTeam | ParsedWorkspaceToken,
 ): (string | undefined)[] =>
   compiled.ok ? [] : compiled.problems.map((each) => dottedOf(each.field));
@@ -26,13 +26,13 @@ describe('IdentityDefinitions', () => {
 
   it('points at each workspace field it cannot read', () => {
     expect(
-      refusedAt(definitions.workspace({ name: '', slug: 'Acme Inc' })),
+      invalidAt(definitions.workspace({ name: '', slug: 'Acme Inc' })),
     ).toEqual(['name', 'slug']);
   });
 
-  it('refuses a slug that is not written the way it is kept', () => {
+  it('rejects a slug that is not written the way it is stored', () => {
     expect(
-      refusedAt(definitions.workspace({ name: 'Acme', slug: 'ACME' })),
+      invalidAt(definitions.workspace({ name: 'Acme', slug: 'ACME' })),
     ).toEqual(['slug']);
   });
 
@@ -47,11 +47,11 @@ describe('IdentityDefinitions', () => {
 
   it('points at the team key when it is not lowercase words', () => {
     expect(
-      refusedAt(definitions.team({ key: 'Core Team', name: 'Core' })),
+      invalidAt(definitions.team({ key: 'Core Team', name: 'Core' })),
     ).toEqual(['key']);
   });
 
-  it('reads a workspace token as its terms, never expiring and undescribed unless told', () => {
+  it('reads a workspace token as its settings, never expiring and undescribed unless told', () => {
     const compiled = definitions.workspaceToken({
       name: 'ci',
       scopes: ['plan'],
@@ -59,10 +59,10 @@ describe('IdentityDefinitions', () => {
 
     expect(
       compiled.ok && [
-        compiled.terms.name.value,
-        compiled.terms.scopes.toString(),
-        compiled.terms.description.value,
-        compiled.terms.expiresAt,
+        compiled.spec.name.value,
+        compiled.spec.scopes.toString(),
+        compiled.spec.description.value,
+        compiled.spec.expiresAt,
       ],
     ).toEqual(['ci', 'plan', '', null]);
   });
@@ -74,14 +74,14 @@ describe('IdentityDefinitions', () => {
       expiresAt: '2026-12-31T23:59:59Z',
     });
 
-    expect(compiled.ok && compiled.terms.expiresAt?.toISOString()).toBe(
+    expect(compiled.ok && compiled.spec.expiresAt?.toISOString()).toBe(
       '2026-12-31T23:59:59.000Z',
     );
   });
 
   it('points at each workspace token field it cannot read', () => {
     expect(
-      refusedAt(
+      invalidAt(
         definitions.workspaceToken({
           name: 'CI token',
           scopes: ['plan', 'apply'],
@@ -97,7 +97,7 @@ describe('IdentityDefinitions', () => {
     [['trusts'], /need one of them/],
     [['plan', 'plan'], /each scope once/],
     [[], /need one of them/],
-  ])('refuses a token whose scopes are %j', (scopes, reason) => {
+  ])('rejects a token whose scopes are %j', (scopes, reason) => {
     const compiled = definitions.workspaceToken({ name: 'ci', scopes });
 
     expect(

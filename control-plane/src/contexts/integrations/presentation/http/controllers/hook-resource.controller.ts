@@ -15,14 +15,14 @@ import { CurrentPrincipal } from '@platform/http/decorators/current-principal.de
 import type { ResourceList } from '@platform/http/dto/resource-list.response.dto';
 import { IdempotencyKeyHeader } from '@platform/http/resources/idempotency-key.decorator';
 import { IfMatch } from '@platform/http/resources/if-match.decorator';
-import {
-  answerCreated,
-  answerDeleted,
-  answerUpdated,
-  found,
-  listed,
-} from '@platform/http/resources/resource-answers';
 import { resourceApi } from '@platform/http/resources/resource-api';
+import {
+  respondCreated,
+  respondDeleted,
+  respondFound,
+  respondListed,
+  respondUpdated,
+} from '@platform/http/resources/resource-responses';
 import type {
   ResourceCreated,
   ResourceDeleted,
@@ -72,12 +72,12 @@ export class HookResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<HookResourceResponseDto> {
-    return answerCreated(
+    return respondCreated(
       KIND,
       await this.commandBus.execute<CreateHookCommand, ResourceCreated | null>(
         new CreateHookCommand(teamId, actor, key, body),
       ),
-      (id) => this.answer(id, actor.principal),
+      (id) => this.toResponse(id, actor.principal),
     );
   }
 
@@ -87,7 +87,7 @@ export class HookResourceController {
     @Param('id') id: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<HookResourceResponseDto> {
-    return this.answer(id, principal);
+    return this.toResponse(id, principal);
   }
 
   @HookResource.Update('hooks/:id', 'Replace a hook’s definition')
@@ -99,12 +99,12 @@ export class HookResourceController {
     @Body() body: unknown,
     @CurrentActor() actor: Actor,
   ): Promise<HookResourceResponseDto> {
-    return answerUpdated(
+    return respondUpdated(
       KIND,
       await this.commandBus.execute<UpdateHookCommand, ResourceUpdated | null>(
         new UpdateHookCommand(id, actor, version, body),
       ),
-      (updated) => this.answer(updated, actor.principal),
+      (updated) => this.toResponse(updated, actor.principal),
     );
   }
 
@@ -115,7 +115,7 @@ export class HookResourceController {
     @IfMatch() version: number,
     @CurrentActor() actor: Actor,
   ): Promise<void> {
-    answerDeleted(
+    respondDeleted(
       KIND,
       await this.commandBus.execute<DeleteHookCommand, ResourceDeleted | null>(
         new DeleteHookCommand(id, actor, version),
@@ -133,7 +133,7 @@ export class HookResourceController {
     @Query('address') address: string | undefined,
     @CurrentPrincipal() principal: Principal,
   ): Promise<HookResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<ImportHookQuery, HookResourceDto | null>(
         new ImportHookQuery(workspaceId, address ?? '', principal),
@@ -151,7 +151,7 @@ export class HookResourceController {
     @Param('workspaceId') workspaceId: string,
     @CurrentPrincipal() principal: Principal,
   ): Promise<ResourceList<HookResourceResponseDto>> {
-    return listed(
+    return respondListed(
       await this.queryBus.execute<
         ListHookResourcesQuery,
         readonly HookResourceDto[] | null
@@ -160,11 +160,11 @@ export class HookResourceController {
     );
   }
 
-  private async answer(
+  private async toResponse(
     id: string,
     principal: Principal,
   ): Promise<HookResourceResponseDto> {
-    return found(
+    return respondFound(
       KIND,
       await this.queryBus.execute<ReadHookQuery, HookResourceDto | null>(
         new ReadHookQuery(id, principal),

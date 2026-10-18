@@ -8,13 +8,13 @@ import { PeopleSkeleton } from '@/components/features/insights/PeopleSkeleton';
 import { PeopleTable } from '@/components/features/insights/PeopleTable';
 import { useInsightsPeople } from '@/hooks/api/useInsightsPeople';
 import {
-  changeDelta,
   formatCount,
+  formatDuration,
+  formatDurationOrNone,
   formatPer,
   formatShare,
   type InsightsPeriod,
-  lasted,
-  lastedOrNone,
+  shownDeltaOf,
   tasksFilter,
 } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
@@ -37,7 +37,7 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
   }
 
   const { load, loadChanges, adoption } = people.data;
-  const refused = tasksFilter(load.refusedTaskIds);
+  const dismissed = tasksFilter(load.dismissedTaskIds);
 
   if (load.tasks === 0 && adoption.activeCount === 0) {
     return (
@@ -52,54 +52,54 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
     <div className="flex flex-col gap-3">
       <InsightsSection
         title="What the work asks of people"
-        note={`Tasks worked this period: ${formatCount(load.tasks)}`}
+        tooltip={`Tasks worked this period: ${formatCount(load.tasks)}`}
       >
         <InsightsTiles label="Human load">
           <InsightsTile
             label="Inbox asks per task"
             value={formatPer(load.asksPerTask)}
             detail={`${formatCount(load.asks)} asks`}
-            delta={changeDelta(loadChanges.asksPerTask)}
+            delta={shownDeltaOf(loadChanges.asksPerTask)}
             drill={{ tab: 'runs', filter: { asked: 'true' } }}
           />
           <InsightsTile
             label="Time to answer"
-            value={lastedOrNone(load.toAnswer.p50Ms)}
+            value={formatDurationOrNone(load.toAnswer.p50Ms)}
             detail={[
               ...(load.toAnswer.p90Ms === null
                 ? []
-                : [`p90 ${lasted(load.toAnswer.p90Ms)}`]),
+                : [`p90 ${formatDuration(load.toAnswer.p90Ms)}`]),
               `${formatCount(load.unanswered)} unanswered`,
             ].join(' · ')}
-            delta={changeDelta(loadChanges.toAnswer)}
+            delta={shownDeltaOf(loadChanges.toAnswer)}
             drill={{ tab: 'runs', filter: { asked: 'true' } }}
           />
           <InsightsTile
             label="Sent-back rate"
             value={formatShare(load.sentBackRate)}
             detail={`${formatCount(load.sentBack)} runs sent back`}
-            delta={changeDelta(loadChanges.sentBackRate)}
-            drill={{ tab: 'runs', filter: { next: 'sent-back' } }}
+            delta={shownDeltaOf(loadChanges.sentBackRate)}
+            drill={{ tab: 'runs', filter: { humanAction: 'sent-back' } }}
           />
           <InsightsTile
-            label="Refused approvals"
-            value={formatCount(load.refused)}
+            label="Dismissed approvals"
+            value={formatCount(load.dismissed)}
             detail="Tool approvals and permissions"
-            delta={changeDelta(loadChanges.refused)}
-            drill={refused ? { tab: 'runs', filter: refused } : undefined}
+            delta={shownDeltaOf(loadChanges.dismissed)}
+            drill={dismissed ? { tab: 'runs', filter: dismissed } : undefined}
           />
         </InsightsTiles>
       </InsightsSection>
 
       <InsightsSection
         title="Who is using Spotlight"
-        note="Weekly and monthly always count the last 7 and 30 days."
+        tooltip="Weekly and monthly always count the last 7 and 30 days."
       >
         <InsightsTiles label="Adoption">
           <InsightsTile
             label="Active people"
             value={formatCount(adoption.activeCount)}
-            delta={changeDelta(adoption.activeChange)}
+            delta={shownDeltaOf(adoption.activeChange)}
           />
           <InsightsTile
             label="New adopters"

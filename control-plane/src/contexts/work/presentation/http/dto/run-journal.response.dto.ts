@@ -18,7 +18,7 @@ export class StepChangeResponseDto {
   @ApiProperty({ nullable: true, type: String })
   readonly path: string | null;
 
-  @ApiProperty({ description: 'The file as it stood' })
+  @ApiProperty({ description: 'The file before the agent changed it' })
   readonly before: string;
 
   @ApiProperty({ description: 'The file as the agent left it' })
@@ -72,16 +72,16 @@ export class JournalStepResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    description: 'What the tool was asked for, as it was asked',
+    description: 'The input of the call, as it was sent',
   })
-  readonly given: string | null;
+  readonly input: string | null;
 
   @ApiProperty({
     nullable: true,
     type: String,
-    description: 'What it handed back, unread',
+    description: 'The output of the call, unread',
   })
-  readonly returned: string | null;
+  readonly output: string | null;
 
   @ApiProperty({ type: StepChangeResponseDto, nullable: true })
   readonly change: StepChangeResponseDto | null;
@@ -95,8 +95,8 @@ export class JournalStepResponseDto {
     ms: number,
     startedAt: string,
     locations: readonly StepLocationResponseDto[],
-    given: string | null,
-    returned: string | null,
+    input: string | null,
+    output: string | null,
     change: StepChangeResponseDto | null,
   ) {
     this.kind = kind;
@@ -107,8 +107,8 @@ export class JournalStepResponseDto {
     this.ms = ms;
     this.startedAt = startedAt;
     this.locations = locations;
-    this.given = given;
-    this.returned = returned;
+    this.input = input;
+    this.output = output;
     this.change = change;
   }
 }
@@ -179,10 +179,10 @@ export class RunMarksResponseDto {
   readonly readyAt: string | null;
 
   @ApiProperty({ nullable: true, type: String })
-  readonly spokeFrom: string | null;
+  readonly firstAgentUpdateAt: string | null;
 
   @ApiProperty({ nullable: true, type: String })
-  readonly spokeTo: string | null;
+  readonly lastAgentUpdateAt: string | null;
 
   @ApiProperty({ nullable: true, type: String })
   readonly endedAt: string | null;
@@ -190,20 +190,20 @@ export class RunMarksResponseDto {
   constructor(
     startedAt: string | null,
     readyAt: string | null,
-    spokeFrom: string | null,
-    spokeTo: string | null,
+    firstAgentUpdateAt: string | null,
+    lastAgentUpdateAt: string | null,
     endedAt: string | null,
   ) {
     this.startedAt = startedAt;
     this.readyAt = readyAt;
-    this.spokeFrom = spokeFrom;
-    this.spokeTo = spokeTo;
+    this.firstAgentUpdateAt = firstAgentUpdateAt;
+    this.lastAgentUpdateAt = lastAgentUpdateAt;
     this.endedAt = endedAt;
   }
 }
 
 export class RunSpentResponseDto {
-  @ApiProperty({ example: 12173, description: 'Tokens held in context' })
+  @ApiProperty({ example: 12173, description: 'Tokens in context' })
   readonly used: number;
 
   @ApiProperty({ example: 200000, description: 'How large the context is' })
@@ -249,7 +249,7 @@ export class RunJournalResponseDto {
     example: 56000,
     nullable: true,
     type: Number,
-    description: 'How long the run spoke for, in ms',
+    description: 'How long the agent was active, in ms',
   })
   readonly ms: number | null;
 

@@ -3,7 +3,7 @@ import type { ContentHash } from '@integrations/domain/value-objects/content-has
 export class ToolBacking {
   private constructor(
     readonly action: string | null,
-    readonly described: {
+    readonly spec: {
       readonly hash: ContentHash;
       readonly operation: string;
     } | null,
@@ -18,16 +18,16 @@ export class ToolBacking {
   }
 
   get isGenerated(): boolean {
-    return this.described !== null;
+    return this.spec !== null;
   }
 
   equals(other: ToolBacking): boolean {
     return (
       this.action === other.action &&
-      this.described?.operation === other.described?.operation &&
-      (this.described === null ||
-        other.described === null ||
-        this.described.hash.equals(other.described.hash))
+      this.spec?.operation === other.spec?.operation &&
+      (this.spec === null ||
+        other.spec === null ||
+        this.spec.hash.equals(other.spec.hash))
     );
   }
 }

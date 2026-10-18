@@ -8,9 +8,9 @@ import type {
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
-const LOOKING: PullRequestReaction = 'eyes';
+const REVIEWING_REACTION: PullRequestReaction = 'eyes';
 
-// Deliveries retry out of order. Each one asks what holds the task now and does not trust the order in which it heard them.
+// Deliveries retry out of order. Each one reads the current run of the task again. It does not trust the order in which it received them.
 export class SignalReviewing {
   constructor(
     private readonly work: WorkPort,
@@ -21,8 +21,8 @@ export class SignalReviewing {
   async began(taskId: TaskId, runId: RunId): Promise<void> {
     const reviewed = await this.reviewing(taskId);
 
-    if (reviewed?.heldBy?.equals(runId) && (await this.stillGoing(runId))) {
-      await this.reactions.react(reviewed.on, LOOKING);
+    if (reviewed?.currentRun?.equals(runId) && (await this.stillGoing(runId))) {
+      await this.reactions.react(reviewed.on, REVIEWING_REACTION);
     }
   }
 
@@ -33,13 +33,13 @@ export class SignalReviewing {
       return;
     }
 
-    const next = reviewed.heldBy;
+    const next = reviewed.currentRun;
 
     if (next && !next.equals(runId) && (await this.stillGoing(next))) {
       return;
     }
 
-    await this.reactions.withdraw(reviewed.on, LOOKING);
+    await this.reactions.remove(reviewed.on, REVIEWING_REACTION);
   }
 
   private async stillGoing(runId: RunId): Promise<boolean> {
@@ -50,7 +50,7 @@ export class SignalReviewing {
 
   private async reviewing(
     taskId: TaskId,
-  ): Promise<{ on: ReactedTo; heldBy: RunId | null } | null> {
+  ): Promise<{ on: ReactedTo; currentRun: RunId | null } | null> {
     const task = await this.work.task(taskId);
 
     if (
@@ -63,7 +63,7 @@ export class SignalReviewing {
 
     return {
       on: { workspaceId: task.workspaceId, pullRequest: task.pullRequest },
-      heldBy: task.currentRunId,
+      currentRun: task.currentRunId,
     };
   }
 }

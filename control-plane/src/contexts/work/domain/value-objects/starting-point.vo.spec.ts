@@ -16,13 +16,13 @@ describe('StartedCheckout', () => {
     expect(checkout(' api ').parts).toEqual({ path: 'api', commit: COMMIT });
   });
 
-  it('refuses a short, upper-case or missing commit', () => {
+  it('rejects a short, upper-case or missing commit', () => {
     for (const commit of [COMMIT.slice(0, 12), COMMIT.toUpperCase(), '']) {
       expect(() => checkout('api', commit)).toThrow(InvalidStartingPointError);
     }
   });
 
-  it('refuses a checkout with no path', () => {
+  it('rejects a checkout with no path', () => {
     expect(() => checkout('  ')).toThrow(InvalidStartingPointError);
   });
 });
@@ -36,14 +36,14 @@ describe('StartingPoint', () => {
       at: AT,
     });
 
-  it('holds its checkouts in path order, whatever order they were told in', () => {
+  it('keeps its checkouts in path order, whatever order they were told in', () => {
     expect(point(checkout('web'), checkout('api')).paths).toEqual([
       'api',
       'web',
     ]);
   });
 
-  it('refuses the same checkout named twice', () => {
+  it('rejects the same checkout named twice', () => {
     expect(() => point(checkout('api'), checkout('api'))).toThrow(
       InvalidStartingPointError,
     );
@@ -72,7 +72,7 @@ describe('StartingPoint', () => {
     expect(StartingPoint.rehydrate(recorded.parts).equals(recorded)).toBe(true);
   });
 
-  it('takes a stored start that no longer reads for a fault in what was kept, not in what was told', () => {
+  it('takes a stored start that no longer reads for a fault in what was stored, not in what was told', () => {
     const recorded = point(checkout('api')).parts;
 
     for (const corrupt of [

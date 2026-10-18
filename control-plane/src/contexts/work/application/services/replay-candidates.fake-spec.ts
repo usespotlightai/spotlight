@@ -37,7 +37,7 @@ export const candidateOf = (
     judge: current.judge,
     alerts: current.alerts,
     kind: current.kind,
-    wayOut: current.wayOut,
+    routes: current.routes,
     tools: current.tools,
     skills: current.skills,
     ...changed,

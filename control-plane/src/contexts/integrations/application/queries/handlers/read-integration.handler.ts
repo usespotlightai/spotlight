@@ -20,19 +20,19 @@ export class ReadIntegrationHandler
     query: ReadIntegrationQuery,
   ): Promise<IntegrationResourceDto | null> {
     try {
-      const kept = await this.resources.withId(query.integrationId);
+      const record = await this.resources.withId(query.integrationId);
 
       if (
-        !kept ||
+        !record ||
         !(await this.access.permissionsOnTeam(
-          kept.teamId.value,
+          record.teamId.value,
           query.principal,
         ))
       ) {
         return null;
       }
 
-      return this.views.of(kept);
+      return this.views.of(record);
     } catch (error) {
       rethrowAsApplicationError(error);
     }

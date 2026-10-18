@@ -3,9 +3,9 @@ import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { TokenActions } from '@/components/features/tokens/TokenActions';
 import { RowIcon } from '@/components/shared/RowIcon';
 import {
-  createdTold,
-  expiryTold,
-  scopesTold,
+  describeCreated,
+  describeExpiry,
+  describeScopes,
   type WorkspaceToken,
 } from '@/lib/token';
 
@@ -21,9 +21,9 @@ export function TokenRow({ token, onRevoke }: TokenRowProps) {
         label={token.name}
         leading={<RowIcon icon={KeyRound} />}
         description={[
-          createdTold(token.issuedAt),
-          expiryTold(token.expiresAt),
-          scopesTold(token.scopes),
+          describeCreated(token.issuedAt),
+          describeExpiry(token.expiresAt),
+          describeScopes(token.scopes),
         ].join(' · ')}
       >
         <TokenActions name={token.name} onRevoke={onRevoke} />

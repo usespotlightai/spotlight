@@ -19,5 +19,5 @@ export interface SearchNotice {
 }
 
 export interface SearchNoticesPort {
-  told(notice: SearchNotice): Promise<void>;
+  notify(notice: SearchNotice): Promise<void>;
 }

@@ -24,7 +24,7 @@ export class ReplayedRunResponseDto {
     type: String,
     example: 'Drain the retry queue on restart',
     description:
-      'The title of the task it worked, as it reads now; null once the task is deleted',
+      'The title of the task of the run, as it reads now; null once the task is deleted',
   })
   readonly title: string | null;
 
@@ -48,12 +48,13 @@ export class ReplayRunResponseDto extends TaskRunResponseDto {
   @ApiProperty({
     type: RunJournalResponseDto,
     isArray: true,
-    description: 'What it did and said, attempt by attempt',
+    description: 'What it did and wrote, attempt by attempt',
   })
   readonly journals: RunJournalResponseDto[];
 
   @ApiProperty({
-    description: 'What the replay told its agent when it was dispatched',
+    description:
+      'The briefing that the replay sent to its agent when it was dispatched',
   })
   readonly briefing: string;
 
@@ -66,7 +67,7 @@ export class ReplayRunResponseDto extends TaskRunResponseDto {
   @ApiProperty({
     type: String,
     isArray: true,
-    description: 'The repositories the replay was given',
+    description: 'The repositories of the replay',
   })
   readonly repositories: readonly string[];
 

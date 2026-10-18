@@ -18,10 +18,10 @@ import { StackProgress } from '@change-review/domain/value-objects/stack-progres
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import {
-  MAX_WORK_ATTEMPTS,
-  WORK_BACKOFF_MS,
-  WORK_LEASE_MS,
-} from '@shared-kernel/domain/value-objects/owed-work.vo';
+  JOB_BACKOFF_MS,
+  JOB_LEASE_MS,
+  MAX_JOB_ATTEMPTS,
+} from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -52,12 +52,12 @@ const DIFF = Diff.of([
 
 const NOW = new Date('2026-09-16T10:00:00Z');
 
-const drafting = (
+const generating = (
   facts = StackFacts.none(),
   replay = false,
   isSearch = false,
 ) =>
-  ChangeStack.draft({
+  ChangeStack.startGeneration({
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
@@ -80,7 +80,7 @@ const layer = (
   title,
   summary: `${title}, in more words`,
   dependsOn,
-  ranges: hunks.map((each) => ({ hunk: HunkId.of(each) })),
+  hunks: hunks.map((each) => ({ hunk: HunkId.of(each) })),
   notes: [
     ...new Set(hunks.flatMap((each) => DIFF.fileOf(each)?.path ?? [])),
   ].map((path) => ({ path, note: 'Why it changes' })),
@@ -97,7 +97,7 @@ const LATER = new Date(NOW.getTime() + 60_000);
 
 const problemsOf = (cohorts: ProposedCohort[]): readonly string[] => {
   try {
-    drafting().propose(cohorts, LATER);
+    generating().propose(cohorts, LATER);
   } catch (error) {
     if (error instanceof InvalidChangeStackError) {
       return error.problems.map((each) => each.message);
@@ -109,11 +109,11 @@ const problemsOf = (cohorts: ProposedCohort[]): readonly string[] => {
 
 describe('ChangeStack', () => {
   describe('of a replay', () => {
-    const settledKinds = (stack: ChangeStack) =>
+    const kindsOf = (stack: ChangeStack) =>
       stack.pullEvents().map((each) => each.kind);
 
-    it('stays in Spotlight: it says it settled for its replay, and shapes no task’s outcome', () => {
-      const stack = drafting(StackFacts.none(), true);
+    it('stays in Spotlight: it says it completed for its replay, and shapes no task’s outcome', () => {
+      const stack = generating(StackFacts.none(), true);
       stack.pullEvents();
 
       const ready = stack.propose(
@@ -121,32 +121,32 @@ describe('ChangeStack', () => {
         LATER,
       );
 
-      expect(ready.reachesGitHub).toBe(false);
-      expect(settledKinds(ready)).toEqual([
-        'change-stack.settled',
-        'change-stack.replay-settled',
+      expect(ready.postsToGitHub).toBe(false);
+      expect(kindsOf(ready)).toEqual([
+        'change-stack.completed',
+        'change-stack.replay-completed',
       ]);
     });
 
-    it('says it settled for its replay when it could not be drafted', () => {
-      const stack = drafting(StackFacts.none(), true);
+    it('says it completed for its replay when it could not be generated', () => {
+      const stack = generating(StackFacts.none(), true);
       stack.pullEvents();
 
-      expect(settledKinds(stack.fail('No.', LATER))).toEqual([
+      expect(kindsOf(stack.fail('No.', LATER))).toEqual([
         'change-stack.failed',
-        'change-stack.replay-settled',
+        'change-stack.replay-completed',
       ]);
     });
 
-    it('is never drafted for a search run, which changes no repository', () => {
-      expect(() => drafting(StackFacts.none(), false, true)).toThrow(
+    it('is never generated for a search run, which changes no repository', () => {
+      expect(() => generating(StackFacts.none(), false, true)).toThrow(
         NoStackForSearchesError,
       );
     });
 
     it('belongs to no task', () => {
       expect(() =>
-        ChangeStack.draft({
+        ChangeStack.startGeneration({
           id: ChangeStackId.of('stack-1'),
           runId: RunId.of('run-1'),
           taskId: TaskId.of('task-1'),
@@ -163,8 +163,8 @@ describe('ChangeStack', () => {
       ).toThrow(InconsistentStateError);
     });
 
-    it('is told apart from a task run’s stack, which reaches GitHub and shapes its task’s outcome', () => {
-      const stack = drafting();
+    it('is told apart from a task run’s stack, which posts to GitHub and shapes its task’s outcome', () => {
+      const stack = generating();
       stack.pullEvents();
 
       const ready = stack.propose(
@@ -172,28 +172,28 @@ describe('ChangeStack', () => {
         LATER,
       );
 
-      expect(ready.reachesGitHub).toBe(true);
-      expect(settledKinds(ready)).toEqual([
-        'change-stack.settled',
-        'change-stack.shaped',
+      expect(ready.postsToGitHub).toBe(true);
+      expect(kindsOf(ready)).toEqual([
+        'change-stack.completed',
+        'change-stack.ready',
       ]);
     });
   });
 
-  it('starts drafting, with nothing settled', () => {
-    const stack = drafting();
+  it('starts generating, with nothing completed', () => {
+    const stack = generating();
 
-    expect(stack.state).toBe('drafting');
+    expect(stack.state).toBe('generating');
     expect(stack.pullEvents().map((each) => each.kind)).toEqual([
-      'change-stack.drafting-began',
+      'change-stack.generation-started',
     ]);
     expect(stack.repository?.value).toBe('web');
     expect(stack.cohorts).toEqual([]);
-    expect(stack.settledAt).toBeNull();
+    expect(stack.completedAt).toBeNull();
   });
 
-  it('becomes ready with a stack that places every change once, in order', () => {
-    const ready = drafting().propose(
+  it('becomes ready with a stack that assigns every hunk once, in order', () => {
+    const ready = generating().propose(
       [
         invitations([
           layer('Data model', ['h1']),
@@ -205,7 +205,7 @@ describe('ChangeStack', () => {
     );
 
     expect(ready.state).toBe('ready');
-    expect(ready.settledAt).toEqual(LATER);
+    expect(ready.completedAt).toEqual(LATER);
     expect(ready.cohorts[0]?.id).toBe('c1');
     expect(ready.cohorts[0]?.layers.map((each) => each.id)).toEqual([
       'c1.l1',
@@ -217,15 +217,15 @@ describe('ChangeStack', () => {
     ]);
   });
 
-  it('refuses a stack that leaves a change out or places one twice', () => {
+  it('rejects a stack that leaves a hunk out or assigns one twice', () => {
     expect(
       problemsOf([
         invitations([layer('Data model', ['h1', 'h1']), layer('API', ['h2'])]),
       ]),
-    ).toEqual(['places h1 2 times', 'leaves h3 out']);
+    ).toEqual(['assigns h1 2 times', 'leaves h3 out']);
   });
 
-  it('refuses a change the diff does not hold', () => {
+  it('rejects a change the diff does not contain', () => {
     expect(
       problemsOf([
         invitations([layer('Everything', ['h1', 'h2', 'h3', 'h9'])]),
@@ -233,7 +233,7 @@ describe('ChangeStack', () => {
     ).toEqual(['cohort 1, layer 1 names h9, which is not in the diff']);
   });
 
-  it('refuses a layer that depends on itself or on a later layer', () => {
+  it('rejects a layer that depends on itself or on a later layer', () => {
     expect(
       problemsOf([
         invitations([
@@ -247,7 +247,7 @@ describe('ChangeStack', () => {
     ]);
   });
 
-  it('refuses a dependency that does not say what it uses', () => {
+  it('rejects a dependency that does not say what it uses', () => {
     expect(
       problemsOf([
         invitations([
@@ -260,78 +260,78 @@ describe('ChangeStack', () => {
     ]);
   });
 
-  it('refuses a stack with an empty cohort or no cohorts at all', () => {
+  it('rejects a stack with an empty cohort or no cohorts at all', () => {
     expect(problemsOf([])).toContain('has no cohorts');
     expect(problemsOf([invitations([])])).toContain('cohort 1 has no layers');
   });
 
-  it('fails with the reason it gives, and says so', () => {
-    const drafted = drafting();
-    drafted.pullEvents();
+  it('fails with the reason it receives, and says so', () => {
+    const generated = generating();
+    generated.pullEvents();
 
-    const failed = drafted.fail('The model refused', LATER);
+    const failed = generated.fail('The model returned no answer', LATER);
 
     expect(failed.state).toBe('failed');
-    expect(failed.failure).toBe('The model refused');
+    expect(failed.failure).toBe('The model returned no answer');
     expect(failed.pullEvents().map((each) => each.kind)).toEqual([
       'change-stack.failed',
     ]);
   });
 
-  it('settles only once', () => {
-    const failed = drafting().fail('No', LATER);
+  it('completes only once', () => {
+    const failed = generating().fail('No', LATER);
 
     expect(() => failed.fail('Again', LATER)).toThrow(InvalidChangeStackError);
   });
 
-  it('is leased to one worker at a time while it is drafted', () => {
-    const leased = drafting().leased(NOW);
+  it('is leased to one worker at a time while it is generated', () => {
+    const leased = generating().leaseJob(NOW);
 
-    expect(leased.owesWork).toBe(true);
-    expect(leased.work.attempts).toBe(1);
-    expect(leased.work.dueBy(LATER)).toBe(false);
-    expect(() => leased.leased(LATER)).toThrow(InvalidChangeStackError);
-    expect(leased.work.dueBy(new Date(NOW.getTime() + WORK_LEASE_MS + 1))).toBe(
+    expect(leased.hasPendingJob).toBe(true);
+    expect(leased.job.attempts).toBe(1);
+    expect(leased.job.isDue(LATER)).toBe(false);
+    expect(() => leased.leaseJob(LATER)).toThrow(InvalidChangeStackError);
+    expect(leased.job.isDue(new Date(NOW.getTime() + JOB_LEASE_MS + 1))).toBe(
       true,
     );
   });
 
-  it('is tried again later, waiting longer each time, then given up', () => {
+  it('is retried later, waiting longer each time, then dead-lettered', () => {
     const DAY = 24 * 60 * 60 * 1000;
     const at = (day: number) => new Date(NOW.getTime() + day * DAY);
 
-    const once = drafting().leased(at(0)).triedAgainLater(at(0));
-    const twice = once.leased(at(1)).triedAgainLater(at(1));
+    const once = generating().leaseJob(at(0)).scheduleRetry(at(0));
+    const twice = once.leaseJob(at(1)).scheduleRetry(at(1));
 
-    expect(once.state).toBe('drafting');
-    expect(once.work.dueAt).toEqual(
-      new Date(at(0).getTime() + WORK_BACKOFF_MS),
+    expect(once.state).toBe('generating');
+    expect(once.job.nextAttemptAt).toEqual(
+      new Date(at(0).getTime() + JOB_BACKOFF_MS),
     );
-    expect(twice.work.dueAt).toEqual(
-      new Date(at(1).getTime() + WORK_BACKOFF_MS * 2),
+    expect(twice.job.nextAttemptAt).toEqual(
+      new Date(at(1).getTime() + JOB_BACKOFF_MS * 2),
     );
 
-    let exhausted = drafting();
-    for (let day = 0; day < MAX_WORK_ATTEMPTS; day += 1) {
-      exhausted = exhausted.leased(at(day)).triedAgainLater(at(day));
+    let exhausted = generating();
+    for (let day = 0; day < MAX_JOB_ATTEMPTS; day += 1) {
+      exhausted = exhausted.leaseJob(at(day)).scheduleRetry(at(day));
     }
 
     expect(exhausted.state).toBe('failed');
     expect(exhausted.failure).toBe(
-      'Spotlight couldn’t draft the change stack.',
+      'Spotlight couldn’t generate the change stack.',
     );
-    expect(exhausted.owesWork).toBe(false);
+    expect(exhausted.hasPendingJob).toBe(false);
   });
 
-  it('owes no more work once it settles', () => {
-    const ready = drafting()
-      .leased(NOW)
+  it('has no pending job once it completes', () => {
+    const ready = generating()
+      .leaseJob(NOW)
       .propose([invitations([layer('Everything', ['h1', 'h2', 'h3'])])], LATER);
 
-    expect(ready.owesWork).toBe(false);
-    expect(ready.work.attempts).toBe(0);
-    expect(ready.triedAgainLater(LATER)).toBe(ready);
-    expect(() => ready.leased(LATER)).toThrow(InvalidChangeStackError);
+    expect(ready.hasPendingJob).toBe(false);
+    expect(ready.job.attempts).toBe(0);
+    expect(ready.scheduleRetry(LATER)).toBe(ready);
+    expect(() => ready.leaseJob(LATER)).toThrow(InvalidChangeStackError);
   });
 });
 
@@ -347,10 +347,10 @@ describe('ChangeStack with facts from the code', () => {
   const factsWith = (links: HunkLink[]) =>
     StackFacts.of({ hunks: [], links, imports: [] });
 
-  it('refuses a stack that separates a hunk from what it uses, or puts it first', () => {
+  it('rejects a stack that separates a hunk from what it uses, or puts it first', () => {
     const apart = (): string[] => {
       try {
-        drafting(factsWith(USES)).propose(
+        generating(factsWith(USES)).propose(
           [
             invitations([layer('API', ['h2', 'h3'])]),
             invitations([layer('Model', ['h1'])]),
@@ -367,7 +367,7 @@ describe('ChangeStack with facts from the code', () => {
 
     const early = (): string[] => {
       try {
-        drafting(factsWith(USES)).propose(
+        generating(factsWith(USES)).propose(
           [invitations([layer('API', ['h2', 'h3']), layer('Model', ['h1'])])],
           LATER,
         );
@@ -388,7 +388,7 @@ describe('ChangeStack with facts from the code', () => {
   });
 
   it('works out what a layer depends on from the facts, alongside what was proposed', () => {
-    const ready = drafting(
+    const ready = generating(
       factsWith([
         ...USES,
         {
@@ -429,7 +429,7 @@ describe('ChangeStack with facts from the code', () => {
 
 describe('ChangeStack read back from what was stored', () => {
   const ready = () =>
-    drafting().propose(
+    generating().propose(
       [
         invitations([
           layer('Model', ['h1']),
@@ -453,10 +453,10 @@ describe('ChangeStack read back from what was stored', () => {
       facts: StackFacts.none(),
       cohorts: ready().cohorts,
       progress: ready().progress,
-      work: ready().work,
-      spent: ModelUsage.none(),
+      job: ready().job,
+      usage: ModelUsage.none(),
       request: ready().request,
-      reordering: false,
+      redrafting: false,
       version: 1,
       ...over,
     });
@@ -465,7 +465,7 @@ describe('ChangeStack read back from what was stored', () => {
     expect(stored({}).state).toBe('ready');
   });
 
-  it('refuses a ready stack that leaves a change out, or places one twice', () => {
+  it('rejects a ready stack that leaves a hunk out, or assigns one twice', () => {
     const [cohort] = ready().cohorts;
     const withoutUI = [{ ...cohort, layers: cohort?.layers.slice(0, 2) }];
 
@@ -481,12 +481,12 @@ describe('ChangeStack read back from what was stored', () => {
       },
     ];
 
-    expect(() => stored({ cohorts: twice })).toThrow('places h1 2 times');
+    expect(() => stored({ cohorts: twice })).toThrow('assigns h1 2 times');
   });
 
-  it('refuses a stack that is ready with nothing placed, or failed without saying why', () => {
+  it('rejects a stack that is ready with nothing assigned, or failed without saying why', () => {
     expect(() => stored({ cohorts: [] })).toThrow(
-      'is ready, yet places nothing',
+      'is ready, yet assigns nothing',
     );
 
     expect(() =>
@@ -495,18 +495,18 @@ describe('ChangeStack read back from what was stored', () => {
         progress: StackProgress.rehydrate({
           state: 'failed',
           failure: null,
-          draftedAt: NOW,
-          settledAt: LATER,
+          startedAt: NOW,
+          completedAt: LATER,
         }),
       }),
     ).toThrow('failed without saying why');
   });
 
-  it('refuses a stack that is still drafting, yet holds cohorts', () => {
+  it('rejects a stack that is still generating, yet has cohorts', () => {
     expect(() =>
       stored({
-        progress: StackProgress.drafting(NOW),
+        progress: StackProgress.generating(NOW),
       }),
-    ).toThrow('is still drafting, yet already holds cohorts');
+    ).toThrow('is still generating, yet already has cohorts');
   });
 });

@@ -2,18 +2,18 @@ import {
   generatedTools,
   MAX_GENERATED,
 } from '@integrations/domain/services/generated-tools';
+import { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
-import { DescribedOperation } from '@integrations/domain/value-objects/described-operation.vo';
-import { DescribedSource } from '@integrations/domain/value-objects/described-source.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OperationFilter } from '@integrations/domain/value-objects/operation-filter.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { describe, expect, it } from 'vitest';
 
 const HASH = ContentHash.of('c'.repeat(64));
 
-const SOURCE = DescribedSource.of({
+const SPEC = ApiSpec.of({
   kind: 'openapi',
   url: 'https://petstore3.swagger.io/api/v3/openapi.json',
   fingerprint: 'petstore',
@@ -23,7 +23,7 @@ const operation = (
   name: string,
   { writes = false, inputs = [] as string[] } = {},
 ) =>
-  DescribedOperation.of({
+  SpecOperation.of({
     name,
     upstream: name,
     description: `Does ${name}.`,
@@ -53,16 +53,16 @@ const PETS = [
 
 const generating = (
   over: {
-    operations?: readonly DescribedOperation[];
+    operations?: readonly SpecOperation[];
     filter?: OperationFilter;
     approvals?: ReadonlyMap<string, ApprovalNeeded | false>;
     handWritten?: readonly string[];
   } = {},
 ) =>
   generatedTools({
-    source: SourceKey.of('petstore'),
-    integration: 'Petstore',
-    described: SOURCE,
+    integration: IntegrationKey.of('petstore'),
+    integrationName: 'Petstore',
+    spec: SPEC,
     hash: HASH,
     operations: over.operations ?? PETS,
     filter: over.filter ?? OperationFilter.of({}),
@@ -80,7 +80,7 @@ describe('generatedTools', () => {
       'petstore.delete-pet',
       'petstore.get-inventory',
     ]);
-    expect(tools[0]?.backing.described).toEqual({
+    expect(tools[0]?.backing.spec).toEqual({
       hash: HASH,
       operation: 'find-pets',
     });
@@ -131,15 +131,15 @@ describe('generatedTools', () => {
     expect(tools.map((each) => each.name)).not.toContain('add-pet');
   });
 
-  it('passes over an operation needing approval that takes intent', () => {
-    const { tools, passedOver } = generating({
+  it('skips an operation needing approval that takes intent', () => {
+    const { tools, skipped } = generating({
       operations: [operation('add-pet', { writes: true, inputs: ['intent'] })],
     });
 
     expect(tools).toEqual([]);
-    expect(passedOver).toEqual([
+    expect(skipped).toEqual([
       expect.stringMatching(
-        /^passes over add-pet\. It needs approval and takes intent/,
+        /^skips add-pet\. It needs approval and takes intent/,
       ),
     ]);
     expect(
@@ -152,13 +152,13 @@ describe('generatedTools', () => {
     ).toEqual(['add-pet']);
   });
 
-  it('refuses more tools than a station can choose between, asking for a filter', () => {
+  it('rejects more tools than a station can choose between, and requires a filter', () => {
     const many = Array.from({ length: MAX_GENERATED + 1 }, (_, at) =>
       operation(`op-${at}`),
     );
 
     expect(() => generating({ operations: many })).toThrow(
-      /1001 tools from its OpenAPI description.*openapi.tools.include/,
+      /1001 tools from its OpenAPI spec.*openapi.tools.include/,
     );
     expect(
       generating({

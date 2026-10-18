@@ -6,7 +6,7 @@ import {
   formatImage,
   inRunFilter,
   type Run,
-  standing,
+  runStatus,
   waitsOnPerson,
   working,
 } from '@/lib/run';
@@ -72,7 +72,7 @@ describe('byAge', () => {
       { startedAt: on(8) },
     ]);
 
-    expect(grouped.map(([age, held]) => [age, held.length])).toEqual([
+    expect(grouped.map(([age, ofAge]) => [age, ofAge.length])).toEqual([
       ['Today', 2],
       ['8 days ago', 1],
     ]);
@@ -101,11 +101,11 @@ describe('working', () => {
   const run = (state: Run['state'], exitCode: number | null = null) =>
     ({ state, exitCode }) as Run;
 
-  it('holds while a runner has it', () => {
+  it('is true while a runner has it', () => {
     expect(working(run('claimed'))).toBe(true);
   });
 
-  it('holds while it waits for one', () => {
+  it('is true while it waits for one', () => {
     expect(working(run('queued'))).toBe(true);
   });
 
@@ -114,21 +114,21 @@ describe('working', () => {
     expect(working(run('failed'))).toBe(false);
   });
 
-  it('does not while it waits on a person, warm or parked', () => {
+  it('does not while it waits on a person, warm or suspended', () => {
     expect(working(run('waiting'))).toBe(false);
-    expect(working(run('parked'))).toBe(false);
+    expect(working(run('suspended'))).toBe(false);
   });
 });
 
 describe('waitsOnPerson', () => {
   const run = (state: Run['state']) => ({ state }) as Run;
 
-  it('holds while the run keeps its sandbox warm for an answer', () => {
+  it('is true while the run keeps its sandbox warm for an answer', () => {
     expect(waitsOnPerson(run('waiting'))).toBe(true);
   });
 
-  it('holds once nobody answered in time and the run was parked', () => {
-    expect(waitsOnPerson(run('parked'))).toBe(true);
+  it('is true once nobody answered in time and the run was suspended', () => {
+    expect(waitsOnPerson(run('suspended'))).toBe(true);
   });
 
   it('does not for a run at work, waiting for a runner, or over', () => {
@@ -137,63 +137,68 @@ describe('waitsOnPerson', () => {
     expect(waitsOnPerson(run('completed'))).toBe(false);
     expect(waitsOnPerson(run('failed'))).toBe(false);
     expect(waitsOnPerson(run('superseded'))).toBe(false);
+    expect(waitsOnPerson(run('cancelled'))).toBe(false);
   });
 });
 
-describe('standing', () => {
+describe('runStatus', () => {
   const run = (state: Run['state'], exitCode: number | null = null) =>
     ({ state, exitCode }) as Run;
 
   it('says nothing of a claimed run', () => {
-    expect(standing(run('claimed'))).toBeNull();
+    expect(runStatus(run('claimed'))).toBeNull();
   });
 
   it('reads a queued run as queued', () => {
-    expect(standing(run('queued'))).toBe('Queued');
+    expect(runStatus(run('queued'))).toBe('Queued');
   });
 
-  it('reads a run that asked a person as waiting for you, parked or not', () => {
-    expect(standing(run('waiting'))).toBe('Waiting for you');
-    expect(standing(run('parked'))).toBe('Waiting for you');
+  it('reads a run that asked a person as waiting for you, suspended or not', () => {
+    expect(runStatus(run('waiting'))).toBe('Waiting for you');
+    expect(runStatus(run('suspended'))).toBe('Waiting for you');
   });
 
   it('reads a superseded run as superseded', () => {
-    expect(standing(run('superseded'))).toBe('Superseded');
+    expect(runStatus(run('superseded'))).toBe('Superseded');
+  });
+
+  it('reads a cancelled run as cancelled', () => {
+    expect(runStatus(run('cancelled'))).toBe('Cancelled');
   });
 
   it('says nothing of a run that has ended, however it ended', () => {
-    expect(standing(run('completed', 0))).toBeNull();
-    expect(standing(run('completed', 1))).toBeNull();
-    expect(standing(run('failed', -1))).toBeNull();
+    expect(runStatus(run('completed', 0))).toBeNull();
+    expect(runStatus(run('completed', 1))).toBeNull();
+    expect(runStatus(run('failed', -1))).toBeNull();
   });
 });
 
 describe('run filters', () => {
-  const owed = {
+  const pending = {
     state: 'completed',
-    review: { state: 'owed', conversationId: 'c_1' },
+    review: { state: 'pending', conversationId: 'c_1' },
   } as const;
-  const settled = {
+  const answered = {
     state: 'completed',
-    review: { state: 'settled', conversationId: 'c_2' },
+    review: { state: 'answered', conversationId: 'c_2' },
   } as const;
   const unreviewed = { state: 'completed', review: null } as const;
   const asking = { state: 'waiting', review: null } as const;
 
   it('lets every run through All', () => {
-    expect(inRunFilter('all', owed)).toBe(true);
-    expect(inRunFilter('all', settled)).toBe(true);
+    expect(inRunFilter('all', pending)).toBe(true);
+    expect(inRunFilter('all', answered)).toBe(true);
     expect(inRunFilter('all', unreviewed)).toBe(true);
   });
 
-  it('lets only runs still owed a review or an answer through Waiting for you', () => {
-    expect(inRunFilter('waiting-for-you', owed)).toBe(true);
+  it('lets only runs with a pending review or answer through Waiting for you', () => {
+    expect(inRunFilter('waiting-for-you', pending)).toBe(true);
     expect(inRunFilter('waiting-for-you', asking)).toBe(true);
-    expect(inRunFilter('waiting-for-you', settled)).toBe(false);
+    expect(inRunFilter('waiting-for-you', answered)).toBe(false);
     expect(inRunFilter('waiting-for-you', unreviewed)).toBe(false);
   });
 
-  it('reads a remembered filter it knows', () => {
+  it('reads a stored filter it knows', () => {
     expect(asRunFilter('waiting-for-you')).toBe('waiting-for-you');
   });
 

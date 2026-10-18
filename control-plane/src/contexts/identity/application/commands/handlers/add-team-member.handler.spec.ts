@@ -69,13 +69,13 @@ describe('AddTeamMemberHandler', () => {
     await expect(handler.execute(add('user_ada'))).resolves.toBe(true);
 
     const saved = save.mock.calls[0]?.[0];
-    expect(saved?.holds(ADA)).toBe(true);
+    expect(saved?.hasMember(ADA)).toBe(true);
     expect(saved?.pullEvents().map((each) => each.kind)).toEqual([
       'team.member-joined',
     ]);
   });
 
-  it('refuses somebody already on the team', async () => {
+  it('rejects somebody already on the team', async () => {
     const { handler, save } = adding();
 
     await expect(handler.execute(add('user_bea'))).rejects.toMatchObject({
@@ -85,7 +85,7 @@ describe('AddTeamMemberHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses somebody outside the workspace', async () => {
+  it('rejects somebody outside the workspace', async () => {
     const { handler, save } = adding();
 
     await expect(handler.execute(add('user_stranger'))).rejects.toMatchObject({

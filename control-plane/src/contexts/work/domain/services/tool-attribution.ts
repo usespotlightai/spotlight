@@ -3,7 +3,7 @@ import {
   SLUG_SHAPE,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
-import { BUILT_IN_SKILL_KEYS } from '@work/domain/services/built-in-skills';
+import { BUILT_IN_SKILL_KEY_LIST } from '@work/domain/services/built-in-skills';
 import {
   type ServerCalls,
   ToolUse,
@@ -14,13 +14,13 @@ export type CallEnding = 'completed' | 'failed' | 'unfinished' | 'refused';
 export interface CalledStep {
   readonly server: string | null;
   readonly tool: string;
-  readonly skillAskedFor: string | null;
+  readonly requestedSkill: string | null;
   readonly paths: readonly string[];
   readonly ms: number | null;
   readonly ending: CallEnding;
 }
 
-const BUILT_IN = new Set(BUILT_IN_SKILL_KEYS.map((each) => each.value));
+const BUILT_IN = new Set(BUILT_IN_SKILL_KEY_LIST.map((each) => each.value));
 
 const escaped = (text: string): string =>
   text.replace(/[.*+?^${}()|[\]\\]/g, (found) => `\\${found}`);
@@ -45,13 +45,13 @@ export const skillsReadBy = (
 ): readonly string[] => [
   ...new Set(
     [
-      ...(step.skillAskedFor ? [step.skillAskedFor] : []),
+      ...(step.requestedSkill ? [step.requestedSkill] : []),
       ...step.paths.flatMap((text) => readUnder(text, homes)),
     ].filter(teamSkill),
   ),
 ];
 
-const reachedServer = (
+const calledServer = (
   step: CalledStep,
 ): step is CalledStep & {
   readonly server: string;
@@ -63,15 +63,15 @@ export const toolUseOf = (
 ): ToolUse => {
   const servers = new Map<string, ServerCalls>();
 
-  for (const step of steps.filter(reachedServer)) {
-    const held = servers.get(step.server);
+  for (const step of steps.filter(calledServer)) {
+    const existing = servers.get(step.server);
     const failed = step.ending !== 'completed';
-    const latency = held?.latency ?? LatencyHistogram.EMPTY;
+    const latency = existing?.latency ?? LatencyHistogram.EMPTY;
 
     servers.set(step.server, {
       server: step.server,
-      calls: (held?.calls ?? 0) + 1,
-      failed: (held?.failed ?? 0) + (failed ? 1 : 0),
+      calls: (existing?.calls ?? 0) + 1,
+      failed: (existing?.failed ?? 0) + (failed ? 1 : 0),
       latency:
         step.ms === null || step.ending === 'unfinished'
           ? latency

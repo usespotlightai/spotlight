@@ -14,9 +14,9 @@ const SUGGESTED_FIRST: readonly OriginalOutcome[] = [
 
 export const newestOfEachTask = <T extends { readonly task: string }>(
   newestFirst: readonly T[],
-  heldTasks: readonly string[],
+  setTasks: readonly string[],
 ): readonly T[] => {
-  const seen = new Set(heldTasks);
+  const seen = new Set(setTasks);
 
   return newestFirst.filter((each) => {
     const unseen = !seen.has(each.task);
@@ -30,12 +30,12 @@ interface Suggestible {
 }
 
 export const balancingPicks = <T extends Suggestible>(
-  held: readonly OriginalOutcome[],
+  setOutcomes: readonly OriginalOutcome[],
   newestFirst: readonly T[],
   max: number,
 ): readonly T[] => {
   const counts = new Map(
-    countsOf(held).map((each) => [each.outcome, each.count]),
+    countsOf(setOutcomes).map((each) => [each.outcome, each.count]),
   );
   const countOf = (outcome: OriginalOutcome): number =>
     counts.get(outcome) ?? 0;

@@ -14,10 +14,10 @@ import type { SearchRepository } from '@replays/domain/repositories/search.repos
 import { failingSearchedTasksOf } from '@replays/domain/services/reflected-tasks';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { SearchIteration } from '@replays/domain/value-objects/search-iteration.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -29,12 +29,12 @@ const UNBRIEFED: SearchRunQueued = {
     'its station or the config it started from is gone, or it had no failing task to look into',
 };
 
-interface HeldReflection {
-  readonly standing: CandidateId;
+interface ReflectionFocus {
+  readonly incumbent: CandidateId;
   readonly tasks: readonly ReflectedTask[];
 }
 
-interface Grounds {
+interface IterationContext {
   readonly station: StationView;
   readonly seed: Candidate;
 }
@@ -51,7 +51,7 @@ export class DispatchSearchIteration {
     private readonly transaction: TransactionPort,
   ) {}
 
-  async wanted(searchId: SearchId): Promise<void> {
+  async requested(searchId: SearchId): Promise<void> {
     const search = await this.searches.find(searchId);
     const iteration = search?.wantedIteration ?? null;
 
@@ -91,11 +91,11 @@ export class DispatchSearchIteration {
         await this.searches.save(changed);
       }
 
-      return changed.heldRun?.equals(iteration.runId) ?? false;
+      return changed.activeRun?.equals(iteration.runId) ?? false;
     });
 
     if (queued.queued && !stillWanted) {
-      await this.work.withdrawSearch(iteration.runId);
+      await this.work.cancelSearchRun(iteration.runId);
     }
   }
 
@@ -103,18 +103,18 @@ export class DispatchSearchIteration {
     search: Search,
     iteration: SearchIteration,
   ): Promise<string | null> {
-    const grounds = await this.groundsOf(search);
+    const context = await this.contextOf(search);
 
-    if (!grounds) {
+    if (!context) {
       return null;
     }
 
     return iteration.reflects
-      ? this.reflectionBriefing(search, iteration, grounds)
-      : this.proposalBriefing(search, iteration, grounds);
+      ? this.reflectionBriefing(search, iteration, context)
+      : this.proposalBriefing(search, iteration, context);
   }
 
-  private async groundsOf(search: Search): Promise<Grounds | null> {
+  private async contextOf(search: Search): Promise<IterationContext | null> {
     const station = await this.work.station(
       search.station.lineId,
       search.station.stationId,
@@ -127,7 +127,7 @@ export class DispatchSearchIteration {
   private proposalBriefing(
     search: Search,
     iteration: SearchIteration,
-    { station, seed }: Grounds,
+    { station, seed }: IterationContext,
   ): string {
     const ceiling = search.budget.ceiling;
     const left = ceiling.amount - search.spent.amount;
@@ -143,7 +143,7 @@ export class DispatchSearchIteration {
       iteration: iteration.number,
       iterations: search.budget.iterations,
       perIteration: search.budget.perIteration,
-      left: Spend.of(Math.max(0, left), ceiling.currency),
+      left: Money.of(Math.max(0, left), ceiling.currency),
       ceiling,
       searchedTasks: search.split.searchedTasks,
       heldOutTasks: search.split.heldOutTasks,
@@ -157,15 +157,15 @@ export class DispatchSearchIteration {
   private async reflectionBriefing(
     search: Search,
     iteration: SearchIteration,
-    { station }: Grounds,
+    { station }: IterationContext,
   ): Promise<string | null> {
-    const held = await this.reflectingOn(search, iteration);
+    const focus = await this.reflectingOn(search, iteration);
 
-    if (!held) {
+    if (!focus) {
       return null;
     }
 
-    const seed = search.seed.candidateId.equals(held.standing);
+    const seed = search.seed.candidateId.equals(focus.incumbent);
 
     return ReflectionBriefing.of({
       stationKey: station.key,
@@ -173,48 +173,48 @@ export class DispatchSearchIteration {
       lineKey: station.lineKey,
       iteration: iteration.number,
       iterations: search.budget.iterations,
-      standing: seed
+      incumbentName: seed
         ? SEED_NAME
         : (search.proposals.find((each) =>
-            each.candidateId.equals(held.standing),
+            each.candidateId.equals(focus.incumbent),
           )?.name.value ?? SEED_NAME),
       seed,
-      tasks: held.tasks,
+      tasks: focus.tasks,
     });
   }
 
   private async reflectingOn(
     seen: Search,
     reflection: SearchIteration,
-  ): Promise<HeldReflection | null> {
+  ): Promise<ReflectionFocus | null> {
     const { minGain } = await this.healths.standardAt(seen.station);
     const replays = await this.replays.ofSearch(seen.id);
 
     return this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(seen.id);
-      const held = search?.iterationOf(reflection.runId);
+      const current = search?.iterationOf(reflection.runId);
 
-      if (!search || !held?.holdsItsRun) {
+      if (!search || !current?.ownsActiveRun) {
         return null;
       }
-      if (held.standing) {
-        return { standing: held.standing, tasks: held.reflectedOn };
+      if (current.incumbent) {
+        return { incumbent: current.incumbent, tasks: current.reflectedOn };
       }
 
       const failing = failingSearchedTasksOf(search, replays, minGain);
       const reflecting = search.reflectingOn(
-        held.runId,
+        current.runId,
         failing.candidateId,
         failing.tasks,
         this.clock.now(),
         () => RunId.of(this.ids.generate()),
       );
-      const after = reflecting.iterationOf(held.runId);
+      const after = reflecting.iterationOf(current.runId);
 
       await this.searches.save(reflecting);
 
-      return after?.holdsItsRun && after.standing
-        ? { standing: after.standing, tasks: after.reflectedOn }
+      return after?.ownsActiveRun && after.incumbent
+        ? { incumbent: after.incumbent, tasks: after.reflectedOn }
         : null;
     });
   }

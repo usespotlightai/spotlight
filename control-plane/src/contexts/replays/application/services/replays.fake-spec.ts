@@ -1,26 +1,26 @@
 import type { ChangeReviewPort } from '@replays/application/ports/change-review.port';
 import type {
+  InsightsPort,
   JudgingAgainOrdered,
   JudgingOrder,
   JudgingOrdered,
-  OutcomesPort,
-  PairJudgingOrder,
-} from '@replays/application/ports/outcomes.port';
+  SideBySideJudgingOrder,
+} from '@replays/application/ports/insights.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
-  AgentRefusal,
-  ExaminedCandidate,
-  HeldSearchRun,
-  OracleAnswerAsked,
+  AgentProblem,
+  CancelledRun,
+  LeasedSearchRun,
+  OracleAnswerInput,
   ReplayRunOrder,
   ReplayRunQueued,
-  RunForgone,
   RunReplayability,
   SearchRunOrder,
   SearchRunQueued,
-  SearchRunStanding,
+  SearchRunStatus,
   StationView,
-  UnclaimedWithdrawal,
+  UnclaimedCancellation,
+  ValidatedCandidate,
   WorkPort,
 } from '@replays/application/ports/work.port';
 import { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
@@ -34,10 +34,10 @@ import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
 import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
 import {
-  DIGESTS,
   FINGERPRINT,
-  LIVE_DIGESTS,
+  HASHES,
   LIVE_FINGERPRINT,
+  LIVE_HASHES,
   NOW,
   STATION,
   UNSCORED,
@@ -50,7 +50,7 @@ import type { SearchRepository } from '@replays/domain/repositories/search.repos
 import { baselineOf } from '@replays/domain/services/baseline';
 import type { OriginalOutcome } from '@replays/domain/services/composition';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
-import type { StackStanding } from '@replays/domain/value-objects/change-checks.vo';
+import type { StackStatus } from '@replays/domain/value-objects/change-checks.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
@@ -62,7 +62,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
-import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import {
   PersonPrincipal,
   type Principal,
@@ -145,7 +145,7 @@ export class InMemoryReplays {
     },
     save: async (candidate) => {
       this.events.push(...candidate.pullEvents());
-      if (candidate.isAbandoned) {
+      if (candidate.isDeleted) {
         this.candidates.delete(candidate.id.value);
       }
     },
@@ -173,7 +173,8 @@ export class InMemoryReplays {
       [...this.replays.values()]
         .filter(
           (each) =>
-            (each.pairsWith?.equals(replayId) ?? false) && each.takesPairings,
+            (each.pairwiseReferenceId?.equals(replayId) ?? false) &&
+            each.takesPairings,
         )
         .map((each) => each.id),
     ofSearch: async (searchId) =>
@@ -217,9 +218,9 @@ export class InMemoryReplays {
       }
       return [...teams.values()];
     },
-    underwayOfTeamLocked: async (teamId) =>
+    inProgressOfTeamLocked: async (teamId) =>
       [...this.replays.values()].filter(
-        (each) => each.teamId.equals(teamId) && each.isUnderway,
+        (each) => each.teamId.equals(teamId) && each.isInProgress,
       ),
     unconfirmed: async () =>
       [...this.replays.values()].filter((each) => each.unconfirmed.length > 0),
@@ -228,12 +229,12 @@ export class InMemoryReplays {
       this.replays.set(replay.id.value, replay);
     },
     save: async (replay) => {
-      const held = this.replays.get(replay.id.value);
-      if (held && held.version !== replay.version) {
+      const existing = this.replays.get(replay.id.value);
+      if (existing && existing.version !== replay.version) {
         throw new ReplayVersionConflictError(replay.id.value);
       }
       this.events.push(...replay.pullEvents());
-      if (replay.isAbandoned) {
+      if (replay.isDeleted) {
         this.replays.delete(replay.id.value);
       } else {
         this.replays.set(replay.id.value, replay);
@@ -308,7 +309,7 @@ export class InMemoryReplays {
     },
     save: async (search) => {
       this.events.push(...search.pullEvents());
-      if (search.isAbandoned) {
+      if (search.isDeleted) {
         this.searches.delete(search.id.value);
       } else {
         this.searches.set(search.id.value, search);
@@ -320,9 +321,9 @@ export class InMemoryReplays {
 export class FakeWork implements WorkPort {
   readonly replayables = new Map<string, RunReplayability>();
   readonly dispatched: ReplayRunOrder[] = [];
-  readonly withdrawn: string[] = [];
-  readonly held = new Map<string, readonly string[]>();
-  refusing: ReplayRunQueued | null = null;
+  readonly cancelledQueued: string[] = [];
+  readonly startingPointHolds = new Map<string, readonly string[]>();
+  unqueued: ReplayRunQueued | null = null;
 
   station = async (lineId: string, stationId: string) =>
     lineId === STATION_VIEW.lineId && stationId === STATION_VIEW.stationId
@@ -340,7 +341,7 @@ export class FakeWork implements WorkPort {
       return found ? [found] : [];
     });
 
-  standing = async (workspace: unknown, runs: readonly RunId[]) =>
+  runSummaries = async (workspace: unknown, runs: readonly RunId[]) =>
     (await this.replayable(workspace, runs)).map((each) => ({
       ...each,
       title: null as string | null,
@@ -351,27 +352,27 @@ export class FakeWork implements WorkPort {
 
   recentAt = async () => [];
 
-  forgone: { run: string; keep: boolean }[] = [];
+  cancelled: { run: string; leaveRunAsIs: boolean }[] = [];
 
   queuedRuns = new Set<string>();
 
-  forgo = async (run: RunId, keep: boolean): Promise<RunForgone> => {
-    this.forgone.push({ run: run.value, keep });
+  cancel = async (run: RunId, leaveRunAsIs: boolean): Promise<CancelledRun> => {
+    this.cancelled.push({ run: run.value, leaveRunAsIs });
     return this.queuedRuns.has(run.value)
       ? { queued: true, fingerprint: FINGERPRINT }
       : { queued: false };
   };
 
-  examine = async (
+  validate = async (
     _line: string,
     _station: string,
     block: unknown,
     _planned?: PlannedLine | null,
-  ): Promise<ExaminedCandidate> => ({
+  ): Promise<ValidatedCandidate> => ({
     ok: true,
     fingerprint: FINGERPRINT,
-    digests: DIGESTS,
-    liveDigests: LIVE_DIGESTS,
+    hashes: HASHES,
+    liveHashes: LIVE_HASHES,
     scoring: UNSCORED,
     changedFrom: StationChanges.none(LIVE_FINGERPRINT),
     block: StationBlock.of(block),
@@ -384,26 +385,26 @@ export class FakeWork implements WorkPort {
     block: StationBlock.of({ key: 'build', name: 'Build', kind: 'work' }),
     fingerprint: FINGERPRINT,
     scoring: UNSCORED,
-    digests: LIVE_DIGESTS,
+    hashes: LIVE_HASHES,
     threshold: this.threshold,
   });
 
   unanswerable = new Set<string>();
 
   answerable = async (
-    asked: readonly OracleAnswerAsked[],
+    inputs: readonly OracleAnswerInput[],
   ): Promise<readonly RunId[]> =>
-    asked
+    inputs
       .filter((each) => !this.unanswerable.has(each.run.value))
       .map((each) => each.run);
 
   dispatch = async (order: ReplayRunOrder): Promise<ReplayRunQueued> => {
     this.dispatched.push(order);
-    return this.refusing ?? { queued: true, fingerprint: FINGERPRINT };
+    return this.unqueued ?? { queued: true, fingerprint: FINGERPRINT };
   };
 
-  withdraw = async (runs: readonly RunId[]) => {
-    this.withdrawn.push(...runs.map((each) => each.value));
+  cancelQueued = async (runs: readonly RunId[]) => {
+    this.cancelledQueued.push(...runs.map((each) => each.value));
   };
 
   readonly durationsOf = new Map<string, number>();
@@ -416,51 +417,51 @@ export class FakeWork implements WorkPort {
       }),
     );
 
-  refusingAgent: AgentRefusal | null = null;
+  invalidAgent: AgentProblem | null = null;
 
-  agentRefusal = () => this.refusingAgent;
+  agentProblem = () => this.invalidAgent;
 
   readonly searchesDispatched: SearchRunOrder[] = [];
 
-  refusingSearch: string | null = null;
+  searchProblem: string | null = null;
 
   dispatchSearch = async (order: SearchRunOrder): Promise<SearchRunQueued> => {
     this.searchesDispatched.push(order);
-    return this.refusingSearch === null
+    return this.searchProblem === null
       ? { queued: true }
-      : { queued: false, reason: this.refusingSearch };
+      : { queued: false, reason: this.searchProblem };
   };
 
-  readonly searchesWithdrawn: string[] = [];
+  readonly cancelledSearchRuns: string[] = [];
 
-  withdrawSearch = async (run: RunId) => {
-    this.searchesWithdrawn.push(run.value);
+  cancelSearchRun = async (run: RunId) => {
+    this.cancelledSearchRuns.push(run.value);
   };
 
-  readonly heldSearchRuns = new Map<string, HeldSearchRun>();
+  readonly leasedSearchRuns = new Map<string, LeasedSearchRun>();
 
-  heldSearchRun = async (run: RunId) =>
-    this.heldSearchRuns.get(run.value) ?? null;
+  leasedSearchRun = async (run: RunId) =>
+    this.leasedSearchRuns.get(run.value) ?? null;
 
-  unclaimed: UnclaimedWithdrawal = { outcome: 'withdrawn', started: false };
+  unclaimed: UnclaimedCancellation = { outcome: 'cancelled', started: false };
 
-  readonly unclaimedWithdrawn: string[] = [];
+  readonly cancelledUnclaimed: string[] = [];
 
-  withdrawUnclaimedSearch = async (
+  cancelUnclaimedSearchRun = async (
     run: RunId,
-  ): Promise<UnclaimedWithdrawal> => {
-    if (this.unclaimed.outcome === 'withdrawn') {
-      this.unclaimedWithdrawn.push(run.value);
+  ): Promise<UnclaimedCancellation> => {
+    if (this.unclaimed.outcome === 'cancelled') {
+      this.cancelledUnclaimed.push(run.value);
     }
     return this.unclaimed;
   };
 
-  readonly runStandings = new Map<string, SearchRunStanding>();
+  readonly runStatuses = new Map<string, SearchRunStatus>();
 
-  searchRunStandings = async (runs: readonly RunId[]) =>
+  searchRunStatuses = async (runs: readonly RunId[]) =>
     runs.flatMap((run) => {
-      const standing = this.runStandings.get(run.value);
-      return standing ? [standing] : [];
+      const status = this.runStatuses.get(run.value);
+      return status ? [status] : [];
     });
 
   hold = async (
@@ -468,19 +469,19 @@ export class FakeWork implements WorkPort {
     _workspace: unknown,
     runs: readonly RunId[],
   ) => {
-    this.held.set(
+    this.startingPointHolds.set(
       holder,
       runs.map((each) => each.value),
     );
   };
 
   release = async (holder: string) => {
-    this.held.delete(holder);
+    this.startingPointHolds.delete(holder);
   };
 }
 
 export const peopleWho = (mayPlan: boolean | null): PeoplePort => ({
-  standingOn: async () =>
+  membershipOn: async () =>
     mayPlan === null ? null : { workspaceId: STATION.workspaceId, mayPlan },
   teamKey: async () => 'core',
   workspaceSlug: async () => 'acme',
@@ -510,16 +511,16 @@ export const accessFor = (
   );
 
 export class FakeChangeReview implements ChangeReviewPort {
-  readonly stacks = new Map<string, StackStanding[]>();
-  readonly rechecks = new Map<string, StackStanding[]>();
-  readonly recheckAsked: string[] = [];
+  readonly stacks = new Map<string, StackStatus[]>();
+  readonly rechecks = new Map<string, StackStatus[]>();
+  readonly recheckRequests: string[] = [];
   recheckableStacks: readonly string[] = ['stack_1'];
 
-  async stacksOf(run: RunId): Promise<readonly StackStanding[]> {
+  async stacksOf(run: RunId): Promise<readonly StackStatus[]> {
     return this.stacks.get(run.value) ?? [];
   }
 
-  async rechecksOf(run: RunId): Promise<readonly StackStanding[]> {
+  async rechecksOf(run: RunId): Promise<readonly StackStatus[]> {
     return this.rechecks.get(run.value) ?? [];
   }
 
@@ -528,22 +529,22 @@ export class FakeChangeReview implements ChangeReviewPort {
   }
 
   async recheck(run: RunId, stackId: string): Promise<void> {
-    this.recheckAsked.push(`${run.value}#${stackId}`);
+    this.recheckRequests.push(`${run.value}#${stackId}`);
   }
 }
 
-export class FakeOutcomes implements OutcomesPort {
+export class FakeInsights implements InsightsPort {
   readonly accepted = new Set<string>();
   readonly sentBack = new Set<string>();
-  readonly asked: JudgingOrder[] = [];
-  readonly askedAgain: string[] = [];
-  readonly pairsAsked: PairJudgingOrder[] = [];
-  answer: JudgingOrdered = 'asked';
-  pairAnswer: JudgingOrdered = 'asked';
-  againAnswer: JudgingAgainOrdered = 'asked';
+  readonly judgingRequests: JudgingOrder[] = [];
+  readonly rejudgingRequests: string[] = [];
+  readonly sideBySideJudgingRequests: SideBySideJudgingOrder[] = [];
+  answer: JudgingOrdered = 'requested';
+  pairAnswer: JudgingOrdered = 'requested';
+  againAnswer: JudgingAgainOrdered = 'requested';
 
   async judgeAgain(run: RunId): Promise<JudgingAgainOrdered> {
-    this.askedAgain.push(run.value);
+    this.rejudgingRequests.push(run.value);
     return this.againAnswer;
   }
 
@@ -551,7 +552,7 @@ export class FakeOutcomes implements OutcomesPort {
     return this.accepted.has(run.value);
   }
 
-  async turnedOut(): Promise<ReadonlyMap<string, OriginalOutcome>> {
+  async originalOutcomes(): Promise<ReadonlyMap<string, OriginalOutcome>> {
     return new Map([
       ...[...this.accepted].map((run) => [run, 'accepted'] as const),
       ...[...this.sentBack].map((run) => [run, 'sent-back'] as const),
@@ -559,12 +560,14 @@ export class FakeOutcomes implements OutcomesPort {
   }
 
   async judge(order: JudgingOrder): Promise<JudgingOrdered> {
-    this.asked.push(order);
+    this.judgingRequests.push(order);
     return this.answer;
   }
 
-  async judgePair(order: PairJudgingOrder): Promise<JudgingOrdered> {
-    this.pairsAsked.push(order);
+  async judgeSideBySide(
+    order: SideBySideJudgingOrder,
+  ): Promise<JudgingOrdered> {
+    this.sideBySideJudgingRequests.push(order);
     return this.pairAnswer;
   }
 }
@@ -610,11 +613,11 @@ export const snapshotsFor = (
   );
 
 export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
-  readonly kept = new Map<string, ConfigPullRequest>();
+  readonly stored = new Map<string, ConfigPullRequest>();
   readonly events: DomainEvent[] = [];
 
   async find(id: { value: string }) {
-    return this.kept.get(id.value) ?? null;
+    return this.stored.get(id.value) ?? null;
   }
 
   async forCandidate(
@@ -622,7 +625,7 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
     candidateId: { value: string },
   ) {
     return (
-      [...this.kept.values()].find(
+      [...this.stored.values()].find(
         (each) =>
           each.searchId.value === searchId.value &&
           each.candidateId.value === candidateId.value,
@@ -631,55 +634,55 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
   }
 
   async ofSearch(searchId: { value: string }) {
-    return [...this.kept.values()].filter(
+    return [...this.stored.values()].filter(
       (each) => each.searchId.value === searchId.value,
     );
   }
 
   async ofSearches(searchIds: readonly { value: string }[]) {
-    return [...this.kept.values()].filter((each) =>
+    return [...this.stored.values()].filter((each) =>
       searchIds.some((id) => id.value === each.searchId.value),
     );
   }
 
   async ofTeam(teamId: { value: string }) {
-    return [...this.kept.values()].filter(
+    return [...this.stored.values()].filter(
       (each) => each.teamId.value === teamId.value,
     );
   }
 
   async due(now: Date) {
-    return [...this.kept.values()].filter((each) => each.isDue(now));
+    return [...this.stored.values()].filter((each) => each.isDue(now));
   }
 
   async add(added: ConfigPullRequest) {
-    const kept = await this.forCandidate(added.searchId, added.candidateId);
+    const existing = await this.forCandidate(added.searchId, added.candidateId);
 
-    if (kept) {
-      return kept;
+    if (existing) {
+      return existing;
     }
 
     this.events.push(...added.pullEvents());
-    this.kept.set(added.id.value, added);
+    this.stored.set(added.id.value, added);
 
     return added;
   }
 
   async save(saved: ConfigPullRequest) {
-    const held = this.kept.get(saved.id.value);
+    const existing = this.stored.get(saved.id.value);
 
-    if (!held || held.version !== saved.version) {
+    if (!existing || existing.version !== saved.version) {
       throw new ConfigPullRequestVersionConflictError(saved.id.value);
     }
 
     this.events.push(...saved.pullEvents());
 
-    if (saved.isAbandoned) {
-      this.kept.delete(saved.id.value);
+    if (saved.isDeleted) {
+      this.stored.delete(saved.id.value);
       return;
     }
 
-    this.kept.set(
+    this.stored.set(
       saved.id.value,
       ConfigPullRequest.rehydrate({
         id: saved.id,
@@ -694,8 +697,8 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
         state: saved.current,
         url: saved.url,
         reason: saved.reason,
-        attempts: saved.attempts,
-        tries: saved.tries,
+        generation: saved.generation,
+        retries: saved.retries,
         lastCommit: saved.lastCommit,
         dueAt: saved.dueAt,
         createdAt: saved.createdAt,

@@ -11,8 +11,8 @@ import type { RunReaderPort } from '@work/application/ports/run-reader.port';
 import type { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import {
   connectionsOf,
+  type TracedRun,
   traceOf,
-  type WorkedRun,
 } from '@work/application/read-models/trace-of';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
@@ -31,21 +31,23 @@ export class ReadTaskTraceHandler
       const taskId = TaskId.of(query.taskId);
       const viewerId = UserId.of(query.viewerId);
 
-      const [found, told] = await Promise.all([
+      const [found, journals] = await Promise.all([
         this.runs.listForTask(taskId, viewerId),
         this.journals.listForTask(taskId, viewerId),
       ]);
 
-      if (told === null) {
+      if (journals === null) {
         return null;
       }
 
-      const byRun = new Map(told.map((journal) => [journal.runId, journal]));
-      const wentWrong = await this.connections.wentWrongIn(
+      const byRun = new Map(
+        journals.map((journal) => [journal.runId, journal]),
+      );
+      const errors = await this.connections.errorsIn(
         found.map((run) => run.id),
       );
 
-      const worked: WorkedRun[] = found.map((run) => ({
+      const traced: TracedRun[] = found.map((run) => ({
         id: RunId.of(run.id),
         station: StationName.maybe(run.station?.name),
         harness: HarnessName.of(run.harness),
@@ -54,10 +56,10 @@ export class ReadTaskTraceHandler
         startedAt: run.startedAt,
         endedAt: run.updatedAt,
         journal: byRun.get(run.id) ?? null,
-        connections: connectionsOf(wentWrong, run.id, run.attempt),
+        connections: connectionsOf(errors, run.id, run.attempt),
       }));
 
-      return TaskTraceMapper.toDto(traceOf(worked));
+      return TaskTraceMapper.toDto(traceOf(traced));
     } catch (error) {
       rethrowAsApplicationError(error);
     }

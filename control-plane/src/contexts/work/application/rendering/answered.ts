@@ -17,33 +17,36 @@ const clipped = (text: string): string =>
   text.length > MAX_ANSWER ? `${text.slice(0, MAX_ANSWER)}\n…` : text;
 
 const wholeHunks = (hunks: readonly EvidencedHunk[]): string => {
-  const told: string[] = [];
+  const included: string[] = [];
   let size = 0;
 
   for (const hunk of hunks) {
     const shown = hunkOf(hunk);
 
-    if (size + shown.length > MAX_ANSWER && told.length > 0) {
-      return [...told, `… ${hunks.length - told.length} more hunks`].join('\n');
+    if (size + shown.length > MAX_ANSWER && included.length > 0) {
+      return [
+        ...included,
+        `… ${hunks.length - included.length} more hunks`,
+      ].join('\n');
     }
-    told.push(shown);
+    included.push(shown);
     size += shown.length + 1;
   }
 
-  return told.join('\n');
+  return included.join('\n');
 };
 
 export const Answered = {
-  acceptedGiven(hunks: readonly EvidencedHunk[]): boolean {
+  hasAccepted(hunks: readonly EvidencedHunk[]): boolean {
     return hunks.length > 0;
   },
 
-  sentBackGiven(feedback: readonly string[]): boolean {
+  hasSentBack(feedback: readonly string[]): boolean {
     return feedback.length > 0;
   },
 
   accepted(hunks: readonly EvidencedHunk[]): string | null {
-    if (!Answered.acceptedGiven(hunks)) {
+    if (!Answered.hasAccepted(hunks)) {
       return null;
     }
 
@@ -55,7 +58,7 @@ export const Answered = {
   },
 
   sentBack(feedback: readonly string[]): string | null {
-    if (!Answered.sentBackGiven(feedback)) {
+    if (!Answered.hasSentBack(feedback)) {
       return null;
     }
 
@@ -63,7 +66,7 @@ export const Answered = {
       ANSWER,
       'A person sent an earlier attempt at this task back and said:',
       clipped(feedback.map(quoted).join('\n\n')),
-      'Do the task so that it meets what they asked for.',
+      'Do the task so that it meets what they requested.',
     ].join('\n\n');
   },
 };

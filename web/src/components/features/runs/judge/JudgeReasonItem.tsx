@@ -20,21 +20,21 @@ type JudgeReasonItemProps = {
 };
 
 export function JudgeReasonItem({ reason }: JudgeReasonItemProps) {
-  const [unfolded, setUnfolded] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const anchors = useStepAnchors();
-  const shown = reason.citations.find((each) => keyOf(each) === unfolded);
+  const shown = reason.citations.find((each) => keyOf(each) === expanded);
 
   const follow = (citation: Citation) => {
     const step = citation.step?.index;
 
-    if (step !== undefined && anchors.holds(step)) {
-      setUnfolded(null);
+    if (step !== undefined && anchors.has(step)) {
+      setExpanded(null);
       anchors.focus(step);
       return;
     }
 
     const key = keyOf(citation);
-    setUnfolded((was) => (was === key ? null : key));
+    setExpanded((was) => (was === key ? null : key));
   };
 
   return (
@@ -46,7 +46,7 @@ export function JudgeReasonItem({ reason }: JudgeReasonItemProps) {
           <li key={keyOf(citation)}>
             <CitationChip
               kind={citation.kind}
-              pressed={keyOf(citation) === unfolded}
+              pressed={keyOf(citation) === expanded}
               onClick={() => follow(citation)}
             >
               {citation.hunk ? formatHunk(citation.hunk) : formatStep(citation)}

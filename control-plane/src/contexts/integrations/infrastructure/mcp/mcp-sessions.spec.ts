@@ -1,10 +1,10 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
-import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
+import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import {
-  McpAuthorizationRefused,
-  McpQuestionRefused,
+  McpQuestionUnsupportedError,
+  McpUnauthorizedError,
 } from '@integrations/infrastructure/mcp/mcp-failures';
 import {
   type FakeMcpServer,
@@ -12,16 +12,16 @@ import {
 } from '@integrations/infrastructure/mcp/mcp-server.fake-spec';
 import { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
-import { WornSecrets } from '@secrets/application/contracts/worn-secrets.contract';
+import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const wearingKey = {
+const injectingKey = {
   connection: null,
   secrets: ['TRACKER_KEY'],
   credentials: {
-    wornToward: async () =>
-      WornSecrets.of([
-        { carrier: 'query', name: 'key', value: 'k/live', bare: 'k/live' },
+    injectedFor: async () =>
+      InjectedSecrets.of([
+        { location: 'query', name: 'key', value: 'k/live', bare: 'k/live' },
       ]),
   } as Credentials,
 };
@@ -38,11 +38,11 @@ const serving = async (
   };
 };
 
-const wearingNothing = {
+const injectingNothing = {
   connection: null,
   secrets: [],
   credentials: {
-    wornToward: async () => WornSecrets.none(),
+    injectedFor: async () => InjectedSecrets.none(),
   } as Credentials,
 };
 
@@ -61,7 +61,7 @@ describe('McpSessions', () => {
   });
 
   it('lists the tools a server offers, with their schemas and hints', async () => {
-    const tools = await sessions.tools(server.url, wearingNothing);
+    const tools = await sessions.tools(server.url, injectingNothing);
 
     expect(tools.map((each) => each.name)).toEqual([
       'search_issues',
@@ -80,7 +80,7 @@ describe('McpSessions', () => {
         server.url,
         'search_issues',
         { query: 'queue' },
-        wearingNothing,
+        injectingNothing,
       );
 
     await search('team_1:tracker:team:none');
@@ -92,16 +92,16 @@ describe('McpSessions', () => {
     expect(server.called).toHaveLength(3);
   });
 
-  it('gives each call in flight a session of its own, so a question is put down to the call it came in', async () => {
+  it('uses a session of its own for each call in flight, so a question is put down to the call it came in', async () => {
     const key = 'team_1:tracker:team:none';
     const [asking, searching] = await Promise.allSettled([
-      sessions.call(key, server.url, 'ask_first', {}, wearingNothing),
+      sessions.call(key, server.url, 'ask_first', {}, injectingNothing),
       sessions.call(
         key,
         server.url,
         'search_issues',
         { query: 'queue' },
-        wearingNothing,
+        injectingNothing,
       ),
     ]);
 
@@ -119,10 +119,10 @@ describe('McpSessions', () => {
       server.url,
       'search_issues',
       { query: 'queue' },
-      wearingNothing,
+      injectingNothing,
     );
 
-    expect(server.heard.map((each) => each.method)).not.toContain('GET');
+    expect(server.received.map((each) => each.method)).not.toContain('GET');
   });
 
   it('ends the session at the server when it lists, and when a session idles out', async () => {
@@ -135,20 +135,20 @@ describe('McpSessions', () => {
         1_000,
       );
 
-      await idling.tools(server.url, wearingNothing);
+      await idling.tools(server.url, injectingNothing);
       await idling.call(
         'team_1:tracker:team:none',
         server.url,
         'search_issues',
         { query: 'queue' },
-        wearingNothing,
+        injectingNothing,
       );
       vi.advanceTimersByTime(1_001);
       vi.useRealTimers();
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       expect(
-        server.heard.filter((each) => each.method === 'DELETE'),
+        server.received.filter((each) => each.method === 'DELETE'),
       ).toHaveLength(2);
     } finally {
       vi.useRealTimers();
@@ -168,7 +168,7 @@ describe('McpSessions', () => {
           url,
           'search_issues',
           { query: 'queue' },
-          wearingNothing,
+          injectingNothing,
         );
 
       await search(server.url);
@@ -182,18 +182,18 @@ describe('McpSessions', () => {
     }
   });
 
-  it('starts again once when the server has forgotten the session', async () => {
+  it('starts again once when the server no longer knows the session', async () => {
     const search = () =>
       sessions.call(
         'team_1:tracker:team:none',
         server.url,
         'search_issues',
         { query: 'queue' },
-        wearingNothing,
+        injectingNothing,
       );
 
     await search();
-    server.forgetSessions();
+    server.evictSessions();
 
     await expect(search()).resolves.toMatchObject({
       structuredContent: { issues: [{ id: 'ENG-1' }] },
@@ -216,7 +216,7 @@ describe('McpSessions', () => {
           server.url,
           'search_issues',
           { query: 'queue' },
-          wearingNothing,
+          injectingNothing,
         );
 
       await search();
@@ -230,23 +230,23 @@ describe('McpSessions', () => {
     }
   });
 
-  it('refuses a call the server asks a question in the middle of, saying why', async () => {
+  it('fails a call the server asks a question in the middle of, saying why', async () => {
     await expect(
       sessions.call(
         'team_1:tracker:team:none',
         server.url,
         'ask_first',
         {},
-        wearingNothing,
+        injectingNothing,
       ),
-    ).rejects.toBeInstanceOf(McpQuestionRefused);
+    ).rejects.toBeInstanceOf(McpQuestionUnsupportedError);
   });
 
-  it('wears the connection and the secrets only toward the server', async () => {
-    const wornToward = vi.fn(async () =>
-      WornSecrets.of([
+  it('injects the connection and the secrets only for the server', async () => {
+    const injectedFor = vi.fn(async () =>
+      InjectedSecrets.of([
         {
-          carrier: 'header',
+          location: 'header',
           name: 'x-api-key',
           value: 'tk_live',
           bare: 'tk_live',
@@ -262,19 +262,19 @@ describe('McpSessions', () => {
       {
         connection: 'the-token',
         secrets: ['TRACKER_KEY'],
-        credentials: { wornToward },
+        credentials: { injectedFor },
       },
     );
 
-    expect(server.heard.every((each) => each.authorization)).toBe(true);
-    expect(server.heard[0]).toMatchObject({
+    expect(server.received.every((each) => each.authorization)).toBe(true);
+    expect(server.received[0]).toMatchObject({
       authorization: 'Bearer the-token',
       apiKey: 'tk_live',
     });
-    expect(wornToward).toHaveBeenCalledWith(server.url, ['TRACKER_KEY']);
+    expect(injectedFor).toHaveBeenCalledWith(server.url, ['TRACKER_KEY']);
   });
 
-  it('wears a secret in the query, and takes it out of what the server answers', async () => {
+  it('injects a secret in the query, and takes it out of what the server answers', async () => {
     const answered = await sessions.call(
       'team_1:tracker:team:key',
       server.url,
@@ -284,10 +284,10 @@ describe('McpSessions', () => {
         connection: null,
         secrets: ['TRACKER_KEY'],
         credentials: {
-          wornToward: async () =>
-            WornSecrets.of([
+          injectedFor: async () =>
+            InjectedSecrets.of([
               {
-                carrier: 'query',
+                location: 'query',
                 name: 'key',
                 value: 'tk/live',
                 bare: 'tk/live',
@@ -297,38 +297,41 @@ describe('McpSessions', () => {
       },
     );
 
-    expect(server.heard[server.heard.length - 1]?.key).toBe('tk/live');
+    expect(server.received[server.received.length - 1]?.key).toBe('tk/live');
     expect(JSON.stringify(answered)).not.toContain('tk/live');
     expect(JSON.stringify(answered)).toContain('[secret]');
   });
 
-  it('says when the server refuses the connection it was handed', async () => {
+  it('says when the server does not accept the connection it was handed', async () => {
     const guarded = await fakeMcpServer({ token: 'right' });
-    const asking = new McpSessions(
+    const guardedSessions = new McpSessions(
       new OutboundPolicy([new URL(guarded.url).host]),
     );
 
     try {
       await expect(
-        asking.call(
+        guardedSessions.call(
           'team_1:tracker:team:wrong',
           guarded.url,
           'search_issues',
           { query: 'queue' },
-          { ...wearingNothing, connection: 'wrong' },
+          { ...injectingNothing, connection: 'wrong' },
         ),
-      ).rejects.toBeInstanceOf(McpAuthorizationRefused);
+      ).rejects.toBeInstanceOf(McpUnauthorizedError);
       await expect(
-        asking.tools(guarded.url, { ...wearingNothing, connection: 'wrong' }),
-      ).rejects.toBeInstanceOf(McpAuthorizationRefused);
+        guardedSessions.tools(guarded.url, {
+          ...injectingNothing,
+          connection: 'wrong',
+        }),
+      ).rejects.toBeInstanceOf(McpUnauthorizedError);
     } finally {
-      asking.onModuleDestroy();
+      guardedSessions.onModuleDestroy();
       await guarded.close();
     }
   });
 
-  it('says why a server refused to list its tools without the key it echoed', async () => {
-    const refusing = await serving((request, reply) => {
+  it('says why a server did not list its tools, without the key it echoed', async () => {
+    const failing = await serving((request, reply) => {
       let body = '';
       request.on('data', (chunk) => {
         body += chunk;
@@ -345,27 +348,27 @@ describe('McpSessions', () => {
       });
     });
     const listing = new McpSessions(
-      new OutboundPolicy([new URL(refusing.origin).host]),
+      new OutboundPolicy([new URL(failing.origin).host]),
     );
 
     try {
-      const refused = await listing
-        .tools(`${refusing.origin}/mcp`, wearingKey)
+      const failure = await listing
+        .tools(`${failing.origin}/mcp`, injectingKey)
         .catch((error: unknown) => error as Error);
 
-      expect(refused).toBeInstanceOf(Error);
-      expect((refused as Error).message).toContain('[secret]');
-      expect((refused as Error).message).not.toMatch(/k(%2F|\/)live/);
+      expect(failure).toBeInstanceOf(Error);
+      expect((failure as Error).message).toContain('[secret]');
+      expect((failure as Error).message).not.toMatch(/k(%2F|\/)live/);
     } finally {
       listing.onModuleDestroy();
-      refusing.server.close();
+      failing.server.close();
     }
   });
 
   it('carries no key to another host a server redirects to', async () => {
-    const heard: string[] = [];
+    const urls: string[] = [];
     const elsewhere = await serving((request, reply) => {
-      heard.push(request.url ?? '');
+      urls.push(request.url ?? '');
       reply.writeHead(404).end();
     });
     const moving = await serving((request, reply) => {
@@ -381,10 +384,12 @@ describe('McpSessions', () => {
     );
 
     try {
-      await listing.tools(`${moving.origin}/mcp`, wearingKey).catch(() => null);
+      await listing
+        .tools(`${moving.origin}/mcp`, injectingKey)
+        .catch(() => null);
 
-      expect(heard.length).toBeGreaterThan(0);
-      expect(heard.join(' ')).not.toMatch(/k(%2F|\/)live/);
+      expect(urls.length).toBeGreaterThan(0);
+      expect(urls.join(' ')).not.toMatch(/k(%2F|\/)live/);
     } finally {
       listing.onModuleDestroy();
       moving.server.close();
@@ -396,8 +401,8 @@ describe('McpSessions', () => {
     const nowhere = new McpSessions(new OutboundPolicy(['elsewhere.example']));
 
     await expect(
-      nowhere.tools(server.url, wearingNothing),
-    ).rejects.toBeInstanceOf(OutboundRefusedError);
-    expect(server.heard).toEqual([]);
+      nowhere.tools(server.url, injectingNothing),
+    ).rejects.toBeInstanceOf(EgressBlockedError);
+    expect(server.received).toEqual([]);
   });
 });

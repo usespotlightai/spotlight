@@ -6,21 +6,21 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
 
-let held: TestDatabase;
+let database: TestDatabase;
 let db: DrizzleDatabase;
 let reader: DrizzleRunnerActivityReader;
 
 beforeAll(async () => {
-  held = await openDatabase('runner_activity');
-  db = held.db;
+  database = await openDatabase('runner_activity');
+  db = database.db;
   reader = new DrizzleRunnerActivityReader(db);
 }, 60_000);
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
-const heldRun = (over: Partial<typeof schema.run.$inferInsert>) => ({
+const leasedRun = (over: Partial<typeof schema.run.$inferInsert>) => ({
   id: randomUUID(),
   workspaceId: 'ws_1',
   harness: 'dev',
@@ -66,16 +66,16 @@ describe('which run each busy runner is working on', () => {
       harness: 'dev',
     });
     await db.insert(schema.run).values([
-      heldRun({ taskId, stationId, claimedBy: 'runner_task' }),
-      heldRun({ taskId, claimedBy: 'runner_task_no_station' }),
-      heldRun({ claimedBy: 'runner_spec' }),
-      heldRun({ chatId, claimedBy: 'runner_chat' }),
-      heldRun({
+      leasedRun({ taskId, stationId, claimedBy: 'runner_task' }),
+      leasedRun({ taskId, claimedBy: 'runner_task_no_station' }),
+      leasedRun({ claimedBy: 'runner_spec' }),
+      leasedRun({ chatId, claimedBy: 'runner_chat' }),
+      leasedRun({
         searchId: randomUUID(),
         ranForTeamId: 'team_search',
         claimedBy: 'runner_search',
       }),
-      heldRun({
+      leasedRun({
         taskId,
         stationId,
         state: 'completed',
@@ -83,7 +83,7 @@ describe('which run each busy runner is working on', () => {
       }),
     ]);
 
-    const busy = await reader.heldIn(WorkspaceId.of('ws_1'));
+    const busy = await reader.leasedIn(WorkspaceId.of('ws_1'));
 
     expect(
       busy

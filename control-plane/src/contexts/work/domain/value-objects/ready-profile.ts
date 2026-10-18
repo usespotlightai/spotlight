@@ -1,6 +1,6 @@
 import { distinct } from '@shared-kernel/domain/services/distinct';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
-import { wornByEgress } from '@work/domain/services/worn-by-egress';
+import { injectedByEgress } from '@work/domain/services/injected-by-egress';
 import type { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 
 export const PERMISSION_KINDS = ['read', 'edit', 'execute'] as const;
@@ -30,7 +30,7 @@ export interface HarnessSettings {
 
 export interface ReadyProfile extends HarnessSettings {
   readonly key: ProfileKey;
-  readonly wears: readonly SecretName[];
+  readonly injectedSecrets: readonly SecretName[];
 }
 
 export const readyProfile = (
@@ -39,22 +39,24 @@ export const readyProfile = (
 ): ReadyProfile => {
   const servers = settings.mcpServers.map((server) => ({
     server,
-    worn: wornByEgress(server.env),
+    injected: injectedByEgress(server.env),
   }));
 
   return {
     ...settings,
     key,
-    mcpServers: servers.map(({ server, worn }) => ({
+    mcpServers: servers.map(({ server, injected }) => ({
       ...server,
-      env: worn.env,
+      env: injected.env,
     })),
-    wears: distinct(servers.flatMap(({ worn }) => worn.wears)),
+    injectedSecrets: distinct(
+      servers.flatMap(({ injected }) => injected.injectedSecrets),
+    ),
   };
 };
 
 export const withoutServers = (profile: ReadyProfile): ReadyProfile => ({
   ...profile,
   mcpServers: [],
-  wears: [],
+  injectedSecrets: [],
 });

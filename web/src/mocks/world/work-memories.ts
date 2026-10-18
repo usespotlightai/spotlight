@@ -13,7 +13,7 @@ import { MEMORY_SEED, type MemoryRecord } from '@/mocks/world/team-memories';
 import {
   GONE_REMEMBER,
   GONE_THOUGHT,
-  groundStep,
+  provenanceStep,
 } from '@/mocks/world/work-stories';
 
 const briefedOf = ({
@@ -46,9 +46,9 @@ const proposal = (
   },
 ): RunProposalResponseDto => ({
   source: 'run',
-  origin: 'drafted',
+  proposedBy: 'drafter',
   state: 'proposed',
-  reach: 'team',
+  scope: 'team',
   repository: null,
   paths: [],
   supersedes: null,
@@ -57,13 +57,13 @@ const proposal = (
   steps: [],
   notes: [],
   handle: null,
-  standing: null,
+  status: null,
   ...over,
 });
 
 const NOTHING: RunMemoriesResponseDto = {
   briefed: [],
-  cut: [],
+  omitted: [],
   recalled: [],
   proposed: [],
   reviewItemId: null,
@@ -78,16 +78,16 @@ const RUN_MEMORIES: Record<string, Partial<RunMemoriesResponseDto>> = {
         id: GONE.id,
         kind: GONE.kind,
         body: GONE.body,
-        reach: GONE.reach,
+        scope: GONE.scope,
         repository: GONE.repository,
         paths: GONE.paths,
         state: 'approved',
         decision: { by: MAYA.id, name: MAYA.name, at: GONE.approvedAt },
         handle: GONE.handle,
-        standing: 'stands',
+        status: 'active',
         steps: [
-          groundStep('run_retries_2', GONE_THOUGHT),
-          groundStep('run_retries_2', GONE_REMEMBER, 'remember'),
+          provenanceStep('run_retries_2', GONE_THOUGHT),
+          provenanceStep('run_retries_2', GONE_REMEMBER, 'remember'),
         ],
       }),
     ],
@@ -100,12 +100,12 @@ const RUN_MEMORIES: Record<string, Partial<RunMemoriesResponseDto>> = {
         kind: 'environment',
         body: 'Runners cannot reach the billing database at 10.0.4.12, so the invoice reconcile script cannot run from Spotlight.',
         steps: [
-          groundStep(
+          provenanceStep(
             'run_billing_1',
             'The reconcile script cannot reach the billing database from the runner.',
           ),
         ],
-        reach: 'line',
+        scope: 'line',
         state: 'rejected',
         decision: { by: MAYA.id, name: MAYA.name, at: hoursAgo(18) },
       }),
@@ -115,23 +115,23 @@ const RUN_MEMORIES: Record<string, Partial<RunMemoriesResponseDto>> = {
 
 const MAX_BRIEFED = 4;
 
-const heldAt = (memory: MemoryRecord, at: string): boolean =>
+const activeAt = (memory: MemoryRecord, at: string): boolean =>
   memory.approvedAt <= at &&
   (memory.retirement === null || memory.retirement.at > at);
 
-type RunPlace = Pick<
+type RunContext = Pick<
   HistoryRun,
   'teamId' | 'lineId' | 'stationId' | 'repositories'
 > & { readonly startedAt: string };
 
-const reaches = (memory: MemoryRecord, run: RunPlace): boolean =>
+const matches = (memory: MemoryRecord, run: RunContext): boolean =>
   (memory.lineId === null || memory.lineId === run.lineId) &&
   (memory.stationId === null || memory.stationId === run.stationId) &&
   (memory.repository === null ||
     run.repositories.length === 0 ||
     run.repositories.includes(memory.repository));
 
-const placeOfRun = (runId: string): RunPlace | undefined => {
+const contextOfRun = (runId: string): RunContext | undefined => {
   const past = historyRunOf(runId);
   if (past?.startedAt) {
     return { ...past, startedAt: past.startedAt };
@@ -150,12 +150,12 @@ const placeOfRun = (runId: string): RunPlace | undefined => {
 };
 
 const briefedFor = (runId: string): TeamMemoryResponseDto[] => {
-  const run = placeOfRun(runId);
+  const run = contextOfRun(runId);
 
   return run
     ? (MEMORY_SEED[run.teamId] ?? [])
         .filter(
-          (memory) => heldAt(memory, run.startedAt) && reaches(memory, run),
+          (memory) => activeAt(memory, run.startedAt) && matches(memory, run),
         )
         .slice(0, MAX_BRIEFED)
         .map(briefedOf)

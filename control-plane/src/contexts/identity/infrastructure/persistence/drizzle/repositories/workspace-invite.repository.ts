@@ -1,11 +1,11 @@
 import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
-import { WorkspaceInviteOffered } from '@identity/domain/events/workspace-invite-offered.event';
+import { WorkspaceInviteCreated } from '@identity/domain/events/workspace-invite-created.event';
 import { AlreadyInvitedError } from '@identity/domain/exceptions/already-invited.error';
 import { InviteVersionConflictError } from '@identity/domain/exceptions/invite-version-conflict.error';
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import {
   team,
@@ -67,7 +67,7 @@ export class DrizzleWorkspaceInviteRepository
 
       await this.stored(saved);
 
-      if (events.some((each) => each instanceof WorkspaceInviteOffered)) {
+      if (events.some((each) => each instanceof WorkspaceInviteCreated)) {
         await this.teamsWritten(saved);
       }
 
@@ -94,12 +94,12 @@ export class DrizzleWorkspaceInviteRepository
     }
   }
 
-  private async teamsWritten(held: WorkspaceInvite): Promise<void> {
-    const teams = held.terms.teams.map((each) => each.value);
+  private async teamsWritten(invite: WorkspaceInvite): Promise<void> {
+    const teams = invite.spec.teams.map((each) => each.value);
 
     await this.context.db
       .delete(workspaceInviteTeam)
-      .where(eq(workspaceInviteTeam.inviteId, held.id.value));
+      .where(eq(workspaceInviteTeam.inviteId, invite.id.value));
 
     if (teams.length === 0) {
       return;
@@ -108,7 +108,7 @@ export class DrizzleWorkspaceInviteRepository
     await this.context.db.insert(workspaceInviteTeam).select(
       this.context.db
         .select({
-          inviteId: sql<string>`${held.id.value}::text`.as('invite_id'),
+          inviteId: sql<string>`${invite.id.value}::text`.as('invite_id'),
           teamId: team.id,
         })
         .from(team)
@@ -124,7 +124,7 @@ export class DrizzleWorkspaceInviteRepository
     return this.first(eq(workspaceInvite.tokenHash, hash.value));
   }
 
-  async openTo(
+  async notEndedTo(
     workspaceId: WorkspaceId,
     email: EmailAddress,
   ): Promise<WorkspaceInvite | null> {
@@ -163,19 +163,19 @@ export class DrizzleWorkspaceInviteRepository
     );
   }
 
-  private written(held: WorkspaceInvite) {
+  private written(invite: WorkspaceInvite) {
     return {
-      id: held.id.value,
-      workspaceId: held.workspaceId.value,
-      email: held.email.value,
-      role: held.terms.role.value,
-      tokenHash: held.tokenHash.value,
-      invitedBy: held.invitedBy?.value ?? null,
-      invitedAt: held.invitedAt,
-      expiresAt: held.expiresAt,
-      acceptedAt: held.acceptedAt,
-      acceptedBy: held.acceptedBy?.value ?? null,
-      revokedAt: held.revokedAt,
+      id: invite.id.value,
+      workspaceId: invite.workspaceId.value,
+      email: invite.email.value,
+      role: invite.spec.role.value,
+      tokenHash: invite.tokenHash.value,
+      invitedBy: invite.invitedBy?.value ?? null,
+      invitedAt: invite.invitedAt,
+      expiresAt: invite.expiresAt,
+      acceptedAt: invite.acceptedAt,
+      acceptedBy: invite.acceptedBy?.value ?? null,
+      revokedAt: invite.revokedAt,
     };
   }
 
@@ -184,7 +184,7 @@ export class DrizzleWorkspaceInviteRepository
       id: InviteId.of(row.id),
       workspaceId: WorkspaceId.of(row.workspaceId),
       email: EmailAddress.of(row.email),
-      terms: InviteTerms.of(WorkspaceRole.of(row.role), teams),
+      spec: InviteSpec.of(WorkspaceRole.of(row.role), teams),
       tokenHash: TokenHash.of(row.tokenHash),
       invitedBy: row.invitedBy ? UserId.of(row.invitedBy) : null,
       invitedAt: row.invitedAt,

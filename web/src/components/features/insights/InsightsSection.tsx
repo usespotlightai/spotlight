@@ -1,17 +1,17 @@
 import { ChevronDown } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
-import { InfoNote } from '@/components/features/insights/InfoNote';
+import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
 import { cn } from '@/lib/utils';
 
 type InsightsSectionProps = {
   title: string;
-  note?: string;
+  tooltip?: string;
   children: ReactNode;
 };
 
 export function InsightsSection({
   title,
-  note,
+  tooltip,
   children,
 }: InsightsSectionProps) {
   const [open, setOpen] = useState(true);
@@ -36,7 +36,7 @@ export function InsightsSection({
           />
           {title}
         </button>
-        {note && <InfoNote note={note} />}
+        {tooltip && <InfoTooltip tooltip={tooltip} />}
       </h2>
       {open && (
         <div id={contentId} className="flex flex-col gap-2">

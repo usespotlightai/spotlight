@@ -9,22 +9,22 @@ import (
 	"strings"
 )
 
-func (w *Workspace) Prune(dir string, keep []string) error {
+func (w *Workspace) Prune(dir string, preserve []string) error {
 	if !filepath.IsLocal(dir) {
 		return fmt.Errorf("%q escapes the workspace", dir)
 	}
 	dir = filepath.Clean(dir)
 
-	kept := map[string]bool{}
-	held := map[string]bool{}
-	for _, path := range keep {
+	preserved := map[string]bool{}
+	parents := map[string]bool{}
+	for _, path := range preserve {
 		if !filepath.IsLocal(path) {
 			return fmt.Errorf("%q escapes the workspace", path)
 		}
 		path = filepath.Clean(path)
-		kept[path] = true
+		preserved[path] = true
 		for parent := filepath.Dir(path); parent != "."; parent = filepath.Dir(parent) {
-			held[parent] = true
+			parents[parent] = true
 		}
 	}
 
@@ -50,10 +50,10 @@ func (w *Workspace) Prune(dir string, keep []string) error {
 		}
 	}
 
-	return prune(root, dir, kept, held)
+	return prune(root, dir, preserved, parents)
 }
 
-func prune(root *os.Root, dir string, kept, held map[string]bool) error {
+func prune(root *os.Root, dir string, preserved, parents map[string]bool) error {
 	opened, err := root.Open(dir)
 	if err != nil {
 		return fmt.Errorf("open %s: %w", dir, err)
@@ -68,9 +68,9 @@ func prune(root *os.Root, dir string, kept, held map[string]bool) error {
 		path := filepath.Join(dir, entry.Name())
 
 		switch {
-		case kept[path]:
-		case held[path] && entry.Type().IsDir():
-			if err := prune(root, path, kept, held); err != nil {
+		case preserved[path]:
+		case parents[path] && entry.Type().IsDir():
+			if err := prune(root, path, preserved, parents); err != nil {
 				return err
 			}
 		default:

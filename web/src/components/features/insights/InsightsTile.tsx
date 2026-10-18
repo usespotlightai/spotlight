@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
-import { DeltaMark } from '@/components/features/insights/DeltaMark';
-import { InfoNote } from '@/components/features/insights/InfoNote';
+import { DeltaGlyph } from '@/components/features/insights/DeltaGlyph';
+import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { TileSparkline } from '@/components/features/insights/TileSparkline';
-import type { Delta, TileDrill } from '@/lib/insights';
+import type { ShownDelta, TileDrill } from '@/lib/insights';
 
 const AGAINST = 'Against the previous period';
 
@@ -11,8 +11,8 @@ type InsightsTileProps = {
   label: string;
   value: string;
   detail?: ReactNode;
-  note?: string;
-  delta?: Delta | null;
+  tooltip?: string;
+  delta?: ShownDelta | null;
   drill?: TileDrill;
   trend?: readonly (number | null)[];
 };
@@ -21,7 +21,7 @@ export function InsightsTile({
   label,
   value,
   detail,
-  note,
+  tooltip,
   delta,
   drill,
   trend,
@@ -33,7 +33,7 @@ export function InsightsTile({
     >
       <dt className="flex min-h-6 items-center gap-1.5 px-3 pt-3 pb-2 text-foreground text-xs">
         <span className="truncate">{label}</span>
-        {note && <InfoNote note={note} />}
+        {tooltip && <InfoTooltip tooltip={tooltip} />}
       </dt>
       <dd className="@container flex flex-1 flex-col gap-1 px-3 pb-3">
         <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
@@ -48,7 +48,7 @@ export function InsightsTile({
           </span>
           {delta && (
             <span className="text-xs">
-              <DeltaMark delta={delta} note={AGAINST} />
+              <DeltaGlyph delta={delta} tooltip={AGAINST} />
             </span>
           )}
         </span>

@@ -9,15 +9,15 @@ import { CatalogVersion } from '@catalog/domain/value-objects/catalog-version.vo
 import { Plan } from '@catalog/domain/value-objects/plan.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 
-const listing = (
+const metadata = (
   name: string,
   version: string,
-  needs: Plan,
+  requiredPlan: Plan,
   description: string,
 ) => ({
   name: CatalogName.of(name),
   version: CatalogVersion.of(version),
-  needs,
+  requiredPlan,
   description,
 });
 
@@ -27,7 +27,7 @@ const QUERY = {
   description: 'What to search for',
   required: true,
   defaulted: false,
-  piped: false,
+  stdin: false,
 };
 
 const WEB_SEARCH =
@@ -38,14 +38,14 @@ name: spotlight-catalog-research
 description: Research a question on the web before answering it, citing the pages the answer rests on.
 ---
 Search with \`catalog.web-search\` first, then read the pages that matter with \`catalog.fetch-page\`.
-Cite each page an answer rests on by its address. Say so when the web does not settle a question.
+Cite each page an answer rests on by its address. Say so when the web does not answer a question.
 `;
 
 export const CATALOG_ITEMS: readonly CatalogItem[] = [
-  CatalogTool.of(listing('web-search', '1.0.0', Plan.team, WEB_SEARCH), [
+  CatalogTool.of(metadata('web-search', '1.0.0', Plan.team, WEB_SEARCH), [
     QUERY,
   ]),
-  CatalogTool.of(listing('web-search', '1.1.0', Plan.team, WEB_SEARCH), [
+  CatalogTool.of(metadata('web-search', '1.1.0', Plan.team, WEB_SEARCH), [
     QUERY,
     {
       name: 'limit',
@@ -53,11 +53,11 @@ export const CATALOG_ITEMS: readonly CatalogItem[] = [
       description: 'How many pages to answer with, at most',
       required: false,
       defaulted: false,
-      piped: false,
+      stdin: false,
     },
   ]),
   CatalogTool.of(
-    listing(
+    metadata(
       'fetch-page',
       '1.0.0',
       Plan.free,
@@ -70,12 +70,12 @@ export const CATALOG_ITEMS: readonly CatalogItem[] = [
         description: 'The page’s address',
         required: true,
         defaulted: false,
-        piped: false,
+        stdin: false,
       },
     ],
   ),
   CatalogSkill.of(
-    listing(
+    metadata(
       'research',
       '1.0.0',
       Plan.team,

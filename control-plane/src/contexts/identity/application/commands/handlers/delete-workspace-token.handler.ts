@@ -9,7 +9,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 
 export class DeleteWorkspaceTokenHandler
@@ -28,27 +28,27 @@ export class DeleteWorkspaceTokenHandler
     const id = WorkspaceTokenId.of(command.tokenId);
 
     try {
-      const standing = await this.tokens.find(id);
-      const permissions = standing
+      const existing = await this.tokens.find(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
-      if (!permissions.administers) {
+      if (!permissions.isAdmin) {
         return forbiddenTo('administer');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       await this.transaction.inTransaction(() =>
         this.tokens.save(
-          standing.revoke(Attribution.of(command.actor, standing.workspaceId)),
+          existing.revoke(ChangeActor.of(command.actor, existing.workspaceId)),
         ),
       );
 

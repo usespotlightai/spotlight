@@ -1,15 +1,15 @@
 import type {
   ChangedFile,
-  HeldRun,
-  NamedStationSite,
+  LeasedRun,
+  NamedStationContext,
   ReasonedStep,
   RememberedRun,
   RememberedTask,
-  SpokenNote,
+  TaskNote,
   TeamLine,
   WorkPort,
 } from '@memory/application/ports/work.port';
-import type { RunSite } from '@memory/domain/value-objects/run-site';
+import type { RunContext } from '@memory/domain/value-objects/run-context';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -31,38 +31,38 @@ export class Work implements WorkPort {
         completed: run.completed,
         memories: run.memories,
         briefed: run.briefedWith.briefed.map((each) => each.id),
-        cut: run.briefedWith.cut.map((each) => each.id),
+        omitted: run.briefedWith.omitted.map((each) => each.id),
       }
     );
   }
 
-  async heldBy(runId: RunId, runner: RunnerId): Promise<HeldRun | null> {
-    const held = await this.work.heldBy(runId, runner);
+  async leasedBy(runId: RunId, runner: RunnerId): Promise<LeasedRun | null> {
+    const leased = await this.work.leasedBy(runId, runner);
 
     return (
-      held && {
-        id: held.id,
-        workspaceId: held.workspaceId,
-        teamId: held.teamId,
-        taskId: held.taskId,
-        replaysFrom: held.replaysFrom,
-        isSearch: held.isSearch,
-        lineId: held.lineId,
-        stationId: held.stationId,
-        repositories: held.repositories,
+      leased && {
+        id: leased.id,
+        workspaceId: leased.workspaceId,
+        teamId: leased.teamId,
+        taskId: leased.taskId,
+        replaysFrom: leased.replaysFrom,
+        isSearch: leased.isSearch,
+        lineId: leased.lineId,
+        stationId: leased.stationId,
+        repositories: leased.repositories,
       }
     );
   }
 
-  async siteOfRun(runId: RunId): Promise<RunSite | null> {
-    const site = await this.work.siteOfRun(runId);
+  async contextOfRun(runId: RunId): Promise<RunContext | null> {
+    const runContext = await this.work.contextOfRun(runId);
 
     return (
-      site && {
-        teamId: site.teamId,
-        lineId: site.lineId,
-        stationId: site.stationId,
-        repositories: site.repositories,
+      runContext && {
+        teamId: runContext.teamId,
+        lineId: runContext.lineId,
+        stationId: runContext.stationId,
+        repositories: runContext.repositories,
       }
     );
   }
@@ -75,17 +75,17 @@ export class Work implements WorkPort {
     return this.work.referencedUnder(runId, folder, file);
   }
 
-  async stationSiteOf(runId: RunId): Promise<NamedStationSite | null> {
-    const site = await this.work.placeOf(runId);
+  async stationContextOf(runId: RunId): Promise<NamedStationContext | null> {
+    const runContext = await this.work.locationOf(runId);
 
     return (
-      site && {
-        teamId: site.teamId,
-        lineId: site.lineId,
-        lineName: site.lineName,
-        stationId: site.stationId,
-        stationName: site.stationName,
-        repositories: site.repositories,
+      runContext && {
+        teamId: runContext.teamId,
+        lineId: runContext.lineId,
+        lineName: runContext.lineName,
+        stationId: runContext.stationId,
+        stationName: runContext.stationName,
+        repositories: runContext.repositories,
       }
     );
   }
@@ -138,11 +138,11 @@ export class Work implements WorkPort {
     );
   }
 
-  async spokenOn(taskId: TaskId): Promise<readonly SpokenNote[] | null> {
-    const spoken = await this.work.spokenOn(taskId);
+  async notesOf(taskId: TaskId): Promise<readonly TaskNote[] | null> {
+    const notes = await this.work.notesOf(taskId);
 
     return (
-      spoken?.map((each) => ({
+      notes?.map((each) => ({
         position: each.position,
         by: each.by,
         author: each.author ? UserId.of(each.author) : null,

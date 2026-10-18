@@ -4,14 +4,14 @@ import { WorkspaceRunnersVersionConflictError } from '@runners/domain/exceptions
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
-import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const BY = attributedIn('ws_1');
+const BY = changeActorIn('ws_1');
 
-const declared = () =>
-  WorkspaceRunners.declare({
+const created = () =>
+  WorkspaceRunners.create({
     id: WorkspaceRunnersId.of('declared_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     trusts: [TrustKey.of('production')],
@@ -20,30 +20,30 @@ const declared = () =>
   });
 
 describe('WorkspaceRunners', () => {
-  it('says it was declared, declared again, and dropped', () => {
-    const made = declared();
-    const again = made.redeclaredAs({ trusts: [], pools: [] }, BY);
-    const dropped = again.drop(BY);
+  it('says it was created, updated, and deleted', () => {
+    const made = created();
+    const again = made.update({ trusts: [], pools: [] }, BY);
+    const deleted = again.delete(BY);
 
-    expect(dropped.pullEvents().map((each) => each.kind)).toEqual([
-      'workspace-runners.declared',
-      'workspace-runners.redeclared',
-      'workspace-runners.dropped',
+    expect(deleted.pullEvents().map((each) => each.kind)).toEqual([
+      'workspace-runners.created',
+      'workspace-runners.updated',
+      'workspace-runners.deleted',
     ]);
   });
 
-  it('refuses to name a trust or a pool twice, pointing at the second', () => {
+  it('rejects a trust or a pool named twice, pointing at the second', () => {
     expect(() =>
-      WorkspaceRunners.declare({
+      WorkspaceRunners.create({
         id: WorkspaceRunnersId.of('declared_1'),
         workspaceId: WorkspaceId.of('ws_1'),
         trusts: [TrustKey.of('production'), TrustKey.of('production')],
         pools: [],
         by: BY,
       }),
-    ).toThrow('trusts[1] gives production twice');
+    ).toThrow('trusts[1] names production twice');
     expect(() =>
-      declared().redeclaredAs(
+      created().update(
         {
           trusts: [],
           pools: [
@@ -57,8 +57,8 @@ describe('WorkspaceRunners', () => {
     ).toThrow(InvalidWorkspaceRunnersError);
   });
 
-  it('refuses a change to a version no longer current', () => {
-    expect(() => declared().assertVersion(1)).toThrow(
+  it('rejects a change to a version no longer current', () => {
+    expect(() => created().assertVersion(1)).toThrow(
       WorkspaceRunnersVersionConflictError,
     );
   });

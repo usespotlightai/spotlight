@@ -1,11 +1,11 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import type { HookedTasksPort } from '@work/application/ports/hooked-tasks.port';
 import type {
-  HookVerdict,
+  HookDecision,
   LifecycleHooksPort,
 } from '@work/application/ports/lifecycle-hooks.port';
+import type { TaskViewsPort } from '@work/application/ports/task-views.port';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
@@ -16,16 +16,16 @@ const PAST_THE_POLL_MS = 5_000;
 
 const MAX_HOOK_MS = 12_000;
 
-type Heard =
-  | HookVerdict
-  | { readonly kind: 'unheard'; readonly because: string };
+type HookOutcome =
+  | HookDecision
+  | { readonly kind: 'no-reply'; readonly because: string };
 
-export type RunStart = 'starts' | 'refused' | 'handed-back';
+export type RunStart = 'starts' | 'denied' | 'requeued';
 
 export class RunStartHooks {
   constructor(
     private readonly runs: RunRepository,
-    private readonly hookedTasks: HookedTasksPort,
+    private readonly taskViews: TaskViewsPort,
     private readonly hooks: LifecycleHooksPort,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
@@ -36,36 +36,36 @@ export class RunStartHooks {
     runner: RunnerId,
     pollUntil: Date,
   ): Promise<RunStart> {
-    const verdict = await this.verdictOn(run, pollUntil);
+    const decision = await this.decisionOn(run, pollUntil);
 
-    if (verdict.kind === 'allowed') {
+    if (decision.kind === 'allowed') {
       return 'starts';
     }
 
-    if (verdict.kind === 'refused') {
-      await this.revised(run, runner, (held) =>
-        held.refusedToStart(runner, verdict.reason),
+    if (decision.kind === 'denied') {
+      await this.revised(run, runner, (current) =>
+        current.deniedStart(runner, decision.reason),
       );
-      return 'refused';
+      return 'denied';
     }
 
-    await this.revised(run, runner, (held) =>
-      held.handedBack(runner, this.clock.now(), verdict.because),
+    await this.revised(run, runner, (current) =>
+      current.requeue(runner, this.clock.now(), decision.because),
     );
-    return 'handed-back';
+    return 'requeued';
   }
 
-  private async verdictOn(run: Run, pollUntil: Date): Promise<Heard> {
-    if (!run.hearsHooks || !run.taskId) {
+  private async decisionOn(run: Run, pollUntil: Date): Promise<HookOutcome> {
+    if (!run.firesHooks || !run.taskId) {
       return { kind: 'allowed' };
     }
 
     try {
-      const hooked = await this.hookedTasks.of(run.taskId.value, run.id.value);
+      const taskView = await this.taskViews.of(run.taskId.value, run.id.value);
 
-      return hooked
+      return taskView
         ? await this.hooks.before(
-            hooked,
+            taskView,
             { on: 'run.starting' },
             this.hookUntil(pollUntil),
           )
@@ -75,10 +75,10 @@ export class RunStartHooks {
 
       this.logger.warn(
         { runId: run.id.value, taskId: run.taskId.value, error: because },
-        'The hooks could not be asked before a run started, so it was handed back to be claimed again',
+        'The hooks could not be called before a run started, so it was requeued to be claimed again',
       );
 
-      return { kind: 'unheard', because };
+      return { kind: 'no-reply', because };
     }
   }
 
@@ -94,12 +94,12 @@ export class RunStartHooks {
   private async revised(
     run: Run,
     runner: RunnerId,
-    change: (held: Run) => Run,
+    change: (current: Run) => Run,
   ): Promise<void> {
     for (let attempt = 1; ; attempt++) {
       const found = await this.runs.findById(run.id);
 
-      if (!found || found.hasEnded || !found.wasWorkedBy(runner)) {
+      if (!found || found.hasEnded || !found.wasClaimedBy(runner)) {
         return;
       }
 

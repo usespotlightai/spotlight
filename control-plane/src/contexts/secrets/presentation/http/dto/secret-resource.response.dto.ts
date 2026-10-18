@@ -5,14 +5,14 @@ import {
   SECRET_SOURCE_KINDS,
   type SecretSourceKind,
 } from '@secrets/domain/value-objects/secret-source.vo';
-import { SECRET_CARRIERS } from '@shared-kernel/domain/value-objects/secret-carriers';
+import { SECRET_LOCATIONS } from '@shared-kernel/domain/value-objects/secret-locations';
 
 class SecretSourceResponseDto {
   @ApiProperty({
     enum: SECRET_SOURCE_KINDS,
     example: 'built-in',
     description:
-      'Where the value lives: kept by Spotlight, or read from AWS Secrets Manager when it is used',
+      'Where the value lives: stored by Spotlight, or read from AWS Secrets Manager when it is used',
   })
   readonly kind: SecretSourceKind;
 
@@ -28,7 +28,7 @@ class SecretSourceResponseDto {
     type: String,
     nullable: true,
     example: null,
-    description: 'The key to read when that secret holds JSON',
+    description: 'The key to read when that secret contains JSON',
   })
   readonly field: string | null;
 
@@ -47,27 +47,28 @@ class SecretBindingResponseDto {
   readonly host: string;
 
   @ApiProperty({
-    enum: SECRET_CARRIERS,
+    enum: SECRET_LOCATIONS,
     example: 'header',
-    description: 'Whether it is worn in a request header or a query parameter',
+    description:
+      'Whether Spotlight injects it in a request header or in a query parameter',
   })
-  readonly carrier: string;
+  readonly location: string;
 
   @ApiProperty({
     example: 'authorization',
-    description: 'The header or query parameter it is worn in',
+    description: 'The header or query parameter that Spotlight injects it in',
   })
   readonly name: string;
 
   @ApiProperty({
     example: 'Bearer ',
-    description: 'Written before the value it is worn with',
+    description: 'The text that Spotlight writes before the value',
   })
   readonly prefix: string;
 
   constructor(binding: SecretResourceDto['bindings'][number]) {
     this.host = binding.host;
-    this.carrier = binding.carrier;
+    this.location = binding.location;
     this.name = binding.name;
     this.prefix = binding.prefix;
   }
@@ -83,7 +84,7 @@ export class SecretResourceResponseDto extends ResourceResponseDto {
   @ApiProperty({
     example: 'LINEAR_API_KEY',
     description:
-      'What integrations call it; fixed for its life, so changing it means replacing the secret',
+      'What integrations call it. Immutable: changing it means replacing the secret',
   })
   readonly name: string;
 
@@ -103,7 +104,7 @@ export class SecretResourceResponseDto extends ResourceResponseDto {
     nullable: true,
     example: 1,
     description:
-      'Changing it rotates the value to the valueWo sent with it; the value itself is write-only and never answered',
+      'Changing it rotates the value to the valueWo sent with it; the value itself is write-only and never returned',
   })
   readonly valueWoVersion: number | null;
 

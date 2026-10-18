@@ -13,7 +13,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class DeleteEgressHandler
   implements CommandHandlerPort<DeleteEgressCommand, ResourceDeleted | null>
@@ -29,36 +29,36 @@ export class DeleteEgressHandler
     const id = EgressId.of(command.egressId);
 
     try {
-      const standing = await this.egresses.find(id);
-      const permissions = standing
+      const existing = await this.egresses.find(id);
+      const permissions = existing
         ? await this.access.permissionsIn(
-            standing.workspaceId,
+            existing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !permissions) {
+      if (!existing || !permissions) {
         return null;
       }
 
       if (!permissions.managesRunners) {
-        return forbiddenTo('manage-runners');
+        return forbiddenTo('runners');
       }
 
-      standing.assertVersion(command.expectedVersion);
+      existing.assertVersion(command.expectedVersion);
 
       await this.transaction.inTransaction(async () => {
-        const locked = (await this.egresses.findToRetire(id)) ?? standing;
+        const locked = (await this.egresses.findToDelete(id)) ?? existing;
 
         locked.assertVersion(command.expectedVersion);
 
         await this.egresses.save(
-          locked.retire(
+          locked.delete(
             poolsNaming(
               locked,
               await this.pools.inWorkspace(locked.workspaceId),
             ),
-            Attribution.of(command.actor, permissions.workspaceId),
+            ChangeActor.of(command.actor, permissions.workspaceId),
           ),
         );
       });

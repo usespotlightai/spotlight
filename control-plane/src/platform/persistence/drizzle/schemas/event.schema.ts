@@ -28,13 +28,13 @@ export const eventDelivery = pgTable(
     attempts: integer('attempts').notNull().default(0),
     dueAt: timestamp('due_at').defaultNow().notNull(),
     deliveredAt: timestamp('delivered_at'),
-    failedAt: timestamp('failed_at'),
+    deadLetteredAt: timestamp('dead_lettered_at'),
     lastError: text('last_error'),
   },
   (table) => [
     primaryKey({ columns: [table.eventId, table.subscriber] }),
     index('event_delivery_due_idx').on(table.dueAt),
-    index('event_delivery_owed_idx')
+    index('event_delivery_pending_idx')
       .on(table.subscriber)
       .where(sql`${table.deliveredAt} is null`),
   ],

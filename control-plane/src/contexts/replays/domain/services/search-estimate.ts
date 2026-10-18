@@ -1,7 +1,7 @@
 import type { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import type {
-  SearchAllotment,
   SearchBudget,
+  SearchCeilingSplit,
 } from '@replays/domain/value-objects/search-budget.vo';
 
 export interface SearchEstimate {
@@ -12,7 +12,7 @@ export interface SearchEstimate {
     readonly agent: number;
     readonly total: number;
   };
-  readonly allotment: SearchAllotment;
+  readonly ceilingSplit: SearchCeilingSplit;
   readonly ms: number | null;
 }
 
@@ -26,7 +26,7 @@ export const estimateOf = (
   split: HeldOutSplit,
   timed: readonly number[],
 ): SearchEstimate => {
-  const allotment = budget.allot(split);
+  const ceilingSplit = budget.splitCeiling(split);
   const k = budget.perIteration;
   const searched = split.searched.length * budget.repeats;
   const heldOut = split.heldOut.length * budget.repeats;
@@ -45,7 +45,7 @@ export const estimateOf = (
       ...runs,
       total: runs.seed + runs.searchReplays + runs.heldOutReplays + runs.agent,
     },
-    allotment,
+    ceilingSplit,
     ms:
       each === null
         ? null

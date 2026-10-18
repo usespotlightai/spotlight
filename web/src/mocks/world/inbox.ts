@@ -1,15 +1,15 @@
 import type {
   InboxItemResponseDto,
-  InboxMessageResponseDto,
   InboxNoticeResponseDto,
   ListInboxResponse,
+  NoteResponseDto,
 } from '@/lib/api';
 import { daysAgo, hoursAgo } from '@/mocks/clock';
 import { GROWTH_ID } from '@/mocks/world/growth';
 import {
-  type AlertCrossing,
-  alertCrossing,
-  costAlertCrossing,
+  type AlertFiring,
+  alertFiring,
+  costAlertFiring,
 } from '@/mocks/world/inbox-alert';
 import {
   minutesAfter,
@@ -21,50 +21,50 @@ import {
 import { history } from '@/mocks/world/insights-history';
 import { isCoreTask, pastTaskOf } from '@/mocks/world/past-work';
 import { PLATFORM_ID } from '@/mocks/world/platform';
-import { messagesOfRun, type StoryMessage } from '@/mocks/world/run-stories';
+import { notesOfRun, type StoryNote } from '@/mocks/world/run-stories';
 import { onEarlierRubric } from '@/mocks/world/station-judge';
 
 export type InboxEntry = ListInboxResponse[number];
 
-export const MEMORIES_ASIDE_ID = 'aside_retries_memories';
-export const ALERT_ASIDE_ID = 'aside_sent_back_alert';
-export const GRADE_ASIDE_ID = 'aside_postgres_grade';
-export const GRADED_ASIDE_ID = 'aside_search_grade';
+export const MEMORIES_REQUEST_ID = 'request_retries_memories';
+export const ALERT_REQUEST_ID = 'request_sent_back_alert';
+export const GRADE_REQUEST_ID = 'request_postgres_grade';
+export const GRADED_REQUEST_ID = 'request_search_grade';
 export const STALLED_NOTICE_ID = 'notice_search_stalled';
 export const FINISHED_NOTICE_ID = 'notice_search_finished';
 export const ALERT_ID = 'alert_sent_back';
-export const COST_ALERT_ASIDE_ID = 'aside_cost_alert';
+export const COST_ALERT_REQUEST_ID = 'request_cost_alert';
 export const COST_ALERT_ID = 'alert_cost_per_run';
-export const DECIDED_MEMORIES_ASIDE_ID = 'aside_disk_memories';
-export const FIVE_POINT_GRADE_ASIDE_ID = 'aside_earlier_rubric_grade';
-export const CLAIMS_GRADE_ASIDE_ID = 'aside_pricing_grade';
+export const DECIDED_MEMORIES_REQUEST_ID = 'request_disk_memories';
+export const FIVE_POINT_GRADE_REQUEST_ID = 'request_earlier_rubric_grade';
+export const CLAIMS_GRADE_REQUEST_ID = 'request_pricing_grade';
 export const SETUP_ITEM_ID = 'task_setup_platform:0';
 
-const numbered = (notes: readonly StoryMessage[]): InboxMessageResponseDto[] =>
+const numbered = (notes: readonly StoryNote[]): NoteResponseDto[] =>
   notes.map((note, position) => ({ ...note, position }));
 
-const notesOfTask = (taskId: string): StoryMessage[] =>
+const notesOfTask = (taskId: string): StoryNote[] =>
   [...runsOfTask(taskId)]
     .sort((one, other) => one.startedAt.localeCompare(other.startedAt))
-    .flatMap(messagesOfRun);
+    .flatMap(notesOfRun);
 
 type Conversation = Omit<Partial<InboxItemResponseDto>, 'notes'> & {
   readonly taskId: string;
   readonly teamId: string;
   readonly askedIn: string;
-  readonly raisedIn: string;
+  readonly originIn: string;
 };
 
 const conversation = ({
   taskId,
   teamId,
   askedIn,
-  raisedIn,
+  originIn,
   ...over
 }: Conversation): InboxItemResponseDto => {
   const task = seededTask(taskId);
   const at = placeOf(askedIn);
-  const standsAt = placeOf(task.stationId);
+  const currentStation = placeOf(task.stationId);
   const numberedNotes = numbered(notesOfTask(taskId));
 
   return {
@@ -79,11 +79,11 @@ const conversation = ({
     stationColor: at.color,
     stationPosition: at.position,
     stationCount: at.count,
-    raisedAt: placeOf(raisedIn),
-    standsAt: {
-      name: standsAt.name,
-      color: standsAt.color,
-      position: standsAt.position,
+    originStation: placeOf(originIn),
+    currentStation: {
+      name: currentStation.name,
+      color: currentStation.color,
+      position: currentStation.position,
     },
     createdAt: task.createdAt,
     askedAt: numberedNotes[numberedNotes.length - 1]?.at ?? task.createdAt,
@@ -93,34 +93,34 @@ const conversation = ({
     unread: false,
     briefing: [task.title, task.description].filter(Boolean).join('\n\n'),
     failure: null,
-    aside: null,
+    inboxRequest: null,
     notes: numberedNotes,
     ...over,
   };
 };
 
-type Aside = Pick<
+type InboxRequestItem = Pick<
   InboxItemResponseDto,
   'id' | 'taskId' | 'teamId' | 'askedAt'
 > &
   Partial<InboxItemResponseDto> & {
-    readonly aside: NonNullable<InboxItemResponseDto['aside']>;
+    readonly inboxRequest: NonNullable<InboxItemResponseDto['inboxRequest']>;
   };
 
-const asideOf = ({
+const inboxRequestOf = ({
   id,
   taskId,
   teamId,
   askedAt,
-  aside,
+  inboxRequest,
   ...over
-}: Aside): InboxItemResponseDto => {
+}: InboxRequestItem): InboxItemResponseDto => {
   const task = pastTaskOf(taskId) ?? seededTask(taskId);
-  const standsAt = placeOf(task.stationId);
+  const currentStation = placeOf(task.stationId);
   const place = {
-    name: standsAt.name,
-    color: standsAt.color,
-    position: standsAt.position,
+    name: currentStation.name,
+    color: currentStation.color,
+    position: currentStation.position,
   };
 
   return {
@@ -134,9 +134,9 @@ const asideOf = ({
     station: place.name,
     stationColor: place.color,
     stationPosition: place.position,
-    stationCount: standsAt.count,
-    raisedAt: place,
-    standsAt: place,
+    stationCount: currentStation.count,
+    originStation: place,
+    currentStation: place,
     createdAt: task.createdAt,
     askedAt,
     resolved: false,
@@ -145,7 +145,7 @@ const asideOf = ({
     unread: false,
     briefing: null,
     failure: null,
-    aside,
+    inboxRequest,
     notes: [],
     ...over,
   };
@@ -182,7 +182,7 @@ const NOTICES: InboxNoticeResponseDto[] = [
     headline:
       'The search for a better Implementation config finished: writing the tests first passes 2 more tasks',
     points: [
-      'Four iterations tried 11 configs against Billing work. The best one asks the agent to write a failing test before it changes any code.',
+      'Four iterations tried 11 configs against Billing work. The best one tells the agent to write a failing test before it changes any code.',
       'It passes 7 of 9 tasks, where the station’s config passes 5, for $0.21 more a run.',
       'Adopt it from the search, or keep looking with a larger replay set.',
     ],
@@ -199,7 +199,7 @@ const OPEN_CONVERSATIONS = (): InboxItemResponseDto[] => [
     taskId: 'task_latency',
     teamId: PLATFORM_ID,
     askedIn: 'station_investigate',
-    raisedIn: 'station_incoming',
+    originIn: 'station_incoming',
     runId: 'run_latency_1',
     unread: true,
   }),
@@ -207,21 +207,21 @@ const OPEN_CONVERSATIONS = (): InboxItemResponseDto[] => [
     taskId: 'task_onboarding_copy',
     teamId: GROWTH_ID,
     askedIn: 'station_design',
-    raisedIn: 'station_ideas',
+    originIn: 'station_ideas',
     unread: true,
   }),
   conversation({
     taskId: 'task_rate_limits',
     teamId: PLATFORM_ID,
     askedIn: 'station_spec',
-    raisedIn: 'station_triage',
+    originIn: 'station_triage',
     unread: true,
   }),
   conversation({
     taskId: 'task_checkout',
     teamId: PLATFORM_ID,
     askedIn: 'station_triage',
-    raisedIn: 'station_backlog',
+    originIn: 'station_backlog',
     runId: 'run_checkout_1',
     unread: true,
   }),
@@ -229,14 +229,14 @@ const OPEN_CONVERSATIONS = (): InboxItemResponseDto[] => [
     taskId: 'task_pricing_toggle',
     teamId: GROWTH_ID,
     askedIn: 'station_build',
-    raisedIn: 'station_ideas',
+    originIn: 'station_ideas',
     runId: 'run_pricing_2',
   }),
   conversation({
     taskId: 'task_signup_survey',
     teamId: GROWTH_ID,
     askedIn: 'station_design',
-    raisedIn: 'station_ideas',
+    originIn: 'station_ideas',
     runId: 'run_survey_1',
     unread: true,
   }),
@@ -244,14 +244,14 @@ const OPEN_CONVERSATIONS = (): InboxItemResponseDto[] => [
     taskId: 'task_billing',
     teamId: PLATFORM_ID,
     askedIn: 'station_implementation',
-    raisedIn: 'station_implementation',
+    originIn: 'station_implementation',
     failure: { source: 'run', code: 'exited', occurrences: 1 },
   }),
   conversation({
     taskId: 'task_postgres',
     teamId: PLATFORM_ID,
     askedIn: 'station_review',
-    raisedIn: 'station_spec',
+    originIn: 'station_spec',
   }),
 ];
 
@@ -260,50 +260,50 @@ const RESOLVED_CONVERSATIONS = (): InboxItemResponseDto[] => [
     taskId: 'task_retries',
     teamId: PLATFORM_ID,
     askedIn: 'station_spec',
-    raisedIn: 'station_triage',
+    originIn: 'station_triage',
     resolved: true,
   }),
   conversation({
     taskId: 'task_disk',
     teamId: PLATFORM_ID,
     askedIn: 'station_mitigate',
-    raisedIn: 'station_incoming',
+    originIn: 'station_incoming',
     resolved: true,
   }),
   conversation({
     taskId: 'task_search',
     teamId: PLATFORM_ID,
     askedIn: 'station_review',
-    raisedIn: 'station_backlog',
+    originIn: 'station_backlog',
     resolved: true,
   }),
   conversation({
     taskId: 'task_referral',
     teamId: GROWTH_ID,
     askedIn: 'station_build',
-    raisedIn: 'station_ideas',
+    originIn: 'station_ideas',
     resolved: true,
   }),
 ];
 
-const crossedAt = ({ run }: AlertCrossing) =>
+const firedAtOf = ({ run }: AlertFiring) =>
   minutesAfter(run.endedAt ?? new Date(run.at).toISOString(), 2);
 
-const alertAside = (
+const alertInboxRequest = (
   id: string,
   alertId: string,
-  crossing: AlertCrossing | null,
+  firing: AlertFiring | null,
 ): InboxItemResponseDto[] =>
-  crossing
+  firing
     ? [
-        asideOf({
+        inboxRequestOf({
           id,
-          taskId: crossing.run.taskId,
+          taskId: firing.run.taskId,
           teamId: PLATFORM_ID,
-          askedAt: crossedAt(crossing),
-          resolved: crossing.recovered !== null,
-          unread: crossing.recovered === null,
-          aside: { form: 'alert', about: alertId },
+          askedAt: firedAtOf(firing),
+          resolved: firing.resolved !== null,
+          unread: firing.resolved === null,
+          inboxRequest: { form: 'alert', about: alertId },
         }),
       ]
     : [];
@@ -323,60 +323,60 @@ const earlierRubricGrade = (): InboxItemResponseDto[] => {
 
   return run
     ? [
-        asideOf({
-          id: FIVE_POINT_GRADE_ASIDE_ID,
+        inboxRequestOf({
+          id: FIVE_POINT_GRADE_REQUEST_ID,
           taskId: run.taskId,
           teamId: PLATFORM_ID,
           askedAt: minutesAfter(
             run.endedAt ?? new Date(run.at).toISOString(),
             4,
           ),
-          aside: { form: 'grade', about: run.runId },
+          inboxRequest: { form: 'grade', about: run.runId },
         }),
       ]
     : [];
 };
 
-const ASIDES = (): InboxItemResponseDto[] => [
-  asideOf({
-    id: MEMORIES_ASIDE_ID,
+const INBOX_REQUESTS = (): InboxItemResponseDto[] => [
+  inboxRequestOf({
+    id: MEMORIES_REQUEST_ID,
     taskId: 'task_retries',
     teamId: PLATFORM_ID,
     askedAt: minutesAfter(runEnded('run_retries_2'), 3),
     unread: true,
-    aside: { form: 'memories', about: 'run_retries_2' },
+    inboxRequest: { form: 'memories', about: 'run_retries_2' },
   }),
-  asideOf({
-    id: DECIDED_MEMORIES_ASIDE_ID,
+  inboxRequestOf({
+    id: DECIDED_MEMORIES_REQUEST_ID,
     taskId: 'task_disk',
     teamId: PLATFORM_ID,
     askedAt: minutesAfter(runEnded('run_disk_1'), 3),
     resolved: true,
-    aside: { form: 'memories', about: 'run_disk_1' },
+    inboxRequest: { form: 'memories', about: 'run_disk_1' },
   }),
-  ...alertAside(ALERT_ASIDE_ID, ALERT_ID, alertCrossing()),
-  ...alertAside(COST_ALERT_ASIDE_ID, COST_ALERT_ID, costAlertCrossing()),
-  asideOf({
-    id: GRADE_ASIDE_ID,
+  ...alertInboxRequest(ALERT_REQUEST_ID, ALERT_ID, alertFiring()),
+  ...alertInboxRequest(COST_ALERT_REQUEST_ID, COST_ALERT_ID, costAlertFiring()),
+  inboxRequestOf({
+    id: GRADE_REQUEST_ID,
     taskId: 'task_postgres',
     teamId: PLATFORM_ID,
     askedAt: minutesAfter(runEnded('run_postgres_2'), 4),
-    aside: { form: 'grade', about: 'run_postgres_2' },
+    inboxRequest: { form: 'grade', about: 'run_postgres_2' },
   }),
-  asideOf({
-    id: GRADED_ASIDE_ID,
+  inboxRequestOf({
+    id: GRADED_REQUEST_ID,
     taskId: 'task_search',
     teamId: PLATFORM_ID,
     askedAt: minutesAfter(runEnded('run_search_2'), 4),
     resolved: true,
-    aside: { form: 'grade', about: 'run_search_2' },
+    inboxRequest: { form: 'grade', about: 'run_search_2' },
   }),
-  asideOf({
-    id: CLAIMS_GRADE_ASIDE_ID,
+  inboxRequestOf({
+    id: CLAIMS_GRADE_REQUEST_ID,
     taskId: 'task_pricing_toggle',
     teamId: GROWTH_ID,
     askedAt: minutesAfter(runEnded('run_pricing_1'), 4),
-    aside: { form: 'grade', about: 'run_pricing_1' },
+    inboxRequest: { form: 'grade', about: 'run_pricing_1' },
   }),
   ...earlierRubricGrade(),
 ];
@@ -409,8 +409,8 @@ const setupItem = (
     stationColor: place.color,
     stationPosition: place.position,
     stationCount: place.count,
-    raisedAt: at,
-    standsAt: at,
+    originStation: at,
+    currentStation: at,
     createdAt,
     askedAt: createdAt,
     resolved,
@@ -419,7 +419,7 @@ const setupItem = (
     unread: !resolved,
     briefing: null,
     failure: null,
-    aside: null,
+    inboxRequest: null,
     notes: [
       {
         position: 0,
@@ -447,7 +447,7 @@ export const freshInbox = (): InboxEntry[] => [setupItem(hoursAgo(0.1), false)];
 export const seedInbox = (): InboxEntry[] => [
   ...NOTICES.map((notice) => structuredClone(notice)),
   ...OPEN_CONVERSATIONS(),
-  ...ASIDES(),
+  ...INBOX_REQUESTS(),
   ...RESOLVED_CONVERSATIONS(),
   setupItem(daysAgo(190), true),
 ];

@@ -16,14 +16,14 @@ describe('ConversationId', () => {
     expect(ConversationId.parse(id.value).equals(id)).toBe(true);
   });
 
-  it('reads the note off the end, whatever the task id holds', () => {
+  it('reads the note off the end, whatever the task id contains', () => {
     const id = ConversationId.parse('urn:task:7:2');
 
     expect(id.taskId.value).toBe('urn:task:7');
     expect(id.from.value).toBe(2);
   });
 
-  it('refuses what does not name a note', () => {
+  it('rejects what does not name a note', () => {
     expect(() => ConversationId.parse('task_1')).toThrow(
       InvalidConversationIdError,
     );

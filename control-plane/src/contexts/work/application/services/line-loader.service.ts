@@ -26,12 +26,12 @@ export class LineLoader {
     return line;
   }
 
-  async holding(
+  async findByStation(
     teamId: string,
     stationId: StationId,
     viewerId: string,
   ): Promise<Line | null> {
-    const line = await this.lines.holding(stationId);
+    const line = await this.lines.findByStation(stationId);
 
     return line && (await this.visible(line, teamId, viewerId)) ? line : null;
   }

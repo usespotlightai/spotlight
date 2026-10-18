@@ -5,7 +5,7 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import {
   WORKSPACE_ARCHIVE_STORE,
   type WorkspaceArchiveStorePort,
@@ -17,11 +17,11 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { forgetRunnersOf } from './support/runners';
+import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
-import { openTeam } from './support/team';
+import { createTeam } from './support/team';
 
-interface Said {
+interface PendingMessage {
   readonly position: number;
   readonly body: string;
 }
@@ -56,7 +56,7 @@ const archiveStore: WorkspaceArchiveStorePort = {
 
 let app: INestApplication;
 let db: DrizzleDatabase;
-let team: Awaited<ReturnType<typeof openTeam>>;
+let team: Awaited<ReturnType<typeof createTeam>>;
 
 const http = () => served(app);
 
@@ -70,21 +70,21 @@ const runner = (token: string) => ({
       .send(body ?? {}),
 });
 
-const presentHost = async () => {
+const heartbeat = async () => {
   await http()
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'build-box',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 4,
       running: [],
       images: [
         {
           image: IMAGE,
-          usual: true,
+          isDefault: true,
           harnesses: [
             { id: 'dev', models: [] },
             { id: 'claude-code', models: [] },
@@ -96,9 +96,9 @@ const presentHost = async () => {
 };
 
 const claimed = async (runId: string): Promise<string> => {
-  await presentHost();
+  await heartbeat();
 
-  const handed = (
+  const assignment = (
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
@@ -106,12 +106,12 @@ const claimed = async (runId: string): Promise<string> => {
       .expect(200)
   ).body as { token: string; work: { run: { id: string } } };
 
-  expect(handed.work.run.id).toBe(runId);
+  expect(assignment.work.run.id).toBe(runId);
 
-  return handed.token;
+  return assignment.token;
 };
 
-const aHeldTask = async (
+const aTaskWithLeasedRun = async (
   at = BUILD,
 ): Promise<{ taskId: string; runId: string }> => {
   const taskId = randomUUID();
@@ -123,8 +123,8 @@ const aHeldTask = async (
     workspaceId: team.workspaceId.value,
     stationId: at,
     title: 'Drain the queue',
-    raisedAtStationId: at,
-    raisedById: team.owner.value,
+    originStationId: at,
+    createdById: team.owner.value,
     assigneeId: team.owner.value,
     currentRunId: runId,
   });
@@ -141,7 +141,7 @@ const aHeldTask = async (
       command: { executable: 'sh', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['review', 'ship', 'done'], noteLimit: 0 },
-      continuity: { key: `${taskId}:${at}` },
+      resume: { key: `${taskId}:${at}` },
     },
   });
 
@@ -151,9 +151,9 @@ const aHeldTask = async (
 const askingForReview = {
   exitCode: 0,
   failed: false,
-  outcome: { next: 'review', note: 'Which queue should I drain?' },
+  handover: { next: 'review', note: 'Which queue should I drain?' },
   sessionId: 'session_1',
-  kept: true,
+  archived: true,
 };
 
 const runRow = async (runId: string) => {
@@ -223,7 +223,7 @@ beforeAll(async () => {
     module.overrideProvider(WORKSPACE_ARCHIVE_STORE).useValue(archiveStore),
   );
   db = app.get(DRIZZLE);
-  team = await openTeam(
+  team = await createTeam(
     db,
     app.get(DrizzleTaskRepository),
     `paused-${randomUUID().slice(0, 8)}`,
@@ -296,13 +296,13 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await forgetRunnersOf(db, team.workspaceId.value);
+  await deleteRunnersOf(db, team.workspaceId.value);
   await app?.close();
 });
 
 describe('a run that asks a person', () => {
   it('pauses when its runner reports the turn asked for review, keeping the task and waiting for the answer', async () => {
-    const { taskId, runId } = await aHeldTask();
+    const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
 
     const completed = await runner(token)
@@ -329,8 +329,8 @@ describe('a run that asks a person', () => {
     expect(renewed.body).toEqual({ stop: false });
   });
 
-  it('delivers an answer given while it waits warm into the same run, which parking then leaves working', async () => {
-    const { taskId, runId } = await aHeldTask();
+  it('sends an answer given while it waits warm to the same run, which a suspend request then leaves working', async () => {
+    const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
     await runner(token)
       .post(`/api/runs/${runId}/completion`, askingForReview)
@@ -344,16 +344,16 @@ describe('a run that asks a person', () => {
 
     const pending = (
       await runner(token).get(`/api/runs/${runId}/messages`).expect(200)
-    ).body as Said[];
+    ).body as PendingMessage[];
     expect(pending.map((each) => each.body)).toEqual(['The default one.']);
 
-    const parking = await runner(token)
-      .post(`/api/runs/${runId}/parked`)
+    const suspension = await runner(token)
+      .post(`/api/runs/${runId}/suspended`)
       .expect(200);
-    expect(parking.body).toEqual({ parked: false });
+    expect(suspension.body).toEqual({ suspended: false });
 
     await runner(token)
-      .post(`/api/runs/${runId}/messages/delivered`, {
+      .post(`/api/runs/${runId}/messages/ack`, {
         upTo: pending[0]?.position,
       })
       .expect(204);
@@ -365,7 +365,7 @@ describe('a run that asks a person', () => {
       .post(`/api/runs/${runId}/completion`, {
         exitCode: 0,
         failed: false,
-        outcome: { next: 'ship', note: 'Drained.' },
+        handover: { next: 'ship', note: 'Drained.' },
       })
       .expect(200);
     expect(again.body).toEqual({ waiting: false });
@@ -380,8 +380,8 @@ describe('a run that asks a person', () => {
     expect(runs.filter((each) => each.id === runId)).toHaveLength(1);
   });
 
-  it('parks after the grace period, and an answer requeues the same run as a new attempt that restores the archive', async () => {
-    const { taskId, runId } = await aHeldTask();
+  it('suspends after the grace period, and an answer requeues the same run as a new attempt that restores the archive', async () => {
+    const { taskId, runId } = await aTaskWithLeasedRun();
     const first = await claimed(runId);
 
     await journalled(first, runId, 'before the question');
@@ -394,21 +394,21 @@ describe('a run that asks a person', () => {
         .expect(201)
     ).body as { id: string };
     await runner(first)
-      .post(`/api/runs/${runId}/workspace-archive/${granted.id}/sealed`)
+      .post(`/api/runs/${runId}/workspace-archive/${granted.id}/complete`)
       .expect(204);
     await runner(first)
       .post(`/api/runs/${runId}/completion`, askingForReview)
       .expect(200);
 
-    const parking = await runner(first)
-      .post(`/api/runs/${runId}/parked`)
+    const suspension = await runner(first)
+      .post(`/api/runs/${runId}/suspended`)
       .expect(200);
-    expect(parking.body).toEqual({ parked: true });
+    expect(suspension.body).toEqual({ suspended: true });
 
-    const parked = await runRow(runId);
-    expect(parked?.state).toBe('parked');
-    expect(parked?.claimedBy).toBeNull();
-    expect(parked?.parkedAttempts).toEqual([1]);
+    const suspended = await runRow(runId);
+    expect(suspended?.state).toBe('suspended');
+    expect(suspended?.claimedBy).toBeNull();
+    expect(suspended?.suspendedAttempts).toEqual([1]);
     await runner(first).get(`/api/runs/${runId}/messages`).expect(404);
 
     await answered(taskId, 'The default one.');
@@ -416,10 +416,10 @@ describe('a run that asks a person', () => {
     const requeued = await runIn(runId, 'queued');
     expect(requeued?.attempt).toBe(2);
     expect(requeued?.spec).toMatchObject({
-      continuity: {
+      resume: {
         key: `${taskId}:${BUILD}`,
         sessionId: 'session_1',
-        resumes: true,
+        resumeSession: true,
       },
     });
     expect((await taskRow(taskId))?.currentRunId).toBe(runId);
@@ -434,7 +434,7 @@ describe('a run that asks a person', () => {
 
     const pending = (
       await runner(second).get(`/api/runs/${runId}/messages`).expect(200)
-    ).body as Said[];
+    ).body as PendingMessage[];
     expect(pending.map((each) => each.body)).toEqual(['The default one.']);
 
     await journalled(second, runId, 'after the answer');
@@ -452,13 +452,13 @@ describe('a run that asks a person', () => {
     ).toEqual([1, 2]);
   });
 
-  it('ends a parked run as its turn ended when a person parks its task back in the backlog', async () => {
-    const { taskId, runId } = await aHeldTask();
+  it('ends a suspended run as its turn ended when a person parks its task back in the backlog', async () => {
+    const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
     await runner(token)
       .post(`/api/runs/${runId}/completion`, askingForReview)
       .expect(200);
-    await runner(token).post(`/api/runs/${runId}/parked`).expect(200);
+    await runner(token).post(`/api/runs/${runId}/suspended`).expect(200);
     await inboxItemOf(taskId);
 
     await http()
@@ -475,8 +475,8 @@ describe('a run that asks a person', () => {
     expect((await taskRow(taskId))?.currentRunId).not.toBe(runId);
   });
 
-  it('ends a run waiting warm as its turn ended when a person parks its task back in the backlog, so its runner lets the sandbox go', async () => {
-    const { taskId, runId } = await aHeldTask();
+  it('ends a run waiting warm as its turn ended when a person parks its task back in the backlog, so its runner releases the sandbox', async () => {
+    const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
     await runner(token)
       .post(`/api/runs/${runId}/completion`, askingForReview)
@@ -501,7 +501,7 @@ describe('a run that asks a person', () => {
   });
 
   it('takes a message in the run chat as the answer, taking the same run up once', async () => {
-    const { taskId, runId } = await aHeldTask();
+    const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
     await runner(token)
       .post(`/api/runs/${runId}/completion`, askingForReview)
@@ -509,7 +509,7 @@ describe('a run that asks a person', () => {
     await inboxItemOf(taskId);
 
     await http()
-      .post(`/api/teams/${team.teamId.value}/runs/${runId}/say`)
+      .post(`/api/teams/${team.teamId.value}/runs/${runId}/messages`)
       .set(TEST_USER_HEADER, team.owner.value)
       .send({ body: 'Drain the default one.' })
       .expect((response) => expect(response.status).toBeLessThan(300));
@@ -518,41 +518,41 @@ describe('a run that asks a person', () => {
     expect(working?.attempt).toBe(1);
     const pending = (
       await runner(token).get(`/api/runs/${runId}/messages`).expect(200)
-    ).body as Said[];
+    ).body as PendingMessage[];
     expect(pending.map((each) => each.body)).toEqual([
       'Drain the default one.',
     ]);
     expect((await inboxItemOf(taskId)).working).toBe(true);
   });
 
-  it('reports whether a turn would wait for a person before the runner keeps its workspace', async () => {
-    const { runId } = await aHeldTask();
+  it('reports whether a turn would wait for a person before the runner archives its workspace', async () => {
+    const { runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
 
     const review = await runner(token)
-      .post(`/api/runs/${runId}/completion/asks`, askingForReview)
+      .post(`/api/runs/${runId}/completion/awaits-person`, askingForReview)
       .expect(200);
     const ship = await runner(token)
-      .post(`/api/runs/${runId}/completion/asks`, {
+      .post(`/api/runs/${runId}/completion/awaits-person`, {
         exitCode: 0,
         failed: false,
-        outcome: { next: 'ship' },
+        handover: { next: 'ship' },
       })
       .expect(200);
 
-    expect(review.body).toEqual({ asks: true });
-    expect(ship.body).toEqual({ asks: false });
+    expect(review.body).toEqual({ awaitsPerson: true });
+    expect(ship.body).toEqual({ awaitsPerson: false });
     expect((await runRow(runId))?.state).toBe('claimed');
   });
 
-  it('ends the run as before, putting the task to the person, when the workspace was not kept', async () => {
-    const { taskId, runId } = await aHeldTask();
+  it('ends the run as before, putting the task to the person, when the workspace was not archived', async () => {
+    const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
 
     const completed = await runner(token)
       .post(`/api/runs/${runId}/completion`, {
         ...askingForReview,
-        kept: false,
+        archived: false,
       })
       .expect(200);
 
@@ -563,8 +563,8 @@ describe('a run that asks a person', () => {
     );
   });
 
-  it('writes only one of an answer and a parking read from the same waiting run', async () => {
-    const { runId } = await aHeldTask();
+  it('writes only one of an answer and a suspension read from the same waiting run', async () => {
+    const { runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
     await runner(token)
       .post(`/api/runs/${runId}/completion`, askingForReview)
@@ -576,38 +576,38 @@ describe('a run that asks a person', () => {
       throw new Error('the waiting run could not be read');
     }
 
-    const holder = read.claimedBy;
+    const leasedBy = read.claimedBy;
 
-    if (!holder) {
-      throw new Error('the waiting run is held by nobody');
+    if (!leasedBy) {
+      throw new Error('no runner has a lease on the waiting run');
     }
 
-    await runs.save(read.park(holder, new Date()));
+    await runs.save(read.suspend(leasedBy, new Date()));
 
     await expect(runs.save(read.resumed())).rejects.toBeInstanceOf(
       RunVersionConflictError,
     );
-    expect((await runRow(runId))?.state).toBe('parked');
+    expect((await runRow(runId))?.state).toBe('suspended');
   });
 });
 
-const said = (runId: string, body: string) =>
+const sendMessage = (runId: string, body: string) =>
   http()
-    .post(`/api/teams/${team.teamId.value}/runs/${runId}/say`)
+    .post(`/api/teams/${team.teamId.value}/runs/${runId}/messages`)
     .set(TEST_USER_HEADER, team.owner.value)
     .send({ body })
     .expect(204);
 
 describe('a message in a run chat', () => {
-  it('reaches the run still working the task, starting no other', async () => {
-    const { taskId, runId } = await aHeldTask();
+  it('goes to the run still working the task, starting no other', async () => {
+    const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
 
-    await said(runId, 'Drain the default one first.');
+    await sendMessage(runId, 'Drain the default one first.');
 
     const pending = (
       await runner(token).get(`/api/runs/${runId}/messages`).expect(200)
-    ).body as Said[];
+    ).body as PendingMessage[];
     expect(pending.map((each) => each.body)).toEqual([
       'Drain the default one first.',
     ]);
@@ -616,13 +616,13 @@ describe('a message in a run chat', () => {
   });
 
   it('starts the station again for a task finished there, taking up its conversation', async () => {
-    const { taskId, runId } = await aHeldTask(DEPLOY);
+    const { taskId, runId } = await aTaskWithLeasedRun(DEPLOY);
     const token = await claimed(runId);
     await runner(token)
       .post(`/api/runs/${runId}/completion`, {
         exitCode: 0,
         failed: false,
-        outcome: { next: 'done', note: 'Deployed.' },
+        handover: { next: 'done', note: 'Deployed.' },
         sessionId: 'session_1',
       })
       .expect(200);
@@ -630,7 +630,7 @@ describe('a message in a run chat', () => {
       (await taskRow(taskId))?.finishedAt ? true : null,
     );
 
-    await said(runId, 'Deploy the docs with it too.');
+    await sendMessage(runId, 'Deploy the docs with it too.');
 
     const task = await taskRow(taskId);
     const next = task?.currentRunId ?? '';
@@ -643,14 +643,14 @@ describe('a message in a run chat', () => {
     expect(queued?.stationId).toBe(DEPLOY);
     expect(queued?.spec).toMatchObject({
       briefing: expect.stringContaining('Deploy the docs with it too.'),
-      continuity: { key: `task-${taskId}`, sessionId: 'session_1' },
+      resume: { key: `task-${taskId}`, sessionId: 'session_1' },
     });
 
     await claimed(next);
   });
 
   it('answers a conflict once the task has moved on from the run’s station', async () => {
-    const { taskId, runId } = await aHeldTask();
+    const { taskId, runId } = await aTaskWithLeasedRun();
     await claimed(runId);
 
     await http()
@@ -661,18 +661,18 @@ describe('a message in a run chat', () => {
       .send({ stationId: BACKLOG, revision: 0 })
       .expect(200);
 
-    const refused = await http()
-      .post(`/api/teams/${team.teamId.value}/runs/${runId}/say`)
+    const rejected = await http()
+      .post(`/api/teams/${team.teamId.value}/runs/${runId}/messages`)
       .set(TEST_USER_HEADER, team.owner.value)
       .send({ body: 'Drain it after all.' })
       .expect(409);
 
-    expect(refused.body.message).toContain('has moved on from that station');
+    expect(rejected.body.message).toContain('has moved on from that station');
     expect((await taskRow(taskId))?.currentRunId).toBeNull();
   });
 });
 
-describe('a run queued while an earlier run of its task is still held', () => {
+describe('a run queued while an earlier run of its task is still leased', () => {
   const claimsNext = async (): Promise<string[]> => {
     const claimed: string[] = [];
     const runs = app.get(DrizzleRunRepository);
@@ -683,7 +683,7 @@ describe('a run queued while an earlier run of its task is still held', () => {
           runner: RunnerId.of(`runner-${randomUUID()}`),
           workspaceId: team.workspaceId,
           harnesses: [HarnessId.of('dev')],
-          terms: RunnerTerms.of(['linux']),
+          offer: RunnerOffer.of(['linux']),
           claims: 'any',
         },
         new Date(),
@@ -705,7 +705,7 @@ describe('a run queued while an earlier run of its task is still held', () => {
   ])(
     'is claimed only once the earlier run has ended, so the two never share the task’s workspace, at %s',
     async (_, station) => {
-      const { taskId, runId } = await aHeldTask();
+      const { taskId, runId } = await aTaskWithLeasedRun();
       const token = await claimed(runId);
       const next = randomUUID();
       const [earlier] = await db

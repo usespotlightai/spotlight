@@ -10,12 +10,12 @@ export const TYPE_COLORS: Record<PullRequestType, string> = {
   other: 'var(--chart-5)',
 };
 
-export const jamColor = (jam: number): string =>
-  `color-mix(in oklab, var(--destructive) ${Math.round(jam ** 2 * 100)}%, var(--chart-2))`;
+export const bottleneckColor = (bottleneckRatio: number): string =>
+  `color-mix(in oklab, var(--destructive) ${Math.round(bottleneckRatio ** 2 * 100)}%, var(--chart-2))`;
 
 const GUTTER = 28;
 const FREE_HALF = 40;
-const JAMMED_HALF = 14;
+const BOTTLENECK_HALF = 14;
 const FASTEST_S = 0.9;
 const SLOWEST_S = 11;
 const DOTS_PER_PX = 0.45;
@@ -46,10 +46,12 @@ export const geometryOf = (
     centers,
     bounds,
     halves: stages.map(
-      (stage) => FREE_HALF - (FREE_HALF - JAMMED_HALF) * stage.jam,
+      (stage) =>
+        FREE_HALF - (FREE_HALF - BOTTLENECK_HALF) * stage.bottleneckRatio,
     ),
     seconds: stages.map(
-      (stage) => FASTEST_S + (SLOWEST_S - FASTEST_S) * stage.jam ** 0.8,
+      (stage) =>
+        FASTEST_S + (SLOWEST_S - FASTEST_S) * stage.bottleneckRatio ** 0.8,
     ),
   };
 };
@@ -146,7 +148,7 @@ const freshDot = (
   type: typeFrom(shares, random()),
 });
 
-export const settledDots = (
+export const spreadDots = (
   geometry: FlowGeometry,
   shares: readonly TypeShare[],
   random: () => number = Math.random,

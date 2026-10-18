@@ -1,9 +1,9 @@
 import { MEMORY_PROPOSAL_STATES } from '@memory/domain/entities/memory-proposal.entity';
 import { MEMORY_DRAFTING_FAILURES } from '@memory/domain/value-objects/memory-drafting-failure.vo';
 import { MEMORY_KINDS } from '@memory/domain/value-objects/memory-kind';
-import { MEMORY_ORIGINS } from '@memory/domain/value-objects/memory-origin';
+import { MEMORY_PROPOSERS } from '@memory/domain/value-objects/memory-proposer';
 import { MEMORY_SOURCES } from '@memory/domain/value-objects/memory-source';
-import { MEMORY_STANDINGS } from '@memory/domain/value-objects/memory-standing';
+import { MEMORY_STATUSES } from '@memory/domain/value-objects/memory-status';
 import { MEMORY_USES } from '@memory/domain/value-objects/memory-use';
 import { sql } from 'drizzle-orm';
 import {
@@ -26,9 +26,9 @@ const FAILURE_CODES = Object.keys(MEMORY_DRAFTING_FAILURES) as [
 
 export const memoryKind = pgEnum('memory_kind', MEMORY_KINDS);
 export const memorySource = pgEnum('memory_source', MEMORY_SOURCES);
-export const memoryStanding = pgEnum('memory_standing', MEMORY_STANDINGS);
-export const memoryOrigin = pgEnum('memory_origin', MEMORY_ORIGINS);
-export const memoryUseWay = pgEnum('memory_use_way', MEMORY_USES);
+export const memoryStatus = pgEnum('memory_status', MEMORY_STATUSES);
+export const memoryProposer = pgEnum('memory_proposer', MEMORY_PROPOSERS);
+export const memoryUseVia = pgEnum('memory_use_via', MEMORY_USES);
 export const memoryProposalState = pgEnum(
   'memory_proposal_state',
   MEMORY_PROPOSAL_STATES,
@@ -45,9 +45,9 @@ export const memoryDraft = pgTable(
     taskId: text('task_id').notNull(),
     workspaceId: text('workspace_id').notNull(),
     draftingRunId: text('drafting_run_id'),
-    draftingAskedAt: timestamp('drafting_asked_at'),
-    workAttempts: integer('work_attempts').notNull().default(0),
-    workDueAt: timestamp('work_due_at'),
+    draftingRequestedAt: timestamp('drafting_requested_at'),
+    jobAttempts: integer('job_attempts').notNull().default(0),
+    jobDueAt: timestamp('job_due_at'),
     draftedIn: text('drafted_in'),
     notesRead: integer('notes_read').notNull().default(0),
     failure: memoryDraftingFailure('failure'),
@@ -56,7 +56,7 @@ export const memoryDraft = pgTable(
   },
   (table) => [
     uniqueIndex('memory_draft_task_idx').on(table.taskId),
-    index('memory_draft_drafting_idx').on(table.draftingAskedAt),
+    index('memory_draft_drafting_idx').on(table.draftingRequestedAt),
   ],
 );
 
@@ -80,7 +80,7 @@ export const memoryProposal = pgTable(
     steps: jsonb('steps').$type<number[]>().notNull(),
     notes: jsonb('notes').$type<number[]>().notNull(),
     source: memorySource('source').notNull(),
-    origin: memoryOrigin('origin').notNull(),
+    proposedBy: memoryProposer('proposed_by').notNull(),
     supersedes: text('supersedes'),
     recordedAt: timestamp('recorded_at').notNull(),
     state: memoryProposalState('state').notNull().default('proposed'),
@@ -121,7 +121,7 @@ export const memory = pgTable(
     notes: jsonb('notes').$type<number[]>(),
     source: memorySource('source').notNull(),
     supersedes: text('supersedes'),
-    standing: memoryStanding('standing').notNull().default('stands'),
+    status: memoryStatus('status').notNull().default('active'),
     approvedBy: text('approved_by').notNull(),
     approvedAt: timestamp('approved_at').notNull(),
     retiredAt: timestamp('retired_at'),
@@ -133,11 +133,7 @@ export const memory = pgTable(
   (table) => [
     uniqueIndex('memory_handle_idx').on(table.handle),
     uniqueIndex('memory_supersedes_idx').on(table.supersedes),
-    index('memory_standing_idx').on(
-      table.teamId,
-      table.standing,
-      table.approvedAt,
-    ),
+    index('memory_status_idx').on(table.teamId, table.status, table.approvedAt),
     index('memory_body_search_idx').using(
       'gin',
       sql`to_tsvector('english', ${table.body})`,
@@ -152,11 +148,11 @@ export const memoryUse = pgTable(
       .notNull()
       .references(() => memory.id, { onDelete: 'cascade' }),
     runId: text('run_id').notNull(),
-    way: memoryUseWay('way').notNull(),
+    via: memoryUseVia('via').notNull(),
     at: timestamp('at').notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.memoryId, table.runId, table.way] }),
+    primaryKey({ columns: [table.memoryId, table.runId, table.via] }),
     index('memory_use_run_idx').on(table.runId, table.at),
   ],
 );

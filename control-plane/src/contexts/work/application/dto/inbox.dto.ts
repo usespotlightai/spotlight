@@ -3,21 +3,21 @@ import {
   TASK_NOTE_FORMS,
   TASK_NOTE_KINDS,
 } from '@work/domain/entities/task-note.entity';
-import { APPROVAL_STANDINGS } from '@work/domain/value-objects/approval.vo';
+import { APPROVAL_STATUSES } from '@work/domain/value-objects/approval.vo';
 import {
   APPROVAL_SUBJECT_KINDS,
   type ApprovalSubjectKind,
 } from '@work/domain/value-objects/approval-subject.vo';
-import { ASIDE_FORMS } from '@work/domain/value-objects/aside-form';
+import { INBOX_REQUEST_FORMS } from '@work/domain/value-objects/inbox-request-form';
 import { NOTICE_FORMS } from '@work/domain/value-objects/notice-form';
 import { VOICES } from '@work/domain/value-objects/voice.vo';
 
 export const NOTE_KINDS = TASK_NOTE_KINDS;
 export const NOTE_FORMS = TASK_NOTE_FORMS;
 export const NOTE_VOICES = VOICES;
-export const APPROVAL_STANDING = APPROVAL_STANDINGS;
+export const INBOX_APPROVAL_STATUSES = APPROVAL_STATUSES;
 export const APPROVAL_SUBJECTS = APPROVAL_SUBJECT_KINDS;
-export const INBOX_ASIDE_FORMS = ASIDE_FORMS;
+export const INBOX_REQUEST_DTO_FORMS = INBOX_REQUEST_FORMS;
 export const INBOX_NOTICE_FORMS = NOTICE_FORMS;
 
 interface InboxApprovalInputDto {
@@ -30,15 +30,15 @@ export interface InboxApprovalDto {
   readonly name: string;
   readonly because: string;
   readonly inputs: readonly InboxApprovalInputDto[];
-  readonly standing: string;
+  readonly status: string;
   readonly edited: readonly InboxApprovalInputDto[] | null;
   readonly intent: string | null;
   readonly askedOf: { readonly id: string; readonly name: string } | null;
 }
 
 export interface InboxConnectionDto {
-  readonly source: string;
   readonly integration: string;
+  readonly integrationName: string;
   readonly personId: string;
   readonly personName: string;
   readonly met: boolean;
@@ -50,7 +50,7 @@ export interface InboxFailureDto {
   readonly occurrences: number;
 }
 
-export interface InboxAsideDto {
+export interface InboxRequestDto {
   readonly form: string;
   readonly about: string;
 }
@@ -61,7 +61,7 @@ interface InboxAuthorDto {
   readonly image: string | null;
 }
 
-export interface InboxMessageDto {
+export interface NoteDto {
   readonly position: number;
   readonly kind: string;
   readonly form: string;
@@ -97,8 +97,8 @@ export interface InboxItemDto {
   readonly stationColor: string;
   readonly stationPosition: number;
   readonly stationCount: number;
-  readonly raisedAt: InboxStationDto;
-  readonly standsAt: InboxStationDto;
+  readonly originStation: InboxStationDto;
+  readonly currentStation: InboxStationDto;
   readonly createdAt: string;
   readonly askedAt: string;
   readonly resolved: boolean;
@@ -107,8 +107,8 @@ export interface InboxItemDto {
   readonly unread: boolean;
   readonly briefing: string | null;
   readonly failure: InboxFailureDto | null;
-  readonly aside: InboxAsideDto | null;
-  readonly notes: readonly InboxMessageDto[];
+  readonly inboxRequest: InboxRequestDto | null;
+  readonly notes: readonly NoteDto[];
 }
 
 export interface InboxNoticeDto {

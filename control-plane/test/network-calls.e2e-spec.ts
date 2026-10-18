@@ -4,9 +4,9 @@ import { NetworkCalls } from '@work/application/services/network-calls.service';
 import { NetworkCall } from '@work/domain/aggregates/network-call.aggregate';
 import { NetworkCallVersionConflictError } from '@work/domain/exceptions/network-call-version-conflict.error';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
-import { NetworkAnswer } from '@work/domain/value-objects/network-answer.vo';
 import { NetworkCallId } from '@work/domain/value-objects/network-call-id.vo';
 import { NetworkRequest } from '@work/domain/value-objects/network-request.vo';
+import { NetworkResponse } from '@work/domain/value-objects/network-response.vo';
 import { DrizzleNetworkCallRepository } from '@work/infrastructure/persistence/drizzle/repositories/network-call.repository';
 import { networkCall } from '@work/infrastructure/persistence/drizzle/schemas/network-call.schema';
 import { pushSchema } from 'drizzle-kit/api';
@@ -18,12 +18,12 @@ const NOW = new Date('2026-09-26T09:00:00.000Z');
 const later = (ms: number) => new Date(NOW.getTime() + ms);
 const HOST = CallingHost.of('host_1');
 
-let held: TestDatabase;
+let database: TestDatabase;
 let calls: DrizzleNetworkCallRepository;
 let ids = 0;
 
 const queued = async (
-  over: { workspace?: string; at?: Date; lapsesAt?: Date } = {},
+  over: { workspace?: string; at?: Date; expiresAt?: Date } = {},
 ): Promise<NetworkCall> => {
   const at = over.at ?? NOW;
   const call = NetworkCall.queue({
@@ -36,7 +36,7 @@ const queued = async (
       body: new TextEncoder().encode(`{"call":${ids}}`),
       timeoutMs: 10_000,
     }),
-    lapsesAt: over.lapsesAt ?? new Date(at.getTime() + 15_000),
+    expiresAt: over.expiresAt ?? new Date(at.getTime() + 15_000),
     now: at,
   });
 
@@ -46,28 +46,28 @@ const queued = async (
 };
 
 beforeAll(async () => {
-  held = await openDatabase('network_calls');
-  const pushed = await pushSchema({ networkCall }, held.db, undefined, [
+  database = await openDatabase('network_calls');
+  const pushed = await pushSchema({ networkCall }, database.db, undefined, [
     'network_call',
   ]);
 
   for (const statement of pushed.statementsToExecute) {
     if (statement.includes('"network_call"')) {
-      await held.db.execute(sql.raw(statement));
+      await database.db.execute(sql.raw(statement));
     }
   }
 
-  calls = new DrizzleNetworkCallRepository(new DrizzleContext(held.db), {
+  calls = new DrizzleNetworkCallRepository(new DrizzleContext(database.db), {
     dispatch: async () => {},
   });
 });
 
 afterAll(async () => {
-  await held?.close();
+  await database?.close();
 });
 
 beforeEach(async () => {
-  await held.db.delete(networkCall);
+  await database.db.delete(networkCall);
 });
 
 describe('DrizzleNetworkCallRepository', () => {
@@ -84,7 +84,7 @@ describe('DrizzleNetworkCallRepository', () => {
       `{"call":${ids}}`,
     );
     expect(found?.stateAt(NOW)).toBe('waiting');
-    expect(found?.lapsesAt).toEqual(call.lapsesAt);
+    expect(found?.expiresAt).toEqual(call.expiresAt);
   });
 
   it('hands the oldest waiting call of the workspace to a host', async () => {
@@ -102,13 +102,13 @@ describe('DrizzleNetworkCallRepository', () => {
     });
   });
 
-  it('never hands out a call that lapsed', async () => {
-    await queued({ at: later(-20_000), lapsesAt: later(-1) });
+  it('never hands out a call that expired', async () => {
+    await queued({ at: later(-20_000), expiresAt: later(-1) });
 
     expect(await calls.claimNext(WorkspaceId.of('ws_1'), HOST, NOW)).toBeNull();
   });
 
-  it('hands each call to one host only, however many ask at once', async () => {
+  it('hands each call to one host only, however many request at once', async () => {
     for (let each = 0; each < 3; each++) {
       await queued({ at: later(-each) });
     }
@@ -123,19 +123,19 @@ describe('DrizzleNetworkCallRepository', () => {
       ),
     );
 
-    const handed = claimed.flatMap((each) => (each ? [each.id.value] : []));
-    expect(handed).toHaveLength(3);
-    expect(new Set(handed).size).toBe(3);
+    const claimedIds = claimed.flatMap((each) => (each ? [each.id.value] : []));
+    expect(claimedIds).toHaveLength(3);
+    expect(new Set(claimedIds).size).toBe(3);
   });
 
-  it('keeps the answer, and refuses to write over a call that changed', async () => {
+  it('stores the response, and does not write over a call that changed', async () => {
     const call = await queued();
     await calls.claimNext(WorkspaceId.of('ws_1'), HOST, NOW);
     const claimed = await calls.find(call.id);
-    const answer = NetworkAnswer.of({
+    const response = NetworkResponse.of({
       status: 200,
       headers: { 'content-type': 'application/json' },
-      body: new TextEncoder().encode('{"refuse":"not today"}'),
+      body: new TextEncoder().encode('{"deny":"not today"}'),
       ms: 84,
     });
 
@@ -143,10 +143,10 @@ describe('DrizzleNetworkCallRepository', () => {
       throw new Error('nothing was claimed');
     }
 
-    await calls.save(claimed.answerWith(HOST, answer, later(1_000)));
+    await calls.save(claimed.recordResponse(HOST, response, later(1_000)));
 
     await expect(
-      calls.save(claimed.answerWith(HOST, answer, later(2_000))),
+      calls.save(claimed.recordResponse(HOST, response, later(2_000))),
     ).rejects.toThrow(NetworkCallVersionConflictError);
 
     const clock = { now: () => later(1_500), sleep: async () => {} };
@@ -158,17 +158,17 @@ describe('DrizzleNetworkCallRepository', () => {
       ).stateOf(claimed.id.value),
     ).toEqual({
       kind: 'answered',
-      answer: {
+      response: {
         status: 200,
         headers: { 'content-type': 'application/json' },
-        body: new TextEncoder().encode('{"refuse":"not today"}'),
+        body: new TextEncoder().encode('{"deny":"not today"}'),
         ms: 84,
         error: null,
       },
     });
   });
 
-  it('keeps no header or body of a call once it is answered or lapsed', async () => {
+  it('stores no header or body of a call once it is answered or expired', async () => {
     const answered = await queued();
     await calls.claimNext(WorkspaceId.of('ws_1'), HOST, NOW);
     const claimed = await calls.find(answered.id);
@@ -178,32 +178,32 @@ describe('DrizzleNetworkCallRepository', () => {
     }
 
     await calls.save(
-      claimed.answerWith(
+      claimed.recordResponse(
         HOST,
-        NetworkAnswer.of({ status: 204, ms: 3 }),
+        NetworkResponse.of({ status: 204, ms: 3 }),
         later(1_000),
       ),
     );
-    const overdue = await queued({ at: later(-20_000), lapsesAt: later(-1) });
-    const [lapsing, ...more] = await calls.lapsingBy(NOW, 10);
+    const expired = await queued({ at: later(-20_000), expiresAt: later(-1) });
+    const [expiring, ...more] = await calls.expiringBy(NOW, 10);
 
-    expect(lapsing?.id).toEqual(overdue.id);
+    expect(expiring?.id).toEqual(expired.id);
     expect(more).toEqual([]);
 
-    await calls.save((lapsing as NetworkCall).lapsed(NOW));
+    await calls.save((expiring as NetworkCall).expire(NOW));
 
-    const kept = await held.db
+    const stored = await database.db
       .select({
         id: networkCall.id,
         state: networkCall.state,
         headers: networkCall.headers,
         body: networkCall.body,
         url: networkCall.url,
-        answerStatus: networkCall.answerStatus,
+        responseStatus: networkCall.responseStatus,
       })
       .from(networkCall);
 
-    expect(kept.sort((one, other) => one.id.localeCompare(other.id))).toEqual(
+    expect(stored.sort((one, other) => one.id.localeCompare(other.id))).toEqual(
       [
         {
           id: answered.id.value,
@@ -211,35 +211,35 @@ describe('DrizzleNetworkCallRepository', () => {
           headers: {},
           body: '',
           url: 'http://audit.internal:8080/hooks',
-          answerStatus: 204,
+          responseStatus: 204,
         },
         {
-          id: overdue.id.value,
-          state: 'lapsed',
+          id: expired.id.value,
+          state: 'expired',
           headers: {},
           body: '',
           url: 'http://audit.internal:8080/hooks',
-          answerStatus: null,
+          responseStatus: null,
         },
       ].sort((one, other) => one.id.localeCompare(other.id)),
     );
-    expect((await calls.find(overdue.id))?.stateAt(NOW)).toBe('lapsed');
+    expect((await calls.find(expired.id))?.stateAt(NOW)).toBe('expired');
   });
 
-  it('keeps a call given up on as given up, and forgets settled calls a week on', async () => {
+  it('keeps a cancelled call as cancelled, and purges completed calls a week on', async () => {
     const waited = await queued();
-    await calls.save(waited.givenUp(later(1_000)));
+    await calls.save(waited.cancel(later(1_000)));
 
     const read = await calls.find(waited.id);
-    expect(read?.progress).toEqual({ kind: 'given-up', at: later(1_000) });
+    expect(read?.progress).toEqual({ kind: 'cancelled', at: later(1_000) });
 
     const week = 7 * 24 * 60 * 60_000;
-    expect(await calls.settledBy(later(1_000 - 1), 10)).toEqual([]);
+    expect(await calls.completedBy(later(1_000 - 1), 10)).toEqual([]);
 
-    const [settled] = await calls.settledBy(later(1_000), 10);
-    expect(settled?.id).toEqual(waited.id);
+    const [completed] = await calls.completedBy(later(1_000), 10);
+    expect(completed?.id).toEqual(waited.id);
 
-    await calls.save((settled as NetworkCall).forgotten(later(1_000 + week)));
+    await calls.save((completed as NetworkCall).purge(later(1_000 + week)));
 
     expect(await calls.find(waited.id)).toBeNull();
   });

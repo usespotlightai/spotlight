@@ -23,14 +23,14 @@ type WorthImprovingProps = {
   teamId: string;
   stationId: string;
   action: ReactNode;
-  askAbout: (reading: SignalReading) => ReactNode;
+  actionFor: (reading: SignalReading) => ReactNode;
 };
 
 export function WorthImproving({
   teamId,
   stationId,
   action,
-  askAbout,
+  actionFor,
 }: WorthImprovingProps) {
   const overview = useInsightsOverview(teamId, DEFAULT_PERIOD);
   const flagged = overview.data?.worthImproving.find(
@@ -72,7 +72,7 @@ export function WorthImproving({
               key={reading.signal}
               reading={reading}
               nested={false}
-              action={askAbout(reading)}
+              action={actionFor(reading)}
             />
           ))}
         </NestedTable>

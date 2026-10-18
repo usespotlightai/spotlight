@@ -34,9 +34,11 @@ export class ListLineResourcesHandler
 
       const teams = await this.teams.inWorkspace(workspace.workspaceId);
       const keys = new Map(teams.map((team) => [team.id.value, team.key]));
-      const held = await this.resources.ofTeams(teams.map((team) => team.id));
+      const resources = await this.resources.ofTeams(
+        teams.map((team) => team.id),
+      );
 
-      return held.flatMap((each) => {
+      return resources.flatMap((each) => {
         const key = keys.get(each.teamId.value);
 
         return key === undefined ? [] : [this.views.onTeam(each, key)];

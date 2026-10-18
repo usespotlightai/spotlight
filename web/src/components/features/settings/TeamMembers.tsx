@@ -66,7 +66,7 @@ export function TeamMembers({ slug, teamId, admin, teams }: TeamMembersProps) {
           <TeamMemberRow
             key={member.id}
             member={member}
-            onOffer={member.mayBeSetTo}
+            onOffer={member.assignableRoles}
             onChange={(role) => changeRole.mutate({ userId: member.id, role })}
             pending={
               changeRole.isPending && changeRole.variables?.userId === member.id

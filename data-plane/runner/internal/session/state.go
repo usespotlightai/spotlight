@@ -13,7 +13,7 @@ const (
 	Waiting
 	Draining
 	Completed
-	Parked
+	Suspended
 	Failed
 )
 
@@ -24,32 +24,32 @@ const (
 	AgentStarted
 	PersonAsked
 	PersonAnswered
-	RunParked
+	RunSuspended
 	AgentExited
 	Drained
-	WentWrong
+	Errored
 )
 
 var transitions = map[State]map[Trigger]State{
 	Preparing: {
 		WorkspaceReady: Preparing,
 		AgentStarted:   Running,
-		WentWrong:      Failed,
+		Errored:        Failed,
 	},
 	Running: {
 		PersonAsked: Waiting,
 		AgentExited: Draining,
-		WentWrong:   Failed,
+		Errored:     Failed,
 	},
 	Waiting: {
 		PersonAnswered: Running,
-		RunParked:      Parked,
+		RunSuspended:   Suspended,
 		AgentExited:    Draining,
-		WentWrong:      Failed,
+		Errored:        Failed,
 	},
 	Draining: {
-		Drained:   Completed,
-		WentWrong: Failed,
+		Drained: Completed,
+		Errored: Failed,
 	},
 }
 
@@ -73,8 +73,8 @@ func (s State) String() string {
 		return "draining"
 	case Completed:
 		return "completed"
-	case Parked:
-		return "parked"
+	case Suspended:
+		return "suspended"
 	case Failed:
 		return "failed"
 	}
@@ -88,20 +88,20 @@ func (s State) LogValue() slog.Value {
 func (t Trigger) String() string {
 	switch t {
 	case WorkspaceReady:
-		return "given a workspace"
+		return "prepared"
 	case AgentStarted:
 		return "started"
 	case PersonAsked:
 		return "put to a person"
 	case PersonAnswered:
 		return "answered"
-	case RunParked:
-		return "parked"
+	case RunSuspended:
+		return "suspended"
 	case AgentExited:
 		return "exited"
 	case Drained:
 		return "drained"
-	case WentWrong:
+	case Errored:
 		return "failed"
 	}
 	return "unknown"

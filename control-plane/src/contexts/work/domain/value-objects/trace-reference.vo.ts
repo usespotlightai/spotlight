@@ -20,7 +20,7 @@ export class TraceReference {
     return new TraceReference(input.taskId, input.title, input.teamId);
   }
 
-  static refuseTooMany(count: number): void {
+  static assertNotTooMany(count: number): void {
     if (count > MAX_AT_ONCE) {
       throw new InvalidChatMessageError(
         `can share at most ${MAX_AT_ONCE} traces`,
@@ -31,13 +31,13 @@ export class TraceReference {
   static distinct(
     traces: readonly TraceReference[],
   ): readonly TraceReference[] {
-    const kept = traces.filter(
+    const unique = traces.filter(
       (each, at) => traces.findIndex((other) => other.equals(each)) === at,
     );
 
-    TraceReference.refuseTooMany(kept.length);
+    TraceReference.assertNotTooMany(unique.length);
 
-    return kept;
+    return unique;
   }
 
   equals(other: TraceReference): boolean {

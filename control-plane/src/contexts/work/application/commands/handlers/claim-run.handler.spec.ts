@@ -1,7 +1,7 @@
 import type {
   RunnerClaims,
-  SeenRunner,
-} from '@runners/application/ports/runner-presence.port';
+  RunnerHeartbeat,
+} from '@runners/application/ports/runner-heartbeats.port';
 import type { RunnersPort } from '@runners/application/ports/runners.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -9,7 +9,7 @@ import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ClaimRunHandler } from '@work/application/commands/handlers/claim-run.handler';
 import { ClaimRunCommand } from '@work/application/commands/runner.commands';
@@ -32,9 +32,9 @@ const NOW = new Date('2026-08-31T09:00:00.000Z');
 
 const spec = RunSpec.of({
   command: { executable: 'claude-agent-acp', args: ['--acp'] },
-  briefing: 'work out what is being asked for',
+  briefing: 'work out what the request wants',
   handover: { options: ['Spec'], noteLimit: 4_000 },
-  continuity: { key: 'task-task_1' },
+  resume: { key: 'task-task_1' },
 });
 
 const waiting = (harness = 'claude-code') =>
@@ -70,10 +70,10 @@ const aCheck: ClaimedCheck = {
 const seenAs = (
   claims: RunnerClaims = 'reserved',
   harnesses = [HarnessId.of('claude-code')],
-): SeenRunner => ({
+): RunnerHeartbeat => ({
   workspaceId: WorkspaceId.of('ws_1'),
   harnesses,
-  terms: RunnerTerms.of(['runner-1']),
+  offer: RunnerOffer.of(['runner-1']),
   claims,
 });
 
@@ -81,11 +81,11 @@ const claiming = (
   claimNext = vi.fn(async (): Promise<Run | null> => queued()),
   claimCheck = vi.fn(async (): Promise<ClaimedCheck | null> => null),
   over: {
-    seen?: SeenRunner | null;
+    seen?: RunnerHeartbeat | null;
     reservedFor?: Run | null;
     reservedCheck?: ClaimedCheck | null;
     starts?: RunStart;
-    tookRefuses?: boolean;
+    tookFails?: boolean;
   } = {},
 ) => {
   const mayStart = vi.fn(
@@ -95,8 +95,8 @@ const claiming = (
     async (): Promise<ClaimedCheck | null> => over.reservedCheck ?? null,
   );
   const pooled = {
-    took: vi.fn(async () => {
-      if (over.tookRefuses) {
+    claim: vi.fn(async () => {
+      if (over.tookFails) {
         throw new Error('runner_1 is spent');
       }
     }),
@@ -104,7 +104,7 @@ const claiming = (
   const saved: Run[] = [];
   const unclaim = vi.fn(async () => {});
   const failed = vi.fn(async () => null);
-  const requeueLapsed = vi.fn(async () => []);
+  const expireLeases = vi.fn(async () => []);
   let now = NOW;
   const clock = {
     now: () => now,
@@ -129,9 +129,11 @@ const claiming = (
   };
   const handler = new ClaimRunHandler(
     runs,
-    { requeueLapsed } as unknown as RunLeases,
+    { expireLeases } as unknown as RunLeases,
     {
-      seen: vi.fn(async () => (over.seen === undefined ? seenAs() : over.seen)),
+      heartbeat: vi.fn(async () =>
+        over.seen === undefined ? seenAs() : over.seen,
+      ),
     },
     clock,
     checks,
@@ -151,7 +153,7 @@ const claiming = (
     execute: (command: ClaimRunCommand) => handler.execute(command),
     pooled,
     failed,
-    requeueLapsed,
+    expireLeases,
     claimReserved,
     saved,
     unclaim,
@@ -167,9 +169,9 @@ describe('ClaimRunHandler', () => {
 
     expect(runOf(claimed)?.spec).toEqual({
       command: { executable: 'claude-agent-acp', args: ['--acp'] },
-      briefing: 'work out what is being asked for',
+      briefing: 'work out what the request wants',
       handover: { options: ['Spec'], noteLimit: 4_000 },
-      continuity: { key: 'task-task_1' },
+      resume: { key: 'task-task_1' },
     });
   });
 
@@ -190,7 +192,7 @@ describe('ClaimRunHandler', () => {
     await claiming(claimNext).execute(new ClaimRunCommand('runner_1'));
 
     expect(claimNext).toHaveBeenCalledWith(
-      expect.objectContaining({ terms: RunnerTerms.of(['runner-1']) }),
+      expect.objectContaining({ offer: RunnerOffer.of(['runner-1']) }),
       NOW,
     );
   });
@@ -205,7 +207,7 @@ describe('ClaimRunHandler', () => {
     expect(overTheWire.run.spec.command.executable).toBe('claude-agent-acp');
   });
 
-  it('refuses a runner that is not standing', async () => {
+  it('rejects a runner that is not alive', async () => {
     await expect(
       claiming(undefined, undefined, { seen: null }).execute(
         new ClaimRunCommand('runner_1'),
@@ -223,11 +225,11 @@ describe('ClaimRunHandler', () => {
     expect(await handler.execute(new ClaimRunCommand('runner_1'))).toBeNull();
     expect(claimNext).not.toHaveBeenCalled();
     expect(claimCheck).not.toHaveBeenCalled();
-    expect(handler.requeueLapsed).not.toHaveBeenCalled();
+    expect(handler.expireLeases).not.toHaveBeenCalled();
   });
 
   describe('for a runner started for one reserved run', () => {
-    it('claims the run reserved for it, and records that its runner took it', async () => {
+    it('claims the run reserved for it, and records that its runner claimed it', async () => {
       const claimNext = vi.fn(async () => queued());
       const handler = claiming(claimNext, undefined, {
         seen: seenAs('reserved'),
@@ -241,7 +243,7 @@ describe('ClaimRunHandler', () => {
         expect.objectContaining({ claims: 'reserved' }),
         NOW,
       );
-      expect(handler.pooled.took).toHaveBeenCalledWith(
+      expect(handler.pooled.claim).toHaveBeenCalledWith(
         RunnerId.of('runner_1'),
         { kind: 'run', id: 'run_1' },
         NOW,
@@ -255,7 +257,7 @@ describe('ClaimRunHandler', () => {
         {
           seen: seenAs('reserved'),
           reservedFor: reservedForPooled(),
-          tookRefuses: true,
+          tookFails: true,
         },
       );
 
@@ -265,7 +267,7 @@ describe('ClaimRunHandler', () => {
       expect(handler.saved).toHaveLength(1);
       expect(handler.saved[0]?.state).toBe('queued');
       expect(handler.saved[0]?.claimedBy).toBeNull();
-      expect(handler.saved[0]?.handBacks.count).toBe(0);
+      expect(handler.saved[0]?.requeueCount.count).toBe(0);
     });
 
     it('puts the check back, uncounted, when its runner cannot take it', async () => {
@@ -275,7 +277,7 @@ describe('ClaimRunHandler', () => {
         {
           seen: seenAs('reserved'),
           reservedCheck: aCheck,
-          tookRefuses: true,
+          tookFails: true,
         },
       );
 
@@ -302,12 +304,12 @@ describe('ClaimRunHandler', () => {
       expect(claimCheck).not.toHaveBeenCalled();
       expect(handler.claimReserved).toHaveBeenCalledWith(
         RunnerId.of('runner_1'),
-        RunnerTerms.of(['runner-1']),
+        RunnerOffer.of(['runner-1']),
         NOW,
       );
     });
 
-    it('takes the check reserved for it where no run is, and records that it took it', async () => {
+    it('claims the check reserved for it where no run is, and records that it claimed it', async () => {
       const claimCheck = vi.fn(async () => null);
       const handler = claiming(
         vi.fn(async () => null),
@@ -322,7 +324,7 @@ describe('ClaimRunHandler', () => {
 
       expect(claimed).toEqual({ kind: 'check', check: aCheck });
       expect(claimCheck).not.toHaveBeenCalled();
-      expect(handler.pooled.took).toHaveBeenCalledWith(
+      expect(handler.pooled.claim).toHaveBeenCalledWith(
         RunnerId.of('runner_1'),
         { kind: 'check', id: 'stack_1' },
         NOW,
@@ -364,8 +366,8 @@ describe('ClaimRunHandler', () => {
     });
   });
 
-  it('hands over no run a hook refused to start', async () => {
-    const handler = claiming(undefined, undefined, { starts: 'refused' });
+  it('hands over no run whose start a hook denied', async () => {
+    const handler = claiming(undefined, undefined, { starts: 'denied' });
 
     expect(await handler.execute(new ClaimRunCommand('runner_1'))).toBeNull();
     expect(handler.mayStart).toHaveBeenCalledWith(
@@ -375,10 +377,10 @@ describe('ClaimRunHandler', () => {
     );
   });
 
-  it('stops polling at once, taking up no check, when a run had to be handed back', async () => {
+  it('stops polling at once, taking up no check, when a run had to be requeued', async () => {
     const claimNext = vi.fn(async (): Promise<Run | null> => queued());
     const handler = claiming(claimNext, undefined, {
-      starts: 'handed-back',
+      starts: 'requeued',
       reservedCheck: aCheck,
     });
 

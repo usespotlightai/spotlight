@@ -23,9 +23,9 @@ export function InboxItemFooter({ slug, item }: InboxItemFooterProps) {
 
   return (
     <p className="pb-5 text-center text-muted-foreground text-xs">
-      {item.standsAt.name === item.station
-        ? 'The task is settled here. Nothing is left to answer.'
-        : `The task moved on to ${item.standsAt.name}. Nothing is left to answer.`}
+      {item.currentStation.name === item.station
+        ? 'The conversation is closed here. Nothing is left to answer.'
+        : `The task moved on to ${item.currentStation.name}. Nothing is left to answer.`}
     </p>
   );
 }

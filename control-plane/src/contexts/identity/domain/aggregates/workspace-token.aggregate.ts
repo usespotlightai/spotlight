@@ -1,20 +1,19 @@
 import type { WorkspaceTokenTrust } from '@identity/domain/aggregates/workspace-token-trust.aggregate';
+import { WorkspaceTokenExpired } from '@identity/domain/events/workspace-token-expired.event';
 import { WorkspaceTokenIssued } from '@identity/domain/events/workspace-token-issued.event';
-import { WorkspaceTokenLapsed } from '@identity/domain/events/workspace-token-lapsed.event';
-import { WorkspaceTokenRedescribed } from '@identity/domain/events/workspace-token-redescribed.event';
 import { WorkspaceTokenRevoked } from '@identity/domain/events/workspace-token-revoked.event';
+import { WorkspaceTokenUpdated } from '@identity/domain/events/workspace-token-updated.event';
 import { InvalidWorkspaceTokenError } from '@identity/domain/exceptions/invalid-workspace-token.error';
-import { MintedTokenFixedError } from '@identity/domain/exceptions/minted-token-fixed.error';
-import { WorkspaceTokenTermsFixedError } from '@identity/domain/exceptions/workspace-token-terms-fixed.error';
 import { WorkspaceTokenVersionConflictError } from '@identity/domain/exceptions/workspace-token-version-conflict.error';
-import { MintedTokenDetail } from '@identity/domain/value-objects/minted-token-detail.vo';
+import { IssuedTokenDetail } from '@identity/domain/value-objects/issued-token-detail.vo';
 import { RunTokenDetail } from '@identity/domain/value-objects/run-token-detail.vo';
 import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
 import type { TokenName } from '@identity/domain/value-objects/token-name.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
-import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
@@ -27,23 +26,23 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import type { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import type { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
 
-export interface TokenTerms {
+export interface TokenSpec {
   readonly name: TokenName;
   readonly description: TokenDescription;
   readonly scopes: TokenScopes;
   readonly expiresAt: Date | null;
 }
 
-interface Props extends TokenTerms {
+interface Props extends TokenSpec {
   readonly id: WorkspaceTokenId;
   readonly workspaceId: WorkspaceId;
   readonly hash: TokenHash;
   readonly issuedBy: UserId;
   readonly issuedAt: Date;
-  readonly mintedThrough: WorkspaceTokenTrustId | null;
-  readonly mintedUnder: number | null;
-  readonly mintedForRun: RunId | null;
-  readonly mintedForAttempt: number | null;
+  readonly issuedByTrustId: WorkspaceTokenTrustId | null;
+  readonly trustVersion: number | null;
+  readonly runId: RunId | null;
+  readonly runAttempt: number | null;
   readonly version: number;
 }
 
@@ -53,7 +52,7 @@ interface State extends Props {
 
 const RUN_TOKEN_LONGEST_MS = 60 * 60 * 1_000;
 
-const FIXED = 'cannot change after the token is issued';
+const IMMUTABLE = 'cannot change after the token is issued';
 
 const sameInstant = (a: Date | null, b: Date | null): boolean =>
   a?.getTime() === b?.getTime();
@@ -68,13 +67,13 @@ export class WorkspaceToken extends EventRecorder {
       Props,
       | 'version'
       | 'issuedAt'
-      | 'mintedThrough'
-      | 'mintedUnder'
-      | 'mintedForRun'
-      | 'mintedForAttempt'
+      | 'issuedByTrustId'
+      | 'trustVersion'
+      | 'runId'
+      | 'runAttempt'
     > & {
       now: Date;
-      by: Attribution;
+      by: ChangeActor;
     },
   ): WorkspaceToken {
     if (input.expiresAt && input.expiresAt.getTime() <= input.now.getTime()) {
@@ -94,10 +93,10 @@ export class WorkspaceToken extends EventRecorder {
       hash: input.hash,
       issuedBy: input.issuedBy,
       issuedAt: input.now,
-      mintedThrough: null,
-      mintedUnder: null,
-      mintedForRun: null,
-      mintedForAttempt: null,
+      issuedByTrustId: null,
+      trustVersion: null,
+      runId: null,
+      runAttempt: null,
       version: 0,
       revoked: false,
     });
@@ -114,25 +113,25 @@ export class WorkspaceToken extends EventRecorder {
     return issued;
   }
 
-  static minted(
+  static issueByTrust(
     input: Omit<
       Props,
       | 'version'
       | 'issuedAt'
       | 'description'
       | 'expiresAt'
-      | 'mintedForRun'
-      | 'mintedForAttempt'
+      | 'runId'
+      | 'runAttempt'
     > & {
-      mintedThrough: WorkspaceTokenTrustId;
-      mintedUnder: number;
+      issuedByTrustId: WorkspaceTokenTrustId;
+      trustVersion: number;
       expiresAt: Date;
       subject: string;
       now: Date;
       client: Client;
     },
   ): WorkspaceToken {
-    const minted = new WorkspaceToken({
+    const issued = new WorkspaceToken({
       id: input.id,
       workspaceId: input.workspaceId,
       name: input.name,
@@ -142,27 +141,27 @@ export class WorkspaceToken extends EventRecorder {
       hash: input.hash,
       issuedBy: input.issuedBy,
       issuedAt: input.now,
-      mintedThrough: input.mintedThrough,
-      mintedUnder: input.mintedUnder,
-      mintedForRun: null,
-      mintedForAttempt: null,
+      issuedByTrustId: input.issuedByTrustId,
+      trustVersion: input.trustVersion,
+      runId: null,
+      runAttempt: null,
       version: 0,
       revoked: false,
     });
 
-    minted.record(
+    issued.record(
       new WorkspaceTokenIssued(
-        minted.id,
-        minted.workspaceId,
-        minted.name,
+        issued.id,
+        issued.workspaceId,
+        issued.name,
         ConfigurationChange.created(
-          minted.whatChanged,
-          Attribution.of(
-            Actor.of(minted.principal, input.client),
-            minted.workspaceId,
+          issued.whatChanged,
+          ChangeActor.of(
+            Actor.of(issued.principal, input.client),
+            issued.workspaceId,
           ),
-          MintedTokenDetail.of({
-            mintedThrough: input.mintedThrough,
+          IssuedTokenDetail.of({
+            issuedByTrustId: input.issuedByTrustId,
             subject: input.subject,
             scopes: input.scopes.all.map((each) => each.value),
             expiresAt: input.expiresAt,
@@ -171,7 +170,7 @@ export class WorkspaceToken extends EventRecorder {
       ),
     );
 
-    return minted;
+    return issued;
   }
 
   static forRun(input: {
@@ -206,7 +205,7 @@ export class WorkspaceToken extends EventRecorder {
     ) {
       throw new InvalidWorkspaceTokenError(
         'expiresAt',
-        'must be at most an hour after it is minted',
+        'must be at most an hour after it is issued',
       );
     }
 
@@ -214,7 +213,7 @@ export class WorkspaceToken extends EventRecorder {
       throw new InvalidWorkspaceTokenError('scopes', 'must be plan or read');
     }
 
-    const minted = new WorkspaceToken({
+    const issued = new WorkspaceToken({
       id: input.id,
       workspaceId: input.workspaceId,
       name: input.name,
@@ -224,22 +223,22 @@ export class WorkspaceToken extends EventRecorder {
       hash: input.hash,
       issuedBy: input.issuedBy,
       issuedAt: input.now,
-      mintedThrough: null,
-      mintedUnder: null,
-      mintedForRun: input.runId,
-      mintedForAttempt: input.attempt,
+      issuedByTrustId: null,
+      trustVersion: null,
+      runId: input.runId,
+      runAttempt: input.attempt,
       version: 0,
       revoked: false,
     });
 
-    minted.record(
+    issued.record(
       new WorkspaceTokenIssued(
-        minted.id,
-        minted.workspaceId,
-        minted.name,
+        issued.id,
+        issued.workspaceId,
+        issued.name,
         ConfigurationChange.created(
-          minted.whatChanged,
-          Attribution.spotlight(minted.workspaceId),
+          issued.whatChanged,
+          ChangeActor.spotlight(issued.workspaceId),
           RunTokenDetail.of({
             runId: input.runId,
             attempt: input.attempt,
@@ -250,14 +249,14 @@ export class WorkspaceToken extends EventRecorder {
       ),
     );
 
-    return minted;
+    return issued;
   }
 
   static rehydrate(input: Props): WorkspaceToken {
-    if ((input.mintedForRun === null) !== (input.mintedForAttempt === null)) {
+    if ((input.runId === null) !== (input.runAttempt === null)) {
       throw new InconsistentStateError(
         'workspace token',
-        'names the attempt it was minted for when, and only when, it was minted for a run',
+        'names the attempt it was issued for when, and only when, it was issued for a run',
       );
     }
 
@@ -270,29 +269,45 @@ export class WorkspaceToken extends EventRecorder {
     }
   }
 
-  redescribe(terms: TokenTerms, by: Attribution): WorkspaceToken {
-    this.guardStanding();
+  update(spec: TokenSpec, by: ChangeActor): WorkspaceToken {
+    this.assertNotDeleted();
 
-    if (this.isMinted) {
-      throw new MintedTokenFixedError(this.name.value);
+    if (this.isIssuedBySpotlight) {
+      throw new ImmutableFieldError(
+        'description',
+        'cannot change on a token Spotlight issued',
+        `Token ${this.name.value} was issued by Spotlight. Its description cannot change.`,
+      );
     }
 
-    if (!terms.name.equals(this.name)) {
-      throw new WorkspaceTokenTermsFixedError('name', FIXED);
+    if (!spec.name.equals(this.name)) {
+      throw new ImmutableFieldError(
+        'name',
+        IMMUTABLE,
+        `Workspace token name ${IMMUTABLE}.`,
+      );
     }
 
-    if (!terms.scopes.equals(this.scopes)) {
-      throw new WorkspaceTokenTermsFixedError('scopes', FIXED);
+    if (!spec.scopes.equals(this.scopes)) {
+      throw new ImmutableFieldError(
+        'scopes',
+        IMMUTABLE,
+        `Workspace token scopes ${IMMUTABLE}.`,
+      );
     }
 
-    if (!sameInstant(terms.expiresAt, this.expiresAt)) {
-      throw new WorkspaceTokenTermsFixedError('expiresAt', FIXED);
+    if (!sameInstant(spec.expiresAt, this.expiresAt)) {
+      throw new ImmutableFieldError(
+        'expiresAt',
+        IMMUTABLE,
+        `Workspace token expiresAt ${IMMUTABLE}.`,
+      );
     }
 
-    const redescribed = this.with({ description: terms.description });
+    const updated = this.with({ description: spec.description });
 
-    redescribed.record(
-      new WorkspaceTokenRedescribed(
+    updated.record(
+      new WorkspaceTokenUpdated(
         this.id,
         this.workspaceId,
         this.name,
@@ -300,11 +315,11 @@ export class WorkspaceToken extends EventRecorder {
       ),
     );
 
-    return redescribed;
+    return updated;
   }
 
-  revoke(by: Attribution): WorkspaceToken {
-    this.guardStanding();
+  revoke(by: ChangeActor): WorkspaceToken {
+    this.assertNotDeleted();
 
     const revoked = this.with({ revoked: true });
 
@@ -320,26 +335,26 @@ export class WorkspaceToken extends EventRecorder {
     return revoked;
   }
 
-  lapsed(now: Date): WorkspaceToken {
-    this.guardStanding();
+  expire(now: Date): WorkspaceToken {
+    this.assertNotDeleted();
 
-    if (this.admitsAt(now)) {
+    if (this.isActiveAt(now)) {
       throw new InconsistentStateError(
         'workspace token',
-        'was let lapse before it expired',
+        'was marked expired before its expiry time',
       );
     }
 
-    const lapsed = this.with({ revoked: true });
+    const expired = this.with({ revoked: true });
 
-    lapsed.record(
-      new WorkspaceTokenLapsed(this.id, this.workspaceId, this.name),
+    expired.record(
+      new WorkspaceTokenExpired(this.id, this.workspaceId, this.name),
     );
 
-    return lapsed;
+    return expired;
   }
 
-  admitsAt(now: Date): boolean {
+  isActiveAt(now: Date): boolean {
     return (
       !this.isRevoked &&
       (this.expiresAt === null || this.expiresAt.getTime() > now.getTime())
@@ -352,7 +367,7 @@ export class WorkspaceToken extends EventRecorder {
       workspaceId: this.workspaceId,
       scopes: this.scopes,
       issuedBy: this.issuedBy,
-      mintedThrough: this.mintedThrough,
+      issuedByTrustId: this.issuedByTrustId,
     });
   }
 
@@ -384,7 +399,7 @@ export class WorkspaceToken extends EventRecorder {
     if (!this.state.expiresAt) {
       throw new InconsistentStateError(
         'workspace token',
-        'was asked when it expires, but it never does',
+        'was queried for its expiry, but it never expires',
       );
     }
 
@@ -403,30 +418,28 @@ export class WorkspaceToken extends EventRecorder {
     return this.state.issuedAt;
   }
 
-  get mintedThrough(): WorkspaceTokenTrustId | null {
-    return this.state.mintedThrough;
+  get issuedByTrustId(): WorkspaceTokenTrustId | null {
+    return this.state.issuedByTrustId;
   }
 
-  get mintedUnder(): number | null {
-    return this.state.mintedUnder;
+  get trustVersion(): number | null {
+    return this.state.trustVersion;
   }
 
-  get mintedForRun(): RunId | null {
-    return this.state.mintedForRun;
+  get runId(): RunId | null {
+    return this.state.runId;
   }
 
-  get mintedForAttempt(): number | null {
-    return this.state.mintedForAttempt;
+  get runAttempt(): number | null {
+    return this.state.runAttempt;
   }
 
-  standsUnder(trust: WorkspaceTokenTrust | null): boolean {
-    return this.mintedThrough === null || trust?.stillGrants(this) === true;
+  isStillValidFor(trust: WorkspaceTokenTrust | null): boolean {
+    return this.issuedByTrustId === null || trust?.stillGrants(this) === true;
   }
 
-  get isMinted(): boolean {
-    return (
-      this.state.mintedThrough !== null || this.state.mintedForRun !== null
-    );
+  get isIssuedBySpotlight(): boolean {
+    return this.state.issuedByTrustId !== null || this.state.runId !== null;
   }
 
   get version(): number {
@@ -453,7 +466,7 @@ export class WorkspaceToken extends EventRecorder {
     return next;
   }
 
-  private guardStanding(): void {
+  private assertNotDeleted(): void {
     if (this.isRevoked) {
       throw new InconsistentStateError(
         'workspace token',

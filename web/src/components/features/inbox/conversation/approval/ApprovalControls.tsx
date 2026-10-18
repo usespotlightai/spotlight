@@ -1,6 +1,6 @@
 import { ApprovalDecision } from '@/components/features/inbox/conversation/approval/ApprovalDecision';
+import { ApprovalDismissal } from '@/components/features/inbox/conversation/approval/ApprovalDismissal';
 import { ApprovalEditControls } from '@/components/features/inbox/conversation/approval/ApprovalEditControls';
-import { ApprovalRefusal } from '@/components/features/inbox/conversation/approval/ApprovalRefusal';
 import type { Approval, ApprovalAnswer, ApprovalMode } from '@/lib/approval';
 
 type ApprovalControlsProps = {
@@ -44,14 +44,14 @@ export function ApprovalControls({
     );
   }
 
-  if (mode === 'refusing') {
+  if (mode === 'dismissing') {
     return (
-      <ApprovalRefusal
+      <ApprovalDismissal
         approval={approval}
         pending={pending}
         reason={reason}
         onReason={onReason}
-        onRefuse={() => onDecide({ approve: false, said: reason })}
+        onDismiss={() => onDecide({ approve: false, body: reason })}
         onCancel={() => onMode('viewing')}
       />
     );
@@ -63,9 +63,9 @@ export function ApprovalControls({
       pending={pending}
       onlyFor={onlyFor}
       onApprove={
-        onlyFor ? undefined : () => onDecide({ approve: true, said: '' })
+        onlyFor ? undefined : () => onDecide({ approve: true, body: '' })
       }
-      onDismiss={() => onMode('refusing')}
+      onDismiss={() => onMode('dismissing')}
     />
   );
 }

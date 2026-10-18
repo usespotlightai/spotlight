@@ -1,7 +1,7 @@
 import type { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
 
 export class HarnessProfileInUseError extends Error {
-  readonly violation = 'conflict' as const;
+  readonly kind = 'conflict' as const;
 
   constructor(key: string, uses: StationUses) {
     super(

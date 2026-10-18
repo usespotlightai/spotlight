@@ -3,8 +3,8 @@ import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate'
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
 export const TeamAccess = {
-  admits(team: Team, workspace: Workspace, principal: Principal): boolean {
-    if (team.isDisbanded || !team.workspaceId.equals(workspace.id)) {
+  allows(team: Team, workspace: Workspace, principal: Principal): boolean {
+    if (team.isDeleted || !team.workspaceId.equals(workspace.id)) {
       return false;
     }
 
@@ -16,8 +16,8 @@ export const TeamAccess = {
 
     return (
       principal.kind === 'token' ||
-      permissions.administers ||
-      team.holds(principal.userId)
+      permissions.isAdmin ||
+      team.hasMember(principal.userId)
     );
   },
 };

@@ -81,7 +81,7 @@ describe('HclStationSourceEditor', () => {
     );
   });
 
-  it('names the refusal in the search’s own terms', async () => {
+  it('names the error in the search’s own terms', async () => {
     const answer = await edited({ model: 'opus' }, 'resource "x" {\n');
 
     expect(answer.ok === false && answer.reason.code).toBe('file-unparsable');
@@ -90,23 +90,23 @@ describe('HclStationSourceEditor', () => {
     ).toBe(false);
   });
 
-  it('refuses a block value it cannot write as a failed edit, not something to retry', async () => {
+  it('rejects a block value it cannot write as a failed edit, not something to retry', async () => {
     const answer = await edited({ description: { nested: true } });
 
     expect(answer.ok === false && answer.reason.code).toBe('edit-failed');
   });
 
-  it('writes a station whose judge’s claims and pass share are as the search began, and refuses one whose claims changed since', async () => {
+  it('writes a station whose judge’s claims and pass threshold are as the search began, and rejects one whose claims changed since', async () => {
     const judge = {
       claims: ['It adds a test.'],
-      passShare: 0.5,
+      passThreshold: 0.5,
       sample: 0.2,
-      trust: 0.6,
+      minAgreement: 0.6,
     };
     const judged = (claims: string) =>
       LINE.replace(
         '    skills  = []\n',
-        `    skills  = []\n\n    judge {\n      claims     = [${claims}]\n      pass_share = 0.5\n      sample     = 0.2\n      trust      = 0.6\n    }\n`,
+        `    skills  = []\n\n    judge {\n      claims         = [${claims}]\n      pass_threshold = 0.5\n      sample         = 0.2\n      min_agreement  = 0.6\n    }\n`,
       );
     const seed = { ...SEED, judge };
 
@@ -120,20 +120,26 @@ describe('HclStationSourceEditor', () => {
       ).ok,
     ).toBe(true);
 
-    const drifted = await edited(
+    const baseChanged = await edited(
       { judge, model: 'opus' },
       judged('"It adds two tests."'),
       seed,
     );
-    expect(drifted.ok === false && drifted.reason.code).toBe('drifted');
+    expect(baseChanged.ok === false && baseChanged.reason.code).toBe(
+      'base-changed',
+    );
   });
 
-  it('reads a pass share left out of the file as 1, and calls one set there since the search began drift', async () => {
-    const judge = { claims: ['It adds a test.'], sample: 0.2, trust: 0.6 };
-    const judged = (passShare: string) =>
+  it('reads a pass threshold left out of the file as 1, and calls one set there since the search began drift', async () => {
+    const judge = {
+      claims: ['It adds a test.'],
+      sample: 0.2,
+      minAgreement: 0.6,
+    };
+    const judged = (passThreshold: string) =>
       LINE.replace(
         '    skills  = []\n',
-        `    skills  = []\n\n    judge {\n      claims = ["It adds a test."]${passShare}\n      sample = 0.2\n      trust  = 0.6\n    }\n`,
+        `    skills  = []\n\n    judge {\n      claims        = ["It adds a test."]${passThreshold}\n      sample        = 0.2\n      min_agreement = 0.6\n    }\n`,
       );
     const seed = { ...SEED, judge };
 
@@ -141,11 +147,13 @@ describe('HclStationSourceEditor', () => {
       true,
     );
 
-    const drifted = await edited(
+    const baseChanged = await edited(
       { judge, model: 'opus' },
-      judged('\n      pass_share = 0.5'),
+      judged('\n      pass_threshold = 0.5'),
       seed,
     );
-    expect(drifted.ok === false && drifted.reason.code).toBe('drifted');
+    expect(baseChanged.ok === false && baseChanged.reason.code).toBe(
+      'base-changed',
+    );
   });
 });

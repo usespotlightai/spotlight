@@ -12,7 +12,7 @@ type RunArgs = {
     | 'run_retries_3'
     | 'run_billing_1'
     | 'run_postgres_3';
-  readonly remembered: boolean;
+  readonly memories: boolean;
 };
 
 const meta = {
@@ -20,7 +20,7 @@ const meta = {
   ...pageStory<RunArgs>({
     states: ['data', 'loading', 'error'],
     at: ({ run }) => `/w/acme/team/team_platform/runs/${run}`,
-    args: { run: 'run_retries_2', remembered: false },
+    args: { run: 'run_retries_2', memories: false },
     argTypes: {
       run: choice('Run', {
         run_retries_2: 'Finished',
@@ -28,13 +28,13 @@ const meta = {
         run_billing_1: 'Run failed',
         run_postgres_3: 'Waiting for you',
       }),
-      remembered: toggle('Showing what was remembered'),
+      memories: toggle('Showing the run’s memories'),
     },
-    script: ({ remembered }) =>
-      remembered
+    script: ({ memories }) =>
+      memories
         ? async (screen, user) => {
             await user.click(
-              await screen.findByRole('button', { name: 'Remembered' }),
+              await screen.findByRole('button', { name: 'Memories' }),
             );
           }
         : undefined,

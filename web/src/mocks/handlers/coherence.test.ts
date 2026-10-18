@@ -7,17 +7,17 @@ import {
   listReplays,
   listRunChangeStacks,
   listSearches,
-  listStationOutcomes,
   listTaskRuns,
   listTeamRuns,
   readInsightsStations,
   readReplay,
-  readRunConversation,
   readRunMemories,
+  readRunNotes,
   readRunReview,
   readRunScores,
   readSearch,
   readStationAlert,
+  readStationInsights,
   readTaskDecisions,
   readTaskJournal,
   readTaskTrace,
@@ -46,7 +46,7 @@ const journalOf = async (taskId: string) =>
   (await readTaskJournal({ path: { slug: SLUG, taskId }, throwOnError: true }))
     .data;
 
-const newSideHolds = (patch: string, line: number): boolean => {
+const newSideContains = (patch: string, line: number): boolean => {
   const [header = ''] = patch.split('\n');
   const [, start = '0', length = '0'] =
     header.match(/\+(\d+),(\d+)/) ?? ([] as string[]);
@@ -63,7 +63,7 @@ describe('one run history across the mock', () => {
       query: { period: '30d' },
       throwOnError: true,
     });
-    const { data: outcomes } = await listStationOutcomes({
+    const { data: outcomes } = await readStationInsights({
       path: { teamId, lineId: DELIVERY_ID, stationId: IMPLEMENTATION },
       query: { last: 200 },
       throwOnError: true,
@@ -84,7 +84,7 @@ describe('one run history across the mock', () => {
   });
 
   it('groups station runs under the config versions Insights knows', async () => {
-    const { data } = await listStationOutcomes({
+    const { data } = await readStationInsights({
       path: { teamId, lineId: DELIVERY_ID, stationId: IMPLEMENTATION },
       query: { last: 200 },
       throwOnError: true,
@@ -113,9 +113,7 @@ describe('one run history across the mock', () => {
   it('answers the conversation of every run in the team runs list', async () => {
     const runs = await teamRuns();
     const answers = await Promise.all(
-      runs.map((run) =>
-        readRunConversation({ path: { teamId, runId: run.id } }),
-      ),
+      runs.map((run) => readRunNotes({ path: { teamId, runId: run.id } })),
     );
 
     expect(runs.length).toBeGreaterThan(500);
@@ -220,7 +218,9 @@ describe('the Postgres upgrade reads the same everywhere', () => {
 
       expect(file, comment.path).toBeDefined();
       expect(
-        file?.hunks.some((hunk) => newSideHolds(hunk.patch, comment.line ?? 1)),
+        file?.hunks.some((hunk) =>
+          newSideContains(hunk.patch, comment.line ?? 1),
+        ),
       ).toBe(true);
     }
   });
@@ -244,9 +244,9 @@ describe('the Postgres upgrade reads the same everywhere', () => {
 
     for (const decision of decisions.decisions) {
       expect(decision.paths.every((each) => changed.has(each))).toBe(true);
-      expect(decision.steps.every((index) => steps[index] !== undefined)).toBe(
-        true,
-      );
+      expect(
+        decision.journalSteps.every((index) => steps[index] !== undefined),
+      ).toBe(true);
     }
   });
 
@@ -275,7 +275,7 @@ describe('the task journal and the run conversations tell one story', () => {
     const item = inbox.find(
       (each) => each.kind === 'task' && each.id === 'task_retries:0',
     );
-    const { data: run } = await readRunConversation({
+    const { data: run } = await readRunNotes({
       path: { teamId, runId: 'run_retries_2' },
       throwOnError: true,
     });
@@ -320,7 +320,7 @@ describe('the task journal and the run conversations tell one story', () => {
   });
 
   it('prices a run the same in its conversation, its journal and Insights', async () => {
-    const { data: run } = await readRunConversation({
+    const { data: run } = await readRunNotes({
       path: { teamId, runId: 'run_postgres_2' },
       throwOnError: true,
     });
@@ -355,10 +355,10 @@ const agentStations = () =>
 describe('every agent station improves on its own runs', () => {
   serveMockApi();
 
-  it('holds replay sets of runs that ended at the station before they were added', async () => {
+  it('has replay sets of runs that ended at the station before they were added', async () => {
     for (const path of agentStations()) {
       const { data: sets } = await listReplaySets({ path, throwOnError: true });
-      const { data: outcomes } = await listStationOutcomes({
+      const { data: outcomes } = await readStationInsights({
         path,
         query: { last: 200 },
         throwOnError: true,
@@ -395,7 +395,7 @@ describe('every agent station improves on its own runs', () => {
           path: { teamId: path.teamId, setId: set.id },
           throwOnError: true,
         });
-        const held = new Set(set.entries.map((each) => each.runId));
+        const setRunIds = new Set(set.entries.map((each) => each.runId));
         const lastEnded = set.entries
           .map((each) => each.endedAt ?? '')
           .sort()
@@ -410,7 +410,7 @@ describe('every agent station improves on its own runs', () => {
         for (const replay of replays) {
           expect(replay.startedAt > (lastEnded ?? '')).toBe(true);
           expect(
-            replay.entries.every((each) => held.has(each.originalRunId)),
+            replay.entries.every((each) => setRunIds.has(each.originalRunId)),
           ).toBe(true);
         }
       }
