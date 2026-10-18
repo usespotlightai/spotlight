@@ -2,17 +2,13 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { AlertSlide } from '@/components/features/stations/config/AlertSlide';
 import { Instrument } from '@/components/features/stations/config/Instrument';
 import { useSnapCarousel } from '@/hooks/useSnapCarousel';
-import type { AlertThreshold } from '@/lib/station-watch';
+import type { AlertRule } from '@/lib/station-monitoring';
 import { cn } from '@/lib/utils';
 
 const STEP =
   'flex size-6 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40';
 
-export function AlertsInstrument({
-  alerts,
-}: {
-  alerts: readonly AlertThreshold[];
-}) {
+export function AlertsInstrument({ alerts }: { alerts: readonly AlertRule[] }) {
   const { track, at, pages, dragging, go, onScroll, dragHandlers } =
     useSnapCarousel(alerts.length);
   const paging = pages > 1;

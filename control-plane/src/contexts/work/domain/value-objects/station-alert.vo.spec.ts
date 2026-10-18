@@ -86,7 +86,7 @@ describe('StationAlert', () => {
       },
     ],
   ] as const)(
-    'rejects an alert that sets %s of the thresholds, naming no one field',
+    'rejects an alert that sets %s of the conditions, naming no one field',
     (_, input) => {
       const error = errorOf(input);
 
@@ -95,7 +95,7 @@ describe('StationAlert', () => {
     },
   );
 
-  it('rejects a second alert watching the same measure for the same kind of threshold, at no one field', () => {
+  it('rejects a second alert watching the same measure for the same condition, at no one field', () => {
     const first = StationAlert.of({
       measure: 'cost_per_run',
       above: 5,

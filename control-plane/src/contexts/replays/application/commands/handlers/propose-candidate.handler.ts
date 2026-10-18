@@ -9,8 +9,8 @@ import { UnknownStationError } from '@replays/domain/exceptions/unknown-station.
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
-import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
+import { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import {
   forbiddenTo,
   type ResourceCreated,
@@ -85,7 +85,7 @@ export class ProposeCandidateHandler
         : null;
       const address =
         station && teamKey
-          ? StationAddress.of(teamKey, station.lineKey, station.key)
+          ? StationPath.of(teamKey, station.lineKey, station.key)
           : null;
 
       if (!station || !membership || !address) {
@@ -114,20 +114,20 @@ export class ProposeCandidateHandler
               },
             },
             async () => {
-              const examined = await this.work.examine(
+              const validated = await this.work.validate(
                 station.lineId,
                 station.stationId,
                 block,
               );
 
-              if (!examined) {
+              if (!validated) {
                 throw new UnknownStationError(command.stationKey);
               }
 
-              if (!named.ok || !examined.ok) {
+              if (!named.ok || !validated.ok) {
                 throw new ProposalRejectedError([
                   ...(named.ok ? [] : [CandidateProblems.name(named.reason)]),
-                  ...(examined.ok ? [] : examined.problems),
+                  ...(validated.ok ? [] : validated.problems),
                 ]);
               }
 
@@ -137,10 +137,10 @@ export class ProposeCandidateHandler
                 address,
                 name: named.name,
                 block: StationBlock.of(block),
-                fingerprint: examined.fingerprint,
-                digests: examined.digests,
-                scoring: examined.scoring,
-                changedFrom: examined.changedFrom,
+                fingerprint: validated.fingerprint,
+                hashes: validated.hashes,
+                scoring: validated.scoring,
+                changedFrom: validated.changedFrom,
                 at: this.clock.now(),
                 by: Attribution.of(command.actor, station.workspaceId),
               });

@@ -200,12 +200,12 @@ import { CancelDetachedRun } from '@work/application/events/handlers/cancel-deta
 import { ChatOutcomes } from '@work/application/events/handlers/chat-outcomes.handler';
 import { CreateTaskFromProposal } from '@work/application/events/handlers/create-task-from-proposal.handler';
 import { DeleteTeamLines } from '@work/application/events/handlers/delete-team-lines.handler';
-import { DigestRun } from '@work/application/events/handlers/digest-run.handler';
 import { EnqueueChatRun } from '@work/application/events/handlers/enqueue-chat-run.handler';
 import { EnqueueTaskRun } from '@work/application/events/handlers/enqueue-task-run.handler';
 import { HandOver } from '@work/application/events/handlers/hand-over.handler';
 import { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
 import { ProvisionTeam } from '@work/application/events/handlers/provision-team.handler';
+import { RecordRunUsage } from '@work/application/events/handlers/record-run-usage.handler';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
 import { ACCESSIBLE_REPOSITORIES } from '@work/application/ports/accessible-repositories.port';
 import type { ArchiveReferencesPort } from '@work/application/ports/archive-references.port';
@@ -242,9 +242,9 @@ import {
   type CheckWorkPort,
 } from '@work/application/ports/check-work.port';
 import {
-  CONTENT_DIGEST,
-  type ContentDigestPort,
-} from '@work/application/ports/content-digest.port';
+  CONTENT_HASH,
+  type ContentHashPort,
+} from '@work/application/ports/content-hash.port';
 import { ENABLED_AT_STATIONS } from '@work/application/ports/enabled-at-stations.port';
 import { GIT_GATEWAY } from '@work/application/ports/git-gateway.port';
 import { HAPPENING_REACTIONS } from '@work/application/ports/happening-reactions.port';
@@ -315,14 +315,6 @@ import {
   RUN_CONNECTIONS,
   type RunConnectionsPort,
 } from '@work/application/ports/run-connections.port';
-import {
-  RUN_DIGESTS,
-  type RunDigestReaderPort,
-} from '@work/application/ports/run-digest-reader.port';
-import {
-  RUN_DIGEST_WRITER,
-  type RunDigestWriterPort,
-} from '@work/application/ports/run-digest-writer.port';
 import { RUN_EVENT_READER } from '@work/application/ports/run-event-reader.port';
 import {
   RUN_EVIDENCE,
@@ -346,6 +338,14 @@ import {
   RUN_TOOLS,
   type RunToolsReaderPort,
 } from '@work/application/ports/run-tools-reader.port';
+import {
+  RUN_USAGES,
+  type RunUsageReaderPort,
+} from '@work/application/ports/run-usage-reader.port';
+import {
+  RUN_USAGE_WRITER,
+  type RunUsageWriterPort,
+} from '@work/application/ports/run-usage-writer.port';
 import { RUNNER_ACTIVITY_READER } from '@work/application/ports/runner-activity-reader.port';
 import { RUNNER_TRACE_READER } from '@work/application/ports/runner-trace-reader.port';
 import {
@@ -577,14 +577,14 @@ import {
   BuiltInHarnesses,
   DEFAULT_HARNESS,
 } from '@work/infrastructure/harnesses/built-in-harnesses';
-import { Sha256ContentDigest } from '@work/infrastructure/hashing/sha256-content-digest';
+import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
 import { LineCompiler } from '@work/infrastructure/lines/line.compile';
 import { RowsLineRendering } from '@work/infrastructure/lines/rows-line-rendering';
 import { DrizzleProcessedEvents } from '@work/infrastructure/persistence/drizzle/ledgers/processed-events.ledger';
 import { DrizzleReplayRunClaims } from '@work/infrastructure/persistence/drizzle/ledgers/replay-run-claims.ledger';
 import { DrizzleRunConnections } from '@work/infrastructure/persistence/drizzle/ledgers/run-connections.ledger';
-import { DrizzleRunDigests } from '@work/infrastructure/persistence/drizzle/ledgers/run-digests.ledger';
 import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
+import { DrizzleRunUsages } from '@work/infrastructure/persistence/drizzle/ledgers/run-usages.ledger';
 import { DrizzleArchiveReferences } from '@work/infrastructure/persistence/drizzle/readers/archive-references.reader';
 import { DrizzleAttachmentReader } from '@work/infrastructure/persistence/drizzle/readers/attachment.reader';
 import { DrizzleBriefedTasks } from '@work/infrastructure/persistence/drizzle/readers/briefed-tasks.reader';
@@ -720,7 +720,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleLineRepository,
       RUN_JOURNAL_READER,
       BRIEFED_TASKS,
-      CONTENT_DIGEST,
+      CONTENT_HASH,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
@@ -728,8 +728,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       lines: DrizzleLineRepository,
       journals: RunJournalReaderPort,
       briefed: BriefedTasksPort,
-      digest: ContentDigestPort,
-    ) => new RunEvidences(runs, tasks, lines, journals, briefed, digest),
+      hash: ContentHashPort,
+    ) => new RunEvidences(runs, tasks, lines, journals, briefed, hash),
   },
 
   DrizzleRunRepository,
@@ -983,14 +983,14 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     useFactory: (tasks: TracedTaskReaderPort) => new TracesLoader(tasks),
   },
 
-  DrizzleRunDigests,
+  DrizzleRunUsages,
 
-  { provide: RUN_DIGESTS, useExisting: DrizzleRunDigests },
+  { provide: RUN_USAGES, useExisting: DrizzleRunUsages },
 
-  { provide: RUN_DIGEST_WRITER, useExisting: DrizzleRunDigests },
-  { provide: RUN_TOOLS, useExisting: DrizzleRunDigests },
+  { provide: RUN_USAGE_WRITER, useExisting: DrizzleRunUsages },
+  { provide: RUN_TOOLS, useExisting: DrizzleRunUsages },
 
-  { provide: RUN_SPENDS, useExisting: DrizzleRunDigests },
+  { provide: RUN_SPENDS, useExisting: DrizzleRunUsages },
 
   { provide: STATION_RUN_READER, useClass: DrizzleStationRunReader },
 
@@ -1276,7 +1276,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   { provide: TRACE_PARENT, useClass: HashedTraceParent },
 
-  { provide: CONTENT_DIGEST, useClass: Sha256ContentDigest },
+  { provide: CONTENT_HASH, useClass: Sha256ContentHash },
 
   {
     provide: BUILT_IN_SKILL_KEYS,
@@ -1301,7 +1301,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TouchedFiles,
       LOGGER,
       SAVEPOINT,
-      CONTENT_DIGEST,
+      CONTENT_HASH,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
@@ -1319,7 +1319,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       touched: TouchedFiles,
       logger: LoggerPort,
       savepoint: SavepointPort,
-      digest: ContentDigestPort,
+      hash: ContentHashPort,
     ) =>
       new DispatchTask(
         runs,
@@ -1337,7 +1337,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         touched,
         logger,
         savepoint,
-        digest,
+        hash,
       ),
   },
 
@@ -1358,7 +1358,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       STATION_PROFILES,
       MEMORIES_BRIEFED_BEFORE,
       ATTACHMENT_STORE,
-      CONTENT_DIGEST,
+      CONTENT_HASH,
       ReplayAnswers,
     ],
     useFactory: (
@@ -1376,7 +1376,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       profiles: StationProfilesPort,
       memories: MemoriesBriefedBeforePort,
       files: AttachmentStorePort,
-      digest: ContentDigestPort,
+      hash: ContentHashPort,
       answers: ReplayAnswers,
     ) =>
       new DispatchReplay(
@@ -1394,7 +1394,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         profiles,
         memories,
         files,
-        digest,
+        hash,
         answers,
       ),
   },
@@ -1411,7 +1411,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       BUILT_IN_SKILLS,
       StationSkills,
       STATION_PROFILES,
-      CONTENT_DIGEST,
+      CONTENT_HASH,
       ID_GENERATOR,
     ],
     useFactory: (
@@ -1424,7 +1424,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       skills: BuiltInSkillsPort,
       teamSkills: StationSkills,
       profiles: StationProfilesPort,
-      digest: ContentDigestPort,
+      hash: ContentHashPort,
       ids: IdGeneratorPort,
     ) =>
       new CandidateLines(
@@ -1439,7 +1439,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           teamSkills,
           catalog,
           profiles,
-          digest,
+          hash,
         ),
         ids,
       ),
@@ -1447,12 +1447,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: REPLAY_CANDIDATES,
-    inject: [CandidateLines, LINE_RENDERING, CONTENT_DIGEST],
+    inject: [CandidateLines, LINE_RENDERING, CONTENT_HASH],
     useFactory: (
       candidates: CandidateLines,
       rendering: LineRenderingPort,
-      digest: ContentDigestPort,
-    ) => new ReplayCandidates(candidates, rendering, digest),
+      hash: ContentHashPort,
+    ) => new ReplayCandidates(candidates, rendering, hash),
   },
 
   { provide: LINE_RENDERING, useClass: RowsLineRendering },
@@ -1465,7 +1465,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleLineRepository,
       DispatchReplay,
       STATION_RUN_READER,
-      RUN_DIGESTS,
+      RUN_USAGES,
       ID_GENERATOR,
       LOGGER,
     ],
@@ -1475,7 +1475,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       lines: DrizzleLineRepository,
       dispatch: DispatchReplay,
       stationRuns: StationRunReaderPort,
-      digests: RunDigestReaderPort,
+      usages: RunUsageReaderPort,
       ids: IdGeneratorPort,
       logger: LoggerPort,
     ) =>
@@ -1485,7 +1485,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         lines,
         dispatch,
         stationRuns,
-        digests,
+        usages,
         ids,
         logger,
       ),
@@ -1627,7 +1627,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleChatRepository,
       TASK_DISPATCH,
       CHAT_DISPATCH,
-      RUN_DIGEST_WRITER,
+      RUN_USAGE_WRITER,
       TASK_PLACEMENTS,
       TRANSACTION,
       STATION_TALLIES,
@@ -1636,7 +1636,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       RunnerLeases,
       ToolUsedHooks,
       RUN_JOURNAL,
-      RUN_DIGESTS,
+      RUN_USAGES,
       RUN_TOOLS,
       RUN_SPENDS,
       Notices,
@@ -1658,7 +1658,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       chats: DrizzleChatRepository,
       taskDispatch: DispatchTask,
       chatDispatch: DispatchChat,
-      digests: RunDigestWriterPort,
+      usageWriter: RunUsageWriterPort,
       placements: TaskPlacementsPort,
       transaction: TransactionPort,
       tallies: StationTalliesPort,
@@ -1667,7 +1667,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ending: RunnerLeases,
       toolUsedHooks: ToolUsedHooks,
       journal: RunJournalPort,
-      digested: RunDigestReaderPort,
+      usages: RunUsageReaderPort,
       tools: RunToolsReaderPort,
       spends: RunSpendReaderPort,
       notices: Notices,
@@ -1688,7 +1688,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           pausedRuns: new PausedRuns(tasks, runs),
           pauseMarks: new PauseMarks(journal),
           chatOutcomes: new ChatOutcomes(chats, chatDispatch),
-          digests: new DigestRun(digests, digested, tools, spends),
+          usages: new RecordRunUsage(usageWriter, usages, tools, spends),
           provisioning: new ProvisionTeam(
             provisioningLines,
             tasks,
@@ -1737,7 +1737,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     WORKSPACE_ACCESS,
     RUN_READER,
     RUN_JOURNAL_READER,
-    RUN_DIGESTS,
+    RUN_USAGES,
     RUN_SPENDS,
     SEARCH_AGENTS,
   ]),
@@ -1746,12 +1746,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     WORKSPACE_ACCESS,
     RUN_READER,
     RUN_JOURNAL_READER,
-    RUN_DIGESTS,
+    RUN_USAGES,
   ]),
 
   ...bindQueryHandler(ReadRunConversationQuery, ReadRunConversationHandler, [
     RUN_READER,
-    RUN_DIGESTS,
+    RUN_USAGES,
   ]),
 
   ...bindQueryHandler(ReadAttachmentQuery, ReadAttachmentHandler, [
@@ -1949,7 +1949,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(ListTeamTracesQuery, ListTeamTracesHandler, [
     TEAM_TRACE_READER,
-    RUN_DIGESTS,
+    RUN_USAGES,
     CLOCK,
   ]),
 
@@ -1963,7 +1963,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     RUNNER_TRACE_READER,
     STATION_RUN_READER,
     RUN_OUTCOMES,
-    RUN_DIGESTS,
+    RUN_USAGES,
     SEARCH_SIGHT,
     RUN_CONNECTIONS,
   ]),

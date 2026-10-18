@@ -6,8 +6,8 @@ import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo'
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import type { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
-import type { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import type { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -56,12 +56,12 @@ export interface PickableRun extends RunReplayability {
   readonly origin: string | null;
 }
 
-export type ExaminedCandidate =
+export type ValidatedCandidate =
   | {
       readonly ok: true;
       readonly fingerprint: StationFingerprint;
-      readonly digests: StationDigests;
-      readonly liveDigests: StationDigests;
+      readonly hashes: StationHashes;
+      readonly liveHashes: StationHashes;
       readonly scoring: CandidateScoring;
       readonly changedFrom: StationChanges;
       readonly block: StationBlock;
@@ -73,7 +73,7 @@ export interface LiveConfig {
   readonly block: StationBlock;
   readonly fingerprint: StationFingerprint;
   readonly scoring: CandidateScoring;
-  readonly digests: StationDigests;
+  readonly hashes: StationHashes;
   readonly threshold: ReplayThreshold | null;
 }
 
@@ -160,12 +160,12 @@ export interface WorkPort {
     max: number,
   ): Promise<readonly PickableRun[]>;
 
-  examine(
+  validate(
     lineId: string,
     stationId: string,
     block: unknown,
     line?: PlannedLine | null,
-  ): Promise<ExaminedCandidate | null>;
+  ): Promise<ValidatedCandidate | null>;
 
   live(lineId: string, stationId: string): Promise<LiveConfig | null>;
 

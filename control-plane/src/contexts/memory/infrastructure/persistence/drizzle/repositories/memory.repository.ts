@@ -6,13 +6,13 @@ import type {
 } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
-import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
+import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryRetirement } from '@memory/domain/value-objects/memory-retirement.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
-import type { RunSite } from '@memory/domain/value-objects/run-site';
+import type { RunContext } from '@memory/domain/value-objects/run-context';
 import { memory } from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -33,11 +33,11 @@ type Row = typeof memory.$inferSelect;
 
 const MAX_LISTED = 500;
 
-const groundsOf = (row: Row): MemoryGrounds | null => {
+const provenanceOf = (row: Row): MemoryProvenance | null => {
   const { taskId, runId, steps, notes } = row;
 
   if (taskId && runId && steps && notes) {
-    return MemoryGrounds.of({
+    return MemoryProvenance.of({
       taskId: TaskId.of(taskId),
       runId: RunId.of(runId),
       steps,
@@ -48,7 +48,7 @@ const groundsOf = (row: Row): MemoryGrounds | null => {
   if (taskId || runId || steps || notes) {
     throw new InconsistentStateError(
       'memory',
-      'rests on part of a run, but not all of what it cites',
+      'has part of its provenance, but not all of it',
     );
   }
 
@@ -76,7 +76,7 @@ const toMemory = (row: Row): Memory => {
       repository: row.repository ? Repository.of(row.repository) : null,
       paths: row.paths.map(MemoryPath.of),
     }),
-    grounds: groundsOf(row),
+    provenance: provenanceOf(row),
     source: row.source,
     supersedes: row.supersedes ? MemoryId.of(row.supersedes) : null,
     approval: MemoryDecision.of({
@@ -134,10 +134,10 @@ export class DrizzleMemoryRepository implements MemoryRepository {
           stationId: added.scope.stationId,
           repository: added.scope.repository?.value ?? null,
           paths: added.scope.paths.map((each) => each.value),
-          taskId: added.grounds?.taskId.value ?? null,
-          runId: added.grounds?.runId.value ?? null,
-          steps: added.grounds ? [...added.grounds.steps] : null,
-          notes: added.grounds ? [...added.grounds.notes] : null,
+          taskId: added.provenance?.taskId.value ?? null,
+          runId: added.provenance?.runId.value ?? null,
+          steps: added.provenance ? [...added.provenance.steps] : null,
+          notes: added.provenance ? [...added.provenance.notes] : null,
           source: added.source,
           supersedes: added.supersedes?.value ?? null,
           approvedBy: added.approval.by.value,
@@ -225,22 +225,25 @@ export class DrizzleMemoryRepository implements MemoryRepository {
   }
 
   async mayApplyAt(
-    site: RunSite,
+    runContext: RunContext,
     asOf: Date | null = null,
   ): Promise<readonly Memory[]> {
-    const repositories = site.repositories.map((each) => each.value);
+    const repositories = runContext.repositories.map((each) => each.value);
     const rows = await this.context.db
       .select()
       .from(memory)
       .where(
         and(
-          eq(memory.teamId, site.teamId.value),
+          eq(memory.teamId, runContext.teamId.value),
           activeAsOf(asOf),
-          site.lineId
-            ? or(isNull(memory.lineId), eq(memory.lineId, site.lineId))
+          runContext.lineId
+            ? or(isNull(memory.lineId), eq(memory.lineId, runContext.lineId))
             : isNull(memory.lineId),
-          site.stationId
-            ? or(isNull(memory.stationId), eq(memory.stationId, site.stationId))
+          runContext.stationId
+            ? or(
+                isNull(memory.stationId),
+                eq(memory.stationId, runContext.stationId),
+              )
             : isNull(memory.stationId),
           repositories.length > 0
             ? or(

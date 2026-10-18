@@ -6,10 +6,10 @@ import type { SearchRunDto } from '@work/application/dto/search-run.dto';
 import { RunJournalMapper } from '@work/application/mappers/run-journal.mapper';
 import { RunSpendMapper } from '@work/application/mappers/run-spend.mapper';
 import { TaskRunMapper } from '@work/application/mappers/task-run.mapper';
-import type { RunDigestReaderPort } from '@work/application/ports/run-digest-reader.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { RunReaderPort } from '@work/application/ports/run-reader.port';
 import type { RunSpendReaderPort } from '@work/application/ports/run-spend-reader.port';
+import type { RunUsageReaderPort } from '@work/application/ports/run-usage-reader.port';
 import type { SearchAgentsPort } from '@work/application/ports/search-agents.port';
 import type { ReadSearchRunQuery } from '@work/application/queries/read-search-run.query';
 import { agentSpendOf } from '@work/domain/services/agent-spend';
@@ -21,7 +21,7 @@ export class ReadSearchRunHandler
     private readonly access: WorkspaceAccessPort,
     private readonly runs: RunReaderPort,
     private readonly journals: RunJournalReaderPort,
-    private readonly digests: RunDigestReaderPort,
+    private readonly usages: RunUsageReaderPort,
     private readonly spends: RunSpendReaderPort,
     private readonly agents: SearchAgentsPort,
   ) {}
@@ -42,7 +42,7 @@ export class ReadSearchRunHandler
       }
 
       const journals = await this.journals.attemptsOfRun(runId);
-      const digest = (await this.digests.forRuns([runId])).get(runId.value);
+      const usage = (await this.usages.forRuns([runId])).get(runId.value);
       const spent = agentSpendOf(await this.spends.spendOf(runId));
 
       return {
@@ -59,7 +59,7 @@ export class ReadSearchRunHandler
           })),
           unpricedCalls: spent.unpricedCalls,
         },
-        spend: digest ? RunSpendMapper.toDto(digest) : null,
+        spend: usage ? RunSpendMapper.toDto(usage) : null,
         journals: journals.map(RunJournalMapper.toDto),
         briefing: found.briefing,
       };

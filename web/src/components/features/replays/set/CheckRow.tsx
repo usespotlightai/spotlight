@@ -11,11 +11,11 @@ import {
   formatReference,
   type ReplayCheckSummary,
 } from '@/lib/search';
-import { formatVerdict } from '@/lib/search-words';
+import { formatCheckResult } from '@/lib/search-words';
 import { since } from '@/lib/since';
 import { cn } from '@/lib/utils';
 
-const INK: Record<ReplayCheckSummary['verdict'], string> = {
+const INK: Record<ReplayCheckSummary['result'], string> = {
   running: 'text-foreground',
   passed: 'text-emerald-600 dark:text-emerald-400',
   failed: 'text-destructive',
@@ -50,12 +50,12 @@ export function CheckRow({ check }: CheckRowProps) {
           </span>
         )}
       </span>
-      <NestedCell heading="Verdict" numeric={false}>
+      <NestedCell heading="Result" numeric={false}>
         <span
-          title={formatVerdict(check.verdict, check.undecidedBecause)}
-          className={cn('block truncate', INK[check.verdict])}
+          title={formatCheckResult(check.result, check.undecidedBecause)}
+          className={cn('block truncate', INK[check.result])}
         >
-          {formatVerdict(check.verdict, check.undecidedBecause)}
+          {formatCheckResult(check.result, check.undecidedBecause)}
         </span>
       </NestedCell>
       <NestedCell heading="Regressions">{check.regressions}</NestedCell>

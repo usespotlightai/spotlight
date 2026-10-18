@@ -159,9 +159,9 @@ describe('renderLineRows', () => {
           judge: {
             rubric: 'A good run is small.\n',
             claims: [],
-            passShare: 1,
+            passThreshold: 1,
             sample: 0.2,
-            trust: 0.6,
+            minAgreement: 0.6,
           },
           alerts: [
             {
@@ -205,7 +205,7 @@ describe('renderLineRows', () => {
     expect(rendered.stations[1]?.judge).toEqual({
       rubric: 'A good run is small.\n',
       sample: 0.2,
-      trust: 0.6,
+      minAgreement: 0.6,
     });
     expect(rendered.stations[1]?.alerts).toEqual([
       { measure: 'sent_back_rate', risesBy: 0.2, over: 20 },
@@ -218,7 +218,7 @@ describe('renderLineRows', () => {
     expect(compileLine(rendered).ok).toBe(true);
   });
 
-  it('renders a judge’s claims and pass share only where it lists claims, and no rubric where it has none', () => {
+  it('renders a judge’s claims and pass threshold only where it lists claims, and no rubric where it has none', () => {
     const rendered = renderLineRows({
       ...ROWS,
       stations: [
@@ -228,9 +228,9 @@ describe('renderLineRows', () => {
           judge: {
             rubric: null,
             claims: ['It adds a test.'],
-            passShare: 0.5,
+            passThreshold: 0.5,
             sample: 0.2,
-            trust: 0.6,
+            minAgreement: 0.6,
           },
         }),
         ...ROWS.stations.slice(2),
@@ -239,9 +239,9 @@ describe('renderLineRows', () => {
 
     expect(rendered.stations[1]?.judge).toEqual({
       claims: ['It adds a test.'],
-      passShare: 0.5,
+      passThreshold: 0.5,
       sample: 0.2,
-      trust: 0.6,
+      minAgreement: 0.6,
     });
     expect(compileLine(rendered).ok).toBe(true);
   });

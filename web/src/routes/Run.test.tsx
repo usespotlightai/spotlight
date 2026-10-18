@@ -105,7 +105,7 @@ vi.mock('@/hooks/api/useRunStream', () => ({ useRunStream: () => undefined }));
 vi.mock('@/hooks/api/useRunMemories', () => ({
   runMemoryKeys: { forRun: () => ['run-memories'] },
   useRunMemories: () => ({
-    data: { briefed: [], cut: [], recalled: [], proposed: [] },
+    data: { briefed: [], omitted: [], recalled: [], proposed: [] },
     isPending: false,
     isFetching: false,
     errorUpdateCount: 0,

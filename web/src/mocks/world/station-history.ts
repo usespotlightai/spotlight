@@ -50,7 +50,7 @@ export type PastRun = {
   readonly title: string;
   readonly endedHoursAgo: number;
   readonly shape: PastShape;
-  readonly round?: number;
+  readonly visit?: number;
 };
 
 const past = (
@@ -59,8 +59,8 @@ const past = (
   title: string,
   endedHoursAgo: number,
   shape: PastShape,
-  round = 1,
-): PastRun => ({ runId, taskId, title, endedHoursAgo, shape, round });
+  visit = 1,
+): PastRun => ({ runId, taskId, title, endedHoursAgo, shape, visit });
 
 export const IMPLEMENTATION_HISTORY: readonly PastRun[] = [
   past(

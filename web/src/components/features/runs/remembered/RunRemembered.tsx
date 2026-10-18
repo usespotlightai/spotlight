@@ -25,10 +25,10 @@ export function RunRemembered({ slug, teamId, runId }: RunRememberedProps) {
 
   return (
     <IconAction
-      label="Remembered"
+      label="Memories"
       tip={
         <span className="flex flex-col gap-1">
-          <span className="font-medium">Remembered</span>
+          <span className="font-medium">Memories</span>
           {remembered && !failed(query) && (
             <dl className="grid grid-cols-[auto_auto] gap-x-4">
               {rememberedCounts(remembered).map(({ what, count }) => (

@@ -4,7 +4,7 @@ import { EntryOutcome } from '@/components/features/replays/outcome/EntryOutcome
 import { OutcomePart } from '@/components/features/replays/outcome/OutcomePart';
 import { EntryResult } from '@/components/features/replays/replay/EntryResult';
 import { EntryJudgeClaims } from '@/components/features/replays/run/EntryJudgeClaims';
-import { EntryPairReadings } from '@/components/features/replays/run/EntryPairReadings';
+import { EntryPairPasses } from '@/components/features/replays/run/EntryPairPasses';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
@@ -12,7 +12,7 @@ import {
   formatTitle,
   type ReplayEntry,
 } from '@/lib/replay';
-import { formatCopy } from '@/lib/replay-words';
+import { formatRepeat } from '@/lib/replay-words';
 import { runPath } from '@/lib/run';
 
 const ENTRY_PANE: PaneConfig = {
@@ -30,7 +30,7 @@ type EntryDetailProps = {
   slug: string;
   teamId: string;
   row: EntryComparison;
-  counterpartLabel: string;
+  referenceLabel: string;
   open: boolean;
   onClose: () => void;
   ref?: Ref<HTMLElement>;
@@ -40,7 +40,7 @@ export function EntryDetail({
   slug,
   teamId,
   row,
-  counterpartLabel,
+  referenceLabel,
   open,
   onClose,
   ref,
@@ -55,24 +55,27 @@ export function EntryDetail({
           </TrailLink>
         )}
       </div>
-      {entry.judge?.marks && (
-        <EntryJudgeClaims judge={entry.judge} marks={entry.judge.marks} />
+      {entry.judge?.claimResults && (
+        <EntryJudgeClaims
+          judge={entry.judge}
+          marks={entry.judge.claimResults}
+        />
       )}
       {entry.pair && (
-        <EntryPairReadings
+        <EntryPairPasses
           pair={entry.pair}
-          againstTo={runPath(slug, teamId, entry.pair.againstRunId)}
+          otherRunTo={runPath(slug, teamId, entry.pair.otherRunId)}
         />
       )}
       <EntryOutcome key={entry.runId ?? title} teamId={teamId} entry={entry} />
     </OutcomePart>
   );
 
-  const sides = (title: string, copies: readonly ReplayEntry[]) =>
-    copies.map((entry) =>
+  const sides = (title: string, repeats: readonly ReplayEntry[]) =>
+    repeats.map((entry) =>
       side(
-        copies.length > 1
-          ? `${title}, ${formatCopy(entry.repeat).toLowerCase()}`
+        repeats.length > 1
+          ? `${title}, ${formatRepeat(entry.repeat).toLowerCase()}`
           : title,
         entry,
       ),
@@ -105,7 +108,7 @@ export function EntryDetail({
           row.baseline.length > 0 ? 'This replay' : 'Result',
           row.candidate,
         )}
-        {sides(counterpartLabel, row.baseline)}
+        {sides(referenceLabel, row.baseline)}
       </div>
     </SidePane>
   );

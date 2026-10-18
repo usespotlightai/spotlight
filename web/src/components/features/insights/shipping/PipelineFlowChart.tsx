@@ -7,8 +7,8 @@ import type { PullRequestType } from '@/lib/insights-pull-requests';
 import { type FlowStage, formatPart } from '@/lib/insights-shipping';
 import {
   bandEdge,
+  bottleneckColor,
   geometryOf,
-  jamColor,
   type TypeShare,
 } from '@/lib/pipeline-flow';
 
@@ -81,7 +81,9 @@ export function PipelineFlowChart({
                   <stop
                     key={stage.id}
                     offset={geometry.centers[at] / width}
-                    style={{ stopColor: jamColor(stage.jam) }}
+                    style={{
+                      stopColor: bottleneckColor(stage.bottleneckRatio),
+                    }}
                   />
                 ))}
               </linearGradient>
@@ -161,7 +163,7 @@ export function PipelineFlowChart({
               aria-hidden
               className="size-1.5 rounded-full bg-destructive"
             />
-            Worst jam
+            Worst bottleneck
             <span className="text-destructive/50">|</span>
             <span className="font-mono">{lastedOrNone(worst.ms)}</span>
             {worstPart && (

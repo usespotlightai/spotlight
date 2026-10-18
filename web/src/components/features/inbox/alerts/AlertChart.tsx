@@ -13,10 +13,10 @@ import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { formatDay } from '@/lib/judge';
 import {
   type AlertPoint,
-  formatCrossing,
+  formatFiring,
   formatMeasureValue,
-  formatThreshold,
-  type StationAlertCrossing,
+  formatRule,
+  type StationAlertFiring,
   thresholdLine,
 } from '@/lib/station-alert';
 
@@ -26,7 +26,7 @@ const TICK_CHARACTER_WIDTH = 6;
 
 const TICKS_GAP = 8;
 
-const ticksWidth = (alert: StationAlertCrossing): number => {
+const ticksWidth = (alert: StationAlertFiring): number => {
   const values = [
     ...alert.series.map((point) => point.value ?? 0),
     thresholdLine(alert) ?? 0,
@@ -35,8 +35,7 @@ const ticksWidth = (alert: StationAlertCrossing): number => {
   const widest = Math.max(
     ...values.map(
       (value) =>
-        formatMeasureValue(alert.threshold.measure, value, alert.currency)
-          .length,
+        formatMeasureValue(alert.rule.measure, value, alert.currency).length,
     ),
   );
 
@@ -52,7 +51,7 @@ const TipContent = ({
   placement: TipPlacement;
   active?: boolean;
   payload?: { payload: AlertPoint }[];
-  alert: StationAlertCrossing;
+  alert: StationAlertFiring;
 }) => {
   const point = payload?.[0]?.payload;
 
@@ -66,18 +65,14 @@ const TipContent = ({
         Run ended {formatDay(point.endedAt.slice(0, 10))}
       </p>
       <p className="text-foreground">
-        {formatMeasureValue(
-          alert.threshold.measure,
-          point.value,
-          alert.currency,
-        )}
-        {point.runId === alert.runId ? ' · crossed here' : ''}
+        {formatMeasureValue(alert.rule.measure, point.value, alert.currency)}
+        {point.runId === alert.runId ? ' · fired here' : ''}
       </p>
     </ChartTip>
   );
 };
 
-export function AlertChart({ alert }: { alert: StationAlertCrossing }) {
+export function AlertChart({ alert }: { alert: StationAlertFiring }) {
   const cursor = useCursorTooltip();
   const level = thresholdLine(alert);
   const width = ticksWidth(alert);
@@ -89,8 +84,8 @@ export function AlertChart({ alert }: { alert: StationAlertCrossing }) {
           <ResponsiveContainer width="100%" height={ALERT_CHART_HEIGHT}>
             <LineChart
               data={[...alert.series]}
-              title={formatThreshold(alert)}
-              desc={formatCrossing(alert)}
+              title={formatRule(alert)}
+              desc={formatFiring(alert)}
               margin={{ top: 8, right: 0, bottom: 8, left: 0 }}
             >
               <XAxis dataKey="runId" hide />
@@ -108,11 +103,7 @@ export function AlertChart({ alert }: { alert: StationAlertCrossing }) {
                   style: { fontVariantNumeric: 'tabular-nums' },
                 }}
                 tickFormatter={(value: number) =>
-                  formatMeasureValue(
-                    alert.threshold.measure,
-                    value,
-                    alert.currency,
-                  )
+                  formatMeasureValue(alert.rule.measure, value, alert.currency)
                 }
               />
               <Tooltip

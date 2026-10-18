@@ -11,7 +11,7 @@ import type {
 } from '@memory/application/ports/rejected-memories.port';
 import type {
   ChangedFile,
-  NamedStationSite,
+  NamedStationContext,
   ReasonedStep,
   TaskNote,
   WorkPort,
@@ -44,7 +44,7 @@ const TASK = TaskId.of('task_1');
 const API = Repository.of('acme/api');
 const TEAM = TeamId.of('team_1');
 
-const SITE: NamedStationSite = {
+const RUN_CONTEXT: NamedStationContext = {
   teamId: TEAM,
   lineId: 'line_1',
   lineName: 'Delivery',
@@ -75,7 +75,7 @@ const approved = (id: string, scope: MemoryScope, at = NOW) =>
     kind: 'preference',
     body: MemoryBody.of('Retry twice.'),
     scope,
-    grounds: null,
+    provenance: null,
     by: MemoryDecision.of({ by: UserId.of('user_1'), at }),
   });
 
@@ -135,7 +135,7 @@ const QUIET: LoggerPort = {
 
 const working = (input: {
   answer?: (request: MemoryDraftRequest) => Promise<readonly ProposedMemory[]>;
-  site?: NamedStationSite | null;
+  runContext?: NamedStationContext | null;
   steps?: readonly ReasonedStep[] | null;
   notes?: readonly TaskNote[];
   fromOutside?: boolean;
@@ -164,10 +164,11 @@ const working = (input: {
     {
       run: async () => null,
       leasedBy: async () => null,
-      siteOfRun: async () => null,
+      contextOfRun: async () => null,
       referencedUnder: async () => null,
       linesOf: async () => [],
-      stationSiteOf: async () => (input.site === undefined ? SITE : input.site),
+      stationContextOf: async () =>
+        input.runContext === undefined ? RUN_CONTEXT : input.runContext,
       task: async () => ({
         id: TASK,
         workspaceId: WorkspaceId.of('ws_1'),
@@ -214,7 +215,7 @@ const working = (input: {
 };
 
 describe('drafting what a run should leave the team remembering', () => {
-  it('proposes what its evidence grounds, from a person where it rests only on notes by a person', async () => {
+  it('proposes what its evidence supports, from a person where it cites only notes by a person', async () => {
     const worked = working({});
 
     await worked.tick();
@@ -303,7 +304,7 @@ describe('drafting what a run should leave the team remembering', () => {
   });
 
   it('keeps nothing and says so when the run’s evidence is gone', async () => {
-    const worked = working({ site: null });
+    const worked = working({ runContext: null });
 
     await worked.tick();
 

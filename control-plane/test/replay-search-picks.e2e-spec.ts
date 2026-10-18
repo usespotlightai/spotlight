@@ -213,7 +213,7 @@ describe('a search for a better station config, ranking and picking its candidat
       repository: CONFIG,
       path: CONFIG_FILE,
       branch: `spotlight/search-${id.slice(0, 8)}-in-order`,
-      attempts: 1,
+      generation: 1,
     });
 
     const pullRequestPath = `${teamPath()}/config-pull-requests/${one.body.id}`;
@@ -242,7 +242,7 @@ describe('a search for a better station config, ranking and picking its candidat
     expect(retried.body).toMatchObject({
       id: one.body.id,
       state: 'opening',
-      attempts: 2,
+      generation: 2,
       reason: null,
     });
     expect(await attempted()).toMatchObject({

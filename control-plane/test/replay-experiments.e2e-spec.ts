@@ -177,7 +177,7 @@ const anOriginal = async (
       notes: [],
       openReviewComments: [],
     }).parts,
-    briefedMemories: { briefed: [], cut: [] },
+    briefedMemories: { briefed: [], omitted: [] },
     ...(input.startedFrom === false
       ? {}
       : {
@@ -191,11 +191,11 @@ const anOriginal = async (
   return { taskId, runId, archiveId };
 };
 
-const turnedOut = async (
+const withDisposition = async (
   original: Original,
   how: {
     ending: 'completed' | 'failed';
-    next: 'closed' | 'sent-back' | null;
+    humanAction: 'accepted' | 'sent-back' | null;
   },
 ) => {
   await db.insert(schema.runRecord).values({
@@ -210,9 +210,9 @@ const turnedOut = async (
     skills: [],
     endedAt: new Date(),
     ending: how.ending,
-    round: 1,
-    nextAct: how.next,
-    nextAt: how.next ? new Date() : null,
+    visit: 1,
+    firstHumanAction: how.humanAction,
+    firstHumanActionAt: how.humanAction ? new Date() : null,
   });
 };
 
@@ -341,7 +341,7 @@ const untilEnded = (runId: string) =>
       .from(schema.replayEntry)
       .where(eq(schema.replayEntry.runId, runId));
 
-    return entry?.outcome !== null && entry?.measured === true;
+    return entry?.result !== null && entry?.measured === true;
   });
 
 const startReplay = async (
@@ -650,15 +650,18 @@ describe('a replay set', () => {
     const failures: Original[] = [];
     for (let at = 0; at < 4; at += 1) {
       const failed = await anOriginal();
-      await turnedOut(failed, { ending: 'failed', next: null });
+      await withDisposition(failed, { ending: 'failed', humanAction: null });
       failures.push(failed);
     }
     const fromSlack = await anOriginal({ openedFrom: 'slack' });
-    await turnedOut(fromSlack, { ending: 'failed', next: null });
+    await withDisposition(fromSlack, { ending: 'failed', humanAction: null });
     const passedOn = await anOriginal({ raisedAt: SHIP });
-    await turnedOut(passedOn, { ending: 'failed', next: null });
+    await withDisposition(passedOn, { ending: 'failed', humanAction: null });
     const accepted = await anOriginal();
-    await turnedOut(accepted, { ending: 'completed', next: 'closed' });
+    await withDisposition(accepted, {
+      ending: 'completed',
+      humanAction: 'accepted',
+    });
     const setId = await createSet(
       'Lopsided',
       ...failures,
@@ -668,11 +671,17 @@ describe('a replay set', () => {
     );
 
     const sentBack = await anOriginal();
-    await turnedOut(sentBack, { ending: 'completed', next: 'sent-back' });
+    await withDisposition(sentBack, {
+      ending: 'completed',
+      humanAction: 'sent-back',
+    });
     const alsoAccepted = await anOriginal();
-    await turnedOut(alsoAccepted, { ending: 'completed', next: 'closed' });
+    await withDisposition(alsoAccepted, {
+      ending: 'completed',
+      humanAction: 'accepted',
+    });
     const alsoFailed = await anOriginal();
-    await turnedOut(alsoFailed, { ending: 'failed', next: null });
+    await withDisposition(alsoFailed, { ending: 'failed', humanAction: null });
 
     const sets = (await owner().get(`${stationPath()}/replay-sets`).expect(200))
       .body as {
@@ -799,33 +808,33 @@ describe('a candidate', () => {
     expect(live?.station.key).toBe('build');
     expect(live?.fingerprint).toMatch(/^[0-9a-f]{64}$/);
 
-    const wrongKey = await candidates.examine(DELIVERY, BUILD, {
+    const wrongKey = await candidates.validate(DELIVERY, BUILD, {
       ...live?.station,
       key: 'ship',
     });
-    const badHarness = await candidates.examine(DELIVERY, BUILD, {
+    const badHarness = await candidates.validate(DELIVERY, BUILD, {
       ...live?.station,
       harness: 'no-such-harness',
     });
-    const badPrompt = await candidates.examine(DELIVERY, BUILD, {
+    const badPrompt = await candidates.validate(DELIVERY, BUILD, {
       ...live?.station,
       prompt: 42,
     });
 
-    for (const [examined, at] of [
+    for (const [validated, at] of [
       [wrongKey, 'station.key'],
       [badHarness, 'station.harness'],
       [badPrompt, 'station.prompt'],
     ] as const) {
-      expect(examined?.ok).toBe(false);
+      expect(validated?.ok).toBe(false);
       expect(
-        examined && !examined.ok
-          ? examined.problems.map((each) => each.field.rendered)
+        validated && !validated.ok
+          ? validated.problems.map((each) => each.field.rendered)
           : [],
       ).toContain(at);
     }
 
-    const changed = await candidates.examine(DELIVERY, BUILD, {
+    const changed = await candidates.validate(DELIVERY, BUILD, {
       ...live?.station,
       prompt: 'Build it, then drain the queue.',
     });
@@ -834,11 +843,11 @@ describe('a candidate', () => {
     expect(changed?.ok && changed.changes).toEqual([
       { part: 'prompt', name: null, kind: 'changed', was: null, now: null },
     ]);
-    expect(await candidates.examine(DELIVERY, BUILD, live?.station)).toEqual({
+    expect(await candidates.validate(DELIVERY, BUILD, live?.station)).toEqual({
       ok: true,
       fingerprint: live?.fingerprint,
-      digests: live?.digests,
-      liveDigests: live?.digests,
+      hashes: live?.hashes,
+      liveHashes: live?.hashes,
       live: live?.fingerprint,
       changes: [],
       scoring: { checksChanges: false, judge: null, rubricVersion: null },
@@ -1130,11 +1139,11 @@ describe('a replay', () => {
 
     await eventually(async () => {
       const entries = await entriesOf(id);
-      return entries[2]?.outcome === 'cancelled';
+      return entries[2]?.result === 'cancelled';
     });
 
     const row = await replayRow(id);
-    expect(row?.state).toBe('over-budget');
+    expect(row?.state).toBe('ceiling-reached');
     expect((await runRow(third?.runId ?? ''))?.state).not.toBe('queued');
 
     const detail = (
@@ -1143,7 +1152,7 @@ describe('a replay', () => {
       state: string;
       totals: { spent: { amount: number }; completed: number; stopped: number };
     };
-    expect(detail.state).toBe('over-budget');
+    expect(detail.state).toBe('ceiling-reached');
     expect(detail.totals.spent.amount).toBeCloseTo(0.8);
     expect(detail.totals.completed).toBe(2);
     expect(detail.totals.stopped).toBe(1);
@@ -1194,7 +1203,7 @@ describe('a replay', () => {
     await eventually(async () => (await replayRow(id)) === undefined);
   });
 
-  it('replays each run as many times as requested, rating each task by the mean of its copies with an interval, and measures the set’s noise', async () => {
+  it('replays each run as many times as requested, rating each task by the mean of its repeats with an interval, and measures the set’s noise', async () => {
     const first = await anOriginal();
     const second = await anOriginal();
     const setId = await createSet('Repeated', first, second);
@@ -1262,7 +1271,7 @@ describe('a replay', () => {
         successRate: number;
         interval: { rate: number; low: number; high: number } | null;
       };
-      againstBaseline: unknown;
+      gainOverReference: unknown;
     };
 
     expect(detail.repeats).toBe(2);
@@ -1277,7 +1286,7 @@ describe('a replay', () => {
       successRate: 0,
     });
     expect(detail.totals.interval).toEqual({ rate: 0, low: 0, high: 0 });
-    expect(detail.againstBaseline).toBeNull();
+    expect(detail.gainOverReference).toBeNull();
 
     const sets = (await owner().get(`${stationPath()}/replay-sets`).expect(200))
       .body as {
@@ -1290,7 +1299,7 @@ describe('a replay', () => {
           perRepeat: number[];
           spread: number;
           flippedTasks: string[];
-          noisyInOneCopy: boolean;
+          noisyInOneRepeat: boolean;
         } | null;
       };
     }[];
@@ -1304,7 +1313,7 @@ describe('a replay', () => {
           perRepeat: [0, 0],
           spread: 0,
           flippedTasks: [],
-          noisyInOneCopy: false,
+          noisyInOneRepeat: false,
         },
       },
     });
@@ -1408,7 +1417,7 @@ describe('a replay', () => {
         baseline: false,
         ceiling: '3 USD',
         repeats: 1,
-        probe: false,
+        calibration: false,
       },
     );
   });

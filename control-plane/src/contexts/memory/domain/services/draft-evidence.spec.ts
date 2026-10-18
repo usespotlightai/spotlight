@@ -30,7 +30,7 @@ const approved = (id: string, scope: MemoryScope, at = NOW) => {
     kind: 'preference',
     body: MemoryBody.of('Retry twice.'),
     scope,
-    grounds: null,
+    provenance: null,
     by: MemoryDecision.of({ by: UserId.of('user_1'), at }),
   });
 };
@@ -52,7 +52,7 @@ const evidence = (fromOutside = false) =>
   DraftEvidence.of({
     taskId: TaskId.of('task_1'),
     runId: RunId.of('run_1'),
-    site: {
+    runContext: {
       teamId: TEAM,
       lineId: 'line_1',
       stationId: 'station_1',
@@ -91,14 +91,14 @@ const proposalOf = (proposed: ProposedMemory, fromOutside = false) =>
   evidence(fromOutside).proposalOf(MemoryId.of('memory_1'), proposed, NOW);
 
 describe('DraftEvidence', () => {
-  describe('the grounds a proposal cites', () => {
+  describe('the provenance a proposal cites', () => {
     it('accepts steps of the run and notes the drafter read', () => {
       const proposal = proposalOf(remembered({ steps: [5, 2], notes: [3] }));
 
-      expect(proposal.grounds.steps).toEqual([2, 5]);
-      expect(proposal.grounds.notes).toEqual([3]);
-      expect(proposal.grounds.runId.value).toBe('run_1');
-      expect(proposal.grounds.taskId.value).toBe('task_1');
+      expect(proposal.provenance.steps).toEqual([2, 5]);
+      expect(proposal.provenance.notes).toEqual([3]);
+      expect(proposal.provenance.runId.value).toBe('run_1');
+      expect(proposal.provenance.taskId.value).toBe('task_1');
     });
 
     it('rejects a step the run does not have', () => {
@@ -113,7 +113,7 @@ describe('DraftEvidence', () => {
       );
     });
 
-    it('rejects a memory that rests on nothing', () => {
+    it('rejects a memory that cites nothing', () => {
       expect(() => proposalOf(remembered({ steps: [], notes: [] }))).toThrow(
         InvalidMemoryError,
       );
@@ -148,7 +148,7 @@ describe('DraftEvidence', () => {
       );
     });
 
-    it('bears on paths the run changed in the repository it names', () => {
+    it('is about paths the run changed in the repository it names', () => {
       const { scope } = proposalOf(
         remembered({ repository: 'acme/api', paths: ['/src/uploads.ts'] }),
       );
@@ -201,19 +201,19 @@ describe('DraftEvidence', () => {
   });
 
   describe('where a proposal came from', () => {
-    it('comes from a person when it rests only on notes by a person', () => {
+    it('comes from a person when it cites only notes by a person', () => {
       expect(proposalOf(remembered({ steps: [], notes: [3] })).source).toBe(
         'person',
       );
     });
 
-    it('comes from the run when it rests on any step of the agent', () => {
+    it('comes from the run when it cites any step of the agent', () => {
       expect(proposalOf(remembered({ steps: [2], notes: [3] })).source).toBe(
         'run',
       );
     });
 
-    it('comes from outside when it rests on a reply nobody signed in to give', () => {
+    it('comes from outside when it cites a reply nobody signed in to give', () => {
       expect(proposalOf(remembered({ steps: [], notes: [6] })).source).toBe(
         'outside',
       );
@@ -222,7 +222,7 @@ describe('DraftEvidence', () => {
       );
     });
 
-    it('comes from outside whenever the task did, whatever it rests on', () => {
+    it('comes from outside whenever the task did, whatever it cites', () => {
       expect(
         proposalOf(remembered({ steps: [], notes: [3] }), true).source,
       ).toBe('outside');
@@ -262,7 +262,7 @@ describe('DraftEvidence', () => {
       const shown = DraftEvidence.of({
         taskId: TaskId.of('task_1'),
         runId: RunId.of('run_1'),
-        site: {
+        runContext: {
           teamId: TEAM,
           lineId: 'line_1',
           stationId: 'station_1',
@@ -296,7 +296,7 @@ describe('DraftEvidence', () => {
       DraftEvidence.of({
         taskId: TaskId.of('task_1'),
         runId: RunId.of('run_1'),
-        site: {
+        runContext: {
           teamId: TEAM,
           lineId: 'line_1',
           stationId: 'station_1',

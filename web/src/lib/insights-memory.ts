@@ -49,8 +49,8 @@ export const memoryTiles = (memory: InsightsMemory): MemoryTile[] => [
     detail: `to ${runs(memory.runsBriefed)}`,
   },
   {
-    id: 'read',
-    label: 'Read',
+    id: 'recalled',
+    label: 'Recalled',
     value: formatCount(memory.memoriesRecalled),
     detail: `by ${runs(memory.runsRecalled)}`,
   },

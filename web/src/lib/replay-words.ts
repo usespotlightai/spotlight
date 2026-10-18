@@ -5,7 +5,7 @@ import type {
   EntryJudgeResponseDto,
   EntryPairResponseDto,
   EntryReasonResponseDto,
-  GainReadingResponseDto,
+  GainEstimateResponseDto,
   PairTallyResponseDto,
   RateIntervalResponseDto,
   ReplayEntryResponseDto,
@@ -30,7 +30,7 @@ export type ScoreUncompared = NonNullable<
   EntryComparisonResponseDto['scoreUncompared']
 >;
 type CheckSkip = NonNullable<EntryChecksResponseDto['why']>;
-export type GainVerdictCode = GainReadingResponseDto['verdict'];
+export type GainSignificanceCode = GainEstimateResponseDto['significance'];
 export type PairOutcome = NonNullable<EntryComparisonResponseDto['pair']>;
 export type PairTally = PairTallyResponseDto;
 type Unpaired = NonNullable<EntryPairResponseDto['unpaired']>;
@@ -60,13 +60,13 @@ const STATES: Record<ReplayState, string> = {
   running: 'Running',
   finished: 'Finished',
   stopped: 'Stopped',
-  'over-budget': 'Over budget',
+  'ceiling-reached': 'Ceiling reached',
 };
 
 const STATE_NOTES: Partial<Record<ReplayState, string>> = {
   queued: 'The replay waits for a runner.',
   stopped: 'A person stopped the replay. No more runs start.',
-  'over-budget': 'The replay reached its ceiling. No more runs start.',
+  'ceiling-reached': 'The replay reached its ceiling. No more runs start.',
 };
 
 const RESULTS: Record<EntryResult, string> = {
@@ -228,7 +228,7 @@ export const RUNS_FROZEN_BY_SEARCH =
   'A search of this set is running. Add or take out runs after the search ends or a person stops it.';
 
 const OVER_CEILING_NOTE =
-  'Runs that are underway at the ceiling still finish. A replay can end slightly over its ceiling.';
+  'Runs that are in progress at the ceiling still finish. A replay can end slightly over its ceiling.';
 
 const ELSEWHERE_NOTE =
   'These amounts are in another currency. They don’t count against the ceiling.';
@@ -284,30 +284,31 @@ export const INTERVAL_NOTE =
   'Likely range: the true rate falls inside it 95 times in 100.';
 
 export const formatGain = (
-  gain: Pick<GainReadingResponseDto, 'gain'>,
+  gain: Pick<GainEstimateResponseDto, 'gain'>,
 ): string => `${signedPoints(gain.gain)} pts`;
 
 export const formatGainRange = (
-  gain: Pick<GainReadingResponseDto, 'low' | 'high'>,
+  gain: Pick<GainEstimateResponseDto, 'low' | 'high'>,
 ): string => `${signedPoints(gain.low)} to ${signedPoints(gain.high)}`;
 
-const GAIN_VERDICTS: Record<GainVerdictCode, string> = {
+const GAIN_SIGNIFICANCES: Record<GainSignificanceCode, string> = {
   better: 'Better',
   worse: 'Worse',
   'within-noise': 'within noise',
 };
 
-export const formatGainVerdict = (verdict: GainVerdictCode): string =>
-  GAIN_VERDICTS[verdict];
+export const formatGainSignificance = (
+  significance: GainSignificanceCode,
+): string => GAIN_SIGNIFICANCES[significance];
 
 export const formatMinGain = (minGain: number): string =>
   `+${formatPoints(minGain)}`;
 
-export const gainVerdictNote = (gain: GainReadingResponseDto): string => {
+export const gainSignificanceNote = (gain: GainEstimateResponseDto): string => {
   const minimum = `Minimum real gain: ${formatMinGain(gain.minGain)}`;
   const over = `on ${counted(gain.tasks, 'task', 'tasks')} with a score on both sides`;
 
-  switch (gain.verdict) {
+  switch (gain.significance) {
     case 'better':
       return `The gain ${over} is real. The likely range stays above zero and reaches the minimum. ${minimum}`;
     case 'worse':
@@ -317,26 +318,26 @@ export const gainVerdictNote = (gain: GainReadingResponseDto): string => {
   }
 };
 
-export const formatCopiesSucceeded = (
+export const formatRepeatsSucceeded = (
   succeeded: number,
   scored: number,
 ): string =>
   scored === 0
-    ? 'No copy scored yet'
-    : `${succeeded} of ${scored} ${scored === 1 ? 'copy' : 'copies'} succeeded`;
+    ? 'No repeat scored yet'
+    : `${succeeded} of ${scored} ${scored === 1 ? 'repeat' : 'repeats'} succeeded`;
 
-export const formatCopy = (repeat: number): string => `Copy ${repeat}`;
+export const formatRepeat = (repeat: number): string => `Repeat ${repeat}`;
 
 export const formatRepeats = (repeats: number): string =>
   repeats === 1 ? 'Each run once' : `Each run ${repeats} times`;
 
 export const REPEATS_HINT =
-  'Spotlight replays each run this many times, from 1 to 5. More copies measure noise and narrow the ranges. They also add runs and spend.';
+  'Spotlight replays each run this many times, from 1 to 5. More repeats measure noise and narrow the ranges. They also add runs and spend.';
 
 const NOISE_UNMEASURED = 'Not measured';
 
 const formatNoise = (noise: SetNoiseResponseDto): string =>
-  `Success moved ${formatPoints(noise.spread)} between ${noise.repeats} copies`;
+  `Success moved ${formatPoints(noise.spread)} between ${noise.repeats} repeats`;
 
 export const formatPerRepeat = (perRepeat: readonly number[]): string =>
   perRepeat.map((rate) => formatPercent(rate)).join(', ');
@@ -350,8 +351,8 @@ const NOISE_LABEL = 'Noise';
 
 export const START_REPLAY = 'Start a replay';
 
-export const formatEachCopy = (perRepeat: readonly number[]): string =>
-  `Each copy: ${formatPerRepeat(perRepeat)}`;
+export const formatEachRepeat = (perRepeat: readonly number[]): string =>
+  `Each repeat: ${formatPerRepeat(perRepeat)}`;
 
 export const MEASURED_ON_CONFIG = 'measured on config';
 
@@ -376,7 +377,7 @@ export const formatHeldOutRuns = (runs: number): string =>
 export const minGainSentence = (minGain: number): string =>
   `Minimum real gain: ${formatMinGain(minGain)}`;
 
-const PROBE_REPEATS = 3;
+const CALIBRATION_REPEATS = 3;
 
 const MIN_CHECKED_RUNS = 5;
 
@@ -386,7 +387,7 @@ const TWICE_CEILING =
 const formatTimes = (repeats: number): string =>
   repeats === 1 ? 'once' : `${repeats} times`;
 
-const CHECKS_SET = `The first baseline checks the set. It replays each run ${PROBE_REPEATS} times with ${PROBE_REPEATS} times the ceiling. It judges and checks each change twice.`;
+const CALIBRATES_SET = `The first baseline calibrates the set. It replays each run ${CALIBRATION_REPEATS} times with ${CALIBRATION_REPEATS} times the ceiling. It judges and checks each change twice.`;
 
 export const checksSetOf = (set: {
   readonly entries: readonly unknown[];
@@ -399,7 +400,7 @@ export const formatBaselineNote = (
   repeats: number | null,
   checks = false,
 ): string => {
-  const checking = checks ? ` ${CHECKS_SET}` : '';
+  const checking = checks ? ` ${CALIBRATES_SET}` : '';
 
   if (baselineRepeats === null) {
     return proposed
@@ -473,9 +474,9 @@ const noiseReading = (
   return {
     ...base,
     text: formatNoise(noise),
-    tone: noise.noisyInOneCopy ? 'bad' : 'good',
-    advice: noise.noisyInOneCopy
-      ? `One copy can’t tell a real gain from chance. Search with more repeats per run, or raise the line’s min_gain. ${minimum}`
+    tone: noise.noisyInOneRepeat ? 'bad' : 'good',
+    advice: noise.noisyInOneRepeat
+      ? `One repeat can’t tell a real gain from chance. Search with more repeats per run, or raise the line’s min_gain. ${minimum}`
       : `Noise is within the line’s minimum real gain. A gain of that size is unlikely to be chance. ${minimum}`,
   };
 };
@@ -488,12 +489,12 @@ const ANSWER_DEFINITION =
 
 type OracleReading = NonNullable<SetHealth['oracle']>;
 
-const LOST: readonly string[] = ['stopped', 'over-budget', 'gone'];
+const LOST: readonly string[] = ['stopped', 'ceiling-reached', 'gone'];
 
 const oracleLost = (oracle: OracleReading): boolean =>
   oracle.state === 'stopped' ||
-  oracle.state === 'over-budget' ||
-  (oracle.againstState !== null && LOST.includes(oracle.againstState));
+  oracle.state === 'ceiling-reached' ||
+  (oracle.referenceState !== null && LOST.includes(oracle.referenceState));
 
 const liveRoomReading = (
   saturation: SetHealth['saturation'],
@@ -694,7 +695,7 @@ export const formatFlakyCheck = (
 
 export const FLAKY_TASKS_LABEL = 'Tasks whose check flipped';
 
-export const AGAINST_LIVE = 'the live config';
+export const THE_LIVE_CONFIG = 'the live config';
 
 export const HEALTH_REPLAY_LINK = 'View replay';
 
@@ -753,7 +754,7 @@ export const OTHER_CHANGE = 'the other change';
 
 export const OTHER_RUN = 'The other run';
 
-export const READINGS_LABEL = 'Both readings';
+export const PASSES_LABEL = 'Both passes';
 
 export const PAIR_REQUESTED =
   'The judge hasn’t compared the changes side by side yet. It compares them when the replay finishes.';
@@ -772,17 +773,17 @@ const UNPAIRED: Record<Unpaired, string> = {
   ungrounded: 'judge cited nothing either change did',
   errored: 'judging failed',
   interrupted: 'judging was interrupted',
-  'other-rubric': 'another judge version judged the counterpart',
-  budget: 'no room left under the ceiling',
+  'other-rubric': 'another judge version judged the reference',
+  'ceiling-reached': 'no room left under the ceiling',
 };
 
-export const READINGS_DISAGREED =
+export const PASSES_DISAGREED =
   'The judge picked a different change depending on which change it saw first. This counts as a tie.';
 
 export const formatUnpaired = (why: Unpaired | null): string =>
   `Not judged side by side: ${why ? UNPAIRED[why] : 'nothing to compare it with'}.`;
 
-export const formatReading = (ownShownFirst: boolean): string =>
+export const formatPass = (ownShownFirst: boolean): string =>
   ownShownFirst
     ? 'With this change shown first'
     : 'With the other change shown first';
@@ -859,7 +860,7 @@ export const SUGGESTIONS_NOTE =
   'Recent runs with outcomes that the set has few of. These runs join the set only when you add them.';
 
 export const REGRESSED_NOTE = (against: string): string =>
-  `Regressed: fewer copies succeeded than in ${against}, or the judge scored it lower.`;
+  `Regressed: fewer repeats succeeded than in ${against}, or the judge scored it lower.`;
 
 export const BASELINE_NOTE =
   'The set’s baseline replays the live config. Most replays are compared with it. A search’s replays are compared with its starting config, and a replay with the answer with the live replay that started it.';
@@ -882,7 +883,7 @@ export const formatPairTiles = (tally: PairTally) => ({
 
 export type SpendParts = {
   readonly runs: string;
-  readonly drafting: string;
+  readonly generation: string;
   readonly judging: string;
   readonly pairing: string | null;
   readonly elsewhere: readonly string[];
@@ -895,7 +896,7 @@ export const formatSpendNote = (parts: SpendParts): string =>
   [
     `${[
       `Runs ${parts.runs}`,
-      `Drafting ${parts.drafting}`,
+      `Generation ${parts.generation}`,
       `Judging ${parts.judging}`,
       parts.pairing ? `${PAIRING_SPEND_LABEL} ${parts.pairing}` : null,
     ]
@@ -922,7 +923,7 @@ export const formatSpendNote = (parts: SpendParts): string =>
     .filter(Boolean)
     .join(' ');
 
-export const formatTasksNote = (counterpart: string | null): string =>
-  counterpart
-    ? `Each task of the set, replayed and compared with ${counterpart}. Regressions come first. Pick a task to see its runs and judging.`
+export const formatTasksNote = (reference: string | null): string =>
+  reference
+    ? `Each task of the set, replayed and compared with ${reference}. Regressions come first. Pick a task to see its runs and judging.`
     : 'Each task of the set, replayed. Pick a task to see its runs and judging.';

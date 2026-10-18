@@ -922,7 +922,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
 export const stepIndexOf = (runId: string, text: string): number =>
   RUN_STORIES[runId]?.steps.findIndex((step) => step.text === text) ?? -1;
 
-export const groundStep = (runId: string, text: string, kind?: string) => {
+export const provenanceStep = (runId: string, text: string, kind?: string) => {
   const index = stepIndexOf(runId, text);
   const step = RUN_STORIES[runId]?.steps[index];
 

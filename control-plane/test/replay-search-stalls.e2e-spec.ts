@@ -76,7 +76,7 @@ describe('a search for a better station config, when it stalls or loses its stat
     const [first, second, third] = reflection?.tasks ?? [];
     const causing = (taskId: string, cause: string, suggestion?: string) =>
       bearing(reflecting.token).post(
-        `/api/runs/${reflecting.runId}/search-causes`,
+        `/api/runs/${reflecting.runId}/failure-causes`,
         {
           taskId,
           cause,
@@ -130,10 +130,10 @@ describe('a search for a better station config, when it stalls or loses its stat
     const stalled = await searchOf(id);
     const looked = stalled.iterations[2]?.reflection;
 
-    expect(stalled.ending).toBe('stalled');
+    expect(stalled.stopReason).toBe('stalled');
     expect(stalled.iterations).toHaveLength(3);
     expect(looked?.endedSearch).toBe(true);
-    expect(looked?.outcome).toBe('no-config-cause');
+    expect(looked?.result).toBe('no-config-cause');
     expect(
       looked?.causes.map((each) => [each.taskId, each.cause, each.replayRunId]),
     ).toEqual([
@@ -238,7 +238,7 @@ describe('a search for a better station config, when it stalls or loses its stat
       (await searchOf(id)).iterations[2]?.reflection?.tasks ?? [];
 
     await bearing(reflecting.token)
-      .post(`/api/runs/${reflecting.runId}/search-causes`, {
+      .post(`/api/runs/${reflecting.runId}/failure-causes`, {
         taskId: failing?.taskId,
         cause: 'config',
         evidence: 'It never ran the migrations the prompt leaves out.',
@@ -258,7 +258,7 @@ describe('a search for a better station config, when it stalls or loses its stat
       'propose',
     ]);
     expect(goingOn.iterations[2]?.reflection?.endedSearch).toBe(false);
-    expect(goingOn.iterations[2]?.reflection?.outcome).toBe('went-on');
+    expect(goingOn.iterations[2]?.reflection?.result).toBe('continued');
     const briefed = (await searchRunsOf(id)).find(
       (each) => each.id === next.runId,
     )?.spec as { briefing?: string } | undefined;
@@ -273,7 +273,7 @@ describe('a search for a better station config, when it stalls or loses its stat
       WITHIN,
     );
 
-    expect((await searchRow(id))?.ending).toBe('iterations-spent');
+    expect((await searchRow(id))?.stopReason).toBe('iterations-spent');
 
     const inbox = (
       await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200)
@@ -319,7 +319,7 @@ describe('a search for a better station config, when it stalls or loses its stat
 
     await eventually(async () => (await searchState(id)) === 'stopped', WITHIN);
 
-    expect((await searchRow(id))?.ending).toBe('station-gone');
+    expect((await searchRow(id))?.stopReason).toBe('station-gone');
     expect(await replayEnded(seedReplayId)).not.toBe('running');
   }, 120_000);
 

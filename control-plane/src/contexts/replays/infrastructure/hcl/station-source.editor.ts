@@ -66,7 +66,7 @@ const JUDGE_FIELDS = [
   { name: 'rubric', from: 'rubric' },
   { name: 'claims', from: 'claims' },
   { name: 'sample', from: 'sample' },
-  { name: 'trust', from: 'trust' },
+  { name: 'min_agreement', from: 'minAgreement' },
 ] as const;
 
 const ALL_CLAIMS = 1;
@@ -147,7 +147,7 @@ const judgeOf = (seed: Block): HclGuardedBlock => {
     return { type: 'judge', was: null };
   }
 
-  const passShare = literalIn(judge as Block, 'passShare', ALL_CLAIMS);
+  const passThreshold = literalIn(judge as Block, 'passThreshold', ALL_CLAIMS);
 
   return {
     type: 'judge',
@@ -156,9 +156,9 @@ const judgeOf = (seed: Block): HclGuardedBlock => {
         name,
         literalIn(judge as Block, from, null),
       ]),
-      ['pass_share', passShare],
+      ['pass_threshold', passThreshold],
     ]),
-    unset: { pass_share: ALL_CLAIMS },
+    unset: { pass_threshold: ALL_CLAIMS },
   };
 };
 

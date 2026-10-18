@@ -62,7 +62,7 @@ const DELIVERY = {
           profile: 'careful',
           skills: ['grafana'],
           tools: ['linear.comment'],
-          judge: { rubric: RUBRIC, sample: 0.2, trust: 0.6 },
+          judge: { rubric: RUBRIC, sample: 0.2, minAgreement: 0.6 },
           alerts: [
             { measure: 'sent_back_rate', risesBy: 0.2, over: 20 },
             { measure: 'cost_per_run', above: 5, over: 10 },
@@ -443,7 +443,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
     const main = fileOf(await exported(), 'main.tf');
 
     expect(main).toContain(
-      `    judge {\n      rubric = file("\${path.module}/judges/team/delivery/${PROMPTED?.key}.md")\n      sample = 0.2\n      trust  = 0.6\n    }\n\n    alert {\n      measure  = "sent_back_rate"\n      rises_by = 0.2\n      over     = 20\n    }\n\n    alert {\n      measure = "cost_per_run"\n      above   = 5\n      over    = 10\n    }\n\n    alert {\n      measure  = "accepted_rate"\n      falls_by = 0.1\n      over     = 20\n    }\n\n    alert {\n      measure = "merged_rate"\n      below   = 0.4\n      over    = 20\n    }\n  }\n`,
+      `    judge {\n      rubric        = file("\${path.module}/judges/team/delivery/${PROMPTED?.key}.md")\n      sample        = 0.2\n      min_agreement = 0.6\n    }\n\n    alert {\n      measure  = "sent_back_rate"\n      rises_by = 0.2\n      over     = 20\n    }\n\n    alert {\n      measure = "cost_per_run"\n      above   = 5\n      over    = 10\n    }\n\n    alert {\n      measure  = "accepted_rate"\n      falls_by = 0.1\n      over     = 20\n    }\n\n    alert {\n      measure = "merged_rate"\n      below   = 0.4\n      over    = 20\n    }\n  }\n`,
     );
   });
 

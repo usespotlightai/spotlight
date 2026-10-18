@@ -100,7 +100,7 @@ describe('ProposeCandidateHandler', () => {
       at: FieldPath.of(['station', 'harness']),
       reason: 'names a harness a runner can start',
     });
-    work.examine = async () => ({ ok: false as const, problems: [wrong] });
+    work.validate = async () => ({ ok: false as const, problems: [wrong] });
 
     const rejected = await propose({ name: '  ', station: BLOCK });
 

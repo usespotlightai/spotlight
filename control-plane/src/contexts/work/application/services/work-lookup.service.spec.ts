@@ -165,7 +165,8 @@ describe('WorkLookup, looking up a run', () => {
     placement = RunnerPlacement.anywhere(),
   ) => lookingUpAt(key, state, placement).run(RunId.of('run_1'));
 
-  const placeAt = (key: string) => lookingUpAt(key).placeOf(RunId.of('run_1'));
+  const locationAt = (key: string) =>
+    lookingUpAt(key).locationOf(RunId.of('run_1'));
 
   it('hands a check the command its run was dispatched with, not the station’s current command', async () => {
     expect((await runAt('implementation'))?.check).toBe('npm run verify');
@@ -196,16 +197,16 @@ describe('WorkLookup, looking up a run', () => {
   });
 
   it('says where the run worked: its team, line and station', async () => {
-    const place = await placeAt('implementation');
+    const location = await locationAt('implementation');
 
-    expect(place?.teamId.value).toBe('team_1');
-    expect(place?.lineId).toBe(line.id.value);
-    expect(place?.lineName).toBe(line.name.value);
-    expect(place?.stationName).toBe('Implementation');
+    expect(location?.teamId.value).toBe('team_1');
+    expect(location?.lineId).toBe(line.id.value);
+    expect(location?.lineName).toBe(line.name.value);
+    expect(location?.stationName).toBe('Implementation');
   });
 
   it('says a run whose station is gone worked nowhere it can name', async () => {
-    expect(await placeAt('gone')).toBeNull();
+    expect(await locationAt('gone')).toBeNull();
   });
 
   it('says the run is remembered from only where its station requires it', async () => {
@@ -605,7 +606,7 @@ describe('WorkLookup, finding the run a runner leases', () => {
 
   it('names the team of any run, leased or not, by its chat or its line', async () => {
     const teamOf = (run: Parameters<typeof lookingAt>[0]) =>
-      lookingAt(run).siteOfRun(RunId.of('run_1'));
+      lookingAt(run).contextOfRun(RunId.of('run_1'));
 
     expect(await teamOf({ leased: false, stationId: 'station_1' })).toEqual({
       teamId: TEAM,

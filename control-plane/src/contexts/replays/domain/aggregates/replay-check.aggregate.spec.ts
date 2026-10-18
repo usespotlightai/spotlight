@@ -1,14 +1,14 @@
 import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.event';
+import { InvalidMoneyError } from '@replays/domain/exceptions/invalid-money.error';
 import { InvalidReplayCheckError } from '@replays/domain/exceptions/invalid-replay-check.error';
-import { InvalidSpendError } from '@replays/domain/exceptions/invalid-spend.error';
 import {
   aSet,
   BY,
-  DIGESTS,
   FINGERPRINT,
-  LIVE_DIGESTS,
+  HASHES,
   LIVE_FINGERPRINT,
+  LIVE_HASHES,
   NOW,
   STATION,
 } from '@replays/domain/replays.fake-spec';
@@ -33,8 +33,8 @@ const started = (more: Partial<Parameters<typeof ReplayCheck.start>[0]> = {}) =>
     reference: PlannedReference.of({ pullRequest: 42 }),
     liveFingerprint: LIVE_FINGERPRINT,
     candidateFingerprint: FINGERPRINT,
-    liveDigests: LIVE_DIGESTS,
-    candidateDigests: DIGESTS,
+    liveHashes: LIVE_HASHES,
+    candidateHashes: HASHES,
     threshold: ReplayThreshold.of({
       maxRegressions: 0,
       ceiling: 10,
@@ -65,7 +65,7 @@ describe('ReplayCheck', () => {
   });
 
   it('checks a change to how the station runs, counting its attempts from 1', () => {
-    expect(() => started({ candidateDigests: LIVE_DIGESTS })).toThrow(
+    expect(() => started({ candidateHashes: LIVE_HASHES })).toThrow(
       InvalidReplayCheckError,
     );
     expect(() => started({ attempt: 0 })).toThrow(InvalidReplayCheckError);
@@ -85,8 +85,8 @@ describe('ReplayCheck', () => {
       currency: 'USD',
       minGain: 0.05,
     });
-    const reusable = (verdict: 'running' | 'passed' | 'failed' | 'undecided') =>
-      check.reusableFor(SET, 'entries_1', threshold, 1, verdict);
+    const reusable = (result: 'running' | 'passed' | 'failed' | 'undecided') =>
+      check.reusableFor(SET, 'entries_1', threshold, 1, result);
 
     expect(reusable('running')).toBe(true);
     expect(reusable('passed')).toBe(true);
@@ -192,7 +192,7 @@ describe('ReplayCheck', () => {
         currency: 'USD',
         minGain: 0.05,
       }),
-    ).toThrow(InvalidSpendError);
+    ).toThrow(InvalidMoneyError);
     expect(
       ReplayThreshold.of({
         maxRegressions: 2,

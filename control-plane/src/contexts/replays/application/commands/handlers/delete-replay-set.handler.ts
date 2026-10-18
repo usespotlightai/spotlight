@@ -45,7 +45,7 @@ export class DeleteReplaySetHandler
 
         await this.sets.save(
           locked.delete(
-            searched !== null || replays.some((each) => each.isUnderway),
+            searched !== null || replays.some((each) => each.isInProgress),
           ),
         );
       });

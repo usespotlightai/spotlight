@@ -1,11 +1,11 @@
-import { CLAIMS_LABEL, formatPassShare } from '@/lib/judge';
+import { CLAIMS_LABEL, formatPassThreshold } from '@/lib/judge';
 
 type JudgeClaimsProps = {
   claims: readonly string[];
-  passShare: number;
+  passThreshold: number;
 };
 
-export function JudgeClaims({ claims, passShare }: JudgeClaimsProps) {
+export function JudgeClaims({ claims, passThreshold }: JudgeClaimsProps) {
   return (
     <section
       data-slot="judge-claims"
@@ -24,7 +24,7 @@ export function JudgeClaims({ claims, passShare }: JudgeClaimsProps) {
         ))}
       </ol>
       <p data-slot="pass-share" className="text-muted-foreground">
-        {formatPassShare(passShare)}
+        {formatPassThreshold(passThreshold)}
       </p>
     </section>
   );

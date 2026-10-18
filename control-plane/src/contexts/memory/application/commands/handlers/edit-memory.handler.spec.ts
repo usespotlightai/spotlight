@@ -30,7 +30,7 @@ const OLD = Memory.write({
   kind: 'preference',
   body: MemoryBody.of('Name branches after people.'),
   scope: MemoryScope.of({ teamId: TeamId.of('team_1') }),
-  grounds: null,
+  provenance: null,
   by: MemoryDecision.of({ by: ADA, at: NOW }),
 });
 

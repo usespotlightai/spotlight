@@ -44,7 +44,7 @@ func sampleHistory() protocol.History {
 	tool, status := "bash", "completed"
 	input := "{\"command\":\"go test ./...\"}"
 	output := "--- FAIL: TestUploadRetries (0.02s)\n    upload_test.go:41: ```retry``` gave up after 3 tries\nFAIL"
-	failure, checks, delivery := "tests-failed", "failed", "open"
+	failure, checks, pullRequestState := "tests-failed", "failed", "open"
 	ms, cost, currency := 90000, 0.42, "USD"
 	line := 12
 	editedPath := "api/upload.go"
@@ -53,17 +53,17 @@ func sampleHistory() protocol.History {
 		Prompt:  text("Implement the task.\n"),
 		Harness: "claude-code", Model: text("opus"), Effort: text("high"),
 		Repositories: []protocol.ConfigRepository{{Name: "api", Setup: text("npm ci")}},
-		Skills:       []protocol.ConfigSkill{{Key: "tdd", Digest: "1111111111111111"}},
+		Skills:       []protocol.ConfigSkill{{Key: "tdd", Hash: "1111111111111111"}},
 		Tools:        []string{"linear"},
 		Decisions:    true,
 	}
 	newer := older
 	newer.Prompt = text("Implement the task.\nRun the tests first.\n")
 	newer.Effort = text("xhigh")
-	newer.Skills = []protocol.ConfigSkill{{Key: "tdd", Digest: "2222222222222222"}, {Key: "review", Digest: "3333"}}
+	newer.Skills = []protocol.ConfigSkill{{Key: "tdd", Hash: "2222222222222222"}, {Key: "review", Hash: "3333"}}
 	newer.Tools = nil
 	newer.Memories = true
-	newer.Judge = &protocol.ConfigJudge{RubricDigest: "cccc", Sample: 0.2, Trust: 0.6}
+	newer.Judge = &protocol.ConfigJudge{RubricHash: "cccc", Sample: 0.2, MinAgreement: 0.6}
 	newer.Profile = &protocol.ConfigProfile{Key: "fast", Settings: json.RawMessage(`{"b":[1,{"c":true}],"a":null}`)}
 
 	return protocol.History{
@@ -79,9 +79,9 @@ func sampleHistory() protocol.History {
 				State: "completed", Attempt: 1, Harness: "claude-code",
 				StartedAt: text("2026-09-29T10:00:00Z"), EndedAt: text("2026-09-29T10:01:30Z"),
 				Outcome: &protocol.RunOutcome{
-					Ending: "failed", Failure: &failure, Round: 2,
-					Cost:   &protocol.RunCost{Ms: &ms, Steps: 14, Faults: 1, Cost: &cost, Currency: &currency},
-					Checks: &checks, Next: &protocol.RunNext{Act: "asked", At: "2026-09-29T10:01:31Z"}, Delivery: &delivery,
+					Ending: "failed", Failure: &failure, Visit: 2,
+					Usage:  &protocol.RunUsage{Ms: &ms, Steps: 14, Errors: 1, Cost: &cost, Currency: &currency},
+					Checks: &checks, FirstHumanAction: &protocol.HumanAction{Kind: "asked", At: "2026-09-29T10:01:31Z"}, PullRequestState: &pullRequestState,
 				},
 				Changes: []protocol.HistoryChange{
 					{Path: "api/upload.go", Before: "package api\n\nfunc upload() {}\n", After: "package api\n\nfunc upload() { retry() }\n"},
@@ -121,7 +121,7 @@ func sampleHistory() protocol.History {
 			{
 				RunID: "run_1", TaskID: "task_1", Title: "First go", Fingerprint: text(olderFingerprint),
 				State: "completed", Attempt: 1, Harness: "claude-code",
-				Outcome: &protocol.RunOutcome{Ending: "completed", Round: 1},
+				Outcome: &protocol.RunOutcome{Ending: "completed", Visit: 1},
 				Trace:   protocol.Trace{Roots: []protocol.TraceNode{}},
 			},
 		},
@@ -218,7 +218,7 @@ func TestHistoryWritesAGreppableTreeOfTheStationsRuns(t *testing.T) {
 		t.Fatalf("outcome.json: %v", err)
 	}
 	if outcome.RunID != "run_2" || outcome.TaskID != "task_2" || *outcome.Fingerprint != newerFingerprint ||
-		outcome.Outcome.Ending != "failed" || *outcome.Outcome.Cost.Cost != 0.42 {
+		outcome.Outcome.Ending != "failed" || *outcome.Outcome.Usage.Cost != 0.42 {
 		t.Errorf("outcome.json %+v", outcome)
 	}
 

@@ -10,7 +10,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
-import type { BriefingPlace } from '@work/application/ports/team-memories.port';
+import type { BriefingContext } from '@work/application/ports/team-memories.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
@@ -74,7 +74,7 @@ const chatIn = (repositories: Repository[], setup: ConfigHome | null = null) =>
     newId: () => 'chat_1',
   });
 
-const briefedAt: BriefingPlace[] = [];
+const briefedAt: BriefingContext[] = [];
 let memoryFails = false;
 
 const dispatching = (
@@ -100,7 +100,7 @@ const dispatching = (
     } as unknown as LineRepository,
     { now: () => NOW } as ClockPort,
     {
-      forBriefing: async (place: BriefingPlace) => {
+      forBriefing: async (place: BriefingContext) => {
         briefedAt.push(place);
         if (memoryFails) {
           throw new Error('memory is down');
@@ -114,8 +114,12 @@ const dispatching = (
               body: 'Name branches after the ticket.',
             },
           ],
-          cut: [{ id: 'memory_2', handle: 'M-4' }],
-          folder: { path: '.spotlight/memory', layout: [], mirroring: null },
+          omitted: [{ id: 'memory_2', handle: 'M-4' }],
+          folder: {
+            path: '.spotlight/memory',
+            layout: [],
+            repositoryFolder: null,
+          },
         };
       },
     },
@@ -217,7 +221,7 @@ describe('DispatchChat', () => {
     expect(briefedAt[0]).toMatchObject({ lineId: null, stationId: null });
     expect(run.briefedWith.value).toEqual({
       briefed: [{ id: 'memory_1', handle: 'M-3' }],
-      cut: [{ id: 'memory_2', handle: 'M-4' }],
+      omitted: [{ id: 'memory_2', handle: 'M-4' }],
     });
     expect(run.spec.value.briefing).not.toContain('M-4');
     expect(run.spec.value.briefing).toContain('M-3');
@@ -228,7 +232,7 @@ describe('DispatchChat', () => {
     const run = await enqueued(chatIn([API]));
     memoryFails = false;
 
-    expect(run.briefedWith.value).toEqual({ briefed: [], cut: [] });
+    expect(run.briefedWith.value).toEqual({ briefed: [], omitted: [] });
     expect(run.spec.value.briefing).not.toContain('What the team has learned');
   });
 });

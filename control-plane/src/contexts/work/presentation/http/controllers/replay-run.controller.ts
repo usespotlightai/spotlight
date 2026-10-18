@@ -30,7 +30,7 @@ export class ReplayRunController {
   @ApiOkResponse({ type: ReplayRunResponseDto })
   @ApiProblemResponse(
     HttpStatus.NOT_FOUND,
-    'No such replay run of the team for a caller who may read its outcomes',
+    'No such replay run of the team for a caller who may read its insights',
   )
   async replayRun(
     @Param('teamId') teamId: string,

@@ -1,8 +1,8 @@
 import type { DeleteCandidateCommand } from '@replays/application/commands/delete-candidate.command';
 import type { PeoplePort } from '@replays/application/ports/people.port';
+import { CandidateInUseError } from '@replays/domain/exceptions/candidate-in-use.error';
 import { CandidateIsLiveError } from '@replays/domain/exceptions/candidate-is-live.error';
 import { CandidateManagedBySpotlightError } from '@replays/domain/exceptions/candidate-managed-by-spotlight.error';
-import { CandidateUnderwayError } from '@replays/domain/exceptions/candidate-underway.error';
 import { CandidateVersionConflictError } from '@replays/domain/exceptions/candidate-version-conflict.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -61,7 +61,7 @@ export class DeleteCandidateHandler
 
         await this.candidates.save(
           candidate.delete(
-            replays.some((each) => each.isUnderway),
+            replays.some((each) => each.isInProgress),
             Attribution.of(command.actor, candidate.workspaceId),
           ),
         );
@@ -80,7 +80,7 @@ export class DeleteCandidateHandler
       }
 
       if (
-        error instanceof CandidateUnderwayError ||
+        error instanceof CandidateInUseError ||
         error instanceof CandidateIsLiveError ||
         error instanceof CandidateManagedBySpotlightError
       ) {

@@ -1,23 +1,23 @@
-import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
-import { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
-import { TaskTouches } from '@outcomes/domain/aggregates/task-touches.aggregate';
-import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
-import { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
-import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
-import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
-import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
-import { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
-import { TaskOpening } from '@outcomes/domain/value-objects/task-opening.vo';
-import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
-import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
-import { DrizzleTaskDeliveryRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-delivery.repository';
-import { DrizzleTaskTouchesRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-touches.repository';
+import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
+import { TaskHumanActions } from '@insights/domain/aggregates/task-human-actions.aggregate';
+import { TaskPullRequest } from '@insights/domain/aggregates/task-pull-request.aggregate';
+import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
+import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
+import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
+import { RunTools } from '@insights/domain/value-objects/run-tools.vo';
+import { RunUsage } from '@insights/domain/value-objects/run-usage.vo';
+import { TaskOpening } from '@insights/domain/value-objects/task-opening.vo';
+import { DrizzleRunFactProjection } from '@insights/infrastructure/persistence/drizzle/projections/run-fact.projection';
+import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
+import { DrizzleTaskHumanActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-human-actions.repository';
+import { DrizzleTaskPullRequestRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-pull-request.repository';
 import {
   runFact,
   runRecord,
-  taskDelivery,
-  taskTouches,
-} from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
+  taskHumanAction,
+  taskPullRequest,
+} from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -42,8 +42,8 @@ const at = (hoursAgo: number) => new Date(NOW - hoursAgo * HOUR);
 let database: TestDatabase;
 let facts: DrizzleRunFactProjection;
 let records: DrizzleRunRecordRepository;
-let touches: DrizzleTaskTouchesRepository;
-let deliveries: DrizzleTaskDeliveryRepository;
+let humanActions: DrizzleTaskHumanActionsRepository;
+let taskPullRequests: DrizzleTaskPullRequestRepository;
 
 const ended = (
   runId: string,
@@ -56,14 +56,14 @@ const ended = (
 ): RunRecord =>
   RunRecord.empty(RunId.of(runId), options.workspaceId ?? WORKSPACE).recordEnd(
     RunEnd.of({
-      place: RunPlace.of({
+      location: RunLocation.of({
         teamId: options.teamId ?? TEAM,
         lineId: 'line_1',
         stationId: 'station_1',
         taskId: TaskId.of(taskId),
       }),
       fingerprint: 'a'.repeat(64),
-      setup: RunSetup.of({
+      agentConfig: RunAgentConfig.of({
         harness: 'claude-code',
         model: 'opus',
         effort: null,
@@ -76,20 +76,20 @@ const ended = (
       endedAt: at(options.endedHoursAgo ?? 1),
       ending: 'completed',
       failure: null,
-      round: 1,
+      visit: 1,
       asked: false,
     }),
   );
 
-const digested = (record: RunRecord): RunRecord =>
-  record.recordDigest(
-    RunCost.of({
+const withUsageRecorded = (record: RunRecord): RunRecord =>
+  record.recordUsage(
+    RunUsage.of({
       ms: 900_000,
       steps: 12,
-      faults: 1,
+      errors: 1,
       changedLines: 40,
-      used: null,
-      size: null,
+      contextTokens: null,
+      contextWindow: null,
       amount: 1.25,
       currency: 'USD',
       tokens: {
@@ -102,8 +102,8 @@ const digested = (record: RunRecord): RunRecord =>
     RunTools.NONE,
   );
 
-const opening = (taskId: string, teamId: TeamId): TaskTouches =>
-  TaskTouches.empty(TaskId.of(taskId), WORKSPACE).recordOpen(
+const opening = (taskId: string, teamId: TeamId): TaskHumanActions =>
+  TaskHumanActions.empty(TaskId.of(taskId), WORKSPACE).recordOpen(
     TaskOpening.of({
       teamId,
       lineId: 'line_1',
@@ -113,8 +113,8 @@ const opening = (taskId: string, teamId: TeamId): TaskTouches =>
     }),
   );
 
-const merged = (taskId: string, teamId: TeamId): TaskDelivery =>
-  TaskDelivery.open({
+const merged = (taskId: string, teamId: TeamId): TaskPullRequest =>
+  TaskPullRequest.open({
     taskId: TaskId.of(taskId),
     workspaceId: WORKSPACE,
     teamId,
@@ -132,8 +132,12 @@ const elsewhere = () => {
   return {
     context,
     records: new DrizzleRunRecordRepository(context, projection, quiet),
-    touches: new DrizzleTaskTouchesRepository(context, projection),
-    deliveries: new DrizzleTaskDeliveryRepository(context, projection, quiet),
+    humanActions: new DrizzleTaskHumanActionsRepository(context, projection),
+    taskPullRequests: new DrizzleTaskPullRequestRepository(
+      context,
+      projection,
+      quiet,
+    ),
   };
 };
 
@@ -178,8 +182,12 @@ beforeAll(async () => {
 
   facts = new DrizzleRunFactProjection(context);
   records = new DrizzleRunRecordRepository(context, facts, quiet);
-  touches = new DrizzleTaskTouchesRepository(context, facts);
-  deliveries = new DrizzleTaskDeliveryRepository(context, facts, quiet);
+  humanActions = new DrizzleTaskHumanActionsRepository(context, facts);
+  taskPullRequests = new DrizzleTaskPullRequestRepository(
+    context,
+    facts,
+    quiet,
+  );
 }, 60_000);
 
 afterAll(async () => {
@@ -188,8 +196,8 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await database.db.delete(runRecord);
-  await database.db.delete(taskTouches);
-  await database.db.delete(taskDelivery);
+  await database.db.delete(taskHumanAction);
+  await database.db.delete(taskPullRequest);
   await database.db.delete(runFact);
 });
 
@@ -210,24 +218,24 @@ describe('run facts', () => {
       ending: 'completed',
       ran: true,
       beganAt: at(1.25),
-      digested: false,
+      usageRecorded: false,
       cost: null,
     });
 
     const recorded = await records.of(RunId.of('run_1'));
     await records.save(
-      digested(recorded as RunRecord).recordAction(
-        NextAct.of('closed', at(0.5)),
+      withUsageRecorded(recorded as RunRecord).recordAction(
+        HumanAction.of('accepted', at(0.5)),
       ),
     );
 
     expect(await factOf('run_1')).toMatchObject({
-      digested: true,
+      usageRecorded: true,
       cost: 1.25,
       currency: 'USD',
       ms: 900_000,
-      nextAct: 'closed',
-      nextAt: at(0.5),
+      firstHumanAction: 'accepted',
+      firstHumanActionAt: at(0.5),
     });
   });
 
@@ -263,8 +271,8 @@ describe('run facts', () => {
     await records.add(ended('run_1', 'task_1'));
     await records.add(ended('run_2', 'task_1'));
 
-    await touches.add(
-      TaskTouches.empty(TaskId.of('task_1'), WORKSPACE).recordOpen(
+    await humanActions.add(
+      TaskHumanActions.empty(TaskId.of('task_1'), WORKSPACE).recordOpen(
         TaskOpening.of({
           teamId: TEAM,
           lineId: 'line_1',
@@ -274,25 +282,27 @@ describe('run facts', () => {
         }),
       ),
     );
-    const opened = TaskDelivery.open({
+    const opened = TaskPullRequest.open({
       taskId: TaskId.of('task_1'),
       workspaceId: WORKSPACE,
       teamId: TEAM,
       pullRequest: PULL,
       at: at(2),
     });
-    await deliveries.add(opened);
+    await taskPullRequests.add(opened);
 
     expect(await factOf('run_2')).toMatchObject({
       openedBy: 'user_ada',
       taskOpenedAt: at(3),
       pullRequest: PULL.value,
-      deliveryState: 'open',
+      pullRequestState: 'open',
     });
 
-    const delivery = await deliveries.forTask(TaskId.of('task_1'));
-    await deliveries.save(
-      (delivery as TaskDelivery).close({
+    const pullRequestOfTask = await taskPullRequests.forTask(
+      TaskId.of('task_1'),
+    );
+    await taskPullRequests.save(
+      (pullRequestOfTask as TaskPullRequest).close({
         pullRequest: PULL,
         merged: true,
         at: at(0.1),
@@ -301,15 +311,15 @@ describe('run facts', () => {
 
     for (const runId of ['run_1', 'run_2']) {
       expect(await factOf(runId)).toMatchObject({
-        deliveryState: 'merged',
-        deliveryClosedAt: at(0.1),
+        pullRequestState: 'merged',
+        pullRequestClosedAt: at(0.1),
       });
     }
   });
 
-  it('takes no opener or delivery from another workspace’s records of the same task', async () => {
-    await touches.add(
-      TaskTouches.empty(TaskId.of('task_x'), ELSEWHERE).recordOpen(
+  it('takes no opener or pull request from another workspace’s records of the same task', async () => {
+    await humanActions.add(
+      TaskHumanActions.empty(TaskId.of('task_x'), ELSEWHERE).recordOpen(
         TaskOpening.of({
           teamId: TEAM,
           lineId: 'line_1',
@@ -319,8 +329,8 @@ describe('run facts', () => {
         }),
       ),
     );
-    await deliveries.add(
-      TaskDelivery.open({
+    await taskPullRequests.add(
+      TaskPullRequest.open({
         taskId: TaskId.of('task_x'),
         workspaceId: ELSEWHERE,
         teamId: TEAM,
@@ -334,14 +344,14 @@ describe('run facts', () => {
       openedBy: null,
       taskOpenedAt: null,
       pullRequest: null,
-      deliveryState: null,
+      pullRequestState: null,
     });
   });
 
-  it('stores both changes when a run and its task’s delivery change at once', async () => {
+  it('stores both changes when a run and its task’s pull request change at once', async () => {
     await records.add(ended('run_1', 'task_1'));
-    await deliveries.add(
-      TaskDelivery.open({
+    await taskPullRequests.add(
+      TaskPullRequest.open({
         taskId: TaskId.of('task_1'),
         workspaceId: WORKSPACE,
         teamId: TEAM,
@@ -349,31 +359,37 @@ describe('run facts', () => {
         at: at(2),
       }),
     );
-    const delivery = (await deliveries.forTask(
+    const pullRequestOfTask = (await taskPullRequests.forTask(
       TaskId.of('task_1'),
-    )) as TaskDelivery;
+    )) as TaskPullRequest;
     const second = elsewhere();
 
     await whileLocked(
       async (first) =>
         first.records.save(
-          digested((await first.records.of(RunId.of('run_1'))) as RunRecord),
+          withUsageRecorded(
+            (await first.records.of(RunId.of('run_1'))) as RunRecord,
+          ),
         ),
       () =>
-        second.deliveries.save(
-          delivery.close({ pullRequest: PULL, merged: true, at: at(0.1) }),
+        second.taskPullRequests.save(
+          pullRequestOfTask.close({
+            pullRequest: PULL,
+            merged: true,
+            at: at(0.1),
+          }),
         ),
     );
 
     expect(await factOf('run_1')).toMatchObject({
       cost: 1.25,
-      deliveryState: 'merged',
+      pullRequestState: 'merged',
     });
   });
 
-  it('sees a task’s first run that ends while its delivery is merged', async () => {
-    await deliveries.add(
-      TaskDelivery.open({
+  it('sees a task’s first run that ends while its pull request is merged', async () => {
+    await taskPullRequests.add(
+      TaskPullRequest.open({
         taskId: TaskId.of('task_1'),
         workspaceId: WORKSPACE,
         teamId: TEAM,
@@ -381,23 +397,27 @@ describe('run facts', () => {
         at: at(2),
       }),
     );
-    const delivery = (await deliveries.forTask(
+    const pullRequestOfTask = (await taskPullRequests.forTask(
       TaskId.of('task_1'),
-    )) as TaskDelivery;
+    )) as TaskPullRequest;
     const second = elsewhere();
 
     await whileLocked(
       (first) => first.records.add(ended('run_1', 'task_1')),
       () =>
-        second.deliveries.save(
-          delivery.close({ pullRequest: PULL, merged: true, at: at(0.1) }),
+        second.taskPullRequests.save(
+          pullRequestOfTask.close({
+            pullRequest: PULL,
+            merged: true,
+            at: at(0.1),
+          }),
         ),
     );
 
-    expect(await factOf('run_1')).toMatchObject({ deliveryState: 'merged' });
+    expect(await factOf('run_1')).toMatchObject({ pullRequestState: 'merged' });
   });
 
-  it('deletes a team’s runs, and the openings and deliveries of its tasks wherever their runs are', async () => {
+  it('deletes a team’s runs, and the openings and pull requests of its tasks wherever their runs are', async () => {
     await records.add(ended('run_ours', 'task_ours'));
     await records.add(
       ended('run_shared', 'task_shared', { teamId: NEXT_DOOR }),
@@ -410,31 +430,31 @@ describe('run facts', () => {
       ['task_shared', TEAM],
       ['task_theirs', NEXT_DOOR],
     ] as const) {
-      await touches.add(opening(taskId, teamId));
-      await deliveries.add(merged(taskId, teamId));
+      await humanActions.add(opening(taskId, teamId));
+      await taskPullRequests.add(merged(taskId, teamId));
     }
 
     await records.removeForTeam(WORKSPACE, TEAM);
-    await touches.removeForTeam(WORKSPACE, TEAM);
-    await deliveries.removeForTeam(WORKSPACE, TEAM);
+    await humanActions.removeForTeam(WORKSPACE, TEAM);
+    await taskPullRequests.removeForTeam(WORKSPACE, TEAM);
 
     expect(await factOf('run_ours')).toBeNull();
     expect(await factOf('run_shared')).toMatchObject({
       teamId: NEXT_DOOR.value,
       openedBy: null,
-      deliveryState: null,
+      pullRequestState: null,
       pullRequest: null,
     });
     expect(await factOf('run_theirs')).toMatchObject({
       openedBy: 'user_ada',
-      deliveryState: 'merged',
+      pullRequestState: 'merged',
     });
   });
 
-  it('stores no fact for a deleted team’s run when its delivery changes meanwhile', async () => {
+  it('stores no fact for a deleted team’s run when its pull request changes meanwhile', async () => {
     await records.add(ended('run_1', 'task_1'));
-    await deliveries.add(
-      TaskDelivery.open({
+    await taskPullRequests.add(
+      TaskPullRequest.open({
         taskId: TaskId.of('task_1'),
         workspaceId: WORKSPACE,
         teamId: TEAM,
@@ -442,35 +462,39 @@ describe('run facts', () => {
         at: at(2),
       }),
     );
-    const delivery = (await deliveries.forTask(
+    const pullRequestOfTask = (await taskPullRequests.forTask(
       TaskId.of('task_1'),
-    )) as TaskDelivery;
+    )) as TaskPullRequest;
     const second = elsewhere();
 
     await whileLocked(
       (first) => first.records.removeForTeam(WORKSPACE, TEAM),
       () =>
-        second.deliveries.save(
-          delivery.close({ pullRequest: PULL, merged: true, at: at(0.1) }),
+        second.taskPullRequests.save(
+          pullRequestOfTask.close({
+            pullRequest: PULL,
+            merged: true,
+            at: at(0.1),
+          }),
         ),
     );
 
     expect(await factOf('run_1')).toBeNull();
   });
 
-  it('keeps a deleted delivery deleted when the task’s opening changes meanwhile', async () => {
+  it('keeps a deleted pull request deleted when the task’s opening changes meanwhile', async () => {
     await records.add(ended('run_1', 'task_1', { teamId: NEXT_DOOR }));
-    await deliveries.add(merged('task_1', TEAM));
+    await taskPullRequests.add(merged('task_1', TEAM));
     const second = elsewhere();
 
     await whileLocked(
-      (first) => first.deliveries.removeForTeam(WORKSPACE, TEAM),
-      () => second.touches.add(opening('task_1', NEXT_DOOR)),
+      (first) => first.taskPullRequests.removeForTeam(WORKSPACE, TEAM),
+      () => second.humanActions.add(opening('task_1', NEXT_DOOR)),
     );
 
     expect(await factOf('run_1')).toMatchObject({
       openedBy: 'user_ada',
-      deliveryState: null,
+      pullRequestState: null,
     });
   });
 
@@ -539,7 +563,7 @@ describe('run facts', () => {
         skills: [],
         endedAt: at(1),
         ending: 'completed' as const,
-        round: 1,
+        visit: 1,
       })),
     );
     await records.add(ended('run_gone', 'task_gone'));

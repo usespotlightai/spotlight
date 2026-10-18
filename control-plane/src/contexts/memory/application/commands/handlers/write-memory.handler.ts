@@ -40,7 +40,7 @@ export class WriteMemoryHandler
         kind: parseMemoryKind(command.writing.kind),
         body: MemoryBody.of(command.writing.body),
         scope: layout.scopeOf(command.writing),
-        grounds: null,
+        provenance: null,
         by: MemoryDecision.of({ by: access.by, at: this.clock.now() }),
       });
 

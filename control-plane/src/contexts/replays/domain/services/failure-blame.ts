@@ -23,5 +23,5 @@ export const blamesTheCandidate = (end: RunEnd): boolean => {
     return FAILURE_BLAME[end.failure] === 'candidate';
   }
 
-  return end.outcome !== 'exhausted';
+  return end.result !== 'exhausted';
 };

@@ -276,7 +276,7 @@ const published = (kind: string, runId: string) =>
       ),
     );
 
-const untilDigested = (runId: string) =>
+const untilUsageRecorded = (runId: string) =>
   eventually(async () => {
     const pending = await db
       .select({ subscriber: schema.eventDelivery.subscriber })
@@ -291,9 +291,12 @@ const untilDigested = (runId: string) =>
           sql`(${schema.eventOutbox.payload} ->> 'runId' = ${runId} OR ${schema.eventOutbox.payload} -> 'runId' ->> 'value' = ${runId})`,
         ),
       );
-    const digested = await published('work.search-run-digested.v1', runId);
+    const usageRecorded = await published(
+      'work.search-run-usage-recorded.v1',
+      runId,
+    );
 
-    return pending.length === 0 && digested.length > 0;
+    return pending.length === 0 && usageRecorded.length > 0;
   });
 
 const finishing = (next: string) => ({
@@ -421,7 +424,7 @@ describe('a search run claimed by a runner', () => {
     expect(row?.ranForTeamId).toBe(team.teamId.value);
     expect(row?.stationId).toBe(BUILD);
     expect(row?.priority).toBe(-1);
-    expect(row?.briefedMemories).toEqual({ briefed: [], cut: [] });
+    expect(row?.briefedMemories).toEqual({ briefed: [], omitted: [] });
   });
 
   it('is named to the replays context by its search and iteration, only while its runner has a lease on it', async () => {
@@ -520,7 +523,7 @@ describe('a search run reading its station’s history', () => {
       runId,
       aSight({
         stationId: BUILD,
-        hiddenTasks: [heldOut],
+        heldOutTasks: [heldOut],
         shownOriginals: [original, shown],
         candidates: [
           {
@@ -618,7 +621,7 @@ describe('a search run reading its station’s history', () => {
     const atShip = await aTaskRun(seen, '2026-09-21T10:00:00Z', SHIP);
     await aTaskRun(heldOut, '2026-09-22T09:00:00Z');
     await aTaskRun(elsewhere, '2026-09-23T09:00:00Z', SHIP);
-    sights.sees(runId, aSight({ stationId: BUILD, hiddenTasks: [heldOut] }));
+    sights.sees(runId, aSight({ stationId: BUILD, heldOutTasks: [heldOut] }));
 
     const trace = JSON.stringify(
       (await runner(token).get(`/api/runs/${runId}/trace/${seen}`).expect(200))
@@ -647,7 +650,7 @@ describe('a search run reading its station’s history', () => {
 });
 
 describe('a search run ending', () => {
-  it('says so as a search run’s end and digest, and wakes none of what a task run’s or replay’s end wakes', async () => {
+  it('says so as a search run’s end and usage, and wakes none of what a task run’s or replay’s end wakes', async () => {
     const {
       order: queued,
       runId,
@@ -659,7 +662,7 @@ describe('a search run ending', () => {
     await runner(token)
       .post(`/api/runs/${runId}/completion`, finishing('review'))
       .expect(200);
-    await untilDigested(runId);
+    await untilUsageRecorded(runId);
 
     expect((await runRow(runId))?.state).toBe('completed');
 
@@ -684,20 +687,22 @@ describe('a search run ending', () => {
         ),
       ),
     ).toBe(false);
-    expect(await published('work.search-run-digested.v1', runId)).toEqual([
-      {
-        payload: expect.objectContaining({
-          kind: 'work.search-run-digested.v1',
-          searchId: queued.searchId,
-        }),
-      },
-    ]);
+    expect(await published('work.search-run-usage-recorded.v1', runId)).toEqual(
+      [
+        {
+          payload: expect.objectContaining({
+            kind: 'work.search-run-usage-recorded.v1',
+            searchId: queued.searchId,
+          }),
+        },
+      ],
+    );
 
     for (const kind of [
       'work.run-ended.v1',
       'work.replay-ended.v1',
-      'work.run-digested.v1',
-      'work.replay-digested.v1',
+      'work.run-usage-recorded.v1',
+      'work.replay-run-usage-recorded.v1',
       'work.run-briefed.v1',
     ]) {
       expect(await published(kind, runId)).toEqual([]);
@@ -738,7 +743,7 @@ describe('a search run ending', () => {
           .expect(200)
       ).body,
     ).toEqual({ waiting: false });
-    await untilDigested(runId);
+    await untilUsageRecorded(runId);
 
     expect((await runRow(runId))?.askedAPerson).toBe(true);
 

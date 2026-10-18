@@ -207,14 +207,14 @@ describe('the mock inbox', () => {
     expect(data[1]?.steps.some((step) => step.change)).toBe(true);
   });
 
-  it('reads the alert the Implementation station raised', async () => {
+  it('reads the alert that fired at the Implementation station', async () => {
     const { data } = await readStationAlert({
       path: { teamId: PLATFORM_ID, alertId: ALERT_ID },
       throwOnError: true,
     });
 
     expect(data.stationId).toBe('station_implementation');
-    expect(data.threshold).toMatchObject({
+    expect(data.rule).toMatchObject({
       measure: 'sent_back_rate',
       risesBy: 0.2,
       over: 20,
@@ -222,7 +222,7 @@ describe('the mock inbox', () => {
     expect(data.series.at(-1)?.runId).toBe(data.runId);
   });
 
-  it('raises a cost alert that is still active beside one that recovered', async () => {
+  it('fires a cost alert that is still active beside one that resolved', async () => {
     const { data: cost } = await readStationAlert({
       path: { teamId: PLATFORM_ID, alertId: COST_ALERT_ID },
       throwOnError: true,
@@ -232,11 +232,11 @@ describe('the mock inbox', () => {
       throwOnError: true,
     });
 
-    expect(cost.threshold).toMatchObject({ measure: 'cost_per_run', above: 2 });
+    expect(cost.rule).toMatchObject({ measure: 'cost_per_run', above: 2 });
     expect(cost.value).toBeGreaterThan(2);
-    expect(cost.recoveredAt).toBeNull();
+    expect(cost.resolvedAt).toBeNull();
     expect((await itemIn(COST_ALERT_ASIDE_ID))?.resolved).toBe(false);
-    expect(sentBack.recoveredAt).not.toBeNull();
+    expect(sentBack.resolvedAt).not.toBeNull();
     expect((await itemIn(ALERT_ASIDE_ID))?.resolved).toBe(true);
   });
 

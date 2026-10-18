@@ -27,7 +27,7 @@ type Index = {
   readonly runs: Map<string, HistoryRun>;
   readonly byTask: Map<string, HistoryRun[]>;
   readonly tasks: Map<string, HistoryTask>;
-  readonly rounds: Map<string, number>;
+  readonly visits: Map<string, number>;
   readonly shownTasks: Map<string, TaskResponseDto>;
   readonly teamRuns: Map<string, TeamRunResponseDto[]>;
 };
@@ -36,11 +36,11 @@ let indexed: { readonly source: History; readonly index: Index } | null = null;
 
 const indexOf = (source: History): Index => {
   const byTask = new Map<string, HistoryRun[]>();
-  const rounds = new Map<string, number>();
+  const visits = new Map<string, number>();
 
   for (const run of [...source.runs].sort((one, other) => one.at - other.at)) {
     const earlier = byTask.get(run.taskId) ?? [];
-    rounds.set(
+    visits.set(
       run.runId,
       earlier.filter((each) => each.stationId === run.stationId).length + 1,
     );
@@ -51,7 +51,7 @@ const indexOf = (source: History): Index => {
     runs: new Map(source.runs.map((run) => [run.runId, run])),
     byTask,
     tasks: new Map(source.tasks.map((task) => [task.id, task])),
-    rounds,
+    visits,
     shownTasks: new Map(),
     teamRuns: new Map(),
   };
@@ -74,8 +74,8 @@ export const historyRunsOfTask = (taskId: string): readonly HistoryRun[] =>
 export const historyTaskOf = (taskId: string): HistoryTask | undefined =>
   index().tasks.get(taskId);
 
-export const roundOf = (runId: string): number =>
-  index().rounds.get(runId) ?? 1;
+export const visitOf = (runId: string): number =>
+  index().visits.get(runId) ?? 1;
 
 export const lineOfStation = (stationId: string) =>
   LINES.find((line) => line.stations.some((each) => each.id === stationId));
@@ -95,7 +95,7 @@ const exitCodeOf = (run: HistoryRun): number | null =>
 const shownRunOf = (run: HistoryRun): TaskRunResponseDto => ({
   id: run.runId,
   state: stateOf(run),
-  attempt: roundOf(run.runId),
+  attempt: visitOf(run.runId),
   exitCode: exitCodeOf(run),
   startedAt: run.startedAt ?? run.endedAt ?? new Date(run.at).toISOString(),
   updatedAt: run.endedAt ?? new Date(run.at).toISOString(),

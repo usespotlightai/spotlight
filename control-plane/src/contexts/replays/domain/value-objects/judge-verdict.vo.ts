@@ -24,7 +24,7 @@ export interface CitedReason {
 const isScale = (raw: string): raw is JudgeScale =>
   (JUDGE_SCALES as readonly string[]).includes(raw);
 
-const isShare = (value: number): boolean =>
+const isRate = (value: number): boolean =>
   Number.isFinite(value) && value >= 0 && value <= YES;
 
 const isOnScale = (scale: JudgeScale, value: number): boolean => {
@@ -34,31 +34,31 @@ const isOnScale = (scale: JudgeScale, value: number): boolean => {
     case 'number':
       return Number.isInteger(value) && value >= LOWEST && value <= HIGHEST;
     default:
-      return isShare(value);
+      return isRate(value);
   }
 };
 
-const shareOf = (marks: readonly boolean[]): number =>
-  marks.filter(Boolean).length / marks.length;
+const shareOf = (claimResults: readonly boolean[]): number =>
+  claimResults.filter(Boolean).length / claimResults.length;
 
-const marksAreValid = (
+const claimResultsAreValid = (
   scale: JudgeScale,
   value: number,
-  marks: readonly boolean[] | null,
+  claimResults: readonly boolean[] | null,
 ): boolean =>
   scale === 'claims'
-    ? marks !== null &&
-      marks.length > 0 &&
-      Math.abs(shareOf(marks) - value) <= LEEWAY
-    : marks === null;
+    ? claimResults !== null &&
+      claimResults.length > 0 &&
+      Math.abs(shareOf(claimResults) - value) <= LEEWAY
+    : claimResults === null;
 
 export class JudgeVerdict {
   private constructor(
     readonly scale: JudgeScale,
     readonly value: number,
-    readonly marks: readonly boolean[] | null,
+    readonly claimResults: readonly boolean[] | null,
     readonly claims: readonly string[],
-    readonly passShare: number,
+    readonly passThreshold: number,
     readonly model: string,
     readonly referenced: boolean,
     readonly reasons: readonly CitedReason[],
@@ -67,14 +67,14 @@ export class JudgeVerdict {
   static of(input: {
     scale: string;
     value: number;
-    marks: readonly boolean[] | null;
+    claimResults: readonly boolean[] | null;
     claims: readonly string[];
-    passShare: number;
+    passThreshold: number;
     model: string;
     referenced: boolean;
     reasons: readonly CitedReason[];
   }): JudgeVerdict {
-    const { marks, passShare } = input;
+    const { claimResults, passThreshold } = input;
 
     if (!isScale(input.scale)) {
       throw new InvalidReplayError(
@@ -86,26 +86,26 @@ export class JudgeVerdict {
         `judge score ${input.value} is not on the ${input.scale} scale`,
       );
     }
-    if (!marksAreValid(input.scale, input.value, marks)) {
+    if (!claimResultsAreValid(input.scale, input.value, claimResults)) {
       throw new InvalidReplayError(
         'judge must mark claims only when it judges by claims',
       );
     }
-    if ((marks?.length ?? 0) !== input.claims.length) {
+    if ((claimResults?.length ?? 0) !== input.claims.length) {
       throw new InvalidReplayError(
         'judge must name exactly the claims it marks',
       );
     }
-    if (!isShare(passShare)) {
-      throw new InvalidReplayError('judge pass share must be from 0 to 1');
+    if (!isRate(passThreshold)) {
+      throw new InvalidReplayError('judge pass threshold must be from 0 to 1');
     }
 
     return new JudgeVerdict(
       input.scale,
       input.value,
-      marks && [...marks],
+      claimResults && [...claimResults],
       [...input.claims],
-      passShare,
+      passThreshold,
       input.model,
       input.referenced,
       input.reasons.map((each) => ({
@@ -124,7 +124,7 @@ export class JudgeVerdict {
       case 'number':
         return this.value >= PASSING_SCORE;
       default:
-        return this.value + LEEWAY >= this.passShare;
+        return this.value + LEEWAY >= this.passThreshold;
     }
   }
 
@@ -132,9 +132,10 @@ export class JudgeVerdict {
     return (
       this.scale === other.scale &&
       this.value === other.value &&
-      JSON.stringify(this.marks) === JSON.stringify(other.marks) &&
+      JSON.stringify(this.claimResults) ===
+        JSON.stringify(other.claimResults) &&
       JSON.stringify(this.claims) === JSON.stringify(other.claims) &&
-      this.passShare === other.passShare &&
+      this.passThreshold === other.passThreshold &&
       this.model === other.model &&
       this.referenced === other.referenced &&
       JSON.stringify(this.reasons) === JSON.stringify(other.reasons)

@@ -6,7 +6,7 @@ import type {
 import type { ChangeReviewPort } from '@replays/application/ports/change-review.port';
 import type { StackStatus } from '@replays/domain/value-objects/change-checks.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const statusOf = (each: CheckedChange): StackStatus => ({
@@ -15,7 +15,7 @@ const statusOf = (each: CheckedChange): StackStatus => ({
   skip: each.skip,
   failedAt: [...each.failedAt],
   spent: ModelSpent.of(
-    each.usage.costs.map((cost) => Spend.of(cost.amount, cost.currency)),
+    each.usage.costs.map((cost) => Money.of(cost.amount, cost.currency)),
     each.usage.unpriced,
   ),
 });

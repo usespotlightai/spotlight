@@ -3,10 +3,10 @@ import { AdvanceSearches } from '@replays/application/services/advance-searches.
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { estimateOf } from '@replays/domain/services/search-estimate';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { eq } from 'drizzle-orm';
@@ -54,7 +54,7 @@ import {
 openSearchFlow();
 
 describe('a search for a better station config', () => {
-  it('estimates what it would start, spend and take, as its budget allots it, writing nothing', async () => {
+  it('estimates what it would start, spend and take, as it splits its ceiling, writing nothing', async () => {
     const setId = await createSet('Estimated', tenTasks);
     const budget = { iterations: 2, perIteration: 2, ceiling: 40 };
 
@@ -69,7 +69,7 @@ describe('a search for a better station config', () => {
       searchedTasks: number;
       heldOutTasks: number;
       runs: Record<string, number>;
-      perReplayAllotments: Record<string, { amount: number }>;
+      perReplayLimits: Record<string, { amount: number }>;
       estimatedDuration: number | null;
       minGain: number;
       objective: string;
@@ -84,13 +84,13 @@ describe('a search for a better station config', () => {
           addedAt: new Date(),
         }),
       ),
-      digest: (text) => createHash('sha256').update(text, 'utf8').digest('hex'),
+      hash: (text) => createHash('sha256').update(text, 'utf8').digest('hex'),
     });
     const expected = estimateOf(
       SearchBudget.of({
         iterations: 2,
         perIteration: 2,
-        ceiling: Spend.ceiling(40, 'USD'),
+        ceiling: Money.ceiling(40, 'USD'),
         concurrency: 10,
       }),
       split,
@@ -100,16 +100,16 @@ describe('a search for a better station config', () => {
     expect(estimate.searchedTasks).toBe(7);
     expect(estimate.heldOutTasks).toBe(3);
     expect(estimate.runs).toEqual(expected.runs);
-    expect(estimate.perReplayAllotments.seed?.amount).toBeCloseTo(
-      expected.allotment.seed.amount,
+    expect(estimate.perReplayLimits.seed?.amount).toBeCloseTo(
+      expected.ceilingSplit.seed.amount,
       6,
     );
-    expect(estimate.perReplayAllotments.searchReplay?.amount).toBeCloseTo(
-      expected.allotment.searchReplay.amount,
+    expect(estimate.perReplayLimits.searchReplay?.amount).toBeCloseTo(
+      expected.ceilingSplit.searchReplay.amount,
       6,
     );
-    expect(estimate.perReplayAllotments.heldOutReplay?.amount).toBeCloseTo(
-      expected.allotment.heldOutReplay.amount,
+    expect(estimate.perReplayLimits.heldOutReplay?.amount).toBeCloseTo(
+      expected.ceilingSplit.heldOutReplay.amount,
       6,
     );
     expect(estimate.estimatedDuration).toBeNull();
@@ -483,7 +483,7 @@ describe('a search for a better station config', () => {
     )?.heldOutReplayId as string;
 
     expect(current.state).toBe('holding-out');
-    expect(current.ending).toBe('iterations-spent');
+    expect(current.stopReason).toBe('iterations-spent');
     expect(
       current.candidates.find((each) => each.name === 'terse')?.heldOutReplayId,
     ).toBeNull();
@@ -497,7 +497,7 @@ describe('a search for a better station config', () => {
 
     const done = await searchOf(id);
 
-    expect(done.ending).toBe('iterations-spent');
+    expect(done.stopReason).toBe('iterations-spent');
     expect(done.candidates.map((each) => [each.name, each.onFrontier])).toEqual(
       [
         ['in-order', true],
@@ -507,12 +507,9 @@ describe('a search for a better station config', () => {
     expect(done.candidates[0]?.searchScore).toBe(1);
     expect(done.candidates[0]?.heldOutScore).toBe(1);
     expect(done.candidates[1]?.searchScore).toBe(0);
-    expect(done.candidates.map((each) => each.onlyOnSeenTasks)).toEqual([
-      null,
-      null,
-    ]);
-    expect(done.onlyOnSeenTasks).toBe(0);
-    expect(done.best?.onlyOnSeenTasks).toBeNull();
+    expect(done.candidates.map((each) => each.overfit)).toEqual([null, null]);
+    expect(done.overfitCount).toBe(0);
+    expect(done.best?.overfit).toBeNull();
     expect(done.frontier).toContain(done.seed.candidateId);
     expect(done.best?.name).toBe('in-order');
     expect(done.spent.amount).toBeGreaterThan(0);
@@ -552,8 +549,10 @@ describe('a search for a better station config', () => {
       WITHIN,
     );
 
-    expect((await searchRow(capped.id))?.ending).toBe('ceiling-reached');
-    expect((await replayRow(capped.seedReplayId))?.state).toBe('over-budget');
+    expect((await searchRow(capped.id))?.stopReason).toBe('ceiling-reached');
+    expect((await replayRow(capped.seedReplayId))?.state).toBe(
+      'ceiling-reached',
+    );
     expect(await searchRunsOf(capped.id)).toEqual([]);
 
     const stopped = await startSearch(setId, {
@@ -565,7 +564,7 @@ describe('a search for a better station config', () => {
     await owner().post(`${teamPath()}/searches/${stopped.id}/stop`).expect(204);
     await owner().post(`${teamPath()}/searches/${stopped.id}/stop`).expect(409);
 
-    expect((await searchRow(stopped.id))?.ending).toBe('stopped');
+    expect((await searchRow(stopped.id))?.stopReason).toBe('stopped');
     await eventually(
       async () => (await replayRow(stopped.seedReplayId))?.state === 'stopped',
       WITHIN,

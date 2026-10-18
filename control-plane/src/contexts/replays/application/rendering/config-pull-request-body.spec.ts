@@ -31,7 +31,7 @@ const FACTS = {
       gain: 0.2,
       low: -0.02,
       high: 0.41,
-      verdict: 'within-noise' as const,
+      significance: 'within-noise' as const,
       minGain: 0.05,
       tasks: 7,
     },
@@ -41,7 +41,7 @@ const FACTS = {
     searched: null as { wins: number; losses: number; ties: number } | null,
     heldOut: null as { wins: number; losses: number; ties: number } | null,
   },
-  onlyOnSeenTasks: null,
+  overfit: null,
   heldOutPending: false,
   link: 'https://app.example.com/w/acme/team/t/lines/l/stations/s/searches/x',
 };
@@ -69,7 +69,11 @@ describe('ConfigPullRequestBody', () => {
         ...FACTS,
         gains: {
           searched: null,
-          heldOut: { ...FACTS.gains.searched, low: 0.1, verdict: 'better' },
+          heldOut: {
+            ...FACTS.gains.searched,
+            low: 0.1,
+            significance: 'better',
+          },
         },
       }),
     ).toContain(
@@ -81,17 +85,17 @@ describe('ConfigPullRequestBody', () => {
     const marked = ConfigPullRequestBody.of({
       ...FACTS,
       gains: {
-        searched: { ...FACTS.gains.searched, low: 0.1, verdict: 'better' },
+        searched: { ...FACTS.gains.searched, low: 0.1, significance: 'better' },
         heldOut: {
           gain: -0.03,
           low: -0.2,
           high: 0.12,
-          verdict: 'within-noise',
+          significance: 'within-noise',
           minGain: 0.05,
           tasks: 6,
         },
       },
-      onlyOnSeenTasks: 'marked',
+      overfit: 'likely',
     });
 
     expect(marked).toContain(
@@ -106,17 +110,17 @@ describe('ConfigPullRequestBody', () => {
     const body = ConfigPullRequestBody.of({
       ...FACTS,
       gains: {
-        searched: { ...FACTS.gains.searched, low: 0.1, verdict: 'better' },
+        searched: { ...FACTS.gains.searched, low: 0.1, significance: 'better' },
         heldOut: {
           gain: 0,
           low: -0.5,
           high: 0.5,
-          verdict: 'within-noise',
+          significance: 'within-noise',
           minGain: 0.05,
           tasks: 3,
         },
       },
-      onlyOnSeenTasks: 'too-few-held-out',
+      overfit: 'too-few-held-out',
     });
 
     expect(body).toContain(
@@ -133,7 +137,7 @@ describe('ConfigPullRequestBody', () => {
       candidate: { ...FACTS.candidate, heldOutScore: null },
       regressions: { searched: 1, heldOut: null },
       gains: {
-        searched: { ...FACTS.gains.searched, low: 0.1, verdict: 'better' },
+        searched: { ...FACTS.gains.searched, low: 0.1, significance: 'better' },
         heldOut: null,
       },
       heldOutPending: true,

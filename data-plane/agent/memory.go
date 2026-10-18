@@ -91,8 +91,8 @@ func remember(args []string, in io.Reader, out io.Writer) error {
 	body := flags.String("body", "", "what to remember")
 	scope := flags.String("scope", "", "where it applies: team, line or station")
 	supersedes := flags.String("supersedes", "", "the memory it corrects, like M-12")
-	var bearing paths
-	flags.Var(&bearing, "path", "a file or folder it bears on")
+	var about paths
+	flags.Var(&about, "path", "a file or folder it is about")
 
 	if err := flags.Parse(args); err != nil {
 		return fmt.Errorf("%s", rememberUsage)
@@ -113,8 +113,8 @@ func remember(args []string, in io.Reader, out io.Writer) error {
 		return fmt.Errorf("--body is required\n%s", rememberUsage)
 	}
 
-	absolute := make([]string, 0, len(bearing))
-	for _, each := range bearing {
+	absolute := make([]string, 0, len(about))
+	for _, each := range about {
 		resolved, err := filepath.Abs(each)
 		if err != nil {
 			return fmt.Errorf("find %s: %w", each, err)
@@ -166,7 +166,7 @@ func inBrief(memory protocol.RecalledMemory) string {
 		"%s · %s · %s\n  %s\n  %s\n",
 		memory.Handle, strings.ReplaceAll(memory.Kind, "-", " "),
 		scopeOf(memory.Scope, memory.Repository, memory.Paths),
-		flat(memory.Body), groundsOf(memory),
+		flat(memory.Body), provenanceOf(memory),
 	)
 }
 
@@ -175,14 +175,14 @@ func inFull(memory protocol.RecalledMemory) string {
 
 	fmt.Fprintf(&shown, "%s · %s · %s\n\n%s\n\n", memory.Handle, strings.ReplaceAll(memory.Kind, "-", " "), memory.Status, memory.Body)
 	fmt.Fprintf(&shown, "Applies to the %s.\n", scopeOf(memory.Scope, memory.Repository, memory.Paths))
-	fmt.Fprintf(&shown, "%s.\n", groundsOf(memory))
+	fmt.Fprintf(&shown, "%s.\n", provenanceOf(memory))
 
-	if memory.Grounds != nil {
-		fmt.Fprintf(&shown, "Read the whole task with: spotlight trace --task %s\n", memory.Grounds.TaskID)
+	if memory.Provenance != nil {
+		fmt.Fprintf(&shown, "Read the whole task with: spotlight trace --task %s\n", memory.Provenance.TaskID)
 	}
 
 	if len(memory.Steps) > 0 || len(memory.Notes) > 0 {
-		fmt.Fprintln(&shown, "\nIt rests on:")
+		fmt.Fprintln(&shown, "\nIt cites:")
 		for _, note := range memory.Notes {
 			fmt.Fprintf(&shown, "- note %d, by a %s: %s\n", note.Position, note.By, flat(note.Text))
 		}
@@ -210,25 +210,25 @@ func inFull(memory protocol.RecalledMemory) string {
 	return shown.String()
 }
 
-func scopeOf(scope string, repository *string, bearing []string) string {
+func scopeOf(scope string, repository *string, about []string) string {
 	where := scope
 	if repository != nil && *repository != "" {
 		where += ", in " + *repository
-		if len(bearing) > 0 {
-			where += " at " + strings.Join(bearing, ", ")
+		if len(about) > 0 {
+			where += " at " + strings.Join(about, ", ")
 		}
 	}
 
 	return where
 }
 
-func groundsOf(memory protocol.RecalledMemory) string {
+func provenanceOf(memory protocol.RecalledMemory) string {
 	approved := "someone"
 	if memory.ApprovedBy.Name != nil && *memory.ApprovedBy.Name != "" {
 		approved = *memory.ApprovedBy.Name
 	}
 
-	if memory.Grounds == nil {
+	if memory.Provenance == nil {
 		return fmt.Sprintf("Written by %s on %s", approved, day(memory.ApprovedAt))
 	}
 
@@ -239,7 +239,7 @@ func groundsOf(memory protocol.RecalledMemory) string {
 
 	return fmt.Sprintf(
 		"From %s on task %s, approved by %s on %s",
-		from, memory.Grounds.TaskID, approved, day(memory.ApprovedAt),
+		from, memory.Provenance.TaskID, approved, day(memory.ApprovedAt),
 	)
 }
 

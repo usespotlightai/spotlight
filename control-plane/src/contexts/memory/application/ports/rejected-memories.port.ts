@@ -1,4 +1,4 @@
-import type { Rejection } from '@memory/domain/services/rejections-heeded';
+import type { Rejection } from '@memory/domain/services/recent-rejections';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export const REJECTED_MEMORIES = Symbol('REJECTED_MEMORIES');

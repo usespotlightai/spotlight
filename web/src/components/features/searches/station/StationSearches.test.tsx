@@ -54,7 +54,7 @@ const setOf = (tasks: number): ReplaySet => ({
   name: 'Billing work',
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
-  guardsChanges: false,
+  gatesChanges: false,
   health: {
     noise: null,
     saturation: null,
@@ -97,7 +97,7 @@ const SEARCH: Search = {
   stationId: 'station_1',
   setId: 'set_1',
   state: 'searching',
-  ending: null,
+  stopReason: null,
   agent: { harness: 'claude-code', model: null, effort: null },
   budget: {
     iterations: 3,
@@ -113,13 +113,13 @@ const SEARCH: Search = {
   best: {
     candidateId: 'c',
     name: 'tests-first',
-    seed: false,
+    isSeed: false,
     searchScore: 0.8,
     searchInterval: null,
     heldOutScore: null,
     heldOutInterval: null,
     costPerRun: 0.9,
-    onlyOnSeenTasks: null,
+    overfit: null,
   },
   startedAt: '2026-10-02T09:00:00.000Z',
   endedAt: null,
@@ -206,21 +206,21 @@ describe('StationSearches', () => {
     const start = screen.getByRole('button', { name: 'Start a search' });
     expect(start).toBeDisabled();
     expect(start).toHaveAccessibleDescription(
-      'A search of this station is underway.',
+      'A search of this station is in progress.',
     );
     expect(
-      screen.getByText('A search of this station is underway.'),
+      screen.getByText('A search of this station is in progress.'),
     ).toHaveClass('sr-only');
   });
 
   it('marks a search whose best candidate gained only on the tasks it could see, or says too few held-out tasks were scored to tell', () => {
     const best = SEARCH.best;
     searches.mockReturnValue([
-      { ...SEARCH, best: best && { ...best, onlyOnSeenTasks: 'marked' } },
+      { ...SEARCH, best: best && { ...best, overfit: 'likely' } },
       {
         ...SEARCH,
         id: 'search_2',
-        best: best && { ...best, onlyOnSeenTasks: 'too-few-held-out' },
+        best: best && { ...best, overfit: 'too-few-held-out' },
       },
     ]);
     sets.mockReturnValue([setOf(6)]);
@@ -229,7 +229,7 @@ describe('StationSearches', () => {
 
     expect(
       screen.getByRole('img', { name: 'Only on seen tasks' }),
-    ).toHaveAttribute('data-mark', 'marked');
+    ).toHaveAttribute('data-mark', 'likely');
     expect(
       screen.getByRole('img', { name: 'Too few held-out tasks to tell' }),
     ).toHaveAttribute('data-mark', 'too-few-held-out');

@@ -5,7 +5,7 @@ import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate'
 import { UnknownStationError } from '@replays/domain/exceptions/unknown-station.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
-import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
+import { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -32,7 +32,7 @@ export class LiveSnapshots {
 
     const teamKey = await this.people.teamKey(set.teamId);
     const address = teamKey
-      ? StationAddress.of(teamKey, config.lineKey, config.block.key)
+      ? StationPath.of(teamKey, config.lineKey, config.block.key)
       : null;
 
     if (!address) {
@@ -45,7 +45,7 @@ export class LiveSnapshots {
       address,
       block: config.block,
       fingerprint: config.fingerprint,
-      digests: config.digests,
+      hashes: config.hashes,
       scoring: config.scoring,
       at: this.clock.now(),
     });
@@ -65,7 +65,7 @@ export class LiveSnapshots {
       throw new UnknownStationError(set.station.stationId);
     }
 
-    return config.digests.scoring;
+    return config.hashes.scoring;
   }
 
   async release(live: Candidate | null): Promise<void> {

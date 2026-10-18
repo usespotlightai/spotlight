@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { StationAlertCard } from '@/components/features/inbox/alerts/StationAlertCard';
-import type { StationAlertCrossing } from '@/lib/station-alert';
+import type { StationAlertFiring } from '@/lib/station-alert';
 
 type Queried = {
   data: unknown;
@@ -60,7 +60,7 @@ const ALERT = {
   alertId: 'alert_1',
   lineId: 'line_1',
   stationId: 'station_impl',
-  threshold: {
+  rule: {
     measure: 'sent_back_rate',
     risesBy: 0.15,
     fallsBy: null,
@@ -79,15 +79,15 @@ const ALERT = {
   },
   runId: 'run_2',
   taskId: 'task_1',
-  raisedAt: '2026-09-30T10:00:00.000Z',
+  firedAt: '2026-09-30T10:00:00.000Z',
   insightsPeriod: '7d',
-  recoveredAt: null,
+  resolvedAt: null,
   currency: 'USD',
   series: [
     { runId: 'run_1', endedAt: '2026-09-29T10:00:00.000Z', value: 0.2 },
     { runId: 'run_2', endedAt: '2026-09-30T10:00:00.000Z', value: 0.4 },
   ],
-} as unknown as StationAlertCrossing;
+} as unknown as StationAlertFiring;
 
 const showing = () =>
   render(
@@ -146,7 +146,7 @@ describe('StationAlertCard', () => {
 
     expect(
       within(screen.getByRole('list', { name: 'Legend' })).getByText(
-        'The run it went off at',
+        'The run it fired at',
       ),
     ).toBeInTheDocument();
   });
@@ -157,7 +157,7 @@ describe('StationAlertCard', () => {
     expect(
       screen.getByRole('heading', {
         level: 2,
-        name: 'Alert raised at Implementation',
+        name: 'Alert fired at Implementation',
       }),
     ).toBeInTheDocument();
     expect(
@@ -194,7 +194,7 @@ describe('StationAlertCard', () => {
   it('says when the station came back within it, and when its runs are gone', () => {
     answer.alert = queried({
       ...ALERT,
-      recoveredAt: '2026-10-01T10:00:00.000Z',
+      resolvedAt: '2026-10-01T10:00:00.000Z',
       series: [],
     });
 

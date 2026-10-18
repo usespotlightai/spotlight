@@ -1,5 +1,5 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
-import { copiesByOriginal } from '@replays/domain/services/replay-results';
+import { repeatsByOriginal } from '@replays/domain/services/replay-results';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { MAX_REPEATS } from '@replays/domain/value-objects/replay-repeats';
@@ -7,7 +7,7 @@ import type { StationFingerprint } from '@replays/domain/value-objects/station-f
 
 const ROUNDING = 1e-9;
 
-const ONE_COPY = 1;
+const ONE_REPEAT = 1;
 
 export interface SetNoise {
   readonly replayId: ReplayId;
@@ -20,7 +20,7 @@ export interface SetNoise {
 }
 
 export interface SetNoiseReading extends SetNoise {
-  readonly noisyInOneCopy: boolean;
+  readonly noisyInOneRepeat: boolean;
 }
 
 export const neededRepeatsFor = (spread: number, minGain: number): number =>
@@ -40,7 +40,7 @@ export const noiseReadingOf = (
   minGain: number,
 ): SetNoiseReading => ({
   ...noise,
-  noisyInOneCopy: isNoisyAt(noise.spread, minGain, ONE_COPY),
+  noisyInOneRepeat: isNoisyAt(noise.spread, minGain, ONE_REPEAT),
 });
 
 export interface ReplayedConfig {
@@ -52,7 +52,7 @@ export interface ReplayedConfig {
 const newestFirst = (one: Replay, other: Replay): number =>
   (other.endedAt?.getTime() ?? 0) - (one.endedAt?.getTime() ?? 0);
 
-const rateOfCopy = (replay: Replay, repeat: number): number | null => {
+const rateOfRepeat = (replay: Replay, repeat: number): number | null => {
   const judged = replay.entries.filter(
     (each) =>
       each.repeat === repeat &&
@@ -68,9 +68,9 @@ const rateOfCopy = (replay: Replay, repeat: number): number | null => {
 
 const flippedIn = (replay: Replay): readonly string[] => [
   ...new Set(
-    [...copiesByOriginal(replay.entries).values()].flatMap((copies) => {
+    [...repeatsByOriginal(replay.entries).values()].flatMap((repeats) => {
       const verdicts = new Set(
-        copies
+        repeats
           .filter(
             (each) =>
               each.hasEnded &&
@@ -79,7 +79,7 @@ const flippedIn = (replay: Replay): readonly string[] => [
           )
           .map((each) => each.succeeded),
       );
-      const [first] = copies;
+      const [first] = repeats;
 
       return verdicts.size > 1 && first ? [first.taskId.value] : [];
     }),
@@ -92,9 +92,9 @@ const noiseIn = (
 ): SetNoise | null => {
   const perRepeat = Array.from(
     { length: replay.repeats },
-    (_, copy) => copy + 1,
+    (_, index) => index + 1,
   ).flatMap((repeat) => {
-    const rate = rateOfCopy(replay, repeat);
+    const rate = rateOfRepeat(replay, repeat);
 
     return rate === null ? [] : [rate];
   });

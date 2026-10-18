@@ -119,7 +119,7 @@ export class DispatchChat implements ChatDispatching {
       placement,
       briefedWith: BriefedMemories.of({
         briefed: memories.briefed,
-        cut: memories.cut,
+        omitted: memories.omitted,
       }),
       spec: RunSpec.of({
         checkouts: chat.repositories.map((repository) => {

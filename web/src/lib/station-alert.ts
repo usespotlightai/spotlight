@@ -1,13 +1,13 @@
-import type { StationAlertCrossingResponseDto } from '@/lib/api';
+import type { StationAlertFiringResponseDto } from '@/lib/api';
 import { amountIn } from '@/lib/inbox';
 import { formatShare, insightsPath, stationAnchor } from '@/lib/insights';
-import { alertPhrase } from '@/lib/station-watch';
+import { alertPhrase } from '@/lib/station-monitoring';
 
-export type StationAlertCrossing = StationAlertCrossingResponseDto;
+export type StationAlertFiring = StationAlertFiringResponseDto;
 
-export type AlertPoint = StationAlertCrossing['series'][number];
+export type AlertPoint = StationAlertFiring['series'][number];
 
-type Measure = StationAlertCrossing['threshold']['measure'];
+type Measure = StationAlertFiring['rule']['measure'];
 
 export const formatMeasureValue = (
   measure: Measure,
@@ -38,7 +38,7 @@ const DID: Record<Exclude<Measure, 'cost_per_run'>, [string, string]> = {
 };
 
 const MOVED_FROM: Record<
-  NonNullable<StationAlertCrossing['change']>['direction'],
+  NonNullable<StationAlertFiring['change']>['direction'],
   string
 > = {
   up: 'up from',
@@ -46,11 +46,11 @@ const MOVED_FROM: Record<
   same: 'the same as',
 };
 
-export const formatThreshold = (alert: StationAlertCrossing): string =>
-  alertPhrase(alert.threshold, alert.currency);
+export const formatRule = (alert: StationAlertFiring): string =>
+  alertPhrase(alert.rule, alert.currency);
 
-export const formatCrossing = (alert: StationAlertCrossing): string => {
-  const { measure, over } = alert.threshold;
+export const formatFiring = (alert: StationAlertFiring): string => {
+  const { measure, over } = alert.rule;
   const shown = (value: number | null) =>
     formatMeasureValue(measure, value, alert.currency);
   const before =
@@ -81,8 +81,8 @@ const formatChange = (
   return `a ${Math.round(change * 1000) / 10}-point ${direction}`;
 };
 
-export const formatLimit = (alert: StationAlertCrossing): string => {
-  const { measure, risesBy, fallsBy, above, below } = alert.threshold;
+export const formatLimit = (alert: StationAlertFiring): string => {
+  const { measure, risesBy, fallsBy, above, below } = alert.rule;
   const shown = (value: number) =>
     formatMeasureValue(measure, value, alert.currency);
 
@@ -103,25 +103,25 @@ export const ALERT_LEVEL = 'Alert level';
 
 export const BEFORE_LEVEL = 'Before';
 
-export const CROSSING_RUN = 'The run it went off at';
+export const FIRING_RUN = 'The run it fired at';
 
-export const formatRecovered = (
-  alert: StationAlertCrossing,
+export const formatResolved = (
+  alert: StationAlertFiring,
   day: string,
 ): string => {
-  const { fallsBy, below } = alert.threshold;
+  const { fallsBy, below } = alert.rule;
   const side = fallsBy !== null || below !== null ? 'over' : 'under';
 
   return `The station has been back ${side} the threshold since ${day}.`;
 };
 
-export const thresholdLine = (alert: StationAlertCrossing): number | null =>
-  alert.threshold.above ?? alert.threshold.below ?? null;
+export const thresholdLine = (alert: StationAlertFiring): number | null =>
+  alert.rule.above ?? alert.rule.below ?? null;
 
 export const alertOnInsightsPath = (
   slug: string,
   teamId: string,
-  alert: StationAlertCrossing,
+  alert: StationAlertFiring,
 ): string =>
   `${insightsPath(slug, teamId, {
     tab: 'stations',

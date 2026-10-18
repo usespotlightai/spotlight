@@ -3,10 +3,10 @@ import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
-import { ChangesGuardedElsewhereError } from '@replays/domain/exceptions/changes-guarded-elsewhere.error';
+import { ChangesGatedElsewhereError } from '@replays/domain/exceptions/changes-gated-elsewhere.error';
 import { ReplaySetVersionConflictError } from '@replays/domain/exceptions/replay-set-version-conflict.error';
 import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search-candidate-name-taken.error';
-import { SearchUnderwayError } from '@replays/domain/exceptions/search-underway.error';
+import { SearchInProgressError } from '@replays/domain/exceptions/search-in-progress.error';
 import { SearchVersionConflictError } from '@replays/domain/exceptions/search-version-conflict.error';
 import {
   AT,
@@ -14,8 +14,8 @@ import {
   aSearch,
   aSet,
   BY,
-  DIGESTS,
   FINGERPRINT,
+  HASHES,
   LIVE_FINGERPRINT,
   later,
   NOW,
@@ -30,12 +30,12 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { DrizzleCandidateRepository } from '@replays/infrastructure/persistence/drizzle/repositories/candidate.repository';
@@ -82,7 +82,7 @@ beforeEach(async () => {
 
 const SEED = ReplayId.of('replay_seed');
 
-const usd = (amount: number) => Spend.of(amount, 'USD');
+const usd = (amount: number) => Money.of(amount, 'USD');
 
 const charged = (amount: number) => ({ spent: usd(amount), unpriced: 0 });
 
@@ -115,7 +115,7 @@ const travelled = (search: Search): Search => {
   const runs = searchRunIds();
 
   return search
-    .recordReplayEnd(SEED, 'finished', charged(5), NOW, runs, true)
+    .recordReplayStopReason(SEED, 'finished', charged(5), NOW, runs, true)
     .queueRun(RunId.of('search_run_1'))
     .acceptProposal(RunId.of('search_run_1'), {
       candidateId: CandidateId.of('candidate_terse'),
@@ -135,7 +135,7 @@ const travelled = (search: Search): Search => {
       later(1),
       runs,
     )
-    .recordReplayEnd(
+    .recordReplayStopReason(
       ReplayId.of('replay_terse'),
       'finished',
       charged(2.5),
@@ -226,9 +226,9 @@ describe('DrizzleSearchRepository', () => {
       () => ReplayId.of('held_out_terse'),
       later(4),
     );
-    search = search.recordReplayEnd(
+    search = search.recordReplayStopReason(
       ReplayId.of('held_out_terse'),
-      'over-budget',
+      'ceiling-reached',
       charged(1),
       later(5),
       runs,
@@ -240,10 +240,10 @@ describe('DrizzleSearchRepository', () => {
     const found = (await searches.find(SEARCH_ID)) as Search;
 
     expect(found.current).toBe('finished');
-    expect(found.ending).toBe('iterations-spent');
+    expect(found.stopReason).toBe('iterations-spent');
     expect(found.endedAt).toEqual(later(5));
     expect(found.heldOut).toHaveLength(1);
-    expect(found.heldOut[0]?.replay.end).toBe('over-budget');
+    expect(found.heldOut[0]?.replay.end).toBe('ceiling-reached');
     expect(found.heldOut[0]?.replay.spent?.amount).toBe(1);
     expect(await searches.activeAtStation(STATION.stationId)).toBeNull();
   });
@@ -258,7 +258,7 @@ describe('DrizzleSearchRepository', () => {
     );
     expect((await searches.activeOfSet(first.setId))?.id).toEqual(SEARCH_ID);
     await expect(searches.add(searchAt('search_2'))).rejects.toThrow(
-      SearchUnderwayError,
+      SearchInProgressError,
     );
 
     await searches.save(first.stop(NOW, BY));
@@ -300,7 +300,7 @@ describe('replays, candidates and sets a search stores', () => {
     address: AT,
     block: StationBlock.of({ key: 'build', name: 'Build', prompt: 'Go.' }),
     fingerprint: FINGERPRINT,
-    digests: DIGESTS,
+    hashes: HASHES,
     scoring: UNSCORED,
     at: NOW,
   };
@@ -369,10 +369,10 @@ describe('replays, candidates and sets a search stores', () => {
       set,
       candidate: searched('candidate_a', 'terse'),
       baseline: false,
-      ceiling: Spend.ceiling(3, 'USD'),
+      ceiling: Money.ceiling(3, 'USD'),
       at: NOW,
       by: BY,
-      among: [RunId.of('original_2'), RunId.of('original_0')],
+      runSubset: [RunId.of('original_2'), RunId.of('original_0')],
       searchId: SEARCH_ID,
     });
 
@@ -380,7 +380,7 @@ describe('replays, candidates and sets a search stores', () => {
 
     const found = await replays.find(ReplayId.of('replay_some'));
 
-    expect(found?.among?.map((each) => each.value)).toEqual([
+    expect(found?.runSubset?.map((each) => each.value)).toEqual([
       'original_2',
       'original_0',
     ]);
@@ -407,7 +407,7 @@ describe('replays, candidates and sets a search stores', () => {
     ).rejects.toThrow(ReplaySetVersionConflictError);
   });
 
-  it('stores which set guards a station’s changes, one per station', async () => {
+  it('stores which set gates a station’s changes, one per station', async () => {
     const first = aSet(1);
     const second = ReplaySet.create({
       id: ReplaySetId.of('set_2'),
@@ -418,14 +418,14 @@ describe('replays, candidates and sets a search stores', () => {
 
     await sets.add(first);
     await sets.add(second);
-    await sets.save(first.guardingChanges([first, second], BY));
+    await sets.save(first.gatingChanges([first, second], BY));
 
-    expect((await sets.find(first.id))?.guardsChanges).toBe(true);
+    expect((await sets.find(first.id))?.gatesChanges).toBe(true);
 
     const stale = (await sets.find(second.id)) as ReplaySet;
 
-    await expect(sets.save(stale.guardingChanges([], BY))).rejects.toThrow(
-      ChangesGuardedElsewhereError,
+    await expect(sets.save(stale.gatingChanges([], BY))).rejects.toThrow(
+      ChangesGatedElsewhereError,
     );
   });
 });

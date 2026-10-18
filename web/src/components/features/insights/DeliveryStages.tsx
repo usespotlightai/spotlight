@@ -1,11 +1,11 @@
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { TileGroup } from '@/components/features/insights/TileGroup';
 import {
-  changeDelta,
   type Flow,
   formatCount,
   formatSpread,
   mergedFilter,
+  shownDeltaOf,
   tasksFilter,
 } from '@/lib/insights';
 
@@ -26,21 +26,21 @@ export function DeliveryStages({ delivery }: DeliveryStagesProps) {
         label="PRs opened"
         value={formatCount(delivery.opened)}
         detail={`Task to PR ${formatSpread(delivery.toPullRequest)}`}
-        delta={changeDelta(delivery.changes.opened)}
+        delta={shownDeltaOf(delivery.changes.opened)}
         drill={opened ? { tab: 'runs', filter: opened } : undefined}
       />
       <InsightsTile
         label="First reviews"
         value={formatCount(delivery.reviewed)}
         detail={`PR to review ${formatSpread(delivery.toFirstReview)}`}
-        delta={changeDelta(delivery.changes.reviewed)}
+        delta={shownDeltaOf(delivery.changes.reviewed)}
         drill={reviewed ? { tab: 'runs', filter: reviewed } : undefined}
       />
       <InsightsTile
         label="PRs merged"
         value={formatCount(delivery.merged)}
         detail={`Review to merge ${formatSpread(delivery.toMerge)}`}
-        delta={changeDelta(delivery.changes.merged)}
+        delta={shownDeltaOf(delivery.changes.merged)}
         drill={{ tab: 'runs', filter: mergedFilter(delivery.mergedTaskIds) }}
       />
     </TileGroup>

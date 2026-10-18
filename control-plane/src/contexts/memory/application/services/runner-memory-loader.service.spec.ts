@@ -29,7 +29,7 @@ const loader = (run: LeasedRun = leasedRun(false)) => {
     { leasedBy: async () => run } as unknown as WorkPort,
     new RecordMemoryUses(
       {
-        record: async (_run: RunId, _way: string, memories: MemoryId[]) => {
+        record: async (_run: RunId, _via: string, memories: MemoryId[]) => {
           recorded.push(memories.map((each) => each.value));
         },
       } as unknown as MemoryUsesPort,

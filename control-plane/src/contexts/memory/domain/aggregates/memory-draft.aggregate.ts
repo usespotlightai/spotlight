@@ -24,7 +24,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 const runsOf = (proposals: readonly MemoryProposal[]): RunId[] =>
   proposals
-    .map((each) => each.grounds.runId)
+    .map((each) => each.provenance.runId)
     .filter(
       (runId, at, all) => all.findIndex((one) => one.equals(runId)) === at,
     );
@@ -94,11 +94,13 @@ export class MemoryDraft
     }
 
     if (
-      input.proposals.some((each) => !each.grounds.taskId.equals(input.taskId))
+      input.proposals.some(
+        (each) => !each.provenance.taskId.equals(input.taskId),
+      )
     ) {
       throw new InconsistentStateError(
         'memory draft',
-        'has a proposal grounded in another task',
+        'has a proposal that cites another task',
       );
     }
 
@@ -261,9 +263,9 @@ export class MemoryDraft
       );
     }
 
-    if (!proposal.grounds.taskId.equals(this.taskId)) {
+    if (!proposal.provenance.taskId.equals(this.taskId)) {
       throw InvalidMemoryError.ofDraft(
-        'takes in only a memory grounded in its own task',
+        'takes in only a memory that cites its own task',
       );
     }
 
@@ -278,7 +280,7 @@ export class MemoryDraft
       new MemoriesProposed(
         this.id,
         this.taskId,
-        proposal.grounds.runId,
+        proposal.provenance.runId,
         1,
         0,
         0,
@@ -300,8 +302,8 @@ export class MemoryDraft
 
   stepsRemembered(runId: RunId): readonly number[] {
     return this.proposals
-      .filter((each) => each.remembered && each.grounds.runId.equals(runId))
-      .flatMap((each) => each.grounds.steps);
+      .filter((each) => each.remembered && each.provenance.runId.equals(runId))
+      .flatMap((each) => each.provenance.steps);
   }
 
   private twinOf(proposal: MemoryProposal): MemoryProposal | null {
@@ -309,7 +311,7 @@ export class MemoryDraft
       this.proposals.find(
         (each) =>
           each.remembered &&
-          each.proposedIn(proposal.grounds.runId) &&
+          each.proposedIn(proposal.provenance.runId) &&
           each.matches(proposal),
       ) ?? null
     );
@@ -355,7 +357,7 @@ export class MemoryDraft
           each.kind,
           each.body,
           each.scope,
-          each.grounds,
+          each.provenance,
           each.source,
           each.supersedes,
           input.decision,
@@ -380,7 +382,7 @@ export class MemoryDraft
 
   private proposalNamed(id: MemoryId, runId: RunId): MemoryProposal {
     const found = this.proposals.find(
-      (each) => each.id.equals(id) && each.grounds.runId.equals(runId),
+      (each) => each.id.equals(id) && each.provenance.runId.equals(runId),
     );
 
     if (!found) {

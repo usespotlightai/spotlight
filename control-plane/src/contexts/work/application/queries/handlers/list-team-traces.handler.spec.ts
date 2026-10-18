@@ -2,7 +2,7 @@ import { ApplicationError } from '@shared-kernel/application/errors/application-
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { RunDigest } from '@work/application/ports/run-digest-reader.port';
+import type { RunUsage } from '@work/application/ports/run-usage-reader.port';
 import type { TeamTraceSummary } from '@work/application/ports/team-trace-reader.port';
 import { ListTeamTracesHandler } from '@work/application/queries/handlers/list-team-traces.handler';
 import { ListTeamTracesQuery } from '@work/application/queries/list-team-traces.query';
@@ -37,20 +37,20 @@ const trace = (taskId: string, runIds: string[]): TeamTraceSummary => ({
 
 let requested: string[][] = [];
 
-const digests = {
+const usages = {
   forRuns: async (runIds: readonly RunId[]) => {
     requested.push(runIds.map((each) => each.value));
 
-    return new Map<string, RunDigest>([
+    return new Map<string, RunUsage>([
       [
         'run_1',
         {
           ms: 1_000,
           steps: 5,
-          faults: 1,
+          errors: 1,
           changedLines: 0,
-          used: null,
-          size: null,
+          contextTokens: null,
+          contextWindow: null,
           cost: Money.of(0.5, 'USD'),
           tokens: Tokens.UNREPORTED,
         },
@@ -73,7 +73,7 @@ const handler = (found: TeamTraceSummary[]) =>
         return found;
       },
     },
-    digests,
+    usages,
     clock,
   );
 

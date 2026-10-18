@@ -4,8 +4,8 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { RunConversationDto } from '@work/application/dto/run-conversation.dto';
 import { RunSpendMapper } from '@work/application/mappers/run-spend.mapper';
-import type { RunDigestReaderPort } from '@work/application/ports/run-digest-reader.port';
 import type { RunReaderPort } from '@work/application/ports/run-reader.port';
+import type { RunUsageReaderPort } from '@work/application/ports/run-usage-reader.port';
 import type { ReadRunConversationQuery } from '@work/application/queries/read-run-conversation.query';
 
 export class ReadRunConversationHandler
@@ -14,7 +14,7 @@ export class ReadRunConversationHandler
 {
   constructor(
     private readonly runs: RunReaderPort,
-    private readonly digests: RunDigestReaderPort,
+    private readonly usages: RunUsageReaderPort,
   ) {}
 
   async execute(
@@ -31,7 +31,7 @@ export class ReadRunConversationHandler
         return null;
       }
 
-      const digest = (await this.digests.forRuns([runId])).get(runId.value);
+      const usage = (await this.usages.forRuns([runId])).get(runId.value);
 
       return {
         ...found,
@@ -40,7 +40,7 @@ export class ReadRunConversationHandler
           ...note,
           at: note.at.toISOString(),
         })),
-        spend: digest ? RunSpendMapper.toDto(digest) : null,
+        spend: usage ? RunSpendMapper.toDto(usage) : null,
       };
     } catch (error) {
       rethrowAsApplicationError(error);

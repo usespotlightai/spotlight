@@ -492,9 +492,9 @@ func (s *Server) caused(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if !protocol.IsSearchCause(record.Cause) {
+	if !protocol.IsFailureCause(record.Cause) {
 		fail(writer, http.StatusUnprocessableEntity, fmt.Sprintf(
-			"%q is no cause: a cause is one of %s", record.Cause, strings.Join(protocol.SearchCauses, ", "),
+			"%q is no cause: a cause is one of %s", record.Cause, strings.Join(protocol.FailureCauses, ", "),
 		))
 		return
 	}

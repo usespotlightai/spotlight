@@ -83,7 +83,7 @@ const REPLAY_SPEC: RunSpecParts = {
 
 const MEMORIES = BriefedMemories.of({
   briefed: [{ id: 'memory_1', handle: 'M-1' }],
-  cut: [],
+  omitted: [],
 });
 
 const queued = (

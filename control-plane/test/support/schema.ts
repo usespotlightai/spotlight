@@ -9,11 +9,11 @@ export * from '@github/infrastructure/persistence/drizzle/schemas/pull-request.s
 export * from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
 export * from '@identity/infrastructure/persistence/drizzle/schemas/configuration-change.schema';
 export * from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
+export * from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/delivery.schema';
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 export * from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
-export * from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 export * from '@platform/persistence/drizzle/schemas/event.schema';
 export * from '@platform/persistence/drizzle/schemas/idempotency.schema';
 export * from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';

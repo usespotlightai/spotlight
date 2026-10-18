@@ -2,21 +2,21 @@ import {
   ReflectionNoticeWording,
   UnreflectedStallWording,
 } from '@replays/application/rendering/reflection-notice';
-import { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
 import {
-  SearchCause,
-  type SearchCauseKind,
-} from '@replays/domain/value-objects/search-cause.vo';
+  FailureCause,
+  type FailureCauseKind,
+} from '@replays/domain/value-objects/failure-cause.vo';
+import { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const cause = (
   at: number,
-  kind: SearchCauseKind,
+  kind: FailureCauseKind,
   suggestion: string | null = null,
 ) =>
-  SearchCause.of({
+  FailureCause.of({
     task: ReflectedTask.of({
       taskId: TaskId.of(`task_${at}`),
       originalRunId: RunId.of(`original_${at}`),
@@ -37,7 +37,7 @@ describe('ReflectionNoticeWording', () => {
   it('names each fix outside the config by its task’s title, and its suggestion or else its evidence', () => {
     const wording = ReflectionNoticeWording.of(
       {
-        outcome: 'no-config-cause',
+        result: 'no-config-cause',
         endedSearch: true,
         looked: 2,
         fixes: [
@@ -59,22 +59,22 @@ describe('ReflectionNoticeWording', () => {
     ]);
   });
 
-  it('says why the search stopped or that it went on', () => {
+  it('says why the search stopped or that it continued', () => {
     const headline = (
-      outcome:
-        | 'went-on'
+      result:
+        | 'continued'
         | 'no-failures'
         | 'did-not-run'
-        | 'out-of-budget'
+        | 'ceiling-reached'
         | 'no-config-cause',
     ) =>
       ReflectionNoticeWording.of(
-        { outcome, endedSearch: outcome !== 'went-on', looked: 1, fixes: [] },
+        { result, endedSearch: result !== 'continued', looked: 1, fixes: [] },
         null,
         TITLES,
       ).headline;
 
-    expect(headline('went-on')).toBe(
+    expect(headline('continued')).toBe(
       'The search for a better station config goes on after finding failures outside the config',
     );
     expect(headline('no-failures')).toBe(
@@ -83,8 +83,8 @@ describe('ReflectionNoticeWording', () => {
     expect(headline('did-not-run')).toBe(
       'The search for a better station config ended after its reflection failed',
     );
-    expect(headline('out-of-budget')).toBe(
-      'The search for a better station config ran out of budget',
+    expect(headline('ceiling-reached')).toBe(
+      'The search for a better station config reached its ceiling',
     );
   });
 
@@ -92,7 +92,7 @@ describe('ReflectionNoticeWording', () => {
     const many = Array.from({ length: 25 }, (_, at) => cause(at, 'infra'));
     const { points } = ReflectionNoticeWording.of(
       {
-        outcome: 'no-config-cause',
+        result: 'no-config-cause',
         endedSearch: true,
         looked: 25,
         fixes: many,
@@ -106,15 +106,15 @@ describe('ReflectionNoticeWording', () => {
   });
 
   it('always says what happened first, even with nothing for a person to fix', () => {
-    for (const outcome of [
-      'went-on',
+    for (const result of [
+      'continued',
       'no-config-cause',
       'no-failures',
       'did-not-run',
-      'out-of-budget',
+      'ceiling-reached',
     ] as const) {
       const { points } = ReflectionNoticeWording.of(
-        { outcome, endedSearch: outcome !== 'went-on', looked: 1, fixes: [] },
+        { result, endedSearch: result !== 'continued', looked: 1, fixes: [] },
         'Build',
         TITLES,
       );

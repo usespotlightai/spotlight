@@ -131,7 +131,11 @@ describe('compileLine', () => {
     const compiled = compileLine(
       withStation(1, {
         ...DELIVERY.stations[1],
-        judge: { rubric: 'A good run is small.\n', sample: 0.2, trust: 0.6 },
+        judge: {
+          rubric: 'A good run is small.\n',
+          sample: 0.2,
+          minAgreement: 0.6,
+        },
         alerts: [
           { measure: 'sent_back_rate', risesBy: 0.2, over: 20 },
           { measure: 'cost_per_run', above: 2, over: 10 },
@@ -145,7 +149,7 @@ describe('compileLine', () => {
     expect(judged?.judge).toMatchObject({
       rubric: 'A good run is small.\n',
       sample: 0.2,
-      trust: 0.6,
+      minAgreement: 0.6,
     });
     expect(judged?.alerts.map((each) => each.measure)).toEqual([
       'sent_back_rate',
@@ -164,7 +168,7 @@ describe('compileLine', () => {
       problemsOf(
         withStation(1, {
           ...DELIVERY.stations[1],
-          judge: { rubric: 'A good run.', sample: 1.5, trust: 0.6 },
+          judge: { rubric: 'A good run.', sample: 1.5, minAgreement: 0.6 },
         }),
       )[0],
     ).toMatchObject({ field: FieldPath.dotted('stations.1.judge.sample') });
@@ -176,9 +180,9 @@ describe('compileLine', () => {
         ...DELIVERY.stations[1],
         judge: {
           claims: ['It adds a test.'],
-          passShare: 1,
+          passThreshold: 1,
           sample: 0.2,
-          trust: 0.6,
+          minAgreement: 0.6,
         },
       }),
     );
@@ -186,13 +190,13 @@ describe('compileLine', () => {
     expect(compiled.ok && compiled.line.stations[1]?.judge).toMatchObject({
       rubric: null,
       claims: ['It adds a test.'],
-      passShare: 1,
+      passThreshold: 1,
     });
     expect(
       problemsOf(
         withStation(1, {
           ...DELIVERY.stations[1],
-          judge: { sample: 0.2, trust: 0.6 },
+          judge: { sample: 0.2, minAgreement: 0.6 },
         }),
       )[0],
     ).toMatchObject({ field: FieldPath.dotted('stations.1.judge.rubric') });
@@ -202,13 +206,15 @@ describe('compileLine', () => {
           ...DELIVERY.stations[1],
           judge: {
             claims: ['A claim.'],
-            passShare: 2,
+            passThreshold: 2,
             sample: 0.2,
-            trust: 0.6,
+            minAgreement: 0.6,
           },
         }),
       )[0],
-    ).toMatchObject({ field: FieldPath.dotted('stations.1.judge.passShare') });
+    ).toMatchObject({
+      field: FieldPath.dotted('stations.1.judge.passThreshold'),
+    });
   });
 
   it('rejects an alert setting at its own path', () => {
@@ -255,7 +261,7 @@ describe('compileLine', () => {
       problemsOf(
         withStation(0, {
           ...DELIVERY.stations[0],
-          judge: { rubric: 'A good run.', sample: 0.2, trust: 0.6 },
+          judge: { rubric: 'A good run.', sample: 0.2, minAgreement: 0.6 },
         }),
       )[0],
     ).toMatchObject({ field: FieldPath.dotted('stations.0.judge') });

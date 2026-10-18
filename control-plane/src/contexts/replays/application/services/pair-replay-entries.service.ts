@@ -1,4 +1,4 @@
-import type { OutcomesPort } from '@replays/application/ports/outcomes.port';
+import type { InsightsPort } from '@replays/application/ports/insights.port';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
 import { ReplayPairingRequested } from '@replays/domain/events/replay-pairing-requested.event';
@@ -11,7 +11,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 export class PairReplayEntries {
   constructor(
     private readonly replays: ReplayRepository,
-    private readonly outcomes: OutcomesPort,
+    private readonly insights: InsightsPort,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -38,15 +38,15 @@ export class PairReplayEntries {
 
     await this.transaction.inTransaction(async () => {
       const replay = await this.replays.find(replayId);
-      const counterpart = replay?.pairsWith
-        ? await this.replays.find(replay.pairsWith)
+      const reference = replay?.pairwiseReferenceId
+        ? await this.replays.find(replay.pairwiseReferenceId)
         : null;
 
-      if (!replay || !counterpart) {
+      if (!replay || !reference) {
         return;
       }
 
-      const paired = replay.pairAgainst(counterpart, (original) =>
+      const paired = replay.pairAgainst(reference, (original) =>
         accepted.has(original.value),
       );
 
@@ -71,7 +71,7 @@ export class PairReplayEntries {
     const accepted = new Set<string>();
 
     for (const original of wanting) {
-      if (await this.outcomes.acceptedAfter(original)) {
+      if (await this.insights.acceptedAfter(original)) {
         accepted.add(original.value);
       }
     }

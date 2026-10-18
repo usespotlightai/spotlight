@@ -18,7 +18,7 @@ import type { ConfigPullRequestRepository } from '@replays/domain/repositories/c
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { overfitOf } from '@replays/domain/services/overfit';
-import { comparedWith } from '@replays/domain/services/replay-results';
+import { taskComparisons } from '@replays/domain/services/replay-results';
 import { scoresOf } from '@replays/domain/services/search-scores';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -48,10 +48,11 @@ const failedAs = (
 const regressionsOf = (
   replay: Replay | null,
   seed: Replay | null,
-  among: readonly RunId[],
+  runSubset: readonly RunId[],
 ): number | null =>
   replay
-    ? comparedWith(replay, seed, among).filter((each) => each.regressed).length
+    ? taskComparisons(replay, seed, runSubset).filter((each) => each.regressed)
+        .length
     : null;
 
 export class OpenConfigPullRequests implements PendingJobsPort {
@@ -305,7 +306,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
         searched: picked?.searchedPairs ?? null,
         heldOut: picked?.heldOutPairs ?? null,
       },
-      onlyOnSeenTasks: overfitOf(
+      overfit: overfitOf(
         picked?.searchedGain ?? null,
         picked?.heldOutGain ?? null,
       ),

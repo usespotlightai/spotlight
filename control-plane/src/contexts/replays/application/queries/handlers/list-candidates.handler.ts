@@ -2,9 +2,9 @@ import type { CandidateResourceDto } from '@replays/application/dto/replays.dto'
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type { ListCandidatesQuery } from '@replays/application/queries/list-candidates.query';
 import { candidateResourceView } from '@replays/application/services/replay-views';
-import { InvalidStationAddressError } from '@replays/domain/exceptions/invalid-station-address.error';
+import { InvalidStationPathError } from '@replays/domain/exceptions/invalid-station-path.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
-import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
+import { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -42,7 +42,7 @@ export class ListCandidatesHandler
 
       return found
         .filter(
-          (each) => each.isProposed && (!at || each.stationAddress.equals(at)),
+          (each) => each.isProposed && (!at || each.stationPath.equals(at)),
         )
         .map(candidateResourceView);
     } catch (error) {
@@ -50,11 +50,11 @@ export class ListCandidatesHandler
     }
   }
 
-  private stationAt(raw: string): StationAddress {
-    const at = StationAddress.parsed(raw);
+  private stationAt(raw: string): StationPath {
+    const at = StationPath.parsed(raw);
 
     if (!at) {
-      throw new InvalidStationAddressError(raw);
+      throw new InvalidStationPathError(raw);
     }
 
     return at;

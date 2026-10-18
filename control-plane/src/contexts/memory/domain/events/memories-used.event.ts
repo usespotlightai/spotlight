@@ -12,7 +12,7 @@ export class MemoriesUsed implements DomainEvent {
     readonly runId: RunId,
     readonly workspaceId: WorkspaceId,
     readonly taskId: TaskId | null,
-    readonly way: MemoryUse,
+    readonly via: MemoryUse,
     readonly memories: readonly MemoryId[],
   ) {}
 }

@@ -45,7 +45,7 @@ const remembering = (run: LeasedRun | null = LEASED) => {
       teamId: TEAM,
       fromOutside: false,
     }),
-    stationSiteOf: async () => ({
+    stationContextOf: async () => ({
       teamId: TEAM,
       lineId: 'line_1',
       lineName: 'Delivery',
@@ -105,13 +105,13 @@ const remembering = (run: LeasedRun | null = LEASED) => {
 };
 
 describe('RememberHandler', () => {
-  it('opens the task’s draft with what the run proposed to remember, grounded in its step', async () => {
+  it('opens the task’s draft with what the run proposed to remember, which cites its step', async () => {
     const { added, remember } = remembering();
 
     const proposed = await remember();
 
     expect(proposed).toMatchObject({
-      origin: 'remembered',
+      proposedBy: 'agent',
       state: 'proposed',
       steps: [{ index: 4, kind: 'remember' }],
     });
@@ -121,7 +121,7 @@ describe('RememberHandler', () => {
     ]);
   });
 
-  it('rejects a run of a chat, which has no task to ground a memory in', async () => {
+  it('rejects a run of a chat, which has no task for a memory to cite', async () => {
     const { remember } = remembering({ ...LEASED, taskId: null });
 
     await expect(remember()).rejects.toMatchObject({

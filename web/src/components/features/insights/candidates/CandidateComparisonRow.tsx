@@ -30,12 +30,12 @@ import {
 import { formatPercent } from '@/lib/judge';
 import { COMPACT_PILL, pillClass } from '@/lib/pill';
 import type { ReplayedStation } from '@/lib/replay';
-import type { GainVerdictCode } from '@/lib/replay-words';
+import type { GainSignificanceCode } from '@/lib/replay-words';
 import { formatCostPerRun } from '@/lib/search';
 import { configChangesOf } from '@/lib/station-config';
 import { cn } from '@/lib/utils';
 
-const INKS: Record<GainVerdictCode, string> = {
+const INKS: Record<GainSignificanceCode, string> = {
   better: 'var(--chart-success)',
   worse: 'var(--destructive)',
   'within-noise': 'var(--chart-axis)',
@@ -99,8 +99,8 @@ export function CandidateComparisonRow({
               interval={shown.interval}
               live={shown.liveSuccessRate}
               ink={
-                candidate.againstLive
-                  ? INKS[candidate.againstLive.verdict]
+                candidate.gainOverLive
+                  ? INKS[candidate.gainOverLive.significance]
                   : undefined
               }
             />
@@ -113,7 +113,7 @@ export function CandidateComparisonRow({
             {formatPercent(shown.liveSuccessRate)}
           </NestedCell>
           <NestedCell heading="Against live" numeric={false}>
-            <GainValue gain={candidate.againstLive} />
+            <GainValue gain={candidate.gainOverLive} />
           </NestedCell>
           <NestedCell heading="Cost per run" strong>
             {costNote ? (

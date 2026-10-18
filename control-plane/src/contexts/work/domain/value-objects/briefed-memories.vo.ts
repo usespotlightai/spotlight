@@ -7,7 +7,7 @@ export interface NamedMemory {
 
 export interface BriefedMemoriesParts {
   readonly briefed: readonly NamedMemory[];
-  readonly cut: readonly NamedMemory[];
+  readonly omitted: readonly NamedMemory[];
 }
 
 const named = (memories: readonly NamedMemory[]): NamedMemory[] =>
@@ -26,7 +26,7 @@ const same = (
 export class BriefedMemories {
   private constructor(
     readonly briefed: readonly NamedMemory[],
-    readonly cut: readonly NamedMemory[],
+    readonly omitted: readonly NamedMemory[],
   ) {}
 
   static none(): BriefedMemories {
@@ -34,7 +34,7 @@ export class BriefedMemories {
   }
 
   static of(parts: BriefedMemoriesParts): BriefedMemories {
-    const all = [...parts.briefed, ...parts.cut];
+    const all = [...parts.briefed, ...parts.omitted];
 
     if (
       all.some((each) => !each.id.trim() || !each.handle.trim()) ||
@@ -42,18 +42,20 @@ export class BriefedMemories {
     ) {
       throw new InconsistentStateError(
         'run',
-        'was briefed with a memory it cannot name, or the same one twice or both briefed and cut',
+        'was briefed with a memory it cannot name, or the same one twice or both briefed and omitted',
       );
     }
 
-    return new BriefedMemories(named(parts.briefed), named(parts.cut));
+    return new BriefedMemories(named(parts.briefed), named(parts.omitted));
   }
 
   get value(): BriefedMemoriesParts {
-    return { briefed: named(this.briefed), cut: named(this.cut) };
+    return { briefed: named(this.briefed), omitted: named(this.omitted) };
   }
 
   equals(other: BriefedMemories): boolean {
-    return same(this.briefed, other.briefed) && same(this.cut, other.cut);
+    return (
+      same(this.briefed, other.briefed) && same(this.omitted, other.omitted)
+    );
   }
 }

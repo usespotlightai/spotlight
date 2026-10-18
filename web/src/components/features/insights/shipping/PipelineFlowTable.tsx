@@ -14,7 +14,7 @@ import { lastedOrNone } from '@/lib/insights';
 import {
   type FlowStage,
   formatPart,
-  STATION_PARTS,
+  STATION_STAGES,
 } from '@/lib/insights-shipping';
 import { SPREAD } from '@/lib/nested-table';
 import { cn } from '@/lib/utils';
@@ -24,7 +24,7 @@ const GROUPS = [
   { id: 'pull-request', label: 'On the pull request', station: false },
 ] as const;
 
-const partHeading = (part: (typeof STATION_PARTS)[number]): string =>
+const partHeading = (part: (typeof STATION_STAGES)[number]): string =>
   formatPart(part).replace(/^./, (first) => first.toUpperCase());
 
 export function PipelineFlowTable({
@@ -38,7 +38,7 @@ export function PipelineFlowTable({
     { label: 'Stage', indent: 'outer' as const, size: 'minmax(10rem,2fr)' },
     { label: 'Time', numeric: true, size: SPREAD },
     ...(broken
-      ? STATION_PARTS.map((part) => ({
+      ? STATION_STAGES.map((part) => ({
           label: partHeading(part),
           numeric: true,
           size: SPREAD,
@@ -83,11 +83,11 @@ export function PipelineFlowTable({
                   >
                     {stage.label}
                     {stage.worst && (
-                      <Noted note="Worst jam: the stage with the longest wait">
+                      <Noted note="Worst bottleneck: the stage with the longest wait">
                         <span className="inline-flex shrink-0">
                           <span
                             role="img"
-                            aria-label="Worst jam"
+                            aria-label="Worst bottleneck"
                             className="size-1.5 rounded-full bg-destructive"
                           />
                         </span>
@@ -98,7 +98,7 @@ export function PipelineFlowTable({
                     {lastedOrNone(stage.ms)}
                   </NestedCell>
                   {broken &&
-                    STATION_PARTS.map((part) => (
+                    STATION_STAGES.map((part) => (
                       <NestedCell key={part} heading={partHeading(part)}>
                         {stage.parts ? lastedOrNone(stage.parts[part]) : '–'}
                       </NestedCell>

@@ -1,26 +1,26 @@
-import { RecordJudgeScore } from '@outcomes/application/services/record-judge-score.service';
-import { StationJudgeReports } from '@outcomes/application/services/station-judge-reports.service';
-import { Judging } from '@outcomes/domain/aggregates/judging.aggregate';
-import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
-import { Score } from '@outcomes/domain/aggregates/score.aggregate';
-import { RunJudged } from '@outcomes/domain/events/run-judged.event';
-import { ScoreVersionConflictError } from '@outcomes/domain/exceptions/score-version-conflict.error';
-import { JudgeEvidence } from '@outcomes/domain/services/judge-evidence';
-import { Citation } from '@outcomes/domain/value-objects/citation.vo';
-import { JudgeReason } from '@outcomes/domain/value-objects/judge-reason.vo';
-import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
-import { Rubric } from '@outcomes/domain/value-objects/rubric.vo';
-import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
-import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
-import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
-import { ScoreId } from '@outcomes/domain/value-objects/score-id.vo';
-import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
-import { SeenEvidence } from '@outcomes/domain/value-objects/seen-evidence.vo';
-import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
-import { DrizzleJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/judging.repository';
-import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
-import { DrizzleScoreRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/score.repository';
-import { DrizzleTaskDeliveryRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-delivery.repository';
+import { RecordJudgeScore } from '@insights/application/services/record-judge-score.service';
+import { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
+import { Judging } from '@insights/domain/aggregates/judging.aggregate';
+import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
+import { Score } from '@insights/domain/aggregates/score.aggregate';
+import { RunJudged } from '@insights/domain/events/run-judged.event';
+import { ScoreVersionConflictError } from '@insights/domain/exceptions/score-version-conflict.error';
+import { JudgeEvidence } from '@insights/domain/services/judge-evidence';
+import { Citation } from '@insights/domain/value-objects/citation.vo';
+import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
+import { Rubric } from '@insights/domain/value-objects/rubric.vo';
+import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
+import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
+import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
+import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
+import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
+import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
+import { DrizzleRunFactProjection } from '@insights/infrastructure/persistence/drizzle/projections/run-fact.projection';
+import { DrizzleJudgingRepository } from '@insights/infrastructure/persistence/drizzle/repositories/judging.repository';
+import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
+import { DrizzleScoreRepository } from '@insights/infrastructure/persistence/drizzle/repositories/score.repository';
+import { DrizzleTaskPullRequestRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-pull-request.repository';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
@@ -43,8 +43,8 @@ const CLAIMS_STATION = 'station_claims';
 const CLAIMS_VERSION = 'e'.repeat(64);
 const CLAIMS = ['It retries the upload.', 'It adds a test for it.'] as const;
 
-const placeOf = (taskId: string) =>
-  RunPlace.of({
+const locationOf = (taskId: string) =>
+  RunLocation.of({
     teamId: TEAM,
     lineId: 'line_1',
     stationId: 'station_1',
@@ -75,11 +75,11 @@ const judged = (runId: string, value: number, at = NOW) =>
     id: ScoreId.of(`judge_${runId}`),
     runId: RunId.of(runId),
     workspaceId: WORKSPACE,
-    place: placeOf(`task_${runId}`),
+    location: locationOf(`task_${runId}`),
     fingerprint: CONFIG,
     scale: YES_NO,
     value,
-    marks: null,
+    claimResults: null,
     rubricVersion: VERSION,
     model: 'some/model',
     reasons: [reason()],
@@ -92,11 +92,11 @@ const graded = (runId: string, value: number, by = 'user_ada') =>
     id: ScoreId.of(`grade_${runId}_${by}`),
     runId: RunId.of(runId),
     workspaceId: WORKSPACE,
-    place: placeOf(`task_${runId}`),
+    location: locationOf(`task_${runId}`),
     fingerprint: CONFIG,
     scale: YES_NO,
     value,
-    marks: null,
+    claimResults: null,
     rubricVersion: VERSION,
     by: UserId.of(by),
     at: LATER,
@@ -105,9 +105,9 @@ const graded = (runId: string, value: number, by = 'user_ada') =>
 const endedRecord = (runId: string) =>
   RunRecord.empty(RunId.of(runId), WORKSPACE).recordEnd(
     RunEnd.of({
-      place: placeOf(`task_${runId}`),
+      location: locationOf(`task_${runId}`),
       fingerprint: CONFIG,
-      setup: RunSetup.of({
+      agentConfig: RunAgentConfig.of({
         harness: 'claude-code',
         model: null,
         effort: null,
@@ -120,7 +120,7 @@ const endedRecord = (runId: string) =>
       endedAt: NOW,
       ending: 'completed',
       failure: null,
-      round: 1,
+      visit: 1,
       asked: false,
     }),
   );
@@ -160,25 +160,25 @@ beforeAll(async () => {
               lineId: 'line_1',
               rubric: null,
               claims: [...CLAIMS],
-              passShare: 0.5,
+              passThreshold: 0.5,
               rubricVersion: CLAIMS_VERSION,
               sample: 1,
-              trust: 0.5,
+              minAgreement: 0.5,
             }
           : {
               teamId: 'team_1',
               lineId: 'line_1',
               rubric: 'Did the run retry uploads?',
               claims: [],
-              passShare: 1,
+              passThreshold: 1,
               rubricVersion: VERSION,
               sample: 1,
-              trust: 0.5,
+              minAgreement: 0.5,
             },
     },
     scores,
     records,
-    new DrizzleTaskDeliveryRepository(
+    new DrizzleTaskPullRequestRepository(
       context,
       new DrizzleRunFactProjection(context),
       dispatcher,
@@ -196,7 +196,7 @@ describe('judgings, stored', () => {
       Judging.requested({
         runId: RunId.of('run_judged'),
         workspaceId: WORKSPACE,
-        place: placeOf('task_judged'),
+        location: locationOf('task_judged'),
         fingerprint: CONFIG,
         rubric: Rubric.of({ text: 'Did it retry?', version: VERSION }),
         now: NOW,
@@ -282,11 +282,11 @@ describe('scores, stored', () => {
           id: ScoreId.of('judge_run_a_again'),
           runId: RunId.of('run_a'),
           workspaceId: WORKSPACE,
-          place: placeOf('task_run_a'),
+          location: locationOf('task_run_a'),
           fingerprint: CONFIG,
           scale: YES_NO,
           value: 0,
-          marks: null,
+          claimResults: null,
           rubricVersion: VERSION,
           model: 'some/model',
           reasons: [reason()],
@@ -306,11 +306,11 @@ describe('scores, stored', () => {
           id: ScoreId.of('grade_twice'),
           runId: RunId.of('run_a'),
           workspaceId: WORKSPACE,
-          place: placeOf('task_run_a'),
+          location: locationOf('task_run_a'),
           fingerprint: CONFIG,
           scale: YES_NO,
           value: 0,
-          marks: null,
+          claimResults: null,
           rubricVersion: VERSION,
           by: UserId.of('user_ada'),
           at: LATER,
@@ -323,7 +323,7 @@ describe('scores, stored', () => {
       mine?.regrade({
         scale: YES_NO,
         value: 0,
-        marks: null,
+        claimResults: null,
         rubricVersion: VERSION,
         at: LATER,
       }) as Score,
@@ -354,7 +354,7 @@ describe('judge scores at many stations, read at once', () => {
       id: ScoreId.of(`judge_${runId}`),
       runId: RunId.of(runId),
       workspaceId: where.workspaceId ?? ELSEWHERE,
-      place: RunPlace.of({
+      location: RunLocation.of({
         teamId: TeamId.of(where.teamId ?? 'team_1'),
         lineId: where.lineId ?? 'line_1',
         stationId: where.stationId,
@@ -363,7 +363,7 @@ describe('judge scores at many stations, read at once', () => {
       fingerprint: CONFIG,
       scale: YES_NO,
       value: 1,
-      marks: null,
+      claimResults: null,
       rubricVersion: where.rubricVersion ?? VERSION,
       model: 'some/model',
       reasons: [reason()],
@@ -408,7 +408,7 @@ describe('judge scores at many stations, read at once', () => {
         id: ScoreId.of('grade_many_c_1'),
         runId: RunId.of('many_c_1'),
         workspaceId: ELSEWHERE,
-        place: RunPlace.of({
+        location: RunLocation.of({
           teamId: TEAM,
           lineId: 'line_1',
           stationId: 'station_c',
@@ -417,7 +417,7 @@ describe('judge scores at many stations, read at once', () => {
         fingerprint: CONFIG,
         scale: YES_NO,
         value: 1,
-        marks: null,
+        claimResults: null,
         rubricVersion: VERSION,
         by: UserId.of('user_ada'),
         at: LATER,
@@ -475,13 +475,13 @@ describe('judge scores at many stations, read at once', () => {
 });
 
 describe('how often the judge agrees with people', () => {
-  it('pairs the station’s judge scores with what people did, and trusts it once it agrees enough', async () => {
+  it('pairs the station’s judge scores with what people did, and qualifies it once it agrees enough', async () => {
     for (let at = 0; at < 12; at += 1) {
       const runId = `run_${at}`;
       const yes = at % 2 === 0;
       await records.add(
         endedRecord(runId).recordAction(
-          NextAct.of(yes ? 'closed' : 'sent-back', LATER),
+          HumanAction.of(yes ? 'accepted' : 'sent-back', LATER),
         ),
       );
       await scores.add(
@@ -505,7 +505,7 @@ describe('how often the judge agrees with people', () => {
       [1, 6],
     ]);
     expect(report.coverage.runs).toBe(12);
-    expect(calibration).toMatchObject({ trusted: true, measure: 'kappa' });
+    expect(calibration).toMatchObject({ qualified: true, measure: 'kappa' });
     expect(
       await reports.calibrationAt({
         workspaceId: WORKSPACE,
@@ -529,7 +529,7 @@ describe('how often the judge agrees with people', () => {
       Judging.requested({
         runId: RunId.of('run_racing'),
         workspaceId: WORKSPACE,
-        place: placeOf('task_racing'),
+        location: locationOf('task_racing'),
         fingerprint: CONFIG,
         rubric: Rubric.of({ text: 'Did it retry?', version: VERSION }),
         now: NOW,
@@ -559,7 +559,7 @@ describe('how often the judge agrees with people', () => {
       new RunJudged(
         RunId.of('run_racing'),
         WORKSPACE,
-        placeOf('task_racing'),
+        locationOf('task_racing'),
         CONFIG,
         VERSION,
         YES_NO,
@@ -587,15 +587,15 @@ describe('how often the judge agrees with people', () => {
 });
 
 describe('how often a claims judge agrees with people, claim by claim', () => {
-  const claimsPlace = (taskId: string) =>
-    RunPlace.of({
+  const claimsLocation = (taskId: string) =>
+    RunLocation.of({
       teamId: TEAM,
       lineId: 'line_1',
       stationId: CLAIMS_STATION,
       taskId: TaskId.of(taskId),
     });
-  const share = (marks: readonly boolean[]) =>
-    marks.filter(Boolean).length / marks.length;
+  const rateOf = (claimResults: readonly boolean[]) =>
+    claimResults.filter(Boolean).length / claimResults.length;
 
   it('stores each claim the judge and people marked, and weighs their agreement on each claim and over all of them', async () => {
     for (let at = 0; at < 12; at += 1) {
@@ -610,11 +610,11 @@ describe('how often a claims judge agrees with people, claim by claim', () => {
           id: ScoreId.of(`judge_${runId}`),
           runId: RunId.of(runId),
           workspaceId: WORKSPACE,
-          place: claimsPlace(`task_${runId}`),
+          location: claimsLocation(`task_${runId}`),
           fingerprint: CONFIG,
           scale: ScoreScale.claims(),
-          value: share(judgeMarks),
-          marks: judgeMarks,
+          value: rateOf(judgeMarks),
+          claimResults: judgeMarks,
           rubricVersion: CLAIMS_VERSION,
           model: 'some/model',
           reasons: [0, 1].map((claim) =>
@@ -633,11 +633,11 @@ describe('how often a claims judge agrees with people, claim by claim', () => {
           id: ScoreId.of(`grade_${runId}`),
           runId: RunId.of(runId),
           workspaceId: WORKSPACE,
-          place: claimsPlace(`task_${runId}`),
+          location: claimsLocation(`task_${runId}`),
           fingerprint: CONFIG,
           scale: ScoreScale.claims(),
-          value: share(personMarks),
-          marks: personMarks,
+          value: rateOf(personMarks),
+          claimResults: personMarks,
           rubricVersion: CLAIMS_VERSION,
           by: UserId.of('user_ada'),
           at: LATER,
@@ -648,7 +648,7 @@ describe('how often a claims judge agrees with people, claim by claim', () => {
     const stored = (await scores.ofRuns([RunId.of('claims_0')])).find(
       (each) => each.fromJudge,
     );
-    expect(stored?.marks).toEqual([true, true]);
+    expect(stored?.claimResults).toEqual([true, true]);
     expect(stored?.reasons.map((each) => each.claim)).toEqual([0, 1]);
 
     const { report, calibration } = await reports.at({

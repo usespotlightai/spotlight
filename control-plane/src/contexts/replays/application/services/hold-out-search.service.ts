@@ -79,14 +79,14 @@ export class HoldOutSearch {
             set,
             candidate,
             baseline: false,
-            ceiling: search.allotment.heldOutReplay,
-            unpricedRate: search.allotment.perRun,
+            ceiling: search.ceilingSplit.heldOutReplay,
+            unpricedRate: search.ceilingSplit.perRun,
             at,
             by: Attribution.spotlight(search.workspaceId),
-            among: search.split.heldOutRuns,
+            runSubset: search.split.heldOutRuns,
             repeats: search.budget.repeats,
             searchId: search.id,
-            pairsWith: search.seed.replay.replayId,
+            pairwiseReferenceId: search.seed.replay.replayId,
           }),
         );
       }

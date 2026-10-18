@@ -16,7 +16,7 @@ export function CandidateReplayLinks({
   return (
     <p className="flex flex-wrap gap-x-3 text-xs">
       <TrailLink to={replayPath(at, candidate.replayId)} className={LINK}>
-        {candidate.seed ? 'Replay of the set' : 'Replay'}
+        {candidate.isSeed ? 'Replay of the set' : 'Replay'}
       </TrailLink>
       {candidate.heldOutReplayId && (
         <TrailLink

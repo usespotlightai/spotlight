@@ -1,4 +1,4 @@
-import type { OutcomesPort } from '@replays/application/ports/outcomes.port';
+import type { InsightsPort } from '@replays/application/ports/insights.port';
 import type { WorkPort } from '@replays/application/ports/work.port';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
@@ -29,7 +29,7 @@ export class StartOracleReplay {
     private readonly replays: ReplayRepository,
     private readonly candidates: CandidateRepository,
     private readonly work: WorkPort,
-    private readonly outcomes: OutcomesPort,
+    private readonly insights: InsightsPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -46,7 +46,7 @@ export class StartOracleReplay {
     if (
       !baseline ||
       !live?.isLive ||
-      baseline.among !== null ||
+      baseline.runSubset !== null ||
       baseline.searchId !== null
     ) {
       return;
@@ -125,7 +125,7 @@ export class StartOracleReplay {
     const runs = set.entries
       .map((each) => each.runId)
       .filter((run) => replayed.some((each) => each.equals(run)));
-    const turned = await this.outcomes.turnedOut(runs);
+    const turned = await this.insights.originalOutcomes(runs);
     const queries = runs.flatMap((run) => {
       const answer = oracleAnswerOf(turned.get(run.value));
 

@@ -18,7 +18,7 @@ type CandidateSetRowsProps = {
   at: ReplayedStation;
   set: CandidatesSet;
   heldOut: boolean;
-  charted: boolean;
+  chartStatus: boolean;
   open: boolean;
   onToggle: () => void;
 };
@@ -27,11 +27,11 @@ export function CandidateSetRows({
   at,
   set,
   heldOut,
-  charted,
+  chartStatus,
   open,
   onToggle,
 }: CandidateSetRowsProps) {
-  const candidates = charted ? [] : set.candidates;
+  const candidates = chartStatus ? [] : set.candidates;
 
   return (
     <>
@@ -45,7 +45,7 @@ export function CandidateSetRows({
       </NestedGroupRow>
 
       <FoldingRows open={open}>
-        {charted && (
+        {chartStatus && (
           <li
             data-slot="candidate-chart"
             className={cn(
@@ -69,7 +69,7 @@ export function CandidateSetRows({
           />
         ))}
 
-        {!charted && set.baseline && (
+        {!chartStatus && set.baseline && (
           <BaselineRow at={at} baseline={set.baseline} heldOut={heldOut} />
         )}
       </FoldingRows>

@@ -17,14 +17,14 @@ import type { Repository } from '@shared-kernel/domain/value-objects/repository.
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export const MAX_TRIES = 5;
+export const MAX_RETRIES = 5;
 
 const FIRST_RETRY_MS = 30_000;
 
 const RETRY_GROWTH = 4;
 
-const retryAfterMs = (tries: number): number =>
-  FIRST_RETRY_MS * RETRY_GROWTH ** (tries - 1);
+const retryAfterMs = (retries: number): number =>
+  FIRST_RETRY_MS * RETRY_GROWTH ** (retries - 1);
 
 const AGGREGATE = 'config pull request';
 
@@ -48,8 +48,8 @@ interface State {
   readonly state: ConfigPullRequestState;
   readonly url: string | null;
   readonly reason: ConfigPullRequestReason | null;
-  readonly attempts: number;
-  readonly tries: number;
+  readonly generation: number;
+  readonly retries: number;
   readonly lastCommit: string | null;
   readonly dueAt: Date | null;
   readonly createdAt: Date;
@@ -133,10 +133,10 @@ export class ConfigPullRequest extends EventRecorder {
         'is due to be tried when, and only when, it is opening',
       );
     }
-    if (!Number.isInteger(state.attempts) || state.attempts < 1) {
+    if (!Number.isInteger(state.generation) || state.generation < 1) {
       throw new InconsistentStateError(
         AGGREGATE,
-        `counts ${state.attempts} attempts, not one or more`,
+        `has generation ${state.generation}, not 1 or more`,
       );
     }
 
@@ -146,7 +146,7 @@ export class ConfigPullRequest extends EventRecorder {
   private static attempted(
     source: ConfigSourceOf | null,
     lineKey: string,
-    attempts: number,
+    generation: number,
     at: Date,
   ): Pick<
     State,
@@ -155,8 +155,8 @@ export class ConfigPullRequest extends EventRecorder {
     | 'state'
     | 'url'
     | 'reason'
-    | 'attempts'
-    | 'tries'
+    | 'generation'
+    | 'retries'
     | 'dueAt'
     | 'updatedAt'
   > {
@@ -166,8 +166,8 @@ export class ConfigPullRequest extends EventRecorder {
       state: source ? 'opening' : 'failed',
       url: null,
       reason: source ? null : ConfigPullRequestReason.noSource(lineKey),
-      attempts,
-      tries: 0,
+      generation,
+      retries: 0,
       dueAt: source ? at : null,
       updatedAt: at,
     };
@@ -229,12 +229,12 @@ export class ConfigPullRequest extends EventRecorder {
     return this.state.reason;
   }
 
-  get attempts(): number {
-    return this.state.attempts;
+  get generation(): number {
+    return this.state.generation;
   }
 
-  get tries(): number {
-    return this.state.tries;
+  get retries(): number {
+    return this.state.retries;
   }
 
   get lastCommit(): string | null {
@@ -261,8 +261,10 @@ export class ConfigPullRequest extends EventRecorder {
     return this.state.state === 'failed';
   }
 
-  isOpening(attempt: number): boolean {
-    return this.state.state === 'opening' && this.state.attempts === attempt;
+  isOpening(generation: number): boolean {
+    return (
+      this.state.state === 'opening' && this.state.generation === generation
+    );
   }
 
   isDue(now: Date): boolean {
@@ -292,7 +294,7 @@ export class ConfigPullRequest extends EventRecorder {
       ConfigPullRequest.attempted(
         input.source,
         input.lineKey,
-        this.state.attempts + 1,
+        this.state.generation + 1,
         input.at,
       ),
     );
@@ -347,16 +349,16 @@ export class ConfigPullRequest extends EventRecorder {
   tried(message: string, at: Date): ConfigPullRequest {
     this.mustBeOpening();
 
-    const tries = this.state.tries + 1;
+    const retries = this.state.retries + 1;
 
-    return tries >= MAX_TRIES
-      ? this.with({ tries }).failed(
+    return retries >= MAX_RETRIES
+      ? this.with({ retries }).failed(
           ConfigPullRequestReason.of({ code: 'github-error', message }),
           at,
         )
       : this.with({
-          tries,
-          dueAt: new Date(at.getTime() + retryAfterMs(tries)),
+          retries,
+          dueAt: new Date(at.getTime() + retryAfterMs(retries)),
           updatedAt: at,
         });
   }
@@ -387,13 +389,13 @@ export class ConfigPullRequest extends EventRecorder {
       searchId: this.state.searchId.value,
       candidateId: this.state.candidateId.value,
       candidate: this.state.candidateName,
-      attempt: this.state.attempts,
+      generation: this.state.generation,
     });
 
     return new ConfigPullRequestRequested(
       this.state.id,
       this.teamId,
-      this.state.attempts,
+      this.state.generation,
       action === 'created'
         ? ConfigurationChange.created(changed, by, detail)
         : ConfigurationChange.updated(changed, by, detail),

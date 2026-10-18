@@ -1,9 +1,9 @@
 import { parseArgs } from 'node:util';
-import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
+import { DrizzleRunFactProjection } from '@insights/infrastructure/persistence/drizzle/projections/run-fact.projection';
 import {
   runFact,
   runRecord,
-} from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
+} from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { parseDatabaseEnv } from '@platform/config/env';
 import { createDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';

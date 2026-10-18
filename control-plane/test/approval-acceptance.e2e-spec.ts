@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import type { INestApplication } from '@nestjs/common';
 import {
   RUN_ACCEPTANCE,
   type RunAcceptancePort,
-} from '@outcomes/application/ports/run-acceptance.port';
-import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
+} from '@insights/application/ports/run-acceptance.port';
+import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
+import type { INestApplication } from '@nestjs/common';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -18,7 +18,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
-import type { PersonAct } from '@work/domain/value-objects/person-act';
+import type { HumanActionKind } from '@work/domain/value-objects/human-action-kind';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
@@ -32,12 +32,12 @@ const ago = (minutes: number) => new Date(NOW - minutes * MINUTE);
 
 const TOOL = CalledTool.of({ server: 'linear', tool: 'create_issue' });
 
-type Acted = readonly [PersonAct, number];
+type Acted = readonly [HumanActionKind, number];
 
 const RUNS = {
   approvedThenClosed: [
     ['approved', 100],
-    ['closed', 90],
+    ['accepted', 90],
   ],
   approvedThenSentBack: [
     ['approved', 100],
@@ -45,11 +45,11 @@ const RUNS = {
   ],
   onlyApproved: [['approved', 100]],
   closedReceivedBeforeTheRefusalBeforeIt: [
-    ['closed', 90],
+    ['accepted', 90],
     ['refused', 100],
   ],
   sentBackReceivedAfterTheCloseAfterIt: [
-    ['closed', 80],
+    ['accepted', 80],
     ['sent-back', 85],
   ],
 } satisfies Record<string, readonly Acted[]>;
@@ -175,14 +175,17 @@ describe('a run a person decided a tool approval for (e2e)', () => {
     expect(await accepted('sentBackReceivedAfterTheCloseAfterIt')).toBe(false);
   });
 
-  it('turns out asking when the person only decided the approval', async () => {
-    const turnouts = await app
+  it('gives each run its disposition when the person only decided the approval', async () => {
+    const dispositions = await app
       .get<RunAcceptancePort>(RUN_ACCEPTANCE)
-      .turnouts([...runIds.values()].map((each) => each.value));
+      .dispositions([...runIds.values()].map((each) => each.value));
 
     expect(
       Object.fromEntries(
-        [...runIds].map(([name, runId]) => [name, turnouts.get(runId.value)]),
+        [...runIds].map(([name, runId]) => [
+          name,
+          dispositions.get(runId.value),
+        ]),
       ),
     ).toEqual({
       approvedThenClosed: 'accepted',
@@ -212,13 +215,14 @@ describe('a run a person decided a tool approval for (e2e)', () => {
   });
 
   it('drills down to the runs by what people did next, never by an approval', async () => {
-    const total = async (next: string) =>
-      (await insights('runs', `period=7d&next=${next}`)).body.total;
+    const total = async (humanAction: string) =>
+      (await insights('runs', `period=7d&humanAction=${humanAction}`)).body
+        .total;
 
-    expect(await total('closed')).toBe(2);
+    expect(await total('accepted')).toBe(2);
     expect(await total('sent-back')).toBe(2);
-    expect((await insights('runs', 'period=7d&next=approved')).status).toBe(
-      422,
-    );
+    expect(
+      (await insights('runs', 'period=7d&humanAction=approved')).status,
+    ).toBe(422);
   });
 });

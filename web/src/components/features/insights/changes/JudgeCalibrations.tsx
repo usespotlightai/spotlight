@@ -35,7 +35,7 @@ export function JudgeCalibrations({
               {formatStation(names, judge.stationId)}
             </TrailLink>
             <span className="text-muted-foreground">
-              {judge.trusted ? 'trusted' : 'hidden'}
+              {judge.qualified ? 'qualified' : 'hidden'}
             </span>
           </li>
         ))}

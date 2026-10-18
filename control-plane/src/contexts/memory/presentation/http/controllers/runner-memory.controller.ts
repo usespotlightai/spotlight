@@ -61,7 +61,7 @@ export class RunnerMemoryController {
   @ApiOperation({
     operationId: 'recallMemories',
     summary:
-      'Search what the run’s team remembers, for an agent that needs more than its briefing, noting what it recalled',
+      'Search what the run’s team remembers, for an agent that needs more than its briefing. It records what the run recalled',
   })
   @ApiBody({ type: RecallMemoriesRequestDto })
   @ApiOkResponse({ type: TeamMemoryResponseDto, isArray: true })
@@ -88,7 +88,7 @@ export class RunnerMemoryController {
   @ApiOperation({
     operationId: 'recallMemory',
     summary:
-      'Read one of the team’s memories in full, by its handle, noting the run recalled it',
+      'Read one of the team’s memories in full, by its handle. It records that the run recalled it',
   })
   @ApiParam({ name: 'handle', type: String, example: 'M-12' })
   @ApiOkResponse({ type: TeamMemoryDetailResponseDto })
@@ -113,7 +113,7 @@ export class RunnerMemoryController {
   @ApiOperation({
     operationId: 'remember',
     summary:
-      'Propose a memory from inside the run, grounded in the step that proposed it',
+      'Propose a memory from inside the run that cites the step that proposed it',
     description:
       'It waits in the inbox beside the task for a person to approve, like a drafted memory.',
   })

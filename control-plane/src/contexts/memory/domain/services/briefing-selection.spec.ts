@@ -7,7 +7,7 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
-import type { TouchedSite } from '@memory/domain/value-objects/run-site';
+import type { TouchedContext } from '@memory/domain/value-objects/run-context';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -46,14 +46,14 @@ const approved = (
       repository: scope.repository ?? null,
       paths: (scope.paths ?? []).map(MemoryPath.of),
     }),
-    grounds: null,
+    provenance: null,
     by: MemoryDecision.of({ by: UserId.of('user_1'), at }),
   });
 };
 
 const OLDER = new Date('2026-09-01T10:00:00.000Z');
 
-const PLACE: TouchedSite = {
+const TOUCHED_CONTEXT: TouchedContext = {
   teamId: TEAM,
   lineId: 'line_delivery',
   stationId: 'station_build',
@@ -63,7 +63,7 @@ const PLACE: TouchedSite = {
 
 const choosing = (
   memories: readonly Memory[],
-  site: TouchedSite,
+  runContext: TouchedContext,
   ranks: Record<string, number> = {},
   recalled: Record<string, number> = {},
 ) =>
@@ -73,7 +73,7 @@ const choosing = (
       rank: ranks[memory.body.value] ?? 0,
       recalled: recalled[memory.body.value] ?? 0,
     })),
-    site,
+    runContext,
   );
 
 const bodies = (memories: readonly Memory[]) =>
@@ -101,7 +101,7 @@ describe('selecting what to brief a run with', () => {
           'A file it does not.',
         ),
       ],
-      PLACE,
+      TOUCHED_CONTEXT,
     );
 
     expect(bodies(chosen.briefed).sort()).toEqual(
@@ -115,7 +115,7 @@ describe('selecting what to brief a run with', () => {
         approved({}, 'Team-wide.'),
         approved({ lineId: 'line_delivery' }, 'This line.'),
       ],
-      { ...PLACE, lineId: null, stationId: null, touched: [] },
+      { ...TOUCHED_CONTEXT, lineId: null, stationId: null, touched: [] },
     );
 
     expect(bodies(chosen.briefed)).toEqual(['Team-wide.']);
@@ -133,7 +133,7 @@ describe('selecting what to brief a run with', () => {
         ),
         approved({ repository: API, paths: ['src'] }, 'Paths.'),
       ],
-      PLACE,
+      TOUCHED_CONTEXT,
     );
 
     expect(bodies(chosen.briefed)).toEqual([
@@ -153,11 +153,11 @@ describe('selecting what to brief a run with', () => {
       approved({}, `${at}`.padEnd(900, '.')),
     );
 
-    expect(choosing(many, PLACE).briefed).toHaveLength(8);
-    expect(choosing(long, PLACE).briefed).toHaveLength(3);
+    expect(choosing(many, TOUCHED_CONTEXT).briefed).toHaveLength(8);
+    expect(choosing(long, TOUCHED_CONTEXT).briefed).toHaveLength(3);
   });
 
-  it('keeps what the cap cut, the nearest to making it first, and never what did not match the run', () => {
+  it('keeps what the cap omitted, the nearest to making it first, and never what did not match the run', () => {
     const many = Array.from({ length: 40 }, (_, at) =>
       approved(
         {},
@@ -167,13 +167,15 @@ describe('selecting what to brief a run with', () => {
     );
     const elsewhere = approved({ lineId: 'line_docs' }, 'Another line.');
 
-    const chosen = choosing([...many, elsewhere], PLACE);
+    const chosen = choosing([...many, elsewhere], TOUCHED_CONTEXT);
 
-    expect(bodies(chosen.cut)).toEqual(
+    expect(bodies(chosen.omitted)).toEqual(
       Array.from({ length: 20 }, (_, at) => `Memory ${at + 8}.`),
     );
-    expect(bodies(chosen.cut)).not.toContain('Another line.');
-    expect(bodies(choosing(many.slice(0, 3), PLACE).cut)).toEqual([]);
+    expect(bodies(chosen.omitted)).not.toContain('Another line.');
+    expect(bodies(choosing(many.slice(0, 3), TOUCHED_CONTEXT).omitted)).toEqual(
+      [],
+    );
   });
 
   it('never briefs a retired memory', () => {
@@ -183,9 +185,9 @@ describe('selecting what to brief a run with', () => {
       at: new Date('2026-09-21T10:00:00.000Z'),
     });
 
-    expect(choosing([retired], PLACE)).toEqual({
+    expect(choosing([retired], TOUCHED_CONTEXT)).toEqual({
       briefed: [],
-      cut: [],
+      omitted: [],
     });
   });
 
@@ -195,7 +197,7 @@ describe('selecting what to brief a run with', () => {
         approved({}, 'Name branches after the ticket.'),
         approved({}, 'Uploads retry in the request.'),
       ],
-      PLACE,
+      TOUCHED_CONTEXT,
       { 'Uploads retry in the request.': 0.03 },
     );
 
@@ -211,7 +213,7 @@ describe('selecting what to brief a run with', () => {
         approved({ lineId: 'line_delivery' }, 'This line names branches.'),
         approved({}, 'Uploads retry in the request.'),
       ],
-      PLACE,
+      TOUCHED_CONTEXT,
       { 'Uploads retry in the request.': 0.1 },
     );
 
@@ -224,7 +226,7 @@ describe('selecting what to brief a run with', () => {
         approved({}, 'Ranked far past strong.', OLDER),
         approved({}, 'Ranked just strong.'),
       ],
-      PLACE,
+      TOUCHED_CONTEXT,
       { 'Ranked far past strong.': 0.9, 'Ranked just strong.': 0.1 },
     );
 
@@ -235,7 +237,7 @@ describe('selecting what to brief a run with', () => {
   });
 
   it('matches a memory about paths the task has not touched only when its words match', () => {
-    const elsewhere = { ...PLACE, touched: [] };
+    const elsewhere = { ...TOUCHED_CONTEXT, touched: [] };
     const aboutUploads = approved(
       { repository: API, paths: ['src/uploads'] },
       'Uploads retry in the request.',
@@ -265,10 +267,10 @@ describe('selecting what to brief a run with', () => {
       }),
     });
 
-    const chosen = choosing([old, correction], PLACE);
+    const chosen = choosing([old, correction], TOUCHED_CONTEXT);
 
     expect(bodies(chosen.briefed)).toEqual(['Name branches after the ticket.']);
-    expect(bodies(chosen.cut)).toEqual([]);
+    expect(bodies(chosen.omitted)).toEqual([]);
   });
 
   it('puts warnings ahead of preferences at the same specificity', () => {
@@ -282,7 +284,7 @@ describe('selecting what to brief a run with', () => {
           'failure',
         ),
       ],
-      PLACE,
+      TOUCHED_CONTEXT,
     );
 
     expect(bodies(chosen.briefed)[0]).toBe(
@@ -293,7 +295,7 @@ describe('selecting what to brief a run with', () => {
   it('nudges up what earlier runs recalled', () => {
     const chosen = choosing(
       [approved({}, 'Newer.'), approved({}, 'Recalled before.', OLDER)],
-      PLACE,
+      TOUCHED_CONTEXT,
       {},
       { 'Recalled before.': 2 },
     );
@@ -315,7 +317,7 @@ describe('selecting what to brief a run with', () => {
           'failure',
         ),
       ],
-      { ...PLACE, touched: [] },
+      { ...TOUCHED_CONTEXT, touched: [] },
       { 'Fix retries by draining the queue.': 0.04 },
     );
 

@@ -4,14 +4,14 @@ import {
 } from '@replays/domain/aggregates/replay-set.aggregate';
 import { ReplaySetDeleted } from '@replays/domain/events/replay-set-deleted.event';
 import { ReplaySetEntriesChanged } from '@replays/domain/events/replay-set-entries-changed.event';
-import { ReplaySetGuardChanged } from '@replays/domain/events/replay-set-guard-changed.event';
+import { ReplaySetGateChanged } from '@replays/domain/events/replay-set-gate-changed.event';
 import { ReplaySetStationGone } from '@replays/domain/events/replay-set-station-gone.event';
-import { ChangesGuardedElsewhereError } from '@replays/domain/exceptions/changes-guarded-elsewhere.error';
+import { ChangesGatedElsewhereError } from '@replays/domain/exceptions/changes-gated-elsewhere.error';
 import { ReplaySetEntryElsewhereError } from '@replays/domain/exceptions/replay-set-entry-elsewhere.error';
 import { ReplaySetEntryTakenError } from '@replays/domain/exceptions/replay-set-entry-taken.error';
 import { ReplaySetFullError } from '@replays/domain/exceptions/replay-set-full.error';
+import { ReplaySetInUseError } from '@replays/domain/exceptions/replay-set-in-use.error';
 import { ReplaySetStationGoneError } from '@replays/domain/exceptions/replay-set-station-gone.error';
-import { ReplaySetUnderwayError } from '@replays/domain/exceptions/replay-set-underway.error';
 import { UnknownReplaySetEntryError } from '@replays/domain/exceptions/unknown-replay-set-entry.error';
 import { UnreplayableEntryError } from '@replays/domain/exceptions/unreplayable-entry.error';
 import { aSet, BY, NOW, STATION } from '@replays/domain/replays.fake-spec';
@@ -111,11 +111,11 @@ describe('ReplaySet', () => {
     );
   });
 
-  it('is not deleted while a replay of it is underway', () => {
-    expect(() => aSet(1).delete(true)).toThrow(ReplaySetUnderwayError);
+  it('is not deleted while a replay of it is in progress', () => {
+    expect(() => aSet(1).delete(true)).toThrow(ReplaySetInUseError);
   });
 
-  it('is deleted once nothing of it is underway, saying so', () => {
+  it('is deleted once nothing of it is in progress, saying so', () => {
     const set = aSet(1);
     set.pullEvents();
 
@@ -166,17 +166,17 @@ describe('ReplaySet', () => {
     );
   });
 
-  describe('while a search is underway', () => {
+  describe('while a search is in progress', () => {
     it('takes no run, lets none go and is not deleted', () => {
       const set = aSet(2);
 
       expect(() => set.withEntry(replayable('run_9'), NOW, true)).toThrow(
-        ReplaySetUnderwayError,
+        ReplaySetInUseError,
       );
       expect(() => set.withoutEntry(RunId.of('original_0'), true)).toThrow(
-        ReplaySetUnderwayError,
+        ReplaySetInUseError,
       );
-      expect(() => set.delete(true)).toThrow(ReplaySetUnderwayError);
+      expect(() => set.delete(true)).toThrow(ReplaySetInUseError);
     });
   });
 
@@ -191,55 +191,55 @@ describe('ReplaySet', () => {
 
     it('checks its station’s changes when no other set there does', () => {
       const set = atStation('set_a');
-      const checking = set.guardingChanges([set, atStation('set_b')], BY);
+      const checking = set.gatingChanges([set, atStation('set_b')], BY);
 
-      expect(set.guardsChanges).toBe(false);
-      expect(checking.guardsChanges).toBe(true);
-      expect(checking.guardingChanges([checking], BY)).toBe(checking);
-      expect(checking.notGuardingChanges(BY).guardsChanges).toBe(false);
-      expect(set.notGuardingChanges(BY)).toBe(set);
+      expect(set.gatesChanges).toBe(false);
+      expect(checking.gatesChanges).toBe(true);
+      expect(checking.gatingChanges([checking], BY)).toBe(checking);
+      expect(checking.notGatingChanges(BY).gatesChanges).toBe(false);
+      expect(set.notGatingChanges(BY)).toBe(set);
     });
 
     it('rejects while another set at its station checks them', () => {
-      const other = atStation('set_b').guardingChanges([], BY);
+      const other = atStation('set_b').gatingChanges([], BY);
       const elsewhere = ReplaySet.create({
         id: ReplaySetId.of('set_c'),
         station: { ...STATION, stationId: 'station_ship' },
         name: ReplaySetName.of('Ship'),
         at: NOW,
-      }).guardingChanges([], BY);
+      }).gatingChanges([], BY);
 
-      expect(() => atStation('set_a').guardingChanges([other], BY)).toThrow(
-        new ChangesGuardedElsewhereError(STATION.stationId),
+      expect(() => atStation('set_a').gatingChanges([other], BY)).toThrow(
+        new ChangesGatedElsewhereError(STATION.stationId),
       );
       expect(
-        atStation('set_a').guardingChanges([elsewhere], BY).guardsChanges,
+        atStation('set_a').gatingChanges([elsewhere], BY).gatesChanges,
       ).toBe(true);
     });
 
-    it('records who changed whether it guards its station’s changes', () => {
-      const checking = atStation('set_a').guardingChanges([], BY);
-      const [guarded] = checking.pullEvents();
-      const [unguarded] = checking.notGuardingChanges(BY).pullEvents();
+    it('records who changed whether it gates its station’s changes', () => {
+      const checking = atStation('set_a').gatingChanges([], BY);
+      const [gated] = checking.pullEvents();
+      const [ungated] = checking.notGatingChanges(BY).pullEvents();
 
-      expect(guarded).toBeInstanceOf(ReplaySetGuardChanged);
-      expect((guarded as ReplaySetGuardChanged).change).toMatchObject({
+      expect(gated).toBeInstanceOf(ReplaySetGateChanged);
+      expect((gated as ReplaySetGateChanged).change).toMatchObject({
         resource: 'replay-set',
         action: 'updated',
         key: 'set_a',
       });
-      expect((guarded as ReplaySetGuardChanged).change.recordedDetail).toEqual({
-        guardsChanges: true,
+      expect((gated as ReplaySetGateChanged).change.recordedDetail).toEqual({
+        gatesChanges: true,
       });
-      expect(
-        (unguarded as ReplaySetGuardChanged).change.recordedDetail,
-      ).toEqual({ guardsChanges: false });
-      expect(checking.guardingChanges([checking], BY).pullEvents()).toEqual([]);
+      expect((ungated as ReplaySetGateChanged).change.recordedDetail).toEqual({
+        gatesChanges: false,
+      });
+      expect(checking.gatingChanges([checking], BY).pullEvents()).toEqual([]);
     });
 
     it('checks nothing at a station that is gone', () => {
       expect(() =>
-        atStation('set_a').stationLeft(NOW).guardingChanges([], BY),
+        atStation('set_a').stationLeft(NOW).gatingChanges([], BY),
       ).toThrow(ReplaySetStationGoneError);
     });
   });

@@ -20,7 +20,7 @@ export type SetChanged = Planned<{ readonly outcome: 'changed' }>;
 
 export type SetDeleted = Planned<{ readonly outcome: 'deleted' }>;
 
-interface StartedSpend {
+interface StartedMoney {
   readonly amount: number;
   readonly currency: string;
 }
@@ -28,10 +28,10 @@ interface StartedSpend {
 export type ReplayStarted = Planned<{
   readonly outcome: 'started';
   readonly id: string;
-  readonly ceiling: StartedSpend;
+  readonly ceiling: StartedMoney;
   readonly baseline: {
     readonly id: string;
-    readonly ceiling: StartedSpend;
+    readonly ceiling: StartedMoney;
     readonly status: 'started' | 'starting';
   } | null;
 }>;
@@ -81,7 +81,7 @@ export type CandidatePicked = Planned<{
   readonly pullRequest: ConfigPullRequestDto;
 }>;
 
-export interface SearchCauseRecorded {
+export interface FailureCauseRecorded {
   readonly taskId: string;
   readonly cause: string;
   readonly replayRunId: string;

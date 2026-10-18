@@ -65,7 +65,9 @@ export const moneyOf = (amount: number | null) =>
 
 const mergedTasksOf = (runs: readonly HistoryRun[]): number =>
   distinct(
-    runs.filter((run) => run.delivery === 'merged').map((run) => run.taskId),
+    runs
+      .filter((run) => run.pullRequestState === 'merged')
+      .map((run) => run.taskId),
   ).length;
 
 export const tallyOf = (runs: readonly HistoryRun[]): RunTallyResponseDto => {
@@ -81,12 +83,12 @@ export const tallyOf = (runs: readonly HistoryRun[]): RunTallyResponseDto => {
     runs: runs.length,
     cancelled: 0,
     failed,
-    failedShare: shareOf(failed, runs.length),
+    failedRate: shareOf(failed, runs.length),
     stopped: count((run) => run.ending === 'stopped'),
     checksPassed: count((run) => run.checks === 'passed'),
     checksFailed: count((run) => run.checks === 'failed'),
-    accepted: count((run) => run.next?.act === 'closed'),
-    sentBack: count((run) => run.next?.act === 'sent-back'),
+    accepted: count((run) => run.firstHumanAction?.kind === 'accepted'),
+    sentBack: count((run) => run.firstHumanAction?.kind === 'sent-back'),
     passed: count((run) => run.passed !== null),
     merged: mergedTasksOf(runs),
     cost: moneyOf(spendOf(runs)),
@@ -108,12 +110,16 @@ const readingOf = (
   runs: readonly HistoryRun[],
 ): Reading => {
   const tally = tallyOf(runs);
-  const asked = runs.filter((run) => run.next !== null).length;
+  const asked = runs.filter((run) => run.firstHumanAction !== null).length;
   const checked = tally.checksPassed + tally.checksFailed;
   const tasks = distinct(runs.map((run) => run.taskId)).length;
   const finishedTasks = distinct(
     runs
-      .filter((run) => run.delivery === 'merged' || run.delivery === 'closed')
+      .filter(
+        (run) =>
+          run.pullRequestState === 'merged' ||
+          run.pullRequestState === 'closed',
+      )
       .map((run) => run.taskId),
   ).length;
 

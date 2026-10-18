@@ -1,21 +1,21 @@
-import type { ReflectionOutcome } from '@replays/domain/value-objects/reflection-outcome';
-import type { SearchCause } from '@replays/domain/value-objects/search-cause.vo';
+import type { FailureCause } from '@replays/domain/value-objects/failure-cause.vo';
+import type { ReflectionResult } from '@replays/domain/value-objects/reflection-result';
 import type { SearchIteration } from '@replays/domain/value-objects/search-iteration.vo';
 
 export interface ReflectionNotice {
-  readonly outcome: ReflectionOutcome;
+  readonly result: ReflectionResult;
   readonly endedSearch: boolean;
   readonly looked: number;
-  readonly fixes: readonly SearchCause[];
+  readonly fixes: readonly FailureCause[];
 }
 
 export const reflectionNotice = (
   reflection: SearchIteration,
 ): ReflectionNotice | null => {
-  const { outcome, endedSearch } = reflection;
+  const { result, endedSearch } = reflection;
   const fixes = reflection.causes.filter((each) => !each.configCanFix);
 
-  return outcome && (endedSearch || fixes.length > 0)
-    ? { outcome, endedSearch, looked: reflection.reflectedOn.length, fixes }
+  return result && (endedSearch || fixes.length > 0)
+    ? { result, endedSearch, looked: reflection.reflectedOn.length, fixes }
     : null;
 };

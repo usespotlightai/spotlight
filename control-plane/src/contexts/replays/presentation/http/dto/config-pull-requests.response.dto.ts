@@ -142,9 +142,9 @@ export class ConfigPullRequestResponseDto extends CandidatePullRequestResponseDt
   @ApiProperty({
     example: 1,
     description:
-      'How many times a person picked it; each pick after a failure tries again',
+      'How many times a person picked it. Each pick after a failure starts a new generation',
   })
-  readonly attempts: number;
+  readonly generation: number;
 
   @ApiProperty({ example: '2026-10-02T09:00:00.000Z' })
   readonly createdAt: string;
@@ -164,7 +164,7 @@ export class ConfigPullRequestResponseDto extends CandidatePullRequestResponseDt
     this.repository = pullRequest.repository;
     this.path = pullRequest.path;
     this.branch = pullRequest.branch;
-    this.attempts = pullRequest.attempts;
+    this.generation = pullRequest.generation;
     this.createdAt = pullRequest.createdAt;
     this.updatedAt = pullRequest.updatedAt;
   }

@@ -93,7 +93,7 @@ describe('a search run', () => {
         SEARCH_SPEC,
         BriefedMemories.of({
           briefed: [{ id: 'memory_1', handle: 'M-1' }],
-          cut: [],
+          omitted: [],
         }),
       ),
     ).toThrow(InvalidRunTransitionError);

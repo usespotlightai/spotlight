@@ -2,28 +2,28 @@ import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import type { RateInterval } from '@replays/domain/services/bootstrap';
 import {
-  type GainReading,
-  type GainVerdict,
+  type GainEstimate,
+  type GainSignificance,
   gainBetween,
-} from '@replays/domain/services/gain-reading';
+} from '@replays/domain/services/gain-estimate';
 import {
   type PairTally,
   pairTallyOf,
   totalsOf,
 } from '@replays/domain/services/replay-results';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 interface CandidateScores {
   readonly candidateId: CandidateId;
-  readonly searchedGain: GainReading | null;
-  readonly heldOutGain: GainReading | null;
+  readonly searchedGain: GainEstimate | null;
+  readonly heldOutGain: GainEstimate | null;
   readonly searchedPairs: PairTally | null;
   readonly heldOutPairs: PairTally | null;
-  readonly searchedVerdict: GainVerdict | null;
-  readonly heldOutVerdict: GainVerdict | null;
+  readonly searchedSignificance: GainSignificance | null;
+  readonly heldOutSignificance: GainSignificance | null;
   readonly replayId: ReplayId;
   readonly heldOutReplayId: ReplayId | null;
   readonly seed: boolean;
@@ -34,7 +34,7 @@ interface CandidateScores {
   readonly heldOutScore: number | null;
   readonly heldOutInterval: RateInterval | null;
   readonly costPerRun: number | null;
-  readonly spent: Spend;
+  readonly spent: Money;
 }
 
 export interface SearchScores {
@@ -47,12 +47,12 @@ interface Scored {
   readonly interval: RateInterval | null;
   readonly scored: number;
   readonly costPerRun: number | null;
-  readonly spent: Spend;
+  readonly spent: Money;
 }
 
 export const scoredOn = (
   replay: Replay | null,
-  among: readonly RunId[] | null,
+  runSubset: readonly RunId[] | null,
   currency: string,
 ): Scored => {
   if (!replay) {
@@ -61,11 +61,11 @@ export const scoredOn = (
       interval: null,
       scored: 0,
       costPerRun: null,
-      spent: Spend.none(currency),
+      spent: Money.none(currency),
     };
   }
 
-  const totals = totalsOf(replay, among);
+  const totals = totalsOf(replay, runSubset);
   const priced =
     totals.unpriced === 0 &&
     totals.unpricedCalls === 0 &&
@@ -86,8 +86,8 @@ const finished = (replay: Replay | null): boolean =>
 
 const pairsOf = (
   replay: Replay | null,
-  among: readonly RunId[],
-): PairTally | null => (replay ? pairTallyOf(replay, among) : null);
+  runSubset: readonly RunId[],
+): PairTally | null => (replay ? pairTallyOf(replay, runSubset) : null);
 
 export const scoresOf = (
   search: Search,
@@ -113,8 +113,8 @@ export const scoresOf = (
       heldOutGain: null,
       searchedPairs: null,
       heldOutPairs: null,
-      searchedVerdict: null,
-      heldOutVerdict: null,
+      searchedSignificance: null,
+      heldOutSignificance: null,
       replayId: search.seed.replay.replayId,
       heldOutReplayId: null,
       seed: true,
@@ -125,7 +125,7 @@ export const scoresOf = (
       heldOutScore: finished(seedReplay) ? seedHeldOut.score : null,
       heldOutInterval: finished(seedReplay) ? seedHeldOut.interval : null,
       costPerRun: seedSearched.costPerRun,
-      spent: seedReplay?.spent ?? Spend.none(currency),
+      spent: seedReplay?.spent ?? Money.none(currency),
     },
     candidates: search.proposals.map((proposal) => {
       const searchReplay = found(proposal.replay.replayId);
@@ -153,8 +153,8 @@ export const scoresOf = (
         heldOutGain: gain?.heldOut ?? null,
         searchedPairs: pairsOf(searchReplay, search.split.searchedRuns),
         heldOutPairs: pairsOf(heldOutReplay, search.split.heldOutRuns),
-        searchedVerdict: gain?.searched?.verdict ?? null,
-        heldOutVerdict: gain?.heldOut?.verdict ?? null,
+        searchedSignificance: gain?.searched?.significance ?? null,
+        heldOutSignificance: gain?.heldOut?.significance ?? null,
         replayId: proposal.replay.replayId,
         heldOutReplayId: heldOutId,
         seed: false,
@@ -172,8 +172,8 @@ export const scoresOf = (
 };
 
 interface SearchGains {
-  readonly searched: GainReading | null;
-  readonly heldOut: GainReading | null;
+  readonly searched: GainEstimate | null;
+  readonly heldOut: GainEstimate | null;
 }
 
 const searchGainsOf = (

@@ -19,8 +19,8 @@ import { UnreplayableRunError } from '@work/domain/exceptions/unreplayable-run.e
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ReplayRunClaim } from '@work/domain/value-objects/replay-run-claim.vo';
 
-const OVER_BUDGET =
-  'Replay used up its budget before a runner claimed the run.';
+const CEILING_REACHED =
+  'Replay reached its ceiling before a runner claimed the run.';
 const STOPPED = 'Replay stopped before a runner claimed the run.';
 
 const unreplayable = (
@@ -93,7 +93,7 @@ export class ReplayRuns implements ReplayDispatchPort {
 
   cancelQueued(runIds: readonly string[]): Promise<void> {
     return this.each(runIds, (run) =>
-      run.state === 'queued' ? run.cancelQueued(OVER_BUDGET) : run,
+      run.state === 'queued' ? run.cancelQueued(CEILING_REACHED) : run,
     );
   }
 

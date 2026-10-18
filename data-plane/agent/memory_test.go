@@ -28,7 +28,7 @@ func remembering(t *testing.T, rejecting error) *memoryChannel {
 
 	seen := &memoryChannel{}
 	name := "Ada"
-	grounds := &protocol.MemoryGrounds{TaskID: "task_1", RunID: "run_1"}
+	provenance := &protocol.MemoryProvenance{TaskID: "task_1", RunID: "run_1"}
 	repository := "acme/api"
 
 	server.Memories(
@@ -39,7 +39,7 @@ func remembering(t *testing.T, rejecting error) *memoryChannel {
 				Body: "Uploads retry in the request,\nnot from a queue.", Source: "run", Scope: "line",
 				Repository: &repository, Paths: []string{"src/uploads"},
 				ApprovedBy: protocol.MemoryPerson{ID: "user_1", Name: &name},
-				ApprovedAt: "2026-09-21T10:00:00.000Z", Grounds: grounds,
+				ApprovedAt: "2026-09-21T10:00:00.000Z", Provenance: provenance,
 				Steps:      []protocol.MemoryStep{{Index: 14, Kind: "thought", Text: "A queue needs a worker we do not run."}},
 				Superseded: &protocol.MemoryLink{Handle: "M-7", Body: "Uploads retry from a queue."},
 			}
@@ -103,7 +103,7 @@ func TestRecallSaysSoWhenNothingMatches(t *testing.T) {
 	}
 }
 
-func TestRecallByHandleShowsTheMemoryInFullWithItsGrounds(t *testing.T) {
+func TestRecallByHandleShowsTheMemoryInFullWithItsProvenance(t *testing.T) {
 	seen := remembering(t, nil)
 	out := new(bytes.Buffer)
 

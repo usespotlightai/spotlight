@@ -11,7 +11,7 @@ import { useStationJudge } from '@/hooks/api/useStationJudge';
 import { formatStat } from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
 import { JUDGE_ANCHOR, judgeAgreementPath } from '@/lib/station';
-import { type JudgeSettings, sharePercent } from '@/lib/station-watch';
+import { type JudgeSettings, sharePercent } from '@/lib/station-monitoring';
 
 type JudgeInstrumentProps = {
   slug: string;
@@ -65,7 +65,7 @@ export function JudgeInstrument({
       <div className="mt-auto flex flex-col gap-3 pt-2">
         {failed(agreement) ? (
           <p className="text-[0.7rem] text-muted-foreground">
-            Trusted from {formatStat(judge.trust)} agreement
+            Qualified from {formatStat(judge.minAgreement)} agreement
           </p>
         ) : loading(agreement) || !agreement.data ? (
           <Skeleton className="h-9 w-full rounded-md" />
@@ -74,7 +74,10 @@ export function JudgeInstrument({
         )}
 
         {judge.claims.length > 0 && (
-          <JudgeClaims claims={judge.claims} passShare={judge.passShare} />
+          <JudgeClaims
+            claims={judge.claims}
+            passThreshold={judge.passThreshold}
+          />
         )}
 
         {judge.rubric !== null && (

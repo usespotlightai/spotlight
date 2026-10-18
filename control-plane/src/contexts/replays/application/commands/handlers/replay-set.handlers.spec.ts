@@ -228,7 +228,7 @@ describe('DeleteReplaySetHandler', () => {
       TRANSACTION,
     );
 
-  it('rejects while a replay of the set is underway', async () => {
+  it('rejects while a replay of the set is in progress', async () => {
     await memory.setRepository.add(aSet(1));
     await memory.replayRepository.add(aReplay({ count: 1 }));
 
@@ -241,7 +241,7 @@ describe('DeleteReplaySetHandler', () => {
     ).toBe('conflict');
   });
 
-  it('deletes a set nothing of is underway', async () => {
+  it('deletes a set nothing of is in progress', async () => {
     await memory.setRepository.add(aSet(1));
 
     await deleting().execute(

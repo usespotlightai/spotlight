@@ -54,7 +54,7 @@ const reading = (
   const sights = sightsInMemory();
 
   if (Array.isArray(over.hidden)) {
-    sights.sees('run_1', aSight({ hiddenTasks: over.hidden }));
+    sights.sees('run_1', aSight({ heldOutTasks: over.hidden }));
   }
 
   return {

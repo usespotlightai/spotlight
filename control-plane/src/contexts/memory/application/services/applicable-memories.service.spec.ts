@@ -8,7 +8,7 @@ import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { RecallWords } from '@memory/domain/value-objects/recall-words.vo';
-import type { RunSite } from '@memory/domain/value-objects/run-site';
+import type { RunContext } from '@memory/domain/value-objects/run-context';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -19,7 +19,7 @@ const ELSEWHERE = TeamId.of('team_2');
 const AT = new Date('2026-09-27T10:00:00.000Z');
 const BY = MemoryDecision.of({ by: UserId.of('user_1'), at: AT });
 
-const SITE: RunSite = {
+const RUN_CONTEXT: RunContext = {
   teamId: TEAM,
   lineId: 'line_1',
   stationId: 'station_1',
@@ -40,7 +40,7 @@ const approved = (
       teamId: scope.teamId ?? TEAM,
       lineId: scope.lineId ?? null,
     }),
-    grounds: null,
+    provenance: null,
     by: BY,
   });
 
@@ -98,7 +98,7 @@ describe('ApplicableMemories', () => {
       ],
     });
 
-    expect(handles(await memories.at(SITE))).toEqual(['M-1']);
+    expect(handles(await memories.at(RUN_CONTEXT))).toEqual(['M-1']);
   });
 
   it('leaves out a memory whose correction is already active, even one that applies elsewhere', async () => {
@@ -108,7 +108,7 @@ describe('ApplicableMemories', () => {
       successors: [correcting(old, 3, 'line_other')],
     });
 
-    expect(handles(await memories.at(SITE))).toEqual(['M-2']);
+    expect(handles(await memories.at(RUN_CONTEXT))).toEqual(['M-2']);
   });
 
   it('recalls in the order of relevance, only what is active on the team and is not yet corrected', async () => {

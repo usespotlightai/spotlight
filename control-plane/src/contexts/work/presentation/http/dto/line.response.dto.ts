@@ -30,7 +30,7 @@ export class StationJudgeResponseDto {
     description:
       'The share of claims a run must meet to pass, from 0 to 1. 1 means every claim',
   })
-  readonly passShare: number;
+  readonly passThreshold: number;
 
   @ApiProperty({
     example: 0.2,
@@ -43,14 +43,14 @@ export class StationJudgeResponseDto {
     description:
       'How often the judge must agree with people, from 0 to 1, before its scores show',
   })
-  readonly trust: number;
+  readonly minAgreement: number;
 
   constructor(judge: StationJudgeSummary) {
     this.rubric = judge.rubric;
     this.claims = [...judge.claims];
-    this.passShare = judge.passShare;
+    this.passThreshold = judge.passThreshold;
     this.sample = judge.sample;
-    this.trust = judge.trust;
+    this.minAgreement = judge.minAgreement;
   }
 }
 

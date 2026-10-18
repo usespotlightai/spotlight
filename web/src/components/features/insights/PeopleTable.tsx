@@ -16,7 +16,7 @@ type PersonUse = InsightsPeople['adoption']['people'][number];
 const HEADINGS = [
   { label: 'Person', indent: 'edge' as const, size: 'minmax(10rem,2fr)' },
   { label: 'Tasks opened', numeric: true, size: SPREAD },
-  { label: 'Acts', numeric: true, size: SPREAD },
+  { label: 'Actions', numeric: true, size: SPREAD },
   { label: 'Chats', numeric: true, size: SPREAD },
   { label: 'First seen', numeric: true, size: SPREAD },
   { label: 'Last active', numeric: true, size: SPREAD },
@@ -56,7 +56,9 @@ export function PeopleTable({ people }: { people: readonly PersonUse[] }) {
           <NestedCell heading="Tasks opened" strong>
             {formatCount(person.tasksOpened)}
           </NestedCell>
-          <NestedCell heading="Acts">{formatCount(person.acts)}</NestedCell>
+          <NestedCell heading="Actions">
+            {formatCount(person.actions)}
+          </NestedCell>
           <NestedCell heading="Chats">{formatCount(person.chats)}</NestedCell>
           <NestedCell heading="First seen">
             {formatDay(dayOf(person.firstSeenAt))}

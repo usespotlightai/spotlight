@@ -5,14 +5,14 @@ import {
 } from '@memory/domain/entities/memory-proposal.entity';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
-import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { parseMemoryKind } from '@memory/domain/value-objects/memory-kind';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
+import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { parseMemoryScopeLevel } from '@memory/domain/value-objects/memory-scope-level';
 import type { MemorySource } from '@memory/domain/value-objects/memory-source';
-import type { StationSite } from '@memory/domain/value-objects/run-site';
+import type { StationContext } from '@memory/domain/value-objects/run-context';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -88,7 +88,7 @@ export class DraftEvidence {
   private constructor(
     private readonly taskId: TaskId,
     private readonly runId: RunId,
-    private readonly site: StationSite,
+    private readonly runContext: StationContext,
     readonly steps: readonly EvidenceStep[],
     readonly stepsLeftOut: number,
     readonly notes: readonly EvidenceNote[],
@@ -101,7 +101,7 @@ export class DraftEvidence {
   static of(input: {
     taskId: TaskId;
     runId: RunId;
-    site: StationSite;
+    runContext: StationContext;
     steps: readonly EvidenceStep[];
     notes: readonly EvidenceNote[];
     notesRead: number;
@@ -135,7 +135,7 @@ export class DraftEvidence {
     });
 
     const active = input.known
-      .filter((each) => each.appliesAt(input.site))
+      .filter((each) => each.appliesAt(input.runContext))
       .sort(
         (one, other) => other.approval.at.getTime() - one.approval.at.getTime(),
       )
@@ -144,7 +144,7 @@ export class DraftEvidence {
     return new DraftEvidence(
       input.taskId,
       input.runId,
-      input.site,
+      input.runContext,
       steps,
       input.steps.length - steps.length,
       [...revisited, ...unread],
@@ -174,7 +174,7 @@ export class DraftEvidence {
     proposed: ProposedMemory,
     now: Date,
   ): MemoryProposal {
-    const grounds = MemoryGrounds.of({
+    const provenance = MemoryProvenance.of({
       taskId: this.taskId,
       runId: this.runId,
       steps: proposed.steps,
@@ -182,7 +182,7 @@ export class DraftEvidence {
     });
 
     if (
-      !grounds.steps.every((index) =>
+      !provenance.steps.every((index) =>
         this.steps.some((each) => each.index === index),
       )
     ) {
@@ -191,7 +191,7 @@ export class DraftEvidence {
       );
     }
 
-    if (!grounds.notes.every((position) => this.authorOf(position))) {
+    if (!provenance.notes.every((position) => this.authorOf(position))) {
       throw new InvalidMemoryError('cites only notes its drafter read');
     }
 
@@ -208,9 +208,9 @@ export class DraftEvidence {
       kind: parseMemoryKind(proposed.kind),
       body: MemoryBody.of(proposed.body),
       scope: this.scopeOf(proposed),
-      grounds,
-      source: this.sourceOf(grounds),
-      origin: 'drafted',
+      provenance,
+      source: this.sourceOf(provenance),
+      proposedBy: 'drafter',
       supersedes,
       recordedAt: now,
     });
@@ -224,7 +224,7 @@ export class DraftEvidence {
     const level = parseMemoryScopeLevel(proposed.scope);
     const named = proposed.repository?.trim() || null;
     const repository = named
-      ? this.site.repositories.find((each) => each.value === named)
+      ? this.runContext.repositories.find((each) => each.value === named)
       : null;
 
     if (named && !repository) {
@@ -240,25 +240,25 @@ export class DraftEvidence {
         this.changedKeys.has(changeKey(repository.value, each)),
       )
     ) {
-      throw new InvalidMemoryError('bears only on paths its run changed');
+      throw new InvalidMemoryError('is only about paths its run changed');
     }
 
     return MemoryScope.of({
-      teamId: this.site.teamId,
-      lineId: level === 'team' ? null : this.site.lineId,
-      stationId: level === 'station' ? this.site.stationId : null,
+      teamId: this.runContext.teamId,
+      lineId: level === 'team' ? null : this.runContext.lineId,
+      stationId: level === 'station' ? this.runContext.stationId : null,
       repository,
       paths,
     });
   }
 
-  private sourceOf(grounds: MemoryGrounds): MemorySource {
-    const authors = grounds.notes.map((each) => this.authorOf(each));
+  private sourceOf(provenance: MemoryProvenance): MemorySource {
+    const authors = provenance.notes.map((each) => this.authorOf(each));
 
     if (this.fromOutside || authors.includes('world')) {
       return 'outside';
     }
 
-    return grounds.onlyNotes ? 'person' : 'run';
+    return provenance.onlyNotes ? 'person' : 'run';
   }
 }

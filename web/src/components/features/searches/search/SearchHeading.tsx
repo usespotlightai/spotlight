@@ -29,7 +29,7 @@ export function SearchHeading({
       line={line}
       station={station}
       title={searchLabel(number)}
-      marks={<SearchStatePill ending={search.ending} />}
+      marks={<SearchStatePill stopReason={search.stopReason} />}
     >
       <TrailLink
         to={replaySetPath(at, search.setId)}

@@ -8,7 +8,7 @@ import {
   frontierPoints,
   type SearchDetail,
 } from '@/lib/search';
-import { formatOnlyOnSeenTasksCount, frontierNote } from '@/lib/search-words';
+import { formatOverfitCount, frontierNote } from '@/lib/search-words';
 
 type SearchFrontierProps = {
   search: SearchDetail;
@@ -26,13 +26,13 @@ export function SearchFrontier({ search }: SearchFrontierProps) {
         <FrontierTable candidates={candidatesOf(search)} currency={currency} />
       }
     >
-      {search.onlyOnSeenTasks > 0 && (
+      {search.overfitCount > 0 && (
         <p
           data-slot="only-on-seen-tasks-count"
           role="note"
           className="text-amber-700 text-xs leading-5 dark:text-amber-300"
         >
-          {formatOnlyOnSeenTasksCount(search.onlyOnSeenTasks)}
+          {formatOverfitCount(search.overfitCount)}
         </p>
       )}
 

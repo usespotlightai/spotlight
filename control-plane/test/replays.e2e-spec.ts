@@ -171,7 +171,7 @@ const anOriginal = async (): Promise<Original> => {
     }).parts,
     briefedMemories: {
       briefed: [{ id: memoryId, handle: `M-${memoryHandle}` }],
-      cut: [],
+      omitted: [],
     },
     startedFromArchiveId: archiveId,
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
@@ -671,7 +671,7 @@ describe('a replay ending', () => {
 
     for (const kind of [
       'work.run-ended.v1',
-      'work.run-digested.v1',
+      'work.run-usage-recorded.v1',
       'work.run-briefed.v1',
       'work.task-dispatched.v1',
     ]) {
@@ -692,8 +692,8 @@ describe('a replay ending', () => {
     expect(
       await db
         .select()
-        .from(schema.runDigest)
-        .where(eq(schema.runDigest.runId, replayId)),
+        .from(schema.runUsage)
+        .where(eq(schema.runUsage.runId, replayId)),
     ).toHaveLength(1);
   });
 });

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
-import type { ReplayRunEnded } from '@replays/application/services/note-replay-ended.service';
-import { NoteReplayEnded } from '@replays/application/services/note-replay-ended.service';
+import type { ReplayRunEnded } from '@replays/application/services/record-replay-run-ending.service';
+import { RecordReplayRunEnding } from '@replays/application/services/record-replay-run-ending.service';
 import { aReplay, FINGERPRINT } from '@replays/domain/replays.fake-spec';
 import { resultOf } from '@replays/domain/services/entry-result';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -60,7 +60,7 @@ const replayRun = (id = 'run_1') =>
         movesOnAfter: ['build', 'done'],
       },
     }),
-    briefedWith: BriefedMemories.of({ briefed: [], cut: [] }),
+    briefedWith: BriefedMemories.of({ briefed: [], omitted: [] }),
     configuredAs: StationConfig.rehydrate(
       {
         prompt: null,
@@ -114,7 +114,7 @@ const scored = (ended: ReplayRunEnded) =>
     {
       unreplayableReason: null,
       notRun: false,
-      end: RunEnd.of({ ...ended, at: NOW }),
+      end: RunEnd.of({ ...ended, result: ended.outcome, at: NOW }),
       measures: null,
       checks: null,
       judging: null,
@@ -193,7 +193,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
 
     const ended = end(replayRun(runId).claim(RUNNER, NOW));
     const subscribers = replaysSubscribers({
-      ending: app.get(NoteReplayEnded),
+      ending: app.get(RecordReplayRunEnding),
     } as unknown as ReplaysReactions);
     const published = ended
       .pullEvents()

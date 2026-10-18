@@ -3,7 +3,7 @@ import type { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
 import type { MemoryStatus } from '@memory/domain/value-objects/memory-status';
-import type { RunSite } from '@memory/domain/value-objects/run-site';
+import type { RunContext } from '@memory/domain/value-objects/run-context';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export interface MemoryCriteria {
@@ -35,7 +35,10 @@ export interface MemoryRepository {
 
   nextHandle(): Promise<MemoryHandle>;
 
-  mayApplyAt(site: RunSite, asOf?: Date | null): Promise<readonly Memory[]>;
+  mayApplyAt(
+    runContext: RunContext,
+    asOf?: Date | null,
+  ): Promise<readonly Memory[]>;
 
   ofTeam(teamId: TeamId, criteria: MemoryCriteria): Promise<readonly Memory[]>;
 }

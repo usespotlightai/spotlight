@@ -41,8 +41,8 @@ const sourceOf = (memory: Memory, context: MemoryFileContext): string => {
   const by = context.names.get(memory.approval.by.value) ?? 'someone';
   const on = day(memory.approval.at);
 
-  return memory.grounds
-    ? `from ${SOURCED[memory.source]} on task ${memory.grounds.taskId.value}, approved by ${by} on ${on}`
+  return memory.provenance
+    ? `from ${SOURCED[memory.source]} on task ${memory.provenance.taskId.value}, approved by ${by} on ${on}`
     : `written by ${by} on ${on}`;
 };
 
@@ -63,9 +63,9 @@ const bodyOf = (memory: Memory, context: MemoryFileContext): string => {
           `- Replaced ${replaced.handle.value}, which said: ${replaced.body.value.replace(/\s+/g, ' ').trim()}`,
         ]
       : []),
-    ...(memory.grounds
+    ...(memory.provenance
       ? [
-          `- Read the task it came from with: spotlight trace --task ${memory.grounds.taskId.value}`,
+          `- Read the task it came from with: spotlight trace --task ${memory.provenance.taskId.value}`,
         ]
       : []),
     '',

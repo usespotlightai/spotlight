@@ -2,12 +2,12 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import { StationGlance } from '@/components/features/stations/overview/StationGlance';
-import type { StationOutcomes, StationTally } from '@/lib/station-outcomes';
+import type { StationRunOutcomes, StationTally } from '@/lib/station-insights';
 
-const inForce = vi.fn<() => StationOutcomes['inForce']>();
+const inForce = vi.fn<() => StationRunOutcomes['inForce']>();
 
-vi.mock('@/hooks/api/useStationOutcomes', () => ({
-  useStationOutcomes: () => ({
+vi.mock('@/hooks/api/useStationInsights', () => ({
+  useStationInsights: () => ({
     data: { stationId: 'station_1', groups: [], inForce: inForce() },
     isPending: false,
     errorUpdateCount: 0,

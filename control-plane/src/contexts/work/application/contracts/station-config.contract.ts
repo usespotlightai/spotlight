@@ -9,14 +9,14 @@ export interface StationConfigShape {
     readonly name: string;
     readonly setup: string | null;
   }[];
-  readonly skills: readonly { readonly key: string; readonly digest: string }[];
+  readonly skills: readonly { readonly key: string; readonly hash: string }[];
   readonly tools: readonly string[];
   readonly decisions: boolean;
   readonly memories: boolean;
   readonly judge?: {
-    readonly rubricDigest: string;
+    readonly rubricHash: string;
     readonly sample: number;
-    readonly trust: number;
+    readonly minAgreement: number;
   };
 }
 

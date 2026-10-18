@@ -22,12 +22,12 @@ import {
 } from '@replays/domain/value-objects/entry-reason';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { RunEnd } from '@replays/domain/value-objects/run-end.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { isUnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import {
@@ -87,8 +87,8 @@ const occupying = and(
   isNotNull(replayEntry.runId),
   notEnded,
   or(
-    isNull(replayEntry.outcome),
-    and(eq(replayEntry.measured, false), ne(replayEntry.outcome, 'cancelled')),
+    isNull(replayEntry.result),
+    and(eq(replayEntry.measured, false), ne(replayEntry.result, 'cancelled')),
   ),
 );
 
@@ -97,7 +97,7 @@ const unqueued = and(
   isNotNull(replayEntry.runId),
   eq(replayEntry.queued, false),
   notEnded,
-  isNull(replayEntry.outcome),
+  isNull(replayEntry.result),
 );
 
 const unreplayableReasonOf = (row: EntryRow) => {
@@ -114,7 +114,7 @@ const unreplayableReasonOf = (row: EntryRow) => {
 };
 
 const endOf = (row: EntryRow): RunEnd | null => {
-  if (!row.outcome || !row.endedAt) {
+  if (!row.result || !row.endedAt) {
     return null;
   }
   if (row.stopped === null || row.asked === null) {
@@ -125,7 +125,7 @@ const endOf = (row: EntryRow): RunEnd | null => {
   }
 
   return RunEnd.of({
-    outcome: row.outcome,
+    result: row.result,
     failure: row.failure,
     stopped: row.stopped,
     asked: row.asked,
@@ -151,7 +151,7 @@ const measuresOf = (row: EntryRow): EntryMeasures | null => {
     changedLines: row.changedLines,
     cost:
       row.costAmount !== null && row.costCurrency
-        ? Spend.of(row.costAmount, row.costCurrency)
+        ? Money.of(row.costAmount, row.costCurrency)
         : null,
     tokens: {
       input: row.inputTokens,
@@ -192,9 +192,11 @@ const judgingRow = (judging: EntryJudging | null): StoredEntryJudging | null =>
     verdict: judging.verdict && {
       scale: judging.verdict.scale,
       value: judging.verdict.value,
-      marks: judging.verdict.marks && [...judging.verdict.marks],
+      claimResults: judging.verdict.claimResults && [
+        ...judging.verdict.claimResults,
+      ],
       claims: [...judging.verdict.claims],
-      passShare: judging.verdict.passShare,
+      passThreshold: judging.verdict.passThreshold,
       model: judging.verdict.model,
       referenced: judging.verdict.referenced,
       reasons: judging.verdict.reasons.map((each) => ({
@@ -210,7 +212,7 @@ const judgingRow = (judging: EntryJudging | null): StoredEntryJudging | null =>
 const modelSpentOf = (stored: StoredModelSpent | null): ModelSpent | null =>
   stored &&
   ModelSpent.of(
-    stored.spends.map((each) => Spend.of(each.amount, each.currency)),
+    stored.spends.map((each) => Money.of(each.amount, each.currency)),
     stored.unpriced,
   );
 
@@ -233,21 +235,21 @@ const checksRow = (checks: ChangeChecks | null): StoredEntryChecks | null =>
 const pairingOf = (stored: StoredEntryPairing | null): EntryPairing | null =>
   stored &&
   EntryPairing.rehydrate({
-    against: RunId.of(stored.against),
+    otherRunId: RunId.of(stored.otherRunId),
     verdict: stored.verdict && PairVerdict.of(stored.verdict),
     unpaired: stored.unpaired,
   });
 
 const pairingRow = (pairing: EntryPairing | null): StoredEntryPairing | null =>
   pairing && {
-    against: pairing.against.value,
+    otherRunId: pairing.otherRunId.value,
     verdict: pairing.verdict && {
       outcome: pairing.verdict.outcome,
       model: pairing.verdict.model,
-      readings: pairing.verdict.readings.map((reading) => ({
-        ownShownFirst: reading.ownShownFirst,
-        outcome: reading.outcome,
-        reasons: reading.reasons.map((each) => ({
+      passes: pairing.verdict.passes.map((pass) => ({
+        ownShownFirst: pass.ownShownFirst,
+        outcome: pass.outcome,
+        reasons: pass.reasons.map((each) => ({
           text: each.text,
           ownHunks: [...each.ownHunks],
           theirHunks: [...each.theirHunks],
@@ -275,7 +277,7 @@ const toEntry = (row: EntryRow): ReplayEntry =>
     measures: measuresOf(row),
     checks: row.checks ? ChangeChecks.rehydrate(row.checks) : null,
     judging: judgingOf(row.judging),
-    draftingSpent: modelSpentOf(row.draftingSpent),
+    generationSpent: modelSpentOf(row.generationSpent),
     judgingSpent: modelSpentOf(row.judgingSpent),
     succeeded: row.succeeded,
     reasons: reasonsOf(row),
@@ -301,13 +303,15 @@ const toReplay = (row: ReplayRow, entries: readonly EntryRow[]): Replay =>
     judges: row.judges,
     checked: row.checked,
     rubricVersion: row.rubricVersion,
-    scoringDigest: row.scoringDigest,
-    ceiling: Spend.ceiling(row.ceilingAmount, row.ceilingCurrency),
+    scoringHash: row.scoringHash,
+    ceiling: Money.ceiling(row.ceilingAmount, row.ceilingCurrency),
     unpricedRate:
       row.unpricedRate === null
         ? null
-        : Spend.of(row.unpricedRate, row.ceilingCurrency),
-    among: row.among ? row.among.map((each) => RunId.of(each)) : null,
+        : Money.of(row.unpricedRate, row.ceilingCurrency),
+    runSubset: row.runSubset
+      ? row.runSubset.map((each) => RunId.of(each))
+      : null,
     answers: row.answers
       ? row.answers.map((each) => ({
           run: RunId.of(each.run),
@@ -315,9 +319,13 @@ const toReplay = (row: ReplayRow, entries: readonly EntryRow[]): Replay =>
         }))
       : null,
     repeats: row.repeats,
-    probe: row.probe,
-    comparedWith: row.comparedWith ? ReplayId.of(row.comparedWith) : null,
-    pairsWith: row.pairsWith ? ReplayId.of(row.pairsWith) : null,
+    calibration: row.calibration,
+    referenceReplayId: row.referenceReplayId
+      ? ReplayId.of(row.referenceReplayId)
+      : null,
+    pairwiseReferenceId: row.pairwiseReferenceId
+      ? ReplayId.of(row.pairwiseReferenceId)
+      : null,
     searchId: row.searchId ? SearchId.of(row.searchId) : null,
     state: row.state,
     entries: entries
@@ -342,7 +350,7 @@ const entryRow = (replayId: string, entry: ReplayEntry) => ({
   queueAttempts: entry.queueAttempts,
   unreplayableReason: entry.unreplayableReason,
   notRun: entry.notRun,
-  outcome: entry.end?.outcome ?? null,
+  result: entry.end?.result ?? null,
   failure: entry.end?.failure ?? null,
   stopped: entry.end?.stopped ?? null,
   asked: entry.end?.asked ?? null,
@@ -360,7 +368,7 @@ const entryRow = (replayId: string, entry: ReplayEntry) => ({
   cacheWriteTokens: entry.measures?.tokens.cacheWrite ?? null,
   checks: checksRow(entry.checks),
   judging: judgingRow(entry.judging),
-  draftingSpent: storedSpent(entry.draftingSpent),
+  generationSpent: storedSpent(entry.generationSpent),
   judgingSpent: storedSpent(entry.judgingSpent),
   succeeded: entry.succeeded,
   reasons: entry.reasons.map((each) => ({
@@ -417,7 +425,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
       .from(replay)
       .where(
         and(
-          eq(replay.pairsWith, replayId.value),
+          eq(replay.pairwiseReferenceId, replayId.value),
           eq(replay.state, PAIRING_STATE),
         ),
       );
@@ -476,7 +484,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
       .select({
         id: replay.id,
         place:
-          sql<number>`row_number() over (partition by ${replay.setId}, ${replayCandidate.kind}, ${replay.probe}, ${replay.repeats} order by coalesce(${replay.endedAt}, ${replay.startedAt}) desc, ${replay.id} desc)`.as(
+          sql<number>`row_number() over (partition by ${replay.setId}, ${replayCandidate.kind}, ${replay.calibration}, ${replay.repeats} order by coalesce(${replay.endedAt}, ${replay.startedAt}) desc, ${replay.id} desc)`.as(
             'place',
           ),
       })
@@ -490,7 +498,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
             and(
               eq(replayCandidate.kind, 'live'),
               eq(replay.state, 'finished'),
-              isNull(replay.among),
+              isNull(replay.runSubset),
             ),
             eq(replayCandidate.kind, 'oracle'),
           ),
@@ -548,7 +556,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
     return rows.map((row) => TeamId.of(row.teamId));
   }
 
-  underwayOfTeamLocked(teamId: TeamId): Promise<readonly Replay[]> {
+  inProgressOfTeamLocked(teamId: TeamId): Promise<readonly Replay[]> {
     return this.withEntries(
       and(
         eq(replay.teamId, teamId.value),
@@ -629,11 +637,13 @@ export class DrizzleReplayRepository implements ReplayRepository {
       judges: aggregate.judges,
       checked: aggregate.checked,
       rubricVersion: aggregate.rubricVersion,
-      scoringDigest: aggregate.scoringDigest,
+      scoringHash: aggregate.scoringHash,
       ceilingAmount: aggregate.ceiling.amount,
       unpricedRate: aggregate.unpricedRate?.amount ?? null,
       ceilingCurrency: aggregate.ceiling.currency,
-      among: aggregate.among ? aggregate.among.map((each) => each.value) : null,
+      runSubset: aggregate.runSubset
+        ? aggregate.runSubset.map((each) => each.value)
+        : null,
       answers: aggregate.answers
         ? aggregate.answers.map((each) => ({
             run: each.run.value,
@@ -641,9 +651,9 @@ export class DrizzleReplayRepository implements ReplayRepository {
           }))
         : null,
       repeats: aggregate.repeats,
-      probe: aggregate.probe,
-      comparedWith: aggregate.comparedWith?.value ?? null,
-      pairsWith: aggregate.pairsWith?.value ?? null,
+      calibration: aggregate.calibration,
+      referenceReplayId: aggregate.referenceReplayId?.value ?? null,
+      pairwiseReferenceId: aggregate.pairwiseReferenceId?.value ?? null,
       searchId: aggregate.searchId?.value ?? null,
       state: aggregate.current,
       startedAt: aggregate.startedAt,

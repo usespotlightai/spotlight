@@ -19,15 +19,15 @@ type stationChange struct {
 }
 
 type candidate struct {
-	ID             string         `json:"id"`
-	Version        int            `json:"version"`
-	Address        string         `json:"address"`
-	StationID      string         `json:"stationId"`
-	StationAddress string         `json:"stationAddress"`
-	Name           string         `json:"name"`
-	Station        map[string]any `json:"station"`
-	Fingerprint    string         `json:"fingerprint"`
-	ChangedFrom    struct {
+	ID          string         `json:"id"`
+	Version     int            `json:"version"`
+	Address     string         `json:"address"`
+	StationID   string         `json:"stationId"`
+	StationPath string         `json:"stationPath"`
+	Name        string         `json:"name"`
+	Station     map[string]any `json:"station"`
+	Fingerprint string         `json:"fingerprint"`
+	ChangedFrom struct {
 		Fingerprint string          `json:"fingerprint"`
 		Changes     []stationChange `json:"changes"`
 	} `json:"changedFrom"`

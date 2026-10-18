@@ -17,7 +17,7 @@ import (
 
 const CheckUsage = `  spotlight replay check [--json] [--timeout 60m] [--every 15s] [--commit <sha>] [--pull-request <n>] [--repeats 1] <plan.json | ->
       checks each station a saved Terraform plan changes against the replay set
-      that guards the station's changes, under the live line's replay_check;
+      that gates the station's changes, under the live line's replay_check;
       pass it the output of ` + "`terraform show -json <planfile>`" + `. Reads SPOTLIGHT_URL and
       SPOTLIGHT_API_TOKEN (a workspace token that may plan), or SPOTLIGHT_OIDC_TRUST
       to exchange the CI job's OIDC token (GitHub Actions, or SPOTLIGHT_OIDC_TOKEN).
@@ -54,7 +54,7 @@ type checkSide struct {
 	SuccessRate *float64  `json:"successRate"`
 	Interval    *interval `json:"interval"`
 	TasksScored int       `json:"tasksScored"`
-	Spent       *spend    `json:"spent"`
+	Spent       *money    `json:"spent"`
 }
 
 type checkRegression struct {
@@ -73,17 +73,17 @@ type checkRead struct {
 	SetName             *string  `json:"setName"`
 	ReplayID            string   `json:"replayId"`
 	ScoringPinnedToLive []string `json:"scoringPinnedToLive"`
-	Verdict             string   `json:"verdict"`
+	Result              string   `json:"result"`
 	UndecidedBecause    *string  `json:"undecidedBecause"`
 	Tasks               int      `json:"tasks"`
 	Compared            int      `json:"compared"`
 	Threshold           struct {
 		MaxRegressions int     `json:"maxRegressions"`
 		MinGain        float64 `json:"minGain"`
-		Ceiling        spend   `json:"ceiling"`
+		Ceiling        money   `json:"ceiling"`
 	} `json:"threshold"`
 	Repeats     int               `json:"repeats"`
-	Gain        *gainReading      `json:"gain"`
+	Gain        *gainEstimate     `json:"gain"`
 	Candidate   checkSide         `json:"candidate"`
 	Baseline    checkSide         `json:"baseline"`
 	Regressions []checkRegression `json:"regressions"`
@@ -243,7 +243,7 @@ func (p planned) wanted() int {
 
 func (c *checking) run(plan planned, options checkOptions, report *checkReport) {
 	for _, each := range plan.Stations {
-		checked := &stationCheck{Station: each.Address, Resource: each.Resource, teamID: each.TeamID}
+		checked := &stationCheck{Station: each.Path, Resource: each.Resource, teamID: each.TeamID}
 		report.Stations = append(report.Stations, checked)
 
 		if each.Undecided {
@@ -351,8 +351,8 @@ func (c *checking) follow(checked *stationCheck) {
 
 func (c *checking) record(checked *stationCheck, read checkRead) {
 	checked.Check = &read
-	checked.Status = read.Verdict
-	checked.pending = read.Verdict == checkRunning
+	checked.Status = read.Result
+	checked.pending = read.Result == checkRunning
 	if read.ReplayURL != nil {
 		checked.URL = *read.ReplayURL
 	}
@@ -404,7 +404,7 @@ func (r *checkReport) print(out io.Writer) {
 			continue
 		}
 
-		set := "its guarding set"
+		set := "its gating set"
 		if read.SetName != nil {
 			set = fmt.Sprintf("set %q", *read.SetName)
 		}
@@ -420,7 +420,7 @@ func (r *checkReport) print(out io.Writer) {
 		if read.Gain != nil {
 			fmt.Fprintf(out, "  %s\n", describeGain(*read.Gain, "the baseline"))
 		}
-		fmt.Fprintf(out, "  spent %s of a %s ceiling\n", describeSpent(read.Candidate.Spent), money(read.Threshold.Ceiling))
+		fmt.Fprintf(out, "  spent %s of a %s ceiling\n", describeSpent(read.Candidate.Spent), formatMoney(read.Threshold.Ceiling))
 		if len(read.ScoringPinnedToLive) > 0 {
 			fmt.Fprintf(out, "  scored with the live %s, which the plan also changes\n", strings.Join(read.ScoringPinnedToLive, ", "))
 		}
@@ -452,7 +452,7 @@ func (r *checkReport) summarise(path string) error {
 		return err
 	}
 
-	written.WriteString("| Station | Verdict | Regressed | Candidate | Baseline | Gain | Spent | Replay |\n")
+	written.WriteString("| Station | Result | Regressed | Candidate | Baseline | Gain | Spent | Replay |\n")
 	written.WriteString("| --- | --- | --- | --- | --- | --- | --- | --- |\n")
 	for _, each := range r.Stations {
 		regressed, candidate, baseline, gain, spent, link := "", "", "", "", "", ""
@@ -531,25 +531,25 @@ func describeSide(side checkSide) string {
 	return fmt.Sprintf("%d of %d succeeded, %s over %d tasks", *side.Succeeded, side.Scored, describeInterval(*side.Interval), side.TasksScored)
 }
 
-func gainCell(gain *gainReading) string {
+func gainCell(gain *gainEstimate) string {
 	if gain == nil {
 		return "-"
 	}
 
-	verdict := gain.Verdict
-	if verdict == "within-noise" {
-		verdict = "within noise"
+	significance := gain.Significance
+	if significance == "within-noise" {
+		significance = "within noise"
 	}
 
-	return fmt.Sprintf("%s points (%s to %s), %s", points(gain.Gain), points(gain.Low), points(gain.High), verdict)
+	return fmt.Sprintf("%s points (%s to %s), %s", points(gain.Gain), points(gain.Low), points(gain.High), significance)
 }
 
-func describeSpent(spent *spend) string {
+func describeSpent(spent *money) string {
 	if spent == nil {
 		return "nothing"
 	}
 
-	return money(*spent)
+	return formatMoney(*spent)
 }
 
 func describeTask(regressed checkRegression) string {

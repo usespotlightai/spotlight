@@ -58,7 +58,7 @@ import { and, eq, gte, inArray, isNull, or } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 const FORMS_FOR_TEAM_READERS = ASIDE_FORMS.filter(
-  (form) => TaskAside.requiredAccess(form) === 'readsTeamOutcomes',
+  (form) => TaskAside.requiredAccess(form) === 'readsTeamInsights',
 );
 
 @Injectable()
@@ -285,7 +285,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
 
     const readerOf = new Map(
       await Promise.all(
-        [...new Set(needing('readsTeamOutcomes').map((row) => row.teamId))].map(
+        [...new Set(needing('readsTeamInsights').map((row) => row.teamId))].map(
           async (teamId) =>
             [
               teamId,
@@ -304,7 +304,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         viewer: userId,
         assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
         seesTeam: onTeam.get(row.teamId) ?? false,
-        readsTeamOutcomes: readerOf.get(row.teamId) ?? false,
+        readsTeamInsights: readerOf.get(row.teamId) ?? false,
       }),
     );
 

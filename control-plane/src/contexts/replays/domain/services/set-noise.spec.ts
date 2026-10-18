@@ -26,7 +26,7 @@ const liveReplay = (id: string, repeats: number, failing: readonly string[]) =>
   );
 
 describe('setNoiseOf', () => {
-  it('measures how far the copies of the newest finished live replay run more than once differ', () => {
+  it('measures how far the repeats of the newest finished live replay run more than once differ', () => {
     const replay = liveReplay('replay_noise', 3, [
       'original_0#1',
       'original_1#2',
@@ -83,7 +83,7 @@ describe('setNoiseOf', () => {
 });
 
 describe('suggestedRepeatsFor', () => {
-  it('requests enough copies to bring the noise under the min gain, from 1 to 5', () => {
+  it('requests enough repeats to bring the noise under the min gain, from 1 to 5', () => {
     expect(suggestedRepeatsFor(0, 0.05)).toBe(1);
     expect(suggestedRepeatsFor(0.05, 0.05)).toBe(1);
     expect(suggestedRepeatsFor(0.1, 0.05)).toBe(4);
@@ -93,7 +93,7 @@ describe('suggestedRepeatsFor', () => {
 });
 
 describe('isNoisyAt', () => {
-  it('calls noise noisy in one copy when one copy cannot bring it under the min gain', () => {
+  it('calls noise noisy in one repeat when one repeat cannot bring it under the min gain', () => {
     expect(isNoisyAt(0.05, 0.05, 1)).toBe(false);
     expect(isNoisyAt(0.06, 0.05, 1)).toBe(true);
     expect(isNoisyAt(0.1, 0.05, 4)).toBe(false);
@@ -102,7 +102,7 @@ describe('isNoisyAt', () => {
 });
 
 describe('noiseReadingOf', () => {
-  it('reads noise against the min gain for a single copy of each run', () => {
+  it('reads noise against the min gain for a single repeat of each run', () => {
     const replay = liveReplay('replay_noise', 3, [
       'original_0#1',
       'original_1#2',
@@ -110,7 +110,7 @@ describe('noiseReadingOf', () => {
     ]);
     const noise = setNoiseOf([replay], [LIVE], LIVE.fingerprint);
 
-    expect(noise && noiseReadingOf(noise, 0.05).noisyInOneCopy).toBe(true);
-    expect(noise && noiseReadingOf(noise, 0.5).noisyInOneCopy).toBe(false);
+    expect(noise && noiseReadingOf(noise, 0.05).noisyInOneRepeat).toBe(true);
+    expect(noise && noiseReadingOf(noise, 0.5).noisyInOneRepeat).toBe(false);
   });
 });

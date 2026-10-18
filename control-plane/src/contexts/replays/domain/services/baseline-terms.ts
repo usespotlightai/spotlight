@@ -1,25 +1,25 @@
-import { PROBE_REPEATS } from '@replays/domain/value-objects/replay-repeats';
-import type { Spend } from '@replays/domain/value-objects/spend.vo';
+import type { Money } from '@replays/domain/value-objects/money.vo';
+import { CALIBRATION_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 
 export interface BaselineTerms {
-  readonly probe: boolean;
+  readonly calibration: boolean;
   readonly repeats: number;
-  readonly ceiling: Spend;
+  readonly ceiling: Money;
 }
 
 export const baselineTermsOf = (
   checking: boolean,
   repeats: number,
-  ceiling: Spend,
+  ceiling: Money,
 ): BaselineTerms => {
   if (!checking) {
-    return { probe: false, repeats, ceiling };
+    return { calibration: false, repeats, ceiling };
   }
 
-  const probing = Math.max(repeats, PROBE_REPEATS);
+  const probing = Math.max(repeats, CALIBRATION_REPEATS);
 
   return {
-    probe: true,
+    calibration: true,
     repeats: probing,
     ceiling: ceiling.scaledCeiling(probing, repeats),
   };

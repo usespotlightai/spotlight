@@ -10,7 +10,7 @@ import type {
   ReplayableRunsPort,
   RunSummary,
 } from '@work/application/ports/replayable-runs.port';
-import type { RunDigestReaderPort } from '@work/application/ports/run-digest-reader.port';
+import type { RunUsageReaderPort } from '@work/application/ports/run-usage-reader.port';
 import type { StationRunReaderPort } from '@work/application/ports/station-run-reader.port';
 import type { DispatchReplay } from '@work/application/services/dispatch-replay.service';
 import { UnreplayableRunError } from '@work/domain/exceptions/unreplayable-run.error';
@@ -25,7 +25,7 @@ export class ReplayableRuns implements ReplayableRunsPort {
     private readonly lines: LineRepository,
     private readonly dispatch: DispatchReplay,
     private readonly stationRuns: StationRunReaderPort,
-    private readonly digests: RunDigestReaderPort,
+    private readonly usages: RunUsageReaderPort,
     private readonly ids: IdGeneratorPort,
     private readonly logger: LoggerPort,
   ) {}
@@ -76,13 +76,13 @@ export class ReplayableRuns implements ReplayableRunsPort {
       return new Map();
     }
 
-    const digests = await this.digests.forRuns(
+    const usages = await this.usages.forRuns(
       [...new Set(runIds)].map((each) => RunId.of(each)),
     );
 
     return new Map(
-      [...digests].flatMap(([runId, digest]) =>
-        digest.ms === null ? [] : [[runId, digest.ms] as const],
+      [...usages].flatMap(([runId, usage]) =>
+        usage.ms === null ? [] : [[runId, usage.ms] as const],
       ),
     );
   }

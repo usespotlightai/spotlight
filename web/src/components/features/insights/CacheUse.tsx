@@ -82,7 +82,7 @@ export function CacheUse({ slug, teamId, stations, names }: CacheUseProps) {
                   )}
                 </span>
                 <NestedCell heading="Cache share" strong>
-                  {formatCache(station.cacheShare)}
+                  {formatCache(station.cacheRate)}
                 </NestedCell>
                 <NestedCell heading="Cache read">
                   {formatTokens(station.cacheRead)}

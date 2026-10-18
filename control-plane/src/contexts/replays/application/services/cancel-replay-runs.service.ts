@@ -10,7 +10,7 @@ export class CancelReplayRuns {
     }
   }
 
-  overBudget(runs: readonly RunId[]): Promise<void> {
+  ceilingReached(runs: readonly RunId[]): Promise<void> {
     return this.work.cancelQueued(runs);
   }
 }

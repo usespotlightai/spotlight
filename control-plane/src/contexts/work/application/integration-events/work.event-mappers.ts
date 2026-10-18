@@ -15,21 +15,17 @@ import {
   type PullRequestReviewTakenIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-review-taken.integration-event';
 import {
-  REPLAY_DIGESTED,
-  type ReplayDigestedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/replay-digested.integration-event';
-import {
   REPLAY_ENDED,
   type ReplayEndedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/replay-ended.integration-event';
 import {
+  REPLAY_RUN_USAGE_RECORDED,
+  type ReplayRunUsageRecordedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/replay-run-usage-recorded.integration-event';
+import {
   RUN_BRIEFED,
   type RunBriefedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/run-briefed.integration-event';
-import {
-  RUN_DIGESTED,
-  type RunDigestedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-digested.integration-event';
 import {
   RUN_ENDED,
   type RunEndedIntegrationEvent,
@@ -40,13 +36,17 @@ import {
   type RunSupersededIntegrationEvent,
 } from '@shared-kernel/application/integration-events/run-superseded.integration-event';
 import {
-  SEARCH_RUN_DIGESTED,
-  type SearchRunDigestedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/search-run-digested.integration-event';
+  RUN_USAGE_RECORDED,
+  type RunUsageRecordedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/run-usage-recorded.integration-event';
 import {
   SEARCH_RUN_ENDED,
   type SearchRunEndedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/search-run-ended.integration-event';
+import {
+  SEARCH_RUN_USAGE_RECORDED,
+  type SearchRunUsageRecordedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/search-run-usage-recorded.integration-event';
 import {
   TASK_ACTED_ON,
   type TaskActedOnIntegrationEvent,
@@ -85,14 +85,14 @@ import type { LineDeleted } from '@work/domain/events/line-deleted.event';
 import type { LineUpdated } from '@work/domain/events/line-updated.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
-import type { ReplayDigested } from '@work/domain/events/replay-digested.event';
+import type { ReplayRunUsageRecorded } from '@work/domain/events/replay-run-usage-recorded.event';
 import type { RunBriefed } from '@work/domain/events/run-briefed.event';
 import type { RunCancelled } from '@work/domain/events/run-cancelled.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
-import type { RunDigested } from '@work/domain/events/run-digested.event';
 import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import type { RunSuperseded } from '@work/domain/events/run-superseded.event';
-import type { SearchDigested } from '@work/domain/events/search-digested.event';
+import type { RunUsageRecorded } from '@work/domain/events/run-usage-recorded.event';
+import type { SearchRunUsageRecorded } from '@work/domain/events/search-run-usage-recorded.event';
 import type { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import type { TaskAsked } from '@work/domain/events/task-asked.event';
 import type { TaskDeleted } from '@work/domain/events/task-deleted.event';
@@ -296,7 +296,7 @@ export const WORK_EVENT_MAPPERS = [
       taskId: event.taskId.value,
       workspaceId: event.workspaceId.value,
       stationId: event.stationId.value,
-      act: event.act,
+      action: event.action,
       by: event.by.value,
       after: event.after?.value ?? null,
       at: event.at.toISOString(),
@@ -304,19 +304,19 @@ export const WORK_EVENT_MAPPERS = [
       server: event.tool?.server ?? null,
     }),
   ),
-  mapping<RunDigested>(
-    'run.digested',
-    (event): RunDigestedIntegrationEvent => ({
-      kind: RUN_DIGESTED,
+  mapping<RunUsageRecorded>(
+    'run.usage-recorded',
+    (event): RunUsageRecordedIntegrationEvent => ({
+      kind: RUN_USAGE_RECORDED,
       runId: event.runId.value,
       workspaceId: event.workspaceId.value,
       taskId: event.taskId?.value ?? null,
       ms: event.ms,
       steps: event.steps,
-      faults: event.faults,
+      errors: event.errors,
       changedLines: event.changedLines,
-      used: event.used,
-      size: event.size,
+      contextTokens: event.contextTokens,
+      contextWindow: event.contextWindow,
       cost: event.cost?.amount ?? null,
       currency: event.cost?.currency ?? null,
       inputTokens: event.tokens.input,
@@ -333,10 +333,10 @@ export const WORK_EVENT_MAPPERS = [
       skillsRead: [...event.tools.skills],
     }),
   ),
-  mapping<ReplayDigested>(
-    'replay.digested',
-    (event): ReplayDigestedIntegrationEvent => ({
-      kind: REPLAY_DIGESTED,
+  mapping<ReplayRunUsageRecorded>(
+    'replay-run.usage-recorded',
+    (event): ReplayRunUsageRecordedIntegrationEvent => ({
+      kind: REPLAY_RUN_USAGE_RECORDED,
       runId: event.runId.value,
       replayOf: event.replayOf.value,
       workspaceId: event.workspaceId.value,
@@ -351,10 +351,10 @@ export const WORK_EVENT_MAPPERS = [
       cacheWriteTokens: event.tokens.cacheWrite,
     }),
   ),
-  mapping<SearchDigested>(
-    'search.digested',
-    (event): SearchRunDigestedIntegrationEvent => ({
-      kind: SEARCH_RUN_DIGESTED,
+  mapping<SearchRunUsageRecorded>(
+    'search-run.usage-recorded',
+    (event): SearchRunUsageRecordedIntegrationEvent => ({
+      kind: SEARCH_RUN_USAGE_RECORDED,
       runId: event.runId.value,
       searchId: event.searchId.value,
       workspaceId: event.workspaceId.value,

@@ -38,21 +38,21 @@ export class ReadRunMemoriesHandler
     try {
       const access = await this.access.forTeam(query.teamId, query.viewerId);
       const runId = RunId.of(query.runId);
-      const [run, site] = await Promise.all([
+      const [run, runContext] = await Promise.all([
         this.work.run(runId),
-        this.work.siteOfRun(runId),
+        this.work.contextOfRun(runId),
       ]);
 
-      if (!run || !site || !access.sees(site)) {
+      if (!run || !runContext || !access.sees(runContext)) {
         throw new UnknownRunError(query.runId);
       }
 
       const recalled = (await this.uses.ofRun(runId))
-        .filter((each) => each.way === 'recalled')
+        .filter((each) => each.via === 'recalled')
         .map((each) => each.memoryId.value);
-      const [briefed, cut, remembered, proposed] = await Promise.all([
+      const [briefed, omitted, remembered, proposed] = await Promise.all([
         this.teamMemories(access, run.briefed),
-        this.teamMemories(access, run.cut),
+        this.teamMemories(access, run.omitted),
         this.teamMemories(access, recalled),
         run.taskId ? this.proposedIn(run.taskId, runId) : [],
       ]);
@@ -63,7 +63,7 @@ export class ReadRunMemoriesHandler
 
       return {
         briefed: await this.views.summaries(briefed),
-        cut: await this.views.summaries(cut),
+        omitted: await this.views.summaries(omitted),
         recalled: await this.views.summaries(remembered),
         proposed,
         reviewItemId,

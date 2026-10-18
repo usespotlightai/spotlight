@@ -177,9 +177,13 @@ describe('RunEvidences', () => {
     ]);
   });
 
-  it('versions the station’s judge by the digest of its rubric, claims and pass share together', async () => {
+  it('versions the station’s judge by the hash of its rubric, claims and pass threshold together', async () => {
     const judge = await evidences(
-      StationJudge.of({ rubric: 'Did it retry?', sample: 0.5, trust: 0.6 }),
+      StationJudge.of({
+        rubric: 'Did it retry?',
+        sample: 0.5,
+        minAgreement: 0.6,
+      }),
     ).judgeAt('station_1');
 
     expect(judge).toEqual({
@@ -187,10 +191,10 @@ describe('RunEvidences', () => {
       lineId: 'line_1',
       rubric: 'Did it retry?',
       claims: [],
-      passShare: 1,
-      rubricVersion: `sha of ${JSON.stringify({ rubric: 'Did it retry?', claims: [], passShare: 1 })}`,
+      passThreshold: 1,
+      rubricVersion: `sha of ${JSON.stringify({ rubric: 'Did it retry?', claims: [], passThreshold: 1 })}`,
       sample: 0.5,
-      trust: 0.6,
+      minAgreement: 0.6,
     });
   });
 
@@ -198,25 +202,25 @@ describe('RunEvidences', () => {
     const judge = await evidences(
       StationJudge.of({
         claims: ['It retries.', 'It adds a test.'],
-        passShare: 0.5,
+        passThreshold: 0.5,
         sample: 0.5,
-        trust: 0.6,
+        minAgreement: 0.6,
       }),
     ).judgeAt('station_1');
 
     expect(judge).toMatchObject({
       rubric: null,
       claims: ['It retries.', 'It adds a test.'],
-      passShare: 0.5,
+      passThreshold: 0.5,
     });
     expect(judge?.rubricVersion).not.toBe(
       (
         await evidences(
           StationJudge.of({
             claims: ['It retries.', 'It adds a test.'],
-            passShare: 1,
+            passThreshold: 1,
             sample: 0.5,
-            trust: 0.6,
+            minAgreement: 0.6,
           }),
         ).judgeAt('station_1')
       )?.rubricVersion,
@@ -225,7 +229,11 @@ describe('RunEvidences', () => {
 
   it('gives the judges of a team’s stations on every line as the station sets each one', async () => {
     const reader = evidences(
-      StationJudge.of({ rubric: 'Did it retry?', sample: 0.5, trust: 0.6 }),
+      StationJudge.of({
+        rubric: 'Did it retry?',
+        sample: 0.5,
+        minAgreement: 0.6,
+      }),
     );
     const judge = await reader.judgeAt('station_1');
 

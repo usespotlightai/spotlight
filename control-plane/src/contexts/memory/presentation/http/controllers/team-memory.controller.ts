@@ -142,7 +142,7 @@ export class TeamMemoryController {
   @ApiOperation({
     operationId: 'readTeamMemory',
     summary:
-      'One memory with what it rests on, and what it replaced or was replaced by',
+      'One memory with what it cites, and what it replaced or was replaced by',
   })
   @ApiParam({ name: 'memoryId', type: String })
   @ApiOkResponse({ type: TeamMemoryDetailResponseDto })
@@ -163,7 +163,7 @@ export class TeamMemoryController {
   @ApiOperation({
     operationId: 'editMemory',
     summary:
-      'Correct a memory: a new one replaces it, keeping what it rests on, and it is retired',
+      'Correct a memory: a new one replaces it, keeping what it cites, and it is retired',
   })
   @ApiParam({ name: 'memoryId', type: String })
   @ApiBody({ type: WriteMemoryRequestDto })

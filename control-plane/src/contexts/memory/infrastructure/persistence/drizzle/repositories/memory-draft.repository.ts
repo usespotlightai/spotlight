@@ -7,9 +7,9 @@ import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo'
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryDrafting } from '@memory/domain/value-objects/memory-drafting.vo';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
-import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
+import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import {
   memoryDraft,
@@ -80,14 +80,14 @@ const toProposal = (row: ProposalRow): MemoryProposal =>
       repository: row.repository ? Repository.of(row.repository) : null,
       paths: row.paths.map(MemoryPath.of),
     }),
-    grounds: MemoryGrounds.of({
+    provenance: MemoryProvenance.of({
       taskId: TaskId.of(row.taskId),
       runId: RunId.of(row.runId),
       steps: row.steps,
       notes: row.notes,
     }),
     source: row.source,
-    origin: row.origin,
+    proposedBy: row.proposedBy,
     supersedes: row.supersedes ? MemoryId.of(row.supersedes) : null,
     recordedAt: row.recordedAt,
     state: row.state,
@@ -141,12 +141,12 @@ const proposalRows = (draft: MemoryDraft) =>
     stationId: each.scope.stationId,
     repository: each.scope.repository?.value ?? null,
     paths: each.scope.paths.map((path) => path.value),
-    taskId: each.grounds.taskId.value,
-    runId: each.grounds.runId.value,
-    steps: [...each.grounds.steps],
-    notes: [...each.grounds.notes],
+    taskId: each.provenance.taskId.value,
+    runId: each.provenance.runId.value,
+    steps: [...each.provenance.steps],
+    notes: [...each.provenance.notes],
     source: each.source,
-    origin: each.origin,
+    proposedBy: each.proposedBy,
     supersedes: each.supersedes?.value ?? null,
     recordedAt: each.recordedAt,
     state: each.state,

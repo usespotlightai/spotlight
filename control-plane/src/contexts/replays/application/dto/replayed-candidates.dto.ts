@@ -1,12 +1,12 @@
 import type { CandidatePullRequestDto } from '@replays/application/dto/config-pull-requests.dto';
 import type {
-  GainReadingDto,
+  GainEstimateDto,
   RateIntervalDto,
   SetHealthDto,
   StationChangeDto,
 } from '@replays/application/dto/replays.dto';
-import type { ShownAgainstLive } from '@replays/domain/services/against-live';
-import type { ChartedAs } from '@replays/domain/services/replayed-chart';
+import type { ChartStatus } from '@replays/domain/services/replayed-chart';
+import type { ShownOverLive } from '@replays/domain/services/shown-over-live';
 import type { ReplayedPeriodName } from '@replays/domain/value-objects/replayed-period.vo';
 
 type ReplayedCandidateKind = 'searched' | 'proposed';
@@ -36,7 +36,7 @@ export interface ReplayedBaselineDto {
   readonly costPerRun: number | null;
   readonly currency: string;
   readonly endedAt: string | null;
-  readonly charted: ChartedAs;
+  readonly chartStatus: ChartStatus;
 }
 
 export interface ReplayedHeldOutDto {
@@ -60,7 +60,7 @@ export interface ReplayedSeedDto {
   readonly interval: RateIntervalDto | null;
   readonly costPerRun: number | null;
   readonly scored: number;
-  readonly charted: ChartedAs;
+  readonly chartStatus: ChartStatus;
 }
 
 export interface ReplayedSearchDto {
@@ -95,21 +95,21 @@ export interface ReplayedCandidateDto {
   readonly costPerRunOnCompared: number | null;
   readonly regressions: number | null;
   readonly compared: number;
-  readonly againstLive: GainReadingDto | null;
+  readonly gainOverLive: GainEstimateDto | null;
   readonly onFrontier: boolean | null;
   readonly search: ReplayedSearchDto | null;
   readonly pullRequest: CandidatePullRequestDto | null;
-  readonly charted: ChartedAs;
+  readonly chartStatus: ChartStatus;
   readonly shown: ReplayedShownDto;
 }
 
-export type ReplayedShownDto = ShownAgainstLive<RateIntervalDto>;
+export type ReplayedShownDto = ShownOverLive<RateIntervalDto>;
 
 export interface ReplayedSetDto {
   readonly setId: string;
   readonly name: string;
   readonly stationGone: boolean;
-  readonly guardsChanges: boolean;
+  readonly gatesChanges: boolean;
   readonly health: ReplaySetHealthDto;
   readonly baseline: ReplayedBaselineDto | null;
   readonly chartCurrency: string | null;

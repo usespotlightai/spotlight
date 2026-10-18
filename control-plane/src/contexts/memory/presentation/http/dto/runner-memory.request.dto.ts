@@ -23,7 +23,7 @@ export class RememberRequestDto {
     isArray: true,
     example: ['api/src/uploads'],
     description:
-      'Paths it bears on, relative to the run’s workspace, each starting with the checkout folder',
+      'Paths it is about, relative to the run’s workspace, each starting with the checkout folder',
   })
   readonly paths?: readonly string[];
 

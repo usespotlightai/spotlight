@@ -13,8 +13,8 @@ const REMEMBERING = `When you learn something the next run should know and the c
 const looking = (folder: MemoryFolder): string =>
   [
     'Look there before you:',
-    folder.mirroring
-      ? `- change code you do not know: the same path under \`${folder.mirroring}\`, and the folders above it;`
+    folder.repositoryFolder
+      ? `- change code you do not know: the same path under \`${folder.repositoryFolder}\`, and the folders above it;`
       : null,
     '- choose between approaches: grep for what you are deciding, since a rejected approach may already be written down;',
     '- chase a failure you cannot explain: grep for the error, the test or the service.',

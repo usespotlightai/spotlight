@@ -5,9 +5,9 @@ import type { StationKind } from '@work/domain/entities/station.entity';
 export interface StationJudgeSummary {
   readonly rubric: string | null;
   readonly claims: readonly string[];
-  readonly passShare: number;
+  readonly passThreshold: number;
   readonly sample: number;
-  readonly trust: number;
+  readonly minAgreement: number;
 }
 
 export interface StationAlertSummary {

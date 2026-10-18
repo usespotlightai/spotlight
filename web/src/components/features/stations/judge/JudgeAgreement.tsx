@@ -79,7 +79,7 @@ export function JudgeAgreement({
 
   return (
     <div data-slot="judge-agreement" className="flex flex-col gap-3">
-      <InsightsTiles label="How far to trust the judge">
+      <InsightsTiles label="How far the judge agrees with people">
         {judgeTiles(calibration, coverage).map((tile) => (
           <InsightsTile
             key={tile.id}
@@ -114,7 +114,7 @@ export function JudgeAgreement({
         key={shown.rubricVersion}
         version={shown}
         claims={shown.current && judge ? judge.claims : []}
-        trust={calibration.trust}
+        minAgreement={calibration.minAgreement}
       />
     </div>
   );

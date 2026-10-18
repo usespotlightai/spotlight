@@ -34,7 +34,7 @@ const meta = {
       remembered
         ? async (screen, user) => {
             await user.click(
-              await screen.findByRole('button', { name: 'Remembered' }),
+              await screen.findByRole('button', { name: 'Memories' }),
             );
           }
         : undefined,

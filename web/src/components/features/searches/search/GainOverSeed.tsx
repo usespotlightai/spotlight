@@ -1,10 +1,10 @@
 import { GainWithPairs } from '@/components/features/replays/GainWithPairs';
-import type { GainReading } from '@/lib/replay';
+import type { GainEstimate } from '@/lib/replay';
 import { type PairTally, THE_SEARCH_START } from '@/lib/replay-words';
 
 type GainOverSeedProps = {
   label: string;
-  gain: GainReading | null;
+  gain: GainEstimate | null;
   pairs: PairTally | null;
 };
 

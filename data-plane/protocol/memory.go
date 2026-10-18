@@ -18,7 +18,7 @@ type MemoryPerson struct {
 	Name *string `json:"name"`
 }
 
-type MemoryGrounds struct {
+type MemoryProvenance struct {
 	TaskID string `json:"taskId"`
 	RunID  string `json:"runId"`
 }
@@ -58,7 +58,7 @@ type RecalledMemory struct {
 	ApprovedBy MemoryPerson      `json:"approvedBy"`
 	ApprovedAt string            `json:"approvedAt"`
 	Retirement *MemoryRetirement `json:"retirement"`
-	Grounds    *MemoryGrounds    `json:"grounds"`
+	Provenance *MemoryProvenance `json:"provenance"`
 	Steps      []MemoryStep      `json:"steps"`
 	Notes      []MemoryNote      `json:"notes"`
 	Superseded *MemoryLink       `json:"superseded"`

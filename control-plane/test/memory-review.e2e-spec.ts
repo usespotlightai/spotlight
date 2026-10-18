@@ -75,7 +75,7 @@ const proposing = async (
     evidence: DraftEvidence.of({
       taskId: team.list.id,
       runId,
-      site: {
+      runContext: {
         teamId: team.teamId,
         lineId: team.line.id.value,
         stationId: team.stationId.value,

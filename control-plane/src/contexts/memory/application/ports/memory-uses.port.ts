@@ -6,13 +6,13 @@ export const MEMORY_USES = Symbol('MEMORY_USES');
 
 export interface UsedMemory {
   readonly memoryId: MemoryId;
-  readonly way: MemoryUse;
+  readonly via: MemoryUse;
 }
 
 export interface MemoryUsesPort {
   record(
     runId: RunId,
-    way: MemoryUse,
+    via: MemoryUse,
     memories: readonly MemoryId[],
     at: Date,
   ): Promise<void>;
@@ -21,6 +21,6 @@ export interface MemoryUsesPort {
 
   runsUsing(
     memories: readonly MemoryId[],
-    way?: MemoryUse,
+    via?: MemoryUse,
   ): Promise<ReadonlyMap<string, number>>;
 }

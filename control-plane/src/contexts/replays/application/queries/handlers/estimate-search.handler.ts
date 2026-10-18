@@ -2,10 +2,10 @@ import type { SearchRejected } from '@replays/application/dto/replay-outcomes.dt
 import type { SearchEstimateDto } from '@replays/application/dto/searches.dto';
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { EstimateSearchQuery } from '@replays/application/queries/estimate-search.query';
-import { spendView } from '@replays/application/services/replay-views';
+import { moneyView } from '@replays/application/services/replay-views';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import {
-  allotmentOf,
+  ceilingSplitOf,
   InvalidSearchTermsError,
   searchBudgetOf,
   splitOf,
@@ -52,7 +52,7 @@ export class EstimateSearchHandler
         ),
       );
 
-      allotmentOf(budget, split);
+      ceilingSplitOf(budget, split);
 
       const timed = await this.work.durations(set.runs);
       const estimate = estimateOf(budget, split, [...timed.values()]);
@@ -63,12 +63,12 @@ export class EstimateSearchHandler
         searchedTasks: split.searchedTasks,
         heldOutTasks: split.heldOutTasks,
         runs: estimate.runs,
-        ceiling: spendView(budget.ceiling),
-        perReplayAllotments: {
-          seed: spendView(estimate.allotment.seed),
-          searchReplay: spendView(estimate.allotment.searchReplay),
-          heldOutReplay: spendView(estimate.allotment.heldOutReplay),
-          agentRun: spendView(estimate.allotment.agentRun),
+        ceiling: moneyView(budget.ceiling),
+        perReplayLimits: {
+          seed: moneyView(estimate.ceilingSplit.seed),
+          searchReplay: moneyView(estimate.ceilingSplit.searchReplay),
+          heldOutReplay: moneyView(estimate.ceilingSplit.heldOutReplay),
+          agentRun: moneyView(estimate.ceilingSplit.agentRun),
         },
         estimatedDuration: estimate.ms,
         minGain: standard.minGain,

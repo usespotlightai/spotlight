@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto';
+import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
+import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
+import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
+import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
+import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { MemoryUse } from '@memory/domain/value-objects/memory-use';
 import type { INestApplication } from '@nestjs/common';
-import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
-import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
-import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
-import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
-import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
-import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { EventDelivery } from '@platform/events/event-delivery';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -55,14 +55,14 @@ const remembered = async (
 const ran = async (runId: string) => {
   const ended = RunRecord.empty(RunId.of(runId), team.workspaceId).recordEnd(
     RunEnd.of({
-      place: RunPlace.of({
+      location: RunLocation.of({
         teamId: team.teamId,
         lineId: team.line.id.value,
         stationId: team.stationId.value,
         taskId: team.list.id,
       }),
       fingerprint: null,
-      setup: RunSetup.of({
+      agentConfig: RunAgentConfig.of({
         harness: 'claude-code',
         model: null,
         effort: null,
@@ -75,7 +75,7 @@ const ran = async (runId: string) => {
       endedAt: ago(2),
       ending: 'completed',
       failure: null,
-      round: 1,
+      visit: 1,
       asked: false,
     }),
   );
@@ -84,19 +84,19 @@ const ran = async (runId: string) => {
     .get(DrizzleRunRecordRepository)
     .add(
       runId.endsWith('x')
-        ? ended.recordAction(NextAct.of('closed', ago(1)))
+        ? ended.recordAction(HumanAction.of('accepted', ago(1)))
         : ended,
     );
 };
 
-const used = (runId: string, way: MemoryUse, memory: string) =>
+const used = (runId: string, via: MemoryUse, memory: string) =>
   app.get(RecordMemoryUses).recorded(
     {
       id: RunId.of(runId),
       workspaceId: team.workspaceId,
       taskId: team.list.id,
     },
-    way,
+    via,
     [MemoryId.of(memory)],
   );
 

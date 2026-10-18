@@ -36,7 +36,7 @@ export class StartWantedBaseline {
         !needsBaseline(
           set,
           await this.replays.ofSet(set.id),
-          candidate.scoringDigest,
+          candidate.scoringHash,
           event.repeats,
         )
       ) {
@@ -52,7 +52,7 @@ export class StartWantedBaseline {
           baseline: true,
           ceiling: event.ceiling,
           repeats: event.baselineRepeats,
-          probe: event.probe,
+          calibration: event.calibration,
           ...(event.unpricedRate ? { unpricedRate: event.unpricedRate } : {}),
           at: this.clock.now(),
           by: Attribution.spotlight(set.workspaceId),

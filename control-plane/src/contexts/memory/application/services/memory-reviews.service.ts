@@ -4,8 +4,8 @@ import type {
 } from '@memory/application/dto/memory-review.dto';
 import type { PeoplePort } from '@memory/application/ports/people.port';
 import type { WorkPort } from '@memory/application/ports/work.port';
-import { groundNotes } from '@memory/application/services/ground-notes';
 import { lookUpOnce } from '@memory/application/services/people-lookup';
+import { provenanceNotes } from '@memory/application/services/provenance-notes';
 import type { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
@@ -17,7 +17,7 @@ export class MemoryReviews {
 
   async of(draft: MemoryDraft, runId: RunId): Promise<MemoryReviewDto> {
     const proposals = draft.proposals.filter((each) =>
-      each.grounds.runId.equals(runId),
+      each.provenance.runId.equals(runId),
     );
     const [steps, notes, harness] = await Promise.all([
       this.work.reasoning(runId),
@@ -33,7 +33,7 @@ export class MemoryReviews {
           kind: proposal.kind,
           body: proposal.body.value,
           source: proposal.source,
-          origin: proposal.origin,
+          proposedBy: proposal.proposedBy,
           state: proposal.state,
           scope: proposal.scope.level,
           repository: proposal.scope.repository?.value ?? null,
@@ -46,9 +46,13 @@ export class MemoryReviews {
           },
           harness,
           steps: (steps ?? []).filter((each) =>
-            proposal.grounds.steps.includes(each.index),
+            proposal.provenance.steps.includes(each.index),
           ),
-          notes: await groundNotes(notes ?? [], proposal.grounds.notes, person),
+          notes: await provenanceNotes(
+            notes ?? [],
+            proposal.provenance.notes,
+            person,
+          ),
         }),
       ),
     );

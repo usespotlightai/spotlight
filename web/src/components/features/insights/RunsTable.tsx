@@ -21,7 +21,7 @@ import {
 import { SPREAD } from '@/lib/nested-table';
 import { runPath } from '@/lib/run';
 import { since } from '@/lib/since';
-import { endedBadly, formatEnding } from '@/lib/station-outcomes';
+import { endedBadly, formatEnding } from '@/lib/station-insights';
 import { cn } from '@/lib/utils';
 
 const HEADINGS = [
@@ -29,7 +29,7 @@ const HEADINGS = [
   { label: 'Failure', size: 'minmax(10rem,2fr)' },
   { label: 'Station', size: SPREAD },
   { label: 'Person', size: SPREAD },
-  { label: 'Setup', size: SPREAD },
+  { label: 'Agent config', size: SPREAD },
   { label: 'Took', numeric: true, size: SPREAD },
   { label: 'Cost', numeric: true, size: SPREAD },
   { label: 'Ended', numeric: true, size: SPREAD },
@@ -91,7 +91,7 @@ export function RunsTable({
           <NestedCell heading="Person" numeric={false}>
             {formatPerson(people, run.openedBy)}
           </NestedCell>
-          <NestedCell heading="Setup" numeric={false}>
+          <NestedCell heading="Agent config" numeric={false}>
             {formatHarness(harnesses, run.harness)} · {formatModel(run.model)}
           </NestedCell>
           <NestedCell heading="Took">{lastedOrNone(run.ms)}</NestedCell>

@@ -1,4 +1,4 @@
-import type { GainVerdict } from '@replays/domain/services/gain-reading';
+import type { GainSignificance } from '@replays/domain/services/gain-estimate';
 import { rankedOf } from '@replays/domain/services/search-ranking';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -9,8 +9,8 @@ const point = (
     seed: boolean;
     searchScore: number | null;
     heldOutScore: number | null;
-    searchedVerdict: GainVerdict | null;
-    heldOutVerdict: GainVerdict | null;
+    searchedSignificance: GainSignificance | null;
+    heldOutSignificance: GainSignificance | null;
     costPerRun: number | null;
   }> = {},
 ) => ({
@@ -18,10 +18,14 @@ const point = (
   seed: over.seed ?? false,
   searchScore: over.searchScore ?? null,
   heldOutScore: over.heldOutScore ?? null,
-  searchedVerdict:
-    over.searchedVerdict === undefined ? 'within-noise' : over.searchedVerdict,
-  heldOutVerdict:
-    over.heldOutVerdict === undefined ? 'within-noise' : over.heldOutVerdict,
+  searchedSignificance:
+    over.searchedSignificance === undefined
+      ? 'within-noise'
+      : over.searchedSignificance,
+  heldOutSignificance:
+    over.heldOutSignificance === undefined
+      ? 'within-noise'
+      : over.heldOutSignificance,
   costPerRun: over.costPerRun ?? null,
 });
 
@@ -85,15 +89,15 @@ describe('rankedOf', () => {
             point('cheap-but-worse', {
               searchScore: 0.7,
               costPerRun: 0.5,
-              searchedVerdict: 'worse',
+              searchedSignificance: 'worse',
             }),
             point('cheaper', { searchScore: 0.94, costPerRun: 1 }),
             point('better-and-dear', {
               searchScore: 1,
               costPerRun: 3,
-              searchedVerdict: 'better',
+              searchedSignificance: 'better',
             }),
-            point('uncompared', { searchScore: 1, searchedVerdict: null }),
+            point('uncompared', { searchScore: 1, searchedSignificance: null }),
           ],
           'cost',
         ),
@@ -116,13 +120,13 @@ describe('rankedOf', () => {
               searchScore: 0.9,
               heldOutScore: 0.6,
               costPerRun: 0.5,
-              heldOutVerdict: 'worse',
+              heldOutSignificance: 'worse',
             }),
             point('steady', {
               searchScore: 0.9,
               heldOutScore: 0.88,
               costPerRun: 1,
-              searchedVerdict: 'worse',
+              searchedSignificance: 'worse',
             }),
           ],
           'cost',

@@ -24,7 +24,7 @@ const approved = (scope: Parameters<typeof MemoryScope.of>[0]) =>
     kind: 'rationale',
     body: MemoryBody.of('Uploads retry in the request.'),
     scope: MemoryScope.of(scope),
-    grounds: null,
+    provenance: null,
     by: MemoryDecision.of({
       by: UserId.of('user_1'),
       at: new Date('2026-09-27T10:00:00.000Z'),
@@ -81,17 +81,17 @@ describe('the memory folder', () => {
   });
 
   it('lays out a folder for each place a run works, and repositories only where it checked some out', () => {
-    const site = {
+    const runContext = {
       teamId: TEAM,
       lineId: null,
       stationId: null,
       repositories: [],
     };
 
-    expect(layoutAt(site).map((each) => each.level)).toEqual(['team']);
+    expect(layoutAt(runContext).map((each) => each.level)).toEqual(['team']);
     expect(
       layoutAt({
-        ...site,
+        ...runContext,
         lineId: 'line_1',
         stationId: 'station_1',
         repositories: [API],

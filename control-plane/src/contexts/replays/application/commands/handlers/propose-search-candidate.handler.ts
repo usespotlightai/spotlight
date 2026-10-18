@@ -2,8 +2,8 @@ import type { ProposeSearchCandidateCommand } from '@replays/application/command
 import type { SearchCandidateProposed } from '@replays/application/dto/replay-outcomes.dto';
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
-  ExaminedCandidate,
   StationView,
+  ValidatedCandidate,
   WorkPort,
 } from '@replays/application/ports/work.port';
 import { CandidateProblems } from '@replays/application/rendering/candidate-problems';
@@ -22,8 +22,8 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
+import { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -64,7 +64,7 @@ const hypothesisProblem = (reason: string): ConfigurationProblem =>
 interface Proposal {
   readonly name: CandidateName;
   readonly hypothesis: Hypothesis;
-  readonly examined: Extract<ExaminedCandidate, { ok: true }>;
+  readonly validated: Extract<ValidatedCandidate, { ok: true }>;
 }
 
 export class ProposeSearchCandidateHandler
@@ -105,13 +105,13 @@ export class ProposeSearchCandidateHandler
       const station = await this.work.station(lineId, stationId);
       const teamKey = await this.people.teamKey(seen.teamId);
       const [seed] = await this.candidates.findMany([seen.seed.candidateId]);
-      const examined = await this.work.examine(
+      const validated = await this.work.validate(
         lineId,
         stationId,
         command.station,
       );
 
-      if (!station || !teamKey || !seed || !examined) {
+      if (!station || !teamKey || !seed || !validated) {
         throw new UnknownStationError(stationId);
       }
 
@@ -126,12 +126,12 @@ export class ProposeSearchCandidateHandler
       const problems = [
         ...(name.ok ? [] : [name.problem]),
         ...(hypothesis.ok ? [] : [hypothesis.problem]),
-        ...(examined.ok
-          ? unsearchableChanges(seed.block, examined.block)
-          : examined.problems),
+        ...(validated.ok
+          ? unsearchableChanges(seed.block, validated.block)
+          : validated.problems),
       ];
 
-      if (!name.ok || !hypothesis.ok || !examined.ok || problems.length > 0) {
+      if (!name.ok || !hypothesis.ok || !validated.ok || problems.length > 0) {
         await this.rejected(seen, run);
 
         return { outcome: 'invalid', problems };
@@ -140,7 +140,7 @@ export class ProposeSearchCandidateHandler
       return await this.acceptProposal(seen, run, station, teamKey, {
         name: name.value,
         hypothesis: hypothesis.value,
-        examined,
+        validated,
       });
     } catch (error) {
       rethrowAsApplicationError(error);
@@ -200,7 +200,7 @@ export class ProposeSearchCandidateHandler
       }
 
       const iteration = search.iterationOf(run);
-      const address = StationAddress.of(teamKey, station.lineKey, station.key);
+      const address = StationPath.of(teamKey, station.lineKey, station.key);
 
       if (!iteration || !address) {
         throw new SearchRunNotActiveError();
@@ -209,7 +209,7 @@ export class ProposeSearchCandidateHandler
       const at = this.clock.now();
       const candidate = this.searched(search, proposal, address, {
         iteration: iteration.number,
-        block: proposal.examined.block,
+        block: proposal.validated.block,
         at,
       });
       const replayId = ReplayId.of(this.ids.generate());
@@ -226,14 +226,14 @@ export class ProposeSearchCandidateHandler
           set,
           candidate,
           baseline: false,
-          ceiling: search.allotment.searchReplay,
-          unpricedRate: search.allotment.perRun,
+          ceiling: search.ceilingSplit.searchReplay,
+          unpricedRate: search.ceilingSplit.perRun,
           at,
           by: Attribution.spotlight(search.workspaceId),
-          among: search.split.searchedRuns,
+          runSubset: search.split.searchedRuns,
           repeats: search.budget.repeats,
           searchId: search.id,
-          pairsWith: search.seed.replay.replayId,
+          pairwiseReferenceId: search.seed.replay.replayId,
         }),
       );
       await this.searches.save(accepted);
@@ -250,7 +250,7 @@ export class ProposeSearchCandidateHandler
   private searched(
     search: Search,
     proposal: Proposal,
-    address: StationAddress,
+    address: StationPath,
     made: { iteration: number; block: StationBlock; at: Date },
   ): Candidate {
     return Candidate.fromSearch({
@@ -259,10 +259,10 @@ export class ProposeSearchCandidateHandler
       address,
       name: proposal.name.value,
       block: made.block,
-      fingerprint: proposal.examined.fingerprint,
-      digests: proposal.examined.digests,
-      scoring: proposal.examined.scoring,
-      changedFrom: proposal.examined.changedFrom,
+      fingerprint: proposal.validated.fingerprint,
+      hashes: proposal.validated.hashes,
+      scoring: proposal.validated.scoring,
+      changedFrom: proposal.validated.changedFrom,
       search: {
         searchId: search.id,
         iteration: made.iteration,

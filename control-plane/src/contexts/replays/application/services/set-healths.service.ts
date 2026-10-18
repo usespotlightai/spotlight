@@ -3,7 +3,7 @@ import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
-import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-reading';
+import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-estimate';
 import {
   type SetHealth,
   setHealthOf,
@@ -100,9 +100,9 @@ export class SetHealths {
     read: readonly Replay[],
   ): Promise<readonly Replay[]> {
     const missing = read.flatMap((each) =>
-      each.comparedWith &&
-      !read.some((other) => each.comparedWith?.equals(other.id))
-        ? [each.comparedWith]
+      each.referenceReplayId &&
+      !read.some((other) => each.referenceReplayId?.equals(other.id))
+        ? [each.referenceReplayId]
         : [],
     );
     const found = await Promise.all(

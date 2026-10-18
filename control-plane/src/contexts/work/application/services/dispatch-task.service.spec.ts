@@ -24,7 +24,7 @@ import type {
   SkillsHome,
 } from '@work/application/ports/harness-launch.port';
 import type {
-  BriefingPlace,
+  BriefingContext,
   BriefingSelection,
   TouchedFile,
 } from '@work/application/ports/team-memories.port';
@@ -70,7 +70,7 @@ import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 import { WayOut } from '@work/domain/value-objects/way-out.vo';
 import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
-import { Sha256ContentDigest } from '@work/infrastructure/hashing/sha256-content-digest';
+import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-08-28T12:00:00.000Z');
@@ -322,8 +322,8 @@ const WEB_SEARCH = {
   ],
 };
 
-let briefedAt: BriefingPlace[] = [];
-let remembered: BriefingSelection = { briefed: [], cut: [], folder: null };
+let briefedAt: BriefingContext[] = [];
+let remembered: BriefingSelection = { briefed: [], omitted: [], folder: null };
 let touchedOnTask: TouchedFile[] = [];
 let memoryFails = false;
 
@@ -345,7 +345,7 @@ const dispatch = async (
     catalog,
     profiles,
     {
-      forBriefing: async (place: BriefingPlace) => {
+      forBriefing: async (place: BriefingContext) => {
         briefedAt.push(place);
         if (memoryFails) {
           throw new Error('memory is down');
@@ -361,7 +361,7 @@ const dispatch = async (
       error: () => undefined,
     },
     { inSavepoint: (work) => work() },
-    new Sha256ContentDigest(),
+    new Sha256ContentHash(),
   );
   const working = existing ?? task(station.id.value);
   const line = lineWith(station, repositories);
@@ -381,7 +381,7 @@ const dispatch = async (
 describe('DispatchTask', () => {
   beforeEach(() => {
     briefedAt = [];
-    remembered = { briefed: [], cut: [], folder: null };
+    remembered = { briefed: [], omitted: [], folder: null };
     touchedOnTask = [];
     queued = [];
     extras = [];
@@ -1128,8 +1128,12 @@ describe('DispatchTask, the tools a run is told about', () => {
             body: 'Name branches after the ticket.',
           },
         ],
-        cut: [{ id: 'memory_2', handle: 'M-13' }],
-        folder: { path: '.spotlight/memory', layout: [], mirroring: null },
+        omitted: [{ id: 'memory_2', handle: 'M-13' }],
+        folder: {
+          path: '.spotlight/memory',
+          layout: [],
+          repositoryFolder: null,
+        },
       };
       touchedOnTask = [
         { repository: Repository.of('acme/api'), path: 'src/uploads.ts' },
@@ -1149,7 +1153,7 @@ describe('DispatchTask, the tools a run is told about', () => {
       const run = queued.slice(-1)[0];
       expect(run?.briefedWith.value).toEqual({
         briefed: [{ id: 'memory_1', handle: 'M-12' }],
-        cut: [{ id: 'memory_2', handle: 'M-13' }],
+        omitted: [{ id: 'memory_2', handle: 'M-13' }],
       });
       expect(run?.spec.value.briefing).not.toContain('M-13');
       expect(run?.pullEvents().map((each) => each.kind)).toContain(
@@ -1168,7 +1172,7 @@ describe('DispatchTask, the tools a run is told about', () => {
 
       memoryFails = false;
       const run = queued.slice(-1)[0];
-      expect(run?.briefedWith.value).toEqual({ briefed: [], cut: [] });
+      expect(run?.briefedWith.value).toEqual({ briefed: [], omitted: [] });
       expect(run?.spec.value.briefing).not.toContain(
         'What the team has learned',
       );
@@ -1244,7 +1248,7 @@ describe('DispatchTask, the tools a run is told about', () => {
       );
     });
 
-    it('keeps a digest of each MCP server env value, never the value', async () => {
+    it('keeps a hash of each MCP server env value, never the value', async () => {
       teamProfiles = {
         tokened: {
           key: 'tokened',

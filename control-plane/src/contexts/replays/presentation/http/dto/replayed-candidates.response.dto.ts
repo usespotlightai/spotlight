@@ -14,8 +14,8 @@ import type {
   ReplaySetHealthDto,
 } from '@replays/application/dto/replayed-candidates.dto';
 import {
-  CHARTED_AS,
-  type ChartedAs,
+  CHART_STATUSES,
+  type ChartStatus,
 } from '@replays/domain/services/replayed-chart';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
 import { REPLAYED_PERIODS } from '@replays/domain/value-objects/replayed-period.vo';
@@ -24,7 +24,7 @@ import { SEARCH_STATES } from '@replays/domain/value-objects/search-state';
 import { CandidatePullRequestResponseDto } from '@replays/presentation/http/dto/config-pull-requests.response.dto';
 import { StationChangeResponseDto } from '@replays/presentation/http/dto/replay-candidate-resource.response.dto';
 import {
-  GainReadingResponseDto,
+  GainEstimateResponseDto,
   gainResponse,
   intervalResponse,
   RateIntervalResponseDto,
@@ -37,7 +37,7 @@ const RATE =
 const PER_RUN =
   'What it spent per scored run; unknown while any of it went unpriced or was in another currency';
 
-const CHARTED =
+const CHART_STATUS =
   'Where it goes on the set’s cost and success chart: priced when finished, scored and costed in the chart currency; unfinished, unscored, unpriced or other-currency say why it is left off';
 
 export class ReplayedPeriodResponseDto {
@@ -154,8 +154,8 @@ export class ReplayedBaselineResponseDto {
   @ApiProperty({ nullable: true, type: String })
   readonly endedAt: string | null;
 
-  @ApiProperty({ enum: CHARTED_AS, description: CHARTED })
-  readonly charted: ChartedAs;
+  @ApiProperty({ enum: CHART_STATUSES, description: CHART_STATUS })
+  readonly chartStatus: ChartStatus;
 
   constructor(baseline: ReplayedBaselineDto) {
     this.replayId = baseline.replayId;
@@ -167,7 +167,7 @@ export class ReplayedBaselineResponseDto {
     this.costPerRun = baseline.costPerRun;
     this.currency = baseline.currency;
     this.endedAt = baseline.endedAt;
-    this.charted = baseline.charted;
+    this.chartStatus = baseline.chartStatus;
   }
 }
 
@@ -263,15 +263,15 @@ export class ReplayedSeedResponseDto {
   @ApiProperty({ description: 'How many searched runs it was scored on' })
   readonly scored: number;
 
-  @ApiProperty({ enum: CHARTED_AS, description: CHARTED })
-  readonly charted: ChartedAs;
+  @ApiProperty({ enum: CHART_STATUSES, description: CHART_STATUS })
+  readonly chartStatus: ChartStatus;
 
   constructor(seed: ReplayedSeedDto) {
     this.successRate = seed.successRate;
     this.interval = intervalResponse(seed.interval);
     this.costPerRun = seed.costPerRun;
     this.scored = seed.scored;
-    this.charted = seed.charted;
+    this.chartStatus = seed.chartStatus;
   }
 }
 
@@ -514,11 +514,11 @@ export class ReplayedCandidateResponseDto {
 
   @ApiProperty({
     nullable: true,
-    type: GainReadingResponseDto,
+    type: GainEstimateResponseDto,
     description:
       'Its gain in success over the baseline on the compared runs, paired task by task, and whether it is within noise; null without a baseline',
   })
-  readonly againstLive: GainReadingResponseDto | null;
+  readonly gainOverLive: GainEstimateResponseDto | null;
 
   @ApiProperty({
     nullable: true,
@@ -543,8 +543,8 @@ export class ReplayedCandidateResponseDto {
   })
   readonly pullRequest: CandidatePullRequestResponseDto | null;
 
-  @ApiProperty({ enum: CHARTED_AS, description: CHARTED })
-  readonly charted: ChartedAs;
+  @ApiProperty({ enum: CHART_STATUSES, description: CHART_STATUS })
+  readonly chartStatus: ChartStatus;
 
   @ApiProperty({
     type: ReplayedShownResponseDto,
@@ -580,7 +580,7 @@ export class ReplayedCandidateResponseDto {
       : null;
     this.regressions = candidate.regressions;
     this.compared = candidate.compared;
-    this.againstLive = gainResponse(candidate.againstLive);
+    this.gainOverLive = gainResponse(candidate.gainOverLive);
     this.successRateOnCompared = candidate.successRateOnCompared;
     this.intervalOnCompared = intervalResponse(candidate.intervalOnCompared);
     this.costPerRunOnCompared = candidate.costPerRunOnCompared;
@@ -591,7 +591,7 @@ export class ReplayedCandidateResponseDto {
     this.pullRequest = candidate.pullRequest
       ? new CandidatePullRequestResponseDto(candidate.pullRequest)
       : null;
-    this.charted = candidate.charted;
+    this.chartStatus = candidate.chartStatus;
     this.shown = new ReplayedShownResponseDto(candidate.shown);
   }
 }
@@ -610,7 +610,7 @@ export class ReplayedSetResponseDto {
     description:
       'Whether it checks every pull request that changes its station',
   })
-  readonly guardsChanges: boolean;
+  readonly gatesChanges: boolean;
 
   @ApiProperty({
     type: ReplaySetHealthResponseDto,
@@ -647,7 +647,7 @@ export class ReplayedSetResponseDto {
     this.setId = set.setId;
     this.name = set.name;
     this.stationGone = set.stationGone;
-    this.guardsChanges = set.guardsChanges;
+    this.gatesChanges = set.gatesChanges;
     this.health = new ReplaySetHealthResponseDto(set.health);
     this.baseline = set.baseline
       ? new ReplayedBaselineResponseDto(set.baseline)

@@ -2,7 +2,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { JournalStep } from '@work/application/contracts/run-journal.contract';
 import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
-import type { ContentDigestPort } from '@work/application/ports/content-digest.port';
+import type { ContentHashPort } from '@work/application/ports/content-hash.port';
 import type {
   EvidencedHunk,
   EvidencedRun,
@@ -83,7 +83,7 @@ export class RunEvidences implements RunEvidencePort {
     private readonly lines: LineRepository,
     private readonly journals: RunJournalReaderPort,
     private readonly briefed: BriefedTasksPort,
-    private readonly digest: ContentDigestPort,
+    private readonly hash: ContentHashPort,
   ) {}
 
   async hasTask(runId: string): Promise<boolean> {
@@ -171,10 +171,10 @@ export class RunEvidences implements RunEvidencePort {
       lineId: line.id.value,
       rubric: judge.rubric,
       claims: judge.claims,
-      passShare: judge.passShare,
-      rubricVersion: this.digest.sha256(judge.criteria),
+      passThreshold: judge.passThreshold,
+      rubricVersion: this.hash.sha256(judge.criteria),
       sample: judge.sample,
-      trust: judge.trust,
+      minAgreement: judge.minAgreement,
     };
   }
 }

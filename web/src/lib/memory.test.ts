@@ -23,7 +23,7 @@ const memory = (over: Partial<ProposedMemory> = {}): ProposedMemory => ({
   kind: 'preference',
   body: 'Name branches after the ticket.',
   source: 'person',
-  origin: 'drafted',
+  proposedBy: 'drafter',
   state: 'proposed',
   scope: 'team',
   repository: null,
@@ -37,7 +37,7 @@ const memory = (over: Partial<ProposedMemory> = {}): ProposedMemory => ({
 });
 
 describe('appliesTo and memoryFilesOf', () => {
-  it('says where a memory applies, and the files it bears on', () => {
+  it('says where a memory applies, and the files it is about', () => {
     expect(appliesTo(memory())).toBe('The whole team');
     expect(memoryFilesOf(memory())).toBeNull();
 
@@ -249,7 +249,7 @@ describe('what a run remembered', () => {
     expect(
       suppliedMemories({
         briefed: [briefed, both],
-        cut: [{ id: 'memory_c' } as TeamMemory],
+        omitted: [{ id: 'memory_c' } as TeamMemory],
         recalled: [both, recalled],
         proposed: [],
         reviewItemId: null,
@@ -261,7 +261,7 @@ describe('what a run remembered', () => {
     expect(
       rememberedCounts({
         briefed: [],
-        cut: [],
+        omitted: [],
         recalled: [],
         proposed: [proposal({})],
         reviewItemId: null,

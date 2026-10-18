@@ -1,5 +1,5 @@
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
-import { NotOnTeamError } from '@memory/domain/exceptions/not-on-team.error';
+import { TeamNotFoundError } from '@memory/domain/exceptions/team-not-found.error';
 import { TeamAccess } from '@memory/domain/services/team-access';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
@@ -25,7 +25,7 @@ const approved = (teamId: string) =>
     kind: 'preference',
     body: MemoryBody.of('Keep it simple.'),
     scope: MemoryScope.of({ teamId: TeamId.of(teamId) }),
-    grounds: null,
+    provenance: null,
     by: MemoryDecision.of({ by: ADA, at: new Date('2026-09-27T10:00:00Z') }),
   });
 
@@ -38,7 +38,7 @@ describe('TeamAccess', () => {
   });
 
   it('is denied to anyone not on the team, as if there were no team', () => {
-    expect(() => TeamAccess.onTeam('team_1', null)).toThrow(NotOnTeamError);
+    expect(() => TeamAccess.onTeam('team_1', null)).toThrow(TeamNotFoundError);
     expect(() => TeamAccess.onTeam('team_1', null)).toThrow(
       'Team team_1 not found.',
     );
@@ -63,16 +63,16 @@ describe('TeamAccess', () => {
   });
 
   it('sees only the team’s runs', () => {
-    const site = {
+    const runContext = {
       teamId: TeamId.of('team_1'),
       lineId: null,
       stationId: null,
       repositories: [],
     };
 
-    expect(teamAccess().sees(site)).toBe(true);
-    expect(teamAccess().sees({ ...site, teamId: TeamId.of('team_2') })).toBe(
-      false,
-    );
+    expect(teamAccess().sees(runContext)).toBe(true);
+    expect(
+      teamAccess().sees({ ...runContext, teamId: TeamId.of('team_2') }),
+    ).toBe(false);
   });
 });

@@ -1,0 +1,28 @@
+import { InvalidRunPageError } from '@insights/domain/exceptions/invalid-run-page.error';
+import {
+  lastPageOf,
+  MAX_RUN_PAGE,
+  pageWithin,
+  requestedPageOf,
+} from '@insights/domain/services/run-page';
+import { describe, expect, it } from 'vitest';
+
+describe('run pages', () => {
+  it('counts one page even when there are no runs', () => {
+    expect(lastPageOf(0, 50)).toBe(1);
+    expect(lastPageOf(101, 50)).toBe(3);
+  });
+
+  it('takes the last page with runs, and rejects one past it', () => {
+    expect(() => pageWithin(3, 101, 50)).not.toThrow();
+    expect(() => pageWithin(4, 101, 50)).toThrow(InvalidRunPageError);
+    expect(() => pageWithin(1, 0, 50)).not.toThrow();
+  });
+
+  it('rejects a page past the most it ever pages to before reading any runs', () => {
+    expect(requestedPageOf(MAX_RUN_PAGE)).toBe(MAX_RUN_PAGE);
+    expect(() => requestedPageOf(MAX_RUN_PAGE + 1)).toThrow(
+      InvalidRunPageError,
+    );
+  });
+});

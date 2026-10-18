@@ -67,7 +67,7 @@ const meta = {
         [MEMORIES_ASIDE_ID]: 'Proposed memories',
         [DECIDED_MEMORIES_ASIDE_ID]: 'Memories decided',
         [COST_ALERT_ASIDE_ID]: 'Station alert',
-        [ALERT_ASIDE_ID]: 'Alert recovered',
+        [ALERT_ASIDE_ID]: 'Alert resolved',
         [GRADE_ASIDE_ID]: 'Grade run',
         [FIVE_POINT_GRADE_ASIDE_ID]: 'Grade from 1 to 5',
         [CLAIMS_GRADE_ASIDE_ID]: 'Grade claim by claim',

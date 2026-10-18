@@ -1,4 +1,4 @@
-import type { GainVerdict } from '@replays/domain/services/gain-reading';
+import type { GainSignificance } from '@replays/domain/services/gain-estimate';
 import { isSuccess } from '@replays/domain/services/search-ranking';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 
@@ -6,7 +6,7 @@ export interface FrontierPoint {
   readonly seed: boolean;
   readonly finished: boolean;
   readonly searchScore: number | null;
-  readonly searchedVerdict: GainVerdict | null;
+  readonly searchedSignificance: GainSignificance | null;
   readonly costPerRun: number | null;
 }
 
@@ -31,7 +31,7 @@ export const frontierOf = <Point extends FrontierPoint>(
       (each.finished &&
         each.searchScore !== null &&
         (objective === 'success' ||
-          isSuccess(each.searchedVerdict, each.seed))),
+          isSuccess(each.searchedSignificance, each.seed))),
   );
 
   return eligible

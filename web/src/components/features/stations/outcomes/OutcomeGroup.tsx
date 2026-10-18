@@ -8,7 +8,7 @@ import type { Folds } from '@/hooks/useFolds';
 import { useBeforeAfterPanel } from '@/lib/before-after-panel';
 import { COMPACT_PILL, pillClass } from '@/lib/pill';
 import { runPath } from '@/lib/run';
-import { type FingerprintGroup, groupSummary } from '@/lib/station-outcomes';
+import { type FingerprintGroup, groupSummary } from '@/lib/station-insights';
 import { cn } from '@/lib/utils';
 
 type OutcomeGroupProps = {
@@ -57,11 +57,11 @@ export function OutcomeGroup({
             <NestedCell heading="Checks" numeric={false} strong>
               {summary.checks}
             </NestedCell>
-            <NestedCell heading="Next" numeric={false} strong>
-              {summary.next}
+            <NestedCell heading="Human action" numeric={false} strong>
+              {summary.humanAction}
             </NestedCell>
-            <NestedCell heading="Delivery" numeric={false} strong>
-              {summary.delivery}
+            <NestedCell heading="Pull request" numeric={false} strong>
+              {summary.pullRequestState}
             </NestedCell>
             <NestedCell heading="Took" strong>
               {summary.took}

@@ -45,9 +45,9 @@ const verdict = (scale: 'yes-no' | 'number', value: number) =>
     JudgeVerdict.of({
       scale,
       value,
-      marks: null,
+      claimResults: null,
       claims: [],
-      passShare: 1,
+      passThreshold: 1,
       model: 'judge/model',
       referenced: false,
       reasons: [
@@ -205,7 +205,7 @@ describe('whether a replayed task succeeded', () => {
     });
   });
 
-  it('waits for its digest to tell a missing stack from no change at all', () => {
+  it('waits for its usage to tell a missing stack from no change at all', () => {
     expect(
       resultOf(
         completed({ checks: ChangeChecks.of([]), measures: null }),

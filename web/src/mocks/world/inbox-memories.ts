@@ -9,7 +9,7 @@ import {
   DRAIN_ANSWER,
   GONE_REMEMBER,
   GONE_THOUGHT,
-  groundStep,
+  provenanceStep,
 } from '@/mocks/world/work-stories';
 
 const RUN_ID = 'run_retries_2';
@@ -25,7 +25,7 @@ const proposed = (
   over: Partial<ProposedMemoryResponseDto> &
     Pick<ProposedMemoryResponseDto, 'id' | 'kind' | 'body' | 'source'>,
 ): ProposedMemoryResponseDto => ({
-  origin: 'drafted',
+  proposedBy: 'drafter',
   state: 'proposed',
   scope: 'team',
   repository: null,
@@ -70,7 +70,7 @@ export const seedMemoryReviews = (): Record<
         id: 'memory_gone',
         kind: 'rationale',
         source: 'run',
-        origin: 'remembered',
+        proposedBy: 'agent',
         state: 'approved',
         decision: {
           by: MAYA.id,
@@ -82,8 +82,8 @@ export const seedMemoryReviews = (): Record<
         paths: ['src/retries/deliver.ts'],
         body: 'A 410 Gone from a webhook endpoint is permanent, so its deliveries are dropped rather than retried.',
         steps: [
-          groundStep(RUN_ID, GONE_THOUGHT),
-          groundStep(RUN_ID, GONE_REMEMBER, 'remember'),
+          provenanceStep(RUN_ID, GONE_THOUGHT),
+          provenanceStep(RUN_ID, GONE_REMEMBER, 'remember'),
         ],
       }),
       proposed({
@@ -112,14 +112,14 @@ export const seedMemoryReviews = (): Record<
         id: 'memory_crash_dumps',
         kind: 'environment',
         source: 'run',
-        origin: 'remembered',
+        proposedBy: 'agent',
         state: 'approved',
         scope: 'station',
         repository: 'acme/infra',
         paths: ['terraform/workers/eu-west-1.tf'],
         body: 'Workers in eu-west-1 write core dumps to /var/crash; clear them before resizing a disk, or the resize fills up again within a day.',
         decision: decidedByTom(70),
-        steps: [groundStep(DISK_RUN_ID, DISK_DUMPS_MESSAGE)],
+        steps: [provenanceStep(DISK_RUN_ID, DISK_DUMPS_MESSAGE)],
       }),
       proposed({
         id: 'memory_disk_size',

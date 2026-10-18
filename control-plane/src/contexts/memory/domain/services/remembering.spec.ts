@@ -32,7 +32,7 @@ const at = (
     fromOutside?: boolean;
   } = {},
 ): RememberedAt => ({
-  site: {
+  runContext: {
     teamId: TEAM,
     lineId: 'line_1',
     stationId: 'station_1',
@@ -64,7 +64,7 @@ const active = (teamId = TEAM) =>
     kind: 'rationale',
     body: MemoryBody.of('Uploads retry from a queue.'),
     scope: MemoryScope.of({ teamId }),
-    grounds: null,
+    provenance: null,
     by: MemoryDecision.of({ by: UserId.of('user_1'), at: NOW }),
   });
 
@@ -118,17 +118,17 @@ describe('Remembering, what an agent proposes for its team to approve', () => {
     ).toThrow(NotAllowedInSearchError);
   });
 
-  it('rests on the step the agent remembered it from, as the run’s own', () => {
+  it('cites the step the agent remembered it from, as the run’s own', () => {
     const proposal = proposed();
 
-    expect(proposal.grounds.steps).toEqual([7]);
-    expect(proposal.grounds.notes).toEqual([]);
-    expect(proposal.origin).toBe('remembered');
+    expect(proposal.provenance.steps).toEqual([7]);
+    expect(proposal.provenance.notes).toEqual([]);
+    expect(proposal.proposedBy).toBe('agent');
     expect(proposal.source).toBe('run');
     expect(proposal.proposed).toBe(true);
   });
 
-  it('rests on the latest step not yet remembered from, or the last step', () => {
+  it('cites the latest step not yet remembered from, or the last step', () => {
     expect(
       proposed(
         {},
@@ -139,10 +139,10 @@ describe('Remembering, what an agent proposes for its team to approve', () => {
           ],
           cited: [8],
         },
-      ).grounds.steps,
+      ).provenance.steps,
     ).toEqual([3]);
     expect(
-      proposed({}, { steps: [{ index: 4, kind: 'message' }] }).grounds.steps,
+      proposed({}, { steps: [{ index: 4, kind: 'message' }] }).provenance.steps,
     ).toEqual([4]);
   });
 
@@ -169,7 +169,7 @@ describe('Remembering, what an agent proposes for its team to approve', () => {
     });
   });
 
-  it('bears on paths inside the repository whose checkout they are in', () => {
+  it('is about paths inside the repository whose checkout they are in', () => {
     const { scope } = proposed({
       paths: ['api/src/uploads', 'api/src/retry.ts'],
     });
@@ -203,7 +203,7 @@ describe('Remembering, what an agent proposes for its team to approve', () => {
     );
   });
 
-  it('bears on one repository at a time', () => {
+  it('is about one repository at a time', () => {
     expect(() => proposed({ paths: ['api/src', 'web/src'] })).toThrow(
       /one repository at a time/,
     );

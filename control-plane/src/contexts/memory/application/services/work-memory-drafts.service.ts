@@ -12,9 +12,9 @@ import { MemoryDraftVersionConflictError } from '@memory/domain/exceptions/memor
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
 import { DraftEvidence } from '@memory/domain/services/draft-evidence';
 import {
-  rejectionsHeededAt,
-  rejectionsHeededSince,
-} from '@memory/domain/services/rejections-heeded';
+  recentRejectionsAt,
+  recentRejectionsSince,
+} from '@memory/domain/services/recent-rejections';
 import type { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
@@ -97,31 +97,31 @@ export class WorkMemoryDrafts implements PendingJobsPort {
     }
 
     const { runId } = draft.drafting;
-    const [site, task, steps, changed, notes] = await Promise.all([
-      this.work.stationSiteOf(runId),
+    const [runContext, task, steps, changed, notes] = await Promise.all([
+      this.work.stationContextOf(runId),
       this.work.task(draft.taskId),
       this.work.reasoning(runId),
       this.work.changedBy(runId),
       this.work.notesOf(draft.taskId),
     ]);
 
-    if (!site || !task || !steps || !changed || !notes) {
+    if (!runContext || !task || !steps || !changed || !notes) {
       return draft.failed(
         MemoryDraftingFailure.of('no-evidence', this.clock.now()),
       );
     }
 
     const [candidates, rejected] = await Promise.all([
-      this.applicable.at(site),
+      this.applicable.at(runContext),
       this.rejections.rejectedOnTeam(
-        site.teamId,
-        rejectionsHeededSince(this.clock.now()),
+        runContext.teamId,
+        recentRejectionsSince(this.clock.now()),
       ),
     ]);
     const evidence = DraftEvidence.of({
       taskId: draft.taskId,
       runId,
-      site,
+      runContext,
       steps,
       notes: notes.filter((each) => draft.reads(each.position)),
       notesRead: draft.notesRead,
@@ -135,16 +135,16 @@ export class WorkMemoryDrafts implements PendingJobsPort {
       proposed = evidence.isEmpty
         ? []
         : await this.drafter.draft({
-            lineName: site.lineName,
-            stationName: site.stationName,
-            repositories: site.repositories.map((each) => each.value),
+            lineName: runContext.lineName,
+            stationName: runContext.stationName,
+            repositories: runContext.repositories.map((each) => each.value),
             steps: evidence.steps,
             stepsLeftOut: evidence.stepsLeftOut,
             notes: evidence.notes,
             changed: evidence.changed,
             active: evidence.active.map(known),
             proposed: draft.stillRemembered.map(known),
-            rejected: rejectionsHeededAt(rejected, site).map(
+            rejected: recentRejectionsAt(rejected, runContext).map(
               ({ id, kind, body }) => ({ id, kind, body }),
             ),
           });

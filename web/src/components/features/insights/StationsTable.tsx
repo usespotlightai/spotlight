@@ -14,7 +14,7 @@ import {
   stationAnchor,
 } from '@/lib/insights';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
-import { countedColumnsOf } from '@/lib/station-outcomes';
+import { countedColumnsOf } from '@/lib/station-insights';
 import { cn } from '@/lib/utils';
 
 type StationsTableProps = {

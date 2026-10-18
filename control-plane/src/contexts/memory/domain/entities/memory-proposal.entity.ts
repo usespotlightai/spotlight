@@ -2,10 +2,10 @@ import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.err
 import { MemoryAlreadyDecidedError } from '@memory/domain/exceptions/memory-already-decided.error';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import type { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
-import type { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
-import type { MemoryOrigin } from '@memory/domain/value-objects/memory-origin';
+import type { MemoryProposer } from '@memory/domain/value-objects/memory-proposer';
+import type { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import type { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { MemorySource } from '@memory/domain/value-objects/memory-source';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -36,9 +36,9 @@ export class MemoryProposal {
     readonly kind: MemoryKind,
     readonly body: MemoryBody,
     readonly scope: MemoryScope,
-    readonly grounds: MemoryGrounds,
+    readonly provenance: MemoryProvenance,
     readonly source: MemorySource,
-    readonly origin: MemoryOrigin,
+    readonly proposedBy: MemoryProposer,
     readonly supersedes: MemoryId | null,
     readonly recordedAt: Date,
     readonly state: MemoryProposalState,
@@ -50,9 +50,9 @@ export class MemoryProposal {
     kind: MemoryKind;
     body: MemoryBody;
     scope: MemoryScope;
-    grounds: MemoryGrounds;
+    provenance: MemoryProvenance;
     source: MemorySource;
-    origin: MemoryOrigin;
+    proposedBy: MemoryProposer;
     supersedes: MemoryId | null;
     recordedAt: Date;
   }): MemoryProposal {
@@ -65,9 +65,9 @@ export class MemoryProposal {
       input.kind,
       input.body,
       input.scope,
-      input.grounds,
+      input.provenance,
       input.source,
-      input.origin,
+      input.proposedBy,
       input.supersedes,
       input.recordedAt,
       'proposed',
@@ -80,9 +80,9 @@ export class MemoryProposal {
     kind: MemoryKind;
     body: MemoryBody;
     scope: MemoryScope;
-    grounds: MemoryGrounds;
+    provenance: MemoryProvenance;
     source: MemorySource;
-    origin: MemoryOrigin;
+    proposedBy: MemoryProposer;
     supersedes: MemoryId | null;
     recordedAt: Date;
     state: MemoryProposalState;
@@ -100,9 +100,9 @@ export class MemoryProposal {
       input.kind,
       input.body,
       input.scope,
-      input.grounds,
+      input.provenance,
       input.source,
-      input.origin,
+      input.proposedBy,
       input.supersedes,
       input.recordedAt,
       input.state,
@@ -119,15 +119,15 @@ export class MemoryProposal {
   }
 
   get remembered(): boolean {
-    return this.origin === 'remembered';
+    return this.proposedBy === 'agent';
   }
 
   proposedIn(runId: RunId): boolean {
-    return this.proposed && this.grounds.runId.equals(runId);
+    return this.proposed && this.provenance.runId.equals(runId);
   }
 
   citesNote(position: number): boolean {
-    return this.grounds.notes.includes(position);
+    return this.provenance.notes.includes(position);
   }
 
   matches(other: MemoryProposal): boolean {
@@ -160,9 +160,9 @@ export class MemoryProposal {
       this.kind,
       body,
       this.scope,
-      this.grounds,
+      this.provenance,
       this.source,
-      this.origin,
+      this.proposedBy,
       this.supersedes,
       this.recordedAt,
       state,

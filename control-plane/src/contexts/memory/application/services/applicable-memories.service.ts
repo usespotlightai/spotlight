@@ -3,7 +3,7 @@ import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { withoutSuperseded } from '@memory/domain/services/superseded-memories';
 import type { RecallWords } from '@memory/domain/value-objects/recall-words.vo';
-import type { RunSite } from '@memory/domain/value-objects/run-site';
+import type { RunContext } from '@memory/domain/value-objects/run-context';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class ApplicableMemories {
@@ -12,9 +12,12 @@ export class ApplicableMemories {
     private readonly relevance: MemoryRelevancePort,
   ) {}
 
-  async at(site: RunSite, asOf: Date | null = null): Promise<Memory[]> {
-    const applying = (await this.memories.mayApplyAt(site, asOf)).filter(
-      (each) => each.appliesAt(site),
+  async at(
+    runContext: RunContext,
+    asOf: Date | null = null,
+  ): Promise<Memory[]> {
+    const applying = (await this.memories.mayApplyAt(runContext, asOf)).filter(
+      (each) => each.appliesAt(runContext),
     );
 
     return this.current(applying, asOf);

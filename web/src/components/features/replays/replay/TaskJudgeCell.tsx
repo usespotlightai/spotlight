@@ -8,19 +8,19 @@ import {
 } from '@/lib/replay';
 import { capitalised, formatUncompared } from '@/lib/replay-words';
 
-const formatJudges = (copies: readonly ReplayEntry[]): string =>
-  copies.map((each) => formatJudgeScore(each.judge)).join(' · ');
+const formatJudges = (repeats: readonly ReplayEntry[]): string =>
+  repeats.map((each) => formatJudgeScore(each.judge)).join(' · ');
 
 type TaskJudgeCellProps = {
   row: EntryComparison;
   compared: boolean;
-  counterpart: string;
+  reference: string;
 };
 
 export function TaskJudgeCell({
   row,
   compared,
-  counterpart,
+  reference,
 }: TaskJudgeCellProps) {
   if (!compared) {
     return (
@@ -31,7 +31,7 @@ export function TaskJudgeCell({
   return (
     <NestedCell heading="Judge">
       <Noted
-        note={`This replay ${formatJudges(row.candidate)} · ${capitalised(counterpart)} ${formatJudges(row.baseline)}`}
+        note={`This replay ${formatJudges(row.candidate)} · ${capitalised(reference)} ${formatJudges(row.baseline)}`}
       >
         <span className="relative z-10">
           {row.scoreUncompared

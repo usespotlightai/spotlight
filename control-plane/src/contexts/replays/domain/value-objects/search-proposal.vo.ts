@@ -2,7 +2,7 @@ import type { ReplayCharge } from '@replays/domain/services/replay-charge';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import type { ReplayEnd } from '@replays/domain/value-objects/replay-state';
+import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
 import type { SearchReplay } from '@replays/domain/value-objects/search-replay.vo';
 
 export class SearchProposal {
@@ -33,7 +33,7 @@ export class SearchProposal {
 
   replayEnded(
     replayId: ReplayId,
-    end: ReplayEnd,
+    end: ReplayStopReason,
     charge: ReplayCharge,
     improved: boolean,
   ): SearchProposal {

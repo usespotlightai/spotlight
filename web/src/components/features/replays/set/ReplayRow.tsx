@@ -10,11 +10,11 @@ import {
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { formatPercent } from '@/lib/judge';
 import {
-  counterpartRateOf,
   formatCandidate,
-  formatCounterpart,
+  formatReference,
   type Replay,
   type ReplayedStation,
+  referenceRateOf,
   replayPath,
   spendOfCeiling,
 } from '@/lib/replay';
@@ -22,7 +22,7 @@ import {
   BASELINE_LABEL,
   formatGain,
   formatGainRange,
-  formatGainVerdict,
+  formatGainSignificance,
   formatInterval,
   formatPairTally,
   formatRepeats,
@@ -46,17 +46,17 @@ type ReplayRowProps = {
 };
 
 const gainNoteOf = (replay: Replay, baselineId: string | null): string => {
-  const gain = replay.againstBaseline;
-  const against = counterpartRateOf(replay, baselineId);
+  const gain = replay.gainOverReference;
+  const against = referenceRateOf(replay, baselineId);
   const lines = [
     gain
-      ? `${formatGainVerdict(gain.verdict)}. Likely range: ${formatGainRange(gain)} pts`
+      ? `${formatGainSignificance(gain.significance)}. Likely range: ${formatGainRange(gain)} pts`
       : null,
     against?.successRate != null
       ? `${against.label}: ${formatPercent(against.successRate)}`
       : null,
-    replay.pairedWith && pairsJudged(replay.pairsAgainstBaseline)
-      ? `Side by side with ${formatCounterpart(replay.pairedWith, replay.candidate, baselineId)}: ${formatPairTally(replay.pairsAgainstBaseline)}`
+    replay.pairwiseReference && pairsJudged(replay.referencePairs)
+      ? `Side by side with ${formatReference(replay.pairwiseReference, replay.candidate, baselineId)}: ${formatPairTally(replay.referencePairs)}`
       : null,
   ];
 
@@ -68,7 +68,7 @@ function Gain({ replay, baselineId }: Omit<ReplayRowProps, 'at'>) {
     return <span className="text-muted-foreground">{BASELINE_LABEL}</span>;
   }
 
-  const gain = replay.againstBaseline;
+  const gain = replay.gainOverReference;
 
   if (!gain) {
     return <span className="text-muted-foreground">–</span>;
@@ -76,7 +76,7 @@ function Gain({ replay, baselineId }: Omit<ReplayRowProps, 'at'>) {
 
   return (
     <Noted note={gainNoteOf(replay, baselineId)}>
-      <span className={GAIN_TONES[gain.verdict]}>{formatGain(gain)}</span>
+      <span className={GAIN_TONES[gain.significance]}>{formatGain(gain)}</span>
     </Noted>
   );
 }
@@ -106,7 +106,7 @@ export function ReplayRow({ at, replay, baselineId }: ReplayRowProps) {
           title={note ?? undefined}
           className={cn(
             running && 'text-foreground',
-            replay.state === 'over-budget' && 'text-destructive',
+            replay.state === 'ceiling-reached' && 'text-destructive',
           )}
         >
           {formatState(replay.state)}

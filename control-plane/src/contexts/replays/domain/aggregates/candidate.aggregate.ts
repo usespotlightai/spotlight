@@ -1,26 +1,26 @@
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
 import { CandidateDeleted } from '@replays/domain/events/candidate-deleted.event';
 import { CandidateProposed } from '@replays/domain/events/candidate-proposed.event';
+import { CandidateInUseError } from '@replays/domain/exceptions/candidate-in-use.error';
 import { CandidateIsLiveError } from '@replays/domain/exceptions/candidate-is-live.error';
 import { CandidateManagedBySpotlightError } from '@replays/domain/exceptions/candidate-managed-by-spotlight.error';
-import { CandidateUnderwayError } from '@replays/domain/exceptions/candidate-underway.error';
 import { CandidateVersionConflictError } from '@replays/domain/exceptions/candidate-version-conflict.error';
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
-import { CandidateAddress } from '@replays/domain/value-objects/candidate-address.vo';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { CandidateKind } from '@replays/domain/value-objects/candidate-kind';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
+import { CandidatePath } from '@replays/domain/value-objects/candidate-path.vo';
 import type { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import type { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import type { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import type { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import type { StationAddress } from '@replays/domain/value-objects/station-address.vo';
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
-import type { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import type { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
+import type { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -31,12 +31,12 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 interface State {
   readonly id: CandidateId;
   readonly station: ReplayedStation;
-  readonly address: StationAddress;
+  readonly address: StationPath;
   readonly name: CandidateName;
   readonly kind: CandidateKind;
   readonly block: StationBlock;
   readonly fingerprint: StationFingerprint;
-  readonly digests: StationDigests;
+  readonly hashes: StationHashes;
   readonly scoring: CandidateScoring;
   readonly changedFrom: StationChanges;
   readonly line: PlannedLine | null;
@@ -55,10 +55,10 @@ export interface CandidateSearch {
 interface Proposal {
   readonly id: CandidateId;
   readonly station: ReplayedStation;
-  readonly address: StationAddress;
+  readonly address: StationPath;
   readonly block: StationBlock;
   readonly fingerprint: StationFingerprint;
-  readonly digests: StationDigests;
+  readonly hashes: StationHashes;
   readonly scoring: CandidateScoring;
   readonly at: Date;
 }
@@ -144,10 +144,10 @@ export class Candidate extends EventRecorder {
       {
         id: input.id,
         station: live.station,
-        address: live.stationAddress,
+        address: live.stationPath,
         block: live.block,
         fingerprint: live.fingerprint,
-        digests: live.digests,
+        hashes: live.hashes,
         scoring: live.scoring,
         at: input.at,
       },
@@ -194,7 +194,7 @@ export class Candidate extends EventRecorder {
       kind,
       block: input.block,
       fingerprint: input.fingerprint,
-      digests: input.digests,
+      hashes: input.hashes,
       scoring: input.scoring,
       changedFrom,
       line: origin.line ?? null,
@@ -244,7 +244,7 @@ export class Candidate extends EventRecorder {
     return this.state.station.teamId;
   }
 
-  get stationAddress(): StationAddress {
+  get stationPath(): StationPath {
     return this.state.address;
   }
 
@@ -252,8 +252,8 @@ export class Candidate extends EventRecorder {
     return this.state.address.stationKey;
   }
 
-  get address(): CandidateAddress {
-    return CandidateAddress.of(this.state.address, this.state.name);
+  get address(): CandidatePath {
+    return CandidatePath.of(this.state.address, this.state.name);
   }
 
   get name(): CandidateName {
@@ -316,12 +316,12 @@ export class Candidate extends EventRecorder {
     return this.state.fingerprint;
   }
 
-  get digests(): StationDigests {
-    return this.state.digests;
+  get hashes(): StationHashes {
+    return this.state.hashes;
   }
 
-  get scoringDigest(): string {
-    return this.state.digests.scoring;
+  get scoringHash(): string {
+    return this.state.hashes.scoring;
   }
 
   get line(): PlannedLine | null {
@@ -346,15 +346,15 @@ export class Candidate extends EventRecorder {
     }
   }
 
-  delete(underway: boolean, by: Attribution): Candidate {
+  delete(inProgress: boolean, by: Attribution): Candidate {
     if (this.isLive) {
       throw new CandidateIsLiveError(this.id.value);
     }
     if (!this.isProposed) {
       throw new CandidateManagedBySpotlightError(this.id.value);
     }
-    if (underway) {
-      throw new CandidateUnderwayError(this.id.value);
+    if (inProgress) {
+      throw new CandidateInUseError(this.id.value);
     }
 
     return this.gone(by);

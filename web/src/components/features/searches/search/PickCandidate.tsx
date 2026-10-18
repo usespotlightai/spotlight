@@ -5,7 +5,7 @@ import { PullRequestOpening } from '@/components/features/searches/search/PullRe
 import { Button } from '@/components/ui/button';
 import { usePickSearchCandidate } from '@/hooks/api/usePickSearchCandidate';
 import { pickProblem, type SearchCandidate } from '@/lib/search';
-import { ONLY_ON_SEEN_TASKS_PICK } from '@/lib/search-words';
+import { OVERFIT_PICK } from '@/lib/search-words';
 
 type PickCandidateProps = {
   teamId: string;
@@ -24,7 +24,7 @@ export function PickCandidate({
   const pickCandidate = () =>
     pick.mutate({ teamId, searchId, candidateId: candidate.candidateId });
 
-  if (candidate.seed) {
+  if (candidate.isSeed) {
     return null;
   }
 
@@ -42,9 +42,9 @@ export function PickCandidate({
         <FailedPullRequest reason={opened.reason} />
       )}
 
-      {candidate.onlyOnSeenTasks === 'marked' && !opened && (
+      {candidate.overfit === 'likely' && !opened && (
         <p role="note" className="text-amber-700 leading-5 dark:text-amber-300">
-          {ONLY_ON_SEEN_TASKS_PICK}
+          {OVERFIT_PICK}
         </p>
       )}
 

@@ -8,12 +8,11 @@ import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
-import { ReplayDigested } from '@work/domain/events/replay-digested.event';
+import { ReplayRunUsageRecorded } from '@work/domain/events/replay-run-usage-recorded.event';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCancelled } from '@work/domain/events/run-cancelled.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunDetached } from '@work/domain/events/run-detached.event';
-import { RunDigested } from '@work/domain/events/run-digested.event';
 import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { RunLeaseExpired } from '@work/domain/events/run-lease-expired.event';
 import { RunPaused } from '@work/domain/events/run-paused.event';
@@ -22,7 +21,8 @@ import { RunResumed } from '@work/domain/events/run-resumed.event';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunSuspended } from '@work/domain/events/run-suspended.event';
-import { SearchDigested } from '@work/domain/events/search-digested.event';
+import { RunUsageRecorded } from '@work/domain/events/run-usage-recorded.event';
+import { SearchRunUsageRecorded } from '@work/domain/events/search-run-usage-recorded.event';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import { StationHarnessChanged } from '@work/domain/events/station-harness-changed.event';
 import { StationRenamed } from '@work/domain/events/station-renamed.event';
@@ -289,9 +289,9 @@ export const WORK_PAYLOAD_TYPES = [
   RunBriefed,
   RunSuperseded,
   RunCompleted,
-  RunDigested,
-  ReplayDigested,
-  SearchDigested,
+  RunUsageRecorded,
+  ReplayRunUsageRecorded,
+  SearchRunUsageRecorded,
   TaskFailed,
   TaskPassed,
   RunLeaseExpired,

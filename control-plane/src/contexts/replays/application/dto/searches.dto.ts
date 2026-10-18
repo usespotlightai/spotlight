@@ -1,10 +1,10 @@
 import type { CandidatePullRequestDto } from '@replays/application/dto/config-pull-requests.dto';
 import type {
-  GainReadingDto,
+  GainEstimateDto,
   ModelSpentDto,
+  MoneyDto,
   PairTallyDto,
   RateIntervalDto,
-  SpendDto,
   StationChangeDto,
 } from '@replays/application/dto/replays.dto';
 
@@ -17,7 +17,7 @@ export interface SearchAgentDto {
 export interface SearchBudgetDto {
   readonly iterations: number;
   readonly perIteration: number;
-  readonly ceiling: SpendDto;
+  readonly ceiling: MoneyDto;
   readonly concurrency: number;
   readonly repeats: number;
 }
@@ -52,18 +52,18 @@ export type SearchWarningDto =
 
 export type SearchObjectiveDto = 'success' | 'cost';
 
-export type OnlyOnSeenTasksDto = 'marked' | 'too-few-held-out';
+export type OverfitDto = 'likely' | 'too-few-held-out';
 
 export interface SearchBestDto {
   readonly candidateId: string;
   readonly name: string;
-  readonly seed: boolean;
+  readonly isSeed: boolean;
   readonly searchScore: number | null;
   readonly searchInterval: RateIntervalDto | null;
   readonly heldOutScore: number | null;
   readonly heldOutInterval: RateIntervalDto | null;
   readonly costPerRun: number | null;
-  readonly onlyOnSeenTasks: OnlyOnSeenTasksDto | null;
+  readonly overfit: OverfitDto | null;
 }
 
 export interface SearchSummaryDto {
@@ -72,11 +72,11 @@ export interface SearchSummaryDto {
   readonly stationId: string;
   readonly setId: string;
   readonly state: string;
-  readonly ending: string | null;
+  readonly stopReason: string | null;
   readonly agent: SearchAgentDto;
   readonly budget: SearchBudgetDto;
   readonly objective: SearchObjectiveDto;
-  readonly spent: SpendDto;
+  readonly spent: MoneyDto;
   readonly iterationsRun: number;
   readonly proposed: number;
   readonly best: SearchBestDto | null;
@@ -102,7 +102,7 @@ export interface ReflectedTaskDto {
   readonly replayRunId: string;
 }
 
-export interface SearchCauseDto extends ReflectedTaskDto {
+export interface FailureCauseDto extends ReflectedTaskDto {
   readonly cause: string;
   readonly evidence: string;
   readonly suggestion: string | null;
@@ -112,8 +112,8 @@ export interface SearchCauseDto extends ReflectedTaskDto {
 export interface SearchReflectionDto {
   readonly incumbent: string | null;
   readonly tasks: readonly ReflectedTaskDto[];
-  readonly causes: readonly SearchCauseDto[];
-  readonly outcome: string | null;
+  readonly causes: readonly FailureCauseDto[];
+  readonly result: string | null;
   readonly endedSearch: boolean;
 }
 
@@ -131,7 +131,7 @@ export interface SearchIterationDto {
 export interface SearchCandidateDto {
   readonly candidateId: string;
   readonly name: string;
-  readonly seed: boolean;
+  readonly isSeed: boolean;
   readonly iteration: number | null;
   readonly hypothesis: string | null;
   readonly fingerprint: string | null;
@@ -145,14 +145,14 @@ export interface SearchCandidateDto {
   readonly searchScored: number;
   readonly heldOutScore: number | null;
   readonly heldOutInterval: RateIntervalDto | null;
-  readonly searchedGain: GainReadingDto | null;
-  readonly heldOutGain: GainReadingDto | null;
+  readonly searchedGain: GainEstimateDto | null;
+  readonly heldOutGain: GainEstimateDto | null;
   readonly searchedPairs: PairTallyDto | null;
   readonly heldOutPairs: PairTallyDto | null;
   readonly costPerRun: number | null;
-  readonly spent: SpendDto;
+  readonly spent: MoneyDto;
   readonly onFrontier: boolean;
-  readonly onlyOnSeenTasks: OnlyOnSeenTasksDto | null;
+  readonly overfit: OverfitDto | null;
   readonly pullRequest: CandidatePullRequestDto | null;
 }
 
@@ -162,7 +162,7 @@ export interface SearchDetailDto extends SearchSummaryDto {
   readonly seed: SearchCandidateDto;
   readonly candidates: readonly SearchCandidateDto[];
   readonly frontier: readonly string[];
-  readonly onlyOnSeenTasks: number;
+  readonly overfitCount: number;
   readonly minGain: number;
 }
 
@@ -174,19 +174,19 @@ export interface SearchRunsEstimateDto {
   readonly total: number;
 }
 
-export interface SearchAllotmentsDto {
-  readonly seed: SpendDto;
-  readonly searchReplay: SpendDto;
-  readonly heldOutReplay: SpendDto;
-  readonly agentRun: SpendDto;
+export interface SearchCeilingSplitsDto {
+  readonly seed: MoneyDto;
+  readonly searchReplay: MoneyDto;
+  readonly heldOutReplay: MoneyDto;
+  readonly agentRun: MoneyDto;
 }
 
 export interface SearchEstimateDto {
   readonly searchedTasks: number;
   readonly heldOutTasks: number;
   readonly runs: SearchRunsEstimateDto;
-  readonly ceiling: SpendDto;
-  readonly perReplayAllotments: SearchAllotmentsDto;
+  readonly ceiling: MoneyDto;
+  readonly perReplayLimits: SearchCeilingSplitsDto;
   readonly estimatedDuration: number | null;
   readonly minGain: number;
   readonly objective: SearchObjectiveDto;

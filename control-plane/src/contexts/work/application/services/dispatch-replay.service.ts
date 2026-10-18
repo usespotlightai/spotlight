@@ -4,7 +4,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
-import type { ContentDigestPort } from '@work/application/ports/content-digest.port';
+import type { ContentHashPort } from '@work/application/ports/content-hash.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { MemoriesBriefedBeforePort } from '@work/application/ports/memories-briefed-before.port';
 import type { ReplayAnswer } from '@work/application/ports/replay-dispatch.port';
@@ -57,7 +57,7 @@ export class DispatchReplay {
     profiles: StationProfilesPort,
     private readonly memories: MemoriesBriefedBeforePort,
     private readonly files: AttachmentStorePort,
-    digest: ContentDigestPort,
+    hash: ContentHashPort,
     private readonly answers: ReplayAnswers,
   ) {
     this.ordering = new StationOrdering(
@@ -67,7 +67,7 @@ export class DispatchReplay {
       teamSkills,
       catalog,
       profiles,
-      digest,
+      hash,
     );
   }
 
@@ -146,7 +146,7 @@ export class DispatchReplay {
       placement: order.placement,
       briefedWith: BriefedMemories.of({
         briefed: memories.briefed,
-        cut: memories.cut,
+        omitted: memories.omitted,
       }),
       configuredAs: this.ordering.configuredAs(ordered, candidate),
       spec: RunSpec.of({

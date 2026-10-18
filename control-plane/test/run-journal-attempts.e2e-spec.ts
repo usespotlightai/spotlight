@@ -6,8 +6,8 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
-import { DrizzleRunDigests } from '@work/infrastructure/persistence/drizzle/ledgers/run-digests.ledger';
 import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
+import { DrizzleRunUsages } from '@work/infrastructure/persistence/drizzle/ledgers/run-usages.ledger';
 import { DrizzleRunEventReader } from '@work/infrastructure/persistence/drizzle/readers/run-event.reader';
 import { journalsOfChat } from '@work/infrastructure/persistence/drizzle/readers/run-journals';
 import { eq } from 'drizzle-orm';
@@ -19,7 +19,7 @@ let database: TestDatabase;
 let db: DrizzleDatabase;
 let journal: DrizzleRunJournal;
 let events: DrizzleRunEventReader;
-let digests: DrizzleRunDigests;
+let runUsages: DrizzleRunUsages;
 
 beforeAll(async () => {
   database = await openDatabase('run_journal_attempts');
@@ -28,7 +28,7 @@ beforeAll(async () => {
   events = new DrizzleRunEventReader(db, {
     mayView: async () => true,
   } as unknown as WorkspaceAccessPort);
-  digests = new DrizzleRunDigests(db, {
+  runUsages = new DrizzleRunUsages(db, {
     skillHomes: () => ['.claude/skills'],
   } as unknown as HarnessLaunchPort);
 }, 60_000);
@@ -137,25 +137,25 @@ describe('journalling a run that was tried again', () => {
     expect(read?.steps.map((step) => step.text)).toEqual(['two-a']);
   });
 
-  it('digests the attempt that finished, and again when a later one does', async () => {
+  it('records the usage of the attempt that finished, and again when a later one does', async () => {
     const { runId } = await chatRun();
 
     await journal.append(RunAttempt.of(runId, 1), hooks('one-a', 'one-b'));
     await finished(runId);
-    await digests.ensure([runId]);
+    await runUsages.ensure([runId]);
 
-    expect((await digests.forRuns([runId])).get(runId.value)?.steps).toBe(2);
+    expect((await runUsages.forRuns([runId])).get(runId.value)?.steps).toBe(2);
 
     await requeued(runId, 2);
     await journal.append(RunAttempt.of(runId, 2), hooks('two-a'));
     await finished(runId);
-    await digests.ensure([runId]);
+    await runUsages.ensure([runId]);
 
-    expect((await digests.forRuns([runId])).get(runId.value)?.steps).toBe(1);
+    expect((await runUsages.forRuns([runId])).get(runId.value)?.steps).toBe(1);
   });
 });
 
-describe('digesting a run that paused for a person', () => {
+describe('recording the usage of a run that paused for a person', () => {
   const messageChunk = (seq: number, second: number) => ({
     seq,
     type: 'output',
@@ -192,16 +192,16 @@ describe('digesting a run that paused for a person', () => {
       messageChunk(2, 53),
     ]);
     await finished(runId);
-    await digests.ensure([runId]);
+    await runUsages.ensure([runId]);
 
-    const digest = (await digests.forRuns([runId])).get(runId.value);
+    const recordedUsage = (await runUsages.forRuns([runId])).get(runId.value);
 
-    expect(digest?.steps).toBe(2);
-    expect(digest?.ms).toBe(7_000);
+    expect(recordedUsage?.steps).toBe(2);
+    expect(recordedUsage?.ms).toBe(7_000);
   });
 });
 
-describe('digesting the tokens a run used', () => {
+describe('recording the tokens a run used', () => {
   const turned = (seq: number, usage: Record<string, number>) => ({
     seq,
     type: 'usage',
@@ -235,11 +235,11 @@ describe('digesting the tokens a run used', () => {
       }),
     ]);
     await finished(runId);
-    await digests.ensure([runId]);
+    await runUsages.ensure([runId]);
 
-    const digest = (await digests.forRuns([runId])).get(runId.value);
+    const recordedUsage = (await runUsages.forRuns([runId])).get(runId.value);
 
-    expect(digest?.tokens).toMatchObject({
+    expect(recordedUsage?.tokens).toMatchObject({
       input: 15,
       output: 27,
       cacheRead: 5_000,
@@ -254,17 +254,17 @@ describe('digesting the tokens a run used', () => {
       turned(1, { inputTokens: 10, outputTokens: 20, totalTokens: 30 }),
     ]);
     await finished(runId);
-    await digests.ensure([runId]);
+    await runUsages.ensure([runId]);
 
     const [stored] = await db
       .select({
-        inputTokens: schema.runDigest.inputTokens,
-        outputTokens: schema.runDigest.outputTokens,
-        cacheReadTokens: schema.runDigest.cacheReadTokens,
-        cacheWriteTokens: schema.runDigest.cacheWriteTokens,
+        inputTokens: schema.runUsage.inputTokens,
+        outputTokens: schema.runUsage.outputTokens,
+        cacheReadTokens: schema.runUsage.cacheReadTokens,
+        cacheWriteTokens: schema.runUsage.cacheWriteTokens,
       })
-      .from(schema.runDigest)
-      .where(eq(schema.runDigest.runId, runId.value));
+      .from(schema.runUsage)
+      .where(eq(schema.runUsage.runId, runId.value));
 
     expect(stored).toEqual({
       inputTokens: 10,

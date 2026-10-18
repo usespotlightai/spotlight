@@ -19,7 +19,7 @@ export class StationChangeResponseDto {
     type: String,
     example: null,
     description:
-      'Which one of the part changed: the repository, skill or tool, or the judge’s rubric, sample or trust',
+      'Which one of the part changed: the repository, skill or tool, or the judge’s rubric, sample or minimum agreement',
   })
   readonly name: string | null;
 
@@ -94,7 +94,7 @@ export class ReplayCandidateResourceResponseDto extends ResourceResponseDto {
     example: 'core/delivery/build',
     description: 'The station it is for: team, line and station keys',
   })
-  readonly stationAddress: string;
+  readonly stationPath: string;
 
   @ApiProperty({
     example: 'Shorter prompt',
@@ -144,7 +144,7 @@ export class ReplayCandidateResourceResponseDto extends ResourceResponseDto {
     this.teamId = candidate.teamId;
     this.lineId = candidate.lineId;
     this.stationId = candidate.stationId;
-    this.stationAddress = candidate.stationAddress;
+    this.stationPath = candidate.stationPath;
     this.name = candidate.name;
     this.kind = candidate.kind;
     this.station = { ...candidate.station };

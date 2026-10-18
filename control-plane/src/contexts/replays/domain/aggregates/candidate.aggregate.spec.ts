@@ -1,32 +1,32 @@
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { CandidateDeleted } from '@replays/domain/events/candidate-deleted.event';
 import { CandidateProposed } from '@replays/domain/events/candidate-proposed.event';
+import { CandidateInUseError } from '@replays/domain/exceptions/candidate-in-use.error';
 import { CandidateIsLiveError } from '@replays/domain/exceptions/candidate-is-live.error';
 import { CandidateManagedBySpotlightError } from '@replays/domain/exceptions/candidate-managed-by-spotlight.error';
-import { CandidateUnderwayError } from '@replays/domain/exceptions/candidate-underway.error';
 import { CandidateVersionConflictError } from '@replays/domain/exceptions/candidate-version-conflict.error';
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
 import {
   AT,
   BY,
   candidateOf,
-  DIGESTS,
   FINGERPRINT,
+  HASHES,
   LIVE_FINGERPRINT,
   NOW,
   STATION,
   UNSCORED,
 } from '@replays/domain/replays.fake-spec';
-import { CandidateAddress } from '@replays/domain/value-objects/candidate-address.vo';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
+import { CandidatePath } from '@replays/domain/value-objects/candidate-path.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import type { ConfigurationChanged } from '@shared-kernel/domain/events/configuration-changed';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -89,7 +89,7 @@ describe('Candidate', () => {
         name: CandidateName.of('Renamed'),
         block: StationBlock.of({ key: 'ship' }),
         fingerprint: FINGERPRINT,
-        digests: DIGESTS,
+        hashes: HASHES,
         scoring: UNSCORED,
         changedFrom: StationChanges.none(LIVE_FINGERPRINT),
         at: NOW,
@@ -105,7 +105,7 @@ describe('Candidate', () => {
     expect(() => proposed.assertVersion(1)).toThrow(
       CandidateVersionConflictError,
     );
-    expect(() => proposed.delete(true, BY)).toThrow(CandidateUnderwayError);
+    expect(() => proposed.delete(true, BY)).toThrow(CandidateInUseError);
 
     const deleted = proposed.delete(false, BY);
 
@@ -141,9 +141,7 @@ describe('Candidate', () => {
   });
 
   it('is addressed by team, line and station keys, then its name', () => {
-    const address = CandidateAddress.parse(
-      'core/delivery/build/Shorter prompt',
-    );
+    const address = CandidatePath.parse('core/delivery/build/Shorter prompt');
 
     expect(address.station).toEqual(AT);
     expect(address.name.value).toBe('Shorter prompt');
@@ -153,12 +151,12 @@ describe('Candidate', () => {
       'core/delivery/build/a/b',
       'Core/delivery/build/x',
     ]) {
-      expect(() => CandidateAddress.parse(malformed)).toThrow(
+      expect(() => CandidatePath.parse(malformed)).toThrow(
         InvalidCandidateError,
       );
     }
-    expect(StationAddress.parsed('core/delivery/build')).toEqual(AT);
-    expect(StationAddress.parsed('core/delivery')).toBeNull();
+    expect(StationPath.parsed('core/delivery/build')).toEqual(AT);
+    expect(StationPath.parsed('core/delivery')).toBeNull();
   });
 
   it('is named without surrounding spaces or slashes, and never as Spotlight names its live snapshots', () => {
@@ -199,7 +197,7 @@ describe('Candidate', () => {
       address: AT,
       block: StationBlock.of({ key: 'build', name: 'Build', prompt: 'Go.' }),
       fingerprint: FINGERPRINT,
-      digests: DIGESTS,
+      hashes: HASHES,
       scoring: UNSCORED,
       at: NOW,
     };
@@ -307,11 +305,11 @@ describe('Candidate', () => {
       const state = {
         id: candidate.id,
         station: candidate.station,
-        address: candidate.stationAddress,
+        address: candidate.stationPath,
         name: candidate.name,
         block: candidate.block,
         fingerprint: candidate.fingerprint,
-        digests: candidate.digests,
+        hashes: candidate.hashes,
         line: null,
         scoring: candidate.scoring,
         changedFrom: candidate.changedFrom,

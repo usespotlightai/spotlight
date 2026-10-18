@@ -13,7 +13,7 @@ type CandidatesTableProps = {
   teamId: string;
   stations: readonly CandidatesStation[];
   names: StationNames;
-  charted: boolean;
+  chartStatus: boolean;
 };
 
 export function CandidatesTable({
@@ -21,7 +21,7 @@ export function CandidatesTable({
   teamId,
   stations,
   names,
-  charted,
+  chartStatus,
 }: CandidatesTableProps) {
   const folds = useFolds();
   const heldOut = stations.some((station) =>
@@ -35,7 +35,7 @@ export function CandidatesTable({
       label="Replayed candidates"
       headings={candidateHeadings(heldOut)}
       trailing
-      headed={!charted}
+      headed={!chartStatus}
     >
       {stations.map((station) => (
         <CandidateStationRows
@@ -44,7 +44,7 @@ export function CandidatesTable({
           station={station}
           names={names}
           heldOut={heldOut}
-          charted={charted}
+          chartStatus={chartStatus}
           folds={folds}
         />
       ))}

@@ -53,7 +53,7 @@ export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
   }
 
   const { judge, calibration, grades, claims } = scores;
-  const unclaimed = judge?.marks
+  const unclaimed = judge?.claimResults
     ? judge.reasons.filter((each) => each.claim === null)
     : (judge?.reasons ?? []);
 
@@ -79,16 +79,16 @@ export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
           )}
         </dl>
 
-        {!calibration.trusted && (
+        {!calibration.qualified && (
           <p className="text-muted-foreground text-xs leading-5">
             {formatCalibration(calibration)}
           </p>
         )}
 
-        {judge?.marks && (
+        {judge?.claimResults && (
           <ClaimVerdicts
             claims={claims}
-            marks={judge.marks}
+            marks={judge.claimResults}
             reasons={judge.reasons}
           />
         )}

@@ -7,7 +7,7 @@ import type {
   StationRunsPort,
 } from '@work/application/ports/station-runs.port';
 import type { TeamSkillsPort } from '@work/application/ports/team-skills.port';
-import { roundAfter } from '@work/domain/services/station-round';
+import { visitAfter } from '@work/domain/services/station-visit';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 
 export class StationRuns implements StationRunsPort {
@@ -27,7 +27,7 @@ export class StationRuns implements StationRunsPort {
 
     return {
       ...run,
-      round: roundAfter(earlier),
+      visit: visitAfter(earlier),
       harness: config?.harness ?? run.harness,
       model: config?.model ?? null,
       effort: config?.effort ?? null,

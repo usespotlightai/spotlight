@@ -43,17 +43,17 @@ export class SkillViewResponseDto {
   readonly key: string;
 
   @ApiProperty({ description: "The SHA-256 of the skill's files" })
-  readonly digest: string;
+  readonly hash: string;
 
-  constructor(from: { key: string; digest: string }) {
+  constructor(from: { key: string; hash: string }) {
     this.key = from.key;
-    this.digest = from.digest;
+    this.hash = from.hash;
   }
 }
 
 export class JudgeViewResponseDto {
   @ApiProperty({ description: "The SHA-256 of the judge's rubric" })
-  readonly rubricDigest: string;
+  readonly rubricHash: string;
 
   @ApiProperty({ example: 0.2, description: 'The share of runs judged' })
   readonly sample: number;
@@ -62,12 +62,16 @@ export class JudgeViewResponseDto {
     example: 0.6,
     description: 'How often the judge must agree with people',
   })
-  readonly trust: number;
+  readonly minAgreement: number;
 
-  constructor(from: { rubricDigest: string; sample: number; trust: number }) {
-    this.rubricDigest = from.rubricDigest;
+  constructor(from: {
+    rubricHash: string;
+    sample: number;
+    minAgreement: number;
+  }) {
+    this.rubricHash = from.rubricHash;
     this.sample = from.sample;
-    this.trust = from.trust;
+    this.minAgreement = from.minAgreement;
   }
 }
 

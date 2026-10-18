@@ -1,31 +1,31 @@
 import type {
+  AgentConfigOutcomeResponseDto,
   ChangeMarkerResponseDto,
   HarnessResponseDto,
+  InsightsAgentConfigsResponseDto,
   InsightsChangesResponseDto,
-  InsightsSetupsResponseDto,
-  JudgeShareResponseDto,
-  SetupOutcomeResponseDto,
+  JudgeRateResponseDto,
   SizeBoundResponseDto,
   StationJudgeCalibrationResponseDto,
 } from '@/lib/api';
 import {
-  changeDelta,
   formatHarness,
   formatModel,
   formatShare,
+  shownDeltaOf,
 } from '@/lib/insights';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import type { ComparedRow } from '@/lib/tally-comparison';
 
 export type InsightsChanges = InsightsChangesResponseDto;
 export type ChangeMarker = ChangeMarkerResponseDto;
-export type InsightsSetups = InsightsSetupsResponseDto;
-export type SetupOutcome = SetupOutcomeResponseDto;
+export type InsightsAgentConfigs = InsightsAgentConfigsResponseDto;
+export type AgentConfigOutcome = AgentConfigOutcomeResponseDto;
 export type StationJudgeCalibration = StationJudgeCalibrationResponseDto;
 export type SizeBound = SizeBoundResponseDto;
-type JudgeShare = JudgeShareResponseDto;
+type JudgeRate = JudgeRateResponseDto;
 export type RunSize = SizeBound['size'];
-export type OutcomeMeasure = SetupOutcome['frontier'][number];
+export type OutcomeMeasure = AgentConfigOutcome['frontier'][number];
 
 export type ChangeAt = {
   readonly stationId: string;
@@ -83,46 +83,61 @@ export const formatSizeRule = (bound: SizeBound): string =>
     ? `${formatSize(bound.size)}: anything bigger`
     : `${formatSize(bound.size)}: up to ${bound.maxLines} changed lines, or ${bound.maxSteps} steps for a run that changed none`;
 
-export const setupKey = (setup: SetupOutcome): string =>
-  JSON.stringify([setup.harness, setup.model, setup.effort, setup.profileKey]);
+export const agentConfigKey = (agentConfig: AgentConfigOutcome): string =>
+  JSON.stringify([
+    agentConfig.harness,
+    agentConfig.model,
+    agentConfig.effort,
+    agentConfig.profileKey,
+  ]);
 
-export const formatSetupWithin = (setup: SetupOutcome): string =>
+export const formatAgentConfigWithin = (
+  agentConfig: AgentConfigOutcome,
+): string =>
   [
-    formatModel(setup.model),
-    setup.effort ? `${setup.effort} effort` : null,
-    setup.profileKey ? `${setup.profileKey} profile` : null,
+    formatModel(agentConfig.model),
+    agentConfig.effort ? `${agentConfig.effort} effort` : null,
+    agentConfig.profileKey ? `${agentConfig.profileKey} profile` : null,
   ]
     .filter(Boolean)
     .join(' · ');
 
-export const formatSetup = (
-  setup: SetupOutcome,
+export const formatAgentConfig = (
+  agentConfig: AgentConfigOutcome,
   harnesses: readonly HarnessResponseDto[] | undefined,
 ): string =>
-  `${formatHarness(harnesses, setup.harness)} · ${formatSetupWithin(setup)}`;
+  `${formatHarness(harnesses, agentConfig.harness)} · ${formatAgentConfigWithin(agentConfig)}`;
 
 export type HarnessGroup = {
   readonly harness: string;
-  readonly setups: readonly SetupOutcome[];
+  readonly agentConfigs: readonly AgentConfigOutcome[];
 };
 
 export const harnessGroupsOf = (
-  setups: readonly SetupOutcome[],
+  agentConfigs: readonly AgentConfigOutcome[],
 ): HarnessGroup[] => {
-  const grouped = new Map<string, SetupOutcome[]>();
+  const grouped = new Map<string, AgentConfigOutcome[]>();
 
-  for (const setup of setups) {
-    grouped.set(setup.harness, [...(grouped.get(setup.harness) ?? []), setup]);
+  for (const agentConfig of agentConfigs) {
+    grouped.set(agentConfig.harness, [
+      ...(grouped.get(agentConfig.harness) ?? []),
+      agentConfig,
+    ]);
   }
 
-  return [...grouped].map(([harness, each]) => ({ harness, setups: each }));
+  return [...grouped].map(([harness, each]) => ({
+    harness,
+    agentConfigs: each,
+  }));
 };
 
 export const shownMeasures = (judged: boolean) =>
   OUTCOME_MEASURES.filter((each) => each.id !== 'judge' || judged);
 
-export const setupHeadings = (judged: boolean): readonly NestedHeading[] => [
-  { label: 'Setup', indent: 'outer', size: 'minmax(12rem,2fr)' },
+export const agentConfigHeadings = (
+  judged: boolean,
+): readonly NestedHeading[] => [
+  { label: 'Agent config', indent: 'outer', size: 'minmax(12rem,2fr)' },
   { label: 'Runs', numeric: true, size: SPREAD },
   { label: 'Cost per run', numeric: true, size: SPREAD },
   ...shownMeasures(judged).map((each) => ({
@@ -132,7 +147,7 @@ export const setupHeadings = (judged: boolean): readonly NestedHeading[] => [
   })),
 ];
 
-export type SetupPoint = {
+export type AgentConfigPoint = {
   readonly key: string;
   readonly label: string;
   readonly cost: number;
@@ -149,7 +164,7 @@ export type RunsScale = {
   readonly legend: readonly number[];
 };
 
-export const runsScaleOf = (points: readonly SetupPoint[]): RunsScale => {
+export const runsScaleOf = (points: readonly AgentConfigPoint[]): RunsScale => {
   const runs = points.map((each) => each.runs);
   const min = Math.min(...runs);
   const max = Math.max(...runs);
@@ -170,29 +185,33 @@ export const dotRadius = (scale: RunsScale, runs: number): number => {
   return Math.sqrt((small + share * (large - small)) / Math.PI);
 };
 
-export const setupPoints = (
-  setups: readonly SetupOutcome[],
+export const agentConfigPoints = (
+  agentConfigs: readonly AgentConfigOutcome[],
   measure: OutcomeMeasure,
   harnesses: readonly HarnessResponseDto[] | undefined,
-): SetupPoint[] =>
-  setups.flatMap((setup) => {
-    const value = setup.outcomes[measure];
+): AgentConfigPoint[] =>
+  agentConfigs.flatMap((agentConfig) => {
+    const value = agentConfig.outcomes[measure];
 
-    return !setup.priced || setup.costPerRun === null || value === null
+    return !agentConfig.priced ||
+      agentConfig.costPerRun === null ||
+      value === null
       ? []
       : [
           {
-            key: setupKey(setup),
-            label: formatSetup(setup, harnesses),
-            cost: setup.costPerRun,
+            key: agentConfigKey(agentConfig),
+            label: formatAgentConfig(agentConfig, harnesses),
+            cost: agentConfig.costPerRun,
             value,
-            runs: setup.tally.runs,
-            frontier: setup.frontier.includes(measure),
+            runs: agentConfig.tally.runs,
+            frontier: agentConfig.frontier.includes(measure),
           },
         ];
   });
 
-export const frontierOf = (points: readonly SetupPoint[]): SetupPoint[] =>
+export const frontierOf = (
+  points: readonly AgentConfigPoint[],
+): AgentConfigPoint[] =>
   points
     .filter((each) => each.frontier)
     .sort((a, b) => a.cost - b.cost || a.value - b.value);
@@ -200,14 +219,14 @@ export const frontierOf = (points: readonly SetupPoint[]): SetupPoint[] =>
 export const formatOutcome = (value: number | null): string =>
   formatShare(value);
 
-const judgeCount = (share: JudgeShare | null): number => share?.judged ?? 0;
+const judgeCount = (rate: JudgeRate | null): number => rate?.judged ?? 0;
 
 export const judgeRow = (marker: ChangeMarker, to: string): ComparedRow => ({
   id: 'judge',
   label: 'Judge score',
   one: formatShare(marker.judgeBefore?.mean ?? null),
   other: formatShare(marker.judgeAfter?.mean ?? null),
-  delta: changeDelta(marker.judgeChange),
+  delta: shownDeltaOf(marker.judgeChange),
   note: `Over ${judgeCount(marker.judgeBefore)} judged runs before and ${judgeCount(marker.judgeAfter)} after. Opens how often the judge agrees with people.`,
   to,
 });

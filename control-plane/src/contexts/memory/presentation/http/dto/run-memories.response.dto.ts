@@ -45,7 +45,7 @@ export class RunMemoriesResponseDto {
     description:
       'What applied to the run but was left out of its briefing by the cap, the nearest first',
   })
-  readonly cut: readonly TeamMemoryResponseDto[];
+  readonly omitted: readonly TeamMemoryResponseDto[];
 
   @ApiProperty({
     type: TeamMemoryResponseDto,
@@ -75,7 +75,9 @@ export class RunMemoriesResponseDto {
     this.briefed = memories.briefed.map(
       (each) => new TeamMemoryResponseDto(each),
     );
-    this.cut = memories.cut.map((each) => new TeamMemoryResponseDto(each));
+    this.omitted = memories.omitted.map(
+      (each) => new TeamMemoryResponseDto(each),
+    );
     this.recalled = memories.recalled.map(
       (each) => new TeamMemoryResponseDto(each),
     );

@@ -7,7 +7,7 @@ import { MembersOnlyOrCouldNotLoad } from '@/components/features/team/MembersOnl
 import { EmptyState } from '@/components/shared/EmptyState';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { SectionLink } from '@/components/shared/SectionLink';
-import { useStationOutcomes } from '@/hooks/api/useStationOutcomes';
+import { useStationInsights } from '@/hooks/api/useStationInsights';
 import { DEFAULT_PERIOD, insightsPath } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
 import { runPath } from '@/lib/run';
@@ -15,7 +15,7 @@ import {
   hasRuns,
   RECENT_RUN_HEADINGS,
   recentRuns,
-} from '@/lib/station-outcomes';
+} from '@/lib/station-insights';
 
 const SHOWN = 8;
 
@@ -32,7 +32,7 @@ export function StationRecentRuns({
   lineId,
   stationId,
 }: StationRecentRunsProps) {
-  const outcomes = useStationOutcomes(teamId, lineId, stationId);
+  const outcomes = useStationInsights(teamId, lineId, stationId);
   const groups = outcomes.data?.groups ?? [];
   const runs = recentRuns(groups, SHOWN);
   const ran = hasRuns(groups);

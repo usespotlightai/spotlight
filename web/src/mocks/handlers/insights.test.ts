@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   listInsightsPullRequests,
   listInsightsRuns,
+  readInsightsAgentConfigs,
   readInsightsChanges,
   readInsightsCost,
   readInsightsFlow,
@@ -9,7 +10,6 @@ import {
   readInsightsOverview,
   readInsightsPeople,
   readInsightsPullRequests,
-  readInsightsSetups,
   readInsightsShipping,
   readInsightsStations,
   readInsightsTools,
@@ -139,14 +139,14 @@ describe('the mock insights', () => {
     expect(data.judges[0]?.stationId).toBe(IMPLEMENTATION);
   });
 
-  it('compares setups, with the judge only at one station', async () => {
+  it('compares agent configs, with the judge only at one station', async () => {
     const [team_, station] = await Promise.all([
-      readInsightsSetups({
+      readInsightsAgentConfigs({
         path: team,
         query: { period: '30d' },
         throwOnError: true,
       }),
-      readInsightsSetups({
+      readInsightsAgentConfigs({
         path: team,
         query: { period: '30d', stationId: IMPLEMENTATION },
         throwOnError: true,
@@ -154,11 +154,12 @@ describe('the mock insights', () => {
     ]);
 
     expect(team_.data.judgeOmitted).toBe('no_station');
-    expect(team_.data.setups.map((each) => each.harness)).toContain('codex');
-    expect(station.data.setups.map((each) => each.effort).sort()).toEqual([
-      'high',
-      'medium',
-    ]);
+    expect(team_.data.agentConfigs.map((each) => each.harness)).toContain(
+      'codex',
+    );
+    expect(station.data.agentConfigs.map((each) => each.effort).sort()).toEqual(
+      ['high', 'medium'],
+    );
     expect(station.data.judges).toHaveLength(1);
   });
 
@@ -197,10 +198,10 @@ describe('the mock insights', () => {
     ]);
 
     expect(summary.data.repositories).toEqual(['acme/api', 'acme/worker']);
-    expect(summary.data.penetration.made).toBe(
+    expect(summary.data.spotlightShare.authored).toBe(
       overview.data.headline.mergedPullRequests,
     );
-    expect(list.data.total).toBe(summary.data.penetration.made);
+    expect(list.data.total).toBe(summary.data.spotlightShare.authored);
     expect(
       list.data.pullRequests.every((each) => each.by === 'spotlight'),
     ).toBe(true);
@@ -264,20 +265,22 @@ describe('the mock insights of a fresh workspace', () => {
 
   it('answers the other tabs with their zero shape', async () => {
     const query = { period: '30d' as const };
-    const [cost, flow, people, tools, memory, setups] = await Promise.all([
-      readInsightsCost({ path: team, query, throwOnError: true }),
-      readInsightsFlow({ path: team, query, throwOnError: true }),
-      readInsightsPeople({ path: team, query, throwOnError: true }),
-      readInsightsTools({ path: team, query, throwOnError: true }),
-      readInsightsMemory({ path: team, query, throwOnError: true }),
-      readInsightsSetups({ path: team, query, throwOnError: true }),
-    ]);
+    const [cost, flow, people, tools, memory, agentConfigs] = await Promise.all(
+      [
+        readInsightsCost({ path: team, query, throwOnError: true }),
+        readInsightsFlow({ path: team, query, throwOnError: true }),
+        readInsightsPeople({ path: team, query, throwOnError: true }),
+        readInsightsTools({ path: team, query, throwOnError: true }),
+        readInsightsMemory({ path: team, query, throwOnError: true }),
+        readInsightsAgentConfigs({ path: team, query, throwOnError: true }),
+      ],
+    );
 
     expect(cost.data.cost.spend).toBeNull();
     expect(flow.data.flow.stations).toEqual([]);
     expect(people.data.adoption.people).toEqual([]);
     expect(tools.data.skills).toEqual([]);
     expect(memory.data.activeCount).toBe(0);
-    expect(setups.data.setups).toEqual([]);
+    expect(agentConfigs.data.agentConfigs).toEqual([]);
   });
 });

@@ -2,8 +2,8 @@ import { NotedWarning } from '@/components/shared/NotedWarning';
 import type { SearchBestResponseDto } from '@/lib/api';
 import {
   formatNoBest,
-  formatOnlyOnSeenTasks,
-  onlyOnSeenTasksNote,
+  formatOverfit,
+  overfitNote,
   type SearchObjective,
 } from '@/lib/search-words';
 
@@ -19,20 +19,20 @@ export function SearchBestName({ best, objective }: SearchBestNameProps) {
     );
   }
 
-  const mark = best.onlyOnSeenTasks;
+  const mark = best.overfit;
 
   return (
     <span className="flex min-w-0 items-center gap-1.5">
       <span className="truncate text-foreground">
-        {best.seed ? 'Live config' : best.name}
+        {best.isSeed ? 'Live config' : best.name}
       </span>
       {mark && (
         <NotedWarning
           data-slot="only-on-seen-tasks"
           data-mark={mark}
-          note={`${formatOnlyOnSeenTasks(mark)}. ${onlyOnSeenTasksNote(mark)}`}
-          label={formatOnlyOnSeenTasks(mark)}
-          tone={mark === 'marked' ? 'warning' : 'muted'}
+          note={`${formatOverfit(mark)}. ${overfitNote(mark)}`}
+          label={formatOverfit(mark)}
+          tone={mark === 'likely' ? 'warning' : 'muted'}
           className="relative z-10"
         />
       )}

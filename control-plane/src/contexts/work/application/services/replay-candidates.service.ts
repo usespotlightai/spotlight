@@ -1,15 +1,15 @@
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
-import type { ContentDigestPort } from '@work/application/ports/content-digest.port';
+import type { ContentHashPort } from '@work/application/ports/content-hash.port';
 import type { LineRenderingPort } from '@work/application/ports/line-rendering.port';
 import type {
   CandidateScoring,
-  ConfigDigests,
-  ExaminedCandidate,
+  ConfigHashes,
   LiveStation,
   ReplayCandidatesPort,
   ReplayStation,
   ReplayThreshold,
+  ValidatedCandidate,
 } from '@work/application/ports/replay-candidates.port';
 import type {
   CandidateLines,
@@ -20,7 +20,7 @@ import type { Station } from '@work/domain/entities/station.entity';
 import type { ReplayCheckPolicy } from '@work/domain/value-objects/replay-check-policy.vo';
 import type { StationConfig } from '@work/domain/value-objects/station-config.vo';
 
-const UNSTARTABLE: ExaminedCandidate = {
+const UNSTARTABLE: ValidatedCandidate = {
   ok: false,
   problems: [
     ConfigurationProblem.of({
@@ -39,9 +39,9 @@ const scoringOf = (
   judge: station.judge && {
     rubric: station.judge.rubric,
     claims: station.judge.claims,
-    passShare: station.judge.passShare,
+    passThreshold: station.judge.passThreshold,
   },
-  rubricVersion: config.parts.judge?.rubricDigest ?? null,
+  rubricVersion: config.parts.judge?.rubricHash ?? null,
 });
 
 const thresholdOf = (
@@ -71,15 +71,15 @@ export class ReplayCandidates implements ReplayCandidatesPort {
   constructor(
     private readonly candidates: CandidateLines,
     private readonly rendering: LineRenderingPort,
-    private readonly digest: ContentDigestPort,
+    private readonly hash: ContentHashPort,
   ) {}
 
-  private digestsOf(
+  private hashesOf(
     line: Line,
     station: Station,
     config: StationConfig,
-  ): ConfigDigests {
-    const behaviour = this.digest.sha256(
+  ): ConfigHashes {
+    const behaviour = this.hash.sha256(
       JSON.stringify({
         fingerprint: config.fingerprint,
         options: line.optionsFrom(station.id).map((each) => each.word),
@@ -89,12 +89,12 @@ export class ReplayCandidates implements ReplayCandidatesPort {
 
     return {
       behaviour,
-      scoring: this.digest.sha256(
+      scoring: this.hash.sha256(
         JSON.stringify({
           behaviour,
           check: station.check?.value ?? null,
           diffs: station.diffs,
-          judge: config.parts.judge?.rubricDigest ?? null,
+          judge: config.parts.judge?.rubricHash ?? null,
         }),
       ),
     };
@@ -115,12 +115,12 @@ export class ReplayCandidates implements ReplayCandidatesPort {
     return current ? stationOf(current) : null;
   }
 
-  async examine(
+  async validate(
     lineId: string,
     stationId: string,
     station: unknown,
     repositories?: unknown,
-  ): Promise<ExaminedCandidate | null> {
+  ): Promise<ValidatedCandidate | null> {
     const current = await this.candidates.live(lineId, stationId);
 
     if (!current) {
@@ -147,8 +147,8 @@ export class ReplayCandidates implements ReplayCandidatesPort {
       ? {
           ok: true,
           fingerprint: config.fingerprint,
-          digests: this.digestsOf(built.line, built.station, config),
-          liveDigests: this.digestsOf(current.line, current.station, live),
+          hashes: this.hashesOf(built.line, built.station, config),
+          liveHashes: this.hashesOf(current.line, current.station, live),
           scoring: scoringOf(built.station, config),
           live: live.fingerprint,
           changes: config.changesFrom(live),
@@ -170,7 +170,7 @@ export class ReplayCandidates implements ReplayCandidatesPort {
           station: block,
           fingerprint: config.fingerprint,
           scoring: scoringOf(current.station, config),
-          digests: this.digestsOf(current.line, current.station, config),
+          hashes: this.hashesOf(current.line, current.station, config),
           replayCheck: thresholdOf(current.line.replayCheck),
         }
       : null;

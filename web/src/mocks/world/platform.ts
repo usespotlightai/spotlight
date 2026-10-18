@@ -64,9 +64,9 @@ const DELIVERY_STATIONS: StationResponseDto[] = [
       rubric:
         '## A good run\n\n- Changes only what the spec requires\n- Leaves the tests passing\n- Says what it could not do',
       claims: [],
-      passShare: 1,
+      passThreshold: 1,
       sample: 0.2,
-      trust: 0.6,
+      minAgreement: 0.6,
     },
     alerts: [
       {

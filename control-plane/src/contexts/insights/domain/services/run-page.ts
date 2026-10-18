@@ -1,0 +1,24 @@
+import { InvalidRunPageError } from '@insights/domain/exceptions/invalid-run-page.error';
+
+export const MAX_RUN_PAGE = 10_000;
+
+export const requestedPageOf = (page: number): number => {
+  if (page > MAX_RUN_PAGE) {
+    throw new InvalidRunPageError(
+      `must be at most ${MAX_RUN_PAGE}, not ${page}`,
+    );
+  }
+
+  return page;
+};
+
+export const lastPageOf = (total: number, size: number): number =>
+  Math.max(1, Math.ceil(total / size));
+
+export const pageWithin = (page: number, total: number, size: number): void => {
+  const last = lastPageOf(total, size);
+
+  if (page > last) {
+    throw new InvalidRunPageError(`must be at most ${last}, not ${page}`);
+  }
+};

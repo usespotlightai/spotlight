@@ -1,9 +1,9 @@
 import type {
+  AgentConfigOutcomeResponseDto,
   ChangeMarkerResponseDto,
+  InsightsAgentConfigsResponseDto,
   InsightsChangesResponseDto,
-  InsightsSetupsResponseDto,
-  JudgeShareResponseDto,
-  SetupOutcomeResponseDto,
+  JudgeRateResponseDto,
   StationJudgeCalibrationResponseDto,
 } from '@/lib/api';
 import type { HistoryRun, RunSize } from '@/mocks/world/insights-history';
@@ -32,19 +32,19 @@ import { DELIVERY_ID } from '@/mocks/world/platform';
 const IMPLEMENTATION_JUDGE: StationJudgeCalibrationResponseDto = {
   lineId: DELIVERY_ID,
   stationId: IMPLEMENTATION_ID,
-  trusted: true,
+  qualified: true,
   measure: 'kappa',
   agreement: 0.72,
   pairs: 24,
-  trust: 0.6,
-  hiddenBecause: null,
+  minAgreement: 0.6,
+  hiddenReason: null,
 };
 
 const JUDGES: readonly StationJudgeCalibrationResponseDto[] = [
   IMPLEMENTATION_JUDGE,
 ];
 
-const judgeOf = (runs: readonly HistoryRun[]): JudgeShareResponseDto => {
+const judgeOf = (runs: readonly HistoryRun[]): JudgeRateResponseDto => {
   const scores = runs.flatMap((run) => (run.judge === null ? [] : [run.judge]));
 
   return {
@@ -107,7 +107,7 @@ export const changesOf = (
   };
 };
 
-const SIZES: InsightsSetupsResponseDto['sizes'] = [
+const SIZES: InsightsAgentConfigsResponseDto['sizes'] = [
   { size: 'small', maxLines: 50, maxSteps: 20 },
   { size: 'medium', maxLines: 400, maxSteps: 80 },
   { size: 'large', maxLines: null, maxSteps: null },
@@ -115,7 +115,7 @@ const SIZES: InsightsSetupsResponseDto['sizes'] = [
 
 const MIN_RUNS = 3;
 
-type Outcome = SetupOutcomeResponseDto['frontier'][number];
+type Outcome = AgentConfigOutcomeResponseDto['frontier'][number];
 
 const OUTCOMES: readonly Outcome[] = [
   'accepted',
@@ -126,16 +126,16 @@ const OUTCOMES: readonly Outcome[] = [
   'judge',
 ];
 
-const setupKeyOf = (run: HistoryRun): string =>
+const agentConfigKeyOf = (run: HistoryRun): string =>
   [run.harness, run.model, run.effort, run.profileKey].join('|');
 
 const rounded = (value: number | null): number | null =>
   value === null ? null : Math.round(value * 100) / 100;
 
-const setupOf = (
+const agentConfigOf = (
   runs: readonly HistoryRun[],
   judged: boolean,
-): SetupOutcomeResponseDto => {
+): AgentConfigOutcomeResponseDto => {
   const first = runs[0] as HistoryRun;
   const tally = tallyOf(runs);
   const costPerRun = costPerRunOf(runs);
@@ -166,21 +166,24 @@ const setupOf = (
   };
 };
 
-const scoreOf = (setup: SetupOutcomeResponseDto, outcome: Outcome) => {
-  const value = setup.outcomes[outcome];
+const scoreOf = (
+  agentConfig: AgentConfigOutcomeResponseDto,
+  outcome: Outcome,
+) => {
+  const value = agentConfig.outcomes[outcome];
   return value === null ? null : outcome === 'sent_back' ? -value : value;
 };
 
 const onFrontier = (
-  setup: SetupOutcomeResponseDto,
-  all: readonly SetupOutcomeResponseDto[],
+  agentConfig: AgentConfigOutcomeResponseDto,
+  all: readonly AgentConfigOutcomeResponseDto[],
   outcome: Outcome,
 ): boolean => {
-  const score = scoreOf(setup, outcome);
+  const score = scoreOf(agentConfig, outcome);
   if (
     score === null ||
-    setup.costPerRun === null ||
-    setup.tally.runs < MIN_RUNS
+    agentConfig.costPerRun === null ||
+    agentConfig.tally.runs < MIN_RUNS
   ) {
     return false;
   }
@@ -188,23 +191,23 @@ const onFrontier = (
   return !all.some((other) => {
     const otherScore = scoreOf(other, outcome);
     return (
-      other !== setup &&
+      other !== agentConfig &&
       other.tally.runs >= MIN_RUNS &&
       other.costPerRun !== null &&
       otherScore !== null &&
-      other.costPerRun <= (setup.costPerRun ?? 0) &&
+      other.costPerRun <= (agentConfig.costPerRun ?? 0) &&
       otherScore >= score &&
-      (other.costPerRun < (setup.costPerRun ?? 0) || otherScore > score)
+      (other.costPerRun < (agentConfig.costPerRun ?? 0) || otherScore > score)
     );
   });
 };
 
-export const setupsOf = (
+export const agentConfigsOf = (
   teamId: string,
   name: PeriodName,
   stationId: string | null,
   size: RunSize | null,
-): InsightsSetupsResponseDto => {
+): InsightsAgentConfigsResponseDto => {
   const span = spanOf(name);
   const runs = runsIn(teamId, span.now).filter(
     (run) =>
@@ -212,10 +215,10 @@ export const setupsOf = (
       (size === null || run.size === size),
   );
   const judged = stationId === IMPLEMENTATION_ID;
-  const setups = distinct(runs.map(setupKeyOf))
+  const agentConfigs = distinct(runs.map(agentConfigKeyOf))
     .map((key) =>
-      setupOf(
-        runs.filter((run) => setupKeyOf(run) === key),
+      agentConfigOf(
+        runs.filter((run) => agentConfigKeyOf(run) === key),
         judged,
       ),
     )
@@ -227,11 +230,13 @@ export const setupsOf = (
     size,
     sizes: SIZES,
     minRuns: MIN_RUNS,
-    currency: setups.some((setup) => setup.priced) ? CURRENCY : null,
-    setups: setups.map((setup) => ({
-      ...setup,
+    currency: agentConfigs.some((agentConfig) => agentConfig.priced)
+      ? CURRENCY
+      : null,
+    agentConfigs: agentConfigs.map((agentConfig) => ({
+      ...agentConfig,
       frontier: OUTCOMES.filter((outcome) =>
-        onFrontier(setup, setups, outcome),
+        onFrontier(agentConfig, agentConfigs, outcome),
       ),
     })),
     judgeOmitted: stationId === null ? 'no_station' : null,

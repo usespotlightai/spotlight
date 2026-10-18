@@ -1,11 +1,11 @@
 import type {
   ReplayEnding,
-  RunOutcome,
+  RunResult,
 } from '@replays/domain/value-objects/replay-ending';
 
 export class RunEnd {
   private constructor(
-    readonly outcome: RunOutcome,
+    readonly result: RunResult,
     readonly failure: string | null,
     readonly stopped: boolean,
     readonly asked: boolean,
@@ -14,7 +14,7 @@ export class RunEnd {
   ) {}
 
   static of(input: {
-    outcome: RunOutcome;
+    result: RunResult;
     failure: string | null;
     stopped: boolean;
     asked: boolean;
@@ -22,7 +22,7 @@ export class RunEnd {
     at: Date;
   }): RunEnd {
     return new RunEnd(
-      input.outcome,
+      input.result,
       input.failure,
       input.stopped,
       input.asked,
@@ -35,19 +35,19 @@ export class RunEnd {
     if (this.asked) {
       return 'asked';
     }
-    if (this.stopped || this.outcome === 'cancelled') {
+    if (this.stopped || this.result === 'cancelled') {
       return 'stopped';
     }
-    return this.outcome === 'completed' ? 'completed' : 'failed';
+    return this.result === 'completed' ? 'completed' : 'failed';
   }
 
-  get isDigested(): boolean {
-    return this.outcome !== 'cancelled';
+  get isUsageRecorded(): boolean {
+    return this.result !== 'cancelled';
   }
 
   equals(other: RunEnd): boolean {
     return (
-      this.outcome === other.outcome &&
+      this.result === other.result &&
       this.failure === other.failure &&
       this.stopped === other.stopped &&
       this.asked === other.asked &&

@@ -11,7 +11,7 @@ import type { SetHealths } from '@replays/application/services/set-healths.servi
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { baselineOf, comparedAgainst } from '@replays/domain/services/baseline';
-import { comparedWith } from '@replays/domain/services/replay-results';
+import { taskComparisons } from '@replays/domain/services/replay-results';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -34,7 +34,7 @@ export class ReadReplayHandler
       const baseline = baselineOf(setReplays);
       const against = comparedAgainst(replay, setReplays);
       const candidate = await this.candidates.find(replay.candidateId);
-      const compared = comparedWith(replay, against);
+      const compared = taskComparisons(replay, against);
       const { minGain } = await this.healths.standardAt(replay.station);
       const titles = new Map(
         (
@@ -50,11 +50,11 @@ export class ReadReplayHandler
           originalRunId: each.original,
           taskId: each.taskId,
           title: titles.get(each.original) ?? null,
-          candidate: each.candidate.map((copy) =>
-            entryView(copy, replay.scoring),
+          candidate: each.candidate.map((repeat) =>
+            entryView(repeat, replay.scoring),
           ),
           baseline: against
-            ? each.baseline.map((copy) => entryView(copy, against.scoring))
+            ? each.baseline.map((repeat) => entryView(repeat, against.scoring))
             : [],
           candidateSuccess: each.candidateSuccess,
           baselineSuccess: each.baselineSuccess,

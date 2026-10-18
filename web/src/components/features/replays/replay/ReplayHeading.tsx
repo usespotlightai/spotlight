@@ -16,7 +16,7 @@ import { formatRan, since } from '@/lib/since';
 
 const UNUSUAL: ReadonlySet<ReplayDetail['state']> = new Set([
   'stopped',
-  'over-budget',
+  'ceiling-reached',
 ]);
 
 const LINK = 'text-foreground underline-offset-2 hover:underline';

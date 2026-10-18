@@ -1,12 +1,12 @@
 import type { MeasureVerdictResponseDto } from '@/lib/api';
 import { amountIn } from '@/lib/inbox';
 import {
-  changeDelta,
-  type Delta,
   formatCount,
   formatShare,
+  type ShownDelta,
+  shownDeltaOf,
 } from '@/lib/insights';
-import { alertMeasureLabel } from '@/lib/station-watch';
+import { alertMeasureLabel } from '@/lib/station-monitoring';
 
 export type MeasureVerdict = MeasureVerdictResponseDto;
 
@@ -15,12 +15,12 @@ export type ComparedRow = {
   readonly label: string;
   readonly one: string;
   readonly other: string;
-  readonly delta: Delta | null;
+  readonly delta: ShownDelta | null;
   readonly note?: string;
   readonly to?: string;
 };
 
-const TONES: Record<MeasureVerdict['verdict'], Delta['tone']> = {
+const TONES: Record<MeasureVerdict['verdict'], ShownDelta['tone']> = {
   better: 'good',
   worse: 'bad',
   unchanged: 'flat',
@@ -37,12 +37,12 @@ const formatValue = (verdict: MeasureVerdict, value: number | null): string => {
     : formatShare(value);
 };
 
-const verdictDelta = (verdict: MeasureVerdict): Delta => {
+const verdictDelta = (verdict: MeasureVerdict): ShownDelta => {
   if (verdict.verdict === 'insufficient') {
     return { shown: 'Too few runs', tone: 'flat' };
   }
 
-  const moved = changeDelta(verdict.change);
+  const moved = shownDeltaOf(verdict.change);
 
   return {
     shown:

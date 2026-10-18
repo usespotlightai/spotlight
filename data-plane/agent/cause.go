@@ -28,8 +28,8 @@ func causeCmd(args []string, out io.Writer) error {
 	if strings.TrimSpace(*task) == "" {
 		return fmt.Errorf("--task is required\n%s", causeUsage)
 	}
-	if !protocol.IsSearchCause(*cause) {
-		return fmt.Errorf("--cause is one of %s\n%s", strings.Join(protocol.SearchCauses, ", "), causeUsage)
+	if !protocol.IsFailureCause(*cause) {
+		return fmt.Errorf("--cause is one of %s\n%s", strings.Join(protocol.FailureCauses, ", "), causeUsage)
 	}
 	if strings.TrimSpace(*evidence) == "" {
 		return fmt.Errorf("--evidence is required\n%s", causeUsage)

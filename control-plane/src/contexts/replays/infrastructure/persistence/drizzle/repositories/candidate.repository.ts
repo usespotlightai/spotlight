@@ -9,20 +9,20 @@ import { CandidateNameTakenError } from '@replays/domain/exceptions/candidate-na
 import { CandidateVersionConflictError } from '@replays/domain/exceptions/candidate-version-conflict.error';
 import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search-candidate-name-taken.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
-import type { CandidateAddress } from '@replays/domain/value-objects/candidate-address.vo';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
+import type { CandidatePath } from '@replays/domain/value-objects/candidate-path.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
-import { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
+import { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import { replayCandidate } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
@@ -56,13 +56,13 @@ const referenceOf = (row: CandidateRow): PlannedReference | null =>
       })
     : null;
 
-const addressOf = (row: CandidateRow): StationAddress => {
-  const address = StationAddress.of(row.teamKey, row.lineKey, row.stationKey);
+const stationPathOf = (row: CandidateRow): StationPath => {
+  const address = StationPath.of(row.teamKey, row.lineKey, row.stationKey);
 
   if (!address) {
     throw new InconsistentStateError(
       'replay candidate',
-      `is stored at a station address that is not valid: ${row.teamKey}/${row.lineKey}/${row.stationKey}`,
+      `is stored at a station path that is not valid: ${row.teamKey}/${row.lineKey}/${row.stationKey}`,
     );
   }
 
@@ -78,25 +78,25 @@ const toCandidate = (row: CandidateRow): Candidate =>
       lineId: row.lineId,
       stationId: row.stationId,
     },
-    address: addressOf(row),
+    address: stationPathOf(row),
     name: CandidateName.of(row.name),
     kind: row.kind,
     block: StationBlock.of(row.station),
     fingerprint: StationFingerprint.of(row.fingerprint),
-    digests: StationDigests.of({
-      behaviour: row.behaviourDigest,
-      scoring: row.scoringDigest,
+    hashes: StationHashes.of({
+      behaviour: row.behaviourHash,
+      scoring: row.scoringHash,
     }),
     line: row.lineFields ? PlannedLine.of(row.lineFields) : null,
     scoring: CandidateScoring.of({
       checksChanges: row.checksChanges,
       judge:
-        row.claims === null || row.passShare === null
+        row.claims === null || row.passThreshold === null
           ? null
           : JudgeCriteria.of({
               rubric: row.rubric,
               claims: row.claims,
-              passShare: row.passShare,
+              passThreshold: row.passThreshold,
             }),
       rubricVersion: row.rubricVersion,
     }),
@@ -168,7 +168,7 @@ export class DrizzleCandidateRepository implements CandidateRepository {
 
   async proposedAt(
     teamId: TeamId,
-    address: CandidateAddress,
+    address: CandidatePath,
   ): Promise<Candidate | null> {
     const [found] = await this.where(
       and(
@@ -217,20 +217,20 @@ export class DrizzleCandidateRepository implements CandidateRepository {
           teamId: added.teamId.value,
           lineId: added.station.lineId,
           stationId: added.station.stationId,
-          teamKey: added.stationAddress.teamKey,
-          lineKey: added.stationAddress.lineKey,
-          stationKey: added.stationAddress.stationKey,
+          teamKey: added.stationPath.teamKey,
+          lineKey: added.stationPath.lineKey,
+          stationKey: added.stationPath.stationKey,
           name: added.name.value,
           kind: added.kind,
           station: { ...added.block.value },
           fingerprint: added.fingerprint.value,
-          behaviourDigest: added.digests.behaviour,
-          scoringDigest: added.digests.scoring,
+          behaviourHash: added.hashes.behaviour,
+          scoringHash: added.hashes.scoring,
           lineFields: added.line?.value ?? null,
           checksChanges: added.scoring.checksChanges,
           rubric: added.scoring.judge?.rubric ?? null,
           claims: added.scoring.judge ? [...added.scoring.judge.claims] : null,
-          passShare: added.scoring.judge?.passShare ?? null,
+          passThreshold: added.scoring.judge?.passThreshold ?? null,
           rubricVersion: added.scoring.rubricVersion,
           changedFrom: added.changedFrom.from.value,
           changes: added.changedFrom.changes.map((each) => ({ ...each })),

@@ -373,9 +373,9 @@ const line = (
         ...(set.claims === undefined
           ? []
           : [attribute('claims', HclLines.of(set.claims))]),
-        ...present('pass_share', set.passShare),
+        ...present('pass_threshold', set.passThreshold),
         attribute('sample', set.sample),
-        attribute('trust', set.trust),
+        attribute('min_agreement', set.minAgreement),
       ],
     );
   };

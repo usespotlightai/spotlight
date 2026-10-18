@@ -4,15 +4,15 @@ import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.err
 import { MemoryAlreadyRetiredError } from '@memory/domain/exceptions/memory-already-retired.error';
 import type { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import type { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
-import type { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import type { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
+import type { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryRetirement } from '@memory/domain/value-objects/memory-retirement.vo';
 import type { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { MemorySource } from '@memory/domain/value-objects/memory-source';
 import type { MemoryStatus } from '@memory/domain/value-objects/memory-status';
-import type { RunSite } from '@memory/domain/value-objects/run-site';
+import type { RunContext } from '@memory/domain/value-objects/run-context';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -26,7 +26,7 @@ interface State {
   readonly kind: MemoryKind;
   readonly body: MemoryBody;
   readonly scope: MemoryScope;
-  readonly grounds: MemoryGrounds | null;
+  readonly provenance: MemoryProvenance | null;
   readonly source: MemorySource;
   readonly supersedes: MemoryId | null;
   readonly approval: MemoryDecision;
@@ -41,7 +41,7 @@ interface NewMemory {
   readonly kind: MemoryKind;
   readonly body: MemoryBody;
   readonly scope: MemoryScope;
-  readonly grounds: MemoryGrounds | null;
+  readonly provenance: MemoryProvenance | null;
   readonly source: MemorySource;
   readonly supersedes: MemoryId | null;
   readonly approval: MemoryDecision;
@@ -59,7 +59,7 @@ export class Memory extends EventRecorder {
     kind: MemoryKind;
     body: MemoryBody;
     scope: MemoryScope;
-    grounds: MemoryGrounds;
+    provenance: MemoryProvenance;
     source: MemorySource;
     supersedes: Memory | null;
     approval: MemoryDecision;
@@ -79,7 +79,7 @@ export class Memory extends EventRecorder {
     kind: MemoryKind;
     body: MemoryBody;
     scope: MemoryScope;
-    grounds: MemoryGrounds | null;
+    provenance: MemoryProvenance | null;
     by: MemoryDecision;
   }): Memory {
     return Memory.make({
@@ -102,7 +102,7 @@ export class Memory extends EventRecorder {
       kind: input.kind,
       body: input.body,
       scope: input.scope,
-      grounds: input.grounds,
+      provenance: input.provenance,
       source: input.source,
       supersedes: input.supersedes,
       approval: input.approval,
@@ -148,8 +148,8 @@ export class Memory extends EventRecorder {
     return this.state.scope;
   }
 
-  get grounds(): MemoryGrounds | null {
-    return this.state.grounds;
+  get provenance(): MemoryProvenance | null {
+    return this.state.provenance;
   }
 
   get source(): MemorySource {
@@ -201,8 +201,8 @@ export class Memory extends EventRecorder {
     return this.isTeams(teamId) && this.activeAt(at);
   }
 
-  appliesAt(site: RunSite): boolean {
-    return this.isActive && this.state.scope.appliesAt(site);
+  appliesAt(runContext: RunContext): boolean {
+    return this.isActive && this.state.scope.appliesAt(runContext);
   }
 
   supersedeWith(successor: MemoryId, at: Date): Memory {
@@ -228,7 +228,7 @@ export class Memory extends EventRecorder {
     return Memory.make({
       ...input,
       workspaceId: this.state.workspaceId,
-      grounds: this.state.grounds,
+      provenance: this.state.provenance,
       source: 'person',
       supersedes: this.state.id,
       approval: input.by,

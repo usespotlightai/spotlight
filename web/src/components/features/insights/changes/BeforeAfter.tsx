@@ -66,8 +66,8 @@ export function BeforeAfter({
     );
   }
 
-  const trusted = changes.data.judges.some(
-    (each) => each.stationId === marker.stationId && each.trusted,
+  const qualified = changes.data.judges.some(
+    (each) => each.stationId === marker.stationId && each.qualified,
   );
 
   return (
@@ -92,7 +92,7 @@ export function BeforeAfter({
           runs={{ one: marker.before.runs, other: marker.after.runs }}
           verdicts={marker.verdicts}
           extra={
-            trusted
+            qualified
               ? [judgeRow(marker, judgeAgreementPath(slug, teamId, marker))]
               : []
           }

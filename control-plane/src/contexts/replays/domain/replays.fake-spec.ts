@@ -16,7 +16,8 @@ import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
-import type { RunOutcome } from '@replays/domain/value-objects/replay-ending';
+import { Money } from '@replays/domain/value-objects/money.vo';
+import type { RunResult } from '@replays/domain/value-objects/replay-ending';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
@@ -26,12 +27,11 @@ import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
-import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
-import { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
+import { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -53,21 +53,17 @@ export const FINGERPRINT = StationFingerprint.of('a'.repeat(64));
 
 export const LIVE_FINGERPRINT = StationFingerprint.of('b'.repeat(64));
 
-export const DIGESTS = StationDigests.of({
+export const HASHES = StationHashes.of({
   behaviour: '1'.repeat(64),
   scoring: '2'.repeat(64),
 });
 
-export const LIVE_DIGESTS = StationDigests.of({
+export const LIVE_HASHES = StationHashes.of({
   behaviour: 'd'.repeat(64),
   scoring: 'e'.repeat(64),
 });
 
-export const AT = StationAddress.of(
-  'core',
-  'delivery',
-  'build',
-) as StationAddress;
+export const AT = StationPath.of('core', 'delivery', 'build') as StationPath;
 
 export const BY = attributedIn(STATION.workspaceId);
 
@@ -99,7 +95,7 @@ export const candidateOf = (
 ): Candidate => {
   const judge =
     typeof rubric === 'string'
-      ? JudgeCriteria.of({ rubric, claims: [], passShare: 1 })
+      ? JudgeCriteria.of({ rubric, claims: [], passThreshold: 1 })
       : rubric;
   const made = {
     id: CandidateId.of(id),
@@ -114,17 +110,20 @@ export const candidateOf = (
             judge: {
               ...(judge.rubric === null ? {} : { rubric: judge.rubric }),
               ...(judge.claims.length > 0
-                ? { claims: [...judge.claims], passShare: judge.passShare }
+                ? {
+                    claims: [...judge.claims],
+                    passThreshold: judge.passThreshold,
+                  }
                 : {}),
               sample: 0.1,
-              trust: 0.6,
+              minAgreement: 0.6,
             },
           }
         : {}),
       ...(check ? { diffs: true, check } : {}),
     }),
     fingerprint,
-    digests: kind === 'live' ? LIVE_DIGESTS : DIGESTS,
+    hashes: kind === 'live' ? LIVE_HASHES : HASHES,
     scoring: CandidateScoring.of({
       checksChanges: check !== null,
       judge,
@@ -133,7 +132,7 @@ export const candidateOf = (
             JSON.stringify({
               rubric: judge.rubric,
               claims: judge.claims,
-              passShare: judge.passShare,
+              passThreshold: judge.passThreshold,
             }),
           )
         : null,
@@ -205,11 +204,11 @@ export const aReplay = (
     candidate?: Candidate;
     baseline?: boolean;
     at?: Date;
-    among?: readonly RunId[];
+    runSubset?: readonly RunId[];
     searchId?: SearchId;
     repeats?: number;
-    probe?: boolean;
-    pairsWith?: string;
+    calibration?: boolean;
+    pairwiseReferenceId?: string;
   } = {},
 ): Replay => {
   const started = Replay.start({
@@ -217,14 +216,16 @@ export const aReplay = (
     set: aSet(input.count ?? 3),
     candidate: input.candidate ?? candidateOf('proposed'),
     baseline: input.baseline ?? false,
-    ceiling: Spend.ceiling(input.ceiling ?? 10, 'USD'),
+    ceiling: Money.ceiling(input.ceiling ?? 10, 'USD'),
     at: input.at ?? NOW,
     by: BY,
-    ...(input.among ? { among: input.among } : {}),
+    ...(input.runSubset ? { runSubset: input.runSubset } : {}),
     ...(input.searchId ? { searchId: input.searchId } : {}),
     ...(input.repeats === undefined ? {} : { repeats: input.repeats }),
-    ...(input.probe ? { probe: true } : {}),
-    ...(input.pairsWith ? { pairsWith: ReplayId.of(input.pairsWith) } : {}),
+    ...(input.calibration ? { calibration: true } : {}),
+    ...(input.pairwiseReferenceId
+      ? { pairwiseReferenceId: ReplayId.of(input.pairwiseReferenceId) }
+      : {}),
   });
 
   started.pullEvents();
@@ -233,7 +234,7 @@ export const aReplay = (
 };
 
 export const endOf = (
-  outcome: RunOutcome,
+  result: RunResult,
   more: Partial<{
     stopped: boolean;
     asked: boolean;
@@ -241,16 +242,16 @@ export const endOf = (
   }> = {},
 ): RunEnd =>
   RunEnd.of({
-    outcome,
+    result,
     failure:
       more.failure !== undefined
         ? more.failure
-        : outcome === 'failed'
+        : result === 'failed'
           ? 'exited'
           : null,
     stopped: more.stopped ?? false,
     asked: more.asked ?? false,
-    next: outcome === 'completed' ? 'ship' : null,
+    next: result === 'completed' ? 'ship' : null,
     at: later(60_000),
   });
 
@@ -265,19 +266,19 @@ export const measuresOf = (
     ms,
     steps,
     changedLines,
-    cost: cost === null ? null : Spend.of(cost, currency),
+    cost: cost === null ? null : Money.of(cost, currency),
     tokens: { input: 100, output: 50, cacheRead: null, cacheWrite: null },
   });
 
 export const ranToEnd = (
   replay: Replay,
   run: RunId,
-  outcome: RunOutcome,
+  result: RunResult,
   cost: number | null,
 ): Replay =>
   replay
     .confirm(run, FINGERPRINT, NOW)
-    .recordRunEnd(run, endOf(outcome))
+    .recordRunEnd(run, endOf(result))
     .recordReview(run, ChangeChecks.of([]), null, later(60_000))
     .measure(run, measuresOf(cost), later(61_000));
 
@@ -304,7 +305,7 @@ export const aBudget = (
   SearchBudget.of({
     iterations: input.iterations ?? 3,
     perIteration: input.perIteration ?? 2,
-    ceiling: Spend.ceiling(input.ceiling ?? 100, 'USD'),
+    ceiling: Money.ceiling(input.ceiling ?? 100, 'USD'),
     ...(input.concurrency ? { concurrency: input.concurrency } : {}),
     ...(input.repeats ? { repeats: input.repeats } : {}),
   });
@@ -329,7 +330,7 @@ export const aSearch = (
     split: HeldOutSplit.drawn({
       searchId: id,
       entries: set.entries,
-      digest: sha256,
+      hash: sha256,
     }),
     seed: {
       candidate: candidateOf('live'),
@@ -365,24 +366,26 @@ export const replayFor = (
   set: ReplaySet,
   id: string,
   candidateId: string,
-  among: readonly RunId[] | null,
+  runSubset: readonly RunId[] | null,
   live = false,
   repeats = 1,
   searchId: SearchId | null = SEARCH_ID,
-  pairsWith: string | null = null,
+  pairwiseReferenceId: string | null = null,
 ): Replay => {
   const started = Replay.start({
     id: ReplayId.of(id),
     set,
     candidate: candidateOf(live ? 'live' : 'proposed', candidateId),
     baseline: live,
-    ceiling: Spend.ceiling(100, 'USD'),
+    ceiling: Money.ceiling(100, 'USD'),
     at: NOW,
     by: BY,
     ...(searchId ? { searchId } : {}),
     repeats,
-    ...(among ? { among } : {}),
-    ...(pairsWith ? { pairsWith: ReplayId.of(pairsWith) } : {}),
+    ...(runSubset ? { runSubset } : {}),
+    ...(pairwiseReferenceId
+      ? { pairwiseReferenceId: ReplayId.of(pairwiseReferenceId) }
+      : {}),
   });
 
   started.pullEvents();
@@ -392,7 +395,7 @@ export const replayFor = (
 
 export const replayedAs = (
   replay: Replay,
-  outcomeOf: (original: string, repeat: number) => RunOutcome,
+  outcomeOf: (original: string, repeat: number) => RunResult,
   cost: number | null = 1,
   currency = 'USD',
 ): Replay => {
@@ -422,9 +425,9 @@ export const CONCLUDING_CHECKS = ChangeChecks.of([
 export const CONCLUDING_VERDICT = JudgeVerdict.of({
   scale: 'number',
   value: 4,
-  marks: null,
+  claimResults: null,
   claims: [],
-  passShare: 1,
+  passThreshold: 1,
   model: 'judge/model',
   referenced: true,
   reasons: [],
@@ -471,7 +474,7 @@ export const concludedAll = (
         CONCLUDING_VERDICT,
         options.judgingCost === undefined
           ? null
-          : ModelSpent.of([Spend.of(options.judgingCost, 'USD')], 0),
+          : ModelSpent.of([Money.of(options.judgingCost, 'USD')], 0),
         later(63_000),
       );
     }
@@ -481,21 +484,21 @@ export const concludedAll = (
   return built;
 };
 
-export const pairVerdictOf = (winner: 'run' | 'against' | 'tie'): PairVerdict =>
+export const pairVerdictOf = (winner: 'run' | 'other' | 'tie'): PairVerdict =>
   PairVerdict.fromWinner({
     winner,
     model: 'judge/model',
-    readings: [
+    passes: [
       {
         runShownFirst: true,
         winner: winner === 'tie' ? 'run' : winner,
         reasons: [
-          { text: 'It drains fast.', runHunks: ['a#1'], againstHunks: ['b#1'] },
+          { text: 'It drains fast.', runHunks: ['a#1'], otherHunks: ['b#1'] },
         ],
       },
       {
         runShownFirst: false,
-        winner: winner === 'tie' ? 'against' : winner,
+        winner: winner === 'tie' ? 'other' : winner,
         reasons: [],
       },
     ],

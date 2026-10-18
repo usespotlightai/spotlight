@@ -2,7 +2,7 @@ import {
   endedBadly,
   formatEnding,
   type StationRunOutcome,
-} from '@/lib/station-outcomes';
+} from '@/lib/station-insights';
 import { cn } from '@/lib/utils';
 
 const summaryOf = (runs: readonly StationRunOutcome[]): string => {

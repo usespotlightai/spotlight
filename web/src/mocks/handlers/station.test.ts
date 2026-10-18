@@ -9,7 +9,6 @@ import {
   listReplaySets,
   listReplays,
   listSearches,
-  listStationOutcomes,
   listTeamReplaySets,
   pickSearchCandidate,
   readReplay,
@@ -18,6 +17,7 @@ import {
   readReplayRun,
   readSearch,
   readSearchRun,
+  readStationInsights,
   readStationJudge,
   startReplay,
   stopSearch,
@@ -37,7 +37,7 @@ describe('the mock station', () => {
   serveMockApi();
 
   it('groups the implementation runs by config version, newest from the tests-first pull request', async () => {
-    const { data } = await listStationOutcomes({
+    const { data } = await readStationInsights({
       path: IMPLEMENTATION,
       query: { last: 200 },
       throwOnError: true,
@@ -63,7 +63,7 @@ describe('the mock station', () => {
   });
 
   it('gives other stations lighter history of their own', async () => {
-    const { data } = await listStationOutcomes({
+    const { data } = await readStationInsights({
       path: TRIAGE,
       throwOnError: true,
     });
@@ -87,9 +87,9 @@ describe('the mock station', () => {
       throwOnError: true,
     });
 
-    expect(judged.calibration.trusted).toBe(true);
+    expect(judged.calibration.qualified).toBe(true);
     expect(judged.versions[0]?.current).toBe(true);
-    expect(unjudged.calibration.hiddenBecause).toBe('no-judge');
+    expect(unjudged.calibration.hiddenReason).toBe('no-judge');
   });
 
   it('lists the station’s replay sets and the team’s', async () => {
@@ -148,7 +148,7 @@ describe('the mock station', () => {
       throwOnError: true,
     });
 
-    expect(replay.comparedWith).toMatchObject({
+    expect(replay.referenceReplay).toMatchObject({
       replayId: 'replay_live_4',
       successRate: expect.any(Number),
     });
@@ -173,7 +173,7 @@ describe('the mock station', () => {
       throwOnError: true,
     });
 
-    expect(checks.map((each) => each.verdict)).toEqual(['running', 'passed']);
+    expect(checks.map((each) => each.result)).toEqual(['running', 'passed']);
     expect(suggestions.map((each) => each.runId)).toContain('run_billing_1');
     expect(
       replayable.some((each) => each.unreplayableReason === 'archive-gone'),
@@ -209,7 +209,7 @@ describe('the mock station', () => {
       ['search_live', 'stopped'],
     ]);
     expect(search.best?.name).toBe('tests-first');
-    expect(search.best?.onlyOnSeenTasks).toBe('marked');
+    expect(search.best?.overfit).toBe('likely');
     expect(search.split.searchedTasks + search.split.heldOutTasks).toBe(7);
     expect(run.searchId).toBe('search_tests_first');
   });
@@ -277,7 +277,7 @@ describe('the mock station in an empty workspace', () => {
   serveMockApi('empty');
 
   it('answers empty', async () => {
-    const { data: outcomes } = await listStationOutcomes({
+    const { data: outcomes } = await readStationInsights({
       path: IMPLEMENTATION,
       throwOnError: true,
     });

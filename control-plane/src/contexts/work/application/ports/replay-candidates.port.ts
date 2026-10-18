@@ -23,7 +23,7 @@ export interface ReplayStation {
 interface CandidateJudge {
   readonly rubric: string | null;
   readonly claims: readonly string[];
-  readonly passShare: number;
+  readonly passThreshold: number;
 }
 
 export interface CandidateScoring {
@@ -32,17 +32,17 @@ export interface CandidateScoring {
   readonly rubricVersion: string | null;
 }
 
-export interface ConfigDigests {
+export interface ConfigHashes {
   readonly behaviour: string;
   readonly scoring: string;
 }
 
-export type ExaminedCandidate =
+export type ValidatedCandidate =
   | {
       readonly ok: true;
       readonly fingerprint: string;
-      readonly digests: ConfigDigests;
-      readonly liveDigests: ConfigDigests;
+      readonly hashes: ConfigHashes;
+      readonly liveHashes: ConfigHashes;
       readonly scoring: CandidateScoring;
       readonly live: string;
       readonly changes: readonly ConfigChangeShape[];
@@ -62,7 +62,7 @@ export interface LiveStation {
   readonly station: LineDefinitionStation;
   readonly fingerprint: string;
   readonly scoring: CandidateScoring;
-  readonly digests: ConfigDigests;
+  readonly hashes: ConfigHashes;
   readonly replayCheck: ReplayThreshold | null;
 }
 
@@ -71,12 +71,12 @@ export interface ReplayCandidatesPort {
 
   keyed(lineId: string, key: string): Promise<ReplayStation | null>;
 
-  examine(
+  validate(
     lineId: string,
     stationId: string,
     station: unknown,
     repositories?: unknown,
-  ): Promise<ExaminedCandidate | null>;
+  ): Promise<ValidatedCandidate | null>;
 
   live(lineId: string, stationId: string): Promise<LiveStation | null>;
 }

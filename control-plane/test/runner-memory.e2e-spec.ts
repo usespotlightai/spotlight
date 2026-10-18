@@ -23,7 +23,10 @@ interface Recalled {
   readonly handle: string;
   readonly body: string;
   readonly status: string;
-  readonly grounds: { readonly taskId: string; readonly runId: string } | null;
+  readonly provenance: {
+    readonly taskId: string;
+    readonly runId: string;
+  } | null;
   readonly superseded?: { readonly handle: string; readonly body: string };
 }
 
@@ -31,7 +34,7 @@ interface Proposed {
   readonly id: string;
   readonly kind: string;
   readonly body: string;
-  readonly origin: string;
+  readonly proposedBy: string;
   readonly state: string;
   readonly scope: string;
   readonly repository: string | null;
@@ -284,7 +287,7 @@ describe('recalling what the team remembers from inside a run', () => {
           evidence: DraftEvidence.of({
             taskId: team.list.id,
             runId: proposedIn,
-            site: {
+            runContext: {
               teamId: TeamId.of(team.teamId.value),
               lineId: DELIVERY,
               stationId: BUILD,
@@ -390,7 +393,7 @@ describe('recalling what the team remembers from inside a run', () => {
 });
 
 describe('remembering from inside a run', () => {
-  it('proposes a memory grounded in the step it was requested from, beside the run in the inbox', async () => {
+  it('proposes a memory that cites the step it was requested from, beside the run in the inbox', async () => {
     const proposed = await remember({
       body: 'Uploads retry in the request.',
       paths: ['api/src/uploads'],
@@ -400,7 +403,7 @@ describe('remembering from inside a run', () => {
     expect(proposed.body).toMatchObject({
       kind: 'rationale',
       body: 'Uploads retry in the request.',
-      origin: 'remembered',
+      proposedBy: 'agent',
       state: 'proposed',
       scope: 'line',
       repository: 'acme/api',

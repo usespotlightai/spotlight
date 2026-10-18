@@ -1,20 +1,20 @@
 import type { StartReplayCheckCommand } from '@replays/application/commands/start-replay-check.command';
 import type { ReplayCheckStartedOutcome } from '@replays/application/dto/replay-outcomes.dto';
-import type { DigestPort } from '@replays/application/ports/digest.port';
+import type { HashPort } from '@replays/application/ports/hash.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
   LiveConfig,
   StationView,
   WorkPort,
 } from '@replays/application/ports/work.port';
-import type { CheckReadings } from '@replays/application/services/check-readings.service';
+import type { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
 import type { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
-import { ChangesUnguardedError } from '@replays/domain/exceptions/changes-unguarded.error';
+import { ChangesUngatedError } from '@replays/domain/exceptions/changes-ungated.error';
 import { ReplayCheckUnconfiguredError } from '@replays/domain/exceptions/replay-check-unconfigured.error';
 import { UnknownReplaySetError } from '@replays/domain/exceptions/unknown-replay-set.error';
 import { UnknownStationError } from '@replays/domain/exceptions/unknown-station.error';
@@ -36,8 +36,8 @@ import { PlannedReference } from '@replays/domain/value-objects/planned-referenc
 import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
-import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
+import { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -64,9 +64,9 @@ class NothingToReplayError extends Error {
   }
 }
 
-interface Guarded {
+interface Gated {
   readonly station: StationView;
-  readonly address: StationAddress;
+  readonly address: StationPath;
   readonly live: LiveConfig;
   readonly threshold: ReplayThreshold;
   readonly set: ReplaySet;
@@ -88,13 +88,13 @@ export class StartReplayCheckHandler
     private readonly people: PeoplePort,
     private readonly work: WorkPort,
     private readonly snapshots: LiveSnapshots,
-    private readonly readings: CheckReadings,
+    private readonly evaluations: CheckEvaluations,
     private readonly candidates: CandidateRepository,
     private readonly sets: ReplaySetRepository,
     private readonly replays: ReplayRepository,
     private readonly checks: ReplayCheckRepository,
     private readonly creates: IdempotentCreatesPort,
-    private readonly digest: DigestPort,
+    private readonly hash: HashPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -152,7 +152,7 @@ export class StartReplayCheckHandler
             },
             async () => {
               const started = await this.started(
-                await this.guarded(station),
+                await this.gated(station),
                 planned,
                 Attribution.of(command.actor, station.workspaceId),
               );
@@ -185,12 +185,12 @@ export class StartReplayCheckHandler
     }
   }
 
-  private async guarded(station: StationView): Promise<Guarded> {
+  private async gated(station: StationView): Promise<Gated> {
     const live = await this.work.live(station.lineId, station.stationId);
     const teamKey = await this.people.teamKey(station.teamId);
     const atStation = await this.sets.atStation(station.stationId);
     const address = teamKey
-      ? StationAddress.of(teamKey, station.lineKey, station.key)
+      ? StationPath.of(teamKey, station.lineKey, station.key)
       : null;
 
     if (!live || !address) {
@@ -201,53 +201,53 @@ export class StartReplayCheckHandler
     }
 
     const set = atStation.find(
-      (each) => each.guardsChanges && !each.isAtGoneStation,
+      (each) => each.gatesChanges && !each.isAtGoneStation,
     );
 
     if (!set) {
-      throw new ChangesUnguardedError(station.key);
+      throw new ChangesUngatedError(station.key);
     }
 
     return { station, address, live, threshold: live.threshold, set };
   }
 
   private async started(
-    guarded: Guarded,
+    gated: Gated,
     planned: Planned,
     by: Attribution,
   ): Promise<{ readonly id: string; readonly reused: boolean }> {
-    const { station, live, threshold } = guarded;
+    const { station, live, threshold } = gated;
     const scored = scoredLive(planned.station, live.block);
-    const examined = await this.work.examine(
+    const validated = await this.work.validate(
       station.lineId,
       station.stationId,
       scored.block,
       planned.line,
     );
 
-    if (!examined) {
+    if (!validated) {
       throw new UnknownStationError(station.key);
     }
-    if (!examined.ok) {
-      throw new CheckRejectedError(examined.problems);
+    if (!validated.ok) {
+      throw new CheckRejectedError(validated.problems);
     }
-    if (examined.digests.runsAs(examined.liveDigests)) {
+    if (validated.hashes.runsAs(validated.liveHashes)) {
       throw new NothingToReplayError(scored.scoringPinnedToLive);
     }
 
-    const set = await this.sets.locked(guarded.set.id);
+    const set = await this.sets.locked(gated.set.id);
 
     if (!set) {
-      throw new UnknownReplaySetError(guarded.set.id.value);
+      throw new UnknownReplaySetError(gated.set.id.value);
     }
 
     set.stillAtItsStation();
 
-    if (!set.guardsChanges) {
-      throw new ChangesUnguardedError(station.key);
+    if (!set.gatesChanges) {
+      throw new ChangesUngatedError(station.key);
     }
 
-    const setEntries = this.digest.sha256(
+    const setEntries = this.hash.sha256(
       set.runs
         .map((each) => each.value)
         .sort()
@@ -255,12 +255,12 @@ export class StartReplayCheckHandler
     );
     const earlier = await this.checks.matching(
       station.stationId,
-      examined.digests,
-      examined.liveDigests,
+      validated.hashes,
+      validated.liveHashes,
     );
 
     for (const each of [...earlier].reverse()) {
-      const { reading } = await this.readings.of(each);
+      const { evaluation } = await this.evaluations.of(each);
 
       if (
         each.reusableFor(
@@ -268,7 +268,7 @@ export class StartReplayCheckHandler
           setEntries,
           threshold,
           planned.repeats,
-          reading.verdict,
+          evaluation.result,
         )
       ) {
         return { id: each.id.value, reused: true };
@@ -279,12 +279,12 @@ export class StartReplayCheckHandler
     const candidate = Candidate.plan({
       id: CandidateId.of(this.ids.generate()),
       station,
-      address: guarded.address,
+      address: gated.address,
       block: StationBlock.of(scored.block),
-      fingerprint: examined.fingerprint,
-      digests: examined.digests,
-      scoring: examined.scoring,
-      changedFrom: examined.changedFrom,
+      fingerprint: validated.fingerprint,
+      hashes: validated.hashes,
+      scoring: validated.scoring,
+      changedFrom: validated.changedFrom,
       reference: planned.reference,
       line: planned.line,
       at,
@@ -293,7 +293,7 @@ export class StartReplayCheckHandler
     const wanting = needsBaseline(
       set,
       setReplays,
-      examined.liveDigests.scoring,
+      validated.liveHashes.scoring,
       planned.repeats,
     )
       ? {
@@ -301,7 +301,7 @@ export class StartReplayCheckHandler
           candidate: await this.snapshots.taken(set),
           ceiling: threshold.ceiling,
           repeats: planned.repeats,
-          probe: false,
+          calibration: false,
         }
       : null;
     const replayId = ReplayId.of(this.ids.generate());
@@ -318,12 +318,12 @@ export class StartReplayCheckHandler
           set.entries.length * planned.repeats,
         ),
         repeats: planned.repeats,
-        pairsWith: wanting
+        pairwiseReferenceId: wanting
           ? wanting.id
           : (currentBaselineFor(
               set,
               setReplays,
-              examined.liveDigests.scoring,
+              validated.liveHashes.scoring,
               planned.repeats,
             )?.id ?? null),
         at,
@@ -342,10 +342,10 @@ export class StartReplayCheckHandler
       candidateId: candidate.id,
       replayId,
       reference: planned.reference,
-      liveFingerprint: examined.changedFrom.from,
-      candidateFingerprint: examined.fingerprint,
-      liveDigests: examined.liveDigests,
-      candidateDigests: examined.digests,
+      liveFingerprint: validated.changedFrom.from,
+      candidateFingerprint: validated.fingerprint,
+      liveHashes: validated.liveHashes,
+      candidateHashes: validated.hashes,
       threshold,
       repeats: planned.repeats,
       scoringPinnedToLive: scored.scoringPinnedToLive,

@@ -171,13 +171,13 @@ describe('formatHcl', () => {
           [],
           [
             attribute('claims', HclLines.of(['It adds a test.', 'Two.'])),
-            attribute('pass_share', 0.5),
+            attribute('pass_threshold', 0.5),
             attribute('sample', 0.2),
           ],
         ),
       ]),
     ).toBe(
-      'judge {\n  claims = [\n    "It adds a test.",\n    "Two.",\n  ]\n  pass_share = 0.5\n  sample     = 0.2\n}\n',
+      'judge {\n  claims = [\n    "It adds a test.",\n    "Two.",\n  ]\n  pass_threshold = 0.5\n  sample         = 0.2\n}\n',
     );
   });
 

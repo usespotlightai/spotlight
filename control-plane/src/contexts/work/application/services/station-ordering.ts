@@ -9,7 +9,7 @@ import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
 import { skillFilesOf } from '@work/application/mappers/skill-files.mapper';
 import { StationConfigMapper } from '@work/application/mappers/station-config.mapper';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
-import type { ContentDigestPort } from '@work/application/ports/content-digest.port';
+import type { ContentHashPort } from '@work/application/ports/content-hash.port';
 import type {
   HarnessLaunchPort,
   PreparedHarness,
@@ -114,7 +114,7 @@ export class StationOrdering {
     private readonly teamSkills: StationSkills,
     private readonly catalog: StationCatalog,
     private readonly profiles: StationProfilesPort,
-    private readonly digest: ContentDigestPort,
+    private readonly hash: ContentHashPort,
   ) {}
 
   ordered(line: Line, at: OrderedAt): Promise<Ordered | null> {
@@ -227,7 +227,7 @@ export class StationOrdering {
                 ),
             ),
           },
-          this.digest,
+          this.hash,
         )
       : null;
   }

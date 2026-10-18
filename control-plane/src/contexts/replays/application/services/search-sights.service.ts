@@ -76,7 +76,7 @@ export class SearchSights implements SearchSightPort {
 
     return {
       stationId: search.station.stationId,
-      hiddenTasks: [
+      heldOutTasks: [
         ...new Set(search.split.heldOut.map((each) => each.taskId.value)),
       ],
       shownOriginals: [...shown],

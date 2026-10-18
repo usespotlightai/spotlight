@@ -1,12 +1,12 @@
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { NoPullRequests } from '@/components/features/insights/pull-requests/NoPullRequests';
-import { Penetration } from '@/components/features/insights/pull-requests/Penetration';
 import { PullRequestList } from '@/components/features/insights/pull-requests/PullRequestList';
 import { PullRequestsSkeleton } from '@/components/features/insights/pull-requests/PullRequestsSkeleton';
 import { PullRequestTypes } from '@/components/features/insights/pull-requests/PullRequestTypes';
-import { RepositoryPenetration } from '@/components/features/insights/pull-requests/RepositoryPenetration';
+import { RepositorySpotlightShare } from '@/components/features/insights/pull-requests/RepositorySpotlightShare';
 import { ReviewDepth } from '@/components/features/insights/pull-requests/ReviewDepth';
 import { SpotlightAgainstPeople } from '@/components/features/insights/pull-requests/SpotlightAgainstPeople';
+import { SpotlightShare } from '@/components/features/insights/pull-requests/SpotlightShare';
 import { useInsightsPullRequests } from '@/hooks/api/useInsightsPullRequests';
 import type { InsightsView } from '@/lib/insights';
 import { pullRequestsNarrowedBy } from '@/lib/insights-pull-requests';
@@ -35,7 +35,8 @@ export function PullRequestsTab({
     return <InsightsFailed what="The pull requests" query={insights} />;
   }
 
-  const { penetration, comparison, types, depth, weeks, total } = insights.data;
+  const { spotlightShare, comparison, types, depth, weeks, total } =
+    insights.data;
   const narrowed = pullRequestsNarrowedBy(view.filter).length > 0;
 
   if (total === 0 && !narrowed && view.page === 1) {
@@ -44,11 +45,11 @@ export function PullRequestsTab({
 
   return (
     <div className="flex flex-col gap-3">
-      <Penetration penetration={penetration} />
+      <SpotlightShare spotlightShare={spotlightShare} />
 
-      <RepositoryPenetration
+      <RepositorySpotlightShare
         weeks={weeks}
-        repositories={penetration.repositories}
+        repositories={spotlightShare.repositories}
       />
 
       <SpotlightAgainstPeople comparison={comparison} />
@@ -61,7 +62,9 @@ export function PullRequestsTab({
         slug={slug}
         teamId={teamId}
         view={view}
-        repositories={penetration.repositories.map((each) => each.repository)}
+        repositories={spotlightShare.repositories.map(
+          (each) => each.repository,
+        )}
         onView={onView}
       />
     </div>

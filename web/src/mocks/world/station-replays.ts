@@ -1,11 +1,11 @@
 import type {
   CandidateResponseDto,
   EntryComparisonResponseDto,
+  MoneyResponseDto,
   ReplayDetailResponseDto,
   ReplayEntryResponseDto,
   ReplayResponseDto,
   ReplayTotalsResponseDto,
-  SpendResponseDto,
 } from '@/lib/api';
 import { hoursAgo } from '@/mocks/clock';
 import { perWorld } from '@/mocks/world';
@@ -41,13 +41,13 @@ export type ReplaySpec = {
   endedHoursAgo: number | null;
   readonly runs: readonly string[];
   marks: Mark[];
-  readonly comparedWith: string | null;
+  readonly referenceReplayId: string | null;
   readonly paired: boolean;
   readonly search: { searchId: string; candidateName: string } | null;
   readonly costFactor: number;
   readonly listed: boolean;
-  readonly probe: boolean;
-  readonly ceiling: SpendResponseDto;
+  readonly calibration: boolean;
+  readonly ceiling: MoneyResponseDto;
 };
 
 export const BILLING_SET_ID = 'set_billing_work';
@@ -139,7 +139,7 @@ export const CANDIDATES = {
   ),
 } as const;
 
-const CEILING: SpendResponseDto = { amount: 10, currency: 'USD' };
+const CEILING: MoneyResponseDto = { amount: 10, currency: 'USD' };
 
 const LIVE_AGENT = { model: 'sonnet', effort: 'high' };
 
@@ -155,12 +155,12 @@ export const makeReplay = (over: SpecInput): ReplaySpec => ({
   startedAsBaseline: false,
   isBaseline: false,
   state: 'finished',
-  comparedWith: null,
+  referenceReplayId: null,
   paired: false,
   search: null,
   costFactor: 1,
   listed: false,
-  probe: false,
+  calibration: false,
   ceiling: CEILING,
   ...over,
 });
@@ -180,7 +180,7 @@ const SEEDED: readonly ReplaySpec[] = [
     endedHoursAgo: null,
     runs: BILLING_RUNS,
     marks: ['S', 'F', 'S', 'F', 'S', 'running', 'waiting'],
-    comparedWith: 'replay_live_4',
+    referenceReplayId: 'replay_live_4',
     paired: true,
     costFactor: 0.75,
     listed: true,
@@ -204,7 +204,7 @@ const SEEDED: readonly ReplaySpec[] = [
     endedHoursAgo: 47.6,
     runs: SEARCHED_RUNS,
     marks: ['S', 'S', 'S', 'S', 'S'],
-    comparedWith: 'replay_live_4',
+    referenceReplayId: 'replay_live_4',
     paired: true,
     listed: true,
   }),
@@ -236,7 +236,7 @@ const SEEDED: readonly ReplaySpec[] = [
     endedHoursAgo: 102.6,
     runs: SEARCHED_RUNS,
     marks: ['S', 'F', 'F', 'not-run', 'not-run'],
-    comparedWith: 'replay_sl_seed',
+    referenceReplayId: 'replay_sl_seed',
     paired: true,
     costFactor: 0.3,
     search: searchOf('search_live', CANDIDATES.haiku.name),
@@ -266,7 +266,7 @@ const SEEDED: readonly ReplaySpec[] = [
     endedHoursAgo: 97.6,
     runs: SEARCHED_RUNS,
     marks: ['S', 'S', 'S', 'F', 'S'],
-    comparedWith: 'replay_tf_seed',
+    referenceReplayId: 'replay_tf_seed',
     paired: true,
     costFactor: 1.15,
     search: searchOf('search_tests_first', CANDIDATES.testsFirst.name),
@@ -278,7 +278,7 @@ const SEEDED: readonly ReplaySpec[] = [
     endedHoursAgo: 92.6,
     runs: HELD_OUT_RUNS,
     marks: ['F', 'S'],
-    comparedWith: 'replay_tf_seed_held_out',
+    referenceReplayId: 'replay_tf_seed_held_out',
     paired: true,
     costFactor: 1.15,
     search: searchOf('search_tests_first', CANDIDATES.testsFirst.name),
@@ -291,7 +291,7 @@ const SEEDED: readonly ReplaySpec[] = [
     endedHoursAgo: 97.8,
     runs: SEARCHED_RUNS,
     marks: ['F', 'S', 'S', 'F', 'S'],
-    comparedWith: 'replay_tf_seed',
+    referenceReplayId: 'replay_tf_seed',
     paired: true,
     costFactor: 0.55,
     search: searchOf('search_tests_first', CANDIDATES.medium.name),
@@ -304,7 +304,7 @@ const SEEDED: readonly ReplaySpec[] = [
     endedHoursAgo: 92.8,
     runs: HELD_OUT_RUNS,
     marks: ['F', 'S'],
-    comparedWith: 'replay_tf_seed_held_out',
+    referenceReplayId: 'replay_tf_seed_held_out',
     paired: true,
     costFactor: 0.55,
     search: searchOf('search_tests_first', CANDIDATES.medium.name),
@@ -317,7 +317,7 @@ const SEEDED: readonly ReplaySpec[] = [
     endedHoursAgo: 95,
     runs: SEARCHED_RUNS,
     marks: ['S', 'S', 'S', 'F', 'F'],
-    comparedWith: 'replay_tf_seed',
+    referenceReplayId: 'replay_tf_seed',
     paired: true,
     costFactor: 1.6,
     search: searchOf('search_tests_first', CANDIDATES.opus.name),
@@ -329,7 +329,7 @@ const SEEDED: readonly ReplaySpec[] = [
     endedHoursAgo: 95.1,
     runs: SEARCHED_RUNS,
     marks: ['S', 'F', 'S', 'F', 'S'],
-    comparedWith: 'replay_tf_seed',
+    referenceReplayId: 'replay_tf_seed',
     paired: true,
     costFactor: 1.3,
     search: searchOf('search_tests_first', CANDIDATES.review.name),
@@ -339,11 +339,11 @@ const SEEDED: readonly ReplaySpec[] = [
 export const liveCandidateOf = (stationId: string): CandidateResponseDto =>
   LIVE_CANDIDATES[stationId] ?? CANDIDATES.live4;
 
-const SEARCHED_SHARE = 0.7;
+const SEARCHED_RATE = 0.7;
 
 export const runsOfSet = (setId: string, part: SetPart): string[] => {
   const runs = setSpec(setId)?.entries.map((each) => each.runId) ?? [];
-  const cut = Math.ceil(runs.length * SEARCHED_SHARE);
+  const cut = Math.ceil(runs.length * SEARCHED_RATE);
 
   if (part === 'searched') {
     return runs.slice(0, cut);
@@ -388,8 +388,8 @@ const replayOfSeed = (seed: ReplaySeed): ReplaySpec => {
     endedHoursAgo: seed.endedHoursAgo,
     runs,
     marks,
-    comparedWith: seed.comparedWith ?? null,
-    paired: Boolean(seed.comparedWith),
+    referenceReplayId: seed.referenceReplayId ?? null,
+    paired: Boolean(seed.referenceReplayId),
     search: seed.search ?? null,
     costFactor: seed.costFactor,
     listed: seed.listed ?? false,
@@ -428,8 +428,8 @@ const judged = (score: number, passed: boolean) => ({
   referenced: true,
   model: 'anthropic/claude-opus-5',
   unjudged: null,
-  marks: null,
-  passShare: null,
+  claimResults: null,
+  passThreshold: null,
   claims: [],
   reasons: [],
 });
@@ -458,7 +458,7 @@ const WAITING: Omit<
   cacheWriteTokens: null,
   checks: null,
   judge: null,
-  draftingSpent: null,
+  generationSpent: null,
   judgingSpent: null,
   secondJudge: null,
   rejudgingSpent: null,
@@ -539,7 +539,7 @@ const entryOf = (replay: ReplaySpec, place: number): ReplayEntryResponseDto => {
         : { state: 'failed', failedAt: ['npm test'], why: null }
       : null,
     judge: passed ? judged(4, true) : judged(2, false),
-    draftingSpent: spentOf(0.02),
+    generationSpent: spentOf(0.02),
     judgingSpent: spentOf(0.03),
     pairingSpent: replay.paired ? spentOf(0.04) : null,
     result: passed ? 'succeeded' : 'failed',
@@ -624,26 +624,28 @@ type Paired = {
   readonly baseline: ReplayEntryResponseDto | undefined;
 };
 
-const counterpartSpecOf = (replay: ReplaySpec): ReplaySpec | null =>
-  replay.comparedWith ? (replaySpec(replay.comparedWith) ?? null) : null;
+const referenceSpecOf = (replay: ReplaySpec): ReplaySpec | null =>
+  replay.referenceReplayId
+    ? (replaySpec(replay.referenceReplayId) ?? null)
+    : null;
 
-const counterpartOf = (
+const referenceOf = (
   replay: ReplaySpec,
-): ReplayResponseDto['comparedWith'] => {
-  const against = counterpartSpecOf(replay);
+): ReplayResponseDto['referenceReplay'] => {
+  const reference = referenceSpecOf(replay);
 
-  if (!against) {
+  if (!reference) {
     return null;
   }
 
-  const { successRate, interval } = totalsOf(entriesOf(against));
+  const { successRate, interval } = totalsOf(entriesOf(reference));
 
-  return { replayId: against.id, successRate, interval };
+  return { replayId: reference.id, successRate, interval };
 };
 
-const pairsWith = (replay: ReplaySpec): Paired[] => {
-  const against = counterpartSpecOf(replay);
-  const baselineEntries = against ? entriesOf(against) : [];
+const pairedEntriesOf = (replay: ReplaySpec): Paired[] => {
+  const reference = referenceSpecOf(replay);
+  const baselineEntries = reference ? entriesOf(reference) : [];
 
   return entriesOf(replay).map((entry) => ({
     candidate: entry,
@@ -662,12 +664,12 @@ const bothScored = (pairs: readonly Paired[]) =>
       : [],
   );
 
-export const againstOf = (replay: ReplaySpec) => {
-  if (!replay.comparedWith) {
+export const gainOverReferenceOf = (replay: ReplaySpec) => {
+  if (!replay.referenceReplayId) {
     return { gain: null, pairs: null };
   }
 
-  const scored = bothScored(pairsWith(replay));
+  const scored = bothScored(pairedEntriesOf(replay));
   const gain = gainOf(
     scored.map((each) => each.candidate),
     scored.map((each) => each.baseline),
@@ -686,7 +688,7 @@ export const againstOf = (replay: ReplaySpec) => {
 
 export const replayOf = (replay: ReplaySpec): ReplayResponseDto => {
   const entries = entriesOf(replay);
-  const { gain, pairs } = againstOf(replay);
+  const { gain, pairs } = gainOverReferenceOf(replay);
 
   return {
     id: replay.id,
@@ -699,15 +701,15 @@ export const replayOf = (replay: ReplaySpec): ReplayResponseDto => {
     state: replay.state,
     ceiling: replay.ceiling,
     repeats: 1,
-    probe: replay.probe,
+    calibration: replay.calibration,
     startedAt: hoursAgo(replay.startedHoursAgo),
     endedAt:
       replay.endedHoursAgo === null ? null : hoursAgo(replay.endedHoursAgo),
     totals: totalsOf(entries),
-    againstBaseline: gain,
-    comparedWith: counterpartOf(replay),
-    pairedWith: replay.paired ? replay.comparedWith : null,
-    pairsAgainstBaseline: pairs,
+    gainOverReference: gain,
+    referenceReplay: referenceOf(replay),
+    pairwiseReference: replay.paired ? replay.referenceReplayId : null,
+    referencePairs: pairs,
     entries,
   };
 };
@@ -785,7 +787,7 @@ export const replayDetailOf = (
   ...replayOf(replay),
   baselineReplayId: baselineOfSet(replay.setId)?.id ?? null,
   search: replay.search,
-  comparison: pairsWith(replay).map((pair) => comparisonOf(replay, pair)),
+  comparison: pairedEntriesOf(replay).map((pair) => comparisonOf(replay, pair)),
 });
 
 export const listedReplays = (setId: string): ReplayResponseDto[] =>

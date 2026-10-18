@@ -177,7 +177,7 @@
                       "@configuration/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**",
                       "@secrets/**",
@@ -226,8 +226,8 @@
                       "!@change-review/change-review.module",
                       "@memory/**",
                       "!@memory/memory.module",
-                      "@outcomes/**",
-                      "!@outcomes/outcomes.module",
+                      "@insights/**",
+                      "!@insights/insights.module",
                       "@replays/**",
                       "!@replays/replays.module",
                       "@integrations/**",
@@ -268,7 +268,7 @@
                       "@configuration/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**",
                       "@secrets/**",
@@ -303,7 +303,7 @@
                       "@configuration/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**",
                       "@catalog/**"
@@ -351,7 +351,7 @@
                       "@configuration/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**",
                       "@catalog/**"
@@ -395,7 +395,7 @@
                       "@configuration/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**",
                       "@secrets/**"
@@ -438,7 +438,7 @@
                       "@configuration/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**",
                       "@catalog/**"
@@ -483,7 +483,7 @@
                       "@configuration/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**"
                     ],
@@ -538,7 +538,7 @@
                     "group": [
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**"
                     ],
@@ -599,7 +599,7 @@
                       "@configuration/**",
                       "@integrations/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**"
                     ],
                     "message": "Context boundary: 'change-review' may depend on work, github, identity, secrets, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
@@ -655,7 +655,7 @@
                       "@configuration/**",
                       "@integrations/**",
                       "@change-review/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**"
                     ],
                     "message": "Context boundary: 'memory' may depend on work, github, identity, secrets, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
@@ -697,7 +697,7 @@
       }
     },
     {
-      "includes": ["src/contexts/outcomes/**"],
+      "includes": ["src/contexts/insights/**"],
       "linter": {
         "rules": {
           "style": {
@@ -713,7 +713,7 @@
                       "@change-review/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'outcomes' may depend on work, memory, github, identity, secrets, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'insights' may depend on work, memory, github, identity, secrets, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -771,7 +771,7 @@
                       "@integrations/**",
                       "@memory/**"
                     ],
-                    "message": "Context boundary: 'replays' may depend on work, github, identity, secrets, catalog, change-review, outcomes. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'replays' may depend on work, github, identity, secrets, catalog, change-review, insights. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -799,10 +799,10 @@
                       "!@change-review/application/ports/**",
                       "!@change-review/application/contracts/**",
                       "!@change-review/change-review.module",
-                      "@outcomes/**",
-                      "!@outcomes/application/ports/**",
-                      "!@outcomes/application/contracts/**",
-                      "!@outcomes/outcomes.module"
+                      "@insights/**",
+                      "!@insights/application/ports/**",
+                      "!@insights/application/contracts/**",
+                      "!@insights/insights.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -831,7 +831,7 @@
                       "@runners/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**"
                     ],
                     "message": "Context boundary: 'integrations' may depend on work, configuration, identity, secrets, github, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
@@ -1111,7 +1111,7 @@
       }
     },
     {
-      "includes": ["src/contexts/outcomes/domain/**"],
+      "includes": ["src/contexts/insights/domain/**"],
       "linter": {
         "rules": {
           "style": {
@@ -1122,12 +1122,12 @@
                   {
                     "group": [
                       "**",
-                      "!@outcomes/domain/**",
+                      "!@insights/domain/**",
                       "!@shared-kernel/domain/**",
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer contains the model: 'outcomes' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'insights' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1208,7 +1208,7 @@
                       "@configuration/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**",
                       "@secrets/**",
@@ -1250,7 +1250,7 @@
                       "@configuration/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**",
                       "@catalog/**"
@@ -1305,7 +1305,7 @@
                       "@configuration/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**",
                       "@catalog/**"
@@ -1356,7 +1356,7 @@
                       "@configuration/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**",
                       "@secrets/**"
@@ -1406,7 +1406,7 @@
                       "@configuration/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**",
                       "@catalog/**"
@@ -1458,7 +1458,7 @@
                       "@configuration/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**"
                     ],
@@ -1520,7 +1520,7 @@
                     "group": [
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**"
                     ],
@@ -1588,7 +1588,7 @@
                       "@configuration/**",
                       "@integrations/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**"
                     ],
                     "message": "Context boundary: 'change-review' may depend on work, github, identity, secrets, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
@@ -1651,7 +1651,7 @@
                       "@configuration/**",
                       "@integrations/**",
                       "@change-review/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**"
                     ],
                     "message": "Context boundary: 'memory' may depend on work, github, identity, secrets, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
@@ -1698,8 +1698,8 @@
     },
     {
       "includes": [
-        "src/contexts/outcomes/application/**",
-        "src/contexts/outcomes/presentation/**"
+        "src/contexts/insights/application/**",
+        "src/contexts/insights/presentation/**"
       ],
       "linter": {
         "rules": {
@@ -1716,7 +1716,7 @@
                       "@change-review/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'outcomes' may depend on work, memory, github, identity, secrets, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'insights' may depend on work, memory, github, identity, secrets, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -1748,7 +1748,7 @@
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
                   {
-                    "group": ["@outcomes/infrastructure/**"],
+                    "group": ["@insights/infrastructure/**"],
                     "message": "The dependency rule: domain, application and presentation depend on ports, never on an adapter. Bind the adapter in the context's wiring."
                   },
                   {
@@ -1781,7 +1781,7 @@
                       "@integrations/**",
                       "@memory/**"
                     ],
-                    "message": "Context boundary: 'replays' may depend on work, github, identity, secrets, catalog, change-review, outcomes. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'replays' may depend on work, github, identity, secrets, catalog, change-review, insights. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -1809,10 +1809,10 @@
                       "!@change-review/application/ports/**",
                       "!@change-review/application/contracts/**",
                       "!@change-review/change-review.module",
-                      "@outcomes/**",
-                      "!@outcomes/application/ports/**",
-                      "!@outcomes/application/contracts/**",
-                      "!@outcomes/outcomes.module"
+                      "@insights/**",
+                      "!@insights/application/ports/**",
+                      "!@insights/application/contracts/**",
+                      "!@insights/insights.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -1848,7 +1848,7 @@
                       "@runners/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**"
                     ],
                     "message": "Context boundary: 'integrations' may depend on work, configuration, identity, secrets, github, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
@@ -1918,7 +1918,7 @@
                       "@configuration/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**",
                       "@secrets/**",
@@ -1957,7 +1957,7 @@
                       "@configuration/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**",
                       "@catalog/**"
@@ -2013,7 +2013,7 @@
                       "@configuration/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**",
                       "@catalog/**"
@@ -2063,7 +2063,7 @@
                       "@configuration/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**",
                       "@secrets/**"
@@ -2112,7 +2112,7 @@
                       "@configuration/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**",
                       "@catalog/**"
@@ -2165,7 +2165,7 @@
                       "@configuration/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**"
                     ],
@@ -2234,7 +2234,7 @@
                     "group": [
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "@integrations/**"
                     ],
@@ -2311,7 +2311,7 @@
                       "@configuration/**",
                       "@integrations/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**"
                     ],
                     "message": "Context boundary: 'change-review' may depend on work, github, identity, secrets, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
@@ -2381,7 +2381,7 @@
                       "@configuration/**",
                       "@integrations/**",
                       "@change-review/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**"
                     ],
                     "message": "Context boundary: 'memory' may depend on work, github, identity, secrets, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
@@ -2434,9 +2434,9 @@
     },
     {
       "includes": [
-        "src/contexts/outcomes/infrastructure/**",
-        "src/contexts/outcomes/**/*.spec.ts",
-        "src/contexts/outcomes/**/*.fake-spec.ts"
+        "src/contexts/insights/infrastructure/**",
+        "src/contexts/insights/**/*.spec.ts",
+        "src/contexts/insights/**/*.fake-spec.ts"
       ],
       "linter": {
         "rules": {
@@ -2453,7 +2453,7 @@
                       "@change-review/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'outcomes' may depend on work, memory, github, identity, secrets, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'insights' may depend on work, memory, github, identity, secrets, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -2527,7 +2527,7 @@
                       "@integrations/**",
                       "@memory/**"
                     ],
-                    "message": "Context boundary: 'replays' may depend on work, github, identity, secrets, catalog, change-review, outcomes. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'replays' may depend on work, github, identity, secrets, catalog, change-review, insights. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -2567,12 +2567,12 @@
                       "!@change-review/application/dto/**",
                       "!@change-review/application/errors/**",
                       "!@change-review/change-review.module",
-                      "@outcomes/**",
-                      "!@outcomes/application/ports/**",
-                      "!@outcomes/application/contracts/**",
-                      "!@outcomes/application/dto/**",
-                      "!@outcomes/application/errors/**",
-                      "!@outcomes/outcomes.module"
+                      "@insights/**",
+                      "!@insights/application/ports/**",
+                      "!@insights/application/contracts/**",
+                      "!@insights/application/dto/**",
+                      "!@insights/application/errors/**",
+                      "!@insights/insights.module"
                     ],
                     "message": "Context encapsulation: adapters may translate another context's dto and errors, but domain, infrastructure internals, presentation, services and wiring stay private."
                   },
@@ -2605,7 +2605,7 @@
                       "@runners/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**"
                     ],
                     "message": "Context boundary: 'integrations' may depend on work, configuration, identity, secrets, github, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
@@ -2683,7 +2683,7 @@
                       "!@configuration/application/integration-events/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "!@change-review/application/integration-events/**",
                       "@integrations/**",
@@ -2729,7 +2729,7 @@
                       "!@configuration/application/integration-events/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "!@change-review/application/integration-events/**",
                       "@integrations/**",
@@ -2790,7 +2790,7 @@
                       "!@configuration/application/integration-events/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "!@change-review/application/integration-events/**",
                       "@integrations/**",
@@ -2846,7 +2846,7 @@
                       "!@configuration/application/integration-events/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "!@change-review/application/integration-events/**",
                       "@integrations/**",
@@ -2900,7 +2900,7 @@
                       "!@configuration/application/integration-events/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "!@change-review/application/integration-events/**",
                       "@integrations/**",
@@ -2955,7 +2955,7 @@
                       "!@configuration/application/integration-events/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "!@change-review/application/integration-events/**",
                       "@integrations/**",
@@ -3021,7 +3021,7 @@
                     "group": [
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "!@change-review/application/integration-events/**",
                       "@integrations/**",
@@ -3097,7 +3097,7 @@
                       "@integrations/**",
                       "!@integrations/application/integration-events/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**"
                     ],
                     "message": "Context boundary: at this edge 'change-review' may subscribe to any context's integration events, but may otherwise depend on work, github, identity, secrets, catalog."
@@ -3166,9 +3166,9 @@
                       "!@integrations/application/integration-events/**",
                       "@change-review/**",
                       "!@change-review/application/integration-events/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
-                      "!@outcomes/application/integration-events/**"
+                      "!@insights/application/integration-events/**"
                     ],
                     "message": "Context boundary: at this edge 'memory' may subscribe to any context's integration events, but may otherwise depend on work, github, identity, secrets, catalog."
                   },
@@ -3218,7 +3218,7 @@
       }
     },
     {
-      "includes": ["src/contexts/outcomes/presentation/events/**"],
+      "includes": ["src/contexts/insights/presentation/events/**"],
       "linter": {
         "rules": {
           "style": {
@@ -3239,7 +3239,7 @@
                       "@replays/**",
                       "!@replays/application/integration-events/**"
                     ],
-                    "message": "Context boundary: at this edge 'outcomes' may subscribe to any context's integration events, but may otherwise depend on work, memory, github, identity, secrets, catalog."
+                    "message": "Context boundary: at this edge 'insights' may subscribe to any context's integration events, but may otherwise depend on work, memory, github, identity, secrets, catalog."
                   },
                   {
                     "group": [
@@ -3277,7 +3277,7 @@
                     "message": "Context encapsulation: subscribers may read another context's integration events, ports and contracts. Its dto, errors, domain and internals stay private."
                   },
                   {
-                    "group": ["@outcomes/infrastructure/**"],
+                    "group": ["@insights/infrastructure/**"],
                     "message": "The dependency rule: domain, application and presentation depend on ports, never on an adapter. Bind the adapter in the context's wiring."
                   },
                   {
@@ -3311,7 +3311,7 @@
                       "@memory/**",
                       "!@memory/application/integration-events/**"
                     ],
-                    "message": "Context boundary: at this edge 'replays' may subscribe to any context's integration events, but may otherwise depend on work, github, identity, secrets, catalog, change-review, outcomes."
+                    "message": "Context boundary: at this edge 'replays' may subscribe to any context's integration events, but may otherwise depend on work, github, identity, secrets, catalog, change-review, insights."
                   },
                   {
                     "group": [
@@ -3345,11 +3345,11 @@
                       "!@change-review/application/contracts/**",
                       "!@change-review/application/integration-events/**",
                       "!@change-review/change-review.module",
-                      "@outcomes/**",
-                      "!@outcomes/application/ports/**",
-                      "!@outcomes/application/contracts/**",
-                      "!@outcomes/application/integration-events/**",
-                      "!@outcomes/outcomes.module"
+                      "@insights/**",
+                      "!@insights/application/ports/**",
+                      "!@insights/application/contracts/**",
+                      "!@insights/application/integration-events/**",
+                      "!@insights/insights.module"
                     ],
                     "message": "Context encapsulation: subscribers may read another context's integration events, ports and contracts. Its dto, errors, domain and internals stay private."
                   },
@@ -3383,7 +3383,7 @@
                       "!@runners/application/integration-events/**",
                       "@change-review/**",
                       "@memory/**",
-                      "@outcomes/**",
+                      "@insights/**",
                       "@replays/**",
                       "!@change-review/application/integration-events/**"
                     ],

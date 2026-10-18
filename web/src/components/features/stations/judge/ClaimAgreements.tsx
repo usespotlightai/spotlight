@@ -16,13 +16,13 @@ import { cn } from '@/lib/utils';
 type ClaimAgreementsProps = {
   agreements: readonly ClaimAgreement[];
   claims: readonly string[];
-  trust: number | null;
+  minAgreement: number | null;
 };
 
 export function ClaimAgreements({
   agreements,
   claims,
-  trust,
+  minAgreement,
 }: ClaimAgreementsProps) {
   return (
     <NestedTable label="Agreement by claim" headings={CLAIM_HEADINGS}>
@@ -44,7 +44,11 @@ export function ClaimAgreements({
             {formatClaim(claims, each.index)}
           </span>
           <span className="col-span-full min-w-0 @4xl:col-span-1">
-            <KappaBar kappa={each.kappa} reading={each.reading} trust={trust} />
+            <KappaBar
+              kappa={each.kappa}
+              reading={each.reading}
+              minAgreement={minAgreement}
+            />
           </span>
           <NestedCell heading="Agreed">
             {formatPercent(each.observed)}

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { EntryReasonResponseDto } from '@/lib/api';
 import {
   formatChecks,
-  formatGainVerdict,
+  formatGainSignificance,
   formatReason,
   formatResult,
   formatState,
@@ -113,9 +113,12 @@ describe('replay words cover every code the API can answer', () => {
     }
   });
 
-  it('words every verdict a gain reading can give', () => {
-    for (const verdict of codesOf('GainReadingResponseDto', 'verdict')) {
-      worded(formatGainVerdict(verdict as never), verdict);
+  it('words every significance a gain estimate can give', () => {
+    for (const significance of codesOf(
+      'GainEstimateResponseDto',
+      'significance',
+    )) {
+      worded(formatGainSignificance(significance as never), significance);
     }
   });
 });

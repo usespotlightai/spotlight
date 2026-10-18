@@ -24,7 +24,7 @@ type replaySet struct {
 	} `json:"entries"`
 }
 
-type spend struct {
+type money struct {
 	Amount   float64 `json:"amount"`
 	Currency string  `json:"currency"`
 }
@@ -39,16 +39,16 @@ type interval struct {
 	High float64 `json:"high"`
 }
 
-type gainReading struct {
-	Gain    float64 `json:"gain"`
-	Low     float64 `json:"low"`
-	High    float64 `json:"high"`
-	Verdict string  `json:"verdict"`
-	MinGain float64 `json:"minGain"`
-	Tasks   int     `json:"tasks"`
+type gainEstimate struct {
+	Gain         float64 `json:"gain"`
+	Low          float64 `json:"low"`
+	High         float64 `json:"high"`
+	Significance string  `json:"significance"`
+	MinGain      float64 `json:"minGain"`
+	Tasks        int     `json:"tasks"`
 }
 
-type counterpart struct {
+type replayReference struct {
 	ReplayID    string    `json:"replayId"`
 	SuccessRate *float64  `json:"successRate"`
 	Interval    *interval `json:"interval"`
@@ -64,7 +64,7 @@ type replayRead struct {
 		Kind string `json:"kind"`
 	} `json:"candidate"`
 	IsBaseline bool  `json:"isBaseline"`
-	Ceiling    spend `json:"ceiling"`
+	Ceiling    money `json:"ceiling"`
 	Repeats    int   `json:"repeats"`
 	Totals     struct {
 		Entries     int       `json:"entries"`
@@ -76,12 +76,12 @@ type replayRead struct {
 		Tasks       int       `json:"tasks"`
 		TasksScored int       `json:"tasksScored"`
 		Unscored    int       `json:"unscored"`
-		Spent       spend     `json:"spent"`
+		Spent       money     `json:"spent"`
 	} `json:"totals"`
-	AgainstBaseline  *gainReading `json:"againstBaseline"`
-	ComparedWith     *counterpart `json:"comparedWith"`
-	BaselineReplayID *string      `json:"baselineReplayId"`
-	Comparison       []struct {
+	GainOverReference *gainEstimate    `json:"gainOverReference"`
+	Reference         *replayReference `json:"referenceReplay"`
+	BaselineReplayID  *string          `json:"baselineReplayId"`
+	Comparison        []struct {
 		TaskID     string   `json:"taskId"`
 		Candidate  []entry  `json:"candidate"`
 		Baseline   []entry  `json:"baseline"`
@@ -94,7 +94,7 @@ type replayRead struct {
 
 type started struct {
 	ID       string `json:"id"`
-	Ceiling  spend  `json:"ceiling"`
+	Ceiling  money  `json:"ceiling"`
 	Baseline *struct {
 		ID     string `json:"id"`
 		Status string `json:"status"`
@@ -102,11 +102,11 @@ type started struct {
 }
 
 type followed struct {
-	Replay       replayRead
-	ComparedWith *replayRead
-	raw          struct {
-		Replay       json.RawMessage `json:"replay"`
-		ComparedWith json.RawMessage `json:"comparedWith"`
+	Replay    replayRead
+	Reference *replayRead
+	raw       struct {
+		Replay    json.RawMessage `json:"replay"`
+		Reference json.RawMessage `json:"referenceReplay"`
 	}
 }
 
@@ -228,7 +228,7 @@ func (c *cli) start(args []string) error {
 	var made started
 	if err := c.api.post(
 		teamPath(at.teamID)+"/replay-sets/"+url.PathEscape(set.ID)+"/replays",
-		map[string]any{"candidate": candidateID, "ceiling": spend{Amount: amount, Currency: *currency}, "repeats": *repeats},
+		map[string]any{"candidate": candidateID, "ceiling": money{Amount: amount, Currency: *currency}, "repeats": *repeats},
 		&raw,
 	); err != nil {
 		return fmt.Errorf("start a replay of %s: %w", set.Name, err)
@@ -241,7 +241,7 @@ func (c *cli) start(args []string) error {
 		return c.printJSON(raw)
 	}
 
-	fmt.Fprintf(c.out, "Started replay %s of %s under %s, spending at most %s.\n", made.ID, set.Name, *candidateNamed, money(made.Ceiling))
+	fmt.Fprintf(c.out, "Started replay %s of %s under %s, spending at most %s.\n", made.ID, set.Name, *candidateNamed, formatMoney(made.Ceiling))
 	if *repeats > 1 {
 		fmt.Fprintf(c.out, "It replays each run %d times, to measure how much its results move by chance.\n", *repeats)
 	}
@@ -342,7 +342,7 @@ func (c *cli) watch(args []string) error {
 		}
 
 		if !*flags.json {
-			fmt.Fprintf(c.out, "%s: %d of %d ended, %s spent\n", read.Replay.State, read.Replay.Totals.Ended, read.Replay.Totals.Entries, money(read.Replay.Totals.Spent))
+			fmt.Fprintf(c.out, "%s: %d of %d ended, %s spent\n", read.Replay.State, read.Replay.Totals.Ended, read.Replay.Totals.Entries, formatMoney(read.Replay.Totals.Spent))
 		}
 		c.sleep(*every)
 	}
@@ -385,11 +385,11 @@ func (c *cli) follow(teamID, id string) (followed, error) {
 		return followed{}, fmt.Errorf("read replay %s: %w", id, err)
 	}
 
-	compared := read.Replay.ComparedWith
-	if compared != nil && compared.ReplayID != read.Replay.ID {
-		read.ComparedWith = &replayRead{}
-		if err := c.api.read(teamPath(teamID)+"/replays/"+url.PathEscape(compared.ReplayID), &read.raw.ComparedWith, read.ComparedWith); err != nil {
-			return followed{}, fmt.Errorf("read the replay it is compared with, %s: %w", compared.ReplayID, err)
+	reference := read.Replay.Reference
+	if reference != nil && reference.ReplayID != read.Replay.ID {
+		read.Reference = &replayRead{}
+		if err := c.api.read(teamPath(teamID)+"/replays/"+url.PathEscape(reference.ReplayID), &read.raw.Reference, read.Reference); err != nil {
+			return followed{}, fmt.Errorf("read the replay it is compared with, %s: %w", reference.ReplayID, err)
 		}
 	}
 
@@ -397,7 +397,7 @@ func (c *cli) follow(teamID, id string) (followed, error) {
 }
 
 func (f followed) ended() bool {
-	return ended(f.Replay.State) && (f.ComparedWith == nil || ended(f.ComparedWith.State))
+	return ended(f.Replay.State) && (f.Reference == nil || ended(f.Reference.State))
 }
 
 func ended(state string) bool {
@@ -438,7 +438,7 @@ func (c *cli) printReplay(read followed) {
 		under = fmt.Sprintf("%s (%s)", replay.Candidate.Name, replay.Candidate.Kind)
 	}
 
-	fmt.Fprintf(c.out, "Replay %s under %s: %s, %s of %s spent%s\n", replay.ID, under, replay.State, money(replay.Totals.Spent), money(replay.Ceiling), overCeiling(replay))
+	fmt.Fprintf(c.out, "Replay %s under %s: %s, %s of %s spent%s\n", replay.ID, under, replay.State, formatMoney(replay.Totals.Spent), formatMoney(replay.Ceiling), overCeiling(replay))
 	if replay.Repeats > 1 {
 		fmt.Fprintf(c.out, "It replays each run %d times.\n", replay.Repeats)
 	}
@@ -446,14 +446,14 @@ func (c *cli) printReplay(read followed) {
 	switch {
 	case replay.IsBaseline:
 		fmt.Fprint(c.out, "It is the set's baseline.\n\n")
-	case read.ComparedWith != nil:
-		against := describeCounterpart(replay)
-		fmt.Fprintf(c.out, "Compared with %s, %s: %s, %d unscored\n", against, read.ComparedWith.State, describeTotals(*read.ComparedWith), read.ComparedWith.Totals.Unscored)
-		if both, differs := describeBothScored(replay.ComparedWith, *read.ComparedWith); differs {
+	case read.Reference != nil:
+		reference := describeReference(replay)
+		fmt.Fprintf(c.out, "Compared with %s, %s: %s, %d unscored\n", reference, read.Reference.State, describeTotals(*read.Reference), read.Reference.Totals.Unscored)
+		if both, differs := describeBothScored(replay.Reference, *read.Reference); differs {
 			fmt.Fprintf(c.out, "On the tasks both scored: %s\n", both)
 		}
-		if replay.AgainstBaseline != nil {
-			fmt.Fprintf(c.out, "%s\n", describeGain(*replay.AgainstBaseline, against))
+		if replay.GainOverReference != nil {
+			fmt.Fprintf(c.out, "%s\n", describeGain(*replay.GainOverReference, reference))
 		}
 		fmt.Fprintln(c.out)
 	default:
@@ -472,8 +472,8 @@ func (c *cli) printReplay(read followed) {
 	_ = table.Flush()
 }
 
-func describeCounterpart(replay replayRead) string {
-	if replay.BaselineReplayID != nil && replay.ComparedWith.ReplayID == *replay.BaselineReplayID {
+func describeReference(replay replayRead) string {
+	if replay.BaselineReplayID != nil && replay.Reference.ReplayID == *replay.BaselineReplayID {
 		return "the baseline"
 	}
 
@@ -506,23 +506,23 @@ func candidateKind(replay replayRead) string {
 	return replay.Candidate.Kind
 }
 
-func describeBothScored(compared *counterpart, its replayRead) (string, bool) {
-	if compared.Interval == nil {
+func describeBothScored(reference *replayReference, its replayRead) (string, bool) {
+	if reference.Interval == nil {
 		return "", false
 	}
 
-	both := describeInterval(*compared.Interval)
+	both := describeInterval(*reference.Interval)
 
 	return both, its.Totals.Interval == nil || describeInterval(*its.Totals.Interval) != both
 }
 
-func describeResults(copies []entry) string {
-	if len(copies) == 0 {
+func describeResults(repeats []entry) string {
+	if len(repeats) == 0 {
 		return "none"
 	}
 
-	results := make([]string, 0, len(copies))
-	for _, each := range copies {
+	results := make([]string, 0, len(repeats))
+	for _, each := range repeats {
 		results = append(results, each.Result)
 	}
 
@@ -546,15 +546,15 @@ func points(share float64) string {
 	return fmt.Sprintf("%+.0f", share*100)
 }
 
-func describeGain(gain gainReading, against string) string {
+func describeGain(gain gainEstimate, reference string) string {
 	span := fmt.Sprintf("%s points (%s to %s) over %d tasks", points(gain.Gain), points(gain.Low), points(gain.High), gain.Tasks)
-	switch gain.Verdict {
+	switch gain.Significance {
 	case "better":
-		return fmt.Sprintf("Better than %s: %s, past the %.0f-point gain that counts as real", against, span, gain.MinGain*100)
+		return fmt.Sprintf("Better than %s: %s, past the %.0f-point gain that counts as real", reference, span, gain.MinGain*100)
 	case "worse":
-		return fmt.Sprintf("Worse than %s: %s", against, span)
+		return fmt.Sprintf("Worse than %s: %s", reference, span)
 	default:
-		return fmt.Sprintf("Within noise of %s: %s, not clearly past the %.0f-point gain that counts as real", against, span, gain.MinGain*100)
+		return fmt.Sprintf("Within noise of %s: %s, not clearly past the %.0f-point gain that counts as real", reference, span, gain.MinGain*100)
 	}
 }
 
@@ -564,7 +564,7 @@ func overCeiling(replay replayRead) string {
 		return ""
 	}
 
-	return fmt.Sprintf(", over the ceiling by %s, spent by runs already running when it was hit", money(spend{Amount: over, Currency: replay.Ceiling.Currency}))
+	return fmt.Sprintf(", over the ceiling by %s, spent by runs already running when it was hit", formatMoney(money{Amount: over, Currency: replay.Ceiling.Currency}))
 }
 
 func rate(succeeded *int, share *float64, scored int) string {
@@ -575,7 +575,7 @@ func rate(succeeded *int, share *float64, scored int) string {
 	return fmt.Sprintf("%d of %d (%.0f%%)", *succeeded, scored, *share*100)
 }
 
-func money(of spend) string {
+func formatMoney(of money) string {
 	return strings.TrimSuffix(strings.TrimRight(fmt.Sprintf("%.4f", of.Amount), "0"), ".") + " " + of.Currency
 }
 

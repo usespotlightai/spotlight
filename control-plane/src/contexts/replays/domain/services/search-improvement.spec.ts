@@ -13,9 +13,9 @@ import { improvedOnBestBefore } from '@replays/domain/services/search-improvemen
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -47,18 +47,18 @@ const searchWith = (objective: SearchObjective = 'success'): Search => {
     set: SET,
     objective,
     budget: aBudget({ iterations: 5 }),
-  }).recordReplayEnd(
+  }).recordReplayStopReason(
     ReplayId.of('replay_seed'),
     'finished',
-    { spent: Spend.of(10, 'USD'), unpriced: 0 },
+    { spent: Money.of(10, 'USD'), unpriced: 0 },
     NOW,
     ids,
     false,
   );
-  const first = proposedIn(seeded, 1, 'firmer', ids).recordReplayEnd(
+  const first = proposedIn(seeded, 1, 'firmer', ids).recordReplayStopReason(
     ReplayId.of('replay_firmer'),
     'finished',
-    { spent: Spend.of(1, 'USD'), unpriced: 0 },
+    { spent: Money.of(1, 'USD'), unpriced: 0 },
     later(1),
     ids,
     true,

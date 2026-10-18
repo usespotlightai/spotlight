@@ -138,7 +138,7 @@ describe('TaskAside', () => {
         viewer: BEA,
         assignee: null,
         seesTeam: true,
-        readsTeamOutcomes: true,
+        readsTeamInsights: true,
         ...change,
       });
 
@@ -149,17 +149,17 @@ describe('TaskAside', () => {
       expect(attending({ viewer: BEA, assignee: ADA })).toBe(false);
     });
 
-    it('is anyone who sees the task’s team while nobody is assigned, whether or not they read the team’s outcomes', () => {
-      expect(attending({ readsTeamOutcomes: false })).toBe(true);
+    it('is anyone who sees the task’s team while nobody is assigned, whether or not they read the team’s insights', () => {
+      expect(attending({ readsTeamInsights: false })).toBe(true);
       expect(attending({ seesTeam: false })).toBe(false);
     });
 
-    it('asks a grade of everyone who reads the team’s outcomes, whoever the task is assigned to', () => {
+    it('asks a grade of everyone who reads the team’s insights, whoever the task is assigned to', () => {
       expect(attending({ form: 'grade', seesTeam: false })).toBe(true);
       expect(attending({ form: 'grade', viewer: BEA, assignee: ADA })).toBe(
         true,
       );
-      expect(attending({ form: 'grade', readsTeamOutcomes: false })).toBe(
+      expect(attending({ form: 'grade', readsTeamInsights: false })).toBe(
         false,
       );
       expect(
@@ -167,17 +167,17 @@ describe('TaskAside', () => {
           form: 'grade',
           viewer: ADA,
           assignee: ADA,
-          readsTeamOutcomes: false,
+          readsTeamInsights: false,
         }),
       ).toBe(false);
     });
 
-    it('raises an alert to everyone who reads the team’s outcomes, whoever the task is assigned to', () => {
+    it('raises an alert to everyone who reads the team’s insights, whoever the task is assigned to', () => {
       expect(attending({ form: 'alert', seesTeam: false })).toBe(true);
       expect(attending({ form: 'alert', viewer: BEA, assignee: ADA })).toBe(
         true,
       );
-      expect(attending({ form: 'alert', readsTeamOutcomes: false })).toBe(
+      expect(attending({ form: 'alert', readsTeamInsights: false })).toBe(
         false,
       );
       expect(
@@ -185,15 +185,15 @@ describe('TaskAside', () => {
           form: 'alert',
           viewer: ADA,
           assignee: ADA,
-          readsTeamOutcomes: false,
+          readsTeamInsights: false,
         }),
       ).toBe(false);
     });
 
     it('needs only the access its form requires', () => {
       expect(TaskAside.requiredAccess('memories')).toBe('seesTeam');
-      expect(TaskAside.requiredAccess('grade')).toBe('readsTeamOutcomes');
-      expect(TaskAside.requiredAccess('alert')).toBe('readsTeamOutcomes');
+      expect(TaskAside.requiredAccess('grade')).toBe('readsTeamInsights');
+      expect(TaskAside.requiredAccess('alert')).toBe('readsTeamInsights');
     });
   });
 });

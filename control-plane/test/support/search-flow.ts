@@ -10,9 +10,9 @@ import {
   type RepositoryCommit,
   type RepositoryContentsPort,
 } from '@github/application/ports/repository-contents.port';
+import { JUDGE, type JudgePort } from '@insights/application/ports/judge.port';
+import { WorkChangeJudgings } from '@insights/application/services/work-change-judgings.service';
 import type { INestApplication } from '@nestjs/common';
-import { JUDGE, type JudgePort } from '@outcomes/application/ports/judge.port';
-import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -115,9 +115,9 @@ export const CONFIG_LINE = `resource "spotlight_line" "core_delivery" {
     passes_to = ["ship"]
 
     judge {
-      rubric = ${JSON.stringify(RUBRIC)}
-      sample = 0.1
-      trust  = 0.6
+      rubric        = ${JSON.stringify(RUBRIC)}
+      sample        = 0.1
+      min_agreement = 0.6
     }
   }
 }
@@ -275,7 +275,7 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
       notes: [],
       openReviewComments: [],
     }).parts,
-    briefedMemories: { briefed: [], cut: [] },
+    briefedMemories: { briefed: [], omitted: [] },
     startedFromArchiveId: archiveId,
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
@@ -337,7 +337,7 @@ export const startSearch = async (
 
 export interface SearchRead {
   state: string;
-  ending: string | null;
+  stopReason: string | null;
   spent: { amount: number };
   split: {
     searched: { runId: string; taskId: string }[];
@@ -355,7 +355,7 @@ export interface SearchRead {
         cause: string;
         replayRunId: string;
       }[];
-      outcome: string | null;
+      result: string | null;
       endedSearch: boolean;
     } | null;
   }[];
@@ -368,13 +368,13 @@ export interface SearchRead {
     searchScore: number | null;
     heldOutScore: number | null;
     onFrontier: boolean;
-    onlyOnSeenTasks: 'marked' | 'too-few-held-out' | null;
+    overfit: 'likely' | 'too-few-held-out' | null;
   }[];
   frontier: string[];
-  onlyOnSeenTasks: number;
+  overfitCount: number;
   best: {
     name: string;
-    onlyOnSeenTasks: 'marked' | 'too-few-held-out' | null;
+    overfit: 'likely' | 'too-few-held-out' | null;
   } | null;
 }
 
@@ -733,9 +733,9 @@ export const openSearchFlow = (): void => {
     const judged = {
       rubric: RUBRIC,
       claims: [],
-      passShare: 1,
+      passThreshold: 1,
       sample: 0.1,
-      trust: 0.6,
+      minAgreement: 0.6,
     };
     await db.insert(schema.station).values([
       {

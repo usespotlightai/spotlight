@@ -1,6 +1,6 @@
 import {
   ConfigPullRequest,
-  MAX_TRIES,
+  MAX_RETRIES,
 } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
@@ -20,16 +20,16 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const charged = { spent: Spend.of(1, 'USD'), unpriced: 0 };
+const charged = { spent: Money.of(1, 'USD'), unpriced: 0 };
 
 const PROPOSED = StationFingerprint.of('e'.repeat(64));
 
@@ -40,7 +40,7 @@ const SOURCE = {
 
 const withCandidates = (finished: boolean): Search => {
   const runIds = searchRunIds();
-  const seeded = aSearch().recordReplayEnd(
+  const seeded = aSearch().recordReplayStopReason(
     ReplayId.of('replay_seed'),
     'finished',
     charged,
@@ -59,7 +59,7 @@ const withCandidates = (finished: boolean): Search => {
   );
 
   return finished
-    ? accepted.recordReplayEnd(
+    ? accepted.recordReplayStopReason(
         ReplayId.of('replay_terse'),
         'finished',
         charged,
@@ -117,7 +117,7 @@ describe('ConfigPullRequest', () => {
     expect(pullRequest.repository).toBe('acme/platform');
     expect(pullRequest.isDue(NOW)).toBe(true);
     expect(wanted).toBeInstanceOf(ConfigPullRequestRequested);
-    expect((wanted as ConfigPullRequestRequested).attempt).toBe(1);
+    expect((wanted as ConfigPullRequestRequested).generation).toBe(1);
     expect((wanted as ConfigPullRequestRequested).change).toMatchObject({
       resource: 'config-pull-request',
       action: 'created',
@@ -142,7 +142,7 @@ describe('ConfigPullRequest', () => {
     expect(pullRequest.isDue(NOW)).toBe(false);
     expect(pullRequest.isDue(later(30_000))).toBe(true);
 
-    for (let tries = 1; tries < MAX_TRIES; tries += 1) {
+    for (let retries = 1; retries < MAX_RETRIES; retries += 1) {
       pullRequest = pullRequest.tried('GitHub is down', NOW);
     }
 
@@ -202,7 +202,7 @@ describe('ConfigPullRequest', () => {
     const [wanted] = retried.pullEvents();
 
     expect(retried.current).toBe('opening');
-    expect(retried.attempts).toBe(2);
+    expect(retried.generation).toBe(2);
     expect(retried.reason).toBeNull();
     expect(retried.isOpening(1)).toBe(false);
     expect(retried.isOpening(2)).toBe(true);

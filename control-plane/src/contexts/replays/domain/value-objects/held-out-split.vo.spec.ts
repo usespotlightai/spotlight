@@ -21,7 +21,7 @@ const tasksOf = (count: number): string[] =>
   Array.from({ length: count }, (_, at) => `task_${at}`);
 
 const drawn = (entries: readonly ReplaySetEntry[], searchId = SEARCH_ID) =>
-  HeldOutSplit.drawn({ searchId, entries: entries, digest: sha256 });
+  HeldOutSplit.drawn({ searchId, entries: entries, hash: sha256 });
 
 const heldOutTasks = (split: HeldOutSplit): string[] =>
   [...new Set(split.heldOut.map((each) => each.taskId.value))].sort();

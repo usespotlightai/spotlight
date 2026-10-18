@@ -10,10 +10,10 @@ import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { Sha256ContentDigest } from '@work/infrastructure/hashing/sha256-content-digest';
+import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
 import { describe, expect, it } from 'vitest';
 
-const DIGEST = new Sha256ContentDigest();
+const HASH = new Sha256ContentHash();
 
 const LINE = {
   image: null,
@@ -44,7 +44,7 @@ const station = (
 const configured = (at: Station) =>
   StationConfigMapper.configuredAs(
     { station: at, line: LINE, order: ORDER, folders: [] },
-    DIGEST,
+    HASH,
   );
 
 describe('StationConfigMapper', () => {
@@ -60,41 +60,49 @@ describe('StationConfigMapper', () => {
     );
   });
 
-  it('configures the judge by its rubric digest, sample and trust', () => {
+  it('configures the judge by its rubric hash, sample and minimum agreement', () => {
     const judged = station({
-      judge: StationJudge.of({ rubric: RUBRIC, sample: 0.2, trust: 0.6 }),
+      judge: StationJudge.of({
+        rubric: RUBRIC,
+        sample: 0.2,
+        minAgreement: 0.6,
+      }),
     });
 
     expect(configured(judged).parts.judge).toEqual({
-      rubricDigest: DIGEST.sha256(
-        JSON.stringify({ rubric: RUBRIC, claims: [], passShare: 1 }),
+      rubricHash: HASH.sha256(
+        JSON.stringify({ rubric: RUBRIC, claims: [], passThreshold: 1 }),
       ),
       sample: 0.2,
-      trust: 0.6,
+      minAgreement: 0.6,
     });
   });
 
-  it('changes the judge’s digest when its claims or the share it passes on change', () => {
-    const judgedBy = (passShare: number) =>
+  it('changes the judge’s hash when its claims or its pass threshold change', () => {
+    const judgedBy = (passThreshold: number) =>
       configured(
         station({
           judge: StationJudge.of({
             rubric: RUBRIC,
             claims: ['It retries.'],
-            passShare,
+            passThreshold,
             sample: 0.2,
-            trust: 0.6,
+            minAgreement: 0.6,
           }),
         }),
-      ).parts.judge?.rubricDigest;
+      ).parts.judge?.rubricHash;
 
     expect(judgedBy(1)).not.toBe(judgedBy(0.5));
     expect(judgedBy(1)).not.toBe(
       configured(
         station({
-          judge: StationJudge.of({ rubric: RUBRIC, sample: 0.2, trust: 0.6 }),
+          judge: StationJudge.of({
+            rubric: RUBRIC,
+            sample: 0.2,
+            minAgreement: 0.6,
+          }),
         }),
-      ).parts.judge?.rubricDigest,
+      ).parts.judge?.rubricHash,
     );
   });
 

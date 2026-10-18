@@ -3,10 +3,10 @@ import { listInsightsRuns } from '@/lib/api';
 import type {
   InsightsPeriod,
   InsightsRuns,
-  RunDelivery,
   RunEnding,
   RunFilter,
-  RunNext,
+  RunHumanAction,
+  RunPullRequestState,
 } from '@/lib/insights';
 
 const insightsRunKeys = {
@@ -36,8 +36,10 @@ export function useInsightsRuns(
           page,
           ...filter,
           outcome: filter.outcome as RunEnding | undefined,
-          delivery: filter.delivery as RunDelivery | undefined,
-          next: filter.next as RunNext | undefined,
+          pullRequestState: filter.pullRequestState as
+            | RunPullRequestState
+            | undefined,
+          humanAction: filter.humanAction as RunHumanAction | undefined,
           asked: filter.asked === 'true' ? true : undefined,
         },
         throwOnError: true,

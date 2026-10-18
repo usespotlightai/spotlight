@@ -1,5 +1,5 @@
 import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.error';
-import type { Spend } from '@replays/domain/value-objects/spend.vo';
+import type { Money } from '@replays/domain/value-objects/money.vo';
 
 type Count = number | null;
 
@@ -18,7 +18,7 @@ export class EntryMeasures {
     readonly ms: number | null,
     readonly steps: number,
     readonly changedLines: number | null,
-    readonly cost: Spend | null,
+    readonly cost: Money | null,
     readonly tokens: TokenCounts,
   ) {}
 
@@ -26,7 +26,7 @@ export class EntryMeasures {
     ms: number | null;
     steps: number;
     changedLines: number | null;
-    cost: Spend | null;
+    cost: Money | null;
     tokens: TokenCounts;
   }): EntryMeasures {
     if (input.ms !== null && !(Number.isFinite(input.ms) && input.ms >= 0)) {

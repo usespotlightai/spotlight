@@ -37,7 +37,7 @@ interface EntryState {
   readonly measures: EntryMeasures | null;
   readonly checks: ChangeChecks | null;
   readonly judging: EntryJudging | null;
-  readonly draftingSpent: ModelSpent | null;
+  readonly generationSpent: ModelSpent | null;
   readonly judgingSpent: ModelSpent | null;
   readonly succeeded: boolean | null;
   readonly reasons: readonly EntryReason[];
@@ -80,7 +80,7 @@ export class ReplayEntry {
       measures: null,
       checks: null,
       judging: null,
-      draftingSpent: null,
+      generationSpent: null,
       judgingSpent: null,
       succeeded: null,
       reasons: [],
@@ -183,8 +183,8 @@ export class ReplayEntry {
     return this.state.judging;
   }
 
-  get draftingSpent(): ModelSpent | null {
-    return this.state.draftingSpent;
+  get generationSpent(): ModelSpent | null {
+    return this.state.generationSpent;
   }
 
   get judgingSpent(): ModelSpent | null {
@@ -192,7 +192,7 @@ export class ReplayEntry {
   }
 
   get modelSpends(): readonly ModelSpent[] {
-    return [this.state.draftingSpent, this.state.judgingSpent].flatMap(
+    return [this.state.generationSpent, this.state.judgingSpent].flatMap(
       (each) => (each ? [each] : []),
     );
   }
@@ -222,38 +222,38 @@ export class ReplayEntry {
     return this.state.pairing === null && this.pairableFor(scoring);
   }
 
-  pairingRequested(against: RunId): ReplayEntry {
+  pairingRequested(other: RunId): ReplayEntry {
     return this.state.pairing === null
-      ? this.with({ pairing: EntryPairing.requested(against) })
+      ? this.with({ pairing: EntryPairing.requested(other) })
       : this;
   }
 
-  pairingLeft(against: RunId, why: string): ReplayEntry {
+  pairingLeft(other: RunId, why: string): ReplayEntry {
     return this.state.pairing === null
-      ? this.with({ pairing: EntryPairing.requested(against).failed(why) })
+      ? this.with({ pairing: EntryPairing.requested(other).failed(why) })
       : this;
   }
 
   paired(
-    against: RunId,
+    other: RunId,
     verdict: PairVerdict,
     spent: ModelSpent | null,
   ): ReplayEntry {
     const pairing = this.state.pairing;
 
-    return pairing?.pending && pairing.isAgainst(against)
+    return pairing?.pending && pairing.isAgainst(other)
       ? this.with({ pairing: pairing.judged(verdict), pairingSpent: spent })
       : this;
   }
 
   pairingFailed(
-    against: RunId,
+    other: RunId,
     why: string,
     spent: ModelSpent | null,
   ): ReplayEntry {
     const pairing = this.state.pairing;
 
-    return pairing?.pending && pairing.isAgainst(against)
+    return pairing?.pending && pairing.isAgainst(other)
       ? this.with({ pairing: pairing.failed(why), pairingSpent: spent })
       : this;
   }
@@ -355,16 +355,16 @@ export class ReplayEntry {
     );
   }
 
-  reviewed(checks: ChangeChecks, drafting: ModelSpent | null): ReplayEntry {
+  reviewed(checks: ChangeChecks, generation: ModelSpent | null): ReplayEntry {
     if (
       this.state.run === null ||
       (this.state.checks?.equals(checks) &&
-        sameSpend(this.state.draftingSpent, drafting))
+        sameSpend(this.state.generationSpent, generation))
     ) {
       return this;
     }
 
-    return this.with({ checks, draftingSpent: drafting });
+    return this.with({ checks, generationSpent: generation });
   }
 
   judgingRequested(): ReplayEntry {
@@ -413,7 +413,9 @@ export class ReplayEntry {
 
     const end = this.state.end;
 
-    return end !== null && (this.state.measures !== null || !end.isDigested);
+    return (
+      end !== null && (this.state.measures !== null || !end.isUsageRecorded)
+    );
   }
 
   get occupiesARunner(): boolean {

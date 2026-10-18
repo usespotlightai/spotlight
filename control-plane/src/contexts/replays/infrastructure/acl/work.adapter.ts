@@ -1,7 +1,6 @@
 import type {
   AgentProblem,
   CancelledRun,
-  ExaminedCandidate,
   LeasedSearchRun,
   LiveConfig,
   OracleAnswerInput,
@@ -15,6 +14,7 @@ import type {
   SearchRunStatus,
   StationView,
   UnclaimedCancellation,
+  ValidatedCandidate,
   WorkPort,
 } from '@replays/application/ports/work.port';
 import type { OracleAnswer } from '@replays/domain/services/oracle-answer';
@@ -26,8 +26,8 @@ import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo'
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
-import { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -165,37 +165,37 @@ export class Work implements WorkPort {
     );
   }
 
-  async examine(
+  async validate(
     lineId: string,
     stationId: string,
     block: unknown,
     line: PlannedLine | null = null,
-  ): Promise<ExaminedCandidate | null> {
-    const examined = await this.candidates.examine(
+  ): Promise<ValidatedCandidate | null> {
+    const validated = await this.candidates.validate(
       lineId,
       stationId,
       block,
       line ? line.repositories : undefined,
     );
 
-    if (!examined) {
+    if (!validated) {
       return null;
     }
 
-    return examined.ok
+    return validated.ok
       ? {
           ok: true,
-          fingerprint: StationFingerprint.of(examined.fingerprint),
-          digests: StationDigests.of(examined.digests),
-          liveDigests: StationDigests.of(examined.liveDigests),
-          scoring: scoringOf(examined.scoring),
+          fingerprint: StationFingerprint.of(validated.fingerprint),
+          hashes: StationHashes.of(validated.hashes),
+          liveHashes: StationHashes.of(validated.liveHashes),
+          scoring: scoringOf(validated.scoring),
           changedFrom: StationChanges.of(
-            StationFingerprint.of(examined.live),
-            examined.changes,
+            StationFingerprint.of(validated.live),
+            validated.changes,
           ),
-          block: StationBlock.of(examined.station),
+          block: StationBlock.of(validated.station),
         }
-      : examined;
+      : validated;
   }
 
   async live(lineId: string, stationId: string): Promise<LiveConfig | null> {
@@ -207,7 +207,7 @@ export class Work implements WorkPort {
           block: StationBlock.of(live.station),
           fingerprint: StationFingerprint.of(live.fingerprint),
           scoring: scoringOf(live.scoring),
-          digests: StationDigests.of(live.digests),
+          hashes: StationHashes.of(live.hashes),
           threshold: live.replayCheck && ReplayThreshold.of(live.replayCheck),
         }
       : null;

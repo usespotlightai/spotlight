@@ -45,9 +45,9 @@ const trendOf = (
   ) {
     return null;
   }
-  const usedShare = (some: readonly HistoryRun[]) =>
+  const usedRate = (some: readonly HistoryRun[]) =>
     some.filter((run) => run.skillsUsed.includes(skill)).length / some.length;
-  const moved = (usedShare(latest) - usedShare(earlier)) * 100;
+  const moved = (usedRate(latest) - usedRate(earlier)) * 100;
 
   return moved >= TREND_RULE.shiftPoints
     ? 'spreading'
@@ -84,7 +84,7 @@ const skillOf = (
         week,
         runs: inWeek.length,
         ...counted,
-        usedShare: shareOf(counted.used, inWeek.length),
+        usedRate: shareOf(counted.used, inWeek.length),
       };
     }),
     trend: trendOf(runs, weeks, skill),

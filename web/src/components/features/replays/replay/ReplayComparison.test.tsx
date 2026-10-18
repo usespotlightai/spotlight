@@ -25,7 +25,7 @@ const entry = (over: Partial<ReplayEntry> = {}): ReplayEntry => ({
   cacheWriteTokens: null,
   checks: null,
   judge: null,
-  draftingSpent: null,
+  generationSpent: null,
   judgingSpent: null,
   secondJudge: null,
   rejudgingSpent: null,
@@ -43,8 +43,8 @@ const JUDGED = {
   scale: 'number',
   score: 0.8,
   passed: true,
-  marks: null,
-  passShare: null,
+  claimResults: null,
+  passThreshold: null,
   referenced: null,
   model: null,
   unjudged: null,
@@ -193,20 +193,20 @@ describe('ReplayComparison', () => {
     expect(screen.getByText('Judged by different rubrics')).toBeInTheDocument();
   });
 
-  it('tells how many copies of a task succeeded, each copy on hover', () => {
+  it('tells how many repeats of a task succeeded, each repeat on hover', () => {
     renderComparison([
       compared('Twice', {
         candidate: [
-          entry({ repeat: 1, runId: 'run_copy_1' }),
+          entry({ repeat: 1, runId: 'run_repeat_1' }),
           entry({
             repeat: 2,
-            runId: 'run_copy_2',
+            runId: 'run_repeat_2',
             result: 'failed',
             succeeded: false,
           }),
           entry({
             repeat: 3,
-            runId: 'run_copy_3',
+            runId: 'run_repeat_3',
             result: 'pending',
             succeeded: null,
           }),
@@ -215,14 +215,14 @@ describe('ReplayComparison', () => {
       }),
     ]);
 
-    const [copies] = sides(tasks()[0] as HTMLElement);
-    expect(copies).toHaveTextContent('1 of 2 succeeded');
-    expect(copies).toHaveAccessibleDescription(
-      'Copy 1: Succeeded · Copy 2: Failed · Copy 3: Pending',
+    const [repeats] = sides(tasks()[0] as HTMLElement);
+    expect(repeats).toHaveTextContent('1 of 2 succeeded');
+    expect(repeats).toHaveAccessibleDescription(
+      'Repeat 1: Succeeded · Repeat 2: Failed · Repeat 3: Pending',
     );
   });
 
-  it('averages the cost of a task’s copies where nothing was compared', () => {
+  it('averages the cost of a task’s repeats where nothing was compared', () => {
     renderComparison([
       compared('Alone', {
         baseline: [],

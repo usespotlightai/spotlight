@@ -32,10 +32,10 @@ type ProposedCandidate struct {
 	ReplayID    string `json:"replayId"`
 }
 
-var SearchCauses = []string{"config", "task", "judge", "check", "infra"}
+var FailureCauses = []string{"config", "task", "judge", "check", "infra"}
 
-func IsSearchCause(cause string) bool {
-	return slices.Contains(SearchCauses, cause)
+func IsFailureCause(cause string) bool {
+	return slices.Contains(FailureCauses, cause)
 }
 
 type CauseRecord struct {

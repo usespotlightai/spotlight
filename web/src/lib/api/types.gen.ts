@@ -29,7 +29,7 @@ export type StationJudgeResponseDto = {
   /**
    * The share of claims a run must meet to pass, from 0 to 1. 1 means every claim
    */
-  passShare: number;
+  passThreshold: number;
   /**
    * The share of runs judged, from 0 to 1
    */
@@ -37,7 +37,7 @@ export type StationJudgeResponseDto = {
   /**
    * How often the judge must agree with people, from 0 to 1, before its scores show
    */
-  trust: number;
+  minAgreement: number;
 };
 
 export type StationAlertResponseDto = {
@@ -527,14 +527,14 @@ export type SkillViewResponseDto = {
   /**
    * The SHA-256 of the skill's files
    */
-  digest: string;
+  hash: string;
 };
 
 export type JudgeViewResponseDto = {
   /**
    * The SHA-256 of the judge's rubric
    */
-  rubricDigest: string;
+  rubricHash: string;
   /**
    * The share of runs judged
    */
@@ -542,7 +542,7 @@ export type JudgeViewResponseDto = {
   /**
    * How often the judge must agree with people
    */
-  trust: number;
+  minAgreement: number;
 };
 
 export type StationConfigResponseDto = {
@@ -568,31 +568,31 @@ export type HistoryConfigResponseDto = {
   config: StationConfigResponseDto;
 };
 
-export type RunCostResponseDto = {
+export type RunUsageResponseDto = {
   ms: number | null;
   steps: number;
-  faults: number;
-  used: number | null;
+  errors: number;
+  contextTokens: number | null;
   cost: number | null;
   currency: string | null;
 };
 
-export type PersonActResponseDto = {
-  act: 'started' | 'parked' | 'closed' | 'answered' | 'approved' | 'refused' | 'sent-back';
+export type TaskHumanActionResponseDto = {
+  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'approved' | 'refused' | 'sent-back';
   at: string;
 };
 
-export type RunTurnedOutResponseDto = {
+export type RunOutcomeResponseDto = {
   ending: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded';
   failure: string | null;
   /**
    * How many runs this station has taken on the task, this one included
    */
-  round: number;
-  cost: RunCostResponseDto | null;
+  visit: number;
+  usage: RunUsageResponseDto | null;
   checks: 'passed' | 'failed' | 'skipped' | null;
-  next: PersonActResponseDto | null;
-  delivery: 'open' | 'merged' | 'closed' | null;
+  firstHumanAction: TaskHumanActionResponseDto | null;
+  pullRequestState: 'open' | 'merged' | 'closed' | null;
 };
 
 export type FileChangeResponseDto = {
@@ -615,7 +615,7 @@ export type HistoryRunResponseDto = {
   harness: string;
   startedAt: string;
   endedAt: string;
-  outcome: RunTurnedOutResponseDto | null;
+  outcome: RunOutcomeResponseDto | null;
   changes: Array<FileChangeResponseDto>;
   trace: TaskTraceResponseDto;
 };
@@ -644,7 +644,7 @@ export type HistoryCandidateRunResponseDto = {
   /**
    * What the replay cost; a replay run has no outcome of its own, so the response shows its cost beside the run
    */
-  cost: RunCostResponseDto | null;
+  usage: RunUsageResponseDto | null;
   changes: Array<FileChangeResponseDto>;
   trace: TaskTraceResponseDto;
   /**
@@ -1906,7 +1906,7 @@ export type RunConversationResponseDto = {
   working: boolean;
   notes: Array<NoteResponseDto>;
   /**
-   * What the run spent, once it has ended and been digested
+   * What the run spent, once it has ended and its usage is recorded
    */
   spend: RunSpendResponseDto | null;
 };
@@ -4309,7 +4309,7 @@ export type MemoryDecisionResponseDto = {
   at: string;
 };
 
-export type MemoryGroundStepResponseDto = {
+export type MemoryProvenanceStepResponseDto = {
   /**
    * The position of the step in its run
    */
@@ -4327,7 +4327,7 @@ export type MemoryPersonResponseDto = {
   image: string | null;
 };
 
-export type MemoryGroundNoteResponseDto = {
+export type MemoryProvenanceNoteResponseDto = {
   /**
    * The position of the note on its task
    */
@@ -4352,9 +4352,9 @@ export type ProposedMemoryResponseDto = {
    */
   source: 'person' | 'run' | 'outside';
   /**
-   * drafted: read from the run after it ended; remembered: the agent proposed it with spotlight remember
+   * drafter: the drafter read it from the run after the run ended; agent: the agent proposed it with spotlight remember
    */
-  origin: 'drafted' | 'remembered';
+  proposedBy: 'drafter' | 'agent';
   state: 'proposed' | 'approved' | 'rejected';
   /**
    * Where it applies: the whole team, its line, or its station
@@ -4371,17 +4371,17 @@ export type ProposedMemoryResponseDto = {
    */
   decision: MemoryDecisionResponseDto | null;
   /**
-   * The harness the run whose steps it rests on ran on
+   * The harness of the run whose steps it cites
    */
   harness: string | null;
   /**
-   * The steps of its run it rests on
+   * The steps of its run that it cites
    */
-  steps: Array<MemoryGroundStepResponseDto>;
+  steps: Array<MemoryProvenanceStepResponseDto>;
   /**
-   * The notes on the task that it rests on
+   * The notes on the task that it cites
    */
-  notes: Array<MemoryGroundNoteResponseDto>;
+  notes: Array<MemoryProvenanceNoteResponseDto>;
 };
 
 export type MemoryReviewResponseDto = {
@@ -4418,7 +4418,7 @@ export type MemoryRetirementResponseDto = {
   supersededBy: string | null;
 };
 
-export type MemoryGroundsResponseDto = {
+export type MemoryProvenanceResponseDto = {
   taskId: string;
   runId: string;
 };
@@ -4449,9 +4449,9 @@ export type TeamMemoryResponseDto = {
   supersedes: string | null;
   retirement: MemoryRetirementResponseDto | null;
   /**
-   * The task and run it rests on; none where a person wrote it
+   * The task and run it cites; none where a person wrote it
    */
-  grounds: MemoryGroundsResponseDto | null;
+  provenance: MemoryProvenanceResponseDto | null;
   /**
    * How many runs were briefed with it or recalled it
    */
@@ -4505,19 +4505,19 @@ export type TeamMemoryDetailResponseDto = {
   supersedes: string | null;
   retirement: MemoryRetirementResponseDto | null;
   /**
-   * The task and run it rests on; none where a person wrote it
+   * The task and run it cites; none where a person wrote it
    */
-  grounds: MemoryGroundsResponseDto | null;
+  provenance: MemoryProvenanceResponseDto | null;
   /**
    * How many runs were briefed with it or recalled it
    */
   runs: number;
   /**
-   * The harness the run whose steps it rests on ran on
+   * The harness of the run whose steps it cites
    */
   harness: string | null;
-  steps: Array<MemoryGroundStepResponseDto>;
-  notes: Array<MemoryGroundNoteResponseDto>;
+  steps: Array<MemoryProvenanceStepResponseDto>;
+  notes: Array<MemoryProvenanceNoteResponseDto>;
   superseded: MemoryLinkResponseDto | null;
   successor: MemoryLinkResponseDto | null;
 };
@@ -4538,9 +4538,9 @@ export type RunProposalResponseDto = {
    */
   source: 'person' | 'run' | 'outside';
   /**
-   * drafted: read from the run after it ended; remembered: the agent proposed it with spotlight remember
+   * drafter: the drafter read it from the run after the run ended; agent: the agent proposed it with spotlight remember
    */
-  origin: 'drafted' | 'remembered';
+  proposedBy: 'drafter' | 'agent';
   state: 'proposed' | 'approved' | 'rejected';
   /**
    * Where it applies: the whole team, its line, or its station
@@ -4557,17 +4557,17 @@ export type RunProposalResponseDto = {
    */
   decision: MemoryDecisionResponseDto | null;
   /**
-   * The harness the run whose steps it rests on ran on
+   * The harness of the run whose steps it cites
    */
   harness: string | null;
   /**
-   * The steps of its run it rests on
+   * The steps of its run that it cites
    */
-  steps: Array<MemoryGroundStepResponseDto>;
+  steps: Array<MemoryProvenanceStepResponseDto>;
   /**
-   * The notes on the task that it rests on
+   * The notes on the task that it cites
    */
-  notes: Array<MemoryGroundNoteResponseDto>;
+  notes: Array<MemoryProvenanceNoteResponseDto>;
   /**
    * Its handle once approved
    */
@@ -4586,7 +4586,7 @@ export type RunMemoriesResponseDto = {
   /**
    * What applied to the run but was left out of its briefing by the cap, the nearest first
    */
-  cut: Array<TeamMemoryResponseDto>;
+  omitted: Array<TeamMemoryResponseDto>;
   /**
    * What the run looked up with spotlight recall, or read from the memory folder in its workspace
    */
@@ -4616,7 +4616,7 @@ export type RememberRequestDto = {
    */
   scope?: 'team' | 'line' | 'station';
   /**
-   * Paths it bears on, relative to the run’s workspace, each starting with the checkout folder
+   * Paths it is about, relative to the run’s workspace, each starting with the checkout folder
    */
   paths?: Array<string>;
   /**
@@ -4640,8 +4640,8 @@ export type StationConfigPullRequestResponseDto = {
   url: string;
 };
 
-export type NextActResponseDto = {
-  act: 'started' | 'parked' | 'closed' | 'answered' | 'sent-back';
+export type HumanActionResponseDto = {
+  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back';
   at: string;
 };
 
@@ -4665,8 +4665,8 @@ export type StationRunOutcomeResponseDto = {
   /**
    * How many runs this station has taken on the task, this one included
    */
-  round: number;
-  cost: RunCostResponseDto | null;
+  visit: number;
+  usage: RunUsageResponseDto | null;
   /**
    * How its change fared when checked, if it was
    */
@@ -4674,7 +4674,7 @@ export type StationRunOutcomeResponseDto = {
   /**
    * The first thing a person did with the task after the run
    */
-  next: NextActResponseDto | null;
+  firstHumanAction: HumanActionResponseDto | null;
   /**
    * The station the run passed its task to, if it did
    */
@@ -4682,10 +4682,10 @@ export type StationRunOutcomeResponseDto = {
   /**
    * The status of the task’s pull request, if it opened one
    */
-  delivery: 'open' | 'merged' | 'closed' | null;
+  pullRequestState: 'open' | 'merged' | 'closed' | null;
 };
 
-export type SpendResponseDto = {
+export type MoneyResponseDto = {
   amount: number;
   currency: string;
 };
@@ -4701,9 +4701,9 @@ export type RunTallyResponseDto = {
   cancelled: number;
   failed: number;
   /**
-   * Failed runs as a share of the runs; none where none ran
+   * Failed runs as a fraction of the runs; none where none ran
    */
-  failedShare: number | null;
+  failedRate: number | null;
   /**
    * Runs a person stopped
    */
@@ -4711,11 +4711,11 @@ export type RunTallyResponseDto = {
   checksPassed: number;
   checksFailed: number;
   /**
-   * Runs a person next closed or approved
+   * Runs that a person accepted or approved first
    */
   accepted: number;
   /**
-   * Runs a person next sent back or refused
+   * Runs that a person sent back or refused first
    */
   sentBack: number;
   /**
@@ -4729,7 +4729,7 @@ export type RunTallyResponseDto = {
   /**
    * What the runs cost together, where they cost one currency
    */
-  cost: SpendResponseDto | null;
+  cost: MoneyResponseDto | null;
   /**
    * Runs that ran with no price
    */
@@ -4739,7 +4739,7 @@ export type RunTallyResponseDto = {
    */
   mixedCurrencies: boolean;
   /**
-   * The median time the runs took, from their digests
+   * The median time the runs took, from their recorded usage
    */
   medianMs: number | null;
   /**
@@ -4748,17 +4748,17 @@ export type RunTallyResponseDto = {
   p90Ms: number | null;
 };
 
-export type TallySharesResponseDto = {
+export type TallyRatesResponseDto = {
   /**
-   * Runs whose checks passed as a share of the runs checked; none where none were
+   * Runs whose checks passed as a fraction of the runs checked; none where none were
    */
   checksPassed: number | null;
   /**
-   * Runs a person accepted as a share of the runs that ran
+   * Runs a person accepted as a fraction of the runs that ran
    */
   accepted: number | null;
   /**
-   * Merged tasks as a share of the runs that ran
+   * Merged tasks as a fraction of the runs that ran
    */
   merged: number | null;
 };
@@ -4790,7 +4790,7 @@ export type FingerprintGroupResponseDto = {
    */
   runs: Array<StationRunOutcomeResponseDto>;
   tally: RunTallyResponseDto;
-  shares: TallySharesResponseDto;
+  rates: TallyRatesResponseDto;
   /**
    * The day its earliest-ended run ended; none where none ended
    */
@@ -4803,12 +4803,12 @@ export type FingerprintGroupResponseDto = {
 
 export type ConfigInForceResponseDto = {
   /**
-   * One tally over the listed runs of the config the station last ran, as of the listed runs, back to its last change to another config it ran; runs meant for a config that never ran them, between, leave the stretch whole and are not counted
+   * One tally over the listed runs of the config the station last ran, as of the listed runs, back to its last change to another config it ran; runs meant for a config that never ran them, between, leave the config interval whole and are not counted
    */
   tally: RunTallyResponseDto;
 };
 
-export type StationOutcomesResponseDto = {
+export type StationInsightsResponseDto = {
   stationId: string;
   /**
    * The station’s latest-started runs in groups, the newest first, in the order the runs started: a new group starts at every run that ran a config other than the station’s run before it that ran one, listed or not; a run meant for another config than the one in force that never ran it (never started, failed to provision or cancelled) starts or joins a group of that config that never ran, and the group in force starts again after it; a run with no config joins the group in force
@@ -4836,16 +4836,16 @@ export type StationJudgeSettingsResponseDto = {
   /**
    * The share of claims a run must meet to pass, from 0 to 1
    */
-  passShare: number;
+  passThreshold: number;
   sample: number;
-  trust: number;
+  minAgreement: number;
 };
 
 export type JudgeCalibrationResponseDto = {
   /**
    * Whether the judge agrees with people often enough for its scores to count
    */
-  trusted: boolean;
+  qualified: boolean;
   /**
    * How agreement is measured: Cohen’s kappa for yes or no scores and for claims, Spearman’s correlation for numbers
    */
@@ -4855,11 +4855,11 @@ export type JudgeCalibrationResponseDto = {
    * Runs of the current rubric with both a judge score and people’s
    */
   pairs: number;
-  trust: number | null;
+  minAgreement: number | null;
   /**
    * Why the judge’s scores are hidden, where they are
    */
-  hiddenBecause: 'no-judge' | 'unreadable-rubric' | 'too-few-pairs' | 'no-agreement' | 'below-trust' | null;
+  hiddenReason: 'no-judge' | 'unreadable-rubric' | 'too-few-pairs' | 'no-agreement' | 'below-min-agreement' | null;
 };
 
 export type AgreementReadingsResponseDto = {
@@ -4949,7 +4949,7 @@ export type TrendPointResponseDto = {
   day: string;
   judged: number;
   /**
-   * The judge’s mean score, or null while this rubric version is not the current trusted one
+   * The judge’s mean score, or null while this rubric version is not the current qualified one
    */
   judge: number | null;
   labelled: number;
@@ -4978,7 +4978,7 @@ export type RubricVersionResponseDto = {
   lastAt: string;
 };
 
-export type JudgeCoverageSharesResponseDto = {
+export type JudgeCoverageRatesResponseDto = {
   both: number | null;
   judgeOnly: number | null;
   peopleOnly: number | null;
@@ -4995,9 +4995,9 @@ export type JudgeCoverageResponseDto = {
   peopleOnly: number;
   neither: number;
   /**
-   * Each count as a share of the runs
+   * Each count as a fraction of the runs
    */
-  shares: JudgeCoverageSharesResponseDto;
+  rates: JudgeCoverageRatesResponseDto;
 };
 
 export type StationJudgeAgreementResponseDto = {
@@ -5055,7 +5055,7 @@ export type JudgeScoreResponseDto = {
   /**
    * Whether each claim was met, in order; none on a rubric’s scale
    */
-  marks: Array<boolean> | null;
+  claimResults: Array<boolean> | null;
   label: string;
   rubricVersion: string;
   model: string;
@@ -5074,7 +5074,7 @@ export type GradeResponseDto = {
   /**
    * Whether the person found each claim met, in order; none on a rubric’s scale
    */
-  marks: Array<boolean> | null;
+  claimResults: Array<boolean> | null;
   label: string;
   at: string;
 };
@@ -5164,7 +5164,7 @@ export type HeadlineResponseDto = {
   /**
    * What the runs that ran cost together; none where nothing was priced or prices came in more than one currency
    */
-  spend: SpendResponseDto | null;
+  spend: MoneyResponseDto | null;
   /**
    * Runs that ran with no price
    */
@@ -5196,7 +5196,7 @@ export type HeadlineResponseDto = {
   /**
    * Spend over merged pull requests
    */
-  costPerMerge: SpendResponseDto | null;
+  costPerMerge: MoneyResponseDto | null;
   /**
    * For pull requests merged in the period, the time from their task opening to the merge
    */
@@ -5204,11 +5204,11 @@ export type HeadlineResponseDto = {
   /**
    * What people did with the tasks worked in the period: moves, answers, approvals, refusals, sends-back
    */
-  touches: number;
+  humanActions: number;
   /**
-   * Touches per task worked
+   * Human actions per task worked
    */
-  touchesPerTask: number | null;
+  humanActionsPerTask: number | null;
   /**
    * People who opened a task, acted on one or started a chat
    */
@@ -5223,7 +5223,7 @@ export type HeadlineResponseDto = {
   peopleIds: Array<string>;
 };
 
-export type ChangeResponseDto = {
+export type DeltaResponseDto = {
   /**
    * percent: moved by a share of what it was; points: a rate or share that moved by percentage points
    */
@@ -5243,35 +5243,35 @@ export type ChangeResponseDto = {
   tone: 'good' | 'bad' | 'flat';
 };
 
-export type HeadlineChangesResponseDto = {
+export type HeadlineDeltasResponseDto = {
   /**
    * Spend against the period before, where both were in one currency
    */
-  spend: ChangeResponseDto | null;
+  spend: DeltaResponseDto | null;
   /**
    * Pull requests merged against the period before
    */
-  mergedPullRequests: ChangeResponseDto | null;
+  mergedPullRequests: DeltaResponseDto | null;
   /**
    * The merge rate against the period before, in points
    */
-  mergeRate: ChangeResponseDto | null;
+  mergeRate: DeltaResponseDto | null;
   /**
    * Cost per merged pull request against the period before, where both were in one currency
    */
-  costPerMerge: ChangeResponseDto | null;
+  costPerMerge: DeltaResponseDto | null;
   /**
    * The median task to merge against the period before
    */
-  taskToMerge: ChangeResponseDto | null;
+  taskToMerge: DeltaResponseDto | null;
   /**
-   * Human touches per task against the period before
+   * Human actions per task against the period before
    */
-  touchesPerTask: ChangeResponseDto | null;
+  humanActionsPerTask: DeltaResponseDto | null;
   /**
    * Active people against the period before
    */
-  activePeople: ChangeResponseDto | null;
+  activePeople: DeltaResponseDto | null;
 };
 
 export type ConfigMarkerResponseDto = {
@@ -5301,7 +5301,7 @@ export type DayOutputResponseDto = {
    * Runs that ended that day; the Runs tab lists them by day
    */
   runs: number;
-  spend: SpendResponseDto | null;
+  spend: MoneyResponseDto | null;
   /**
    * Runs that ran with no price
    */
@@ -5394,7 +5394,7 @@ export type InsightsOverviewResponseDto = {
   /**
    * How the headline moved against the period before, as long
    */
-  changes: HeadlineChangesResponseDto;
+  changes: HeadlineDeltasResponseDto;
   /**
    * Spend, merged pull requests and config changes per day, oldest first
    */
@@ -5428,7 +5428,7 @@ export type StationFlowResponseDto = {
   /**
    * Its tasks against the period before
    */
-  tasksChange: ChangeResponseDto | null;
+  tasksChange: DeltaResponseDto | null;
   taskIds: Array<string>;
   /**
    * Runs it ran
@@ -5456,19 +5456,19 @@ export type StationFlowResponseDto = {
   unanswered: number;
 };
 
-export type DeliveryChangesResponseDto = {
+export type DeliveryDeltasResponseDto = {
   /**
    * Pull requests opened against the period before
    */
-  opened: ChangeResponseDto | null;
+  opened: DeltaResponseDto | null;
   /**
    * First reviews against the period before
    */
-  reviewed: ChangeResponseDto | null;
+  reviewed: DeltaResponseDto | null;
   /**
    * Pull requests merged against the period before
    */
-  merged: ChangeResponseDto | null;
+  merged: DeltaResponseDto | null;
 };
 
 export type DeliveryFlowResponseDto = {
@@ -5496,7 +5496,7 @@ export type DeliveryFlowResponseDto = {
   /**
    * How each count moved against the period before, as long
    */
-  changes: DeliveryChangesResponseDto;
+  changes: DeliveryDeltasResponseDto;
 };
 
 export type FlowResponseDto = {
@@ -5518,35 +5518,35 @@ export type InsightsFlowResponseDto = {
   flow: FlowResponseDto;
 };
 
-export type TallyChangesResponseDto = {
+export type TallyDeltasResponseDto = {
   /**
    * Runs against the period before
    */
-  runs: ChangeResponseDto | null;
+  runs: DeltaResponseDto | null;
   /**
    * Failed runs against the period before
    */
-  failed: ChangeResponseDto | null;
+  failed: DeltaResponseDto | null;
   /**
    * Accepted runs against the period before
    */
-  accepted: ChangeResponseDto | null;
+  accepted: DeltaResponseDto | null;
   /**
    * Runs sent back against the period before
    */
-  sentBack: ChangeResponseDto | null;
+  sentBack: DeltaResponseDto | null;
   /**
    * Merged tasks against the period before
    */
-  merged: ChangeResponseDto | null;
+  merged: DeltaResponseDto | null;
   /**
    * Cost against the period before, where both were in one currency
    */
-  cost: ChangeResponseDto | null;
+  cost: DeltaResponseDto | null;
   /**
    * The median run time against the period before
    */
-  median: ChangeResponseDto | null;
+  median: DeltaResponseDto | null;
 };
 
 export type TallySeenResponseDto = {
@@ -5623,7 +5623,7 @@ export type StationReportResponseDto = {
   /**
    * How its runs moved against the period before
    */
-  changes: TallyChangesResponseDto;
+  changes: TallyDeltasResponseDto;
   /**
    * Which of its counts were above zero in either period
    */
@@ -5651,7 +5651,7 @@ export type InsightsStationsResponseDto = {
   /**
    * How the whole team’s runs moved against the period before
    */
-  teamChanges: TallyChangesResponseDto;
+  teamChanges: TallyDeltasResponseDto;
   /**
    * Which of the whole team’s counts were above zero in either period
    */
@@ -5683,7 +5683,7 @@ export type HumanLoadResponseDto = {
   toAnswer: SpreadResponseDto;
   unanswered: number;
   /**
-   * Runs a person next sent back or refused
+   * Runs that a person sent back or refused first
    */
   sentBack: number;
   sentBackRate: number | null;
@@ -5695,23 +5695,23 @@ export type HumanLoadResponseDto = {
   refusedTaskIds: Array<string>;
 };
 
-export type HumanLoadChangesResponseDto = {
+export type HumanLoadDeltasResponseDto = {
   /**
    * Inbox asks per task against the period before
    */
-  asksPerTask: ChangeResponseDto | null;
+  asksPerTask: DeltaResponseDto | null;
   /**
    * The median time to answer against the period before
    */
-  toAnswer: ChangeResponseDto | null;
+  toAnswer: DeltaResponseDto | null;
   /**
    * The sent-back rate against the period before, in points
    */
-  sentBackRate: ChangeResponseDto | null;
+  sentBackRate: DeltaResponseDto | null;
   /**
    * Refused approvals against the period before
    */
-  refused: ChangeResponseDto | null;
+  refused: DeltaResponseDto | null;
 };
 
 export type PersonUseResponseDto = {
@@ -5721,7 +5721,7 @@ export type PersonUseResponseDto = {
   /**
    * Moves, answers, approvals, refusals and sends-back
    */
-  acts: number;
+  actions: number;
   /**
    * Agent chats they started
    */
@@ -5745,7 +5745,7 @@ export type AdoptionResponseDto = {
   /**
    * Active people against the period before
    */
-  activeChange: ChangeResponseDto | null;
+  activeChange: DeltaResponseDto | null;
   /**
    * People whose first activity on the team was this period
    */
@@ -5777,7 +5777,7 @@ export type InsightsPeopleResponseDto = {
   /**
    * How the load moved against the period before, as long
    */
-  loadChanges: HumanLoadChangesResponseDto;
+  loadChanges: HumanLoadDeltasResponseDto;
   adoption: AdoptionResponseDto;
 };
 
@@ -5828,9 +5828,9 @@ export type CacheUseResponseDto = {
    */
   cacheWrite: number | null;
   /**
-   * Cache reads as a share of everything the runs read: input, cache reads and cache writes together; none where nothing was counted
+   * Cache reads as a fraction of everything the runs read: input, cache reads and cache writes together; none where nothing was counted
    */
-  cacheShare: number | null;
+  cacheRate: number | null;
 };
 
 export type StationCacheUseResponseDto = {
@@ -5847,9 +5847,9 @@ export type StationCacheUseResponseDto = {
    */
   cacheWrite: number | null;
   /**
-   * Cache reads as a share of everything the runs read: input, cache reads and cache writes together; none where nothing was counted
+   * Cache reads as a fraction of everything the runs read: input, cache reads and cache writes together; none where nothing was counted
    */
-  cacheShare: number | null;
+  cacheRate: number | null;
   stationId: string;
 };
 
@@ -5857,7 +5857,7 @@ export type CostBreakdownResponseDto = {
   /**
    * Spend this period; none, and every slice empty, where nothing was priced or prices came in more than one currency
    */
-  spend: SpendResponseDto | null;
+  spend: MoneyResponseDto | null;
   /**
    * Runs that ran with no price
    */
@@ -5894,7 +5894,7 @@ export type InsightsCostResponseDto = {
   /**
    * Spend against the period before, where both periods were priced in one currency
    */
-  spendChange: ChangeResponseDto | null;
+  spendChange: DeltaResponseDto | null;
 };
 
 export type TrendRuleResponseDto = {
@@ -5930,9 +5930,9 @@ export type SkillWeekResponseDto = {
    */
   used: number;
   /**
-   * The share of that week’s runs that read it; none where no run ended that week
+   * The fraction of that week’s runs that read it; none where no run ended that week
    */
-  usedShare: number | null;
+  usedRate: number | null;
 };
 
 export type SkillAtStationResponseDto = {
@@ -6085,10 +6085,10 @@ export type MeasureVerdictResponseDto = {
   /**
    * How far the measure moved: a share in points, a cost per run in percent; none where either side is unknown or the costs are in different currencies
    */
-  change: ChangeResponseDto | null;
+  change: DeltaResponseDto | null;
 };
 
-export type JudgeShareResponseDto = {
+export type JudgeRateResponseDto = {
   /**
    * The judge’s mean score as a share of its scale, from 0 for the lowest to 1 for the highest; none where it judged none of the runs
    */
@@ -6131,17 +6131,17 @@ export type ChangeMarkerResponseDto = {
    */
   verdicts: Array<MeasureVerdictResponseDto>;
   /**
-   * The judge’s scores of the runs before, only where the station’s judge is trusted
+   * The judge’s scores of the runs before, only where the station’s judge is qualified
    */
-  judgeBefore: JudgeShareResponseDto | null;
+  judgeBefore: JudgeRateResponseDto | null;
   /**
-   * The judge’s scores of the runs after, only where the station’s judge is trusted
+   * The judge’s scores of the runs after, only where the station’s judge is qualified
    */
-  judgeAfter: JudgeShareResponseDto | null;
+  judgeAfter: JudgeRateResponseDto | null;
   /**
    * The judge’s mean score after against before, in points; none where either side went unjudged
    */
-  judgeChange: ChangeResponseDto | null;
+  judgeChange: DeltaResponseDto | null;
   /**
    * How the new config differs from the one before it
    */
@@ -6152,7 +6152,7 @@ export type StationJudgeCalibrationResponseDto = {
   /**
    * Whether the judge agrees with people often enough for its scores to count
    */
-  trusted: boolean;
+  qualified: boolean;
   /**
    * How agreement is measured: Cohen’s kappa for yes or no scores and for claims, Spearman’s correlation for numbers
    */
@@ -6162,11 +6162,11 @@ export type StationJudgeCalibrationResponseDto = {
    * Runs of the current rubric with both a judge score and people’s
    */
   pairs: number;
-  trust: number | null;
+  minAgreement: number | null;
   /**
    * Why the judge’s scores are hidden, where they are
    */
-  hiddenBecause: 'no-judge' | 'unreadable-rubric' | 'too-few-pairs' | 'no-agreement' | 'below-trust' | null;
+  hiddenReason: 'no-judge' | 'unreadable-rubric' | 'too-few-pairs' | 'no-agreement' | 'below-min-agreement' | null;
   lineId: string;
   stationId: string;
 };
@@ -6178,7 +6178,7 @@ export type InsightsChangesResponseDto = {
    */
   markers: Array<ChangeMarkerResponseDto>;
   /**
-   * How far each changed station’s judge is trusted, where it has one
+   * The calibration of each changed station’s judge, where it has one
    */
   judges: Array<StationJudgeCalibrationResponseDto>;
 };
@@ -6195,13 +6195,13 @@ export type SizeBoundResponseDto = {
   maxSteps: number | null;
 };
 
-export type SetupOutcomesResponseDto = {
+export type AgentConfigOutcomesResponseDto = {
   /**
-   * Share of runs a person next closed or approved
+   * Share of runs that a person accepted or approved first
    */
   accepted: number | null;
   /**
-   * Share of runs a person next sent back or refused
+   * Share of runs that a person sent back or refused first
    */
   sent_back: number | null;
   /**
@@ -6217,12 +6217,12 @@ export type SetupOutcomesResponseDto = {
    */
   merged: number | null;
   /**
-   * The judge’s mean score as a share of its scale, over runs at stations whose judge is trusted
+   * The judge’s mean score as a share of its scale, over runs at stations whose judge is qualified
    */
   judge: number | null;
 };
 
-export type SetupOutcomeResponseDto = {
+export type AgentConfigOutcomeResponseDto = {
   harness: string;
   model: string | null;
   effort: string | null;
@@ -6237,18 +6237,18 @@ export type SetupOutcomeResponseDto = {
    * Whether it has a cost per run in the currency the comparison is drawn in, so it can go on the chart
    */
   priced: boolean;
-  outcomes: SetupOutcomesResponseDto;
+  outcomes: AgentConfigOutcomesResponseDto;
   /**
-   * The judge’s scores of this setup’s runs; none unless the comparison is narrowed to one station
+   * The judge’s scores of this agent config’s runs; none unless the comparison is narrowed to one station
    */
-  judge: JudgeShareResponseDto | null;
+  judge: JudgeRateResponseDto | null;
   /**
-   * The outcomes this setup sits on the cost frontier for: no other setup with enough runs did as well or better for less
+   * The outcomes this agent config sits on the cost frontier for: no other agent config with enough runs did as well or better for less
    */
   frontier: Array<'accepted' | 'sent_back' | 'passed' | 'checks_passed' | 'merged' | 'judge'>;
 };
 
-export type InsightsSetupsResponseDto = {
+export type InsightsAgentConfigsResponseDto = {
   period: InsightsPeriodResponseDto;
   /**
    * The station the comparison was narrowed to, if any
@@ -6263,23 +6263,23 @@ export type InsightsSetupsResponseDto = {
    */
   sizes: Array<SizeBoundResponseDto>;
   /**
-   * The minimum number of runs a setup needs to sit on the frontier
+   * The minimum number of runs an agent config needs to sit on the frontier
    */
   minRuns: number;
   /**
-   * The currency the frontier is drawn in; setups priced in another are left off it
+   * The currency the frontier is drawn in; agent configs priced in another are left off it
    */
   currency: string | null;
   /**
    * How runs went on each harness, model, effort and profile, the most runs first
    */
-  setups: Array<SetupOutcomeResponseDto>;
+  agentConfigs: Array<AgentConfigOutcomeResponseDto>;
   /**
    * Why no judge scores are compared: no_station where the comparison spans stations, whose judges each score against their own rubric
    */
   judgeOmitted: 'no_station' | null;
   /**
-   * How far the station’s judge is trusted, where one station is picked and it has a judge
+   * The calibration of the station’s judge, where one station is picked and it has a judge
    */
   judges: Array<StationJudgeCalibrationResponseDto>;
 };
@@ -6354,7 +6354,7 @@ export type InsightsMemoryResponseDto = {
   benchmark: MemoryBenchmarkResponseDto | null;
 };
 
-export type AlertThresholdResponseDto = {
+export type AlertRuleResponseDto = {
   measure: 'sent_back_rate' | 'accepted_rate' | 'checks_failed_rate' | 'failed_rate' | 'merged_rate' | 'cost_per_run';
   risesBy: number | null;
   fallsBy: number | null;
@@ -6363,7 +6363,7 @@ export type AlertThresholdResponseDto = {
   over: number;
 };
 
-export type AlertCrossingPointResponseDto = {
+export type AlertFiringPointResponseDto = {
   runId: string;
   endedAt: string;
   /**
@@ -6372,48 +6372,48 @@ export type AlertCrossingPointResponseDto = {
   value: number | null;
 };
 
-export type StationAlertCrossingResponseDto = {
+export type StationAlertFiringResponseDto = {
   alertId: string;
   lineId: string;
   stationId: string;
   /**
-   * The threshold that was crossed, as set on the station
+   * The alert rule that fired, as set on the station
    */
-  threshold: AlertThresholdResponseDto;
+  rule: AlertRuleResponseDto;
   /**
-   * The measure over the last runs when it crossed
+   * The measure over the last runs when the alert fired
    */
   value: number;
   /**
-   * The measure over the runs before them, for a threshold that watches a rise or fall
+   * The measure over the runs before them, for a condition that watches a rise or fall
    */
   baseline: number | null;
   /**
    * The measure against the baseline: points for a rate, percent for cost per run; none without a baseline
    */
-  change: ChangeResponseDto | null;
+  change: DeltaResponseDto | null;
   /**
-   * The run that crossed it
+   * The run that fired the alert
    */
   runId: string;
   taskId: string;
-  raisedAt: string;
+  firedAt: string;
   /**
-   * The shortest Insights period whose days include the moment the alert went off
+   * The shortest Insights period whose days include the moment the alert fired
    */
   insightsPeriod: '7d' | '30d' | '90d';
   /**
-   * When the station came back within the threshold, if it has
+   * When the alert resolved, if it has
    */
-  recoveredAt: string | null;
+  resolvedAt: string | null;
   /**
    * The currency a cost threshold is in
    */
   currency: string | null;
   /**
-   * The measure run by run around the crossing, the oldest first
+   * The measure run by run around the firing, the oldest first
    */
-  series: Array<AlertCrossingPointResponseDto>;
+  series: Array<AlertFiringPointResponseDto>;
 };
 
 export type WeekShareResponseDto = {
@@ -6428,11 +6428,11 @@ export type WeekShareResponseDto = {
   /**
    * Of those, the ones Spotlight made
    */
-  made: number;
+  authored: number;
   /**
    * Of those, ones people or bots wrote that a Spotlight review task was opened on
    */
-  touched: number;
+  reviewed: number;
   /**
    * Of those, the ones Spotlight made or reviewed
    */
@@ -6446,39 +6446,39 @@ export type WeekShareResponseDto = {
    */
   bots: number;
   /**
-   * Made and touched over everything merged, bots’ included, from 0 to 1; none where nothing merged
+   * Authored and reviewed over everything merged, bots’ included, from 0 to 1; none where nothing merged
    */
-  share: number | null;
+  rate: number | null;
 };
 
-export type RepositoryPenetrationResponseDto = {
+export type RepositorySpotlightShareResponseDto = {
   repository: string;
   merged: number;
-  made: number;
-  touched: number;
+  authored: number;
+  reviewed: number;
   bots: number;
-  share: number | null;
+  rate: number | null;
   weeks: Array<WeekShareResponseDto>;
 };
 
-export type PenetrationResponseDto = {
+export type SpotlightShareResponseDto = {
   /**
    * Pull requests merged in the period, across the team, bots’ included
    */
   merged: number;
-  made: number;
+  authored: number;
   /**
    * Merged ones a Spotlight review task was opened on
    */
-  touched: number;
+  reviewed: number;
   /**
    * Merged ones bots wrote alone
    */
   bots: number;
   /**
-   * Made and touched over everything merged; bots’ pull requests count in the whole
+   * Authored and reviewed over everything merged; bots’ pull requests count in the whole
    */
-  share: number | null;
+  rate: number | null;
   /**
    * The team, week by week, oldest first
    */
@@ -6486,7 +6486,7 @@ export type PenetrationResponseDto = {
   /**
    * Each repository the team’s lines work, and any other its tasks merged into, the busiest first
    */
-  repositories: Array<RepositoryPenetrationResponseDto>;
+  repositories: Array<RepositorySpotlightShareResponseDto>;
 };
 
 export type GroupMeasuresResponseDto = {
@@ -6545,7 +6545,7 @@ export type TypeShareResponseDto = {
   /**
    * What the runs of Spotlight’s pull requests of this type cost; none where nothing was priced or prices came in more than one currency
    */
-  spend: SpendResponseDto | null;
+  spend: MoneyResponseDto | null;
   /**
    * Runs with no price
    */
@@ -6577,9 +6577,9 @@ export type InsightsPullRequestsResponseDto = {
    */
   weeks: Array<string>;
   /**
-   * How much of what merged Spotlight made or touched
+   * How much of what merged Spotlight authored or reviewed
    */
-  penetration: PenetrationResponseDto;
+  spotlightShare: SpotlightShareResponseDto;
   /**
    * Spotlight’s merged pull requests against people’s, in the same repositories
    */
@@ -6628,34 +6628,34 @@ export type ByAuthorResponseDto = {
   people: PercentilesResponseDto;
 };
 
-export type PercentileChangesResponseDto = {
+export type PercentileDeltasResponseDto = {
   /**
    * The median against the period before
    */
-  p50: ChangeResponseDto | null;
+  p50: DeltaResponseDto | null;
   /**
    * The 75th percentile against the period before
    */
-  p75: ChangeResponseDto | null;
+  p75: DeltaResponseDto | null;
   /**
    * The 90th percentile against the period before
    */
-  p90: ChangeResponseDto | null;
+  p90: DeltaResponseDto | null;
   /**
    * The 95th percentile against the period before
    */
-  p95: ChangeResponseDto | null;
+  p95: DeltaResponseDto | null;
 };
 
 export type ByAuthorChangesResponseDto = {
   /**
    * Pull requests Spotlight made
    */
-  spotlight: PercentileChangesResponseDto;
+  spotlight: PercentileDeltasResponseDto;
   /**
    * Pull requests people made alone, in the repositories Spotlight merged into
    */
-  people: PercentileChangesResponseDto;
+  people: PercentileDeltasResponseDto;
 };
 
 export type MergeDayResponseDto = {
@@ -6701,7 +6701,7 @@ export type RoundsCountResponseDto = {
   /**
    * Those over everything merged across the buckets, from 0 to 1; none where nothing merged
    */
-  share: number | null;
+  rate: number | null;
 };
 
 export type DepthWeekResponseDto = {
@@ -6753,9 +6753,9 @@ export type ReviewBotResponseDto = {
    */
   reviews: number;
   /**
-   * Of the review threads it started, the share now resolved, from 0 to 1; none where it started none
+   * Of the review threads it started, the fraction now resolved, from 0 to 1; none where it started none
    */
-  resolvedShare: number | null;
+  resolvedRate: number | null;
 };
 
 export type PipelineTypeResponseDto = {
@@ -6769,7 +6769,7 @@ export type StagePartsResponseDto = {
   inbox: PercentilesResponseDto;
 };
 
-export type PercentileJamsResponseDto = {
+export type PercentileBottleneckRatiosResponseDto = {
   p50: number;
   p75: number;
   p90: number;
@@ -6799,7 +6799,7 @@ export type StageTimesResponseDto = {
   /**
    * At each percentile, the stage’s time over the longest stage’s in the same layout and for the same kind of pull request, from 0 to 1
    */
-  jam: PercentileJamsResponseDto;
+  bottleneckRatio: PercentileBottleneckRatiosResponseDto;
   /**
    * At each percentile, whether this is the longest stage in the layout for the same kind of pull request; the first one on a tie
    */
@@ -6903,9 +6903,9 @@ export type InsightsPullRequestResponseDto = {
   author: string | null;
   authorIsBot: boolean;
   /**
-   * spotlight where a task opened it, touched where someone else wrote it and a Spotlight review task was opened on it, bots where a bot wrote it with no such task, people otherwise
+   * spotlight where a task opened it, reviewed where someone else wrote it and a Spotlight review task was opened on it, bots where a bot wrote it with no such task, people otherwise
    */
-  by: 'spotlight' | 'touched' | 'people' | 'bots';
+  by: 'spotlight' | 'reviewed' | 'people' | 'bots';
   /**
    * The task that opened it
    */
@@ -6942,7 +6942,7 @@ export type InsightsPullRequestResponseDto = {
   /**
    * What the runs of the task that opened it cost
    */
-  spend: SpendResponseDto | null;
+  spend: MoneyResponseDto | null;
   /**
    * Its task’s runs with no price
    */
@@ -6997,20 +6997,20 @@ export type InsightsRunResponseDto = {
   queuedMs: number | null;
   runningMs: number | null;
   /**
-   * How long it worked, by its digest
+   * How long it worked, by its recorded usage
    */
   ms: number | null;
-  cost: SpendResponseDto | null;
+  cost: MoneyResponseDto | null;
   /**
-   * None until its digest is in
+   * None until its usage is recorded
    */
   tokens: TokenCountsResponseDto | null;
   ending: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded';
   failure: string | null;
   checks: 'passed' | 'failed' | 'skipped' | null;
-  next: NextActResponseDto | null;
+  firstHumanAction: HumanActionResponseDto | null;
   passed: StationPassResponseDto | null;
-  delivery: 'open' | 'merged' | 'closed' | null;
+  pullRequestState: 'open' | 'merged' | 'closed' | null;
 };
 
 export type InsightsRunsResponseDto = {
@@ -7034,7 +7034,7 @@ export type StationChangeResponseDto = {
    */
   part: string;
   /**
-   * Which one of the part changed: the repository, skill or tool, or the judge’s rubric, sample or trust
+   * Which one of the part changed: the repository, skill or tool, or the judge’s rubric, sample or minimum agreement
    */
   name: string | null;
   kind: 'added' | 'removed' | 'changed';
@@ -7088,7 +7088,7 @@ export type ReplayCandidateResourceResponseDto = {
   /**
    * The station it is for: team, line and station keys
    */
-  stationAddress: string;
+  stationPath: string;
   /**
    * Tells it from the station’s other candidates; a proposed name is used once per station
    */
@@ -7129,27 +7129,27 @@ export type SetNoiseResponseDto = {
   fingerprint: string;
   repeats: number;
   /**
-   * The success rate of each copy of the set, in order
+   * The success rate of each repeat of the set, in order
    */
   perRepeat: Array<number>;
   /**
-   * The highest copy’s success rate less the lowest’s
+   * The highest repeat’s success rate less the lowest’s
    */
   spread: number;
   /**
-   * Tasks whose copies disagree, succeeding in one and failing in another
+   * Tasks whose repeats disagree, succeeding in one and failing in another
    */
   flippedTasks: Array<string>;
   measuredAt: string;
   /**
-   * Whether the spread is too wide for a single copy of each run to tell a gain of the line’s min_gain from chance, by the same rule the search warnings use
+   * Whether the spread is too wide for a single repeat of each run to tell a gain of the line’s min_gain from chance, by the same rule the search warnings use
    */
-  noisyInOneCopy: boolean;
+  noisyInOneRepeat: boolean;
 };
 
 export type RateIntervalResponseDto = {
   /**
-   * The success rate: per task, the share of its judged copies that succeeded, averaged over the tasks
+   * The success rate: per task, the share of its judged repeats that succeeded, averaged over the tasks
    */
   rate: number;
   /**
@@ -7181,7 +7181,7 @@ export type SetSaturationResponseDto = {
 
 export type JudgeConsistencyResponseDto = {
   /**
-   * The probe: the newest finished replay of the live config that checked the set
+   * The calibration: the newest finished replay of the live config that checked the set
    */
   replayId: string;
   /**
@@ -7213,7 +7213,7 @@ export type FlakyCheckResponseDto = {
    */
   originalRunId: string;
   /**
-   * The probe’s replay run whose change flipped
+   * The calibration’s replay run whose change flipped
    */
   runId: string;
   first: 'passed' | 'failed';
@@ -7222,7 +7222,7 @@ export type FlakyCheckResponseDto = {
 
 export type CheckConsistencyResponseDto = {
   /**
-   * The probe whose changes were checked again
+   * The calibration whose changes were checked again
    */
   replayId: string;
   /**
@@ -7239,7 +7239,7 @@ export type CheckConsistencyResponseDto = {
   flaky: Array<FlakyCheckResponseDto>;
 };
 
-export type GainReadingResponseDto = {
+export type GainEstimateResponseDto = {
   /**
    * The success rate gained over what it is compared with, on the tasks both scored
    */
@@ -7255,7 +7255,7 @@ export type GainReadingResponseDto = {
   /**
    * better when the whole interval is above nothing and the gain reaches the line’s min_gain; worse when the whole interval is below nothing and the loss reaches it; else within-noise
    */
-  verdict: 'better' | 'worse' | 'within-noise';
+  significance: 'better' | 'worse' | 'within-noise';
   /**
    * The smallest gain the line counts as real
    */
@@ -7273,15 +7273,15 @@ export type OracleReadingResponseDto = {
   replayId: string;
   candidateId: string;
   repeats: number;
-  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached';
   /**
    * The replay of the live config it is compared with: the one whose finishing started it
    */
-  againstReplayId: string | null;
+  referenceReplayId: string | null;
   /**
-   * The state of the replay that it is compared with: finished once they can be compared; stopped, over-budget or gone means they never will be
+   * The state of the replay that it is compared with: finished once they can be compared; stopped, ceiling-reached or gone means they never will be
    */
-  againstState: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | 'gone' | null;
+  referenceState: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached' | 'gone' | null;
   /**
    * Runs it replayed: those the live replay replayed whose original was accepted with a change, or sent back with a note from a person. Others have no answer to hand over
    */
@@ -7297,7 +7297,7 @@ export type OracleReadingResponseDto = {
   /**
    * The gain the answer brings over the live config: the most a better harness could gain on these runs
    */
-  gain: GainReadingResponseDto | null;
+  gain: GainEstimateResponseDto | null;
   /**
    * The answer did clearly better; false means the set leaves no room a better config could show, so a search on it would find little; null until compared, or when fewer than 5 runs had an answer
    */
@@ -7306,7 +7306,7 @@ export type OracleReadingResponseDto = {
 
 export type SetHealthResponseDto = {
   /**
-   * How much its success rate moves between copies of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has
+   * How much its success rate moves between repeats of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has
    */
   noise: SetNoiseResponseDto | null;
   /**
@@ -7314,11 +7314,11 @@ export type SetHealthResponseDto = {
    */
   saturation: SetSaturationResponseDto | null;
   /**
-   * How often the judge agrees with itself, from the set’s newest probe; null until a probe was judged
+   * How often the judge agrees with itself, from the set’s newest calibration; null until a calibration was judged
    */
   judge: JudgeConsistencyResponseDto | null;
   /**
-   * Whether the station’s check returns the same answer twice, from the set’s newest probe; null until a probe was checked
+   * Whether the station’s check returns the same answer twice, from the set’s newest calibration; null until a calibration was checked
    */
   checks: CheckConsistencyResponseDto | null;
   /**
@@ -7414,7 +7414,7 @@ export type ReplaySetResponseDto = {
   /**
    * Planned changes of its station are checked against it, as `spotlight replay check` requests; a station has at most one such set
    */
-  guardsChanges: boolean;
+  gatesChanges: boolean;
   /**
    * Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check return the same answer twice, and how much better the live config does when handed each run’s answer
    */
@@ -7507,7 +7507,7 @@ export type ReplayTotalsResponseDto = {
   notRun: number;
   succeeded: number | null;
   /**
-   * Per task, the share of its scored copies that succeeded, averaged over the tasks scored
+   * Per task, the share of its scored repeats that succeeded, averaged over the tasks scored
    */
   successRate: number | null;
   /**
@@ -7523,7 +7523,7 @@ export type ReplayTotalsResponseDto = {
    */
   tasks: number;
   /**
-   * Original runs with at least one scored copy
+   * Original runs with at least one scored repeat
    */
   tasksScored: number;
   /**
@@ -7533,11 +7533,11 @@ export type ReplayTotalsResponseDto = {
   /**
    * What it spent in the ceiling’s currency, counted against it
    */
-  spent: SpendResponseDto;
+  spent: MoneyResponseDto;
   /**
    * What it spent in other currencies, one sum each; none of it counts against the ceiling
    */
-  spentElsewhere: Array<SpendResponseDto>;
+  spentElsewhere: Array<MoneyResponseDto>;
   /**
    * Runs whose cost was never reported
    */
@@ -7552,13 +7552,13 @@ export type ReplayTotalsResponseDto = {
   medianMs: number | null;
 };
 
-export type ReplayCounterpartResponseDto = {
+export type ReplayReferenceResponseDto = {
   /**
-   * The replay compared with: pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline
+   * The replay compared with: pairwiseReference where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline
    */
   replayId: string;
   /**
-   * Its success rate on the tasks the gain pairs, the tasks both replays scored: per task, the share of its scored copies that succeeded, averaged over those tasks; null with no such task
+   * Its success rate on the tasks the gain pairs, the tasks both replays scored: per task, the share of its scored repeats that succeeded, averaged over those tasks; null with no such task
    */
   successRate: number | null;
   /**
@@ -7643,17 +7643,17 @@ export type EntryJudgeResponseDto = {
    */
   score: number | null;
   /**
-   * Yes on a yes-no rubric, at least 4 on a number one, or at least the pass share of claims met
+   * Yes on a yes-no rubric, at least 4 on a number one, or at least the pass threshold of claims met
    */
   passed: boolean | null;
   /**
    * Whether each claim was met, in order; null unless the judge goes by claims
    */
-  marks: Array<boolean> | null;
+  claimResults: Array<boolean> | null;
   /**
    * The share of claims a run had to meet to pass; null unless the judge goes by claims
    */
-  passShare: number | null;
+  passThreshold: number | null;
   /**
    * Whether it was judged against the change people accepted for the original run; without one, on the rubric alone
    */
@@ -7674,7 +7674,7 @@ export type ModelSpentResponseDto = {
   /**
    * One sum per currency the calls were priced in
    */
-  spends: Array<SpendResponseDto>;
+  spends: Array<MoneyResponseDto>;
   /**
    * Calls that came back with no price
    */
@@ -7693,7 +7693,7 @@ export type EntryPairReasonResponseDto = {
   theirHunks: Array<string>;
 };
 
-export type EntryPairReadingResponseDto = {
+export type EntryPairPassResponseDto = {
   /**
    * Whether this entry’s change was shown first, as A; each pair is read both ways round
    */
@@ -7705,19 +7705,19 @@ export type EntryPairReadingResponseDto = {
 export type EntryPairResponseDto = {
   state: 'requested' | 'judged' | 'unpaired';
   /**
-   * The run of the same task, in the replay in pairedWith, this change was set beside
+   * The run of the same task, in the replay in pairwiseReference, this change was set beside
    */
-  againstRunId: string;
+  otherRunId: string;
   /**
    * Whether the judge, not knowing which change was which, found this one better (win), worse (loss) or as good (tie)
    */
   outcome: 'win' | 'loss' | 'tie' | null;
   model: string | null;
-  unpaired: 'unavailable' | 'unreadable-rubric' | 'no-evidence' | 'request-failed' | 'unreadable' | 'ungrounded' | 'errored' | 'interrupted' | 'other-rubric' | 'budget' | null;
+  unpaired: 'unavailable' | 'unreadable-rubric' | 'no-evidence' | 'request-failed' | 'unreadable' | 'ungrounded' | 'errored' | 'interrupted' | 'other-rubric' | 'ceiling-reached' | null;
   /**
-   * The two readings, one with each change shown first; where they disagree the outcome is a tie
+   * The two passes, one with each change shown first; where they disagree the outcome is a tie
    */
-  readings: Array<EntryPairReadingResponseDto>;
+  passes: Array<EntryPairPassResponseDto>;
 };
 
 export type EntryReasonResponseDto = {
@@ -7747,7 +7747,7 @@ export type ReplayEntryResponseDto = {
   originalRunId: string;
   taskId: string;
   /**
-   * Which copy of the original run this is, from 1
+   * Which repeat of the original run this is, from 1
    */
   repeat: number;
   /**
@@ -7771,7 +7771,7 @@ export type ReplayEntryResponseDto = {
   next: string | null;
   ms: number | null;
   steps: number | null;
-  cost: SpendResponseDto | null;
+  cost: MoneyResponseDto | null;
   inputTokens: number | null;
   outputTokens: number | null;
   cacheReadTokens: number | null;
@@ -7781,13 +7781,13 @@ export type ReplayEntryResponseDto = {
   /**
    * What generating and redrafting its change stacks cost, failed calls included; what is in the ceiling’s currency is spent against it
    */
-  draftingSpent: ModelSpentResponseDto | null;
+  generationSpent: ModelSpentResponseDto | null;
   /**
    * What judging its change cost, unreadable answers included; what is in the ceiling’s currency is spent against it
    */
   judgingSpent: ModelSpentResponseDto | null;
   /**
-   * A probe’s second judging of the same change, to see whether the judge agrees with itself; it never changes the run’s result
+   * A calibration’s second judging of the same change, to see whether the judge agrees with itself; it never changes the run’s result
    */
   secondJudge: EntryJudgeResponseDto | null;
   /**
@@ -7795,11 +7795,11 @@ export type ReplayEntryResponseDto = {
    */
   rejudgingSpent: ModelSpentResponseDto | null;
   /**
-   * A probe’s second check of the same change, to see whether the check is flaky; it never changes the run’s result
+   * A calibration’s second check of the same change, to see whether the check is flaky; it never changes the run’s result
    */
   recheck: EntryChecksResponseDto | null;
   /**
-   * Its change set side by side with that of the replay in pairedWith for the same task, judged blind both ways round; it never changes the run’s result
+   * Its change set side by side with that of the replay in pairwiseReference for the same task, judged blind both ways round; it never changes the run’s result
    */
   pair: EntryPairResponseDto | null;
   /**
@@ -7837,35 +7837,35 @@ export type ReplayResponseDto = {
    * Its candidate checks the change each replay run leaves; a run that leaves no change stack then goes unscored
    */
   checks: boolean;
-  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
-  ceiling: SpendResponseDto;
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached';
+  ceiling: MoneyResponseDto;
   /**
    * How many times it replays each run of its set
    */
   repeats: number;
   /**
-   * It probes the set: once it finishes, each judged change is judged again and each checked change checked again, to see whether the judge and the check return the same answer twice
+   * It calibrates the set: once it finishes, each judged change is judged again and each checked change checked again, to see whether the judge and the check return the same answer twice
    */
-  probe: boolean;
+  calibration: boolean;
   startedAt: string;
   endedAt: string | null;
   totals: ReplayTotalsResponseDto;
   /**
-   * Its gain in success over the replay in comparedWith, with whether it is within noise; null with none
+   * Its gain in success over the replay in referenceReplay, with whether it is within noise; null with none
    */
-  againstBaseline: GainReadingResponseDto | null;
+  gainOverReference: GainEstimateResponseDto | null;
   /**
    * The replay its gain, comparison rows and deltas are against, with its success rate; null for the baseline itself or with none
    */
-  comparedWith: ReplayCounterpartResponseDto | null;
+  referenceReplay: ReplayReferenceResponseDto | null;
   /**
-   * The replay its changes are set beside, judged blind: the current baseline when it started, or its search’s seed; null for a baseline, a probe or a replay that had none
+   * The replay its changes are set beside, judged blind: the current baseline when it started, or its search’s seed; null for a baseline, a calibration or a replay that had none
    */
-  pairedWith: string | null;
+  pairwiseReference: string | null;
   /**
-   * Tasks whose change the judge, comparing it blind with the change of the replay in pairedWith, found better, worse or as good; null where pairedWith is
+   * Tasks whose change the judge, comparing it blind with the change of the replay in pairwiseReference, found better, worse or as good; null where pairwiseReference is
    */
-  pairsAgainstBaseline: PairTallyResponseDto | null;
+  referencePairs: PairTallyResponseDto | null;
   entries: Array<ReplayEntryResponseDto>;
 };
 
@@ -7881,7 +7881,7 @@ export type StartReplayRequestDto = {
   candidate: string;
   ceiling: StartReplayCeilingRequestDto;
   /**
-   * How many times to replay each run, 1 when left out; more copies measure the set’s noise and narrow the intervals
+   * How many times to replay each run, 1 when left out; more repeats measure the set’s noise and narrow the intervals
    */
   repeats?: number;
 };
@@ -7891,7 +7891,7 @@ export type StartedBaselineResponseDto = {
   /**
    * Its own ceiling, the same as the requested one
    */
-  ceiling: SpendResponseDto;
+  ceiling: MoneyResponseDto;
   /**
    * started: this replay is the baseline; starting: it starts shortly, unless another baseline covers the set by then, which reads then name
    */
@@ -7903,7 +7903,7 @@ export type ReplayStartedResponseDto = {
   /**
    * The most this replay may spend, on its own
    */
-  ceiling: SpendResponseDto;
+  ceiling: MoneyResponseDto;
   /**
    * The set’s baseline replay of the live config, when the set had none covering its runs: this replay itself, or one starting beside it under this id. It spends against a ceiling of its own, equal to the requested one, so the two together may spend up to twice it
    */
@@ -7929,23 +7929,23 @@ export type EntryComparisonResponseDto = {
    */
   title: string | null;
   /**
-   * Each copy of the task the candidate replayed
+   * Each repeat of the task the candidate replayed
    */
   candidate: Array<ReplayEntryResponseDto>;
   /**
-   * Each copy of the task the baseline replayed; none without one
+   * Each repeat of the task the baseline replayed; none without one
    */
   baseline: Array<ReplayEntryResponseDto>;
   /**
-   * The share of the candidate’s scored copies that succeeded
+   * The share of the candidate’s scored repeats that succeeded
    */
   candidateSuccess: number | null;
   /**
-   * The share of the baseline’s scored copies that succeeded
+   * The share of the baseline’s scored repeats that succeeded
    */
   baselineSuccess: number | null;
   /**
-   * Candidate cost less the baseline’s, each averaged over its copies, once both ended
+   * Candidate cost less the baseline’s, each averaged over its repeats, once both ended
    */
   costDelta: number | null;
   msDelta: number | null;
@@ -7959,11 +7959,11 @@ export type EntryComparisonResponseDto = {
    */
   scoreUncompared: 'unjudged' | 'other-rubric' | 'other-reference' | null;
   /**
-   * The baseline’s share of copies that succeeded is more than half above the candidate’s (with one copy each: the baseline succeeded and the candidate failed), or its average judge score dropped
+   * The baseline’s share of repeats that succeeded is more than half above the candidate’s (with one repeat each: the baseline succeeded and the candidate failed), or its average judge score dropped
    */
   regressed: boolean;
   /**
-   * Whether the judge, comparing the candidate’s change blind with that of the replay in pairedWith, found it better (win), worse (loss) or as good (tie), by most of its copies; null where none was compared so
+   * Whether the judge, comparing the candidate’s change blind with that of the replay in pairwiseReference, found it better (win), worse (loss) or as good (tie), by most of its repeats; null where none was compared so
    */
   pair: 'win' | 'loss' | 'tie' | null;
 };
@@ -7988,35 +7988,35 @@ export type ReplayDetailResponseDto = {
    * Its candidate checks the change each replay run leaves; a run that leaves no change stack then goes unscored
    */
   checks: boolean;
-  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
-  ceiling: SpendResponseDto;
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached';
+  ceiling: MoneyResponseDto;
   /**
    * How many times it replays each run of its set
    */
   repeats: number;
   /**
-   * It probes the set: once it finishes, each judged change is judged again and each checked change checked again, to see whether the judge and the check return the same answer twice
+   * It calibrates the set: once it finishes, each judged change is judged again and each checked change checked again, to see whether the judge and the check return the same answer twice
    */
-  probe: boolean;
+  calibration: boolean;
   startedAt: string;
   endedAt: string | null;
   totals: ReplayTotalsResponseDto;
   /**
-   * Its gain in success over the replay in comparedWith, with whether it is within noise; null with none
+   * Its gain in success over the replay in referenceReplay, with whether it is within noise; null with none
    */
-  againstBaseline: GainReadingResponseDto | null;
+  gainOverReference: GainEstimateResponseDto | null;
   /**
    * The replay its gain, comparison rows and deltas are against, with its success rate; null for the baseline itself or with none
    */
-  comparedWith: ReplayCounterpartResponseDto | null;
+  referenceReplay: ReplayReferenceResponseDto | null;
   /**
-   * The replay its changes are set beside, judged blind: the current baseline when it started, or its search’s seed; null for a baseline, a probe or a replay that had none
+   * The replay its changes are set beside, judged blind: the current baseline when it started, or its search’s seed; null for a baseline, a calibration or a replay that had none
    */
-  pairedWith: string | null;
+  pairwiseReference: string | null;
   /**
-   * Tasks whose change the judge, comparing it blind with the change of the replay in pairedWith, found better, worse or as good; null where pairedWith is
+   * Tasks whose change the judge, comparing it blind with the change of the replay in pairwiseReference, found better, worse or as good; null where pairwiseReference is
    */
-  pairsAgainstBaseline: PairTallyResponseDto | null;
+  referencePairs: PairTallyResponseDto | null;
   entries: Array<ReplayEntryResponseDto>;
   baselineReplayId: string | null;
   /**
@@ -8024,7 +8024,7 @@ export type ReplayDetailResponseDto = {
    */
   search: ReplaySearchResponseDto | null;
   /**
-   * Per task against the replay it is compared with (comparedWith), regressions first
+   * Per task against the replay it is compared with (referenceReplay), regressions first
    */
   comparison: Array<EntryComparisonResponseDto>;
 };
@@ -8047,7 +8047,7 @@ export type ReplayOfRunResponseDto = {
    * The set’s baseline, compared against
    */
   isBaseline: boolean;
-  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached';
   /**
    * The run’s entry in the replay, with its result
    */
@@ -8067,7 +8067,7 @@ export type SearchAgentResponseDto = {
 export type SearchBudgetResponseDto = {
   iterations: number;
   perIteration: number;
-  ceiling: SpendResponseDto;
+  ceiling: MoneyResponseDto;
   concurrency: number;
   /**
    * How many times each of its replays replays each run
@@ -8081,7 +8081,7 @@ export type SearchBestResponseDto = {
   /**
    * Whether nothing the search found beat the live config
    */
-  seed: boolean;
+  isSeed: boolean;
   /**
    * Its success rate on the searched tasks, 0 to 1
    */
@@ -8105,7 +8105,7 @@ export type SearchBestResponseDto = {
   /**
    * marked when it beat the live config on the searched tasks but not on the held-out ones, so its gain showed only on the tasks the search could see; too-few-held-out when it beat the live config on the searched tasks but too few held-out tasks were scored on both sides to tell; null otherwise, and until its held-out replay finished
    */
-  onlyOnSeenTasks: 'marked' | 'too-few-held-out' | null;
+  overfit: 'likely' | 'too-few-held-out' | null;
 };
 
 export type SearchResponseDto = {
@@ -8118,9 +8118,9 @@ export type SearchResponseDto = {
    */
   state: 'seeding' | 'searching' | 'holding-out' | 'finished' | 'stopped';
   /**
-   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose outcome says why), was stopped by a person, lost its station or set, or could not replay the live config
+   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose result says why), was stopped by a person, lost its station or set, or could not replay the live config
    */
-  ending: 'iterations-spent' | 'ceiling-reached' | 'stalled' | 'stopped' | 'station-gone' | 'set-gone' | 'seed-failed' | null;
+  stopReason: 'iterations-spent' | 'ceiling-reached' | 'stalled' | 'stopped' | 'station-gone' | 'set-gone' | 'seed-failed' | null;
   agent: SearchAgentResponseDto;
   budget: SearchBudgetResponseDto;
   /**
@@ -8130,7 +8130,7 @@ export type SearchResponseDto = {
   /**
    * What it spent so far, in its ceiling’s currency: its replays and its agent’s runs
    */
-  spent: SpendResponseDto;
+  spent: MoneyResponseDto;
   /**
    * How many times its agent ran, or is running
    */
@@ -8191,11 +8191,11 @@ export type NoiseUnmeasuredWarningResponseDto = {
 
 export type NoisyWarningResponseDto = {
   /**
-   * The set’s success moves more between copies than the line’s min_gain, so a single copy cannot tell a real gain from noise
+   * The set’s success moves more between repeats than the line’s min_gain, so a single repeat cannot tell a real gain from noise
    */
   kind: 'noisy';
   /**
-   * How far the set’s success moved between copies
+   * How far the set’s success moved between repeats
    */
   spread: number;
   minGain: number;
@@ -8287,23 +8287,23 @@ export type SearchRunsEstimateResponseDto = {
   total: number;
 };
 
-export type SearchAllotmentsResponseDto = {
+export type SearchCeilingSplitsResponseDto = {
   /**
    * The ceiling of its replay of the live config
    */
-  seed: SpendResponseDto;
+  seed: MoneyResponseDto;
   /**
    * The ceiling of each candidate’s replay on searched tasks
    */
-  searchReplay: SpendResponseDto;
+  searchReplay: MoneyResponseDto;
   /**
    * The ceiling of each candidate’s replay on held-out tasks
    */
-  heldOutReplay: SpendResponseDto;
+  heldOutReplay: MoneyResponseDto;
   /**
    * What each agent run is expected to spend; one may overshoot it
    */
-  agentRun: SpendResponseDto;
+  agentRun: MoneyResponseDto;
 };
 
 export type SearchEstimateResponseDto = {
@@ -8322,8 +8322,8 @@ export type SearchEstimateResponseDto = {
   /**
    * The most it may spend
    */
-  ceiling: SpendResponseDto;
-  perReplayAllotments: SearchAllotmentsResponseDto;
+  ceiling: MoneyResponseDto;
+  perReplayLimits: SearchCeilingSplitsResponseDto;
   /**
    * Roughly how long it takes at its concurrency, in milliseconds, from how long the set’s runs took; unknown when none of them was timed
    */
@@ -8410,7 +8410,7 @@ export type ReflectedTaskResponseDto = {
   replayRunId: string;
 };
 
-export type SearchCauseResponseDto = {
+export type FailureCauseResponseDto = {
   taskId: string;
   /**
    * The run the set contains for the task
@@ -8447,13 +8447,13 @@ export type SearchReflectionResponseDto = {
   /**
    * One cause for each task it recorded one for
    */
-  causes: Array<SearchCauseResponseDto>;
+  causes: Array<FailureCauseResponseDto>;
   /**
-   * How it ended, once it did: went-on when it found a cause the config can fix and the search carried on; no-config-cause when it found none; no-failures when no searched task failed, so it never ran; did-not-run when its run failed before recording a cause; out-of-budget when it found a config cause but the search had no budget left to try it
+   * How it ended, once it did: continued when it found a cause the config can fix and the search continued; no-config-cause when it found none; no-failures when no searched task failed, so it never ran; did-not-run when its run failed before recording a cause; ceiling-reached when it found a config cause but the search had no budget left to try it
    */
-  outcome: 'went-on' | 'no-config-cause' | 'no-failures' | 'did-not-run' | 'out-of-budget' | null;
+  result: 'continued' | 'no-config-cause' | 'no-failures' | 'did-not-run' | 'ceiling-reached' | null;
   /**
-   * True when the search stopped searching once it ended, for whatever outcome other than went-on
+   * True when the search stopped searching once it ended, for whatever result other than continued
    */
   endedSearch: boolean;
 };
@@ -8481,7 +8481,7 @@ export type SearchIterationResponseDto = {
    */
   proposed: Array<string>;
   /**
-   * What its agent run spent, once digested
+   * What its agent run spent, once its usage is recorded
    */
   agentSpent: ModelSpentResponseDto | null;
   /**
@@ -8532,7 +8532,7 @@ export type SearchCandidateResponseDto = {
   /**
    * Whether it is the live config it started from
    */
-  seed: boolean;
+  isSeed: boolean;
   /**
    * The iteration that proposed it; none for the seed
    */
@@ -8550,12 +8550,12 @@ export type SearchCandidateResponseDto = {
    * Its replay on the searched tasks; for the seed, its replay of the whole set
    */
   replayId: string;
-  replayState: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | null;
+  replayState: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached' | null;
   /**
    * Its replay on the held-out tasks, when it was on the frontier as the search stopped
    */
   heldOutReplayId: string | null;
-  heldOutReplayState: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | null;
+  heldOutReplayState: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached' | null;
   /**
    * Its success rate on the searched tasks, 0 to 1
    */
@@ -8565,7 +8565,7 @@ export type SearchCandidateResponseDto = {
    */
   searchInterval: RateIntervalResponseDto | null;
   /**
-   * How many searched replay runs, copies included, it was scored on
+   * How many searched replay runs, repeats included, it was scored on
    */
   searchScored: number;
   /**
@@ -8579,11 +8579,11 @@ export type SearchCandidateResponseDto = {
   /**
    * Its gain over the seed on the searched tasks, paired task by task, and whether it is within noise; null for the seed
    */
-  searchedGain: GainReadingResponseDto | null;
+  searchedGain: GainEstimateResponseDto | null;
   /**
    * Its gain over the seed on the held-out tasks, once its held-out replay finished; null for the seed
    */
-  heldOutGain: GainReadingResponseDto | null;
+  heldOutGain: GainEstimateResponseDto | null;
   /**
    * Searched tasks whose change the judge, comparing it blind with the seed’s, found better, worse or as good; null for the seed
    */
@@ -8596,7 +8596,7 @@ export type SearchCandidateResponseDto = {
    * What it spent per searched run; unknown while any of it went unpriced or was in another currency
    */
   costPerRun: number | null;
-  spent: SpendResponseDto;
+  spent: MoneyResponseDto;
   /**
    * Whether no other candidate, nor the seed, succeeds as often for less
    */
@@ -8604,7 +8604,7 @@ export type SearchCandidateResponseDto = {
   /**
    * marked when it beat the live config on the searched tasks but not on the held-out ones, so its gain showed only on the tasks the search could see; too-few-held-out when it beat the live config on the searched tasks but too few held-out tasks were scored on both sides to tell; null otherwise, and until its held-out replay finished
    */
-  onlyOnSeenTasks: 'marked' | 'too-few-held-out' | null;
+  overfit: 'likely' | 'too-few-held-out' | null;
   /**
    * The pull request Spotlight opens in the line’s config repository once a person picks the candidate; null until then, and always for the seed
    */
@@ -8621,9 +8621,9 @@ export type SearchDetailResponseDto = {
    */
   state: 'seeding' | 'searching' | 'holding-out' | 'finished' | 'stopped';
   /**
-   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose outcome says why), was stopped by a person, lost its station or set, or could not replay the live config
+   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose result says why), was stopped by a person, lost its station or set, or could not replay the live config
    */
-  ending: 'iterations-spent' | 'ceiling-reached' | 'stalled' | 'stopped' | 'station-gone' | 'set-gone' | 'seed-failed' | null;
+  stopReason: 'iterations-spent' | 'ceiling-reached' | 'stalled' | 'stopped' | 'station-gone' | 'set-gone' | 'seed-failed' | null;
   agent: SearchAgentResponseDto;
   budget: SearchBudgetResponseDto;
   /**
@@ -8633,7 +8633,7 @@ export type SearchDetailResponseDto = {
   /**
    * What it spent so far, in its ceiling’s currency: its replays and its agent’s runs
    */
-  spent: SpendResponseDto;
+  spent: MoneyResponseDto;
   /**
    * How many times its agent ran, or is running
    */
@@ -8662,7 +8662,7 @@ export type SearchDetailResponseDto = {
   /**
    * How many frontier candidates gained only on the tasks the search could see
    */
-  onlyOnSeenTasks: number;
+  overfitCount: number;
   /**
    * The smallest gain over the seed its line counts as real: replay_check.min_gain, or 0.05 when the line sets none
    */
@@ -8697,9 +8697,9 @@ export type ConfigPullRequestResponseDto = {
    */
   branch: string;
   /**
-   * How many times a person picked it; each pick after a failure tries again
+   * How many times a person picked it. Each pick after a failure starts a new generation
    */
-  attempts: number;
+  generation: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -8754,18 +8754,18 @@ export type ReplayCheckThresholdResponseDto = {
   /**
    * The most each replay of the check may spend: the replay of the planned change and, when the set has no baseline of the live config yet, the baseline replay the check starts, each up to this ceiling on its own; a baseline already there costs the check nothing. A replay at its ceiling starts no more runs, though runs already going finish, so it may end a little over it
    */
-  ceiling: SpendResponseDto;
+  ceiling: MoneyResponseDto;
   /**
    * What a run that reports no price, or a price in another currency, counts against the ceiling: the ceiling shared out over the set’s runs; null once the replay is gone
    */
-  unpricedRun: SpendResponseDto | null;
+  unpricedRun: MoneyResponseDto | null;
 };
 
 export type ReplayCheckSideResponseDto = {
   /**
    * The replay’s state; null once it is gone
    */
-  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | null;
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached' | null;
   entries: number;
   scored: number;
   succeeded: number | null;
@@ -8775,10 +8775,10 @@ export type ReplayCheckSideResponseDto = {
    */
   interval: RateIntervalResponseDto | null;
   /**
-   * Tasks with at least one scored copy
+   * Tasks with at least one scored repeat
    */
   tasksScored: number;
-  spent: SpendResponseDto | null;
+  spent: MoneyResponseDto | null;
 };
 
 export type ReplayCheckReasonResponseDto = {
@@ -8791,11 +8791,11 @@ export type ReplayCheckRegressionResponseDto = {
   originalRunId: string;
   title: string | null;
   /**
-   * The result of each copy the candidate replayed
+   * The result of each repeat the candidate replayed
    */
   candidate: Array<'pending' | 'succeeded' | 'failed' | 'unscored'>;
   /**
-   * The result of each copy the baseline replayed
+   * The result of each repeat the baseline replayed
    */
   baseline: Array<'pending' | 'succeeded' | 'failed' | 'unscored'>;
   scoreDelta: number | null;
@@ -8809,7 +8809,7 @@ export type ReplayCheckResponseDto = {
   stationId: string;
   stationKey: string;
   /**
-   * The replay set that guards the station’s changes
+   * The replay set that gates the station’s changes
    */
   setId: string;
   setName: string | null;
@@ -8839,16 +8839,16 @@ export type ReplayCheckResponseDto = {
    */
   repeats: number;
   /**
-   * The candidate’s gain in success over the baseline and whether it is within noise; it does not decide the verdict
+   * The candidate’s gain in success over the baseline and whether it is within noise; it does not decide the result
    */
-  gain: GainReadingResponseDto | null;
+  gain: GainEstimateResponseDto | null;
   /**
    * failed as soon as more tasks regressed than the threshold allows; running while either replay runs; undecided when the replay stopped or reached its ceiling, the baseline did not finish, or fewer than half the tasks were scored on both sides; passed otherwise
    */
-  verdict: 'running' | 'passed' | 'failed' | 'undecided';
+  result: 'running' | 'passed' | 'failed' | 'undecided';
   undecidedBecause: 'replay-gone' | 'stopped' | 'over-ceiling' | 'baseline-unfinished' | 'no-baseline' | 'too-few-scored' | null;
   /**
-   * How many tasks the guarding set replays
+   * How many tasks the gating set replays
    */
   tasks: number;
   /**
@@ -8873,7 +8873,7 @@ export type ReplayCheckSummaryResponseDto = {
   id: string;
   stationId: string;
   stationKey: string;
-  verdict: 'running' | 'passed' | 'failed' | 'undecided';
+  result: 'running' | 'passed' | 'failed' | 'undecided';
   undecidedBecause: 'replay-gone' | 'stopped' | 'over-ceiling' | 'baseline-unfinished' | 'no-baseline' | 'too-few-scored' | null;
   /**
    * How many tasks the change regressed on
@@ -8917,7 +8917,7 @@ export type SearchCandidateProposedResponseDto = {
   replayId: string;
 };
 
-export type RecordSearchCauseRequestDto = {
+export type RecordFailureCauseRequestDto = {
   /**
    * A failing task the reflection’s briefing lists, by its task id
    */
@@ -8936,7 +8936,7 @@ export type RecordSearchCauseRequestDto = {
   suggestion?: string | null;
 };
 
-export type SearchCauseRecordedResponseDto = {
+export type FailureCauseRecordedResponseDto = {
   taskId: string;
   cause: 'config' | 'task' | 'judge' | 'check' | 'infra';
   /**
@@ -8959,7 +8959,7 @@ export type ReplayedPeriodResponseDto = {
 
 export type ReplaySetHealthResponseDto = {
   /**
-   * How much its success rate moves between copies of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has
+   * How much its success rate moves between repeats of the same runs, from the newest finished replay of the live config that replayed each run more than once; null until one has
    */
   noise: SetNoiseResponseDto | null;
   /**
@@ -8967,11 +8967,11 @@ export type ReplaySetHealthResponseDto = {
    */
   saturation: SetSaturationResponseDto | null;
   /**
-   * How often the judge agrees with itself, from the set’s newest probe; null until a probe was judged
+   * How often the judge agrees with itself, from the set’s newest calibration; null until a calibration was judged
    */
   judge: JudgeConsistencyResponseDto | null;
   /**
-   * Whether the station’s check returns the same answer twice, from the set’s newest probe; null until a probe was checked
+   * Whether the station’s check returns the same answer twice, from the set’s newest calibration; null until a calibration was checked
    */
   checks: CheckConsistencyResponseDto | null;
   /**
@@ -9006,7 +9006,7 @@ export type ReplaySetHealthResponseDto = {
 
 export type ReplayedBaselineResponseDto = {
   replayId: string;
-  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached';
   /**
    * The fingerprint of the live config it replayed
    */
@@ -9032,12 +9032,12 @@ export type ReplayedBaselineResponseDto = {
   /**
    * Where it goes on the set’s cost and success chart: priced when finished, scored and costed in the chart currency; unfinished, unscored, unpriced or other-currency say why it is left off
    */
-  charted: 'priced' | 'unpriced' | 'other-currency' | 'unscored' | 'unfinished';
+  chartStatus: 'priced' | 'unpriced' | 'other-currency' | 'unscored' | 'unfinished';
 };
 
 export type ReplayedHeldOutResponseDto = {
   replayId: string;
-  state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | null;
+  state: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached' | null;
   /**
    * Its success rate on the held-out tasks, 0 to 1, once its held-out replay finished
    */
@@ -9095,7 +9095,7 @@ export type ReplayedSeedResponseDto = {
   /**
    * Where it goes on the set’s cost and success chart: priced when finished, scored and costed in the chart currency; unfinished, unscored, unpriced or other-currency say why it is left off
    */
-  charted: 'priced' | 'unpriced' | 'other-currency' | 'unscored' | 'unfinished';
+  chartStatus: 'priced' | 'unpriced' | 'other-currency' | 'unscored' | 'unfinished';
 };
 
 export type ReplayedSearchResponseDto = {
@@ -9167,7 +9167,7 @@ export type ReplayedCandidateResponseDto = {
    * Its replay: on the searched tasks when searched, of the whole set when proposed
    */
   replayId: string;
-  replayState: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | null;
+  replayState: 'queued' | 'running' | 'finished' | 'stopped' | 'ceiling-reached' | null;
   /**
    * When the replay shown started: for a proposed candidate, its newest finished replay in the period, else its newest; null while a searched candidate’s replay cannot be found
    */
@@ -9228,7 +9228,7 @@ export type ReplayedCandidateResponseDto = {
   /**
    * Its gain in success over the baseline on the compared runs, paired task by task, and whether it is within noise; null without a baseline
    */
-  againstLive: GainReadingResponseDto | null;
+  gainOverLive: GainEstimateResponseDto | null;
   /**
    * Whether no other candidate of its search, nor the seed, succeeds as often for less; null unless searched
    */
@@ -9244,7 +9244,7 @@ export type ReplayedCandidateResponseDto = {
   /**
    * Where it goes on the set’s cost and success chart: priced when finished, scored and costed in the chart currency; unfinished, unscored, unpriced or other-currency say why it is left off
    */
-  charted: 'priced' | 'unpriced' | 'other-currency' | 'unscored' | 'unfinished';
+  chartStatus: 'priced' | 'unpriced' | 'other-currency' | 'unscored' | 'unfinished';
   /**
    * The success and cost to set beside live: on the compared runs when there are any, else overall
    */
@@ -9261,7 +9261,7 @@ export type ReplayedSetResponseDto = {
   /**
    * Whether it checks every pull request that changes its station
    */
-  guardsChanges: boolean;
+  gatesChanges: boolean;
   /**
    * The current health of the set, whatever the period
    */
@@ -11334,7 +11334,7 @@ export type ReadReplayRunErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * No such replay run of the team for a caller who may read its outcomes
+   * No such replay run of the team for a caller who may read its insights
    */
   404: ProblemResponseDto;
 };
@@ -18163,7 +18163,7 @@ export type ReadMemoryFilesResponses = {
 
 export type ReadMemoryFilesResponse = ReadMemoryFilesResponses[keyof ReadMemoryFilesResponses];
 
-export type ListStationOutcomesData = {
+export type ReadStationInsightsData = {
   body?: never;
   path: {
     teamId: string;
@@ -18176,10 +18176,10 @@ export type ListStationOutcomesData = {
      */
     last?: number;
   };
-  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/outcomes';
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/insights';
 };
 
-export type ListStationOutcomesErrors = {
+export type ReadStationInsightsErrors = {
   /**
    * No valid session
    */
@@ -18190,11 +18190,11 @@ export type ListStationOutcomesErrors = {
   404: unknown;
 };
 
-export type ListStationOutcomesResponses = {
-  200: StationOutcomesResponseDto;
+export type ReadStationInsightsResponses = {
+  200: StationInsightsResponseDto;
 };
 
-export type ListStationOutcomesResponse = ListStationOutcomesResponses[keyof ListStationOutcomesResponses];
+export type ReadStationInsightsResponse = ReadStationInsightsResponses[keyof ReadStationInsightsResponses];
 
 export type ReadStationJudgeData = {
   body?: never;
@@ -18531,7 +18531,7 @@ export type ReadInsightsChangesResponses = {
 
 export type ReadInsightsChangesResponse = ReadInsightsChangesResponses[keyof ReadInsightsChangesResponses];
 
-export type ReadInsightsSetupsData = {
+export type ReadInsightsAgentConfigsData = {
   body?: never;
   path: {
     teamId: string;
@@ -18550,10 +18550,10 @@ export type ReadInsightsSetupsData = {
      */
     period?: '7d' | '30d' | '90d';
   };
-  url: '/teams/{teamId}/insights/setups';
+  url: '/teams/{teamId}/insights/agent-configs';
 };
 
-export type ReadInsightsSetupsErrors = {
+export type ReadInsightsAgentConfigsErrors = {
   /**
    * No valid session or token
    */
@@ -18568,11 +18568,11 @@ export type ReadInsightsSetupsErrors = {
   422: unknown;
 };
 
-export type ReadInsightsSetupsResponses = {
-  200: InsightsSetupsResponseDto;
+export type ReadInsightsAgentConfigsResponses = {
+  200: InsightsAgentConfigsResponseDto;
 };
 
-export type ReadInsightsSetupsResponse = ReadInsightsSetupsResponses[keyof ReadInsightsSetupsResponses];
+export type ReadInsightsAgentConfigsResponse = ReadInsightsAgentConfigsResponses[keyof ReadInsightsAgentConfigsResponses];
 
 export type ReadInsightsMemoryData = {
   body?: never;
@@ -18635,7 +18635,7 @@ export type ReadStationAlertErrors = {
 };
 
 export type ReadStationAlertResponses = {
-  200: StationAlertCrossingResponseDto;
+  200: StationAlertFiringResponseDto;
 };
 
 export type ReadStationAlertResponse = ReadStationAlertResponses[keyof ReadStationAlertResponses];
@@ -18749,9 +18749,9 @@ export type ListInsightsPullRequestsData = {
      */
     type?: 'feature' | 'fix' | 'refactor' | 'tests' | 'chore' | 'other';
     /**
-     * spotlight for those a task opened, touched for others’ a Spotlight review task was opened on, bots for bots’ with no such task, people for the rest
+     * spotlight for those a task opened, reviewed for others’ a Spotlight review task was opened on, bots for bots’ with no such task, people for the rest
      */
-    author?: 'spotlight' | 'touched' | 'people' | 'bots';
+    author?: 'spotlight' | 'reviewed' | 'people' | 'bots';
     /**
      * Only pull requests in these repositories, comma-separated or repeated, at most 50
      */
@@ -18804,13 +18804,13 @@ export type ListInsightsRunsData = {
      */
     asked?: boolean;
     /**
-     * Only runs a person next acted on this way
+     * Only runs that a person acted on first in this way
      */
-    next?: 'started' | 'parked' | 'closed' | 'answered' | 'sent-back';
+    humanAction?: 'started' | 'parked' | 'accepted' | 'answered' | 'sent-back';
     /**
      * Only runs of tasks whose pull request has this status
      */
-    delivery?: 'open' | 'merged' | 'closed';
+    pullRequestState?: 'open' | 'merged' | 'closed';
     /**
      * Only runs a person refused a tool of this MCP server for; none for tools of no server
      */
@@ -19650,7 +19650,7 @@ export type RemoveReplaySetEntryResponses = {
 
 export type RemoveReplaySetEntryResponse = RemoveReplaySetEntryResponses[keyof RemoveReplaySetEntryResponses];
 
-export type UnguardChangesData = {
+export type UngateChangesData = {
   body?: never;
   headers?: {
     /**
@@ -19667,10 +19667,10 @@ export type UnguardChangesData = {
     setId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/replay-sets/{setId}/guards-changes';
+  url: '/teams/{teamId}/replay-sets/{setId}/gates-changes';
 };
 
-export type UnguardChangesErrors = {
+export type UngateChangesErrors = {
   /**
    * Malformed, or requests an API version this server does not serve
    */
@@ -19689,18 +19689,18 @@ export type UnguardChangesErrors = {
   404: ProblemResponseDto;
 };
 
-export type UnguardChangesError = UnguardChangesErrors[keyof UnguardChangesErrors];
+export type UngateChangesError = UngateChangesErrors[keyof UngateChangesErrors];
 
-export type UnguardChangesResponses = {
+export type UngateChangesResponses = {
   /**
-   * It no longer guards the station’s changes
+   * It no longer gates the station’s changes
    */
   204: void;
 };
 
-export type UnguardChangesResponse = UnguardChangesResponses[keyof UnguardChangesResponses];
+export type UngateChangesResponse = UngateChangesResponses[keyof UngateChangesResponses];
 
-export type GuardChangesData = {
+export type GateChangesData = {
   body?: never;
   headers?: {
     /**
@@ -19717,10 +19717,10 @@ export type GuardChangesData = {
     setId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/replay-sets/{setId}/guards-changes';
+  url: '/teams/{teamId}/replay-sets/{setId}/gates-changes';
 };
 
-export type GuardChangesErrors = {
+export type GateChangesErrors = {
   /**
    * Malformed, or requests an API version this server does not serve
    */
@@ -19738,21 +19738,21 @@ export type GuardChangesErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * Another set guards the station’s changes already, or the set’s station is gone
+   * Another set gates the station’s changes already, or the set’s station is gone
    */
   409: ProblemResponseDto;
 };
 
-export type GuardChangesError = GuardChangesErrors[keyof GuardChangesErrors];
+export type GateChangesError = GateChangesErrors[keyof GateChangesErrors];
 
-export type GuardChangesResponses = {
+export type GateChangesResponses = {
   /**
-   * It guards the station’s changes
+   * It gates the station’s changes
    */
   204: void;
 };
 
-export type GuardChangesResponse = GuardChangesResponses[keyof GuardChangesResponses];
+export type GateChangesResponse = GateChangesResponses[keyof GateChangesResponses];
 
 export type ListReplaysData = {
   body?: never;
@@ -20384,7 +20384,7 @@ export type StartReplayCheckErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * The line has no replay_check, no replay set guards the station’s changes, or the plan changes nothing that changes how its runs go (nothing-to-replay)
+   * The line has no replay_check, no replay set gates the station’s changes, or the plan changes nothing that changes how its runs go (nothing-to-replay)
    */
   409: ProblemResponseDto;
   /**
@@ -20539,16 +20539,16 @@ export type ProposeSearchCandidateResponses = {
 
 export type ProposeSearchCandidateResponse = ProposeSearchCandidateResponses[keyof ProposeSearchCandidateResponses];
 
-export type RecordSearchCauseData = {
-  body: RecordSearchCauseRequestDto;
+export type RecordFailureCauseData = {
+  body: RecordFailureCauseRequestDto;
   path: {
     runId: string;
   };
   query?: never;
-  url: '/runs/{runId}/search-causes';
+  url: '/runs/{runId}/failure-causes';
 };
 
-export type RecordSearchCauseErrors = {
+export type RecordFailureCauseErrors = {
   /**
    * Missing, no longer valid or wrong runner token
    */
@@ -20567,13 +20567,13 @@ export type RecordSearchCauseErrors = {
   422: ProblemResponseDto;
 };
 
-export type RecordSearchCauseError = RecordSearchCauseErrors[keyof RecordSearchCauseErrors];
+export type RecordFailureCauseError = RecordFailureCauseErrors[keyof RecordFailureCauseErrors];
 
-export type RecordSearchCauseResponses = {
-  201: SearchCauseRecordedResponseDto;
+export type RecordFailureCauseResponses = {
+  201: FailureCauseRecordedResponseDto;
 };
 
-export type RecordSearchCauseResponse = RecordSearchCauseResponses[keyof RecordSearchCauseResponses];
+export type RecordFailureCauseResponse = RecordFailureCauseResponses[keyof RecordFailureCauseResponses];
 
 export type ReadConfigPullRequestData = {
   body?: never;

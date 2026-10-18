@@ -8,13 +8,13 @@ import { PeopleSkeleton } from '@/components/features/insights/PeopleSkeleton';
 import { PeopleTable } from '@/components/features/insights/PeopleTable';
 import { useInsightsPeople } from '@/hooks/api/useInsightsPeople';
 import {
-  changeDelta,
   formatCount,
   formatPer,
   formatShare,
   type InsightsPeriod,
   lasted,
   lastedOrNone,
+  shownDeltaOf,
   tasksFilter,
 } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
@@ -59,7 +59,7 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
             label="Inbox asks per task"
             value={formatPer(load.asksPerTask)}
             detail={`${formatCount(load.asks)} asks`}
-            delta={changeDelta(loadChanges.asksPerTask)}
+            delta={shownDeltaOf(loadChanges.asksPerTask)}
             drill={{ tab: 'runs', filter: { asked: 'true' } }}
           />
           <InsightsTile
@@ -71,21 +71,21 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
                 : [`p90 ${lasted(load.toAnswer.p90Ms)}`]),
               `${formatCount(load.unanswered)} unanswered`,
             ].join(' · ')}
-            delta={changeDelta(loadChanges.toAnswer)}
+            delta={shownDeltaOf(loadChanges.toAnswer)}
             drill={{ tab: 'runs', filter: { asked: 'true' } }}
           />
           <InsightsTile
             label="Sent-back rate"
             value={formatShare(load.sentBackRate)}
             detail={`${formatCount(load.sentBack)} runs sent back`}
-            delta={changeDelta(loadChanges.sentBackRate)}
-            drill={{ tab: 'runs', filter: { next: 'sent-back' } }}
+            delta={shownDeltaOf(loadChanges.sentBackRate)}
+            drill={{ tab: 'runs', filter: { humanAction: 'sent-back' } }}
           />
           <InsightsTile
             label="Refused approvals"
             value={formatCount(load.refused)}
             detail="Tool approvals and permissions"
-            delta={changeDelta(loadChanges.refused)}
+            delta={shownDeltaOf(loadChanges.refused)}
             drill={refused ? { tab: 'runs', filter: refused } : undefined}
           />
         </InsightsTiles>
@@ -99,7 +99,7 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
           <InsightsTile
             label="Active people"
             value={formatCount(adoption.activeCount)}
-            delta={changeDelta(adoption.activeChange)}
+            delta={shownDeltaOf(adoption.activeChange)}
           />
           <InsightsTile
             label="New adopters"

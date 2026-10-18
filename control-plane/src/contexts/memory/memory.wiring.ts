@@ -62,8 +62,8 @@ import { DeleteMemoryDraft } from '@memory/application/services/delete-memory-dr
 import { MemoriesForBriefing } from '@memory/application/services/memories-for-briefing.service';
 import { MemoryAccess } from '@memory/application/services/memory-access.service';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
-import { NoteMemoryUses } from '@memory/application/services/note-memory-uses.service';
 import { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
+import { RecordRunMemoryUses } from '@memory/application/services/record-run-memory-uses.service';
 import { RequestMemories } from '@memory/application/services/request-memories.service';
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import { TeamMemoryLoader } from '@memory/application/services/team-memory-loader.service';
@@ -250,13 +250,13 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     ) => new RecordMemoryUses(uses, events, transaction, clock),
   },
   {
-    provide: NoteMemoryUses,
+    provide: RecordRunMemoryUses,
     inject: [RecordMemoryUses, WORK, DrizzleMemoryRepository],
     useFactory: (
       recording: RecordMemoryUses,
       work: WorkPort,
       memories: DrizzleMemoryRepository,
-    ) => new NoteMemoryUses(recording, work, memories),
+    ) => new RecordRunMemoryUses(recording, work, memories),
   },
   ...bindQueryHandler(ReadMemoryFilesQuery, ReadMemoryFilesHandler, [
     RunnerMemoryLoader,
@@ -426,7 +426,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       RequestMemories,
       DeleteMemoryDraft,
       MemoryReactions,
-      NoteMemoryUses,
+      RecordRunMemoryUses,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -435,12 +435,12 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       requesting: RequestMemories,
       deleting: DeleteMemoryDraft,
       reactions: MemoryReactions,
-      noting: NoteMemoryUses,
+      recording: RecordRunMemoryUses,
     ) => {
       types.register('memory', MEMORY_PAYLOAD_TYPES);
       mappers.register(MEMORY_EVENT_MAPPERS);
       subscribers.register(
-        memorySubscribers(requesting, deleting, reactions, noting),
+        memorySubscribers(requesting, deleting, reactions, recording),
       );
       return true;
     },

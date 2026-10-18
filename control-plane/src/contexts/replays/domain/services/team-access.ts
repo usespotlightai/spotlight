@@ -1,4 +1,4 @@
-import { NotOnTeamError } from '@replays/domain/exceptions/not-on-team.error';
+import { TeamNotFoundError } from '@replays/domain/exceptions/team-not-found.error';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -21,7 +21,7 @@ export class TeamAccess {
 
   static onTeam(teamId: string, membership: Membership | null): TeamAccess {
     if (!membership) {
-      throw new NotOnTeamError(teamId);
+      throw new TeamNotFoundError(teamId);
     }
 
     return new TeamAccess(

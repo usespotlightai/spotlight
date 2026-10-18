@@ -1,4 +1,4 @@
-import { OnlyOnSeenTasksMark } from '@/components/features/searches/OnlyOnSeenTasksMark';
+import { OverfitMark } from '@/components/features/searches/OverfitMark';
 import { CandidatePullRequest } from '@/components/features/searches/search/CandidatePullRequest';
 import { Noted } from '@/components/shared/Noted';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
@@ -106,9 +106,7 @@ export function CandidateTableRow({
             />
           </Noted>
         )}
-        {candidate.onlyOnSeenTasks && (
-          <OnlyOnSeenTasksMark mark={candidate.onlyOnSeenTasks} />
-        )}
+        {candidate.overfit && <OverfitMark mark={candidate.overfit} />}
       </span>
       <NestedCell heading="Searched" strong>
         {unfinished ? (
@@ -140,7 +138,9 @@ export function CandidateTableRow({
       <NestedCell heading="Gain">
         {gain ? (
           <Noted note={candidateGainNote(gain, candidate.heldOutGain)}>
-            <span className={cn('relative z-10', GAIN_TONES[gain.verdict])}>
+            <span
+              className={cn('relative z-10', GAIN_TONES[gain.significance])}
+            >
               {formatGain(gain)}
             </span>
           </Noted>
