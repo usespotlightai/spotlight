@@ -1,3 +1,4 @@
+import { MIN_HOST_RELEASE } from '@runners/application/contracts/least-host-release.contract';
 import type {
   HostDto,
   LiveRunnerDto,
@@ -6,6 +7,7 @@ import type {
   HostSummary,
   LiveRunnerSummary,
 } from '@runners/application/ports/runner-reader.port';
+import { isOlderRelease } from '@runners/domain/services/release-order';
 
 export const RunnerFleetMapper = {
   host(summary: HostSummary, online: boolean): HostDto {
@@ -14,6 +16,9 @@ export const RunnerFleetMapper = {
       name: summary.name,
       source: summary.source,
       release: summary.release,
+      unavailableReason: isOlderRelease(summary.release, MIN_HOST_RELEASE)
+        ? `Host is on release ${summary.release}. Minimum release required: ${MIN_HOST_RELEASE}. Update it with: spotlight host update`
+        : null,
       containerRuntime: summary.containerRuntime,
       capacity: summary.capacity,
       running: summary.running,

@@ -947,6 +947,17 @@ export type PoolQueueResponseDto = {
   };
 };
 
+export type HostReleaseResponseDto = {
+  /**
+   * The published release this control plane runs; a host on another release updates to it, unless the operator turned that off. Null when the control plane runs a staging build or does not know its release
+   */
+  release: string | null;
+  /**
+   * The oldest host release this control plane gives work to; an older host gets no work until it updates
+   */
+  minimum: string;
+};
+
 export type RunnerReleaseResponseDto = {
   /**
    * The oldest runner release this control plane works with; a host cannot use an image whose runner is older
@@ -955,6 +966,7 @@ export type RunnerReleaseResponseDto = {
 };
 
 export type HostRequirementsResponseDto = {
+  host: HostReleaseResponseDto;
   runner: RunnerReleaseResponseDto;
   /**
    * What a host looks for in each runner image
@@ -3004,6 +3016,10 @@ export type HostResponseDto = {
    * The spotlight release
    */
   release: string;
+  /**
+   * Why the control plane gives this host no work, or null when it gives it work
+   */
+  unavailableReason: string | null;
   containerRuntime: string;
   /**
    * How many sandboxes it runs at once
@@ -10433,7 +10449,7 @@ export type ClaimHostWorkErrors = {
    */
   401: unknown;
   /**
-   * The host has not reported through this pool or trust (`host-unreported`), or has not reported that it supports the image it claims for (`image-unreported`)
+   * The host has not reported through this pool or trust (`host-unreported`), is on a release older than the host minimum (`host-outdated`), or has not reported that it supports the image it claims for (`image-unreported`)
    */
   409: unknown;
 };

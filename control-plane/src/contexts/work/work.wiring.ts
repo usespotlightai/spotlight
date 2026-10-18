@@ -245,6 +245,10 @@ import {
   CONTENT_HASH,
   type ContentHashPort,
 } from '@work/application/ports/content-hash.port';
+import {
+  CONTROL_PLANE_RELEASE,
+  type ControlPlaneReleasePort,
+} from '@work/application/ports/control-plane-release.port';
 import { ENABLED_AT_STATIONS } from '@work/application/ports/enabled-at-stations.port';
 import { GIT_GATEWAY } from '@work/application/ports/git-gateway.port';
 import { HAPPENING_REACTIONS } from '@work/application/ports/happening-reactions.port';
@@ -958,6 +962,14 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   { provide: TEAM_TRACE_READER, useClass: DrizzleTeamTraceReader },
 
   { provide: ATTACHMENT_READER, useClass: DrizzleAttachmentReader },
+
+  {
+    provide: CONTROL_PLANE_RELEASE,
+    inject: [ENV],
+    useFactory: (env: Env): ControlPlaneReleasePort => ({
+      release: env.SPOTLIGHT_RELEASE || null,
+    }),
+  },
 
   {
     provide: SANDBOX_HOSTS,
@@ -1888,6 +1900,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     HARNESS_LAUNCH,
     RUNNER_AUTHENTICATOR,
     LINE_IMAGES,
+    CONTROL_PLANE_RELEASE,
   ]),
 
   ...bindQueryHandler(PoolQueueQuery, PoolQueueHandler, [

@@ -1,3 +1,4 @@
+import { MIN_HOST_RELEASE } from '@runners/application/contracts/least-host-release.contract';
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
 import type {
   ProvisionAnswer,
@@ -271,6 +272,31 @@ describe('Runners', () => {
         ),
       ).resolves.toEqual({ outcome: 'host-unreported' });
       expect(added).toEqual([]);
+    });
+
+    it('starts none for a host on a release older than the host minimum, and says both releases', async () => {
+      const { service, added } = running(aPullPool(), {
+        host: aHost({ release: '20261001-04' }),
+      });
+
+      await expect(
+        service.start(THROUGH_POOL, HOST, IMAGE, STARTED_AT, CLAIM_BY),
+      ).resolves.toEqual({
+        outcome: 'host-outdated',
+        release: '20261001-04',
+        minimum: MIN_HOST_RELEASE,
+      });
+      expect(added).toEqual([]);
+    });
+
+    it('starts one for a host on the host minimum', async () => {
+      const { service } = running(aPullPool(), {
+        host: aHost({ release: MIN_HOST_RELEASE }),
+      });
+
+      await expect(
+        service.start(THROUGH_POOL, HOST, IMAGE, STARTED_AT, CLAIM_BY),
+      ).resolves.toMatchObject({ outcome: 'started' });
     });
   });
 

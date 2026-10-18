@@ -1,3 +1,4 @@
+import { MIN_HOST_RELEASE } from '@runners/application/contracts/least-host-release.contract';
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
 import type {
   ProvisionAnswer,
@@ -109,6 +110,14 @@ export class Runners implements RunnersPort {
 
     if (!known?.hasSource(CredentialSource.of(source.kind, source.id))) {
       return { outcome: 'host-unreported' };
+    }
+
+    if (known.isOlderThan(MIN_HOST_RELEASE)) {
+      return {
+        outcome: 'host-outdated',
+        release: known.report.release,
+        minimum: MIN_HOST_RELEASE,
+      };
     }
 
     const supported = known.supportedImage(RunnerImage.of(image));

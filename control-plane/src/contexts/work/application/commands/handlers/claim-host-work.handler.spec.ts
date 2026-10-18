@@ -246,6 +246,19 @@ describe('ClaimHostWorkHandler', () => {
     expect(claimNext).not.toHaveBeenCalled();
   });
 
+  it('answers a host older than the host minimum as host-outdated with both releases, without waiting', async () => {
+    const outdated = {
+      outcome: 'host-outdated',
+      release: '20261001-04',
+      minimum: '20261002-02',
+    } as const;
+    const { handler, runners, claimNext } = pulling({ started: outdated });
+
+    expect(await handler.execute(pull())).toEqual(outdated);
+    expect(runners.start).toHaveBeenCalledTimes(1);
+    expect(claimNext).not.toHaveBeenCalled();
+  });
+
   it('answers a claim for an image the host did not report supporting as image-unreported', async () => {
     const { handler, claimNext } = pulling({
       started: { outcome: 'image-unreported' },

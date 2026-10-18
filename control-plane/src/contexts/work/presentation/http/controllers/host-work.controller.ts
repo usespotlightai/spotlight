@@ -47,6 +47,7 @@ import {
 import { HostCallResponseDto } from '@work/presentation/http/dto/host-call.response.dto';
 import { ClaimHostWorkRequestDto } from '@work/presentation/http/dto/host-claim.request.dto';
 import {
+  HostReleaseResponseDto,
   HostRequirementsResponseDto,
   RunnerReleaseResponseDto,
 } from '@work/presentation/http/dto/host-requirements.response.dto';
@@ -97,6 +98,7 @@ export class HostWorkController {
     }
 
     return new HostRequirementsResponseDto(
+      new HostReleaseResponseDto(required.hostRelease, required.hostMinimum),
       new RunnerReleaseResponseDto(required.runnerMinimum),
       required.harnesses.map(
         (harness) =>
@@ -123,7 +125,7 @@ export class HostWorkController {
   @ApiOkResponse({ type: HostClaimResponseDto })
   @ApiConflictResponse({
     description:
-      'The host has not reported through this pool or trust (`host-unreported`), or has not reported that it supports the image it claims for (`image-unreported`)',
+      'The host has not reported through this pool or trust (`host-unreported`), is on a release older than the host minimum (`host-outdated`), or has not reported that it supports the image it claims for (`image-unreported`)',
   })
   @ApiNoContentResponse({
     description:
@@ -155,6 +157,13 @@ export class HostWorkController {
         reason: 'host-unreported',
         message:
           'This host has not reported through this pool or trust. Please send a heartbeat first.',
+      });
+    }
+
+    if (claimed.outcome === 'host-outdated') {
+      throw new ConflictException({
+        reason: 'host-outdated',
+        message: `This host is on release ${claimed.release}. Minimum release required: ${claimed.minimum}. Update it with: spotlight host update`,
       });
     }
 

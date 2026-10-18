@@ -153,6 +153,7 @@ describe('runner pools (e2e)', () => {
     host = HOST,
     running: string[] = [],
     bootId = 'boot_1',
+    release = '0.1.0',
   ) =>
     http()
       .put(`/api/hosts/${host}`)
@@ -160,7 +161,7 @@ describe('runner pools (e2e)', () => {
       .send({
         bootId,
         name: 'build-box',
-        release: '0.1.0',
+        release,
         containerRuntime: 'docker',
         capacity: 2,
         running,
@@ -273,6 +274,7 @@ describe('runner pools (e2e)', () => {
         .expect(200);
 
       expect(required.body).toEqual({
+        host: { release: null, minimum: expect.any(String) },
         runner: { minimum: expect.any(String) },
         harnesses: expect.arrayContaining([
           expect.objectContaining({ id: 'claude-code' }),
@@ -740,6 +742,19 @@ describe('runner pools (e2e)', () => {
       await heartbeat(tokenOf('x')).expect(401);
     });
 
+    it('claims nothing for a host on a release older than the host minimum, and says how to update it', async () => {
+      const token = tokenOf('outdated');
+      await create({ key: 'ephemeral', token }).expect(201);
+      await heartbeat(token, HOST, [], 'boot_1', '20200101-01').expect(200);
+      await queue();
+
+      const outdated = await claimWith(token).expect(409);
+      expect(outdated.body).toMatchObject({
+        reason: 'host-outdated',
+        message: expect.stringContaining('spotlight host update'),
+      });
+    });
+
     it('claims nothing for a host id that never sent a heartbeat', async () => {
       const token = tokenOf('p');
       await create({ key: 'ephemeral', token }).expect(201);
@@ -895,6 +910,7 @@ describe('runner pools (e2e)', () => {
             name: 'build-box',
             source: { kind: 'pool', key: 'ephemeral' },
             release: '0.1.0',
+            unavailableReason: null,
             containerRuntime: 'docker',
             capacity: 2,
             running: [],

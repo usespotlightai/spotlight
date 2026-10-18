@@ -135,10 +135,13 @@ export const aRunner = (
     claimBy: new Date(STARTED_AT.getTime() + (input.claimWithinMs ?? 60_000)),
   });
 
-export const aHostReport = (running: string[] = []): HostReport =>
+export const aHostReport = (
+  running: string[] = [],
+  release = '0.9.0',
+): HostReport =>
   HostReport.of({
     name: 'build-box',
-    release: '0.9.0',
+    release,
     containerRuntime: 'docker',
     capacity: 4,
     running,
@@ -160,7 +163,12 @@ export const aHostReport = (running: string[] = []): HostReport =>
   });
 
 export const aHost = (
-  input: { through?: RunnerPool | RunnerTrust; id?: HostId; at?: Date } = {},
+  input: {
+    through?: RunnerPool | RunnerTrust;
+    id?: HostId;
+    at?: Date;
+    release?: string;
+  } = {},
 ): RunnerHost => {
   const through = input.through ?? aPullPool();
 
@@ -169,7 +177,7 @@ export const aHost = (
     workspaceId: through.workspaceId,
     source: CredentialSource.ofId(through.id),
     bootId: BootId.of('boot_1'),
-    report: aHostReport(),
+    report: aHostReport([], input.release),
     at: input.at ?? STARTED_AT,
   });
 };

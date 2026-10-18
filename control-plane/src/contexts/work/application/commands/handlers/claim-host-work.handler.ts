@@ -65,6 +65,10 @@ export class ClaimHostWorkHandler
         return { outcome: 'nothing' };
       }
 
+      if (started.outcome === 'host-outdated') {
+        return started;
+      }
+
       if (started.outcome !== 'started') {
         return started.outcome === 'host-unreported' ||
           started.outcome === 'image-unreported'

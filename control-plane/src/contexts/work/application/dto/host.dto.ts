@@ -4,6 +4,11 @@ export type HostClaimDto =
   | { readonly outcome: 'unauthorized' }
   | { readonly outcome: 'nothing' }
   | { readonly outcome: 'host-unreported' }
+  | {
+      readonly outcome: 'host-outdated';
+      readonly release: string;
+      readonly minimum: string;
+    }
   | { readonly outcome: 'image-unreported' }
   | {
       readonly outcome: 'claimed';

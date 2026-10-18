@@ -60,6 +60,7 @@ const host = (over: Record<string, unknown> = {}) => ({
   name: 'build-box-1',
   source: { kind: 'pool', key: 'build-farm' },
   release: 'v1.4.0',
+  unavailableReason: null,
   containerRuntime: 'Docker Engine 27.3.1 (linux/amd64)',
   capacity: 4,
   running: [],
@@ -205,6 +206,18 @@ describe('Runners', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText('Other Harness')).not.toBeInTheDocument();
+  });
+
+  it('says the control plane gives a host on an old release no work, and how to update it', async () => {
+    const reason =
+      'Host is on release 20261001-04. Minimum release required: 20261002-02. Update it with: spotlight host update';
+    listing([host({ release: '20261001-04', unavailableReason: reason })]);
+
+    renderPage();
+
+    await userEvent.hover(screen.getByText('20261001-04'));
+
+    expect(await screen.findByText(reason)).toBeInTheDocument();
   });
 
   it('names a host serving a trust by the trust', () => {

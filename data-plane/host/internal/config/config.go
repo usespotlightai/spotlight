@@ -21,6 +21,7 @@ import (
 	"usespotlight.ai/data-plane/host/internal/images"
 	"usespotlight.ai/data-plane/host/internal/registry"
 	"usespotlight.ai/data-plane/host/internal/trust"
+	"usespotlight.ai/data-plane/host/internal/update"
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/telemetry"
 )
@@ -42,6 +43,8 @@ type Config struct {
 	State      string
 	Name       string
 	DockerHost string
+	AutoUpdate bool
+	Releases   string
 }
 
 type Egress struct {
@@ -78,6 +81,8 @@ const (
 	envState       = "SPOTLIGHT_STATE"
 	envName        = "SPOTLIGHT_HOST_NAME"
 	envDocker      = "DOCKER_HOST"
+	envAutoUpdate  = "SPOTLIGHT_AUTO_UPDATE"
+	envReleases    = "SPOTLIGHT_RELEASES_URL"
 )
 
 const (
@@ -209,6 +214,19 @@ func Load(version string) (Config, error) {
 
 	if cfg.Name == "" {
 		cfg.Name, _ = os.Hostname()
+	}
+
+	cfg.AutoUpdate = true
+	if raw := get(envAutoUpdate); raw != "" {
+		cfg.AutoUpdate, err = strconv.ParseBool(raw)
+		if err != nil {
+			note(fmt.Errorf("%s: %q is not true or false", envAutoUpdate, raw))
+		}
+	}
+
+	cfg.Releases = strings.TrimSuffix(get(envReleases), "/")
+	if cfg.Releases == "" {
+		cfg.Releases = update.DefaultReleases
 	}
 
 	return cfg, errors.Join(problems...)

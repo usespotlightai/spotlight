@@ -20,6 +20,7 @@ const host = (over: Partial<HostResponseDto> = {}): HostResponseDto => ({
   name: 'build-box-1',
   source: { kind: 'pool', key: 'build-farm' },
   release: 'v1.4.0',
+  unavailableReason: null,
   containerRuntime: 'Docker Engine 27.3.1 (linux/amd64)',
   capacity: 4,
   running: [],
