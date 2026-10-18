@@ -16,7 +16,7 @@ export type ComparedRow = {
   readonly one: string;
   readonly other: string;
   readonly delta: ShownDelta | null;
-  readonly note?: string;
+  readonly tooltip?: string;
   readonly to?: string;
 };
 

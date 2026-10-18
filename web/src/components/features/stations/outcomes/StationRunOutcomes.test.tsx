@@ -150,8 +150,8 @@ describe('StationRunOutcomes', () => {
     showing();
 
     const [newer, older] = screen
-      .getAllByRole('button', { name: /^Fold / })
-      .map((fold) => fold.closest('li') as HTMLElement);
+      .getAllByRole('button', { name: /^Collapse / })
+      .map((toggle) => toggle.closest('li') as HTMLElement);
 
     expect(
       within(newer as HTMLElement).getByRole('button', { name: 'Impact' }),
@@ -165,11 +165,11 @@ describe('StationRunOutcomes', () => {
     showing();
 
     const [newer] = screen
-      .getAllByRole('button', { name: /^Fold / })
-      .map((fold) => fold.closest('li') as HTMLElement);
+      .getAllByRole('button', { name: /^Collapse / })
+      .map((toggle) => toggle.closest('li') as HTMLElement);
 
     expect(newer).toHaveTextContent(
-      'Checks100% passedHuman action50% acceptedPull request50% mergedTook3mCost$1.20',
+      'Checks100% passedHuman action50% acceptedPull request50% mergedDuration3mCost$1.20',
     );
   });
 
@@ -181,10 +181,10 @@ describe('StationRunOutcomes', () => {
     ).getAllByRole('listitem');
 
     expect(first).toHaveTextContent(
-      'CompletedVisit1ChecksChecks passedHuman actionAcceptedPull requestMergedTook3mCost$0.60',
+      'CompletedVisit1ChecksChecks passedHuman actionAcceptedPull requestMergedDuration3mCost$0.60',
     );
     expect(second).toHaveTextContent(
-      'FailedThe agent ran out of turnsVisit2Checks–Human action–Pull request–Took–',
+      'FailedThe agent ran out of turnsVisit2Checks–Human action–Pull request–Duration–',
     );
     expect(
       within(second as HTMLElement).getByRole('link', { name: 'Failed' }),
@@ -204,7 +204,7 @@ describe('StationRunOutcomes', () => {
     ).toBeInTheDocument();
   });
 
-  it('marks a config whose runs never started, apart from the config in force', () => {
+  it('marks a config whose runs never started, apart from the live config', () => {
     outcomes.mockReturnValue({
       stationId: 'station_1',
       groups: [{ ...NEWER, ran: false, firstRunId: 'run_3' }, OLDER],

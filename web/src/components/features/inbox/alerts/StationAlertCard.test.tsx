@@ -191,7 +191,7 @@ describe('StationAlertCard', () => {
     );
   });
 
-  it('says when the station came back within it, and when its runs are gone', () => {
+  it('says when the station alert resolved, and when its runs are gone', () => {
     answer.alert = queried({
       ...ALERT,
       resolvedAt: '2026-10-01T10:00:00.000Z',

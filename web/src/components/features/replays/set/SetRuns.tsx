@@ -5,9 +5,9 @@ import { AddRunsButton } from '@/components/features/replays/set/AddRunsButton';
 import { OutcomeBar } from '@/components/features/replays/set/OutcomeBar';
 import { SetRunRow } from '@/components/features/replays/set/SetRunRow';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { NotedWarning } from '@/components/shared/NotedWarning';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { PanelActions } from '@/components/shared/PanelActions';
+import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import {
   type ReplayedStation,
   type ReplaySet,
@@ -55,10 +55,10 @@ export function SetRuns({ at, set, frozen }: SetRunsProps) {
       }
       actions={
         composition.balanceWarning && (
-          <NotedWarning
+          <WarningTooltip
             tone="warning"
             label="Unbalanced set"
-            note={formatBalanceWarning(composition.balanceWarning)}
+            tooltip={formatBalanceWarning(composition.balanceWarning)}
           />
         )
       }

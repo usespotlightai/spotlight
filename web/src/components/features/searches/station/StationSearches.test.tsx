@@ -227,9 +227,10 @@ describe('StationSearches', () => {
 
     renderSearches();
 
-    expect(
-      screen.getByRole('img', { name: 'Only on seen tasks' }),
-    ).toHaveAttribute('data-mark', 'likely');
+    expect(screen.getByRole('img', { name: 'Likely overfit' })).toHaveAttribute(
+      'data-mark',
+      'likely',
+    );
     expect(
       screen.getByRole('img', { name: 'Too few held-out tasks to tell' }),
     ).toHaveAttribute('data-mark', 'too-few-held-out');

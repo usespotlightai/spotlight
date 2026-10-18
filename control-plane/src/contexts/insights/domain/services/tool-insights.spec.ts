@@ -5,7 +5,7 @@ import {
   toolCountsOf,
   toolInsightsFrom,
 } from '@insights/domain/services/tool-insights';
-import { Refusal } from '@insights/domain/value-objects/refusal.vo';
+import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import {
   RunTools,
   type ServerCalls,
@@ -95,7 +95,7 @@ describe('toolInsightsFrom', () => {
     ]);
   });
 
-  it('marks a skill spreading across the team and at each station that started to use it', () => {
+  it('marks a skill rising across the team and at each station that started to use it', () => {
     const records = [
       ...['a', 'b', 'c', 'd', 'e'].map((each, at) =>
         ran(`early_${each}`, day(`2026-09-0${8 + (at % 2)}`), {
@@ -112,7 +112,7 @@ describe('toolInsightsFrom', () => {
 
     const [skill] = insightsOf(records, WEEKS, []).skills;
 
-    expect(skill?.trend).toBe('spreading');
+    expect(skill?.trend).toBe('rising');
     expect(skill?.defined).toBe(false);
     expect(skill?.stations).toEqual([
       {
@@ -121,7 +121,7 @@ describe('toolInsightsFrom', () => {
         runs: 10,
         enabled: 0,
         used: 5,
-        trend: 'spreading',
+        trend: 'rising',
       },
     ]);
   });
@@ -171,32 +171,32 @@ describe('toolInsightsFrom', () => {
         failedCalls: 2,
         errorRate: 0.4,
         failingRuns: 1,
-        refused: 0,
+        dismissed: 0,
       },
       expect.objectContaining({ server: 'sentry', runs: 1, failingRuns: 0 }),
     ]);
   });
 
-  it('counts the runs a tool or server was refused in, not the refusals', () => {
+  it('counts the runs a tool or server was dismissed in, not the dismissals', () => {
     const twice = ran('run_1', day('2026-09-29'), {
       servers: [calls('linear', [100])],
     })
-      .refused(
-        Refusal.of({
+      .dismissed(
+        Dismissal.of({
           tool: 'create_issue',
           server: 'linear',
           at: day('2026-09-29'),
         }),
       )
-      .refused(
-        Refusal.of({
+      .dismissed(
+        Dismissal.of({
           tool: 'create_issue',
           server: 'linear',
           at: day('2026-09-30'),
         }),
       )
-      .refused(
-        Refusal.of({
+      .dismissed(
+        Dismissal.of({
           tool: 'comment',
           server: 'linear',
           at: day('2026-09-30'),
@@ -205,40 +205,40 @@ describe('toolInsightsFrom', () => {
 
     const insights = insightsOf([twice], WEEKS, []);
 
-    expect(insights.refusals).toEqual([
-      { tool: 'comment', server: 'linear', refused: 1 },
-      { tool: 'create_issue', server: 'linear', refused: 1 },
+    expect(insights.dismissals).toEqual([
+      { tool: 'comment', server: 'linear', dismissed: 1 },
+      { tool: 'create_issue', server: 'linear', dismissed: 1 },
     ]);
-    expect(insights.servers[0]?.refused).toBe(1);
+    expect(insights.servers[0]?.dismissed).toBe(1);
   });
 
-  it('counts refused approvals per tool of each server, and against that server', () => {
-    const refused = (runId: string, tool: string, server: string | null) =>
+  it('counts dismissed approvals per tool of each server, and against that server', () => {
+    const dismissed = (runId: string, tool: string, server: string | null) =>
       ran(runId, day('2026-09-29'), {
         servers: server ? [calls(server, [100])] : [],
-      }).refused(Refusal.of({ tool, server, at: day('2026-09-30') }));
+      }).dismissed(Dismissal.of({ tool, server, at: day('2026-09-30') }));
 
     const insights = insightsOf(
       [
-        refused('run_1', 'create_issue', 'linear'),
-        refused('run_2', 'create_issue', 'linear'),
-        refused('run_3', 'create_issue', 'jira'),
-        refused('run_4', 'github.merge', null),
+        dismissed('run_1', 'create_issue', 'linear'),
+        dismissed('run_2', 'create_issue', 'linear'),
+        dismissed('run_3', 'create_issue', 'jira'),
+        dismissed('run_4', 'github.merge', null),
       ],
       WEEKS,
       [],
     );
 
-    expect(insights.refusals).toEqual([
-      { tool: 'create_issue', server: 'linear', refused: 2 },
-      { tool: 'create_issue', server: 'jira', refused: 1 },
-      { tool: 'github.merge', server: null, refused: 1 },
+    expect(insights.dismissals).toEqual([
+      { tool: 'create_issue', server: 'linear', dismissed: 2 },
+      { tool: 'create_issue', server: 'jira', dismissed: 1 },
+      { tool: 'github.merge', server: null, dismissed: 1 },
     ]);
     expect(
-      insights.servers.map(({ server, refused }) => ({ server, refused })),
+      insights.servers.map(({ server, dismissed }) => ({ server, dismissed })),
     ).toEqual([
-      { server: 'linear', refused: 2 },
-      { server: 'jira', refused: 1 },
+      { server: 'linear', dismissed: 2 },
+      { server: 'jira', dismissed: 1 },
     ]);
   });
 

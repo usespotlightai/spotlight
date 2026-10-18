@@ -695,14 +695,14 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes the tool a person refused, and its server', () => {
+  it('publishes the tool a person dismissed, and its server', () => {
     expect(
       published(
         new TaskActedOn(
           TASK,
           WORKSPACE,
           StationId.of('station_1'),
-          'refused',
+          'dismissed',
           UserId.of('user_1'),
           RUN,
           new Date('2026-09-26T09:00:00Z'),
@@ -711,7 +711,7 @@ describe('WORK_EVENT_MAPPERS', () => {
       ),
     ).toEqual([
       expect.objectContaining({
-        action: 'refused',
+        action: 'dismissed',
         tool: 'create_issue',
         server: 'linear',
       }),

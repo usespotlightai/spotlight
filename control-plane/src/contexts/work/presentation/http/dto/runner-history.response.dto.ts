@@ -75,7 +75,7 @@ export class TaskHumanActionResponseDto {
       'accepted',
       'answered',
       'approved',
-      'refused',
+      'dismissed',
       'sent-back',
     ],
   })

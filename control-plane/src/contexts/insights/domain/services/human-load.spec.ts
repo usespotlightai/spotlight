@@ -45,7 +45,7 @@ describe('humanLoadFrom the counts of humanLoadCountsOf', () => {
             ],
             actions: [
               ['answered', 'user_bob', 'station_1', day('2026-09-26', 10)],
-              ['refused', 'user_bob', 'station_1', day('2026-09-27', 11)],
+              ['dismissed', 'user_bob', 'station_1', day('2026-09-27', 11)],
             ],
           }),
         ],
@@ -61,9 +61,9 @@ describe('humanLoadFrom the counts of humanLoadCountsOf', () => {
       unanswered: 0,
       sentBack: 1,
       sentBackRate: 0.5,
-      refused: 1,
+      dismissed: 1,
       askedTaskIds: ['task_1'],
-      refusedTaskIds: ['task_1'],
+      dismissedTaskIds: ['task_1'],
     });
   });
 });
@@ -76,9 +76,9 @@ const load = (over: Partial<HumanLoad> = {}): HumanLoad => ({
   unanswered: 0,
   sentBack: 2,
   sentBackRate: 0.25,
-  refused: 0,
+  dismissed: 0,
   askedTaskIds: [],
-  refusedTaskIds: [],
+  dismissedTaskIds: [],
   ...over,
 });
 
@@ -89,7 +89,7 @@ describe('humanLoadDeltasOf', () => {
         asksPerTask: 0.5,
         toAnswer: { p50: 1_200_000, p90: null, count: 2 },
         sentBackRate: 0.1,
-        refused: 2,
+        dismissed: 2,
       }),
       load(),
     );
@@ -102,6 +102,6 @@ describe('humanLoadDeltasOf', () => {
       tone: 'good',
     });
     expect(changes.sentBackRate?.by).toBeCloseTo(-0.15);
-    expect(changes.refused).toMatchObject({ fromZero: true, tone: 'bad' });
+    expect(changes.dismissed).toMatchObject({ fromZero: true, tone: 'bad' });
   });
 });

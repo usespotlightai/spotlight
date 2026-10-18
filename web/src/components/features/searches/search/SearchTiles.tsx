@@ -34,7 +34,7 @@ export function SearchTiles({ search, set }: SearchTilesProps) {
         label="Iterations"
         value={`${search.iterationsRun} of ${budget.iterations}`}
         detail={`${search.proposed} ${search.proposed === 1 ? 'candidate' : 'candidates'} proposed`}
-        note={formatBudgetNote(
+        tooltip={formatBudgetNote(
           budget,
           formatRepeats(budget.repeats),
           [harness, agent.model, agent.effort].filter(Boolean).join(' · '),
@@ -45,7 +45,7 @@ export function SearchTiles({ search, set }: SearchTilesProps) {
         label="Tasks"
         value={`${split.searchedTasks}`}
         detail={`searched · ${split.heldOutTasks} held out`}
-        note={formatSentences(
+        tooltip={formatSentences(
           SPLIT_NOTE,
           formatHeldOutTasks(
             split.heldOut.map((entry) => setTaskTitle(entry, set)),

@@ -524,11 +524,11 @@ describe('Station', () => {
   });
 
   describe('its overview', () => {
-    it('sums up the latest runs on the config in force, linking to the station in Insights', () => {
+    it('sums up the latest runs on the live config, linking to the station in Insights', () => {
       renderAt('station_2');
 
       expect(
-        [...document.querySelectorAll('[data-slot="glance-tile"]')]
+        [...document.querySelectorAll('[data-slot="summary-tile"]')]
           .slice(0, 4)
           .map((tile) => tile.textContent),
       ).toEqual([
@@ -595,7 +595,7 @@ describe('Station', () => {
       ).toHaveLength(2);
     });
 
-    it('links to the pull request that brought the config in force', () => {
+    it('links to the pull request that brought the live config', () => {
       outcomes.mockReturnValue({
         ...OUTCOMES,
         groups: OUTCOMES.groups.map((group, at) =>
@@ -611,7 +611,7 @@ describe('Station', () => {
       renderAt('station_2');
 
       expect(
-        within(sectionTitled('Version')).getByRole('link', {
+        within(sectionTitled('Config fingerprint')).getByRole('link', {
           name: 'View pull request',
         }),
       ).toHaveAttribute('href', 'https://github.com/acme/config/pull/42');
@@ -625,16 +625,15 @@ describe('Station', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('says which config version is in force, linking to its history', () => {
+    it('says which config fingerprint is live, linking to its history', () => {
       renderAt('station_2');
 
-      const version = within(sectionTitled('Version'));
+      const fingerprint = within(sectionTitled('Config fingerprint'));
 
-      expect(version.getByText('Version aaaaaaaa')).toBeInTheDocument();
-      expect(version.getByRole('link', { name: 'History' })).toHaveAttribute(
-        'href',
-        `${INSIGHTS}?tab=stations&stationId=station_2`,
-      );
+      expect(fingerprint.getByText('Config aaaaaaaa')).toBeInTheDocument();
+      expect(
+        fingerprint.getByRole('link', { name: 'History' }),
+      ).toHaveAttribute('href', `${INSIGHTS}?tab=stations&stationId=station_2`);
     });
 
     it('lists the station’s alerts in the order they were written', () => {
@@ -690,7 +689,7 @@ describe('Station', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('lists the recent runs of the config in force newest first, each linking to the run', () => {
+    it('lists the recent runs of the live config newest first, each linking to the run', () => {
       renderAt('station_2');
 
       const runs = within(screen.getByRole('list', { name: 'Recent runs' }));
@@ -1022,7 +1021,7 @@ describe('Station', () => {
       ).toBeInTheDocument();
     });
 
-    it('keeps the rubric folded away until requested, then shows it without letting it be written', async () => {
+    it('keeps the rubric collapsed until requested, then shows it without letting it be written', async () => {
       const user = userEvent.setup();
       renderAt('station_2');
 
@@ -1052,10 +1051,10 @@ describe('Station', () => {
       );
     });
 
-    it('names the line the station ships through and its repositories', () => {
+    it('names the line of the station and its repositories', () => {
       renderAt('station_2');
 
-      const fromLine = within(sectionTitled('Ships through'));
+      const fromLine = within(sectionTitled('Line'));
 
       expect(fromLine.getByText('Default')).toBeInTheDocument();
       expect(

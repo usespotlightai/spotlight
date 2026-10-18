@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { InfoNote } from '@/components/features/insights/InfoNote';
+import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
 import { ColumnResizer } from '@/components/shared/ColumnResizer';
 import {
   EDGE_INDENT,
@@ -58,7 +58,7 @@ export function NestedHeadings({
           <span aria-hidden className="truncate">
             {heading.label}
           </span>
-          {heading.note && <InfoNote note={heading.note} />}
+          {heading.tooltip && <InfoTooltip tooltip={heading.tooltip} />}
           {column < headings.length - 1 || trailing ? (
             <ColumnResizer
               label={heading.label}

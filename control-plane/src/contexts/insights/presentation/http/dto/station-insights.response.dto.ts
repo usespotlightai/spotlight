@@ -214,7 +214,7 @@ export class RunTallyResponseDto {
 
   @ApiProperty({
     example: 3,
-    description: 'Runs that a person sent back or refused first',
+    description: 'Runs that a person sent back or dismissed first',
   })
   readonly sentBack: number;
 

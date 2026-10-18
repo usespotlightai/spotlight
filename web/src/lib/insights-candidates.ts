@@ -290,7 +290,7 @@ export const candidateHeadings = (
 ): readonly NestedHeading[] => [
   { label: 'Config', indent: 'inner' },
   { label: 'What changed', size: 'minmax(12rem,1.5fr)' },
-  { label: 'Source', note: SOURCES_NOTE },
+  { label: 'Source', tooltip: SOURCES_NOTE },
   { label: 'Replay success', size: 'minmax(8rem,1fr)' },
   { label: 'Candidate', numeric: true },
   { label: 'Live', numeric: true },
@@ -303,7 +303,7 @@ export const candidateHeadings = (
 
 export const REPLAYED_HEADINGS: readonly NestedHeading[] = [
   { label: 'Config', indent: 'outer', size: 'minmax(12rem,2fr)' },
-  { label: 'Source', note: SOURCES_NOTE, size: SPREAD },
+  { label: 'Source', tooltip: SOURCES_NOTE, size: SPREAD },
   { label: 'Runs scored', numeric: true, size: SPREAD },
   { label: 'Cost per run', numeric: true, size: SPREAD },
   { label: 'Replay success', numeric: true, size: SPREAD },

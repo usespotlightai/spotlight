@@ -2,8 +2,8 @@ import { useLocation } from 'react-router';
 import { GitHubAppLink } from '@/components/features/integrations/GitHubAppLink';
 import { GitHubDetails } from '@/components/features/integrations/GitHubDetails';
 import { IntegrationRowFrame } from '@/components/features/integrations/IntegrationRowFrame';
-import GithubMark from '@/components/shared/icons/GithubMark';
-import { NotedWarning } from '@/components/shared/NotedWarning';
+import GithubLogo from '@/components/shared/icons/GithubLogo';
+import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import { useLines } from '@/hooks/api/useLines';
 import { useRepositories } from '@/hooks/api/useRepositories';
 import { formatRepos, inaccessibleOf, installUrlFor } from '@/lib/github';
@@ -44,15 +44,15 @@ export function GitHubRow({
     <IntegrationRowFrame
       slot="github"
       logo={
-        <GithubMark className="size-5 shrink-0 text-foreground" aria-hidden />
+        <GithubLogo className="size-5 shrink-0 text-foreground" aria-hidden />
       }
       name="GitHub"
       mark={
         inaccessible.size > 0 && (
-          <NotedWarning
+          <WarningTooltip
             tone="destructive"
             label="Repositories not accessible"
-            note={`The App can’t access ${[...inaccessible].join(', ')}.`}
+            tooltip={`The App can’t access ${[...inaccessible].join(', ')}.`}
           />
         )
       }

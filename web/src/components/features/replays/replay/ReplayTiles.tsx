@@ -67,7 +67,7 @@ export function ReplayTiles({ replay }: ReplayTilesProps) {
             ? NO_SCORE_YET
             : formatSuccessDetail(totals, formatScoring(replay))
         }
-        note={
+        tooltip={
           [
             totals.interval &&
               `Likely range: ${formatInterval(totals.interval)}.`,
@@ -89,7 +89,7 @@ export function ReplayTiles({ replay }: ReplayTilesProps) {
           ]
             .filter(Boolean)
             .join(' · ')}
-          note={`Likely range: ${formatGainRange(gain)} pts. ${gainSignificanceNote(gain)}`}
+          tooltip={`Likely range: ${formatGainRange(gain)} pts. ${gainSignificanceNote(gain)}`}
         />
       )}
 
@@ -97,7 +97,7 @@ export function ReplayTiles({ replay }: ReplayTilesProps) {
         <InsightsTile
           label={PAIRING_SPEND_LABEL}
           {...formatPairTiles(pairs)}
-          note={pairTallyNote(
+          tooltip={pairTallyNote(
             formatReference(
               replay.pairwiseReference,
               replay.candidate,
@@ -115,7 +115,7 @@ export function ReplayTiles({ replay }: ReplayTilesProps) {
             ? `Over the ceiling by ${formatSpend(over)}`
             : `of ${formatSpend(replay.ceiling)}`
         }
-        note={formatSpendNote({
+        tooltip={formatSpendNote({
           runs: formatSpend(parts.runs),
           generation: formatSpend(parts.generation),
           judging: formatSpend(parts.judging),

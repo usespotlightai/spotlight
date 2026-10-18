@@ -9,7 +9,7 @@ import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useRunners } from '@/hooks/api/useRunners';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
-import { useRemembered } from '@/hooks/useRemembered';
+import { useStoredState } from '@/hooks/useStoredState';
 import { failed, loading } from '@/lib/query';
 import { isAdmin } from '@/lib/role';
 import { asRunnerFilter, FALLBACK_RUNNER_FILTER } from '@/lib/runner';
@@ -22,10 +22,7 @@ export function Runners() {
   const fleet = useRunners(slug);
   const { data: harnesses } = useHarnesses();
   const { data: workspace } = useWorkspace(slug);
-  const [remembered, remember] = useRemembered(
-    FILTER_KEY,
-    FALLBACK_RUNNER_FILTER,
-  );
+  const [stored, store] = useStoredState(FILTER_KEY, FALLBACK_RUNNER_FILTER);
   const { trail, forward } = useTrail([{ label: 'Runners' }]);
 
   if (!slug) {
@@ -56,8 +53,8 @@ export function Runners() {
       ) : (
         <FilteredRunners
           slug={slug}
-          filter={asRunnerFilter(remembered)}
-          onFilter={remember}
+          filter={asRunnerFilter(stored)}
+          onFilter={store}
           loading={loading(fleet)}
           hosts={hosts ?? []}
           pools={pools}

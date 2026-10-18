@@ -25,9 +25,9 @@ export interface HumanLoad {
   readonly unanswered: number;
   readonly sentBack: number;
   readonly sentBackRate: number | null;
-  readonly refused: number;
+  readonly dismissed: number;
   readonly askedTaskIds: readonly string[];
-  readonly refusedTaskIds: readonly string[];
+  readonly dismissedTaskIds: readonly string[];
 }
 
 export interface HumanLoadCounts {
@@ -38,8 +38,8 @@ export interface HumanLoadCounts {
   readonly tasks: number;
   readonly runs: number;
   readonly sentBack: number;
-  readonly refused: number;
-  readonly refusedTaskIds: readonly string[];
+  readonly dismissed: number;
+  readonly dismissedTaskIds: readonly string[];
 }
 
 export const humanLoadCountsOf = (
@@ -49,8 +49,10 @@ export const humanLoadCountsOf = (
   const ended = endedWithin(history.records, window);
   const tally = runTally(ended, history.taskPullRequests);
   const waits = inboxWaitsWithin(history, window);
-  const refusedIn = history.taskHumanActions.filter((each) =>
-    each.actions.some((action) => action.refuses && within(window, action.at)),
+  const dismissedIn = history.taskHumanActions.filter((each) =>
+    each.actions.some(
+      (action) => action.dismisses && within(window, action.at),
+    ),
   );
 
   return {
@@ -65,12 +67,12 @@ export const humanLoadCountsOf = (
     tasks: tasksOf(ended.filter((each) => each.ran)).length,
     runs: tally.runs,
     sentBack: tally.sentBack,
-    refused: refusedIn.flatMap((each) =>
+    dismissed: dismissedIn.flatMap((each) =>
       each.actions.filter(
-        (action) => action.refuses && within(window, action.at),
+        (action) => action.dismisses && within(window, action.at),
       ),
     ).length,
-    refusedTaskIds: refusedIn.map((each) => each.taskId.value),
+    dismissedTaskIds: dismissedIn.map((each) => each.taskId.value),
   };
 };
 
@@ -82,16 +84,16 @@ export const humanLoadFrom = (counts: HumanLoadCounts): HumanLoad => ({
   unanswered: counts.unanswered,
   sentBack: counts.sentBack,
   sentBackRate: rateOf(counts.sentBack, counts.runs),
-  refused: counts.refused,
+  dismissed: counts.dismissed,
   askedTaskIds: counts.askedTaskIds,
-  refusedTaskIds: counts.refusedTaskIds,
+  dismissedTaskIds: counts.dismissedTaskIds,
 });
 
 export interface HumanLoadDeltas {
   readonly asksPerTask: Delta | null;
   readonly toAnswer: Delta | null;
   readonly sentBackRate: Delta | null;
-  readonly refused: Delta | null;
+  readonly dismissed: Delta | null;
 }
 
 export const humanLoadDeltasOf = (
@@ -110,7 +112,7 @@ export const humanLoadDeltasOf = (
     better: 'down',
     unit: 'points',
   }),
-  refused: deltaOf(now.refused, before.refused, {
+  dismissed: deltaOf(now.dismissed, before.dismissed, {
     better: 'down',
     unit: 'percent',
   }),

@@ -215,7 +215,7 @@ describe('RunChangeStack', () => {
       ).toBeInTheDocument();
     });
 
-    it('folds a cohort away and back', async () => {
+    it('collapses a cohort and expands it again', async () => {
       renderAt();
 
       const cohort = screen.getByRole('region', { name: 'Team invitations' });
@@ -324,7 +324,7 @@ describe('RunChangeStack', () => {
       ).toHaveAttribute('aria-expanded', 'true');
     });
 
-    it('folds each layer afresh, though the pane stays put', async () => {
+    it('collapses each layer afresh, though the pane stays put', async () => {
       renderAt('?layer=c1.l2');
 
       const sidebar = () =>

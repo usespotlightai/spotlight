@@ -94,7 +94,7 @@ export function ChatThread({
                             readOnly
                             initialValue={moment.text}
                             placeholder=""
-                            ariaLabel="What the agent said"
+                            ariaLabel="Agent message"
                             className="border-none bg-transparent p-0"
                           />
                         )}

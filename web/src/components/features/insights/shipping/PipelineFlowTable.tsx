@@ -1,6 +1,5 @@
 import { Fragment } from 'react';
-import { Noted } from '@/components/shared/Noted';
-import { FoldingRows } from '@/components/shared/nested-table/FoldingRows';
+import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
@@ -9,8 +8,9 @@ import {
   OUTER_GUIDE,
   OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
-import { useFolds } from '@/hooks/useFolds';
-import { lastedOrNone } from '@/lib/insights';
+import { WithTooltip } from '@/components/shared/WithTooltip';
+import { useCollapsibles } from '@/hooks/useCollapsibles';
+import { formatDurationOrNone } from '@/lib/insights';
 import {
   type FlowStage,
   formatPart,
@@ -32,7 +32,7 @@ export function PipelineFlowTable({
 }: {
   stages: readonly FlowStage[];
 }) {
-  const folds = useFolds();
+  const collapsibles = useCollapsibles();
   const broken = stages.some((stage) => stage.parts);
   const headings = [
     { label: 'Stage', indent: 'outer' as const, size: 'minmax(10rem,2fr)' },
@@ -52,7 +52,7 @@ export function PipelineFlowTable({
         const grouped = stages.filter(
           (stage) => stage.station === group.station,
         );
-        const open = folds.isOpen(group.id);
+        const open = collapsibles.isOpen(group.id);
 
         return grouped.length === 0 ? null : (
           <Fragment key={group.id}>
@@ -60,11 +60,11 @@ export function PipelineFlowTable({
               label={group.label}
               open={open}
               depth={0}
-              onToggle={() => folds.toggle(group.id)}
+              onToggle={() => collapsibles.toggle(group.id)}
             >
               <span className="font-medium text-foreground">{group.label}</span>
             </NestedGroupRow>
-            <FoldingRows open={open} label={group.label}>
+            <CollapsibleRows open={open} label={group.label}>
               {grouped.map((stage) => (
                 <li
                   key={stage.id}
@@ -83,7 +83,7 @@ export function PipelineFlowTable({
                   >
                     {stage.label}
                     {stage.worst && (
-                      <Noted note="Worst bottleneck: the stage with the longest wait">
+                      <WithTooltip tooltip="Worst bottleneck: the stage with the longest wait">
                         <span className="inline-flex shrink-0">
                           <span
                             role="img"
@@ -91,21 +91,23 @@ export function PipelineFlowTable({
                             className="size-1.5 rounded-full bg-destructive"
                           />
                         </span>
-                      </Noted>
+                      </WithTooltip>
                     )}
                   </span>
                   <NestedCell heading="Time" strong>
-                    {lastedOrNone(stage.ms)}
+                    {formatDurationOrNone(stage.ms)}
                   </NestedCell>
                   {broken &&
                     STATION_STAGES.map((part) => (
                       <NestedCell key={part} heading={partHeading(part)}>
-                        {stage.parts ? lastedOrNone(stage.parts[part]) : '–'}
+                        {stage.parts
+                          ? formatDurationOrNone(stage.parts[part])
+                          : '–'}
                       </NestedCell>
                     ))}
                 </li>
               ))}
-            </FoldingRows>
+            </CollapsibleRows>
           </Fragment>
         );
       })}

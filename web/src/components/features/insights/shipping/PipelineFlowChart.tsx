@@ -2,7 +2,7 @@ import { useId, useMemo, useRef } from 'react';
 import { PipelineStageLabel } from '@/components/features/insights/shipping/PipelineStageLabel';
 import { useElementWidth } from '@/hooks/useElementWidth';
 import { usePipelineParticles } from '@/hooks/usePipelineParticles';
-import { lastedOrNone } from '@/lib/insights';
+import { formatDurationOrNone } from '@/lib/insights';
 import type { PullRequestType } from '@/lib/insights-pull-requests';
 import { type FlowStage, formatPart } from '@/lib/insights-shipping';
 import {
@@ -165,7 +165,7 @@ export function PipelineFlowChart({
             />
             Worst bottleneck
             <span className="text-destructive/50">|</span>
-            <span className="font-mono">{lastedOrNone(worst.ms)}</span>
+            <span className="font-mono">{formatDurationOrNone(worst.ms)}</span>
             {worstPart && (
               <span className="text-destructive/80">
                 mostly {formatPart(worstPart)}

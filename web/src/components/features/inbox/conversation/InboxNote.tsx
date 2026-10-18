@@ -12,7 +12,7 @@ import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles'
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { useSession } from '@/hooks/api/useSession';
 import {
-  type Conversing,
+  type ConversationItem,
   type Note,
   type RunJournal,
   STICKY_AT_TOP,
@@ -24,8 +24,8 @@ type InboxNoteProps = {
   stationCount: number;
   worked: readonly RunJournal[];
   teamId: string | undefined;
-  about: Conversing['about'];
-  resolved: Conversing['resolved'];
+  about: ConversationItem['about'];
+  resolved: ConversationItem['resolved'];
   deciding?: Deciding;
 };
 

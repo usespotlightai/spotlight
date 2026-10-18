@@ -242,7 +242,7 @@ describe('LineBoard', () => {
     ).toBeInTheDocument();
   });
 
-  it('folds a station away and leaves the others open', async () => {
+  it('collapses a station and leaves the others open', async () => {
     const user = userEvent.setup();
     renderAt('line_1');
 
@@ -510,7 +510,7 @@ describe('LineBoard', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('says how many are picked inside a station folded away', async () => {
+  it('says how many are picked inside a collapsed station', async () => {
     const user = userEvent.setup();
     renderAt('line_1');
 
@@ -591,7 +591,7 @@ describe('LineBoard', () => {
     );
   });
 
-  it('folds from the chevron rather than the title, which navigates', async () => {
+  it('collapses from the chevron rather than the title, which navigates', async () => {
     const user = userEvent.setup();
     renderAt('line_1');
 

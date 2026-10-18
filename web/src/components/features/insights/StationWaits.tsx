@@ -11,7 +11,7 @@ import { StationWaitsTable } from '@/components/features/insights/StationWaitsTa
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import {
-  lasted,
+  formatDuration,
   type StationFlow,
   type StationNames,
   type WaitRow,
@@ -46,7 +46,7 @@ const TipContent = ({
       <p className="text-foreground">{row.label}, typically</p>
       {WAITS.map((wait) => (
         <p key={wait.key} className="text-muted-foreground">
-          {wait.label} {lasted(row[wait.key])}
+          {wait.label} {formatDuration(row[wait.key])}
         </p>
       ))}
     </ChartTip>

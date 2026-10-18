@@ -132,7 +132,7 @@ describe('comparisonStats', () => {
       comparisonStats(yesNo).map((stat) => [
         stat.label,
         stat.value,
-        stat.note.split('. ')[0],
+        stat.tooltip.split('. ')[0],
       ]),
     ).toEqual([
       ['Cohen’s kappa', '0.71', 'Substantial agreement'],
@@ -154,7 +154,7 @@ describe('comparisonStats', () => {
       comparisonStats(exact).map((stat) => [
         stat.label,
         stat.value,
-        stat.note.split('. ')[0],
+        stat.tooltip.split('. ')[0],
       ]),
     ).toEqual([
       ['Pearson correlation', '1.00', 'Very strong correlation'],
@@ -169,6 +169,8 @@ describe('comparisonStats', () => {
   });
 
   it('notes no reading where there is no figure', () => {
-    expect(comparisonStats(version('yes-no'))[0]?.note).toMatch(/^How often/);
+    expect(comparisonStats(version('yes-no'))[0]?.tooltip).toMatch(
+      /^How often/,
+    );
   });
 });

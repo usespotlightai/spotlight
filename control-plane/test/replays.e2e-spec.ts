@@ -638,7 +638,7 @@ describe('a replay ending', () => {
           })
           .expect(200)
       ).body,
-    ).toEqual({ decision: 'asked' });
+    ).toEqual({ decision: 'pending' });
     await runner(token)
       .post(`/api/runs/${replayId}/suspended`, { requeue: true })
       .expect(409);

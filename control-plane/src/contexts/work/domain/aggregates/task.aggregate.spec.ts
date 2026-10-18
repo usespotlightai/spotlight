@@ -1784,7 +1784,7 @@ describe('Task and the happenings received while it has a current run', () => {
     const granted = asked.answer(
       NotePosition.of(1),
       { ...newNote, voice: Voice.person(UserId.of('user_1')) },
-      'granted',
+      'approved',
     );
 
     expect(granted.deferredMoveTo).toEqual(SPEC);

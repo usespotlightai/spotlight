@@ -503,7 +503,7 @@ func decide(
 	switch answer.Decision {
 	case protocol.PermissionAllow:
 		return acp.Allow
-	case protocol.PermissionEscalated:
+	case protocol.PermissionPending:
 		escalated.Store(true)
 		return acp.Cancel
 	default:

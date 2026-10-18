@@ -479,12 +479,12 @@ describe('Search', () => {
 
     expect(
       within(candidateRow('tests-first')).getByRole('img', {
-        name: 'Only on seen tasks',
+        name: 'Likely overfit',
       }),
     ).toBeInTheDocument();
     expect(
       within(candidateRow('Live config')).queryByRole('img', {
-        name: 'Only on seen tasks',
+        name: 'Likely overfit',
       }),
     ).toBeNull();
 
@@ -504,7 +504,7 @@ describe('Search', () => {
         .getByText('tests-first')
         .closest('tr')
         ?.querySelector('[data-slot="only-on-seen-tasks"]'),
-    ).toHaveTextContent('Only on seen tasks');
+    ).toHaveTextContent('Likely overfit');
     expect(
       within(table)
         .getByText('Live config')
@@ -534,7 +534,7 @@ describe('Search', () => {
     const best = tile('Best');
     expect(best).toHaveTextContent('tests-first100% held out');
     expect(
-      within(best).getByRole('img', { name: 'Only on seen tasks' }),
+      within(best).getByRole('img', { name: 'Likely overfit' }),
     ).toBeInTheDocument();
   });
 
@@ -553,7 +553,7 @@ describe('Search', () => {
       within(row).getByRole('img', { name: 'Too few held-out tasks to tell' }),
     ).toBeInTheDocument();
     expect(
-      within(row).queryByRole('img', { name: 'Only on seen tasks' }),
+      within(row).queryByRole('img', { name: 'Likely overfit' }),
     ).toBeNull();
     expect(
       within(await openCandidate('tests-first')).queryByRole('note'),

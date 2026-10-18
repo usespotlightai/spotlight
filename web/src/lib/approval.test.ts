@@ -22,7 +22,7 @@ const COMMENT: Approval = {
     { name: 'body', value: 'Fixed.' },
     { name: 'issue', value: 'ENG-12' },
   ],
-  status: 'asked',
+  status: 'pending',
   edited: null,
   intent: null,
   askedOf: null,
@@ -39,7 +39,7 @@ const EXECUTE: Approval = {
       value: '{"command":"kubectl logs deploy/api --since=1h"}',
     },
   ],
-  status: 'asked',
+  status: 'pending',
   edited: null,
   intent: null,
   askedOf: null,
@@ -96,7 +96,7 @@ describe('approval', () => {
   it('shows what it was approved to run with, and which inputs the person changed', () => {
     const edited = {
       ...COMMENT,
-      status: 'granted' as const,
+      status: 'approved' as const,
       edited: [
         { name: 'body', value: 'Fixed in #41.' },
         { name: 'issue', value: 'ENG-12' },
@@ -134,7 +134,7 @@ describe('approval', () => {
       askedFor({
         ...COMMENT,
         intent: 'post the fix on ENG-12',
-        status: 'granted',
+        status: 'approved',
         edited: [{ name: 'body', value: 'Done.' }],
       }),
     ).toBe('Spotlight asked to post the fix on ENG-12. You edited its inputs.');
@@ -145,15 +145,17 @@ describe('approval', () => {
 
   it('titles an approval by its status', () => {
     expect(titleOf(COMMENT)).toBe('Waiting for your approval');
-    expect(titleOf({ ...COMMENT, status: 'granted' })).toBe('Request approved');
+    expect(titleOf({ ...COMMENT, status: 'approved' })).toBe(
+      'Request approved',
+    );
     expect(
       titleOf({
         ...COMMENT,
-        status: 'granted',
+        status: 'approved',
         edited: [{ name: 'body', value: 'Done.' }],
       }),
     ).toBe('Request approved with changes');
-    expect(titleOf({ ...COMMENT, status: 'refused' })).toBe(
+    expect(titleOf({ ...COMMENT, status: 'dismissed' })).toBe(
       'Request dismissed',
     );
   });

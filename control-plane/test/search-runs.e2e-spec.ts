@@ -738,7 +738,7 @@ describe('a search run ending', () => {
           })
           .expect(200)
       ).body,
-    ).toEqual({ decision: 'asked' });
+    ).toEqual({ decision: 'pending' });
     expect(
       (
         await runner(token)

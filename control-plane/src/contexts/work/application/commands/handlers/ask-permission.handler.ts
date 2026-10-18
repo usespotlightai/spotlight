@@ -12,9 +12,9 @@ import { HarnessPermission } from '@work/domain/value-objects/harness-permission
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 
 const ANSWERS: Readonly<Record<PermissionCleared, PermissionAnswer>> = {
-  granted: 'allow',
-  refused: 'reject',
-  asked: 'asked',
+  approved: 'allow',
+  dismissed: 'reject',
+  pending: 'pending',
 };
 
 export class AskPermissionHandler

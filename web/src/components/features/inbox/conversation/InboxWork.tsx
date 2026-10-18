@@ -1,7 +1,7 @@
 import { ContextDonut } from '@/components/features/inbox/conversation/ContextDonut';
 import { StepsDisclosure } from '@/components/features/inbox/conversation/StepsDisclosure';
 import { RunChanges } from '@/components/features/runs/RunChanges';
-import { counted, type RunJournal, took } from '@/lib/inbox';
+import { counted, formatShortDuration, type RunJournal } from '@/lib/inbox';
 
 export function InboxWork({ journals }: { journals: readonly RunJournal[] }) {
   const steps = journals.flatMap((each) => each.steps);
@@ -20,8 +20,8 @@ export function InboxWork({ journals }: { journals: readonly RunJournal[] }) {
       label={
         <>
           <span>
-            {ms > 0 ? `Worked for ${took(ms)}` : 'Worked'} · {steps.length}{' '}
-            {steps.length === 1 ? 'step' : 'steps'}
+            {ms > 0 ? `Worked for ${formatShortDuration(ms)}` : 'Worked'} ·{' '}
+            {steps.length} {steps.length === 1 ? 'step' : 'steps'}
             {attempts > 1 && ` over ${attempts} attempts`}
             {spent && ' ·'}
           </span>

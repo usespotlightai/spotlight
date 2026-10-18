@@ -1,6 +1,6 @@
 import { RetireInPlace } from '@/components/features/memory/RetireInPlace';
-import { UNFOLD_MS, Unfold } from '@/components/shared/Unfold';
-import { useLingering } from '@/hooks/useLingering';
+import { COLLAPSE_MS, Collapsible } from '@/components/shared/Collapsible';
+import { useDelayedValue } from '@/hooks/useDelayedValue';
 
 type RetireReplyProps = {
   open: boolean;
@@ -15,17 +15,17 @@ export function RetireReply({
   onCancel,
   className,
 }: RetireReplyProps) {
-  const shown = useLingering(open ? true : null, UNFOLD_MS);
+  const shown = useDelayedValue(open ? true : null, COLLAPSE_MS);
 
   if (!shown || !retirable) {
     return null;
   }
 
   return (
-    <Unfold open={open} appear>
+    <Collapsible open={open} appear>
       <div className={className}>
         <RetireInPlace {...retirable} onCancel={onCancel} />
       </div>
-    </Unfold>
+    </Collapsible>
   );
 }

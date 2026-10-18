@@ -1,10 +1,14 @@
 import { useState } from 'react';
-import { DeltaMark } from '@/components/features/insights/DeltaMark';
+import { DeltaGlyph } from '@/components/features/insights/DeltaGlyph';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { DayChart } from '@/components/features/insights/shipping/DayChart';
 import { PercentilePicker } from '@/components/features/insights/shipping/PercentilePicker';
 import { Segmented } from '@/components/shared/Segmented';
-import { lasted, lastedOrNone, shownDeltaOf } from '@/lib/insights';
+import {
+  formatDuration,
+  formatDurationOrNone,
+  shownDeltaOf,
+} from '@/lib/insights';
 import { SPOTLIGHT_COMPARED_WITH_PEOPLE } from '@/lib/insights-pull-requests';
 import {
   type ByAuthor,
@@ -64,13 +68,13 @@ export function TimeToMerge({ now, changes, days }: TimeToMergeProps) {
               </dt>
               <dd className="flex items-baseline gap-2">
                 <span className="text-[1.375rem] text-foreground tabular-nums leading-none tracking-tight">
-                  {lastedOrNone(now[author.key][percentile])}
+                  {formatDurationOrNone(now[author.key][percentile])}
                 </span>
                 {delta && (
                   <span className="text-xs">
-                    <DeltaMark
+                    <DeltaGlyph
                       delta={delta}
-                      note="Against the previous period"
+                      tooltip="Against the previous period"
                     />
                   </span>
                 )}
@@ -84,7 +88,7 @@ export function TimeToMerge({ now, changes, days }: TimeToMergeProps) {
         label={`Time to merge at ${percentile}, ${smoothing === 'rolling' ? 'over the 7 days before each day' : 'day by day'}`}
         points={mergePoints(days, smoothing, percentile)}
         series={AUTHORS.map((author) => ({ ...author, as: 'line' as const }))}
-        format={lasted}
+        format={formatDuration}
         durations
       />
     </InsightsCard>

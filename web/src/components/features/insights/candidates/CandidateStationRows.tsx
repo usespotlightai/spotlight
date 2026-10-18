@@ -1,8 +1,8 @@
 import { CandidateSetRows } from '@/components/features/insights/candidates/CandidateSetRows';
 import { StationGroupName } from '@/components/features/insights/candidates/StationGroupName';
-import { FoldingRows } from '@/components/shared/nested-table/FoldingRows';
+import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
 import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
-import type { Folds } from '@/hooks/useFolds';
+import type { Collapsibles } from '@/hooks/useCollapsibles';
 import { formatStation, type StationNames } from '@/lib/insights';
 import type { CandidatesStation } from '@/lib/insights-candidates';
 import type { ReplayedStation } from '@/lib/replay';
@@ -13,7 +13,7 @@ type CandidateStationRowsProps = {
   names: StationNames;
   heldOut: boolean;
   chartStatus: boolean;
-  folds: Folds;
+  collapsibles: Collapsibles;
 };
 
 export function CandidateStationRows({
@@ -22,9 +22,9 @@ export function CandidateStationRows({
   names,
   heldOut,
   chartStatus,
-  folds,
+  collapsibles,
 }: CandidateStationRowsProps) {
-  const open = folds.isOpen(station.stationId);
+  const open = collapsibles.isOpen(station.stationId);
 
   return (
     <>
@@ -32,12 +32,12 @@ export function CandidateStationRows({
         label={formatStation(names, station.stationId)}
         open={open}
         depth={0}
-        onToggle={() => folds.toggle(station.stationId)}
+        onToggle={() => collapsibles.toggle(station.stationId)}
       >
         <StationGroupName stationId={station.stationId} names={names} />
       </NestedGroupRow>
 
-      <FoldingRows open={open}>
+      <CollapsibleRows open={open}>
         {station.sets.map((set) => (
           <CandidateSetRows
             key={set.setId}
@@ -45,11 +45,11 @@ export function CandidateStationRows({
             set={set}
             heldOut={heldOut}
             chartStatus={chartStatus}
-            open={folds.isOpen(set.setId)}
-            onToggle={() => folds.toggle(set.setId)}
+            open={collapsibles.isOpen(set.setId)}
+            onToggle={() => collapsibles.toggle(set.setId)}
           />
         ))}
-      </FoldingRows>
+      </CollapsibleRows>
     </>
   );
 }

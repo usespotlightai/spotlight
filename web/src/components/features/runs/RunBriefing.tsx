@@ -28,12 +28,12 @@ export function RunBriefing({
   footer,
 }: RunBriefingProps) {
   const scroller = useStickToBottom<HTMLDivElement>();
-  const { aside } = useRunSidePanel();
+  const { sidePanel } = useRunSidePanel();
 
   return (
     <PaneScroller
       ref={scroller}
-      aside={aside}
+      sidePanel={sidePanel}
       footer={<ComposerFooter>{footer}</ComposerFooter>}
     >
       <div className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8">

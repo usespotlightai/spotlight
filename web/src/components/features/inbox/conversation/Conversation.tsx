@@ -8,7 +8,7 @@ import { PaneScroller } from '@/components/shared/PaneScroller';
 import type { ApprovalAnswer } from '@/lib/approval';
 import { togglesDisclosure } from '@/lib/disclosure';
 import {
-  type Conversing,
+  type ConversationItem,
   type Note,
   openedAt,
   type RunJournal,
@@ -23,7 +23,7 @@ interface Turn {
   readonly notes: Note[];
 }
 
-const turnsOf = (item: Conversing): Turn[] => {
+const turnsOf = (item: ConversationItem): Turn[] => {
   const cut: Turn[] = [{ prompt: null, notes: [] }];
 
   for (const note of item.notes) {
@@ -37,7 +37,7 @@ const turnsOf = (item: Conversing): Turn[] => {
   return cut;
 };
 
-const marksIn = (item: Conversing): Set<number> => {
+const marksIn = (item: ConversationItem): Set<number> => {
   let current = openedAt(item.createdAt);
   const marked = new Set<number>();
 
@@ -78,7 +78,7 @@ export type Deciding = {
 };
 
 type ConversationProps = {
-  item: Conversing;
+  item: ConversationItem;
   worked: readonly RunJournal[];
   openAt?: number | null;
   briefing?: ReactNode;
@@ -101,7 +101,7 @@ export function Conversation({
   afterRun,
 }: ConversationProps) {
   const marked = marksIn(item);
-  const { aside } = useRunSidePanel();
+  const { sidePanel } = useRunSidePanel();
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const following = useRef(true);
@@ -172,7 +172,7 @@ export function Conversation({
     <PaneScroller
       ref={scroller}
       onScroll={watched}
-      aside={aside}
+      sidePanel={sidePanel}
       footer={<ComposerFooter>{footer}</ComposerFooter>}
     >
       <div

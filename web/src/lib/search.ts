@@ -16,7 +16,7 @@ import type {
 } from '@/lib/api';
 import { messageOf } from '@/lib/error';
 import { spentIn } from '@/lib/inbox';
-import { lasted } from '@/lib/insights';
+import { formatDuration } from '@/lib/insights';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import {
   type CountBounds,
@@ -288,10 +288,10 @@ export const formatHeldOut = (candidate: SearchCandidate): string => {
   return candidate.heldOutReplayId ? '–' : 'Not held out';
 };
 
-export const formatDuration = (ms: number | null): string =>
+export const formatEstimatedDuration = (ms: number | null): string =>
   ms === null
     ? 'Unknown. None of the set’s runs was timed.'
-    : `About ${lasted(ms)}`;
+    : `About ${formatDuration(ms)}`;
 
 export const searchChanges = (candidate: SearchCandidate): ConfigChange[] =>
   configChangesOf(candidate.changes);

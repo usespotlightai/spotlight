@@ -1,6 +1,6 @@
 import { TriangleAlert } from 'lucide-react';
-import { Noted } from '@/components/shared/Noted';
 import { Pill } from '@/components/shared/Pill';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { formatOverfit, type Overfit, overfitNote } from '@/lib/search-words';
 import { cn } from '@/lib/utils';
 
@@ -11,7 +11,7 @@ type OverfitBadgeProps = {
 
 export function OverfitBadge({ mark, className }: OverfitBadgeProps) {
   return (
-    <Noted note={overfitNote(mark)}>
+    <WithTooltip tooltip={overfitNote(mark)}>
       <span
         data-slot="only-on-seen-tasks"
         data-mark={mark}
@@ -32,6 +32,6 @@ export function OverfitBadge({ mark, className }: OverfitBadgeProps) {
           </span>
         )}
       </span>
-    </Noted>
+    </WithTooltip>
   );
 }

@@ -1,4 +1,4 @@
-import { Noted } from '@/components/shared/Noted';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { ComparedRow } from '@/lib/tally-comparison';
 
@@ -11,5 +11,9 @@ export function ComparedLabel({ row }: { row: ComparedRow }) {
     <span>{row.label}</span>
   );
 
-  return row.note ? <Noted note={row.note}>{label}</Noted> : label;
+  return row.tooltip ? (
+    <WithTooltip tooltip={row.tooltip}>{label}</WithTooltip>
+  ) : (
+    label
+  );
 }

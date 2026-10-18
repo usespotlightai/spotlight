@@ -14,7 +14,7 @@ export type InboxEntry = InboxItem | InboxNotice;
 
 export type Note = NoteResponseDto;
 
-export type Conversing = {
+export type ConversationItem = {
   readonly id: string;
   readonly teamId: string | undefined;
   readonly about?: {
@@ -167,7 +167,7 @@ export const workedOn = (
   });
 };
 
-export const took = (ms: number): string => {
+export const formatShortDuration = (ms: number): string => {
   if (ms < 1_000) {
     return `${ms}ms`;
   }
@@ -290,9 +290,7 @@ export const previewOf = (item: InboxItem): string => {
   }
 
   if (item.inboxRequest?.form === 'alert') {
-    return item.resolved
-      ? 'Station back within its alert threshold.'
-      : 'Station crossed an alert threshold.';
+    return item.resolved ? 'Station alert resolved.' : 'Station alert fired.';
   }
 
   if (item.inboxRequest?.form === 'grade') {

@@ -255,7 +255,7 @@ const CORRELATION_READINGS: Record<CorrelationReading, string> = {
 export type ComparisonStat = {
   readonly label: string;
   readonly value: string;
-  readonly note: string;
+  readonly tooltip: string;
 };
 
 const KAPPA_NOTE =
@@ -285,22 +285,24 @@ export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
       {
         label: 'Pearson correlation',
         value: formatStat(agreement.pearson),
-        note: correlationRead(readings.pearson, false),
+        tooltip: correlationRead(readings.pearson, false),
       },
       {
         label: 'Spearman correlation',
         value: formatStat(agreement.spearman),
-        note: correlationRead(readings.spearman, true),
+        tooltip: correlationRead(readings.spearman, true),
       },
       {
         label: 'Mean absolute error',
         value: formatStat(agreement.mae),
-        note: 'How far the judge’s score is from people’s on average, in points on the rubric’s scale. Lower is better.',
+        tooltip:
+          'How far the judge’s score is from people’s on average, in points on the rubric’s scale. Lower is better.',
       },
       {
         label: 'Root mean square error',
         value: formatStat(agreement.rmse),
-        note: 'This is like mean absolute error, but large misses count for more. Lower is better.',
+        tooltip:
+          'This is like mean absolute error, but large misses count for more. Lower is better.',
       },
     ];
   }
@@ -309,7 +311,7 @@ export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
     {
       label: 'Cohen’s kappa',
       value: formatStat(agreement.kappa),
-      note: kappaRead(
+      tooltip: kappaRead(
         readings.kappa,
         version.kind === 'claims'
           ? `This kappa covers every claim together. ${KAPPA_NOTE}`
@@ -319,12 +321,14 @@ export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
     {
       label: 'F1 score',
       value: formatStat(agreement.f1),
-      note: 'How well the judge’s yes matches people’s yes. A perfect match misses none, adds none and scores 1. Higher is better.',
+      tooltip:
+        'How well the judge’s yes matches people’s yes. A perfect match misses none, adds none and scores 1. Higher is better.',
     },
     {
       label: 'Overall agreement',
       value: formatPercent(agreement.observed),
-      note: 'The share of runs where the judge and people gave the same score. Agreement by chance counts.',
+      tooltip:
+        'The share of runs where the judge and people gave the same score. Agreement by chance counts.',
     },
   ];
 };

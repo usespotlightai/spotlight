@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { LineResponseDto, RunTallyResponseDto } from '@/lib/api';
 import {
   type Delta,
+  formatDuration,
   formatFilterValue,
   formatRunFailure,
   formatSignal,
@@ -12,7 +13,6 @@ import {
   type HeadlineChanges,
   headlineTiles,
   insightsPath,
-  lasted,
   lastPageOf,
   paramsOf,
   runsShownOf,
@@ -287,9 +287,9 @@ describe('shownDeltaOf', () => {
 
 describe('durations', () => {
   it('reads minutes, hours and days', () => {
-    expect(lasted(90_000)).toBe('1m 30s');
-    expect(lasted(2.5 * HOUR)).toBe('2h 30m');
-    expect(lasted(50 * HOUR)).toBe('2d 2h');
+    expect(formatDuration(90_000)).toBe('1m 30s');
+    expect(formatDuration(2.5 * HOUR)).toBe('2h 30m');
+    expect(formatDuration(50 * HOUR)).toBe('2d 2h');
   });
 
   it('shows a spread as its median and p90', () => {
@@ -456,8 +456,8 @@ describe('cost', () => {
   it('names what a drilled-in filter narrows to', () => {
     expect(formatFilterValue('model', '~default')).toBe('Harness default');
     expect(formatFilterValue('repository', 'none')).toBe('No repository');
-    expect(formatFilterValue('refusedServer', 'none')).toBe('No server');
-    expect(formatFilterValue('refusedServer', 'linear')).toBe('linear');
+    expect(formatFilterValue('dismissedServer', 'none')).toBe('No server');
+    expect(formatFilterValue('dismissedServer', 'linear')).toBe('linear');
     expect(formatFilterValue('taskIds', 'task_1,task_2')).toBe('2 tasks');
     expect(formatFilterValue('humanAction', 'sent-back')).toBe('Sent back');
     expect(formatFilterValue('pullRequestState', 'merged')).toBe('Merged');

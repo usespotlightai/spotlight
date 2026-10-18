@@ -18,7 +18,7 @@ import type { ToolSources } from '@work/application/services/tool-sources.servic
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { ToolUsed } from '@work/domain/events/tool-used.event';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
-import { ToolApprovalRefusedError } from '@work/domain/exceptions/tool-approval-refused.error';
+import { ToolApprovalDismissedError } from '@work/domain/exceptions/tool-approval-dismissed.error';
 import { ToolAwaitsApprovalError } from '@work/domain/exceptions/tool-awaits-approval.error';
 import { ToolAwaitsConnectionError } from '@work/domain/exceptions/tool-awaits-connection.error';
 import { ToolBlockedByPersonError } from '@work/domain/exceptions/tool-blocked-by-person.error';
@@ -109,12 +109,12 @@ export class UseToolHandler
         intent,
       );
 
-      if (cleared.kind === 'asked') {
+      if (cleared.kind === 'pending') {
         throw new ToolAwaitsApprovalError(tool.value);
       }
 
-      if (cleared.kind === 'refused') {
-        throw new ToolApprovalRefusedError(tool.value, cleared.reason);
+      if (cleared.kind === 'dismissed') {
+        throw new ToolApprovalDismissedError(tool.value, cleared.reason);
       }
 
       let inputs = accepted;

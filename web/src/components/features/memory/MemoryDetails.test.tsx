@@ -120,7 +120,7 @@ describe('MemoryDetails', () => {
     );
   });
 
-  it('drops a half-written retirement when its row folds', async () => {
+  it('drops a half-written retirement when its row collapses', async () => {
     memoryState.data = detail();
     const { rerender } = render(details(true));
 

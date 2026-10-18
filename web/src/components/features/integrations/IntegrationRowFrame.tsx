@@ -5,10 +5,10 @@ import {
   useRef,
   useState,
 } from 'react';
-import { FoldChevron } from '@/components/shared/FoldChevron';
-import { Unfold } from '@/components/shared/Unfold';
+import { Collapsible } from '@/components/shared/Collapsible';
+import { ExpandChevron } from '@/components/shared/ExpandChevron';
 import { useRowClick } from '@/hooks/useRowClick';
-import { travel } from '@/lib/travel';
+import { transitionMove } from '@/lib/transition';
 
 const NEED = '[data-need]';
 
@@ -37,14 +37,14 @@ export function IntegrationRowFrame({
   children,
 }: IntegrationRowFrameProps) {
   const [open, setOpen] = useState(false);
-  const [traveling, setTraveling] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
   const details = useId();
   const head = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const moving = useRef<Moving | null>(null);
-  const stopTravel = useRef<(() => void) | null>(null);
+  const stopTransition = useRef<(() => void) | null>(null);
 
-  const flip = () => {
+  const toggle = () => {
     const shown = (open ? body : head).current?.querySelector<HTMLElement>(
       NEED,
     );
@@ -54,7 +54,7 @@ export function IntegrationRowFrame({
     setOpen((was) => !was);
   };
   const row = useRef<HTMLLIElement>(null);
-  useRowClick(row, flip, {
+  useRowClick(row, toggle, {
     ignore: (target) => body.current?.contains(target) ?? false,
   });
 
@@ -65,19 +65,19 @@ export function IntegrationRowFrame({
       `[data-need="${move?.need}"]`,
     );
 
-    stopTravel.current?.();
-    stopTravel.current =
+    stopTransition.current?.();
+    stopTransition.current =
       move && target
-        ? travel(
+        ? transitionMove(
             move.from,
             target,
             body.current?.firstElementChild as HTMLElement | null,
-            () => setTraveling(false),
+            () => setTransitioning(false),
           )
         : null;
 
-    if (stopTravel.current) {
-      setTraveling(true);
+    if (stopTransition.current) {
+      setTransitioning(true);
     }
   }, [open]);
 
@@ -86,8 +86,8 @@ export function IntegrationRowFrame({
       ref={row}
       data-slot={slot}
       data-open={open || undefined}
-      data-traveling={traveling || undefined}
-      className="cursor-pointer [&[data-traveling]_[data-need]]:invisible [&[data-traveling]_[data-need]]:transition-none"
+      data-transitioning={transitioning || undefined}
+      className="cursor-pointer [&[data-transitioning]_[data-need]]:invisible [&[data-transitioning]_[data-need]]:transition-none"
     >
       <div
         ref={head}
@@ -103,7 +103,7 @@ export function IntegrationRowFrame({
                 type="button"
                 aria-expanded={open}
                 aria-controls={details}
-                onClick={flip}
+                onClick={toggle}
                 className="truncate rounded-sm text-left font-medium text-foreground text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {name}
@@ -116,14 +116,14 @@ export function IntegrationRowFrame({
 
         <div className="flex shrink-0 items-center gap-3">
           {!open && need}
-          <FoldChevron open={open} className="size-4 text-muted-foreground" />
+          <ExpandChevron open={open} className="size-4 text-muted-foreground" />
         </div>
       </div>
 
       <div id={details} ref={body} className="cursor-auto">
-        <Unfold open={open} appear={false}>
+        <Collapsible open={open} appear={false}>
           {children}
-        </Unfold>
+        </Collapsible>
       </div>
     </li>
   );

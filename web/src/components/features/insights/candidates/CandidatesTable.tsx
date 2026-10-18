@@ -1,6 +1,6 @@
 import { CandidateStationRows } from '@/components/features/insights/candidates/CandidateStationRows';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
-import { useFolds } from '@/hooks/useFolds';
+import { useCollapsibles } from '@/hooks/useCollapsibles';
 import type { StationNames } from '@/lib/insights';
 import {
   type CandidatesStation,
@@ -23,7 +23,7 @@ export function CandidatesTable({
   names,
   chartStatus,
 }: CandidatesTableProps) {
-  const folds = useFolds();
+  const collapsibles = useCollapsibles();
   const heldOut = stations.some((station) =>
     station.sets.some((set) =>
       set.candidates.some((each) => each.heldOut !== null),
@@ -45,7 +45,7 @@ export function CandidatesTable({
           names={names}
           heldOut={heldOut}
           chartStatus={chartStatus}
-          folds={folds}
+          collapsibles={collapsibles}
         />
       ))}
     </NestedTable>

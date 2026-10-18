@@ -1,4 +1,4 @@
-import { Noted } from '@/components/shared/Noted';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
   formatPairTally,
@@ -43,9 +43,9 @@ export function PairTally({
         against
       )}
       :{' '}
-      <Noted note={pairTallyNote(against)}>
+      <WithTooltip tooltip={pairTallyNote(against)}>
         <span className="text-foreground">{formatPairTally(tally)}</span>
-      </Noted>
+      </WithTooltip>
     </span>
   );
 }

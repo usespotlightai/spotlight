@@ -4,9 +4,9 @@ import { TerminalSpinner } from '@/components/shared/TerminalSpinner';
 import type { ApprovalStatus } from '@/lib/approval-status';
 
 const STOPPED: Record<ApprovalStatus, 'filled' | 'faded' | null> = {
-  waiting: null,
+  pending: null,
   approved: 'filled',
-  declined: 'faded',
+  dismissed: 'faded',
 };
 
 type DecisionTitleProps = {

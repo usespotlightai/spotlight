@@ -139,7 +139,7 @@ describe('Inbox', () => {
       expect(section).toHaveTextContent('1');
     });
 
-    it('folds away on request, leaving resolved alone', async () => {
+    it('collapses on request, and leaves resolved alone', async () => {
       const person = userEvent.setup();
       waiting.mockReturnValue([
         item(),
@@ -218,7 +218,7 @@ describe('Inbox', () => {
       );
     });
 
-    it('folds away on request', async () => {
+    it('collapses on request', async () => {
       const person = userEvent.setup();
       renderAt('/w/acme/inbox');
 

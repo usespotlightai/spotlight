@@ -1,5 +1,3 @@
-import { Noted } from '@/components/shared/Noted';
-import { NotedWarning } from '@/components/shared/NotedWarning';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   EDGE_INDENT,
@@ -7,6 +5,8 @@ import {
   ROW_DIVIDER,
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
+import { WarningTooltip } from '@/components/shared/WarningTooltip';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { formatPercent } from '@/lib/judge';
 import {
@@ -75,9 +75,9 @@ function Gain({ replay, baselineId }: Omit<ReplayRowProps, 'at'>) {
   }
 
   return (
-    <Noted note={gainNoteOf(replay, baselineId)}>
+    <WithTooltip tooltip={gainNoteOf(replay, baselineId)}>
       <span className={GAIN_TONES[gain.significance]}>{formatGain(gain)}</span>
-    </Noted>
+    </WithTooltip>
   );
 }
 
@@ -115,21 +115,21 @@ export function ReplayRow({ at, replay, baselineId }: ReplayRowProps) {
       <NestedCell heading="Success" strong>
         <span className="inline-flex items-center justify-end gap-1.5">
           {unscored > 0 && (
-            <NotedWarning
+            <WarningTooltip
               tone="muted"
               label={`${unscored} unscored`}
-              note={`${unscored} of its runs have no score yet.`}
+              tooltip={`${unscored} of its runs have no score yet.`}
               className="relative z-10"
             />
           )}
           {successRate === null ? (
             <span className="text-muted-foreground">–</span>
           ) : interval ? (
-            <Noted note={`Likely range: ${formatInterval(interval)}`}>
+            <WithTooltip tooltip={`Likely range: ${formatInterval(interval)}`}>
               <span className="relative z-10">
                 {formatPercent(successRate)}
               </span>
-            </Noted>
+            </WithTooltip>
           ) : (
             formatPercent(successRate)
           )}

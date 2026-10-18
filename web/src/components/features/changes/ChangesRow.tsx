@@ -1,5 +1,5 @@
 import { CircleDashed, FileDiff } from 'lucide-react';
-import { DiffTally } from '@/components/shared/DiffTally';
+import { DiffStat } from '@/components/shared/DiffStat';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 
 type ChangesRowProps = {
@@ -26,7 +26,7 @@ export function ChangesRow({
 
       <span className="truncate text-foreground">Changes</span>
 
-      <DiffTally added={added} removed={removed} className="ml-auto text-xs" />
+      <DiffStat added={added} removed={removed} className="ml-auto text-xs" />
     </TrailLink>
   );
 }

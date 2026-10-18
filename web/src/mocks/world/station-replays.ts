@@ -590,7 +590,9 @@ const totalsOf = (
   const steps = ended.flatMap((each) =>
     each.steps === null ? [] : [each.steps],
   );
-  const took = ended.flatMap((each) => (each.ms === null ? [] : [each.ms]));
+  const durationsMs = ended.flatMap((each) =>
+    each.ms === null ? [] : [each.ms],
+  );
 
   return {
     entries: entries.length,
@@ -614,8 +616,8 @@ const totalsOf = (
     unpricedCalls: 0,
     steps: steps.reduce((total, each) => total + each, 0),
     medianSteps: medianOf(steps),
-    ms: took.reduce((total, each) => total + each, 0),
-    medianMs: medianOf(took),
+    ms: durationsMs.reduce((total, each) => total + each, 0),
+    medianMs: medianOf(durationsMs),
   };
 };
 

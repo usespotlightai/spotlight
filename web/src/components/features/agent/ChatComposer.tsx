@@ -21,7 +21,7 @@ export function ChatComposer({ slug, teamId, chat }: ChatComposerProps) {
   return (
     <ChatInput
       slug={slug}
-      label="Say something to the agent"
+      label="Message the agent"
       placeholder="Reply…"
       pending={send.isPending}
       running={chat.working}

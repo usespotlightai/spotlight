@@ -1,11 +1,11 @@
 import { BestValueMark } from '@/components/features/insights/BestValueMark';
-import { Noted } from '@/components/shared/Noted';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   OUTER_DIVIDER,
   OUTER_GUIDE,
   OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { spentIn } from '@/lib/inbox';
 import { formatCount, formatShare } from '@/lib/insights';
 import { formatSource, type ReplayedPoint } from '@/lib/insights-candidates';
@@ -36,11 +36,11 @@ export function ReplayedAgentConfigRow({
         )}
       >
         {point.mark === 'baseline' ? (
-          <Noted note={point.label}>
+          <WithTooltip tooltip={point.label}>
             <span className="min-w-0 truncate font-medium text-foreground text-xs">
               Live config
             </span>
-          </Noted>
+          </WithTooltip>
         ) : (
           <span className="min-w-0 truncate font-medium text-foreground text-xs">
             {point.label}

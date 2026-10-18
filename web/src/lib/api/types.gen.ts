@@ -578,7 +578,7 @@ export type RunUsageResponseDto = {
 };
 
 export type TaskHumanActionResponseDto = {
-  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'approved' | 'refused' | 'sent-back';
+  kind: 'started' | 'parked' | 'accepted' | 'answered' | 'approved' | 'dismissed' | 'sent-back';
   at: string;
 };
 
@@ -811,9 +811,9 @@ export type AskPermissionRequestDto = {
 
 export type PermissionAnswerResponseDto = {
   /**
-   * allow or reject answers the harness now; asked means a person was asked in their inbox, so the run should end its turn and release the task
+   * allow or reject answers the harness now; pending means a person was asked in their inbox, so the run should end its turn and release the task
    */
-  decision: 'allow' | 'reject' | 'asked';
+  decision: 'allow' | 'reject' | 'pending';
 };
 
 export type ReplyToReviewCommentRequestDto = {
@@ -1329,7 +1329,7 @@ export type InboxApprovalResponseDto = {
    * What it would go ahead with, exactly as it is now
    */
   inputs: Array<InboxApprovalInputResponseDto>;
-  status: 'asked' | 'granted' | 'refused';
+  status: 'pending' | 'approved' | 'dismissed';
   /**
    * What it was approved to run with instead, where the person changed it
    */
@@ -4715,7 +4715,7 @@ export type RunTallyResponseDto = {
    */
   accepted: number;
   /**
-   * Runs that a person sent back or refused first
+   * Runs that a person sent back or dismissed first
    */
   sentBack: number;
   /**
@@ -5202,7 +5202,7 @@ export type HeadlineResponseDto = {
    */
   taskToMerge: SpreadResponseDto;
   /**
-   * What people did with the tasks worked in the period: moves, answers, approvals, refusals, sends-back
+   * What people did with the tasks worked in the period: moves, answers, approvals, dismissals, sends-back
    */
   humanActions: number;
   /**
@@ -5323,7 +5323,7 @@ export type DayOutputResponseDto = {
 
 export type SignalReadingResponseDto = {
   /**
-   * sent-back: share of runs sent back or refused; checks-failed: share of checked changes that failed; run-failures: share of runs that failed; task-failures: task failures per run; cost: spend per run
+   * sent-back: share of runs sent back or dismissed; checks-failed: share of checked changes that failed; run-failures: share of runs that failed; task-failures: task failures per run; cost: spend per run
    */
   signal: 'sent-back' | 'checks-failed' | 'run-failures' | 'task-failures' | 'cost';
   /**
@@ -5683,16 +5683,16 @@ export type HumanLoadResponseDto = {
   toAnswer: SpreadResponseDto;
   unanswered: number;
   /**
-   * Runs that a person sent back or refused first
+   * Runs that a person sent back or dismissed first
    */
   sentBack: number;
   sentBackRate: number | null;
   /**
-   * Tool approvals and permissions people refused
+   * Tool approvals and permissions people dismissed
    */
-  refused: number;
+  dismissed: number;
   askedTaskIds: Array<string>;
-  refusedTaskIds: Array<string>;
+  dismissedTaskIds: Array<string>;
 };
 
 export type HumanLoadDeltasResponseDto = {
@@ -5709,9 +5709,9 @@ export type HumanLoadDeltasResponseDto = {
    */
   sentBackRate: DeltaResponseDto | null;
   /**
-   * Refused approvals against the period before
+   * Dismissed approvals against the period before
    */
-  refused: DeltaResponseDto | null;
+  dismissed: DeltaResponseDto | null;
 };
 
 export type PersonUseResponseDto = {
@@ -5719,7 +5719,7 @@ export type PersonUseResponseDto = {
   name: string | null;
   tasksOpened: number;
   /**
-   * Moves, answers, approvals, refusals and sends-back
+   * Moves, answers, approvals, dismissals and sends-back
    */
   actions: number;
   /**
@@ -5945,9 +5945,9 @@ export type SkillAtStationResponseDto = {
   enabled: number;
   used: number;
   /**
-   * spreading or fading where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; steady where it moved less; none where either side had too few runs
+   * rising or falling where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; flat where it moved less; none where either side had too few runs
    */
-  trend: 'spreading' | 'fading' | 'steady' | null;
+  trend: 'rising' | 'falling' | 'flat' | null;
 };
 
 export type SkillReportResponseDto = {
@@ -5969,9 +5969,9 @@ export type SkillReportResponseDto = {
    */
   weeks: Array<SkillWeekResponseDto>;
   /**
-   * spreading or fading where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; steady where it moved less; none where either side had too few runs
+   * rising or falling where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; flat where it moved less; none where either side had too few runs
    */
-  trend: 'spreading' | 'fading' | 'steady' | null;
+  trend: 'rising' | 'falling' | 'flat' | null;
   /**
    * Each station that enabled it for its runs or whose runs read it
    */
@@ -5985,7 +5985,7 @@ export type ServerReportResponseDto = {
    */
   runs: number;
   /**
-   * Calls to it across those runs, leaving out calls a person refused to approve
+   * Calls to it across those runs, leaving out calls whose approval a person dismissed
    */
   calls: number;
   callsPerRun: number | null;
@@ -6010,21 +6010,21 @@ export type ServerReportResponseDto = {
    */
   failingRuns: number;
   /**
-   * Runs in which a person refused one of its tools
+   * Runs in which a person dismissed an approval for one of its tools
    */
-  refused: number;
+  dismissed: number;
 };
 
-export type ToolRefusalsResponseDto = {
+export type ToolDismissalsResponseDto = {
   /**
    * The tool’s own name, or what the harness asked to do where it names no tool
    */
   tool: string;
   server: string | null;
   /**
-   * Runs in which a person refused this tool
+   * Runs in which a person dismissed an approval for this tool
    */
-  refused: number;
+  dismissed: number;
 };
 
 export type InsightsToolsResponseDto = {
@@ -6051,9 +6051,9 @@ export type InsightsToolsResponseDto = {
    */
   servers: Array<ServerReportResponseDto>;
   /**
-   * Each tool a person refused to approve for a run in the period, per server, the most refused first
+   * Each tool whose approval a person dismissed for a run in the period, per server, the most dismissed first
    */
-  refusals: Array<ToolRefusalsResponseDto>;
+  dismissals: Array<ToolDismissalsResponseDto>;
 };
 
 export type MeasureVerdictResponseDto = {
@@ -6201,7 +6201,7 @@ export type AgentConfigOutcomesResponseDto = {
    */
   accepted: number | null;
   /**
-   * Share of runs that a person sent back or refused first
+   * Share of runs that a person sent back or dismissed first
    */
   sent_back: number | null;
   /**
@@ -10732,7 +10732,7 @@ export type AnswerInboxItemResponses = {
 
 export type AnswerInboxItemResponse = AnswerInboxItemResponses[keyof AnswerInboxItemResponses];
 
-export type ReadInboxItemData = {
+export type MarkInboxItemReadData = {
   body?: never;
   path: {
     itemId: string;
@@ -10742,7 +10742,7 @@ export type ReadInboxItemData = {
   url: '/workspaces/{slug}/inbox/{itemId}/read';
 };
 
-export type ReadInboxItemErrors = {
+export type MarkInboxItemReadErrors = {
   /**
    * No valid session
    */
@@ -10753,16 +10753,16 @@ export type ReadInboxItemErrors = {
   404: unknown;
 };
 
-export type ReadInboxItemResponses = {
+export type MarkInboxItemReadResponses = {
   /**
    * It is no longer unread
    */
   204: void;
 };
 
-export type ReadInboxItemResponse = ReadInboxItemResponses[keyof ReadInboxItemResponses];
+export type MarkInboxItemReadResponse = MarkInboxItemReadResponses[keyof MarkInboxItemReadResponses];
 
-export type ReadInboxRequestData = {
+export type MarkInboxRequestReadData = {
   body?: never;
   path: {
     requestId: string;
@@ -10772,7 +10772,7 @@ export type ReadInboxRequestData = {
   url: '/workspaces/{slug}/inbox/requests/{requestId}/read';
 };
 
-export type ReadInboxRequestErrors = {
+export type MarkInboxRequestReadErrors = {
   /**
    * No valid session
    */
@@ -10783,14 +10783,14 @@ export type ReadInboxRequestErrors = {
   404: unknown;
 };
 
-export type ReadInboxRequestResponses = {
+export type MarkInboxRequestReadResponses = {
   /**
    * It is no longer unread
    */
   204: void;
 };
 
-export type ReadInboxRequestResponse = ReadInboxRequestResponses[keyof ReadInboxRequestResponses];
+export type MarkInboxRequestReadResponse = MarkInboxRequestReadResponses[keyof MarkInboxRequestReadResponses];
 
 export type ResolveInboxNoticeData = {
   body?: never;
@@ -18812,13 +18812,13 @@ export type ListInsightsRunsData = {
      */
     pullRequestState?: 'open' | 'merged' | 'closed';
     /**
-     * Only runs a person refused a tool of this MCP server for; none for tools of no server
+     * Only runs in which a person dismissed an approval for a tool of this MCP server; none for tools of no server
      */
-    refusedServer?: string;
+    dismissedServer?: string;
     /**
-     * Only runs a person refused this tool for
+     * Only runs in which a person dismissed an approval for this tool
      */
-    refusedTool?: string;
+    dismissedTool?: string;
     /**
      * Only runs that failed where the run’s last call to this MCP server failed
      */

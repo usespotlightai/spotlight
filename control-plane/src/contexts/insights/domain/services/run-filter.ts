@@ -47,8 +47,8 @@ export interface RunFilterQuery {
   readonly server: QueryValue;
   readonly serverFailed: QueryValue;
   readonly failedAfter: QueryValue;
-  readonly refusedTool: QueryValue;
-  readonly refusedServer: QueryValue;
+  readonly dismissedTool: QueryValue;
+  readonly dismissedServer: QueryValue;
   readonly pullRequestState: QueryValue;
   readonly humanAction: QueryValue;
   readonly asked: QueryValue;
@@ -76,8 +76,8 @@ export interface RunFilter {
   readonly server: string | null;
   readonly serverFailed: string | null;
   readonly failedAfter: string | null;
-  readonly refusedTool: string | null;
-  readonly refusedServer: Narrowing;
+  readonly dismissedTool: string | null;
+  readonly dismissedServer: Narrowing;
   readonly pullRequestState: TaskPullRequestState | null;
   readonly humanAction: TaskAction | null;
   readonly askedWithin: Window | null;
@@ -234,8 +234,12 @@ export const runFilterOf = (
   server: single(query.server, 'server'),
   serverFailed: single(query.serverFailed, 'server that failed'),
   failedAfter: single(query.failedAfter, 'server failed after'),
-  refusedTool: single(query.refusedTool, 'refused tool'),
-  refusedServer: narrowingOf(query.refusedServer, NO_SERVER, 'refused server'),
+  dismissedTool: single(query.dismissedTool, 'dismissed tool'),
+  dismissedServer: narrowingOf(
+    query.dismissedServer,
+    NO_SERVER,
+    'dismissed server',
+  ),
   pullRequestState: oneOf(
     TASK_PULL_REQUEST_STATES,
     query.pullRequestState,

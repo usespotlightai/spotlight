@@ -259,11 +259,11 @@ describe('AnswerInboxItem', () => {
   it('grants the approval a person gives, leaving the task to the run that asked', async () => {
     await answer(
       asking(),
-      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'granted'),
+      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'approved'),
     );
 
     const decided = saved?.notes.find((note) => note.approval)?.approval;
-    expect(decided?.status).toBe('granted');
+    expect(decided?.status).toBe('approved');
     expect(decided?.decided?.by.value).toBe('user_1');
     expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe('Approved.');
     expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
@@ -272,7 +272,7 @@ describe('AnswerInboxItem', () => {
   it('grants it with the person’s changes, telling the agent what it runs with instead', async () => {
     await answer(
       asking(),
-      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'granted', {
+      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'approved', {
         issue: 'ENG-12',
         body: 'Fixed in #41.',
       }),
@@ -301,7 +301,7 @@ describe('AnswerInboxItem', () => {
         'user_1',
         'Mention the PR.',
         [],
-        'granted',
+        'approved',
         { issue: 'ENG-12', body: 'Fixed in #41.' },
       ),
     );
@@ -315,7 +315,7 @@ describe('AnswerInboxItem', () => {
     await expect(
       answer(
         asking(),
-        new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'refused', {
+        new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'dismissed', {
           issue: 'ENG-12',
           body: 'Fixed in #41.',
         }),
@@ -327,7 +327,7 @@ describe('AnswerInboxItem', () => {
   it('says plainly it was approved where the changes left it as it was', async () => {
     await answer(
       asking(),
-      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'granted', {
+      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'approved', {
         issue: 'ENG-12',
         body: 'Fixed.',
       }),
@@ -339,13 +339,13 @@ describe('AnswerInboxItem', () => {
   it('tells the agent it was dismissed where the person gave no reason', async () => {
     await answer(
       asking(),
-      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'refused'),
+      new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'dismissed'),
     );
 
     expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe('Dismissed.');
   });
 
-  it('records a refusal in the person’s own words', async () => {
+  it('records a dismissal in the person’s own words', async () => {
     await answer(
       asking(),
       new AnswerInboxItemCommand(
@@ -353,12 +353,12 @@ describe('AnswerInboxItem', () => {
         'user_1',
         'Not before the release.',
         [],
-        'refused',
+        'dismissed',
       ),
     );
 
     expect(saved?.notes.find((note) => note.approval)?.approval?.status).toBe(
-      'refused',
+      'dismissed',
     );
     expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe(
       'Not before the release.',
@@ -376,7 +376,7 @@ describe('AnswerInboxItem', () => {
     );
 
     expect(saved?.notes.find((note) => note.approval)?.approval?.status).toBe(
-      'asked',
+      'pending',
     );
     expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe(
       'Mention the ticket too.',
@@ -415,7 +415,7 @@ describe('AnswerInboxItem', () => {
     await expect(
       answer(
         waiting(),
-        new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'granted'),
+        new AnswerInboxItemCommand('task_1:0', 'user_1', '', [], 'approved'),
       ),
     ).rejects.toMatchObject({ kind: 'conflict' });
   });

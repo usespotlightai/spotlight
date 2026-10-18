@@ -1,4 +1,4 @@
-import { Noted } from '@/components/shared/Noted';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { formatPercent } from '@/lib/judge';
 import type { RateInterval } from '@/lib/replay';
 import { formatInterval, INTERVAL_NOTE } from '@/lib/replay-words';
@@ -24,11 +24,11 @@ export function RateWithInterval({
       {rate !== null && interval && (
         <>
           {' '}
-          <Noted note={INTERVAL_NOTE}>
+          <WithTooltip tooltip={INTERVAL_NOTE}>
             <span data-slot="rate-interval" className="text-muted-foreground">
               ({formatInterval(interval)})
             </span>
-          </Noted>
+          </WithTooltip>
         </>
       )}
     </span>

@@ -79,7 +79,7 @@ describe('TeamNav', () => {
     expect(panels()[1]?.querySelector('ul')).not.toHaveAttribute('inert');
   });
 
-  it('lists a team’s lines under a label that folds them away, and remembers it', async () => {
+  it('lists a team’s lines under a label that collapses them, and remembers it', async () => {
     renderNav();
 
     expect(lineGroups()).toHaveLength(teams.length);

@@ -48,7 +48,7 @@ describe('humanLabelOf', () => {
     expect(labelled({ record: actedOn(act) })).toMatchObject({ value, from });
   });
 
-  it.each(['approved', 'refused'] as const)(
+  it.each(['approved', 'dismissed'] as const)(
     'knows nothing of a run people only %s a tool for',
     (act) => {
       expect(labelled({ record: actedOn(act) })).toBeNull();

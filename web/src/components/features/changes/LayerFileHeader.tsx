@@ -1,5 +1,5 @@
 import { ChevronRight, MessageSquarePlus } from 'lucide-react';
-import { DiffTally } from '@/components/shared/DiffTally';
+import { DiffStat } from '@/components/shared/DiffStat';
 import { Button } from '@/components/ui/button';
 import type { LayerFile } from '@/lib/change-stack';
 import { cn } from '@/lib/utils';
@@ -73,7 +73,7 @@ export function LayerFileHeader({
           </Button>
         )}
 
-        <DiffTally
+        <DiffStat
           added={tally.added}
           removed={tally.removed}
           className="h-6 text-xs leading-none"

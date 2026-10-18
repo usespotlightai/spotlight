@@ -1,6 +1,11 @@
 import { DetailProperty } from '@/components/features/trace/view/detail/DetailProperty';
 import { contentsOf, reported } from '@/lib/detail';
-import { counted, shortTimeOf, spentOn, took } from '@/lib/inbox';
+import {
+  counted,
+  formatShortDuration,
+  shortTimeOf,
+  spentOn,
+} from '@/lib/inbox';
 import { ERROR_LABELS, REASON_LABELS } from '@/lib/run-network';
 import type { TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
@@ -38,7 +43,9 @@ export function DetailHeader({ node }: { node: TraceNode }) {
         <DetailProperty name="Started">
           {shortTimeOf(node.startedAt)}
         </DetailProperty>
-        <DetailProperty name="Took">{took(node.ms)}</DetailProperty>
+        <DetailProperty name="Duration">
+          {formatShortDuration(node.ms)}
+        </DetailProperty>
 
         {node.step?.status && (
           <DetailProperty name="Status" failed={node.step.status === 'failed'}>
@@ -49,7 +56,7 @@ export function DetailHeader({ node }: { node: TraceNode }) {
           <DetailProperty name="Tool">{node.step.tool}</DetailProperty>
         )}
         {node.connection?.error && (
-          <DetailProperty name="Outcome" failed>
+          <DetailProperty name="Error" failed>
             {ERROR_LABELS[node.connection.error]}
           </DetailProperty>
         )}

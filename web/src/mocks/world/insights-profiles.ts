@@ -39,7 +39,7 @@ type ServerUse = {
   readonly calls: number;
   readonly failure: number;
   readonly p50Ms: number;
-  readonly refusable: string | null;
+  readonly dismissible: string | null;
 };
 
 export type Profile = {
@@ -77,14 +77,14 @@ const linear = (
   share: number,
   calls: number,
   failure: number,
-  refusable: string | null,
+  dismissible: string | null,
 ): ServerUse => ({
   server: 'linear',
   share,
   calls,
   failure,
   p50Ms: 420,
-  refusable,
+  dismissible,
 });
 
 const sentry = (share: number, calls: number, failure: number): ServerUse => ({
@@ -93,21 +93,21 @@ const sentry = (share: number, calls: number, failure: number): ServerUse => ({
   calls,
   failure,
   p50Ms: 880,
-  refusable: null,
+  dismissible: null,
 });
 
 const slack = (
   share: number,
   calls: number,
   failure: number,
-  refusable: string | null,
+  dismissible: string | null,
 ): ServerUse => ({
   server: 'slack',
   share,
   calls,
   failure,
   p50Ms: 150,
-  refusable,
+  dismissible,
 });
 
 type Behaviour = Omit<Version, 'fingerprint' | 'sinceHoursAgo' | 'changes'>;

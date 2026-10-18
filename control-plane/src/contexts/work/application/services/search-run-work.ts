@@ -43,7 +43,7 @@ export class SearchRunWork implements RunWork {
   }
 
   async clearFor(): Promise<Cleared> {
-    return { kind: 'refused', reason: NO_TOOLS };
+    return { kind: 'dismissed', reason: NO_TOOLS };
   }
 
   async askToConnect(): Promise<ConnectionAsked> {
@@ -60,6 +60,6 @@ export class SearchRunWork implements RunWork {
 
     await this.runs.save(current.askedAPersonBy(by));
 
-    return 'asked';
+    return 'pending';
   }
 }

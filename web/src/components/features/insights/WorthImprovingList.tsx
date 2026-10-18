@@ -3,7 +3,7 @@ import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { SignalRow } from '@/components/features/insights/SignalRow';
 import { ImproveStationLink } from '@/components/features/stations/ImproveStationLink';
-import { FoldingRows } from '@/components/shared/nested-table/FoldingRows';
+import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
 import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
@@ -11,7 +11,7 @@ import {
   OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { useFolds } from '@/hooks/useFolds';
+import { useCollapsibles } from '@/hooks/useCollapsibles';
 import {
   formatCount,
   formatStation,
@@ -38,7 +38,7 @@ export function WorthImprovingList({
   stations,
   names,
 }: WorthImprovingListProps) {
-  const folds = useFolds();
+  const collapsibles = useCollapsibles();
 
   return (
     <InsightsCard
@@ -58,7 +58,7 @@ export function WorthImprovingList({
           {stations.map((station) => {
             const named = names.get(station.stationId);
             const name = formatStation(names, station.stationId);
-            const open = folds.isOpen(station.stationId);
+            const open = collapsibles.isOpen(station.stationId);
 
             return (
               <Fragment key={station.stationId}>
@@ -66,7 +66,7 @@ export function WorthImprovingList({
                   label={name}
                   open={open}
                   depth={0}
-                  onToggle={() => folds.toggle(station.stationId)}
+                  onToggle={() => collapsibles.toggle(station.stationId)}
                   spans="@4xl:col-span-6"
                   cells={
                     named ? (
@@ -111,7 +111,7 @@ export function WorthImprovingList({
                     </InsightsLink>
                   </span>
                 </NestedGroupRow>
-                <FoldingRows open={open} label={`Signals for ${name}`}>
+                <CollapsibleRows open={open} label={`Signals for ${name}`}>
                   {station.signals.map((reading) => (
                     <SignalRow key={reading.signal} reading={reading} />
                   ))}
@@ -126,7 +126,7 @@ export function WorthImprovingList({
                       Cost isn’t compared. Prices are in more than one currency.
                     </li>
                   )}
-                </FoldingRows>
+                </CollapsibleRows>
               </Fragment>
             );
           })}

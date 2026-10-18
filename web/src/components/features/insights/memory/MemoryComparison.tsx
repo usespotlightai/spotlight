@@ -1,4 +1,4 @@
-import { DeltaMark } from '@/components/features/insights/DeltaMark';
+import { DeltaGlyph } from '@/components/features/insights/DeltaGlyph';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
@@ -50,7 +50,7 @@ export function MemoryComparison({ runs, verdicts }: MemoryComparisonProps) {
               {row.other}
             </NestedCell>
             <NestedCell heading="Change">
-              {row.delta ? <DeltaMark delta={row.delta} /> : '–'}
+              {row.delta ? <DeltaGlyph delta={row.delta} /> : '–'}
             </NestedCell>
           </li>
         ),

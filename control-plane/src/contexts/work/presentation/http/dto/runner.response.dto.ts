@@ -291,9 +291,9 @@ export class RenewCheckLeaseResponseDto {
 export class PermissionAnswerResponseDto {
   @ApiProperty({
     enum: PERMISSION_ANSWERS,
-    example: 'asked',
+    example: 'pending',
     description:
-      'allow or reject answers the harness now; asked means a person was asked in their inbox, so the run should end its turn and release the task',
+      'allow or reject answers the harness now; pending means a person was asked in their inbox, so the run should end its turn and release the task',
   })
   readonly decision: PermissionAnswer;
 

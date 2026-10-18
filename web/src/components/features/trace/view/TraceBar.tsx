@@ -1,4 +1,4 @@
-import { spentOn, took } from '@/lib/inbox';
+import { formatShortDuration, spentOn } from '@/lib/inbox';
 import { laidOut, type Trace, type TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
 
@@ -40,7 +40,7 @@ export function TraceBar({ node, trace }: { node: TraceNode; trace: Trace }) {
           transform: 'translateY(-50%)',
         }}
       >
-        {took(node.ms)}
+        {formatShortDuration(node.ms)}
         {node.cost !== null && (
           <span className="pl-3">∑{spentOn(node.cost)}</span>
         )}

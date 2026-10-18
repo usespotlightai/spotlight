@@ -1,4 +1,4 @@
-export const SKILL_TRENDS = ['spreading', 'fading', 'steady'] as const;
+export const SKILL_TRENDS = ['rising', 'falling', 'flat'] as const;
 
 export type SkillTrend = (typeof SKILL_TRENDS)[number];
 
@@ -35,8 +35,8 @@ export const skillTrendOf = (weeks: readonly WeekUse[]): SkillTrend | null => {
   const threshold = TREND_SHIFT_POINTS * recent.runs * earlier.runs;
 
   if (shift >= threshold) {
-    return 'spreading';
+    return 'rising';
   }
 
-  return shift <= -threshold ? 'fading' : 'steady';
+  return shift <= -threshold ? 'falling' : 'flat';
 };

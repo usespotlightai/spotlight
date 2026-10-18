@@ -41,7 +41,7 @@ export function useBoardDrag(board: Board) {
   const moveTask = useMoveTask();
   const swallowNextClick = useDragGuard();
 
-  const [lifted, setLifted] = useState<string | null>(null);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
   const [landing, setLanding] = useState<Landing | null>(null);
 
   const sensors = useSensors(
@@ -49,7 +49,7 @@ export function useBoardDrag(board: Board) {
   );
 
   const clear = () => {
-    setLifted(null);
+    setDraggedId(null);
     setLanding(null);
   };
 
@@ -105,10 +105,11 @@ export function useBoardDrag(board: Board) {
   return {
     sensors,
     collisionDetection: dropping,
-    lifted,
+    draggedId,
     landing,
     handlers: {
-      onDragStart: ({ active }: DragStartEvent) => setLifted(String(active.id)),
+      onDragStart: ({ active }: DragStartEvent) =>
+        setDraggedId(String(active.id)),
       onDragOver,
       onDragCancel: () => {
         clear();

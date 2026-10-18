@@ -221,7 +221,7 @@ describe('TeamMemory', () => {
     );
   });
 
-  it('folds a branch of where an opened memory applies', async () => {
+  it('collapses a branch of where an opened memory applies', async () => {
     memoriesState.data = [
       memory({
         lineId: 'line_delivery',
@@ -235,10 +235,10 @@ describe('TeamMemory', () => {
     await userEvent.click(
       screen.getByRole('button', { name: /Name branches after the ticket/ }),
     );
-    const fold = screen.getByRole('button', {
+    const toggle = screen.getByRole('button', {
       name: 'Hide what is under acme/api',
     });
-    await userEvent.click(fold);
+    await userEvent.click(toggle);
 
     expect(
       screen.getByRole('button', { name: 'Show what is under acme/api' }),
@@ -435,7 +435,7 @@ describe('TeamMemory', () => {
     expect(screen.queryByText('Details of memory_1')).not.toBeInTheDocument();
   });
 
-  it('starts a folded memory afresh, not in the edit it was left in', async () => {
+  it('starts a collapsed memory afresh, not in the edit it was left in', async () => {
     memoriesState.data = [
       memory(),
       memory({ id: 'memory_2', body: 'Retry uploads in the request.' }),

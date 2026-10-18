@@ -1,4 +1,4 @@
-import { Noted } from '@/components/shared/Noted';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import type { ComparisonStat } from '@/lib/judge';
 import { cn } from '@/lib/utils';
 
@@ -16,14 +16,14 @@ export function JudgeStatistics({
       )}
     >
       {stats.map((stat) => (
-        <Noted key={stat.label} note={stat.note}>
+        <WithTooltip key={stat.label} tooltip={stat.tooltip}>
           <div className="flex min-w-0 cursor-default flex-col items-center gap-1 text-center">
             <dt className="text-muted-foreground text-xs">{stat.label}</dt>
             <dd className="font-normal text-[1.375rem] text-foreground tabular-nums leading-none tracking-tight">
               {stat.value}
             </dd>
           </div>
-        </Noted>
+        </WithTooltip>
       ))}
     </dl>
   );

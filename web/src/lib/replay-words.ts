@@ -34,7 +34,7 @@ export type GainSignificanceCode = GainEstimateResponseDto['significance'];
 export type PairOutcome = NonNullable<EntryComparisonResponseDto['pair']>;
 export type PairTally = PairTallyResponseDto;
 type Unpaired = NonNullable<EntryPairResponseDto['unpaired']>;
-export type TurnedOut = ReplaySetEntryResponseDto['outcome'];
+export type RunOutcome = ReplaySetEntryResponseDto['outcome'];
 
 const UNREPLAYABLE_REASONS: Record<UnreplayableReason, string> = {
   'unknown-run': 'Run doesn’t exist',
@@ -799,7 +799,7 @@ export const formatCitedHunks = (
 
   return parts.length > 0 ? `Cites ${parts.join(' and ')}` : null;
 };
-const TURNED_OUT: Record<TurnedOut, string> = {
+const RUN_OUTCOMES: Record<RunOutcome, string> = {
   accepted: 'Accepted',
   'sent-back': 'Sent back',
   asked: 'Asked a person',
@@ -807,7 +807,7 @@ const TURNED_OUT: Record<TurnedOut, string> = {
   other: 'Other',
 };
 
-const TURNED_OUT_PHRASES: Record<TurnedOut, string> = {
+const RUN_OUTCOME_PHRASES: Record<RunOutcome, string> = {
   accepted: 'were accepted',
   'sent-back': 'were sent back',
   asked: 'asked a person',
@@ -815,8 +815,8 @@ const TURNED_OUT_PHRASES: Record<TurnedOut, string> = {
   other: 'turned out some other way',
 };
 
-export const formatTurnedOut = (outcome: TurnedOut): string =>
-  TURNED_OUT[outcome];
+export const formatRunOutcome = (outcome: RunOutcome): string =>
+  RUN_OUTCOMES[outcome];
 
 const ORIGINS: Readonly<Record<string, string>> = {
   person: 'A person',
@@ -830,14 +830,14 @@ const ORIGINS: Readonly<Record<string, string>> = {
 export const formatOrigin = (origin: string): string =>
   ORIGINS[origin] ?? `${origin.charAt(0).toUpperCase()}${origin.slice(1)}`;
 
-export const TURNED_OUT_LABEL = 'How its runs turned out';
+export const RUN_OUTCOME_LABEL = 'How its runs turned out';
 
 export const ORIGINS_LABEL = 'Where their tasks came from';
 
 export const formatBalanceWarning = (
   warning: BalanceWarningResponseDto,
 ): string =>
-  `${warning.count} of ${warning.entries} runs ${TURNED_OUT_PHRASES[warning.dominant]}. Add runs that turned out other ways to balance the set.`;
+  `${warning.count} of ${warning.entries} runs ${RUN_OUTCOME_PHRASES[warning.dominant]}. Add runs that turned out other ways to balance the set.`;
 
 export const formatEndedSpan = (
   composition: SetCompositionResponseDto,

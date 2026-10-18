@@ -2,7 +2,7 @@ import type {
   InsightsToolsDto,
   ServerReportDto,
   SkillReportDto,
-  ToolRefusalsDto,
+  ToolDismissalsDto,
   TrendRuleDto,
 } from '@insights/application/dto/insights-tools.dto';
 import { SKILL_TRENDS } from '@insights/domain/services/skill-trend';
@@ -14,7 +14,7 @@ import { InsightsPeriodResponseDto } from '@insights/presentation/http/dto/insig
 import { ApiProperty } from '@nestjs/swagger';
 
 const TREND_DESCRIPTION =
-  'spreading or fading where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; steady where it moved less; none where either side had too few runs';
+  'rising or falling where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; flat where it moved less; none where either side had too few runs';
 
 export class SkillWeekResponseDto {
   @ApiProperty({
@@ -72,7 +72,7 @@ export class SkillAtStationResponseDto {
   @ApiProperty({
     enum: [...SKILL_TRENDS, null],
     nullable: true,
-    example: 'steady',
+    example: 'flat',
     description: TREND_DESCRIPTION,
   })
   readonly trend: SkillAtStation['trend'];
@@ -120,7 +120,7 @@ export class SkillReportResponseDto {
   @ApiProperty({
     enum: [...SKILL_TRENDS, null],
     nullable: true,
-    example: 'spreading',
+    example: 'rising',
     description: TREND_DESCRIPTION,
   })
   readonly trend: SkillReportDto['trend'];
@@ -156,7 +156,7 @@ export class ServerReportResponseDto {
   @ApiProperty({
     example: 72,
     description:
-      'Calls to it across those runs, leaving out calls a person refused to approve',
+      'Calls to it across those runs, leaving out calls whose approval a person dismissed',
   })
   readonly calls: number;
 
@@ -204,9 +204,10 @@ export class ServerReportResponseDto {
 
   @ApiProperty({
     example: 2,
-    description: 'Runs in which a person refused one of its tools',
+    description:
+      'Runs in which a person dismissed an approval for one of its tools',
   })
-  readonly refused: number;
+  readonly dismissed: number;
 
   constructor(server: ServerReportDto) {
     this.server = server.server;
@@ -218,11 +219,11 @@ export class ServerReportResponseDto {
     this.failedCalls = server.failedCalls;
     this.errorRate = server.errorRate;
     this.failingRuns = server.failingRuns;
-    this.refused = server.refused;
+    this.dismissed = server.dismissed;
   }
 }
 
-export class ToolRefusalsResponseDto {
+export class ToolDismissalsResponseDto {
   @ApiProperty({
     example: 'create_issue',
     description:
@@ -235,14 +236,14 @@ export class ToolRefusalsResponseDto {
 
   @ApiProperty({
     example: 2,
-    description: 'Runs in which a person refused this tool',
+    description: 'Runs in which a person dismissed an approval for this tool',
   })
-  readonly refused: number;
+  readonly dismissed: number;
 
-  constructor(refusals: ToolRefusalsDto) {
-    this.tool = refusals.tool;
-    this.server = refusals.server;
-    this.refused = refusals.refused;
+  constructor(dismissals: ToolDismissalsDto) {
+    this.tool = dismissals.tool;
+    this.server = dismissals.server;
+    this.dismissed = dismissals.dismissed;
   }
 }
 
@@ -317,12 +318,12 @@ export class InsightsToolsResponseDto {
   readonly servers: readonly ServerReportResponseDto[];
 
   @ApiProperty({
-    type: ToolRefusalsResponseDto,
+    type: ToolDismissalsResponseDto,
     isArray: true,
     description:
-      'Each tool a person refused to approve for a run in the period, per server, the most refused first',
+      'Each tool whose approval a person dismissed for a run in the period, per server, the most dismissed first',
   })
-  readonly refusals: readonly ToolRefusalsResponseDto[];
+  readonly dismissals: readonly ToolDismissalsResponseDto[];
 
   constructor(tools: InsightsToolsDto) {
     this.period = new InsightsPeriodResponseDto(tools.period);
@@ -334,8 +335,8 @@ export class InsightsToolsResponseDto {
     this.servers = tools.servers.map(
       (each) => new ServerReportResponseDto(each),
     );
-    this.refusals = tools.refusals.map(
-      (each) => new ToolRefusalsResponseDto(each),
+    this.dismissals = tools.dismissals.map(
+      (each) => new ToolDismissalsResponseDto(each),
     );
   }
 }

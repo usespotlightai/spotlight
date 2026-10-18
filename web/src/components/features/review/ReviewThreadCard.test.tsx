@@ -181,7 +181,7 @@ describe('ReviewThreadCard', () => {
     );
   });
 
-  it('folds a deleted comment away, and the whole thread with its last comment', async () => {
+  it('collapses a deleted comment, and the whole thread with its last comment', async () => {
     const drafted = threadOf(REVIEW, 'comment_roles');
 
     render(within_(REVIEW, <ReviewThreadCard thread={drafted} />));

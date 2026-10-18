@@ -554,10 +554,13 @@ export class TeamInsightsController {
     'failedAfter',
     'Only runs that failed where the run’s last call to this MCP server failed',
   )
-  @FilterQuery('refusedTool', 'Only runs a person refused this tool for')
   @FilterQuery(
-    'refusedServer',
-    `Only runs a person refused a tool of this MCP server for; ${NO_SERVER} for tools of no server`,
+    'dismissedTool',
+    'Only runs in which a person dismissed an approval for this tool',
+  )
+  @FilterQuery(
+    'dismissedServer',
+    `Only runs in which a person dismissed an approval for a tool of this MCP server; ${NO_SERVER} for tools of no server`,
   )
   @ApiQuery({
     name: 'pullRequestState',
@@ -620,8 +623,8 @@ export class TeamInsightsController {
             server: queryValue(query.server),
             serverFailed: queryValue(query.serverFailed),
             failedAfter: queryValue(query.failedAfter),
-            refusedTool: queryValue(query.refusedTool),
-            refusedServer: queryValue(query.refusedServer),
+            dismissedTool: queryValue(query.dismissedTool),
+            dismissedServer: queryValue(query.dismissedServer),
             pullRequestState: queryValue(query.pullRequestState),
             humanAction: queryValue(query.humanAction),
             asked: queryValue(query.asked),

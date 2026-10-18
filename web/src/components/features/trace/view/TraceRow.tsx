@@ -49,7 +49,7 @@ export const TraceRow = memo(function TraceRow({
             type="button"
             onClick={() => onToggle(node.id)}
             aria-expanded={open}
-            aria-label={open ? `Fold ${node.name}` : `Unfold ${node.name}`}
+            aria-label={open ? `Collapse ${node.name}` : `Expand ${node.name}`}
             className="relative z-10 flex shrink-0 items-center rounded text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ChevronRight

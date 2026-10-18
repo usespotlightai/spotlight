@@ -3,6 +3,7 @@ import {
   appliesTo,
   authorOf,
   filterOf,
+  memoryCounts,
   memoryFilesOf,
   memoryPath,
   narrowed,
@@ -13,7 +14,6 @@ import {
   proposalTitleOf,
   proposedSummary,
   type RunProposal,
-  rememberedCounts,
   suppliedMemories,
   type TeamMemory,
 } from '@/lib/memory';
@@ -233,7 +233,7 @@ describe('authorOf', () => {
   });
 });
 
-describe('what a run remembered', () => {
+describe('the memories of a run', () => {
   const proposal = (over: Partial<RunProposal>): RunProposal => ({
     ...memory(),
     handle: null,
@@ -259,7 +259,7 @@ describe('what a run remembered', () => {
 
   it('counts only what there was', () => {
     expect(
-      rememberedCounts({
+      memoryCounts({
         briefed: [],
         omitted: [],
         recalled: [],

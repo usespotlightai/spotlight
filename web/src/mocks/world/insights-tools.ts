@@ -50,10 +50,10 @@ const trendOf = (
   const moved = (usedRate(latest) - usedRate(earlier)) * 100;
 
   return moved >= TREND_RULE.shiftPoints
-    ? 'spreading'
+    ? 'rising'
     : moved <= -TREND_RULE.shiftPoints
-      ? 'fading'
-      : 'steady';
+      ? 'falling'
+      : 'flat';
 };
 
 const touches = (run: HistoryRun, skill: string): boolean =>
@@ -127,7 +127,7 @@ const serverOf = (
     failedCalls,
     errorRate: shareOf(failedCalls, total),
     failingRuns: calls.filter((call) => call.failed > 0).length,
-    refused: calls.filter((call) => call.refused !== null).length,
+    dismissed: calls.filter((call) => call.dismissed !== null).length,
   };
 };
 
@@ -142,9 +142,9 @@ export const toolsOf = (
   const seen = distinct(
     runs.flatMap((run) => [...run.skillsEnabled, ...run.skillsUsed]),
   );
-  const refusals = runs.flatMap((run) =>
+  const dismissals = runs.flatMap((run) =>
     run.calls.flatMap((call) =>
-      call.refused ? [{ tool: call.refused, server: call.server }] : [],
+      call.dismissed ? [{ tool: call.dismissed, server: call.server }] : [],
     ),
   );
 
@@ -164,12 +164,12 @@ export const toolsOf = (
     )
       .map((server) => serverOf(runs, server))
       .sort((one, other) => other.calls - one.calls),
-    refusals: distinct(refusals.map((each) => each.tool))
+    dismissals: distinct(dismissals.map((each) => each.tool))
       .map((tool) => ({
         tool,
-        server: refusals.find((each) => each.tool === tool)?.server ?? null,
-        refused: refusals.filter((each) => each.tool === tool).length,
+        server: dismissals.find((each) => each.tool === tool)?.server ?? null,
+        dismissed: dismissals.filter((each) => each.tool === tool).length,
       }))
-      .sort((one, other) => other.refused - one.refused),
+      .sort((one, other) => other.dismissed - one.dismissed),
   };
 };

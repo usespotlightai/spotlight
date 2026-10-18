@@ -8,8 +8,8 @@ import {
   usageOf,
   WORKSPACE,
 } from '@insights/domain/runs.fake-spec';
+import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
-import { Refusal } from '@insights/domain/value-objects/refusal.vo';
 import { RunMemories } from '@insights/domain/value-objects/run-memories.vo';
 import { RunTools } from '@insights/domain/value-objects/run-tools.vo';
 import type { RunUsage } from '@insights/domain/value-objects/run-usage.vo';
@@ -60,7 +60,7 @@ describe('RunRecord', () => {
       .recordEnd(endOf())
       .recordAction(HumanAction.of('sent-back', LATER))
       .recordAction(HumanAction.of('approved', LATER))
-      .recordAction(HumanAction.of('refused', LATER))
+      .recordAction(HumanAction.of('dismissed', LATER))
       .recordCheck('skipped', RECEIVED_AT)
       .recordCheck('passed', RECEIVED_AT)
       .recordCheck('failed', RECEIVED_AT)
@@ -151,7 +151,7 @@ describe('RunRecord', () => {
     const actions = [
       HumanAction.of('approved', EARLIER),
       HumanAction.of('sent-back', AT),
-      HumanAction.of('refused', AT),
+      HumanAction.of('dismissed', AT),
       HumanAction.of('accepted', LATER),
     ];
     const receivedIn = (order: readonly HumanAction[]) =>
@@ -193,7 +193,7 @@ describe('RunRecord', () => {
 
     expect(approved.firstHumanAction).toBeNull();
     expect(approved.approvalAnsweredAt).toEqual(AT);
-    expect(approved.recordAction(HumanAction.of('refused', LATER))).toBe(
+    expect(approved.recordAction(HumanAction.of('dismissed', LATER))).toBe(
       approved,
     );
   });
@@ -213,7 +213,7 @@ describe('RunRecord', () => {
         usage: null,
         passed: null,
         tools: null,
-        refusals: [],
+        dismissals: [],
         memories: RunMemories.NONE,
         version: 0,
       }),
@@ -243,7 +243,7 @@ describe('RunRecord', () => {
       usage: null,
       passed: null,
       tools: null,
-      refusals: [],
+      dismissals: [],
       memories: RunMemories.NONE,
       version: 3,
     });
@@ -299,7 +299,7 @@ describe('RunRecord', () => {
         usage: null,
         passed: null,
         tools: null,
-        refusals: [],
+        dismissals: [],
         memories: RunMemories.NONE,
         version: 0,
       }),
@@ -360,7 +360,7 @@ describe('RunRecord', () => {
         usage,
         passed: null,
         tools,
-        refusals: [],
+        dismissals: [],
         memories: RunMemories.NONE,
         version: 0,
       });
@@ -369,20 +369,21 @@ describe('RunRecord', () => {
     expect(stored(usageOf(), null).tools).toBeNull();
   });
 
-  it('notes each refusal once, however often it is received', () => {
-    const refusal = Refusal.of({
+  it('notes each dismissal once, however often it is received', () => {
+    const dismissal = Dismissal.of({
       tool: 'mcp__linear__create_issue',
       server: 'linear',
       at: AT,
     });
-    const refused = endedRecord('run_1').refused(refusal);
+    const dismissed = endedRecord('run_1').dismissed(dismissal);
 
-    expect(refused.refused(refusal)).toBe(refused);
+    expect(dismissed.dismissed(dismissal)).toBe(dismissed);
     expect(
-      refused.refused(Refusal.of({ ...refusal, at: LATER })).refusals,
+      dismissed.dismissed(Dismissal.of({ ...dismissal, at: LATER })).dismissals,
     ).toHaveLength(2);
     expect(
-      refused.refused(Refusal.of({ ...refusal, server: 'jira' })).refusals,
+      dismissed.dismissed(Dismissal.of({ ...dismissal, server: 'jira' }))
+        .dismissals,
     ).toHaveLength(2);
   });
 
@@ -419,10 +420,10 @@ describe('RunRecord', () => {
     expect(sentBack.disposition).toBe('sent-back');
   });
 
-  it('turned out accepted when a person closed its task after refusing a tool it asked for', () => {
+  it('turned out accepted when a person closed its task after dismissing a tool it asked for', () => {
     const accepted = RunRecord.empty(RUN, WORKSPACE)
       .recordEnd(endOf())
-      .recordAction(HumanAction.of('refused', AT))
+      .recordAction(HumanAction.of('dismissed', AT))
       .recordAction(HumanAction.of('accepted', LATER));
 
     expect(accepted.firstHumanAction?.accepts).toBe(true);
@@ -448,7 +449,7 @@ describe('RunRecord', () => {
   it('turned out asking, neither accepted nor sent back, when a person only decided a tool or permission approval', () => {
     const ended = RunRecord.empty(RUN, WORKSPACE).recordEnd(endOf());
 
-    for (const act of ['approved', 'refused'] as const) {
+    for (const act of ['approved', 'dismissed'] as const) {
       const decided = ended.recordAction(HumanAction.of(act, AT));
 
       expect(decided.disposition).toBe('asked');

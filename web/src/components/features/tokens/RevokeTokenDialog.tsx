@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useRevokeWorkspaceToken } from '@/hooks/api/useRevokeWorkspaceToken';
-import { useLingering } from '@/hooks/useLingering';
+import { useDelayedValue } from '@/hooks/useDelayedValue';
 import type { WorkspaceToken } from '@/lib/token';
 
 const CLOSING_MS = 150;
@@ -26,7 +26,7 @@ export function RevokeTokenDialog({
   onClose,
 }: RevokeTokenDialogProps) {
   const revoke = useRevokeWorkspaceToken(workspaceId);
-  const shown = useLingering(token, CLOSING_MS);
+  const shown = useDelayedValue(token, CLOSING_MS);
 
   return (
     <Dialog

@@ -174,7 +174,7 @@ const asking = (start: Task, subject?: RunSubject) => {
         {
           station: StationName.of('Implementation'),
           body: TaskNoteBody.of(
-            decision === 'granted' ? 'Go ahead.' : 'Not today.',
+            decision === 'approved' ? 'Go ahead.' : 'Not today.',
           ),
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),
@@ -194,7 +194,7 @@ describe('AskPermissionHandler', () => {
   it('puts what the harness asks to a person, the run keeping the task while it waits and carrying its session', async () => {
     const { ask, current } = asking(withRun('run_1'));
 
-    await expect(ask()).resolves.toBe('asked');
+    await expect(ask()).resolves.toBe('pending');
 
     const asked = current().notes[current().notes.length - 1];
     expect(asked?.form).toBe('approval');
@@ -206,7 +206,7 @@ describe('AskPermissionHandler', () => {
     expect(current().sessionId?.value).toBe('sess_1');
   });
 
-  it('records the MCP tool a permission names, so a refusal is counted against it', async () => {
+  it('records the MCP tool a permission names, so a dismissal is counted against it', async () => {
     const { ask, current } = asking(withRun('run_1'));
 
     await ask({ ...PUSH, title: 'mcp__linear__create_issue' });
@@ -220,7 +220,7 @@ describe('AskPermissionHandler', () => {
     const { ask, decide, takenUpBy, current } = asking(withRun('run_1'));
 
     await ask();
-    decide('granted');
+    decide('approved');
     takenUpBy('run_2');
 
     await expect(
@@ -235,18 +235,18 @@ describe('AskPermissionHandler', () => {
     const { ask, decide, takenUpBy } = asking(withRun('run_1'));
 
     await ask();
-    decide('granted');
+    decide('approved');
     takenUpBy('run_2');
     await ask();
 
-    await expect(ask()).resolves.toBe('asked');
+    await expect(ask()).resolves.toBe('pending');
   });
 
   it('refuses what a person rejected', async () => {
     const { ask, decide, takenUpBy } = asking(withRun('run_1'));
 
     await ask();
-    decide('refused');
+    decide('dismissed');
     takenUpBy('run_2');
 
     await expect(ask()).resolves.toBe('reject');

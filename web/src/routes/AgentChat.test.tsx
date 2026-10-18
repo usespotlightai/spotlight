@@ -199,7 +199,7 @@ describe('AgentChat', () => {
 
     expect(screen.getByText('Help me plan the retries.')).toBeInTheDocument();
     expect(
-      screen.getByRole('textbox', { name: 'Say something to the agent' }),
+      screen.getByRole('textbox', { name: 'Message the agent' }),
     ).toBeInTheDocument();
   });
 
@@ -253,9 +253,9 @@ describe('AgentChat', () => {
 
     renderChat();
 
-    expect(screen.getByText('Nothing said yet')).toBeInTheDocument();
+    expect(screen.getByText('No messages yet')).toBeInTheDocument();
     expect(
-      screen.getByRole('textbox', { name: 'Say something to the agent' }),
+      screen.getByRole('textbox', { name: 'Message the agent' }),
     ).toBeInTheDocument();
   });
 
@@ -264,7 +264,7 @@ describe('AgentChat', () => {
 
     renderChat();
 
-    expect(screen.queryByText('Nothing said yet')).not.toBeInTheDocument();
+    expect(screen.queryByText('No messages yet')).not.toBeInTheDocument();
   });
 
   it('answers with the model and effort picked, but keeps the chat on its harness', async () => {
@@ -288,7 +288,7 @@ describe('AgentChat', () => {
     );
 
     await write(
-      screen.getByRole('textbox', { name: 'Say something to the agent' }),
+      screen.getByRole('textbox', { name: 'Message the agent' }),
       'Think harder.',
     );
     await userEvent.click(screen.getByRole('button', { name: 'Send' }));

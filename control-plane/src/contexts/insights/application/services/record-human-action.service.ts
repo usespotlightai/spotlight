@@ -2,11 +2,11 @@ import type { DeletionsPort } from '@insights/application/ports/deletions.port';
 import type { WorkPort } from '@insights/application/ports/work.port';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
+import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import {
   HumanAction,
   humanActionKindOf,
 } from '@insights/domain/value-objects/human-action.vo';
-import { Refusal } from '@insights/domain/value-objects/refusal.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -40,14 +40,18 @@ export class RecordHumanAction {
     }
 
     const action = HumanAction.of(kind, new Date(event.at));
-    const refusal =
-      kind === 'refused' && event.tool
-        ? Refusal.of({ tool: event.tool, server: event.server, at: action.at })
+    const dismissal =
+      kind === 'dismissed' && event.tool
+        ? Dismissal.of({
+            tool: event.tool,
+            server: event.server,
+            at: action.at,
+          })
         : null;
     const withAction = (record: RunRecord): RunRecord => {
       const acted = record.recordAction(action);
 
-      return refusal ? acted.refused(refusal) : acted;
+      return dismissal ? acted.dismissed(dismissal) : acted;
     };
 
     const workspaceId = WorkspaceId.of(event.workspaceId);

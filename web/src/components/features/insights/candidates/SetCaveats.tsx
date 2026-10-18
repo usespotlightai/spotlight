@@ -1,5 +1,5 @@
 import { TriangleAlert } from 'lucide-react';
-import { Noted } from '@/components/shared/Noted';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { healthReadingsOf, type SetHealth } from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
 
@@ -23,16 +23,16 @@ export function SetCaveats({ health, minGain }: SetCaveatsProps) {
     ...warnings.map((each) => `${each.label}: ${each.text}.`),
     ...(unmeasured.length > 0
       ? [
-          `${unmeasured.length} of ${readings.length} trust checks not run: ${unmeasured.map((each) => each.label).join(', ')}.`,
+          `${unmeasured.length} of ${readings.length} health checks not run: ${unmeasured.map((each) => each.label).join(', ')}.`,
         ]
       : []),
   ].join(' ');
 
   return (
-    <Noted note={note}>
+    <WithTooltip tooltip={note}>
       <span
         role="img"
-        aria-label="How far to trust this set"
+        aria-label="Set health"
         data-slot="set-caveats"
         className={cn(
           'inline-flex',
@@ -43,6 +43,6 @@ export function SetCaveats({ health, minGain }: SetCaveatsProps) {
       >
         <TriangleAlert aria-hidden className="size-3.5" />
       </span>
-    </Noted>
+    </WithTooltip>
   );
 }

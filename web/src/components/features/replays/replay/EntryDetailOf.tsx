@@ -1,5 +1,5 @@
 import { EntryDetail } from '@/components/features/replays/replay/EntryDetail';
-import { useLingering } from '@/hooks/useLingering';
+import { useDelayedValue } from '@/hooks/useDelayedValue';
 import type { EntryComparison } from '@/lib/replay';
 
 const LEAVING = 240;
@@ -19,13 +19,13 @@ export function EntryDetailOf({
   referenceLabel,
   onClose,
 }: EntryDetailOfProps) {
-  const lingering = useLingering(chosen, LEAVING);
+  const displayed = useDelayedValue(chosen, LEAVING);
 
-  return lingering ? (
+  return displayed ? (
     <EntryDetail
       slug={slug}
       teamId={teamId}
-      row={lingering}
+      row={displayed}
       referenceLabel={referenceLabel}
       open={chosen !== null}
       onClose={onClose}

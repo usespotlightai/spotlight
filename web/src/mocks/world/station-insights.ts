@@ -138,7 +138,9 @@ const tallyOf = (
   const count = (matches: (run: StationRunOutcomeResponseDto) => boolean) =>
     runs.filter(matches).length;
   const failed = count((run) => run.ending === 'failed');
-  const took = runs.flatMap((run) => (run.usage?.ms ? [run.usage.ms] : []));
+  const durationsMs = runs.flatMap((run) =>
+    run.usage?.ms ? [run.usage.ms] : [],
+  );
   const priced = runs.filter((run) => run.usage?.cost != null);
   const spent = priced.reduce(
     (total, run) => total + (run.usage?.cost ?? 0),
@@ -165,8 +167,8 @@ const tallyOf = (
       priced.length === 0 ? null : { amount: rounded(spent), currency: 'USD' },
     unpriced: runs.length - priced.length,
     mixedCurrencies: false,
-    medianMs: medianOf(took),
-    p90Ms: percentileOf(took, 90),
+    medianMs: medianOf(durationsMs),
+    p90Ms: percentileOf(durationsMs, 90),
   };
 };
 

@@ -74,6 +74,7 @@ import {
 } from '@insights/domain/services/team-history';
 import { toolCountsOf } from '@insights/domain/services/tool-insights';
 import { Citation } from '@insights/domain/value-objects/citation.vo';
+import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import { FailureOccurrence } from '@insights/domain/value-objects/failure-occurrence.vo';
 import {
   HumanAction,
@@ -86,7 +87,6 @@ import {
   InsightsPeriod,
 } from '@insights/domain/value-objects/insights-period.vo';
 import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
-import { Refusal } from '@insights/domain/value-objects/refusal.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
@@ -279,12 +279,12 @@ const rememberedIn = (record: RunRecord): RunRecord =>
     record,
   );
 
-const refusedIn = (record: RunRecord, endedAt: Date): RunRecord => {
-  let refused = record;
+const dismissedIn = (record: RunRecord, endedAt: Date): RunRecord => {
+  let dismissed = record;
 
   for (let each = upTo(2); each > 0; each -= 1) {
-    refused = refused.refused(
-      Refusal.of({
+    dismissed = dismissed.dismissed(
+      Dismissal.of({
         tool: toolPick(['create_issue', 'merge', 'Deploy']),
         server: toolPick(['linear', 'github', null]),
         at: new Date(endedAt.getTime() - each * 60_000),
@@ -292,7 +292,7 @@ const refusedIn = (record: RunRecord, endedAt: Date): RunRecord => {
     );
   }
 
-  return refused;
+  return dismissed;
 };
 const NO_RUN_FILTER: RunFilterQuery = {
   lineId: null,
@@ -312,8 +312,8 @@ const NO_RUN_FILTER: RunFilterQuery = {
   server: null,
   serverFailed: null,
   failedAfter: null,
-  refusedTool: null,
-  refusedServer: null,
+  dismissedTool: null,
+  dismissedServer: null,
   pullRequestState: null,
   humanAction: null,
   asked: null,
@@ -521,7 +521,7 @@ beforeAll(async () => {
         );
       }
 
-      record = rememberedIn(refusedIn(record, endedAt));
+      record = rememberedIn(dismissedIn(record, endedAt));
 
       await records.add(record);
 
@@ -591,7 +591,7 @@ beforeAll(async () => {
         for (let acted = Math.floor(random() * 4); acted > 0; acted -= 1) {
           taskActions = taskActions.recordAction(
             TaskHumanAction.of({
-              kind: pick([...TASK_ACTIONS, 'approved', 'refused'] as const),
+              kind: pick([...TASK_ACTIONS, 'approved', 'dismissed'] as const),
               by: person(),
               stationId: station.stationId,
               at: ago(Math.floor(random() * 200 * DAY)),
@@ -764,7 +764,7 @@ beforeAll(async () => {
         )
         .recordAction(
           TaskHumanAction.of({
-            kind: 'refused',
+            kind: 'dismissed',
             by: UserId.of('user_bob'),
             stationId: STATIONS[2].stationId,
             at: ago(DAY),
@@ -1219,8 +1219,8 @@ describe('the insights reader against the team history', () => {
       period,
     });
 
-    expect(load.current.refused).toBeGreaterThan(1);
-    expect(load.current.refusedTaskIds.length).toBeGreaterThan(1);
+    expect(load.current.dismissed).toBeGreaterThan(1);
+    expect(load.current.dismissedTaskIds.length).toBeGreaterThan(1);
     expect(load.current.askedTaskIds.length).toBeGreaterThan(1);
     expect(load.current.unanswered).toBeGreaterThan(0);
     expect(load.current.sentBack).toBeGreaterThan(0);
@@ -1723,8 +1723,8 @@ describe('the runs a team ran, a page at a time', () => {
     ['a server', { server: 'linear' }],
     ['a server that failed', { serverFailed: 'github' }],
     ['a server it failed after', { failedAfter: 'sentry' }],
-    ['a refused tool', { refusedTool: 'merge' }],
-    ['a refused tool of no server', { refusedServer: NO_SERVER }],
+    ['a dismissed tool', { dismissedTool: 'merge' }],
+    ['a dismissed tool of no server', { dismissedServer: NO_SERVER }],
     ['a pull request state', { pullRequestState: 'merged' }],
     ['a human action', { humanAction: TASK_ACTIONS[0] }],
     ['a task that asked', { asked: 'true' }],
@@ -1940,7 +1940,7 @@ describe('the tools a team’s runs used', () => {
       PersonPrincipal.of(VIEWER),
       '90d',
     );
-    const { skills, servers, refusals } = await reader.toolCounts({
+    const { skills, servers, dismissals } = await reader.toolCounts({
       workspaceId: WORKSPACE,
       teamId: TEAM,
       period,
@@ -1957,8 +1957,8 @@ describe('the tools a team’s runs used', () => {
     expect(servers.length).toBe(3);
     expect(servers.some((each) => timed(each.latency) < each.calls)).toBe(true);
     expect(servers.every((each) => each.failingRuns > 0)).toBe(true);
-    expect(servers.some((each) => each.refused > 0)).toBe(true);
-    expect(refusals.some((each) => each.server === null)).toBe(true);
+    expect(servers.some((each) => each.dismissed > 0)).toBe(true);
+    expect(dismissals.some((each) => each.server === null)).toBe(true);
   });
 });
 
@@ -2066,29 +2066,29 @@ describe('how the tool counts fall into weeks and leave out what did not run', (
           }),
         )
           .supersededByItsTask(monday)
-          .refused(
-            Refusal.of({
+          .dismissed(
+            Dismissal.of({
               tool: 'merge',
               server: 'linear',
               at: new Date(monday.getTime() - HOUR),
             }),
           )
-          .refused(
-            Refusal.of({
+          .dismissed(
+            Dismissal.of({
               tool: 'merge',
               server: 'linear',
               at: new Date(monday.getTime() - 2 * HOUR),
             }),
           )
-          .refused(
-            Refusal.of({
+          .dismissed(
+            Dismissal.of({
               tool: 'merge',
               server: null,
               at: new Date(monday.getTime() - HOUR),
             }),
           )
-          .refused(
-            Refusal.of({
+          .dismissed(
+            Dismissal.of({
               tool: 'search',
               server: 'sentry',
               at: new Date(monday.getTime() - HOUR),
@@ -2106,12 +2106,14 @@ describe('how the tool counts fall into weeks and leave out what did not run', (
             servers: [served('linear', 1, [50])],
             skillsRead: ['grafana'],
           }),
-        ).refused(Refusal.of({ tool: 'merge', server: 'linear', at: monday })),
+        ).dismissed(
+          Dismissal.of({ tool: 'merge', server: 'linear', at: monday }),
+        ),
       );
     });
   });
 
-  it('puts a run that ends at midnight on Monday in the new week, counts a failing call only on a run that still failed, and counts a refusal at a server the run did not call', async () => {
+  it('puts a run that ends at midnight on Monday in the new week, counts a failing call only on a run that still failed, and counts a dismissal at a server the run did not call', async () => {
     const counts = await reader.toolCounts({
       workspaceId: WORKSPACE,
       teamId: TOOLS,
@@ -2169,7 +2171,7 @@ describe('how the tool counts fall into weeks and leave out what did not run', (
           failedCalls: 2,
           latency: bucketOf100,
           failingRuns: 1,
-          refused: 1,
+          dismissed: 1,
         },
         {
           server: 'sentry',
@@ -2178,13 +2180,13 @@ describe('how the tool counts fall into weeks and leave out what did not run', (
           failedCalls: 0,
           latency: LatencyHistogram.timing([50]).counts,
           failingRuns: 0,
-          refused: 1,
+          dismissed: 1,
         },
       ],
-      refusals: [
-        { tool: 'merge', server: null, refused: 1 },
-        { tool: 'merge', server: 'linear', refused: 1 },
-        { tool: 'search', server: 'sentry', refused: 1 },
+      dismissals: [
+        { tool: 'merge', server: null, dismissed: 1 },
+        { tool: 'merge', server: 'linear', dismissed: 1 },
+        { tool: 'search', server: 'sentry', dismissed: 1 },
       ],
     });
     expect(counts).toEqual(toolCountsOf(history, period.current));
@@ -3662,8 +3664,8 @@ describe('how the inbox pairs answers with asks', () => {
       tasks: 1,
       runs: 1,
       sentBack: 0,
-      refused: 0,
-      refusedTaskIds: [],
+      dismissed: 0,
+      dismissedTaskIds: [],
     });
     expect(people.adoption).toEqual({
       people: [

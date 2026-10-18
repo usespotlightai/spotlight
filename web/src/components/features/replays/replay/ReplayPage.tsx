@@ -77,7 +77,7 @@ export function ReplayPage({
       />
 
       <StationPane
-        aside={
+        sidePanel={
           <EntryDetailOf
             slug={at.slug}
             teamId={at.teamId}

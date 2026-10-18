@@ -1,7 +1,7 @@
 export type NestedHeading = {
   readonly label: string;
   readonly numeric?: boolean;
-  readonly note?: string;
+  readonly tooltip?: string;
   readonly indent?: 'edge' | 'outer' | 'inner';
   readonly size?: string;
 };

@@ -1,6 +1,6 @@
 import { SearchStatePill } from '@/components/features/searches/SearchStatePill';
 import { StationItemHeading } from '@/components/features/stations/StationItemHeading';
-import { Noted } from '@/components/shared/Noted';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import { type ReplayedStation, replaySetPath } from '@/lib/replay';
@@ -38,9 +38,9 @@ export function SearchHeading({
         {setName ?? 'Its replay set'}
       </TrailLink>
       {' · '}
-      <Noted note={formatRan(search.startedAt, search.endedAt)}>
+      <WithTooltip tooltip={formatRan(search.startedAt, search.endedAt)}>
         <span>{since(search.endedAt ?? search.startedAt)}</span>
-      </Noted>
+      </WithTooltip>
     </StationItemHeading>
   );
 }

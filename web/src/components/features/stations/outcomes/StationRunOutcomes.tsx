@@ -7,7 +7,7 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { useStationInsights } from '@/hooks/api/useStationInsights';
-import { useFolds } from '@/hooks/useFolds';
+import { useCollapsibles } from '@/hooks/useCollapsibles';
 import { notFound } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
 import { OUTCOME_HEADINGS } from '@/lib/station-insights';
@@ -29,7 +29,7 @@ export function StationRunOutcomes({
 }: StationRunOutcomesProps) {
   const outcomes = useStationInsights(teamId, lineId, stationId);
   const groups = outcomes.data?.groups ?? [];
-  const folds = useFolds();
+  const collapsibles = useCollapsibles();
 
   return (
     <>
@@ -70,7 +70,7 @@ export function StationRunOutcomes({
               teamId={teamId}
               stationId={stationId}
               group={group}
-              folds={folds}
+              collapsibles={collapsibles}
             />
           ))}
         </NestedTable>

@@ -1417,7 +1417,7 @@ func refusedCalls(t *testing.T, written *journal) []string {
 func TestAPermissionEscalatedToAPersonEndsTheTurnWhileNobodyHasAnswered(t *testing.T) {
 	written := run(t, permitting(t), func(o *runOptions) {
 		o.setup = protocol.HarnessSetup{AskKinds: []string{"execute"}}
-		o.decision = protocol.PermissionEscalated
+		o.decision = protocol.PermissionPending
 	})
 
 	if output := agentOutput(t, written); output != "cancelled" {

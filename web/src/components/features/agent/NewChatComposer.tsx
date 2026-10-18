@@ -4,7 +4,7 @@ import { RepositoriesSelect } from '@/components/features/stations/RepositoriesS
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useStartChat } from '@/hooks/api/useStartChat';
-import { useRemembered } from '@/hooks/useRemembered';
+import { useStoredState } from '@/hooks/useStoredState';
 import {
   CHAT_HARNESS_KEY,
   type SharedTrace,
@@ -30,7 +30,7 @@ export function NewChatComposer({
   onStarted,
 }: NewChatComposerProps) {
   const { data: harnesses } = useHarnesses();
-  const [remembered, remember] = useRemembered(CHAT_HARNESS_KEY, '');
+  const [stored, store] = useStoredState(CHAT_HARNESS_KEY, '');
   const [model, setModel] = useState('');
   const [effort, setEffort] = useState('');
   const [repositories, setRepositories] = useState<string[]>([]);
@@ -40,12 +40,12 @@ export function NewChatComposer({
     ...handed.map(traceReference),
   ]);
 
-  const harness = harnesses?.some((each) => each.id === remembered)
-    ? remembered
+  const harness = harnesses?.some((each) => each.id === stored)
+    ? stored
     : (harnesses?.[0]?.id ?? '');
 
   const choose = (next: string) => {
-    remember(next);
+    store(next);
     setModel('');
     setEffort('');
   };

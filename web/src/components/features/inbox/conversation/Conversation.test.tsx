@@ -52,7 +52,7 @@ const APPROVAL = {
     { name: 'issue', value: 'ENG-12' },
     { name: 'body', value: 'Fixed in #41.' },
   ],
-  status: 'asked' as const,
+  status: 'pending' as const,
   edited: null,
   intent: null,
   askedOf: null,

@@ -45,9 +45,9 @@ interface RunsRow extends Record<string, unknown> {
   readonly sent_back: number;
 }
 
-interface RefusedRow extends Record<string, unknown> {
+interface DismissedRow extends Record<string, unknown> {
   readonly is_current: boolean;
-  readonly refused: number;
+  readonly dismissed: number;
   readonly task_ids: string[];
 }
 
@@ -112,14 +112,14 @@ const runsIn = async (
   return result.rows;
 };
 
-const refusedIn = async (
+const dismissedIn = async (
   db: DrizzleDatabase,
   team: TeamInPeriod,
-): Promise<readonly RefusedRow[]> => {
+): Promise<readonly DismissedRow[]> => {
   const { current, previous } = team.period;
   const at = sql`(act.value->>'at')::timestamptz`;
-  const result = await db.execute<RefusedRow>(sql`
-    with refusals as (
+  const result = await db.execute<DismissedRow>(sql`
+    with dismissals as (
       select
         ${taskHumanAction.taskId} as task_id,
         ${taskHumanAction.lastActionAt} as last_action_at,
@@ -128,16 +128,16 @@ const refusedIn = async (
       from ${taskHumanAction}
       cross join lateral jsonb_array_elements(${taskHumanAction.actions}) as act(value)
       where ${ofTeamHumanActions(team)}
-        and act.value->>'kind' = 'refused'
+        and act.value->>'kind' = 'dismissed'
         and ${atWithin(at, { from: previous.from, to: current.to })}
       group by 1, 2, 3
     )
     select
-      refusals.is_current,
-      sum(refusals.acts)::int as refused,
-      ${inLastActionOrder(sql`refusals.task_id`, sql`refusals.last_action_at`)} as task_ids
-    from refusals
-    group by refusals.is_current
+      dismissals.is_current,
+      sum(dismissals.acts)::int as dismissed,
+      ${inLastActionOrder(sql`dismissals.task_id`, sql`dismissals.last_action_at`)} as task_ids
+    from dismissals
+    group by dismissals.is_current
   `);
 
   return result.rows;
@@ -173,11 +173,11 @@ const loadCountsFrom = (
   current: boolean,
   asks: readonly AsksRow[],
   runs: readonly RunsRow[],
-  refused: readonly RefusedRow[],
+  dismissed: readonly DismissedRow[],
 ): HumanLoadCounts => {
   const asked = asks.find((each) => each.is_current === current);
   const ran = runs.find((each) => each.is_current === current);
-  const refusing = refused.find((each) => each.is_current === current);
+  const dismissing = dismissed.find((each) => each.is_current === current);
 
   return {
     asks: asked?.asks ?? 0,
@@ -187,8 +187,8 @@ const loadCountsFrom = (
     tasks: ran?.tasks ?? 0,
     runs: ran?.runs ?? 0,
     sentBack: ran?.sent_back ?? 0,
-    refused: refusing?.refused ?? 0,
-    refusedTaskIds: refusing?.task_ids ?? [],
+    dismissed: dismissing?.dismissed ?? 0,
+    dismissedTaskIds: dismissing?.task_ids ?? [],
   };
 };
 
@@ -225,13 +225,13 @@ export const peopleCountsIn = async (
 ): Promise<PeopleCounts> => {
   const asks = await asksIn(db, team);
   const runs = await runsIn(db, team);
-  const refused = await refusedIn(db, team);
+  const dismissed = await dismissedIn(db, team);
   const activity = await activityIn(db, team);
 
   return {
     load: {
-      current: loadCountsFrom(true, asks, runs, refused),
-      previous: loadCountsFrom(false, asks, runs, refused),
+      current: loadCountsFrom(true, asks, runs, dismissed),
+      previous: loadCountsFrom(false, asks, runs, dismissed),
     },
     adoption: adoptionCountsFrom(activity),
   };

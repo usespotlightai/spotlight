@@ -32,7 +32,7 @@ import type {
   TaskFailureSummaryResponseDto,
 } from '@/lib/api';
 import type { TargetStation } from '@/lib/chat';
-import { spentIn, took } from '@/lib/inbox';
+import { formatShortDuration, spentIn } from '@/lib/inbox';
 import {
   PULL_REQUEST_FILTER_KEYS,
   type PullRequestFilterKey,
@@ -156,8 +156,8 @@ const RUN_FILTER_KEYS = [
   'server',
   'serverFailed',
   'failedAfter',
-  'refusedTool',
-  'refusedServer',
+  'dismissedTool',
+  'dismissedServer',
 ] as const;
 
 export type RunFilterKey = (typeof RUN_FILTER_KEYS)[number];
@@ -316,9 +316,9 @@ export const formatPer = (value: number | null): string =>
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
 
-export const lasted = (ms: number): string => {
+export const formatDuration = (ms: number): string => {
   if (ms < HOUR_MS) {
-    return took(ms);
+    return formatShortDuration(ms);
   }
   if (ms < DAY_MS) {
     const hours = Math.floor(ms / HOUR_MS);
@@ -331,19 +331,19 @@ export const lasted = (ms: number): string => {
   return hours ? `${days}d ${hours}h` : `${days}d`;
 };
 
-export const lastedOrNone = (ms: number | null): string =>
-  ms === null ? '–' : lasted(ms);
+export const formatDurationOrNone = (ms: number | null): string =>
+  ms === null ? '–' : formatDuration(ms);
 
 export const formatMedian = (spread: Spread): string =>
-  spread.p50Ms === null ? '–' : lasted(spread.p50Ms);
+  spread.p50Ms === null ? '–' : formatDuration(spread.p50Ms);
 
 export const formatTail = (spread: Spread): string | null =>
-  spread.p50Ms === null ? null : `p90 ${lastedOrNone(spread.p90Ms)}`;
+  spread.p50Ms === null ? null : `p90 ${formatDurationOrNone(spread.p90Ms)}`;
 
 export const formatSpread = (spread: Spread): string =>
   spread.p50Ms === null
     ? '–'
-    : `${lasted(spread.p50Ms)} · p90 ${lastedOrNone(spread.p90Ms)}`;
+    : `${formatDuration(spread.p50Ms)} · p90 ${formatDurationOrNone(spread.p90Ms)}`;
 
 export type Delta = DeltaResponseDto;
 
@@ -436,11 +436,11 @@ export const headlineTiles = (
   {
     id: 'task-to-merge',
     label: 'Task to merge',
-    value: lastedOrNone(now.taskToMerge.p50Ms),
+    value: formatDurationOrNone(now.taskToMerge.p50Ms),
     detail:
       now.taskToMerge.p90Ms === null
         ? undefined
-        : `p90 ${lasted(now.taskToMerge.p90Ms)}`,
+        : `p90 ${formatDuration(now.taskToMerge.p90Ms)}`,
     delta: shownDeltaOf(changes.taskToMerge),
     drill: { tab: 'runs', filter: mergedFilter(now.mergedTaskIds) },
   },
@@ -845,8 +845,8 @@ const FILTER_LABELS: Record<RunFilterKey, string> = {
   server: 'Called',
   serverFailed: 'A call failed on',
   failedAfter: 'Last call failed on',
-  refusedTool: 'Refused',
-  refusedServer: 'Refused on',
+  dismissedTool: 'Dismissed',
+  dismissedServer: 'Dismissed on',
 };
 
 export const filterLabel = (key: RunFilterKey): string => FILTER_LABELS[key];
@@ -871,7 +871,7 @@ export const formatFilterValue = (key: RunFilterKey, value: string): string => {
       return value === DEFAULT_MODEL_FILTER ? HARNESS_DEFAULT : value;
     case 'repository':
       return value === NO_REPOSITORY_FILTER ? NO_REPOSITORY : value;
-    case 'refusedServer':
+    case 'dismissedServer':
       return value === NO_SERVER_FILTER ? NO_SERVER : value;
     case 'taskIds': {
       const count = value.split(',').filter(Boolean).length;
@@ -968,8 +968,8 @@ export const tallyTiles = (
   {
     id: 'median',
     label: 'Median run',
-    value: lastedOrNone(now.medianMs),
-    detail: now.p90Ms === null ? undefined : `p90 ${lasted(now.p90Ms)}`,
+    value: formatDurationOrNone(now.medianMs),
+    detail: now.p90Ms === null ? undefined : `p90 ${formatDuration(now.p90Ms)}`,
     delta: shownDeltaOf(changes.median),
     drill: undefined,
   },
@@ -1009,7 +1009,8 @@ export const signalHeadings = (
   { label: 'Signal', indent, size: 'minmax(10rem,1fr)' },
   {
     label: 'Compared',
-    note: 'The dot shows this period and the ring shows the previous period. The line shows all stations. The dashed line shows where a station gets flagged.',
+    tooltip:
+      'The dot shows this period and the ring shows the previous period. The line shows all stations. The dashed line shows where a station gets flagged.',
     size: 'minmax(10rem,2fr)',
   },
   { label: 'This period', numeric: true, size: SPREAD },

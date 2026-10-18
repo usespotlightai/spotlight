@@ -219,7 +219,7 @@ describe('ReactionFor.happened', () => {
       at: NOW,
       voice: Voice.station(RUN),
       form: 'approval',
-      approval: Approval.asked(
+      approval: Approval.request(
         ApprovalSubject.toolCall(
           ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
         ),

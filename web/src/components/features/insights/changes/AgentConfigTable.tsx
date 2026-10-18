@@ -1,9 +1,9 @@
 import { Fragment } from 'react';
 import { AgentConfigRow } from '@/components/features/insights/changes/AgentConfigRow';
-import { FoldingRows } from '@/components/shared/nested-table/FoldingRows';
+import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
 import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
-import { useFolds } from '@/hooks/useFolds';
+import { useCollapsibles } from '@/hooks/useCollapsibles';
 import type { HarnessResponseDto } from '@/lib/api';
 import { formatHarness } from '@/lib/insights';
 import {
@@ -27,7 +27,7 @@ export function AgentConfigTable({
   harnesses,
   judged,
 }: AgentConfigTableProps) {
-  const folds = useFolds();
+  const collapsibles = useCollapsibles();
 
   return (
     <NestedTable
@@ -36,7 +36,7 @@ export function AgentConfigTable({
     >
       {harnessGroupsOf(agentConfigs).map((group) => {
         const name = formatHarness(harnesses, group.harness);
-        const open = folds.isOpen(group.harness);
+        const open = collapsibles.isOpen(group.harness);
 
         return (
           <Fragment key={group.harness}>
@@ -44,11 +44,11 @@ export function AgentConfigTable({
               label={name}
               open={open}
               depth={0}
-              onToggle={() => folds.toggle(group.harness)}
+              onToggle={() => collapsibles.toggle(group.harness)}
             >
               <span className="font-medium text-foreground">{name}</span>
             </NestedGroupRow>
-            <FoldingRows open={open}>
+            <CollapsibleRows open={open}>
               {group.agentConfigs.map((agentConfig) => (
                 <AgentConfigRow
                   key={agentConfigKey(agentConfig)}
@@ -57,7 +57,7 @@ export function AgentConfigTable({
                   judged={judged}
                 />
               ))}
-            </FoldingRows>
+            </CollapsibleRows>
           </Fragment>
         );
       })}

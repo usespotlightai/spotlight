@@ -150,7 +150,7 @@ export const durationTicks = (max: number): number[] => {
   return Array.from({ length: top / step + 1 }, (_, at) => at * step);
 };
 
-export const tickLasted = (ms: number): string => {
+export const formatDurationTick = (ms: number): string => {
   if (ms === 0) {
     return '0';
   }

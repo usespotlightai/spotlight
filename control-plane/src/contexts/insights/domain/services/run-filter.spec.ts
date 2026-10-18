@@ -29,8 +29,8 @@ const NOTHING: RunFilterQuery = {
   server: null,
   serverFailed: null,
   failedAfter: null,
-  refusedTool: null,
-  refusedServer: null,
+  dismissedTool: null,
+  dismissedServer: null,
   pullRequestState: null,
   humanAction: null,
   asked: null,
@@ -64,25 +64,26 @@ describe('runFilterOf', () => {
           ...NOTHING,
           skillUsed: 'grafana',
           failedAfter: 'linear',
-          refusedTool: 'create_issue',
-          refusedServer: 'linear',
+          dismissedTool: 'create_issue',
+          dismissedServer: 'linear',
         },
         PERIOD,
       ),
     ).toMatchObject({
       skillUsed: 'grafana',
       failedAfter: 'linear',
-      refusedTool: 'create_issue',
-      refusedServer: { kind: 'is', value: 'linear' },
+      dismissedTool: 'create_issue',
+      dismissedServer: { kind: 'is', value: 'linear' },
       server: null,
     });
   });
 
-  it('narrows to refusals of no server when the query names none', () => {
+  it('narrows to dismissals of no server when the query names none', () => {
     expect(
-      runFilterOf({ ...NOTHING, refusedServer: 'none' }, PERIOD).refusedServer,
+      runFilterOf({ ...NOTHING, dismissedServer: 'none' }, PERIOD)
+        .dismissedServer,
     ).toEqual({ kind: 'none' });
-    expect(runFilterOf(NOTHING, PERIOD).refusedServer).toEqual({
+    expect(runFilterOf(NOTHING, PERIOD).dismissedServer).toEqual({
       kind: 'any',
     });
   });
@@ -92,7 +93,7 @@ describe('runFilterOf', () => {
       runFilterOf({ ...NOTHING, skillUsed: 'a'.repeat(200) }, PERIOD).skillUsed,
     ).toHaveLength(200);
     expect(() =>
-      runFilterOf({ ...NOTHING, refusedTool: 'a'.repeat(201) }, PERIOD),
+      runFilterOf({ ...NOTHING, dismissedTool: 'a'.repeat(201) }, PERIOD),
     ).toThrow(InvalidRunFilterError);
   });
 

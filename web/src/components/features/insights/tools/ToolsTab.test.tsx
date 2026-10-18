@@ -57,7 +57,7 @@ const TOOLS = {
         { week: '2026-09-21', runs: 6, enabled: 4, used: 1, usedRate: 1 / 6 },
         { week: '2026-09-28', runs: 6, enabled: 4, used: 4, usedRate: 4 / 6 },
       ],
-      trend: 'spreading',
+      trend: 'rising',
       stations: [
         {
           lineId: 'line_1',
@@ -65,7 +65,7 @@ const TOOLS = {
           runs: 10,
           enabled: 8,
           used: 5,
-          trend: 'spreading',
+          trend: 'rising',
         },
       ],
     },
@@ -94,12 +94,12 @@ const TOOLS = {
       failedCalls: 1,
       errorRate: 0.1,
       failingRuns: 1,
-      refused: 2,
+      dismissed: 2,
     },
   ],
-  refusals: [
-    { tool: 'create_issue', server: 'linear', refused: 2 },
-    { tool: 'github.merge', server: null, refused: 1 },
+  dismissals: [
+    { tool: 'create_issue', server: 'linear', dismissed: 2 },
+    { tool: 'github.merge', server: null, dismissed: 1 },
   ],
 } as unknown as InsightsTools;
 
@@ -108,7 +108,7 @@ const EMPTY = {
   skills: [],
   unused: [],
   servers: [],
-  refusals: [],
+  dismissals: [],
 } as unknown as InsightsTools;
 
 const showing = (search = '?tab=tools') =>
@@ -198,17 +198,17 @@ describe('the skills and tools of the Tools and skills tab', () => {
       .getByText(key, { selector: 'a, span' })
       .closest('[data-slot="nested-group"]') as HTMLElement;
 
-  it('lists each skill in one table, marking spreading and explaining the rule on its column', () => {
+  it('lists each skill in one table, marking rising ones and explaining the rule on its column', () => {
     showing();
 
     const table = screen.getByRole('list', { name: 'Skill use' });
 
     expect(
-      within(table).getAllByRole('button', { name: /^Fold / }),
+      within(table).getAllByRole('button', { name: /^Collapse / }),
     ).toHaveLength(1);
     expect(
       skillRow('our-migrations').querySelector('[data-slot="skill-trend"]'),
-    ).toHaveAttribute('data-trend', 'spreading');
+    ).toHaveAttribute('data-trend', 'rising');
     expect(skillRow('our-migrations')).toHaveTextContent('Enabled8Read5Trend');
   });
 
@@ -254,7 +254,7 @@ describe('the skills and tools of the Tools and skills tab', () => {
     ).toBeNull();
   });
 
-  it('leaves out skills, unused skills and refusals where there are none', () => {
+  it('leaves out skills, unused skills and dismissals where there are none', () => {
     answer.tools = queried({ ...EMPTY, servers: TOOLS.servers });
 
     showing();
@@ -262,7 +262,7 @@ describe('the skills and tools of the Tools and skills tab', () => {
     expect(screen.queryByRole('list', { name: 'Skill use' })).toBeNull();
     expect(screen.queryByRole('list', { name: 'Unused skills' })).toBeNull();
     expect(
-      screen.queryByRole('list', { name: 'Refused approvals per tool' }),
+      screen.queryByRole('list', { name: 'Dismissed approvals per tool' }),
     ).toBeNull();
     expect(
       screen.getByRole('list', { name: 'How each MCP server behaved' }),
@@ -314,24 +314,24 @@ describe('the skills and tools of the Tools and skills tab', () => {
     );
     expect(within(row).getByRole('link', { name: '2' })).toHaveAttribute(
       'href',
-      `${RUNS}&refusedServer=linear`,
+      `${RUNS}&dismissedServer=linear`,
     );
   });
 
-  it('counts refused approvals per tool of each server, opening the runs they were refused for', () => {
+  it('counts dismissed approvals per tool of each server, opening the runs they were dismissed in', () => {
     showing();
 
     const table = screen.getByRole('list', {
-      name: 'Refused approvals per tool',
+      name: 'Dismissed approvals per tool',
     });
 
     expect(within(table).getByRole('link', { name: '2' })).toHaveAttribute(
       'href',
-      `${RUNS}&refusedTool=create_issue&refusedServer=linear`,
+      `${RUNS}&dismissedTool=create_issue&dismissedServer=linear`,
     );
     expect(within(table).getByRole('link', { name: '1' })).toHaveAttribute(
       'href',
-      `${RUNS}&refusedTool=github.merge&refusedServer=none`,
+      `${RUNS}&dismissedTool=github.merge&dismissedServer=none`,
     );
   });
 });

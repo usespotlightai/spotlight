@@ -198,7 +198,7 @@ describe('run filters', () => {
     expect(inRunFilter('waiting-for-you', unreviewed)).toBe(false);
   });
 
-  it('reads a remembered filter it knows', () => {
+  it('reads a stored filter it knows', () => {
     expect(asRunFilter('waiting-for-you')).toBe('waiting-for-you');
   });
 

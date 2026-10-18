@@ -1130,11 +1130,11 @@ export class Task extends EventRecorder {
 
     const current = this.approvalFor(subject);
 
-    if (current?.approval.refuses) {
+    if (current?.approval.dismisses) {
       return {
         task: this,
         check: {
-          kind: 'refused',
+          kind: 'dismissed',
           reason: current.approval.decided?.reason ?? '',
         },
       };
@@ -1144,7 +1144,7 @@ export class Task extends EventRecorder {
       return {
         task: this.withApprovalAt(current.at, (note) => note.approvalClaimed()),
         check: {
-          kind: 'granted',
+          kind: 'approved',
           claimed: current.at,
           edited: current.approval.goesAheadWith,
         },
@@ -1152,7 +1152,7 @@ export class Task extends EventRecorder {
     }
 
     if (this.awaitingReview) {
-      return { task: this, check: { kind: 'asked' } };
+      return { task: this, check: { kind: 'pending' } };
     }
 
     const askedOf = needed.askedOf;
@@ -1163,7 +1163,7 @@ export class Task extends EventRecorder {
         {
           ...asking,
           form: 'approval',
-          approval: Approval.asked(
+          approval: Approval.request(
             subject,
             this.stationId,
             needed.because,
@@ -1172,7 +1172,7 @@ export class Task extends EventRecorder {
           ),
         },
       ),
-      check: { kind: 'asked' },
+      check: { kind: 'pending' },
     };
   }
 
@@ -1251,7 +1251,7 @@ export class Task extends EventRecorder {
   ): ToolCall | null {
     if (
       this.openConversation?.from !== from.value ||
-      decision !== 'granted' ||
+      decision !== 'approved' ||
       !edits
     ) {
       return null;
@@ -1314,11 +1314,7 @@ export class Task extends EventRecorder {
           this.id,
           this.workspaceId,
           this.stationId,
-          decision === 'granted'
-            ? 'approved'
-            : decision === 'refused'
-              ? 'refused'
-              : 'answered',
+          decision ?? 'answered',
           by,
           this.lastRun,
           newNote.at,
