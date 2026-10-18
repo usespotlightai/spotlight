@@ -1,5 +1,5 @@
 import { Box } from 'lucide-react';
-import { siClaude, siCursor, siGooglegemini } from 'simple-icons';
+import { siClaude, siCursor, siGooglegemini, siOpencode } from 'simple-icons';
 import { OPENAI_PATH } from '@/components/features/stations/openai-mark';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +12,7 @@ const marks: Record<string, Mark> = {
   'claude-code': { path: siClaude.path, fill: `#${siClaude.hex}` },
   cursor: { path: siCursor.path, fill: 'currentColor' },
   codex: { path: OPENAI_PATH, fill: 'currentColor' },
+  opencode: { path: siOpencode.path, fill: 'currentColor' },
   gemini: { path: siGooglegemini.path, fill: `#${siGooglegemini.hex}` },
 };
 

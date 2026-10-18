@@ -4,7 +4,7 @@ set -eu
 REPO="${SPOTLIGHT_REPO:-usespotlightai/spotlight}"
 VERSION="${SPOTLIGHT_VERSION:-__VERSION__}"
 API_BASE="${SPOTLIGHT_URL:-__API_BASE__}"
-IMAGE="${SPOTLIGHT_RUNNER_IMAGE:-ghcr.io/usespotlightai/spotlight-runner:$VERSION}"
+BASE_IMAGE="ghcr.io/usespotlightai/spotlight-runner"
 
 if [ -n "${SPOTLIGHT_DOWNLOAD_URL:-}" ]; then
   RELEASE="$SPOTLIGHT_DOWNLOAD_URL"
@@ -105,6 +105,13 @@ read_credentials() {
   trust="${SPOTLIGHT_TRUST:-$(saved SPOTLIGHT_TRUST)}"
   token_file="${SPOTLIGHT_OIDC_TOKEN_FILE:-$(saved SPOTLIGHT_OIDC_TOKEN_FILE)}"
   capacity="${SPOTLIGHT_CAPACITY:-$(saved SPOTLIGHT_CAPACITY)}"
+  IMAGE="${SPOTLIGHT_RUNNER_IMAGE:-}"
+  if [ -z "$IMAGE" ]; then
+    IMAGE="$(saved SPOTLIGHT_RUNNER_IMAGE)"
+    case "$IMAGE" in
+      "" | "$BASE_IMAGE":*) IMAGE="$BASE_IMAGE:$VERSION" ;;
+    esac
+  fi
 
   if [ -z "$token" ] && [ -z "$trust" ]; then
     die "set SPOTLIGHT_POOL_TOKEN to a pull pool's token, or SPOTLIGHT_TRUST and SPOTLIGHT_OIDC_TOKEN_FILE to claim through a runner trust"
@@ -129,8 +136,20 @@ save_config() {
 }
 
 pull_image() {
-  say "pulling $IMAGE"
-  "$RUNTIME" pull --quiet "$IMAGE" >/dev/null || die "could not pull $IMAGE"
+  first="${IMAGE%%,*}"
+  case "$first" in
+    *"*"*) return 0 ;;
+  esac
+  say "pulling $first"
+  "$RUNTIME" pull --quiet "$first" >/dev/null || die "could not pull $first"
+}
+
+note_harnesses() {
+  [ "$IMAGE" = "$BASE_IMAGE:$VERSION" ] || return 0
+  say "$IMAGE holds no harness, so this host runs checks but no agent run."
+  say "build your own image FROM it with Claude Code, Codex, Cursor or OpenCode installed, as in"
+  say "https://github.com/usespotlightai/spotlight/tree/main/.docker/runner/examples"
+  say "then set SPOTLIGHT_RUNNER_IMAGE in $CONFIG and restart the host."
 }
 
 main() {
@@ -146,6 +165,7 @@ main() {
   install_binary
   save_config
   pull_image
+  note_harnesses
 
   if [ "${SPOTLIGHT_NO_SERVICE:-}" = "1" ]; then
     say "installed. Start it with: SPOTLIGHT_HOST_CONFIG=$CONFIG $BIN_DIR/spotlight host"

@@ -40,6 +40,7 @@ describe('the mock settings', () => {
       'claude-code',
       'codex',
       'cursor',
+      'opencode',
     ]);
     expect(data[0]?.models.map((each) => each.id)).toEqual([
       'opus',

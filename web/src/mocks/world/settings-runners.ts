@@ -46,6 +46,8 @@ const MAC_MINI = 'M3N8P2Q7R4S9T1V6W5X0Y2Z4AB';
 
 const GPU_NODE = 'C9D4E7F2G5H8J1K3L6M9N2P5Q8';
 
+const FRESH_VM = 'R2S5T8V1W4X7Y0Z3A6B9C2D5E8';
+
 const BUILD_FARM = { kind: 'pool', key: 'build-farm' } as const;
 
 const EPHEMERAL = { kind: 'pool', key: 'ephemeral' } as const;
@@ -92,6 +94,7 @@ const HOSTS: HostResponseDto[] = [
           ['claude-code', '2.1.270'],
           ['codex', '0.41.0'],
           ['cursor', '2026.09.18'],
+          ['opencode', '1.19.3'],
         ],
         { isDefault: true },
       ),
@@ -127,6 +130,26 @@ const HOSTS: HostResponseDto[] = [
     onlineSince: minutesAgo(30 * 60),
     lastHeartbeatAt: minutesAgo(3 * 60),
     online: false,
+  },
+  {
+    id: FRESH_VM,
+    name: 'fresh-vm',
+    source: BUILD_FARM,
+    release: '20261018-01',
+    unavailableReason: null,
+    containerRuntime: 'Docker Engine - Community 27.3.1 (linux/amd64)',
+    capacity: 2,
+    running: [],
+    images: [
+      image(RUNNER_IMAGE.replace('20260925-01', '20261018-01'), [], {
+        isDefault: true,
+        release: '20261018-01',
+      }),
+    ],
+    firstHeartbeatAt: minutesAgo(20),
+    onlineSince: minutesAgo(20),
+    lastHeartbeatAt: minutesAgo(0),
+    online: true,
   },
 ];
 

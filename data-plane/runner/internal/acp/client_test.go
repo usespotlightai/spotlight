@@ -477,3 +477,46 @@ func TestASessionOpensWithWhatTheHarnessIsSetUpWith(t *testing.T) {
 		}
 	}
 }
+
+const configurableHarness = `
+const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
+let buffered = "";
+process.stdin.on("data", (chunk) => {
+  buffered += chunk.toString();
+  const lines = buffered.split("\n");
+  buffered = lines.pop();
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const msg = JSON.parse(line);
+    if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
+    if (msg.method === "session/new") send({ jsonrpc: "2.0", id: msg.id, result: { sessionId: "session_1" } });
+    if (msg.method === "session/set_config_option") {
+      const p = msg.params;
+      if (p.sessionId !== "session_1" || p.configId !== "effort") {
+        send({ jsonrpc: "2.0", id: msg.id, error: { code: -32602, message: "Unknown config option: " + p.configId } });
+      } else {
+        send({ jsonrpc: "2.0", id: msg.id, result: { configOptions: [{ id: "effort", currentValue: p.value }] } });
+      }
+    }
+  }
+});
+`
+
+func TestSetsASessionConfigOption(t *testing.T) {
+	client, _ := start(t, configurableHarness, nil)
+
+	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
+	defer stop()
+
+	sessionID, err := client.NewSession(ctx)
+	if err != nil {
+		t.Fatalf("new session: %v", err)
+	}
+
+	if err := client.SetConfigOption(ctx, sessionID, "effort", "high"); err != nil {
+		t.Fatalf("set effort: %v", err)
+	}
+	if err := client.SetConfigOption(ctx, sessionID, "colour", "blue"); err == nil {
+		t.Fatal("an option the harness refuses did not fail")
+	}
+}

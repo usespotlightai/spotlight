@@ -184,6 +184,10 @@ func (h *Host) examine(ctx context.Context, each *served) (examined, error) {
 		h.log.Info("serving the runner image", "image", each.image, "digest", each.digest,
 			"release", each.release, "harnesses", each.harnesses)
 	}
+	if each.unavailableReason == "" && len(candidates) > 0 && len(each.harnesses) == 0 {
+		h.log.Warn("the runner image holds no harness, so it runs checks but no agent run; install a harness in an image built from it",
+			"image", each.image, "examples", images.HarnessExamples)
+	}
 
 	return examinedOf(each), nil
 }

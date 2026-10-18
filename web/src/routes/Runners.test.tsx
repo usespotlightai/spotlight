@@ -220,6 +220,18 @@ describe('Runners', () => {
     expect(await screen.findByText(reason)).toBeInTheDocument();
   });
 
+  it('says a host whose images hold no harness runs no agent run, and how to add one', async () => {
+    listing([host({ images: [image({ harnesses: [] })] })]);
+
+    renderPage();
+
+    await userEvent.hover(screen.getByText('None'));
+
+    expect(
+      await screen.findByText(/The images of this host hold no harness/),
+    ).toBeInTheDocument();
+  });
+
   it('names a host serving a trust by the trust', () => {
     listing([host({ source: { kind: 'trust', key: 'production' } })]);
 

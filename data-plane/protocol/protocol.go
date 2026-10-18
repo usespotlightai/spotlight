@@ -41,9 +41,16 @@ type Checkout struct {
 const DiffOfCommits = "commits"
 
 type Command struct {
-	Executable string            `json:"executable"`
-	Args       []string          `json:"args,omitempty"`
-	Env        map[string]string `json:"env,omitempty"`
+	Executable     string            `json:"executable"`
+	Args           []string          `json:"args,omitempty"`
+	Env            map[string]string `json:"env,omitempty"`
+	SessionOptions []SessionOption   `json:"sessionOptions,omitempty"`
+}
+
+type SessionOption struct {
+	ID       string `json:"id"`
+	Value    string `json:"value"`
+	Optional bool   `json:"optional,omitempty"`
 }
 
 type HandoverSpec struct {
