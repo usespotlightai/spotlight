@@ -3,7 +3,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const REVIEW_OUTBOX = Symbol('REVIEW_OUTBOX');
 
-export const REVIEW_SYNC_KINDS = [
+export const REVIEW_OUTBOX_KINDS = [
   'review',
   'reply',
   'file',
@@ -11,21 +11,24 @@ export const REVIEW_SYNC_KINDS = [
   'delete',
 ] as const;
 
-export type ReviewSyncKind = (typeof REVIEW_SYNC_KINDS)[number];
+export type ReviewOutboxKind = (typeof REVIEW_OUTBOX_KINDS)[number];
 
-export interface ReviewSync {
+export interface ReviewOutboxEntry {
   readonly id: string;
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId;
-  readonly kind: ReviewSyncKind;
+  readonly kind: ReviewOutboxKind;
   readonly subjectId: string;
   readonly attempts: number;
 }
 
 export interface ReviewOutboxPort {
-  enqueue(sync: Omit<ReviewSync, 'attempts'>, dueAt: Date): Promise<void>;
+  enqueue(
+    sync: Omit<ReviewOutboxEntry, 'attempts'>,
+    dueAt: Date,
+  ): Promise<void>;
 
-  claimDue(now: Date, leaseUntil: Date): Promise<ReviewSync | null>;
+  claimDue(now: Date, leaseUntil: Date): Promise<ReviewOutboxEntry | null>;
 
   done(id: string): Promise<void>;
 

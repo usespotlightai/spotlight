@@ -240,7 +240,7 @@ describe('whether a replayed task succeeded', () => {
       resultOf(
         completed({
           checks: ChangeChecks.of([
-            stack('skipped', { skip: 'nobody-checked' }),
+            stack('skipped', { skip: 'queue-timeout' }),
           ]),
         }),
         UNJUDGED,
@@ -251,7 +251,7 @@ describe('whether a replayed task succeeded', () => {
       reasons: [
         {
           code: 'check-skipped',
-          detail: 'nobody-checked',
+          detail: 'queue-timeout',
           steps: [],
           hunks: [],
         },

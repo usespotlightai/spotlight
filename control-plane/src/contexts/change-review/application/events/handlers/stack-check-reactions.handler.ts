@@ -37,25 +37,25 @@ export class StackCheckReactions {
     const stack = await this.stacks.find(stackId);
 
     if (stack) {
-      await this.stacks.save(stack.requestReorder());
+      await this.stacks.save(stack.requestRedraft());
     }
   }
 
-  async onReordered(stackId: ChangeStackId): Promise<void> {
+  async onRedrafted(stackId: ChangeStackId): Promise<void> {
     const stack = await this.stacks.find(stackId);
     const check = await this.checks.find(stackId, false);
 
-    if (stack && check?.reordering) {
+    if (stack && check?.redrafting) {
       await this.checks.save(
-        check.reordered(stack.entries(), this.clock.now()),
+        check.redrafted(stack.entries(), this.clock.now()),
       );
     }
   }
 
-  async onReorderingEnded(stackId: ChangeStackId): Promise<void> {
+  async onRedraftingEnded(stackId: ChangeStackId): Promise<void> {
     const check = await this.checks.find(stackId, false);
 
-    if (check?.reordering) {
+    if (check?.redrafting) {
       await this.checks.save(check.retainCheckedLayers());
     }
   }

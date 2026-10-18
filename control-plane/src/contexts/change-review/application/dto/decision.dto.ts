@@ -24,7 +24,7 @@ export interface DecisionDto {
   readonly why: string;
   readonly alternatives: readonly string[];
   readonly paths: readonly string[];
-  readonly steps: readonly number[];
+  readonly journalSteps: readonly number[];
   readonly disputes: readonly DisputeDto[];
 }
 
@@ -36,7 +36,7 @@ export interface DecisionMergeDto {
 
 export interface TaskDecisionsDto {
   readonly runId: string | null;
-  readonly drafting: boolean;
+  readonly generating: boolean;
   readonly status: (typeof DECISION_STATUS_NAMES)[number];
   readonly merge: DecisionMergeDto | null;
   readonly decisions: readonly DecisionDto[];
@@ -53,7 +53,7 @@ export interface MergedDecisionsDto {
 
 export const NO_DECISIONS: TaskDecisionsDto = {
   runId: null,
-  drafting: false,
+  generating: false,
   status: 'proposed',
   merge: null,
   decisions: [],

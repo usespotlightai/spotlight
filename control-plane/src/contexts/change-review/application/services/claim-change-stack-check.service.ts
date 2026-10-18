@@ -113,7 +113,7 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
       }
       if (!check.runId.equals(runId)) {
         throw new UnknownChangeStackError(
-          `Run ${runId.value} drafted no change stack ${stackId}.`,
+          `Run ${runId.value} has no change stack ${stackId}.`,
         );
       }
 
@@ -158,8 +158,8 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
       steps: stack.checkSteps(claimed.entries).map((step) => ({
         id: step.id,
         patch: this.patches.patchOf(stack.diff, new Set(step.hunks)),
-        stopsOnFailure: step.isWholeChange,
-        runsSetup: step.installsAnew,
+        stopsOnFailure: step.stopsOnFailure,
+        runsSetup: step.runsSetup,
       })),
     };
   }

@@ -10,7 +10,7 @@ import type {
 } from '@change-review/application/ports/decision-reader.port';
 import {
   type DecisionSetRow,
-  draftedRunOf,
+  generationRunOf,
   mergeRowOf,
 } from '@change-review/infrastructure/persistence/drizzle/repositories/decision-set.rows';
 import {
@@ -65,7 +65,7 @@ const toDecision = (
   why: row.why,
   alternatives: row.alternatives,
   paths: row.paths,
-  steps: row.steps,
+  journalSteps: row.journalSteps,
   disputes: disputes
     .filter((dispute) => dispute.decisionId === row.id)
     .map((dispute) => ({
@@ -108,8 +108,8 @@ export class DrizzleDecisionReader implements DecisionReaderPort {
     const { decisions, disputes } = await this.decisionRowsOf([set.id]);
 
     return {
-      runId: set.decidedIn,
-      drafting: draftedRunOf(set) !== null,
+      runId: set.sourceRunId,
+      generating: generationRunOf(set) !== null,
       status: set.status,
       merge: mergeRowOf(set),
       decisions: decisionsIn(set, decisions, disputes),
@@ -154,7 +154,7 @@ export class DrizzleDecisionReader implements DecisionReaderPort {
         ? [
             {
               taskId: set.taskId,
-              runId: set.decidedIn,
+              runId: set.sourceRunId,
               repository: merge.repository,
               commit: merge.commit,
               mergedAt: merge.at,

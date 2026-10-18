@@ -9,14 +9,14 @@ import { describe, expect, it } from 'vitest';
 const STACK_ID = ChangeStackId.of('stack-1');
 const RUN_ID = RunId.of('run-1');
 
-const announcing = () => {
-  const announced: RunId[] = [];
+const posting = () => {
+  const posted: RunId[] = [];
   const reactions = new ChangeStackReactions({
-    ofRun: async (runId) => void announced.push(runId),
+    ofRun: async (runId) => void posted.push(runId),
     ofTask: async () => undefined,
   });
 
-  return { announced, reactions };
+  return { posted, reactions };
 };
 
 const checked = (replay: boolean) =>
@@ -32,24 +32,24 @@ const checked = (replay: boolean) =>
 
 describe('ChangeStackReactions', () => {
   it('points the pull request at a stack once it completes or is checked', async () => {
-    const { announced, reactions } = announcing();
+    const { posted, reactions } = posting();
 
     await reactions.onCompleted(
       new ChangeStackCompleted(STACK_ID, RUN_ID, false),
     );
     await reactions.onChecked(checked(false));
 
-    expect(announced).toEqual([RUN_ID, RUN_ID]);
+    expect(posted).toEqual([RUN_ID, RUN_ID]);
   });
 
-  it('never announces a replay’s stack, completed or checked', async () => {
-    const { announced, reactions } = announcing();
+  it('never posts a comment for a replay’s stack, completed or checked', async () => {
+    const { posted, reactions } = posting();
 
     await reactions.onCompleted(
       new ChangeStackCompleted(STACK_ID, RUN_ID, true),
     );
     await reactions.onChecked(checked(true));
 
-    expect(announced).toEqual([]);
+    expect(posted).toEqual([]);
   });
 });

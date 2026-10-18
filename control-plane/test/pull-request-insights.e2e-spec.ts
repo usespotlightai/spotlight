@@ -42,7 +42,7 @@ const TASK = TaskId.of(randomUUID());
 const INSTALLATION = randomInt(1_000_000, 3_000_000);
 const ELSEWHERE_INSTALLATION = randomInt(3_000_000, 5_000_000);
 const DELETING_INSTALLATION = randomInt(5_000_000, 7_000_000);
-const UNCLAIMED_INSTALLATION = randomInt(7_000_000, 9_000_000);
+const UNCONNECTED_INSTALLATION = randomInt(7_000_000, 9_000_000);
 
 const urlOf = (number: number) =>
   `https://github.com/${repository}/pull/${number}`;
@@ -380,8 +380,8 @@ describe('the team’s pull request insights (e2e)', () => {
 });
 
 describe('what GitHub said, stored in order and purged in time (e2e)', () => {
-  it('records nothing of a delivery through an installation no workspace claimed', async () => {
-    await deliverThrough(UNCLAIMED_INSTALLATION, 'pull_request', {
+  it('records nothing of a delivery through an installation that no workspace connected', async () => {
+    await deliverThrough(UNCONNECTED_INSTALLATION, 'pull_request', {
       action: 'opened',
       pull_request: pullRequest(90),
     });

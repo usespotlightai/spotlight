@@ -26,7 +26,7 @@ export const seenOfRow = (row: PullRequestRow): SeenPullRequest | null =>
         closedAt: row.closedAt,
         updatedAt: row.updatedAt,
         readyForReviewAt: row.readyForReviewAt,
-        draftSpells: row.draftSpells.map((each) => ({
+        draftPeriods: row.draftPeriods.map((each) => ({
           from: new Date(each.from),
           to: each.to ? new Date(each.to) : null,
         })),

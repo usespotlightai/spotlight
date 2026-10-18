@@ -33,8 +33,8 @@ const noteProblems = (
 ): string[] => {
   const problems: string[] = [];
   const touched = new Set(
-    layer.ranges.flatMap((range) => {
-      const file = diff.fileOf(range.hunk);
+    layer.hunks.flatMap((entry) => {
+      const file = diff.fileOf(entry.hunk);
       return file ? [file.path] : [];
     }),
   );
@@ -44,7 +44,7 @@ const noteProblems = (
     noted.set(path, (noted.get(path) ?? 0) + 1);
 
     if (!touched.has(path)) {
-      problems.push(`${at} notes ${path}, which none of its changes touch`);
+      problems.push(`${at} notes ${path}, which none of its hunks touch`);
     } else if (!note.trim() || note.length > MAX_PROSE) {
       problems.push(
         `${at} needs a note on ${path} of at most ${MAX_PROSE} characters`,
@@ -75,7 +75,7 @@ const shapeProblems = (
 ): StackProblem[] => {
   const problems: string[] = [];
   const known = new Set(diff.hunks.map((hunk) => hunk.id));
-  const placed = new Map<string, number>();
+  const assigned = new Map<string, number>();
 
   if (cohorts.length === 0) {
     problems.push('has no cohorts');
@@ -109,15 +109,15 @@ const shapeProblems = (
           `${at} needs a summary of at most ${MAX_PROSE} characters`,
         );
       }
-      if (layer.ranges.length === 0) {
-        problems.push(`${at} has no changes`);
+      if (layer.hunks.length === 0) {
+        problems.push(`${at} has no hunks`);
       }
 
-      for (const range of layer.ranges) {
-        if (!known.has(range.hunk)) {
-          problems.push(`${at} names ${range.hunk}, which is not in the diff`);
+      for (const entry of layer.hunks) {
+        if (!known.has(entry.hunk)) {
+          problems.push(`${at} names ${entry.hunk}, which is not in the diff`);
         } else {
-          placed.set(range.hunk, (placed.get(range.hunk) ?? 0) + 1);
+          assigned.set(entry.hunk, (assigned.get(entry.hunk) ?? 0) + 1);
         }
       }
 
@@ -145,12 +145,12 @@ const shapeProblems = (
   });
 
   for (const hunk of known) {
-    const times = placed.get(hunk) ?? 0;
+    const times = assigned.get(hunk) ?? 0;
 
     if (times === 0) {
       problems.push(`leaves ${hunk} out`);
     } else if (times > 1) {
-      problems.push(`places ${hunk} ${times} times`);
+      problems.push(`assigns ${hunk} ${times} times`);
     }
   }
 
@@ -215,7 +215,7 @@ const numbered = (
           layer.dependsOn,
           derived.get(`${c}.${l}`),
         ),
-        ranges: layer.ranges.map((range) => ({ hunk: range.hunk })),
+        hunks: layer.hunks.map((entry) => ({ hunk: entry.hunk })),
         notes: layer.notes.map((each) => ({
           path: each.path,
           note: each.note.trim(),

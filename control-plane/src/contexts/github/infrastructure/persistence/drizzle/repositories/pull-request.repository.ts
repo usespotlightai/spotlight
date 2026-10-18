@@ -38,7 +38,7 @@ const toPullRequest = (row: PullRequestRow): PullRequest =>
     openedAt: row.openedAt,
     draft: row.draft,
     readyForReviewAt: row.readyForReviewAt,
-    draftSpells: row.draftSpells.map((each) => ({
+    draftPeriods: row.draftPeriods.map((each) => ({
       from: new Date(each.from),
       to: each.to ? new Date(each.to) : null,
     })),
@@ -72,7 +72,7 @@ const columnsOf = (pullRequest: PullRequest) => ({
   openedAt: pullRequest.openedAt,
   draft: pullRequest.draft,
   readyForReviewAt: pullRequest.readyForReviewAt,
-  draftSpells: pullRequest.draftSpells.map((each) => ({
+  draftPeriods: pullRequest.draftPeriods.map((each) => ({
     from: each.from.toISOString(),
     to: each.to?.toISOString() ?? null,
   })),

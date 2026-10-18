@@ -433,7 +433,7 @@ export const pullRequestRecord = pgTable(
     closedAt: timestamp('closed_at'),
     updatedAt: timestamp('updated_at'),
     readyForReviewAt: timestamp('ready_for_review_at'),
-    draftSpells: jsonb('draft_spells')
+    draftPeriods: jsonb('draft_periods')
       .$type<{ from: string; to: string | null }[]>()
       .notNull()
       .default([]),

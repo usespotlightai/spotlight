@@ -265,7 +265,7 @@ const using = (
   const called: Called[] = [];
   const denial = (id: string): CatalogDenial => ({
     id,
-    reason: over.denied?.reason ?? 'lapsed',
+    reason: over.denied?.reason ?? 'expired',
     because: 'denied here',
   });
   const catalog = new StationCatalog({
@@ -480,33 +480,33 @@ describe('UseToolHandler', () => {
       expect(called[0]?.inputs.values).toEqual({ query: 'queues' });
     });
 
-    it('is denied as entitlement_lapsed once the plan no longer covers it, and nothing is called', async () => {
+    it('is denied as entitlement_expired once the plan no longer covers it, and nothing is called', async () => {
       const { useTool, called } = using(searching(), {
-        denied: { when: 'before', reason: 'lapsed' },
+        denied: { when: 'before', reason: 'expired' },
       });
 
       await expect(
         useTool('catalog.web-search', { query: 'queues' }),
       ).rejects.toMatchObject({
         kind: 'not-allowed',
-        message: expect.stringContaining('entitlement_lapsed'),
+        message: expect.stringContaining('entitlement_expired'),
       });
       expect(called).toEqual([]);
     });
 
-    it('is denied as entitlement_lapsed when the plan lapses as it is called', async () => {
+    it('is denied as entitlement_expired when the plan expires as it is called', async () => {
       const { useTool } = using(searching(), {
-        denied: { when: 'during', reason: 'lapsed' },
+        denied: { when: 'during', reason: 'expired' },
       });
 
       await expect(
         useTool('catalog.web-search', { query: 'queues' }),
       ).rejects.toMatchObject({
-        message: expect.stringContaining('entitlement_lapsed'),
+        message: expect.stringContaining('entitlement_expired'),
       });
     });
 
-    it('is denied as catalog_item_unknown, not as a lapse, once the catalog no longer has it', async () => {
+    it('is denied as catalog_item_unknown, not as expired, once the catalog no longer has it', async () => {
       const { useTool, called } = using(searching(), {
         denied: { when: 'before', reason: 'unknown' },
       });

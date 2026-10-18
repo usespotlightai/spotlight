@@ -66,13 +66,13 @@ describe('GitHubPullRequestComments', () => {
     expect(requests).toHaveLength(2);
   });
 
-  it('withdraws its own comment', async () => {
+  it('deletes its own comment', async () => {
     const { requests, comments } = answering([
       { id: 1, body: 'LGTM' },
       { id: 7, body: `${MARKER}\nAn older stack` },
     ]);
 
-    await comments.withdraw({
+    await comments.delete({
       workspaceId: WorkspaceId.of('ws_1'),
       repository: Repository.of('acme/widgets'),
       pullRequest: PullRequestUrl.of('https://github.com/acme/widgets/pull/66'),
@@ -85,10 +85,10 @@ describe('GitHubPullRequestComments', () => {
     });
   });
 
-  it('withdraws nothing where it never commented', async () => {
+  it('deletes nothing where it never commented', async () => {
     const { requests, comments } = answering([{ id: 1, body: 'LGTM' }]);
 
-    await comments.withdraw({
+    await comments.delete({
       workspaceId: WorkspaceId.of('ws_1'),
       repository: Repository.of('acme/widgets'),
       pullRequest: PullRequestUrl.of('https://github.com/acme/widgets/pull/66'),

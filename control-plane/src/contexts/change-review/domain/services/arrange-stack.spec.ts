@@ -76,7 +76,7 @@ const layer = (
   title,
   summary: title,
   dependsOn,
-  ranges: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
+  hunks: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
   notes: hunks.map((hunk) => ({
     path: DIFF.fileOf(hunk)?.path ?? hunk,
     note: `Why ${title} changes`,
@@ -84,7 +84,7 @@ const layer = (
 });
 
 describe('arranged', () => {
-  it('sets aside incidental changes in a cohort of their own, last', () => {
+  it('puts incidental hunks in a cohort of their own, last', () => {
     const proposed: ProposedCohort[] = [
       {
         kind: 'change',
@@ -101,7 +101,7 @@ describe('arranged', () => {
       kind: 'incidental',
       title: 'Update lockfiles and generated files',
     });
-    expect(cohorts[1]?.layers[0]?.ranges.map((each) => each.hunk)).toEqual([
+    expect(cohorts[1]?.layers[0]?.hunks.map((each) => each.hunk)).toEqual([
       'h2',
       'h4',
     ]);
@@ -137,7 +137,7 @@ describe('arranged', () => {
     ]);
   });
 
-  it('drops the notes on files whose changes it sets aside', () => {
+  it('drops the notes on files whose hunks are incidental', () => {
     const proposed: ProposedCohort[] = [
       {
         kind: 'change',

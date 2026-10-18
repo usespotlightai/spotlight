@@ -575,7 +575,7 @@ describe('the Shipping tab', () => {
             state: 'merged',
             openedAt: day('2026-09-28', 8),
             readyForReviewAt: day('2026-09-28', 9),
-            draftSpells: [
+            draftPeriods: [
               { from: day('2026-09-28', 10), to: day('2026-09-29', 10) },
             ],
             firstUnblockingReviewAt: day('2026-09-29', 12),
@@ -586,7 +586,7 @@ describe('the Shipping tab', () => {
           seen: {
             openedAt: day('2026-09-28', 8),
             readyForReviewAt: day('2026-09-28', 9),
-            draftSpells: [{ from: day('2026-09-29', 10), to: null }],
+            draftPeriods: [{ from: day('2026-09-29', 10), to: null }],
           },
         }),
       ],
@@ -607,9 +607,9 @@ describe('the Shipping tab', () => {
     expect(timesAt(pipeline, 'awaitingReview')?.all.total.p50).toBe(3 * HOUR);
   });
 
-  it('takes every spell back as a draft off the wait, only where it fell between ready and the first review', () => {
+  it('takes every draft period off the wait, only where it fell between ready and the first review', () => {
     const waited = (
-      spells: { from: Date; to: Date | null }[],
+      periods: { from: Date; to: Date | null }[],
       reviewedAt = day('2026-09-29', 21),
     ) =>
       shippedOf(
@@ -618,7 +618,7 @@ describe('the Shipping tab', () => {
             seen: {
               openedAt: day('2026-09-29', 6),
               readyForReviewAt: day('2026-09-29', 9),
-              draftSpells: spells,
+              draftPeriods: periods,
               firstUnblockingReviewAt: reviewedAt,
             },
           }),
@@ -648,7 +648,7 @@ describe('the Shipping tab', () => {
             state: 'closed',
             openedAt: day('2026-09-28', 8),
             readyForReviewAt: day('2026-09-28', 9),
-            draftSpells: [{ from: day('2026-09-29', 10), to: null }],
+            draftPeriods: [{ from: day('2026-09-29', 10), to: null }],
             closedAt: day('2026-09-29', 11),
           },
         }),

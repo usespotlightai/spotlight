@@ -43,8 +43,8 @@ export const generatedEntries = (
       const layerOf = new Map<string, number>();
 
       cohort.layers.forEach((layer, place) => {
-        for (const range of layer.ranges) {
-          const path = diff.fileOf(range.hunk)?.path;
+        for (const entry of layer.hunks) {
+          const path = diff.fileOf(entry.hunk)?.path;
 
           if (path && !layerOf.has(path)) {
             layerOf.set(path, place);

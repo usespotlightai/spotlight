@@ -1,11 +1,11 @@
 import { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
-import {
-  PullRequestRecorded,
-  type RecordedPullRequest,
-  type RecordedState,
-} from '@github/domain/events/pull-request-recorded.event';
 import { PullRequestRevertMerged } from '@github/domain/events/pull-request-revert-merged.event';
 import type { ReviewState } from '@github/domain/events/pull-request-reviewed.event';
+import {
+  PullRequestUpdated,
+  type UpdatedPullRequest,
+  type UpdatedState,
+} from '@github/domain/events/pull-request-updated.event';
 import { botActivityOf } from '@github/domain/services/bot-activity';
 import { pastRetention } from '@github/domain/services/pull-request-retention';
 import {
@@ -18,17 +18,17 @@ import type {
   PullRequestThread,
 } from '@github/domain/value-objects/bot-activity.vo';
 import {
-  type DraftSpell,
-  openSpellOf,
-  sameSpells,
-} from '@github/domain/value-objects/draft-spell.vo';
+  type DraftPeriod,
+  openPeriodOf,
+  samePeriods,
+} from '@github/domain/value-objects/draft-period.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export type PullRequestState = RecordedState;
+export type PullRequestState = UpdatedState;
 
 export interface PullRequestSize {
   readonly additions: number;
@@ -36,7 +36,7 @@ export interface PullRequestSize {
   readonly changedFiles: number;
 }
 
-export interface PullRequestFacts {
+export interface PullRequestSnapshot {
   readonly url: PullRequestUrl;
   readonly repository: Repository;
   readonly number: number;
@@ -68,7 +68,7 @@ export interface WebhookComment {
   readonly on: 'line' | 'conversation';
   readonly action: 'created' | 'edited' | 'deleted';
   readonly login: string | null;
-  readonly answers: number | null;
+  readonly inReplyToId: number | null;
   readonly byBot: boolean;
 }
 
@@ -81,7 +81,7 @@ interface Props {
   readonly openedAt: Date;
   readonly draft: boolean;
   readonly readyForReviewAt: Date | null;
-  readonly draftSpells: readonly DraftSpell[];
+  readonly draftPeriods: readonly DraftPeriod[];
   readonly state: PullRequestState;
   readonly closedAt: Date | null;
   readonly updatedAt: Date;
@@ -97,9 +97,9 @@ interface Props {
 
 const VERDICTS: readonly ReviewState[] = ['approved', 'changes-requested'];
 
-const RECORDED = 'pull-request.recorded';
+const UPDATED = 'pull-request.updated';
 
-const notRecorded = (event: DomainEvent): boolean => event.kind !== RECORDED;
+const notUpdated = (event: DomainEvent): boolean => event.kind !== UPDATED;
 
 const atOf = (review: WebhookReview): number =>
   review.at?.getTime() ?? Number.POSITIVE_INFINITY;
@@ -146,41 +146,44 @@ export class PullRequest extends EventRecorder {
 
   static fromWebhook(
     workspaceId: WorkspaceId,
-    facts: PullRequestFacts,
+    snapshot: PullRequestSnapshot,
     now: Date,
   ): PullRequest | null {
-    const closedAt = facts.state === 'open' ? null : facts.closedAt;
-    const updatedAt = laterOf(closedAt ?? facts.openedAt, facts.updatedAt);
+    const closedAt = snapshot.state === 'open' ? null : snapshot.closedAt;
+    const updatedAt = laterOf(
+      closedAt ?? snapshot.openedAt,
+      snapshot.updatedAt,
+    );
 
-    if (pastRetention({ state: facts.state, closedAt, updatedAt }, now)) {
+    if (pastRetention({ state: snapshot.state, closedAt, updatedAt }, now)) {
       return null;
     }
 
-    const repository = normalOf(facts.repository);
+    const repository = normalOf(snapshot.repository);
     const created = new PullRequest(
       workspaceId,
-      facts.url,
+      snapshot.url,
       repository,
-      facts.number,
+      snapshot.number,
       {
-        title: facts.title,
-        author: facts.author,
-        authorIsBot: facts.authorIsBot,
-        branch: facts.branch,
-        size: facts.size,
-        openedAt: facts.openedAt,
-        draft: facts.draft,
-        readyForReviewAt: facts.draft
+        title: snapshot.title,
+        author: snapshot.author,
+        authorIsBot: snapshot.authorIsBot,
+        branch: snapshot.branch,
+        size: snapshot.size,
+        openedAt: snapshot.openedAt,
+        draft: snapshot.draft,
+        readyForReviewAt: snapshot.draft
           ? null
-          : (facts.markedReadyAt ?? facts.openedAt),
-        draftSpells:
-          facts.draft && facts.markedDraftAt
-            ? [{ from: facts.markedDraftAt, to: null }]
+          : (snapshot.markedReadyAt ?? snapshot.openedAt),
+        draftPeriods:
+          snapshot.draft && snapshot.markedDraftAt
+            ? [{ from: snapshot.markedDraftAt, to: null }]
             : [],
-        state: facts.state,
+        state: snapshot.state,
         closedAt,
         updatedAt,
-        reverts: revertTargetOf({ ...facts, repository }),
+        reverts: revertTargetOf({ ...snapshot, repository }),
         reviews: [],
         dismissedReviews: [],
         comments: [],
@@ -191,9 +194,9 @@ export class PullRequest extends EventRecorder {
       },
       0,
     );
-    created.recordSnapshot();
+    created.recordUpdated();
 
-    if (facts.state === 'merged') {
+    if (snapshot.state === 'merged') {
       created.recordRevertMerged();
     }
 
@@ -223,7 +226,7 @@ export class PullRequest extends EventRecorder {
         openedAt: input.openedAt,
         draft: input.draft,
         readyForReviewAt: input.readyForReviewAt,
-        draftSpells: input.draftSpells,
+        draftPeriods: input.draftPeriods,
         state: input.state,
         closedAt: input.closedAt,
         updatedAt: input.updatedAt,
@@ -272,8 +275,8 @@ export class PullRequest extends EventRecorder {
     return this.props.readyForReviewAt;
   }
 
-  get draftSpells(): readonly DraftSpell[] {
-    return this.props.draftSpells;
+  get draftPeriods(): readonly DraftPeriod[] {
+    return this.props.draftPeriods;
   }
 
   get state(): PullRequestState {
@@ -366,23 +369,27 @@ export class PullRequest extends EventRecorder {
     return pastRetention(this.props, now);
   }
 
-  describe(facts: PullRequestFacts): PullRequest {
-    if (!facts.url.equals(this.url)) {
+  updateFrom(snapshot: PullRequestSnapshot): PullRequest {
+    if (!snapshot.url.equals(this.url)) {
       return this;
     }
 
     const readiedEarlier =
-      !facts.draft &&
-      facts.markedReadyAt !== null &&
+      !snapshot.draft &&
+      snapshot.markedReadyAt !== null &&
       (this.props.readyForReviewAt === null ||
-        facts.markedReadyAt.getTime() < this.props.readyForReviewAt.getTime());
+        snapshot.markedReadyAt.getTime() <
+          this.props.readyForReviewAt.getTime());
 
     if (
-      facts.updatedAt !== null &&
-      facts.updatedAt.getTime() < this.props.updatedAt.getTime()
+      snapshot.updatedAt !== null &&
+      snapshot.updatedAt.getTime() < this.props.updatedAt.getTime()
     ) {
       return readiedEarlier
-        ? this.changed({ ...this.props, readyForReviewAt: facts.markedReadyAt })
+        ? this.withEvent({
+            ...this.props,
+            readyForReviewAt: snapshot.markedReadyAt,
+          })
         : this;
     }
 
@@ -390,39 +397,41 @@ export class PullRequest extends EventRecorder {
       this.props.state === 'merged'
         ? 'merged'
         : this.props.state === 'closed' &&
-            facts.state === 'open' &&
-            !this.newerThanStored(facts.updatedAt)
+            snapshot.state === 'open' &&
+            !this.newerThanStored(snapshot.updatedAt)
           ? 'closed'
-          : facts.state;
+          : snapshot.state;
     const closedAt =
       state === 'open'
         ? null
         : this.props.state === 'merged'
           ? this.props.closedAt
-          : (facts.closedAt ?? this.props.closedAt);
+          : (snapshot.closedAt ?? this.props.closedAt);
     const next: Props = {
       ...this.props,
-      title: facts.title,
-      author: facts.author ?? this.props.author,
-      authorIsBot: facts.author ? facts.authorIsBot : this.props.authorIsBot,
-      branch: facts.branch ?? this.props.branch,
-      size: facts.size ?? this.props.size,
-      openedAt: facts.openedAt,
-      draft: facts.draft,
+      title: snapshot.title,
+      author: snapshot.author ?? this.props.author,
+      authorIsBot: snapshot.author
+        ? snapshot.authorIsBot
+        : this.props.authorIsBot,
+      branch: snapshot.branch ?? this.props.branch,
+      size: snapshot.size ?? this.props.size,
+      openedAt: snapshot.openedAt,
+      draft: snapshot.draft,
       readyForReviewAt: readiedEarlier
-        ? facts.markedReadyAt
+        ? snapshot.markedReadyAt
         : (this.props.readyForReviewAt ??
-          (facts.draft
+          (snapshot.draft
             ? null
-            : (facts.markedReadyAt ??
-              laterOf(this.props.updatedAt, facts.updatedAt)))),
-      draftSpells: this.respelled(facts),
+            : (snapshot.markedReadyAt ??
+              laterOf(this.props.updatedAt, snapshot.updatedAt)))),
+      draftPeriods: this.nextDraftPeriods(snapshot),
       state,
       closedAt,
-      updatedAt: laterOf(this.props.updatedAt, facts.updatedAt),
+      updatedAt: laterOf(this.props.updatedAt, snapshot.updatedAt),
       reverts: revertTargetOf({
-        title: facts.title,
-        body: facts.body,
+        title: snapshot.title,
+        body: snapshot.body,
         repository: this.repository,
       }),
     };
@@ -430,16 +439,16 @@ export class PullRequest extends EventRecorder {
     if (this.unchanged(next)) {
       return sameTime(next.updatedAt, this.props.updatedAt)
         ? this
-        : this.quietly(next);
+        : this.withoutEvent(next);
     }
 
-    const described = this.changed(next);
+    const updated = this.withEvent(next);
 
     if (this.props.state !== 'merged' && state === 'merged') {
-      described.recordRevertMerged();
+      updated.recordRevertMerged();
     }
 
-    return described;
+    return updated;
   }
 
   recordReview(review: WebhookReview): PullRequest {
@@ -447,7 +456,7 @@ export class PullRequest extends EventRecorder {
       return this;
     }
 
-    return this.changed({
+    return this.withEvent({
       ...this.props,
       reviews: [...this.props.reviews, review],
     });
@@ -464,8 +473,8 @@ export class PullRequest extends EventRecorder {
     };
 
     return this.props.reviews.some((each) => each.id === id)
-      ? this.changed(next)
-      : this.quietly(next);
+      ? this.withEvent(next)
+      : this.withoutEvent(next);
   }
 
   recordComment(comment: WebhookComment): PullRequest {
@@ -487,11 +496,11 @@ export class PullRequest extends EventRecorder {
         deletedComments: [...this.props.deletedComments, comment.id],
       };
 
-      return known ? this.changed(next) : this.quietly(next);
+      return known ? this.withEvent(next) : this.withoutEvent(next);
     }
 
     if (comment.action === 'created' && !known && !deleted) {
-      return this.changed({
+      return this.withEvent({
         ...this.props,
         comments: [...this.props.comments, comment.id],
       });
@@ -507,7 +516,7 @@ export class PullRequest extends EventRecorder {
       return this;
     }
 
-    return this.changed({
+    return this.withEvent({
       ...this.props,
       threads: [
         ...this.props.threads.filter((each) => each.id !== thread.id),
@@ -525,11 +534,11 @@ export class PullRequest extends EventRecorder {
       return this;
     }
 
-    return this.changed({ ...this.props, revertedBy: revert });
+    return this.withEvent({ ...this.props, revertedBy: revert });
   }
 
   purge(): PullRequest {
-    const purged = this.succeeded(this.props, notRecorded);
+    const purged = this.next(this.props, notUpdated);
     purged.record(
       new PullRequestPurged(
         this.workspaceId,
@@ -570,38 +579,40 @@ export class PullRequest extends EventRecorder {
           id: comment.id,
           on: comment.on,
           login: comment.login,
-          opensThread: comment.on === 'line' && comment.answers === null,
+          opensThread: comment.on === 'line' && comment.inReplyToId === null,
           deleted,
         },
       ],
     };
 
-    return deleted && !known ? this.quietly(next) : this.changed(next);
+    return deleted && !known ? this.withoutEvent(next) : this.withEvent(next);
   }
 
-  private respelled(facts: PullRequestFacts): readonly DraftSpell[] {
-    const spells = this.props.draftSpells;
-    const open = openSpellOf(spells);
-    const lastUpdatedAt = facts.updatedAt ?? this.props.updatedAt;
+  private nextDraftPeriods(
+    snapshot: PullRequestSnapshot,
+  ): readonly DraftPeriod[] {
+    const periods = this.props.draftPeriods;
+    const open = openPeriodOf(periods);
+    const lastUpdatedAt = snapshot.updatedAt ?? this.props.updatedAt;
 
     const wasReady =
-      this.props.readyForReviewAt !== null || facts.markedDraftAt !== null;
+      this.props.readyForReviewAt !== null || snapshot.markedDraftAt !== null;
 
-    if (facts.draft && !open && wasReady) {
+    if (snapshot.draft && !open && wasReady) {
       return [
-        ...spells,
-        { from: facts.markedDraftAt ?? lastUpdatedAt, to: null },
+        ...periods,
+        { from: snapshot.markedDraftAt ?? lastUpdatedAt, to: null },
       ];
     }
 
-    if (!facts.draft && open) {
+    if (!snapshot.draft && open) {
       return [
-        ...spells.slice(0, -1),
-        { from: open.from, to: facts.markedReadyAt ?? lastUpdatedAt },
+        ...periods.slice(0, -1),
+        { from: open.from, to: snapshot.markedReadyAt ?? lastUpdatedAt },
       ];
     }
 
-    return spells;
+    return periods;
   }
 
   private byPeople(): readonly WebhookReview[] {
@@ -620,25 +631,25 @@ export class PullRequest extends EventRecorder {
       sameTime(next.openedAt, this.props.openedAt) &&
       next.draft === this.props.draft &&
       sameTime(next.readyForReviewAt, this.props.readyForReviewAt) &&
-      sameSpells(next.draftSpells, this.props.draftSpells) &&
+      samePeriods(next.draftPeriods, this.props.draftPeriods) &&
       next.state === this.props.state &&
       sameTime(next.closedAt, this.props.closedAt) &&
       sameRevertTarget(next.reverts, this.props.reverts)
     );
   }
 
-  private changed(next: Props): PullRequest {
-    const changed = this.succeeded(next, notRecorded);
-    changed.recordSnapshot();
+  private withEvent(next: Props): PullRequest {
+    const changed = this.next(next, notUpdated);
+    changed.recordUpdated();
 
     return changed;
   }
 
-  private quietly(next: Props): PullRequest {
-    return this.succeeded(next, () => true);
+  private withoutEvent(next: Props): PullRequest {
+    return this.next(next, () => true);
   }
 
-  private succeeded(
+  private next(
     next: Props,
     including: (event: DomainEvent) => boolean,
   ): PullRequest {
@@ -655,8 +666,10 @@ export class PullRequest extends EventRecorder {
     return succeeded;
   }
 
-  private recordSnapshot(): void {
-    this.record(new PullRequestRecorded(this.workspaceId, this.snapshot()));
+  private recordUpdated(): void {
+    this.record(
+      new PullRequestUpdated(this.workspaceId, this.updatedPullRequest()),
+    );
   }
 
   private recordRevertMerged(): void {
@@ -673,7 +686,7 @@ export class PullRequest extends EventRecorder {
     }
   }
 
-  private snapshot(): RecordedPullRequest {
+  private updatedPullRequest(): UpdatedPullRequest {
     return {
       pullRequest: this.url.value,
       repository: this.repository.value,
@@ -690,7 +703,7 @@ export class PullRequest extends EventRecorder {
       closedAt: this.props.closedAt,
       updatedAt: this.props.updatedAt,
       readyForReviewAt: this.props.readyForReviewAt,
-      draftSpells: this.props.draftSpells,
+      draftPeriods: this.props.draftPeriods,
       firstReviewAt: this.firstReviewAt,
       firstUnblockingReviewAt: this.firstUnblockingReviewAt,
       firstApprovedAt: this.firstApprovedAt,

@@ -19,8 +19,8 @@ const listed = (words: readonly string[]): string =>
     ? (words[0] ?? '')
     : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
 
-const pathsOf = (diff: Diff, ranges: ProposedLayer['ranges']): Set<string> =>
-  new Set(ranges.flatMap((range) => diff.fileOf(range.hunk)?.path ?? []));
+const pathsOf = (diff: Diff, hunks: ProposedLayer['hunks']): Set<string> =>
+  new Set(hunks.flatMap((entry) => diff.fileOf(entry.hunk)?.path ?? []));
 
 const withoutHunks = (
   diff: Diff,
@@ -30,16 +30,16 @@ const withoutHunks = (
   const remaining: { layer: ProposedLayer; from: number }[] = [];
 
   cohort.layers.forEach((layer, place) => {
-    const ranges = layer.ranges.filter((range) => !leaving.has(range.hunk));
+    const hunks = layer.hunks.filter((entry) => !leaving.has(entry.hunk));
 
-    if (ranges.length > 0) {
-      const before = pathsOf(diff, layer.ranges);
-      const still = pathsOf(diff, ranges);
+    if (hunks.length > 0) {
+      const before = pathsOf(diff, layer.hunks);
+      const still = pathsOf(diff, hunks);
       const notes = layer.notes.filter(
         (each) => still.has(each.path) || !before.has(each.path),
       );
 
-      remaining.push({ layer: { ...layer, ranges, notes }, from: place + 1 });
+      remaining.push({ layer: { ...layer, hunks, notes }, from: place + 1 });
     }
   });
 
@@ -105,9 +105,9 @@ export const arranged = (
       layers: [
         {
           title,
-          summary: `Spotlight recognised ${incidental.length} ${incidental.length === 1 ? 'change' : 'changes'} as incidental.`,
+          summary: `Spotlight recognised ${incidental.length} ${incidental.length === 1 ? 'hunk' : 'hunks'} as incidental.`,
           dependsOn: [],
-          ranges: [...incidental]
+          hunks: [...incidental]
             .sort((a, b) => (order.get(a.hunk) ?? 0) - (order.get(b.hunk) ?? 0))
             .map((each) => ({ hunk: each.hunk })),
           notes: [],

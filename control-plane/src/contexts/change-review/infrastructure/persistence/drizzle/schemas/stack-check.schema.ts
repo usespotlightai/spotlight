@@ -1,4 +1,4 @@
-import { CHECK_PHASES } from '@change-review/domain/value-objects/stack-check.vo';
+import { STACK_CHECK_STATUSES } from '@change-review/domain/value-objects/stack-check.vo';
 import type {
   StoredCheckEntry,
   StoredCheckOutcome,
@@ -15,7 +15,10 @@ import {
   timestamp,
 } from 'drizzle-orm/pg-core';
 
-export const checkPhase = pgEnum('check_phase', CHECK_PHASES);
+export const stackCheckStatus = pgEnum(
+  'stack_check_status',
+  STACK_CHECK_STATUSES,
+);
 
 export const stackCheck = pgTable(
   'stack_check',
@@ -33,9 +36,9 @@ export const stackCheck = pgTable(
       .notNull()
       .default([]),
     placementImage: text('placement_image'),
-    phase: checkPhase('phase').notNull(),
+    status: stackCheckStatus('status').notNull(),
     entries: jsonb('entries').$type<StoredCheckEntry[]>().notNull().default([]),
-    rounds: integer('rounds').notNull().default(0),
+    redraftCount: integer('redraft_count').notNull().default(0),
     outcome: jsonb('outcome').$type<StoredCheckOutcome>(),
     claimedBy: text('claimed_by'),
     attempts: integer('attempts').notNull().default(0),
@@ -53,8 +56,8 @@ export const stackCheck = pgTable(
     primaryKey({ columns: [table.stackId, table.recheck] }),
     index('stack_check_run_idx').on(table.runId),
     index('stack_check_task_idx').on(table.taskId),
-    index('stack_check_waiting_idx').on(table.workspaceId, table.phase),
+    index('stack_check_waiting_idx').on(table.workspaceId, table.status),
     index('stack_check_reserved_idx').on(table.reservedFor),
-    index('stack_check_wait_expiry_idx').on(table.phase, table.waitingSince),
+    index('stack_check_wait_expiry_idx').on(table.status, table.waitingSince),
   ],
 );

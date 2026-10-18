@@ -15,7 +15,7 @@ export interface PullRequestReviewComment {
   readonly id: string | null;
 }
 
-export interface PullRequestAbout {
+export interface PullRequestDetails {
   readonly title: string;
   readonly body: string | null;
   readonly author: string | null;
@@ -28,7 +28,7 @@ export interface PullRequestActivity {
   readonly branch: string | null;
   readonly pullRequest: string | null;
   readonly label: string | null;
-  readonly about: PullRequestAbout | null;
+  readonly details: PullRequestDetails | null;
   readonly reviewComment: PullRequestReviewComment | null;
   readonly byBot: boolean;
 }

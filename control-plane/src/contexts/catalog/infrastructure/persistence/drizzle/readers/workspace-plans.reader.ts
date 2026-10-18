@@ -20,7 +20,7 @@ export class DrizzleWorkspacePlans implements WorkspacePlansPort {
       .limit(1);
 
     return row
-      ? WorkspacePlan.of(Plan.of(row.plan), row.lapsesAt)
+      ? WorkspacePlan.of(Plan.of(row.plan), row.expiresAt)
       : WorkspacePlan.free;
   }
 }

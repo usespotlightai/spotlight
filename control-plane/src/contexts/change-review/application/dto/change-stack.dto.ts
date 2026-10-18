@@ -1,10 +1,10 @@
 export const CHANGE_STACK_STATE_NAMES = [
-  'drafting',
+  'generating',
   'ready',
   'failed',
 ] as const;
 
-export const STACK_CHECK_STATE_NAMES = [
+export const STACK_CHECK_STATUS_NAMES = [
   'waiting',
   'checked',
   'skipped',
@@ -44,7 +44,7 @@ interface StackLayerDto {
     readonly layer: string;
     readonly because: readonly string[];
   }[];
-  readonly ranges: readonly {
+  readonly hunks: readonly {
     readonly hunk: string;
   }[];
   readonly notes: readonly {
@@ -65,12 +65,12 @@ export interface CheckedStepDto {
   readonly step: string;
   readonly passed: boolean;
   readonly output: string;
-  readonly tookMs: number;
+  readonly durationMs: number;
 }
 
 export interface StackCheckDto {
   readonly command: string;
-  readonly state: (typeof STACK_CHECK_STATE_NAMES)[number];
+  readonly status: (typeof STACK_CHECK_STATUS_NAMES)[number];
   readonly reason: string | null;
   readonly whole: CheckedStepDto | null;
   readonly layers: readonly CheckedStepDto[];
@@ -81,7 +81,7 @@ export interface ChangeStackDto {
   readonly repository: string | null;
   readonly state: (typeof CHANGE_STACK_STATE_NAMES)[number];
   readonly failure: string | null;
-  readonly draftedAt: string;
+  readonly startedAt: string;
   readonly completedAt: string | null;
   readonly files: readonly DiffFileDto[];
   readonly cohorts: readonly StackCohortDto[];
@@ -96,7 +96,7 @@ export interface LatestChangeStackDto {
   readonly runId: string;
   readonly repository: string | null;
   readonly state: (typeof CHANGE_STACK_STATE_NAMES)[number];
-  readonly checkState: (typeof STACK_CHECK_STATE_NAMES)[number] | null;
+  readonly checkStatus: (typeof STACK_CHECK_STATUS_NAMES)[number] | null;
   readonly added: number;
   readonly removed: number;
 }

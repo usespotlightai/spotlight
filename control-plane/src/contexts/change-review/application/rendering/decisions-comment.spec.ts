@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 const FOUND: TaskDecisionsDto = {
   runId: 'run_1',
-  drafting: false,
+  generating: false,
   status: 'proposed',
   merge: null,
   decisions: [
@@ -16,7 +16,7 @@ const FOUND: TaskDecisionsDto = {
       why: 'Backoff is not in the client yet.',
       alternatives: [],
       paths: ['api/src/uploads.ts'],
-      steps: [7],
+      journalSteps: [7],
       disputes: [
         {
           id: 'dispute_1',
@@ -35,7 +35,7 @@ const FOUND: TaskDecisionsDto = {
       why: 'A queue needs a worker the service does not run.',
       alternatives: ['Retry from a queue', 'Retry in the browser'],
       paths: ['api/src/uploads.ts', 'web/src/Upload.tsx'],
-      steps: [3],
+      journalSteps: [3],
       disputes: [],
     },
   ],

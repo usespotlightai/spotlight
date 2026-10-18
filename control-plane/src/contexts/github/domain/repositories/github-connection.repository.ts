@@ -5,9 +5,11 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export interface GitHubConnectionRepository {
   of(workspaceId: WorkspaceId): Promise<GitHubConnection>;
 
-  claimantOf(installation: GitHubInstallation): Promise<WorkspaceId | null>;
+  connectedWorkspaceOf(
+    installation: GitHubInstallation,
+  ): Promise<WorkspaceId | null>;
 
-  lockedClaimantOf(
+  lockedConnectedWorkspaceOf(
     installation: GitHubInstallation,
   ): Promise<WorkspaceId | null>;
 

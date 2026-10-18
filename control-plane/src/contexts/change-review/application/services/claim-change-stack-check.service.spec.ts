@@ -30,7 +30,7 @@ const LAPTOP = RunnerTerms.of(['laptop']);
 const RUNNER = RunnerId.of('pooled_1');
 
 const completed = () =>
-  ChangeStack.draft({
+  ChangeStack.startGeneration({
     id: ChangeStackId.of('stack_1'),
     runId: RunId.of('run_1'),
     taskId: null,
@@ -71,7 +71,7 @@ const completed = () =>
             title: 'Schema',
             summary: 'Schema',
             dependsOn: [],
-            ranges: [{ hunk: HunkId.of('h1') }],
+            hunks: [{ hunk: HunkId.of('h1') }],
             notes: [{ path: 'schema.ts', note: 'Why' }],
           },
         ],
@@ -399,7 +399,7 @@ describe('ClaimChangeStackCheck', () => {
 
     it('tells the runner to stop once the check ended, or its lease expired past the hour', async () => {
       const skipped = renewing(
-        leased().skip(RUNNER, skipOf('no-room', null), NOW),
+        leased().skip(RUNNER, skipOf('workspace-failed', null), NOW),
       );
       const expired = renewing(leased());
 
@@ -465,7 +465,7 @@ describe('ClaimChangeStackCheck', () => {
       expect(saved).toEqual([]);
     });
 
-    it('rejects the runner with the lease on the check a stack another run drafted', async () => {
+    it('rejects the runner with the lease on the check a stack another run generated', async () => {
       await expect(
         renewing(leased()).service.renewLease(
           RunId.of('run_2'),

@@ -1,5 +1,5 @@
-import type { DraftChangeStack } from '@change-review/application/services/draft-change-stack.service';
-import type { ReorderChangeStack } from '@change-review/application/services/reorder-change-stack.service';
+import type { GenerateChangeStack } from '@change-review/application/services/generate-change-stack.service';
+import type { RedraftChangeStack } from '@change-review/application/services/redraft-change-stack.service';
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { ChangeStackVersionConflictError } from '@change-review/domain/exceptions/change-stack-version-conflict.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
@@ -15,7 +15,7 @@ import { JobLoop } from '@shared-kernel/application/services/job-loop';
 const MAX_STACKS_AT_ONCE = 4;
 
 export class WorkChangeStacks implements PendingJobsPort {
-  readonly name = 'Drafting and reordering change stacks';
+  readonly name = 'Generating and redrafting change stacks';
 
   readonly #loop: JobLoop<ChangeStack, ChangeStackId>;
 
@@ -23,8 +23,8 @@ export class WorkChangeStacks implements PendingJobsPort {
     private readonly stacks: ChangeStackRepository,
     private readonly checks: StackCheckRepository,
     transaction: TransactionPort,
-    private readonly drafting: DraftChangeStack,
-    private readonly reordering: ReorderChangeStack,
+    private readonly generating: GenerateChangeStack,
+    private readonly redrafting: RedraftChangeStack,
     clock: ClockPort,
     logger: LoggerPort,
     reports: ErrorReportsPort,
@@ -66,14 +66,14 @@ export class WorkChangeStacks implements PendingJobsPort {
   }
 
   private async processed(stack: ChangeStack): Promise<ChangeStack> {
-    if (stack.state === 'drafting') {
-      return this.drafting.drafted(stack);
+    if (stack.state === 'generating') {
+      return this.generating.generated(stack);
     }
 
     const check = await this.checks.find(stack.id, false);
 
     return check
-      ? this.reordering.reordered(stack, check)
-      : stack.stopReordering();
+      ? this.redrafting.redrafted(stack, check)
+      : stack.stopRedrafting();
   }
 }

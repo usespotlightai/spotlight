@@ -58,7 +58,7 @@ const expiring = (
 };
 
 describe('ExpireWaitingChecks', () => {
-  it('skips every check nobody claimed in time as nobody checked', async () => {
+  it('skips every check nobody claimed in time as a queue timeout', async () => {
     const { expire, saved, listed } = expiring([
       waiting('stack_1'),
       waiting('stack_2'),
@@ -72,8 +72,8 @@ describe('ExpireWaitingChecks', () => {
       'stack_2',
     ]);
     expect(saved.map((each) => each.skippedAt(NOW))).toEqual([
-      { code: 'nobody-checked', detail: null },
-      { code: 'nobody-checked', detail: null },
+      { code: 'queue-timeout', detail: null },
+      { code: 'queue-timeout', detail: null },
     ]);
   });
 

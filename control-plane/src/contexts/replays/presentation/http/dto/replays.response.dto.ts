@@ -498,7 +498,7 @@ export class EntryReasonResponseDto {
   @ApiProperty({
     enum: ENTRY_REASON_CODES,
     description:
-      'run-failed (detail: how; exited, refused or timed-out, the run failed through the candidate), asked-a-person, check-failed and judge-failed count against the replay; run-failed with unprepared, unprovisioned, hooks-unanswered, runner-lost or superseded (what ran it failed), unreplayable (detail: why it could not be replayed or started), run-stopped (the replay was stopped or ran over its ceiling), not-run, check-skipped (detail: why, as in no-check-asked), change-undrafted, no-change (it changed nothing for its check to run on), no-change-stack (it changed files, but no stack of them reached Spotlight), unjudged and nothing-judges leave it unscored; judged says why the judge passed it',
+      'run-failed (detail: how; exited, refused or timed-out, the run failed through the candidate), asked-a-person, check-failed and judge-failed count against the replay; run-failed with unprepared, unprovisioned, hooks-unanswered, runner-lost or superseded (what ran it failed), unreplayable (detail: why it could not be replayed or started), run-stopped (the replay was stopped or ran over its ceiling), not-run, check-skipped (detail: why, as in no-check-asked), change-not-generated, no-change (it changed nothing for its check to run on), no-change-stack (it changed files, but no stack of them reached Spotlight), unjudged and nothing-judges leave it unscored; judged says why the judge passed it',
   })
   readonly code: string;
 
@@ -536,7 +536,7 @@ export class EntryChecksResponseDto {
   @ApiProperty({
     enum: CHECKS_STATES,
     description:
-      'drafting or checking until its change stacks complete and their checks end; absent when its run left no change stack; none when its stacks are checked by nothing',
+      'generating or checking until its change stacks complete and their checks end; absent when its run left no change stack; none when its stacks are checked by nothing',
   })
   readonly state: string;
 
@@ -552,7 +552,7 @@ export class EntryChecksResponseDto {
     enum: [...CHECK_SKIPS, null],
     type: String,
     description:
-      'Why it went unchecked: what stopped the runner checking it, undrafted when its change was never drafted, or skipped for anything else',
+      'Why it went unchecked: what stopped the runner checking it, not-generated when Spotlight never generated a change stack for its change, or skipped for anything else',
   })
   readonly why: string | null;
 
@@ -974,7 +974,7 @@ export class ReplayEntryResponseDto {
     nullable: true,
     type: ModelSpentResponseDto,
     description:
-      'What drafting and reordering its change stacks cost, failed calls included; what is in the ceiling’s currency is spent against it',
+      'What generating and redrafting its change stacks cost, failed calls included; what is in the ceiling’s currency is spent against it',
   })
   readonly draftingSpent: ModelSpentResponseDto | null;
 
@@ -1172,7 +1172,7 @@ export class ReplayTotalsResponseDto {
 
   @ApiProperty({
     description:
-      'Model calls, for drafting change stacks or judging, that came back with no price',
+      'Model calls, for generating change stacks or judging, that came back with no price',
   })
   readonly unpricedCalls: number;
 

@@ -1,5 +1,5 @@
 import type {
-  CatalogNamed,
+  CatalogRequest,
   EntitledItems,
 } from '@catalog/application/contracts/catalog.contract';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -297,7 +297,7 @@ const tracing = {
 };
 
 let entitledItems: EntitledItems = { tools: [], skills: [], denied: [] };
-let catalogRequested: CatalogNamed[] = [];
+let catalogRequested: CatalogRequest[] = [];
 
 const catalog = new StationCatalog({
   entitledTo: async (_workspace, named) => {
@@ -422,7 +422,7 @@ describe('DispatchTask', () => {
       expect(queued[0]?.state).toBe('queued');
     });
 
-    it('lays a catalog skill in its own folder and enables the tools it brings', async () => {
+    it('lays a catalog skill in its own folder and enables the tools it uses', async () => {
       entitledItems = {
         tools: [WEB_SEARCH],
         skills: [
@@ -446,16 +446,16 @@ describe('DispatchTask', () => {
       expect(enabledTools(queued[0])).toEqual(['catalog.web-search']);
     });
 
-    it('fails the run as entitlement_lapsed, rather than running without it, when the plan has lapsed', async () => {
+    it('fails the run as entitlement_expired, rather than running without it, when the plan has expired', async () => {
       entitledItems = {
         tools: [],
         skills: [],
         denied: [
           {
             id: WEB_SEARCH.id,
-            reason: 'lapsed',
+            reason: 'expired',
             because:
-              'catalog.web-search@1.1.0 needs the Team plan, and this workspace’s Team plan lapsed at 2026-09-01T00:00:00.000Z',
+              'catalog.web-search@1.1.0 requires the Team plan, and this workspace’s Team plan expired at 2026-09-01T00:00:00.000Z',
           },
         ],
       };
@@ -464,7 +464,7 @@ describe('DispatchTask', () => {
 
       expect(queued[0]?.state).toBe('failed');
       expect(queued[0]?.outcome?.message).toBe(
-        'entitlement_lapsed: catalog.web-search@1.1.0 needs the Team plan, and this workspace’s Team plan lapsed at 2026-09-01T00:00:00.000Z',
+        'entitlement_expired: catalog.web-search@1.1.0 requires the Team plan, and this workspace’s Team plan expired at 2026-09-01T00:00:00.000Z',
       );
       expect(queued[0]?.pullEvents().map((each) => each.kind)).toEqual([
         'run.completed',
@@ -477,7 +477,7 @@ describe('DispatchTask', () => {
       ['unknown', 'catalog_item_unknown'],
       ['wrong-kind', 'catalog_item_wrong_kind'],
       ['not-entitled', 'not_entitled'],
-      ['lapsed', 'entitlement_lapsed'],
+      ['expired', 'entitlement_expired'],
     ] as const)('names a refusal for %s as %s', async (reason, code) => {
       entitledItems = {
         tools: [],
@@ -495,7 +495,7 @@ describe('DispatchTask', () => {
         tools: [],
         skills: [],
         denied: [
-          { id: WEB_SEARCH.id, reason: 'lapsed', because: 'lapsed here' },
+          { id: WEB_SEARCH.id, reason: 'expired', because: 'expired here' },
           {
             id: 'catalog.research@9.0.0',
             reason: 'unknown',
@@ -512,7 +512,7 @@ describe('DispatchTask', () => {
       );
 
       expect(queued[0]?.outcome?.message).toBe(
-        'entitlement_lapsed: lapsed here; catalog_item_unknown: unknown here',
+        'entitlement_expired: expired here; catalog_item_unknown: unknown here',
       );
     });
   });
@@ -596,7 +596,7 @@ describe('DispatchTask', () => {
       ]);
     });
 
-    it('records the station’s check on the run its change is drafted from, so later edits to the station leave it be', async () => {
+    it('records the station’s check on the run its change stack is generated from, so later edits to the station leave it be', async () => {
       const checking = (diffs: boolean) =>
         Station.of({
           id: StationId.of('station_2'),
@@ -1002,7 +1002,7 @@ describe('DispatchTask, the team’s own skills', () => {
     ]);
   });
 
-  it('enables the tools that a skill it lays brings, and the skill of each of Spotlight’s', async () => {
+  it('enables the tools that a skill it lays uses, and the skill of each of Spotlight’s', async () => {
     readySkills = [
       {
         skill: {

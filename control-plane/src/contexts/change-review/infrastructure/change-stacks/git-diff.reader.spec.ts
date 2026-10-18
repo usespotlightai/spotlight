@@ -100,7 +100,7 @@ describe('GitDiffReader', () => {
     expect(third?.patch).toContain('\\ No newline at end of file');
   });
 
-  it('shows a file with no lines as one empty hunk, so it is still placed', () => {
+  it('shows a file with no lines as one empty hunk, so it is still assigned', () => {
     expect(diff.files[2]?.hunks).toEqual([
       {
         id: 'h4',
@@ -122,7 +122,7 @@ describe('GitDiffReader', () => {
     expect(() => reader.read('nothing to see')).toThrow(InvalidDiffError);
   });
 
-  it('rejects a diff too long to draft', () => {
+  it('rejects a diff too long to generate a stack from', () => {
     expect(() => reader.read('x'.repeat(7 * 1024 * 1024))).toThrow(
       InvalidDiffError,
     );

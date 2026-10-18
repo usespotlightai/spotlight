@@ -7,11 +7,13 @@ const SKIP_DESCRIPTION: Readonly<Record<SkipCode, string>> = {
   'checkout-failed':
     'Spotlight could not lay out a copy of the checkout to check.',
   'setup-failed': 'The setup of the checkout failed before the check ran.',
-  'no-room': 'The runner had no room to check the layers.',
+  'workspace-failed':
+    'The runner could not open a workspace to check the layers.',
   'out-of-time': 'There was no time left to check the layers.',
   'no-image': 'The host couldn’t pull the runner image that the line names.',
-  'nobody-checked': 'No runner checked the layers in time.',
-  unprovisioned: 'Spotlight couldn’t provision a runner to check the layers.',
+  'queue-timeout': 'No runner checked the layers in time.',
+  'provision-failed':
+    'Spotlight couldn’t provision a runner to check the layers.',
 };
 
 export interface UncheckedFor {

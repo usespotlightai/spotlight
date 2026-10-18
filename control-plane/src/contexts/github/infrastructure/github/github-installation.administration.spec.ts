@@ -64,7 +64,7 @@ describe('GitHubInstallationAdministration', () => {
       },
     });
 
-    expect(await administration().of(INSTALLED, LEON)).toBe('administers');
+    expect(await administration().of(INSTALLED, LEON)).toBe('admin');
     const [, init] = fetching.mock.calls[0] as unknown as [
       string,
       { headers: Record<string, string> },
@@ -81,7 +81,7 @@ describe('GitHubInstallationAdministration', () => {
       },
     });
 
-    expect(await administration().of(INSTALLED, LEON)).toBe('does-not');
+    expect(await administration().of(INSTALLED, LEON)).toBe('not-admin');
   });
 
   it('denies an admin whose membership is still pending', async () => {
@@ -93,7 +93,7 @@ describe('GitHubInstallationAdministration', () => {
       },
     });
 
-    expect(await administration().of(INSTALLED, LEON)).toBe('does-not');
+    expect(await administration().of(INSTALLED, LEON)).toBe('not-admin');
   });
 
   it('denies a read-only collaborator who can see the installation', async () => {
@@ -106,7 +106,7 @@ describe('GitHubInstallationAdministration', () => {
       '/user/memberships/orgs/acme': { status: 404, body: {} },
     });
 
-    expect(await administration().of(INSTALLED, LEON)).toBe('does-not');
+    expect(await administration().of(INSTALLED, LEON)).toBe('not-admin');
   });
 
   it('finds the owner of a personal account', async () => {
@@ -115,7 +115,7 @@ describe('GitHubInstallationAdministration', () => {
       '/user': { status: 200, body: { id: 7, login: 'leon' } },
     });
 
-    expect(await administration().of(INSTALLED, LEON)).toBe('administers');
+    expect(await administration().of(INSTALLED, LEON)).toBe('admin');
   });
 
   it('denies somebody else on a personal account', async () => {
@@ -124,7 +124,7 @@ describe('GitHubInstallationAdministration', () => {
       '/user': { status: 200, body: { id: 8, login: 'mallory' } },
     });
 
-    expect(await administration().of(INSTALLED, LEON)).toBe('does-not');
+    expect(await administration().of(INSTALLED, LEON)).toBe('not-admin');
   });
 
   it('cannot tell when GitHub fails', async () => {
@@ -133,24 +133,24 @@ describe('GitHubInstallationAdministration', () => {
       '/user/memberships/orgs/acme': { status: 502, body: {} },
     });
 
-    expect(await administration().of(INSTALLED, LEON)).toBe('cannot-tell');
+    expect(await administration().of(INSTALLED, LEON)).toBe('unknown');
   });
 
   it('cannot tell when GitHub fails to describe the installation', async () => {
     github({ '/app/installations/42': { status: 500, body: {} } });
 
-    expect(await administration().of(INSTALLED, LEON)).toBe('cannot-tell');
+    expect(await administration().of(INSTALLED, LEON)).toBe('unknown');
   });
 
   it('rejects an installation GitHub does not know', async () => {
     github({});
 
-    expect(await administration().of(INSTALLED, LEON)).toBe('does-not');
+    expect(await administration().of(INSTALLED, LEON)).toBe('not-admin');
   });
 
   it('cannot tell without a linked GitHub account', async () => {
     github({ '/app/installations/42': ORG });
 
-    expect(await administration(null).of(INSTALLED, LEON)).toBe('cannot-tell');
+    expect(await administration(null).of(INSTALLED, LEON)).toBe('unknown');
   });
 });

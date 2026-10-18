@@ -1,7 +1,7 @@
 import type { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import type { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
-import type { PullRequestRecorded } from '@github/domain/events/pull-request-recorded.event';
 import type { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
+import type { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
 import type { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import type { WorkspaceConnected } from '@github/domain/events/workspace-connected.event';
 import {
@@ -13,13 +13,13 @@ import {
   type PullRequestPurgedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-purged.integration-event';
 import {
-  PULL_REQUEST_RECORDED,
-  type PullRequestRecordedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/pull-request-recorded.integration-event';
-import {
   PULL_REQUEST_REVIEWED,
   type PullRequestReviewedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-reviewed.integration-event';
+import {
+  PULL_REQUEST_UPDATED,
+  type PullRequestUpdatedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-updated.integration-event';
 import {
   REVIEW_COMMENT_RECEIVED,
   type ReviewCommentReceivedIntegrationEvent,
@@ -62,7 +62,7 @@ export const GITHUB_EVENT_MAPPERS = [
             startLine: comment.startLine,
           }),
       body: comment.body,
-      answers: comment.answers,
+      inReplyToId: comment.inReplyToId,
       login: comment.login,
       writtenAt: comment.writtenAt?.toISOString() ?? null,
     }),
@@ -92,25 +92,25 @@ export const GITHUB_EVENT_MAPPERS = [
       submittedAt: event.submittedAt?.toISOString() ?? null,
     }),
   ),
-  mapping<PullRequestRecorded>(
-    'pull-request.recorded',
-    ({ workspaceId, recorded }): PullRequestRecordedIntegrationEvent => ({
-      kind: PULL_REQUEST_RECORDED,
+  mapping<PullRequestUpdated>(
+    'pull-request.updated',
+    ({ workspaceId, updated }): PullRequestUpdatedIntegrationEvent => ({
+      kind: PULL_REQUEST_UPDATED,
       workspaceId: workspaceId.value,
-      ...recorded,
-      openedAt: recorded.openedAt.toISOString(),
-      closedAt: recorded.closedAt?.toISOString() ?? null,
-      updatedAt: recorded.updatedAt.toISOString(),
-      readyForReviewAt: recorded.readyForReviewAt?.toISOString() ?? null,
-      draftSpells: recorded.draftSpells.map((each) => ({
+      ...updated,
+      openedAt: updated.openedAt.toISOString(),
+      closedAt: updated.closedAt?.toISOString() ?? null,
+      updatedAt: updated.updatedAt.toISOString(),
+      readyForReviewAt: updated.readyForReviewAt?.toISOString() ?? null,
+      draftPeriods: updated.draftPeriods.map((each) => ({
         from: each.from.toISOString(),
         to: each.to?.toISOString() ?? null,
       })),
-      firstReviewAt: recorded.firstReviewAt?.toISOString() ?? null,
+      firstReviewAt: updated.firstReviewAt?.toISOString() ?? null,
       firstUnblockingReviewAt:
-        recorded.firstUnblockingReviewAt?.toISOString() ?? null,
-      firstApprovedAt: recorded.firstApprovedAt?.toISOString() ?? null,
-      humanReviewedAt: recorded.humanReviewedAt.map((each) =>
+        updated.firstUnblockingReviewAt?.toISOString() ?? null,
+      firstApprovedAt: updated.firstApprovedAt?.toISOString() ?? null,
+      humanReviewedAt: updated.humanReviewedAt.map((each) =>
         each.toISOString(),
       ),
     }),

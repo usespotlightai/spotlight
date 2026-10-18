@@ -85,7 +85,7 @@ const FILES = [
 const isFiles = (url: string) => url.includes('/files');
 
 describe('GitHubPullRequestReviews', () => {
-  it('submits an agent’s review as the app, unsigned, requesting no token from anyone', async () => {
+  it('submits an agent’s review as the app, without a byline, requesting no token from anyone', async () => {
     const tokenFor = vi.fn(async () => 'personal');
     const requests = answering(({ url, method }) =>
       method === 'GET' && url.endsWith('/pulls/7')
@@ -106,7 +106,7 @@ describe('GitHubPullRequestReviews', () => {
     ).submit({
       ...ON,
       by: { kind: 'spotlight' },
-      verdict: 'comment',
+      event: 'comment',
       body: 'One thing',
       comments: [],
     });
@@ -153,7 +153,7 @@ describe('GitHubPullRequestReviews', () => {
 
     const submitted = await reviews('personal').submit({
       ...ON,
-      verdict: 'request-changes',
+      event: 'request-changes',
       body: 'Two things',
       comments: COMMENTS,
     });
@@ -203,7 +203,7 @@ describe('GitHubPullRequestReviews', () => {
 
     const submitted = await reviews('personal').submit({
       ...ON,
-      verdict: 'comment',
+      event: 'comment',
       body: '',
       comments: COMMENTS,
     });
@@ -243,7 +243,7 @@ describe('GitHubPullRequestReviews', () => {
 
     const submitted = await reviews(null).submit({
       ...ON,
-      verdict: 'comment',
+      event: 'comment',
       body: '',
       comments: [COMMENTS[0] as (typeof COMMENTS)[number]],
     });
@@ -279,7 +279,7 @@ describe('GitHubPullRequestReviews', () => {
 
     const submitted = await reviews('personal').submit({
       ...ON,
-      verdict: 'comment',
+      event: 'comment',
       body: 'Two things',
       comments: [
         COMMENTS[0] as (typeof COMMENTS)[number],
@@ -307,7 +307,7 @@ describe('GitHubPullRequestReviews', () => {
     });
   });
 
-  it('comments, saying its verdict, where GitHub rejects a verdict on the app’s own pull request', async () => {
+  it('comments, saying its review event, where GitHub rejects that event on the app’s own pull request', async () => {
     const requests = answering(({ url, method, body }) => {
       if (isFiles(url)) {
         return { status: 200, body: FILES };
@@ -334,7 +334,7 @@ describe('GitHubPullRequestReviews', () => {
     const submitted = await reviews(null).submit({
       ...ON,
       by: { kind: 'spotlight' },
-      verdict: 'request-changes',
+      event: 'request-changes',
       body: 'The rename is backwards.',
       comments: [],
     });
@@ -350,7 +350,7 @@ describe('GitHubPullRequestReviews', () => {
     expect(submitted.githubId).toBe(904);
   });
 
-  it('speaks as Spotlight, naming the person, where their own token is not accepted', async () => {
+  it('acts as Spotlight, naming the person, where their own token is not accepted', async () => {
     const requests = answering(({ token }) =>
       token === 'personal'
         ? { status: 403, body: { message: 'Resource not accessible' } }
@@ -373,7 +373,7 @@ describe('GitHubPullRequestReviews', () => {
     expect(posted).toEqual({ id: 555, url: 'c555' });
   });
 
-  it('speaks as Spotlight where the person never signed in with GitHub', async () => {
+  it('acts as Spotlight where the person never signed in with GitHub', async () => {
     const requests = answering(() => ({ status: 200, body: {} }));
 
     await reviews(null).edit({ ...ON, commentId: 77, body: 'Clearer' });

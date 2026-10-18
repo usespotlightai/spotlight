@@ -16,7 +16,7 @@ const MERGED: PullRequestActivity = {
   branch: 'spotlight/task_1',
   pullRequest: 'https://github.com/acme/api/pull/7',
   label: null,
-  about: null,
+  details: null,
   reviewComment: null,
   byBot: false,
 };
@@ -26,7 +26,7 @@ const OPENED: PullRequestActivity = {
   branch: 'fix-uploads',
   pullRequest: 'https://github.com/acme/api/pull/7',
   label: null,
-  about: {
+  details: {
     title: 'Retry uploads',
     body: 'They give up too soon.',
     author: 'octocat',

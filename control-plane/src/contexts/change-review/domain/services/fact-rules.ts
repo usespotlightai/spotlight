@@ -6,37 +6,37 @@ import type {
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
 
-interface Placement {
+interface Assignment {
   readonly cohort: number;
   readonly layer: number;
 }
 
-const placementsOf = (
+const assignmentsOf = (
   cohorts: readonly ProposedCohort[],
-): Map<string, Placement> => {
-  const placements = new Map<string, Placement>();
+): Map<string, Assignment> => {
+  const assignments = new Map<string, Assignment>();
 
   cohorts.forEach((cohort, c) => {
     cohort.layers.forEach((layer, l) => {
-      for (const range of layer.ranges) {
-        placements.set(range.hunk, { cohort: c, layer: l });
+      for (const entry of layer.hunks) {
+        assignments.set(entry.hunk, { cohort: c, layer: l });
       }
     });
   });
 
-  return placements;
+  return assignments;
 };
 
-const layerName = (placement: Placement): string =>
-  `layer ${placement.layer + 1}`;
+const layerName = (assignment: Assignment): string =>
+  `layer ${assignment.layer + 1}`;
 
 const usesProblems = (
   links: readonly HunkLink[],
-  placements: ReadonlyMap<string, Placement>,
+  assignments: ReadonlyMap<string, Assignment>,
 ): StackProblem[] =>
   links.flatMap(({ from, to, because }): StackProblem[] => {
-    const user = placements.get(from);
-    const definer = placements.get(to);
+    const user = assignments.get(from);
+    const definer = assignments.get(to);
     const uses = `${from} uses ${because.join(', ')} from ${to}`;
 
     if (!user || !definer) {
@@ -61,7 +61,7 @@ const usesProblems = (
 
 const testsProblems = (
   links: readonly HunkLink[],
-  placements: ReadonlyMap<string, Placement>,
+  assignments: ReadonlyMap<string, Assignment>,
 ): StackProblem[] => {
   const byTest = new Map<string, HunkLink[]>();
 
@@ -70,18 +70,18 @@ const testsProblems = (
   }
 
   return [...byTest.entries()].flatMap(([test, covered]): StackProblem[] => {
-    const placed = placements.get(test);
+    const assigned = assignments.get(test);
 
-    if (!placed) {
+    if (!assigned) {
       return [];
     }
 
     const sources = covered.flatMap((link) => {
-      const source = placements.get(link.to);
+      const source = assignments.get(link.to);
       return source ? [{ link, source }] : [];
     });
     const apart = sources.filter(
-      ({ source }) => source.cohort !== placed.cohort,
+      ({ source }) => source.cohort !== assigned.cohort,
     );
 
     if (apart.length > 0) {
@@ -93,7 +93,7 @@ const testsProblems = (
 
     const latest = Math.max(...sources.map(({ source }) => source.layer));
 
-    return sources.length > 0 && placed.layer !== latest
+    return sources.length > 0 && assigned.layer !== latest
       ? [
           {
             code: 'tests',
@@ -106,11 +106,11 @@ const testsProblems = (
 
 const movesProblems = (
   links: readonly HunkLink[],
-  placements: ReadonlyMap<string, Placement>,
+  assignments: ReadonlyMap<string, Assignment>,
 ): StackProblem[] =>
   links.flatMap(({ from, to }): StackProblem[] => {
-    const added = placements.get(from);
-    const removed = placements.get(to);
+    const added = assignments.get(from);
+    const removed = assignments.get(to);
 
     return added &&
       removed &&
@@ -127,20 +127,20 @@ const movesProblems = (
 const migrationProblems = (
   cohorts: readonly ProposedCohort[],
   facts: DiffFacts,
-  placements: ReadonlyMap<string, Placement>,
+  assignments: ReadonlyMap<string, Assignment>,
 ): StackProblem[] =>
   facts.hunks
     .filter((each) => each.fileClass === 'migration')
     .flatMap((each): StackProblem[] => {
-      const placed = placements.get(each.hunk);
+      const assigned = assignments.get(each.hunk);
 
-      return placed &&
-        cohorts[placed.cohort]?.kind === 'change' &&
-        placed.layer > 0
+      return assigned &&
+        cohorts[assigned.cohort]?.kind === 'change' &&
+        assigned.layer > 0
         ? [
             {
               code: 'migration',
-              message: `${each.hunk} is a migration, so it belongs in layer 1 of its cohort, not ${layerName(placed)}`,
+              message: `${each.hunk} is a migration, so it belongs in layer 1 of its cohort, not ${layerName(assigned)}`,
             },
           ]
         : [];
@@ -160,7 +160,7 @@ const unconnectedProblems = (
     }
 
     const hunks = cohort.layers
-      .flatMap((layer) => layer.ranges.map((range) => range.hunk))
+      .flatMap((layer) => layer.hunks.map((entry) => entry.hunk))
       .filter((hunk) => linkable.has(hunk));
 
     if (hunks.length < 2) {
@@ -189,7 +189,7 @@ const unconnectedProblems = (
       ? [
           {
             code: 'unconnected',
-            message: `cohort ${c + 1} joins changes the code does not connect (${[...groups.values()].map((each) => each.join(', ')).join(' | ')}) without saying why`,
+            message: `cohort ${c + 1} joins hunks the code does not connect (${[...groups.values()].map((each) => each.join(', ')).join(' | ')}) without saying why`,
           },
         ]
       : [];
@@ -200,15 +200,15 @@ export const factProblems = (
   cohorts: readonly ProposedCohort[],
   facts: DiffFacts,
 ): StackProblem[] => {
-  const placements = placementsOf(cohorts);
+  const assignments = assignmentsOf(cohorts);
   const of = (kind: HunkLink['kind']) =>
     facts.links.filter((link) => link.kind === kind);
 
   return [
-    ...usesProblems(of('uses'), placements),
-    ...testsProblems(of('tests'), placements),
-    ...movesProblems(of('moves'), placements),
-    ...migrationProblems(cohorts, facts, placements),
+    ...usesProblems(of('uses'), assignments),
+    ...testsProblems(of('tests'), assignments),
+    ...movesProblems(of('moves'), assignments),
+    ...migrationProblems(cohorts, facts, assignments),
     ...unconnectedProblems(cohorts, facts),
   ];
 };
@@ -217,12 +217,12 @@ export const derivedDependencies = (
   cohorts: readonly ProposedCohort[],
   links: readonly HunkLink[],
 ): Map<string, Map<number, Set<string>>> => {
-  const placements = placementsOf(cohorts);
+  const assignments = assignmentsOf(cohorts);
   const derived = new Map<string, Map<number, Set<string>>>();
 
   for (const { kind, from, to, because } of links) {
-    const user = placements.get(from);
-    const definer = placements.get(to);
+    const user = assignments.get(from);
+    const definer = assignments.get(to);
 
     if (
       kind === 'moves' ||

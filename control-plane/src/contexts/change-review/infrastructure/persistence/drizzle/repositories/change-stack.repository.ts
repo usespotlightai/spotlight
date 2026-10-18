@@ -32,12 +32,12 @@ import { and, asc, eq, isNull, lte, or } from 'drizzle-orm';
 
 type Row = typeof changeStack.$inferSelect;
 
-const usageRow = (spent: ModelUsage) => ({
-  calls: spent.calls,
-  inputTokens: spent.inputTokens,
-  outputTokens: spent.outputTokens,
-  costs: spent.costs.map((each) => ({ ...each })),
-  unpriced: spent.unpriced,
+const usageRow = (usage: ModelUsage) => ({
+  calls: usage.calls,
+  inputTokens: usage.inputTokens,
+  outputTokens: usage.outputTokens,
+  costs: usage.costs.map((each) => ({ ...each })),
+  unpriced: usage.unpriced,
 });
 
 const toChangeStack = (row: Row): ChangeStack =>
@@ -69,8 +69,8 @@ const toChangeStack = (row: Row): ChangeStack =>
           ),
         )
       : null,
-    reordering: row.reordering,
-    spent: ModelUsage.rehydrate(row.spent),
+    redrafting: row.redrafting,
+    usage: ModelUsage.rehydrate(row.usage),
     version: row.version,
   });
 
@@ -102,7 +102,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       files: fileRows(added.diff.files),
       cohorts: cohortRows(added.cohorts),
       failure: added.failure,
-      draftedAt: added.draftedAt,
+      startedAt: added.startedAt,
       completedAt: added.completedAt,
       facts: factRows(added.facts),
       jobAttempts: added.job.attempts,
@@ -111,8 +111,8 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       checkSetup: added.request?.setup ?? null,
       checkPlacement: added.request?.placement.clauses ?? [],
       checkPlacementImage: added.request?.placement.image?.value ?? null,
-      reordering: added.reordering,
-      spent: usageRow(added.spent),
+      redrafting: added.redrafting,
+      usage: usageRow(added.usage),
       version: added.version,
     });
   }
@@ -135,8 +135,8 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
         completedAt: saved.completedAt,
         jobAttempts: saved.job.attempts,
         jobDueAt: saved.job.nextAttemptAt,
-        reordering: saved.reordering,
-        spent: usageRow(saved.spent),
+        redrafting: saved.redrafting,
+        usage: usageRow(saved.usage),
       })
       .where(
         and(
@@ -166,7 +166,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       .select()
       .from(changeStack)
       .where(eq(changeStack.runId, runId.value))
-      .orderBy(asc(changeStack.draftedAt), asc(changeStack.id));
+      .orderBy(asc(changeStack.startedAt), asc(changeStack.id));
 
     return rows.map(toChangeStack);
   }
@@ -178,13 +178,13 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       .where(
         and(
           or(
-            eq(changeStack.state, 'drafting'),
-            eq(changeStack.reordering, true),
+            eq(changeStack.state, 'generating'),
+            eq(changeStack.redrafting, true),
           ),
           or(isNull(changeStack.jobDueAt), lte(changeStack.jobDueAt, now)),
         ),
       )
-      .orderBy(asc(changeStack.draftedAt))
+      .orderBy(asc(changeStack.startedAt))
       .limit(1)
       .for('update', { skipLocked: true });
 

@@ -1,5 +1,5 @@
 import { NoGitHubInstallationError } from '@github/application/errors/no-github-installation.error';
-import type { RepositoryCatalogPort } from '@github/application/ports/repository-catalog.port';
+import type { InstallationRepositoriesPort } from '@github/application/ports/installation-repositories.port';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { GitHubAccessibleRepositories } from '@work/infrastructure/github/github-accessible-repositories';
@@ -10,7 +10,7 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 const accessible = (listed: () => Promise<{ fullName: string }[]>) =>
   new GitHubAccessibleRepositories({
     list: vi.fn(listed),
-  } as unknown as RepositoryCatalogPort);
+  } as unknown as InstallationRepositoriesPort);
 
 describe('GitHubAccessibleRepositories', () => {
   it('can access a repository the GitHub App lists', async () => {

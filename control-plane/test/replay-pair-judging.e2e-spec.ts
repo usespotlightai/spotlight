@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import {
-  CHANGE_STACK_DRAFTER,
-  type ChangeStackDrafterPort,
-} from '@change-review/application/ports/change-stack-drafter.port';
+  CHANGE_STACK_GENERATOR,
+  type ChangeStackGeneratorPort,
+} from '@change-review/application/ports/change-stack-generator.port';
 import { WorkChangeStacks } from '@change-review/application/services/work-change-stacks.service';
 import type { INestApplication } from '@nestjs/common';
 import {
@@ -89,9 +89,9 @@ const archiveStore: WorkspaceArchiveStorePort = {
   remove: async () => {},
 };
 
-const drafter: ChangeStackDrafterPort = {
+const generator: ChangeStackGeneratorPort = {
   available: true,
-  draft: async ({ diff }) => ({
+  generate: async ({ diff }) => ({
     usage: {
       inputTokens: 1_000,
       outputTokens: 100,
@@ -107,7 +107,7 @@ const drafter: ChangeStackDrafterPort = {
             title: 'Drain in order',
             summary: 'Drains the queue oldest first',
             dependsOn: [],
-            ranges: diff.hunks.map((each) => ({ hunk: each.id })),
+            hunks: diff.hunks.map((each) => ({ hunk: each.id })),
             notes: [
               ...new Set(
                 diff.hunks.flatMap((each) => diff.fileOf(each.id)?.path ?? []),
@@ -446,8 +446,8 @@ beforeAll(async () => {
       .useValue(archiveStore)
       .overrideProvider(ATTACHMENT_STORE)
       .useValue(attachmentStore)
-      .overrideProvider(CHANGE_STACK_DRAFTER)
-      .useValue(drafter)
+      .overrideProvider(CHANGE_STACK_GENERATOR)
+      .useValue(generator)
       .overrideProvider(JUDGE)
       .useValue(judge)
       .overrideProvider(PAIR_JUDGE)
@@ -621,7 +621,9 @@ describe('a replay at a station whose judge goes by claims', () => {
         .post(
           `/api/runs/${assignment.runId}/change-stack-checks/${assignment.stackId}`,
           {
-            steps: [{ step: 'whole', passed: true, output: 'ok', tookMs: 900 }],
+            steps: [
+              { step: 'whole', passed: true, output: 'ok', durationMs: 900 },
+            ],
           },
         )
         .expect(204);
@@ -656,7 +658,7 @@ describe('a replay at a station whose judge goes by claims', () => {
           .where(
             and(
               inArray(schema.stackCheck.runId, runs),
-              eq(schema.stackCheck.phase, 'waiting'),
+              eq(schema.stackCheck.status, 'waiting'),
             ),
           )
       ).filter((each) => !reported.has(each.stackId));

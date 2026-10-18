@@ -26,9 +26,9 @@ export const decisionSet = pgTable(
     id: text('id').primaryKey(),
     taskId: text('task_id').notNull(),
     workspaceId: text('workspace_id').notNull(),
-    decidedIn: text('decided_in'),
-    draftRunId: text('draft_run_id'),
-    draftRequestedAt: timestamp('draft_requested_at'),
+    sourceRunId: text('source_run_id'),
+    generationRunId: text('generation_run_id'),
+    generationRequestedAt: timestamp('generation_requested_at'),
     jobAttempts: integer('job_attempts').notNull().default(0),
     jobDueAt: timestamp('job_due_at'),
     status: decisionStatus('status')
@@ -42,7 +42,7 @@ export const decisionSet = pgTable(
   },
   (table) => [
     uniqueIndex('decision_set_task_idx').on(table.taskId),
-    index('decision_set_draft_idx').on(table.draftRequestedAt),
+    index('decision_set_generation_idx').on(table.generationRequestedAt),
     index('decision_set_merged_idx').on(
       table.workspaceId,
       table.mergedRepository,
@@ -64,7 +64,7 @@ export const decision = pgTable(
     why: text('why').notNull(),
     alternatives: jsonb('alternatives').$type<string[]>().notNull(),
     paths: jsonb('paths').$type<string[]>().notNull(),
-    steps: jsonb('steps').$type<number[]>().notNull(),
+    journalSteps: jsonb('journal_steps').$type<number[]>().notNull(),
   },
   (table) => [
     uniqueIndex('decision_position_idx').on(table.setId, table.position),

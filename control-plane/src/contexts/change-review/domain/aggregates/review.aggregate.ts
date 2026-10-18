@@ -3,7 +3,7 @@ import type {
   ReviewComment,
 } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { ReviewCommentNotPosted } from '@change-review/domain/events/review-comment-not-posted.event';
-import { ReviewCommentPlaced } from '@change-review/domain/events/review-comment-placed.event';
+import { ReviewCommentPosted } from '@change-review/domain/events/review-comment-posted.event';
 import { ReviewPosted } from '@change-review/domain/events/review-posted.event';
 import { ReviewSubmitted } from '@change-review/domain/events/review-submitted.event';
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
@@ -15,7 +15,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface PlacedComment {
+export interface PostedComment {
   readonly commentId: ReviewCommentId;
   readonly github: OnGitHub | null;
 }
@@ -32,7 +32,7 @@ export const REVIEW_STATES = [
   'submitted',
   'posted',
   'failed',
-  'withdrawn',
+  'discarded',
 ] as const;
 
 export type ReviewState = (typeof REVIEW_STATES)[number];
@@ -181,7 +181,7 @@ export class Review extends EventRecorder {
     );
   }
 
-  silentWith(posted: readonly ReviewComment[]): boolean {
+  isEmpty(posted: readonly ReviewComment[]): boolean {
     return !hasContent(
       this.verdict,
       this.body,
@@ -192,7 +192,7 @@ export class Review extends EventRecorder {
   postedAs(
     githubId: number,
     now: Date,
-    placed: readonly PlacedComment[] = [],
+    postedComments: readonly PostedComment[] = [],
     onFiles: readonly ReviewCommentId[] = [],
   ): Review {
     if (this.state !== 'submitted') {
@@ -204,28 +204,28 @@ export class Review extends EventRecorder {
     posted.record(
       new ReviewPosted(this.id, this.workspaceId, this.taskId, onFiles),
     );
-    for (const each of placed) {
+    for (const each of postedComments) {
       posted.record(
-        new ReviewCommentPlaced(this.id, each.commentId, each.github),
+        new ReviewCommentPosted(this.id, each.commentId, each.github),
       );
     }
 
     return posted;
   }
 
-  withdraw(posted: readonly ReviewComment[]): Review {
+  discard(posted: readonly ReviewComment[]): Review {
     if (this.state !== 'submitted') {
-      throw new InvalidReviewError('cannot be withdrawn after it is posted');
+      throw new InvalidReviewError('cannot be discarded after it is posted');
     }
-    if (!this.silentWith(posted)) {
-      throw new InvalidReviewError('can only be withdrawn once it is empty');
+    if (!this.isEmpty(posted)) {
+      throw new InvalidReviewError('can only be discarded when it is empty');
     }
 
-    const withdrawn = this.with('withdrawn', null, null);
+    const discarded = this.with('discarded', null, null);
 
-    withdrawn.handingBackComments();
+    discarded.returnCommentsToDraft();
 
-    return withdrawn;
+    return discarded;
   }
 
   failedToPost(): Review {
@@ -235,12 +235,12 @@ export class Review extends EventRecorder {
 
     const failed = this.with('failed', null, null);
 
-    failed.handingBackComments();
+    failed.returnCommentsToDraft();
 
     return failed;
   }
 
-  private handingBackComments(): void {
+  private returnCommentsToDraft(): void {
     for (const commentId of this.comments) {
       this.record(new ReviewCommentNotPosted(this.id, commentId));
     }

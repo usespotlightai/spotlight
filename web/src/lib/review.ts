@@ -146,4 +146,4 @@ export const drafts = (review: CodeReview | undefined): number =>
   review?.comments.filter((comment) => comment.state === 'draft').length ?? 0;
 
 export const whoWrote = (comment: ReviewComment): string =>
-  comment.yours ? 'You' : comment.authorName;
+  comment.viewerIsAuthor ? 'You' : comment.authorName;

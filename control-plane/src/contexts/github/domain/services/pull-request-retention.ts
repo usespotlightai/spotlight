@@ -1,11 +1,11 @@
-import type { RecordedState } from '@github/domain/events/pull-request-recorded.event';
+import type { UpdatedState } from '@github/domain/events/pull-request-updated.event';
 
 const PULL_REQUEST_RETENTION_DAYS = 180;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface RetainedPullRequest {
-  readonly state: RecordedState;
+  readonly state: UpdatedState;
   readonly closedAt: Date | null;
   readonly updatedAt: Date;
 }

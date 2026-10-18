@@ -110,8 +110,8 @@ describe('replay words', () => {
       formatChecks({ state: 'failed', failedAt: ['npm test'], why: null }),
     ).toBe('Checks failed at npm test');
     expect(
-      formatChecks({ state: 'unchecked', failedAt: [], why: 'undrafted' }),
-    ).toBe('Unchecked: change never drafted');
+      formatChecks({ state: 'unchecked', failedAt: [], why: 'not-generated' }),
+    ).toBe('Unchecked: change not generated');
   });
 
   it('says why the judge could not judge', () => {

@@ -580,21 +580,21 @@ describe('Run', () => {
   });
 
   describe('being refused before a runner claims it', () => {
-    const LAPSED = RunOutcome.refused([
+    const EXPIRED = RunOutcome.refused([
       DeniedCatalogItem.of({
         id: 'catalog.web-search@1.1.0',
-        reason: 'lapsed',
+        reason: 'expired',
         because:
-          'catalog.web-search@1.1.0 needs the Team plan, and this workspace is on the Free plan',
+          'catalog.web-search@1.1.0 requires the Team plan, and this workspace is on the Free plan',
       }),
     ]);
 
     it('ends failed, saying why, so whoever handed it over learns of it', () => {
-      const refused = queued().refused(LAPSED);
+      const refused = queued().refused(EXPIRED);
 
       expect(refused.state).toBe('failed');
       expect(refused.outcome?.message).toBe(
-        'entitlement_lapsed: catalog.web-search@1.1.0 needs the Team plan, and this workspace is on the Free plan',
+        'entitlement_expired: catalog.web-search@1.1.0 requires the Team plan, and this workspace is on the Free plan',
       );
 
       const [completed] = refused.pullEvents();
@@ -603,7 +603,7 @@ describe('Run', () => {
     });
 
     it('cannot be refused once a runner leases it', () => {
-      expect(() => claimed().refused(LAPSED)).toThrow(
+      expect(() => claimed().refused(EXPIRED)).toThrow(
         InvalidRunTransitionError,
       );
     });
@@ -1004,7 +1004,7 @@ describe('Run', () => {
 
     it('releases its provisioned runner when refused', () => {
       const run = reserved().refused(
-        RunOutcome.refused([{ description: 'The plan lapsed.' }]),
+        RunOutcome.refused([{ description: 'The plan expired.' }]),
       );
 
       expect(run.reservation).toBeNull();

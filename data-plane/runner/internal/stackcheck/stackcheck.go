@@ -126,8 +126,8 @@ func (o Options) perform(ctx context.Context, check protocol.StackCheck) protoco
 
 	space, err := workspace.Open(o.Dir)
 	if err != nil {
-		o.Log.Warn("could not make room to check a stack", "stack", check.StackID, "error", err)
-		return skipped(protocol.SkipNoRoom, err.Error())
+		o.Log.Warn("could not open a workspace to check a stack", "stack", check.StackID, "error", err)
+		return skipped(protocol.SkipWorkspaceFailed, err.Error())
 	}
 
 	tree := filepath.Join(space.Dir, check.Repository)
@@ -138,7 +138,7 @@ func (o Options) perform(ctx context.Context, check protocol.StackCheck) protoco
 	if o.RunAs != nil {
 		if err := space.ChownAll(o.RunAs.UID, o.RunAs.GID); err != nil {
 			o.Log.Warn("could not hand over the copy a check runs in", "error", err)
-			return skipped(protocol.SkipNoRoom, err.Error())
+			return skipped(protocol.SkipWorkspaceFailed, err.Error())
 		}
 	}
 
@@ -236,10 +236,10 @@ func (o Options) step(
 	started := time.Now()
 	failed := func(output string) protocol.CheckedStep {
 		return protocol.CheckedStep{
-			Step:   step.ID,
-			Passed: false,
-			Output: shell.Tail(output),
-			TookMs: time.Since(started).Milliseconds(),
+			Step:       step.ID,
+			Passed:     false,
+			Output:     shell.Tail(output),
+			DurationMs: time.Since(started).Milliseconds(),
 		}
 	}
 
@@ -273,10 +273,10 @@ func (o Options) step(
 	}
 
 	return protocol.CheckedStep{
-		Step:   step.ID,
-		Passed: err == nil,
-		Output: shell.Tail(output),
-		TookMs: time.Since(started).Milliseconds(),
+		Step:       step.ID,
+		Passed:     err == nil,
+		Output:     shell.Tail(output),
+		DurationMs: time.Since(started).Milliseconds(),
 	}, true
 }
 

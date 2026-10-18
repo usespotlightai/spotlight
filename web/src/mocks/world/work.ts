@@ -492,10 +492,10 @@ export const latestChangeStackOf = (
   return {
     runId: run.id,
     repository: only?.repository ?? null,
-    state: stacks.some((each) => each.state === 'drafting')
-      ? 'drafting'
+    state: stacks.some((each) => each.state === 'generating')
+      ? 'generating'
       : 'ready',
-    checkState: only?.check?.state ?? null,
+    checkStatus: only?.check?.status ?? null,
     added: stacks.reduce((sum, each) => sum + addedIn(each), 0),
     removed: stacks.reduce((sum, each) => sum + removedIn(each), 0),
   };

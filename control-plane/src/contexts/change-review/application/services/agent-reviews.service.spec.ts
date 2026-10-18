@@ -93,7 +93,7 @@ describe('AgentReviews', () => {
     expect(left?.author.userId).toBeNull();
     expect(left?.author.runId?.equals(RUN)).toBe(true);
     expect(left?.author.name.value).toBe('Spotlight');
-    expect(left?.byAgent).toBe(true);
+    expect(left?.isAgentAuthored).toBe(true);
   });
 
   it('submits the run’s own drafts as one review, and nobody else’s', async () => {

@@ -4,6 +4,7 @@ import { GITHUB_EVENT_MAPPERS } from '@github/application/integration-events/git
 import { GITHUB_APP } from '@github/application/ports/github-app.port';
 import { GITHUB_WEBHOOKS } from '@github/application/ports/github-webhooks.port';
 import { INSTALLATION_ADMINISTRATION } from '@github/application/ports/installation-administration.port';
+import { INSTALLATION_REPOSITORIES } from '@github/application/ports/installation-repositories.port';
 import {
   INSTALLATIONS,
   type InstallationsPort,
@@ -16,18 +17,17 @@ import {
   REPOSITORY_ACCESS,
   RepositoryAccessPort,
 } from '@github/application/ports/repository-access.port';
-import { REPOSITORY_CATALOG } from '@github/application/ports/repository-catalog.port';
 import { REPOSITORY_CONTENTS } from '@github/application/ports/repository-contents.port';
 import { REPOSITORY_GIT } from '@github/application/ports/repository-git.port';
 import { REVIEW_COMMENTS } from '@github/application/ports/review-comments.port';
 import {
+  WEBHOOK_PARSER,
+  type WebhookParserPort,
+} from '@github/application/ports/webhook-parser.port';
+import {
   WEBHOOK_SIGNATURE,
   type WebhookSignaturePort,
 } from '@github/application/ports/webhook-signature.port';
-import {
-  WEBHOOK_TRANSLATION,
-  type WebhookTranslationPort,
-} from '@github/application/ports/webhook-translation.port';
 import { WORKSPACE_CONNECTIONS } from '@github/application/ports/workspace-connections.port';
 import { ListRepositoriesHandler } from '@github/application/queries/handlers/list-repositories.handler';
 import { ReadGitHubHandler } from '@github/application/queries/handlers/read-github.handler';
@@ -35,24 +35,24 @@ import { ListRepositoriesQuery } from '@github/application/queries/list-reposito
 import { ReadGitHubQuery } from '@github/application/queries/read-github.query';
 import { GitHubWebhooks } from '@github/application/services/github-webhooks.service';
 import { Installations } from '@github/application/services/installations.service';
-import { RecordPullRequests } from '@github/application/services/record-pull-requests.service';
+import { PullRequestSync } from '@github/application/services/pull-request-sync.service';
 import { WorkspaceConnections } from '@github/application/services/workspace-connections.service';
 import { GITHUB_PAYLOAD_TYPES } from '@github/domain/payload-types';
 import { GitHubAppAccess } from '@github/infrastructure/github/github-app.access';
 import { GitHubAppIdentity } from '@github/infrastructure/github/github-app.identity';
 import { GitHubGitTransport } from '@github/infrastructure/github/github-git.transport';
 import { GitHubInstallationAdministration } from '@github/infrastructure/github/github-installation.administration';
+import { GitHubInstallationRepositories } from '@github/infrastructure/github/github-installation-repositories';
 import { GitHubPullRequestComments } from '@github/infrastructure/github/github-pull-request-comments';
 import { GitHubPullRequestReactions } from '@github/infrastructure/github/github-pull-request-reactions';
 import { GitHubPullRequestReviews } from '@github/infrastructure/github/github-pull-request-reviews';
 import { GitHubPullRequests } from '@github/infrastructure/github/github-pull-requests';
-import { GitHubRepositoryCatalog } from '@github/infrastructure/github/github-repository.catalog';
 import { GitHubRepositoryContents } from '@github/infrastructure/github/github-repository-contents';
 import { GitHubReviewComments } from '@github/infrastructure/github/github-review-comments';
 import { GitHubWebhookSignature } from '@github/infrastructure/github/github-webhook.signature';
 import { DrizzleGitHubConnections } from '@github/infrastructure/persistence/drizzle/repositories/github-connection.repository';
 import { DrizzlePullRequests } from '@github/infrastructure/persistence/drizzle/repositories/pull-request.repository';
-import { GitHubWebhookTranslation } from '@github/infrastructure/webhooks/github-webhook.translation';
+import { GitHubWebhookParser } from '@github/infrastructure/webhooks/github-webhook.parser';
 import { githubSubscribers } from '@github/presentation/events/github.subscribers';
 import { GitHubConnectionController } from '@github/presentation/http/controllers/github-connection.controller';
 import { RepositoryController } from '@github/presentation/http/controllers/repository.controller';
@@ -102,17 +102,17 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
       PayloadTypes,
       IntegrationEventMappers,
       EventSubscribers,
-      RecordPullRequests,
+      PullRequestSync,
     ],
     useFactory: (
       types: PayloadTypes,
       mappers: IntegrationEventMappers,
       subscribers: EventSubscribers,
-      recording: RecordPullRequests,
+      sync: PullRequestSync,
     ) => {
       types.register('github', GITHUB_PAYLOAD_TYPES);
       mappers.register(GITHUB_EVENT_MAPPERS);
-      subscribers.register(githubSubscribers(recording));
+      subscribers.register(githubSubscribers(sync));
       return true;
     },
   },
@@ -120,7 +120,7 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
   DrizzlePullRequests,
 
   {
-    provide: RecordPullRequests,
+    provide: PullRequestSync,
     inject: [
       DrizzlePullRequests,
       DrizzleGitHubConnections,
@@ -135,7 +135,7 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
       clock: ClockPort,
       logger: LoggerPort,
     ) =>
-      new RecordPullRequests(
+      new PullRequestSync(
         pullRequests,
         connections,
         transaction,
@@ -146,9 +146,9 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
 
   {
     provide: PurgePullRequestsWorker,
-    inject: [RecordPullRequests, LOGGER],
-    useFactory: (recording: RecordPullRequests, logger: LoggerPort) =>
-      new PurgePullRequestsWorker(recording, logger),
+    inject: [PullRequestSync, LOGGER],
+    useFactory: (sync: PullRequestSync, logger: LoggerPort) =>
+      new PurgePullRequestsWorker(sync, logger),
   },
   {
     provide: PULL_REQUEST_COMMENTS,
@@ -186,36 +186,29 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
   DrizzleGitHubConnections,
 
   {
-    provide: WEBHOOK_TRANSLATION,
-    useFactory: () => new GitHubWebhookTranslation(),
+    provide: WEBHOOK_PARSER,
+    useFactory: () => new GitHubWebhookParser(),
   },
 
   {
     provide: GITHUB_WEBHOOKS,
     inject: [
-      WEBHOOK_TRANSLATION,
+      WEBHOOK_PARSER,
       WEBHOOK_SIGNATURE,
       DrizzleGitHubConnections,
       DOMAIN_EVENT_DISPATCHER,
-      RecordPullRequests,
+      PullRequestSync,
       LOGGER,
     ],
     useFactory: (
-      translation: WebhookTranslationPort,
+      parser: WebhookParserPort,
       signature: WebhookSignaturePort,
       connections: DrizzleGitHubConnections,
       events: DomainEventDispatcher,
-      recording: RecordPullRequests,
+      sync: PullRequestSync,
       logger: LoggerPort,
     ) =>
-      new GitHubWebhooks(
-        translation,
-        signature,
-        connections,
-        events,
-        recording,
-        logger,
-      ),
+      new GitHubWebhooks(parser, signature, connections, events, sync, logger),
   },
 
   {
@@ -260,10 +253,10 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: REPOSITORY_CATALOG,
+    provide: INSTALLATION_REPOSITORIES,
     inject: [REPOSITORY_ACCESS],
     useFactory: (access: RepositoryAccessPort) =>
-      new GitHubRepositoryCatalog(access),
+      new GitHubInstallationRepositories(access),
   },
 
   {
@@ -283,7 +276,7 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ListRepositoriesQuery, ListRepositoriesHandler, [
     WORKSPACE_READER,
     WORKSPACE_CONNECTIONS,
-    REPOSITORY_CATALOG,
+    INSTALLATION_REPOSITORIES,
   ]),
 
   ...bindQueryHandler(ReadGitHubQuery, ReadGitHubHandler, [

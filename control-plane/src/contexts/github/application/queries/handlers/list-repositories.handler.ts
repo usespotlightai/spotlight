@@ -1,7 +1,7 @@
 import type {
-  RepositoryCatalogPort,
+  InstallationRepositoriesPort,
   RepositorySummary,
-} from '@github/application/ports/repository-catalog.port';
+} from '@github/application/ports/installation-repositories.port';
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
 import type { ListRepositoriesQuery } from '@github/application/queries/list-repositories.query';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
@@ -16,7 +16,7 @@ export class ListRepositoriesHandler
   constructor(
     private readonly workspaces: WorkspaceReaderPort,
     private readonly connections: WorkspaceConnectionsPort,
-    private readonly catalog: RepositoryCatalogPort,
+    private readonly repositories: InstallationRepositoriesPort,
   ) {}
 
   async execute(
@@ -35,7 +35,7 @@ export class ListRepositoriesHandler
       const workspaceId = WorkspaceId.of(workspace.id);
 
       return (await this.connections.isConnected(workspaceId))
-        ? await this.catalog.list(workspaceId)
+        ? await this.repositories.list(workspaceId)
         : [];
     } catch (error) {
       rethrowAsApplicationError(error);

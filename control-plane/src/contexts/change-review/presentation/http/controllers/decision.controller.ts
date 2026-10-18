@@ -42,7 +42,7 @@ export class DecisionController {
   @ApiOperation({
     operationId: 'readTaskDecisions',
     summary:
-      'The decisions the agent made in the task’s latest drafted run, for review',
+      'The decisions that Spotlight generated for review from the latest run of the task',
   })
   @ApiParam({ name: 'taskId', type: String })
   @ApiOkResponse({ type: TaskDecisionsResponseDto })

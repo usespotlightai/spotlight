@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import {
-  CHANGE_STACK_DRAFTER,
-  type ChangeStackDrafterPort,
-} from '@change-review/application/ports/change-stack-drafter.port';
+  CHANGE_STACK_GENERATOR,
+  type ChangeStackGeneratorPort,
+} from '@change-review/application/ports/change-stack-generator.port';
 import { WorkChangeStacks } from '@change-review/application/services/work-change-stacks.service';
 import type { INestApplication } from '@nestjs/common';
 import {
@@ -73,9 +73,9 @@ const archiveStore: WorkspaceArchiveStorePort = {
   remove: async () => {},
 };
 
-const drafter: ChangeStackDrafterPort = {
+const generator: ChangeStackGeneratorPort = {
   available: true,
-  draft: async ({ diff }) => ({
+  generate: async ({ diff }) => ({
     usage: {
       inputTokens: 1_000,
       outputTokens: 100,
@@ -91,7 +91,7 @@ const drafter: ChangeStackDrafterPort = {
             title: 'Drain in order',
             summary: 'Drains the queue oldest first',
             dependsOn: [],
-            ranges: diff.hunks.map((each) => ({ hunk: each.id })),
+            hunks: diff.hunks.map((each) => ({ hunk: each.id })),
             notes: [
               ...new Set(
                 diff.hunks.flatMap((each) => diff.fileOf(each.id)?.path ?? []),
@@ -397,8 +397,8 @@ beforeAll(async () => {
       .useValue(archiveStore)
       .overrideProvider(ATTACHMENT_STORE)
       .useValue(attachmentStore)
-      .overrideProvider(CHANGE_STACK_DRAFTER)
-      .useValue(drafter)
+      .overrideProvider(CHANGE_STACK_GENERATOR)
+      .useValue(generator)
       .overrideProvider(JUDGE)
       .useValue(judge),
   );
@@ -504,7 +504,7 @@ afterAll(async () => {
 });
 
 describe('a replay at a station that checks and judges', () => {
-  it('drafts each replay’s change, checks it with the candidate’s own check, judges it against the change people accepted, and puts the task that regressed first', async () => {
+  it('generates each replay’s change stack, checks it with the candidate’s own check, judges it against the change people accepted, and puts the task that regressed first', async () => {
     const first = await anOriginal(true);
     const second = await anOriginal(false);
     const created = await owner()
@@ -591,7 +591,7 @@ describe('a replay at a station that checks and judges', () => {
                 step: 'whole',
                 passed: passes,
                 output: passes ? 'ok' : '1 failing',
-                tookMs: 900,
+                durationMs: 900,
               },
             ],
           },
@@ -628,7 +628,7 @@ describe('a replay at a station that checks and judges', () => {
           .where(
             and(
               inArray(schema.stackCheck.runId, runs),
-              eq(schema.stackCheck.phase, 'waiting'),
+              eq(schema.stackCheck.status, 'waiting'),
             ),
           )
       ).filter((each) => !reported.has(each.stackId));

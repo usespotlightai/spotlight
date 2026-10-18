@@ -96,7 +96,7 @@ const awaitingCheck = async (workspaceId: string, placement: string[][]) => {
     workspaceId,
     command: 'npm test',
     placement,
-    phase: 'waiting',
+    status: 'waiting',
     waitingSince: NOW,
   });
 

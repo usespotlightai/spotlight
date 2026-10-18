@@ -33,7 +33,8 @@ export class ChangeStackController {
   @Get('runs/:runId/change-stacks')
   @ApiOperation({
     operationId: 'listRunChangeStacks',
-    summary: 'The change stacks drafted of what a run changed, newest first',
+    summary:
+      'The change stacks that Spotlight generated from what a run changed, newest first',
   })
   @ApiParam({ name: 'runId', type: String })
   @ApiOkResponse({ type: RunChangeStacksResponseDto })
@@ -58,7 +59,7 @@ export class ChangeStackController {
   @Get('tasks/:taskId/change-stack')
   @ApiOperation({
     operationId: 'readTaskChangeStack',
-    summary: 'The newest change stack drafted for a task',
+    summary: 'The newest change stack generated for a task',
   })
   @ApiParam({ name: 'taskId', type: String })
   @ApiOkResponse({ type: NewestChangeStackResponseDto })
@@ -78,7 +79,7 @@ export class ChangeStackController {
           latest.runId,
           latest.repository,
           latest.state,
-          latest.checkState,
+          latest.checkStatus,
           latest.added,
           latest.removed,
         ),

@@ -12,7 +12,7 @@ export interface BotActivity {
   readonly resolvedThreads: number;
 }
 
-interface DraftSpell {
+interface DraftPeriod {
   readonly from: Date;
   readonly to: Date | null;
 }
@@ -32,7 +32,7 @@ export interface SeenPullRequest {
   readonly closedAt: Date | null;
   readonly updatedAt: Date;
   readonly readyForReviewAt: Date | null;
-  readonly draftSpells: readonly DraftSpell[];
+  readonly draftPeriods: readonly DraftPeriod[];
   readonly firstReviewAt: Date | null;
   readonly firstUnblockingReviewAt: Date | null;
   readonly firstApprovedAt: Date | null;

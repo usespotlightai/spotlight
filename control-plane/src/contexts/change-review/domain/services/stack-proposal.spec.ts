@@ -52,7 +52,7 @@ const proposal = (
         title: 'Add invitations',
         summary: 'The function and its route',
         dependsOn: [],
-        ranges: [
+        hunks: [
           { hunk: HunkId.of('h1') },
           { hunk: HunkId.of('h2') },
           { hunk: HunkId.of('h3') },
@@ -87,7 +87,7 @@ describe('StackProposal', () => {
   it('keeps one note per file a layer touches', () => {
     const [cohort] = validated(proposal(NOTED));
 
-    expect(cohort?.layers[0]?.ranges).toEqual([
+    expect(cohort?.layers[0]?.hunks).toEqual([
       { hunk: HunkId.of('h1') },
       { hunk: HunkId.of('h2') },
       { hunk: HunkId.of('h3') },
@@ -113,7 +113,7 @@ describe('StackProposal', () => {
         proposal([...NOTED, { path: 'src/mail.ts', note: 'Sends it.' }]),
       ).map((each) => each.message),
     ).toEqual([
-      'cohort 1, layer 1 notes src/mail.ts, which none of its changes touch',
+      'cohort 1, layer 1 notes src/mail.ts, which none of its hunks touch',
     ]);
   });
 
@@ -149,7 +149,7 @@ describe('StackProposal', () => {
         proposal([{ path: 'src/mail.ts', note: 'Sends it.' }], 'incidental'),
       ).map((each) => each.message),
     ).toEqual([
-      'cohort 1, layer 1 notes src/mail.ts, which none of its changes touch',
+      'cohort 1, layer 1 notes src/mail.ts, which none of its hunks touch',
     ]);
   });
 });

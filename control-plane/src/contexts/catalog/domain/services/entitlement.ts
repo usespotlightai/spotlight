@@ -5,7 +5,7 @@ export type Entitlement =
   | { readonly entitled: true }
   | {
       readonly entitled: false;
-      readonly reason: 'not-entitled' | 'lapsed';
+      readonly reason: 'not-entitled' | 'expired';
       readonly because: string;
     };
 
@@ -14,22 +14,22 @@ export const entitlementTo = (
   plan: WorkspacePlan,
   now: Date,
 ): Entitlement => {
-  const needs = item.listing.needs;
+  const requiredPlan = item.metadata.requiredPlan;
   const on = plan.at(now);
 
-  if (on.includes(needs)) {
+  if (on.includes(requiredPlan)) {
     return { entitled: true };
   }
 
-  return plan.lapsedBy(now) && plan.plan.includes(needs)
+  return plan.isExpiredAt(now) && plan.plan.includes(requiredPlan)
     ? {
         entitled: false,
-        reason: 'lapsed',
-        because: `Catalog item ${item.id.value} needs the ${needs.title} plan. The workspace’s ${plan.plan.title} plan has lapsed. Lapsed at: ${plan.lapsesAt?.toISOString()}`,
+        reason: 'expired',
+        because: `Catalog item ${item.id.value} requires the ${requiredPlan.title} plan. The workspace’s ${plan.plan.title} plan has expired. Expired at: ${plan.expiresAt?.toISOString()}`,
       }
     : {
         entitled: false,
         reason: 'not-entitled',
-        because: `Catalog item ${item.id.value} needs the ${needs.title} plan. Workspace plan: ${on.title}`,
+        because: `Catalog item ${item.id.value} requires the ${requiredPlan.title} plan. Workspace plan: ${on.title}`,
       };
 };

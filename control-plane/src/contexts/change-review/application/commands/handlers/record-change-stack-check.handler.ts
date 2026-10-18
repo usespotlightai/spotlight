@@ -28,7 +28,7 @@ export class RecordChangeStackCheckHandler
 
       if (!check?.runId.equals(runId)) {
         throw new UnknownChangeStackError(
-          `Run ${command.runId} drafted no change stack ${command.stackId}.`,
+          `Run ${command.runId} has no change stack ${command.stackId}.`,
         );
       }
 

@@ -32,7 +32,7 @@ const noticed = (
     line: 12,
     startLine: null,
     body: 'Why not a constant?',
-    answers: null,
+    inReplyToId: null,
     login: 'octocat',
     writtenAt: new Date('2026-09-16T09:00:00Z'),
     ...over,
@@ -109,7 +109,7 @@ describe('ReceiveReviewComment', () => {
   it('threads a reply under the comment it answers', async () => {
     const { service, comments } = receiving([onGitHub(200)]);
 
-    await service.receive(noticed({ answers: 200 }));
+    await service.receive(noticed({ inReplyToId: 200 }));
 
     expect(comments.get('comment_new_1')?.replyTo?.value).toBe('comment_200');
   });
@@ -122,7 +122,7 @@ describe('ReceiveReviewComment', () => {
     expect(comments.size).toBe(1);
   });
 
-  it('ignores the echo of a comment edited while Spotlight was posting it', async () => {
+  it('ignores its own copy of a comment edited while Spotlight was posting it', async () => {
     const posting = ReviewComment.draft({
       id: ReviewCommentId.of('comment_mine'),
       workspaceId: WORKSPACE,
@@ -133,7 +133,7 @@ describe('ReceiveReviewComment', () => {
       now: NOW,
     })
       .submittedIn(ReviewId.of('review_1'))
-      .rewritten('Why not an enum?', UserId.of('user_ada'), NOW);
+      .edited('Why not an enum?', UserId.of('user_ada'), NOW);
     const { service, comments } = receiving([posting]);
 
     await service.receive(
@@ -143,7 +143,7 @@ describe('ReceiveReviewComment', () => {
     expect(comments.size).toBe(1);
   });
 
-  it('ignores the echo of a comment Spotlight is posting itself', async () => {
+  it('ignores its own copy of a comment that Spotlight is posting', async () => {
     const posting = ReviewComment.draft({
       id: ReviewCommentId.of('comment_mine'),
       workspaceId: WORKSPACE,
@@ -172,7 +172,7 @@ describe('ReceiveReviewComment', () => {
     expect(comments.get('comment_300')?.state).toBe('deleted');
   });
 
-  it('keeps an edit made in Spotlight when the echo of an earlier one arrives', async () => {
+  it('keeps an edit made in Spotlight when its own earlier edit is received', async () => {
     const mine = ReviewComment.draft({
       id: ReviewCommentId.of('comment_mine'),
       workspaceId: WORKSPACE,
@@ -184,9 +184,9 @@ describe('ReceiveReviewComment', () => {
     })
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 300, url: 'https://github.com/c/300' })
-      .rewritten('First', UserId.of('user_ada'), NOW)
+      .edited('First', UserId.of('user_ada'), NOW)
       .editSent('First')
-      .rewritten('Second', UserId.of('user_ada'), NOW);
+      .edited('Second', UserId.of('user_ada'), NOW);
     const { service, comments } = receiving([mine]);
 
     await service.receive(noticed({ body: 'First' }, 'edited'));

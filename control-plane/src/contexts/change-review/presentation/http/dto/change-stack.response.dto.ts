@@ -2,7 +2,7 @@ import {
   CHANGE_STACK_STATE_NAMES,
   COHORT_KIND_NAMES,
   DIFF_FILE_STATUS_NAMES,
-  STACK_CHECK_STATE_NAMES,
+  STACK_CHECK_STATUS_NAMES,
 } from '@change-review/application/dto/change-stack.dto';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -76,8 +76,8 @@ export class DiffFileResponseDto {
   }
 }
 
-export class StackRangeResponseDto {
-  @ApiProperty({ example: 'h3', description: 'The hunk it places' })
+export class StackHunkResponseDto {
+  @ApiProperty({ example: 'h3', description: 'A hunk of the layer' })
   readonly hunk: string;
 
   constructor(hunk: string) {
@@ -111,8 +111,8 @@ export class StackLayerResponseDto {
   @ApiProperty()
   readonly summary: string;
 
-  @ApiProperty({ type: StackRangeResponseDto, isArray: true })
-  readonly ranges: readonly StackRangeResponseDto[];
+  @ApiProperty({ type: StackHunkResponseDto, isArray: true })
+  readonly hunks: readonly StackHunkResponseDto[];
 
   @ApiProperty({
     type: FileNoteResponseDto,
@@ -126,13 +126,13 @@ export class StackLayerResponseDto {
     id: string,
     title: string,
     summary: string,
-    ranges: readonly StackRangeResponseDto[],
+    hunks: readonly StackHunkResponseDto[],
     notes: readonly FileNoteResponseDto[],
   ) {
     this.id = id;
     this.title = title;
     this.summary = summary;
-    this.ranges = ranges;
+    this.hunks = hunks;
     this.notes = notes;
   }
 }
@@ -151,13 +151,18 @@ export class CheckedStepResponseDto {
   readonly output: string;
 
   @ApiProperty({ example: 41_000 })
-  readonly tookMs: number;
+  readonly durationMs: number;
 
-  constructor(step: string, passed: boolean, output: string, tookMs: number) {
+  constructor(
+    step: string,
+    passed: boolean,
+    output: string,
+    durationMs: number,
+  ) {
     this.step = step;
     this.passed = passed;
     this.output = output;
-    this.tookMs = tookMs;
+    this.durationMs = durationMs;
   }
 }
 
@@ -165,8 +170,8 @@ export class StackCheckResponseDto {
   @ApiProperty({ example: 'npm test' })
   readonly command: string;
 
-  @ApiProperty({ enum: STACK_CHECK_STATE_NAMES })
-  readonly state: (typeof STACK_CHECK_STATE_NAMES)[number];
+  @ApiProperty({ enum: STACK_CHECK_STATUS_NAMES })
+  readonly status: (typeof STACK_CHECK_STATUS_NAMES)[number];
 
   @ApiProperty({
     nullable: true,
@@ -183,13 +188,13 @@ export class StackCheckResponseDto {
 
   constructor(
     command: string,
-    state: (typeof STACK_CHECK_STATE_NAMES)[number],
+    status: (typeof STACK_CHECK_STATUS_NAMES)[number],
     reason: string | null,
     whole: CheckedStepResponseDto | null,
     layers: readonly CheckedStepResponseDto[],
   ) {
     this.command = command;
-    this.state = state;
+    this.status = status;
     this.reason = reason;
     this.whole = whole;
     this.layers = layers;
@@ -235,7 +240,7 @@ export class ChangeStackResponseDto {
   readonly repository: string | null;
 
   @ApiProperty({ enum: CHANGE_STACK_STATE_NAMES })
-  readonly state: 'drafting' | 'ready' | 'failed';
+  readonly state: 'generating' | 'ready' | 'failed';
 
   @ApiProperty({ nullable: true, type: String })
   readonly failure: string | null;
@@ -256,7 +261,7 @@ export class ChangeStackResponseDto {
   constructor(
     id: string,
     repository: string | null,
-    state: 'drafting' | 'ready' | 'failed',
+    state: 'generating' | 'ready' | 'failed',
     failure: string | null,
     files: readonly DiffFileResponseDto[],
     cohorts: readonly StackCohortResponseDto[],
@@ -293,10 +298,10 @@ export class LatestChangeStackResponseDto {
   readonly repository: string | null;
 
   @ApiProperty({ enum: CHANGE_STACK_STATE_NAMES })
-  readonly state: 'drafting' | 'ready' | 'failed';
+  readonly state: 'generating' | 'ready' | 'failed';
 
-  @ApiProperty({ enum: [...STACK_CHECK_STATE_NAMES, null], nullable: true })
-  readonly checkState: (typeof STACK_CHECK_STATE_NAMES)[number] | null;
+  @ApiProperty({ enum: [...STACK_CHECK_STATUS_NAMES, null], nullable: true })
+  readonly checkStatus: (typeof STACK_CHECK_STATUS_NAMES)[number] | null;
 
   @ApiProperty({ example: 335, description: 'Lines added across the stack' })
   readonly added: number;
@@ -307,15 +312,15 @@ export class LatestChangeStackResponseDto {
   constructor(
     runId: string,
     repository: string | null,
-    state: 'drafting' | 'ready' | 'failed',
-    checkState: (typeof STACK_CHECK_STATE_NAMES)[number] | null,
+    state: 'generating' | 'ready' | 'failed',
+    checkStatus: (typeof STACK_CHECK_STATUS_NAMES)[number] | null,
     added: number,
     removed: number,
   ) {
     this.runId = runId;
     this.repository = repository;
     this.state = state;
-    this.checkState = checkState;
+    this.checkStatus = checkStatus;
     this.added = added;
     this.removed = removed;
   }
@@ -325,7 +330,7 @@ export class NewestChangeStackResponseDto {
   @ApiProperty({
     nullable: true,
     type: LatestChangeStackResponseDto,
-    description: 'The newest change stack drafted, if any',
+    description: 'The newest change stack generated, if any',
   })
   readonly latest: LatestChangeStackResponseDto | null;
 

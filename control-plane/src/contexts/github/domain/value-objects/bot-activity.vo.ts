@@ -8,7 +8,7 @@ export interface BotComment {
 
 export interface PullRequestThread {
   readonly id: string;
-  readonly opener: number | null;
+  readonly firstCommentId: number | null;
   readonly login: string | null;
   readonly byBot: boolean;
   readonly resolved: boolean;

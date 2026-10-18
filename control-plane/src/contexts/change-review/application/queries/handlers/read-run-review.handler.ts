@@ -71,8 +71,8 @@ export class ReadRunReviewHandler
             authorName: comment.authorName,
             authorLogin: comment.authorLogin,
             authorImage: imageOf(comment),
-            yours: comment.authorId === by.value,
-            byAgent: !comment.authorId && !!comment.authorRunId,
+            viewerIsAuthor: comment.authorId === by.value,
+            isAgentAuthored: !comment.authorId && !!comment.authorRunId,
             replyTo: comment.replyTo,
             state:
               comment.state === 'draft'
@@ -101,8 +101,8 @@ export class ReadRunReviewHandler
                 (review.authorId
                   ? (await this.people.find(UserId.of(review.authorId)))?.name
                   : review.authorName) ?? 'Someone',
-              yours: review.authorId === by.value,
-              byAgent: !review.authorId && !!review.authorRunId,
+              viewerIsAuthor: review.authorId === by.value,
+              isAgentAuthored: !review.authorId && !!review.authorRunId,
               verdict: review.verdict,
               body: review.body,
               state:

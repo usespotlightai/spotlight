@@ -1,4 +1,4 @@
-import { REVIEW_SYNC_KINDS } from '@change-review/application/ports/review-outbox.port';
+import { REVIEW_OUTBOX_KINDS } from '@change-review/application/ports/review-outbox.port';
 import {
   REVIEW_STATES,
   REVIEW_VERDICTS,
@@ -27,8 +27,11 @@ export const reviewCommentState = pgEnum(
 export const reviewSide = pgEnum('review_side', REVIEW_SIDES);
 export const reviewVerdict = pgEnum('review_verdict', REVIEW_VERDICTS);
 export const reviewState = pgEnum('review_state', REVIEW_STATES);
-export const reviewSyncKind = pgEnum('review_sync_kind', REVIEW_SYNC_KINDS);
-export const reviewSyncState = pgEnum('review_sync_state', [
+export const reviewOutboxKind = pgEnum(
+  'review_outbox_kind',
+  REVIEW_OUTBOX_KINDS,
+);
+export const reviewOutboxState = pgEnum('review_outbox_state', [
   'pending',
   'done',
   'failed',
@@ -56,7 +59,7 @@ export const reviewComment = pgTable(
     githubUrl: text('github_url'),
     sentBody: text('sent_body'),
     editPending: boolean('edit_pending').notNull().default(false),
-    editsAwaitingEcho: jsonb('edits_awaiting_echo')
+    pendingOwnEdits: jsonb('pending_own_edits')
       .$type<string[]>()
       .notNull()
       .default([]),
@@ -98,22 +101,22 @@ export const review = pgTable(
   (table) => [index('review_task_idx').on(table.taskId, table.submittedAt)],
 );
 
-export const reviewSync = pgTable(
-  'review_sync',
+export const reviewOutbox = pgTable(
+  'review_outbox',
   {
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
     taskId: text('task_id').notNull(),
-    kind: reviewSyncKind('kind').notNull(),
+    kind: reviewOutboxKind('kind').notNull(),
     subjectId: text('subject_id').notNull(),
-    state: reviewSyncState('state').notNull().default('pending'),
+    state: reviewOutboxState('state').notNull().default('pending'),
     attempts: integer('attempts').notNull().default(0),
     dueAt: timestamp('due_at').notNull(),
     failure: text('failure'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => [
-    index('review_sync_due_idx').on(table.state, table.dueAt),
-    index('review_sync_task_idx').on(table.taskId),
+    index('review_outbox_due_idx').on(table.state, table.dueAt),
+    index('review_outbox_task_idx').on(table.taskId),
   ],
 );

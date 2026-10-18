@@ -2,7 +2,7 @@ import { blamesTheCandidate } from '@replays/domain/services/failure-blame';
 import type { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import {
   NO_CHECK_ASKED,
-  UNDRAFTED,
+  NOT_GENERATED,
 } from '@replays/domain/value-objects/check-skip';
 import type { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
 import type { EntryMeasures } from '@replays/domain/value-objects/entry-measures.vo';
@@ -90,8 +90,8 @@ const checkedBy = (
       return {
         kind: 'unscored',
         reasons: [
-          checks.why === UNDRAFTED
-            ? reasonOf('change-undrafted')
+          checks.why === NOT_GENERATED
+            ? reasonOf('change-not-generated')
             : reasonOf('check-skipped', checks.why),
         ],
       };

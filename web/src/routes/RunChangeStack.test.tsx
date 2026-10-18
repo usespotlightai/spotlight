@@ -124,7 +124,7 @@ describe('RunChangeStack', () => {
   });
 
   describe('without a stack', () => {
-    it('says one appears once a station drafts it', () => {
+    it('says one appears once a station generates it', () => {
       serving({ stacks: [] });
       renderAt();
 
@@ -135,28 +135,30 @@ describe('RunChangeStack', () => {
     });
   });
 
-  describe('while the stack drafts', () => {
+  describe('while the stack generates', () => {
     it('says what it is grouping', () => {
       serving({
-        stacks: [{ ...INVITATIONS, state: 'drafting', cohorts: [] }],
+        stacks: [{ ...INVITATIONS, state: 'generating', cohorts: [] }],
       });
       renderAt();
 
-      expect(screen.getByText('Drafting the change stack')).toBeInTheDocument();
       expect(
-        screen.getByText(/Grouping 5 changes across 5 files/),
+        screen.getByText('Generating the change stack'),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Grouping 5 hunks across 5 files/),
       ).toBeInTheDocument();
     });
   });
 
-  describe('where drafting failed', () => {
+  describe('where generation failed', () => {
     it('says why', () => {
       serving({
         stacks: [
           {
             ...INVITATIONS,
             state: 'failed',
-            failure: 'Spotlight couldn’t draft the change stack.',
+            failure: 'Spotlight couldn’t generate the change stack.',
             cohorts: [],
           },
         ],
@@ -164,7 +166,7 @@ describe('RunChangeStack', () => {
       renderAt();
 
       expect(
-        screen.getByText('Sorry, the change stack couldn’t be drafted'),
+        screen.getByText('Sorry, the change stack couldn’t be generated'),
       ).toBeInTheDocument();
     });
   });
@@ -374,10 +376,10 @@ describe('RunChangeStack', () => {
         }),
       ).toBeInTheDocument();
     });
-    it('shows a decision on the file it bears on, with its disputes there', () => {
+    it('shows a decision on the file it covers, with its disputes there', () => {
       decided.mockReturnValue({
         runId: 'run_1',
-        drafting: false,
+        generating: false,
         status: 'proposed',
         merge: null,
         decisions: [
@@ -388,7 +390,7 @@ describe('RunChangeStack', () => {
             why: 'The ticket says nothing on renewal.',
             alternatives: [],
             paths: ['control-plane/src/schemas/invitation.schema.ts'],
-            steps: [7],
+            journalSteps: [7],
             disputes: [
               {
                 path: 'control-plane/src/schemas/invitation.schema.ts',

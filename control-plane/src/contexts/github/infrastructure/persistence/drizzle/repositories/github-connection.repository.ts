@@ -1,6 +1,6 @@
 import { GitHubConnection } from '@github/domain/aggregates/github-connection.aggregate';
 import { GitHubConnectionVersionConflictError } from '@github/domain/exceptions/github-connection-version-conflict.error';
-import { InstallationClaimedError } from '@github/domain/exceptions/installation-claimed.error';
+import { InstallationAlreadyConnectedError } from '@github/domain/exceptions/installation-already-connected.error';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import { githubConnection } from '@github/infrastructure/persistence/drizzle/schemas/github-connection.schema';
@@ -15,7 +15,7 @@ import { and, eq } from 'drizzle-orm';
 
 const UNIQUE_VIOLATION = '23505';
 
-const isClaimCollision = (error: unknown): boolean => {
+const isAlreadyConnected = (error: unknown): boolean => {
   const raised = ((error as { cause?: unknown } | null)?.cause ?? error) as {
     code?: string;
     constraint?: string;
@@ -51,7 +51,7 @@ export class DrizzleGitHubConnections implements GitHubConnectionRepository {
       : GitHubConnection.none(workspaceId);
   }
 
-  async claimantOf(
+  async connectedWorkspaceOf(
     installation: GitHubInstallation,
   ): Promise<WorkspaceId | null> {
     const [found] = await this.context.db
@@ -63,7 +63,7 @@ export class DrizzleGitHubConnections implements GitHubConnectionRepository {
     return found ? WorkspaceId.of(found.workspaceId) : null;
   }
 
-  async lockedClaimantOf(
+  async lockedConnectedWorkspaceOf(
     installation: GitHubInstallation,
   ): Promise<WorkspaceId | null> {
     const [found] = await this.context.db
@@ -129,8 +129,8 @@ export class DrizzleGitHubConnections implements GitHubConnectionRepository {
         throw new GitHubConnectionVersionConflictError();
       }
     } catch (error) {
-      if (isClaimCollision(error)) {
-        throw new InstallationClaimedError(installation.value);
+      if (isAlreadyConnected(error)) {
+        throw new InstallationAlreadyConnectedError(installation.value);
       }
       throw error;
     }

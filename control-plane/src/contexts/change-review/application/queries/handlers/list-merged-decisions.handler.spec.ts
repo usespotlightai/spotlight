@@ -30,7 +30,7 @@ const listing = (over: { mayView?: boolean } = {}) => {
               why: 'Backoff is not in the client yet.',
               alternatives: [],
               paths: ['api/src/uploads.ts'],
-              steps: [7],
+              journalSteps: [7],
               disputes: [
                 {
                   id: 'dispute_1',

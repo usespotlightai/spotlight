@@ -345,8 +345,8 @@ const draftedComment = (
     authorName: SAM.name,
     authorLogin: null,
     authorImage: SAM.image,
-    yours: true,
-    byAgent: false,
+    viewerIsAuthor: true,
+    isAgentAuthored: false,
     replyTo: answering?.replyTo ?? answering?.id ?? null,
     state: 'draft' as const,
     failure: null,
@@ -389,7 +389,7 @@ const reviewHandlers = [
     '/teams/:teamId/runs/:runId/review/comments/:commentId',
     async ({ params, request }) => {
       const comment = codeReviewOf(param(params, 'runId'))?.comments.find(
-        (each) => each.id === param(params, 'commentId') && each.yours,
+        (each) => each.id === param(params, 'commentId') && each.viewerIsAuthor,
       );
 
       if (!comment) {
@@ -411,7 +411,9 @@ const reviewHandlers = [
       const commentId = param(params, 'commentId');
 
       if (
-        !review?.comments.some((each) => each.id === commentId && each.yours)
+        !review?.comments.some(
+          (each) => each.id === commentId && each.viewerIsAuthor,
+        )
       ) {
         return notFound();
       }
@@ -435,7 +437,7 @@ const reviewHandlers = [
     const id = nextId('review');
 
     for (const comment of review.comments) {
-      if (comment.yours && comment.state === 'draft') {
+      if (comment.viewerIsAuthor && comment.state === 'draft') {
         comment.state = 'posted';
         comment.url = `${review.pullRequest}#discussion_${comment.id}`;
       }
@@ -443,8 +445,8 @@ const reviewHandlers = [
     review.reviews.push({
       id,
       authorName: SAM.name,
-      yours: true,
-      byAgent: false,
+      viewerIsAuthor: true,
+      isAgentAuthored: false,
       verdict: submitted.verdict,
       body: submitted.body ?? '',
       state: 'posted',

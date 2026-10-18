@@ -31,7 +31,7 @@ const layer = (hunks: string[]): ProposedLayer => ({
   title: 'A layer',
   summary: 'A layer',
   dependsOn: [],
-  ranges: hunks.map((each) => ({ hunk: HunkId.of(each) })),
+  hunks: hunks.map((each) => ({ hunk: HunkId.of(each) })),
   notes: [],
 });
 
@@ -109,7 +109,7 @@ describe('factProblems', () => {
     ]);
   });
 
-  it('questions a cohort that joins changes nothing connects, unless it says why', () => {
+  it('questions a cohort that joins hunks nothing connects, unless it says why', () => {
     const unlinked = facts(
       [hunk('h1'), hunk('h2'), hunk('h3')],
       [
@@ -123,7 +123,7 @@ describe('factProblems', () => {
     );
 
     expect(messagesOf([cohort([['h1', 'h2', 'h3']])], unlinked)).toEqual([
-      'cohort 1 joins changes the code does not connect (h1, h2 | h3) without saying why',
+      'cohort 1 joins hunks the code does not connect (h1, h2 | h3) without saying why',
     ]);
     expect(
       messagesOf(

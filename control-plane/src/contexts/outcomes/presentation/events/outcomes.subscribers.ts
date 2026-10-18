@@ -66,10 +66,6 @@ import {
   type PullRequestPurgedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-purged.integration-event';
 import {
-  PULL_REQUEST_RECORDED,
-  type PullRequestRecordedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/pull-request-recorded.integration-event';
-import {
   PULL_REQUEST_REVIEW_TAKEN,
   type PullRequestReviewTakenIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-review-taken.integration-event';
@@ -77,6 +73,10 @@ import {
   PULL_REQUEST_REVIEWED,
   type PullRequestReviewedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-reviewed.integration-event';
+import {
+  PULL_REQUEST_UPDATED,
+  type PullRequestUpdatedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-updated.integration-event';
 import {
   RUN_DIGESTED,
   type RunDigestedIntegrationEvent,
@@ -158,7 +158,7 @@ export interface OutcomesReactions {
 
 const dateOf = (at: string | null): Date | null => (at ? new Date(at) : null);
 
-const seenOf = (event: PullRequestRecordedIntegrationEvent) => ({
+const seenOf = (event: PullRequestUpdatedIntegrationEvent) => ({
   repository: event.repository,
   number: event.number,
   title: event.title,
@@ -173,7 +173,7 @@ const seenOf = (event: PullRequestRecordedIntegrationEvent) => ({
   closedAt: dateOf(event.closedAt),
   updatedAt: new Date(event.updatedAt),
   readyForReviewAt: dateOf(event.readyForReviewAt),
-  draftSpells: event.draftSpells.map((each) => ({
+  draftPeriods: event.draftPeriods.map((each) => ({
     from: new Date(each.from),
     to: dateOf(each.to),
   })),
@@ -362,9 +362,9 @@ export const outcomesSubscribers = (
         at: event.closedAt ? new Date(event.closedAt) : null,
       }),
   ),
-  subscribing<PullRequestRecordedIntegrationEvent>(
+  subscribing<PullRequestUpdatedIntegrationEvent>(
     'outcomes.record-seen-pull-request',
-    [PULL_REQUEST_RECORDED],
+    [PULL_REQUEST_UPDATED],
     (event) =>
       reactions.recording.seen({
         workspaceId: WorkspaceId.of(event.workspaceId),

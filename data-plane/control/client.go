@@ -546,11 +546,11 @@ func (c *Client) RecordStartingPoint(ctx context.Context, runID string, point pr
 	return nil
 }
 
-func (c *Client) DraftChangeStack(ctx context.Context, runID, repository, diff, base string) error {
+func (c *Client) GenerateChangeStack(ctx context.Context, runID, repository, diff, base string) error {
 	path := fmt.Sprintf("/api/runs/%s/change-stacks", url.PathEscape(runID))
-	draft := protocol.ChangeStackDraft{Diff: diff, Repository: repository, Base: base}
+	request := protocol.ChangeStackGenerationRequest{Diff: diff, Repository: repository, Base: base}
 
-	if err := c.do(ctx, http.MethodPost, path, draft, nil); err != nil {
+	if err := c.do(ctx, http.MethodPost, path, request, nil); err != nil {
 		return fmt.Errorf("hand over what a run changed: %w", err)
 	}
 

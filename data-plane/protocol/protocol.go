@@ -329,7 +329,7 @@ type Message struct {
 	Attachments []Attachment `json:"attachments,omitempty"`
 }
 
-type ChangeStackDraft struct {
+type ChangeStackGenerationRequest struct {
 	Diff       string `json:"diff"`
 	Repository string `json:"repository"`
 	Base       string `json:"base,omitempty"`
@@ -372,13 +372,13 @@ type CheckStep struct {
 }
 
 const (
-	SkipNoBase         = "no-base"
-	SkipNoCheckout     = "no-checkout"
-	SkipCheckoutFailed = "checkout-failed"
-	SkipSetupFailed    = "setup-failed"
-	SkipNoRoom         = "no-room"
-	SkipOutOfTime      = "out-of-time"
-	SkipNoImage        = "no-image"
+	SkipNoBase          = "no-base"
+	SkipNoCheckout      = "no-checkout"
+	SkipCheckoutFailed  = "checkout-failed"
+	SkipSetupFailed     = "setup-failed"
+	SkipWorkspaceFailed = "workspace-failed"
+	SkipOutOfTime       = "out-of-time"
+	SkipNoImage         = "no-image"
 )
 
 type SkippedCheck struct {
@@ -392,8 +392,8 @@ type StackChecked struct {
 }
 
 type CheckedStep struct {
-	Step   string `json:"step"`
-	Passed bool   `json:"passed"`
-	Output string `json:"output"`
-	TookMs int64  `json:"tookMs"`
+	Step       string `json:"step"`
+	Passed     bool   `json:"passed"`
+	Output     string `json:"output"`
+	DurationMs int64  `json:"durationMs"`
 }

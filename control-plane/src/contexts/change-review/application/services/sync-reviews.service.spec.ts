@@ -1,6 +1,6 @@
 import type {
+  ReviewOutboxEntry,
   ReviewOutboxPort,
-  ReviewSync,
 } from '@change-review/application/ports/review-outbox.port';
 import {
   MAX_ATTEMPTS,
@@ -46,7 +46,7 @@ const draft = (id: string, line: number) =>
 
 const syncing = (over: {
   pullRequest?: PullRequestUrl | null;
-  sync: Omit<ReviewSync, 'id' | 'workspaceId' | 'taskId'>;
+  sync: Omit<ReviewOutboxEntry, 'id' | 'workspaceId' | 'taskId'>;
   comments?: ReviewComment[];
   reviews?: Review[];
   github?: Partial<PullRequestReviewsPort>;
@@ -59,7 +59,7 @@ const syncing = (over: {
     (over.reviews ?? []).map((each) => [each.id.value, each]),
   );
   const recorded: { how: string; args: unknown[] }[] = [];
-  let pending: ReviewSync | null = {
+  let pending: ReviewOutboxEntry | null = {
     id: 'sync_1',
     workspaceId: WORKSPACE,
     taskId: TASK,
@@ -94,9 +94,9 @@ const syncing = (over: {
   const github: PullRequestReviewsPort = {
     submit: vi.fn(async (input) => ({
       githubId: 900,
-      comments: input.comments.map((_: unknown, place: number) => ({
-        id: 100 + place,
-        url: `https://github.com/c/${100 + place}`,
+      comments: input.comments.map((_: unknown, index: number) => ({
+        id: 100 + index,
+        url: `https://github.com/c/${100 + index}`,
       })),
     })),
     reply: vi.fn(async (input) => {
@@ -189,7 +189,7 @@ describe('SyncReviews', () => {
 
     expect(synced.github.submit).toHaveBeenCalledWith(
       expect.objectContaining({
-        verdict: 'request-changes',
+        event: 'request-changes',
         body: 'A few things',
         by: { kind: 'person', userId: ADA, name: 'Ada' },
         comments: [
@@ -215,11 +215,11 @@ describe('SyncReviews', () => {
       expect.arrayContaining([
         expect.objectContaining({ kind: 'review.posted' }),
         expect.objectContaining({
-          kind: 'review.comment-placed',
+          kind: 'review.comment-posted',
           github: { id: 100, url: 'https://github.com/c/100' },
         }),
         expect.objectContaining({
-          kind: 'review.comment-placed',
+          kind: 'review.comment-posted',
           github: { id: 101, url: 'https://github.com/c/101' },
         }),
       ]),
@@ -369,7 +369,7 @@ describe('SyncReviews', () => {
     );
   });
 
-  it('withdraws a review whose every comment was deleted on its way, without calling GitHub', async () => {
+  it('discards a review whose every comment was deleted on its way, without calling GitHub', async () => {
     const { review, comments } = submitted();
     const synced = syncing({
       sync: { kind: 'review', subjectId: 'review_1', attempts: 0 },
@@ -385,13 +385,13 @@ describe('SyncReviews', () => {
           now: NOW,
         }).review,
       ],
-      comments: comments.map((each) => each.removed(ADA)),
+      comments: comments.map((each) => each.deleted(ADA)),
     });
 
     await synced.service.syncDue();
 
     expect(synced.github.submit).not.toHaveBeenCalled();
-    expect(synced.reviews.get('review_1')?.state).toBe('withdrawn');
+    expect(synced.reviews.get('review_1')?.state).toBe('discarded');
     expect(synced.reviews.get('review_1')?.pullEvents()).toContainEqual(
       expect.objectContaining({ kind: 'review.comment-not-posted' }),
     );
@@ -562,7 +562,7 @@ describe('SyncReviews', () => {
       sync: { kind: 'reply', subjectId: 'comment_2', attempts: 0 },
       comments: [parent, reply],
       editedWhilePosting: (comment) =>
-        comment.rewritten('Done, and tested', ADA, NOW),
+        comment.edited('Done, and tested', ADA, NOW),
     });
 
     await synced.service.syncDue();
@@ -573,7 +573,7 @@ describe('SyncReviews', () => {
     expect(stored?.body).toBe('Done, and tested');
     expect(stored?.pullEvents()).toContainEqual(
       expect.objectContaining({
-        kind: 'review-comment.rewritten',
+        kind: 'review-comment.edited',
         onGitHub: true,
       }),
     );
@@ -594,7 +594,7 @@ describe('SyncReviews', () => {
     const synced = syncing({
       sync: { kind: 'review', subjectId: 'review_1', attempts: 0 },
       reviews: [review],
-      comments: [first.rewritten('Clearer', ADA, NOW), second.removed(ADA)],
+      comments: [first.edited('Clearer', ADA, NOW), second.deleted(ADA)],
     });
 
     await synced.service.syncDue();
@@ -607,11 +607,11 @@ describe('SyncReviews', () => {
     expect(synced.reviews.get('review_1')?.pullEvents()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          kind: 'review.comment-placed',
+          kind: 'review.comment-posted',
           github: { id: 100, url: 'https://github.com/c/100' },
         }),
         expect.objectContaining({
-          kind: 'review.comment-placed',
+          kind: 'review.comment-posted',
           commentId: second.id,
           github: null,
         }),
@@ -642,7 +642,7 @@ describe('SyncReviews', () => {
     const posted = draft('comment_1', 3)
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 77, url: 'https://github.com/c/77' })
-      .rewritten('Clearer', ADA, NOW);
+      .edited('Clearer', ADA, NOW);
 
     const edited = syncing({
       sync: { kind: 'edit', subjectId: 'comment_1', attempts: 0 },
@@ -654,13 +654,13 @@ describe('SyncReviews', () => {
       expect.objectContaining({ commentId: 77, body: 'Clearer' }),
     );
 
-    const removed = syncing({
+    const deleted = syncing({
       sync: { kind: 'delete', subjectId: 'comment_1', attempts: 0 },
-      comments: [posted.removed(ADA)],
+      comments: [posted.deleted(ADA)],
     });
-    await removed.service.syncDue();
+    await deleted.service.syncDue();
 
-    expect(removed.github.remove).toHaveBeenCalledWith(
+    expect(deleted.github.remove).toHaveBeenCalledWith(
       expect.objectContaining({ commentId: 77 }),
     );
   });
@@ -669,7 +669,7 @@ describe('SyncReviews', () => {
     const posted = draft('comment_1', 3)
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 77, url: 'https://github.com/c/77' })
-      .rewritten('First', ADA, NOW);
+      .edited('First', ADA, NOW);
     let synced: ReturnType<typeof syncing> | null = null;
 
     synced = syncing({
@@ -677,10 +677,7 @@ describe('SyncReviews', () => {
       comments: [posted],
       github: {
         edit: vi.fn(async () => {
-          synced?.comments.set(
-            'comment_1',
-            posted.rewritten('Second', ADA, NOW),
-          );
+          synced?.comments.set('comment_1', posted.edited('Second', ADA, NOW));
         }),
       },
     });
@@ -689,14 +686,14 @@ describe('SyncReviews', () => {
     const stored = synced.comments.get('comment_1');
     expect(stored?.body).toBe('Second');
     expect(stored?.editPending).toBe(true);
-    expect(stored?.editsAwaitingEcho).toEqual(['First']);
+    expect(stored?.pendingOwnEdits).toEqual(['First']);
   });
 
   it('drops a pending edit GitHub would never take', async () => {
     const pending = draft('comment_1', 3)
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 77, url: 'https://github.com/c/77' })
-      .rewritten('Clearer', ADA, NOW);
+      .edited('Clearer', ADA, NOW);
     const synced = syncing({
       sync: { kind: 'edit', subjectId: 'comment_1', attempts: MAX_ATTEMPTS },
       comments: [pending],

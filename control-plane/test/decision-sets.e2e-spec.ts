@@ -2,7 +2,7 @@ import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggre
 import type { ProposedDecision } from '@change-review/domain/entities/decision.entity';
 import { DecisionSetVersionConflictError } from '@change-review/domain/exceptions/decision-set-version-conflict.error';
 import { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
-import { DecisionGrounds } from '@change-review/domain/value-objects/decision-grounds.vo';
+import { DecisionEvidence } from '@change-review/domain/value-objects/decision-evidence.vo';
 import { DecisionMerge } from '@change-review/domain/value-objects/decision-merge.vo';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
@@ -23,7 +23,7 @@ const NOW = new Date('2026-09-21T10:00:00.000Z');
 const FIRST = RunId.of('run_1');
 const SECOND = RunId.of('run_2');
 
-const GROUNDS = DecisionGrounds.of({
+const EVIDENCE = DecisionEvidence.of({
   steps: [3, 7],
   changed: ['api/src/uploads.ts', 'api/src/retry.ts'],
 });
@@ -38,17 +38,17 @@ const decided = (change: Partial<ProposedDecision> = {}): ProposedDecision => ({
   ...change,
 });
 
-const drafting = (
+const generated = (
   set: DecisionSet,
   runId: RunId,
   decisions: readonly ProposedDecision[],
-  grounds: DecisionGrounds = GROUNDS,
+  evidence: DecisionEvidence = EVIDENCE,
 ): DecisionSet => {
   let made = 0;
-  return set.recordDraft({
+  return set.recordGeneration({
     runId,
     proposed: decisions,
-    grounds,
+    evidence,
     newId: () => {
       made += 1;
       return `${set.id.value}_${runId.value}_${made}`;
@@ -88,12 +88,12 @@ afterAll(async () => {
 });
 
 describe('storing a task’s decisions', () => {
-  it('stores the decisions a run grounds, in order, and the run it drafted them from', async () => {
-    const set = opened().requestDraft(FIRST, NOW);
+  it('stores the decisions generated from a run, in order, and the run they come from', async () => {
+    const set = opened().requestGeneration(FIRST, NOW);
     await sets.add(set);
 
     await sets.save(
-      drafting(set, FIRST, [
+      generated(set, FIRST, [
         decided({
           kind: 'limitation',
           title: 'Retries only once',
@@ -105,10 +105,10 @@ describe('storing a task’s decisions', () => {
 
     const read = await sets.forTask(set.taskId);
 
-    expect(read?.decidedIn?.equals(FIRST)).toBe(true);
+    expect(read?.sourceRunId?.equals(FIRST)).toBe(true);
     expect(read?.hasPendingJob).toBe(false);
     expect(
-      read?.decisions.map((each) => [each.kind, each.title, each.steps]),
+      read?.decisions.map((each) => [each.kind, each.title, each.journalSteps]),
     ).toEqual([
       ['limitation', 'Retries only once', [3, 7]],
       ['trade-off', 'Retries uploads in the request', [3]],
@@ -117,26 +117,29 @@ describe('storing a task’s decisions', () => {
   });
 
   it('replaces what an earlier run decided with what the latest decided', async () => {
-    const set = opened().requestDraft(FIRST, NOW);
+    const set = opened().requestGeneration(FIRST, NOW);
     await sets.add(set);
     await sets.save(
-      drafting(set, FIRST, [decided(), decided({ title: 'Second' })]),
+      generated(set, FIRST, [decided(), decided({ title: 'Second' })]),
     );
 
-    const again = (await sets.forTask(set.taskId))?.requestDraft(SECOND, NOW);
+    const again = (await sets.forTask(set.taskId))?.requestGeneration(
+      SECOND,
+      NOW,
+    );
     if (!again) throw new Error('not stored');
     await sets.save(again);
     const read = await sets.forTask(set.taskId);
     if (!read) throw new Error('not stored');
     await sets.save(
-      drafting(read, SECOND, [
+      generated(read, SECOND, [
         decided({ kind: 'deviation', title: 'Skipped the retry banner' }),
       ]),
     );
 
     const latest = await sets.forTask(set.taskId);
 
-    expect(latest?.decidedIn?.equals(SECOND)).toBe(true);
+    expect(latest?.sourceRunId?.equals(SECOND)).toBe(true);
     expect(latest?.decisions.map((each) => each.title)).toEqual([
       'Skipped the retry banner',
     ]);
@@ -144,7 +147,7 @@ describe('storing a task’s decisions', () => {
 
   it('hands out a set with a pending job once its lease runs out, and none while the lease runs', async () => {
     await database.db.execute(sql`delete from decision_set`);
-    const set = opened().requestDraft(FIRST, NOW);
+    const set = opened().requestGeneration(FIRST, NOW);
     await sets.add(set);
 
     const due = await sets.nextDueJob(NOW);
@@ -177,17 +180,17 @@ describe('storing a task’s decisions', () => {
   it('does not write over a set that changed since it was read', async () => {
     const set = opened();
     await sets.add(set);
-    await sets.save(set.requestDraft(FIRST, NOW));
+    await sets.save(set.requestGeneration(FIRST, NOW));
 
-    await expect(sets.save(set.requestDraft(SECOND, NOW))).rejects.toThrow(
+    await expect(sets.save(set.requestGeneration(SECOND, NOW))).rejects.toThrow(
       DecisionSetVersionConflictError,
     );
   });
 
   it('deletes a task’s decisions with the task', async () => {
-    const set = opened().requestDraft(FIRST, NOW);
+    const set = opened().requestGeneration(FIRST, NOW);
     await sets.add(set);
-    await sets.save(drafting(set, FIRST, [decided()]));
+    await sets.save(generated(set, FIRST, [decided()]));
 
     await sets.removeForTask(set.taskId);
 
@@ -201,9 +204,9 @@ describe('storing a task’s decisions', () => {
   });
 
   it('removes a set discarded when its pull request closed unmerged', async () => {
-    const set = opened().requestDraft(FIRST, NOW);
+    const set = opened().requestGeneration(FIRST, NOW);
     await sets.add(set);
-    await sets.save(drafting(set, FIRST, [decided()]));
+    await sets.save(generated(set, FIRST, [decided()]));
 
     const read = await sets.forTask(set.taskId);
     if (!read) throw new Error('not stored');
@@ -215,7 +218,7 @@ describe('storing a task’s decisions', () => {
   it('does not discard a set that changed since it was read', async () => {
     const set = opened();
     await sets.add(set);
-    await sets.save(set.requestDraft(FIRST, NOW));
+    await sets.save(set.requestGeneration(FIRST, NOW));
 
     await expect(sets.save(set.closeUnmerged())).rejects.toThrow(
       DecisionSetVersionConflictError,
@@ -223,10 +226,10 @@ describe('storing a task’s decisions', () => {
   });
 
   it('stores who disputed a decision, and drops it with the decisions a later run replaces', async () => {
-    const set = opened().requestDraft(FIRST, NOW);
+    const set = opened().requestGeneration(FIRST, NOW);
     await sets.add(set);
     await sets.save(
-      drafting(set, FIRST, [decided(), decided({ title: 'Second' })]),
+      generated(set, FIRST, [decided(), decided({ title: 'Second' })]),
     );
 
     const read = await sets.forTask(set.taskId);
@@ -265,11 +268,11 @@ describe('storing a task’s decisions', () => {
     ]);
 
     if (!disputed) throw new Error('not stored');
-    const requested = disputed.requestDraft(SECOND, NOW);
+    const requested = disputed.requestGeneration(SECOND, NOW);
     await sets.save(requested);
     const again = await sets.forTask(set.taskId);
     if (!again) throw new Error('not stored');
-    await sets.save(drafting(again, SECOND, [decided()]));
+    await sets.save(generated(again, SECOND, [decided()]));
 
     expect(
       (await sets.forTask(set.taskId))?.decisions.flatMap(
@@ -279,10 +282,10 @@ describe('storing a task’s decisions', () => {
   });
 
   it('reads a task’s decisions deviations and limitations first', async () => {
-    const set = opened().requestDraft(FIRST, NOW);
+    const set = opened().requestGeneration(FIRST, NOW);
     await sets.add(set);
     await sets.save(
-      drafting(set, FIRST, [
+      generated(set, FIRST, [
         decided({ title: 'Simple over fast' }),
         decided({ kind: 'limitation', title: 'Retries only once' }),
         decided({ kind: 'deviation', title: 'Skipped the banner' }),
@@ -293,7 +296,7 @@ describe('storing a task’s decisions', () => {
       new DrizzleContext(database.db),
     ).ofTask(set.taskId);
 
-    expect(found).toMatchObject({ runId: 'run_1', drafting: false });
+    expect(found).toMatchObject({ runId: 'run_1', generating: false });
     expect(found?.decisions.map((each) => each.title)).toEqual([
       'Skipped the banner',
       'Retries only once',
@@ -318,14 +321,14 @@ describe('reading the decisions that shipped', () => {
       id: DecisionSetId.of(`shipped_${next}`),
       taskId: TaskId.of(`shipped_task_${next}`),
       workspaceId: WORKSPACE,
-    }).requestDraft(FIRST, NOW);
+    }).requestGeneration(FIRST, NOW);
     await sets.add(set);
     await sets.save(
-      drafting(
+      generated(
         set,
         FIRST,
         decisions,
-        DecisionGrounds.of({ steps: [3, 7], changed }),
+        DecisionEvidence.of({ steps: [3, 7], changed }),
       ).merge(merge(repository, new Date(at))),
     );
     return set;
@@ -365,7 +368,7 @@ describe('reading the decisions that shipped', () => {
       [decided({ title: 'Polls every second', paths: ['web/src/poll.ts'] })],
       ['web/src/poll.ts'],
     );
-    const proposed = opened().requestDraft(FIRST, NOW);
+    const proposed = opened().requestGeneration(FIRST, NOW);
     await sets.add(proposed);
   });
 

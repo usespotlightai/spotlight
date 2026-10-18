@@ -4,7 +4,7 @@ import {
 } from '@change-review/domain/entities/decision.entity';
 import { DecisionDispute } from '@change-review/domain/entities/decision-dispute.entity';
 import { DecisionDisputed } from '@change-review/domain/events/decision-disputed.event';
-import { DecisionDraftingFailed } from '@change-review/domain/events/decision-drafting-failed.event';
+import { DecisionGenerationFailed } from '@change-review/domain/events/decision-generation-failed.event';
 import { DecisionsDiscarded } from '@change-review/domain/events/decisions-discarded.event';
 import { DecisionsMerged } from '@change-review/domain/events/decisions-merged.event';
 import { DecisionsRecorded } from '@change-review/domain/events/decisions-recorded.event';
@@ -12,8 +12,8 @@ import { DecisionsRequested } from '@change-review/domain/events/decisions-reque
 import { InvalidDecisionError } from '@change-review/domain/exceptions/invalid-decision.error';
 import { UnknownDecisionError } from '@change-review/domain/exceptions/unknown-decision.error';
 import type { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
-import { DecisionDraft } from '@change-review/domain/value-objects/decision-draft.vo';
-import type { DecisionGrounds } from '@change-review/domain/value-objects/decision-grounds.vo';
+import type { DecisionEvidence } from '@change-review/domain/value-objects/decision-evidence.vo';
+import { DecisionGeneration } from '@change-review/domain/value-objects/decision-generation.vo';
 import { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
 import type { DecisionMerge } from '@change-review/domain/value-objects/decision-merge.vo';
 import type { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
@@ -35,9 +35,9 @@ export class DecisionSet
     readonly id: DecisionSetId,
     readonly taskId: TaskId,
     readonly workspaceId: WorkspaceId,
-    readonly decidedIn: RunId | null,
+    readonly sourceRunId: RunId | null,
     readonly decisions: readonly Decision[],
-    readonly draft: DecisionDraft | null,
+    readonly generation: DecisionGeneration | null,
     readonly status: DecisionStatus,
     readonly discarded: boolean,
     readonly version: number,
@@ -67,13 +67,13 @@ export class DecisionSet
     id: DecisionSetId;
     taskId: TaskId;
     workspaceId: WorkspaceId;
-    decidedIn: RunId | null;
+    sourceRunId: RunId | null;
     decisions: readonly Decision[];
-    draft: DecisionDraft | null;
+    generation: DecisionGeneration | null;
     status: DecisionStatus;
     version: number;
   }): DecisionSet {
-    if (input.decisions.length > 0 && !input.decidedIn) {
+    if (input.decisions.length > 0 && !input.sourceRunId) {
       throw new InconsistentStateError(
         'decision set',
         'has decisions without the run they were made in',
@@ -94,9 +94,9 @@ export class DecisionSet
       input.id,
       input.taskId,
       input.workspaceId,
-      input.decidedIn,
+      input.sourceRunId,
       input.decisions,
-      input.draft,
+      input.generation,
       input.status,
       false,
       input.version,
@@ -104,78 +104,82 @@ export class DecisionSet
   }
 
   get hasPendingJob(): boolean {
-    return this.draft !== null;
+    return this.generation !== null;
   }
 
   get jobExhausted(): boolean {
-    return this.draft?.job.exhausted ?? false;
+    return this.generation?.job.exhausted ?? false;
   }
 
-  requestDraft(runId: RunId, now: Date): DecisionSet {
+  requestGeneration(runId: RunId, now: Date): DecisionSet {
     if (
       this.status.isMerged ||
-      this.draft?.isFor(runId) ||
-      this.decidedIn?.equals(runId)
+      this.generation?.isFor(runId) ||
+      this.sourceRunId?.equals(runId)
     ) {
       return this;
     }
 
-    const requested = this.with({ draft: DecisionDraft.requested(runId, now) });
+    const requested = this.with({
+      generation: DecisionGeneration.requested(runId, now),
+    });
     requested.record(new DecisionsRequested(this.id, this.taskId, runId));
     return requested;
   }
 
   leaseJob(now: Date): DecisionSet {
-    if (!this.draft) {
-      throw InvalidDecisionError.ofSet('has no run to draft decisions from');
+    if (!this.generation) {
+      throw InvalidDecisionError.ofSet('has no run to generate decisions from');
     }
-    if (!this.draft.job.isDue(now) || this.draft.job.exhausted) {
-      throw InvalidDecisionError.ofSet('cannot be drafted again yet');
+    if (!this.generation.job.isDue(now) || this.generation.job.exhausted) {
+      throw InvalidDecisionError.ofSet('cannot generate decisions again yet');
     }
 
     return this.with({
-      draft: this.draft.withJob(this.draft.job.lease(now)),
+      generation: this.generation.withJob(this.generation.job.lease(now)),
     });
   }
 
   scheduleRetry(now: Date): DecisionSet {
-    if (!this.draft) {
+    if (!this.generation) {
       return this;
     }
 
-    return this.draft.job.exhausted
+    return this.generation.job.exhausted
       ? this.deadLetter()
       : this.with({
-          draft: this.draft.withJob(this.draft.job.scheduleRetry(now)),
+          generation: this.generation.withJob(
+            this.generation.job.scheduleRetry(now),
+          ),
         });
   }
 
   deadLetter(): DecisionSet {
-    if (!this.draft) {
+    if (!this.generation) {
       return this;
     }
 
-    const cleared = this.with({ draft: null });
+    const cleared = this.with({ generation: null });
     cleared.record(
-      new DecisionDraftingFailed(this.id, this.taskId, this.draft.runId),
+      new DecisionGenerationFailed(this.id, this.taskId, this.generation.runId),
     );
     return cleared;
   }
 
-  recordDraft(input: {
+  recordGeneration(input: {
     runId: RunId;
     proposed: readonly ProposedDecision[];
-    grounds: DecisionGrounds;
+    evidence: DecisionEvidence;
     newId: () => string;
   }): DecisionSet {
-    if (!this.draft?.isFor(input.runId)) {
+    if (!this.generation?.isFor(input.runId)) {
       return this;
     }
 
     const valid = input.proposed.flatMap((each) => {
       try {
         const decision = Decision.of(DecisionId.of(input.newId()), each);
-        return input.grounds.allows(decision) ? [decision] : [];
+        return input.evidence.supports(decision) ? [decision] : [];
       } catch (error) {
         if (error instanceof InvalidDecisionError) {
           return [];
@@ -185,9 +189,9 @@ export class DecisionSet
     });
 
     const recorded = this.with({
-      decidedIn: input.runId,
+      sourceRunId: input.runId,
       decisions: valid,
-      draft: null,
+      generation: null,
     });
     recorded.record(
       new DecisionsRecorded(
@@ -258,9 +262,9 @@ export class DecisionSet
   }
 
   private with(change: {
-    decidedIn?: RunId;
+    sourceRunId?: RunId;
     decisions?: readonly Decision[];
-    draft?: DecisionDraft | null;
+    generation?: DecisionGeneration | null;
     status?: DecisionStatus;
     discarded?: boolean;
   }): DecisionSet {
@@ -268,9 +272,9 @@ export class DecisionSet
       this.id,
       this.taskId,
       this.workspaceId,
-      change.decidedIn ?? this.decidedIn,
+      change.sourceRunId ?? this.sourceRunId,
       change.decisions ?? this.decisions,
-      change.draft !== undefined ? change.draft : this.draft,
+      change.generation !== undefined ? change.generation : this.generation,
       change.status ?? this.status,
       change.discarded ?? this.discarded,
       this.version,

@@ -18,29 +18,29 @@ import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-23T12:00:00.000Z');
 
-const LAPSED = new Date('2026-09-01T00:00:00.000Z');
+const EXPIRED = new Date('2026-09-01T00:00:00.000Z');
 
-const listing = (name: string, needs: Plan) => ({
+const metadata = (name: string, requiredPlan: Plan) => ({
   name: CatalogName.of(name),
   version: CatalogVersion.of('1.0.0'),
-  needs,
+  requiredPlan,
   description: `The ${name} item.`,
 });
 
-const tool = (name: string, needs: Plan) =>
-  CatalogTool.of(listing(name, needs), []);
+const tool = (name: string, requiredPlan: Plan) =>
+  CatalogTool.of(metadata(name, requiredPlan), []);
 
-const skill = (name: string, needs: Plan, brings: readonly string[]) =>
+const skill = (name: string, requiredPlan: Plan, tools: readonly string[]) =>
   CatalogSkill.of(
-    listing(name, needs),
+    metadata(name, requiredPlan),
     [{ path: 'SKILL.md', text: `# ${name}` }],
-    brings.map((each) => CatalogItemId.parse(each)),
+    tools.map((each) => CatalogItemId.parse(each)),
   );
 
 const catalogOf = (items: readonly CatalogItem[]): CatalogRepository => ({
   versionsOf: (kind, name) =>
     items.filter(
-      (each) => each.kind === kind && each.listing.name.equals(name),
+      (each) => each.kind === kind && each.metadata.name.equals(name),
     ),
   find: (id) => items.find((each) => each.id.equals(id)) ?? null,
 });
@@ -118,7 +118,7 @@ describe('resolveEntitled', () => {
     });
   });
 
-  it('denies what the plan does not include, naming the plan it needs', () => {
+  it('denies what the plan does not include, naming the plan it requires', () => {
     expect(
       resolveEntitled(
         'catalog.web-search@1.0.0',
@@ -133,30 +133,30 @@ describe('resolveEntitled', () => {
         id: 'catalog.web-search@1.0.0',
         reason: 'not-entitled',
         detail:
-          'Catalog item catalog.web-search@1.0.0 needs the Team plan. Workspace plan: Free',
+          'Catalog item catalog.web-search@1.0.0 requires the Team plan. Workspace plan: Free',
       },
     });
   });
 
-  it('denies what a plan past the day it lapses included, as lapsed', () => {
+  it('denies what a plan included after the plan expires, as expired', () => {
     expect(
       resolveEntitled(
         'catalog.web-search@1.0.0',
         'tool',
         CATALOG,
-        WorkspacePlan.of(Plan.team, LAPSED),
+        WorkspacePlan.of(Plan.team, EXPIRED),
         NOW,
       ),
-    ).toMatchObject({ entitled: false, denial: { reason: 'lapsed' } });
+    ).toMatchObject({ entitled: false, denial: { reason: 'expired' } });
   });
 
-  it('denies what a lapsed plan never included as not entitled, not as lapsed', () => {
+  it('denies what an expired plan never included as not entitled, not as expired', () => {
     expect(
       resolveEntitled(
         'catalog.web-search@1.0.0',
         'tool',
         CATALOG,
-        WorkspacePlan.of(Plan.free, LAPSED),
+        WorkspacePlan.of(Plan.free, EXPIRED),
         NOW,
       ),
     ).toMatchObject({ entitled: false, denial: { reason: 'not-entitled' } });
@@ -179,7 +179,7 @@ describe('resolveEntitledItem', () => {
 });
 
 describe('resolveEntitledFor', () => {
-  it('entitles a skill with the tools it brings', () => {
+  it('entitles a skill with the tools it uses', () => {
     const entitled = resolveEntitledFor(
       { tools: [], skills: ['catalog.research@1.0.0'] },
       CATALOG,
@@ -195,7 +195,7 @@ describe('resolveEntitledFor', () => {
     expect(entitled.denied).toEqual([]);
   });
 
-  it('checks each tool a skill brings against the plan on its own', () => {
+  it('checks each tool a skill uses against the plan on its own', () => {
     const entitled = resolveEntitledFor(
       { tools: [], skills: ['catalog.research@1.0.0'] },
       CATALOG,
@@ -210,7 +210,7 @@ describe('resolveEntitledFor', () => {
     ]);
   });
 
-  it('brings none of the tools of a skill it denies', () => {
+  it('entitles none of the tools of a skill it denies', () => {
     const entitled = resolveEntitledFor(
       { tools: [], skills: ['catalog.compliance@1.0.0'] },
       CATALOG,
@@ -225,7 +225,7 @@ describe('resolveEntitledFor', () => {
     ]);
   });
 
-  it('entitles or denies each id once, however often it is named or brought', () => {
+  it('entitles or denies each id once, however often it is requested or used by a skill', () => {
     const entitled = resolveEntitledFor(
       {
         tools: [

@@ -1,4 +1,4 @@
-import type { RepositorySummary } from '@github/application/ports/repository-catalog.port';
+import type { RepositorySummary } from '@github/application/ports/installation-repositories.port';
 import { ListRepositoriesQuery } from '@github/application/queries/list-repositories.query';
 import { RepositoryResponseDto } from '@github/presentation/http/dto/repository.response.dto';
 import { Controller, Get, NotFoundException, Param } from '@nestjs/common';

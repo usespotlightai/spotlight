@@ -1,10 +1,10 @@
 import {
   PullRequest,
-  type PullRequestFacts,
+  type PullRequestSnapshot,
   type WebhookComment,
   type WebhookReview,
 } from '@github/domain/aggregates/pull-request.aggregate';
-import type { PullRequestRecorded } from '@github/domain/events/pull-request-recorded.event';
+import type { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
 import type { PullRequestThread } from '@github/domain/value-objects/bot-activity.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -18,7 +18,9 @@ const MERGED = new Date('2026-09-21T09:00:00Z');
 const NOW = new Date('2026-09-25T00:00:00Z');
 const DAY = 24 * 60 * 60 * 1000;
 
-const factsOf = (over: Partial<PullRequestFacts> = {}): PullRequestFacts => ({
+const snapshotOf = (
+  over: Partial<PullRequestSnapshot> = {},
+): PullRequestSnapshot => ({
   url: URL_7,
   repository: Repository.of('acme/api'),
   number: 7,
@@ -58,7 +60,7 @@ const comment = (
   on: 'line',
   action,
   login: over.byBot ? 'coderabbitai[bot]' : 'grace',
-  answers: null,
+  inReplyToId: null,
   byBot: false,
   ...over,
 });
@@ -69,7 +71,7 @@ const thread = (
   over: Partial<PullRequestThread> = {},
 ): PullRequestThread => ({
   id,
-  opener: null,
+  firstCommentId: null,
   login: 'coderabbitai[bot]',
   byBot: true,
   resolved,
@@ -90,7 +92,7 @@ const stored = (pullRequest: PullRequest) =>
     openedAt: pullRequest.openedAt,
     draft: pullRequest.draft,
     readyForReviewAt: pullRequest.readyForReviewAt,
-    draftSpells: pullRequest.draftSpells,
+    draftPeriods: pullRequest.draftPeriods,
     state: pullRequest.state,
     closedAt: pullRequest.closedAt,
     updatedAt: pullRequest.updatedAt,
@@ -105,33 +107,34 @@ const stored = (pullRequest: PullRequest) =>
     version: pullRequest.version + 1,
   });
 
-const received = (over: Partial<PullRequestFacts> = {}) => {
-  const first = PullRequest.fromWebhook(WORKSPACE, factsOf(over), NOW);
+const received = (over: Partial<PullRequestSnapshot> = {}) => {
+  const first = PullRequest.fromWebhook(WORKSPACE, snapshotOf(over), NOW);
 
   if (!first) {
-    throw new Error('Expected the pull request to be recorded');
+    throw new Error('Expected the pull request to be updated');
   }
 
   return first;
 };
 
-const opened = (over: Partial<PullRequestFacts> = {}) => stored(received(over));
+const opened = (over: Partial<PullRequestSnapshot> = {}) =>
+  stored(received(over));
 
 const kinds = (pullRequest: PullRequest) =>
   pullRequest.pullEvents().map((each) => each.kind);
 
-const recorded = (pullRequest: PullRequest) =>
+const updated = (pullRequest: PullRequest) =>
   (
     pullRequest
       .pullEvents()
-      .find((each) => each.kind === 'pull-request.recorded') as
-      | PullRequestRecorded
+      .find((each) => each.kind === 'pull-request.updated') as
+      | PullRequestUpdated
       | undefined
-  )?.recorded;
+  )?.updated;
 
 describe('PullRequest', () => {
   it('records what it received about a pull request, whether or not a task owns it', () => {
-    expect(recorded(received())).toMatchObject({
+    expect(updated(received())).toMatchObject({
       pullRequest: URL_7.value,
       repository: 'acme/api',
       number: 7,
@@ -152,8 +155,8 @@ describe('PullRequest', () => {
 
     const events = changed.pullEvents();
 
-    expect(events.map((each) => each.kind)).toEqual(['pull-request.recorded']);
-    expect((events[0] as PullRequestRecorded).recorded).toMatchObject({
+    expect(events.map((each) => each.kind)).toEqual(['pull-request.updated']);
+    expect((events[0] as PullRequestUpdated).updated).toMatchObject({
       reviews: 2,
       version: 2,
     });
@@ -163,16 +166,16 @@ describe('PullRequest', () => {
     const original = opened();
     const reviewed = stored(original.recordReview(review(1, 'approved', 9)));
 
-    expect(original.describe(factsOf())).toBe(original);
+    expect(original.updateFrom(snapshotOf())).toBe(original);
     expect(reviewed.recordReview(review(1, 'approved', 9))).toBe(reviewed);
   });
 
   it('keeps a merged pull request merged, whatever it receives after', () => {
-    const merged = opened().describe(
-      factsOf({ state: 'merged', closedAt: MERGED }),
+    const merged = opened().updateFrom(
+      snapshotOf({ state: 'merged', closedAt: MERGED }),
     );
-    const after = stored(merged).describe(
-      factsOf({ state: 'closed', closedAt: at(23), title: 'Renamed' }),
+    const after = stored(merged).updateFrom(
+      snapshotOf({ state: 'closed', closedAt: at(23), title: 'Renamed' }),
     );
 
     expect(after.state).toBe('merged');
@@ -182,7 +185,7 @@ describe('PullRequest', () => {
 
   it('keeps the size it knows where it later receives none', () => {
     expect(
-      opened().describe(factsOf({ size: null, title: 'New' })).size,
+      opened().updateFrom(snapshotOf({ size: null, title: 'New' })).size,
     ).toEqual({ additions: 40, deletions: 3, changedFiles: 2 });
   });
 
@@ -195,17 +198,18 @@ describe('PullRequest', () => {
   it('ignores what GitHub said before what it already received, however late it arrives', () => {
     const newer = opened({ title: 'Newer', updatedAt: at(12) });
 
-    expect(newer.describe(factsOf({ title: 'Older', updatedAt: at(11) }))).toBe(
-      newer,
-    );
     expect(
-      newer.describe(factsOf({ title: 'Newest', updatedAt: at(13) })).title,
+      newer.updateFrom(snapshotOf({ title: 'Older', updatedAt: at(11) })),
+    ).toBe(newer);
+    expect(
+      newer.updateFrom(snapshotOf({ title: 'Newest', updatedAt: at(13) }))
+        .title,
     ).toBe('Newest');
   });
 
   it('remembers GitHub touching it without saying anything new', () => {
-    const touched = opened({ updatedAt: at(12) }).describe(
-      factsOf({ updatedAt: at(14) }),
+    const touched = opened({ updatedAt: at(12) }).updateFrom(
+      snapshotOf({ updatedAt: at(14) }),
     );
 
     expect(touched.updatedAt).toEqual(at(14));
@@ -214,8 +218,10 @@ describe('PullRequest', () => {
 
   it('clears when it closed once it opens again', () => {
     const reopened = stored(
-      opened().describe(factsOf({ state: 'closed', closedAt: at(12) })),
-    ).describe(factsOf({ state: 'open', closedAt: null, updatedAt: at(13) }));
+      opened().updateFrom(snapshotOf({ state: 'closed', closedAt: at(12) })),
+    ).updateFrom(
+      snapshotOf({ state: 'open', closedAt: null, updatedAt: at(13) }),
+    );
 
     expect(reopened.state).toBe('open');
     expect(reopened.closedAt).toBeNull();
@@ -223,16 +229,16 @@ describe('PullRequest', () => {
 
   it('stays closed when told it is open no later than it closed', () => {
     const closed = stored(
-      opened().describe(
-        factsOf({ state: 'closed', closedAt: at(12), updatedAt: at(12) }),
+      opened().updateFrom(
+        snapshotOf({ state: 'closed', closedAt: at(12), updatedAt: at(12) }),
       ),
     );
 
     expect(
-      closed.describe(factsOf({ state: 'open', updatedAt: at(12) })).state,
+      closed.updateFrom(snapshotOf({ state: 'open', updatedAt: at(12) })).state,
     ).toBe('closed');
     expect(
-      closed.describe(factsOf({ state: 'open', updatedAt: null })).state,
+      closed.updateFrom(snapshotOf({ state: 'open', updatedAt: null })).state,
     ).toBe('closed');
   });
 
@@ -287,10 +293,10 @@ describe('PullRequest', () => {
 
       expect(dismissedAfter.reviewRounds).toBe(1);
       expect(dismissedAfter.firstReviewAt).toEqual(at(10));
-      expect(recorded(dismissedAfter)).toMatchObject({ reviews: 1 });
+      expect(updated(dismissedAfter)).toMatchObject({ reviews: 1 });
       expect(dismissedBefore.reviewRounds).toBe(0);
       expect(dismissedBefore.firstReviewAt).toBeNull();
-      expect(recorded(dismissedBefore)).toMatchObject({
+      expect(updated(dismissedBefore)).toMatchObject({
         reviews: 0,
         firstUnblockingReviewAt: at(9),
       });
@@ -339,39 +345,39 @@ describe('PullRequest', () => {
 
   describe('readiness for review', () => {
     it('is ready for review when it opened, unless it opened as a draft', () => {
-      expect(recorded(received())).toMatchObject({ readyForReviewAt: OPENED });
-      expect(recorded(received({ draft: true }))).toMatchObject({
+      expect(updated(received())).toMatchObject({ readyForReviewAt: OPENED });
+      expect(updated(received({ draft: true }))).toMatchObject({
         readyForReviewAt: null,
       });
     });
 
     it('becomes ready for review when GitHub marks the draft ready', () => {
-      const ready = opened({ draft: true }).describe(
-        factsOf({ markedReadyAt: at(11), updatedAt: at(11) }),
+      const ready = opened({ draft: true }).updateFrom(
+        snapshotOf({ markedReadyAt: at(11), updatedAt: at(11) }),
       );
 
       expect(ready.readyForReviewAt).toEqual(at(11));
-      expect(recorded(ready)).toMatchObject({ readyForReviewAt: at(11) });
+      expect(updated(ready)).toMatchObject({ readyForReviewAt: at(11) });
     });
 
     it('takes the time GitHub last changed it where it missed the draft being marked ready', () => {
       expect(
-        opened({ draft: true }).describe(factsOf({ updatedAt: at(12) }))
+        opened({ draft: true }).updateFrom(snapshotOf({ updatedAt: at(12) }))
           .readyForReviewAt,
       ).toEqual(at(12));
     });
 
     it('was first ready for review even after it turns back into a draft', () => {
       const ready = stored(
-        opened({ draft: true }).describe(
-          factsOf({ markedReadyAt: at(11), updatedAt: at(11) }),
+        opened({ draft: true }).updateFrom(
+          snapshotOf({ markedReadyAt: at(11), updatedAt: at(11) }),
         ),
       );
       const draftAgain = stored(
-        ready.describe(factsOf({ draft: true, updatedAt: at(12) })),
+        ready.updateFrom(snapshotOf({ draft: true, updatedAt: at(12) })),
       );
-      const readyAgain = draftAgain.describe(
-        factsOf({ markedReadyAt: at(13), updatedAt: at(13) }),
+      const readyAgain = draftAgain.updateFrom(
+        snapshotOf({ markedReadyAt: at(13), updatedAt: at(13) }),
       );
 
       expect(draftAgain.draft).toBe(true);
@@ -379,49 +385,50 @@ describe('PullRequest', () => {
       expect(readyAgain.readyForReviewAt).toEqual(at(11));
     });
 
-    it('keeps each spell back as a draft after it was first ready', () => {
+    it('keeps each period back as a draft after it was first ready', () => {
       const ready = stored(
-        opened({ draft: true }).describe(
-          factsOf({ markedReadyAt: at(11), updatedAt: at(11) }),
+        opened({ draft: true }).updateFrom(
+          snapshotOf({ markedReadyAt: at(11), updatedAt: at(11) }),
         ),
       );
       const draftAgain = stored(
-        ready.describe(
-          factsOf({ draft: true, markedDraftAt: at(12), updatedAt: at(12) }),
+        ready.updateFrom(
+          snapshotOf({ draft: true, markedDraftAt: at(12), updatedAt: at(12) }),
         ),
       );
-      const readyAgain = draftAgain.describe(
-        factsOf({ markedReadyAt: at(13), updatedAt: at(13) }),
+      const readyAgain = draftAgain.updateFrom(
+        snapshotOf({ markedReadyAt: at(13), updatedAt: at(13) }),
       );
 
-      expect(ready.draftSpells).toEqual([]);
-      expect(draftAgain.draftSpells).toEqual([{ from: at(12), to: null }]);
-      expect(readyAgain.draftSpells).toEqual([{ from: at(12), to: at(13) }]);
-      expect(recorded(readyAgain)).toMatchObject({
-        draftSpells: [{ from: at(12), to: at(13) }],
+      expect(ready.draftPeriods).toEqual([]);
+      expect(draftAgain.draftPeriods).toEqual([{ from: at(12), to: null }]);
+      expect(readyAgain.draftPeriods).toEqual([{ from: at(12), to: at(13) }]);
+      expect(updated(readyAgain)).toMatchObject({
+        draftPeriods: [{ from: at(12), to: at(13) }],
       });
       expect(
-        stored(readyAgain).describe(factsOf({ updatedAt: at(14) })).draftSpells,
+        stored(readyAgain).updateFrom(snapshotOf({ updatedAt: at(14) }))
+          .draftPeriods,
       ).toEqual([{ from: at(12), to: at(13) }]);
     });
 
-    it('opens a spell when GitHub turns it back into a draft before the word that it was ready arrives', () => {
+    it('opens a period when GitHub turns it back into a draft before the word that it was ready arrives', () => {
       const draftAgain = stored(
-        opened({ draft: true }).describe(
-          factsOf({ draft: true, markedDraftAt: at(12), updatedAt: at(12) }),
+        opened({ draft: true }).updateFrom(
+          snapshotOf({ draft: true, markedDraftAt: at(12), updatedAt: at(12) }),
         ),
       );
-      const lateReady = draftAgain.describe(
-        factsOf({ markedReadyAt: at(11), updatedAt: at(11) }),
+      const lateReady = draftAgain.updateFrom(
+        snapshotOf({ markedReadyAt: at(11), updatedAt: at(11) }),
       );
 
-      expect(draftAgain.draftSpells).toEqual([{ from: at(12), to: null }]);
+      expect(draftAgain.draftPeriods).toEqual([{ from: at(12), to: null }]);
       expect(lateReady.readyForReviewAt).toEqual(at(11));
       expect(lateReady.draft).toBe(true);
-      expect(lateReady.draftSpells).toEqual([{ from: at(12), to: null }]);
+      expect(lateReady.draftPeriods).toEqual([{ from: at(12), to: null }]);
     });
 
-    it('opens a spell when the first it receives is GitHub turning it back into a draft', () => {
+    it('opens a period when the first it receives is GitHub turning it back into a draft', () => {
       const draft = received({
         draft: true,
         markedDraftAt: at(12),
@@ -429,83 +436,85 @@ describe('PullRequest', () => {
       });
 
       expect(draft.readyForReviewAt).toBeNull();
-      expect(draft.draftSpells).toEqual([{ from: at(12), to: null }]);
+      expect(draft.draftPeriods).toEqual([{ from: at(12), to: null }]);
       expect(
-        stored(draft).describe(
-          factsOf({ markedReadyAt: at(14), updatedAt: at(14) }),
-        ).draftSpells,
+        stored(draft).updateFrom(
+          snapshotOf({ markedReadyAt: at(14), updatedAt: at(14) }),
+        ).draftPeriods,
       ).toEqual([{ from: at(12), to: at(14) }]);
     });
 
-    it('closes a spell at the time GitHub last changed it where it missed the draft being marked ready', () => {
+    it('closes a period at the time GitHub last changed it where it missed the draft being marked ready', () => {
       const draftAgain = stored(
-        opened().describe(
-          factsOf({ draft: true, markedDraftAt: at(10), updatedAt: at(10) }),
+        opened().updateFrom(
+          snapshotOf({ draft: true, markedDraftAt: at(10), updatedAt: at(10) }),
         ),
       );
 
       expect(
-        draftAgain.describe(factsOf({ updatedAt: at(13) })).draftSpells,
+        draftAgain.updateFrom(snapshotOf({ updatedAt: at(13) })).draftPeriods,
       ).toEqual([{ from: at(10), to: at(13) }]);
     });
 
-    it('keeps one spell open however often it learns the pull request is a draft', () => {
+    it('keeps one period open however often it learns the pull request is a draft', () => {
       const draftAgain = stored(
-        opened().describe(
-          factsOf({ draft: true, markedDraftAt: at(10), updatedAt: at(10) }),
+        opened().updateFrom(
+          snapshotOf({ draft: true, markedDraftAt: at(10), updatedAt: at(10) }),
         ),
       );
 
       expect(
-        draftAgain.describe(
-          factsOf({ draft: true, markedDraftAt: at(10), updatedAt: at(10) }),
+        draftAgain.updateFrom(
+          snapshotOf({ draft: true, markedDraftAt: at(10), updatedAt: at(10) }),
         ),
       ).toBe(draftAgain);
       expect(
-        draftAgain.describe(factsOf({ draft: true, updatedAt: at(11) }))
-          .draftSpells,
+        draftAgain.updateFrom(snapshotOf({ draft: true, updatedAt: at(11) }))
+          .draftPeriods,
       ).toEqual([{ from: at(10), to: null }]);
     });
 
-    it('misses a spell whose turn back into a draft arrives after a later word', () => {
-      const later = stored(opened().describe(factsOf({ updatedAt: at(13) })));
+    it('misses a period whose turn back into a draft arrives after a later word', () => {
+      const later = stored(
+        opened().updateFrom(snapshotOf({ updatedAt: at(13) })),
+      );
 
       expect(
-        later.describe(
-          factsOf({ draft: true, markedDraftAt: at(10), updatedAt: at(10) }),
+        later.updateFrom(
+          snapshotOf({ draft: true, markedDraftAt: at(10), updatedAt: at(10) }),
         ),
       ).toBe(later);
     });
 
-    it('keeps its spells when an earlier mark of ready arrives late', () => {
+    it('keeps its periods when an earlier mark of ready arrives late', () => {
       const guessed = stored(
-        opened({ draft: true }).describe(factsOf({ updatedAt: at(10) })),
+        opened({ draft: true }).updateFrom(snapshotOf({ updatedAt: at(10) })),
       );
       const drafted = stored(
-        guessed.describe(
-          factsOf({ draft: true, markedDraftAt: at(12), updatedAt: at(12) }),
+        guessed.updateFrom(
+          snapshotOf({ draft: true, markedDraftAt: at(12), updatedAt: at(12) }),
         ),
       );
-      const marked = drafted.describe(
-        factsOf({ markedReadyAt: at(9), updatedAt: at(9) }),
+      const marked = drafted.updateFrom(
+        snapshotOf({ markedReadyAt: at(9), updatedAt: at(9) }),
       );
 
       expect(marked.readyForReviewAt).toEqual(at(9));
-      expect(marked.draftSpells).toEqual([{ from: at(12), to: null }]);
+      expect(marked.draftPeriods).toEqual([{ from: at(12), to: null }]);
     });
 
     it('takes the time GitHub marked the draft ready even when it arrives after a later change', () => {
       const guessed = stored(
-        opened({ draft: true }).describe(factsOf({ updatedAt: at(12) })),
+        opened({ draft: true }).updateFrom(snapshotOf({ updatedAt: at(12) })),
       );
-      const marked = guessed.describe(
-        factsOf({ markedReadyAt: at(11), updatedAt: at(11) }),
+      const marked = guessed.updateFrom(
+        snapshotOf({ markedReadyAt: at(11), updatedAt: at(11) }),
       );
 
       expect(guessed.readyForReviewAt).toEqual(at(12));
       expect(marked.readyForReviewAt).toEqual(at(11));
       expect(marked.updatedAt).toEqual(at(12));
-      expect(recorded(marked)).toMatchObject({ readyForReviewAt: at(11) });
+      expect(updated(marked)).toMatchObject({ readyForReviewAt: at(11) });
     });
   });
 
@@ -517,7 +526,7 @@ describe('PullRequest', () => {
         .recordReview(review(3, 'approved', 10))
         .dismissReview(2);
 
-      expect(recorded(reviewed)).toMatchObject({
+      expect(updated(reviewed)).toMatchObject({
         firstUnblockingReviewAt: at(9),
         firstReviewAt: at(8),
       });
@@ -550,7 +559,7 @@ describe('PullRequest', () => {
         .recordReview(review(4, 'changes-requested', 11))
         .dismissReview(4);
 
-      expect(recorded(reviewed)).toMatchObject({
+      expect(updated(reviewed)).toMatchObject({
         humanReviewedAt: [at(9), at(12)],
       });
     });
@@ -565,13 +574,13 @@ describe('PullRequest', () => {
         .recordReview(review(2, 'approved', 10, true, 'renovate[bot]'))
         .recordReview(review(3, 'approved', 11))
         .recordComment(comment(10, 'created', bot))
-        .recordComment(comment(11, 'created', { ...bot, answers: 10 }))
+        .recordComment(comment(11, 'created', { ...bot, inReplyToId: 10 }))
         .recordComment(comment(12, 'created', { ...bot, on: 'conversation' }))
         .recordComment(
           comment(13, 'created', { ...bot, login: 'renovate[bot]' }),
         );
 
-      expect(recorded(busy)?.botActivity).toEqual([
+      expect(updated(busy)?.botActivity).toEqual([
         {
           login: 'coderabbitai[bot]',
           reviews: 1,
@@ -607,9 +616,9 @@ describe('PullRequest', () => {
         opened().recordComment(comment(11, 'deleted', bot)),
       );
 
-      expect(recorded(commented)?.botActivity).toBeUndefined();
+      expect(updated(commented)?.botActivity).toBeUndefined();
       expect(commented.botComments).toHaveLength(2);
-      expect(recorded(deleted)?.botActivity).toBeUndefined();
+      expect(updated(deleted)?.botActivity).toBeUndefined();
       expect(deleted.botComments.filter((each) => !each.deleted)).toHaveLength(
         1,
       );
@@ -623,12 +632,12 @@ describe('PullRequest', () => {
     it('counts the threads a bot opened and how many of them are resolved now', () => {
       const threaded = opened()
         .recordComment(comment(10, 'created', bot))
-        .resolveThread(thread('PRRT_1', true, { opener: 10 }))
+        .resolveThread(thread('PRRT_1', true, { firstCommentId: 10 }))
         .resolveThread(thread('PRRT_2', true))
         .resolveThread(thread('PRRT_2', false))
         .resolveThread(thread('PRRT_3', true));
 
-      expect(recorded(threaded)?.botActivity).toEqual([
+      expect(updated(threaded)?.botActivity).toEqual([
         {
           login: 'coderabbitai[bot]',
           reviews: 0,
@@ -652,7 +661,7 @@ describe('PullRequest', () => {
   });
 
   describe('reverts', () => {
-    const revert = (over: Partial<PullRequestFacts> = {}) =>
+    const revert = (over: Partial<PullRequestSnapshot> = {}) =>
       opened({
         url: PullRequestUrl.of('https://github.com/acme/api/pull/9'),
         number: 9,
@@ -662,8 +671,8 @@ describe('PullRequest', () => {
       });
 
     it('says which pull request a revert reverts once it merges', () => {
-      const merged = revert().describe(
-        factsOf({
+      const merged = revert().updateFrom(
+        snapshotOf({
           url: PullRequestUrl.of('https://github.com/acme/api/pull/9'),
           number: 9,
           title: 'Revert "Retry failed uploads"',
@@ -685,7 +694,7 @@ describe('PullRequest', () => {
     it('says nothing of a revert that has not merged', () => {
       expect(
         kinds(received({ title: 'Revert "Retry failed uploads"' })),
-      ).toEqual(['pull-request.recorded']);
+      ).toEqual(['pull-request.updated']);
     });
 
     it('marks a merged pull request reverted, once', () => {
@@ -694,7 +703,7 @@ describe('PullRequest', () => {
       const reverted = merged.recordRevert(by);
 
       expect(reverted.revertedBy).toEqual(by);
-      expect(recorded(reverted)).toMatchObject({ revertedBy: by.value });
+      expect(updated(reverted)).toMatchObject({ revertedBy: by.value });
       expect(stored(reverted).recordRevert(by).hasEvents).toBe(false);
     });
 
@@ -741,21 +750,21 @@ describe('PullRequest', () => {
       expect(
         PullRequest.fromWebhook(
           WORKSPACE,
-          factsOf({ state: 'merged', closedAt: long, openedAt: long }),
+          snapshotOf({ state: 'merged', closedAt: long, openedAt: long }),
           NOW,
         ),
       ).toBeNull();
       expect(
         PullRequest.fromWebhook(
           WORKSPACE,
-          factsOf({ openedAt: long, updatedAt: long }),
+          snapshotOf({ openedAt: long, updatedAt: long }),
           NOW,
         ),
       ).toBeNull();
       expect(
         PullRequest.fromWebhook(
           WORKSPACE,
-          factsOf({ openedAt: long, updatedAt: NOW }),
+          snapshotOf({ openedAt: long, updatedAt: NOW }),
           NOW,
         ),
       ).not.toBeNull();

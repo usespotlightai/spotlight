@@ -4,7 +4,7 @@ import type {
   RepositoryCredential,
 } from '@github/application/ports/repository-access.port';
 import type { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
-import { assertionFor } from '@github/infrastructure/github/app-assertion';
+import { appJwt } from '@github/infrastructure/github/app-jwt';
 import { Inject, Injectable } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
@@ -52,7 +52,7 @@ export class GitHubAppAccess implements RepositoryAccessPort {
       {
         method: 'POST',
         headers: {
-          authorization: `Bearer ${assertionFor(this.env)}`,
+          authorization: `Bearer ${appJwt(this.env)}`,
           accept: 'application/vnd.github+json',
           'x-github-api-version': '2022-11-28',
         },

@@ -1,6 +1,6 @@
 import type {
-  ReviewedRun,
   ReviewedTask,
+  RunForReview,
   WorkPort,
 } from '@change-review/application/ports/work.port';
 import { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
@@ -47,7 +47,7 @@ const signalling = (
               currentRunId: RUN,
               ...over.task,
             },
-      run: async (runId: RunId): Promise<ReviewedRun> => ({
+      run: async (runId: RunId): Promise<RunForReview> => ({
         id: runId,
         workspaceId: WorkspaceId.of('ws_1'),
         taskId: TASK,
@@ -62,7 +62,7 @@ const signalling = (
     { isConnected: async () => over.connected ?? true },
     {
       react: recording('react'),
-      withdraw: recording('withdraw'),
+      remove: recording('remove'),
     } satisfies PullRequestReactionsPort,
   );
 
@@ -70,7 +70,7 @@ const signalling = (
 };
 
 describe('SignalReviewing', () => {
-  it('looks at the pull request while its review runs', async () => {
+  it('adds the reviewing reaction to the pull request while its review runs', async () => {
     const { signal, reactions } = signalling();
 
     await signal.began(TASK, RUN);
@@ -78,7 +78,7 @@ describe('SignalReviewing', () => {
     expect(reactions).toEqual([`react eyes on ${PULL.value}`]);
   });
 
-  it('stops looking once the run that reviewed it ends', async () => {
+  it('removes the reviewing reaction once the run that reviewed it ends', async () => {
     const { signal, reactions } = signalling({
       task: { currentRunId: null },
       ended: [RUN],
@@ -86,10 +86,10 @@ describe('SignalReviewing', () => {
 
     await signal.ended(TASK, RUN);
 
-    expect(reactions).toEqual([`withdraw eyes on ${PULL.value}`]);
+    expect(reactions).toEqual([`remove eyes on ${PULL.value}`]);
   });
 
-  it('never starts looking for a run that has already ended, however late it learns it began', async () => {
+  it('never adds the reviewing reaction for a run that has already ended, however late it learns it began', async () => {
     const { signal, reactions } = signalling({ ended: [RUN] });
 
     await signal.began(TASK, RUN);
@@ -97,7 +97,7 @@ describe('SignalReviewing', () => {
     expect(reactions).toEqual([]);
   });
 
-  it('never starts looking for a run that is no longer the current run of the task', async () => {
+  it('never adds the reviewing reaction for a run that is no longer the current run of the task', async () => {
     const { signal, reactions } = signalling({ task: { currentRunId: NEXT } });
 
     await signal.began(TASK, RUN);
@@ -105,7 +105,7 @@ describe('SignalReviewing', () => {
     expect(reactions).toEqual([]);
   });
 
-  it('keeps looking where a later review of the same task is still running', async () => {
+  it('keeps the reviewing reaction where a later review of the same task is still running', async () => {
     const { signal, reactions } = signalling({
       task: { currentRunId: NEXT },
       ended: [RUN],

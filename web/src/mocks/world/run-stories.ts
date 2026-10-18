@@ -644,7 +644,7 @@ const pastStacksOf = (runId: string): ChangeStackResponseDto[] => {
                 id: `c1.l${place + 1}`,
                 title: `Change ${change.path ?? ''}`,
                 summary: storyOf(runId).output ?? '',
-                ranges: [{ hunk: `${runId}_h${place + 1}` }],
+                hunks: [{ hunk: `${runId}_h${place + 1}` }],
                 notes: [],
               })),
             },

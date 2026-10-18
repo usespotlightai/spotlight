@@ -1,11 +1,11 @@
 import { GITHUB_APP } from '@github/application/ports/github-app.port';
 import { GITHUB_WEBHOOKS } from '@github/application/ports/github-webhooks.port';
+import { INSTALLATION_REPOSITORIES } from '@github/application/ports/installation-repositories.port';
 import { PULL_REQUESTS } from '@github/application/ports/pull-request.port';
 import { PULL_REQUEST_COMMENTS } from '@github/application/ports/pull-request-comments.port';
 import { PULL_REQUEST_REACTIONS } from '@github/application/ports/pull-request-reactions.port';
 import { PULL_REQUEST_REVIEWS } from '@github/application/ports/pull-request-reviews.port';
 import { REPOSITORY_ACCESS } from '@github/application/ports/repository-access.port';
-import { REPOSITORY_CATALOG } from '@github/application/ports/repository-catalog.port';
 import { REPOSITORY_CONTENTS } from '@github/application/ports/repository-contents.port';
 import { REPOSITORY_GIT } from '@github/application/ports/repository-git.port';
 import { REVIEW_COMMENTS } from '@github/application/ports/review-comments.port';
@@ -22,7 +22,7 @@ import { Module } from '@nestjs/common';
   exports: [
     WORKSPACE_CONNECTIONS,
     REPOSITORY_ACCESS,
-    REPOSITORY_CATALOG,
+    INSTALLATION_REPOSITORIES,
     REPOSITORY_GIT,
     REPOSITORY_CONTENTS,
     PULL_REQUESTS,

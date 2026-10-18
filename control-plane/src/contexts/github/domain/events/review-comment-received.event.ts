@@ -15,7 +15,7 @@ export type ReceivedComment = {
   readonly url: string;
   readonly path: string;
   readonly body: string;
-  readonly answers: number | null;
+  readonly inReplyToId: number | null;
   readonly login: string | null;
   readonly writtenAt: Date | null;
 } & CommentPlace;

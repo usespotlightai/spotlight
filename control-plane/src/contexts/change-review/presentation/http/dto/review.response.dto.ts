@@ -50,10 +50,10 @@ export class ReviewCommentResponseDto {
   readonly authorImage: string | null;
 
   @ApiProperty({ description: 'Whether the caller wrote it' })
-  readonly yours: boolean;
+  readonly viewerIsAuthor: boolean;
 
   @ApiProperty({ description: 'Whether an agent wrote it, reviewing' })
-  readonly byAgent: boolean;
+  readonly isAgentAuthored: boolean;
 
   @ApiProperty({
     nullable: true,
@@ -91,8 +91,8 @@ export class ReviewCommentResponseDto {
     this.authorName = fields.authorName;
     this.authorLogin = fields.authorLogin;
     this.authorImage = fields.authorImage;
-    this.yours = fields.yours;
-    this.byAgent = fields.byAgent;
+    this.viewerIsAuthor = fields.viewerIsAuthor;
+    this.isAgentAuthored = fields.isAgentAuthored;
     this.replyTo = fields.replyTo;
     this.state = fields.state;
     this.failure = fields.failure;
@@ -110,10 +110,10 @@ export class ReviewResponseDto {
   readonly authorName: string;
 
   @ApiProperty()
-  readonly yours: boolean;
+  readonly viewerIsAuthor: boolean;
 
   @ApiProperty({ description: 'Whether an agent submitted it' })
-  readonly byAgent: boolean;
+  readonly isAgentAuthored: boolean;
 
   @ApiProperty({ enum: REVIEW_VERDICT_NAMES })
   readonly verdict: 'comment' | 'approve' | 'request-changes';
@@ -133,8 +133,8 @@ export class ReviewResponseDto {
   constructor(fields: Omit<ReviewResponseDto, never>) {
     this.id = fields.id;
     this.authorName = fields.authorName;
-    this.yours = fields.yours;
-    this.byAgent = fields.byAgent;
+    this.viewerIsAuthor = fields.viewerIsAuthor;
+    this.isAgentAuthored = fields.isAgentAuthored;
     this.verdict = fields.verdict;
     this.body = fields.body;
     this.state = fields.state;

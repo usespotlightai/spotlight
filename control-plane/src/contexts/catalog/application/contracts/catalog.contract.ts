@@ -29,7 +29,7 @@ export type CatalogDenialReason =
   | 'unknown'
   | 'wrong-kind'
   | 'not-entitled'
-  | 'lapsed';
+  | 'expired';
 
 export interface CatalogDenial {
   readonly id: string;
@@ -37,7 +37,7 @@ export interface CatalogDenial {
   readonly because: string;
 }
 
-export interface CatalogNamed {
+export interface CatalogRequest {
   readonly tools: readonly string[];
   readonly skills: readonly string[];
 }
@@ -50,6 +50,6 @@ export interface EntitledItems {
 
 export type CatalogInputValues = Readonly<Record<string, JsonValue>>;
 
-export type CatalogCallAnswer =
+export type CatalogCallResult =
   | { readonly kind: 'answered'; readonly output: unknown }
   | { readonly kind: 'denied'; readonly denial: CatalogDenial };

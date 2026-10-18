@@ -36,7 +36,7 @@ type Journal interface {
 	AwaitsPerson(ctx context.Context, runID string, turn protocol.Completion) (bool, error)
 	Suspend(ctx context.Context, runID string, requeue bool) (protocol.Suspension, error)
 	UseTool(ctx context.Context, runID, name string, input json.RawMessage) (json.RawMessage, error)
-	DraftChangeStack(ctx context.Context, runID, repository, diff, base string) error
+	GenerateChangeStack(ctx context.Context, runID, repository, diff, base string) error
 	ReplyToReviewComment(ctx context.Context, runID string, reply protocol.ReviewCommentReply) error
 	Trace(ctx context.Context, runID, taskID string) (json.RawMessage, error)
 	History(ctx context.Context, runID string, request protocol.HistoryRequest) (json.RawMessage, error)
@@ -360,7 +360,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	lifecycle.note(AgentExited, log)
 	if !replays(run) {
-		opts.draftStacks(ctx, run, space.Dir, bases, log)
+		opts.generateStacks(ctx, run, space.Dir, bases, log)
 	}
 	lifecycle.note(Drained, log)
 
@@ -376,7 +376,7 @@ func handingOver(
 	}
 
 	return func(ctx context.Context) {
-		opts.draftStacks(ctx, run, dir, bases, log)
+		opts.generateStacks(ctx, run, dir, bases, log)
 	}
 }
 
@@ -403,7 +403,7 @@ func (o Options) heartbeat() time.Duration {
 	return heartbeat
 }
 
-func (o Options) draftStacks(
+func (o Options) generateStacks(
 	ctx context.Context, run protocol.Run, dir string, bases map[string]string, log *slog.Logger,
 ) {
 	if !run.Spec.Diffs {
@@ -427,12 +427,12 @@ func (o Options) draftStacks(
 			continue
 		}
 
-		if err := o.Journal.DraftChangeStack(ctx, run.ID, checkout.Path, diff, bases[checkout.Path]); err != nil {
+		if err := o.Journal.GenerateChangeStack(ctx, run.ID, checkout.Path, diff, bases[checkout.Path]); err != nil {
 			log.Warn("could not hand over what a run changed", "path", checkout.Path, "error", err)
 			continue
 		}
 
-		log.Info("drafting a change stack", "path", checkout.Path)
+		log.Info("generating a change stack", "path", checkout.Path)
 	}
 }
 

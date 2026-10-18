@@ -1,4 +1,4 @@
-import type { DecisionDrafterPort } from '@change-review/application/ports/decision-drafter.port';
+import type { DecisionGeneratorPort } from '@change-review/application/ports/decision-generator.port';
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
@@ -13,14 +13,14 @@ export class RequestDecisions {
   constructor(
     private readonly work: WorkPort,
     private readonly sets: DecisionSetRepository,
-    private readonly drafter: DecisionDrafterPort,
+    private readonly generator: DecisionGeneratorPort,
     private readonly transaction: TransactionPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
   ) {}
 
   async runEnded(taskId: TaskId, runId: RunId): Promise<void> {
-    if (!this.drafter.available) {
+    if (!this.generator.available) {
       return;
     }
 
@@ -41,7 +41,7 @@ export class RequestDecisions {
       const existing = await this.sets.forTask(taskId);
 
       if (existing) {
-        await this.sets.save(existing.requestDraft(runId, now));
+        await this.sets.save(existing.requestGeneration(runId, now));
         return;
       }
 
@@ -50,7 +50,7 @@ export class RequestDecisions {
           id: DecisionSetId.of(this.ids.generate()),
           taskId,
           workspaceId: task.workspaceId,
-        }).requestDraft(runId, now),
+        }).requestGeneration(runId, now),
       );
     });
   }

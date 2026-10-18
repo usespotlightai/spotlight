@@ -119,7 +119,7 @@ describe('Review', () => {
     expect(posted.githubId).toBe(99);
   });
 
-  it('says where GitHub put each comment it placed, one by one', () => {
+  it('says where GitHub put each comment it posted, one by one', () => {
     const review = submit({ drafts: [draftBy(ADA)] });
     review.pullEvents();
     const github = { id: 101, url: 'https://github.com/c/101' };
@@ -131,14 +131,14 @@ describe('Review', () => {
     expect(posted.pullEvents()).toEqual([
       expect.objectContaining({ kind: 'review.posted' }),
       expect.objectContaining({
-        kind: 'review.comment-placed',
+        kind: 'review.comment-posted',
         commentId: ReviewCommentId.of('comment_1'),
         github,
       }),
     ]);
   });
 
-  it('fails to post once, handing its comments back', () => {
+  it('fails to post once, and returns its comments to draft', () => {
     const review = submit({ drafts: [draftBy(ADA)] });
     review.pullEvents();
     const failed = review.failedToPost();
@@ -154,29 +154,29 @@ describe('Review', () => {
     expect(() => failed.postedAs(99, NOW)).toThrow(InvalidReviewError);
   });
 
-  it('is withdrawn only once every comment it contained is gone and it says nothing else', () => {
+  it('is discarded only when every comment it contained is gone and it has no other content', () => {
     const review = submit({ drafts: [draftBy(ADA)] });
     const submitted = draftBy(ADA).submittedIn(review.id);
     review.pullEvents();
 
-    expect(review.silentWith([submitted])).toBe(false);
-    expect(() => review.withdraw([submitted])).toThrow(InvalidReviewError);
-    expect(review.silentWith([])).toBe(true);
+    expect(review.isEmpty([submitted])).toBe(false);
+    expect(() => review.discard([submitted])).toThrow(InvalidReviewError);
+    expect(review.isEmpty([])).toBe(true);
 
-    const withdrawn = review.withdraw([]);
+    const discarded = review.discard([]);
 
-    expect(withdrawn.state).toBe('withdrawn');
-    expect(withdrawn.pullEvents()).toEqual([
+    expect(discarded.state).toBe('discarded');
+    expect(discarded.pullEvents()).toEqual([
       expect.objectContaining({
         kind: 'review.comment-not-posted',
         commentId: ReviewCommentId.of('comment_1'),
       }),
     ]);
     expect(
-      submit({ verdict: 'approve', drafts: [draftBy(ADA)] }).silentWith([]),
+      submit({ verdict: 'approve', drafts: [draftBy(ADA)] }).isEmpty([]),
     ).toBe(false);
     expect(
-      submit({ body: 'Overall fine', drafts: [draftBy(ADA)] }).silentWith([]),
+      submit({ body: 'Overall fine', drafts: [draftBy(ADA)] }).isEmpty([]),
     ).toBe(false);
   });
 });

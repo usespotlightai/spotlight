@@ -48,7 +48,7 @@ export const changeStack = pgTable(
     files: jsonb('files').$type<StoredFile[]>().notNull(),
     cohorts: jsonb('cohorts').$type<StoredCohort[]>().notNull().default([]),
     failure: text('failure'),
-    draftedAt: timestamp('drafted_at').notNull(),
+    startedAt: timestamp('started_at').notNull(),
     completedAt: timestamp('completed_at'),
     facts: jsonb('facts').$type<StoredFacts>().notNull(),
     checkCommand: text('check_command'),
@@ -58,14 +58,14 @@ export const changeStack = pgTable(
       .notNull()
       .default([]),
     checkPlacementImage: text('check_placement_image'),
-    reordering: boolean('reordering').notNull().default(false),
-    spent: jsonb('spent').$type<StoredModelUsage>().notNull(),
+    redrafting: boolean('redrafting').notNull().default(false),
+    usage: jsonb('usage').$type<StoredModelUsage>().notNull(),
     jobAttempts: integer('job_attempts').notNull().default(0),
     jobDueAt: timestamp('job_due_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
-    index('change_stack_run_idx').on(table.runId, table.draftedAt),
-    index('change_stack_task_idx').on(table.taskId, table.draftedAt),
+    index('change_stack_run_idx').on(table.runId, table.startedAt),
+    index('change_stack_task_idx').on(table.taskId, table.startedAt),
   ],
 );

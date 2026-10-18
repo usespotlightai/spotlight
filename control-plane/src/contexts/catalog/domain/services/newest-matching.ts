@@ -16,8 +16,8 @@ export const newestMatching = (
   constraint: VersionConstraint,
 ): VersionMatch => {
   const [newest] = versions
-    .filter((each) => constraint.matches(each.listing.version))
-    .sort((a, b) => b.listing.version.compare(a.listing.version));
+    .filter((each) => constraint.matches(each.metadata.version))
+    .sort((a, b) => b.metadata.version.compare(a.metadata.version));
 
   if (newest) {
     return { found: true, item: newest };
@@ -29,7 +29,7 @@ export const newestMatching = (
       versions.length === 0
         ? `Catalog has no ${kind} named ${name.value}.`
         : `No version of catalog ${kind} ${name.value} matches ${constraint.value}. Available versions: ${versions
-            .map((each) => each.listing.version.value)
+            .map((each) => each.metadata.version.value)
             .join(', ')}`,
   };
 };
