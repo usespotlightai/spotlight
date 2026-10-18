@@ -94,7 +94,7 @@ describe('listing harnesses for a workspace', () => {
           : null,
     };
 
-    const requirements = () => {
+    const requirements = (release: string | null = '20261018-01') => {
       const namedIn = vi.fn(async () => ['ghcr.io/acme/widgets:1']);
 
       return {
@@ -103,7 +103,7 @@ describe('listing harnesses for a workspace', () => {
           launch,
           authenticator,
           { namedIn } satisfies LineImagesPort,
-          { release: '20261018-01' },
+          { release },
         ),
       };
     };
@@ -123,6 +123,21 @@ describe('listing harnesses for a workspace', () => {
         images: ['ghcr.io/acme/widgets:1'],
       });
       expect(namedIn).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
+    });
+
+    it('names no release for hosts to follow when the control plane runs a staging build, or does not know its release', async () => {
+      for (const release of ['3d216a954c1e', 'develop', null]) {
+        const { subject } = requirements(release);
+
+        expect(
+          await subject.execute(
+            new HostRequirementsQuery({
+              bearer: 'pool-token',
+              trust: undefined,
+            }),
+          ),
+        ).toMatchObject({ hostRelease: null });
+      }
     });
 
     it('answers nothing to a host that no pool or trust accepts', async () => {

@@ -1,5 +1,8 @@
 const DATED_RELEASE = /^(\d{8})-(\d+)$/;
 
+export const isDatedRelease = (release: string): boolean =>
+  DATED_RELEASE.test(release);
+
 export const isOlderRelease = (release: string, minimum: string): boolean => {
   const have = DATED_RELEASE.exec(release);
   const need = DATED_RELEASE.exec(minimum);

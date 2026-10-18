@@ -949,7 +949,7 @@ export type PoolQueueResponseDto = {
 
 export type HostReleaseResponseDto = {
   /**
-   * The release this control plane runs; a host on another release updates to it, unless the operator turned that off. Null when the control plane does not know its release
+   * The published release this control plane runs; a host on another release updates to it, unless the operator turned that off. Null when the control plane runs a staging build or does not know its release
    */
   release: string | null;
   /**
