@@ -11,10 +11,10 @@ const outcome: RunOutcomeShape = {
   endedAt: '2026-09-30T10:00:00.000Z',
   ending: 'failed',
   failure: 'exited',
-  round: 2,
+  visit: 2,
   checks: 'failed',
-  next: { act: 'sent-back', at: '2026-09-30T11:00:00.000Z' },
-  delivery: 'merged',
+  firstHumanAction: { kind: 'sent-back', at: '2026-09-30T11:00:00.000Z' },
+  pullRequestState: 'merged',
 };
 
 describe('history selection', () => {

@@ -1,15 +1,15 @@
-import type { OutcomesPort } from '@replays/application/ports/outcomes.port';
+import type { InsightsPort } from '@replays/application/ports/insights.port';
 import { ReplayRejudgingFailed } from '@replays/domain/events/replay-rejudging-failed.event';
 import type { ReplayRejudgingRequested } from '@replays/domain/events/replay-rejudging-requested.event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 
 export class RequestReplayRejudging {
-  constructor(private readonly outcomes: OutcomesPort) {}
+  constructor(private readonly insights: InsightsPort) {}
 
   async requested(
     event: ReplayRejudgingRequested,
   ): Promise<readonly DomainEvent[]> {
-    const ordered = await this.outcomes.judgeAgain(event.run);
+    const ordered = await this.insights.judgeAgain(event.run);
 
     return ordered === 'requested'
       ? []

@@ -31,9 +31,9 @@ export const comparedAgainst = (
   replay: Replay,
   setReplays: readonly Replay[],
 ): Replay | null => {
-  const counterpart = replay.counterpart;
-  const against = counterpart
-    ? (setReplays.find((each) => each.id.equals(counterpart)) ?? null)
+  const reference = replay.reference;
+  const against = reference
+    ? (setReplays.find((each) => each.id.equals(reference)) ?? null)
     : baselineOf(setReplays);
 
   return against && !against.id.equals(replay.id) ? against : null;
@@ -49,7 +49,7 @@ export const baselineFor = (
     .filter(
       (each) =>
         each.baseline &&
-        each.scoringDigest === liveScoring &&
+        each.scoringHash === liveScoring &&
         covers(each, runs, repeats),
     )
     .sort(newestFirst);

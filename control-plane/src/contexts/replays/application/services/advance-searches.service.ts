@@ -2,7 +2,7 @@ import type { WorkPort } from '@replays/application/ports/work.port';
 import type { CancelSearch } from '@replays/application/services/cancel-search.service';
 import type { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
 import type { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
-import type { NoteSearchProgress } from '@replays/application/services/note-search-progress.service';
+import type { RecordSearchProgress } from '@replays/application/services/record-search-progress.service';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
@@ -24,7 +24,7 @@ export class AdvanceSearches implements PendingJobsPort {
     private readonly work: WorkPort,
     private readonly dispatching: DispatchSearchIteration,
     private readonly holdingOut: HoldOutSearch,
-    private readonly noting: NoteSearchProgress,
+    private readonly recording: RecordSearchProgress,
     private readonly cancellingSearches: CancelSearch,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
@@ -42,7 +42,7 @@ export class AdvanceSearches implements PendingJobsPort {
   }
 
   private async advance(search: Search): Promise<void> {
-    await this.noting.reconcile(search, await this.runsOf(search));
+    await this.recording.reconcile(search, await this.runsOf(search));
 
     const fresh = await this.searches.find(search.id);
 

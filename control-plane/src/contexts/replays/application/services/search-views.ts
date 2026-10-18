@@ -9,18 +9,15 @@ import {
   gainView,
   intervalView,
   modelSpentView,
+  moneyView,
   pairTallyView,
-  spendView,
 } from '@replays/application/services/replay-views';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { frontierOf } from '@replays/domain/services/frontier';
-import {
-  type OnlyOnSeenTasks,
-  overfitOf,
-} from '@replays/domain/services/overfit';
+import { type Overfit, overfitOf } from '@replays/domain/services/overfit';
 import { rankedOf } from '@replays/domain/services/search-ranking';
 import { scoresOf } from '@replays/domain/services/search-scores';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
@@ -37,7 +34,7 @@ const nameOf = (search: Search, candidateId: CandidateId): string =>
   search.proposals.find((each) => each.candidateId.equals(candidateId))?.name
     .value ?? SEED_NAME;
 
-const onlyOnSeenTasksOf = (scored: Scored): OnlyOnSeenTasks | null =>
+const overfitOfScored = (scored: Scored): Overfit | null =>
   scored.seed ? null : overfitOf(scored.searchedGain, scored.heldOutGain);
 
 const bestOf = (search: Search, scores: Scores): SearchBestDto | null => {
@@ -50,13 +47,13 @@ const bestOf = (search: Search, scores: Scores): SearchBestDto | null => {
     ? {
         candidateId: best.candidateId.value,
         name: nameOf(search, best.candidateId),
-        seed: best.seed,
+        isSeed: best.seed,
         searchScore: best.searchScore,
         searchInterval: intervalView(best.searchInterval),
         heldOutScore: best.heldOutScore,
         heldOutInterval: intervalView(best.heldOutInterval),
         costPerRun: best.costPerRun,
-        onlyOnSeenTasks: onlyOnSeenTasksOf(best),
+        overfit: overfitOfScored(best),
       }
     : null;
 };
@@ -80,7 +77,7 @@ const summaryOf = (search: Search, scores: Scores): SearchSummaryDto => ({
   stationId: search.station.stationId,
   setId: search.setId.value,
   state: search.current,
-  ending: search.ending,
+  stopReason: search.stopReason,
   agent: {
     harness: search.agent.harness,
     model: search.agent.model,
@@ -89,12 +86,12 @@ const summaryOf = (search: Search, scores: Scores): SearchSummaryDto => ({
   budget: {
     iterations: search.budget.iterations,
     perIteration: search.budget.perIteration,
-    ceiling: spendView(search.budget.ceiling),
+    ceiling: moneyView(search.budget.ceiling),
     concurrency: search.budget.concurrency,
     repeats: search.budget.repeats,
   },
   objective: search.objective,
-  spent: spendView(search.spent),
+  spent: moneyView(search.spent),
   iterationsRun: search.iterations.length,
   proposed: search.proposals.length,
   best: bestOf(search, scores),
@@ -146,7 +143,7 @@ export const searchDetailView = (
     return {
       candidateId: each.candidateId.value,
       name: nameOf(search, each.candidateId),
-      seed: each.seed,
+      isSeed: each.seed,
       iteration: candidate?.search?.iteration ?? null,
       hypothesis: candidate?.search?.hypothesis.value ?? null,
       fingerprint: candidate?.fingerprint.value ?? null,
@@ -168,9 +165,9 @@ export const searchDetailView = (
       searchedPairs: each.searchedPairs && pairTallyView(each.searchedPairs),
       heldOutPairs: each.heldOutPairs && pairTallyView(each.heldOutPairs),
       costPerRun: each.costPerRun,
-      spent: spendView(each.spent),
+      spent: moneyView(each.spent),
       onFrontier: onFrontier(each.candidateId),
-      onlyOnSeenTasks: onlyOnSeenTasksOf(each),
+      overfit: overfitOfScored(each),
       pullRequest: pullRequestOf(each.candidateId),
     };
   };
@@ -208,7 +205,7 @@ export const searchDetailView = (
               suggestion: cause.suggestion,
               recordedAt: cause.recordedAt.toISOString(),
             })),
-            outcome: each.outcome,
+            result: each.result,
             endedSearch: each.endedSearch,
           }
         : null,
@@ -216,9 +213,8 @@ export const searchDetailView = (
     seed: candidateView(scores.seed),
     candidates: scores.candidates.map(candidateView),
     frontier: frontier.map((each) => each.candidateId.value),
-    onlyOnSeenTasks: frontier.filter(
-      (each) => onlyOnSeenTasksOf(each) === 'marked',
-    ).length,
+    overfitCount: frontier.filter((each) => overfitOfScored(each) === 'likely')
+      .length,
     minGain,
   };
 };

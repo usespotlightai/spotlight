@@ -1,8 +1,8 @@
 import { SEARCHABLE_FIELDS } from '@replays/domain/services/searchable-changes';
 import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
-import type { SearchCause } from '@replays/domain/value-objects/search-cause.vo';
+import type { FailureCause } from '@replays/domain/value-objects/failure-cause.vo';
+import type { Money } from '@replays/domain/value-objects/money.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
-import type { Spend } from '@replays/domain/value-objects/spend.vo';
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 
 export const SEED_HYPOTHESIS =
@@ -16,12 +16,12 @@ export interface SearchBriefingFacts {
   readonly iteration: number;
   readonly iterations: number;
   readonly perIteration: number;
-  readonly left: Spend;
-  readonly ceiling: Spend;
+  readonly left: Money;
+  readonly ceiling: Money;
   readonly searchedTasks: number;
   readonly heldOutTasks: number;
   readonly objective: SearchObjective;
-  readonly configCauses: readonly SearchCause[];
+  readonly configCauses: readonly FailureCause[];
 }
 
 const AIMS: Readonly<Record<SearchObjective, string>> = {
@@ -29,7 +29,7 @@ const AIMS: Readonly<Record<SearchObjective, string>> = {
   cost: `## What counts as better\n\nThe live config already succeeds on nearly every task, so this search looks for the same success at less cost. A candidate is better when it costs less per run and succeeds as often as the live config, within noise. One that succeeds clearly less often is out, however cheap. Look for what the station spends without needing to: a cheaper model or a lower effort, a shorter prompt, fewer tools or skills.`,
 };
 
-const foundOf = (causes: readonly SearchCause[]): string[] =>
+const foundOf = (causes: readonly FailureCause[]): string[] =>
   causes.length === 0
     ? []
     : [
@@ -45,7 +45,7 @@ const foundOf = (causes: readonly SearchCause[]): string[] =>
         ].join('\n'),
       ];
 
-const money = (spend: Spend): string =>
+const money = (spend: Money): string =>
   `${spend.amount.toFixed(2)} ${spend.currency}`;
 
 const plural = (count: number, one: string, many = `${one}s`): string =>

@@ -20,8 +20,8 @@ import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo'
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
-import { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { replayCheck } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
@@ -70,11 +70,11 @@ const toCheck = (row: CheckRow): ReplayCheck =>
     }),
     liveFingerprint: StationFingerprint.of(row.liveFingerprint),
     candidateFingerprint: StationFingerprint.of(row.candidateFingerprint),
-    liveDigests: StationDigests.of({
+    liveHashes: StationHashes.of({
       behaviour: row.liveBehaviour,
       scoring: row.liveScoring,
     }),
-    candidateDigests: StationDigests.of({
+    candidateHashes: StationHashes.of({
       behaviour: row.candidateBehaviour,
       scoring: row.candidateScoring,
     }),
@@ -106,8 +106,8 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
 
   matching(
     stationId: string,
-    candidate: StationDigests,
-    live: StationDigests,
+    candidate: StationHashes,
+    live: StationHashes,
   ): Promise<readonly ReplayCheck[]> {
     return this.where(
       and(
@@ -193,10 +193,10 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
           referencePullRequest: added.reference.pullRequest,
           liveFingerprint: added.liveFingerprint.value,
           candidateFingerprint: added.candidateFingerprint.value,
-          liveBehaviour: added.liveDigests.behaviour,
-          liveScoring: added.liveDigests.scoring,
-          candidateBehaviour: added.candidateDigests.behaviour,
-          candidateScoring: added.candidateDigests.scoring,
+          liveBehaviour: added.liveHashes.behaviour,
+          liveScoring: added.liveHashes.scoring,
+          candidateBehaviour: added.candidateHashes.behaviour,
+          candidateScoring: added.candidateHashes.scoring,
           maxRegressions: added.threshold.maxRegressions,
           ceilingAmount: added.threshold.ceiling.amount,
           ceilingCurrency: added.threshold.ceiling.currency,

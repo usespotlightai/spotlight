@@ -1,6 +1,6 @@
 import type {
-  MemoryGroundNoteDto,
-  MemoryGroundStepDto,
+  MemoryProvenanceNoteDto,
+  MemoryProvenanceStepDto,
   PersonDto,
   ProposedMemoryDto,
 } from '@memory/application/dto/memory-review.dto';
@@ -15,7 +15,7 @@ export interface MemoryRetirementDto {
   readonly supersededBy: string | null;
 }
 
-interface MemoryGroundsDto {
+interface MemoryProvenanceDto {
   readonly taskId: string;
   readonly runId: string;
 }
@@ -36,7 +36,7 @@ export interface TeamMemoryDto {
   readonly approvedAt: string;
   readonly supersedes: string | null;
   readonly retirement: MemoryRetirementDto | null;
-  readonly grounds: MemoryGroundsDto | null;
+  readonly provenance: MemoryProvenanceDto | null;
   readonly runs: number;
 }
 
@@ -48,8 +48,8 @@ export interface MemoryLinkDto {
 
 export interface TeamMemoryDetailDto extends TeamMemoryDto {
   readonly harness: string | null;
-  readonly steps: readonly MemoryGroundStepDto[];
-  readonly notes: readonly MemoryGroundNoteDto[];
+  readonly steps: readonly MemoryProvenanceStepDto[];
+  readonly notes: readonly MemoryProvenanceNoteDto[];
   readonly superseded: MemoryLinkDto | null;
   readonly successor: MemoryLinkDto | null;
 }
@@ -61,7 +61,7 @@ export interface RunProposalDto extends ProposedMemoryDto {
 
 export interface RunMemoriesDto {
   readonly briefed: readonly TeamMemoryDto[];
-  readonly cut: readonly TeamMemoryDto[];
+  readonly omitted: readonly TeamMemoryDto[];
   readonly recalled: readonly TeamMemoryDto[];
   readonly proposed: readonly RunProposalDto[];
   readonly reviewItemId: string | null;

@@ -53,7 +53,7 @@ describe('the filters behind each pull request number', () => {
 
 describe('formatPullRequestFilterValue', () => {
   it('names what a filter narrows by in words', () => {
-    expect(formatPullRequestFilterValue('author', 'touched')).toBe(
+    expect(formatPullRequestFilterValue('author', 'reviewed')).toBe(
       'Others, with a Spotlight review task',
     );
     expect(formatPullRequestFilterValue('author', 'bots')).toBe('Bots alone');

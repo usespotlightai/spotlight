@@ -168,7 +168,7 @@ export function ReviewDepthOverTime({
               </dt>
               <dd className="text-foreground tabular-nums">{total.merged}</dd>
               <dd className="w-10 text-right text-muted-foreground tabular-nums">
-                {formatShare(total.share)}
+                {formatShare(total.rate)}
               </dd>
             </div>
           ))}

@@ -57,9 +57,9 @@ resource "spotlight_line" "core_delivery" {
     passes_to = ["completed"]
 
     judge {
-      rubric = file("\${path.module}/judges/build.md")
-      sample = 0.2
-      trust  = 0.6
+      rubric        = file("\${path.module}/judges/build.md")
+      sample        = 0.2
+      min_agreement = 0.6
     }
   }
 
@@ -119,7 +119,7 @@ const UNSET: Readonly<Record<string, HclField['unset']>> = {
 
 const JUDGE: HclGuardedBlock = {
   type: 'judge',
-  was: { rubric: 'Good runs ship.\n', sample: 0.2, trust: 0.6 },
+  was: { rubric: 'Good runs ship.\n', sample: 0.2, min_agreement: 0.6 },
 };
 
 const fieldsOf = (
@@ -571,7 +571,7 @@ describe('editedHclBlock', () => {
       ['harness   = "claude-code"', 'harness   = "codex"', 'harness'],
       ['check     = "npm test"', 'check     = "npm run test"', 'check'],
       ['passes_to = ["completed"]', 'passes_to = []', 'passes_to'],
-      ['sample = 0.2', 'sample = 0.3', 'judge'],
+      ['sample        = 0.2', 'sample        = 0.3', 'judge'],
       [
         'skills    = [spotlight_skill.core_grafana.key]',
         'skills    = []',

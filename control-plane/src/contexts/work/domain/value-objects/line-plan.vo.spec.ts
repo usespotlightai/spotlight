@@ -235,7 +235,7 @@ describe('LinePlan', () => {
             judge: StationJudge.of({
               rubric: 'A good run.',
               sample: 0.2,
-              trust: 0.6,
+              minAgreement: 0.6,
             }),
           }),
           station('code-review', { ends: true }),
@@ -283,7 +283,7 @@ describe('LinePlan', () => {
             judge: StationJudge.of({
               rubric: 'A good run.',
               sample: 0.2,
-              trust: 0.6,
+              minAgreement: 0.6,
             }),
             alerts: [
               StationAlert.of({

@@ -1,18 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const crossedAt = async (now: string) => {
+const firedAt = async (now: string) => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date(now));
   vi.resetModules();
 
-  const { ALERT_RISES_BY, alertCrossing } = await import(
+  const { ALERT_RISES_BY, alertFiring } = await import(
     '@/mocks/world/inbox-alert'
   );
-  const crossing = alertCrossing();
+  const firing = alertFiring();
 
   return {
     risesBy: ALERT_RISES_BY,
-    change: crossing ? crossing.value - (crossing.baseline ?? 0) : null,
+    change: firing ? firing.value - (firing.baseline ?? 0) : null,
   };
 };
 
@@ -32,7 +32,7 @@ describe('the seeded sent-back alert', () => {
     const changes: (number | null)[] = [];
 
     for (const now of at) {
-      const { risesBy, change } = await crossedAt(now);
+      const { risesBy, change } = await firedAt(now);
 
       expect(change).toBeGreaterThanOrEqual(risesBy - 1e-9);
       changes.push(change);

@@ -15,7 +15,7 @@ vi.mock('@/hooks/api/usePickSearchCandidate', () => ({
 const CANDIDATE: SearchCandidate = {
   candidateId: 'candidate_1',
   name: 'tests-first',
-  seed: false,
+  isSeed: false,
   iteration: 1,
   hypothesis: null,
   fingerprint: null,
@@ -36,7 +36,7 @@ const CANDIDATE: SearchCandidate = {
   costPerRun: 0.9,
   spent: { amount: 4.5, currency: 'USD' },
   onFrontier: true,
-  onlyOnSeenTasks: null,
+  overfit: null,
   pullRequest: null,
 };
 
@@ -61,7 +61,7 @@ describe('PickCandidate', () => {
   });
 
   it('warns before picking a candidate that gained only on the tasks the search could see, and still lets it be picked', () => {
-    renderPick({ ...CANDIDATE, onlyOnSeenTasks: 'marked' });
+    renderPick({ ...CANDIDATE, overfit: 'likely' });
 
     expect(screen.getByRole('note')).toHaveTextContent(
       'The gain showed only on searched tasks.',
@@ -76,7 +76,7 @@ describe('PickCandidate', () => {
   });
 
   it('offers no pick for the live config', () => {
-    const { container } = renderPick({ ...CANDIDATE, seed: true });
+    const { container } = renderPick({ ...CANDIDATE, isSeed: true });
 
     expect(container).toBeEmptyDOMElement();
   });

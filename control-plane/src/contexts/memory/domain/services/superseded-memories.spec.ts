@@ -24,7 +24,7 @@ const approved = (id: number) =>
     kind: 'preference',
     body: MemoryBody.of(`Memory ${id}.`),
     scope: MemoryScope.of({ teamId: TEAM }),
-    grounds: null,
+    provenance: null,
     by: BY,
   });
 

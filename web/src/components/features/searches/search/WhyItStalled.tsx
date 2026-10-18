@@ -17,7 +17,7 @@ import {
   formatCauseTitle,
   formatIncumbent,
   formatReflectionLooked,
-  formatReflectionOutcome,
+  formatReflectionResult,
   formatWhyItStalled,
   REFLECTION_LOOKING,
   UNCAUSED_NOTE,
@@ -56,7 +56,7 @@ export function WhyItStalled({
               {formatIncumbent(incumbent)}
             </p>
           )}
-          {looking || !reflection?.outcome ? (
+          {looking || !reflection?.result ? (
             <p className="text-muted-foreground">{REFLECTION_LOOKING}</p>
           ) : (
             <>
@@ -65,8 +65,8 @@ export function WhyItStalled({
                   {formatReflectionLooked(reflection.tasks.length)}
                 </p>
               )}
-              <p data-slot="reflection-outcome" className="text-foreground">
-                {formatReflectionOutcome(reflection.outcome)}
+              <p data-slot="reflection-result" className="text-foreground">
+                {formatReflectionResult(reflection.result)}
               </p>
             </>
           )}

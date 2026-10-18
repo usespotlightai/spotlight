@@ -7,9 +7,9 @@ import type {
 import { daysAgo, hoursAgo } from '@/mocks/clock';
 import { GROWTH_ID } from '@/mocks/world/growth';
 import {
-  type AlertCrossing,
-  alertCrossing,
-  costAlertCrossing,
+  type AlertFiring,
+  alertFiring,
+  costAlertFiring,
 } from '@/mocks/world/inbox-alert';
 import {
   minutesAfter,
@@ -286,23 +286,23 @@ const RESOLVED_CONVERSATIONS = (): InboxItemResponseDto[] => [
   }),
 ];
 
-const crossedAt = ({ run }: AlertCrossing) =>
+const firedAtOf = ({ run }: AlertFiring) =>
   minutesAfter(run.endedAt ?? new Date(run.at).toISOString(), 2);
 
 const alertAside = (
   id: string,
   alertId: string,
-  crossing: AlertCrossing | null,
+  firing: AlertFiring | null,
 ): InboxItemResponseDto[] =>
-  crossing
+  firing
     ? [
         asideOf({
           id,
-          taskId: crossing.run.taskId,
+          taskId: firing.run.taskId,
           teamId: PLATFORM_ID,
-          askedAt: crossedAt(crossing),
-          resolved: crossing.recovered !== null,
-          unread: crossing.recovered === null,
+          askedAt: firedAtOf(firing),
+          resolved: firing.resolved !== null,
+          unread: firing.resolved === null,
           aside: { form: 'alert', about: alertId },
         }),
       ]
@@ -354,8 +354,8 @@ const ASIDES = (): InboxItemResponseDto[] => [
     resolved: true,
     aside: { form: 'memories', about: 'run_disk_1' },
   }),
-  ...alertAside(ALERT_ASIDE_ID, ALERT_ID, alertCrossing()),
-  ...alertAside(COST_ALERT_ASIDE_ID, COST_ALERT_ID, costAlertCrossing()),
+  ...alertAside(ALERT_ASIDE_ID, ALERT_ID, alertFiring()),
+  ...alertAside(COST_ALERT_ASIDE_ID, COST_ALERT_ID, costAlertFiring()),
   asideOf({
     id: GRADE_ASIDE_ID,
     taskId: 'task_postgres',

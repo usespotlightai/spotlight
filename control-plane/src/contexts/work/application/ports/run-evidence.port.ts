@@ -22,10 +22,10 @@ export interface StationJudgeSettings {
   readonly lineId: string;
   readonly rubric: string | null;
   readonly claims: readonly string[];
-  readonly passShare: number;
+  readonly passThreshold: number;
   readonly rubricVersion: string;
   readonly sample: number;
-  readonly trust: number;
+  readonly minAgreement: number;
 }
 
 export interface EvidencedRun {

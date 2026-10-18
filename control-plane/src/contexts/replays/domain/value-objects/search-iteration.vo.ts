@@ -1,13 +1,13 @@
 import type { ReplayCharge } from '@replays/domain/services/replay-charge';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import type { FailureCause } from '@replays/domain/value-objects/failure-cause.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import type { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
-import type { ReflectionOutcome } from '@replays/domain/value-objects/reflection-outcome';
+import type { ReflectionResult } from '@replays/domain/value-objects/reflection-result';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import type { ReplayEnd } from '@replays/domain/value-objects/replay-state';
-import type { SearchCause } from '@replays/domain/value-objects/search-cause.vo';
+import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
 import type { SearchProposal } from '@replays/domain/value-objects/search-proposal.vo';
-import type { Spend } from '@replays/domain/value-objects/spend.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -37,8 +37,8 @@ interface IterationState {
   readonly agentSpent: ModelSpent | null;
   readonly incumbent: CandidateId | null;
   readonly reflectedOn: readonly ReflectedTask[];
-  readonly causes: readonly SearchCause[];
-  readonly outcome: ReflectionOutcome | null;
+  readonly causes: readonly FailureCause[];
+  readonly result: ReflectionResult | null;
 }
 
 export class SearchIteration {
@@ -60,7 +60,7 @@ export class SearchIteration {
       incumbent: null,
       reflectedOn: [],
       causes: [],
-      outcome: null,
+      result: null,
     });
   }
 
@@ -81,7 +81,7 @@ export class SearchIteration {
       state.kind === 'reflect'
         ? state.attempts > 0
         : state.incumbent !== null ||
-          state.outcome !== null ||
+          state.result !== null ||
           state.reflectedOn.length > 0 ||
           state.causes.length > 0
     ) {
@@ -137,19 +137,19 @@ export class SearchIteration {
     return this.state.incumbent;
   }
 
-  get outcome(): ReflectionOutcome | null {
-    return this.state.outcome;
+  get result(): ReflectionResult | null {
+    return this.state.result;
   }
 
   get endedSearch(): boolean {
-    return this.state.outcome !== null && this.state.outcome !== 'went-on';
+    return this.state.result !== null && this.state.result !== 'continued';
   }
 
   get reflectedOn(): readonly ReflectedTask[] {
     return this.state.reflectedOn;
   }
 
-  get causes(): readonly SearchCause[] {
+  get causes(): readonly FailureCause[] {
     return this.state.causes;
   }
 
@@ -189,7 +189,7 @@ export class SearchIteration {
     return !this.ownsActiveRun && this.state.agentSpent === null;
   }
 
-  agentUnpriced(ceiling: Spend): boolean {
+  agentUnpriced(ceiling: Money): boolean {
     const spent = this.state.agentSpent;
 
     return (
@@ -262,19 +262,19 @@ export class SearchIteration {
           incumbent,
           state: 'ended',
           agentSpent: ModelSpent.of([], 0),
-          outcome: 'no-failures',
+          result: 'no-failures',
         });
   }
 
-  concluded(outcome: ReflectionOutcome): SearchIteration {
-    return this.state.outcome ? this : this.with({ outcome });
+  concluded(result: ReflectionResult): SearchIteration {
+    return this.state.result ? this : this.with({ result });
   }
 
   taskReflectedOn(taskId: TaskId): ReflectedTask | null {
     return this.state.reflectedOn.find((each) => each.isAbout(taskId)) ?? null;
   }
 
-  causeRecorded(cause: SearchCause): SearchIteration {
+  causeRecorded(cause: FailureCause): SearchIteration {
     return this.with({
       causes: [
         ...this.state.causes.filter((each) => !each.isAbout(cause.taskId)),
@@ -293,7 +293,7 @@ export class SearchIteration {
 
   replayEnded(
     replayId: ReplayId,
-    end: ReplayEnd,
+    end: ReplayStopReason,
     charge: ReplayCharge,
     improved: boolean,
   ): SearchIteration {

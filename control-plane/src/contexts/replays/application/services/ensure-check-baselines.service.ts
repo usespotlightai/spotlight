@@ -1,5 +1,5 @@
 import type { WorkPort } from '@replays/application/ports/work.port';
-import type { CheckReadings } from '@replays/application/services/check-readings.service';
+import type { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
 import type { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
@@ -20,7 +20,7 @@ export class EnsureCheckBaselines implements PendingJobsPort {
 
   constructor(
     private readonly checks: ReplayCheckRepository,
-    private readonly readings: CheckReadings,
+    private readonly evaluations: CheckEvaluations,
     private readonly sets: ReplaySetRepository,
     private readonly replays: ReplayRepository,
     private readonly work: WorkPort,
@@ -45,7 +45,7 @@ export class EnsureCheckBaselines implements PendingJobsPort {
   }
 
   private async ensure(check: ReplayCheck): Promise<void> {
-    const { baseline, set, replay } = await this.readings.of(check);
+    const { baseline, set, replay } = await this.evaluations.of(check);
 
     if (baseline) {
       await this.checks.save(check.recordBaseline());
@@ -57,7 +57,7 @@ export class EnsureCheckBaselines implements PendingJobsPort {
         ? await this.work.live(set.station.lineId, set.station.stationId)
         : null;
 
-    if (!live || live.digests.scoring !== check.liveDigests.scoring) {
+    if (!live || live.hashes.scoring !== check.liveHashes.scoring) {
       await this.checks.save(check.markBaselineUnavailable());
       return;
     }
@@ -70,7 +70,7 @@ export class EnsureCheckBaselines implements PendingJobsPort {
         !needsBaseline(
           locked,
           await this.replays.ofSet(locked.id),
-          check.liveDigests.scoring,
+          check.liveHashes.scoring,
           check.repeats,
         )
       ) {

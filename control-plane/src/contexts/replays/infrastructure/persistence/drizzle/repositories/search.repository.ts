@@ -5,7 +5,7 @@ import {
   violates,
 } from '@platform/persistence/drizzle/violations';
 import { Search } from '@replays/domain/aggregates/search.aggregate';
-import { SearchUnderwayError } from '@replays/domain/exceptions/search-underway.error';
+import { SearchInProgressError } from '@replays/domain/exceptions/search-in-progress.error';
 import { SearchVersionConflictError } from '@replays/domain/exceptions/search-version-conflict.error';
 import type {
   SearchPage,
@@ -13,32 +13,32 @@ import type {
 } from '@replays/domain/repositories/search.repository';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
+import { FailureCause } from '@replays/domain/value-objects/failure-cause.vo';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import {
-  REPLAY_ENDS,
-  type ReplayEnd,
+  REPLAY_STOP_REASONS,
+  type ReplayStopReason,
 } from '@replays/domain/value-objects/replay-state';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
-import { SearchCause } from '@replays/domain/value-objects/search-cause.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { SearchIteration } from '@replays/domain/value-objects/search-iteration.vo';
 import { SearchProposal } from '@replays/domain/value-objects/search-proposal.vo';
 import { SearchReplay } from '@replays/domain/value-objects/search-replay.vo';
 import { ACTIVE_SEARCH_STATES } from '@replays/domain/value-objects/search-state';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import {
   replay,
   replaySearch,
   replaySearchIteration,
+  type StoredFailureCause,
   type StoredModelSpent,
   type StoredReflectedTask,
-  type StoredSearchCause,
   type StoredSearchReplay,
   type StoredSplitEntry,
 } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
@@ -74,14 +74,14 @@ const ACTIVE_INDEX = 'replay_search_active_idx';
 
 const active = inArray(replaySearch.state, [...ACTIVE_SEARCH_STATES]);
 
-const isReplayEnd = (raw: string): raw is ReplayEnd =>
-  (REPLAY_ENDS as readonly string[]).includes(raw);
+const isReplayStopReason = (raw: string): raw is ReplayStopReason =>
+  (REPLAY_STOP_REASONS as readonly string[]).includes(raw);
 
 const searchReplayOf = (
   stored: StoredSearchReplay,
   currency: string,
 ): SearchReplay => {
-  if (stored.end !== null && !isReplayEnd(stored.end)) {
+  if (stored.end !== null && !isReplayStopReason(stored.end)) {
     throw new InconsistentStateError(
       'search',
       `has a replay that ended in a way no longer known, ${stored.end}`,
@@ -91,7 +91,7 @@ const searchReplayOf = (
   return SearchReplay.rehydrate({
     replayId: ReplayId.of(stored.replayId),
     end: stored.end,
-    spent: stored.spent === null ? null : Spend.of(stored.spent, currency),
+    spent: stored.spent === null ? null : Money.of(stored.spent, currency),
     unpriced: stored.unpriced,
   });
 };
@@ -120,7 +120,7 @@ const storedSplitEntries = (
 const modelSpentOf = (stored: StoredModelSpent | null): ModelSpent | null =>
   stored &&
   ModelSpent.of(
-    stored.spends.map((each) => Spend.of(each.amount, each.currency)),
+    stored.spends.map((each) => Money.of(each.amount, each.currency)),
     stored.unpriced,
   );
 
@@ -146,8 +146,8 @@ const storedReflectedTask = (task: ReflectedTask): StoredReflectedTask => ({
   replayRunId: task.replayRunId.value,
 });
 
-const causeOf = (stored: StoredSearchCause): SearchCause =>
-  SearchCause.rehydrate({
+const causeOf = (stored: StoredFailureCause): FailureCause =>
+  FailureCause.rehydrate({
     taskId: TaskId.of(stored.taskId),
     originalRunId: RunId.of(stored.originalRunId),
     replayRunId: RunId.of(stored.replayRunId),
@@ -157,7 +157,7 @@ const causeOf = (stored: StoredSearchCause): SearchCause =>
     recordedAt: new Date(stored.recordedAt),
   });
 
-const storedCause = (cause: SearchCause): StoredSearchCause => ({
+const storedCause = (cause: FailureCause): StoredFailureCause => ({
   taskId: cause.taskId.value,
   originalRunId: cause.originalRunId.value,
   replayRunId: cause.replayRunId.value,
@@ -184,7 +184,7 @@ const toIteration = (row: IterationRow, currency: string): SearchIteration =>
     attempts: row.attempts,
     agentSpent: modelSpentOf(row.agentSpent),
     incumbent: row.incumbent ? CandidateId.of(row.incumbent) : null,
-    outcome: row.outcome,
+    result: row.result,
     reflectedOn: row.reflectedOn.map(reflectedTaskOf),
     causes: row.causes.map(causeOf),
   });
@@ -210,7 +210,7 @@ const toSearch = (
     budget: SearchBudget.of({
       iterations: row.iterations,
       perIteration: row.perIteration,
-      ceiling: Spend.ceiling(row.ceilingAmount, row.ceilingCurrency),
+      ceiling: Money.ceiling(row.ceilingAmount, row.ceilingCurrency),
       concurrency: row.concurrency,
       repeats: row.repeats,
     }),
@@ -233,7 +233,7 @@ const toSearch = (
       replay: searchReplayOf(each.replay, row.ceilingCurrency),
     })),
     state: row.state,
-    ending: row.ending,
+    stopReason: row.stopReason,
     startedBy: row.startedBy ? UserId.of(row.startedBy) : null,
     startedAt: row.startedAt,
     endedAt: row.endedAt,
@@ -413,7 +413,7 @@ export class DrizzleSearchRepository implements SearchRepository {
         .values({ ...this.columnsOf(added), version: added.version })
         .catch((error: unknown) => {
           if (violates(error, UNIQUE_VIOLATION, ACTIVE_INDEX)) {
-            throw new SearchUnderwayError(added.station.stationId);
+            throw new SearchInProgressError(added.station.stationId);
           }
           throw error;
         });
@@ -480,7 +480,7 @@ export class DrizzleSearchRepository implements SearchRepository {
         replay: storedReplay(each.replay),
       })),
       state: aggregate.current,
-      ending: aggregate.ending,
+      stopReason: aggregate.stopReason,
       startedBy: aggregate.startedBy?.value ?? null,
       startedAt: aggregate.startedAt,
       endedAt: aggregate.endedAt,
@@ -509,7 +509,7 @@ export class DrizzleSearchRepository implements SearchRepository {
           attempts: each.attempts,
           agentSpent: storedSpent(each.agentSpent),
           incumbent: each.incumbent?.value ?? null,
-          outcome: each.outcome,
+          result: each.result,
           reflectedOn: each.reflectedOn.map(storedReflectedTask),
           causes: each.causes.map(storedCause),
         })),

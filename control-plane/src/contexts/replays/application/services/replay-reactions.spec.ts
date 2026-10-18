@@ -2,15 +2,15 @@ import { CancelReplayRuns } from '@replays/application/services/cancel-replay-ru
 import { DeleteReplays } from '@replays/application/services/delete-replays.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { HoldSetStartingPoints } from '@replays/application/services/hold-set-starting-points.service';
-import { NoteLineChanged } from '@replays/application/services/note-line-changed.service';
-import { NoteReplayChangeReviewed } from '@replays/application/services/note-replay-change-reviewed.service';
-import { NoteReplayDigested } from '@replays/application/services/note-replay-digested.service';
-import { NoteReplayEnded } from '@replays/application/services/note-replay-ended.service';
-import { NoteReplayJudged } from '@replays/application/services/note-replay-judged.service';
+import { RecordLineChange } from '@replays/application/services/record-line-change.service';
+import { RecordReplayChangeReview } from '@replays/application/services/record-replay-change-review.service';
+import { RecordReplayRunEnding } from '@replays/application/services/record-replay-run-ending.service';
+import { RecordReplayRunUsage } from '@replays/application/services/record-replay-run-usage.service';
+import { RecordReplayVerdict } from '@replays/application/services/record-replay-verdict.service';
 import {
   CLOCK,
   FakeChangeReview,
-  FakeOutcomes,
+  FakeInsights,
   FakeWork,
   IDS,
   InMemoryReplays,
@@ -53,9 +53,9 @@ import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { MAX_QUEUE_ATTEMPTS } from '@replays/domain/value-objects/replay-entry.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -93,7 +93,7 @@ const handedTheAnswer = (oracle: Candidate) => {
     set: aSet(3),
     candidate: oracle,
     baseline: false,
-    ceiling: Spend.ceiling(10, 'USD'),
+    ceiling: Money.ceiling(10, 'USD'),
     at: NOW,
     by: BY,
     oracle: {
@@ -295,7 +295,7 @@ describe('DispatchReplayRuns without the candidate', () => {
 });
 
 const noteLineChanged = () =>
-  new NoteLineChanged(
+  new RecordLineChange(
     memory.setRepository,
     memory.replayRepository,
     memory.candidateRepository,
@@ -304,7 +304,7 @@ const noteLineChanged = () =>
     CLOCK,
   );
 
-describe('NoteLineChanged', () => {
+describe('RecordLineChange', () => {
   it('stops a replay handed the answer once the live config it replays is no longer live', async () => {
     const set = aSet(3);
     const oracle = Candidate.oracleOf(candidateOf('live'), {
@@ -356,17 +356,17 @@ describe('NoteLineChanged', () => {
   });
 });
 
-describe('NoteReplayEnded and NoteReplayDigested', () => {
-  it('record a replay run’s end and digest on its entry, whichever comes first', async () => {
+describe('RecordReplayRunEnding and RecordReplayRunUsage', () => {
+  it('record a replay run’s end and usage on its entry, whichever comes first', async () => {
     await memory.replayRepository.add(aReplay({ count: 1 }));
     await dispatching().processDue();
     const run = memory.replays.get('replay_1')?.entries[0]?.run?.value ?? '';
 
-    await new NoteReplayDigested(
+    await new RecordReplayRunUsage(
       memory.replayRepository,
       TRANSACTION,
       CLOCK,
-    ).digested({
+    ).usageRecorded({
       runId: run,
       ms: 60_000,
       steps: 12,
@@ -375,7 +375,7 @@ describe('NoteReplayEnded and NoteReplayDigested', () => {
       currency: 'USD',
       tokens: { input: 10, output: 5, cacheRead: null, cacheWrite: null },
     });
-    await new NoteReplayEnded(
+    await new RecordReplayRunEnding(
       memory.replayRepository,
       new FakeChangeReview(),
       TRANSACTION,
@@ -396,7 +396,7 @@ describe('NoteReplayEnded and NoteReplayDigested', () => {
   });
 
   it('pass over a run no replay handed out', async () => {
-    await new NoteReplayEnded(
+    await new RecordReplayRunEnding(
       memory.replayRepository,
       new FakeChangeReview(),
       TRANSACTION,
@@ -464,7 +464,7 @@ describe('DeleteReplays', () => {
     ]);
   });
 
-  it('deletes a replay underway by stopping it through its own event, then a set and a candidate', async () => {
+  it('deletes a replay in progress by stopping it through its own event, then a set and a candidate', async () => {
     const set = aSet(2);
     await memory.setRepository.add(set);
     await memory.replayRepository.add(aReplay({ count: 2 }));
@@ -498,11 +498,11 @@ describe('DeleteReplays', () => {
 });
 
 describe('CancelReplayRuns', () => {
-  it('cancels the runs of a stopped replay, and the queued runs of a replay over budget', async () => {
+  it('cancels the runs of a stopped replay, and the queued runs of a replay that reached its ceiling', async () => {
     const cancelling = new CancelReplayRuns(work);
 
     await cancelling.stopped([RunId.of('run_1')]);
-    await cancelling.overBudget([RunId.of('run_2')]);
+    await cancelling.ceilingReached([RunId.of('run_2')]);
 
     expect(work.cancelled).toEqual([{ run: 'run_1', leaveRunAsIs: false }]);
     expect(work.cancelledQueued).toEqual(['run_2']);
@@ -512,12 +512,17 @@ describe('CancelReplayRuns', () => {
 describe('scoring a replayed task', () => {
   const JUDGED = 'candidate_judged';
   let changes: FakeChangeReview;
-  let outcomes: FakeOutcomes;
+  let insights: FakeInsights;
 
   const ending = () =>
-    new NoteReplayEnded(memory.replayRepository, changes, TRANSACTION, CLOCK);
+    new RecordReplayRunEnding(
+      memory.replayRepository,
+      changes,
+      TRANSACTION,
+      CLOCK,
+    );
   const reviewing = () =>
-    new NoteReplayChangeReviewed(
+    new RecordReplayChangeReview(
       memory.replayRepository,
       changes,
       TRANSACTION,
@@ -527,12 +532,12 @@ describe('scoring a replayed task', () => {
     new RequestReplayJudging(
       memory.replayRepository,
       memory.candidateRepository,
-      outcomes,
+      insights,
       TRANSACTION,
       CLOCK,
     );
   const judging = () =>
-    new NoteReplayJudged(memory.replayRepository, TRANSACTION, CLOCK);
+    new RecordReplayVerdict(memory.replayRepository, TRANSACTION, CLOCK);
 
   const completed = (runId: string) =>
     ending().ended({
@@ -561,7 +566,7 @@ describe('scoring a replayed task', () => {
 
   beforeEach(() => {
     changes = new FakeChangeReview();
-    outcomes = new FakeOutcomes();
+    insights = new FakeInsights();
   });
 
   it('reads its change’s checks from Change Review when its run ends, and again as they move', async () => {
@@ -595,7 +600,7 @@ describe('scoring a replayed task', () => {
 
   it('requests the judge to compare the run with the change people accepted for the original', async () => {
     const run = await started();
-    outcomes.accepted.add('original_0');
+    insights.accepted.add('original_0');
 
     await completed(run);
     const wanted = memory.events.find(
@@ -607,12 +612,16 @@ describe('scoring a replayed task', () => {
     }
     await requestingJudging().requested(wanted);
 
-    expect(outcomes.judgingRequests).toEqual([
+    expect(insights.judgingRequests).toEqual([
       {
         run: RunId.of(run),
         workspaceId: STATION.workspaceId,
         teamId: STATION.teamId,
-        judge: JudgeCriteria.of({ rubric: RUBRIC, claims: [], passShare: 1 }),
+        judge: JudgeCriteria.of({
+          rubric: RUBRIC,
+          claims: [],
+          passThreshold: 1,
+        }),
         reference: RunId.of('original_0'),
       },
     ]);
@@ -628,12 +637,12 @@ describe('scoring a replayed task', () => {
       ) as ReplayJudgingRequested,
     );
 
-    expect(outcomes.judgingRequests[0]?.reference).toBeNull();
+    expect(insights.judgingRequests[0]?.reference).toBeNull();
   });
 
   it('records a judge that cannot take the request as unjudged, and finishes', async () => {
     const run = await started();
-    outcomes.answer = 'unavailable';
+    insights.answer = 'unavailable';
 
     await completed(run);
     await requestingJudging().requested(
@@ -641,11 +650,11 @@ describe('scoring a replayed task', () => {
         (each) => each.kind === 'replay.judging-requested',
       ) as ReplayJudgingRequested,
     );
-    await new NoteReplayDigested(
+    await new RecordReplayRunUsage(
       memory.replayRepository,
       TRANSACTION,
       CLOCK,
-    ).digested({
+    ).usageRecorded({
       runId: run,
       ms: 1,
       steps: 1,
@@ -667,15 +676,15 @@ describe('scoring a replayed task', () => {
       runId: run,
       scale: 'yes-no',
       value: 0,
-      marks: null,
+      claimResults: null,
       claims: [],
-      passShare: 1,
+      passThreshold: 1,
       model: 'judge/model',
       referenced: true,
       reasons: [
         { text: 'It drops a job.', steps: [2], hunks: [], claim: null },
       ],
-      spent: ModelSpent.of([Spend.of(0.02, 'USD')], 0),
+      spent: ModelSpent.of([Money.of(0.02, 'USD')], 0),
     });
 
     expect(entry()?.succeeded).toBe(false);
@@ -697,7 +706,7 @@ describe('scoring a replayed task', () => {
     await judging().failed(
       run,
       'request-failed',
-      ModelSpent.of([Spend.of(0.01, 'USD')], 0),
+      ModelSpent.of([Money.of(0.01, 'USD')], 0),
     );
 
     expect(entry()?.judging?.unjudged).toBe('request-failed');
@@ -707,7 +716,7 @@ describe('scoring a replayed task', () => {
 
 describe('probing a set', () => {
   let changes: FakeChangeReview;
-  let outcomes: FakeOutcomes;
+  let insights: FakeInsights;
 
   const PASSED = [
     {
@@ -719,15 +728,20 @@ describe('probing a set', () => {
     },
   ];
 
-  const probed = async () => {
+  const calibrated = async () => {
     let next = 0;
     const reserved = aReplay({
-      id: 'replay_probe',
+      id: 'replay_calibration',
       count: 1,
       repeats: 2,
-      probe: true,
-      candidate: candidateOf('live', 'candidate_probe', RUBRIC, 'npm test'),
-    }).reserving(2, () => RunId.of(`probe_run_${next++}`));
+      calibration: true,
+      candidate: candidateOf(
+        'live',
+        'candidate_calibration',
+        RUBRIC,
+        'npm test',
+      ),
+    }).reserving(2, () => RunId.of(`calibration_run_${next++}`));
     const finished = reserved.entries.reduce((built, entry) => {
       const run = entry.run as RunId;
 
@@ -741,9 +755,9 @@ describe('probing a set', () => {
           JudgeVerdict.of({
             scale: 'yes-no',
             value: 1,
-            marks: null,
+            claimResults: null,
             claims: [],
-            passShare: 1,
+            passThreshold: 1,
             model: 'judge/model',
             referenced: false,
             reasons: [],
@@ -759,26 +773,29 @@ describe('probing a set', () => {
   const wanted = <T>(kind: string): T[] =>
     memory.events.filter((each) => each.kind === kind) as T[];
 
-  const entries = () => memory.replays.get('replay_probe')?.entries ?? [];
+  const entries = () => memory.replays.get('replay_calibration')?.entries ?? [];
 
   beforeEach(() => {
     changes = new FakeChangeReview();
-    outcomes = new FakeOutcomes();
+    insights = new FakeInsights();
   });
 
-  it('requests a second judging of each judged run once the probe finishes', async () => {
-    await probed();
+  it('requests a second judging of each judged run once the calibration finishes', async () => {
+    await calibrated();
 
     for (const event of wanted<ReplayRejudgingRequested>(
       'replay.rejudging-requested',
     )) {
       expect(
-        await new RequestReplayRejudging(outcomes).requested(event),
+        await new RequestReplayRejudging(insights).requested(event),
       ).toEqual([]);
     }
 
-    expect(memory.replays.get('replay_probe')?.current).toBe('finished');
-    expect(outcomes.rejudgingRequests).toEqual(['probe_run_0', 'probe_run_1']);
+    expect(memory.replays.get('replay_calibration')?.current).toBe('finished');
+    expect(insights.rejudgingRequests).toEqual([
+      'calibration_run_0',
+      'calibration_run_1',
+    ]);
     expect(entries().map((each) => each.secondJudging?.pending)).toEqual([
       true,
       true,
@@ -786,20 +803,20 @@ describe('probing a set', () => {
   });
 
   it('says a second judging nobody could request, and records it as unjudged on its own', async () => {
-    await probed();
-    outcomes.againAnswer = 'unavailable';
+    await calibrated();
+    insights.againAnswer = 'unavailable';
 
     const [first] = wanted<ReplayRejudgingRequested>(
       'replay.rejudging-requested',
     );
-    const [failed] = await new RequestReplayRejudging(outcomes).requested(
+    const [failed] = await new RequestReplayRejudging(insights).requested(
       first as ReplayRejudgingRequested,
     );
 
     expect(failed).toBeInstanceOf(ReplayRejudgingFailed);
     expect(entries()[0]?.secondJudging?.pending).toBe(true);
 
-    await new NoteReplayJudged(
+    await new RecordReplayVerdict(
       memory.replayRepository,
       TRANSACTION,
       CLOCK,
@@ -810,32 +827,32 @@ describe('probing a set', () => {
   });
 
   it('records the second verdict beside the first, and a second judging that failed, charging it to the ceiling but not to what the runs cost', async () => {
-    await probed();
-    const judging = new NoteReplayJudged(
+    await calibrated();
+    const judging = new RecordReplayVerdict(
       memory.replayRepository,
       TRANSACTION,
       CLOCK,
     );
 
     await judging.rejudged({
-      runId: 'probe_run_0',
+      runId: 'calibration_run_0',
       scale: 'yes-no',
       value: 0,
-      marks: null,
+      claimResults: null,
       claims: [],
-      passShare: 1,
+      passThreshold: 1,
       model: 'judge/model',
       referenced: false,
       reasons: [],
-      spent: ModelSpent.of([Spend.of(0.02, 'USD')], 0),
+      spent: ModelSpent.of([Money.of(0.02, 'USD')], 0),
     });
     await judging.rejudgingFailed(
-      'probe_run_1',
+      'calibration_run_1',
       'request-failed',
       ModelSpent.of([], 0),
     );
 
-    const replay = memory.replays.get('replay_probe');
+    const replay = memory.replays.get('replay_calibration');
 
     expect(entries().map((each) => each.judgeAgreed)).toEqual([false, null]);
     expect(entries()[1]?.secondJudging?.unjudged).toBe('request-failed');
@@ -845,7 +862,7 @@ describe('probing a set', () => {
   });
 
   it('requests Change Review to check each stack of each checked run again, one at a time, and reads what it found', async () => {
-    await probed();
+    await calibrated();
     const requesting = new RequestReplayRecheck(changes);
     const stacks: ReplayStackRecheckRequested[] = [];
 
@@ -861,17 +878,19 @@ describe('probing a set', () => {
     for (const each of stacks) {
       await requesting.stack(each);
     }
-    changes.rechecks.set('probe_run_1', [{ ...PASSED[0], state: 'failed' }]);
-    await new NoteReplayChangeReviewed(
+    changes.rechecks.set('calibration_run_1', [
+      { ...PASSED[0], state: 'failed' },
+    ]);
+    await new RecordReplayChangeReview(
       memory.replayRepository,
       changes,
       TRANSACTION,
       CLOCK,
-    ).rechecked('probe_run_1');
+    ).rechecked('calibration_run_1');
 
     expect(changes.recheckRequests).toEqual([
-      'probe_run_0#stack_1',
-      'probe_run_1#stack_1',
+      'calibration_run_0#stack_1',
+      'calibration_run_1#stack_1',
     ]);
     expect(entries().map((each) => each.recheck?.state)).toEqual([
       'checking',
@@ -881,7 +900,7 @@ describe('probing a set', () => {
   });
 
   it('notes, on its own, a run Change Review had nothing to check again in', async () => {
-    await probed();
+    await calibrated();
     changes.recheckableStacks = [];
 
     const [first] = wanted<ReplayRecheckRequested>('replay.recheck-requested');
@@ -891,7 +910,7 @@ describe('probing a set', () => {
 
     expect(unavailable).toBeInstanceOf(ReplayRecheckUnavailable);
 
-    await new NoteReplayChangeReviewed(
+    await new RecordReplayChangeReview(
       memory.replayRepository,
       changes,
       TRANSACTION,

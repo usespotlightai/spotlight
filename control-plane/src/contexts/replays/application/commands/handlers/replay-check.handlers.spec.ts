@@ -1,5 +1,5 @@
-import { GuardChangesCommand } from '@replays/application/commands/guard-changes.command';
-import { GuardChangesHandler } from '@replays/application/commands/handlers/guard-changes.handler';
+import { GateChangesCommand } from '@replays/application/commands/gate-changes.command';
+import { GateChangesHandler } from '@replays/application/commands/handlers/gate-changes.handler';
 import { StartReplayCheckHandler } from '@replays/application/commands/handlers/start-replay-check.handler';
 import { StartReplayCheckCommand } from '@replays/application/commands/start-replay-check.command';
 import type { ReplayCheckStartedOutcome } from '@replays/application/dto/replay-outcomes.dto';
@@ -7,7 +7,7 @@ import { ListSetReplayChecksHandler } from '@replays/application/queries/handler
 import { ReadReplayCheckHandler } from '@replays/application/queries/handlers/read-replay-check.handler';
 import { ListSetReplayChecksQuery } from '@replays/application/queries/list-set-replay-checks.query';
 import { ReadReplayCheckQuery } from '@replays/application/queries/read-replay-check.query';
-import { CheckReadings } from '@replays/application/services/check-readings.service';
+import { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
 import { EnsureCheckBaselines } from '@replays/application/services/ensure-check-baselines.service';
 import {
   ACTOR,
@@ -29,12 +29,12 @@ import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggreg
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.event';
-import { ReplaySetGuardChanged } from '@replays/domain/events/replay-set-guard-changed.event';
+import { ReplaySetGateChanged } from '@replays/domain/events/replay-set-gate-changed.event';
 import {
   aSet,
   BY,
-  LIVE_DIGESTS,
   LIVE_FINGERPRINT,
+  LIVE_HASHES,
   NOW,
   replayedAs,
   STATION,
@@ -42,15 +42,15 @@ import {
 } from '@replays/domain/replays.fake-spec';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
-import { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
@@ -61,7 +61,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 const PLANNED = StationFingerprint.of('c'.repeat(64));
 
-const PLANNED_DIGESTS = StationDigests.of({
+const PLANNED_HASHES = StationHashes.of({
   behaviour: '3'.repeat(64),
   scoring: '4'.repeat(64),
 });
@@ -101,14 +101,14 @@ class InMemoryChecks implements ReplayCheckRepository {
 
   matching = async (
     stationId: string,
-    candidate: StationDigests,
-    live: StationDigests,
+    candidate: StationHashes,
+    live: StationHashes,
   ) =>
     [...this.stored.values()].filter(
       (each) =>
         each.station.stationId === stationId &&
-        each.candidateDigests.behaviour === candidate.behaviour &&
-        each.liveDigests.scoring === live.scoring,
+        each.candidateHashes.behaviour === candidate.behaviour &&
+        each.liveHashes.scoring === live.scoring,
     );
 
   awaitingBaseline = async () =>
@@ -149,7 +149,7 @@ class InMemoryChecks implements ReplayCheckRepository {
 let memory: InMemoryReplays;
 let work: FakeWork;
 let checks: InMemoryChecks;
-let examined: { block: unknown; line: unknown }[];
+let validated: { block: unknown; line: unknown }[];
 
 const errorOf = async (call: Promise<unknown>) =>
   call.then(
@@ -170,23 +170,23 @@ const atVersion = (set: ReplaySet, version: number): ReplaySet =>
     station: set.station,
     name: set.name,
     entries: set.entries,
-    guardsChanges: set.guardsChanges,
+    gatesChanges: set.gatesChanges,
     createdAt: set.createdAt,
     stationGoneAt: set.stationGoneAt,
     version,
   });
 
-const guarding = (set: ReplaySet = aSet(3)): ReplaySet => {
-  const guards = set.guardingChanges([], BY);
+const gating = (set: ReplaySet = aSet(3)): ReplaySet => {
+  const gates = set.gatingChanges([], BY);
 
-  guards.pullEvents();
-  memory.sets.set(guards.id.value, guards);
+  gates.pullEvents();
+  memory.sets.set(gates.id.value, gates);
 
-  return guards;
+  return gates;
 };
 
-const readings = () =>
-  new CheckReadings(memory.replayRepository, memory.setRepository);
+const evaluations = () =>
+  new CheckEvaluations(memory.replayRepository, memory.setRepository);
 
 const start = (
   station: unknown = PLAN,
@@ -198,7 +198,7 @@ const start = (
     peopleWho(mayPlan),
     work,
     snapshotsFor(memory, work),
-    readings(),
+    evaluations(),
     memory.candidateRepository,
     memory.setRepository,
     memory.replayRepository,
@@ -230,7 +230,7 @@ const read = (id: string, mayPlan: boolean | null = false) =>
     peopleWho(mayPlan),
     work,
     checks,
-    readings(),
+    evaluations(),
     'https://app.example.test/',
   ).execute(new ReadReplayCheckQuery('team_1', id, PERSON));
 
@@ -278,7 +278,7 @@ beforeEach(() => {
   memory = new InMemoryReplays();
   work = new FakeWork();
   checks = new InMemoryChecks();
-  examined = [];
+  validated = [];
   work.threshold = threshold(1);
   work.live = async () => ({
     lineKey: 'delivery',
@@ -292,16 +292,16 @@ beforeEach(() => {
     }),
     fingerprint: LIVE_FINGERPRINT,
     scoring: CHECKED,
-    digests: LIVE_DIGESTS,
+    hashes: LIVE_HASHES,
     threshold: work.threshold,
   });
-  work.examine = async (_line, _station, block, line) => {
-    examined.push({ block, line: line?.value ?? null });
+  work.validate = async (_line, _station, block, line) => {
+    validated.push({ block, line: line?.value ?? null });
     return {
       ok: true,
       fingerprint: PLANNED,
-      digests: PLANNED_DIGESTS,
-      liveDigests: LIVE_DIGESTS,
+      hashes: PLANNED_HASHES,
+      liveHashes: LIVE_HASHES,
       scoring: CHECKED,
       changedFrom: StationChanges.none(LIVE_FINGERPRINT),
       block: StationBlock.of(block),
@@ -310,8 +310,8 @@ beforeEach(() => {
 });
 
 describe('StartReplayCheckHandler', () => {
-  it('replays a planned change over the guarding set, scored and placed as the live station is, under the live line’s threshold, wanting a baseline', async () => {
-    const set = guarding();
+  it('replays a planned change over the gating set, scored and placed as the live station is, under the live line’s threshold, wanting a baseline', async () => {
+    const set = gating();
     const id = idOf(
       await start(PLAN, true, {
         repositories: [{ name: 'acme/api', image: 'ghcr.io/acme/api:next' }],
@@ -323,7 +323,7 @@ describe('StartReplayCheckHandler', () => {
       check.candidateId.value,
     ) as Candidate;
 
-    expect(examined).toEqual([
+    expect(validated).toEqual([
       {
         block: {
           key: 'build',
@@ -352,7 +352,7 @@ describe('StartReplayCheckHandler', () => {
     expect(replay?.ceiling.amount).toBe(7.5);
     expect(replay?.unpricedRate?.amount).toBe(2.5);
     expect(wantedBaselines()[0]?.unpricedRate?.amount).toBe(2.5);
-    expect(replay?.scoringDigest).toBe(PLANNED_DIGESTS.scoring);
+    expect(replay?.scoringHash).toBe(PLANNED_HASHES.scoring);
     expect(candidate.kind).toBe('planned');
     expect(candidate.line?.repositories).toEqual([
       { name: 'acme/api', image: 'ghcr.io/acme/api:next' },
@@ -364,7 +364,7 @@ describe('StartReplayCheckHandler', () => {
   });
 
   it('answers the check a change already has while it runs, passed or failed on the same set runs and threshold, even once the set was renamed', async () => {
-    const set = guarding();
+    const set = gating();
     const first = idOf(await start());
 
     expect(await start()).toEqual({ outcome: 'reused', id: first });
@@ -375,7 +375,7 @@ describe('StartReplayCheckHandler', () => {
   });
 
   it('starts another attempt once the earlier one is undecided, the threshold changed, or the set changed', async () => {
-    const set = guarding();
+    const set = gating();
     const first = idOf(await start());
 
     memory.replays.set(
@@ -413,16 +413,16 @@ describe('StartReplayCheckHandler', () => {
   });
 
   it('never points two checks at a baseline that will not exist: the second waits for the first one’s, and both compare against it', async () => {
-    guarding();
+    gating();
     const one = idOf(await start());
-    work.examine = async (_line, _station, block) => ({
+    work.validate = async (_line, _station, block) => ({
       ok: true,
       fingerprint: PLANNED,
-      digests: StationDigests.of({
+      hashes: StationHashes.of({
         behaviour: '5'.repeat(64),
         scoring: '6'.repeat(64),
       }),
-      liveDigests: LIVE_DIGESTS,
+      liveHashes: LIVE_HASHES,
       scoring: CHECKED,
       changedFrom: StationChanges.none(LIVE_FINGERPRINT),
       block: StationBlock.of(block),
@@ -430,7 +430,7 @@ describe('StartReplayCheckHandler', () => {
     const two = idOf(await start({ ...PLAN, prompt: 'Build it twice.' }));
 
     expect(wantedBaselines()).toHaveLength(2);
-    expect((await read(two)).verdict).toBe('running');
+    expect((await read(two)).result).toBe('running');
 
     await startingBaselines();
 
@@ -444,11 +444,11 @@ describe('StartReplayCheckHandler', () => {
 
     await finished((baselines[0] as Replay).id);
     await finished(checkOf(two).replayId, false);
-    expect((await read(two)).verdict).toBe('failed');
+    expect((await read(two)).result).toBe('failed');
   });
 
   it('wants a new baseline when the set’s baseline replayed a live config that has since changed', async () => {
-    const set = guarding();
+    const set = gating();
     const stale = memory.candidates.size;
     const old = await snapshotsFor(memory, work).taken(set);
     const staleLive = Replay.start({
@@ -462,11 +462,11 @@ describe('StartReplayCheckHandler', () => {
         judges: false,
         checksChanges: true,
         rubricVersion: null,
-        scoringDigest: '9'.repeat(64),
+        scoringHash: '9'.repeat(64),
         isFor: () => true,
       },
       baseline: true,
-      ceiling: Spend.ceiling(5, 'USD'),
+      ceiling: Money.ceiling(5, 'USD'),
       at: NOW,
       by: BY,
     });
@@ -483,8 +483,8 @@ describe('StartReplayCheckHandler', () => {
     expect((await read(id)).baselineReplayId).toBeNull();
   });
 
-  it('rejects a line with no replay_check, and a station no set guards', async () => {
-    guarding();
+  it('rejects a line with no replay_check, and a station no set gates', async () => {
+    gating();
     work.threshold = null;
     expect(await errorOf(start())).toBe('conflict');
 
@@ -495,7 +495,7 @@ describe('StartReplayCheckHandler', () => {
       ReplaySet.create({
         id: ReplaySetId.of('set_2'),
         station: STATION,
-        name: ReplaySetName.of('Unguarded'),
+        name: ReplaySetName.of('Ungated'),
         at: new Date(),
       }),
     );
@@ -504,24 +504,24 @@ describe('StartReplayCheckHandler', () => {
   });
 
   it('names each problem of a planned station the line would not take', async () => {
-    guarding();
+    gating();
     const problem = ConfigurationProblem.of({
       path: '',
       at: FieldPath.of(['station', 'effort']),
       reason: 'is low, medium, high, xhigh or max',
     });
-    work.examine = async () => ({ ok: false, problems: [problem] });
+    work.validate = async () => ({ ok: false, problems: [problem] });
 
     expect(await start()).toEqual({ outcome: 'invalid', problems: [problem] });
   });
 
   it('says there is nothing to replay when the plan changes nothing about how the station runs', async () => {
-    guarding();
-    work.examine = async (_line, _station, block) => ({
+    gating();
+    work.validate = async (_line, _station, block) => ({
       ok: true,
       fingerprint: LIVE_FINGERPRINT,
-      digests: LIVE_DIGESTS,
-      liveDigests: LIVE_DIGESTS,
+      hashes: LIVE_HASHES,
+      liveHashes: LIVE_HASHES,
       scoring: CHECKED,
       changedFrom: StationChanges.none(LIVE_FINGERPRINT),
       block: StationBlock.of(block),
@@ -534,7 +534,7 @@ describe('StartReplayCheckHandler', () => {
   });
 
   it('lets only those who may plan start a check', async () => {
-    guarding();
+    gating();
     expect(await start(PLAN, false)).toEqual({
       outcome: 'forbidden',
       act: 'plan',
@@ -546,7 +546,7 @@ describe('EnsureCheckBaselines', () => {
   const ensuring = () =>
     new EnsureCheckBaselines(
       checks,
-      readings(),
+      evaluations(),
       memory.setRepository,
       memory.replayRepository,
       work,
@@ -561,7 +561,7 @@ describe('EnsureCheckBaselines', () => {
     [...memory.replays.values()].filter((each) => each.baseline);
 
   it('starts the baseline a check waits for when the one it wanted never came, then notes it found one', async () => {
-    guarding();
+    gating();
     const id = idOf(await start());
 
     expect(baselines()).toHaveLength(0);
@@ -578,12 +578,12 @@ describe('EnsureCheckBaselines', () => {
   });
 
   it('gives up on a baseline once the live config has moved on before one came, leaving the check undecided', async () => {
-    guarding();
+    gating();
     const id = idOf(await start());
     const live = await work.live();
     work.live = async () => ({
       ...live,
-      digests: StationDigests.of({
+      hashes: StationHashes.of({
         behaviour: '7'.repeat(64),
         scoring: '8'.repeat(64),
       }),
@@ -595,13 +595,13 @@ describe('EnsureCheckBaselines', () => {
     expect(baselines()).toHaveLength(0);
     expect(checkOf(id).baseline).toBe('unavailable');
     expect(await read(id)).toMatchObject({
-      verdict: 'undecided',
+      result: 'undecided',
       undecidedBecause: 'no-baseline',
     });
   });
 
   it('is undecided once the baseline it found is gone', async () => {
-    guarding();
+    gating();
     const id = idOf(await start());
 
     await ensuring();
@@ -610,7 +610,7 @@ describe('EnsureCheckBaselines', () => {
     await finished(checkOf(id).replayId);
 
     expect(await read(id)).toMatchObject({
-      verdict: 'undecided',
+      result: 'undecided',
       undecidedBecause: 'no-baseline',
     });
   });
@@ -618,12 +618,12 @@ describe('EnsureCheckBaselines', () => {
 
 describe('ReadReplayCheckHandler', () => {
   it('reads a running check to any reader of the team, linking its replay in the web app', async () => {
-    guarding();
+    gating();
     const id = idOf(await start());
     const check = checkOf(id);
 
     expect(await read(id)).toMatchObject({
-      verdict: 'running',
+      result: 'running',
       undecidedBecause: null,
       setName: 'Queue fixes',
       attempt: 1,
@@ -640,7 +640,7 @@ describe('ReadReplayCheckHandler', () => {
   });
 
   it('finds no check for one off the team', async () => {
-    guarding();
+    gating();
     const id = idOf(await start());
 
     expect(await errorOf(read(id, null))).toBe('not-found');
@@ -657,7 +657,7 @@ describe('ListSetReplayChecksHandler', () => {
       accessFor(memory, work, mayPlan),
       peopleWho(mayPlan),
       checks,
-      readings(),
+      evaluations(),
       'https://app.example.test',
     ).execute(
       new ListSetReplayChecksQuery('team_1', 'set_1', PERSON, {
@@ -666,17 +666,17 @@ describe('ListSetReplayChecksHandler', () => {
       }),
     );
 
-  it('lists a set’s checks newest first, a page at a time, each with its verdict, to any reader of the team', async () => {
-    guarding();
+  it('lists a set’s checks newest first, a page at a time, each with its result, to any reader of the team', async () => {
+    gating();
     const first = idOf(await start());
-    work.examine = async (_line, _station, block) => ({
+    work.validate = async (_line, _station, block) => ({
       ok: true,
       fingerprint: PLANNED,
-      digests: StationDigests.of({
+      hashes: StationHashes.of({
         behaviour: '5'.repeat(64),
         scoring: '6'.repeat(64),
       }),
-      liveDigests: LIVE_DIGESTS,
+      liveHashes: LIVE_HASHES,
       scoring: CHECKED,
       changedFrom: StationChanges.none(LIVE_FINGERPRINT),
       block: StationBlock.of(block),
@@ -688,7 +688,7 @@ describe('ListSetReplayChecksHandler', () => {
       expect.objectContaining({
         id: second,
         stationKey: 'build',
-        verdict: 'running',
+        result: 'running',
         regressions: 0,
         attempt: 1,
         reference: { commit: null, pullRequest: 42 },
@@ -700,36 +700,36 @@ describe('ListSetReplayChecksHandler', () => {
   });
 });
 
-describe('GuardChangesHandler', () => {
-  const guard = (setId: string, guards: boolean, mayPlan = true) =>
-    new GuardChangesHandler(
+describe('GateChangesHandler', () => {
+  const gate = (setId: string, gates: boolean, mayPlan = true) =>
+    new GateChangesHandler(
       accessFor(memory, work, mayPlan),
       memory.setRepository,
       TRANSACTION,
-    ).execute(new GuardChangesCommand('team_1', setId, guards, ACTOR));
+    ).execute(new GateChangesCommand('team_1', setId, gates, ACTOR));
 
-  it('flags a set as guarding its station’s changes, and takes the flag back, recording who did', async () => {
+  it('flags a set as gating its station’s changes, and takes the flag back, recording who did', async () => {
     const set = aSet(2);
     memory.sets.set(set.id.value, set);
 
-    expect(await guard(set.id.value, true)).toEqual({ outcome: 'changed' });
-    expect(memory.sets.get(set.id.value)?.guardsChanges).toBe(true);
-    expect(await guard(set.id.value, false)).toEqual({ outcome: 'changed' });
-    expect(memory.sets.get(set.id.value)?.guardsChanges).toBe(false);
+    expect(await gate(set.id.value, true)).toEqual({ outcome: 'changed' });
+    expect(memory.sets.get(set.id.value)?.gatesChanges).toBe(true);
+    expect(await gate(set.id.value, false)).toEqual({ outcome: 'changed' });
+    expect(memory.sets.get(set.id.value)?.gatesChanges).toBe(false);
 
     const audited = memory.events.filter(
-      (each): each is ReplaySetGuardChanged =>
-        each instanceof ReplaySetGuardChanged,
+      (each): each is ReplaySetGateChanged =>
+        each instanceof ReplaySetGateChanged,
     );
     expect(audited.map((each) => each.change.recordedDetail)).toEqual([
-      { guardsChanges: true },
-      { guardsChanges: false },
+      { gatesChanges: true },
+      { gatesChanges: false },
     ]);
     expect(audited[0]?.change.by.actor).toEqual(ACTOR);
   });
 
-  it('rejects a second set guarding the same station', async () => {
-    guarding();
+  it('rejects a second set gating the same station', async () => {
+    gating();
     const other = ReplaySet.create({
       id: ReplaySetId.of('set_2'),
       station: STATION,
@@ -738,8 +738,8 @@ describe('GuardChangesHandler', () => {
     });
     memory.sets.set('set_2', other);
 
-    expect(await errorOf(guard('set_2', true))).toBe('conflict');
-    expect(await guard('set_2', true, false)).toEqual({
+    expect(await errorOf(gate('set_2', true))).toBe('conflict');
+    expect(await gate('set_2', true, false)).toEqual({
       outcome: 'forbidden',
       act: 'plan',
     });

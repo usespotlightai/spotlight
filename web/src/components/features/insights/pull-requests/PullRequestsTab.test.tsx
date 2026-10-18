@@ -69,10 +69,10 @@ const measures = {
 const week = {
   week: '2026-09-28',
   merged: 4,
-  made: 2,
-  touched: 1,
+  authored: 2,
+  reviewed: 1,
   bots: 0,
-  share: 0.75,
+  rate: 0.75,
 };
 
 const SUMMARY = {
@@ -80,21 +80,21 @@ const SUMMARY = {
   total: 6,
   repositories: ['acme/api'],
   weeks: ['2026-09-28'],
-  penetration: {
+  spotlightShare: {
     merged: 4,
-    made: 2,
-    touched: 1,
+    authored: 2,
+    reviewed: 1,
     bots: 0,
-    share: 0.75,
+    rate: 0.75,
     weeks: [week],
     repositories: [
       {
         repository: 'acme/api',
         merged: 4,
-        made: 2,
-        touched: 1,
+        authored: 2,
+        reviewed: 1,
         bots: 0,
-        share: 0.75,
+        rate: 0.75,
         weeks: [week],
       },
     ],
@@ -161,7 +161,7 @@ const LIST = {
       number: 8,
       title: 'Move billing',
       author: 'ada',
-      by: 'touched',
+      by: 'reviewed',
       taskId: null,
       reviewTaskIds: ['task_review_8'],
       spend: null,
@@ -248,7 +248,7 @@ describe('the pull requests of the Productivity tab', () => {
   it('shows the pull requests still open where nothing merged yet', () => {
     answers.summary = queried({
       ...SUMMARY,
-      penetration: { ...SUMMARY.penetration, merged: 0 },
+      spotlightShare: { ...SUMMARY.spotlightShare, merged: 0 },
     });
 
     showing();

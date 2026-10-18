@@ -24,24 +24,20 @@ import { rankedOf } from '@replays/domain/services/search-ranking';
 import { scoresOf } from '@replays/domain/services/search-scores';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
+import { FailureCause } from '@replays/domain/value-objects/failure-cause.vo';
 import type { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
-import type { ReflectionOutcome } from '@replays/domain/value-objects/reflection-outcome';
+import type { ReflectionResult } from '@replays/domain/value-objects/reflection-result';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
-import type { ReplayEnd } from '@replays/domain/value-objects/replay-state';
+import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import type {
-  SearchAllotment,
   SearchBudget,
+  SearchCeilingSplit,
 } from '@replays/domain/value-objects/search-budget.vo';
-import { SearchCause } from '@replays/domain/value-objects/search-cause.vo';
-import type {
-  SearchCourseEnding,
-  SearchCutShort,
-  SearchEnding,
-} from '@replays/domain/value-objects/search-ending';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import {
   SearchIteration,
@@ -55,7 +51,11 @@ import {
   ACTIVE_SEARCH_STATES,
   type SearchState,
 } from '@replays/domain/value-objects/search-state';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
+import type {
+  SearchCourseStopReason,
+  SearchCutShort,
+  SearchStopReason,
+} from '@replays/domain/value-objects/search-stop-reason';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -122,7 +122,7 @@ interface State {
   readonly iterations: readonly SearchIteration[];
   readonly heldOut: readonly HeldOutReplay[];
   readonly state: SearchState;
-  readonly ending: SearchEnding | null;
+  readonly stopReason: SearchStopReason | null;
   readonly startedBy: UserId | null;
   readonly startedAt: Date;
   readonly endedAt: Date | null;
@@ -169,7 +169,7 @@ export class Search extends EventRecorder {
       );
     }
 
-    input.budget.allot(input.split);
+    input.budget.splitCeiling(input.split);
 
     const started = new Search({
       id: input.id,
@@ -187,7 +187,7 @@ export class Search extends EventRecorder {
       iterations: [],
       heldOut: [],
       state: 'seeding',
-      ending: null,
+      stopReason: null,
       startedBy: input.by.actor?.principal.userId ?? null,
       startedAt: input.at,
       endedAt: null,
@@ -227,7 +227,7 @@ export class Search extends EventRecorder {
     }
     if (
       (state.state === 'seeding' || state.state === 'searching') !==
-      (state.ending === null)
+      (state.stopReason === null)
     ) {
       throw new InconsistentStateError(
         'search',
@@ -298,8 +298,8 @@ export class Search extends EventRecorder {
     return this.state.split;
   }
 
-  get allotment(): SearchAllotment {
-    return this.state.budget.allot(this.state.split);
+  get ceilingSplit(): SearchCeilingSplit {
+    return this.state.budget.splitCeiling(this.state.split);
   }
 
   get seed(): SearchSeed {
@@ -322,8 +322,8 @@ export class Search extends EventRecorder {
     return this.state.state;
   }
 
-  get ending(): SearchEnding | null {
-    return this.state.ending;
+  get stopReason(): SearchStopReason | null {
+    return this.state.stopReason;
   }
 
   get startedBy(): UserId | null {
@@ -352,29 +352,30 @@ export class Search extends EventRecorder {
     return last?.ownsActiveRun ? last.runId : null;
   }
 
-  get spent(): Spend {
+  get spent(): Money {
     const ceiling = this.state.budget.ceiling;
-    const allotment = this.allotment;
-    const inCurrency = (spends: readonly Spend[]): Spend =>
+    const ceilingSplit = this.ceilingSplit;
+    const inCurrency = (spends: readonly Money[]): Money =>
       spends
         .filter((each) => each.sameCurrencyAs(ceiling))
-        .reduce((sum, each) => sum.plus(each), Spend.none(ceiling.currency));
+        .reduce((sum, each) => sum.plus(each), Money.none(ceiling.currency));
     const replays = this.replays.map((each) =>
       inCurrency(each.spent ? [each.spent] : []).plus(
-        allotment.perRun.scaled(each.unpriced, 1),
+        ceilingSplit.perRun.scaled(each.unpriced, 1),
       ),
     );
     const agents = this.state.iterations.map((each) => {
       const priced = inCurrency(each.agentSpent?.spends ?? []);
 
-      return each.agentUnpriced(ceiling) && priced.isWithin(allotment.agentRun)
-        ? allotment.agentRun
+      return each.agentUnpriced(ceiling) &&
+        priced.isWithin(ceilingSplit.agentRun)
+        ? ceilingSplit.agentRun
         : priced;
     });
 
     return [...replays, ...agents].reduce(
       (sum, each) => sum.plus(each),
-      Spend.none(ceiling.currency),
+      Money.none(ceiling.currency),
     );
   }
 
@@ -519,7 +520,7 @@ export class Search extends EventRecorder {
       throw new UnknownSearchTaskError(input.taskId.value);
     }
 
-    const cause = SearchCause.of({ task, ...input, at });
+    const cause = FailureCause.of({ task, ...input, at });
 
     return this.changingIteration(run, (each) => each.causeRecorded(cause));
   }
@@ -530,9 +531,9 @@ export class Search extends EventRecorder {
     return this.changingIteration(run, () => iteration.rejected());
   }
 
-  recordReplayEnd(
+  recordReplayStopReason(
     replayId: ReplayId,
-    end: ReplayEnd,
+    end: ReplayStopReason,
     charge: ReplayCharge,
     at: Date,
     runIds: () => RunId,
@@ -556,7 +557,7 @@ export class Search extends EventRecorder {
         return noted.searchingAt(at, runIds);
       }
 
-      return end === 'over-budget'
+      return end === 'ceiling-reached'
         ? noted.with({ state: 'searching' }).ranItsCourse('ceiling-reached', at)
         : noted.cutShort('seed-failed', at);
     }
@@ -773,7 +774,7 @@ export class Search extends EventRecorder {
 
     return (
       budget.iterations - iterations.length >= REFLECTION_AND_ONE_MORE &&
-      budget.allowsIteration(this.spent.plus(this.allotment.agentRun), split)
+      budget.allowsIteration(this.spent.plus(this.ceilingSplit.agentRun), split)
     );
   }
 
@@ -799,8 +800,8 @@ export class Search extends EventRecorder {
     at: Date,
     runIds: () => RunId,
   ): Search {
-    const stalledAs: ReflectionOutcome | null =
-      reflection.outcome ??
+    const stalledAs: ReflectionResult | null =
+      reflection.result ??
       (reflection.foundConfigCause
         ? null
         : reflection.causes.length === 0 && reflection.current === 'failed'
@@ -815,7 +816,7 @@ export class Search extends EventRecorder {
           : this.ranItsCourse('ceiling-reached', at);
     const outcome =
       stalledAs ??
-      (next.state.state === 'searching' ? 'went-on' : 'out-of-budget');
+      (next.state.state === 'searching' ? 'continued' : 'ceiling-reached');
     const concluded = next.changingIteration(reflection.runId, (each) =>
       each.concluded(outcome),
     );
@@ -825,7 +826,7 @@ export class Search extends EventRecorder {
         this.id,
         this.workspaceId,
         reflection.number,
-        outcome !== 'went-on',
+        outcome !== 'continued',
       ),
     );
 
@@ -854,12 +855,12 @@ export class Search extends EventRecorder {
     return wanting;
   }
 
-  private ranItsCourse(ending: SearchCourseEnding, at: Date): Search {
+  private ranItsCourse(stopReason: SearchCourseStopReason, at: Date): Search {
     if (!this.proposals.some((each) => each.replay.hasFinished)) {
-      return this.endedAs('finished', ending, at);
+      return this.endedAs('finished', stopReason, at);
     }
 
-    const holdingOut = this.with({ state: 'holding-out', ending });
+    const holdingOut = this.with({ state: 'holding-out', stopReason });
 
     holdingOut.record(new SearchHoldingOutRequested(this.id, this.workspaceId));
 
@@ -867,22 +868,22 @@ export class Search extends EventRecorder {
   }
 
   private heldOutAt(at: Date): Search {
-    const ending = this.state.ending;
+    const stopReason = this.state.stopReason;
 
     return this.state.state === 'holding-out' &&
-      ending !== null &&
+      stopReason !== null &&
       this.state.heldOut.every((each) => each.replay.hasEnded)
-      ? this.endedAs('finished', ending, at)
+      ? this.endedAs('finished', stopReason, at)
       : this;
   }
 
-  private cutShort(ending: SearchCutShort, at: Date): Search {
-    return this.endedAs('stopped', ending, at);
+  private cutShort(stopReason: SearchCutShort, at: Date): Search {
+    return this.endedAs('stopped', stopReason, at);
   }
 
   private endedAs(
     state: 'finished' | 'stopped',
-    ending: SearchEnding,
+    stopReason: SearchStopReason,
     at: Date,
   ): Search {
     const runToCancel = this.activeRun;
@@ -893,14 +894,14 @@ export class Search extends EventRecorder {
     ]
       .filter((each) => !each.hasEnded)
       .map((each) => each.replayId);
-    const ended = this.with({ state, ending, endedAt: at });
+    const ended = this.with({ state, stopReason, endedAt: at });
 
     ended.record(
       new SearchEnded(
         this.id,
         this.workspaceId,
         state,
-        ending,
+        stopReason,
         runToCancel,
         stopping,
       ),

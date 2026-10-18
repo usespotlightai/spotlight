@@ -4,16 +4,16 @@ import {
   type ChangeStackGeneratorPort,
 } from '@change-review/application/ports/change-stack-generator.port';
 import { WorkChangeStacks } from '@change-review/application/services/work-change-stacks.service';
-import type { INestApplication } from '@nestjs/common';
 import {
   JUDGE,
   type JudgePort,
   type JudgeRequest,
-} from '@outcomes/application/ports/judge.port';
-import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
-import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
-import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
-import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
+} from '@insights/application/ports/judge.port';
+import { WorkChangeJudgings } from '@insights/application/services/work-change-judgings.service';
+import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
+import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
+import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -294,7 +294,7 @@ const anOriginal = async (): Promise<Original> => {
       notes: [],
       openReviewComments: [],
     }).parts,
-    briefedMemories: { briefed: [], cut: [] },
+    briefedMemories: { briefed: [], omitted: [] },
     startedFromArchiveId: archiveId,
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
@@ -313,7 +313,7 @@ const anOriginal = async (): Promise<Original> => {
         RunId.of(runId),
         team.workspaceId,
         TaskId.of(taskId),
-      ).recordAction(NextAct.of('closed', at)),
+      ).recordAction(HumanAction.of('accepted', at)),
     );
 
   return { taskId, runId };
@@ -524,7 +524,7 @@ const workUntil = async (
   throw new Error('the replays never ended');
 };
 
-const probedAgain = (entries: Awaited<ReturnType<typeof entriesOf>>) =>
+const recalibrated = (entries: Awaited<ReturnType<typeof entriesOf>>) =>
   entries.length > 0 &&
   entries.every(
     (each) =>
@@ -562,13 +562,13 @@ interface SetRead {
     oracle: {
       replayId: string;
       state: string;
-      againstReplayId: string | null;
-      againstState: string | null;
+      referenceReplayId: string | null;
+      referenceState: string | null;
       answered: number;
       live: number | null;
       withAnswer: number | null;
       roomToImprove: boolean | null;
-      gain: { verdict: string } | null;
+      gain: { significance: string } | null;
     } | null;
   };
 }
@@ -587,7 +587,7 @@ const setOf = async (setId: string): Promise<SetRead> => {
 
 let originals: Original[];
 let setId: string;
-let probeId: string;
+let calibrationId: string;
 
 beforeAll(async () => {
   app = await openApp((module) =>
@@ -644,9 +644,9 @@ beforeAll(async () => {
       judge: {
         rubric: RUBRIC,
         claims: [],
-        passShare: 1,
+        passThreshold: 1,
         sample: 0.1,
-        trust: 0.6,
+        minAgreement: 0.6,
       },
     },
     {
@@ -702,7 +702,7 @@ beforeAll(async () => {
   for (let made = 0; made < 5; made += 1) {
     originals.push(await anOriginal());
   }
-  setId = await createSet('Probed', originals);
+  setId = await createSet('Calibrated', originals);
 }, 60_000);
 
 afterAll(async () => {
@@ -724,23 +724,23 @@ describe('checking a replay set’s health', () => {
       baseline: { id: string; status: string } | null;
     };
 
-    probeId = started.id;
+    calibrationId = started.id;
     expect(started.ceiling.amount).toBe(60);
     expect(started.baseline).toMatchObject({
-      id: probeId,
+      id: calibrationId,
       status: 'started',
     });
 
-    await workUntil([probeId], probedAgain, () => 5);
+    await workUntil([calibrationId], recalibrated, () => 5);
 
-    const runs = (await entriesOf([probeId])).flatMap((each) =>
+    const runs = (await entriesOf([calibrationId])).flatMap((each) =>
       each.runId ? [each.runId] : [],
     );
 
     const detail = (
-      await owner().get(`${teamPath()}/replays/${probeId}`).expect(200)
+      await owner().get(`${teamPath()}/replays/${calibrationId}`).expect(200)
     ).body as {
-      probe: boolean;
+      calibration: boolean;
       repeats: number;
       state: string;
       entries: {
@@ -753,7 +753,7 @@ describe('checking a replay set’s health', () => {
     };
 
     expect(detail).toMatchObject({
-      probe: true,
+      calibration: true,
       repeats: 3,
       state: 'finished',
     });
@@ -778,7 +778,7 @@ describe('checking a replay set’s health', () => {
     expect(health.noise).toMatchObject({ repeats: 3, spread: 0 });
     expect(health.saturation).toMatchObject({ rate: 1, saturated: true });
     expect(health.judge).toEqual({
-      replayId: probeId,
+      replayId: calibrationId,
       compared: 15,
       agreed: 11,
       pending: 0,
@@ -799,7 +799,7 @@ describe('checking a replay set’s health', () => {
     ]);
     expect(
       await db
-        .select({ round: schema.changeJudging.round })
+        .select({ attempt: schema.changeJudging.attempt })
         .from(schema.changeJudging)
         .where(inArray(schema.changeJudging.runId, runs)),
     ).toHaveLength(30);
@@ -840,7 +840,7 @@ describe('checking a replay set’s health', () => {
     }, 30_000);
 
     expect(started).toMatchObject({
-      againstReplayId: probeId,
+      referenceReplayId: calibrationId,
       answered: originals.length,
     });
 
@@ -854,8 +854,8 @@ describe('checking a replay set’s health', () => {
     }, 30_000);
 
     expect(oracle).toMatchObject({
-      againstReplayId: probeId,
-      againstState: 'finished',
+      referenceReplayId: calibrationId,
+      referenceState: 'finished',
       answered: originals.length,
       withAnswer: 1,
       roomToImprove: false,

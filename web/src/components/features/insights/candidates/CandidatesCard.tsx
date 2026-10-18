@@ -18,7 +18,7 @@ export function CandidatesCard({
   stations,
   names,
 }: CandidatesCardProps) {
-  const [charted, setCharted] = useState(false);
+  const [chartStatus, setCharted] = useState(false);
   const shown = { slug, teamId, stations, names };
 
   return (
@@ -27,12 +27,12 @@ export function CandidatesCard({
       description="Each candidate config replayed on past tasks, compared with the live config on the same runs. The candidate’s own checks and judge decide success. Replays don’t change the station’s config."
       actions={
         <ChartTableSwitch
-          tabled={!charted}
+          tabled={!chartStatus}
           onTabled={(tabled) => setCharted(!tabled)}
         />
       }
     >
-      <CandidatesTable {...shown} charted={charted} />
+      <CandidatesTable {...shown} chartStatus={chartStatus} />
     </InsightsCard>
   );
 }

@@ -15,7 +15,7 @@ export const UNPAIRED_BECAUSE = [
   'errored',
   'interrupted',
   'other-rubric',
-  'budget',
+  'ceiling-reached',
 ] as const;
 
 export type Unpaired = (typeof UNPAIRED_BECAUSE)[number];
@@ -37,7 +37,7 @@ const isOutcome = (raw: string): raw is PairOutcome =>
 
 const OUTCOME_OF_WINNER: Readonly<Record<string, PairOutcome>> = {
   run: 'win',
-  against: 'loss',
+  other: 'loss',
   tie: 'tie',
 };
 
@@ -53,7 +53,7 @@ const outcomeOfWinner = (winner: string): PairOutcome => {
   return outcome;
 };
 
-const READINGS = 2;
+const PASSES = 2;
 
 export interface PairReason {
   readonly text: string;
@@ -61,7 +61,7 @@ export interface PairReason {
   readonly theirHunks: readonly string[];
 }
 
-export interface PairReading {
+export interface PairPass {
   readonly ownShownFirst: boolean;
   readonly outcome: PairOutcome;
   readonly reasons: readonly PairReason[];
@@ -71,13 +71,13 @@ export class PairVerdict {
   private constructor(
     readonly outcome: PairOutcome,
     readonly model: string,
-    readonly readings: readonly PairReading[],
+    readonly passes: readonly PairPass[],
   ) {}
 
   static of(input: {
     outcome: string;
     model: string;
-    readings: readonly {
+    passes: readonly {
       readonly ownShownFirst: boolean;
       readonly outcome: string;
       readonly reasons: readonly PairReason[];
@@ -85,7 +85,7 @@ export class PairVerdict {
   }): PairVerdict {
     const outcomes = [
       input.outcome,
-      ...input.readings.map((each) => each.outcome),
+      ...input.passes.map((each) => each.outcome),
     ];
 
     if (!outcomes.every(isOutcome)) {
@@ -94,25 +94,25 @@ export class PairVerdict {
       );
     }
 
-    const [first, second] = input.readings;
+    const [first, second] = input.passes;
 
     if (
       !first ||
       !second ||
-      input.readings.length !== READINGS ||
+      input.passes.length !== PASSES ||
       first.ownShownFirst === second.ownShownFirst ||
       input.outcome !==
         (first.outcome === second.outcome ? first.outcome : 'tie')
     ) {
       throw new InvalidReplayError(
-        'side-by-side verdict must be a tie when its two readings disagree',
+        'side-by-side verdict must be a tie when its two passes disagree',
       );
     }
 
     return new PairVerdict(
       input.outcome as PairOutcome,
       input.model,
-      input.readings.map((each) => ({
+      input.passes.map((each) => ({
         ownShownFirst: each.ownShownFirst,
         outcome: each.outcome as PairOutcome,
         reasons: each.reasons.map((reason) => ({
@@ -127,26 +127,26 @@ export class PairVerdict {
   static fromWinner(input: {
     winner: string;
     model: string;
-    readings: readonly {
+    passes: readonly {
       readonly runShownFirst: boolean;
       readonly winner: string;
       readonly reasons: readonly {
         readonly text: string;
         readonly runHunks: readonly string[];
-        readonly againstHunks: readonly string[];
+        readonly otherHunks: readonly string[];
       }[];
     }[];
   }): PairVerdict {
     return PairVerdict.of({
       outcome: outcomeOfWinner(input.winner),
       model: input.model,
-      readings: input.readings.map((reading) => ({
-        ownShownFirst: reading.runShownFirst,
-        outcome: outcomeOfWinner(reading.winner),
-        reasons: reading.reasons.map((each) => ({
+      passes: input.passes.map((pass) => ({
+        ownShownFirst: pass.runShownFirst,
+        outcome: outcomeOfWinner(pass.winner),
+        reasons: pass.reasons.map((each) => ({
           text: each.text,
           ownHunks: each.runHunks,
-          theirHunks: each.againstHunks,
+          theirHunks: each.otherHunks,
         })),
       })),
     });
@@ -156,24 +156,24 @@ export class PairVerdict {
     return (
       this.outcome === other.outcome &&
       this.model === other.model &&
-      JSON.stringify(this.readings) === JSON.stringify(other.readings)
+      JSON.stringify(this.passes) === JSON.stringify(other.passes)
     );
   }
 }
 
 export class EntryPairing {
   private constructor(
-    readonly against: RunId,
+    readonly otherRunId: RunId,
     readonly verdict: PairVerdict | null,
     readonly unpaired: Unpaired | null,
   ) {}
 
-  static requested(against: RunId): EntryPairing {
-    return new EntryPairing(against, null, null);
+  static requested(otherRunId: RunId): EntryPairing {
+    return new EntryPairing(otherRunId, null, null);
   }
 
   static rehydrate(input: {
-    against: RunId;
+    otherRunId: RunId;
     verdict: PairVerdict | null;
     unpaired: string | null;
   }): EntryPairing {
@@ -184,7 +184,7 @@ export class EntryPairing {
     }
 
     return new EntryPairing(
-      input.against,
+      input.otherRunId,
       input.verdict,
       input.unpaired === null ? null : unpairedOf(input.unpaired),
     );
@@ -195,22 +195,24 @@ export class EntryPairing {
   }
 
   isAgainst(run: RunId): boolean {
-    return this.against.equals(run);
+    return this.otherRunId.equals(run);
   }
 
   judged(verdict: PairVerdict): EntryPairing {
-    return this.pending ? new EntryPairing(this.against, verdict, null) : this;
+    return this.pending
+      ? new EntryPairing(this.otherRunId, verdict, null)
+      : this;
   }
 
   failed(why: string): EntryPairing {
     return this.pending
-      ? new EntryPairing(this.against, null, unpairedOf(why))
+      ? new EntryPairing(this.otherRunId, null, unpairedOf(why))
       : this;
   }
 
   equals(other: EntryPairing): boolean {
     return (
-      this.against.equals(other.against) &&
+      this.otherRunId.equals(other.otherRunId) &&
       this.unpaired === other.unpaired &&
       (this.verdict === null
         ? other.verdict === null

@@ -7,12 +7,12 @@ export const RUBRIC =
   'Pass a run that fixes the reported bug without widening the change. Fail it where tests were skipped or the diff touches unrelated files.';
 
 const TRUSTED: JudgeCalibrationResponseDto = {
-  trusted: true,
+  qualified: true,
   measure: 'kappa',
   agreement: 0.71,
   pairs: 24,
-  trust: 0.6,
-  hiddenBecause: null,
+  minAgreement: 0.6,
+  hiddenReason: null,
 };
 
 export const runScoresOf = (
@@ -32,7 +32,7 @@ export const runScoresOf = (
   judge: {
     kind: 'yes-no',
     value: 0,
-    marks: null,
+    claimResults: null,
     label: 'no',
     rubricVersion:
       '9c41e2d7a6b3f0851e2c4d6a8b0f1e3d5c7a9b1d3f5e7a9c1b3d5f7e9a1c3b5d',
@@ -113,7 +113,7 @@ export const claimsScoresOf = (
       ...scores.judge,
       kind: 'claims',
       value: 1 / 3,
-      marks: [false, true, false],
+      claimResults: [false, true, false],
       label: '33% of claims met',
       reasons: [
         ...(gone ? [{ ...gone, claim: 0 }] : []),

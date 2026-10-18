@@ -66,7 +66,7 @@ describe('the mock team memories', () => {
     expect(await memoryIds({ path: 'src/retries' })).toEqual(['memory_gone']);
   });
 
-  it('opens a memory with the steps or notes it rests on', async () => {
+  it('opens a memory with the steps or notes it cites', async () => {
     const { data: gone } = await readTeamMemory({
       path: { ...team, memoryId: 'memory_gone' },
       throwOnError: true,
@@ -82,7 +82,7 @@ describe('the mock team memories', () => {
 
     expect(gone.harness).toBe('claude-code');
     expect(gone.steps.length).toBeGreaterThan(0);
-    expect(gone.grounds).toEqual({
+    expect(gone.provenance).toEqual({
       taskId: 'task_retries',
       runId: 'run_retries_2',
     });
@@ -141,7 +141,7 @@ describe('the mock team memories', () => {
       throwOnError: true,
     });
 
-    expect(data.origin).toBe('remembered');
+    expect(data.proposedBy).toBe('agent');
     expect(data.state).toBe('proposed');
   });
 });

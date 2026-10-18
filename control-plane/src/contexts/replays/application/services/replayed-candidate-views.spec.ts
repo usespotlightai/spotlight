@@ -33,15 +33,15 @@ import {
   SEARCH_ID,
   STATION,
 } from '@replays/domain/replays.fake-spec';
-import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-reading';
+import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-estimate';
 import { UNREAD_HEALTH } from '@replays/domain/services/set-health';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
 import { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -236,7 +236,7 @@ describe('replayedCandidatesView', () => {
 
   it('ranks a set’s candidates by their gain against live, those without one last', () => {
     const gains = onlySet().candidates.map(
-      (each) => each.againstLive?.gain ?? null,
+      (each) => each.gainOverLive?.gain ?? null,
     );
     const known = gains.filter((each) => each !== null);
 
@@ -250,8 +250,8 @@ describe('replayedCandidatesView', () => {
     const set = onlySet();
 
     expect(set.chartCurrency).toBe('USD');
-    expect(set.baseline?.charted).toBe('priced');
-    expect(candidateNamed('Shorter prompt').charted).toBe('priced');
+    expect(set.baseline?.chartStatus).toBe('priced');
+    expect(candidateNamed('Shorter prompt').chartStatus).toBe('priced');
   });
 
   it('tells the health of the set from its oldest and newest run ends and its last addition', () => {
@@ -290,7 +290,7 @@ describe('replayedCandidatesView', () => {
         set: world.set,
         candidate: candidateOf('live'),
         baseline: true,
-        ceiling: Spend.ceiling(100, 'EUR'),
+        ceiling: Money.ceiling(100, 'EUR'),
         at: later(5),
         by: BY,
       }),
@@ -401,7 +401,7 @@ describe('replayedCandidatesView', () => {
       interval: page.seed.searchInterval,
       costPerRun: page.seed.costPerRun,
       scored: page.seed.searchScored,
-      charted: 'priced',
+      chartStatus: 'priced',
     });
     expect(candidateNamed('terse').search?.seed.scored).toBe(
       world.search.split.searched.length,

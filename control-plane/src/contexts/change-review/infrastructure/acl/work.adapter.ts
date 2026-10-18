@@ -53,7 +53,7 @@ export class Work implements WorkPort {
   }
 
   async teamOfRun(runId: RunId): Promise<TeamId | null> {
-    return (await this.work.siteOfRun(runId))?.teamId ?? null;
+    return (await this.work.contextOfRun(runId))?.teamId ?? null;
   }
 
   wasWorkedBy(runId: RunId, runner: RunnerId): Promise<boolean> {

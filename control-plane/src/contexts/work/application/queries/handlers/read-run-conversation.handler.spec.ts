@@ -1,8 +1,8 @@
-import type { RunDigest } from '@work/application/ports/run-digest-reader.port';
 import type {
   RunConversationSummary,
   RunReaderPort,
 } from '@work/application/ports/run-reader.port';
+import type { RunUsage } from '@work/application/ports/run-usage-reader.port';
 import { ReadRunConversationHandler } from '@work/application/queries/handlers/read-run-conversation.handler';
 import { ReadRunConversationQuery } from '@work/application/queries/read-run-conversation.query';
 import { Money } from '@work/domain/value-objects/money.vo';
@@ -24,20 +24,20 @@ const conversation: RunConversationSummary = {
   notes: [],
 };
 
-const digest: RunDigest = {
+const usage: RunUsage = {
   ms: 60_000,
   steps: 12,
-  faults: 0,
+  errors: 0,
   changedLines: 0,
-  used: 40_000,
-  size: 200_000,
+  contextTokens: 40_000,
+  contextWindow: 200_000,
   cost: Money.of(0.42, 'USD'),
   tokens: Tokens.of({ input: 1_200, output: 900, cacheRead: 80_000 }),
 };
 
 const reading = (
   found: RunConversationSummary | null,
-  digests: ReadonlyMap<string, RunDigest>,
+  usages: ReadonlyMap<string, RunUsage>,
 ) =>
   new ReadRunConversationHandler(
     {
@@ -48,16 +48,16 @@ const reading = (
       replayFor: vi.fn(),
       searchRunFor: vi.fn(),
     } satisfies RunReaderPort,
-    { forRuns: async () => new Map(digests) },
+    { forRuns: async () => new Map(usages) },
   ).execute(new ReadRunConversationQuery(RUN_ID, 'user_1'));
 
 describe('ReadRunConversationHandler', () => {
   it('finds nothing for a run the viewer cannot see', async () => {
-    expect(await reading(null, new Map([[RUN_ID, digest]]))).toBeNull();
+    expect(await reading(null, new Map([[RUN_ID, usage]]))).toBeNull();
   });
 
   it('shows what an ended run spent, with a count never reported left unknown', async () => {
-    const found = await reading(conversation, new Map([[RUN_ID, digest]]));
+    const found = await reading(conversation, new Map([[RUN_ID, usage]]));
 
     expect(found?.spend).toEqual({
       cost: 0.42,
@@ -69,7 +69,7 @@ describe('ReadRunConversationHandler', () => {
     });
   });
 
-  it('shows no spend for a run not yet digested', async () => {
+  it('shows no spend for a run whose usage is not yet recorded', async () => {
     const found = await reading(conversation, new Map());
 
     expect(found?.spend).toBeNull();

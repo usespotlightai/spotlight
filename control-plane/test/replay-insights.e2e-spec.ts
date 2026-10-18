@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { JUDGE, type JudgePort } from '@insights/application/ports/judge.port';
+import { WorkChangeJudgings } from '@insights/application/services/work-change-judgings.service';
 import type { INestApplication } from '@nestjs/common';
-import { JUDGE, type JudgePort } from '@outcomes/application/ports/judge.port';
-import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
@@ -185,7 +185,7 @@ const anOriginal = async (stationId = BUILD): Promise<Original> => {
       notes: [],
       openReviewComments: [],
     }).parts,
-    briefedMemories: { briefed: [], cut: [] },
+    briefedMemories: { briefed: [], omitted: [] },
     startedFromArchiveId: archiveId,
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
@@ -247,7 +247,7 @@ const startSearch = async (
 
 interface SearchRead {
   state: string;
-  ending: string | null;
+  stopReason: string | null;
   spent: { amount: number };
   split: {
     searched: { runId: string; taskId: string }[];
@@ -560,9 +560,9 @@ beforeAll(async () => {
   const judged = {
     rubric: RUBRIC,
     claims: [],
-    passShare: 1,
+    passThreshold: 1,
     sample: 0.1,
-    trust: 0.6,
+    minAgreement: 0.6,
   };
   await db.insert(schema.station).values([
     {

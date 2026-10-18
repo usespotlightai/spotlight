@@ -6,8 +6,8 @@ import { SearchReflected } from '@replays/domain/events/search-reflected.event';
 import { SearchStalledUnreflected } from '@replays/domain/events/search-stalled-unreflected.event';
 import { SearchStarted } from '@replays/domain/events/search-started.event';
 import { SearchStopRequested } from '@replays/domain/events/search-stop-requested.event';
+import { InvalidFailureCauseError } from '@replays/domain/exceptions/invalid-failure-cause.error';
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
-import { InvalidSearchCauseError } from '@replays/domain/exceptions/invalid-search-cause.error';
 import { ReplaySetStationGoneError } from '@replays/domain/exceptions/replay-set-station-gone.error';
 import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search-candidate-name-taken.error';
 import { SearchEndedError } from '@replays/domain/exceptions/search-ended.error';
@@ -35,15 +35,15 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import type { ReplayEnd } from '@replays/domain/value-objects/replay-state';
+import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
 import {
   ATTEMPTS_PER_PROPOSAL,
   SearchIteration,
 } from '@replays/domain/value-objects/search-iteration.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -52,7 +52,7 @@ import { describe, expect, it } from 'vitest';
 
 const SEED = ReplayId.of('replay_seed');
 
-const usd = (amount: number) => Spend.of(amount, 'USD');
+const usd = (amount: number) => Money.of(amount, 'USD');
 
 const charged = (amount: number, unpriced = 0) => ({
   spent: usd(amount),
@@ -64,7 +64,7 @@ const NO_SPEND = ModelSpent.of([], 0);
 const run = (number: number) => RunId.of(`search_run_${number}`);
 
 const searching = (search = aSearch(), runIds = searchRunIds()): Search => {
-  const seeded = search.recordReplayEnd(
+  const seeded = search.recordReplayStopReason(
     SEED,
     'finished',
     charged(5),
@@ -97,14 +97,14 @@ const proposing = (
 const endingReplays = (
   search: Search,
   names: readonly string[],
-  end: ReplayEnd,
+  end: ReplayStopReason,
   runIds: () => RunId,
   spent = 1,
   improved = true,
 ): Search =>
   names.reduce(
     (built, name) =>
-      built.recordReplayEnd(
+      built.recordReplayStopReason(
         ReplayId.of(`replay_${name}`),
         end,
         charged(spent),
@@ -120,7 +120,7 @@ const iterated = (
   number: number,
   names: readonly string[],
   runIds: () => RunId,
-  end: ReplayEnd = 'finished',
+  end: ReplayStopReason = 'finished',
 ): Search =>
   endingReplays(
     proposing(search, number, names)
@@ -160,7 +160,7 @@ describe('Search', () => {
       const split = HeldOutSplit.drawn({
         searchId: SEARCH_ID,
         entries: set.entries,
-        digest: sha256,
+        hash: sha256,
       });
       const started = Search.start({
         id: SEARCH_ID,
@@ -206,7 +206,7 @@ describe('Search', () => {
         split: HeldOutSplit.drawn({
           searchId: SEARCH_ID,
           entries: set.entries,
-          digest: sha256,
+          hash: sha256,
         }),
         seed: { candidate: candidateOf('live'), replayId: SEED },
         at: NOW,
@@ -243,7 +243,7 @@ describe('Search', () => {
           split: HeldOutSplit.drawn({
             searchId: SEARCH_ID,
             entries: aSet(9).entries,
-            digest: sha256,
+            hash: sha256,
           }),
           seed: { candidate: candidateOf('live'), replayId: SEED },
           at: NOW,
@@ -265,7 +265,7 @@ describe('Search', () => {
           split: HeldOutSplit.drawn({
             searchId: SEARCH_ID,
             entries: set.entries,
-            digest: sha256,
+            hash: sha256,
           }),
           seed: { candidate: candidateOf('proposed'), replayId: SEED },
           at: NOW,
@@ -280,7 +280,7 @@ describe('Search', () => {
       );
     });
 
-    it('rejects a budget too thin to allot each replay a cent', () => {
+    it('rejects a budget too thin to give each replay a cent', () => {
       expect(() =>
         aSearch({
           budget: aBudget({ iterations: 10, perIteration: 5, ceiling: 0.2 }),
@@ -293,7 +293,7 @@ describe('Search', () => {
   describe('seeding', () => {
     it('wants its first iteration once its seed replay finished', () => {
       const runIds = searchRunIds();
-      const seeded = aSearch().recordReplayEnd(
+      const seeded = aSearch().recordReplayStopReason(
         SEED,
         'finished',
         charged(5),
@@ -311,10 +311,10 @@ describe('Search', () => {
       ]);
     });
 
-    it('ends, its ceiling reached, when its seed replay went over budget', () => {
-      const over = aSearch().recordReplayEnd(
+    it('ends, its ceiling reached, when its seed replay reached its ceiling', () => {
+      const over = aSearch().recordReplayStopReason(
         SEED,
-        'over-budget',
+        'ceiling-reached',
         charged(50),
         NOW,
         searchRunIds(),
@@ -322,14 +322,14 @@ describe('Search', () => {
       );
 
       expect(over.current).toBe('finished');
-      expect(over.ending).toBe('ceiling-reached');
+      expect(over.stopReason).toBe('ceiling-reached');
       expect(over.iterations).toEqual([]);
     });
 
     it.each(['stopped', 'deleted'] as const)(
       'ends, its seed failed, when its seed replay ended %s',
       (end) => {
-        const failed = aSearch().recordReplayEnd(
+        const failed = aSearch().recordReplayStopReason(
           SEED,
           end,
           charged(5),
@@ -339,7 +339,7 @@ describe('Search', () => {
         );
 
         expect(failed.current).toBe('stopped');
-        expect(failed.ending).toBe('seed-failed');
+        expect(failed.stopReason).toBe('seed-failed');
         expect(failed.endedAt).toEqual(NOW);
         expect(failed.pullEvents()).toEqual([
           new SearchEnded(
@@ -451,7 +451,7 @@ describe('Search', () => {
 
       expect(oneLeft.iterations).toHaveLength(1);
 
-      const next = endingReplays(oneLeft, ['two'], 'over-budget', runIds);
+      const next = endingReplays(oneLeft, ['two'], 'ceiling-reached', runIds);
 
       expect(next.iterations.map((each) => each.current)).toEqual([
         'ended',
@@ -475,7 +475,14 @@ describe('Search', () => {
       expect(again.iterations).toHaveLength(ended.iterations.length);
       expect(endingReplays(ended, ['one'], 'stopped', runIds, 0.5)).toBe(ended);
       expect(
-        seeded.recordReplayEnd(SEED, 'stopped', charged(1), NOW, runIds, true),
+        seeded.recordReplayStopReason(
+          SEED,
+          'stopped',
+          charged(1),
+          NOW,
+          runIds,
+          true,
+        ),
       ).toBe(seeded);
     });
 
@@ -488,7 +495,7 @@ describe('Search', () => {
       expect(grown.spent.amount).toBe(7);
       expect(grown.replaySpent(SEED, charged(6))).toBe(grown);
       expect(
-        grown.replaySpent(SEED, { spent: Spend.of(9, 'EUR'), unpriced: 0 }),
+        grown.replaySpent(SEED, { spent: Money.of(9, 'EUR'), unpriced: 0 }),
       ).toBe(grown);
       expect(grown.replaySpent(ReplayId.of('elsewhere'), charged(9))).toBe(
         grown,
@@ -542,10 +549,10 @@ describe('Search', () => {
       expect(cancelled.iterations[0]?.agentSpent?.unpriced).toBe(0);
     });
 
-    it('charges an unpriced or foreign agent run its whole allotment, and searches on while that fits', () => {
+    it('charges an unpriced or foreign agent run its whole limit, and searches on while that fits', () => {
       for (const spent of [
         ModelSpent.of([usd(0.1)], 1),
-        ModelSpent.of([Spend.of(0.1, 'EUR')], 0),
+        ModelSpent.of([Money.of(0.1, 'EUR')], 0),
       ]) {
         const runIds = searchRunIds();
         const seeded = searching(
@@ -567,7 +574,7 @@ describe('Search', () => {
         );
 
         expect(
-          search.spent.equals(usd(6).plus(seeded.allotment.agentRun)),
+          search.spent.equals(usd(6).plus(seeded.ceilingSplit.agentRun)),
         ).toBe(true);
         expect(search.current).toBe('searching');
         expect(search.activeRun).toEqual(run(2));
@@ -575,7 +582,7 @@ describe('Search', () => {
     });
 
     it('charges each unpriced or foreign run of a replay its share per run', () => {
-      const seeded = aSearch().recordReplayEnd(
+      const seeded = aSearch().recordReplayStopReason(
         SEED,
         'finished',
         charged(5, 3),
@@ -585,7 +592,9 @@ describe('Search', () => {
       );
 
       expect(
-        seeded.spent.equals(usd(5).plus(seeded.allotment.perRun.scaled(3, 1))),
+        seeded.spent.equals(
+          usd(5).plus(seeded.ceilingSplit.perRun.scaled(3, 1)),
+        ),
       ).toBe(true);
       expect(seeded.replaySpent(SEED, charged(5, 2))).toBe(seeded);
       expect(seeded.replaySpent(SEED, charged(5, 4)).seed.replay.unpriced).toBe(
@@ -599,13 +608,13 @@ describe('Search', () => {
         .queueRun(run(1))
         .recordAgentSpend(
           run(1),
-          ModelSpent.of([usd(2), Spend.of(1, 'EUR')], 0),
+          ModelSpent.of([usd(2), Money.of(1, 'EUR')], 0),
           later(1),
           runIds,
         );
 
       expect(search.iterations[0]?.current).toBe('running');
-      expect(search.spent.amount).toBe(5 + search.allotment.agentRun.amount);
+      expect(search.spent.amount).toBe(5 + search.ceilingSplit.agentRun.amount);
     });
 
     it('looks into why it stalled, as an iteration of its own, once two in a row came to nothing and a reflection and one more iteration are left', () => {
@@ -626,7 +635,7 @@ describe('Search', () => {
       const search = stalled(aBudget({ iterations: 3 }));
 
       expect(search.current).toBe('finished');
-      expect(search.ending).toBe('stalled');
+      expect(search.stopReason).toBe('stalled');
       expect(search.iterations.map((each) => each.kind)).toEqual([
         'propose',
         'propose',
@@ -678,7 +687,7 @@ describe('Search', () => {
       const search = stalled(aBudget({ iterations: 2 }));
 
       expect(search.current).toBe('finished');
-      expect(search.ending).toBe('iterations-spent');
+      expect(search.stopReason).toBe('iterations-spent');
       expect(search.iterations.map((each) => each.kind)).toEqual([
         'propose',
         'propose',
@@ -750,7 +759,7 @@ describe('Search', () => {
       search = iterated(search, 3, ['three'], runIds);
 
       expect(search.current).toBe('holding-out');
-      expect(search.ending).toBe('iterations-spent');
+      expect(search.stopReason).toBe('iterations-spent');
       expect(search.endedAt).toBeNull();
       expect(search.pullEvents()).toEqual([
         new SearchHoldingOutRequested(SEARCH_ID, search.workspaceId),
@@ -767,7 +776,7 @@ describe('Search', () => {
       search = iterated(search, 1, ['one'], runIds, 'stopped');
 
       expect(search.current).toBe('finished');
-      expect(search.ending).toBe('iterations-spent');
+      expect(search.stopReason).toBe('iterations-spent');
       expect(search.pullEvents().slice(-1)[0]).toEqual(
         new SearchEnded(
           SEARCH_ID,
@@ -805,7 +814,7 @@ describe('Search', () => {
       );
 
       expect(search.current).toBe('holding-out');
-      expect(search.ending).toBe('ceiling-reached');
+      expect(search.stopReason).toBe('ceiling-reached');
     });
   });
 
@@ -909,9 +918,9 @@ describe('Search', () => {
         runIds,
       );
 
-      expect(ended.ending).toBe('stalled');
+      expect(ended.stopReason).toBe('stalled');
       expect(ended.activeRun).toBeNull();
-      expect(ended.iterations[2]?.outcome).toBe('no-failures');
+      expect(ended.iterations[2]?.result).toBe('no-failures');
       expect(ended.iterations[2]?.endedSearch).toBe(true);
       expect(ended.pullEvents()).toContainEqual(
         new SearchReflected(SEARCH_ID, ended.workspaceId, 3, true),
@@ -966,14 +975,14 @@ describe('Search', () => {
           { ...causeInput(search, 0, 'config'), cause: 'luck' },
           later(4),
         ),
-      ).toThrow(InvalidSearchCauseError);
+      ).toThrow(InvalidFailureCauseError);
       expect(() =>
         search.recordCause(
           run(3),
           { ...causeInput(search, 0, 'config'), evidence: '  ' },
           later(4),
         ),
-      ).toThrow(InvalidSearchCauseError);
+      ).toThrow(InvalidFailureCauseError);
       expect(() =>
         searching().recordCause(
           run(1),
@@ -1011,7 +1020,7 @@ describe('Search', () => {
 
       expect(goneOn.current).toBe('searching');
       expect(goneOn.iterations[3]?.kind).toBe('propose');
-      expect(goneOn.iterations[2]?.outcome).toBe('went-on');
+      expect(goneOn.iterations[2]?.result).toBe('continued');
       expect(goneOn.iterations[2]?.endedSearch).toBe(false);
       expect(goneOn.pullEvents()).toEqual([
         new SearchIterationRequested(SEARCH_ID, goneOn.workspaceId, 4, run(4)),
@@ -1045,9 +1054,9 @@ describe('Search', () => {
         const ended = reflected(reflection);
 
         expect(ended.current).toBe('finished');
-        expect(ended.ending).toBe('stalled');
+        expect(ended.stopReason).toBe('stalled');
         expect(ended.iterations).toHaveLength(3);
-        expect(ended.iterations[2]?.outcome).toBe('no-config-cause');
+        expect(ended.iterations[2]?.result).toBe('no-config-cause');
         expect(ended.iterations[2]?.endedSearch).toBe(true);
         expect(ended.pullEvents()).toEqual([
           expect.any(SearchEnded),
@@ -1064,8 +1073,8 @@ describe('Search', () => {
         runIds,
       );
 
-      expect(search.ending).toBe('stalled');
-      expect(search.iterations[2]?.outcome).toBe('did-not-run');
+      expect(search.stopReason).toBe('stalled');
+      expect(search.iterations[2]?.result).toBe('did-not-run');
       expect(search.iterations[2]?.endedSearch).toBe(true);
     });
 
@@ -1100,7 +1109,7 @@ describe('Search', () => {
 
       expect(twice.iterations[3]?.kind).toBe('reflect');
       expect(ended.current).toBe('holding-out');
-      expect(ended.ending).toBe('stalled');
+      expect(ended.stopReason).toBe('stalled');
     });
 
     it('says it ended the search when it found a config cause but the budget left no room to try it', () => {
@@ -1121,8 +1130,8 @@ describe('Search', () => {
       );
 
       expect(costly.current).toBe('searching');
-      expect(broke.ending).toBe('ceiling-reached');
-      expect(broke.iterations[2]?.outcome).toBe('out-of-budget');
+      expect(broke.stopReason).toBe('ceiling-reached');
+      expect(broke.iterations[2]?.result).toBe('ceiling-reached');
       expect(broke.iterations[2]?.endedSearch).toBe(true);
     });
 
@@ -1142,7 +1151,7 @@ describe('Search', () => {
         attempts: 0,
         agentSpent: null,
         incumbent: reflection.incumbent,
-        outcome: null,
+        result: null,
         reflectedOn: reflection.reflectedOn,
         causes: reflection.causes,
       };
@@ -1244,7 +1253,7 @@ describe('Search', () => {
         ]),
       ).toEqual([['candidate_one', 'held_out_1']]);
 
-      const finished = heldOutSearch.recordReplayEnd(
+      const finished = heldOutSearch.recordReplayStopReason(
         ReplayId.of('held_out_1'),
         'finished',
         charged(1),
@@ -1254,7 +1263,7 @@ describe('Search', () => {
       );
 
       expect(finished.current).toBe('finished');
-      expect(finished.ending).toBe('iterations-spent');
+      expect(finished.stopReason).toBe('iterations-spent');
       expect(finished.endedAt).toEqual(later(3));
       expect(finished.pullEvents()).toEqual([
         new SearchEnded(
@@ -1353,7 +1362,7 @@ describe('Search', () => {
           heldOutIds(),
           NOW,
         )
-        .recordReplayEnd(
+        .recordReplayStopReason(
           ReplayId.of('held_out_1'),
           'stopped',
           charged(1),
@@ -1371,12 +1380,12 @@ describe('Search', () => {
   });
 
   describe('ending early', () => {
-    it('stops on request, cancels its run and stops its replays underway', () => {
+    it('stops on request, cancels its run and stops its replays in progress', () => {
       const search = proposing(searching(), 1, ['one']);
       const stopped = search.stop(later(5), BY);
 
       expect(stopped.current).toBe('stopped');
-      expect(stopped.ending).toBe('stopped');
+      expect(stopped.stopReason).toBe('stopped');
       expect(stopped.isActive).toBe(false);
       expect(stopped.endedAt).toEqual(later(5));
       expect(stopped.pullEvents()).toEqual([
@@ -1419,8 +1428,8 @@ describe('Search', () => {
       const gone = searching().stationLeft(NOW);
       const setGone = searching().recordSetGone(NOW);
 
-      expect(gone.ending).toBe('station-gone');
-      expect(setGone.ending).toBe('set-gone');
+      expect(gone.stopReason).toBe('station-gone');
+      expect(setGone.stopReason).toBe('set-gone');
       expect(gone.stationLeft(later(1))).toBe(gone);
       expect(gone.recordSetGone(later(1))).toBe(gone);
     });
@@ -1468,7 +1477,7 @@ describe('Search', () => {
       split: search.split,
       seed: search.seed,
       state: 'searching' as const,
-      ending: null,
+      stopReason: null,
       startedBy: null,
       startedAt: NOW,
       endedAt: null,
@@ -1516,7 +1525,7 @@ describe('Search', () => {
         iterations: search.iterations,
         heldOut: [],
         state: 'finished',
-        ending: 'stalled',
+        stopReason: 'stalled',
         startedBy: null,
         startedAt: NOW,
         endedAt: null,
@@ -1536,7 +1545,7 @@ describe('Search', () => {
         iterations: search.iterations,
         heldOut: [],
         state: 'searching',
-        ending: 'stalled',
+        stopReason: 'stalled',
         startedBy: null,
         startedAt: NOW,
         endedAt: null,

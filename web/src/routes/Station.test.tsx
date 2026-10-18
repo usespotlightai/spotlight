@@ -49,9 +49,9 @@ const line = {
       judge: {
         rubric: '## A good run\n\n- Changes only what it must',
         claims: [],
-        passShare: 1,
+        passThreshold: 1,
         sample: 0.2,
-        trust: 0.6,
+        minAgreement: 0.6,
       },
       alerts: [
         {
@@ -134,8 +134,8 @@ const outcomesFailing = vi.fn();
 const outcomesError = vi.fn();
 const refetchOutcomes = vi.fn();
 
-vi.mock('@/hooks/api/useStationOutcomes', () => ({
-  useStationOutcomes: () => ({
+vi.mock('@/hooks/api/useStationInsights', () => ({
+  useStationInsights: () => ({
     data: outcomes(),
     isPending: outcomes() === undefined,
     errorUpdateCount: outcomesFailing() ? 1 : 0,
@@ -206,8 +206,8 @@ vi.mock('@/hooks/api/useCreateReplaySet', () => ({
 
 vi.mock('@/hooks/api/useStationCandidates', () => ({
   useStationCandidates: () => ({
-    address: 'core/default/spec',
-    addressFailed: false,
+    path: 'core/default/spec',
+    pathFailed: false,
     candidates: { data: [], isPending: false, errorUpdateCount: 0 },
   }),
 }));
@@ -236,12 +236,12 @@ const run = (runId: string, ending: string) => ({
   endedAt: new Date().toISOString(),
   ending,
   failure: null,
-  round: 1,
-  cost: null,
+  visit: 1,
+  usage: null,
   checks: 'passed',
-  next: null,
+  firstHumanAction: null,
   passed: null,
-  delivery: null,
+  pullRequestState: null,
 });
 
 const OUTCOMES = {
@@ -272,12 +272,12 @@ const OUTCOMES = {
 };
 
 const CALIBRATION = {
-  trusted: true,
+  qualified: true,
   measure: 'kappa',
   agreement: 0.71,
   pairs: 24,
-  trust: 0.6,
-  hiddenBecause: null,
+  minAgreement: 0.6,
+  hiddenReason: null,
 };
 
 const INSIGHTS = '/w/acme/team/team_1/insights';
@@ -651,12 +651,12 @@ describe('Station', () => {
       ]);
     });
 
-    it('says how far the judge is trusted, linking to its agreement in Insights', () => {
+    it('says how far the judge agrees with people, linking to its agreement in Insights', () => {
       renderAt('station_2');
 
       expect(
         document.querySelector('[data-slot="judge-calibration"]'),
-      ).toHaveTextContent('Cohen’s kappa0.71Trusted above 0.60 over 24 runs');
+      ).toHaveTextContent('Cohen’s kappa0.71Qualified above 0.60 over 24 runs');
       expect(
         screen.getByRole('link', { name: 'How it agrees with people' }),
       ).toHaveAttribute(
@@ -665,7 +665,7 @@ describe('Station', () => {
       );
     });
 
-    it('leaves out how far the judge is trusted where its agreement could not load', () => {
+    it('leaves out how far the judge agrees with people where its agreement could not load', () => {
       judged.mockReturnValue(undefined);
       judgeFailing.mockReturnValue(true);
 
@@ -675,7 +675,7 @@ describe('Station', () => {
         document.querySelector('[data-slot="judge-calibration"]'),
       ).not.toBeInTheDocument();
       expect(sectionTitled('Judge')).toHaveTextContent(
-        'Trusted from 0.60 agreement',
+        'Qualified from 0.60 agreement',
       );
     });
 
@@ -1009,7 +1009,7 @@ describe('Station', () => {
       expect(screen.getByText('No prompt.')).toBeInTheDocument();
     });
 
-    it('shows how much of the station’s work its judge scores, and how far it must be trusted', () => {
+    it('shows how much of the station’s work its judge scores, and the minimum agreement it needs', () => {
       renderAt('station_2');
 
       const judge = sectionTitled('Judge');

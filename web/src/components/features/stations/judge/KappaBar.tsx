@@ -7,10 +7,10 @@ const percent = (value: number): string =>
 type KappaBarProps = {
   kappa: number | null;
   reading: ClaimAgreement['reading'];
-  trust: number | null;
+  minAgreement: number | null;
 };
 
-export function KappaBar({ kappa, reading, trust }: KappaBarProps) {
+export function KappaBar({ kappa, reading, minAgreement }: KappaBarProps) {
   return (
     <Noted note={kappaNote(reading)}>
       <span className="flex min-w-0 cursor-default items-center gap-2">
@@ -27,10 +27,10 @@ export function KappaBar({ kappa, reading, trust }: KappaBarProps) {
               style={{ width: percent(kappa) }}
             />
           )}
-          {trust !== null && (
+          {minAgreement !== null && (
             <span
               className="absolute -inset-y-1 w-px bg-foreground/40"
-              style={{ left: percent(trust) }}
+              style={{ left: percent(minAgreement) }}
             />
           )}
         </span>

@@ -54,7 +54,7 @@ func TestRelaysACauseToSpotlightAsTheRunner(t *testing.T) {
 		t.Fatalf("called Spotlight %d times", len(*seen))
 	}
 	received := (*seen)[0]
-	if received.method != http.MethodPost || received.path != "/api/runs/run_1/search-causes" || received.auth != "Bearer runner-token" {
+	if received.method != http.MethodPost || received.path != "/api/runs/run_1/failure-causes" || received.auth != "Bearer runner-token" {
 		t.Errorf("received %+v", received)
 	}
 	var sent protocol.CauseRecord

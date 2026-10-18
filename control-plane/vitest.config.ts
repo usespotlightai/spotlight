@@ -35,7 +35,7 @@ const shared = {
       '@runners': resolve(__dirname, 'src/contexts/runners'),
       '@change-review': resolve(__dirname, 'src/contexts/change-review'),
       '@memory': resolve(__dirname, 'src/contexts/memory'),
-      '@outcomes': resolve(__dirname, 'src/contexts/outcomes'),
+      '@insights': resolve(__dirname, 'src/contexts/insights'),
       '@replays': resolve(__dirname, 'src/contexts/replays'),
       '@github': resolve(__dirname, 'src/contexts/github'),
       '@integrations': resolve(__dirname, 'src/contexts/integrations'),

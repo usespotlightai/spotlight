@@ -281,7 +281,7 @@ describe('the Candidates tab', () => {
             ...set,
             candidates: set.candidates.map((each) => ({
               ...each,
-              againstLive: null,
+              gainOverLive: null,
               regressions: 0,
               compared: 0,
             })),

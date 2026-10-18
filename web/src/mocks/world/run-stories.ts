@@ -187,11 +187,11 @@ const opened = (context: Context): string =>
     : 'the pull request';
 
 const answerOf = (context: Context, yes: string, no: string): NoteScript[] =>
-  context.run.next
+  context.run.firstHumanAction
     ? [
         answered(
           context.person,
-          context.run.next.act === 'sent-back' ? no : yes,
+          context.run.firstHumanAction.kind === 'sent-back' ? no : yes,
           context.answerAfter,
         ),
       ]
@@ -215,7 +215,7 @@ const closingNotes = (
   if (run.ending === 'stopped') {
     return [];
   }
-  if (run.next) {
+  if (run.firstHumanAction) {
     return [asked(ask), ...answerOf(context, yes, no)];
   }
   return [passed(pass)];
@@ -558,9 +558,11 @@ const pastStoryOf = (run: HistoryRun): RunStory => {
     pullRequest: task?.pullRequest
       ? pullRequestUrlOf(task.teamId, task.id)
       : null,
-    answerAfter: run.next
+    answerAfter: run.firstHumanAction
       ? Math.round(
-          (Date.parse(run.next.at) - Date.parse(run.endedAt ?? '')) / MINUTE_MS,
+          (Date.parse(run.firstHumanAction.at) -
+            Date.parse(run.endedAt ?? '')) /
+            MINUTE_MS,
         )
       : 0,
     before: previous ? storyOf(previous.runId).output : undefined,

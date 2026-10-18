@@ -7,7 +7,6 @@ import {
   listReplays,
   listRunChangeStacks,
   listSearches,
-  listStationOutcomes,
   listTaskRuns,
   listTeamRuns,
   readInsightsStations,
@@ -18,6 +17,7 @@ import {
   readRunScores,
   readSearch,
   readStationAlert,
+  readStationInsights,
   readTaskDecisions,
   readTaskJournal,
   readTaskTrace,
@@ -63,7 +63,7 @@ describe('one run history across the mock', () => {
       query: { period: '30d' },
       throwOnError: true,
     });
-    const { data: outcomes } = await listStationOutcomes({
+    const { data: outcomes } = await readStationInsights({
       path: { teamId, lineId: DELIVERY_ID, stationId: IMPLEMENTATION },
       query: { last: 200 },
       throwOnError: true,
@@ -84,7 +84,7 @@ describe('one run history across the mock', () => {
   });
 
   it('groups station runs under the config versions Insights knows', async () => {
-    const { data } = await listStationOutcomes({
+    const { data } = await readStationInsights({
       path: { teamId, lineId: DELIVERY_ID, stationId: IMPLEMENTATION },
       query: { last: 200 },
       throwOnError: true,
@@ -360,7 +360,7 @@ describe('every agent station improves on its own runs', () => {
   it('has replay sets of runs that ended at the station before they were added', async () => {
     for (const path of agentStations()) {
       const { data: sets } = await listReplaySets({ path, throwOnError: true });
-      const { data: outcomes } = await listStationOutcomes({
+      const { data: outcomes } = await readStationInsights({
         path,
         query: { last: 200 },
         throwOnError: true,

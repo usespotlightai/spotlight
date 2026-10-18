@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
   alertOnInsightsPath,
-  formatCrossing,
+  formatFiring,
   formatLimit,
   formatMeasureValue,
-  formatRecovered,
-  type StationAlertCrossing,
+  formatResolved,
+  type StationAlertFiring,
   thresholdLine,
 } from '@/lib/station-alert';
 
-const alert = (over: Partial<StationAlertCrossing>): StationAlertCrossing =>
+const alert = (over: Partial<StationAlertFiring>): StationAlertFiring =>
   ({
-    threshold: {
+    rule: {
       measure: 'cost_per_run',
       risesBy: null,
       fallsBy: null,
@@ -24,18 +24,18 @@ const alert = (over: Partial<StationAlertCrossing>): StationAlertCrossing =>
     change: null,
     currency: 'USD',
     ...over,
-  }) as StationAlertCrossing;
+  }) as StationAlertFiring;
 
-describe('formatCrossing', () => {
+describe('formatFiring', () => {
   it('says what the runs it watches came to', () => {
-    expect(formatCrossing(alert({}))).toBe('The last run cost $2.50.');
+    expect(formatFiring(alert({}))).toBe('The last run cost $2.50.');
   });
 
   it('says how many runs did it, and the rise from the runs before', () => {
     expect(
-      formatCrossing(
+      formatFiring(
         alert({
-          threshold: {
+          rule: {
             measure: 'failed_rate',
             risesBy: 0.1,
             fallsBy: null,
@@ -59,9 +59,9 @@ describe('formatCrossing', () => {
 
   it('says the runs stayed level with the ones before when the server reads no move', () => {
     expect(
-      formatCrossing(
+      formatFiring(
         alert({
-          threshold: {
+          rule: {
             measure: 'cost_per_run',
             risesBy: 0.5,
             fallsBy: null,
@@ -83,15 +83,15 @@ describe('formatCrossing', () => {
   });
 });
 
-describe('formatRecovered', () => {
+describe('formatResolved', () => {
   it('says the runs came back under a level or rise, and back over a floor or fall', () => {
-    expect(formatRecovered(alert({}), '4 Oct')).toBe(
+    expect(formatResolved(alert({}), '4 Oct')).toBe(
       'The station has been back under the threshold since 4 Oct.',
     );
     expect(
-      formatRecovered(
+      formatResolved(
         alert({
-          threshold: {
+          rule: {
             measure: 'merged_rate',
             risesBy: null,
             fallsBy: null,
@@ -112,7 +112,7 @@ describe('formatLimit', () => {
   });
 
   it('says a rise in points, or a fall in the runs’ currency', () => {
-    const threshold = {
+    const rule = {
       measure: 'failed_rate',
       risesBy: 0.15,
       fallsBy: null,
@@ -121,14 +121,14 @@ describe('formatLimit', () => {
       over: 5,
     } as const;
 
-    expect(formatLimit(alert({ threshold }))).toBe(
+    expect(formatLimit(alert({ rule }))).toBe(
       'The alert is set at a 15-point rise.',
     );
     expect(
       formatLimit(
         alert({
-          threshold: {
-            ...threshold,
+          rule: {
+            ...rule,
             measure: 'cost_per_run',
             risesBy: null,
             fallsBy: 0.5,
@@ -157,7 +157,7 @@ describe('thresholdLine', () => {
     expect(
       thresholdLine(
         alert({
-          threshold: {
+          rule: {
             measure: 'failed_rate',
             risesBy: 0.1,
             fallsBy: null,

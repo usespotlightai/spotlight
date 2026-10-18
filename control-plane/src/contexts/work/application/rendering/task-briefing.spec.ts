@@ -533,7 +533,7 @@ describe('TaskBriefing', () => {
             { folder: 'team/', level: 'the whole team' },
             { folder: 'station/', level: 'this station' },
           ],
-          mirroring: null,
+          repositoryFolder: null,
         },
       );
 

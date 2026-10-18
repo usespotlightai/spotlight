@@ -4,7 +4,7 @@ import type {
 } from '@/lib/api';
 import { daysAgo } from '@/mocks/clock';
 import { world } from '@/mocks/world';
-import { stationOf, stationRuns } from '@/mocks/world/station-outcomes';
+import { stationOf, stationRuns } from '@/mocks/world/station-insights';
 
 export const RUBRIC =
   '9c41e2d7a6b3f0851e2c4d6a8b0f1e3d5c7a9b1d3f5e7a9c1b3d5f7e9a1c3b5d';
@@ -36,7 +36,7 @@ const coverageOf = (
     judgeOnly,
     peopleOnly,
     neither,
-    shares: {
+    rates: {
       both: share(both),
       judgeOnly: share(judgeOnly),
       peopleOnly: share(peopleOnly),
@@ -137,7 +137,9 @@ export const stationJudge = (
   }
 
   const { runs } = stationRuns(teamId, lineId, stationId);
-  const answered = runs.filter((run) => run.outcome.next !== null).length;
+  const answered = runs.filter(
+    (run) => run.outcome.firstHumanAction !== null,
+  ).length;
   const judge = station.judge;
 
   if (!judge) {
@@ -145,12 +147,12 @@ export const stationJudge = (
       stationId,
       judge: null,
       calibration: {
-        trusted: false,
+        qualified: false,
         measure: null,
         agreement: null,
         pairs: 0,
-        trust: null,
-        hiddenBecause: 'no-judge',
+        minAgreement: null,
+        hiddenReason: 'no-judge',
       },
       versions: [],
       coverage: coverageOf(runs.length, 0, 0, answered),
@@ -161,9 +163,9 @@ export const stationJudge = (
     rubricVersion: RUBRIC,
     kind: judge.claims.length > 0 ? ('claims' as const) : ('yes-no' as const),
     claims: judge.claims,
-    passShare: judge.passShare,
+    passThreshold: judge.passThreshold,
     sample: judge.sample,
-    trust: judge.trust,
+    minAgreement: judge.minAgreement,
   };
 
   if (
@@ -175,12 +177,12 @@ export const stationJudge = (
       stationId,
       judge: settings,
       calibration: {
-        trusted: false,
+        qualified: false,
         measure: 'kappa',
         agreement: null,
         pairs: 0,
-        trust: judge.trust,
-        hiddenBecause: 'too-few-pairs',
+        minAgreement: judge.minAgreement,
+        hiddenReason: 'too-few-pairs',
       },
       versions: [],
       coverage: coverageOf(runs.length, 0, 0, answered),
@@ -191,12 +193,12 @@ export const stationJudge = (
     stationId,
     judge: settings,
     calibration: {
-      trusted: 0.63 >= judge.trust,
+      qualified: 0.63 >= judge.minAgreement,
       measure: 'kappa',
       agreement: 0.63,
       pairs: 12,
-      trust: judge.trust,
-      hiddenBecause: 0.63 >= judge.trust ? null : 'below-trust',
+      minAgreement: judge.minAgreement,
+      hiddenReason: 0.63 >= judge.minAgreement ? null : 'below-min-agreement',
     },
     versions: JUDGED_VERSIONS,
     coverage: coverageOf(runs.length, 16, 3, Math.max(0, answered - 9)),

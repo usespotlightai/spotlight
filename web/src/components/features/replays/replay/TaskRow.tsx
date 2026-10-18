@@ -33,7 +33,7 @@ export function TaskRow({
   onPick,
 }: TaskRowProps) {
   const title = formatTitle(row.title);
-  const { compared, judged, paired, counterpart, counterpartLabel } = columns;
+  const { compared, judged, paired, reference, referenceLabel } = columns;
 
   return (
     <li
@@ -56,34 +56,30 @@ export function TaskRow({
             data-slot="regressed"
             tone="destructive"
             label="Regressed"
-            note={REGRESSED_NOTE(counterpart)}
+            note={REGRESSED_NOTE(reference)}
             className="relative z-10"
           />
         )}
       </span>
       <NestedCell heading={compared ? 'This replay' : 'Result'} numeric={false}>
-        <EntrySide copies={row.candidate} />
+        <EntrySide repeats={row.candidate} />
       </NestedCell>
       {compared && (
-        <NestedCell heading={counterpartLabel} numeric={false}>
+        <NestedCell heading={referenceLabel} numeric={false}>
           {row.baseline.length > 0 ? (
-            <EntrySide copies={row.baseline} />
+            <EntrySide repeats={row.baseline} />
           ) : (
             'Not replayed'
           )}
         </NestedCell>
       )}
       {judged && (
-        <TaskJudgeCell
-          row={row}
-          compared={compared}
-          counterpart={counterpart}
-        />
+        <TaskJudgeCell row={row} compared={compared} reference={reference} />
       )}
       {paired && (
         <NestedCell heading="Closer" numeric={false}>
           <span data-slot="pair" data-pair={row.pair ?? 'none'}>
-            {formatPair(row.pair, counterpart)}
+            {formatPair(row.pair, reference)}
           </span>
         </NestedCell>
       )}

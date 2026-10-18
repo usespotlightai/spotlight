@@ -6,7 +6,7 @@ import { RunId as RunIdOf } from '@shared-kernel/domain/value-objects/run-id.vo'
 import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
-import type { ContentDigestPort } from '@work/application/ports/content-digest.port';
+import type { ContentHashPort } from '@work/application/ports/content-hash.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { StationProfilesPort } from '@work/application/ports/station-profiles.port';
 import type { TaskDecisionsPort } from '@work/application/ports/task-decisions.port';
@@ -54,7 +54,7 @@ export class DispatchTask implements TaskDispatching {
     private readonly touched: TouchedFiles,
     private readonly logger: LoggerPort,
     private readonly savepoint: SavepointPort,
-    digest: ContentDigestPort,
+    hash: ContentHashPort,
   ) {
     this.ordering = new StationOrdering(
       harnesses,
@@ -63,7 +63,7 @@ export class DispatchTask implements TaskDispatching {
       teamSkills,
       catalog,
       profiles,
-      digest,
+      hash,
     );
   }
 
@@ -169,7 +169,7 @@ export class DispatchTask implements TaskDispatching {
       placement: order.placement,
       briefedWith: BriefedMemories.of({
         briefed: memories.briefed,
-        cut: memories.cut,
+        omitted: memories.omitted,
       }),
       briefedTask: briefed,
       configuredAs: this.ordering.configuredAs(ordered, line),

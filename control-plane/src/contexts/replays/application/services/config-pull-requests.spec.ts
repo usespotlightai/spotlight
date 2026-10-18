@@ -29,7 +29,7 @@ import {
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import {
   ConfigPullRequest,
-  MAX_TRIES,
+  MAX_RETRIES,
 } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
@@ -44,8 +44,8 @@ import {
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -110,7 +110,7 @@ class FakeEditor implements StationSourceEditorPort {
   }
 }
 
-const charged = { spent: Spend.of(1, 'USD'), unpriced: 0 };
+const charged = { spent: Money.of(1, 'USD'), unpriced: 0 };
 
 const TERSE = CandidateId.of('candidate_terse');
 
@@ -120,7 +120,7 @@ const searchWithTerse = (): Search => {
   const runIds = searchRunIds();
 
   return aSearch()
-    .recordReplayEnd(
+    .recordReplayStopReason(
       ReplayId.of('replay_seed'),
       'finished',
       charged,
@@ -133,7 +133,7 @@ const searchWithTerse = (): Search => {
       name: CandidateName.searched('terse'),
       replayId: ReplayId.of('replay_terse'),
     })
-    .recordReplayEnd(
+    .recordReplayStopReason(
       ReplayId.of('replay_terse'),
       'finished',
       charged,
@@ -298,7 +298,7 @@ describe('picking a search candidate', () => {
     await pick();
     await opening().processDue();
 
-    expect(only()).toMatchObject({ current: 'failed', attempts: 1 });
+    expect(only()).toMatchObject({ current: 'failed', generation: 1 });
     expect(only().reason).toMatchObject({
       code: 'computed-attribute',
       wanted: 'Build it.',
@@ -308,7 +308,7 @@ describe('picking a search candidate', () => {
     editor.answer = { ok: true, files: [], unchecked: ['judge.rubric'] };
     expect(await pick()).toMatchObject({
       outcome: 'picked',
-      pullRequest: { state: 'opening', attempts: 2, reason: null },
+      pullRequest: { state: 'opening', generation: 2, reason: null },
     });
     await opening().processDue();
 
@@ -353,7 +353,7 @@ describe('picking a search candidate', () => {
 
     expect(only()).toMatchObject({
       current: 'failed',
-      tries: 0,
+      retries: 0,
       lastCommit: 'commit_1',
     });
     expect(only().reason).toMatchObject({
@@ -379,7 +379,7 @@ describe('picking a search candidate', () => {
     };
     await opening().processDue();
 
-    expect(only()).toMatchObject({ current: 'opening', tries: 1 });
+    expect(only()).toMatchObject({ current: 'opening', retries: 1 });
 
     configs.opened = opened;
     now = new Date(now.getTime() + 60 * 60_000);
@@ -398,11 +398,11 @@ describe('picking a search candidate', () => {
     await pick();
     await opening().processDue();
 
-    expect(only()).toMatchObject({ current: 'opening', tries: 1 });
+    expect(only()).toMatchObject({ current: 'opening', retries: 1 });
     await opening().processDue();
-    expect(only().tries).toBe(1);
+    expect(only().retries).toBe(1);
 
-    for (let tries = 1; tries < MAX_TRIES; tries += 1) {
+    for (let retries = 1; retries < MAX_RETRIES; retries += 1) {
       now = new Date(now.getTime() + 24 * 60 * 60_000);
       await opening().processDue();
     }

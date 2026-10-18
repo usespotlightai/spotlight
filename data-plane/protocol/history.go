@@ -41,7 +41,7 @@ type CandidateRun struct {
 	Harness     string          `json:"harness"`
 	StartedAt   *string         `json:"startedAt"`
 	EndedAt     *string         `json:"endedAt"`
-	Cost        *RunCost        `json:"cost"`
+	Usage       *RunUsage       `json:"usage"`
 	Changes     []HistoryChange `json:"changes"`
 	Trace       Trace           `json:"trace"`
 	Succeeded   *bool           `json:"succeeded"`
@@ -83,9 +83,9 @@ type StationConfig struct {
 }
 
 type ConfigJudge struct {
-	RubricDigest string  `json:"rubricDigest"`
+	RubricHash   string  `json:"rubricHash"`
 	Sample       float64 `json:"sample"`
-	Trust        float64 `json:"trust"`
+	MinAgreement float64 `json:"minAgreement"`
 }
 
 type ConfigProfile struct {
@@ -99,8 +99,8 @@ type ConfigRepository struct {
 }
 
 type ConfigSkill struct {
-	Key    string `json:"key"`
-	Digest string `json:"digest"`
+	Key  string `json:"key"`
+	Hash string `json:"hash"`
 }
 
 type HistoryRun struct {
@@ -119,27 +119,27 @@ type HistoryRun struct {
 }
 
 type RunOutcome struct {
-	Ending   string   `json:"ending"`
-	Failure  *string  `json:"failure"`
-	Round    int      `json:"round"`
-	Cost     *RunCost `json:"cost"`
-	Checks   *string  `json:"checks"`
-	Next     *RunNext `json:"next"`
-	Delivery *string  `json:"delivery"`
+	Ending           string       `json:"ending"`
+	Failure          *string      `json:"failure"`
+	Visit            int          `json:"visit"`
+	Usage            *RunUsage    `json:"usage"`
+	Checks           *string      `json:"checks"`
+	FirstHumanAction *HumanAction `json:"firstHumanAction"`
+	PullRequestState *string      `json:"pullRequestState"`
 }
 
-type RunCost struct {
-	Ms       *int     `json:"ms"`
-	Steps    int      `json:"steps"`
-	Faults   int      `json:"faults"`
-	Used     *int     `json:"used"`
-	Cost     *float64 `json:"cost"`
-	Currency *string  `json:"currency"`
+type RunUsage struct {
+	Ms            *int     `json:"ms"`
+	Steps         int      `json:"steps"`
+	Errors        int      `json:"errors"`
+	ContextTokens *int     `json:"contextTokens"`
+	Cost          *float64 `json:"cost"`
+	Currency      *string  `json:"currency"`
 }
 
-type RunNext struct {
-	Act string `json:"act"`
-	At  string `json:"at"`
+type HumanAction struct {
+	Kind string `json:"kind"`
+	At   string `json:"at"`
 }
 
 type HistoryChange struct {

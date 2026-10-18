@@ -10,13 +10,13 @@ import { since } from '@/lib/since';
 import {
   endedBadly,
   formatChecks,
-  formatDelivery,
   formatEnding,
-  formatNext,
+  formatHumanAction,
+  formatPullRequestState,
   runSpent,
   runTook,
   type StationRunOutcome,
-} from '@/lib/station-outcomes';
+} from '@/lib/station-insights';
 import { cn } from '@/lib/utils';
 
 type OutcomeRowProps = {
@@ -45,21 +45,21 @@ export function OutcomeRow({ run, to }: OutcomeRowProps) {
         )}
       </span>
 
-      <NestedCell heading="Round" numeric={false}>
-        {run.round}
+      <NestedCell heading="Visit" numeric={false}>
+        {run.visit}
       </NestedCell>
       <NestedCell heading="Checks" numeric={false}>
         {formatChecks(run.checks)}
       </NestedCell>
-      <NestedCell heading="Next" numeric={false}>
-        {formatNext(run.next)}
+      <NestedCell heading="Human action" numeric={false}>
+        {formatHumanAction(run.firstHumanAction)}
       </NestedCell>
-      <NestedCell heading="Delivery" numeric={false}>
-        {formatDelivery(run.delivery)}
+      <NestedCell heading="Pull request" numeric={false}>
+        {formatPullRequestState(run.pullRequestState)}
       </NestedCell>
-      <NestedCell heading="Took">{runTook(run.cost)}</NestedCell>
+      <NestedCell heading="Took">{runTook(run.usage)}</NestedCell>
       <NestedCell heading="Cost" strong>
-        {runSpent(run.cost)}
+        {runSpent(run.usage)}
       </NestedCell>
       <NestedCell heading="Ended">{since(run.endedAt)}</NestedCell>
     </li>

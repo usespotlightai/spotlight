@@ -33,7 +33,7 @@ const memory = (over: Partial<ProposedMemory>): ProposedMemory => ({
   kind: 'preference',
   body: 'Name branches after the ticket.',
   source: 'person',
-  origin: 'drafted',
+  proposedBy: 'drafter',
   state: 'proposed',
   scope: 'team',
   repository: null,
@@ -217,7 +217,7 @@ describe('ProposedMemories', () => {
     ).toBeInTheDocument();
   });
 
-  it('lays out what it is, what kind, where it applies and the files it bears on', () => {
+  it('lays out what it is, what kind, where it applies and the files it is about', () => {
     showing([
       memory({
         id: 'one',
@@ -239,7 +239,7 @@ describe('ProposedMemories', () => {
     ).toBeVisible();
   });
 
-  it('leaves out files where a memory bears on none', () => {
+  it('leaves out files where a memory is about none', () => {
     showing([memory({ id: 'one' })]);
 
     expect(screen.queryByText('Files')).not.toBeInTheDocument();

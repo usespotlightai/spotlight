@@ -9,11 +9,11 @@ import type {
   LineResponseDto,
   RunTallyResponseDto,
   StationResponseDto,
-  TallyChangesResponseDto,
+  TallyDeltasResponseDto,
 } from '@/lib/api';
 import {
-  type Change,
   DEFAULT_PERIOD,
+  type Delta,
   type InsightsStations,
 } from '@/lib/insights';
 import { SLUG, TEAM_ID, WORKSPACE } from '@/test/fixtures/team';
@@ -134,9 +134,9 @@ export const daysAgo = (days: number, hours = 12): string =>
 
 const change = (
   by: number | null,
-  tone: Change['tone'] = 'flat',
-  unit: Change['unit'] = 'percent',
-): Change => ({
+  tone: Delta['tone'] = 'flat',
+  unit: Delta['unit'] = 'percent',
+): Delta => ({
   unit,
   by,
   fromZero: by === null,
@@ -157,7 +157,7 @@ const tally = (over: Partial<RunTallyResponseDto>): RunTallyResponseDto => {
     runs,
     cancelled: 0,
     failed,
-    failedShare: runs > 0 ? failed / runs : null,
+    failedRate: runs > 0 ? failed / runs : null,
     stopped: 0,
     checksPassed: 0,
     checksFailed: 0,
@@ -174,7 +174,7 @@ const tally = (over: Partial<RunTallyResponseDto>): RunTallyResponseDto => {
   };
 };
 
-const TALLY_UNCHANGED: TallyChangesResponseDto = {
+const TALLY_UNCHANGED: TallyDeltasResponseDto = {
   runs: NO_CHANGE,
   failed: NO_CHANGE,
   accepted: NO_CHANGE,

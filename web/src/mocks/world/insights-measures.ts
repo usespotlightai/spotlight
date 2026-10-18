@@ -1,5 +1,5 @@
 import type {
-  ChangeResponseDto,
+  DeltaResponseDto,
   InsightsPeriodResponseDto,
   MeasureVerdictResponseDto,
   RunTallyResponseDto,
@@ -112,7 +112,7 @@ export type Better = 'up' | 'down' | 'neither';
 const toneOf = (
   by: number | null,
   better: Better,
-): ChangeResponseDto['tone'] => {
+): DeltaResponseDto['tone'] => {
   if (by === 0 || better === 'neither') {
     return 'flat';
   }
@@ -127,8 +127,8 @@ export const changeOf = (
   now: number | null,
   before: number | null,
   better: Better,
-  unit: ChangeResponseDto['unit'] = 'percent',
-): ChangeResponseDto | null => {
+  unit: DeltaResponseDto['unit'] = 'percent',
+): DeltaResponseDto | null => {
   if (now === null || before === null) {
     return null;
   }
@@ -150,7 +150,7 @@ export const changeOf = (
   };
 };
 
-export const NO_CHANGE: ChangeResponseDto = {
+export const NO_CHANGE: DeltaResponseDto = {
   unit: 'percent',
   by: 0,
   fromZero: false,
@@ -162,7 +162,7 @@ export const emptyTally = (): RunTallyResponseDto => ({
   runs: 0,
   cancelled: 0,
   failed: 0,
-  failedShare: null,
+  failedRate: null,
   stopped: 0,
   checksPassed: 0,
   checksFailed: 0,

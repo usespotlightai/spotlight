@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { replayKeys } from '@/hooks/api/useReplays';
 import { readReplay } from '@/lib/api';
-import { type ReplayDetail, underway } from '@/lib/replay';
+import { inProgress, type ReplayDetail } from '@/lib/replay';
 
 const POLL_MS = 10_000;
 
@@ -13,7 +13,7 @@ export function useReplay(
     queryKey: replayKeys.detail(replayId),
     enabled: Boolean(teamId && replayId),
     refetchInterval: (query) =>
-      query.state.data && underway(query.state.data.state) ? POLL_MS : false,
+      query.state.data && inProgress(query.state.data.state) ? POLL_MS : false,
     queryFn: async (): Promise<ReplayDetail> => {
       const { data } = await readReplay({
         path: { teamId: teamId as string, replayId: replayId as string },

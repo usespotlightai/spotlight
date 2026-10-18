@@ -47,7 +47,7 @@ const detail = (over: Record<string, unknown> = {}) => ({
   approvedAt: '2026-09-27T10:00:00.000Z',
   supersedes: null,
   retirement: null,
-  grounds: { taskId: 'task_1', runId: 'run_1' },
+  provenance: { taskId: 'task_1', runId: 'run_1' },
   steps: [{ index: 3, kind: 'thought', text: 'A queue needs a worker.' }],
   notes: [],
   superseded: null,

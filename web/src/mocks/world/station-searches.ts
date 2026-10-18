@@ -17,9 +17,9 @@ import {
 } from '@/mocks/world/station-history';
 import { intervalOf, rateOf, rounded } from '@/mocks/world/station-measures';
 import {
-  againstOf,
   BILLING_SET_ID,
   CANDIDATES,
+  gainOverReferenceOf,
   HELD_OUT_RUNS,
   type ReplaySpec,
   replayOf,
@@ -33,14 +33,14 @@ import { runOfStation, setSpec } from '@/mocks/world/station-sets';
 
 export type SearchCandidateSpec = {
   readonly candidate: CandidateResponseDto;
-  readonly seed: boolean;
+  readonly isSeed: boolean;
   readonly iteration: number | null;
   readonly hypothesis: string | null;
   readonly changes: readonly StationChangeResponseDto[];
   readonly replayId: string;
   readonly heldOutReplayId: string | null;
   readonly onFrontier: boolean;
-  readonly onlyOnSeenTasks: SearchCandidateResponseDto['onlyOnSeenTasks'];
+  readonly overfit: SearchCandidateResponseDto['overfit'];
   pullRequest: CandidatePullRequestResponseDto | null;
 };
 
@@ -48,7 +48,7 @@ export type SearchSpec = {
   readonly id: string;
   readonly setId: string;
   state: SearchResponseDto['state'];
-  ending: SearchResponseDto['ending'];
+  stopReason: SearchResponseDto['stopReason'];
   readonly agent: SearchResponseDto['agent'];
   readonly budget: SearchBudgetResponseDto;
   readonly objective: SearchResponseDto['objective'];
@@ -67,14 +67,14 @@ const AGENT = { harness: 'claude-code', model: 'opus', effort: 'high' };
 
 const seedOf = (replayId: string, heldOutReplayId: string | null) => ({
   candidate: CANDIDATES.live3,
-  seed: true,
+  isSeed: true,
   iteration: null,
   hypothesis: null,
   changes: [],
   replayId,
   heldOutReplayId,
   onFrontier: true,
-  onlyOnSeenTasks: null,
+  overfit: null,
   pullRequest: null,
 });
 
@@ -88,7 +88,7 @@ const SEEDED: readonly SearchSpec[] = [
     id: 'search_tests_first',
     setId: BILLING_SET_ID,
     state: 'finished',
-    ending: 'iterations-spent',
+    stopReason: 'iterations-spent',
     agent: AGENT,
     budget: {
       iterations: 3,
@@ -136,7 +136,7 @@ const SEEDED: readonly SearchSpec[] = [
     candidates: [
       {
         candidate: CANDIDATES.testsFirst,
-        seed: false,
+        isSeed: false,
         iteration: 1,
         hypothesis:
           'Runs fail when they change billing code before reading its tests. Telling it to read and run the tests first should lift success on the flaky-test and refund tasks.',
@@ -144,7 +144,7 @@ const SEEDED: readonly SearchSpec[] = [
         replayId: 'replay_tf_tests_first',
         heldOutReplayId: 'replay_tf_tests_first_held_out',
         onFrontier: true,
-        onlyOnSeenTasks: 'marked',
+        overfit: 'likely',
         pullRequest: {
           id: 'config_pull_request_58',
           state: 'opened',
@@ -154,7 +154,7 @@ const SEEDED: readonly SearchSpec[] = [
       },
       {
         candidate: CANDIDATES.medium,
-        seed: false,
+        isSeed: false,
         iteration: 1,
         hypothesis:
           'Most of these tasks are small. Medium effort should succeed as often for much less.',
@@ -162,12 +162,12 @@ const SEEDED: readonly SearchSpec[] = [
         replayId: 'replay_tf_medium_effort',
         heldOutReplayId: 'replay_tf_medium_effort_held_out',
         onFrontier: true,
-        onlyOnSeenTasks: null,
+        overfit: null,
         pullRequest: null,
       },
       {
         candidate: CANDIDATES.opus,
-        seed: false,
+        isSeed: false,
         iteration: 2,
         hypothesis:
           'The refund and cache tasks need more context than Sonnet keeps. Opus may get them right the first time.',
@@ -175,19 +175,19 @@ const SEEDED: readonly SearchSpec[] = [
         replayId: 'replay_tf_opus',
         heldOutReplayId: null,
         onFrontier: false,
-        onlyOnSeenTasks: null,
+        overfit: null,
         pullRequest: null,
       },
       {
         candidate: CANDIDATES.review,
-        seed: false,
+        isSeed: false,
         iteration: 2,
         hypothesis: 'Its own review pass should catch the missed edge cases.',
         changes: [added('skill', 'self-review')],
         replayId: 'replay_tf_review_skill',
         heldOutReplayId: null,
         onFrontier: false,
-        onlyOnSeenTasks: null,
+        overfit: null,
         pullRequest: null,
       },
     ],
@@ -204,7 +204,7 @@ const SEEDED: readonly SearchSpec[] = [
     id: 'search_live',
     setId: BILLING_SET_ID,
     state: 'stopped',
-    ending: 'stopped',
+    stopReason: 'stopped',
     agent: AGENT,
     budget: {
       iterations: 4,
@@ -232,7 +232,7 @@ const SEEDED: readonly SearchSpec[] = [
     candidates: [
       {
         candidate: CANDIDATES.haiku,
-        seed: false,
+        isSeed: false,
         iteration: 1,
         hypothesis:
           'Most billing fixes touch a few lines. Haiku should land them for a fraction of the cost.',
@@ -240,7 +240,7 @@ const SEEDED: readonly SearchSpec[] = [
         replayId: 'replay_sl_haiku',
         heldOutReplayId: null,
         onFrontier: false,
-        onlyOnSeenTasks: null,
+        overfit: null,
         pullRequest: null,
       },
     ],
@@ -293,14 +293,14 @@ export const searchCandidateOf = (
     : undefined;
   const searched = rateIn(replay);
   const heldOutRate = rateIn(heldOut);
-  const against = replay ? againstOf(replay) : null;
-  const heldOutAgainst = heldOut ? againstOf(heldOut) : null;
+  const against = replay ? gainOverReferenceOf(replay) : null;
+  const heldOutGain = heldOut ? gainOverReferenceOf(heldOut) : null;
   const totals = replay ? replayOf(replay).totals : null;
 
   return {
     candidateId: spec.candidate.id,
-    name: spec.seed ? 'seed' : spec.candidate.name,
-    seed: spec.seed,
+    name: spec.isSeed ? 'seed' : spec.candidate.name,
+    isSeed: spec.isSeed,
     iteration: spec.iteration,
     hypothesis: spec.hypothesis,
     fingerprint: spec.candidate.fingerprint,
@@ -315,9 +315,9 @@ export const searchCandidateOf = (
     heldOutScore: heldOutRate.score,
     heldOutInterval: heldOutRate.interval,
     searchedGain: against?.gain ?? null,
-    heldOutGain: heldOutAgainst?.gain ?? null,
+    heldOutGain: heldOutGain?.gain ?? null,
     searchedPairs: against?.pairs ?? null,
-    heldOutPairs: heldOutAgainst?.pairs ?? null,
+    heldOutPairs: heldOutGain?.pairs ?? null,
     costPerRun:
       totals && totals.ended > 0
         ? rounded(totals.spent.amount / totals.ended)
@@ -327,7 +327,7 @@ export const searchCandidateOf = (
       currency: 'USD',
     },
     onFrontier: spec.onFrontier,
-    onlyOnSeenTasks: spec.onlyOnSeenTasks,
+    overfit: spec.overfit,
     pullRequest: spec.pullRequest,
   };
 };
@@ -353,7 +353,7 @@ export const searchSummaryOf = (search: SearchSpec): SearchResponseDto => {
     stationId: set?.stationId ?? '',
     setId: search.setId,
     state: search.state,
-    ending: search.ending,
+    stopReason: search.stopReason,
     agent: search.agent,
     budget: search.budget,
     objective: search.objective,
@@ -370,13 +370,13 @@ export const searchSummaryOf = (search: SearchSpec): SearchResponseDto => {
       ? {
           candidateId: best.candidateId,
           name: best.name,
-          seed: best.seed,
+          isSeed: best.isSeed,
           searchScore: best.searchScore,
           searchInterval: best.searchInterval,
           heldOutScore: best.heldOutScore,
           heldOutInterval: best.heldOutInterval,
           costPerRun: best.costPerRun,
-          onlyOnSeenTasks: best.onlyOnSeenTasks,
+          overfit: best.overfit,
         }
       : null,
     startedAt: hoursAgo(search.startedHoursAgo),
@@ -406,9 +406,7 @@ export const searchDetailOf = (search: SearchSpec): SearchDetailResponseDto => {
     seed: seed as SearchCandidateResponseDto,
     candidates,
     frontier: [...search.frontier],
-    onlyOnSeenTasks: candidates.filter(
-      (each) => each.onlyOnSeenTasks === 'marked',
-    ).length,
+    overfitCount: candidates.filter((each) => each.overfit === 'likely').length,
     minGain: 0.05,
   };
 };

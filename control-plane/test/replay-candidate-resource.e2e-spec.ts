@@ -244,7 +244,7 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
     expect(made.status).toBe(201);
     expect(made.body).toMatchObject({
       address: 'team/delivery/build/Planned',
-      stationAddress: 'team/delivery/build',
+      stationPath: 'team/delivery/build',
       kind: 'proposed',
       lineId: fixture.lineId,
     });
@@ -319,7 +319,7 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
         name: 'Blank judge',
         station: {
           ...fixture.live,
-          judge: { rubric: '   ', sample: 0.2, trust: 0.6 },
+          judge: { rubric: '   ', sample: 0.2, minAgreement: 0.6 },
         },
       }),
     ).toContain('station.judge.rubric');
@@ -331,7 +331,7 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
           judge: {
             rubric: 'scores: 1-10\nIs it good?',
             sample: 0.2,
-            trust: 0.6,
+            minAgreement: 0.6,
           },
         },
       }),
@@ -383,8 +383,8 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
       kind: 'live',
       station: fixture.live,
       fingerprint: made.fingerprint,
-      behaviourDigest: made.fingerprint,
-      scoringDigest: made.fingerprint,
+      behaviourHash: made.fingerprint,
+      scoringHash: made.fingerprint,
       checksChanges: false,
       changedFrom: made.fingerprint,
       changes: [],
@@ -456,7 +456,7 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
       setId: randomUUID(),
       candidateId: made.id,
       baseline: false,
-      scoringDigest: made.fingerprint,
+      scoringHash: made.fingerprint,
       judges: false,
       checked: false,
       ceilingAmount: 1,

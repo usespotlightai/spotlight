@@ -1,11 +1,11 @@
 import type { StartSearchCommand } from '@replays/application/commands/start-search.command';
 import type { SearchStartedOutcome } from '@replays/application/dto/replay-outcomes.dto';
-import type { DigestPort } from '@replays/application/ports/digest.port';
+import type { HashPort } from '@replays/application/ports/hash.port';
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import {
-  allotmentOf,
+  ceilingSplitOf,
   InvalidSearchTermsError,
   searchAgentOf,
   searchBudgetOf,
@@ -15,7 +15,7 @@ import type { SetHealths } from '@replays/application/services/set-healths.servi
 import type { SetStations } from '@replays/application/services/set-stations.service';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { Search } from '@replays/domain/aggregates/search.aggregate';
-import { SearchUnderwayError } from '@replays/domain/exceptions/search-underway.error';
+import { SearchInProgressError } from '@replays/domain/exceptions/search-in-progress.error';
 import { UnknownReplaySetError } from '@replays/domain/exceptions/unknown-replay-set.error';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
@@ -43,7 +43,7 @@ export class StartSearchHandler
     private readonly sets: ReplaySetRepository,
     private readonly replays: ReplayRepository,
     private readonly searches: SearchRepository,
-    private readonly digest: DigestPort,
+    private readonly hash: HashPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -95,17 +95,17 @@ export class StartSearchHandler
             (await this.searches.activeOfSet(set.id)) ||
             (await this.searches.activeAtStation(set.station.stationId))
           ) {
-            throw new SearchUnderwayError(set.station.stationId);
+            throw new SearchInProgressError(set.station.stationId);
           }
 
           const split = splitOf(() =>
             HeldOutSplit.drawn({
               searchId: id,
               entries: set.entries,
-              digest: (text) => this.digest.sha256(text),
+              hash: (text) => this.hash.sha256(text),
             }),
           );
-          const allotment = allotmentOf(budget, split);
+          const ceilingSplit = ceilingSplitOf(budget, split);
           const at = this.clock.now();
           const by = Attribution.of(command.actor, set.workspaceId);
 
@@ -128,8 +128,8 @@ export class StartSearchHandler
               set,
               candidate: live,
               baseline: true,
-              ceiling: allotment.seed,
-              unpricedRate: allotment.perRun,
+              ceiling: ceilingSplit.seed,
+              unpricedRate: ceilingSplit.perRun,
               at,
               by,
               repeats: budget.repeats,

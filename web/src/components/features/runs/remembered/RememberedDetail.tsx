@@ -41,12 +41,12 @@ export function RememberedDetail({
       <div className="flex items-center gap-1.5 px-4 py-2 text-xs">
         <Spool aria-hidden className="size-3.5 text-muted-foreground" />
         <h2 className="min-w-0 flex-1 truncate font-medium text-foreground">
-          Remembered
+          Memories
         </h2>
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close what the run remembered"
+          aria-label="Close the run’s memories"
           className="flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
           <X className="size-3.5" aria-hidden />

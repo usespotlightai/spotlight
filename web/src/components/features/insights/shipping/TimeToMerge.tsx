@@ -4,7 +4,7 @@ import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { DayChart } from '@/components/features/insights/shipping/DayChart';
 import { PercentilePicker } from '@/components/features/insights/shipping/PercentilePicker';
 import { Segmented } from '@/components/shared/Segmented';
-import { changeDelta, lasted, lastedOrNone } from '@/lib/insights';
+import { lasted, lastedOrNone, shownDeltaOf } from '@/lib/insights';
 import { SPOTLIGHT_COMPARED_WITH_PEOPLE } from '@/lib/insights-pull-requests';
 import {
   type ByAuthor,
@@ -50,7 +50,7 @@ export function TimeToMerge({ now, changes, days }: TimeToMergeProps) {
     >
       <dl className="flex flex-wrap gap-x-8 gap-y-3">
         {AUTHORS.map((author) => {
-          const delta = changeDelta(changes[author.key][percentile]);
+          const delta = shownDeltaOf(changes[author.key][percentile]);
 
           return (
             <div key={author.key} className="flex flex-col gap-1">

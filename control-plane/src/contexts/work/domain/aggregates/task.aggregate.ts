@@ -307,7 +307,7 @@ export class Task extends EventRecorder {
         this.id,
         this.workspaceId,
         this.stationId,
-        into.isCompleted ? 'closed' : into.isBacklog ? 'parked' : 'started',
+        into.isCompleted ? 'accepted' : into.isBacklog ? 'parked' : 'started',
         handMove.mover,
         this.lastRun,
         newNote.at,

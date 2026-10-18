@@ -5,7 +5,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
-const HELD_OUT_SHARE = 0.3;
+const HELD_OUT_RATE = 0.3;
 
 const MIN_HELD_OUT = 2;
 
@@ -32,12 +32,12 @@ export class HeldOutSplit {
   static drawn(input: {
     searchId: SearchId;
     entries: readonly ReplaySetEntry[];
-    digest: (text: string) => string;
+    hash: (text: string) => string;
   }): HeldOutSplit {
     const ranked = tasksOf(input.entries)
       .map((task) => ({
         task,
-        rank: input.digest(`${input.searchId.value}:${task}`),
+        rank: input.hash(`${input.searchId.value}:${task}`),
       }))
       .sort(
         (one, other) =>
@@ -54,7 +54,7 @@ export class HeldOutSplit {
     input: readonly ReplaySetEntry[],
     ranked: readonly string[],
   ): HeldOutSplit {
-    const heldOutCount = Math.ceil(HELD_OUT_SHARE * ranked.length);
+    const heldOutCount = Math.ceil(HELD_OUT_RATE * ranked.length);
 
     if (
       heldOutCount < MIN_HELD_OUT ||
@@ -80,7 +80,7 @@ export class HeldOutSplit {
     units: (searchedRuns: number, heldOutRuns: number) => number,
   ): HeldOutSplit {
     const tasks = [...tasksOf(entries)].sort(textOrder);
-    const heldOutCount = Math.ceil(HELD_OUT_SHARE * tasks.length);
+    const heldOutCount = Math.ceil(HELD_OUT_RATE * tasks.length);
     const runsOf = (task: string) =>
       entries.filter((each) => each.taskId.value === task).length;
     const subsetSums: Map<number, readonly string[]>[] = Array.from(

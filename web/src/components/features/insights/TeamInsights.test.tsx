@@ -67,9 +67,9 @@ vi.mock('@/hooks/api/useInsightsChanges', () => ({
   useInsightsChanges: (teamId: string, period: InsightsPeriod) =>
     answering('changes')(teamId, period),
 }));
-vi.mock('@/hooks/api/useInsightsSetups', () => ({
-  useInsightsSetups: (teamId: string, period: InsightsPeriod) =>
-    answering('setups')(teamId, period),
+vi.mock('@/hooks/api/useInsightsAgentConfigs', () => ({
+  useInsightsAgentConfigs: (teamId: string, period: InsightsPeriod) =>
+    answering('agent-configs')(teamId, period),
 }));
 vi.mock('@/hooks/api/useInsightsCandidates', () => ({
   useInsightsCandidates: (teamId: string, period: InsightsPeriod) =>
@@ -139,8 +139,8 @@ const headline = (over: Partial<Headline> = {}): Headline => ({
   mergeRate: 0.8,
   costPerMerge: { amount: 15, currency: 'USD' },
   taskToMerge: { p50Ms: 26 * HOUR, p90Ms: 72 * HOUR, count: 8 },
-  touches: 30,
-  touchesPerTask: 3,
+  humanActions: 30,
+  humanActionsPerTask: 3,
   activePeople: 4,
   mergedTaskIds: [],
   peopleIds: [],
@@ -162,7 +162,7 @@ const OVERVIEW = {
     mergeRate: null,
     costPerMerge: null,
     taskToMerge: null,
-    touchesPerTask: null,
+    humanActionsPerTask: null,
     activePeople: null,
   },
   output: [
@@ -213,7 +213,7 @@ const MIXED_COST = {
     mixedCurrencies: false,
     nodes: [],
     links: [],
-    cache: { input: null, cacheRead: null, cacheWrite: null, cacheShare: null },
+    cache: { input: null, cacheRead: null, cacheWrite: null, cacheRate: null },
     cacheByStation: [],
   },
   spendChange: null,
@@ -577,7 +577,7 @@ describe('TeamInsights', () => {
             input: 100,
             cacheRead: 300,
             cacheWrite: null,
-            cacheShare: 0.75,
+            cacheRate: 0.75,
           },
         ],
       },
@@ -638,7 +638,7 @@ describe('TeamInsights', () => {
     );
     expect(screen.getByRole('link', { name: '50%' })).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/insights?tab=runs&next=sent-back',
+      '/w/acme/team/team_1/insights?tab=runs&humanAction=sent-back',
     );
     expect(screen.getByRole('link', { name: '1' })).toHaveAttribute(
       'href',

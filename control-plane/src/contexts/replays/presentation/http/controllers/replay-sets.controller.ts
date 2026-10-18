@@ -28,7 +28,7 @@ import {
 import { AddReplaySetEntryCommand } from '@replays/application/commands/add-replay-set-entry.command';
 import { CreateReplaySetCommand } from '@replays/application/commands/create-replay-set.command';
 import { DeleteReplaySetCommand } from '@replays/application/commands/delete-replay-set.command';
-import { GuardChangesCommand } from '@replays/application/commands/guard-changes.command';
+import { GateChangesCommand } from '@replays/application/commands/gate-changes.command';
 import { RemoveReplaySetEntryCommand } from '@replays/application/commands/remove-replay-set-entry.command';
 import { RenameReplaySetCommand } from '@replays/application/commands/rename-replay-set.command';
 import type {
@@ -353,60 +353,60 @@ export class ReplaySetsController {
     );
   }
 
-  @Post('replay-sets/:setId/guards-changes')
+  @Post('replay-sets/:setId/gates-changes')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'guardChanges',
+    operationId: 'gateChanges',
     summary:
       'Check planned changes of the set’s station against this set, as `spotlight replay check` requests; a station has one such set',
   })
   @ApiParam({ name: 'setId', type: String })
-  @ApiNoContentResponse({ description: 'It guards the station’s changes' })
+  @ApiNoContentResponse({ description: 'It gates the station’s changes' })
   @ApiProblemResponse(
     HttpStatus.CONFLICT,
-    'Another set guards the station’s changes already, or the set’s station is gone',
+    'Another set gates the station’s changes already, or the set’s station is gone',
   )
   @ApiProblemResponse(
     HttpStatus.FORBIDDEN,
     'A caller who may read the team but not plan',
   )
-  async guard(
+  async gate(
     @Param('teamId') teamId: string,
     @Param('setId') setId: string,
     @CurrentActor() actor: Actor,
   ): Promise<void> {
     allowed(
       SET,
-      await this.commandBus.execute<GuardChangesCommand, SetChanged>(
-        new GuardChangesCommand(teamId, setId, true, actor),
+      await this.commandBus.execute<GateChangesCommand, SetChanged>(
+        new GateChangesCommand(teamId, setId, true, actor),
       ),
     );
   }
 
-  @Delete('replay-sets/:setId/guards-changes')
+  @Delete('replay-sets/:setId/gates-changes')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'unguardChanges',
+    operationId: 'ungateChanges',
     summary:
       'Stop checking planned changes of the set’s station against this set; checks already started keep running',
   })
   @ApiParam({ name: 'setId', type: String })
   @ApiNoContentResponse({
-    description: 'It no longer guards the station’s changes',
+    description: 'It no longer gates the station’s changes',
   })
   @ApiProblemResponse(
     HttpStatus.FORBIDDEN,
     'A caller who may read the team but not plan',
   )
-  async unguard(
+  async ungate(
     @Param('teamId') teamId: string,
     @Param('setId') setId: string,
     @CurrentActor() actor: Actor,
   ): Promise<void> {
     allowed(
       SET,
-      await this.commandBus.execute<GuardChangesCommand, SetChanged>(
-        new GuardChangesCommand(teamId, setId, false, actor),
+      await this.commandBus.execute<GateChangesCommand, SetChanged>(
+        new GateChangesCommand(teamId, setId, false, actor),
       ),
     );
   }

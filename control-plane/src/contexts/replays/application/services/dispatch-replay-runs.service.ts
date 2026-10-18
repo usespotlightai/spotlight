@@ -48,12 +48,12 @@ export class DispatchReplayRuns implements PendingJobsPort {
 
   private reserveFor(team: TeamId): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      const underway = await this.replays.underwayOfTeamLocked(team);
+      const inProgress = await this.replays.inProgressOfTeamLocked(team);
       const searches = await this.searches.findMany(
-        underway.flatMap((each) => (each.searchId ? [each.searchId] : [])),
+        inProgress.flatMap((each) => (each.searchId ? [each.searchId] : [])),
       );
       const changed = dispatchedInTurn(
-        underway,
+        inProgress,
         () => RunId.of(this.ids.generate()),
         (searchId) =>
           searches.find((each) => each.id.equals(searchId) && each.isActive)

@@ -478,7 +478,7 @@ describe('Run', () => {
         spec: aSpec(),
         briefedWith: BriefedMemories.of({
           briefed: [{ id: 'memory_1', handle: 'M-1' }],
-          cut: [],
+          omitted: [],
         }),
       });
 

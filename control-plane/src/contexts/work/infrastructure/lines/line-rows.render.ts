@@ -152,11 +152,11 @@ export const renderLineRows = (rows: LineRows): Exact<Rendered<LineFields>> => {
             ...(row.judge.claims.length > 0
               ? {
                   claims: [...row.judge.claims],
-                  passShare: row.judge.passShare,
+                  passThreshold: row.judge.passThreshold,
                 }
               : {}),
             sample: row.judge.sample,
-            trust: row.judge.trust,
+            minAgreement: row.judge.minAgreement,
           }
         : null,
     ),

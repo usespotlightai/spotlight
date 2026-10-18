@@ -5,9 +5,9 @@ import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.err
 import { MemoryAlreadyRetiredError } from '@memory/domain/exceptions/memory-already-retired.error';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
-import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -38,7 +38,7 @@ const created = (
     kind: 'preference',
     body: MemoryBody.of(' Name branches after the ticket. '),
     scope: change.scope ?? MemoryScope.of({ teamId: TEAM }),
-    grounds: MemoryGrounds.of({
+    provenance: MemoryProvenance.of({
       taskId: TaskId.of('task_1'),
       runId: RunId.of('run_1'),
       steps: [],
@@ -78,7 +78,7 @@ describe('Memory', () => {
 
   it('applies only where its scope matches, and only while it is active', () => {
     const api = Repository.of('acme/api');
-    const site = {
+    const runContext = {
       teamId: TEAM,
       lineId: 'line_1',
       stationId: 'station_1',
@@ -88,12 +88,12 @@ describe('Memory', () => {
       scope: MemoryScope.of({ teamId: TEAM, lineId: 'line_1' }),
     });
 
-    expect(atLine.appliesAt(site)).toBe(true);
-    expect(atLine.appliesAt({ ...site, lineId: 'line_2' })).toBe(false);
+    expect(atLine.appliesAt(runContext)).toBe(true);
+    expect(atLine.appliesAt({ ...runContext, lineId: 'line_2' })).toBe(false);
     expect(
       atLine
         .retire({ by: UserId.of('user_bea'), reason: 'Gone.', at: LATER })
-        .appliesAt(site),
+        .appliesAt(runContext),
     ).toBe(false);
   });
 
@@ -117,7 +117,7 @@ describe('Memory', () => {
     );
   });
 
-  it('is active at once when a person writes it, as theirs and resting on nothing', () => {
+  it('is active at once when a person writes it, as theirs and citing nothing', () => {
     const written = Memory.write({
       id: NEW,
       handle: MemoryHandle.of(2),
@@ -125,13 +125,13 @@ describe('Memory', () => {
       kind: 'environment',
       body: MemoryBody.of('Staging needs a restart after deploys.'),
       scope: MemoryScope.of({ teamId: TEAM }),
-      grounds: null,
+      provenance: null,
       by: MemoryDecision.of({ by: UserId.of('user_bea'), at: NOW }),
     });
 
     expect(written.status).toBe('active');
     expect(written.source).toBe('person');
-    expect(written.grounds).toBeNull();
+    expect(written.provenance).toBeNull();
     expect(written.approval.by.value).toBe('user_bea');
   });
 
@@ -167,7 +167,7 @@ describe('Memory', () => {
     ).toThrow(MemoryAlreadyRetiredError);
   });
 
-  it('is corrected by a successor that keeps what it rests on and becomes active to supersede it, leaving it untouched', () => {
+  it('is corrected by a successor that keeps what it cites and becomes active to supersede it, leaving it untouched', () => {
     const original = created();
     original.pullEvents();
 
@@ -184,9 +184,9 @@ describe('Memory', () => {
     expect(original.pullEvents()).toEqual([]);
     expect(successor.supersedes?.equals(NEW)).toBe(true);
     expect(successor.source).toBe('person');
-    expect(successor.grounds?.equals(original.grounds as MemoryGrounds)).toBe(
-      true,
-    );
+    expect(
+      successor.provenance?.equals(original.provenance as MemoryProvenance),
+    ).toBe(true);
     expect(successor.pullEvents()).toEqual([new MemoryCreated(OLD, NEW)]);
   });
 

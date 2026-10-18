@@ -103,9 +103,9 @@ export const stationColumnsOf = (each: Station) => ({
     ? {
         rubric: each.judge.rubric,
         claims: [...each.judge.claims],
-        passShare: each.judge.passShare,
+        passThreshold: each.judge.passThreshold,
         sample: each.judge.sample,
-        trust: each.judge.trust,
+        minAgreement: each.judge.minAgreement,
       }
     : null,
   alerts: each.alerts.map((alert) => ({

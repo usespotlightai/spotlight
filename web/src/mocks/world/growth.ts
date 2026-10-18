@@ -39,9 +39,9 @@ const STATIONS: StationResponseDto[] = [
         'Names the metric and what it reads today',
         'Sets a stop rule',
       ],
-      passShare: 1,
+      passThreshold: 1,
       sample: 1,
-      trust: 0.6,
+      minAgreement: 0.6,
     },
   }),
   station({

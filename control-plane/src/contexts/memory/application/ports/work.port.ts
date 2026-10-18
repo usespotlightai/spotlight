@@ -1,7 +1,7 @@
 import type {
-  RunSite,
-  StationSite,
-} from '@memory/domain/value-objects/run-site';
+  RunContext,
+  StationContext,
+} from '@memory/domain/value-objects/run-context';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -12,7 +12,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const WORK = Symbol('WORK');
 
-export interface NamedStationSite extends StationSite {
+export interface NamedStationContext extends StationContext {
   readonly lineName: string;
   readonly stationName: string;
 }
@@ -24,10 +24,10 @@ export interface RememberedRun {
   readonly completed: boolean;
   readonly memories: boolean;
   readonly briefed: readonly string[];
-  readonly cut: readonly string[];
+  readonly omitted: readonly string[];
 }
 
-export interface LeasedRun extends RunSite {
+export interface LeasedRun extends RunContext {
   readonly id: RunId;
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
@@ -72,7 +72,7 @@ export interface WorkPort {
 
   leasedBy(runId: RunId, runner: RunnerId): Promise<LeasedRun | null>;
 
-  siteOfRun(runId: RunId): Promise<RunSite | null>;
+  contextOfRun(runId: RunId): Promise<RunContext | null>;
 
   referencedUnder(
     runId: RunId,
@@ -80,7 +80,7 @@ export interface WorkPort {
     file: RegExp,
   ): Promise<readonly string[] | null>;
 
-  stationSiteOf(runId: RunId): Promise<NamedStationSite | null>;
+  stationContextOf(runId: RunId): Promise<NamedStationContext | null>;
 
   linesOf(teamId: TeamId): Promise<readonly TeamLine[]>;
 

@@ -15,9 +15,9 @@ import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-d
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
-import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -39,7 +39,7 @@ const approved = (body: string, teamId = TEAM) => {
     kind: 'preference',
     body: MemoryBody.of(body),
     scope: MemoryScope.of({ teamId }),
-    grounds: null,
+    provenance: null,
     by: MemoryDecision.of({
       by: UserId.of('user_1'),
       at: new Date('2026-09-27T10:00:00.000Z'),
@@ -61,14 +61,14 @@ const draftProposing = () =>
         kind: 'preference',
         body: MemoryBody.of('Ask before retrying.'),
         scope: MemoryScope.of({ teamId: TEAM }),
-        grounds: MemoryGrounds.of({
+        provenance: MemoryProvenance.of({
           taskId: TaskId.of('task_1'),
           runId: RunId.of('run_1'),
           steps: [1],
           notes: [],
         }),
         source: 'run',
-        origin: 'drafted',
+        proposedBy: 'drafter',
         supersedes: null,
         recordedAt: new Date('2026-09-27T10:00:00.000Z'),
       }),
@@ -81,7 +81,7 @@ const reading = (input: {
   teamOfRun: TeamId | null;
   stored: readonly Memory[];
   briefed: readonly Memory[];
-  cut: readonly Memory[];
+  omitted: readonly Memory[];
   recalled: readonly Memory[];
   proposed?: boolean;
 }) => {
@@ -93,12 +93,12 @@ const reading = (input: {
       completed: true,
       memories: false,
       briefed: input.briefed.map((each) => each.id.value),
-      cut: input.cut.map((each) => each.id.value),
+      omitted: input.omitted.map((each) => each.id.value),
     }),
     reasoning: async () => [],
     notesOf: async () => [],
     harnessOf: async () => 'claude-code',
-    siteOfRun: async () =>
+    contextOfRun: async () =>
       input.teamOfRun && {
         teamId: input.teamOfRun,
         lineId: null,
@@ -121,7 +121,7 @@ const reading = (input: {
     ofRun: async () =>
       input.recalled.map((each) => ({
         memoryId: each.id,
-        way: 'recalled' as const,
+        via: 'recalled' as const,
       })),
     runsUsing: async () => new Map(),
   } as unknown as MemoryUsesPort;
@@ -141,22 +141,22 @@ const reading = (input: {
 };
 
 describe('ReadRunMemoriesHandler', () => {
-  it('keeps what was briefed, cut and recalled apart, and shows nothing of another team', async () => {
+  it('keeps what was briefed, omitted and recalled apart, and shows nothing of another team', async () => {
     const briefed = approved('Briefed.');
-    const cut = approved('Cut.');
+    const omitted = approved('Omitted.');
     const recalled = approved('Recalled.');
     const theirs = approved('Theirs.', TeamId.of('team_other'));
 
     const read = await reading({
       teamOfRun: TEAM,
-      stored: [briefed, cut, recalled, theirs],
+      stored: [briefed, omitted, recalled, theirs],
       briefed: [briefed, theirs],
-      cut: [cut],
+      omitted: [omitted],
       recalled: [recalled, recalled],
     });
 
     expect(read.briefed.map((each) => each.body)).toEqual(['Briefed.']);
-    expect(read.cut.map((each) => each.body)).toEqual(['Cut.']);
+    expect(read.omitted.map((each) => each.body)).toEqual(['Omitted.']);
     expect(read.recalled.map((each) => each.body)).toEqual(['Recalled.']);
     expect(read.proposed).toEqual([]);
     expect(read.reviewItemId).toBeNull();
@@ -167,7 +167,7 @@ describe('ReadRunMemoriesHandler', () => {
       teamOfRun: TEAM,
       stored: [],
       briefed: [],
-      cut: [],
+      omitted: [],
       recalled: [],
       proposed: true,
     });
@@ -183,7 +183,7 @@ describe('ReadRunMemoriesHandler', () => {
         teamOfRun: TeamId.of('team_other'),
         stored: [],
         briefed: [],
-        cut: [],
+        omitted: [],
         recalled: [],
       }),
     ).rejects.toMatchObject({ kind: 'not-found' });

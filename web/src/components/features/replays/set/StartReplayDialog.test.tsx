@@ -17,8 +17,8 @@ vi.mock('@/hooks/api/useStartReplay', () => ({
 
 vi.mock('@/hooks/api/useStationCandidates', () => ({
   useStationCandidates: () => ({
-    address: 'core/delivery/build',
-    addressFailed: false,
+    path: 'core/delivery/build',
+    pathFailed: false,
     candidates: {
       data: [
         {

@@ -33,17 +33,17 @@ const replay = (over: Partial<Replay>): Replay =>
       unscored: 0,
       spent: { amount: 2, currency: 'USD' },
     },
-    againstBaseline: {
+    gainOverReference: {
       gain: 0.25,
       low: 0.05,
       high: 0.45,
-      verdict: 'better',
+      significance: 'better',
       minGain: 0.05,
       tasks: 4,
     },
-    comparedWith: { replayId: 'baseline', successRate: 0.5, interval: null },
-    pairedWith: null,
-    pairsAgainstBaseline: null,
+    referenceReplay: { replayId: 'baseline', successRate: 0.5, interval: null },
+    pairwiseReference: null,
+    referencePairs: null,
     ...over,
   }) as Replay;
 
@@ -76,7 +76,11 @@ describe('ReplayRow', () => {
           station: {},
           createdAt: '2026-10-01T09:00:00.000Z',
         },
-        comparedWith: { replayId: 'live', successRate: 0.25, interval: null },
+        referenceReplay: {
+          replayId: 'live',
+          successRate: 0.25,
+          interval: null,
+        },
       }),
     );
 
@@ -95,8 +99,8 @@ describe('ReplayRow', () => {
       replay({
         id: 'baseline',
         isBaseline: true,
-        againstBaseline: null,
-        comparedWith: null,
+        gainOverReference: null,
+        referenceReplay: null,
       }),
     );
 

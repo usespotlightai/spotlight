@@ -14,9 +14,9 @@ import type {
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { replayedCandidates } from '@/mocks/world/station-candidates';
 import { CONFIG_REPOSITORY } from '@/mocks/world/station-history';
+import { stationOf, stationRunOutcomes } from '@/mocks/world/station-insights';
 import { stationJudge } from '@/mocks/world/station-judge';
 import { rounded } from '@/mocks/world/station-measures';
-import { stationOf, stationOutcomes } from '@/mocks/world/station-outcomes';
 import { replayOfRun, replayRun } from '@/mocks/world/station-replay-runs';
 import {
   baselineOfSet,
@@ -158,7 +158,7 @@ const startOn = (
     endedHoursAgo: null,
     runs,
     marks: startingMarks(runs.length),
-    comparedWith: live ? null : (baselineOfSet(setId)?.id ?? null),
+    referenceReplayId: live ? null : (baselineOfSet(setId)?.id ?? null),
     paired: !live,
     listed: true,
     ...over,
@@ -175,13 +175,13 @@ const started = (replay: ReplaySpec): ReplayStartedResponseDto => ({
 });
 
 export const stationHandlers: RequestHandler[] = [
-  api.get(`${STATION}/outcomes`, ({ params, request }) => {
+  api.get(`${STATION}/insights`, ({ params, request }) => {
     const { teamId, lineId, stationId } = placeOf(params);
     const last = new URL(request.url).searchParams.get('last');
 
     return stationOf(teamId, lineId, stationId)
       ? json(
-          stationOutcomes(
+          stationRunOutcomes(
             teamId,
             lineId,
             stationId,
@@ -225,7 +225,7 @@ export const stationHandlers: RequestHandler[] = [
       lineId,
       stationId,
       createdHoursAgo: 0,
-      guardsChanges: false,
+      gatesChanges: false,
       entries: [],
       health: NO_HEALTH,
     });
@@ -292,7 +292,7 @@ export const stationHandlers: RequestHandler[] = [
       heldOutTasks,
       runs,
       ceiling: budget.ceiling,
-      perReplayAllotments: {
+      perReplayLimits: {
         seed: share(0.1),
         searchReplay: share(0.6 / Math.max(1, proposals)),
         heldOutReplay: share(0.05),
@@ -332,7 +332,7 @@ export const stationHandlers: RequestHandler[] = [
       id: `replay_${id}_seed`,
       runs: searched,
       marks: startingMarks(searched.length),
-      comparedWith: null,
+      referenceReplayId: null,
       paired: false,
       listed: false,
       search: { searchId: id, candidateName: 'seed' },
@@ -341,7 +341,7 @@ export const stationHandlers: RequestHandler[] = [
       id,
       setId,
       state: 'seeding',
-      ending: null,
+      stopReason: null,
       agent: {
         harness: agent.harness,
         model: agent.model ?? null,
@@ -360,14 +360,14 @@ export const stationHandlers: RequestHandler[] = [
       iterations: [],
       seed: {
         candidate: live,
-        seed: true,
+        isSeed: true,
         iteration: null,
         hypothesis: null,
         changes: [],
         replayId: seedReplay.id,
         heldOutReplayId: null,
         onFrontier: true,
-        onlyOnSeenTasks: null,
+        overfit: null,
         pullRequest: null,
       },
       candidates: [],
@@ -397,7 +397,7 @@ export const stationHandlers: RequestHandler[] = [
 
       return json({
         items: resourceCandidates().filter(
-          (each) => !station || each.stationAddress === station,
+          (each) => !station || each.stationPath === station,
         ),
       });
     },
@@ -470,25 +470,25 @@ export const stationHandlers: RequestHandler[] = [
     return noContent();
   }),
 
-  api.post(`${SET}/guards-changes`, ({ params }) => {
+  api.post(`${SET}/gates-changes`, ({ params }) => {
     const set = setOn(params);
 
     if (!set) {
       return notFound();
     }
 
-    set.guardsChanges = true;
+    set.gatesChanges = true;
     return noContent();
   }),
 
-  api.delete(`${SET}/guards-changes`, ({ params }) => {
+  api.delete(`${SET}/gates-changes`, ({ params }) => {
     const set = setOn(params);
 
     if (!set) {
       return notFound();
     }
 
-    set.guardsChanges = false;
+    set.gatesChanges = false;
     return noContent();
   }),
 
@@ -606,7 +606,7 @@ export const stationHandlers: RequestHandler[] = [
     }
 
     search.state = 'stopped';
-    search.ending = 'stopped';
+    search.stopReason = 'stopped';
     search.endedHoursAgo = 0;
     return noContent();
   }),
@@ -661,7 +661,7 @@ export const stationHandlers: RequestHandler[] = [
           repository: CONFIG_REPOSITORY,
           path: `lines/${place?.lineKey ?? ''}.tf`,
           branch: `spotlight/${search.id.replaceAll('_', '-')}/${slugOf(picked.candidate.name).replaceAll('_', '-')}`,
-          attempts: 1,
+          generation: 1,
           createdAt: now,
           updatedAt: now,
         },

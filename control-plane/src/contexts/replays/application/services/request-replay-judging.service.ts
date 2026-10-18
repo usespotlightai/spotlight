@@ -1,4 +1,4 @@
-import type { OutcomesPort } from '@replays/application/ports/outcomes.port';
+import type { InsightsPort } from '@replays/application/ports/insights.port';
 import type { ReplayJudgingRequested } from '@replays/domain/events/replay-judging-requested.event';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -10,7 +10,7 @@ export class RequestReplayJudging {
   constructor(
     private readonly replays: ReplayRepository,
     private readonly candidates: CandidateRepository,
-    private readonly outcomes: OutcomesPort,
+    private readonly insights: InsightsPort,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
@@ -20,14 +20,14 @@ export class RequestReplayJudging {
     const judge = candidate?.judge ?? null;
     const ordered =
       candidate && judge
-        ? await this.outcomes.judge({
+        ? await this.insights.judge({
             run: event.run,
             workspaceId: event.workspaceId,
             teamId: candidate.teamId,
             judge,
             reference: referenceFor(
               event.original,
-              await this.outcomes.acceptedAfter(event.original),
+              await this.insights.acceptedAfter(event.original),
             ),
           })
         : 'unreadable-rubric';

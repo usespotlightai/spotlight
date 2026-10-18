@@ -70,7 +70,7 @@ export type ReviewBot = {
   readonly login: string;
   readonly comments: number;
   readonly reviews: number;
-  readonly resolvedShare: number | null;
+  readonly resolvedRate: number | null;
 };
 
 export type InsightsShipping = {
@@ -164,24 +164,26 @@ export const tickLasted = (ms: number): string => {
   return `${Math.round(ms / DAY_MS)}d`;
 };
 
-export const STATION_PARTS = ['queued', 'running', 'inbox'] as const;
+export const STATION_STAGES = ['queued', 'running', 'inbox'] as const;
 
-export type StationPart = (typeof STATION_PARTS)[number];
+export type StationStage = (typeof STATION_STAGES)[number];
 
-const PARTS_TEXT: Record<StationPart, string> = {
+const PARTS_TEXT: Record<StationStage, string> = {
   queued: 'queued',
   running: 'running',
   inbox: 'in the inbox',
 };
 
-export const formatPart = (part: StationPart): string => PARTS_TEXT[part];
+export const formatPart = (part: StationStage): string => PARTS_TEXT[part];
 
 type StageTimes = {
   readonly total: Spreads;
-  readonly parts: Readonly<Record<StationPart, Spreads>> | null;
-  readonly jam: Readonly<Record<Percentile, number>>;
+  readonly parts: Readonly<Record<StationStage, Spreads>> | null;
+  readonly bottleneckRatio: Readonly<Record<Percentile, number>>;
   readonly worst: Readonly<Record<Percentile, boolean>>;
-  readonly longestPart: Readonly<Record<Percentile, StationPart | null>> | null;
+  readonly longestPart: Readonly<
+    Record<Percentile, StationStage | null>
+  > | null;
 };
 
 type ByType = {
@@ -227,10 +229,10 @@ export type FlowStage = {
   readonly label: string;
   readonly station: boolean;
   readonly ms: number | null;
-  readonly parts: Readonly<Record<StationPart, number | null>> | null;
-  readonly jam: number;
+  readonly parts: Readonly<Record<StationStage, number | null>> | null;
+  readonly bottleneckRatio: number;
   readonly worst: boolean;
-  readonly longestPart: StationPart | null;
+  readonly longestPart: StationStage | null;
 };
 
 export const flowStages = (
@@ -250,10 +252,10 @@ export const flowStages = (
       ms: times?.total[percentile] ?? null,
       parts: parts
         ? (Object.fromEntries(
-            STATION_PARTS.map((part) => [part, parts[part][percentile]]),
-          ) as Record<StationPart, number | null>)
+            STATION_STAGES.map((part) => [part, parts[part][percentile]]),
+          ) as Record<StationStage, number | null>)
         : null,
-      jam: times?.jam[percentile] ?? 0,
+      bottleneckRatio: times?.bottleneckRatio[percentile] ?? 0,
       worst: times?.worst[percentile] ?? false,
       longestPart: times?.longestPart?.[percentile] ?? null,
     };
@@ -280,7 +282,7 @@ const stageTimesOf = (times: StageTimesResponseDto): StageTimes => ({
         inbox: spreadsOf(times.parts.inbox),
       }
     : null,
-  jam: times.jam,
+  bottleneckRatio: times.bottleneckRatio,
   worst: times.worst,
   longestPart: times.longestPart,
 });
@@ -298,7 +300,7 @@ const sharesOf = (
   Object.fromEntries(
     ROUNDS.map((each) => [
       each,
-      rounds.find((counted) => counted.rounds === each)?.share ?? null,
+      rounds.find((counted) => counted.rounds === each)?.rate ?? null,
     ]),
   ) as Record<Rounds, number | null>;
 

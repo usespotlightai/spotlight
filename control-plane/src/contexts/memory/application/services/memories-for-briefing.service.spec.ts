@@ -31,7 +31,7 @@ const approved = (id: number, paths: string[] = []) =>
       repository: paths.length > 0 ? API : null,
       paths: paths.map(MemoryPath.of),
     }),
-    grounds: null,
+    provenance: null,
     by: MemoryDecision.of({
       by: UserId.of('user_1'),
       at: new Date('2026-09-27T10:00:00.000Z'),
@@ -126,7 +126,7 @@ describe('MemoriesForBriefing', () => {
           level: 'a repository, or a file or folder in it',
         },
       ],
-      mirroring: 'repositories/',
+      repositoryFolder: 'repositories/',
     });
     expect((await briefing([]).brief()).folder).toBeNull();
   });

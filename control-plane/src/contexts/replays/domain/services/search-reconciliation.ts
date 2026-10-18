@@ -3,12 +3,12 @@ import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { chargeOf } from '@replays/domain/services/replay-charge';
 import { improvedOnBestBefore } from '@replays/domain/services/search-improvement';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import type { ReplayEnd } from '@replays/domain/value-objects/replay-state';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
+import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-const DIGEST_WAIT_MS = 15 * 60_000;
+const USAGE_WAIT_MS = 15 * 60_000;
 
 const UNCLAIMED_WAIT_MS = 60 * 60_000;
 
@@ -23,8 +23,8 @@ export interface SeenRun {
 
 const UNPRICED_RUN = ModelSpent.of([], 1);
 
-const endOf = (replay: Replay): ReplayEnd | null =>
-  replay.isDispatching ? null : (replay.current as ReplayEnd);
+const endOf = (replay: Replay): ReplayStopReason | null =>
+  replay.isDispatching ? null : (replay.current as ReplayStopReason);
 
 const withReplays = (
   search: Search,
@@ -42,11 +42,11 @@ const withReplays = (
 
     if (!replay) {
       return unended && known.some((each) => each.equals(replayId))
-        ? reconciled.recordReplayEnd(
+        ? reconciled.recordReplayStopReason(
             replayId,
             'deleted',
             {
-              spent: Spend.none(reconciled.budget.ceiling.currency),
+              spent: Money.none(reconciled.budget.ceiling.currency),
               unpriced: 0,
             },
             at,
@@ -60,7 +60,7 @@ const withReplays = (
     const end = endOf(replay);
 
     return end && unended
-      ? reconciled.recordReplayEnd(
+      ? reconciled.recordReplayStopReason(
           replayId,
           end,
           charge,
@@ -130,7 +130,7 @@ export const reconciled = (
   for (const iteration of reconciled.awaitingAgentSpend) {
     const ended = runs.find((each) => each.run.equals(iteration.runId));
 
-    if (past(ended?.endedAt ?? null, DIGEST_WAIT_MS, at)) {
+    if (past(ended?.endedAt ?? null, USAGE_WAIT_MS, at)) {
       reconciled = reconciled.recordAgentSpend(
         iteration.runId,
         UNPRICED_RUN,

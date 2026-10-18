@@ -1,9 +1,9 @@
 import type { ReflectionNotice } from '@replays/domain/services/reflection-notice';
-import type { ReflectionOutcome } from '@replays/domain/value-objects/reflection-outcome';
 import type {
-  SearchCause,
-  SearchCauseKind,
-} from '@replays/domain/value-objects/search-cause.vo';
+  FailureCause,
+  FailureCauseKind,
+} from '@replays/domain/value-objects/failure-cause.vo';
+import type { ReflectionResult } from '@replays/domain/value-objects/reflection-result';
 
 const MAX_POINTS = 20;
 
@@ -14,7 +14,7 @@ export interface NoticeWords {
   readonly points: readonly string[];
 }
 
-const FIXES: Readonly<Record<Exclude<SearchCauseKind, 'config'>, string>> = {
+const FIXES: Readonly<Record<Exclude<FailureCauseKind, 'config'>, string>> = {
   task: 'Take the task out of the replay set, or reword it',
   judge: 'Fix the judge’s rubric',
   check: 'Fix the station’s check',
@@ -22,24 +22,24 @@ const FIXES: Readonly<Record<Exclude<SearchCauseKind, 'config'>, string>> = {
 };
 
 const HEADLINES: Readonly<
-  Record<ReflectionOutcome, (search: string) => string>
+  Record<ReflectionResult, (search: string) => string>
 > = {
-  'went-on': (search) =>
+  continued: (search) =>
     `${search} goes on after finding failures outside the config`,
   'no-config-cause': (search) =>
     `${search} ended with nothing the config can fix`,
   'no-failures': (search) => `${search} ended with every searched task passing`,
   'did-not-run': (search) => `${search} ended after its reflection failed`,
-  'out-of-budget': (search) => `${search} ran out of budget`,
+  'ceiling-reached': (search) => `${search} reached its ceiling`,
 };
 
 const tasksCounted = (count: number): string =>
   `${count} ${count === 1 ? 'task' : 'tasks'}`;
 
 const HAPPENINGS: Readonly<
-  Record<ReflectionOutcome, (looked: number) => string>
+  Record<ReflectionResult, (looked: number) => string>
 > = {
-  'went-on': (looked) =>
+  continued: (looked) =>
     `Two iterations in a row found nothing better. A config change could still fix some of the ${tasksCounted(looked)} still failing.`,
   'no-config-cause': (looked) =>
     `No config change can fix the ${tasksCounted(looked)} still failing. The rest of the budget stays unspent.`,
@@ -47,7 +47,7 @@ const HAPPENINGS: Readonly<
     'Two iterations in a row found nothing better. The best config already passes every searched task.',
   'did-not-run': () =>
     'The reflection run failed before recording any cause. The search page links to that run.',
-  'out-of-budget': (looked) =>
+  'ceiling-reached': (looked) =>
     `A config change could fix some of the ${tasksCounted(looked)} still failing. No budget was left to try one.`,
 };
 
@@ -61,11 +61,11 @@ const searchFor = (stationName: string | null): string =>
 
 const pointOf =
   (titles: ReadonlyMap<string, string | null>) =>
-  (cause: SearchCause): string => {
+  (cause: FailureCause): string => {
     const title = titles.get(cause.originalRunId.value)?.trim();
 
     return clipped(
-      `${FIXES[cause.cause as Exclude<SearchCauseKind, 'config'>]}, for ${title ? `“${title}”` : UNTITLED}: ${cause.suggestion ?? cause.evidence}`,
+      `${FIXES[cause.cause as Exclude<FailureCauseKind, 'config'>]}, for ${title ? `“${title}”` : UNTITLED}: ${cause.suggestion ?? cause.evidence}`,
     );
   };
 
@@ -84,9 +84,9 @@ export const ReflectionNoticeWording = {
     titles: ReadonlyMap<string, string | null>,
   ): NoticeWords {
     return {
-      headline: HEADLINES[notice.outcome](searchFor(stationName)),
+      headline: HEADLINES[notice.result](searchFor(stationName)),
       points: cappedAtMax([
-        HAPPENINGS[notice.outcome](notice.looked),
+        HAPPENINGS[notice.result](notice.looked),
         ...notice.fixes.map(pointOf(titles)),
       ]),
     };

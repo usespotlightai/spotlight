@@ -13,7 +13,7 @@ export const MEMORY_EVENT_MAPPERS = [
       runId: event.runId.value,
       workspaceId: event.workspaceId.value,
       taskId: event.taskId?.value ?? null,
-      way: event.way,
+      via: event.via,
       memories: event.memories.map((each) => each.value),
     }),
   ),

@@ -37,7 +37,7 @@ const DELIVERY = definitionOf(BUILT_IN_LINES[0] as LineOpening);
 const JUDGE = {
   rubric: 'A good run changes only what the task requests.\n',
   sample: 0.2,
-  trust: 0.6,
+  minAgreement: 0.6,
 };
 
 const ALERTS = [
@@ -298,61 +298,71 @@ describe('a line, created through the resource API (e2e)', () => {
     }
   });
 
-  it('stores a judge of checkable claims, with or without a rubric, and the share of claims a run must meet', async () => {
+  it('stores a judge of checkable claims, with or without a rubric, and the pass threshold of claims a run must meet', async () => {
     const claims = [
       'The change adds a test that fails without it.',
       'The change touches only the files the task names.',
     ];
     const alone = await create(
-      judged({ claims, passShare: 0.5, sample: 0.2, trust: 0.6 }, []),
+      judged(
+        { claims, passThreshold: 0.5, sample: 0.2, minAgreement: 0.6 },
+        [],
+      ),
     );
     const both = await change(
       alone.body.id,
       alone.body.version,
-      judged({ ...JUDGE, claims, passShare: 1 }, []),
+      judged({ ...JUDGE, claims, passThreshold: 1 }, []),
     );
 
     expect(alone.status).toBe(201);
     expect(alone.body.definition.stations[1].judge).toEqual({
       claims,
-      passShare: 0.5,
+      passThreshold: 0.5,
       sample: 0.2,
-      trust: 0.6,
+      minAgreement: 0.6,
     });
     expect(both.status).toBe(200);
     expect(both.body.definition.stations[1].judge).toEqual({
       ...JUDGE,
       claims,
-      passShare: 1,
+      passThreshold: 1,
     });
   });
 
-  it('rejects a judge with neither a rubric nor claims, too many or too long claims, a pass share out of bounds, and a pass share without claims', async () => {
+  it('rejects a judge with neither a rubric nor claims, too many or too long claims, a pass threshold out of bounds, and a pass threshold without claims', async () => {
     const claims = ['The change adds a test.'];
-    const neither = await create(judged({ sample: 0.2, trust: 0.6 }, []));
+    const neither = await create(
+      judged({ sample: 0.2, minAgreement: 0.6 }, []),
+    );
     const none = await create(
-      judged({ claims: [], sample: 0.2, trust: 0.6 }, []),
+      judged({ claims: [], sample: 0.2, minAgreement: 0.6 }, []),
     );
     const tooMany = await create(
       judged(
         {
           claims: Array.from({ length: 21 }, (_, at) => `Claim ${at}.`),
           sample: 0.2,
-          trust: 0.6,
+          minAgreement: 0.6,
         },
         [],
       ),
     );
     const tooLong = await create(
-      judged({ claims: ['x'.repeat(501)], sample: 0.2, trust: 0.6 }, []),
+      judged({ claims: ['x'.repeat(501)], sample: 0.2, minAgreement: 0.6 }, []),
     );
     const blank = await create(
-      judged({ claims: ['  '], sample: 0.2, trust: 0.6 }, []),
+      judged({ claims: ['  '], sample: 0.2, minAgreement: 0.6 }, []),
     );
-    const share = await create(
-      judged({ claims, passShare: 1.5, sample: 0.2, trust: 0.6 }, []),
+    const badThreshold = await create(
+      judged(
+        { claims, passThreshold: 1.5, sample: 0.2, minAgreement: 0.6 },
+        [],
+      ),
     );
-    const shareAlone = await create(judged({ ...JUDGE, passShare: 0.5 }, []));
+    const thresholdAlone = await create(
+      judged({ ...JUDGE, passThreshold: 0.5 }, []),
+    );
 
     for (const [rejected, path] of [
       [neither, 'stations[1].judge.rubric'],
@@ -360,8 +370,8 @@ describe('a line, created through the resource API (e2e)', () => {
       [tooMany, 'stations[1].judge.claims'],
       [tooLong, 'stations[1].judge.claims'],
       [blank, 'stations[1].judge.claims'],
-      [share, 'stations[1].judge.passShare'],
-      [shareAlone, 'stations[1].judge.passShare'],
+      [badThreshold, 'stations[1].judge.passThreshold'],
+      [thresholdAlone, 'stations[1].judge.passThreshold'],
     ] as const) {
       expect(rejected.status).toBe(422);
       expect(rejected.body.errors).toEqual([expect.objectContaining({ path })]);

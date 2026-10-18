@@ -1,11 +1,11 @@
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { RunJournal } from '@work/application/contracts/run-journal.contract';
 import { connectionsInMemory } from '@work/application/ports/run-connections.fake-spec';
-import type { RunDigestReaderPort } from '@work/application/ports/run-digest-reader.port';
 import type {
   RunOutcomeShape,
   RunOutcomesPort,
 } from '@work/application/ports/run-outcomes.port';
+import type { RunUsageReaderPort } from '@work/application/ports/run-usage-reader.port';
 import type { RunnerTraceReaderPort } from '@work/application/ports/runner-trace-reader.port';
 import {
   aSight,
@@ -107,10 +107,10 @@ const outcomeOf = (
   endedAt: '2026-09-30T10:05:00.000Z',
   ending,
   failure: null,
-  round: 1,
+  visit: 1,
   checks: null,
-  next: null,
-  delivery: null,
+  firstHumanAction: null,
+  pullRequestState: null,
 });
 
 const reading = ({
@@ -170,7 +170,7 @@ const reading = ({
     of: async () => new Map(outcomes.map((each) => [each.runId, each])),
   };
 
-  const digests: RunDigestReaderPort = {
+  const usages: RunUsageReaderPort = {
     forRuns: async (ids) =>
       new Map(
         ids.map((id) => [
@@ -178,10 +178,10 @@ const reading = ({
           {
             ms: 300_000,
             steps: 12,
-            faults: 1,
+            errors: 1,
             changedLines: 0,
-            used: 40_000,
-            size: 200_000,
+            contextTokens: 40_000,
+            contextWindow: 200_000,
             cost: Money.of(0.42, 'USD'),
             tokens: Tokens.UNREPORTED,
           },
@@ -198,7 +198,7 @@ const reading = ({
         traces,
         stations,
         outcomesPort,
-        digests,
+        usages,
         sights,
         connectionsInMemory(),
       ).execute(
@@ -265,11 +265,11 @@ describe('ReadRunnerHistoryHandler', () => {
     const [run] = answer.history.runs;
 
     expect(run?.outcome?.ending).toBe('failed');
-    expect(run?.outcome?.cost).toEqual({
+    expect(run?.outcome?.usage).toEqual({
       ms: 300_000,
       steps: 12,
-      faults: 1,
-      used: 40_000,
+      errors: 1,
+      contextTokens: 40_000,
       cost: 0.42,
       currency: 'USD',
     });
@@ -321,7 +321,7 @@ describe('ReadRunnerHistoryHandler', () => {
   describe('for a search run', () => {
     const SIGHT = aSight({
       stationId: 'station_1',
-      hiddenTasks: ['task_of_run_2'],
+      heldOutTasks: ['task_of_run_2'],
       shownOriginals: ['run_1', 'run_9'],
       candidates: [
         {
@@ -428,7 +428,7 @@ describe('ReadRunnerHistoryHandler', () => {
         succeeded: false,
         reasons: ['check-failed'],
         verdict: 'fail',
-        cost: { cost: 0.42, currency: 'USD' },
+        usage: { cost: 0.42, currency: 'USD' },
         changes: [
           { path: 'src/queue.ts', before: 'old', after: 'new', omitted: false },
         ],

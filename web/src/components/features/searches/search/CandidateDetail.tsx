@@ -65,7 +65,7 @@ export function CandidateDetail({
           </p>
         )}
 
-        {candidate.seed ? (
+        {candidate.isSeed ? (
           <p className="text-muted-foreground text-xs">
             Station as configured when the search started.
           </p>

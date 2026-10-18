@@ -1,7 +1,7 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import {
-  copiesByOriginal,
+  repeatsByOriginal,
   taskSuccessesOf,
 } from '@replays/domain/services/replay-results';
 import { rankedOf } from '@replays/domain/services/search-ranking';
@@ -39,9 +39,9 @@ export const failingSearchedTasksOf = (
   const successes = taskSuccessesOf(bestReplay, searchedRuns);
   const tasks: ReflectedTask[] = [];
 
-  for (const [original, copies] of copiesByOriginal(bestReplay.entries)) {
+  for (const [original, repeats] of repeatsByOriginal(bestReplay.entries)) {
     const success = successes.get(original);
-    const firstFailed = copies.find(
+    const firstFailed = repeats.find(
       (each) => each.run !== null && each.succeeded === false,
     );
 

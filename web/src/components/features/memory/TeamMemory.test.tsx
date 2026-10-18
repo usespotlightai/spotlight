@@ -111,7 +111,7 @@ const memory = (over: Partial<Memory> = {}): Memory => ({
   approvedAt: '2026-09-27T10:00:00.000Z',
   supersedes: null,
   retirement: null,
-  grounds: null,
+  provenance: null,
   runs: 0,
   ...over,
 });

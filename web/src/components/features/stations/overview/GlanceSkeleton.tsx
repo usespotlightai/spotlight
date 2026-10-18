@@ -1,5 +1,5 @@
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
-import { GLANCE_COLUMNS } from '@/lib/station-outcomes';
+import { GLANCE_COLUMNS } from '@/lib/station-insights';
 
 export function GlanceSkeleton() {
   return (

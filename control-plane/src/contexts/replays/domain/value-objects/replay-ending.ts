@@ -9,11 +9,11 @@ export const REPLAY_ENDINGS = [
 
 export type ReplayEnding = (typeof REPLAY_ENDINGS)[number];
 
-export const RUN_OUTCOMES = [
+export const RUN_RESULTS = [
   'completed',
   'failed',
   'exhausted',
   'cancelled',
 ] as const;
 
-export type RunOutcome = (typeof RUN_OUTCOMES)[number];
+export type RunResult = (typeof RUN_RESULTS)[number];

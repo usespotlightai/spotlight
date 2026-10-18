@@ -1,9 +1,9 @@
 import { ProposeSearchCandidateHandler } from '@replays/application/commands/handlers/propose-search-candidate.handler';
-import { RecordSearchCauseHandler } from '@replays/application/commands/handlers/record-search-cause.handler';
+import { RecordFailureCauseHandler } from '@replays/application/commands/handlers/record-failure-cause.handler';
 import { StartSearchHandler } from '@replays/application/commands/handlers/start-search.handler';
 import { StopSearchHandler } from '@replays/application/commands/handlers/stop-search.handler';
 import { ProposeSearchCandidateCommand } from '@replays/application/commands/propose-search-candidate.command';
-import { RecordSearchCauseCommand } from '@replays/application/commands/record-search-cause.command';
+import { RecordFailureCauseCommand } from '@replays/application/commands/record-failure-cause.command';
 import {
   type SearchBudgetInput,
   type SearchObjectiveInput,
@@ -21,8 +21,8 @@ import { CancelSearch } from '@replays/application/services/cancel-search.servic
 import { DeleteSearches } from '@replays/application/services/delete-searches.service';
 import { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
 import { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
-import { NoteSearchProgress } from '@replays/application/services/note-search-progress.service';
 import { NoticeSearchReflections } from '@replays/application/services/notice-search-reflections.service';
+import { RecordSearchProgress } from '@replays/application/services/record-search-progress.service';
 import {
   ACTOR,
   accessFor,
@@ -52,8 +52,8 @@ import { UnknownSearchRunError } from '@replays/domain/exceptions/unknown-search
 import {
   aSet,
   candidateOf,
-  LIVE_DIGESTS,
   LIVE_FINGERPRINT,
+  LIVE_HASHES,
   NOW,
   replayedAs,
   replayFor,
@@ -64,8 +64,8 @@ import {
 import { estimateOf } from '@replays/domain/services/search-estimate';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import type { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -75,7 +75,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 let memory: InMemoryReplays;
 let work: FakeWork;
 
-const DIGEST = { sha256 };
+const HASH = { sha256 };
 
 const healthsFor = () =>
   new SetHealths(work, memory.replayRepository, memory.candidateRepository);
@@ -100,7 +100,7 @@ const starting = (mayPlan = true) =>
     memory.setRepository,
     memory.replayRepository,
     memory.searchRepository,
-    DIGEST,
+    HASH,
     IDS,
     CLOCK,
     TRANSACTION,
@@ -130,7 +130,7 @@ const start = async (
   );
 
 const progress = () =>
-  new NoteSearchProgress(
+  new RecordSearchProgress(
     memory.searchRepository,
     memory.replayRepository,
     healthsFor(),
@@ -203,7 +203,7 @@ const noticing = () =>
   });
 
 const recording = () =>
-  new RecordSearchCauseHandler(
+  new RecordFailureCauseHandler(
     work,
     memory.searchRepository,
     CLOCK,
@@ -217,7 +217,7 @@ const cause = (
   suggestion: string | null = null,
 ) =>
   recording().execute(
-    new RecordSearchCauseCommand(
+    new RecordFailureCauseCommand(
       run,
       'runner_1',
       taskId,
@@ -309,7 +309,7 @@ const runEnds = async (
   });
   await delivered();
   if (spent) {
-    await progress().digested(run, spent);
+    await progress().usageRecorded(run, spent);
     await delivered();
   }
 };
@@ -349,7 +349,7 @@ beforeEach(async () => {
     block: StationBlock.of(SEED_BLOCK),
     fingerprint: LIVE_FINGERPRINT,
     scoring: UNSCORED,
-    digests: LIVE_DIGESTS,
+    hashes: LIVE_HASHES,
     threshold: null,
   });
   await memory.setRepository.add(aSet(10));
@@ -357,7 +357,7 @@ beforeEach(async () => {
 });
 
 describe('StartSearchHandler', () => {
-  it('replays the live config over the whole set first, in the search’s own pool, within its allotted ceiling', async () => {
+  it('replays the live config over the whole set first, in the search’s own pool, within its share of the ceiling', async () => {
     const started = await start();
 
     if (started.outcome !== 'started') {
@@ -372,7 +372,7 @@ describe('StartSearchHandler', () => {
     expect(seed?.baseline).toBe(true);
     expect(seed?.searchId?.equals(search.id)).toBe(true);
     expect(seed?.entries).toHaveLength(10);
-    expect(seed?.ceiling.equals(search.allotment.seed)).toBe(true);
+    expect(seed?.ceiling.equals(search.ceilingSplit.seed)).toBe(true);
     expect(work.searchesDispatched).toHaveLength(0);
   });
 
@@ -581,7 +581,7 @@ describe('a search’s iterations', () => {
     ).execute(new StopSearchCommand('team_1', theSearch().id.value, ACTOR));
     await delivered();
 
-    expect(theSearch().ending).toBe('stopped');
+    expect(theSearch().stopReason).toBe('stopped');
     expect(memory.replays.get(started.seedReplayId)?.current).toBe('stopped');
     expect(work.searchesDispatched).toHaveLength(0);
   });
@@ -592,7 +592,7 @@ describe('a search’s iterations', () => {
     await seeded({ ...BUDGET, iterations: 3 });
 
     expect(theSearch().current).toBe('finished');
-    expect(theSearch().ending).toBe('stalled');
+    expect(theSearch().stopReason).toBe('stalled');
     expect(
       theSearch().iterations.map((each) => [each.kind, each.current]),
     ).toEqual([
@@ -720,7 +720,7 @@ describe('a stalled search looking into why', () => {
     await runEnds(run);
 
     expect(theSearch().current).toBe('finished');
-    expect(theSearch().ending).toBe('stalled');
+    expect(theSearch().stopReason).toBe('stalled');
     expect(noticed).toEqual([
       expect.objectContaining({
         addressee: (PERSON as PersonPrincipal).userId,
@@ -770,9 +770,9 @@ describe('a stalled search looking into why', () => {
   it('fails the reflection without running it when no searched task fails', async () => {
     await stalledOn({ ...BUDGET, iterations: 5 }, () => false);
 
-    expect(theSearch().ending).toBe('stalled');
+    expect(theSearch().stopReason).toBe('stalled');
     expect(theSearch().iterations[2]?.current).toBe('ended');
-    expect(theSearch().iterations[2]?.outcome).toBe('no-failures');
+    expect(theSearch().iterations[2]?.result).toBe('no-failures');
     expect(work.searchesDispatched).toHaveLength(2);
     expect(noticed).toEqual([
       expect.objectContaining({
@@ -812,7 +812,7 @@ describe('ProposeSearchCandidateHandler', () => {
         .split.searchedRuns.map((each) => each.value)
         .sort(),
     );
-    expect(replay?.ceiling.equals(theSearch().allotment.searchReplay)).toBe(
+    expect(replay?.ceiling.equals(theSearch().ceilingSplit.searchReplay)).toBe(
       true,
     );
     expect(theSearch().proposals).toHaveLength(1);
@@ -890,7 +890,7 @@ describe('a search running its course', () => {
     const search = theSearch();
 
     expect(search.current).toBe('holding-out');
-    expect(search.ending).toBe('iterations-spent');
+    expect(search.stopReason).toBe('iterations-spent');
     expect(search.heldOut.map((each) => each.candidateId.value)).toEqual([
       strong.candidateId,
     ]);
@@ -940,7 +940,7 @@ describe('a search running its course', () => {
     ).execute(new StopSearchCommand('team_1', theSearch().id.value, ACTOR));
     await delivered();
 
-    expect(theSearch().ending).toBe('stopped');
+    expect(theSearch().stopReason).toBe('stopped');
     expect(work.cancelledSearchRuns).toEqual([run]);
     expect(
       proposed.outcome === 'proposed' &&
@@ -970,7 +970,7 @@ describe('SearchSights', () => {
     const heldOut = search.split.heldOutRuns.map((each) => each.value);
 
     expect(sight.stationId).toBe(STATION.stationId);
-    expect([...sight.hiddenTasks].sort()).toEqual(
+    expect([...sight.heldOutTasks].sort()).toEqual(
       search.split.heldOut.map((each) => each.taskId.value).sort(),
     );
     expect([...sight.shownOriginals].sort()).toEqual(
@@ -1031,7 +1031,7 @@ describe('DeleteSearches', () => {
 
     await deleting().stationGone(theSearch().setId);
 
-    expect(theSearch().ending).toBe('station-gone');
+    expect(theSearch().stopReason).toBe('station-gone');
   });
 });
 
@@ -1065,7 +1065,7 @@ describe('EstimateSearchHandler', () => {
     const budget = SearchBudget.of({
       iterations: 2,
       perIteration: 2,
-      ceiling: Spend.ceiling(100, 'USD'),
+      ceiling: Money.ceiling(100, 'USD'),
     });
     const split = HeldOutSplit.costliest(
       aSet(10).entries,
@@ -1080,8 +1080,8 @@ describe('EstimateSearchHandler', () => {
       agent: 2,
       total: 46,
     });
-    expect(estimate.perReplayAllotments.searchReplay.amount).toBe(
-      budget.allot(split).searchReplay.amount,
+    expect(estimate.perReplayLimits.searchReplay.amount).toBe(
+      budget.splitCeiling(split).searchReplay.amount,
     );
     expect(estimate.estimatedDuration).toBe(expected.ms);
     expect(estimate.estimatedDuration).toBe(60_000 * (3 + 2 * (1 + 4) + 2));
@@ -1089,8 +1089,8 @@ describe('EstimateSearchHandler', () => {
   });
 });
 
-describe('NoteSearchProgress', () => {
-  it('closes an iteration that proposed nothing only once its late digest came, and charges an unpriced run its allotment', async () => {
+describe('RecordSearchProgress', () => {
+  it('closes an iteration that proposed nothing only once its late usage came, and charges an unpriced run its limit', async () => {
     await seeded({ ...BUDGET, iterations: 3 });
     const first = activeRun();
 
@@ -1101,11 +1101,11 @@ describe('NoteSearchProgress', () => {
 
     const before = theSearch().spent;
 
-    await progress().digested(first, ModelSpent.of([], 1));
+    await progress().usageRecorded(first, ModelSpent.of([], 1));
     await delivered();
 
     expect(
-      theSearch().spent.equals(before.plus(theSearch().allotment.agentRun)),
+      theSearch().spent.equals(before.plus(theSearch().ceilingSplit.agentRun)),
     ).toBe(true);
     expect(work.searchesDispatched).toHaveLength(2);
 
@@ -1118,7 +1118,7 @@ describe('NoteSearchProgress', () => {
     expect(theSearch().iterations[1]?.agentSpent?.unpriced).toBe(0);
   });
 
-  it('closes an iteration whose run was cancelled before it started without waiting for a digest', async () => {
+  it('closes an iteration whose run was cancelled before it started without waiting for its usage', async () => {
     await seeded({ ...BUDGET, iterations: 3 });
     const first = activeRun();
 
@@ -1132,7 +1132,7 @@ describe('NoteSearchProgress', () => {
 });
 
 describe('AdvanceSearches', () => {
-  it('sees a replay end, a run end and a digest whose word was lost, and an unclaimed run left too long', async () => {
+  it('sees a replay end, a run end and a usage whose word was lost, and an unclaimed run left too long', async () => {
     await seeded({ ...BUDGET, iterations: 3 });
     const first = activeRun();
     const proposed = await propose(first, 'firmer');

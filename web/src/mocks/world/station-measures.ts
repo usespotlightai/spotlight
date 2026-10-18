@@ -1,5 +1,5 @@
 import type {
-  GainReadingResponseDto,
+  GainEstimateResponseDto,
   RateIntervalResponseDto,
 } from '@/lib/api';
 
@@ -45,7 +45,7 @@ export const intervalOf = (
 export const gainOf = (
   candidate: readonly boolean[],
   baseline: readonly boolean[],
-): GainReadingResponseDto | null => {
+): GainEstimateResponseDto | null => {
   const tasks = Math.min(candidate.length, baseline.length);
 
   if (tasks === 0) {
@@ -70,7 +70,7 @@ export const gainOf = (
     gain: rounded(gain),
     low: rounded(low),
     high: rounded(high),
-    verdict:
+    significance:
       low > MIN_GAIN ? 'better' : high < -MIN_GAIN ? 'worse' : 'within-noise',
     minGain: MIN_GAIN,
     tasks,

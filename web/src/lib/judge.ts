@@ -75,7 +75,7 @@ export const formatClaimsMet = (marks: readonly boolean[]): string =>
 export const formatScore = (score: {
   readonly kind: ScoreKind;
   readonly label: string;
-  readonly marks?: readonly boolean[] | null;
+  readonly claimResults?: readonly boolean[] | null;
 }): string => {
   switch (score.kind) {
     case 'yes-no':
@@ -83,7 +83,9 @@ export const formatScore = (score: {
     case 'number':
       return `${score.label} of 5`;
     case 'claims':
-      return score.marks ? formatClaimsMet(score.marks) : score.label;
+      return score.claimResults
+        ? formatClaimsMet(score.claimResults)
+        : score.label;
   }
 };
 
@@ -105,10 +107,10 @@ export const formatClaim = (
 
 export const formatMark = (met: boolean): string => (met ? 'Met' : 'Not met');
 
-export const formatPassShare = (passShare: number): string =>
-  passShare >= 1
+export const formatPassThreshold = (passThreshold: number): string =>
+  passThreshold >= 1
     ? 'A run passes when it meets every claim.'
-    : `A run passes when it meets at least ${formatPercent(passShare)} of its claims.`;
+    : `A run passes when it meets at least ${formatPercent(passThreshold)} of its claims.`;
 
 export const CLAIMS_LABEL = 'Claims';
 
@@ -163,9 +165,9 @@ export const formatPercent = (share: number | null): string =>
   share === null ? '–' : PERCENT.format(share);
 
 export const formatCalibration = (calibration: JudgeCalibration): string => {
-  switch (calibration.hiddenBecause) {
+  switch (calibration.hiddenReason) {
     case null:
-      return `Trusted. ${formatMeasure(calibration.measure)}: ${formatStat(calibration.agreement)} over ${calibration.pairs} runs. Minimum required: ${formatStat(calibration.trust)}`;
+      return `Qualified. ${formatMeasure(calibration.measure)}: ${formatStat(calibration.agreement)} over ${calibration.pairs} runs. Minimum required: ${formatStat(calibration.minAgreement)}`;
     case 'no-judge':
       return 'This station has no judge. There are no scores to trust.';
     case 'unreadable-rubric':
@@ -174,8 +176,8 @@ export const formatCalibration = (calibration: JudgeCalibration): string => {
       return `Hidden until more runs have scores from both the judge and people. Runs so far: ${calibration.pairs}`;
     case 'no-agreement':
       return 'Hidden. Agreement can’t be measured while all scores are identical.';
-    case 'below-trust':
-      return `Hidden. ${formatMeasure(calibration.measure)}: ${formatStat(calibration.agreement)}. Minimum required: ${formatStat(calibration.trust)}`;
+    case 'below-min-agreement':
+      return `Hidden. ${formatMeasure(calibration.measure)}: ${formatStat(calibration.agreement)}. Minimum required: ${formatStat(calibration.minAgreement)}`;
   }
 };
 
@@ -216,15 +218,15 @@ export const judgeTiles = (
     id: 'agreement',
     label: formatMeasure(calibration.measure),
     value: formatStat(calibration.agreement),
-    detail: calibration.trusted
-      ? `Trusted. Minimum required: ${formatStat(calibration.trust)}`
+    detail: calibration.qualified
+      ? `Qualified. Minimum required: ${formatStat(calibration.minAgreement)}`
       : formatCalibration(calibration),
   },
   ...COVERAGE_PARTS.map((part) => ({
     id: part.label,
     label: part.label,
     value: `${coverage[part.key]}`,
-    detail: `${formatPercent(coverage.shares[part.key])} of the last ${coverage.runs}`,
+    detail: `${formatPercent(coverage.rates[part.key])} of the last ${coverage.runs}`,
   })),
 ];
 

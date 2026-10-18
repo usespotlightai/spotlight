@@ -1,19 +1,19 @@
 import {
   MEMORY_KIND_NAMES,
-  MEMORY_ORIGIN_NAMES,
+  MEMORY_PROPOSER_NAMES,
   MEMORY_SCOPE_NAMES,
   MEMORY_SOURCE_NAMES,
   MEMORY_STATE_NAMES,
   type MemoryDecisionDto,
-  type MemoryGroundNoteDto,
-  type MemoryGroundStepDto,
+  type MemoryProvenanceNoteDto,
+  type MemoryProvenanceStepDto,
   type MemoryReviewDto,
   type PersonDto,
   type ProposedMemoryDto,
 } from '@memory/application/dto/memory-review.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class MemoryGroundStepResponseDto {
+export class MemoryProvenanceStepResponseDto {
   @ApiProperty({
     example: 12,
     description: 'The position of the step in its run',
@@ -29,7 +29,7 @@ export class MemoryGroundStepResponseDto {
   @ApiProperty({ example: 'A queue would need a worker we do not run.' })
   readonly text: string;
 
-  constructor(step: MemoryGroundStepDto) {
+  constructor(step: MemoryProvenanceStepDto) {
     this.index = step.index;
     this.kind = step.kind;
     this.text = step.text;
@@ -57,7 +57,7 @@ export class MemoryPersonResponseDto {
   }
 }
 
-export class MemoryGroundNoteResponseDto {
+export class MemoryProvenanceNoteResponseDto {
   @ApiProperty({
     example: 4,
     description: 'The position of the note on its task',
@@ -82,7 +82,7 @@ export class MemoryGroundNoteResponseDto {
   @ApiProperty({ example: 'Never retry an upload rejected with a 403.' })
   readonly text: string;
 
-  constructor(note: MemoryGroundNoteDto) {
+  constructor(note: MemoryProvenanceNoteDto) {
     this.position = note.position;
     this.by = note.by;
     this.author = note.author ? new MemoryPersonResponseDto(note.author) : null;
@@ -128,12 +128,12 @@ export class ProposedMemoryResponseDto {
   readonly source: string;
 
   @ApiProperty({
-    enum: MEMORY_ORIGIN_NAMES,
-    example: 'remembered',
+    enum: MEMORY_PROPOSER_NAMES,
+    example: 'agent',
     description:
-      'drafted: read from the run after it ended; remembered: the agent proposed it with spotlight remember',
+      'drafter: the drafter read it from the run after the run ended; agent: the agent proposed it with spotlight remember',
   })
-  readonly origin: string;
+  readonly proposedBy: string;
 
   @ApiProperty({ enum: MEMORY_STATE_NAMES, example: 'proposed' })
   readonly state: string;
@@ -169,30 +169,30 @@ export class ProposedMemoryResponseDto {
     nullable: true,
     type: String,
     example: 'claude-code',
-    description: 'The harness the run whose steps it rests on ran on',
+    description: 'The harness of the run whose steps it cites',
   })
   readonly harness: string | null;
 
   @ApiProperty({
-    type: MemoryGroundStepResponseDto,
+    type: MemoryProvenanceStepResponseDto,
     isArray: true,
-    description: 'The steps of its run it rests on',
+    description: 'The steps of its run that it cites',
   })
-  readonly steps: readonly MemoryGroundStepResponseDto[];
+  readonly steps: readonly MemoryProvenanceStepResponseDto[];
 
   @ApiProperty({
-    type: MemoryGroundNoteResponseDto,
+    type: MemoryProvenanceNoteResponseDto,
     isArray: true,
-    description: 'The notes on the task that it rests on',
+    description: 'The notes on the task that it cites',
   })
-  readonly notes: readonly MemoryGroundNoteResponseDto[];
+  readonly notes: readonly MemoryProvenanceNoteResponseDto[];
 
   constructor(memory: ProposedMemoryDto) {
     this.id = memory.id;
     this.kind = memory.kind;
     this.body = memory.body;
     this.source = memory.source;
-    this.origin = memory.origin;
+    this.proposedBy = memory.proposedBy;
     this.state = memory.state;
     this.scope = memory.scope;
     this.repository = memory.repository;
@@ -203,10 +203,10 @@ export class ProposedMemoryResponseDto {
       : null;
     this.harness = memory.harness;
     this.steps = memory.steps.map(
-      (each) => new MemoryGroundStepResponseDto(each),
+      (each) => new MemoryProvenanceStepResponseDto(each),
     );
     this.notes = memory.notes.map(
-      (each) => new MemoryGroundNoteResponseDto(each),
+      (each) => new MemoryProvenanceNoteResponseDto(each),
     );
   }
 }

@@ -2,10 +2,10 @@ import { memoryFilesOf } from '@memory/application/rendering/memory-files';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
-import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
+import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -26,7 +26,7 @@ const old = Memory.write({
   kind: 'rationale',
   body: MemoryBody.of('Uploads retry from a queue.'),
   scope: MemoryScope.of({ teamId: TEAM }),
-  grounds: null,
+  provenance: null,
   by: MemoryDecision.of({ by: ADA, at: AT }),
 });
 
@@ -43,7 +43,7 @@ const replacing = Memory.create({
     repository: Repository.of('acme/api'),
     paths: [MemoryPath.of('src/uploads')],
   }),
-  grounds: MemoryGrounds.of({
+  provenance: MemoryProvenance.of({
     taskId: TaskId.of('task_1'),
     runId: RunId.of('run_1'),
     steps: [3],
@@ -87,7 +87,7 @@ describe('memory files', () => {
     );
   });
 
-  it('say a person wrote one that rests on no run', () => {
+  it('say a person wrote one that cites no run', () => {
     const [file] = memoryFilesOf([old], {
       lines: [],
       replaced: new Map(),

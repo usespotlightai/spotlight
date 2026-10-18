@@ -33,7 +33,7 @@ export interface ReplayRepository {
 
   teamsDispatching(): Promise<readonly TeamId[]>;
 
-  underwayOfTeamLocked(teamId: TeamId): Promise<readonly Replay[]>;
+  inProgressOfTeamLocked(teamId: TeamId): Promise<readonly Replay[]>;
 
   unconfirmed(): Promise<readonly Replay[]>;
 

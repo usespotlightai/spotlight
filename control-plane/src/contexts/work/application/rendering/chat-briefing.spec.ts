@@ -223,7 +223,7 @@ describe('ChatBriefing', () => {
           level: 'a repository, or a file or folder in it',
         },
       ],
-      mirroring: 'repositories/',
+      repositoryFolder: 'repositories/',
     });
 
     expect(briefing).toContain('## The rest of what the team remembers');

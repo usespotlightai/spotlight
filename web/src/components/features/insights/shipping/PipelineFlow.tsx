@@ -71,7 +71,9 @@ export function PipelineFlow({ flow }: { flow: Flow }) {
         playing={playing}
         label={`${formatCount(merged)} merged ${which}pull requests at ${percentile}: ${stages
           .map((stage) => `${stage.label} ${lastedOrNone(stage.ms)}`)
-          .join(', ')}.${worst ? ` The worst jam is ${worst.label}.` : ''}`}
+          .join(
+            ', ',
+          )}.${worst ? ` The worst bottleneck is ${worst.label}.` : ''}`}
       />
       <PipelineFlowLegend
         shares={flow.types}

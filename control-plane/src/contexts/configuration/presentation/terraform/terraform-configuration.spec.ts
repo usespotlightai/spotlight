@@ -79,9 +79,9 @@ const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
     ends      = true
 
     judge {
-      rubric = file("\${path.module}/judges/core/delivery/implementation.md")
-      sample = 0.2
-      trust  = 0.6
+      rubric        = file("\${path.module}/judges/core/delivery/implementation.md")
+      sample        = 0.2
+      min_agreement = 0.6
     }
 
     alert {
@@ -235,7 +235,7 @@ describe('workspaceTerraform', () => {
     ).toBe('A good run changes only what the task requests.\n');
   });
 
-  it('writes a judge’s claims one to a line and its pass share, with a rubric file only where it has a rubric', () => {
+  it('writes a judge’s claims one to a line and its pass threshold, with a rubric file only where it has a rubric', () => {
     const line = resourceOf('line');
     const claimsOnly: ExportableConfigurationDto = {
       ...CONFIGURATION,
@@ -254,9 +254,9 @@ describe('workspaceTerraform', () => {
                             'It adds a test.',
                             'It touches only what the task names.',
                           ],
-                          passShare: 0.5,
+                          passThreshold: 0.5,
                           sample: 0.2,
-                          trust: 0.6,
+                          minAgreement: 0.6,
                         },
                       }
                     : station,
@@ -270,7 +270,7 @@ describe('workspaceTerraform', () => {
     const main = mainOf(claimsOnly);
 
     expect(main).toMatch(
-      /judge \{\n\s+claims = \[\n\s+"It adds a test\.",\n\s+"It touches only what the task names\.",\n\s+\]\n\s+pass_share = 0\.5\n\s+sample\s+= 0\.2\n\s+trust\s+= 0\.6\n\s+\}/,
+      /judge \{\n\s+claims = \[\n\s+"It adds a test\.",\n\s+"It touches only what the task names\.",\n\s+\]\n\s+pass_threshold = 0\.5\n\s+sample\s+= 0\.2\n\s+min_agreement\s+= 0\.6\n\s+\}/,
     );
     expect(main).not.toContain('judges/core/delivery/implementation.md');
     expect(

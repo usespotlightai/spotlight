@@ -281,10 +281,10 @@ const makeRun = (
       ? (profile.failures[Math.floor(draw() * profile.failures.length)] ?? null)
       : null,
     checks,
-    next:
+    firstHumanAction:
       ended && outcome.kind === 'ask'
         ? {
-            act: sentBack ? 'sent-back' : 'closed',
+            kind: sentBack ? 'sent-back' : 'accepted',
             at: new Date(answeredAt).toISOString(),
           }
         : null,
@@ -297,7 +297,7 @@ const makeRun = (
             ).toISOString(),
           }
         : null,
-    delivery: null,
+    pullRequestState: null,
     teamId: task.teamId,
     at: endedAt,
     size: weighted(draw, SIZES[profile.stationId] ?? SMALL_ONLY),
@@ -494,9 +494,9 @@ const pullRequestOf = (
   };
 };
 
-const deliveryOf = (
+const pullRequestStateOf = (
   pullRequest: PullRequestRecord | null,
-): HistoryRun['delivery'] => pullRequest?.state ?? null;
+): HistoryRun['pullRequestState'] => pullRequest?.state ?? null;
 
 const runDeliveryTask = (
   draw: Draw,
@@ -522,12 +522,14 @@ const runDeliveryTask = (
     const reviewed = chainOf(draw, task, [reviewStep], ids, cutoff, runs, at);
     const reviews = runs.slice(before);
     rounds += reviews.length;
-    firstReviewAt ??= reviews[0]?.next ? Date.parse(reviews[0].next.at) : null;
+    firstReviewAt ??= reviews[0]?.firstHumanAction
+      ? Date.parse(reviews[0].firstHumanAction.at)
+      : null;
     if (reviewed !== null) {
       doneAt = reviewed;
     } else {
-      at = reviews.at(-1)?.next
-        ? Date.parse(reviews.at(-1)?.next?.at ?? '')
+      at = reviews.at(-1)?.firstHumanAction
+        ? Date.parse(reviews.at(-1)?.firstHumanAction?.at ?? '')
         : null;
     }
   }
@@ -588,9 +590,11 @@ const runExperiment = (
   );
   const built = runs
     .slice(before)
-    .find((each) => each.stationId === 'station_build' && each.next);
-  if (built?.next) {
-    const reviewedAt = Date.parse(built.next.at);
+    .find(
+      (each) => each.stationId === 'station_build' && each.firstHumanAction,
+    );
+  if (built?.firstHumanAction) {
+    const reviewedAt = Date.parse(built.firstHumanAction.at);
     task.pullRequest = pullRequestOf(
       draw,
       task,
@@ -648,15 +652,15 @@ const syntheticHistory = (cutoff: number): History => {
     }
   }
 
-  const deliveries = new Map(
-    tasks.map((task) => [task.id, deliveryOf(task.pullRequest)]),
+  const pullRequestStates = new Map(
+    tasks.map((task) => [task.id, pullRequestStateOf(task.pullRequest)]),
   );
 
   return {
     tasks,
     runs: runs.map((run) => ({
       ...run,
-      delivery: deliveries.get(run.taskId) ?? null,
+      pullRequestState: pullRequestStates.get(run.taskId) ?? null,
     })),
   };
 };
@@ -805,15 +809,15 @@ const worldRuns = (
             ? 'failed'
             : 'passed'
           : null,
-        next:
+        firstHumanAction:
           answeredAt === null
             ? null
-            : { act: 'closed', at: new Date(answeredAt).toISOString() },
+            : { kind: 'accepted', at: new Date(answeredAt).toISOString() },
         passed:
           each.state === 'completed' && later?.station
             ? { to: later.station.id, at: later.startedAt }
             : null,
-        delivery: record.pullRequest?.state ?? null,
+        pullRequestState: record.pullRequest?.state ?? null,
         teamId,
         at: endedAt,
         size: profile.checks ? 'medium' : 'small',
@@ -873,11 +877,11 @@ const namedRunOf = (
           : 'completed',
     failure: past.shape === 'failed' ? 'The agent ran out of turns' : null,
     checks: ended ? (past.shape === 'sent-back' ? 'failed' : 'passed') : null,
-    next:
+    firstHumanAction:
       past.shape === 'accepted'
-        ? { act: 'closed', at: later(0.6) }
+        ? { kind: 'accepted', at: later(0.6) }
         : past.shape === 'sent-back'
-          ? { act: 'sent-back', at: later(1.5) }
+          ? { kind: 'sent-back', at: later(1.5) }
           : null,
     passed:
       past.shape === 'accepted' || past.shape === 'passed'
@@ -886,7 +890,7 @@ const namedRunOf = (
             at: reviewAt(past.shape === 'accepted' ? 0.6 : 0.4),
           }
         : null,
-    delivery: null,
+    pullRequestState: null,
     teamId: PLATFORM_ID,
     at: endedAt,
     size: 'medium',
@@ -922,8 +926,10 @@ const namedHistory = (): History => {
       const first = Math.min(
         ...runs.map((run) => Date.parse(run.startedAt ?? '')),
       );
-      const shipped = runs.find((run) => run.next?.act === 'closed');
-      const delivered = runs.some((run) => run.passed || run.next);
+      const shipped = runs.find(
+        (run) => run.firstHumanAction?.kind === 'accepted',
+      );
+      const delivered = runs.some((run) => run.passed || run.firstHumanAction);
       const pullRequest: PullRequestRecord | null = delivered
         ? {
             repository: 'acme/api',
@@ -932,8 +938,8 @@ const namedHistory = (): History => {
             type: 'feature',
             openedAt: Math.min(...runs.map((run) => run.at)) + MINUTE_MS,
             firstReviewAt: null,
-            closedAt: shipped?.next
-              ? Date.parse(shipped.next.at) + 2 * HOUR_MS
+            closedAt: shipped?.firstHumanAction
+              ? Date.parse(shipped.firstHumanAction.at) + 2 * HOUR_MS
               : null,
             state: shipped ? 'merged' : 'open',
             reviewRounds: runs.length,
@@ -959,7 +965,7 @@ const namedHistory = (): History => {
           ...made.runs,
           ...runs.map((run) => ({
             ...run,
-            delivery: deliveryOf(pullRequest),
+            pullRequestState: pullRequestStateOf(pullRequest),
           })),
         ],
         tasks: [...made.tasks, task],

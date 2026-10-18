@@ -1,5 +1,5 @@
 import type {
-  BriefedPlace,
+  BriefedContext,
   BriefingSelection,
 } from '@work/application/ports/team-memories.port';
 
@@ -12,10 +12,10 @@ export interface NamedMemory {
 
 export interface MemoriesBriefedBeforePort {
   again(
-    place: BriefedPlace,
+    briefing: BriefedContext,
     chosen: {
       readonly briefed: readonly NamedMemory[];
-      readonly cut: readonly NamedMemory[];
+      readonly omitted: readonly NamedMemory[];
     },
     asOf: Date,
   ): Promise<BriefingSelection>;

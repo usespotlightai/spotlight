@@ -44,12 +44,12 @@ export const suppliedMemories = (memories: RunMemories): TeamMemory[] => {
 export const rememberedNothing = (memories: RunMemories): boolean =>
   suppliedMemories(memories).length === 0 && memories.proposed.length === 0;
 
-export type MemoryGround = Pick<
+export type MemoryProvenance = Pick<
   ProposedMemoryResponseDto,
   'steps' | 'notes' | 'harness'
 >;
 
-export type MemoryGroundNote = MemoryGround['notes'][number];
+export type MemoryProvenanceNote = MemoryProvenance['notes'][number];
 
 export const MAX_MEMORY_BODY = 1_000;
 
@@ -86,7 +86,7 @@ const SCOPE_LABELS: Record<ProposedMemory['scope'], string> = {
 export const undecided = (memory: ProposedMemory): boolean =>
   memory.state === 'proposed';
 
-export const authorOf = (note: MemoryGroundNote): string => {
+export const authorOf = (note: MemoryProvenanceNote): string => {
   if (note.by === 'world') {
     return ANOTHER_TOOL;
   }
@@ -94,8 +94,8 @@ export const authorOf = (note: MemoryGroundNote): string => {
   return note.author?.name ?? 'A teammate';
 };
 
-export const citesAnything = (grounds: MemoryGround): boolean =>
-  grounds.steps.length + grounds.notes.length > 0;
+export const citesAnything = (provenance: MemoryProvenance): boolean =>
+  provenance.steps.length + provenance.notes.length > 0;
 
 type Scoped = Pick<ProposedMemory, 'scope' | 'repository' | 'paths'>;
 

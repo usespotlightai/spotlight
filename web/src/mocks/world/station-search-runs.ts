@@ -3,14 +3,14 @@ import { hoursAgo } from '@/mocks/clock';
 import { world } from '@/mocks/world';
 import { searchStore } from '@/mocks/world/station-searches';
 import { SEARCH_NOTES } from '@/mocks/world/station-seeds';
-import { placeOfSet, type StationPlace } from '@/mocks/world/station-sets';
+import { placeOfSet, type StationLocation } from '@/mocks/world/station-sets';
 import { runStationOf } from '@/mocks/world/stations';
 
-const historyCommandOf = (place: StationPlace | undefined): string =>
+const historyCommandOf = (place: StationLocation | undefined): string =>
   `spotlight history --station ${place?.stationKey ?? ''} --line ${place?.lineKey ?? ''}`;
 
 const briefingOf = (
-  place: StationPlace | undefined,
+  place: StationLocation | undefined,
   iteration: number,
   perIteration: number,
 ): string =>
@@ -32,7 +32,7 @@ const briefingOf = (
 
 const stepsOf = (
   runId: string,
-  place: StationPlace | undefined,
+  place: StationLocation | undefined,
   proposed: readonly string[],
   startedHoursAgo: number,
   running: boolean,

@@ -1,0 +1,70 @@
+import { periodOf } from '@insights/application/dto/insights.dto';
+import type { InsightsMemoryDto } from '@insights/application/dto/insights-memory.dto';
+import type { InsightsReaderPort } from '@insights/application/ports/insights-reader.port';
+import type { MemoryBenchmarkPort } from '@insights/application/ports/memory-benchmark.port';
+import type { MemoryUsePort } from '@insights/application/ports/memory-use.port';
+import type { PeoplePort } from '@insights/application/ports/people.port';
+import type { ReadInsightsMemoryQuery } from '@insights/application/queries/read-insights-memory.query';
+import {
+  type TeamScopes,
+  windowOf,
+} from '@insights/application/services/team-scopes.service';
+import { memoryComparisonFrom } from '@insights/domain/services/memory-comparison';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
+import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+
+export class ReadInsightsMemoryHandler
+  implements QueryHandlerPort<ReadInsightsMemoryQuery, InsightsMemoryDto>
+{
+  constructor(
+    private readonly scopes: TeamScopes,
+    private readonly reader: InsightsReaderPort,
+    private readonly memory: MemoryUsePort,
+    private readonly benchmark: MemoryBenchmarkPort,
+    private readonly people: PeoplePort,
+  ) {}
+
+  async execute(query: ReadInsightsMemoryQuery): Promise<InsightsMemoryDto> {
+    try {
+      const { access, period } = await this.scopes.scope(
+        query.teamId,
+        query.principal,
+        query.period,
+      );
+      const compared = memoryComparisonFrom(
+        await this.reader.memoryCounts({
+          workspaceId: access.workspaceId,
+          teamId: access.teamId,
+          period,
+        }),
+      );
+      const use = await this.memory.between(windowOf(access, period.current));
+      const names = await this.people.namesOf(
+        use.flagged.flatMap((each) => (each.by ? [each.by] : [])),
+      );
+      const benchmark = await this.benchmark.latestFor(access.teamId.value);
+
+      return {
+        period: periodOf(period),
+        activeCount: use.activeCount,
+        memoriesBriefed: compared.memoriesBriefed,
+        memoriesRecalled: compared.memoriesRecalled,
+        runsBriefed: compared.runsBriefed,
+        runsRecalled: compared.runsRecalled,
+        flagged: use.flagged.map((each) => ({
+          ...each,
+          byName: each.by ? (names.get(each.by) ?? null) : null,
+          at: each.at.toISOString(),
+        })),
+        withMemories: compared.withMemories,
+        withoutMemories: compared.withoutMemories,
+        verdicts: compared.verdicts,
+        benchmark: benchmark
+          ? { ...benchmark, ranAt: benchmark.ranAt.toISOString() }
+          : null,
+      };
+    } catch (error) {
+      rethrowAsApplicationError(error);
+    }
+  }
+}

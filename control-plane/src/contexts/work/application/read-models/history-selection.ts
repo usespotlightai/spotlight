@@ -15,7 +15,7 @@ export const turnedOut = (
   [
     outcome.ending,
     outcome.failure,
-    outcome.next?.act ?? null,
-    outcome.delivery,
+    outcome.firstHumanAction?.kind ?? null,
+    outcome.pullRequestState,
     outcome.checks === null ? null : `checks-${outcome.checks}`,
   ].includes(wanted);

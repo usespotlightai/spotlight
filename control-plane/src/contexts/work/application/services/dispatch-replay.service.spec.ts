@@ -17,7 +17,7 @@ import type { AttachmentStorePort } from '@work/application/ports/attachment-sto
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { NamedMemory } from '@work/application/ports/memories-briefed-before.port';
 import type { RunEvidencePort } from '@work/application/ports/run-evidence.port';
-import type { BriefedPlace } from '@work/application/ports/team-memories.port';
+import type { BriefedContext } from '@work/application/ports/team-memories.port';
 import { DispatchReplay } from '@work/application/services/dispatch-replay.service';
 import { ReplayAnswers } from '@work/application/services/replay-answers.service';
 import { candidateOf } from '@work/application/services/replay-candidates.fake-spec';
@@ -66,7 +66,7 @@ import { Tool } from '@work/domain/value-objects/tool.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
-import { Sha256ContentDigest } from '@work/infrastructure/hashing/sha256-content-digest';
+import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-10-01T09:00:00.000Z');
@@ -244,7 +244,7 @@ const original = (startedFrom: StartingPoint | null = null) =>
     provisioning: Provisioning.none(),
     briefedWith: BriefedMemories.of({
       briefed: [{ id: 'memory_1', handle: 'M-1' }],
-      cut: [{ id: 'memory_2', handle: 'M-2' }],
+      omitted: [{ id: 'memory_2', handle: 'M-2' }],
     }),
     startedFrom,
   });
@@ -278,8 +278,10 @@ let stored: Run | null = null;
 let archive: WorkspaceArchive | null = null;
 let queued: Run[] = [];
 let requestedSkills: string[] = [];
-let requestedAgain: { place: BriefedPlace; briefed: readonly NamedMemory[] }[] =
-  [];
+let requestedAgain: {
+  place: BriefedContext;
+  briefed: readonly NamedMemory[];
+}[] = [];
 
 const dispatching = () =>
   new DispatchReplay(
@@ -339,7 +341,7 @@ const dispatching = () =>
               body: 'Queues drain oldest first.',
             },
           ],
-          cut: [...chosen.cut],
+          omitted: [...chosen.omitted],
           folder: null,
         };
       },
@@ -356,7 +358,7 @@ const dispatching = () =>
         return [];
       },
     } as unknown as AttachmentStorePort,
-    new Sha256ContentDigest(),
+    new Sha256ContentHash(),
     new ReplayAnswers(
       {
         find: async () => (taskGone ? null : { notes: taskNotes }),
@@ -572,7 +574,7 @@ describe('DispatchReplay', () => {
     expect(written(queued[0]).briefing).toContain('Queues drain oldest first.');
     expect(queued[0]?.briefedWith.value).toEqual({
       briefed: [{ id: 'memory_1', handle: 'M-1' }],
-      cut: [{ id: 'memory_2', handle: 'M-2' }],
+      omitted: [{ id: 'memory_2', handle: 'M-2' }],
     });
   });
 

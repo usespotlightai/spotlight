@@ -23,7 +23,7 @@ class InvalidClaimError extends InvalidStationJudgeError {
   }
 }
 
-const isShare = (value: number): boolean =>
+const isRate = (value: number): boolean =>
   Number.isFinite(value) && value >= 0 && value <= 1;
 
 const rubricOf = (written: string, scored: boolean): string => {
@@ -68,21 +68,21 @@ export class StationJudge {
   private constructor(
     readonly rubric: string | null,
     readonly claims: readonly string[],
-    readonly passShare: number,
+    readonly passThreshold: number,
     readonly sample: number,
-    readonly trust: number,
+    readonly minAgreement: number,
   ) {}
 
   static of(input: {
     rubric?: string | null;
     claims?: readonly string[] | null;
-    passShare?: number | null;
+    passThreshold?: number | null;
     sample: number;
-    trust: number;
+    minAgreement: number;
   }): StationJudge {
     const written = input.rubric ?? null;
     const listed = input.claims ?? null;
-    const passShare = input.passShare ?? ALL_CLAIMS;
+    const passThreshold = input.passThreshold ?? ALL_CLAIMS;
 
     if (written === null && listed === null) {
       throw new InvalidStationJudgeError('rubric', 'or claims must be set');
@@ -93,37 +93,34 @@ export class StationJudge {
 
     if (
       listed === null &&
-      input.passShare !== undefined &&
-      input.passShare !== null
+      input.passThreshold !== undefined &&
+      input.passThreshold !== null
     ) {
-      throw new InvalidStationJudgeError('passShare', 'needs claims to count');
+      throw new InvalidStationJudgeError(
+        'passThreshold',
+        'needs claims to count',
+      );
     }
 
-    if (!isShare(passShare)) {
+    if (!isRate(passThreshold)) {
       throw new InvalidStationJudgeError(
-        'passShare',
-        'must be a share from 0 to 1',
+        'passThreshold',
+        'must be from 0 to 1',
       );
     }
-    if (!isShare(input.sample)) {
-      throw new InvalidStationJudgeError(
-        'sample',
-        'must be a share from 0 to 1',
-      );
+    if (!isRate(input.sample)) {
+      throw new InvalidStationJudgeError('sample', 'must be from 0 to 1');
     }
-    if (!isShare(input.trust)) {
-      throw new InvalidStationJudgeError(
-        'trust',
-        'must be a share from 0 to 1',
-      );
+    if (!isRate(input.minAgreement)) {
+      throw new InvalidStationJudgeError('minAgreement', 'must be from 0 to 1');
     }
 
     return new StationJudge(
       rubric,
       claims,
-      passShare,
+      passThreshold,
       input.sample,
-      input.trust,
+      input.minAgreement,
     );
   }
 
@@ -131,7 +128,7 @@ export class StationJudge {
     return JSON.stringify({
       rubric: this.rubric,
       claims: this.claims,
-      passShare: this.passShare,
+      passThreshold: this.passThreshold,
     });
   }
 
@@ -139,7 +136,7 @@ export class StationJudge {
     return (
       this.criteria === other.criteria &&
       this.sample === other.sample &&
-      this.trust === other.trust
+      this.minAgreement === other.minAgreement
     );
   }
 }

@@ -4,14 +4,14 @@ import { GlanceTile } from '@/components/features/stations/overview/GlanceTile';
 import { RunStrip } from '@/components/features/stations/overview/RunStrip';
 import { ShareBar } from '@/components/features/stations/overview/ShareBar';
 import { SectionLink } from '@/components/shared/SectionLink';
-import { useStationOutcomes } from '@/hooks/api/useStationOutcomes';
+import { useStationInsights } from '@/hooks/api/useStationInsights';
 import { failed, loading } from '@/lib/query';
 import { stationInsightsPath } from '@/lib/station';
 import {
   GLANCE_COLUMNS,
   type GlanceColumn,
   runsInForce,
-} from '@/lib/station-outcomes';
+} from '@/lib/station-insights';
 
 const TITLE = 'Latest runs on this config';
 
@@ -31,7 +31,7 @@ export function StationGlance({
   lineId,
   stationId,
 }: StationGlanceProps) {
-  const outcomes = useStationOutcomes(teamId, lineId, stationId);
+  const outcomes = useStationInsights(teamId, lineId, stationId);
   const inForce = outcomes.data?.inForce;
 
   if (loading(outcomes)) {
@@ -44,8 +44,8 @@ export function StationGlance({
 
   const { tally } = inForce;
   const runs = runsInForce(outcomes.data?.groups ?? []);
-  const costs = runs.map((run) => run.cost?.cost ?? null);
-  const durations = runs.map((run) => run.cost?.ms ?? null);
+  const costs = runs.map((run) => run.usage?.cost ?? null);
+  const durations = runs.map((run) => run.usage?.ms ?? null);
   const visualOf = ({ visual, counted }: GlanceColumn) => {
     if (visual === 'share') {
       return counted ? (

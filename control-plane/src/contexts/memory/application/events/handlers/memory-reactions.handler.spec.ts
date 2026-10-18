@@ -9,9 +9,9 @@ import type { MemoryRepository } from '@memory/domain/repositories/memory.reposi
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
-import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -27,7 +27,7 @@ const RUN = RunId.of('run_1');
 const OLD = MemoryId.of('memory_old');
 const NEW = MemoryId.of('memory_new');
 const SCOPE = MemoryScope.of({ teamId: TeamId.of('team_1') });
-const GROUNDS = MemoryGrounds.of({
+const PROVENANCE = MemoryProvenance.of({
   taskId: TASK,
   runId: RUN,
   steps: [3],
@@ -44,7 +44,7 @@ const approved = (supersedes: MemoryId | null = null) =>
     'preference',
     MemoryBody.of('Name branches after the ticket.'),
     SCOPE,
-    GROUNDS,
+    PROVENANCE,
     'run',
     supersedes,
     ADA,
@@ -131,7 +131,7 @@ describe('reacting to memories being proposed and decided', () => {
       kind: 'preference',
       body: MemoryBody.of('Name branches after the author.'),
       scope: SCOPE,
-      grounds: GROUNDS,
+      provenance: PROVENANCE,
       source: 'run',
       supersedes: null,
       approval: ADA,
@@ -151,7 +151,7 @@ describe('reacting to memories being proposed and decided', () => {
       kind: 'preference',
       body: MemoryBody.of('Name branches after the author.'),
       scope: SCOPE,
-      grounds: GROUNDS,
+      provenance: PROVENANCE,
       source: 'run',
       supersedes: null,
       approval: ADA,
@@ -172,7 +172,7 @@ describe('reacting to memories being proposed and decided', () => {
       kind: 'preference',
       body: MemoryBody.of('Name branches after the author.'),
       scope: SCOPE,
-      grounds: GROUNDS,
+      provenance: PROVENANCE,
       source: 'run',
       supersedes: null,
       approval: ADA,

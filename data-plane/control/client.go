@@ -309,7 +309,7 @@ func (c *Client) RecordCause(
 	ctx context.Context, runID string, record protocol.CauseRecord,
 ) (json.RawMessage, error) {
 	var out json.RawMessage
-	path := fmt.Sprintf("/api/runs/%s/search-causes", url.PathEscape(runID))
+	path := fmt.Sprintf("/api/runs/%s/failure-causes", url.PathEscape(runID))
 
 	if err := c.do(ctx, http.MethodPost, path, record, &out); err != nil {
 		var rejection *ResponseError

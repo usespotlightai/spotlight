@@ -4,23 +4,23 @@ import {
   type ChangeStackGeneratorPort,
 } from '@change-review/application/ports/change-stack-generator.port';
 import { WorkChangeStacks } from '@change-review/application/services/work-change-stacks.service';
-import type { INestApplication } from '@nestjs/common';
 import {
   JUDGE,
   type JudgePort,
   type JudgeRequest,
-} from '@outcomes/application/ports/judge.port';
+} from '@insights/application/ports/judge.port';
 import {
-  PAIR_JUDGE,
-  type PairJudgePort,
-  type PairJudgeRequest,
-} from '@outcomes/application/ports/pair-judge.port';
-import { DeleteOutcomes } from '@outcomes/application/services/delete-outcomes.service';
-import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
-import { WorkPairJudgings } from '@outcomes/application/services/work-pair-judgings.service';
-import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
-import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
-import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
+  SIDE_BY_SIDE_JUDGE,
+  type SideBySideJudgePort,
+  type SideBySideJudgeRequest,
+} from '@insights/application/ports/side-by-side-judge.port';
+import { DeleteInsights } from '@insights/application/services/delete-insights.service';
+import { WorkChangeJudgings } from '@insights/application/services/work-change-judgings.service';
+import { WorkSideBySideJudgings } from '@insights/application/services/work-side-by-side-judgings.service';
+import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
+import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
+import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -149,9 +149,9 @@ const judge: JudgePort = {
   },
 };
 
-const pairRequests: PairJudgeRequest[] = [];
+const pairRequests: SideBySideJudgeRequest[] = [];
 
-const pairJudge: PairJudgePort = {
+const pairJudge: SideBySideJudgePort = {
   available: true,
   model: 'stub/pair-judge',
   judgePair: async (request) => {
@@ -338,7 +338,7 @@ const anOriginal = async (title: string): Promise<Original> => {
       notes: [],
       openReviewComments: [],
     }).parts,
-    briefedMemories: { briefed: [], cut: [] },
+    briefedMemories: { briefed: [], omitted: [] },
     startedFromArchiveId: archiveId,
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
@@ -357,7 +357,7 @@ const anOriginal = async (title: string): Promise<Original> => {
         RunId.of(runId),
         team.workspaceId,
         TaskId.of(taskId),
-      ).recordAction(NextAct.of('closed', at)),
+      ).recordAction(HumanAction.of('accepted', at)),
     );
 
   return { taskId, runId };
@@ -435,8 +435,8 @@ const worked = async () => {
   await app.get(WorkChangeStacks).idle();
   await app.get(WorkChangeJudgings).processDue();
   await app.get(WorkChangeJudgings).idle();
-  await app.get(WorkPairJudgings).processDue();
-  await app.get(WorkPairJudgings).idle();
+  await app.get(WorkSideBySideJudgings).processDue();
+  await app.get(WorkSideBySideJudgings).idle();
 };
 
 beforeAll(async () => {
@@ -450,7 +450,7 @@ beforeAll(async () => {
       .useValue(generator)
       .overrideProvider(JUDGE)
       .useValue(judge)
-      .overrideProvider(PAIR_JUDGE)
+      .overrideProvider(SIDE_BY_SIDE_JUDGE)
       .useValue(pairJudge),
   );
   db = app.get(DRIZZLE);
@@ -495,9 +495,9 @@ beforeAll(async () => {
       judge: {
         rubric: null,
         claims: [...CLAIMS],
-        passShare: 0.5,
+        passThreshold: 0.5,
         sample: 0.1,
-        trust: 0.6,
+        minAgreement: 0.6,
       },
     },
     {
@@ -704,8 +704,8 @@ describe('a replay at a station whose judge goes by claims', () => {
       await owner().get(`${teamPath()}/replays/${id}`).expect(200)
     ).body as {
       totals: { successRate: number };
-      pairedWith: string | null;
-      pairsAgainstBaseline: { wins: number; losses: number; ties: number };
+      pairwiseReference: string | null;
+      referencePairs: { wins: number; losses: number; ties: number };
       comparison: {
         title: string;
         pair: string | null;
@@ -713,8 +713,8 @@ describe('a replay at a station whose judge goes by claims', () => {
           judge: {
             scale: string;
             score: number;
-            marks: boolean[];
-            passShare: number;
+            claimResults: boolean[];
+            passThreshold: number;
             passed: boolean;
             claims: string[];
             reasons: { claim: number | null; citations: { kind: string }[] }[];
@@ -722,22 +722,22 @@ describe('a replay at a station whose judge goes by claims', () => {
           pair: {
             state: string;
             outcome: string;
-            againstRunId: string;
-            readings: { ownShownFirst: boolean; outcome: string }[];
+            otherRunId: string;
+            passes: { ownShownFirst: boolean; outcome: string }[];
           };
           pairingSpent: { spends: { amount: number }[] } | null;
         }[];
         baseline: {
           runId: string;
-          judge: { marks: boolean[]; passed: boolean };
+          judge: { claimResults: boolean[]; passed: boolean };
           pair: unknown;
         }[];
       }[];
     };
 
     expect(detail.totals.successRate).toBe(1);
-    expect(detail.pairedWith).toBe(baselineId);
-    expect(detail.pairsAgainstBaseline).toEqual({
+    expect(detail.pairwiseReference).toBe(baselineId);
+    expect(detail.referencePairs).toEqual({
       wins: 1,
       losses: 1,
       ties: 1,
@@ -759,24 +759,24 @@ describe('a replay at a station whose judge goes by claims', () => {
       expect(mine?.judge).toMatchObject({
         scale: 'claims',
         score: 0.5,
-        marks: [true, false],
-        passShare: 0.5,
+        claimResults: [true, false],
+        passThreshold: 0.5,
         passed: true,
         claims: [...CLAIMS],
       });
       expect(mine?.judge.reasons.map((each) => each.claim)).toEqual([0, 1]);
       expect(mine?.judge.reasons[0]?.citations[0]?.kind).toBe('hunk');
       expect(
-        mine?.pair.readings.map((each) => each.ownShownFirst).sort(),
+        mine?.pair.passes.map((each) => each.ownShownFirst).sort(),
       ).toEqual([false, true]);
       expect(theirs?.judge).toMatchObject({
-        marks: [true, true],
+        claimResults: [true, true],
         passed: true,
       });
       expect(mine?.pair).toMatchObject({
         state: 'judged',
         outcome: row.pair,
-        againstRunId: theirs?.runId,
+        otherRunId: theirs?.runId,
       });
       expect(mine?.pairingSpent?.spends[0]?.amount).toBe(0.04);
       expect(theirs?.pair).toBeNull();
@@ -804,18 +804,18 @@ describe('a replay at a station whose judge goes by claims', () => {
     expect(
       await db
         .select()
-        .from(schema.pairJudging)
-        .where(inArray(schema.pairJudging.runId, runs)),
+        .from(schema.sideBySideJudging)
+        .where(inArray(schema.sideBySideJudging.runId, runs)),
     ).toHaveLength(3);
 
     await app
-      .get(DeleteOutcomes)
+      .get(DeleteInsights)
       .judgingsAndScoresOfTeam(team.workspaceId, team.teamId);
     expect(
       await db
         .select()
-        .from(schema.pairJudging)
-        .where(inArray(schema.pairJudging.runId, runs)),
+        .from(schema.sideBySideJudging)
+        .where(inArray(schema.sideBySideJudging.runId, runs)),
     ).toEqual([]);
   }, 180_000);
 });

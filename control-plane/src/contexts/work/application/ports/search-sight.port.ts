@@ -21,7 +21,7 @@ interface SightedCandidate {
 
 export interface SearchSight {
   readonly stationId: string;
-  readonly hiddenTasks: readonly string[];
+  readonly heldOutTasks: readonly string[];
   readonly shownOriginals: readonly string[];
   readonly candidates: readonly SightedCandidate[];
   readonly seedBlock: SightedBlock;

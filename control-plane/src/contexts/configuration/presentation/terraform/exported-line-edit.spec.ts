@@ -89,7 +89,7 @@ const editOf = (now: Readonly<Record<string, HclLiteral>>): HclBlockEdit => ({
       was: {
         rubric: 'A good run changes only what the task requests.\n',
         sample: 0.2,
-        trust: 0.6,
+        min_agreement: 0.6,
       },
     },
   ],

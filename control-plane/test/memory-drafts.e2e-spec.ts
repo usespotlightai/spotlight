@@ -2,10 +2,10 @@ import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import type { ProposedMemory } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoryDraftVersionConflictError } from '@memory/domain/exceptions/memory-draft-version-conflict.error';
 import { DraftEvidence } from '@memory/domain/services/draft-evidence';
-import { rejectionsHeededAt } from '@memory/domain/services/rejections-heeded';
+import { recentRejectionsAt } from '@memory/domain/services/recent-rejections';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
-import type { StationSite } from '@memory/domain/value-objects/run-site';
+import type { StationContext } from '@memory/domain/value-objects/run-context';
 import { DrizzleMemoryRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory.repository';
 import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-draft.repository';
 import { DrizzleRejectedMemories } from '@memory/infrastructure/persistence/drizzle/repositories/rejected-memories.reader';
@@ -27,7 +27,7 @@ const SECOND = RunId.of('run_2');
 const TEAM = TeamId.of('team_1');
 const API = Repository.of('acme/api');
 
-const SITE: StationSite = {
+const STATION_CONTEXT: StationContext = {
   teamId: TEAM,
   lineId: 'line_1',
   stationId: 'station_1',
@@ -73,7 +73,7 @@ const drafting = (
     evidence: DraftEvidence.of({
       taskId: draft.taskId,
       runId,
-      site: SITE,
+      runContext: STATION_CONTEXT,
       steps: [{ index: 5, kind: 'message', text: 'Retrying in the request.' }],
       notes: [{ position: 4, by: 'person', text: 'Never retry on a 403.' }],
       notesRead: 0,
@@ -112,7 +112,7 @@ afterAll(async () => {
 });
 
 describe('storing a task’s memory draft', () => {
-  it('stores what a run proposed, where it applies and what it rests on', async () => {
+  it('stores what a run proposed, where it applies and what it cites', async () => {
     const draft = newDraft().requestDrafting(FIRST, NOW);
     await drafts.add(draft);
 
@@ -134,9 +134,9 @@ describe('storing a task’s memory draft', () => {
     expect(proposal?.scope.paths.map((each) => each.value)).toEqual([
       'src/uploads.ts',
     ]);
-    expect(proposal?.grounds.steps).toEqual([5]);
-    expect(proposal?.grounds.notes).toEqual([4]);
-    expect(proposal?.grounds.runId.equals(FIRST)).toBe(true);
+    expect(proposal?.provenance.steps).toEqual([5]);
+    expect(proposal?.provenance.notes).toEqual([4]);
+    expect(proposal?.provenance.runId.equals(FIRST)).toBe(true);
   });
 
   it('replaces what an earlier run proposed with what the latest proposed', async () => {
@@ -271,8 +271,8 @@ describe('reading what the team already knows', () => {
     await approvedMemory('other_repository', { repository: 'acme/web' });
     await approvedMemory('retired', { status: 'retired' });
 
-    const active = (await memories.mayApplyAt(SITE)).filter((each) =>
-      each.appliesAt(SITE),
+    const active = (await memories.mayApplyAt(STATION_CONTEXT)).filter((each) =>
+      each.appliesAt(STATION_CONTEXT),
     );
 
     expect(active.map((each) => each.id.value).sort()).toEqual([
@@ -301,9 +301,9 @@ describe('reading what the team already knows', () => {
       sql`update memory_proposal set state = 'rejected', decided_by = 'user_ada', decided_at = '2026-01-01T00:00:00Z' where id = ${longAgo?.id.value ?? ''}`,
     );
 
-    const rejected = rejectionsHeededAt(
+    const rejected = recentRejectionsAt(
       await rejections.rejectedOnTeam(TEAM, NOW),
-      SITE,
+      STATION_CONTEXT,
     );
 
     expect(rejected.map((each) => each.body)).toEqual(['Turned down lately']);

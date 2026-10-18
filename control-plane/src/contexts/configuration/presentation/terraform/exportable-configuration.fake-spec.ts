@@ -46,7 +46,7 @@ const DELIVERY: LineDefinition = {
       judge: {
         rubric: 'A good run changes only what the task requests.\n',
         sample: 0.2,
-        trust: 0.6,
+        minAgreement: 0.6,
       },
       alerts: [
         { measure: 'sent_back_rate', risesBy: 0.2, over: 20 },

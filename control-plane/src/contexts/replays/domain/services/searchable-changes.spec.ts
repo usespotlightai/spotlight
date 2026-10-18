@@ -20,7 +20,7 @@ const SEED = {
   alerts: [{ when: 'failed', notify: 'slack' }],
   passesTo: ['ship'],
   ends: false,
-  judge: { rubric: 'scores: 1-5', sample: 0.1, trust: 0.6 },
+  judge: { rubric: 'scores: 1-5', sample: 0.1, minAgreement: 0.6 },
   check: 'npm test',
 };
 
@@ -55,7 +55,7 @@ describe('unsearchableChanges', () => {
     ['alerts', []],
     ['passesTo', ['completed']],
     ['ends', true],
-    ['judge', { rubric: 'scores: 1-5', sample: 1, trust: 0.6 }],
+    ['judge', { rubric: 'scores: 1-5', sample: 1, minAgreement: 0.6 }],
     ['check', 'npm run lint'],
     ['runners', { pool: 'gpu' }],
   ])('rejects a change to %s, naming its path', (field, value) => {
@@ -79,7 +79,9 @@ describe('unsearchableChanges', () => {
 
   it('ignores the order of keys, never of lists', () => {
     expect(
-      changed({ judge: { trust: 0.6, sample: 0.1, rubric: 'scores: 1-5' } }),
+      changed({
+        judge: { minAgreement: 0.6, sample: 0.1, rubric: 'scores: 1-5' },
+      }),
     ).toEqual([]);
     expect(changed({ passesTo: ['ship', 'completed'] })).toHaveLength(1);
   });

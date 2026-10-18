@@ -241,7 +241,7 @@ const gradeOf = (
     return {
       ...base,
       value: share,
-      marks: input.claims,
+      claimResults: input.claims,
       label: `${Math.round(share * 100)}% of claims met`,
     };
   }
@@ -249,7 +249,7 @@ const gradeOf = (
     return {
       ...base,
       value: input.value ? 1 : 0,
-      marks: null,
+      claimResults: null,
       label: input.value ? 'yes' : 'no',
     };
   }
@@ -257,7 +257,7 @@ const gradeOf = (
   return {
     ...base,
     value: input.value ?? 0,
-    marks: null,
+    claimResults: null,
     label: `${input.value ?? 0}`,
   };
 };

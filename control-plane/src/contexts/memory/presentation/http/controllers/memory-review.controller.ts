@@ -53,7 +53,7 @@ export class MemoryReviewController {
   @ApiOperation({
     operationId: 'readMemoryReview',
     summary:
-      'The memories a run proposed for the team to approve, each with what it rests on',
+      'The memories a run proposed for the team to approve, each with what it cites',
   })
   @ApiOkResponse({ type: MemoryReviewResponseDto })
   @ApiNotFoundResponse({ description: 'No such task for this caller' })
@@ -82,7 +82,7 @@ export class MemoryReviewController {
   @ApiOperation({
     operationId: 'approveMemories',
     summary:
-      'Make proposed memories active, as proposed or as edited, and keep what they rest on',
+      'Make proposed memories active, as proposed or as edited, and keep what they cite',
   })
   @ApiBody({ type: ApproveMemoriesRequestDto })
   @ApiOkResponse({ type: MemoryReviewResponseDto })

@@ -7,7 +7,7 @@ const TILES = [
   'Merge rate',
   'Cost per merged PR',
   'Task to merge',
-  'Human touches per task',
+  'Human actions per task worked',
   'Active people',
 ];
 

@@ -63,7 +63,7 @@ const reading = (
   );
 
 describe('ReadRunConfigHandler', () => {
-  it('shows a replay run’s config only to those who may read its team’s outcomes', async () => {
+  it('shows a replay run’s config only to those who may read its team’s insights', async () => {
     const replayed = (teamId: string | null): RunConfigSummary => ({
       ran: null,
       before: null,

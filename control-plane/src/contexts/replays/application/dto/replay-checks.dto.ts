@@ -1,13 +1,13 @@
 import type {
   EntryResultDto,
-  GainReadingDto,
+  GainEstimateDto,
+  MoneyDto,
   RateIntervalDto,
-  SpendDto,
 } from '@replays/application/dto/replays.dto';
 import type {
-  CheckVerdict,
+  CheckResult,
   UndecidedBecause,
-} from '@replays/domain/services/replay-check-verdict';
+} from '@replays/domain/services/replay-check-result';
 
 export interface CheckSideDto {
   readonly state: string | null;
@@ -17,7 +17,7 @@ export interface CheckSideDto {
   readonly successRate: number | null;
   readonly interval: RateIntervalDto | null;
   readonly tasksScored: number;
-  readonly spent: SpendDto | null;
+  readonly spent: MoneyDto | null;
 }
 
 export interface CheckRegressionDto {
@@ -55,12 +55,12 @@ export interface ReplayCheckDto {
   readonly threshold: {
     readonly maxRegressions: number;
     readonly minGain: number;
-    readonly ceiling: SpendDto;
-    readonly unpricedRun: SpendDto | null;
+    readonly ceiling: MoneyDto;
+    readonly unpricedRun: MoneyDto | null;
   };
   readonly repeats: number;
-  readonly gain: GainReadingDto | null;
-  readonly verdict: CheckVerdict;
+  readonly gain: GainEstimateDto | null;
+  readonly result: CheckResult;
   readonly undecidedBecause: UndecidedBecause | null;
   readonly tasks: number;
   readonly compared: number;
@@ -75,7 +75,7 @@ export interface ReplayCheckSummaryDto {
   readonly id: string;
   readonly stationId: string;
   readonly stationKey: string;
-  readonly verdict: CheckVerdict;
+  readonly result: CheckResult;
   readonly undecidedBecause: UndecidedBecause | null;
   readonly regressions: number;
   readonly attempt: number;

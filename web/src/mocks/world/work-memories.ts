@@ -13,7 +13,7 @@ import { MEMORY_SEED, type MemoryRecord } from '@/mocks/world/team-memories';
 import {
   GONE_REMEMBER,
   GONE_THOUGHT,
-  groundStep,
+  provenanceStep,
 } from '@/mocks/world/work-stories';
 
 const briefedOf = ({
@@ -46,7 +46,7 @@ const proposal = (
   },
 ): RunProposalResponseDto => ({
   source: 'run',
-  origin: 'drafted',
+  proposedBy: 'drafter',
   state: 'proposed',
   scope: 'team',
   repository: null,
@@ -63,7 +63,7 @@ const proposal = (
 
 const NOTHING: RunMemoriesResponseDto = {
   briefed: [],
-  cut: [],
+  omitted: [],
   recalled: [],
   proposed: [],
   reviewItemId: null,
@@ -86,8 +86,8 @@ const RUN_MEMORIES: Record<string, Partial<RunMemoriesResponseDto>> = {
         handle: GONE.handle,
         status: 'active',
         steps: [
-          groundStep('run_retries_2', GONE_THOUGHT),
-          groundStep('run_retries_2', GONE_REMEMBER, 'remember'),
+          provenanceStep('run_retries_2', GONE_THOUGHT),
+          provenanceStep('run_retries_2', GONE_REMEMBER, 'remember'),
         ],
       }),
     ],
@@ -100,7 +100,7 @@ const RUN_MEMORIES: Record<string, Partial<RunMemoriesResponseDto>> = {
         kind: 'environment',
         body: 'Runners cannot reach the billing database at 10.0.4.12, so the invoice reconcile script cannot run from Spotlight.',
         steps: [
-          groundStep(
+          provenanceStep(
             'run_billing_1',
             'The reconcile script cannot reach the billing database from the runner.',
           ),
@@ -119,19 +119,19 @@ const activeAt = (memory: MemoryRecord, at: string): boolean =>
   memory.approvedAt <= at &&
   (memory.retirement === null || memory.retirement.at > at);
 
-type RunPlace = Pick<
+type RunContext = Pick<
   HistoryRun,
   'teamId' | 'lineId' | 'stationId' | 'repositories'
 > & { readonly startedAt: string };
 
-const matches = (memory: MemoryRecord, run: RunPlace): boolean =>
+const matches = (memory: MemoryRecord, run: RunContext): boolean =>
   (memory.lineId === null || memory.lineId === run.lineId) &&
   (memory.stationId === null || memory.stationId === run.stationId) &&
   (memory.repository === null ||
     run.repositories.length === 0 ||
     run.repositories.includes(memory.repository));
 
-const placeOfRun = (runId: string): RunPlace | undefined => {
+const contextOfRun = (runId: string): RunContext | undefined => {
   const past = historyRunOf(runId);
   if (past?.startedAt) {
     return { ...past, startedAt: past.startedAt };
@@ -150,7 +150,7 @@ const placeOfRun = (runId: string): RunPlace | undefined => {
 };
 
 const briefedFor = (runId: string): TeamMemoryResponseDto[] => {
-  const run = placeOfRun(runId);
+  const run = contextOfRun(runId);
 
   return run
     ? (MEMORY_SEED[run.teamId] ?? [])

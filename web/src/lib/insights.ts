@@ -1,14 +1,14 @@
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import type {
-  ChangeResponseDto,
   CostFlowLinkResponseDto,
   CostFlowNodeResponseDto,
   CostSliceResponseDto,
   DayOutputResponseDto,
   DayTallyResponseDto,
+  DeltaResponseDto,
   FlowResponseDto,
   HarnessResponseDto,
-  HeadlineChangesResponseDto,
+  HeadlineDeltasResponseDto,
   HeadlineResponseDto,
   InsightsCostResponseDto,
   InsightsFlowResponseDto,
@@ -18,16 +18,16 @@ import type {
   InsightsRunsResponseDto,
   InsightsStationsResponseDto,
   LineResponseDto,
+  MoneyResponseDto,
   PersonNameResponseDto,
   RunFailureSummaryResponseDto,
   RunTallyResponseDto,
   SignalReadingResponseDto,
-  SpendResponseDto,
   SpreadResponseDto,
   StationFlowResponseDto,
   StationReportResponseDto,
   StationWorthImprovingResponseDto,
-  TallyChangesResponseDto,
+  TallyDeltasResponseDto,
   TallySeenResponseDto,
   TaskFailureSummaryResponseDto,
 } from '@/lib/api';
@@ -51,8 +51,8 @@ export type InsightsCost = InsightsCostResponseDto;
 export type InsightsRuns = InsightsRunsResponseDto;
 export type InsightsRun = InsightsRunResponseDto;
 export type Headline = HeadlineResponseDto;
-export type HeadlineChanges = HeadlineChangesResponseDto;
-export type Spend = SpendResponseDto;
+export type HeadlineChanges = HeadlineDeltasResponseDto;
+export type Money = MoneyResponseDto;
 export type Spread = SpreadResponseDto;
 export type DayOutput = DayOutputResponseDto;
 export type WorthImproving = StationWorthImprovingResponseDto;
@@ -113,16 +113,22 @@ export const RUN_ENDINGS: readonly RunEnding[] = [
   'superseded',
 ];
 
-export type RunDelivery = NonNullable<InsightsRun['delivery']>;
+export type RunPullRequestState = NonNullable<InsightsRun['pullRequestState']>;
 
-const RUN_DELIVERIES: readonly RunDelivery[] = ['merged', 'closed', 'open'];
+const RUN_PULL_REQUEST_STATES: readonly RunPullRequestState[] = [
+  'merged',
+  'closed',
+  'open',
+];
 
-export type RunNext = NonNullable<InsightsRun['next']>['act'];
+export type RunHumanAction = NonNullable<
+  InsightsRun['firstHumanAction']
+>['kind'];
 
-const RUN_NEXTS: readonly RunNext[] = [
+const RUN_HUMAN_ACTIONS: readonly RunHumanAction[] = [
   'started',
   'parked',
-  'closed',
+  'accepted',
   'answered',
   'sent-back',
 ];
@@ -133,8 +139,8 @@ const RUN_FILTER_KEYS = [
   'lineId',
   'stationId',
   'outcome',
-  'delivery',
-  'next',
+  'pullRequestState',
+  'humanAction',
   'asked',
   'harness',
   'model',
@@ -203,12 +209,15 @@ const runFilterOf = (params: URLSearchParams): RunFilter =>
         return [];
       }
       if (
-        key === 'delivery' &&
-        !RUN_DELIVERIES.includes(value as RunDelivery)
+        key === 'pullRequestState' &&
+        !RUN_PULL_REQUEST_STATES.includes(value as RunPullRequestState)
       ) {
         return [];
       }
-      if (key === 'next' && !RUN_NEXTS.includes(value as RunNext)) {
+      if (
+        key === 'humanAction' &&
+        !RUN_HUMAN_ACTIONS.includes(value as RunHumanAction)
+      ) {
         return [];
       }
       if (key === 'asked' && value !== 'true') {
@@ -287,14 +296,14 @@ export const whyNoSpend = (mixedCurrencies: boolean): string =>
 export const mergedFilter = (taskIds: readonly string[]): RunFilter =>
   taskIds.length > 0 && taskIds.length <= MAX_TASK_IDS
     ? { taskIds: taskIds.join(',') }
-    : { delivery: 'merged' };
+    : { pullRequestState: 'merged' };
 
 export const tasksFilter = (taskIds: readonly string[]): RunFilter | null =>
   taskIds.length > 0 && taskIds.length <= MAX_TASK_IDS
     ? { taskIds: taskIds.join(',') }
     : null;
 
-export const formatSpend = (spend: Spend | null): string =>
+export const formatSpend = (spend: Money | null): string =>
   spend ? spentIn(spend.amount, spend.currency) : '–';
 
 export const formatCount = (count: number): string => count.toLocaleString();
@@ -336,11 +345,11 @@ export const formatSpread = (spread: Spread): string =>
     ? '–'
     : `${lasted(spread.p50Ms)} · p90 ${lastedOrNone(spread.p90Ms)}`;
 
-export type Change = ChangeResponseDto;
+export type Delta = DeltaResponseDto;
 
-export type Delta = {
+export type ShownDelta = {
   readonly shown: string;
-  readonly tone: Change['tone'];
+  readonly tone: Delta['tone'];
 };
 
 const PERCENT_CHANGE = new Intl.NumberFormat(undefined, {
@@ -359,7 +368,7 @@ const pointsChanged = (by: number): string => {
   return `${points > 0 ? '+' : '−'}${shown} pts`;
 };
 
-const changedBy = (change: Change): string => {
+const changedBy = (change: Delta): string => {
   if (change.fromZero || change.by === null) {
     return 'Up from 0';
   }
@@ -369,7 +378,7 @@ const changedBy = (change: Change): string => {
     : PERCENT_CHANGE.format(change.by);
 };
 
-export const changeDelta = (change: Change | null): Delta | null =>
+export const shownDeltaOf = (change: Delta | null): ShownDelta | null =>
   change && {
     shown: change.direction === 'same' ? 'No change' : changedBy(change),
     tone: change.tone,
@@ -384,7 +393,7 @@ export type HeadlineTile = {
   readonly label: string;
   readonly value: string;
   readonly detail?: string;
-  readonly delta: Delta | null;
+  readonly delta: ShownDelta | null;
   readonly drill: TileDrill;
 };
 
@@ -399,7 +408,7 @@ export const headlineTiles = (
     detail: now.spend
       ? `Over ${formatCount(now.runs)} ${now.runs === 1 ? 'run' : 'runs'}`
       : whyNoSpend(now.mixedCurrencies),
-    delta: changeDelta(changes.spend),
+    delta: shownDeltaOf(changes.spend),
     drill: { tab: 'runs' },
   },
   {
@@ -407,21 +416,21 @@ export const headlineTiles = (
     label: 'PRs merged',
     value: formatCount(now.mergedPullRequests),
     detail: `${formatCount(now.closedPullRequests)} closed unmerged`,
-    delta: changeDelta(changes.mergedPullRequests),
+    delta: shownDeltaOf(changes.mergedPullRequests),
     drill: { tab: 'runs', filter: mergedFilter(now.mergedTaskIds) },
   },
   {
     id: 'merge-rate',
     label: 'Merge rate',
     value: formatShare(now.mergeRate),
-    delta: changeDelta(changes.mergeRate),
-    drill: { tab: 'runs', filter: { delivery: 'merged' } },
+    delta: shownDeltaOf(changes.mergeRate),
+    drill: { tab: 'runs', filter: { pullRequestState: 'merged' } },
   },
   {
     id: 'cost-per-merge',
     label: 'Cost per merged PR',
     value: formatSpend(now.costPerMerge),
-    delta: changeDelta(changes.costPerMerge),
+    delta: shownDeltaOf(changes.costPerMerge),
     drill: { tab: 'cost' },
   },
   {
@@ -432,22 +441,22 @@ export const headlineTiles = (
       now.taskToMerge.p90Ms === null
         ? undefined
         : `p90 ${lasted(now.taskToMerge.p90Ms)}`,
-    delta: changeDelta(changes.taskToMerge),
+    delta: shownDeltaOf(changes.taskToMerge),
     drill: { tab: 'runs', filter: mergedFilter(now.mergedTaskIds) },
   },
   {
-    id: 'touches',
-    label: 'Human touches per task',
-    value: formatPer(now.touchesPerTask),
-    detail: `${formatCount(now.touches)} over ${formatCount(now.tasks)} ${now.tasks === 1 ? 'task' : 'tasks'}`,
-    delta: changeDelta(changes.touchesPerTask),
+    id: 'human-actions',
+    label: 'Human actions per task worked',
+    value: formatPer(now.humanActionsPerTask),
+    detail: `${formatCount(now.humanActions)} over ${formatCount(now.tasks)} ${now.tasks === 1 ? 'task' : 'tasks'}`,
+    delta: shownDeltaOf(changes.humanActionsPerTask),
     drill: { tab: 'people' },
   },
   {
     id: 'people',
     label: 'Active people',
     value: formatCount(now.activePeople),
-    delta: changeDelta(changes.activePeople),
+    delta: shownDeltaOf(changes.activePeople),
     drill: { tab: 'people' },
   },
 ];
@@ -819,8 +828,8 @@ const FILTER_LABELS: Record<RunFilterKey, string> = {
   lineId: 'Line',
   stationId: 'Station',
   outcome: 'Outcome',
-  delivery: 'Pull request',
-  next: 'Then',
+  pullRequestState: 'Pull request',
+  humanAction: 'Then',
   asked: 'Asked a person',
   harness: 'Harness',
   model: 'Model',
@@ -842,16 +851,16 @@ const FILTER_LABELS: Record<RunFilterKey, string> = {
 
 export const filterLabel = (key: RunFilterKey): string => FILTER_LABELS[key];
 
-const DELIVERIES: Record<RunDelivery, string> = {
+const PULL_REQUEST_STATES: Record<RunPullRequestState, string> = {
   merged: 'Merged',
   closed: 'Closed unmerged',
   open: 'Open',
 };
 
-const NEXTS: Record<RunNext, string> = {
+const HUMAN_ACTIONS: Record<RunHumanAction, string> = {
   started: 'Started',
   parked: 'Parked',
-  closed: 'Closed',
+  accepted: 'Accepted',
   answered: 'Answered',
   'sent-back': 'Sent back',
 };
@@ -868,10 +877,10 @@ export const formatFilterValue = (key: RunFilterKey, value: string): string => {
       const count = value.split(',').filter(Boolean).length;
       return `${count} ${count === 1 ? 'task' : 'tasks'}`;
     }
-    case 'delivery':
-      return DELIVERIES[value as RunDelivery] ?? value;
-    case 'next':
-      return NEXTS[value as RunNext] ?? value;
+    case 'pullRequestState':
+      return PULL_REQUEST_STATES[value as RunPullRequestState] ?? value;
+    case 'humanAction':
+      return HUMAN_ACTIONS[value as RunHumanAction] ?? value;
     case 'asked':
       return 'Yes';
     case 'fingerprint':
@@ -891,7 +900,7 @@ const counted = (
   label: string,
   now: number,
   seen: boolean,
-  change: Change | null,
+  change: Delta | null,
   drill: TileDrill = undefined,
 ): TallyTile[] =>
   seen
@@ -900,7 +909,7 @@ const counted = (
           id,
           label,
           value: formatCount(now),
-          delta: changeDelta(change),
+          delta: shownDeltaOf(change),
           drill,
         },
       ]
@@ -909,7 +918,7 @@ const counted = (
 export const tallyTiles = (
   now: RunTallyResponseDto,
   seen: TallySeenResponseDto,
-  changes: TallyChangesResponseDto,
+  changes: TallyDeltasResponseDto,
   trend: readonly TrendPoint[],
   filter: RunFilter = {},
 ): TallyTile[] => [
@@ -917,7 +926,7 @@ export const tallyTiles = (
     id: 'runs',
     label: 'Runs',
     value: formatCount(now.runs),
-    delta: changeDelta(changes.runs),
+    delta: shownDeltaOf(changes.runs),
     drill: { tab: 'runs', filter },
     trend: trend.map((day) => day.runs),
   },
@@ -926,10 +935,10 @@ export const tallyTiles = (
     label: 'Failed',
     value: formatCount(now.failed),
     detail:
-      now.failedShare === null
+      now.failedRate === null
         ? undefined
-        : `${formatShare(now.failedShare)} of runs`,
-    delta: changeDelta(changes.failed),
+        : `${formatShare(now.failedRate)} of runs`,
+    delta: shownDeltaOf(changes.failed),
     drill: { tab: 'runs', filter: { ...filter, outcome: 'failed' } },
     trend: trend.map((day) => day.failed),
   },
@@ -953,7 +962,7 @@ export const tallyTiles = (
     id: 'cost',
     label: 'Cost',
     value: formatSpend(now.cost),
-    delta: changeDelta(changes.cost),
+    delta: shownDeltaOf(changes.cost),
     drill: { tab: 'cost' },
   },
   {
@@ -961,7 +970,7 @@ export const tallyTiles = (
     label: 'Median run',
     value: lastedOrNone(now.medianMs),
     detail: now.p90Ms === null ? undefined : `p90 ${lasted(now.p90Ms)}`,
-    delta: changeDelta(changes.median),
+    delta: shownDeltaOf(changes.median),
     drill: undefined,
   },
 ];

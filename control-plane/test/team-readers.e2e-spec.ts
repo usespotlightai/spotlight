@@ -17,7 +17,7 @@ const ELSEWHERE_IN_WORKSPACE = randomUUID();
 const RUN = randomUUID();
 
 const outcomes = () =>
-  `/api/teams/${team.teamId.value}/lines/${team.line.id.value}/stations/${team.stationId.value}/outcomes`;
+  `/api/teams/${team.teamId.value}/lines/${team.line.id.value}/stations/${team.stationId.value}/insights`;
 
 const judge = () =>
   `/api/teams/${team.teamId.value}/lines/${team.line.id.value}/stations/${team.stationId.value}/judge`;
@@ -133,7 +133,7 @@ beforeAll(async () => {
     skills: [],
     endedAt: new Date(),
     ending: 'completed',
-    round: 1,
+    visit: 1,
   });
 });
 

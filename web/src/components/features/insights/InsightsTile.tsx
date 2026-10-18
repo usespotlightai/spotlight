@@ -3,7 +3,7 @@ import { DeltaMark } from '@/components/features/insights/DeltaMark';
 import { InfoNote } from '@/components/features/insights/InfoNote';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { TileSparkline } from '@/components/features/insights/TileSparkline';
-import type { Delta, TileDrill } from '@/lib/insights';
+import type { ShownDelta, TileDrill } from '@/lib/insights';
 
 const AGAINST = 'Against the previous period';
 
@@ -12,7 +12,7 @@ type InsightsTileProps = {
   value: string;
   detail?: ReactNode;
   note?: string;
-  delta?: Delta | null;
+  delta?: ShownDelta | null;
   drill?: TileDrill;
   trend?: readonly (number | null)[];
 };

@@ -6,11 +6,11 @@ import type {
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import type { PeoplePort } from '@memory/application/ports/people.port';
 import type { WorkPort } from '@memory/application/ports/work.port';
-import { groundNotes } from '@memory/application/services/ground-notes';
 import {
   lookUpOnce,
   type PersonLookup,
 } from '@memory/application/services/people-lookup';
+import { provenanceNotes } from '@memory/application/services/provenance-notes';
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
@@ -33,16 +33,16 @@ export class TeamMemoryViews {
   }
 
   async detail(memory: Memory): Promise<TeamMemoryDetailDto> {
-    const { grounds } = memory;
+    const { provenance } = memory;
     const person = lookUpOnce(this.people);
     const [summary, steps, notes, harness, superseded, successor] =
       await Promise.all([
         this.uses
           .runsUsing([memory.id])
           .then((used) => this.summaryOf(memory, person, used)),
-        grounds ? this.work.reasoning(grounds.runId) : null,
-        grounds ? this.work.notesOf(grounds.taskId) : null,
-        grounds ? this.work.harnessOf(grounds.runId) : null,
+        provenance ? this.work.reasoning(provenance.runId) : null,
+        provenance ? this.work.notesOf(provenance.taskId) : null,
+        provenance ? this.work.harnessOf(provenance.runId) : null,
         this.linkTo(memory.supersedes),
         this.linkTo(memory.retirement?.supersededBy ?? null),
       ]);
@@ -51,9 +51,13 @@ export class TeamMemoryViews {
       ...summary,
       harness,
       steps: (steps ?? []).filter((each) =>
-        grounds?.steps.includes(each.index),
+        provenance?.steps.includes(each.index),
       ),
-      notes: await groundNotes(notes ?? [], grounds?.notes ?? [], person),
+      notes: await provenanceNotes(
+        notes ?? [],
+        provenance?.notes ?? [],
+        person,
+      ),
       superseded,
       successor,
     };
@@ -64,7 +68,7 @@ export class TeamMemoryViews {
     person: PersonLookup,
     used: ReadonlyMap<string, number>,
   ): Promise<TeamMemoryDto> {
-    const { retirement, grounds, scope } = memory;
+    const { retirement, provenance, scope } = memory;
 
     return {
       id: memory.id.value,
@@ -87,9 +91,9 @@ export class TeamMemoryViews {
         reason: retirement.reason,
         supersededBy: retirement.supersededBy?.value ?? null,
       },
-      grounds: grounds && {
-        taskId: grounds.taskId.value,
-        runId: grounds.runId.value,
+      provenance: provenance && {
+        taskId: provenance.taskId.value,
+        runId: provenance.runId.value,
       },
       runs: used.get(memory.id.value) ?? 0,
     };

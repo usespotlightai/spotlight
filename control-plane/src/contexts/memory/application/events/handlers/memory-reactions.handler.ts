@@ -44,7 +44,7 @@ export class MemoryReactions {
           kind: event.memoryKind,
           body: event.body,
           scope: event.scope,
-          grounds: event.grounds,
+          provenance: event.provenance,
           source: event.source,
           supersedes,
           approval: event.decision,

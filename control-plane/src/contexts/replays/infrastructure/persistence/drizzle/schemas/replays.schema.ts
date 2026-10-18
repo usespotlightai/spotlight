@@ -5,14 +5,13 @@ import {
   CONFIG_PULL_REQUEST_ERRORS,
   CONFIG_PULL_REQUEST_STATES,
 } from '@replays/domain/value-objects/config-pull-request-state';
-import { REFLECTION_OUTCOMES } from '@replays/domain/value-objects/reflection-outcome';
-import { RUN_OUTCOMES } from '@replays/domain/value-objects/replay-ending';
+import type { FailureCauseKind } from '@replays/domain/value-objects/failure-cause.vo';
+import { REFLECTION_RESULTS } from '@replays/domain/value-objects/reflection-result';
+import { RUN_RESULTS } from '@replays/domain/value-objects/replay-ending';
 import {
   REPLAY_STATES,
-  type ReplayEnd,
+  type ReplayStopReason,
 } from '@replays/domain/value-objects/replay-state';
-import type { SearchCauseKind } from '@replays/domain/value-objects/search-cause.vo';
-import { SEARCH_ENDINGS } from '@replays/domain/value-objects/search-ending';
 import {
   SEARCH_ITERATION_KINDS,
   SEARCH_ITERATION_STATES,
@@ -22,6 +21,7 @@ import {
   ACTIVE_SEARCH_STATES,
   SEARCH_STATES,
 } from '@replays/domain/value-objects/search-state';
+import { SEARCH_STOP_REASONS } from '@replays/domain/value-objects/search-stop-reason';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -45,13 +45,13 @@ export const replayCandidateKind = pgEnum(
   CANDIDATE_KINDS,
 );
 
-export const replayRunOutcome = pgEnum('replay_run_outcome', RUN_OUTCOMES);
+export const replayRunResult = pgEnum('replay_run_result', RUN_RESULTS);
 
 export const replaySearchState = pgEnum('replay_search_state', SEARCH_STATES);
 
-export const replaySearchEnding = pgEnum(
-  'replay_search_ending',
-  SEARCH_ENDINGS,
+export const replaySearchStopReason = pgEnum(
+  'replay_search_stop_reason',
+  SEARCH_STOP_REASONS,
 );
 
 export const replaySearchObjective = pgEnum(
@@ -64,9 +64,9 @@ export const replaySearchIterationState = pgEnum(
   SEARCH_ITERATION_STATES,
 );
 
-export const replaySearchReflectionOutcome = pgEnum(
-  'replay_search_reflection_outcome',
-  REFLECTION_OUTCOMES,
+export const replaySearchReflectionResult = pgEnum(
+  'replay_search_reflection_result',
+  REFLECTION_RESULTS,
 );
 
 export const replaySearchIterationKind = pgEnum(
@@ -106,9 +106,9 @@ export interface StoredEntryReason {
 export interface StoredEntryVerdict {
   readonly scale: string;
   readonly value: number;
-  readonly marks: readonly boolean[] | null;
+  readonly claimResults: readonly boolean[] | null;
   readonly claims: readonly string[];
-  readonly passShare: number;
+  readonly passThreshold: number;
   readonly model: string;
   readonly referenced: boolean;
   readonly reasons: readonly {
@@ -120,11 +120,11 @@ export interface StoredEntryVerdict {
 }
 
 export interface StoredEntryPairing {
-  readonly against: string;
+  readonly otherRunId: string;
   readonly verdict: {
     readonly outcome: string;
     readonly model: string;
-    readonly readings: readonly {
+    readonly passes: readonly {
       readonly ownShownFirst: boolean;
       readonly outcome: string;
       readonly reasons: readonly {
@@ -158,7 +158,7 @@ export interface StoredSplit {
 
 export interface StoredSearchReplay {
   readonly replayId: string;
-  readonly end: ReplayEnd | null;
+  readonly end: ReplayStopReason | null;
   readonly spent: number | null;
   readonly unpriced: number;
 }
@@ -176,8 +176,8 @@ export interface StoredReflectedTask {
   readonly replayRunId: string;
 }
 
-export interface StoredSearchCause extends StoredReflectedTask {
-  readonly cause: SearchCauseKind;
+export interface StoredFailureCause extends StoredReflectedTask {
+  readonly cause: FailureCauseKind;
   readonly evidence: string;
   readonly suggestion: string | null;
   readonly recordedAt: string;
@@ -197,7 +197,7 @@ export const replaySet = pgTable(
     lineId: text('line_id').notNull(),
     stationId: text('station_id').notNull(),
     name: text('name').notNull(),
-    guardsChanges: boolean('guards_changes').notNull().default(false),
+    gatesChanges: boolean('gates_changes').notNull().default(false),
     createdAt: timestamp('created_at').notNull(),
     stationGoneAt: timestamp('station_gone_at'),
     version: integer('version').notNull().default(0),
@@ -206,9 +206,9 @@ export const replaySet = pgTable(
     index('replay_set_station_idx').on(table.stationId),
     index('replay_set_team_idx').on(table.teamId),
     index('replay_set_line_idx').on(table.lineId),
-    uniqueIndex('replay_set_guards_changes_idx')
+    uniqueIndex('replay_set_gates_changes_idx')
       .on(table.stationId)
-      .where(sql`${table.guardsChanges}`),
+      .where(sql`${table.gatesChanges}`),
   ],
 );
 
@@ -240,13 +240,13 @@ export const replayCandidate = pgTable(
     kind: replayCandidateKind('kind').notNull(),
     station: jsonb('station').$type<Record<string, unknown>>().notNull(),
     fingerprint: text('fingerprint').notNull(),
-    behaviourDigest: text('behaviour_digest').notNull(),
-    scoringDigest: text('scoring_digest').notNull(),
+    behaviourHash: text('behaviour_hash').notNull(),
+    scoringHash: text('scoring_hash').notNull(),
     lineFields: jsonb('line_fields').$type<StoredPlannedLine>(),
     checksChanges: boolean('checks_changes').notNull(),
     rubric: text('rubric'),
     claims: jsonb('claims').$type<string[]>(),
-    passShare: doublePrecision('pass_share'),
+    passThreshold: doublePrecision('pass_threshold'),
     rubricVersion: text('rubric_version'),
     changedFrom: text('changed_from').notNull(),
     changes: jsonb('changes').$type<StoredStationChange[]>().notNull(),
@@ -284,19 +284,19 @@ export const replay = pgTable(
     judges: boolean('judges').notNull(),
     checked: boolean('checked').notNull(),
     rubricVersion: text('rubric_version'),
-    scoringDigest: text('scoring_digest').notNull(),
+    scoringHash: text('scoring_hash').notNull(),
     ceilingAmount: doublePrecision('ceiling_amount').notNull(),
     ceilingCurrency: text('ceiling_currency').notNull(),
     unpricedRate: doublePrecision('unpriced_rate'),
-    among: jsonb('among').$type<string[]>(),
+    runSubset: jsonb('run_subset').$type<string[]>(),
     answers:
       jsonb('answers').$type<
         { run: string; answer: 'accepted' | 'sent-back' }[]
       >(),
     repeats: integer('repeats').notNull(),
-    probe: boolean('probe').notNull().default(false),
-    comparedWith: text('compared_with'),
-    pairsWith: text('pairs_with'),
+    calibration: boolean('calibration').notNull().default(false),
+    referenceReplayId: text('reference_replay_id'),
+    pairwiseReferenceId: text('pairwise_reference_id'),
     searchId: text('search_id'),
     state: replayState('state').notNull(),
     startedAt: timestamp('started_at').notNull(),
@@ -310,7 +310,7 @@ export const replay = pgTable(
     index('replay_team_state_idx').on(table.teamId, table.state),
     index('replay_team_started_idx').on(table.teamId, table.startedAt),
     index('replay_search_idx').on(table.searchId),
-    index('replay_pairs_with_idx').on(table.pairsWith),
+    index('replay_pairwise_reference_idx').on(table.pairwiseReferenceId),
   ],
 );
 
@@ -330,7 +330,7 @@ export const replayEntry = pgTable(
     queueAttempts: integer('queue_attempts').notNull().default(0),
     unreplayableReason: text('unreplayable_reason'),
     notRun: boolean('not_run').notNull().default(false),
-    outcome: replayRunOutcome('outcome'),
+    result: replayRunResult('result'),
     failure: text('failure'),
     stopped: boolean('stopped'),
     asked: boolean('asked'),
@@ -347,7 +347,7 @@ export const replayEntry = pgTable(
     cacheReadTokens: bigint('cache_read_tokens', { mode: 'number' }),
     cacheWriteTokens: bigint('cache_write_tokens', { mode: 'number' }),
     checks: jsonb('checks').$type<StoredEntryChecks>(),
-    draftingSpent: jsonb('drafting_spent').$type<StoredModelSpent>(),
+    generationSpent: jsonb('generation_spent').$type<StoredModelSpent>(),
     judgingSpent: jsonb('judging_spent').$type<StoredModelSpent>(),
     judging: jsonb('judging').$type<StoredEntryJudging>(),
     succeeded: boolean('succeeded'),
@@ -395,7 +395,7 @@ export const replaySearch = pgTable(
       .notNull()
       .default(sql`'[]'::jsonb`),
     state: replaySearchState('state').notNull(),
-    ending: replaySearchEnding('ending'),
+    stopReason: replaySearchStopReason('stop_reason'),
     startedBy: text('started_by'),
     startedAt: timestamp('started_at').notNull(),
     endedAt: timestamp('ended_at'),
@@ -431,13 +431,13 @@ export const replaySearchIteration = pgTable(
     attempts: integer('attempts').notNull().default(0),
     agentSpent: jsonb('agent_spent').$type<StoredModelSpent>(),
     incumbent: text('incumbent'),
-    outcome: replaySearchReflectionOutcome('outcome'),
+    result: replaySearchReflectionResult('result'),
     reflectedOn: jsonb('reflected_on')
       .$type<StoredReflectedTask[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
     causes: jsonb('causes')
-      .$type<StoredSearchCause[]>()
+      .$type<StoredFailureCause[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
   },
@@ -532,8 +532,8 @@ export const configPullRequest = pgTable(
     errorAttribute: text('error_attribute'),
     errorExpression: text('error_expression'),
     errorWanted: jsonb('error_wanted').$type<WantedValue>(),
-    attempts: integer('attempts').notNull(),
-    tries: integer('tries').notNull(),
+    generation: integer('generation').notNull(),
+    retries: integer('retries').notNull(),
     lastCommit: text('last_commit'),
     dueAt: timestamp('due_at'),
     createdAt: timestamp('created_at').notNull(),

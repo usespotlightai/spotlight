@@ -150,7 +150,8 @@ export class RunConversationResponseDto {
   @ApiProperty({
     type: RunSpendResponseDto,
     nullable: true,
-    description: 'What the run spent, once it has ended and been digested',
+    description:
+      'What the run spent, once it has ended and its usage is recorded',
   })
   readonly spend: RunSpendResponseDto | null;
 

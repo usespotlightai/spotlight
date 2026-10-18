@@ -20,20 +20,20 @@ import type { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-r
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
-import {
-  rankedByGain,
-  shownAgainstLive,
-} from '@replays/domain/services/against-live';
 import { baselineOf } from '@replays/domain/services/baseline';
 import { frontierOf } from '@replays/domain/services/frontier';
-import { gainBetween } from '@replays/domain/services/gain-reading';
-import { comparedWith } from '@replays/domain/services/replay-results';
+import { gainBetween } from '@replays/domain/services/gain-estimate';
+import { taskComparisons } from '@replays/domain/services/replay-results';
 import {
   chartCurrencyOf,
-  chartedAs,
+  chartStatusOf,
 } from '@replays/domain/services/replayed-chart';
 import { scoredOn, scoresOf } from '@replays/domain/services/search-scores';
 import type { SetHealth } from '@replays/domain/services/set-health';
+import {
+  rankedByGain,
+  shownOverLive,
+} from '@replays/domain/services/shown-over-live';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
@@ -59,20 +59,20 @@ export interface SetStandard {
   readonly minGain: number;
 }
 
-type UnchartedSearch = Omit<ReplayedSearchDto, 'seed'> & {
-  readonly seed: Omit<ReplayedSeedDto, 'charted'>;
+type SearchWithoutChartStatus = Omit<ReplayedSearchDto, 'seed'> & {
+  readonly seed: Omit<ReplayedSeedDto, 'chartStatus'>;
 };
 
-type UnchartedCandidate = Omit<
+type CandidateWithoutChartStatus = Omit<
   ReplayedCandidateDto,
-  'charted' | 'shown' | 'search'
+  'chartStatus' | 'shown' | 'search'
 > & {
-  readonly search: UnchartedSearch | null;
+  readonly search: SearchWithoutChartStatus | null;
 };
 
 interface Placed {
   readonly setId: string;
-  readonly candidate: UnchartedCandidate;
+  readonly candidate: CandidateWithoutChartStatus;
 }
 
 const iso = (at: Date | null): string | null => at?.toISOString() ?? null;
@@ -132,7 +132,7 @@ const healthOf = (
 const baselineView = (
   baseline: Replay,
   candidates: readonly Candidate[],
-): Omit<ReplayedBaselineDto, 'charted'> => {
+): Omit<ReplayedBaselineDto, 'chartStatus'> => {
   const currency = baseline.ceiling.currency;
   const scored = scoredOn(baseline, null, currency);
 
@@ -151,7 +151,7 @@ const baselineView = (
   };
 };
 
-const againstBaseline = (
+const gainOverReference = (
   replay: Replay | null,
   baseline: Replay | null,
   minGain: number,
@@ -163,41 +163,35 @@ const againstBaseline = (
   | 'costPerRunOnCompared'
   | 'regressions'
   | 'compared'
-  | 'againstLive'
+  | 'gainOverLive'
 > => {
-  const against =
+  const live =
     replay && baseline && !baseline.id.equals(replay.id) ? baseline : null;
-  const compared = (
-    replay && against ? comparedWith(replay, against) : []
-  ).filter((each) => each.baseline.length > 0);
+  const compared = (replay && live ? taskComparisons(replay, live) : []).filter(
+    (each) => each.baseline.length > 0,
+  );
   const shared = compared.map((each) => RunId.of(each.original));
-  const live = against
-    ? scoredOn(against, shared, against.ceiling.currency)
-    : null;
+  const theirs = live ? scoredOn(live, shared, live.ceiling.currency) : null;
   const ours =
-    replay && against
-      ? scoredOn(replay, shared, replay.ceiling.currency)
-      : null;
+    replay && live ? scoredOn(replay, shared, replay.ceiling.currency) : null;
 
   return {
     live:
-      against && live
+      live && theirs
         ? {
-            successRate: live.score,
-            interval: intervalView(live.interval),
-            costPerRun: live.costPerRun,
-            currency: against.ceiling.currency,
+            successRate: theirs.score,
+            interval: intervalView(theirs.interval),
+            costPerRun: theirs.costPerRun,
+            currency: live.ceiling.currency,
           }
         : null,
     successRateOnCompared: ours?.score ?? null,
     intervalOnCompared: intervalView(ours?.interval ?? null),
     costPerRunOnCompared: ours?.costPerRun ?? null,
-    regressions: against
-      ? compared.filter((each) => each.regressed).length
-      : null,
+    regressions: live ? compared.filter((each) => each.regressed).length : null,
     compared: compared.length,
-    againstLive: gainView(
-      replay && against && gainBetween(replay, against, minGain, shared),
+    gainOverLive: gainView(
+      replay && live && gainBetween(replay, live, minGain, shared),
     ),
   };
 };
@@ -215,7 +209,7 @@ const searchedOf = (
   pullRequests: readonly ConfigPullRequest[],
   baseline: Replay | null,
   minGain: number,
-): readonly UnchartedCandidate[] => {
+): readonly CandidateWithoutChartStatus[] => {
   const scores = scoresOf(search, searchReplays, minGain);
   const frontier = frontierOf(
     [scores.seed, ...scores.candidates],
@@ -273,7 +267,7 @@ const searchedOf = (
           : null,
         costPerRun: each.costPerRun,
         currency,
-        ...againstBaseline(replay, baseline, minGain),
+        ...gainOverReference(replay, baseline, minGain),
         onFrontier: frontier.some((one) =>
           one.candidateId.equals(each.candidateId),
         ),
@@ -290,7 +284,7 @@ const searchedOf = (
           },
         },
         pullRequest: pullRequestOf(each.candidateId),
-      } satisfies UnchartedCandidate,
+      } satisfies CandidateWithoutChartStatus,
     ];
   });
 };
@@ -300,7 +294,7 @@ const proposedOf = (
   candidate: Candidate,
   baseline: Replay | null,
   minGain: number,
-): UnchartedCandidate => {
+): CandidateWithoutChartStatus => {
   const currency = replay.ceiling.currency;
   const scored = scoredOn(replay, null, currency);
 
@@ -322,15 +316,15 @@ const proposedOf = (
     heldOut: null,
     costPerRun: scored.costPerRun,
     currency,
-    ...againstBaseline(replay, baseline, minGain),
+    ...gainOverReference(replay, baseline, minGain),
     onFrontier: null,
     search: null,
     pullRequest: null,
   };
 };
 
-const chartedCandidate = (
-  candidate: UnchartedCandidate,
+const withChartStatus = (
+  candidate: CandidateWithoutChartStatus,
   chartCurrency: string | null,
 ): ReplayedCandidateDto => {
   const { search } = candidate;
@@ -341,7 +335,7 @@ const chartedCandidate = (
       ...search,
       seed: {
         ...search.seed,
-        charted: chartedAs(
+        chartStatus: chartStatusOf(
           {
             finished: true,
             success: search.seed.successRate,
@@ -352,7 +346,7 @@ const chartedCandidate = (
         ),
       },
     },
-    charted: chartedAs(
+    chartStatus: chartStatusOf(
       {
         finished: candidate.replayState === 'finished',
         success: candidate.successRate,
@@ -361,7 +355,7 @@ const chartedCandidate = (
       },
       chartCurrency,
     ),
-    shown: shownAgainstLive({
+    shown: shownOverLive({
       overall: {
         successRate: candidate.successRate,
         interval: candidate.interval,
@@ -380,9 +374,9 @@ const chartedCandidate = (
   };
 };
 
-const chartedSet = (
-  baseline: Omit<ReplayedBaselineDto, 'charted'> | null,
-  placed: readonly UnchartedCandidate[],
+const setWithChartStatus = (
+  baseline: Omit<ReplayedBaselineDto, 'chartStatus'> | null,
+  placed: readonly CandidateWithoutChartStatus[],
 ): Pick<ReplayedSetDto, 'baseline' | 'chartCurrency' | 'candidates'> => {
   const newest = [...placed].sort((one, other) =>
     newestFirst(one.replayedAt, other.replayedAt),
@@ -395,7 +389,7 @@ const chartedSet = (
   return {
     baseline: baseline && {
       ...baseline,
-      charted: chartedAs(
+      chartStatus: chartStatusOf(
         {
           finished: baseline.state === 'finished',
           success: baseline.successRate,
@@ -407,8 +401,8 @@ const chartedSet = (
     },
     chartCurrency,
     candidates: rankedByGain(
-      newest.map((each) => chartedCandidate(each, chartCurrency)),
-      (each) => each.againstLive?.gain ?? null,
+      newest.map((each) => withChartStatus(each, chartCurrency)),
+      (each) => each.gainOverLive?.gain ?? null,
     ),
   };
 };
@@ -512,9 +506,9 @@ export const replayedCandidatesView = (
               setId: set.id.value,
               name: set.name.value,
               stationGone: set.isAtGoneStation,
-              guardsChanges: set.guardsChanges,
+              gatesChanges: set.gatesChanges,
               health: healthOf(set, seen.summaries, standardOf(set.id.value)),
-              ...chartedSet(
+              ...setWithChartStatus(
                 baseline ? baselineView(baseline, seen.candidates) : null,
                 placed.map((each) => each.candidate),
               ),

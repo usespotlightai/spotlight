@@ -187,7 +187,7 @@ describe('DispatchSearch', () => {
       search: {},
     });
     expect(run?.briefedWith.briefed).toEqual([]);
-    expect(run?.briefedWith.cut).toEqual([]);
+    expect(run?.briefedWith.omitted).toEqual([]);
   });
 
   it('runs the harness, model and effort the search was started with', async () => {

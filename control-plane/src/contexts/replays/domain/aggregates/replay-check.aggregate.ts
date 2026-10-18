@@ -8,7 +8,7 @@ import {
   SCORING_FIELDS,
   type ScoringField,
 } from '@replays/domain/services/live-scoring';
-import type { CheckVerdict } from '@replays/domain/services/replay-check-verdict';
+import type { CheckResult } from '@replays/domain/services/replay-check-result';
 import type { BaselineStatus } from '@replays/domain/value-objects/baseline-status';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
@@ -20,8 +20,8 @@ import {
 } from '@replays/domain/value-objects/replay-repeats';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
-import type { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import type { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -40,8 +40,8 @@ interface State {
   readonly reference: PlannedReference;
   readonly liveFingerprint: StationFingerprint;
   readonly candidateFingerprint: StationFingerprint;
-  readonly liveDigests: StationDigests;
-  readonly candidateDigests: StationDigests;
+  readonly liveHashes: StationHashes;
+  readonly candidateHashes: StationHashes;
   readonly threshold: ReplayThreshold;
   readonly repeats: number;
   readonly scoringPinnedToLive: readonly ScoringField[];
@@ -49,7 +49,7 @@ interface State {
   readonly createdAt: Date;
 }
 
-const REUSABLE: readonly CheckVerdict[] = ['running', 'passed', 'failed'];
+const REUSABLE: readonly CheckResult[] = ['running', 'passed', 'failed'];
 
 const inScoringOrder = (fields: readonly ScoringField[]): ScoringField[] =>
   SCORING_FIELDS.filter((field) => fields.includes(field));
@@ -68,7 +68,7 @@ export class ReplayCheck extends EventRecorder {
     const { by, ...rest } = input;
     const state: State = { ...rest, baseline: 'awaiting' };
 
-    if (state.candidateDigests.runsAs(state.liveDigests)) {
+    if (state.candidateHashes.runsAs(state.liveHashes)) {
       throw new InvalidReplayCheckError(
         'must check a planned change, not the live config',
       );
@@ -161,12 +161,12 @@ export class ReplayCheck extends EventRecorder {
     return this.state.candidateFingerprint;
   }
 
-  get liveDigests(): StationDigests {
-    return this.state.liveDigests;
+  get liveHashes(): StationHashes {
+    return this.state.liveHashes;
   }
 
-  get candidateDigests(): StationDigests {
-    return this.state.candidateDigests;
+  get candidateHashes(): StationHashes {
+    return this.state.candidateHashes;
   }
 
   get threshold(): ReplayThreshold {
@@ -212,14 +212,14 @@ export class ReplayCheck extends EventRecorder {
     setEntries: string,
     threshold: ReplayThreshold,
     repeats: number,
-    verdict: CheckVerdict,
+    result: CheckResult,
   ): boolean {
     return (
       set.id.equals(this.state.setId) &&
       setEntries === this.state.setEntries &&
       threshold.equals(this.state.threshold) &&
       repeats === this.state.repeats &&
-      REUSABLE.includes(verdict)
+      REUSABLE.includes(result)
     );
   }
 

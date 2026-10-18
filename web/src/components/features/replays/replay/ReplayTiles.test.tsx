@@ -29,18 +29,18 @@ const detail = (over: Partial<ReplayDetail>): ReplayDetail =>
       unpriced: 0,
       unpricedCalls: 0,
     },
-    againstBaseline: {
+    gainOverReference: {
       gain: 0.25,
       low: 0.05,
       high: 0.45,
-      verdict: 'better',
+      significance: 'better',
       minGain: 0.05,
       tasks: 4,
     },
-    comparedWith: { replayId: 'baseline', successRate: 0.5, interval: null },
+    referenceReplay: { replayId: 'baseline', successRate: 0.5, interval: null },
     baselineReplayId: 'baseline',
-    pairedWith: null,
-    pairsAgainstBaseline: null,
+    pairwiseReference: null,
+    referencePairs: null,
     entries: [],
     ...over,
   }) as ReplayDetail;
@@ -68,7 +68,11 @@ describe('ReplayTiles', () => {
             station: {},
             createdAt: '2026-10-01T09:00:00.000Z',
           },
-          comparedWith: { replayId: 'live', successRate: 0.25, interval: null },
+          referenceReplay: {
+            replayId: 'live',
+            successRate: 0.25,
+            interval: null,
+          },
         })}
       />,
     );
@@ -77,11 +81,11 @@ describe('ReplayTiles', () => {
     expect(gainTile()).not.toHaveTextContent('baseline');
   });
 
-  it('shows no rate for a counterpart that has scored nothing yet', () => {
+  it('shows no rate for a reference that has scored nothing yet', () => {
     render(
       <ReplayTiles
         replay={detail({
-          comparedWith: {
+          referenceReplay: {
             replayId: 'baseline',
             successRate: null,
             interval: null,

@@ -1,5 +1,5 @@
 import { ReplayStatePill } from '@/components/features/replays/ReplayStatePill';
-import { SuccessAgainstBaseline } from '@/components/features/replays/SuccessAgainstBaseline';
+import { SuccessOverReference } from '@/components/features/replays/SuccessOverReference';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import {
   Tooltip,
@@ -61,7 +61,7 @@ export function LatestReplay({ teamId, setId, className }: LatestReplayProps) {
           <span className="text-foreground">
             {formatCandidate(latest.candidate)}
           </span>
-          <SuccessAgainstBaseline
+          <SuccessOverReference
             replay={latest}
             baselineId={baselineIn(all)?.id ?? null}
           />

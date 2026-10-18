@@ -38,7 +38,6 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { BINDABLE_TASK_EVENTS } from '@work/application/contracts/bindable-task-events.contract';
 import type { CancelDetachedRun } from '@work/application/events/handlers/cancel-detached-run.handler';
 import type { DeleteTeamLines } from '@work/application/events/handlers/delete-team-lines.handler';
-import type { DigestRun } from '@work/application/events/handlers/digest-run.handler';
 import type { EnqueueChatRun } from '@work/application/events/handlers/enqueue-chat-run.handler';
 import type { EnqueueTaskRun } from '@work/application/events/handlers/enqueue-task-run.handler';
 import type { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
@@ -47,6 +46,7 @@ import {
   PROVISION_TEAM,
   type ProvisionTeam,
 } from '@work/application/events/handlers/provision-team.handler';
+import type { RecordRunUsage } from '@work/application/events/handlers/record-run-usage.handler';
 import type { ConnectionsMade } from '@work/application/services/connections-made.service';
 import type { Notices } from '@work/application/services/notices.service';
 import type { PauseMarks } from '@work/application/services/pause-marks.service';
@@ -110,7 +110,7 @@ export const workSubscribers = (reactions: {
   pausedRuns: PausedRuns;
   pauseMarks: PauseMarks;
   chatOutcomes: RunOutcomes;
-  digests: DigestRun;
+  usages: RecordRunUsage;
   provisioning: ProvisionTeam;
   acceptances: ProposalAcceptances;
   outsideTools: NotifyOutsideTools;
@@ -210,14 +210,14 @@ export const workSubscribers = (reactions: {
   ...reactingToOutcomes('work.hand-over', reactions.handOver),
   ...reactingToOutcomes('work.chat-outcomes', reactions.chatOutcomes),
   subscribing<RunCompleted>(
-    'work.digest-run.completed',
+    'work.record-run-usage.completed',
     ['run.completed'],
-    (event) => reactions.digests.onRunCompleted(event),
+    (event) => reactions.usages.onRunCompleted(event),
   ),
   subscribing<RunExhausted>(
-    'work.digest-run.exhausted',
+    'work.record-run-usage.exhausted',
     ['run.exhausted'],
-    (event) => reactions.digests.onRunExhausted(event),
+    (event) => reactions.usages.onRunExhausted(event),
   ),
   subscribing<TeamCreatedIntegrationEvent>(
     PROVISION_TEAM,

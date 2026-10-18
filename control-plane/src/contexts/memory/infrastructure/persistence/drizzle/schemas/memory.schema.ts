@@ -1,7 +1,7 @@
 import { MEMORY_PROPOSAL_STATES } from '@memory/domain/entities/memory-proposal.entity';
 import { MEMORY_DRAFTING_FAILURES } from '@memory/domain/value-objects/memory-drafting-failure.vo';
 import { MEMORY_KINDS } from '@memory/domain/value-objects/memory-kind';
-import { MEMORY_ORIGINS } from '@memory/domain/value-objects/memory-origin';
+import { MEMORY_PROPOSERS } from '@memory/domain/value-objects/memory-proposer';
 import { MEMORY_SOURCES } from '@memory/domain/value-objects/memory-source';
 import { MEMORY_STATUSES } from '@memory/domain/value-objects/memory-status';
 import { MEMORY_USES } from '@memory/domain/value-objects/memory-use';
@@ -27,8 +27,8 @@ const FAILURE_CODES = Object.keys(MEMORY_DRAFTING_FAILURES) as [
 export const memoryKind = pgEnum('memory_kind', MEMORY_KINDS);
 export const memorySource = pgEnum('memory_source', MEMORY_SOURCES);
 export const memoryStatus = pgEnum('memory_status', MEMORY_STATUSES);
-export const memoryOrigin = pgEnum('memory_origin', MEMORY_ORIGINS);
-export const memoryUseWay = pgEnum('memory_use_way', MEMORY_USES);
+export const memoryProposer = pgEnum('memory_proposer', MEMORY_PROPOSERS);
+export const memoryUseVia = pgEnum('memory_use_via', MEMORY_USES);
 export const memoryProposalState = pgEnum(
   'memory_proposal_state',
   MEMORY_PROPOSAL_STATES,
@@ -80,7 +80,7 @@ export const memoryProposal = pgTable(
     steps: jsonb('steps').$type<number[]>().notNull(),
     notes: jsonb('notes').$type<number[]>().notNull(),
     source: memorySource('source').notNull(),
-    origin: memoryOrigin('origin').notNull(),
+    proposedBy: memoryProposer('proposed_by').notNull(),
     supersedes: text('supersedes'),
     recordedAt: timestamp('recorded_at').notNull(),
     state: memoryProposalState('state').notNull().default('proposed'),
@@ -148,11 +148,11 @@ export const memoryUse = pgTable(
       .notNull()
       .references(() => memory.id, { onDelete: 'cascade' }),
     runId: text('run_id').notNull(),
-    way: memoryUseWay('way').notNull(),
+    via: memoryUseVia('via').notNull(),
     at: timestamp('at').notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.memoryId, table.runId, table.way] }),
+    primaryKey({ columns: [table.memoryId, table.runId, table.via] }),
     index('memory_use_run_idx').on(table.runId, table.at),
   ],
 );

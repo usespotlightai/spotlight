@@ -3,16 +3,16 @@ import type {
   SearchBudgetInput,
 } from '@replays/application/commands/start-search.command';
 import type { WorkPort } from '@replays/application/ports/work.port';
+import { InvalidMoneyError } from '@replays/domain/exceptions/invalid-money.error';
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
-import { InvalidSpendError } from '@replays/domain/exceptions/invalid-spend.error';
 import { SearchSetTooSmallError } from '@replays/domain/exceptions/search-set-too-small.error';
 import type { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import {
-  type SearchAllotment,
   SearchBudget,
+  type SearchCeilingSplit,
 } from '@replays/domain/value-objects/search-budget.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
@@ -39,7 +39,7 @@ const problemsOf = (
   } catch (error) {
     if (
       error instanceof InvalidSearchError ||
-      error instanceof InvalidSpendError
+      error instanceof InvalidMoneyError
     ) {
       return [problemAt(path, error.message)];
     }
@@ -55,7 +55,7 @@ const reject = (problems: readonly ConfigurationProblem[]): void => {
 
 const ANY_HARNESS = 'any';
 
-const ANY_CEILING = Spend.ceiling(1, 'USD');
+const ANY_CEILING = Money.ceiling(1, 'USD');
 
 export const searchAgentOf = (
   input: SearchAgentInput,
@@ -111,7 +111,7 @@ export const searchBudgetOf = (input: SearchBudgetInput): SearchBudget => {
         : { repeats: over.repeats }),
     });
   const currency = problemsOf(
-    () => Spend.none(input.ceiling.currency),
+    () => Money.none(input.ceiling.currency),
     ['budget', 'ceiling', 'currency'],
   );
 
@@ -120,7 +120,7 @@ export const searchBudgetOf = (input: SearchBudgetInput): SearchBudget => {
     ...(currency.length > 0
       ? []
       : problemsOf(
-          () => Spend.ceiling(input.ceiling.amount, input.ceiling.currency),
+          () => Money.ceiling(input.ceiling.amount, input.ceiling.currency),
           ['budget', 'ceiling', 'amount'],
         )),
     ...problemsOf(counts({ iterations: input.iterations }), [
@@ -141,7 +141,7 @@ export const searchBudgetOf = (input: SearchBudgetInput): SearchBudget => {
   return SearchBudget.of({
     iterations: input.iterations,
     perIteration: input.perIteration,
-    ceiling: Spend.ceiling(input.ceiling.amount, input.ceiling.currency),
+    ceiling: Money.ceiling(input.ceiling.amount, input.ceiling.currency),
     ...(input.concurrency === null ? {} : { concurrency: input.concurrency }),
     ...(input.repeats === null ? {} : { repeats: input.repeats }),
   });
@@ -158,12 +158,12 @@ export const splitOf = (drawn: () => HeldOutSplit): HeldOutSplit => {
   }
 };
 
-export const allotmentOf = (
+export const ceilingSplitOf = (
   budget: SearchBudget,
   split: HeldOutSplit,
-): SearchAllotment => {
+): SearchCeilingSplit => {
   try {
-    return budget.allot(split);
+    return budget.splitCeiling(split);
   } catch (error) {
     if (error instanceof InvalidSearchError) {
       throw new InvalidSearchTermsError([

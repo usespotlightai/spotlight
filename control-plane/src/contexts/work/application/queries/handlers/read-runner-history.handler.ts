@@ -5,21 +5,21 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunJournal } from '@work/application/contracts/run-journal.contract';
 import type {
   HistoryCandidateDto,
-  HistoryCost,
   HistoryOutcome,
   HistoryRunDto,
+  HistoryUsage,
   RunnerHistoryAnswer,
 } from '@work/application/dto/runner-history.dto';
 import { TaskTraceMapper } from '@work/application/mappers/task-trace.mapper';
 import type { RunConnectionsPort } from '@work/application/ports/run-connections.port';
 import type {
-  RunDigest,
-  RunDigestReaderPort,
-} from '@work/application/ports/run-digest-reader.port';
-import type {
   RunOutcomeShape,
   RunOutcomesPort,
 } from '@work/application/ports/run-outcomes.port';
+import type {
+  RunUsage,
+  RunUsageReaderPort,
+} from '@work/application/ports/run-usage-reader.port';
 import type {
   LeasedRunFacts,
   RunnerTraceReaderPort,
@@ -52,20 +52,21 @@ const sinceOf = (written: string | null): Date | null => {
   return Number.isNaN(at.getTime()) ? null : at;
 };
 
-const costOf = (digest: RunDigest | null): HistoryCost | null =>
-  digest && {
-    ms: digest.ms,
-    steps: digest.steps,
-    faults: digest.faults,
-    used: digest.used,
-    cost: digest.cost?.amount ?? null,
-    currency: digest.cost?.currency ?? null,
+const historyUsageOf = (usage: RunUsage | null): HistoryUsage | null =>
+  usage && {
+    ms: usage.ms,
+    steps: usage.steps,
+    errors: usage.errors,
+    contextTokens: usage.contextTokens,
+    cost: usage.cost?.amount ?? null,
+    currency: usage.cost?.currency ?? null,
   };
 
-const withCost = (
+const withUsage = (
   outcome: RunOutcomeShape | null,
-  digest: RunDigest | null,
-): HistoryOutcome | null => outcome && { ...outcome, cost: costOf(digest) };
+  usage: RunUsage | null,
+): HistoryOutcome | null =>
+  outcome && { ...outcome, usage: historyUsageOf(usage) };
 
 type Outcomes = Awaited<ReturnType<RunOutcomesPort['of']>>;
 
@@ -90,7 +91,7 @@ export class ReadRunnerHistoryHandler
     private readonly traces: RunnerTraceReaderPort,
     private readonly stations: StationRunReaderPort,
     private readonly outcomes: RunOutcomesPort,
-    private readonly digests: RunDigestReaderPort,
+    private readonly usages: RunUsageReaderPort,
     private readonly sights: SearchSightPort,
     private readonly connections: RunConnectionsPort,
   ) {}
@@ -135,7 +136,7 @@ export class ReadRunnerHistoryHandler
           since: sinceOf(wanted.since),
           until: leased.replaysFrom,
           max: wanted.outcome ? HISTORY_RUNS.matched : last,
-          excluding: sighted.hiddenTasks,
+          excluding: sighted.heldOutTasks,
         })
       ).filter((each) => !sighted.hides(each));
       const outcomes = await this.outcomes.of(
@@ -223,9 +224,9 @@ export class ReadRunnerHistoryHandler
         sightedRuns.map(([runId]) => runId),
       )
     ).filter((each) => !sighted.hides(each));
-    const [written, digests] = await Promise.all([
+    const [written, usages] = await Promise.all([
       this.written(rows, station.stationName),
-      this.digests.forRuns(rows.map((each) => RunId.of(each.runId))),
+      this.usages.forRuns(rows.map((each) => RunId.of(each.runId))),
     ]);
     const writtenRuns = new Map(written.map((each) => [each.runId, each]));
 
@@ -243,7 +244,7 @@ export class ReadRunnerHistoryHandler
                 ...ran,
                 original: run.original,
                 repeat: run.repeat,
-                cost: costOf(digests.get(run.runId) ?? null),
+                usage: historyUsageOf(usages.get(run.runId) ?? null),
                 succeeded: run.succeeded,
                 reasons: [...run.reasons],
                 verdict: run.verdict,
@@ -259,16 +260,16 @@ export class ReadRunnerHistoryHandler
     station: string,
     outcomes: Outcomes,
   ): Promise<readonly HistoryRunDto[]> {
-    const [written, digests] = await Promise.all([
+    const [written, usages] = await Promise.all([
       this.written(runs, station),
-      this.digests.forRuns(runs.map((each) => RunId.of(each.runId))),
+      this.usages.forRuns(runs.map((each) => RunId.of(each.runId))),
     ]);
 
     return written.map((each) => ({
       ...each,
-      outcome: withCost(
+      outcome: withUsage(
         outcomes.get(each.runId) ?? null,
-        digests.get(each.runId) ?? null,
+        usages.get(each.runId) ?? null,
       ),
     }));
   }

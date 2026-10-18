@@ -7,7 +7,7 @@ import { lastedOrNone } from '@/lib/insights';
 import {
   type FlowStage,
   formatPart,
-  STATION_PARTS,
+  STATION_STAGES,
 } from '@/lib/insights-shipping';
 import { cn } from '@/lib/utils';
 
@@ -50,7 +50,7 @@ export function PipelineStageLabel({
           </TooltipTrigger>
           <TooltipContent className="flex flex-col gap-0.5 text-xs">
             <span className="text-foreground">{stage.label}</span>
-            {STATION_PARTS.map((part) => (
+            {STATION_STAGES.map((part) => (
               <span key={part} className="text-muted-foreground">
                 {formatPart(part)}{' '}
                 <span className="font-mono">{lastedOrNone(parts[part])}</span>

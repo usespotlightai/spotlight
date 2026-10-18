@@ -29,7 +29,7 @@ type plannedStation struct {
 	Resource  string
 	LineID    string
 	TeamID    string
-	Address   string
+	Path      string
 	Key       string
 	Block     map[string]any
 	Line      map[string]any
@@ -292,7 +292,7 @@ func (p *planned) add(change resourceChange, catalog []catalogChange) {
 				p.Stations = append(p.Stations, plannedStation{
 					Resource:  change.Address,
 					TeamID:    teamID,
-					Address:   stationAddress(address, change.Address, key),
+					Path:      stationPath(address, change.Address, key),
 					Key:       key,
 					Undecided: true,
 					Because:   fmt.Sprintf("not checked, since the plan removes %s and adds this station, which may be a station renamed; a renamed station starts with no live config to check it against", strings.Join(removed, ", ")),
@@ -325,7 +325,7 @@ func (p *planned) add(change resourceChange, catalog []catalogChange) {
 			Resource: change.Address,
 			LineID:   lineID,
 			TeamID:   teamID,
-			Address:  stationAddress(address, change.Address, key),
+			Path:     stationPath(address, change.Address, key),
 			Key:      key,
 			Block:    current.block(),
 		}
@@ -365,7 +365,7 @@ func (p *planned) replaced(change resourceChange) {
 		p.Stations = append(p.Stations, plannedStation{
 			Resource:  change.Address,
 			TeamID:    teamID,
-			Address:   stationAddress(address, change.Address, key),
+			Path:      stationPath(address, change.Address, key),
 			Key:       key,
 			Undecided: true,
 			Because:   "not checked, since the plan replaces its line, so it starts with no live config to check it against",
@@ -377,9 +377,9 @@ func (p *planned) note(format string, args ...any) {
 	p.Notes = append(p.Notes, fmt.Sprintf(format, args...))
 }
 
-func stationAddress(lineAddress, resource, key string) string {
-	if lineAddress != "" {
-		return lineAddress + "/" + key
+func stationPath(linePath, resource, key string) string {
+	if linePath != "" {
+		return linePath + "/" + key
 	}
 
 	return resource + "/" + key
@@ -486,9 +486,9 @@ func (s stationState) block() map[string]any {
 
 	if judge, ok := s.known("judge").(map[string]any); ok {
 		written := map[string]any{}
-		for _, name := range []string{"rubric", "sample", "trust"} {
+		for name, key := range map[string]string{"rubric": "rubric", "sample": "sample", "min_agreement": "minAgreement"} {
 			if value := judge[name]; value != nil {
-				written[name] = value
+				written[key] = value
 			}
 		}
 		sent["judge"] = written

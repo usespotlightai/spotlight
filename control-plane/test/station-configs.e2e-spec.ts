@@ -65,7 +65,7 @@ const PARTS: StationConfigParts = {
   profile: { key: 'careful', settings: { rules: [], native: {} } },
   image: null,
   repositories: [{ name: 'api', setup: 'npm ci' }],
-  skills: [{ key: 'handing-over', digest: 'd'.repeat(64) }],
+  skills: [{ key: 'handing-over', hash: 'd'.repeat(64) }],
   tools: [],
   decisions: false,
   memories: true,
@@ -168,7 +168,7 @@ describe('the station config a run ran with', () => {
     });
   });
 
-  it('tells the states of the task’s earlier runs at the station, to count its rounds by', async () => {
+  it('tells the states of the task’s earlier runs at the station, to count its visits by', async () => {
     const { stationId } = await lineOf('team_9');
     const first = await ran(stationId, {
       at: new Date('2026-09-01T00:00:00Z'),

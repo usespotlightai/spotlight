@@ -433,7 +433,7 @@ describe('deciding an approval', () => {
       .pullEvents()
       .find((each): each is TaskActedOn => each instanceof TaskActedOn);
 
-    expect(acted?.act).toBe('answered');
+    expect(acted?.action).toBe('answered');
     expect(acted?.tool).toBeNull();
   });
 
@@ -448,10 +448,10 @@ describe('deciding an approval', () => {
     };
 
     expect(decidedAs('granted')).toMatchObject({
-      act: 'approved',
+      action: 'approved',
     });
     expect(decidedAs('refused')).toMatchObject({
-      act: 'refused',
+      action: 'refused',
     });
   });
 

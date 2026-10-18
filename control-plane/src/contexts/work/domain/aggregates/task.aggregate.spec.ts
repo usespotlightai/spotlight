@@ -93,7 +93,7 @@ const actsOf = (task: Task) =>
     .pullEvents()
     .filter((each): each is TaskActedOn => each instanceof TaskActedOn)
     .map((each) => ({
-      act: each.act,
+      action: each.action,
       by: each.by.value,
       after: each.after?.value ?? null,
     }));
@@ -666,7 +666,7 @@ describe('Task, what it is doing', () => {
         .receiveMessage(RUN, aloud, here);
 
       expect(actsOf(received)).toEqual([
-        { act: 'sent-back', by: 'user_1', after: 'run_1' },
+        { action: 'sent-back', by: 'user_1', after: 'run_1' },
       ]);
     });
 
@@ -676,7 +676,7 @@ describe('Task, what it is doing', () => {
         .receiveMessage(RUN, aloud, here);
 
       expect(actsOf(received)).toEqual([
-        { act: 'answered', by: 'user_1', after: null },
+        { action: 'answered', by: 'user_1', after: null },
       ]);
     });
 
@@ -1280,13 +1280,13 @@ describe('Task, what it is doing', () => {
 
     it('tells whether a person started, parked or closed it', () => {
       expect(actsOf(moved(BACKLOG, HERE))).toEqual([
-        { act: 'started', by: 'user_2', after: null },
+        { action: 'started', by: 'user_2', after: null },
       ]);
       expect(actsOf(moved(HERE, BACKLOG))).toEqual([
-        { act: 'parked', by: 'user_2', after: null },
+        { action: 'parked', by: 'user_2', after: null },
       ]);
       expect(actsOf(moved(HERE, COMPLETED))).toEqual([
-        { act: 'closed', by: 'user_2', after: null },
+        { action: 'accepted', by: 'user_2', after: null },
       ]);
     });
 
@@ -1305,7 +1305,7 @@ describe('Task, what it is doing', () => {
         actsOf(
           reopened.moveTo(LINE, COMPLETED, TaskRank.of('m'), newNote, hand),
         ),
-      ).toEqual([{ act: 'closed', by: 'user_2', after: 'run_1' }]);
+      ).toEqual([{ action: 'accepted', by: 'user_2', after: 'run_1' }]);
     });
 
     it('tells nothing a person did when a reaction moves it', () => {

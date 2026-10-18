@@ -18,7 +18,11 @@ describe('scoredLive', () => {
         name: 'Build',
         prompt: 'Build it carefully.',
         check: 'true',
-        judge: { rubric: 'scores: yes-no\nAll good?', sample: 1, trust: 0 },
+        judge: {
+          rubric: 'scores: yes-no\nAll good?',
+          sample: 1,
+          minAgreement: 0,
+        },
         diffs: false,
       },
       LIVE,
@@ -58,7 +62,7 @@ describe('scoredLive', () => {
     });
   });
 
-  it('leaves what is not a station block for examining to reject', () => {
+  it('leaves what is not a station block for validation to reject', () => {
     expect(scoredLive('nonsense', LIVE)).toEqual({
       block: 'nonsense',
       scoringPinnedToLive: [],

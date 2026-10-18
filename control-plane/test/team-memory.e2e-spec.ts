@@ -272,7 +272,7 @@ describe('the team’s memory', () => {
     const memory = (
       await writing({ kind: 'environment', body: 'CI has no network.' })
     ).body as MemoryBody;
-    const site = {
+    const runContext = {
       teamId: TeamId.of(team.teamId.value),
       lineId: LINE,
       stationId: STATION,
@@ -280,8 +280,8 @@ describe('the team’s memory', () => {
     };
     const repository = app.get(DrizzleMemoryRepository);
     const applying = async () =>
-      (await repository.mayApplyAt(site))
-        .filter((each) => each.appliesAt(site))
+      (await repository.mayApplyAt(runContext))
+        .filter((each) => each.appliesAt(runContext))
         .map((each) => each.id.value);
 
     expect(await applying()).toContain(memory.id);

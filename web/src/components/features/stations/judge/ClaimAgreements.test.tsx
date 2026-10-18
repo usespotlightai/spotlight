@@ -7,7 +7,7 @@ describe('ClaimAgreements', () => {
     render(
       <ClaimAgreements
         claims={['Leaves the tests passing']}
-        trust={0.6}
+        minAgreement={0.6}
         agreements={[
           {
             index: 0,

@@ -43,7 +43,7 @@ export function SearchEstimateSummary({
       </div>
     );
   } else {
-    const { runs, perReplayAllotments: allotted } = estimate;
+    const { runs, perReplayLimits: allotted } = estimate;
 
     body = (
       <dl className="flex flex-col gap-1 text-xs">
@@ -55,7 +55,7 @@ export function SearchEstimateSummary({
           </dd>
         </div>
         <div className={ROW}>
-          <dt className="text-muted-foreground">Copies</dt>
+          <dt className="text-muted-foreground">Repeats</dt>
           <dd className="text-foreground">{formatRepeats(repeats)}</dd>
         </div>
         <div className={ROW}>

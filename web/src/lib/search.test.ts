@@ -33,7 +33,7 @@ const setOf = (tasks: number, over: Partial<ReplaySet> = {}): ReplaySet => ({
   name: 'Queue fixes',
   createdAt: '2026-10-01T09:00:00.000Z',
   stationGone: false,
-  guardsChanges: false,
+  gatesChanges: false,
   health: {
     noise: null,
     saturation: null,
@@ -74,7 +74,7 @@ const setOf = (tasks: number, over: Partial<ReplaySet> = {}): ReplaySet => ({
 const candidate = (over: Partial<SearchCandidate>): SearchCandidate => ({
   candidateId: 'c',
   name: 'shorter',
-  seed: false,
+  isSeed: false,
   iteration: 1,
   hypothesis: null,
   fingerprint: null,
@@ -95,7 +95,7 @@ const candidate = (over: Partial<SearchCandidate>): SearchCandidate => ({
   costPerRun: 0.5,
   spent: { amount: 2, currency: 'USD' },
   onFrontier: false,
-  onlyOnSeenTasks: null,
+  overfit: null,
   pullRequest: null,
   ...over,
 });
@@ -128,7 +128,7 @@ describe('search', () => {
 
   it('says why a search cannot start while a search is under way or no set is big enough', () => {
     expect(startProblem([setOf(6)], { state: 'searching' } as Search)).toBe(
-      'A search of this station is underway.',
+      'A search of this station is in progress.',
     );
     expect(startProblem([], null)).toBe('Create a replay set first.');
     expect(startProblem([setOf(2)], null)).toBe(
@@ -211,11 +211,11 @@ describe('search', () => {
     expect(pickProblem(candidate({ replayState: 'running' }))).toBe(
       'After its replay on the searched tasks finishes, you can pick this candidate.',
     );
-    expect(pickProblem(candidate({ seed: true }))).not.toBeNull();
+    expect(pickProblem(candidate({ isSeed: true }))).not.toBeNull();
     expect(pickProblem(candidate({ replayState: 'stopped' }))).toBe(
       'You can’t pick this candidate. Its replay stopped before it finished.',
     );
-    expect(pickProblem(candidate({ replayState: 'over-budget' }))).toBe(
+    expect(pickProblem(candidate({ replayState: 'ceiling-reached' }))).toBe(
       'You can’t pick this candidate. Its replay reached its ceiling before it finished.',
     );
   });
@@ -227,12 +227,12 @@ describe('search', () => {
         candidate({ heldOutReplayId: 'h', heldOutReplayState: 'running' }),
       ),
     ).toBe('Replaying');
-    expect(formatHeldOut(candidate({ seed: true }))).toBe('–');
+    expect(formatHeldOut(candidate({ isSeed: true }))).toBe('–');
   });
 
   it('plots finished priced scores, and keeps the unpriced apart', () => {
     const detail = {
-      seed: candidate({ candidateId: 'seed', seed: true, onFrontier: true }),
+      seed: candidate({ candidateId: 'seed', isSeed: true, onFrontier: true }),
       candidates: [
         candidate({ candidateId: 'a', costPerRun: null }),
         candidate({ candidateId: 'b', searchScore: null }),
@@ -275,7 +275,7 @@ describe('iterationTitle', () => {
     expect(iterationTitle(1, null)).toBe('Iteration 1 of Search');
   });
 
-  it('explains guarding, with the line’s threshold or that it sets none', () => {
+  it('explains gating, with the line’s threshold or that it sets none', () => {
     expect(
       replayCheckNote({
         maxRegressions: 2,

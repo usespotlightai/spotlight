@@ -20,11 +20,11 @@ export class SightedHistory {
   }
 
   hides(run: { readonly taskId: string }): boolean {
-    return this.sight?.hiddenTasks.includes(run.taskId) ?? false;
+    return this.sight?.heldOutTasks.includes(run.taskId) ?? false;
   }
 
-  get hiddenTasks(): readonly string[] {
-    return this.sight?.hiddenTasks ?? [];
+  get heldOutTasks(): readonly string[] {
+    return this.sight?.heldOutTasks ?? [];
   }
 
   shownBeyond(

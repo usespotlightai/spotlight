@@ -16,10 +16,10 @@ import type {
   ChangedFile,
   LeasedRunLookup,
   ReasonedStep,
+  RunContext,
+  RunLocation,
   RunLookup,
-  RunPlace,
   RunReasoning,
-  RunSite,
   TaskLookup,
   TaskNoteView,
   TeamLine,
@@ -116,7 +116,7 @@ export class WorkLookup implements WorkLookupPort {
     };
   }
 
-  async placeOf(runId: RunId): Promise<RunPlace | null> {
+  async locationOf(runId: RunId): Promise<RunLocation | null> {
     const run = await this.runs.findById(runId);
     const line = run?.stationId
       ? await this.lines.findByStation(run.stationId)
@@ -211,16 +211,16 @@ export class WorkLookup implements WorkLookupPort {
       return null;
     }
 
-    const site = await this.siteOf(run);
+    const runContext = await this.contextOf(run);
 
     return (
-      site && {
+      runContext && {
         id: run.id,
         workspaceId: run.workspaceId,
         taskId: run.taskId,
         replaysFrom: await this.replaysFrom(run),
         isSearch: run.isSearch,
-        ...site,
+        ...runContext,
       }
     );
   }
@@ -242,9 +242,9 @@ export class WorkLookup implements WorkLookupPort {
     return started.at;
   }
 
-  async siteOfRun(runId: RunId): Promise<RunSite | null> {
+  async contextOfRun(runId: RunId): Promise<RunContext | null> {
     const run = await this.runs.findById(runId);
-    return run ? this.siteOf(run) : null;
+    return run ? this.contextOf(run) : null;
   }
 
   async referencedUnder(
@@ -257,7 +257,7 @@ export class WorkLookup implements WorkLookupPort {
     return journal ? referencesUnder(journal, folder, file) : null;
   }
 
-  private async siteOf(run: Run): Promise<RunSite | null> {
+  private async contextOf(run: Run): Promise<RunContext | null> {
     if (run.chatId) {
       const chat = await this.chats.find(run.chatId);
       return (

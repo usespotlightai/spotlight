@@ -33,8 +33,8 @@ export class AsideLoader {
         seesTeam:
           TaskAside.requiredAccess(aside.form) === 'seesTeam' &&
           (await this.access.onTeam(line.teamId.value, viewer)) !== null,
-        readsTeamOutcomes:
-          TaskAside.requiredAccess(aside.form) === 'readsTeamOutcomes' &&
+        readsTeamInsights:
+          TaskAside.requiredAccess(aside.form) === 'readsTeamInsights' &&
           (await this.access.permissionsAsTeamReader(
             line.teamId.value,
             PersonPrincipal.of(viewer),

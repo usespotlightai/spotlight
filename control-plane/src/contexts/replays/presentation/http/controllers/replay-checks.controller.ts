@@ -95,7 +95,7 @@ export class ReplayChecksController {
   @ApiOperation({
     operationId: 'startReplayCheck',
     summary:
-      'Check a planned change of a station against the replay set that guards its changes, under the live line’s replay_check; a change already checked against the same live config answers its check',
+      'Check a planned change of a station against the replay set that gates its changes, under the live line’s replay_check; a change already checked against the same live config answers its check',
   })
   @ApiHeader({
     name: IDEMPOTENCY_KEY_HEADER,
@@ -128,7 +128,7 @@ export class ReplayChecksController {
   )
   @ApiProblemResponse(
     HttpStatus.CONFLICT,
-    'The line has no replay_check, no replay set guards the station’s changes, or the plan changes nothing that changes how its runs go (nothing-to-replay)',
+    'The line has no replay_check, no replay set gates the station’s changes, or the plan changes nothing that changes how its runs go (nothing-to-replay)',
   )
   @ApiProblemResponse(
     HttpStatus.FORBIDDEN,
@@ -187,7 +187,7 @@ export class ReplayChecksController {
   @ApiOperation({
     operationId: 'listReplaySetChecks',
     summary:
-      'The checks of planned changes replayed over a replay set, newest first, a page at a time, with each one’s verdict',
+      'The checks of planned changes replayed over a replay set, newest first, a page at a time, with the result of each',
   })
   @ApiParam({ name: 'setId', type: String })
   @ApiQuery({
@@ -230,7 +230,7 @@ export class ReplayChecksController {
   @ApiOperation({
     operationId: 'readReplayCheck',
     summary:
-      'Read a replay check and its verdict: running, passed, failed or undecided, with the tasks it regressed on and why',
+      'Read a replay check and its result: running, passed, failed or undecided, with the tasks it regressed on and why',
   })
   @ApiParam({ name: 'checkId', type: String })
   @ApiOkResponse({ type: ReplayCheckResponseDto })

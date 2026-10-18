@@ -4,16 +4,16 @@ import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.err
 import { NotAllowedInReplayError } from '@memory/domain/exceptions/not-allowed-in-replay.error';
 import { notAllowedInSearch } from '@memory/domain/services/search-memory-access';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
-import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { parseMemoryKind } from '@memory/domain/value-objects/memory-kind';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
+import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import {
   type MemoryScopeLevel,
   parseMemoryScopeLevel,
 } from '@memory/domain/value-objects/memory-scope-level';
-import type { StationSite } from '@memory/domain/value-objects/run-site';
+import type { StationContext } from '@memory/domain/value-objects/run-context';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -36,7 +36,7 @@ export interface Remembered {
 }
 
 export interface RememberedAt {
-  readonly site: StationSite;
+  readonly runContext: StationContext;
   readonly steps: readonly RememberedStep[];
   readonly cited: readonly number[];
   readonly fromOutside: boolean;
@@ -47,7 +47,7 @@ interface Located {
   readonly path: MemoryPath | null;
 }
 
-const groundingStep = (at: RememberedAt): number => {
+const citedStep = (at: RememberedAt): number => {
   const cited = new Set(at.cited);
   const remembering = at.steps.filter(
     (each) => each.kind === REMEMBERING_STEP && !cited.has(each.index),
@@ -57,27 +57,29 @@ const groundingStep = (at: RememberedAt): number => {
 
   if (!step) {
     throw new InvalidMemoryError(
-      'rests on a step of its run, and this run has no steps yet',
+      'cites a step of its run, and this run has no steps yet',
     );
   }
 
   return step.index;
 };
 
-const checkedOut = (site: StationSite): string =>
-  site.repositories.map((each) => each.name).join(', ') || 'none';
+const checkedOut = (runContext: StationContext): string =>
+  runContext.repositories.map((each) => each.name).join(', ') || 'none';
 
-const located = (raw: string, site: StationSite): Located => {
+const located = (raw: string, runContext: StationContext): Located => {
   const [folder, ...rest] = raw
     .replaceAll('\\', '/')
     .split('/')
     .filter(Boolean);
-  const matching = site.repositories.filter((each) => each.name === folder);
+  const matching = runContext.repositories.filter(
+    (each) => each.name === folder,
+  );
   const [repository] = matching;
 
   if (!repository || matching.length > 1) {
     throw new InvalidMemoryError(
-      `bears only on paths inside a repository its run checked out (${checkedOut(site)}), not ${raw}`,
+      `is only about paths inside a repository its run checked out (${checkedOut(runContext)}), not ${raw}`,
     );
   }
 
@@ -87,26 +89,29 @@ const located = (raw: string, site: StationSite): Located => {
   };
 };
 
-const scopeOf = (remembered: Remembered, site: StationSite): MemoryScope => {
+const scopeOf = (
+  remembered: Remembered,
+  runContext: StationContext,
+): MemoryScope => {
   const level = parseMemoryScopeLevel(
     remembered.scope?.trim() || DEFAULT_SCOPE,
   );
   const places = remembered.paths
     .filter((each) => each.trim())
-    .map((each) => located(each, site));
+    .map((each) => located(each, runContext));
   const repository = places[0]?.repository ?? null;
 
   if (
     repository &&
     places.some((each) => !each.repository.equals(repository))
   ) {
-    throw new InvalidMemoryError('bears on paths of one repository at a time');
+    throw new InvalidMemoryError('is about paths of one repository at a time');
   }
 
   return MemoryScope.of({
-    teamId: site.teamId,
-    lineId: level === 'team' ? null : site.lineId,
-    stationId: level === 'station' ? site.stationId : null,
+    teamId: runContext.teamId,
+    lineId: level === 'team' ? null : runContext.lineId,
+    stationId: level === 'station' ? runContext.stationId : null,
     repository,
     paths: places.flatMap((each) => (each.path ? [each.path] : [])),
   });
@@ -150,7 +155,8 @@ export class Remembering {
 
     if (
       supersedes &&
-      (!supersedes.isActive || !supersedes.scope.teamId.equals(at.site.teamId))
+      (!supersedes.isActive ||
+        !supersedes.scope.teamId.equals(at.runContext.teamId))
     ) {
       throw new InvalidMemoryError(
         `supersedes only an active memory in the run's team, and ${supersedes.handle.value} is not one`,
@@ -161,15 +167,15 @@ export class Remembering {
       id,
       kind: parseMemoryKind(remembered.kind),
       body: MemoryBody.of(remembered.body),
-      scope: scopeOf(remembered, at.site),
-      grounds: MemoryGrounds.of({
+      scope: scopeOf(remembered, at.runContext),
+      provenance: MemoryProvenance.of({
         taskId: this.taskId,
         runId: this.runId,
-        steps: [groundingStep(at)],
+        steps: [citedStep(at)],
         notes: [],
       }),
       source: at.fromOutside ? 'outside' : 'run',
-      origin: 'remembered',
+      proposedBy: 'agent',
       supersedes: supersedes?.id ?? null,
       recordedAt: now,
     });

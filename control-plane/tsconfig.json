@@ -22,7 +22,7 @@
       "@runners/*": ["./src/contexts/runners/*"],
       "@change-review/*": ["./src/contexts/change-review/*"],
       "@memory/*": ["./src/contexts/memory/*"],
-      "@outcomes/*": ["./src/contexts/outcomes/*"],
+      "@insights/*": ["./src/contexts/insights/*"],
       "@replays/*": ["./src/contexts/replays/*"],
       "@github/*": ["./src/contexts/github/*"],
       "@integrations/*": ["./src/contexts/integrations/*"],

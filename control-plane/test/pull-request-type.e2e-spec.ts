@@ -1,5 +1,5 @@
-import { pullRequestTypeOf } from '@outcomes/domain/services/pull-request-types';
-import { pullRequestTypeSql } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pull-request-type.sql';
+import { pullRequestTypeOf } from '@insights/domain/services/pull-request-types';
+import { pullRequestTypeSql } from '@insights/infrastructure/persistence/drizzle/readers/insights/pull-request-type.sql';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';

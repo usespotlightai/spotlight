@@ -23,7 +23,7 @@ import {
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
-import type { StationSite } from '@memory/domain/value-objects/run-site';
+import type { StationContext } from '@memory/domain/value-objects/run-context';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -36,7 +36,7 @@ interface Remembrance {
   readonly remembering: Remembering;
   readonly runId: RunId;
   readonly task: RememberedTask;
-  readonly site: StationSite;
+  readonly runContext: StationContext;
   readonly steps: readonly RememberedStep[];
   readonly supersedes: Memory | null;
   readonly input: MemoryRemembering;
@@ -67,14 +67,14 @@ export class RememberHandler
         isSearch: run.isSearch,
       });
 
-      const [task, site, steps, supersedes] = await Promise.all([
+      const [task, runContext, steps, supersedes] = await Promise.all([
         this.work.task(remembering.taskId),
-        this.work.stationSiteOf(run.id),
+        this.work.stationContextOf(run.id),
         this.work.reasoning(run.id),
         this.superseded(run.teamId, command.remembering.supersedes),
       ]);
 
-      if (!task || !site || !steps) {
+      if (!task || !runContext || !steps) {
         throw new UnknownRunError(command.runId);
       }
 
@@ -82,7 +82,7 @@ export class RememberHandler
         remembering,
         runId: run.id,
         task,
-        site,
+        runContext,
         steps,
         supersedes,
         input: command.remembering,
@@ -132,7 +132,7 @@ export class RememberHandler
   private rememberedOnce(
     remembrance: Remembrance,
   ): Promise<{ draft: MemoryDraft; id: MemoryId }> {
-    const { remembering, runId, task, site, input } = remembrance;
+    const { remembering, runId, task, runContext, input } = remembrance;
 
     return this.transaction.inTransaction(async () => {
       const found = await this.drafts.forTask(remembering.taskId);
@@ -153,7 +153,7 @@ export class RememberHandler
           supersedes: remembrance.supersedes,
         },
         at: {
-          site,
+          runContext,
           steps: remembrance.steps,
           cited: draft.stepsRemembered(runId),
           fromOutside: task.fromOutside,

@@ -1,0 +1,53 @@
+import {
+  type InsightsStationsDto,
+  periodOf,
+} from '@insights/application/dto/insights.dto';
+import type { InsightsReaderPort } from '@insights/application/ports/insights-reader.port';
+import type { ReadInsightsStationsQuery } from '@insights/application/queries/read-insights-stations.query';
+import type { TeamScopes } from '@insights/application/services/team-scopes.service';
+import { tallyCountedOf } from '@insights/domain/services/run-tally';
+import {
+  stationReportsFrom,
+  teamReportFrom,
+} from '@insights/domain/services/station-reports';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
+import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+
+export class ReadInsightsStationsHandler
+  implements QueryHandlerPort<ReadInsightsStationsQuery, InsightsStationsDto>
+{
+  constructor(
+    private readonly scopes: TeamScopes,
+    private readonly reader: InsightsReaderPort,
+  ) {}
+
+  async execute(
+    query: ReadInsightsStationsQuery,
+  ): Promise<InsightsStationsDto> {
+    try {
+      const { access, period } = await this.scopes.scope(
+        query.teamId,
+        query.principal,
+        query.period,
+      );
+      const counts = await this.reader.stationCounts({
+        workspaceId: access.workspaceId,
+        teamId: access.teamId,
+        period,
+      });
+      const team = teamReportFrom(counts, period);
+
+      return {
+        period: periodOf(period),
+        team: team.tally,
+        teamChanges: team.changes,
+        teamSeen: team.seen,
+        teamCounted: tallyCountedOf(team.tally),
+        teamTrend: team.trend,
+        stations: stationReportsFrom(counts, period),
+      };
+    } catch (error) {
+      rethrowAsApplicationError(error);
+    }
+  }
+}

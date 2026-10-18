@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LineResponseDto, RunTallyResponseDto } from '@/lib/api';
 import {
-  type Change,
-  changeDelta,
+  type Delta,
   formatFilterValue,
   formatRunFailure,
   formatSignal,
@@ -18,6 +17,7 @@ import {
   paramsOf,
   runsShownOf,
   sankeyOf,
+  shownDeltaOf,
   sliceFilter,
   sliceNamer,
   stationNamesOf,
@@ -38,8 +38,8 @@ const headline = (over: Partial<Headline> = {}): Headline => ({
   mergeRate: 0.8,
   costPerMerge: { amount: 15, currency: 'USD' },
   taskToMerge: { p50Ms: 26 * HOUR, p90Ms: 72 * HOUR, count: 8 },
-  touches: 30,
-  touchesPerTask: 3,
+  humanActions: 30,
+  humanActionsPerTask: 3,
   activePeople: 4,
   mergedTaskIds: [],
   peopleIds: [],
@@ -48,9 +48,9 @@ const headline = (over: Partial<Headline> = {}): Headline => ({
 
 const change = (
   by: number | null,
-  tone: Change['tone'] = 'flat',
-  unit: Change['unit'] = 'percent',
-): Change => ({
+  tone: Delta['tone'] = 'flat',
+  unit: Delta['unit'] = 'percent',
+): Delta => ({
   unit,
   by,
   fromZero: by === null,
@@ -64,7 +64,7 @@ const UNCHANGED: HeadlineChanges = {
   mergeRate: change(0, 'flat', 'points'),
   costPerMerge: change(0),
   taskToMerge: change(0),
-  touchesPerTask: change(0),
+  humanActionsPerTask: change(0),
   activePeople: change(0),
 };
 
@@ -123,12 +123,12 @@ describe('the insights view in the address', () => {
     expect(
       viewOf(
         new URLSearchParams(
-          'tab=runs&delivery=merged&next=sent-back&asked=true&taskIds=a,b&model=~default&repository=none',
+          'tab=runs&pullRequestState=merged&humanAction=sent-back&asked=true&taskIds=a,b&model=~default&repository=none',
         ),
       ).filter,
     ).toEqual({
-      delivery: 'merged',
-      next: 'sent-back',
+      pullRequestState: 'merged',
+      humanAction: 'sent-back',
       asked: 'true',
       taskIds: 'a,b',
       model: '~default',
@@ -136,7 +136,9 @@ describe('the insights view in the address', () => {
     });
     expect(
       viewOf(
-        new URLSearchParams('tab=runs&delivery=lost&next=shrugged&asked=no'),
+        new URLSearchParams(
+          'tab=runs&pullRequestState=lost&humanAction=shrugged&asked=no',
+        ),
       ).filter,
     ).toEqual({});
   });
@@ -252,34 +254,34 @@ describe('the insights view in the address', () => {
   });
 });
 
-describe('changeDelta', () => {
+describe('shownDeltaOf', () => {
   it('shows a relative change as a signed percent, in the server’s tone', () => {
-    expect(changeDelta(change(0.2, 'good'))).toEqual({
+    expect(shownDeltaOf(change(0.2, 'good'))).toEqual({
       shown: '+20%',
       tone: 'good',
     });
-    expect(changeDelta(change(-0.5))).toEqual({ shown: '-50%', tone: 'flat' });
+    expect(shownDeltaOf(change(-0.5))).toEqual({ shown: '-50%', tone: 'flat' });
   });
 
   it('shows a rate’s change in points, to one decimal below a point', () => {
-    expect(changeDelta(change(0.05, 'good', 'points'))?.shown).toBe('+5 pts');
-    expect(changeDelta(change(-0.03, 'bad', 'points'))?.shown).toBe('−3 pts');
-    expect(changeDelta(change(0.004, 'good', 'points'))?.shown).toBe(
+    expect(shownDeltaOf(change(0.05, 'good', 'points'))?.shown).toBe('+5 pts');
+    expect(shownDeltaOf(change(-0.03, 'bad', 'points'))?.shown).toBe('−3 pts');
+    expect(shownDeltaOf(change(0.004, 'good', 'points'))?.shown).toBe(
       '+0.4 pts',
     );
   });
 
   it('says no change, up from nothing, or nothing to compare', () => {
-    expect(changeDelta(change(0))).toEqual({
+    expect(shownDeltaOf(change(0))).toEqual({
       shown: 'No change',
       tone: 'flat',
     });
-    expect(changeDelta(change(0, 'flat', 'points'))?.shown).toBe('No change');
-    expect(changeDelta(change(null, 'good'))).toEqual({
+    expect(shownDeltaOf(change(0, 'flat', 'points'))?.shown).toBe('No change');
+    expect(shownDeltaOf(change(null, 'good'))).toEqual({
       shown: 'Up from 0',
       tone: 'good',
     });
-    expect(changeDelta(null)).toBeNull();
+    expect(shownDeltaOf(null)).toBeNull();
   });
 });
 
@@ -313,7 +315,7 @@ describe('headlineTiles', () => {
       ['Merge rate', '80%'],
       ['Cost per merged PR', '$15.00'],
       ['Task to merge', '1d 2h'],
-      ['Human touches per task', '3.0'],
+      ['Human actions per task worked', '3.0'],
       ['Active people', '4'],
     ]);
     expect(tiles[0]?.delta).toEqual({ shown: '+20%', tone: 'flat' });
@@ -355,17 +357,17 @@ describe('headlineTiles', () => {
     });
     expect(tiles[2]?.drill).toEqual({
       tab: 'runs',
-      filter: { delivery: 'merged' },
+      filter: { pullRequestState: 'merged' },
     });
   });
 
-  it('drills by delivery where there are too many merged tasks to name', () => {
+  it('drills by pull request state where there are too many merged tasks to name', () => {
     const many = Array.from({ length: 201 }, (_, at) => `task_${at}`);
     const tiles = headlineTiles(headline({ mergedTaskIds: many }), UNCHANGED);
 
     expect(tiles[1]?.drill).toEqual({
       tab: 'runs',
-      filter: { delivery: 'merged' },
+      filter: { pullRequestState: 'merged' },
     });
   });
 });
@@ -457,8 +459,8 @@ describe('cost', () => {
     expect(formatFilterValue('refusedServer', 'none')).toBe('No server');
     expect(formatFilterValue('refusedServer', 'linear')).toBe('linear');
     expect(formatFilterValue('taskIds', 'task_1,task_2')).toBe('2 tasks');
-    expect(formatFilterValue('next', 'sent-back')).toBe('Sent back');
-    expect(formatFilterValue('delivery', 'merged')).toBe('Merged');
+    expect(formatFilterValue('humanAction', 'sent-back')).toBe('Sent back');
+    expect(formatFilterValue('pullRequestState', 'merged')).toBe('Merged');
   });
 
   it('lays the flow out by index for a Sankey, dropping what does not connect', () => {
@@ -508,7 +510,7 @@ const teamTally = (over: Partial<RunTallyResponseDto>): RunTallyResponseDto =>
     runs: 10,
     cancelled: 0,
     failed: 2,
-    failedShare: 0.2,
+    failedRate: 0.2,
     stopped: 0,
     checksPassed: 0,
     checksFailed: 0,

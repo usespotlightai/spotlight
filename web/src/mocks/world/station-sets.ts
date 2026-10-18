@@ -20,8 +20,8 @@ import {
   IMPLEMENTATION_ID,
   STATION_ADDRESS,
 } from '@/mocks/world/station-history';
+import { stationRuns } from '@/mocks/world/station-insights';
 import { intervalOf, MIN_GAIN, rounded } from '@/mocks/world/station-measures';
-import { stationRuns } from '@/mocks/world/station-outcomes';
 import { SET_PICKS, type SetPick } from '@/mocks/world/station-seeds';
 import { taskNote } from '@/mocks/world/station-tasks';
 
@@ -41,7 +41,7 @@ export type StationRunFound = {
   readonly repositories: readonly string[];
 };
 
-export type StationPlace = {
+export type StationLocation = {
   readonly teamId: string;
   readonly teamKey: string;
   readonly lineId: string;
@@ -56,13 +56,13 @@ const outcomeOf = (run: StationRunOutcomeResponseDto): Outcome => {
   if (run.ending === 'failed') {
     return 'failed';
   }
-  if (run.next?.act === 'closed') {
+  if (run.firstHumanAction?.kind === 'accepted') {
     return 'accepted';
   }
-  if (run.next?.act === 'sent-back') {
+  if (run.firstHumanAction?.kind === 'sent-back') {
     return 'sent-back';
   }
-  if (run.next?.act === 'answered') {
+  if (run.firstHumanAction?.kind === 'answered') {
     return 'asked';
   }
 
@@ -77,7 +77,7 @@ export const teamOfLine = (lineId: string): string | undefined =>
 const placeOf = (
   lineId: string,
   stationId: string,
-): StationPlace | undefined => {
+): StationLocation | undefined => {
   const teamId = teamOfLine(lineId);
   const line = world().lines[teamId ?? '']?.find((each) => each.id === lineId);
   const station = line?.stations.find((each) => each.id === stationId);
@@ -159,7 +159,7 @@ export type SetSpec = {
   readonly lineId: string;
   readonly stationId: string;
   readonly createdHoursAgo: number;
-  guardsChanges: boolean;
+  gatesChanges: boolean;
   entries: SetEntrySpec[];
   readonly health: SetHealthResponseDto;
 };
@@ -195,8 +195,8 @@ const BILLING_HEALTH: SetHealthResponseDto = {
     candidateId: 'candidate_oracle_4',
     repeats: 1,
     state: 'finished',
-    againstReplayId: 'replay_live_4',
-    againstState: 'finished',
+    referenceReplayId: 'replay_live_4',
+    referenceState: 'finished',
     answered: 5,
     live: 0.8,
     withAnswer: 1,
@@ -204,7 +204,7 @@ const BILLING_HEALTH: SetHealthResponseDto = {
       gain: 0.2,
       low: 0.04,
       high: 0.4,
-      verdict: 'better',
+      significance: 'better',
       minGain: 0.05,
       tasks: 5,
     },
@@ -225,7 +225,7 @@ const SEEDED_SETS: readonly SetSpec[] = [
     lineId: DELIVERY_ID,
     stationId: IMPLEMENTATION_ID,
     createdHoursAgo: 140,
-    guardsChanges: true,
+    gatesChanges: true,
     entries: [
       entry('run_flaky_billing_2', 108),
       entry('run_invoice_split_1', 118, 'slack'),
@@ -243,7 +243,7 @@ const SEEDED_SETS: readonly SetSpec[] = [
     lineId: DELIVERY_ID,
     stationId: IMPLEMENTATION_ID,
     createdHoursAgo: 40,
-    guardsChanges: false,
+    gatesChanges: false,
     entries: [
       entry('run_webhook_docs_1', 40),
       entry('run_export_docs_1', 39.8),
@@ -289,7 +289,7 @@ const setOfPick = (pick: SetPick): SetSpec => {
     lineId: pick.lineId,
     stationId: pick.stationId,
     createdHoursAgo: pick.createdHoursAgo,
-    guardsChanges: pick.guardsChanges,
+    gatesChanges: pick.gatesChanges,
     entries: matchingFirst(older, pick.matching)
       .slice(0, pick.count)
       .map((run, place) =>
@@ -317,7 +317,7 @@ export const teamOfSet = (setId: string): string | undefined => {
   return set ? teamOfLine(set.lineId) : undefined;
 };
 
-export const placeOfSet = (setId: string): StationPlace | undefined => {
+export const placeOfSet = (setId: string): StationLocation | undefined => {
   const set = setSpec(setId);
   return set ? placeOf(set.lineId, set.stationId) : undefined;
 };
@@ -392,7 +392,7 @@ export const replaySetOf = (spec: SetSpec): ReplaySetResponseDto => {
     name: spec.name,
     createdAt: hoursAgo(spec.createdHoursAgo),
     stationGone: false,
-    guardsChanges: spec.guardsChanges,
+    gatesChanges: spec.gatesChanges,
     health: spec.health,
     minGain: MIN_GAIN,
     composition: compositionOf(entries),
@@ -472,13 +472,13 @@ export const suggestionsFor = (spec: SetSpec): SuggestedRunResponseDto[] =>
         : [];
     });
 
-const replayUrl = (place: StationPlace, replayId: string): string =>
+const replayUrl = (place: StationLocation, replayId: string): string =>
   `/w/${SLUG}/team/${place.teamId}/lines/${place.lineId}/stations/${place.stationId}/replays/${replayId}`;
 
 type CheckSeed = Partial<
   Omit<ReplayCheckSummaryResponseDto, 'replayUrl' | 'createdAt'>
 > &
-  Pick<ReplayCheckSummaryResponseDto, 'id' | 'verdict' | 'reference'> & {
+  Pick<ReplayCheckSummaryResponseDto, 'id' | 'result' | 'reference'> & {
     readonly hoursAgo: number;
     readonly replayId?: string;
   };
@@ -487,20 +487,20 @@ const CHECKS: Record<string, readonly CheckSeed[]> = {
   set_billing_work: [
     {
       id: 'check_shorter_prompt',
-      verdict: 'running',
+      result: 'running',
       reference: { commit: '9f1c2ab7d3e4', pullRequest: 61 },
       hoursAgo: 0.3,
     },
     {
       id: 'check_tests_first',
-      verdict: 'passed',
+      result: 'passed',
       reference: { commit: '41d0e9c2b6aa', pullRequest: 58 },
       hoursAgo: 88,
       replayId: 'replay_tf_tests_first',
     },
     {
       id: 'check_haiku',
-      verdict: 'failed',
+      result: 'failed',
       regressions: 2,
       reference: { commit: 'c07a55e1f9b2', pullRequest: 55 },
       hoursAgo: 102,
@@ -508,7 +508,7 @@ const CHECKS: Record<string, readonly CheckSeed[]> = {
     },
     {
       id: 'check_effort_bump',
-      verdict: 'undecided',
+      result: 'undecided',
       undecidedBecause: 'over-ceiling',
       attempt: 2,
       reference: { commit: '7ad3e90b14c2', pullRequest: null },
@@ -518,7 +518,7 @@ const CHECKS: Record<string, readonly CheckSeed[]> = {
   set_triage_billing: [
     {
       id: 'check_triage_sonnet',
-      verdict: 'passed',
+      result: 'passed',
       reference: { commit: 'a41c7e9d02b5', pullRequest: null },
       hoursAgo: 29.7,
       replayId: 'replay_triage_sonnet',
@@ -527,7 +527,7 @@ const CHECKS: Record<string, readonly CheckSeed[]> = {
   set_review_money: [
     {
       id: 'check_review_risk_checklist',
-      verdict: 'passed',
+      result: 'passed',
       reference: { commit: '3be81f0c5d27', pullRequest: null },
       hoursAgo: 39.6,
       replayId: 'replay_review_risk_checklist',
@@ -536,7 +536,7 @@ const CHECKS: Record<string, readonly CheckSeed[]> = {
   set_spec_api: [
     {
       id: 'check_spec_sonnet',
-      verdict: 'undecided',
+      result: 'undecided',
       undecidedBecause: 'too-few-scored',
       reference: { commit: 'e94a07d1c3b8', pullRequest: null },
       hoursAgo: 72,
@@ -545,7 +545,7 @@ const CHECKS: Record<string, readonly CheckSeed[]> = {
   set_incident_data: [
     {
       id: 'check_investigate_opus',
-      verdict: 'failed',
+      result: 'failed',
       regressions: 1,
       reference: { commit: '0d6b3f8a91ce', pullRequest: null },
       hoursAgo: 46.6,
@@ -555,7 +555,7 @@ const CHECKS: Record<string, readonly CheckSeed[]> = {
   set_incident_customer: [
     {
       id: 'check_mitigate_runbook',
-      verdict: 'running',
+      result: 'running',
       reference: { commit: '7e2a90c4b1d3', pullRequest: null },
       hoursAgo: 0.5,
     },
@@ -563,7 +563,7 @@ const CHECKS: Record<string, readonly CheckSeed[]> = {
   set_experiment_variants: [
     {
       id: 'check_build_medium_effort',
-      verdict: 'passed',
+      result: 'passed',
       reference: { commit: 'b59d1e7f3a06', pullRequest: null },
       hoursAgo: 29.2,
       replayId: 'replay_sbu_medium_effort',
@@ -572,7 +572,7 @@ const CHECKS: Record<string, readonly CheckSeed[]> = {
   set_experiment_pricing: [
     {
       id: 'check_design_metric_first',
-      verdict: 'running',
+      result: 'running',
       reference: { commit: '58c2d9e0a71f', pullRequest: 66 },
       hoursAgo: 0.2,
     },
@@ -580,7 +580,7 @@ const CHECKS: Record<string, readonly CheckSeed[]> = {
 };
 
 const checkOf = (
-  place: StationPlace,
+  place: StationLocation,
   { hoursAgo: at, replayId, ...rest }: CheckSeed,
 ): ReplayCheckSummaryResponseDto => ({
   stationId: place.stationId,
@@ -622,7 +622,7 @@ const resource = (
   teamId: PLATFORM_ID,
   lineId: DELIVERY_ID,
   stationId: IMPLEMENTATION_ID,
-  stationAddress: STATION_ADDRESS,
+  stationPath: STATION_ADDRESS,
   name,
   kind: 'proposed',
   station: { key: 'implementation' },

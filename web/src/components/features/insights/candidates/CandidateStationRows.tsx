@@ -12,7 +12,7 @@ type CandidateStationRowsProps = {
   station: CandidatesStation;
   names: StationNames;
   heldOut: boolean;
-  charted: boolean;
+  chartStatus: boolean;
   folds: Folds;
 };
 
@@ -21,7 +21,7 @@ export function CandidateStationRows({
   station,
   names,
   heldOut,
-  charted,
+  chartStatus,
   folds,
 }: CandidateStationRowsProps) {
   const open = folds.isOpen(station.stationId);
@@ -44,7 +44,7 @@ export function CandidateStationRows({
             at={at}
             set={set}
             heldOut={heldOut}
-            charted={charted}
+            chartStatus={chartStatus}
             open={folds.isOpen(set.setId)}
             onToggle={() => folds.toggle(set.setId)}
           />

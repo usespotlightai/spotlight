@@ -13,8 +13,8 @@ import { scoresOf } from '@replays/domain/services/search-scores';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -26,10 +26,10 @@ const searchWith = (): Search => {
   const ids = searchRunIds();
 
   return aSearch({ set: SET })
-    .recordReplayEnd(
+    .recordReplayStopReason(
       ReplayId.of('replay_seed'),
       'finished',
-      { spent: Spend.of(10, 'USD'), unpriced: 0 },
+      { spent: Money.of(10, 'USD'), unpriced: 0 },
       NOW,
       ids,
       true,
@@ -141,18 +141,18 @@ describe('scoresOf', () => {
     let search = searchWith()
       .recordRunEnd(RUN_ONE, { failed: false, started: true }, later(1), ids)
       .recordAgentSpend(RUN_ONE, ModelSpent.of([], 0), later(1), ids)
-      .recordReplayEnd(
+      .recordReplayStopReason(
         ReplayId.of('replay_terse'),
         'finished',
-        { spent: Spend.of(1, 'USD'), unpriced: 0 },
+        { spent: Money.of(1, 'USD'), unpriced: 0 },
         later(2),
         ids,
         true,
       )
-      .recordReplayEnd(
+      .recordReplayStopReason(
         ReplayId.of('replay_wordy'),
         'finished',
-        { spent: Spend.of(1, 'USD'), unpriced: 0 },
+        { spent: Money.of(1, 'USD'), unpriced: 0 },
         later(2),
         ids,
         true,
@@ -310,11 +310,11 @@ describe('scoresOf, gains', () => {
     const [terseScores, wordyScores] = scores.candidates;
 
     expect(terseScores?.searchedGain).not.toBeNull();
-    expect(terseScores?.searchedVerdict).toBe(
-      terseScores?.searchedGain?.verdict,
+    expect(terseScores?.searchedSignificance).toBe(
+      terseScores?.searchedGain?.significance,
     );
     expect(wordyScores?.searchedGain).toBeNull();
-    expect(wordyScores?.searchedVerdict).toBeNull();
+    expect(wordyScores?.searchedSignificance).toBeNull();
     expect(scores.seed.searchedGain).toBeNull();
   });
 });

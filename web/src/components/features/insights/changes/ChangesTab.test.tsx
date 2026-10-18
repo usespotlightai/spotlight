@@ -6,7 +6,10 @@ import { BeforeAfterHost } from '@/components/features/insights/changes/BeforeAf
 import { ChangesTab } from '@/components/features/insights/changes/ChangesTab';
 import { stationNamesOf } from '@/lib/insights';
 import type { InsightsCandidates } from '@/lib/insights-candidates';
-import type { InsightsChanges, InsightsSetups } from '@/lib/insights-changes';
+import type {
+  InsightsAgentConfigs,
+  InsightsChanges,
+} from '@/lib/insights-changes';
 import { CANDIDATES } from '@/test/fixtures/insights-candidates';
 
 type Queried = {
@@ -27,12 +30,12 @@ const queried = (data: unknown, errorUpdateCount = 0): Queried => ({
 
 const answer: {
   changes: Queried;
-  setups: Queried;
+  agentConfigs: Queried;
   candidates: Queried;
   requested: unknown[];
 } = {
   changes: queried(undefined),
-  setups: queried(undefined),
+  agentConfigs: queried(undefined),
   candidates: queried(undefined),
   requested: [],
 };
@@ -40,10 +43,14 @@ const answer: {
 vi.mock('@/hooks/api/useInsightsChanges', () => ({
   useInsightsChanges: () => answer.changes,
 }));
-vi.mock('@/hooks/api/useInsightsSetups', () => ({
-  useInsightsSetups: (_teamId: string, _period: string, narrowed: unknown) => {
+vi.mock('@/hooks/api/useInsightsAgentConfigs', () => ({
+  useInsightsAgentConfigs: (
+    _teamId: string,
+    _period: string,
+    narrowed: unknown,
+  ) => {
     answer.requested.push(narrowed);
-    return answer.setups;
+    return answer.agentConfigs;
   },
 }));
 vi.mock('@/hooks/api/useInsightsCandidates', () => ({
@@ -138,17 +145,17 @@ const CHANGES = {
     {
       lineId: 'line_1',
       stationId: 'station_impl',
-      trusted: true,
+      qualified: true,
       measure: 'kappa',
       agreement: 0.7,
       pairs: 20,
-      trust: 0.6,
-      hiddenBecause: null,
+      minAgreement: 0.6,
+      hiddenReason: null,
     },
   ],
 } as unknown as InsightsChanges;
 
-const SETUPS = {
+const AGENT_CONFIGS = {
   period: { name: '30d' },
   stationId: 'station_impl',
   size: null,
@@ -159,7 +166,7 @@ const SETUPS = {
   ],
   minRuns: 3,
   currency: 'USD',
-  setups: [
+  agentConfigs: [
     {
       harness: 'claude-code',
       model: 'opus',
@@ -203,7 +210,7 @@ const SETUPS = {
   ],
   judgeOmitted: null,
   judges: CHANGES.judges,
-} as unknown as InsightsSetups;
+} as unknown as InsightsAgentConfigs;
 
 const REPLAYED = {
   ...CANDIDATES,
@@ -219,7 +226,7 @@ const REPLAYED = {
 const filter = async (name: string) => {
   if (!screen.queryByRole('button', { name })) {
     await userEvent.click(
-      screen.getByRole('button', { name: /^Filter the setups/ }),
+      screen.getByRole('button', { name: /^Filter the agent configs/ }),
     );
   }
   await userEvent.click(await screen.findByRole('button', { name }));
@@ -265,7 +272,7 @@ const showing = () =>
 
 beforeEach(() => {
   answer.changes = queried(CHANGES);
-  answer.setups = queried(SETUPS);
+  answer.agentConfigs = queried(AGENT_CONFIGS);
   answer.candidates = queried(REPLAYED);
   answer.requested = [];
 });
@@ -293,7 +300,11 @@ describe('the Changes tab', () => {
 
   it('leads to creating a task where nothing ran', () => {
     answer.changes = queried({ ...CHANGES, markers: [], judges: [] });
-    answer.setups = queried({ ...SETUPS, setups: [], judges: [] });
+    answer.agentConfigs = queried({
+      ...AGENT_CONFIGS,
+      agentConfigs: [],
+      judges: [],
+    });
 
     showing();
 
@@ -346,7 +357,7 @@ describe('the Changes tab', () => {
     ).toBeInTheDocument();
   });
 
-  it('compares setups in a table, marking the frontier and keeping judge scores to trusted stations', async () => {
+  it('compares agent configs in a table, marking the frontier and keeping judge scores to stations with a qualified judge', async () => {
     showing();
 
     await userEvent.click(screen.getByRole('button', { name: 'Table' }));
@@ -359,7 +370,7 @@ describe('the Changes tab', () => {
     ).toBeInTheDocument();
     const opus = within(table)
       .getByText('opus · high effort')
-      .closest('[data-slot="setup-row"]') as HTMLElement;
+      .closest('[data-slot="agent-config-row"]') as HTMLElement;
 
     expect(within(opus).getByLabelText('Best value')).toBeInTheDocument();
     expect(opus).toHaveTextContent('Judge score75%');
@@ -372,19 +383,19 @@ describe('the Changes tab', () => {
       'href',
       '/w/acme/team/team_1/insights?tab=stations&stationId=station_impl#judge',
     );
-    expect(calibrations).toHaveTextContent('trusted');
+    expect(calibrations).toHaveTextContent('qualified');
     expect(
       screen.getByText(/Small: up to 50 changed lines/),
     ).toBeInTheDocument();
   });
 
   it('leaves judge scores out of the table until a station is picked', async () => {
-    answer.setups = queried({
-      ...SETUPS,
+    answer.agentConfigs = queried({
+      ...AGENT_CONFIGS,
       stationId: null,
       judgeOmitted: 'no_station',
       judges: [],
-      setups: SETUPS.setups.map((each) => ({
+      agentConfigs: AGENT_CONFIGS.agentConfigs.map((each) => ({
         ...each,
         judge: null,
         outcomes: { ...each.outcomes, judge: null },
@@ -421,7 +432,7 @@ describe('the Changes tab', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('sets a narrowed station’s replayed candidates beside its setups, marked apart and noted as replay success', async () => {
+  it('sets a narrowed station’s replayed candidates beside its agent configs, marked apart and noted as replay success', async () => {
     showing();
 
     await narrowingTo('Implementation');
@@ -451,7 +462,7 @@ describe('the Changes tab', () => {
     const rowOf = (name: string | RegExp) =>
       within(replayed)
         .queryByText(name)
-        ?.closest('[data-slot="replayed-setup-row"]');
+        ?.closest('[data-slot="replayed-agent-config-row"]');
     expect(rowOf('Live config')).toHaveTextContent('SourceLive');
     expect(rowOf('opus-with-migrations-skill')).toHaveTextContent(
       '67% of 7 held-out runs',
@@ -462,8 +473,8 @@ describe('the Changes tab', () => {
     ).toBeInTheDocument();
   });
 
-  it('leaves out replayed candidates priced in another currency than the setups', async () => {
-    answer.setups = queried({ ...SETUPS, currency: 'EUR' });
+  it('leaves out replayed candidates priced in another currency than the agent configs', async () => {
+    answer.agentConfigs = queried({ ...AGENT_CONFIGS, currency: 'EUR' });
 
     showing();
     await narrowingTo('Implementation');
@@ -503,10 +514,13 @@ describe('the Changes tab', () => {
     );
   });
 
-  it('says so where the station’s replayed candidates have no priced live setup to sit beside', async () => {
-    answer.setups = queried({
-      ...SETUPS,
-      setups: SETUPS.setups.map((each) => ({ ...each, costPerRun: null })),
+  it('says so where the station’s replayed candidates have no priced live agent config to sit beside', async () => {
+    answer.agentConfigs = queried({
+      ...AGENT_CONFIGS,
+      agentConfigs: AGENT_CONFIGS.agentConfigs.map((each) => ({
+        ...each,
+        costPerRun: null,
+      })),
     });
 
     showing();
@@ -515,7 +529,7 @@ describe('the Changes tab', () => {
     expect(
       document.querySelector('[data-slot="replayed-note"]'),
     ).toHaveTextContent(
-      'Replayed candidates aren’t drawn. No live setup has a priced outcome.',
+      'Replayed candidates aren’t drawn. No live agent config has a priced outcome.',
     );
   });
 
@@ -596,13 +610,13 @@ describe('the Changes tab', () => {
     );
   });
 
-  it('keeps the setup filters behind one button that counts and clears them', async () => {
+  it('keeps the agent config filters behind one button that counts and clears them', async () => {
     showing();
 
     await narrowingTo('Implementation');
 
     const button = screen.getByRole('button', {
-      name: 'Filter the setups, 1 applied',
+      name: 'Filter the agent configs, 1 applied',
     });
     expect(button).toHaveTextContent('1');
 

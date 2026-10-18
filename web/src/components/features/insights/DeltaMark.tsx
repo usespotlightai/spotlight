@@ -1,16 +1,16 @@
 import { Triangle } from 'lucide-react';
 import { Noted } from '@/components/shared/Noted';
-import type { Delta } from '@/lib/insights';
+import type { ShownDelta } from '@/lib/insights';
 import { cn } from '@/lib/utils';
 
-const TONES: Record<Delta['tone'], string> = {
+const TONES: Record<ShownDelta['tone'], string> = {
   good: 'text-emerald-700 dark:text-emerald-400',
   bad: 'text-destructive',
   flat: 'text-muted-foreground',
 };
 
 type DeltaMarkProps = {
-  delta: Delta;
+  delta: ShownDelta;
   note?: string;
 };
 

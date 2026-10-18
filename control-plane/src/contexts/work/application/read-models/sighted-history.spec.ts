@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 const SIGHT = aSight({
   stationId: 'station_build',
-  hiddenTasks: ['task_held_out'],
+  heldOutTasks: ['task_held_out'],
   shownOriginals: ['run_a', 'run_b'],
   candidates: [
     {
@@ -39,7 +39,7 @@ describe('SightedHistory', () => {
     expect(sighted.seesRunAt(null)).toBe(false);
     expect(sighted.hides({ taskId: 'task_held_out' })).toBe(true);
     expect(sighted.hides({ taskId: 'task_searched' })).toBe(false);
-    expect(sighted.hiddenTasks).toEqual(['task_held_out']);
+    expect(sighted.heldOutTasks).toEqual(['task_held_out']);
     expect(sighted.shownBeyond([{ runId: 'run_a' }])).toEqual(['run_b']);
     expect(sighted.candidates.map((each) => each.name)).toEqual([
       'shorter-prompt',
@@ -54,7 +54,7 @@ describe('SightedHistory', () => {
     expect(unsighted.seesRunAt('station_ship')).toBe(true);
     expect(unsighted.seesRunAt(null)).toBe(true);
     expect(unsighted.hides({ taskId: 'task_held_out' })).toBe(false);
-    expect(unsighted.hiddenTasks).toEqual([]);
+    expect(unsighted.heldOutTasks).toEqual([]);
     expect(unsighted.shownBeyond([])).toEqual([]);
     expect(unsighted.candidates).toEqual([]);
     expect(unsighted.seedBlock).toBeNull();

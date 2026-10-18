@@ -5,7 +5,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { formatType, type PullRequestType } from '@/lib/insights-pull-requests';
-import { jamColor, TYPE_COLORS, type TypeShare } from '@/lib/pipeline-flow';
+import {
+  bottleneckColor,
+  TYPE_COLORS,
+  type TypeShare,
+} from '@/lib/pipeline-flow';
 import { cn } from '@/lib/utils';
 
 type PipelineFlowLegendProps = {
@@ -27,16 +31,16 @@ export function PipelineFlowLegend({
           aria-hidden
           className="h-1 w-14 rounded-full"
           style={{
-            background: `linear-gradient(to right, ${jamColor(0)}, ${jamColor(0.5)}, ${jamColor(1)})`,
+            background: `linear-gradient(to right, ${bottleneckColor(0)}, ${bottleneckColor(0.5)}, ${bottleneckColor(1)})`,
           }}
         />
-        <span className="text-destructive">jammed</span>
+        <span className="text-destructive">bottleneck</span>
         <Tooltip>
           <TooltipTrigger
             render={
               <button
                 type="button"
-                aria-label="How the jam is measured"
+                aria-label="How the bottleneck is measured"
                 className="flex outline-none"
               />
             }

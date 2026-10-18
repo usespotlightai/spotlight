@@ -3,24 +3,24 @@ import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { formatSpend } from '@/lib/insights';
 import { formatPercent } from '@/lib/judge';
 import {
-  counterpartNoun,
-  counterpartRateOf,
-  formatCounterpart,
+  formatReference,
   overCeiling,
   type ReplayDetail,
+  referenceNoun,
+  referenceRateOf,
   spendBreakdown,
 } from '@/lib/replay';
 import {
   capitalised,
   formatGain,
   formatGainRange,
-  formatGainVerdict,
+  formatGainSignificance,
   formatInterval,
   formatPairTiles,
   formatRepeats,
   formatSpendNote,
   formatSuccessDetail,
-  gainVerdictNote,
+  gainSignificanceNote,
   NO_SCORE_YET,
   PAIRING_SPEND_LABEL,
   pairsJudged,
@@ -46,11 +46,11 @@ type ReplayTilesProps = {
 
 export function ReplayTiles({ replay }: ReplayTilesProps) {
   const { totals } = replay;
-  const against = counterpartRateOf(replay, replay.baselineReplayId);
-  const gain = replay.againstBaseline;
+  const against = referenceRateOf(replay, replay.baselineReplayId);
+  const gain = replay.gainOverReference;
   const pairs =
-    replay.pairedWith && pairsJudged(replay.pairsAgainstBaseline)
-      ? replay.pairsAgainstBaseline
+    replay.pairwiseReference && pairsJudged(replay.referencePairs)
+      ? replay.referencePairs
       : null;
   const over = overCeiling(totals.spent, replay.ceiling);
   const parts = spendBreakdown(replay);
@@ -83,23 +83,23 @@ export function ReplayTiles({ replay }: ReplayTilesProps) {
           label="Gain"
           value={formatGain(gain)}
           detail={[
-            capitalised(formatGainVerdict(gain.verdict)),
+            capitalised(formatGainSignificance(gain.significance)),
             against?.successRate != null &&
-              `${counterpartNoun(against)} ${formatPercent(against.successRate)}`,
+              `${referenceNoun(against)} ${formatPercent(against.successRate)}`,
           ]
             .filter(Boolean)
             .join(' · ')}
-          note={`Likely range: ${formatGainRange(gain)} pts. ${gainVerdictNote(gain)}`}
+          note={`Likely range: ${formatGainRange(gain)} pts. ${gainSignificanceNote(gain)}`}
         />
       )}
 
-      {pairs && replay.pairedWith && (
+      {pairs && replay.pairwiseReference && (
         <InsightsTile
           label={PAIRING_SPEND_LABEL}
           {...formatPairTiles(pairs)}
           note={pairTallyNote(
-            formatCounterpart(
-              replay.pairedWith,
+            formatReference(
+              replay.pairwiseReference,
               replay.candidate,
               replay.baselineReplayId,
             ),
@@ -117,7 +117,7 @@ export function ReplayTiles({ replay }: ReplayTilesProps) {
         }
         note={formatSpendNote({
           runs: formatSpend(parts.runs),
-          drafting: formatSpend(parts.drafting),
+          generation: formatSpend(parts.generation),
           judging: formatSpend(parts.judging),
           pairing: parts.pairing.amount > 0 ? formatSpend(parts.pairing) : null,
           elsewhere: totals.spentElsewhere.map(formatSpend),

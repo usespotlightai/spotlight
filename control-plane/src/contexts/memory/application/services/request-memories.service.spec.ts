@@ -22,7 +22,7 @@ const ENDED: RememberedRun = {
   completed: true,
   memories: true,
   briefed: [],
-  cut: [],
+  omitted: [],
 };
 
 const requesting = (input: {

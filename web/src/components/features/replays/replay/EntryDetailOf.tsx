@@ -8,7 +8,7 @@ type EntryDetailOfProps = {
   slug: string;
   teamId: string;
   chosen: EntryComparison | null;
-  counterpartLabel: string;
+  referenceLabel: string;
   onClose: () => void;
 };
 
@@ -16,7 +16,7 @@ export function EntryDetailOf({
   slug,
   teamId,
   chosen,
-  counterpartLabel,
+  referenceLabel,
   onClose,
 }: EntryDetailOfProps) {
   const lingering = useLingering(chosen, LEAVING);
@@ -26,7 +26,7 @@ export function EntryDetailOf({
       slug={slug}
       teamId={teamId}
       row={lingering}
-      counterpartLabel={counterpartLabel}
+      referenceLabel={referenceLabel}
       open={chosen !== null}
       onClose={onClose}
     />

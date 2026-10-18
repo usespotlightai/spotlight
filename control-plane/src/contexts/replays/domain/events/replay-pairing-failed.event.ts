@@ -10,7 +10,7 @@ export class ReplayPairingFailed implements DomainEvent {
     readonly replayId: ReplayId,
     readonly workspaceId: WorkspaceId,
     readonly run: RunId,
-    readonly against: RunId,
+    readonly other: RunId,
     readonly why: string,
   ) {}
 }

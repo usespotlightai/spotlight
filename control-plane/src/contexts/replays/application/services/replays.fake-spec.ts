@@ -1,16 +1,15 @@
 import type { ChangeReviewPort } from '@replays/application/ports/change-review.port';
 import type {
+  InsightsPort,
   JudgingAgainOrdered,
   JudgingOrder,
   JudgingOrdered,
-  OutcomesPort,
-  PairJudgingOrder,
-} from '@replays/application/ports/outcomes.port';
+  SideBySideJudgingOrder,
+} from '@replays/application/ports/insights.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
   AgentProblem,
   CancelledRun,
-  ExaminedCandidate,
   LeasedSearchRun,
   OracleAnswerInput,
   ReplayRunOrder,
@@ -21,6 +20,7 @@ import type {
   SearchRunStatus,
   StationView,
   UnclaimedCancellation,
+  ValidatedCandidate,
   WorkPort,
 } from '@replays/application/ports/work.port';
 import { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
@@ -34,10 +34,10 @@ import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
 import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
 import {
-  DIGESTS,
   FINGERPRINT,
-  LIVE_DIGESTS,
+  HASHES,
   LIVE_FINGERPRINT,
+  LIVE_HASHES,
   NOW,
   STATION,
   UNSCORED,
@@ -173,7 +173,8 @@ export class InMemoryReplays {
       [...this.replays.values()]
         .filter(
           (each) =>
-            (each.pairsWith?.equals(replayId) ?? false) && each.takesPairings,
+            (each.pairwiseReferenceId?.equals(replayId) ?? false) &&
+            each.takesPairings,
         )
         .map((each) => each.id),
     ofSearch: async (searchId) =>
@@ -217,9 +218,9 @@ export class InMemoryReplays {
       }
       return [...teams.values()];
     },
-    underwayOfTeamLocked: async (teamId) =>
+    inProgressOfTeamLocked: async (teamId) =>
       [...this.replays.values()].filter(
-        (each) => each.teamId.equals(teamId) && each.isUnderway,
+        (each) => each.teamId.equals(teamId) && each.isInProgress,
       ),
     unconfirmed: async () =>
       [...this.replays.values()].filter((each) => each.unconfirmed.length > 0),
@@ -362,16 +363,16 @@ export class FakeWork implements WorkPort {
       : { queued: false };
   };
 
-  examine = async (
+  validate = async (
     _line: string,
     _station: string,
     block: unknown,
     _planned?: PlannedLine | null,
-  ): Promise<ExaminedCandidate> => ({
+  ): Promise<ValidatedCandidate> => ({
     ok: true,
     fingerprint: FINGERPRINT,
-    digests: DIGESTS,
-    liveDigests: LIVE_DIGESTS,
+    hashes: HASHES,
+    liveHashes: LIVE_HASHES,
     scoring: UNSCORED,
     changedFrom: StationChanges.none(LIVE_FINGERPRINT),
     block: StationBlock.of(block),
@@ -384,7 +385,7 @@ export class FakeWork implements WorkPort {
     block: StationBlock.of({ key: 'build', name: 'Build', kind: 'work' }),
     fingerprint: FINGERPRINT,
     scoring: UNSCORED,
-    digests: LIVE_DIGESTS,
+    hashes: LIVE_HASHES,
     threshold: this.threshold,
   });
 
@@ -532,12 +533,12 @@ export class FakeChangeReview implements ChangeReviewPort {
   }
 }
 
-export class FakeOutcomes implements OutcomesPort {
+export class FakeInsights implements InsightsPort {
   readonly accepted = new Set<string>();
   readonly sentBack = new Set<string>();
   readonly judgingRequests: JudgingOrder[] = [];
   readonly rejudgingRequests: string[] = [];
-  readonly pairJudgingRequests: PairJudgingOrder[] = [];
+  readonly sideBySideJudgingRequests: SideBySideJudgingOrder[] = [];
   answer: JudgingOrdered = 'requested';
   pairAnswer: JudgingOrdered = 'requested';
   againAnswer: JudgingAgainOrdered = 'requested';
@@ -551,7 +552,7 @@ export class FakeOutcomes implements OutcomesPort {
     return this.accepted.has(run.value);
   }
 
-  async turnedOut(): Promise<ReadonlyMap<string, OriginalOutcome>> {
+  async originalOutcomes(): Promise<ReadonlyMap<string, OriginalOutcome>> {
     return new Map([
       ...[...this.accepted].map((run) => [run, 'accepted'] as const),
       ...[...this.sentBack].map((run) => [run, 'sent-back'] as const),
@@ -563,8 +564,10 @@ export class FakeOutcomes implements OutcomesPort {
     return this.answer;
   }
 
-  async judgePair(order: PairJudgingOrder): Promise<JudgingOrdered> {
-    this.pairJudgingRequests.push(order);
+  async judgeSideBySide(
+    order: SideBySideJudgingOrder,
+  ): Promise<JudgingOrdered> {
+    this.sideBySideJudgingRequests.push(order);
     return this.pairAnswer;
   }
 }
@@ -694,8 +697,8 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
         state: saved.current,
         url: saved.url,
         reason: saved.reason,
-        attempts: saved.attempts,
-        tries: saved.tries,
+        generation: saved.generation,
+        retries: saved.retries,
         lastCommit: saved.lastCommit,
         dueAt: saved.dueAt,
         createdAt: saved.createdAt,

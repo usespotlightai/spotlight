@@ -6,9 +6,9 @@ import {
 import { DrizzlePullRequests } from '@github/infrastructure/persistence/drizzle/repositories/pull-request.repository';
 import { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
+import { DrizzleDeletions } from '@insights/infrastructure/persistence/drizzle/ledgers/deletions.ledger';
+import { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import type { INestApplication } from '@nestjs/common';
-import { DrizzleDeletions } from '@outcomes/infrastructure/persistence/drizzle/ledgers/deletions.ledger';
-import { DrizzlePullRequestRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -266,7 +266,7 @@ describe('every pull request in an installed repository (e2e)', () => {
     expect(theirs?.revertedBy?.value).toBe(urlOf(3));
   });
 
-  it('stores what Insights needs of each in the outcomes context, Spotlight’s apart from people’s', async () => {
+  it('stores what Insights needs of each in the insights context, Spotlight’s apart from people’s', async () => {
     const mine = await recordOf(1);
     const theirs = await recordOf(2);
     const revert = await recordOf(3);
@@ -288,15 +288,15 @@ describe('the team’s pull request insights (e2e)', () => {
 
     expect(answer.status).toBe(200);
     expect(answer.body.repositories).toEqual([repository]);
-    expect(answer.body.penetration).toMatchObject({
+    expect(answer.body.spotlightShare).toMatchObject({
       merged: 3,
-      made: 1,
-      touched: 0,
+      authored: 1,
+      reviewed: 0,
     });
-    expect(answer.body.penetration.repositories[0]).toMatchObject({
+    expect(answer.body.spotlightShare.repositories[0]).toMatchObject({
       repository,
       merged: 3,
-      made: 1,
+      authored: 1,
     });
     expect(answer.body.comparison).toMatchObject({
       repositories: [repository],
@@ -357,7 +357,7 @@ describe('the team’s pull request insights (e2e)', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(answer.status).toBe(200);
-    expect(answer.body.penetration.merged).toBe(3);
+    expect(answer.body.spotlightShare.merged).toBe(3);
   });
 
   it('finds no team for a token of another workspace', async () => {

@@ -18,9 +18,9 @@ import { failed, loading } from '@/lib/query';
 import { stationPath } from '@/lib/station';
 import {
   alertOnInsightsPath,
-  formatCrossing,
+  formatFiring,
   formatLimit,
-  formatRecovered,
+  formatResolved,
 } from '@/lib/station-alert';
 
 type StationAlertCardProps = {
@@ -56,51 +56,48 @@ export function StationAlertCard({
     );
   }
 
-  const crossed = alert.data;
-  const named = names.get(crossed.stationId);
+  const firing = alert.data;
+  const named = names.get(firing.stationId);
 
   return (
     <DecisionCard data-slot="station-alert" aria-label="Station alert">
       <DecisionHeader
         title={
           <DecisionTitle as="h2" icon={BellRing}>
-            Alert raised at {formatStation(names, crossed.stationId)}
+            Alert fired at {formatStation(names, firing.stationId)}
           </DecisionTitle>
         }
         trailing={
           <p className="shrink-0 text-muted-foreground text-xs tabular-nums">
-            {formatDay(crossed.raisedAt.slice(0, 10))}
+            {formatDay(firing.firedAt.slice(0, 10))}
           </p>
         }
       />
 
       <div className="mb-2 flex flex-col">
         <p className="break-words text-foreground text-sm">
-          {formatCrossing(crossed)} {formatLimit(crossed)}
+          {formatFiring(firing)} {formatLimit(firing)}
         </p>
-        {crossed.recoveredAt && (
+        {firing.resolvedAt && (
           <p className="text-muted-foreground text-sm">
-            {formatRecovered(
-              crossed,
-              formatDay(crossed.recoveredAt.slice(0, 10)),
-            )}
+            {formatResolved(firing, formatDay(firing.resolvedAt.slice(0, 10)))}
           </p>
         )}
       </div>
 
-      {crossed.series.length > 0 ? (
-        <AlertChart alert={crossed} />
+      {firing.series.length > 0 ? (
+        <AlertChart alert={firing} />
       ) : (
         <AlertChartEmpty />
       )}
 
       <div className="flex flex-wrap gap-2">
         <PillLink
-          to={stationPath(slug, teamId, crossed.lineId, crossed.stationId)}
+          to={stationPath(slug, teamId, firing.lineId, firing.stationId)}
         >
           Open the station
         </PillLink>
-        <PillLink to={alertOnInsightsPath(slug, teamId, crossed)}>
+        <PillLink to={alertOnInsightsPath(slug, teamId, firing)}>
           Open in Insights
         </PillLink>
         {named && (

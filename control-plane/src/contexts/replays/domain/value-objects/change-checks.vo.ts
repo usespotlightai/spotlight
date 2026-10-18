@@ -25,7 +25,9 @@ export interface StackStatus {
   readonly spent: ModelSpent;
 }
 
-const draftingSpentOn = (stacks: readonly StackStatus[]): ModelSpent | null => {
+const generationSpentOn = (
+  stacks: readonly StackStatus[],
+): ModelSpent | null => {
   const [first, ...rest] = stacks;
 
   return first
@@ -143,5 +145,5 @@ export const reviewOf = (
   stacks: readonly StackStatus[],
 ): [ChangeChecks, ModelSpent | null] => [
   ChangeChecks.of(stacks),
-  draftingSpentOn(stacks),
+  generationSpentOn(stacks),
 ];

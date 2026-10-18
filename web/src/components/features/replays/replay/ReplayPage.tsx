@@ -19,12 +19,12 @@ import { buttonVariants } from '@/components/ui/button-variants';
 
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import {
+  inProgress,
   type ReplayDetail,
   type ReplayedStation,
   type ReplaySet,
   replaySetPath,
   taskColumnsOf,
-  underway,
 } from '@/lib/replay';
 
 import { formatTasksNote } from '@/lib/replay-words';
@@ -54,7 +54,7 @@ export function ReplayPage({
 
   const chosen =
     replay.comparison.find((each) => each.originalRunId === picked) ?? null;
-  const { compared, counterpart, counterpartLabel } = taskColumnsOf(replay);
+  const { compared, reference, referenceLabel } = taskColumnsOf(replay);
 
   return (
     <TrailContext value={forward}>
@@ -62,7 +62,7 @@ export function ReplayPage({
         title={<Breadcrumbs segments={trail} />}
         bordered={false}
         actions={
-          underway(replay.state) && (
+          inProgress(replay.state) && (
             <StopReplayButton teamId={at.teamId} replayId={replay.id} />
           )
         }
@@ -82,7 +82,7 @@ export function ReplayPage({
             slug={at.slug}
             teamId={at.teamId}
             chosen={chosen}
-            counterpartLabel={counterpartLabel}
+            referenceLabel={referenceLabel}
             onClose={() => setPicked(null)}
           />
         }
@@ -92,7 +92,7 @@ export function ReplayPage({
         <InsightsCard
           tableOnly
           title="Tasks"
-          description={formatTasksNote(compared ? counterpart : null)}
+          description={formatTasksNote(compared ? reference : null)}
         >
           {replay.comparison.length === 0 ? (
             <StateBox flat>

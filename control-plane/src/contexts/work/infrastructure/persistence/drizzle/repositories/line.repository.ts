@@ -103,9 +103,10 @@ const toStation = (row: StationRow, ways: Ways): Station =>
       ? StationJudge.of({
           rubric: row.judge.rubric,
           claims: row.judge.claims.length > 0 ? row.judge.claims : null,
-          passShare: row.judge.claims.length > 0 ? row.judge.passShare : null,
+          passThreshold:
+            row.judge.claims.length > 0 ? row.judge.passThreshold : null,
           sample: row.judge.sample,
-          trust: row.judge.trust,
+          minAgreement: row.judge.minAgreement,
         })
       : null,
     alerts: row.alerts.map((each) => StationAlert.of(each)),

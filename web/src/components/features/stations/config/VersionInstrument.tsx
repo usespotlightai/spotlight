@@ -3,10 +3,10 @@ import { InstrumentValue } from '@/components/features/stations/config/Instrumen
 import { SectionLink } from '@/components/shared/SectionLink';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { buttonVariants } from '@/components/ui/button-variants';
-import { useStationOutcomes } from '@/hooks/api/useStationOutcomes';
+import { useStationInsights } from '@/hooks/api/useStationInsights';
 import { failed, loading } from '@/lib/query';
 import { stationInsightsPath } from '@/lib/station';
-import { configVersion } from '@/lib/station-outcomes';
+import { configVersion } from '@/lib/station-insights';
 import { cn } from '@/lib/utils';
 
 type VersionInstrumentProps = {
@@ -22,7 +22,7 @@ export function VersionInstrument({
   lineId,
   stationId,
 }: VersionInstrumentProps) {
-  const outcomes = useStationOutcomes(teamId, lineId, stationId);
+  const outcomes = useStationInsights(teamId, lineId, stationId);
   const version = configVersion(outcomes.data?.groups ?? []);
 
   return (

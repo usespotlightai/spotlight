@@ -19,7 +19,7 @@ export const BUILD_BLOCK: LineDefinitionStation = {
 
 export const aSight = (over: Partial<SearchSight> = {}): SearchSight => ({
   stationId: 'station_1',
-  hiddenTasks: [],
+  heldOutTasks: [],
   shownOriginals: [],
   candidates: [],
   seedBlock: BUILD_BLOCK,

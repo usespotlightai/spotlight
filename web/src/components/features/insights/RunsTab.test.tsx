@@ -86,9 +86,9 @@ const run = (over: Partial<InsightsRun>): InsightsRun => ({
   ending: 'completed',
   failure: null,
   checks: null,
-  next: null,
+  firstHumanAction: null,
   passed: null,
-  delivery: null,
+  pullRequestState: null,
   ...over,
 });
 
@@ -151,7 +151,7 @@ describe('the runs tab', () => {
     ).getAllByRole('listitem');
 
     expect(first).toHaveTextContent(
-      'CompletedFailure–StationImplementationPersonSam RiveraSetupClaude Code · Harness defaultTook5m 12sCost$1.84Endedjust now',
+      'CompletedFailure–StationImplementationPersonSam RiveraAgent configClaude Code · Harness defaultTook5m 12sCost$1.84Endedjust now',
     );
     expect(second).toHaveTextContent('FailedFailureThe agent ran out of turns');
     expect(second).toHaveTextContent('No one');

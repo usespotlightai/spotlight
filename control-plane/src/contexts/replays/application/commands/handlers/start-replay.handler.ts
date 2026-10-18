@@ -20,8 +20,8 @@ import { baselineTermsOf } from '@replays/domain/services/baseline-terms';
 import { checksSet } from '@replays/domain/services/set-health';
 import type { TeamAccess } from '@replays/domain/services/team-access';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -59,7 +59,7 @@ export class StartReplayHandler
         return forbiddenTo('plan');
       }
 
-      const ceiling = Spend.ceiling(
+      const ceiling = Money.ceiling(
         command.ceiling.amount,
         command.ceiling.currency,
       );
@@ -136,7 +136,7 @@ export class StartReplayHandler
             const terms =
               asBaseline && baselineTerms
                 ? baselineTerms
-                : { probe: false, repeats: command.repeats, ceiling };
+                : { calibration: false, repeats: command.repeats, ceiling };
 
             await this.replays.add(
               Replay.start({
@@ -146,8 +146,8 @@ export class StartReplayHandler
                 baseline: asBaseline,
                 ceiling: terms.ceiling,
                 repeats: terms.repeats,
-                probe: terms.probe,
-                pairsWith: asBaseline
+                calibration: terms.calibration,
+                pairwiseReferenceId: asBaseline
                   ? null
                   : (wanting?.id ??
                     currentBaselineFor(

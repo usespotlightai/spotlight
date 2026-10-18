@@ -46,7 +46,7 @@ const detail = (over: Record<string, unknown> = {}) => ({
   approvedAt: '2026-09-27T10:00:00.000Z',
   supersedes: null,
   retirement: null,
-  grounds: { taskId: 'task_1', runId: 'run_1' },
+  provenance: { taskId: 'task_1', runId: 'run_1' },
   steps: [{ index: 3, kind: 'thought', text: 'A queue needs a worker.' }],
   notes: [],
   superseded: null,
@@ -62,7 +62,7 @@ const showing = () =>
   );
 
 describe('MemorySource', () => {
-  it('quotes what it rests on and links to the run and the task', () => {
+  it('quotes what it cites and links to the run and the task', () => {
     memoryState.data = detail({ harness: 'claude-code' });
     showing();
 

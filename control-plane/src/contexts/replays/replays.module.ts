@@ -1,8 +1,8 @@
 import { ChangeReviewModule } from '@change-review/change-review.module';
 import { GitHubModule } from '@github/github.module';
 import { IdentityModule } from '@identity/identity.module';
+import { InsightsModule } from '@insights/insights.module';
 import { Module } from '@nestjs/common';
-import { OutcomesModule } from '@outcomes/outcomes.module';
 import {
   REPLAYS_CONTROLLERS,
   REPLAYS_PROVIDERS,
@@ -17,7 +17,7 @@ import { WorkModule } from '@work/work.module';
     GitHubModule,
     WorkModule,
     ChangeReviewModule,
-    OutcomesModule,
+    InsightsModule,
   ],
   controllers: [...REPLAYS_CONTROLLERS],
   providers: [...REPLAYS_PROVIDERS],

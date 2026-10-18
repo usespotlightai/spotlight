@@ -24,8 +24,8 @@ import {
   candidateOf,
   runIds,
 } from '@replays/domain/replays.fake-spec';
-import { PROBE_REPEATS } from '@replays/domain/value-objects/replay-repeats';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
+import { CALIBRATION_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -115,7 +115,7 @@ describe('StartReplayHandler', () => {
 
     const baseline = memory.replays.get(started.baseline.id);
     expect(baseline?.baseline).toBe(true);
-    expect(baseline?.probe).toBe(false);
+    expect(baseline?.calibration).toBe(false);
     expect(baseline?.ceiling.amount).toBe(5);
     expect(memory.candidates.get(baseline?.candidateId.value ?? '')?.kind).toBe(
       'live',
@@ -157,11 +157,11 @@ describe('StartReplayHandler', () => {
       throw new Error('the baseline did not start');
     }
 
-    const probe = memory.replays.get(started.id);
+    const calibration = memory.replays.get(started.id);
 
-    expect(probe?.baseline).toBe(true);
-    expect(probe?.probe).toBe(true);
-    expect(probe?.repeats).toBe(PROBE_REPEATS);
+    expect(calibration?.baseline).toBe(true);
+    expect(calibration?.calibration).toBe(true);
+    expect(calibration?.repeats).toBe(CALIBRATION_REPEATS);
     expect(started.ceiling).toEqual({ amount: 15, currency: 'USD' });
   });
 
@@ -178,8 +178,8 @@ describe('StartReplayHandler', () => {
     await wantedBaselines();
 
     const baseline = memory.replays.get(started.baseline.id);
-    expect(baseline?.probe).toBe(true);
-    expect(baseline?.repeats).toBe(PROBE_REPEATS);
+    expect(baseline?.calibration).toBe(true);
+    expect(baseline?.repeats).toBe(CALIBRATION_REPEATS);
     expect(baseline?.ceiling.amount).toBe(15);
   });
 
@@ -204,7 +204,7 @@ describe('StartReplayHandler', () => {
         wanted.setId,
         wanted.baselineId,
         wanted.candidateId,
-        Spend.ceiling(4, 'USD'),
+        Money.ceiling(4, 'USD'),
         null,
         1,
         1,
@@ -213,7 +213,7 @@ describe('StartReplayHandler', () => {
     );
 
     const baseline = memory.replays.get(wanted.baselineId.value);
-    expect(baseline?.probe).toBe(false);
+    expect(baseline?.calibration).toBe(false);
     expect(baseline?.repeats).toBe(1);
     expect(baseline?.ceiling.amount).toBe(4);
   });
@@ -222,7 +222,8 @@ describe('StartReplayHandler', () => {
     const started = await start('live');
 
     expect(
-      started.outcome === 'started' && memory.replays.get(started.id)?.probe,
+      started.outcome === 'started' &&
+        memory.replays.get(started.id)?.calibration,
     ).toBe(false);
   });
 
@@ -237,7 +238,7 @@ describe('StartReplayHandler', () => {
 
     const plain = memory.replays.get(again.id);
 
-    expect(plain?.probe).toBe(false);
+    expect(plain?.calibration).toBe(false);
     expect(plain?.repeats).toBe(1);
     expect(again.ceiling).toEqual(CEILING);
   });

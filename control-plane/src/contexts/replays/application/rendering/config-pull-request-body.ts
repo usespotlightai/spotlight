@@ -7,7 +7,7 @@ interface ShownGain {
   readonly gain: number;
   readonly low: number;
   readonly high: number;
-  readonly verdict: 'better' | 'worse' | 'within-noise';
+  readonly significance: 'better' | 'worse' | 'within-noise';
   readonly minGain: number;
   readonly tasks: number;
 }
@@ -50,7 +50,7 @@ export interface ConfigPullRequestFacts {
     readonly searched: ShownPairs | null;
     readonly heldOut: ShownPairs | null;
   };
-  readonly onlyOnSeenTasks: 'marked' | 'too-few-held-out' | null;
+  readonly overfit: 'likely' | 'too-few-held-out' | null;
   readonly heldOutPending: boolean;
   readonly link: string | null;
 }
@@ -80,7 +80,7 @@ const describeGain = (where: string, gain: ShownGain | null): string | null => {
 
   const range = `${points(gain.gain)} points (${points(gain.low)} to ${points(gain.high)})`;
 
-  switch (gain.verdict) {
+  switch (gain.significance) {
     case 'better':
       return `On the ${where} tasks it gained ${range} on the live config, more than the ${percent(gain.minGain)}-point gain the line counts as real.`;
     case 'worse':
@@ -101,9 +101,7 @@ const describePairs = (
     ? `Set side by side with the live config's change on the ${where} tasks, without the judge knowing which was which, its change was better on ${plural(pairs.wins, 'task')}, worse on ${plural(pairs.losses, 'task')} and as good on ${plural(pairs.ties, 'task')}.`
     : null;
 
-const describeOnlyOnSeenTasks = (
-  facts: ConfigPullRequestFacts,
-): string | null => {
+const describeOverfit = (facts: ConfigPullRequestFacts): string | null => {
   const { searched, heldOut } = facts.gains;
 
   if (facts.heldOutPending) {
@@ -113,8 +111,8 @@ const describeOnlyOnSeenTasks = (
     return null;
   }
 
-  switch (facts.onlyOnSeenTasks) {
-    case 'marked':
+  switch (facts.overfit) {
+    case 'likely':
       return `Its gain showed only on the tasks the search could see: ${points(searched.gain)} points on the searched tasks, but ${points(heldOut.gain)} points on the held-out tasks the search never showed its agent. It may fit the searched tasks rather than work better in general, so weigh that before merging.`;
     case 'too-few-held-out':
       return `It gained ${points(searched.gain)} points on the searched tasks, but only ${plural(heldOut.tasks, 'held-out task')} scored on both sides, too few to tell whether the gain also shows on tasks the search never showed its agent.`;
@@ -152,9 +150,7 @@ export const ConfigPullRequestBody = {
 
     return [
       `Spotlight searched for a better config of the \`${facts.stationKey}\` station on the \`${facts.lineKey}\` line and found \`${defused(facts.candidateName)}\`, which a person picked. This changes the station as the candidate has it: ${facts.changes.map((each) => `\`${each}\``).join(', ')}.`,
-      ...[describeOnlyOnSeenTasks(facts)].flatMap((each) =>
-        each ? [each] : [],
-      ),
+      ...[describeOverfit(facts)].flatMap((each) => (each ? [each] : [])),
       ...(facts.hypothesis
         ? [
             `## Why it should be better\n\nThe search's agent wrote:\n\n${fenced(facts.hypothesis)}`,

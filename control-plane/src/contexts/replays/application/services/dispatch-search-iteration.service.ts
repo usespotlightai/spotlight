@@ -14,10 +14,10 @@ import type { SearchRepository } from '@replays/domain/repositories/search.repos
 import { failingSearchedTasksOf } from '@replays/domain/services/reflected-tasks';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { SearchIteration } from '@replays/domain/value-objects/search-iteration.vo';
-import { Spend } from '@replays/domain/value-objects/spend.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -34,7 +34,7 @@ interface ReflectionFocus {
   readonly tasks: readonly ReflectedTask[];
 }
 
-interface Grounds {
+interface IterationContext {
   readonly station: StationView;
   readonly seed: Candidate;
 }
@@ -103,18 +103,18 @@ export class DispatchSearchIteration {
     search: Search,
     iteration: SearchIteration,
   ): Promise<string | null> {
-    const grounds = await this.groundsOf(search);
+    const context = await this.contextOf(search);
 
-    if (!grounds) {
+    if (!context) {
       return null;
     }
 
     return iteration.reflects
-      ? this.reflectionBriefing(search, iteration, grounds)
-      : this.proposalBriefing(search, iteration, grounds);
+      ? this.reflectionBriefing(search, iteration, context)
+      : this.proposalBriefing(search, iteration, context);
   }
 
-  private async groundsOf(search: Search): Promise<Grounds | null> {
+  private async contextOf(search: Search): Promise<IterationContext | null> {
     const station = await this.work.station(
       search.station.lineId,
       search.station.stationId,
@@ -127,7 +127,7 @@ export class DispatchSearchIteration {
   private proposalBriefing(
     search: Search,
     iteration: SearchIteration,
-    { station, seed }: Grounds,
+    { station, seed }: IterationContext,
   ): string {
     const ceiling = search.budget.ceiling;
     const left = ceiling.amount - search.spent.amount;
@@ -143,7 +143,7 @@ export class DispatchSearchIteration {
       iteration: iteration.number,
       iterations: search.budget.iterations,
       perIteration: search.budget.perIteration,
-      left: Spend.of(Math.max(0, left), ceiling.currency),
+      left: Money.of(Math.max(0, left), ceiling.currency),
       ceiling,
       searchedTasks: search.split.searchedTasks,
       heldOutTasks: search.split.heldOutTasks,
@@ -157,7 +157,7 @@ export class DispatchSearchIteration {
   private async reflectionBriefing(
     search: Search,
     iteration: SearchIteration,
-    { station }: Grounds,
+    { station }: IterationContext,
   ): Promise<string | null> {
     const focus = await this.reflectingOn(search, iteration);
 

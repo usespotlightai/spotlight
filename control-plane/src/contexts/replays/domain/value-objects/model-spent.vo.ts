@@ -1,8 +1,8 @@
-import { InvalidSpendError } from '@replays/domain/exceptions/invalid-spend.error';
-import type { Spend } from '@replays/domain/value-objects/spend.vo';
+import { InvalidMoneyError } from '@replays/domain/exceptions/invalid-money.error';
+import type { Money } from '@replays/domain/value-objects/money.vo';
 
-const summed = (spends: readonly Spend[]): readonly Spend[] => {
-  const byCurrency = new Map<string, Spend>();
+const summed = (spends: readonly Money[]): readonly Money[] => {
+  const byCurrency = new Map<string, Money>();
 
   for (const each of spends) {
     const sum = byCurrency.get(each.currency);
@@ -14,13 +14,13 @@ const summed = (spends: readonly Spend[]): readonly Spend[] => {
 
 export class ModelSpent {
   private constructor(
-    readonly spends: readonly Spend[],
+    readonly spends: readonly Money[],
     readonly unpriced: number,
   ) {}
 
-  static of(spends: readonly Spend[], unpriced: number): ModelSpent {
+  static of(spends: readonly Money[], unpriced: number): ModelSpent {
     if (!Number.isInteger(unpriced) || unpriced < 0) {
-      throw new InvalidSpendError('unpriced calls must be a whole number');
+      throw new InvalidMoneyError('unpriced calls must be a whole number');
     }
 
     return new ModelSpent(summed(spends), unpriced);

@@ -1,6 +1,6 @@
 import type { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
 import type { DeleteMemoryDraft } from '@memory/application/services/delete-memory-draft.service';
-import type { NoteMemoryUses } from '@memory/application/services/note-memory-uses.service';
+import type { RecordRunMemoryUses } from '@memory/application/services/record-run-memory-uses.service';
 import type { RequestMemories } from '@memory/application/services/request-memories.service';
 import type { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import type { MemoryApproved } from '@memory/domain/events/memory-approved.event';
@@ -30,13 +30,13 @@ export const memorySubscribers = (
   requesting: RequestMemories,
   deleting: DeleteMemoryDraft,
   reactions: MemoryReactions,
-  noting: NoteMemoryUses,
+  recording: RecordRunMemoryUses,
 ): readonly DomainEventSubscriber[] => [
   subscribing<RunBriefedIntegrationEvent>(
-    'memory.note-briefed-memories',
+    'memory.record-briefed-memories',
     [RUN_BRIEFED],
     (event) =>
-      noting.runBriefed(
+      recording.runBriefed(
         {
           id: RunId.of(event.runId),
           workspaceId: WorkspaceId.of(event.workspaceId),
@@ -66,10 +66,10 @@ export const memorySubscribers = (
     (event) => reactions.onCreated(event),
   ),
   subscribing<RunEndedIntegrationEvent>(
-    'memory.note-memories-read',
+    'memory.record-memories-read',
     [RUN_ENDED],
     (event) =>
-      noting.runEnded({
+      recording.runEnded({
         id: RunId.of(event.runId),
         workspaceId: WorkspaceId.of(event.workspaceId),
         taskId: event.taskId ? TaskId.of(event.taskId) : null,

@@ -46,7 +46,7 @@ const memory = (over: Partial<TeamMemory>): TeamMemory => ({
   approvedAt: '2026-09-27T10:00:00.000Z',
   supersedes: null,
   retirement: null,
-  grounds: null,
+  provenance: null,
   runs: 1,
   ...over,
 });
@@ -56,7 +56,7 @@ const proposal = (over: Partial<RunProposal>): RunProposal => ({
   kind: 'failure',
   body: 'The worker test hangs without Redis.',
   source: 'run',
-  origin: 'remembered',
+  proposedBy: 'agent',
   state: 'proposed',
   scope: 'line',
   repository: null,
@@ -73,7 +73,7 @@ const proposal = (over: Partial<RunProposal>): RunProposal => ({
 
 const REMEMBERED: RunMemories = {
   briefed: [memory({ id: 'memory_b', handle: 'M-2', body: 'Briefed one.' })],
-  cut: [memory({ id: 'memory_c', handle: 'M-3', body: 'Cut one.' })],
+  omitted: [memory({ id: 'memory_c', handle: 'M-3', body: 'Cut one.' })],
   recalled: [
     memory({
       id: 'memory_r',
@@ -112,7 +112,7 @@ const showing = () =>
 
 const opened = async () => {
   showing();
-  await userEvent.click(screen.getByRole('button', { name: 'Remembered' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Memories' }));
 };
 
 beforeEach(() => {
@@ -127,7 +127,7 @@ describe('RunRemembered', () => {
     rememberedState.data = REMEMBERED;
 
     showing();
-    await userEvent.hover(screen.getByRole('button', { name: 'Remembered' }));
+    await userEvent.hover(screen.getByRole('button', { name: 'Memories' }));
 
     const shown = (await screen.findAllByRole('term')).map((term) => [
       term.textContent,
@@ -143,7 +143,7 @@ describe('RunRemembered', () => {
     rememberedState.data = REMEMBERED;
 
     showing();
-    const summary = screen.getByRole('button', { name: 'Remembered' });
+    const summary = screen.getByRole('button', { name: 'Memories' });
     expect(summary).not.toHaveAttribute('aria-expanded');
     expect(screen.queryByRole('complementary')).toBeNull();
 
@@ -157,13 +157,13 @@ describe('RunRemembered', () => {
     ).toBeInTheDocument();
 
     await userEvent.click(
-      screen.getByRole('button', { name: 'Close what the run remembered' }),
+      screen.getByRole('button', { name: 'Close the run’s memories' }),
     );
 
     expect(summary).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('lists what the agent was supplied, without saying how it came by it, and what the run proposed, leaving out what the cap cut', async () => {
+  it('lists what the agent was supplied, without saying how it came by it, and what the run proposed, leaving out what the cap omitted', async () => {
     rememberedState.data = REMEMBERED;
 
     await opened();
@@ -267,25 +267,30 @@ describe('RunRemembered', () => {
     ).toBeInTheDocument();
   });
 
-  it('stays out of the way when all the run had was cut by the cap', () => {
+  it('stays out of the way when the cap omitted all the run had', () => {
     rememberedState.data = {
       briefed: [],
-      cut: [memory({ id: 'memory_c' })],
+      omitted: [memory({ id: 'memory_c' })],
       recalled: [],
       proposed: [],
     };
 
     showing();
 
-    expect(screen.queryByRole('button', { name: 'Remembered' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Memories' })).toBeNull();
   });
 
   it('stays out of the way when the team remembered nothing for the run', () => {
-    rememberedState.data = { briefed: [], cut: [], recalled: [], proposed: [] };
+    rememberedState.data = {
+      briefed: [],
+      omitted: [],
+      recalled: [],
+      proposed: [],
+    };
 
     showing();
 
-    expect(screen.queryByRole('button', { name: 'Remembered' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Memories' })).toBeNull();
   });
 
   it('offers to try again when what the run remembered cannot be read', async () => {

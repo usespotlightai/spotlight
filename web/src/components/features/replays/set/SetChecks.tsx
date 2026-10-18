@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { StateBox } from '@/components/features/replays/StateBox';
 import { CheckRow } from '@/components/features/replays/set/CheckRow';
-import { GuardsChangesToggle } from '@/components/features/replays/set/GuardsChangesToggle';
+import { GatesChangesToggle } from '@/components/features/replays/set/GatesChangesToggle';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
@@ -49,9 +49,9 @@ export function SetChecks({ teamId, set, replayCheck }: SetChecksProps) {
     body = (
       <StateBox flat>
         <EmptyState icon={ShieldCheck} title="No checks yet">
-          {set.guardsChanges
+          {set.gatesChanges
             ? 'This set checks pull requests that change this station.'
-            : 'The set doesn’t guard config changes.'}
+            : 'The set doesn’t gate config changes.'}
         </EmptyState>
       </StateBox>
     );
@@ -87,7 +87,7 @@ export function SetChecks({ teamId, set, replayCheck }: SetChecksProps) {
     >
       {body}
       <PanelActions>
-        <GuardsChangesToggle teamId={teamId} set={set} />
+        <GatesChangesToggle teamId={teamId} set={set} />
       </PanelActions>
     </InsightsCard>
   );

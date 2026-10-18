@@ -65,7 +65,7 @@ export function SkillWeeksChart({ weeks, onWeek }: SkillWeeksChartProps) {
               cursor={{ stroke: 'var(--chart-grid)' }}
             />
             <Line
-              dataKey="usedShare"
+              dataKey="usedRate"
               stroke="var(--chart-primary)"
               strokeWidth={1.5}
               dot={false}

@@ -17,8 +17,8 @@ import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
-import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { MAX_JOB_ATTEMPTS } from '@shared-kernel/domain/value-objects/pending-job.vo';
@@ -47,7 +47,7 @@ const evidence = (
   DraftEvidence.of({
     taskId: TASK,
     runId,
-    site: {
+    runContext: {
       teamId: TEAM,
       lineId: 'line_1',
       stationId: 'station_1',
@@ -110,14 +110,14 @@ const rejected = (id: string) =>
     kind: 'preference',
     body: MemoryBody.of('Name branches after the ticket.'),
     scope: MemoryScope.of({ teamId: TEAM }),
-    grounds: MemoryGrounds.of({
+    provenance: MemoryProvenance.of({
       taskId: TASK,
       runId: FIRST,
       steps: [],
       notes: [1],
     }),
     source: 'person',
-    origin: 'drafted',
+    proposedBy: 'drafter',
     supersedes: null,
     recordedAt: NOW,
     state: 'rejected',
@@ -163,7 +163,7 @@ describe('MemoryDraft', () => {
   });
 
   describe('drafting', () => {
-    it('proposes what the evidence grounds and drops what it does not', () => {
+    it('proposes what the evidence supports and drops what it does not', () => {
       const drafted = drafting(created().requestDrafting(FIRST, NOW), FIRST, [
         remembered(),
         remembered({ steps: [9] }),
@@ -221,7 +221,7 @@ describe('MemoryDraft', () => {
         evidence: DraftEvidence.of({
           taskId: TASK,
           runId: SECOND,
-          site: {
+          runContext: {
             teamId: TEAM,
             lineId: 'line_1',
             stationId: 'station_1',
@@ -407,7 +407,7 @@ describe('MemoryDraft', () => {
           evidence: DraftEvidence.of({
             taskId: TASK,
             runId: FIRST,
-            site: {
+            runContext: {
               teamId: TEAM,
               lineId: 'line_1',
               stationId: 'station_1',
@@ -455,7 +455,7 @@ describe('MemoryDraft', () => {
       ]);
     });
 
-    it('approves an edited memory with its new body and its original grounds', () => {
+    it('approves an edited memory with its new body and its original provenance', () => {
       const draft = three();
       const before = draft.proposals[0];
 
@@ -467,7 +467,7 @@ describe('MemoryDraft', () => {
 
       expect(approved.proposals[0]?.body.value).toBe('Edited.');
       expect(
-        before && approved.proposals[0]?.grounds.equals(before.grounds),
+        before && approved.proposals[0]?.provenance.equals(before.provenance),
       ).toBe(true);
     });
 
@@ -645,7 +645,7 @@ describe('MemoryDraft', () => {
           supersedes: null,
         },
         at: {
-          site: {
+          runContext: {
             teamId: TEAM,
             lineId: 'line_1',
             stationId: 'station_1',
@@ -707,8 +707,8 @@ describe('MemoryDraft', () => {
         remembered({ kind: 'rationale' }),
       ]);
 
-      expect(drafted.proposals.map((each) => each.origin)).toEqual([
-        'remembered',
+      expect(drafted.proposals.map((each) => each.proposedBy)).toEqual([
+        'agent',
       ]);
     });
 
@@ -725,10 +725,10 @@ describe('MemoryDraft', () => {
       expect(
         redrafted.proposals
           .filter((each) => each.proposed)
-          .map((each) => [each.origin, each.grounds.runId.value]),
+          .map((each) => [each.proposedBy, each.provenance.runId.value]),
       ).toEqual([
-        ['remembered', 'run_1'],
-        ['drafted', 'run_2'],
+        ['agent', 'run_1'],
+        ['drafter', 'run_2'],
       ]);
       expect(
         redrafted
@@ -739,20 +739,20 @@ describe('MemoryDraft', () => {
   });
 
   describe('rehydrating', () => {
-    it('rejects a proposal grounded in another task', () => {
+    it('rejects a proposal that cites another task', () => {
       const other = MemoryProposal.of({
         id: MemoryId.of('memory_other'),
         kind: 'preference',
         body: MemoryBody.of('Name branches after the ticket.'),
         scope: MemoryScope.of({ teamId: TEAM }),
-        grounds: MemoryGrounds.of({
+        provenance: MemoryProvenance.of({
           taskId: TaskId.of('task_other'),
           runId: FIRST,
           steps: [1],
           notes: [],
         }),
         source: 'run',
-        origin: 'drafted',
+        proposedBy: 'drafter',
         supersedes: null,
         recordedAt: NOW,
       });

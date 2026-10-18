@@ -8,7 +8,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const PROBE = ReplayId.of('replay_probe');
+const CALIBRATION = ReplayId.of('replay_calibration');
 
 const noiseOf = (spread: number): SetNoiseReading => ({
   replayId: ReplayId.of('replay_noise'),
@@ -18,7 +18,7 @@ const noiseOf = (spread: number): SetNoiseReading => ({
   spread,
   flippedTasks: [],
   measuredAt: NOW,
-  noisyInOneCopy: spread > 0.05,
+  noisyInOneRepeat: spread > 0.05,
 });
 
 const healthOf = (part: Partial<SetHealth> = {}): SetHealth => ({
@@ -37,7 +37,7 @@ describe('searchWarningsOf', () => {
     ]);
   });
 
-  it('warns that a noisy set needs more copies than requested, and says how many', () => {
+  it('warns that a noisy set needs more repeats than requested, and says how many', () => {
     expect(
       searchWarningsOf(healthOf({ noise: noiseOf(0.1) }), 0.05, 1),
     ).toEqual([
@@ -76,14 +76,14 @@ describe('searchWarningsOf', () => {
       searchWarningsOf(
         healthOf({
           saturation: {
-            replayId: PROBE,
+            replayId: CALIBRATION,
             rate: 0.97,
             interval: null,
             saturated: true,
             measuredAt: NOW,
           },
           judge: {
-            replayId: PROBE,
+            replayId: CALIBRATION,
             compared: 10,
             agreed: 7,
             pending: 0,
@@ -91,7 +91,7 @@ describe('searchWarningsOf', () => {
             unstable: true,
           },
           checks: {
-            replayId: PROBE,
+            replayId: CALIBRATION,
             rechecked: 10,
             pending: 0,
             flaky: [
@@ -109,8 +109,8 @@ describe('searchWarningsOf', () => {
             candidateId: CandidateId.of('candidate_oracle'),
             repeats: 1,
             state: 'finished',
-            againstReplayId: PROBE,
-            againstState: 'finished',
+            referenceReplayId: CALIBRATION,
+            referenceState: 'finished',
             answered: 8,
             live: 0.9,
             withAnswer: 0.8,
@@ -118,7 +118,7 @@ describe('searchWarningsOf', () => {
               gain: -0.1,
               low: -0.3,
               high: 0.1,
-              verdict: 'within-noise',
+              significance: 'within-noise',
               minGain: 0.05,
               tasks: 10,
             },
@@ -147,21 +147,26 @@ describe('searchWarningsOf', () => {
       searchWarningsOf(
         healthOf({
           saturation: {
-            replayId: PROBE,
+            replayId: CALIBRATION,
             rate: 0.95,
             interval: null,
             saturated: false,
             measuredAt: NOW,
           },
           judge: {
-            replayId: PROBE,
+            replayId: CALIBRATION,
             compared: 0,
             agreed: 0,
             pending: 4,
             agreement: null,
             unstable: false,
           },
-          checks: { replayId: PROBE, rechecked: 4, pending: 0, flaky: [] },
+          checks: {
+            replayId: CALIBRATION,
+            rechecked: 4,
+            pending: 0,
+            flaky: [],
+          },
         }),
         0.05,
         1,
