@@ -123,14 +123,6 @@ const namedHarnesses = (
     version: each.version,
   }));
 
-export const holdsNoHarness = (host: Host): boolean => {
-  const usable = host.images.filter((image) => !image.unavailableReason);
-
-  return (
-    usable.length > 0 && usable.every((image) => image.harnesses.length === 0)
-  );
-};
-
 export const servedBy = (
   host: Host,
   harnesses: readonly NamedHarness[] | undefined,

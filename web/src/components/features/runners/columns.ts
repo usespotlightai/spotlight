@@ -4,7 +4,7 @@ export const HOST_HEADINGS: readonly NestedHeading[] = [
   { label: 'Name', size: 'minmax(0,1fr)' },
   { label: 'Serves', size: 'minmax(0,1fr)' },
   { label: 'Status', size: '10rem' },
-  { label: 'Images', size: 'minmax(0,1.5fr)' },
+  { label: 'Images', size: 'minmax(10rem,1.5fr)' },
   { label: 'Harnesses', size: '5.5rem' },
   { label: 'Release', size: '6rem' },
   { label: 'Last activity', size: '7.5rem', numeric: true },

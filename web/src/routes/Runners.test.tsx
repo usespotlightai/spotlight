@@ -249,6 +249,21 @@ describe('Runners', () => {
     expect(screen.queryByText('Other Harness')).not.toBeInTheDocument();
   });
 
+  it('shows the default image as unavailable when the host cannot pull it', async () => {
+    const reason =
+      "Image can't be pulled. Error: unauthorized: authentication required";
+    listing([host({ images: [image({ unavailableReason: reason })] })]);
+
+    renderPage();
+
+    await userEvent.hover(
+      await screen.findByText('spotlight-runner:20260925-01'),
+    );
+
+    expect(await screen.findByText(reason)).toBeInTheDocument();
+    expect(screen.queryByText(/unavailable$/)).not.toBeInTheDocument();
+  });
+
   it('says the control plane gives a host on an old release no work, and how to update it', async () => {
     const reason =
       'Host is on release 20261001-04. Minimum release required: 20261002-02. Update it with: spotlight host update';
@@ -261,16 +276,13 @@ describe('Runners', () => {
     expect(await screen.findByText(reason)).toBeInTheDocument();
   });
 
-  it('says a host whose images hold no harness runs no agent run, and how to add one', async () => {
+  it('shows a dash for a host whose images hold no harness', async () => {
     listing([host({ images: [image({ harnesses: [] })] })]);
 
     renderPage();
 
-    await userEvent.hover(screen.getByText('None'));
-
-    expect(
-      await screen.findByText(/The images of this host hold no harness/),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('–')).toBeInTheDocument();
+    expect(screen.queryByText('None')).not.toBeInTheDocument();
   });
 
   it('names a host serving a trust by the trust', () => {

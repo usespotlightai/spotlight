@@ -3,7 +3,7 @@ import {
   HOST_ROW,
   HOST_ROW_HOVER,
 } from '@/components/features/runners/columns';
-import { HostHarnessCell } from '@/components/features/runners/HostHarnessCell';
+import { HarnessLogos } from '@/components/features/runners/HarnessLogos';
 import { HostImageCell } from '@/components/features/runners/HostImageCell';
 import { HostReleaseCell } from '@/components/features/runners/HostReleaseCell';
 import { HostStatus } from '@/components/features/runners/HostStatus';
@@ -13,6 +13,7 @@ import {
   type Host,
   heartbeatAt,
   type NamedHarness,
+  servedBy,
   sourceLabel,
 } from '@/lib/runner';
 import { cn } from '@/lib/utils';
@@ -62,7 +63,7 @@ export function HostRow({
 
         <HostImageCell images={host.images} />
 
-        <HostHarnessCell host={host} harnesses={harnesses} />
+        <HarnessLogos harnesses={servedBy(host, harnesses)} />
 
         <HostReleaseCell host={host} />
 
