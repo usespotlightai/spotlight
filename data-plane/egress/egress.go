@@ -166,6 +166,14 @@ func serveShared() error {
 	}
 	client.Through(settings.Transport())
 
+	reachesSpotlight := func(ctx context.Context) error {
+		_, err := client.Request(ctx, http.MethodGet, "/api/health", nil, nil)
+		return err
+	}
+	if err := telemetry.ServeHealth(ctx, os.Getenv(telemetry.HealthVar), reachesSpotlight, log); err != nil {
+		return err
+	}
+
 	shared, err := serve.New(settings, client, externalSecretReader(ctx), log)
 	if err != nil {
 		return err

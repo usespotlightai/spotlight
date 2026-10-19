@@ -117,6 +117,10 @@ func run(version string) error {
 		ExtraHosts: cfg.ExtraHosts,
 	}, claims, engine, mirrors, log.With("host", id))
 
+	if err := telemetry.ServeHealth(ctx, os.Getenv(telemetry.HealthVar), host.Ready, log); err != nil {
+		return err
+	}
+
 	if err := host.Serve(ctx); errors.Is(err, serve.ErrUpdated) {
 		log.Info("host restarts on the new binary", "binary", binary.Path)
 		release()
