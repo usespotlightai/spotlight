@@ -61,7 +61,7 @@ func report(candidatesJSON, version string, out io.Writer) error {
 }
 
 func run(args []string, version string) error {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	log := telemetry.NewLogger("runner", os.Stdout)
 	slog.SetDefault(log)
 
 	ctx, stop := signal.NotifyContext(
@@ -70,6 +70,13 @@ func run(args []string, version string) error {
 		syscall.SIGTERM,
 	)
 	defer stop()
+
+	trace, traced := telemetry.TraceOf(os.Getenv(telemetry.TraceparentVar))
+	if !traced {
+		trace = telemetry.NewTrace()
+	}
+	ctx = telemetry.WithTrace(ctx, trace)
+	log = log.With("trace_id", trace.ID())
 
 	cfg, err := config.Load(args)
 	if err != nil {

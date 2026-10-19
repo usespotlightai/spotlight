@@ -50,6 +50,12 @@ const reading = (
   react.mockImplementation(async () => {
     chains.push(causation.current().description);
   });
+  const logger = {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  };
   const handler = new ReadDeliveryHandler(
     new ProviderForDelivery(
       WebhookProviders.of([
@@ -70,9 +76,10 @@ const reading = (
     { react },
     firings,
     causation,
+    logger,
   );
 
-  return { handler, react, firings, chains };
+  return { handler, react, firings, chains, logger };
 };
 
 const FIRED = CausalChain.none().append({
@@ -123,18 +130,28 @@ describe('ReadDeliveryHandler', () => {
   });
 
   it('says nothing about what Spotlight itself did', async () => {
-    const { handler, react } = reading([payloadOf(true)]);
+    const { handler, react, logger } = reading([payloadOf(true)]);
 
     await handler.execute(new ReadDeliveryCommand(stored));
 
     expect(react).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ deliveryId: stored.id, reason: 'nothing-new' }),
+      'Ignored a delivery',
+    );
   });
 
   it('says nothing for an installation no workspace has claimed', async () => {
-    const { handler, react } = reading([payloadOf()], { workspaceId: null });
+    const { handler, react, logger } = reading([payloadOf()], {
+      workspaceId: null,
+    });
 
     await handler.execute(new ReadDeliveryCommand(stored));
 
     expect(react).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ reason: 'no-workspace' }),
+      'Ignored a delivery',
+    );
   });
 });

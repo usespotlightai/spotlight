@@ -1,4 +1,5 @@
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { JobLoop } from '@shared-kernel/application/services/job-loop';
 import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
 import { describe, expect, it, vi } from 'vitest';
@@ -42,6 +43,7 @@ const looping = (start: Item, processed: (item: Item) => Promise<Item>) => {
   const report = vi.fn();
   const error = vi.fn();
   const logger = { error, warn: vi.fn() } as unknown as LoggerPort;
+  const telemetry = telemetryInMemory();
 
   const loop = new JobLoop<Item, string>(
     {
@@ -62,6 +64,7 @@ const looping = (start: Item, processed: (item: Item) => Promise<Item>) => {
     { now: () => new Date(0), sleep: async () => undefined },
     logger,
     { report },
+    telemetry,
   );
 
   return {
@@ -71,11 +74,27 @@ const looping = (start: Item, processed: (item: Item) => Promise<Item>) => {
     },
     report,
     error,
+    telemetry,
     stored: () => stored,
   };
 };
 
 describe('JobLoop', () => {
+  it('processes each job in a span with the ids of the job', async () => {
+    const loop = looping(new Item(0, 'pending', false), async (item) =>
+      item.scheduleRetry(),
+    );
+
+    await loop.processOnce();
+
+    expect(loop.telemetry.started).toEqual([
+      {
+        name: 'Judging runs',
+        ids: { workspaceId: 'workspace-1', runId: 'run-1' },
+      },
+    ]);
+  });
+
   it('reports a job it dead-letters because it kept being interrupted, with its ids', async () => {
     const loop = looping(
       new Item(MAX_TRIES, 'pending', false),
@@ -95,6 +114,37 @@ describe('JobLoop', () => {
         runId: 'run-1',
       },
     );
+  });
+
+  it('counts each outcome by source, without ids', async () => {
+    const processed = looping(new Item(0, 'pending', false), async (item) =>
+      item.scheduleRetry(),
+    );
+    const failing = looping(new Item(0, 'pending', true), async () => {
+      throw new Error('the model did not answer');
+    });
+
+    await processed.processOnce();
+    await failing.processOnce();
+
+    expect(processed.telemetry.counted).toEqual([
+      {
+        metric: 'spotlight.jobs',
+        attributes: {
+          'spotlight.job.source': 'Judging runs',
+          'spotlight.job.outcome': 'processed',
+        },
+      },
+    ]);
+    expect(failing.telemetry.counted).toEqual([
+      {
+        metric: 'spotlight.jobs',
+        attributes: {
+          'spotlight.job.source': 'Judging runs',
+          'spotlight.job.outcome': 'dead_lettered',
+        },
+      },
+    ]);
   });
 
   it('keeps a failure that it retries only in the logs', async () => {

@@ -90,6 +90,14 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
       await this.connections.connectedWorkspaceOf(installation);
 
     if (!workspaceId) {
+      this.logger.info(
+        {
+          installation: installation.value,
+          event: event.kind,
+          reason: 'installation-not-connected',
+        },
+        'Ignored a GitHub event',
+      );
       return;
     }
 

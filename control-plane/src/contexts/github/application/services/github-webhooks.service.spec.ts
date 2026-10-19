@@ -87,7 +87,7 @@ const hooks = (
     dispatch: vi.fn(over.dispatch ?? (async (_: readonly DomainEvent[]) => {})),
   };
   const signature = { signs: vi.fn(() => over.signs ?? true) };
-  const logger = { error: vi.fn() } as unknown as LoggerPort;
+  const logger = { info: vi.fn(), error: vi.fn() } as unknown as LoggerPort;
   const sync = {
     updateDetails: vi.fn(async () => {}),
     reviewed: vi.fn(async () => {}),

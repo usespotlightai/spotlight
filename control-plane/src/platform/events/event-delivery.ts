@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { idsOf } from '@platform/events/event-ids';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -6,6 +7,7 @@ import {
   eventDelivery,
   eventOutbox,
 } from '@platform/persistence/drizzle/schemas/event.schema';
+import { traceIdOfTraceparent } from '@platform/telemetry/trace-context';
 import {
   CAUSATION,
   type CausationPort,
@@ -22,10 +24,16 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import {
+  TELEMETRY,
+  type TelemetryPort,
+} from '@shared-kernel/application/ports/telemetry.port';
 import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { and, asc, count, eq, isNull, lte } from 'drizzle-orm';
 
 export const MAX_ATTEMPTS = 8;
+
+const DELIVERIES_METRIC = 'spotlight.outbox.deliveries';
 
 const backoffMs = (attempts: number): number =>
   Math.min(2 ** attempts * 1000, 60 * 60 * 1000);
@@ -33,24 +41,14 @@ const backoffMs = (attempts: number): number =>
 const because = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-const fieldOf = (encoded: unknown, key: string): unknown =>
-  typeof encoded === 'object' && encoded !== null
-    ? (encoded as Record<string, unknown>)[key]
-    : undefined;
-
-const idOf = (payload: unknown, key: string): string | undefined => {
-  const field = fieldOf(payload, key);
-  const id = typeof field === 'string' ? field : fieldOf(field, 'value');
-
-  return typeof id === 'string' ? id : undefined;
-};
-
 interface Due {
   readonly eventId: string;
   readonly subscriber: string;
   readonly attempts: number;
+  readonly kind: string;
   readonly payload: unknown;
   readonly cause: unknown;
+  readonly traceparent: string | null;
 }
 
 @Injectable()
@@ -63,6 +61,7 @@ export class EventDelivery {
     @Inject(LOGGER) private readonly logger: LoggerPort,
     @Inject(CAUSATION) private readonly causation: CausationPort,
     @Inject(ERROR_REPORTS) private readonly reports: ErrorReportsPort,
+    @Inject(TELEMETRY) private readonly telemetry: TelemetryPort,
   ) {}
 
   async processDue(limit = 100): Promise<number> {
@@ -108,7 +107,7 @@ export class EventDelivery {
     const claimed: { due: Due | null } = { due: null };
 
     try {
-      return await this.context.inTransaction(async () => {
+      const delivered = await this.context.inTransaction(async () => {
         const due = await this.nextDue();
         claimed.due = due;
 
@@ -124,6 +123,12 @@ export class EventDelivery {
 
         return true;
       });
+
+      if (delivered && claimed.due) {
+        this.counted(claimed.due, 'delivered');
+      }
+
+      return delivered;
     } catch (error) {
       if (!claimed.due) {
         throw error;
@@ -140,8 +145,10 @@ export class EventDelivery {
         eventId: eventDelivery.eventId,
         subscriber: eventDelivery.subscriber,
         attempts: eventDelivery.attempts,
+        kind: eventOutbox.kind,
         payload: eventOutbox.payload,
         cause: eventOutbox.cause,
+        traceparent: eventOutbox.traceparent,
       })
       .from(eventDelivery)
       .innerJoin(eventOutbox, eq(eventOutbox.id, eventDelivery.eventId))
@@ -166,11 +173,25 @@ export class EventDelivery {
       throw new Error(`No subscriber is called ${due.subscriber} any more`);
     }
 
-    await this.causation.runWith(CausalChain.read(due.cause), async () => {
-      const raised = await subscriber.handle(this.outbox.decode(due.payload));
+    await this.telemetry.inSpan(
+      due.subscriber,
+      {
+        eventId: due.eventId,
+        eventKind: due.kind,
+        subscriber: due.subscriber,
+        ...idsOf(due.payload),
+        causedByTraceId: traceIdOfTraceparent(due.traceparent),
+      },
+      () =>
+        this.causation.runWith(CausalChain.read(due.cause), async () => {
+          const raised = await subscriber.handle(
+            this.outbox.decode(due.payload),
+          );
 
-      await this.outbox.record(raised);
-    });
+          await this.outbox.record(raised);
+        }),
+      due.traceparent,
+    );
   }
 
   private async failed(due: Due, error: unknown): Promise<void> {
@@ -179,19 +200,25 @@ export class EventDelivery {
     const deadLettering = attempts >= MAX_ATTEMPTS;
 
     this.logger.error(
-      { err: error, subscriber: due.subscriber, attempts },
+      {
+        err: error,
+        eventId: due.eventId,
+        eventKind: due.kind,
+        subscriber: due.subscriber,
+        attempts,
+        ...idsOf(due.payload),
+      },
       deadLettering
         ? 'Dead-lettering a domain event delivery'
         : 'Delivering a domain event',
     );
 
+    this.counted(due, deadLettering ? 'dead_lettered' : 'retried');
+
     if (deadLettering) {
       this.reports.report(error, {
         source: due.subscriber,
-        workspaceId: idOf(due.payload, 'workspaceId'),
-        teamId: idOf(due.payload, 'teamId'),
-        taskId: idOf(due.payload, 'taskId'),
-        runId: idOf(due.payload, 'runId'),
+        ...idsOf(due.payload),
       });
     }
 
@@ -207,6 +234,16 @@ export class EventDelivery {
         .where(this.at(due))
         .then(() => undefined),
     );
+  }
+
+  private counted(
+    due: Due,
+    outcome: 'delivered' | 'retried' | 'dead_lettered',
+  ): void {
+    this.telemetry.count(DELIVERIES_METRIC, {
+      'spotlight.subscriber': due.subscriber,
+      'spotlight.delivery.outcome': outcome,
+    });
   }
 
   private at(due: Due) {

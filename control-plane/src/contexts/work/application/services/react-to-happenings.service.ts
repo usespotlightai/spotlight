@@ -209,6 +209,10 @@ export class ReactToHappenings implements HappeningReactionsPort {
     const line = await this.lines.findByStation(task.stationId);
 
     if (!line) {
+      this.skipped('station-has-no-line', happened, {
+        workspaceId: task.workspaceId.value,
+        taskId: task.id.value,
+      });
       return;
     }
 
@@ -225,6 +229,11 @@ export class ReactToHappenings implements HappeningReactionsPort {
     );
 
     if (!updated) {
+      this.skipped('no-rule-matched', happened, {
+        workspaceId: task.workspaceId.value,
+        teamId: line.teamId.value,
+        taskId: task.id.value,
+      });
       return;
     }
 
@@ -243,6 +252,10 @@ export class ReactToHappenings implements HappeningReactionsPort {
     attachments: readonly Attachment[],
   ): Promise<void> {
     if (!happened.opens) {
+      this.skipped('opens-nothing', happened, {
+        workspaceId: workspaceId.value,
+        teamId: teamId?.value,
+      });
       return;
     }
 
@@ -260,6 +273,13 @@ export class ReactToHappenings implements HappeningReactionsPort {
         happened.correlationKeys,
       ),
     });
+
+    if (answer.kind === 'nothing') {
+      this.skipped('no-review-policy-takes-it', happened, {
+        workspaceId: workspaceId.value,
+        teamId: teamId?.value,
+      });
+    }
 
     if (answer.kind === 'received') {
       await this.receivedBy(answer.by, happened, attachments);
@@ -299,6 +319,10 @@ export class ReactToHappenings implements HappeningReactionsPort {
     attachments: readonly Attachment[],
   ): Promise<void> {
     if (!happened.opens) {
+      this.skipped('no-task-matched', happened, {
+        workspaceId: workspaceId.value,
+        teamId: teamId?.value,
+      });
       return;
     }
 
@@ -308,6 +332,10 @@ export class ReactToHappenings implements HappeningReactionsPort {
     });
 
     if (!chosen) {
+      this.skipped('no-line-opens-it', happened, {
+        workspaceId: workspaceId.value,
+        teamId: teamId?.value,
+      });
       return;
     }
 
@@ -361,6 +389,17 @@ export class ReactToHappenings implements HappeningReactionsPort {
     const stored = runId ? opened.assignRun(runId, line) : opened;
     await reassignTaskMarks(this.tasks, stored);
     await this.tasks.add(stored);
+  }
+
+  private skipped(
+    reason: string,
+    happened: ReceivedHappening,
+    ids: Record<string, string | undefined>,
+  ): void {
+    this.logger.info(
+      { ...ids, happening: happened.payload.happening.value, reason },
+      'Did not act on a happening',
+    );
   }
 
   private async applied(

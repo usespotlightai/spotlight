@@ -136,6 +136,10 @@ import {
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
 import {
+  TELEMETRY,
+  type TelemetryPort,
+} from '@shared-kernel/application/ports/telemetry.port';
+import {
   TOKEN_ISSUER,
   type TokenIssuer,
 } from '@shared-kernel/application/ports/token-issuer.port';
@@ -320,6 +324,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       CLOCK,
       CAUSATION,
       LOGGER,
+      TELEMETRY,
     ],
     useFactory: (
       runtime: HookRuntimePort,
@@ -333,6 +338,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       clock: ClockPort,
       causation: CausationPort,
       logger: LoggerPort,
+      telemetry: TelemetryPort,
     ) =>
       new FireHooks(
         runtime,
@@ -346,6 +352,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
         clock,
         causation,
         logger,
+        telemetry,
       ),
   },
 

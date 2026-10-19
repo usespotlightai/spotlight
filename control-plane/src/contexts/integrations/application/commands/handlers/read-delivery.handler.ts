@@ -8,6 +8,7 @@ import type { ProviderForDelivery } from '@integrations/application/services/pro
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CausationPort } from '@shared-kernel/application/ports/causation.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { HappeningReactionsPort } from '@work/application/ports/happening-reactions.port';
@@ -27,6 +28,7 @@ export class ReadDeliveryHandler
     private readonly reactions: HappeningReactionsPort,
     private readonly history: HookFiringHistoryPort,
     private readonly causation: CausationPort,
+    private readonly logger: LoggerPort,
   ) {}
 
   async execute(command: ReadDeliveryCommand): Promise<void> {
@@ -40,6 +42,7 @@ export class ReadDeliveryHandler
       });
 
       if (!provider) {
+        this.ignored(stored, 'no-provider');
         return;
       }
 
@@ -54,12 +57,14 @@ export class ReadDeliveryHandler
       );
 
       if (news.length === 0) {
+        this.ignored(stored, 'nothing-new');
         return;
       }
 
       const workspaceId = await provider.routes(delivered);
 
       if (!workspaceId) {
+        this.ignored(stored, 'no-workspace');
         return;
       }
 
@@ -81,6 +86,22 @@ export class ReadDeliveryHandler
     } catch (error) {
       rethrowAsApplicationError(error);
     }
+  }
+
+  private ignored(
+    stored: ReadDeliveryCommand['delivered'],
+    reason: 'no-provider' | 'nothing-new' | 'no-workspace',
+  ): void {
+    this.logger.info(
+      {
+        deliveryId: stored.id,
+        integration: stored.integration,
+        workspaceId: stored.workspaceId,
+        teamId: stored.teamId,
+        reason,
+      },
+      'Ignored a delivery',
+    );
   }
 
   private deliveryChain(

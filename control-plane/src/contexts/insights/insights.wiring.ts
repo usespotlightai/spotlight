@@ -183,6 +183,10 @@ import {
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
 import {
+  TELEMETRY,
+  type TelemetryPort,
+} from '@shared-kernel/application/ports/telemetry.port';
+import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
@@ -520,6 +524,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       TRANSACTION,
       LOGGER,
       ERROR_REPORTS,
+      TELEMETRY,
     ],
     useFactory: (
       judgings: DrizzleJudgingRepository,
@@ -529,6 +534,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       transaction: TransactionPort,
       logger: LoggerPort,
       reports: ErrorReportsPort,
+      telemetry: TelemetryPort,
     ) =>
       new WorkJudgings(
         judgings,
@@ -538,6 +544,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
         transaction,
         logger,
         reports,
+        telemetry,
       ),
   },
   {
@@ -575,6 +582,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       TRANSACTION,
       LOGGER,
       ERROR_REPORTS,
+      TELEMETRY,
     ],
     useFactory: (
       judgings: DrizzleSideBySideJudgingRepository,
@@ -584,6 +592,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       transaction: TransactionPort,
       logger: LoggerPort,
       reports: ErrorReportsPort,
+      telemetry: TelemetryPort,
     ) =>
       new WorkSideBySideJudgings(
         judgings,
@@ -593,6 +602,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
         transaction,
         logger,
         reports,
+        telemetry,
       ),
   },
   {
@@ -611,6 +621,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       TRANSACTION,
       LOGGER,
       ERROR_REPORTS,
+      TELEMETRY,
     ],
     useFactory: (
       judgings: DrizzleChangeJudgingRepository,
@@ -620,6 +631,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       transaction: TransactionPort,
       logger: LoggerPort,
       reports: ErrorReportsPort,
+      telemetry: TelemetryPort,
     ) =>
       new WorkChangeJudgings(
         judgings,
@@ -629,6 +641,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
         transaction,
         logger,
         reports,
+        telemetry,
       ),
   },
   {

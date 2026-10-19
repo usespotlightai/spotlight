@@ -113,8 +113,6 @@ const firstOf = async (reply: Response): Promise<string> => {
       chunks.push(value);
       size += value.length;
     }
-  } catch {
-    return Buffer.concat(chunks).toString('utf8');
   } finally {
     await reader.cancel().catch(() => {});
   }

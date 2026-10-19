@@ -18,6 +18,7 @@ import (
 	"usespotlight.ai/data-plane/host/internal/sandbox/docker"
 	"usespotlight.ai/data-plane/host/internal/serve"
 	"usespotlight.ai/data-plane/host/internal/update"
+	"usespotlight.ai/data-plane/telemetry"
 )
 
 const Usage = `  spotlight host              serve a pull pool or runner trust, a fresh sandbox for every run
@@ -52,7 +53,7 @@ func Main(args []string, version string) int {
 }
 
 func run(version string) error {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	log := telemetry.NewLogger("host", os.Stdout)
 	slog.SetDefault(log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -61,6 +62,11 @@ func run(version string) error {
 	cfg, err := config.Load(version)
 	if err != nil {
 		return err
+	}
+	telemetry.SampleAs(cfg.Sampler, cfg.SamplerArg)
+	if cfg.LogLevel != "" {
+		log = telemetry.NewLoggerAt(cfg.LogLevel, os.Stdout)
+		slog.SetDefault(log)
 	}
 
 	release, err := config.Lock(cfg.State)
@@ -115,6 +121,10 @@ func run(version string) error {
 		Network:    cfg.Network,
 		ExtraHosts: cfg.ExtraHosts,
 	}, claims, engine, mirrors, log.With("host", id))
+
+	if err := telemetry.ServeHealth(ctx, cfg.HealthAddr, host.Ready, log); err != nil {
+		return err
+	}
 
 	if err := host.Serve(ctx); errors.Is(err, serve.ErrUpdated) {
 		log.Info("host restarts on the new binary", "binary", binary.Path)

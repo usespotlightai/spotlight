@@ -9,6 +9,8 @@ import {
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { httpExceptionOf } from '@platform/http/filters/application-error.filter';
+import { loggablePath } from '@platform/http/loggable-path';
+import { noteRefusal } from '@platform/http/refusal';
 import {
   type Problem,
   ProblemException,
@@ -33,6 +35,7 @@ import {
 type LoggableRequest = {
   method?: string;
   url?: string;
+  route?: { path?: unknown };
 };
 
 const problemOf = (exception: unknown): Problem => {
@@ -79,7 +82,7 @@ export class ProblemFilter implements ExceptionFilter {
           err: exception,
           context: ProblemFilter.name,
           method: request.method,
-          url: request.url,
+          url: loggablePath(request),
         },
         'Internal error',
       );
@@ -87,6 +90,13 @@ export class ProblemFilter implements ExceptionFilter {
 
     const adapter = this.adapterHost.httpAdapter;
     const response = http.getResponse<unknown>();
+
+    if (problem.status < HttpStatus.INTERNAL_SERVER_ERROR) {
+      noteRefusal(response, {
+        type: problem.type,
+        error: exception instanceof Error ? exception.name : typeof exception,
+      });
+    }
 
     adapter.setHeader(response, 'Content-Type', PROBLEM_CONTENT_TYPE);
     adapter.setHeader(response, API_VERSION_HEADER, API_VERSION);

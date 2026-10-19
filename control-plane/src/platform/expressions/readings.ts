@@ -1,3 +1,4 @@
+import diagnostics from 'node:diagnostics_channel';
 import type { CelVariables } from '@platform/expressions/cel-variables';
 import {
   ExpressionFailedError,
@@ -5,14 +6,45 @@ import {
 } from '@platform/expressions/expression.errors';
 import type { Expression } from '@platform/expressions/expression-engine.port';
 
+export const EXPRESSION_FAILED = 'spotlight:expression:failed';
+
+export interface ExpressionFailure {
+  readonly location: string | null;
+  readonly error: string;
+}
+
+const failed = diagnostics.channel(EXPRESSION_FAILED);
+
+// A message can hold the values the expression read. The code cannot.
+const codeOf = (error: unknown): string => {
+  const code = (error as { code?: unknown } | null)?.code;
+
+  if (typeof code === 'string') {
+    return code;
+  }
+
+  return error instanceof Error ? error.name : 'unknown';
+};
+
+const readAs = <T>(expression: Expression, error: unknown, fallback: T): T => {
+  if (failed.hasSubscribers) {
+    failed.publish({
+      location: expression.location,
+      error: codeOf(error),
+    } satisfies ExpressionFailure);
+  }
+
+  return fallback;
+};
+
 export const isTrue = (
   expression: Expression,
   against: CelVariables,
 ): boolean => {
   try {
     return expression.evaluate(against) === true;
-  } catch {
-    return false;
+  } catch (error) {
+    return readAs(expression, error, false);
   }
 };
 
@@ -30,8 +62,8 @@ export const evaluateText = (
 ): string | null => {
   try {
     return asText(expression.evaluate(against));
-  } catch {
-    return null;
+  } catch (error) {
+    return readAs(expression, error, null);
   }
 };
 
@@ -43,8 +75,8 @@ export const value = (
     const read = expression.evaluate(against);
 
     return read === undefined ? null : read;
-  } catch {
-    return null;
+  } catch (error) {
+    return readAs(expression, error, null);
   }
 };
 

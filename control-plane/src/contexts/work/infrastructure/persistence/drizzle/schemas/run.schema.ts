@@ -89,6 +89,7 @@ export const run = pgTable(
     version: integer('version').notNull().default(0),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     queuedAt: timestamp('queued_at').defaultNow().notNull(),
+    traceparent: text('traceparent'),
     updatedAt: timestamp('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())

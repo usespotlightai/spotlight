@@ -15,6 +15,7 @@ import type { ProposedCohort } from '@change-review/domain/value-objects/stack-c
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import {
   JOB_LEASE_MS,
   MAX_JOB_ATTEMPTS,
@@ -145,6 +146,7 @@ const working = (
     clock,
     QUIET,
     { report: () => undefined },
+    telemetryInMemory(),
   );
 
   const tick = async (at: Date) => {

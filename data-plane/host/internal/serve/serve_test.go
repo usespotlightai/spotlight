@@ -27,6 +27,7 @@ import (
 	"usespotlight.ai/data-plane/host/internal/sandbox"
 	"usespotlight.ai/data-plane/host/internal/serve"
 	"usespotlight.ai/data-plane/protocol"
+	"usespotlight.ai/data-plane/telemetry"
 )
 
 var quiet = slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -408,6 +409,7 @@ func (c *runClient) check(stackID string) (protocol.StackCheckResult, bool) {
 type pool struct {
 	instant      bool
 	claims       int
+	traces       []string
 	inUse        bool
 	work         chan protocol.Assignment
 	revoke       chan struct{}
@@ -477,6 +479,9 @@ func (p *pool) name(images ...string) {
 func (p *pool) Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.Assignment, error) {
 	p.mu.Lock()
 	p.claims++
+	if trace, ok := telemetry.TraceFrom(ctx); ok {
+		p.traces = append(p.traces, trace.ID())
+	}
 	instant := p.instant
 	unoffer := p.unoffer
 	p.mu.Unlock()
@@ -714,6 +719,33 @@ func TestEveryPieceOfWorkGetsAFreshSandboxThatIsDestroyedAfterwards(t *testing.T
 	eventually(t, "both destroyed", func() bool {
 		return engine.wasDestroyed(ids[0]) && engine.wasDestroyed(ids[1])
 	})
+}
+
+func TestASandboxContinuesTheTraceOfItsClaim(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	serving(t, options(t), engine, pool)
+
+	pool.work <- assignment("runner_1")
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+
+	id := engine.workSandboxes()[0]
+	var continued string
+	for _, entry := range engine.sandbox(id).Env {
+		if value, ok := strings.CutPrefix(entry, telemetry.TraceparentVar+"="); ok {
+			if trace, ok := telemetry.TraceOf(value); ok {
+				continued = trace.ID()
+			}
+		}
+	}
+	pool.mu.Lock()
+	claimed := slices.Clone(pool.traces)
+	pool.mu.Unlock()
+	if continued == "" || !slices.Contains(claimed, continued) {
+		t.Errorf("the sandbox continues trace %q, not one of its claims %v", continued, claimed)
+	}
+
+	engine.finish(id)
+	eventually(t, "destroyed", func() bool { return engine.wasDestroyed(id) })
 }
 
 func TestEverySandboxIsToldHowLongToWaitWarmForAnAnswer(t *testing.T) {
@@ -1773,4 +1805,26 @@ func TestAHostWhoseCallClaimsAreUnauthorizedStops(t *testing.T) {
 	if err := stopped(); !errors.Is(err, control.ErrUnauthorized) {
 		t.Fatalf("stopped with %v", err)
 	}
+}
+
+func TestAHostIsReadyOnceAHeartbeatReachedSpotlight(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	host := serve.New(options(t), pool, engine, nil, quiet)
+
+	if err := host.Ready(context.Background()); err == nil {
+		t.Fatal("a host that never reached Spotlight is ready")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		_ = host.Serve(ctx)
+		close(done)
+	}()
+	t.Cleanup(func() {
+		cancel()
+		<-done
+	})
+
+	eventually(t, "ready", func() bool { return host.Ready(context.Background()) == nil })
 }

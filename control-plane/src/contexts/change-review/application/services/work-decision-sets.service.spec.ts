@@ -9,6 +9,7 @@ import type { ProposedDecision } from '@change-review/domain/entities/decision.e
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { MAX_JOB_ATTEMPTS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -83,6 +84,7 @@ const working = (
     { now: () => now, sleep: async () => undefined },
     QUIET,
     { report: () => undefined },
+    telemetryInMemory(),
   );
 
   const tick = async (at: Date = now) => {
@@ -170,6 +172,7 @@ describe('generating the decisions a run made', () => {
       { now: () => NOW, sleep: async () => undefined },
       { ...QUIET, error },
       { report: () => undefined },
+      telemetryInMemory(),
     );
 
     await service.processDue();

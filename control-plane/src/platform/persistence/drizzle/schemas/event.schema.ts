@@ -15,6 +15,7 @@ export const eventOutbox = pgTable('event_outbox', {
   kind: text('kind').notNull(),
   payload: jsonb('payload').notNull(),
   cause: jsonb('cause'),
+  traceparent: text('traceparent'),
   recordedAt: timestamp('recorded_at').defaultNow().notNull(),
 });
 

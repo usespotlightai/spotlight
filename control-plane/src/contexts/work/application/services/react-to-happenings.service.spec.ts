@@ -626,6 +626,13 @@ describe('ReactToHappenings', () => {
 
     expect(saved).toBeUndefined();
     expect(dispatched).toHaveLength(0);
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        happening: 'github.pull_request.closed-unmerged',
+        reason: 'no-rule-matched',
+      }),
+      'Did not act on a happening',
+    );
   });
 
   it('leaves a task that has landed at the end of the line alone', async () => {
@@ -666,6 +673,10 @@ describe('ReactToHappenings', () => {
     await receive(MERGED, null);
 
     expect(saved).toBeUndefined();
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ reason: 'no-task-matched' }),
+      'Did not act on a happening',
+    );
   });
 
   it('starts nothing where the task already has a current run', async () => {

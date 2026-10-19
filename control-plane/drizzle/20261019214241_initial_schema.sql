@@ -62,6 +62,7 @@ CREATE TABLE "event_outbox" (
 	"kind" text NOT NULL,
 	"payload" jsonb NOT NULL,
 	"cause" jsonb,
+	"traceparent" text,
 	"recorded_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -1650,6 +1651,7 @@ CREATE TABLE "run" (
 	"version" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"queued_at" timestamp DEFAULT now() NOT NULL,
+	"traceparent" text,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "run_station_config_check" CHECK (("run"."station_config" is null) = ("run"."station_fingerprint" is null))
 );

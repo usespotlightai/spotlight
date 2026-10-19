@@ -15,6 +15,8 @@ import {
 import { checkResourceAllowed } from '@modelcontextprotocol/sdk/shared/auth-utils.js';
 import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { OncePer } from '@shared-kernel/application/services/once-per';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -59,16 +61,26 @@ export const authorizationServerOf = (
         token: endpoints.token,
       });
 
+const hostOf = (url: string): string | undefined => {
+  try {
+    return new URL(url).host;
+  } catch {
+    return undefined;
+  }
+};
+
 export class OAuth2Discovery {
   readonly #found = new Map<
     string,
     { readonly discovered: Discovered; readonly until: number }
   >();
   readonly #fetch: GuardedFetch;
+  readonly #failed = new OncePer(CACHE_TTL_MS);
 
   constructor(
     policy: OutboundPolicy,
     private readonly clock: ClockPort,
+    private readonly logger: LoggerPort,
     fetch: Fetch = globalThis.fetch,
   ) {
     const guarded = guardedFetch(fetch, policy);
@@ -116,7 +128,20 @@ export class OAuth2Discovery {
       return cached.discovered;
     }
 
-    const discovered = await this.discover(server).catch(() => null);
+    const discovered = await this.discover(server).catch((error: unknown) => {
+      const host = hostOf(server);
+
+      if (this.#failed.due(host ?? server, this.clock.now())) {
+        this.logger.warn(
+          {
+            server: host,
+            error: error instanceof Error ? error.name : 'unknown',
+          },
+          'Could not discover the OAuth server of an integration',
+        );
+      }
+      return null;
+    });
 
     if (discovered) {
       this.#found.set(server, { discovered, until: now + CACHE_TTL_MS });

@@ -17,6 +17,7 @@ const (
 // Passed maps each variable of the host to the variable it is passed as.
 // The SPOTLIGHT_ prefix keeps it from the agent and from customer code.
 var Passed = map[string]string{
+	"LOG_LEVEL":          "SPOTLIGHT_LOG_LEVEL",
 	"SENTRY_DSN":         "SPOTLIGHT_SENTRY_DSN",
 	"SENTRY_ENVIRONMENT": "SPOTLIGHT_SENTRY_ENVIRONMENT",
 }

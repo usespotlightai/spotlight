@@ -31,6 +31,7 @@ func isolated(t *testing.T) string {
 		"SPOTLIGHT_HOST_NAME", "DOCKER_HOST", "SPOTLIGHT_SANDBOX_PASS",
 		"SPOTLIGHT_EGRESS_IMAGE", "SPOTLIGHT_EGRESS_ALLOW", "SPOTLIGHT_EGRESS_ENV", "SPOTLIGHT_EGRESS_PASS",
 		"SPOTLIGHT_EGRESS_CA_BUNDLE", "SPOTLIGHT_EGRESS_SECRET_ALLOW", "SENTRY_DSN", "SENTRY_ENVIRONMENT",
+		"SPOTLIGHT_HEALTH_ADDR", "LOG_LEVEL",
 	} {
 		t.Setenv(name, "")
 	}
@@ -386,4 +387,22 @@ func authorityPEM(t *testing.T) string {
 	}
 
 	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
+}
+
+func TestReadsHealthChecksAndTheLogLevelFromTheFile(t *testing.T) {
+	dir := isolated(t)
+	write(t, filepath.Join(dir, "host.env"), "SPOTLIGHT_URL=https://spotlight.test\nSPOTLIGHT_POOL_TOKEN=pool-token\n"+
+		"SPOTLIGHT_HEALTH_ADDR=127.0.0.1:9100\nLOG_LEVEL=debug\n")
+
+	cfg, err := config.Load("v1.4.0")
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	if cfg.HealthAddr != "127.0.0.1:9100" || cfg.LogLevel != "debug" {
+		t.Errorf("health %q, log level %q", cfg.HealthAddr, cfg.LogLevel)
+	}
+	if !slices.Contains(cfg.SandboxEnv, "SPOTLIGHT_LOG_LEVEL=debug") {
+		t.Errorf("sandboxes do not get the log level: %v", cfg.SandboxEnv)
+	}
 }

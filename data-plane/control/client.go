@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"usespotlight.ai/data-plane/protocol"
+	"usespotlight.ai/data-plane/telemetry"
 )
 
 const (
@@ -701,6 +702,9 @@ func (c *Client) send(ctx context.Context, method, path string, in any) (*http.R
 	}
 	if in != nil {
 		request.Header.Set("Content-Type", "application/json")
+	}
+	if trace, ok := telemetry.TraceFrom(ctx); ok {
+		request.Header.Set("traceparent", trace.Traceparent())
 	}
 
 	return c.http.Do(request)

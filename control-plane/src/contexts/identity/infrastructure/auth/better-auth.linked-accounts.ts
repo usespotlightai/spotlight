@@ -3,10 +3,19 @@ import type {
   LinkedProvider,
 } from '@identity/application/ports/linked-accounts.port';
 import type { AppAuth } from '@identity/infrastructure/auth/auth';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { OncePer } from '@shared-kernel/application/services/once-per';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
+const FAILED_FOR_MS = 10 * 60_000;
+
 export class BetterAuthLinkedAccounts implements LinkedAccountsPort {
-  constructor(private readonly auth: AppAuth) {}
+  readonly #failed = new OncePer(FAILED_FOR_MS);
+
+  constructor(
+    private readonly auth: AppAuth,
+    private readonly logger: LoggerPort,
+  ) {}
 
   async tokenFor(
     userId: UserId,
@@ -27,7 +36,17 @@ export class BetterAuthLinkedAccounts implements LinkedAccountsPort {
       });
 
       return accessToken || null;
-    } catch {
+    } catch (error) {
+      if (this.#failed.due(`${userId.value}\n${provider}`, new Date())) {
+        this.logger.warn(
+          {
+            userId: userId.value,
+            provider,
+            error: error instanceof Error ? error.name : 'unknown',
+          },
+          'Could not read the access token of a linked account',
+        );
+      }
       return null;
     }
   }

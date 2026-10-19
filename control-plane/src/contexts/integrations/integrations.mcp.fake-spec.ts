@@ -4,9 +4,11 @@ import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-p
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 
 export const discoveringNothing = (): OAuth2Discovery =>
-  new OAuth2Discovery(new OutboundPolicy([]), {
-    now: () => new Date(),
-  } as ClockPort);
+  new OAuth2Discovery(
+    new OutboundPolicy([]),
+    { now: () => new Date() } as ClockPort,
+    { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} },
+  );
 
 export const callingNoServer = (): McpSessions =>
   new McpSessions(new OutboundPolicy([]));

@@ -23,6 +23,7 @@ import type { CausationPort } from '@shared-kernel/application/ports/causation.p
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -94,6 +95,7 @@ export class FireHooks {
     private readonly clock: ClockPort,
     private readonly causation: CausationPort,
     private readonly logger: LoggerPort,
+    private readonly telemetry: TelemetryPort,
   ) {}
 
   async listens(teamId: string, on: HookEventName): Promise<boolean> {
@@ -188,6 +190,17 @@ export class FireHooks {
       }
 
       if (!matchedLater && !this.runtime.matches(hook, instance)) {
+        this.logger.debug(
+          {
+            workspaceId: happened.task.workspaceId,
+            teamId: happened.task.teamId,
+            taskId: happened.task.taskId,
+            runId: happened.task.runId ?? undefined,
+            hook: hook.key,
+            on: happened.on,
+          },
+          'A hook did not match',
+        );
         continue;
       }
 
@@ -215,6 +228,10 @@ export class FireHooks {
       );
 
       fired += queued ? 1 : 0;
+
+      if (queued) {
+        this.counted('fired');
+      }
     }
 
     return fired;
@@ -294,6 +311,7 @@ export class FireHooks {
   ): Promise<void> {
     if (!leased.firing.stoppedForLooping) {
       leased.firing = await this.saved(leased.firing.stopForLoop(loop));
+      this.counted('loop_stopped');
     }
 
     const { firing } = leased;
@@ -404,12 +422,37 @@ export class FireHooks {
     return reloaded;
   }
 
+  private counted(outcome: 'fired' | 'skipped' | 'loop_stopped'): void {
+    this.telemetry.count('spotlight.hook_firings', {
+      'spotlight.hook_firing.outcome': outcome,
+    });
+  }
+
+  private skipped(
+    firing: HookFiring,
+    reason: 'hook-deleted' | 'no-longer-matches',
+  ): void {
+    this.counted('skipped');
+    this.logger.info(
+      {
+        workspaceId: firing.workspaceId,
+        taskId: firing.taskId,
+        runId: firing.runId ?? undefined,
+        firingId: firing.id,
+        hookId: firing.hookId,
+        reason,
+      },
+      'Skipped a hook firing',
+    );
+  }
+
   private async delivered(leased: LeasedFiring): Promise<void> {
     const { firing } = leased;
     const hook = await this.runtime.hook(firing.hookId);
 
     if (!hook) {
       await this.firings.save(firing.worked(this.clock.now()));
+      this.skipped(firing, 'hook-deleted');
       return;
     }
 
@@ -448,6 +491,7 @@ export class FireHooks {
     if (!firing.matched) {
       if (!this.runtime.matches(hook, instance)) {
         await this.firings.save(firing.worked(this.clock.now()));
+        this.skipped(firing, 'no-longer-matches');
         return;
       }
 

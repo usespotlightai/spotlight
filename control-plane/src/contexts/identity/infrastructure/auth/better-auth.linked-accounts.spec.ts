@@ -17,7 +17,18 @@ const linking = (
     api: { getAccessToken: getToken },
   } as unknown as AppAuth;
 
-  return { linked: new BetterAuthLinkedAccounts(auth), getToken };
+  const logger = {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  };
+
+  return {
+    linked: new BetterAuthLinkedAccounts(auth, logger),
+    getToken,
+    logger,
+  };
 };
 
 describe('BetterAuthLinkedAccounts', () => {

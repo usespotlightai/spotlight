@@ -10,6 +10,7 @@ import { inTransaction } from '@insights/domain/runs.fake-spec';
 import type { Verdict } from '@insights/domain/services/grounded-verdict';
 import { JudgeCriteria } from '@insights/domain/value-objects/judge-criteria.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -102,6 +103,7 @@ const working = async (
     inTransaction,
     logger,
     { report: () => undefined },
+    telemetryInMemory(),
   );
 
   await work.processDue();
@@ -169,6 +171,7 @@ describe('WorkChangeJudgings', () => {
       inTransaction,
       logger,
       { report: () => undefined },
+      telemetryInMemory(),
     );
 
     await work.processDue();

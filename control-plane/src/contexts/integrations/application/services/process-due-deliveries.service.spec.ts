@@ -7,6 +7,7 @@ import { ProcessDueDeliveries } from '@integrations/application/services/process
 import { MAX_DELIVERY_ATTEMPTS } from '@integrations/domain/services/delivery-retry';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-07T10:00:00.000Z');
@@ -52,9 +53,13 @@ const working = (
   >;
 
   return {
-    service: new ProcessDueDeliveries(queue, reacting, {
-      now: () => NOW,
-    } as ClockPort),
+    service: new ProcessDueDeliveries(
+      queue,
+      reacting,
+      { now: () => NOW } as ClockPort,
+      { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      telemetryInMemory(),
+    ),
     queue,
     reacting,
     done,

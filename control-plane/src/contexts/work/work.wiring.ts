@@ -54,6 +54,7 @@ import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
+import { ReadinessChecks } from '@platform/health/readiness-checks';
 import { AuthenticatedGuard } from '@platform/http/guards/authenticated.guard';
 import { RunnerGuard } from '@platform/http/guards/runner.guard';
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
@@ -98,6 +99,10 @@ import {
   SAVEPOINT,
   type SavepointPort,
 } from '@shared-kernel/application/ports/savepoint.port';
+import {
+  TELEMETRY,
+  type TelemetryPort,
+} from '@shared-kernel/application/ports/telemetry.port';
 import {
   TRANSACTION,
   type TransactionPort,
@@ -582,6 +587,7 @@ import {
   DEFAULT_HARNESS,
 } from '@work/infrastructure/harnesses/built-in-harnesses';
 import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
+import { CheckedRunJournal } from '@work/infrastructure/journal/checked-run-journal';
 import { LineCompiler } from '@work/infrastructure/lines/line.compile';
 import { RowsLineRendering } from '@work/infrastructure/lines/rows-line-rendering';
 import { DrizzleProcessedEvents } from '@work/infrastructure/persistence/drizzle/ledgers/processed-events.ledger';
@@ -625,9 +631,11 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 import { S3AttachmentStore } from '@work/infrastructure/storage/s3-attachment.store';
 import { s3ClientsOf } from '@work/infrastructure/storage/s3-clients';
+import { S3Readiness } from '@work/infrastructure/storage/s3-readiness';
 import { S3WorkspaceArchiveStore } from '@work/infrastructure/storage/s3-workspace-archive.store';
 import { StorageHosts } from '@work/infrastructure/storage/storage-hosts';
 import { InMemoryRunStream } from '@work/infrastructure/streaming/in-memory-run-stream';
+import { RunGauges } from '@work/infrastructure/telemetry/run-gauges';
 import { HashedTraceParent } from '@work/infrastructure/tracing/hashed-trace-parent';
 import { workSubscribers } from '@work/presentation/events/work.subscribers';
 import { AttachmentController } from '@work/presentation/http/controllers/attachment.controller';
@@ -684,6 +692,7 @@ export const WORK_CONTROLLERS: readonly Type[] = [
 ];
 
 export const WORK_PROVIDERS: readonly Provider[] = [
+  RunGauges,
   { provide: ENABLED_AT_STATIONS, useClass: DrizzleEnabledAtStations },
   DrizzleLineDependents,
   {
@@ -984,6 +993,17 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
+    provide: S3Readiness,
+    inject: [ReadinessChecks, ENV],
+    useFactory: (checks: ReadinessChecks, env: Env) => {
+      const { store, bucket } = s3ClientsOf(env);
+      const s3 = new S3Readiness(store, bucket);
+      checks.register(s3);
+      return s3;
+    },
+  },
+
+  {
     provide: FilesLoader,
     inject: [ATTACHMENT_STORE],
     useFactory: (files: AttachmentStorePort) => new FilesLoader(files),
@@ -1023,7 +1043,17 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     useFactory: (runs: DrizzleRunRepository) => new RunLeases(runs),
   },
 
-  { provide: RUN_JOURNAL, useClass: DrizzleRunJournal },
+  DrizzleRunJournal,
+
+  {
+    provide: RUN_JOURNAL,
+    inject: [DrizzleRunJournal, LOGGER, TELEMETRY],
+    useFactory: (
+      journal: DrizzleRunJournal,
+      logger: LoggerPort,
+      telemetry: TelemetryPort,
+    ) => new CheckedRunJournal(journal, logger, telemetry),
+  },
 
   { provide: LEASED_RUN_READER, useClass: DrizzleLeasedRunReader },
 
@@ -1941,6 +1971,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ProvisionFailures,
       ID_GENERATOR,
       CLOCK,
+      LOGGER,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
@@ -1950,7 +1981,18 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       failures: ProvisionFailures,
       ids: IdGeneratorPort,
       clock: ClockPort,
-    ) => new ProvisionWork(runs, checks, pools, runners, failures, ids, clock),
+      logger: LoggerPort,
+    ) =>
+      new ProvisionWork(
+        runs,
+        checks,
+        pools,
+        runners,
+        failures,
+        ids,
+        clock,
+        logger,
+      ),
   },
 
   {

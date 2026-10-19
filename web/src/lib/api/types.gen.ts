@@ -8,6 +8,16 @@ export type HealthResponseDto = {
   status: 'ok';
 };
 
+export type ReadinessCheckDto = {
+  name: string;
+  status: 'ok' | 'failed';
+};
+
+export type ReadinessResponseDto = {
+  status: 'ready' | 'not_ready';
+  checks: Array<ReadinessCheckDto>;
+};
+
 export type ErrorReportingResponseDto = {
   /**
    * The Sentry DSN of the web app. Null when errors are not reported.
@@ -9388,6 +9398,25 @@ export type GetHealthResponses = {
 };
 
 export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
+
+export type GetReadinessData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/health/ready';
+};
+
+export type GetReadinessErrors = {
+  503: ReadinessResponseDto;
+};
+
+export type GetReadinessError = GetReadinessErrors[keyof GetReadinessErrors];
+
+export type GetReadinessResponses = {
+  200: ReadinessResponseDto;
+};
+
+export type GetReadinessResponse = GetReadinessResponses[keyof GetReadinessResponses];
 
 export type GetErrorReportingData = {
   body?: never;

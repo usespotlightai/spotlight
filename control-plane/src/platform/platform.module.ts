@@ -1,7 +1,9 @@
 import { Global, Module } from '@nestjs/common';
 import { APP_FILTER, HttpAdapterHost } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
+import { ENV } from '@platform/config/config.constants';
 import { ConfigModule } from '@platform/config/config.module';
+import type { Env } from '@platform/config/env.schema';
 import { SentryErrorReports } from '@platform/errors/sentry-error-reports';
 import { AsyncLocalCausation } from '@platform/events/async-local-causation';
 import { DeliveryBacklog } from '@platform/events/delivery-backlog';
@@ -14,6 +16,10 @@ import { IntegrationEventMappers } from '@platform/events/integration-event-mapp
 import { PayloadTypes } from '@platform/events/payload-types';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { EXPRESSION_ENGINE } from '@platform/expressions/expression-engine.port';
+import { ExpressionFailures } from '@platform/expressions/expression-failures';
+import { PostgresReadiness } from '@platform/health/postgres-readiness';
+import { ReadinessChecks } from '@platform/health/readiness-checks';
+import { ReadinessGauges } from '@platform/health/readiness-gauges';
 import { ErrorReportingController } from '@platform/http/controllers/error-reporting.controller';
 import { HealthController } from '@platform/http/controllers/health.controller';
 import { ApplicationErrorFilter } from '@platform/http/filters/application-error.filter';
@@ -22,9 +28,13 @@ import { DrizzleIdempotentCreates } from '@platform/idempotency/drizzle-idempote
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
 import { GracefulShutdown } from '@platform/lifecycle/graceful-shutdown';
 import { LoggingModule } from '@platform/logging/logging.module';
+import { OutboundCalls } from '@platform/outbound/outbound-calls';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DrizzleModule } from '@platform/persistence/drizzle/drizzle.module';
 import { DrizzleReading } from '@platform/persistence/drizzle/drizzle.reading';
+import { OtelTelemetry } from '@platform/telemetry/otel-telemetry';
+import { OutboxGauges } from '@platform/telemetry/outbox-gauges';
+import { TelemetryShutdown } from '@platform/telemetry/telemetry-shutdown';
 import { SystemClock } from '@platform/time/system-clock';
 import { RandomTokenIssuer } from '@platform/tokens/random-token-issuer.service';
 import { JoseWorkloadTokens } from '@platform/workload/jose-workload-tokens';
@@ -41,6 +51,7 @@ import {
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
 import { SAVEPOINT } from '@shared-kernel/application/ports/savepoint.port';
+import { TELEMETRY } from '@shared-kernel/application/ports/telemetry.port';
 import { TOKEN_ISSUER } from '@shared-kernel/application/ports/token-issuer.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import { WORKLOAD_TOKENS } from '@shared-kernel/application/ports/workload-tokens.port';
@@ -60,6 +71,21 @@ import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types
     { provide: APP_FILTER, useClass: SentryGlobalFilter },
     { provide: APP_FILTER, useClass: InternalErrorFilter },
     { provide: APP_FILTER, useClass: ApplicationErrorFilter },
+    OutboundCalls,
+    ExpressionFailures,
+    OutboxGauges,
+    ReadinessGauges,
+    TelemetryShutdown,
+    ReadinessChecks,
+    {
+      provide: PostgresReadiness,
+      inject: [ReadinessChecks, ENV],
+      useFactory: (checks: ReadinessChecks, env: Env) => {
+        const postgres = new PostgresReadiness(env.DATABASE_URL);
+        checks.register(postgres);
+        return postgres;
+      },
+    },
     DrizzleContext,
     DrizzleReading,
     { provide: TRANSACTION, useExisting: DrizzleContext },
@@ -84,6 +110,7 @@ import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
     { provide: CLOCK, useClass: SystemClock },
     { provide: ERROR_REPORTS, useClass: SentryErrorReports },
+    { provide: TELEMETRY, useClass: OtelTelemetry },
     { provide: EXPRESSION_ENGINE, useClass: CelExpressionEngine },
     RandomTokenIssuer,
     { provide: TOKEN_ISSUER, useClass: RandomTokenIssuer },
@@ -93,6 +120,8 @@ import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types
   ],
   exports: [
     ERROR_REPORTS,
+    TELEMETRY,
+    ReadinessChecks,
     ConfigModule,
     LoggingModule,
     DrizzleModule,

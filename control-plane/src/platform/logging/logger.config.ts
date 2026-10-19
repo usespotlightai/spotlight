@@ -2,7 +2,10 @@ import { randomUUID } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { RequestMethod } from '@nestjs/common';
 import type { Env } from '@platform/config/env.schema';
-import { traceIdOf } from '@platform/http/trace-id';
+import { loggablePath } from '@platform/http/loggable-path';
+import { refusalOf } from '@platform/http/refusal';
+import { activeTraceId, traceIdOf } from '@platform/http/trace-id';
+import { logContext } from '@platform/logging/log-context';
 import {
   REDACTED_REQUEST_HEADERS,
   REDACTED_RESPONSE_HEADERS,
@@ -18,7 +21,54 @@ const REDACT_PATHS = [
   ...REDACTED_RESPONSE_HEADERS.map((name) => `res.headers["${name}"]`),
 ];
 
-const IGNORED_PATHS = ['/api/health'];
+const IGNORED_PATHS = ['/api/health', '/api/health/ready'];
+
+// Headers can carry secrets, such as a webhook's shared token or a presigned URL. Lines keep these only.
+const LOGGED_REQUEST_HEADERS = [
+  'accept',
+  'content-length',
+  'content-type',
+  'traceparent',
+  'user-agent',
+];
+
+const LOGGED_RESPONSE_HEADERS = [
+  'content-length',
+  'content-type',
+  'etag',
+  REQUEST_ID_HEADER,
+];
+
+const picked = (
+  headers: unknown,
+  names: readonly string[],
+): Record<string, unknown> | undefined => {
+  if (typeof headers !== 'object' || headers === null) {
+    return undefined;
+  }
+
+  const all = headers as Record<string, unknown>;
+
+  return Object.fromEntries(
+    names
+      .filter((name) => all[name] !== undefined)
+      .map((name) => [name, all[name]]),
+  );
+};
+
+type Routed = IncomingMessage & {
+  originalUrl?: string;
+  route?: { path?: unknown };
+};
+
+const locationOf = (req: IncomingMessage) => {
+  const { originalUrl, url, route } = req as Routed;
+
+  return {
+    route: typeof route?.path === 'string' ? route.path : undefined,
+    path: loggablePath({ url: originalUrl ?? url, route }),
+  };
+};
 
 type LoggerEnv = Pick<Env, 'NODE_ENV' | 'LOG_LEVEL'>;
 
@@ -34,12 +84,40 @@ function buildOptions(env: LoggerEnv): Options {
     level: env.LOG_LEVEL,
 
     genReqId: (req: IncomingMessage, res: ServerResponse) => {
-      const id = traceIdOf(req) ?? randomUUID();
+      const id = activeTraceId() ?? traceIdOf(req) ?? randomUUID();
       res.setHeader(REQUEST_ID_HEADER, id);
       return id;
     },
 
     redact: { paths: REDACT_PATHS, censor: '[redacted]' },
+    serializers: {
+      req: (req: Record<string, unknown>) => ({
+        ...req,
+        url: undefined,
+        query: undefined,
+        params: undefined,
+        headers: picked(req.headers, LOGGED_REQUEST_HEADERS),
+      }),
+      res: (res: Record<string, unknown>) => ({
+        ...res,
+        headers: picked(res.headers, LOGGED_RESPONSE_HEADERS),
+      }),
+    },
+    customSuccessObject: (
+      req: IncomingMessage,
+      res: ServerResponse,
+      line: Record<string, unknown>,
+    ) => {
+      const refusal = refusalOf(res);
+
+      return { ...line, ...locationOf(req), ...(refusal ? { refusal } : {}) };
+    },
+    customErrorObject: (
+      req: IncomingMessage,
+      _res: ServerResponse,
+      _err: Error,
+      line: Record<string, unknown>,
+    ) => ({ ...line, ...locationOf(req) }),
 
     autoLogging: {
       ignore: (req: IncomingMessage) => {
@@ -81,8 +159,8 @@ export function buildLogging(
   const { level, redact, transport } = options;
 
   const logger = destination
-    ? pino({ level, redact }, destination)
-    : pino({ level, redact, transport });
+    ? pino({ level, redact, mixin: logContext }, destination)
+    : pino({ level, redact, transport, mixin: logContext });
 
   const shared: Options = { ...options, logger };
   const httpLogger = pinoHttp(shared);

@@ -272,6 +272,10 @@ import {
   LOGGER,
   LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import {
+  TELEMETRY,
+  type TelemetryPort,
+} from '@shared-kernel/application/ports/telemetry.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import {
   ENABLED_AT_STATIONS,
@@ -393,11 +397,12 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: OAuth2Discovery,
-    inject: [ENV, CLOCK],
-    useFactory: (env: Env, clock: ClockPort) =>
+    inject: [ENV, CLOCK, LOGGER],
+    useFactory: (env: Env, clock: ClockPort, logger: LoggerPort) =>
       new OAuth2Discovery(
         new OutboundPolicy(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(',')),
         clock,
+        logger,
       ),
   },
 
@@ -574,12 +579,14 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: ProcessDueDeliveries,
-    inject: [DELIVERY_QUEUE, ReadDeliveryHandler, CLOCK],
+    inject: [DELIVERY_QUEUE, ReadDeliveryHandler, CLOCK, LOGGER, TELEMETRY],
     useFactory: (
       queue: DeliveryQueuePort,
       reacting: ReadDeliveryHandler,
       clock: ClockPort,
-    ) => new ProcessDueDeliveries(queue, reacting, clock),
+      logger: LoggerPort,
+      telemetry: TelemetryPort,
+    ) => new ProcessDueDeliveries(queue, reacting, clock, logger, telemetry),
   },
 
   { provide: DELIVERY_WORK, useExisting: ProcessDueDeliveries },
@@ -1103,6 +1110,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     HAPPENING_REACTIONS,
     HOOK_FIRING_HISTORY,
     CAUSATION,
+    LOGGER,
   ]),
 
   {
