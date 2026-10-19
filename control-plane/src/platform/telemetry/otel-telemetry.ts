@@ -26,6 +26,9 @@ export const attributesOf = (ids: SpanIds): Attributes =>
       .map(([key, value]) => [`spotlight.${snakeCase(key)}`, value]),
   );
 
+// The SDK's default buckets are for milliseconds.
+const SECONDS_BUCKETS = [0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 900, 3600];
+
 @Injectable()
 export class OtelTelemetry implements TelemetryPort {
   readonly #counters = new Map<string, Counter>();
@@ -39,7 +42,14 @@ export class OtelTelemetry implements TelemetryPort {
     let histogram = this.#histograms.get(metric);
 
     if (!histogram) {
-      histogram = metrics.getMeter(SCOPE).createHistogram(metric);
+      histogram = metrics
+        .getMeter(SCOPE)
+        .createHistogram(
+          metric,
+          metric.endsWith('_seconds')
+            ? { advice: { explicitBucketBoundaries: SECONDS_BUCKETS } }
+            : {},
+        );
       this.#histograms.set(metric, histogram);
     }
 
