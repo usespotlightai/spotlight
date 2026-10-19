@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   lint-and-test:
-    name: lint, format, typecheck, tests
+    name: control-plane lint, format, typecheck, tests
     runs-on: ubuntu-latest
     defaults:
       run:
