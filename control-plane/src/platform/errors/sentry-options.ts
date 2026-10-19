@@ -66,9 +66,12 @@ function scrubbed(event: ErrorEvent): ErrorEvent {
 
     if (request.headers) {
       request.headers = Object.fromEntries(
-        Object.entries(request.headers).filter(
-          ([name]) => !REDACTED_HEADERS.has(name.toLowerCase()),
-        ),
+        Object.entries(request.headers)
+          .filter(([name]) => !REDACTED_HEADERS.has(name.toLowerCase()))
+          .map(([name, value]) => [
+            name,
+            name.toLowerCase() === 'referer' ? urlShape(value) : value,
+          ]),
       );
     }
   }
