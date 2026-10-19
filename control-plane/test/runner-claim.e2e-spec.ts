@@ -7,6 +7,7 @@ import { CheckRequest } from '@change-review/domain/value-objects/check-request.
 import { DrizzleStackCheckRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/stack-check.repository';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
@@ -27,13 +28,18 @@ let database: TestDatabase;
 let db: DrizzleDatabase;
 let runs: DrizzleRunRepository;
 let checks: DrizzleStackCheckRepository;
+const telemetry = telemetryInMemory();
 
 beforeAll(async () => {
   database = await openDatabase('runner_claim');
   db = database.db;
-  runs = new DrizzleRunRepository(new DrizzleContext(db), {
-    dispatch: async () => {},
-  });
+  runs = new DrizzleRunRepository(
+    new DrizzleContext(db),
+    {
+      dispatch: async () => {},
+    },
+    telemetry,
+  );
   checks = new DrizzleStackCheckRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
@@ -116,6 +122,22 @@ describe('claiming a run', () => {
     const claimed = await runs.claimNext(claimant('ws_own'), NOW);
 
     expect(claimed?.id.value).toBe(mine);
+  });
+
+  it('measures how long the run waited, by its kind and without its id', async () => {
+    const mine = await queue('ws_waited');
+    await db
+      .update(schema.run)
+      .set({ queuedAt: new Date(NOW.getTime() - 90_000) })
+      .where(eq(schema.run.id, mine));
+
+    await runs.claimNext(claimant('ws_waited'), NOW);
+
+    expect(telemetry.measured[telemetry.measured.length - 1]).toEqual({
+      metric: 'spotlight.runs.claim_wait_seconds',
+      value: 90,
+      attributes: { 'spotlight.run.kind': 'other' },
+    });
   });
 });
 

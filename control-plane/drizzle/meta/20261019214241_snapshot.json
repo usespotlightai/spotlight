@@ -1,5 +1,5 @@
 {
-  "id": "b6254e33-4f1a-419e-9d73-4424de0a511c",
+  "id": "5b0468c2-d7f1-41ac-95c7-8001d7a4bd67",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -13644,6 +13644,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "traceparent": {
+          "name": "traceparent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "updated_at": {
           "name": "updated_at",

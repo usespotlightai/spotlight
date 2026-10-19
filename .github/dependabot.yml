@@ -28,6 +28,16 @@ updates:
         patterns: ["*"]
         update-types: [minor, patch]
 
+  - package-ecosystem: gomod
+    directory: /data-plane
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -39,6 +49,7 @@ updates:
   - package-ecosystem: docker
     directories:
       - /.docker/control-plane
+      - /.docker/runner
       - /.docker/web
       - /.docker/postgres
       - /.docker/traefik

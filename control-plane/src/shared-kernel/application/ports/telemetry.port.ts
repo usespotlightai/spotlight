@@ -13,4 +13,5 @@ export interface TelemetryPort {
   ): Promise<T>;
   // Attributes never hold ids. Ids belong in spans and logs.
   count(metric: string, attributes?: MetricAttributes): void;
+  measure(metric: string, value: number, attributes?: MetricAttributes): void;
 }

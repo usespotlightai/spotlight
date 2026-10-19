@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -35,9 +36,13 @@ let chats: DrizzleChatRepository;
 beforeAll(async () => {
   database = await openDatabase('station_configs');
   db = database.db;
-  runs = new DrizzleRunRepository(new DrizzleContext(db), {
-    dispatch: async () => {},
-  });
+  runs = new DrizzleRunRepository(
+    new DrizzleContext(db),
+    {
+      dispatch: async () => {},
+    },
+    telemetryInMemory(),
+  );
   stationRuns = new DrizzleStationRunReader(db);
   runReader = new DrizzleRunReader(
     db,
