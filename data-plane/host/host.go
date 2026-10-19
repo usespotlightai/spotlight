@@ -63,6 +63,7 @@ func run(version string) error {
 	if err != nil {
 		return err
 	}
+	telemetry.SampleAs(cfg.Sampler, cfg.SamplerArg)
 	if cfg.LogLevel != "" {
 		log = telemetry.NewLoggerAt(cfg.LogLevel, os.Stdout)
 		slog.SetDefault(log)

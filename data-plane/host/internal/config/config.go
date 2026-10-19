@@ -47,6 +47,8 @@ type Config struct {
 	Releases   string
 	HealthAddr string
 	LogLevel   string
+	Sampler    string
+	SamplerArg string
 }
 
 type Egress struct {
@@ -138,6 +140,8 @@ func Load(version string) (Config, error) {
 		DockerHost: get(envDocker),
 		HealthAddr: get(telemetry.HealthVar),
 		LogLevel:   get("LOG_LEVEL"),
+		Sampler:    get(telemetry.SamplerVar),
+		SamplerArg: get(telemetry.SamplerArgVar),
 	}
 
 	if cfg.URL == "" {
