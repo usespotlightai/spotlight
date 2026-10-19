@@ -45,6 +45,10 @@ type Config struct {
 	DockerHost string
 	AutoUpdate bool
 	Releases   string
+	HealthAddr string
+	LogLevel   string
+	Sampler    string
+	SamplerArg string
 }
 
 type Egress struct {
@@ -134,6 +138,10 @@ func Load(version string) (Config, error) {
 		State:      get(envState),
 		Name:       get(envName),
 		DockerHost: get(envDocker),
+		HealthAddr: get(telemetry.HealthVar),
+		LogLevel:   get("LOG_LEVEL"),
+		Sampler:    get(telemetry.SamplerVar),
+		SamplerArg: get(telemetry.SamplerArgVar),
 	}
 
 	if cfg.URL == "" {
@@ -200,7 +208,7 @@ func Load(version string) (Config, error) {
 			values[name] = value
 		}
 	}
-	reporting(values)
+	reporting(values, get)
 	cfg.SandboxEnv, err = sandboxed(values, cfg.PoolToken)
 	note(err)
 
@@ -239,9 +247,9 @@ func (c Config) Credential() control.Credential {
 	return c.Workload
 }
 
-func reporting(values map[string]string) {
+func reporting(values map[string]string, get func(string) string) {
 	for name, passed := range telemetry.Passed {
-		if value := os.Getenv(name); value != "" {
+		if value := get(name); value != "" {
 			values[passed] = value
 		}
 	}
@@ -279,7 +287,7 @@ func egressOf(get func(string) string, version, poolToken string) (Egress, error
 			values[name] = value
 		}
 	}
-	reporting(values)
+	reporting(values, get)
 	egress.Env, err = sandboxed(values, poolToken)
 	if err != nil {
 		problems = append(problems, fmt.Errorf("egress: %w", err))

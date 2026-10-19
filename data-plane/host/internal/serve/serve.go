@@ -37,6 +37,7 @@ const (
 	EgressAlias       = "egress"
 
 	heartbeatEvery  = 20 * time.Second
+	readyBeat       = 90 * time.Second
 	refreshEvery    = time.Minute
 	leaseEvery      = 20 * time.Second
 	stopGrace       = 30 * time.Second
@@ -129,6 +130,8 @@ type Host struct {
 	containerRuntime string
 	bootID           string
 
+	beat atomic.Int64
+
 	mu           sync.Mutex
 	served       map[string]*served
 	disallowed   []string
@@ -187,7 +190,7 @@ func (h *Host) Serve(ctx context.Context) error {
 	h.log.Info("reached the container runtime", "containerRuntime", h.containerRuntime)
 
 	if err := retried(ctx, h.log, "could not report to the control plane, still trying", func() error {
-		heartbeat, err := h.pool.Heartbeat(ctx, h.heartbeat())
+		heartbeat, err := h.sendHeartbeat(ctx)
 		h.workspace = heartbeat.Workspace
 		return err
 	}); err != nil {
@@ -366,7 +369,7 @@ func (h *Host) report(ctx context.Context, stop func(error)) {
 		case <-ticker.C:
 		}
 
-		if _, err := h.pool.Heartbeat(ctx, h.heartbeat()); err != nil {
+		if _, err := h.sendHeartbeat(ctx); err != nil {
 			if final(err) {
 				stop(err)
 				return
@@ -376,6 +379,29 @@ func (h *Host) report(ctx context.Context, stop func(error)) {
 			}
 		}
 	}
+}
+
+func (h *Host) sendHeartbeat(ctx context.Context) (protocol.HeartbeatResponse, error) {
+	response, err := h.pool.Heartbeat(ctx, h.heartbeat())
+	if err == nil {
+		h.beat.Store(time.Now().UnixNano())
+	}
+	return response, err
+}
+
+// Ready fails when no heartbeat reached Spotlight lately or the container runtime does not answer.
+func (h *Host) Ready(ctx context.Context) error {
+	last := h.beat.Load()
+	if last == 0 {
+		return errors.New("no heartbeat reached Spotlight yet")
+	}
+	if since := time.Since(time.Unix(0, last)); since > readyBeat {
+		return fmt.Errorf("no heartbeat reached Spotlight for %s", since.Round(time.Second))
+	}
+	if _, err := h.engine.Describe(ctx); err != nil {
+		return fmt.Errorf("the container runtime does not answer: %w", err)
+	}
+	return nil
 }
 
 func (h *Host) heartbeat() protocol.HostHeartbeat {
@@ -700,7 +726,7 @@ func (h *Host) readied(
 	}
 
 	if ok && (ready.id != before.id || ready.unavailableReason != before.unavailableReason) {
-		if _, err := h.pool.Heartbeat(ctx, h.heartbeat()); err != nil {
+		if _, err := h.sendHeartbeat(ctx); err != nil {
 			log.Warn("could not report what it serves", "error", err)
 		}
 	}

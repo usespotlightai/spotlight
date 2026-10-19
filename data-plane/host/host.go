@@ -63,6 +63,11 @@ func run(version string) error {
 	if err != nil {
 		return err
 	}
+	telemetry.SampleAs(cfg.Sampler, cfg.SamplerArg)
+	if cfg.LogLevel != "" {
+		log = telemetry.NewLoggerAt(cfg.LogLevel, os.Stdout)
+		slog.SetDefault(log)
+	}
 
 	release, err := config.Lock(cfg.State)
 	if err != nil {
@@ -116,6 +121,10 @@ func run(version string) error {
 		Network:    cfg.Network,
 		ExtraHosts: cfg.ExtraHosts,
 	}, claims, engine, mirrors, log.With("host", id))
+
+	if err := telemetry.ServeHealth(ctx, cfg.HealthAddr, host.Ready, log); err != nil {
+		return err
+	}
 
 	if err := host.Serve(ctx); errors.Is(err, serve.ErrUpdated) {
 		log.Info("host restarts on the new binary", "binary", binary.Path)

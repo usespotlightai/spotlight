@@ -26,8 +26,17 @@ func (o Options) Diff(ctx context.Context, checkout string) (string, error) {
 	index := filepath.Join(gitDir, "spotlight-stack-index")
 	defer os.Remove(index)
 
-	if real, err := os.ReadFile(filepath.Join(gitDir, "index")); err == nil {
+	realIndex := filepath.Join(gitDir, "index")
+	if real, err := os.ReadFile(realIndex); err == nil {
+		written, err := os.Stat(realIndex)
+		if err != nil {
+			return "", err
+		}
 		if err := os.WriteFile(index, real, 0o600); err != nil {
+			return "", err
+		}
+		// Keep the index's mtime: git trusts entries older than it, so a fresh one hides same-size edits.
+		if err := os.Chtimes(index, written.ModTime(), written.ModTime()); err != nil {
 			return "", err
 		}
 		if err := o.own(index); err != nil {

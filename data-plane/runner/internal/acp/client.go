@@ -32,7 +32,6 @@ type Client struct {
 
 	closeOnce sync.Once
 	done      chan struct{}
-	failed    error
 }
 
 type Asked struct {
