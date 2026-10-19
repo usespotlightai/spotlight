@@ -72,7 +72,7 @@ func TestIsAnAuthorityThatSignsNoOtherAuthority(t *testing.T) {
 	if !certificate.IsCA || !certificate.MaxPathLenZero || certificate.KeyUsage&x509.KeyUsageCertSign == 0 {
 		t.Errorf("authority %+v", certificate)
 	}
-	if lives := certificate.NotAfter.Sub(time.Now()); lives > lifetime || lives < lifetime-time.Minute {
+	if lives := time.Until(certificate.NotAfter); lives > lifetime || lives < lifetime-time.Minute {
 		t.Errorf("lives %s", lives)
 	}
 }

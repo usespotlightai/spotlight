@@ -5,6 +5,9 @@ on:
     branches: [develop, main]
   pull_request:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -36,6 +39,9 @@ jobs:
           npm run api:generate
           git diff --exit-code -- src/lib/api \
             || { echo "::error::src/lib/api is stale. Run 'npm run api:generate' in web/."; exit 1; }
+
+      - name: Known vulnerabilities in production dependencies
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Lint and format check
         run: npx biome ci .
