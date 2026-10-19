@@ -192,6 +192,28 @@ describe('HookRequests', () => {
     );
   });
 
+  it('fails a call whose answer stops early, in place of keeping part of it', async () => {
+    const { requests: sending } = requests(
+      async () =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode('{"allow": tr'));
+              controller.error(new Error('the connection reset'));
+            },
+          }),
+          { status: 200 },
+        ),
+    );
+
+    const stepResult = await sending.sent(hookRequest(), NOW);
+
+    expect(stepResult.outcome).not.toMatchObject({ status: 'done' });
+    expect(JSON.stringify(stepResult.outcome)).toContain(
+      'the connection reset',
+    );
+  });
+
   it('carries an OIDC token that binds the message and its body', async () => {
     const {
       fetch,

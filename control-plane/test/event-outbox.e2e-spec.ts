@@ -15,6 +15,7 @@ import {
   eventDelivery,
   eventOutbox,
 } from '@platform/persistence/drizzle/schemas/event.schema';
+import { OtelTelemetry } from '@platform/telemetry/otel-telemetry';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { subscribing } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
@@ -136,6 +137,8 @@ const outboxWith = () => {
     { generate: () => randomUUID() },
     clock,
     causation,
+    logger,
+    new OtelTelemetry(),
   );
   const reports = { report: vi.fn() };
   const delivery = new EventDelivery(
@@ -146,6 +149,7 @@ const outboxWith = () => {
     logger,
     causation,
     reports,
+    new OtelTelemetry(),
   );
 
   return { outbox, delivery, reports };

@@ -1,5 +1,6 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { noteRefusal, type Refusal } from '@platform/http/refusal';
 import { buildLogging } from '@platform/logging/logger.config';
 import pinoHttp, { type Options } from 'pino-http';
 import { describe, expect, it } from 'vitest';
@@ -21,6 +22,7 @@ async function request(
   path: string,
   headers: Record<string, string> = {},
   through: 'module' | 'auth' = 'module',
+  refusal?: Refusal,
 ): Promise<Captured> {
   const chunks: string[] = [];
   const { params, httpLogger } = buildLogging(
@@ -45,6 +47,14 @@ async function request(
       for (const issued of ISSUED_HEADERS) {
         res.setHeader(issued, ISSUED_TOKEN);
       }
+      res.setHeader(
+        'location',
+        `https://files.example/a?X-Amz-Signature=${ISSUED_TOKEN}`,
+      );
+      if (refusal) {
+        noteRefusal(res, refusal);
+        res.statusCode = 403;
+      }
       res.end('ok');
     });
   });
@@ -67,38 +77,56 @@ async function request(
 }
 
 describe('logger config', () => {
-  it('never writes session cookies, authorization headers or tokens it issues', async () => {
+  it('never writes session cookies, authorization headers, secret headers or tokens it issues', async () => {
     const { raw, lines } = await request('/api', {
       cookie: SESSION_COOKIE,
       authorization: `Bearer ${SESSION_TOKEN}`,
+      'x-hook-token': SESSION_TOKEN,
+      referer: `https://app.example/invites/${SESSION_TOKEN}`,
+      'user-agent': 'curl/8',
     });
 
     expect(raw).not.toContain(SESSION_TOKEN);
     expect(raw).not.toContain(ISSUED_TOKEN);
     expect(lines[lines.length - 1]).toMatchObject({
-      req: {
-        headers: { cookie: '[redacted]', authorization: '[redacted]' },
-      },
-      res: {
-        headers: {
-          'set-cookie': '[redacted]',
-          ...Object.fromEntries(
-            ISSUED_HEADERS.map((issued) => [issued, '[redacted]']),
-          ),
-        },
-      },
+      req: { headers: { 'user-agent': 'curl/8' } },
+      res: { headers: { 'x-request-id': expect.any(String) } },
     });
   });
 
   it('logs method, path, status and duration for each request', async () => {
-    const { lines } = await request('/api?name=Leon');
+    const { lines } = await request('/api');
     const completed = lines[lines.length - 1];
 
     expect(completed).toMatchObject({
-      req: { method: 'GET', url: '/api?name=Leon' },
+      req: { method: 'GET' },
+      path: '/api',
       res: { statusCode: 200 },
     });
     expect(completed?.responseTime).toBeTypeOf('number');
+  });
+
+  it('never writes the query string of a request', async () => {
+    const { raw, lines } = await request('/api?token=query-secret&name=quinoa');
+
+    expect(raw).not.toContain('query-secret');
+    expect(raw).not.toContain('quinoa');
+    expect(lines[lines.length - 1]).toMatchObject({ path: '/api' });
+  });
+
+  it('names the reason a request was refused', async () => {
+    const { lines } = await request('/api', {}, 'module', {
+      type: 'urn:spotlight:problem:version-conflict',
+      error: 'ProblemException',
+    });
+
+    expect(lines[lines.length - 1]).toMatchObject({
+      res: { statusCode: 403 },
+      refusal: {
+        type: 'urn:spotlight:problem:version-conflict',
+        error: 'ProblemException',
+      },
+    });
   });
 
   it('tags every line of a request with the same request id', async () => {
@@ -137,7 +165,8 @@ describe('logger config', () => {
     const { lines } = await request('/api/auth/get-session', {}, 'auth');
 
     expect(lines[lines.length - 1]).toMatchObject({
-      req: { method: 'GET', url: '/api/auth/get-session' },
+      req: { method: 'GET' },
+      path: '/api/auth/get-session',
       res: { statusCode: 200 },
     });
     expect(lines[0].reqId).toBeTypeOf('string');

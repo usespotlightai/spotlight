@@ -145,6 +145,7 @@ const running = (
       inTransaction: (work: () => Promise<unknown>) => work(),
     } as TransactionPort,
     {
+      warn: () => undefined,
       error: (fields: unknown) => {
         logged.push(fields);
       },

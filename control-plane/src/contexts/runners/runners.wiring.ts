@@ -132,6 +132,7 @@ import { DrizzleUsedPoolTokensRepository } from '@runners/infrastructure/persist
 import { DrizzleWorkspaceRunnersRepository } from '@runners/infrastructure/persistence/drizzle/repositories/workspace-runners.repository';
 import { EncryptedProvisionSecrets } from '@runners/infrastructure/provision/encrypted-provision-secrets';
 import { SignedProvisionCalls } from '@runners/infrastructure/provision/signed-provision-calls';
+import { RunnerHostGauges } from '@runners/infrastructure/telemetry/runner-host-gauges';
 import { runnersSubscribers } from '@runners/presentation/events/runners.subscribers';
 import { EgressResourceController } from '@runners/presentation/http/controllers/egress-resource.controller';
 import { HostController } from '@runners/presentation/http/controllers/host.controller';
@@ -188,6 +189,7 @@ export const RUNNERS_CONTROLLERS: readonly Type[] = [
 ];
 
 export const RUNNERS_PROVIDERS: readonly Provider[] = [
+  RunnerHostGauges,
   {
     provide: PLATFORM_EGRESS,
     inject: [ENV, TOKEN_ISSUER],

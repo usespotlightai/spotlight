@@ -64,11 +64,24 @@ export class WebhookGuard implements CanActivate {
     };
 
     // Unknown teams and providers fail as bad signatures do. This shows no data to the caller.
-    if (!provider || !(await this.trusts(provider, delivered))) {
+    if (!at || !provider || !(await this.trusts(provider, delivered))) {
+      this.logger.warn(
+        {
+          workspaceId: at?.workspaceId || undefined,
+          teamId: at?.teamId || undefined,
+          integration: request.params?.integration,
+          reason: !at
+            ? 'unknown-team'
+            : !provider
+              ? 'unknown-integration'
+              : 'bad-signature',
+        },
+        'Refused a webhook delivery',
+      );
       throw new UnauthorizedException();
     }
 
-    request.deliveredTo = at ?? { workspaceId: '', teamId: '' };
+    request.deliveredTo = at;
     request.answered = provider.answer?.(delivered) ?? null;
 
     return true;

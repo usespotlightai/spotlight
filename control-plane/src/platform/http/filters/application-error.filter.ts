@@ -5,10 +5,12 @@ import {
   ConflictException,
   ForbiddenException,
   type HttpException,
+  HttpStatus,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
+import { noteRefusal } from '@platform/http/refusal';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ErrorKind } from '@shared-kernel/domain/exceptions/error-kind';
 
@@ -26,6 +28,15 @@ export const httpExceptionOf = (error: ApplicationError): HttpException =>
 @Catch(ApplicationError)
 export class ApplicationErrorFilter extends BaseExceptionFilter {
   override catch(exception: ApplicationError, host: ArgumentsHost): void {
-    super.catch(httpExceptionOf(exception), host);
+    const http = httpExceptionOf(exception);
+
+    if (http.getStatus() < HttpStatus.INTERNAL_SERVER_ERROR) {
+      noteRefusal(host.switchToHttp().getResponse(), {
+        kind: exception.kind,
+        error: exception.constructor.name,
+      });
+    }
+
+    super.catch(http, host);
   }
 }

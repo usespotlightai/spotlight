@@ -432,7 +432,8 @@ func (h *Host) claim(ctx, serving context.Context, image string) error {
 		}
 
 		claimedAt := time.Now()
-		assignment, err := h.pool.Claim(ctx, protocol.HostClaim{Image: image})
+		trace := telemetry.NewTrace()
+		assignment, err := h.pool.Claim(telemetry.WithTrace(ctx, trace), protocol.HostClaim{Image: image})
 		if err != nil || assignment == nil {
 			<-h.slots
 
@@ -457,7 +458,7 @@ func (h *Host) claim(ctx, serving context.Context, image string) error {
 		backoff = retryFloor
 		h.sandboxes.Go(func() {
 			defer func() { <-h.slots }()
-			h.sandbox(serving, image, *assignment)
+			h.sandbox(telemetry.WithTrace(serving, trace), image, *assignment)
 		})
 	}
 }
@@ -496,6 +497,10 @@ func final(err error) bool {
 
 func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.Assignment) {
 	log := h.log.With("runner", assignment.RunnerID)
+	trace, traced := telemetry.TraceFrom(ctx)
+	if traced {
+		log = log.With("trace_id", trace.ID())
+	}
 	if assignment.Work.Run != nil {
 		log = log.With("run", assignment.Work.Run.ID)
 	}
@@ -569,6 +574,9 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 	)
 	if len(mounts) > 0 {
 		env = append(env, "SPOTLIGHT_MIRRORS="+MirrorRoot)
+	}
+	if traced {
+		env = append(env, telemetry.TraceparentVar+"="+trace.Traceparent())
 	}
 
 	id, err := h.engine.Start(starting, sandbox.Spec{

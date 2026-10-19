@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import type { HttpAdapterHost } from '@nestjs/core';
 import { InternalErrorFilter } from '@platform/http/filters/internal-error.filter';
+import { refusalOf } from '@platform/http/refusal';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -13,6 +14,7 @@ const REQUEST = { method: 'GET', url: '/api/boom' };
 
 function setup() {
   const reply = vi.fn();
+  const response = {};
   const adapterHost = {
     httpAdapter: { isHeadersSent: () => false, reply, end: vi.fn() },
   } as unknown as HttpAdapterHost;
@@ -21,13 +23,17 @@ function setup() {
   const reports = { report: vi.fn() };
 
   const host = {
-    switchToHttp: () => ({ getRequest: () => REQUEST }),
+    switchToHttp: () => ({
+      getRequest: () => REQUEST,
+      getResponse: () => response,
+    }),
     getArgByIndex: () => ({}),
   } as unknown as ArgumentsHost;
 
   return {
     filter: new InternalErrorFilter(adapterHost, logger, reports),
     host,
+    response,
     reply,
     reported: reports.report,
     error: logger.error as unknown as ReturnType<typeof vi.fn>,
@@ -61,9 +67,11 @@ describe('InternalErrorFilter', () => {
   });
 
   it('leaves 4xx to the request-completed line', () => {
-    const { filter, host, reply, error, reported } = setup();
+    const { filter, host, response, reply, error, reported } = setup();
 
     filter.catch(new BadRequestException('nope'), host);
+
+    expect(refusalOf(response)).toEqual({ error: 'BadRequestException' });
 
     expect(error).not.toHaveBeenCalled();
     expect(reported).not.toHaveBeenCalled();

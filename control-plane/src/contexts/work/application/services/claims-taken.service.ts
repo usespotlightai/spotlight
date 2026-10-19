@@ -28,6 +28,16 @@ export class ClaimsTaken {
     await this.taken(runner, { kind: 'run', id: claimed.id.value }, () =>
       this.runUnclaimed(claimed, runner),
     );
+    this.logger.info(
+      {
+        workspaceId: claimed.workspaceId.value,
+        taskId: claimed.taskId?.value,
+        runId: claimed.id.value,
+        runnerId: runner.value,
+        attempt: claimed.attempt,
+      },
+      'Claimed a run',
+    );
   }
 
   async check(claimed: ClaimedCheck, runner: RunnerId): Promise<void> {
@@ -38,6 +48,10 @@ export class ClaimsTaken {
         runner,
         this.clock.now(),
       ),
+    );
+    this.logger.info(
+      { stackId: claimed.stackId, runnerId: runner.value },
+      'Claimed a check',
     );
   }
 

@@ -98,6 +98,12 @@ const provisioning = (
     readonly reserves?: boolean;
   } = {},
 ) => {
+  const logger = {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  };
   const stored = new Map(queue.map((each) => [each.id.value, each]));
   const awaitingProvision = vi.fn(
     async (
@@ -181,11 +187,29 @@ const provisioning = (
         },
       },
       { now: () => now } as ClockPort,
+      logger,
     ),
+    logger,
   };
 };
 
 describe('ProvisionWork', () => {
+  it('says once in 10 minutes why it provisions no runner for a run', async () => {
+    const { provisioner, provision, logger } = provisioning(
+      [waiting('run_1', ['gpu'])],
+      [aPool('burst', ['arm'])],
+    );
+
+    await provisioner.due();
+    await provisioner.due();
+
+    expect(provision).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ runId: 'run_1', reason: 'no-pool-matches' }),
+      'Did not provision a runner',
+    );
+  });
+
   it('releases what it reserved when provisioning throws, still provisions the rest, and says why', async () => {
     const { provisioner, provision, run } = provisioning(
       [waiting('run_1', ['broken']), waiting('run_2', ['gpu'])],

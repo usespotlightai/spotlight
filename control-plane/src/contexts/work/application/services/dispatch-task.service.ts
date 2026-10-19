@@ -85,12 +85,14 @@ export class DispatchTask implements TaskDispatching {
     });
 
     if (!order) {
+      this.notDispatched(task, line, 'station-has-no-harness');
       return null;
     }
 
     const prepared = this.ordering.prepared(order);
 
     if (!prepared || !this.launch.skillsFor(order.harness.id)) {
+      this.notDispatched(task, line, 'harness-not-prepared');
       return null;
     }
 
@@ -109,6 +111,7 @@ export class DispatchTask implements TaskDispatching {
     const found = await this.ordering.ordered(line, taskOrderedAt(task, line));
 
     if (!found) {
+      this.notDispatched(task, line, 'station-has-no-order', runId);
       return false;
     }
 
@@ -192,5 +195,24 @@ export class DispatchTask implements TaskDispatching {
     );
 
     return true;
+  }
+
+  private notDispatched(
+    task: Task,
+    line: Line,
+    reason: string,
+    runId?: RunId,
+  ): void {
+    this.logger.info(
+      {
+        workspaceId: task.workspaceId.value,
+        teamId: line.teamId.value,
+        taskId: task.id.value,
+        runId: runId?.value,
+        stationId: task.stationId.value,
+        reason,
+      },
+      'Did not dispatch a run',
+    );
   }
 }

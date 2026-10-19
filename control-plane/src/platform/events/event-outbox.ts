@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { EventCodec } from '@platform/events/event-codec';
+import { idsOf } from '@platform/events/event-ids';
 import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
@@ -9,6 +10,7 @@ import {
   eventDelivery,
   eventOutbox,
 } from '@platform/persistence/drizzle/schemas/event.schema';
+import { activeTraceparent } from '@platform/telemetry/trace-context';
 import {
   CAUSATION,
   type CausationPort,
@@ -22,7 +24,17 @@ import {
   ID_GENERATOR,
   type IdGeneratorPort,
 } from '@shared-kernel/application/ports/id-generator.port';
+import {
+  LOGGER,
+  type LoggerPort,
+} from '@shared-kernel/application/ports/logger.port';
+import {
+  TELEMETRY,
+  type TelemetryPort,
+} from '@shared-kernel/application/ports/telemetry.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+
+const EVENTS_METRIC = 'spotlight.events';
 
 @Injectable()
 export class EventOutbox implements DomainEventDispatcher {
@@ -38,6 +50,8 @@ export class EventOutbox implements DomainEventDispatcher {
     @Inject(ID_GENERATOR) private readonly ids: IdGeneratorPort,
     @Inject(CLOCK) private readonly clock: ClockPort,
     @Inject(CAUSATION) private readonly causation: CausationPort,
+    @Inject(LOGGER) private readonly logger: LoggerPort,
+    @Inject(TELEMETRY) private readonly telemetry: TelemetryPort,
   ) {
     this.#codec = new EventCodec(types);
   }
@@ -59,8 +73,12 @@ export class EventOutbox implements DomainEventDispatcher {
     const at = this.clock.now();
     const chain = this.causation.current();
     const cause = chain.started ? chain.stored : null;
+    const traceparent = activeTraceparent();
+    const recorded: Record<string, unknown>[] = [];
 
     await this.context.inTransaction(async () => {
+      recorded.length = 0;
+
       for (const event of events) {
         await this.projections.project(event);
       }
@@ -71,13 +89,21 @@ export class EventOutbox implements DomainEventDispatcher {
       ])) {
         const id = this.ids.generate();
         const listening = this.subscribers.listeningTo(event.kind);
+        const payload = this.#codec.encode(event);
 
         await this.context.db.insert(eventOutbox).values({
           id,
           kind: event.kind,
-          payload: this.#codec.encode(event),
+          payload,
           cause,
+          traceparent,
           recordedAt: at,
+        });
+        recorded.push({
+          eventId: id,
+          kind: event.kind,
+          ...idsOf(payload),
+          subscribers: listening.length,
         });
 
         if (listening.length > 0) {
@@ -92,6 +118,17 @@ export class EventOutbox implements DomainEventDispatcher {
       }
 
       this.context.afterCommit(() => {
+        const causedBy = chain.started
+          ? { root: chain.links[0]?.key, depth: chain.depth }
+          : undefined;
+
+        for (const each of recorded) {
+          this.logger.info({ ...each, causedBy }, 'Recorded event');
+          this.telemetry.count(EVENTS_METRIC, {
+            'spotlight.event.kind': String(each.kind),
+          });
+        }
+
         for (const then of this.#recorded) {
           then();
         }

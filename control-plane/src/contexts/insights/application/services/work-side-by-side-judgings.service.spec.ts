@@ -13,6 +13,7 @@ import {
 } from '@insights/domain/judging.fake-spec';
 import { inTransaction } from '@insights/domain/runs.fake-spec';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -93,6 +94,7 @@ const working = async (
     inTransaction,
     logger,
     { report: () => undefined },
+    telemetryInMemory(),
   );
 
   await work.processDue();

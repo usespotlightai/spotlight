@@ -201,6 +201,10 @@ import {
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
 import {
+  TELEMETRY,
+  type TelemetryPort,
+} from '@shared-kernel/application/ports/telemetry.port';
+import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
@@ -406,6 +410,7 @@ const services: Provider[] = [
       CLOCK,
       LOGGER,
       ERROR_REPORTS,
+      TELEMETRY,
     ],
     useFactory: (
       stacks: DrizzleChangeStackRepository,
@@ -416,6 +421,7 @@ const services: Provider[] = [
       clock: ClockPort,
       logger: LoggerPort,
       reports: ErrorReportsPort,
+      telemetry: TelemetryPort,
     ) =>
       new WorkChangeStacks(
         stacks,
@@ -426,6 +432,7 @@ const services: Provider[] = [
         clock,
         logger,
         reports,
+        telemetry,
       ),
   },
   {
@@ -509,6 +516,7 @@ const services: Provider[] = [
       CLOCK,
       LOGGER,
       ERROR_REPORTS,
+      TELEMETRY,
     ],
     useFactory: (
       sets: DrizzleDecisionSetRepository,
@@ -519,6 +527,7 @@ const services: Provider[] = [
       clock: ClockPort,
       logger: LoggerPort,
       reports: ErrorReportsPort,
+      telemetry: TelemetryPort,
     ) =>
       new WorkDecisionSets(
         sets,
@@ -529,6 +538,7 @@ const services: Provider[] = [
         clock,
         logger,
         reports,
+        telemetry,
       ),
   },
   {

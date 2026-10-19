@@ -2,7 +2,12 @@ import {
   REDACTED_REQUEST_HEADERS,
   REDACTED_RESPONSE_HEADERS,
 } from '@platform/logging/redacted-headers';
-import type { Breadcrumb, ErrorEvent, NodeOptions } from '@sentry/nestjs';
+import {
+  type Breadcrumb,
+  type ErrorEvent,
+  type NodeOptions,
+  openTelemetryIntegration,
+} from '@sentry/nestjs';
 
 type SentryEnv = {
   readonly SENTRY_DSN?: string;
@@ -16,7 +21,10 @@ const REDACTED_HEADERS = new Set(
   ),
 );
 
-export function sentryOptions(env: SentryEnv): NodeOptions | undefined {
+export function sentryOptions(
+  env: SentryEnv,
+  { openTelemetry = false }: { openTelemetry?: boolean } = {},
+): NodeOptions | undefined {
   if (!env.SENTRY_DSN) {
     return undefined;
   }
@@ -40,6 +48,9 @@ export function sentryOptions(env: SentryEnv): NodeOptions | undefined {
     },
     beforeSend: scrubbed,
     beforeBreadcrumb: withoutQuery,
+    integrations: openTelemetry
+      ? (defaults) => [...defaults, openTelemetryIntegration()]
+      : undefined,
   };
 }
 

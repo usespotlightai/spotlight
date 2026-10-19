@@ -4,10 +4,15 @@ import type {
   ErrorReportsPort,
 } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
 
 type JobIds = Omit<ErrorAbout, 'source'>;
+
+type Outcome = 'processed' | 'stale' | 'retried' | 'dead_lettered';
+
+const JOBS_METRIC = 'spotlight.jobs';
 
 export interface JobSource<Job extends HasPendingJob<Job>, Key> {
   readonly name: string;
@@ -31,6 +36,7 @@ export class JobLoop<Job extends HasPendingJob<Job>, Key> {
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
     private readonly reports: ErrorReportsPort,
+    private readonly telemetry: TelemetryPort,
   ) {}
 
   async processDue(): Promise<void> {
@@ -42,6 +48,7 @@ export class JobLoop<Job extends HasPendingJob<Job>, Key> {
       }
 
       if (leased.deadLettered) {
+        this.counted('dead_lettered');
         this.reports.report(
           new Error(
             `${this.source.name}: dead-lettered a job that kept being interrupted`,
@@ -50,9 +57,9 @@ export class JobLoop<Job extends HasPendingJob<Job>, Key> {
         );
       }
 
-      const running: Promise<void> = this.run(leased.key).finally(() =>
-        this.#running.delete(running),
-      );
+      const running: Promise<void> = this.telemetry
+        .inSpan(this.source.name, leased.ids, () => this.run(leased.key))
+        .finally(() => this.#running.delete(running));
       this.#running.add(running);
     }
   }
@@ -61,7 +68,11 @@ export class JobLoop<Job extends HasPendingJob<Job>, Key> {
     await Promise.all([...this.#running]);
   }
 
-  private leaseNext(): Promise<{ key: Key; deadLettered: Job | null } | null> {
+  private leaseNext(): Promise<{
+    key: Key;
+    ids: JobIds;
+    deadLettered: Job | null;
+  } | null> {
     return this.transaction.inTransaction(async () => {
       const now = this.clock.now();
       const due = await this.source.due(now);
@@ -76,11 +87,19 @@ export class JobLoop<Job extends HasPendingJob<Job>, Key> {
           `${this.source.name}: dead-lettering a job that kept being interrupted`,
         );
         await this.source.save(due.deadLetter(now));
-        return { key: this.source.keyOf(due), deadLettered: due };
+        return {
+          key: this.source.keyOf(due),
+          ids: this.source.ids(due),
+          deadLettered: due,
+        };
       }
 
       await this.source.save(due.leaseJob(now));
-      return { key: this.source.keyOf(due), deadLettered: null };
+      return {
+        key: this.source.keyOf(due),
+        ids: this.source.ids(due),
+        deadLettered: null,
+      };
     });
   }
 
@@ -105,6 +124,7 @@ export class JobLoop<Job extends HasPendingJob<Job>, Key> {
   private async attempt(job: Job): Promise<void> {
     try {
       await this.source.save(await this.source.process(job));
+      this.counted('processed');
     } catch (error) {
       this.logger.error(
         { ...this.described(job), err: error },
@@ -112,6 +132,7 @@ export class JobLoop<Job extends HasPendingJob<Job>, Key> {
       );
 
       if (this.source.stale(error)) {
+        this.counted('stale');
         return;
       }
 
@@ -126,10 +147,19 @@ export class JobLoop<Job extends HasPendingJob<Job>, Key> {
           ),
         );
 
+      this.counted(later.hasPendingJob ? 'retried' : 'dead_lettered');
+
       if (!later.hasPendingJob) {
         this.reports.report(error, this.aboutError(job));
       }
     }
+  }
+
+  private counted(outcome: Outcome): void {
+    this.telemetry.count(JOBS_METRIC, {
+      'spotlight.job.source': this.source.name,
+      'spotlight.job.outcome': outcome,
+    });
   }
 
   private described(job: Job): Record<string, unknown> {

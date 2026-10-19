@@ -10,10 +10,15 @@ import type { Integration } from '@integrations/domain/entities/integration.enti
 import type { Poll } from '@integrations/domain/value-objects/poll.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { OncePer } from '@shared-kernel/application/services/once-per';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { HappeningReactionsPort } from '@work/application/ports/happening-reactions.port';
 
+const SKIPPED_FOR_MS = 10 * 60_000;
+
 export class ProcessDuePolls {
+  readonly #skipped = new OncePer(SKIPPED_FOR_MS);
+
   constructor(
     private readonly defined: DefinedIntegrationsPort,
     private readonly runtime: IntegrationRuntimePort,
@@ -62,6 +67,16 @@ export class ProcessDuePolls {
     const team = await this.teams.find(teamId);
 
     if (!team) {
+      if (this.#skipped.due(`${teamId.value}\n${integrationKey}`, now)) {
+        this.log.warn(
+          {
+            teamId: teamId.value,
+            integration: integrationKey,
+            reason: 'team-not-found',
+          },
+          'Skipped a poll',
+        );
+      }
       return;
     }
 

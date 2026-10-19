@@ -12,6 +12,10 @@ import { LOGGING } from '@platform/logging/logging.constants';
 import { LoggingModule } from '@platform/logging/logging.module';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleModule } from '@platform/persistence/drizzle/drizzle.module';
+import {
+  LOGGER,
+  type LoggerPort,
+} from '@shared-kernel/application/ports/logger.port';
 import { SESSION_READER } from '@shared-kernel/application/ports/session.port';
 
 const JOURNAL_LIMIT = '64mb';
@@ -45,8 +49,9 @@ class AuthCoreModule {}
     { provide: SESSION_READER, useClass: BetterAuthSessionReader },
     {
       provide: LINKED_ACCOUNTS,
-      inject: [AUTH],
-      useFactory: (auth: AppAuth) => new BetterAuthLinkedAccounts(auth),
+      inject: [AUTH, LOGGER],
+      useFactory: (auth: AppAuth, logger: LoggerPort) =>
+        new BetterAuthLinkedAccounts(auth, logger),
     },
   ],
   exports: [SESSION_READER, LINKED_ACCOUNTS],

@@ -73,6 +73,7 @@ export class DispatchChat implements ChatDispatching {
     });
 
     if (!command) {
+      this.notDispatched(chat, runId, 'harness-has-no-command');
       return false;
     }
 
@@ -83,6 +84,7 @@ export class DispatchChat implements ChatDispatching {
     const placement = chatPlacement(chat.repositories, lines);
 
     if (!placement) {
+      this.notDispatched(chat, runId, 'no-placement');
       return false;
     }
 
@@ -165,5 +167,17 @@ export class DispatchChat implements ChatDispatching {
       memories,
       memoryFolder,
     });
+  }
+
+  private notDispatched(chat: Chat, runId: RunId, reason: string): void {
+    this.logger.info(
+      {
+        teamId: chat.teamId.value,
+        chatId: chat.id.value,
+        runId: runId.value,
+        reason,
+      },
+      'Did not dispatch a chat run',
+    );
   }
 }

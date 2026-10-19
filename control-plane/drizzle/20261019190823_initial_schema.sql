@@ -62,6 +62,7 @@ CREATE TABLE "event_outbox" (
 	"kind" text NOT NULL,
 	"payload" jsonb NOT NULL,
 	"cause" jsonb,
+	"traceparent" text,
 	"recorded_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint

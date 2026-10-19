@@ -9,6 +9,7 @@ import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-re
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
+import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { JobLoop } from '@shared-kernel/application/services/job-loop';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -29,6 +30,7 @@ export class WorkDecisionSets implements PendingJobsPort {
     clock: ClockPort,
     logger: LoggerPort,
     reports: ErrorReportsPort,
+    telemetry: TelemetryPort,
   ) {
     this.#loop = new JobLoop<DecisionSet, TaskId>(
       {
@@ -53,6 +55,7 @@ export class WorkDecisionSets implements PendingJobsPort {
       clock,
       logger,
       reports,
+      telemetry,
     );
   }
 

@@ -98,6 +98,17 @@ export class Runners implements RunnersPort {
     );
   }
 
+  private refused(
+    source: CredentialSourceRef,
+    host: string,
+    reason: 'host-unreported' | 'host-outdated' | 'image-unreported',
+  ): void {
+    this.logger.warn(
+      { source: source.kind, sourceId: source.id, host, reason },
+      'Refused to start a runner',
+    );
+  }
+
   async start(
     source: CredentialSourceRef,
     host: string,
@@ -109,10 +120,12 @@ export class Runners implements RunnersPort {
     const known = await this.hosts.find(hostId);
 
     if (!known?.hasSource(CredentialSource.of(source.kind, source.id))) {
+      this.refused(source, host, 'host-unreported');
       return { outcome: 'host-unreported' };
     }
 
     if (known.isOlderThan(MIN_HOST_RELEASE)) {
+      this.refused(source, host, 'host-outdated');
       return {
         outcome: 'host-outdated',
         release: known.report.release,
@@ -123,6 +136,7 @@ export class Runners implements RunnersPort {
     const supported = known.supportedImage(RunnerImage.of(image));
 
     if (!supported) {
+      this.refused(source, host, 'image-unreported');
       return { outcome: 'image-unreported' };
     }
 

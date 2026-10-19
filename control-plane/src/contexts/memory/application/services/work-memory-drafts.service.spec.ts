@@ -30,6 +30,7 @@ import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -204,6 +205,7 @@ const working = (input: {
     { inTransaction: <T>(work: () => Promise<T>) => work() },
     QUIET,
     { report: () => undefined },
+    telemetryInMemory(),
   );
 
   const tick = async () => {

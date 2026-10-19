@@ -116,6 +116,10 @@ import {
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
 import {
+  TELEMETRY,
+  type TelemetryPort,
+} from '@shared-kernel/application/ports/telemetry.port';
+import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
@@ -386,6 +390,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       TRANSACTION,
       LOGGER,
       ERROR_REPORTS,
+      TELEMETRY,
     ],
     useFactory: (
       drafts: DrizzleMemoryDraftRepository,
@@ -398,6 +403,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       transaction: TransactionPort,
       logger: LoggerPort,
       reports: ErrorReportsPort,
+      telemetry: TelemetryPort,
     ) =>
       new WorkMemoryDrafts(
         drafts,
@@ -410,6 +416,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
         transaction,
         logger,
         reports,
+        telemetry,
       ),
   },
   {

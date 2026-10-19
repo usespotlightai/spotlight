@@ -64,7 +64,7 @@ func Main(args []string, _ string) int {
 }
 
 func run() error {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	log := telemetry.NewLogger("egress", os.Stdout)
 	slog.SetDefault(log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -149,7 +149,7 @@ func run() error {
 }
 
 func serveShared() error {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	log := telemetry.NewLogger("egress", os.Stdout)
 	slog.SetDefault(log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

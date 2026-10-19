@@ -11,6 +11,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
+import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { JobLoop } from '@shared-kernel/application/services/job-loop';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -35,6 +36,7 @@ export class WorkChangeJudgings implements PendingJobsPort {
     transaction: TransactionPort,
     logger: LoggerPort,
     reports: ErrorReportsPort,
+    telemetry: TelemetryPort,
   ) {
     this.#loop = new JobLoop<ChangeJudging, JudgingKey>(
       {
@@ -63,6 +65,7 @@ export class WorkChangeJudgings implements PendingJobsPort {
       clock,
       logger,
       reports,
+      telemetry,
     );
   }
 

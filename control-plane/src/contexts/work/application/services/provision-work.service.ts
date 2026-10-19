@@ -9,6 +9,8 @@ import type {
 } from '@runners/application/ports/runners.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { OncePer } from '@shared-kernel/application/services/once-per';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -26,12 +28,15 @@ import {
   PoolRoom,
   poolChoiceFor,
 } from '@work/domain/services/pool-choice';
+import { poolCouldTake } from '@work/domain/services/pool-fit';
 
 const MAX_AT_ONCE = 20;
 
 const PAGE = 200;
 
 const MAX_PAGES = 10;
+
+const NOTED_FOR_MS = 10 * 60_000;
 
 type Provisioned = 'done' | 'try-another';
 
@@ -43,6 +48,8 @@ interface Then {
 }
 
 interface Provisionable {
+  readonly key: string;
+  readonly ids: Readonly<Record<string, string | undefined>>;
   readonly placement: RunnerPlacement;
   readonly needsEgress: boolean;
   readonly on: (pool: OfferedPool, last: boolean) => Promise<Provisioned>;
@@ -91,6 +98,8 @@ const byWorkspace = (
 };
 
 export class ProvisionWork {
+  readonly #noted = new OncePer(NOTED_FOR_MS);
+
   constructor(
     private readonly runs: RunRepository,
     private readonly checks: CheckProvisioningPort,
@@ -99,6 +108,7 @@ export class ProvisionWork {
     private readonly failures: ProvisionFailures,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
+    private readonly logger: LoggerPort,
   ) {}
 
   async due(): Promise<void> {
@@ -146,7 +156,12 @@ export class ProvisionWork {
       );
       const [chosen] = fitting;
 
-      if (chosen && placed.length < MAX_AT_ONCE) {
+      if (!chosen) {
+        this.unplaced(provisionable, pools);
+        return;
+      }
+
+      if (placed.length < MAX_AT_ONCE) {
         room = room.afterTaking(chosen.pool);
         placed.push({ provisionable, fitting });
       }
@@ -231,8 +246,39 @@ export class ProvisionWork {
     }
   }
 
+  private unplaced(
+    provisionable: Provisionable,
+    pools: readonly OfferedPool[],
+  ): void {
+    if (!this.#noted.due(provisionable.key, this.clock.now())) {
+      return;
+    }
+
+    const matches = pools.some(
+      (offered) =>
+        (offered.egress || !provisionable.needsEgress) &&
+        poolCouldTake(provisionable.placement, offered.labels),
+    );
+
+    this.logger.info(
+      {
+        ...provisionable.ids,
+        labels: provisionable.placement.requiredLabels,
+        needsEgress: provisionable.needsEgress,
+        reason: matches ? 'no-pool-has-room' : 'no-pool-matches',
+      },
+      'Did not provision a runner',
+    );
+  }
+
   private provisionableRun(queued: Run): Provisionable {
     return {
+      key: `run:${queued.id.value}`,
+      ids: {
+        workspaceId: queued.workspaceId.value,
+        taskId: queued.taskId?.value,
+        runId: queued.id.value,
+      },
       placement: queued.placement,
       needsEgress: queued.injectsSecrets,
       on: (pool, last) => this.runOn(queued, pool, last),
@@ -241,6 +287,8 @@ export class ProvisionWork {
 
   private provisionableCheck(check: WaitingCheck): Provisionable {
     return {
+      key: `check:${check.stackId}`,
+      ids: { runId: check.runId, stackId: check.stackId },
       placement: check.placement,
       needsEgress: false,
       on: (pool, last) => this.checkOn(check, pool, last),

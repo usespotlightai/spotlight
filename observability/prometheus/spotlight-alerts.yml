@@ -1,0 +1,96 @@
+# Prometheus alert rules for the Spotlight control plane.
+# The rules select series with job=~".*spotlight-control-plane". With OTLP, job comes from OTEL_SERVICE_NAME.
+# When Prometheus scrapes OTEL_METRICS_EXPORTER=prometheus, name the scrape job spotlight-control-plane.
+# The rules keep an environment label when the series have one.
+groups:
+  - name: spotlight-control-plane
+    rules:
+      - alert: SpotlightNotReady
+        expr: min by (job, environment, instance, spotlight_check) (spotlight_readiness{job=~".*spotlight-control-plane"}) < 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: The control plane is not ready
+          description: The readiness check {{ $labels.spotlight_check }} fails. GET /api/health/ready names the check.
+
+      - alert: SpotlightGone
+        expr: absent(spotlight_readiness{job=~".*spotlight-control-plane"})
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: The control plane sends no metrics
+          description: No control plane reported its readiness for 5 minutes. The process is down or cannot export.
+
+      - alert: SpotlightServerErrorsHigh
+        expr: |
+          sum by (job, environment) (rate({__name__=~"http_server_request_duration(_seconds)?_count", job=~".*spotlight-control-plane", http_response_status_code=~"5.."}[5m]))
+            /
+          sum by (job, environment) (rate({__name__=~"http_server_request_duration(_seconds)?_count", job=~".*spotlight-control-plane"}[5m]))
+            > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: More than 5% of requests fail with a 5xx status
+          description: Search the logs for "Internal error".
+
+      - alert: SpotlightLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum by (job, environment, le) (rate({__name__=~"http_server_request_duration(_seconds)?_bucket", job=~".*spotlight-control-plane", http_route!~".*claim.*|/api/runs/:runId/stream|/api/git/.*"}[5m]))
+          ) > 2
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: The 95th percentile of request time is more than 2 seconds
+          description: Claim routes wait for work, and the run stream and git routes stay open, so the rule leaves them out.
+
+      - alert: SpotlightOutboxBehind
+        expr: max by (job, environment) (spotlight_outbox_oldest_due_age_seconds{job=~".*spotlight-control-plane"}) > 600
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: An event delivery is due for more than 10 minutes
+          description: Subscribers do not keep up, or a delivery fails again and again. Search the logs for "Delivering a domain event".
+
+      - alert: SpotlightWorkDeadLettered
+        expr: |
+          sum by (job, environment) (increase(spotlight_outbox_deliveries_total{job=~".*spotlight-control-plane", spotlight_delivery_outcome="dead_lettered"}[15m])) > 0
+            or
+          sum by (job, environment) (increase(spotlight_jobs_total{job=~".*spotlight-control-plane", spotlight_job_outcome="dead_lettered"}[15m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: Spotlight stopped trying an event delivery or a pending job
+          description: Search the logs for "Dead-lettering". The error report in Sentry, when set, has the ids.
+
+      - alert: SpotlightDatabasePoolSaturated
+        expr: max by (job, environment) (db_client_connection_pending_requests{job=~".*spotlight-control-plane"}) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Requests wait for a database connection
+          description: Every connection of the pool is in use for 5 minutes.
+
+      - alert: SpotlightEventLoopLagHigh
+        expr: max by (job, environment, instance) ({__name__=~"nodejs_eventloop_delay_p99(_seconds)?", job=~".*spotlight-control-plane"}) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: The event loop of the control plane is blocked
+          description: The 99th percentile of event-loop delay is more than 500 ms.
+
+      - alert: SpotlightRunsNotClaimed
+        expr: max by (job, environment) (spotlight_runs_oldest_queued_age_seconds{job=~".*spotlight-control-plane"}) > 900
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: A run waits more than 15 minutes for a runner
+          description: Check spotlight_runner_hosts_online and the logs for "Refused to start a runner".

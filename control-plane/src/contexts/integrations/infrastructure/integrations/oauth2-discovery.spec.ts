@@ -68,7 +68,13 @@ const clock = { now: () => new Date('2026-10-05T10:00:00.000Z') } as ClockPort;
 const discovery = (
   fetch: ReturnType<typeof answering>,
   allowed = ['mcp.tracker.example', 'auth.tracker.example'],
-) => new OAuth2Discovery(new OutboundPolicy(allowed), clock, fetch);
+) =>
+  new OAuth2Discovery(
+    new OutboundPolicy(allowed),
+    clock,
+    { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    fetch,
+  );
 
 describe('OAuth2Discovery', () => {
   it('finds where to authorize, exchange and register from the server’s protected resource metadata', async () => {

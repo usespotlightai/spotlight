@@ -14,6 +14,7 @@ import (
 
 	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/protocol"
+	"usespotlight.ai/data-plane/telemetry"
 )
 
 func serve(t *testing.T, handler http.HandlerFunc) *control.Client {
@@ -978,5 +979,28 @@ func TestTheEgressCallsCarryTheContract(t *testing.T) {
 		if received[path] != body {
 			t.Errorf("%s sent %s", path, received[path])
 		}
+	}
+}
+
+func TestACallContinuesTheTraceOfItsContext(t *testing.T) {
+	var seen []string
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		seen = append(seen, r.Header.Get("traceparent"))
+		w.WriteHeader(http.StatusNoContent)
+	})
+	trace := telemetry.NewTrace()
+
+	if err := client.AppendEvents(telemetry.WithTrace(context.Background(), trace), "run_1", []protocol.Event{{}}); err != nil {
+		t.Fatalf("append events: %v", err)
+	}
+	if err := client.AppendEvents(context.Background(), "run_1", []protocol.Event{{}}); err != nil {
+		t.Fatalf("append events: %v", err)
+	}
+
+	if read, ok := telemetry.TraceOf(seen[0]); !ok || read.ID() != trace.ID() {
+		t.Errorf("traceparent = %q, want trace %s", seen[0], trace.ID())
+	}
+	if seen[1] != "" {
+		t.Errorf("a call without a trace sent traceparent %q", seen[1])
 	}
 }

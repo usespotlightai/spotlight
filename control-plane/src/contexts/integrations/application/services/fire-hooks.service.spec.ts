@@ -23,6 +23,7 @@ import {
 } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { causationInMemory } from '@shared-kernel/application/ports/causation.fake-spec';
+import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import type {
   HookFailureNotice,
@@ -197,6 +198,7 @@ const setUp = (
     movedOn?: boolean;
   } = {},
 ) => {
+  const telemetry = telemetryInMemory();
   const runtime: HookRuntimePort = {
     listening: vi.fn(async () => hooks),
     hook: vi.fn(async (id) => hooks.find((each) => each.id === id) ?? null),
@@ -243,7 +245,9 @@ const setUp = (
       { now: () => NOW, sleep: async () => {} },
       causation,
       { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      telemetry,
     ),
+    telemetry,
   };
 };
 
@@ -687,13 +691,20 @@ describe('FireHooks.workOne, guarding against loops', () => {
     .append(MOVED);
 
   it('stops a hook that its own firing caused again, and reports it on the task, naming the chain', async () => {
-    const { hooked, saved, last, runtime, notes } = setUp(
+    const { hooked, saved, last, runtime, notes, telemetry } = setUp(
       [hookNamed('audit', ['a'])],
       () => done('a'),
       { stored: stored({ cause: looped }) },
     );
 
     await hooked.workOne();
+
+    expect(telemetry.counted).toEqual([
+      {
+        metric: 'spotlight.hook_firings',
+        attributes: { 'spotlight.hook_firing.outcome': 'loop_stopped' },
+      },
+    ]);
 
     expect(runtime.step).not.toHaveBeenCalled();
     expect(notes.failed).toHaveBeenCalledWith({

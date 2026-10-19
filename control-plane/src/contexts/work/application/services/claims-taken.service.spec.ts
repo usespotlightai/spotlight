@@ -64,6 +64,8 @@ const taking = (
     }),
   };
 
+  const info = vi.fn();
+
   return {
     saved,
     warn,
@@ -74,14 +76,15 @@ const taking = (
       checks as unknown as CheckWorkPort,
       runners as unknown as RunnersPort,
       { now: () => NOW } as ClockPort,
-      { warn } as unknown as LoggerPort,
+      { warn, info } as unknown as LoggerPort,
     ),
+    info,
   };
 };
 
 describe('ClaimsTaken', () => {
   it('records that the runner claimed the run, and leaves the claim in place', async () => {
-    const { taken, runners, saved } = taking();
+    const { taken, runners, saved, info } = taking();
 
     await taken.run(claimed(), RUNNER);
 
@@ -91,6 +94,10 @@ describe('ClaimsTaken', () => {
       NOW,
     );
     expect(saved).toEqual([]);
+    expect(info).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ runId: 'run_1', runnerId: RUNNER.value }),
+      'Claimed a run',
+    );
   });
 
   it('unclaims the run its runner could not take, and still says why', async () => {

@@ -6,6 +6,8 @@ import {
   Inject,
 } from '@nestjs/common';
 import { BaseExceptionFilter, HttpAdapterHost } from '@nestjs/core';
+import { loggablePath } from '@platform/http/loggable-path';
+import { noteRefusal } from '@platform/http/refusal';
 import {
   ERROR_REPORTS,
   type ErrorReportsPort,
@@ -18,6 +20,7 @@ import {
 type LoggableRequest = {
   method?: string;
   url?: string;
+  route?: { path?: unknown };
 };
 
 @Catch(HttpException)
@@ -40,10 +43,16 @@ export class InternalErrorFilter extends BaseExceptionFilter {
           err: exception,
           context: InternalErrorFilter.name,
           method: request.method,
-          url: request.url,
+          url: loggablePath(request),
         },
         'Internal error',
       );
+    }
+
+    if (exception.getStatus() < HttpStatus.INTERNAL_SERVER_ERROR) {
+      noteRefusal(host.switchToHttp().getResponse(), {
+        error: exception.name,
+      });
     }
 
     super.catch(exception, host);
