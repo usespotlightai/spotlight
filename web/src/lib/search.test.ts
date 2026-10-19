@@ -96,6 +96,8 @@ const candidate = (over: Partial<SearchCandidate>): SearchCandidate => ({
   spent: { amount: 2, currency: 'USD' },
   onFrontier: false,
   overfit: null,
+  regressions: { searched: null, heldOut: null, total: null },
+  exceedsRegressionLimit: false,
   pullRequest: null,
   ...over,
 });
@@ -209,14 +211,14 @@ describe('search', () => {
   it('may pick only a candidate whose search replay finished, never the seed', () => {
     expect(pickProblem(candidate({}))).toBeNull();
     expect(pickProblem(candidate({ replayState: 'running' }))).toBe(
-      'After its replay on the searched tasks finishes, you can pick this candidate.',
+      'After its replay on the searched tasks finishes, you can open a pull request.',
     );
     expect(pickProblem(candidate({ isSeed: true }))).not.toBeNull();
     expect(pickProblem(candidate({ replayState: 'stopped' }))).toBe(
-      'You can’t pick this candidate. Its replay stopped before it finished.',
+      'You can’t open a pull request for this candidate. Its replay stopped before it finished.',
     );
     expect(pickProblem(candidate({ replayState: 'ceiling-reached' }))).toBe(
-      'You can’t pick this candidate. Its replay reached its ceiling before it finished.',
+      'You can’t open a pull request for this candidate. Its replay reached its ceiling before it finished.',
     );
   });
 

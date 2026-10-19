@@ -16,13 +16,16 @@ export class SearchSummaries {
       this.replays.ofSearches(searches.map((each) => each.id)),
       this.healths.standardsAt(searches.map((each) => each.station)),
     ]);
-    const viewed = searches.map((search) =>
-      searchSummaryView(
+    const viewed = searches.map((search) => {
+      const standard = standards.get(search.station.stationId);
+
+      return searchSummaryView(
         search,
         replays.filter((each) => each.searchId?.equals(search.id) ?? false),
-        standards.get(search.station.stationId)?.minGain ?? DEFAULT_MIN_GAIN,
-      ),
-    );
+        standard?.minGain ?? DEFAULT_MIN_GAIN,
+        standard?.threshold ?? null,
+      );
+    });
 
     return viewed.sort((one, other) =>
       one.startedAt < other.startedAt

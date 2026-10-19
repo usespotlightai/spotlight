@@ -1,4 +1,8 @@
 import { SEED_HYPOTHESIS } from '@replays/application/rendering/search-briefing';
+import {
+  visibleGuidanceOf,
+  visibleReasonsOf,
+} from '@replays/application/rendering/visible-result';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
@@ -8,7 +12,6 @@ import type { ReplayRepository } from '@replays/domain/repositories/replay.repos
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
-import type { EntryReason } from '@replays/domain/value-objects/entry-reason';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type {
@@ -20,9 +23,6 @@ import type {
 type VisibleCandidate = SearchVisibility['candidates'][number];
 
 type VisibleRun = VisibleCandidate['runs'][number];
-
-const reasonOf = (reason: EntryReason): string =>
-  reason.detail ? `${reason.code}: ${reason.detail}` : reason.code;
 
 const runsOf = (
   replay: Replay | undefined,
@@ -36,12 +36,13 @@ const runsOf = (
             original: entry.original.value,
             repeat: entry.repeat,
             succeeded: entry.succeeded,
-            reasons: entry.reasons.map(reasonOf),
+            reasons: visibleReasonsOf(entry.reasons),
             verdict: entry.verdict
               ? entry.verdict.passes
                 ? 'pass'
                 : 'fail'
               : null,
+            guidance: visibleGuidanceOf(entry.verdict),
           },
         ]
       : [],

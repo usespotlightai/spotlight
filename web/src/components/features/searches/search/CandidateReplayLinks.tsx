@@ -1,8 +1,6 @@
-import { TrailLink } from '@/components/shell/layout/TrailLink';
+import { SectionLink } from '@/components/shared/SectionLink';
 import { type ReplayedStation, replayPath } from '@/lib/replay';
 import type { SearchCandidate } from '@/lib/search';
-
-const LINK = 'text-foreground underline-offset-2 hover:underline';
 
 type CandidateReplayLinksProps = {
   at: ReplayedStation;
@@ -14,17 +12,14 @@ export function CandidateReplayLinks({
   candidate,
 }: CandidateReplayLinksProps) {
   return (
-    <p className="flex flex-wrap gap-x-3 text-xs">
-      <TrailLink to={replayPath(at, candidate.replayId)} className={LINK}>
+    <p className="flex flex-wrap gap-x-3">
+      <SectionLink to={replayPath(at, candidate.replayId)}>
         {candidate.isSeed ? 'Replay of the set' : 'Replay'}
-      </TrailLink>
+      </SectionLink>
       {candidate.heldOutReplayId && (
-        <TrailLink
-          to={replayPath(at, candidate.heldOutReplayId)}
-          className={LINK}
-        >
+        <SectionLink to={replayPath(at, candidate.heldOutReplayId)}>
           Held-out replay
-        </TrailLink>
+        </SectionLink>
       )}
     </p>
   );

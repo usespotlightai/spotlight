@@ -37,3 +37,12 @@ export const reasonOf = (
 
 export const isEntryReasonCode = (raw: string): raw is EntryReasonCode =>
   (ENTRY_REASON_CODES as readonly string[]).includes(raw);
+
+const VERIFIER_REASON_CODES: ReadonlySet<EntryReasonCode> = new Set([
+  'judged',
+  'judge-failed',
+  'check-failed',
+]);
+
+export const isVerifierReason = (code: EntryReasonCode): boolean =>
+  VERIFIER_REASON_CODES.has(code);

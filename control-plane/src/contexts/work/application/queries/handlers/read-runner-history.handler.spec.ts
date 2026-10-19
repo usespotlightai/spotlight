@@ -339,6 +339,7 @@ describe('ReadRunnerHistoryHandler', () => {
               succeeded: false,
               reasons: ['check-failed'],
               verdict: 'fail',
+              guidance: 'Run the migration before the tests.',
             },
             {
               runId: 'run_hidden_c',
@@ -347,6 +348,7 @@ describe('ReadRunnerHistoryHandler', () => {
               succeeded: true,
               reasons: [],
               verdict: null,
+              guidance: null,
             },
           ],
         },
@@ -430,6 +432,7 @@ describe('ReadRunnerHistoryHandler', () => {
         succeeded: false,
         reasons: ['check-failed'],
         verdict: 'fail',
+        guidance: 'Run the migration before the tests.',
         usage: { cost: 0.42, currency: 'USD' },
         changes: [
           { path: 'src/queue.ts', before: 'old', after: 'new', omitted: false },

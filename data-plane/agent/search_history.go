@@ -78,9 +78,10 @@ func searchFiles(files map[string]string, history protocol.History) error {
 				Succeeded   *bool              `json:"succeeded"`
 				Reasons     []string           `json:"reasons"`
 				Verdict     *string            `json:"verdict"`
+				Guidance    *string            `json:"guidance"`
 			}{
 				run.RunID, run.Original, run.Repeat, run.TaskID, run.Fingerprint, run.State, run.Usage,
-				run.Succeeded, nonNil(run.Reasons), run.Verdict,
+				run.Succeeded, nonNil(run.Reasons), run.Verdict, run.Guidance,
 			}, "", "  ")
 			if err != nil {
 				return err

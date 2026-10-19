@@ -16,6 +16,7 @@ import { EstimateSearchQuery } from '@replays/application/queries/estimate-searc
 import { EstimateSearchHandler } from '@replays/application/queries/handlers/estimate-search.handler';
 import { ReadSearchHandler } from '@replays/application/queries/handlers/read-search.handler';
 import { ReadSearchQuery } from '@replays/application/queries/read-search.query';
+import { DEFAULT_GUIDANCE } from '@replays/application/rendering/visible-result';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { CancelSearch } from '@replays/application/services/cancel-search.service';
 import { DeleteSearches } from '@replays/application/services/delete-searches.service';
@@ -52,17 +53,27 @@ import { UnknownSearchRunError } from '@replays/domain/exceptions/unknown-search
 import {
   aSet,
   candidateOf,
+  endOf,
+  FINGERPRINT,
   LIVE_FINGERPRINT,
   LIVE_HASHES,
+  later,
+  measuresOf,
   NOW,
+  RUBRIC,
   replayedAs,
   replayFor,
+  runIds,
   STATION,
   sha256,
   UNSCORED,
 } from '@replays/domain/replays.fake-spec';
 import { estimateOf } from '@replays/domain/services/search-estimate';
+import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
+import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
+import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
+import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
@@ -990,6 +1001,106 @@ describe('SearchVisibilities', () => {
         true,
       );
     }
+  });
+
+  it('hands a search run each replay’s verdict and what to improve, never the judge’s reasons or the checks that failed', async () => {
+    const live = await work.live();
+    const RUBRIC_PHRASE = 'drain the queue without dropping a job';
+    work.live = async () => ({
+      ...live,
+      scoring: CandidateScoring.of({
+        checksChanges: true,
+        judge: JudgeCriteria.of({
+          rubric: RUBRIC,
+          claims: [],
+          passThreshold: 1,
+        }),
+        rubricVersion: 'c'.repeat(64),
+      }),
+    });
+    const started = await start();
+
+    if (started.outcome !== 'started') {
+      throw new Error('the search did not start');
+    }
+
+    await delivered();
+    const seed = memory.replays.get(started.seedReplayId);
+
+    if (!seed) {
+      throw new Error('no seed replay');
+    }
+
+    const failedChecks = ChangeChecks.of([
+      {
+        repository: 'api',
+        state: 'failed',
+        skip: null,
+        failedAt: ['npm test -- --grep drain'],
+        spent: ModelSpent.of([], 0),
+      },
+    ]);
+    const reserved = seed.reserving(seed.entries.length, runIds());
+    await memory.replayRepository.save(
+      reserved.entries.reduce((held, entry, at) => {
+        const run = entry.run as RunId;
+
+        return held
+          .confirm(run, FINGERPRINT, NOW)
+          .recordRunEnd(run, endOf('completed'))
+          .measure(run, measuresOf(0.5), later(61_000))
+          .recordReview(run, failedChecks, null, later(62_000))
+          .recordVerdict(
+            run,
+            JudgeVerdict.of({
+              scale: 'number',
+              value: 2,
+              claimResults: null,
+              claims: [],
+              passThreshold: 1,
+              model: 'judge/model',
+              referenced: false,
+              reasons: [
+                {
+                  text: `It does not ${RUBRIC_PHRASE}.`,
+                  steps: [2],
+                  hunks: [],
+                  claim: null,
+                },
+              ],
+              guidance: at % 2 === 0 ? 'Finish taken jobs first.' : null,
+            }),
+            null,
+            later(63_000),
+          );
+      }, reserved),
+    );
+    await delivered();
+
+    const visibility = await new SearchVisibilities(
+      memory.searchRepository,
+      memory.candidateRepository,
+      memory.replayRepository,
+    ).of(activeRun());
+    const runs = visibility.candidates.flatMap((each) => each.runs);
+    const written = JSON.stringify(visibility);
+
+    expect(runs.length).toBeGreaterThan(1);
+    expect(written).not.toContain(RUBRIC_PHRASE);
+    expect(written).not.toContain('npm test');
+    for (const each of runs) {
+      expect(each.verdict).toBe('fail');
+      expect(each.reasons).toEqual(['check-failed', 'judge-failed']);
+    }
+    expect(new Set(runs.map((each) => each.guidance))).toEqual(
+      new Set(['Finish taken jobs first.', DEFAULT_GUIDANCE]),
+    );
+    expect(
+      memory.replays
+        .get(started.seedReplayId)
+        ?.entries.flatMap((each) => each.verdict?.reasons ?? [])
+        .every((each) => each.text.includes(RUBRIC_PHRASE)),
+    ).toBe(true);
   });
 
   it('sees no search for a run no search ran', async () => {

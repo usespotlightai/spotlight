@@ -20,6 +20,7 @@ export class ChangeJudged implements DomainEvent {
     readonly passThreshold: number,
     readonly model: string,
     readonly reasons: readonly JudgeReason[],
+    readonly guidance: string | null,
     readonly referenced: boolean,
     readonly spent: ModelUsage,
     readonly at: Date,

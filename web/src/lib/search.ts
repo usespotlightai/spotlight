@@ -34,6 +34,7 @@ import { type ConfigChange, configChangesOf } from '@/lib/station-config';
 export type Search = SearchResponseDto;
 export type SearchDetail = SearchDetailResponseDto;
 export type SearchCandidate = SearchCandidateResponseDto;
+export type SearchRegressions = SearchCandidate['regressions'];
 type SearchIteration = SearchIterationResponseDto;
 export type SearchEstimate = SearchEstimateResponseDto;
 export type SearchBudget = SearchBudgetRequestDto;
@@ -308,13 +309,13 @@ export const pickProblem = (candidate: SearchCandidate): string | null => {
     case 'finished':
       return null;
     case 'stopped':
-      return 'You can’t pick this candidate. Its replay stopped before it finished.';
+      return 'You can’t open a pull request for this candidate. Its replay stopped before it finished.';
     case 'ceiling-reached':
-      return 'You can’t pick this candidate. Its replay reached its ceiling before it finished.';
+      return 'You can’t open a pull request for this candidate. Its replay reached its ceiling before it finished.';
     case null:
-      return 'You can’t pick this candidate. Its replay is gone.';
+      return 'You can’t open a pull request for this candidate. Its replay is gone.';
     default:
-      return 'After its replay on the searched tasks finishes, you can pick this candidate.';
+      return 'After its replay on the searched tasks finishes, you can open a pull request.';
   }
 };
 

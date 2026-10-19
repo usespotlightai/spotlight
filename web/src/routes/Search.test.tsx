@@ -118,6 +118,8 @@ const candidate = (
   spent: { amount: 2.5, currency: 'USD' },
   onFrontier: false,
   overfit: null,
+  regressions: { searched: null, heldOut: null, total: null },
+  exceedsRegressionLimit: false,
   pullRequest: null,
   ...over,
 });
@@ -219,6 +221,7 @@ const DETAIL: SearchDetail = {
   frontier: ['seed', 'tests'],
   overfitCount: 1,
   minGain: 0.05,
+  maxRegressions: null,
 };
 
 const reflection = (
@@ -304,9 +307,9 @@ const openCandidate = async (name: string) => {
   await userEvent.click(
     screen.getByRole('button', { name: `Details of ${name}` }),
   );
-  return document.querySelector(
-    '[data-slot="candidate-detail"]',
-  ) as HTMLElement;
+  return document
+    .querySelector('[data-slot="candidate-detail"]')
+    ?.closest('aside') as HTMLElement;
 };
 
 describe('Search', () => {
@@ -466,16 +469,12 @@ describe('Search', () => {
     ]);
   });
 
-  it('marks a candidate that gained only on the tasks the search could see, and counts them on the frontier', async () => {
+  it('marks a candidate that gained only on the tasks the search could see', async () => {
     detail.mockReturnValue(DETAIL);
 
     renderSearch();
 
-    expect(
-      screen.getByText(
-        '1 frontier candidate gained only on searched tasks, not on held-out tasks.',
-      ),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/frontier candidate gained only/)).toBeNull();
 
     expect(
       within(candidateRow('tests-first')).getByRole('img', {
@@ -489,10 +488,24 @@ describe('Search', () => {
     ).toBeNull();
 
     const opened = await openCandidate('tests-first');
-    expect(within(opened).getByRole('note')).toHaveTextContent(
-      'The gain showed only on searched tasks.',
-    );
-    expect(within(opened).getByRole('button', { name: 'Pick' })).toBeEnabled();
+    expect(
+      within(opened).getByRole('img', { name: 'Likely overfit' }),
+    ).toBeInTheDocument();
+    expect(within(opened).queryByRole('note')).toBeNull();
+    const results = within(opened).getByRole('table', { name: 'Results' });
+    expect(
+      within(results)
+        .getAllByRole('columnheader')
+        .map((each) => each.textContent),
+    ).toEqual(['Measure', 'This config', 'Live config', 'Gain']);
+    expect(
+      within(results)
+        .getAllByRole('rowheader')
+        .map((each) => each.textContent),
+    ).toEqual(['Held out', 'Searched', 'Cost per run', 'Regressions']);
+    expect(
+      within(opened).getByRole('button', { name: 'Open pull request' }),
+    ).toBeEnabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Table' }));
 
@@ -504,7 +517,7 @@ describe('Search', () => {
         .getByText('tests-first')
         .closest('tr')
         ?.querySelector('[data-slot="only-on-seen-tasks"]'),
-    ).toHaveTextContent('Likely overfit');
+    ).toHaveAccessibleName('Likely overfit');
     expect(
       within(table)
         .getByText('Live config')
@@ -526,6 +539,8 @@ describe('Search', () => {
         heldOutInterval: null,
         costPerRun: 0.5,
         overfit: 'likely',
+        regressions: { searched: 1, heldOut: 0, total: 1 },
+        exceedsRegressionLimit: false,
       },
     });
 
@@ -536,6 +551,101 @@ describe('Search', () => {
     expect(
       within(best).getByRole('img', { name: 'Likely overfit' }),
     ).toBeInTheDocument();
+  });
+
+  it('counts each candidate’s regressions in the frontier table, and marks one over the line’s regression limit wherever it shows', async () => {
+    const [tests] = DETAIL.candidates;
+    const over = tests && {
+      ...tests,
+      regressions: { searched: 2, heldOut: 1, total: 3 },
+      exceedsRegressionLimit: true,
+    };
+    detail.mockReturnValue({
+      ...DETAIL,
+      candidates: over ? [over] : [],
+      best: over && {
+        candidateId: over.candidateId,
+        name: over.name,
+        isSeed: false,
+        searchScore: over.searchScore,
+        searchInterval: null,
+        heldOutScore: over.heldOutScore,
+        heldOutInterval: null,
+        costPerRun: over.costPerRun,
+        overfit: null,
+        regressions: over.regressions,
+        exceedsRegressionLimit: true,
+      },
+      maxRegressions: 2,
+    });
+
+    renderSearch();
+
+    const mark = { name: 'Over the regression limit' };
+    expect(
+      within(candidateRow('tests-first')).getByRole('img', mark),
+    ).toHaveAccessibleDescription('Regressed: 3 tasks. Line allows: 2.');
+    expect(
+      within(candidateRow('Live config')).queryByRole('img', mark),
+    ).toBeNull();
+    expect(within(tile('Best')).getByRole('img', mark)).toBeInTheDocument();
+
+    const opened = await openCandidate('tests-first');
+    expect(
+      within(opened).getByRole('img', { name: 'Over the regression limit' }),
+    ).toBeInTheDocument();
+    expect(
+      within(opened).getByRole('button', { name: 'Open pull request' }),
+    ).toBeEnabled();
+    expect(
+      document.querySelectorAll('[data-slot="regression-limit"]').length,
+    ).toBe(3);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Table' }));
+
+    const table = screen.getByRole('table', {
+      name: 'Candidates by success and cost',
+    });
+    const row = (name: string) =>
+      within(table).getByText(name).closest('tr') as HTMLElement;
+
+    expect(
+      row('tests-first').querySelector('[data-slot="regressions"]'),
+    ).toHaveTextContent('3');
+    expect(
+      within(row('tests-first')).getByRole('img', mark),
+    ).toBeInTheDocument();
+    expect(
+      row('Live config').querySelector('[data-slot="regressions"]'),
+    ).toBeNull();
+    expect(within(row('Live config')).queryByRole('img', mark)).toBeNull();
+  });
+
+  it('counts regressions without a mark when the line sets no regression limit', () => {
+    const [tests] = DETAIL.candidates;
+    detail.mockReturnValue({
+      ...DETAIL,
+      candidates: tests
+        ? [{ ...tests, regressions: { searched: 4, heldOut: null, total: 4 } }]
+        : [],
+    });
+
+    renderSearch();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Table' }));
+
+    const testsRow = within(
+      screen.getByRole('table', { name: 'Candidates by success and cost' }),
+    )
+      .getByText('tests-first')
+      .closest('tr');
+
+    expect(
+      testsRow?.querySelector('[data-slot="regressions"]'),
+    ).toHaveTextContent('4');
+    expect(
+      testsRow?.querySelector('[data-slot="regression-limit"]'),
+    ).toBeNull();
   });
 
   it('says plainly when too few held-out tasks were scored to tell, without marking or counting it', async () => {
@@ -550,7 +660,7 @@ describe('Search', () => {
 
     const row = candidateRow('tests-first');
     expect(
-      within(row).getByRole('img', { name: 'Too few held-out tasks to tell' }),
+      within(row).getByRole('img', { name: 'Overfit unknown' }),
     ).toBeInTheDocument();
     expect(
       within(row).queryByRole('img', { name: 'Likely overfit' }),
@@ -611,11 +721,13 @@ describe('Search', () => {
       'href',
       '/w/acme/team/team_1/lines/line_1/stations/station_1/replays/replay_tests_held_out',
     );
-    expect(within(opened).getByRole('button', { name: 'Pick' })).toBeEnabled();
+    expect(
+      within(opened).getByRole('button', { name: 'Open pull request' }),
+    ).toBeEnabled();
 
     expect(
       within(await openCandidate('Live config')).queryByRole('button', {
-        name: 'Pick',
+        name: 'Open pull request',
       }),
     ).not.toBeInTheDocument();
   });

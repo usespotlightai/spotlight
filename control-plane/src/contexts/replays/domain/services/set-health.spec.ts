@@ -53,6 +53,7 @@ const verdictOf = (passes: boolean) =>
     model: 'judge/model',
     referenced: false,
     reasons: [],
+    guidance: null,
   });
 
 const started = (

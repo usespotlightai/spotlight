@@ -22,6 +22,7 @@ import {
   replayStore,
 } from '@/mocks/world/station-replays';
 import {
+  maxRegressionsOf,
   type SearchCandidateSpec,
   type SearchSpec,
   searchCandidateOf,
@@ -85,7 +86,7 @@ const gainOverLiveOf = (replay: ReplaySpec, live: ReplaySpec | undefined) => {
 };
 
 const searchRefOf = (search: SearchSpec) => {
-  const seed = searchCandidateOf(search.seed);
+  const seed = searchCandidateOf(search.seed, maxRegressionsOf(search));
 
   return {
     searchId: search.id,

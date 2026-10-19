@@ -43,7 +43,7 @@ func searchHistory() protocol.History {
 			Runs: []protocol.CandidateRun{
 				replayed("run_1", "task_1", yes(true), text("pass"), nil,
 					[]protocol.HistoryChange{{Path: "api/upload.go", Before: "a\n", After: "b\n"}}),
-				replayed("run_2", "task_2", yes(false), text("fail"), []string{"tests failed"}, nil),
+				replayed("run_2", "task_2", yes(false), text("fail"), []string{"check-failed", "judge-failed"}, nil),
 				replayed("run_3", "task_3", nil, nil, nil, nil),
 			},
 		},
@@ -54,6 +54,7 @@ func searchHistory() protocol.History {
 		},
 	}
 
+	candidates[0].Runs[1].Guidance = text("Give up on an upload that keeps failing instead of looping.")
 	candidates[0].Runs[0].Usage = priced(0.25, "USD")
 	candidates[0].Runs[1].Usage = priced(0.5, "USD")
 	candidates[0].Runs[2].Usage = priced(0.1, "EUR")
@@ -125,16 +126,29 @@ func TestHistoryWritesASearchsCandidatesAndTheBlockItStartedFrom(t *testing.T) {
 		Succeeded *bool              `json:"succeeded"`
 		Reasons   []string           `json:"reasons"`
 		Verdict   *string            `json:"verdict"`
+		Guidance  *string            `json:"guidance"`
 		Usage     *protocol.RunUsage `json:"usage"`
 	}
-	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(terse, "runs", "run_2", "result.json"))), &result); err != nil {
+	written := readFile(t, filepath.Join(terse, "runs", "run_2", "result.json"))
+	if err := json.Unmarshal([]byte(written), &result); err != nil {
 		t.Fatalf("result.json: %v", err)
 	}
 	if result.RunID != "run_of_run_2" || result.Original != "run_2" || result.TaskID != "task_2" ||
-		result.Succeeded == nil || *result.Succeeded || !slices.Equal(result.Reasons, []string{"tests failed"}) ||
+		result.Succeeded == nil || *result.Succeeded || !slices.Equal(result.Reasons, []string{"check-failed", "judge-failed"}) ||
 		result.Verdict == nil || *result.Verdict != "fail" ||
+		result.Guidance == nil || *result.Guidance != "Give up on an upload that keeps failing instead of looping." ||
 		result.Usage == nil || *result.Usage.Cost != 0.5 || *result.Usage.Currency != "USD" {
 		t.Errorf("result.json %+v", result)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(written), &fields); err != nil {
+		t.Fatalf("result.json: %v", err)
+	}
+	if keys := slices.Sorted(maps.Keys(fields)); !slices.Equal(keys, []string{"fingerprint", "guidance", "original", "reasons", "repeat", "runId", "state", "succeeded", "taskId", "usage", "verdict"}) {
+		t.Errorf("result.json contains %v, not just the verdict and what to improve", keys)
+	}
+	if got := readFile(t, filepath.Join(terse, "runs", "run_1", "result.json")); !strings.Contains(got, `"guidance": null`) {
+		t.Errorf("a passing replay's result.json = %q", got)
 	}
 
 	untried := filepath.Join(dir, "candidates", "untried")

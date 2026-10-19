@@ -18,7 +18,10 @@ import type { ConfigPullRequestRepository } from '@replays/domain/repositories/c
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { overfitOf } from '@replays/domain/services/overfit';
-import { taskComparisons } from '@replays/domain/services/replay-results';
+import {
+  NO_REGRESSIONS,
+  regressionLimitOf,
+} from '@replays/domain/services/search-regressions';
 import { scoresOf } from '@replays/domain/services/search-scores';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -29,7 +32,6 @@ import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-j
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const CLAIM_MS = 10 * 60_000;
 
@@ -44,16 +46,6 @@ const failedAs = (
   code: ConfigPullRequestReason['code'],
   message: string,
 ): Opened => ({ reason: ConfigPullRequestReason.of({ code, message }) });
-
-const regressionsOf = (
-  replay: Replay | null,
-  seed: Replay | null,
-  runSubset: readonly RunId[],
-): number | null =>
-  replay
-    ? taskComparisons(replay, seed, runSubset).filter((each) => each.regressed)
-        .length
-    : null;
 
 export class OpenConfigPullRequests implements PendingJobsPort {
   readonly name = 'Opening config pull requests';
@@ -272,7 +264,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
     );
     const found = (id: ReplayId | null | undefined): Replay | null =>
       (id && replays.find((each) => each.id.equals(id))) || null;
-    const seedReplay = found(search.seed.replay.replayId);
+    const regressions = picked?.regressions ?? NO_REGRESSIONS;
     const { station } = pullRequest;
 
     return {
@@ -319,19 +311,8 @@ export class OpenConfigPullRequests implements PendingJobsPort {
       currency: search.budget.ceiling.currency,
       searchedTasks: search.split.searchedTasks,
       heldOutTasks: search.split.heldOutTasks,
-      regressions: {
-        searched:
-          regressionsOf(
-            found(picked?.replayId),
-            seedReplay,
-            search.split.searchedRuns,
-          ) ?? 0,
-        heldOut: regressionsOf(
-          found(picked?.heldOutReplayId),
-          seedReplay,
-          search.split.heldOutRuns,
-        ),
-      },
+      regressions,
+      ...regressionLimitOf(regressions, live.threshold),
       link: slug
         ? `${this.appUrl.replace(/\/+$/, '')}/w/${slug}/team/${station.teamId.value}/lines/${station.lineId}/stations/${station.stationId}/searches/${search.id.value}`
         : null,

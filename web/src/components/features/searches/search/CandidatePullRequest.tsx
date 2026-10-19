@@ -1,9 +1,11 @@
+import { SECTION_LINK } from '@/components/shared/section-link';
 import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import type { SearchCandidate } from '@/lib/search';
 import {
   formatPullRequestCell,
   formatPullRequestReason,
 } from '@/lib/search-words';
+import { cn } from '@/lib/utils';
 
 export function CandidatePullRequest({
   candidate,
@@ -22,7 +24,7 @@ export function CandidatePullRequest({
         href={opened.url}
         target="_blank"
         rel="noreferrer"
-        className="relative z-10 text-foreground underline-offset-2 hover:underline"
+        className={cn(SECTION_LINK, 'relative z-10 text-foreground')}
       >
         {formatPullRequestCell('opened')}
       </a>

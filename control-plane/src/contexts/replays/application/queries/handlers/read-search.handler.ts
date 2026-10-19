@@ -39,6 +39,7 @@ export class ReadSearchHandler
         candidates,
         pullRequests,
         standard.minGain,
+        standard.threshold,
       );
     } catch (error) {
       rethrowAsApplicationError(error);

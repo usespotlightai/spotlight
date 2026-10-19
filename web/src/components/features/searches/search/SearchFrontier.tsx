@@ -8,7 +8,7 @@ import {
   frontierPoints,
   type SearchDetail,
 } from '@/lib/search';
-import { formatOverfitCount, frontierNote } from '@/lib/search-words';
+import { frontierNote } from '@/lib/search-words';
 
 type SearchFrontierProps = {
   search: SearchDetail;
@@ -23,19 +23,13 @@ export function SearchFrontier({ search }: SearchFrontierProps) {
       title="Success against cost"
       description={frontierNote(search.objective)}
       table={
-        <FrontierTable candidates={candidatesOf(search)} currency={currency} />
+        <FrontierTable
+          candidates={candidatesOf(search)}
+          currency={currency}
+          maxRegressions={search.maxRegressions}
+        />
       }
     >
-      {search.overfitCount > 0 && (
-        <p
-          data-slot="only-on-seen-tasks-count"
-          role="note"
-          className="text-amber-700 text-xs leading-5 dark:text-amber-300"
-        >
-          {formatOverfitCount(search.overfitCount)}
-        </p>
-      )}
-
       {priced.length === 0 ? (
         <p className="py-6 text-center text-muted-foreground text-sm">
           No candidate has a priced score yet. Show the table to see the rest.

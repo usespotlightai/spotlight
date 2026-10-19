@@ -56,7 +56,7 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <InsightsTiles label="Headline numbers">
+      <InsightsTiles label="Headline numbers" topAligned>
         {headlineTiles(headline, changes).map((tile) => (
           <InsightsTile
             key={tile.id}

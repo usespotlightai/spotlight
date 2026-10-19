@@ -9,6 +9,7 @@ import type {
   SearchResponseDto,
 } from '@/lib/api';
 import { formatPercent } from '@/lib/judge';
+import type { GainEstimate } from '@/lib/replay';
 import {
   formatGain,
   formatGainRange,
@@ -16,6 +17,8 @@ import {
   formatMinGain,
   formatPoints,
 } from '@/lib/replay-words';
+import type { SearchRegressions } from '@/lib/search';
+import type { TooltipNote, TooltipRow } from '@/lib/tooltip-note';
 
 export type SearchState = SearchResponseDto['state'];
 export type SearchStopReason = NonNullable<SearchResponseDto['stopReason']>;
@@ -148,9 +151,9 @@ export const formatWarning = (warning: SearchWarning): string => {
 export const formatRepeatsSuggestion = (repeats: number): string =>
   `Replay each run ${repeats} times`;
 
-export const GAIN_ON_SEARCHED = 'Gain over the live config, searched';
+const GAIN_ON_SEARCHED = 'Gain over the live config, searched';
 
-export const GAIN_ON_HELD_OUT = 'Gain over the live config, held out';
+const GAIN_ON_HELD_OUT = 'Gain over the live config, held out';
 
 const OBJECTIVES: Record<SearchObjective, string> = {
   success: 'More success',
@@ -214,25 +217,50 @@ export const formatBestOn = (heldOut: boolean): string =>
 
 const OVERFIT_LABELS: Record<Overfit, string> = {
   likely: 'Likely overfit',
-  'too-few-held-out': 'Too few held-out tasks to tell',
+  'too-few-held-out': 'Overfit unknown',
 };
 
-const OVERFIT_NOTES: Record<Overfit, string> = {
-  likely:
-    'This candidate beat the live config on searched tasks but not on held-out tasks. The gain may not carry over to new work.',
-  'too-few-held-out':
-    'This candidate beat the live config on searched tasks. Too few held-out tasks have a score to tell if the gain carries over.',
+const OVERFIT_NOTES: Record<Overfit, TooltipNote> = {
+  likely: {
+    title: 'Likely overfit',
+    body: 'It gained on searched tasks, not on held-out tasks.',
+  },
+  'too-few-held-out': {
+    title: 'Overfit unknown',
+    body: 'Too few held-out tasks have a score.',
+  },
 };
 
 export const formatOverfit = (mark: Overfit): string => OVERFIT_LABELS[mark];
 
-export const overfitNote = (mark: Overfit): string => OVERFIT_NOTES[mark];
+export const overfitNote = (mark: Overfit): TooltipNote => OVERFIT_NOTES[mark];
 
-export const OVERFIT_PICK =
-  'The gain showed only on searched tasks. You can still pick this candidate, but the gain may not carry over to new work.';
+export const REGRESSION_LIMIT_EXCEEDED = 'Over the regression limit';
 
-export const formatOverfitCount = (count: number): string =>
-  `${count} frontier ${count === 1 ? 'candidate' : 'candidates'} gained only on searched tasks, not on held-out tasks.`;
+const regressionRows = ({
+  searched,
+  heldOut,
+}: SearchRegressions): TooltipRow[] => [
+  ...(searched !== null ? [['Searched', String(searched)] as const] : []),
+  ...(heldOut !== null ? [['Held out', String(heldOut)] as const] : []),
+];
+
+export const regressionLimitNote = (
+  regressions: SearchRegressions,
+  maxRegressions: number,
+): TooltipNote => ({
+  title: REGRESSION_LIMIT_EXCEEDED,
+  rows: [
+    ['Regressed', tasksCounted(regressions.total ?? 0)],
+    ['Line allows', String(maxRegressions)],
+  ],
+});
+
+export const regressionsNote = (
+  regressions: SearchRegressions,
+): TooltipNote => ({
+  rows: regressionRows(regressions),
+});
 
 export const SEARCH_CEILING_NOTE =
   'The most that the whole search can spend. Its replays and its agent’s runs count.';
@@ -338,11 +366,13 @@ export const formatHeldOutTasks = (titles: readonly string[]): string =>
 
 export const ON_THE_FRONTIER = 'On the frontier';
 
-export const ON_THE_FRONTIER_NOTE =
-  'On the frontier: no other candidate succeeds more for the same cost or less.';
+export const ON_THE_FRONTIER_NOTE: TooltipNote = {
+  title: ON_THE_FRONTIER,
+  body: 'No other candidate succeeds more for less.',
+};
 
 export const CANDIDATES_NOTE =
-  'Configs that the search agent proposed, by iteration. Pick a candidate to see its reasoning, replays and pull request.';
+  'Configs that the search agent proposed, by iteration. Select a candidate to see its hypothesis, results and pull request.';
 
 export const formatBudgetNote = (
   budget: Pick<SearchResponseDto['budget'], 'perIteration' | 'concurrency'>,
@@ -413,3 +443,42 @@ export const formatLikely = (
 
 export const formatSentences = (...parts: readonly (string | null)[]): string =>
   parts.filter(Boolean).join(' ');
+
+export const CHANGES_TITLE = 'Changes';
+
+export const HYPOTHESIS_TITLE = 'Hypothesis';
+
+export const RESULTS_TITLE = 'Results';
+
+export const THIS_CONFIG = 'This config';
+
+export const GAIN_TITLE = 'Gain';
+
+export const SEED_CHANGES =
+  'The station as configured when the search started.';
+
+export const NO_CHANGES = 'Same as the live config.';
+
+export const formatRateNote = (
+  interval: { readonly low: number; readonly high: number } | null,
+): TooltipNote | null =>
+  interval ? { rows: [['Likely range', formatInterval(interval)]] } : null;
+
+const GAIN_TITLES: Record<GainEstimate['significance'], string> = {
+  better: 'Better',
+  worse: 'Worse',
+  'within-noise': 'Within noise',
+};
+
+export const formatGainNote = (gain: GainEstimate): TooltipNote => ({
+  title: GAIN_TITLES[gain.significance],
+  rows: [['Likely range', `${formatGainRange(gain)} pts`]],
+});
+
+export const OPEN_PULL_REQUEST = 'Open pull request';
+
+export const OPENING_PULL_REQUEST = 'Opening…';
+
+export const VIEW_PULL_REQUEST = 'View pull request';
+
+export const RETRY_PULL_REQUEST = 'Retry';

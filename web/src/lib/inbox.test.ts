@@ -61,6 +61,7 @@ describe('shownAt', () => {
 describe('spentOn', () => {
   it('keeps enough of a small cost to still be a number', () => {
     expect(spentOn(0.0042)).toBe('$0.0042');
+    expect(spentOn(0)).toBe('$0.00');
     expect(spentOn(7.3269)).toBe('$7.33');
   });
 

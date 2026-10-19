@@ -42,7 +42,7 @@ export function StationInsights({
 
       {report ? (
         <>
-          <InsightsTiles label="Over this period">
+          <InsightsTiles label="Over this period" topAligned>
             {tallyTiles(
               report.tally,
               report.seen,

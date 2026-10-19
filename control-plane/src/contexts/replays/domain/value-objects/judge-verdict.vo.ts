@@ -1,4 +1,5 @@
 import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.error';
+import { judgeGuidanceOf } from '@shared-kernel/domain/value-objects/judge-guidance';
 
 export const JUDGE_SCALES = ['yes-no', 'number', 'claims'] as const;
 
@@ -52,6 +53,21 @@ const claimResultsAreValid = (
       Math.abs(shareOf(claimResults) - value) <= LEEWAY
     : claimResults === null;
 
+const isPassing = (
+  scale: JudgeScale,
+  value: number,
+  passThreshold: number,
+): boolean => {
+  switch (scale) {
+    case 'yes-no':
+      return value === YES;
+    case 'number':
+      return value >= PASSING_SCORE;
+    default:
+      return value + LEEWAY >= passThreshold;
+  }
+};
+
 export class JudgeVerdict {
   private constructor(
     readonly scale: JudgeScale,
@@ -62,6 +78,7 @@ export class JudgeVerdict {
     readonly model: string,
     readonly referenced: boolean,
     readonly reasons: readonly CitedReason[],
+    readonly guidance: string | null,
   ) {}
 
   static of(input: {
@@ -73,6 +90,7 @@ export class JudgeVerdict {
     model: string;
     referenced: boolean;
     reasons: readonly CitedReason[];
+    guidance: string | null;
   }): JudgeVerdict {
     const { claimResults, passThreshold } = input;
 
@@ -114,18 +132,14 @@ export class JudgeVerdict {
         hunks: [...each.hunks],
         claim: each.claim,
       })),
+      isPassing(input.scale, input.value, passThreshold)
+        ? null
+        : judgeGuidanceOf(input.guidance),
     );
   }
 
   get passes(): boolean {
-    switch (this.scale) {
-      case 'yes-no':
-        return this.value === YES;
-      case 'number':
-        return this.value >= PASSING_SCORE;
-      default:
-        return this.value + LEEWAY >= this.passThreshold;
-    }
+    return isPassing(this.scale, this.value, this.passThreshold);
   }
 
   equals(other: JudgeVerdict): boolean {
@@ -138,7 +152,8 @@ export class JudgeVerdict {
       this.passThreshold === other.passThreshold &&
       this.model === other.model &&
       this.referenced === other.referenced &&
-      JSON.stringify(this.reasons) === JSON.stringify(other.reasons)
+      JSON.stringify(this.reasons) === JSON.stringify(other.reasons) &&
+      this.guidance === other.guidance
     );
   }
 }

@@ -1,3 +1,4 @@
+import { INLINE_LINK } from '@/components/shared/section-link';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { ReplaySearchResponseDto } from '@/lib/api';
 import type { ReplayedStation } from '@/lib/replay';
@@ -15,14 +16,12 @@ export function SearchOrigin({ at, search }: SearchOriginProps) {
         'the live config it started from'
       ) : (
         <>
-          candidate <span className="font-mono">{search.candidateName}</span>
+          candidate{' '}
+          <span className="text-foreground">{search.candidateName}</span>
         </>
       )}{' '}
       in{' '}
-      <TrailLink
-        to={searchPath(at, search.searchId)}
-        className="text-foreground underline-offset-2 hover:underline"
-      >
+      <TrailLink to={searchPath(at, search.searchId)} className={INLINE_LINK}>
         its search
       </TrailLink>
     </span>

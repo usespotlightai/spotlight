@@ -193,7 +193,7 @@ export const counted = (tokens: number): string => {
 };
 
 const bareAmount = (amount: number): string =>
-  amount < 0.01 ? amount.toFixed(4) : amount.toFixed(2);
+  amount > 0 && amount < 0.01 ? amount.toFixed(4) : amount.toFixed(2);
 
 export const spentOn = (cost: number | null): string =>
   cost === null ? '–' : `$${bareAmount(cost)}`;

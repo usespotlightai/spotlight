@@ -28,7 +28,11 @@ export function OverviewSkeleton() {
       aria-label="Loading the overview"
       className="flex flex-col gap-3"
     >
-      <InsightsTilesSkeleton label="Headline numbers" tiles={TILES} />
+      <InsightsTilesSkeleton
+        label="Headline numbers"
+        tiles={TILES}
+        topAligned
+      />
 
       <InsightsCardSkeleton
         switchable

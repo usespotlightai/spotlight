@@ -50,6 +50,7 @@ export interface HistoryCandidateRunDto {
   readonly succeeded: boolean | null;
   readonly reasons: readonly string[];
   readonly verdict: string | null;
+  readonly guidance: string | null;
 }
 
 export interface HistoryCandidateDto {

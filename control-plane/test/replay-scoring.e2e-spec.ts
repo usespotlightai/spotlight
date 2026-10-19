@@ -117,6 +117,7 @@ const judge: JudgePort = {
     const value = Number(SCORED.exec(scoredStep?.text ?? '')?.[1] ?? 1);
 
     return {
+      guidance: null,
       usage: {
         inputTokens: 2_000,
         outputTokens: 50,

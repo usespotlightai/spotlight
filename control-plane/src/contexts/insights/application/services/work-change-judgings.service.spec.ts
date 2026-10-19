@@ -55,6 +55,7 @@ const working = async (
   answer: (request: JudgeRequest) => Promise<Verdict>,
   reference: string | null = 'original_1',
   available = true,
+  guidance: string | null = null,
 ) => {
   const judgings = new ChangeJudgingsInMemory();
   await judgings.add(
@@ -88,6 +89,7 @@ const working = async (
         requests.push(request);
         return {
           verdict: await answer(request),
+          guidance,
           usage: {
             inputTokens: 900,
             outputTokens: 80,
@@ -158,6 +160,7 @@ describe('WorkChangeJudgings', () => {
                 ],
               })),
             },
+            guidance: null,
             usage: null,
           };
         },
@@ -216,6 +219,31 @@ describe('WorkChangeJudgings', () => {
       'It drains.',
       'It says how.',
     ]);
+  });
+
+  it('requests what the run should do differently, and passes on an guidance that avoids the rubric', async () => {
+    const failing = async () => ({
+      value: 2,
+      reasons: [{ text: 'It drops jobs.', steps: [2], hunks: [] }],
+    });
+    const { requests, judgings } = await working(
+      failing,
+      null,
+      true,
+      'Finish the jobs already taken before stopping the worker.',
+    );
+    const leaking = await working(
+      failing,
+      null,
+      true,
+      'Make it drain the queue without dropping a job.',
+    );
+
+    expect(requests[0]?.guidanceRequested).toBe(true);
+    expect((judgings.events as ChangeJudged[])[0]?.guidance).toBe(
+      'Finish the jobs already taken before stopping the worker.',
+    );
+    expect((leaking.judgings.events as ChangeJudged[])[0]?.guidance).toBeNull();
   });
 
   it('judges on the rubric alone without a reference, and says so', async () => {

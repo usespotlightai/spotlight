@@ -46,6 +46,7 @@ describe('INSIGHTS_EVENT_MAPPERS', () => {
               citations: [Citation.ofStep(2), Citation.ofHunk('api/q.ts#1')],
             }),
           ],
+          'Keep draining after a restart.',
           true,
           ModelUsage.none().with({
             inputTokens: 900,
@@ -75,6 +76,7 @@ describe('INSIGHTS_EVENT_MAPPERS', () => {
             claim: null,
           },
         ],
+        guidance: 'Keep draining after a restart.',
         referenced: true,
         spentCosts: [{ amount: 0.03, currency: 'USD' }],
         unpricedCalls: 0,

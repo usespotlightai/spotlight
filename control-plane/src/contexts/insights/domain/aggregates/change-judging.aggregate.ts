@@ -5,6 +5,7 @@ import {
   groundedVerdict,
   type Verdict,
 } from '@insights/domain/services/grounded-verdict';
+import { guardedGuidanceOf } from '@insights/domain/services/guidance';
 import type { JudgeEvidence } from '@insights/domain/services/judge-evidence';
 import type { JudgeCriteria } from '@insights/domain/value-objects/judge-criteria.vo';
 import type { JudgingAttempt } from '@insights/domain/value-objects/judging-attempt';
@@ -161,6 +162,10 @@ export class ChangeJudging
     });
   }
 
+  get guidanceRequested(): boolean {
+    return this.state.attempt === 1;
+  }
+
   get hasPendingJob(): boolean {
     return this.state.job !== null;
   }
@@ -212,6 +217,7 @@ export class ChangeJudging
 
   recordVerdict(input: {
     verdict: Verdict;
+    guidance: string | null;
     usage: ModelCall | null;
     evidence: JudgeEvidence;
     model: string;
@@ -253,6 +259,9 @@ export class ChangeJudging
         this.state.criteria.passThreshold,
         input.model,
         grounded.reasons,
+        this.guidanceRequested
+          ? guardedGuidanceOf(input.guidance, this.state.criteria)
+          : null,
         input.evidence.reference !== null,
         judged.spent,
         input.now,

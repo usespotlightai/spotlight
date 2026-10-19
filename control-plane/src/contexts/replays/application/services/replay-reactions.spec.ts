@@ -684,11 +684,15 @@ describe('scoring a replayed task', () => {
       reasons: [
         { text: 'It drops a job.', steps: [2], hunks: [], claim: null },
       ],
+      guidance: 'Finish the jobs already taken before stopping.',
       spent: ModelSpent.of([Money.of(0.02, 'USD')], 0),
     });
 
     expect(entry()?.succeeded).toBe(false);
     expect(entry()?.verdict?.referenced).toBe(true);
+    expect(entry()?.verdict?.guidance).toBe(
+      'Finish the jobs already taken before stopping.',
+    );
     expect(entry()?.reasons).toEqual([
       {
         code: 'judge-failed',
@@ -761,6 +765,7 @@ describe('probing a set', () => {
             model: 'judge/model',
             referenced: false,
             reasons: [],
+            guidance: null,
           }),
           null,
           later(63_000),
@@ -844,6 +849,7 @@ describe('probing a set', () => {
       model: 'judge/model',
       referenced: false,
       reasons: [],
+      guidance: null,
       spent: ModelSpent.of([Money.of(0.02, 'USD')], 0),
     });
     await judging.rejudgingFailed(

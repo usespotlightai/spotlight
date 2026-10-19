@@ -19,6 +19,7 @@ import type {
   SearchEstimateDto,
   SearchIterationDto,
   SearchReflectionDto,
+  SearchRegressionsDto,
   SearchRunsEstimateDto,
   SearchSplitDto,
   SearchSplitEntryDto,
@@ -69,6 +70,46 @@ const OVERFIT_PROPERTY: ApiPropertyOptions = {
   description:
     'marked when it beat the live config on the searched tasks but not on the held-out ones, so its gain showed only on the tasks the search could see; too-few-held-out when it beat the live config on the searched tasks but too few held-out tasks were scored on both sides to tell; null otherwise, and until its held-out replay finished',
 };
+
+const EXCEEDS_REGRESSION_LIMIT_PROPERTY: ApiPropertyOptions = {
+  description:
+    'Whether its regressions on the searched and held-out tasks together are more than the line’s max_regressions; false when the line has no replay_check block. It stays on the frontier and can still be picked',
+};
+
+export class SearchRegressionsResponseDto {
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 1,
+    description:
+      'Searched tasks where it did worse than the seed: the seed succeeded and it did not, or its judge score dropped; null for the seed and until both its searched replay and the seed’s replay finished',
+  })
+  readonly searched: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0,
+    description:
+      'Held-out tasks where it did worse than the seed, counted the same way; null for the seed and until its held-out replay and the seed’s replay finished',
+  })
+  readonly heldOut: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 1,
+    description:
+      'Its searched and held-out regressions together, the count compared with the line’s max_regressions; null until either could be counted',
+  })
+  readonly total: number | null;
+
+  constructor(regressions: SearchRegressionsDto) {
+    this.searched = regressions.searched;
+    this.heldOut = regressions.heldOut;
+    this.total = regressions.total;
+  }
+}
 export class SearchAgentRequestDto {
   @ApiProperty({
     example: 'claude-code',
@@ -497,6 +538,12 @@ export class SearchBestResponseDto {
   @ApiProperty(OVERFIT_PROPERTY)
   readonly overfit: OverfitDto | null;
 
+  @ApiProperty({ type: SearchRegressionsResponseDto })
+  readonly regressions: SearchRegressionsResponseDto;
+
+  @ApiProperty(EXCEEDS_REGRESSION_LIMIT_PROPERTY)
+  readonly exceedsRegressionLimit: boolean;
+
   constructor(best: SearchBestDto) {
     this.candidateId = best.candidateId;
     this.name = best.name;
@@ -507,6 +554,8 @@ export class SearchBestResponseDto {
     this.heldOutInterval = intervalResponse(best.heldOutInterval);
     this.costPerRun = best.costPerRun;
     this.overfit = best.overfit;
+    this.regressions = new SearchRegressionsResponseDto(best.regressions);
+    this.exceedsRegressionLimit = best.exceedsRegressionLimit;
   }
 }
 
@@ -572,6 +621,15 @@ export class SearchResponseDto {
   })
   readonly best: SearchBestResponseDto | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 2,
+    description:
+      'The line’s regression limit, max_regressions: the maximum number of regressions it allows a station change; null when the line has no replay_check block',
+  })
+  readonly maxRegressions: number | null;
+
   @ApiProperty()
   readonly startedAt: string;
 
@@ -592,6 +650,7 @@ export class SearchResponseDto {
     this.iterationsRun = search.iterationsRun;
     this.proposed = search.proposed;
     this.best = search.best ? new SearchBestResponseDto(search.best) : null;
+    this.maxRegressions = search.maxRegressions;
     this.startedAt = search.startedAt;
     this.endedAt = search.endedAt;
   }
@@ -954,6 +1013,12 @@ export class SearchCandidateResponseDto {
   @ApiProperty(OVERFIT_PROPERTY)
   readonly overfit: OverfitDto | null;
 
+  @ApiProperty({ type: SearchRegressionsResponseDto })
+  readonly regressions: SearchRegressionsResponseDto;
+
+  @ApiProperty(EXCEEDS_REGRESSION_LIMIT_PROPERTY)
+  readonly exceedsRegressionLimit: boolean;
+
   @ApiProperty({
     type: CandidatePullRequestResponseDto,
     nullable: true,
@@ -993,6 +1058,8 @@ export class SearchCandidateResponseDto {
     this.spent = new MoneyResponseDto(candidate.spent);
     this.onFrontier = candidate.onFrontier;
     this.overfit = candidate.overfit;
+    this.regressions = new SearchRegressionsResponseDto(candidate.regressions);
+    this.exceedsRegressionLimit = candidate.exceedsRegressionLimit;
     this.pullRequest = candidate.pullRequest
       ? new CandidatePullRequestResponseDto(candidate.pullRequest)
       : null;

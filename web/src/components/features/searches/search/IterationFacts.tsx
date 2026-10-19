@@ -1,4 +1,4 @@
-import { TrailLink } from '@/components/shell/layout/TrailLink';
+import { SectionLink } from '@/components/shared/SectionLink';
 import type { SearchIterationResponseDto } from '@/lib/api';
 import type { ReplayedStation } from '@/lib/replay';
 import { runPath } from '@/lib/run';
@@ -20,12 +20,12 @@ export function IterationFacts({ at, iteration }: IterationFactsProps) {
           · {formatIterationState(iteration.state)}
         </span>
       )}
-      <TrailLink
+      <SectionLink
         to={runPath(at.slug, at.teamId, iteration.runId)}
-        className="relative z-10 text-muted-foreground underline-offset-2 hover:text-foreground hover:underline sm:ml-auto"
+        className="relative z-10 sm:ml-auto"
       >
         Agent run
-      </TrailLink>
+      </SectionLink>
     </>
   );
 }

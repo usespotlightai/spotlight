@@ -53,6 +53,7 @@ const COMMIT = '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a';
 const RUBRIC = 'scores: 1-5\nDoes it drain the queue in order?';
 const SCORED = /score\((\d)\)/;
 export const WITHIN = 60_000;
+export const STUB_GUIDANCE = 'Keep the oldest job first after a restart.';
 
 const attachmentStore = {
   received: async () => [],
@@ -79,6 +80,7 @@ const judge: JudgePort = {
     const value = Number(SCORED.exec(scoredStep?.text ?? '')?.[1] ?? 1);
 
     return {
+      guidance: value <= 2 ? STUB_GUIDANCE : null,
       usage: {
         inputTokens: 100,
         outputTokens: 10,

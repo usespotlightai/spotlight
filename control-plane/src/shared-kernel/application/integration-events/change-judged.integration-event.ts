@@ -24,6 +24,7 @@ export type ChangeJudgedIntegrationEvent = {
     readonly hunks: readonly string[];
     readonly claim: number | null;
   }[];
+  readonly guidance: string | null;
   readonly referenced: boolean;
   readonly at: string;
 };

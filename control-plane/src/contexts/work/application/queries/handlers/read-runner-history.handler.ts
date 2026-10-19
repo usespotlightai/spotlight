@@ -248,6 +248,7 @@ export class ReadRunnerHistoryHandler
                 succeeded: run.succeeded,
                 reasons: [...run.reasons],
                 verdict: run.verdict,
+                guidance: run.guidance,
               },
             ]
           : [];

@@ -653,6 +653,10 @@ export type HistoryCandidateRunResponseDto = {
   succeeded: boolean | null;
   reasons: Array<string>;
   verdict: string | null;
+  /**
+   * What the judge says a failing replay should do differently, never its reasons
+   */
+  guidance: string | null;
 };
 
 export type HistoryCandidateResponseDto = {
@@ -8091,6 +8095,21 @@ export type SearchBudgetResponseDto = {
   repeats: number;
 };
 
+export type SearchRegressionsResponseDto = {
+  /**
+   * Searched tasks where it did worse than the seed: the seed succeeded and it did not, or its judge score dropped; null for the seed and until both its searched replay and the seed’s replay finished
+   */
+  searched: number | null;
+  /**
+   * Held-out tasks where it did worse than the seed, counted the same way; null for the seed and until its held-out replay and the seed’s replay finished
+   */
+  heldOut: number | null;
+  /**
+   * Its searched and held-out regressions together, the count compared with the line’s max_regressions; null until either could be counted
+   */
+  total: number | null;
+};
+
 export type SearchBestResponseDto = {
   candidateId: string;
   name: string;
@@ -8122,6 +8141,11 @@ export type SearchBestResponseDto = {
    * marked when it beat the live config on the searched tasks but not on the held-out ones, so its gain showed only on the tasks the search could see; too-few-held-out when it beat the live config on the searched tasks but too few held-out tasks were scored on both sides to tell; null otherwise, and until its held-out replay finished
    */
   overfit: 'likely' | 'too-few-held-out' | null;
+  regressions: SearchRegressionsResponseDto;
+  /**
+   * Whether its regressions on the searched and held-out tasks together are more than the line’s max_regressions; false when the line has no replay_check block. It stays on the frontier and can still be picked
+   */
+  exceedsRegressionLimit: boolean;
 };
 
 export type SearchResponseDto = {
@@ -8159,6 +8183,10 @@ export type SearchResponseDto = {
    * The best candidate by its objective, on its held-out score where it has one, else its search score: the one that succeeds most, or the cheapest that succeeds as often as the live config within noise; the live config when nothing beat it
    */
   best: SearchBestResponseDto | null;
+  /**
+   * The line’s regression limit, max_regressions: the maximum number of regressions it allows a station change; null when the line has no replay_check block
+   */
+  maxRegressions: number | null;
   startedAt: string;
   endedAt: string | null;
 };
@@ -8621,6 +8649,11 @@ export type SearchCandidateResponseDto = {
    * marked when it beat the live config on the searched tasks but not on the held-out ones, so its gain showed only on the tasks the search could see; too-few-held-out when it beat the live config on the searched tasks but too few held-out tasks were scored on both sides to tell; null otherwise, and until its held-out replay finished
    */
   overfit: 'likely' | 'too-few-held-out' | null;
+  regressions: SearchRegressionsResponseDto;
+  /**
+   * Whether its regressions on the searched and held-out tasks together are more than the line’s max_regressions; false when the line has no replay_check block. It stays on the frontier and can still be picked
+   */
+  exceedsRegressionLimit: boolean;
   /**
    * The pull request Spotlight opens in the line’s config repository once a person picks the candidate; null until then, and always for the seed
    */
@@ -8662,6 +8695,10 @@ export type SearchDetailResponseDto = {
    * The best candidate by its objective, on its held-out score where it has one, else its search score: the one that succeeds most, or the cheapest that succeeds as often as the live config within noise; the live config when nothing beat it
    */
   best: SearchBestResponseDto | null;
+  /**
+   * The line’s regression limit, max_regressions: the maximum number of regressions it allows a station change; null when the line has no replay_check block
+   */
+  maxRegressions: number | null;
   startedAt: string;
   endedAt: string | null;
   split: SearchSplitResponseDto;

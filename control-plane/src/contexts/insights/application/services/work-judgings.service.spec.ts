@@ -67,7 +67,11 @@ const working = async (
       model: 'some/model',
       judge: async (request) => {
         requests.push(request);
-        return { verdict: await answer(request), usage: null };
+        return {
+          verdict: await answer(request),
+          guidance: null,
+          usage: null,
+        };
       },
     },
     { now: () => NOW, sleep: async () => {} },
@@ -97,6 +101,7 @@ describe('WorkJudgings', () => {
 
     expect(requests[0]?.rubric).toBe('Did the run retry uploads?');
     expect(requests[0]?.scale).toBe('yes-no');
+    expect(requests[0]?.guidanceRequested).toBe(false);
     expect(requests[0]?.steps.map((each) => each.index)).toEqual([2]);
     expect(requests[0]?.hunks.map((each) => each.id)).toEqual([
       'api/src/uploads.ts#1',

@@ -54,6 +54,12 @@ export type SearchObjectiveDto = 'success' | 'cost';
 
 export type OverfitDto = 'likely' | 'too-few-held-out';
 
+export interface SearchRegressionsDto {
+  readonly searched: number | null;
+  readonly heldOut: number | null;
+  readonly total: number | null;
+}
+
 export interface SearchBestDto {
   readonly candidateId: string;
   readonly name: string;
@@ -64,6 +70,8 @@ export interface SearchBestDto {
   readonly heldOutInterval: RateIntervalDto | null;
   readonly costPerRun: number | null;
   readonly overfit: OverfitDto | null;
+  readonly regressions: SearchRegressionsDto;
+  readonly exceedsRegressionLimit: boolean;
 }
 
 export interface SearchSummaryDto {
@@ -80,6 +88,7 @@ export interface SearchSummaryDto {
   readonly iterationsRun: number;
   readonly proposed: number;
   readonly best: SearchBestDto | null;
+  readonly maxRegressions: number | null;
   readonly startedAt: string;
   readonly endedAt: string | null;
 }
@@ -153,6 +162,8 @@ export interface SearchCandidateDto {
   readonly spent: MoneyDto;
   readonly onFrontier: boolean;
   readonly overfit: OverfitDto | null;
+  readonly regressions: SearchRegressionsDto;
+  readonly exceedsRegressionLimit: boolean;
   readonly pullRequest: CandidatePullRequestDto | null;
 }
 

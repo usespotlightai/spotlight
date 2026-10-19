@@ -15,22 +15,21 @@ export function PullRequestError({ reason }: PullRequestErrorProps) {
       <p className="text-muted-foreground">{reason.message}</p>
       {reason.attribute && (
         <p className="text-muted-foreground">
-          At{' '}
-          <code className="font-mono text-foreground">{reason.attribute}</code>
+          At <span className="text-foreground">{reason.attribute}</span>
           {reason.expression && (
             <>
               , computed by{' '}
-              <code className="break-all font-mono text-foreground">
+              <span className="break-all text-foreground">
                 {reason.expression}
-              </code>
+              </span>
             </>
           )}
           {reason.wanted !== null && (
             <>
               . Please set it by hand to{' '}
-              <code className="break-all font-mono text-foreground">
+              <span className="break-all text-foreground">
                 {formatWanted(reason.wanted)}
-              </code>
+              </span>
             </>
           )}
         </p>

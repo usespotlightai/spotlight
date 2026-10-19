@@ -25,7 +25,13 @@ const FACTS = {
   currency: 'USD',
   searchedTasks: 7,
   heldOutTasks: 3,
-  regressions: { searched: 1, heldOut: 0 },
+  regressions: { searched: 1, heldOut: 0, total: 1 } as {
+    searched: number | null;
+    heldOut: number | null;
+    total: number | null;
+  },
+  maxRegressions: null as number | null,
+  exceedsRegressionLimit: false,
   gains: {
     searched: {
       gain: 0.2,
@@ -135,7 +141,7 @@ describe('ConfigPullRequestBody', () => {
     const body = ConfigPullRequestBody.of({
       ...FACTS,
       candidate: { ...FACTS.candidate, heldOutScore: null },
-      regressions: { searched: 1, heldOut: null },
+      regressions: { searched: 1, heldOut: null, total: 1 },
       gains: {
         searched: { ...FACTS.gains.searched, low: 0.1, significance: 'better' },
         heldOut: null,
@@ -173,5 +179,36 @@ describe('ConfigPullRequestBody', () => {
     );
     expect(body).not.toContain('on the held-out tasks, without the judge');
     expect(ConfigPullRequestBody.of(FACTS)).not.toContain('side by side');
+  });
+
+  it('warns when the candidate regressed on more tasks than the line’s regression limit, and only then', () => {
+    const over = ConfigPullRequestBody.of({
+      ...FACTS,
+      regressions: { searched: 2, heldOut: 1, total: 3 },
+      maxRegressions: 2,
+      exceedsRegressionLimit: true,
+    });
+
+    expect(over).toContain(
+      "Against the live config it regressed on 3 tasks, over the line's regression limit of 2 (`max_regressions`), so weigh that before merging.",
+    );
+    expect(over).toContain(
+      'Against the live config it regressed on 2 searched tasks; on the held-out tasks, 1 held-out task.',
+    );
+    expect(
+      ConfigPullRequestBody.of({ ...FACTS, maxRegressions: 2 }),
+    ).not.toContain('regression limit');
+  });
+
+  it('says when the regressions could not be counted yet', () => {
+    const body = ConfigPullRequestBody.of({
+      ...FACTS,
+      regressions: { searched: null, heldOut: null, total: null },
+      heldOutPending: true,
+    });
+
+    expect(body).toContain(
+      'Against the live config it could not be compared on the searched tasks; on the held-out tasks, its replay had not finished.',
+    );
   });
 });

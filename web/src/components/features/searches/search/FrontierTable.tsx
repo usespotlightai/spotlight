@@ -5,7 +5,8 @@ import {
 import { GainWithPairs } from '@/components/features/replays/GainWithPairs';
 import { HeldOutScore } from '@/components/features/replays/HeldOutScore';
 import { ScoredRate } from '@/components/features/replays/ScoredRate';
-import { OverfitBadge } from '@/components/features/searches/OverfitBadge';
+import { CandidateIcons } from '@/components/features/searches/CandidateIcons';
+import { RegressionCount } from '@/components/features/searches/search/RegressionCount';
 import { THE_SEARCH_START } from '@/lib/replay-words';
 import {
   candidateName,
@@ -17,26 +18,27 @@ import {
 type FrontierTableProps = {
   candidates: readonly SearchCandidate[];
   currency: string;
+  maxRegressions: number | null;
 };
 
-export function FrontierTable({ candidates, currency }: FrontierTableProps) {
+export function FrontierTable({
+  candidates,
+  currency,
+  maxRegressions,
+}: FrontierTableProps) {
   const columns: InsightsColumn<SearchCandidate>[] = [
     {
       id: 'candidate',
       header: 'Candidate',
       cell: (candidate) => (
-        <>
+        <span className="inline-flex items-center gap-1.5">
           {candidateName(candidate)}
-          {candidate.onFrontier && (
-            <span className="ml-1.5 text-primary">frontier</span>
-          )}
-          {candidate.overfit && (
-            <OverfitBadge
-              mark={candidate.overfit}
-              className="ml-1.5 align-middle"
-            />
-          )}
-        </>
+          <CandidateIcons
+            candidate={candidate}
+            frontier={candidate.onFrontier}
+            maxRegressions={maxRegressions}
+          />
+        </span>
       ),
     },
     {
@@ -89,6 +91,14 @@ export function FrontierTable({ candidates, currency }: FrontierTableProps) {
           pairs={candidate.heldOutPairs}
           against={THE_SEARCH_START}
         />
+      ),
+    },
+    {
+      id: 'regressions',
+      header: 'Regressions',
+      numeric: true,
+      cell: (candidate) => (
+        <RegressionCount regressions={candidate.regressions} />
       ),
     },
     {

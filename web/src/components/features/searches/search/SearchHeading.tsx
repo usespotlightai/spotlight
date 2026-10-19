@@ -1,5 +1,6 @@
 import { SearchStatePill } from '@/components/features/searches/SearchStatePill';
 import { StationItemHeading } from '@/components/features/stations/StationItemHeading';
+import { INLINE_LINK } from '@/components/shared/section-link';
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
@@ -31,10 +32,7 @@ export function SearchHeading({
       title={searchLabel(number)}
       marks={<SearchStatePill stopReason={search.stopReason} />}
     >
-      <TrailLink
-        to={replaySetPath(at, search.setId)}
-        className="text-foreground underline-offset-2 hover:underline"
-      >
+      <TrailLink to={replaySetPath(at, search.setId)} className={INLINE_LINK}>
         {setName ?? 'Its replay set'}
       </TrailLink>
       {' · '}

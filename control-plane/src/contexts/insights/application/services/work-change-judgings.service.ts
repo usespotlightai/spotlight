@@ -102,7 +102,7 @@ export class WorkChangeJudgings implements PendingJobsPort {
     }
 
     try {
-      const { verdict, usage } = await this.judge.judge({
+      const { verdict, guidance, usage } = await this.judge.judge({
         rubric: judging.criteria.rubric,
         claims: judging.criteria.claims,
         scale: judging.scale.kind,
@@ -113,10 +113,12 @@ export class WorkChangeJudgings implements PendingJobsPort {
         hunks: evidence.hunks,
         hunksLeftOut: evidence.hunksLeftOut,
         reference: evidence.reference,
+        guidanceRequested: judging.guidanceRequested,
       });
 
       return judging.recordVerdict({
         verdict,
+        guidance,
         usage,
         evidence,
         model: this.judge.model,
