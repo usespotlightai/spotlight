@@ -597,6 +597,44 @@ describe('a search’s iterations', () => {
     expect(work.searchesDispatched).toHaveLength(0);
   });
 
+  it('stops as station-gone, never running its agent, when its station left its line before its seed ended', async () => {
+    const started = await start();
+
+    if (started.outcome !== 'started') {
+      throw new Error('the search did not start');
+    }
+
+    await delivered();
+    work.station = async () => null;
+    await replayed(started.seedReplayId, () => true, 0.5);
+
+    expect(theSearch().current).toBe('stopped');
+    expect(theSearch().stopReason).toBe('station-gone');
+    expect(theSearch().iterations.map((each) => each.current)).not.toContain(
+      'failed',
+    );
+    expect(work.searchesDispatched).toHaveLength(0);
+  });
+
+  it('stops as station-gone, counting no failed iteration, when its station left its line while its agent run was being queued', async () => {
+    work.dispatchSearch = async () => {
+      work.station = async () => null;
+
+      return {
+        queued: false,
+        reason: 'the line no longer has the station it searches',
+      };
+    };
+
+    await seeded();
+
+    expect(theSearch().current).toBe('stopped');
+    expect(theSearch().stopReason).toBe('station-gone');
+    expect(theSearch().iterations.map((each) => each.current)).not.toContain(
+      'failed',
+    );
+  });
+
   it('counts an iteration that could not start as failed, and stalls after two without looking into why when only one iteration is left', async () => {
     work.searchProblem = 'no runner can start claude-code';
 
