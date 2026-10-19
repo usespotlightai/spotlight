@@ -17,7 +17,7 @@ export type Fleet = {
 
 const WORKSPACE_ID = 'workspace_acme';
 
-const RUNNER_IMAGE = 'ghcr.io/usespotlightai/spotlight-runner:20260925-01';
+const RUNNER_IMAGE = 'ghcr.io/usespotlightai/spotlight-runner:v0.3.0';
 
 const API_IMAGE = 'ghcr.io/acme/api-runner:main';
 
@@ -34,7 +34,7 @@ const image = (
   image: name,
   digest: `${name.replace(/:[^/:]+$/, '')}@sha256:${DIGEST}`,
   isDefault: false,
-  release: '20260925-01',
+  release: 'v0.3.0',
   harnesses: harnesses.map(([id, version]) => ({ id, version })),
   unavailableReason: null,
   ...over,
@@ -59,7 +59,7 @@ const HOSTS: HostResponseDto[] = [
     id: BUILD_BOX,
     name: 'build-box-1',
     source: BUILD_FARM,
-    release: '20261018-01',
+    release: 'v0.7.0',
     unavailableReason: null,
     containerRuntime: 'Docker Engine - Community 27.3.1 (linux/amd64)',
     capacity: 4,
@@ -84,7 +84,7 @@ const HOSTS: HostResponseDto[] = [
     id: MAC_MINI,
     name: 'sams-mac-mini',
     source: BUILD_FARM,
-    release: '20261018-01',
+    release: 'v0.7.0',
     unavailableReason: null,
     containerRuntime: 'OrbStack 1.9.2 (linux/arm64)',
     capacity: 2,
@@ -103,7 +103,7 @@ const HOSTS: HostResponseDto[] = [
       image('ghcr.io/acme/legacy-runner:2025', [], {
         release: null,
         unavailableReason:
-          'Runner doesn’t report its release number. Minimum version required: 20260925-01',
+          'Runner doesn’t report its release number. Minimum version required: v0.3.0',
       }),
     ],
     firstHeartbeatAt: minutesAgo(3 * 24 * 60),
@@ -115,17 +115,17 @@ const HOSTS: HostResponseDto[] = [
     id: GPU_NODE,
     name: 'gpu-node-3',
     source: { kind: 'trust', key: 'production-cluster' },
-    release: '20261001-04',
+    release: 'v0.4.3',
     unavailableReason:
-      'Host is on release 20261001-04. Minimum release required: 20261002-02. Update it with: spotlight host update',
+      'Host is on release v0.4.3. Minimum release required: v0.5.1. Update it with: spotlight host update',
     containerRuntime: 'Podman Engine 5.2.1 (linux/amd64)',
     capacity: 8,
     running: [],
     images: [
       image(
-        RUNNER_IMAGE.replace('20260925-01', '20260801-02'),
+        RUNNER_IMAGE.replace('v0.3.0', 'v0.2.1'),
         [['claude-code', '2.1.180']],
-        { isDefault: true, release: '20260801-02' },
+        { isDefault: true, release: 'v0.2.1' },
       ),
     ],
     firstHeartbeatAt: minutesAgo(12 * 24 * 60),
@@ -137,15 +137,15 @@ const HOSTS: HostResponseDto[] = [
     id: FRESH_VM,
     name: 'fresh-vm',
     source: BUILD_FARM,
-    release: '20261018-01',
+    release: 'v0.7.0',
     unavailableReason: null,
     containerRuntime: 'Docker Engine - Community 27.3.1 (linux/amd64)',
     capacity: 2,
     running: [],
     images: [
-      image(RUNNER_IMAGE.replace('20260925-01', '20261018-01'), [], {
+      image(RUNNER_IMAGE.replace('v0.3.0', 'v0.7.0'), [], {
         isDefault: true,
-        release: '20261018-01',
+        release: 'v0.7.0',
       }),
     ],
     firstHeartbeatAt: minutesAgo(20),
@@ -157,7 +157,7 @@ const HOSTS: HostResponseDto[] = [
     id: PRIVATE_IMAGE_BOX,
     name: 'ci-box-2',
     source: BUILD_FARM,
-    release: '20261018-01',
+    release: 'v0.7.0',
     unavailableReason: null,
     containerRuntime: 'Docker Engine - Community 27.3.1 (linux/amd64)',
     capacity: 2,

@@ -80,19 +80,23 @@ func TestSaysWhenARunnerIsOlderThanTheControlPlaneNeeds(t *testing.T) {
 		tooOld  bool
 	}{
 		{"", true},
-		{"20260801-01", true},
-		{"20260925-01", true},
-		{"20260925-02", false},
-		{"20260925-10", false},
+		{"v0.2.0", true},
+		{"v0.3.0", true},
+		{"v0.3.1", false},
+		{"v0.3.10", false},
+		{"v0.4.0", false},
+		{"v0.3.1-rc.2", true},
+		{"v1.0.0-rc.1", false},
 		{"20261001-01", false},
+		{"v0.03.0", false},
 		{"dev", false},
 		{"3f2c9d1a7b4e", false},
 	} {
-		tooOld := images.RunnerTooOld(each.release, "20260925-02")
+		tooOld := images.RunnerTooOld(each.release, "v0.3.1")
 		if (tooOld != "") != each.tooOld {
 			t.Errorf("%q: too old %q", each.release, tooOld)
 		}
-		if tooOld != "" && !strings.Contains(tooOld, "20260925-02") {
+		if tooOld != "" && !strings.Contains(tooOld, "v0.3.1") {
 			t.Errorf("%q: the reason does not say what is needed: %q", each.release, tooOld)
 		}
 	}

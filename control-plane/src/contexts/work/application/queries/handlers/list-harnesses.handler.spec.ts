@@ -94,7 +94,7 @@ describe('listing harnesses for a workspace', () => {
           : null,
     };
 
-    const requirements = (release: string | null = '20261018-01') => {
+    const requirements = (release: string | null = 'v0.7.0') => {
       const namedIn = vi.fn(async () => ['ghcr.io/acme/widgets:1']);
 
       return {
@@ -116,8 +116,8 @@ describe('listing harnesses for a workspace', () => {
           new HostRequirementsQuery({ bearer: 'pool-token', trust: undefined }),
         ),
       ).toEqual({
-        hostRelease: '20261018-01',
-        hostMinimum: MIN_HOST_RELEASE,
+        hostRelease: 'v0.7.0',
+        hostMinimum: MIN_HOST_RELEASE.value,
         runnerMinimum: MIN_RUNNER_RELEASE,
         harnesses: [expect.objectContaining({ id: 'claude-code', models: [] })],
         images: ['ghcr.io/acme/widgets:1'],

@@ -14,7 +14,7 @@ import (
 	"usespotlight.ai/data-plane/host/internal/update"
 )
 
-const old = "#!/bin/sh\necho 20261001-01\n"
+const old = "#!/bin/sh\necho v0.4.0\n"
 
 func script(release string) string { return "#!/bin/sh\necho " + release + "\n" }
 
@@ -61,13 +61,13 @@ func contents(t *testing.T, binary *update.Binary) string {
 }
 
 func TestReplacesTheBinaryWithAReleaseThatPassesItsChecksum(t *testing.T) {
-	next := script("20261018-01")
+	next := script("v0.7.0")
 	binary := installed(t, releases(t, map[string]string{
-		"/20261018-01/spotlight-linux-amd64":        next,
-		"/20261018-01/spotlight-linux-amd64.sha256": sum(next) + "  spotlight-linux-amd64\n",
+		"/v0.7.0/spotlight-linux-amd64":        next,
+		"/v0.7.0/spotlight-linux-amd64.sha256": sum(next) + "  spotlight-linux-amd64\n",
 	}))
 
-	if err := binary.To(context.Background(), "20261018-01"); err != nil {
+	if err := binary.To(context.Background(), "v0.7.0"); err != nil {
 		t.Fatal(err)
 	}
 	if contents(t, binary) != next {
@@ -84,11 +84,11 @@ func TestReplacesTheBinaryWithAReleaseThatPassesItsChecksum(t *testing.T) {
 
 func TestKeepsTheBinaryWhenTheDownloadFailsItsChecksum(t *testing.T) {
 	binary := installed(t, releases(t, map[string]string{
-		"/20261018-01/spotlight-linux-amd64":        script("20261018-01"),
-		"/20261018-01/spotlight-linux-amd64.sha256": sum("something else"),
+		"/v0.7.0/spotlight-linux-amd64":        script("v0.7.0"),
+		"/v0.7.0/spotlight-linux-amd64.sha256": sum("something else"),
 	}))
 
-	err := binary.To(context.Background(), "20261018-01")
+	err := binary.To(context.Background(), "v0.7.0")
 	if err == nil || !strings.Contains(err.Error(), "checksum") {
 		t.Fatalf("got %v", err)
 	}
@@ -98,14 +98,14 @@ func TestKeepsTheBinaryWhenTheDownloadFailsItsChecksum(t *testing.T) {
 }
 
 func TestKeepsTheBinaryWhenTheDownloadReportsAnotherRelease(t *testing.T) {
-	wrong := script("20261017-03")
+	wrong := script("v0.6.2")
 	binary := installed(t, releases(t, map[string]string{
-		"/20261018-01/spotlight-linux-amd64":        wrong,
-		"/20261018-01/spotlight-linux-amd64.sha256": sum(wrong),
+		"/v0.7.0/spotlight-linux-amd64":        wrong,
+		"/v0.7.0/spotlight-linux-amd64.sha256": sum(wrong),
 	}))
 
-	err := binary.To(context.Background(), "20261018-01")
-	if err == nil || !strings.Contains(err.Error(), "20261017-03") {
+	err := binary.To(context.Background(), "v0.7.0")
+	if err == nil || !strings.Contains(err.Error(), "v0.6.2") {
 		t.Fatalf("got %v", err)
 	}
 	if contents(t, binary) != old {
@@ -116,7 +116,7 @@ func TestKeepsTheBinaryWhenTheDownloadReportsAnotherRelease(t *testing.T) {
 func TestKeepsTheBinaryWhenTheReleaseIsMissing(t *testing.T) {
 	binary := installed(t, releases(t, map[string]string{}))
 
-	if err := binary.To(context.Background(), "20261018-01"); err == nil {
+	if err := binary.To(context.Background(), "v0.7.0"); err == nil {
 		t.Fatal("a missing release did not fail")
 	}
 	if contents(t, binary) != old {

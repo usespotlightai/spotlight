@@ -1,6 +1,3 @@
-import { isDatedRelease } from '@runners/domain/services/release-order';
+import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 
-export const MIN_HOST_RELEASE = '20261002-02';
-
-export const releaseHostsFollow = (release: string | null): string | null =>
-  release !== null && isDatedRelease(release) ? release : null;
+export const MIN_HOST_RELEASE = Release.of('v0.1.0-rc.1');

@@ -249,8 +249,8 @@ describe('ClaimHostWorkHandler', () => {
   it('answers a host older than the host minimum as host-outdated with both releases, without waiting', async () => {
     const outdated = {
       outcome: 'host-outdated',
-      release: '20261001-04',
-      minimum: '20261002-02',
+      release: 'v0.4.3',
+      minimum: 'v0.5.1',
     } as const;
     const { handler, runners, claimNext } = pulling({ started: outdated });
 

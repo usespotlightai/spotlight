@@ -53,7 +53,7 @@ export class HostImageResponseDto {
   @ApiProperty({
     type: String,
     nullable: true,
-    example: '20260925-01',
+    example: 'v0.3.0',
     description: 'The release of the runner inside',
   })
   readonly release: string | null;
@@ -91,14 +91,14 @@ export class HostResponseDto {
   @ApiProperty({ type: CredentialSourceResponseDto })
   readonly source: CredentialSourceResponseDto;
 
-  @ApiProperty({ example: '20261018-01', description: 'The spotlight release' })
+  @ApiProperty({ example: 'v0.7.0', description: 'The spotlight release' })
   readonly release: string;
 
   @ApiProperty({
     type: String,
     nullable: true,
     example:
-      'Host is on release 20261001-04. Minimum release required: 20261002-02. Update it with: spotlight host update',
+      'Host is on release v0.4.3. Minimum release required: v0.5.1. Update it with: spotlight host update',
     description:
       'Why the control plane gives this host no work, or null when it gives it work',
   })

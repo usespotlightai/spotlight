@@ -108,7 +108,7 @@ func TestReportsTheHarnessesItFindsInItsImage(t *testing.T) {
 	received := `[{"id":"sh","executable":"sh"},{"id":"absent","executable":"no-such-harness"}]`
 	out := new(strings.Builder)
 
-	if err := report(received, "20260925-01", out); err != nil {
+	if err := report(received, "v0.3.0", out); err != nil {
 		t.Fatalf("report: %v", err)
 	}
 
@@ -116,7 +116,7 @@ func TestReportsTheHarnessesItFindsInItsImage(t *testing.T) {
 	if err := json.Unmarshal([]byte(out.String()), &reported); err != nil {
 		t.Fatalf("decode %q: %v", out.String(), err)
 	}
-	if reported.Release != "20260925-01" || len(reported.Harnesses) != 1 || reported.Harnesses[0].ID != "sh" {
+	if reported.Release != "v0.3.0" || len(reported.Harnesses) != 1 || reported.Harnesses[0].ID != "sh" {
 		t.Errorf("reported %+v", reported)
 	}
 }

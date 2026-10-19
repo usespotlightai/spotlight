@@ -20,6 +20,7 @@ import {
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 import { RubricScale } from '@shared-kernel/domain/value-objects/rubric-scale.vo';
@@ -59,6 +60,7 @@ export const SHARED_KERNEL_PAYLOAD_TYPES = [
   PendingJob,
   PersonPrincipal,
   PullRequestUrl,
+  Release,
   Repository,
   RunId,
   RunnerId,

@@ -1,1 +1,3 @@
-export const MIN_RUNNER_RELEASE = '20261002-02';
+import { Release } from '@shared-kernel/domain/value-objects/release.vo';
+
+export const MIN_RUNNER_RELEASE = Release.of('v0.1.0-rc.1').value;

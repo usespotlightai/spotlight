@@ -129,7 +129,7 @@ export class Runners implements RunnersPort {
       return {
         outcome: 'host-outdated',
         release: known.report.release,
-        minimum: MIN_HOST_RELEASE,
+        minimum: MIN_HOST_RELEASE.value,
       };
     }
 
