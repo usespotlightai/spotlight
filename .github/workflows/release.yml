@@ -1,23 +1,38 @@
 name: release
 
+# release-please keeps a release pull request open on develop. Merging it tags
+# the release and creates it as a draft. Once CI passes on that commit, this
+# starts Build Images in usespotlightai/infrastructure, which builds the images
+# with the tag as their version, uploads the spotlight binaries to the draft
+# and publishes it.
+
 on:
   push:
-    tags:
-      - "**"
-      # Do not start a build for a commit tag. Build Images makes these tags for staging.
-      - "![0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]"
+    branches: [develop]
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
   actions: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      created: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v5
+
   ci-passed:
     name: CI passed on the tagged commit
+    needs: release-please
+    if: needs.release-please.outputs.created == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -33,7 +48,7 @@ jobs:
               case "$run" in
                 "completed success") echo "$workflow passed"; break ;;
                 completed*) echo "::error::$workflow did not pass on $SHA ($run)."; exit 1 ;;
-                "") [ "$SECONDS" -lt 180 ] || { echo "::error::$workflow did not run on $SHA. Tag a commit on develop or main."; exit 1; } ;;
+                "") [ "$SECONDS" -lt 180 ] || { echo "::error::$workflow did not run on $SHA."; exit 1; } ;;
               esac
               sleep 30
             done
@@ -41,7 +56,7 @@ jobs:
 
   build-images:
     name: start the image build
-    needs: ci-passed
+    needs: [release-please, ci-passed]
     runs-on: ubuntu-latest
     steps:
       - name: Generate an infrastructure repository token
@@ -56,7 +71,7 @@ jobs:
       - name: Start Build Images
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ needs.release-please.outputs.tag }}
         run: |
           gh workflow run build-images.yml \
             --repo "${{ github.repository_owner }}/infrastructure" \
