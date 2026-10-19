@@ -63,6 +63,10 @@ func run(version string) error {
 	if err != nil {
 		return err
 	}
+	if cfg.LogLevel != "" {
+		log = telemetry.NewLoggerAt(cfg.LogLevel, os.Stdout)
+		slog.SetDefault(log)
+	}
 
 	release, err := config.Lock(cfg.State)
 	if err != nil {
@@ -117,7 +121,7 @@ func run(version string) error {
 		ExtraHosts: cfg.ExtraHosts,
 	}, claims, engine, mirrors, log.With("host", id))
 
-	if err := telemetry.ServeHealth(ctx, os.Getenv(telemetry.HealthVar), host.Ready, log); err != nil {
+	if err := telemetry.ServeHealth(ctx, cfg.HealthAddr, host.Ready, log); err != nil {
 		return err
 	}
 
