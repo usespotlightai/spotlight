@@ -36,7 +36,7 @@ export class HostRequirementsHandler
       return {
         hostRelease:
           Release.published(this.controlPlane.release)?.value ?? null,
-        hostMinimum: MIN_HOST_RELEASE,
+        hostMinimum: MIN_HOST_RELEASE.value,
         runnerMinimum: MIN_RUNNER_RELEASE,
         harnesses: this.launch
           .catalogue()

@@ -117,7 +117,7 @@ describe('listing harnesses for a workspace', () => {
         ),
       ).toEqual({
         hostRelease: 'v0.7.0',
-        hostMinimum: MIN_HOST_RELEASE,
+        hostMinimum: MIN_HOST_RELEASE.value,
         runnerMinimum: MIN_RUNNER_RELEASE,
         harnesses: [expect.objectContaining({ id: 'claude-code', models: [] })],
         images: ['ghcr.io/acme/widgets:1'],

@@ -43,4 +43,19 @@ describe('Release', () => {
     expect(Release.published('dev')).toBeNull();
     expect(Release.published(null)).toBeNull();
   });
+
+  it('orders the same after it travels as JSON in an event payload', () => {
+    const travelled = (raw: string): Release =>
+      Object.assign(
+        Object.create(Release.prototype),
+        JSON.parse(JSON.stringify(Release.of(raw))),
+      );
+
+    expect(travelled('v1.0.0').isOlderThan(Release.of('v1.0.0-rc.1'))).toBe(
+      false,
+    );
+    expect(travelled('v1.0.0-rc.1').isOlderThan(Release.of('v1.0.0'))).toBe(
+      true,
+    );
+  });
 });

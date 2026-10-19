@@ -284,14 +284,14 @@ describe('Runners', () => {
       ).resolves.toEqual({
         outcome: 'host-outdated',
         release: 'v0.0.9',
-        minimum: MIN_HOST_RELEASE,
+        minimum: MIN_HOST_RELEASE.value,
       });
       expect(added).toEqual([]);
     });
 
     it('starts one for a host on the host minimum', async () => {
       const { service } = running(aPullPool(), {
-        host: aHost({ release: MIN_HOST_RELEASE }),
+        host: aHost({ release: MIN_HOST_RELEASE.value }),
       });
 
       await expect(
