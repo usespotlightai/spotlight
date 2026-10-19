@@ -1,0 +1,46 @@
+name: data-plane
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: data-plane
+
+jobs:
+  lint-and-test:
+    name: format, vet, staticcheck, tests, vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: data-plane/go.mod
+          cache-dependency-path: data-plane/go.sum
+
+      - name: Format check
+        run: |
+          unformatted=$(gofmt -l .)
+          [ -z "$unformatted" ] || { echo "::error::Not gofmt-formatted: $unformatted"; exit 1; }
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Staticcheck
+        run: go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 ./...
+
+      - name: Tests with the race detector
+        run: go test -race ./...
+
+      - name: Known vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
