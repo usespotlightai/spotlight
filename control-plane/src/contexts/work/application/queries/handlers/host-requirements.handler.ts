@@ -1,10 +1,8 @@
-import {
-  MIN_HOST_RELEASE,
-  releaseHostsFollow,
-} from '@runners/application/contracts/least-host-release.contract';
+import { MIN_HOST_RELEASE } from '@runners/application/contracts/least-host-release.contract';
 import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-authenticator.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import type { HostRequirementsDto } from '@work/application/dto/host-requirements.dto';
 import { HarnessMapper } from '@work/application/mappers/harness.mapper';
 import type { ControlPlaneReleasePort } from '@work/application/ports/control-plane-release.port';
@@ -36,7 +34,8 @@ export class HostRequirementsHandler
       }
 
       return {
-        hostRelease: releaseHostsFollow(this.controlPlane.release),
+        hostRelease:
+          Release.published(this.controlPlane.release)?.value ?? null,
         hostMinimum: MIN_HOST_RELEASE,
         runnerMinimum: MIN_RUNNER_RELEASE,
         harnesses: this.launch

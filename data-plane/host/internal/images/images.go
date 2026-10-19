@@ -82,9 +82,9 @@ func (a Allowed) Disallowed(named []string) []string {
 const HarnessExamples = "https://github.com/usespotlightai/spotlight/tree/main/.docker/runner/examples"
 
 var (
-	semverRelease  = regexp.MustCompile(`^v(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$`)
-	patternShape   = regexp.MustCompile(`^[a-z0-9][a-z0-9._:/@-]*$`)
-	referenceShape = regexp.MustCompile(
+	publishedRelease = regexp.MustCompile(`^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-rc\.(0|[1-9]\d*))?$`)
+	patternShape     = regexp.MustCompile(`^[a-z0-9][a-z0-9._:/@-]*$`)
+	referenceShape   = regexp.MustCompile(
 		`^[a-z0-9]+([._-][a-z0-9]+)*(:[0-9]+)?(/[a-z0-9]+([._-][a-z0-9]+)*)*(:[A-Za-z0-9_][A-Za-z0-9._-]{0,127})?(@sha256:[0-9a-f]{64})?$`,
 	)
 )
@@ -107,7 +107,7 @@ func RunnerTooOld(release, minimum string) string {
 }
 
 func versionOf(release string) []int {
-	parts := semverRelease.FindStringSubmatch(release)
+	parts := publishedRelease.FindStringSubmatch(release)
 	if parts == nil {
 		return nil
 	}

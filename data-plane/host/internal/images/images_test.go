@@ -88,6 +88,7 @@ func TestSaysWhenARunnerIsOlderThanTheControlPlaneNeeds(t *testing.T) {
 		{"v0.3.1-rc.2", true},
 		{"v1.0.0-rc.1", false},
 		{"20261001-01", false},
+		{"v0.03.0", false},
 		{"dev", false},
 		{"3f2c9d1a7b4e", false},
 	} {

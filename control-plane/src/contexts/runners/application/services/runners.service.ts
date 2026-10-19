@@ -42,6 +42,7 @@ import type {
 } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -112,7 +113,7 @@ export class Runners implements RunnersPort {
       return { outcome: 'host-unreported' };
     }
 
-    if (known.isOlderThan(MIN_HOST_RELEASE)) {
+    if (known.isOlderThan(Release.of(MIN_HOST_RELEASE))) {
       return {
         outcome: 'host-outdated',
         release: known.report.release,

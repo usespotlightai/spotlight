@@ -1,6 +1,3 @@
-import { isSemverRelease } from '@runners/domain/services/release-order';
+import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 
-export const MIN_HOST_RELEASE = 'v0.1.0-rc.1';
-
-export const releaseHostsFollow = (release: string | null): string | null =>
-  release !== null && isSemverRelease(release) ? release : null;
+export const MIN_HOST_RELEASE = Release.of('v0.1.0-rc.1').value;

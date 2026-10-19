@@ -1,6 +1,5 @@
 import { HostReady } from '@runners/domain/events/host-ready.event';
 import { HostInUseError } from '@runners/domain/exceptions/host-in-use.error';
-import { isOlderRelease } from '@runners/domain/services/release-order';
 import type { BootId } from '@runners/domain/value-objects/boot-id.vo';
 import type { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
@@ -8,6 +7,7 @@ import type { HostImage } from '@runners/domain/value-objects/host-image.vo';
 import type { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -115,8 +115,11 @@ export class RunnerHost extends EventRecorder {
     return this.state.report.supportedImage(image);
   }
 
-  isOlderThan(minimum: string): boolean {
-    return isOlderRelease(this.state.report.release, minimum);
+  isOlderThan(minimum: Release): boolean {
+    return (
+      Release.published(this.state.report.release)?.isOlderThan(minimum) ??
+      false
+    );
   }
 
   hasSource(source: CredentialSource): boolean {
