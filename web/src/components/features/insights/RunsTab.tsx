@@ -1,7 +1,7 @@
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { InsightsPager } from '@/components/features/insights/InsightsPager';
-import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
+import { NoRuns } from '@/components/features/insights/NoRuns';
 import { RunsFilters } from '@/components/features/insights/RunsFilters';
 import { RunsSkeleton } from '@/components/features/insights/RunsSkeleton';
 import { RunsTable } from '@/components/features/insights/RunsTable';
@@ -60,9 +60,9 @@ export function RunsTab({
 
   if (runs.data.total === 0 && !narrowed) {
     return (
-      <NoRunsInPeriod slug={slug} teamId={teamId}>
-        Runs that end in this period show here, newest first.
-      </NoRunsInPeriod>
+      <NoRuns slug={slug} teamId={teamId} period={view.period}>
+        Runs show here, newest first, when they end.
+      </NoRuns>
     );
   }
 

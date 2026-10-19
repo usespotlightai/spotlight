@@ -525,7 +525,7 @@ describe('TeamInsights', () => {
 
     showing();
 
-    expect(screen.getByText('No runs in this period')).toBeInTheDocument();
+    expect(screen.getByText('No runs')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Create a task' })).toHaveAttribute(
       'href',
       '/w/acme/team/team_1/lines/line_1',

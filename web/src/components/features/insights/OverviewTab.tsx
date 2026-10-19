@@ -1,7 +1,7 @@
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
-import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
+import { NoRuns } from '@/components/features/insights/NoRuns';
 import { OutputAgainstCost } from '@/components/features/insights/OutputAgainstCost';
 import { OverviewSkeleton } from '@/components/features/insights/OverviewSkeleton';
 import { WorthImprovingList } from '@/components/features/insights/WorthImprovingList';
@@ -43,9 +43,9 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
 
   if (headline.runs === 0 && headline.mergedPullRequests === 0) {
     return (
-      <NoRunsInPeriod slug={slug} teamId={teamId}>
+      <NoRuns slug={slug} teamId={teamId} period={period}>
         Cost and delivery show here once stations run tasks.
-      </NoRunsInPeriod>
+      </NoRuns>
     );
   }
 
