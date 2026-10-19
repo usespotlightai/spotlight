@@ -1,0 +1,13 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Fixture tokens and the test secrets key used by tests, mocks and examples"
+regexes = [
+  '''^q3Vd0n8yXbT2c4kPzR7mW1sLhA9eJ5gUfN6oYiC0xEw$''',
+  '''^spt_3f9a2c7e1b4d58f6e0c1a2b3d4e5f607a8b9c0d1e2f3a4b5$''',
+  '''^S9\+m23g9lI8X4VNFd0ayFXJH7P14Q3GZGsNvjCglc/Q=$''',
+  '''^xoxb-encrypted-\d+$''',
+  '''^CURSOR_API_KEY=cursor(-test)?$''',
+  '''^abc123def456$''',
+]

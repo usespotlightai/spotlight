@@ -9,6 +9,7 @@ import { buildOpenApiDocument } from '@platform/http/openapi';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -423,9 +424,13 @@ describe('a catalog call (e2e)', () => {
   });
 
   it('fails a run refused at dispatch, with its reason on record', async () => {
-    const runs = new DrizzleRunRepository(new DrizzleContext(db), {
-      dispatch: async () => {},
-    });
+    const runs = new DrizzleRunRepository(
+      new DrizzleContext(db),
+      {
+        dispatch: async () => {},
+      },
+      telemetryInMemory(),
+    );
     const id = RunId.of(randomUUID());
 
     await runs.add(
