@@ -2,6 +2,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { placementMatches } from '@platform/persistence/drizzle/placement-matches';
 import {
+  activeTraceparent,
+  linkActiveSpanTo,
+} from '@platform/telemetry/trace-context';
+import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
@@ -123,6 +127,7 @@ export class DrizzleRunRepository implements RunRepository {
       stationConfig: added.configuredAs?.parts ?? null,
       briefedTask: extras.briefed?.parts ?? null,
       askedAPerson: added.askedAPerson,
+      traceparent: activeTraceparent(),
       ...startOf(added),
       ...reservationOf(added),
     });
@@ -136,8 +141,11 @@ export class DrizzleRunRepository implements RunRepository {
     const named = by.harnesses.map((harness) => harness.value);
 
     return this.context.inTransaction(async () => {
-      const locked = await this.context.db.execute<{ id: string }>(sql`
-        SELECT id
+      const locked = await this.context.db.execute<{
+        id: string;
+        traceparent: string | null;
+      }>(sql`
+        SELECT id, traceparent
         FROM ${run}
         WHERE ${inArray(run.harness, named)}
           AND state = 'queued'
@@ -164,6 +172,7 @@ export class DrizzleRunRepository implements RunRepository {
 
       const claimed = found.claim(by.runner, now);
       await this.save(claimed);
+      linkActiveSpanTo(row?.traceparent ?? null);
 
       return claimed;
     });
