@@ -83,6 +83,30 @@ describe('scrubbed', () => {
     expect(event.request?.url).toBe('https://app.test/teams/core');
   });
 
+  it('keeps no token or id in a path, only the route', () => {
+    const event = scrubbed({
+      type: undefined,
+      request: {
+        url: 'https://app.test/invites/Zx81kQ_secret',
+        headers: { Referer: 'https://app.test/invites/Zx81kQ_secret' },
+      },
+      breadcrumbs: [
+        {
+          category: 'navigation',
+          data: { from: '/invites/Zx81kQ_secret', to: '/tasks/task_9' },
+        },
+        { category: 'fetch', data: { url: '/api/invites/Zx81kQ_secret' } },
+      ],
+    } as ErrorEvent);
+
+    expect(JSON.stringify(event)).not.toContain('secret');
+    expect(event.request?.url).toBe('https://app.test/invites/:id');
+    expect(event.breadcrumbs?.[0]?.data).toEqual({
+      from: '/invites/:id',
+      to: '/tasks/:id',
+    });
+  });
+
   it('is the hook every event goes through', () => {
     expect(errorReportingOptions(REPORTING).beforeSend).toBe(scrubbed);
   });
