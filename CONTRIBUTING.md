@@ -108,9 +108,25 @@ builds its own image `FROM` it with the harness its subscription covers.
 `BASE`, `CLAUDE_CODE_VERSION`, `CLAUDE_AGENT_ACP_VERSION`,
 `CODEX_ACP_VERSION` and `OPENCODE_VERSION` as build arguments. No image with a harness is published.
 
-Tagging triggers `release.yml`, which starts the `infrastructure` repo's build:
-service images and the runner image, plus the `spotlight` binaries
-attached to this repository's release for the tag.
+Releases use semantic versioning (`v0.4.1`) and come from
+[release-please](https://github.com/googleapis/release-please) on `develop`:
+
+- **Pull request titles:** pull requests are squash-merged, so the title
+  becomes the commit. It is a Conventional Commit with the Linear issue as the
+  scope, as in `feat(SPO-123): Add the judge to stations`, and the **Pull
+  request title** check enforces it. `feat` and `fix` make a release; `docs`,
+  `chore`, `ci`, `test`, `refactor` and `build` do not. `feat!` marks a
+  breaking change.
+- **Release pull request:** after each merge to `develop`, release-please
+  updates one open pull request with the next version and its `CHANGELOG.md`
+  entries.
+- **Publishing:** merging the release pull request tags the commit and creates
+  a draft release. When CI passes on it, `release.yml` starts the
+  `infrastructure` repo's build: service images and the runner image tagged
+  with the version, plus the `spotlight` binaries, which it uploads to the draft
+  before it publishes it.
+- **Staging:** every build of `develop` is a commit tag plus `canary`, never a
+  release. Its binaries are in the `canary` prerelease.
 
 ## Running Spotlight
 
