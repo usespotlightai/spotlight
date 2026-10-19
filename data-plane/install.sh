@@ -10,6 +10,8 @@ if [ -n "${SPOTLIGHT_DOWNLOAD_URL:-}" ]; then
   RELEASE="$SPOTLIGHT_DOWNLOAD_URL"
 elif [ "$VERSION" = "latest" ]; then
   RELEASE="https://github.com/$REPO/releases/latest/download"
+elif printf '%s' "$VERSION" | grep -qE '^[0-9a-f]{12}$'; then
+  RELEASE="https://github.com/$REPO/releases/download/canary"
 else
   RELEASE="https://github.com/$REPO/releases/download/$VERSION"
 fi
