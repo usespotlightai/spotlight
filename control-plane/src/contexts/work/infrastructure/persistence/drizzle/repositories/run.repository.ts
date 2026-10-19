@@ -192,12 +192,14 @@ export class DrizzleRunRepository implements RunRepository {
 
       const claimed = found.claim(by.runner, now);
       await this.save(claimed);
-      linkActiveSpanTo(row?.traceparent ?? null);
-      this.telemetry.measure(
-        'spotlight.runs.claim_wait_seconds',
-        Math.max(0, Number(row?.waited ?? 0)),
-        { 'spotlight.run.kind': kindOf(claimed) },
-      );
+      this.context.afterCommit(() => {
+        linkActiveSpanTo(row?.traceparent ?? null);
+        this.telemetry.measure(
+          'spotlight.runs.claim_wait_seconds',
+          Math.max(0, Number(row?.waited ?? 0)),
+          { 'spotlight.run.kind': kindOf(claimed) },
+        );
+      });
 
       return claimed;
     });
