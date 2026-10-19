@@ -5,7 +5,7 @@ import { CostSlices } from '@/components/features/insights/CostSlices';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
-import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
+import { NoRuns } from '@/components/features/insights/NoRuns';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useInsightsCost } from '@/hooks/api/useInsightsCost';
 import {
@@ -51,10 +51,10 @@ export function CostTab({ slug, teamId, period, names }: CostTabProps) {
     !breakdown.mixedCurrencies
   ) {
     return (
-      <NoRunsInPeriod slug={slug} teamId={teamId}>
+      <NoRuns slug={slug} teamId={teamId} period={period}>
         Cost by harness, model, station and repository shows here once stations
         run tasks.
-      </NoRunsInPeriod>
+      </NoRuns>
     );
   }
 
