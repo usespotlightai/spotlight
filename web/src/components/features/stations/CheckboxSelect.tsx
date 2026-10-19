@@ -74,7 +74,11 @@ export function CheckboxSelect({
         )}
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="start" sideOffset={6} className="min-w-52">
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className="w-max min-w-[max(var(--anchor-width),13rem)] max-w-(--available-width)"
+      >
         {options.length === 0 ? (
           <div className="px-2 py-1.5 text-muted-foreground text-sm">
             {empty}
