@@ -11,7 +11,7 @@ export function ImagePill({ image, title }: ImagePillProps) {
   return (
     <Pill
       title={title}
-      className={`${COMPACT_PILL} min-w-0 shrink text-foreground`}
+      className={`${COMPACT_PILL} min-w-20 shrink-[100] text-foreground`}
     >
       <span className="truncate">{imageShortName(image)}</span>
     </Pill>

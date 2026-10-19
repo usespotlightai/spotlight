@@ -48,6 +48,8 @@ const GPU_NODE = 'C9D4E7F2G5H8J1K3L6M9N2P5Q8';
 
 const FRESH_VM = 'R2S5T8V1W4X7Y0Z3A6B9C2D5E8';
 
+const PRIVATE_IMAGE_BOX = 'F4G7H0J3K6L9M2N5P8Q1R4S7T0';
+
 const BUILD_FARM = { kind: 'pool', key: 'build-farm' } as const;
 
 const EPHEMERAL = { kind: 'pool', key: 'ephemeral' } as const;
@@ -148,6 +150,28 @@ const HOSTS: HostResponseDto[] = [
     ],
     firstHeartbeatAt: minutesAgo(20),
     onlineSince: minutesAgo(20),
+    lastHeartbeatAt: minutesAgo(0),
+    online: true,
+  },
+  {
+    id: PRIVATE_IMAGE_BOX,
+    name: 'ci-box-2',
+    source: BUILD_FARM,
+    release: '20261018-01',
+    unavailableReason: null,
+    containerRuntime: 'Docker Engine - Community 27.3.1 (linux/amd64)',
+    capacity: 2,
+    running: [],
+    images: [
+      image('ghcr.io/acme/claude-code:latest', [], {
+        isDefault: true,
+        release: null,
+        unavailableReason:
+          "Image can't be pulled. Error: pull image ghcr.io/acme/claude-code:latest: 500 Internal Server Error: error from registry: unauthorized unauthorized",
+      }),
+    ],
+    firstHeartbeatAt: minutesAgo(45),
+    onlineSince: minutesAgo(45),
     lastHeartbeatAt: minutesAgo(0),
     online: true,
   },
