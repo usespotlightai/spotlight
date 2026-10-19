@@ -74,7 +74,11 @@ export function ChoiceSelect({
       <DropdownMenuContent
         align="start"
         sideOffset={6}
-        className={compact ? 'w-max min-w-36 max-w-72' : 'min-w-48'}
+        className={
+          compact
+            ? 'w-max min-w-36 max-w-72'
+            : 'w-max min-w-[max(var(--anchor-width),12rem)] max-w-(--available-width)'
+        }
       >
         <DropdownMenuRadioGroup
           value={value ?? NONE}
