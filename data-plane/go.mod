@@ -1,6 +1,6 @@
 module usespotlight.ai/data-plane
 
-go 1.26.1
+go 1.26.9
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.47.1

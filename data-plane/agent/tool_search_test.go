@@ -94,15 +94,13 @@ func TestFindsTheToolAmongTwoHundred(t *testing.T) {
 			Integration: "Petstore",
 		})
 	}
-	for _, each := range []protocol.ToolManifest{
+	tools = append(tools, []protocol.ToolManifest{
 		{Name: "linear.issue-label-create", Description: "Create an issue label.", Integration: "Linear"},
 		{Name: "linear.issue-update", Description: "Update an issue.", Integration: "Linear"},
 		{Name: "linear.comment-create", Description: "Create a comment on an issue.", Integration: "Linear"},
 		{Name: "github.issueCommentCreate", Description: "Create a comment on an issue.", Integration: "GitHub"},
 		{Name: "linear.issue-create", Description: "Create an issue.", Integration: "Linear"},
-	} {
-		tools = append(tools, each)
-	}
+	}...)
 
 	ranked := search(tools, "create issue", 10)
 	if len(ranked) == 0 || ranked[0].Name != "linear.issue-create" {
