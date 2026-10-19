@@ -77,7 +77,8 @@ func TestSampledFollowsTheStandardSampler(t *testing.T) {
 }
 
 func TestNewTraceIsNotSampledWhenTheSamplerIsOff(t *testing.T) {
-	t.Setenv("OTEL_TRACES_SAMPLER", "always_off")
+	SampleAs("always_off", "")
+	t.Cleanup(func() { SampleAs("", "") })
 
 	if header := NewTrace().Traceparent(); !strings.HasSuffix(header, "-00") {
 		t.Errorf("Traceparent() = %q, want the unsampled flags", header)
