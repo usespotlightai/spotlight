@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   type Attributes,
   type Counter,
+  type Histogram,
   metrics,
   SpanStatusCode,
   trace,
@@ -28,6 +29,22 @@ export const attributesOf = (ids: SpanIds): Attributes =>
 @Injectable()
 export class OtelTelemetry implements TelemetryPort {
   readonly #counters = new Map<string, Counter>();
+  readonly #histograms = new Map<string, Histogram>();
+
+  measure(
+    metric: string,
+    value: number,
+    attributes: MetricAttributes = {},
+  ): void {
+    let histogram = this.#histograms.get(metric);
+
+    if (!histogram) {
+      histogram = metrics.getMeter(SCOPE).createHistogram(metric);
+      this.#histograms.set(metric, histogram);
+    }
+
+    histogram.record(value, attributes);
+  }
 
   count(metric: string, attributes: MetricAttributes = {}): void {
     let counter = this.#counters.get(metric);
