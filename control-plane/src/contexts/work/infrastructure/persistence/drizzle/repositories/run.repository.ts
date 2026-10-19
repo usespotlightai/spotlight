@@ -172,7 +172,9 @@ export class DrizzleRunRepository implements RunRepository {
 
       const claimed = found.claim(by.runner, now);
       await this.save(claimed);
-      linkActiveSpanTo(row?.traceparent ?? null);
+      this.context.afterCommit(() =>
+        linkActiveSpanTo(row?.traceparent ?? null),
+      );
 
       return claimed;
     });
