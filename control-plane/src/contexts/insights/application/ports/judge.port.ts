@@ -20,10 +20,12 @@ export interface JudgeRequest {
   readonly hunks: readonly JudgedHunk[];
   readonly hunksLeftOut: number;
   readonly reference: ReferenceChange | null;
+  readonly guidanceRequested: boolean;
 }
 
 export interface JudgeAnswer {
   readonly verdict: Verdict;
+  readonly guidance: string | null;
   readonly usage: ModelCall | null;
 }
 

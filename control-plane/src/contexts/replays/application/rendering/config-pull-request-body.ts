@@ -39,9 +39,12 @@ export interface ConfigPullRequestFacts {
   readonly searchedTasks: number;
   readonly heldOutTasks: number;
   readonly regressions: {
-    readonly searched: number;
+    readonly searched: number | null;
     readonly heldOut: number | null;
+    readonly total: number | null;
   };
+  readonly maxRegressions: number | null;
+  readonly exceedsRegressionLimit: boolean;
   readonly gains: {
     readonly searched: ShownGain | null;
     readonly heldOut: ShownGain | null;
@@ -121,6 +124,32 @@ const describeOverfit = (facts: ConfigPullRequestFacts): string | null => {
   }
 };
 
+const describeRegressionLimit = (
+  facts: ConfigPullRequestFacts,
+): string | null => {
+  const { total } = facts.regressions;
+
+  return facts.exceedsRegressionLimit && facts.maxRegressions !== null
+    ? `Against the live config it regressed on ${plural(total ?? 0, 'task')}, over the line's regression limit of ${facts.maxRegressions} (\`max_regressions\`), so weigh that before merging.`
+    : null;
+};
+
+const describeRegressions = (facts: ConfigPullRequestFacts): string => {
+  const { searched, heldOut } = facts.regressions;
+  const onSearched =
+    searched === null
+      ? 'it could not be compared on the searched tasks'
+      : `it regressed on ${plural(searched, 'searched task')}`;
+  const onHeldOut =
+    heldOut !== null
+      ? plural(heldOut, 'held-out task')
+      : facts.heldOutPending
+        ? 'its replay had not finished'
+        : 'it was not replayed on the held-out tasks';
+
+  return `Against the live config ${onSearched}; on the held-out tasks, ${onHeldOut}. The search never showed its agent the held-out tasks.`;
+};
+
 const cost = (amount: number | null, currency: string): string =>
   amount === null ? NOT_SCORED : `${amount.toFixed(2)} ${currency}`;
 
@@ -143,14 +172,12 @@ export const ConfigPullRequestBody = {
 
   of(facts: ConfigPullRequestFacts): string {
     const { candidate, seed, currency } = facts;
-    const heldOut =
-      candidate.heldOutScore === null && facts.regressions.heldOut === null
-        ? 'it was not replayed on the held-out tasks'
-        : plural(facts.regressions.heldOut ?? 0, 'held-out task');
 
     return [
       `Spotlight searched for a better config of the \`${facts.stationKey}\` station on the \`${facts.lineKey}\` line and found \`${defused(facts.candidateName)}\`, which a person picked. This changes the station as the candidate has it: ${facts.changes.map((each) => `\`${each}\``).join(', ')}.`,
-      ...[describeOverfit(facts)].flatMap((each) => (each ? [each] : [])),
+      ...[describeOverfit(facts), describeRegressionLimit(facts)].flatMap(
+        (each) => (each ? [each] : []),
+      ),
       ...(facts.hypothesis
         ? [
             `## Why it should be better\n\nThe search's agent wrote:\n\n${fenced(facts.hypothesis)}`,
@@ -165,7 +192,7 @@ export const ConfigPullRequestBody = {
         `| Succeeded on the ${plural(facts.heldOutTasks, 'held-out task')} | ${shareWithin(candidate.heldOutScore, candidate.heldOutInterval)} | ${shareWithin(seed.heldOutScore, seed.heldOutInterval)} |`,
         `| Cost per run | ${cost(candidate.costPerRun, currency)} | ${cost(seed.costPerRun, currency)} |`,
         '',
-        `Against the live config it regressed on ${plural(facts.regressions.searched, 'searched task')}; on the held-out tasks, ${heldOut}. The search never showed its agent the held-out tasks.`,
+        describeRegressions(facts),
         ...[
           describeGain('searched', facts.gains.searched),
           describeGain('held-out', facts.gains.heldOut),

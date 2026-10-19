@@ -1,17 +1,20 @@
 import { type ReactElement, useId } from 'react';
 import { createPortal } from 'react-dom';
+import { TooltipNoteContent } from '@/components/shared/TooltipNoteContent';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { type TooltipText, tooltipText } from '@/lib/tooltip-note';
 
 type WithTooltipProps = {
-  tooltip: string;
+  tooltip: TooltipText;
+  named?: string;
   children: ReactElement<Record<string, unknown>>;
 };
 
-export function WithTooltip({ tooltip, children }: WithTooltipProps) {
+export function WithTooltip({ tooltip, named, children }: WithTooltipProps) {
   const tooltipId = useId();
 
   return (
@@ -23,11 +26,17 @@ export function WithTooltip({ tooltip, children }: WithTooltipProps) {
           aria-describedby={tooltipId}
           className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
         />
-        <TooltipContent>{tooltip}</TooltipContent>
+        <TooltipContent>
+          {typeof tooltip === 'string' ? (
+            tooltip
+          ) : (
+            <TooltipNoteContent note={tooltip} />
+          )}
+        </TooltipContent>
       </Tooltip>
       {createPortal(
         <span id={tooltipId} hidden>
-          {tooltip}
+          {tooltipText(tooltip, named)}
         </span>,
         document.body,
       )}

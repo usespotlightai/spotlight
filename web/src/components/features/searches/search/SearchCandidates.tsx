@@ -38,6 +38,7 @@ export function SearchCandidates({
       key={candidate.candidateId}
       candidate={candidate}
       currency={currency}
+      maxRegressions={search.maxRegressions}
       picked={picked === candidate.candidateId}
       onPick={() => onPick(candidate.candidateId)}
     />

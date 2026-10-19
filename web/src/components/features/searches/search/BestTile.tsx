@@ -1,5 +1,5 @@
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
-import { OverfitMark } from '@/components/features/searches/OverfitMark';
+import { CandidateIcons } from '@/components/features/searches/CandidateIcons';
 import { formatPercent } from '@/lib/judge';
 import type { SearchDetail } from '@/lib/search';
 import {
@@ -38,7 +38,10 @@ export function BestTile({ search }: { search: SearchDetail }) {
       detail={
         <span className="inline-flex flex-wrap items-center gap-1.5">
           {rate !== null && `${formatPercent(rate)} ${formatBestOn(heldOut)}`}
-          {best.overfit && <OverfitMark mark={best.overfit} />}
+          <CandidateIcons
+            candidate={best}
+            maxRegressions={search.maxRegressions}
+          />
         </span>
       }
       tooltip={formatSentences(

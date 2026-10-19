@@ -668,7 +668,7 @@ const bothScored = (pairs: readonly Paired[]) =>
 
 export const gainOverReferenceOf = (replay: ReplaySpec) => {
   if (!replay.referenceReplayId) {
-    return { gain: null, pairs: null };
+    return { gain: null, pairs: null, regressions: null };
   }
 
   const scored = bothScored(pairedEntriesOf(replay));
@@ -684,8 +684,12 @@ export const gainOverReferenceOf = (replay: ReplaySpec) => {
         ties: scored.filter((each) => each.candidate === each.baseline).length,
       }
     : null;
+  const regressions =
+    replay.state === 'finished'
+      ? scored.filter((each) => !each.candidate && each.baseline).length
+      : null;
 
-  return { gain, pairs };
+  return { gain, pairs, regressions };
 };
 
 export const replayOf = (replay: ReplaySpec): ReplayResponseDto => {

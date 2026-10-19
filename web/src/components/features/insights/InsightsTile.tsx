@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react';
 import { DeltaGlyph } from '@/components/features/insights/DeltaGlyph';
+import { EmptyDetail } from '@/components/features/insights/EmptyDetail';
 import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { TileSparkline } from '@/components/features/insights/TileSparkline';
 import type { ShownDelta, TileDrill } from '@/lib/insights';
+import { cn } from '@/lib/utils';
 
 const AGAINST = 'Against the previous period';
 
@@ -26,16 +28,24 @@ export function InsightsTile({
   drill,
   trend,
 }: InsightsTileProps) {
+  const sparkline = trend !== undefined && trend.length > 1;
+
   return (
     <div
       data-slot="insights-tile"
-      className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card"
+      className="flex min-h-30 min-w-0 flex-col gap-1.5 overflow-hidden group-data-top-aligned/tiles:gap-8.5 rounded-lg border border-border bg-card p-3"
     >
-      <dt className="flex min-h-6 items-center gap-1.5 px-3 pt-3 pb-2 text-foreground text-xs">
+      <dt className="flex min-h-4 items-center gap-1.5 text-foreground text-xs leading-4">
         <span className="truncate">{label}</span>
         {tooltip && <InfoTooltip tooltip={tooltip} />}
       </dt>
-      <dd className="@container flex flex-1 flex-col gap-1 px-3 pb-3">
+      <dd
+        className={cn(
+          '@container flex flex-1 flex-col gap-1.5',
+          !sparkline &&
+            'justify-center group-data-top-aligned/tiles:justify-start',
+        )}
+      >
         <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <span className="font-normal text-[1.375rem] text-foreground tabular-nums leading-none tracking-tight">
             {drill ? (
@@ -52,11 +62,13 @@ export function InsightsTile({
             </span>
           )}
         </span>
-        {detail && (
-          <span className="text-[0.7rem] text-muted-foreground">{detail}</span>
+        {detail ? (
+          <span className="text-muted-foreground text-xs">{detail}</span>
+        ) : (
+          !sparkline && <EmptyDetail />
         )}
-        {trend && trend.length > 1 && (
-          <span className="mt-auto pt-1">
+        {sparkline && (
+          <span className="mt-auto pt-2">
             <TileSparkline label={`${label}, day by day`} values={trend} />
           </span>
         )}

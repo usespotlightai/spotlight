@@ -10,7 +10,7 @@ type FailedPullRequestProps = {
 
 export function FailedPullRequest({ reason }: FailedPullRequestProps) {
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-border px-2.5 py-2">
+    <div className="flex flex-col gap-0.5">
       <p className="font-medium text-destructive">
         {formatPullRequestState('failed')}
       </p>

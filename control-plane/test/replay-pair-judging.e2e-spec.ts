@@ -133,6 +133,7 @@ const judge: JudgePort = {
     const cited = request.hunks.slice(0, 1).map((each) => each.id);
 
     return {
+      guidance: null,
       usage: {
         inputTokens: 2_000,
         outputTokens: 50,

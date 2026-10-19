@@ -11,6 +11,12 @@ import {
   pairTallyOf,
   totalsOf,
 } from '@replays/domain/services/replay-results';
+import {
+  countRegressions,
+  NO_REGRESSIONS,
+  regressionsOf,
+  type SearchRegressions,
+} from '@replays/domain/services/search-regressions';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -24,6 +30,7 @@ interface CandidateScores {
   readonly heldOutPairs: PairTally | null;
   readonly searchedSignificance: GainSignificance | null;
   readonly heldOutSignificance: GainSignificance | null;
+  readonly regressions: SearchRegressions;
   readonly replayId: ReplayId;
   readonly heldOutReplayId: ReplayId | null;
   readonly seed: boolean;
@@ -115,6 +122,7 @@ export const scoresOf = (
       heldOutPairs: null,
       searchedSignificance: null,
       heldOutSignificance: null,
+      regressions: NO_REGRESSIONS,
       replayId: search.seed.replay.replayId,
       heldOutReplayId: null,
       seed: true,
@@ -155,6 +163,7 @@ export const scoresOf = (
         heldOutPairs: pairsOf(heldOutReplay, search.split.heldOutRuns),
         searchedSignificance: gain?.searched?.significance ?? null,
         heldOutSignificance: gain?.heldOut?.significance ?? null,
+        regressions: gain?.regressions ?? NO_REGRESSIONS,
         replayId: proposal.replay.replayId,
         heldOutReplayId: heldOutId,
         seed: false,
@@ -174,7 +183,36 @@ export const scoresOf = (
 interface SearchGains {
   readonly searched: GainEstimate | null;
   readonly heldOut: GainEstimate | null;
+  readonly regressions: SearchRegressions;
 }
+
+interface SeedComparison {
+  readonly gain: GainEstimate | null;
+  readonly regressions: number | null;
+}
+
+interface SeedComparisonOptions {
+  readonly gain: boolean;
+  readonly regressions: boolean;
+}
+
+const compareWithSeed = (
+  candidate: Replay | null,
+  seed: Replay | null,
+  options: SeedComparisonOptions,
+  runSubset: readonly RunId[],
+  minGain: number,
+): SeedComparison =>
+  candidate && seed
+    ? {
+        gain: options.gain
+          ? gainBetween(candidate, seed, minGain, runSubset)
+          : null,
+        regressions: options.regressions
+          ? countRegressions(candidate, seed, runSubset)
+          : null,
+      }
+    : { gain: null, regressions: null };
 
 const searchGainsOf = (
   search: Search,
@@ -187,24 +225,37 @@ const searchGainsOf = (
 
   return new Map(
     search.proposals.map((proposal) => {
-      const searched = found(proposal.replay.replayId);
-      const heldOut = found(
+      const searchReplay = found(proposal.replay.replayId);
+      const heldOutReplay = found(
         search.heldOut.find((each) =>
           each.candidateId.equals(proposal.candidateId),
         )?.replay.replayId,
+      );
+      const heldOutComparable = finished(heldOutReplay) && finished(seed);
+      const searched = compareWithSeed(
+        searchReplay,
+        seed,
+        {
+          gain: finished(searchReplay),
+          regressions: finished(searchReplay) && finished(seed),
+        },
+        search.split.searchedRuns,
+        minGain,
+      );
+      const heldOut = compareWithSeed(
+        heldOutReplay,
+        seed,
+        { gain: heldOutComparable, regressions: heldOutComparable },
+        search.split.heldOutRuns,
+        minGain,
       );
 
       return [
         proposal.candidateId.value,
         {
-          searched:
-            searched && seed && finished(searched)
-              ? gainBetween(searched, seed, minGain, search.split.searchedRuns)
-              : null,
-          heldOut:
-            heldOut && seed && finished(heldOut) && finished(seed)
-              ? gainBetween(heldOut, seed, minGain, search.split.heldOutRuns)
-              : null,
+          searched: searched.gain,
+          heldOut: heldOut.gain,
+          regressions: regressionsOf(searched.regressions, heldOut.regressions),
         },
       ];
     }),

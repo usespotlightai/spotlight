@@ -538,6 +538,7 @@ describe('a search run reading its station’s history', () => {
               succeeded: true,
               reasons: [],
               verdict: 'pass',
+              guidance: null,
             })),
           },
         ],

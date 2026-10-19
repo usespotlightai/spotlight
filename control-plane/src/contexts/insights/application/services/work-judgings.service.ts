@@ -94,6 +94,7 @@ export class WorkJudgings implements PendingJobsPort {
         hunks: evidence.hunks,
         hunksLeftOut: evidence.hunksLeftOut,
         reference: null,
+        guidanceRequested: false,
       });
 
       return judging.recordVerdict({

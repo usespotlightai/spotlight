@@ -47,6 +47,7 @@ type CandidateRun struct {
 	Succeeded   *bool           `json:"succeeded"`
 	Reasons     []string        `json:"reasons"`
 	Verdict     *string         `json:"verdict"`
+	Guidance    *string         `json:"guidance"`
 }
 
 func (r CandidateRun) Run() HistoryRun {

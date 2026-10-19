@@ -6,6 +6,7 @@ import {
   EDGE_INDENT,
   LEAD_CELL,
   ROW_DIVIDER,
+  SELECTED_ROW,
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
 import { WarningTooltip } from '@/components/shared/WarningTooltip';
@@ -39,7 +40,7 @@ export function TaskRow({
     <li
       data-slot="task"
       data-picked={picked || undefined}
-      className={cn(TABLE_ROW, ROW_DIVIDER, picked && 'bg-selected')}
+      className={cn(TABLE_ROW, ROW_DIVIDER, picked && SELECTED_ROW)}
     >
       <span className={cn(LEAD_CELL, EDGE_INDENT)}>
         <button

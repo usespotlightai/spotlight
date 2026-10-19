@@ -9,7 +9,7 @@ import type {
   StationChangeResponseDto,
 } from '@/lib/api';
 import { hoursAgo } from '@/mocks/clock';
-import { perWorld } from '@/mocks/world';
+import { perWorld, world } from '@/mocks/world';
 import {
   added,
   changed,
@@ -29,7 +29,7 @@ import {
   scoredMarks,
 } from '@/mocks/world/station-replays';
 import { SEARCH_SEEDS, type SearchSeed } from '@/mocks/world/station-seeds';
-import { runOfStation, setSpec } from '@/mocks/world/station-sets';
+import { runOfStation, setSpec, teamOfLine } from '@/mocks/world/station-sets';
 
 export type SearchCandidateSpec = {
   readonly candidate: CandidateResponseDto;
@@ -284,8 +284,18 @@ const rateIn = (replay: ReplaySpec | undefined) => {
 const spentIn = (replay: ReplaySpec | undefined): number =>
   replay ? replayOf(replay).totals.spent.amount : 0;
 
+export const maxRegressionsOf = (search: SearchSpec): number | null => {
+  const lineId = setSpec(search.setId)?.lineId ?? '';
+  const line = world().lines[teamOfLine(lineId) ?? '']?.find(
+    (each) => each.id === lineId,
+  );
+
+  return line?.replayCheck?.maxRegressions ?? null;
+};
+
 export const searchCandidateOf = (
   spec: SearchCandidateSpec,
+  maxRegressions: number | null,
 ): SearchCandidateResponseDto => {
   const replay = replaySpec(spec.replayId);
   const heldOut = spec.heldOutReplayId
@@ -296,6 +306,20 @@ export const searchCandidateOf = (
   const against = replay ? gainOverReferenceOf(replay) : null;
   const heldOutGain = heldOut ? gainOverReferenceOf(heldOut) : null;
   const totals = replay ? replayOf(replay).totals : null;
+  const searchedRegressions = spec.isSeed
+    ? null
+    : (against?.regressions ?? null);
+  const heldOutRegressions = spec.isSeed
+    ? null
+    : (heldOutGain?.regressions ?? null);
+  const regressions = {
+    searched: searchedRegressions,
+    heldOut: heldOutRegressions,
+    total:
+      searchedRegressions === null && heldOutRegressions === null
+        ? null
+        : (searchedRegressions ?? 0) + (heldOutRegressions ?? 0),
+  };
 
   return {
     candidateId: spec.candidate.id,
@@ -328,17 +352,22 @@ export const searchCandidateOf = (
     },
     onFrontier: spec.onFrontier,
     overfit: spec.overfit,
+    regressions,
+    exceedsRegressionLimit:
+      maxRegressions !== null &&
+      regressions.total !== null &&
+      regressions.total > maxRegressions,
     pullRequest: spec.pullRequest,
   };
 };
 
-const candidatesOf = (search: SearchSpec) => [
-  search.seed,
-  ...search.candidates,
-];
+const candidatesOf = (search: SearchSpec) =>
+  [search.seed, ...search.candidates].map((each) =>
+    searchCandidateOf(each, maxRegressionsOf(search)),
+  );
 
 export const searchSummaryOf = (search: SearchSpec): SearchResponseDto => {
-  const all = candidatesOf(search).map(searchCandidateOf);
+  const all = candidatesOf(search);
   const best = all.find((each) => each.candidateId === search.bestId);
   const agentCost = search.iterations.reduce(
     (total, each) => total + (each.agentSpent?.spends[0]?.amount ?? 0),
@@ -377,8 +406,11 @@ export const searchSummaryOf = (search: SearchSpec): SearchResponseDto => {
           heldOutInterval: best.heldOutInterval,
           costPerRun: best.costPerRun,
           overfit: best.overfit,
+          regressions: best.regressions,
+          exceedsRegressionLimit: best.exceedsRegressionLimit,
         }
       : null,
+    maxRegressions: maxRegressionsOf(search),
     startedAt: hoursAgo(search.startedHoursAgo),
     endedAt:
       search.endedHoursAgo === null ? null : hoursAgo(search.endedHoursAgo),
@@ -392,7 +424,7 @@ const splitEntries = (runIds: readonly string[]) =>
   }));
 
 export const searchDetailOf = (search: SearchSpec): SearchDetailResponseDto => {
-  const [seed, ...candidates] = candidatesOf(search).map(searchCandidateOf);
+  const [seed, ...candidates] = candidatesOf(search);
 
   return {
     ...searchSummaryOf(search),
@@ -406,7 +438,6 @@ export const searchDetailOf = (search: SearchSpec): SearchDetailResponseDto => {
     seed: seed as SearchCandidateResponseDto,
     candidates,
     frontier: [...search.frontier],
-    overfitCount: candidates.filter((each) => each.overfit === 'likely').length,
     minGain: 0.05,
   };
 };

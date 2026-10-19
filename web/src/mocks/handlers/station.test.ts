@@ -210,6 +210,14 @@ describe('the mock station', () => {
     ]);
     expect(search.best?.name).toBe('tests-first');
     expect(search.best?.overfit).toBe('likely');
+    expect(search.maxRegressions).toBe(0);
+    expect(
+      search.candidates.map((each) => [
+        each.name,
+        each.regressions.searched,
+        each.exceedsRegressionLimit,
+      ]),
+    ).toContainEqual(['review-skill', 1, true]);
     expect(search.split.searchedTasks + search.split.heldOutTasks).toBe(7);
     expect(run.searchId).toBe('search_tests_first');
   });

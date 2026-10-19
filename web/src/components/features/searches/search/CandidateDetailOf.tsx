@@ -9,7 +9,9 @@ type CandidateDetailOfProps = {
   at: ReplayedStation;
   searchId: string;
   chosen: SearchCandidate | null;
+  live: SearchCandidate;
   currency: string;
+  maxRegressions: number | null;
   onClose: () => void;
 };
 
@@ -17,7 +19,9 @@ export function CandidateDetailOf({
   at,
   searchId,
   chosen,
+  live,
   currency,
+  maxRegressions,
   onClose,
 }: CandidateDetailOfProps) {
   const displayed = useDelayedValue(chosen, LEAVING);
@@ -27,7 +31,9 @@ export function CandidateDetailOf({
       at={at}
       searchId={searchId}
       candidate={displayed}
+      live={live}
       currency={currency}
+      maxRegressions={maxRegressions}
       open={chosen !== null}
       onClose={onClose}
     />

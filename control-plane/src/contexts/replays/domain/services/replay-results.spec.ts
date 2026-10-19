@@ -98,6 +98,7 @@ const scoredAs = (score: number) =>
     reasons: [
       { text: 'It drains the queue.', steps: [3], hunks: [], claim: null },
     ],
+    guidance: null,
   });
 
 describe('totalsOf', () => {
@@ -256,6 +257,7 @@ describe('taskComparisons', () => {
           model: 'judge/model',
           referenced,
           reasons: [],
+          guidance: null,
         }),
         null,
         later(90_000),

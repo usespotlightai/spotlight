@@ -15,6 +15,7 @@ const verdict = (scale: string, value: number) =>
     model: 'judge/model',
     referenced: false,
     reasons: [],
+    guidance: null,
   });
 
 describe('JudgeVerdict', () => {
@@ -23,6 +24,25 @@ describe('JudgeVerdict', () => {
     expect(verdict('yes-no', 0).passes).toBe(false);
     expect(verdict('number', PASSING_SCORE).passes).toBe(true);
     expect(verdict('number', PASSING_SCORE - 1).passes).toBe(false);
+  });
+
+  it('keeps what to improve only on a verdict that fails', () => {
+    const guidanceFor = (value: number) =>
+      JudgeVerdict.of({
+        scale: 'yes-no',
+        value,
+        claimResults: null,
+        claims: [],
+        passThreshold: 1,
+        model: 'judge/model',
+        referenced: false,
+        reasons: [],
+        guidance: 'Finish taken jobs first.',
+      }).guidance;
+
+    expect(guidanceFor(0)).toBe('Finish taken jobs first.');
+    expect(guidanceFor(1)).toBeNull();
+    expect(verdict('yes-no', 0).guidance).toBeNull();
   });
 
   it('takes only a score on its scale', () => {
@@ -42,6 +62,7 @@ describe('JudgeVerdict', () => {
         model: 'judge/model',
         referenced: false,
         reasons: [{ text: 'It retries.', steps: [], hunks: [], claim: 0 }],
+        guidance: null,
       });
 
     expect(claims([true, true, false], 2 / 3).passes).toBe(true);
@@ -59,6 +80,7 @@ describe('JudgeVerdict', () => {
       reasons: [],
       passThreshold: 1,
       claims: ['One.', 'Two.'],
+      guidance: null,
     };
 
     expect(() =>

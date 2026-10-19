@@ -7,6 +7,7 @@ import {
   type GainSignificanceCode,
   gainSignificanceNote,
 } from '@/lib/replay-words';
+import type { TooltipText } from '@/lib/tooltip-note';
 import { cn } from '@/lib/utils';
 
 const TONES: Record<GainSignificanceCode, string> = {
@@ -15,7 +16,12 @@ const TONES: Record<GainSignificanceCode, string> = {
   'within-noise': 'text-muted-foreground',
 };
 
-export function GainValue({ gain }: { gain: GainEstimate | null }) {
+type GainValueProps = {
+  gain: GainEstimate | null;
+  tooltip?: TooltipText;
+};
+
+export function GainValue({ gain, tooltip }: GainValueProps) {
   if (!gain) {
     return <span className="text-muted-foreground">Not compared</span>;
   }
@@ -25,7 +31,7 @@ export function GainValue({ gain }: { gain: GainEstimate | null }) {
   const icon = cn('size-2.5 shrink-0', TONES[gain.significance]);
 
   return (
-    <WithTooltip tooltip={gainSignificanceNote(gain)}>
+    <WithTooltip tooltip={tooltip ?? gainSignificanceNote(gain)}>
       <span
         data-slot="gain-value"
         data-significance={gain.significance}

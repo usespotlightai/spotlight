@@ -48,7 +48,11 @@ export function SearchRow({ at, search, number, setName }: SearchRowProps) {
         {setName ?? '–'}
       </NestedCell>
       <NestedCell heading="Best" numeric={false}>
-        <SearchBestName best={search.best} objective={search.objective} />
+        <SearchBestName
+          best={search.best}
+          objective={search.objective}
+          maxRegressions={search.maxRegressions}
+        />
       </NestedCell>
       <NestedCell heading="Success">
         <SearchBestScore best={search.best} />

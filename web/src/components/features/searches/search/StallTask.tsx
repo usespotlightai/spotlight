@@ -1,3 +1,4 @@
+import { INLINE_LINK } from '@/components/shared/section-link';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { runPath } from '@/lib/run';
 import { OPEN_FAILED_REPLAY, SUGGESTED } from '@/lib/search-words';
@@ -29,7 +30,7 @@ export function StallTask({
         <TrailLink
           to={runPath(slug, teamId, replayRunId)}
           aria-label={`${OPEN_FAILED_REPLAY}: ${title}`}
-          className="text-foreground underline-offset-2 hover:underline"
+          className={INLINE_LINK}
         >
           {OPEN_FAILED_REPLAY}
         </TrailLink>

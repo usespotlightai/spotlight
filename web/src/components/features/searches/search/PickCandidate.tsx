@@ -1,11 +1,15 @@
-import { GitPullRequestArrow } from 'lucide-react';
+import { GitPullRequestArrow, Loader2 } from 'lucide-react';
 import { FailedPullRequest } from '@/components/features/searches/search/FailedPullRequest';
-import { OpenedPullRequest } from '@/components/features/searches/search/OpenedPullRequest';
-import { PullRequestOpening } from '@/components/features/searches/search/PullRequestOpening';
+import { ViewPullRequest } from '@/components/features/searches/search/ViewPullRequest';
 import { Button } from '@/components/ui/button';
 import { usePickSearchCandidate } from '@/hooks/api/usePickSearchCandidate';
 import { pickProblem, type SearchCandidate } from '@/lib/search';
-import { OVERFIT_PICK } from '@/lib/search-words';
+import {
+  OPEN_PULL_REQUEST,
+  OPENING_PULL_REQUEST,
+  RETRY_PULL_REQUEST,
+} from '@/lib/search-words';
+import { cn } from '@/lib/utils';
 
 type PickCandidateProps = {
   teamId: string;
@@ -21,6 +25,7 @@ export function PickCandidate({
   const pick = usePickSearchCandidate();
   const opened = candidate.pullRequest;
   const problem = pickProblem(candidate);
+  const opening = pick.isPending || opened?.state === 'opening';
   const pickCandidate = () =>
     pick.mutate({ teamId, searchId, candidateId: candidate.candidateId });
 
@@ -28,49 +33,43 @@ export function PickCandidate({
     return null;
   }
 
-  if (opened?.state === 'opening') {
-    return <PullRequestOpening />;
-  }
-
   if (opened?.state === 'opened') {
-    return <OpenedPullRequest url={opened.url} />;
+    return (
+      <div data-slot="pick">
+        <ViewPullRequest url={opened.url} />
+      </div>
+    );
   }
 
+  const failed = opened?.state === 'failed';
   return (
-    <div data-slot="pick" className="flex flex-col gap-1.5 text-xs">
-      {opened?.state === 'failed' && (
-        <FailedPullRequest reason={opened.reason} />
-      )}
+    <div
+      data-slot="pick"
+      aria-live="polite"
+      className="flex flex-col items-start gap-2 text-xs leading-5"
+    >
+      {failed && opened && <FailedPullRequest reason={opened.reason} />}
+      {problem && <p className="text-muted-foreground">{problem}</p>}
 
-      {candidate.overfit === 'likely' && !opened && (
-        <p role="note" className="text-amber-700 leading-5 dark:text-amber-300">
-          {OVERFIT_PICK}
-        </p>
-      )}
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          size="xs"
-          variant={opened ? 'outline' : 'default'}
-          className="rounded-full"
-          disabled={problem !== null || pick.isPending}
-          onClick={pickCandidate}
-        >
-          <GitPullRequestArrow aria-hidden />
-          {pick.isPending ? 'Picking…' : opened ? 'Retry' : 'Pick'}
-        </Button>
-        {problem ? (
-          <span className="text-muted-foreground">{problem}</span>
+      <Button
+        type="button"
+        size="sm"
+        variant={failed ? 'outline' : 'default'}
+        className={cn('rounded-full shadow-none', failed && 'bg-card')}
+        disabled={problem !== null || opening}
+        onClick={pickCandidate}
+      >
+        {opening ? (
+          <Loader2 aria-hidden className="animate-spin" />
         ) : (
-          !opened && (
-            <span className="text-muted-foreground">
-              Picking opens a pull request that changes the station to this
-              config.
-            </span>
-          )
+          <GitPullRequestArrow aria-hidden />
         )}
-      </div>
+        {opening
+          ? OPENING_PULL_REQUEST
+          : failed
+            ? RETRY_PULL_REQUEST
+            : OPEN_PULL_REQUEST}
+      </Button>
     </div>
   );
 }

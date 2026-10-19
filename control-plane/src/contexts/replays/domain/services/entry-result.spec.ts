@@ -58,6 +58,7 @@ const verdict = (scale: 'yes-no' | 'number', value: number) =>
           claim: null,
         },
       ],
+      guidance: null,
     }),
   );
 

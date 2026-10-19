@@ -123,6 +123,7 @@ const judge: JudgePort = {
     judgedRuns.set(run, times);
 
     return {
+      guidance: null,
       usage: {
         inputTokens: 2_000,
         outputTokens: 50,

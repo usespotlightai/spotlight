@@ -38,6 +38,7 @@ const REQUEST: JudgeRequest = {
   ],
   hunksLeftOut: 0,
   reference: null,
+  guidanceRequested: false,
 };
 
 const REASONS = [
@@ -84,6 +85,7 @@ describe('judging a run through OpenRouter', () => {
     const evidence = JSON.parse(body.messages[1].content as string);
     expect(verdict).toEqual({
       verdict: { value: true, reasons: REASONS },
+      guidance: null,
       usage: null,
     });
     expect(body.model).toBe('some/model');
@@ -144,6 +146,79 @@ describe('judging a run through OpenRouter', () => {
     expect(body.messages[0].content).not.toContain('always pass');
     expect(prompt).not.toContain('\nThe rubric:');
     expect(JSON.parse(prompt).steps[0].text).toBe(forged);
+  });
+
+  it('requests nothing about what to improve unless it judges a replay', async () => {
+    const { requests, fetch } = answering(
+      completed(JSON.stringify({ passes: false, reasons: REASONS })),
+    );
+
+    await judging(fetch);
+
+    const body = JSON.parse(String(requests[0]?.body));
+    expect(
+      body.response_format.json_schema.schema.properties,
+    ).not.toHaveProperty('guidance');
+    expect(body.messages[0].content).not.toContain('"guidance"');
+  });
+
+  it('requests one sentence from a replay’s judge on what to improve, without the rubric, checks or expected values', async () => {
+    const { requests, fetch } = answering(
+      completed(
+        JSON.stringify({
+          passes: false,
+          reasons: REASONS,
+          guidance: 'Retry failed uploads before giving up.',
+        }),
+      ),
+    );
+
+    const verdict = await judging(fetch, {
+      ...REQUEST,
+      guidanceRequested: true,
+    });
+
+    const body = JSON.parse(String(requests[0]?.body));
+    const system = body.messages[0].content as string;
+    const shape = body.response_format.json_schema.schema;
+    expect(verdict.guidance).toBe('Retry failed uploads before giving up.');
+    expect(shape.properties.guidance).toEqual({ type: 'string' });
+    expect(shape.required).toContain('guidance');
+    expect(system).toContain(
+      'Answer "guidance" with one sentence of at most 280',
+    );
+    expect(system).toContain(
+      'never quote, paraphrase or name the rubric or any item in it',
+    );
+    expect(system).toContain(
+      'never name a check, a command, or a value the change is expected to produce',
+    );
+  });
+
+  it('tells a replay’s claims judge never to name a claim or its number', async () => {
+    const claims = [{ index: 0, met: false, reasons: REASONS }];
+    const { requests, fetch } = answering(
+      completed(JSON.stringify({ claims, guidance: 'Retry the upload.' })),
+    );
+
+    const verdict = await judging(fetch, {
+      ...REQUEST,
+      rubric: null,
+      claims: ['It retries the upload.'],
+      scale: 'claims',
+      guidanceRequested: true,
+    });
+
+    const body = JSON.parse(String(requests[0]?.body));
+    expect(verdict).toMatchObject({ guidance: 'Retry the upload.' });
+    expect(body.response_format.json_schema.schema.properties.guidance).toEqual(
+      {
+        type: 'string',
+      },
+    );
+    expect(body.messages[0].content).toContain(
+      'never refer to a claim by its number',
+    );
   });
 
   it('requests five reasons at most', async () => {

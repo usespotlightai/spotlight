@@ -37,6 +37,8 @@ const CANDIDATE: SearchCandidate = {
   spent: { amount: 4.5, currency: 'USD' },
   onFrontier: true,
   overfit: null,
+  regressions: { searched: null, heldOut: null, total: null },
+  exceedsRegressionLimit: false,
   pullRequest: null,
 };
 
@@ -51,7 +53,7 @@ describe('PickCandidate', () => {
   it('picks a candidate whose replay finished', () => {
     renderPick(CANDIDATE);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Pick' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open pull request' }));
 
     expect(mutate).toHaveBeenCalledWith({
       teamId: 'team_1',
@@ -60,19 +62,34 @@ describe('PickCandidate', () => {
     });
   });
 
-  it('warns before picking a candidate that gained only on the tasks the search could see, and still lets it be picked', () => {
+  it('lets a likely overfit candidate open a pull request, with no warning beside the button', () => {
     renderPick({ ...CANDIDATE, overfit: 'likely' });
 
-    expect(screen.getByRole('note')).toHaveTextContent(
-      'The gain showed only on searched tasks.',
-    );
-    expect(screen.getByRole('button', { name: 'Pick' })).toBeEnabled();
+    expect(screen.queryByRole('note')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Open pull request' }),
+    ).toBeEnabled();
+  });
+
+  it('lets a candidate over the line’s regression limit open a pull request, with no warning beside the button', () => {
+    renderPick({
+      ...CANDIDATE,
+      regressions: { searched: 3, heldOut: null, total: 3 },
+      exceedsRegressionLimit: true,
+    });
+
+    expect(screen.queryByRole('note')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Open pull request' }),
+    ).toBeEnabled();
   });
 
   it('waits for the candidate’s replay before it may be picked', () => {
     renderPick({ ...CANDIDATE, replayState: 'running' });
 
-    expect(screen.getByRole('button', { name: 'Pick' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Open pull request' }),
+    ).toBeDisabled();
   });
 
   it('offers no pick for the live config', () => {
@@ -81,18 +98,16 @@ describe('PickCandidate', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('says a pull request is opening', () => {
+  it('shows the button as opening while a pull request opens', () => {
     renderPick({
       ...CANDIDATE,
       pullRequest: { id: 'p', state: 'opening', url: null, reason: null },
     });
 
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Opening a pull request…',
-    );
+    expect(screen.getByRole('button', { name: 'Opening…' })).toBeDisabled();
   });
 
-  it('links the opened pull request', () => {
+  it('turns the button into a link to the opened pull request', () => {
     renderPick({
       ...CANDIDATE,
       pullRequest: {
@@ -104,8 +119,22 @@ describe('PickCandidate', () => {
     });
 
     expect(
-      screen.getByRole('link', { name: 'Pull request opened' }),
+      screen.getByRole('link', { name: 'View pull request' }),
     ).toHaveAttribute('href', 'https://github.com/acme/config/pull/42');
+  });
+
+  it('shows the opened pull request as unavailable while its link is unknown', () => {
+    renderPick({
+      ...CANDIDATE,
+      pullRequest: { id: 'p', state: 'opened', url: null, reason: null },
+    });
+
+    expect(
+      screen.getByRole('button', { name: 'View pull request' }),
+    ).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: 'Open pull request' }),
+    ).toBeNull();
   });
 
   it('says why a pull request failed, with what to set by hand, and retries', () => {

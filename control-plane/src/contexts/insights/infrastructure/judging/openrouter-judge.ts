@@ -15,6 +15,7 @@ import {
   OpenRouterRequestError,
   requestJson,
 } from '@platform/openrouter/openrouter-json';
+import { MAX_GUIDANCE_LENGTH } from '@shared-kernel/domain/value-objects/judge-guidance';
 import { z } from 'zod';
 
 const MAX_OUTPUT = 4_000;
@@ -29,28 +30,38 @@ const REASON = z.object({
 
 const REASONS = z.array(REASON).max(MAX_REASONS);
 
-const YES_NO = new JsonSchema(
-  'yes_no_verdict',
-  z.object({ passes: z.boolean(), reasons: REASONS }),
-);
+const schemasOf = <T extends z.ZodRawShape>(name: string, fields: T) => ({
+  verdictOnly: new JsonSchema(name, z.object(fields)),
+  verdictAndGuidance: new JsonSchema(
+    name,
+    z.object({ ...fields, guidance: z.string() }),
+  ),
+});
 
-const NUMBER = new JsonSchema(
-  'number_verdict',
-  z.object({ score: z.number().int(), reasons: REASONS }),
-);
+const YES_NO = schemasOf('yes_no_verdict', {
+  passes: z.boolean(),
+  reasons: REASONS,
+});
 
-const CLAIMS = new JsonSchema(
-  'claims_verdict',
-  z.object({
-    claims: z.array(
-      z.object({
-        index: z.number().int(),
-        met: z.boolean(),
-        reasons: z.array(REASON).max(MAX_REASONS_PER_CLAIM),
-      }),
-    ),
-  }),
-);
+const NUMBER = schemasOf('number_verdict', {
+  score: z.number().int(),
+  reasons: REASONS,
+});
+
+const CLAIMS = schemasOf('claims_verdict', {
+  claims: z.array(
+    z.object({
+      index: z.number().int(),
+      met: z.boolean(),
+      reasons: z.array(REASON).max(MAX_REASONS_PER_CLAIM),
+    }),
+  ),
+});
+
+const guidanceOf = (answer: object): string | null =>
+  'guidance' in answer && typeof answer.guidance === 'string'
+    ? answer.guidance
+    : null;
 
 const SCALES = {
   'yes-no':
@@ -83,6 +94,9 @@ ${request.claims.map((each, at) => `${at}. ${each}`).join('\n')}
   return `${rubric}${claims}`;
 };
 
+const guidanceRule = (request: JudgeRequest): string =>
+  `4. Answer "guidance" with one sentence of at most ${MAX_GUIDANCE_LENGTH} characters saying what the agent should do differently to do this task well, in terms of the task and the behaviour the steps and hunks show. It is read by someone changing how the agent works, who never sees the ${request.claims.length > 0 ? 'claims' : 'rubric'}: never quote, paraphrase or name ${request.claims.length > 0 ? 'a claim, never refer to a claim by its number' : 'the rubric or any item in it'}, and never name a check, a command, or a value the change is expected to produce. Answer "guidance" with an empty string when the run ${request.claims.length > 0 ? 'meets every claim' : 'fully meets the rubric'}.`;
+
 const systemOf = (
   request: JudgeRequest,
 ): string => `You judge one run of a coding agent against ${request.claims.length > 0 ? 'claims' : 'a rubric'} the team wrote. Your verdict is an early signal for the team, never a decision: nothing is approved, moved or blocked by it.
@@ -108,7 +122,7 @@ Rules:
 
 1. Judge only what the steps and hunks show. When they do not show something the rubric requires, count it against the run${request.claims.length > 0 ? ', and a claim they do not show to be true is not met' : ''}.
 2. Write one to ${request.scale === 'claims' ? `${MAX_REASONS_PER_CLAIM} reasons for each claim` : `${MAX_REASONS} reasons`}. Each reason is one or two plain sentences and cites the steps it rests on in "steps", by their "index", and the hunks in "hunks", by their "id". Cite at least one step or hunk in every reason, and nothing that is not in the JSON${request.reference ? ', and never a hunk of the reference' : ''}.
-3. Say what you saw, not what a good engineer would have done.`;
+3. Say what you saw, not what a good engineer would have done.${request.guidanceRequested ? `\n${guidanceRule(request)}` : ''}`;
 
 const evidenceOf = (request: JudgeRequest): string =>
   JSON.stringify({
@@ -176,28 +190,40 @@ export class OpenRouterJudge implements JudgePort {
       if (request.scale === 'claims') {
         const { answer, usage } = await requestJson({
           ...call,
-          responseSchema: CLAIMS,
+          responseSchema: request.guidanceRequested
+            ? CLAIMS.verdictAndGuidance
+            : CLAIMS.verdictOnly,
         });
-        return { verdict: { claims: answer.claims }, usage };
+        return {
+          verdict: { claims: answer.claims },
+          guidance: guidanceOf(answer),
+          usage,
+        };
       }
 
       if (request.scale === 'yes-no') {
         const { answer, usage } = await requestJson({
           ...call,
-          responseSchema: YES_NO,
+          responseSchema: request.guidanceRequested
+            ? YES_NO.verdictAndGuidance
+            : YES_NO.verdictOnly,
         });
         return {
           verdict: { value: answer.passes, reasons: answer.reasons },
+          guidance: guidanceOf(answer),
           usage,
         };
       }
 
       const { answer, usage } = await requestJson({
         ...call,
-        responseSchema: NUMBER,
+        responseSchema: request.guidanceRequested
+          ? NUMBER.verdictAndGuidance
+          : NUMBER.verdictOnly,
       });
       return {
         verdict: { value: answer.score, reasons: answer.reasons },
+        guidance: guidanceOf(answer),
         usage,
       };
     } catch (error) {

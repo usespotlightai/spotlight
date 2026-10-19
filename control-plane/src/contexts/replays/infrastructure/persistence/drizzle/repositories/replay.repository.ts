@@ -205,6 +205,7 @@ const judgingRow = (judging: EntryJudging | null): StoredEntryJudging | null =>
         hunks: [...each.hunks],
         claim: each.claim,
       })),
+      guidance: judging.verdict.guidance,
     },
     unjudged: judging.unjudged,
   };

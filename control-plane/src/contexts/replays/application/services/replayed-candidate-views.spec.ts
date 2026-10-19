@@ -141,6 +141,7 @@ describe('replayedCandidatesView', () => {
       world.candidates,
       [],
       DEFAULT_MIN_GAIN,
+      null,
     );
 
     for (const name of ['terse', 'wordy']) {
@@ -336,6 +337,7 @@ describe('replayedCandidatesView', () => {
       world.candidates,
       [],
       DEFAULT_MIN_GAIN,
+      null,
     );
     const searched = page.candidates.find((each) => each.name === 'terse');
 
@@ -372,6 +374,7 @@ describe('replayedCandidatesView', () => {
       world.candidates,
       [picked],
       DEFAULT_MIN_GAIN,
+      null,
     );
 
     expect(
@@ -394,6 +397,7 @@ describe('replayedCandidatesView', () => {
       world.candidates,
       [],
       DEFAULT_MIN_GAIN,
+      null,
     );
 
     expect(candidateNamed('terse').search?.seed).toEqual({

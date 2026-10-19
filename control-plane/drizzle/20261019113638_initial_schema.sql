@@ -1111,7 +1111,7 @@ CREATE TABLE "replay_check" (
 	"live_scoring" text NOT NULL,
 	"candidate_behaviour" text NOT NULL,
 	"candidate_scoring" text NOT NULL,
-	"most_regressions" integer NOT NULL,
+	"max_regressions" integer NOT NULL,
 	"min_gain" double precision NOT NULL,
 	"ceiling_amount" double precision NOT NULL,
 	"ceiling_currency" text NOT NULL,

@@ -1,10 +1,11 @@
-import { OverfitMark } from '@/components/features/searches/OverfitMark';
+import { CandidateIcons } from '@/components/features/searches/CandidateIcons';
 import { CandidatePullRequest } from '@/components/features/searches/search/CandidatePullRequest';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   EDGE_INDENT,
   LEAD_CELL,
   ROW_DIVIDER,
+  SELECTED_ROW,
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
 import { WithTooltip } from '@/components/shared/WithTooltip';
@@ -24,11 +25,7 @@ import {
   type SearchCandidate,
   searchCandidateAnchor,
 } from '@/lib/search';
-import {
-  candidateGainNote,
-  ON_THE_FRONTIER,
-  ON_THE_FRONTIER_NOTE,
-} from '@/lib/search-words';
+import { candidateGainNote } from '@/lib/search-words';
 import { cn } from '@/lib/utils';
 
 const GAIN_TONES = {
@@ -62,6 +59,7 @@ function Rate({
 type CandidateTableRowProps = {
   candidate: SearchCandidate;
   currency: string;
+  maxRegressions: number | null;
   picked: boolean;
   onPick: () => void;
 };
@@ -69,6 +67,7 @@ type CandidateTableRowProps = {
 export function CandidateTableRow({
   candidate,
   currency,
+  maxRegressions,
   picked,
   onPick,
 }: CandidateTableRowProps) {
@@ -84,7 +83,7 @@ export function CandidateTableRow({
       id={searchCandidateAnchor(candidate.candidateId)}
       data-slot="search-candidate"
       data-picked={picked || undefined}
-      className={cn(TABLE_ROW, ROW_DIVIDER, picked && 'bg-selected')}
+      className={cn(TABLE_ROW, ROW_DIVIDER, picked && SELECTED_ROW)}
     >
       <span className={cn(LEAD_CELL, EDGE_INDENT)}>
         <button
@@ -96,17 +95,11 @@ export function CandidateTableRow({
         >
           {name}
         </button>
-        {candidate.onFrontier && (
-          <WithTooltip tooltip={ON_THE_FRONTIER_NOTE}>
-            <span
-              role="img"
-              aria-label={ON_THE_FRONTIER}
-              data-slot="on-the-frontier"
-              className="relative z-10 size-1.5 shrink-0 rounded-full bg-primary"
-            />
-          </WithTooltip>
-        )}
-        {candidate.overfit && <OverfitMark mark={candidate.overfit} />}
+        <CandidateIcons
+          candidate={candidate}
+          frontier={candidate.onFrontier}
+          maxRegressions={maxRegressions}
+        />
       </span>
       <NestedCell heading="Searched" strong>
         {unfinished ? (

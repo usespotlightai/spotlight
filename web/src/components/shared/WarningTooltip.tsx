@@ -1,6 +1,7 @@
 import { TriangleAlert } from 'lucide-react';
 import type { ComponentProps } from 'react';
 import { WithTooltip } from '@/components/shared/WithTooltip';
+import type { TooltipText } from '@/lib/tooltip-note';
 import { cn } from '@/lib/utils';
 
 const TONES = {
@@ -13,7 +14,7 @@ type WarningTooltipProps = Omit<
   ComponentProps<'span'>,
   'role' | 'aria-label' | 'children'
 > & {
-  tooltip: string;
+  tooltip: TooltipText;
   label: string;
   tone: keyof typeof TONES;
 };
@@ -26,7 +27,7 @@ export function WarningTooltip({
   ...marks
 }: WarningTooltipProps) {
   return (
-    <WithTooltip tooltip={tooltip}>
+    <WithTooltip tooltip={tooltip} named={label}>
       <span
         {...marks}
         role="img"

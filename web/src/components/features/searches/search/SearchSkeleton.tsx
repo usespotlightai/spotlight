@@ -1,3 +1,5 @@
+import { InsightsTileSkeleton } from '@/components/features/insights/InsightsTileSkeleton';
+import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { ImproveCardSkeleton } from '@/components/features/stations/improve/ImproveCardSkeleton';
 import { StationPane } from '@/components/features/stations/StationPane';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
@@ -30,18 +32,11 @@ export function SearchSkeleton({ known }: SearchSkeletonProps) {
       </div>
 
       <StationPane>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <InsightsTiles label="Loading the search in numbers" className="gap-3">
           {TILES.map((label) => (
-            <div
-              key={label}
-              className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3"
-            >
-              <span className="text-foreground text-xs">{label}</span>
-              <Skeleton className="h-[1.375rem] w-16" />
-              <SkeletonLine className="w-24 text-[0.7rem]" />
-            </div>
+            <InsightsTileSkeleton key={label} label={label} detail />
           ))}
-        </div>
+        </InsightsTiles>
         <ImproveCardSkeleton label="Loading the candidates" rows={5} />
       </StationPane>
     </div>

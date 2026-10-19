@@ -1,3 +1,4 @@
+import { EmptyDetail } from '@/components/features/insights/EmptyDetail';
 import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonBlock } from '@/components/shared/skeleton/SkeletonBlock';
@@ -17,9 +18,9 @@ export function InsightsTileSkeleton({
     <SkeletonBlock>
       <div
         data-slot="insights-tile"
-        className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card"
+        className="flex min-h-30 min-w-0 flex-col gap-1.5 overflow-hidden group-data-top-aligned/tiles:gap-8.5 rounded-lg border border-border bg-card p-3"
       >
-        <dt className="flex min-h-6 items-center gap-1.5 px-3 pt-3 pb-2 text-foreground text-xs">
+        <dt className="flex min-h-4 items-center gap-1.5 text-foreground text-xs leading-4">
           {label === null ? (
             <SkeletonLine className="w-20" />
           ) : (
@@ -27,7 +28,13 @@ export function InsightsTileSkeleton({
           )}
           {tooltip && <InfoTooltip tooltip={tooltip} />}
         </dt>
-        <dd className="flex flex-1 flex-col gap-1 px-3 pb-3">
+        <dd
+          className={cn(
+            'flex flex-1 flex-col gap-1.5',
+            !trend &&
+              'justify-center group-data-top-aligned/tiles:justify-start',
+          )}
+        >
           <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <SkeletonLine
               className={cn(
@@ -38,14 +45,14 @@ export function InsightsTileSkeleton({
             {delta && <SkeletonLine className="w-12 text-xs" />}
           </span>
           {typeof detail === 'string' ? (
-            <span className="text-[0.7rem] text-muted-foreground">
-              {detail}
-            </span>
+            <span className="text-muted-foreground text-xs">{detail}</span>
+          ) : detail ? (
+            <SkeletonLine className="w-20 text-xs" />
           ) : (
-            detail && <SkeletonLine className="w-20 text-[0.7rem]" />
+            !trend && <EmptyDetail />
           )}
           {trend && (
-            <span className="mt-auto pt-1">
+            <span className="mt-auto pt-2">
               <Skeleton className="h-8 w-full" />
             </span>
           )}

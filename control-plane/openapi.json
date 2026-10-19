@@ -25531,6 +25531,12 @@
             "type": "string",
             "nullable": true,
             "example": "pass"
+          },
+          "guidance": {
+            "type": "string",
+            "nullable": true,
+            "description": "What the judge says a failing replay should do differently, never its reasons",
+            "example": "Give up on an upload that keeps failing instead of looping."
           }
         },
         "required": [
@@ -25550,7 +25556,8 @@
           "trace",
           "succeeded",
           "reasons",
-          "verdict"
+          "verdict",
+          "guidance"
         ]
       },
       "HistoryCandidateResponseDto": {
@@ -44054,6 +44061,34 @@
           "repeats"
         ]
       },
+      "SearchRegressionsResponseDto": {
+        "type": "object",
+        "properties": {
+          "searched": {
+            "type": "number",
+            "nullable": true,
+            "example": 1,
+            "description": "Searched tasks where it did worse than the seed: the seed succeeded and it did not, or its judge score dropped; null for the seed and until both its searched replay and the seed’s replay finished"
+          },
+          "heldOut": {
+            "type": "number",
+            "nullable": true,
+            "example": 0,
+            "description": "Held-out tasks where it did worse than the seed, counted the same way; null for the seed and until its held-out replay and the seed’s replay finished"
+          },
+          "total": {
+            "type": "number",
+            "nullable": true,
+            "example": 1,
+            "description": "Its searched and held-out regressions together, the count compared with the line’s max_regressions; null until either could be counted"
+          }
+        },
+        "required": [
+          "searched",
+          "heldOut",
+          "total"
+        ]
+      },
       "SearchBestResponseDto": {
         "type": "object",
         "properties": {
@@ -44112,6 +44147,13 @@
             ],
             "nullable": true,
             "description": "marked when it beat the live config on the searched tasks but not on the held-out ones, so its gain showed only on the tasks the search could see; too-few-held-out when it beat the live config on the searched tasks but too few held-out tasks were scored on both sides to tell; null otherwise, and until its held-out replay finished"
+          },
+          "regressions": {
+            "$ref": "#/components/schemas/SearchRegressionsResponseDto"
+          },
+          "exceedsRegressionLimit": {
+            "type": "boolean",
+            "description": "Whether its regressions on the searched and held-out tasks together are more than the line’s max_regressions; false when the line has no replay_check block. It stays on the frontier and can still be picked"
           }
         },
         "required": [
@@ -44123,7 +44165,9 @@
           "heldOutScore",
           "heldOutInterval",
           "costPerRun",
-          "overfit"
+          "overfit",
+          "regressions",
+          "exceedsRegressionLimit"
         ]
       },
       "SearchResponseDto": {
@@ -44207,6 +44251,12 @@
               }
             ]
           },
+          "maxRegressions": {
+            "type": "number",
+            "nullable": true,
+            "example": 2,
+            "description": "The line’s regression limit, max_regressions: the maximum number of regressions it allows a station change; null when the line has no replay_check block"
+          },
           "startedAt": {
             "type": "string"
           },
@@ -44229,6 +44279,7 @@
           "iterationsRun",
           "proposed",
           "best",
+          "maxRegressions",
           "startedAt",
           "endedAt"
         ]
@@ -45269,6 +45320,13 @@
             "nullable": true,
             "description": "marked when it beat the live config on the searched tasks but not on the held-out ones, so its gain showed only on the tasks the search could see; too-few-held-out when it beat the live config on the searched tasks but too few held-out tasks were scored on both sides to tell; null otherwise, and until its held-out replay finished"
           },
+          "regressions": {
+            "$ref": "#/components/schemas/SearchRegressionsResponseDto"
+          },
+          "exceedsRegressionLimit": {
+            "type": "boolean",
+            "description": "Whether its regressions on the searched and held-out tasks together are more than the line’s max_regressions; false when the line has no replay_check block. It stays on the frontier and can still be picked"
+          },
           "pullRequest": {
             "nullable": true,
             "description": "The pull request Spotlight opens in the line’s config repository once a person picks the candidate; null until then, and always for the seed",
@@ -45305,6 +45363,8 @@
           "spent",
           "onFrontier",
           "overfit",
+          "regressions",
+          "exceedsRegressionLimit",
           "pullRequest"
         ]
       },
@@ -45389,6 +45449,12 @@
               }
             ]
           },
+          "maxRegressions": {
+            "type": "number",
+            "nullable": true,
+            "example": 2,
+            "description": "The line’s regression limit, max_regressions: the maximum number of regressions it allows a station change; null when the line has no replay_check block"
+          },
           "startedAt": {
             "type": "string"
           },
@@ -45426,11 +45492,6 @@
               "type": "string"
             }
           },
-          "overfitCount": {
-            "type": "number",
-            "example": 1,
-            "description": "How many frontier candidates gained only on the tasks the search could see"
-          },
           "minGain": {
             "type": "number",
             "example": 0.05,
@@ -45451,6 +45512,7 @@
           "iterationsRun",
           "proposed",
           "best",
+          "maxRegressions",
           "startedAt",
           "endedAt",
           "split",
@@ -45458,7 +45520,6 @@
           "seed",
           "candidates",
           "frontier",
-          "overfitCount",
           "minGain"
         ]
       },

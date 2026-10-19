@@ -1,4 +1,5 @@
 import { IterationNote } from '@/components/features/searches/search/IterationNote';
+import { INLINE_LINK } from '@/components/shared/section-link';
 import type { SearchIterationResponseDto } from '@/lib/api';
 import { reflecting, whyItStalledAnchor } from '@/lib/search';
 import {
@@ -22,7 +23,7 @@ export function IterationReflection({ iteration }: IterationReflectionProps) {
           )}
       <a
         href={`#${whyItStalledAnchor(iteration.number)}`}
-        className="text-foreground underline-offset-2 hover:underline"
+        className={INLINE_LINK}
       >
         {SEE_WHY_IT_STALLED}
       </a>

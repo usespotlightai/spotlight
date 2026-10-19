@@ -19,10 +19,12 @@ import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { frontierOf } from '@replays/domain/services/frontier';
 import { type Overfit, overfitOf } from '@replays/domain/services/overfit';
 import { rankedOf } from '@replays/domain/services/search-ranking';
+import { regressionLimitOf } from '@replays/domain/services/search-regressions';
 import { scoresOf } from '@replays/domain/services/search-scores';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
@@ -37,7 +39,20 @@ const nameOf = (search: Search, candidateId: CandidateId): string =>
 const overfitOfScored = (scored: Scored): Overfit | null =>
   scored.seed ? null : overfitOf(scored.searchedGain, scored.heldOutGain);
 
-const bestOf = (search: Search, scores: Scores): SearchBestDto | null => {
+const regressionFieldsOf = (
+  scored: Scored,
+  threshold: ReplayThreshold | null,
+) => ({
+  regressions: { ...scored.regressions },
+  exceedsRegressionLimit: regressionLimitOf(scored.regressions, threshold)
+    .exceedsRegressionLimit,
+});
+
+const bestOf = (
+  search: Search,
+  scores: Scores,
+  threshold: ReplayThreshold | null,
+): SearchBestDto | null => {
   const [best] = rankedOf(
     [scores.seed, ...scores.candidates],
     search.objective,
@@ -54,6 +69,7 @@ const bestOf = (search: Search, scores: Scores): SearchBestDto | null => {
         heldOutInterval: intervalView(best.heldOutInterval),
         costPerRun: best.costPerRun,
         overfit: overfitOfScored(best),
+        ...regressionFieldsOf(best, threshold),
       }
     : null;
 };
@@ -71,7 +87,11 @@ const scored = (
   };
 };
 
-const summaryOf = (search: Search, scores: Scores): SearchSummaryDto => ({
+const summaryOf = (
+  search: Search,
+  scores: Scores,
+  threshold: ReplayThreshold | null,
+): SearchSummaryDto => ({
   id: search.id.value,
   lineId: search.station.lineId,
   stationId: search.station.stationId,
@@ -94,7 +114,8 @@ const summaryOf = (search: Search, scores: Scores): SearchSummaryDto => ({
   spent: moneyView(search.spent),
   iterationsRun: search.iterations.length,
   proposed: search.proposals.length,
-  best: bestOf(search, scores),
+  best: bestOf(search, scores, threshold),
+  maxRegressions: threshold?.maxRegressions ?? null,
   startedAt: search.startedAt.toISOString(),
   endedAt: search.endedAt?.toISOString() ?? null,
 });
@@ -113,7 +134,9 @@ export const searchSummaryView = (
   search: Search,
   replays: readonly Replay[],
   minGain: number,
-): SearchSummaryDto => summaryOf(search, scoresOf(search, replays, minGain));
+  threshold: ReplayThreshold | null,
+): SearchSummaryDto =>
+  summaryOf(search, scoresOf(search, replays, minGain), threshold);
 
 const stateOf = (
   replays: readonly Replay[],
@@ -127,6 +150,7 @@ export const searchDetailView = (
   candidates: readonly Candidate[],
   pullRequests: readonly ConfigPullRequest[],
   minGain: number,
+  threshold: ReplayThreshold | null,
 ): SearchDetailDto => {
   const { scores, frontier } = scored(search, replays, minGain);
   const onFrontier = (id: CandidateId) =>
@@ -168,12 +192,13 @@ export const searchDetailView = (
       spent: moneyView(each.spent),
       onFrontier: onFrontier(each.candidateId),
       overfit: overfitOfScored(each),
+      ...regressionFieldsOf(each, threshold),
       pullRequest: pullRequestOf(each.candidateId),
     };
   };
 
   return {
-    ...summaryOf(search, scores),
+    ...summaryOf(search, scores, threshold),
     split: {
       searchedTasks: search.split.searchedTasks,
       heldOutTasks: search.split.heldOutTasks,
@@ -213,8 +238,6 @@ export const searchDetailView = (
     seed: candidateView(scores.seed),
     candidates: scores.candidates.map(candidateView),
     frontier: frontier.map((each) => each.candidateId.value),
-    overfitCount: frontier.filter((each) => overfitOfScored(each) === 'likely')
-      .length,
     minGain,
   };
 };

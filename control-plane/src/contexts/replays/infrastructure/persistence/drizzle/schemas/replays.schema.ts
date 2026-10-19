@@ -117,6 +117,7 @@ export interface StoredEntryVerdict {
     readonly hunks: readonly string[];
     readonly claim: number | null;
   }[];
+  readonly guidance: string | null;
 }
 
 export interface StoredEntryPairing {
@@ -474,7 +475,7 @@ export const replayCheck = pgTable(
     liveScoring: text('live_scoring').notNull(),
     candidateBehaviour: text('candidate_behaviour').notNull(),
     candidateScoring: text('candidate_scoring').notNull(),
-    maxRegressions: integer('most_regressions').notNull(),
+    maxRegressions: integer('max_regressions').notNull(),
     minGain: doublePrecision('min_gain').notNull(),
     ceilingAmount: doublePrecision('ceiling_amount').notNull(),
     ceilingCurrency: text('ceiling_currency').notNull(),

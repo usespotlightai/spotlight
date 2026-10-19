@@ -286,6 +286,15 @@ export class HistoryCandidateRunResponseDto {
   @ApiProperty({ nullable: true, type: String, example: 'pass' })
   readonly verdict: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description:
+      'What the judge says a failing replay should do differently, never its reasons',
+    example: 'Give up on an upload that keeps failing instead of looping.',
+  })
+  readonly guidance: string | null;
+
   constructor(from: HistoryCandidateRunDto, trace: TaskTraceResponseDto) {
     this.runId = from.runId;
     this.original = from.original;
@@ -304,6 +313,7 @@ export class HistoryCandidateRunResponseDto {
     this.succeeded = from.succeeded;
     this.reasons = [...from.reasons];
     this.verdict = from.verdict;
+    this.guidance = from.guidance;
   }
 }
 

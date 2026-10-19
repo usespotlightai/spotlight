@@ -44,6 +44,7 @@ export const INSIGHTS_EVENT_MAPPERS = [
         ),
         claim: reason.claim,
       })),
+      guidance: event.guidance,
       referenced: event.referenced,
       spentCosts: event.spent.costs.map((each) => ({ ...each })),
       unpricedCalls: event.spent.unpriced,

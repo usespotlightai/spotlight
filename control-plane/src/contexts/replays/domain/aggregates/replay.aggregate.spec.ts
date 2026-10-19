@@ -758,6 +758,7 @@ describe('Replay', () => {
           model: 'judge/model',
           referenced: true,
           reasons: [],
+          guidance: null,
         }),
         null,
         later(65_000),
@@ -848,6 +849,7 @@ describe('Replay', () => {
             model: 'judge/model',
             referenced: false,
             reasons: [],
+            guidance: null,
           }),
           ModelSpent.of([Money.of(0.5, 'USD')], 0),
           later(63_000),
@@ -1056,6 +1058,7 @@ describe('Replay', () => {
         model: 'judge/model',
         referenced: false,
         reasons: [],
+        guidance: null,
       });
     const judgedRun = (
       replay: Replay,

@@ -1,17 +1,18 @@
 import { X } from 'lucide-react';
-import { ChangedFromLive } from '@/components/features/replays/ChangedFromLive';
-import { CandidateGains } from '@/components/features/searches/search/CandidateGains';
+import { CandidateChanges } from '@/components/features/searches/search/CandidateChanges';
 import { CandidateHeading } from '@/components/features/searches/search/CandidateHeading';
 import { CandidateReplayLinks } from '@/components/features/searches/search/CandidateReplayLinks';
-import { CandidateScores } from '@/components/features/searches/search/CandidateScores';
+import { CandidateResults } from '@/components/features/searches/search/CandidateResults';
 import { PickCandidate } from '@/components/features/searches/search/PickCandidate';
+import { PaneSection } from '@/components/shared/PaneSection';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
 import type { ReplayedStation } from '@/lib/replay';
+import { candidateName, type SearchCandidate } from '@/lib/search';
 import {
-  candidateName,
-  type SearchCandidate,
-  searchChanges,
-} from '@/lib/search';
+  CHANGES_TITLE,
+  HYPOTHESIS_TITLE,
+  RESULTS_TITLE,
+} from '@/lib/search-words';
 
 const CANDIDATE_PANE: PaneConfig = {
   storageKey: 'spotlight.search-candidate-width',
@@ -25,7 +26,9 @@ type CandidateDetailProps = {
   at: ReplayedStation;
   searchId: string;
   candidate: SearchCandidate;
+  live: SearchCandidate;
   currency: string;
+  maxRegressions: number | null;
   open: boolean;
   onClose: () => void;
 };
@@ -34,7 +37,9 @@ export function CandidateDetail({
   at,
   searchId,
   candidate,
+  live,
   currency,
+  maxRegressions,
   open,
   onClose,
 }: CandidateDetailProps) {
@@ -43,7 +48,10 @@ export function CandidateDetail({
       <div className="flex items-center gap-2 px-4 py-2">
         <h2 className="sr-only">{candidateName(candidate)}</h2>
         <div className="min-w-0 flex-1 text-sm">
-          <CandidateHeading candidate={candidate} />
+          <CandidateHeading
+            candidate={candidate}
+            maxRegressions={maxRegressions}
+          />
         </div>
         <button
           type="button"
@@ -57,28 +65,30 @@ export function CandidateDetail({
 
       <div
         data-slot="candidate-detail"
-        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pt-2 pb-6 scrollbar-hide"
+        className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pt-2 pb-6 scrollbar-hide"
       >
+        <PaneSection title={CHANGES_TITLE}>
+          <CandidateChanges candidate={candidate} />
+        </PaneSection>
+
         {candidate.hypothesis && (
-          <p className="whitespace-pre-line text-foreground text-sm leading-6">
-            {candidate.hypothesis}
-          </p>
+          <PaneSection title={HYPOTHESIS_TITLE}>
+            <p className="whitespace-pre-line text-foreground text-sm leading-6">
+              {candidate.hypothesis}
+            </p>
+          </PaneSection>
         )}
 
-        {candidate.isSeed ? (
-          <p className="text-muted-foreground text-xs">
-            Station as configured when the search started.
-          </p>
-        ) : (
-          <ChangedFromLive
-            changes={searchChanges(candidate)}
-            same="Same as the live config."
+        <PaneSection
+          title={RESULTS_TITLE}
+          action={<CandidateReplayLinks at={at} candidate={candidate} />}
+        >
+          <CandidateResults
+            candidate={candidate}
+            live={live}
+            currency={currency}
           />
-        )}
-
-        <CandidateScores candidate={candidate} currency={currency} />
-        <CandidateGains candidate={candidate} />
-        <CandidateReplayLinks at={at} candidate={candidate} />
+        </PaneSection>
 
         <PickCandidate
           teamId={at.teamId}

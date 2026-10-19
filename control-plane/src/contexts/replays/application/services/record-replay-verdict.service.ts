@@ -20,6 +20,7 @@ export interface ReplayRunJudged {
   readonly model: string;
   readonly referenced: boolean;
   readonly reasons: readonly CitedReason[];
+  readonly guidance: string | null;
   readonly spent: ModelSpent;
 }
 

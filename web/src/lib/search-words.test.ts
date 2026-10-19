@@ -1,14 +1,49 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatCheckResult,
+  formatGainNote,
   formatPullRequestReason,
   formatRepeatsSuggestion,
   formatSearchState,
   formatStopReason,
   formatWarning,
+  overfitNote,
+  regressionLimitNote,
+  regressionsNote,
 } from '@/lib/search-words';
 
 describe('search words', () => {
+  it('splits a candidate’s regressions into searched and held out, and says why it is over the limit', () => {
+    expect(regressionsNote({ searched: 2, heldOut: null, total: 2 })).toEqual({
+      rows: [['Searched', '2']],
+    });
+    expect(
+      regressionLimitNote({ searched: 2, heldOut: 1, total: 3 }, 2),
+    ).toEqual({
+      title: 'Over the regression limit',
+      rows: [
+        ['Regressed', '3 tasks'],
+        ['Line allows', '2'],
+      ],
+    });
+  });
+
+  it('gives a gain’s verdict and likely range, and nothing more', () => {
+    const gain = { gain: 0.4, low: 0.09, high: 0.71, minGain: 0.05, tasks: 5 };
+    expect(formatGainNote({ ...gain, significance: 'better' })).toEqual({
+      title: 'Better',
+      rows: [['Likely range', '+9 to +71 pts']],
+    });
+    expect(
+      formatGainNote({ ...gain, significance: 'within-noise' }).title,
+    ).toBe('Within noise');
+  });
+
+  it('names overfit first in an overfit mark’s tooltip', () => {
+    expect(overfitNote('likely').title).toBe('Likely overfit');
+    expect(overfitNote('too-few-held-out').title).toBe('Overfit unknown');
+  });
+
   it('says what a search is doing in plain words', () => {
     expect(formatSearchState('seeding')).toBe('Replaying the live config');
     expect(formatSearchState('holding-out')).toBe('Checking on held-out tasks');

@@ -431,6 +431,7 @@ export const CONCLUDING_VERDICT = JudgeVerdict.of({
   model: 'judge/model',
   referenced: true,
   reasons: [],
+  guidance: null,
 });
 
 export const runOf = (replay: string, at: number) =>

@@ -55,7 +55,7 @@ export function StationsTab({ slug, teamId, period, names }: StationsTabProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <InsightsTiles label="The whole team">
+      <InsightsTiles label="The whole team" topAligned>
         {tallyTiles(team, teamSeen, teamChanges, trendOf(teamTrend)).map(
           (tile) => (
             <InsightsTile

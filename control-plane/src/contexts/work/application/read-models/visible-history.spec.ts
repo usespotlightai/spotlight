@@ -23,6 +23,7 @@ const VISIBILITY = aSearchVisibility({
           succeeded: true,
           reasons: [],
           verdict: 'pass',
+          guidance: null,
         },
       ],
     },

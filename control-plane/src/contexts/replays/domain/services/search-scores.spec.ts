@@ -318,3 +318,74 @@ describe('scoresOf, gains', () => {
     expect(scores.seed.searchedGain).toBeNull();
   });
 });
+
+describe('scoresOf, regressions', () => {
+  it('counts the searched tasks where a finished candidate did worse than the seed, and none for the seed, an unfinished candidate or a held-out replay not yet run', () => {
+    const search = searchWith();
+    const [first, second] = search.split.searchedRuns;
+    const seed = replayedAs(
+      replayFor(SET, 'replay_seed', 'candidate_live', null, true),
+      (original) => (original === first?.value ? 'failed' : 'completed'),
+    );
+    const terse = replayedAs(
+      replayFor(
+        SET,
+        'replay_terse',
+        'candidate_terse',
+        search.split.searchedRuns,
+      ),
+      (original) =>
+        original === first?.value || original === second?.value
+          ? 'failed'
+          : 'completed',
+    );
+    const wordy = replayFor(
+      SET,
+      'replay_wordy',
+      'candidate_wordy',
+      search.split.searchedRuns,
+    );
+
+    const scores = scoresOf(search, [seed, terse, wordy], 0.05);
+    const [terseScores, wordyScores] = scores.candidates;
+
+    expect(terseScores?.regressions).toEqual({
+      searched: 1,
+      heldOut: null,
+      total: 1,
+    });
+    expect(wordyScores?.regressions).toEqual({
+      searched: null,
+      heldOut: null,
+      total: null,
+    });
+    expect(scores.seed.regressions).toEqual({
+      searched: null,
+      heldOut: null,
+      total: null,
+    });
+  });
+
+  it('counts no searched regressions while the seed’s replay is still running', () => {
+    const search = searchWith();
+    const seed = replayFor(SET, 'replay_seed', 'candidate_live', null, true);
+    const terse = replayedAs(
+      replayFor(
+        SET,
+        'replay_terse',
+        'candidate_terse',
+        search.split.searchedRuns,
+      ),
+      () => 'failed',
+    );
+
+    const [terseScores] = scoresOf(search, [seed, terse], 0.05).candidates;
+
+    expect(terseScores?.finished).toBe(true);
+    expect(terseScores?.regressions).toEqual({
+      searched: null,
+      heldOut: null,
+      total: null,
+    });
+  });
+});

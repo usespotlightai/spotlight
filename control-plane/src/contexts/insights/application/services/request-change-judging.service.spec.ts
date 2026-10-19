@@ -19,6 +19,7 @@ const requesting = (available = true) => {
       model: 'some/model',
       judge: async () => ({
         verdict: { value: true, reasons: [] },
+        guidance: null,
         usage: null,
       }),
     },
@@ -131,6 +132,7 @@ const judgedAs = async (
         value,
         reasons: [{ text: 'It drains.', steps: [2], hunks: [] }],
       },
+      guidance: null,
       usage: null,
       evidence: JudgeEvidence.of({
         runId: run,

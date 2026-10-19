@@ -120,7 +120,10 @@ const SEARCH: Search = {
     heldOutInterval: null,
     costPerRun: 0.9,
     overfit: null,
+    regressions: { searched: 0, heldOut: null, total: 0 },
+    exceedsRegressionLimit: false,
   },
+  maxRegressions: null,
   startedAt: '2026-10-02T09:00:00.000Z',
   endedAt: null,
 };
@@ -232,7 +235,29 @@ describe('StationSearches', () => {
       'likely',
     );
     expect(
-      screen.getByRole('img', { name: 'Too few held-out tasks to tell' }),
+      screen.getByRole('img', { name: 'Overfit unknown' }),
     ).toHaveAttribute('data-mark', 'too-few-held-out');
+  });
+
+  it('marks a search whose best candidate is over the line’s regression limit', () => {
+    const best = SEARCH.best;
+    searches.mockReturnValue([
+      {
+        ...SEARCH,
+        maxRegressions: 1,
+        best: best && {
+          ...best,
+          regressions: { searched: 2, heldOut: null, total: 2 },
+          exceedsRegressionLimit: true,
+        },
+      },
+    ]);
+    sets.mockReturnValue([setOf(6)]);
+
+    renderSearches();
+
+    expect(
+      screen.getByRole('img', { name: 'Over the regression limit' }),
+    ).toHaveAccessibleDescription('Regressed: 2 tasks. Line allows: 1.');
   });
 });

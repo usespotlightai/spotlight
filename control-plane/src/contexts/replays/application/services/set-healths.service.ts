@@ -9,10 +9,12 @@ import {
   setHealthOf,
   UNREAD_HEALTH,
 } from '@replays/domain/services/set-health';
+import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 
 export interface LiveStandard {
   readonly minGain: number;
+  readonly threshold: ReplayThreshold | null;
   readonly fingerprint: StationFingerprint | null;
 }
 
@@ -33,6 +35,7 @@ export class SetHealths {
 
     return {
       minGain: live?.threshold?.minGain ?? DEFAULT_MIN_GAIN,
+      threshold: live?.threshold ?? null,
       fingerprint: live?.fingerprint ?? null,
     };
   }

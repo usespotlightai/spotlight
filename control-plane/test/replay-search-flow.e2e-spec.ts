@@ -39,6 +39,7 @@ import {
   proposing,
   replayEnded,
   replayRow,
+  STUB_GUIDANCE,
   searchOf,
   searchRow,
   searchRunsOf,
@@ -248,7 +249,12 @@ describe('a search for a better station config', () => {
       runs: { taskId: string; runId: string }[];
       candidates: {
         candidateName: string;
-        runs: { original: string; taskId: string; succeeded: boolean | null }[];
+        runs: {
+          original: string;
+          taskId: string;
+          succeeded: boolean | null;
+          guidance: string | null;
+        }[];
       }[];
       seedBlock: { key: string };
     };
@@ -467,6 +473,14 @@ describe('a search for a better station config', () => {
     expect(
       later.candidates[2]?.runs.every((each) => each.succeeded === false),
     ).toBe(true);
+    expect(
+      later.candidates[2]?.runs.every(
+        (each) => each.guidance === STUB_GUIDANCE,
+      ),
+    ).toBe(true);
+    expect(
+      later.candidates[1]?.runs.every((each) => each.guidance === null),
+    ).toBe(true);
     expect(later.runs.some((each) => heldOutTaskIds.has(each.taskId))).toBe(
       false,
     );
@@ -508,7 +522,6 @@ describe('a search for a better station config', () => {
     expect(done.candidates[0]?.heldOutScore).toBe(1);
     expect(done.candidates[1]?.searchScore).toBe(0);
     expect(done.candidates.map((each) => each.overfit)).toEqual([null, null]);
-    expect(done.overfitCount).toBe(0);
     expect(done.best?.overfit).toBeNull();
     expect(done.frontier).toContain(done.seed.candidateId);
     expect(done.best?.name).toBe('in-order');
