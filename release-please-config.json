@@ -2,6 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "bootstrap-sha": "ea477f87050746b109eb275b34eef2755c8c19fa",
   "release-type": "simple",
+  "initial-version": "0.1.0",
   "include-component-in-tag": false,
   "bump-minor-pre-major": true,
   "draft": true,
