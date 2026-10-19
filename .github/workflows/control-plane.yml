@@ -5,13 +5,16 @@ on:
     branches: [develop, main]
   pull_request:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   lint-and-test:
-    name: lint, format, typecheck, tests
+    name: control-plane lint, format, typecheck, tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -29,6 +32,9 @@ jobs:
         run: |
           npm install -g npm@11.19.1
           npm ci
+
+      - name: Known vulnerabilities in production dependencies
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Lint and format check
         run: npx biome ci .
