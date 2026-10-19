@@ -157,10 +157,9 @@ describe('search views', () => {
       detail.candidates.find((each) => each.name === 'terse')?.overfit,
     ).toBe('likely');
     expect(detail.seed.overfit).toBeNull();
-    expect(detail.overfitCount).toBe(1);
   });
 
-  it('says too few held-out tasks were scored to tell, and does not count it as overfit', () => {
+  it('says too few held-out tasks were scored to tell', () => {
     const { search, replays } = heldOutWorld(10);
 
     const detail = searchDetailView(
@@ -179,7 +178,6 @@ describe('search views', () => {
     expect(
       detail.candidates.find((each) => each.name === 'terse')?.overfit,
     ).toBe('too-few-held-out');
-    expect(detail.overfitCount).toBe(0);
   });
 
   it('counts each candidate’s regressions on the searched and held-out tasks, and none for the seed', () => {

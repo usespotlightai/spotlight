@@ -219,7 +219,6 @@ const DETAIL: SearchDetail = {
     }),
   ],
   frontier: ['seed', 'tests'],
-  overfitCount: 1,
   minGain: 0.05,
   maxRegressions: null,
 };
@@ -648,12 +647,11 @@ describe('Search', () => {
     ).toBeNull();
   });
 
-  it('says plainly when too few held-out tasks were scored to tell, without marking or counting it', async () => {
+  it('says plainly when too few held-out tasks were scored to tell, without marking it', async () => {
     const [tests] = DETAIL.candidates;
     detail.mockReturnValue({
       ...DETAIL,
       candidates: tests ? [{ ...tests, overfit: 'too-few-held-out' }] : [],
-      overfitCount: 0,
     });
 
     renderSearch();
@@ -667,9 +665,6 @@ describe('Search', () => {
     ).toBeNull();
     expect(
       within(await openCandidate('tests-first')).queryByRole('note'),
-    ).toBeNull();
-    expect(
-      screen.queryByText(/frontier candidates? gained only on searched tasks/),
     ).toBeNull();
   });
 

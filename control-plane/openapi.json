@@ -45492,11 +45492,6 @@
               "type": "string"
             }
           },
-          "overfitCount": {
-            "type": "number",
-            "example": 1,
-            "description": "How many frontier candidates gained only on the tasks the search could see"
-          },
           "minGain": {
             "type": "number",
             "example": 0.05,
@@ -45525,7 +45520,6 @@
           "seed",
           "candidates",
           "frontier",
-          "overfitCount",
           "minGain"
         ]
       },

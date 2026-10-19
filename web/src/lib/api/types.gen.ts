@@ -8713,10 +8713,6 @@ export type SearchDetailResponseDto = {
    */
   frontier: Array<string>;
   /**
-   * How many frontier candidates gained only on the tasks the search could see
-   */
-  overfitCount: number;
-  /**
    * The smallest gain over the seed its line counts as real: replay_check.min_gain, or 0.05 when the line sets none
    */
   minGain: number;

@@ -373,7 +373,6 @@ export interface SearchRead {
     overfit: 'likely' | 'too-few-held-out' | null;
   }[];
   frontier: string[];
-  overfitCount: number;
   best: {
     name: string;
     overfit: 'likely' | 'too-few-held-out' | null;

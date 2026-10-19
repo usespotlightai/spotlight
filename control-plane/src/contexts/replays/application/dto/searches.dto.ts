@@ -173,7 +173,6 @@ export interface SearchDetailDto extends SearchSummaryDto {
   readonly seed: SearchCandidateDto;
   readonly candidates: readonly SearchCandidateDto[];
   readonly frontier: readonly string[];
-  readonly overfitCount: number;
   readonly minGain: number;
 }
 

@@ -438,7 +438,6 @@ export const searchDetailOf = (search: SearchSpec): SearchDetailResponseDto => {
     seed: seed as SearchCandidateResponseDto,
     candidates,
     frontier: [...search.frontier],
-    overfitCount: candidates.filter((each) => each.overfit === 'likely').length,
     minGain: 0.05,
   };
 };

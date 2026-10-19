@@ -1092,13 +1092,6 @@ export class SearchDetailResponseDto extends SearchResponseDto {
   readonly frontier: string[];
 
   @ApiProperty({
-    example: 1,
-    description:
-      'How many frontier candidates gained only on the tasks the search could see',
-  })
-  readonly overfitCount: number;
-
-  @ApiProperty({
     example: 0.05,
     description:
       'The smallest gain over the seed its line counts as real: replay_check.min_gain, or 0.05 when the line sets none',
@@ -1116,7 +1109,6 @@ export class SearchDetailResponseDto extends SearchResponseDto {
       (each) => new SearchCandidateResponseDto(each),
     );
     this.frontier = [...search.frontier];
-    this.overfitCount = search.overfitCount;
     this.minGain = search.minGain;
   }
 }

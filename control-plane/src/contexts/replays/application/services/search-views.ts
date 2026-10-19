@@ -238,8 +238,6 @@ export const searchDetailView = (
     seed: candidateView(scores.seed),
     candidates: scores.candidates.map(candidateView),
     frontier: frontier.map((each) => each.candidateId.value),
-    overfitCount: frontier.filter((each) => overfitOfScored(each) === 'likely')
-      .length,
     minGain,
   };
 };
