@@ -23,7 +23,7 @@ export class HostImageRequestDto {
   readonly isDefault!: boolean;
 
   @ApiPropertyOptional({
-    example: '20260925-01',
+    example: 'v0.3.0',
     description: 'The release of the runner inside the image',
   })
   readonly release?: string;
@@ -36,8 +36,7 @@ export class HostImageRequestDto {
   readonly harnesses?: RegisteredHarnessRequestDto[];
 
   @ApiPropertyOptional({
-    example:
-      'Runner is on release 20260801-01. Minimum version required: 20260925-01',
+    example: 'Runner is on release v0.2.0. Minimum version required: v0.3.0',
     description: 'Why the host will not run it, when it will not',
   })
   readonly unavailableReason?: string;

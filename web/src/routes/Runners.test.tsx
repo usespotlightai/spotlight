@@ -52,10 +52,10 @@ const DIGEST =
   'a3f9c2e17b4d58f6e0c1a2b3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4f5a6b';
 
 const image = (over: Record<string, unknown> = {}) => ({
-  image: 'ghcr.io/usespotlightai/spotlight-runner:20260925-01',
+  image: 'ghcr.io/usespotlightai/spotlight-runner:v0.3.0',
   digest: `ghcr.io/usespotlightai/spotlight-runner@sha256:${DIGEST}`,
   isDefault: true,
-  release: '20260925-01',
+  release: 'v0.3.0',
   harnesses: [{ id: 'claude-code', version: '2.1.270' }],
   unavailableReason: null,
   ...over,
@@ -212,7 +212,7 @@ describe('Runners', () => {
 
     renderPage();
 
-    const named = screen.getByText('spotlight-runner:20260925-01');
+    const named = screen.getByText('spotlight-runner:v0.3.0');
     expect(named.parentElement).toHaveAttribute(
       'title',
       expect.stringContaining('ghcr.io/acme/api-runner:main'),
@@ -231,7 +231,7 @@ describe('Runners', () => {
             release: null,
             harnesses: [{ id: 'other', version: null }],
             unavailableReason:
-              'Runner doesn’t report its release number. Minimum version required: 20260925-01',
+              'Runner doesn’t report its release number. Minimum version required: v0.3.0',
           }),
         ],
       }),
@@ -243,7 +243,7 @@ describe('Runners', () => {
 
     expect(
       await screen.findByText(
-        'Runner doesn’t report its release number. Minimum version required: 20260925-01',
+        'Runner doesn’t report its release number. Minimum version required: v0.3.0',
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText('Other Harness')).not.toBeInTheDocument();
@@ -257,7 +257,7 @@ describe('Runners', () => {
     renderPage();
 
     await userEvent.hover(
-      await screen.findByText('spotlight-runner:20260925-01'),
+      await screen.findByText('spotlight-runner:v0.3.0'),
     );
 
     expect(await screen.findByText(reason)).toBeInTheDocument();
@@ -266,12 +266,12 @@ describe('Runners', () => {
 
   it('says the control plane gives a host on an old release no work, and how to update it', async () => {
     const reason =
-      'Host is on release 20261001-04. Minimum release required: 20261002-02. Update it with: spotlight host update';
-    listing([host({ release: '20261001-04', unavailableReason: reason })]);
+      'Host is on release v0.4.3. Minimum release required: v0.5.1. Update it with: spotlight host update';
+    listing([host({ release: 'v0.4.3', unavailableReason: reason })]);
 
     renderPage();
 
-    await userEvent.hover(screen.getByText('20261001-04'));
+    await userEvent.hover(screen.getByText('v0.4.3'));
 
     expect(await screen.findByText(reason)).toBeInTheDocument();
   });
@@ -398,7 +398,7 @@ describe('Runners', () => {
           provisioned({
             id: 'runner_1',
             hostId: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
-            image: 'ghcr.io/usespotlightai/spotlight-runner:20260925-01',
+            image: 'ghcr.io/usespotlightai/spotlight-runner:v0.3.0',
           }),
         ],
       }),

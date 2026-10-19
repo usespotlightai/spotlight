@@ -31,7 +31,7 @@ import (
 
 var quiet = slog.New(slog.NewTextHandler(io.Discard, nil))
 
-const leastRelease = "20260925-01"
+const leastRelease = "v0.3.0"
 
 type fakeEngine struct {
 	mu        sync.Mutex
@@ -1228,7 +1228,7 @@ func TestStopsServingAnImageNoLineNamesAnyMore(t *testing.T) {
 
 func TestAnImageWhoseRunnerIsTooOldIsUnavailable(t *testing.T) {
 	engine, pool := harnessed(), newPool()
-	engine.release = "20260101-01"
+	engine.release = "v0.1.0"
 	serving(t, options(t), engine, pool)
 
 	eventually(t, "the unavailable reason reported", func() bool {
@@ -1395,10 +1395,10 @@ func TestJudgesAnImageAgainWhenTheControlPlaneNeedsANewerRunner(t *testing.T) {
 		return ok && each.UnavailableReason == ""
 	})
 
-	pool.need("20261001-01")
+	pool.need("v0.4.0")
 	eventually(t, "the image unavailable as too old", func() bool {
 		each, _ := pool.reported("runner:1")
-		return strings.Contains(each.UnavailableReason, "Minimum version required: 20261001-01")
+		return strings.Contains(each.UnavailableReason, "Minimum version required: v0.4.0")
 	})
 }
 

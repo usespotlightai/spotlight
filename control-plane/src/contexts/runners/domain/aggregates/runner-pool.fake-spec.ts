@@ -157,7 +157,7 @@ export const aHostReport = (
         isDefault: false,
         harnesses: [],
         unavailableReason:
-          "Runner doesn't report its release number. Minimum version required: 20260925-01",
+          "Runner doesn't report its release number. Minimum version required: v0.3.0",
       },
     ],
   });

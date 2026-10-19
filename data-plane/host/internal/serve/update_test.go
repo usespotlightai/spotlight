@@ -42,7 +42,7 @@ func (u *updates) releases() []string {
 
 func updating(t *testing.T, binary *updates, auto bool) serve.Options {
 	opts := options(t)
-	opts.Version = "20261001-01"
+	opts.Version = "v0.4.0"
 	opts.Updates = binary
 	opts.AutoUpdate = auto
 	return opts
@@ -57,7 +57,7 @@ func TestUpdatesToTheControlPlanesReleaseAndRestartsWhenItsSandboxesFinish(t *te
 	id := engine.workSandboxes()[0]
 
 	pool.mu.Lock()
-	pool.release = "20261018-01"
+	pool.release = "v0.7.0"
 	pool.mu.Unlock()
 	eventually(t, "an update", func() bool { return len(binary.releases()) == 1 })
 
@@ -74,14 +74,14 @@ func TestUpdatesToTheControlPlanesReleaseAndRestartsWhenItsSandboxesFinish(t *te
 	if err := stopped(); !errors.Is(err, serve.ErrUpdated) {
 		t.Fatalf("stopped with %v", err)
 	}
-	if got := binary.releases(); got[0] != "20261018-01" {
+	if got := binary.releases(); got[0] != "v0.7.0" {
 		t.Errorf("updated to %v", got)
 	}
 }
 
 func TestUpdatesBeforeItClaimsWhenItStartsOnAnotherRelease(t *testing.T) {
 	engine, pool, binary := harnessed(), newPool(), &updates{}
-	pool.release = "20261018-01"
+	pool.release = "v0.7.0"
 	_, stopped := serving(t, updating(t, binary, true), engine, pool)
 
 	if err := stopped(); !errors.Is(err, serve.ErrUpdated) {
@@ -94,7 +94,7 @@ func TestUpdatesBeforeItClaimsWhenItStartsOnAnotherRelease(t *testing.T) {
 
 func TestDoesNotUpdateWhenItIsOnTheControlPlanesRelease(t *testing.T) {
 	engine, pool, binary := harnessed(), newPool(), &updates{}
-	pool.release = "20261001-01"
+	pool.release = "v0.4.0"
 	serving(t, updating(t, binary, true), engine, pool)
 
 	pool.work <- assignment("runner_1")
@@ -106,7 +106,7 @@ func TestDoesNotUpdateWhenItIsOnTheControlPlanesRelease(t *testing.T) {
 
 func TestWithAutoUpdateOffItOnlyRestartsWhenItsBinaryIsReplaced(t *testing.T) {
 	engine, pool, binary := harnessed(), newPool(), &updates{}
-	pool.release = "20261018-01"
+	pool.release = "v0.7.0"
 	_, stopped := serving(t, updating(t, binary, false), engine, pool)
 
 	pool.work <- assignment("runner_1")
@@ -127,7 +127,7 @@ func TestWithAutoUpdateOffItOnlyRestartsWhenItsBinaryIsReplaced(t *testing.T) {
 
 func TestAFailedUpdateKeepsServingAndWaitsBeforeItTriesAgain(t *testing.T) {
 	engine, pool, binary := harnessed(), newPool(), &updates{fails: errors.New("404 Not Found")}
-	pool.release = "20261018-01"
+	pool.release = "v0.7.0"
 	serving(t, updating(t, binary, true), engine, pool)
 
 	pool.work <- assignment("runner_1")

@@ -5,14 +5,14 @@ export class HostReleaseResponseDto {
   @ApiProperty({
     type: String,
     nullable: true,
-    example: '20261018-01',
+    example: 'v0.7.0',
     description:
       'The published release this control plane runs; a host on another release updates to it, unless the operator turned that off. Null when the control plane runs a staging build or does not know its release',
   })
   readonly release: string | null;
 
   @ApiProperty({
-    example: '20261002-02',
+    example: 'v0.5.1',
     description:
       'The oldest host release this control plane gives work to; an older host gets no work until it updates',
   })
@@ -26,7 +26,7 @@ export class HostReleaseResponseDto {
 
 export class RunnerReleaseResponseDto {
   @ApiProperty({
-    example: '20260925-01',
+    example: 'v0.3.0',
     description:
       'The oldest runner release this control plane works with; a host cannot use an image whose runner is older',
   })

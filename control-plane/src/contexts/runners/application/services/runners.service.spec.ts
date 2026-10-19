@@ -276,14 +276,14 @@ describe('Runners', () => {
 
     it('starts none for a host on a release older than the host minimum, and says both releases', async () => {
       const { service, added } = running(aPullPool(), {
-        host: aHost({ release: '20261001-04' }),
+        host: aHost({ release: 'v0.0.9' }),
       });
 
       await expect(
         service.start(THROUGH_POOL, HOST, IMAGE, STARTED_AT, CLAIM_BY),
       ).resolves.toEqual({
         outcome: 'host-outdated',
-        release: '20261001-04',
+        release: 'v0.0.9',
         minimum: MIN_HOST_RELEASE,
       });
       expect(added).toEqual([]);

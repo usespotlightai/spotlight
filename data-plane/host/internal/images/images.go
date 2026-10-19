@@ -2,6 +2,7 @@ package images
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"slices"
 	"strings"
@@ -81,7 +82,7 @@ func (a Allowed) Disallowed(named []string) []string {
 const HarnessExamples = "https://github.com/usespotlightai/spotlight/tree/main/.docker/runner/examples"
 
 var (
-	datedRelease   = regexp.MustCompile(`^(\d{8})-(\d+)$`)
+	semverRelease  = regexp.MustCompile(`^v(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$`)
 	patternShape   = regexp.MustCompile(`^[a-z0-9][a-z0-9._:/@-]*$`)
 	referenceShape = regexp.MustCompile(
 		`^[a-z0-9]+([._-][a-z0-9]+)*(:[0-9]+)?(/[a-z0-9]+([._-][a-z0-9]+)*)*(:[A-Za-z0-9_][A-Za-z0-9._-]{0,127})?(@sha256:[0-9a-f]{64})?$`,
@@ -93,16 +94,29 @@ func RunnerTooOld(release, minimum string) string {
 		return fmt.Sprintf("Runner doesn't report its release number. Minimum version required: %s", minimum)
 	}
 
-	have, need := datedRelease.FindStringSubmatch(release), datedRelease.FindStringSubmatch(minimum)
+	have, need := versionOf(release), versionOf(minimum)
 	if have == nil || need == nil {
 		return ""
 	}
 
-	if have[1] < need[1] || (have[1] == need[1] && number(have[2]) < number(need[2])) {
+	if slices.Compare(have, need) < 0 {
 		return fmt.Sprintf("Runner is on release %s. Minimum version required: %s", release, minimum)
 	}
 
 	return ""
+}
+
+func versionOf(release string) []int {
+	parts := semverRelease.FindStringSubmatch(release)
+	if parts == nil {
+		return nil
+	}
+
+	candidate := math.MaxInt
+	if parts[4] != "" {
+		candidate = number(parts[4])
+	}
+	return []int{number(parts[1]), number(parts[2]), number(parts[3]), candidate}
 }
 
 func number(digits string) int {

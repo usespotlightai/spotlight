@@ -1,18 +1,34 @@
-const DATED_RELEASE = /^(\d{8})-(\d+)$/;
+const SEMVER_RELEASE = /^v(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/;
 
-export const isDatedRelease = (release: string): boolean =>
-  DATED_RELEASE.test(release);
+const FINAL = Number.POSITIVE_INFINITY;
+
+const versionOf = (release: string): number[] | null => {
+  const parts = SEMVER_RELEASE.exec(release);
+
+  if (!parts) {
+    return null;
+  }
+
+  const [, major, minor, patch, candidate] = parts;
+  return [
+    Number(major),
+    Number(minor),
+    Number(patch),
+    candidate === undefined ? FINAL : Number(candidate),
+  ];
+};
+
+export const isSemverRelease = (release: string): boolean =>
+  SEMVER_RELEASE.test(release);
 
 export const isOlderRelease = (release: string, minimum: string): boolean => {
-  const have = DATED_RELEASE.exec(release);
-  const need = DATED_RELEASE.exec(minimum);
+  const have = versionOf(release);
+  const need = versionOf(minimum);
 
   if (!have || !need) {
     return false;
   }
 
-  return (
-    have[1] < need[1] ||
-    (have[1] === need[1] && Number(have[2]) < Number(need[2]))
-  );
+  const differs = have.findIndex((part, at) => part !== need[at]);
+  return differs !== -1 && have[differs] < need[differs];
 };
