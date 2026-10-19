@@ -256,9 +256,7 @@ describe('Runners', () => {
 
     renderPage();
 
-    await userEvent.hover(
-      await screen.findByText('spotlight-runner:v0.3.0'),
-    );
+    await userEvent.hover(await screen.findByText('spotlight-runner:v0.3.0'));
 
     expect(await screen.findByText(reason)).toBeInTheDocument();
     expect(screen.queryByText(/unavailable$/)).not.toBeInTheDocument();

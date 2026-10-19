@@ -745,7 +745,7 @@ describe('runner pools (e2e)', () => {
     it('claims nothing for a host on a release older than the host minimum, and says how to update it', async () => {
       const token = tokenOf('outdated');
       await create({ key: 'ephemeral', token }).expect(201);
-      await heartbeat(token, HOST, [], 'boot_1', '20200101-01').expect(200);
+      await heartbeat(token, HOST, [], 'boot_1', 'v0.0.1').expect(200);
       await queue();
 
       const outdated = await claimWith(token).expect(409);
