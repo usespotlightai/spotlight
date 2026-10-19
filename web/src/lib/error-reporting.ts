@@ -37,7 +37,7 @@ export function errorReportingOptions(
       urlQueryParams: false,
     },
     beforeSend: scrubbed,
-    beforeBreadcrumb: withoutQuery,
+    beforeBreadcrumb: withoutIds,
   };
 }
 
@@ -64,15 +64,13 @@ export function withGatewayErrorReported(
 
 export function scrubbed(event: ErrorEvent): ErrorEvent {
   if (event.request) {
-    event.request.url = withoutQueryString(event.request.url);
+    event.request.url = urlShape(event.request.url);
     delete event.request.query_string;
     delete event.request.cookies;
     delete event.request.data;
 
     if (event.request.headers?.Referer) {
-      event.request.headers.Referer = withoutQueryString(
-        event.request.headers.Referer,
-      );
+      event.request.headers.Referer = urlShape(event.request.headers.Referer);
     }
   }
 
@@ -81,12 +79,12 @@ export function scrubbed(event: ErrorEvent): ErrorEvent {
       event.user.id === undefined ? undefined : { id: event.user.id };
   }
 
-  event.breadcrumbs = event.breadcrumbs?.map(withoutQuery);
+  event.breadcrumbs = event.breadcrumbs?.map(withoutIds);
 
   return event;
 }
 
-function withoutQuery(breadcrumb: Breadcrumb): Breadcrumb {
+function withoutIds(breadcrumb: Breadcrumb): Breadcrumb {
   if (!breadcrumb.data) {
     return breadcrumb;
   }
@@ -94,7 +92,7 @@ function withoutQuery(breadcrumb: Breadcrumb): Breadcrumb {
   const data = { ...breadcrumb.data };
   for (const key of ['url', 'from', 'to']) {
     if (typeof data[key] === 'string') {
-      data[key] = withoutQueryString(data[key]);
+      data[key] = urlShape(data[key]);
     }
   }
 
@@ -108,6 +106,23 @@ function routeOf(url: string): string {
     .join('/');
 }
 
-function withoutQueryString<T extends string | undefined>(url: T): T {
-  return (url?.split(/[?#]/, 1)[0] ?? url) as T;
+const WORD = /^[a-z][a-z-]{0,23}$/;
+
+const shapedPath = (path: string): string =>
+  path
+    .split('/')
+    .map((segment) => (segment === '' || WORD.test(segment) ? segment : ':id'))
+    .join('/');
+
+function urlShape<T extends string | undefined>(url: T): T {
+  if (!url) {
+    return url;
+  }
+
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}${shapedPath(parsed.pathname)}` as T;
+  } catch {
+    return shapedPath(url.split(/[?#]/, 1)[0] ?? '') as T;
+  }
 }

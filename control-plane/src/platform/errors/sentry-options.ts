@@ -1,3 +1,4 @@
+import { originOf, urlShape } from '@platform/errors/url-shape';
 import {
   REDACTED_REQUEST_HEADERS,
   REDACTED_RESPONSE_HEADERS,
@@ -47,7 +48,7 @@ export function sentryOptions(
       genAI: { inputs: false, outputs: false },
     },
     beforeSend: scrubbed,
-    beforeBreadcrumb: withoutQuery,
+    beforeBreadcrumb: withoutPath,
     integrations: openTelemetry
       ? (defaults) => [...defaults, openTelemetryIntegration()]
       : undefined,
@@ -58,16 +59,19 @@ function scrubbed(event: ErrorEvent): ErrorEvent {
   const request = event.request;
 
   if (request) {
-    request.url = withoutQueryString(request.url);
+    request.url = urlShape(request.url);
     delete request.query_string;
     delete request.cookies;
     delete request.data;
 
     if (request.headers) {
       request.headers = Object.fromEntries(
-        Object.entries(request.headers).filter(
-          ([name]) => !REDACTED_HEADERS.has(name.toLowerCase()),
-        ),
+        Object.entries(request.headers)
+          .filter(([name]) => !REDACTED_HEADERS.has(name.toLowerCase()))
+          .map(([name, value]) => [
+            name,
+            name.toLowerCase() === 'referer' ? urlShape(value) : value,
+          ]),
       );
     }
   }
@@ -77,12 +81,14 @@ function scrubbed(event: ErrorEvent): ErrorEvent {
       event.user.id === undefined ? undefined : { id: event.user.id };
   }
 
-  event.breadcrumbs = event.breadcrumbs?.map(withoutQuery);
+  event.breadcrumbs = event.breadcrumbs?.map(withoutPath);
 
   return event;
 }
 
-function withoutQuery(breadcrumb: Breadcrumb): Breadcrumb {
+const OUTBOUND = new Set(['http', 'fetch']);
+
+function withoutPath(breadcrumb: Breadcrumb): Breadcrumb {
   const url = breadcrumb.data?.url;
 
   if (typeof url !== 'string') {
@@ -91,10 +97,11 @@ function withoutQuery(breadcrumb: Breadcrumb): Breadcrumb {
 
   return {
     ...breadcrumb,
-    data: { ...breadcrumb.data, url: withoutQueryString(url) },
+    data: {
+      ...breadcrumb.data,
+      url: OUTBOUND.has(breadcrumb.category ?? '')
+        ? originOf(url)
+        : urlShape(url),
+    },
   };
-}
-
-function withoutQueryString<T extends string | undefined>(url: T): T {
-  return (url?.split(/[?#]/, 1)[0] ?? url) as T;
 }
