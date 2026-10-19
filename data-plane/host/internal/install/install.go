@@ -58,14 +58,14 @@ func (s Service) systemd(out io.Writer) error {
 		{"enable", unitName},
 		{"restart", unitName},
 	} {
-		if err := command(out, "systemctl", append(scope, args...)...); err != nil {
+		if err := command("systemctl", append(scope, args...)...); err != nil {
 			return err
 		}
 	}
 
-	fmt.Fprintf(out, "spotlight host: running as the systemd service %s (%s)\n", unitName, path)
-	if !system {
-		fmt.Fprintf(out, "spotlight host: to keep it running after you log out: loginctl enable-linger %s\n", os.Getenv("USER"))
+	step(out, fmt.Sprintf("Started the systemd service %s (%s)", unitName, path))
+	if !system && os.Getenv("SPOTLIGHT_INSTALLER") != "1" && !lingers() {
+		fmt.Fprintf(out, "\nTo keep the host running after you log out, run:\n  loginctl enable-linger %s\n", os.Getenv("USER"))
 	}
 
 	return nil
@@ -86,11 +86,11 @@ func (s Service) launchd(out io.Writer) error {
 
 	domain := "gui/" + strconv.Itoa(os.Getuid())
 	_ = exec.Command("launchctl", "bootout", domain+"/"+label).Run()
-	if err := command(out, "launchctl", "bootstrap", domain, path); err != nil {
+	if err := command("launchctl", "bootstrap", domain, path); err != nil {
 		return err
 	}
 
-	fmt.Fprintf(out, "spotlight host: running as the launchd agent %s, logging to %s\n", label, logs)
+	step(out, fmt.Sprintf("Started the launchd agent %s (logs in %s)", label, logs))
 	return nil
 }
 
@@ -163,11 +163,25 @@ func write(path, body string) error {
 	return os.WriteFile(path, []byte(body), 0o644)
 }
 
-func command(out io.Writer, name string, args ...string) error {
-	run := exec.Command(name, args...)
-	run.Stdout, run.Stderr = out, out
-	if err := run.Run(); err != nil {
-		return fmt.Errorf("%s %s: %w", name, strings.Join(args, " "), err)
+func command(name string, args ...string) error {
+	output, err := exec.Command(name, args...).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s %s: %w\n%s", name, strings.Join(args, " "), err, strings.TrimSpace(string(output)))
 	}
 	return nil
+}
+
+func step(out io.Writer, text string) {
+	mark := "✓"
+	if file, ok := out.(*os.File); ok && os.Getenv("NO_COLOR") == "" {
+		if info, err := file.Stat(); err == nil && info.Mode()&os.ModeCharDevice != 0 {
+			mark = "\033[32m✓\033[0m"
+		}
+	}
+	fmt.Fprintf(out, "  %s %s\n", mark, text)
+}
+
+func lingers() bool {
+	value, err := exec.Command("loginctl", "show-user", os.Getenv("USER"), "--property=Linger", "--value").Output()
+	return err == nil && strings.TrimSpace(string(value)) == "yes"
 }
