@@ -26,7 +26,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 const UNBRIEFED: SearchRunQueued = {
   queued: false,
   reason:
-    'its station or the config it started from is gone, or it had no failing task to look into',
+    'the config it started from is gone, or it had no failing task to look into',
 };
 
 interface ReflectionFocus {
@@ -59,7 +59,10 @@ export class DispatchSearchIteration {
       return;
     }
 
-    const briefing = await this.briefingFor(search, iteration);
+    const station = await this.stationOf(search);
+    const briefing = station
+      ? await this.briefingFor(search, iteration, station)
+      : null;
     const queued = briefing
       ? await this.work.dispatchSearch({
           run: iteration.runId,
@@ -71,6 +74,8 @@ export class DispatchSearchIteration {
           briefing,
         })
       : UNBRIEFED;
+    const stationLeft =
+      !queued.queued && (!station || !(await this.stationOf(search)));
     const stillWanted = await this.transaction.inTransaction(async () => {
       const fresh = await this.searches.locked(search.id);
 
@@ -80,12 +85,14 @@ export class DispatchSearchIteration {
 
       const changed = queued.queued
         ? fresh.queueRun(iteration.runId)
-        : fresh.recordRunEnd(
-            iteration.runId,
-            { failed: true, started: false },
-            this.clock.now(),
-            () => RunId.of(this.ids.generate()),
-          );
+        : stationLeft
+          ? fresh.stationLeft(this.clock.now())
+          : fresh.recordRunEnd(
+              iteration.runId,
+              { failed: true, started: false },
+              this.clock.now(),
+              () => RunId.of(this.ids.generate()),
+            );
 
       if (changed !== fresh) {
         await this.searches.save(changed);
@@ -99,29 +106,24 @@ export class DispatchSearchIteration {
     }
   }
 
+  private stationOf(search: Search): Promise<StationView | null> {
+    return this.work.station(search.station.lineId, search.station.stationId);
+  }
+
   private async briefingFor(
     search: Search,
     iteration: SearchIteration,
+    station: StationView,
   ): Promise<string | null> {
-    const context = await this.contextOf(search);
+    const [seed] = await this.candidates.findMany([search.seed.candidateId]);
 
-    if (!context) {
+    if (!seed) {
       return null;
     }
 
     return iteration.reflects
-      ? this.reflectionBriefing(search, iteration, context)
-      : this.proposalBriefing(search, iteration, context);
-  }
-
-  private async contextOf(search: Search): Promise<IterationContext | null> {
-    const station = await this.work.station(
-      search.station.lineId,
-      search.station.stationId,
-    );
-    const [seed] = await this.candidates.findMany([search.seed.candidateId]);
-
-    return station && seed ? { station, seed } : null;
+      ? this.reflectionBriefing(search, iteration, { station, seed })
+      : this.proposalBriefing(search, iteration, { station, seed });
   }
 
   private proposalBriefing(
