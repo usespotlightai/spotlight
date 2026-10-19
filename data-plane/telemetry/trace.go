@@ -24,10 +24,22 @@ type Trace struct {
 	flags string
 }
 
+var sampling = struct{ sampler, arg string }{os.Getenv(SamplerVar), os.Getenv(SamplerArgVar)}
+
+const (
+	SamplerVar    = "OTEL_TRACES_SAMPLER"
+	SamplerArgVar = "OTEL_TRACES_SAMPLER_ARG"
+)
+
+// SampleAs replaces the sampler that the environment names, for settings read from a file.
+func SampleAs(sampler, arg string) {
+	sampling.sampler, sampling.arg = sampler, arg
+}
+
 // NewTrace samples the trace as OTEL_TRACES_SAMPLER and OTEL_TRACES_SAMPLER_ARG say, like the control plane.
 func NewTrace() Trace {
 	flags := "00"
-	if sampled(os.Getenv("OTEL_TRACES_SAMPLER"), os.Getenv("OTEL_TRACES_SAMPLER_ARG"), mathrand.Float64()) {
+	if sampled(sampling.sampler, sampling.arg, mathrand.Float64()) {
 		flags = "01"
 	}
 	return Trace{id: randomHex(16), flags: flags}

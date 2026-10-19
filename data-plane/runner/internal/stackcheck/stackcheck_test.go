@@ -473,6 +473,36 @@ func TestDiffGathersEverythingChangedSinceTheRunBegan(t *testing.T) {
 	}
 }
 
+func TestDiffSeesAnEditOfTheSameSizeMadeInTheMomentTheCheckoutWasWritten(t *testing.T) {
+	r := setUp(t)
+	checkout := filepath.Join(r.origin, "widgets")
+	git(t, checkout, "update-ref", stackcheck.BaseRef, r.base)
+	git(t, checkout, "config", "core.trustctime", "false")
+
+	app := filepath.Join(checkout, "app.txt")
+	moment := time.Now().Add(-2 * time.Second)
+	if err := os.Chtimes(app, moment, moment); err != nil {
+		t.Fatal(err)
+	}
+	git(t, checkout, "update-index", "--really-refresh")
+	if err := os.Chtimes(filepath.Join(checkout, ".git", "index"), moment, moment); err != nil {
+		t.Fatal(err)
+	}
+	write(t, app, "jello\n")
+	if err := os.Chtimes(app, moment, moment); err != nil {
+		t.Fatal(err)
+	}
+
+	diff, err := r.options().Diff(context.Background(), checkout)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+
+	if !strings.Contains(diff, "+jello") {
+		t.Errorf("diff lacks the edit:\n%s", diff)
+	}
+}
+
 func TestCommittedDiffsOnlyWhatWasCommittedSinceTheRunBegan(t *testing.T) {
 	r := setUp(t)
 	checkout := filepath.Join(r.origin, "widgets")

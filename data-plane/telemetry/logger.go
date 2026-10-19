@@ -11,7 +11,11 @@ const levelSilent = slog.Level(16)
 
 // NewLogger writes JSON lines at the level that LOG_LEVEL names, as the control plane does.
 func NewLogger(role string, out io.Writer) *slog.Logger {
-	return slog.New(slog.NewJSONHandler(out, &slog.HandlerOptions{Level: LevelOf(levelSetting(role))}))
+	return NewLoggerAt(levelSetting(role), out)
+}
+
+func NewLoggerAt(setting string, out io.Writer) *slog.Logger {
+	return slog.New(slog.NewJSONHandler(out, &slog.HandlerOptions{Level: LevelOf(setting)}))
 }
 
 func levelSetting(role string) string {

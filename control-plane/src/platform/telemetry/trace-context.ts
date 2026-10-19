@@ -29,6 +29,14 @@ export function linksTo(traceparent: string | null): Link[] {
   return linked && isSpanContextValid(linked) ? [{ context: linked }] : [];
 }
 
+export function linkActiveSpanTo(traceparent: string | null): void {
+  const span = trace.getActiveSpan();
+
+  for (const link of linksTo(traceparent)) {
+    span?.addLink(link);
+  }
+}
+
 export function traceIdOfTraceparent(
   traceparent: string | null,
 ): string | undefined {

@@ -1806,3 +1806,25 @@ func TestAHostWhoseCallClaimsAreUnauthorizedStops(t *testing.T) {
 		t.Fatalf("stopped with %v", err)
 	}
 }
+
+func TestAHostIsReadyOnceAHeartbeatReachedSpotlight(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	host := serve.New(options(t), pool, engine, nil, quiet)
+
+	if err := host.Ready(context.Background()); err == nil {
+		t.Fatal("a host that never reached Spotlight is ready")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		_ = host.Serve(ctx)
+		close(done)
+	}()
+	t.Cleanup(func() {
+		cancel()
+		<-done
+	})
+
+	eventually(t, "ready", func() bool { return host.Ready(context.Background()) == nil })
+}

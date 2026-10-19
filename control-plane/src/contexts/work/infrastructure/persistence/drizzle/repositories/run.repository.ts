@@ -2,9 +2,17 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { placementMatches } from '@platform/persistence/drizzle/placement-matches';
 import {
+  activeTraceparent,
+  linkActiveSpanTo,
+} from '@platform/telemetry/trace-context';
+import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import {
+  TELEMETRY,
+  type TelemetryPort,
+} from '@shared-kernel/application/ports/telemetry.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
@@ -75,6 +83,19 @@ type Row = typeof run.$inferSelect;
 
 const replayed = alias(run, 'replayed');
 
+const kindOf = (claimed: Run): string => {
+  if (claimed.replayOf) {
+    return 'replay';
+  }
+  if (claimed.subject?.searchId) {
+    return 'search';
+  }
+  if (claimed.chatId) {
+    return 'chat';
+  }
+  return claimed.taskId ? 'task' : 'other';
+};
+
 interface Selected {
   readonly run: Row;
   readonly replayedTaskId: string | null;
@@ -86,6 +107,7 @@ export class DrizzleRunRepository implements RunRepository {
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
     private readonly events: DomainEventDispatcher,
+    @Inject(TELEMETRY) private readonly telemetry: TelemetryPort,
   ) {}
 
   async add(added: Run, extras: RunExtras = {}): Promise<void> {
@@ -123,6 +145,7 @@ export class DrizzleRunRepository implements RunRepository {
       stationConfig: added.configuredAs?.parts ?? null,
       briefedTask: extras.briefed?.parts ?? null,
       askedAPerson: added.askedAPerson,
+      traceparent: activeTraceparent(),
       ...startOf(added),
       ...reservationOf(added),
     });
@@ -136,8 +159,13 @@ export class DrizzleRunRepository implements RunRepository {
     const named = by.harnesses.map((harness) => harness.value);
 
     return this.context.inTransaction(async () => {
-      const locked = await this.context.db.execute<{ id: string }>(sql`
-        SELECT id
+      const locked = await this.context.db.execute<{
+        id: string;
+        traceparent: string | null;
+        waited: string | number | null;
+      }>(sql`
+        SELECT id, traceparent,
+          extract(epoch from (${now.toISOString()}::timestamp - queued_at)) AS waited
         FROM ${run}
         WHERE ${inArray(run.harness, named)}
           AND state = 'queued'
@@ -164,6 +192,14 @@ export class DrizzleRunRepository implements RunRepository {
 
       const claimed = found.claim(by.runner, now);
       await this.save(claimed);
+      this.context.afterCommit(() => {
+        linkActiveSpanTo(row?.traceparent ?? null);
+        this.telemetry.measure(
+          'spotlight.runs.claim_wait_seconds',
+          Math.max(0, Number(row?.waited ?? 0)),
+          { 'spotlight.run.kind': kindOf(claimed) },
+        );
+      });
 
       return claimed;
     });

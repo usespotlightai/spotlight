@@ -166,6 +166,10 @@ func serveShared() error {
 	}
 	client.Through(settings.Transport())
 
+	reachesSpotlight := func(ctx context.Context) error {
+		_, err := client.Request(ctx, http.MethodGet, "/api/health", nil, nil)
+		return err
+	}
 	shared, err := serve.New(settings, client, externalSecretReader(ctx), log)
 	if err != nil {
 		return err
@@ -176,6 +180,10 @@ func serveShared() error {
 		return fmt.Errorf("listen for sandboxes: %w", err)
 	}
 	log.Info("egress is the shared egress for sandboxes", "listen", settings.Listen, "tls", settings.Certificate != nil)
+
+	if err := telemetry.ServeHealth(ctx, os.Getenv(telemetry.HealthVar), reachesSpotlight, log); err != nil {
+		return err
+	}
 
 	return shared.Serve(ctx, listener)
 }

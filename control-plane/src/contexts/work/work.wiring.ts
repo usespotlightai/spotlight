@@ -100,6 +100,10 @@ import {
   type SavepointPort,
 } from '@shared-kernel/application/ports/savepoint.port';
 import {
+  TELEMETRY,
+  type TelemetryPort,
+} from '@shared-kernel/application/ports/telemetry.port';
+import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
@@ -583,6 +587,7 @@ import {
   DEFAULT_HARNESS,
 } from '@work/infrastructure/harnesses/built-in-harnesses';
 import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
+import { CheckedRunJournal } from '@work/infrastructure/journal/checked-run-journal';
 import { LineCompiler } from '@work/infrastructure/lines/line.compile';
 import { RowsLineRendering } from '@work/infrastructure/lines/rows-line-rendering';
 import { DrizzleProcessedEvents } from '@work/infrastructure/persistence/drizzle/ledgers/processed-events.ledger';
@@ -1038,7 +1043,17 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     useFactory: (runs: DrizzleRunRepository) => new RunLeases(runs),
   },
 
-  { provide: RUN_JOURNAL, useClass: DrizzleRunJournal },
+  DrizzleRunJournal,
+
+  {
+    provide: RUN_JOURNAL,
+    inject: [DrizzleRunJournal, LOGGER, TELEMETRY],
+    useFactory: (
+      journal: DrizzleRunJournal,
+      logger: LoggerPort,
+      telemetry: TelemetryPort,
+    ) => new CheckedRunJournal(journal, logger, telemetry),
+  },
 
   { provide: LEASED_RUN_READER, useClass: DrizzleLeasedRunReader },
 

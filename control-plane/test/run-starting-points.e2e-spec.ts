@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -36,9 +37,13 @@ let briefedTasks: DrizzleBriefedTasks;
 
 beforeAll(async () => {
   database = await openDatabase('run_starting_points');
-  runs = new DrizzleRunRepository(new DrizzleContext(database.db), {
-    dispatch: async () => {},
-  });
+  runs = new DrizzleRunRepository(
+    new DrizzleContext(database.db),
+    {
+      dispatch: async () => {},
+    },
+    telemetryInMemory(),
+  );
   briefedTasks = new DrizzleBriefedTasks(database.db);
 
   const lineId = randomUUID();
