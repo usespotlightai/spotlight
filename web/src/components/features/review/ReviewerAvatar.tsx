@@ -1,16 +1,9 @@
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
-import { useSession } from '@/hooks/api/useSession';
+import { useMe } from '@/hooks/useMe';
+import { YOU } from '@/lib/person';
 
 export function ReviewerAvatar() {
-  const { data: session } = useSession();
+  const me = useMe();
 
-  return (
-    <PersonAvatar
-      person={{
-        name: session?.user.name ?? 'You',
-        image: session?.user.image ?? null,
-      }}
-      className="size-5"
-    />
-  );
+  return <PersonAvatar person={me ?? YOU} className="size-5" />;
 }

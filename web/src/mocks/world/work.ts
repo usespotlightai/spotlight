@@ -181,6 +181,11 @@ export const conversationOf = (located: Located): RunNotesResponseDto => {
     createdAt: located.run.startedAt,
     briefing: briefingOf(located, story),
     working: located.run.state === 'claimed',
+    latestRun: {
+      id: located.run.id,
+      state: located.run.state,
+      stopping: false,
+    },
     notes: [...scripted, ...added],
     spend: finished(located.run) ? story.spend : null,
   };

@@ -69,6 +69,7 @@ import { RunConfigResponseDto } from '@work/presentation/http/dto/run-config.res
 import { RunNetworkResponseDto } from '@work/presentation/http/dto/run-network.response.dto';
 import { TaskResponseDto } from '@work/presentation/http/dto/task.response.dto';
 import {
+  LatestRunResponseDto,
   RunNotesResponseDto,
   RunSpendResponseDto,
   RunStationResponseDto,
@@ -264,6 +265,11 @@ export class TaskController {
       found.createdAt,
       found.briefing,
       found.working,
+      new LatestRunResponseDto(
+        found.latestRun.id,
+        found.latestRun.state,
+        found.latestRun.stopping,
+      ),
       found.notes.map(
         (note) =>
           new NoteResponseDto(

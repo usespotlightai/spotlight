@@ -112,6 +112,26 @@ export class RunSpendResponseDto {
   }
 }
 
+export class LatestRunResponseDto {
+  @ApiProperty({ example: '4e1e84a2-0c39-406d-bbbb-559f29e450be' })
+  readonly id: string;
+
+  @ApiProperty({ example: 'claimed', enum: RUN_STATE_NAMES })
+  readonly state: string;
+
+  @ApiProperty({
+    example: false,
+    description: 'Someone asked the run to stop, and it has not ended yet',
+  })
+  readonly stopping: boolean;
+
+  constructor(id: string, state: string, stopping: boolean) {
+    this.id = id;
+    this.state = state;
+    this.stopping = stopping;
+  }
+}
+
 export class RunNotesResponseDto {
   @ApiProperty({ example: '4e1e84a2-0c39-406d-bbbb-559f29e450be' })
   readonly runId: string;
@@ -141,8 +161,17 @@ export class RunNotesResponseDto {
   @ApiProperty({ description: 'The briefing of the run, word for word' })
   readonly briefing: string;
 
-  @ApiProperty({ example: false, description: 'A run is on the task now' })
+  @ApiProperty({
+    example: false,
+    description: 'A run of the task works at this station now',
+  })
   readonly working: boolean;
+
+  @ApiProperty({
+    type: LatestRunResponseDto,
+    description: 'The newest run of the task at this station',
+  })
+  readonly latestRun: LatestRunResponseDto;
 
   @ApiProperty({ type: NoteResponseDto, isArray: true })
   readonly notes: readonly NoteResponseDto[];
@@ -165,6 +194,7 @@ export class RunNotesResponseDto {
     createdAt: string,
     briefing: string,
     working: boolean,
+    latestRun: LatestRunResponseDto,
     notes: readonly NoteResponseDto[],
     spend: RunSpendResponseDto | null,
   ) {
@@ -177,6 +207,7 @@ export class RunNotesResponseDto {
     this.createdAt = createdAt;
     this.briefing = briefing;
     this.working = working;
+    this.latestRun = latestRun;
     this.notes = notes;
     this.spend = spend;
   }

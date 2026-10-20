@@ -66,17 +66,20 @@ export function RunComposer({
         />
       }
       onStop={() => stop.mutate({ teamId, runId })}
-      onSend={({ body, attachments }, sent) =>
+      onSend={({ body, attachments }, sent) => {
         send.mutate(
-          { teamId, runId, body, attachments },
           {
-            onSuccess: () => {
-              sent();
-              onSent?.();
-            },
+            teamId,
+            runId,
+            body,
+            attachments,
+            answers: answering,
+            startsWork: answering || restarts,
           },
-        )
-      }
+          { onSuccess: sent },
+        );
+        onSent?.();
+      }}
     />
   );
 }

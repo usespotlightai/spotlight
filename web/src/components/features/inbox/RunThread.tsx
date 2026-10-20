@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useRunNotes } from '@/hooks/api/useRunNotes';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useTeamRuns } from '@/hooks/api/useTeamRuns';
+import { useLatestRun } from '@/hooks/useLatestRun';
 import { useRunDeciding } from '@/hooks/useRunDeciding';
 import { decisionPending } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
@@ -40,6 +41,7 @@ export function RunThread({
   const conversation = conversationQuery.data;
   const run = runs.data?.find((each) => each.id === runId);
   const decide = useRunDeciding(slug, run);
+  const latest = useLatestRun(run, conversation);
 
   if (loading(conversationQuery) || loading(journal)) {
     return <InboxItemSkeleton />;
@@ -66,11 +68,12 @@ export function RunThread({
             worked={journal.data ?? []}
             openAt={lastNoteOf(conversation.notes, runId)}
             footer={
-              run ? (
+              run && latest ? (
                 <RunFooter
                   slug={slug}
                   teamId={teamId}
                   run={run}
+                  latest={latest}
                   conversation={conversation}
                   deciding={decisionPending(conversation.notes)}
                 />

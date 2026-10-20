@@ -51,7 +51,14 @@ export interface RunNotesSummary {
   readonly createdAt: Date;
   readonly briefing: string;
   readonly working: boolean;
+  readonly latestRun: LatestRunSummary;
   readonly notes: readonly InboxNote[];
+}
+
+interface LatestRunSummary {
+  readonly id: string;
+  readonly state: RunState;
+  readonly stopping: boolean;
 }
 
 export interface RanConfig {

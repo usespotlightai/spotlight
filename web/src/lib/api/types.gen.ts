@@ -1890,6 +1890,15 @@ export type RunNetworkResponseDto = {
   connections: Array<RunConnectionResponseDto>;
 };
 
+export type LatestRunResponseDto = {
+  id: string;
+  state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
+  /**
+   * Someone asked the run to stop, and it has not ended yet
+   */
+  stopping: boolean;
+};
+
 export type RunSpendResponseDto = {
   cost: number | null;
   currency: string | null;
@@ -1927,9 +1936,13 @@ export type RunNotesResponseDto = {
    */
   briefing: string;
   /**
-   * A run is on the task now
+   * A run of the task works at this station now
    */
   working: boolean;
+  /**
+   * The newest run of the task at this station
+   */
+  latestRun: LatestRunResponseDto;
   notes: Array<NoteResponseDto>;
   /**
    * What the run spent, once it has ended and its usage is recorded

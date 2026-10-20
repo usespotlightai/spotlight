@@ -113,12 +113,7 @@ export const pendingIn = <T extends { kind: TaskNoteKind }>(
   return last && stillOpen(last) ? last : null;
 };
 
-export const threadAt = <T extends { runId: string | null; station: string }>(
+export const worksOn = <T extends { kind: TaskNoteKind }>(
+  running: boolean,
   notes: readonly T[],
-  station: string | null,
-  runId: string,
-): T[] =>
-  notes.filter(
-    (note) =>
-      note.runId === runId || (station !== null && note.station === station),
-  );
+): boolean => running && !awaitsAPerson(notes);

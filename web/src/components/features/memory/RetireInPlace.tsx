@@ -11,8 +11,9 @@ import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
 import { PillButton } from '@/components/shared/PillButton';
 import { useRetireMemory } from '@/hooks/api/useRetireMemory';
-import { useSession } from '@/hooks/api/useSession';
+import { useMe } from '@/hooks/useMe';
 import { MAX_RETIRE_REASON } from '@/lib/memory';
+import { YOU } from '@/lib/person';
 
 type RetireInPlaceProps = {
   teamId: string;
@@ -25,12 +26,8 @@ export function RetireInPlace({
   memoryId,
   onCancel,
 }: RetireInPlaceProps) {
-  const { data: session } = useSession();
+  const me = useMe() ?? YOU;
   const retire = useRetireMemory();
-  const me = {
-    name: session?.user.name ?? 'You',
-    image: session?.user.image ?? null,
-  };
   const [reason, setReason] = useState('');
   const form = useRef<HTMLFormElement>(null);
 

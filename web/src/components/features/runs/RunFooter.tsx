@@ -1,11 +1,13 @@
 import { RunComposer } from '@/components/features/runs/RunComposer';
+import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { type TeamRun, waitsOnPerson } from '@/lib/run';
-import type { RunNotes } from '@/lib/run-notes';
+import type { LatestRun, RunNotes } from '@/lib/run-notes';
 
 type RunFooterProps = {
   slug: string;
   teamId: string;
   run: TeamRun;
+  latest: LatestRun;
   conversation: RunNotes | undefined;
   deciding: boolean;
   onSent?: () => void;
@@ -15,11 +17,14 @@ export function RunFooter({
   slug,
   teamId,
   run,
+  latest,
   conversation,
   deciding,
   onSent,
 }: RunFooterProps) {
-  if (run.station?.name !== conversation?.station?.name) {
+  const { station: current } = useTaskStation(teamId, conversation?.taskId);
+
+  if (current && run.station && current.id !== run.station.id) {
     return (
       <p className="pb-5 text-center text-muted-foreground text-xs">
         The task has moved to another station. Messages here reach no one.
@@ -31,12 +36,12 @@ export function RunFooter({
     <RunComposer
       slug={slug}
       teamId={teamId}
-      runId={run.id}
+      runId={latest.id}
       taskId={conversation?.taskId}
       station={run.station?.name ?? 'the agent'}
       stationId={run.station?.id}
-      running={run.state === 'claimed'}
-      answering={waitsOnPerson(run) && !deciding}
+      running={latest.state === 'claimed' && !latest.stopping}
+      answering={waitsOnPerson(latest) && !deciding}
       onSent={onSent}
     />
   );

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Run } from '@/routes/Run';
+import { write } from '@/test/lexical';
 
 const runs = vi.fn();
 const runsFailing = vi.fn();
@@ -122,8 +123,12 @@ vi.mock('@/hooks/api/useTaskStation', () => ({
   useTaskStation: () => taskStation(),
 }));
 
+const send = vi.fn();
+const inFlight = vi.fn((): unknown[] => []);
+
 vi.mock('@/hooks/api/useSendMessage', () => ({
-  useSendMessage: () => ({ mutate: vi.fn(), isPending: false }),
+  useSendMessage: () => ({ mutate: send, isPending: false }),
+  useMessagesInFlight: () => inFlight(),
 }));
 
 const answer = vi.fn();
@@ -132,8 +137,11 @@ vi.mock('@/hooks/api/useAnswerInboxItem', () => ({
   useAnswerInboxItem: () => ({ mutate: answer, isPending: false }),
 }));
 
+const stop = vi.fn();
+
 vi.mock('@/hooks/api/useStopRun', () => ({
-  useStopRun: () => ({ mutate: vi.fn() }),
+  useStopRun: () => ({ mutate: stop }),
+  useStopInFlight: () => false,
 }));
 
 vi.mock('@/hooks/api/useHarnesses', () => ({
@@ -225,6 +233,9 @@ const renderRun = (client = new QueryClient()) =>
 describe('Run', () => {
   beforeEach(() => {
     taskStation.mockReturnValue({});
+    send.mockReset();
+    stop.mockReset();
+    inFlight.mockReturnValue([]);
     runs.mockReturnValue([run()]);
     runsFailing.mockReturnValue(false);
     refetchRuns.mockReset();
@@ -501,6 +512,63 @@ describe('Run', () => {
       expect(screen.getByText('The tests failed again.')).toBeInTheDocument();
     });
 
+    const later = (latestRun: Record<string, unknown>) => {
+      runs.mockReturnValue([run({ state: 'failed', exitCode: -1 })]);
+      conversation.mockReturnValue({
+        ...conversation(),
+        latestRun: { id: 'run_2', stopping: false, ...latestRun },
+      });
+    };
+
+    it('stops the later run while it works', async () => {
+      later({ state: 'claimed' });
+
+      renderRun();
+      await userEvent.click(screen.getByRole('button', { name: 'Stop' }));
+
+      expect(stop).toHaveBeenCalledWith({ teamId: 'team_1', runId: 'run_2' });
+    });
+
+    it('no longer offers to stop the later run once it is stopping', () => {
+      later({ state: 'claimed', stopping: true });
+
+      renderRun();
+
+      expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
+    });
+
+    it('sends a message to the later run', async () => {
+      later({ state: 'failed' });
+
+      renderRun();
+      await write(
+        screen.getByRole('textbox', { name: 'Message Implementation' }),
+        'try again',
+      );
+      await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+      expect(send).toHaveBeenCalledWith(
+        expect.objectContaining({ runId: 'run_2', body: 'try again' }),
+        expect.anything(),
+      );
+    });
+
+    it('shows a message on its way before the server has it', () => {
+      inFlight.mockReturnValue([
+        {
+          teamId: 'team_1',
+          runId: 'run_1',
+          body: 'and once more',
+          attachments: [],
+          sentAt: Date.parse('2026-08-29T12:10:00.000Z'),
+        },
+      ]);
+
+      renderRun();
+
+      expect(screen.getByText('and once more')).toBeInTheDocument();
+    });
+
     it('ends the opened run with its actions before the later messages', () => {
       renderRun();
 
@@ -610,7 +678,7 @@ describe('Run', () => {
       );
     });
 
-    it('does not offer to send work back from a run at a station the task has left', () => {
+    it('says messages reach no one from a run at a station the task has left', () => {
       taskStation.mockReturnValue({
         ...idle,
         station: { ...idle.station, id: 'station_4' },
@@ -619,10 +687,13 @@ describe('Run', () => {
       renderRun();
 
       expect(
-        screen.getByRole('textbox', {
-          name: 'Message Implementation',
-        }),
+        screen.getByText(
+          'The task has moved to another station. Messages here reach no one.',
+        ),
       ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('textbox', { name: 'Message Implementation' }),
+      ).toBeNull();
     });
 
     it('only says something to the station while a run still works the task', () => {

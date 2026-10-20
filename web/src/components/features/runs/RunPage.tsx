@@ -10,12 +10,13 @@ import { StepAnchorsProvider } from '@/components/features/runs/StepAnchorsProvi
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useRunDeciding } from '@/hooks/useRunDeciding';
+import { useRunThread } from '@/hooks/useRunThread';
 import { useRunTrail } from '@/hooks/useRunTrail';
 import { decisionPending, type RunJournal, workedOn } from '@/lib/inbox';
 import { type TeamRun, working } from '@/lib/run';
 import {
   type RunNotes as ConversationData,
-  lastNoteOf,
+  followedOnAfter,
   stayedQuiet,
 } from '@/lib/run-notes';
 import { TrailContext, useTrail } from '@/lib/trail';
@@ -33,27 +34,27 @@ export function RunPage({
   slug,
   teamId,
   run,
-  conversation,
+  conversation: reported,
   worked,
   journalFailed,
 }: RunPageProps) {
-  const base = useRunTrail({ slug, teamId, run, title: conversation?.title });
+  const base = useRunTrail({ slug, teamId, run, title: reported?.title });
   const { trail, forward } = useTrail(base, 2);
+  const { latest, conversation } = useRunThread(run, reported);
 
   const notes = conversation?.notes ?? [];
   const deciding = decisionPending(notes);
   const decide = useRunDeciding(slug, run);
   const ran = workedOn(worked, notes, run.id);
-  const closesAt = lastNoteOf(notes, run.id);
-  const followedOn =
-    closesAt !== null && notes.some((note) => note.position > closesAt);
-  const [openAt, setOpenAt] = useState(() => (followedOn ? closesAt : null));
+  const [openAt, setOpenAt] = useState(() => followedOnAfter(notes, run.id));
+  const followedOn = followedOnAfter(notes, run.id) !== null;
 
   const footer = (
     <RunFooter
       slug={slug}
       teamId={teamId}
       run={run}
+      latest={latest}
       conversation={conversation}
       deciding={deciding}
       onSent={() => setOpenAt(null)}
@@ -71,9 +72,24 @@ export function RunPage({
     />
   );
 
+  const stoppingHere = latest.id === run.id && latest.stopping;
+
   const activity = run.station ? (
-    <RunActivity journals={ran} working={working(run)} station={run.station} />
+    <RunActivity
+      journals={ran}
+      working={working(run) && !stoppingHere}
+      station={run.station}
+    />
   ) : null;
+
+  const live =
+    latest.state === 'claimed' && run.station ? (
+      <RunActivity
+        journals={workedOn(worked, notes, latest.id)}
+        working={!latest.stopping}
+        station={run.station}
+      />
+    ) : undefined;
 
   return (
     <TrailContext value={forward}>
@@ -88,7 +104,7 @@ export function RunPage({
                 conversation={conversation}
                 worked={worked}
                 openAt={openAt}
-                live={run.state === 'claimed' ? activity : undefined}
+                live={live}
                 closing={followedOn ? undefined : closing}
                 afterRun={(ranId) =>
                   followedOn && ranId === run.id ? closing : null

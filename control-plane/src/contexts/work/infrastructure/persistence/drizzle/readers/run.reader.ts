@@ -27,13 +27,15 @@ import type {
   TaskRunSummary,
   TeamRunSummary,
 } from '@work/application/ports/run-reader.port';
-import { awaitsAPerson, threadAt } from '@work/domain/services/conversations';
+import { worksOn } from '@work/domain/services/conversations';
+import { isStopping } from '@work/domain/value-objects/run-state';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 import {
   attachmentsFor,
   attachmentsOf,
   reviewsBy,
   stationsPerLine,
+  threadAt,
   trailsFor,
 } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import {
@@ -193,11 +195,11 @@ export class DrizzleRunReader implements RunReaderPort {
       .select({
         runId: run.id,
         state: run.state,
+        stopRequestedAt: run.stopRequestedAt,
         taskId: task.id,
         title: task.title,
         description: task.description,
         workingRunId: task.currentRunId,
-        taskStationId: task.stationId,
         createdAt: task.createdAt,
         spec: run.spec,
         stationId: ranAt.id,
@@ -228,8 +230,23 @@ export class DrizzleRunReader implements RunReaderPort {
       found.stationLineId ?? '',
     ]);
     const notes = trail ?? [];
-    const workingHere =
-      found.workingRunId !== null && found.taskStationId === found.stationId;
+    const [latest = found] = found.stationId
+      ? await this.db
+          .select({
+            runId: run.id,
+            state: run.state,
+            stopRequestedAt: run.stopRequestedAt,
+          })
+          .from(run)
+          .where(
+            and(
+              eq(run.taskId, found.taskId),
+              eq(run.stationId, found.stationId),
+            ),
+          )
+          .orderBy(desc(run.createdAt))
+          .limit(1)
+      : [];
     const spec = RunSpecContract.from(found.spec);
 
     return {
@@ -241,7 +258,12 @@ export class DrizzleRunReader implements RunReaderPort {
       station: stationSummaryOf({ ...found }, stationCounts),
       createdAt: found.createdAt,
       briefing: spec.briefing,
-      working: workingHere && !awaitsAPerson(notes),
+      working: worksOn(found.workingRunId === latest.runId, notes),
+      latestRun: {
+        id: latest.runId,
+        state: latest.state,
+        stopping: isStopping(latest.state, latest.stopRequestedAt !== null),
+      },
       notes: threadAt(notes, found.stationName, runId.value),
     };
   }

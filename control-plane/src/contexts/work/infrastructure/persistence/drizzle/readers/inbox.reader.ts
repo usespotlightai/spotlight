@@ -28,10 +28,10 @@ import {
   type InboxRequestAccess,
 } from '@work/domain/aggregates/inbox-request.aggregate';
 import {
-  awaitsAPerson,
   conversationsOf,
   notesIn,
   stillOpen,
+  worksOn,
 } from '@work/domain/services/conversations';
 import { anyUnread } from '@work/domain/services/unread';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
@@ -201,9 +201,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
           askedAt: last?.at ?? note.at,
           resolved: !stillOpen(conversation),
           working:
-            stillOpen(conversation) &&
-            row.working !== null &&
-            !awaitsAPerson(notes),
+            stillOpen(conversation) && worksOn(row.working !== null, notes),
           runId: stillOpen(conversation) ? row.working : null,
           unread: anyUnread(notes),
           briefing: (note.runId && briefings.get(note.runId)) || null,

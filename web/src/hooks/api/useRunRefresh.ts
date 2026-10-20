@@ -14,6 +14,7 @@ type RunRefreshParams = {
   readonly runId?: string;
   readonly taskId?: string;
   readonly state?: TeamRun['state'];
+  readonly following?: Pick<TeamRun, 'id' | 'state'>;
 };
 
 export function useRunRefresh({
@@ -21,7 +22,10 @@ export function useRunRefresh({
   runId,
   taskId,
   state,
+  following,
 }: RunRefreshParams) {
+  const watchedId = following?.id ?? runId;
+  const watchedState = following?.state ?? state;
   const queryClient = useQueryClient();
 
   const bump = useCallback(() => {
@@ -44,17 +48,25 @@ export function useRunRefresh({
     }
   }, [queryClient, taskId, runId, teamId]);
 
-  useRunStream(runId, state === 'claimed', bump);
+  useRunStream(watchedId, watchedState === 'claimed', bump);
 
-  const previous = useRef(state);
+  const previous = useRef({ id: watchedId, state: watchedState });
 
   useEffect(() => {
-    if (previous.current && state && previous.current !== state) {
+    const was = previous.current;
+
+    if (
+      was.state &&
+      watchedState &&
+      (was.state !== watchedState || was.id !== watchedId)
+    ) {
       bump();
-      void queryClient.invalidateQueries({
-        queryKey: runScoreKeys.forRun(runId),
-      });
+      if (watchedId === runId) {
+        void queryClient.invalidateQueries({
+          queryKey: runScoreKeys.forRun(runId),
+        });
+      }
     }
-    previous.current = state;
-  }, [state, bump, queryClient, runId]);
+    previous.current = { id: watchedId, state: watchedState };
+  }, [watchedId, watchedState, bump, queryClient, runId]);
 }
