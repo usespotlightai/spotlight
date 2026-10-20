@@ -3,6 +3,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { feedbackAfter } from '@work/domain/services/feedback-after';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
+import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -20,6 +21,7 @@ const noteOf = (
   TaskNote.of({
     position: NotePosition.of(position),
     station: StationName.of('Build'),
+    stationId: StationId.of('station_build'),
     body: TaskNoteBody.of(body),
     at: new Date(Date.UTC(2026, 9, 1, 9, position)),
     voice,

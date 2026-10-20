@@ -30,10 +30,9 @@ const VIEWER = UserId.of('user_1');
 
 type RunState = (typeof schema.run.$inferInsert)['state'];
 
-const taskAtImplementation = async () => {
+const taskOnLine = async (...names: string[]) => {
   const lineId = randomUUID();
-  const triage = randomUUID();
-  const implementation = randomUUID();
+  const stations = names.map(() => randomUUID());
   const taskId = randomUUID();
 
   await db.insert(schema.line).values({
@@ -43,30 +42,34 @@ const taskAtImplementation = async () => {
     teamId: 'team_1',
     name: 'Delivery',
   });
-  await db.insert(schema.station).values([
-    { id: triage, key: 'triage', lineId, name: 'Triage', position: 0 },
-    {
-      id: implementation,
-      key: 'implementation',
+  await db.insert(schema.station).values(
+    names.map((name, position) => ({
+      id: stations[position],
+      key: `station-${position}`,
       lineId,
-      name: 'Implementation',
-      position: 1,
-    },
-  ]);
+      name,
+      position,
+    })),
+  );
   await db.insert(schema.task).values({
     id: taskId,
     openedFrom: 'person',
     workspaceId: 'ws_1',
-    stationId: implementation,
+    stationId: stations[stations.length - 1],
     title: 'Fix the queue',
   });
 
   let position = 0;
-  const note = (station: string, runId: string | null, body: string) =>
+  const note = (
+    at: { stationId: string; station: string },
+    runId: string | null,
+    body: string,
+  ) =>
     db.insert(schema.taskNote).values({
       taskId,
       position: position++,
-      station,
+      station: at.station,
+      stationId: at.stationId,
       body,
       at: new Date('2026-10-20T09:00:00.000Z'),
       voice: runId ? 'station' : 'person',
@@ -101,8 +104,20 @@ const taskAtImplementation = async () => {
     return id;
   };
 
-  return { taskId, triage, implementation, note, run };
+  return { taskId, stations, note, run };
 };
+
+const taskAtImplementation = async () => {
+  const { stations, ...rest } = await taskOnLine('Triage', 'Implementation');
+  const [triage, implementation] = stations;
+
+  return { ...rest, triage, implementation };
+};
+
+const bodiesOf = async (runId: string) =>
+  (await reader.notesFor(RunId.of(runId), VIEWER))?.notes.map(
+    (each) => each.body,
+  );
 
 const current = (taskId: string, runId: string) =>
   db
@@ -124,10 +139,15 @@ describe('the notes of a run', () => {
       'failed',
       '2026-10-20T10:00:00.000Z',
     );
-    await note('Triage', triaged, 'triaged');
-    await note('Implementation', first, 'it failed');
-    await note('Implementation', null, 'try again');
-    await note('Implementation', second, 'it failed again');
+    const atTriage = { stationId: triage, station: 'Triage' };
+    const atImplementation = {
+      stationId: implementation,
+      station: 'Implementation',
+    };
+    await note(atTriage, triaged, 'triaged');
+    await note(atImplementation, first, 'it failed');
+    await note(atImplementation, null, 'try again');
+    await note(atImplementation, second, 'it failed again');
 
     const found = await reader.notesFor(RunId.of(first), VIEWER);
 
@@ -196,5 +216,102 @@ describe('the notes of a run', () => {
       stopping: false,
     });
     expect(found?.working).toBe(false);
+  });
+
+  it('keeps the notes written before the station was renamed', async () => {
+    const { implementation, note, run } = await taskAtImplementation();
+    await note(
+      { stationId: implementation, station: 'Implementation' },
+      null,
+      'typed before the rename',
+    );
+    await db
+      .update(schema.station)
+      .set({ name: 'Build' })
+      .where(eq(schema.station.id, implementation));
+    const built = await run(
+      implementation,
+      'completed',
+      '2026-10-20T09:00:00.000Z',
+    );
+    await note(
+      { stationId: implementation, station: 'Build' },
+      built,
+      'ran after the rename',
+    );
+
+    expect(await bodiesOf(built)).toEqual([
+      'typed before the rename',
+      'ran after the rename',
+    ]);
+  });
+
+  it('places a note at its station after the station is renamed', async () => {
+    const { implementation, note, run } = await taskAtImplementation();
+    const built = await run(
+      implementation,
+      'completed',
+      '2026-10-20T09:00:00.000Z',
+    );
+    await db
+      .update(schema.station)
+      .set({ name: 'Build' })
+      .where(eq(schema.station.id, implementation));
+    await note(
+      { stationId: implementation, station: 'Implementation' },
+      built,
+      'ran before the rename',
+    );
+
+    const [shown] =
+      (await reader.notesFor(RunId.of(built), VIEWER))?.notes ?? [];
+
+    expect(shown).toMatchObject({
+      station: 'Implementation',
+      stationPosition: 1,
+    });
+  });
+
+  it('keeps apart two stations with the same name', async () => {
+    const {
+      stations: [first, second],
+      note,
+      run,
+    } = await taskOnLine('Review', 'Review');
+    const firstRun = await run(first, 'completed', '2026-10-20T09:00:00.000Z');
+    await note(
+      { stationId: first, station: 'Review' },
+      null,
+      'typed at the first review',
+    );
+    await note(
+      { stationId: first, station: 'Review' },
+      firstRun,
+      'ran at the first review',
+    );
+    const secondRun = await run(
+      second,
+      'completed',
+      '2026-10-20T10:00:00.000Z',
+    );
+    await note(
+      { stationId: second, station: 'Review' },
+      null,
+      'typed at the second review',
+    );
+    await note(
+      { stationId: second, station: 'Review' },
+      secondRun,
+      'ran at the second review',
+    );
+
+    expect(await bodiesOf(firstRun)).toEqual([
+      'typed at the first review',
+      'ran at the first review',
+    ]);
+    expect(await bodiesOf(secondRun)).toEqual([
+      'typed at the second review',
+      'ran at the second review',
+    ]);
   });
 });

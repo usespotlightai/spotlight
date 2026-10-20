@@ -248,6 +248,7 @@ describe('Task', () => {
         position: NotePosition.of(0),
         voice: Voice.station(),
         station: StationName.of('Triage'),
+        stationId: StationId.of('station_triage'),
         body: TaskNoteBody.of('Reproduced on restart.'),
         at: new Date('2026-08-28T10:00:00.000Z'),
         kind: 'passed',
@@ -266,6 +267,7 @@ describe('Task', () => {
         position: NotePosition.of(0),
         voice: Voice.station(),
         station: StationName.of('Triage'),
+        stationId: StationId.of('station_triage'),
         body: TaskNoteBody.of('First'),
         at: new Date('2026-08-28T10:00:00.000Z'),
         kind: 'passed',
@@ -274,6 +276,7 @@ describe('Task', () => {
         position: NotePosition.of(0),
         voice: Voice.station(),
         station: StationName.of('Spec'),
+        stationId: StationId.of('station_spec'),
         body: TaskNoteBody.of('Second'),
         at: new Date('2026-08-28T11:00:00.000Z'),
         kind: 'passed',
@@ -293,6 +296,7 @@ describe('Task', () => {
         position: NotePosition.of(0),
         voice: Voice.station(),
         station: StationName.of('Triage'),
+        stationId: StationId.of('station_triage'),
         body: TaskNoteBody.of('Reproduced.'),
         at: new Date('2026-08-28T10:00:00.000Z'),
         kind: 'passed',
@@ -326,6 +330,7 @@ describe('Task, what it is doing', () => {
       position: NotePosition.of(0),
       voice: Voice.station(),
       station: StationName.of('Triage'),
+      stationId: StationId.of('station_triage'),
       body: TaskNoteBody.of('Which queue did you mean?'),
       at: new Date('2026-08-28T12:00:00.000Z'),
       kind: 'passed',
@@ -1383,6 +1388,7 @@ describe('Task, what it is doing', () => {
           notes: [
             TaskNote.of({
               ...newNote,
+              stationId: HERE,
               kind: 'message',
               position: NotePosition.of(1),
             }),
@@ -2070,5 +2076,24 @@ describe('Task and the happenings received while it has a current run', () => {
         assigned().interrupt(world).receiveMessage(RUN, person, SPEC),
       ).toThrow(InvalidTaskTransitionError);
     });
+  });
+});
+
+describe('Task, the station of its notes', () => {
+  const SPEC = StationId.of('station_2');
+
+  it('writes a note at the station the task is at', () => {
+    const [written] = added().addMessage(newNote).notes;
+
+    expect(written.stationId).toEqual(HERE);
+  });
+
+  it('writes a pass at the station the task leaves', () => {
+    const passed = added()
+      .assignRun(RUN, LINE)
+      .passedOn(RUN, LINE, SPEC, TaskRank.of('j'), newNote);
+
+    expect(passed.stationId).toEqual(SPEC);
+    expect(passed.notes[passed.notes.length - 1].stationId).toEqual(HERE);
   });
 });

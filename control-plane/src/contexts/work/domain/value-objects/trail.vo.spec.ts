@@ -5,6 +5,7 @@ import {
   type TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
+import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
@@ -18,6 +19,7 @@ const note = (kind: TaskNoteKind, over: Record<string, unknown> = {}) =>
     position: NotePosition.of(0),
     voice: Voice.station(),
     station: StationName.of('Triage'),
+    stationId: StationId.of('station_triage'),
     body: TaskNoteBody.of(`a ${kind} note`),
     at: NOW,
     kind,

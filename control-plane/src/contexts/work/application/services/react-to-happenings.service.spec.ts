@@ -649,6 +649,7 @@ describe('ReactToHappenings', () => {
           position: NotePosition.of(0),
           voice: Voice.station(),
           station: StationName.of('Code Review'),
+          stationId: StationId.of('station_code_review'),
           body: TaskNoteBody.of('The work is done.'),
           at: NOW,
           kind: 'passed',

@@ -264,7 +264,7 @@ export class DrizzleRunReader implements RunReaderPort {
         state: latest.state,
         stopping: isStopping(latest.state, latest.stopRequestedAt !== null),
       },
-      notes: threadAt(notes, found.stationName, runId.value),
+      notes: threadAt(notes, found.stationId, runId.value),
     };
   }
 

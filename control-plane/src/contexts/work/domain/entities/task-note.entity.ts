@@ -11,6 +11,7 @@ import type { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo
 import type { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import type { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
+import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { StationName } from '@work/domain/value-objects/station-name.vo';
 import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import type { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -40,6 +41,7 @@ export class TaskNote {
   private constructor(
     readonly position: NotePosition,
     readonly station: StationName,
+    readonly stationId: StationId,
     readonly body: TaskNoteBody,
     readonly at: Date,
     readonly voice: Voice,
@@ -59,6 +61,7 @@ export class TaskNote {
   static of(input: {
     position: NotePosition;
     station: StationName;
+    stationId: StationId;
     body: TaskNoteBody;
     at: Date;
     voice: Voice;
@@ -77,6 +80,7 @@ export class TaskNote {
     return new TaskNote(
       input.position,
       input.station,
+      input.stationId,
       input.body,
       input.at,
       input.voice,
@@ -155,6 +159,7 @@ export class TaskNote {
       ? new TaskNote(
           this.position,
           this.station,
+          this.stationId,
           this.body,
           this.at,
           this.voice,
@@ -191,6 +196,7 @@ export class TaskNote {
     return new TaskNote(
       this.position,
       this.station,
+      this.stationId,
       this.body,
       this.at,
       this.voice,
