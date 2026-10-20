@@ -27,7 +27,7 @@ import type {
   TaskRunSummary,
   TeamRunSummary,
 } from '@work/application/ports/run-reader.port';
-import { awaitsAPerson, turnOf } from '@work/domain/services/conversations';
+import { awaitsAPerson, threadAt } from '@work/domain/services/conversations';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 import {
   attachmentsFor,
@@ -197,6 +197,7 @@ export class DrizzleRunReader implements RunReaderPort {
         title: task.title,
         description: task.description,
         workingRunId: task.currentRunId,
+        taskStationId: task.stationId,
         createdAt: task.createdAt,
         spec: run.spec,
         stationId: ranAt.id,
@@ -227,8 +228,8 @@ export class DrizzleRunReader implements RunReaderPort {
       found.stationLineId ?? '',
     ]);
     const notes = trail ?? [];
-    const isCurrentRun = found.workingRunId === found.runId;
-    const turn = turnOf(notes, runId.value, isCurrentRun);
+    const workingHere =
+      found.workingRunId !== null && found.taskStationId === found.stationId;
     const spec = RunSpecContract.from(found.spec);
 
     return {
@@ -240,8 +241,8 @@ export class DrizzleRunReader implements RunReaderPort {
       station: stationSummaryOf({ ...found }, stationCounts),
       createdAt: found.createdAt,
       briefing: spec.briefing,
-      working: isCurrentRun && !awaitsAPerson(notes),
-      notes: turn,
+      working: workingHere && !awaitsAPerson(notes),
+      notes: threadAt(notes, found.stationName, runId.value),
     };
   }
 

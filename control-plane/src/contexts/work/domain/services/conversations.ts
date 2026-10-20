@@ -113,26 +113,12 @@ export const pendingIn = <T extends { kind: TaskNoteKind }>(
   return last && stillOpen(last) ? last : null;
 };
 
-export const turnOf = <T extends { runId: string | null }>(
+export const threadAt = <T extends { runId: string | null; station: string }>(
   notes: readonly T[],
+  station: string | null,
   runId: string,
-  isCurrentRun = false,
-): T[] => {
-  const first = notes.findIndex((note) => note.runId === runId);
-  const last = notes.map((note) => note.runId).lastIndexOf(runId);
-  const ends = isCurrentRun || last === -1 ? notes.length - 1 : last;
-
-  if (ends < 0) {
-    return [];
-  }
-
-  let opens = 0;
-  for (let at = first === -1 ? ends : first; at >= 0; at--) {
-    if (notes[at]?.runId != null && notes[at]?.runId !== runId) {
-      opens = at + 1;
-      break;
-    }
-  }
-
-  return notes.slice(opens, ends + 1);
-};
+): T[] =>
+  notes.filter(
+    (note) =>
+      note.runId === runId || (station !== null && note.station === station),
+  );

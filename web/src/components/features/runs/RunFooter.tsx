@@ -8,6 +8,7 @@ type RunFooterProps = {
   run: TeamRun;
   conversation: RunNotes | undefined;
   deciding: boolean;
+  onSent?: () => void;
 };
 
 export function RunFooter({
@@ -16,6 +17,7 @@ export function RunFooter({
   run,
   conversation,
   deciding,
+  onSent,
 }: RunFooterProps) {
   if (run.station?.name !== conversation?.station?.name) {
     return (
@@ -35,6 +37,7 @@ export function RunFooter({
       stationId={run.station?.id}
       running={run.state === 'claimed'}
       answering={waitsOnPerson(run) && !deciding}
+      onSent={onSent}
     />
   );
 }
