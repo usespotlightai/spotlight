@@ -75,9 +75,7 @@ export class CompleteRunHandler
         session: command.sessionId
           ? HarnessSession.of(command.sessionId)
           : null,
-        lastWords: handover
-          ? null
-          : lastWordsIn(await this.journals.attemptsOfRun(runId)),
+        lastWords: handover ? null : await this.lastWordsOf(runId),
       });
 
       return await this.retrying(() =>
@@ -86,6 +84,19 @@ export class CompleteRunHandler
     } catch (error) {
       rethrowAsApplicationError(error);
     }
+  }
+
+  private async lastWordsOf(runId: RunId): Promise<string | null> {
+    const run = await this.runs.findById(runId);
+    const task = run?.taskId ? await this.tasks.find(run.taskId) : null;
+    const answered = [...(task?.notes ?? [])]
+      .reverse()
+      .find((note) => note.voice.isPerson);
+
+    return lastWordsIn(
+      await this.journals.attemptsOfRun(runId),
+      answered?.at ?? null,
+    );
   }
 
   private async retrying(

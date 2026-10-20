@@ -84,7 +84,7 @@ export function RunPage({
   ) : null;
 
   const live =
-    working(latest) && !latest.stopping && run.station ? (
+    working(latest) && run.station ? (
       <RunActivityOf
         run={latest}
         stopping={latest.stopping}

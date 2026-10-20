@@ -529,6 +529,26 @@ describe('Run', () => {
       expect(stop).toHaveBeenCalledWith({ teamId: 'team_1', runId: 'run_2' });
     });
 
+    it('keeps the work of a run that is stopping, without saying it is working', () => {
+      later({ state: 'claimed', stopping: true });
+      journal.mockReturnValue([
+        {
+          runId: 'run_2',
+          attempt: 1,
+          steps: [step],
+          spans: [],
+          marks: { startedAt: '2026-08-29T12:05:00.000Z' },
+        },
+      ]);
+
+      renderRun();
+
+      expect(screen.getAllByText('queue-stats --all').length).toBeGreaterThan(
+        0,
+      );
+      expect(screen.queryByText(/is working/)).not.toBeInTheDocument();
+    });
+
     it('no longer offers to stop the later run once it is stopping', () => {
       later({ state: 'claimed', stopping: true });
 

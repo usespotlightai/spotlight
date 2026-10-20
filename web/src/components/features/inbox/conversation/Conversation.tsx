@@ -266,7 +266,7 @@ export function Conversation({
 
                 {at === all.length - 1 &&
                   (live ? (
-                    <li>{live}</li>
+                    <li className="empty:hidden">{live}</li>
                   ) : (
                     item.working && (
                       <InboxWorking
