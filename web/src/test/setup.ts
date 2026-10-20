@@ -11,6 +11,8 @@ Element.prototype.scrollIntoView = () => undefined;
 Element.prototype.scrollTo = () => undefined;
 Range.prototype.getBoundingClientRect = () => new DOMRect();
 Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
+HTMLCanvasElement.prototype.getContext = (() =>
+  null) as typeof HTMLCanvasElement.prototype.getContext;
 
 class NoResizeObserver implements ResizeObserver {
   observe() {}
