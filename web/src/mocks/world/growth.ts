@@ -90,6 +90,7 @@ const task = (
   attachments: [],
   createdAt: hoursAgo(24),
   running: false,
+  queued: false,
   awaitingReview: null,
   pullRequest: null,
   createdBy: PRIYA,
@@ -111,6 +112,7 @@ export const GROWTH_TASKS: TaskResponseDto[] = [
     title: 'Annual pricing toggle on the plans page',
     stationId: 'station_build',
     running: true,
+    queued: false,
     createdAt: hoursAgo(40),
   }),
   task({
@@ -118,6 +120,7 @@ export const GROWTH_TASKS: TaskResponseDto[] = [
     title: 'Ask new signups how they found us',
     stationId: 'station_design',
     running: true,
+    queued: false,
     createdAt: hoursAgo(3),
     description:
       'Most signups never say where they found us. Try one optional question on the welcome screen.',

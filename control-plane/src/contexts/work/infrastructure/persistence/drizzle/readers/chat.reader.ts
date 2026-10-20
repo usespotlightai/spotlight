@@ -14,6 +14,7 @@ import type {
   SetupChatView,
 } from '@work/application/ports/chat-reader.port';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { queuedAmong } from '@work/infrastructure/persistence/drizzle/readers/queued-runs';
 import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import {
   chat,
@@ -28,7 +29,7 @@ import { and, asc, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 
 type Row = typeof chat.$inferSelect;
 
-const summaryOf = (row: Row): ChatSummary => ({
+const summaryOf = (row: Row, queued: ReadonlySet<string>): ChatSummary => ({
   id: row.id,
   title: row.title,
   harness: row.harness,
@@ -40,6 +41,7 @@ const summaryOf = (row: Row): ChatSummary => ({
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
   working: row.currentRunId !== null,
+  queued: row.currentRunId !== null && queued.has(row.currentRunId),
 });
 
 @Injectable()
@@ -85,7 +87,12 @@ export class DrizzleChatReader implements ChatReaderPort {
       )
       .orderBy(desc(chat.updatedAt));
 
-    return rows.map(summaryOf);
+    const queued = await queuedAmong(
+      this.db,
+      rows.map((row) => row.currentRunId),
+    );
+
+    return rows.map((row) => summaryOf(row, queued));
   }
 
   async read(
@@ -147,7 +154,7 @@ export class DrizzleChatReader implements ChatReaderPort {
     );
 
     return {
-      ...summaryOf(row),
+      ...summaryOf(row, await queuedAmong(this.db, [row.currentRunId])),
       runId: row.currentRunId,
       messages: messages.map((message) => {
         const proposal = message.proposal ?? null;

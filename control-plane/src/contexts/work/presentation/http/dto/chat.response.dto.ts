@@ -111,6 +111,12 @@ export class ChatSummaryResponseDto {
   @ApiProperty({ example: true, description: 'The agent is answering now' })
   readonly working: boolean;
 
+  @ApiProperty({
+    example: false,
+    description: 'The run waits for a runner to start it',
+  })
+  readonly queued: boolean;
+
   constructor(
     id: string,
     title: string,
@@ -123,6 +129,7 @@ export class ChatSummaryResponseDto {
     createdAt: string,
     updatedAt: string,
     working: boolean,
+    queued: boolean,
   ) {
     this.id = id;
     this.title = title;
@@ -135,6 +142,7 @@ export class ChatSummaryResponseDto {
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
     this.working = working;
+    this.queued = queued;
   }
 }
 
@@ -313,6 +321,7 @@ export class ChatResponseDto extends ChatSummaryResponseDto {
       summary.createdAt,
       summary.updatedAt,
       summary.working,
+      summary.queued,
     );
     this.runId = runId;
     this.messages = messages;

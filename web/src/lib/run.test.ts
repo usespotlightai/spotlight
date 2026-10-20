@@ -149,8 +149,8 @@ describe('runStatus', () => {
     expect(runStatus(run('claimed'))).toBeNull();
   });
 
-  it('reads a queued run as queued', () => {
-    expect(runStatus(run('queued'))).toBe('Queued');
+  it('leaves a queued run to the pill that every page shows', () => {
+    expect(runStatus(run('queued'))).toBeNull();
   });
 
   it('reads a run that asked a person as waiting for you, suspended or not', () => {

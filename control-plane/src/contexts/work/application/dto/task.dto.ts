@@ -25,6 +25,7 @@ export interface TaskDto {
   readonly attachments: readonly AttachmentDto[];
   readonly createdAt: string;
   readonly running: boolean;
+  readonly queued: boolean;
   readonly awaitingReview: TaskReviewDto | null;
   readonly pullRequest: string | null;
   readonly note: TaskNoteDto | null;

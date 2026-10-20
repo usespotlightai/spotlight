@@ -90,6 +90,12 @@ export class TaskResponseDto {
   readonly running: boolean;
 
   @ApiProperty({
+    example: false,
+    description: 'The run waits for a runner to start it',
+  })
+  readonly queued: boolean;
+
+  @ApiProperty({
     type: TaskReviewResponseDto,
     nullable: true,
     description: 'Where an open question is answered, or null for none',
@@ -136,6 +142,7 @@ export class TaskResponseDto {
     attachments: readonly AttachmentResponseDto[],
     createdAt: string,
     running: boolean,
+    queued: boolean,
     awaitingReview: TaskReviewResponseDto | null,
     pullRequest: string | null,
     createdBy: TaskPersonResponseDto | null,
@@ -150,6 +157,7 @@ export class TaskResponseDto {
     this.attachments = attachments;
     this.createdAt = createdAt;
     this.running = running;
+    this.queued = queued;
     this.awaitingReview = awaitingReview;
     this.pullRequest = pullRequest;
     this.createdBy = createdBy;

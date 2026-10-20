@@ -13,6 +13,7 @@ const task = (over: Partial<Task> = {}) =>
     description: null,
     createdAt: '2026-08-28T09:15:00.000Z',
     running: false,
+    queued: false,
     awaitingReview: null,
     note: null,
     ...over,
@@ -32,6 +33,13 @@ describe('TaskState', () => {
     renderIn(<TaskState task={task({ running: true })} />);
 
     expect(screen.getByText('In progress')).toBeInTheDocument();
+  });
+
+  it('marks a task whose run waits for a runner as queued, not in progress', () => {
+    renderIn(<TaskState task={task({ running: true, queued: true })} />);
+
+    expect(screen.getByText('Queued')).toBeInTheDocument();
+    expect(screen.queryByText('In progress')).not.toBeInTheDocument();
   });
 
   it('marks a task that is waiting on a person', () => {

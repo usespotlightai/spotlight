@@ -194,6 +194,7 @@ const task = (
   attachments: [],
   createdAt: hoursAgo(24),
   running: false,
+  queued: false,
   awaitingReview: null,
   pullRequest: null,
   createdBy: SAM,
@@ -227,6 +228,7 @@ export const PLATFORM_TASKS: TaskResponseDto[] = [
     title: 'Drain the stuck retry queues',
     stationId: 'station_implementation',
     running: true,
+    queued: false,
     assignee: MAYA,
     createdAt: hoursAgo(30),
     description:
@@ -266,6 +268,7 @@ export const PLATFORM_TASKS: TaskResponseDto[] = [
     title: 'p99 latency alert on the payments API',
     stationId: 'station_investigate',
     running: true,
+    queued: false,
     createdBy: TOM,
     assignee: TOM,
     createdAt: hoursAgo(2),

@@ -108,7 +108,12 @@ export function ChatThread({
                       </li>
                     ))}
 
-                    {working && <AgentWorking harness={chat.harness} />}
+                    {working && (
+                      <AgentWorking
+                        harness={chat.harness}
+                        queued={chat.queued}
+                      />
+                    )}
                   </ol>
                 )}
               </section>

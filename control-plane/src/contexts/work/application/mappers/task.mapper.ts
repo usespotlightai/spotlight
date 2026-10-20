@@ -27,6 +27,7 @@ export const TaskMapper = {
       attachments: summary.attachments,
       createdAt: summary.createdAt.toISOString(),
       running: summary.running,
+      queued: summary.queued,
       awaitingReview: summary.awaitingReview,
       pullRequest: summary.pullRequest,
       createdBy: summary.createdBy,
@@ -45,6 +46,7 @@ export const TaskMapper = {
     task: Task,
     createdBy: TaskPersonDto | null,
     assignee: TaskPersonDto | null,
+    queued: boolean,
   ): TaskDto {
     const last = task.notes[task.notes.length - 1];
 
@@ -62,6 +64,7 @@ export const TaskMapper = {
       })),
       createdAt: task.createdAt.toISOString(),
       running: task.working,
+      queued,
       awaitingReview: TaskMapper.awaited(task),
       pullRequest: task.pullRequest?.value ?? null,
       createdBy,

@@ -10,9 +10,11 @@ import type { TaskDto } from '@work/application/dto/task.dto';
 import { TaskMapper } from '@work/application/mappers/task.mapper';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { LineLoader } from '@work/application/services/line-loader.service';
+import { queuedOf } from '@work/application/services/queued-of';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
+import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Placement } from '@work/domain/services/placement';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -31,6 +33,7 @@ export class MoveTaskHandler
     private readonly dispatch: TaskDispatching,
     private readonly clock: ClockPort,
     private readonly people: PersonReaderPort,
+    private readonly runs: RunRepository,
   ) {}
 
   async execute(command: MoveTaskCommand): Promise<TaskDto> {
@@ -117,7 +120,12 @@ export class MoveTaskHandler
         ? await this.people.find(placed.assignee)
         : null;
 
-      return TaskMapper.taskToDto(placed, createdBy, assignee);
+      return TaskMapper.taskToDto(
+        placed,
+        createdBy,
+        assignee,
+        await queuedOf(this.runs, placed),
+      );
     });
   }
 }

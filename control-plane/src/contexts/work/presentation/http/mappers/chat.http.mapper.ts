@@ -27,6 +27,7 @@ export const ChatHttpMapper = {
       dto.createdAt,
       dto.updatedAt,
       dto.working,
+      dto.queued,
     );
   },
 

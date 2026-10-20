@@ -118,6 +118,7 @@ export const workHandlers: RequestHandler[] = [
         attachments: attachmentsOf(body.attachments),
         createdAt: new Date().toISOString(),
         running: false,
+        queued: false,
         awaitingReview: null,
         pullRequest: null,
         createdBy: SAM,
@@ -261,7 +262,7 @@ export const workHandlers: RequestHandler[] = [
           ? { ...each, state: 'failed', exitCode: null, updatedAt: now }
           : each,
     );
-    replaceTask(teamId, { ...located.task, running: false });
+    replaceTask(teamId, { ...located.task, running: false, queued: false });
 
     return noContent();
   }),

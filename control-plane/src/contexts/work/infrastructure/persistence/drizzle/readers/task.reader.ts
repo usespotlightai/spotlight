@@ -20,6 +20,7 @@ import type {
   TaskReaderPort,
   TaskSummary,
 } from '@work/application/ports/task-reader.port';
+import { queuedAmong } from '@work/infrastructure/persistence/drizzle/readers/queued-runs';
 import {
   attachmentsFor,
   attachmentsOf,
@@ -80,7 +81,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
       .where(and(eq(line.teamId, teamId.value), isNull(setupNote.taskId)))
       .orderBy(task.rank);
 
-    const [notes, awaited, attached, people] = await Promise.all([
+    const [notes, awaited, attached, people, queued] = await Promise.all([
       this.latestNotes(rows.map((row) => row.id)),
       awaitedReviewsFor(
         this.db,
@@ -97,6 +98,10 @@ export class DrizzleTaskReader implements TaskReaderPort {
           ),
         ),
       ),
+      queuedAmong(
+        this.db,
+        rows.map((row) => row.currentRunId),
+      ),
     ]);
     const person = (id: string) => ({
       id,
@@ -108,6 +113,10 @@ export class DrizzleTaskReader implements TaskReaderPort {
       ...rest,
       attachments: attachmentsOf(attached, rest.id).own,
       running: currentRunId !== null && !awaited.has(rest.id),
+      queued:
+        currentRunId !== null &&
+        !awaited.has(rest.id) &&
+        queued.has(currentRunId),
       awaitingReview: awaited.has(rest.id)
         ? { conversationId: awaited.get(rest.id) as string }
         : null,

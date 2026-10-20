@@ -1670,6 +1670,10 @@ export type TaskResponseDto = {
    */
   running: boolean;
   /**
+   * The run waits for a runner to start it
+   */
+  queued: boolean;
+  /**
    * Where an open question is answered, or null for none
    */
   awaitingReview: TaskReviewResponseDto | null;
@@ -2180,6 +2184,10 @@ export type ChatSummaryResponseDto = {
    * The agent is answering now
    */
   working: boolean;
+  /**
+   * The run waits for a runner to start it
+   */
+  queued: boolean;
 };
 
 export type ChatSetupRequestDto = {
@@ -2299,6 +2307,10 @@ export type ChatResponseDto = {
    * The agent is answering now
    */
   working: boolean;
+  /**
+   * The run waits for a runner to start it
+   */
+  queued: boolean;
   /**
    * The run answering now
    */

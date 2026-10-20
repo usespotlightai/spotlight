@@ -22,6 +22,7 @@ export interface TaskSummary {
   readonly attachments: readonly AttachmentSummary[];
   readonly createdAt: Date;
   readonly running: boolean;
+  readonly queued: boolean;
   readonly awaitingReview: TaskReviewSummary | null;
   readonly pullRequest: string | null;
   readonly note: TaskNoteSummary | null;

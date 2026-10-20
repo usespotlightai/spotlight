@@ -1,7 +1,7 @@
 import { Inbox } from 'lucide-react';
 import { Link } from 'react-router';
-import { InProgress } from '@/components/shared/InProgress';
 import { Pill } from '@/components/shared/Pill';
+import { WorkState } from '@/components/shared/WorkState';
 import type { Task } from '@/lib/task';
 
 type TaskStateProps = {
@@ -27,7 +27,7 @@ export function TaskState({ task, reviewTo }: TaskStateProps) {
   }
 
   if (task.running) {
-    return <InProgress />;
+    return <WorkState queued={task.queued} />;
   }
 
   return null;

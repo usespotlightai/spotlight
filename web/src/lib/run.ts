@@ -37,9 +37,6 @@ export const runStatus = (run: Run): string | null => {
   if (waitsOnPerson(run)) {
     return 'Waiting for you';
   }
-  if (run.state === 'queued') {
-    return 'Queued';
-  }
   if (run.state === 'cancelled') {
     return 'Cancelled';
   }

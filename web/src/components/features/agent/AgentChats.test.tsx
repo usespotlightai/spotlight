@@ -33,6 +33,7 @@ const chat: ChatSummary = {
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   working: false,
+  queued: false,
   targetStation: null,
   setup: null,
 };

@@ -27907,6 +27907,11 @@
             "example": false,
             "description": "A run is under way"
           },
+          "queued": {
+            "type": "boolean",
+            "example": false,
+            "description": "The run waits for a runner to start it"
+          },
           "awaitingReview": {
             "nullable": true,
             "description": "Where an open question is answered, or null for none",
@@ -27963,6 +27968,7 @@
           "attachments",
           "createdAt",
           "running",
+          "queued",
           "awaitingReview",
           "pullRequest",
           "createdBy",
@@ -29389,6 +29395,11 @@
             "type": "boolean",
             "example": true,
             "description": "The agent is answering now"
+          },
+          "queued": {
+            "type": "boolean",
+            "example": false,
+            "description": "The run waits for a runner to start it"
           }
         },
         "required": [
@@ -29402,7 +29413,8 @@
           "setup",
           "createdAt",
           "updatedAt",
-          "working"
+          "working",
+          "queued"
         ]
       },
       "ChatSetupRequestDto": {
@@ -29723,6 +29735,11 @@
             "example": true,
             "description": "The agent is answering now"
           },
+          "queued": {
+            "type": "boolean",
+            "example": false,
+            "description": "The run waits for a runner to start it"
+          },
           "runId": {
             "type": "string",
             "nullable": true,
@@ -29747,6 +29764,7 @@
           "createdAt",
           "updatedAt",
           "working",
+          "queued",
           "runId",
           "messages"
         ]

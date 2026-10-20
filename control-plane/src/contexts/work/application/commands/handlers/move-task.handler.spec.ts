@@ -19,6 +19,7 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import type { RunDetached } from '@work/domain/events/run-detached.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
+import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
@@ -179,6 +180,7 @@ const move = (
     dispatch(),
     clock,
     people,
+    { findById: async () => null } as unknown as RunRepository,
   ).execute(
     new MoveTaskCommand(
       teamId,

@@ -42,10 +42,27 @@ describe('RunRow, what a run is doing', () => {
     expect(pill(inRuns)).toEqual(pill(onBoard));
   });
 
-  it('says a queued run is queued, which the board has no word for', () => {
-    shown(<RunRow run={run('queued')} to="/runs/run_1" />);
+  it('shows the same queued pill that a queued task shows on the board', () => {
+    const inRuns = shown(<RunRow run={run('queued')} to="/runs/run_1" />);
+    const onBoard = shown(
+      <TaskState
+        task={
+          {
+            running: true,
+            queued: true,
+            awaitingReview: false,
+          } as unknown as Task
+        }
+      />,
+    );
 
-    expect(screen.getByText('Queued')).toBeInTheDocument();
+    const pill = (container: HTMLElement) =>
+      screen.getAllByText('Queued').find((each) => container.contains(each))
+        ?.outerHTML;
+
+    expect(pill(inRuns)).toBeDefined();
+    expect(pill(inRuns)).toEqual(pill(onBoard));
+    expect(screen.queryByText('In progress')).not.toBeInTheDocument();
   });
 
   it('says nothing of a run that has ended', () => {

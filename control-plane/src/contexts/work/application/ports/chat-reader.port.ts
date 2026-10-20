@@ -31,6 +31,7 @@ export interface ChatSummary {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly working: boolean;
+  readonly queued: boolean;
 }
 
 interface ChatAuthorView {

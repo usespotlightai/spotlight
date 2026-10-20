@@ -13,6 +13,7 @@ const dto: TaskDto = {
   ],
   createdAt: '2026-08-28T09:15:00.000Z',
   running: true,
+  queued: false,
   awaitingReview: null,
   pullRequest: null,
   createdBy: { id: 'user_1', name: 'Ada', image: null },

@@ -18,6 +18,7 @@ export const TaskHttpMapper = {
       dto.attachments.map(AttachmentHttpMapper.toResponse),
       dto.createdAt,
       dto.running,
+      dto.queued,
       dto.awaitingReview
         ? new TaskReviewResponseDto(dto.awaitingReview.conversationId)
         : null,

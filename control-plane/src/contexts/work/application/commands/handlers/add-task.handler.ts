@@ -11,7 +11,9 @@ import type { TaskPlacementsPort } from '@work/application/ports/task-placements
 import type { CreateTask } from '@work/application/services/create-task';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { LineLoader } from '@work/application/services/line-loader.service';
+import { queuedOf } from '@work/application/services/queued-of';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { Placement } from '@work/domain/services/placement';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
@@ -28,6 +30,7 @@ export class AddTaskHandler
     private readonly createTask: CreateTask,
     private readonly people: PersonReaderPort,
     private readonly files: FilesLoader,
+    private readonly runs: RunRepository,
   ) {}
 
   async execute(command: AddTaskCommand): Promise<TaskDto> {
@@ -76,6 +79,7 @@ export class AddTaskHandler
       created,
       person,
       created.assignee ? person : null,
+      await queuedOf(this.runs, created),
     );
   }
 }

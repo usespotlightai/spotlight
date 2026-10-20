@@ -122,6 +122,7 @@ const shownTaskOf = (task: HistoryTask): TaskResponseDto => ({
   attachments: [],
   createdAt: new Date(task.openedAt).toISOString(),
   running: false,
+  queued: false,
   awaitingReview: null,
   pullRequest: task.pullRequest ? pullRequestUrlOf(task.teamId, task.id) : null,
   createdBy: personOf(task.openedBy),

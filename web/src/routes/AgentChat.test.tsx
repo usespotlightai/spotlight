@@ -259,6 +259,17 @@ describe('AgentChat', () => {
     ).toBeInTheDocument();
   });
 
+  it('says the chat is queued, not working, while its run waits for a runner', () => {
+    chat.mockReturnValue(planning({ working: true, queued: true }));
+
+    renderChat();
+
+    expect(
+      screen.getByText('Queued. The agent starts when a runner is free.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/is working/)).not.toBeInTheDocument();
+  });
+
   it('says nothing of the kind while the agent is working', () => {
     chat.mockReturnValue(planning({ messages: [], working: true }));
 

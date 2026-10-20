@@ -2054,6 +2054,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     CreateTask,
     PERSON_READER,
     FilesLoader,
+    DrizzleRunRepository,
   ]),
 
   ...bindCommandHandler(
@@ -2331,6 +2332,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     TASK_DISPATCH,
     CLOCK,
     PERSON_READER,
+    DrizzleRunRepository,
   ]),
 
   ...bindCommandHandler(AssignTaskCommand, AssignTaskHandler, [
@@ -2338,6 +2340,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     TEAM_DIRECTORY,
     TRANSACTION,
     PERSON_READER,
+    DrizzleRunRepository,
   ]),
 
   ...bindCommandHandler(ClaimRunCommand, ClaimRunHandler, [

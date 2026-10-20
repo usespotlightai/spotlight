@@ -1,5 +1,5 @@
 import { HarnessLogo } from '@/components/features/stations/HarnessLogo';
-import { InProgress } from '@/components/shared/InProgress';
+import { WorkState } from '@/components/shared/WorkState';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { ChatSummary } from '@/lib/chat';
 import { since } from '@/lib/since';
@@ -22,7 +22,7 @@ export function ChatRow({ chat, to }: ChatRowProps) {
       </TrailLink>
 
       <span className="ml-auto flex shrink-0 items-center gap-2">
-        {chat.working && <InProgress />}
+        {chat.working && <WorkState queued={chat.queued} />}
 
         <span className="w-20 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
           {since(chat.updatedAt)}

@@ -22,6 +22,7 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
+import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -177,6 +178,9 @@ const addTask = (command: AddTaskCommand, board: LineRepository = lines()) =>
     new CreateTask(tasks(), dispatch(), transaction, files),
     people,
     files,
+    {
+      findById: async () => ({ state: 'queued', stopRequested: false }),
+    } as unknown as RunRepository,
   ).execute(command);
 
 beforeEach(() => {
@@ -214,6 +218,7 @@ describe('AddTaskHandler', () => {
       createdAt: created.toISOString(),
       rank: added?.rank.value,
       running: true,
+      queued: true,
       awaitingReview: null,
       pullRequest: null,
       createdBy: creator,
