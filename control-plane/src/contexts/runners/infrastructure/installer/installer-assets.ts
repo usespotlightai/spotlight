@@ -22,7 +22,7 @@ export class InstallerAssets implements InstallerAssetsPort {
       .replaceAll(
         '__VERSION__',
         Release.published(this.env.SPOTLIGHT_RELEASE ?? null)?.value ??
-          'latest',
+          'canary',
       );
   }
 }
