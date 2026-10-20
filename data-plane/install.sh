@@ -6,16 +6,6 @@ VERSION="${SPOTLIGHT_VERSION:-__VERSION__}"
 API_BASE="${SPOTLIGHT_URL:-__API_BASE__}"
 BASE_IMAGE="ghcr.io/usespotlightai/spotlight-runner"
 
-if [ -n "${SPOTLIGHT_DOWNLOAD_URL:-}" ]; then
-  RELEASE="$SPOTLIGHT_DOWNLOAD_URL"
-elif [ "$VERSION" = "latest" ]; then
-  RELEASE="https://github.com/$REPO/releases/latest/download"
-elif printf '%s' "$VERSION" | grep -qE '^[0-9a-f]{12}$'; then
-  RELEASE="https://github.com/$REPO/releases/download/canary"
-else
-  RELEASE="https://github.com/$REPO/releases/download/$VERSION"
-fi
-
 if [ -t 2 ] && [ -z "${NO_COLOR:-}" ]; then
   BOLD="$(printf '\033[1m')" GREEN="$(printf '\033[32m')" YELLOW="$(printf '\033[33m')" RED="$(printf '\033[31m')" RESET="$(printf '\033[0m')"
 else
@@ -25,6 +15,16 @@ fi
 say() { printf '%s\n' "$1" >&2; }
 done_step() { printf '  %s✓%s %s\n' "$GREEN" "$RESET" "$1" >&2; }
 die() { printf '\n%sSorry, the install stopped:%s %s\n' "$RED$BOLD" "$RESET" "$1" >&2; exit 1; }
+
+case "$VERSION" in
+  latest) RELEASE="https://github.com/$REPO/releases/latest/download" ;;
+  canary) RELEASE="https://github.com/$REPO/releases/download/canary" ;;
+  v[0-9]*.[0-9]*.[0-9]*) RELEASE="https://github.com/$REPO/releases/download/$VERSION" ;;
+  *) die "SPOTLIGHT_VERSION is $VERSION. Set it to latest, canary or a release, as in v0.1.0." ;;
+esac
+if [ -n "${SPOTLIGHT_DOWNLOAD_URL:-}" ]; then
+  RELEASE="$SPOTLIGHT_DOWNLOAD_URL"
+fi
 
 NEXT=""
 next_step() { NEXT="$NEXT$1
