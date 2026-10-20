@@ -6,7 +6,7 @@ import {
   pendingIn,
   reviewsIn,
   stillOpen,
-  turnOf,
+  threadAt,
 } from '@work/domain/services/conversations';
 import { describe, expect, it } from 'vitest';
 
@@ -202,85 +202,46 @@ describe('awaitsAPerson', () => {
   });
 });
 
-describe('turnOf', () => {
+describe('threadAt', () => {
   const trail = [
-    { runId: 'run_1', body: 'triage note' },
-    { runId: null, body: 'a person answered' },
-    { runId: 'run_2', body: 'spec note' },
-    { runId: null, body: 'typed at implementation' },
-    { runId: 'run_3', body: 'implementation note' },
-    { runId: 'run_4', body: 'code review note' },
+    { runId: 'run_1', station: 'Triage', body: 'triage note' },
+    { runId: null, station: 'Implementation', body: 'typed at implementation' },
+    { runId: 'run_2', station: 'Implementation', body: 'it failed' },
+    { runId: null, station: 'Implementation', body: 'try again' },
+    { runId: 'run_3', station: 'Implementation', body: 'it failed again' },
+    { runId: null, station: 'Implementation', body: 'try again once more' },
+    { runId: 'run_4', station: 'Code review', body: 'code review note' },
   ];
 
-  it('takes the notes of the run and the messages to it', () => {
-    expect(turnOf(trail, 'run_3').map((each) => each.body)).toEqual([
+  const bodies = (station: string | null, runId: string) =>
+    threadAt(trail, station, runId).map((each) => each.body);
+
+  it('takes every note at the station of the run', () => {
+    expect(bodies('Implementation', 'run_2')).toEqual([
       'typed at implementation',
-      'implementation note',
+      'it failed',
+      'try again',
+      'it failed again',
+      'try again once more',
     ]);
   });
 
-  it('leaves out the notes of the run before it', () => {
-    expect(turnOf(trail, 'run_3').map((each) => each.body)).not.toContain(
-      'spec note',
+  it('shows the same thread from each run at the station', () => {
+    expect(bodies('Implementation', 'run_3')).toEqual(
+      bodies('Implementation', 'run_2'),
     );
   });
 
-  it('leaves out the notes of the runs after it', () => {
-    expect(turnOf(trail, 'run_3').map((each) => each.body)).not.toContain(
-      'code review note',
-    );
+  it('leaves out the notes of the other stations', () => {
+    expect(bodies('Implementation', 'run_2')).not.toContain('triage note');
+    expect(bodies('Implementation', 'run_2')).not.toContain('code review note');
   });
 
-  it('opens the trail for the first run', () => {
-    expect(turnOf(trail, 'run_1').map((each) => each.body)).toEqual([
-      'triage note',
-    ]);
-  });
-
-  it('takes what follows the last run where it has no notes', () => {
-    expect(turnOf(trail.slice(0, 4), 'run_3').map((each) => each.body)).toEqual(
-      ['typed at implementation'],
-    );
+  it('takes only the notes of the run when it has no station', () => {
+    expect(bodies(null, 'run_3')).toEqual(['it failed again']);
   });
 
   it('finds nothing in an empty trail', () => {
-    expect(turnOf([], 'run_1')).toEqual([]);
-  });
-
-  describe('a run that paused for a person', () => {
-    const paused = [
-      { runId: 'run_1', body: 'triage note' },
-      { runId: null, body: 'typed at implementation' },
-      { runId: 'run_2', body: 'which queue should I drain?' },
-      { runId: null, body: 'the default one' },
-      { runId: 'run_2', body: 'drained it, ready for review' },
-      { runId: null, body: 'thanks' },
-      { runId: 'run_3', body: 'code review note' },
-    ];
-
-    it('runs from before its question to its note after the answer', () => {
-      expect(turnOf(paused, 'run_2').map((each) => each.body)).toEqual([
-        'typed at implementation',
-        'which queue should I drain?',
-        'the default one',
-        'drained it, ready for review',
-      ]);
-    });
-
-    it('takes the answer it was given while it is still the current run of the task', () => {
-      expect(
-        turnOf(paused.slice(0, 4), 'run_2', true).map((each) => each.body),
-      ).toEqual([
-        'typed at implementation',
-        'which queue should I drain?',
-        'the default one',
-      ]);
-    });
-
-    it('leaves an answer to the next run once it is no longer the current run of the task', () => {
-      expect(
-        turnOf(paused.slice(0, 4), 'run_2').map((each) => each.body),
-      ).not.toContain('the default one');
-    });
+    expect(threadAt([], 'Triage', 'run_1')).toEqual([]);
   });
 });

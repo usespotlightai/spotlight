@@ -1,4 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { runNotesKeys } from '@/hooks/api/useRunNotes';
+import { teamRunKeys } from '@/hooks/api/useTeamRuns';
 import { sendMessage } from '@/lib/api';
 
 type SendMessageInput = {
@@ -25,6 +27,11 @@ export function useSendMessage() {
       });
     },
 
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['inbox'] }),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['inbox'] }),
+        queryClient.invalidateQueries({ queryKey: runNotesKeys.all }),
+        queryClient.invalidateQueries({ queryKey: teamRunKeys.all }),
+      ]),
   });
 }

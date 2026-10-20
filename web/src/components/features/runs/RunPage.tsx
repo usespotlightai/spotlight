@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
 import { RunClosing } from '@/components/features/runs/RunClosing';
@@ -14,6 +15,7 @@ import { decisionPending, type RunJournal, workedOn } from '@/lib/inbox';
 import { type TeamRun, working } from '@/lib/run';
 import {
   type RunNotes as ConversationData,
+  lastNoteOf,
   stayedQuiet,
 } from '@/lib/run-notes';
 import { TrailContext, useTrail } from '@/lib/trail';
@@ -42,6 +44,10 @@ export function RunPage({
   const deciding = decisionPending(notes);
   const decide = useRunDeciding(slug, run);
   const ran = workedOn(worked, notes, run.id);
+  const closesAt = lastNoteOf(notes, run.id);
+  const followedOn =
+    closesAt !== null && notes.some((note) => note.position > closesAt);
+  const [openAt, setOpenAt] = useState(() => (followedOn ? closesAt : null));
 
   const footer = (
     <RunFooter
@@ -50,6 +56,7 @@ export function RunPage({
       run={run}
       conversation={conversation}
       deciding={deciding}
+      onSent={() => setOpenAt(null)}
     />
   );
 
@@ -80,8 +87,12 @@ export function RunPage({
                 teamId={teamId}
                 conversation={conversation}
                 worked={worked}
+                openAt={openAt}
                 live={run.state === 'claimed' ? activity : undefined}
-                closing={closing}
+                closing={followedOn ? undefined : closing}
+                afterRun={(ranId) =>
+                  followedOn && ranId === run.id ? closing : null
+                }
                 footer={footer}
                 deciding={decide}
               />

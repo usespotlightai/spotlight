@@ -78,6 +78,7 @@ export function Run() {
 
   return (
     <RunPage
+      key={run.id}
       slug={slug}
       teamId={teamId}
       run={run}

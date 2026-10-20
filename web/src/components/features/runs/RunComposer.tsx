@@ -15,6 +15,7 @@ type RunComposerProps = {
   stationId: string | undefined;
   running: boolean;
   answering: boolean;
+  onSent?: () => void;
 };
 
 export function RunComposer({
@@ -26,6 +27,7 @@ export function RunComposer({
   stationId,
   running,
   answering,
+  onSent,
 }: RunComposerProps) {
   const send = useSendMessage();
   const stop = useStopRun();
@@ -65,7 +67,15 @@ export function RunComposer({
       }
       onStop={() => stop.mutate({ teamId, runId })}
       onSend={({ body, attachments }, sent) =>
-        send.mutate({ teamId, runId, body, attachments }, { onSuccess: sent })
+        send.mutate(
+          { teamId, runId, body, attachments },
+          {
+            onSuccess: () => {
+              sent();
+              onSent?.();
+            },
+          },
+        )
       }
     />
   );

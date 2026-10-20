@@ -459,6 +459,60 @@ describe('Run', () => {
     ).toBeInTheDocument();
   });
 
+  describe('once the station has run the task again', () => {
+    const note = (position: number, over: Record<string, unknown>) => ({
+      position,
+      kind: 'message',
+      form: 'words',
+      voice: 'station',
+      station: 'Implementation',
+      stationColor: '#5c66d9',
+      stationPosition: 2,
+      runId: 'run_1',
+      body: '',
+      attachments: [],
+      at: '2026-08-29T12:00:00.000Z',
+      author: null,
+      ...over,
+    });
+
+    beforeEach(() => {
+      conversation.mockReturnValue(
+        conversationOf({
+          working: true,
+          notes: [
+            note(0, { body: 'The tests failed.' }),
+            note(1, {
+              voice: 'person',
+              runId: null,
+              body: 'try again',
+              author: { id: 'user_1', name: 'Sam', image: null },
+            }),
+            note(2, { runId: 'run_2', body: 'The tests failed again.' }),
+          ],
+        }),
+      );
+    });
+
+    it('shows the messages of the later runs at the station', () => {
+      renderRun();
+
+      expect(screen.getByText('try again')).toBeInTheDocument();
+      expect(screen.getByText('The tests failed again.')).toBeInTheDocument();
+    });
+
+    it('ends the opened run with its actions before the later messages', () => {
+      renderRun();
+
+      const actions = screen.getByRole('toolbar', { name: 'Run actions' });
+
+      expect(
+        actions.compareDocumentPosition(screen.getByText('try again')) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+  });
+
   it('keeps the run actions back until the run has finished', () => {
     runs.mockReturnValue([run({ state: 'claimed' })]);
 
