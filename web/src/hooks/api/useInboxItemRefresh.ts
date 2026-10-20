@@ -20,5 +20,10 @@ export function useInboxItemRefresh(
     });
   }, [queryClient, item?.taskId, slug]);
 
-  useRunStream(item?.runId ?? undefined, item?.work ?? null, bump);
+  useRunStream(
+    item?.runId ?? undefined,
+    Boolean(item?.work),
+    item?.work ?? null,
+    bump,
+  );
 }

@@ -1,4 +1,4 @@
-import { RUN_STATES } from '@work/domain/value-objects/run-state';
+import { RUN_STATES, type Work } from '@work/domain/value-objects/run-state';
 
 export const REVIEW_STATE_NAMES = ['pending', 'answered'] as const;
 
@@ -28,7 +28,7 @@ export interface TaskRunDto {
   readonly image: string | null;
   readonly station: RunStationDto | null;
   readonly review: RunReviewDto | null;
-  readonly work: string | null;
+  readonly work: Work | null;
 }
 
 export interface TeamRunDto extends TaskRunDto {

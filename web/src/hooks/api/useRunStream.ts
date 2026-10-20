@@ -5,13 +5,14 @@ const EVERY_MS = 500;
 
 export function useRunStream(
   runId: string | undefined,
+  open: boolean,
   work: Work | null,
   onBump: () => void,
 ) {
   const bump = useEffectEvent(onBump);
 
   useEffect(() => {
-    if (!runId || !work) {
+    if (!runId || !open) {
       return;
     }
 
@@ -52,5 +53,5 @@ export function useRunStream(
       clearInterval(ticker);
       stream.close();
     };
-  }, [runId, work]);
+  }, [runId, open, work]);
 }

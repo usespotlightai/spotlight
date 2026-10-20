@@ -13,7 +13,7 @@ import { useRunDeciding } from '@/hooks/useRunDeciding';
 import { useRunThread } from '@/hooks/useRunThread';
 import { useRunTrail } from '@/hooks/useRunTrail';
 import { decisionPending, type RunJournal, workedOn } from '@/lib/inbox';
-import { type TeamRun, working } from '@/lib/run';
+import { type TeamRun, underway } from '@/lib/run';
 import {
   type RunNotes as ConversationData,
   followedOnAfter,
@@ -61,7 +61,7 @@ export function RunPage({
     />
   );
 
-  const closing = working(run) ? undefined : (
+  const closing = underway(run) ? undefined : (
     <RunClosing
       slug={slug}
       teamId={teamId}

@@ -19,8 +19,8 @@ export const formatTokens = (count: number | null): string =>
 
 export type Work = NonNullable<TaskResponseDto['work']>;
 
-export const working = (run: { readonly work: Work | null }): boolean =>
-  run.work !== null;
+export const underway = (run: Pick<Run, 'state'>): boolean =>
+  run.state === 'queued' || run.state === 'claimed';
 
 export const idleNoteOf = (run: Pick<Run, 'state'>): string =>
   run.state === 'failed'

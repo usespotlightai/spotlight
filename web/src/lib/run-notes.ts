@@ -5,7 +5,7 @@ import {
   threadText,
 } from '@/lib/inbox';
 import type { Person } from '@/lib/person';
-import { type TeamRun, type Work, waitsOnPerson, working } from '@/lib/run';
+import { type TeamRun, underway, type Work, waitsOnPerson } from '@/lib/run';
 
 export type RunNotes = RunNotesResponseDto;
 
@@ -159,7 +159,7 @@ export const stayedQuiet = (
   ran: readonly RunJournal[],
   journalFailed: boolean,
 ): boolean =>
-  !working(run) &&
+  !underway(run) &&
   !waitsOnPerson(run) &&
   !journalFailed &&
   ran.every((each) => each.steps.length === 0);

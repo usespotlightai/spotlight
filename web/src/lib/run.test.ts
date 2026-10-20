@@ -7,8 +7,8 @@ import {
   inRunFilter,
   type Run,
   runStatus,
+  underway,
   waitsOnPerson,
-  working,
 } from '@/lib/run';
 
 const NOW = new Date(2026, 7, 30, 12, 0, 0);
@@ -97,14 +97,18 @@ describe('byAge', () => {
   });
 });
 
-describe('working', () => {
-  it('works while the server says the run is queued or in progress', () => {
-    expect(working({ work: 'queued' })).toBe(true);
-    expect(working({ work: 'in-progress' })).toBe(true);
+describe('underway', () => {
+  const run = (state: Run['state']) => ({ state }) as Run;
+
+  it('is under way while it waits for a runner or a runner has it', () => {
+    expect(underway(run('queued'))).toBe(true);
+    expect(underway(run('claimed'))).toBe(true);
   });
 
-  it('does not work once the server says the run does nothing', () => {
-    expect(working({ work: null })).toBe(false);
+  it('is not under way while it waits on a person, or once it is over', () => {
+    expect(underway(run('waiting'))).toBe(false);
+    expect(underway(run('suspended'))).toBe(false);
+    expect(underway(run('completed'))).toBe(false);
   });
 });
 

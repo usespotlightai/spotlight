@@ -7,7 +7,7 @@ import { runScoreKeys } from '@/hooks/api/useRunScores';
 import { useRunStream } from '@/hooks/api/useRunStream';
 import { journalKeys } from '@/hooks/api/useTaskJournal';
 import { teamRunKeys } from '@/hooks/api/useTeamRuns';
-import type { TeamRun, Work } from '@/lib/run';
+import { type TeamRun, underway, type Work } from '@/lib/run';
 import type { LatestRun } from '@/lib/run-notes';
 
 type RunRefreshParams = {
@@ -52,7 +52,12 @@ export function useRunRefresh({
     }
   }, [queryClient, taskId, runId, teamId]);
 
-  useRunStream(watchedId, watchedWork, bump);
+  useRunStream(
+    watchedId,
+    watchedState !== undefined && underway({ state: watchedState }),
+    watchedWork,
+    bump,
+  );
 
   const previous = useRef({ id: watchedId, state: watchedState });
 

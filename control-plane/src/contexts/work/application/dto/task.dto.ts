@@ -1,5 +1,5 @@
 import type { AttachmentDto } from '@work/application/dto/attachment.dto';
-import { WORKS } from '@work/domain/value-objects/run-state';
+import { WORKS, type Work } from '@work/domain/value-objects/run-state';
 
 export const WORK_NAMES = WORKS;
 
@@ -27,7 +27,7 @@ export interface TaskDto {
   readonly description: string | null;
   readonly attachments: readonly AttachmentDto[];
   readonly createdAt: string;
-  readonly work: string | null;
+  readonly work: Work | null;
   readonly awaitingReview: TaskReviewDto | null;
   readonly pullRequest: string | null;
   readonly note: TaskNoteDto | null;

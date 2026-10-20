@@ -34,7 +34,7 @@ describe('useRunStream', () => {
   it('opens the stream again once a queued run is in progress', () => {
     const { rerender } = renderHook(
       ({ work }: { work: Work | null }) =>
-        useRunStream('run_1', work, () => {}),
+        useRunStream('run_1', true, work, () => {}),
       { initialProps: { work: 'queued' } },
     );
 
@@ -48,7 +48,7 @@ describe('useRunStream', () => {
   });
 
   it('opens no stream for a run without work', () => {
-    renderHook(() => useRunStream('run_1', null, () => {}));
+    renderHook(() => useRunStream('run_1', false, null, () => {}));
 
     expect(opened).toEqual([]);
   });

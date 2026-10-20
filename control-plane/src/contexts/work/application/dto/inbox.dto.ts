@@ -10,6 +10,7 @@ import {
 } from '@work/domain/value-objects/approval-subject.vo';
 import { INBOX_REQUEST_FORMS } from '@work/domain/value-objects/inbox-request-form';
 import { NOTICE_FORMS } from '@work/domain/value-objects/notice-form';
+import type { Work } from '@work/domain/value-objects/run-state';
 import { VOICES } from '@work/domain/value-objects/voice.vo';
 
 export const NOTE_KINDS = TASK_NOTE_KINDS;
@@ -102,7 +103,7 @@ export interface InboxItemDto {
   readonly createdAt: string;
   readonly askedAt: string;
   readonly resolved: boolean;
-  readonly work: string | null;
+  readonly work: Work | null;
   readonly runId: string | null;
   readonly unread: boolean;
   readonly briefing: string | null;

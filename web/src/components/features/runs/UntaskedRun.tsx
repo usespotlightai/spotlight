@@ -14,7 +14,7 @@ import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { lastNoteAt, threadText } from '@/lib/inbox';
 import type { ReplayRun } from '@/lib/replay';
-import { idleNoteOf, working } from '@/lib/run';
+import { idleNoteOf, underway } from '@/lib/run';
 import { TrailContext } from '@/lib/trail';
 
 type UntaskedRunProps = {
@@ -55,7 +55,7 @@ export function UntaskedRun({
   footer,
 }: UntaskedRunProps) {
   const scroller = useStickToBottom<HTMLDivElement>();
-  const busy = working(run);
+  const busy = underway(run);
   const steps = run.journals.some((each) => each.steps.length > 0);
 
   return (

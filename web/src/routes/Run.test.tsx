@@ -681,6 +681,29 @@ describe('Run', () => {
       expect(screen.queryByText(/Queued\./)).not.toBeInTheDocument();
     });
 
+    it('keeps a claimed run that is stopping under way, neither ended nor empty', () => {
+      runs.mockReturnValue([run({ state: 'claimed', work: null })]);
+      conversation.mockReturnValue(
+        conversationOf({
+          notes: [],
+          work: null,
+          latestRun: {
+            id: 'run_1',
+            state: 'claimed',
+            stopping: true,
+            work: null,
+          },
+        }),
+      );
+
+      renderRun();
+
+      expect(
+        screen.queryByText(/ended before the agent started/),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByRole('toolbar', { name: 'Run actions' })).toBeNull();
+    });
+
     it('says the run is queued, not working, while it is still to start', () => {
       runs.mockReturnValue([run({ state: 'queued' })]);
       conversation.mockReturnValue(
