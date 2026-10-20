@@ -478,6 +478,7 @@ describe('DispatchReplay', () => {
       TaskNote.of({
         position: NotePosition.of(0),
         station: StationName.of('Build'),
+        stationId: StationId.of('station_build'),
         body: TaskNoteBody.of('Done.'),
         at: NOW,
         voice: Voice.station(ORIGINAL),
@@ -486,6 +487,7 @@ describe('DispatchReplay', () => {
       TaskNote.of({
         position: NotePosition.of(1),
         station: StationName.of('Build'),
+        stationId: StationId.of('station_build'),
         body: TaskNoteBody.of('Drain oldest first.'),
         at: NOW,
         voice: Voice.person(UserId.of('user_maya')),

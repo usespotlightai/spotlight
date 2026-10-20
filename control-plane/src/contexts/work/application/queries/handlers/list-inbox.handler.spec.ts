@@ -19,6 +19,7 @@ const note = (failure: InboxNote['failure']): InboxNote => ({
   form: failure ? 'failure' : 'words',
   voice: 'station',
   station: 'Implementation',
+  stationId: 'station_implementation',
   stationColor: '#edc12b',
   stationPosition: 1,
   runId: 'run_1',

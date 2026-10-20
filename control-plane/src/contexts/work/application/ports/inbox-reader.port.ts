@@ -57,6 +57,7 @@ export interface InboxNote {
   readonly form: TaskNoteForm;
   readonly voice: AuthorKind;
   readonly station: string;
+  readonly stationId: string;
   readonly stationColor: string;
   readonly stationPosition: number;
   readonly runId: string | null;

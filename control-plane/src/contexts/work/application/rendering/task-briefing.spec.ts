@@ -250,6 +250,7 @@ describe('TaskBriefing', () => {
         position: NotePosition.of(0),
         voice: Voice.station(),
         station: StationName.of('Triage'),
+        stationId: StationId.of('station_triage'),
         body: TaskNoteBody.of('Reproduced on restart.'),
         at: new Date('2026-08-28T10:00:00.000Z'),
         kind: 'passed',
@@ -290,6 +291,7 @@ describe('TaskBriefing', () => {
         position: NotePosition.of(0),
         voice: Voice.person(UserId.of('user_1')),
         station: StationName.of('Triage'),
+        stationId: StationId.of('station_triage'),
         body: TaskNoteBody.of('Here is the log.'),
         at: new Date('2026-08-28T10:00:00.000Z'),
         kind: 'message',
@@ -443,6 +445,7 @@ describe('TaskBriefing', () => {
       TaskNote.of({
         position: NotePosition.of(0),
         station: StationName.of('Code Review'),
+        stationId: StationId.of('station_code_review'),
         body: TaskNoteBody.of(body),
         at: new Date('2026-08-31T12:00:00.000Z'),
         voice: Voice.world(),

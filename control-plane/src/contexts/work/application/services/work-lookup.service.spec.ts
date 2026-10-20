@@ -29,6 +29,7 @@ import type { CorrelationKeys } from '@work/domain/value-objects/correlation-key
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
+import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
@@ -429,6 +430,7 @@ describe('WorkLookup, reading the notes of people on a task', () => {
     TaskNote.of({
       position: NotePosition.of(position),
       station: StationName.of('Implementation'),
+      stationId: StationId.of('station_implementation'),
       body: TaskNoteBody.of(body),
       at: AT,
       voice,

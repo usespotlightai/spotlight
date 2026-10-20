@@ -25,12 +25,10 @@ import {
   type ApprovalRow,
   type ConnectionAskRow,
   type FailureRow,
-  task,
   taskAttachment,
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { and, asc, count, eq, inArray } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
+import { asc, count, eq, inArray } from 'drizzle-orm';
 
 export interface TaskAttachments {
   readonly own: readonly AttachmentSummary[];
@@ -158,8 +156,6 @@ export const trailsFor = async (
     return trail;
   }
 
-  const noteStation = alias(station, 'note_station');
-
   const attached = await attachmentsFor(db, taskIds);
 
   const rows = await db
@@ -167,8 +163,9 @@ export const trailsFor = async (
       taskId: taskNote.taskId,
       position: taskNote.position,
       station: taskNote.station,
-      stationColor: noteStation.color,
-      stationPosition: noteStation.position,
+      stationId: taskNote.stationId,
+      stationColor: station.color,
+      stationPosition: station.position,
       runId: taskNote.runId,
       kind: taskNote.kind,
       form: taskNote.form,
@@ -182,15 +179,7 @@ export const trailsFor = async (
       connectionAsk: taskNote.connectionAsk,
     })
     .from(taskNote)
-    .innerJoin(task, eq(task.id, taskNote.taskId))
-    .innerJoin(station, eq(station.id, task.stationId))
-    .leftJoin(
-      noteStation,
-      and(
-        eq(noteStation.lineId, station.lineId),
-        eq(noteStation.name, taskNote.station),
-      ),
-    )
+    .leftJoin(station, eq(station.id, taskNote.stationId))
     .where(inArray(taskNote.taskId, [...taskIds]))
     .orderBy(asc(taskNote.taskId), asc(taskNote.position));
 
@@ -209,6 +198,7 @@ export const trailsFor = async (
     notes.push({
       position: row.position,
       station: row.station,
+      stationId: row.stationId,
       stationColor: row.stationColor ?? StationColor.plain().value,
       stationPosition: row.stationPosition ?? 0,
       runId: row.runId,
@@ -382,12 +372,13 @@ export const briefingsFor = async (
   return briefings;
 };
 
-export const threadAt = <T extends { runId: string | null; station: string }>(
+export const threadAt = <T extends { runId: string | null; stationId: string }>(
   notes: readonly T[],
-  station: string | null,
+  stationId: string | null,
   runId: string,
 ): T[] =>
   notes.filter(
     (note) =>
-      note.runId === runId || (station !== null && note.station === station),
+      note.runId === runId ||
+      (stationId !== null && note.stationId === stationId),
   );

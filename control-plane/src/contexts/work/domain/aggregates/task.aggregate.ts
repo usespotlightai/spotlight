@@ -1408,6 +1408,7 @@ export class Task extends EventRecorder {
         ...this.notes,
         TaskNote.of({
           ...newNote,
+          stationId: this.stationId,
           kind,
           position: NotePosition.of(this.notes.length),
           deferredMove,

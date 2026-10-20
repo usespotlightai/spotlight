@@ -1,5 +1,5 @@
 {
-  "id": "5b0468c2-d7f1-41ac-95c7-8001d7a4bd67",
+  "id": "235552b4-ac09-423d-9b91-44cc020141f6",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -14550,6 +14550,12 @@
         },
         "station": {
           "name": "station",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "station_id": {
+          "name": "station_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true

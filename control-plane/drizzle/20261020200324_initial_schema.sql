@@ -1741,6 +1741,7 @@ CREATE TABLE "task_note" (
 	"task_id" text NOT NULL,
 	"position" integer NOT NULL,
 	"station" text NOT NULL,
+	"station_id" text NOT NULL,
 	"body" text NOT NULL,
 	"at" timestamp NOT NULL,
 	"voice" text DEFAULT 'station' NOT NULL,

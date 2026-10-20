@@ -11,6 +11,7 @@ const note = (position: number, failure: InboxNote['failure']): InboxNote => ({
   form: failure ? 'failure' : 'words',
   voice: 'station',
   station: 'Implementation',
+  stationId: 'station_implementation',
   stationColor: '#edc12b',
   stationPosition: 1,
   runId: 'run_1',
@@ -54,20 +55,58 @@ describe('failureIn', () => {
 
 describe('threadAt', () => {
   const trail = [
-    { runId: 'run_1', station: 'Triage', body: 'triage note' },
-    { runId: null, station: 'Implementation', body: 'typed at implementation' },
-    { runId: 'run_2', station: 'Implementation', body: 'it failed' },
-    { runId: null, station: 'Implementation', body: 'try again' },
-    { runId: 'run_3', station: 'Implementation', body: 'it failed again' },
-    { runId: null, station: 'Implementation', body: 'try again once more' },
-    { runId: 'run_4', station: 'Code review', body: 'code review note' },
+    {
+      runId: 'run_1',
+      stationId: 'station_triage',
+      station: 'Triage',
+      body: 'triage note',
+    },
+    {
+      runId: null,
+      stationId: 'station_implementation',
+      station: 'Implementation',
+      body: 'typed at implementation',
+    },
+    {
+      runId: 'run_2',
+      stationId: 'station_implementation',
+      station: 'Implementation',
+      body: 'it failed',
+    },
+    {
+      runId: null,
+      stationId: 'station_implementation',
+      station: 'Implementation',
+      body: 'try again',
+    },
+    {
+      runId: 'run_3',
+      stationId: 'station_implementation',
+      station: 'Implementation',
+      body: 'it failed again',
+    },
+    {
+      runId: null,
+      stationId: 'station_implementation',
+      station: 'Implementation',
+      body: 'try again once more',
+    },
+    {
+      runId: 'run_4',
+      stationId: 'station_code_review',
+      station: 'Code review',
+      body: 'code review note',
+    },
   ];
 
-  const bodies = (station: string | null, runId: string) =>
-    threadAt(trail, station, runId).map((each) => each.body);
+  const bodies = (
+    notes: readonly (typeof trail)[number][],
+    stationId: string | null,
+    runId: string,
+  ) => threadAt(notes, stationId, runId).map((each) => each.body);
 
   it('takes every note at the station of the run', () => {
-    expect(bodies('Implementation', 'run_2')).toEqual([
+    expect(bodies(trail, 'station_implementation', 'run_2')).toEqual([
       'typed at implementation',
       'it failed',
       'try again',
@@ -77,21 +116,68 @@ describe('threadAt', () => {
   });
 
   it('shows the same thread from each run at the station', () => {
-    expect(bodies('Implementation', 'run_3')).toEqual(
-      bodies('Implementation', 'run_2'),
+    expect(bodies(trail, 'station_implementation', 'run_3')).toEqual(
+      bodies(trail, 'station_implementation', 'run_2'),
     );
   });
 
   it('leaves out the notes of the other stations', () => {
-    expect(bodies('Implementation', 'run_2')).not.toContain('triage note');
-    expect(bodies('Implementation', 'run_2')).not.toContain('code review note');
+    expect(bodies(trail, 'station_implementation', 'run_2')).not.toContain(
+      'triage note',
+    );
+    expect(bodies(trail, 'station_implementation', 'run_2')).not.toContain(
+      'code review note',
+    );
+  });
+
+  it('keeps the notes written before the station was renamed', () => {
+    const renamed = [
+      {
+        runId: null,
+        stationId: 'station_implementation',
+        station: 'Implementation',
+        body: 'typed before the rename',
+      },
+      {
+        runId: 'run_5',
+        stationId: 'station_implementation',
+        station: 'Build',
+        body: 'ran after the rename',
+      },
+    ];
+
+    expect(bodies(renamed, 'station_implementation', 'run_5')).toEqual([
+      'typed before the rename',
+      'ran after the rename',
+    ]);
+  });
+
+  it('keeps apart two stations with the same name', () => {
+    const twins = [
+      {
+        runId: null,
+        stationId: 'station_review_1',
+        station: 'Review',
+        body: 'typed at the first review',
+      },
+      {
+        runId: 'run_6',
+        stationId: 'station_review_2',
+        station: 'Review',
+        body: 'ran at the second review',
+      },
+    ];
+
+    expect(bodies(twins, 'station_review_2', 'run_6')).toEqual([
+      'ran at the second review',
+    ]);
   });
 
   it('takes only the notes of the run when it has no station', () => {
-    expect(bodies(null, 'run_3')).toEqual(['it failed again']);
+    expect(bodies(trail, null, 'run_3')).toEqual(['it failed again']);
   });
 
   it('finds nothing in an empty trail', () => {
-    expect(threadAt([], 'Triage', 'run_1')).toEqual([]);
+    expect(threadAt([], 'station_triage', 'run_1')).toEqual([]);
   });
 });

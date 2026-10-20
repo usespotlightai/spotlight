@@ -59,6 +59,7 @@ const taskRun = async () => {
     taskId,
     position: 0,
     station: 'Triage',
+    stationId,
     body: 'Pin it to a version.',
     at: new Date('2026-09-17T09:00:00.000Z'),
     voice: 'person',
@@ -76,7 +77,7 @@ const taskRun = async () => {
     spec: {},
   });
 
-  return { taskId, runId: RunId.of(runId) };
+  return { taskId, stationId, runId: RunId.of(runId) };
 };
 
 describe('the messages that a leased run has yet to get', () => {
@@ -100,7 +101,7 @@ describe('the messages that a leased run has yet to get', () => {
   });
 
   it('hands the run exactly the notes that its task has not acknowledged, for every kind of note and voice', async () => {
-    const { taskId, runId } = await taskRun();
+    const { taskId, stationId, runId } = await taskRun();
     const kinds = ['asked', 'passed', 'answered', 'message'] as const;
     const voices = ['station', 'person', 'world'] as const;
     let position = 1;
@@ -115,6 +116,7 @@ describe('the messages that a leased run has yet to get', () => {
             taskId,
             position: position++,
             station: 'Triage',
+            stationId,
             body: `${kind} by ${voice}`,
             at: new Date('2026-09-17T09:30:00.000Z'),
             voice,
