@@ -11,6 +11,12 @@ export interface RunSpendDto {
   readonly cacheWriteTokens: number | null;
 }
 
+interface LatestRunDto {
+  readonly id: string;
+  readonly state: string;
+  readonly stopping: boolean;
+}
+
 export interface RunNotesDto {
   readonly runId: string;
   readonly taskId: string;
@@ -21,6 +27,7 @@ export interface RunNotesDto {
   readonly createdAt: string;
   readonly briefing: string;
   readonly working: boolean;
+  readonly latestRun: LatestRunDto;
   readonly notes: readonly NoteDto[];
   readonly spend: RunSpendDto | null;
 }

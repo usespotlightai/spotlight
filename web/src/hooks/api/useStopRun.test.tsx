@@ -2,8 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useStopRun, useStopsAsked } from '@/hooks/api/useStopRun';
-import type { TeamRun } from '@/lib/run';
+import { useStopInFlight, useStopRun } from '@/hooks/api/useStopRun';
 
 const stopRun = vi.fn();
 
@@ -11,9 +10,7 @@ vi.mock('@/lib/api', () => ({
   stopRun: (...args: unknown[]) => stopRun(...args),
 }));
 
-const working = { id: 'run_1', state: 'claimed' } as TeamRun;
-
-const setUp = () => {
+const setUp = (runId: string) => {
   const client = new QueryClient({
     defaultOptions: { mutations: { retry: false } },
   });
@@ -21,40 +18,43 @@ const setUp = () => {
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
 
-  return renderHook(() => ({ stop: useStopRun(), asked: useStopsAsked() }), {
-    wrapper,
-  }).result;
+  return renderHook(
+    () => ({ stop: useStopRun(), inFlight: useStopInFlight(runId) }),
+    { wrapper },
+  ).result;
 };
 
-describe('useStopsAsked', () => {
+describe('useStopInFlight', () => {
   beforeEach(() => {
     stopRun.mockReset();
   });
 
-  it('shows the run as stopped as soon as a stop is asked', async () => {
+  it('knows a stop is on its way as soon as it is asked', async () => {
     stopRun.mockReturnValue(new Promise(() => {}));
-    const result = setUp();
+    const result = setUp('run_1');
 
     act(() => result.current.stop.mutate({ teamId: 'team_1', runId: 'run_1' }));
 
-    await waitFor(() =>
-      expect(result.current.asked(working).state).toBe('cancelled'),
-    );
+    await waitFor(() => expect(result.current.inFlight).toBe(true));
   });
 
-  it('leaves the run as it is once the stop was refused', async () => {
+  it('forgets the stop once the server refused it', async () => {
     stopRun.mockRejectedValue(new Error('refused'));
-    const result = setUp();
+    const result = setUp('run_1');
 
     act(() => result.current.stop.mutate({ teamId: 'team_1', runId: 'run_1' }));
 
     await waitFor(() => expect(result.current.stop.isError).toBe(true));
-    expect(result.current.asked(working).state).toBe('claimed');
+    expect(result.current.inFlight).toBe(false);
   });
 
-  it('leaves the other runs as they are', () => {
-    const result = setUp();
+  it('leaves the other runs out of a stop', async () => {
+    stopRun.mockReturnValue(new Promise(() => {}));
+    const result = setUp('run_2');
 
-    expect(result.current.asked(working)).toBe(working);
+    act(() => result.current.stop.mutate({ teamId: 'team_1', runId: 'run_1' }));
+
+    await waitFor(() => expect(result.current.stop.isPending).toBe(true));
+    expect(result.current.inFlight).toBe(false);
   });
 });

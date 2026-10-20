@@ -21,20 +21,6 @@ export const idleNoteOf = (run: Pick<Run, 'state'>): string =>
     ? 'The run failed before the agent started.'
     : 'The run ended before the agent started.';
 
-export const latestAtStation = (
-  runs: readonly TeamRun[],
-  run: TeamRun,
-): TeamRun =>
-  runs.reduce(
-    (latest, each) =>
-      each.taskId === run.taskId &&
-      each.station?.id === run.station?.id &&
-      each.startedAt > latest.startedAt
-        ? each
-        : latest,
-    run,
-  );
-
 export const waitsOnPerson = (run: Pick<Run, 'state'>): boolean =>
   run.state === 'waiting' || run.state === 'suspended';
 

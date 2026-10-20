@@ -9,6 +9,9 @@ import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 import { StepAnchorsProvider } from '@/components/features/runs/StepAnchorsProvider';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
+import { useMessagesInFlight } from '@/hooks/api/useSendMessage';
+import { useLatestRun } from '@/hooks/useLatestRun';
+import { useMe } from '@/hooks/useMe';
 import { useRunDeciding } from '@/hooks/useRunDeciding';
 import { useRunTrail } from '@/hooks/useRunTrail';
 import { decisionPending, type RunJournal, workedOn } from '@/lib/inbox';
@@ -17,6 +20,7 @@ import {
   type RunNotes as ConversationData,
   lastNoteOf,
   stayedQuiet,
+  withMessagesInFlight,
 } from '@/lib/run-notes';
 import { TrailContext, useTrail } from '@/lib/trail';
 
@@ -24,7 +28,6 @@ type RunPageProps = {
   slug: string;
   teamId: string;
   run: TeamRun;
-  latest: TeamRun;
   conversation: ConversationData | undefined;
   worked: readonly RunJournal[];
   journalFailed: boolean;
@@ -34,13 +37,16 @@ export function RunPage({
   slug,
   teamId,
   run,
-  latest,
-  conversation,
+  conversation: reported,
   worked,
   journalFailed,
 }: RunPageProps) {
-  const base = useRunTrail({ slug, teamId, run, title: conversation?.title });
+  const base = useRunTrail({ slug, teamId, run, title: reported?.title });
   const { trail, forward } = useTrail(base, 2);
+  const latest = useLatestRun(run, reported);
+  const inFlight = useMessagesInFlight([run.id, latest.id]);
+  const me = useMe();
+  const conversation = reported && withMessagesInFlight(reported, inFlight, me);
 
   const notes = conversation?.notes ?? [];
   const deciding = decisionPending(notes);
@@ -55,7 +61,8 @@ export function RunPage({
     <RunFooter
       slug={slug}
       teamId={teamId}
-      run={latest}
+      run={run}
+      latest={latest}
       conversation={conversation}
       deciding={deciding}
       onSent={() => setOpenAt(null)}
@@ -73,18 +80,22 @@ export function RunPage({
     />
   );
 
+  const stoppingHere = latest.id === run.id && latest.stopping;
+
   const activity = run.station ? (
-    <RunActivity journals={ran} working={working(run)} station={run.station} />
+    <RunActivity
+      journals={ran}
+      working={working(run) && !stoppingHere}
+      station={run.station}
+    />
   ) : null;
 
   const live =
-    latest.state !== 'claimed' ? undefined : latest.id === run.id ? (
-      activity
-    ) : latest.station ? (
+    latest.state === 'claimed' && run.station ? (
       <RunActivity
         journals={workedOn(worked, notes, latest.id)}
-        working
-        station={latest.station}
+        working={!latest.stopping}
+        station={run.station}
       />
     ) : undefined;
 

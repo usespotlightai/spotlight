@@ -5,10 +5,8 @@ import {
   byAge,
   formatImage,
   inRunFilter,
-  latestAtStation,
   type Run,
   runStatus,
-  type TeamRun,
   waitsOnPerson,
   working,
 } from '@/lib/run';
@@ -222,46 +220,5 @@ describe('formatImage', () => {
     expect(formatImage('ghcr.io/acme/api-runner:main')).toBe(
       'ghcr.io/acme/api-runner:main',
     );
-  });
-});
-
-describe('latestAtStation', () => {
-  const at = (id: string, startedAt: string, over: Partial<TeamRun> = {}) =>
-    ({
-      id,
-      startedAt,
-      taskId: 'task_1',
-      station: { id: 'station_1' },
-      ...over,
-    }) as TeamRun;
-
-  const first = at('run_1', '2026-08-29T09:00:00.000Z');
-
-  it('finds the newest run of the task at the station', () => {
-    expect(
-      latestAtStation(
-        [
-          first,
-          at('run_3', '2026-08-29T11:00:00.000Z'),
-          at('run_2', '2026-08-29T10:00:00.000Z'),
-        ],
-        first,
-      ).id,
-    ).toBe('run_3');
-  });
-
-  it('leaves out the runs of other tasks and other stations', () => {
-    expect(
-      latestAtStation(
-        [
-          first,
-          at('run_2', '2026-08-29T10:00:00.000Z', { taskId: 'task_2' }),
-          at('run_3', '2026-08-29T11:00:00.000Z', {
-            station: { id: 'station_2' } as TeamRun['station'],
-          }),
-        ],
-        first,
-      ).id,
-    ).toBe('run_1');
   });
 });

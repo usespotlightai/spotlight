@@ -61,9 +61,11 @@ export function useRunRefresh({
       (was.state !== watchedState || was.id !== watchedId)
     ) {
       bump();
-      void queryClient.invalidateQueries({
-        queryKey: runScoreKeys.forRun(runId),
-      });
+      if (watchedId === runId) {
+        void queryClient.invalidateQueries({
+          queryKey: runScoreKeys.forRun(runId),
+        });
+      }
     }
     previous.current = { id: watchedId, state: watchedState };
   }, [watchedId, watchedState, bump, queryClient, runId]);

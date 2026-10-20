@@ -4,11 +4,93 @@ import {
   type RunJournal,
   threadText,
 } from '@/lib/inbox';
+import type { Person } from '@/lib/person';
 import { type TeamRun, waitsOnPerson, working } from '@/lib/run';
 
 export type RunNotes = RunNotesResponseDto;
 
+export type LatestRun = RunNotes['latestRun'];
+
+export type OutgoingMessage = {
+  readonly teamId: string;
+  readonly runId: string;
+  readonly body: string;
+  readonly attachments: string[];
+  readonly answers?: boolean;
+  readonly startsWork?: boolean;
+};
+
+export type MessageInFlight = OutgoingMessage & { readonly sentAt: number };
+
+const CLOCK_SKEW_MS = 60_000;
+
+const stillOnTheirWay = (
+  conversation: RunNotes,
+  inFlight: readonly MessageInFlight[],
+  me: Person | null,
+): MessageInFlight[] => {
+  const matched = new Set<number>();
+
+  return inFlight.filter((message) => {
+    const body = message.body.trim();
+    const saved = conversation.notes.find(
+      (note) =>
+        !matched.has(note.position) &&
+        note.voice === 'person' &&
+        note.author?.id === me?.id &&
+        body !== '' &&
+        note.body === body &&
+        Date.parse(note.at) >= message.sentAt - CLOCK_SKEW_MS,
+    );
+
+    if (saved) {
+      matched.add(saved.position);
+    }
+
+    return !saved;
+  });
+};
+
 const UNCOLOURED = '#a3a8b0';
+
+export const withMessagesInFlight = (
+  conversation: RunNotes,
+  inFlight: readonly MessageInFlight[],
+  me: Person | null,
+): RunNotes => {
+  const messages = stillOnTheirWay(conversation, inFlight, me);
+
+  if (messages.length === 0) {
+    return conversation;
+  }
+
+  const after = conversation.notes.at(-1)?.position ?? -1;
+
+  return {
+    ...conversation,
+    working: conversation.working || messages.some((each) => each.startsWork),
+    notes: [
+      ...conversation.notes,
+      ...messages.map((message, at) => ({
+        position: after + 1 + at,
+        kind: message.answers ? ('answered' as const) : ('message' as const),
+        form: 'words' as const,
+        voice: 'person' as const,
+        station: conversation.station?.name ?? '',
+        stationColor: conversation.station?.color ?? UNCOLOURED,
+        stationPosition: conversation.station?.position ?? 0,
+        runId: null,
+        body: message.body,
+        attachments: [],
+        at: new Date(message.sentAt).toISOString(),
+        author: me,
+        approval: null,
+        failure: null,
+        connection: null,
+      })),
+    ],
+  };
+};
 
 export const conversationItemOf = (
   conversation: RunNotes,

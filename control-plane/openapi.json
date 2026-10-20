@@ -28567,6 +28567,39 @@
           "connections"
         ]
       },
+      "LatestRunResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "4e1e84a2-0c39-406d-bbbb-559f29e450be"
+          },
+          "state": {
+            "type": "string",
+            "example": "claimed",
+            "enum": [
+              "queued",
+              "claimed",
+              "waiting",
+              "suspended",
+              "completed",
+              "failed",
+              "cancelled",
+              "superseded"
+            ]
+          },
+          "stopping": {
+            "type": "boolean",
+            "example": false,
+            "description": "Someone asked the run to stop, and it has not ended yet"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "stopping"
+        ]
+      },
       "RunSpendResponseDto": {
         "type": "object",
         "properties": {
@@ -28660,7 +28693,15 @@
           "working": {
             "type": "boolean",
             "example": false,
-            "description": "A run is on the task now"
+            "description": "A run of the task works at this station now"
+          },
+          "latestRun": {
+            "description": "The newest run of the task at this station",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LatestRunResponseDto"
+              }
+            ]
           },
           "notes": {
             "type": "array",
@@ -28689,6 +28730,7 @@
           "createdAt",
           "briefing",
           "working",
+          "latestRun",
           "notes",
           "spend"
         ]

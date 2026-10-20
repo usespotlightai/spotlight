@@ -381,3 +381,13 @@ export const briefingsFor = async (
 
   return briefings;
 };
+
+export const threadAt = <T extends { runId: string | null; station: string }>(
+  notes: readonly T[],
+  station: string | null,
+  runId: string,
+): T[] =>
+  notes.filter(
+    (note) =>
+      note.runId === runId || (station !== null && note.station === station),
+  );

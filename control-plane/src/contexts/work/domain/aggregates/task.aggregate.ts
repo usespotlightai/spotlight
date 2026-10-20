@@ -39,6 +39,7 @@ import { UnreviewablePullRequestError } from '@work/domain/exceptions/unreviewab
 import {
   type Conversation,
   notesIn,
+  worksOn,
 } from '@work/domain/services/conversations';
 import { anyUnread } from '@work/domain/services/unread';
 import type { Anchor } from '@work/domain/value-objects/anchor.vo';
@@ -622,7 +623,7 @@ export class Task extends EventRecorder {
   }
 
   get working(): boolean {
-    return this.running && !this.awaitingReview;
+    return worksOn(this.running, this.trail.notes);
   }
 
   takesUp(runId: RunId): boolean {

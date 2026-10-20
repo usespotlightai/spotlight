@@ -1,3 +1,11 @@
+export type Person = {
+  readonly id: string;
+  readonly name: string;
+  readonly image: string | null;
+};
+
+export const YOU = { name: 'You', image: null } as const;
+
 export function initialsOf(name: string): string {
   const initials = name
     .trim()

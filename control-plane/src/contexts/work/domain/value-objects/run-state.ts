@@ -22,3 +22,7 @@ export const TERMINAL_RUN_STATES = [
   'cancelled',
   'superseded',
 ] as const satisfies readonly RunState[];
+
+export const isStopping = (state: RunState, stopRequested: boolean): boolean =>
+  stopRequested &&
+  !(TERMINAL_RUN_STATES as readonly RunState[]).includes(state);
