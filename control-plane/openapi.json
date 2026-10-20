@@ -27436,6 +27436,11 @@
             "example": false,
             "description": "True while a run is working it, so an answer is coming"
           },
+          "queued": {
+            "type": "boolean",
+            "example": false,
+            "description": "The run on it waits for a runner to start it"
+          },
           "runId": {
             "type": "string",
             "nullable": true,
@@ -27496,6 +27501,7 @@
           "askedAt",
           "resolved",
           "working",
+          "queued",
           "runId",
           "unread",
           "briefing",

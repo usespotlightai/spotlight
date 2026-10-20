@@ -54,6 +54,7 @@ export function InboxItemConversation({
             createdAt: item.createdAt,
             station: stationOf(item),
             working: item.working,
+            queued: item.queued,
             resolved: item.resolved,
             notes: item.notes,
           }}
@@ -74,8 +75,10 @@ export function InboxItemConversation({
           live={
             item.runId && item.working ? (
               <RunActivity
+                runId={item.runId}
                 journals={workedOn(worked, item.notes, item.runId)}
-                working={item.working}
+                running={item.working && !item.queued}
+                queued={item.queued}
                 station={stationOf(item)}
               />
             ) : undefined

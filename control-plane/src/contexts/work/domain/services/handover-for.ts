@@ -29,6 +29,7 @@ export const HandoverFor = {
     handover: Handover | null;
     line: Line | null;
     currentStation: StationId;
+    lastWords?: string | null;
   }): ResolvedHandover {
     if (input.outcome.stopped) {
       return HandoverFor.stopped();
@@ -42,7 +43,7 @@ export const HandoverFor = {
       );
     }
 
-    return HandoverFor.outcome(input.outcome);
+    return HandoverFor.outcome(input.outcome, input.lastWords ?? null);
   },
 
   resolve(
@@ -97,7 +98,10 @@ export const HandoverFor = {
     );
   },
 
-  outcome(outcome: RunOutcome | null): ResolvedHandover {
+  outcome(
+    outcome: RunOutcome | null,
+    lastWords: string | null = null,
+  ): ResolvedHandover {
     if (!outcome) {
       const unreported = TaskNoteBody.of(
         'The run ended without reporting an outcome.',
@@ -115,6 +119,12 @@ export const HandoverFor = {
         ),
         TaskFailure.fromRun(outcome.failure.code),
       );
+    }
+
+    if (lastWords?.trim()) {
+      const said = TaskNoteBody.of(lastWords);
+
+      return ResolvedHandover.review(said, said);
     }
 
     return ResolvedHandover.review(

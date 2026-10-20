@@ -1,5 +1,4 @@
-import { useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router';
+import { useRef } from 'react';
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { ApprovalCard } from '@/components/features/inbox/conversation/approval/ApprovalCard';
 import type { Deciding } from '@/components/features/inbox/conversation/Conversation';
@@ -11,13 +10,16 @@ import { SetupSteps } from '@/components/features/onboarding/SetupSteps';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { useSession } from '@/hooks/api/useSession';
+import { useInAppLinks } from '@/hooks/useInAppLinks';
 import {
+  ARRIVING,
   type ConversationItem,
   type Note,
   type RunJournal,
   STICKY_AT_TOP,
 } from '@/lib/inbox';
 import { stationShare } from '@/lib/station';
+import { cn } from '@/lib/utils';
 
 type InboxNoteProps = {
   note: Note;
@@ -27,6 +29,7 @@ type InboxNoteProps = {
   about: ConversationItem['about'];
   resolved: ConversationItem['resolved'];
   deciding?: Deciding;
+  arrived?: boolean;
 };
 
 export function InboxNote({
@@ -37,34 +40,12 @@ export function InboxNote({
   about,
   resolved,
   deciding,
+  arrived = false,
 }: InboxNoteProps) {
-  const navigate = useNavigate();
   const { data: session } = useSession();
   const written = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const element = written.current;
-
-    if (!element) {
-      return;
-    }
-
-    const following = (event: MouseEvent) => {
-      const anchor = (event.target as HTMLElement).closest('a');
-      const href = anchor?.getAttribute('href');
-
-      if (!href?.startsWith('/') || event.metaKey || event.ctrlKey) {
-        return;
-      }
-
-      event.preventDefault();
-      void navigate(href);
-    };
-
-    element.addEventListener('click', following);
-
-    return () => element.removeEventListener('click', following);
-  }, [navigate]);
+  const arriving = arrived ? ARRIVING : undefined;
+  useInAppLinks(written);
 
   if (note.form === 'resolved') {
     return null;
@@ -72,7 +53,7 @@ export function InboxNote({
 
   if (note.voice === 'world') {
     return (
-      <li data-note={note.position} className="-mx-3">
+      <li data-note={note.position} className={cn('-mx-3', arriving)}>
         <div className="flex flex-col items-start gap-1.5">
           <AttachmentTiles attachments={note.attachments} />
 
@@ -90,7 +71,7 @@ export function InboxNote({
 
   if (note.voice === 'person') {
     return (
-      <li data-note={note.position} className={STICKY_AT_TOP}>
+      <li data-note={note.position} className={cn(STICKY_AT_TOP, arriving)}>
         <PersonMessage body={note.body} attachments={note.attachments} />
       </li>
     );
@@ -101,7 +82,10 @@ export function InboxNote({
   const connection = note.connection;
 
   return (
-    <li data-note={note.position} className="flex flex-col gap-1.5">
+    <li
+      data-note={note.position}
+      className={cn('flex flex-col gap-1.5', arriving)}
+    >
       {!shows && (
         <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
           <StationIcon

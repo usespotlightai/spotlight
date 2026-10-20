@@ -22,6 +22,7 @@ export class RunCompleted implements DomainEvent {
     readonly session: HarnessSession | null,
     readonly attempt: number,
     readonly asked: boolean = false,
+    readonly lastWords: string | null = null,
   ) {}
 
   get taskId(): TaskId | null {

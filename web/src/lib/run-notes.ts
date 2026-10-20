@@ -95,6 +95,7 @@ export const withMessagesInFlight = (
 export const conversationItemOf = (
   conversation: RunNotes,
   teamId: string,
+  queued: boolean,
 ): ConversationItem => ({
   id: conversation.runId,
   teamId,
@@ -106,6 +107,7 @@ export const conversationItemOf = (
     count: conversation.station?.count ?? 1,
   },
   working: conversation.working,
+  queued,
   notes: conversation.notes,
 });
 

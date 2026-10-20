@@ -100,6 +100,7 @@ export interface InboxItemSummary {
   readonly askedAt: Date;
   readonly resolved: boolean;
   readonly working: boolean;
+  readonly queued: boolean;
   readonly runId: string | null;
   readonly unread: boolean;
   readonly briefing: string | null;

@@ -728,6 +728,7 @@ export class Run extends EventRecorder {
         report.session ?? null,
         this.attempt,
         ended.askedAPerson,
+        report.lastWords,
       ),
     );
 

@@ -36,6 +36,7 @@ import {
 import { anyUnread } from '@work/domain/services/unread';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { INBOX_REQUEST_FORMS } from '@work/domain/value-objects/inbox-request-form';
+import { isQueued } from '@work/domain/value-objects/run-state';
 import {
   attachmentsFor,
   attachmentsOf,
@@ -53,6 +54,7 @@ import {
   station,
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { notice } from '@work/infrastructure/persistence/drizzle/schemas/notice.schema';
+import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { and, eq, gte, inArray, isNull, or } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
@@ -114,9 +116,12 @@ export class DrizzleInboxReader implements InboxReaderPort {
         currentStationPosition: station.position,
         createdAt: task.createdAt,
         working: task.currentRunId,
+        workingState: run.state,
+        workingStopRequestedAt: run.stopRequestedAt,
       })
       .from(task)
       .innerJoin(station, eq(station.id, task.stationId))
+      .leftJoin(run, eq(run.id, task.currentRunId))
       .innerJoin(line, eq(line.id, station.lineId))
       .leftJoin(origin, eq(origin.id, task.originStationId))
       .where(
@@ -202,6 +207,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
           resolved: !stillOpen(conversation),
           working:
             stillOpen(conversation) && worksOn(row.working !== null, notes),
+          queued:
+            stillOpen(conversation) &&
+            row.workingState !== null &&
+            isQueued(row.workingState, row.workingStopRequestedAt !== null),
           runId: stillOpen(conversation) ? row.working : null,
           unread: anyUnread(notes),
           briefing: (note.runId && briefings.get(note.runId)) || null,
@@ -344,6 +353,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         askedAt: row.requestCreatedAt,
         resolved: row.resolvedAt !== null,
         working: false,
+        queued: false,
         runId: null,
         unread: row.readAt === null && row.resolvedAt === null,
         briefing: null,

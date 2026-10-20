@@ -529,6 +529,26 @@ describe('Run', () => {
       expect(stop).toHaveBeenCalledWith({ teamId: 'team_1', runId: 'run_2' });
     });
 
+    it('keeps the work of a run that is stopping, without saying it is working', () => {
+      later({ state: 'claimed', stopping: true });
+      journal.mockReturnValue([
+        {
+          runId: 'run_2',
+          attempt: 1,
+          steps: [step],
+          spans: [],
+          marks: { startedAt: '2026-08-29T12:05:00.000Z' },
+        },
+      ]);
+
+      renderRun();
+
+      expect(screen.getAllByText('queue-stats --all').length).toBeGreaterThan(
+        0,
+      );
+      expect(screen.queryByText(/is working/)).not.toBeInTheDocument();
+    });
+
     it('no longer offers to stop the later run once it is stopping', () => {
       later({ state: 'claimed', stopping: true });
 
@@ -613,6 +633,22 @@ describe('Run', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('opens with what was written for the task, not the whole prompt', () => {
+    conversation.mockReturnValue(
+      conversationOf({ briefing: 'You are the Implementation station…' }),
+    );
+
+    renderRun();
+
+    expect(
+      screen.getByRole('heading', { name: 'Fix the queue' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('The retry queue is stuck.')).toBeInTheDocument();
+    expect(
+      screen.queryByText('You are the Implementation station…'),
+    ).not.toBeInTheDocument();
+  });
+
   describe('when nothing was done', () => {
     it('says the run failed before the agent started, and leads to the task', () => {
       runs.mockReturnValue([run({ state: 'failed' })]);
@@ -628,15 +664,32 @@ describe('Run', () => {
       ).toHaveAttribute('href', '/w/acme/team/team_1/tasks/task_1');
     });
 
-    it('says nothing of the kind while the run is still to start', () => {
+    it('says nothing is queued once a stop for the queued run is on its way', () => {
+      runs.mockReturnValue([run({ state: 'queued' })]);
+      conversation.mockReturnValue(
+        conversationOf({
+          notes: [],
+          latestRun: { id: 'run_1', state: 'queued', stopping: true },
+        }),
+      );
+
+      renderRun();
+
+      expect(screen.queryByText(/Queued\./)).not.toBeInTheDocument();
+    });
+
+    it('says the run is queued, not working, while it is still to start', () => {
       runs.mockReturnValue([run({ state: 'queued' })]);
       conversation.mockReturnValue(conversationOf({ notes: [] }));
 
       renderRun();
 
       expect(
-        screen.getByText('Implementation is working…'),
+        screen.getByText(
+          'Queued. Implementation starts when a runner is free.',
+        ),
       ).toBeInTheDocument();
+      expect(screen.queryByText(/is working/)).not.toBeInTheDocument();
       expect(
         screen.queryByText(/before the agent started/),
       ).not.toBeInTheDocument();

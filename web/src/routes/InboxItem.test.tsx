@@ -559,6 +559,20 @@ describe('InboxItem', () => {
     expect(screen.getByText('Implementation is working…')).toBeInTheDocument();
   });
 
+  it('says the run is queued, not working, while it waits for a runner', () => {
+    const [only] = item([note()]);
+    waiting.mockReturnValue([
+      { ...only, runId: 'run_1', working: true, queued: true },
+    ]);
+
+    renderItem();
+
+    expect(
+      screen.getByText('Queued. Implementation starts when a runner is free.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/is working/)).not.toBeInTheDocument();
+  });
+
   it('says nothing about working once it is idle', () => {
     renderItem();
 

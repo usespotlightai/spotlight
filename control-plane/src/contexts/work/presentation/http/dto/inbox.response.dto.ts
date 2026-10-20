@@ -432,6 +432,12 @@ export class InboxItemResponseDto {
   readonly working: boolean;
 
   @ApiProperty({
+    example: false,
+    description: 'The run on it waits for a runner to start it',
+  })
+  readonly queued: boolean;
+
+  @ApiProperty({
     nullable: true,
     type: String,
     description:
@@ -488,6 +494,7 @@ export class InboxItemResponseDto {
     askedAt: string,
     resolved: boolean,
     working: boolean,
+    queued: boolean,
     runId: string | null,
     unread: boolean,
     briefing: string | null,
@@ -511,6 +518,7 @@ export class InboxItemResponseDto {
     this.askedAt = askedAt;
     this.resolved = resolved;
     this.working = working;
+    this.queued = queued;
     this.runId = runId;
     this.unread = unread;
     this.briefing = briefing;
