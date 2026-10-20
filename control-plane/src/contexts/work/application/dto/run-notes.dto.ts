@@ -26,7 +26,7 @@ export interface RunNotesDto {
   readonly station: RunStationDto | null;
   readonly createdAt: string;
   readonly briefing: string;
-  readonly working: boolean;
+  readonly work: string | null;
   readonly latestRun: LatestRunDto;
   readonly notes: readonly NoteDto[];
   readonly spend: RunSpendDto | null;

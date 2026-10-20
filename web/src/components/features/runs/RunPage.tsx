@@ -13,7 +13,7 @@ import { useRunDeciding } from '@/hooks/useRunDeciding';
 import { useRunThread } from '@/hooks/useRunThread';
 import { useRunTrail } from '@/hooks/useRunTrail';
 import { decisionPending, type RunJournal, workedOn } from '@/lib/inbox';
-import { queued, type TeamRun, working } from '@/lib/run';
+import { type TeamRun, working } from '@/lib/run';
 import {
   type RunNotes as ConversationData,
   followedOnAfter,
@@ -40,7 +40,7 @@ export function RunPage({
 }: RunPageProps) {
   const base = useRunTrail({ slug, teamId, run, title: reported?.title });
   const { trail, forward } = useTrail(base, 2);
-  const { latest, conversation } = useRunThread(run, reported);
+  const { latest, conversation, work } = useRunThread(run, reported);
 
   const notes = conversation?.notes ?? [];
   const deciding = decisionPending(notes);
@@ -105,7 +105,7 @@ export function RunPage({
                 teamId={teamId}
                 conversation={conversation}
                 worked={worked}
-                queued={queued(latest) && !latest.stopping}
+                work={work}
                 openAt={openAt}
                 live={live}
                 closing={followedOn ? undefined : closing}

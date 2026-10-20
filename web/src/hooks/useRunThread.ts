@@ -9,8 +9,11 @@ export function useRunThread(run: TeamRun, reported: RunNotes | undefined) {
   const inFlight = useMessagesInFlight([run.id, latest.id]);
   const me = useMe();
 
+  const conversation = reported && withMessagesInFlight(reported, inFlight, me);
+
   return {
     latest,
-    conversation: reported && withMessagesInFlight(reported, inFlight, me),
+    conversation,
+    work: latest.stopping ? null : (conversation?.work ?? null),
   };
 }

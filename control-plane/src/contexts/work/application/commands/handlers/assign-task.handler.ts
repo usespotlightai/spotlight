@@ -1,4 +1,3 @@
-import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import {
   hasMember,
   type TeamDirectoryPort,
@@ -11,11 +10,10 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { AssignTaskCommand } from '@work/application/commands/assign-task.command';
 import type { TaskDto } from '@work/application/dto/task.dto';
-import { TaskMapper } from '@work/application/mappers/task.mapper';
-import { queuedOf } from '@work/application/services/queued-of';
+import type { TaskReaderPort } from '@work/application/ports/task-reader.port';
+import { taskAsRead } from '@work/application/services/task-as-read';
 import { NotATeamMemberError } from '@work/domain/exceptions/not-a-team-member.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 
 export class AssignTaskHandler
@@ -25,8 +23,7 @@ export class AssignTaskHandler
     private readonly tasks: TaskRepository,
     private readonly teams: TeamDirectoryPort,
     private readonly transaction: TransactionPort,
-    private readonly people: PersonReaderPort,
-    private readonly runs: RunRepository,
+    private readonly reader: TaskReaderPort,
   ) {}
 
   async execute(command: AssignTaskCommand): Promise<TaskDto> {
@@ -38,7 +35,7 @@ export class AssignTaskHandler
   }
 
   private async assign(command: AssignTaskCommand): Promise<TaskDto> {
-    return await this.transaction.inTransaction(async () => {
+    const assigned = await this.transaction.inTransaction(async () => {
       const team = await this.teams.find(TeamId.of(command.teamId));
 
       if (!team || !hasMember(team, UserId.of(command.viewerId))) {
@@ -63,19 +60,9 @@ export class AssignTaskHandler
 
       await this.tasks.save(assigned);
 
-      const createdBy = assigned.createdBy
-        ? await this.people.find(assigned.createdBy)
-        : null;
-      const person = assigned.assignee
-        ? await this.people.find(assigned.assignee)
-        : null;
-
-      return TaskMapper.taskToDto(
-        assigned,
-        createdBy,
-        person,
-        await queuedOf(this.runs, assigned),
-      );
+      return assigned;
     });
+
+    return taskAsRead(this.reader, command, assigned.id);
   }
 }

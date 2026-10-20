@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { WORK_NAMES } from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 
 export class TaskNoteResponseDto {
@@ -86,14 +87,15 @@ export class TaskResponseDto {
   @ApiProperty({ example: '2026-08-27T09:15:00.000Z' })
   readonly createdAt: string;
 
-  @ApiProperty({ example: false, description: 'A run is under way' })
-  readonly running: boolean;
-
   @ApiProperty({
-    example: false,
-    description: 'The run waits for a runner to start it',
+    enum: [...WORK_NAMES, null],
+    nullable: true,
+    type: String,
+    example: 'in-progress',
+    description:
+      'What its current run is doing: queued until a runner takes it, then in progress. Null without a run at work.',
   })
-  readonly queued: boolean;
+  readonly work: string | null;
 
   @ApiProperty({
     type: TaskReviewResponseDto,
@@ -141,8 +143,7 @@ export class TaskResponseDto {
     description: string | null,
     attachments: readonly AttachmentResponseDto[],
     createdAt: string,
-    running: boolean,
-    queued: boolean,
+    work: string | null,
     awaitingReview: TaskReviewResponseDto | null,
     pullRequest: string | null,
     createdBy: TaskPersonResponseDto | null,
@@ -156,8 +157,7 @@ export class TaskResponseDto {
     this.description = description;
     this.attachments = attachments;
     this.createdAt = createdAt;
-    this.running = running;
-    this.queued = queued;
+    this.work = work;
     this.awaitingReview = awaitingReview;
     this.pullRequest = pullRequest;
     this.createdBy = createdBy;

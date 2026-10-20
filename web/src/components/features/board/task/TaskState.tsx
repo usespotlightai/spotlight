@@ -26,8 +26,8 @@ export function TaskState({ task, reviewTo }: TaskStateProps) {
     );
   }
 
-  if (task.running) {
-    return <WorkState queued={task.queued} />;
+  if (task.work) {
+    return <WorkState work={task.work} />;
   }
 
   return null;

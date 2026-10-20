@@ -1,6 +1,6 @@
 import { RunActivity } from '@/components/features/runs/RunActivity';
 import type { RunJournal } from '@/lib/inbox';
-import { queued, type Run, running } from '@/lib/run';
+import { type Run, workOf } from '@/lib/run';
 
 type RunActivityOfProps = {
   run: Pick<Run, 'id' | 'state'>;
@@ -19,8 +19,7 @@ export function RunActivityOf({
     <RunActivity
       runId={run.id}
       journals={journals}
-      running={running(run) && !stopping}
-      queued={queued(run) && !stopping}
+      work={stopping ? null : workOf(run)}
       station={station}
     />
   );

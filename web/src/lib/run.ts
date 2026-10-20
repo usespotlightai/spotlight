@@ -1,4 +1,8 @@
-import type { TaskRunResponseDto, TeamRunResponseDto } from '@/lib/api';
+import type {
+  TaskResponseDto,
+  TaskRunResponseDto,
+  TeamRunResponseDto,
+} from '@/lib/api';
 import { counted } from '@/lib/inbox';
 
 export type Run = TaskRunResponseDto;
@@ -13,14 +17,18 @@ export const RUNS_AUTONOMOUSLY =
 export const formatTokens = (count: number | null): string =>
   count === null ? 'not reported' : counted(count);
 
-export const running = (run: Pick<Run, 'state'>): boolean =>
-  run.state === 'claimed';
+export type Work = NonNullable<TaskResponseDto['work']>;
 
-export const queued = (run: Pick<Run, 'state'>): boolean =>
-  run.state === 'queued';
+export const workOf = (run: Pick<Run, 'state'>): Work | null => {
+  if (run.state === 'queued') {
+    return 'queued';
+  }
+
+  return run.state === 'claimed' ? 'in-progress' : null;
+};
 
 export const working = (run: Pick<Run, 'state'>): boolean =>
-  running(run) || queued(run);
+  workOf(run) !== null;
 
 export const idleNoteOf = (run: Pick<Run, 'state'>): string =>
   run.state === 'failed'

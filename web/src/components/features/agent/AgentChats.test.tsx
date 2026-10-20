@@ -32,8 +32,7 @@ const chat: ChatSummary = {
   repositories: [],
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
-  working: false,
-  queued: false,
+  work: null,
   targetStation: null,
   setup: null,
 };
@@ -95,6 +94,15 @@ describe('AgentChats', () => {
       screen.getByText('Rate limiting for the public API'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('shows a chat whose run waits for a runner as queued, the same as on the board', () => {
+    chats.mockReturnValue([{ ...chat, work: 'queued' }]);
+
+    showing();
+
+    expect(screen.getByText('Queued')).toBeInTheDocument();
+    expect(screen.queryByText('In progress')).not.toBeInTheDocument();
   });
 
   it('says there are no chats yet and leaves the composer to start one', () => {

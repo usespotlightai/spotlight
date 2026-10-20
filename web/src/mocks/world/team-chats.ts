@@ -150,8 +150,7 @@ const chatOf = (
   targetStation: null,
   setup: null,
   updatedAt: over.createdAt,
-  working: false,
-  queued: false,
+  work: null,
   runId: null,
   ...over,
 });

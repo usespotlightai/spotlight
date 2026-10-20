@@ -28,7 +28,10 @@ import type {
   TeamRunSummary,
 } from '@work/application/ports/run-reader.port';
 import { worksOn } from '@work/domain/services/conversations';
-import { isStopping } from '@work/domain/value-objects/run-state';
+import {
+  isStopping,
+  workOfCurrentRun,
+} from '@work/domain/value-objects/run-state';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 import {
   attachmentsFor,
@@ -258,7 +261,9 @@ export class DrizzleRunReader implements RunReaderPort {
       station: stationSummaryOf({ ...found }, stationCounts),
       createdAt: found.createdAt,
       briefing: spec.briefing,
-      working: worksOn(found.workingRunId === latest.runId, notes),
+      work: worksOn(found.workingRunId === latest.runId, notes)
+        ? workOfCurrentRun({ state: latest.state })
+        : null,
       latestRun: {
         id: latest.runId,
         state: latest.state,

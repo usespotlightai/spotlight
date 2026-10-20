@@ -27,5 +27,16 @@ export const isStopping = (state: RunState, stopRequested: boolean): boolean =>
   stopRequested &&
   !(TERMINAL_RUN_STATES as readonly RunState[]).includes(state);
 
-export const isQueued = (state: RunState, stopRequested: boolean): boolean =>
-  state === 'queued' && !stopRequested;
+export const WORKS = ['queued', 'in-progress'] as const;
+
+export type Work = (typeof WORKS)[number];
+
+export const workOfCurrentRun = (
+  current: { readonly state: RunState } | null,
+): Work | null => {
+  if (current === null || current.state === 'queued') {
+    return 'queued';
+  }
+
+  return current.state === 'claimed' ? 'in-progress' : null;
+};

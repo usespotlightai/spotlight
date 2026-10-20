@@ -1,7 +1,9 @@
 import type { PersonSummary } from '@identity/application/ports/person-reader.port';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
+import type { Work } from '@work/domain/value-objects/run-state';
 
 export interface TaskNoteSummary {
   readonly position: number;
@@ -21,8 +23,7 @@ export interface TaskSummary {
   readonly description: string | null;
   readonly attachments: readonly AttachmentSummary[];
   readonly createdAt: Date;
-  readonly running: boolean;
-  readonly queued: boolean;
+  readonly work: Work | null;
   readonly awaitingReview: TaskReviewSummary | null;
   readonly pullRequest: string | null;
   readonly note: TaskNoteSummary | null;
@@ -37,4 +38,10 @@ export interface TaskReaderPort {
     teamId: TeamId,
     userId: UserId,
   ): Promise<TaskSummary[] | null>;
+
+  findForTeamMember(
+    teamId: TeamId,
+    userId: UserId,
+    taskId: TaskId,
+  ): Promise<TaskSummary | null>;
 }

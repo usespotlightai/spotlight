@@ -22,7 +22,7 @@ export function ChatRow({ chat, to }: ChatRowProps) {
       </TrailLink>
 
       <span className="ml-auto flex shrink-0 items-center gap-2">
-        {chat.working && <WorkState queued={chat.queued} />}
+        {chat.work && <WorkState work={chat.work} />}
 
         <span className="w-20 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
           {since(chat.updatedAt)}

@@ -1,4 +1,3 @@
-import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type {
   TeamDirectoryPort,
   TeamProfile,
@@ -11,10 +10,10 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { AssignTaskCommand } from '@work/application/commands/assign-task.command';
 import { AssignTaskHandler } from '@work/application/commands/handlers/assign-task.handler';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import { taskReaderOver } from '@work/application/ports/task-reader.fake-spec';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
@@ -99,22 +98,18 @@ const teams = (found: TeamProfile | null = team()) =>
     inWorkspace: vi.fn(async () => (found ? [found] : [])),
   }) satisfies TeamDirectoryPort;
 
-const people: PersonReaderPort = {
-  find: async (id) => ({ id: id.value, name: 'Someone', image: null }),
-  findMany: async () => new Map(),
-};
-
 const assign = (
   assigneeId: string | null,
   viewerId = 'user_1',
   stored: TaskRepository = tasks(),
   team: TeamDirectoryPort = teams(),
 ) =>
-  new AssignTaskHandler(stored, team, transaction, people, {
-    findById: async () => null,
-  } as unknown as RunRepository).execute(
-    new AssignTaskCommand('team_1', 'task_1', assigneeId, viewerId),
-  );
+  new AssignTaskHandler(
+    stored,
+    team,
+    transaction,
+    taskReaderOver(() => saved),
+  ).execute(new AssignTaskCommand('team_1', 'task_1', assigneeId, viewerId));
 
 describe('AssignTaskHandler', () => {
   beforeEach(() => {

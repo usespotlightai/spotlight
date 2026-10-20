@@ -185,7 +185,7 @@ const conversationOf = (over: Record<string, unknown> = {}) => ({
   station: STATION,
   createdAt: '2026-08-29T09:02:00.000Z',
   briefing: null,
-  working: false,
+  work: null,
   notes: [
     {
       position: 0,
@@ -490,7 +490,7 @@ describe('Run', () => {
     beforeEach(() => {
       conversation.mockReturnValue(
         conversationOf({
-          working: true,
+          work: 'in-progress',
           notes: [
             note(0, { body: 'The tests failed.' }),
             note(1, {
@@ -713,7 +713,7 @@ describe('Run', () => {
   describe('once the task is idle at the station', () => {
     const idle = {
       station: { id: 'station_3', harness: 'claude-code', kind: 'work' },
-      task: { id: 'task_1', running: false, awaitingReview: null },
+      task: { id: 'task_1', work: null, awaitingReview: null },
     };
 
     it('offers to send the work back to the station, which starts it again', () => {
@@ -752,7 +752,7 @@ describe('Run', () => {
     it('only says something to the station while a run still works the task', () => {
       taskStation.mockReturnValue({
         ...idle,
-        task: { ...idle.task, running: true },
+        task: { ...idle.task, work: 'in-progress' },
       });
 
       renderRun();
@@ -921,7 +921,7 @@ describe('Run', () => {
     it('shows one run: its work before the question, the answer, then it carrying on', () => {
       runs.mockReturnValue([run({ state: 'claimed', attempt: 2 })]);
       conversation.mockReturnValue(
-        conversationOf({ working: true, notes: [asked, answered] }),
+        conversationOf({ work: 'in-progress', notes: [asked, answered] }),
       );
       journal.mockReturnValue([
         {

@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { WORK_NAMES } from '@work/application/dto/task.dto';
 import {
   REVIEW_STATE_NAMES,
   RUN_STATE_NAMES,
@@ -162,10 +163,14 @@ export class RunNotesResponseDto {
   readonly briefing: string;
 
   @ApiProperty({
-    example: false,
-    description: 'A run of the task works at this station now',
+    enum: [...WORK_NAMES, null],
+    nullable: true,
+    type: String,
+    example: 'in-progress',
+    description:
+      'What the run of the task at this station is doing now: queued until a runner takes it, then in progress',
   })
-  readonly working: boolean;
+  readonly work: string | null;
 
   @ApiProperty({
     type: LatestRunResponseDto,
@@ -193,7 +198,7 @@ export class RunNotesResponseDto {
     station: RunStationResponseDto | null,
     createdAt: string,
     briefing: string,
-    working: boolean,
+    work: string | null,
     latestRun: LatestRunResponseDto,
     notes: readonly NoteResponseDto[],
     spend: RunSpendResponseDto | null,
@@ -206,7 +211,7 @@ export class RunNotesResponseDto {
     this.station = station;
     this.createdAt = createdAt;
     this.briefing = briefing;
-    this.working = working;
+    this.work = work;
     this.latestRun = latestRun;
     this.notes = notes;
     this.spend = spend;

@@ -37,7 +37,7 @@ const item = (over: Record<string, unknown> = {}) => ({
   createdAt: '2026-08-29T09:02:00.000Z',
   askedAt: '2026-08-29T12:00:00.000Z',
   resolved: false,
-  working: false,
+  work: null,
   unread: false,
   notes: [
     {

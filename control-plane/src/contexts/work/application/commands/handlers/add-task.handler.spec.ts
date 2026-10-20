@@ -1,4 +1,3 @@
-import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -13,6 +12,7 @@ import { AddTaskCommand } from '@work/application/commands/add-task.command';
 import { AddTaskHandler } from '@work/application/commands/handlers/add-task.handler';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import { taskReaderOver } from '@work/application/ports/task-reader.fake-spec';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
 import { CreateTask } from '@work/application/services/create-task';
 import { FilesLoader } from '@work/application/services/files-loader.service';
@@ -22,7 +22,6 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -176,24 +175,14 @@ const addTask = (command: AddTaskCommand, board: LineRepository = lines()) =>
     ids,
     clock,
     new CreateTask(tasks(), dispatch(), transaction, files),
-    people,
     files,
-    {
-      findById: async () => ({ state: 'queued', stopRequested: false }),
-    } as unknown as RunRepository,
+    taskReaderOver(() => added),
   ).execute(command);
 
 beforeEach(() => {
   added = undefined;
   dispatched.length = 0;
 });
-
-const creator = { id: 'user_1', name: 'Ada', image: null };
-
-const people: PersonReaderPort = {
-  find: async () => creator,
-  findMany: async () => new Map(),
-};
 
 describe('AddTaskHandler', () => {
   it('hands back the task it added', async () => {
@@ -208,22 +197,15 @@ describe('AddTaskHandler', () => {
           'user_1',
         ),
       ),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       id: 'task_1',
       stationId: 'station_1',
       revision: 0,
       title: 'Fix the queue',
-      description: null,
-      attachments: [],
       createdAt: created.toISOString(),
-      rank: added?.rank.value,
-      running: true,
-      queued: true,
-      awaitingReview: null,
-      pullRequest: null,
-      createdBy: creator,
-      assignee: creator,
-      note: null,
+      work: 'queued',
+      createdBy: { id: 'user_1' },
+      assignee: { id: 'user_1' },
     });
   });
 

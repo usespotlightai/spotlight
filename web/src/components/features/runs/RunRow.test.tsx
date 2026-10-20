@@ -29,7 +29,7 @@ describe('RunRow, what a run is doing', () => {
     const inRuns = shown(<RunRow run={run('claimed')} to="/runs/run_1" />);
     const onBoard = shown(
       <TaskState
-        task={{ running: true, awaitingReview: false } as unknown as Task}
+        task={{ work: 'in-progress', awaitingReview: false } as unknown as Task}
       />,
     );
 
@@ -48,8 +48,7 @@ describe('RunRow, what a run is doing', () => {
       <TaskState
         task={
           {
-            running: true,
-            queued: true,
+            work: 'queued',
             awaitingReview: false,
           } as unknown as Task
         }

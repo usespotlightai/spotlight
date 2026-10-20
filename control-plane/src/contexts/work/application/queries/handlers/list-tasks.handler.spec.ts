@@ -17,8 +17,7 @@ const summaries: TaskSummary[] = [
     description: null,
     attachments: [],
     createdAt: created,
-    running: false,
-    queued: false,
+    work: null,
     awaitingReview: null,
     pullRequest: null,
     createdBy: null,
@@ -33,8 +32,7 @@ const summaries: TaskSummary[] = [
     description: '## Steps',
     attachments: [],
     createdAt: created,
-    running: false,
-    queued: false,
+    work: null,
     awaitingReview: null,
     pullRequest: null,
     createdBy: null,
@@ -50,6 +48,7 @@ const asDto = (summary: TaskSummary) => ({
 
 const reader = (result: TaskSummary[] | null): TaskReaderPort => ({
   listForTeamMember: vi.fn().mockResolvedValue(result),
+  findForTeamMember: vi.fn(),
 });
 
 const handle = (tasks: TaskReaderPort) =>

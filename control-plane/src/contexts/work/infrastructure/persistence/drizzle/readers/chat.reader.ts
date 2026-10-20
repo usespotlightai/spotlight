@@ -14,7 +14,8 @@ import type {
   SetupChatView,
 } from '@work/application/ports/chat-reader.port';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { queuedAmong } from '@work/infrastructure/persistence/drizzle/readers/queued-runs';
+import type { Work } from '@work/domain/value-objects/run-state';
+import { workOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-work';
 import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import {
   chat,
@@ -29,7 +30,10 @@ import { and, asc, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 
 type Row = typeof chat.$inferSelect;
 
-const summaryOf = (row: Row, queued: ReadonlySet<string>): ChatSummary => ({
+const summaryOf = (
+  row: Row,
+  workOf: (runId: string | null) => Work | null,
+): ChatSummary => ({
   id: row.id,
   title: row.title,
   harness: row.harness,
@@ -40,8 +44,7 @@ const summaryOf = (row: Row, queued: ReadonlySet<string>): ChatSummary => ({
   setup: row.setup ?? null,
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
-  working: row.currentRunId !== null,
-  queued: row.currentRunId !== null && queued.has(row.currentRunId),
+  work: workOf(row.currentRunId),
 });
 
 @Injectable()
@@ -87,12 +90,12 @@ export class DrizzleChatReader implements ChatReaderPort {
       )
       .orderBy(desc(chat.updatedAt));
 
-    const queued = await queuedAmong(
+    const workOf = await workOfCurrentRuns(
       this.db,
       rows.map((row) => row.currentRunId),
     );
 
-    return rows.map((row) => summaryOf(row, queued));
+    return rows.map((row) => summaryOf(row, workOf));
   }
 
   async read(
@@ -116,7 +119,7 @@ export class DrizzleChatReader implements ChatReaderPort {
       return null;
     }
 
-    const [messages, attachments, [starter]] = await Promise.all([
+    const [messages, attachments, [starter], workOf] = await Promise.all([
       this.db
         .select()
         .from(chatMessage)
@@ -128,6 +131,7 @@ export class DrizzleChatReader implements ChatReaderPort {
         .where(eq(chatAttachment.chatId, row.id))
         .orderBy(asc(chatAttachment.place)),
       this.people.find(UserId.of(row.startedById)).then((found) => [found]),
+      workOfCurrentRuns(this.db, [row.currentRunId]),
     ]);
 
     const proposedAt = messages.flatMap((each) =>
@@ -154,7 +158,7 @@ export class DrizzleChatReader implements ChatReaderPort {
     );
 
     return {
-      ...summaryOf(row, await queuedAmong(this.db, [row.currentRunId])),
+      ...summaryOf(row, workOf),
       runId: row.currentRunId,
       messages: messages.map((message) => {
         const proposal = message.proposal ?? null;

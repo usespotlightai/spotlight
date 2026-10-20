@@ -1,4 +1,3 @@
-import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -11,6 +10,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.handler';
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import { taskReaderOver } from '@work/application/ports/task-reader.fake-spec';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
 import { LineLoader } from '@work/application/services/line-loader.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
@@ -19,7 +19,6 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import type { RunDetached } from '@work/domain/events/run-detached.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
@@ -160,11 +159,6 @@ const clock: ClockPort = {
   sleep: async () => {},
 };
 
-const people: PersonReaderPort = {
-  find: async () => ({ id: 'user_1', name: 'Ada', image: null }),
-  findMany: async () => new Map(),
-};
-
 const move = (
   stationId: string,
   board: LineRepository = lines(),
@@ -179,8 +173,7 @@ const move = (
     transaction,
     dispatch(),
     clock,
-    people,
-    { findById: async () => null } as unknown as RunRepository,
+    taskReaderOver(() => saved),
   ).execute(
     new MoveTaskCommand(
       teamId,

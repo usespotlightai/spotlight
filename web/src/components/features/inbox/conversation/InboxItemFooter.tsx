@@ -16,7 +16,7 @@ export function InboxItemFooter({ slug, item }: InboxItemFooterProps) {
         station={item.station}
         teamId={item.teamId}
         runId={item.runId}
-        running={item.working}
+        running={item.work === 'in-progress'}
       />
     );
   }

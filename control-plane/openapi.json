@@ -27431,15 +27431,16 @@
             "example": false,
             "description": "True once it is resolved, and is no longer yours to answer"
           },
-          "working": {
-            "type": "boolean",
-            "example": false,
-            "description": "True while a run is working it, so an answer is coming"
-          },
-          "queued": {
-            "type": "boolean",
-            "example": false,
-            "description": "The run on it waits for a runner to start it"
+          "work": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress"
           },
           "runId": {
             "type": "string",
@@ -27500,8 +27501,7 @@
           "createdAt",
           "askedAt",
           "resolved",
-          "working",
-          "queued",
+          "work",
           "runId",
           "unread",
           "briefing",
@@ -27902,15 +27902,16 @@
             "type": "string",
             "example": "2026-08-27T09:15:00.000Z"
           },
-          "running": {
-            "type": "boolean",
-            "example": false,
-            "description": "A run is under way"
-          },
-          "queued": {
-            "type": "boolean",
-            "example": false,
-            "description": "The run waits for a runner to start it"
+          "work": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "What its current run is doing: queued until a runner takes it, then in progress. Null without a run at work."
           },
           "awaitingReview": {
             "nullable": true,
@@ -27967,8 +27968,7 @@
           "description",
           "attachments",
           "createdAt",
-          "running",
-          "queued",
+          "work",
           "awaitingReview",
           "pullRequest",
           "createdBy",
@@ -28702,10 +28702,16 @@
             "type": "string",
             "description": "The briefing of the run, word for word"
           },
-          "working": {
-            "type": "boolean",
-            "example": false,
-            "description": "A run of the task works at this station now"
+          "work": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "What the run of the task at this station is doing now: queued until a runner takes it, then in progress"
           },
           "latestRun": {
             "description": "The newest run of the task at this station",
@@ -28741,7 +28747,7 @@
           "station",
           "createdAt",
           "briefing",
-          "working",
+          "work",
           "latestRun",
           "notes",
           "spend"
@@ -29391,15 +29397,16 @@
             "type": "string",
             "example": "2026-09-14T09:05:00.000Z"
           },
-          "working": {
-            "type": "boolean",
-            "example": true,
-            "description": "The agent is answering now"
-          },
-          "queued": {
-            "type": "boolean",
-            "example": false,
-            "description": "The run waits for a runner to start it"
+          "work": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "What the run answering it is doing: queued until a runner takes it, then in progress. Null while nothing answers."
           }
         },
         "required": [
@@ -29413,8 +29420,7 @@
           "setup",
           "createdAt",
           "updatedAt",
-          "working",
-          "queued"
+          "work"
         ]
       },
       "ChatSetupRequestDto": {
@@ -29730,15 +29736,16 @@
             "type": "string",
             "example": "2026-09-14T09:05:00.000Z"
           },
-          "working": {
-            "type": "boolean",
-            "example": true,
-            "description": "The agent is answering now"
-          },
-          "queued": {
-            "type": "boolean",
-            "example": false,
-            "description": "The run waits for a runner to start it"
+          "work": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "What the run answering it is doing: queued until a runner takes it, then in progress. Null while nothing answers."
           },
           "runId": {
             "type": "string",
@@ -29763,8 +29770,7 @@
           "setup",
           "createdAt",
           "updatedAt",
-          "working",
-          "queued",
+          "work",
           "runId",
           "messages"
         ]

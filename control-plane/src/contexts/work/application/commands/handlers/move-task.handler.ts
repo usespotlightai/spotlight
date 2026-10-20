@@ -1,4 +1,3 @@
-import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -7,14 +6,13 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { MoveTaskCommand } from '@work/application/commands/move-task.command';
 import type { TaskDto } from '@work/application/dto/task.dto';
-import { TaskMapper } from '@work/application/mappers/task.mapper';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import type { TaskReaderPort } from '@work/application/ports/task-reader.port';
 import type { LineLoader } from '@work/application/services/line-loader.service';
-import { queuedOf } from '@work/application/services/queued-of';
+import { taskAsRead } from '@work/application/services/task-as-read';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Placement } from '@work/domain/services/placement';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -32,8 +30,7 @@ export class MoveTaskHandler
     private readonly transaction: TransactionPort,
     private readonly dispatch: TaskDispatching,
     private readonly clock: ClockPort,
-    private readonly people: PersonReaderPort,
-    private readonly runs: RunRepository,
+    private readonly reader: TaskReaderPort,
   ) {}
 
   async execute(command: MoveTaskCommand): Promise<TaskDto> {
@@ -47,7 +44,7 @@ export class MoveTaskHandler
   private async move(command: MoveTaskCommand): Promise<TaskDto> {
     const stationId = StationId.of(command.stationId);
 
-    return await this.transaction.inTransaction(async () => {
+    const placed = await this.transaction.inTransaction(async () => {
       const line = await this.lines.onTeam(
         command.teamId,
         command.lineId,
@@ -113,19 +110,9 @@ export class MoveTaskHandler
 
       await this.tasks.save(placed);
 
-      const createdBy = placed.createdBy
-        ? await this.people.find(placed.createdBy)
-        : null;
-      const assignee = placed.assignee
-        ? await this.people.find(placed.assignee)
-        : null;
-
-      return TaskMapper.taskToDto(
-        placed,
-        createdBy,
-        assignee,
-        await queuedOf(this.runs, placed),
-      );
+      return placed;
     });
+
+    return taskAsRead(this.reader, command, placed.id);
   }
 }

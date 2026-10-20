@@ -268,9 +268,9 @@ export function Conversation({
                   (live ? (
                     <li className="empty:hidden">{live}</li>
                   ) : (
-                    item.working && (
+                    item.work && (
                       <InboxWorking
-                        queued={item.queued}
+                        work={item.work}
                         station={item.station.name}
                         stationColor={item.station.color}
                         stationPosition={item.station.position}

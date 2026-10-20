@@ -1,8 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { InboxItemSummary } from '@work/application/ports/inbox-reader.port';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
+import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
@@ -11,7 +15,7 @@ let database: TestDatabase;
 let db: DrizzleDatabase;
 
 beforeAll(async () => {
-  database = await openDatabase('inbox_queued');
+  database = await openDatabase('current_work');
   db = database.db;
 }, 60_000);
 
@@ -21,7 +25,7 @@ afterAll(async () => {
 
 type RunState = (typeof schema.run.$inferInsert)['state'];
 
-const inboxWith = async (state: RunState) => {
+const inboxWith = async (state: RunState | null) => {
   const workspaceId = randomUUID();
   const lineId = randomUUID();
   const stationId = randomUUID();
@@ -52,15 +56,17 @@ const inboxWith = async (state: RunState) => {
     assigneeId: viewer,
     currentRunId: runId,
   });
-  await db.insert(schema.run).values({
-    id: runId,
-    workspaceId,
-    harness: 'dev',
-    taskId,
-    stationId,
-    state,
-    spec: {},
-  });
+  if (state) {
+    await db.insert(schema.run).values({
+      id: runId,
+      workspaceId,
+      harness: 'dev',
+      taskId,
+      stationId,
+      state,
+      spec: {},
+    });
+  }
   await db.insert(schema.taskNote).values([
     {
       taskId,
@@ -86,6 +92,14 @@ const inboxWith = async (state: RunState) => {
     },
   ]);
 
+  const tasks = new DrizzleTaskReader(
+    db,
+    { mayView: async () => true } as never,
+    {
+      find: async () => ({ workspaceId: WorkspaceId.of(workspaceId) }),
+    } as never,
+    { findMany: async () => new Map() } as never,
+  );
   const reader = new DrizzleInboxReader(
     db,
     { mayView: async () => true, onTeam: async () => null } as never,
@@ -99,21 +113,39 @@ const inboxWith = async (state: RunState) => {
     new Date(0),
   );
 
-  return entries?.find(
-    (each): each is InboxItemSummary => each.kind === 'task',
+  const onBoard = await tasks.findForTeamMember(
+    TeamId.of('team_1'),
+    UserId.of(viewer),
+    TaskId.of(taskId),
   );
+
+  return {
+    inbox: entries?.find(
+      (each): each is InboxItemSummary => each.kind === 'task',
+    ),
+    board: onBoard,
+  };
 };
 
-describe('a task in the inbox whose run waits to start', () => {
-  it('says its run is queued', async () => {
-    const item = await inboxWith('queued');
+describe('the work of a task whose run waits to start', () => {
+  it('is queued before the run is even on the queue', async () => {
+    const { inbox, board } = await inboxWith(null);
 
-    expect(item).toMatchObject({ working: true, queued: true });
+    expect(inbox?.work).toBe('queued');
+    expect(board?.work).toBe('queued');
   });
 
-  it('is no longer queued once a runner claims the run', async () => {
-    const item = await inboxWith('claimed');
+  it('is queued while the run waits for a runner', async () => {
+    const { inbox, board } = await inboxWith('queued');
 
-    expect(item).toMatchObject({ working: true, queued: false });
+    expect(inbox?.work).toBe('queued');
+    expect(board?.work).toBe('queued');
+  });
+
+  it('is in progress once a runner claims the run', async () => {
+    const { inbox, board } = await inboxWith('claimed');
+
+    expect(inbox?.work).toBe('in-progress');
+    expect(board?.work).toBe('in-progress');
   });
 });

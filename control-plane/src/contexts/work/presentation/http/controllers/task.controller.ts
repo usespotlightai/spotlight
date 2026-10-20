@@ -264,7 +264,7 @@ export class TaskController {
         : null,
       found.createdAt,
       found.briefing,
-      found.working,
+      found.work,
       new LatestRunResponseDto(
         found.latestRun.id,
         found.latestRun.state,
