@@ -241,6 +241,20 @@ describe('HandOver', () => {
     ]);
   });
 
+  it('puts the last words of a run without a handover to the person', async () => {
+    await handOver(
+      run(
+        false,
+        HandoverReport.of({ lastWords: 'Here is a draft you can use.' }),
+      ),
+    );
+
+    expect(saved?.awaitingReview).toBe(true);
+    expect(saved?.notes.map((each) => each.body.value)).toEqual([
+      'Here is a draft you can use.',
+    ]);
+  });
+
   it('asks a person about a run that failed, and says why', async () => {
     await handOver(run(true));
 

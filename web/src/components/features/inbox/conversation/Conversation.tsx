@@ -5,9 +5,11 @@ import { PersonMessage } from '@/components/features/inbox/conversation/PersonMe
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { PaneScroller } from '@/components/shared/PaneScroller';
+import { useArrivals } from '@/hooks/useArrivals';
 import type { ApprovalAnswer } from '@/lib/approval';
 import { togglesDisclosure } from '@/lib/disclosure';
 import {
+  ARRIVING,
   type ConversationItem,
   type Note,
   openedAt,
@@ -17,6 +19,7 @@ import {
 } from '@/lib/inbox';
 import { lastNoteOf } from '@/lib/run-notes';
 import { useRunSidePanel } from '@/lib/run-side-panel';
+import { cn } from '@/lib/utils';
 
 interface Turn {
   readonly prompt: Note | null;
@@ -101,6 +104,10 @@ export function Conversation({
   afterRun,
 }: ConversationProps) {
   const marked = marksIn(item);
+  const arrived = useArrivals(
+    item.id,
+    item.notes.map((note) => note.position),
+  );
   const { sidePanel } = useRunSidePanel();
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
@@ -207,7 +214,16 @@ export function Conversation({
                 </div>
               )}
 
-              {head && <div className={STICKY_AT_TOP}>{head}</div>}
+              {head && (
+                <div
+                  className={cn(
+                    STICKY_AT_TOP,
+                    turn.prompt && arrived(turn.prompt.position) && ARRIVING,
+                  )}
+                >
+                  {head}
+                </div>
+              )}
 
               <ol className="mt-6 flex flex-col gap-6">
                 {turn.notes.map((note, place) => {
@@ -234,6 +250,7 @@ export function Conversation({
                         about={item.about}
                         resolved={item.resolved}
                         deciding={deciding}
+                        arrived={arrived(note.position)}
                         worked={workedOn(
                           worked,
                           item.notes,
@@ -253,6 +270,7 @@ export function Conversation({
                   ) : (
                     item.working && (
                       <InboxWorking
+                        queued={item.queued}
                         station={item.station.name}
                         stationColor={item.station.color}
                         stationPosition={item.station.position}

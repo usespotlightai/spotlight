@@ -14,7 +14,7 @@ import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { lastNoteAt, threadText } from '@/lib/inbox';
 import type { ReplayRun } from '@/lib/replay';
-import { idleNoteOf, working } from '@/lib/run';
+import { idleNoteOf, queued, running, working } from '@/lib/run';
 import { TrailContext } from '@/lib/trail';
 
 type UntaskedRunProps = {
@@ -80,8 +80,10 @@ export function UntaskedRun({
                 {run.station && (
                   <div className="mt-6 empty:hidden">
                     <RunActivity
+                      runId={run.id}
                       journals={run.journals}
-                      working={busy}
+                      running={running(run)}
+                      queued={queued(run)}
                       station={run.station}
                     />
                   </div>

@@ -2515,6 +2515,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     TASK_VIEWS,
     LIFECYCLE_HOOKS,
     CLOCK,
+    RUN_JOURNAL_READER,
   ]),
 
   ...bindCommandHandler(EnqueueRunCommand, EnqueueRunHandler, [

@@ -13,8 +13,14 @@ export const RUNS_AUTONOMOUSLY =
 export const formatTokens = (count: number | null): string =>
   count === null ? 'not reported' : counted(count);
 
+export const running = (run: Pick<Run, 'state'>): boolean =>
+  run.state === 'claimed';
+
+export const queued = (run: Pick<Run, 'state'>): boolean =>
+  run.state === 'queued';
+
 export const working = (run: Pick<Run, 'state'>): boolean =>
-  run.state === 'claimed' || run.state === 'queued';
+  running(run) || queued(run);
 
 export const idleNoteOf = (run: Pick<Run, 'state'>): string =>
   run.state === 'failed'

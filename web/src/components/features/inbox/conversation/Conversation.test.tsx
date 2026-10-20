@@ -74,6 +74,7 @@ const showing = (
           createdAt: AT,
           station: { name: 'Backlog', color: '#edc12b', position: 0, count: 4 },
           working: false,
+          queued: false,
           notes,
         }}
         worked={[]}
@@ -167,5 +168,38 @@ describe('Conversation', () => {
         .compareDocumentPosition(closing[0] as HTMLElement) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it('lets only the notes that come later arrive, not the ones it opened with', () => {
+    const conversation = (notes: Note[]) => (
+      <MemoryRouter>
+        <Conversation
+          item={{
+            id: 'item_1',
+            teamId: 'team_1',
+            createdAt: AT,
+            station: {
+              name: 'Backlog',
+              color: '#edc12b',
+              position: 0,
+              count: 4,
+            },
+            working: false,
+            queued: false,
+            notes,
+          }}
+          worked={[]}
+          footer={null}
+        />
+      </MemoryRouter>
+    );
+    const { rerender } = render(conversation([note(0, AT)]));
+
+    rerender(conversation([note(0, AT), note(1, AT)]));
+
+    const arrives = (body: string) =>
+      screen.getByText(body).closest('li')?.className.includes('animate-in');
+    expect(arrives('note 0')).toBe(false);
+    expect(arrives('note 1')).toBe(true);
   });
 });

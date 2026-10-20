@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
-import { BriefingCard } from '@/components/features/runs/BriefingCard';
 import { RunImage } from '@/components/features/runs/RunImage';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { PaneScroller } from '@/components/shared/PaneScroller';
@@ -12,7 +11,6 @@ import { useRunSidePanel } from '@/lib/run-side-panel';
 
 type RunBriefingProps = {
   run: TeamRun;
-  briefing: string | null;
   attachments: readonly Attachment[];
   activity?: ReactNode;
   closing?: ReactNode;
@@ -21,7 +19,6 @@ type RunBriefingProps = {
 
 export function RunBriefing({
   run,
-  briefing,
   attachments,
   activity,
   closing,
@@ -41,16 +38,12 @@ export function RunBriefing({
         <RunImage image={run.image} />
 
         <div className="mt-6">
-          {briefing ? (
-            <BriefingCard briefing={briefing} attachments={attachments} />
-          ) : (
-            <InboxAsked
-              station={run.station}
-              title={run.taskTitle}
-              description={run.taskDescription}
-              attachments={attachments}
-            />
-          )}
+          <InboxAsked
+            station={run.station}
+            title={run.taskTitle}
+            description={run.taskDescription}
+            attachments={attachments}
+          />
         </div>
 
         {activity && <div className="mt-6 empty:hidden">{activity}</div>}

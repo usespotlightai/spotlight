@@ -7,9 +7,10 @@ import { cn } from '@/lib/utils';
 type InboxStepProps = {
   step: JournalStep;
   live?: boolean;
+  className?: string;
 };
 
-export function InboxStep({ step, live = false }: InboxStepProps) {
+export function InboxStep({ step, live = false, className }: InboxStepProps) {
   const anchors = useStepAnchors();
   const anchor = anchors.anchorOf(step);
   const focused = anchor !== null && anchors.focused === anchor;
@@ -17,7 +18,11 @@ export function InboxStep({ step, live = false }: InboxStepProps) {
   const place = {
     id: anchor ?? undefined,
     'data-focused': focused || undefined,
-    className: cn('scroll-mt-16 rounded-md', focused && 'bg-accent/60'),
+    className: cn(
+      'scroll-mt-16 rounded-md',
+      focused && 'bg-accent/60',
+      className,
+    ),
   };
 
   if (step.kind === 'message') {

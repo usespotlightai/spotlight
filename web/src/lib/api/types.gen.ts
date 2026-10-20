@@ -1475,6 +1475,10 @@ export type InboxItemResponseDto = {
    */
   working: boolean;
   /**
+   * The run on it waits for a runner to start it
+   */
+  queued: boolean;
+  /**
    * The run working it now, whose steps can be watched as they land
    */
   runId: string | null;

@@ -7,7 +7,9 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { CompleteRunCommand } from '@work/application/commands/runner.commands';
 import type { RunCompletionDto } from '@work/application/dto/run-completion.dto';
 import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
+import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { TaskViewsPort } from '@work/application/ports/task-views.port';
+import { lastWordsIn } from '@work/application/services/last-words';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
@@ -37,6 +39,7 @@ export class CompleteRunHandler
     private readonly taskViews: TaskViewsPort,
     private readonly hooks: LifecycleHooksPort,
     private readonly clock: ClockPort,
+    private readonly journals: RunJournalReaderPort,
   ) {}
 
   async execute(command: CompleteRunCommand): Promise<RunCompletionDto> {
@@ -72,6 +75,9 @@ export class CompleteRunHandler
         session: command.sessionId
           ? HarnessSession.of(command.sessionId)
           : null,
+        lastWords: handover
+          ? null
+          : lastWordsIn(await this.journals.attemptsOfRun(runId)),
       });
 
       return await this.retrying(() =>

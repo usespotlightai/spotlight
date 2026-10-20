@@ -25,14 +25,16 @@ interface Turn {
   readonly line: Line | null;
   readonly outcome: RunOutcome;
   readonly handover: Handover | null;
+  readonly lastWords?: string | null;
 }
 
-const handoverOf = (task: Task, { outcome, handover, line }: Turn) =>
+const handoverOf = (task: Task, { outcome, handover, line, lastWords }: Turn) =>
   HandoverFor.after({
     outcome,
     handover,
     line,
     currentStation: task.stationId,
+    lastWords,
   });
 
 const asksAPerson = (turn: Turn): boolean => {
@@ -76,7 +78,14 @@ export const turnEnded = (turn: {
 }): TurnEnd => {
   const { run, by, task, line, outcome, report, archived, now } = turn;
 
-  const ending = { run, task, line, outcome, handover: report.handover };
+  const ending = {
+    run,
+    task,
+    line,
+    outcome,
+    handover: report.handover,
+    lastWords: report.lastWords,
+  };
 
   if (run.leavesNothingBehind) {
     return {

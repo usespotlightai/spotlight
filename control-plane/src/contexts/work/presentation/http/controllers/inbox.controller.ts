@@ -78,6 +78,7 @@ const taskItemResponse = (item: InboxItemDto): InboxItemResponseDto =>
     item.askedAt,
     item.resolved,
     item.working,
+    item.queued,
     item.runId,
     item.unread,
     item.briefing,

@@ -48,6 +48,7 @@ export class HandOver implements RunOutcomes {
       handover: event.handover,
       line,
       currentStation: task.stationId,
+      lastWords: event.lastWords,
     });
 
     const recorded = event.session

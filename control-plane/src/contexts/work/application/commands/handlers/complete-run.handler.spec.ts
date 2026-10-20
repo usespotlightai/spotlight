@@ -8,10 +8,12 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { CompleteRunHandler } from '@work/application/commands/handlers/complete-run.handler';
 import { CompleteRunCommand } from '@work/application/commands/runner.commands';
+import type { RunJournal } from '@work/application/contracts/run-journal.contract';
 import type {
   BeforeHookEvent,
   HookDecision,
 } from '@work/application/ports/lifecycle-hooks.port';
+import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type {
   TaskViewDto,
   TaskViewsPort,
@@ -128,7 +130,11 @@ const completing = (
   save: (run: Run) => Promise<void>,
   decision: HookDecision = { kind: 'allowed' },
   task: Task | (() => Task) | null = null,
-  stored: { tasks: Task[]; run?: () => Run } = { tasks: [] },
+  stored: {
+    tasks: Task[];
+    run?: () => Run;
+    journals?: readonly RunJournal[];
+  } = { tasks: [] },
 ) => {
   const hookCalls: BeforeHookEvent[] = [];
   const handler = new CompleteRunHandler(
@@ -154,10 +160,23 @@ const completing = (
       after: async () => {},
     },
     { now: () => NOW, sleep: async () => {} },
+    {
+      attemptsOfRun: async () => stored.journals ?? [],
+    } as unknown as RunJournalReaderPort,
   );
 
   return Object.assign(handler, { hookCalls });
 };
+
+const journalOf = (attempt: number, said: readonly string[]): RunJournal =>
+  ({
+    runId: 'run_1',
+    attempt,
+    steps: said.flatMap((text) => [
+      { kind: 'message', text },
+      { kind: 'tool', text: 'grep' },
+    ]),
+  }) as unknown as RunJournal;
 
 const handoverOn = (run: Run | undefined) =>
   (
@@ -203,6 +222,39 @@ describe('CompleteRunHandler', () => {
       expect(
         saved[0]?.pullEvents().some((each) => each instanceof RunPaused),
       ).toBe(true);
+    });
+
+    it('puts the last words of the latest attempt to the person when the turn names no next step', async () => {
+      const stored = {
+        tasks: [] as Task[],
+        journals: [
+          journalOf(1, ['Which queue?']),
+          journalOf(2, ['Looking at it.', 'Here is a draft you can use.']),
+        ],
+      };
+
+      await completing(
+        async () => {},
+        { kind: 'allowed' },
+        claimedByTheRun(),
+        stored,
+      ).execute(
+        new CompleteRunCommand(
+          'run_1',
+          'runner_1',
+          0,
+          false,
+          undefined,
+          undefined,
+          'session_1',
+          false,
+          true,
+        ),
+      );
+
+      expect(stored.tasks[0]?.notes[0]?.body.value).toBe(
+        'Here is a draft you can use.',
+      );
     });
 
     it('keeps the session it paused in, so a later runner resumes it', async () => {

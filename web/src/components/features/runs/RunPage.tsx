@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RunActivity } from '@/components/features/runs/RunActivity';
+import { RunActivityOf } from '@/components/features/runs/RunActivityOf';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
 import { RunClosing } from '@/components/features/runs/RunClosing';
 import { RunConversation } from '@/components/features/runs/RunConversation';
@@ -13,7 +13,7 @@ import { useRunDeciding } from '@/hooks/useRunDeciding';
 import { useRunThread } from '@/hooks/useRunThread';
 import { useRunTrail } from '@/hooks/useRunTrail';
 import { decisionPending, type RunJournal, workedOn } from '@/lib/inbox';
-import { type TeamRun, working } from '@/lib/run';
+import { queued, type TeamRun, working } from '@/lib/run';
 import {
   type RunNotes as ConversationData,
   followedOnAfter,
@@ -75,18 +75,20 @@ export function RunPage({
   const stoppingHere = latest.id === run.id && latest.stopping;
 
   const activity = run.station ? (
-    <RunActivity
+    <RunActivityOf
+      run={run}
+      stopping={stoppingHere}
       journals={ran}
-      working={working(run) && !stoppingHere}
       station={run.station}
     />
   ) : null;
 
   const live =
-    latest.state === 'claimed' && run.station ? (
-      <RunActivity
+    working(latest) && !latest.stopping && run.station ? (
+      <RunActivityOf
+        run={latest}
+        stopping={latest.stopping}
         journals={workedOn(worked, notes, latest.id)}
-        working={!latest.stopping}
         station={run.station}
       />
     ) : undefined;
@@ -103,6 +105,7 @@ export function RunPage({
                 teamId={teamId}
                 conversation={conversation}
                 worked={worked}
+                queued={queued(latest) && !latest.stopping}
                 openAt={openAt}
                 live={live}
                 closing={followedOn ? undefined : closing}
@@ -115,7 +118,6 @@ export function RunPage({
             ) : (
               <RunBriefing
                 run={run}
-                briefing={conversation?.briefing ?? null}
                 attachments={conversation?.attachments ?? []}
                 closing={closing}
                 activity={

@@ -26,3 +26,6 @@ export const TERMINAL_RUN_STATES = [
 export const isStopping = (state: RunState, stopRequested: boolean): boolean =>
   stopRequested &&
   !(TERMINAL_RUN_STATES as readonly RunState[]).includes(state);
+
+export const isQueued = (state: RunState, stopRequested: boolean): boolean =>
+  state === 'queued' && !stopRequested;

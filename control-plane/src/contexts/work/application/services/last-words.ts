@@ -1,0 +1,13 @@
+import type { RunJournal } from '@work/application/contracts/run-journal.contract';
+
+export const lastWordsIn = (attempts: readonly RunJournal[]): string | null => {
+  const latest = attempts.reduce<RunJournal | null>(
+    (found, each) => (!found || each.attempt > found.attempt ? each : found),
+    null,
+  );
+
+  return (
+    [...(latest?.steps ?? [])].reverse().find((step) => step.kind === 'message')
+      ?.text ?? null
+  );
+};
