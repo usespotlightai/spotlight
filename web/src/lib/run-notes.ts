@@ -109,6 +109,20 @@ export const conversationItemOf = (
   notes: conversation.notes,
 });
 
+export const followedOnAfter = (
+  notes: readonly {
+    readonly position: number;
+    readonly runId: string | null;
+  }[],
+  runId: string,
+): number | null => {
+  const closesAt = lastNoteOf(notes, runId);
+
+  return closesAt !== null && notes.some((note) => note.position > closesAt)
+    ? closesAt
+    : null;
+};
+
 export const lastNoteOf = (
   notes: readonly {
     readonly position: number;

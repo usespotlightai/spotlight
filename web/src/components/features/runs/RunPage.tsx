@@ -9,18 +9,15 @@ import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 import { StepAnchorsProvider } from '@/components/features/runs/StepAnchorsProvider';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
-import { useMessagesInFlight } from '@/hooks/api/useSendMessage';
-import { useLatestRun } from '@/hooks/useLatestRun';
-import { useMe } from '@/hooks/useMe';
 import { useRunDeciding } from '@/hooks/useRunDeciding';
+import { useRunThread } from '@/hooks/useRunThread';
 import { useRunTrail } from '@/hooks/useRunTrail';
 import { decisionPending, type RunJournal, workedOn } from '@/lib/inbox';
 import { type TeamRun, working } from '@/lib/run';
 import {
   type RunNotes as ConversationData,
-  lastNoteOf,
+  followedOnAfter,
   stayedQuiet,
-  withMessagesInFlight,
 } from '@/lib/run-notes';
 import { TrailContext, useTrail } from '@/lib/trail';
 
@@ -43,19 +40,14 @@ export function RunPage({
 }: RunPageProps) {
   const base = useRunTrail({ slug, teamId, run, title: reported?.title });
   const { trail, forward } = useTrail(base, 2);
-  const latest = useLatestRun(run, reported);
-  const inFlight = useMessagesInFlight([run.id, latest.id]);
-  const me = useMe();
-  const conversation = reported && withMessagesInFlight(reported, inFlight, me);
+  const { latest, conversation } = useRunThread(run, reported);
 
   const notes = conversation?.notes ?? [];
   const deciding = decisionPending(notes);
   const decide = useRunDeciding(slug, run);
   const ran = workedOn(worked, notes, run.id);
-  const closesAt = lastNoteOf(notes, run.id);
-  const followedOn =
-    closesAt !== null && notes.some((note) => note.position > closesAt);
-  const [openAt, setOpenAt] = useState(() => (followedOn ? closesAt : null));
+  const [openAt, setOpenAt] = useState(() => followedOnAfter(notes, run.id));
+  const followedOn = followedOnAfter(notes, run.id) !== null;
 
   const footer = (
     <RunFooter

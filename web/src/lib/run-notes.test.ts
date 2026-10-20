@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  followedOnAfter,
   lastNoteOf,
   type RunNotes,
   withMessagesInFlight,
@@ -131,5 +132,25 @@ describe('withMessagesInFlight', () => {
       withMessagesInFlight(thread, [outgoing({ startsWork: true })], sam)
         .working,
     ).toBe(true);
+  });
+});
+
+describe('followedOnAfter', () => {
+  const notes = [
+    { position: 0, runId: 'run_1' },
+    { position: 1, runId: null },
+    { position: 2, runId: 'run_2' },
+  ];
+
+  it('opens at the last note of a run that later notes follow', () => {
+    expect(followedOnAfter(notes, 'run_1')).toBe(0);
+  });
+
+  it('opens nowhere for the run with the last note', () => {
+    expect(followedOnAfter(notes, 'run_2')).toBeNull();
+  });
+
+  it('opens nowhere for a run without notes', () => {
+    expect(followedOnAfter(notes, 'run_3')).toBeNull();
   });
 });
