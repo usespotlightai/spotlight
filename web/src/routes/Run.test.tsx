@@ -132,8 +132,11 @@ vi.mock('@/hooks/api/useAnswerInboxItem', () => ({
   useAnswerInboxItem: () => ({ mutate: answer, isPending: false }),
 }));
 
+const stop = vi.fn();
+
 vi.mock('@/hooks/api/useStopRun', () => ({
-  useStopRun: () => ({ mutate: vi.fn() }),
+  useStopRun: () => ({ mutate: stop }),
+  useStopsAsked: () => (run: unknown) => run,
 }));
 
 vi.mock('@/hooks/api/useHarnesses', () => ({
@@ -499,6 +502,22 @@ describe('Run', () => {
 
       expect(screen.getByText('try again')).toBeInTheDocument();
       expect(screen.getByText('The tests failed again.')).toBeInTheDocument();
+    });
+
+    it('stops the later run while it works', async () => {
+      runs.mockReturnValue([
+        run({ state: 'failed', exitCode: -1 }),
+        run({
+          id: 'run_2',
+          state: 'claimed',
+          startedAt: '2026-08-29T12:05:00.000Z',
+        }),
+      ]);
+
+      renderRun();
+      await userEvent.click(screen.getByRole('button', { name: 'Stop' }));
+
+      expect(stop).toHaveBeenCalledWith({ teamId: 'team_1', runId: 'run_2' });
     });
 
     it('ends the opened run with its actions before the later messages', () => {

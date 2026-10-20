@@ -7,9 +7,11 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import { useRunNotes } from '@/hooks/api/useRunNotes';
 import { useRunRefresh } from '@/hooks/api/useRunRefresh';
+import { useStopsAsked } from '@/hooks/api/useStopRun';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { failed, loading } from '@/lib/query';
+import { latestAtStation } from '@/lib/run';
 
 type Query = UseQueryResult<unknown>;
 
@@ -35,7 +37,10 @@ const lostOf = (runs: Query, found: boolean, conversation: Query) => {
 export function Run() {
   const { slug, teamId, runId } = useParams();
   const runs = useTeamRuns(teamId);
-  const run = runs.data?.find((each) => each.id === runId);
+  const stopsAsked = useStopsAsked();
+  const reported = runs.data?.find((each) => each.id === runId);
+  const latest = reported && latestAtStation(runs.data ?? [], reported);
+  const run = reported && stopsAsked(reported);
   const conversationQuery = useRunNotes(
     teamId,
     runs.data && !run ? undefined : runId,
@@ -47,7 +52,8 @@ export function Run() {
     teamId,
     runId,
     taskId: conversation?.taskId,
-    state: run?.state,
+    state: reported?.state,
+    following: latest,
   });
 
   if (!slug || !teamId) {
@@ -82,6 +88,7 @@ export function Run() {
       slug={slug}
       teamId={teamId}
       run={run}
+      latest={stopsAsked(latest ?? run)}
       conversation={conversation}
       worked={journal.data ?? []}
       journalFailed={failed(journal)}

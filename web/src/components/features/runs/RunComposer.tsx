@@ -2,6 +2,7 @@ import { FixedAgent } from '@/components/features/stations/FixedAgent';
 import { FixedRepositories } from '@/components/features/stations/FixedRepositories';
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import { useSendMessage } from '@/hooks/api/useSendMessage';
+import { useSession } from '@/hooks/api/useSession';
 import { useStopRun } from '@/hooks/api/useStopRun';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { startsAgainOnMessage } from '@/lib/task';
@@ -30,6 +31,7 @@ export function RunComposer({
   onSent,
 }: RunComposerProps) {
   const send = useSendMessage();
+  const { data: session } = useSession();
   const stop = useStopRun();
   const {
     line,
@@ -56,7 +58,7 @@ export function RunComposer({
             ? `Say what to change. ${station} starts again…`
             : 'Write a message…'
       }
-      pending={send.isPending}
+      pending={false}
       running={running}
       settings={<FixedAgent agent={currentStation} />}
       below={
@@ -66,17 +68,29 @@ export function RunComposer({
         />
       }
       onStop={() => stop.mutate({ teamId, runId })}
-      onSend={({ body, attachments }, sent) =>
-        send.mutate(
-          { teamId, runId, body, attachments },
-          {
-            onSuccess: () => {
-              sent();
-              onSent?.();
-            },
-          },
-        )
-      }
+      onSend={({ body, attachments }, sent) => {
+        send.mutate({
+          teamId,
+          runId,
+          body,
+          attachments,
+          shown:
+            taskId && stationId && session
+              ? {
+                  taskId,
+                  stationId,
+                  author: {
+                    id: session.user.id,
+                    name: session.user.name,
+                    image: session.user.image ?? null,
+                  },
+                  startsRun: restarts,
+                }
+              : undefined,
+        });
+        sent();
+        onSent?.();
+      }}
     />
   );
 }

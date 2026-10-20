@@ -24,6 +24,7 @@ type RunPageProps = {
   slug: string;
   teamId: string;
   run: TeamRun;
+  latest: TeamRun;
   conversation: ConversationData | undefined;
   worked: readonly RunJournal[];
   journalFailed: boolean;
@@ -33,6 +34,7 @@ export function RunPage({
   slug,
   teamId,
   run,
+  latest,
   conversation,
   worked,
   journalFailed,
@@ -53,7 +55,7 @@ export function RunPage({
     <RunFooter
       slug={slug}
       teamId={teamId}
-      run={run}
+      run={latest}
       conversation={conversation}
       deciding={deciding}
       onSent={() => setOpenAt(null)}
@@ -75,6 +77,17 @@ export function RunPage({
     <RunActivity journals={ran} working={working(run)} station={run.station} />
   ) : null;
 
+  const live =
+    latest.state !== 'claimed' ? undefined : latest.id === run.id ? (
+      activity
+    ) : latest.station ? (
+      <RunActivity
+        journals={workedOn(worked, notes, latest.id)}
+        working
+        station={latest.station}
+      />
+    ) : undefined;
+
   return (
     <TrailContext value={forward}>
       <div className="flex min-h-0 flex-1 flex-col">
@@ -88,7 +101,7 @@ export function RunPage({
                 conversation={conversation}
                 worked={worked}
                 openAt={openAt}
-                live={run.state === 'claimed' ? activity : undefined}
+                live={live}
                 closing={followedOn ? undefined : closing}
                 afterRun={(ranId) =>
                   followedOn && ranId === run.id ? closing : null
