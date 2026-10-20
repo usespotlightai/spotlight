@@ -117,6 +117,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         createdAt: task.createdAt,
         working: task.currentRunId,
         workingState: run.state,
+        workingStopRequestedAt: run.stopRequestedAt,
       })
       .from(task)
       .innerJoin(station, eq(station.id, task.stationId))
@@ -207,7 +208,12 @@ export class DrizzleInboxReader implements InboxReaderPort {
           work:
             stillOpen(conversation) && worksOn(row.working !== null, notes)
               ? workOfCurrentRun(
-                  row.workingState ? { state: row.workingState } : null,
+                  row.workingState
+                    ? {
+                        state: row.workingState,
+                        stopRequested: row.workingStopRequestedAt !== null,
+                      }
+                    : null,
                 )
               : null,
           runId: stillOpen(conversation) ? row.working : null,

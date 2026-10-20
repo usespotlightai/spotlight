@@ -269,6 +269,7 @@ export class TaskController {
         found.latestRun.id,
         found.latestRun.state,
         found.latestRun.stopping,
+        found.latestRun.work,
       ),
       found.notes.map(
         (note) =>

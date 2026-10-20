@@ -2337,6 +2337,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     TEAM_DIRECTORY,
     TRANSACTION,
     TASK_READER,
+    DrizzleLineRepository,
   ]),
 
   ...bindCommandHandler(ClaimRunCommand, ClaimRunHandler, [

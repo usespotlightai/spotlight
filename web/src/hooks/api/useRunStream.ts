@@ -1,16 +1,17 @@
 import { useEffect, useEffectEvent } from 'react';
+import type { Work } from '@/lib/run';
 
 const EVERY_MS = 500;
 
 export function useRunStream(
   runId: string | undefined,
-  live: boolean,
+  work: Work | null,
   onBump: () => void,
 ) {
   const bump = useEffectEvent(onBump);
 
   useEffect(() => {
-    if (!runId || !live) {
+    if (!runId || !work) {
       return;
     }
 
@@ -51,5 +52,5 @@ export function useRunStream(
       clearInterval(ticker);
       stream.close();
     };
-  }, [runId, live]);
+  }, [runId, work]);
 }

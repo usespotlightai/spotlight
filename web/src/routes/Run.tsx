@@ -48,6 +48,7 @@ export function Run() {
     runId,
     taskId: conversation?.taskId,
     state: run?.state,
+    work: run?.work ?? null,
     following: conversation?.latestRun,
   });
 

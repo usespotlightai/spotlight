@@ -28,6 +28,7 @@ export interface TaskRunDto {
   readonly image: string | null;
   readonly station: RunStationDto | null;
   readonly review: RunReviewDto | null;
+  readonly work: string | null;
 }
 
 export interface TeamRunDto extends TaskRunDto {

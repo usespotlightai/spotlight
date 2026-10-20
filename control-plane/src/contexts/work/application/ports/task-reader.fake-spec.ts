@@ -3,10 +3,11 @@ import type {
   TaskSummary,
 } from '@work/application/ports/task-reader.port';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
+import type { Work } from '@work/domain/value-objects/run-state';
 
 const person = (id: string) => ({ id, name: 'Ada', image: null });
 
-const summaryOf = (task: Task): TaskSummary => ({
+const summaryOf = (task: Task, work: Work | null): TaskSummary => ({
   id: task.id.value,
   stationId: task.stationId.value,
   revision: task.revision.value,
@@ -14,7 +15,7 @@ const summaryOf = (task: Task): TaskSummary => ({
   description: task.description?.value ?? null,
   attachments: [],
   createdAt: task.createdAt,
-  work: task.working ? 'queued' : null,
+  work,
   awaitingReview: null,
   pullRequest: null,
   note: null,
@@ -24,13 +25,14 @@ const summaryOf = (task: Task): TaskSummary => ({
 
 export const taskReaderOver = (
   latest: () => Task | undefined,
+  work: Work | null = null,
 ): TaskReaderPort => ({
   listForTeamMember: async () => {
     const found = latest();
-    return found ? [summaryOf(found)] : [];
+    return found ? [summaryOf(found, work)] : [];
   },
   findForTeamMember: async (_teamId, _userId, taskId) => {
     const found = latest();
-    return found?.id.equals(taskId) ? summaryOf(found) : null;
+    return found?.id.equals(taskId) ? summaryOf(found, work) : null;
   },
 });

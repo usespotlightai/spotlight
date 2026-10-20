@@ -16,8 +16,10 @@ export function useLatestRun(
 ): LatestRun | null {
   const latest =
     conversation?.latestRun ??
-    (run ? { id: run.id, state: run.state, stopping: false } : null);
+    (run
+      ? { id: run.id, state: run.state, stopping: false, work: run.work }
+      : null);
   const asked = useStopInFlight(latest?.id);
 
-  return latest && asked ? { ...latest, stopping: true } : latest;
+  return latest && asked ? { ...latest, stopping: true, work: null } : latest;
 }

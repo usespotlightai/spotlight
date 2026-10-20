@@ -28098,6 +28098,17 @@
               }
             ]
           },
+          "work": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "What it is doing: queued until a runner takes it, then in progress. Null once it waits for a person, is stopping or has ended."
+          },
           "taskId": {
             "type": "string",
             "nullable": true
@@ -28124,6 +28135,7 @@
           "image",
           "station",
           "review",
+          "work",
           "taskId",
           "taskTitle",
           "taskDescription"
@@ -28604,12 +28616,24 @@
             "type": "boolean",
             "example": false,
             "description": "Someone asked the run to stop, and it has not ended yet"
+          },
+          "work": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "What it is doing: queued until a runner takes it, then in progress"
           }
         },
         "required": [
           "id",
           "state",
-          "stopping"
+          "stopping",
+          "work"
         ]
       },
       "RunSpendResponseDto": {
@@ -28840,6 +28864,17 @@
                 "$ref": "#/components/schemas/RunReviewResponseDto"
               }
             ]
+          },
+          "work": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "What it is doing: queued until a runner takes it, then in progress. Null once it waits for a person, is stopping or has ended."
           }
         },
         "required": [
@@ -28852,7 +28887,8 @@
           "harness",
           "image",
           "station",
-          "review"
+          "review",
+          "work"
         ]
       },
       "AddTaskRequestDto": {
@@ -29035,6 +29071,17 @@
               }
             ]
           },
+          "work": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "What it is doing: queued until a runner takes it, then in progress. Null once it waits for a person, is stopping or has ended."
+          },
           "original": {
             "description": "The past task run it replays",
             "allOf": [
@@ -29090,6 +29137,7 @@
           "image",
           "station",
           "review",
+          "work",
           "original",
           "spend",
           "journals",
@@ -29203,6 +29251,17 @@
               }
             ]
           },
+          "work": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "What it is doing: queued until a runner takes it, then in progress. Null once it waits for a person, is stopping or has ended."
+          },
           "searchId": {
             "type": "string",
             "description": "The search this run is an iteration of"
@@ -29265,6 +29324,7 @@
           "image",
           "station",
           "review",
+          "work",
           "searchId",
           "iteration",
           "agent",

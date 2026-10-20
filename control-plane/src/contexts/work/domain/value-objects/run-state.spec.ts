@@ -26,15 +26,29 @@ describe('workOfCurrentRun', () => {
   });
 
   it('counts a run that waits for a runner as queued', () => {
-    expect(workOfCurrentRun({ state: 'queued' })).toBe('queued');
+    expect(workOfCurrentRun({ state: 'queued', stopRequested: false })).toBe(
+      'queued',
+    );
   });
 
   it('counts a run that a runner took as in progress', () => {
-    expect(workOfCurrentRun({ state: 'claimed' })).toBe('in-progress');
+    expect(workOfCurrentRun({ state: 'claimed', stopRequested: false })).toBe(
+      'in-progress',
+    );
+  });
+
+  it('counts no work for a run that someone asked to stop', () => {
+    expect(
+      workOfCurrentRun({ state: 'claimed', stopRequested: true }),
+    ).toBeNull();
   });
 
   it('counts no work for a run that waits for a person or has ended', () => {
-    expect(workOfCurrentRun({ state: 'waiting' })).toBeNull();
-    expect(workOfCurrentRun({ state: 'completed' })).toBeNull();
+    expect(
+      workOfCurrentRun({ state: 'waiting', stopRequested: false }),
+    ).toBeNull();
+    expect(
+      workOfCurrentRun({ state: 'completed', stopRequested: false }),
+    ).toBeNull();
   });
 });

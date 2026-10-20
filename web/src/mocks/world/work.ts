@@ -13,7 +13,6 @@ import type {
   TraceNodeResponseDto,
   TraceStationResponseDto,
 } from '@/lib/api';
-import { workOf } from '@/lib/run';
 import { perWorld, world } from '@/mocks/world';
 import {
   pastTaskOf,
@@ -181,11 +180,12 @@ export const conversationOf = (located: Located): RunNotesResponseDto => {
     station: located.run.station,
     createdAt: located.run.startedAt,
     briefing: briefingOf(located, story),
-    work: workOf(located.run),
+    work: located.run.work,
     latestRun: {
       id: located.run.id,
       state: located.run.state,
       stopping: false,
+      work: located.run.work,
     },
     notes: [...scripted, ...added],
     spend: finished(located.run) ? story.spend : null,

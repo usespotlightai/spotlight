@@ -5,11 +5,13 @@ import { TaskState } from '@/components/features/board/task/TaskState';
 import { RunRow } from '@/components/features/runs/RunRow';
 import type { Run } from '@/lib/run';
 import type { Task } from '@/lib/task';
+import { workOfState } from '@/mocks/world/run-work';
 
 const run = (state: Run['state'], review: Run['review'] = null) =>
   ({
     id: 'run_1',
     state,
+    work: workOfState(state),
     exitCode: null,
     startedAt: new Date().toISOString(),
     station: null,

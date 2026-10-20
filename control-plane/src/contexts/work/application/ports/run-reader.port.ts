@@ -25,6 +25,7 @@ export interface RunStationSummary {
 export interface TaskRunSummary {
   readonly id: string;
   readonly state: RunState;
+  readonly stopRequested: boolean;
   readonly attempt: number;
   readonly exitCode: number | null;
   readonly startedAt: Date;
@@ -59,6 +60,7 @@ interface LatestRunSummary {
   readonly id: string;
   readonly state: RunState;
   readonly stopping: boolean;
+  readonly work: Work | null;
 }
 
 export interface RanConfig {

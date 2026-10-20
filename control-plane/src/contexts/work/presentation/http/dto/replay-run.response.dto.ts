@@ -91,6 +91,7 @@ export class ReplayRunResponseDto extends TaskRunResponseDto {
           )
         : null,
       null,
+      replay.work,
     );
     this.original = new ReplayedRunResponseDto(replay.original);
     this.spend = replay.spend

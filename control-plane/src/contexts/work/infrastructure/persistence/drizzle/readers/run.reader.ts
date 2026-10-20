@@ -30,6 +30,7 @@ import type {
 import { worksOn } from '@work/domain/services/conversations';
 import {
   isStopping,
+  workOf,
   workOfCurrentRun,
 } from '@work/domain/value-objects/run-state';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
@@ -47,7 +48,7 @@ import {
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { and, desc, eq, isNotNull, lt } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, lt, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 export const ranAt = alias(station, 'ran_at');
@@ -105,6 +106,7 @@ export class DrizzleRunReader implements RunReaderPort {
       .select({
         id: run.id,
         state: run.state,
+        stopRequested: sql<boolean>`${run.stopRequestedAt} is not null`,
         attempt: run.attempt,
         exitCode: run.exitCode,
         startedAt: run.createdAt,
@@ -147,6 +149,7 @@ export class DrizzleRunReader implements RunReaderPort {
       .select({
         id: run.id,
         state: run.state,
+        stopRequested: sql<boolean>`${run.stopRequestedAt} is not null`,
         attempt: run.attempt,
         exitCode: run.exitCode,
         startedAt: run.createdAt,
@@ -252,6 +255,11 @@ export class DrizzleRunReader implements RunReaderPort {
       : [];
     const spec = RunSpecContract.from(found.spec);
 
+    const latestRun = {
+      state: latest.state,
+      stopRequested: latest.stopRequestedAt !== null,
+    };
+
     return {
       runId: found.runId,
       taskId: found.taskId,
@@ -262,12 +270,13 @@ export class DrizzleRunReader implements RunReaderPort {
       createdAt: found.createdAt,
       briefing: spec.briefing,
       work: worksOn(found.workingRunId === latest.runId, notes)
-        ? workOfCurrentRun({ state: latest.state })
+        ? workOfCurrentRun(latestRun)
         : null,
       latestRun: {
         id: latest.runId,
         state: latest.state,
-        stopping: isStopping(latest.state, latest.stopRequestedAt !== null),
+        stopping: isStopping(latestRun.state, latestRun.stopRequested),
+        work: workOf(latestRun),
       },
       notes: threadAt(notes, found.stationId, runId.value),
     };
@@ -354,6 +363,7 @@ export class DrizzleRunReader implements RunReaderPort {
       .select({
         id: run.id,
         state: run.state,
+        stopRequested: sql<boolean>`${run.stopRequestedAt} is not null`,
         attempt: run.attempt,
         exitCode: run.exitCode,
         startedAt: run.createdAt,
@@ -395,6 +405,7 @@ export class DrizzleRunReader implements RunReaderPort {
     return {
       id: found.id,
       state: found.state,
+      stopRequested: found.stopRequested,
       attempt: found.attempt,
       exitCode: found.exitCode,
       startedAt: found.startedAt,
@@ -420,6 +431,7 @@ export class DrizzleRunReader implements RunReaderPort {
       .select({
         id: run.id,
         state: run.state,
+        stopRequested: sql<boolean>`${run.stopRequestedAt} is not null`,
         attempt: run.attempt,
         exitCode: run.exitCode,
         startedAt: run.createdAt,
@@ -472,6 +484,7 @@ export class DrizzleRunReader implements RunReaderPort {
     return {
       id: found.id,
       state: found.state,
+      stopRequested: found.stopRequested,
       attempt: found.attempt,
       exitCode: found.exitCode,
       startedAt: found.startedAt,

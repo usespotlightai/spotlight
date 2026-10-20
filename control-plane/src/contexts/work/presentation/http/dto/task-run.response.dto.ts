@@ -126,10 +126,26 @@ export class LatestRunResponseDto {
   })
   readonly stopping: boolean;
 
-  constructor(id: string, state: string, stopping: boolean) {
+  @ApiProperty({
+    enum: [...WORK_NAMES, null],
+    nullable: true,
+    type: String,
+    example: 'in-progress',
+    description:
+      'What it is doing: queued until a runner takes it, then in progress',
+  })
+  readonly work: string | null;
+
+  constructor(
+    id: string,
+    state: string,
+    stopping: boolean,
+    work: string | null,
+  ) {
     this.id = id;
     this.state = state;
     this.stopping = stopping;
+    this.work = work;
   }
 }
 
@@ -280,6 +296,16 @@ export class TaskRunResponseDto {
   })
   readonly review: RunReviewResponseDto | null;
 
+  @ApiProperty({
+    enum: [...WORK_NAMES, null],
+    nullable: true,
+    type: String,
+    example: 'in-progress',
+    description:
+      'What it is doing: queued until a runner takes it, then in progress. Null once it waits for a person, is stopping or has ended.',
+  })
+  readonly work: string | null;
+
   constructor(
     id: string,
     state: string,
@@ -291,6 +317,7 @@ export class TaskRunResponseDto {
     image: string | null,
     station: RunStationResponseDto | null,
     review: RunReviewResponseDto | null,
+    work: string | null,
   ) {
     this.id = id;
     this.state = state;
@@ -302,6 +329,7 @@ export class TaskRunResponseDto {
     this.image = image;
     this.station = station;
     this.review = review;
+    this.work = work;
   }
 }
 
@@ -336,6 +364,7 @@ export class TeamRunResponseDto extends TaskRunResponseDto {
       run.image,
       run.station,
       run.review,
+      run.work,
     );
     this.taskId = taskId;
     this.taskTitle = taskTitle;

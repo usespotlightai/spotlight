@@ -9,6 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
 const summary = (over: Partial<TaskRunSummary> = {}): TaskRunSummary => ({
   id: 'run_1',
   state: 'completed',
+  stopRequested: false,
   attempt: 1,
   exitCode: 0,
   startedAt: new Date('2026-08-28T16:32:47.877Z'),

@@ -118,6 +118,7 @@ export const searchRun = (runId: string): SearchRunResponseDto | null => {
       id: runId,
       briefing: briefingOf(place, iteration.number, search.budget.perIteration),
       state: failed ? 'failed' : running ? 'claimed' : 'completed',
+      work: running && !failed ? 'in-progress' : null,
       attempt: 1,
       exitCode: failed ? 1 : running ? null : 0,
       startedAt: hoursAgo(startedHoursAgo),

@@ -14,6 +14,7 @@ import type { TaskReaderPort } from '@work/application/ports/task-reader.port';
 import { taskAsRead } from '@work/application/services/task-as-read';
 import { NotATeamMemberError } from '@work/domain/exceptions/not-a-team-member.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
+import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 
 export class AssignTaskHandler
@@ -24,6 +25,7 @@ export class AssignTaskHandler
     private readonly teams: TeamDirectoryPort,
     private readonly transaction: TransactionPort,
     private readonly reader: TaskReaderPort,
+    private readonly lines: LineRepository,
   ) {}
 
   async execute(command: AssignTaskCommand): Promise<TaskDto> {
@@ -52,7 +54,9 @@ export class AssignTaskHandler
 
       const task = await this.tasks.find(TaskId.of(command.taskId));
 
-      if (!task?.workspaceId.equals(team.workspaceId)) {
+      const line = task ? await this.lines.findByStation(task.stationId) : null;
+
+      if (!task || !line?.teamId.equals(team.id)) {
         throw new UnknownTaskError(command.taskId);
       }
 

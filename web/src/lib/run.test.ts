@@ -98,25 +98,13 @@ describe('byAge', () => {
 });
 
 describe('working', () => {
-  const run = (state: Run['state'], exitCode: number | null = null) =>
-    ({ state, exitCode }) as Run;
-
-  it('is true while a runner has it', () => {
-    expect(working(run('claimed'))).toBe(true);
+  it('works while the server says the run is queued or in progress', () => {
+    expect(working({ work: 'queued' })).toBe(true);
+    expect(working({ work: 'in-progress' })).toBe(true);
   });
 
-  it('is true while it waits for one', () => {
-    expect(working(run('queued'))).toBe(true);
-  });
-
-  it('does not once it is over', () => {
-    expect(working(run('completed', 0))).toBe(false);
-    expect(working(run('failed'))).toBe(false);
-  });
-
-  it('does not while it waits on a person, warm or suspended', () => {
-    expect(working(run('waiting'))).toBe(false);
-    expect(working(run('suspended'))).toBe(false);
+  it('does not work once the server says the run does nothing', () => {
+    expect(working({ work: null })).toBe(false);
   });
 });
 

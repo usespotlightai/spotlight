@@ -12,7 +12,7 @@ export function useChatRefresh(chatId: string | undefined, chat?: Chat) {
     void queryClient.invalidateQueries({ queryKey: chatKeys.one(chatId) });
   }, [queryClient, chatId]);
 
-  useRunStream(chat?.runId ?? undefined, chat?.work === 'in-progress', bump);
+  useRunStream(chat?.runId ?? undefined, chat?.work ?? null, bump);
 
   const work = chat?.work;
   const messageCount = chat?.messages.length;

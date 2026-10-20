@@ -6,6 +6,7 @@ import type {
 } from '@/lib/api';
 import { hoursAgo } from '@/mocks/clock';
 import { MAYA, PRIYA, SAM, TOM } from '@/mocks/world/people';
+import { workOfState } from '@/mocks/world/run-work';
 import { runStationOf, station } from '@/mocks/world/stations';
 
 export const PLATFORM_ID = 'team_platform';
@@ -306,6 +307,7 @@ const run = (
     station: runStationOf(stations, stationId),
     review: null,
     ...rest,
+    work: workOfState(rest.state ?? 'completed'),
   };
 };
 

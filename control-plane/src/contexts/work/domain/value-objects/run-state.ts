@@ -31,12 +31,22 @@ export const WORKS = ['queued', 'in-progress'] as const;
 
 export type Work = (typeof WORKS)[number];
 
-export const workOfCurrentRun = (
-  current: { readonly state: RunState } | null,
-): Work | null => {
-  if (current === null || current.state === 'queued') {
+interface Working {
+  readonly state: RunState;
+  readonly stopRequested: boolean;
+}
+
+export const workOf = (run: Working): Work | null => {
+  if (isStopping(run.state, run.stopRequested)) {
+    return null;
+  }
+
+  if (run.state === 'queued') {
     return 'queued';
   }
 
-  return current.state === 'claimed' ? 'in-progress' : null;
+  return run.state === 'claimed' ? 'in-progress' : null;
 };
+
+export const workOfCurrentRun = (current: Working | null): Work | null =>
+  current === null ? 'queued' : workOf(current);

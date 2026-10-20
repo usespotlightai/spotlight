@@ -15,10 +15,19 @@ export const workOfCurrentRuns = async (
     ids.length === 0
       ? []
       : await db
-          .select({ id: run.id, state: run.state })
+          .select({
+            id: run.id,
+            state: run.state,
+            stopRequestedAt: run.stopRequestedAt,
+          })
           .from(run)
           .where(inArray(run.id, ids));
-  const found = new Map(rows.map((row) => [row.id, row]));
+  const found = new Map(
+    rows.map((row) => [
+      row.id,
+      { state: row.state, stopRequested: row.stopRequestedAt !== null },
+    ]),
+  );
 
   return (runId) =>
     runId === null ? null : workOfCurrentRun(found.get(runId) ?? null);

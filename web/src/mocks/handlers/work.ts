@@ -65,6 +65,7 @@ const queueRunAt = (teamId: string, taskId: string, stationId: string) => {
     {
       id: nextId('run'),
       state: 'queued',
+      work: 'queued',
       attempt: 1,
       exitCode: null,
       startedAt: now,
@@ -258,7 +259,13 @@ export const workHandlers: RequestHandler[] = [
     world().runs[located.task.id] = (world().runs[located.task.id] ?? []).map(
       (each) =>
         each.id === located.run.id
-          ? { ...each, state: 'failed', exitCode: null, updatedAt: now }
+          ? {
+              ...each,
+              state: 'failed',
+              work: null,
+              exitCode: null,
+              updatedAt: now,
+            }
           : each,
     );
     replaceTask(teamId, { ...located.task, work: null });

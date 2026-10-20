@@ -15,6 +15,7 @@ interface LatestRunDto {
   readonly id: string;
   readonly state: string;
   readonly stopping: boolean;
+  readonly work: string | null;
 }
 
 export interface RunNotesDto {

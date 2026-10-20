@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RunActivityOf } from '@/components/features/runs/RunActivityOf';
+import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
 import { RunClosing } from '@/components/features/runs/RunClosing';
 import { RunConversation } from '@/components/features/runs/RunConversation';
@@ -72,23 +72,21 @@ export function RunPage({
     />
   );
 
-  const stoppingHere = latest.id === run.id && latest.stopping;
-
   const activity = run.station ? (
-    <RunActivityOf
-      run={run}
-      stopping={stoppingHere}
+    <RunActivity
+      runId={run.id}
       journals={ran}
+      work={latest.id === run.id ? work : null}
       station={run.station}
     />
   ) : null;
 
   const live =
-    working(latest) && run.station ? (
-      <RunActivityOf
-        run={latest}
-        stopping={latest.stopping}
+    work && run.station ? (
+      <RunActivity
+        runId={latest.id}
         journals={workedOn(worked, notes, latest.id)}
+        work={work}
         station={run.station}
       />
     ) : undefined;

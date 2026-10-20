@@ -5,6 +5,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { InboxItemSummary } from '@work/application/ports/inbox-reader.port';
+import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -147,5 +148,47 @@ describe('the work of a task whose run waits to start', () => {
 
     expect(inbox?.work).toBe('in-progress');
     expect(board?.work).toBe('in-progress');
+  });
+});
+
+describe('the work of a chat whose run waits to start', () => {
+  const chatWith = async (state: RunState | null) => {
+    const chatId = randomUUID();
+    const runId = randomUUID();
+    const viewer = `user_${randomUUID()}`;
+
+    await db.insert(schema.chat).values({
+      id: chatId,
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      startedById: viewer,
+      title: 'Rate limiting',
+      harness: 'dev',
+      currentRunId: runId,
+    });
+
+    if (state) {
+      await db.insert(schema.run).values({
+        id: runId,
+        workspaceId: 'ws_1',
+        harness: 'dev',
+        state,
+        spec: {},
+      });
+    }
+
+    const [found] = await new DrizzleChatReader(db, {
+      find: async () => null,
+    } as never).startedBy(TeamId.of('team_1'), UserId.of(viewer));
+
+    return found?.work;
+  };
+
+  it('is queued before the run is even on the queue', async () => {
+    await expect(chatWith(null)).resolves.toBe('queued');
+  });
+
+  it('is in progress once a runner claims the run', async () => {
+    await expect(chatWith('claimed')).resolves.toBe('in-progress');
   });
 });

@@ -179,8 +179,9 @@ describe('the notes of a run', () => {
       id: second,
       state: 'claimed',
       stopping: true,
+      work: null,
     });
-    expect(found?.work).toBe('in-progress');
+    expect(found?.work).toBeNull();
   });
 
   it('no longer calls a run stopping once it has ended', async () => {
@@ -214,6 +215,7 @@ describe('the notes of a run', () => {
       id: here,
       state: 'completed',
       stopping: false,
+      work: null,
     });
     expect(found?.work).toBeNull();
   });

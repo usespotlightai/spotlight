@@ -6,6 +6,7 @@ import type {
 } from '@/lib/api';
 import { hoursAgo } from '@/mocks/clock';
 import { PRIYA } from '@/mocks/world/people';
+import { workOfState } from '@/mocks/world/run-work';
 import { runStationOf, station } from '@/mocks/world/stations';
 
 export const GROWTH_ID = 'team_growth';
@@ -152,6 +153,7 @@ const run = (
     station: runStationOf(STATIONS, stationId),
     review: null,
     ...rest,
+    work: workOfState(rest.state ?? 'completed'),
   };
 };
 

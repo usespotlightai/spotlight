@@ -3,6 +3,8 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { TeamRun } from '@/lib/run';
+import { workOfState } from '@/mocks/world/run-work';
 import { Run } from '@/routes/Run';
 import { write } from '@/test/lexical';
 
@@ -163,6 +165,7 @@ const STATION = {
 const run = (over: Record<string, unknown> = {}) => ({
   id: 'run_1',
   state: 'completed',
+  work: workOfState((over.state ?? 'completed') as TeamRun['state']),
   attempt: 1,
   exitCode: 0,
   startedAt: '2026-08-29T09:02:00.000Z',
@@ -680,7 +683,9 @@ describe('Run', () => {
 
     it('says the run is queued, not working, while it is still to start', () => {
       runs.mockReturnValue([run({ state: 'queued' })]);
-      conversation.mockReturnValue(conversationOf({ notes: [] }));
+      conversation.mockReturnValue(
+        conversationOf({ notes: [], work: 'queued' }),
+      );
 
       renderRun();
 

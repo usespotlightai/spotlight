@@ -1726,6 +1726,10 @@ export type TeamRunResponseDto = {
    * Set where it put the task to a person
    */
   review: RunReviewResponseDto | null;
+  /**
+   * What it is doing: queued until a runner takes it, then in progress. Null once it waits for a person, is stopping or has ended.
+   */
+  work: 'queued' | 'in-progress' | null;
   taskId: string | null;
   taskTitle: string | null;
   /**
@@ -1897,6 +1901,10 @@ export type LatestRunResponseDto = {
    * Someone asked the run to stop, and it has not ended yet
    */
   stopping: boolean;
+  /**
+   * What it is doing: queued until a runner takes it, then in progress
+   */
+  work: 'queued' | 'in-progress' | null;
 };
 
 export type RunSpendResponseDto = {
@@ -1981,6 +1989,10 @@ export type TaskRunResponseDto = {
    * Set where it put the task to a person
    */
   review: RunReviewResponseDto | null;
+  /**
+   * What it is doing: queued until a runner takes it, then in progress. Null once it waits for a person, is stopping or has ended.
+   */
+  work: 'queued' | 'in-progress' | null;
 };
 
 export type AddTaskRequestDto = {
@@ -2053,6 +2065,10 @@ export type ReplayRunResponseDto = {
    */
   review: RunReviewResponseDto | null;
   /**
+   * What it is doing: queued until a runner takes it, then in progress. Null once it waits for a person, is stopping or has ended.
+   */
+  work: 'queued' | 'in-progress' | null;
+  /**
    * The past task run it replays
    */
   original: ReplayedRunResponseDto;
@@ -2111,6 +2127,10 @@ export type SearchRunResponseDto = {
    * Set where it put the task to a person
    */
   review: RunReviewResponseDto | null;
+  /**
+   * What it is doing: queued until a runner takes it, then in progress. Null once it waits for a person, is stopping or has ended.
+   */
+  work: 'queued' | 'in-progress' | null;
   /**
    * The search this run is an iteration of
    */

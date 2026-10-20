@@ -176,7 +176,7 @@ const addTask = (command: AddTaskCommand, board: LineRepository = lines()) =>
     clock,
     new CreateTask(tasks(), dispatch(), transaction, files),
     files,
-    taskReaderOver(() => added),
+    taskReaderOver(() => added, 'queued'),
   ).execute(command);
 
 beforeEach(() => {

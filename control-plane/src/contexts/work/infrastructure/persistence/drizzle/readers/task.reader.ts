@@ -105,8 +105,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
       .where(
         and(
           eq(line.teamId, teamId.value),
-          isNull(setupNote.taskId),
-          only ? eq(task.id, only.value) : undefined,
+          only ? eq(task.id, only.value) : isNull(setupNote.taskId),
         ),
       )
       .orderBy(task.rank);
