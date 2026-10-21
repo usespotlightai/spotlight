@@ -71,6 +71,8 @@ const PROVIDER = 'spotlight';
 
 const PROVIDER_SOURCE = 'usespotlightai/spotlight';
 
+const PROVIDER_VERSION = '0.1.0-rc.2';
+
 const MAIN = 'main.tf';
 
 const VARIABLES = 'variables.tf';
@@ -991,7 +993,12 @@ const PROVIDERS = block(
     block(
       'required_providers',
       [],
-      [attribute(PROVIDER, { source: PROVIDER_SOURCE })],
+      [
+        attribute(PROVIDER, {
+          source: PROVIDER_SOURCE,
+          version: PROVIDER_VERSION,
+        }),
+      ],
     ),
   ],
 );
