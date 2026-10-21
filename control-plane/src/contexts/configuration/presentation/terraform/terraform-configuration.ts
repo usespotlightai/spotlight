@@ -993,10 +993,12 @@ const PROVIDERS = block(
     block(
       'required_providers',
       [],
-      [attribute(PROVIDER, {
-        source: PROVIDER_SOURCE,
-        version: PROVIDER_VERSION,
-      })],
+      [
+        attribute(PROVIDER, {
+          source: PROVIDER_SOURCE,
+          version: PROVIDER_VERSION,
+        }),
+      ],
     ),
   ],
 );
