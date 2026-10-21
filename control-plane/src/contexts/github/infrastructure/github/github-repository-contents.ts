@@ -125,6 +125,34 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
     return { content, blobSha: found.sha, commit, defaultBranch };
   }
 
+  async filesIn(
+    workspaceId: WorkspaceId,
+    repository: Repository,
+    directory: string,
+    ref: string,
+  ): Promise<readonly string[]> {
+    const token = await this.tokenFor(workspaceId);
+    const response = await call(
+      `${this.at(repository)}/contents${directory ? `/${pathIn(directory)}` : ''}?ref=${encodeURIComponent(ref)}`,
+      token,
+    );
+
+    if (response.status === NOT_FOUND) {
+      return [];
+    }
+
+    const found = await answered<Contents[] | Contents>(
+      response,
+      `GitHub would not list ${directory || 'the root'} in ${repository.value}`,
+    );
+
+    return Array.isArray(found)
+      ? found.flatMap((each) =>
+          each.type === 'file' && each.path ? [each.path] : [],
+        )
+      : [];
+  }
+
   async committed(
     workspaceId: WorkspaceId,
     repository: Repository,

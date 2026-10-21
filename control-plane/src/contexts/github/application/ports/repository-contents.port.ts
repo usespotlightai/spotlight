@@ -31,6 +31,13 @@ export interface RepositoryContentsPort {
     ref?: string,
   ): Promise<RepositoryFileDto | null>;
 
+  filesIn(
+    workspaceId: WorkspaceId,
+    repository: Repository,
+    directory: string,
+    ref: string,
+  ): Promise<readonly string[]>;
+
   committed(
     workspaceId: WorkspaceId,
     repository: Repository,

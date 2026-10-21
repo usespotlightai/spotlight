@@ -3532,7 +3532,7 @@ export type TerraformFileResponseDto = {
 
 export type WorkspaceTerraformResponseDto = {
   /**
-   * main.tf, with an import block beside each resource and references between them; variables.tf, declaring a sensitive variable for each value Spotlight never returns (secret values, runner tokens); and every prompt and skill file main.tf reads with file(), byte for byte; ordered by path
+   * terraform.tf with the required provider; imports.tf with an import block for each resource; one file per concern (workspace.tf, secrets.tf, runners.tf, and per team team-<team>.tf, line-<team>-<line>.tf, integration-<team>-<integration>.tf, skills-<team>.tf, hooks-<team>.tf, profiles-<team>.tf) with references between them; variables.tf, declaring a sensitive variable for each value Spotlight never returns (secret values, runner tokens); .gitignore; and every prompt, rubric and skill file the module reads with file(), byte for byte; ordered by path
    */
   files: Array<TerraformFileResponseDto>;
 };

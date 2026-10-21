@@ -36,6 +36,13 @@ export interface ConfigRepositoryPort {
     commit?: string,
   ): Promise<ConfigFile | null>;
 
+  filesIn(
+    workspaceId: WorkspaceId,
+    repository: Repository,
+    directory: string,
+    commit: string,
+  ): Promise<readonly string[]>;
+
   committed(
     workspaceId: WorkspaceId,
     repository: Repository,

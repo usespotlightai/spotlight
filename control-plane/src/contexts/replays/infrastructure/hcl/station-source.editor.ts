@@ -194,6 +194,7 @@ export class HclStationSourceEditor implements StationSourceEditorPort {
       block: { type: 'station', key: edit.stationKey },
       fields,
       blocks: [judge],
+      module: edit.module,
       read: edit.read,
     });
 

@@ -59,6 +59,17 @@ export class ConfigRepository implements ConfigRepositoryPort {
       : null;
   }
 
+  async filesIn(
+    workspaceId: WorkspaceId,
+    repository: Repository,
+    directory: string,
+    commit: string,
+  ): Promise<readonly string[]> {
+    return withRepositoryErrors(() =>
+      this.contents.filesIn(workspaceId, repository, directory, commit),
+    );
+  }
+
   async committed(
     workspaceId: WorkspaceId,
     repository: Repository,

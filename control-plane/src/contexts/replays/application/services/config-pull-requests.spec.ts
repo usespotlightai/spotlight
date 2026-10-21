@@ -68,6 +68,10 @@ class FakeConfigs implements ConfigRepositoryPort {
       : null;
   }
 
+  async filesIn() {
+    return ['teams/core/delivery.tf', 'teams/core/skills.tf', 'README.md'];
+  }
+
   async committed(
     _workspace: unknown,
     _repository: unknown,
@@ -271,6 +275,7 @@ describe('picking a search candidate', () => {
       lineKey: 'delivery',
       stationKey: 'build',
       file: { path: 'teams/core/delivery.tf' },
+      module: ['teams/core/skills.tf'],
     });
   });
 
