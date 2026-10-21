@@ -3,8 +3,7 @@ set -eu
 
 REPO="${SPOTLIGHT_REPO:-usespotlightai/spotlight}"
 VERSION="${SPOTLIGHT_VERSION:-__VERSION__}"
-API_BASE="${SPOTLIGHT_URL:-__API_BASE__}"
-BASE_IMAGE="ghcr.io/usespotlightai/spotlight-runner"
+API_BASE="__API_BASE__"
 
 if [ -t 2 ] && [ -z "${NO_COLOR:-}" ]; then
   BOLD="$(printf '\033[1m')" GREEN="$(printf '\033[32m')" YELLOW="$(printf '\033[33m')" RED="$(printf '\033[31m')" RESET="$(printf '\033[0m')"
@@ -87,16 +86,6 @@ choose_bindir() {
   mkdir -p "$BIN_DIR"
 }
 
-config_path() {
-  if [ -n "${SPOTLIGHT_HOST_CONFIG:-}" ]; then
-    echo "$SPOTLIGHT_HOST_CONFIG"
-  elif [ "$(id -u)" = "0" ]; then
-    echo "/etc/spotlight/host.env"
-  else
-    echo "$HOME/.spotlight/host.env"
-  fi
-}
-
 find_runtime() {
   for cli in docker podman; do
     if command -v "$cli" >/dev/null 2>&1 && "$cli" info >/dev/null 2>&1; then
@@ -122,60 +111,6 @@ install_binary() {
   done_step "Installed $BIN_DIR/spotlight"
 }
 
-saved() { [ -f "$CONFIG" ] && sed -n "s/^$1=//p" "$CONFIG" | head -1 || true; }
-
-read_credentials() {
-  token="${SPOTLIGHT_POOL_TOKEN:-$(saved SPOTLIGHT_POOL_TOKEN)}"
-  trust="${SPOTLIGHT_TRUST:-$(saved SPOTLIGHT_TRUST)}"
-  token_file="${SPOTLIGHT_OIDC_TOKEN_FILE:-$(saved SPOTLIGHT_OIDC_TOKEN_FILE)}"
-  capacity="${SPOTLIGHT_CAPACITY:-$(saved SPOTLIGHT_CAPACITY)}"
-  IMAGE="${SPOTLIGHT_RUNNER_IMAGE:-}"
-  if [ -z "$IMAGE" ]; then
-    IMAGE="$(saved SPOTLIGHT_RUNNER_IMAGE)"
-    case "$IMAGE" in
-      "" | "$BASE_IMAGE":*) IMAGE="$BASE_IMAGE:$VERSION" ;;
-    esac
-  fi
-
-  if [ -z "$token" ] && [ -z "$trust" ]; then
-    die "set SPOTLIGHT_POOL_TOKEN to a pull pool's token, or SPOTLIGHT_TRUST and SPOTLIGHT_OIDC_TOKEN_FILE to claim through a runner trust"
-  fi
-}
-
-save_config() {
-  mkdir -p "$(dirname "$CONFIG")"
-  (
-    umask 077
-    {
-      echo "SPOTLIGHT_URL=$API_BASE"
-      [ -n "$token" ] && echo "SPOTLIGHT_POOL_TOKEN=$token"
-      [ -n "$trust" ] && echo "SPOTLIGHT_TRUST=$trust"
-      [ -n "$token_file" ] && echo "SPOTLIGHT_OIDC_TOKEN_FILE=$token_file"
-      [ -n "$capacity" ] && echo "SPOTLIGHT_CAPACITY=$capacity"
-      echo "SPOTLIGHT_RUNNER_IMAGE=$IMAGE"
-    } >"$CONFIG"
-  )
-  chmod 600 "$CONFIG"
-  done_step "Wrote $CONFIG"
-}
-
-pull_image() {
-  first="${IMAGE%%,*}"
-  case "$first" in
-    *"*"*) return 0 ;;
-  esac
-  "$RUNTIME" pull --quiet "$first" >/dev/null || die "could not pull $first"
-  done_step "Pulled $first"
-}
-
-note_harnesses() {
-  [ "$IMAGE" = "$BASE_IMAGE:$VERSION" ] || return 0
-  next_step "Install a harness. The runner image holds none, so this host runs checks but no agent run."
-  next_step "  Build an image FROM it with Claude Code, Codex, Cursor or OpenCode, as in:"
-  next_step "  https://github.com/usespotlightai/spotlight/tree/main/.docker/runner/examples"
-  next_step "  Then set SPOTLIGHT_RUNNER_IMAGE in $CONFIG and restart the host."
-}
-
 note_path() {
   case ":$PATH:" in
     *":$BIN_DIR:"*) return 0 ;;
@@ -184,45 +119,26 @@ note_path() {
   next_step "  export PATH=\"$BIN_DIR:\$PATH\""
 }
 
-note_linger() {
-  [ "$(uname -s)" = "Linux" ] && [ "$(id -u)" != "0" ] || return 0
-  [ "$(loginctl show-user "$(id -un)" --property=Linger --value 2>/dev/null)" = "yes" ] && return 0
-  next_step "Keep the host running after you log out:"
-  next_step "  loginctl enable-linger $(id -un)"
-}
-
 main() {
   detect_platform
   choose_bindir
-  CONFIG="$(config_path)"
-  read_credentials
   find_runtime
 
   TMP="$(mktemp -d)"
   trap 'rm -rf "$TMP"' EXIT
 
-  say "${BOLD}Installing the Spotlight host $VERSION ($PLATFORM)${RESET}"
+  say "${BOLD}Installing spotlight $VERSION ($PLATFORM)${RESET}"
   say ""
   install_binary
-  save_config
-  pull_image
+  say ""
 
-  if [ "${SPOTLIGHT_NO_SERVICE:-}" = "1" ]; then
-    say ""
-    say "${BOLD}${GREEN}Installed.${RESET} Start it with:"
-    say "  SPOTLIGHT_HOST_CONFIG=$CONFIG $BIN_DIR/spotlight host"
-  else
-    SPOTLIGHT_HOST_CONFIG="$CONFIG" SPOTLIGHT_INSTALLER=1 "$BIN_DIR/spotlight" host install
-    note_linger
-    say ""
-    say "${BOLD}${GREEN}The host serves $API_BASE.${RESET}"
-    say "This machine shows on the workspace's Runners page when it reports."
-  fi
+  status=0
+  "$BIN_DIR/spotlight" host init --url "$API_BASE" "$@" || status=$?
 
-  note_harnesses
   note_path
   print_next_steps
   say ""
+  exit "$status"
 }
 
-main
+main "$@"

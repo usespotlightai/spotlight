@@ -16,6 +16,7 @@ func TestTheSystemdUnitRestartsTheHostAndLetsItsSandboxesStopInTime(t *testing.T
 	for _, want := range []string{
 		`ExecStart="/usr/local/bin/spotlight" host`,
 		`Environment="SPOTLIGHT_HOST_CONFIG=/etc/spotlight/host.env"`,
+		"ExecReload=/bin/kill -HUP $MAINPID",
 		"Restart=always",
 		"RestartPreventExitStatus=3",
 		"TimeoutStopSec=90",

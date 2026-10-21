@@ -57,11 +57,11 @@ func (h *Host) refresh(ctx, claiming, serving context.Context, stop func(error))
 		return nil
 	}
 
-	wanted := h.opts.Images.Wanted(required.Images)
+	wanted := h.now().Images.Wanted(required.Images)
 
 	h.mu.Lock()
 	h.required = required
-	h.disallowed = h.opts.Images.Disallowed(required.Images)
+	h.disallowed = h.now().Images.Disallowed(required.Images)
 	var gone []*served
 	for image, each := range h.served {
 		if !slices.ContainsFunc(wanted, func(w images.Wanted) bool { return w.Image == image }) {
@@ -256,7 +256,7 @@ func (h *Host) found(ctx context.Context, image string, candidates []protocol.Ha
 	ctx, cancel := context.WithTimeout(ctx, probeLongest)
 	defer cancel()
 
-	env, harnessKeys := standInsFor(h.opts.SandboxEnv)
+	env, harnessKeys := standInsFor(h.now().SandboxEnv)
 	sidecar, err := h.egressSidecar(ctx, "probe-"+strings.ToLower(rand.Text()[:12]), map[string]string{LabelHost: h.opts.HostID}, "", harnessKeys,
 		probeEgressWait)
 	defer sidecar.close()

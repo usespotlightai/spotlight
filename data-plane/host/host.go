@@ -22,7 +22,14 @@ import (
 )
 
 const Usage = `  spotlight host              serve a pull pool or runner trust, a fresh sandbox for every run
-  spotlight host install      run it as a service (systemd or launchd)
+  spotlight host init         connect this machine and run the host as a service (systemd or launchd)
+  spotlight host status       show the service, the sandboxes in use, the settings and checks
+  spotlight host config       list the settings; config get|set|unset|keys change them
+  spotlight host start|stop   start or stop the service
+  spotlight host reload       apply host.env, sandbox.env and egress.env without a restart
+  spotlight host restart      restart when the running sandboxes finish (--now: at once)
+  spotlight host logs         show the service's log (-f to follow)
+  spotlight host uninstall    remove the service (--purge: also the settings and state)
   spotlight host update [release]
                               replace this binary with a release (default: the control plane's release);
                               a running host restarts on it when its sandboxes finish`
@@ -30,19 +37,43 @@ const Usage = `  spotlight host              serve a pull pool or runner trust, 
 func Main(args []string, version string) int {
 	var err error
 
-	switch {
-	case len(args) == 0:
+	if len(args) == 0 {
 		err = run(version)
-	case len(args) == 1 && args[0] == "install":
-		err = installService(version)
-	case len(args) <= 2 && args[0] == "update":
-		err = updateBinary(version, args[1:])
-	default:
-		err = fmt.Errorf("usage:\n%s", Usage)
+	} else {
+		switch rest := args[1:]; args[0] {
+		case "init":
+			err = initialize(version, rest)
+		case "config":
+			err = configure(version, rest)
+		case "status":
+			err = status(version, rest)
+		case "start":
+			err = noArgs(rest, func() error { return install.Start(os.Stdout) })
+		case "stop":
+			err = noArgs(rest, func() error { return install.Stop(os.Stdout) })
+		case "restart":
+			err = restart(version, rest)
+		case "reload":
+			err = reload(version, rest)
+		case "logs":
+			err = logs(rest)
+		case "uninstall":
+			err = uninstall(version, rest)
+		case "update":
+			if len(rest) > 1 {
+				err = fmt.Errorf("usage:\n%s", Usage)
+			} else {
+				err = updateBinary(version, rest)
+			}
+		default:
+			err = fmt.Errorf("usage:\n%s", Usage)
+		}
 	}
 
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "spotlight host:", err)
+		if !errors.Is(err, errReported) {
+			fmt.Fprintln(os.Stderr, "spotlight host:", err)
+		}
 		if serve.Final(err) {
 			return install.StopExit
 		}
@@ -68,6 +99,10 @@ func run(version string) error {
 		log = telemetry.NewLoggerAt(cfg.LogLevel, os.Stdout)
 		slog.SetDefault(log)
 	}
+
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGHUP, syscall.SIGUSR1)
+	defer signal.Stop(signals)
 
 	release, err := config.Lock(cfg.State)
 	if err != nil {
@@ -100,34 +135,47 @@ func run(version string) error {
 		log.Warn("could not prune the mirrors a stopped host left", "error", err)
 	}
 
+	live := liveSettings(cfg, version)
 	host := serve.New(serve.Options{
 		HostID:     id,
-		Name:       cfg.Name,
+		Name:       live.Name,
 		Version:    version,
-		Images:     cfg.Images,
+		Images:     live.Images,
 		Registry:   registry.From(cfg.Registry),
 		Updates:    binary,
-		AutoUpdate: cfg.AutoUpdate && version != "dev",
-		Capacity:   cfg.Capacity,
-		RunTimeout: cfg.RunTimeout,
-		AnswerWait: cfg.AnswerWait,
+		AutoUpdate: live.AutoUpdate,
+		Capacity:   live.Capacity,
+		RunTimeout: live.RunTimeout,
+		AnswerWait: live.AnswerWait,
 		ControlURL: cfg.URL,
-		SandboxURL: cfg.SandboxURL,
-		SandboxEnv: cfg.SandboxEnv,
-		Egress: serve.Egress{
-			Image: cfg.Egress.Image, Allow: cfg.Egress.Allow, SecretAllow: cfg.Egress.SecretAllow,
-			Env: cfg.Egress.Env, CABundle: cfg.Egress.CABundle,
-		},
-		Network:    cfg.Network,
-		ExtraHosts: cfg.ExtraHosts,
+		SandboxURL: live.SandboxURL,
+		SandboxEnv: live.SandboxEnv,
+		Egress:     live.Egress,
+		Network:    live.Network,
+		ExtraHosts: live.ExtraHosts,
 	}, claims, engine, mirrors, log.With("host", id))
 
 	if err := telemetry.ServeHealth(ctx, cfg.HealthAddr, host.Ready, log); err != nil {
 		return err
 	}
 
-	if err := host.Serve(ctx); errors.Is(err, serve.ErrUpdated) {
-		log.Info("host restarts on the new binary", "binary", binary.Path)
+	go func() {
+		for sig := range signals {
+			if sig == syscall.SIGUSR1 {
+				host.Restart()
+				continue
+			}
+			reloaded, err := config.Load(version)
+			if err != nil {
+				log.Error("could not reload the settings, so the host keeps the ones it has", "error", err)
+				continue
+			}
+			host.Reload(liveSettings(reloaded, version))
+		}
+	}()
+
+	if err := host.Serve(ctx); errors.Is(err, serve.ErrRestart) {
+		log.Info("host restarts", "binary", binary.Path)
 		release()
 		return syscall.Exec(binary.Path, append([]string{binary.Path}, os.Args[1:]...), os.Environ())
 	} else if err != nil {
@@ -192,18 +240,21 @@ func updateBinary(version string, args []string) error {
 	return nil
 }
 
-func installService(version string) error {
-	binary, err := os.Executable()
-	if err != nil {
-		return err
+func liveSettings(cfg config.Config, version string) serve.Settings {
+	return serve.Settings{
+		Name:       cfg.Name,
+		Images:     cfg.Images,
+		Capacity:   cfg.Capacity,
+		RunTimeout: cfg.RunTimeout,
+		AnswerWait: cfg.AnswerWait,
+		SandboxURL: cfg.SandboxURL,
+		SandboxEnv: cfg.SandboxEnv,
+		Egress: serve.Egress{
+			Image: cfg.Egress.Image, Allow: cfg.Egress.Allow, SecretAllow: cfg.Egress.SecretAllow,
+			Env: cfg.Egress.Env, CABundle: cfg.Egress.CABundle,
+		},
+		Network:    cfg.Network,
+		ExtraHosts: cfg.ExtraHosts,
+		AutoUpdate: cfg.AutoUpdate && version != "dev",
 	}
-	if binary, err = filepath.EvalSymlinks(binary); err != nil {
-		return err
-	}
-
-	if _, err := config.Load(version); err != nil {
-		return fmt.Errorf("%s is not ready to serve: %w", config.Path(), err)
-	}
-
-	return install.Service{Binary: binary, Config: config.Path()}.Install(os.Stdout)
 }

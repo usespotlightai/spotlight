@@ -72,7 +72,7 @@ export function AddHostSteps({ slug, workspaceId }: AddHostStepsProps) {
             ? `Add the machine to the ${created.key} pool`
             : 'Add the machine to the pool'
         }
-        description="Run this command on the machine while Docker or another container runtime is running. Spotlight shows the pool token in it only once."
+        description="Run this command on the machine while Docker or another container runtime is running. It asks how many sandboxes run at once and which runner image to use. Spotlight shows the pool token in it only once."
         open={shown === 2}
         onOpen={created ? pick(2) : undefined}
       >

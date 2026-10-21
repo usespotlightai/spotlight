@@ -71,7 +71,7 @@ func TestUpdatesToTheControlPlanesReleaseAndRestartsWhenItsSandboxesFinish(t *te
 	}
 
 	engine.finish(id)
-	if err := stopped(); !errors.Is(err, serve.ErrUpdated) {
+	if err := stopped(); !errors.Is(err, serve.ErrRestart) {
 		t.Fatalf("stopped with %v", err)
 	}
 	if got := binary.releases(); got[0] != "v0.7.0" {
@@ -84,7 +84,7 @@ func TestUpdatesBeforeItClaimsWhenItStartsOnAnotherRelease(t *testing.T) {
 	pool.release = "v0.7.0"
 	_, stopped := serving(t, updating(t, binary, true), engine, pool)
 
-	if err := stopped(); !errors.Is(err, serve.ErrUpdated) {
+	if err := stopped(); !errors.Is(err, serve.ErrRestart) {
 		t.Fatalf("stopped with %v", err)
 	}
 	if got := len(engine.workSandboxes()); got != 0 {
@@ -120,7 +120,7 @@ func TestWithAutoUpdateOffItOnlyRestartsWhenItsBinaryIsReplaced(t *testing.T) {
 	binary.replaced = true
 	binary.mu.Unlock()
 
-	if err := stopped(); !errors.Is(err, serve.ErrUpdated) {
+	if err := stopped(); !errors.Is(err, serve.ErrRestart) {
 		t.Fatalf("stopped with %v", err)
 	}
 }

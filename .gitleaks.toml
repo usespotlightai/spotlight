@@ -10,4 +10,5 @@ regexes = [
   '''^xoxb-encrypted-\d+$''',
   '''^CURSOR_API_KEY=cursor(-test)?$''',
   '''^abc123def456$''',
+  '''^spl_0123456789abcd$''',
 ]
