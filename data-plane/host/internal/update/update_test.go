@@ -113,6 +113,36 @@ func TestKeepsTheBinaryWhenTheDownloadReportsAnotherRelease(t *testing.T) {
 	}
 }
 
+func TestReplacesTheBinaryWithACanaryThatReportsItsCommit(t *testing.T) {
+	next := script("bb0b93862540")
+	binary := installed(t, releases(t, map[string]string{
+		"/canary/spotlight-linux-amd64":        next,
+		"/canary/spotlight-linux-amd64.sha256": sum(next) + "  spotlight-linux-amd64\n",
+	}))
+
+	if err := binary.To(context.Background(), update.Canary); err != nil {
+		t.Fatal(err)
+	}
+	if contents(t, binary) != next {
+		t.Error("the binary was not replaced")
+	}
+}
+
+func TestKeepsTheBinaryWhenTheCanaryFailsItsChecksum(t *testing.T) {
+	binary := installed(t, releases(t, map[string]string{
+		"/canary/spotlight-linux-amd64":        script("bb0b93862540"),
+		"/canary/spotlight-linux-amd64.sha256": sum("something else"),
+	}))
+
+	err := binary.To(context.Background(), update.Canary)
+	if err == nil || !strings.Contains(err.Error(), "checksum") {
+		t.Fatalf("got %v", err)
+	}
+	if contents(t, binary) != old {
+		t.Error("a canary that failed its checksum replaced the running one")
+	}
+}
+
 func TestKeepsTheBinaryWhenTheReleaseIsMissing(t *testing.T) {
 	binary := installed(t, releases(t, map[string]string{}))
 
