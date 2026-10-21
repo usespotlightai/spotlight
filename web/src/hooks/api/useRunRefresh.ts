@@ -29,7 +29,7 @@ export function useRunRefresh({
 }: RunRefreshParams) {
   const watchedId = following?.id ?? runId;
   const watchedState = following?.state ?? state;
-  const watchedWork = following ? following.progress : progress;
+  const watchedProgress = following ? following.progress : progress;
   const queryClient = useQueryClient();
 
   const bump = useCallback(() => {
@@ -55,7 +55,7 @@ export function useRunRefresh({
   useRunStream(
     watchedId,
     watchedState !== undefined && underway({ state: watchedState }),
-    watchedWork,
+    watchedProgress,
     bump,
   );
 

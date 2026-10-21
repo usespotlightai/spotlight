@@ -47,7 +47,7 @@ describe('useRunStream', () => {
     expect(closed).toEqual(['/api/runs/run_1/stream']);
   });
 
-  it('opens no stream for a run without work', () => {
+  it('opens no stream while it is closed', () => {
     renderHook(() => useRunStream('run_1', false, null, () => {}));
 
     expect(opened).toEqual([]);

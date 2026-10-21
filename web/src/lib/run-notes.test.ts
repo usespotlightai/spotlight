@@ -127,7 +127,7 @@ describe('withMessagesInFlight', () => {
     ).toBe('answered');
   });
 
-  it('queues work once a message on its way starts the station again', () => {
+  it('is queued once a message on its way starts the station again', () => {
     expect(
       withMessagesInFlight(thread, [outgoing({ startsWork: true })], sam)
         .progress,
