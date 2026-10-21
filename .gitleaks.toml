@@ -11,4 +11,5 @@ regexes = [
   '''^CURSOR_API_KEY=cursor(-test)?$''',
   '''^abc123def456$''',
   '''^spl_0123456789abcd$''',
+  '''^Zq8mV2xR7tLk4NcW1pHs9dYb3fGj6aEu$''',
 ]
