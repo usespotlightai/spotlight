@@ -4,9 +4,9 @@ import {
 } from '@identity/application/services/first-team.service';
 import type { InviteMemberships } from '@identity/application/services/invite-memberships.service';
 import type { IssuedTokens } from '@identity/application/services/issued-tokens.service';
+import type { OidcTrustDeleted } from '@identity/domain/events/oidc-trust-deleted.event';
 import type { WorkspaceCreated } from '@identity/domain/events/workspace-created.event';
 import type { WorkspaceInviteAccepted } from '@identity/domain/events/workspace-invite-accepted.event';
-import type { WorkspaceTokenTrustDeleted } from '@identity/domain/events/workspace-token-trust-deleted.event';
 import {
   type DomainEventSubscriber,
   subscribing,
@@ -25,9 +25,9 @@ export const identitySubscribers = (
     ['workspace-invite.accepted'],
     (event) => memberships.joined(event),
   ),
-  subscribing<WorkspaceTokenTrustDeleted>(
+  subscribing<OidcTrustDeleted>(
     'identity.revoke-tokens-issued-by-deleted-trust',
-    ['workspace-token-trust.deleted'],
+    ['oidc-trust.deleted'],
     (event) => issuedTokens.revokeIssuedBy(event),
   ),
 ];

@@ -3,7 +3,7 @@ import { ApiProperty } from '@nestjs/swagger';
 export class ExchangeWorkloadTokenRequestDto {
   @ApiProperty({
     example: '0d6f3c1e-8a52-4f7b-9c1d-5e2a7b3f9c40',
-    description: 'The id of the workspace token trust to exchange through',
+    description: 'The id of the OIDC trust to exchange through',
   })
   readonly trust!: string;
 

@@ -1,20 +1,20 @@
 import { ExchangeWorkloadTokenCommand } from '@identity/application/commands/exchange-workload-token.command';
 import { ExchangeWorkloadTokenHandler } from '@identity/application/commands/handlers/exchange-workload-token.handler';
-import { WorkspaceTokenTrust } from '@identity/domain/aggregates/workspace-token-trust.aggregate';
+import { OidcTrust } from '@identity/domain/aggregates/oidc-trust.aggregate';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
+import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
-import type { WorkspaceTokenTrustRepository } from '@identity/domain/repositories/workspace-token-trust.repository';
+import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
-import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { WorkloadTokensPort } from '@shared-kernel/application/ports/workload-tokens.port';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
+import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const ISSUER = 'https://token.actions.githubusercontent.com';
@@ -22,9 +22,9 @@ const MAIN = 'repo:acme/platform:ref:refs/heads/main';
 const NOW = new Date('2026-09-25T10:00:00.000Z');
 
 const SPEC = {
-  id: WorkspaceTokenTrustId.of('trust_1'),
+  id: OidcTrustId.of('trust_1'),
   workspaceId: WorkspaceId.of('ws_1'),
-  key: TokenTrustKey.of('github-main'),
+  key: OidcTrustKey.of('github-main'),
   workload: WorkloadRule.of({
     issuer: ISSUER,
     audience: 'spotlight',
@@ -34,9 +34,10 @@ const SPEC = {
   scopes: TokenScopes.named(['configure']),
   lifetime: TokenLifetime.ofMinutes(15),
   createdBy: UserId.of('admin_1'),
+  createdAt: new Date('2026-09-01T09:00:00.000Z'),
 };
 
-const TRUST = WorkspaceTokenTrust.rehydrate({ ...SPEC, version: 0 });
+const TRUST = OidcTrust.rehydrate({ ...SPEC, version: 0 });
 
 const CLAIMS: WorkloadClaims = {
   issuer: ISSUER,
@@ -47,9 +48,9 @@ const CLAIMS: WorkloadClaims = {
 
 const exchanging = (
   over: {
-    trust?: WorkspaceTokenTrust | null;
+    trust?: OidcTrust | null;
     claims?: WorkloadClaims | null;
-    locked?: WorkspaceTokenTrust | null;
+    locked?: OidcTrust | null;
     adding?: Error;
   } = {},
 ) => {
@@ -67,7 +68,7 @@ const exchanging = (
       findLocked: vi.fn(async () =>
         over.locked === undefined ? TRUST : over.locked,
       ),
-    } as unknown as WorkspaceTokenTrustRepository,
+    } as unknown as OidcTrustRepository,
     { add } as unknown as WorkspaceTokenRepository,
     { verify } satisfies WorkloadTokensPort,
     { generate: () => 'token_1' },
@@ -133,7 +134,7 @@ describe('ExchangeWorkloadTokenHandler', () => {
     expect(await exchanging({ locked: null }).exchange()).toBeNull();
     expect(
       await exchanging({
-        locked: WorkspaceTokenTrust.rehydrate({
+        locked: OidcTrust.rehydrate({
           ...SPEC,
           workload: WorkloadRule.of({
             issuer: ISSUER,

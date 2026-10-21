@@ -22,7 +22,7 @@ export interface WorkspacePermissions {
   readonly configures: boolean;
   readonly managesSecrets: boolean;
   readonly managesRunners: boolean;
-  readonly managesTokenTrusts: boolean;
+  readonly managesOidcTrusts: boolean;
   readonly isAdmin: boolean;
 }
 

@@ -77,12 +77,16 @@ export class Permissions {
     return this.granted.has('runners');
   }
 
-  get managesTokenTrusts(): boolean {
+  get managesOidcTrusts(): boolean {
     return this.granted.has('trusts');
   }
 
   get isAdmin(): boolean {
     return this.granted.has('administer');
+  }
+
+  get seesOidcTrustUsage(): boolean {
+    return this.isAdmin;
   }
 
   get createsWorkspaces(): boolean {

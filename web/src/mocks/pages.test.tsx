@@ -89,7 +89,7 @@ const PAGES = (): string[] => [
   `${workspace}/settings/general`,
   `${workspace}/settings/members`,
   `${workspace}/settings/runners`,
-  `${workspace}/settings/tokens`,
+  `${workspace}/settings/api-access`,
   ...teamPages(PLATFORM_ID),
   ...teamPages(GROWTH_ID),
 ];

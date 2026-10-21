@@ -633,7 +633,7 @@ const bodyOf = (
           ? {}
           : { valueWoVersion: resource.valueVersion }),
       };
-    case 'workspace-token-trust':
+    case 'oidc-trust':
       return {
         key: resource.key,
         issuer: resource.issuer,
@@ -724,7 +724,7 @@ const COLLECTIONS: Readonly<
   Record<Exclude<ExportableResourceDto['kind'], 'workspace'>, string>
 > = {
   secret: 'secrets',
-  'workspace-token-trust': 'token-trusts',
+  'oidc-trust': 'oidc-trusts',
   'runner-trust': 'runner-trusts',
   egress: 'egresses',
   'runner-pool': 'runner-pools',
@@ -794,8 +794,8 @@ describe('the configuration the export spec renders (e2e)', () => {
       .delete(schema.workspacePlan)
       .where(eq(schema.workspacePlan.workspaceId, workspaceId));
     await db
-      .delete(schema.workspaceTokenTrust)
-      .where(eq(schema.workspaceTokenTrust.workspaceId, workspaceId));
+      .delete(schema.oidcTrust)
+      .where(eq(schema.oidcTrust.workspaceId, workspaceId));
     await deleteRunnersOf(db, workspaceId);
     await seat.unseat();
   });

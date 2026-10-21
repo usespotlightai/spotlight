@@ -3,6 +3,7 @@ import type {
   HarnessResponseDto,
   IntegrationViewResponseDto,
   MyConnectionResponseDto,
+  OidcTrustSummaryResponseDto,
   PersonConnectionResponseDto,
   RunnerPoolResourceResponseDto,
   TeamSkillResponseDto,
@@ -282,12 +283,61 @@ const TOKENS: WorkspaceTokenResourceResponseDto[] = [
   }),
 ];
 
+const oidcTrust = (
+  key: string,
+  over: Partial<OidcTrustSummaryResponseDto> = {},
+): OidcTrustSummaryResponseDto => ({
+  id: `trust_${key.replace(/-/g, '_')}`,
+  key,
+  issuer: 'https://token.actions.githubusercontent.com',
+  audience: 'https://api.usespotlight.ai',
+  subject: 'repo:acme/infra:ref:refs/heads/main',
+  claims: {},
+  scopes: ['plan'],
+  lifetimeMinutes: 60,
+  createdBy: { id: SAM.id, name: SAM.name },
+  createdAt: daysAgo(30),
+  lastIssuedAt: null,
+  ...over,
+});
+
+const OIDC_TRUSTS: OidcTrustSummaryResponseDto[] = [
+  oidcTrust('buildkite-deploys', {
+    issuer: 'https://agent.buildkite.com',
+    audience: 'spotlight',
+    subject: 'organization:acme:pipeline:deploys:ref:refs/heads/main:*',
+    scopes: ['read'],
+    lifetimeMinutes: 15,
+    createdAt: daysAgo(60),
+    lastIssuedAt: daysAgo(3),
+  }),
+  oidcTrust('infra-apply', {
+    claims: { workflow: 'apply' },
+    scopes: ['configure', 'secrets', 'runners'],
+    createdAt: daysAgo(14),
+    lastIssuedAt: hoursAgo(2),
+  }),
+  oidcTrust('infra-plan', {
+    subject: 'repo:acme/infra:pull_request',
+    lifetimeMinutes: 30,
+    createdAt: daysAgo(5),
+  }),
+  oidcTrust('production-release', {
+    subject: 'repo:acme/web:environment:production',
+    scopes: ['configure'],
+    createdBy: { id: 'user_9', name: null },
+    createdAt: daysAgo(40),
+    lastIssuedAt: daysAgo(9),
+  }),
+];
+
 export type SettingsWorld = {
   gitHubConnected: boolean;
   integrations: Record<string, IntegrationViewResponseDto[]>;
   connections: Record<string, TeamConnections>;
   skills: Record<string, TeamSkillResponseDto[]>;
   tokens: WorkspaceTokenResourceResponseDto[];
+  oidcTrusts: OidcTrustSummaryResponseDto[];
   pools: RunnerPoolResourceResponseDto[];
   fleet: Fleet;
   settingUp: string[];
@@ -307,6 +357,7 @@ export const settingsWorld = perWorld(
           },
           skills: { [PLATFORM_ID]: [], [GROWTH_ID]: [] },
           tokens: [],
+          oidcTrusts: [],
           pools: [],
           fleet: structuredClone(NO_FLEET),
           settingUp: [],
@@ -317,6 +368,7 @@ export const settingsWorld = perWorld(
           connections: structuredClone(CONNECTIONS),
           skills: structuredClone(SKILLS),
           tokens: structuredClone(TOKENS),
+          oidcTrusts: structuredClone(OIDC_TRUSTS),
           pools: structuredClone(RUNNER_POOLS),
           fleet: structuredClone(FLEET),
           settingUp: [],

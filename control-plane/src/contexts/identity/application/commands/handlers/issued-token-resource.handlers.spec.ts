@@ -1,18 +1,18 @@
+import { DeleteOidcTrustHandler } from '@identity/application/commands/handlers/delete-oidc-trust.handler';
 import { DeleteWorkspaceTokenHandler } from '@identity/application/commands/handlers/delete-workspace-token.handler';
-import { DeleteWorkspaceTokenTrustHandler } from '@identity/application/commands/handlers/delete-workspace-token-trust.handler';
 import { UpdateWorkspaceTokenHandler } from '@identity/application/commands/handlers/update-workspace-token.handler';
+import { DeleteOidcTrustCommand } from '@identity/application/commands/oidc-trust.commands';
 import {
   DeleteWorkspaceTokenCommand,
   UpdateWorkspaceTokenCommand,
 } from '@identity/application/commands/workspace-token.commands';
-import { DeleteWorkspaceTokenTrustCommand } from '@identity/application/commands/workspace-token-trust.commands';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import { OidcTrust } from '@identity/domain/aggregates/oidc-trust.aggregate';
 import type { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
-import { WorkspaceTokenTrust } from '@identity/domain/aggregates/workspace-token-trust.aggregate';
+import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
-import type { WorkspaceTokenTrustRepository } from '@identity/domain/repositories/workspace-token-trust.repository';
+import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
-import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import { access, transaction } from '@identity/identity.resources.fake-spec';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
@@ -20,23 +20,23 @@ import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dt
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
+import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
-import { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const ISSUER = 'https://token.actions.githubusercontent.com';
 const MAIN = 'repo:acme/platform:ref:refs/heads/main';
 
 const trust = () =>
-  WorkspaceTokenTrust.rehydrate({
-    id: WorkspaceTokenTrustId.of('trust_1'),
+  OidcTrust.rehydrate({
+    id: OidcTrustId.of('trust_1'),
     workspaceId: WorkspaceId.of('ws_1'),
-    key: TokenTrustKey.of('github-main'),
+    key: OidcTrustKey.of('github-main'),
     workload: WorkloadRule.of({
       issuer: ISSUER,
       audience: 'spotlight',
@@ -46,6 +46,7 @@ const trust = () =>
     scopes: TokenScopes.named(['configure', 'secrets']),
     lifetime: TokenLifetime.ofMinutes(15),
     createdBy: UserId.of('user_1'),
+    createdAt: new Date('2026-09-01T09:00:00.000Z'),
     version: 0,
   });
 
@@ -128,20 +129,20 @@ describe('an issued token as a resource', () => {
   });
 });
 
-describe('DeleteWorkspaceTokenTrustHandler', () => {
+describe('DeleteOidcTrustHandler', () => {
   const deleting = (scopes: string[]) => {
-    const save = vi.fn(async (_: WorkspaceTokenTrust) => {});
-    const handler = new DeleteWorkspaceTokenTrustHandler(
+    const save = vi.fn(async (_: OidcTrust) => {});
+    const handler = new DeleteOidcTrustHandler(
       {
         permissionsIn: vi.fn(async () => ({
           workspaceId: WorkspaceId.of('ws_1'),
-          managesTokenTrusts: true,
+          managesOidcTrusts: true,
         })),
       } as unknown as WorkspaceAccessPort,
       {
         find: vi.fn(async () => trust()),
         save,
-      } as unknown as WorkspaceTokenTrustRepository,
+      } as unknown as OidcTrustRepository,
       transaction,
     );
     const by = Actor.of(
@@ -157,7 +158,7 @@ describe('DeleteWorkspaceTokenTrustHandler', () => {
     return {
       save,
       remove: () =>
-        handler.execute(new DeleteWorkspaceTokenTrustCommand('trust_1', by, 0)),
+        handler.execute(new DeleteOidcTrustCommand('trust_1', by, 0)),
     };
   };
 

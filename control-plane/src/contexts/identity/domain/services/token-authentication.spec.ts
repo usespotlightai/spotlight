@@ -1,21 +1,21 @@
+import { OidcTrust } from '@identity/domain/aggregates/oidc-trust.aggregate';
 import { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
-import { WorkspaceTokenTrust } from '@identity/domain/aggregates/workspace-token-trust.aggregate';
 import { TokenAuthentication } from '@identity/domain/services/token-authentication';
+import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
-import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
+import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
-import { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-25T10:00:00.000Z');
@@ -24,10 +24,10 @@ const ISSUER = 'https://token.actions.githubusercontent.com';
 const MAIN = 'repo:acme/platform:ref:refs/heads/main';
 
 const trustAt = (version: number) =>
-  WorkspaceTokenTrust.rehydrate({
-    id: WorkspaceTokenTrustId.of('trust_1'),
+  OidcTrust.rehydrate({
+    id: OidcTrustId.of('trust_1'),
     workspaceId: WorkspaceId.of('ws_1'),
-    key: TokenTrustKey.of('github-main'),
+    key: OidcTrustKey.of('github-main'),
     workload: WorkloadRule.of({
       issuer: ISSUER,
       audience: 'spotlight',
@@ -37,6 +37,7 @@ const trustAt = (version: number) =>
     scopes: TokenScopes.named(['configure']),
     lifetime: TokenLifetime.ofMinutes(15),
     createdBy: UserId.of('admin_1'),
+    createdAt: new Date('2026-09-01T09:00:00.000Z'),
     version,
   });
 

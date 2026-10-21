@@ -74,7 +74,7 @@ export type ExportableResourceDto =
       readonly valueVersion: number | null;
     })
   | (WorkspaceOwned & {
-      readonly kind: 'workspace-token-trust';
+      readonly kind: 'oidc-trust';
       readonly key: string;
       readonly issuer: string;
       readonly audience: string;

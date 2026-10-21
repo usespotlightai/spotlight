@@ -1,24 +1,24 @@
 import type {
   IdentityResourcesPort,
+  OidcTrustRecord,
   TeamRecord,
   WorkspaceRecord,
   WorkspaceTokenRecord,
-  WorkspaceTokenTrustRecord,
 } from '@identity/application/ports/identity-resources.port';
 import {
+  oidcTrust,
   team,
   workspace,
   workspaceMember,
   workspaceToken,
-  workspaceTokenTrust,
 } from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
-import { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
 import { and, asc, eq, isNotNull, isNull, type SQL } from 'drizzle-orm';
 
 const WORKSPACE_COLUMNS = {
@@ -49,17 +49,17 @@ const TOKEN_COLUMNS = {
 };
 
 const TRUST_COLUMNS = {
-  id: workspaceTokenTrust.id,
-  version: workspaceTokenTrust.version,
-  workspaceId: workspaceTokenTrust.workspaceId,
-  key: workspaceTokenTrust.key,
-  issuer: workspaceTokenTrust.issuer,
-  audience: workspaceTokenTrust.audience,
-  subject: workspaceTokenTrust.subject,
-  claims: workspaceTokenTrust.claims,
-  scopes: workspaceTokenTrust.scopes,
-  lifetimeMinutes: workspaceTokenTrust.lifetimeMinutes,
-  createdBy: workspaceTokenTrust.createdBy,
+  id: oidcTrust.id,
+  version: oidcTrust.version,
+  workspaceId: oidcTrust.workspaceId,
+  key: oidcTrust.key,
+  issuer: oidcTrust.issuer,
+  audience: oidcTrust.audience,
+  subject: oidcTrust.subject,
+  claims: oidcTrust.claims,
+  scopes: oidcTrust.scopes,
+  lifetimeMinutes: oidcTrust.lifetimeMinutes,
+  createdBy: oidcTrust.createdBy,
 };
 
 const issuedByHand = and(
@@ -90,11 +90,9 @@ const tokenRecordOf = (
   workspaceId: WorkspaceId.of(row.workspaceId),
 });
 
-const trustRecordOf = (
-  row: Row<WorkspaceTokenTrustRecord>,
-): WorkspaceTokenTrustRecord => ({
+const trustRecordOf = (row: Row<OidcTrustRecord>): OidcTrustRecord => ({
   ...row,
-  id: WorkspaceTokenTrustId.of(row.id),
+  id: OidcTrustId.of(row.id),
   workspaceId: WorkspaceId.of(row.workspaceId),
 });
 
@@ -225,51 +223,46 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
     return found ? tokenRecordOf(found) : null;
   }
 
-  tokenTrustWithId(
-    id: WorkspaceTokenTrustId,
-  ): Promise<WorkspaceTokenTrustRecord | null> {
-    return this.tokenTrust(eq(workspaceTokenTrust.id, id.value));
+  oidcTrustWithId(id: OidcTrustId): Promise<OidcTrustRecord | null> {
+    return this.oidcTrust(eq(oidcTrust.id, id.value));
   }
 
-  tokenTrustAt(
+  oidcTrustAt(
     workspaceId: WorkspaceId,
     key: string,
-  ): Promise<WorkspaceTokenTrustRecord | null> {
-    return this.tokenTrust(
-      and(
-        eq(workspaceTokenTrust.workspaceId, workspaceId.value),
-        eq(workspaceTokenTrust.key, key),
-      ),
+  ): Promise<OidcTrustRecord | null> {
+    return this.oidcTrust(
+      and(eq(oidcTrust.workspaceId, workspaceId.value), eq(oidcTrust.key, key)),
     );
   }
 
-  async tokenTrustsIn(
+  async oidcTrustsIn(
     workspaceId: WorkspaceId,
-  ): Promise<readonly WorkspaceTokenTrustRecord[]> {
+  ): Promise<readonly OidcTrustRecord[]> {
     return (
       await this.context.db
         .select(TRUST_COLUMNS)
-        .from(workspaceTokenTrust)
-        .where(eq(workspaceTokenTrust.workspaceId, workspaceId.value))
+        .from(oidcTrust)
+        .where(eq(oidcTrust.workspaceId, workspaceId.value))
     ).map(trustRecordOf);
   }
 
-  async tokenTrustKeysIn(workspaceId: WorkspaceId): Promise<readonly string[]> {
+  async oidcTrustKeysIn(workspaceId: WorkspaceId): Promise<readonly string[]> {
     return (
       await this.context.db
-        .select({ key: workspaceTokenTrust.key })
-        .from(workspaceTokenTrust)
-        .where(eq(workspaceTokenTrust.workspaceId, workspaceId.value))
-        .orderBy(asc(workspaceTokenTrust.key))
+        .select({ key: oidcTrust.key })
+        .from(oidcTrust)
+        .where(eq(oidcTrust.workspaceId, workspaceId.value))
+        .orderBy(asc(oidcTrust.key))
     ).map((each) => each.key);
   }
 
-  private async tokenTrust(
+  private async oidcTrust(
     where: SQL | undefined,
-  ): Promise<WorkspaceTokenTrustRecord | null> {
+  ): Promise<OidcTrustRecord | null> {
     const [found] = await this.context.db
       .select(TRUST_COLUMNS)
-      .from(workspaceTokenTrust)
+      .from(oidcTrust)
       .where(where)
       .limit(1);
 

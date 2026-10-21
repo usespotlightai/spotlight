@@ -1,4 +1,4 @@
-import type { WorkspaceTokenTrustDeleted } from '@identity/domain/events/workspace-token-trust-deleted.event';
+import type { OidcTrustDeleted } from '@identity/domain/events/oidc-trust-deleted.event';
 import { WorkspaceTokenVersionConflictError } from '@identity/domain/exceptions/workspace-token-version-conflict.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -16,7 +16,7 @@ export class IssuedTokens {
     private readonly transaction: TransactionPort,
   ) {}
 
-  async revokeIssuedBy(deleted: WorkspaceTokenTrustDeleted): Promise<void> {
+  async revokeIssuedBy(deleted: OidcTrustDeleted): Promise<void> {
     const by = ChangeActor.spotlight(deleted.workspaceId);
 
     for (const token of await this.tokens.issuedByTrust(deleted.trustId)) {

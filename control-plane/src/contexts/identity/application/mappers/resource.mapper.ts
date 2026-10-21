@@ -1,12 +1,12 @@
+import type { OidcTrustResourceDto } from '@identity/application/dto/oidc-trust-resource.dto';
 import type { TeamResourceDto } from '@identity/application/dto/team-resource.dto';
 import type { WorkspaceResourceDto } from '@identity/application/dto/workspace-resource.dto';
 import type { WorkspaceTokenResourceDto } from '@identity/application/dto/workspace-token-resource.dto';
-import type { WorkspaceTokenTrustResourceDto } from '@identity/application/dto/workspace-token-trust-resource.dto';
 import type {
+  OidcTrustRecord,
   TeamRecord,
   WorkspaceRecord,
   WorkspaceTokenRecord,
-  WorkspaceTokenTrustRecord,
 } from '@identity/application/ports/identity-resources.port';
 
 export const ResourceMapper = {
@@ -49,9 +49,7 @@ export const ResourceMapper = {
     };
   },
 
-  workspaceTokenTrust(
-    trust: WorkspaceTokenTrustRecord,
-  ): WorkspaceTokenTrustResourceDto {
+  oidcTrust(trust: OidcTrustRecord): OidcTrustResourceDto {
     return {
       id: trust.id.value,
       version: trust.version,

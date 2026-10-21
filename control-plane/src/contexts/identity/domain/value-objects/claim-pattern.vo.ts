@@ -1,4 +1,4 @@
-import { InvalidTokenTrustError } from '@identity/domain/exceptions/invalid-token-trust.error';
+import { InvalidOidcTrustError } from '@identity/domain/exceptions/invalid-oidc-trust.error';
 
 const LONGEST = 255;
 
@@ -13,7 +13,7 @@ export class ClaimPattern {
     const trimmed = raw.trim();
 
     if (!trimmed || trimmed.length > LONGEST || /\s/.test(trimmed)) {
-      throw new InvalidTokenTrustError(
+      throw new InvalidOidcTrustError(
         field,
         `must be one word of at most ${LONGEST} characters, as in repo:acme/platform:ref:refs/heads/*`,
       );

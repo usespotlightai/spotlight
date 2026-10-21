@@ -195,8 +195,8 @@ export const workspaceToken = pgTable(
   ],
 );
 
-export const workspaceTokenTrust = pgTable(
-  'workspace_token_trust',
+export const oidcTrust = pgTable(
+  'oidc_trust',
   {
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id')
@@ -213,12 +213,19 @@ export const workspaceTokenTrust = pgTable(
     scopes: workspaceTokenScope('scopes').array().notNull(),
     lifetimeMinutes: integer('lifetime_minutes').notNull(),
     createdBy: text('created_by').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
     version: integer('version').default(0).notNull(),
   },
   (table) => [
-    uniqueIndex('workspace_token_trust_workspace_key_idx').on(
+    uniqueIndex('oidc_trust_workspace_key_idx').on(
       table.workspaceId,
       table.key,
     ),
   ],
 );
+
+export const oidcTrustUsage = pgTable('oidc_trust_usage', {
+  trustId: text('trust_id').primaryKey(),
+  workspaceId: text('workspace_id').notNull(),
+  lastIssuedAt: timestamp('last_issued_at').notNull(),
+});

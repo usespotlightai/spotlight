@@ -1,4 +1,4 @@
-import type { WorkspaceTokenTrust } from '@identity/domain/aggregates/workspace-token-trust.aggregate';
+import type { OidcTrust } from '@identity/domain/aggregates/oidc-trust.aggregate';
 import { WorkspaceTokenExpired } from '@identity/domain/events/workspace-token-expired.event';
 import { WorkspaceTokenIssued } from '@identity/domain/events/workspace-token-issued.event';
 import { WorkspaceTokenRevoked } from '@identity/domain/events/workspace-token-revoked.event';
@@ -16,6 +16,7 @@ import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import type { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -24,7 +25,6 @@ import type { TokenScopes } from '@shared-kernel/domain/value-objects/token-scop
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
-import type { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
 
 export interface TokenSpec {
   readonly name: TokenName;
@@ -39,7 +39,7 @@ interface Props extends TokenSpec {
   readonly hash: TokenHash;
   readonly issuedBy: UserId;
   readonly issuedAt: Date;
-  readonly issuedByTrustId: WorkspaceTokenTrustId | null;
+  readonly issuedByTrustId: OidcTrustId | null;
   readonly trustVersion: number | null;
   readonly runId: RunId | null;
   readonly runAttempt: number | null;
@@ -107,6 +107,8 @@ export class WorkspaceToken extends EventRecorder {
         issued.workspaceId,
         issued.name,
         ConfigurationChange.created(issued.whatChanged, input.by),
+        null,
+        input.now,
       ),
     );
 
@@ -123,7 +125,7 @@ export class WorkspaceToken extends EventRecorder {
       | 'runId'
       | 'runAttempt'
     > & {
-      issuedByTrustId: WorkspaceTokenTrustId;
+      issuedByTrustId: OidcTrustId;
       trustVersion: number;
       expiresAt: Date;
       subject: string;
@@ -167,6 +169,8 @@ export class WorkspaceToken extends EventRecorder {
             expiresAt: input.expiresAt,
           }),
         ),
+        input.issuedByTrustId,
+        input.now,
       ),
     );
 
@@ -246,6 +250,8 @@ export class WorkspaceToken extends EventRecorder {
             expiresAt: input.expiresAt,
           }),
         ),
+        null,
+        input.now,
       ),
     );
 
@@ -418,7 +424,7 @@ export class WorkspaceToken extends EventRecorder {
     return this.state.issuedAt;
   }
 
-  get issuedByTrustId(): WorkspaceTokenTrustId | null {
+  get issuedByTrustId(): OidcTrustId | null {
     return this.state.issuedByTrustId;
   }
 
@@ -434,7 +440,7 @@ export class WorkspaceToken extends EventRecorder {
     return this.state.runAttempt;
   }
 
-  isStillValidFor(trust: WorkspaceTokenTrust | null): boolean {
+  isStillValidFor(trust: OidcTrust | null): boolean {
     return this.issuedByTrustId === null || trust?.stillGrants(this) === true;
   }
 

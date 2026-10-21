@@ -16,13 +16,13 @@ import { membersPath } from '@/lib/members';
 import { isAdmin, type Role } from '@/lib/role';
 import { onlineCount, runnersPath } from '@/lib/runner';
 import {
+  apiAccessPath,
   TEAM_SETTINGS_PAGES,
   type TeamSettingsPageId,
   teamSettingsPath,
   workspaceGeneralPath,
 } from '@/lib/settings';
 import type { Team } from '@/lib/team';
-import { tokensPath } from '@/lib/token';
 
 const TEAM_SETTINGS_ICONS: Record<TeamSettingsPageId, LucideIcon> = {
   general: Settings2,
@@ -91,8 +91,8 @@ export function SettingsSidebar({
           </li>
           {isAdmin(workspace.role) && (
             <li>
-              <SidebarLink to={tokensPath(slug)} icon={KeyRound}>
-                Tokens
+              <SidebarLink to={apiAccessPath(slug)} icon={KeyRound}>
+                API access
               </SidebarLink>
             </li>
           )}

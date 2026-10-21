@@ -1,4 +1,4 @@
-import { InvalidTokenTrustError } from '@identity/domain/exceptions/invalid-token-trust.error';
+import { InvalidOidcTrustError } from '@identity/domain/exceptions/invalid-oidc-trust.error';
 import { ClaimPattern } from '@identity/domain/value-objects/claim-pattern.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -36,7 +36,7 @@ describe('ClaimPattern', () => {
 
   it('rejects a blank pattern, one with spaces, or one too long', () => {
     for (const invalid of ['', ' ', 'a b', 'a'.repeat(256)]) {
-      expect(() => ClaimPattern.of(invalid)).toThrow(InvalidTokenTrustError);
+      expect(() => ClaimPattern.of(invalid)).toThrow(InvalidOidcTrustError);
     }
   });
 });

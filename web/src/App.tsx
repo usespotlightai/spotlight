@@ -27,6 +27,11 @@ const AgentChat = lazyPage(
   (module) => module.AgentChat,
 );
 
+const ApiAccess = lazyPage(
+  () => import('./routes/ApiAccess.tsx'),
+  (module) => module.ApiAccess,
+);
+
 const AuthorizeDevice = lazyPage(
   () => import('./routes/AuthorizeDevice.tsx'),
   (module) => module.AuthorizeDevice,
@@ -152,11 +157,6 @@ const TeamSkills = lazyPage(
   (module) => module.TeamSkills,
 );
 
-const Tokens = lazyPage(
-  () => import('./routes/Tokens.tsx'),
-  (module) => module.Tokens,
-);
-
 const WorkspaceMembers = lazyPage(
   () => import('./routes/WorkspaceMembers.tsx'),
   (module) => module.WorkspaceMembers,
@@ -234,7 +234,7 @@ export default function App() {
                 <Route path="members" element={<WorkspaceMembers />} />
                 <Route path="runners" element={<Runners />} />
                 <Route path="runners/new" element={<AddHost />} />
-                <Route path="tokens" element={<Tokens />} />
+                <Route path="api-access" element={<ApiAccess />} />
                 <Route path="team/:teamId">
                   <Route index element={<Navigate to="general" replace />} />
                   <Route path="general" element={<TeamGeneral />} />

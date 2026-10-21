@@ -8,10 +8,10 @@ import { RoleAssignmentDeniedError } from '@identity/domain/exceptions/role-assi
 import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import { Dependents } from '@identity/domain/value-objects/dependents.vo';
+import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
-import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
@@ -441,7 +441,7 @@ describe('Workspace', () => {
       ).toThrow(ImmutableFieldError);
     });
 
-    it('is deleted only once it has no team, no token, no token trust, no issued token and nothing else', () => {
+    it('is deleted only once it has no team, no token, no OIDC trust, no issued token and nothing else', () => {
       expect(() =>
         stored().delete(
           [TeamKey.of('core')],
@@ -466,18 +466,18 @@ describe('Workspace', () => {
         stored().delete(
           [],
           [],
-          [TokenTrustKey.of('github-main')],
+          [OidcTrustKey.of('github-main')],
           [],
           Dependents.none(),
           BY,
         ),
-      ).toThrow(/It still has: token trust github-main/);
+      ).toThrow(/It still has: OIDC trust github-main/);
       expect(() =>
         stored().delete(
           [],
           [],
           [],
-          [TokenTrustKey.of('github-main')],
+          [OidcTrustKey.of('github-main')],
           Dependents.none(),
           BY,
         ),
@@ -538,7 +538,7 @@ describe('Workspace', () => {
         configures: permissions.configures,
         managesSecrets: permissions.managesSecrets,
         managesRunners: permissions.managesRunners,
-        managesTokenTrusts: permissions.managesTokenTrusts,
+        managesOidcTrusts: permissions.managesOidcTrusts,
         isAdmin: permissions.isAdmin,
       };
     };
@@ -548,7 +548,7 @@ describe('Workspace', () => {
       ['admin', true, true],
       ['member', false, false],
     ])(
-      'lets its %s read and plan, configuring, managing secrets, runners and token trusts, and administering only as an admin',
+      'lets its %s read and plan, configuring, managing secrets, runners and OIDC trusts, and administering only as an admin',
       (who, configures, isAdmin) => {
         expect(permissionsOf(person(who))).toEqual({
           reads: true,
@@ -556,7 +556,7 @@ describe('Workspace', () => {
           configures,
           managesSecrets: configures,
           managesRunners: configures,
-          managesTokenTrusts: configures,
+          managesOidcTrusts: configures,
           isAdmin,
         });
       },
@@ -569,7 +569,7 @@ describe('Workspace', () => {
         configures: false,
         managesSecrets: false,
         managesRunners: false,
-        managesTokenTrusts: false,
+        managesOidcTrusts: false,
         isAdmin: false,
       });
     });
@@ -583,14 +583,14 @@ describe('Workspace', () => {
       [['configure', 'trusts'], true, true, false, false, true],
     ])(
       'lets a %j token of its own read, and never administer',
-      (scopes, plans, configures, managesSecrets, managesRunners, managesTokenTrusts) => {
+      (scopes, plans, configures, managesSecrets, managesRunners, managesOidcTrusts) => {
         expect(permissionsOf(token(scopes))).toEqual({
           reads: true,
           plans,
           configures,
           managesSecrets,
           managesRunners,
-          managesTokenTrusts,
+          managesOidcTrusts,
           isAdmin: false,
         });
       },
@@ -603,7 +603,7 @@ describe('Workspace', () => {
         configures: false,
         managesSecrets: false,
         managesRunners: false,
-        managesTokenTrusts: false,
+        managesOidcTrusts: false,
         isAdmin: false,
       });
     });

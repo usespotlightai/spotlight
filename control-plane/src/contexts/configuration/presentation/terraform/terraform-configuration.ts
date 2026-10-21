@@ -99,7 +99,7 @@ const byPath = inCodePointOrderOf((file: TerraformFile) => file.path);
 const PLACE: Readonly<Record<ExportableResourceDto['kind'], number>> = {
   workspace: 0,
   secret: 1,
-  'workspace-token-trust': 2,
+  'oidc-trust': 2,
   'runner-trust': 3,
   egress: 4,
   'runner-pool': 5,
@@ -135,7 +135,7 @@ const inModuleOrder = (
 const fileOf = (resource: ExportableResourceDto): string => {
   switch (resource.kind) {
     case 'workspace':
-    case 'workspace-token-trust':
+    case 'oidc-trust':
       return 'workspace.tf';
     case 'secret':
       return 'secrets.tf';
@@ -963,7 +963,7 @@ const rendered = (
       ]);
     case 'secret':
       return secret(resource, importedAs, refer);
-    case 'workspace-token-trust':
+    case 'oidc-trust':
       return withImportBlock(resource, nameOf(resource.key), importedAs, [
         ...refer.owner(resource),
         attribute('key', resource.key),

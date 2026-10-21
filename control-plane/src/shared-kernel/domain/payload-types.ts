@@ -11,6 +11,7 @@ import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
+import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import {
@@ -41,7 +42,6 @@ import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
-import { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
 
 export const SHARED_KERNEL_PAYLOAD_TYPES = [
   RubricScale,
@@ -79,7 +79,7 @@ export const SHARED_KERNEL_PAYLOAD_TYPES = [
   UserId,
   WorkspaceId,
   WorkspaceTokenId,
-  WorkspaceTokenTrustId,
+  OidcTrustId,
   ProvisionFailure,
   Provisioning,
   PoolId,
