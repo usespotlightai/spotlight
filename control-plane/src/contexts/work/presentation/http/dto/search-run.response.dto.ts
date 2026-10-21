@@ -95,6 +95,7 @@ export class SearchRunResponseDto extends TaskRunResponseDto {
     super(
       run.id,
       run.state,
+      run.activity,
       run.attempt,
       run.exitCode,
       run.startedAt,

@@ -2,6 +2,7 @@ import { InboxStep } from '@/components/features/inbox/conversation/InboxStep';
 import { InboxWorking } from '@/components/features/inbox/conversation/InboxWorking';
 import { useArrivals } from '@/hooks/useArrivals';
 import { ARRIVING, type RunJournal } from '@/lib/inbox';
+import type { Activity } from '@/lib/run';
 
 type Station = {
   name: string;
@@ -13,16 +14,14 @@ type Station = {
 type RunActivityProps = {
   runId: string;
   journals: readonly RunJournal[];
-  running: boolean;
-  queued: boolean;
+  activity: Activity | null;
   station: Station;
 };
 
 export function RunActivity({
   runId,
   journals,
-  running,
-  queued,
+  activity,
   station,
 }: RunActivityProps) {
   const steps = journals.flatMap((each) => each.steps);
@@ -31,7 +30,7 @@ export function RunActivity({
     steps.map((_, at) => at),
   );
 
-  if (steps.length === 0 && !running && !queued) {
+  if (steps.length === 0 && !activity) {
     return null;
   }
 
@@ -42,14 +41,14 @@ export function RunActivity({
           // biome-ignore lint/suspicious/noArrayIndexKey: the position of a step identifies it, because new steps go only at the end
           key={at}
           step={step}
-          live={running}
+          live={activity === 'working'}
           className={arrived(at) ? ARRIVING : undefined}
         />
       ))}
 
-      {(running || queued) && (
+      {activity && (
         <InboxWorking
-          queued={queued}
+          activity={activity}
           station={station.name}
           stationColor={station.color}
           stationPosition={station.position}

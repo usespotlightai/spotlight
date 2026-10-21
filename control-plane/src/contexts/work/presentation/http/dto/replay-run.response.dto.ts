@@ -75,6 +75,7 @@ export class ReplayRunResponseDto extends TaskRunResponseDto {
     super(
       replay.id,
       replay.state,
+      replay.activity,
       replay.attempt,
       replay.exitCode,
       replay.startedAt,

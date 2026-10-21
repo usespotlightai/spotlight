@@ -28,15 +28,15 @@ import {
   type InboxRequestAccess,
 } from '@work/domain/aggregates/inbox-request.aggregate';
 import {
+  awaitsAPerson,
   conversationsOf,
   notesIn,
   stillOpen,
-  worksOn,
 } from '@work/domain/services/conversations';
 import { anyUnread } from '@work/domain/services/unread';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { INBOX_REQUEST_FORMS } from '@work/domain/value-objects/inbox-request-form';
-import { isQueued } from '@work/domain/value-objects/run-state';
+import { readActivityOf } from '@work/infrastructure/persistence/drizzle/readers/read-activity';
 import {
   attachmentsFor,
   attachmentsOf,
@@ -115,7 +115,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         currentStationColor: station.color,
         currentStationPosition: station.position,
         createdAt: task.createdAt,
-        working: task.currentRunId,
+        currentRunId: task.currentRunId,
         workingState: run.state,
         workingStopRequestedAt: run.stopRequestedAt,
       })
@@ -205,13 +205,17 @@ export class DrizzleInboxReader implements InboxReaderPort {
           createdAt: row.createdAt,
           askedAt: last?.at ?? note.at,
           resolved: !stillOpen(conversation),
-          working:
-            stillOpen(conversation) && worksOn(row.working !== null, notes),
-          queued:
-            stillOpen(conversation) &&
-            row.workingState !== null &&
-            isQueued(row.workingState, row.workingStopRequestedAt !== null),
-          runId: stillOpen(conversation) ? row.working : null,
+          activity:
+            stillOpen(conversation) && row.workingState !== null
+              ? readActivityOf(
+                  {
+                    state: row.workingState,
+                    stopRequestedAt: row.workingStopRequestedAt,
+                  },
+                  { awaitsPerson: awaitsAPerson(taskNotes), current: true },
+                )
+              : null,
+          runId: stillOpen(conversation) ? row.currentRunId : null,
           unread: anyUnread(notes),
           briefing: (note.runId && briefings.get(note.runId)) || null,
           failure: failureIn(notes),
@@ -352,8 +356,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         createdAt: row.createdAt,
         askedAt: row.requestCreatedAt,
         resolved: row.resolvedAt !== null,
-        working: false,
-        queued: false,
+        activity: null,
         runId: null,
         unread: row.readAt === null && row.resolvedAt === null,
         briefing: null,

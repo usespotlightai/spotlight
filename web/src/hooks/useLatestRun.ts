@@ -1,4 +1,4 @@
-import { useStopInFlight } from '@/hooks/api/useStopRun';
+import { useRunActivity } from '@/hooks/useRunActivity';
 import type { TeamRun } from '@/lib/run';
 import type { LatestRun, RunNotes } from '@/lib/run-notes';
 
@@ -16,8 +16,8 @@ export function useLatestRun(
 ): LatestRun | null {
   const latest =
     conversation?.latestRun ??
-    (run ? { id: run.id, state: run.state, stopping: false } : null);
-  const asked = useStopInFlight(latest?.id);
+    (run ? { id: run.id, state: run.state, activity: run.activity } : null);
+  const activity = useRunActivity(latest?.id, latest?.activity ?? null);
 
-  return latest && asked ? { ...latest, stopping: true } : latest;
+  return latest ? { ...latest, activity } : latest;
 }

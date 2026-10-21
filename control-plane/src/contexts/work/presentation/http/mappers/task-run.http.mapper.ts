@@ -14,6 +14,7 @@ export const TaskRunHttpMapper = {
     return new TaskRunResponseDto(
       dto.id,
       dto.state,
+      dto.activity,
       dto.attempt,
       dto.exitCode,
       dto.startedAt,

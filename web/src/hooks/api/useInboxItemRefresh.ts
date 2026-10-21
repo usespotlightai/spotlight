@@ -4,6 +4,7 @@ import { inboxKeys } from '@/hooks/api/useInbox';
 import { useRunStream } from '@/hooks/api/useRunStream';
 import { journalKeys } from '@/hooks/api/useTaskJournal';
 import type { InboxItem } from '@/lib/inbox';
+import { live } from '@/lib/run';
 
 export function useInboxItemRefresh(
   slug: string | undefined,
@@ -20,5 +21,5 @@ export function useInboxItemRefresh(
     });
   }, [queryClient, item?.taskId, slug]);
 
-  useRunStream(item?.runId ?? undefined, Boolean(item?.working), bump);
+  useRunStream(item?.runId ?? undefined, live(item?.activity), bump);
 }

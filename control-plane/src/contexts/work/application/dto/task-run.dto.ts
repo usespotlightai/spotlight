@@ -1,4 +1,7 @@
-import { RUN_STATES } from '@work/domain/value-objects/run-state';
+import {
+  RUN_ACTIVITIES,
+  RUN_STATES,
+} from '@work/domain/value-objects/run-state';
 
 export const REVIEW_STATE_NAMES = ['pending', 'answered'] as const;
 
@@ -8,6 +11,8 @@ interface RunReviewDto {
 }
 
 export const RUN_STATE_NAMES = RUN_STATES;
+
+export const RUN_ACTIVITY_NAMES = RUN_ACTIVITIES;
 
 export interface RunStationDto {
   readonly id: string;
@@ -20,6 +25,7 @@ export interface RunStationDto {
 export interface TaskRunDto {
   readonly id: string;
   readonly state: string;
+  readonly activity: string | null;
   readonly attempt: number;
   readonly exitCode: number | null;
   readonly startedAt: string;

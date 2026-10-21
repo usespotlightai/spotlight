@@ -124,6 +124,9 @@ func TestAStopWhileWaitingCompletesTheRunAsStopped(t *testing.T) {
 	if written.suspends != 0 {
 		t.Errorf("suspended %d times a run that was stopped", written.suspends)
 	}
+	if len(written.typed(protocol.EventAgentStopped)) != 1 || slices.ContainsFunc(written.afterStoppedCompletion, stoppedAgent) {
+		t.Error("the journal should say that the agent was stopped, before the run completed")
+	}
 }
 
 func TestAPermissionEscalatedToAPersonIsAskedForAgainOnceAnswered(t *testing.T) {

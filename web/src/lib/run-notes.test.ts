@@ -24,7 +24,7 @@ describe('withMessagesInFlight', () => {
   const thread = {
     runId: 'run_1',
     station: { name: 'Implementation', color: '#5c66d9', position: 2 },
-    working: false,
+    latestRun: { id: 'run_1', state: 'waiting', activity: null },
     notes: [{ position: 4, runId: 'run_1', body: 'The tests failed.' }],
   } as unknown as RunNotes;
 
@@ -130,8 +130,26 @@ describe('withMessagesInFlight', () => {
   it('works again once a message on its way starts the station again', () => {
     expect(
       withMessagesInFlight(thread, [outgoing({ startsWork: true })], sam)
-        .working,
-    ).toBe(true);
+        .latestRun.activity,
+    ).toBe('working');
+  });
+
+  it('keeps a stopping run stopping while a message is on its way', () => {
+    const stopping = {
+      ...thread,
+      latestRun: { id: 'run_1', state: 'claimed', activity: 'stopping' },
+    } as unknown as RunNotes;
+
+    expect(
+      withMessagesInFlight(stopping, [outgoing({ startsWork: true })], sam)
+        .latestRun.activity,
+    ).toBe('stopping');
+  });
+
+  it('leaves the activity as it is for a message that starts no work', () => {
+    expect(
+      withMessagesInFlight(thread, [outgoing()], sam).latestRun.activity,
+    ).toBeNull();
   });
 });
 

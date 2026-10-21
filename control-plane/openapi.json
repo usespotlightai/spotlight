@@ -27431,15 +27431,16 @@
             "example": false,
             "description": "True once it is resolved, and is no longer yours to answer"
           },
-          "working": {
-            "type": "boolean",
-            "example": false,
-            "description": "True while a run is working it, so an answer is coming"
-          },
-          "queued": {
-            "type": "boolean",
-            "example": false,
-            "description": "The run on it waits for a runner to start it"
+          "activity": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "working",
+              "stopping",
+              null
+            ],
+            "nullable": true,
+            "description": "What the run does now: queued, working or stopping. A paused run is queued or working again once its question has an answer. Null while it waits for a person or once it has ended, or when no run is on it"
           },
           "runId": {
             "type": "string",
@@ -27500,8 +27501,7 @@
           "createdAt",
           "askedAt",
           "resolved",
-          "working",
-          "queued",
+          "activity",
           "runId",
           "unread",
           "briefing",
@@ -27657,6 +27657,11 @@
             "type": "string",
             "nullable": true
           },
+          "agentStoppedAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "When the runner stopped the agent because the run was asked to stop"
+          },
           "endedAt": {
             "type": "string",
             "nullable": true
@@ -27667,6 +27672,7 @@
           "readyAt",
           "firstAgentUpdateAt",
           "lastAgentUpdateAt",
+          "agentStoppedAt",
           "endedAt"
         ]
       },
@@ -28045,6 +28051,17 @@
               "superseded"
             ]
           },
+          "activity": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "working",
+              "stopping",
+              null
+            ],
+            "nullable": true,
+            "description": "What the run does now: queued, working or stopping. A paused run is queued or working again once its question has an answer. Null while it waits for a person or once it has ended"
+          },
           "attempt": {
             "type": "number",
             "example": 1
@@ -28110,6 +28127,7 @@
         "required": [
           "id",
           "state",
+          "activity",
           "attempt",
           "exitCode",
           "startedAt",
@@ -28594,16 +28612,22 @@
               "superseded"
             ]
           },
-          "stopping": {
-            "type": "boolean",
-            "example": false,
-            "description": "Someone asked the run to stop, and it has not ended yet"
+          "activity": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "working",
+              "stopping",
+              null
+            ],
+            "nullable": true,
+            "description": "What the run does now: queued, working or stopping. A paused run is queued or working again once its question has an answer. Null while it waits for a person or once it has ended"
           }
         },
         "required": [
           "id",
           "state",
-          "stopping"
+          "activity"
         ]
       },
       "RunSpendResponseDto": {
@@ -28696,11 +28720,6 @@
             "type": "string",
             "description": "The briefing of the run, word for word"
           },
-          "working": {
-            "type": "boolean",
-            "example": false,
-            "description": "A run of the task works at this station now"
-          },
           "latestRun": {
             "description": "The newest run of the task at this station",
             "allOf": [
@@ -28735,7 +28754,6 @@
           "station",
           "createdAt",
           "briefing",
-          "working",
           "latestRun",
           "notes",
           "spend"
@@ -28781,6 +28799,17 @@
               "cancelled",
               "superseded"
             ]
+          },
+          "activity": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "working",
+              "stopping",
+              null
+            ],
+            "nullable": true,
+            "description": "What the run does now: queued, working or stopping. A paused run is queued or working again once its question has an answer. Null while it waits for a person or once it has ended"
           },
           "attempt": {
             "type": "number",
@@ -28833,6 +28862,7 @@
         "required": [
           "id",
           "state",
+          "activity",
           "attempt",
           "exitCode",
           "startedAt",
@@ -28976,6 +29006,17 @@
               "superseded"
             ]
           },
+          "activity": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "working",
+              "stopping",
+              null
+            ],
+            "nullable": true,
+            "description": "What the run does now: queued, working or stopping. A paused run is queued or working again once its question has an answer. Null while it waits for a person or once it has ended"
+          },
           "attempt": {
             "type": "number",
             "example": 1
@@ -29070,6 +29111,7 @@
         "required": [
           "id",
           "state",
+          "activity",
           "attempt",
           "exitCode",
           "startedAt",
@@ -29143,6 +29185,17 @@
               "cancelled",
               "superseded"
             ]
+          },
+          "activity": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "working",
+              "stopping",
+              null
+            ],
+            "nullable": true,
+            "description": "What the run does now: queued, working or stopping. A paused run is queued or working again once its question has an answer. Null while it waits for a person or once it has ended"
           },
           "attempt": {
             "type": "number",
@@ -29245,6 +29298,7 @@
         "required": [
           "id",
           "state",
+          "activity",
           "attempt",
           "exitCode",
           "startedAt",

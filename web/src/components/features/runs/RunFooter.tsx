@@ -1,6 +1,6 @@
 import { RunComposer } from '@/components/features/runs/RunComposer';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
-import { type TeamRun, waitsOnPerson } from '@/lib/run';
+import { stoppable, type TeamRun, waitsOnPerson } from '@/lib/run';
 import type { LatestRun, RunNotes } from '@/lib/run-notes';
 
 type RunFooterProps = {
@@ -40,7 +40,7 @@ export function RunFooter({
       taskId={conversation?.taskId}
       station={run.station?.name ?? 'the agent'}
       stationId={run.station?.id}
-      running={latest.state === 'claimed' && !latest.stopping}
+      running={stoppable(latest)}
       answering={waitsOnPerson(latest) && !deciding}
       onSent={onSent}
     />

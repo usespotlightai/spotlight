@@ -19,7 +19,10 @@ const setUp = (runId: string) => {
   );
 
   return renderHook(
-    () => ({ stop: useStopRun(), inFlight: useStopInFlight(runId) }),
+    () => ({
+      stop: useStopRun(),
+      inFlight: useStopInFlight(runId),
+    }),
     { wrapper },
   ).result;
 };

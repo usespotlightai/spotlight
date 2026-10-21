@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { readReplayRun } from '@/lib/api';
 import type { ReplayRun } from '@/lib/replay';
-import { working } from '@/lib/run';
+import { active } from '@/lib/run';
 
 export const replayRunKeys = {
   forRun: (runId?: string) => ['replay-run', runId ?? null] as const,
@@ -20,7 +20,7 @@ export function useReplayRun(
     enabled: Boolean(teamId && runId),
     retry: false,
     refetchInterval: (query) =>
-      query.state.data && working(query.state.data) ? POLL_MS : false,
+      query.state.data && active(query.state.data) ? POLL_MS : false,
     queryFn: async (): Promise<ReplayRun> => {
       const { data } = await readReplayRun({
         path: { teamId: teamId as string, runId: runId as string },

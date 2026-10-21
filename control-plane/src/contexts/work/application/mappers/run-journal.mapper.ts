@@ -58,6 +58,7 @@ export const RunJournalMapper = {
         readyAt: isoOrNull(journal.marks.readyAt),
         firstAgentUpdateAt: isoOrNull(journal.marks.firstAgentUpdateAt),
         lastAgentUpdateAt: isoOrNull(journal.marks.lastAgentUpdateAt),
+        agentStoppedAt: isoOrNull(journal.marks.agentStoppedAt),
         endedAt: isoOrNull(journal.marks.endedAt),
       },
       spent: journal.spent && {

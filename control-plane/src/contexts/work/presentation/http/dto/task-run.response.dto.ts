@@ -5,6 +5,7 @@ import {
 } from '@work/application/dto/task-run.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 import { NoteResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
+import { RUN_ACTIVITY_PROPERTY } from '@work/presentation/http/dto/run-activity.property';
 
 export class RunStationResponseDto {
   @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })
@@ -119,16 +120,13 @@ export class LatestRunResponseDto {
   @ApiProperty({ example: 'claimed', enum: RUN_STATE_NAMES })
   readonly state: string;
 
-  @ApiProperty({
-    example: false,
-    description: 'Someone asked the run to stop, and it has not ended yet',
-  })
-  readonly stopping: boolean;
+  @ApiProperty(RUN_ACTIVITY_PROPERTY)
+  readonly activity: string | null;
 
-  constructor(id: string, state: string, stopping: boolean) {
+  constructor(id: string, state: string, activity: string | null) {
     this.id = id;
     this.state = state;
-    this.stopping = stopping;
+    this.activity = activity;
   }
 }
 
@@ -162,12 +160,6 @@ export class RunNotesResponseDto {
   readonly briefing: string;
 
   @ApiProperty({
-    example: false,
-    description: 'A run of the task works at this station now',
-  })
-  readonly working: boolean;
-
-  @ApiProperty({
     type: LatestRunResponseDto,
     description: 'The newest run of the task at this station',
   })
@@ -193,7 +185,6 @@ export class RunNotesResponseDto {
     station: RunStationResponseDto | null,
     createdAt: string,
     briefing: string,
-    working: boolean,
     latestRun: LatestRunResponseDto,
     notes: readonly NoteResponseDto[],
     spend: RunSpendResponseDto | null,
@@ -206,7 +197,6 @@ export class RunNotesResponseDto {
     this.station = station;
     this.createdAt = createdAt;
     this.briefing = briefing;
-    this.working = working;
     this.latestRun = latestRun;
     this.notes = notes;
     this.spend = spend;
@@ -235,6 +225,9 @@ export class TaskRunResponseDto {
 
   @ApiProperty({ example: 'completed', enum: RUN_STATE_NAMES })
   readonly state: string;
+
+  @ApiProperty(RUN_ACTIVITY_PROPERTY)
+  readonly activity: string | null;
 
   @ApiProperty({ example: 1 })
   readonly attempt: number;
@@ -278,6 +271,7 @@ export class TaskRunResponseDto {
   constructor(
     id: string,
     state: string,
+    activity: string | null,
     attempt: number,
     exitCode: number | null,
     startedAt: string,
@@ -289,6 +283,7 @@ export class TaskRunResponseDto {
   ) {
     this.id = id;
     this.state = state;
+    this.activity = activity;
     this.attempt = attempt;
     this.exitCode = exitCode;
     this.startedAt = startedAt;
@@ -323,6 +318,7 @@ export class TeamRunResponseDto extends TaskRunResponseDto {
     super(
       run.id,
       run.state,
+      run.activity,
       run.attempt,
       run.exitCode,
       run.startedAt,

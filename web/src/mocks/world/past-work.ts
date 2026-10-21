@@ -95,6 +95,7 @@ const exitCodeOf = (run: HistoryRun): number | null =>
 const shownRunOf = (run: HistoryRun): TaskRunResponseDto => ({
   id: run.runId,
   state: stateOf(run),
+  activity: null,
   attempt: visitOf(run.runId),
   exitCode: exitCodeOf(run),
   startedAt: run.startedAt ?? run.endedAt ?? new Date(run.at).toISOString(),

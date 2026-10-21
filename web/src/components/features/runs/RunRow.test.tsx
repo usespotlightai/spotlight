@@ -6,10 +6,19 @@ import { RunRow } from '@/components/features/runs/RunRow';
 import type { Run } from '@/lib/run';
 import type { Task } from '@/lib/task';
 
-const run = (state: Run['state'], review: Run['review'] = null) =>
+const run = (
+  state: Run['state'],
+  review: Run['review'] = null,
+  activity: Run['activity'] = state === 'claimed'
+    ? 'working'
+    : state === 'queued'
+      ? 'queued'
+      : null,
+) =>
   ({
     id: 'run_1',
     state,
+    activity,
     exitCode: null,
     startedAt: new Date().toISOString(),
     station: null,
@@ -60,6 +69,20 @@ describe('RunRow, what a run is doing', () => {
 
     expect(screen.getByText('Waiting for you')).toBeInTheDocument();
     expect(screen.queryByText('In progress')).not.toBeInTheDocument();
+  });
+
+  it('says a run asked to stop is stopping, still in progress', () => {
+    shown(<RunRow run={run('claimed', null, 'stopping')} to="/runs/run_1" />);
+
+    expect(screen.getByText('Stopping')).toBeInTheDocument();
+    expect(screen.getByText('In progress')).toBeInTheDocument();
+  });
+
+  it('no longer says waiting for you once the person answered', () => {
+    shown(<RunRow run={run('waiting', null, 'working')} to="/runs/run_1" />);
+
+    expect(screen.queryByText('Waiting for you')).not.toBeInTheDocument();
+    expect(screen.getByText('In progress')).toBeInTheDocument();
   });
 
   it('still says it is waiting for you once the run is suspended', () => {

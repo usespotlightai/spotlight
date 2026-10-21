@@ -13,6 +13,8 @@ export const TOOL_REFUSED = 'tool.refused';
 
 export const EGRESS_CHECKED = 'egress.checked';
 
+export const AGENT_STOPPED = 'agent.stopped';
+
 export type EgressEnforcement = 'enforced' | 'not-enforced';
 
 export const parseEnforcement = (
@@ -78,6 +80,7 @@ export interface RunMarks {
   readonly readyAt: Date | null;
   readonly firstAgentUpdateAt: Date | null;
   readonly lastAgentUpdateAt: Date | null;
+  readonly agentStoppedAt: Date | null;
   readonly endedAt: Date | null;
 }
 

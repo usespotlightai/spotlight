@@ -1,12 +1,18 @@
 import { InboxComposer } from '@/components/features/inbox/conversation/InboxComposer';
 import type { InboxItem } from '@/lib/inbox';
+import { type ReportedActivity, stoppable } from '@/lib/run';
 
 type InboxItemFooterProps = {
   slug: string;
   item: InboxItem;
+  activity: ReportedActivity | null;
 };
 
-export function InboxItemFooter({ slug, item }: InboxItemFooterProps) {
+export function InboxItemFooter({
+  slug,
+  item,
+  activity,
+}: InboxItemFooterProps) {
   if (!item.resolved) {
     return (
       <InboxComposer
@@ -16,7 +22,7 @@ export function InboxItemFooter({ slug, item }: InboxItemFooterProps) {
         station={item.station}
         teamId={item.teamId}
         runId={item.runId}
-        running={item.working}
+        running={stoppable({ state: null, activity })}
       />
     );
   }

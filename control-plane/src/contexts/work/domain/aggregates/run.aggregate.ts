@@ -47,6 +47,7 @@ import type { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import {
   LEASED_RUN_STATES,
   type RunState,
+  resumable,
   TERMINAL_RUN_STATES,
 } from '@work/domain/value-objects/run-state';
 import type { RunSubject } from '@work/domain/value-objects/run-subject.vo';
@@ -852,10 +853,7 @@ export class Run extends EventRecorder {
   }
 
   get resumable(): boolean {
-    return (
-      this.state === 'suspended' ||
-      (this.state === 'waiting' && !this.stopRequested)
-    );
+    return resumable(this.state, this.stopRequested);
   }
 
   resumed(): Run {

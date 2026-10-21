@@ -27,7 +27,7 @@ export function useStopRun() {
   });
 }
 
-export function useStopInFlight(runId: string | undefined): boolean {
+export function useStopInFlight(runId: string | null | undefined): boolean {
   return (
     useMutationState({
       filters: {

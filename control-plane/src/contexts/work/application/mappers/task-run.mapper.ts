@@ -12,6 +12,7 @@ export const TaskRunMapper = {
     return {
       id: summary.id,
       state: summary.state,
+      activity: summary.activity,
       attempt: summary.attempt,
       exitCode: summary.exitCode,
       startedAt: summary.startedAt.toISOString(),

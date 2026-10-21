@@ -13,14 +13,15 @@ import type {
   RunnerTraceReaderPort,
 } from '@work/application/ports/runner-trace-reader.port';
 import { LEASED_RUN_STATES } from '@work/domain/value-objects/run-state';
+import { listedActivityOf } from '@work/infrastructure/persistence/drizzle/readers/read-activity';
 import {
   ranAt,
   stationSummaryOf,
 } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
 import { journalsOfTask } from '@work/infrastructure/persistence/drizzle/readers/run-journals';
 import {
-  reviewsBy,
   stationsPerLine,
+  trailFactsBy,
 } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 import {
@@ -103,6 +104,7 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
         state: run.state,
         attempt: run.attempt,
         exitCode: run.exitCode,
+        stopRequestedAt: run.stopRequestedAt,
         startedAt: run.createdAt,
         updatedAt: run.updatedAt,
         harness: run.harness,
@@ -112,25 +114,33 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
         stationColor: ranAt.color,
         stationPosition: ranAt.position,
         stationLineId: ranAt.lineId,
+        currentRunId: task.currentRunId,
       })
       .from(run)
+      .innerJoin(task, eq(task.id, run.taskId))
       .leftJoin(ranAt, eq(ranAt.id, run.stationId))
       .where(eq(run.taskId, taskId.value))
       .orderBy(desc(run.createdAt));
 
-    const [stationCounts, review] = await Promise.all([
+    const [stationCounts, { reviews, awaiting }] = await Promise.all([
       stationsPerLine(
         this.db,
         rows.flatMap((row) => (row.stationLineId ? [row.stationLineId] : [])),
       ),
-      reviewsBy(this.db, [taskId.value]),
+      trailFactsBy(this.db, [taskId.value]),
     ]);
 
-    return rows.map(({ stationLineId, ...rest }) => ({
-      ...rest,
-      station: stationSummaryOf({ ...rest, stationLineId }, stationCounts),
-      review: review.get(rest.id) ?? null,
-    }));
+    return rows.map(
+      ({ stationLineId, stopRequestedAt, currentRunId, ...rest }) => ({
+        ...rest,
+        activity: listedActivityOf(
+          { ...rest, stopRequestedAt, currentRunId },
+          awaiting.has(taskId.value),
+        ),
+        station: stationSummaryOf({ ...rest, stationLineId }, stationCounts),
+        review: reviews.get(rest.id) ?? null,
+      }),
+    );
   }
 
   async journalsForTask(taskId: TaskId): Promise<RunJournal[]> {

@@ -61,7 +61,9 @@ export function RunRow({
       <span className="ml-auto flex shrink-0 items-center gap-2">
         <RunPendingMarker run={run} reviewTo={reviewTo} inTrail={inTrail} />
 
-        {run.state === 'claimed' && <InProgress />}
+        {(run.activity === 'working' || run.activity === 'stopping') && (
+          <InProgress />
+        )}
 
         {status && !waits && (
           <span className="text-muted-foreground text-xs">{status}</span>

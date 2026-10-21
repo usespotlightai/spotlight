@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
+import { DrizzleRunnerTraceReader } from '@work/infrastructure/persistence/drizzle/readers/runner-trace.reader';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
@@ -17,7 +20,11 @@ beforeAll(async () => {
   db = database.db;
   reader = new DrizzleRunReader(
     db,
-    { mayView: async () => true } as never,
+    {
+      mayView: async () => true,
+      viewableBy: async (_viewer: unknown, ids: readonly { value: string }[]) =>
+        new Set(ids.map((id) => id.value)),
+    } as never,
     { findMany: async () => new Map() } as never,
   );
 }, 60_000);
@@ -64,6 +71,7 @@ const taskOnLine = async (...names: string[]) => {
     at: { stationId: string; station: string },
     runId: string | null,
     body: string,
+    kind: 'message' | 'asked' | 'answered' = 'message',
   ) =>
     db.insert(schema.taskNote).values({
       taskId,
@@ -75,7 +83,7 @@ const taskOnLine = async (...names: string[]) => {
       voice: runId ? 'station' : 'person',
       authorId: runId ? null : 'user_1',
       runId,
-      kind: 'message',
+      kind,
     });
 
   const run = async (
@@ -178,9 +186,22 @@ describe('the notes of a run', () => {
     expect(found?.latestRun).toEqual({
       id: second,
       state: 'claimed',
-      stopping: true,
+      activity: 'stopping',
     });
-    expect(found?.working).toBe(true);
+  });
+
+  it('calls a run stopping that was stopped while it waited for a person', async () => {
+    const { implementation, run } = await taskAtImplementation();
+    const waiting = await run(
+      implementation,
+      'waiting',
+      '2026-10-20T09:00:00.000Z',
+      new Date('2026-10-20T09:05:00.000Z'),
+    );
+
+    const found = await reader.notesFor(RunId.of(waiting), VIEWER);
+
+    expect(found?.latestRun.activity).toBe('stopping');
   });
 
   it('no longer calls a run stopping once it has ended', async () => {
@@ -194,7 +215,7 @@ describe('the notes of a run', () => {
 
     const found = await reader.notesFor(RunId.of(stopped), VIEWER);
 
-    expect(found?.latestRun.stopping).toBe(false);
+    expect(found?.latestRun.activity).toBeNull();
   });
 
   it('does not work at the station once the task runs at another one', async () => {
@@ -213,9 +234,8 @@ describe('the notes of a run', () => {
     expect(found?.latestRun).toEqual({
       id: here,
       state: 'completed',
-      stopping: false,
+      activity: null,
     });
-    expect(found?.working).toBe(false);
   });
 
   it('keeps the notes written before the station was renamed', async () => {
@@ -313,5 +333,93 @@ describe('the notes of a run', () => {
       'typed at the second review',
       'ran at the second review',
     ]);
+  });
+});
+
+describe('the activity of a run', () => {
+  const IMPLEMENTATION = { station: 'Implementation' };
+
+  const listed = async (taskId: string, runId: string) => {
+    const [forTask, forTeam, traced] = await Promise.all([
+      reader.listForTask(TaskId.of(taskId), VIEWER),
+      reader.listForTeam(TeamId.of('team_1'), VIEWER),
+      new DrizzleRunnerTraceReader(db).runsForTask(TaskId.of(taskId)),
+    ]);
+
+    return [forTask, forTeam, traced].map(
+      (runs) => runs.find((each) => each.id === runId)?.activity,
+    );
+  };
+
+  it('says nothing for a run a runner holds while a person owes an answer', async () => {
+    const { taskId, implementation, note, run } = await taskAtImplementation();
+    const held = await run(
+      implementation,
+      'claimed',
+      '2026-10-20T09:00:00.000Z',
+    );
+    await current(taskId, held);
+    await note(
+      { ...IMPLEMENTATION, stationId: implementation },
+      held,
+      'May I drop the table?',
+      'asked',
+    );
+
+    const found = await reader.notesFor(RunId.of(held), VIEWER);
+
+    expect(found?.latestRun.activity).toBeNull();
+    expect(await listed(taskId, held)).toEqual([null, null, null]);
+  });
+
+  it('says a paused run works again once the person answered', async () => {
+    const { taskId, implementation, note, run } = await taskAtImplementation();
+    const paused = await run(
+      implementation,
+      'waiting',
+      '2026-10-20T09:00:00.000Z',
+    );
+    await current(taskId, paused);
+    await note(
+      { ...IMPLEMENTATION, stationId: implementation },
+      paused,
+      'Which queue?',
+      'asked',
+    );
+    await note(
+      { ...IMPLEMENTATION, stationId: implementation },
+      null,
+      'The retry queue.',
+      'answered',
+    );
+
+    const found = await reader.notesFor(RunId.of(paused), VIEWER);
+
+    expect(found?.latestRun.activity).toBe('working');
+    expect(await listed(taskId, paused)).toEqual([
+      'working',
+      'working',
+      'working',
+    ]);
+  });
+
+  it('lists a run asked to stop as stopping, and an older paused run as doing nothing', async () => {
+    const { taskId, triage, implementation, run } =
+      await taskAtImplementation();
+    const older = await run(triage, 'suspended', '2026-10-20T09:00:00.000Z');
+    const stopping = await run(
+      implementation,
+      'claimed',
+      '2026-10-20T10:00:00.000Z',
+      new Date('2026-10-20T10:05:00.000Z'),
+    );
+    await current(taskId, stopping);
+
+    expect(await listed(taskId, stopping)).toEqual([
+      'stopping',
+      'stopping',
+      'stopping',
+    ]);
+    expect(await listed(taskId, older)).toEqual([null, null, null]);
   });
 });

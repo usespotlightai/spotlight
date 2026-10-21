@@ -64,6 +64,7 @@ export const RunJournalHttpMapper = {
         journal.marks.readyAt,
         journal.marks.firstAgentUpdateAt,
         journal.marks.lastAgentUpdateAt,
+        journal.marks.agentStoppedAt,
         journal.marks.endedAt,
       ),
       journal.spent

@@ -18,6 +18,7 @@ import {
   NOTE_VOICES,
 } from '@work/application/dto/inbox.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
+import { RUN_ACTIVITY_PROPERTY } from '@work/presentation/http/dto/run-activity.property';
 
 export class InboxAuthorResponseDto {
   @ApiProperty({ example: 'b7f3c1d9-2a48-4e6b-9c05-7d1e3f8a2b64' })
@@ -426,16 +427,10 @@ export class InboxItemResponseDto {
   readonly resolved: boolean;
 
   @ApiProperty({
-    example: false,
-    description: 'True while a run is working it, so an answer is coming',
+    ...RUN_ACTIVITY_PROPERTY,
+    description: `${RUN_ACTIVITY_PROPERTY.description}, or when no run is on it`,
   })
-  readonly working: boolean;
-
-  @ApiProperty({
-    example: false,
-    description: 'The run on it waits for a runner to start it',
-  })
-  readonly queued: boolean;
+  readonly activity: string | null;
 
   @ApiProperty({
     nullable: true,
@@ -493,8 +488,7 @@ export class InboxItemResponseDto {
     createdAt: string,
     askedAt: string,
     resolved: boolean,
-    working: boolean,
-    queued: boolean,
+    activity: string | null,
     runId: string | null,
     unread: boolean,
     briefing: string | null,
@@ -517,8 +511,7 @@ export class InboxItemResponseDto {
     this.createdAt = createdAt;
     this.askedAt = askedAt;
     this.resolved = resolved;
-    this.working = working;
-    this.queued = queued;
+    this.activity = activity;
     this.runId = runId;
     this.unread = unread;
     this.briefing = briefing;

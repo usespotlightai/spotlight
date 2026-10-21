@@ -14,7 +14,7 @@ export interface RunSpendDto {
 interface LatestRunDto {
   readonly id: string;
   readonly state: string;
-  readonly stopping: boolean;
+  readonly activity: string | null;
 }
 
 export interface RunNotesDto {
@@ -26,7 +26,6 @@ export interface RunNotesDto {
   readonly station: RunStationDto | null;
   readonly createdAt: string;
   readonly briefing: string;
-  readonly working: boolean;
   readonly latestRun: LatestRunDto;
   readonly notes: readonly NoteDto[];
   readonly spend: RunSpendDto | null;

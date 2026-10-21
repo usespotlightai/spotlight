@@ -1,10 +1,18 @@
 import type { JournalStepResponseDto, SearchRunResponseDto } from '@/lib/api';
 import { hoursAgo } from '@/mocks/clock';
 import { world } from '@/mocks/world';
+import { activityOfState } from '@/mocks/world/run-activity';
 import { searchStore } from '@/mocks/world/station-searches';
 import { SEARCH_NOTES } from '@/mocks/world/station-seeds';
 import { placeOfSet, type StationLocation } from '@/mocks/world/station-sets';
 import { runStationOf } from '@/mocks/world/stations';
+
+const stateOf = (failed: boolean, running: boolean) =>
+  failed
+    ? ('failed' as const)
+    : running
+      ? ('claimed' as const)
+      : ('completed' as const);
 
 const historyCommandOf = (place: StationLocation | undefined): string =>
   `spotlight history --station ${place?.stationKey ?? ''} --line ${place?.lineKey ?? ''}`;
@@ -117,7 +125,8 @@ export const searchRun = (runId: string): SearchRunResponseDto | null => {
     return {
       id: runId,
       briefing: briefingOf(place, iteration.number, search.budget.perIteration),
-      state: failed ? 'failed' : running ? 'claimed' : 'completed',
+      state: stateOf(failed, running),
+      activity: activityOfState(stateOf(failed, running)),
       attempt: 1,
       exitCode: failed ? 1 : running ? null : 0,
       startedAt: hoursAgo(startedHoursAgo),
@@ -159,6 +168,7 @@ export const searchRun = (runId: string): SearchRunResponseDto | null => {
                 readyAt: null,
                 firstAgentUpdateAt: null,
                 lastAgentUpdateAt: null,
+                agentStoppedAt: null,
                 endedAt: running ? null : hoursAgo(endedHoursAgo),
               },
               spent: {

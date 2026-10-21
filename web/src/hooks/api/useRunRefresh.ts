@@ -7,14 +7,15 @@ import { runScoreKeys } from '@/hooks/api/useRunScores';
 import { useRunStream } from '@/hooks/api/useRunStream';
 import { journalKeys } from '@/hooks/api/useTaskJournal';
 import { teamRunKeys } from '@/hooks/api/useTeamRuns';
-import type { TeamRun } from '@/lib/run';
+import { live, type TeamRun } from '@/lib/run';
 
 type RunRefreshParams = {
   readonly teamId?: string;
   readonly runId?: string;
   readonly taskId?: string;
   readonly state?: TeamRun['state'];
-  readonly following?: Pick<TeamRun, 'id' | 'state'>;
+  readonly activity?: TeamRun['activity'];
+  readonly following?: Pick<TeamRun, 'id' | 'state' | 'activity'>;
 };
 
 export function useRunRefresh({
@@ -22,10 +23,12 @@ export function useRunRefresh({
   runId,
   taskId,
   state,
+  activity,
   following,
 }: RunRefreshParams) {
   const watchedId = following?.id ?? runId;
   const watchedState = following?.state ?? state;
+  const watchedActivity = following ? following.activity : activity;
   const queryClient = useQueryClient();
 
   const bump = useCallback(() => {
@@ -48,7 +51,7 @@ export function useRunRefresh({
     }
   }, [queryClient, taskId, runId, teamId]);
 
-  useRunStream(watchedId, watchedState === 'claimed', bump);
+  useRunStream(watchedId, live(watchedActivity), bump);
 
   const previous = useRef({ id: watchedId, state: watchedState });
 

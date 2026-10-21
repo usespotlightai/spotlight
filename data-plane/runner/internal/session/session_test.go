@@ -28,38 +28,39 @@ type generated struct {
 }
 
 type journal struct {
-	mu               sync.Mutex
-	events           []protocol.Event
-	renewals         int
-	done             *protocol.Completion
-	completions      []protocol.Completion
-	completedBy      []int
-	waits            []bool
-	calls            []string
-	lostWhileWaiting bool
-	conflictsWaiting int
-	requeueSuspends  int
-	noWait           bool
-	paused           bool
-	answers          [][]protocol.Message
-	suspending       []bool
-	suspends         int
-	stopAfter        int
-	stopWhileWaiting bool
-	messages         [][]protocol.Message
-	acked            []int
-	files            map[string]string
-	generated        []generated
-	decision         string
-	asked            []protocol.PermissionRequest
-	archives         *archives
-	remembered       []remembered
-	memory           []protocol.MemoryFile
-	memoryErr        error
-	starts           []protocol.StartingPoint
-	startErr         error
-	proposed         []protocol.CandidateProposal
-	caused           []protocol.CauseRecord
+	mu                     sync.Mutex
+	events                 []protocol.Event
+	afterStoppedCompletion []protocol.Event
+	renewals               int
+	done                   *protocol.Completion
+	completions            []protocol.Completion
+	completedBy            []int
+	waits                  []bool
+	calls                  []string
+	lostWhileWaiting       bool
+	conflictsWaiting       int
+	requeueSuspends        int
+	noWait                 bool
+	paused                 bool
+	answers                [][]protocol.Message
+	suspending             []bool
+	suspends               int
+	stopAfter              int
+	stopWhileWaiting       bool
+	messages               [][]protocol.Message
+	acked                  []int
+	files                  map[string]string
+	generated              []generated
+	decision               string
+	asked                  []protocol.PermissionRequest
+	archives               *archives
+	remembered             []remembered
+	memory                 []protocol.MemoryFile
+	memoryErr              error
+	starts                 []protocol.StartingPoint
+	startErr               error
+	proposed               []protocol.CandidateProposal
+	caused                 []protocol.CauseRecord
 }
 
 type remembered struct {
@@ -70,6 +71,9 @@ type remembered struct {
 func (j *journal) AppendEvents(_ context.Context, _ string, events []protocol.Event) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
+	if j.done != nil && j.done.Stopped {
+		j.afterStoppedCompletion = append(j.afterStoppedCompletion, events...)
+	}
 	j.events = append(j.events, events...)
 	return nil
 }
@@ -616,6 +620,9 @@ func TestARunStoppedFromTheConsoleFinishesAsStopped(t *testing.T) {
 	}
 	if !written.done.Stopped {
 		t.Errorf("a stopped run should say so: %+v", written.done)
+	}
+	if len(written.typed(protocol.EventAgentStopped)) != 1 || slices.ContainsFunc(written.afterStoppedCompletion, stoppedAgent) {
+		t.Error("the journal should say that the agent was stopped, before the run completed")
 	}
 }
 
@@ -1517,4 +1524,8 @@ func TestAnAgentThatCannotStartIsNoFailureOfPreparation(t *testing.T) {
 	if written.done == nil || !written.done.Failed || written.done.SetupFailed {
 		t.Fatalf("completion %+v, want a failure after the handover", written.done)
 	}
+}
+
+func stoppedAgent(event protocol.Event) bool {
+	return event.Type == protocol.EventAgentStopped
 }

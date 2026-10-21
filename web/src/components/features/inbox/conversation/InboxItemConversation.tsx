@@ -11,6 +11,7 @@ import {
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useAnswerInboxItem } from '@/hooks/api/useAnswerInboxItem';
+import { useRunActivity } from '@/hooks/useRunActivity';
 import {
   type InboxItem,
   type RunJournal,
@@ -18,6 +19,7 @@ import {
   workedOn,
 } from '@/lib/inbox';
 import { carriesItsOwn, stationOf } from '@/lib/inbox-item';
+import { shownActivity } from '@/lib/run';
 
 type InboxItemConversationProps = {
   slug: string;
@@ -35,6 +37,8 @@ export function InboxItemConversation({
   const [params] = useSearchParams();
   const answer = useAnswerInboxItem();
   const ownsItsBriefing = carriesItsOwn(item);
+  const reported = useRunActivity(item.runId, item.activity);
+  const activity = shownActivity(reported, item.runId, worked);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -53,8 +57,7 @@ export function InboxItemConversation({
               : undefined,
             createdAt: item.createdAt,
             station: stationOf(item),
-            working: item.working,
-            queued: item.queued,
+            activity,
             resolved: item.resolved,
             notes: item.notes,
           }}
@@ -73,12 +76,11 @@ export function InboxItemConversation({
           }}
           openAt={shownAt(item.notes, params.get('run'))}
           live={
-            item.runId && item.working ? (
+            item.runId && activity ? (
               <RunActivity
                 runId={item.runId}
                 journals={workedOn(worked, item.notes, item.runId)}
-                running={item.working && !item.queued}
-                queued={item.queued}
+                activity={activity}
                 station={stationOf(item)}
               />
             ) : undefined
@@ -87,7 +89,9 @@ export function InboxItemConversation({
             ownsItsBriefing ? undefined : <InboxItemBriefing item={item} />
           }
           footer={
-            ownsItsBriefing ? null : <InboxItemFooter slug={slug} item={item} />
+            ownsItsBriefing ? null : (
+              <InboxItemFooter slug={slug} item={item} activity={reported} />
+            )
           }
         />
       </RunSidePanel>

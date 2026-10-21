@@ -11,7 +11,7 @@ let database: TestDatabase;
 let db: DrizzleDatabase;
 
 beforeAll(async () => {
-  database = await openDatabase('inbox_queued');
+  database = await openDatabase('inbox_run_activity');
   db = database.db;
 }, 60_000);
 
@@ -21,7 +21,11 @@ afterAll(async () => {
 
 type RunState = (typeof schema.run.$inferInsert)['state'];
 
-const inboxWith = async (state: RunState) => {
+const inboxWith = async (
+  state: RunState,
+  stopRequestedAt: Date | null = null,
+  answered = true,
+) => {
   const workspaceId = randomUUID();
   const lineId = randomUUID();
   const stationId = randomUUID();
@@ -59,6 +63,7 @@ const inboxWith = async (state: RunState) => {
     taskId,
     stationId,
     state,
+    stopRequestedAt,
     spec: {},
   });
   await db.insert(schema.taskNote).values([
@@ -73,17 +78,21 @@ const inboxWith = async (state: RunState) => {
       runId: randomUUID(),
       kind: 'asked',
     },
-    {
-      taskId,
-      position: 1,
-      station: 'Implementation',
-      stationId,
-      body: 'The retry queue.',
-      at: new Date('2026-10-20T09:05:00.000Z'),
-      voice: 'person',
-      authorId: viewer,
-      kind: 'answered',
-    },
+    ...(answered
+      ? [
+          {
+            taskId,
+            position: 1,
+            station: 'Implementation',
+            stationId,
+            body: 'The retry queue.',
+            at: new Date('2026-10-20T09:05:00.000Z'),
+            voice: 'person' as const,
+            authorId: viewer,
+            kind: 'answered' as const,
+          },
+        ]
+      : []),
   ]);
 
   const reader = new DrizzleInboxReader(
@@ -108,12 +117,58 @@ describe('a task in the inbox whose run waits to start', () => {
   it('says its run is queued', async () => {
     const item = await inboxWith('queued');
 
-    expect(item).toMatchObject({ working: true, queued: true });
+    expect(item).toMatchObject({ activity: 'queued' });
   });
 
   it('is no longer queued once a runner claims the run', async () => {
     const item = await inboxWith('claimed');
 
-    expect(item).toMatchObject({ working: true, queued: false });
+    expect(item).toMatchObject({ activity: 'working' });
+  });
+});
+
+describe('a task in the inbox whose run was asked to stop', () => {
+  it('says its run is stopping once a person asks it to stop', async () => {
+    const item = await inboxWith('claimed', new Date());
+
+    expect(item).toMatchObject({ activity: 'stopping' });
+  });
+
+  it('says its run is stopping while it waited for a person', async () => {
+    const item = await inboxWith('waiting', new Date());
+
+    expect(item).toMatchObject({ activity: 'stopping' });
+  });
+
+  it('is no longer stopping once the run has ended', async () => {
+    const item = await inboxWith('cancelled', new Date());
+
+    expect(item).toMatchObject({ activity: null });
+  });
+});
+
+describe('a task in the inbox whose run waits for a person', () => {
+  it('says the run does nothing while it waits for the answer', async () => {
+    const item = await inboxWith('waiting', null, false);
+
+    expect(item).toMatchObject({ activity: null });
+  });
+
+  it('says the run does nothing while an ask is open, though a runner holds it', async () => {
+    const item = await inboxWith('claimed', null, false);
+
+    expect(item).toMatchObject({ activity: null });
+  });
+
+  it('says the run works again once the person answered', async () => {
+    const item = await inboxWith('waiting');
+
+    expect(item).toMatchObject({ activity: 'working' });
+  });
+
+  it('says the run is queued again once the person answered a suspended run', async () => {
+    const item = await inboxWith('suspended');
+
+    expect(item).toMatchObject({ activity: 'queued' });
   });
 });
