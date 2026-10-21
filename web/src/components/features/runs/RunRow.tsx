@@ -1,6 +1,6 @@
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { RunPendingMarker } from '@/components/features/runs/RunPendingMarker';
-import { WorkState } from '@/components/shared/WorkState';
+import { ProgressState } from '@/components/shared/ProgressState';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { type Run, runStatus, waitsOnPerson } from '@/lib/run';
 import { since } from '@/lib/since';
@@ -61,7 +61,7 @@ export function RunRow({
       <span className="ml-auto flex shrink-0 items-center gap-2">
         <RunPendingMarker run={run} reviewTo={reviewTo} inTrail={inTrail} />
 
-        {run.work && <WorkState work={run.work} />}
+        {run.progress && <ProgressState progress={run.progress} />}
 
         {status && !waits && (
           <span className="text-muted-foreground text-xs">{status}</span>

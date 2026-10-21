@@ -22,8 +22,8 @@ export function useInboxItemRefresh(
 
   useRunStream(
     item?.runId ?? undefined,
-    Boolean(item?.work),
-    item?.work ?? null,
+    Boolean(item?.runId),
+    item?.progress ?? null,
     bump,
   );
 }

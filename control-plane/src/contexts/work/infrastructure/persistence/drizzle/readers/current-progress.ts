@@ -1,15 +1,15 @@
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import {
-  type Work,
-  workOfCurrentRun,
+  type Progress,
+  progressOfCurrentRun,
 } from '@work/domain/value-objects/run-state';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { inArray } from 'drizzle-orm';
 
-export const workOfCurrentRuns = async (
+export const progressOfCurrentRuns = async (
   db: DrizzleDatabase,
   runIds: readonly (string | null)[],
-): Promise<(runId: string | null) => Work | null> => {
+): Promise<(runId: string | null) => Progress | null> => {
   const ids = runIds.filter((each): each is string => each !== null);
   const rows =
     ids.length === 0
@@ -30,5 +30,5 @@ export const workOfCurrentRuns = async (
   );
 
   return (runId) =>
-    runId === null ? null : workOfCurrentRun(found.get(runId) ?? null);
+    runId === null ? null : progressOfCurrentRun(found.get(runId) ?? null);
 };

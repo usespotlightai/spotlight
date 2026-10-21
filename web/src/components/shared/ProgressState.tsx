@@ -1,9 +1,9 @@
 import { CircleDashed, Clock } from 'lucide-react';
 import { Pill } from '@/components/shared/Pill';
-import type { Work } from '@/lib/run';
+import type { Progress } from '@/lib/run';
 
-export function WorkState({ work }: { work: Work }) {
-  return work === 'queued' ? (
+export function ProgressState({ progress }: { progress: Progress }) {
+  return progress === 'queued' ? (
     <Pill lead={<Clock className="size-3.5 shrink-0" aria-hidden />}>
       Queued
     </Pill>

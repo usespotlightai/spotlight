@@ -3,7 +3,7 @@ import {
   CHAT_MESSAGE_KIND_NAMES,
   PROPOSAL_STATE_NAMES,
 } from '@work/application/dto/chat.dto';
-import { WORK_NAMES } from '@work/application/dto/task.dto';
+import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 import { InboxAuthorResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
 
@@ -110,14 +110,14 @@ export class ChatSummaryResponseDto {
   readonly updatedAt: string;
 
   @ApiProperty({
-    enum: [...WORK_NAMES, null],
+    enum: [...PROGRESS_NAMES, null],
     nullable: true,
     type: String,
     example: 'in-progress',
     description:
       'What the run answering it is doing: queued until a runner takes it, then in progress. Null while nothing answers.',
   })
-  readonly work: string | null;
+  readonly progress: string | null;
 
   constructor(
     id: string,
@@ -130,7 +130,7 @@ export class ChatSummaryResponseDto {
     setup: ChatSetupResponseDto | null,
     createdAt: string,
     updatedAt: string,
-    work: string | null,
+    progress: string | null,
   ) {
     this.id = id;
     this.title = title;
@@ -142,7 +142,7 @@ export class ChatSummaryResponseDto {
     this.setup = setup;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
-    this.work = work;
+    this.progress = progress;
   }
 }
 
@@ -320,7 +320,7 @@ export class ChatResponseDto extends ChatSummaryResponseDto {
       summary.setup,
       summary.createdAt,
       summary.updatedAt,
-      summary.work,
+      summary.progress,
     );
     this.runId = runId;
     this.messages = messages;

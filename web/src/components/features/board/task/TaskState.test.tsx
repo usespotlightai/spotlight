@@ -12,7 +12,7 @@ const task = (over: Partial<Task> = {}) =>
     title: 'Fix the queue',
     description: null,
     createdAt: '2026-08-28T09:15:00.000Z',
-    work: null,
+    progress: null,
     awaitingReview: null,
     note: null,
     ...over,
@@ -29,13 +29,13 @@ describe('TaskState', () => {
   });
 
   it('marks a task a runner is working', () => {
-    renderIn(<TaskState task={task({ work: 'in-progress' })} />);
+    renderIn(<TaskState task={task({ progress: 'in-progress' })} />);
 
     expect(screen.getByText('In progress')).toBeInTheDocument();
   });
 
   it('marks a task whose run waits for a runner as queued, not in progress', () => {
-    renderIn(<TaskState task={task({ work: 'queued' })} />);
+    renderIn(<TaskState task={task({ progress: 'queued' })} />);
 
     expect(screen.getByText('Queued')).toBeInTheDocument();
     expect(screen.queryByText('In progress')).not.toBeInTheDocument();
@@ -68,7 +68,7 @@ describe('TaskState', () => {
     renderIn(
       <TaskState
         task={task({
-          work: 'in-progress',
+          progress: 'in-progress',
           awaitingReview: { conversationId: 'task_1:5' },
         })}
       />,

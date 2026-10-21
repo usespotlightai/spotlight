@@ -1,10 +1,10 @@
 import type { TaskRunResponseDto } from '@/lib/api';
-import type { Work } from '@/lib/run';
+import type { Progress } from '@/lib/run';
 
-export const workOfState = (
+export const progressOfState = (
   state: TaskRunResponseDto['state'],
   stopping = false,
-): Work | null => {
+): Progress | null => {
   if (stopping) {
     return null;
   }

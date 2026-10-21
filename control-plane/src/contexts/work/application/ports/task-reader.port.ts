@@ -3,7 +3,7 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
-import type { Work } from '@work/domain/value-objects/run-state';
+import type { Progress } from '@work/domain/value-objects/run-state';
 
 export interface TaskNoteSummary {
   readonly position: number;
@@ -23,7 +23,7 @@ export interface TaskSummary {
   readonly description: string | null;
   readonly attachments: readonly AttachmentSummary[];
   readonly createdAt: Date;
-  readonly work: Work | null;
+  readonly progress: Progress | null;
   readonly awaitingReview: TaskReviewSummary | null;
   readonly pullRequest: string | null;
   readonly note: TaskNoteSummary | null;

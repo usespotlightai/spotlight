@@ -31,7 +31,7 @@ type UntaskedRunProps = {
     | 'image'
     | 'station'
     | 'journals'
-    | 'work'
+    | 'progress'
   >;
   banner?: ReactNode;
   threadBriefing: string | null;
@@ -83,7 +83,7 @@ export function UntaskedRun({
                     <RunActivity
                       runId={run.id}
                       journals={run.journals}
-                      work={run.work}
+                      progress={run.progress}
                       station={run.station}
                     />
                   </div>

@@ -27,16 +27,16 @@ export const isStopping = (state: RunState, stopRequested: boolean): boolean =>
   stopRequested &&
   !(TERMINAL_RUN_STATES as readonly RunState[]).includes(state);
 
-export const WORKS = ['queued', 'in-progress'] as const;
+export const PROGRESSES = ['queued', 'in-progress'] as const;
 
-export type Work = (typeof WORKS)[number];
+export type Progress = (typeof PROGRESSES)[number];
 
 interface Working {
   readonly state: RunState;
   readonly stopRequested: boolean;
 }
 
-export const workOf = (run: Working): Work | null => {
+export const progressOf = (run: Working): Progress | null => {
   if (isStopping(run.state, run.stopRequested)) {
     return null;
   }
@@ -48,5 +48,6 @@ export const workOf = (run: Working): Work | null => {
   return run.state === 'claimed' ? 'in-progress' : null;
 };
 
-export const workOfCurrentRun = (current: Working | null): Work | null =>
-  current === null ? 'queued' : workOf(current);
+export const progressOfCurrentRun = (
+  current: Working | null,
+): Progress | null => (current === null ? 'queued' : progressOf(current));

@@ -32,7 +32,7 @@ export const TaskRunHttpMapper = {
       dto.review
         ? new RunReviewResponseDto(dto.review.state, dto.review.conversationId)
         : null,
-      dto.work,
+      dto.progress,
     );
   },
 

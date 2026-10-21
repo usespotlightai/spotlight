@@ -21,7 +21,7 @@ import type {
   TaskReaderPort,
   TaskSummary,
 } from '@work/application/ports/task-reader.port';
-import { workOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-work';
+import { progressOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
 import {
   attachmentsFor,
   attachmentsOf,
@@ -110,7 +110,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
       )
       .orderBy(task.rank);
 
-    const [notes, awaited, attached, people, workOf] = await Promise.all([
+    const [notes, awaited, attached, people, progressOf] = await Promise.all([
       this.latestNotes(rows.map((row) => row.id)),
       awaitedReviewsFor(
         this.db,
@@ -127,7 +127,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
           ),
         ),
       ),
-      workOfCurrentRuns(
+      progressOfCurrentRuns(
         this.db,
         rows.map((row) => row.currentRunId),
       ),
@@ -141,7 +141,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
     return rows.map(({ currentRunId, createdById, assigneeId, ...rest }) => ({
       ...rest,
       attachments: attachmentsOf(attached, rest.id).own,
-      work: awaited.has(rest.id) ? null : workOf(currentRunId),
+      progress: awaited.has(rest.id) ? null : progressOf(currentRunId),
       awaitingReview: awaited.has(rest.id)
         ? { conversationId: awaited.get(rest.id) as string }
         : null,

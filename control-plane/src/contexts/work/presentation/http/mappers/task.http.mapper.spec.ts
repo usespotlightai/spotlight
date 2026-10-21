@@ -12,7 +12,7 @@ const dto: TaskDto = {
     { id: 'file_1', name: 'queue.png', contentType: 'image/png', size: 4096 },
   ],
   createdAt: '2026-08-28T09:15:00.000Z',
-  work: 'in-progress',
+  progress: 'in-progress',
   awaitingReview: null,
   pullRequest: null,
   createdBy: { id: 'user_1', name: 'Ada', image: null },

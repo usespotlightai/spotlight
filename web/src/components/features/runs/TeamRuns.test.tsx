@@ -32,7 +32,7 @@ const run = (
 ): TeamRun => ({
   id,
   state: 'completed',
-  work: null,
+  progress: null,
   attempt: 1,
   exitCode: 0,
   startedAt: new Date().toISOString(),

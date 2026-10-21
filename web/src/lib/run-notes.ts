@@ -5,7 +5,12 @@ import {
   threadText,
 } from '@/lib/inbox';
 import type { Person } from '@/lib/person';
-import { type TeamRun, underway, type Work, waitsOnPerson } from '@/lib/run';
+import {
+  type Progress,
+  type TeamRun,
+  underway,
+  waitsOnPerson,
+} from '@/lib/run';
 
 export type RunNotes = RunNotesResponseDto;
 
@@ -68,8 +73,8 @@ export const withMessagesInFlight = (
 
   return {
     ...conversation,
-    work:
-      conversation.work ??
+    progress:
+      conversation.progress ??
       (messages.some((each) => each.startsWork) ? 'queued' : null),
     notes: [
       ...conversation.notes,
@@ -97,7 +102,7 @@ export const withMessagesInFlight = (
 export const conversationItemOf = (
   conversation: RunNotes,
   teamId: string,
-  work: Work | null,
+  progress: Progress | null,
 ): ConversationItem => ({
   id: conversation.runId,
   teamId,
@@ -108,7 +113,7 @@ export const conversationItemOf = (
     position: conversation.station?.position ?? 0,
     count: conversation.station?.count ?? 1,
   },
-  work,
+  progress,
   notes: conversation.notes,
 });
 

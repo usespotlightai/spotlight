@@ -203,7 +203,7 @@ describe('AddTaskHandler', () => {
       revision: 0,
       title: 'Fix the queue',
       createdAt: created.toISOString(),
-      work: 'queued',
+      progress: 'queued',
       createdBy: { id: 'user_1' },
       assignee: { id: 'user_1' },
     });

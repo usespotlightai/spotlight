@@ -43,11 +43,11 @@ export function ChatThread({
         <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-8 py-8">
           <TimeMarker at={chat.createdAt} />
 
-          {turns.length === 0 && !chat.work && <ChatEmpty />}
+          {turns.length === 0 && !chat.progress && <ChatEmpty />}
 
           {turns.map((turn, at) => {
             const last = at === turns.length - 1;
-            const work = last ? chat.work : null;
+            const progress = last ? chat.progress : null;
 
             return (
               <section
@@ -66,7 +66,7 @@ export function ChatThread({
                   </div>
                 )}
 
-                {(turn.moments.length > 0 || work) && (
+                {(turn.moments.length > 0 || progress) && (
                   <ol className="mt-6 flex flex-col gap-6">
                     {turn.moments.map((moment, place) => (
                       <li
@@ -103,7 +103,7 @@ export function ChatThread({
                           <ChatWork
                             steps={moment.steps}
                             live={
-                              chat.work === 'in-progress' &&
+                              chat.progress === 'in-progress' &&
                               moment === lastWorked
                             }
                           />
@@ -111,8 +111,11 @@ export function ChatThread({
                       </li>
                     ))}
 
-                    {work && (
-                      <AgentWorking harness={chat.harness} work={work} />
+                    {progress && (
+                      <AgentWorking
+                        harness={chat.harness}
+                        progress={progress}
+                      />
                     )}
                   </ol>
                 )}

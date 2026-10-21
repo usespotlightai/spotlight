@@ -16,7 +16,7 @@ let database: TestDatabase;
 let db: DrizzleDatabase;
 
 beforeAll(async () => {
-  database = await openDatabase('current_work');
+  database = await openDatabase('current_progress');
   db = database.db;
 }, 60_000);
 
@@ -128,30 +128,30 @@ const inboxWith = async (state: RunState | null) => {
   };
 };
 
-describe('the work of a task whose run waits to start', () => {
+describe('the progress of a task whose run waits to start', () => {
   it('is queued before the run is even on the queue', async () => {
     const { inbox, board } = await inboxWith(null);
 
-    expect(inbox?.work).toBe('queued');
-    expect(board?.work).toBe('queued');
+    expect(inbox?.progress).toBe('queued');
+    expect(board?.progress).toBe('queued');
   });
 
   it('is queued while the run waits for a runner', async () => {
     const { inbox, board } = await inboxWith('queued');
 
-    expect(inbox?.work).toBe('queued');
-    expect(board?.work).toBe('queued');
+    expect(inbox?.progress).toBe('queued');
+    expect(board?.progress).toBe('queued');
   });
 
   it('is in progress once a runner claims the run', async () => {
     const { inbox, board } = await inboxWith('claimed');
 
-    expect(inbox?.work).toBe('in-progress');
-    expect(board?.work).toBe('in-progress');
+    expect(inbox?.progress).toBe('in-progress');
+    expect(board?.progress).toBe('in-progress');
   });
 });
 
-describe('the work of a chat whose run waits to start', () => {
+describe('the progress of a chat whose run waits to start', () => {
   const chatWith = async (state: RunState | null) => {
     const chatId = randomUUID();
     const runId = randomUUID();
@@ -181,7 +181,7 @@ describe('the work of a chat whose run waits to start', () => {
       find: async () => null,
     } as never).startedBy(TeamId.of('team_1'), UserId.of(viewer));
 
-    return found?.work;
+    return found?.progress;
   };
 
   it('is queued before the run is even on the queue', async () => {

@@ -14,6 +14,6 @@ export function useRunThread(run: TeamRun, reported: RunNotes | undefined) {
   return {
     latest,
     conversation,
-    work: latest.stopping ? null : (conversation?.work ?? null),
+    progress: latest.stopping ? null : (conversation?.progress ?? null),
   };
 }

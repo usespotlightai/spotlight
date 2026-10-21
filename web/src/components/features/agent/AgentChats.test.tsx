@@ -32,7 +32,7 @@ const chat: ChatSummary = {
   repositories: [],
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
-  work: null,
+  progress: null,
   targetStation: null,
   setup: null,
 };
@@ -97,7 +97,7 @@ describe('AgentChats', () => {
   });
 
   it('shows a chat whose run waits for a runner as queued, the same as on the board', () => {
-    chats.mockReturnValue([{ ...chat, work: 'queued' }]);
+    chats.mockReturnValue([{ ...chat, progress: 'queued' }]);
 
     showing();
 

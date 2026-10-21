@@ -24,7 +24,7 @@ describe('withMessagesInFlight', () => {
   const thread = {
     runId: 'run_1',
     station: { name: 'Implementation', color: '#5c66d9', position: 2 },
-    work: null,
+    progress: null,
     notes: [{ position: 4, runId: 'run_1', body: 'The tests failed.' }],
   } as unknown as RunNotes;
 
@@ -129,7 +129,8 @@ describe('withMessagesInFlight', () => {
 
   it('queues work once a message on its way starts the station again', () => {
     expect(
-      withMessagesInFlight(thread, [outgoing({ startsWork: true })], sam).work,
+      withMessagesInFlight(thread, [outgoing({ startsWork: true })], sam)
+        .progress,
     ).toBe('queued');
   });
 });

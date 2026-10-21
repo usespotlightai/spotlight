@@ -5,13 +5,13 @@ import { TaskState } from '@/components/features/board/task/TaskState';
 import { RunRow } from '@/components/features/runs/RunRow';
 import type { Run } from '@/lib/run';
 import type { Task } from '@/lib/task';
-import { workOfState } from '@/mocks/world/run-work';
+import { progressOfState } from '@/mocks/world/run-progress';
 
 const run = (state: Run['state'], review: Run['review'] = null) =>
   ({
     id: 'run_1',
     state,
-    work: workOfState(state),
+    progress: progressOfState(state),
     exitCode: null,
     startedAt: new Date().toISOString(),
     station: null,
@@ -31,7 +31,9 @@ describe('RunRow, what a run is doing', () => {
     const inRuns = shown(<RunRow run={run('claimed')} to="/runs/run_1" />);
     const onBoard = shown(
       <TaskState
-        task={{ work: 'in-progress', awaitingReview: false } as unknown as Task}
+        task={
+          { progress: 'in-progress', awaitingReview: false } as unknown as Task
+        }
       />,
     );
 
@@ -50,7 +52,7 @@ describe('RunRow, what a run is doing', () => {
       <TaskState
         task={
           {
-            work: 'queued',
+            progress: 'queued',
             awaitingReview: false,
           } as unknown as Task
         }

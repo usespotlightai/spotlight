@@ -66,7 +66,7 @@ export function RunThread({
             teamId={teamId}
             conversation={conversation}
             worked={journal.data ?? []}
-            work={latest?.stopping ? null : conversation.work}
+            progress={latest?.stopping ? null : conversation.progress}
             openAt={lastNoteOf(conversation.notes, runId)}
             footer={
               run && latest ? (

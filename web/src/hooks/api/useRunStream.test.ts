@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRunStream } from '@/hooks/api/useRunStream';
-import type { Work } from '@/lib/run';
+import type { Progress } from '@/lib/run';
 
 const opened: string[] = [];
 const closed: string[] = [];
@@ -33,12 +33,12 @@ describe('useRunStream', () => {
 
   it('opens the stream again once a queued run is in progress', () => {
     const { rerender } = renderHook(
-      ({ work }: { work: Work | null }) =>
-        useRunStream('run_1', true, work, () => {}),
-      { initialProps: { work: 'queued' } },
+      ({ progress }: { progress: Progress | null }) =>
+        useRunStream('run_1', true, progress, () => {}),
+      { initialProps: { progress: 'queued' } },
     );
 
-    rerender({ work: 'in-progress' });
+    rerender({ progress: 'in-progress' });
 
     expect(opened).toEqual([
       '/api/runs/run_1/stream',

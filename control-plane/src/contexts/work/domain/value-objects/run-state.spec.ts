@@ -1,6 +1,6 @@
 import {
   isStopping,
-  workOfCurrentRun,
+  progressOfCurrentRun,
 } from '@work/domain/value-objects/run-state';
 import { describe, expect, it } from 'vitest';
 
@@ -20,35 +20,35 @@ describe('isStopping', () => {
   });
 });
 
-describe('workOfCurrentRun', () => {
+describe('progressOfCurrentRun', () => {
   it('counts a run that has no record yet as queued', () => {
-    expect(workOfCurrentRun(null)).toBe('queued');
+    expect(progressOfCurrentRun(null)).toBe('queued');
   });
 
   it('counts a run that waits for a runner as queued', () => {
-    expect(workOfCurrentRun({ state: 'queued', stopRequested: false })).toBe(
-      'queued',
-    );
+    expect(
+      progressOfCurrentRun({ state: 'queued', stopRequested: false }),
+    ).toBe('queued');
   });
 
   it('counts a run that a runner took as in progress', () => {
-    expect(workOfCurrentRun({ state: 'claimed', stopRequested: false })).toBe(
-      'in-progress',
-    );
+    expect(
+      progressOfCurrentRun({ state: 'claimed', stopRequested: false }),
+    ).toBe('in-progress');
   });
 
-  it('counts no work for a run that someone asked to stop', () => {
+  it('counts no progress for a run that someone asked to stop', () => {
     expect(
-      workOfCurrentRun({ state: 'claimed', stopRequested: true }),
+      progressOfCurrentRun({ state: 'claimed', stopRequested: true }),
     ).toBeNull();
   });
 
-  it('counts no work for a run that waits for a person or has ended', () => {
+  it('counts no progress for a run that waits for a person or has ended', () => {
     expect(
-      workOfCurrentRun({ state: 'waiting', stopRequested: false }),
+      progressOfCurrentRun({ state: 'waiting', stopRequested: false }),
     ).toBeNull();
     expect(
-      workOfCurrentRun({ state: 'completed', stopRequested: false }),
+      progressOfCurrentRun({ state: 'completed', stopRequested: false }),
     ).toBeNull();
   });
 });

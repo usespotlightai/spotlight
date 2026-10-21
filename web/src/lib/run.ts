@@ -17,7 +17,7 @@ export const RUNS_AUTONOMOUSLY =
 export const formatTokens = (count: number | null): string =>
   count === null ? 'not reported' : counted(count);
 
-export type Work = NonNullable<TaskResponseDto['work']>;
+export type Progress = NonNullable<TaskResponseDto['progress']>;
 
 export const underway = (run: Pick<Run, 'state'>): boolean =>
   run.state === 'queued' || run.state === 'claimed';

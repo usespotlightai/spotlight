@@ -27431,7 +27431,7 @@
             "example": false,
             "description": "True once it is resolved, and is no longer yours to answer"
           },
-          "work": {
+          "progress": {
             "type": "string",
             "enum": [
               "queued",
@@ -27501,7 +27501,7 @@
           "createdAt",
           "askedAt",
           "resolved",
-          "work",
+          "progress",
           "runId",
           "unread",
           "briefing",
@@ -27902,7 +27902,7 @@
             "type": "string",
             "example": "2026-08-27T09:15:00.000Z"
           },
-          "work": {
+          "progress": {
             "type": "string",
             "enum": [
               "queued",
@@ -27968,7 +27968,7 @@
           "description",
           "attachments",
           "createdAt",
-          "work",
+          "progress",
           "awaitingReview",
           "pullRequest",
           "createdBy",
@@ -28098,7 +28098,7 @@
               }
             ]
           },
-          "work": {
+          "progress": {
             "type": "string",
             "enum": [
               "queued",
@@ -28135,7 +28135,7 @@
           "image",
           "station",
           "review",
-          "work",
+          "progress",
           "taskId",
           "taskTitle",
           "taskDescription"
@@ -28617,7 +28617,7 @@
             "example": false,
             "description": "Someone asked the run to stop, and it has not ended yet"
           },
-          "work": {
+          "progress": {
             "type": "string",
             "enum": [
               "queued",
@@ -28633,7 +28633,7 @@
           "id",
           "state",
           "stopping",
-          "work"
+          "progress"
         ]
       },
       "RunSpendResponseDto": {
@@ -28726,7 +28726,7 @@
             "type": "string",
             "description": "The briefing of the run, word for word"
           },
-          "work": {
+          "progress": {
             "type": "string",
             "enum": [
               "queued",
@@ -28771,7 +28771,7 @@
           "station",
           "createdAt",
           "briefing",
-          "work",
+          "progress",
           "latestRun",
           "notes",
           "spend"
@@ -28865,7 +28865,7 @@
               }
             ]
           },
-          "work": {
+          "progress": {
             "type": "string",
             "enum": [
               "queued",
@@ -28888,7 +28888,7 @@
           "image",
           "station",
           "review",
-          "work"
+          "progress"
         ]
       },
       "AddTaskRequestDto": {
@@ -29071,7 +29071,7 @@
               }
             ]
           },
-          "work": {
+          "progress": {
             "type": "string",
             "enum": [
               "queued",
@@ -29137,7 +29137,7 @@
           "image",
           "station",
           "review",
-          "work",
+          "progress",
           "original",
           "spend",
           "journals",
@@ -29251,7 +29251,7 @@
               }
             ]
           },
-          "work": {
+          "progress": {
             "type": "string",
             "enum": [
               "queued",
@@ -29324,7 +29324,7 @@
           "image",
           "station",
           "review",
-          "work",
+          "progress",
           "searchId",
           "iteration",
           "agent",
@@ -29457,7 +29457,7 @@
             "type": "string",
             "example": "2026-09-14T09:05:00.000Z"
           },
-          "work": {
+          "progress": {
             "type": "string",
             "enum": [
               "queued",
@@ -29480,7 +29480,7 @@
           "setup",
           "createdAt",
           "updatedAt",
-          "work"
+          "progress"
         ]
       },
       "ChatSetupRequestDto": {
@@ -29796,7 +29796,7 @@
             "type": "string",
             "example": "2026-09-14T09:05:00.000Z"
           },
-          "work": {
+          "progress": {
             "type": "string",
             "enum": [
               "queued",
@@ -29830,7 +29830,7 @@
           "setup",
           "createdAt",
           "updatedAt",
-          "work",
+          "progress",
           "runId",
           "messages"
         ]

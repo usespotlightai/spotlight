@@ -111,7 +111,7 @@ export class SearchRunResponseDto extends TaskRunResponseDto {
           )
         : null,
       null,
-      run.work,
+      run.progress,
     );
     this.searchId = run.searchId;
     this.iteration = run.iteration;

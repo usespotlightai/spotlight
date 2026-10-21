@@ -17,7 +17,7 @@ import {
   NOTE_KINDS,
   NOTE_VOICES,
 } from '@work/application/dto/inbox.dto';
-import { WORK_NAMES } from '@work/application/dto/task.dto';
+import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 
 export class InboxAuthorResponseDto {
@@ -427,14 +427,14 @@ export class InboxItemResponseDto {
   readonly resolved: boolean;
 
   @ApiProperty({
-    enum: [...WORK_NAMES, null],
+    enum: [...PROGRESS_NAMES, null],
     nullable: true,
     type: String,
     example: 'in-progress',
     description:
       'What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress',
   })
-  readonly work: string | null;
+  readonly progress: string | null;
 
   @ApiProperty({
     nullable: true,
@@ -492,7 +492,7 @@ export class InboxItemResponseDto {
     createdAt: string,
     askedAt: string,
     resolved: boolean,
-    work: string | null,
+    progress: string | null,
     runId: string | null,
     unread: boolean,
     briefing: string | null,
@@ -515,7 +515,7 @@ export class InboxItemResponseDto {
     this.createdAt = createdAt;
     this.askedAt = askedAt;
     this.resolved = resolved;
-    this.work = work;
+    this.progress = progress;
     this.runId = runId;
     this.unread = unread;
     this.briefing = briefing;

@@ -30,8 +30,8 @@ import type {
 import { worksOn } from '@work/domain/services/conversations';
 import {
   isStopping,
-  workOf,
-  workOfCurrentRun,
+  progressOf,
+  progressOfCurrentRun,
 } from '@work/domain/value-objects/run-state';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 import {
@@ -269,14 +269,14 @@ export class DrizzleRunReader implements RunReaderPort {
       station: stationSummaryOf({ ...found }, stationCounts),
       createdAt: found.createdAt,
       briefing: spec.briefing,
-      work: worksOn(found.workingRunId === latest.runId, notes)
-        ? workOfCurrentRun(latestRun)
+      progress: worksOn(found.workingRunId === latest.runId, notes)
+        ? progressOfCurrentRun(latestRun)
         : null,
       latestRun: {
         id: latest.runId,
         state: latest.state,
         stopping: isStopping(latestRun.state, latestRun.stopRequested),
-        work: workOf(latestRun),
+        progress: progressOf(latestRun),
       },
       notes: threadAt(notes, found.stationId, runId.value),
     };

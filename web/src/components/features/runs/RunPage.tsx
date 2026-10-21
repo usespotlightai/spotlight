@@ -40,7 +40,7 @@ export function RunPage({
 }: RunPageProps) {
   const base = useRunTrail({ slug, teamId, run, title: reported?.title });
   const { trail, forward } = useTrail(base, 2);
-  const { latest, conversation, work } = useRunThread(run, reported);
+  const { latest, conversation, progress } = useRunThread(run, reported);
 
   const notes = conversation?.notes ?? [];
   const deciding = decisionPending(notes);
@@ -76,17 +76,17 @@ export function RunPage({
     <RunActivity
       runId={run.id}
       journals={ran}
-      work={latest.id === run.id ? work : null}
+      progress={latest.id === run.id ? progress : null}
       station={run.station}
     />
   ) : null;
 
   const live =
-    work && run.station ? (
+    progress && run.station ? (
       <RunActivity
         runId={latest.id}
         journals={workedOn(worked, notes, latest.id)}
-        work={work}
+        progress={progress}
         station={run.station}
       />
     ) : undefined;
@@ -103,7 +103,7 @@ export function RunPage({
                 teamId={teamId}
                 conversation={conversation}
                 worked={worked}
-                work={work}
+                progress={progress}
                 openAt={openAt}
                 live={live}
                 closing={followedOn ? undefined : closing}

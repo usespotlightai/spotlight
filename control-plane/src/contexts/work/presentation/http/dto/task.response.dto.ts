@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { WORK_NAMES } from '@work/application/dto/task.dto';
+import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 
 export class TaskNoteResponseDto {
@@ -88,14 +88,14 @@ export class TaskResponseDto {
   readonly createdAt: string;
 
   @ApiProperty({
-    enum: [...WORK_NAMES, null],
+    enum: [...PROGRESS_NAMES, null],
     nullable: true,
     type: String,
     example: 'in-progress',
     description:
       'What its current run is doing: queued until a runner takes it, then in progress. Null without a run at work.',
   })
-  readonly work: string | null;
+  readonly progress: string | null;
 
   @ApiProperty({
     type: TaskReviewResponseDto,
@@ -143,7 +143,7 @@ export class TaskResponseDto {
     description: string | null,
     attachments: readonly AttachmentResponseDto[],
     createdAt: string,
-    work: string | null,
+    progress: string | null,
     awaitingReview: TaskReviewResponseDto | null,
     pullRequest: string | null,
     createdBy: TaskPersonResponseDto | null,
@@ -157,7 +157,7 @@ export class TaskResponseDto {
     this.description = description;
     this.attachments = attachments;
     this.createdAt = createdAt;
-    this.work = work;
+    this.progress = progress;
     this.awaitingReview = awaitingReview;
     this.pullRequest = pullRequest;
     this.createdBy = createdBy;

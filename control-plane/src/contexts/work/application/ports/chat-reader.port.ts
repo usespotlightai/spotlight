@@ -1,7 +1,7 @@
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import type { Work } from '@work/domain/value-objects/run-state';
+import type { Progress } from '@work/domain/value-objects/run-state';
 
 export const CHAT_READER = Symbol('CHAT_READER');
 
@@ -31,7 +31,7 @@ export interface ChatSummary {
   readonly setup: ChatSetupView | null;
   readonly createdAt: string;
   readonly updatedAt: string;
-  readonly work: Work | null;
+  readonly progress: Progress | null;
 }
 
 interface ChatAuthorView {

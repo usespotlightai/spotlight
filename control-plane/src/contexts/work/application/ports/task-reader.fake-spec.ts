@@ -3,11 +3,11 @@ import type {
   TaskSummary,
 } from '@work/application/ports/task-reader.port';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import type { Work } from '@work/domain/value-objects/run-state';
+import type { Progress } from '@work/domain/value-objects/run-state';
 
 const person = (id: string) => ({ id, name: 'Ada', image: null });
 
-const summaryOf = (task: Task, work: Work | null): TaskSummary => ({
+const summaryOf = (task: Task, progress: Progress | null): TaskSummary => ({
   id: task.id.value,
   stationId: task.stationId.value,
   revision: task.revision.value,
@@ -15,7 +15,7 @@ const summaryOf = (task: Task, work: Work | null): TaskSummary => ({
   description: task.description?.value ?? null,
   attachments: [],
   createdAt: task.createdAt,
-  work,
+  progress,
   awaitingReview: null,
   pullRequest: null,
   note: null,
@@ -25,14 +25,14 @@ const summaryOf = (task: Task, work: Work | null): TaskSummary => ({
 
 export const taskReaderOver = (
   latest: () => Task | undefined,
-  work: Work | null = null,
+  progress: Progress | null = null,
 ): TaskReaderPort => ({
   listForTeamMember: async () => {
     const found = latest();
-    return found ? [summaryOf(found, work)] : [];
+    return found ? [summaryOf(found, progress)] : [];
   },
   findForTeamMember: async (_teamId, _userId, taskId) => {
     const found = latest();
-    return found?.id.equals(taskId) ? summaryOf(found, work) : null;
+    return found?.id.equals(taskId) ? summaryOf(found, progress) : null;
   },
 });

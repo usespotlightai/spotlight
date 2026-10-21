@@ -264,12 +264,12 @@ export class TaskController {
         : null,
       found.createdAt,
       found.briefing,
-      found.work,
+      found.progress,
       new LatestRunResponseDto(
         found.latestRun.id,
         found.latestRun.state,
         found.latestRun.stopping,
-        found.latestRun.work,
+        found.latestRun.progress,
       ),
       found.notes.map(
         (note) =>

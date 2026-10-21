@@ -6,7 +6,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type { InboxNote } from '@work/application/ports/inbox-reader.port';
 import type { ReviewState } from '@work/domain/services/conversations';
-import type { RunState, Work } from '@work/domain/value-objects/run-state';
+import type { Progress, RunState } from '@work/domain/value-objects/run-state';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 
 export interface RunReview {
@@ -51,7 +51,7 @@ export interface RunNotesSummary {
   readonly station: RunStationSummary | null;
   readonly createdAt: Date;
   readonly briefing: string;
-  readonly work: Work | null;
+  readonly progress: Progress | null;
   readonly latestRun: LatestRunSummary;
   readonly notes: readonly InboxNote[];
 }
@@ -60,7 +60,7 @@ interface LatestRunSummary {
   readonly id: string;
   readonly state: RunState;
   readonly stopping: boolean;
-  readonly work: Work | null;
+  readonly progress: Progress | null;
 }
 
 export interface RanConfig {

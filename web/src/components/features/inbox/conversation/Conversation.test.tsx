@@ -73,7 +73,7 @@ const showing = (
           teamId: 'team_1',
           createdAt: AT,
           station: { name: 'Backlog', color: '#edc12b', position: 0, count: 4 },
-          work: null,
+          progress: null,
           notes,
         }}
         worked={[]}
@@ -183,7 +183,7 @@ describe('Conversation', () => {
               position: 0,
               count: 4,
             },
-            work: null,
+            progress: null,
             notes,
           }}
           worked={[]}

@@ -6,7 +6,7 @@ import type {
 } from '@/lib/api';
 import { hoursAgo } from '@/mocks/clock';
 import { PRIYA } from '@/mocks/world/people';
-import { workOfState } from '@/mocks/world/run-work';
+import { progressOfState } from '@/mocks/world/run-progress';
 import { runStationOf, station } from '@/mocks/world/stations';
 
 export const GROWTH_ID = 'team_growth';
@@ -90,7 +90,7 @@ const task = (
   description: null,
   attachments: [],
   createdAt: hoursAgo(24),
-  work: null,
+  progress: null,
   awaitingReview: null,
   pullRequest: null,
   createdBy: PRIYA,
@@ -111,14 +111,14 @@ export const GROWTH_TASKS: TaskResponseDto[] = [
     id: 'task_pricing_toggle',
     title: 'Annual pricing toggle on the plans page',
     stationId: 'station_build',
-    work: 'in-progress',
+    progress: 'in-progress',
     createdAt: hoursAgo(40),
   }),
   task({
     id: 'task_signup_survey',
     title: 'Ask new signups how they found us',
     stationId: 'station_design',
-    work: 'in-progress',
+    progress: 'in-progress',
     createdAt: hoursAgo(3),
     description:
       'Most signups never say where they found us. Try one optional question on the welcome screen.',
@@ -153,7 +153,7 @@ const run = (
     station: runStationOf(STATIONS, stationId),
     review: null,
     ...rest,
-    work: workOfState(rest.state ?? 'completed'),
+    progress: progressOfState(rest.state ?? 'completed'),
   };
 };
 

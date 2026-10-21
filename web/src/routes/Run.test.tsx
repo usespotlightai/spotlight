@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TeamRun } from '@/lib/run';
-import { workOfState } from '@/mocks/world/run-work';
+import { progressOfState } from '@/mocks/world/run-progress';
 import { Run } from '@/routes/Run';
 import { write } from '@/test/lexical';
 
@@ -165,7 +165,7 @@ const STATION = {
 const run = (over: Record<string, unknown> = {}) => ({
   id: 'run_1',
   state: 'completed',
-  work: workOfState((over.state ?? 'completed') as TeamRun['state']),
+  progress: progressOfState((over.state ?? 'completed') as TeamRun['state']),
   attempt: 1,
   exitCode: 0,
   startedAt: '2026-08-29T09:02:00.000Z',
@@ -188,7 +188,7 @@ const conversationOf = (over: Record<string, unknown> = {}) => ({
   station: STATION,
   createdAt: '2026-08-29T09:02:00.000Z',
   briefing: null,
-  work: null,
+  progress: null,
   notes: [
     {
       position: 0,
@@ -493,7 +493,7 @@ describe('Run', () => {
     beforeEach(() => {
       conversation.mockReturnValue(
         conversationOf({
-          work: 'in-progress',
+          progress: 'in-progress',
           notes: [
             note(0, { body: 'The tests failed.' }),
             note(1, {
@@ -682,16 +682,16 @@ describe('Run', () => {
     });
 
     it('keeps a claimed run that is stopping under way, neither ended nor empty', () => {
-      runs.mockReturnValue([run({ state: 'claimed', work: null })]);
+      runs.mockReturnValue([run({ state: 'claimed', progress: null })]);
       conversation.mockReturnValue(
         conversationOf({
           notes: [],
-          work: null,
+          progress: null,
           latestRun: {
             id: 'run_1',
             state: 'claimed',
             stopping: true,
-            work: null,
+            progress: null,
           },
         }),
       );
@@ -707,7 +707,7 @@ describe('Run', () => {
     it('says the run is queued, not working, while it is still to start', () => {
       runs.mockReturnValue([run({ state: 'queued' })]);
       conversation.mockReturnValue(
-        conversationOf({ notes: [], work: 'queued' }),
+        conversationOf({ notes: [], progress: 'queued' }),
       );
 
       renderRun();
@@ -741,7 +741,7 @@ describe('Run', () => {
   describe('once the task is idle at the station', () => {
     const idle = {
       station: { id: 'station_3', harness: 'claude-code', kind: 'work' },
-      task: { id: 'task_1', work: null, awaitingReview: null },
+      task: { id: 'task_1', progress: null, awaitingReview: null },
     };
 
     it('offers to send the work back to the station, which starts it again', () => {
@@ -780,7 +780,7 @@ describe('Run', () => {
     it('only says something to the station while a run still works the task', () => {
       taskStation.mockReturnValue({
         ...idle,
-        task: { ...idle.task, work: 'in-progress' },
+        task: { ...idle.task, progress: 'in-progress' },
       });
 
       renderRun();
@@ -949,7 +949,7 @@ describe('Run', () => {
     it('shows one run: its work before the question, the answer, then it carrying on', () => {
       runs.mockReturnValue([run({ state: 'claimed', attempt: 2 })]);
       conversation.mockReturnValue(
-        conversationOf({ work: 'in-progress', notes: [asked, answered] }),
+        conversationOf({ progress: 'in-progress', notes: [asked, answered] }),
       );
       journal.mockReturnValue([
         {

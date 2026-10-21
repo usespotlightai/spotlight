@@ -89,7 +89,7 @@ const planning = (over: Record<string, unknown> = {}) => ({
   repositories: [],
   createdAt: '2026-08-29T09:00:00.000Z',
   updatedAt: '2026-08-29T09:00:00.000Z',
-  work: null,
+  progress: null,
   runId: null,
   messages: [
     {
@@ -260,7 +260,7 @@ describe('AgentChat', () => {
   });
 
   it('says the chat is queued, not working, while its run waits for a runner', () => {
-    chat.mockReturnValue(planning({ work: 'queued' }));
+    chat.mockReturnValue(planning({ progress: 'queued' }));
 
     renderChat();
 
@@ -272,7 +272,7 @@ describe('AgentChat', () => {
   });
 
   it('says nothing of the kind while the agent is working', () => {
-    chat.mockReturnValue(planning({ messages: [], work: 'in-progress' }));
+    chat.mockReturnValue(planning({ messages: [], progress: 'in-progress' }));
 
     renderChat();
 

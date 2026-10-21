@@ -4,7 +4,7 @@ import type {
   NoteResponseDto,
   RunJournalResponseDto,
 } from '@/lib/api';
-import type { Work } from '@/lib/run';
+import type { Progress } from '@/lib/run';
 import { teamPath } from '@/lib/team';
 
 export type InboxItem = InboxItemResponseDto;
@@ -29,7 +29,7 @@ export type ConversationItem = {
     readonly position: number;
     readonly count: number;
   };
-  readonly work: Work | null;
+  readonly progress: Progress | null;
   readonly resolved?: boolean;
   readonly notes: readonly Note[];
 };

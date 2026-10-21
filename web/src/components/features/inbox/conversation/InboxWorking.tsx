@@ -1,6 +1,6 @@
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { ARRIVING } from '@/lib/inbox';
-import type { Work } from '@/lib/run';
+import type { Progress } from '@/lib/run';
 import { stationShare } from '@/lib/station';
 import { cn } from '@/lib/utils';
 
@@ -9,7 +9,7 @@ type InboxWorkingProps = {
   stationColor: string;
   stationPosition: number;
   stationCount: number;
-  work: Work;
+  progress: Progress;
 };
 
 export function InboxWorking({
@@ -17,7 +17,7 @@ export function InboxWorking({
   stationColor,
   stationPosition,
   stationCount,
-  work,
+  progress,
 }: InboxWorkingProps) {
   return (
     <li
@@ -30,7 +30,7 @@ export function InboxWorking({
         share={stationShare(stationPosition, stationCount)}
         color={stationColor}
       />
-      {work === 'queued' ? (
+      {progress === 'queued' ? (
         <span className="text-muted-foreground">
           Queued. {station} starts when a runner is free.
         </span>

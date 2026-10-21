@@ -104,7 +104,7 @@ const item = (notes: unknown[], description: string | null = null) => [
     createdAt: '2026-08-29T09:02:00.000Z',
     askedAt: '2026-08-29T12:00:00.000Z',
     resolved: false,
-    work: null,
+    progress: null,
     unread: false,
     briefing: null,
     notes,
@@ -552,7 +552,7 @@ describe('InboxItem', () => {
 
   it('says the station is working while a run is on it', () => {
     const [only] = item([note()]);
-    waiting.mockReturnValue([{ ...only, work: 'in-progress' }]);
+    waiting.mockReturnValue([{ ...only, progress: 'in-progress' }]);
 
     renderItem();
 
@@ -561,7 +561,7 @@ describe('InboxItem', () => {
 
   it('says the run is queued, not working, while it waits for a runner', () => {
     const [only] = item([note()]);
-    waiting.mockReturnValue([{ ...only, runId: 'run_1', work: 'queued' }]);
+    waiting.mockReturnValue([{ ...only, runId: 'run_1', progress: 'queued' }]);
 
     renderItem();
 
@@ -605,7 +605,7 @@ describe('InboxItem', () => {
 
     it('says nothing about working while it waits on you, nor offers to stop it', () => {
       const [only] = item([note()]);
-      waiting.mockReturnValue([{ ...only, runId: 'run_1', work: null }]);
+      waiting.mockReturnValue([{ ...only, runId: 'run_1', progress: null }]);
 
       renderItem();
 
@@ -618,7 +618,7 @@ describe('InboxItem', () => {
     it('shows the same run carrying on after the answer, without repeating what it did before', () => {
       const [only] = item([note(), answered]);
       waiting.mockReturnValue([
-        { ...only, runId: 'run_1', work: 'in-progress' },
+        { ...only, runId: 'run_1', progress: 'in-progress' },
       ]);
       journal.mockReturnValue([
         {

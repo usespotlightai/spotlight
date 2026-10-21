@@ -16,7 +16,7 @@ const task = (id: string, stationId: string): Task => ({
   description: null,
   attachments: [],
   createdAt: '2026-08-04T09:15:00.000Z',
-  work: null,
+  progress: null,
   awaitingReview: null,
   createdBy: null,
   assignee: null,
@@ -169,7 +169,7 @@ describe('startsAgainOnMessage', () => {
   it('leaves a task that still has a current run to that run', () => {
     expect(
       startsAgainOnMessage(
-        { ...task('a', 'spec'), work: 'in-progress' },
+        { ...task('a', 'spec'), progress: 'in-progress' },
         worked,
         'spec',
       ),
