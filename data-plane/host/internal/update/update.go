@@ -19,6 +19,7 @@ import (
 
 const (
 	DefaultReleases = "https://github.com/usespotlightai/spotlight/releases/download"
+	Canary          = "canary"
 
 	binaryLargest   = 512 << 20
 	checksumLongest = 4 << 10
@@ -170,7 +171,7 @@ func reports(ctx context.Context, binary, release string) error {
 		return fmt.Errorf("the downloaded binary does not run on this machine: %w", err)
 	}
 
-	if got := strings.TrimSpace(string(out)); got != release {
+	if got := strings.TrimSpace(string(out)); got != release && release != Canary {
 		return fmt.Errorf("the downloaded binary reports release %q, not %q", got, release)
 	}
 	return nil
