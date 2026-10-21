@@ -14,7 +14,6 @@ export const TaskRunHttpMapper = {
     return new TaskRunResponseDto(
       dto.id,
       dto.state,
-      dto.activity,
       dto.attempt,
       dto.exitCode,
       dto.startedAt,
@@ -33,6 +32,7 @@ export const TaskRunHttpMapper = {
       dto.review
         ? new RunReviewResponseDto(dto.review.state, dto.review.conversationId)
         : null,
+      dto.progress,
     );
   },
 

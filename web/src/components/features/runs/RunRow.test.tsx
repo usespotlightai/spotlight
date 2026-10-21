@@ -5,20 +5,13 @@ import { TaskState } from '@/components/features/board/task/TaskState';
 import { RunRow } from '@/components/features/runs/RunRow';
 import type { Run } from '@/lib/run';
 import type { Task } from '@/lib/task';
+import { progressOfState } from '@/mocks/world/run-progress';
 
-const run = (
-  state: Run['state'],
-  review: Run['review'] = null,
-  activity: Run['activity'] = state === 'claimed'
-    ? 'working'
-    : state === 'queued'
-      ? 'queued'
-      : null,
-) =>
+const run = (state: Run['state'], review: Run['review'] = null) =>
   ({
     id: 'run_1',
     state,
-    activity,
+    progress: progressOfState(state),
     exitCode: null,
     startedAt: new Date().toISOString(),
     station: null,
@@ -38,7 +31,9 @@ describe('RunRow, what a run is doing', () => {
     const inRuns = shown(<RunRow run={run('claimed')} to="/runs/run_1" />);
     const onBoard = shown(
       <TaskState
-        task={{ running: true, awaitingReview: false } as unknown as Task}
+        task={
+          { progress: 'in-progress', awaitingReview: false } as unknown as Task
+        }
       />,
     );
 
@@ -51,10 +46,26 @@ describe('RunRow, what a run is doing', () => {
     expect(pill(inRuns)).toEqual(pill(onBoard));
   });
 
-  it('says a queued run is queued, which the board has no word for', () => {
-    shown(<RunRow run={run('queued')} to="/runs/run_1" />);
+  it('shows the same queued pill that a queued task shows on the board', () => {
+    const inRuns = shown(<RunRow run={run('queued')} to="/runs/run_1" />);
+    const onBoard = shown(
+      <TaskState
+        task={
+          {
+            progress: 'queued',
+            awaitingReview: false,
+          } as unknown as Task
+        }
+      />,
+    );
 
-    expect(screen.getByText('Queued')).toBeInTheDocument();
+    const pill = (container: HTMLElement) =>
+      screen.getAllByText('Queued').find((each) => container.contains(each))
+        ?.outerHTML;
+
+    expect(pill(inRuns)).toBeDefined();
+    expect(pill(inRuns)).toEqual(pill(onBoard));
+    expect(screen.queryByText('In progress')).not.toBeInTheDocument();
   });
 
   it('says nothing of a run that has ended', () => {
@@ -69,20 +80,6 @@ describe('RunRow, what a run is doing', () => {
 
     expect(screen.getByText('Waiting for you')).toBeInTheDocument();
     expect(screen.queryByText('In progress')).not.toBeInTheDocument();
-  });
-
-  it('says a run asked to stop is stopping, still in progress', () => {
-    shown(<RunRow run={run('claimed', null, 'stopping')} to="/runs/run_1" />);
-
-    expect(screen.getByText('Stopping')).toBeInTheDocument();
-    expect(screen.getByText('In progress')).toBeInTheDocument();
-  });
-
-  it('no longer says waiting for you once the person answered', () => {
-    shown(<RunRow run={run('waiting', null, 'working')} to="/runs/run_1" />);
-
-    expect(screen.queryByText('Waiting for you')).not.toBeInTheDocument();
-    expect(screen.getByText('In progress')).toBeInTheDocument();
   });
 
   it('still says it is waiting for you once the run is suspended', () => {

@@ -1,6 +1,6 @@
 module usespotlight.ai/data-plane
 
-go 1.26.9
+go 1.26.10
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.47.3
@@ -8,6 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.50.4
 	github.com/aws/smithy-go v1.28.5
 	github.com/getsentry/sentry-go v0.50.0
+	golang.org/x/term v0.47.0
 )
 
 require (
@@ -22,6 +23,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.38.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.51.4 // indirect
-	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 )

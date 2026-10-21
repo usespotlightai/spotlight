@@ -186,22 +186,9 @@ describe('the notes of a run', () => {
     expect(found?.latestRun).toEqual({
       id: second,
       state: 'claimed',
-      activity: 'stopping',
+      progress: 'stopping',
     });
-  });
-
-  it('calls a run stopping that was stopped while it waited for a person', async () => {
-    const { implementation, run } = await taskAtImplementation();
-    const waiting = await run(
-      implementation,
-      'waiting',
-      '2026-10-20T09:00:00.000Z',
-      new Date('2026-10-20T09:05:00.000Z'),
-    );
-
-    const found = await reader.notesFor(RunId.of(waiting), VIEWER);
-
-    expect(found?.latestRun.activity).toBe('stopping');
+    expect(found?.progress).toBe('stopping');
   });
 
   it('no longer calls a run stopping once it has ended', async () => {
@@ -215,7 +202,7 @@ describe('the notes of a run', () => {
 
     const found = await reader.notesFor(RunId.of(stopped), VIEWER);
 
-    expect(found?.latestRun.activity).toBeNull();
+    expect(found?.latestRun.progress).toBeNull();
   });
 
   it('does not work at the station once the task runs at another one', async () => {
@@ -234,8 +221,9 @@ describe('the notes of a run', () => {
     expect(found?.latestRun).toEqual({
       id: here,
       state: 'completed',
-      activity: null,
+      progress: null,
     });
+    expect(found?.progress).toBeNull();
   });
 
   it('keeps the notes written before the station was renamed', async () => {
@@ -336,9 +324,7 @@ describe('the notes of a run', () => {
   });
 });
 
-describe('the activity of a run', () => {
-  const IMPLEMENTATION = { station: 'Implementation' };
-
+describe('the progress of a run once a person answered it', () => {
   const listed = async (taskId: string, runId: string) => {
     const [forTask, forTeam, traced] = await Promise.all([
       reader.listForTask(TaskId.of(taskId), VIEWER),
@@ -347,79 +333,50 @@ describe('the activity of a run', () => {
     ]);
 
     return [forTask, forTeam, traced].map(
-      (runs) => runs.find((each) => each.id === runId)?.activity,
+      (runs) => runs.find((each) => each.id === runId)?.takenUpOnAnswer,
     );
   };
 
-  it('says nothing for a run a runner holds while a person owes an answer', async () => {
+  const paused = async (state: RunState, answered: boolean) => {
     const { taskId, implementation, note, run } = await taskAtImplementation();
-    const held = await run(
+    const at = { stationId: implementation, station: 'Implementation' };
+    const older = await run(
       implementation,
-      'claimed',
-      '2026-10-20T09:00:00.000Z',
+      'suspended',
+      '2026-10-20T08:00:00.000Z',
     );
-    await current(taskId, held);
-    await note(
-      { ...IMPLEMENTATION, stationId: implementation },
-      held,
-      'May I drop the table?',
-      'asked',
-    );
+    const runId = await run(implementation, state, '2026-10-20T09:00:00.000Z');
+    await current(taskId, runId);
+    await note(at, runId, 'Which queue?', 'asked');
+    if (answered) {
+      await note(at, null, 'The retry queue.', 'answered');
+    }
 
-    const found = await reader.notesFor(RunId.of(held), VIEWER);
+    return { taskId, runId, older };
+  };
 
-    expect(found?.latestRun.activity).toBeNull();
-    expect(await listed(taskId, held)).toEqual([null, null, null]);
+  it('takes up the current run in every run list once the answer is in', async () => {
+    const { taskId, runId, older } = await paused('waiting', true);
+
+    expect(await listed(taskId, runId)).toEqual([true, true, true]);
+    expect(await listed(taskId, older)).toEqual([false, false, false]);
   });
 
-  it('says a paused run works again once the person answered', async () => {
-    const { taskId, implementation, note, run } = await taskAtImplementation();
-    const paused = await run(
-      implementation,
-      'waiting',
-      '2026-10-20T09:00:00.000Z',
-    );
-    await current(taskId, paused);
-    await note(
-      { ...IMPLEMENTATION, stationId: implementation },
-      paused,
-      'Which queue?',
-      'asked',
-    );
-    await note(
-      { ...IMPLEMENTATION, stationId: implementation },
-      null,
-      'The retry queue.',
-      'answered',
-    );
+  it('takes up no run while the person still owes the answer', async () => {
+    const { taskId, runId } = await paused('waiting', false);
 
-    const found = await reader.notesFor(RunId.of(paused), VIEWER);
-
-    expect(found?.latestRun.activity).toBe('working');
-    expect(await listed(taskId, paused)).toEqual([
-      'working',
-      'working',
-      'working',
-    ]);
+    expect(await listed(taskId, runId)).toEqual([false, false, false]);
   });
 
-  it('lists a run asked to stop as stopping, and an older paused run as doing nothing', async () => {
-    const { taskId, triage, implementation, run } =
-      await taskAtImplementation();
-    const older = await run(triage, 'suspended', '2026-10-20T09:00:00.000Z');
-    const stopping = await run(
-      implementation,
-      'claimed',
-      '2026-10-20T10:00:00.000Z',
-      new Date('2026-10-20T10:05:00.000Z'),
-    );
-    await current(taskId, stopping);
+  it('says in the run notes that an answered run is under way again', async () => {
+    const warm = await paused('waiting', true);
+    const suspended = await paused('suspended', true);
 
-    expect(await listed(taskId, stopping)).toEqual([
-      'stopping',
-      'stopping',
-      'stopping',
-    ]);
-    expect(await listed(taskId, older)).toEqual([null, null, null]);
+    expect(
+      (await reader.notesFor(RunId.of(warm.runId), VIEWER))?.progress,
+    ).toBe('in-progress');
+    expect(
+      (await reader.notesFor(RunId.of(suspended.runId), VIEWER))?.progress,
+    ).toBe('queued');
   });
 });

@@ -30,38 +30,45 @@ export const isStopping = (state: RunState, stopRequested: boolean): boolean =>
 export const resumable = (state: RunState, stopRequested: boolean): boolean =>
   state === 'suspended' || (state === 'waiting' && !stopRequested);
 
-export const RUN_ACTIVITIES = ['queued', 'working', 'stopping'] as const;
+export const PROGRESSES = ['queued', 'in-progress', 'stopping'] as const;
 
-export type RunActivity = (typeof RUN_ACTIVITIES)[number];
+export type Progress = (typeof PROGRESSES)[number];
 
-export interface RunActivityFacts {
+interface Working {
   readonly state: RunState;
   readonly stopRequested: boolean;
-  readonly awaitsPerson: boolean;
-  readonly current: boolean;
 }
 
-export const activityOf = ({
-  state,
-  stopRequested,
-  awaitsPerson,
-  current,
-}: RunActivityFacts): RunActivity | null => {
-  if (isStopping(state, stopRequested)) {
+export const progressOf = (run: Working): Progress | null => {
+  if (isStopping(run.state, run.stopRequested)) {
     return 'stopping';
   }
-  if (awaitsPerson) {
-    return null;
-  }
-  if (state === 'queued') {
+
+  if (run.state === 'queued') {
     return 'queued';
   }
-  if (state === 'claimed') {
-    return 'working';
+
+  return run.state === 'claimed' ? 'in-progress' : null;
+};
+
+export const takenUpOnAnswer = (
+  runId: string,
+  task: {
+    readonly currentRunId: string | null;
+    readonly awaitsPerson: boolean;
+  },
+): boolean => runId === task.currentRunId && !task.awaitsPerson;
+
+export const progressOfCurrentRun = (
+  current: Working | null,
+  takenUp: boolean,
+): Progress | null => {
+  if (current === null) {
+    return 'queued';
   }
-  if (current && resumable(state, stopRequested)) {
-    return state === 'waiting' ? 'working' : 'queued';
+  if (takenUp && resumable(current.state, current.stopRequested)) {
+    return current.state === 'waiting' ? 'in-progress' : 'queued';
   }
 
-  return null;
+  return progressOf(current);
 };

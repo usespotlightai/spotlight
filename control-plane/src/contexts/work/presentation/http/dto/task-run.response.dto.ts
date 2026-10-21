@@ -1,11 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import {
   REVIEW_STATE_NAMES,
   RUN_STATE_NAMES,
 } from '@work/application/dto/task-run.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 import { NoteResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
-import { RUN_ACTIVITY_PROPERTY } from '@work/presentation/http/dto/run-activity.property';
 
 export class RunStationResponseDto {
   @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })
@@ -120,13 +120,20 @@ export class LatestRunResponseDto {
   @ApiProperty({ example: 'claimed', enum: RUN_STATE_NAMES })
   readonly state: string;
 
-  @ApiProperty(RUN_ACTIVITY_PROPERTY)
-  readonly activity: string | null;
+  @ApiProperty({
+    enum: [...PROGRESS_NAMES, null],
+    nullable: true,
+    type: String,
+    example: 'in-progress',
+    description:
+      'What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop',
+  })
+  readonly progress: string | null;
 
-  constructor(id: string, state: string, activity: string | null) {
+  constructor(id: string, state: string, progress: string | null) {
     this.id = id;
     this.state = state;
-    this.activity = activity;
+    this.progress = progress;
   }
 }
 
@@ -160,6 +167,16 @@ export class RunNotesResponseDto {
   readonly briefing: string;
 
   @ApiProperty({
+    enum: [...PROGRESS_NAMES, null],
+    nullable: true,
+    type: String,
+    example: 'in-progress',
+    description:
+      'What the run of the task at this station is doing now: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. A paused run is under way again once a person answered it.',
+  })
+  readonly progress: string | null;
+
+  @ApiProperty({
     type: LatestRunResponseDto,
     description: 'The newest run of the task at this station',
   })
@@ -185,6 +202,7 @@ export class RunNotesResponseDto {
     station: RunStationResponseDto | null,
     createdAt: string,
     briefing: string,
+    progress: string | null,
     latestRun: LatestRunResponseDto,
     notes: readonly NoteResponseDto[],
     spend: RunSpendResponseDto | null,
@@ -197,6 +215,7 @@ export class RunNotesResponseDto {
     this.station = station;
     this.createdAt = createdAt;
     this.briefing = briefing;
+    this.progress = progress;
     this.latestRun = latestRun;
     this.notes = notes;
     this.spend = spend;
@@ -225,9 +244,6 @@ export class TaskRunResponseDto {
 
   @ApiProperty({ example: 'completed', enum: RUN_STATE_NAMES })
   readonly state: string;
-
-  @ApiProperty(RUN_ACTIVITY_PROPERTY)
-  readonly activity: string | null;
 
   @ApiProperty({ example: 1 })
   readonly attempt: number;
@@ -268,10 +284,19 @@ export class TaskRunResponseDto {
   })
   readonly review: RunReviewResponseDto | null;
 
+  @ApiProperty({
+    enum: [...PROGRESS_NAMES, null],
+    nullable: true,
+    type: String,
+    example: 'in-progress',
+    description:
+      'What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended.',
+  })
+  readonly progress: string | null;
+
   constructor(
     id: string,
     state: string,
-    activity: string | null,
     attempt: number,
     exitCode: number | null,
     startedAt: string,
@@ -280,10 +305,10 @@ export class TaskRunResponseDto {
     image: string | null,
     station: RunStationResponseDto | null,
     review: RunReviewResponseDto | null,
+    progress: string | null,
   ) {
     this.id = id;
     this.state = state;
-    this.activity = activity;
     this.attempt = attempt;
     this.exitCode = exitCode;
     this.startedAt = startedAt;
@@ -292,6 +317,7 @@ export class TaskRunResponseDto {
     this.image = image;
     this.station = station;
     this.review = review;
+    this.progress = progress;
   }
 }
 
@@ -318,7 +344,6 @@ export class TeamRunResponseDto extends TaskRunResponseDto {
     super(
       run.id,
       run.state,
-      run.activity,
       run.attempt,
       run.exitCode,
       run.startedAt,
@@ -327,6 +352,7 @@ export class TeamRunResponseDto extends TaskRunResponseDto {
       run.image,
       run.station,
       run.review,
+      run.progress,
     );
     this.taskId = taskId;
     this.taskTitle = taskTitle;

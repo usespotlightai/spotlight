@@ -12,11 +12,7 @@ import type {
 } from '@work/application/ports/inbox-reader.port';
 import type { RunReview } from '@work/application/ports/run-reader.port';
 import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
-import {
-  awaitsAPerson,
-  pendingIn,
-  reviewsIn,
-} from '@work/domain/services/conversations';
+import { pendingIn, reviewsIn } from '@work/domain/services/conversations';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import {
@@ -303,21 +299,15 @@ type TrailNote = {
   runId: string | null;
 };
 
-export interface TrailFacts {
-  readonly reviews: ReadonlyMap<string, RunReview>;
-  readonly awaiting: ReadonlySet<string>;
-}
-
-export const trailFactsBy = async (
+export const reviewsBy = async (
   db: DrizzleDatabase,
   taskIds: readonly string[],
-): Promise<TrailFacts> => {
+): Promise<Map<string, RunReview>> => {
   const named = [...new Set(taskIds)];
   const review = new Map<string, RunReview>();
-  const awaiting = new Set<string>();
 
   if (named.length === 0) {
-    return { reviews: review, awaiting };
+    return review;
   }
 
   const rows = await db
@@ -345,9 +335,6 @@ export const trailFactsBy = async (
   }
 
   for (const [taskId, trail] of trails) {
-    if (awaitsAPerson(trail)) {
-      awaiting.add(taskId);
-    }
     for (const [runId, reviewed] of reviewsIn(trail)) {
       review.set(runId, {
         state: reviewed.state,
@@ -359,7 +346,7 @@ export const trailFactsBy = async (
     }
   }
 
-  return { reviews: review, awaiting };
+  return review;
 };
 
 export const briefingsFor = async (

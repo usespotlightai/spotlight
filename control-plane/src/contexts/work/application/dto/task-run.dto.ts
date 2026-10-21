@@ -1,5 +1,5 @@
 import {
-  RUN_ACTIVITIES,
+  type Progress,
   RUN_STATES,
 } from '@work/domain/value-objects/run-state';
 
@@ -12,8 +12,6 @@ interface RunReviewDto {
 
 export const RUN_STATE_NAMES = RUN_STATES;
 
-export const RUN_ACTIVITY_NAMES = RUN_ACTIVITIES;
-
 export interface RunStationDto {
   readonly id: string;
   readonly name: string;
@@ -25,7 +23,6 @@ export interface RunStationDto {
 export interface TaskRunDto {
   readonly id: string;
   readonly state: string;
-  readonly activity: string | null;
   readonly attempt: number;
   readonly exitCode: number | null;
   readonly startedAt: string;
@@ -34,6 +31,7 @@ export interface TaskRunDto {
   readonly image: string | null;
   readonly station: RunStationDto | null;
   readonly review: RunReviewDto | null;
+  readonly progress: Progress | null;
 }
 
 export interface TeamRunDto extends TaskRunDto {

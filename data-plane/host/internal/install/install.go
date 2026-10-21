@@ -36,19 +36,10 @@ func (s Service) Install(out io.Writer) error {
 
 func (s Service) systemd(out io.Writer) error {
 	system := os.Geteuid() == 0
-
-	dir := "/etc/systemd/system"
-	scope := []string{}
-	if !system {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return err
-		}
-		dir = filepath.Join(home, ".config/systemd/user")
-		scope = []string{"--user"}
+	path, err := unitPath()
+	if err != nil {
+		return err
 	}
-
-	path := filepath.Join(dir, unitName+".service")
 	if err := write(path, SystemdUnit(s, system)); err != nil {
 		return err
 	}
@@ -58,13 +49,13 @@ func (s Service) systemd(out io.Writer) error {
 		{"enable", unitName},
 		{"restart", unitName},
 	} {
-		if err := command("systemctl", append(scope, args...)...); err != nil {
+		if err := systemctl(args...); err != nil {
 			return err
 		}
 	}
 
-	step(out, fmt.Sprintf("Started the systemd service %s (%s)", unitName, path))
-	if !system && os.Getenv("SPOTLIGHT_INSTALLER") != "1" && !lingers() {
+	Step(out, fmt.Sprintf("Started the systemd service %s (%s)", unitName, path))
+	if !system && !lingers() {
 		fmt.Fprintf(out, "\nTo keep the host running after you log out, run:\n  loginctl enable-linger %s\n", os.Getenv("USER"))
 	}
 
@@ -73,25 +64,216 @@ func (s Service) systemd(out io.Writer) error {
 
 // Docker Desktop, OrbStack and Colima each run per user, so a Mac host is a LaunchAgent, not a daemon.
 func (s Service) launchd(out io.Writer) error {
-	home, err := os.UserHomeDir()
+	path, logs, err := agentPaths()
 	if err != nil {
 		return err
 	}
-
-	path := filepath.Join(home, "Library/LaunchAgents", label+".plist")
-	logs := filepath.Join(home, "Library/Logs/spotlight-host.log")
 	if err := write(path, LaunchdPlist(s, logs)); err != nil {
 		return err
 	}
 
-	domain := "gui/" + strconv.Itoa(os.Getuid())
-	_ = exec.Command("launchctl", "bootout", domain+"/"+label).Run()
-	if err := command("launchctl", "bootstrap", domain, path); err != nil {
+	_ = exec.Command("launchctl", "bootout", agent()).Run()
+	if err := command("launchctl", "bootstrap", domain(), path); err != nil {
 		return err
 	}
 
-	step(out, fmt.Sprintf("Started the launchd agent %s (logs in %s)", label, logs))
+	Step(out, fmt.Sprintf("Started the launchd agent %s (logs in %s)", label, logs))
 	return nil
+}
+
+// Installed names the unit or agent file of an installed service.
+func Installed() (string, bool) {
+	var path string
+	var err error
+	switch runtime.GOOS {
+	case "linux":
+		path, err = unitPath()
+	case "darwin":
+		path, _, err = agentPaths()
+	default:
+		return "", false
+	}
+	if err != nil {
+		return "", false
+	}
+	_, err = os.Stat(path)
+	return path, err == nil
+}
+
+func Active() bool {
+	switch runtime.GOOS {
+	case "linux":
+		return exec.Command("systemctl", append(scope(), "is-active", "--quiet", unitName)...).Run() == nil
+	case "darwin":
+		return exec.Command("launchctl", "print", agent()).Run() == nil
+	default:
+		return false
+	}
+}
+
+func Start(out io.Writer) error {
+	path, err := installedPath()
+	if err != nil {
+		return err
+	}
+
+	if runtime.GOOS == "linux" {
+		err = systemctl("start", unitName)
+	} else if Active() {
+		err = command("launchctl", "kickstart", agent())
+	} else {
+		err = command("launchctl", "bootstrap", domain(), path)
+	}
+	if err != nil {
+		return err
+	}
+
+	Step(out, "Started the host")
+	return nil
+}
+
+func Stop(out io.Writer) error {
+	if _, err := installedPath(); err != nil {
+		return err
+	}
+
+	var err error
+	if runtime.GOOS == "linux" {
+		err = systemctl("stop", unitName)
+	} else if Active() {
+		err = command("launchctl", "bootout", agent())
+	}
+	if err != nil {
+		return err
+	}
+
+	Step(out, "Stopped the host")
+	return nil
+}
+
+// Restart stops the host at once, with its sandboxes, and starts it again.
+func Restart(out io.Writer) error {
+	path, err := installedPath()
+	if err != nil {
+		return err
+	}
+
+	if runtime.GOOS == "linux" {
+		err = systemctl("restart", unitName)
+	} else if Active() {
+		err = command("launchctl", "kickstart", "-k", agent())
+	} else {
+		err = command("launchctl", "bootstrap", domain(), path)
+	}
+	if err != nil {
+		return err
+	}
+
+	Step(out, "Restarted the host")
+	return nil
+}
+
+func Uninstall(out io.Writer) error {
+	path, err := installedPath()
+	if err != nil {
+		return err
+	}
+
+	if runtime.GOOS == "linux" {
+		if err := systemctl("disable", "--now", unitName); err != nil {
+			return err
+		}
+	} else if Active() {
+		if err := command("launchctl", "bootout", agent()); err != nil {
+			return err
+		}
+	}
+
+	if err := os.Remove(path); err != nil {
+		return err
+	}
+	if runtime.GOOS == "linux" {
+		if err := systemctl("daemon-reload"); err != nil {
+			return err
+		}
+	}
+
+	Step(out, fmt.Sprintf("Removed the service (%s)", path))
+	return nil
+}
+
+// Logs reads the service's log: the journal on Linux, the agent's log file on macOS.
+func Logs(follow bool, lines int) (*exec.Cmd, error) {
+	if _, err := installedPath(); err != nil {
+		return nil, err
+	}
+
+	if runtime.GOOS == "linux" {
+		args := append(scope(), "--unit", unitName, "--lines", strconv.Itoa(lines), "--no-pager")
+		if follow {
+			args = append(args, "--follow")
+		}
+		return exec.Command("journalctl", args...), nil
+	}
+
+	_, logs, err := agentPaths()
+	if err != nil {
+		return nil, err
+	}
+	args := []string{"-n", strconv.Itoa(lines)}
+	if follow {
+		args = append(args, "-F")
+	}
+	return exec.Command("tail", append(args, logs)...), nil
+}
+
+func installedPath() (string, error) {
+	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
+		return "", fmt.Errorf("a service on %s is not supported; run `spotlight host` under your own supervisor", runtime.GOOS)
+	}
+	path, ok := Installed()
+	if !ok {
+		return "", fmt.Errorf("the host is not installed as a service; run `spotlight host init`")
+	}
+	return path, nil
+}
+
+func unitPath() (string, error) {
+	if os.Geteuid() == 0 {
+		return filepath.Join("/etc/systemd/system", unitName+".service"), nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".config/systemd/user", unitName+".service"), nil
+}
+
+func agentPaths() (string, string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", "", err
+	}
+	return filepath.Join(home, "Library/LaunchAgents", label+".plist"), filepath.Join(home, "Library/Logs/spotlight-host.log"), nil
+}
+
+func scope() []string {
+	if os.Geteuid() == 0 {
+		return nil
+	}
+	return []string{"--user"}
+}
+
+func systemctl(args ...string) error {
+	return command("systemctl", append(scope(), args...)...)
+}
+
+func domain() string {
+	return "gui/" + strconv.Itoa(os.Getuid())
+}
+
+func agent() string {
+	return domain() + "/" + label
 }
 
 func SystemdUnit(s Service, system bool) string {
@@ -109,6 +291,7 @@ func SystemdUnit(s Service, system bool) string {
 		"[Service]",
 		"ExecStart=" + commandQuoted(s.Binary) + " host",
 		"Environment=" + settingQuoted("SPOTLIGHT_HOST_CONFIG="+s.Config),
+		"ExecReload=/bin/kill -HUP $MAINPID",
 		"Restart=always",
 		"RestartSec=5",
 		"RestartPreventExitStatus=" + strconv.Itoa(StopExit),
@@ -171,7 +354,7 @@ func command(name string, args ...string) error {
 	return nil
 }
 
-func step(out io.Writer, text string) {
+func Step(out io.Writer, text string) {
 	mark := "✓"
 	if file, ok := out.(*os.File); ok && os.Getenv("NO_COLOR") == "" {
 		if info, err := file.Stat(); err == nil && info.Mode()&os.ModeCharDevice != 0 {

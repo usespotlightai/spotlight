@@ -11,7 +11,7 @@ import {
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useAnswerInboxItem } from '@/hooks/api/useAnswerInboxItem';
-import { useRunActivity } from '@/hooks/useRunActivity';
+import { useRunProgress } from '@/hooks/useRunProgress';
 import {
   type InboxItem,
   type RunJournal,
@@ -19,7 +19,7 @@ import {
   workedOn,
 } from '@/lib/inbox';
 import { carriesItsOwn, stationOf } from '@/lib/inbox-item';
-import { shownActivity } from '@/lib/run';
+import { shownProgress } from '@/lib/run';
 
 type InboxItemConversationProps = {
   slug: string;
@@ -37,8 +37,8 @@ export function InboxItemConversation({
   const [params] = useSearchParams();
   const answer = useAnswerInboxItem();
   const ownsItsBriefing = carriesItsOwn(item);
-  const reported = useRunActivity(item.runId, item.activity);
-  const activity = shownActivity(reported, item.runId, worked);
+  const reported = useRunProgress(item.runId, item.progress);
+  const progress = shownProgress(reported, item.runId, worked);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -57,7 +57,7 @@ export function InboxItemConversation({
               : undefined,
             createdAt: item.createdAt,
             station: stationOf(item),
-            activity,
+            progress,
             resolved: item.resolved,
             notes: item.notes,
           }}
@@ -76,11 +76,11 @@ export function InboxItemConversation({
           }}
           openAt={shownAt(item.notes, params.get('run'))}
           live={
-            item.runId && activity ? (
+            item.runId && progress ? (
               <RunActivity
                 runId={item.runId}
                 journals={workedOn(worked, item.notes, item.runId)}
-                activity={activity}
+                progress={progress}
                 station={stationOf(item)}
               />
             ) : undefined
@@ -90,7 +90,7 @@ export function InboxItemConversation({
           }
           footer={
             ownsItsBriefing ? null : (
-              <InboxItemFooter slug={slug} item={item} activity={reported} />
+              <InboxItemFooter slug={slug} item={item} progress={reported} />
             )
           }
         />

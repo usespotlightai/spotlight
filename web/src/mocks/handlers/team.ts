@@ -432,7 +432,7 @@ const answered = (record: ChatRecord, sentAt: string, body: string): void => {
   ]);
   record.journals.push(journal);
   record.chat.updatedAt = turnEndsAt(journal);
-  record.chat.working = false;
+  record.chat.progress = null;
   record.chat.runId = null;
 };
 
@@ -481,7 +481,7 @@ const chatHandlers = [
         setup: input.setup ? { ...input.setup, pullRequest: null } : null,
         createdAt: at,
         updatedAt: at,
-        working: false,
+        progress: null,
         runId: null,
         messages: [messageBy(SAM, 0, input.body, at, traces)],
       },
@@ -551,7 +551,7 @@ const chatHandlers = [
           description: proposal.description,
           attachments: [],
           createdAt: now(),
-          running: false,
+          progress: null,
           awaitingReview: null,
           pullRequest: null,
           createdBy: SAM,
@@ -592,7 +592,7 @@ const chatHandlers = [
       return notFound();
     }
 
-    record.chat.working = false;
+    record.chat.progress = null;
     record.chat.runId = null;
 
     return noContent();

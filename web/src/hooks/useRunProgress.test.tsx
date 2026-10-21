@@ -3,8 +3,8 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStopRun } from '@/hooks/api/useStopRun';
-import { useRunActivity } from '@/hooks/useRunActivity';
-import type { ReportedActivity } from '@/lib/run';
+import { useRunProgress } from '@/hooks/useRunProgress';
+import type { Progress } from '@/lib/run';
 
 const stopRun = vi.fn();
 
@@ -12,7 +12,7 @@ vi.mock('@/lib/api', () => ({
   stopRun: (...args: unknown[]) => stopRun(...args),
 }));
 
-const setUp = (activity: ReportedActivity | null) => {
+const setUp = (progress: Progress | null) => {
   const client = new QueryClient({
     defaultOptions: { mutations: { retry: false } },
   });
@@ -23,29 +23,28 @@ const setUp = (activity: ReportedActivity | null) => {
   return renderHook(
     () => ({
       stop: useStopRun(),
-      activity: useRunActivity('run_1', activity),
+      progress: useRunProgress('run_1', progress),
     }),
     { wrapper },
   ).result;
 };
 
-describe('useRunActivity', () => {
+describe('useRunProgress', () => {
   beforeEach(() => {
     stopRun.mockReset();
   });
 
   it('is stopping while the stop is on its way', async () => {
     stopRun.mockReturnValue(new Promise(() => {}));
-    const result = setUp('working');
+    const result = setUp('in-progress');
 
     act(() => result.current.stop.mutate({ teamId: 'team_1', runId: 'run_1' }));
 
-    await waitFor(() => expect(result.current.activity).toBe('stopping'));
+    await waitFor(() => expect(result.current.progress).toBe('stopping'));
   });
 
   it('keeps what the server says while nobody asked to stop', () => {
-    expect(setUp('working').current.activity).toBe('working');
-    expect(setUp('stopping').current.activity).toBe('stopping');
-    expect(setUp(null).current.activity).toBeNull();
+    expect(setUp('in-progress').current.progress).toBe('in-progress');
+    expect(setUp(null).current.progress).toBeNull();
   });
 });

@@ -115,8 +115,23 @@ func Load(version string) (Config, error) {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return Config{}, fmt.Errorf("read %s: %w", Path(), err)
 	}
+	return Parse(version, saved)
+}
+
+// Parse reads saved as the file's values, with the host's environment winning over them.
+func Parse(version string, saved map[string]string) (Config, error) {
+	return parse(version, saved, true)
+}
+
+// Check reads only the file's values, so a command checks what it saves and not the shell it runs in.
+func Check(version string, saved map[string]string) (Config, error) {
+	return parse(version, saved, false)
+}
+
+func parse(version string, saved map[string]string, fromEnv bool) (Config, error) {
+	var err error
 	get := func(key string) string {
-		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+		if value := strings.TrimSpace(os.Getenv(key)); fromEnv && value != "" {
 			return value
 		}
 		return strings.TrimSpace(saved[key])
@@ -351,15 +366,9 @@ func ReadEnvFile(path string) (map[string]string, error) {
 	values := map[string]string{}
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
+		if key, value, ok := assignment(scanner.Text()); ok {
+			values[key] = value
 		}
-		key, value, ok := strings.Cut(line, "=")
-		if !ok {
-			continue
-		}
-		values[strings.TrimSpace(key)] = strings.Trim(strings.TrimSpace(value), `"'`)
 	}
 
 	return values, scanner.Err()
@@ -417,10 +426,50 @@ func Lock(state string) (func(), error) {
 		return nil, fmt.Errorf("open the host's lock: %w", err)
 	}
 
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	// Serving takes the lock for a moment to test it, so try a few times before another host is assumed.
+	err = syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+	for try := 0; err != nil && try < 10; try++ {
+		time.Sleep(20 * time.Millisecond)
+		err = syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+	}
+	if err != nil {
 		file.Close()
 		return nil, fmt.Errorf("another spotlight host already serves from %s: %w", state, err)
 	}
 
+	if err := errors.Join(file.Truncate(0), write(file, strconv.Itoa(os.Getpid())+"\n")); err != nil {
+		file.Close()
+		return nil, fmt.Errorf("note the host's process id: %w", err)
+	}
+
 	return func() { file.Close() }, nil
+}
+
+// Serving names the process of a host that holds the lock on state, or 0 when none does.
+func Serving(state string) (int, error) {
+	file, err := os.Open(filepath.Join(state, "host.lock"))
+	if errors.Is(err, os.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("open the host's lock: %w", err)
+	}
+	defer file.Close()
+
+	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_SH|syscall.LOCK_NB); err == nil {
+		return 0, nil
+	}
+
+	// A host that just took the lock writes its id a moment later.
+	for try := 0; ; try++ {
+		raw := make([]byte, 32)
+		n, _ := file.ReadAt(raw, 0)
+		if pid, err := strconv.Atoi(strings.TrimSpace(string(raw[:n]))); err == nil && pid > 0 {
+			return pid, nil
+		}
+		if try == 10 {
+			return 0, fmt.Errorf("the host's lock in %s names no process", state)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
 }

@@ -13,7 +13,6 @@ import { placed } from '@/lib/task';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { perWorld, world } from '@/mocks/world';
 import { SAM } from '@/mocks/world/people';
-import { activityOfState } from '@/mocks/world/run-activity';
 import { runNetworkOf } from '@/mocks/world/run-network';
 import {
   addMessage,
@@ -66,7 +65,7 @@ const queueRunAt = (teamId: string, taskId: string, stationId: string) => {
     {
       id: nextId('run'),
       state: 'queued',
-      activity: activityOfState('queued'),
+      progress: 'queued',
       attempt: 1,
       exitCode: null,
       startedAt: now,
@@ -119,7 +118,7 @@ export const workHandlers: RequestHandler[] = [
         description: body.description ?? null,
         attachments: attachmentsOf(body.attachments),
         createdAt: new Date().toISOString(),
-        running: false,
+        progress: null,
         awaitingReview: null,
         pullRequest: null,
         createdBy: SAM,
@@ -263,13 +262,13 @@ export const workHandlers: RequestHandler[] = [
           ? {
               ...each,
               state: 'failed',
-              activity: activityOfState('failed'),
+              progress: null,
               exitCode: null,
               updatedAt: now,
             }
           : each,
     );
-    replaceTask(teamId, { ...located.task, running: false });
+    replaceTask(teamId, { ...located.task, progress: null });
 
     return noContent();
   }),

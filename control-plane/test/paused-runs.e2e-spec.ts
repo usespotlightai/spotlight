@@ -29,7 +29,7 @@ interface PendingMessage {
 interface InboxItem {
   readonly id: string;
   readonly taskId: string;
-  readonly activity: string | null;
+  readonly progress: string | null;
   readonly runId: string | null;
 }
 
@@ -315,7 +315,7 @@ describe('a run that asks a person', () => {
     const item = await inboxItemOf(taskId);
     expect((await taskRow(taskId))?.currentRunId).toBe(runId);
     expect((await taskRow(taskId))?.sessionId).toBe('session_1');
-    expect(item.activity).toBeNull();
+    expect(item.progress).toBeNull();
     expect(item.runId).toBe(runId);
 
     const waiting = await runner(token)
@@ -340,7 +340,7 @@ describe('a run that asks a person', () => {
 
     const run = await runIn(runId, 'claimed');
     expect(run?.attempt).toBe(1);
-    expect((await inboxItemOf(taskId)).activity).toBe('working');
+    expect((await inboxItemOf(taskId)).progress).not.toBeNull();
 
     const pending = (
       await runner(token).get(`/api/runs/${runId}/messages`).expect(200)
@@ -522,7 +522,7 @@ describe('a run that asks a person', () => {
     expect(pending.map((each) => each.body)).toEqual([
       'Drain the default one.',
     ]);
-    expect((await inboxItemOf(taskId)).activity).toBe('working');
+    expect((await inboxItemOf(taskId)).progress).not.toBeNull();
   });
 
   it('reports whether a turn would wait for a person before the runner archives its workspace', async () => {

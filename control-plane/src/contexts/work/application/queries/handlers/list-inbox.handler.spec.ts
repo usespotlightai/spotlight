@@ -50,7 +50,7 @@ const item = (failure: InboxItemSummary['failure']): InboxItemSummary => ({
   createdAt: asked,
   askedAt: asked,
   resolved: false,
-  activity: null,
+  progress: null,
   runId: null,
   unread: true,
   briefing: null,

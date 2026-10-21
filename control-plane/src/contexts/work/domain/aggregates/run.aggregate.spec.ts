@@ -623,6 +623,14 @@ describe('Run', () => {
       expect(unclaimed.pullEvents()).toEqual([]);
     });
 
+    it('ends as stopped, not back on the queue, when someone asked it to stop', () => {
+      const unclaimed = claimed().requestStop(noon).unclaimedBy(runner());
+
+      expect(unclaimed.hasEnded).toBe(true);
+      expect(unclaimed.state).not.toBe('queued');
+      expect(unclaimed.outcome?.stopped).toBe(true);
+    });
+
     it('is unclaimed only by the runner that claimed it', () => {
       expect(() => claimed().unclaimedBy(runner('runner_2'))).toThrow(
         InvalidRunTransitionError,

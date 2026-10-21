@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { readSearchRun } from '@/lib/api';
-import { active } from '@/lib/run';
+import { underway } from '@/lib/run';
 import type { SearchRun } from '@/lib/search';
 
 const searchRunKeys = {
@@ -18,7 +18,7 @@ export function useSearchRun(
     enabled: Boolean(teamId && runId),
     retry: false,
     refetchInterval: (query) =>
-      query.state.data && active(query.state.data) ? POLL_MS : false,
+      query.state.data && underway(query.state.data) ? POLL_MS : false,
     queryFn: async (): Promise<SearchRun> => {
       const { data } = await readSearchRun({
         path: { teamId: teamId as string, runId: runId as string },

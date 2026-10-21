@@ -17,8 +17,8 @@ import {
   NOTE_KINDS,
   NOTE_VOICES,
 } from '@work/application/dto/inbox.dto';
+import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
-import { RUN_ACTIVITY_PROPERTY } from '@work/presentation/http/dto/run-activity.property';
 
 export class InboxAuthorResponseDto {
   @ApiProperty({ example: 'b7f3c1d9-2a48-4e6b-9c05-7d1e3f8a2b64' })
@@ -427,10 +427,14 @@ export class InboxItemResponseDto {
   readonly resolved: boolean;
 
   @ApiProperty({
-    ...RUN_ACTIVITY_PROPERTY,
-    description: `${RUN_ACTIVITY_PROPERTY.description}, or when no run is on it`,
+    enum: [...PROGRESS_NAMES, null],
+    nullable: true,
+    type: String,
+    example: 'in-progress',
+    description:
+      'What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress, and stopping once someone asked it to stop',
   })
-  readonly activity: string | null;
+  readonly progress: string | null;
 
   @ApiProperty({
     nullable: true,
@@ -488,7 +492,7 @@ export class InboxItemResponseDto {
     createdAt: string,
     askedAt: string,
     resolved: boolean,
-    activity: string | null,
+    progress: string | null,
     runId: string | null,
     unread: boolean,
     briefing: string | null,
@@ -511,7 +515,7 @@ export class InboxItemResponseDto {
     this.createdAt = createdAt;
     this.askedAt = askedAt;
     this.resolved = resolved;
-    this.activity = activity;
+    this.progress = progress;
     this.runId = runId;
     this.unread = unread;
     this.briefing = briefing;

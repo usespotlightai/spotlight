@@ -6,7 +6,6 @@ import type {
 } from '@/lib/api';
 import { hoursAgo } from '@/mocks/clock';
 import { world } from '@/mocks/world';
-import { activityOfState } from '@/mocks/world/run-activity';
 import {
   checksOfSet,
   entriesOf,
@@ -169,12 +168,11 @@ export const replayRun = (runId: string): ReplayRunResponseDto | null => {
     'Still working on it.';
   const path = original?.note.path ?? 'src/index.ts';
   const harness = station?.harness ?? 'claude-code';
-  const state = ended ? ('completed' as const) : ('claimed' as const);
 
   return {
     id: runId,
-    state,
-    activity: activityOfState(state),
+    state: ended ? 'completed' : 'claimed',
+    progress: ended ? null : 'in-progress',
     attempt: 1,
     exitCode: ended ? 0 : null,
     startedAt: hoursAgo(startedHoursAgo),

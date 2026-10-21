@@ -49,7 +49,7 @@ export const startsAgainOnMessage = (
     task &&
       currentStation?.harness &&
       currentStation.id === ranAt &&
-      !task.running &&
+      !task.progress &&
       !task.awaitingReview,
   );
 

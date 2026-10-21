@@ -78,7 +78,7 @@ type Updates interface {
 	To(ctx context.Context, release string) error
 }
 
-var ErrUpdated = errors.New("the host binary was replaced")
+var ErrRestart = errors.New("the host restarts")
 
 type Registry interface {
 	For(image string) (string, error)
@@ -121,7 +121,9 @@ type Host struct {
 	mirrors *mirror.Mirrors
 	log     *slog.Logger
 
-	slots            chan struct{}
+	slots            *slots
+	live             atomic.Pointer[Settings]
+	reloaded         chan struct{}
 	loops            sync.WaitGroup
 	sandboxes        sync.WaitGroup
 	responding       sync.WaitGroup
@@ -140,25 +142,31 @@ type Host struct {
 	claimBackoff map[string]time.Time
 	failures     map[string]int
 	egressIs     string
+	egressFor    string
 	updateAfter  time.Time
 	updated      bool
+	restarting   bool
 	stopClaiming context.CancelFunc
 }
 
 func New(opts Options, pool Pool, engine sandbox.Engine, mirrors *mirror.Mirrors, log *slog.Logger) *Host {
-	return &Host{
+	h := &Host{
 		opts:         opts,
 		pool:         pool,
 		engine:       engine,
 		mirrors:      mirrors,
 		log:          log,
-		slots:        make(chan struct{}, max(opts.Capacity, 1)),
+		slots:        newSlots(opts.Capacity),
+		reloaded:     make(chan struct{}, 1),
 		bootID:       crand.Text(),
 		served:       map[string]*served{},
 		running:      map[string]string{},
 		claimBackoff: map[string]time.Time{},
 		failures:     map[string]int{},
 	}
+	h.live.Store(new(settingsOf(opts)))
+
+	return h
 }
 
 func (h *Host) Serve(ctx context.Context) error {
@@ -166,6 +174,9 @@ func (h *Host) Serve(ctx context.Context) error {
 	defer stopClaiming()
 	h.mu.Lock()
 	h.stopClaiming = stopClaiming
+	if h.restarting {
+		stopClaiming()
+	}
 	h.mu.Unlock()
 
 	var (
@@ -209,15 +220,16 @@ func (h *Host) Serve(ctx context.Context) error {
 	if err := retried(claiming, h.log, "could not read what to serve, still trying", func() error {
 		return h.refresh(claiming, claiming, ctx, stop)
 	}); err != nil {
-		if final(err) {
+		switch {
+		case final(err):
 			stop(err)
-		} else {
+		case claiming.Err() == nil:
 			return quiet(ctx, err)
 		}
 	}
 
-	if !h.wasUpdated() {
-		h.log.Info("serving", "name", h.opts.Name, "capacity", cap(h.slots), "default", h.opts.Images.Default)
+	if !h.wasUpdated() && !h.wasRestarted() {
+		h.log.Info("serving", "name", h.now().Name, "capacity", h.slots.size(), "default", h.now().Images.Default)
 
 		reporting.Go(func() { h.watch(claiming, ctx, stop) })
 		h.loops.Go(func() {
@@ -240,8 +252,8 @@ func (h *Host) Serve(ctx context.Context) error {
 		h.log.Warn("could not deregister", "error", err)
 	}
 
-	if failure == nil && h.wasUpdated() {
-		return ErrUpdated
+	if failure == nil && (h.wasUpdated() || h.wasRestarted()) {
+		return ErrRestart
 	}
 	return failure
 }
@@ -259,7 +271,7 @@ func (h *Host) follow(ctx context.Context, release string) {
 	h.mu.Lock()
 	wait := time.Until(h.updateAfter)
 	h.mu.Unlock()
-	if !h.opts.AutoUpdate || release == "" || release == h.opts.Version || wait > 0 {
+	if !h.now().AutoUpdate || release == "" || release == h.opts.Version || wait > 0 {
 		return
 	}
 
@@ -344,6 +356,7 @@ func (h *Host) watch(claiming, serving context.Context, stop func(error)) {
 		case <-claiming.Done():
 			return
 		case <-ticker.C:
+		case <-h.reloaded:
 		}
 
 		if err := h.refresh(claiming, claiming, serving, stop); err != nil {
@@ -415,10 +428,10 @@ func (h *Host) heartbeat() protocol.HostHeartbeat {
 
 	return protocol.HostHeartbeat{
 		BootID:           h.bootID,
-		Name:             h.opts.Name,
+		Name:             h.now().Name,
 		Release:          h.opts.Version,
 		ContainerRuntime: h.containerRuntime,
-		Capacity:         cap(h.slots),
+		Capacity:         h.slots.size(),
 		Running:          running,
 		Images:           h.reportedImages(),
 	}
@@ -446,14 +459,12 @@ func (h *Host) claim(ctx, serving context.Context, image string) error {
 			continue
 		}
 
-		select {
-		case h.slots <- struct{}{}:
-		case <-ctx.Done():
+		if !h.slots.take(ctx) {
 			return nil
 		}
 
 		if h.claimBackoffFor(image) > 0 {
-			<-h.slots
+			h.slots.give()
 			continue
 		}
 
@@ -461,7 +472,7 @@ func (h *Host) claim(ctx, serving context.Context, image string) error {
 		trace := telemetry.NewTrace()
 		assignment, err := h.pool.Claim(telemetry.WithTrace(ctx, trace), protocol.HostClaim{Image: image})
 		if err != nil || assignment == nil {
-			<-h.slots
+			h.slots.give()
 
 			if ctx.Err() != nil {
 				return nil
@@ -483,7 +494,7 @@ func (h *Host) claim(ctx, serving context.Context, image string) error {
 
 		backoff = retryFloor
 		h.sandboxes.Go(func() {
-			defer func() { <-h.slots }()
+			defer h.slots.give()
 			h.sandbox(telemetry.WithTrace(serving, trace), image, *assignment)
 		})
 	}
@@ -576,7 +587,7 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 	starting, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
 	defer cancel()
 
-	sandboxEnv, keys := standInsFor(h.opts.SandboxEnv)
+	sandboxEnv, keys := standInsFor(h.now().SandboxEnv)
 
 	sidecar, err := h.egress(starting, assignment, keys, log)
 	defer sidecar.close()
@@ -594,9 +605,9 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 
 	env := append(sandboxEnv, sidecar.env()...)
 	env = append(env,
-		"SPOTLIGHT_URL="+h.opts.SandboxURL,
+		"SPOTLIGHT_URL="+h.now().SandboxURL,
 		"SPOTLIGHT_ASSIGNMENT_FILE="+AssignmentPath,
-		protocol.AnswerWaitVar+"="+h.opts.AnswerWait.String(),
+		protocol.AnswerWaitVar+"="+h.now().AnswerWait.String(),
 	)
 	if len(mounts) > 0 {
 		env = append(env, "SPOTLIGHT_MIRRORS="+MirrorRoot)
@@ -641,7 +652,7 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 	exited := make(chan int, 1)
 	go func() { exited <- h.waited(watching, id, log) }()
 
-	timeout := time.NewTimer(h.opts.RunTimeout)
+	timeout := time.NewTimer(h.now().RunTimeout)
 	defer timeout.Stop()
 
 	drain := func() {
@@ -660,7 +671,7 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 		log.Info("the sandbox finished", "exit", code)
 		return
 	case <-timeout.C:
-		log.Warn("the sandbox ran past its time", "timeout", h.opts.RunTimeout)
+		log.Warn("the sandbox ran past its time", "timeout", h.now().RunTimeout)
 		ranOut = true
 	case <-ctx.Done():
 		log.Info("the host is stopping, so is the sandbox")
@@ -692,7 +703,7 @@ func (h *Host) timedOut(ctx context.Context, assignment protocol.Assignment, cli
 		ExitCode: -1,
 		Failed:   true,
 		TimedOut: true,
-		Message:  fmt.Sprintf("Sandbox stopped at the host's time limit. Time limit: %s", h.opts.RunTimeout),
+		Message:  fmt.Sprintf("Sandbox stopped at the host's time limit. Time limit: %s", h.now().RunTimeout),
 	}); err != nil {
 		log.Warn("could not say the run ran out of time; its lease will expire instead", "error", err)
 	}

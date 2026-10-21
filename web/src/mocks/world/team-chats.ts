@@ -151,7 +151,7 @@ const chatOf = (
   targetStation: null,
   setup: null,
   updatedAt: over.createdAt,
-  working: false,
+  progress: null,
   runId: null,
   ...over,
 });

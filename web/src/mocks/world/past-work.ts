@@ -13,6 +13,7 @@ import {
 import { pullRequestUrlOf } from '@/mocks/world/insights-pull-requests';
 import { PEOPLE, SAM } from '@/mocks/world/people';
 import { PLATFORM_LINES, PLATFORM_TASKS } from '@/mocks/world/platform';
+import { progressOfState } from '@/mocks/world/run-progress';
 import { runStationOf } from '@/mocks/world/stations';
 
 const LINES = [...PLATFORM_LINES, ...GROWTH_LINES];
@@ -95,7 +96,7 @@ const exitCodeOf = (run: HistoryRun): number | null =>
 const shownRunOf = (run: HistoryRun): TaskRunResponseDto => ({
   id: run.runId,
   state: stateOf(run),
-  activity: null,
+  progress: progressOfState(stateOf(run)),
   attempt: visitOf(run.runId),
   exitCode: exitCodeOf(run),
   startedAt: run.startedAt ?? run.endedAt ?? new Date(run.at).toISOString(),
@@ -122,7 +123,7 @@ const shownTaskOf = (task: HistoryTask): TaskResponseDto => ({
   description: null,
   attachments: [],
   createdAt: new Date(task.openedAt).toISOString(),
-  running: false,
+  progress: null,
   awaitingReview: null,
   pullRequest: task.pullRequest ? pullRequestUrlOf(task.teamId, task.id) : null,
   createdBy: personOf(task.openedBy),

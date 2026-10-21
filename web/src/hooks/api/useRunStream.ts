@@ -1,16 +1,19 @@
 import { useEffect, useEffectEvent } from 'react';
+import type { Progress } from '@/lib/run';
 
 const EVERY_MS = 500;
 
 export function useRunStream(
   runId: string | undefined,
-  live: boolean,
+  open: boolean,
+  progress: Progress | null,
   onBump: () => void,
 ) {
   const bump = useEffectEvent(onBump);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new progress opens the stream again, so it sees the run from the claim on
   useEffect(() => {
-    if (!runId || !live) {
+    if (!runId || !open) {
       return;
     }
 
@@ -51,5 +54,5 @@ export function useRunStream(
       clearInterval(ticker);
       stream.close();
     };
-  }, [runId, live]);
+  }, [runId, open, progress]);
 }

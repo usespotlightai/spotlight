@@ -6,10 +6,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type { InboxNote } from '@work/application/ports/inbox-reader.port';
 import type { ReviewState } from '@work/domain/services/conversations';
-import type {
-  RunActivity,
-  RunState,
-} from '@work/domain/value-objects/run-state';
+import type { Progress, RunState } from '@work/domain/value-objects/run-state';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 
 export interface RunReview {
@@ -28,7 +25,7 @@ export interface RunStationSummary {
 export interface TaskRunSummary {
   readonly id: string;
   readonly state: RunState;
-  readonly activity: RunActivity | null;
+  readonly stopRequested: boolean;
   readonly attempt: number;
   readonly exitCode: number | null;
   readonly startedAt: Date;
@@ -37,6 +34,7 @@ export interface TaskRunSummary {
   readonly image: string | null;
   readonly station: RunStationSummary | null;
   readonly review: RunReview | null;
+  readonly takenUpOnAnswer: boolean;
 }
 
 export interface TeamRunSummary extends TaskRunSummary {
@@ -54,6 +52,7 @@ export interface RunNotesSummary {
   readonly station: RunStationSummary | null;
   readonly createdAt: Date;
   readonly briefing: string;
+  readonly progress: Progress | null;
   readonly latestRun: LatestRunSummary;
   readonly notes: readonly InboxNote[];
 }
@@ -61,7 +60,7 @@ export interface RunNotesSummary {
 interface LatestRunSummary {
   readonly id: string;
   readonly state: RunState;
-  readonly activity: RunActivity | null;
+  readonly progress: Progress | null;
 }
 
 export interface RanConfig {

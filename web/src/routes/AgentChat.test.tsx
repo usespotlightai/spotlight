@@ -89,7 +89,7 @@ const planning = (over: Record<string, unknown> = {}) => ({
   repositories: [],
   createdAt: '2026-08-29T09:00:00.000Z',
   updatedAt: '2026-08-29T09:00:00.000Z',
-  working: false,
+  progress: null,
   runId: null,
   messages: [
     {
@@ -259,8 +259,20 @@ describe('AgentChat', () => {
     ).toBeInTheDocument();
   });
 
+  it('says the chat is queued, not working, while its run waits for a runner', () => {
+    chat.mockReturnValue(planning({ progress: 'queued' }));
+
+    renderChat();
+
+    expect(
+      screen.getByText('Queued. The agent starts when a runner is free.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/is working/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
+  });
+
   it('says nothing of the kind while the agent is working', () => {
-    chat.mockReturnValue(planning({ messages: [], working: true }));
+    chat.mockReturnValue(planning({ messages: [], progress: 'in-progress' }));
 
     renderChat();
 

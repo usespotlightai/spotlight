@@ -1471,9 +1471,9 @@ export type InboxItemResponseDto = {
    */
   resolved: boolean;
   /**
-   * What the run does now: queued, working or stopping. A paused run is queued or working again once its question has an answer. Null while it waits for a person or once it has ended, or when no run is on it
+   * What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress, and stopping once someone asked it to stop
    */
-  activity: 'queued' | 'working' | 'stopping' | null;
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
   /**
    * The run working it now, whose steps can be watched as they land
    */
@@ -1666,9 +1666,9 @@ export type TaskResponseDto = {
   attachments: Array<AttachmentResponseDto>;
   createdAt: string;
   /**
-   * A run is under way
+   * What its current run is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null without a run at work.
    */
-  running: boolean;
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
   /**
    * Where an open question is answered, or null for none
    */
@@ -1713,10 +1713,6 @@ export type RunReviewResponseDto = {
 export type TeamRunResponseDto = {
   id: string;
   state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
-  /**
-   * What the run does now: queued, working or stopping. A paused run is queued or working again once its question has an answer. Null while it waits for a person or once it has ended
-   */
-  activity: 'queued' | 'working' | 'stopping' | null;
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -1734,6 +1730,10 @@ export type TeamRunResponseDto = {
    * Set where it put the task to a person
    */
   review: RunReviewResponseDto | null;
+  /**
+   * What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended.
+   */
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
   taskId: string | null;
   taskTitle: string | null;
   /**
@@ -1902,9 +1902,9 @@ export type LatestRunResponseDto = {
   id: string;
   state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
   /**
-   * What the run does now: queued, working or stopping. A paused run is queued or working again once its question has an answer. Null while it waits for a person or once it has ended
+   * What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop
    */
-  activity: 'queued' | 'working' | 'stopping' | null;
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
 };
 
 export type RunSpendResponseDto = {
@@ -1944,6 +1944,10 @@ export type RunNotesResponseDto = {
    */
   briefing: string;
   /**
+   * What the run of the task at this station is doing now: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. A paused run is under way again once a person answered it.
+   */
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
    * The newest run of the task at this station
    */
   latestRun: LatestRunResponseDto;
@@ -1968,10 +1972,6 @@ export type SendMessageRequestDto = {
 export type TaskRunResponseDto = {
   id: string;
   state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
-  /**
-   * What the run does now: queued, working or stopping. A paused run is queued or working again once its question has an answer. Null while it waits for a person or once it has ended
-   */
-  activity: 'queued' | 'working' | 'stopping' | null;
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -1989,6 +1989,10 @@ export type TaskRunResponseDto = {
    * Set where it put the task to a person
    */
   review: RunReviewResponseDto | null;
+  /**
+   * What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended.
+   */
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
 };
 
 export type AddTaskRequestDto = {
@@ -2043,10 +2047,6 @@ export type RunAgentResponseDto = {
 export type ReplayRunResponseDto = {
   id: string;
   state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
-  /**
-   * What the run does now: queued, working or stopping. A paused run is queued or working again once its question has an answer. Null while it waits for a person or once it has ended
-   */
-  activity: 'queued' | 'working' | 'stopping' | null;
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -2064,6 +2064,10 @@ export type ReplayRunResponseDto = {
    * Set where it put the task to a person
    */
   review: RunReviewResponseDto | null;
+  /**
+   * What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended.
+   */
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
   /**
    * The past task run it replays
    */
@@ -2106,10 +2110,6 @@ export type SearchRunSpentResponseDto = {
 export type SearchRunResponseDto = {
   id: string;
   state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
-  /**
-   * What the run does now: queued, working or stopping. A paused run is queued or working again once its question has an answer. Null while it waits for a person or once it has ended
-   */
-  activity: 'queued' | 'working' | 'stopping' | null;
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -2127,6 +2127,10 @@ export type SearchRunResponseDto = {
    * Set where it put the task to a person
    */
   review: RunReviewResponseDto | null;
+  /**
+   * What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended.
+   */
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
   /**
    * The search this run is an iteration of
    */
@@ -2189,9 +2193,9 @@ export type ChatSummaryResponseDto = {
   createdAt: string;
   updatedAt: string;
   /**
-   * The agent is answering now
+   * What the run answering it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null while nothing answers.
    */
-  working: boolean;
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
 };
 
 export type ChatSetupRequestDto = {
@@ -2308,9 +2312,9 @@ export type ChatResponseDto = {
   createdAt: string;
   updatedAt: string;
   /**
-   * The agent is answering now
+   * What the run answering it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null while nothing answers.
    */
-  working: boolean;
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
   /**
    * The run answering now
    */

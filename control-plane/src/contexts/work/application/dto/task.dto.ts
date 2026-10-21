@@ -1,4 +1,10 @@
 import type { AttachmentDto } from '@work/application/dto/attachment.dto';
+import {
+  PROGRESSES,
+  type Progress,
+} from '@work/domain/value-objects/run-state';
+
+export const PROGRESS_NAMES = PROGRESSES;
 
 interface TaskNoteDto {
   readonly position: number;
@@ -6,7 +12,7 @@ interface TaskNoteDto {
   readonly body: string;
 }
 
-export interface TaskPersonDto {
+interface TaskPersonDto {
   readonly id: string;
   readonly name: string;
   readonly image: string | null;
@@ -24,7 +30,7 @@ export interface TaskDto {
   readonly description: string | null;
   readonly attachments: readonly AttachmentDto[];
   readonly createdAt: string;
-  readonly running: boolean;
+  readonly progress: Progress | null;
   readonly awaitingReview: TaskReviewDto | null;
   readonly pullRequest: string | null;
   readonly note: TaskNoteDto | null;

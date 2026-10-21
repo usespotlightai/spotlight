@@ -1,16 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  active,
   aged,
   asRunFilter,
   byAge,
   formatImage,
   inRunFilter,
-  live,
   type Run,
   runStatus,
-  shownActivity,
-  stoppable,
+  shownProgress,
+  underway,
   waitsOnPerson,
 } from '@/lib/run';
 
@@ -100,32 +98,24 @@ describe('byAge', () => {
   });
 });
 
-describe('active', () => {
-  const run = (state: Run['state'], exitCode: number | null = null) =>
-    ({ state, exitCode }) as Run;
+describe('underway', () => {
+  const run = (state: Run['state']) => ({ state }) as Run;
 
-  it('is true while a runner has it', () => {
-    expect(active(run('claimed'))).toBe(true);
+  it('is under way while it waits for a runner or a runner has it', () => {
+    expect(underway(run('queued'))).toBe(true);
+    expect(underway(run('claimed'))).toBe(true);
   });
 
-  it('is true while it waits for one', () => {
-    expect(active(run('queued'))).toBe(true);
-  });
-
-  it('does not once it is over', () => {
-    expect(active(run('completed', 0))).toBe(false);
-    expect(active(run('failed'))).toBe(false);
-  });
-
-  it('does not while it waits on a person, warm or suspended', () => {
-    expect(active(run('waiting'))).toBe(false);
-    expect(active(run('suspended'))).toBe(false);
+  it('is not under way while it waits on a person, or once it is over', () => {
+    expect(underway(run('waiting'))).toBe(false);
+    expect(underway(run('suspended'))).toBe(false);
+    expect(underway(run('completed'))).toBe(false);
   });
 });
 
 describe('waitsOnPerson', () => {
-  const run = (state: Run['state'], activity: Run['activity'] = null) =>
-    ({ state, activity }) as Run;
+  const run = (state: Run['state'], progress: Run['progress'] = null) =>
+    ({ state, progress }) as Run;
 
   it('is true while the run keeps its sandbox warm for an answer', () => {
     expect(waitsOnPerson(run('waiting'))).toBe(true);
@@ -135,8 +125,8 @@ describe('waitsOnPerson', () => {
     expect(waitsOnPerson(run('suspended'))).toBe(true);
   });
 
-  it('is false once the person answered and the run is taken up again', () => {
-    expect(waitsOnPerson(run('waiting', 'working'))).toBe(false);
+  it('is false once the person answered, or someone asked the run to stop', () => {
+    expect(waitsOnPerson(run('waiting', 'in-progress'))).toBe(false);
     expect(waitsOnPerson(run('suspended', 'queued'))).toBe(false);
     expect(waitsOnPerson(run('waiting', 'stopping'))).toBe(false);
   });
@@ -152,27 +142,15 @@ describe('waitsOnPerson', () => {
 });
 
 describe('runStatus', () => {
-  const run = (
-    state: Run['state'],
-    exitCode: number | null = null,
-    activity: Run['activity'] = null,
-  ) => ({ state, exitCode, activity }) as Run;
+  const run = (state: Run['state'], exitCode: number | null = null) =>
+    ({ state, exitCode, progress: null }) as Run;
 
   it('says nothing of a claimed run', () => {
     expect(runStatus(run('claimed'))).toBeNull();
   });
 
-  it('reads a queued run as queued', () => {
-    expect(runStatus(run('queued', null, 'queued'))).toBe('Queued');
-  });
-
-  it('reads an answered suspended run as queued, no longer waiting for you', () => {
-    expect(runStatus(run('suspended', null, 'queued'))).toBe('Queued');
-  });
-
-  it('reads a run asked to stop as stopping', () => {
-    expect(runStatus(run('claimed', null, 'stopping'))).toBe('Stopping');
-    expect(runStatus(run('waiting', null, 'stopping'))).toBe('Stopping');
+  it('leaves a queued run to the pill that every page shows', () => {
+    expect(runStatus(run('queued'))).toBeNull();
   });
 
   it('reads a run that asked a person as waiting for you, suspended or not', () => {
@@ -198,20 +176,20 @@ describe('runStatus', () => {
 describe('run filters', () => {
   const pending = {
     state: 'completed',
-    activity: null,
+    progress: null,
     review: { state: 'pending', conversationId: 'c_1' },
   } as const;
   const answered = {
     state: 'completed',
-    activity: null,
+    progress: null,
     review: { state: 'answered', conversationId: 'c_2' },
   } as const;
   const unreviewed = {
     state: 'completed',
-    activity: null,
+    progress: null,
     review: null,
   } as const;
-  const asking = { state: 'waiting', activity: null, review: null } as const;
+  const asking = { state: 'waiting', progress: null, review: null } as const;
 
   it('lets every run through All', () => {
     expect(inRunFilter('all', pending)).toBe(true);
@@ -251,26 +229,26 @@ describe('formatImage', () => {
   });
 });
 
-describe('shownActivity', () => {
+describe('shownProgress', () => {
   const journal = (runId: string, agentStoppedAt: string | null) => ({
     runId,
     marks: { agentStoppedAt },
   });
 
-  it('shows what the server says', () => {
-    expect(shownActivity('working', 'run_1', [])).toBe('working');
-    expect(shownActivity(null, 'run_1', [])).toBeNull();
+  it('shows the progress the server sends', () => {
+    expect(shownProgress('in-progress', 'run_1', [])).toBe('in-progress');
+    expect(shownProgress(null, 'run_1', [])).toBeNull();
   });
 
   it('stays stopping until the agent has stopped', () => {
-    expect(shownActivity('stopping', 'run_1', [journal('run_1', null)])).toBe(
+    expect(shownProgress('stopping', 'run_1', [journal('run_1', null)])).toBe(
       'stopping',
     );
   });
 
-  it('is finishing once any journal of the run marks the agent as stopped', () => {
+  it('is finishing once a journal of the run marks the agent as stopped', () => {
     expect(
-      shownActivity('stopping', 'run_1', [
+      shownProgress('stopping', 'run_1', [
         journal('run_1', null),
         journal('run_1', '2026-08-30T12:00:00.000Z'),
       ]),
@@ -279,39 +257,9 @@ describe('shownActivity', () => {
 
   it('leaves out the marks of other runs', () => {
     expect(
-      shownActivity('stopping', 'run_2', [
+      shownProgress('stopping', 'run_2', [
         journal('run_1', '2026-08-30T12:00:00.000Z'),
       ]),
     ).toBe('stopping');
-  });
-});
-
-describe('stoppable', () => {
-  it('offers to stop a run that works', () => {
-    expect(stoppable({ state: 'claimed', activity: 'working' })).toBe(true);
-  });
-
-  it('offers to stop a run a runner holds while a person owes an answer', () => {
-    expect(stoppable({ state: 'claimed', activity: null })).toBe(true);
-  });
-
-  it('does not offer to stop a run that is queued, stopping or paused', () => {
-    expect(stoppable({ state: 'queued', activity: 'queued' })).toBe(false);
-    expect(stoppable({ state: 'claimed', activity: 'stopping' })).toBe(false);
-    expect(stoppable({ state: 'waiting', activity: null })).toBe(false);
-    expect(stoppable({ state: null, activity: null })).toBe(false);
-  });
-});
-
-describe('live', () => {
-  it('follows a run while it does something', () => {
-    expect(live('queued')).toBe(true);
-    expect(live('working')).toBe(true);
-    expect(live('stopping')).toBe(true);
-  });
-
-  it('does not follow a run that does nothing', () => {
-    expect(live(null)).toBe(false);
-    expect(live(undefined)).toBe(false);
   });
 });

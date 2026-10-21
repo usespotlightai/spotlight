@@ -13,7 +13,7 @@ import { useRunDeciding } from '@/hooks/useRunDeciding';
 import { useRunThread } from '@/hooks/useRunThread';
 import { useRunTrail } from '@/hooks/useRunTrail';
 import { decisionPending, type RunJournal, workedOn } from '@/lib/inbox';
-import { active, shownActivity, type TeamRun } from '@/lib/run';
+import { shownProgress, type TeamRun, underway } from '@/lib/run';
 import {
   type RunNotes as ConversationData,
   followedOnAfter,
@@ -40,9 +40,14 @@ export function RunPage({
 }: RunPageProps) {
   const base = useRunTrail({ slug, teamId, run, title: reported?.title });
   const { trail, forward } = useTrail(base, 2);
-  const { latest, shown, conversation } = useRunThread(run, reported);
+  const {
+    latest,
+    conversation,
+    progress: reportedProgress,
+  } = useRunThread(run, reported);
 
   const notes = conversation?.notes ?? [];
+  const progress = shownProgress(reportedProgress, latest.id, worked);
   const deciding = decisionPending(notes);
   const decide = useRunDeciding(slug, run);
   const ran = workedOn(worked, notes, run.id);
@@ -61,41 +66,32 @@ export function RunPage({
     />
   );
 
-  const latestActivity = shownActivity(shown, latest.id, worked);
-  const runActivity =
-    latest.id === run.id
-      ? latestActivity
-      : shownActivity(run.activity, run.id, worked);
-
-  const reportedHere = latest.id === run.id ? latest.activity : run.activity;
-
-  const closing =
-    active(run) || reportedHere !== null ? undefined : (
-      <RunClosing
-        slug={slug}
-        teamId={teamId}
-        run={run}
-        conversation={conversation}
-        ran={ran}
-        deciding={deciding}
-      />
-    );
+  const closing = underway(run) ? undefined : (
+    <RunClosing
+      slug={slug}
+      teamId={teamId}
+      run={run}
+      conversation={conversation}
+      ran={ran}
+      deciding={deciding}
+    />
+  );
 
   const activity = run.station ? (
     <RunActivity
       runId={run.id}
       journals={ran}
-      activity={runActivity}
+      progress={latest.id === run.id ? progress : null}
       station={run.station}
     />
   ) : null;
 
   const live =
-    latestActivity && run.station ? (
+    progress && run.station ? (
       <RunActivity
         runId={latest.id}
         journals={workedOn(worked, notes, latest.id)}
-        activity={latestActivity}
+        progress={progress}
         station={run.station}
       />
     ) : undefined;
@@ -112,7 +108,7 @@ export function RunPage({
                 teamId={teamId}
                 conversation={conversation}
                 worked={worked}
-                activity={latestActivity}
+                progress={progress}
                 openAt={openAt}
                 live={live}
                 closing={followedOn ? undefined : closing}

@@ -95,7 +95,6 @@ export class SearchRunResponseDto extends TaskRunResponseDto {
     super(
       run.id,
       run.state,
-      run.activity,
       run.attempt,
       run.exitCode,
       run.startedAt,
@@ -112,6 +111,7 @@ export class SearchRunResponseDto extends TaskRunResponseDto {
           )
         : null,
       null,
+      run.progress,
     );
     this.searchId = run.searchId;
     this.iteration = run.iteration;

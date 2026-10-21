@@ -1,8 +1,8 @@
 import {
-  activityOf,
   isStopping,
-  type RunActivityFacts,
+  progressOfCurrentRun,
   resumable,
+  takenUpOnAnswer,
 } from '@work/domain/value-objects/run-state';
 import { describe, expect, it } from 'vitest';
 
@@ -22,66 +22,54 @@ describe('isStopping', () => {
   });
 });
 
-describe('activityOf', () => {
-  const facts = (over: Partial<RunActivityFacts> = {}): RunActivityFacts => ({
-    state: 'claimed',
-    stopRequested: false,
-    awaitsPerson: false,
-    current: true,
-    ...over,
+describe('progressOfCurrentRun', () => {
+  it('counts a run that has no record yet as queued', () => {
+    expect(progressOfCurrentRun(null, false)).toBe('queued');
   });
 
-  it('says a run a runner took is working', () => {
-    expect(activityOf(facts())).toBe('working');
-  });
-
-  it('says a run that waits for a runner is queued', () => {
-    expect(activityOf(facts({ state: 'queued' }))).toBe('queued');
-  });
-
-  it('says a run asked to stop is stopping, also while it waited for a person', () => {
-    expect(activityOf(facts({ stopRequested: true }))).toBe('stopping');
+  it('counts a run that waits for a runner as queued', () => {
     expect(
-      activityOf(
-        facts({ state: 'waiting', stopRequested: true, awaitsPerson: true }),
-      ),
+      progressOfCurrentRun({ state: 'queued', stopRequested: false }, false),
+    ).toBe('queued');
+  });
+
+  it('counts a run that a runner took as in progress', () => {
+    expect(
+      progressOfCurrentRun({ state: 'claimed', stopRequested: false }, false),
+    ).toBe('in-progress');
+  });
+
+  it('counts a run that someone asked to stop as stopping', () => {
+    expect(
+      progressOfCurrentRun({ state: 'claimed', stopRequested: true }, false),
+    ).toBe('stopping');
+    expect(
+      progressOfCurrentRun({ state: 'waiting', stopRequested: true }, true),
     ).toBe('stopping');
   });
 
-  it('says nothing while a person owes an answer', () => {
+  it('counts a paused run that a person answered as under way again, as the answer takes it up', () => {
     expect(
-      activityOf(facts({ state: 'waiting', awaitsPerson: true })),
-    ).toBeNull();
-    expect(activityOf(facts({ awaitsPerson: true }))).toBeNull();
+      progressOfCurrentRun({ state: 'waiting', stopRequested: false }, true),
+    ).toBe('in-progress');
     expect(
-      activityOf(facts({ state: 'suspended', awaitsPerson: true })),
-    ).toBeNull();
+      progressOfCurrentRun({ state: 'suspended', stopRequested: false }, true),
+    ).toBe('queued');
   });
 
-  it('says a paused run works again once the person answered, as the answer takes it up', () => {
-    expect(activityOf(facts({ state: 'waiting' }))).toBe('working');
-    expect(activityOf(facts({ state: 'suspended' }))).toBe('queued');
-  });
-
-  it('says nothing for a paused run that the task no longer runs', () => {
-    expect(activityOf(facts({ state: 'waiting', current: false }))).toBeNull();
+  it('counts no progress for a run that waits for a person or has ended', () => {
     expect(
-      activityOf(facts({ state: 'suspended', current: false })),
+      progressOfCurrentRun({ state: 'waiting', stopRequested: false }, false),
     ).toBeNull();
-  });
-
-  it('says nothing for a run that has ended', () => {
     expect(
-      activityOf(facts({ state: 'cancelled', stopRequested: true })),
+      progressOfCurrentRun({ state: 'completed', stopRequested: false }, false),
     ).toBeNull();
-    expect(activityOf(facts({ state: 'completed' }))).toBeNull();
   });
 });
 
 describe('resumable', () => {
   it('takes up a suspended run, and a waiting run nobody asked to stop', () => {
     expect(resumable('suspended', false)).toBe(true);
-    expect(resumable('suspended', true)).toBe(true);
     expect(resumable('waiting', false)).toBe(true);
   });
 
@@ -89,5 +77,22 @@ describe('resumable', () => {
     expect(resumable('waiting', true)).toBe(false);
     expect(resumable('claimed', false)).toBe(false);
     expect(resumable('completed', false)).toBe(false);
+  });
+});
+
+describe('takenUpOnAnswer', () => {
+  it("takes up the task's current run once nobody owes an answer", () => {
+    expect(
+      takenUpOnAnswer('run_1', { currentRunId: 'run_1', awaitsPerson: false }),
+    ).toBe(true);
+  });
+
+  it('takes up no run while a person owes an answer, nor a run the task left', () => {
+    expect(
+      takenUpOnAnswer('run_1', { currentRunId: 'run_1', awaitsPerson: true }),
+    ).toBe(false);
+    expect(
+      takenUpOnAnswer('run_1', { currentRunId: 'run_2', awaitsPerson: false }),
+    ).toBe(false);
   });
 });

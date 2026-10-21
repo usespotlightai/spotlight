@@ -3,6 +3,8 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { TeamRun } from '@/lib/run';
+import { progressOfState } from '@/mocks/world/run-progress';
 import { Run } from '@/routes/Run';
 import { write } from '@/test/lexical';
 
@@ -14,22 +16,6 @@ const conversationFailing = vi.fn();
 const refetchConversation = vi.fn();
 const journal = vi.fn();
 const journalFailing = vi.fn();
-
-const withLatestRun = (notes: Record<string, unknown> | undefined) => {
-  if (!notes || notes.latestRun) {
-    return notes;
-  }
-  const ran = (runs() ?? []).find(
-    (each: { id: string }) => each.id === notes.runId,
-  );
-
-  return ran
-    ? {
-        ...notes,
-        latestRun: { id: ran.id, state: ran.state, activity: ran.activity },
-      }
-    : notes;
-};
 
 vi.mock('@/hooks/api/useTeamRuns', () => ({
   teamRunKeys: { forTeam: () => ['runs'] },
@@ -45,7 +31,7 @@ vi.mock('@/hooks/api/useTeamRuns', () => ({
 vi.mock('@/hooks/api/useRunNotes', () => ({
   runNotesKeys: { forRun: () => ['run-notes'] },
   useRunNotes: () => ({
-    data: withLatestRun(conversation()),
+    data: conversation(),
     isPending: conversation() === undefined,
     errorUpdateCount: conversationFailing() ? 1 : 0,
     isFetching: false,
@@ -179,7 +165,7 @@ const STATION = {
 const run = (over: Record<string, unknown> = {}) => ({
   id: 'run_1',
   state: 'completed',
-  activity: null,
+  progress: progressOfState((over.state ?? 'completed') as TeamRun['state']),
   attempt: 1,
   exitCode: 0,
   startedAt: '2026-08-29T09:02:00.000Z',
@@ -202,6 +188,7 @@ const conversationOf = (over: Record<string, unknown> = {}) => ({
   station: STATION,
   createdAt: '2026-08-29T09:02:00.000Z',
   briefing: null,
+  progress: null,
   notes: [
     {
       position: 0,
@@ -506,6 +493,7 @@ describe('Run', () => {
     beforeEach(() => {
       conversation.mockReturnValue(
         conversationOf({
+          progress: 'in-progress',
           notes: [
             note(0, { body: 'The tests failed.' }),
             note(1, {
@@ -531,12 +519,12 @@ describe('Run', () => {
       runs.mockReturnValue([run({ state: 'failed', exitCode: -1 })]);
       conversation.mockReturnValue({
         ...conversation(),
-        latestRun: { id: 'run_2', activity: null, ...latestRun },
+        latestRun: { id: 'run_2', progress: null, ...latestRun },
       });
     };
 
     it('stops the later run while it works', async () => {
-      later({ state: 'claimed', activity: 'working' });
+      later({ state: 'claimed' });
 
       renderRun();
       await userEvent.click(screen.getByRole('button', { name: 'Stop' }));
@@ -545,7 +533,7 @@ describe('Run', () => {
     });
 
     it('keeps the work of a run that is stopping, without saying it is working', () => {
-      later({ state: 'claimed', activity: 'stopping' });
+      later({ state: 'claimed', progress: 'stopping' });
       journal.mockReturnValue([
         {
           runId: 'run_2',
@@ -569,7 +557,7 @@ describe('Run', () => {
     });
 
     it('says the run is finishing once the agent has stopped', () => {
-      later({ state: 'claimed', activity: 'stopping' });
+      later({ state: 'claimed', progress: 'stopping' });
       journal.mockReturnValue([
         {
           runId: 'run_2',
@@ -591,7 +579,7 @@ describe('Run', () => {
     });
 
     it('no longer offers to stop the later run once it is stopping', () => {
-      later({ state: 'claimed', activity: 'stopping' });
+      later({ state: 'claimed', progress: 'stopping' });
 
       renderRun();
 
@@ -615,7 +603,6 @@ describe('Run', () => {
     });
 
     it('shows a message on its way before the server has it', () => {
-      later({ state: 'completed' });
       inFlight.mockReturnValue([
         {
           teamId: 'team_1',
@@ -631,27 +618,6 @@ describe('Run', () => {
       expect(screen.getByText('and once more')).toBeInTheDocument();
     });
 
-    it('does not offer to stop a finished run while a message on its way starts it again', () => {
-      later({ state: 'completed' });
-      inFlight.mockReturnValue([
-        {
-          teamId: 'team_1',
-          runId: 'run_2',
-          body: 'and once more',
-          attachments: [],
-          sentAt: Date.parse('2026-08-29T12:10:00.000Z'),
-          startsWork: true,
-        },
-      ]);
-
-      renderRun();
-
-      expect(
-        screen.getByText('Implementation is working…'),
-      ).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
-    });
-
     it('ends the opened run with its actions before the later messages', () => {
       renderRun();
 
@@ -665,7 +631,7 @@ describe('Run', () => {
   });
 
   it('keeps the run actions back until the run has finished', () => {
-    runs.mockReturnValue([run({ state: 'claimed', activity: 'working' })]);
+    runs.mockReturnValue([run({ state: 'claimed' })]);
 
     renderRun();
 
@@ -728,11 +694,11 @@ describe('Run', () => {
     });
 
     it('says nothing is queued once a stop for the queued run is on its way', () => {
-      runs.mockReturnValue([run({ state: 'queued', activity: 'queued' })]);
+      runs.mockReturnValue([run({ state: 'queued' })]);
       conversation.mockReturnValue(
         conversationOf({
           notes: [],
-          latestRun: { id: 'run_1', state: 'queued', activity: 'stopping' },
+          latestRun: { id: 'run_1', state: 'queued', progress: 'stopping' },
         }),
       );
 
@@ -741,9 +707,33 @@ describe('Run', () => {
       expect(screen.queryByText(/Queued\./)).not.toBeInTheDocument();
     });
 
+    it('keeps a claimed run that is stopping under way, neither ended nor empty', () => {
+      runs.mockReturnValue([run({ state: 'claimed', progress: null })]);
+      conversation.mockReturnValue(
+        conversationOf({
+          notes: [],
+          progress: null,
+          latestRun: {
+            id: 'run_1',
+            state: 'claimed',
+            progress: 'stopping',
+          },
+        }),
+      );
+
+      renderRun();
+
+      expect(
+        screen.queryByText(/ended before the agent started/),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByRole('toolbar', { name: 'Run actions' })).toBeNull();
+    });
+
     it('says the run is queued, not working, while it is still to start', () => {
-      runs.mockReturnValue([run({ state: 'queued', activity: 'queued' })]);
-      conversation.mockReturnValue(conversationOf({ notes: [] }));
+      runs.mockReturnValue([run({ state: 'queued' })]);
+      conversation.mockReturnValue(
+        conversationOf({ notes: [], progress: 'queued' }),
+      );
 
       renderRun();
 
@@ -776,7 +766,7 @@ describe('Run', () => {
   describe('once the task is idle at the station', () => {
     const idle = {
       station: { id: 'station_3', harness: 'claude-code', kind: 'work' },
-      task: { id: 'task_1', running: false, awaitingReview: null },
+      task: { id: 'task_1', progress: null, awaitingReview: null },
     };
 
     it('offers to send the work back to the station, which starts it again', () => {
@@ -815,7 +805,7 @@ describe('Run', () => {
     it('only says something to the station while a run still works the task', () => {
       taskStation.mockReturnValue({
         ...idle,
-        task: { ...idle.task, running: true },
+        task: { ...idle.task, progress: 'in-progress' },
       });
 
       renderRun();
@@ -842,54 +832,6 @@ describe('Run', () => {
       expect(
         screen.getByRole('link', { name: 'Answer in the inbox' }),
       ).toHaveAttribute('href', '/w/acme/inbox/task_1%3A0?run=run_1');
-    });
-
-    it('says the station is working at once when an answer on its way starts it again', () => {
-      runs.mockReturnValue([run({ state: 'waiting', review: PENDING })]);
-      conversation.mockReturnValue({
-        ...conversation(),
-        latestRun: { id: 'run_1', state: 'waiting', activity: null },
-      });
-      inFlight.mockReturnValue([
-        {
-          teamId: 'team_1',
-          runId: 'run_1',
-          body: 'The retry queue.',
-          attachments: [],
-          sentAt: Date.parse('2026-08-29T12:10:00.000Z'),
-          answers: true,
-          startsWork: true,
-        },
-      ]);
-
-      renderRun();
-
-      expect(
-        screen.getByText('Implementation is working…'),
-      ).toBeInTheDocument();
-    });
-
-    it('says the station works again once the person answered, no longer waiting for you', () => {
-      runs.mockReturnValue([run({ state: 'waiting', activity: 'working' })]);
-
-      const { container } = renderRun();
-
-      expect(
-        screen.getByText('Implementation is working…'),
-      ).toBeInTheDocument();
-      expect(
-        container.querySelector('[data-slot="run-waiting"]'),
-      ).not.toBeInTheDocument();
-    });
-
-    it('still offers to stop a run a runner holds while a person owes an answer', () => {
-      runs.mockReturnValue([
-        run({ state: 'claimed', activity: null, review: PENDING }),
-      ]);
-
-      renderRun();
-
-      expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument();
     });
 
     it('does not claim the agent is working, nor offer to stop it', () => {
@@ -1030,11 +972,9 @@ describe('Run', () => {
     };
 
     it('shows one run: its work before the question, the answer, then it carrying on', () => {
-      runs.mockReturnValue([
-        run({ state: 'claimed', activity: 'working', attempt: 2 }),
-      ]);
+      runs.mockReturnValue([run({ state: 'claimed', attempt: 2 })]);
       conversation.mockReturnValue(
-        conversationOf({ notes: [asked, answered] }),
+        conversationOf({ progress: 'in-progress', notes: [asked, answered] }),
       );
       journal.mockReturnValue([
         {

@@ -1,5 +1,5 @@
 import type {
-  LatestRunResponseDto,
+  TaskResponseDto,
   TaskRunResponseDto,
   TeamRunResponseDto,
 } from '@/lib/api';
@@ -14,69 +14,47 @@ export type Review = NonNullable<Run['review']>;
 export const RUNS_AUTONOMOUSLY =
   'The agent runs autonomously. It can’t receive messages.';
 
-export type ReportedActivity = NonNullable<LatestRunResponseDto['activity']>;
+export const formatTokens = (count: number | null): string =>
+  count === null ? 'not reported' : counted(count);
 
-export type Activity = ReportedActivity | 'finishing';
+export type Progress = NonNullable<TaskResponseDto['progress']>;
 
-export const shownActivity = (
-  activity: ReportedActivity | null,
+export type ShownProgress = Progress | 'finishing';
+
+export const shownProgress = (
+  progress: Progress | null,
   runId: string | null,
   journals: readonly {
     readonly runId: string;
     readonly marks: Pick<RunJournal['marks'], 'agentStoppedAt'>;
   }[],
-): Activity | null =>
-  activity === 'stopping' &&
+): ShownProgress | null =>
+  progress === 'stopping' &&
   journals.some(
     (each) => each.runId === runId && each.marks.agentStoppedAt !== null,
   )
     ? 'finishing'
-    : activity;
+    : progress;
 
-export const stoppable = ({
-  state,
-  activity,
-}: {
-  readonly state: Run['state'] | null;
-  readonly activity: ReportedActivity | null;
-}): boolean =>
-  activity === 'working' || (state === 'claimed' && activity === null);
-
-export const live = (activity: ReportedActivity | null | undefined): boolean =>
-  activity !== null && activity !== undefined;
-
-export const formatTokens = (count: number | null): string =>
-  count === null ? 'not reported' : counted(count);
-
-const running = (run: Pick<Run, 'state'>): boolean => run.state === 'claimed';
-
-const queued = (run: Pick<Run, 'state'>): boolean => run.state === 'queued';
-
-export const active = (run: Pick<Run, 'state'>): boolean =>
-  running(run) || queued(run);
+export const underway = (run: Pick<Run, 'state'>): boolean =>
+  run.state === 'queued' || run.state === 'claimed';
 
 export const idleNoteOf = (run: Pick<Run, 'state'>): string =>
   run.state === 'failed'
     ? 'The run failed before the agent started.'
     : 'The run ended before the agent started.';
 
-export const waitsOnPerson = (run: Pick<Run, 'state' | 'activity'>): boolean =>
+export const waitsOnPerson = (run: Pick<Run, 'state' | 'progress'>): boolean =>
   (run.state === 'waiting' || run.state === 'suspended') &&
-  run.activity === null;
+  run.progress === null;
 
 export const waitsForYou = (
-  run: Pick<Run, 'state' | 'activity' | 'review'>,
+  run: Pick<Run, 'state' | 'progress' | 'review'>,
 ): boolean => waitsOnPerson(run) || run.review?.state === 'pending';
 
 export const runStatus = (run: Run): string | null => {
   if (waitsOnPerson(run)) {
     return 'Waiting for you';
-  }
-  if (run.activity === 'stopping') {
-    return 'Stopping';
-  }
-  if (run.activity === 'queued') {
-    return 'Queued';
   }
   if (run.state === 'cancelled') {
     return 'Cancelled';
@@ -156,5 +134,5 @@ export const asRunFilter = (raw: string): RunFilter =>
 
 export const inRunFilter = (
   filter: RunFilter,
-  run: Pick<TeamRun, 'state' | 'activity' | 'review'>,
+  run: Pick<TeamRun, 'state' | 'progress' | 'review'>,
 ): boolean => filter === 'all' || waitsForYou(run);

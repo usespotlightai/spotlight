@@ -5,7 +5,7 @@ import {
 } from '@/components/features/inbox/conversation/Conversation';
 import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked';
 import type { RunJournal } from '@/lib/inbox';
-import type { Activity } from '@/lib/run';
+import type { ShownProgress } from '@/lib/run';
 import {
   type RunNotes as ConversationData,
   conversationItemOf,
@@ -15,7 +15,7 @@ type RunConversationProps = {
   teamId: string;
   conversation: ConversationData;
   worked: readonly RunJournal[];
-  activity: Activity | null;
+  progress: ShownProgress | null;
   footer: ReactNode;
   deciding?: Deciding;
   live?: ReactNode;
@@ -28,7 +28,7 @@ export function RunConversation({
   teamId,
   conversation,
   worked,
-  activity,
+  progress,
   footer,
   deciding,
   live,
@@ -38,7 +38,7 @@ export function RunConversation({
 }: RunConversationProps) {
   return (
     <Conversation
-      item={conversationItemOf(conversation, teamId, activity)}
+      item={conversationItemOf(conversation, teamId, progress)}
       worked={worked}
       openAt={openAt}
       briefing={

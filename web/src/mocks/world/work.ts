@@ -20,7 +20,6 @@ import {
   teamOfPastTask,
 } from '@/mocks/world/past-work';
 import { SAM } from '@/mocks/world/people';
-import { activityOfState } from '@/mocks/world/run-activity';
 import { egressEnforcementOf, errorsIn } from '@/mocks/world/run-network';
 import {
   changeStacksOf,
@@ -181,10 +180,11 @@ export const conversationOf = (located: Located): RunNotesResponseDto => {
     station: located.run.station,
     createdAt: located.run.startedAt,
     briefing: briefingOf(located, story),
+    progress: located.run.progress,
     latestRun: {
       id: located.run.id,
       state: located.run.state,
-      activity: activityOfState(located.run.state),
+      progress: located.run.progress,
     },
     notes: [...scripted, ...added],
     spend: finished(located.run) ? story.spend : null,

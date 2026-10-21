@@ -1,4 +1,4 @@
-import { useRunActivity } from '@/hooks/useRunActivity';
+import { useRunProgress } from '@/hooks/useRunProgress';
 import type { TeamRun } from '@/lib/run';
 import type { LatestRun, RunNotes } from '@/lib/run-notes';
 
@@ -16,8 +16,14 @@ export function useLatestRun(
 ): LatestRun | null {
   const latest =
     conversation?.latestRun ??
-    (run ? { id: run.id, state: run.state, activity: run.activity } : null);
-  const activity = useRunActivity(latest?.id, latest?.activity ?? null);
+    (run
+      ? {
+          id: run.id,
+          state: run.state,
+          progress: run.progress,
+        }
+      : null);
+  const progress = useRunProgress(latest?.id, latest?.progress ?? null);
 
-  return latest ? { ...latest, activity } : latest;
+  return latest ? { ...latest, progress } : latest;
 }

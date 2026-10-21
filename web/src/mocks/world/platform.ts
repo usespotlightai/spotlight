@@ -6,7 +6,7 @@ import type {
 } from '@/lib/api';
 import { hoursAgo } from '@/mocks/clock';
 import { MAYA, PRIYA, SAM, TOM } from '@/mocks/world/people';
-import { activityOfState } from '@/mocks/world/run-activity';
+import { progressOfState } from '@/mocks/world/run-progress';
 import { runStationOf, station } from '@/mocks/world/stations';
 
 export const PLATFORM_ID = 'team_platform';
@@ -194,7 +194,7 @@ const task = (
   description: null,
   attachments: [],
   createdAt: hoursAgo(24),
-  running: false,
+  progress: null,
   awaitingReview: null,
   pullRequest: null,
   createdBy: SAM,
@@ -227,7 +227,7 @@ export const PLATFORM_TASKS: TaskResponseDto[] = [
     id: 'task_retries',
     title: 'Drain the stuck retry queues',
     stationId: 'station_implementation',
-    running: true,
+    progress: 'in-progress',
     assignee: MAYA,
     createdAt: hoursAgo(30),
     description:
@@ -266,7 +266,7 @@ export const PLATFORM_TASKS: TaskResponseDto[] = [
     id: 'task_latency',
     title: 'p99 latency alert on the payments API',
     stationId: 'station_investigate',
-    running: true,
+    progress: 'in-progress',
     createdBy: TOM,
     assignee: TOM,
     createdAt: hoursAgo(2),
@@ -307,7 +307,7 @@ const run = (
     station: runStationOf(stations, stationId),
     review: null,
     ...rest,
-    activity: activityOfState(rest.state ?? 'completed'),
+    progress: progressOfState(rest.state ?? 'completed'),
   };
 };
 

@@ -136,9 +136,7 @@ describe('AddHost', () => {
 
     renderPage();
 
-    expect(document.body).toHaveTextContent(
-      'SPOTLIGHT_POOL_TOKEN=spt_pool_secret',
-    );
+    expect(document.body).toHaveTextContent('sh -s -- --token spt_pool_secret');
     expect(
       screen.getByText('Add the machine to the my-computer pool'),
     ).toBeInTheDocument();

@@ -17,6 +17,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -401,6 +402,26 @@ func (e *Engine) Labelled(ctx context.Context, key, value string) ([]string, err
 	}
 
 	return ids, nil
+}
+
+// Running gives the distinct values of label on running containers labelled key=value.
+func (e *Engine) Running(ctx context.Context, key, value, label string) ([]string, error) {
+	filters, _ := json.Marshal(map[string][]string{"label": {key + "=" + value, label}, "status": {"running"}})
+	query := url.Values{"filters": {string(filters)}}
+
+	var listed []struct{ Labels map[string]string }
+	if _, err := e.call(ctx, http.MethodGet, "/containers/json?"+query.Encode(), nil, &listed); err != nil {
+		return nil, fmt.Errorf("list sandboxes: %w", err)
+	}
+
+	var values []string
+	for _, each := range listed {
+		if !slices.Contains(values, each.Labels[label]) {
+			values = append(values, each.Labels[label])
+		}
+	}
+
+	return values, nil
 }
 
 func (e *Engine) join(ctx context.Context, id string, join sandbox.Join) error {

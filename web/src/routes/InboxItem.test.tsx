@@ -104,6 +104,7 @@ const item = (notes: unknown[], description: string | null = null) => [
     createdAt: '2026-08-29T09:02:00.000Z',
     askedAt: '2026-08-29T12:00:00.000Z',
     resolved: false,
+    progress: null,
     unread: false,
     briefing: null,
     notes,
@@ -551,7 +552,7 @@ describe('InboxItem', () => {
 
   it('says the station is working while a run is on it', () => {
     const [only] = item([note()]);
-    waiting.mockReturnValue([{ ...only, activity: 'working' }]);
+    waiting.mockReturnValue([{ ...only, progress: 'in-progress' }]);
 
     renderItem();
 
@@ -560,7 +561,7 @@ describe('InboxItem', () => {
 
   it('says the run is queued, not working, while it waits for a runner', () => {
     const [only] = item([note()]);
-    waiting.mockReturnValue([{ ...only, runId: 'run_1', activity: 'queued' }]);
+    waiting.mockReturnValue([{ ...only, runId: 'run_1', progress: 'queued' }]);
 
     renderItem();
 
@@ -568,12 +569,13 @@ describe('InboxItem', () => {
       screen.getByText('Queued. Implementation starts when a runner is free.'),
     ).toBeInTheDocument();
     expect(screen.queryByText(/is working/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
   });
 
-  it('says the run is stopping, not working, once someone asked it to stop', () => {
+  it('says the run is stopping, and offers no Stop, once someone asked it to stop', () => {
     const [only] = item([note()]);
     waiting.mockReturnValue([
-      { ...only, runId: 'run_1', activity: 'stopping' },
+      { ...only, runId: 'run_1', progress: 'stopping' },
     ]);
 
     renderItem();
@@ -583,21 +585,10 @@ describe('InboxItem', () => {
     expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
   });
 
-  it('says the run is stopping when it was stopped while it waited for an answer', () => {
-    const [only] = item([note()]);
-    waiting.mockReturnValue([
-      { ...only, runId: 'run_1', activity: 'stopping' },
-    ]);
-
-    renderItem();
-
-    expect(screen.getByText('Stopping…')).toBeInTheDocument();
-  });
-
   it('says the run is finishing once the agent has stopped', () => {
     const [only] = item([note()]);
     waiting.mockReturnValue([
-      { ...only, runId: 'run_1', activity: 'stopping' },
+      { ...only, runId: 'run_1', progress: 'stopping' },
     ]);
     journal.mockReturnValue([
       {
@@ -649,7 +640,7 @@ describe('InboxItem', () => {
 
     it('says nothing about working while it waits on you, nor offers to stop it', () => {
       const [only] = item([note()]);
-      waiting.mockReturnValue([{ ...only, runId: 'run_1' }]);
+      waiting.mockReturnValue([{ ...only, runId: 'run_1', progress: null }]);
 
       renderItem();
 
@@ -662,7 +653,7 @@ describe('InboxItem', () => {
     it('shows the same run carrying on after the answer, without repeating what it did before', () => {
       const [only] = item([note(), answered]);
       waiting.mockReturnValue([
-        { ...only, runId: 'run_1', activity: 'working' },
+        { ...only, runId: 'run_1', progress: 'in-progress' },
       ]);
       journal.mockReturnValue([
         {

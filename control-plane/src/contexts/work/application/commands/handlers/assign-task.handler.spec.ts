@@ -1,4 +1,3 @@
-import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type {
   TeamDirectoryPort,
   TeamProfile,
@@ -11,9 +10,11 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { AssignTaskCommand } from '@work/application/commands/assign-task.command';
 import { AssignTaskHandler } from '@work/application/commands/handlers/assign-task.handler';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import { taskReaderOver } from '@work/application/ports/task-reader.fake-spec';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
+import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
@@ -36,11 +37,15 @@ const team = (): TeamProfile => ({
   members: [UserId.of('user_1'), UserId.of('user_2')],
 });
 
-const delivery = (workspaceId = 'ws_1', backlogId = 'station_1') =>
+const delivery = (
+  workspaceId = 'ws_1',
+  backlogId = 'station_1',
+  teamId = 'team_1',
+) =>
   Line.rehydrate({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of(workspaceId),
-    teamId: TeamId.of('team_1'),
+    teamId: TeamId.of(teamId),
     key: LineKey.of('delivery'),
     name: LineName.of('Delivery'),
     stations: [
@@ -98,20 +103,25 @@ const teams = (found: TeamProfile | null = team()) =>
     inWorkspace: vi.fn(async () => (found ? [found] : [])),
   }) satisfies TeamDirectoryPort;
 
-const people: PersonReaderPort = {
-  find: async (id) => ({ id: id.value, name: 'Someone', image: null }),
-  findMany: async () => new Map(),
-};
+const lines = (teamId = 'team_1') =>
+  ({
+    findByStation: vi.fn(async () => delivery('ws_1', 'station_1', teamId)),
+  }) as unknown as LineRepository;
 
 const assign = (
   assigneeId: string | null,
   viewerId = 'user_1',
   stored: TaskRepository = tasks(),
   team: TeamDirectoryPort = teams(),
+  board: LineRepository = lines(),
 ) =>
-  new AssignTaskHandler(stored, team, transaction, people).execute(
-    new AssignTaskCommand('team_1', 'task_1', assigneeId, viewerId),
-  );
+  new AssignTaskHandler(
+    stored,
+    team,
+    transaction,
+    taskReaderOver(() => saved),
+    board,
+  ).execute(new AssignTaskCommand('team_1', 'task_1', assigneeId, viewerId));
 
 describe('AssignTaskHandler', () => {
   beforeEach(() => {
@@ -144,9 +154,10 @@ describe('AssignTaskHandler', () => {
     );
   });
 
-  it('turns away a task the team does not have', async () => {
+  it('turns away a task the team does not have, before it changes anything', async () => {
     await expect(
-      assign('user_2', 'user_1', tasks(task('ws_other'))),
+      assign('user_2', 'user_1', tasks(), teams(), lines('team_other')),
     ).rejects.toThrow(ApplicationError);
+    expect(saved).toBeUndefined();
   });
 });

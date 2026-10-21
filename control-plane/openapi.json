@@ -27431,16 +27431,17 @@
             "example": false,
             "description": "True once it is resolved, and is no longer yours to answer"
           },
-          "activity": {
+          "progress": {
             "type": "string",
             "enum": [
               "queued",
-              "working",
+              "in-progress",
               "stopping",
               null
             ],
             "nullable": true,
-            "description": "What the run does now: queued, working or stopping. A paused run is queued or working again once its question has an answer. Null while it waits for a person or once it has ended, or when no run is on it"
+            "example": "in-progress",
+            "description": "What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress, and stopping once someone asked it to stop"
           },
           "runId": {
             "type": "string",
@@ -27501,7 +27502,7 @@
           "createdAt",
           "askedAt",
           "resolved",
-          "activity",
+          "progress",
           "runId",
           "unread",
           "briefing",
@@ -27908,10 +27909,17 @@
             "type": "string",
             "example": "2026-08-27T09:15:00.000Z"
           },
-          "running": {
-            "type": "boolean",
-            "example": false,
-            "description": "A run is under way"
+          "progress": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              "stopping",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "What its current run is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null without a run at work."
           },
           "awaitingReview": {
             "nullable": true,
@@ -27968,7 +27976,7 @@
           "description",
           "attachments",
           "createdAt",
-          "running",
+          "progress",
           "awaitingReview",
           "pullRequest",
           "createdBy",
@@ -28051,17 +28059,6 @@
               "superseded"
             ]
           },
-          "activity": {
-            "type": "string",
-            "enum": [
-              "queued",
-              "working",
-              "stopping",
-              null
-            ],
-            "nullable": true,
-            "description": "What the run does now: queued, working or stopping. A paused run is queued or working again once its question has an answer. Null while it waits for a person or once it has ended"
-          },
           "attempt": {
             "type": "number",
             "example": 1
@@ -28109,6 +28106,18 @@
               }
             ]
           },
+          "progress": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              "stopping",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended."
+          },
           "taskId": {
             "type": "string",
             "nullable": true
@@ -28127,7 +28136,6 @@
         "required": [
           "id",
           "state",
-          "activity",
           "attempt",
           "exitCode",
           "startedAt",
@@ -28136,6 +28144,7 @@
           "image",
           "station",
           "review",
+          "progress",
           "taskId",
           "taskTitle",
           "taskDescription"
@@ -28612,22 +28621,23 @@
               "superseded"
             ]
           },
-          "activity": {
+          "progress": {
             "type": "string",
             "enum": [
               "queued",
-              "working",
+              "in-progress",
               "stopping",
               null
             ],
             "nullable": true,
-            "description": "What the run does now: queued, working or stopping. A paused run is queued or working again once its question has an answer. Null while it waits for a person or once it has ended"
+            "example": "in-progress",
+            "description": "What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop"
           }
         },
         "required": [
           "id",
           "state",
-          "activity"
+          "progress"
         ]
       },
       "RunSpendResponseDto": {
@@ -28720,6 +28730,18 @@
             "type": "string",
             "description": "The briefing of the run, word for word"
           },
+          "progress": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              "stopping",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "What the run of the task at this station is doing now: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. A paused run is under way again once a person answered it."
+          },
           "latestRun": {
             "description": "The newest run of the task at this station",
             "allOf": [
@@ -28754,6 +28776,7 @@
           "station",
           "createdAt",
           "briefing",
+          "progress",
           "latestRun",
           "notes",
           "spend"
@@ -28799,17 +28822,6 @@
               "cancelled",
               "superseded"
             ]
-          },
-          "activity": {
-            "type": "string",
-            "enum": [
-              "queued",
-              "working",
-              "stopping",
-              null
-            ],
-            "nullable": true,
-            "description": "What the run does now: queued, working or stopping. A paused run is queued or working again once its question has an answer. Null while it waits for a person or once it has ended"
           },
           "attempt": {
             "type": "number",
@@ -28857,12 +28869,23 @@
                 "$ref": "#/components/schemas/RunReviewResponseDto"
               }
             ]
+          },
+          "progress": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              "stopping",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended."
           }
         },
         "required": [
           "id",
           "state",
-          "activity",
           "attempt",
           "exitCode",
           "startedAt",
@@ -28870,7 +28893,8 @@
           "harness",
           "image",
           "station",
-          "review"
+          "review",
+          "progress"
         ]
       },
       "AddTaskRequestDto": {
@@ -29006,17 +29030,6 @@
               "superseded"
             ]
           },
-          "activity": {
-            "type": "string",
-            "enum": [
-              "queued",
-              "working",
-              "stopping",
-              null
-            ],
-            "nullable": true,
-            "description": "What the run does now: queued, working or stopping. A paused run is queued or working again once its question has an answer. Null while it waits for a person or once it has ended"
-          },
           "attempt": {
             "type": "number",
             "example": 1
@@ -29063,6 +29076,18 @@
                 "$ref": "#/components/schemas/RunReviewResponseDto"
               }
             ]
+          },
+          "progress": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              "stopping",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended."
           },
           "original": {
             "description": "The past task run it replays",
@@ -29111,7 +29136,6 @@
         "required": [
           "id",
           "state",
-          "activity",
           "attempt",
           "exitCode",
           "startedAt",
@@ -29120,6 +29144,7 @@
           "image",
           "station",
           "review",
+          "progress",
           "original",
           "spend",
           "journals",
@@ -29186,17 +29211,6 @@
               "superseded"
             ]
           },
-          "activity": {
-            "type": "string",
-            "enum": [
-              "queued",
-              "working",
-              "stopping",
-              null
-            ],
-            "nullable": true,
-            "description": "What the run does now: queued, working or stopping. A paused run is queued or working again once its question has an answer. Null while it waits for a person or once it has ended"
-          },
           "attempt": {
             "type": "number",
             "example": 1
@@ -29243,6 +29257,18 @@
                 "$ref": "#/components/schemas/RunReviewResponseDto"
               }
             ]
+          },
+          "progress": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              "stopping",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended."
           },
           "searchId": {
             "type": "string",
@@ -29298,7 +29324,6 @@
         "required": [
           "id",
           "state",
-          "activity",
           "attempt",
           "exitCode",
           "startedAt",
@@ -29307,6 +29332,7 @@
           "image",
           "station",
           "review",
+          "progress",
           "searchId",
           "iteration",
           "agent",
@@ -29439,10 +29465,17 @@
             "type": "string",
             "example": "2026-09-14T09:05:00.000Z"
           },
-          "working": {
-            "type": "boolean",
-            "example": true,
-            "description": "The agent is answering now"
+          "progress": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              "stopping",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "What the run answering it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null while nothing answers."
           }
         },
         "required": [
@@ -29456,7 +29489,7 @@
           "setup",
           "createdAt",
           "updatedAt",
-          "working"
+          "progress"
         ]
       },
       "ChatSetupRequestDto": {
@@ -29772,10 +29805,17 @@
             "type": "string",
             "example": "2026-09-14T09:05:00.000Z"
           },
-          "working": {
-            "type": "boolean",
-            "example": true,
-            "description": "The agent is answering now"
+          "progress": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              "stopping",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "What the run answering it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null while nothing answers."
           },
           "runId": {
             "type": "string",
@@ -29800,7 +29840,7 @@
           "setup",
           "createdAt",
           "updatedAt",
-          "working",
+          "progress",
           "runId",
           "messages"
         ]

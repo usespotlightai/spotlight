@@ -1,42 +1,47 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useInboxItemRefresh } from '@/hooks/api/useInboxItemRefresh';
 import type { InboxItem } from '@/lib/inbox';
 
-const stream = vi.fn();
+const opened: string[] = [];
 
-vi.mock('@/hooks/api/useRunStream', () => ({
-  useRunStream: (...args: unknown[]) => stream(...args),
-}));
+class Stream {
+  onmessage: (() => void) | null = null;
 
-const streams = (activity: InboxItem['activity']) => {
-  const client = new QueryClient();
-  const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
-  );
-  const item = { taskId: 'task_1', runId: 'run_1', activity } as InboxItem;
+  constructor(url: string) {
+    opened.push(url);
+  }
 
-  renderHook(() => useInboxItemRefresh('acme', item), { wrapper });
+  close() {}
+}
 
-  return stream.mock.calls.at(-1)?.[1];
-};
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <QueryClientProvider client={new QueryClient()}>
+    {children}
+  </QueryClientProvider>
+);
 
-describe('useInboxItemRefresh', () => {
+describe('the stream of a run that is stopping', () => {
   beforeEach(() => {
-    stream.mockReset();
+    opened.length = 0;
+    vi.stubGlobal('EventSource', Stream);
   });
 
-  it('follows the run while it works', () => {
-    expect(streams('working')).toBe(true);
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
-  it('follows the run while it stops, so the end shows', () => {
-    expect(streams('stopping')).toBe(true);
-  });
+  it('stays open in the inbox while its run has not ended', () => {
+    const item = {
+      taskId: 'task_1',
+      runId: 'run_1',
+      progress: null,
+    } as unknown as InboxItem;
 
-  it('stops following the run once it does nothing', () => {
-    expect(streams(null)).toBe(false);
+    renderHook(() => useInboxItemRefresh('acme', item), { wrapper });
+
+    expect(opened).toEqual(['/api/runs/run_1/stream']);
   });
 });

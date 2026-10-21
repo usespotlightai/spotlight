@@ -10,15 +10,14 @@ import {
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useRunNotes } from '@/hooks/api/useRunNotes';
-import { useRunRefresh } from '@/hooks/api/useRunRefresh';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useTeamRuns } from '@/hooks/api/useTeamRuns';
+import { useLatestRun } from '@/hooks/useLatestRun';
 import { useRunDeciding } from '@/hooks/useRunDeciding';
-import { useRunThread } from '@/hooks/useRunThread';
 import { decisionPending } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
-import { shownActivity } from '@/lib/run';
-import { lastNoteOf } from '@/lib/run-notes';
+import { shownProgress } from '@/lib/run';
+import { lastNoteOf, threadProgress } from '@/lib/run-notes';
 
 type RunThreadProps = {
   slug: string;
@@ -40,21 +39,10 @@ export function RunThread({
   const conversationQuery = useRunNotes(teamId, runId);
   const journal = useTaskJournal(slug, taskId);
   const runs = useTeamRuns(teamId);
+  const conversation = conversationQuery.data;
   const run = runs.data?.find((each) => each.id === runId);
   const decide = useRunDeciding(slug, run);
-  const { latest, shown, conversation } = useRunThread(
-    run,
-    conversationQuery.data,
-  );
-
-  useRunRefresh({
-    teamId,
-    runId,
-    taskId,
-    state: run?.state,
-    activity: run?.activity,
-    following: conversationQuery.data?.latestRun,
-  });
+  const latest = useLatestRun(run, conversation);
 
   if (loading(conversationQuery) || loading(journal)) {
     return <InboxItemSkeleton />;
@@ -79,11 +67,11 @@ export function RunThread({
             teamId={teamId}
             conversation={conversation}
             worked={journal.data ?? []}
-            activity={
-              latest
-                ? shownActivity(shown, latest.id, journal.data ?? [])
-                : null
-            }
+            progress={shownProgress(
+              threadProgress(latest, conversation),
+              latest?.id ?? null,
+              journal.data ?? [],
+            )}
             openAt={lastNoteOf(conversation.notes, runId)}
             footer={
               run && latest ? (
