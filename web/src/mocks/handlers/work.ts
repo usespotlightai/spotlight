@@ -65,6 +65,7 @@ const queueRunAt = (teamId: string, taskId: string, stationId: string) => {
     {
       id: nextId('run'),
       state: 'queued',
+      progress: 'queued',
       attempt: 1,
       exitCode: null,
       startedAt: now,
@@ -117,7 +118,7 @@ export const workHandlers: RequestHandler[] = [
         description: body.description ?? null,
         attachments: attachmentsOf(body.attachments),
         createdAt: new Date().toISOString(),
-        running: false,
+        progress: null,
         awaitingReview: null,
         pullRequest: null,
         createdBy: SAM,
@@ -258,10 +259,16 @@ export const workHandlers: RequestHandler[] = [
     world().runs[located.task.id] = (world().runs[located.task.id] ?? []).map(
       (each) =>
         each.id === located.run.id
-          ? { ...each, state: 'failed', exitCode: null, updatedAt: now }
+          ? {
+              ...each,
+              state: 'failed',
+              progress: null,
+              exitCode: null,
+              updatedAt: now,
+            }
           : each,
     );
-    replaceTask(teamId, { ...located.task, running: false });
+    replaceTask(teamId, { ...located.task, progress: null });
 
     return noContent();
   }),

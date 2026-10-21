@@ -179,8 +179,9 @@ describe('the notes of a run', () => {
       id: second,
       state: 'claimed',
       stopping: true,
+      progress: null,
     });
-    expect(found?.working).toBe(true);
+    expect(found?.progress).toBeNull();
   });
 
   it('no longer calls a run stopping once it has ended', async () => {
@@ -214,8 +215,9 @@ describe('the notes of a run', () => {
       id: here,
       state: 'completed',
       stopping: false,
+      progress: null,
     });
-    expect(found?.working).toBe(false);
+    expect(found?.progress).toBeNull();
   });
 
   it('keeps the notes written before the station was renamed', async () => {

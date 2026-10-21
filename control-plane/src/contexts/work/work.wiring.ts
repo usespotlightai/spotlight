@@ -23,7 +23,6 @@ import {
   MEMBER_DIRECTORY,
   type MemberDirectoryPort,
 } from '@identity/application/ports/member-directory.port';
-import { PERSON_READER } from '@identity/application/ports/person-reader.port';
 import {
   RUN_TOKENS,
   type RunTokensPort,
@@ -2052,8 +2051,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     ID_GENERATOR,
     CLOCK,
     CreateTask,
-    PERSON_READER,
     FilesLoader,
+    TASK_READER,
   ]),
 
   ...bindCommandHandler(
@@ -2330,14 +2329,15 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     TRANSACTION,
     TASK_DISPATCH,
     CLOCK,
-    PERSON_READER,
+    TASK_READER,
   ]),
 
   ...bindCommandHandler(AssignTaskCommand, AssignTaskHandler, [
     DrizzleTaskRepository,
     TEAM_DIRECTORY,
     TRANSACTION,
-    PERSON_READER,
+    TASK_READER,
+    DrizzleLineRepository,
   ]),
 
   ...bindCommandHandler(ClaimRunCommand, ClaimRunHandler, [

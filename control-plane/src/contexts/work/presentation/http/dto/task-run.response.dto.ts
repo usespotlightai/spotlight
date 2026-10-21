@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import {
   REVIEW_STATE_NAMES,
   RUN_STATE_NAMES,
@@ -125,10 +126,26 @@ export class LatestRunResponseDto {
   })
   readonly stopping: boolean;
 
-  constructor(id: string, state: string, stopping: boolean) {
+  @ApiProperty({
+    enum: [...PROGRESS_NAMES, null],
+    nullable: true,
+    type: String,
+    example: 'in-progress',
+    description:
+      'What it is doing: queued until a runner takes it, then in progress',
+  })
+  readonly progress: string | null;
+
+  constructor(
+    id: string,
+    state: string,
+    stopping: boolean,
+    progress: string | null,
+  ) {
     this.id = id;
     this.state = state;
     this.stopping = stopping;
+    this.progress = progress;
   }
 }
 
@@ -162,10 +179,14 @@ export class RunNotesResponseDto {
   readonly briefing: string;
 
   @ApiProperty({
-    example: false,
-    description: 'A run of the task works at this station now',
+    enum: [...PROGRESS_NAMES, null],
+    nullable: true,
+    type: String,
+    example: 'in-progress',
+    description:
+      'What the run of the task at this station is doing now: queued until a runner takes it, then in progress',
   })
-  readonly working: boolean;
+  readonly progress: string | null;
 
   @ApiProperty({
     type: LatestRunResponseDto,
@@ -193,7 +214,7 @@ export class RunNotesResponseDto {
     station: RunStationResponseDto | null,
     createdAt: string,
     briefing: string,
-    working: boolean,
+    progress: string | null,
     latestRun: LatestRunResponseDto,
     notes: readonly NoteResponseDto[],
     spend: RunSpendResponseDto | null,
@@ -206,7 +227,7 @@ export class RunNotesResponseDto {
     this.station = station;
     this.createdAt = createdAt;
     this.briefing = briefing;
-    this.working = working;
+    this.progress = progress;
     this.latestRun = latestRun;
     this.notes = notes;
     this.spend = spend;
@@ -275,6 +296,16 @@ export class TaskRunResponseDto {
   })
   readonly review: RunReviewResponseDto | null;
 
+  @ApiProperty({
+    enum: [...PROGRESS_NAMES, null],
+    nullable: true,
+    type: String,
+    example: 'in-progress',
+    description:
+      'What it is doing: queued until a runner takes it, then in progress. Null once it waits for a person, is stopping or has ended.',
+  })
+  readonly progress: string | null;
+
   constructor(
     id: string,
     state: string,
@@ -286,6 +317,7 @@ export class TaskRunResponseDto {
     image: string | null,
     station: RunStationResponseDto | null,
     review: RunReviewResponseDto | null,
+    progress: string | null,
   ) {
     this.id = id;
     this.state = state;
@@ -297,6 +329,7 @@ export class TaskRunResponseDto {
     this.image = image;
     this.station = station;
     this.review = review;
+    this.progress = progress;
   }
 }
 
@@ -331,6 +364,7 @@ export class TeamRunResponseDto extends TaskRunResponseDto {
       run.image,
       run.station,
       run.review,
+      run.progress,
     );
     this.taskId = taskId;
     this.taskTitle = taskTitle;

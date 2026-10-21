@@ -1,6 +1,7 @@
 import type { AttachmentDto } from '@work/application/dto/attachment.dto';
 import type { NoteDto } from '@work/application/dto/inbox.dto';
 import type { RunStationDto } from '@work/application/dto/task-run.dto';
+import type { Progress } from '@work/domain/value-objects/run-state';
 
 export interface RunSpendDto {
   readonly cost: number | null;
@@ -15,6 +16,7 @@ interface LatestRunDto {
   readonly id: string;
   readonly state: string;
   readonly stopping: boolean;
+  readonly progress: Progress | null;
 }
 
 export interface RunNotesDto {
@@ -26,7 +28,7 @@ export interface RunNotesDto {
   readonly station: RunStationDto | null;
   readonly createdAt: string;
   readonly briefing: string;
-  readonly working: boolean;
+  readonly progress: Progress | null;
   readonly latestRun: LatestRunDto;
   readonly notes: readonly NoteDto[];
   readonly spend: RunSpendDto | null;

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RunActivityOf } from '@/components/features/runs/RunActivityOf';
+import { RunActivity } from '@/components/features/runs/RunActivity';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
 import { RunClosing } from '@/components/features/runs/RunClosing';
 import { RunConversation } from '@/components/features/runs/RunConversation';
@@ -13,7 +13,7 @@ import { useRunDeciding } from '@/hooks/useRunDeciding';
 import { useRunThread } from '@/hooks/useRunThread';
 import { useRunTrail } from '@/hooks/useRunTrail';
 import { decisionPending, type RunJournal, workedOn } from '@/lib/inbox';
-import { queued, type TeamRun, working } from '@/lib/run';
+import { type TeamRun, underway } from '@/lib/run';
 import {
   type RunNotes as ConversationData,
   followedOnAfter,
@@ -40,7 +40,7 @@ export function RunPage({
 }: RunPageProps) {
   const base = useRunTrail({ slug, teamId, run, title: reported?.title });
   const { trail, forward } = useTrail(base, 2);
-  const { latest, conversation } = useRunThread(run, reported);
+  const { latest, conversation, progress } = useRunThread(run, reported);
 
   const notes = conversation?.notes ?? [];
   const deciding = decisionPending(notes);
@@ -61,7 +61,7 @@ export function RunPage({
     />
   );
 
-  const closing = working(run) ? undefined : (
+  const closing = underway(run) ? undefined : (
     <RunClosing
       slug={slug}
       teamId={teamId}
@@ -72,23 +72,21 @@ export function RunPage({
     />
   );
 
-  const stoppingHere = latest.id === run.id && latest.stopping;
-
   const activity = run.station ? (
-    <RunActivityOf
-      run={run}
-      stopping={stoppingHere}
+    <RunActivity
+      runId={run.id}
       journals={ran}
+      progress={latest.id === run.id ? progress : null}
       station={run.station}
     />
   ) : null;
 
   const live =
-    working(latest) && run.station ? (
-      <RunActivityOf
-        run={latest}
-        stopping={latest.stopping}
+    progress && run.station ? (
+      <RunActivity
+        runId={latest.id}
         journals={workedOn(worked, notes, latest.id)}
+        progress={progress}
         station={run.station}
       />
     ) : undefined;
@@ -105,7 +103,7 @@ export function RunPage({
                 teamId={teamId}
                 conversation={conversation}
                 worked={worked}
-                queued={queued(latest) && !latest.stopping}
+                progress={progress}
                 openAt={openAt}
                 live={live}
                 closing={followedOn ? undefined : closing}

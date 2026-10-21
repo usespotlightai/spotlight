@@ -1471,13 +1471,9 @@ export type InboxItemResponseDto = {
    */
   resolved: boolean;
   /**
-   * True while a run is working it, so an answer is coming
+   * What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress
    */
-  working: boolean;
-  /**
-   * The run on it waits for a runner to start it
-   */
-  queued: boolean;
+  progress: 'queued' | 'in-progress' | null;
   /**
    * The run working it now, whose steps can be watched as they land
    */
@@ -1666,9 +1662,9 @@ export type TaskResponseDto = {
   attachments: Array<AttachmentResponseDto>;
   createdAt: string;
   /**
-   * A run is under way
+   * What its current run is doing: queued until a runner takes it, then in progress. Null without a run at work.
    */
-  running: boolean;
+  progress: 'queued' | 'in-progress' | null;
   /**
    * Where an open question is answered, or null for none
    */
@@ -1730,6 +1726,10 @@ export type TeamRunResponseDto = {
    * Set where it put the task to a person
    */
   review: RunReviewResponseDto | null;
+  /**
+   * What it is doing: queued until a runner takes it, then in progress. Null once it waits for a person, is stopping or has ended.
+   */
+  progress: 'queued' | 'in-progress' | null;
   taskId: string | null;
   taskTitle: string | null;
   /**
@@ -1901,6 +1901,10 @@ export type LatestRunResponseDto = {
    * Someone asked the run to stop, and it has not ended yet
    */
   stopping: boolean;
+  /**
+   * What it is doing: queued until a runner takes it, then in progress
+   */
+  progress: 'queued' | 'in-progress' | null;
 };
 
 export type RunSpendResponseDto = {
@@ -1940,9 +1944,9 @@ export type RunNotesResponseDto = {
    */
   briefing: string;
   /**
-   * A run of the task works at this station now
+   * What the run of the task at this station is doing now: queued until a runner takes it, then in progress
    */
-  working: boolean;
+  progress: 'queued' | 'in-progress' | null;
   /**
    * The newest run of the task at this station
    */
@@ -1985,6 +1989,10 @@ export type TaskRunResponseDto = {
    * Set where it put the task to a person
    */
   review: RunReviewResponseDto | null;
+  /**
+   * What it is doing: queued until a runner takes it, then in progress. Null once it waits for a person, is stopping or has ended.
+   */
+  progress: 'queued' | 'in-progress' | null;
 };
 
 export type AddTaskRequestDto = {
@@ -2057,6 +2065,10 @@ export type ReplayRunResponseDto = {
    */
   review: RunReviewResponseDto | null;
   /**
+   * What it is doing: queued until a runner takes it, then in progress. Null once it waits for a person, is stopping or has ended.
+   */
+  progress: 'queued' | 'in-progress' | null;
+  /**
    * The past task run it replays
    */
   original: ReplayedRunResponseDto;
@@ -2115,6 +2127,10 @@ export type SearchRunResponseDto = {
    * Set where it put the task to a person
    */
   review: RunReviewResponseDto | null;
+  /**
+   * What it is doing: queued until a runner takes it, then in progress. Null once it waits for a person, is stopping or has ended.
+   */
+  progress: 'queued' | 'in-progress' | null;
   /**
    * The search this run is an iteration of
    */
@@ -2177,9 +2193,9 @@ export type ChatSummaryResponseDto = {
   createdAt: string;
   updatedAt: string;
   /**
-   * The agent is answering now
+   * What the run answering it is doing: queued until a runner takes it, then in progress. Null while nothing answers.
    */
-  working: boolean;
+  progress: 'queued' | 'in-progress' | null;
 };
 
 export type ChatSetupRequestDto = {
@@ -2296,9 +2312,9 @@ export type ChatResponseDto = {
   createdAt: string;
   updatedAt: string;
   /**
-   * The agent is answering now
+   * What the run answering it is doing: queued until a runner takes it, then in progress. Null while nothing answers.
    */
-  working: boolean;
+  progress: 'queued' | 'in-progress' | null;
   /**
    * The run answering now
    */

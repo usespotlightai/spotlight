@@ -180,11 +180,12 @@ export const conversationOf = (located: Located): RunNotesResponseDto => {
     station: located.run.station,
     createdAt: located.run.startedAt,
     briefing: briefingOf(located, story),
-    working: located.run.state === 'claimed',
+    progress: located.run.progress,
     latestRun: {
       id: located.run.id,
       state: located.run.state,
       stopping: false,
+      progress: located.run.progress,
     },
     notes: [...scripted, ...added],
     spend: finished(located.run) ? story.spend : null,

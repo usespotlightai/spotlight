@@ -5,7 +5,12 @@ import {
   threadText,
 } from '@/lib/inbox';
 import type { Person } from '@/lib/person';
-import { type TeamRun, waitsOnPerson, working } from '@/lib/run';
+import {
+  type Progress,
+  type TeamRun,
+  underway,
+  waitsOnPerson,
+} from '@/lib/run';
 
 export type RunNotes = RunNotesResponseDto;
 
@@ -68,7 +73,9 @@ export const withMessagesInFlight = (
 
   return {
     ...conversation,
-    working: conversation.working || messages.some((each) => each.startsWork),
+    progress:
+      conversation.progress ??
+      (messages.some((each) => each.startsWork) ? 'queued' : null),
     notes: [
       ...conversation.notes,
       ...messages.map((message, at) => ({
@@ -95,7 +102,7 @@ export const withMessagesInFlight = (
 export const conversationItemOf = (
   conversation: RunNotes,
   teamId: string,
-  queued: boolean,
+  progress: Progress | null,
 ): ConversationItem => ({
   id: conversation.runId,
   teamId,
@@ -106,8 +113,7 @@ export const conversationItemOf = (
     position: conversation.station?.position ?? 0,
     count: conversation.station?.count ?? 1,
   },
-  working: conversation.working,
-  queued,
+  progress,
   notes: conversation.notes,
 });
 
@@ -158,7 +164,7 @@ export const stayedQuiet = (
   ran: readonly RunJournal[],
   journalFailed: boolean,
 ): boolean =>
-  !working(run) &&
+  !underway(run) &&
   !waitsOnPerson(run) &&
   !journalFailed &&
   ran.every((each) => each.steps.length === 0);

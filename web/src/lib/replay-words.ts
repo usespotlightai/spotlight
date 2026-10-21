@@ -153,7 +153,7 @@ const RUN_FAILURES: Record<RunFailure, string> = {
 
 const RUN_STATES: Record<string, string> = {
   queued: 'Queued',
-  claimed: 'Running',
+  claimed: 'In progress',
   waiting: 'Waiting for a person',
   suspended: 'Suspended',
   completed: 'Completed',

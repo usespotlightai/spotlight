@@ -16,7 +16,6 @@ import { useLatestRun } from '@/hooks/useLatestRun';
 import { useRunDeciding } from '@/hooks/useRunDeciding';
 import { decisionPending } from '@/lib/inbox';
 import { failed, loading } from '@/lib/query';
-import { queued } from '@/lib/run';
 import { lastNoteOf } from '@/lib/run-notes';
 
 type RunThreadProps = {
@@ -67,7 +66,7 @@ export function RunThread({
             teamId={teamId}
             conversation={conversation}
             worked={journal.data ?? []}
-            queued={latest ? queued(latest) && !latest.stopping : false}
+            progress={latest?.stopping ? null : conversation.progress}
             openAt={lastNoteOf(conversation.notes, runId)}
             footer={
               run && latest ? (

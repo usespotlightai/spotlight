@@ -1,4 +1,3 @@
-import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -11,6 +10,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.handler';
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import { taskReaderOver } from '@work/application/ports/task-reader.fake-spec';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
 import { LineLoader } from '@work/application/services/line-loader.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
@@ -159,11 +159,6 @@ const clock: ClockPort = {
   sleep: async () => {},
 };
 
-const people: PersonReaderPort = {
-  find: async () => ({ id: 'user_1', name: 'Ada', image: null }),
-  findMany: async () => new Map(),
-};
-
 const move = (
   stationId: string,
   board: LineRepository = lines(),
@@ -178,7 +173,7 @@ const move = (
     transaction,
     dispatch(),
     clock,
-    people,
+    taskReaderOver(() => saved),
   ).execute(
     new MoveTaskCommand(
       teamId,

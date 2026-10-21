@@ -1,4 +1,7 @@
-import { isQueued, isStopping } from '@work/domain/value-objects/run-state';
+import {
+  isStopping,
+  progressOfCurrentRun,
+} from '@work/domain/value-objects/run-state';
 import { describe, expect, it } from 'vitest';
 
 describe('isStopping', () => {
@@ -17,16 +20,35 @@ describe('isStopping', () => {
   });
 });
 
-describe('isQueued', () => {
-  it('queues a run that waits for a runner', () => {
-    expect(isQueued('queued', false)).toBe(true);
+describe('progressOfCurrentRun', () => {
+  it('counts a run that has no record yet as queued', () => {
+    expect(progressOfCurrentRun(null)).toBe('queued');
   });
 
-  it('does not queue a run that was asked to stop', () => {
-    expect(isQueued('queued', true)).toBe(false);
+  it('counts a run that waits for a runner as queued', () => {
+    expect(
+      progressOfCurrentRun({ state: 'queued', stopRequested: false }),
+    ).toBe('queued');
   });
 
-  it('does not queue a run that a runner took', () => {
-    expect(isQueued('claimed', false)).toBe(false);
+  it('counts a run that a runner took as in progress', () => {
+    expect(
+      progressOfCurrentRun({ state: 'claimed', stopRequested: false }),
+    ).toBe('in-progress');
+  });
+
+  it('counts no progress for a run that someone asked to stop', () => {
+    expect(
+      progressOfCurrentRun({ state: 'claimed', stopRequested: true }),
+    ).toBeNull();
+  });
+
+  it('counts no progress for a run that waits for a person or has ended', () => {
+    expect(
+      progressOfCurrentRun({ state: 'waiting', stopRequested: false }),
+    ).toBeNull();
+    expect(
+      progressOfCurrentRun({ state: 'completed', stopRequested: false }),
+    ).toBeNull();
   });
 });

@@ -20,8 +20,13 @@ const notes: RunNotesSummary = {
   station: null,
   createdAt: new Date('2026-09-30T10:00:00Z'),
   briefing: 'Fix the queue so it drains.',
-  working: false,
-  latestRun: { id: RUN_ID, state: 'completed', stopping: false },
+  progress: null,
+  latestRun: {
+    id: RUN_ID,
+    state: 'completed',
+    stopping: false,
+    progress: null,
+  },
   notes: [],
 };
 

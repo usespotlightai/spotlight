@@ -14,6 +14,8 @@ import type {
   SetupChatView,
 } from '@work/application/ports/chat-reader.port';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import type { Progress } from '@work/domain/value-objects/run-state';
+import { progressOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
 import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import {
   chat,
@@ -28,7 +30,10 @@ import { and, asc, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 
 type Row = typeof chat.$inferSelect;
 
-const summaryOf = (row: Row): ChatSummary => ({
+const summaryOf = (
+  row: Row,
+  progressOf: (runId: string | null) => Progress | null,
+): ChatSummary => ({
   id: row.id,
   title: row.title,
   harness: row.harness,
@@ -39,7 +44,7 @@ const summaryOf = (row: Row): ChatSummary => ({
   setup: row.setup ?? null,
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
-  working: row.currentRunId !== null,
+  progress: progressOf(row.currentRunId),
 });
 
 @Injectable()
@@ -85,7 +90,12 @@ export class DrizzleChatReader implements ChatReaderPort {
       )
       .orderBy(desc(chat.updatedAt));
 
-    return rows.map(summaryOf);
+    const progressOf = await progressOfCurrentRuns(
+      this.db,
+      rows.map((row) => row.currentRunId),
+    );
+
+    return rows.map((row) => summaryOf(row, progressOf));
   }
 
   async read(
@@ -109,7 +119,7 @@ export class DrizzleChatReader implements ChatReaderPort {
       return null;
     }
 
-    const [messages, attachments, [starter]] = await Promise.all([
+    const [messages, attachments, [starter], progressOf] = await Promise.all([
       this.db
         .select()
         .from(chatMessage)
@@ -121,6 +131,7 @@ export class DrizzleChatReader implements ChatReaderPort {
         .where(eq(chatAttachment.chatId, row.id))
         .orderBy(asc(chatAttachment.place)),
       this.people.find(UserId.of(row.startedById)).then((found) => [found]),
+      progressOfCurrentRuns(this.db, [row.currentRunId]),
     ]);
 
     const proposedAt = messages.flatMap((each) =>
@@ -147,7 +158,7 @@ export class DrizzleChatReader implements ChatReaderPort {
     );
 
     return {
-      ...summaryOf(row),
+      ...summaryOf(row, progressOf),
       runId: row.currentRunId,
       messages: messages.map((message) => {
         const proposal = message.proposal ?? null;

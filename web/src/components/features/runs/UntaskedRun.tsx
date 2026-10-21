@@ -14,7 +14,7 @@ import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { lastNoteAt, threadText } from '@/lib/inbox';
 import type { ReplayRun } from '@/lib/replay';
-import { idleNoteOf, queued, running, working } from '@/lib/run';
+import { idleNoteOf, underway } from '@/lib/run';
 import { TrailContext } from '@/lib/trail';
 
 type UntaskedRunProps = {
@@ -31,6 +31,7 @@ type UntaskedRunProps = {
     | 'image'
     | 'station'
     | 'journals'
+    | 'progress'
   >;
   banner?: ReactNode;
   threadBriefing: string | null;
@@ -54,7 +55,7 @@ export function UntaskedRun({
   footer,
 }: UntaskedRunProps) {
   const scroller = useStickToBottom<HTMLDivElement>();
-  const busy = working(run);
+  const busy = underway(run);
   const steps = run.journals.some((each) => each.steps.length > 0);
 
   return (
@@ -82,8 +83,7 @@ export function UntaskedRun({
                     <RunActivity
                       runId={run.id}
                       journals={run.journals}
-                      running={running(run)}
-                      queued={queued(run)}
+                      progress={run.progress}
                       station={run.station}
                     />
                   </div>

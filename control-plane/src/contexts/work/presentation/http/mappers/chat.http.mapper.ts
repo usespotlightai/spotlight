@@ -26,7 +26,7 @@ export const ChatHttpMapper = {
       dto.setup ? new ChatSetupResponseDto(dto.setup) : null,
       dto.createdAt,
       dto.updatedAt,
-      dto.working,
+      dto.progress,
     );
   },
 

@@ -136,7 +136,7 @@ describe('replay words', () => {
   });
 
   it('names run states it knows, and capitalises those it does not', () => {
-    expect(formatRunState('claimed')).toBe('Running');
+    expect(formatRunState('claimed')).toBe('In progress');
     expect(formatRunState('rewound')).toBe('Rewound');
   });
 

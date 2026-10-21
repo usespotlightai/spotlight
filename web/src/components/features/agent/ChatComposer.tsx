@@ -24,7 +24,7 @@ export function ChatComposer({ slug, teamId, chat }: ChatComposerProps) {
       label="Message the agent"
       placeholder="Reply…"
       pending={send.isPending}
-      running={chat.working}
+      running={chat.progress === 'in-progress'}
       onStop={() => stop.mutate({ teamId, chatId: chat.id })}
       settings={
         <AgentPicker

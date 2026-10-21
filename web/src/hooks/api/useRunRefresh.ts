@@ -7,14 +7,16 @@ import { runScoreKeys } from '@/hooks/api/useRunScores';
 import { useRunStream } from '@/hooks/api/useRunStream';
 import { journalKeys } from '@/hooks/api/useTaskJournal';
 import { teamRunKeys } from '@/hooks/api/useTeamRuns';
-import type { TeamRun } from '@/lib/run';
+import { type Progress, type TeamRun, underway } from '@/lib/run';
+import type { LatestRun } from '@/lib/run-notes';
 
 type RunRefreshParams = {
   readonly teamId?: string;
   readonly runId?: string;
   readonly taskId?: string;
   readonly state?: TeamRun['state'];
-  readonly following?: Pick<TeamRun, 'id' | 'state'>;
+  readonly progress?: Progress | null;
+  readonly following?: Pick<LatestRun, 'id' | 'state' | 'progress'>;
 };
 
 export function useRunRefresh({
@@ -22,10 +24,12 @@ export function useRunRefresh({
   runId,
   taskId,
   state,
+  progress = null,
   following,
 }: RunRefreshParams) {
   const watchedId = following?.id ?? runId;
   const watchedState = following?.state ?? state;
+  const watchedProgress = following ? following.progress : progress;
   const queryClient = useQueryClient();
 
   const bump = useCallback(() => {
@@ -48,7 +52,12 @@ export function useRunRefresh({
     }
   }, [queryClient, taskId, runId, teamId]);
 
-  useRunStream(watchedId, watchedState === 'claimed', bump);
+  useRunStream(
+    watchedId,
+    watchedState !== undefined && underway({ state: watchedState }),
+    watchedProgress,
+    bump,
+  );
 
   const previous = useRef({ id: watchedId, state: watchedState });
 

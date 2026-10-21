@@ -606,6 +606,10 @@ export class Run extends EventRecorder {
       );
     }
 
+    if (this.stopRequested) {
+      return this.endedAsStopped(by);
+    }
+
     return this.with({
       state: 'queued',
       claimedBy: null,

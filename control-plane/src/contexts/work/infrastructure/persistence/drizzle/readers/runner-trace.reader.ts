@@ -101,6 +101,7 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
       .select({
         id: run.id,
         state: run.state,
+        stopRequested: sql<boolean>`${run.stopRequestedAt} is not null`,
         attempt: run.attempt,
         exitCode: run.exitCode,
         startedAt: run.createdAt,

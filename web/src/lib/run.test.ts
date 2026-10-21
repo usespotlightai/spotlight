@@ -7,8 +7,8 @@ import {
   inRunFilter,
   type Run,
   runStatus,
+  underway,
   waitsOnPerson,
-  working,
 } from '@/lib/run';
 
 const NOW = new Date(2026, 7, 30, 12, 0, 0);
@@ -97,26 +97,18 @@ describe('byAge', () => {
   });
 });
 
-describe('working', () => {
-  const run = (state: Run['state'], exitCode: number | null = null) =>
-    ({ state, exitCode }) as Run;
+describe('underway', () => {
+  const run = (state: Run['state']) => ({ state }) as Run;
 
-  it('is true while a runner has it', () => {
-    expect(working(run('claimed'))).toBe(true);
+  it('is under way while it waits for a runner or a runner has it', () => {
+    expect(underway(run('queued'))).toBe(true);
+    expect(underway(run('claimed'))).toBe(true);
   });
 
-  it('is true while it waits for one', () => {
-    expect(working(run('queued'))).toBe(true);
-  });
-
-  it('does not once it is over', () => {
-    expect(working(run('completed', 0))).toBe(false);
-    expect(working(run('failed'))).toBe(false);
-  });
-
-  it('does not while it waits on a person, warm or suspended', () => {
-    expect(working(run('waiting'))).toBe(false);
-    expect(working(run('suspended'))).toBe(false);
+  it('is not under way while it waits on a person, or once it is over', () => {
+    expect(underway(run('waiting'))).toBe(false);
+    expect(underway(run('suspended'))).toBe(false);
+    expect(underway(run('completed'))).toBe(false);
   });
 });
 
@@ -149,8 +141,8 @@ describe('runStatus', () => {
     expect(runStatus(run('claimed'))).toBeNull();
   });
 
-  it('reads a queued run as queued', () => {
-    expect(runStatus(run('queued'))).toBe('Queued');
+  it('leaves a queued run to the pill that every page shows', () => {
+    expect(runStatus(run('queued'))).toBeNull();
   });
 
   it('reads a run that asked a person as waiting for you, suspended or not', () => {

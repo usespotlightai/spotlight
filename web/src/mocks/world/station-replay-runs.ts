@@ -172,6 +172,7 @@ export const replayRun = (runId: string): ReplayRunResponseDto | null => {
   return {
     id: runId,
     state: ended ? 'completed' : 'claimed',
+    progress: ended ? null : 'in-progress',
     attempt: 1,
     exitCode: ended ? 0 : null,
     startedAt: hoursAgo(startedHoursAgo),
