@@ -10,4 +10,5 @@ export interface AuthenticatedUser {
 
 export interface SessionReaderPort {
   read(headers: RequestHeaders): Promise<AuthenticatedUser | null>;
+  readBearer(token: string): Promise<AuthenticatedUser | null>;
 }

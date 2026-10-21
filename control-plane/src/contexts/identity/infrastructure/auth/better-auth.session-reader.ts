@@ -12,10 +12,16 @@ import { fromNodeHeaders } from 'better-auth/node';
 export class BetterAuthSessionReader implements SessionReaderPort {
   constructor(@Inject(AUTH) private readonly auth: AppAuth) {}
 
-  async read(headers: RequestHeaders): Promise<AuthenticatedUser | null> {
-    const session = await this.auth.api.getSession({
-      headers: fromNodeHeaders(headers),
-    });
+  read(headers: RequestHeaders): Promise<AuthenticatedUser | null> {
+    return this.userOf(fromNodeHeaders(headers));
+  }
+
+  readBearer(token: string): Promise<AuthenticatedUser | null> {
+    return this.userOf(new Headers({ authorization: `Bearer ${token}` }));
+  }
+
+  private async userOf(headers: Headers): Promise<AuthenticatedUser | null> {
+    const session = await this.auth.api.getSession({ headers });
 
     if (!session) {
       return null;

@@ -50,7 +50,10 @@ const controlling = (viewer: AuthenticatedUser | null = ADMIN) => {
   return {
     controller: new OAuth2ConnectionController(
       { execute } as unknown as CommandBus,
-      { read: async () => viewer } as SessionReaderPort,
+      {
+        read: async () => viewer,
+        readBearer: async () => null,
+      } satisfies SessionReaderPort,
       new OAuth2NonceCookie(true),
     ),
     execute,

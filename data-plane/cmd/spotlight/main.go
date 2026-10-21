@@ -7,6 +7,7 @@ import (
 	"usespotlight.ai/data-plane/agent"
 	"usespotlight.ai/data-plane/egress"
 	"usespotlight.ai/data-plane/host"
+	"usespotlight.ai/data-plane/login"
 	"usespotlight.ai/data-plane/replay"
 	"usespotlight.ai/data-plane/runner"
 	"usespotlight.ai/data-plane/telemetry"
@@ -21,6 +22,7 @@ const usage = `usage:
 ` + runner.Usage + `
 ` + egress.Usage + `
 ` + replay.Usage + `
+` + login.Usage + `
   spotlight version`
 
 func main() {
@@ -44,6 +46,10 @@ func run(args []string) int {
 		return egress.Main(args[1:], version)
 	case "replay":
 		return replay.Main(args[1:], version)
+	case "login":
+		return login.Main(args[1:], version)
+	case "logout":
+		return login.Logout(args[1:], version)
 	case "version":
 		fmt.Println(version)
 	case "help", "-h", "--help":
@@ -59,6 +65,8 @@ func roleOf(command string) string {
 	switch command {
 	case "host", "runner", "egress", "replay":
 		return command
+	case "login", "logout":
+		return "login"
 	default:
 		return "agent"
 	}

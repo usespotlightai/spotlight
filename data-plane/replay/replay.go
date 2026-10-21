@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"time"
+
+	"usespotlight.ai/data-plane/credentials"
 )
 
 const Usage = `  spotlight replay propose --station <team/line/station> --name <name> <station.json>
@@ -16,17 +18,21 @@ const Usage = `  spotlight replay propose --station <team/line/station> --name <
   spotlight replay status --team <key> <replay id>
   spotlight replay watch --team <key> <replay id> [--every 15s]
   spotlight replay stop --team <key> <replay id>
-      each takes --json; reads SPOTLIGHT_URL and SPOTLIGHT_API_TOKEN, a workspace
-      token that may plan (read is enough to list, show and follow); status and
-      watch exit 2 when the candidate regresses on a task its reference replay did
-      well; --repeats replays each run up to 5 times, so each task is rated by
+      each takes --json and --workspace <slug>; reads SPOTLIGHT_URL and
+      SPOTLIGHT_API_TOKEN, a workspace token that may plan (read is enough to
+      list, show and follow), else the login from spotlight login for
+      SPOTLIGHT_URL; a login in more than one workspace needs --workspace or
+      SPOTLIGHT_WORKSPACE; status and watch exit 2
+      when the candidate regresses on a task its reference replay did well;
+      --repeats replays each run up to 5 times, so each task is rated by
       the share of its repeats that succeeded and every rate carries a 95%
       interval
 ` + CheckUsage
 
 const (
-	urlVar   = "SPOTLIGHT_URL"
-	tokenVar = "SPOTLIGHT_API_TOKEN"
+	urlVar       = "SPOTLIGHT_URL"
+	tokenVar     = "SPOTLIGHT_API_TOKEN"
+	workspaceVar = "SPOTLIGHT_WORKSPACE"
 
 	regressedExit = 2
 )
@@ -34,10 +40,11 @@ const (
 var errRegressed = errors.New("the candidate regressed against its reference replay")
 
 type cli struct {
-	api   *api
-	out   io.Writer
-	in    io.Reader
-	sleep func(time.Duration)
+	api       *api
+	out       io.Writer
+	in        io.Reader
+	sleep     func(time.Duration)
+	workspace string
 }
 
 func Main(args []string, version string) int {
@@ -59,17 +66,38 @@ func Main(args []string, version string) int {
 	}
 }
 
+func tokenFor(env func(string) string, base string) (string, error) {
+	if token := env(tokenVar); token != "" {
+		return token, nil
+	}
+
+	token, err := credentials.Stored(env, base)
+	if err != nil {
+		return "", fmt.Errorf("read the login for %s: %w", base, err)
+	}
+	if token == "" {
+		return "", fmt.Errorf("no credentials for %s. Run spotlight login, or set %s\nusage:\n%s", base, tokenVar, Usage)
+	}
+
+	return token, nil
+}
+
 func run(args []string, in io.Reader, out io.Writer, version string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("usage:\n%s", Usage)
 	}
 
-	base, token := os.Getenv(urlVar), os.Getenv(tokenVar)
-	if base == "" || token == "" {
-		return fmt.Errorf("set %s and %s to replay\nusage:\n%s", urlVar, tokenVar, Usage)
+	base := os.Getenv(urlVar)
+	if base == "" {
+		return fmt.Errorf("set %s to replay\nusage:\n%s", urlVar, Usage)
 	}
 
-	c := &cli{api: newAPI(base, token, version), out: out, in: in, sleep: time.Sleep}
+	token, err := tokenFor(os.Getenv, base)
+	if err != nil {
+		return err
+	}
+
+	c := &cli{api: newAPI(base, token, version), out: out, in: in, sleep: time.Sleep, workspace: os.Getenv(workspaceVar)}
 	rest := args[1:]
 
 	switch args[0] {

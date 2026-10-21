@@ -55,25 +55,40 @@ export class AuthenticatedGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const { authorization } = request.headers;
-    const bearer = bearerIn(
-      typeof authorization === 'string' ? authorization : undefined,
-    );
+    const presented = typeof authorization === 'string' ? authorization : '';
+    const bearer = bearerIn(presented);
+
+    if (presented !== '' && !bearer) {
+      throw new UnauthorizedException(
+        'The Authorization header must use the Bearer scheme.',
+      );
+    }
 
     if (bearer && marked(ALLOW_WORKSPACE_TOKENS)) {
       const principal = await this.tokens.authenticate(bearer);
 
-      if (!principal) {
-        throw new UnauthorizedException(
-          'The workspace token is unknown, expired or revoked.',
-        );
+      if (principal) {
+        request[REQUEST_PRINCIPAL] = principal;
+
+        return true;
       }
-
-      request[REQUEST_PRINCIPAL] = principal;
-
-      return true;
     }
 
-    const user = await this.sessions.read(request.headers);
+    const user = bearer
+      ? await this.sessions.readBearer(bearer)
+      : await this.sessions.read(request.headers);
+
+    if (!user && bearer && marked(ALLOW_WORKSPACE_TOKENS)) {
+      throw new UnauthorizedException(
+        'The token is unknown, expired or revoked.',
+      );
+    }
+
+    if (!user && bearer) {
+      throw new UnauthorizedException(
+        'The token is not a current login. Workspace tokens cannot call this route.',
+      );
+    }
 
     if (!user) {
       throw new UnauthorizedException(

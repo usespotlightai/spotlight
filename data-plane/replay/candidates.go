@@ -41,9 +41,10 @@ type stationFlags struct {
 	args    []string
 }
 
-func flagsFor(name string) *stationFlags {
+func (c *cli) flagsFor(name string) *stationFlags {
 	set := flag.NewFlagSet(name, flag.ContinueOnError)
 	set.SetOutput(io.Discard)
+	set.StringVar(&c.workspace, "workspace", c.workspace, "the workspace, by its slug")
 
 	return &stationFlags{
 		set:     set,
@@ -66,7 +67,7 @@ func (f *stationFlags) parse(args []string) error {
 }
 
 func (c *cli) propose(args []string) error {
-	flags := flagsFor("propose")
+	flags := c.flagsFor("propose")
 	name := flags.set.String("name", "", "tells the candidate from the station's others")
 	if err := flags.parse(args); err != nil {
 		return err
@@ -132,7 +133,7 @@ func (c *cli) block(path string) (map[string]any, error) {
 }
 
 func (c *cli) candidates(args []string) error {
-	flags := flagsFor("candidates")
+	flags := c.flagsFor("candidates")
 	if err := flags.parse(args); err != nil {
 		return err
 	}
@@ -186,7 +187,7 @@ func (c *cli) candidatesOf(at *station) ([]candidate, []json.RawMessage, error) 
 }
 
 func (c *cli) show(args []string) error {
-	flags := flagsFor("show")
+	flags := c.flagsFor("show")
 	if err := flags.parse(args); err != nil {
 		return err
 	}

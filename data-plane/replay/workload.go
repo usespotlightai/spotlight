@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"usespotlight.ai/data-plane/credentials"
 )
 
 const (
@@ -195,7 +197,7 @@ func problemOf(status int, body []byte) string {
 func checkAPI(env func(string) string, version string, now func() time.Time) (*api, error) {
 	base := env(urlVar)
 	if base == "" {
-		return nil, fmt.Errorf("set %s, and %s or %s, to check a plan\nusage:\n%s", urlVar, tokenVar, trustVar, Usage)
+		return nil, fmt.Errorf("set %s, and %s, %s or a login from spotlight login, to check a plan\nusage:\n%s", urlVar, tokenVar, trustVar, Usage)
 	}
 
 	if token := env(tokenVar); token != "" {
@@ -204,7 +206,14 @@ func checkAPI(env func(string) string, version string, now func() time.Time) (*a
 
 	trust := env(trustVar)
 	if trust == "" {
-		return nil, fmt.Errorf("set %s, a workspace token that may plan, or %s, a workspace token trust to exchange the job's OIDC token through\nusage:\n%s", tokenVar, trustVar, Usage)
+		token, err := credentials.Stored(env, base)
+		if err != nil {
+			return nil, fmt.Errorf("read the login for %s: %w", base, err)
+		}
+		if token == "" {
+			return nil, fmt.Errorf("no credentials for %s. Set %s, a workspace token that may plan, or %s, a workspace token trust to exchange the job's OIDC token through, or run spotlight login\nusage:\n%s", base, tokenVar, trustVar, Usage)
+		}
+		return newAPI(base, token, version), nil
 	}
 
 	client := &http.Client{Timeout: workloadAnswerTime}

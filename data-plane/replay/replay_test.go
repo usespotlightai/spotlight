@@ -14,6 +14,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"usespotlight.ai/data-plane/credentials"
 )
 
 const token = "q3Vd0n8yXbT2c4kPzR7mW1sLhA9eJ5gUfN6oYiC0xEw"
@@ -123,6 +125,7 @@ func serve(t *testing.T) *spotlight {
 	t.Cleanup(server.Close)
 	t.Setenv(urlVar, server.URL+"/")
 	t.Setenv(tokenVar, token)
+	t.Setenv(credentials.DirVar, t.TempDir())
 
 	return s
 }
@@ -589,9 +592,83 @@ func TestProposeTriesOnceMoreUnderTheSameKey(t *testing.T) {
 func TestEveryCommandNeedsTheAddressAndAToken(t *testing.T) {
 	t.Setenv(urlVar, "")
 	t.Setenv(tokenVar, "")
+	t.Setenv(credentials.DirVar, t.TempDir())
 
-	if _, err := replaying("candidates", "--station", "core/delivery/build"); err == nil || !strings.Contains(err.Error(), tokenVar) {
-		t.Fatalf("err = %v, want the variables named", err)
+	if _, err := replaying("candidates", "--station", "core/delivery/build"); err == nil || !strings.Contains(err.Error(), urlVar) {
+		t.Fatalf("err = %v, want the address named", err)
+	}
+
+	serve(t)
+	t.Setenv(tokenVar, "")
+
+	if _, err := replaying("candidates", "--station", "core/delivery/build"); err == nil || !strings.Contains(err.Error(), tokenVar) || !strings.Contains(err.Error(), "spotlight login") {
+		t.Fatalf("err = %v, want the token and spotlight login named", err)
+	}
+}
+
+func TestEveryCommandFallsBackToTheLoginForTheAddress(t *testing.T) {
+	spotlight := serve(t)
+	t.Setenv(tokenVar, "")
+	loggedIn(t, os.Getenv(urlVar), token)
+
+	if _, err := replaying("candidates", "--station", "core/delivery/build"); err != nil {
+		t.Fatalf("candidates with the login: %v", err)
+	}
+	if got := spotlight.last(http.MethodGet, "/api/resources/workspaces/ws_1/replay-candidates").headers.Get("Authorization"); got != "Bearer "+token {
+		t.Fatalf("Authorization = %q, want the login's token", got)
+	}
+
+	t.Setenv(tokenVar, "not-the-token")
+	if _, err := replaying("candidates", "--station", "core/delivery/build"); err == nil || !strings.Contains(err.Error(), "No valid credentials") {
+		t.Fatalf("err = %v, want SPOTLIGHT_API_TOKEN to win over the login", err)
+	}
+}
+
+func TestALoginInSeveralWorkspacesNeedsTheWorkspaceChosen(t *testing.T) {
+	spotlight := serve(t)
+	spotlight.answers["GET /api/resources/workspaces"] = `{"items":[{"id":"ws_2","slug":"other"},{"id":"ws_1","slug":"acme"}]}`
+	t.Setenv(workspaceVar, "")
+
+	if _, err := replaying("candidates", "--station", "core/delivery/build"); err == nil || !strings.Contains(err.Error(), "you belong to 2 workspaces: other, acme") || !strings.Contains(err.Error(), workspaceVar) {
+		t.Fatalf("err = %v, want the workspaces listed and the choice named", err)
+	}
+
+	if _, err := replaying("candidates", "--workspace", "acme", "--station", "core/delivery/build"); err != nil {
+		t.Fatalf("candidates with --workspace: %v", err)
+	}
+	spotlight.last(http.MethodGet, "/api/resources/workspaces/ws_1/replay-candidates")
+
+	t.Setenv(workspaceVar, "acme")
+	if _, err := replaying("sets", "--station", "core/delivery/build"); err != nil {
+		t.Fatalf("sets with %s: %v", workspaceVar, err)
+	}
+
+	if _, err := replaying("candidates", "--workspace", "nowhere", "--station", "core/delivery/build"); err == nil || !strings.Contains(err.Error(), "not a member of workspace nowhere") {
+		t.Fatalf("err = %v, want the unknown workspace named", err)
+	}
+}
+
+func loggedIn(t *testing.T, address, token string) {
+	t.Helper()
+
+	path, err := credentials.Path(os.Getenv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := credentials.Address(address)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	file, err := credentials.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Put(key, credentials.Login{Token: token, User: "person@example.com"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Save(); err != nil {
+		t.Fatal(err)
 	}
 }
 

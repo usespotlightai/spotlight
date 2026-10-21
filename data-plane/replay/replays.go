@@ -127,7 +127,7 @@ func retryDelay(every time.Duration, failures int) time.Duration {
 }
 
 func (c *cli) sets(args []string) error {
-	flags := flagsFor("sets")
+	flags := c.flagsFor("sets")
 	if err := flags.parse(args); err != nil {
 		return err
 	}
@@ -177,7 +177,7 @@ func (c *cli) setsAt(at *station) ([]replaySet, error) {
 }
 
 func (c *cli) start(args []string) error {
-	flags := flagsFor("start")
+	flags := c.flagsFor("start")
 	setNamed := flags.set.String("set", "", "the replay set, by name or id")
 	candidateNamed := flags.set.String("candidate", "", "the candidate, by name or id, or live")
 	ceiling := flags.set.String("ceiling", "", "the most the replay may spend")
@@ -259,9 +259,10 @@ type replayFlags struct {
 	json *bool
 }
 
-func replayFlagsFor(name string) replayFlags {
+func (c *cli) replayFlagsFor(name string) replayFlags {
 	set := flag.NewFlagSet(name, flag.ContinueOnError)
 	set.SetOutput(io.Discard)
+	set.StringVar(&c.workspace, "workspace", c.workspace, "the workspace, by its slug")
 
 	return replayFlags{
 		set:  set,
@@ -283,7 +284,7 @@ func (f replayFlags) parse(args []string) (string, error) {
 }
 
 func (c *cli) status(args []string) error {
-	flags := replayFlagsFor("status")
+	flags := c.replayFlagsFor("status")
 	id, err := flags.parse(args)
 	if err != nil {
 		return err
@@ -303,7 +304,7 @@ func (c *cli) status(args []string) error {
 }
 
 func (c *cli) watch(args []string) error {
-	flags := replayFlagsFor("watch")
+	flags := c.replayFlagsFor("watch")
 	every := flags.set.Duration("every", 15*time.Second, "how often to read the status")
 	id, err := flags.parse(args)
 	if err != nil {
@@ -349,7 +350,7 @@ func (c *cli) watch(args []string) error {
 }
 
 func (c *cli) stop(args []string) error {
-	flags := replayFlagsFor("stop")
+	flags := c.replayFlagsFor("stop")
 	id, err := flags.parse(args)
 	if err != nil {
 		return err

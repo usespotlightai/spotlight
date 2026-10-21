@@ -1,9 +1,9 @@
 import { useParams } from 'react-router';
 import { AcceptAsSignedIn } from '@/components/features/invites/AcceptAsSignedIn';
-import { SignInToAccept } from '@/components/features/invites/SignInToAccept';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { AuthScreen } from '@/components/shell/auth/AuthScreen';
 import { AuthTitle } from '@/components/shell/auth/AuthTitle';
+import { SignInToContinue } from '@/components/shell/auth/SignInToContinue';
 import { useInvite } from '@/hooks/api/useInvite';
 import { useSession } from '@/hooks/api/useSession';
 import { inviterNamed, joiningAs } from '@/lib/members';
@@ -72,7 +72,7 @@ export function AcceptInvite() {
           signedInAs={session.user.email}
         />
       ) : (
-        <SignInToAccept token={token} />
+        <SignInToContinue callbackURL={`/invites/${token}`} />
       )}
     </AuthScreen>
   );

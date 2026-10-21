@@ -1,12 +1,12 @@
 import { ContinueWithGitHub } from '@/components/shell/auth/ContinueWithGitHub';
 import { useSignIn } from '@/hooks/api/useSignIn';
 
-type SignInToAcceptProps = {
-  token: string | undefined;
+type SignInToContinueProps = {
+  callbackURL: string;
 };
 
-export function SignInToAccept({ token }: SignInToAcceptProps) {
-  const signIn = useSignIn(`/invites/${token}`);
+export function SignInToContinue({ callbackURL }: SignInToContinueProps) {
+  const signIn = useSignIn(callbackURL);
 
   return (
     <div className="flex flex-col gap-3">
