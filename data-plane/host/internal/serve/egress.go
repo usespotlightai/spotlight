@@ -59,11 +59,11 @@ func (h *Host) egressSidecar(
 	}
 
 	sidecar.container, err = h.startEgress(ctx, image, name, labels, protocol.EgressConfig{
-		URL:         h.opts.SandboxURL,
+		URL:         h.now().SandboxURL,
 		Token:       token,
 		Credential:  sidecar.credential,
-		Allow:       h.opts.Egress.Allow,
-		SecretAllow: h.opts.Egress.SecretAllow,
+		Allow:       h.now().Egress.Allow,
+		SecretAllow: h.now().Egress.SecretAllow,
 		HarnessKeys: harnessKeys,
 	}, []sandbox.Join{{Network: sidecar.network, Aliases: []string{EgressAlias}}})
 	if err != nil {
@@ -91,10 +91,10 @@ func (h *Host) startEgress(
 		return "", err
 	}
 
-	env, files := h.opts.Egress.Env, []sandbox.File{{Path: protocol.EgressConfigPath, Mode: 0o400, Body: body}}
-	if len(h.opts.Egress.CABundle) > 0 {
+	env, files := h.now().Egress.Env, []sandbox.File{{Path: protocol.EgressConfigPath, Mode: 0o400, Body: body}}
+	if len(h.now().Egress.CABundle) > 0 {
 		env = append(slices.Clone(env), "SSL_CERT_DIR="+EgressCABundleDir)
-		files = append(files, sandbox.File{Path: EgressCABundleDir + "/trusted.pem", Mode: 0o644, DirMode: 0o755, Body: h.opts.Egress.CABundle})
+		files = append(files, sandbox.File{Path: EgressCABundleDir + "/trusted.pem", Mode: 0o644, DirMode: 0o755, Body: h.now().Egress.CABundle})
 	}
 
 	return h.engine.Start(ctx, sandbox.Spec{
@@ -104,15 +104,19 @@ func (h *Host) startEgress(
 		Env:        env,
 		Labels:     labels,
 		Files:      files,
-		Network:    h.opts.Network,
+		Network:    h.now().Network,
 		Joins:      joins,
-		ExtraHosts: h.opts.ExtraHosts,
+		ExtraHosts: h.now().ExtraHosts,
 	})
 }
 
 func (h *Host) egressImage(ctx context.Context) (string, error) {
+	ref := h.now().Egress.Image
 	h.mu.Lock()
 	pulled := h.egressIs
+	if h.egressFor != ref {
+		pulled = ""
+	}
 	h.mu.Unlock()
 	if pulled != "" {
 		if _, err := h.engine.Inspect(ctx, pulled); err == nil {
@@ -120,13 +124,13 @@ func (h *Host) egressImage(ctx context.Context) (string, error) {
 		}
 	}
 
-	image, err := h.pulled(ctx, h.opts.Egress.Image)
+	image, err := h.pulled(ctx, ref)
 	if err != nil {
-		return "", fmt.Errorf("pull the egress image %s: %w", h.opts.Egress.Image, err)
+		return "", fmt.Errorf("pull the egress image %s: %w", ref, err)
 	}
 
 	h.mu.Lock()
-	h.egressIs = image.ID
+	h.egressIs, h.egressFor = image.ID, ref
 	h.mu.Unlock()
 
 	return image.ID, nil
