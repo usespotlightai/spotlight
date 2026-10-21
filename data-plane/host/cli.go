@@ -140,12 +140,6 @@ func mark(level string) string {
 	}
 }
 
-// loaded reads the settings for a command. The state directory is set even when the settings have problems.
-func loaded(version string) (config.Config, error) {
-	cfg, err := config.Load(version)
-	return cfg, config.Friendly(err)
-}
-
 func readHostID(state string) string {
 	raw, err := os.ReadFile(filepath.Join(state, "host-id"))
 	if err != nil {
