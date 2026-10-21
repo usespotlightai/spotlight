@@ -1,4 +1,4 @@
-import { useStopInFlight } from '@/hooks/api/useStopRun';
+import { useRunProgress } from '@/hooks/useRunProgress';
 import type { TeamRun } from '@/lib/run';
 import type { LatestRun, RunNotes } from '@/lib/run-notes';
 
@@ -20,13 +20,10 @@ export function useLatestRun(
       ? {
           id: run.id,
           state: run.state,
-          stopping: false,
           progress: run.progress,
         }
       : null);
-  const asked = useStopInFlight(latest?.id);
+  const progress = useRunProgress(latest?.id, latest?.progress ?? null);
 
-  return latest && asked
-    ? { ...latest, stopping: true, progress: null }
-    : latest;
+  return latest ? { ...latest, progress } : latest;
 }

@@ -24,6 +24,7 @@ const summary = (over: Partial<TaskRunSummary> = {}): TaskRunSummary => ({
     count: 5,
   },
   review: null,
+  takenUpOnAnswer: false,
   ...over,
 });
 
@@ -130,6 +131,36 @@ describe('ListTaskRunsHandler', () => {
       state: 'pending',
       conversationId: 'task_1:5',
     });
+  });
+
+  it('says a run someone asked to stop is stopping', async () => {
+    const { runs } = reading([
+      summary({ state: 'claimed', stopRequested: true }),
+    ]);
+
+    const [only] = await new ListTaskRunsHandler(runs).execute(
+      new ListTaskRunsQuery('task_1', 'user_1'),
+    );
+
+    expect(only?.progress).toBe('stopping');
+  });
+
+  it('says a paused run is under way again once the answer takes it up, and not before', async () => {
+    const { runs } = reading([
+      summary({ id: 'run_1', state: 'waiting', takenUpOnAnswer: true }),
+      summary({ id: 'run_2', state: 'suspended', takenUpOnAnswer: true }),
+      summary({ id: 'run_3', state: 'waiting', takenUpOnAnswer: false }),
+    ]);
+
+    const found = await new ListTaskRunsHandler(runs).execute(
+      new ListTaskRunsQuery('task_1', 'user_1'),
+    );
+
+    expect(found.map((each) => each.progress)).toEqual([
+      'in-progress',
+      'queued',
+      null,
+    ]);
   });
 
   it('answers with nothing for a task the viewer cannot see', async () => {

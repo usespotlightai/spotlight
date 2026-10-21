@@ -29,14 +29,15 @@ import type {
 } from '@work/application/ports/run-reader.port';
 import { worksOn } from '@work/domain/services/conversations';
 import {
-  isStopping,
   progressOf,
   progressOfCurrentRun,
+  takenUpOnAnswer,
 } from '@work/domain/value-objects/run-state';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 import {
   attachmentsFor,
   attachmentsOf,
+  awaitedReviewsFor,
   reviewsBy,
   stationsPerLine,
   threadAt,
@@ -119,26 +120,35 @@ export class DrizzleRunReader implements RunReaderPort {
         stationPosition: ranAt.position,
         stationLineId: ranAt.lineId,
         workspaceId: run.workspaceId,
+        currentRunId: task.currentRunId,
       })
       .from(run)
+      .innerJoin(task, eq(task.id, run.taskId))
       .leftJoin(ranAt, eq(ranAt.id, run.stationId))
       .where(eq(run.taskId, taskId.value))
       .orderBy(desc(run.createdAt));
     const rows = await this.visibleTo(viewerId, found);
 
-    const [stationCounts, review] = await Promise.all([
+    const [stationCounts, review, awaited] = await Promise.all([
       stationsPerLine(
         this.db,
         rows.flatMap((row) => (row.stationLineId ? [row.stationLineId] : [])),
       ),
       reviewsBy(this.db, [taskId.value]),
+      awaitedReviewsFor(this.db, [taskId.value]),
     ]);
 
-    return rows.map(({ stationLineId, workspaceId: _workspace, ...rest }) => ({
-      ...rest,
-      station: stationSummaryOf({ ...rest, stationLineId }, stationCounts),
-      review: review.get(rest.id) ?? null,
-    }));
+    return rows.map(
+      ({ stationLineId, workspaceId: _workspace, currentRunId, ...rest }) => ({
+        ...rest,
+        station: stationSummaryOf({ ...rest, stationLineId }, stationCounts),
+        review: review.get(rest.id) ?? null,
+        takenUpOnAnswer: takenUpOnAnswer(rest.id, {
+          currentRunId,
+          awaitsPerson: awaited.has(taskId.value),
+        }),
+      }),
+    );
   }
 
   async listForTeam(
@@ -165,6 +175,7 @@ export class DrizzleRunReader implements RunReaderPort {
         stationPosition: ranAt.position,
         stationLineId: ranAt.lineId,
         workspaceId: run.workspaceId,
+        currentRunId: task.currentRunId,
       })
       .from(run)
       .innerJoin(task, eq(task.id, run.taskId))
@@ -175,7 +186,7 @@ export class DrizzleRunReader implements RunReaderPort {
       .orderBy(desc(run.createdAt));
     const rows = await this.visibleTo(viewerId, found);
 
-    const [stationCounts, review] = await Promise.all([
+    const [stationCounts, review, awaited] = await Promise.all([
       stationsPerLine(
         this.db,
         rows.flatMap((row) => (row.stationLineId ? [row.stationLineId] : [])),
@@ -184,13 +195,23 @@ export class DrizzleRunReader implements RunReaderPort {
         this.db,
         rows.flatMap((row) => (row.taskId ? [row.taskId] : [])),
       ),
+      awaitedReviewsFor(
+        this.db,
+        rows.flatMap((row) => (row.taskId ? [row.taskId] : [])),
+      ),
     ]);
 
-    return rows.map(({ stationLineId, workspaceId: _workspace, ...rest }) => ({
-      ...rest,
-      station: stationSummaryOf({ ...rest, stationLineId }, stationCounts),
-      review: review.get(rest.id) ?? null,
-    }));
+    return rows.map(
+      ({ stationLineId, workspaceId: _workspace, currentRunId, ...rest }) => ({
+        ...rest,
+        station: stationSummaryOf({ ...rest, stationLineId }, stationCounts),
+        review: review.get(rest.id) ?? null,
+        takenUpOnAnswer: takenUpOnAnswer(rest.id, {
+          currentRunId,
+          awaitsPerson: rest.taskId !== null && awaited.has(rest.taskId),
+        }),
+      }),
+    );
   }
 
   async notesFor(
@@ -270,12 +291,11 @@ export class DrizzleRunReader implements RunReaderPort {
       createdAt: found.createdAt,
       briefing: spec.briefing,
       progress: worksOn(found.workingRunId === latest.runId, notes)
-        ? progressOfCurrentRun(latestRun)
+        ? progressOfCurrentRun(latestRun, true)
         : null,
       latestRun: {
         id: latest.runId,
         state: latest.state,
-        stopping: isStopping(latestRun.state, latestRun.stopRequested),
         progress: progressOf(latestRun),
       },
       notes: threadAt(notes, found.stationId, runId.value),
@@ -414,6 +434,7 @@ export class DrizzleRunReader implements RunReaderPort {
       image: found.image,
       station: stationSummaryOf(found, stationCounts),
       review: null,
+      takenUpOnAnswer: false,
       searchId: found.searchId,
       iteration: found.iteration,
       failure: found.failure,
@@ -493,6 +514,7 @@ export class DrizzleRunReader implements RunReaderPort {
       image: found.image,
       station: stationSummaryOf(found, stationCounts),
       review: null,
+      takenUpOnAnswer: false,
       original: {
         runId: found.originalRunId,
         taskId: found.originalTaskId,

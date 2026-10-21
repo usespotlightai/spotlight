@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
+import { DrizzleRunnerTraceReader } from '@work/infrastructure/persistence/drizzle/readers/runner-trace.reader';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
@@ -17,7 +20,11 @@ beforeAll(async () => {
   db = database.db;
   reader = new DrizzleRunReader(
     db,
-    { mayView: async () => true } as never,
+    {
+      mayView: async () => true,
+      viewableBy: async (_viewer: unknown, ids: readonly { value: string }[]) =>
+        new Set(ids.map((id) => id.value)),
+    } as never,
     { findMany: async () => new Map() } as never,
   );
 }, 60_000);
@@ -64,6 +71,7 @@ const taskOnLine = async (...names: string[]) => {
     at: { stationId: string; station: string },
     runId: string | null,
     body: string,
+    kind: 'message' | 'asked' | 'answered' = 'message',
   ) =>
     db.insert(schema.taskNote).values({
       taskId,
@@ -75,7 +83,7 @@ const taskOnLine = async (...names: string[]) => {
       voice: runId ? 'station' : 'person',
       authorId: runId ? null : 'user_1',
       runId,
-      kind: 'message',
+      kind,
     });
 
   const run = async (
@@ -178,10 +186,9 @@ describe('the notes of a run', () => {
     expect(found?.latestRun).toEqual({
       id: second,
       state: 'claimed',
-      stopping: true,
-      progress: null,
+      progress: 'stopping',
     });
-    expect(found?.progress).toBeNull();
+    expect(found?.progress).toBe('stopping');
   });
 
   it('no longer calls a run stopping once it has ended', async () => {
@@ -195,7 +202,7 @@ describe('the notes of a run', () => {
 
     const found = await reader.notesFor(RunId.of(stopped), VIEWER);
 
-    expect(found?.latestRun.stopping).toBe(false);
+    expect(found?.latestRun.progress).toBeNull();
   });
 
   it('does not work at the station once the task runs at another one', async () => {
@@ -214,7 +221,6 @@ describe('the notes of a run', () => {
     expect(found?.latestRun).toEqual({
       id: here,
       state: 'completed',
-      stopping: false,
       progress: null,
     });
     expect(found?.progress).toBeNull();
@@ -315,5 +321,62 @@ describe('the notes of a run', () => {
       'typed at the second review',
       'ran at the second review',
     ]);
+  });
+});
+
+describe('the progress of a run once a person answered it', () => {
+  const listed = async (taskId: string, runId: string) => {
+    const [forTask, forTeam, traced] = await Promise.all([
+      reader.listForTask(TaskId.of(taskId), VIEWER),
+      reader.listForTeam(TeamId.of('team_1'), VIEWER),
+      new DrizzleRunnerTraceReader(db).runsForTask(TaskId.of(taskId)),
+    ]);
+
+    return [forTask, forTeam, traced].map(
+      (runs) => runs.find((each) => each.id === runId)?.takenUpOnAnswer,
+    );
+  };
+
+  const paused = async (state: RunState, answered: boolean) => {
+    const { taskId, implementation, note, run } = await taskAtImplementation();
+    const at = { stationId: implementation, station: 'Implementation' };
+    const older = await run(
+      implementation,
+      'suspended',
+      '2026-10-20T08:00:00.000Z',
+    );
+    const runId = await run(implementation, state, '2026-10-20T09:00:00.000Z');
+    await current(taskId, runId);
+    await note(at, runId, 'Which queue?', 'asked');
+    if (answered) {
+      await note(at, null, 'The retry queue.', 'answered');
+    }
+
+    return { taskId, runId, older };
+  };
+
+  it('takes up the current run in every run list once the answer is in', async () => {
+    const { taskId, runId, older } = await paused('waiting', true);
+
+    expect(await listed(taskId, runId)).toEqual([true, true, true]);
+    expect(await listed(taskId, older)).toEqual([false, false, false]);
+  });
+
+  it('takes up no run while the person still owes the answer', async () => {
+    const { taskId, runId } = await paused('waiting', false);
+
+    expect(await listed(taskId, runId)).toEqual([false, false, false]);
+  });
+
+  it('says in the run notes that an answered run is under way again', async () => {
+    const warm = await paused('waiting', true);
+    const suspended = await paused('suspended', true);
+
+    expect(
+      (await reader.notesFor(RunId.of(warm.runId), VIEWER))?.progress,
+    ).toBe('in-progress');
+    expect(
+      (await reader.notesFor(RunId.of(suspended.runId), VIEWER))?.progress,
+    ).toBe('queued');
   });
 });

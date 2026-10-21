@@ -251,6 +251,7 @@ const (
 	EventUsage          EventType = "usage"
 	EventToolRefused    EventType = "tool.refused"
 	EventEgressChecked  EventType = "egress.checked"
+	EventAgentStopped   EventType = "agent.stopped"
 )
 
 type Event struct {

@@ -214,6 +214,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
                         stopRequested: row.workingStopRequestedAt !== null,
                       }
                     : null,
+                  true,
                 )
               : null,
           runId: stillOpen(conversation) ? row.working : null,

@@ -7,6 +7,7 @@ import {
   inRunFilter,
   type Run,
   runStatus,
+  shownProgress,
   underway,
   waitsOnPerson,
 } from '@/lib/run';
@@ -113,7 +114,8 @@ describe('underway', () => {
 });
 
 describe('waitsOnPerson', () => {
-  const run = (state: Run['state']) => ({ state }) as Run;
+  const run = (state: Run['state'], progress: Run['progress'] = null) =>
+    ({ state, progress }) as Run;
 
   it('is true while the run keeps its sandbox warm for an answer', () => {
     expect(waitsOnPerson(run('waiting'))).toBe(true);
@@ -121,6 +123,12 @@ describe('waitsOnPerson', () => {
 
   it('is true once nobody answered in time and the run was suspended', () => {
     expect(waitsOnPerson(run('suspended'))).toBe(true);
+  });
+
+  it('is false once the person answered, or someone asked the run to stop', () => {
+    expect(waitsOnPerson(run('waiting', 'in-progress'))).toBe(false);
+    expect(waitsOnPerson(run('suspended', 'queued'))).toBe(false);
+    expect(waitsOnPerson(run('waiting', 'stopping'))).toBe(false);
   });
 
   it('does not for a run at work, waiting for a runner, or over', () => {
@@ -135,7 +143,7 @@ describe('waitsOnPerson', () => {
 
 describe('runStatus', () => {
   const run = (state: Run['state'], exitCode: number | null = null) =>
-    ({ state, exitCode }) as Run;
+    ({ state, exitCode, progress: null }) as Run;
 
   it('says nothing of a claimed run', () => {
     expect(runStatus(run('claimed'))).toBeNull();
@@ -168,14 +176,20 @@ describe('runStatus', () => {
 describe('run filters', () => {
   const pending = {
     state: 'completed',
+    progress: null,
     review: { state: 'pending', conversationId: 'c_1' },
   } as const;
   const answered = {
     state: 'completed',
+    progress: null,
     review: { state: 'answered', conversationId: 'c_2' },
   } as const;
-  const unreviewed = { state: 'completed', review: null } as const;
-  const asking = { state: 'waiting', review: null } as const;
+  const unreviewed = {
+    state: 'completed',
+    progress: null,
+    review: null,
+  } as const;
+  const asking = { state: 'waiting', progress: null, review: null } as const;
 
   it('lets every run through All', () => {
     expect(inRunFilter('all', pending)).toBe(true);
@@ -212,5 +226,40 @@ describe('formatImage', () => {
     expect(formatImage('ghcr.io/acme/api-runner:main')).toBe(
       'ghcr.io/acme/api-runner:main',
     );
+  });
+});
+
+describe('shownProgress', () => {
+  const journal = (runId: string, agentStoppedAt: string | null) => ({
+    runId,
+    marks: { agentStoppedAt },
+  });
+
+  it('shows the progress the server sends', () => {
+    expect(shownProgress('in-progress', 'run_1', [])).toBe('in-progress');
+    expect(shownProgress(null, 'run_1', [])).toBeNull();
+  });
+
+  it('stays stopping until the agent has stopped', () => {
+    expect(shownProgress('stopping', 'run_1', [journal('run_1', null)])).toBe(
+      'stopping',
+    );
+  });
+
+  it('is finishing once a journal of the run marks the agent as stopped', () => {
+    expect(
+      shownProgress('stopping', 'run_1', [
+        journal('run_1', null),
+        journal('run_1', '2026-08-30T12:00:00.000Z'),
+      ]),
+    ).toBe('finishing');
+  });
+
+  it('leaves out the marks of other runs', () => {
+    expect(
+      shownProgress('stopping', 'run_2', [
+        journal('run_1', '2026-08-30T12:00:00.000Z'),
+      ]),
+    ).toBe('stopping');
   });
 });

@@ -93,6 +93,7 @@ export class DrizzleChatReader implements ChatReaderPort {
     const progressOf = await progressOfCurrentRuns(
       this.db,
       rows.map((row) => row.currentRunId),
+      false,
     );
 
     return rows.map((row) => summaryOf(row, progressOf));
@@ -131,7 +132,7 @@ export class DrizzleChatReader implements ChatReaderPort {
         .where(eq(chatAttachment.chatId, row.id))
         .orderBy(asc(chatAttachment.place)),
       this.people.find(UserId.of(row.startedById)).then((found) => [found]),
-      progressOfCurrentRuns(this.db, [row.currentRunId]),
+      progressOfCurrentRuns(this.db, [row.currentRunId], false),
     ]);
 
     const proposedAt = messages.flatMap((each) =>

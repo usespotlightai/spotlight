@@ -12,13 +12,17 @@ import type {
   LeasedRunFacts,
   RunnerTraceReaderPort,
 } from '@work/application/ports/runner-trace-reader.port';
-import { LEASED_RUN_STATES } from '@work/domain/value-objects/run-state';
+import {
+  LEASED_RUN_STATES,
+  takenUpOnAnswer,
+} from '@work/domain/value-objects/run-state';
 import {
   ranAt,
   stationSummaryOf,
 } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
 import { journalsOfTask } from '@work/infrastructure/persistence/drizzle/readers/run-journals';
 import {
+  awaitedReviewsFor,
   reviewsBy,
   stationsPerLine,
 } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
@@ -113,24 +117,31 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
         stationColor: ranAt.color,
         stationPosition: ranAt.position,
         stationLineId: ranAt.lineId,
+        currentRunId: task.currentRunId,
       })
       .from(run)
+      .innerJoin(task, eq(task.id, run.taskId))
       .leftJoin(ranAt, eq(ranAt.id, run.stationId))
       .where(eq(run.taskId, taskId.value))
       .orderBy(desc(run.createdAt));
 
-    const [stationCounts, review] = await Promise.all([
+    const [stationCounts, review, awaited] = await Promise.all([
       stationsPerLine(
         this.db,
         rows.flatMap((row) => (row.stationLineId ? [row.stationLineId] : [])),
       ),
       reviewsBy(this.db, [taskId.value]),
+      awaitedReviewsFor(this.db, [taskId.value]),
     ]);
 
-    return rows.map(({ stationLineId, ...rest }) => ({
+    return rows.map(({ stationLineId, currentRunId, ...rest }) => ({
       ...rest,
       station: stationSummaryOf({ ...rest, stationLineId }, stationCounts),
       review: review.get(rest.id) ?? null,
+      takenUpOnAnswer: takenUpOnAnswer(rest.id, {
+        currentRunId,
+        awaitsPerson: awaited.has(taskId.value),
+      }),
     }));
   }
 

@@ -62,6 +62,7 @@ export const chatTurn = (
       readyAt: secondsAfter(startedAt, 3),
       firstAgentUpdateAt: secondsAfter(startedAt, 4),
       lastAgentUpdateAt: endedAt,
+      agentStoppedAt: null,
       endedAt,
     },
     spent: {

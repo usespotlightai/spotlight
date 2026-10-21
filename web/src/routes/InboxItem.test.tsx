@@ -572,6 +572,41 @@ describe('InboxItem', () => {
     expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
   });
 
+  it('says the run is stopping, and offers no Stop, once someone asked it to stop', () => {
+    const [only] = item([note()]);
+    waiting.mockReturnValue([
+      { ...only, runId: 'run_1', progress: 'stopping' },
+    ]);
+
+    renderItem();
+
+    expect(screen.getByText('Stopping…')).toBeInTheDocument();
+    expect(screen.queryByText(/is working/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
+  });
+
+  it('says the run is finishing once the agent has stopped', () => {
+    const [only] = item([note()]);
+    waiting.mockReturnValue([
+      { ...only, runId: 'run_1', progress: 'stopping' },
+    ]);
+    journal.mockReturnValue([
+      {
+        runId: 'run_1',
+        attempt: 1,
+        steps: [],
+        spans: [],
+        marks: { agentStoppedAt: '2026-08-29T12:06:00.000Z' },
+      },
+    ]);
+
+    renderItem();
+
+    expect(
+      screen.getByText('Agent stopped. Finishing the run…'),
+    ).toBeInTheDocument();
+  });
+
   it('says nothing about working once it is idle', () => {
     renderItem();
 

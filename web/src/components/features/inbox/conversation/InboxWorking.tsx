@@ -1,6 +1,6 @@
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { ARRIVING } from '@/lib/inbox';
-import type { Progress } from '@/lib/run';
+import type { ShownProgress } from '@/lib/run';
 import { stationShare } from '@/lib/station';
 import { cn } from '@/lib/utils';
 
@@ -9,7 +9,7 @@ type InboxWorkingProps = {
   stationColor: string;
   stationPosition: number;
   stationCount: number;
-  progress: Progress;
+  progress: ShownProgress;
 };
 
 export function InboxWorking({
@@ -34,8 +34,14 @@ export function InboxWorking({
         <span className="text-muted-foreground">
           Queued. {station} starts when a runner is free.
         </span>
-      ) : (
+      ) : progress === 'in-progress' ? (
         <span className="animate-pulse">{station} is working…</span>
+      ) : (
+        <span className="animate-pulse text-muted-foreground">
+          {progress === 'finishing'
+            ? 'Agent stopped. Finishing the run…'
+            : 'Stopping…'}
+        </span>
       )}
     </li>
   );

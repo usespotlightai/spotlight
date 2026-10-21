@@ -26,7 +26,10 @@ afterAll(async () => {
 
 type RunState = (typeof schema.run.$inferInsert)['state'];
 
-const inboxWith = async (state: RunState | null) => {
+const inboxWith = async (
+  state: RunState | null,
+  { stopRequestedAt = null as Date | null, answered = true } = {},
+) => {
   const workspaceId = randomUUID();
   const lineId = randomUUID();
   const stationId = randomUUID();
@@ -65,6 +68,7 @@ const inboxWith = async (state: RunState | null) => {
       taskId,
       stationId,
       state,
+      stopRequestedAt,
       spec: {},
     });
   }
@@ -80,17 +84,21 @@ const inboxWith = async (state: RunState | null) => {
       runId: randomUUID(),
       kind: 'asked',
     },
-    {
-      taskId,
-      position: 1,
-      station: 'Implementation',
-      stationId,
-      body: 'The retry queue.',
-      at: new Date('2026-10-20T09:05:00.000Z'),
-      voice: 'person',
-      authorId: viewer,
-      kind: 'answered',
-    },
+    ...(answered
+      ? [
+          {
+            taskId,
+            position: 1,
+            station: 'Implementation',
+            stationId,
+            body: 'The retry queue.',
+            at: new Date('2026-10-20T09:05:00.000Z'),
+            voice: 'person' as const,
+            authorId: viewer,
+            kind: 'answered' as const,
+          },
+        ]
+      : []),
   ]);
 
   const tasks = new DrizzleTaskReader(
@@ -151,6 +159,49 @@ describe('the progress of a task whose run waits to start', () => {
   });
 });
 
+describe('the progress of a task whose run was asked to stop', () => {
+  it('is stopping while the run has not ended', async () => {
+    const { inbox, board } = await inboxWith('claimed', {
+      stopRequestedAt: new Date(),
+    });
+
+    expect(inbox?.progress).toBe('stopping');
+    expect(board?.progress).toBe('stopping');
+  });
+
+  it('is none once the run has ended', async () => {
+    const { inbox, board } = await inboxWith('cancelled', {
+      stopRequestedAt: new Date(),
+    });
+
+    expect(inbox?.progress).toBeNull();
+    expect(board?.progress).toBeNull();
+  });
+});
+
+describe('the progress of a task whose run paused for a person', () => {
+  it('is none while the person owes an answer', async () => {
+    const { inbox, board } = await inboxWith('waiting', { answered: false });
+
+    expect(inbox?.progress).toBeNull();
+    expect(board?.progress).toBeNull();
+  });
+
+  it('is in progress again once the person answered a run that waits warm', async () => {
+    const { inbox, board } = await inboxWith('waiting');
+
+    expect(inbox?.progress).toBe('in-progress');
+    expect(board?.progress).toBe('in-progress');
+  });
+
+  it('is queued again once the person answered a suspended run', async () => {
+    const { inbox, board } = await inboxWith('suspended');
+
+    expect(inbox?.progress).toBe('queued');
+    expect(board?.progress).toBe('queued');
+  });
+});
+
 describe('the progress of a chat whose run waits to start', () => {
   const chatWith = async (state: RunState | null) => {
     const chatId = randomUUID();
@@ -190,5 +241,9 @@ describe('the progress of a chat whose run waits to start', () => {
 
   it('is in progress once a runner claims the run', async () => {
     await expect(chatWith('claimed')).resolves.toBe('in-progress');
+  });
+
+  it('is none while the run waits for the next message', async () => {
+    await expect(chatWith('waiting')).resolves.toBeNull();
   });
 });

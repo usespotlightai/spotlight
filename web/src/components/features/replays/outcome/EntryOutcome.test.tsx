@@ -45,6 +45,7 @@ const JOURNALS = [
       readyAt: null,
       firstAgentUpdateAt: null,
       lastAgentUpdateAt: null,
+      agentStoppedAt: null,
       endedAt: null,
     },
     spent: null,

@@ -3,7 +3,7 @@ import type {
   TaskRunResponseDto,
   TeamRunResponseDto,
 } from '@/lib/api';
-import { counted } from '@/lib/inbox';
+import { counted, type RunJournal } from '@/lib/inbox';
 
 export type Run = TaskRunResponseDto;
 
@@ -19,6 +19,23 @@ export const formatTokens = (count: number | null): string =>
 
 export type Progress = NonNullable<TaskResponseDto['progress']>;
 
+export type ShownProgress = Progress | 'finishing';
+
+export const shownProgress = (
+  progress: Progress | null,
+  runId: string | null,
+  journals: readonly {
+    readonly runId: string;
+    readonly marks: Pick<RunJournal['marks'], 'agentStoppedAt'>;
+  }[],
+): ShownProgress | null =>
+  progress === 'stopping' &&
+  journals.some(
+    (each) => each.runId === runId && each.marks.agentStoppedAt !== null,
+  )
+    ? 'finishing'
+    : progress;
+
 export const underway = (run: Pick<Run, 'state'>): boolean =>
   run.state === 'queued' || run.state === 'claimed';
 
@@ -27,11 +44,13 @@ export const idleNoteOf = (run: Pick<Run, 'state'>): string =>
     ? 'The run failed before the agent started.'
     : 'The run ended before the agent started.';
 
-export const waitsOnPerson = (run: Pick<Run, 'state'>): boolean =>
-  run.state === 'waiting' || run.state === 'suspended';
+export const waitsOnPerson = (run: Pick<Run, 'state' | 'progress'>): boolean =>
+  (run.state === 'waiting' || run.state === 'suspended') &&
+  run.progress === null;
 
-export const waitsForYou = (run: Pick<Run, 'state' | 'review'>): boolean =>
-  waitsOnPerson(run) || run.review?.state === 'pending';
+export const waitsForYou = (
+  run: Pick<Run, 'state' | 'progress' | 'review'>,
+): boolean => waitsOnPerson(run) || run.review?.state === 'pending';
 
 export const runStatus = (run: Run): string | null => {
   if (waitsOnPerson(run)) {
@@ -115,5 +134,5 @@ export const asRunFilter = (raw: string): RunFilter =>
 
 export const inRunFilter = (
   filter: RunFilter,
-  run: Pick<TeamRun, 'state' | 'review'>,
+  run: Pick<TeamRun, 'state' | 'progress' | 'review'>,
 ): boolean => filter === 'all' || waitsForYou(run);

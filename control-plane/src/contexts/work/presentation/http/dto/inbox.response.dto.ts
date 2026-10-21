@@ -432,7 +432,7 @@ export class InboxItemResponseDto {
     type: String,
     example: 'in-progress',
     description:
-      'What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress',
+      'What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress, and stopping once someone asked it to stop',
   })
   readonly progress: string | null;
 

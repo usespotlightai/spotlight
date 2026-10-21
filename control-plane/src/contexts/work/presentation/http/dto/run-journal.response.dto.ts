@@ -184,6 +184,14 @@ export class RunMarksResponseDto {
   @ApiProperty({ nullable: true, type: String })
   readonly lastAgentUpdateAt: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description:
+      'When the runner stopped the agent because the run was asked to stop',
+  })
+  readonly agentStoppedAt: string | null;
+
   @ApiProperty({ nullable: true, type: String })
   readonly endedAt: string | null;
 
@@ -192,12 +200,14 @@ export class RunMarksResponseDto {
     readyAt: string | null,
     firstAgentUpdateAt: string | null,
     lastAgentUpdateAt: string | null,
+    agentStoppedAt: string | null,
     endedAt: string | null,
   ) {
     this.startedAt = startedAt;
     this.readyAt = readyAt;
     this.firstAgentUpdateAt = firstAgentUpdateAt;
     this.lastAgentUpdateAt = lastAgentUpdateAt;
+    this.agentStoppedAt = agentStoppedAt;
     this.endedAt = endedAt;
   }
 }

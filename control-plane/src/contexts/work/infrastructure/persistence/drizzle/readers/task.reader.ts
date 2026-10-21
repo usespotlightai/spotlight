@@ -130,6 +130,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
       progressOfCurrentRuns(
         this.db,
         rows.map((row) => row.currentRunId),
+        true,
       ),
     ]);
     const person = (id: string) => ({

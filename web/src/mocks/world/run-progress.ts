@@ -6,7 +6,7 @@ export const progressOfState = (
   stopping = false,
 ): Progress | null => {
   if (stopping) {
-    return null;
+    return 'stopping';
   }
 
   if (state === 'queued') {

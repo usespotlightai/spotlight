@@ -16,6 +16,8 @@ export function AgentWorking({ harness, progress }: AgentWorkingProps) {
         <span className="text-muted-foreground">
           Queued. The agent starts when a runner is free.
         </span>
+      ) : progress === 'stopping' ? (
+        <span className="animate-pulse text-muted-foreground">Stopping…</span>
       ) : (
         <span className="animate-pulse">The agent is working…</span>
       )}

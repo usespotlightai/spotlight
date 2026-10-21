@@ -184,7 +184,6 @@ export const conversationOf = (located: Located): RunNotesResponseDto => {
     latestRun: {
       id: located.run.id,
       state: located.run.state,
-      stopping: false,
       progress: located.run.progress,
     },
     notes: [...scripted, ...added],

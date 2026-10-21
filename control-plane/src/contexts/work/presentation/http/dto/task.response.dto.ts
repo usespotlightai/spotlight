@@ -93,7 +93,7 @@ export class TaskResponseDto {
     type: String,
     example: 'in-progress',
     description:
-      'What its current run is doing: queued until a runner takes it, then in progress. Null without a run at work.',
+      'What its current run is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null without a run at work.',
   })
   readonly progress: string | null;
 

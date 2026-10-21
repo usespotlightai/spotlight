@@ -115,7 +115,7 @@ export class ChatSummaryResponseDto {
     type: String,
     example: 'in-progress',
     description:
-      'What the run answering it is doing: queued until a runner takes it, then in progress. Null while nothing answers.',
+      'What the run answering it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null while nothing answers.',
   })
   readonly progress: string | null;
 

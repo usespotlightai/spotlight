@@ -27,7 +27,10 @@ export const isStopping = (state: RunState, stopRequested: boolean): boolean =>
   stopRequested &&
   !(TERMINAL_RUN_STATES as readonly RunState[]).includes(state);
 
-export const PROGRESSES = ['queued', 'in-progress'] as const;
+export const resumable = (state: RunState, stopRequested: boolean): boolean =>
+  state === 'suspended' || (state === 'waiting' && !stopRequested);
+
+export const PROGRESSES = ['queued', 'in-progress', 'stopping'] as const;
 
 export type Progress = (typeof PROGRESSES)[number];
 
@@ -38,7 +41,7 @@ interface Working {
 
 export const progressOf = (run: Working): Progress | null => {
   if (isStopping(run.state, run.stopRequested)) {
-    return null;
+    return 'stopping';
   }
 
   if (run.state === 'queued') {
@@ -48,6 +51,24 @@ export const progressOf = (run: Working): Progress | null => {
   return run.state === 'claimed' ? 'in-progress' : null;
 };
 
+export const takenUpOnAnswer = (
+  runId: string,
+  task: {
+    readonly currentRunId: string | null;
+    readonly awaitsPerson: boolean;
+  },
+): boolean => runId === task.currentRunId && !task.awaitsPerson;
+
 export const progressOfCurrentRun = (
   current: Working | null,
-): Progress | null => (current === null ? 'queued' : progressOf(current));
+  takenUp: boolean,
+): Progress | null => {
+  if (current === null) {
+    return 'queued';
+  }
+  if (takenUp && resumable(current.state, current.stopRequested)) {
+    return current.state === 'waiting' ? 'in-progress' : 'queued';
+  }
+
+  return progressOf(current);
+};

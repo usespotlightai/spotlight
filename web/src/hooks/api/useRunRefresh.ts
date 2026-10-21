@@ -54,7 +54,8 @@ export function useRunRefresh({
 
   useRunStream(
     watchedId,
-    watchedState !== undefined && underway({ state: watchedState }),
+    (watchedState !== undefined && underway({ state: watchedState })) ||
+      watchedProgress === 'stopping',
     watchedProgress,
     bump,
   );

@@ -32,6 +32,7 @@ const journal = (steps: JournalStep[]): RunJournal => ({
     readyAt: null,
     firstAgentUpdateAt: null,
     lastAgentUpdateAt: null,
+    agentStoppedAt: null,
     endedAt: null,
   },
   spent: null,

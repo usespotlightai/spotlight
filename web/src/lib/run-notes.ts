@@ -7,6 +7,7 @@ import {
 import type { Person } from '@/lib/person';
 import {
   type Progress,
+  type ShownProgress,
   type TeamRun,
   underway,
   waitsOnPerson,
@@ -99,10 +100,18 @@ export const withMessagesInFlight = (
   };
 };
 
+export const threadProgress = (
+  latest: Pick<LatestRun, 'progress'> | null,
+  conversation: Pick<RunNotes, 'progress'> | undefined,
+): Progress | null =>
+  latest?.progress === 'stopping'
+    ? latest.progress
+    : (conversation?.progress ?? null);
+
 export const conversationItemOf = (
   conversation: RunNotes,
   teamId: string,
-  progress: Progress | null,
+  progress: ShownProgress | null,
 ): ConversationItem => ({
   id: conversation.runId,
   teamId,

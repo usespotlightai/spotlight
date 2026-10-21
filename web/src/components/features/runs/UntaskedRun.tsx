@@ -14,7 +14,7 @@ import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { lastNoteAt, threadText } from '@/lib/inbox';
 import type { ReplayRun } from '@/lib/replay';
-import { idleNoteOf, underway } from '@/lib/run';
+import { idleNoteOf, shownProgress, underway } from '@/lib/run';
 import { TrailContext } from '@/lib/trail';
 
 type UntaskedRunProps = {
@@ -83,7 +83,11 @@ export function UntaskedRun({
                     <RunActivity
                       runId={run.id}
                       journals={run.journals}
-                      progress={run.progress}
+                      progress={shownProgress(
+                        run.progress,
+                        run.id,
+                        run.journals,
+                      )}
                       station={run.station}
                     />
                   </div>

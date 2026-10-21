@@ -519,7 +519,7 @@ describe('Run', () => {
       runs.mockReturnValue([run({ state: 'failed', exitCode: -1 })]);
       conversation.mockReturnValue({
         ...conversation(),
-        latestRun: { id: 'run_2', stopping: false, ...latestRun },
+        latestRun: { id: 'run_2', progress: null, ...latestRun },
       });
     };
 
@@ -533,14 +533,17 @@ describe('Run', () => {
     });
 
     it('keeps the work of a run that is stopping, without saying it is working', () => {
-      later({ state: 'claimed', stopping: true });
+      later({ state: 'claimed', progress: 'stopping' });
       journal.mockReturnValue([
         {
           runId: 'run_2',
           attempt: 1,
           steps: [step],
           spans: [],
-          marks: { startedAt: '2026-08-29T12:05:00.000Z' },
+          marks: {
+            startedAt: '2026-08-29T12:05:00.000Z',
+            agentStoppedAt: null,
+          },
         },
       ]);
 
@@ -550,10 +553,33 @@ describe('Run', () => {
         0,
       );
       expect(screen.queryByText(/is working/)).not.toBeInTheDocument();
+      expect(screen.getByText('Stopping…')).toBeInTheDocument();
+    });
+
+    it('says the run is finishing once the agent has stopped', () => {
+      later({ state: 'claimed', progress: 'stopping' });
+      journal.mockReturnValue([
+        {
+          runId: 'run_2',
+          attempt: 1,
+          steps: [step],
+          spans: [],
+          marks: {
+            startedAt: '2026-08-29T12:05:00.000Z',
+            agentStoppedAt: '2026-08-29T12:06:00.000Z',
+          },
+        },
+      ]);
+
+      renderRun();
+
+      expect(
+        screen.getByText('Agent stopped. Finishing the run…'),
+      ).toBeInTheDocument();
     });
 
     it('no longer offers to stop the later run once it is stopping', () => {
-      later({ state: 'claimed', stopping: true });
+      later({ state: 'claimed', progress: 'stopping' });
 
       renderRun();
 
@@ -672,7 +698,7 @@ describe('Run', () => {
       conversation.mockReturnValue(
         conversationOf({
           notes: [],
-          latestRun: { id: 'run_1', state: 'queued', stopping: true },
+          latestRun: { id: 'run_1', state: 'queued', progress: 'stopping' },
         }),
       );
 
@@ -690,8 +716,7 @@ describe('Run', () => {
           latestRun: {
             id: 'run_1',
             state: 'claimed',
-            stopping: true,
-            progress: null,
+            progress: 'stopping',
           },
         }),
       );

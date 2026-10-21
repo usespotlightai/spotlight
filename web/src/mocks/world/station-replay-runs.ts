@@ -222,6 +222,7 @@ export const replayRun = (runId: string): ReplayRunResponseDto | null => {
               readyAt: null,
               firstAgentUpdateAt: null,
               lastAgentUpdateAt: null,
+              agentStoppedAt: null,
               endedAt: hoursAgo(endedHoursAgo),
             },
             spent: { used: 52_000, size: 200_000, cost: null, currency: null },

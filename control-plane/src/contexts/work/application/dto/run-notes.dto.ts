@@ -15,7 +15,6 @@ export interface RunSpendDto {
 interface LatestRunDto {
   readonly id: string;
   readonly state: string;
-  readonly stopping: boolean;
   readonly progress: Progress | null;
 }
 

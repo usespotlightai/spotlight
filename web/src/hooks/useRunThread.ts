@@ -2,7 +2,11 @@ import { useMessagesInFlight } from '@/hooks/api/useSendMessage';
 import { useLatestRun } from '@/hooks/useLatestRun';
 import { useMe } from '@/hooks/useMe';
 import type { TeamRun } from '@/lib/run';
-import { type RunNotes, withMessagesInFlight } from '@/lib/run-notes';
+import {
+  type RunNotes,
+  threadProgress,
+  withMessagesInFlight,
+} from '@/lib/run-notes';
 
 export function useRunThread(run: TeamRun, reported: RunNotes | undefined) {
   const latest = useLatestRun(run, reported);
@@ -14,6 +18,6 @@ export function useRunThread(run: TeamRun, reported: RunNotes | undefined) {
   return {
     latest,
     conversation,
-    progress: latest.stopping ? null : (conversation?.progress ?? null),
+    progress: threadProgress(latest, conversation),
   };
 }

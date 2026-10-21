@@ -743,6 +743,7 @@ const journalOf = (run: TaskRunResponseDto): RunJournalResponseDto => {
       readyAt: ready,
       firstAgentUpdateAt: ready,
       lastAgentUpdateAt: steps.at(-1)?.startedAt ?? null,
+      agentStoppedAt: null,
       endedAt: finished(run) ? run.updatedAt : null,
     },
     spent: {

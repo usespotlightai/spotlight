@@ -6,7 +6,7 @@ import type {
   TaskRunSummary,
   TeamRunSummary,
 } from '@work/application/ports/run-reader.port';
-import { progressOf } from '@work/domain/value-objects/run-state';
+import { progressOfCurrentRun } from '@work/domain/value-objects/run-state';
 
 export const TaskRunMapper = {
   summaryToDto(summary: TaskRunSummary): TaskRunDto {
@@ -24,7 +24,7 @@ export const TaskRunMapper = {
         state: summary.review.state,
         conversationId: summary.review.conversationId,
       },
-      progress: progressOf(summary),
+      progress: progressOfCurrentRun(summary, summary.takenUpOnAnswer),
     };
   },
 

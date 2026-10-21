@@ -40,7 +40,7 @@ export function RunFooter({
       taskId={conversation?.taskId}
       station={run.station?.name ?? 'the agent'}
       stationId={run.station?.id}
-      running={latest.state === 'claimed' && !latest.stopping}
+      running={latest.state === 'claimed' && latest.progress !== 'stopping'}
       answering={waitsOnPerson(latest) && !deciding}
       onSent={onSent}
     />

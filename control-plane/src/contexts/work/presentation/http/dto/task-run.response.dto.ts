@@ -121,30 +121,18 @@ export class LatestRunResponseDto {
   readonly state: string;
 
   @ApiProperty({
-    example: false,
-    description: 'Someone asked the run to stop, and it has not ended yet',
-  })
-  readonly stopping: boolean;
-
-  @ApiProperty({
     enum: [...PROGRESS_NAMES, null],
     nullable: true,
     type: String,
     example: 'in-progress',
     description:
-      'What it is doing: queued until a runner takes it, then in progress',
+      'What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop',
   })
   readonly progress: string | null;
 
-  constructor(
-    id: string,
-    state: string,
-    stopping: boolean,
-    progress: string | null,
-  ) {
+  constructor(id: string, state: string, progress: string | null) {
     this.id = id;
     this.state = state;
-    this.stopping = stopping;
     this.progress = progress;
   }
 }
@@ -184,7 +172,7 @@ export class RunNotesResponseDto {
     type: String,
     example: 'in-progress',
     description:
-      'What the run of the task at this station is doing now: queued until a runner takes it, then in progress',
+      'What the run of the task at this station is doing now: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. A paused run is under way again once a person answered it.',
   })
   readonly progress: string | null;
 
@@ -302,7 +290,7 @@ export class TaskRunResponseDto {
     type: String,
     example: 'in-progress',
     description:
-      'What it is doing: queued until a runner takes it, then in progress. Null once it waits for a person, is stopping or has ended.',
+      'What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended.',
   })
   readonly progress: string | null;
 

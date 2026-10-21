@@ -9,6 +9,7 @@ import { inArray } from 'drizzle-orm';
 export const progressOfCurrentRuns = async (
   db: DrizzleDatabase,
   runIds: readonly (string | null)[],
+  answered: boolean,
 ): Promise<(runId: string | null) => Progress | null> => {
   const ids = runIds.filter((each): each is string => each !== null);
   const rows =
@@ -30,5 +31,7 @@ export const progressOfCurrentRuns = async (
   );
 
   return (runId) =>
-    runId === null ? null : progressOfCurrentRun(found.get(runId) ?? null);
+    runId === null
+      ? null
+      : progressOfCurrentRun(found.get(runId) ?? null, answered);
 };

@@ -178,6 +178,10 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 
 func (c *conversation) complete(ctx context.Context, exitCode int) (waiting bool, err error) {
 	stopped := c.stopWasRequested()
+	if stopped {
+		c.journal.record(ctx, protocol.Event{Type: protocol.EventAgentStopped})
+	}
+
 	turn := protocol.Completion{
 		ExitCode:  exitCode,
 		Failed:    !stopped && exitCode != 0,

@@ -1,3 +1,4 @@
+import { AGENT_STOPPED } from '@work/application/contracts/run-journal.contract';
 import { Money } from '@work/domain/value-objects/money.vo';
 import { JournalBuilder } from '@work/infrastructure/acp/journal-builder';
 import { describe, expect, it } from 'vitest';
@@ -609,8 +610,28 @@ describe('JournalBuilder', () => {
         readyAt: clock(4),
         firstAgentUpdateAt: clock(6),
         lastAgentUpdateAt: clock(6),
+        agentStoppedAt: null,
         endedAt: clock(9),
       });
+    });
+
+    it('marks when the agent was stopped, without a step for it', () => {
+      const builder = new JournalBuilder();
+      builder.take({
+        type: 'output',
+        at: clock(2),
+        message: null,
+        data: chunk('agent_message_chunk', 'Working.'),
+      });
+      builder.take({
+        type: AGENT_STOPPED,
+        at: clock(5),
+        message: null,
+        data: null,
+      });
+
+      expect(builder.marks().agentStoppedAt).toEqual(clock(5));
+      expect(builder.steps().map((step) => step.text)).toEqual(['Working.']);
     });
 
     it('has no marks to give for a run that never started', () => {
@@ -619,6 +640,7 @@ describe('JournalBuilder', () => {
         readyAt: null,
         firstAgentUpdateAt: null,
         lastAgentUpdateAt: null,
+        agentStoppedAt: null,
         endedAt: null,
       });
     });

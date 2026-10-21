@@ -160,6 +160,7 @@ export const searchRun = (runId: string): SearchRunResponseDto | null => {
                 readyAt: null,
                 firstAgentUpdateAt: null,
                 lastAgentUpdateAt: null,
+                agentStoppedAt: null,
                 endedAt: running ? null : hoursAgo(endedHoursAgo),
               },
               spent: {

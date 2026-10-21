@@ -24,7 +24,6 @@ const notes: RunNotesSummary = {
   latestRun: {
     id: RUN_ID,
     state: 'completed',
-    stopping: false,
     progress: null,
   },
   notes: [],

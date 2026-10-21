@@ -268,7 +268,6 @@ export class TaskController {
       new LatestRunResponseDto(
         found.latestRun.id,
         found.latestRun.state,
-        found.latestRun.stopping,
         found.latestRun.progress,
       ),
       found.notes.map(

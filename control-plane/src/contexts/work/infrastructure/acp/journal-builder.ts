@@ -1,4 +1,5 @@
 import {
+  AGENT_STOPPED,
   EGRESS_CHECKED,
   type EgressEnforcement,
   HOOK_CALLED,
@@ -247,6 +248,7 @@ export class JournalBuilder {
   #pausedAt: Date[] = [];
   #opened: Date | null = null;
   #ready: Date | null = null;
+  #agentStopped: Date | null = null;
   #closed: Date | null = null;
   #seen: Date | null = null;
 
@@ -285,6 +287,9 @@ export class JournalBuilder {
         break;
       case EGRESS_CHECKED:
         this.checked(event);
+        break;
+      case AGENT_STOPPED:
+        this.#agentStopped = event.at;
         break;
       default:
         break;
@@ -531,6 +536,7 @@ export class JournalBuilder {
       readyAt: this.#ready,
       firstAgentUpdateAt: this.#first,
       lastAgentUpdateAt: this.#last,
+      agentStoppedAt: this.#agentStopped,
       endedAt: this.#closed,
     };
   }

@@ -47,6 +47,7 @@ interface RunMarksDto {
   readonly readyAt: string | null;
   readonly firstAgentUpdateAt: string | null;
   readonly lastAgentUpdateAt: string | null;
+  readonly agentStoppedAt: string | null;
   readonly endedAt: string | null;
 }
 

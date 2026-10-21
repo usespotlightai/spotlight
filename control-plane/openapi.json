@@ -27436,11 +27436,12 @@
             "enum": [
               "queued",
               "in-progress",
+              "stopping",
               null
             ],
             "nullable": true,
             "example": "in-progress",
-            "description": "What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress"
+            "description": "What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress, and stopping once someone asked it to stop"
           },
           "runId": {
             "type": "string",
@@ -27657,6 +27658,11 @@
             "type": "string",
             "nullable": true
           },
+          "agentStoppedAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "When the runner stopped the agent because the run was asked to stop"
+          },
           "endedAt": {
             "type": "string",
             "nullable": true
@@ -27667,6 +27673,7 @@
           "readyAt",
           "firstAgentUpdateAt",
           "lastAgentUpdateAt",
+          "agentStoppedAt",
           "endedAt"
         ]
       },
@@ -27907,11 +27914,12 @@
             "enum": [
               "queued",
               "in-progress",
+              "stopping",
               null
             ],
             "nullable": true,
             "example": "in-progress",
-            "description": "What its current run is doing: queued until a runner takes it, then in progress. Null without a run at work."
+            "description": "What its current run is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null without a run at work."
           },
           "awaitingReview": {
             "nullable": true,
@@ -28103,11 +28111,12 @@
             "enum": [
               "queued",
               "in-progress",
+              "stopping",
               null
             ],
             "nullable": true,
             "example": "in-progress",
-            "description": "What it is doing: queued until a runner takes it, then in progress. Null once it waits for a person, is stopping or has ended."
+            "description": "What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended."
           },
           "taskId": {
             "type": "string",
@@ -28612,27 +28621,22 @@
               "superseded"
             ]
           },
-          "stopping": {
-            "type": "boolean",
-            "example": false,
-            "description": "Someone asked the run to stop, and it has not ended yet"
-          },
           "progress": {
             "type": "string",
             "enum": [
               "queued",
               "in-progress",
+              "stopping",
               null
             ],
             "nullable": true,
             "example": "in-progress",
-            "description": "What it is doing: queued until a runner takes it, then in progress"
+            "description": "What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop"
           }
         },
         "required": [
           "id",
           "state",
-          "stopping",
           "progress"
         ]
       },
@@ -28731,11 +28735,12 @@
             "enum": [
               "queued",
               "in-progress",
+              "stopping",
               null
             ],
             "nullable": true,
             "example": "in-progress",
-            "description": "What the run of the task at this station is doing now: queued until a runner takes it, then in progress"
+            "description": "What the run of the task at this station is doing now: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. A paused run is under way again once a person answered it."
           },
           "latestRun": {
             "description": "The newest run of the task at this station",
@@ -28870,11 +28875,12 @@
             "enum": [
               "queued",
               "in-progress",
+              "stopping",
               null
             ],
             "nullable": true,
             "example": "in-progress",
-            "description": "What it is doing: queued until a runner takes it, then in progress. Null once it waits for a person, is stopping or has ended."
+            "description": "What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended."
           }
         },
         "required": [
@@ -29076,11 +29082,12 @@
             "enum": [
               "queued",
               "in-progress",
+              "stopping",
               null
             ],
             "nullable": true,
             "example": "in-progress",
-            "description": "What it is doing: queued until a runner takes it, then in progress. Null once it waits for a person, is stopping or has ended."
+            "description": "What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended."
           },
           "original": {
             "description": "The past task run it replays",
@@ -29256,11 +29263,12 @@
             "enum": [
               "queued",
               "in-progress",
+              "stopping",
               null
             ],
             "nullable": true,
             "example": "in-progress",
-            "description": "What it is doing: queued until a runner takes it, then in progress. Null once it waits for a person, is stopping or has ended."
+            "description": "What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null once it waits for a person or has ended."
           },
           "searchId": {
             "type": "string",
@@ -29462,11 +29470,12 @@
             "enum": [
               "queued",
               "in-progress",
+              "stopping",
               null
             ],
             "nullable": true,
             "example": "in-progress",
-            "description": "What the run answering it is doing: queued until a runner takes it, then in progress. Null while nothing answers."
+            "description": "What the run answering it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null while nothing answers."
           }
         },
         "required": [
@@ -29801,11 +29810,12 @@
             "enum": [
               "queued",
               "in-progress",
+              "stopping",
               null
             ],
             "nullable": true,
             "example": "in-progress",
-            "description": "What the run answering it is doing: queued until a runner takes it, then in progress. Null while nothing answers."
+            "description": "What the run answering it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null while nothing answers."
           },
           "runId": {
             "type": "string",

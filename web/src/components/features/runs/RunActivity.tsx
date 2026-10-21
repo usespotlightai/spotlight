@@ -2,7 +2,7 @@ import { InboxStep } from '@/components/features/inbox/conversation/InboxStep';
 import { InboxWorking } from '@/components/features/inbox/conversation/InboxWorking';
 import { useArrivals } from '@/hooks/useArrivals';
 import { ARRIVING, type RunJournal } from '@/lib/inbox';
-import type { Progress } from '@/lib/run';
+import type { ShownProgress } from '@/lib/run';
 
 type Station = {
   name: string;
@@ -14,7 +14,7 @@ type Station = {
 type RunActivityProps = {
   runId: string;
   journals: readonly RunJournal[];
-  progress: Progress | null;
+  progress: ShownProgress | null;
   station: Station;
 };
 
