@@ -13,6 +13,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"usespotlight.ai/data-plane/credentials"
 )
 
 const (
@@ -450,6 +452,23 @@ func TestCheckRejectsWithoutCredentials(t *testing.T) {
 
 	if got.code != errorExit || !strings.Contains(got.errOut, tokenVar) || !strings.Contains(got.errOut, trustVar) {
 		t.Fatalf("code = %d\n%s", got.code, got.errOut)
+	}
+}
+
+func TestCheckFallsBackToTheLoginForTheAddress(t *testing.T) {
+	s := &checkServer{t: t, result: []string{"passed"}}
+	server := s.serve()
+	defer server.Close()
+
+	t.Setenv(credentials.DirVar, t.TempDir())
+	loggedIn(t, server.URL, token)
+
+	got := runCheck(t, map[string]string{urlVar: server.URL, credentials.DirVar: os.Getenv(credentials.DirVar)}, withoutUnknowns(t, planFixture(t)))
+	if got.code != 0 {
+		t.Fatalf("code = %d\n%s%s", got.code, got.out, got.errOut)
+	}
+	if len(s.tokens) == 0 || s.tokens[0] != "Bearer "+token {
+		t.Fatalf("tokens = %v, want the login's token", s.tokens)
 	}
 }
 

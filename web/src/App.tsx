@@ -27,6 +27,11 @@ const AgentChat = lazyPage(
   (module) => module.AgentChat,
 );
 
+const AuthorizeDevice = lazyPage(
+  () => import('./routes/AuthorizeDevice.tsx'),
+  (module) => module.AuthorizeDevice,
+);
+
 const CreateWorkspace = lazyPage(
   () => import('./routes/CreateWorkspace.tsx'),
   (module) => module.CreateWorkspace,
@@ -177,6 +182,7 @@ export default function App() {
           </Route>
 
           <Route path="/invites/:token" element={<AcceptInvite />} />
+          <Route path="/device" element={<AuthorizeDevice />} />
 
           <Route element={<RequireAuth />}>
             <Route index element={<DefaultWorkspace />} />

@@ -24,6 +24,7 @@ const sessionsFromHeader: SessionReaderPort = {
       ? { id, email: `${id}@example.com`, name: id }
       : null;
   },
+  readBearer: async () => null,
 };
 
 export const openApp = async (

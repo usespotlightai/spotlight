@@ -20,7 +20,8 @@ const CheckUsage = `  spotlight replay check [--json] [--timeout 60m] [--every 1
       that gates the station's changes, under the live line's replay_check;
       pass it the output of ` + "`terraform show -json <planfile>`" + `. Reads SPOTLIGHT_URL and
       SPOTLIGHT_API_TOKEN (a workspace token that may plan), or SPOTLIGHT_OIDC_TRUST
-      to exchange the CI job's OIDC token (GitHub Actions, or SPOTLIGHT_OIDC_TOKEN).
+      to exchange the CI job's OIDC token (GitHub Actions, or SPOTLIGHT_OIDC_TOKEN),
+      else the login from spotlight login for SPOTLIGHT_URL.
       --every is how often it reads the status of the checks while they run.
       --repeats replays each run of the set up to 5 times within the line's
       ceiling; each side's success then carries a 95% interval, and the

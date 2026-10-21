@@ -15,7 +15,7 @@ const preview: Preview = {
         order: [
           'Application',
           'Auth',
-          ['Log in', 'Accept invite'],
+          ['Log in', 'Accept invite', 'Authorize device'],
           'Workspace',
           [
             'Shell',

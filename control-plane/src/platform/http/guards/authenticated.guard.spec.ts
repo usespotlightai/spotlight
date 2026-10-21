@@ -18,6 +18,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const USER = { id: 'u1', email: 'dev@example.com', name: 'Dev' };
 
+const LOGIN = 'login-session';
+
 const TOKEN = TokenPrincipal.of({
   tokenId: WorkspaceTokenId.of('token_1'),
   workspaceId: WorkspaceId.of('ws_1'),
@@ -32,6 +34,7 @@ function setup(
     session?: boolean;
     bearer?: string;
     known?: boolean;
+    login?: boolean;
   } = {},
 ) {
   const reflector = new Reflector();
@@ -43,7 +46,10 @@ function setup(
   );
 
   const read = vi.fn().mockResolvedValue(options.session ? USER : null);
-  const sessions = { read } as unknown as SessionReaderPort;
+  const readBearer = vi.fn(async (token: string) =>
+    options.login && token === LOGIN ? USER : null,
+  );
+  const sessions = { read, readBearer } satisfies SessionReaderPort;
   const authenticate = vi.fn().mockResolvedValue(options.known ? TOKEN : null);
   const tokens = {
     authenticate,
@@ -65,6 +71,7 @@ function setup(
     guard: new AuthenticatedGuard(reflector, sessions, tokens),
     context,
     read,
+    readBearer,
     authenticate,
     request,
   };
@@ -110,7 +117,7 @@ describe('AuthenticatedGuard', () => {
     expect(request[REQUEST_PRINCIPAL]).toBe(TOKEN);
   });
 
-  it('does not accept a token it does not know, rather than falling back to the session', async () => {
+  it('does not accept a token it does not know, rather than falling back to the cookie session', async () => {
     const { guard, context } = setup({
       allowsTokens: true,
       bearer: 'revoked',
@@ -133,5 +140,65 @@ describe('AuthenticatedGuard', () => {
       UnauthorizedException,
     );
     expect(authenticate).not.toHaveBeenCalled();
+  });
+
+  it('accepts the login of a person sent as a bearer where the route allows tokens, as that person', async () => {
+    const { guard, context, request } = setup({
+      allowsTokens: true,
+      bearer: LOGIN,
+      login: true,
+    });
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(request[REQUEST_PRINCIPAL]).toEqual(
+      PersonPrincipal.of(UserId.of('u1')),
+    );
+  });
+
+  it('accepts the login of a person sent as a bearer on a route that allows only people', async () => {
+    const { guard, context, request, authenticate } = setup({
+      bearer: LOGIN,
+      login: true,
+    });
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(authenticate).not.toHaveBeenCalled();
+    expect(request[REQUEST_PRINCIPAL]).toEqual(
+      PersonPrincipal.of(UserId.of('u1')),
+    );
+  });
+
+  it('reads the login from the bearer alone, never from the cookie beside it', async () => {
+    const { guard, context, read, readBearer } = setup({
+      bearer: 'ended-login',
+      session: true,
+    });
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+    expect(readBearer).toHaveBeenCalledWith('ended-login');
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it('takes the bearer scheme in any case', async () => {
+    const { guard, context, request, readBearer } = setup({
+      login: true,
+    });
+    (request.headers as Record<string, string>).authorization =
+      `bearer ${LOGIN}`;
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(readBearer).toHaveBeenCalledWith(LOGIN);
+  });
+
+  it('turns away another authorization scheme, rather than falling back to the cookie session', async () => {
+    const { guard, context, request, read } = setup({ session: true });
+    (request.headers as Record<string, string>).authorization = 'Basic abc';
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+    expect(read).not.toHaveBeenCalled();
   });
 });

@@ -302,6 +302,19 @@ CREATE TABLE "github_pull_request" (
 	CONSTRAINT "github_pull_request_workspace_id_url_pk" PRIMARY KEY("workspace_id","url")
 );
 --> statement-breakpoint
+CREATE TABLE "device_code" (
+	"id" text PRIMARY KEY NOT NULL,
+	"device_code" text NOT NULL,
+	"user_code" text NOT NULL,
+	"user_id" text,
+	"expires_at" timestamp NOT NULL,
+	"status" text NOT NULL,
+	"last_polled_at" timestamp,
+	"polling_interval" integer,
+	"client_id" text,
+	"scope" text
+);
+--> statement-breakpoint
 CREATE TABLE "configuration_change" (
 	"seq" bigserial PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -1849,6 +1862,8 @@ CREATE INDEX "stack_check_wait_expiry_idx" ON "stack_check" USING btree ("status
 CREATE INDEX "github_pull_request_number_idx" ON "github_pull_request" USING btree ("workspace_id","repository","number");--> statement-breakpoint
 CREATE INDEX "github_pull_request_closed_idx" ON "github_pull_request" USING btree ("closed_at");--> statement-breakpoint
 CREATE INDEX "github_pull_request_updated_idx" ON "github_pull_request" USING btree ("updated_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "deviceCode_deviceCode_uidx" ON "device_code" USING btree ("device_code");--> statement-breakpoint
+CREATE UNIQUE INDEX "deviceCode_userCode_uidx" ON "device_code" USING btree ("user_code");--> statement-breakpoint
 CREATE INDEX "configuration_change_workspace_idx" ON "configuration_change" USING btree ("workspace_id","seq");--> statement-breakpoint
 CREATE INDEX "team_workspace_idx" ON "team" USING btree ("workspace_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "team_workspace_key_idx" ON "team" USING btree ("workspace_id","key");--> statement-breakpoint

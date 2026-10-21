@@ -39,16 +39,30 @@ type teamRead struct {
 	ID string `json:"id"`
 }
 
-func (c *cli) workspace() (string, error) {
+func (c *cli) workspaceID() (string, error) {
 	var workspaces listed[workspaceRead]
 	if err := c.api.get("/api/resources/workspaces", &workspaces); err != nil {
-		return "", fmt.Errorf("find the token's workspace: %w", err)
-	}
-	if len(workspaces.Items) != 1 {
-		return "", fmt.Errorf("the token sees %d workspaces; use a workspace token, which acts in exactly one", len(workspaces.Items))
+		return "", fmt.Errorf("find the workspace: %w", err)
 	}
 
-	return workspaces.Items[0].ID, nil
+	slugs := make([]string, 0, len(workspaces.Items))
+	for _, each := range workspaces.Items {
+		if c.workspace != "" && each.Slug == c.workspace {
+			return each.ID, nil
+		}
+		slugs = append(slugs, each.Slug)
+	}
+
+	switch {
+	case c.workspace != "":
+		return "", fmt.Errorf("you are not a member of workspace %s. You belong to: %s", c.workspace, strings.Join(slugs, ", "))
+	case len(workspaces.Items) == 1:
+		return workspaces.Items[0].ID, nil
+	case len(workspaces.Items) == 0:
+		return "", fmt.Errorf("the credential sees no workspace")
+	default:
+		return "", fmt.Errorf("you belong to %d workspaces: %s. Choose one with --workspace or %s", len(slugs), strings.Join(slugs, ", "), workspaceVar)
+	}
 }
 
 func (c *cli) station(address string) (*station, error) {
@@ -57,7 +71,7 @@ func (c *cli) station(address string) (*station, error) {
 		return nil, fmt.Errorf("--station is a team, line and station key, as in core/delivery/build, not %q", address)
 	}
 
-	workspace, err := c.workspace()
+	workspace, err := c.workspaceID()
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +110,7 @@ func (c *cli) teamID(key string) (string, error) {
 		return "", fmt.Errorf("--team names the team the replay is of, by its key")
 	}
 
-	workspace, err := c.workspace()
+	workspace, err := c.workspaceID()
 	if err != nil {
 		return "", err
 	}
