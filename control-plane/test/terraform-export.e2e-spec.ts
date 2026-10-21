@@ -177,6 +177,14 @@ describe('a workspace exported as Terraform (e2e)', () => {
   const fileOf = (files: readonly Written[], path: string): string =>
     files.find((each) => each.path === path)?.content ?? '';
 
+  const moduleOf = (files: readonly Written[]): string =>
+    files
+      .filter(
+        (each) => each.path.endsWith('.tf') && each.path !== 'variables.tf',
+      )
+      .map((each) => each.content)
+      .join('\n');
+
   beforeAll(async () => {
     app = await openApp();
     db = app.get<DrizzleDatabase>(DRIZZLE);
@@ -274,16 +282,28 @@ describe('a workspace exported as Terraform (e2e)', () => {
     await seat.unseat();
   });
 
-  it('writes main.tf, variables.tf and the files main.tf reads, importing everything the workspace has', async () => {
+  it('writes a file per concern, the variables and the files they read, importing everything the workspace has', async () => {
     const files = await exported();
-    const main = fileOf(files, 'main.tf');
+    const main = moduleOf(files);
+    const imports = fileOf(files, 'imports.tf');
 
     expect(files.map((each) => each.path)).toEqual(
       [...files.map((each) => each.path)].sort(),
     );
     expect(files.map((each) => each.path)).toEqual(
       expect.arrayContaining([
-        'main.tf',
+        '.gitignore',
+        'terraform.tf',
+        'imports.tf',
+        'workspace.tf',
+        'secrets.tf',
+        'runners.tf',
+        'team-team.tf',
+        'line-team-delivery.tf',
+        'skills-team.tf',
+        'integration-team-linear.tf',
+        'hooks-team.tf',
+        'profiles-team.tf',
         'variables.tf',
         'skills/team/grafana/SKILL.md',
         'skills/team/grafana/queries/latency.promql',
@@ -315,14 +335,15 @@ describe('a workspace exported as Terraform (e2e)', () => {
         `${workspaceId}/team/careful`,
       ],
     ]) {
-      expect(main).toContain(
-        `import {\n  to = ${type}.${name}\n  id = "${id}"\n}\n\nresource "${type}" "${name}" {\n`,
+      expect(imports).toContain(
+        `import {\n  to = ${type}.${name}\n  id = "${id}"\n}\n`,
       );
+      expect(main).toContain(`resource "${type}" "${name}" {\n`);
     }
   });
 
   it('refers to what each resource names, so a first apply creates them in order', async () => {
-    const main = fileOf(await exported(), 'main.tf');
+    const main = moduleOf(await exported());
 
     for (const reference of [
       `workspace_id = spotlight_workspace.${workspaceId}.id`,
@@ -346,10 +367,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
     const files = await exported();
 
     expect(
-      blockOf(
-        fileOf(files, 'main.tf'),
-        'resource "spotlight_hook" "team_audit"',
-      ),
+      blockOf(moduleOf(files), 'resource "spotlight_hook" "team_audit"'),
     ).toBe(
       [
         'resource "spotlight_hook" "team_audit" {',
@@ -388,7 +406,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
 
   it('never writes a secret value or a pool token, requesting them as sensitive variables', async () => {
     const files = await exported();
-    const main = fileOf(files, 'main.tf');
+    const main = moduleOf(files);
     const variables = fileOf(files, 'variables.tf');
 
     for (const file of files) {
@@ -421,7 +439,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
 
     expect(unversioned.status).toBe(201);
 
-    const main = fileOf(await exported(), 'main.tf');
+    const main = moduleOf(await exported());
 
     for (const id of [made.secret, unversioned.body.id]) {
       const answered = await as(seat.owner).get(`/api/resources/secrets/${id}`);
@@ -440,7 +458,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
   });
 
   it('writes a station’s judge reading its rubric with file(), and its alerts in order', async () => {
-    const main = fileOf(await exported(), 'main.tf');
+    const main = moduleOf(await exported());
 
     expect(main).toContain(
       `    judge {\n      rubric        = file("\${path.module}/judges/team/delivery/${PROMPTED?.key}.md")\n      sample        = 0.2\n      min_agreement = 0.6\n    }\n\n    alert {\n      measure  = "sent_back_rate"\n      rises_by = 0.2\n      over     = 20\n    }\n\n    alert {\n      measure = "cost_per_run"\n      above   = 5\n      over    = 10\n    }\n\n    alert {\n      measure  = "accepted_rate"\n      falls_by = 0.1\n      over     = 20\n    }\n\n    alert {\n      measure = "merged_rate"\n      below   = 0.4\n      over    = 20\n    }\n  }\n`,
@@ -577,14 +595,14 @@ describe('a workspace exported as Terraform (e2e)', () => {
   });
 
   it.skipIf(!TERRAFORM_INSTALLED)(
-    'writes main.tf and variables.tf already formatted as terraform fmt would',
+    'writes each .tf file already formatted as terraform fmt would',
     async () => {
       const files = await exported();
 
-      for (const path of ['main.tf', 'variables.tf']) {
-        const written = fileOf(files, path);
-
-        expect(formattedByTerraform(written)).toBe(written);
+      for (const { path, content } of files) {
+        if (path.endsWith('.tf')) {
+          expect(formattedByTerraform(content)).toBe(content);
+        }
       }
     },
   );

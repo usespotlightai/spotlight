@@ -46,7 +46,9 @@ export interface ResourceHcl {
 }
 
 interface Rendered {
+  readonly file: string;
   readonly variables: readonly HclBlock[];
+  readonly imports: readonly HclBlock[];
   readonly blocks: readonly HclBlock[];
   readonly files: readonly TerraformFile[];
 }
@@ -73,9 +75,16 @@ const PROVIDER_SOURCE = 'usespotlightai/spotlight';
 
 const PROVIDER_VERSION = '0.1.0-rc.2';
 
-const MAIN = 'main.tf';
+const TERRAFORM = 'terraform.tf';
+
+const IMPORTS = 'imports.tf';
 
 const VARIABLES = 'variables.tf';
+
+const GITIGNORE = {
+  path: '.gitignore',
+  content: '.terraform/\n*.tfstate\n*.tfstate.*\n*.tfvars\n',
+};
 
 const HOOK_MATCHES: readonly (keyof HookConfigMatch)[] = [
   'tools',
@@ -122,6 +131,33 @@ const inModuleOrder = (
   inCodePointOrder(teamOf(one), teamOf(other)) ||
   PLACE[one.kind] - PLACE[other.kind] ||
   inCodePointOrder(one.address, other.address);
+
+const fileOf = (resource: ExportableResourceDto): string => {
+  switch (resource.kind) {
+    case 'workspace':
+    case 'workspace-token-trust':
+      return 'workspace.tf';
+    case 'secret':
+      return 'secrets.tf';
+    case 'runner-trust':
+    case 'egress':
+    case 'runner-pool':
+    case 'workspace-runners':
+      return 'runners.tf';
+    case 'team':
+      return `team-${resource.key}.tf`;
+    case 'line':
+      return `line-${resource.teamKey}-${resource.key}.tf`;
+    case 'integration':
+      return `integration-${resource.teamKey}-${resource.integration}.tf`;
+    case 'skill':
+      return `skills-${resource.teamKey}.tf`;
+    case 'hook':
+      return `hooks-${resource.teamKey}.tf`;
+    case 'harness-profile':
+      return `profiles-${resource.teamKey}.tf`;
+  }
+};
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -312,10 +348,11 @@ const withImportBlock = (
   name: string,
   importedAs: string,
   body: readonly HclItem[],
-  more: Partial<Omit<Rendered, 'blocks'>> = {},
+  more: Partial<Pick<Rendered, 'variables' | 'files'>> = {},
 ): Rendered => ({
+  file: fileOf(resource),
   variables: more.variables ?? [],
-  blocks: [
+  imports: [
     block(
       'import',
       [],
@@ -324,8 +361,8 @@ const withImportBlock = (
         attribute('id', importedAs),
       ],
     ),
-    block('resource', [typeOf(resource.kind), name], body),
   ],
+  blocks: [block('resource', [typeOf(resource.kind), name], body)],
   files: more.files ?? [],
 });
 
@@ -1011,15 +1048,24 @@ export const workspaceTerraform = (
     [...configuration.resources].sort(inModuleOrder),
   );
   const variables = all.flatMap((each) => each.variables);
+  const paths = [...new Set(all.map((each) => each.file))];
 
   return [
+    { path: TERRAFORM, content: formatHcl([PROVIDERS]) },
     {
-      path: MAIN,
-      content: formatHcl([PROVIDERS, ...all.flatMap((each) => each.blocks)]),
+      path: IMPORTS,
+      content: formatHcl(all.flatMap((each) => each.imports)),
     },
+    ...paths.map((path) => ({
+      path,
+      content: formatHcl(
+        all.filter((each) => each.file === path).flatMap((each) => each.blocks),
+      ),
+    })),
     ...(variables.length > 0
       ? [{ path: VARIABLES, content: formatHcl(variables) }]
       : []),
+    GITIGNORE,
     ...all.flatMap((each) => each.files),
   ].sort(byPath);
 };
@@ -1031,7 +1077,11 @@ export const resourceHcl = (
   const [one] = renderedIn(configuration, [resource]);
 
   return {
-    hcl: formatHcl([...(one?.variables ?? []), ...(one?.blocks ?? [])]),
+    hcl: formatHcl([
+      ...(one?.variables ?? []),
+      ...(one?.imports ?? []),
+      ...(one?.blocks ?? []),
+    ]),
     files: [...(one?.files ?? [])].sort(byPath),
   };
 };

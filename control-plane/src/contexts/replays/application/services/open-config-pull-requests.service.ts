@@ -191,6 +191,14 @@ export class OpenConfigPullRequests implements PendingJobsPort {
       );
     }
 
+    const module = (
+      await this.configs.filesIn(
+        pullRequest.workspaceId,
+        repository,
+        path.slice(0, Math.max(path.lastIndexOf('/'), 0)),
+        file.commit,
+      )
+    ).filter((each) => each.endsWith('.tf') && each !== path);
     const edited = await this.editor.edited({
       file: { path, content: file.content },
       teamKey,
@@ -198,6 +206,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
       stationKey: station.key,
       seed: seed.block,
       candidate: candidate.block,
+      module,
       read: async (other) =>
         (
           await this.configs.fileAt(

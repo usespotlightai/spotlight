@@ -53,6 +53,7 @@ const edited = (
     stationKey: 'build',
     seed: StationBlock.of(seed),
     candidate: StationBlock.of({ ...SEED, ...candidate }),
+    module: [],
     read: async (path) => (path === 'prompts/build.md' ? 'Build it.\n' : null),
   });
 

@@ -55,6 +55,7 @@ export interface HclBlockEdit {
   readonly block: { readonly type: string; readonly key: string };
   readonly fields: readonly HclField[];
   readonly blocks: readonly HclGuardedBlock[];
+  readonly module: readonly string[];
   readonly read: (path: string) => Promise<string | null>;
 }
 
@@ -205,6 +206,7 @@ class Editing {
   constructor(
     private readonly edit: HclBlockEdit,
     private readonly parsed: ParsedBody,
+    private readonly module: readonly ParsedBlock[],
   ) {
     this.eol = edit.file.content.includes('\r\n') ? '\r\n' : '\n';
   }
@@ -228,12 +230,7 @@ class Editing {
   }
 
   private get resources(): readonly ParsedBlock[] {
-    return this.parsed.blocks.filter(
-      (each) =>
-        each.type === 'resource' &&
-        each.labels.length === 2 &&
-        each.labels.every((label) => label !== null),
-    );
+    return [...resourcesIn(this.parsed), ...this.module];
   }
 
   private ownedBy(block: ParsedBlock, key: string): boolean | null {
@@ -773,6 +770,7 @@ class Editing {
     const again = new Editing(
       { ...this.edit, file: { ...this.edit.file, content } },
       parsed,
+      this.module,
     );
 
     for (const [path, text] of this.pendingFiles) {
@@ -821,19 +819,52 @@ class Editing {
   }
 }
 
-const parsedOrFailed = async (text: string): Promise<ParsedBody> => {
+const parsedOrFailed = async (
+  text: string,
+  path?: string,
+): Promise<ParsedBody> => {
   try {
     return await parsedHcl(text);
   } catch (error) {
     if (error instanceof HclSyntaxError) {
-      return fail('unparsable', `The file ${error.message}.`);
+      return fail(
+        'unparsable',
+        `The file${path ? ` ${quotedKey(path)}` : ''} ${error.message}.`,
+      );
     }
     throw error;
   }
 };
 
+const resourcesIn = (parsed: ParsedBody): readonly ParsedBlock[] =>
+  parsed.blocks.filter(
+    (each) =>
+      each.type === 'resource' &&
+      each.labels.length === 2 &&
+      each.labels.every((label) => label !== null),
+  );
+
+const moduleOf = async (edit: HclBlockEdit): Promise<ParsedBlock[]> => {
+  const resources: ParsedBlock[] = [];
+
+  for (const path of edit.module) {
+    const content = await edit.read(path);
+
+    if (content !== null) {
+      resources.push(...resourcesIn(await parsedOrFailed(content, path)));
+    }
+  }
+
+  return resources;
+};
+
 const edited = async (edit: HclBlockEdit) => {
-  const editing = new Editing(edit, await parsedOrFailed(edit.file.content));
+  const module = await moduleOf(edit);
+  const editing = new Editing(
+    edit,
+    await parsedOrFailed(edit.file.content),
+    module,
+  );
 
   try {
     return await editing.edited();
@@ -847,6 +878,7 @@ const edited = async (edit: HclBlockEdit) => {
     return new Editing(
       { ...edit, file: { ...edit.file, content } },
       await parsedOrFailed(content),
+      module,
     ).edited();
   }
 };

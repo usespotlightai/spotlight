@@ -155,6 +155,7 @@ const editOf = (
   block: { type: 'station', key: 'build' },
   fields: fieldsOf(BUILD, desired),
   blocks: [JUDGE],
+  module: [],
   read: async (path) => files[path] ?? null,
   ...more,
 });
@@ -416,6 +417,45 @@ describe('editedHclBlock', () => {
       '    skills    = [spotlight_skill.core_grafana.key, spotlight_skill.core_oncall.key, "catalog.research@1.0.0"]\n',
     );
     expect(fmtClean(main)).toBe(true);
+  });
+
+  it('refers to skills and integrations written in another file of the module', async () => {
+    const at = LINES.indexOf('resource "spotlight_line"');
+    const files = { ...FILES, 'teams/core/skills.tf': LINES.slice(0, at) };
+    const main = await mainOf(
+      editOf(
+        {
+          skills: ['grafana', 'oncall'],
+          tools: ['linear.comment'],
+        },
+        {
+          file: { path: 'teams/core/lines.tf', content: LINES.slice(at) },
+          module: ['teams/core/skills.tf'],
+        },
+        files,
+      ),
+    );
+
+    expect(main).toContain(
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: a Terraform expression
+      '    tools     = ["${spotlight_integration.core_linear.integration}.comment"]\n',
+    );
+    expect(main).toContain(
+      '    skills    = [spotlight_skill.core_grafana.key, spotlight_skill.core_oncall.key]\n',
+    );
+  });
+
+  it('fails on another file of the module that does not parse, naming it', async () => {
+    const error = await errorOf(
+      editOf(
+        { model: 'opus' },
+        { module: ['teams/core/skills.tf'] },
+        { ...FILES, 'teams/core/skills.tf': 'resource "spotlight_skill" {\n' },
+      ),
+    );
+
+    expect(error).toMatchObject({ code: 'unparsable' });
+    expect(error?.message).toContain('"teams/core/skills.tf"');
   });
 
   it('does not change what it cannot resolve, and lists what it could not check', async () => {

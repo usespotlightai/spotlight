@@ -19,7 +19,9 @@ const EXPORTED = workspaceTerraform(CONFIGURATION).map((each) => ({
   content: each.content,
 }));
 
-const MAIN = EXPORTED.find((each) => each.path === `${ROOT}/main.tf`) ?? {
+const LINE = EXPORTED.find(
+  (each) => each.path === `${ROOT}/line-core-delivery.tf`,
+) ?? {
   path: '',
   content: '',
 };
@@ -65,7 +67,7 @@ const RULES: Readonly<Record<string, HclField['references']>> = {
 const LISTS = new Set(['tools', 'skills', 'passes_to']);
 
 const editOf = (now: Readonly<Record<string, HclLiteral>>): HclBlockEdit => ({
-  file: MAIN,
+  file: LINE,
   owner: { attribute: 'team_id', type: 'spotlight_team', key: 'core' },
   resource: { type: 'spotlight_line', key: 'delivery' },
   block: { type: 'station', key: 'implementation' },
@@ -93,6 +95,9 @@ const editOf = (now: Readonly<Record<string, HclLiteral>>): HclBlockEdit => ({
       },
     },
   ],
+  module: EXPORTED.map((each) => each.path).filter(
+    (path) => path.endsWith('.tf') && path !== LINE.path,
+  ),
   read: async (path) =>
     EXPORTED.find((each) => each.path === path)?.content ?? null,
 });
@@ -111,13 +116,13 @@ describe('editing a line Spotlight exported', () => {
     expect(edited.ok && edited.unchecked).toEqual([]);
 
     const files = edited.ok ? edited.files : [];
-    const main = files.find((each) => each.path === MAIN.path)?.content ?? '';
+    const line = files.find((each) => each.path === LINE.path)?.content ?? '';
 
     expect(files.find((each) => each.path === PROMPT)?.content).toBe(
       'Implement the task, smallest change first.\n',
     );
-    expect(main).toBe(
-      MAIN.content
+    expect(line).toBe(
+      LINE.content
         .replace(
           '    harness   = "claude-code"\n    profile',
           '    harness   = "codex"\n    profile',
@@ -132,8 +137,8 @@ describe('editing a line Spotlight exported', () => {
         ),
     );
     if (TERRAFORM_INSTALLED) {
-      expect(formattedByTerraform(MAIN.content)).toBe(MAIN.content);
-      expect(formattedByTerraform(main)).toBe(main);
+      expect(formattedByTerraform(LINE.content)).toBe(LINE.content);
+      expect(formattedByTerraform(line)).toBe(line);
     }
   });
 
@@ -145,19 +150,19 @@ describe('editing a line Spotlight exported', () => {
         profile: 'bold',
       }),
     );
-    const main = edited.ok ? (edited.files[0]?.content ?? '') : '';
+    const line = edited.ok ? (edited.files[0]?.content ?? '') : '';
 
     expect(edited.ok).toBe(true);
-    expect(main).toContain(
+    expect(line).toContain(
       // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
       '    tools     = ["github.comment", "${spotlight_integration.core_linear.integration}.comment"]\n',
     );
-    expect(main).toContain(
+    expect(line).toContain(
       '    skills    = ["catalog.research@1.0.0", spotlight_skill.core_grafana.key]\n',
     );
-    expect(main).toContain('    profile   = "bold"\n');
+    expect(line).toContain('    profile   = "bold"\n');
     if (TERRAFORM_INSTALLED) {
-      expect(formattedByTerraform(main)).toBe(main);
+      expect(formattedByTerraform(line)).toBe(line);
     }
   });
 });

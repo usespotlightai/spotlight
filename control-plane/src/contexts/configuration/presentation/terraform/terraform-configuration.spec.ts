@@ -31,7 +31,10 @@ const fileOf = (
     ?.content ?? '';
 
 const mainOf = (configuration: ExportableConfigurationDto): string =>
-  fileOf(configuration, 'main.tf');
+  workspaceTerraform(configuration)
+    .filter((each) => each.path.endsWith('.tf') && each.path !== 'variables.tf')
+    .map((each) => each.content)
+    .join('\n');
 
 const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
   team_id = spotlight_team.core.id
@@ -144,15 +147,61 @@ const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
 `;
 
 describe('workspaceTerraform', () => {
-  it('writes main.tf, variables.tf and every file main.tf reads, ordered by path', () => {
+  it('writes a file per concern, the imports, the variables and every file they read, ordered by path', () => {
     expect(workspaceTerraform(CONFIGURATION).map((each) => each.path)).toEqual([
+      '.gitignore',
+      'hooks-core.tf',
+      'imports.tf',
+      'integration-core-linear.tf',
       'judges/core/delivery/implementation.md',
-      'main.tf',
+      'line-core-delivery.tf',
+      'line-core-review.tf',
+      'profiles-core.tf',
       'prompts/core/delivery/implementation.md',
+      'runners.tf',
+      'secrets.tf',
+      'skills-core.tf',
       'skills/core/grafana/SKILL.md',
       'skills/core/grafana/queries/latency.promql',
+      'team-3d.tf',
+      'team-core.tf',
+      'terraform.tf',
       'variables.tf',
+      'workspace.tf',
     ]);
+  });
+
+  it('writes each resource in the file of its concern', () => {
+    const headersIn = (path: string): string[] =>
+      [...fileOf(CONFIGURATION, path).matchAll(/^resource (".+") {$/gm)].map(
+        ([, header]) => header ?? '',
+      );
+
+    expect(headersIn('workspace.tf')).toEqual([
+      '"spotlight_workspace" "acme"',
+      '"spotlight_workspace_token_trust" "github-main"',
+      '"spotlight_workspace_token_trust" "github-pull-requests"',
+    ]);
+    expect(headersIn('runners.tf')).toEqual([
+      '"spotlight_runner_trust" "production-cluster"',
+      '"spotlight_egress" "shared"',
+      '"spotlight_runner_pool" "burst"',
+      '"spotlight_runner_pool" "k8s-jobs"',
+      '"spotlight_workspace_runners" "acme"',
+    ]);
+    expect(headersIn('line-core-delivery.tf')).toEqual([
+      '"spotlight_line" "core_delivery"',
+    ]);
+    expect(headersIn('hooks-core.tf')).toEqual([
+      '"spotlight_hook" "core_linear-comments"',
+      '"spotlight_hook" "core_merged"',
+    ]);
+  });
+
+  it('keeps state, local variable files and the provider cache out of git', () => {
+    expect(fileOf(CONFIGURATION, '.gitignore')).toBe(
+      '.terraform/\n*.tfstate\n*.tfstate.*\n*.tfvars\n',
+    );
   });
 
   it('writes no variables.tf when nothing needs a value from outside', () => {
@@ -173,7 +222,7 @@ describe('workspaceTerraform', () => {
   });
 
   it('requires the Spotlight provider', () => {
-    expect(mainOf(CONFIGURATION)).toMatch(
+    expect(fileOf(CONFIGURATION, 'terraform.tf')).toMatch(
       /^terraform {\n {2}required_providers {\n {4}spotlight = {\n {6}source  = "usespotlightai\/spotlight"\n {6}version = "0\.1\.0-rc\.2"\n/,
     );
   });
@@ -181,8 +230,11 @@ describe('workspaceTerraform', () => {
   it('imports the workspace by its slug and never creates one', () => {
     const main = mainOf(CONFIGURATION);
 
-    expect(main).toContain(
-      'import {\n  to = spotlight_workspace.acme\n  id = "acme"\n}\n\nresource "spotlight_workspace" "acme" {\n  name = "Acme"\n  slug = "acme"\n}\n',
+    expect(fileOf(CONFIGURATION, 'imports.tf')).toMatch(
+      /^import {\n {2}to = spotlight_workspace\.acme\n {2}id = "acme"\n}\n/,
+    );
+    expect(fileOf(CONFIGURATION, 'workspace.tf')).toMatch(
+      /^resource "spotlight_workspace" "acme" {\n {2}name = "Acme"\n {2}slug = "acme"\n}\n/,
     );
     expect(main.match(/resource "spotlight_workspace"/g)).toHaveLength(1);
     expect(main.match(/to = spotlight_workspace\./g)).toHaveLength(1);
@@ -190,6 +242,7 @@ describe('workspaceTerraform', () => {
 
   it('imports every other resource by its workspace id and address', () => {
     const main = mainOf(CONFIGURATION);
+    const imports = fileOf(CONFIGURATION, 'imports.tf');
 
     for (const [type, name, address] of [
       ['spotlight_secret', 'linear_api_key', 'LINEAR_API_KEY'],
@@ -208,9 +261,10 @@ describe('workspaceTerraform', () => {
       ['spotlight_hook', 'core_merged', 'core/merged'],
       ['spotlight_harness_profile', 'core_careful', 'core/careful'],
     ]) {
-      expect(main).toContain(
-        `import {\n  to = ${type}.${name}\n  id = "${WORKSPACE_ID}/${address}"\n}\n\nresource "${type}" "${name}" {\n`,
+      expect(imports).toContain(
+        `import {\n  to = ${type}.${name}\n  id = "${WORKSPACE_ID}/${address}"\n}\n`,
       );
+      expect(main).toContain(`resource "${type}" "${name}" {\n`);
     }
   });
 
@@ -828,30 +882,30 @@ describe('workspaceTerraform', () => {
     );
   });
 
-  it('writes what the workspace has first, then each team in key order with what it has', () => {
-    const main = mainOf(CONFIGURATION);
-    const at = (header: string): number => main.indexOf(`resource ${header} {`);
+  it('imports what the workspace has first, then each team in key order with what it has', () => {
+    const imports = fileOf(CONFIGURATION, 'imports.tf');
+    const at = (to: string): number => imports.indexOf(`to = ${to}\n`);
     const headers = [
-      '"spotlight_workspace" "acme"',
-      '"spotlight_secret" "linear_api_key"',
-      '"spotlight_secret" "linear_signing"',
-      '"spotlight_secret" "sentry_token"',
-      '"spotlight_workspace_token_trust" "github-main"',
-      '"spotlight_workspace_token_trust" "github-pull-requests"',
-      '"spotlight_runner_trust" "production-cluster"',
-      '"spotlight_egress" "shared"',
-      '"spotlight_runner_pool" "burst"',
-      '"spotlight_runner_pool" "k8s-jobs"',
-      '"spotlight_workspace_runners" "acme"',
-      '"spotlight_team" "_3d"',
-      '"spotlight_team" "core"',
-      '"spotlight_line" "core_delivery"',
-      '"spotlight_line" "core_review"',
-      '"spotlight_skill" "core_grafana"',
-      '"spotlight_integration" "core_linear"',
-      '"spotlight_hook" "core_linear-comments"',
-      '"spotlight_hook" "core_merged"',
-      '"spotlight_harness_profile" "core_careful"',
+      'spotlight_workspace.acme',
+      'spotlight_secret.linear_api_key',
+      'spotlight_secret.linear_signing',
+      'spotlight_secret.sentry_token',
+      'spotlight_workspace_token_trust.github-main',
+      'spotlight_workspace_token_trust.github-pull-requests',
+      'spotlight_runner_trust.production-cluster',
+      'spotlight_egress.shared',
+      'spotlight_runner_pool.burst',
+      'spotlight_runner_pool.k8s-jobs',
+      'spotlight_workspace_runners.acme',
+      'spotlight_team._3d',
+      'spotlight_team.core',
+      'spotlight_line.core_delivery',
+      'spotlight_line.core_review',
+      'spotlight_skill.core_grafana',
+      'spotlight_integration.core_linear',
+      'spotlight_hook.core_linear-comments',
+      'spotlight_hook.core_merged',
+      'spotlight_harness_profile.core_careful',
     ];
 
     expect(headers.map(at).every((each) => each >= 0)).toBe(true);
@@ -937,14 +991,15 @@ describe('resourceHcl', () => {
 });
 
 describe.skipIf(!TERRAFORM_INSTALLED)('checked by terraform', () => {
-  it.each(['main.tf', 'variables.tf'])(
-    'writes %s already formatted as terraform fmt would',
-    (path) => {
-      expect(formattedByTerraform(fileOf(CONFIGURATION, path))).toBe(
-        fileOf(CONFIGURATION, path),
-      );
-    },
-  );
+  it.each(
+    workspaceTerraform(CONFIGURATION)
+      .map((each) => each.path)
+      .filter((path) => path.endsWith('.tf')),
+  )('writes %s already formatted as terraform fmt would', (path) => {
+    expect(formattedByTerraform(fileOf(CONFIGURATION, path))).toBe(
+      fileOf(CONFIGURATION, path),
+    );
+  });
 
   it('writes each resource already formatted as terraform fmt would', () => {
     for (const each of CONFIGURATION.resources) {

@@ -148,6 +148,10 @@ const repositoryContents: RepositoryContentsPort = {
           defaultBranch: 'main',
         };
   },
+  filesIn: async (_workspace, _repository, directory) =>
+    [...github.files.keys()].filter(
+      (path) => path.slice(0, Math.max(path.lastIndexOf('/'), 0)) === directory,
+    ),
   committed: async (_workspace, _repository, commit) => {
     github.commits.push(commit);
     return `commit_${github.commits.length + 1}`;
