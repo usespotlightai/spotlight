@@ -61,7 +61,7 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
             value={formatPer(load.asksPerTask)}
             detail={`${formatCount(load.asks)} asks`}
             delta={shownDeltaOf(loadChanges.asksPerTask)}
-            drill={{ tab: 'runs', filter: { asked: 'true' } }}
+            drill={{ tab: 'traces', filter: { asked: 'true' } }}
           />
           <InsightsTile
             label="Time to answer"
@@ -73,21 +73,21 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
               `${formatCount(load.unanswered)} unanswered`,
             ].join(' · ')}
             delta={shownDeltaOf(loadChanges.toAnswer)}
-            drill={{ tab: 'runs', filter: { asked: 'true' } }}
+            drill={{ tab: 'traces', filter: { asked: 'true' } }}
           />
           <InsightsTile
             label="Sent-back rate"
             value={formatShare(load.sentBackRate)}
             detail={`${formatCount(load.sentBack)} runs sent back`}
             delta={shownDeltaOf(loadChanges.sentBackRate)}
-            drill={{ tab: 'runs', filter: { humanAction: 'sent-back' } }}
+            drill={{ tab: 'traces', filter: { humanAction: 'sent-back' } }}
           />
           <InsightsTile
             label="Dismissed approvals"
             value={formatCount(load.dismissed)}
             detail="Tool approvals and permissions"
             delta={shownDeltaOf(loadChanges.dismissed)}
-            drill={dismissed ? { tab: 'runs', filter: dismissed } : undefined}
+            drill={dismissed ? { tab: 'traces', filter: dismissed } : undefined}
           />
         </InsightsTiles>
       </InsightsSection>

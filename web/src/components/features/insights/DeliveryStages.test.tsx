@@ -48,7 +48,7 @@ describe('DeliveryStages', () => {
 
     expect(screen.getByRole('link', { name: '2' })).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/insights?tab=runs&taskIds=task_1%2Ctask_2',
+      '/w/acme/team/team_1/insights?tab=traces&taskIds=task_1%2Ctask_2',
     );
   });
 

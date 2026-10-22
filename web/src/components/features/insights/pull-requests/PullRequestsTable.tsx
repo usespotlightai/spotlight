@@ -38,7 +38,7 @@ export function PullRequestsTable({
             {formatAuthor('spotlight')}
           </TrailLink>
           <InsightsLink
-            tab="runs"
+            tab="traces"
             filter={{ taskId: pullRequest.taskId }}
             className="text-muted-foreground"
           >

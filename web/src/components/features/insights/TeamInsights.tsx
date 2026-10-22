@@ -5,7 +5,6 @@ import { InsightsTabs } from '@/components/features/insights/InsightsTabs';
 import { OverviewTab } from '@/components/features/insights/OverviewTab';
 import { PeopleTab } from '@/components/features/insights/PeopleTab';
 import { ProductivityTab } from '@/components/features/insights/ProductivityTab';
-import { RunsTab } from '@/components/features/insights/RunsTab';
 import { StationsView } from '@/components/features/insights/StationsView';
 import { ToolsAndSkillsTab } from '@/components/features/insights/ToolsAndSkillsTab';
 import { TraceList } from '@/components/features/trace/list/TraceList';
@@ -36,7 +35,14 @@ export function TeamInsights({ slug, teamId }: TeamInsightsProps) {
       <InsightsTabs slug={slug} teamId={teamId} view={view} />
 
       {view.tab === 'traces' ? (
-        <TraceList slug={slug} teamId={teamId} range={view.period} />
+        <TraceList
+          key={JSON.stringify(view.filter)}
+          slug={slug}
+          teamId={teamId}
+          range={view.period}
+          filter={view.filter}
+          onEveryTrace={() => onView({ ...view, filter: {} })}
+        />
       ) : (
         <BeforeAfterHost
           slug={slug}
@@ -63,16 +69,6 @@ export function TeamInsights({ slug, teamId }: TeamInsightsProps) {
               <StationsView {...shared} stationId={view.filter.stationId} />
             )}
             {view.tab === 'tools' && <ToolsAndSkillsTab {...shared} />}
-            {view.tab === 'runs' && (
-              <RunsTab
-                slug={slug}
-                teamId={teamId}
-                view={view}
-                names={names}
-                lines={lines}
-                onView={onView}
-              />
-            )}
           </main>
         </BeforeAfterHost>
       )}

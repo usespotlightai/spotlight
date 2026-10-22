@@ -22,6 +22,7 @@ import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/reade
 import { DrizzleStationRunReader } from '@work/infrastructure/persistence/drizzle/readers/station-run.reader';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
@@ -214,6 +215,127 @@ describe('the station config a run ran with', () => {
     });
 
     expect(await stationRuns.endedRun(runId)).toBeNull();
+  });
+
+  it('reads the team’s unfinished runs newest first, with whether a stop was asked for', async () => {
+    const { lineId, stationId } = await lineOf('team_10');
+    const other = await lineOf('team_11');
+    const queued = await ran(stationId, {
+      state: 'queued',
+      fingerprint: null,
+      at: new Date('2026-09-01T00:00:00Z'),
+    });
+    const claimed = await ran(stationId, {
+      state: 'claimed',
+      at: new Date('2026-09-02T00:00:00Z'),
+    });
+    const stopping = await ran(stationId, {
+      state: 'waiting',
+      at: new Date('2026-09-03T00:00:00Z'),
+    });
+    await db
+      .update(schema.run)
+      .set({ stopRequestedAt: new Date('2026-09-04T00:00:00Z') })
+      .where(eq(schema.run.id, stopping.runId));
+    await ran(stationId, {
+      state: 'waiting',
+      at: new Date('2026-09-05T00:00:00Z'),
+    });
+    await ran(stationId, {
+      state: 'completed',
+      at: new Date('2026-09-06T00:00:00Z'),
+    });
+    await ran(other.stationId, {
+      state: 'claimed',
+      at: new Date('2026-09-07T00:00:00Z'),
+    });
+
+    const unfinished = await stationRuns.unfinishedOfTeam(TeamId.of('team_10'));
+
+    expect(
+      unfinished.map((each) => [each.runId, each.state, each.stopRequested]),
+    ).toEqual([
+      [stopping.runId, 'waiting', true],
+      [claimed.runId, 'claimed', false],
+      [queued.runId, 'queued', false],
+    ]);
+    expect(unfinished[2]).toMatchObject({
+      lineId,
+      stationId,
+      taskId: queued.taskId,
+      openedBy: null,
+      harness: 'dev',
+      config: null,
+      queuedAt: new Date('2026-09-01T00:00:00Z'),
+    });
+    expect(unfinished[1]?.config).toEqual(PARTS);
+  });
+
+  it('reads what traces show of tasks and runs: titles, stations with their line’s count, and the newest note of each task’s runs', async () => {
+    const { lineId, stationId } = await lineOf('team_12');
+    const review = randomUUID();
+    await db.insert(schema.station).values({
+      id: review,
+      key: 'review',
+      lineId,
+      name: 'Review',
+      position: 2,
+      color: '#edc12b',
+    });
+    const { runId, taskId } = await ran(stationId, {
+      at: new Date('2026-09-01T00:00:00Z'),
+    });
+    await db
+      .update(schema.task)
+      .set({ description: 'Drain the queue', stationId: review })
+      .where(eq(schema.task.id, taskId));
+    await db.insert(schema.taskNote).values(
+      ['Looking', 'Done'].map((body, position) => ({
+        taskId,
+        position,
+        station: 'Implementation',
+        stationId,
+        body,
+        at: new Date('2026-09-01T00:00:00Z'),
+        runId,
+        kind: 'message' as const,
+      })),
+    );
+
+    const traced = await stationRuns.traced({
+      taskIds: [taskId],
+      runIds: [runId],
+      stationIds: [stationId],
+    });
+
+    expect(traced.tasks).toEqual([
+      {
+        taskId,
+        title: `Task ${runId.slice(0, 4)}`,
+        description: 'Drain the queue',
+        stationId: review,
+      },
+    ]);
+    expect(
+      [...traced.stations]
+        .sort((one, other) => one.position - other.position)
+        .map((each) => [
+          each.stationId,
+          each.name,
+          each.position,
+          each.stations,
+        ]),
+    ).toEqual([
+      [stationId, 'Implementation', 1, 2],
+      [review, 'Review', 2, 2],
+    ]);
+    expect([...traced.notes]).toEqual([[taskId, 'Done']]);
+  });
+
+  it('reads nothing for traces of nothing', async () => {
+    expect(
+      await stationRuns.traced({ taskIds: [], runIds: [], stationIds: [] }),
+    ).toEqual({ tasks: [], stations: [], notes: new Map() });
   });
 
   it('names each config by its fingerprint', async () => {

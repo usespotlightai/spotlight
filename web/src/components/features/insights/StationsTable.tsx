@@ -66,7 +66,7 @@ export function StationsTable({
             column.label === 'Runs' || column.label === 'Failed' ? (
               <NestedCell key={column.label} heading={column.label}>
                 <InsightsLink
-                  tab="runs"
+                  tab="traces"
                   filter={{
                     stationId: report.stationId,
                     ...(column.label === 'Failed' && { outcome: 'failed' }),

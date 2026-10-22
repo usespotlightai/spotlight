@@ -64,7 +64,7 @@ export function StationFailures({
                     </TrailLink>
                   ) : (
                     <InsightsLink
-                      tab="runs"
+                      tab="traces"
                       filter={{
                         stationId: report.stationId,
                         outcome: 'failed',
@@ -101,7 +101,7 @@ export function StationFailures({
                   }
                 >
                   {only && failure.taskIds.length === 1 ? (
-                    <InsightsLink tab="runs" filter={{ taskId: only }}>
+                    <InsightsLink tab="traces" filter={{ taskId: only }}>
                       {shown}
                     </InsightsLink>
                   ) : (

@@ -338,7 +338,7 @@ describe('the pull requests of the Productivity tab', () => {
     ).toHaveAttribute('href', '/w/acme/team/team_1/tasks/task_7');
     expect(within(table).getByRole('link', { name: 'Runs' })).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/insights?tab=runs&taskId=task_7',
+      '/w/acme/team/team_1/insights?tab=traces&taskId=task_7',
     );
     expect(
       within(table).getByRole('link', { name: 'Spotlight review' }),

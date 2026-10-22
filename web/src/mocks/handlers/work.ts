@@ -7,7 +7,6 @@ import type {
   MoveTaskRequestDto,
   SendMessageRequestDto,
   TaskResponseDto,
-  TeamTracesResponseDto,
 } from '@/lib/api';
 import { placed } from '@/lib/task';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
@@ -26,7 +25,6 @@ import {
   runStationIn,
   taskTraceOf,
   teamRunsOf,
-  teamTracesOf,
 } from '@/mocks/world/work';
 import { runMemoriesOf } from '@/mocks/world/work-memories';
 
@@ -77,25 +75,6 @@ const queueRunAt = (teamId: string, taskId: string, stationId: string) => {
     },
     ...(world().runs[taskId] ?? []),
   ];
-};
-
-const RANGES = new Set<string>([
-  '30m',
-  '1h',
-  '6h',
-  '1d',
-  '3d',
-  '7d',
-  '14d',
-  '30d',
-  '90d',
-]);
-
-const rangeFrom = (url: string): TeamTracesResponseDto['range'] => {
-  const requested = new URL(url).searchParams.get('range') ?? '30d';
-  return (
-    RANGES.has(requested) ? requested : '30d'
-  ) as TeamTracesResponseDto['range'];
 };
 
 export const workHandlers: RequestHandler[] = [
@@ -287,12 +266,6 @@ export const workHandlers: RequestHandler[] = [
     const network = runNetworkOf(String(params.runId));
     return network ? json(network) : notFound();
   }),
-
-  api.get('/teams/:teamId/traces', ({ params, request }) =>
-    world().lines[String(params.teamId)]
-      ? json(teamTracesOf(String(params.teamId), rangeFrom(request.url)))
-      : notFound(),
-  ),
 
   api.post('/workspaces/:slug/attachments', async ({ params, request }) => {
     if (params.slug !== world().workspace.slug) {

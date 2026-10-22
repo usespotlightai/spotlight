@@ -3,7 +3,6 @@ import type {
   InsightsFlowDto,
   InsightsOverviewDto,
   InsightsPeopleDto,
-  InsightsRunsDto,
   InsightsStationsDto,
 } from '@insights/application/dto/insights.dto';
 import type {
@@ -17,9 +16,10 @@ import type {
 } from '@insights/application/dto/insights-pull-requests.dto';
 import type { InsightsShippingDto } from '@insights/application/dto/insights-shipping.dto';
 import type { InsightsToolsDto } from '@insights/application/dto/insights-tools.dto';
+import type { InsightsTracesDto } from '@insights/application/dto/insights-traces.dto';
 import type { StationAlertDto } from '@insights/application/dto/station-alert.dto';
 import { ListInsightsPullRequestsQuery } from '@insights/application/queries/list-insights-pull-requests.query';
-import { ListInsightsRunsQuery } from '@insights/application/queries/list-insights-runs.query';
+import { ListInsightsTracesQuery } from '@insights/application/queries/list-insights-traces.query';
 import { ReadInsightsAgentConfigsQuery } from '@insights/application/queries/read-insights-agent-configs.query';
 import { ReadInsightsChangesQuery } from '@insights/application/queries/read-insights-changes.query';
 import { ReadInsightsCostQuery } from '@insights/application/queries/read-insights-cost.query';
@@ -39,7 +39,6 @@ import {
   NO_REPOSITORY,
   NO_SERVER,
 } from '@insights/domain/services/run-filter';
-import { MAX_RUN_PAGE } from '@insights/domain/services/run-page';
 import { RUN_SIZES } from '@insights/domain/services/run-size';
 import {
   PULL_REQUEST_AUTHORS,
@@ -50,6 +49,10 @@ import { INSIGHTS_PERIODS } from '@insights/domain/value-objects/insights-period
 import { PULL_REQUEST_TYPES } from '@insights/domain/value-objects/pull-request-type';
 import { RUN_ENDINGS } from '@insights/domain/value-objects/run-ending';
 import { TASK_PULL_REQUEST_STATES } from '@insights/domain/value-objects/task-pull-request-state';
+import {
+  DEFAULT_TRACE_RANGE,
+  TRACE_RANGES,
+} from '@insights/domain/value-objects/trace-range.vo';
 import {
   InsightsAgentConfigsResponseDto,
   InsightsChangesResponseDto,
@@ -63,10 +66,10 @@ import {
   InsightsPullRequestListResponseDto,
   InsightsPullRequestsResponseDto,
 } from '@insights/presentation/http/dto/insights-pull-requests.response.dto';
-import { InsightsRunsResponseDto } from '@insights/presentation/http/dto/insights-runs.response.dto';
 import { InsightsShippingResponseDto } from '@insights/presentation/http/dto/insights-shipping.response.dto';
 import { InsightsStationsResponseDto } from '@insights/presentation/http/dto/insights-stations.response.dto';
 import { InsightsToolsResponseDto } from '@insights/presentation/http/dto/insights-tools.response.dto';
+import { InsightsTracesResponseDto } from '@insights/presentation/http/dto/insights-traces.response.dto';
 import { StationAlertFiringResponseDto } from '@insights/presentation/http/dto/station-alert-firing.response.dto';
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
@@ -90,6 +93,14 @@ const DEFAULT_PERIOD = '30d';
 const periodOf = (raw: unknown): string => {
   if (raw === undefined) {
     return DEFAULT_PERIOD;
+  }
+
+  return typeof raw === 'string' ? raw : '';
+};
+
+const rangeOf = (raw: unknown): string => {
+  if (raw === undefined) {
+    return DEFAULT_TRACE_RANGE;
   }
 
   return typeof raw === 'string' ? raw : '';
@@ -504,13 +515,19 @@ export class TeamInsightsController {
     );
   }
 
-  @Get('runs')
+  @Get('traces')
   @ApiOperation({
-    operationId: 'listInsightsRuns',
+    operationId: 'listInsightsTraces',
     summary:
-      'Every run that ended in the period, the newest first, a page at a time; every filter narrows it further',
+      'Every task with a run in the range, as one trace each, with the runs that match the filter',
   })
-  @PeriodQuery()
+  @ApiQuery({
+    name: 'range',
+    required: false,
+    enum: TRACE_RANGES,
+    example: '7d',
+    description: `How far back from now to look, counting runs that ended since; ${DEFAULT_TRACE_RANGE} by default`,
+  })
   @FilterQuery('lineId', 'Only runs on this line')
   @FilterQuery('stationId', 'Only runs at this station')
   @ApiQuery({
@@ -581,57 +598,41 @@ export class TeamInsightsController {
     description:
       'true for only runs of tasks that asked someone in the inbox during the period',
   })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: Number,
-    description: `Which page, from 1 to the last with runs, ${MAX_RUN_PAGE} at most`,
+  @ApiOkResponse({ type: InsightsTracesResponseDto })
+  @ApiUnprocessableEntityResponse({
+    description: 'No such range, or a filter that is not valid',
   })
-  @ApiQuery({
-    name: 'size',
-    required: false,
-    type: Number,
-    description: 'Runs per page: 50 by default, 200 at most',
-  })
-  @ApiOkResponse({ type: InsightsRunsResponseDto })
-  async runs(
+  async traces(
     @Param('teamId') teamId: string,
     @Query() query: Record<string, unknown>,
     @CurrentPrincipal() principal: Principal,
-  ): Promise<InsightsRunsResponseDto> {
-    return new InsightsRunsResponseDto(
-      await this.queryBus.execute<ListInsightsRunsQuery, InsightsRunsDto>(
-        new ListInsightsRunsQuery(
-          teamId,
-          principal,
-          periodOf(query.period),
-          {
-            lineId: queryValue(query.lineId),
-            stationId: queryValue(query.stationId),
-            outcome: queryValue(query.outcome),
-            harness: queryValue(query.harness),
-            model: queryValue(query.model),
-            repository: queryValue(query.repository),
-            fingerprint: queryValue(query.fingerprint),
-            taskId: queryValue(query.taskId),
-            taskIds: listOf(query.taskIds),
-            personId: queryValue(query.personId),
-            day: queryValue(query.day),
-            week: queryValue(query.week),
-            skillEnabled: queryValue(query.skillEnabled),
-            skillUsed: queryValue(query.skillUsed),
-            server: queryValue(query.server),
-            serverFailed: queryValue(query.serverFailed),
-            failedAfter: queryValue(query.failedAfter),
-            dismissedTool: queryValue(query.dismissedTool),
-            dismissedServer: queryValue(query.dismissedServer),
-            pullRequestState: queryValue(query.pullRequestState),
-            humanAction: queryValue(query.humanAction),
-            asked: queryValue(query.asked),
-          },
-          numberOf(query.page),
-          numberOf(query.size),
-        ),
+  ): Promise<InsightsTracesResponseDto> {
+    return new InsightsTracesResponseDto(
+      await this.queryBus.execute<ListInsightsTracesQuery, InsightsTracesDto>(
+        new ListInsightsTracesQuery(teamId, principal, rangeOf(query.range), {
+          lineId: queryValue(query.lineId),
+          stationId: queryValue(query.stationId),
+          outcome: queryValue(query.outcome),
+          harness: queryValue(query.harness),
+          model: queryValue(query.model),
+          repository: queryValue(query.repository),
+          fingerprint: queryValue(query.fingerprint),
+          taskId: queryValue(query.taskId),
+          taskIds: listOf(query.taskIds),
+          personId: queryValue(query.personId),
+          day: queryValue(query.day),
+          week: queryValue(query.week),
+          skillEnabled: queryValue(query.skillEnabled),
+          skillUsed: queryValue(query.skillUsed),
+          server: queryValue(query.server),
+          serverFailed: queryValue(query.serverFailed),
+          failedAfter: queryValue(query.failedAfter),
+          dismissedTool: queryValue(query.dismissedTool),
+          dismissedServer: queryValue(query.dismissedServer),
+          pullRequestState: queryValue(query.pullRequestState),
+          humanAction: queryValue(query.humanAction),
+          asked: queryValue(query.asked),
+        }),
       ),
     );
   }

@@ -218,13 +218,13 @@ describe('a run a person decided a tool approval for (e2e)', () => {
 
   it('drills down to the runs by what people did next, never by an approval', async () => {
     const total = async (humanAction: string) =>
-      (await insights('runs', `period=7d&humanAction=${humanAction}`)).body
-        .total;
+      (await insights('traces', `range=7d&humanAction=${humanAction}`)).body
+        .matched;
 
     expect(await total('accepted')).toBe(2);
     expect(await total('sent-back')).toBe(2);
     expect(
-      (await insights('runs', 'period=7d&humanAction=approved')).status,
+      (await insights('traces', 'range=7d&humanAction=approved')).status,
     ).toBe(422);
   });
 });

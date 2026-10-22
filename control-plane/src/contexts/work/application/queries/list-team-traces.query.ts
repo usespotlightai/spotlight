@@ -1,7 +1,0 @@
-export class ListTeamTracesQuery {
-  constructor(
-    readonly teamId: string,
-    readonly viewerId: string,
-    readonly range: string,
-  ) {}
-}

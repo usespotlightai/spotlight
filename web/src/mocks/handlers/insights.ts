@@ -4,9 +4,9 @@ import { world } from '@/mocks/world';
 import {
   costOf,
   flowOf,
+  insightsTracesOf,
   overviewOf,
   peopleOf,
-  runsListOf,
   stationsOf,
 } from '@/mocks/world/insights';
 import { agentConfigsOf, changesOf } from '@/mocks/world/insights-changes';
@@ -69,7 +69,7 @@ export const insightsHandlers: RequestHandler[] = [
   api.get('/teams/:teamId/insights/people', forPeriod(peopleOf)),
   api.get('/teams/:teamId/insights/flow', forPeriod(flowOf)),
   api.get('/teams/:teamId/insights/stations', forPeriod(stationsOf)),
-  api.get('/teams/:teamId/insights/runs', forQuery(runsListOf)),
+  api.get('/teams/:teamId/insights/traces', forQuery(insightsTracesOf)),
   api.get('/teams/:teamId/insights/tools', forPeriod(toolsOf)),
   api.get('/teams/:teamId/insights/memory', forPeriod(memoryOf)),
   api.get('/teams/:teamId/insights/changes', forPeriod(changesOf)),

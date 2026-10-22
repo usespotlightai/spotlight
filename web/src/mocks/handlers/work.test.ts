@@ -7,7 +7,6 @@ import {
   listRunChangeStacks,
   listTasks,
   listTeamRuns,
-  listTeamTraces,
   moveTask,
   readRunMemories,
   readRunNotes,
@@ -119,30 +118,6 @@ describe('the mock work area', () => {
     expect(data.errors).toBeGreaterThan(0);
   });
 
-  it('lists the team traces in a range', async () => {
-    const { data } = await listTeamTraces({
-      path: { teamId },
-      query: { range: '30d' },
-      throwOnError: true,
-    });
-
-    const { data: runs } = await listTeamRuns({
-      path: { teamId },
-      throwOnError: true,
-    });
-    const inRange = runs.filter(
-      (run) =>
-        Date.parse(run.startedAt) >= Date.parse(data.from) &&
-        Date.parse(run.startedAt) < Date.parse(data.to),
-    );
-
-    expect(data.range).toBe('30d');
-    expect(data.traces.map((trace) => trace.taskId)).toContain('task_retries');
-    expect(data.volume.reduce((sum, each) => sum + each.count, 0)).toBe(
-      inRange.length,
-    );
-  });
-
   it('adds, moves, assigns and deletes a task on the board', async () => {
     const { data: grant } = await grantAttachmentUpload({
       path: { slug: SLUG },
@@ -228,10 +203,6 @@ describe('the mock work area in an empty workspace', () => {
       path: { teamId },
       throwOnError: true,
     });
-    const { data: traces } = await listTeamTraces({
-      path: { teamId },
-      throwOnError: true,
-    });
     const conversation = await readRunNotes({
       path: { teamId, runId: 'run_retries_2' },
     });
@@ -240,8 +211,6 @@ describe('the mock work area in an empty workspace', () => {
     });
 
     expect(runs).toEqual([]);
-    expect(traces.traces).toEqual([]);
-    expect(traces.volume.every((each) => each.count === 0)).toBe(true);
     expect(conversation.response?.status).toBe(404);
     expect(trace.response?.status).toBe(404);
   });

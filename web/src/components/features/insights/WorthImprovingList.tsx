@@ -102,7 +102,7 @@ export function WorthImprovingList({
                       </span>
                     )}
                     <InsightsLink
-                      tab="runs"
+                      tab="traces"
                       filter={{ stationId: station.stationId }}
                       className="whitespace-nowrap text-muted-foreground hover:text-foreground"
                     >

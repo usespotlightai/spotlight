@@ -135,6 +135,8 @@ const reading = ({
   const visible: string[] = [];
   const stationsKeyed = vi.fn().mockResolvedValue(keyed);
   const stations: StationRunReaderPort = {
+    unfinishedOfTeam: async () => [],
+    traced: async () => ({ tasks: [], stations: [], notes: new Map() }),
     endedRun: vi.fn(),
     configsNamed: async (fingerprints) =>
       fingerprints.map((fingerprint) => ({ fingerprint, parts: PARTS })),

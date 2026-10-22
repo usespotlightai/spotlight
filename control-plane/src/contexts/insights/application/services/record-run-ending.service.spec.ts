@@ -52,6 +52,8 @@ const recording = (runs: readonly EndedRun[]) => {
   const records = new RunRecordsInMemory();
   const deletions = deletionsInMemory();
   const work: WorkPort = {
+    unfinishedRuns: async () => [],
+    traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
     endedRun: async (runId) =>
       runs.find((each) => each.runId === runId) ?? null,
     configsInOrder: async () => [],

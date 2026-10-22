@@ -52,7 +52,10 @@ export function DismissedTools({
               {dismissed.server ?? '–'}
             </NestedCell>
             <NestedCell heading="Dismissed" strong>
-              <InsightsLink tab="runs" filter={dismissedToolFilter(dismissed)}>
+              <InsightsLink
+                tab="traces"
+                filter={dismissedToolFilter(dismissed)}
+              >
                 {formatCount(dismissed.dismissed)}
               </InsightsLink>
             </NestedCell>

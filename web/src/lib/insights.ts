@@ -14,10 +14,11 @@ import type {
   InsightsFlowResponseDto,
   InsightsOverviewResponseDto,
   InsightsPeopleResponseDto,
-  InsightsRunResponseDto,
-  InsightsRunsResponseDto,
   InsightsStationsResponseDto,
+  InsightsTraceResponseDto,
+  InsightsTracesResponseDto,
   LineResponseDto,
+  ListInsightsTracesData,
   MoneyResponseDto,
   PersonNameResponseDto,
   RunFailureSummaryResponseDto,
@@ -48,8 +49,9 @@ export type InsightsFlow = InsightsFlowResponseDto;
 export type InsightsStations = InsightsStationsResponseDto;
 export type InsightsPeople = InsightsPeopleResponseDto;
 export type InsightsCost = InsightsCostResponseDto;
-export type InsightsRuns = InsightsRunsResponseDto;
-export type InsightsRun = InsightsRunResponseDto;
+export type InsightsTraces = InsightsTracesResponseDto;
+export type InsightsTrace = InsightsTraceResponseDto;
+export type TraceRun = InsightsTrace['runs'][number];
 export type Headline = HeadlineResponseDto;
 export type HeadlineChanges = HeadlineDeltasResponseDto;
 export type Money = MoneyResponseDto;
@@ -91,7 +93,6 @@ export const INSIGHTS_TABS = [
   { id: 'productivity', label: 'Productivity' },
   { id: 'stations', label: 'Stations' },
   { id: 'tools', label: 'Tools and skills' },
-  { id: 'runs', label: 'Runs' },
   { id: 'traces', label: 'Traces' },
 ] as const;
 
@@ -102,7 +103,9 @@ const DEFAULT_TAB: InsightsTab = 'overview';
 const asTab = (raw: string | null): InsightsTab =>
   INSIGHTS_TABS.find((each) => each.id === raw)?.id ?? DEFAULT_TAB;
 
-export type RunEnding = InsightsRun['ending'];
+type TraceQuery = NonNullable<ListInsightsTracesData['query']>;
+
+export type RunEnding = NonNullable<TraceRun['ending']>;
 
 export const RUN_ENDINGS: readonly RunEnding[] = [
   'completed',
@@ -113,7 +116,7 @@ export const RUN_ENDINGS: readonly RunEnding[] = [
   'superseded',
 ];
 
-export type RunPullRequestState = NonNullable<InsightsRun['pullRequestState']>;
+export type RunPullRequestState = NonNullable<TraceQuery['pullRequestState']>;
 
 const RUN_PULL_REQUEST_STATES: readonly RunPullRequestState[] = [
   'merged',
@@ -121,9 +124,7 @@ const RUN_PULL_REQUEST_STATES: readonly RunPullRequestState[] = [
   'open',
 ];
 
-export type RunHumanAction = NonNullable<
-  InsightsRun['firstHumanAction']
->['kind'];
+export type RunHumanAction = NonNullable<TraceQuery['humanAction']>;
 
 const RUN_HUMAN_ACTIONS: readonly RunHumanAction[] = [
   'started',
@@ -177,11 +178,11 @@ export type InsightsView = {
   readonly page: number;
 };
 
-const LISTED_TABS: readonly InsightsTab[] = ['runs', 'productivity'];
+const LISTED_TABS: readonly InsightsTab[] = ['productivity'];
 
 const filterKeysOf = (tab: InsightsTab): readonly (keyof InsightsFilter)[] => {
   switch (tab) {
-    case 'runs':
+    case 'traces':
       return RUN_FILTER_KEYS;
     case 'productivity':
       return PULL_REQUEST_FILTER_KEYS;
@@ -233,7 +234,7 @@ const filterOf = (
   params: URLSearchParams,
 ): InsightsFilter => {
   switch (tab) {
-    case 'runs':
+    case 'traces':
       return runFilterOf(params);
     case 'productivity':
       return pullRequestFilterOf(params);
@@ -409,7 +410,7 @@ export const headlineTiles = (
       ? `Over ${formatCount(now.runs)} ${now.runs === 1 ? 'run' : 'runs'}`
       : whyNoSpend(now.mixedCurrencies),
     delta: shownDeltaOf(changes.spend),
-    drill: { tab: 'runs' },
+    drill: { tab: 'traces' },
   },
   {
     id: 'merged',
@@ -417,14 +418,14 @@ export const headlineTiles = (
     value: formatCount(now.mergedPullRequests),
     detail: `${formatCount(now.closedPullRequests)} closed unmerged`,
     delta: shownDeltaOf(changes.mergedPullRequests),
-    drill: { tab: 'runs', filter: mergedFilter(now.mergedTaskIds) },
+    drill: { tab: 'traces', filter: mergedFilter(now.mergedTaskIds) },
   },
   {
     id: 'merge-rate',
     label: 'Merge rate',
     value: formatShare(now.mergeRate),
     delta: shownDeltaOf(changes.mergeRate),
-    drill: { tab: 'runs', filter: { pullRequestState: 'merged' } },
+    drill: { tab: 'traces', filter: { pullRequestState: 'merged' } },
   },
   {
     id: 'cost-per-merge',
@@ -442,7 +443,7 @@ export const headlineTiles = (
         ? undefined
         : `p90 ${formatDuration(now.taskToMerge.p90Ms)}`,
     delta: shownDeltaOf(changes.taskToMerge),
-    drill: { tab: 'runs', filter: mergedFilter(now.mergedTaskIds) },
+    drill: { tab: 'traces', filter: mergedFilter(now.mergedTaskIds) },
   },
   {
     id: 'human-actions',
@@ -818,9 +819,6 @@ export const pageShownOf = (paged: Paged, none: string): string => {
   return `${formatCount(first)}–${formatCount(last)} of ${formatCount(paged.total)}`;
 };
 
-export const runsShownOf = (runs: InsightsRuns): string =>
-  pageShownOf(runs, 'No runs');
-
 export const lastPageOf = (paged: Paged): number =>
   Math.max(Math.ceil(paged.total / Math.max(paged.size, 1)), 1);
 
@@ -927,7 +925,7 @@ export const tallyTiles = (
     label: 'Runs',
     value: formatCount(now.runs),
     delta: shownDeltaOf(changes.runs),
-    drill: { tab: 'runs', filter },
+    drill: { tab: 'traces', filter },
     trend: trend.map((day) => day.runs),
   },
   {
@@ -939,7 +937,7 @@ export const tallyTiles = (
         ? undefined
         : `${formatShare(now.failedRate)} of runs`,
     delta: shownDeltaOf(changes.failed),
-    drill: { tab: 'runs', filter: { ...filter, outcome: 'failed' } },
+    drill: { tab: 'traces', filter: { ...filter, outcome: 'failed' } },
     trend: trend.map((day) => day.failed),
   },
   ...counted(
@@ -948,7 +946,7 @@ export const tallyTiles = (
     now.accepted,
     seen.accepted,
     changes.accepted,
-    { tab: 'runs', filter: { ...filter, outcome: 'accepted' } },
+    { tab: 'traces', filter: { ...filter, outcome: 'accepted' } },
   ),
   ...counted(
     'sent-back',
@@ -1060,19 +1058,8 @@ export const PEOPLE_HEADINGS: readonly NestedHeading[] = [
 export const ADOPTION_NOTE =
   'Weekly and monthly always count the last 7 and 30 days.';
 
-export const INSIGHTS_RUN_HEADINGS: readonly NestedHeading[] = [
-  { label: 'Outcome', indent: 'edge', size: SPREAD },
-  { label: 'Failure', size: 'minmax(10rem,2fr)' },
-  { label: 'Station', size: SPREAD },
-  { label: 'Person', size: SPREAD },
-  { label: 'Agent config', size: SPREAD },
-  { label: 'Duration', numeric: true, size: SPREAD },
-  { label: 'Cost', numeric: true, size: SPREAD },
-  { label: 'Ended', numeric: true, size: SPREAD },
-];
-
-export const INSIGHTS_RUNS_NOTE =
-  'Every run that ended in this period, newest first.';
+export const TRUNCATED_TRACES =
+  'Only the newest runs show. Narrow the list or pick a shorter period to see the rest.';
 
 export const WAITS_NOTE =
   'Median time that tasks spend queued, running and in the inbox at each station. Stations show in the order they first ran.';

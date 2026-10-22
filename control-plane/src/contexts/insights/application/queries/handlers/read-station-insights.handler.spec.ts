@@ -58,6 +58,8 @@ const reading = async (member = true) => {
   const pullRequests = stationConfigPullRequestsInMemory();
   const requested: string[][] = [];
   const work: WorkPort = {
+    unfinishedRuns: async () => [],
+    traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
     endedRun: async () => null,
     teamRepositories: async () => [],
     teamSkillKeys: async () => [],

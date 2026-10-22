@@ -24,6 +24,8 @@ type Ended =
   | [string, number, Parameters<typeof endedRecord>[1]];
 
 const workOfTeam = (teamId: string): WorkPort => ({
+  unfinishedRuns: async () => [],
+  traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
   endedRun: async (runId) =>
     ({
       runId,

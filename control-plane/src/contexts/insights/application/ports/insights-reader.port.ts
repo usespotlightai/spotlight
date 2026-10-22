@@ -1,4 +1,7 @@
-import type { RunListing } from '@insights/domain/repositories/run-record.repository';
+import type {
+  RunListing,
+  TeamWindow,
+} from '@insights/domain/repositories/run-record.repository';
 import type { AgentConfigComparisonCounts } from '@insights/domain/services/agent-config-comparison';
 import type { ChangeCounts } from '@insights/domain/services/before-after';
 import type { CostCountsInPeriod } from '@insights/domain/services/cost-breakdown';
@@ -73,6 +76,7 @@ export interface ListedRun {
   readonly ms: number | null;
   readonly cost: Money | null;
   readonly tokens: TokenCounts | null;
+  readonly errors: number | null;
   readonly ending: RunEnding;
   readonly failure: string | null;
   readonly checks: CheckVerdict | null;
@@ -115,4 +119,8 @@ export interface InsightsReaderPort {
     repositories: readonly string[],
   ): Promise<ShippingCounts>;
   runPage(listing: RunListing): Promise<RunsListed>;
+  runsPerTask(
+    window: TeamWindow,
+    taskIds: readonly string[],
+  ): Promise<ReadonlyMap<string, number>>;
 }

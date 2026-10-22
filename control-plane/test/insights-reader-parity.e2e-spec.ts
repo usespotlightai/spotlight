@@ -1,4 +1,5 @@
 import {
+  insightsReaderInMemory,
   pullRequestsStoredIn,
   runsListedIn,
   storedCarriedOf,
@@ -1760,6 +1761,30 @@ describe('the runs a team ran, a page at a time', () => {
       }
     },
   );
+
+  it('counts the runs of each task as the records do', async () => {
+    const { access, period } = await scopes.scope(
+      TEAM.value,
+      PersonPrincipal.of(VIEWER),
+      '30d',
+    );
+    const window = windowOf(access, period.current);
+    const { runs } = await reader.runPage({
+      window,
+      filter: runFilterOf(NO_RUN_FILTER, period.current),
+      offset: 0,
+      limit: 10_000,
+    });
+    const taskIds = [...new Set(runs.map((each) => each.taskId))];
+
+    expect(taskIds.length).toBeGreaterThan(1);
+    expect(await reader.runsPerTask(window, taskIds)).toEqual(
+      await insightsReaderInMemory(
+        historyRepositoriesOf(referenceRepositories()),
+      ).runsPerTask(window, taskIds),
+    );
+    expect(await reader.runsPerTask(window, [])).toEqual(new Map());
+  });
 
   it('covers what makes listing runs hard to get right', async () => {
     const { access, period } = await scopes.scope(

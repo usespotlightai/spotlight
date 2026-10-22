@@ -1,7 +1,7 @@
-import type { TraceRange } from '@work/domain/value-objects/trace-range.vo';
+import type { TraceRange } from '@insights/domain/value-objects/trace-range.vo';
 
-export interface Started {
-  readonly startedAt: Date;
+export interface Traced {
+  readonly at: Date;
   readonly errors: number;
 }
 
@@ -13,7 +13,7 @@ export interface VolumeBucket {
 }
 
 export const traceVolumeOf = (
-  started: readonly Started[],
+  traces: readonly Traced[],
   range: TraceRange,
 ): VolumeBucket[] => {
   const from = range.from.getTime();
@@ -23,9 +23,9 @@ export const traceVolumeOf = (
   const counts = new Array<number>(length).fill(0);
   const errors = new Array<number>(length).fill(0);
 
-  for (const trace of started) {
+  for (const trace of traces) {
     const at = Math.min(
-      Math.max(Math.floor((trace.startedAt.getTime() - from) / width), 0),
+      Math.max(Math.floor((trace.at.getTime() - from) / width), 0),
       length - 1,
     );
     counts[at] = (counts[at] ?? 0) + 1;

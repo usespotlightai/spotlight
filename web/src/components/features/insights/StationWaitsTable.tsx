@@ -52,7 +52,10 @@ export function StationWaitsTable({
 
         return (
           <span className="inline-flex items-center gap-2">
-            <InsightsLink tab="runs" filter={{ stationId: station.stationId }}>
+            <InsightsLink
+              tab="traces"
+              filter={{ stationId: station.stationId }}
+            >
               {formatCount(station.tasks)}
             </InsightsLink>
             {delta && <DeltaGlyph delta={delta} />}

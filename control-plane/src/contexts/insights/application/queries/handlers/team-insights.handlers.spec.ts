@@ -1,12 +1,12 @@
 import { insightsReaderInMemory } from '@insights/application/ports/insights-reader.fake-spec';
 import type { PeoplePort } from '@insights/application/ports/people.port';
 import type { WorkPort } from '@insights/application/ports/work.port';
-import { ListInsightsRunsHandler } from '@insights/application/queries/handlers/list-insights-runs.handler';
+import { ListInsightsTracesHandler } from '@insights/application/queries/handlers/list-insights-traces.handler';
 import { ReadInsightsOverviewHandler } from '@insights/application/queries/handlers/read-insights-overview.handler';
 import { ReadInsightsPeopleHandler } from '@insights/application/queries/handlers/read-insights-people.handler';
 import { ReadInsightsStationsHandler } from '@insights/application/queries/handlers/read-insights-stations.handler';
 import { ReadInsightsToolsHandler } from '@insights/application/queries/handlers/read-insights-tools.handler';
-import { ListInsightsRunsQuery } from '@insights/application/queries/list-insights-runs.query';
+import { ListInsightsTracesQuery } from '@insights/application/queries/list-insights-traces.query';
 import { ReadInsightsOverviewQuery } from '@insights/application/queries/read-insights-overview.query';
 import { ReadInsightsPeopleQuery } from '@insights/application/queries/read-insights-people.query';
 import { ReadInsightsStationsQuery } from '@insights/application/queries/read-insights-stations.query';
@@ -29,6 +29,7 @@ import {
   WORKSPACE,
 } from '@insights/domain/runs.fake-spec';
 import type { RunFilterQuery } from '@insights/domain/services/run-filter';
+import type { UnfinishedRun } from '@insights/domain/services/unfinished-runs';
 import { RunTools } from '@insights/domain/value-objects/run-tools.vo';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import {
@@ -77,6 +78,46 @@ const ANY: RunFilterQuery = {
   humanAction: null,
   asked: null,
 };
+
+const unfinishedRun = (
+  runId: string,
+  change: Partial<UnfinishedRun> = {},
+): UnfinishedRun => ({
+  runId,
+  taskId: 'task_9',
+  lineId: 'line_1',
+  stationId: 'station_1',
+  openedBy: 'user_cy',
+  harness: 'claude-code',
+  model: null,
+  progress: 'in-progress',
+  queuedAt: day('2026-10-01', 14),
+  startedAt: day('2026-10-01', 14),
+  ...change,
+});
+
+const workWith = (unfinished: readonly UnfinishedRun[]): WorkPort =>
+  ({
+    unfinishedRuns: async () => unfinished,
+    traced: async ({ taskIds }: { taskIds: readonly string[] }) => ({
+      tasks: taskIds.map((taskId) => ({
+        taskId,
+        title: `Title of ${taskId}`,
+        input: null,
+        stationId: 'station_1',
+      })),
+      stations: [
+        {
+          stationId: 'station_1',
+          name: 'Implementation',
+          color: '#edc12b',
+          position: 0,
+          count: 2,
+        },
+      ],
+      outputs: new Map(),
+    }),
+  }) as unknown as WorkPort;
 
 const insights = async () => {
   const records = new RunRecordsInMemory();
@@ -222,27 +263,96 @@ describe('the team’s insights', () => {
     });
   });
 
-  it('lists the runs a page at a time, with who opened each task', async () => {
-    const { scopes, reader, people } = await insights();
-    const listing = new ListInsightsRunsHandler(scopes, reader, people);
-
-    const first = await listing.execute(
-      new ListInsightsRunsQuery('team_1', READ_TOKEN, '7d', ANY, 1, 2),
+  it('lists every task with a run in the range as one trace, the latest first, with who opened each task', async () => {
+    const { reader, people } = await insights();
+    const listing = new ListInsightsTracesHandler(
+      new InsightsAccess(people),
+      reader,
+      people,
+      workWith([]),
+      { now: () => NOW, sleep: async () => {} },
     );
-    const second = await listing.execute(
-      new ListInsightsRunsQuery('team_1', READ_TOKEN, '7d', ANY, 2, 2),
+
+    const listed = await listing.execute(
+      new ListInsightsTracesQuery('team_1', READ_TOKEN, '7d', ANY),
     );
 
-    expect(first.total).toBe(3);
-    expect(first.runs.map((each) => [each.runId, each.openedBy])).toEqual([
-      ['run_3', 'user_bob'],
-      ['run_2', 'user_bob'],
+    expect(
+      listed.traces.map((each) => [
+        each.taskId,
+        each.title,
+        each.total,
+        each.runs.map((run) => run.runId),
+      ]),
+    ).toEqual([
+      ['task_2', 'Title of task_2', 2, ['run_3', 'run_2']],
+      ['task_1', 'Title of task_1', 1, ['run_1']],
     ]);
-    expect(first.people).toEqual([
-      { personId: 'user_bob', name: 'Name of user_bob' },
+    expect(listed.traces[0]?.station?.name).toBe('Implementation');
+    expect(listed.truncated).toBe(false);
+    expect(listed.people.map((each) => each.personId)).toEqual([
+      'user_ada',
+      'user_bob',
     ]);
-    expect(second.runs.map((each) => each.runId)).toEqual(['run_1']);
-    expect(second.runs[0]?.pullRequestState).toBe('merged');
+    expect(listed.volume.reduce((sum, each) => sum + each.count, 0)).toBe(2);
+  });
+
+  it('lists unfinished runs first, as far as the filter can match a run that has not ended, and counts every run of the task', async () => {
+    const { reader, people } = await insights();
+    const listing = new ListInsightsTracesHandler(
+      new InsightsAccess(people),
+      reader,
+      people,
+      workWith([
+        unfinishedRun('run_queued', { progress: 'queued', startedAt: null }),
+        unfinishedRun('run_elsewhere', {
+          stationId: 'station_2',
+          openedBy: null,
+        }),
+      ]),
+      { now: () => NOW, sleep: async () => {} },
+    );
+
+    const every = await listing.execute(
+      new ListInsightsTracesQuery('team_1', READ_TOKEN, '7d', ANY),
+    );
+    const atStation = await listing.execute(
+      new ListInsightsTracesQuery('team_1', READ_TOKEN, '7d', {
+        ...ANY,
+        stationId: 'station_2',
+      }),
+    );
+    const failed = await listing.execute(
+      new ListInsightsTracesQuery('team_1', READ_TOKEN, '7d', {
+        ...ANY,
+        outcome: 'failed',
+      }),
+    );
+
+    expect(every.traces.map((each) => each.taskId)).toEqual([
+      'task_9',
+      'task_2',
+      'task_1',
+    ]);
+    expect(
+      every.traces[0]?.runs.map((each) => [each.runId, each.progress]),
+    ).toEqual([
+      ['run_queued', 'queued'],
+      ['run_elsewhere', 'in-progress'],
+    ]);
+    expect(every.traces[0]?.ms).toBeNull();
+    expect(
+      atStation.traces.map((each) => [
+        each.taskId,
+        each.total,
+        each.runs.map((run) => run.runId),
+      ]),
+    ).toEqual([['task_9', 2, ['run_elsewhere']]]);
+    expect(
+      failed.traces
+        .flatMap((each) => each.runs)
+        .some((each) => each.progress !== null),
+    ).toBe(false);
   });
 
   it('calls someone new only if nothing they did on the team came before the period', async () => {
@@ -272,6 +382,8 @@ describe('the team’s insights', () => {
     const { scopes, reader, records } = await insights();
     const requested: string[] = [];
     const work: WorkPort = {
+      unfinishedRuns: async () => [],
+      traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
       endedRun: async () => null,
       configsInOrder: async () => [],
       teamRepositories: async () => [],

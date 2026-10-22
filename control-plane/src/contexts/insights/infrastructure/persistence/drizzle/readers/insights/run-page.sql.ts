@@ -200,6 +200,7 @@ const listedOf = (row: FactRow): ListedRun => ({
         cacheWrite: row.cacheWriteTokens,
       }
     : null,
+  errors: row.usageRecorded ? row.errors : null,
   ending:
     row.supersededAt === null || row.ending === 'cancelled'
       ? row.ending
@@ -243,4 +244,22 @@ export const runPageIn = async (
     .limit(listing.limit);
 
   return { total: counted?.total ?? 0, runs: rows.map(listedOf) };
+};
+
+export const runsPerTaskIn = async (
+  db: DrizzleDatabase,
+  window: TeamWindow,
+  taskIds: readonly string[],
+): Promise<ReadonlyMap<string, number>> => {
+  if (taskIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await db
+    .select({ taskId: runFact.taskId, runs: count() })
+    .from(runFact)
+    .where(and(inWindow(window), inArray(runFact.taskId, [...taskIds])))
+    .groupBy(runFact.taskId);
+
+  return new Map(rows.map((row) => [row.taskId, row.runs]));
 };

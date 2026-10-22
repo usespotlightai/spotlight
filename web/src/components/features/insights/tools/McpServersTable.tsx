@@ -25,7 +25,7 @@ import {
 import { cn } from '@/lib/utils';
 
 const toRuns = (shown: ReactNode, filter: InsightsFilter) => (
-  <InsightsLink tab="runs" filter={filter}>
+  <InsightsLink tab="traces" filter={filter}>
     {shown}
   </InsightsLink>
 );

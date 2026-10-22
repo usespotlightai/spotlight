@@ -248,3 +248,45 @@ export const runFilterOf = (
   humanAction: oneOf(TASK_ACTIONS, query.humanAction, 'human action'),
   askedWithin: askedWithinOf(query.asked, period),
 });
+
+export const narrowsEndedOnly = (filter: RunFilter): boolean =>
+  filter.outcome !== null ||
+  filter.model.kind !== 'any' ||
+  filter.repository.kind !== 'any' ||
+  filter.fingerprint !== null ||
+  filter.day !== null ||
+  filter.week !== null ||
+  filter.skillEnabled !== null ||
+  filter.skillUsed !== null ||
+  filter.server !== null ||
+  filter.serverFailed !== null ||
+  filter.failedAfter !== null ||
+  filter.dismissedTool !== null ||
+  filter.dismissedServer.kind !== 'any' ||
+  filter.pullRequestState !== null ||
+  filter.humanAction !== null ||
+  filter.askedWithin !== null;
+
+export const EVERY_RUN: RunFilter = {
+  lineId: null,
+  stationId: null,
+  outcome: null,
+  harness: null,
+  model: { kind: 'any' },
+  repository: { kind: 'any' },
+  fingerprint: null,
+  taskIds: null,
+  personId: null,
+  day: null,
+  week: null,
+  skillEnabled: null,
+  skillUsed: null,
+  server: null,
+  serverFailed: null,
+  failedAfter: null,
+  dismissedTool: null,
+  dismissedServer: { kind: 'any' },
+  pullRequestState: null,
+  humanAction: null,
+  askedWithin: null,
+};

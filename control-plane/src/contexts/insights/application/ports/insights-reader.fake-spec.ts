@@ -41,6 +41,7 @@ import { peopleCountsOf } from '@insights/domain/services/people-counts';
 import { filteredPullRequests } from '@insights/domain/services/pull-request-filter';
 import { pullRequestCountsOf } from '@insights/domain/services/pull-request-insights';
 import { pullRequestTypeOf } from '@insights/domain/services/pull-request-types';
+import { EVERY_RUN } from '@insights/domain/services/run-filter';
 import { inEndOrder } from '@insights/domain/services/run-order';
 import {
   pipelineCountsOf,
@@ -59,6 +60,7 @@ import {
   teamPullRequestFrom,
 } from '@insights/domain/services/team-pull-requests';
 import { toolCountsOf } from '@insights/domain/services/tool-insights';
+import { runsPerTask } from '@insights/domain/services/traces';
 import type { Money } from '@insights/domain/value-objects/run-usage.vo';
 import type { TaskPullRequestState } from '@insights/domain/value-objects/task-pull-request-state';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -264,6 +266,7 @@ const listedRunOf = (
         ms: record.usage?.ms ?? null,
         cost: record.usage?.spend ?? null,
         tokens: record.usage?.tokens ?? null,
+        errors: record.usage?.errors ?? null,
         ending,
         failure: end.failure,
         checks: record.checks,
@@ -439,6 +442,19 @@ export const insightsReaderInMemory = (
     };
   },
   runPage: (listing) => runsListedIn(historyRepositories, listing),
+  runsPerTask: async (window, taskIds) =>
+    runsPerTask(
+      (
+        await historyRepositories.records.listedForTeam({
+          window,
+          filter: { ...EVERY_RUN, taskIds },
+          offset: 0,
+          limit: Number.MAX_SAFE_INTEGER,
+        })
+      ).records.flatMap((record) =>
+        record.taskId ? [{ taskId: record.taskId.value }] : [],
+      ),
+    ),
   shippingCounts: async (team, repositories) => {
     const covered = await pullRequestsStoredIn(
       historyRepositories.records,

@@ -410,7 +410,6 @@ import {
   TEAM_SKILLS,
   type TeamSkillsPort,
 } from '@work/application/ports/team-skills.port';
-import { TEAM_TRACE_READER } from '@work/application/ports/team-trace-reader.port';
 import {
   TRACE_PARENT,
   type TraceParentPort,
@@ -443,7 +442,6 @@ import { ListRunnerActivityHandler } from '@work/application/queries/handlers/li
 import { ListTaskRunsHandler } from '@work/application/queries/handlers/list-task-runs.handler';
 import { ListTasksHandler } from '@work/application/queries/handlers/list-tasks.handler';
 import { ListTeamRunsHandler } from '@work/application/queries/handlers/list-team-runs.handler';
-import { ListTeamTracesHandler } from '@work/application/queries/handlers/list-team-traces.handler';
 import { OnboardingHandler } from '@work/application/queries/handlers/onboarding.handler';
 import { PendingMessagesHandler } from '@work/application/queries/handlers/pending-messages.handler';
 import { PoolQueueHandler } from '@work/application/queries/handlers/pool-queue.handler';
@@ -479,7 +477,6 @@ import { ListRunnerActivityQuery } from '@work/application/queries/list-runner-a
 import { ListTaskRunsQuery } from '@work/application/queries/list-task-runs.query';
 import { ListTasksQuery } from '@work/application/queries/list-tasks.query';
 import { ListTeamRunsQuery } from '@work/application/queries/list-team-runs.query';
-import { ListTeamTracesQuery } from '@work/application/queries/list-team-traces.query';
 import { OnboardingQuery } from '@work/application/queries/onboarding.query';
 import { PendingMessagesQuery } from '@work/application/queries/pending-messages.query';
 import { PoolQueueQuery } from '@work/application/queries/pool.queries';
@@ -617,7 +614,6 @@ import { DrizzleStationRunReader } from '@work/infrastructure/persistence/drizzl
 import { DrizzleStationTallies } from '@work/infrastructure/persistence/drizzle/readers/station-tallies.reader';
 import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
 import { DrizzleTaskPlacements } from '@work/infrastructure/persistence/drizzle/readers/task-placements.reader';
-import { DrizzleTeamTraceReader } from '@work/infrastructure/persistence/drizzle/readers/team-trace.reader';
 import { DrizzleTracedTaskReader } from '@work/infrastructure/persistence/drizzle/readers/traced-task.reader';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { DrizzleInboxRequestRepository } from '@work/infrastructure/persistence/drizzle/repositories/inbox-request.repository';
@@ -966,8 +962,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   { provide: HARNESS_PROFILE_REVIEW, useExisting: BuiltInHarnesses },
 
   { provide: RUN_JOURNAL_READER, useClass: DrizzleRunJournalReader },
-
-  { provide: TEAM_TRACE_READER, useClass: DrizzleTeamTraceReader },
 
   { provide: ATTACHMENT_READER, useClass: DrizzleAttachmentReader },
 
@@ -2006,12 +2000,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ListRunnerActivityQuery, ListRunnerActivityHandler, [
     WORKSPACE_ACCESS,
     RUNNER_ACTIVITY_READER,
-  ]),
-
-  ...bindQueryHandler(ListTeamTracesQuery, ListTeamTracesHandler, [
-    TEAM_TRACE_READER,
-    RUN_USAGES,
-    CLOCK,
   ]),
 
   ...bindQueryHandler(ReadTaskTraceQuery, ReadTaskTraceHandler, [

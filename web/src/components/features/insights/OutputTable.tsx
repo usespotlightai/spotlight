@@ -42,7 +42,7 @@ export function OutputTable({
       numeric: true,
       cell: (day) =>
         day.runs > 0 ? (
-          <InsightsLink tab="runs" filter={{ day: day.day }}>
+          <InsightsLink tab="traces" filter={{ day: day.day }}>
             {formatCount(day.runs)}
           </InsightsLink>
         ) : (

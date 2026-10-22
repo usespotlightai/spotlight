@@ -277,7 +277,7 @@ describe('TeamInsights', () => {
     expect(requested.some((each) => each.tab === 'overview')).toBe(false);
   });
 
-  it('lists the eight tabs, Overview first', () => {
+  it('lists the seven tabs, Overview first', () => {
     showing();
 
     expect(
@@ -291,7 +291,6 @@ describe('TeamInsights', () => {
       'Productivity',
       'Stations',
       'Tools and skills',
-      'Runs',
       'Traces',
     ]);
     expect(
@@ -423,11 +422,13 @@ describe('TeamInsights', () => {
   });
 
   it('keeps the period but drops the filters and page when moving to another tab', () => {
-    showing('?tab=runs&period=90d&outcome=failed&page=2');
+    showing('?tab=productivity&period=90d&state=merged&page=2');
 
-    expect(within(tabs()).getByRole('link', { name: 'Runs' })).toHaveAttribute(
+    expect(
+      within(tabs()).getByRole('link', { name: 'Traces' }),
+    ).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/insights?tab=runs&period=90d',
+      '/w/acme/team/team_1/insights?tab=traces&period=90d',
     );
     expect(
       within(tabs()).getByRole('link', { name: 'Overview' }),
@@ -453,7 +454,7 @@ describe('TeamInsights', () => {
 
     expect(screen.getByRole('link', { name: '$120.00' })).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/insights?tab=runs&period=90d',
+      '/w/acme/team/team_1/insights?tab=traces&period=90d',
     );
     expect(screen.getByRole('link', { name: '4' })).toHaveAttribute(
       'href',
@@ -478,7 +479,7 @@ describe('TeamInsights', () => {
       within(station).getByRole('link', { name: '12 runs' }),
     ).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/insights?tab=runs&stationId=station_build',
+      '/w/acme/team/team_1/insights?tab=traces&stationId=station_build',
     );
     expect(
       within(station).getByRole('link', { name: 'Improve' }),
@@ -641,15 +642,15 @@ describe('TeamInsights', () => {
 
     expect(screen.getByRole('link', { name: '2.0' })).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/insights?tab=runs&asked=true',
+      '/w/acme/team/team_1/insights?tab=traces&asked=true',
     );
     expect(screen.getByRole('link', { name: '50%' })).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/insights?tab=runs&humanAction=sent-back',
+      '/w/acme/team/team_1/insights?tab=traces&humanAction=sent-back',
     );
     expect(screen.getByRole('link', { name: '1' })).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/insights?tab=runs&taskIds=task_9',
+      '/w/acme/team/team_1/insights?tab=traces&taskIds=task_9',
     );
   });
 });

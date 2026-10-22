@@ -68,7 +68,7 @@ export function CostTab({ slug, teamId, period, names }: CostTabProps) {
           value={formatSpend(spend)}
           detail={spend ? undefined : whyNoSpend(breakdown.mixedCurrencies)}
           delta={shownDeltaOf(spendChange)}
-          drill={{ tab: 'runs' }}
+          drill={{ tab: 'traces' }}
         />
         <InsightsTile
           label="Runs with no price"

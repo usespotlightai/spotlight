@@ -1,6 +1,7 @@
 import type {
   EndedRunRow,
   StationRunReaderPort,
+  UnfinishedRunRow,
 } from '@work/application/ports/station-run-reader.port';
 import type { TeamSkillsPort } from '@work/application/ports/team-skills.port';
 import { StationRuns } from '@work/application/services/station-runs.service';
@@ -134,5 +135,131 @@ describe('StationRuns.teamSkillKeys', () => {
       'grafana',
       'our-migrations',
     ]);
+  });
+});
+
+const unfinishedRow = (
+  runId: string,
+  change: Partial<UnfinishedRunRow> = {},
+): UnfinishedRunRow => ({
+  runId,
+  lineId: 'line_1',
+  stationId: 'station_1',
+  taskId: 'task_1',
+  openedBy: 'user_ada',
+  harness: 'claude-code',
+  config: null,
+  state: 'queued',
+  stopRequested: false,
+  queuedAt: QUEUED,
+  startedAt: null,
+  ...change,
+});
+
+describe('StationRuns.unfinished', () => {
+  it('gives each unfinished run its progress, and leaves out runs that wait for a person', async () => {
+    const stations = new StationRuns(
+      {
+        unfinishedOfTeam: async () => [
+          unfinishedRow('run_queued'),
+          unfinishedRow('run_claimed', {
+            state: 'claimed',
+            startedAt: STARTED,
+            config: {
+              prompt: null,
+              harness: 'codex',
+              model: 'gpt-5',
+              effort: null,
+              profile: null,
+              image: null,
+              repositories: [],
+              skills: [],
+              tools: [],
+              decisions: false,
+              memories: false,
+            },
+          }),
+          unfinishedRow('run_stopping', {
+            state: 'waiting',
+            stopRequested: true,
+          }),
+          unfinishedRow('run_waiting', { state: 'waiting' }),
+        ],
+      } as unknown as StationRunReaderPort,
+      NO_SKILLS,
+    );
+
+    expect(
+      (await stations.unfinished('team_1')).map((each) => [
+        each.runId,
+        each.progress,
+        each.harness,
+        each.model,
+      ]),
+    ).toEqual([
+      ['run_queued', 'queued', 'claude-code', null],
+      ['run_claimed', 'in-progress', 'codex', 'gpt-5'],
+      ['run_stopping', 'stopping', 'claude-code', null],
+    ]);
+  });
+});
+
+describe('StationRuns.traced', () => {
+  it('shortens what a task asks and what a run wrote, and leaves out empty notes', async () => {
+    const stations = new StationRuns(
+      {
+        traced: async () => ({
+          tasks: [
+            {
+              taskId: 'task_1',
+              title: 'Fix the queue',
+              description: `  ${'a'.repeat(400)}  `,
+              stationId: 'station_1',
+            },
+            {
+              taskId: 'task_2',
+              title: 'Tidy up',
+              description: '   ',
+              stationId: 'station_1',
+            },
+          ],
+          stations: [
+            {
+              stationId: 'station_1',
+              name: 'Implementation',
+              color: '#edc12b',
+              position: 0,
+              stations: 3,
+            },
+          ],
+          notes: new Map([
+            ['run_1', ' Done '],
+            ['run_2', '  '],
+          ]),
+        }),
+      } as unknown as StationRunReaderPort,
+      NO_SKILLS,
+    );
+
+    const traced = await stations.traced({
+      taskIds: ['task_1', 'task_2'],
+      runIds: ['run_1', 'run_2'],
+      stationIds: ['station_1'],
+    });
+
+    expect(traced.tasks.map((each) => each.input?.length ?? null)).toEqual([
+      300,
+      null,
+    ]);
+    expect(traced.stations).toEqual([
+      {
+        stationId: 'station_1',
+        name: 'Implementation',
+        color: '#edc12b',
+        position: 0,
+        count: 3,
+      },
+    ]);
+    expect([...traced.outputs]).toEqual([['run_1', 'Done']]);
   });
 });

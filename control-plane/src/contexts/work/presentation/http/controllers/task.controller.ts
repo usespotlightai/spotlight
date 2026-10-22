@@ -9,7 +9,6 @@ import {
   Param,
   Post,
   Put,
-  Query,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
@@ -20,7 +19,6 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
-  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
@@ -42,19 +40,13 @@ import type {
   TeamRunDto,
 } from '@work/application/dto/task-run.dto';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
-import type { TeamTracesDto } from '@work/application/dto/team-trace.dto';
 import { ListTaskRunsQuery } from '@work/application/queries/list-task-runs.query';
 import { ListTasksQuery } from '@work/application/queries/list-tasks.query';
 import { ListTeamRunsQuery } from '@work/application/queries/list-team-runs.query';
-import { ListTeamTracesQuery } from '@work/application/queries/list-team-traces.query';
 import { ReadRunConfigQuery } from '@work/application/queries/read-run-config.query';
 import { ReadRunNetworkQuery } from '@work/application/queries/read-run-network.query';
 import { ReadRunNotesQuery } from '@work/application/queries/read-run-notes.query';
 import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
-import {
-  DEFAULT_TRACE_RANGE,
-  TRACE_RANGES,
-} from '@work/domain/value-objects/trace-range.vo';
 import { AddTaskRequestDto } from '@work/presentation/http/dto/add-task.request.dto';
 import { AssignTaskRequestDto } from '@work/presentation/http/dto/assign-task.request.dto';
 import {
@@ -78,21 +70,11 @@ import {
   TeamRunResponseDto,
 } from '@work/presentation/http/dto/task-run.response.dto';
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
-import { TeamTracesResponseDto } from '@work/presentation/http/dto/team-trace.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
 import { idsInput } from '@work/presentation/http/mappers/ids-input';
 import { TaskHttpMapper } from '@work/presentation/http/mappers/task.http.mapper';
 import { TaskRunHttpMapper } from '@work/presentation/http/mappers/task-run.http.mapper';
 import { TaskTraceHttpMapper } from '@work/presentation/http/mappers/task-trace.http.mapper';
-import { TeamTraceHttpMapper } from '@work/presentation/http/mappers/team-trace.http.mapper';
-
-const rangeOf = (raw: unknown): string => {
-  if (raw === undefined) {
-    return DEFAULT_TRACE_RANGE;
-  }
-
-  return typeof raw === 'string' ? raw : '';
-};
 
 @ApiTags('tasks')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -145,34 +127,6 @@ export class TaskController {
     );
 
     return runs.map(TaskRunHttpMapper.teamToResponse);
-  }
-
-  @Get('traces')
-  @ApiOperation({
-    operationId: 'listTeamTraces',
-    summary: 'Every task of the team, as one trace each',
-  })
-  @ApiQuery({
-    name: 'range',
-    required: false,
-    enum: TRACE_RANGES,
-    example: '7d',
-    description:
-      'How far back from now to look, counting runs started since; 30d by default',
-  })
-  @ApiOkResponse({ type: TeamTracesResponseDto })
-  @ApiUnprocessableEntityResponse({ description: 'No such range' })
-  async teamTraces(
-    @Param('teamId') teamId: string,
-    @Query('range') range: unknown,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<TeamTracesResponseDto> {
-    const traces = await this.queryBus.execute<
-      ListTeamTracesQuery,
-      TeamTracesDto
-    >(new ListTeamTracesQuery(teamId, user.id, rangeOf(range)));
-
-    return TeamTraceHttpMapper.toTracesResponse(traces);
   }
 
   @Get('runs/:runId/config')

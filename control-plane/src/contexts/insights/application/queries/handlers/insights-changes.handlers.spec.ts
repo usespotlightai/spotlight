@@ -62,6 +62,8 @@ const modelOf = (fingerprint: string): string =>
   fingerprint === FIRST_CONFIG ? 'sonnet' : 'opus';
 
 const WORK: WorkPort = {
+  unfinishedRuns: async () => [],
+  traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
   endedRun: async () => null,
   configsInOrder: async (fingerprints) =>
     fingerprints.map((fingerprint, at) => ({

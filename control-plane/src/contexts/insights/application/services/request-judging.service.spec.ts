@@ -51,6 +51,8 @@ const requesting = (
   };
   const service = new RequestJudging(
     {
+      unfinishedRuns: async () => [],
+      traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
       endedRun: async () => ENDED,
       configsInOrder: async () => [],
       teamRepositories: async () => [],

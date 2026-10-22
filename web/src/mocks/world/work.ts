@@ -8,8 +8,6 @@ import type {
   TaskRunResponseDto,
   TaskTraceResponseDto,
   TeamRunResponseDto,
-  TeamTraceResponseDto,
-  TeamTracesResponseDto,
   TraceNodeResponseDto,
   TraceStationResponseDto,
 } from '@/lib/api';
@@ -39,7 +37,6 @@ import type { NoteScript, RunStory } from '@/mocks/world/work-stories';
 export { changeStacksOf };
 
 const SECOND = 1_000;
-const MINUTE = 60 * SECOND;
 
 type Located = {
   readonly teamId: string;
@@ -66,11 +63,6 @@ export const readableTask = (
 ): TaskResponseDto | undefined =>
   findTask(teamId, taskId) ??
   (teamOfPastTask(taskId) === teamId ? pastTaskOf(taskId) : undefined);
-
-const pastTasksOf = (teamId: string): TaskResponseDto[] =>
-  [...new Set(pastTeamRuns(teamId).map((run) => run.taskId ?? ''))].flatMap(
-    (taskId) => pastTaskOf(taskId) ?? [],
-  );
 
 export const locateRun = (
   teamId: string,
@@ -370,6 +362,7 @@ const traceStation = (
 ): TraceStationResponseDto | null =>
   station
     ? {
+        stationId: station.id,
         name: station.name,
         color: station.color,
         position: station.position,
@@ -377,104 +370,40 @@ const traceStation = (
       }
     : null;
 
-const teamTraceOf = (task: TaskResponseDto): TeamTraceResponseDto | null => {
-  const runs = oldestFirst(runsOf(task.id));
-  const first = runs[0];
-  const last = runs.at(-1);
+export type TracedTask = {
+  readonly title: string;
+  readonly input: string | null;
+  readonly station: TraceStationResponseDto | null;
+  readonly stations: ReadonlyMap<string, TraceStationResponseDto>;
+  readonly outputs: ReadonlyMap<string, string>;
+};
 
-  if (!first || !last) {
+export const tracedTaskOf = (
+  teamId: string,
+  taskId: string,
+): TracedTask | null => {
+  const task = readableTask(teamId, taskId);
+
+  if (!task) {
     return null;
   }
 
-  const stories = runs.map((run) => storyOf(run.id));
-  const trace = taskTraceOf(task.id);
-  const costs = stories
-    .map((story) => story.spend?.cost)
-    .filter((cost): cost is number => cost !== undefined);
+  const runs = oldestFirst(runsOf(task.id));
   const stations = runs
     .map((run) => traceStation(run.station))
-    .filter((each): each is TraceStationResponseDto => each !== null)
-    .filter(
-      (each, at, all) =>
-        all.findIndex((other) => other.name === each.name) === at,
-    );
+    .filter((each): each is TraceStationResponseDto => each !== null);
 
   return {
-    taskId: task.id,
     title: task.title,
-    station: traceStation(last.station),
-    stations,
-    harness: last.harness,
-    state: last.state,
-    startedAt: first.startedAt,
-    runs: runs.length,
     input: task.description?.split('\n')[0] ?? null,
-    output:
-      stories
-        .map((story) => story.output)
-        .filter(Boolean)
-        .at(-1) ?? null,
-    ms: finished(last) ? trace.ms : null,
-    steps: stories.reduce((sum, story) => sum + story.steps.length, 0),
-    errors: trace.errors,
-    cost: costs.length
-      ? Math.round(costs.reduce((sum, cost) => sum + cost, 0) * 100) / 100
-      : null,
-    currency: costs.length ? 'USD' : null,
-  };
-};
-
-const RANGE_HOURS: Record<TeamTracesResponseDto['range'], number> = {
-  '30m': 0.5,
-  '1h': 1,
-  '6h': 6,
-  '1d': 24,
-  '3d': 72,
-  '7d': 168,
-  '14d': 336,
-  '30d': 720,
-  '90d': 2160,
-};
-
-const BUCKETS = 30;
-
-export const teamTracesOf = (
-  teamId: string,
-  range: TeamTracesResponseDto['range'],
-): TeamTracesResponseDto => {
-  const to = Date.now();
-  const from = to - RANGE_HOURS[range] * 60 * MINUTE;
-  const tasks = [...tasksOf(teamId), ...pastTasksOf(teamId)];
-  const traces = tasks
-    .filter((task) => {
-      const last = oldestFirst(runsOf(task.id)).at(-1);
-      return last !== undefined && endOf(last) >= from;
-    })
-    .map(teamTraceOf)
-    .filter((each): each is TeamTraceResponseDto => each !== null)
-    .sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt));
-  const runs = tasks.flatMap((task) => runsOf(task.id));
-  const width = (to - from) / BUCKETS;
-
-  return {
-    range,
-    from: new Date(from).toISOString(),
-    to: new Date(to).toISOString(),
-    traces,
-    volume: Array.from({ length: BUCKETS }, (_, at) => {
-      const start = from + at * width;
-      const inside = runs.filter((run) => {
-        const started = Date.parse(run.startedAt);
-        return started >= start && started < start + width;
-      });
-
-      return {
-        from: new Date(start).toISOString(),
-        to: new Date(start + width).toISOString(),
-        count: inside.length,
-        errors: inside.filter((run) => run.state === 'failed').length,
-      };
-    }),
+    station: traceStation(runs.at(-1)?.station ?? null),
+    stations: new Map(stations.map((each) => [each.stationId, each])),
+    outputs: new Map(
+      runs.flatMap((run) => {
+        const output = storyOf(run.id).output;
+        return output ? [[run.id, output] as const] : [];
+      }),
+    ),
   };
 };
 
