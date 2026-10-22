@@ -150,7 +150,7 @@ func (e *exchanging) token(renewed bool) (string, error) {
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("the workspace token trust %s did not accept the OIDC token: %s", e.trust, problemOf(response.StatusCode, body))
+		return "", fmt.Errorf("the OIDC trust %s did not accept the OIDC token: %s", e.trust, problemOf(response.StatusCode, body))
 	}
 
 	var issued struct {
@@ -211,7 +211,7 @@ func checkAPI(env func(string) string, version string, now func() time.Time) (*a
 			return nil, fmt.Errorf("read the login for %s: %w", base, err)
 		}
 		if token == "" {
-			return nil, fmt.Errorf("no credentials for %s. Set %s, a workspace token that may plan, or %s, a workspace token trust to exchange the job's OIDC token through, or run spotlight login\nusage:\n%s", base, tokenVar, trustVar, Usage)
+			return nil, fmt.Errorf("no credentials for %s. Set %s, a workspace token that may plan, or %s, an OIDC trust to exchange the job's OIDC token through, or run spotlight login\nusage:\n%s", base, tokenVar, trustVar, Usage)
 		}
 		return newAPI(base, token, version), nil
 	}

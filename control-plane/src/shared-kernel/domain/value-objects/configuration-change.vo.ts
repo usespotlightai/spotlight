@@ -10,7 +10,7 @@ export const CONFIGURED_RESOURCES = [
   'hook',
   'secret',
   'workspace-token',
-  'workspace-token-trust',
+  'oidc-trust',
   'runner-trust',
   'runner-pool',
   'egress',

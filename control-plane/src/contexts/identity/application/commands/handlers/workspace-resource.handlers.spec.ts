@@ -238,12 +238,12 @@ describe('DeleteWorkspaceHandler', () => {
     expect(stored.save).not.toHaveBeenCalled();
   });
 
-  it('will not delete a workspace that still has a token trust', async () => {
+  it('will not delete a workspace that still has an OIDC trust', async () => {
     const { remove, stored } = deleting({ trusted: true });
 
     expect(await remove()).toMatchObject({
       outcome: 'in-use',
-      reason: expect.stringContaining('token trust github-main'),
+      reason: expect.stringContaining('OIDC trust github-main'),
     });
     expect(stored.save).not.toHaveBeenCalled();
   });

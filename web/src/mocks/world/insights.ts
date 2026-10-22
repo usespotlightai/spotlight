@@ -1035,7 +1035,10 @@ export const insightsTracesOf = (
 ): InsightsTracesResponseDto => {
   const range = rangeNameOf(params.get('range'));
   const to = Date.now();
-  const from = to - RANGE_HOURS[range] * HOUR_MS;
+  const from =
+    range === '7d' || range === '30d' || range === '90d'
+      ? spanOf(range).now.from
+      : to - RANGE_HOURS[range] * HOUR_MS;
   const inRange = runsIn(teamId, { from, to });
   const narrowed = [...params.entries()].some(
     ([key, value]) => value !== '' && !LISTING_PARAMS.includes(key),

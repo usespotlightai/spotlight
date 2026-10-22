@@ -1,4 +1,4 @@
-import { InvalidTokenTrustError } from '@identity/domain/exceptions/invalid-token-trust.error';
+import { InvalidOidcTrustError } from '@identity/domain/exceptions/invalid-oidc-trust.error';
 import { ClaimPattern } from '@identity/domain/value-objects/claim-pattern.vo';
 import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
 
@@ -26,7 +26,7 @@ export class WorkloadRule {
 
   static issuerOf(raw: string): string {
     const trimmed = raw.trim();
-    const invalid = new InvalidTokenTrustError(
+    const invalid = new InvalidOidcTrustError(
       'issuer',
       'must be an https URL with no query or fragment, as in https://token.actions.githubusercontent.com',
     );
@@ -60,7 +60,7 @@ export class WorkloadRule {
     const trimmed = raw.trim();
 
     if (!trimmed || trimmed.length > LONGEST || /\s/.test(trimmed)) {
-      throw new InvalidTokenTrustError(
+      throw new InvalidOidcTrustError(
         'audience',
         `must be one word of at most ${LONGEST} characters, as in spotlight`,
       );
@@ -71,7 +71,7 @@ export class WorkloadRule {
 
   static claimNameOf(raw: string): string {
     if (!CLAIM_NAME.test(raw) || REGISTERED.has(raw)) {
-      throw new InvalidTokenTrustError(
+      throw new InvalidOidcTrustError(
         'claims',
         `must be lowercase letters, digits and underscores, other than ${[...REGISTERED].join(', ')}, as in workflow_ref`,
       );
@@ -89,7 +89,7 @@ export class WorkloadRule {
     const customClaims = Object.entries(input.claims);
 
     if (customClaims.length > MAX_CLAIMS) {
-      throw new InvalidTokenTrustError(
+      throw new InvalidOidcTrustError(
         'claims',
         `must name at most ${MAX_CLAIMS} claims`,
       );
@@ -104,7 +104,7 @@ export class WorkloadRule {
     const subject = ClaimPattern.of(input.subject);
 
     if (!subject.isExact && !subject.literalStart.includes(OWNER_END)) {
-      throw new InvalidTokenTrustError(
+      throw new InvalidOidcTrustError(
         'subject',
         'must name an owner before any *, as in repo:acme/* or repo:acme/platform:*',
       );

@@ -1,4 +1,5 @@
 import { Permissions } from '@identity/domain/value-objects/permissions.vo';
+import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import {
   PersonPrincipal,
   TokenPrincipal,
@@ -27,7 +28,7 @@ describe('Permissions of a token’s scopes', () => {
       configures: permissions.configures,
       managesSecrets: permissions.managesSecrets,
       managesRunners: permissions.managesRunners,
-      managesTokenTrusts: permissions.managesTokenTrusts,
+      managesOidcTrusts: permissions.managesOidcTrusts,
       isAdmin: permissions.isAdmin,
     };
   };
@@ -38,7 +39,7 @@ describe('Permissions of a token’s scopes', () => {
     [['configure'], true, true],
     [['read', 'configure'], true, true],
   ])(
-    'climbs the ladder for %j without managing secrets, runners or token trusts, or administering',
+    'climbs the ladder for %j without managing secrets, runners or OIDC trusts, or administering',
     (scopes, plans, configures) => {
       expect(granted(scopes)).toEqual({
         reads: true,
@@ -46,7 +47,7 @@ describe('Permissions of a token’s scopes', () => {
         configures,
         managesSecrets: false,
         managesRunners: false,
-        managesTokenTrusts: false,
+        managesOidcTrusts: false,
         isAdmin: false,
       });
     },
@@ -88,7 +89,7 @@ describe('Permissions of a token’s scopes', () => {
     [['read', 'trusts'], false],
     [['configure', 'trusts'], true],
   ])(
-    'manages token trusts for %j, without secrets or runners, and is still never an admin',
+    'manages OIDC trusts for %j, without secrets or runners, and is still never an admin',
     (scopes, configures) => {
       expect(granted(scopes)).toEqual({
         reads: true,
@@ -96,7 +97,7 @@ describe('Permissions of a token’s scopes', () => {
         configures,
         managesSecrets: false,
         managesRunners: false,
-        managesTokenTrusts: true,
+        managesOidcTrusts: true,
         isAdmin: false,
       });
     },
@@ -133,4 +134,20 @@ describe('Permissions beyond any one workspace', () => {
       ]).toEqual([plans, false, false]);
     },
   );
+});
+
+describe('Seeing how OIDC trusts are used', () => {
+  it('is for owners and admins, never for members or any token', () => {
+    expect(Permissions.ofRole(WorkspaceRole.admin).seesOidcTrustUsage).toBe(
+      true,
+    );
+    expect(Permissions.ofRole(WorkspaceRole.member).seesOidcTrustUsage).toBe(
+      false,
+    );
+    expect(
+      Permissions.ofScopes(
+        TokenScopes.named(['configure', 'secrets', 'runners', 'trusts']),
+      ).seesOidcTrustUsage,
+    ).toBe(false);
+  });
 });

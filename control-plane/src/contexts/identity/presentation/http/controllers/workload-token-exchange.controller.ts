@@ -36,7 +36,7 @@ export class WorkloadTokenExchangeController {
   @ApiOperation({
     operationId: 'exchangeWorkloadToken',
     summary:
-      'Exchange the OIDC token a CI platform issued a workload for a short-lived workspace token, through a workspace token trust that matches it',
+      'Exchange the OIDC token a CI platform issued a workload for a short-lived workspace token, through an OIDC trust that matches it',
   })
   @ApiOkResponse({ type: IssuedTokenResponseDto })
   @ApiUnauthorizedResponse({ description: UNAUTHORIZED })

@@ -116,7 +116,7 @@ export const teamKeys = (
   ({
     teamKeysIn: vi.fn(async () => keys),
     tokenNamesIn: vi.fn(async () => tokens),
-    tokenTrustKeysIn: vi.fn(async () => trusts),
+    oidcTrustKeysIn: vi.fn(async () => trusts),
     issuingTrustKeysIn: vi.fn(async () => issuing),
   }) as unknown as IdentityResourcesPort;
 

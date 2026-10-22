@@ -11,6 +11,7 @@ import type {
 } from '@/lib/api';
 import { daysAgo } from '@/mocks/clock';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
+import { scenario } from '@/mocks/scenario';
 import { world } from '@/mocks/world';
 import {
   HARNESSES,
@@ -173,6 +174,12 @@ const resourceHandlers = [
   api.get('/resources/workspaces/:workspaceId/tokens', ({ params }) =>
     ofWorkspaceId(params.workspaceId)
       ? json({ items: settingsWorld().tokens })
+      : notFound(),
+  ),
+
+  api.get('/workspaces/:slug/oidc-trusts', ({ params }) =>
+    ofWorkspace(params.slug) && scenario().account !== 'member'
+      ? json(settingsWorld().oidcTrusts)
       : notFound(),
   ),
 

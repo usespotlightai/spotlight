@@ -1,5 +1,5 @@
+import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
-import type { WorkspaceTokenTrustRepository } from '@identity/domain/repositories/workspace-token-trust.repository';
 import { TokenAuthentication } from '@identity/domain/services/token-authentication';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
@@ -10,7 +10,7 @@ import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 export class TokenAuthenticator implements WorkspaceTokenIdentityPort {
   constructor(
     private readonly tokens: WorkspaceTokenRepository,
-    private readonly trusts: WorkspaceTokenTrustRepository,
+    private readonly trusts: OidcTrustRepository,
     private readonly issuer: TokenIssuer,
     private readonly clock: ClockPort,
   ) {}

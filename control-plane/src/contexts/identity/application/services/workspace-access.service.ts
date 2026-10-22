@@ -34,7 +34,7 @@ const permissionsIn = (
         configures: permissions.configures,
         managesSecrets: permissions.managesSecrets,
         managesRunners: permissions.managesRunners,
-        managesTokenTrusts: permissions.managesTokenTrusts,
+        managesOidcTrusts: permissions.managesOidcTrusts,
         isAdmin: permissions.isAdmin,
       }
     : null;

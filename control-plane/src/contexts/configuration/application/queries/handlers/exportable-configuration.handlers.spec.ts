@@ -14,11 +14,11 @@ import { ResourceConfigurationQuery } from '@configuration/application/queries/r
 import { WorkspaceConfigurationQuery } from '@configuration/application/queries/workspace-configuration.query';
 import { ExportableConfigurations } from '@configuration/application/services/exportable-configurations.service';
 import type { HarnessProfileViews } from '@configuration/application/services/harness-profile-views.service';
+import type { OidcTrustConfigurationPort } from '@identity/application/ports/oidc-trust-configuration.port';
 import type {
   TeamDirectoryPort,
   TeamProfile,
 } from '@identity/application/ports/team-directory.port';
-import type { TokenTrustConfigurationPort } from '@identity/application/ports/token-trust-configuration.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { RunnerConfigurationPort } from '@runners/application/ports/runner-configuration.port';
@@ -78,8 +78,8 @@ const TRUST = {
   labels: [],
 };
 
-const TOKEN_TRUST = {
-  id: 'token_trust_1',
+const OIDC_TRUST = {
+  id: 'oidc_trust_1',
   address: 'github-main',
   workspaceId: WORKSPACE,
   key: 'github-main',
@@ -121,7 +121,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
             configures: false,
             managesSecrets: false,
             managesRunners: false,
-            managesTokenTrusts: false,
+            managesOidcTrusts: false,
             isAdmin: false,
           },
     ),
@@ -299,12 +299,12 @@ const handlers = (over: { permitted?: boolean } = {}) => {
       id === DECLARED.id ? DECLARED : null,
     ),
   } satisfies RunnerConfigurationPort;
-  const tokenTrusts = {
-    in: vi.fn(async () => [TOKEN_TRUST]),
+  const oidcTrusts = {
+    in: vi.fn(async () => [OIDC_TRUST]),
     withId: vi.fn(async (id: string) =>
-      id === TOKEN_TRUST.id ? TOKEN_TRUST : null,
+      id === OIDC_TRUST.id ? OIDC_TRUST : null,
     ),
-  } satisfies TokenTrustConfigurationPort;
+  } satisfies OidcTrustConfigurationPort;
   const configurations = new ExportableConfigurations(
     teams,
     lines,
@@ -315,7 +315,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
     profileViews,
     secrets,
     runners,
-    tokenTrusts,
+    oidcTrusts,
   );
 
   return {
@@ -336,7 +336,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
       profiles,
       secrets,
       runners,
-      tokenTrusts,
+      oidcTrusts,
       configurations,
     ),
   };
@@ -362,7 +362,7 @@ describe('WorkspaceConfigurationHandler', () => {
         'workspace acme',
         'secret LINEAR_API_KEY',
         'secret SLACK_TOKEN',
-        'workspace-token-trust github-main',
+        'oidc-trust github-main',
         'runner-trust cluster',
         'runner-pool burst',
         'workspace-runners acme',
@@ -415,7 +415,7 @@ describe('ResourceConfigurationHandler', () => {
     ['hook', 'hook_audit', 'core/audit'],
     ['harness-profile', 'profile_careful', 'core/careful'],
     ['secret', 'secret_1', 'LINEAR_API_KEY'],
-    ['workspace-token-trust', 'token_trust_1', 'github-main'],
+    ['oidc-trust', 'oidc_trust_1', 'github-main'],
     ['runner-trust', 'trust_1', 'cluster'],
     ['runner-pool', 'pool_1', 'burst'],
     ['workspace-runners', 'declared_1', 'acme'],

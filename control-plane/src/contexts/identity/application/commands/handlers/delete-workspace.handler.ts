@@ -5,9 +5,9 @@ import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-us
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { Dependents } from '@identity/domain/value-objects/dependents.vo';
+import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
-import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
 import {
   forbiddenTo,
   type ResourceDeleted,
@@ -53,15 +53,15 @@ export class DeleteWorkspaceHandler
       await this.transaction.inTransaction(async () => {
         const teams = await this.resources.teamKeysIn(id);
         const tokens = await this.resources.tokenNamesIn(id);
-        const trusts = await this.resources.tokenTrustKeysIn(id);
+        const trusts = await this.resources.oidcTrustKeysIn(id);
         const issuing = await this.resources.issuingTrustKeysIn(id);
 
         await this.workspaces.save(
           existing.delete(
             teams.map((each) => TeamKey.of(each)),
             tokens.map((each) => TokenName.of(each)),
-            trusts.map((each) => TokenTrustKey.of(each)),
-            issuing.map((each) => TokenTrustKey.of(each)),
+            trusts.map((each) => OidcTrustKey.of(each)),
+            issuing.map((each) => OidcTrustKey.of(each)),
             remaining,
             ChangeActor.of(command.actor, id),
           ),

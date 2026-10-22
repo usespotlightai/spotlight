@@ -1,24 +1,24 @@
 import type {
   IdentityDefinitionsPort,
+  ParsedOidcTrust,
   ParsedTeam,
   ParsedWorkspace,
   ParsedWorkspaceToken,
-  ParsedWorkspaceTokenTrust,
 } from '@identity/application/ports/identity-definitions.port';
 import {
+  OIDC_TRUST,
   TEAM,
   WORKSPACE,
   WORKSPACE_TOKEN,
-  WORKSPACE_TOKEN_TRUST,
 } from '@identity/application/rendering/identity-problems';
-import { InvalidTokenTrustError } from '@identity/domain/exceptions/invalid-token-trust.error';
+import { InvalidOidcTrustError } from '@identity/domain/exceptions/invalid-oidc-trust.error';
 import { ClaimPattern } from '@identity/domain/value-objects/claim-pattern.vo';
+import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
-import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
@@ -60,9 +60,9 @@ const workspaceTokenSchema = z.object({
     .default(null),
 });
 
-const workspaceTokenTrustSchema = z
+const oidcTrustSchema = z
   .object({
-    key: madeBy(TokenTrustKey.of),
+    key: madeBy(OidcTrustKey.of),
     issuer: madeBy(WorkloadRule.issuerOf),
     audience: madeBy(WorkloadRule.audienceOf).default('spotlight'),
     subject: madeBy((raw) => ClaimPattern.of(raw)),
@@ -86,7 +86,7 @@ const workspaceTokenTrustSchema = z
     try {
       WorkloadRule.of(trust);
     } catch (error) {
-      if (!(error instanceof InvalidTokenTrustError)) {
+      if (!(error instanceof InvalidOidcTrustError)) {
         throw error;
       }
 
@@ -142,14 +142,14 @@ export class IdentityDefinitions implements IdentityDefinitionsPort {
       : { ok: false, problems: problemsIn(WORKSPACE_TOKEN, read.error) };
   }
 
-  workspaceTokenTrust(input: unknown): ParsedWorkspaceTokenTrust {
-    const read = workspaceTokenTrustSchema.safeParse(input);
+  oidcTrust(input: unknown): ParsedOidcTrust {
+    const read = oidcTrustSchema.safeParse(input);
 
     return read.success
       ? {
           ok: true,
           spec: {
-            key: TokenTrustKey.of(read.data.key),
+            key: OidcTrustKey.of(read.data.key),
             workload: WorkloadRule.of(read.data),
             scopes: TokenScopes.named(read.data.scopes),
             lifetime: TokenLifetime.ofMinutes(read.data.lifetimeMinutes),
@@ -157,7 +157,7 @@ export class IdentityDefinitions implements IdentityDefinitionsPort {
         }
       : {
           ok: false,
-          problems: problemsIn(WORKSPACE_TOKEN_TRUST, read.error),
+          problems: problemsIn(OIDC_TRUST, read.error),
         };
   }
 }

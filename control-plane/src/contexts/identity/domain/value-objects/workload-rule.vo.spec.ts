@@ -1,4 +1,4 @@
-import { InvalidTokenTrustError } from '@identity/domain/exceptions/invalid-token-trust.error';
+import { InvalidOidcTrustError } from '@identity/domain/exceptions/invalid-oidc-trust.error';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
 import { describe, expect, it } from 'vitest';
@@ -117,11 +117,11 @@ describe('WorkloadRule', () => {
 
   it('rejects a subject that would match every owner its issuer signs for', () => {
     for (const open of ['*', '**', 'repo:*', '*:*', 'repo:ac*/platform:*']) {
-      expect(() => rule({ subject: open })).toThrow(InvalidTokenTrustError);
+      expect(() => rule({ subject: open })).toThrow(InvalidOidcTrustError);
     }
     expect(() =>
       rule({ subject: '*', claims: { repository: 'acme/platform' } }),
-    ).toThrow(InvalidTokenTrustError);
+    ).toThrow(InvalidOidcTrustError);
     expect(rule({ subject: 'repo:acme/*' }).subject.value).toBe('repo:acme/*');
     expect(
       rule({ subject: 'repository_owner_id:42:repository_id:7' }).subject.value,
@@ -149,20 +149,18 @@ describe('WorkloadRule', () => {
   });
 
   it('rejects claims the token already answers for, or that are not claim names', () => {
-    expect(() => rule({ claims: { sub: 'x' } })).toThrow(
-      InvalidTokenTrustError,
-    );
+    expect(() => rule({ claims: { sub: 'x' } })).toThrow(InvalidOidcTrustError);
     expect(() => rule({ claims: { 'job-workflow': 'x' } })).toThrow(
-      InvalidTokenTrustError,
+      InvalidOidcTrustError,
     );
   });
 
   it('rejects an issuer that is not https, save on this machine', () => {
     expect(() => rule({ issuer: 'http://issuer.example' })).toThrow(
-      InvalidTokenTrustError,
+      InvalidOidcTrustError,
     );
     expect(() => rule({ issuer: `${GITHUB}?x=1` })).toThrow(
-      InvalidTokenTrustError,
+      InvalidOidcTrustError,
     );
     expect(rule({ issuer: 'http://127.0.0.1:8080' }).issuer).toBe(
       'http://127.0.0.1:8080',

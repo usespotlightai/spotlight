@@ -115,6 +115,10 @@ import { SkillController } from '@configuration/presentation/http/controllers/sk
 import { SkillResourceController } from '@configuration/presentation/http/controllers/skill-resource.controller';
 import { TerraformController } from '@configuration/presentation/http/controllers/terraform.controller';
 import {
+  OIDC_TRUST_CONFIGURATION,
+  type OidcTrustConfigurationPort,
+} from '@identity/application/ports/oidc-trust-configuration.port';
+import {
   TEAM_DEPENDENTS,
   type TeamDependentsPort,
 } from '@identity/application/ports/team-dependents.port';
@@ -122,10 +126,6 @@ import {
   TEAM_DIRECTORY,
   type TeamDirectoryPort,
 } from '@identity/application/ports/team-directory.port';
-import {
-  TOKEN_TRUST_CONFIGURATION,
-  type TokenTrustConfigurationPort,
-} from '@identity/application/ports/token-trust-configuration.port';
 import {
   WORKSPACE_ACCESS,
   type WorkspaceAccessPort,
@@ -263,7 +263,7 @@ const adapters: Provider[] = [
       HarnessProfileViews,
       SECRET_CONFIGURATION,
       RUNNER_CONFIGURATION,
-      TOKEN_TRUST_CONFIGURATION,
+      OIDC_TRUST_CONFIGURATION,
     ],
     useFactory: (
       teams: TeamDirectoryPort,
@@ -275,7 +275,7 @@ const adapters: Provider[] = [
       profileViews: HarnessProfileViews,
       secrets: SecretConfigurationPort,
       runners: RunnerConfigurationPort,
-      tokenTrusts: TokenTrustConfigurationPort,
+      oidcTrusts: OidcTrustConfigurationPort,
     ) =>
       new ExportableConfigurations(
         teams,
@@ -287,7 +287,7 @@ const adapters: Provider[] = [
         profileViews,
         secrets,
         runners,
-        tokenTrusts,
+        oidcTrusts,
       ),
   },
   {
@@ -404,7 +404,7 @@ const handlers: Provider[] = [
       HARNESS_PROFILE_RESOURCES,
       SECRET_CONFIGURATION,
       RUNNER_CONFIGURATION,
-      TOKEN_TRUST_CONFIGURATION,
+      OIDC_TRUST_CONFIGURATION,
       ExportableConfigurations,
     ],
   ),

@@ -1,5 +1,4 @@
 import type { WorkspaceTokenResourceResponseDto } from '@/lib/api';
-import { settingsPath } from '@/lib/settings';
 
 export type WorkspaceToken = WorkspaceTokenResourceResponseDto;
 
@@ -49,8 +48,8 @@ export const GRANTS: readonly ScopeOption<TokenGrant>[] = [
   },
   {
     id: 'trusts',
-    label: 'Token trusts',
-    description: 'Also manages workspace token trusts.',
+    label: 'OIDC trusts',
+    description: 'Also manages workspace OIDC trusts.',
   },
 ];
 
@@ -64,8 +63,8 @@ export const scopesOf = (
   ...GRANTS.filter((each) => grants.has(each.id)).map((each) => each.id),
 ];
 
-export const describeScopes = (scopes: readonly TokenScope[]): string => {
-  const granted = new Set(scopes);
+export const describeScopes = (scopes: readonly string[]): string => {
+  const granted = new Set<string>(scopes);
 
   return SCOPES.filter((each) => granted.has(each.id))
     .map((each) => each.label)
@@ -114,5 +113,3 @@ export const describeExpiry = (
     ? 'Expired'
     : `Expires ${dayOf(expires, now)}`;
 };
-
-export const tokensPath = (slug: string) => `${settingsPath(slug)}/tokens`;

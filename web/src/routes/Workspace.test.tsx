@@ -149,7 +149,7 @@ describe('Workspace', () => {
       screen.queryByRole('link', { name: /Runners/ }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('link', { name: 'Tokens' }),
+      screen.queryByRole('link', { name: 'API access' }),
     ).not.toBeInTheDocument();
   });
 
@@ -185,9 +185,9 @@ describe('Workspace', () => {
       'href',
       '/w/acme-inc/settings/members',
     );
-    expect(screen.getByRole('link', { name: 'Tokens' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'API access' })).toHaveAttribute(
       'href',
-      '/w/acme-inc/settings/tokens',
+      '/w/acme-inc/settings/api-access',
     );
   });
 
@@ -200,7 +200,7 @@ describe('Workspace', () => {
       screen.queryByRole('link', { name: 'Members' }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('link', { name: 'Tokens' }),
+      screen.queryByRole('link', { name: 'API access' }),
     ).not.toBeInTheDocument();
   });
 

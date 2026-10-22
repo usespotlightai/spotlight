@@ -270,9 +270,9 @@ export const CONFIGURATION: ExportableConfigurationDto = {
       valueVersion: null,
     },
     {
-      kind: 'workspace-token-trust',
+      kind: 'oidc-trust',
       ownedBy: 'workspace',
-      id: 'token_trust_main',
+      id: 'oidc_trust_main',
       address: 'github-main',
       key: 'github-main',
       issuer: 'https://token.actions.githubusercontent.com',
@@ -283,9 +283,9 @@ export const CONFIGURATION: ExportableConfigurationDto = {
       lifetimeMinutes: 15,
     },
     {
-      kind: 'workspace-token-trust',
+      kind: 'oidc-trust',
       ownedBy: 'workspace',
-      id: 'token_trust_plans',
+      id: 'oidc_trust_plans',
       address: 'github-pull-requests',
       key: 'github-pull-requests',
       issuer: 'https://token.actions.githubusercontent.com',

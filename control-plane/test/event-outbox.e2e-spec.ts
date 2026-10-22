@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { DrizzleConfigurationAudit } from '@identity/infrastructure/persistence/drizzle/configuration-audit';
+import { DrizzleOidcTrustUsage } from '@identity/infrastructure/persistence/drizzle/oidc-trust-usage';
 import { configurationChange } from '@identity/infrastructure/persistence/drizzle/schemas/configuration-change.schema';
 import { identityProjections } from '@identity/presentation/events/identity.projections';
 import { AsyncLocalCausation } from '@platform/events/async-local-causation';
@@ -125,7 +126,10 @@ const outboxWith = () => {
   ]);
   const projections = new EventProjections();
   projections.register(
-    identityProjections(new DrizzleConfigurationAudit(context)),
+    identityProjections(
+      new DrizzleConfigurationAudit(context),
+      new DrizzleOidcTrustUsage(context),
+    ),
   );
   const clock = { now: () => now } as ClockPort;
   const outbox = new EventOutbox(

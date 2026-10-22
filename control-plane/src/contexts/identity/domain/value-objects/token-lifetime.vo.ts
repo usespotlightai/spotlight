@@ -1,4 +1,4 @@
-import { InvalidTokenTrustError } from '@identity/domain/exceptions/invalid-token-trust.error';
+import { InvalidOidcTrustError } from '@identity/domain/exceptions/invalid-oidc-trust.error';
 
 const MINUTE_MS = 60_000;
 
@@ -17,7 +17,7 @@ export class TokenLifetime {
       minutes < 1 ||
       minutes > TokenLifetime.LONGEST_MINUTES
     ) {
-      throw new InvalidTokenTrustError(
+      throw new InvalidOidcTrustError(
         'lifetimeMinutes',
         `must be a whole number of minutes from 1 to ${TokenLifetime.LONGEST_MINUTES}, as in ${TokenLifetime.USUAL_MINUTES}`,
       );

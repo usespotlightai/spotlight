@@ -16,11 +16,11 @@ import {
 } from '@identity/domain/services/role-assignment';
 import { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
+import type { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { Permissions } from '@identity/domain/value-objects/permissions.vo';
 import type { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import type { TokenName } from '@identity/domain/value-objects/token-name.vo';
-import type { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
 import type { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import type { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
@@ -147,8 +147,8 @@ export class Workspace extends EventRecorder {
   delete(
     teams: readonly TeamKey[],
     tokens: readonly TokenName[],
-    trusts: readonly TokenTrustKey[],
-    issuing: readonly TokenTrustKey[],
+    trusts: readonly OidcTrustKey[],
+    issuing: readonly OidcTrustKey[],
     dependents: Dependents,
     by: ChangeActor,
   ): Workspace {
@@ -157,7 +157,7 @@ export class Workspace extends EventRecorder {
     const remaining = Dependents.of([
       ...teams.map((each) => `team ${each.value}`),
       ...tokens.map((each) => `token ${each.value}`),
-      ...trusts.map((each) => `token trust ${each.value}`),
+      ...trusts.map((each) => `OIDC trust ${each.value}`),
       ...issuing.map((each) => `tokens issued by ${each.value}`),
     ]).and(dependents);
 

@@ -28,7 +28,7 @@ export class WorkspaceTokenResourceResponseDto extends ResourceResponseDto {
     isArray: true,
     example: ['configure', 'secrets'],
     description:
-      'What it may do: read reads; plan also checks expressions; configure also changes configuration as a workspace admin may, except secrets, runners and token trusts; secrets, granted beside one of those, manages secrets; runners, granted the same way, manages runners, runner trusts and the workspace’s runners; trusts, granted the same way, manages workspace token trusts. Immutable',
+      'What it may do: read reads; plan also checks expressions; configure also changes configuration as a workspace admin may, except secrets, runners and OIDC trusts; secrets, granted beside one of those, manages secrets; runners, granted the same way, manages runners, runner trusts and the workspace’s runners; trusts, granted the same way, manages OIDC trusts. Immutable',
   })
   readonly scopes: readonly string[];
 
