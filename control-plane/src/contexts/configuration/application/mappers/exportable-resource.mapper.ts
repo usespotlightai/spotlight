@@ -3,8 +3,8 @@ import type { HarnessProfileResourceDto } from '@configuration/application/dto/h
 import type { HookConfig } from '@configuration/application/ports/hook-configs.port';
 import type { IntegrationConfig } from '@configuration/application/ports/integration-configs.port';
 import type { SkillRecord } from '@configuration/application/ports/skill-resources.port';
+import type { OidcTrustView } from '@identity/application/ports/oidc-trust-configuration.port';
 import type { TeamProfile } from '@identity/application/ports/team-directory.port';
-import type { TokenTrustView } from '@identity/application/ports/token-trust-configuration.port';
 import type { WorkspaceProfile } from '@identity/application/ports/workspace-reader.port';
 import type {
   EgressView,
@@ -52,9 +52,9 @@ export const ExportableResourceMapper = {
     };
   },
 
-  tokenTrust(trust: TokenTrustView): ExportableResourceDto {
+  oidcTrust(trust: OidcTrustView): ExportableResourceDto {
     return {
-      kind: 'workspace-token-trust',
+      kind: 'oidc-trust',
       ownedBy: 'workspace',
       id: trust.id,
       address: trust.address,

@@ -1,4 +1,4 @@
-import type { InvalidTokenTrustError } from '@identity/domain/exceptions/invalid-token-trust.error';
+import type { InvalidOidcTrustError } from '@identity/domain/exceptions/invalid-oidc-trust.error';
 import type { InvalidWorkspaceTokenError } from '@identity/domain/exceptions/invalid-workspace-token.error';
 import type { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
@@ -10,7 +10,7 @@ export const TEAM = 'team';
 
 export const WORKSPACE_TOKEN = 'workspace-token';
 
-export const WORKSPACE_TOKEN_TRUST = 'workspace-token-trust';
+export const OIDC_TRUST = 'oidc-trust';
 
 export const IdentityProblems = {
   immutableField(
@@ -35,10 +35,10 @@ export const IdentityProblems = {
   },
 
   trustInvalid(
-    error: InvalidTokenTrustError | ImmutableFieldError,
+    error: InvalidOidcTrustError | ImmutableFieldError,
   ): ConfigurationProblem {
     return ConfigurationProblem.of({
-      path: WORKSPACE_TOKEN_TRUST,
+      path: OIDC_TRUST,
       at: FieldPath.of(error.field.split('.')),
       reason: error.because,
     });

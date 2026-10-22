@@ -17,13 +17,13 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
-import { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
 import { and, eq, isNotNull, lte, or, type SQL } from 'drizzle-orm';
 
 type Row = typeof workspaceToken.$inferSelect;
@@ -40,9 +40,7 @@ const rehydrated = (row: Row): WorkspaceToken =>
     issuedAt: row.issuedAt,
     expiresAt: row.expiresAt,
     issuedByTrustId:
-      row.issuedByTrustId === null
-        ? null
-        : WorkspaceTokenTrustId.of(row.issuedByTrustId),
+      row.issuedByTrustId === null ? null : OidcTrustId.of(row.issuedByTrustId),
     trustVersion: row.trustVersion,
     runId: row.runId === null ? null : RunId.of(row.runId),
     runAttempt: row.runAttempt,
@@ -130,7 +128,7 @@ export class DrizzleWorkspaceTokenRepository
   }
 
   async issuedByTrust(
-    trustId: WorkspaceTokenTrustId,
+    trustId: OidcTrustId,
   ): Promise<readonly WorkspaceToken[]> {
     const rows = await this.context.db
       .select()

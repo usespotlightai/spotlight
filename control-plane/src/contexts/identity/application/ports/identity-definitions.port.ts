@@ -1,5 +1,5 @@
+import type { OidcTrustSpec } from '@identity/domain/aggregates/oidc-trust.aggregate';
 import type { TokenSpec } from '@identity/domain/aggregates/workspace-token.aggregate';
-import type { TokenTrustSpec } from '@identity/domain/aggregates/workspace-token-trust.aggregate';
 import type { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import type { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
@@ -29,8 +29,8 @@ export type ParsedWorkspaceToken =
   | { readonly ok: true; readonly spec: TokenSpec }
   | Invalid;
 
-export type ParsedWorkspaceTokenTrust =
-  | { readonly ok: true; readonly spec: TokenTrustSpec }
+export type ParsedOidcTrust =
+  | { readonly ok: true; readonly spec: OidcTrustSpec }
   | Invalid;
 
 export interface IdentityDefinitionsPort {
@@ -40,5 +40,5 @@ export interface IdentityDefinitionsPort {
 
   workspaceToken(input: unknown): ParsedWorkspaceToken;
 
-  workspaceTokenTrust(input: unknown): ParsedWorkspaceTokenTrust;
+  oidcTrust(input: unknown): ParsedOidcTrust;
 }

@@ -1,3 +1,6 @@
+import { OidcTrustCreated } from '@identity/domain/events/oidc-trust-created.event';
+import { OidcTrustDeleted } from '@identity/domain/events/oidc-trust-deleted.event';
+import { OidcTrustUpdated } from '@identity/domain/events/oidc-trust-updated.event';
 import { TeamCreated } from '@identity/domain/events/team-created.event';
 import { TeamDeleted } from '@identity/domain/events/team-deleted.event';
 import { TeamMemberJoined } from '@identity/domain/events/team-member-joined.event';
@@ -12,9 +15,6 @@ import { WorkspaceMemberRoleChanged } from '@identity/domain/events/workspace-me
 import { WorkspaceTokenExpired } from '@identity/domain/events/workspace-token-expired.event';
 import { WorkspaceTokenIssued } from '@identity/domain/events/workspace-token-issued.event';
 import { WorkspaceTokenRevoked } from '@identity/domain/events/workspace-token-revoked.event';
-import { WorkspaceTokenTrustCreated } from '@identity/domain/events/workspace-token-trust-created.event';
-import { WorkspaceTokenTrustDeleted } from '@identity/domain/events/workspace-token-trust-deleted.event';
-import { WorkspaceTokenTrustUpdated } from '@identity/domain/events/workspace-token-trust-updated.event';
 import { WorkspaceTokenUpdated } from '@identity/domain/events/workspace-token-updated.event';
 import { WorkspaceUpdated } from '@identity/domain/events/workspace-updated.event';
 import { ClaimPattern } from '@identity/domain/value-objects/claim-pattern.vo';
@@ -23,6 +23,7 @@ import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { IssuedTokenDetail } from '@identity/domain/value-objects/issued-token-detail.vo';
+import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { Permissions } from '@identity/domain/value-objects/permissions.vo';
 import { RunTokenDetail } from '@identity/domain/value-objects/run-token-detail.vo';
 import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
@@ -31,7 +32,6 @@ import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
-import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
@@ -52,7 +52,7 @@ export const IDENTITY_PAYLOAD_TYPES = [
   TokenDescription,
   TokenLifetime,
   TokenName,
-  TokenTrustKey,
+  OidcTrustKey,
   WorkloadRule,
   WorkspaceName,
   WorkspaceRole,
@@ -73,7 +73,7 @@ export const IDENTITY_PAYLOAD_TYPES = [
   WorkspaceTokenExpired,
   WorkspaceTokenUpdated,
   WorkspaceTokenRevoked,
-  WorkspaceTokenTrustCreated,
-  WorkspaceTokenTrustUpdated,
-  WorkspaceTokenTrustDeleted,
+  OidcTrustCreated,
+  OidcTrustUpdated,
+  OidcTrustDeleted,
 ] as const;

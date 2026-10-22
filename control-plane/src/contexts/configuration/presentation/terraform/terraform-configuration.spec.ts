@@ -179,8 +179,8 @@ describe('workspaceTerraform', () => {
 
     expect(headersIn('workspace.tf')).toEqual([
       '"spotlight_workspace" "acme"',
-      '"spotlight_workspace_token_trust" "github-main"',
-      '"spotlight_workspace_token_trust" "github-pull-requests"',
+      '"spotlight_oidc_trust" "github-main"',
+      '"spotlight_oidc_trust" "github-pull-requests"',
     ]);
     expect(headersIn('runners.tf')).toEqual([
       '"spotlight_runner_trust" "production-cluster"',
@@ -223,7 +223,7 @@ describe('workspaceTerraform', () => {
 
   it('requires the Spotlight provider', () => {
     expect(fileOf(CONFIGURATION, 'terraform.tf')).toMatch(
-      /^terraform {\n {2}required_providers {\n {4}spotlight = {\n {6}source  = "usespotlightai\/spotlight"\n {6}version = "0\.1\.0-rc\.2"\n/,
+      /^terraform {\n {2}required_providers {\n {4}spotlight = {\n {6}source {2}= "usespotlightai\/spotlight"\n {6}version = "0\.1\.0-rc\.2"\n/,
     );
   });
 
@@ -246,7 +246,7 @@ describe('workspaceTerraform', () => {
 
     for (const [type, name, address] of [
       ['spotlight_secret', 'linear_api_key', 'LINEAR_API_KEY'],
-      ['spotlight_workspace_token_trust', 'github-main', 'github-main'],
+      ['spotlight_oidc_trust', 'github-main', 'github-main'],
       ['spotlight_runner_trust', 'production-cluster', 'production-cluster'],
       ['spotlight_egress', 'shared', 'shared'],
       ['spotlight_runner_pool', 'burst', 'burst'],
@@ -459,12 +459,12 @@ describe('workspaceTerraform', () => {
     );
   });
 
-  it('writes a token trust with its claims only when it names any', () => {
+  it('writes an OIDC trust with its claims only when it names any', () => {
     const main = mainOf(CONFIGURATION);
 
     expect(main).toContain(
       [
-        'resource "spotlight_workspace_token_trust" "github-main" {',
+        'resource "spotlight_oidc_trust" "github-main" {',
         '  workspace_id = spotlight_workspace.acme.id',
         '  key          = "github-main"',
         '  issuer       = "https://token.actions.githubusercontent.com"',
@@ -890,8 +890,8 @@ describe('workspaceTerraform', () => {
       'spotlight_secret.linear_api_key',
       'spotlight_secret.linear_signing',
       'spotlight_secret.sentry_token',
-      'spotlight_workspace_token_trust.github-main',
-      'spotlight_workspace_token_trust.github-pull-requests',
+      'spotlight_oidc_trust.github-main',
+      'spotlight_oidc_trust.github-pull-requests',
       'spotlight_runner_trust.production-cluster',
       'spotlight_egress.shared',
       'spotlight_runner_pool.burst',

@@ -53,7 +53,7 @@ export const accessFor = (managesSecrets: () => boolean): WorkspaceAccessPort =>
             configures: true,
             managesSecrets: managesSecrets(),
             managesRunners: false,
-            managesTokenTrusts: false,
+            managesOidcTrusts: false,
             isAdmin: false,
           }
         : null,

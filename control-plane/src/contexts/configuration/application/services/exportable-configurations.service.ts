@@ -8,11 +8,11 @@ import type { HookConfigsPort } from '@configuration/application/ports/hook-conf
 import type { IntegrationConfigsPort } from '@configuration/application/ports/integration-configs.port';
 import type { SkillResourcesPort } from '@configuration/application/ports/skill-resources.port';
 import type { HarnessProfileViews } from '@configuration/application/services/harness-profile-views.service';
+import type { OidcTrustConfigurationPort } from '@identity/application/ports/oidc-trust-configuration.port';
 import type {
   TeamDirectoryPort,
   TeamProfile,
 } from '@identity/application/ports/team-directory.port';
-import type { TokenTrustConfigurationPort } from '@identity/application/ports/token-trust-configuration.port';
 import type { WorkspaceProfile } from '@identity/application/ports/workspace-reader.port';
 import type { RunnerConfigurationPort } from '@runners/application/ports/runner-configuration.port';
 import type { SecretConfigurationPort } from '@secrets/application/ports/secret-configuration.port';
@@ -30,16 +30,16 @@ export class ExportableConfigurations {
     private readonly profileViews: HarnessProfileViews,
     private readonly secrets: SecretConfigurationPort,
     private readonly runners: RunnerConfigurationPort,
-    private readonly tokenTrusts: TokenTrustConfigurationPort,
+    private readonly oidcTrusts: OidcTrustConfigurationPort,
   ) {}
 
   async of(workspace: WorkspaceProfile): Promise<ExportableConfigurationDto> {
     const workspaceId = WorkspaceId.of(workspace.id);
-    const [teams, secrets, runners, tokenTrusts] = await Promise.all([
+    const [teams, secrets, runners, oidcTrusts] = await Promise.all([
       this.teams.inWorkspace(workspaceId),
       this.secrets.in(workspaceId),
       this.runners.in(workspaceId),
-      this.tokenTrusts.in(workspaceId),
+      this.oidcTrusts.in(workspaceId),
     ]);
     const teamOwned = await Promise.all(
       teams.map((team) => this.ownedByTeam(team)),
@@ -51,7 +51,7 @@ export class ExportableConfigurations {
       resources: [
         ExportableResourceMapper.workspace(workspace),
         ...secrets.map(ExportableResourceMapper.secret),
-        ...tokenTrusts.map(ExportableResourceMapper.tokenTrust),
+        ...oidcTrusts.map(ExportableResourceMapper.oidcTrust),
         ...runners.trusts.map(ExportableResourceMapper.trust),
         ...runners.egresses.map(ExportableResourceMapper.egress),
         ...runners.pools.map(ExportableResourceMapper.pool),

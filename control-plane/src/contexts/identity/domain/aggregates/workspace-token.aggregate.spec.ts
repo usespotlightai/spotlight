@@ -74,6 +74,8 @@ describe('WorkspaceToken', () => {
         WORKSPACE,
         TokenName.of('ci'),
         ConfigurationChange.created(CI, BY),
+        null,
+        NOW,
       ),
     ]);
   });

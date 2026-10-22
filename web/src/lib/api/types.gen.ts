@@ -2491,7 +2491,7 @@ export type WorkspaceTokenResourceResponseDto = {
    */
   description: string;
   /**
-   * What it may do: read reads; plan also checks expressions; configure also changes configuration as a workspace admin may, except secrets, runners and token trusts; secrets, granted beside one of those, manages secrets; runners, granted the same way, manages runners, runner trusts and the workspace’s runners; trusts, granted the same way, manages workspace token trusts. Immutable
+   * What it may do: read reads; plan also checks expressions; configure also changes configuration as a workspace admin may, except secrets, runners and OIDC trusts; secrets, granted beside one of those, manages secrets; runners, granted the same way, manages runners, runner trusts and the workspace’s runners; trusts, granted the same way, manages OIDC trusts. Immutable
    */
   scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners' | 'trusts'>;
   /**
@@ -2512,7 +2512,7 @@ export type WorkspaceTokenResourceListResponseDto = {
   items: Array<WorkspaceTokenResourceResponseDto>;
 };
 
-export type WorkspaceTokenTrustResourceResponseDto = {
+export type OidcTrustResourceResponseDto = {
   /**
    * Issued by Spotlight when the resource is created, and never changed
    */
@@ -2569,16 +2569,16 @@ export type WorkspaceTokenTrustResourceResponseDto = {
   createdBy: string;
 };
 
-export type WorkspaceTokenTrustResourceListResponseDto = {
+export type OidcTrustResourceListResponseDto = {
   /**
    * Every one there is, each as a read returns it, in address order
    */
-  items: Array<WorkspaceTokenTrustResourceResponseDto>;
+  items: Array<OidcTrustResourceResponseDto>;
 };
 
 export type ExchangeWorkloadTokenRequestDto = {
   /**
-   * The id of the workspace token trust to exchange through
+   * The id of the OIDC trust to exchange through
    */
   trust: string;
   /**
@@ -2693,7 +2693,7 @@ export type ChangedByResponseDto = {
   userId: string | null;
   tokenId: string | null;
   /**
-   * For a token issued by a workspace token trust, that trust; the person is then whoever created the trust
+   * For a token issued by an OIDC trust, that trust; the person is then whoever created the trust
    */
   trust: string | null;
 };
@@ -2703,7 +2703,7 @@ export type ConfigurationChangeResponseDto = {
    * Rises with every change; pass it as before to page back
    */
   seq: number;
-  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'hook' | 'secret' | 'workspace-token' | 'workspace-token-trust' | 'runner-trust' | 'runner-pool' | 'egress' | 'workspace-runners' | 'replay-candidate' | 'replay' | 'replay-set' | 'replay-search' | 'replay-check' | 'config-pull-request';
+  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'hook' | 'secret' | 'workspace-token' | 'oidc-trust' | 'runner-trust' | 'runner-pool' | 'egress' | 'workspace-runners' | 'replay-candidate' | 'replay' | 'replay-set' | 'replay-search' | 'replay-check' | 'config-pull-request';
   resourceId: string;
   /**
    * The key it had within its team or workspace
@@ -2722,6 +2722,48 @@ export type ConfigurationChangeResponseDto = {
     [key: string]: unknown;
   };
   at: string;
+};
+
+export type OidcTrustCreatorResponseDto = {
+  id: string;
+  /**
+   * Null when the account no longer exists
+   */
+  name: string | null;
+};
+
+export type OidcTrustSummaryResponseDto = {
+  id: string;
+  key: string;
+  issuer: string;
+  audience: string;
+  /**
+   * The subject a workload’s token must carry. * matches any run of characters
+   */
+  subject: string;
+  /**
+   * Further claims the workload’s token must carry, by name
+   */
+  claims: {
+    [key: string]: string;
+  };
+  /**
+   * The scopes of every token the trust issues
+   */
+  scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners' | 'trusts'>;
+  lifetimeMinutes: number;
+  /**
+   * The person who created the trust. Its tokens act for them
+   */
+  createdBy: OidcTrustCreatorResponseDto;
+  /**
+   * When the trust was created
+   */
+  createdAt: string;
+  /**
+   * When the trust last issued a token. Null when it never did
+   */
+  lastIssuedAt: string | null;
 };
 
 export type MemberResponseDto = {
@@ -12778,7 +12820,7 @@ export type ImportWorkspaceTokenResponses = {
 
 export type ImportWorkspaceTokenResponse = ImportWorkspaceTokenResponses[keyof ImportWorkspaceTokenResponses];
 
-export type ListWorkspaceTokenTrustsData = {
+export type ListOidcTrustsData = {
   body?: never;
   headers?: {
     /**
@@ -12794,10 +12836,10 @@ export type ListWorkspaceTokenTrustsData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/token-trusts';
+  url: '/resources/workspaces/{workspaceId}/oidc-trusts';
 };
 
-export type ListWorkspaceTokenTrustsErrors = {
+export type ListOidcTrustsErrors = {
   /**
    * Malformed, or requests an API version this server does not serve
    */
@@ -12812,18 +12854,18 @@ export type ListWorkspaceTokenTrustsErrors = {
   404: ProblemResponseDto;
 };
 
-export type ListWorkspaceTokenTrustsError = ListWorkspaceTokenTrustsErrors[keyof ListWorkspaceTokenTrustsErrors];
+export type ListOidcTrustsError = ListOidcTrustsErrors[keyof ListOidcTrustsErrors];
 
-export type ListWorkspaceTokenTrustsResponses = {
+export type ListOidcTrustsResponses = {
   /**
-   * Every workspace-token-trust there, each as a read returns it, in address order
+   * Every oidc-trust there, each as a read returns it, in address order
    */
-  200: WorkspaceTokenTrustResourceListResponseDto;
+  200: OidcTrustResourceListResponseDto;
 };
 
-export type ListWorkspaceTokenTrustsResponse = ListWorkspaceTokenTrustsResponses[keyof ListWorkspaceTokenTrustsResponses];
+export type ListOidcTrustsResponse = ListOidcTrustsResponses[keyof ListOidcTrustsResponses];
 
-export type CreateWorkspaceTokenTrustData = {
+export type CreateOidcTrustData = {
   body: {
     key: string;
     issuer: string;
@@ -12853,10 +12895,10 @@ export type CreateWorkspaceTokenTrustData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/token-trusts';
+  url: '/resources/workspaces/{workspaceId}/oidc-trusts';
 };
 
-export type CreateWorkspaceTokenTrustErrors = {
+export type CreateOidcTrustErrors = {
   /**
    * Malformed, or requests an API version this server does not serve
    */
@@ -12866,15 +12908,15 @@ export type CreateWorkspaceTokenTrustErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the workspace-token-trust: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the oidc-trust: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
-   * No such workspace-token-trust that you may see
+   * No such oidc-trust that you may see
    */
   404: ProblemResponseDto;
   /**
-   * A workspace-token-trust already exists at that address
+   * A oidc-trust already exists at that address
    */
   409: ProblemResponseDto;
   /**
@@ -12883,18 +12925,18 @@ export type CreateWorkspaceTokenTrustErrors = {
   422: ProblemResponseDto;
 };
 
-export type CreateWorkspaceTokenTrustError = CreateWorkspaceTokenTrustErrors[keyof CreateWorkspaceTokenTrustErrors];
+export type CreateOidcTrustError = CreateOidcTrustErrors[keyof CreateOidcTrustErrors];
 
-export type CreateWorkspaceTokenTrustResponses = {
+export type CreateOidcTrustResponses = {
   /**
-   * The workspace-token-trust, as a read returns it
+   * The oidc-trust, as a read returns it
    */
-  201: WorkspaceTokenTrustResourceResponseDto;
+  201: OidcTrustResourceResponseDto;
 };
 
-export type CreateWorkspaceTokenTrustResponse = CreateWorkspaceTokenTrustResponses[keyof CreateWorkspaceTokenTrustResponses];
+export type CreateOidcTrustResponse = CreateOidcTrustResponses[keyof CreateOidcTrustResponses];
 
-export type DeleteWorkspaceTokenTrustData = {
+export type DeleteOidcTrustData = {
   body?: never;
   headers: {
     /**
@@ -12914,10 +12956,10 @@ export type DeleteWorkspaceTokenTrustData = {
     id: string;
   };
   query?: never;
-  url: '/resources/token-trusts/{id}';
+  url: '/resources/oidc-trusts/{id}';
 };
 
-export type DeleteWorkspaceTokenTrustErrors = {
+export type DeleteOidcTrustErrors = {
   /**
    * Malformed, or requests an API version this server does not serve
    */
@@ -12927,11 +12969,11 @@ export type DeleteWorkspaceTokenTrustErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the workspace-token-trust: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the oidc-trust: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
-   * No such workspace-token-trust that you may see
+   * No such oidc-trust that you may see
    */
   404: ProblemResponseDto;
   /**
@@ -12944,18 +12986,18 @@ export type DeleteWorkspaceTokenTrustErrors = {
   428: ProblemResponseDto;
 };
 
-export type DeleteWorkspaceTokenTrustError = DeleteWorkspaceTokenTrustErrors[keyof DeleteWorkspaceTokenTrustErrors];
+export type DeleteOidcTrustError = DeleteOidcTrustErrors[keyof DeleteOidcTrustErrors];
 
-export type DeleteWorkspaceTokenTrustResponses = {
+export type DeleteOidcTrustResponses = {
   /**
    * Deleted
    */
   204: void;
 };
 
-export type DeleteWorkspaceTokenTrustResponse = DeleteWorkspaceTokenTrustResponses[keyof DeleteWorkspaceTokenTrustResponses];
+export type DeleteOidcTrustResponse = DeleteOidcTrustResponses[keyof DeleteOidcTrustResponses];
 
-export type ReadWorkspaceTokenTrustData = {
+export type ReadOidcTrustData = {
   body?: never;
   headers?: {
     /**
@@ -12971,10 +13013,10 @@ export type ReadWorkspaceTokenTrustData = {
     id: string;
   };
   query?: never;
-  url: '/resources/token-trusts/{id}';
+  url: '/resources/oidc-trusts/{id}';
 };
 
-export type ReadWorkspaceTokenTrustErrors = {
+export type ReadOidcTrustErrors = {
   /**
    * Malformed, or requests an API version this server does not serve
    */
@@ -12984,23 +13026,23 @@ export type ReadWorkspaceTokenTrustErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * No such workspace-token-trust that you may see
+   * No such oidc-trust that you may see
    */
   404: ProblemResponseDto;
 };
 
-export type ReadWorkspaceTokenTrustError = ReadWorkspaceTokenTrustErrors[keyof ReadWorkspaceTokenTrustErrors];
+export type ReadOidcTrustError = ReadOidcTrustErrors[keyof ReadOidcTrustErrors];
 
-export type ReadWorkspaceTokenTrustResponses = {
+export type ReadOidcTrustResponses = {
   /**
-   * The workspace-token-trust, every field of it
+   * The oidc-trust, every field of it
    */
-  200: WorkspaceTokenTrustResourceResponseDto;
+  200: OidcTrustResourceResponseDto;
 };
 
-export type ReadWorkspaceTokenTrustResponse = ReadWorkspaceTokenTrustResponses[keyof ReadWorkspaceTokenTrustResponses];
+export type ReadOidcTrustResponse = ReadOidcTrustResponses[keyof ReadOidcTrustResponses];
 
-export type UpdateWorkspaceTokenTrustData = {
+export type UpdateOidcTrustData = {
   body: {
     key: string;
     issuer: string;
@@ -13030,10 +13072,10 @@ export type UpdateWorkspaceTokenTrustData = {
     id: string;
   };
   query?: never;
-  url: '/resources/token-trusts/{id}';
+  url: '/resources/oidc-trusts/{id}';
 };
 
-export type UpdateWorkspaceTokenTrustErrors = {
+export type UpdateOidcTrustErrors = {
   /**
    * Malformed, or requests an API version this server does not serve
    */
@@ -13043,11 +13085,11 @@ export type UpdateWorkspaceTokenTrustErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * Not allowed to do this to the workspace-token-trust: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
+   * Not allowed to do this to the oidc-trust: your role in its workspace or your token’s scopes fall short, or only a person may do it; the detail says which
    */
   403: ProblemResponseDto;
   /**
-   * No such workspace-token-trust that you may see
+   * No such oidc-trust that you may see
    */
   404: ProblemResponseDto;
   /**
@@ -13064,18 +13106,18 @@ export type UpdateWorkspaceTokenTrustErrors = {
   428: ProblemResponseDto;
 };
 
-export type UpdateWorkspaceTokenTrustError = UpdateWorkspaceTokenTrustErrors[keyof UpdateWorkspaceTokenTrustErrors];
+export type UpdateOidcTrustError = UpdateOidcTrustErrors[keyof UpdateOidcTrustErrors];
 
-export type UpdateWorkspaceTokenTrustResponses = {
+export type UpdateOidcTrustResponses = {
   /**
-   * The workspace-token-trust, as a read returns it
+   * The oidc-trust, as a read returns it
    */
-  200: WorkspaceTokenTrustResourceResponseDto;
+  200: OidcTrustResourceResponseDto;
 };
 
-export type UpdateWorkspaceTokenTrustResponse = UpdateWorkspaceTokenTrustResponses[keyof UpdateWorkspaceTokenTrustResponses];
+export type UpdateOidcTrustResponse = UpdateOidcTrustResponses[keyof UpdateOidcTrustResponses];
 
-export type ImportWorkspaceTokenTrustData = {
+export type ImportOidcTrustData = {
   body?: never;
   headers?: {
     /**
@@ -13092,14 +13134,14 @@ export type ImportWorkspaceTokenTrustData = {
   };
   query: {
     /**
-     * The workspace-token-trust's address within the workspace
+     * The oidc-trust's address within the workspace
      */
     address: unknown;
   };
-  url: '/resources/workspaces/{workspaceId}/token-trusts/import';
+  url: '/resources/workspaces/{workspaceId}/oidc-trusts/import';
 };
 
-export type ImportWorkspaceTokenTrustErrors = {
+export type ImportOidcTrustErrors = {
   /**
    * Malformed, or requests an API version this server does not serve
    */
@@ -13109,21 +13151,21 @@ export type ImportWorkspaceTokenTrustErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * No such workspace-token-trust that you may see
+   * No such oidc-trust that you may see
    */
   404: ProblemResponseDto;
 };
 
-export type ImportWorkspaceTokenTrustError = ImportWorkspaceTokenTrustErrors[keyof ImportWorkspaceTokenTrustErrors];
+export type ImportOidcTrustError = ImportOidcTrustErrors[keyof ImportOidcTrustErrors];
 
-export type ImportWorkspaceTokenTrustResponses = {
+export type ImportOidcTrustResponses = {
   /**
-   * The workspace-token-trust, as a read returns it
+   * The oidc-trust, as a read returns it
    */
-  200: WorkspaceTokenTrustResourceResponseDto;
+  200: OidcTrustResourceResponseDto;
 };
 
-export type ImportWorkspaceTokenTrustResponse = ImportWorkspaceTokenTrustResponses[keyof ImportWorkspaceTokenTrustResponses];
+export type ImportOidcTrustResponse = ImportOidcTrustResponses[keyof ImportOidcTrustResponses];
 
 export type ExchangeWorkloadTokenData = {
   body: ExchangeWorkloadTokenRequestDto;
@@ -13321,6 +13363,32 @@ export type ListConfigurationChangesResponses = {
 };
 
 export type ListConfigurationChangesResponse = ListConfigurationChangesResponses[keyof ListConfigurationChangesResponses];
+
+export type ListWorkspaceOidcTrustsData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/oidc-trusts';
+};
+
+export type ListWorkspaceOidcTrustsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace that you administer
+   */
+  404: unknown;
+};
+
+export type ListWorkspaceOidcTrustsResponses = {
+  200: Array<OidcTrustSummaryResponseDto>;
+};
+
+export type ListWorkspaceOidcTrustsResponse = ListWorkspaceOidcTrustsResponses[keyof ListWorkspaceOidcTrustsResponses];
 
 export type ListMembersData = {
   body?: never;
@@ -16548,7 +16616,7 @@ export type ReadResourceHclData = {
     'Spotlight-Client'?: string;
   };
   path: {
-    collection: 'workspaces' | 'teams' | 'lines' | 'skills' | 'harness-profiles' | 'integrations' | 'hooks' | 'secrets' | 'token-trusts' | 'runner-trusts' | 'runner-pools' | 'egresses' | 'workspace-runners';
+    collection: 'workspaces' | 'teams' | 'lines' | 'skills' | 'harness-profiles' | 'integrations' | 'hooks' | 'secrets' | 'oidc-trusts' | 'runner-trusts' | 'runner-pools' | 'egresses' | 'workspace-runners';
     id: string;
   };
   query?: never;

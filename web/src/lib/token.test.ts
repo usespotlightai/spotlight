@@ -26,7 +26,7 @@ describe('scopesOf', () => {
 describe('describeScopes', () => {
   it('names the scopes from least to most, whatever order they came in', () => {
     expect(describeScopes(['trusts', 'configure', 'secrets'])).toBe(
-      'Configure, Secrets, Token trusts',
+      'Configure, Secrets, OIDC trusts',
     );
   });
 });

@@ -36,7 +36,7 @@ const COLLECTION_OF: Readonly<Record<ExportableKind, string>> = {
   hook: 'hooks',
   'harness-profile': 'harness-profiles',
   secret: 'secrets',
-  'workspace-token-trust': 'token-trusts',
+  'oidc-trust': 'oidc-trusts',
   'runner-trust': 'runner-trusts',
   'runner-pool': 'runner-pools',
   egress: 'egresses',

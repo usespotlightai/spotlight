@@ -74,8 +74,8 @@ describe('signing in from the command line (e2e)', () => {
   afterAll(async () => {
     await app
       .get<DrizzleDatabase>(DRIZZLE)
-      .delete(schema.workspaceTokenTrust)
-      .where(eq(schema.workspaceTokenTrust.workspaceId, workspaceId));
+      .delete(schema.oidcTrust)
+      .where(eq(schema.oidcTrust.workspaceId, workspaceId));
     await unseat();
     await app.close();
   });
@@ -140,7 +140,7 @@ describe('signing in from the command line (e2e)', () => {
     const login = await signIn(owner);
 
     const created = await served(app)
-      .post(`/api/resources/workspaces/${workspaceId}/token-trusts`)
+      .post(`/api/resources/workspaces/${workspaceId}/oidc-trusts`)
       .set('Authorization', `Bearer ${login}`)
       .set('Idempotency-Key', randomUUID())
       .send({

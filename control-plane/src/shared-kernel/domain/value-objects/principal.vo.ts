@@ -1,8 +1,8 @@
+import type { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import type { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
-import type { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
 
 export class PersonPrincipal {
   readonly kind = 'person' as const;
@@ -26,7 +26,7 @@ export class TokenPrincipal {
     readonly workspaceId: WorkspaceId,
     readonly scopes: TokenScopes,
     readonly userId: UserId,
-    readonly issuedByTrustId: WorkspaceTokenTrustId | null,
+    readonly issuedByTrustId: OidcTrustId | null,
   ) {}
 
   static of(input: {
@@ -34,7 +34,7 @@ export class TokenPrincipal {
     workspaceId: WorkspaceId;
     scopes: TokenScopes;
     issuedBy: UserId;
-    issuedByTrustId?: WorkspaceTokenTrustId | null;
+    issuedByTrustId?: OidcTrustId | null;
   }): TokenPrincipal {
     return new TokenPrincipal(
       input.tokenId,
