@@ -76,7 +76,9 @@ describe('SetupStatus', () => {
   it('is not configured while the setup chat has opened no pull request', async () => {
     const chat = {
       id: 'chat_1',
+      repository: 'acme/infra',
       pullRequest: null,
+      ci: null,
       startedById: 'user_1',
       startedBy: 'Ada',
     };
@@ -92,7 +94,9 @@ describe('SetupStatus', () => {
       read({
         chat: {
           id: 'chat_1',
+          repository: 'acme/infra',
           pullRequest: 'https://github.com/acme/infra/pull/12',
+          ci: null,
           startedById: 'user_1',
           startedBy: 'Ada',
         },

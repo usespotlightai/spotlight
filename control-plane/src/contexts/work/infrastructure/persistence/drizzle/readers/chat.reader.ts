@@ -73,9 +73,17 @@ export class DrizzleChatReader implements ChatReaderPort {
 
     const starter = await this.people.find(UserId.of(latest.startedById));
 
+    const ci = latest.setup?.ci ?? null;
+
     return {
       id: latest.id,
+      repository: latest.setup?.repository ?? '',
       pullRequest: latest.setup?.pullRequest ?? null,
+      ci: ci && {
+        defaultBranch: ci.defaultBranch,
+        defaultBranchProtected: ci.defaultBranchProtected,
+        variables: ci.variables,
+      },
       startedById: latest.startedById,
       startedBy: starter?.name ?? '',
     };

@@ -83,9 +83,17 @@ export interface ChatView extends ChatSummary {
   readonly messages: readonly ChatMessageView[];
 }
 
+export interface SetupCiView {
+  readonly defaultBranch: string;
+  readonly defaultBranchProtected: boolean;
+  readonly variables: 'written' | 'not-permitted';
+}
+
 export interface SetupChatView {
   readonly id: string;
+  readonly repository: string;
   readonly pullRequest: string | null;
+  readonly ci: SetupCiView | null;
   readonly startedById: string;
   readonly startedBy: string;
 }

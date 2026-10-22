@@ -14,11 +14,19 @@ import {
   REPOSITORY_GIT,
   type RepositoryGitPort,
 } from '@github/application/ports/repository-git.port';
+import {
+  REPOSITORY_SETTINGS,
+  type RepositorySettingsPort,
+} from '@github/application/ports/repository-settings.port';
 import { REVIEW_COMMENTS } from '@github/application/ports/review-comments.port';
 import {
   WORKSPACE_CONNECTIONS,
   type WorkspaceConnectionsPort,
 } from '@github/application/ports/workspace-connections.port';
+import {
+  GITHUB_ACTIONS_TRUSTS,
+  type GitHubActionsTrustsPort,
+} from '@identity/application/ports/github-actions-trusts.port';
 import {
   MEMBER_DIRECTORY,
   type MemberDirectoryPort,
@@ -508,6 +516,7 @@ import { CandidateLines } from '@work/application/services/candidate-lines.servi
 import { CarryGitCall } from '@work/application/services/carry-git-call.service';
 import { CHAT_DISPATCH } from '@work/application/services/chat-dispatch';
 import { ChatLoader } from '@work/application/services/chat-loader.service';
+import { CiSetups } from '@work/application/services/ci-setups.service';
 import { ClaimsTaken } from '@work/application/services/claims-taken.service';
 import { ConnectionsMade } from '@work/application/services/connections-made.service';
 import { ConversationLoader } from '@work/application/services/conversation-loader.service';
@@ -1244,6 +1253,16 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     provide: ChatLoader,
     inject: [DrizzleChatRepository],
     useFactory: (chats: DrizzleChatRepository) => new ChatLoader(chats),
+  },
+
+  {
+    provide: CiSetups,
+    inject: [REPOSITORY_SETTINGS, GITHUB_ACTIONS_TRUSTS, ENV],
+    useFactory: (
+      settings: RepositorySettingsPort,
+      trusts: GitHubActionsTrustsPort,
+      env: Env,
+    ) => new CiSetups(settings, trusts, publicUrlOf(env)),
   },
 
   {
@@ -2113,6 +2132,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(OnboardingQuery, OnboardingHandler, [
     WORKSPACE_READER,
+    WORKSPACE_ACCESS,
     SetupStatus,
     TEAM_PROVISIONING,
   ]),
@@ -2239,6 +2259,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindCommandHandler(StartChatCommand, StartChatHandler, [
     WORKSPACE_READER,
+    WORKSPACE_ACCESS,
     DrizzleChatRepository,
     FilesLoader,
     TracesLoader,
@@ -2247,6 +2268,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     HARNESS_LAUNCH,
     ACCESSIBLE_REPOSITORIES,
     RUNNER_READER,
+    CiSetups,
     ID_GENERATOR,
     CLOCK,
     TRANSACTION,

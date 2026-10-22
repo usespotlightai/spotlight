@@ -109,7 +109,9 @@ describe('setting a team up as code (e2e)', () => {
     await chats().add(chat);
     await expect(reader().setupOf(TeamId.of(workspaceId))).resolves.toEqual({
       id: chat.id.value,
+      repository: 'acme/infra',
       pullRequest: null,
+      ci: null,
       startedById: owner,
       startedBy: 'Ada',
     });

@@ -6,6 +6,7 @@ import type {
   OidcTrustSummaryResponseDto,
   PersonConnectionResponseDto,
   RunnerPoolResourceResponseDto,
+  SetupCiResponseDto,
   TeamSkillResponseDto,
   WorkspaceTokenResourceResponseDto,
 } from '@/lib/api';
@@ -25,6 +26,12 @@ export const SIGNED_IN = SAM;
 
 export const INSTALL_URL =
   'https://github.com/apps/spotlight/installations/new';
+
+export const SETUP_CI: SetupCiResponseDto = {
+  defaultBranch: 'main',
+  defaultBranchProtected: true,
+  variables: 'written',
+};
 
 const daysFromNow = (days: number) => daysAgo(-days);
 
@@ -341,6 +348,8 @@ export type SettingsWorld = {
   pools: RunnerPoolResourceResponseDto[];
   fleet: Fleet;
   settingUp: string[];
+  viewerIsAdmin: boolean;
+  setupCi: SetupCiResponseDto | null;
 };
 
 const NOBODY: TeamConnections = { mine: [], people: [] };
@@ -361,6 +370,8 @@ export const settingsWorld = perWorld(
           pools: [],
           fleet: structuredClone(NO_FLEET),
           settingUp: [],
+          viewerIsAdmin: true,
+          setupCi: null,
         }
       : {
           gitHubConnected: true,
@@ -372,5 +383,7 @@ export const settingsWorld = perWorld(
           pools: structuredClone(RUNNER_POOLS),
           fleet: structuredClone(FLEET),
           settingUp: [],
+          viewerIsAdmin: true,
+          setupCi: { ...SETUP_CI },
         },
 );

@@ -60,7 +60,9 @@ const setupChatOf = (teamId: string): OnboardingResponseDto['setupChat'] => {
       ? [
           {
             id: chat.id,
+            repository: chat.setup.repository,
             pullRequest: chat.setup.pullRequest,
+            ci: settingsWorld().setupCi,
             startedBy: SIGNED_IN.name,
           },
         ]
@@ -99,6 +101,7 @@ const onboarding = (teamId: string): OnboardingResponseDto => ({
   ],
   canSetUp:
     settingsWorld().gitHubConnected && settingsWorld().fleet.hosts.length > 0,
+  viewerIsAdmin: settingsWorld().viewerIsAdmin,
   setupChat: setupChatOf(teamId),
 });
 

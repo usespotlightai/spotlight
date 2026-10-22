@@ -55,7 +55,23 @@ const onboarding = (
 ) => ({
   steps: STEPS.map((step) => ({ ...step, done: done.includes(step.key) })),
   canSetUp: done.includes('github') && done.includes('harness'),
+  viewerIsAdmin: true,
   setupChat: null,
+  ...over,
+});
+
+const CI = {
+  defaultBranch: 'main',
+  defaultBranchProtected: true,
+  variables: 'written',
+};
+
+const chat = (over: Record<string, unknown> = {}) => ({
+  id: 'chat_setup',
+  repository: 'acme/infra',
+  pullRequest: null,
+  ci: null,
+  startedBy: 'Sam',
   ...over,
 });
 
@@ -263,7 +279,7 @@ describe('SetupSteps', () => {
 
   it('names who is setting the team up in a chat only they can open', () => {
     onboardingState.data = onboarding(
-      { setupChat: { id: null, pullRequest: null, startedBy: 'Grace' } },
+      { setupChat: chat({ id: null, startedBy: 'Grace' }) },
       ['github', 'harness'],
     );
     showing();
@@ -276,7 +292,7 @@ describe('SetupSteps', () => {
   it('leads back to the setup chat while it works', () => {
     onboardingState.data = onboarding(
       {
-        setupChat: { id: 'chat_setup', pullRequest: null, startedBy: 'Sam' },
+        setupChat: chat(),
       },
       ['github', 'harness'],
     );
@@ -290,11 +306,9 @@ describe('SetupSteps', () => {
   it('leads to the pull request once the setup chat opened it', async () => {
     onboardingState.data = onboarding(
       {
-        setupChat: {
-          id: 'chat_setup',
+        setupChat: chat({
           pullRequest: 'https://github.com/acme/infra/pull/12',
-          startedBy: 'Sam',
-        },
+        }),
       },
       ['github', 'harness', 'configuration'],
     );
@@ -312,5 +326,102 @@ describe('SetupSteps', () => {
         .getByRole('link', { name: 'Open pull request' })
         .closest('[inert]'),
     ).toBeNull();
+  });
+
+  it('keeps the setup to workspace owners and admins', () => {
+    onboardingState.data = onboarding({ viewerIsAdmin: false }, [
+      'github',
+      'harness',
+    ]);
+    showing();
+
+    expect(screen.queryByText('Choose the config folder')).toBeNull();
+    expect(
+      screen.getByText(
+        'Only a workspace owner or admin can set up configuration as code.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('shows a member who is setting the team up', () => {
+    onboardingState.data = onboarding(
+      { viewerIsAdmin: false, setupChat: chat({ id: null }) },
+      ['github', 'harness'],
+    );
+    showing();
+
+    expect(screen.getByText('Sam is setting this up.')).toBeInTheDocument();
+  });
+
+  it('says what GitHub Actions may do once the setup created its trusts', () => {
+    onboardingState.data = onboarding({ setupChat: chat({ ci: CI }) }, [
+      'github',
+      'harness',
+    ]);
+    showing();
+
+    expect(
+      screen.getByText(/GitHub Actions: pull requests in/),
+    ).toHaveTextContent(
+      'GitHub Actions: pull requests in acme/infra plan, and pushes to main apply.',
+    );
+    expect(
+      screen.queryByText(
+        'Add the repository variables that the pull request lists.',
+      ),
+    ).toBeNull();
+    expect(
+      screen.queryByRole('img', { name: 'main has no branch protection' }),
+    ).toBeNull();
+  });
+
+  it('keeps what GitHub Actions may do in view after the step is done', () => {
+    onboardingState.data = onboarding(
+      {
+        setupChat: chat({
+          pullRequest: 'https://github.com/acme/infra/pull/12',
+          ci: CI,
+        }),
+      },
+      ['github', 'harness', 'configuration'],
+    );
+    showing();
+
+    expect(
+      screen.getByText(/GitHub Actions: pull requests in/),
+    ).toBeInTheDocument();
+  });
+
+  it('asks for the repository variables that the GitHub App may not write', () => {
+    onboardingState.data = onboarding(
+      { setupChat: chat({ ci: { ...CI, variables: 'not-permitted' } }) },
+      ['github', 'harness'],
+    );
+    showing();
+
+    expect(
+      screen.getByText(
+        'Add the repository variables that the pull request lists.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'The GitHub App may not write variables. Grant it “Variables: read and write” to let Spotlight set them.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('warns that a default branch without protection can change the configuration', () => {
+    onboardingState.data = onboarding(
+      { setupChat: chat({ ci: { ...CI, defaultBranchProtected: false } }) },
+      ['github', 'harness'],
+    );
+    showing();
+
+    expect(
+      screen.getByRole('img', { name: 'main has no branch protection' }),
+    ).toHaveAccessibleDescription(
+      'main has no branch protection. Anyone who can push to main can change this workspace’s configuration. Please require a pull request review.',
+    );
   });
 });

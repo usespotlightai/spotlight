@@ -1,3 +1,4 @@
+import { GITHUB_ACTIONS_TRUSTS } from '@identity/application/ports/github-actions-trusts.port';
 import { MEMBER_DIRECTORY } from '@identity/application/ports/member-directory.port';
 import { OIDC_TRUST_CONFIGURATION } from '@identity/application/ports/oidc-trust-configuration.port';
 import { PERSON_READER } from '@identity/application/ports/person-reader.port';
@@ -31,6 +32,7 @@ import { WORKSPACE_TOKEN_IDENTITY } from '@shared-kernel/application/ports/works
     WORKSPACE_TOKEN_IDENTITY,
     OIDC_TRUST_CONFIGURATION,
     RUN_TOKENS,
+    GITHUB_ACTIONS_TRUSTS,
     AuthenticationModule,
   ],
 })
