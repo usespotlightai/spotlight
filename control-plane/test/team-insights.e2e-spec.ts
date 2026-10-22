@@ -110,6 +110,13 @@ beforeAll(async () => {
   const station = team.stationId;
   const workspaceId = team.workspaceId;
 
+  await db.insert(schema.task).values({
+    id: TASK.value,
+    openedFrom: 'person',
+    workspaceId: workspaceId.value,
+    stationId: team.stationId.value,
+    title: 'Fix the queue',
+  });
   await db.insert(schema.run).values({
     id: RUN.value,
     workspaceId: workspaceId.value,
@@ -480,24 +487,25 @@ describe('the team’s insights (e2e)', () => {
   it('answers a workspace token with the read scope', async () => {
     const token = await issued(team, ['read']);
 
-    const answer = await bearing(insights('runs'), token);
+    const answer = await bearing(insights('traces', 'range=7d'), token);
 
     expect(answer.status).toBe(200);
-    expect(answer.body.total).toBe(1);
-    expect(answer.body.runs[0]).toMatchObject({
-      runId: RUN.value,
+    expect(answer.body.matched).toBe(1);
+    expect(answer.body.traces[0]).toMatchObject({
       taskId: TASK.value,
-      stationId: team.stationId.value,
+      title: 'Fix the queue',
+      total: 1,
+      cost: { amount: 1.25, currency: 'USD' },
+    });
+    expect(answer.body.traces[0].runs[0]).toMatchObject({
+      runId: RUN.value,
+      station: { stationId: team.stationId.value },
       harness: 'claude-code',
       model: 'sonnet',
-      repositories: ['acme/api'],
       openedBy: team.owner.value,
-      queuedMs: 2 * MINUTE,
       cost: { amount: 1.25, currency: 'USD' },
       ending: 'completed',
-      firstHumanAction: { kind: 'answered' },
-      passed: { to: NEXT },
-      pullRequestState: 'merged',
+      progress: null,
     });
     expect(answer.body.people).toEqual([
       { personId: team.owner.value, name: 'Ada' },
@@ -603,21 +611,21 @@ describe('the team’s insights (e2e)', () => {
 
   it('narrows the runs by what the page drills down with', async () => {
     const atStation = await asOwner(
-      insights('runs', `period=7d&stationId=${team.stationId.value}`),
+      insights('traces', `range=7d&stationId=${team.stationId.value}`),
     );
     const elsewhereStation = await asOwner(
-      insights('runs', `period=7d&stationId=${NEXT}`),
+      insights('traces', `range=7d&stationId=${NEXT}`),
     );
-    const failed = await asOwner(insights('runs', 'period=7d&outcome=failed'));
+    const failed = await asOwner(insights('traces', 'range=7d&outcome=failed'));
 
-    expect(atStation.body.total).toBe(1);
-    expect(elsewhereStation.body.total).toBe(0);
-    expect(failed.body.total).toBe(0);
+    expect(atStation.body.matched).toBe(1);
+    expect(elsewhereStation.body.matched).toBe(0);
+    expect(failed.body.matched).toBe(0);
   });
 
   it('drills down by pull request state, human action, inbox asks, tasks, the harness’s own model and no repository', async () => {
     const total = async (query: string) =>
-      (await asOwner(insights('runs', `period=7d&${query}`))).body.total;
+      (await asOwner(insights('traces', `range=7d&${query}`))).body.matched;
 
     expect(await total('pullRequestState=merged')).toBe(1);
     expect(await total('pullRequestState=open')).toBe(0);
@@ -632,9 +640,9 @@ describe('the team’s insights (e2e)', () => {
     expect(await total(`personId=${team.owner.value}`)).toBe(1);
   });
 
-  it('rejects a drill-down it cannot read: an unknown value, one sent twice, a day outside the period, or a page past the last', async () => {
+  it('rejects a drill-down it cannot read: an unknown value, one sent twice, a day outside the range, or a range it does not know', async () => {
     const status = async (query: string) =>
-      (await asOwner(insights('runs', `period=7d&${query}`))).status;
+      (await asOwner(insights('traces', `range=7d&${query}`))).status;
     const today = new Date().toISOString().slice(0, 10);
 
     expect(await status('outcome=exploded')).toBe(422);
@@ -646,14 +654,12 @@ describe('the team’s insights (e2e)', () => {
     expect(await status('day=2026-02-30')).toBe(422);
     expect(await status('day=2000-01-01')).toBe(422);
     expect(await status(`day=${today}`)).toBe(200);
-    expect(await status('page=2')).toBe(422);
-    expect(await status('page=1')).toBe(200);
-    expect(await status('page=10001')).toBe(422);
+    expect((await asOwner(insights('traces', 'range=2y'))).status).toBe(422);
   });
 
   it('drills down by the skills and MCP servers a run used, and the tools a person dismissed', async () => {
     const total = async (query: string) =>
-      (await asOwner(insights('runs', `period=7d&${query}`))).body.total;
+      (await asOwner(insights('traces', `range=7d&${query}`))).body.matched;
     const ended = new Date(NOW - 240 * MINUTE);
     const monday = new Date(
       Date.UTC(
@@ -690,7 +696,7 @@ describe('the team’s insights (e2e)', () => {
 
     for (const week of ['yesterday', '2026-02-30', tuesday]) {
       expect(
-        (await asOwner(insights('runs', `period=7d&week=${week}`))).status,
+        (await asOwner(insights('traces', `range=7d&week=${week}`))).status,
       ).toBe(422);
     }
   });
@@ -743,7 +749,7 @@ describe('the team’s insights (e2e)', () => {
     const many = Array.from({ length: 201 }, () => randomUUID()).join(',');
 
     expect(
-      (await asOwner(insights('runs', `period=7d&taskIds=${many}`))).status,
+      (await asOwner(insights('traces', `range=7d&taskIds=${many}`))).status,
     ).toBe(422);
   });
 
@@ -881,8 +887,8 @@ describe('the team’s insights (e2e)', () => {
 
 describe('the team’s Tools tab and its drill-downs (e2e)', () => {
   const total = async (query: string) =>
-    (await asOwner(insights('runs', `period=7d&${query}`))).body
-      .total as number;
+    (await asOwner(insights('traces', `range=7d&${query}`))).body
+      .matched as number;
 
   it('leaves a run cancelled before it ran out of the runs with a skill enabled, as the tab does', async () => {
     const cancelled = RunId.of(randomUUID());

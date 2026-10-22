@@ -50,7 +50,7 @@ import {
 import { SIDE_BY_SIDE_JUDGING } from '@insights/application/ports/side-by-side-judging.port';
 import { WORK, type WorkPort } from '@insights/application/ports/work.port';
 import { ListInsightsPullRequestsHandler } from '@insights/application/queries/handlers/list-insights-pull-requests.handler';
-import { ListInsightsRunsHandler } from '@insights/application/queries/handlers/list-insights-runs.handler';
+import { ListInsightsTracesHandler } from '@insights/application/queries/handlers/list-insights-traces.handler';
 import { ReadInsightsAgentConfigsHandler } from '@insights/application/queries/handlers/read-insights-agent-configs.handler';
 import { ReadInsightsChangesHandler } from '@insights/application/queries/handlers/read-insights-changes.handler';
 import { ReadInsightsCostHandler } from '@insights/application/queries/handlers/read-insights-cost.handler';
@@ -67,7 +67,7 @@ import { ReadStationAlertHandler } from '@insights/application/queries/handlers/
 import { ReadStationInsightsHandler } from '@insights/application/queries/handlers/read-station-insights.handler';
 import { ReadStationJudgeHandler } from '@insights/application/queries/handlers/read-station-judge.handler';
 import { ListInsightsPullRequestsQuery } from '@insights/application/queries/list-insights-pull-requests.query';
-import { ListInsightsRunsQuery } from '@insights/application/queries/list-insights-runs.query';
+import { ListInsightsTracesQuery } from '@insights/application/queries/list-insights-traces.query';
 import { ReadInsightsAgentConfigsQuery } from '@insights/application/queries/read-insights-agent-configs.query';
 import { ReadInsightsChangesQuery } from '@insights/application/queries/read-insights-changes.query';
 import { ReadInsightsCostQuery } from '@insights/application/queries/read-insights-cost.query';
@@ -456,10 +456,12 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     ListInsightsPullRequestsHandler,
     [TeamPullRequests],
   ),
-  ...bindQueryHandler(ListInsightsRunsQuery, ListInsightsRunsHandler, [
-    TeamScopes,
+  ...bindQueryHandler(ListInsightsTracesQuery, ListInsightsTracesHandler, [
+    InsightsAccess,
     INSIGHTS_READER,
     PEOPLE,
+    WORK,
+    CLOCK,
   ]),
   ...bindQueryHandler(ReadStationInsightsQuery, ReadStationInsightsHandler, [
     InsightsAccess,

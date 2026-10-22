@@ -58,7 +58,7 @@ export function CostSlices({
                 }
               >
                 {filter ? (
-                  <InsightsLink tab="runs" filter={filter}>
+                  <InsightsLink tab="traces" filter={filter}>
                     {label}
                   </InsightsLink>
                 ) : (

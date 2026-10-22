@@ -1,9 +1,12 @@
 import type {
   ConfigInOrder,
   EndedRun,
+  TracedWanted,
+  TracedWork,
   WorkPort,
 } from '@insights/application/ports/work.port';
 import { InvalidAlertError } from '@insights/domain/exceptions/invalid-alert.error';
+import type { UnfinishedRun } from '@insights/domain/services/unfinished-runs';
 import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -45,6 +48,42 @@ export class Work implements WorkPort {
       queuedAt: run.queuedAt,
       startedAt: run.startedAt,
       endedAt: run.endedAt,
+    };
+  }
+
+  async unfinishedRuns(teamId: string): Promise<readonly UnfinishedRun[]> {
+    return (await this.stations.unfinished(teamId)).map((run) => ({
+      runId: run.runId,
+      taskId: run.taskId,
+      lineId: run.lineId,
+      stationId: run.stationId,
+      openedBy: run.openedBy,
+      harness: run.harness,
+      model: run.model,
+      progress: run.progress,
+      queuedAt: run.queuedAt,
+      startedAt: run.startedAt,
+    }));
+  }
+
+  async traced(wanted: TracedWanted): Promise<TracedWork> {
+    const found = await this.stations.traced(wanted);
+
+    return {
+      tasks: found.tasks.map((each) => ({
+        taskId: each.taskId,
+        title: each.title,
+        input: each.input,
+        stationId: each.stationId,
+      })),
+      stations: found.stations.map((each) => ({
+        stationId: each.stationId,
+        name: each.name,
+        color: each.color,
+        position: each.position,
+        count: each.count,
+      })),
+      outputs: found.outputs,
     };
   }
 

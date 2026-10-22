@@ -1,5 +1,5 @@
-import { traceVolumeOf } from '@work/domain/services/trace-volume';
-import { TraceRange } from '@work/domain/value-objects/trace-range.vo';
+import { traceVolumeOf } from '@insights/domain/services/trace-volume';
+import { TraceRange } from '@insights/domain/value-objects/trace-range.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-08-29T12:00:00.000Z');
@@ -8,7 +8,7 @@ const HOUR = TraceRange.of('1h', NOW);
 
 const BARS = 30;
 
-const started = (at: Date, errors = 0) => ({ startedAt: at, errors });
+const traced = (at: Date, errors = 0) => ({ at, errors });
 
 describe('traceVolumeOf', () => {
   it('draws the whole stretch even where nothing ran', () => {
@@ -22,7 +22,7 @@ describe('traceVolumeOf', () => {
 
   it('lays the traces where they fall in the window, not end to end', () => {
     const volume = traceVolumeOf(
-      [started(HOUR.from), started(new Date(NOW.getTime() - 1))],
+      [traced(HOUR.from), traced(new Date(NOW.getTime() - 1))],
       HOUR,
     );
 
@@ -35,7 +35,7 @@ describe('traceVolumeOf', () => {
 
   it('adds up every error in the stretch', () => {
     const volume = traceVolumeOf(
-      [started(HOUR.from, 2), started(HOUR.from, 1)],
+      [traced(HOUR.from, 2), traced(HOUR.from, 1)],
       HOUR,
     );
 
@@ -43,7 +43,7 @@ describe('traceVolumeOf', () => {
   });
 
   it('reads a clean stretch as nothing rather than as nothing having run', () => {
-    expect(traceVolumeOf([started(HOUR.from)], HOUR)[0]).toMatchObject({
+    expect(traceVolumeOf([traced(HOUR.from)], HOUR)[0]).toMatchObject({
       count: 1,
       errors: 0,
     });
@@ -51,7 +51,7 @@ describe('traceVolumeOf', () => {
 
   it('keeps a trace from outside the window at the near end', () => {
     const volume = traceVolumeOf(
-      [started(new Date(0)), started(new Date(NOW.getTime() + 60_000))],
+      [traced(new Date(0)), traced(new Date(NOW.getTime() + 60_000))],
       HOUR,
     );
 

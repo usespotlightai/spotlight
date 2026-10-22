@@ -1,8 +1,9 @@
-import { InvalidTraceRangeError } from '@work/domain/exceptions/invalid-trace-range.error';
+import { InvalidTraceRangeError } from '@insights/domain/exceptions/invalid-trace-range.error';
+import { InsightsPeriod } from '@insights/domain/value-objects/insights-period.vo';
 import {
   TRACE_RANGES,
   TraceRange,
-} from '@work/domain/value-objects/trace-range.vo';
+} from '@insights/domain/value-objects/trace-range.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-08-29T12:00:00.000Z');
@@ -15,6 +16,13 @@ describe('TraceRange', () => {
 
     expect(range.to).toEqual(NOW);
     expect(range.from).toEqual(new Date('2026-08-29T11:00:00.000Z'));
+  });
+
+  it('starts an Insights period where Insights starts it, so a drill-down lists the runs its number counts', () => {
+    const range = TraceRange.of('7d', NOW);
+
+    expect(range.from).toEqual(InsightsPeriod.of('7d', NOW).current.from);
+    expect(range.to).toEqual(NOW);
   });
 
   it('cuts each stretch into the bars that it was told to make', () => {

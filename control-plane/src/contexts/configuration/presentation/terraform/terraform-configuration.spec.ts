@@ -223,7 +223,7 @@ describe('workspaceTerraform', () => {
 
   it('requires the Spotlight provider', () => {
     expect(fileOf(CONFIGURATION, 'terraform.tf')).toMatch(
-      /^terraform {\n {2}required_providers {\n {4}spotlight = {\n {6}source  = "usespotlightai\/spotlight"\n {6}version = "0\.1\.0-rc\.2"\n/,
+      /^terraform {\n {2}required_providers {\n {4}spotlight = {\n {6}source {2}= "usespotlightai\/spotlight"\n {6}version = "0\.1\.0-rc\.2"\n/,
     );
   });
 

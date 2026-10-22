@@ -37,7 +37,7 @@ export function StationRecentRuns({
   const runs = recentRuns(groups, SHOWN);
   const ran = hasRuns(groups);
   const all = insightsPath(slug, teamId, {
-    tab: 'runs',
+    tab: 'traces',
     period: DEFAULT_PERIOD,
     filter: { stationId },
     page: 1,

@@ -87,7 +87,7 @@ export function ConfigMarkers({
                         Impact
                       </button>
                       <InsightsLink
-                        tab="runs"
+                        tab="traces"
                         filter={{
                           stationId: change.stationId,
                           fingerprint: change.fingerprint,

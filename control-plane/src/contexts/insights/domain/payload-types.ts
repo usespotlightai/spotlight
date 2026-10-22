@@ -36,7 +36,9 @@ import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
 import { TaskHumanAction } from '@insights/domain/value-objects/task-human-action.vo';
 import { TaskOpening } from '@insights/domain/value-objects/task-opening.vo';
+import { TraceRange } from '@insights/domain/value-objects/trace-range.vo';
 export const INSIGHTS_PAYLOAD_TYPES = [
+  TraceRange,
   FailureOccurrence,
   StationPass,
   InboxAsk,

@@ -1,7 +1,3 @@
-import type { TeamTraceResponseDto } from '@/lib/api';
-
-export type Traced = TeamTraceResponseDto;
-
 export const spanned = (from: string, to: string): string => {
   const opened = new Date(from);
   const closed = new Date(to);

@@ -21,6 +21,20 @@ export interface EndedRunRow {
   readonly endedAt: Date;
 }
 
+export interface UnfinishedRunRow {
+  readonly runId: string;
+  readonly lineId: string;
+  readonly stationId: string;
+  readonly taskId: string;
+  readonly openedBy: string | null;
+  readonly harness: string;
+  readonly config: StationConfigParts | null;
+  readonly state: RunState;
+  readonly stopRequested: boolean;
+  readonly queuedAt: Date;
+  readonly startedAt: Date | null;
+}
+
 export interface RanConfig {
   readonly fingerprint: string;
   readonly parts: StationConfigParts;
@@ -63,8 +77,37 @@ export interface StationAlertRowShape {
   readonly over: number;
 }
 
+interface TracedStationRow {
+  readonly stationId: string;
+  readonly name: string;
+  readonly color: string;
+  readonly position: number;
+  readonly stations: number;
+}
+
+interface TracedTaskRow {
+  readonly taskId: string;
+  readonly title: string;
+  readonly description: string | null;
+  readonly stationId: string;
+}
+
+export interface TracedRows {
+  readonly tasks: readonly TracedTaskRow[];
+  readonly stations: readonly TracedStationRow[];
+  readonly notes: ReadonlyMap<string, string>;
+}
+
+export interface TracedWanted {
+  readonly taskIds: readonly string[];
+  readonly runIds: readonly string[];
+  readonly stationIds: readonly string[];
+}
+
 export interface StationRunReaderPort {
   endedRun(runId: string): Promise<EndedRunRow | null>;
+
+  unfinishedOfTeam(teamId: TeamId): Promise<readonly UnfinishedRunRow[]>;
 
   alertsAt(stationId: string): Promise<readonly StationAlertRowShape[] | null>;
 
@@ -87,4 +130,6 @@ export interface StationRunReaderPort {
   ): Promise<readonly StationRunRow[]>;
 
   journalsOf(runIds: readonly string[]): Promise<readonly RunJournal[]>;
+
+  traced(wanted: TracedWanted): Promise<TracedRows>;
 }

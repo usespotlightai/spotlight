@@ -151,7 +151,7 @@ describe('OutputAgainstCost', () => {
       within(busy as HTMLElement).getByRole('link', { name: '5' }),
     ).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/insights?tab=runs&period=7d&day=2026-09-30',
+      '/w/acme/team/team_1/insights?tab=traces&period=7d&day=2026-09-30',
     );
     expect(
       within(busy as HTMLElement).getByRole('link', { name: 'Implementation' }),

@@ -1,17 +1,21 @@
+import { ChevronRight } from 'lucide-react';
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { TRACE_COLUMNS } from '@/components/features/trace/list/columns';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { Checkbox } from '@/components/ui/checkbox';
-import { formatShortDuration, spentOn } from '@/lib/inbox';
+import { formatShortDuration } from '@/lib/inbox';
+import { formatSpend, type InsightsTrace } from '@/lib/insights';
 import { stationShare } from '@/lib/station';
-import { startedOn, type Traced } from '@/lib/trace-list';
+import { startedOn } from '@/lib/trace-list';
 import { cn } from '@/lib/utils';
 
 type TraceRowProps = {
-  trace: Traced;
+  trace: InsightsTrace;
   to: string;
   selected: boolean;
   onSelectedChange: (on: boolean) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 };
 
 export function TraceRow({
@@ -19,9 +23,11 @@ export function TraceRow({
   to,
   selected,
   onSelectedChange,
+  open,
+  onOpenChange,
 }: TraceRowProps) {
   return (
-    <li
+    <div
       className={cn(
         'group/trace relative grid h-9 items-center gap-3 rounded-md px-3 text-sm transition-colors',
         selected ? 'bg-selected' : 'hover:bg-accent',
@@ -50,19 +56,41 @@ export function TraceRow({
       >
         {trace.stations.map((station) => (
           <StationIcon
-            key={station.name}
+            key={station.stationId}
             share={stationShare(station.position, station.count)}
             color={station.color}
           />
         ))}
       </span>
 
-      <TrailLink
-        to={to}
-        className="min-w-0 truncate text-foreground outline-none after:absolute after:inset-0 after:rounded-md"
-      >
-        {trace.title}
-      </TrailLink>
+      <span className="flex min-w-0 items-center gap-1">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={open ? `runs-${trace.taskId}` : undefined}
+          aria-label={`${open ? 'Hide' : 'Show'} the runs of ${trace.title}`}
+          onClick={() => onOpenChange(!open)}
+          className="-ml-1 relative z-10 shrink-0 rounded-sm p-0.5 text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+        >
+          <ChevronRight
+            aria-hidden
+            className={cn('size-3.5 transition-transform', open && 'rotate-90')}
+          />
+        </button>
+
+        <TrailLink
+          to={to}
+          className="min-w-0 truncate text-foreground outline-none after:absolute after:inset-0 after:rounded-md"
+        >
+          {trace.title}
+        </TrailLink>
+
+        {trace.runs.length < trace.total && (
+          <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+            {trace.runs.length} of {trace.total} runs
+          </span>
+        )}
+      </span>
 
       <span className="min-w-0 truncate text-muted-foreground text-xs">
         {trace.input ?? '–'}
@@ -86,8 +114,8 @@ export function TraceRow({
       </span>
 
       <span className="truncate text-right text-muted-foreground text-xs tabular-nums">
-        {spentOn(trace.cost)}
+        {formatSpend(trace.cost)}
       </span>
-    </li>
+    </div>
   );
 }

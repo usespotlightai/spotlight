@@ -6,16 +6,17 @@ import type {
   InsightsFlowResponseDto,
   InsightsOverviewResponseDto,
   InsightsPeopleResponseDto,
-  InsightsRunResponseDto,
-  InsightsRunsResponseDto,
   InsightsStationsResponseDto,
-  ListInsightsRunsData,
+  InsightsTraceResponseDto,
+  InsightsTracesResponseDto,
+  ListInsightsTracesData,
   SignalReadingResponseDto,
   StationCacheUseResponseDto,
   StationReportResponseDto,
   StationWorthImprovingResponseDto,
   TallyDeltasResponseDto,
 } from '@/lib/api';
+import { world } from '@/mocks/world';
 import { type HistoryRun, tasksOfTeam } from '@/mocks/world/insights-history';
 import {
   type Better,
@@ -26,7 +27,6 @@ import {
   distinct,
   NO_CHANGE,
   type PeriodName,
-  periodNameOf,
   type Span,
   shareOf,
   spanOf,
@@ -50,6 +50,7 @@ import {
   versionChangesOf,
 } from '@/mocks/world/insights-tally';
 import { PEOPLE } from '@/mocks/world/people';
+import { tracedTaskOf } from '@/mocks/world/work';
 
 const dayWindow = (day: string): Window => {
   const from = Date.parse(`${day}T00:00:00.000Z`);
@@ -788,7 +789,7 @@ export const costOf = (
   };
 };
 
-type RunQuery = NonNullable<ListInsightsRunsData['query']>;
+type RunQuery = NonNullable<ListInsightsTracesData['query']>;
 
 const RUN_MATCHERS: {
   readonly [key in keyof RunQuery]?: (
@@ -822,46 +823,289 @@ const RUN_MATCHERS: {
     run.calls.some((call) => call.dismissed === value),
 };
 
-const PAGE_SIZE = 50;
-
-const shownRun = (run: HistoryRun): InsightsRunResponseDto => {
-  const {
-    teamId: _team,
-    at: _at,
-    size: _size,
-    judge: _judge,
-    skillsEnabled: _enabled,
-    skillsUsed: _used,
-    calls: _calls,
-    ...shown
-  } = run;
-  return shown;
+const UNFINISHED_MATCHERS: {
+  readonly [key in keyof RunQuery]?: (
+    run: UnfinishedRun,
+    value: string,
+  ) => boolean;
+} = {
+  lineId: (run, value) => run.lineId === value,
+  stationId: (run, value) => run.stationId === value,
+  harness: (run, value) => run.harness === value,
+  taskId: (run, value) => run.taskId === value,
+  taskIds: (run, value) => value.split(',').includes(run.taskId),
+  personId: (run, value) => run.openedBy === value,
 };
 
-export const runsListOf = (
+type UnfinishedRun = {
+  readonly runId: string;
+  readonly taskId: string;
+  readonly lineId: string;
+  readonly stationId: string;
+  readonly openedBy: string | null;
+  readonly harness: string;
+  readonly model: string | null;
+  readonly progress: 'queued' | 'in-progress' | 'stopping';
+  readonly queuedAt: string;
+  readonly startedAt: string | null;
+};
+
+const LISTING_PARAMS = ['range'];
+
+const unfinishedIn = (
   teamId: string,
   params: URLSearchParams,
-): InsightsRunsResponseDto => {
-  const span = spanOf(periodNameOf(params.get('period')));
-  const page = Math.max(1, Number(params.get('page') ?? 1) || 1);
-  const size = Math.max(
-    1,
-    Number(params.get('size') ?? PAGE_SIZE) || PAGE_SIZE,
+): UnfinishedRun[] => {
+  const filters = [...params.entries()].filter(
+    ([key, value]) => value !== '' && !LISTING_PARAMS.includes(key),
   );
-  const matching = runsIn(teamId, span.now).filter((run) =>
+
+  if (filters.some(([key]) => !(key in UNFINISHED_MATCHERS))) {
+    return [];
+  }
+
+  const lines = world().lines[teamId] ?? [];
+
+  return (world().tasks[teamId] ?? [])
+    .flatMap((task) =>
+      (world().runs[task.id] ?? []).flatMap((run) => {
+        const stationId = run.station?.id;
+        const line = lines.find((each) =>
+          each.stations.some((station) => station.id === stationId),
+        );
+
+        return run.progress && stationId && line
+          ? [
+              {
+                runId: run.id,
+                taskId: task.id,
+                lineId: line.id,
+                stationId,
+                openedBy: task.createdBy?.id ?? null,
+                harness: run.harness,
+                model: null,
+                progress: run.progress,
+                queuedAt: run.startedAt,
+                startedAt: run.progress === 'queued' ? null : run.startedAt,
+              },
+            ]
+          : [];
+      }),
+    )
+    .filter((run) =>
+      filters.every(
+        ([key, value]) =>
+          UNFINISHED_MATCHERS[key as keyof RunQuery]?.(run, value) ?? false,
+      ),
+    )
+    .sort((one, other) => other.queuedAt.localeCompare(one.queuedAt));
+};
+
+const RANGE_HOURS: Record<InsightsTracesResponseDto['range'], number> = {
+  '30m': 0.5,
+  '1h': 1,
+  '6h': 6,
+  '1d': 24,
+  '3d': 72,
+  '7d': 168,
+  '14d': 336,
+  '30d': 720,
+  '90d': 2160,
+};
+
+const rangeNameOf = (raw: string | null): InsightsTracesResponseDto['range'] =>
+  raw && raw in RANGE_HOURS
+    ? (raw as InsightsTracesResponseDto['range'])
+    : '30d';
+
+const BUCKETS = 30;
+
+const HOUR_MS = 3_600_000;
+
+type ListedRun =
+  | { readonly kind: 'ended'; readonly run: HistoryRun }
+  | { readonly kind: 'unfinished'; readonly run: UnfinishedRun };
+
+const latestOf = (listed: ListedRun): number =>
+  listed.kind === 'ended'
+    ? listed.run.at
+    : Date.parse(listed.run.startedAt ?? listed.run.queuedAt);
+
+const startOf = (listed: ListedRun): number =>
+  Date.parse(
+    listed.kind === 'ended'
+      ? (listed.run.startedAt ?? listed.run.queuedAt ?? listed.run.endedAt)
+      : listed.run.queuedAt,
+  );
+
+const traceOf = (
+  teamId: string,
+  taskId: string,
+  listed: readonly ListedRun[],
+  total: number,
+): InsightsTraceResponseDto | null => {
+  const task = tracedTaskOf(teamId, taskId);
+
+  if (!task) {
+    return null;
+  }
+
+  const ordered = [...listed].sort(
+    (one, other) =>
+      Number(other.kind === 'unfinished') - Number(one.kind === 'unfinished') ||
+      latestOf(other) - latestOf(one),
+  );
+  const ended = ordered.flatMap((each) =>
+    each.kind === 'ended' ? [each.run] : [],
+  );
+  const startedAt = Math.min(...ordered.map(startOf));
+  const costs = ended.flatMap((run) => (run.cost ? [run.cost.amount] : []));
+  const stationOf = (stationId: string) => task.stations.get(stationId) ?? null;
+  const stations = new Map(
+    [...ordered.map((each) => stationOf(each.run.stationId)), task.station]
+      .filter((each) => each !== null)
+      .map((each) => [each.stationId, each]),
+  );
+
+  return {
+    taskId,
+    title: task.title,
+    input: task.input,
+    output:
+      ordered
+        .map((each) => task.outputs.get(each.run.runId))
+        .find((each) => each !== undefined) ?? null,
+    station: task.station,
+    stations: [...stations.values()].sort(
+      (one, other) => one.position - other.position,
+    ),
+    startedAt: new Date(startedAt).toISOString(),
+    ms:
+      ended.length === ordered.length
+        ? Math.max(...ended.map((run) => run.at)) - startedAt
+        : null,
+    errors: ended.filter((run) => run.ending === 'failed').length,
+    cost: costs.length
+      ? {
+          amount: cents(costs.reduce((sum, each) => sum + each, 0)),
+          currency: 'USD',
+        }
+      : null,
+    total: Math.max(total, ordered.length),
+    runs: ordered.map((each) =>
+      each.kind === 'ended'
+        ? {
+            runId: each.run.runId,
+            station: stationOf(each.run.stationId),
+            progress: null,
+            ending: each.run.ending,
+            failure: each.run.failure,
+            openedBy: each.run.openedBy,
+            harness: each.run.harness,
+            model: each.run.model,
+            startedAt:
+              each.run.startedAt ?? each.run.queuedAt ?? each.run.endedAt,
+            endedAt: each.run.endedAt,
+            ms: each.run.ms,
+            errors: each.run.ending === 'failed' ? 1 : 0,
+            cost: each.run.cost,
+          }
+        : {
+            runId: each.run.runId,
+            station: stationOf(each.run.stationId),
+            progress: each.run.progress,
+            ending: null,
+            failure: null,
+            openedBy: each.run.openedBy,
+            harness: each.run.harness,
+            model: each.run.model,
+            startedAt: each.run.startedAt ?? each.run.queuedAt,
+            endedAt: null,
+            ms: null,
+            errors: null,
+            cost: null,
+          },
+    ),
+  };
+};
+
+export const insightsTracesOf = (
+  teamId: string,
+  params: URLSearchParams,
+): InsightsTracesResponseDto => {
+  const range = rangeNameOf(params.get('range'));
+  const to = Date.now();
+  const from = to - RANGE_HOURS[range] * HOUR_MS;
+  const inRange = runsIn(teamId, { from, to });
+  const narrowed = [...params.entries()].some(
+    ([key, value]) => value !== '' && !LISTING_PARAMS.includes(key),
+  );
+  const matching = inRange.filter((run) =>
     Object.entries(RUN_MATCHERS).every(([key, matches]) => {
       const value = params.get(key);
       return value === null || value === '' || matches(run, value);
     }),
   );
-  const shown = matching.slice((page - 1) * size, page * size);
+  const unfinished = unfinishedIn(teamId, params);
+  const totals = new Map<string, number>();
+
+  for (const run of [
+    ...(narrowed ? inRange : matching),
+    ...(narrowed ? unfinishedIn(teamId, new URLSearchParams()) : unfinished),
+  ]) {
+    totals.set(run.taskId, (totals.get(run.taskId) ?? 0) + 1);
+  }
+
+  const byTask = new Map<string, ListedRun[]>();
+
+  for (const listed of [
+    ...unfinished.map((run) => ({ kind: 'unfinished' as const, run })),
+    ...matching.map((run) => ({ kind: 'ended' as const, run })),
+  ]) {
+    byTask.set(listed.run.taskId, [
+      ...(byTask.get(listed.run.taskId) ?? []),
+      listed,
+    ]);
+  }
+
+  const traces = [...byTask]
+    .flatMap(([taskId, listed]) => {
+      const trace = traceOf(teamId, taskId, listed, totals.get(taskId) ?? 0);
+      return trace
+        ? [{ trace, latest: Math.max(...listed.map(latestOf)) }]
+        : [];
+    })
+    .sort(
+      (one, other) =>
+        Number(other.trace.ms === null) - Number(one.trace.ms === null) ||
+        other.latest - one.latest,
+    );
+  const width = (to - from) / BUCKETS;
 
   return {
-    period: span.period,
-    total: matching.length,
-    page,
-    size,
-    runs: shown.map(shownRun),
-    people: peopleNamed(shown.map((run) => run.openedBy)),
+    range,
+    from: new Date(from).toISOString(),
+    to: new Date(to).toISOString(),
+    volume: Array.from({ length: BUCKETS }, (_, at) => {
+      const start = from + at * width;
+      const inside = traces.filter(
+        ({ latest }) =>
+          Math.min(Math.max(latest, from), to - 1) >= start &&
+          Math.min(Math.max(latest, from), to - 1) < start + width,
+      );
+
+      return {
+        from: new Date(start).toISOString(),
+        to: new Date(start + width).toISOString(),
+        count: inside.length,
+        errors: inside.reduce((sum, each) => sum + each.trace.errors, 0),
+      };
+    }),
+    traces: traces.map(({ trace }) => trace),
+    matched: matching.length + unfinished.length,
+    truncated: false,
+    people: peopleNamed(
+      traces.flatMap(({ trace }) => trace.runs.map((run) => run.openedBy)),
+    ),
   };
 };

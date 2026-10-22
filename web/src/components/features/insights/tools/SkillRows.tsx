@@ -66,7 +66,7 @@ export function SkillRows({
                 onWeek={(week) =>
                   navigate(
                     insightsPath(slug, teamId, {
-                      tab: 'runs',
+                      tab: 'traces',
                       period,
                       filter: skillUsedFilter(skill.key, { week }),
                       page: 1,
@@ -77,12 +77,12 @@ export function SkillRows({
             </span>
             <span aria-hidden className="hidden @4xl:block" />
             <NestedCell heading="Enabled" strong>
-              <InsightsLink tab="runs" filter={skillEnabledFilter(skill.key)}>
+              <InsightsLink tab="traces" filter={skillEnabledFilter(skill.key)}>
                 {formatCount(skill.enabled)}
               </InsightsLink>
             </NestedCell>
             <NestedCell heading="Read" strong>
-              <InsightsLink tab="runs" filter={skillUsedFilter(skill.key)}>
+              <InsightsLink tab="traces" filter={skillUsedFilter(skill.key)}>
                 {formatCount(skill.used)}
               </InsightsLink>
             </NestedCell>
@@ -125,7 +125,7 @@ export function SkillRows({
                 )}
               >
                 <InsightsLink
-                  tab="runs"
+                  tab="traces"
                   filter={skillUsedFilter(skill.key, {
                     stationId: station.stationId,
                   })}

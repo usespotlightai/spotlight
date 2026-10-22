@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   listInsightsPullRequests,
-  listInsightsRuns,
+  listInsightsTraces,
   readInsightsAgentConfigs,
   readInsightsChanges,
   readInsightsCost,
@@ -65,37 +65,53 @@ describe('the mock insights', () => {
     expect(month).toBeLessThan(quarter);
   });
 
-  it('counts the same runs on the overview, the stations and the runs list', async () => {
+  it('counts the same runs on the overview, the stations and the traces', async () => {
     const query = { period: '30d' as const };
-    const [overview, stations, runs, cost] = await Promise.all([
+    const [overview, stations, traces, cost] = await Promise.all([
       readInsightsOverview({ path: team, query, throwOnError: true }),
       readInsightsStations({ path: team, query, throwOnError: true }),
-      listInsightsRuns({ path: team, query, throwOnError: true }),
+      listInsightsTraces({
+        path: team,
+        query: { range: '30d' },
+        throwOnError: true,
+      }),
       readInsightsCost({ path: team, query, throwOnError: true }),
     ]);
+    const ended = traces.data.traces
+      .flatMap((trace) => trace.runs)
+      .filter((run) => run.ending !== null);
 
     expect(stations.data.team.runs).toBe(overview.data.headline.runs);
-    expect(runs.data.total).toBe(overview.data.headline.runs);
+    expect(ended).toHaveLength(overview.data.headline.runs);
     expect(cost.data.cost.spend).toEqual(overview.data.headline.spend);
-    expect(runs.data.runs).toHaveLength(50);
+    expect(traces.data.volume.reduce((sum, each) => sum + each.count, 0)).toBe(
+      traces.data.traces.length,
+    );
   });
 
-  it('filters the runs list by station and outcome', async () => {
-    const { data } = await listInsightsRuns({
+  it('filters the traces to the runs at a station with an outcome, and counts every run of each task', async () => {
+    const { data } = await listInsightsTraces({
       path: team,
-      query: { period: '30d', stationId: IMPLEMENTATION, outcome: 'failed' },
+      query: { range: '30d', stationId: IMPLEMENTATION, outcome: 'failed' },
       throwOnError: true,
     });
+    const runs = data.traces.flatMap((trace) => trace.runs);
     const { data: stations } = await readInsightsStations({
       path: team,
       query: { period: '30d' },
       throwOnError: true,
     });
 
-    expect(data.runs.every((run) => run.stationId === IMPLEMENTATION)).toBe(
+    expect(
+      runs.every(
+        (run) =>
+          run.station?.stationId === IMPLEMENTATION && run.ending === 'failed',
+      ),
+    ).toBe(true);
+    expect(data.traces.some((trace) => trace.total > trace.runs.length)).toBe(
       true,
     );
-    expect(data.total).toBe(
+    expect(runs.length).toBe(
       stations.stations.find((each) => each.stationId === IMPLEMENTATION)?.tally
         .failed,
     );
@@ -242,11 +258,15 @@ describe('the mock insights of a fresh workspace', () => {
 
   it('answers every tab empty', async () => {
     const query = { period: '30d' as const };
-    const [overview, stations, runs, changes, pullRequests, list, shipping] =
+    const [overview, stations, traces, changes, pullRequests, list, shipping] =
       await Promise.all([
         readInsightsOverview({ path: team, query, throwOnError: true }),
         readInsightsStations({ path: team, query, throwOnError: true }),
-        listInsightsRuns({ path: team, query, throwOnError: true }),
+        listInsightsTraces({
+          path: team,
+          query: { range: '30d' },
+          throwOnError: true,
+        }),
         readInsightsChanges({ path: team, query, throwOnError: true }),
         readInsightsPullRequests({ path: team, query, throwOnError: true }),
         listInsightsPullRequests({ path: team, query, throwOnError: true }),
@@ -256,7 +276,8 @@ describe('the mock insights of a fresh workspace', () => {
     expect(overview.data.headline.runs).toBe(0);
     expect(overview.data.worthImproving).toEqual([]);
     expect(stations.data.stations).toEqual([]);
-    expect(runs.data.runs).toEqual([]);
+    expect(traces.data.traces).toEqual([]);
+    expect(traces.data.volume.every((each) => each.count === 0)).toBe(true);
     expect(changes.data.markers).toEqual([]);
     expect(pullRequests.data.total).toBe(0);
     expect(list.data.pullRequests).toEqual([]);

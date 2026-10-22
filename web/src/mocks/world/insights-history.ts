@@ -1,7 +1,10 @@
 import type {
-  InsightsRunResponseDto,
+  HumanActionResponseDto,
+  MoneyResponseDto,
+  StationPassResponseDto,
   TaskResponseDto,
   TaskRunResponseDto,
+  TraceRunResponseDto,
 } from '@/lib/api';
 import type { PullRequestType } from '@/lib/insights-pull-requests';
 import { perWorld } from '@/mocks/world';
@@ -54,7 +57,39 @@ type ServerCalls = {
   readonly dismissed: string | null;
 };
 
-export type HistoryRun = InsightsRunResponseDto & {
+type RunEnding = NonNullable<TraceRunResponseDto['ending']>;
+
+export type HistoryRun = {
+  readonly runId: string;
+  readonly taskId: string;
+  readonly lineId: string;
+  readonly stationId: string;
+  readonly fingerprint: string | null;
+  readonly harness: string;
+  readonly model: string | null;
+  readonly effort: string | null;
+  readonly profileKey: string | null;
+  readonly repositories: readonly string[];
+  readonly openedBy: string | null;
+  readonly queuedAt: string | null;
+  readonly startedAt: string | null;
+  readonly endedAt: string;
+  readonly queuedMs: number | null;
+  readonly runningMs: number | null;
+  readonly ms: number | null;
+  readonly cost: MoneyResponseDto | null;
+  readonly tokens: {
+    readonly input: number | null;
+    readonly output: number | null;
+    readonly cacheRead: number | null;
+    readonly cacheWrite: number | null;
+  } | null;
+  readonly ending: RunEnding;
+  readonly failure: string | null;
+  readonly checks: 'passed' | 'failed' | 'skipped' | null;
+  readonly firstHumanAction: HumanActionResponseDto | null;
+  readonly passed: StationPassResponseDto | null;
+  readonly pullRequestState: 'open' | 'merged' | 'closed' | null;
   readonly teamId: string;
   readonly at: number;
   readonly size: RunSize;

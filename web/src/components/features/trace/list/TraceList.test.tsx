@@ -3,20 +3,23 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TraceList } from '@/components/features/trace/list/TraceList';
-import type { Traced } from '@/lib/trace-list';
+import type { InsightsTrace, RunFilter } from '@/lib/insights';
 
 const traces = vi.fn();
 const failing = vi.fn();
 const refetch = vi.fn();
 
-vi.mock('@/hooks/api/useTeamTraces', () => ({
-  useTeamTraces: () => ({
+vi.mock('@/hooks/api/useInsightsTraces', () => ({
+  useInsightsTraces: () => ({
     data: traces() && {
       range: '7d',
       from: '2026-08-22T12:00:00.000Z',
       to: '2026-08-29T12:00:00.000Z',
       volume: [],
       traces: traces(),
+      matched: 1,
+      truncated: false,
+      people: [{ personId: 'user_ada', name: 'Ada Lovelace' }],
     },
     isPending: traces() === undefined,
     errorUpdateCount: failing() ? 1 : 0,
@@ -31,27 +34,56 @@ vi.mock('@/hooks/api/useLines', () => ({
   }),
 }));
 
+vi.mock('@/hooks/api/useHarnesses', () => ({
+  useHarnesses: () => ({
+    data: [{ id: 'claude-code', name: 'Claude Code' }],
+  }),
+}));
+
 vi.mock('@/components/features/trace/list/TraceVolume', () => ({
   TraceVolume: () => null,
 }));
 
-const traced: Traced = {
+const IMPLEMENTATION = {
+  stationId: 'station_1',
+  name: 'Implementation',
+  color: '#edc12b',
+  position: 1,
+  count: 3,
+};
+
+const traced: InsightsTrace = {
   taskId: 'task_1',
   title: 'Drain the stuck retry queues',
-  station: null,
-  stations: [],
-  harness: 'claude-code',
-  state: 'completed',
-  startedAt: new Date().toISOString(),
-  runs: 1,
   input: null,
   output: null,
+  station: IMPLEMENTATION,
+  stations: [IMPLEMENTATION],
+  startedAt: new Date().toISOString(),
   ms: 12_000,
-  steps: 4,
   errors: 0,
-  cost: 0.42,
-  currency: 'USD',
+  cost: { amount: 0.42, currency: 'USD' },
+  total: 1,
+  runs: [
+    {
+      runId: 'run_1',
+      station: IMPLEMENTATION,
+      progress: null,
+      ending: 'failed',
+      failure: 'timed-out',
+      openedBy: 'user_ada',
+      harness: 'claude-code',
+      model: 'opus',
+      startedAt: new Date().toISOString(),
+      endedAt: new Date().toISOString(),
+      ms: 12_000,
+      errors: 2,
+      cost: { amount: 0.42, currency: 'USD' },
+    },
+  ],
 };
+
+const everyTrace = vi.fn();
 
 function HandedOver() {
   const { state } = useLocation();
@@ -59,13 +91,21 @@ function HandedOver() {
   return <pre>{JSON.stringify(state.traces)}</pre>;
 }
 
-const showing = () =>
+const showing = (filter: RunFilter = {}) =>
   render(
     <MemoryRouter initialEntries={['/w/acme/team/team_1/insights']}>
       <Routes>
         <Route
           path="/w/acme/team/team_1/insights"
-          element={<TraceList slug="acme" teamId="team_1" range="7d" />}
+          element={
+            <TraceList
+              slug="acme"
+              teamId="team_1"
+              range="7d"
+              filter={filter}
+              onEveryTrace={everyTrace}
+            />
+          }
         />
         <Route path="/w/acme/team/team_1/agent" element={<HandedOver />} />
       </Routes>
@@ -76,6 +116,7 @@ beforeEach(() => {
   traces.mockReturnValue([traced]);
   failing.mockReturnValue(false);
   refetch.mockClear();
+  everyTrace.mockClear();
 });
 
 describe('TraceList', () => {
@@ -85,6 +126,49 @@ describe('TraceList', () => {
     expect(
       screen.getByRole('link', { name: 'Drain the stuck retry queues' }),
     ).toHaveAttribute('href', '/w/acme/team/team_1/tasks/task_1/trace');
+  });
+
+  it('shows the runs of a trace on request, each leading to its run', async () => {
+    showing();
+
+    expect(
+      screen.queryByRole('link', { name: 'Failed' }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Show the runs of Drain the stuck retry queues',
+      }),
+    );
+
+    expect(screen.getByRole('link', { name: 'Failed' })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/runs/run_1',
+    );
+    expect(
+      screen.getByText('Ada Lovelace · Claude Code · opus'),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the matching runs of each trace when narrowed, and how many runs it had', () => {
+    traces.mockReturnValue([{ ...traced, total: 3 }]);
+    showing({ outcome: 'failed' });
+
+    expect(screen.getByRole('link', { name: 'Failed' })).toBeInTheDocument();
+    expect(screen.getByText('1 of 3 runs')).toBeInTheDocument();
+  });
+
+  it('says no trace matches, and shows every trace on request', async () => {
+    traces.mockReturnValue([]);
+    showing({ outcome: 'failed' });
+
+    expect(screen.getByText('No traces match.')).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Show every trace' }),
+    );
+
+    expect(everyTrace).toHaveBeenCalled();
   });
 
   it('takes the selected traces to a new chat with the agent', async () => {

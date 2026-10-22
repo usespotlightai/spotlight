@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   listInbox,
   listInsightsPullRequests,
-  listInsightsRuns,
+  listInsightsTraces,
   listReplaySets,
   listReplays,
   listRunChangeStacks,
@@ -98,16 +98,18 @@ describe('one run history across the mock', () => {
     ]);
   });
 
-  it('lists every run Insights counts in the team runs list', async () => {
+  it('lists every run of the traces in the team runs list, at a known station', async () => {
     const runs = new Set((await teamRuns()).map((run) => run.id));
-    const { data } = await listInsightsRuns({
+    const { data } = await listInsightsTraces({
       path: { teamId },
-      query: { period: '90d', size: 500 },
+      query: { range: '90d' },
       throwOnError: true,
     });
+    const traced = data.traces.flatMap((trace) => trace.runs);
 
-    expect(data.runs.length).toBeGreaterThan(100);
-    expect(data.runs.every((run) => runs.has(run.runId))).toBe(true);
+    expect(traced.length).toBeGreaterThan(100);
+    expect(traced.every((run) => runs.has(run.runId))).toBe(true);
+    expect(traced.every((run) => run.station !== null)).toBe(true);
   });
 
   it('answers the conversation of every run in the team runs list', async () => {
@@ -327,16 +329,17 @@ describe('the task journal and the run conversations tell one story', () => {
     const journal = (await journalOf('task_postgres')).find(
       (each) => each.runId === 'run_postgres_2',
     );
-    const { data: insights } = await listInsightsRuns({
+    const { data: insights } = await listInsightsTraces({
       path: { teamId },
-      query: { period: '30d', taskId: 'task_postgres', size: 10 },
+      query: { range: '30d', taskId: 'task_postgres' },
       throwOnError: true,
     });
 
     expect(journal?.spent?.cost).toBe(run.spend?.cost);
     expect(
-      insights.runs.find((each) => each.runId === 'run_postgres_2')?.cost
-        ?.amount,
+      insights.traces
+        .flatMap((trace) => trace.runs)
+        .find((each) => each.runId === 'run_postgres_2')?.cost?.amount,
     ).toBe(run.spend?.cost);
   });
 });

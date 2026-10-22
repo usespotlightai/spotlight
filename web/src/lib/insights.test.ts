@@ -14,8 +14,8 @@ import {
   headlineTiles,
   insightsPath,
   lastPageOf,
+  pageShownOf,
   paramsOf,
-  runsShownOf,
   sankeyOf,
   shownDeltaOf,
   sliceFilter,
@@ -98,18 +98,18 @@ describe('the insights view in the address', () => {
     });
   });
 
-  it('reads the tab, the period, the run filters and the page', () => {
+  it('reads the tab, the period and the run filters, and keeps no page on the traces', () => {
     expect(
       viewOf(
         new URLSearchParams(
-          'tab=runs&period=7d&stationId=station_build&outcome=failed&page=3',
+          'tab=traces&period=7d&stationId=station_build&outcome=failed&page=3',
         ),
       ),
     ).toEqual({
-      tab: 'runs',
+      tab: 'traces',
       period: '7d',
       filter: { stationId: 'station_build', outcome: 'failed' },
-      page: 3,
+      page: 1,
     });
   });
 
@@ -123,7 +123,7 @@ describe('the insights view in the address', () => {
     expect(
       viewOf(
         new URLSearchParams(
-          'tab=runs&pullRequestState=merged&humanAction=sent-back&asked=true&taskIds=a,b&model=~default&repository=none',
+          'tab=traces&pullRequestState=merged&humanAction=sent-back&asked=true&taskIds=a,b&model=~default&repository=none',
         ),
       ).filter,
     ).toEqual({
@@ -137,7 +137,7 @@ describe('the insights view in the address', () => {
     expect(
       viewOf(
         new URLSearchParams(
-          'tab=runs&pullRequestState=lost&humanAction=shrugged&asked=no',
+          'tab=traces&pullRequestState=lost&humanAction=shrugged&asked=no',
         ),
       ).filter,
     ).toEqual({});
@@ -191,14 +191,12 @@ describe('the insights view in the address', () => {
     ).toEqual({});
     expect(
       insightsPath('acme', 'team_1', {
-        tab: 'runs',
+        tab: 'traces',
         period: '90d',
         filter: { day: '2026-09-30' },
-        page: 2,
+        page: 1,
       }),
-    ).toBe(
-      '/w/acme/team/team_1/insights?tab=runs&period=90d&day=2026-09-30&page=2',
-    );
+    ).toBe('/w/acme/team/team_1/insights?tab=traces&period=90d&day=2026-09-30');
   });
 
   it('reads the pull request filters on the pull requests tab, and drops bad ones', () => {
@@ -244,10 +242,10 @@ describe('the insights view in the address', () => {
 
   it('round-trips through the address', () => {
     const view = {
-      tab: 'runs' as const,
+      tab: 'traces' as const,
       period: '7d' as const,
       filter: { model: 'opus', personId: 'user_1' },
-      page: 4,
+      page: 1,
     };
 
     expect(viewOf(new URLSearchParams(paramsOf(view)))).toEqual(view);
@@ -321,7 +319,7 @@ describe('headlineTiles', () => {
     expect(tiles[0]?.delta).toEqual({ shown: '+20%', tone: 'flat' });
     expect(tiles[1]?.delta).toEqual({ shown: '+100%', tone: 'good' });
     expect(tiles[2]?.delta).toEqual({ shown: '+5 pts', tone: 'good' });
-    expect(tiles[0]?.drill).toEqual({ tab: 'runs' });
+    expect(tiles[0]?.drill).toEqual({ tab: 'traces' });
     expect(tiles[6]?.drill).toEqual({ tab: 'people' });
   });
 
@@ -352,11 +350,11 @@ describe('headlineTiles', () => {
     );
 
     expect(tiles[1]?.drill).toEqual({
-      tab: 'runs',
+      tab: 'traces',
       filter: { taskIds: 'task_1,task_2' },
     });
     expect(tiles[2]?.drill).toEqual({
-      tab: 'runs',
+      tab: 'traces',
       filter: { pullRequestState: 'merged' },
     });
   });
@@ -366,7 +364,7 @@ describe('headlineTiles', () => {
     const tiles = headlineTiles(headline({ mergedTaskIds: many }), UNCHANGED);
 
     expect(tiles[1]?.drill).toEqual({
-      tab: 'runs',
+      tab: 'traces',
       filter: { pullRequestState: 'merged' },
     });
   });
@@ -487,19 +485,16 @@ describe('cost', () => {
   });
 });
 
-describe('pages of runs', () => {
-  const page = (total: number, at: number) => ({
-    period: {} as never,
-    total,
-    page: at,
-    size: 50,
-    runs: [],
-    people: [],
-  });
+describe('pages', () => {
+  const page = (total: number, at: number) => ({ total, page: at, size: 50 });
 
-  it('says which runs a page shows', () => {
-    expect(runsShownOf(page(120, 3))).toBe('101–120 of 120');
-    expect(runsShownOf(page(0, 1))).toBe('No runs');
+  it('says which items a page shows', () => {
+    expect(pageShownOf(page(120, 3), 'No pull requests')).toBe(
+      '101–120 of 120',
+    );
+    expect(pageShownOf(page(0, 1), 'No pull requests')).toBe(
+      'No pull requests',
+    );
     expect(lastPageOf(page(120, 1))).toBe(3);
     expect(lastPageOf(page(0, 1))).toBe(1);
   });

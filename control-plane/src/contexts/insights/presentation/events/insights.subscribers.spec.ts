@@ -106,6 +106,8 @@ const ENDED: EndedRun = {
 };
 
 const WORK = {
+  unfinishedRuns: async () => [],
+  traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
   endedRun: async (runId: string) => (runId === ENDED.runId ? ENDED : null),
   configsInOrder: async () => [],
   teamRepositories: async () => ['acme/api'],

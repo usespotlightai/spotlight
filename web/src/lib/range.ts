@@ -1,6 +1,6 @@
-import type { TeamTracesResponseDto } from '@/lib/api';
+import type { InsightsTracesResponseDto } from '@/lib/api';
 
-type RangeId = TeamTracesResponseDto['range'];
+type RangeId = InsightsTracesResponseDto['range'];
 
 export interface Range {
   readonly id: RangeId;

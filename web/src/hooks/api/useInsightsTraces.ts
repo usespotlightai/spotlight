@@ -1,39 +1,36 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { listInsightsRuns } from '@/lib/api';
+import { listInsightsTraces } from '@/lib/api';
 import type {
-  InsightsPeriod,
-  InsightsRuns,
+  InsightsTraces,
   RunEnding,
   RunFilter,
   RunHumanAction,
   RunPullRequestState,
 } from '@/lib/insights';
+import { rangeOf } from '@/lib/range';
 
-const insightsRunKeys = {
-  forTeam: (
-    teamId: string | undefined,
-    period: InsightsPeriod,
-    filter: RunFilter,
-    page: number,
-  ) => ['insights', 'runs', teamId ?? null, period, filter, page] as const,
+const insightsTraceKeys = {
+  forTeam: (teamId: string | undefined, range: string, filter: RunFilter) =>
+    ['insights', 'traces', teamId ?? null, range, filter] as const,
 };
 
-export function useInsightsRuns(
+const POLL_MS = 10_000;
+
+export function useInsightsTraces(
   teamId: string | undefined,
-  period: InsightsPeriod,
+  range: string,
   filter: RunFilter,
-  page: number,
 ) {
   return useQuery({
-    queryKey: insightsRunKeys.forTeam(teamId, period, filter, page),
+    queryKey: insightsTraceKeys.forTeam(teamId, range, filter),
     enabled: Boolean(teamId),
     placeholderData: keepPreviousData,
-    queryFn: async (): Promise<InsightsRuns> => {
-      const { data } = await listInsightsRuns({
+    refetchInterval: POLL_MS,
+    queryFn: async (): Promise<InsightsTraces> => {
+      const { data } = await listInsightsTraces({
         path: { teamId: teamId as string },
         query: {
-          period,
-          page,
+          range: rangeOf(range).id,
           ...filter,
           outcome: filter.outcome as RunEnding | undefined,
           pullRequestState: filter.pullRequestState as

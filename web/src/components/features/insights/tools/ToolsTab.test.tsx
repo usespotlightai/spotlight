@@ -132,7 +132,7 @@ const showing = (search = '?tab=tools') =>
     </MemoryRouter>,
   );
 
-const RUNS = '/w/acme/team/team_1/insights?tab=runs';
+const RUNS = '/w/acme/team/team_1/insights?tab=traces';
 
 beforeEach(() => {
   answer.tools = queried(TOOLS);
@@ -246,7 +246,7 @@ describe('the skills and tools of the Tools and skills tab', () => {
 
     expect(station).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/insights?tab=runs&period=7d&stationId=station_impl&skillUsed=our-migrations',
+      '/w/acme/team/team_1/insights?tab=traces&period=7d&stationId=station_impl&skillUsed=our-migrations',
     );
     expect(station.closest('li')).toHaveTextContent('Runs10Enabled8Read5');
     expect(

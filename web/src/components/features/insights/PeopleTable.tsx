@@ -36,7 +36,7 @@ export function PeopleTable({ people }: { people: readonly PersonUse[] }) {
             )}
           >
             <InsightsLink
-              tab="runs"
+              tab="traces"
               filter={{ personId: person.personId }}
               className="truncate font-medium text-foreground"
             >

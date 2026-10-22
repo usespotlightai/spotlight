@@ -1,4 +1,3 @@
-import type { ListedRun } from '@insights/application/ports/insights-reader.port';
 import type { Adoption } from '@insights/domain/services/adoption';
 import type {
   CacheUse,
@@ -33,18 +32,11 @@ import type {
   DayTally,
   StationReport,
 } from '@insights/domain/services/station-reports';
-import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
 import type { Delta } from '@insights/domain/value-objects/delta.vo';
 import type {
   InsightsPeriod,
   InsightsPeriodName,
 } from '@insights/domain/value-objects/insights-period.vo';
-import type { RunEnding } from '@insights/domain/value-objects/run-ending';
-import type {
-  Money,
-  TokenCounts,
-} from '@insights/domain/value-objects/run-usage.vo';
-import type { TaskPullRequestState } from '@insights/domain/value-objects/task-pull-request-state';
 
 export type DeltaDto = Delta;
 
@@ -197,52 +189,10 @@ export type FlowNodeDto = FlowNode;
 
 export type FlowLinkDto = FlowLink;
 
-export type TokenCountsDto = TokenCounts;
-
 export interface InsightsCostDto {
   readonly period: PeriodDto;
   readonly cost: CostBreakdownDto;
   readonly spendChange: DeltaDto | null;
-}
-
-export interface InsightsRunDto {
-  readonly runId: string;
-  readonly taskId: string;
-  readonly lineId: string;
-  readonly stationId: string;
-  readonly fingerprint: string | null;
-  readonly harness: string;
-  readonly model: string | null;
-  readonly effort: string | null;
-  readonly profileKey: string | null;
-  readonly repositories: readonly string[];
-  readonly openedBy: string | null;
-  readonly queuedAt: string | null;
-  readonly startedAt: string | null;
-  readonly endedAt: string;
-  readonly queuedMs: number | null;
-  readonly runningMs: number | null;
-  readonly ms: number | null;
-  readonly cost: Money | null;
-  readonly tokens: TokenCounts | null;
-  readonly ending: RunEnding;
-  readonly failure: string | null;
-  readonly checks: CheckVerdict | null;
-  readonly firstHumanAction: {
-    readonly kind: string;
-    readonly at: string;
-  } | null;
-  readonly passed: { readonly to: string; readonly at: string } | null;
-  readonly pullRequestState: TaskPullRequestState | null;
-}
-
-export interface InsightsRunsDto {
-  readonly period: PeriodDto;
-  readonly total: number;
-  readonly page: number;
-  readonly size: number;
-  readonly runs: readonly InsightsRunDto[];
-  readonly people: readonly PersonNameDto[];
 }
 
 export const periodOf = (period: InsightsPeriod): PeriodDto => ({
@@ -315,39 +265,4 @@ export const adoptionDtoOf = (
     firstSeenAt: each.firstSeenAt.toISOString(),
     lastActiveAt: each.lastActiveAt.toISOString(),
   })),
-});
-
-export const insightsRunOf = (run: ListedRun): InsightsRunDto => ({
-  runId: run.runId,
-  taskId: run.taskId,
-  lineId: run.lineId,
-  stationId: run.stationId,
-  fingerprint: run.fingerprint,
-  harness: run.harness,
-  model: run.model,
-  effort: run.effort,
-  profileKey: run.profileKey,
-  repositories: run.repositories,
-  openedBy: run.openedBy,
-  queuedAt: run.queuedAt?.toISOString() ?? null,
-  startedAt: run.startedAt?.toISOString() ?? null,
-  endedAt: run.endedAt.toISOString(),
-  queuedMs: run.queuedMs,
-  runningMs: run.runningMs,
-  ms: run.ms,
-  cost: run.cost,
-  tokens: run.tokens,
-  ending: run.ending,
-  failure: run.failure,
-  checks: run.checks,
-  firstHumanAction: run.firstHumanAction
-    ? {
-        kind: run.firstHumanAction.kind,
-        at: run.firstHumanAction.at.toISOString(),
-      }
-    : null,
-  passed: run.passed
-    ? { to: run.passed.to, at: run.passed.at.toISOString() }
-    : null,
-  pullRequestState: run.pullRequestState,
 });

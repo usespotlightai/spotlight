@@ -1,3 +1,4 @@
+import type { UnfinishedRun } from '@insights/domain/services/unfinished-runs';
 import type { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
 
 export const WORK = Symbol('INSIGHTS_WORK');
@@ -58,8 +59,39 @@ export interface ConfigInOrder {
   readonly changes: readonly ConfigPart[];
 }
 
+export interface TracedStation {
+  readonly stationId: string;
+  readonly name: string;
+  readonly color: string;
+  readonly position: number;
+  readonly count: number;
+}
+
+interface TracedTask {
+  readonly taskId: string;
+  readonly title: string;
+  readonly input: string | null;
+  readonly stationId: string;
+}
+
+export interface TracedWork {
+  readonly tasks: readonly TracedTask[];
+  readonly stations: readonly TracedStation[];
+  readonly outputs: ReadonlyMap<string, string>;
+}
+
+export interface TracedWanted {
+  readonly taskIds: readonly string[];
+  readonly runIds: readonly string[];
+  readonly stationIds: readonly string[];
+}
+
 export interface WorkPort {
   endedRun(runId: string): Promise<EndedRun | null>;
+
+  unfinishedRuns(teamId: string): Promise<readonly UnfinishedRun[]>;
+
+  traced(wanted: TracedWanted): Promise<TracedWork>;
 
   configsInOrder(
     fingerprints: readonly string[],

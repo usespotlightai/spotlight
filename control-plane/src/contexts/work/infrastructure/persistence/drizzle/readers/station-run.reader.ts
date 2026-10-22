@@ -11,18 +11,25 @@ import type {
   StationRunReaderPort,
   StationRunRow,
   StationRunsWanted,
+  TracedRows,
+  TracedWanted,
+  UnfinishedRunRow,
 } from '@work/application/ports/station-run-reader.port';
 import {
   type RunState,
   TERMINAL_RUN_STATES,
 } from '@work/domain/value-objects/run-state';
 import { journalsOfRuns } from '@work/infrastructure/persistence/drizzle/readers/run-journals';
+import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import {
   line,
   station,
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
-import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
+import {
+  task,
+  taskNote,
+} from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import {
   and,
   desc,
@@ -32,11 +39,14 @@ import {
   isNotNull,
   lt,
   notInArray,
+  or,
   sql,
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 const replayed = alias(run, 'replayed');
+
+const MOST_UNFINISHED = 200;
 
 @Injectable()
 export class DrizzleStationRunReader implements StationRunReaderPort {
@@ -80,6 +90,44 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
     return row?.taskId && row.endedAt
       ? { ...row, taskId: row.taskId, endedAt: row.endedAt }
       : null;
+  }
+
+  async unfinishedOfTeam(teamId: TeamId): Promise<readonly UnfinishedRunRow[]> {
+    const rows = await this.db
+      .select({
+        runId: run.id,
+        lineId: line.id,
+        stationId: station.id,
+        taskId: task.id,
+        openedBy: task.createdById,
+        harness: run.harness,
+        config: run.stationConfig,
+        state: run.state,
+        stopRequestedAt: run.stopRequestedAt,
+        queuedAt: run.createdAt,
+        startedAt: run.startedAt,
+      })
+      .from(run)
+      .innerJoin(task, eq(task.id, run.taskId))
+      .innerJoin(station, eq(station.id, run.stationId))
+      .innerJoin(line, eq(line.id, station.lineId))
+      .where(
+        and(
+          eq(line.teamId, teamId.value),
+          notInArray(run.state, [...TERMINAL_RUN_STATES]),
+          or(
+            inArray(run.state, ['queued', 'claimed']),
+            isNotNull(run.stopRequestedAt),
+          ),
+        ),
+      )
+      .orderBy(desc(run.createdAt), desc(run.id))
+      .limit(MOST_UNFINISHED);
+
+    return rows.map(({ stopRequestedAt, ...row }) => ({
+      ...row,
+      stopRequested: stopRequestedAt !== null,
+    }));
   }
 
   async alertsAt(
@@ -226,5 +274,69 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
 
   journalsOf(runIds: readonly string[]): Promise<readonly RunJournal[]> {
     return journalsOfRuns(this.db, runIds);
+  }
+
+  async traced(wanted: TracedWanted): Promise<TracedRows> {
+    const tasks =
+      wanted.taskIds.length === 0
+        ? []
+        : await this.db
+            .select({
+              taskId: task.id,
+              title: task.title,
+              description: task.description,
+              stationId: task.stationId,
+            })
+            .from(task)
+            .where(inArray(task.id, [...wanted.taskIds]));
+
+    const stationIds = [
+      ...new Set([
+        ...wanted.stationIds,
+        ...tasks.map((each) => each.stationId),
+      ]),
+    ];
+    const found =
+      stationIds.length === 0
+        ? []
+        : await this.db
+            .select({
+              stationId: station.id,
+              name: station.name,
+              color: station.color,
+              position: station.position,
+              lineId: station.lineId,
+            })
+            .from(station)
+            .where(inArray(station.id, stationIds));
+    const counts = await stationsPerLine(
+      this.db,
+      found.map((each) => each.lineId),
+    );
+
+    const notes =
+      wanted.runIds.length === 0
+        ? []
+        : await this.db
+            .selectDistinctOn([taskNote.taskId], {
+              taskId: taskNote.taskId,
+              body: taskNote.body,
+            })
+            .from(taskNote)
+            .where(inArray(taskNote.runId, [...wanted.runIds]))
+            .orderBy(
+              taskNote.taskId,
+              desc(taskNote.at),
+              desc(taskNote.position),
+            );
+
+    return {
+      tasks,
+      stations: found.map(({ lineId, ...each }) => ({
+        ...each,
+        stations: counts.get(lineId) ?? 1,
+      })),
+      notes: new Map(notes.map((each) => [each.taskId, each.body])),
+    };
   }
 }

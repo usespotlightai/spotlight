@@ -37,6 +37,8 @@ const watching = (initially: readonly AlertRule[] | null) => {
   const deletions = deletionsInMemory();
   let next = 0;
   const work: WorkPort = {
+    unfinishedRuns: async () => [],
+    traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
     endedRun: async () => null,
     configsInOrder: async () => [],
     teamRepositories: async () => [],

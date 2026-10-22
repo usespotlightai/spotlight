@@ -1,4 +1,8 @@
-import { InvalidTraceRangeError } from '@work/domain/exceptions/invalid-trace-range.error';
+import { InvalidTraceRangeError } from '@insights/domain/exceptions/invalid-trace-range.error';
+import {
+  INSIGHTS_PERIODS,
+  InsightsPeriod,
+} from '@insights/domain/value-objects/insights-period.vo';
 
 const MINUTE_MS = 60_000;
 const HOUR = 60;
@@ -44,9 +48,13 @@ export class TraceRange {
 
     const { minutes, bucketMinutes } = STRETCHES[name];
 
+    const period = INSIGHTS_PERIODS.find((each) => each === name);
+
     return new TraceRange(
       name,
-      new Date(now.getTime() - minutes * MINUTE_MS),
+      period
+        ? InsightsPeriod.of(period, now).current.from
+        : new Date(now.getTime() - minutes * MINUTE_MS),
       now,
       bucketMinutes * MINUTE_MS,
     );

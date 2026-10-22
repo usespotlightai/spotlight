@@ -1742,85 +1742,6 @@ export type TeamRunResponseDto = {
   taskDescription: string | null;
 };
 
-export type TraceVolumeBucketResponseDto = {
-  /**
-   * When the bar starts
-   */
-  from: string;
-  /**
-   * When the bar ends, not included
-   */
-  to: string;
-  /**
-   * How many traces started in it
-   */
-  count: number;
-  /**
-   * Every error in the traces that started in it
-   */
-  errors: number;
-};
-
-export type TraceStationResponseDto = {
-  name: string;
-  color: string;
-  position: number;
-  /**
-   * How many stations the line has
-   */
-  count: number;
-};
-
-export type TeamTraceResponseDto = {
-  taskId: string;
-  title: string;
-  station: TraceStationResponseDto | null;
-  /**
-   * Every station that has run it, in the line’s order
-   */
-  stations: Array<TraceStationResponseDto>;
-  harness: string;
-  state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
-  startedAt: string;
-  /**
-   * How many runs the task has had
-   */
-  runs: number;
-  /**
-   * What the last run was put to
-   */
-  input: string | null;
-  /**
-   * The last note that the run wrote on the task
-   */
-  output: string | null;
-  ms: number | null;
-  steps: number;
-  errors: number;
-  cost: number | null;
-  currency: string | null;
-};
-
-export type TeamTracesResponseDto = {
-  range: '30m' | '1h' | '6h' | '1d' | '3d' | '7d' | '14d' | '30d' | '90d';
-  /**
-   * Where the range starts
-   */
-  from: string;
-  /**
-   * Where the range ends: when it was requested
-   */
-  to: string;
-  /**
-   * Every trace in the range, counted into evenly long bars from start to end, empty bars included
-   */
-  volume: Array<TraceVolumeBucketResponseDto>;
-  /**
-   * Every trace in the range, latest first
-   */
-  traces: Array<TeamTraceResponseDto>;
-};
-
 export type ConfigChangeResponseDto = {
   part: 'prompt' | 'harness' | 'model' | 'effort' | 'profile' | 'image' | 'repository' | 'skill' | 'tool' | 'decisions' | 'memories' | 'judge';
   /**
@@ -7026,68 +6947,138 @@ export type InsightsPullRequestListResponseDto = {
   pullRequests: Array<InsightsPullRequestResponseDto>;
 };
 
-export type TokenCountsResponseDto = {
-  input: number | null;
-  output: number | null;
-  cacheRead: number | null;
-  cacheWrite: number | null;
+export type TraceVolumeBucketResponseDto = {
+  /**
+   * When the bar starts
+   */
+  from: string;
+  /**
+   * When the bar ends, not included
+   */
+  to: string;
+  /**
+   * How many traces had their latest run in it
+   */
+  count: number;
+  /**
+   * Every error in those traces
+   */
+  errors: number;
 };
 
-export type InsightsRunResponseDto = {
-  runId: string;
-  taskId: string;
-  lineId: string;
+export type TraceStationResponseDto = {
   stationId: string;
-  fingerprint: string | null;
-  harness: string;
+  name: string;
+  color: string;
+  position: number;
   /**
-   * None where the harness chose its own
+   * How many stations the line has
    */
-  model: string | null;
-  effort: string | null;
-  profileKey: string | null;
-  repositories: Array<string>;
+  count: number;
+};
+
+export type TraceRunResponseDto = {
+  runId: string;
+  station: TraceStationResponseDto | null;
+  /**
+   * None when the run ended
+   */
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * None until the run ends
+   */
+  ending: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded' | null;
+  failure: string | null;
   /**
    * Who opened the run’s task; none where no person did; their name is in people
    */
   openedBy: string | null;
-  queuedAt: string | null;
+  harness: string;
   /**
-   * When a runner first claimed it; none if none did
+   * None until a runner claims it, or where the harness chose its own
    */
-  startedAt: string | null;
-  endedAt: string;
-  queuedMs: number | null;
-  runningMs: number | null;
+  model: string | null;
   /**
-   * How long it worked, by its recorded usage
+   * When a runner claimed it, or when it was queued
    */
+  startedAt: string;
+  /**
+   * None until it ends
+   */
+  endedAt: string | null;
   ms: number | null;
-  cost: MoneyResponseDto | null;
   /**
    * None until its usage is recorded
    */
-  tokens: TokenCountsResponseDto | null;
-  ending: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded';
-  failure: string | null;
-  checks: 'passed' | 'failed' | 'skipped' | null;
-  firstHumanAction: HumanActionResponseDto | null;
-  passed: StationPassResponseDto | null;
-  pullRequestState: 'open' | 'merged' | 'closed' | null;
+  errors: number | null;
+  cost: MoneyResponseDto | null;
 };
 
-export type InsightsRunsResponseDto = {
-  period: InsightsPeriodResponseDto;
+export type InsightsTraceResponseDto = {
+  taskId: string;
+  title: string;
   /**
-   * Runs matching, on every page
+   * What the task asks for
+   */
+  input: string | null;
+  /**
+   * The last note that the newest listed run wrote on the task
+   */
+  output: string | null;
+  /**
+   * Where the task is now
+   */
+  station: TraceStationResponseDto | null;
+  /**
+   * Every station of the listed runs, and where the task is now, in the line’s order
+   */
+  stations: Array<TraceStationResponseDto>;
+  startedAt: string;
+  /**
+   * From the first listed run’s start to the last one’s end; none while a run is unfinished
+   */
+  ms: number | null;
+  errors: number;
+  /**
+   * None where no listed run is priced, or where prices are in more than one currency
+   */
+  cost: MoneyResponseDto | null;
+  /**
+   * How many runs the task had in the range, the filter not applied
    */
   total: number;
-  page: number;
-  size: number;
   /**
-   * The newest first
+   * The task’s runs that match the filter: unfinished first, then the newest first
    */
-  runs: Array<InsightsRunResponseDto>;
+  runs: Array<TraceRunResponseDto>;
+};
+
+export type InsightsTracesResponseDto = {
+  range: '30m' | '1h' | '6h' | '1d' | '3d' | '7d' | '14d' | '30d' | '90d';
+  /**
+   * Where the range starts
+   */
+  from: string;
+  /**
+   * Where the range ends: when it was requested
+   */
+  to: string;
+  /**
+   * Every trace in the range, counted into evenly long bars from start to end, empty bars included
+   */
+  volume: Array<TraceVolumeBucketResponseDto>;
+  /**
+   * Every task with a run that matches the filter: one that is unfinished, or one that ended in the range. Unfinished first, then the latest first
+   */
+  traces: Array<InsightsTraceResponseDto>;
+  /**
+   * How many runs match the filter: those that ended in the range, and those that are unfinished
+   */
+  matched: number;
+  /**
+   * true when more runs match than the list holds
+   */
+  truncated: boolean;
   people: Array<PersonNameResponseDto>;
 };
 
@@ -11063,37 +11054,6 @@ export type ListTeamRunsResponses = {
 };
 
 export type ListTeamRunsResponse = ListTeamRunsResponses[keyof ListTeamRunsResponses];
-
-export type ListTeamTracesData = {
-  body?: never;
-  path: {
-    teamId: string;
-  };
-  query?: {
-    /**
-     * How far back from now to look, counting runs started since; 30d by default
-     */
-    range?: '30m' | '1h' | '6h' | '1d' | '3d' | '7d' | '14d' | '30d' | '90d';
-  };
-  url: '/teams/{teamId}/traces';
-};
-
-export type ListTeamTracesErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such range
-   */
-  422: unknown;
-};
-
-export type ListTeamTracesResponses = {
-  200: TeamTracesResponseDto;
-};
-
-export type ListTeamTracesResponse = ListTeamTracesResponses[keyof ListTeamTracesResponses];
 
 export type ReadRunConfigData = {
   body?: never;
@@ -18930,20 +18890,12 @@ export type ListInsightsPullRequestsResponses = {
 
 export type ListInsightsPullRequestsResponse = ListInsightsPullRequestsResponses[keyof ListInsightsPullRequestsResponses];
 
-export type ListInsightsRunsData = {
+export type ListInsightsTracesData = {
   body?: never;
   path: {
     teamId: string;
   };
   query?: {
-    /**
-     * Runs per page: 50 by default, 200 at most
-     */
-    size?: number;
-    /**
-     * Which page, from 1 to the last with runs, 10000 at most
-     */
-    page?: number;
     /**
      * true for only runs of tasks that asked someone in the inbox during the period
      */
@@ -19033,14 +18985,14 @@ export type ListInsightsRunsData = {
      */
     lineId?: string;
     /**
-     * How many whole UTC days, up to and including today, to look at; 30d by default. Every answer also covers the period before, as long
+     * How far back from now to look, counting runs that ended since; 30d by default
      */
-    period?: '7d' | '30d' | '90d';
+    range?: '30m' | '1h' | '6h' | '1d' | '3d' | '7d' | '14d' | '30d' | '90d';
   };
-  url: '/teams/{teamId}/insights/runs';
+  url: '/teams/{teamId}/insights/traces';
 };
 
-export type ListInsightsRunsErrors = {
+export type ListInsightsTracesErrors = {
   /**
    * No valid session or token
    */
@@ -19050,16 +19002,16 @@ export type ListInsightsRunsErrors = {
    */
   404: unknown;
   /**
-   * No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   * No such range, or a filter that is not valid
    */
   422: unknown;
 };
 
-export type ListInsightsRunsResponses = {
-  200: InsightsRunsResponseDto;
+export type ListInsightsTracesResponses = {
+  200: InsightsTracesResponseDto;
 };
 
-export type ListInsightsRunsResponse = ListInsightsRunsResponses[keyof ListInsightsRunsResponses];
+export type ListInsightsTracesResponse = ListInsightsTracesResponses[keyof ListInsightsTracesResponses];
 
 export type CreateReplayCandidateData = {
   body: {

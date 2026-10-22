@@ -140,6 +140,8 @@ const endedRun = (
 
 const work: WorkPort = {
   endedRun: async (runId) => ended.get(runId) ?? null,
+  unfinishedRuns: async () => [],
+  traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
   teamRepositories: async () => [],
   teamSkillKeys: async () => [],
   alertsAt: async () => null,

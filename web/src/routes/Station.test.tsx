@@ -709,7 +709,7 @@ describe('Station', () => {
 
       expect(screen.getByRole('link', { name: 'All runs' })).toHaveAttribute(
         'href',
-        `${INSIGHTS}?tab=runs&stationId=station_2`,
+        `${INSIGHTS}?tab=traces&stationId=station_2`,
       );
     });
 
