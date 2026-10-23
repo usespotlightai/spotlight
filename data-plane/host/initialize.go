@@ -68,6 +68,9 @@ func initialize(version string, args []string) error {
 	if err != nil {
 		return err
 	}
+	if err := runtimeAnswers(file.Values()["DOCKER_HOST"]); err != nil {
+		return err
+	}
 	if err := settle(file, f, tty, version); err != nil {
 		return err
 	}
@@ -206,6 +209,19 @@ func credential(file *config.File, f initFlags, tty *terminal, saved map[string]
 		}
 	}
 	return errors.New("a pool token is required")
+}
+
+func runtimeAnswers(dockerHost string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	engine, err := docker.Connect(dockerHost)
+	if err == nil {
+		_, err = engine.Describe(ctx)
+	}
+	if err != nil {
+		return fmt.Errorf("nothing saved, because no container runtime answers. A host runs each sandbox in a container: start Docker or Podman (on macOS, Docker Desktop, OrbStack or Colima), then run this again: %w", err)
+	}
+	return nil
 }
 
 // reach stops on a credential Spotlight refuses, and only warns when Spotlight does not answer.

@@ -86,16 +86,6 @@ choose_bindir() {
   mkdir -p "$BIN_DIR"
 }
 
-find_runtime() {
-  for cli in docker podman; do
-    if command -v "$cli" >/dev/null 2>&1 && "$cli" info >/dev/null 2>&1; then
-      RUNTIME="$cli"
-      return
-    fi
-  done
-  die "no container runtime answered: install and start Docker or Podman (on macOS, Docker Desktop, OrbStack or Colima), then run this again"
-}
-
 install_binary() {
   url="$RELEASE/spotlight-${PLATFORM}"
 
@@ -122,7 +112,6 @@ note_path() {
 main() {
   detect_platform
   choose_bindir
-  find_runtime
 
   TMP="$(mktemp -d)"
   trap 'rm -rf "$TMP"' EXIT
@@ -132,10 +121,17 @@ main() {
   install_binary
   say ""
 
-  status=0
-  "$BIN_DIR/spotlight" host init --url "$API_BASE" "$@" || status=$?
-
   note_path
+  status=0
+  if [ "$#" -gt 0 ]; then
+    "$BIN_DIR/spotlight" host init --url "$API_BASE" "$@" || status=$?
+  else
+    next_step "Log in, so the CLI and Terraform act as you:"
+    next_step "  spotlight login --url $API_BASE"
+    next_step "To run agents on this machine, set it up as a host:"
+    next_step "  spotlight host init --url $API_BASE"
+  fi
+
   print_next_steps
   say ""
   exit "$status"

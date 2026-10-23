@@ -92,7 +92,7 @@ func run(version string) error {
 
 	cfg, err := config.Load(version)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w\nTo set up this machine as a host, run: spotlight host init", err)
 	}
 	telemetry.SampleAs(cfg.Sampler, cfg.SamplerArg)
 	if cfg.LogLevel != "" {
