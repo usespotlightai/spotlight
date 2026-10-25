@@ -95,6 +95,3 @@ export const trustNote = (trust: OidcTrust): TooltipNote => ({
     ['Token lifetime', minutes(trust.lifetimeMinutes)],
   ],
 });
-
-export const TERRAFORM_FROM_CI_DOCS =
-  'https://docs.usespotlight.ai/docs/configuration/run-terraform-from-github-actions';

@@ -40,7 +40,7 @@ export function ApiAccess() {
     <>
       <SettingsPage
         title="API access"
-        description="Workspace token: a key that lets Terraform or a script act in this workspace. OIDC trust: a rule that lets a CI job get a short-lived workspace token without a stored key. Only owners and admins can see them."
+        description="Workspace tokens let Terraform or a script act in this workspace. OIDC trusts let CI jobs get short-lived tokens without a stored key."
       >
         {created && (
           <TokenCreated
@@ -59,7 +59,7 @@ export function ApiAccess() {
               onClick={() => setCreating(true)}
               disabled={!workspaceId}
             >
-              Create a token
+              Create token
             </SectionButton>
           }
         >
@@ -80,7 +80,8 @@ export function ApiAccess() {
 
           {tokens.data?.length === 0 && (
             <p className="px-4 py-4 text-muted-foreground text-sm">
-              No tokens yet. Create one for Terraform or a script.
+              No workspace tokens. Create one to authenticate Terraform or a
+              script.
             </p>
           )}
 

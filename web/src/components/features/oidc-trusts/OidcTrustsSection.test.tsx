@@ -85,20 +85,15 @@ describe('OidcTrustsSection', () => {
     expect(refetch).toHaveBeenCalled();
   });
 
-  it('says there are no trusts, links to the Terraform guide, and offers no way to create one', () => {
+  it('says there are no trusts, and offers no way to create one', () => {
     renderPage();
 
     expect(
-      screen.getByText('No OIDC trusts. Define them with Terraform.'),
+      screen.getByText(
+        'No OIDC trusts. Define them in Terraform to give CI jobs short-lived tokens without a stored key.',
+      ),
     ).toBeInTheDocument();
-    const guide = screen.getByRole('link', {
-      name: 'Run Terraform from GitHub Actions',
-    });
-    expect(guide).toHaveAttribute(
-      'href',
-      'https://docs.usespotlight.ai/docs/configuration/run-terraform-from-github-actions',
-    );
-    expect(guide).toHaveAttribute('target', '_blank');
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 

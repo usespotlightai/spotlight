@@ -1,4 +1,3 @@
-import { NoOidcTrusts } from '@/components/features/oidc-trusts/NoOidcTrusts';
 import { OidcTrustRow } from '@/components/features/oidc-trusts/OidcTrustRow';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -34,7 +33,12 @@ export function OidcTrustsSection({ slug }: OidcTrustsSectionProps) {
         />
       )}
 
-      {trusts.data?.length === 0 && <NoOidcTrusts />}
+      {trusts.data?.length === 0 && (
+        <p className="px-4 py-4 text-muted-foreground text-sm">
+          No OIDC trusts. Define them in Terraform to give CI jobs short-lived
+          tokens without a stored key.
+        </p>
+      )}
 
       {trusts.data?.map((trust) => (
         <OidcTrustRow key={trust.id} trust={trust} />

@@ -96,6 +96,7 @@
   },
   "overrides": {
     "esbuild": "^0.28.2",
+    "multer": "^2.5.0",
     "@thallesp/nestjs-better-auth": {
       "graphql": "$graphql"
     }
