@@ -93,7 +93,7 @@ const renderPage = () =>
 const openCreate = async () => {
   const person = userEvent.setup();
   renderPage();
-  await person.click(screen.getByRole('button', { name: 'Create a token' }));
+  await person.click(screen.getByRole('button', { name: 'Create token' }));
 
   return { person, dialog: await screen.findByRole('dialog') };
 };
@@ -119,7 +119,7 @@ describe('ApiAccess', () => {
     expect(
       screen.getByRole('heading', { name: 'Workspace tokens' }),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/No tokens yet/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No workspace tokens/)).not.toBeInTheDocument();
   });
 
   it('says the tokens could not be loaded, and tries again on request', async () => {
@@ -144,13 +144,13 @@ describe('ApiAccess', () => {
 
     renderPage();
 
-    expect(screen.getByText(/No tokens yet/)).toBeInTheDocument();
+    expect(screen.getByText(/No workspace tokens/)).toBeInTheDocument();
 
     expect(
       screen.queryByRole('button', { name: 'Create the first token' }),
     ).not.toBeInTheDocument();
 
-    await person.click(screen.getByRole('button', { name: 'Create a token' }));
+    await person.click(screen.getByRole('button', { name: 'Create token' }));
 
     expect(await screen.findByRole('dialog')).toHaveTextContent(
       'Create a token',

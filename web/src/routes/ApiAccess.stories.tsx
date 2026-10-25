@@ -11,9 +11,7 @@ type TokensArgs = {
 };
 
 const openCreate: Script = async (screen, user) => {
-  await user.click(
-    await screen.findByRole('button', { name: 'Create a token' }),
-  );
+  await user.click(await screen.findByRole('button', { name: 'Create token' }));
 };
 
 const SCRIPTS: Record<Doing, Script | undefined> = {
