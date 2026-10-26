@@ -2,6 +2,7 @@ package inject
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -46,10 +47,39 @@ type injected struct {
 	standIns []string
 	fromHost bool
 	plainOn  string
+	basic    bool
 }
 
 func (w *injected) matchesPlaceholder(header http.Header) bool {
-	return w.location == protocol.LocationHeader && slices.Contains(w.standIns, header.Get(w.name))
+	if w.location != protocol.LocationHeader {
+		return false
+	}
+
+	sent := header.Get(w.name)
+	return slices.Contains(w.standIns, sent) || (w.basic && slices.Contains(w.standIns, basicPassword(sent)))
+}
+
+func basicPassword(sent string) string {
+	_, password, _ := strings.Cut(basicCredentials(sent), ":")
+	return password
+}
+
+func basicCredentials(sent string) string {
+	scheme, encoded, ok := strings.Cut(strings.TrimSpace(sent), " ")
+	if !ok || !strings.EqualFold(scheme, "Basic") {
+		return ""
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(encoded))
+	if err != nil {
+		return ""
+	}
+
+	return string(decoded)
+}
+
+func carriesStandIn(value string) bool {
+	return containsStandIn(value) || containsStandIn(basicCredentials(value))
 }
 
 func (w *injected) hasPlaceholder(name, value string) bool {
@@ -223,6 +253,7 @@ func (w *Injector) ForControlPlane(api *protocol.SpotlightAPI, controlPlane *url
 		prefix:   prefix,
 		standIns: []string{protocol.SpotlightAPIStandIn, prefix + protocol.SpotlightAPIStandIn},
 		plainOn:  plainPort(controlPlane),
+		basic:    true,
 	})
 	w.log.Info("stores the run's Spotlight token", "host", host)
 
@@ -293,7 +324,7 @@ func (w *Injector) injectHeader(host string, secrets []*injected, header http.He
 		header.Del(each.name)
 	}
 	for name, values := range header {
-		if slices.ContainsFunc(values, containsStandIn) {
+		if slices.ContainsFunc(values, carriesStandIn) {
 			delete(header, name)
 			w.log.Warn("removed from a request a stand-in that egress has no value for", "host", host, "header", name)
 		}

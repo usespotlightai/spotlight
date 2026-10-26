@@ -55,7 +55,15 @@ const brief = (
   memories: readonly BriefedMemory[] = [],
   memoryFolder: MemoryFolder | null = null,
   lines: readonly Line[] = [],
-) => ChatBriefing.brief({ chat, team: 'Core', lines, memories, memoryFolder });
+) =>
+  ChatBriefing.brief({
+    chat,
+    team: 'Core',
+    lines,
+    memories,
+    memoryFolder,
+    spotlightUrl: 'https://app.usespotlight.ai/',
+  });
 
 const DELIVERY = Line.rehydrate({
   id: LineId.of('line_1'),
@@ -271,6 +279,26 @@ describe('ChatBriefing', () => {
         '"$SPOTLIGHT_URL/api/resources/workspaces/ws_1/export"',
       );
       expect(briefing).toContain('terraform plan');
+    });
+
+    it('offers Spotlight’s state backend, and signs in to it with the run’s token', () => {
+      const briefing = brief(setup);
+
+      expect(briefing).toContain('recommend that Spotlight keeps the state');
+      expect(briefing).toContain(
+        '"$SPOTLIGHT_URL/api/resources/workspaces/ws_1"',
+      );
+      expect(briefing).toContain(
+        'address        = "https://app.usespotlight.ai/api/terraform/workspaces/<slug>/states/default"',
+      );
+      expect(briefing).toContain(
+        'lock_address   = "https://app.usespotlight.ai/api/terraform/workspaces/<slug>/states/default/lock"',
+      );
+      expect(briefing).toContain('username       = "spotlight"');
+      expect(briefing).toContain('TF_HTTP_PASSWORD=$(spotlight token)');
+      expect(briefing).toContain(
+        'export TF_HTTP_PASSWORD=$SPOTLIGHT_API_TOKEN',
+      );
     });
 
     it('leads the team to own what it ships in production', () => {

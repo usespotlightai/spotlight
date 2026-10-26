@@ -15,12 +15,14 @@ export const SettingUp = {
     configFolder: ConfigFolder,
     workspaceId: string,
     repositories: readonly Repository[],
+    spotlightUrl: string,
   ): string {
     const folder = `${configFolder.repository.name}/${configFolder.folder}`;
     const alone = repositories.every((each) =>
       each.equals(configFolder.repository),
     );
     const exported = `"$SPOTLIGHT_URL/api/resources/workspaces/${workspaceId}/export"`;
+    const state = `${spotlightUrl.replace(/\/+$/, '')}/api/terraform/workspaces/<slug>/states/default`;
 
     return [
       '## Setting up configuration as code',
@@ -51,7 +53,7 @@ export const SettingUp = {
         '### 3. Talk it through',
         'Tell the person briefly what you found and what you would change from Spotlight’s built-in lines, and ask about anything unclear. Depart from the built-in lines only where the repositories or tools give evidence. Wait for them to agree before you draft.',
         'Always talk about operations. Help the team own what it ships in production: the agents must use the team’s observability tools as a normal part of their work. Say which tools you found and how you would connect them. If you found none, say so, and recommend that the team sets up error tracking and alerting first. Do not connect a tool that the team does not use.',
-        'Ask where the team keeps Terraform state, for example an S3 bucket or HCP Terraform. Local state is lost with the sandbox. If the team has no backend yet, leave the `backend` block out and say so in the pull request.',
+        'Ask where the team keeps Terraform state, for example an S3 bucket or HCP Terraform. Local state is lost with the sandbox. If the team has no backend yet, recommend that Spotlight keeps the state: it needs no other account, and CI signs in to it with the same OIDC trust as the provider.',
       ].join('\n'),
       [
         '### 4. Draft the Terraform',
@@ -59,9 +61,11 @@ export const SettingUp = {
         `\`\`\`\ncd ${folder}\ncurl -fsS -H "Authorization: Bearer $SPOTLIGHT_API_TOKEN" ${exported} \\\n  | jq -c '.files[]' | while read -r file; do\n      path=$(jq -r .path <<<"$file"); mkdir -p "$(dirname "$path")"\n      jq -j .content <<<"$file" > "$path"\n    done\n\`\`\``,
         'The export has one file per concern, such as `line-<team>-<line>.tf` and `imports.tf`. Keep that layout, and keep the `.tf` files at the top of the folder. Then adapt it:',
         '- each line’s `source { repository, path }`, naming its own `line-<team>-<line>.tf`',
-        '- the `backend` in `terraform.tf`',
+        '- the `backend` in `terraform.tf`. For Spotlight’s, read the workspace’s `slug`, and write the block below with it. Keep this address: inside the sandbox, `$SPOTLIGHT_URL` can be an address that only this host reaches.',
+        `\`\`\`\ncurl -fsS -H "Authorization: Bearer $SPOTLIGHT_API_TOKEN" "$SPOTLIGHT_URL/api/resources/workspaces/${workspaceId}"\n\`\`\``,
+        `\`\`\`hcl\nbackend "http" {\n  address        = "${state}"\n  lock_address   = "${state}/lock"\n  unlock_address = "${state}/lock"\n  lock_method    = "POST"\n  unlock_method  = "DELETE"\n  username       = "spotlight"\n}\n\`\`\``,
         '- `locals.tf` for values that two or more resources share, such as a tool list or a `check` command',
-        '- a `README.md` that says what the folder configures, which variables to set, and how to plan and apply',
+        '- a `README.md` that says what the folder configures, which variables to set, and how to plan and apply. If Spotlight keeps the state, say that Terraform reads its token from `TF_HTTP_PASSWORD`: `export TF_HTTP_PASSWORD=$(spotlight token)` after `spotlight login`, and the same command in CI, where it exchanges the job’s OIDC token through the trust.',
         '- a prompt file per station, `prompts/<team>/<line>/<station>.md`, adapted to what you learned',
         '- each station’s `setup` and `check` commands from the survey',
         '- `skills/` adopted from the team’s own rules files',
@@ -81,7 +85,7 @@ export const SettingUp = {
       ].join('\n'),
       [
         '### 6. Check it',
-        '`SPOTLIGHT_URL` and `SPOTLIGHT_API_TOKEN` are set for this run, and the token may read and plan, nothing more. Run `terraform init`, `terraform fmt`, `terraform validate` and `terraform plan`, and keep the plan’s output for the pull request. The plan should only import what exists and change what you adapted. If `terraform init` cannot download the provider, say so and open the pull request without a plan.',
+        '`SPOTLIGHT_URL` and `SPOTLIGHT_API_TOKEN` are set for this run, and the token may read and plan, nothing more. If Spotlight keeps the state, first run `export TF_HTTP_PASSWORD=$SPOTLIGHT_API_TOKEN`. Run `terraform init`, `terraform fmt`, `terraform validate` and `terraform plan`, and keep the plan’s output for the pull request. The plan should only import what exists and change what you adapted. If `terraform init` cannot download the provider, say so and open the pull request without a plan.',
       ].join('\n'),
       [
         '### 7. Open the pull request',

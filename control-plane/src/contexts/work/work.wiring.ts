@@ -1259,6 +1259,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TEAM_MEMORIES,
       LOGGER,
       SAVEPOINT,
+      ENV,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
@@ -1271,6 +1272,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       memories: TeamMemoriesPort,
       logger: LoggerPort,
       savepoint: SavepointPort,
+      env: Env,
     ) =>
       new DispatchChat(
         runs,
@@ -1283,6 +1285,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         memories,
         logger,
         savepoint,
+        publicUrlOf(env),
       ),
   },
 
