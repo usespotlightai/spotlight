@@ -3,8 +3,9 @@ import { togglesDisclosure } from '@/lib/disclosure';
 
 const NEAR = 80;
 
-export function useStickToBottom<T extends HTMLElement>() {
+export function useStickToBottom<T extends HTMLElement>(jump?: unknown) {
   const ref = useRef<T>(null);
+  const following = useRef(true);
 
   useEffect(() => {
     const el = ref.current;
@@ -13,22 +14,20 @@ export function useStickToBottom<T extends HTMLElement>() {
       return;
     }
 
-    let following = true;
-
     const near = () => el.scrollHeight - el.scrollTop - el.clientHeight < NEAR;
 
     const onScroll = () => {
-      following = near();
+      following.current = near();
     };
 
     const onClick = (event: MouseEvent) => {
       if (togglesDisclosure(event.target)) {
-        following = false;
+        following.current = false;
       }
     };
 
     const grew = new ResizeObserver(() => {
-      if (following) {
+      if (following.current) {
         el.scrollTop = el.scrollHeight;
       }
     });
@@ -43,6 +42,16 @@ export function useStickToBottom<T extends HTMLElement>() {
       el.removeEventListener('click', onClick, { capture: true });
     };
   }, []);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a change of jump is the signal to go to the bottom
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) {
+      return;
+    }
+    following.current = true;
+    el.scrollTop = el.scrollHeight;
+  }, [jump]);
 
   return ref;
 }

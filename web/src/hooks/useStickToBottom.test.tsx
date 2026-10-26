@@ -13,8 +13,8 @@ class GrowingObserver {
   disconnect() {}
 }
 
-function Log() {
-  const scroller = useStickToBottom<HTMLDivElement>();
+function Log({ sent = 0 }: { sent?: number }) {
+  const scroller = useStickToBottom<HTMLDivElement>(sent);
 
   return (
     <div ref={scroller} data-testid="scroller">
@@ -74,5 +74,22 @@ describe('useStickToBottom', () => {
     grown(box, 1400);
 
     expect(box.scrollTop).toBe(1400);
+  });
+
+  it('goes to the bottom and follows again when a message is sent', () => {
+    const { rerender } = render(<Log />);
+    const box = screen.getByTestId('scroller');
+    grown(box, 900);
+    box.scrollTop = 100;
+    fireEvent.scroll(box);
+
+    grown(box, 1400);
+    expect(box.scrollTop).toBe(100);
+
+    rerender(<Log sent={1} />);
+    expect(box.scrollTop).toBe(1400);
+
+    grown(box, 1800);
+    expect(box.scrollTop).toBe(1800);
   });
 });

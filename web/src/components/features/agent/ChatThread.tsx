@@ -26,9 +26,11 @@ export function ChatThread({
   journals,
   footer,
 }: ChatThreadProps) {
-  const scroller = useStickToBottom<HTMLDivElement>();
   const moments = momentsOf(chat.messages, journals);
   const turns = turnsOf(moments);
+  const scroller = useStickToBottom<HTMLDivElement>(
+    turns.filter((turn) => turn.message).length,
+  );
   const lastWorked = moments.reduce<ChatMoment | null>(
     (found, moment) => (moment.kind === 'worked' ? moment : found),
     null,
