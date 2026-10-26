@@ -16,9 +16,6 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-const historyUsage = `usage:
-  spotlight history --station <key> [--line <key>] [--fingerprint <fp>] [--outcome <word>] [--since <date>] [--last <n>] [--out <dir>]`
-
 func historyCmd(args []string, out io.Writer) error {
 	flags := flag.NewFlagSet("history", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -31,17 +28,17 @@ func historyCmd(args []string, out io.Writer) error {
 	into := flags.String("out", "", "where to write it (.spotlight/history by default)")
 
 	if err := flags.Parse(args); err != nil {
-		return fmt.Errorf("%s", historyUsage)
+		return fmt.Errorf("%v\n%s", err, historyHelp.Synopsis())
 	}
 	key := strings.TrimSpace(*station)
 	if key == "" {
-		return fmt.Errorf("--station is required\n%s", historyUsage)
+		return fmt.Errorf("--station is required\n%s", historyHelp.Synopsis())
 	}
 	if !protocol.OneSegment(key) {
-		return fmt.Errorf("%q is not a station key\n%s", key, historyUsage)
+		return fmt.Errorf("%q is not a station key\n%s", key, historyHelp.Synopsis())
 	}
 	if *last < 0 {
-		return fmt.Errorf("--last counts runs, so it cannot be %d\n%s", *last, historyUsage)
+		return fmt.Errorf("--last counts runs, so it cannot be %d\n%s", *last, historyHelp.Synopsis())
 	}
 
 	root := *into

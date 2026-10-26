@@ -237,8 +237,8 @@ to do.
 ${REVIEWING}
 
 Leave each finding as a comment on the line it is about, with
-\`spotlight review-comment\`, and start the comment with its severity. Then
-submit them all as one review with \`spotlight review\`. In the review's body,
+\`spotlight tools call review-comment\`, and start the comment with its severity. Then
+submit them all as one review with \`spotlight tools call review\`. In the review's body,
 say what the change comes down to and anything wrong with it as a whole.
 Request changes only for a high finding.
 

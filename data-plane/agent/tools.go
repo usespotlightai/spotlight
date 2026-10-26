@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 
+	"usespotlight.ai/data-plane/help"
 	"usespotlight.ai/data-plane/protocol"
 )
 
@@ -54,7 +55,7 @@ func manifest() ([]protocol.ToolManifest, error) {
 }
 
 func command(name string) string {
-	return "spotlight " + strings.Replace(name, ".", " ", 1)
+	return "spotlight tools call " + name
 }
 
 const whole = "json"
@@ -154,15 +155,17 @@ func summary(tools []protocol.ToolManifest) string {
 	return written.String()
 }
 
-func toolsCmd(args []string, out io.Writer) error {
+func toolsCmd(args []string, in io.Reader, out io.Writer) error {
 	if len(args) > 0 {
 		switch args[0] {
 		case "search":
 			return searchTools(args[1:], out)
 		case "describe":
 			return describeTool(args[1:], out)
+		case "call":
+			return useTool(args[1:], in, out)
 		default:
-			return fmt.Errorf("no such command %q\n%s", "tools "+args[0], usage)
+			return fmt.Errorf("no command %q", "tools "+args[0])
 		}
 	}
 
@@ -200,15 +203,18 @@ func piping(in io.Reader) bool {
 }
 
 func useTool(args []string, in io.Reader, out io.Writer) error {
+	if len(args) == 0 {
+		return fmt.Errorf("say which tool\n%s", toolsCallHelp.Synopsis())
+	}
+
 	tools, err := manifest()
 	if err != nil {
-		return fmt.Errorf("could not read this run's tools to find %q: %w\n%s", args[0], err, usage)
+		return err
 	}
 
 	tool, rest, found := named(tools, args)
 	if !found {
-		return fmt.Errorf("no such command %q\n%s\n\nThis run's tools:\n%s",
-			strings.Join(args[:min(2, len(args))], " "), usage, listing(tools))
+		return unknownTool(tools, args[0], toolsCallHelp)
 	}
 
 	flags := flag.NewFlagSet(tool.Name, flag.ContinueOnError)
@@ -352,4 +358,36 @@ func readable(answered string) string {
 	}
 
 	return string(shaped.Output)
+}
+
+func unknownTool(tools []protocol.ToolManifest, query string, shown help.Command) error {
+	near := search(tools, query, 3)
+	if len(near) == 0 {
+		return fmt.Errorf("this run has no tool %q enabled\n%s", query, shown.Synopsis())
+	}
+
+	names := make([]string, 0, len(near))
+	for _, each := range near {
+		names = append(names, each.Name)
+	}
+
+	return fmt.Errorf("this run has no tool %q enabled; the nearest are %s\n%s", query, strings.Join(names, ", "), shown.Synopsis())
+}
+
+func Describe(tool []string, out io.Writer) error {
+	return describeTool(tool, out)
+}
+
+func ToolCommand(args []string) (string, bool) {
+	tools, err := manifest()
+	if err != nil {
+		return "", false
+	}
+
+	tool, _, found := named(tools, args)
+	if !found {
+		return "", false
+	}
+
+	return command(tool.Name), true
 }

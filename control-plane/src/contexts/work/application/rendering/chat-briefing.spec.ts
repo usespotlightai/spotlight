@@ -266,7 +266,7 @@ describe('ChatBriefing', () => {
 
       expect(briefing).toContain('`acme/infra`, under `spotlight/`');
       expect(briefing).toContain('`infra/spotlight/`');
-      expect(briefing).toContain('spotlight setup-pull-request');
+      expect(briefing).toContain('spotlight tools call setup-pull-request');
       expect(briefing).toContain(
         '"$SPOTLIGHT_URL/api/resources/workspaces/ws_1/export"',
       );

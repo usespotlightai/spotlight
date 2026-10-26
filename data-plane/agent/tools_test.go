@@ -66,8 +66,8 @@ func TestListsTheToolsEnabledForTheRun(t *testing.T) {
 
 	listed := out.String()
 	for _, want := range []string{
-		"spotlight linear comment [--issue <string>] --body <string> (or piped in) [--notify] [--json <object> | --json -]",
-		"spotlight linear search [--filter <json>] [--first <number>] --team_id <string> [--state <string>] [--json <object> | --json -]",
+		"spotlight tools call linear.comment [--issue <string>] --body <string> (or piped in) [--notify] [--json <object> | --json -]",
+		"spotlight tools call linear.search [--filter <json>] [--first <number>] --team_id <string> [--state <string>] [--json <object> | --json -]",
 		"Comment on the Linear issue this task came from.",
 		"--body  What to say",
 	} {
@@ -84,7 +84,7 @@ func TestUsesAToolTypedAsTwoWords(t *testing.T) {
 	_, carried := withTools(t, `{"output":"https://linear.app/acme/issue/ENG-12#comment-1"}`)
 	out := new(bytes.Buffer)
 
-	args := []string{"linear", "comment", "--body", "Fixed in the queue worker.", "--notify"}
+	args := []string{"tools", "call", "linear", "comment", "--body", "Fixed in the queue worker.", "--notify"}
 	if err := run(args, strings.NewReader(""), out); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -104,7 +104,7 @@ func TestUsesAToolByItsFullNameWithWhatIsPipedIn(t *testing.T) {
 	_, carried := withTools(t, `{"output":{"id":"c_1","url":"https://linear.app/c/1"}}`)
 	out := new(bytes.Buffer)
 
-	if err := run([]string{"linear.comment"}, strings.NewReader("Split out in 4a1c2b0.\n"), out); err != nil {
+	if err := run([]string{"tools", "call", "linear.comment"}, strings.NewReader("Split out in 4a1c2b0.\n"), out); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 
@@ -119,8 +119,8 @@ func TestUsesAToolByItsFullNameWithWhatIsPipedIn(t *testing.T) {
 func TestRejectsAFlagTheToolDoesNotTake(t *testing.T) {
 	withTools(t, `{}`)
 
-	err := run([]string{"linear", "comment", "--isue", "ENG-1"}, strings.NewReader(""), new(bytes.Buffer))
-	if err == nil || !strings.Contains(err.Error(), "usage: spotlight linear comment [--issue <string>]") {
+	err := run([]string{"tools", "call", "linear", "comment", "--isue", "ENG-1"}, strings.NewReader(""), new(bytes.Buffer))
+	if err == nil || !strings.Contains(err.Error(), "usage: spotlight tools call linear.comment [--issue <string>]") {
 		t.Fatalf("err = %v, want how the tool is typed", err)
 	}
 }
@@ -128,8 +128,8 @@ func TestRejectsAFlagTheToolDoesNotTake(t *testing.T) {
 func TestSaysWhichToolsThereAreForOneNotEnabledForTheRun(t *testing.T) {
 	withTools(t, `{}`)
 
-	err := run([]string{"linear", "close"}, strings.NewReader(""), new(bytes.Buffer))
-	if err == nil || !strings.Contains(err.Error(), "This run's tools:\nspotlight linear comment") {
+	err := run([]string{"tools", "call", "linear", "close"}, strings.NewReader(""), new(bytes.Buffer))
+	if err == nil || !strings.Contains(err.Error(), `this run has no tool "linear" enabled; the nearest are linear.comment`) {
 		t.Fatalf("err = %v, want the tools enabled for it", err)
 	}
 }
@@ -137,7 +137,7 @@ func TestSaysWhichToolsThereAreForOneNotEnabledForTheRun(t *testing.T) {
 func TestRejectsAToolUseMissingWhatItRequires(t *testing.T) {
 	withTools(t, `{}`)
 
-	err := run([]string{"linear", "comment", "--notify"}, strings.NewReader(""), new(bytes.Buffer))
+	err := run([]string{"tools", "call", "linear", "comment", "--notify"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "--body is required") {
 		t.Fatalf("err = %v, want it to require the body", err)
 	}
@@ -148,7 +148,7 @@ func TestReadsTheStdinInputWhenNamedAsStandardInput(t *testing.T) {
 		t.Run(named, func(t *testing.T) {
 			_, carried := withTools(t, `{}`)
 
-			args := []string{"linear", "comment", "--body", named}
+			args := []string{"tools", "call", "linear", "comment", "--body", named}
 			if err := run(args, strings.NewReader("From the pipe.\n"), new(bytes.Buffer)); err != nil {
 				t.Fatalf("run: %v", err)
 			}
@@ -163,7 +163,7 @@ func TestReadsTheStdinInputWhenNamedAsStandardInput(t *testing.T) {
 func TestTakesTheWholeInputAsOneJSONObject(t *testing.T) {
 	_, carried := withTools(t, `{}`)
 
-	args := []string{"linear", "search", "--json", `{"team_id":"ENG","first":5,"filter":{"state":"open"}}`}
+	args := []string{"tools", "call", "linear", "search", "--json", `{"team_id":"ENG","first":5,"filter":{"state":"open"}}`}
 	if err := run(args, strings.NewReader(""), new(bytes.Buffer)); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestTakesTheWholeInputAsOneJSONObject(t *testing.T) {
 func TestReadsTheJSONObjectFromStandardInput(t *testing.T) {
 	_, carried := withTools(t, `{}`)
 
-	args := []string{"linear", "comment", "--json", "-"}
+	args := []string{"tools", "call", "linear", "comment", "--json", "-"}
 	if err := run(args, strings.NewReader(`{"body":"From the object.","notify":true}`), new(bytes.Buffer)); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -190,7 +190,7 @@ func TestReadsTheJSONObjectFromStandardInput(t *testing.T) {
 func TestRejectsTheStdinInputNamedWhenStandardInputCarriesTheJSON(t *testing.T) {
 	withTools(t, `{}`)
 
-	args := []string{"linear", "comment", "--json", "-", "--body", "-"}
+	args := []string{"tools", "call", "linear", "comment", "--json", "-", "--body", "-"}
 	err := run(args, strings.NewReader(`{"notify":true}`), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "--body cannot be read from stdin when --json is") {
 		t.Fatalf("err = %v, want it to say stdin carries the JSON", err)
@@ -200,7 +200,7 @@ func TestRejectsTheStdinInputNamedWhenStandardInputCarriesTheJSON(t *testing.T) 
 func TestAFlagOverridesTheJSONObjectsField(t *testing.T) {
 	_, carried := withTools(t, `{}`)
 
-	args := []string{"linear", "search", "--json", `{"team_id":"ENG","first":5}`, "--team_id", "OPS"}
+	args := []string{"tools", "call", "linear", "search", "--json", `{"team_id":"ENG","first":5}`, "--team_id", "OPS"}
 	if err := run(args, strings.NewReader(""), new(bytes.Buffer)); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestAFlagOverridesTheJSONObjectsField(t *testing.T) {
 func TestCarriesFlagsAsTheTextTyped(t *testing.T) {
 	_, carried := withTools(t, `{}`)
 
-	args := []string{"linear", "search", "--team_id", "ENG", "--first", "10", "--filter", `{"state":"open"}`}
+	args := []string{"tools", "call", "linear", "search", "--team_id", "ENG", "--first", "10", "--filter", `{"state":"open"}`}
 	if err := run(args, strings.NewReader(""), new(bytes.Buffer)); err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -228,7 +228,7 @@ func TestRejectsJSONThatIsNotAnObject(t *testing.T) {
 		t.Run(input, func(t *testing.T) {
 			withTools(t, `{}`)
 
-			err := run([]string{"linear", "search", "--json", input}, strings.NewReader(""), new(bytes.Buffer))
+			err := run([]string{"tools", "call", "linear", "search", "--json", input}, strings.NewReader(""), new(bytes.Buffer))
 			if err == nil || !strings.Contains(err.Error(), "--json takes one JSON object") {
 				t.Fatalf("err = %v, want it to require a JSON object", err)
 			}
@@ -239,7 +239,7 @@ func TestRejectsJSONThatIsNotAnObject(t *testing.T) {
 func TestRejectsAValueAfterASwitch(t *testing.T) {
 	_, carried := withTools(t, `{}`)
 
-	args := []string{"linear", "comment", "--notify", "false", "--body", "Fixed."}
+	args := []string{"tools", "call", "linear", "comment", "--notify", "false", "--body", "Fixed."}
 	err := run(args, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), `"false" follows --notify, which takes no value; write --notify=false`) {
 		t.Fatalf("err = %v, want it to say how a switch takes a value", err)
@@ -252,7 +252,7 @@ func TestRejectsAValueAfterASwitch(t *testing.T) {
 func TestRejectsAStrayArgument(t *testing.T) {
 	withTools(t, `{}`)
 
-	err := run([]string{"linear", "comment", "--body", "Fixed.", "again"}, strings.NewReader(""), new(bytes.Buffer))
+	err := run([]string{"tools", "call", "linear", "comment", "--body", "Fixed.", "again"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), `"again" is not a flag`) {
 		t.Fatalf("err = %v, want it to name the stray argument", err)
 	}
@@ -278,7 +278,7 @@ func manyTools(count int) []protocol.ToolManifest {
 func TestListsEveryToolUpToThirty(t *testing.T) {
 	listed := listing(manyTools(30))
 
-	if !strings.Contains(listed, "spotlight linear thing-29") || strings.Contains(listed, "too many to list") {
+	if !strings.Contains(listed, "spotlight tools call linear.thing-29") || strings.Contains(listed, "too many to list") {
 		t.Errorf("listed %q, want all thirty tools", listed)
 	}
 }
@@ -320,7 +320,7 @@ func TestRejectsAToolsCommandThereIsNot(t *testing.T) {
 	withTools(t, `{}`)
 
 	err := run([]string{"tools", "find", "issue"}, strings.NewReader(""), new(bytes.Buffer))
-	if err == nil || !strings.Contains(err.Error(), `no such command "tools find"`) {
+	if err == nil || !strings.Contains(err.Error(), `no command "tools find"`) {
 		t.Fatalf("err = %v, want it to name the command", err)
 	}
 }

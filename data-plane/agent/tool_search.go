@@ -175,8 +175,6 @@ func firstLine(description string) string {
 	return line
 }
 
-const searchUsage = `usage: spotlight tools search "<words>" [--limit <n>]`
-
 func searchTools(args []string, out io.Writer) error {
 	flags := flag.NewFlagSet("tools search", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -185,7 +183,7 @@ func searchTools(args []string, out io.Writer) error {
 	var words []string
 	for {
 		if err := flags.Parse(args); err != nil {
-			return fmt.Errorf("%v\n%s", err, searchUsage)
+			return fmt.Errorf("%v\n%s", err, toolsSearchHelp.Synopsis())
 		}
 		if flags.NArg() == 0 {
 			break
@@ -196,10 +194,10 @@ func searchTools(args []string, out io.Writer) error {
 
 	query := strings.TrimSpace(strings.Join(words, " "))
 	if query == "" {
-		return fmt.Errorf("say what the tool does\n%s", searchUsage)
+		return fmt.Errorf("say what the tool does\n%s", toolsSearchHelp.Synopsis())
 	}
 	if *limit < 1 {
-		return fmt.Errorf("--limit is how many tools to show, at least 1\n%s", searchUsage)
+		return fmt.Errorf("--limit is how many tools to show, at least 1\n%s", toolsSearchHelp.Synopsis())
 	}
 
 	tools, err := manifest()

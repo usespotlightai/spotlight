@@ -30,9 +30,6 @@ import (
 	"usespotlight.ai/data-plane/telemetry"
 )
 
-const Usage = `  spotlight egress            egress sidecar for one sandbox, which injects its run's secrets for their hosts
-  spotlight egress serve      shared egress for push pools`
-
 const (
 	fetchBudget   = time.Minute
 	fetchFloor    = time.Second
@@ -50,7 +47,7 @@ func Main(args []string, _ string) int {
 	case len(args) == 1 && args[0] == "serve":
 		started = serveShared
 	case len(args) != 0:
-		fmt.Fprintf(os.Stderr, "usage:\n%s\n", Usage)
+		fmt.Fprintln(os.Stderr, egressHelp.Synopsis())
 		return 1
 	}
 

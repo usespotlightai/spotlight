@@ -15,24 +15,6 @@ import (
 	"time"
 )
 
-const CheckUsage = `  spotlight replay check [--json] [--timeout 60m] [--every 15s] [--commit <sha>] [--pull-request <n>] [--repeats 1] <plan.json | ->
-      checks each station a saved Terraform plan changes against the replay set
-      that gates the station's changes, under the live line's replay_check;
-      pass it the output of ` + "`terraform show -json <planfile>`" + `. Reads SPOTLIGHT_URL and
-      SPOTLIGHT_API_TOKEN (a workspace token that may plan), or SPOTLIGHT_OIDC_TRUST
-      to exchange the CI job's OIDC token (GitHub Actions, or SPOTLIGHT_OIDC_TOKEN),
-      else the login from spotlight login for SPOTLIGHT_URL.
-      --every is how often it reads the status of the checks while they run.
-      --repeats replays each run of the set up to 5 times within the line's
-      ceiling; each side's success then carries a 95% interval, and the
-      candidate's gain over the baseline says whether it is within noise.
-      A station the plan renames, a line it replaces, and a station whose
-      skill, profile, integration, hook or secret it changes are undecided.
-      Appends a summary to GITHUB_STEP_SUMMARY when set. Exits 1 when a check
-      could not start or failed to run, else 2 when a change regressed past its
-      threshold, else 3 when a check is undecided or still running at the
-      timeout (it keeps running), else 0`
-
 const (
 	checkPassed    = "passed"
 	checkFailed    = "failed"
@@ -139,10 +121,10 @@ func checkOptionsOf(args []string) (checkOptions, error) {
 
 	positional, err := parsed(set, args)
 	if err != nil {
-		return checkOptions{}, fmt.Errorf("%w\nusage:\n%s", err, CheckUsage)
+		return checkOptions{}, fmt.Errorf("%w\n%s", err, checkHelp.Synopsis())
 	}
 	if len(positional) != 1 {
-		return checkOptions{}, fmt.Errorf("name the plan, the output of `%s`, or - to read it from stdin\nusage:\n%s", showCommand, CheckUsage)
+		return checkOptions{}, fmt.Errorf("name the plan, the output of `%s`, or - to read it from stdin\n%s", showCommand, checkHelp.Synopsis())
 	}
 	if *timeout <= 0 {
 		return checkOptions{}, fmt.Errorf("--timeout is how long to wait, above 0, not %s", *timeout)

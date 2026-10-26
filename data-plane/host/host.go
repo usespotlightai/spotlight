@@ -21,19 +21,6 @@ import (
 	"usespotlight.ai/data-plane/telemetry"
 )
 
-const Usage = `  spotlight host              serve a pull pool or runner trust, a fresh sandbox for every run
-  spotlight host init         connect this machine and run the host as a service (systemd or launchd)
-  spotlight host status       show the service, the sandboxes in use, the settings and checks
-  spotlight host config       list the settings; config get|set|unset|keys change them
-  spotlight host start|stop   start or stop the service
-  spotlight host reload       apply host.env, sandbox.env and egress.env without a restart
-  spotlight host restart      restart when the running sandboxes finish (--now: at once)
-  spotlight host logs         show the service's log (-f to follow)
-  spotlight host uninstall    remove the service (--purge: also the settings and state)
-  spotlight host update [release]
-                              replace this binary with a release (default: the control plane's release);
-                              a running host restarts on it when its sandboxes finish`
-
 func Main(args []string, version string) int {
 	var err error
 
@@ -48,9 +35,9 @@ func Main(args []string, version string) int {
 		case "status":
 			err = status(version, rest)
 		case "start":
-			err = noArgs(rest, func() error { return install.Start(os.Stdout) })
+			err = noArgs(rest, startHelp, func() error { return install.Start(os.Stdout) })
 		case "stop":
-			err = noArgs(rest, func() error { return install.Stop(os.Stdout) })
+			err = noArgs(rest, stopHelp, func() error { return install.Stop(os.Stdout) })
 		case "restart":
 			err = restart(version, rest)
 		case "reload":
@@ -61,12 +48,12 @@ func Main(args []string, version string) int {
 			err = uninstall(version, rest)
 		case "update":
 			if len(rest) > 1 {
-				err = fmt.Errorf("usage:\n%s", Usage)
+				err = fmt.Errorf("%s", updateHelp.Synopsis())
 			} else {
 				err = updateBinary(version, rest)
 			}
 		default:
-			err = fmt.Errorf("usage:\n%s", Usage)
+			err = fmt.Errorf("no command %q\n%s", "host "+args[0], hostHelp.Synopsis())
 		}
 	}
 

@@ -25,24 +25,9 @@ func Main(args []string) int {
 	return 0
 }
 
-const Usage = `  spotlight handover --next <where> [--note <text>]
-  spotlight reply --to <handle> [--body <text>] [--resolve]
-  spotlight trace --task <id> [--out <path>]
-  spotlight history --station <key> [--line <key>] [--fingerprint <fp>] [--outcome <word>] [--since <date>] [--last <n>] [--out <dir>]
-  spotlight recall "<words>" | M-12
-  spotlight remember --kind <kind> --body "…" [--path <path>]... [--scope team|line|station] [--supersedes M-12]
-  spotlight candidate --name <name> --hypothesis <text | @file> <station.json | ->
-  spotlight cause --task <task> --cause config|task|judge|check|infra --evidence <text | @file> [--suggestion <text | @file>]
-  spotlight tools
-  spotlight tools search "<words>" [--limit <n>]
-  spotlight tools describe <tool>
-  spotlight <tool> [--<input> <value>...] [--json <object> | --json -]   as spotlight linear comment --body "..."`
-
-const usage = "usage:\n" + Usage
-
 func run(args []string, in io.Reader, out io.Writer) error {
 	if len(args) == 0 {
-		return fmt.Errorf("%s", usage)
+		return fmt.Errorf("say which command")
 	}
 
 	switch args[0] {
@@ -63,9 +48,9 @@ func run(args []string, in io.Reader, out io.Writer) error {
 	case "cause":
 		return causeCmd(args[1:], out)
 	case "tools":
-		return toolsCmd(args[1:], out)
+		return toolsCmd(args[1:], in, out)
 	default:
-		return useTool(args, in, out)
+		return fmt.Errorf("no command %q", args[0])
 	}
 }
 
@@ -90,11 +75,11 @@ func handover(args []string, in io.Reader, out io.Writer) error {
 	note := flags.String("note", "", "what the next hands need to know")
 
 	if err := flags.Parse(args); err != nil {
-		return fmt.Errorf("%s", usage)
+		return fmt.Errorf("%v\n%s", err, handoverHelp.Synopsis())
 	}
 
 	if strings.TrimSpace(*next) == "" {
-		return fmt.Errorf("--next is required\n%s", usage)
+		return fmt.Errorf("--next is required\n%s", handoverHelp.Synopsis())
 	}
 
 	noted, err := prose(*note, in)
@@ -134,11 +119,11 @@ func reply(args []string, in io.Reader, out io.Writer) error {
 	resolve := flags.Bool("resolve", false, "resolve the thread as well")
 
 	if err := flags.Parse(args); err != nil {
-		return fmt.Errorf("%s", usage)
+		return fmt.Errorf("%v\n%s", err, replyHelp.Synopsis())
 	}
 
 	if strings.TrimSpace(*to) == "" {
-		return fmt.Errorf("--to is required\n%s", usage)
+		return fmt.Errorf("--to is required\n%s", replyHelp.Synopsis())
 	}
 
 	answered, err := prose(*body, in)
@@ -148,7 +133,7 @@ func reply(args []string, in io.Reader, out io.Writer) error {
 	*body = answered
 
 	if *body == "" {
-		return fmt.Errorf("--body is required\n%s", usage)
+		return fmt.Errorf("--body is required\n%s", replyHelp.Synopsis())
 	}
 
 	endpoint, token := os.Getenv(protocol.AgentAPIURLVar), os.Getenv(protocol.AgentAPITokenVar)

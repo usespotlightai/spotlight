@@ -11,9 +11,6 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-const causeUsage = `usage:
-  spotlight cause --task <task> --cause config|task|judge|check|infra --evidence <text | @file> [--suggestion <text | @file>]`
-
 func causeCmd(args []string, out io.Writer) error {
 	flags := flag.NewFlagSet("cause", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -22,17 +19,20 @@ func causeCmd(args []string, out io.Writer) error {
 	evidence := flags.String("evidence", "", "what in the runs shows it, or @file that contains it")
 	suggestion := flags.String("suggestion", "", "what to change, or @file that contains it")
 
-	if err := flags.Parse(args); err != nil || flags.NArg() > 0 {
-		return fmt.Errorf("%s", causeUsage)
+	if err := flags.Parse(args); err != nil {
+		return fmt.Errorf("%v\n%s", err, causeHelp.Synopsis())
+	}
+	if flags.NArg() > 0 {
+		return fmt.Errorf("put everything in flags, not %q\n%s", flags.Arg(0), causeHelp.Synopsis())
 	}
 	if strings.TrimSpace(*task) == "" {
-		return fmt.Errorf("--task is required\n%s", causeUsage)
+		return fmt.Errorf("--task is required\n%s", causeHelp.Synopsis())
 	}
 	if !protocol.IsFailureCause(*cause) {
-		return fmt.Errorf("--cause is one of %s\n%s", strings.Join(protocol.FailureCauses, ", "), causeUsage)
+		return fmt.Errorf("--cause is one of %s\n%s", strings.Join(protocol.FailureCauses, ", "), causeHelp.Synopsis())
 	}
 	if strings.TrimSpace(*evidence) == "" {
-		return fmt.Errorf("--evidence is required\n%s", causeUsage)
+		return fmt.Errorf("--evidence is required\n%s", causeHelp.Synopsis())
 	}
 
 	shown, err := textOf(*evidence, "evidence")

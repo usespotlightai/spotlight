@@ -19,7 +19,7 @@ describe('what the built-in line tells its agents', () => {
     for (const opening of BUILT_IN_STATIONS) {
       const prompt = opening.agentPrompt?.value ?? '';
       const named = BUILT_IN_TOOLS.map((each) => each.declared.tool)
-        .filter((tool) => prompt.includes(`spotlight ${tool.value}`))
+        .filter((tool) => prompt.includes(`spotlight tools call ${tool.value}`))
         .map((tool) => tool.value);
       const enabled = opening.tools.map((tool) => tool.value);
 

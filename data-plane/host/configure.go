@@ -13,13 +13,6 @@ import (
 	"usespotlight.ai/data-plane/host/internal/config"
 )
 
-const configUsage = `usage:
-  spotlight host config [--json]                   list the settings in the file
-  spotlight host config get KEY                    print one setting
-  spotlight host config set KEY=VALUE… [--now]     change settings and apply them to the running host
-  spotlight host config unset KEY… [--now]         remove settings, so their defaults apply
-  spotlight host config keys                       list every key, and whether it applies live or at a restart`
-
 func configure(version string, args []string) error {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 		return listSettings(os.Stdout, args)
@@ -37,7 +30,7 @@ func configure(version string, args []string) error {
 	case "keys":
 		return listKeys(os.Stdout)
 	default:
-		return fmt.Errorf("%s", configUsage)
+		return fmt.Errorf("no command %q\n%s", "host config "+args[0], configHelp.Synopsis())
 	}
 }
 
@@ -75,7 +68,7 @@ func listSettings(out io.Writer, args []string) error {
 	flags := flag.NewFlagSet("config", flag.ContinueOnError)
 	asJSON := flags.Bool("json", false, "")
 	if rest, err := parse(flags, args); err != nil || len(rest) > 0 {
-		return fmt.Errorf("%s", configUsage)
+		return fmt.Errorf("%s", configHelp.Synopsis())
 	}
 
 	file, err := config.Open(config.Path())
@@ -105,7 +98,7 @@ func listSettings(out io.Writer, args []string) error {
 
 func getSetting(out io.Writer, args []string) error {
 	if len(args) != 1 {
-		return fmt.Errorf("%s", configUsage)
+		return fmt.Errorf("say which key\n%s", configGetHelp.Synopsis())
 	}
 	setting, err := config.Lookup(args[0])
 	if err != nil {
@@ -126,11 +119,16 @@ func getSetting(out io.Writer, args []string) error {
 }
 
 func changeSettings(out io.Writer, version, verb string, args []string) error {
+	shown := configSetHelp
+	if verb == "unset" {
+		shown = configUnsetHelp
+	}
+
 	flags := flag.NewFlagSet("config "+verb, flag.ContinueOnError)
 	now := flags.Bool("now", false, "")
 	pairs, err := parse(flags, args)
 	if err != nil || len(pairs) == 0 {
-		return fmt.Errorf("%s", configUsage)
+		return fmt.Errorf("%s", shown.Synopsis())
 	}
 
 	file, err := config.Open(config.Path())
@@ -142,7 +140,7 @@ func changeSettings(out io.Writer, version, verb string, args []string) error {
 	for _, pair := range pairs {
 		key, value, hasValue := strings.Cut(pair, "=")
 		if hasValue != (verb == "set") {
-			return fmt.Errorf("%s", configUsage)
+			return fmt.Errorf("%s", shown.Synopsis())
 		}
 		setting, err := config.Lookup(strings.TrimSpace(key))
 		if err != nil {

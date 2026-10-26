@@ -56,11 +56,11 @@ func (c *cli) flagsFor(name string) *stationFlags {
 func (f *stationFlags) parse(args []string) error {
 	positional, err := parsed(f.set, args)
 	if err != nil {
-		return fmt.Errorf("%w\nusage:\n%s", err, Usage)
+		return fmt.Errorf("%w\n%s", err, helpFor(f.set.Name()).Synopsis())
 	}
 	f.args = positional
 	if *f.station == "" {
-		return fmt.Errorf("--station names the station, as team/line/station\nusage:\n%s", Usage)
+		return fmt.Errorf("--station names the station, as team/line/station\n%s", helpFor(f.set.Name()).Synopsis())
 	}
 
 	return nil

@@ -32,18 +32,18 @@ answer with is marked `?`, and a field it never answered with may be missing.
 
 ## Calling one
 
-Where every input is text, a number or a switch, give each as a flag:
+Call a tool with `spotlight tools call <tool>`. Where every input is text, a number or a switch, give each as a flag:
 
 ```
-spotlight linear issue-create --title "Drain the queue" --team-id ENG
+spotlight tools call linear.issue-create --title "Drain the queue" --team-id ENG
 ```
 
 Where an input is an object or a list, hand the whole input over as one JSON
 object instead. A large one is easier piped in:
 
 ```
-spotlight linear issue-create --json '{"title": "Drain the queue", "labels": ["bug"]}'
-spotlight linear issue-create --json - < input.json
+spotlight tools call linear.issue-create --json '{"title": "Drain the queue", "labels": ["bug"]}'
+spotlight tools call linear.issue-create --json - < input.json
 ```
 
 A flag given beside `--json` takes the place of the same field in it.
@@ -54,8 +54,8 @@ Every tool answers in JSON, so read a field out with `jq` and hand it to the
 next call:
 
 ```
-id=$(spotlight linear issue-create --title "…" --team-id ENG | jq -r '.id')
-spotlight linear comment --issue "$id" --body "…"
+id=$(spotlight tools call linear.issue-create --title "…" --team-id ENG | jq -r '.id')
+spotlight tools call linear.comment --issue "$id" --body "…"
 ```
 
 When a tool fails, it says why on standard error and exits with a failure:

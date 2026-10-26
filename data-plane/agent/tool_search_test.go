@@ -127,7 +127,7 @@ func TestSearchesTheRunsTools(t *testing.T) {
 
 	output := out.String()
 	for _, want := range []string{
-		"spotlight linear issue-create",
+		"spotlight tools call linear.issue-create",
 		"  Create an issue.\n",
 		"  Needs a person's approval.",
 		"Read one with: spotlight tools describe linear.issue-create",
