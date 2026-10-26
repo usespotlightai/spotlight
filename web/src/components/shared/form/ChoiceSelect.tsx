@@ -28,7 +28,29 @@ type ChoiceSelectProps = {
 
 const NONE = '';
 
-const COMPACT_ITEM = "py-0.5 pr-7 text-xs [&_svg:not([class*='size-'])]:size-3";
+const LOOKS = {
+  field: {
+    trigger: 'h-8 gap-2 rounded-full bg-card px-3 text-xs',
+    chevron: 'size-3',
+    Chevron: ChevronsUpDown,
+    menu: 'w-max min-w-[max(var(--anchor-width),12rem)] max-w-(--available-width)',
+    item: undefined,
+  },
+  compact: {
+    trigger: 'h-6 gap-1 rounded-full bg-card px-2 text-[0.7rem]',
+    chevron: 'size-2.5',
+    Chevron: ChevronsUpDown,
+    menu: 'w-max min-w-36 max-w-72',
+    item: "py-0.5 pr-7 text-xs [&_svg:not([class*='size-'])]:size-3",
+  },
+  toolbar: {
+    trigger: 'h-7 gap-2 rounded-md px-2 text-sm',
+    chevron: 'size-3',
+    Chevron: ChevronDown,
+    menu: 'w-max min-w-52 max-w-72',
+    item: undefined,
+  },
+} as const;
 
 export function ChoiceSelect({
   label,
@@ -43,8 +65,8 @@ export function ChoiceSelect({
   className,
 }: ChoiceSelectProps) {
   const chosen = choices.find((each) => each.value === value);
-  const item = compact && !toolbar ? COMPACT_ITEM : undefined;
-  const Chevron = toolbar ? ChevronDown : ChevronsUpDown;
+  const look = LOOKS[toolbar ? 'toolbar' : compact ? 'compact' : 'field'];
+  const { item, Chevron } = look;
 
   return (
     <DropdownMenu>
@@ -53,11 +75,7 @@ export function ChoiceSelect({
         disabled={disabled}
         className={cn(
           'flex min-w-0 items-center border border-border text-left outline-none transition-colors hover:bg-accent disabled:opacity-50 data-[popup-open]:bg-accent',
-          toolbar
-            ? 'h-7 gap-2 rounded-md px-2 text-sm'
-            : compact
-              ? 'h-6 gap-1 rounded-full bg-card px-2 text-[0.7rem]'
-              : 'h-8 gap-2 rounded-full bg-card px-3 text-xs',
+          look.trigger,
           className,
         )}
       >
@@ -71,24 +89,11 @@ export function ChoiceSelect({
         </span>
         <Chevron
           aria-hidden
-          className={cn(
-            'ml-auto shrink-0 text-muted-foreground',
-            compact && !toolbar ? 'size-2.5' : 'size-3',
-          )}
+          className={cn('ml-auto shrink-0 text-muted-foreground', look.chevron)}
         />
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent
-        align="start"
-        sideOffset={6}
-        className={
-          toolbar
-            ? 'w-max min-w-52 max-w-72'
-            : compact
-              ? 'w-max min-w-36 max-w-72'
-              : 'w-max min-w-[max(var(--anchor-width),12rem)] max-w-(--available-width)'
-        }
-      >
+      <DropdownMenuContent align="start" sideOffset={6} className={look.menu}>
         <DropdownMenuRadioGroup
           value={value ?? NONE}
           onValueChange={(next) =>
