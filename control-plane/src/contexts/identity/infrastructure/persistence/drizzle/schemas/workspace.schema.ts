@@ -1,3 +1,4 @@
+import { JOB_FUNCTIONS } from '@identity/domain/value-objects/job-function.vo';
 import { WORKSPACE_ROLES } from '@identity/domain/value-objects/workspace-role.vo';
 import { user } from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
 import { TOKEN_SCOPES } from '@shared-kernel/domain/value-objects/token-scope.vo';
@@ -16,6 +17,8 @@ import {
 } from 'drizzle-orm/pg-core';
 
 export const workspaceRole = pgEnum('workspace_role', WORKSPACE_ROLES);
+
+export const jobFunction = pgEnum('job_function', JOB_FUNCTIONS);
 
 export const workspaceTokenScope = pgEnum(
   'workspace_token_scope',
@@ -51,6 +54,18 @@ export const workspaceMember = pgTable(
     index('workspace_member_user_idx').on(table.userId),
   ],
 );
+
+export const signupSurvey = pgTable('signup_survey', {
+  workspaceId: text('workspace_id')
+    .primaryKey()
+    .references(() => workspace.id, { onDelete: 'cascade' }),
+  respondentId: text('respondent_id').references(() => user.id, {
+    onDelete: 'set null',
+  }),
+  jobFunction: jobFunction('job_function').notNull(),
+  referralSource: text('referral_source'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
 
 export const team = pgTable(
   'team',

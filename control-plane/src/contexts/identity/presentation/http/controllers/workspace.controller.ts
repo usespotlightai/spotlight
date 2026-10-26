@@ -17,6 +17,7 @@ import {
   WorkspaceListingResponseDto,
   WorkspaceResponseDto,
 } from '@identity/presentation/http/dto/workspace.response.dto';
+import { signupSurveyInput } from '@identity/presentation/http/mappers/signup-survey-input';
 import { WorkspaceHttpMapper } from '@identity/presentation/http/mappers/workspace.http.mapper';
 import {
   Body,
@@ -31,6 +32,7 @@ import {
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
+  ApiBadRequestResponse,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
@@ -64,7 +66,13 @@ export class WorkspaceController {
   })
   @ApiCreatedResponse({ type: CreatedWorkspaceResponseDto })
   @ApiConflictResponse({ description: 'That workspace URL is already taken' })
-  @ApiUnprocessableEntityResponse({ description: 'Invalid name or URL' })
+  @ApiBadRequestResponse({
+    description:
+      'A survey without a job function, or with answers that are not text',
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'Invalid name, URL, job function or referral source',
+  })
   async create(
     @Body() body: CreateWorkspaceRequestDto,
     @CurrentActor() actor: Actor,
@@ -77,6 +85,7 @@ export class WorkspaceController {
         body.name,
         body.slug,
         body.teamName,
+        signupSurveyInput(body.survey),
         actor,
       ),
     );

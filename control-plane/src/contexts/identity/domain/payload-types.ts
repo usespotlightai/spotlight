@@ -23,10 +23,12 @@ import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { IssuedTokenDetail } from '@identity/domain/value-objects/issued-token-detail.vo';
+import { JobFunction } from '@identity/domain/value-objects/job-function.vo';
 import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { Permissions } from '@identity/domain/value-objects/permissions.vo';
 import { RunTokenDetail } from '@identity/domain/value-objects/run-token-detail.vo';
 import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
+import { SignupSurvey } from '@identity/domain/value-objects/signup-survey.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
@@ -45,7 +47,9 @@ export const IDENTITY_PAYLOAD_TYPES = [
   InviteId,
   InviteSpec,
   IssuedTokenDetail,
+  JobFunction,
   RunTokenDetail,
+  SignupSurvey,
   Dependents,
   TeamKey,
   TeamName,

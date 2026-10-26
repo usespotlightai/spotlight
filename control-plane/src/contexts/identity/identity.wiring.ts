@@ -70,6 +70,7 @@ import {
   type PersonReaderPort,
 } from '@identity/application/ports/person-reader.port';
 import { RUN_TOKENS } from '@identity/application/ports/run-tokens.port';
+import { SIGNUP_SURVEYS } from '@identity/application/ports/signup-surveys.port';
 import { TEAM_DEPENDENTS } from '@identity/application/ports/team-dependents.port';
 import { TEAM_DIRECTORY } from '@identity/application/ports/team-directory.port';
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
@@ -158,6 +159,7 @@ import { DrizzleTeamRepository } from '@identity/infrastructure/persistence/driz
 import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace.repository';
 import { DrizzleWorkspaceInviteRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace-invite.repository';
 import { DrizzleWorkspaceTokenRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace-token.repository';
+import { DrizzleSignupSurveys } from '@identity/infrastructure/persistence/drizzle/signup-surveys';
 import { identityProjections } from '@identity/presentation/events/identity.projections';
 import { identitySubscribers } from '@identity/presentation/events/identity.subscribers';
 import { ConfigurationChangeController } from '@identity/presentation/http/controllers/configuration-change.controller';
@@ -251,6 +253,7 @@ const adapters: Provider[] = [
   { provide: IDENTITY_RESOURCES, useClass: DrizzleIdentityResources },
   { provide: CONFIGURATION_AUDIT, useClass: DrizzleConfigurationAudit },
   { provide: OIDC_TRUST_USAGE, useClass: DrizzleOidcTrustUsage },
+  { provide: SIGNUP_SURVEYS, useClass: DrizzleSignupSurveys },
   {
     provide: INVITE_MAIL,
     inject: [ENV, LOGGER],
@@ -347,7 +350,7 @@ const handlers: Provider[] = [
   ...bindCommandHandler(
     CreateWorkspaceWithTeamCommand,
     CreateWorkspaceWithTeamHandler,
-    [DrizzleWorkspaceRepository, ID_GENERATOR],
+    [DrizzleWorkspaceRepository, SIGNUP_SURVEYS, ID_GENERATOR, TRANSACTION],
   ),
   ...bindCommandHandler(CreateWorkspaceCommand, CreateWorkspaceHandler, [
     IDENTITY_DEFINITIONS,

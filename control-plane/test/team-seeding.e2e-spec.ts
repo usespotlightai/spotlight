@@ -38,6 +38,7 @@ describe('setting up the team a workspace starts with (e2e)', () => {
         name: 'Acme',
         slug,
         teamName: 'Core',
+        survey: { jobFunction: 'engineering' },
       })
       .expect(201);
     const teamId = created.body.teams[0].id as string;
