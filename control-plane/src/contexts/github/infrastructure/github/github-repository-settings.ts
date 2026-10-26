@@ -60,26 +60,18 @@ export class GitHubRepositorySettings implements RepositorySettingsPort {
     const name = found.default_branch;
     const branch = encodeURIComponent(name);
 
-    const [classic, rules] = await Promise.all([
-      call(
+    const [classicReviews, rules = []] = await Promise.all([
+      this.readIfAllowed<RequiredReviews>(
         `${this.at(repository)}/branches/${branch}/protection/required_pull_request_reviews`,
         token,
+        `GitHub would not return the review rule on ${name} of ${repository.value}`,
       ),
-      call(`${this.at(repository)}/rules/branches/${branch}`, token).then(
-        (response) =>
-          answered<BranchRule[]>(
-            response,
-            `GitHub would not return the rules on ${name} of ${repository.value}`,
-          ),
+      this.readIfAllowed<BranchRule[]>(
+        `${this.at(repository)}/rules/branches/${branch}`,
+        token,
+        `GitHub would not return the rules on ${name} of ${repository.value}`,
       ),
     ]);
-    const classicReviews =
-      classic.status === NOT_FOUND || classic.status === FORBIDDEN
-        ? undefined
-        : await answered<RequiredReviews>(
-            classic,
-            `GitHub would not return the review rule on ${name} of ${repository.value}`,
-          );
 
     return {
       name,
@@ -141,6 +133,20 @@ export class GitHubRepositorySettings implements RepositorySettingsPort {
       ),
       operation,
     );
+  }
+
+  private async readIfAllowed<T>(
+    path: string,
+    token: string,
+    operation: string,
+  ): Promise<T | undefined> {
+    const response = await call(path, token);
+
+    if (response.status === NOT_FOUND || response.status === FORBIDDEN) {
+      return undefined;
+    }
+
+    return answered<T>(response, operation);
   }
 
   private notPermitted(error: unknown): boolean {

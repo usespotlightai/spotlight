@@ -52,6 +52,7 @@ const branch = (
     reviews?: number | null;
     reviewsStatus?: number;
     rules?: unknown[];
+    rulesStatus?: number;
     name?: string;
   } = {},
 ) =>
@@ -84,6 +85,9 @@ const branch = (
           };
     }
     if (url.endsWith(`/rules/branches/${name}`)) {
+      if (over.rulesStatus) {
+        return { status: over.rulesStatus, body: { message: 'Refused' } };
+      }
       return { status: 200, body: over.rules ?? [] };
     }
 
@@ -180,6 +184,26 @@ describe('GitHubRepositorySettings', () => {
       branch({ reviewsStatus: 403, rules: [{ type: 'pull_request' }] });
 
       expect((await read()).protected).toBe(false);
+    });
+
+    it('counts rulesets it may not read as none, on a private repository without a paid plan', async () => {
+      branch({ reviewsStatus: 403, rulesStatus: 403 });
+
+      expect(await read()).toEqual({ name: 'main', protected: false, ...IDS });
+    });
+
+    it('still counts classic protection when it may not read the rulesets', async () => {
+      branch({ reviews: 1, rulesStatus: 403 });
+
+      expect((await read()).protected).toBe(true);
+    });
+
+    it('carries GitHub’s error when the rulesets cannot be read', async () => {
+      branch({ rulesStatus: 500 });
+
+      await expect(read()).rejects.toThrow(
+        'GitHub would not return the rules on main of acme/config',
+      );
     });
 
     it('carries GitHub’s error when the review rule cannot be read', async () => {
