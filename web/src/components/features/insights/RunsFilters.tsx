@@ -55,10 +55,10 @@ export function RunsFilters({
   return (
     <fieldset
       aria-label="Narrow the runs"
-      className="m-0 flex flex-wrap items-center gap-1.5 border-0 p-0"
+      className="m-0 flex flex-wrap items-center gap-2 border-0 p-0"
     >
       <ChoiceSelect
-        compact
+        toolbar
         label="Station"
         choices={[...names.values()]
           .filter((station) => station.kind === 'work')
@@ -71,7 +71,7 @@ export function RunsFilters({
         onChange={(stationId) => change('stationId', stationId)}
       />
       <ChoiceSelect
-        compact
+        toolbar
         label="Outcome"
         choices={RUN_ENDINGS.map((ending) => ({
           value: ending,
@@ -83,7 +83,10 @@ export function RunsFilters({
       />
 
       {others.map((key) => (
-        <Pill key={key} className="h-6 text-[0.7rem] text-foreground">
+        <Pill
+          key={key}
+          className="h-7 rounded-md bg-transparent px-2 font-normal text-foreground text-sm"
+        >
           <span className="text-muted-foreground">{filterLabel(key)}</span>
           {formatValue(key, filter[key] ?? '')}
           <button
