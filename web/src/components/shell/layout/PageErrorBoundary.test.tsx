@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PageErrorBoundary } from '@/components/shell/layout/PageErrorBoundary';
 
 let broken = true;
+let mounted = 0;
 
 function Page() {
   if (broken) {
@@ -14,8 +15,16 @@ function Page() {
   return <p>The page</p>;
 }
 
+function Counted() {
+  useEffect(() => {
+    mounted += 1;
+  }, []);
+  return <Page />;
+}
+
 afterEach(() => {
   broken = true;
+  mounted = 0;
 });
 
 describe('PageErrorBoundary', () => {
@@ -42,13 +51,6 @@ describe('PageErrorBoundary', () => {
 
   it('keeps a page that renders mounted while the path changes, and clears a failure when it changes', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    let mounted = 0;
-    function Counted() {
-      useEffect(() => {
-        mounted += 1;
-      }, []);
-      return <Page />;
-    }
 
     render(
       <MemoryRouter initialEntries={['/a']}>
