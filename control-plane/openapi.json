@@ -30575,7 +30575,8 @@
               "replay-set",
               "replay-search",
               "replay-check",
-              "config-pull-request"
+              "config-pull-request",
+              "terraform-state"
             ]
           },
           "resourceId": {

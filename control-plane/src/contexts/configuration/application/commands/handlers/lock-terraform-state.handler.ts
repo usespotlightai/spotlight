@@ -27,7 +27,7 @@ export class LockTerraformStateHandler
     try {
       const permissions = await this.access.permissionsInSlug(
         command.slug,
-        command.principal,
+        command.actor.principal,
       );
 
       if (!permissions) {
@@ -40,7 +40,7 @@ export class LockTerraformStateHandler
 
       const lock = StateLock.of({
         info: command.info,
-        lockedBy: command.principal.toString(),
+        lockedBy: command.actor.principal.toString(),
         lockedAt: this.clock.now(),
       });
       const name = StateName.of(command.name);

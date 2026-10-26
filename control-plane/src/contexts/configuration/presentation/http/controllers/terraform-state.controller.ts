@@ -27,8 +27,10 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { AllowBasicCredentials } from '@platform/http/decorators/allow-basic-credentials.decorator';
 import { AllowWorkspaceTokens } from '@platform/http/decorators/allow-workspace-tokens.decorator';
+import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
 import { TERRAFORM_STATE_ROUTE } from '@platform/http/routes';
+import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
 interface Answer {
@@ -128,7 +130,7 @@ export class TerraformStateController {
     @Param('name') name: string,
     @Query('ID') lockId: string | undefined,
     @Headers('content-md5') sentMd5: string | undefined,
-    @CurrentPrincipal() principal: Principal,
+    @CurrentActor() actor: Actor,
     @Req() request: Posted,
     @Res() answer: Answer,
   ): Promise<void> {
@@ -142,7 +144,7 @@ export class TerraformStateController {
         new WriteTerraformStateCommand(
           slug,
           name,
-          principal,
+          actor,
           lockId || null,
           body,
           md5,
@@ -157,12 +159,12 @@ export class TerraformStateController {
     @Param('slug') slug: string,
     @Param('name') name: string,
     @Body() info: unknown,
-    @CurrentPrincipal() principal: Principal,
+    @CurrentActor() actor: Actor,
     @Res() answer: Answer,
   ): Promise<void> {
     settle(
       await this.commandBus.execute<LockTerraformStateCommand, StateChanged>(
-        new LockTerraformStateCommand(slug, name, principal, info),
+        new LockTerraformStateCommand(slug, name, actor, info),
       ),
       answer,
     );
@@ -173,7 +175,7 @@ export class TerraformStateController {
     @Param('slug') slug: string,
     @Param('name') name: string,
     @Body() info: unknown,
-    @CurrentPrincipal() principal: Principal,
+    @CurrentActor() actor: Actor,
     @Res() answer: Answer,
   ): Promise<void> {
     settle(
@@ -181,7 +183,7 @@ export class TerraformStateController {
         new UnlockTerraformStateCommand(
           slug,
           name,
-          principal,
+          actor,
           sent(info) ? info : null,
         ),
       ),

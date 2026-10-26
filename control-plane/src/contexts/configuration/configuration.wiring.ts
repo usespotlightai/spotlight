@@ -180,6 +180,7 @@ import { CLOCK } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
 import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
+import { LOGGER } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import {
@@ -362,6 +363,7 @@ const handlers: Provider[] = [
       TERRAFORM_STATE_BODIES,
       ID_GENERATOR,
       CLOCK,
+      LOGGER,
     ],
   ),
   ...bindCommandHandler(LockTerraformStateCommand, LockTerraformStateHandler, [

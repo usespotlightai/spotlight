@@ -1,10 +1,10 @@
-import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
+import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 
 export class UnlockTerraformStateCommand {
   constructor(
     readonly slug: string,
     readonly name: string,
-    readonly principal: Principal,
+    readonly actor: Actor,
     readonly info: unknown | null,
   ) {}
 }

@@ -2666,7 +2666,7 @@ export type ConfigurationChangeResponseDto = {
    * Rises with every change; pass it as before to page back
    */
   seq: number;
-  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'hook' | 'secret' | 'workspace-token' | 'oidc-trust' | 'runner-trust' | 'runner-pool' | 'egress' | 'workspace-runners' | 'replay-candidate' | 'replay' | 'replay-set' | 'replay-search' | 'replay-check' | 'config-pull-request';
+  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'hook' | 'secret' | 'workspace-token' | 'oidc-trust' | 'runner-trust' | 'runner-pool' | 'egress' | 'workspace-runners' | 'replay-candidate' | 'replay' | 'replay-set' | 'replay-search' | 'replay-check' | 'config-pull-request' | 'terraform-state';
   resourceId: string;
   /**
    * The key it had within its team or workspace
