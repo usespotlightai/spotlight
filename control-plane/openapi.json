@@ -19751,7 +19751,8 @@
                 "30d",
                 "90d"
               ],
-              "type": "string"
+              "type": "string",
+              "example": "7d"
             }
           }
         ],
