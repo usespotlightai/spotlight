@@ -2276,15 +2276,38 @@ export type SetupStepResponseDto = {
   done: boolean;
 };
 
+export type SetupCiResponseDto = {
+  /**
+   * The default branch, whose pushes may apply
+   */
+  defaultBranch: string;
+  /**
+   * Whether the default branch has branch protection or a ruleset that requires a pull request review
+   */
+  defaultBranchProtected: boolean;
+  /**
+   * Whether Spotlight wrote the GitHub Actions variables, or the GitHub App may not write variables
+   */
+  variables: 'written' | 'not-permitted';
+};
+
 export type SetupChatResponseDto = {
   /**
    * The team’s setup chat, when the caller started it. Chats are seen only by whoever started them
    */
   id: string | null;
   /**
+   * The repository that holds the configuration
+   */
+  repository: string;
+  /**
    * The pull request it opened with the configuration
    */
   pullRequest: string | null;
+  /**
+   * The GitHub Actions trusts that the setup created for the repository. Pull requests plan, and pushes to the default branch apply
+   */
+  ci: SetupCiResponseDto | null;
   /**
    * Who started it, empty when they have left the workspace
    */
@@ -2304,6 +2327,10 @@ export type OnboardingResponseDto = {
    * Whether a setup chat can start: the GitHub App is installed and a host runs sandboxes
    */
   canSetUp: boolean;
+  /**
+   * Whether the viewer is a workspace owner or admin. Only they may set up configuration as code, because the setup creates OIDC trusts
+   */
+  viewerIsAdmin: boolean;
   /**
    * The chat setting up the team’s configuration as code, the one with a pull request first
    */

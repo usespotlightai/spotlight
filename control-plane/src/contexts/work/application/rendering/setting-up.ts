@@ -1,7 +1,104 @@
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { CI_VARIABLES } from '@work/application/services/ci-setups.service';
+import type { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import type { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 
 const BRANCH = 'spotlight-configuration';
+
+const WORKFLOW = '.github/workflows/spotlight.yml';
+
+const stateSignIn = [
+  '      - name: Download spotlight',
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions expression syntax
+  '        working-directory: ${{ runner.temp }}',
+  '        run: |',
+  '          base=https://github.com/usespotlightai/spotlight/releases/latest/download',
+  '          curl -fsSL -o spotlight "$base/spotlight-linux-amd64"',
+  '          curl -fsSL -o spotlight.sha256 "$base/spotlight-linux-amd64.sha256"',
+  '          echo "$(cut -d\' \' -f1 spotlight.sha256)  spotlight" | sha256sum -c -',
+  '          chmod +x spotlight',
+  '      - name: Sign in to the state',
+  '        run: |',
+  '          token=$("$RUNNER_TEMP/spotlight" token)',
+  '          echo "::add-mask::$token"',
+  '          echo "TF_HTTP_PASSWORD=$token" >> "$GITHUB_ENV"',
+];
+
+const workflowOf = (folder: string, defaultBranch: string): string =>
+  [
+    'name: Spotlight',
+    '',
+    'on:',
+    '  pull_request:',
+    `    paths: ["${folder}/**", "${WORKFLOW}"]`,
+    '  push:',
+    `    branches: [${JSON.stringify(defaultBranch)}]`,
+    `    paths: ["${folder}/**", "${WORKFLOW}"]`,
+    '',
+    'permissions:',
+    '  contents: read',
+    '  id-token: write',
+    '',
+    'env:',
+    `  SPOTLIGHT_URL: \${{ vars.${CI_VARIABLES.url} }}`,
+    '',
+    'jobs:',
+    '  plan:',
+    "    if: github.event_name == 'pull_request'",
+    '    runs-on: ubuntu-24.04',
+    '    env:',
+    `      SPOTLIGHT_OIDC_TRUST: \${{ vars.${CI_VARIABLES.planTrust} }}`,
+    '    defaults:',
+    '      run:',
+    `        working-directory: ${folder}`,
+    '    steps:',
+    '      - uses: actions/checkout@v5',
+    '      - uses: hashicorp/setup-terraform@v3',
+    '        with:',
+    '          terraform_wrapper: false',
+    ...stateSignIn,
+    '      - run: terraform fmt -check -recursive',
+    '      - run: terraform init -input=false',
+    '      - run: terraform validate',
+    '      - run: terraform plan -input=false -lock=false',
+    '',
+    '  apply:',
+    "    if: github.event_name == 'push'",
+    '    runs-on: ubuntu-24.04',
+    '    concurrency: spotlight-apply',
+    '    env:',
+    `      SPOTLIGHT_OIDC_TRUST: \${{ vars.${CI_VARIABLES.applyTrust} }}`,
+    '    defaults:',
+    '      run:',
+    `        working-directory: ${folder}`,
+    '    steps:',
+    '      - uses: actions/checkout@v5',
+    '      - uses: hashicorp/setup-terraform@v3',
+    '        with:',
+    '          terraform_wrapper: false',
+    ...stateSignIn,
+    '      - run: terraform init -input=false',
+    '      - run: terraform apply -input=false -auto-approve',
+  ].join('\n');
+
+const ciStep = (configFolder: ConfigFolder, ci: CiSetup): string =>
+  [
+    '### 7. Run Terraform in GitHub Actions',
+    `Spotlight already trusts the GitHub Actions of \`${configFolder.repository.value}\`. Both trusts are in the export. Keep them in the Terraform as they are: CI may not change trusts, so an admin changes them. In the pull request, say this:`,
+    `- \`github-pull-requests\` (\`${ci.pullRequestsTrustId}\`): a pull request may plan.`,
+    `- \`github-apply\` (\`${ci.defaultBranchTrustId}\`): a push to \`${ci.defaultBranch}\` may apply, with the \`configure\`, \`secrets\` and \`runners\` scopes.`,
+    ci.variables === 'written'
+      ? `Spotlight set the repository variables \`${CI_VARIABLES.url}\`, \`${CI_VARIABLES.planTrust}\` and \`${CI_VARIABLES.applyTrust}\`.`
+      : `The GitHub App may not write repository variables. In the pull request, tell the person to add these repository variables: \`${CI_VARIABLES.planTrust}\` = \`${ci.pullRequestsTrustId}\`, \`${CI_VARIABLES.applyTrust}\` = \`${ci.defaultBranchTrustId}\`, and \`${CI_VARIABLES.url}\` = the Spotlight address in \`$SPOTLIGHT_URL\`.`,
+    `Add \`${WORKFLOW}\` at the repository root. Start from this, and add the \`TF_VAR_\` secrets that the variables need. Its two state steps sign in to Spotlight's state with the job's OIDC token. If the team keeps the state elsewhere, replace those two steps with that backend's credentials:`,
+    `\`\`\`yaml\n${workflowOf(configFolder.folder, ci.defaultBranch)}\n\`\`\``,
+    'In the pull request, list each secret the person must add to the repository, and say what it is for. Also say that a pull request from a fork gets no OIDC token from GitHub, so its plan job fails.',
+    ...(ci.defaultBranchProtected
+      ? []
+      : [
+          `As far as Spotlight can see, \`${ci.defaultBranch}\` does not require an approving review. Anyone who can push to \`${ci.defaultBranch}\` can change this workspace's configuration through the apply trust. Say this first in the pull request, and recommend a branch protection rule or ruleset that requires at least one approving review.`,
+        ]),
+  ].join('\n');
 
 export const SettingUp = {
   opening(team: string | null): string {
@@ -87,8 +184,9 @@ export const SettingUp = {
         '### 6. Check it',
         '`SPOTLIGHT_URL` and `SPOTLIGHT_API_TOKEN` are set for this run, and the token may read and plan, nothing more. If Spotlight keeps the state, first run `export TF_HTTP_PASSWORD=$SPOTLIGHT_API_TOKEN`. Run `terraform init`, `terraform fmt`, `terraform validate` and `terraform plan`, and keep the plan’s output for the pull request. The plan should only import what exists and change what you adapted. If `terraform init` cannot download the provider, say so and open the pull request without a plan.',
       ].join('\n'),
+      ...(configFolder.ci ? [ciStep(configFolder, configFolder.ci)] : []),
       [
-        '### 7. Open the pull request',
+        `### ${configFolder.ci ? 8 : 7}. Open the pull request`,
         `Commit on a new branch, such as \`${BRANCH}\`, push it, and open the pull request:`,
         `\`\`\`\nspotlight tools call setup-pull-request --branch ${BRANCH} --title "…" < body.md\n\`\`\``,
         'In the body, list each departure from the built-in lines as a decision with the files it rests on. Say which observability tools you connected, or why there are none. Add the plan.',

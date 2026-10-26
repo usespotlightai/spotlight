@@ -13,7 +13,7 @@ import {
   MEMORIES_REQUEST_ID,
   SETUP_ITEM_ID,
 } from '@/mocks/world/inbox';
-import { settingsWorld } from '@/mocks/world/settings';
+import { SETUP_CI, settingsWorld } from '@/mocks/world/settings';
 import { NO_FLEET } from '@/mocks/world/settings-runners';
 import { teamChats } from '@/mocks/world/team-chats';
 import {
@@ -37,11 +37,15 @@ const SETTING_UP = { arg: 'opened', eq: SETUP_ITEM_ID };
 
 type Configuration = 'not-started' | 'working' | 'done';
 
+type GitHubActions = 'written' | 'not-permitted' | 'unprotected';
+
 type InboxArgs = {
   readonly opened: string;
   readonly gitHubInstalled: boolean;
   readonly hostConnected: boolean;
   readonly configuration: Configuration;
+  readonly admin: boolean;
+  readonly gitHubActions: GitHubActions;
   readonly editingMemory: boolean;
   readonly approvingMemory: boolean;
   readonly answeringYes: boolean;
@@ -61,6 +65,8 @@ const meta = {
       gitHubInstalled: true,
       hostConnected: true,
       configuration: 'done',
+      admin: true,
+      gitHubActions: 'written',
       editingMemory: false,
       approvingMemory: false,
       answeringYes: false,
@@ -98,15 +104,38 @@ const meta = {
         }),
         if: SETTING_UP,
       },
+      admin: { ...toggle('Workspace owner or admin'), if: SETTING_UP },
+      gitHubActions: {
+        ...choice<GitHubActions>('GitHub Actions', {
+          written: 'Variables written',
+          'not-permitted': 'Variables not permitted',
+          unprotected: 'Default branch unprotected',
+        }),
+        if: SETTING_UP,
+      },
       editingMemory: toggle('Edit the first memory'),
       approvingMemory: toggle('Approve the first memory'),
       answeringYes: toggle('Answer Yes'),
     },
-    world: ({ opened, gitHubInstalled, hostConnected, configuration }) => {
+    world: ({
+      opened,
+      gitHubInstalled,
+      hostConnected,
+      configuration,
+      admin,
+      gitHubActions,
+    }) => {
       if (opened !== SETUP_ITEM_ID) return;
 
       const settings = settingsWorld();
       settings.gitHubConnected = gitHubInstalled;
+      settings.viewerIsAdmin = admin;
+      settings.setupCi = {
+        ...SETUP_CI,
+        variables:
+          gitHubActions === 'not-permitted' ? 'not-permitted' : 'written',
+        defaultBranchProtected: gitHubActions !== 'unprotected',
+      };
       if (!hostConnected) settings.fleet = structuredClone(NO_FLEET);
 
       const chats = teamChats()[PLATFORM_ID] ?? [];

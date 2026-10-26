@@ -7,6 +7,7 @@ import {
   SetupAbout,
   type SetupAboutProps,
 } from '@/components/features/onboarding/SetupAbout';
+import { SetupCi } from '@/components/features/onboarding/SetupCi';
 import { SetupStepsSkeleton } from '@/components/features/onboarding/SetupStepsSkeleton';
 import {
   SETUP_CONTROL,
@@ -30,10 +31,11 @@ type SetupStepsProps = {
 type StepProps = {
   step: SetupStepResponseDto;
   action: ReactNode;
+  detail: ReactNode;
   disabled: boolean;
 };
 
-function Step({ step, action, disabled }: StepProps) {
+function Step({ step, action, detail, disabled }: StepProps) {
   const [expanded, setExpanded] = useState(false);
 
   const revisable = step.done && Boolean(action);
@@ -88,6 +90,8 @@ function Step({ step, action, disabled }: StepProps) {
         ) : (
           heading
         )}
+
+        {detail}
 
         {action && (
           <div
@@ -184,6 +188,14 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
       );
     }
 
+    if (!onboarding.viewerIsAdmin) {
+      return (
+        <p className="text-muted-foreground text-sm leading-6">
+          Only a workspace owner or admin can set up configuration as code.
+        </p>
+      );
+    }
+
     return onboarding.canSetUp ? (
       <ConfigFolderForm slug={slug} teamId={teamId} />
     ) : (
@@ -192,6 +204,14 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
         an egress in a push pool.
       </p>
     );
+  };
+
+  const created = (step: SetupStepResponseDto): ReactNode => {
+    const chat = onboarding.setupChat;
+
+    return step.key === 'configuration' && chat?.ci ? (
+      <SetupCi repository={chat.repository} ci={chat.ci} />
+    ) : null;
   };
 
   const goAndDoIt = (step: SetupStepResponseDto): ReactNode => {
@@ -228,6 +248,7 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
             key={step.key}
             step={step}
             action={goAndDoIt(step)}
+            detail={created(step)}
             disabled={resolved && step.key !== 'configuration'}
           />
         ))}

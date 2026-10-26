@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
 import { SETUP_CONTROL } from '@/components/features/onboarding/setup-control';
 import { RepositoriesSelect } from '@/components/features/stations/RepositoriesSelect';
 import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
@@ -84,6 +85,12 @@ export function ConfigFolderForm({ slug, teamId }: ConfigFolderFormProps) {
         none="Repositories your team works in"
         className="h-8 w-fit rounded-full border border-border bg-card px-3 text-xs"
       />
+
+      <p className="col-span-2 flex items-center gap-1.5 text-muted-foreground text-xs leading-5">
+        Spotlight lets this repository’s GitHub Actions plan pull requests and
+        apply its default branch.
+        <InfoTooltip tooltip="Spotlight creates two OIDC trusts for the repository. Pull requests may plan. Pushes to the default branch may apply configuration, secrets and runners." />
+      </p>
 
       <Button
         type="submit"

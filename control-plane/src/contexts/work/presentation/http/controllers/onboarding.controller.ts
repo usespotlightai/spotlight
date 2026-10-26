@@ -15,6 +15,7 @@ import { OnboardingQuery } from '@work/application/queries/onboarding.query';
 import {
   OnboardingResponseDto,
   SetupChatResponseDto,
+  SetupCiResponseDto,
   SetupStepResponseDto,
 } from '@work/presentation/http/dto/onboarding.response.dto';
 
@@ -57,10 +58,19 @@ export class OnboardingController {
           ),
       ),
       read.canSetUp,
+      read.viewerIsAdmin,
       read.setupChat
         ? new SetupChatResponseDto(
             read.setupChat.id,
+            read.setupChat.repository,
             read.setupChat.pullRequest,
+            read.setupChat.ci
+              ? new SetupCiResponseDto(
+                  read.setupChat.ci.defaultBranch,
+                  read.setupChat.ci.defaultBranchProtected,
+                  read.setupChat.ci.variables,
+                )
+              : null,
             read.setupChat.startedBy,
           )
         : null,

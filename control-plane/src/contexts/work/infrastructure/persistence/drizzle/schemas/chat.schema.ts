@@ -26,10 +26,19 @@ export interface TraceRow {
   readonly teamId: string;
 }
 
+export interface ChatCiRow {
+  readonly defaultBranch: string;
+  readonly defaultBranchProtected: boolean;
+  readonly pullRequestsTrustId: string;
+  readonly defaultBranchTrustId: string;
+  readonly variables: 'written' | 'not-permitted';
+}
+
 export interface ChatSetupRow {
   readonly repository: string;
   readonly folder: string;
   readonly pullRequest: string | null;
+  readonly ci?: ChatCiRow | null;
 }
 
 export interface TargetStationRow {

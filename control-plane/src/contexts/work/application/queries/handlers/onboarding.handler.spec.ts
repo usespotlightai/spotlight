@@ -1,3 +1,4 @@
+import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { SetupChatView } from '@work/application/ports/chat-reader.port';
 import type {
@@ -16,6 +17,7 @@ type Options = {
   hasEgressCapableRunner?: boolean;
   chat?: SetupChatView | null;
   provisioning?: Provisioning;
+  admin?: boolean;
 };
 
 const nothing: SetupState = {
@@ -50,7 +52,13 @@ const handler = (options: Options = {}) => {
     of: vi.fn().mockResolvedValue(options.provisioning ?? 'done'),
   };
 
-  return new OnboardingHandler(workspaces, setup, provisioning);
+  const access = {
+    permissionsIn: vi
+      .fn()
+      .mockResolvedValue({ isAdmin: options.admin ?? true }),
+  } as unknown as WorkspaceAccessPort;
+
+  return new OnboardingHandler(workspaces, access, setup, provisioning);
 };
 
 const read = (options: Options = {}) =>
@@ -100,10 +108,42 @@ describe('OnboardingHandler', () => {
     ).resolves.toMatchObject({ canSetUp: false });
   });
 
+  it('says whether the viewer is an owner or admin, who alone may set up', async () => {
+    await expect(read()).resolves.toMatchObject({ viewerIsAdmin: true });
+    await expect(read({ admin: false })).resolves.toMatchObject({
+      viewerIsAdmin: false,
+    });
+  });
+
+  it('shows the CI that the setup created for its repository', async () => {
+    const ci = {
+      defaultBranch: 'main',
+      defaultBranchProtected: false,
+      variables: 'written' as const,
+    };
+
+    await expect(
+      read({
+        chat: {
+          id: 'chat_1',
+          repository: 'acme/infra',
+          pullRequest: null,
+          ci,
+          startedById: 'user_1',
+          startedBy: 'Ada',
+        },
+      }),
+    ).resolves.toMatchObject({
+      setupChat: { repository: 'acme/infra', ci },
+    });
+  });
+
   it('links the setup chat only for whoever started it', async () => {
     const chat = {
       id: 'chat_1',
+      repository: 'acme/infra',
       pullRequest: null,
+      ci: null,
       startedById: 'user_2',
       startedBy: 'Grace',
     };

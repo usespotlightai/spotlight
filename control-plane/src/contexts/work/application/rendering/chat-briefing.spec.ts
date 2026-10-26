@@ -15,6 +15,7 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
+import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
@@ -27,6 +28,7 @@ import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { describe, expect, it } from 'vitest';
+import { parse } from 'yaml';
 
 const NOW = new Date('2026-09-26T09:00:00.000Z');
 const LEON = UserId.of('user_1');
@@ -337,6 +339,104 @@ describe('ChatBriefing', () => {
       expect(brief(reading)).not.toContain(
         'is checked out. If the team’s code',
       );
+    });
+
+    const withCi = (ci: Partial<Parameters<typeof CiSetup.of>[0]> = {}) =>
+      Chat.start({
+        workspaceId: WorkspaceId.of('ws_1'),
+        teamId: TeamId.of('team_1'),
+        startedBy: LEON,
+        harness: HarnessId.of('claude-code'),
+        body: ChatMessageBody.fromInput('Set up our configuration.'),
+        setup: ConfigFolder.of({
+          repository: 'acme/infra',
+          folder: 'spotlight',
+        }).withCi(
+          CiSetup.of({
+            defaultBranch: 'main',
+            defaultBranchProtected: true,
+            pullRequestsTrustId: 'trust_plan',
+            defaultBranchTrustId: 'trust_apply',
+            variables: 'written',
+            ...ci,
+          }),
+        ),
+        now: NOW,
+        newId: () => 'chat_1',
+      });
+
+    it('adds a workflow that plans pull requests and applies the default branch through the trusts', () => {
+      const briefing = brief(withCi());
+
+      expect(briefing).toContain('### 7. Run Terraform in GitHub Actions');
+      expect(briefing).toContain('`github-pull-requests` (`trust_plan`)');
+      expect(briefing).toContain(
+        '`github-apply` (`trust_apply`): a push to `main` may apply',
+      );
+      expect(briefing).toContain('.github/workflows/spotlight.yml');
+      expect(briefing).toContain(
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions expression syntax
+        'SPOTLIGHT_OIDC_TRUST: ${{ vars.SPOTLIGHT_PLAN_TRUST }}',
+      );
+      expect(briefing).toContain(
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions expression syntax
+        'SPOTLIGHT_OIDC_TRUST: ${{ vars.SPOTLIGHT_APPLY_TRUST }}',
+      );
+      expect(briefing).toContain('working-directory: spotlight');
+      expect(briefing).toContain('### 8. Open the pull request');
+      expect(briefing).toContain('Spotlight set the repository variables');
+    });
+
+    it('signs both jobs in to the state, with a workflow GitHub can read', () => {
+      const briefing = brief(withCi());
+      const workflow = /```yaml\n([\s\S]*?)\n```/.exec(briefing)?.[1] ?? '';
+      const parsed = parse(workflow) as {
+        jobs: Record<string, { steps: { name?: string; run?: string }[] }>;
+      };
+
+      for (const job of ['plan', 'apply']) {
+        const steps = parsed.jobs[job]?.steps ?? [];
+        const signIn = steps.findIndex(
+          (step) => step.name === 'Sign in to the state',
+        );
+        const init = steps.findIndex((step) =>
+          step.run?.startsWith('terraform init'),
+        );
+
+        expect(signIn).toBeGreaterThan(0);
+        expect(signIn).toBeLessThan(init);
+        expect(steps[signIn]?.run).toContain('spotlight" token)');
+        expect(steps[signIn]?.run).toContain('::add-mask::');
+      }
+      expect(briefing).toContain(
+        'If the team keeps the state elsewhere, replace those two steps',
+      );
+      expect(briefing).toContain(
+        'CI may not change trusts, so an admin changes them',
+      );
+      expect(briefing).toContain(
+        'a pull request from a fork gets no OIDC token from GitHub',
+      );
+    });
+
+    it('asks the person to add the variables when the GitHub App may not', () => {
+      expect(brief(withCi({ variables: 'not-permitted' }))).toContain(
+        '`SPOTLIGHT_PLAN_TRUST` = `trust_plan`, `SPOTLIGHT_APPLY_TRUST` = `trust_apply`',
+      );
+    });
+
+    it('warns first when the default branch has no protection', () => {
+      expect(brief(withCi({ defaultBranchProtected: false }))).toContain(
+        'As far as Spotlight can see, `main` does not require an approving review. Anyone who can push to `main` can change',
+      );
+      expect(brief(withCi())).not.toContain(
+        'does not require an approving review',
+      );
+    });
+
+    it('leaves CI out of a setup that has none', () => {
+      expect(brief(setup)).not.toContain('Run Terraform in GitHub Actions');
+      expect(brief(setup)).toContain('### 7. Open the pull request');
     });
 
     it('checks out the configuration’s repository', () => {

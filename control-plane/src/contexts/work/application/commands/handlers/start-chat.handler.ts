@@ -1,3 +1,4 @@
+import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -7,6 +8,7 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -15,10 +17,12 @@ import type { StartChatCommand } from '@work/application/commands/chat.commands'
 import type { AccessibleRepositoriesPort } from '@work/application/ports/accessible-repositories.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
+import type { CiSetups } from '@work/application/services/ci-setups.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TracesLoader } from '@work/application/services/traces-loader.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { ConfigFolderUnreachableError } from '@work/domain/exceptions/config-folder-unreachable.error';
+import { SetupNeedsAnAdminError } from '@work/domain/exceptions/setup-needs-an-admin.error';
 import { SetupNeedsEgressError } from '@work/domain/exceptions/setup-needs-egress.error';
 import { UnknownHarnessError } from '@work/domain/exceptions/unknown-harness.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
@@ -35,6 +39,7 @@ export class StartChatHandler
 {
   constructor(
     private readonly workspaces: WorkspaceReaderPort,
+    private readonly access: WorkspaceAccessPort,
     private readonly chats: ChatRepository,
     private readonly files: FilesLoader,
     private readonly traces: TracesLoader,
@@ -43,6 +48,7 @@ export class StartChatHandler
     private readonly launch: HarnessLaunchPort,
     private readonly repositories: AccessibleRepositoriesPort,
     private readonly runners: RunnerReaderPort,
+    private readonly ci: CiSetups,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -68,18 +74,36 @@ export class StartChatHandler
 
       const workspaceId = WorkspaceId.of(member.workspaceId);
       const teamId = TeamId.of(member.teamId);
-      const setup = command.setup ? ConfigFolder.of(command.setup) : null;
+      const asked = command.setup ? ConfigFolder.of(command.setup) : null;
 
       if (
-        setup &&
-        !(await this.repositories.isAccessible(workspaceId, setup.repository))
+        asked &&
+        !(
+          await this.access.permissionsIn(
+            workspaceId,
+            PersonPrincipal.of(startedBy),
+          )
+        )?.isAdmin
       ) {
-        throw new ConfigFolderUnreachableError(setup.repository.value);
+        throw new SetupNeedsAnAdminError();
       }
 
-      if (setup && !(await this.runners.hasEgressCapableRunner(workspaceId))) {
+      if (
+        asked &&
+        !(await this.repositories.isAccessible(workspaceId, asked.repository))
+      ) {
+        throw new ConfigFolderUnreachableError(asked.repository.value);
+      }
+
+      if (asked && !(await this.runners.hasEgressCapableRunner(workspaceId))) {
         throw new SetupNeedsEgressError();
       }
+
+      const setup = asked
+        ? asked.withCi(
+            await this.ci.setUp(workspaceId, startedBy, asked.repository),
+          )
+        : null;
 
       const started = await this.transaction.inTransaction(async () => {
         const attachments = await this.files.handedOver(

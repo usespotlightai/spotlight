@@ -15,6 +15,7 @@ import type {
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { taskOfRun, world } from '@/mocks/world';
 import { SAM } from '@/mocks/world/people';
+import { SETUP_CI, settingsWorld } from '@/mocks/world/settings';
 import {
   type ChatRecord,
   chatTurn,
@@ -460,6 +461,15 @@ const chatHandlers = [
     }
     if (!input.harness) {
       return problem(422, 'A chat needs a harness.');
+    }
+    if (input.setup && !settingsWorld().viewerIsAdmin) {
+      return problem(
+        403,
+        'Only a workspace owner or admin can set up configuration as code. The setup creates the OIDC trusts that GitHub Actions signs in with.',
+      );
+    }
+    if (input.setup) {
+      settingsWorld().setupCi ??= { ...SETUP_CI };
     }
 
     const traces = tracesOf(teamId, input.traces ?? []);

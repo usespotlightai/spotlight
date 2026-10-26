@@ -135,4 +135,23 @@ export class DrizzleOidcTrustRepository implements OidcTrustRepository {
 
     return found ? toTrust(found) : null;
   }
+
+  async findByKey(
+    workspaceId: WorkspaceId,
+    key: OidcTrustKey,
+  ): Promise<OidcTrust | null> {
+    const [found] = await this.context.db
+      .select()
+      .from(oidcTrust)
+      .where(
+        and(
+          eq(oidcTrust.workspaceId, workspaceId.value),
+          eq(oidcTrust.key, key.value),
+        ),
+      )
+      .for('update')
+      .limit(1);
+
+    return found ? toTrust(found) : null;
+  }
 }

@@ -210,6 +210,20 @@ describe('NewChatComposer', () => {
     );
   });
 
+  it('says that only a workspace owner or admin can set up configuration', () => {
+    starting.isError = true;
+    starting.error = {
+      status: 403,
+      detail:
+        'Only a workspace owner or admin can set up configuration as code. The setup creates the OIDC trusts that GitHub Actions signs in with.',
+    };
+    showing();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Only a workspace owner or admin can set up configuration as code. The setup creates the OIDC trusts that GitHub Actions signs in with.',
+    );
+  });
+
   it('lets the handed station go before starting', async () => {
     showing(vi.fn(), [], SPEC);
 

@@ -1,6 +1,8 @@
+import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -15,6 +17,7 @@ export class OnboardingHandler
 {
   constructor(
     private readonly workspaces: WorkspaceReaderPort,
+    private readonly access: WorkspaceAccessPort,
     private readonly setup: SetupStatus,
     private readonly provisioning: TeamProvisioningPort,
   ) {}
@@ -31,10 +34,12 @@ export class OnboardingHandler
       }
 
       const teamId = TeamId.of(query.teamId);
+      const workspaceId = WorkspaceId.of(team.workspaceId);
       const provisioning = await this.provisioning.of(teamId);
-      const setup = await this.setup.of(
-        WorkspaceId.of(team.workspaceId),
-        teamId,
+      const setup = await this.setup.of(workspaceId, teamId);
+      const permissions = await this.access.permissionsIn(
+        workspaceId,
+        PersonPrincipal.of(UserId.of(query.viewerId)),
       );
 
       const { chat } = setup;
@@ -43,9 +48,12 @@ export class OnboardingHandler
         provisioning,
         steps: shownFor(setup.state),
         canSetUp: setup.state.connectedToGitHub && setup.hasEgressCapableRunner,
+        viewerIsAdmin: permissions?.isAdmin ?? false,
         setupChat: chat && {
           id: chat.startedById === query.viewerId ? chat.id : null,
+          repository: chat.repository,
           pullRequest: chat.pullRequest,
+          ci: chat.ci,
           startedBy: chat.startedBy,
         },
       };

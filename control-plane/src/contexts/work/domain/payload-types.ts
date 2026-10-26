@@ -59,6 +59,7 @@ import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
+import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { ConfigSource } from '@work/domain/value-objects/config-source.vo';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
@@ -203,6 +204,7 @@ export const WORK_PAYLOAD_TYPES = [
   PullRequestLink,
   RepositorySetup,
   ReplayCheckPolicy,
+  CiSetup,
   ConfigFolder,
   ConfigSource,
   ReviewPolicy,

@@ -47,6 +47,7 @@ import {
   CONFIGURATION_AUDIT,
   type ConfigurationAuditPort,
 } from '@identity/application/ports/configuration-audit.port';
+import { GITHUB_ACTIONS_TRUSTS } from '@identity/application/ports/github-actions-trusts.port';
 import { IDENTITY_DEFINITIONS } from '@identity/application/ports/identity-definitions.port';
 import {
   IDENTITY_RESOURCES,
@@ -73,7 +74,10 @@ import { RUN_TOKENS } from '@identity/application/ports/run-tokens.port';
 import { SIGNUP_SURVEYS } from '@identity/application/ports/signup-surveys.port';
 import { TEAM_DEPENDENTS } from '@identity/application/ports/team-dependents.port';
 import { TEAM_DIRECTORY } from '@identity/application/ports/team-directory.port';
-import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
+import {
+  WORKSPACE_ACCESS,
+  type WorkspaceAccessPort,
+} from '@identity/application/ports/workspace-access.port';
 import { WORKSPACE_DEPENDENTS } from '@identity/application/ports/workspace-dependents.port';
 import { WORKSPACE_READER } from '@identity/application/ports/workspace-reader.port';
 import { WORKSPACE_SETUP_STATUS } from '@identity/application/ports/workspace-setup-status.port';
@@ -127,6 +131,7 @@ import {
 } from '@identity/application/queries/workspace-token.queries';
 import { DependentsRegistry } from '@identity/application/services/dependents-registry.service';
 import { FirstTeam } from '@identity/application/services/first-team.service';
+import { GitHubActionsTrusts } from '@identity/application/services/github-actions-trusts.service';
 import { InviteMemberships } from '@identity/application/services/invite-memberships.service';
 import { InviteSending } from '@identity/application/services/invite-sending.service';
 import { IssuedTokens } from '@identity/application/services/issued-tokens.service';
@@ -619,6 +624,23 @@ const published: Provider[] = [
       issuer: TokenIssuer,
       clock: ClockPort,
     ) => new TokenAuthenticator(tokens, trusts, issuer, clock),
+  },
+  {
+    provide: GITHUB_ACTIONS_TRUSTS,
+    inject: [
+      WORKSPACE_ACCESS,
+      DrizzleOidcTrustRepository,
+      ID_GENERATOR,
+      TRANSACTION,
+      CLOCK,
+    ],
+    useFactory: (
+      access: WorkspaceAccessPort,
+      trusts: DrizzleOidcTrustRepository,
+      ids: IdGeneratorPort,
+      transaction: TransactionPort,
+      clock: ClockPort,
+    ) => new GitHubActionsTrusts(access, trusts, ids, transaction, clock),
   },
   {
     provide: OIDC_TRUST_CONFIGURATION,

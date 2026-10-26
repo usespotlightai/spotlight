@@ -2,6 +2,7 @@ import { InvalidRepositoryError } from '@shared-kernel/domain/exceptions/invalid
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { InvalidConfigFolderError } from '@work/domain/exceptions/invalid-config-folder.error';
+import type { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 
 const LONGEST_FOLDER = 200;
 
@@ -28,6 +29,7 @@ export class ConfigFolder {
     readonly repository: Repository,
     readonly folder: string,
     readonly pullRequest: PullRequestUrl | null,
+    readonly ci: CiSetup | null,
   ) {}
 
   static of(input: { repository: string; folder: string }): ConfigFolder {
@@ -52,26 +54,40 @@ export class ConfigFolder {
       throw new InvalidConfigFolderError('folder', problem);
     }
 
-    return new ConfigFolder(repository, folder, null);
+    return new ConfigFolder(repository, folder, null, null);
   }
 
   static rehydrate(input: {
     repository: Repository;
     folder: string;
     pullRequest: PullRequestUrl | null;
+    ci: CiSetup | null;
   }): ConfigFolder {
-    return new ConfigFolder(input.repository, input.folder, input.pullRequest);
+    return new ConfigFolder(
+      input.repository,
+      input.folder,
+      input.pullRequest,
+      input.ci,
+    );
   }
 
   opened(pullRequest: PullRequestUrl): ConfigFolder {
-    return new ConfigFolder(this.repository, this.folder, pullRequest);
+    return new ConfigFolder(this.repository, this.folder, pullRequest, this.ci);
+  }
+
+  withCi(ci: CiSetup): ConfigFolder {
+    return new ConfigFolder(this.repository, this.folder, this.pullRequest, ci);
   }
 
   equals(other: ConfigFolder): boolean {
     return (
       this.repository.equals(other.repository) &&
       this.folder === other.folder &&
-      (this.pullRequest?.value ?? null) === (other.pullRequest?.value ?? null)
+      (this.pullRequest?.value ?? null) ===
+        (other.pullRequest?.value ?? null) &&
+      (this.ci === null
+        ? other.ci === null
+        : other.ci !== null && this.ci.equals(other.ci))
     );
   }
 }

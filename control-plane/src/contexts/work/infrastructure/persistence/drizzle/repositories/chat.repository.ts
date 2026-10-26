@@ -23,6 +23,7 @@ import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
+import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
@@ -124,6 +125,15 @@ const setupRow = (setup: ConfigFolder | null): ChatSetupRow | null =>
         repository: setup.repository.value,
         folder: setup.folder,
         pullRequest: setup.pullRequest?.value ?? null,
+        ci: setup.ci
+          ? {
+              defaultBranch: setup.ci.defaultBranch,
+              defaultBranchProtected: setup.ci.defaultBranchProtected,
+              pullRequestsTrustId: setup.ci.pullRequestsTrustId,
+              defaultBranchTrustId: setup.ci.defaultBranchTrustId,
+              variables: setup.ci.variables,
+            }
+          : null,
       }
     : null;
 
@@ -160,6 +170,7 @@ const toChat = (
           pullRequest: row.setup.pullRequest
             ? PullRequestUrl.of(row.setup.pullRequest)
             : null,
+          ci: row.setup.ci ? CiSetup.of(row.setup.ci) : null,
         })
       : null,
     messages: messages.map((each) => toMessage(each, attachments)),
