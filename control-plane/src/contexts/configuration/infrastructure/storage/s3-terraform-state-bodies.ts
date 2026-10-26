@@ -1,4 +1,5 @@
 import {
+  DeleteObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
   ListObjectsV2Command,
@@ -59,6 +60,15 @@ export class S3TerraformStateBodies implements TerraformStateBodiesPort {
       .catch(missing);
 
     return object?.Body ? object.Body.transformToByteArray() : null;
+  }
+
+  async remove(state: TerraformState, version: StateVersion): Promise<void> {
+    await this.store.send(
+      new DeleteObjectCommand({
+        Bucket: this.bucket,
+        Key: keyOf(state, version),
+      }),
+    );
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {

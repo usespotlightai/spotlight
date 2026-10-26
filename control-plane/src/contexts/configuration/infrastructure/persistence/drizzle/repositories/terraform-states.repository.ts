@@ -12,14 +12,18 @@ import {
   terraformState,
   terraformStateVersion,
 } from '@configuration/infrastructure/persistence/drizzle/schemas/configuration.schema';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   codeOf,
   UNIQUE_VIOLATION,
 } from '@platform/persistence/drizzle/violations';
+import {
+  DOMAIN_EVENT_DISPATCHER,
+  type DomainEventDispatcher,
+} from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, lt } from 'drizzle-orm';
 
 type StateRow = typeof terraformState.$inferSelect;
 type VersionRow = typeof terraformStateVersion.$inferSelect;
@@ -69,7 +73,11 @@ const rehydrated = (row: StateRow, latest: VersionRow | null): TerraformState =>
 
 @Injectable()
 export class DrizzleTerraformStates implements TerraformStateRepository {
-  constructor(private readonly context: DrizzleContext) {}
+  constructor(
+    private readonly context: DrizzleContext,
+    @Inject(DOMAIN_EVENT_DISPATCHER)
+    private readonly events: DomainEventDispatcher,
+  ) {}
 
   async named(
     workspaceId: WorkspaceId,
@@ -112,7 +120,45 @@ export class DrizzleTerraformStates implements TerraformStateRepository {
           writtenAt: written.writtenAt,
         });
       }
+
+      await this.events.dispatch(state.pullEvents());
     });
+  }
+
+  async versionsBefore(
+    state: TerraformState,
+    number: number,
+  ): Promise<readonly StateVersion[]> {
+    const rows = await this.context.db
+      .select()
+      .from(terraformStateVersion)
+      .where(
+        and(
+          eq(terraformStateVersion.stateId, state.id.value),
+          lt(terraformStateVersion.number, number),
+        ),
+      );
+
+    return rows.map(versionOf);
+  }
+
+  async removeVersions(
+    state: TerraformState,
+    versions: readonly StateVersion[],
+  ): Promise<void> {
+    if (versions.length === 0) {
+      return;
+    }
+
+    await this.context.db.delete(terraformStateVersion).where(
+      and(
+        eq(terraformStateVersion.stateId, state.id.value),
+        inArray(
+          terraformStateVersion.id,
+          versions.map((version) => version.id.value),
+        ),
+      ),
+    );
   }
 
   async deleteForWorkspace(workspaceId: WorkspaceId): Promise<void> {
