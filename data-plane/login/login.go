@@ -149,8 +149,11 @@ func (c *client) address(set *flag.FlagSet, args []string) (string, error) {
 
 	if err := set.Parse(args); err != nil || set.NArg() > 0 {
 		shown := loginHelp
-		if set.Name() == logoutHelp.Path {
+		switch set.Name() {
+		case logoutHelp.Path:
 			shown = logoutHelp
+		case tokenHelp.Path:
+			shown = tokenHelp
 		}
 		return "", fmt.Errorf("%s", shown.Synopsis())
 	}

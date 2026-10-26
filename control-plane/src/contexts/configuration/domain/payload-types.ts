@@ -13,7 +13,13 @@ import { ProfileSettings } from '@configuration/domain/value-objects/profile-set
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import { SkillFiles } from '@configuration/domain/value-objects/skill-files.vo';
 import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
+import { StateLock } from '@configuration/domain/value-objects/state-lock.vo';
+import { StateName } from '@configuration/domain/value-objects/state-name.vo';
+import { StateSnapshot } from '@configuration/domain/value-objects/state-snapshot.vo';
+import { StateVersion } from '@configuration/domain/value-objects/state-version.vo';
+import { StateVersionId } from '@configuration/domain/value-objects/state-version-id.vo';
 import { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
+import { TerraformStateId } from '@configuration/domain/value-objects/terraform-state-id.vo';
 import { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
 
 export const CONFIGURATION_PAYLOAD_TYPES = [
@@ -34,4 +40,10 @@ export const CONFIGURATION_PAYLOAD_TYPES = [
   HarnessProfileCreated,
   HarnessProfileUpdated,
   HarnessProfileDeleted,
+  TerraformStateId,
+  StateName,
+  StateLock,
+  StateSnapshot,
+  StateVersion,
+  StateVersionId,
 ] as const;

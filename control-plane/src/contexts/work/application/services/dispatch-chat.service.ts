@@ -49,6 +49,7 @@ export class DispatchChat implements ChatDispatching {
     private readonly memories: TeamMemoriesPort,
     private readonly logger: LoggerPort,
     private readonly savepoint: SavepointPort,
+    private readonly spotlightUrl: string,
   ) {}
 
   async takenUp(chat: Chat): Promise<Chat> {
@@ -166,6 +167,7 @@ export class DispatchChat implements ChatDispatching {
       lines,
       memories,
       memoryFolder,
+      spotlightUrl: this.spotlightUrl,
     });
   }
 

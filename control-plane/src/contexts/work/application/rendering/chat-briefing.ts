@@ -103,6 +103,7 @@ export const ChatBriefing = {
     lines: readonly Line[];
     memories: readonly BriefedMemory[];
     memoryFolder: MemoryFolder | null;
+    spotlightUrl: string;
   }): string {
     const messages = input.chat.messages.filter(
       (message) => message.kind === 'message',
@@ -119,6 +120,7 @@ export const ChatBriefing = {
             setup,
             input.chat.workspaceId.value,
             input.chat.repositories,
+            input.spotlightUrl,
           )
         : null,
       input.chat.targetStation

@@ -42,7 +42,9 @@ export const openApp = async (
       .useValue(env),
     env,
   ).compile();
-  const app = configureApp(compiled.createNestApplication());
+  const app = configureApp(
+    compiled.createNestApplication({ bodyParser: false }),
+  );
   const closed = app.close.bind(app);
 
   app.close = async () => {

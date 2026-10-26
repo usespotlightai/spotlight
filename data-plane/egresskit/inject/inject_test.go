@@ -3,6 +3,7 @@ package inject
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -477,5 +478,82 @@ func TestInjectPlainInjectsNoOtherSecret(t *testing.T) {
 
 	if got := header.Get("X-Workspace"); got != "" {
 		t.Fatalf("X-Workspace = %q, want the stand-in taken off rather than injected over plain HTTP", got)
+	}
+}
+
+func basicOf(user, password string) string {
+	return "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+password))
+}
+
+func TestForControlPlaneSwapsTheStandInSentAsABasicPassword(t *testing.T) {
+	injector, _ := injectorWithSecrets(t)
+	if err := injector.ForControlPlane(&protocol.SpotlightAPI{Sealed: "sealed:run-token"}, controlPlane(t, "https://spotlight.example.com"), "run_1", opener{}); err != nil {
+		t.Fatal(err)
+	}
+
+	header := http.Header{"Authorization": {basicOf("spotlight", protocol.SpotlightAPIStandIn)}}
+	injectInto(injector, "spotlight.example.com", header)
+
+	if got := header.Get("Authorization"); got != "Bearer run-token" {
+		t.Fatalf("Authorization = %q, want the run's token as a Bearer token", got)
+	}
+}
+
+func TestOnlyTheControlPlaneTakesTheStandInAsABasicPassword(t *testing.T) {
+	injector, _ := injectorWithSecrets(t)
+	if err := injector.ForControlPlane(&protocol.SpotlightAPI{Sealed: "sealed:run-token"}, controlPlane(t, "https://spotlight.example.com"), "run_1", opener{}); err != nil {
+		t.Fatal(err)
+	}
+
+	untouched := basicOf("spotlight", "a-password")
+	header := http.Header{"Authorization": {untouched}}
+	injectInto(injector, "spotlight.example.com", header)
+	if got := header.Get("Authorization"); got != untouched {
+		t.Errorf("Authorization = %q, want Basic credentials without the stand-in left as they were", got)
+	}
+
+	for _, sent := range []string{
+		basicOf("spotlight", "x"+protocol.SpotlightAPIStandIn),
+		basicOf(protocol.SpotlightAPIStandIn, ""),
+	} {
+		header := http.Header{"Authorization": {sent}}
+		injectInto(injector, "spotlight.example.com", header)
+		if got := header.Get("Authorization"); got != "" {
+			t.Errorf("Authorization %q became %q, want it removed", sent, got)
+		}
+	}
+
+	elsewhere := http.Header{"Authorization": {basicOf("spotlight", protocol.SpotlightAPIStandIn)}}
+	injectInto(injector, "example.org", elsewhere)
+	if got := elsewhere.Get("Authorization"); got != "" {
+		t.Fatalf("Authorization to another host = %q, want it removed", got)
+	}
+}
+
+func TestTheBasicSchemeIsReadInAnyCase(t *testing.T) {
+	injector, _ := injectorWithSecrets(t)
+	if err := injector.ForControlPlane(&protocol.SpotlightAPI{Sealed: "sealed:run-token"}, controlPlane(t, "https://spotlight.example.com"), "run_1", opener{}); err != nil {
+		t.Fatal(err)
+	}
+
+	header := http.Header{"Authorization": {"basic " + base64.StdEncoding.EncodeToString([]byte("spotlight:"+protocol.SpotlightAPIStandIn))}}
+	injectInto(injector, "spotlight.example.com", header)
+
+	if got := header.Get("Authorization"); got != "Bearer run-token" {
+		t.Fatalf("Authorization = %q, want the run's token", got)
+	}
+}
+
+func TestInjectPlainSwapsABasicStandInOnThePlainControlPlanesPort(t *testing.T) {
+	injector, _ := injectorWithSecrets(t)
+	if err := injector.ForControlPlane(&protocol.SpotlightAPI{Sealed: "sealed:run-token"}, controlPlane(t, "http://control-plane:3000"), "run_1", opener{}); err != nil {
+		t.Fatal(err)
+	}
+
+	header := http.Header{"Authorization": {basicOf("spotlight", protocol.SpotlightAPIStandIn)}}
+	injector.InjectPlain("control-plane", "3000", plainRequest(header))
+
+	if got := header.Get("Authorization"); got != "Bearer run-token" {
+		t.Fatalf("Authorization = %q, want the run's token", got)
 	}
 }

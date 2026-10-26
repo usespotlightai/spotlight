@@ -7,6 +7,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { Env } from '@platform/config/env.schema';
+import { headObject, s3ClientsOf } from '@platform/storage/s3-clients';
 import type {
   ArchiveUpload,
   WorkspaceArchiveStorePort,
@@ -18,10 +19,6 @@ import type {
 import { InvalidWorkspaceArchiveError } from '@work/domain/exceptions/invalid-workspace-archive.error';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
-import {
-  headObject,
-  s3ClientsOf,
-} from '@work/infrastructure/storage/s3-clients';
 
 const SIGNED_FOR = 15 * 60;
 
