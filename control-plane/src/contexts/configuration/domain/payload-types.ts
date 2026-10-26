@@ -4,6 +4,8 @@ import { HarnessProfileUpdated } from '@configuration/domain/events/harness-prof
 import { SkillCreated } from '@configuration/domain/events/skill-created.event';
 import { SkillDeleted } from '@configuration/domain/events/skill-deleted.event';
 import { SkillUpdated } from '@configuration/domain/events/skill-updated.event';
+import { TerraformStateLockReleased } from '@configuration/domain/events/terraform-state-lock-released.event';
+import { TerraformStateWritten } from '@configuration/domain/events/terraform-state-written.event';
 import { ConfigurationFile } from '@configuration/domain/value-objects/configuration-file.vo';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import { McpServer } from '@configuration/domain/value-objects/mcp-server.vo';
@@ -13,6 +15,7 @@ import { ProfileSettings } from '@configuration/domain/value-objects/profile-set
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import { SkillFiles } from '@configuration/domain/value-objects/skill-files.vo';
 import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
+import { StateChangeDetail } from '@configuration/domain/value-objects/state-change-detail.vo';
 import { StateLock } from '@configuration/domain/value-objects/state-lock.vo';
 import { StateName } from '@configuration/domain/value-objects/state-name.vo';
 import { StateSnapshot } from '@configuration/domain/value-objects/state-snapshot.vo';
@@ -46,4 +49,7 @@ export const CONFIGURATION_PAYLOAD_TYPES = [
   StateSnapshot,
   StateVersion,
   StateVersionId,
+  StateChangeDetail,
+  TerraformStateWritten,
+  TerraformStateLockReleased,
 ] as const;

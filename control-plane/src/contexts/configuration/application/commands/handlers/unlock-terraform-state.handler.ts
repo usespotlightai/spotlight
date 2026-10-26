@@ -9,6 +9,7 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class UnlockTerraformStateHandler
   implements CommandHandlerPort<UnlockTerraformStateCommand, StateChanged>
@@ -22,7 +23,7 @@ export class UnlockTerraformStateHandler
     try {
       const permissions = await this.access.permissionsInSlug(
         command.slug,
-        command.principal,
+        command.actor.principal,
       );
 
       if (!permissions) {
@@ -40,12 +41,14 @@ export class UnlockTerraformStateHandler
         permissions.workspaceId,
         StateName.of(command.name),
       );
+      const changedBy = ChangeActor.of(command.actor, permissions.workspaceId);
       const unlocked =
         id === null
-          ? state?.forceUnlock()
+          ? state?.forceUnlock(changedBy)
           : state?.unlock(id, {
-              principal: command.principal.toString(),
+              principal: command.actor.principal.toString(),
               mayForce: permissions.configures,
+              changedBy,
             });
 
       if (unlocked && unlocked !== state) {

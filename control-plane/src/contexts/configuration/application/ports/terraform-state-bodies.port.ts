@@ -16,5 +16,7 @@ export interface TerraformStateBodiesPort {
     version: StateVersion,
   ): Promise<Uint8Array | null>;
 
+  remove(state: TerraformState, version: StateVersion): Promise<void>;
+
   removeForWorkspace(workspaceId: WorkspaceId): Promise<void>;
 }

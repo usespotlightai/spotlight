@@ -18,6 +18,7 @@ const NOT_EXPORTED = [
   'replay-search',
   'replay-check',
   'config-pull-request',
+  'terraform-state',
 ] as const;
 
 export type ExportableKind = Exclude<

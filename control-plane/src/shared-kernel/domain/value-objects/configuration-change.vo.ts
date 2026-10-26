@@ -21,6 +21,7 @@ export const CONFIGURED_RESOURCES = [
   'replay-search',
   'replay-check',
   'config-pull-request',
+  'terraform-state',
 ] as const;
 
 export type ConfiguredResource = (typeof CONFIGURED_RESOURCES)[number];

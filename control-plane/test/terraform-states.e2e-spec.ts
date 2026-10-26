@@ -30,6 +30,9 @@ const kept = () => {
     },
     read: async (state, version) =>
       bodies.get(`${state.workspaceId.value}/${version.id.value}`) ?? null,
+    remove: async (state, version) => {
+      bodies.delete(`${state.workspaceId.value}/${version.id.value}`);
+    },
     removeForWorkspace: async (workspaceId) => {
       for (const key of [...bodies.keys()]) {
         if (key.startsWith(`${workspaceId.value}/`)) {
@@ -42,12 +45,15 @@ const kept = () => {
   return { bodies, port };
 };
 
-const stateOf = (serial: number) =>
+const stateOf = (
+  serial: number,
+  lineage = '9f0c1d2e-3a4b-5c6d-7e8f-90a1b2c3d4e5',
+) =>
   JSON.stringify({
     version: 4,
     terraform_version: '1.17.0',
     serial,
-    lineage: '9f0c1d2e-3a4b-5c6d-7e8f-90a1b2c3d4e5',
+    lineage,
     outputs: {},
     resources: [],
   });
@@ -358,4 +364,104 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
   it('answers 401 to a request without a credential', async () => {
     expect((await http().get(address())).status).toBe(401);
   });
+
+  it('refuses a state from another lineage or behind the latest serial', async () => {
+    const configure = as(tokens.configure);
+
+    await configure.write(stateOf(5));
+
+    const foreign = await configure.write(stateOf(6, 'another-lineage'));
+    const behind = await configure.write(stateOf(4));
+
+    expect(foreign.status).toBe(409);
+    expect(foreign.body.message).toContain('lineage');
+    expect(behind.status).toBe(409);
+    expect(behind.body.message).toContain('serial 5');
+    expect((await configure.write(stateOf(5))).status).toBe(200);
+
+    const diverged = await configure.write(
+      JSON.stringify({ ...JSON.parse(stateOf(5)), outputs: { other: 1 } }),
+    );
+
+    expect(diverged.status).toBe(409);
+    expect(diverged.body.message).toContain('other content');
+  });
+
+  it('audits each write and each forced unlock, but not a run’s own lock', async () => {
+    const configure = as(tokens.configure);
+
+    await configure.write(stateOf(1));
+    await configure.write(stateOf(2));
+    await as(tokens.plan).lock('plan-1');
+    await as(tokens.plan).unlock('plan-1');
+    await as(tokens.plan).lock('plan-2');
+    await http()
+      .delete(`${address()}/lock`)
+      .set('Authorization', basic(tokens.configure));
+
+    const changes = (
+      await http()
+        .get(`/api/workspaces/${seat.workspaceId}/configuration-changes`)
+        .set(TEST_USER_HEADER, seat.owner)
+    ).body as {
+      resource: string;
+      action: string;
+      key: string;
+      details: Record<string, unknown>;
+    }[];
+    const states = changes.filter(
+      (each) => each.resource === 'terraform-state',
+    );
+
+    expect(
+      states.map(({ action, key, details }) => [action, key, details]),
+    ).toEqual([
+      [
+        'updated',
+        'default',
+        {
+          released: 'forced',
+          lock: 'plan-2',
+          heldBy: expect.stringMatching(/^token:/),
+          operation: 'OperationTypeApply',
+        },
+      ],
+      [
+        'updated',
+        'default',
+        { version: 2, serial: 2, lineage: expect.any(String) },
+      ],
+      [
+        'created',
+        'default',
+        { version: 1, serial: 1, lineage: expect.any(String) },
+      ],
+    ]);
+  });
+
+  it('keeps the latest 100 versions and their bodies', async () => {
+    const configure = as(tokens.configure);
+
+    for (let serial = 1; serial <= 102; serial += 1) {
+      expect((await configure.write(stateOf(serial))).status).toBe(200);
+    }
+
+    const versions = await db
+      .select({ number: schema.terraformStateVersion.number })
+      .from(schema.terraformStateVersion)
+      .innerJoin(
+        schema.terraformState,
+        eq(schema.terraformState.id, schema.terraformStateVersion.stateId),
+      )
+      .where(eq(schema.terraformState.workspaceId, seat.workspaceId));
+    const numbers = versions.map(({ number }) => number).sort((a, b) => a - b);
+    const kept = [...store.bodies.keys()].filter((key) =>
+      key.startsWith(`${seat.workspaceId}/`),
+    );
+
+    expect(numbers).toHaveLength(100);
+    expect(numbers[0]).toBe(3);
+    expect(kept).toHaveLength(100);
+    expect(JSON.parse((await as(tokens.plan).read()).text).serial).toBe(102);
+  }, 60_000);
 });
