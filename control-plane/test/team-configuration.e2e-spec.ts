@@ -247,7 +247,12 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
     const created = await served(app)
       .post('/api/workspaces')
       .set(TEST_USER_HEADER, owner)
-      .send({ name: 'Acme', slug, teamName: 'Core' });
+      .send({
+        name: 'Acme',
+        slug,
+        teamName: 'Core',
+        survey: { jobFunction: 'engineering' },
+      });
 
     expect(created.status).toBe(201);
 

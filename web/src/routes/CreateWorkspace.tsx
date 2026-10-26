@@ -9,16 +9,23 @@ import { useNavigate } from 'react-router';
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import { AuthScreen } from '@/components/shell/auth/AuthScreen';
 import { AuthTitle } from '@/components/shell/auth/AuthTitle';
+import { SignupSurveyFields } from '@/components/shell/auth/SignupSurveyFields';
 import { Button } from '@/components/ui/button';
 import { useCreateWorkspace } from '@/hooks/api/useCreateWorkspace';
 import { useSession } from '@/hooks/api/useSession';
 import { useSignOut } from '@/hooks/api/useSignOut';
 import { inboxPath } from '@/lib/inbox';
 import { markCreatedHere } from '@/lib/setup-status';
+import type { JobFunction } from '@/lib/signup-survey';
 import { sanitizeSlug, slugify } from '@/lib/slug';
 import { WORKSPACE_URL_PREFIX } from '@/lib/workspace';
 
-type Step = 'workspace' | 'team';
+type Step = 'workspace' | 'team' | 'about';
+
+const PREVIOUS: Record<Exclude<Step, 'workspace'>, Step> = {
+  team: 'workspace',
+  about: 'team',
+};
 
 export function CreateWorkspace() {
   const nameId = useId();
@@ -34,6 +41,8 @@ export function CreateWorkspace() {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [teamName, setTeamName] = useState('');
+  const [jobFunction, setJobFunction] = useState<JobFunction | null>(null);
+  const [referralSource, setReferralSource] = useState('');
   const slugTakenOver = useRef(false);
 
   const onNameChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -58,8 +67,22 @@ export function CreateWorkspace() {
       return;
     }
 
+    if (step === 'team') {
+      setStep('about');
+      return;
+    }
+
+    if (!jobFunction) {
+      return;
+    }
+
     createWorkspace.mutate(
-      { name: name.trim(), slug: slugify(slug), teamName: teamName.trim() },
+      {
+        name: name.trim(),
+        slug: slugify(slug),
+        teamName: teamName.trim(),
+        survey: { jobFunction, referralSource: referralSource.trim() || null },
+      },
       {
         onSuccess: (workspace) => {
           markCreatedHere(workspace.slug);
@@ -70,10 +93,11 @@ export function CreateWorkspace() {
   };
 
   const namedWorkspace = name.trim() !== '' && slugify(slug) !== '';
-  const canSubmit =
-    step === 'workspace'
-      ? namedWorkspace
-      : teamName.trim() !== '' && !createWorkspace.isPending;
+  const canSubmit = {
+    workspace: namedWorkspace,
+    team: teamName.trim() !== '',
+    about: jobFunction !== null && !createWorkspace.isPending,
+  }[step];
 
   return (
     <>
@@ -96,19 +120,25 @@ export function CreateWorkspace() {
       </header>
 
       <AuthScreen logo={false} className="w-72">
-        {step === 'workspace' ? (
+        {step === 'workspace' && (
           <AuthTitle title="Create workspace" large>
             A workspace is the shared space your company’s teams work in.
           </AuthTitle>
-        ) : (
+        )}
+        {step === 'team' && (
           <AuthTitle title="Name your first team" large>
             A team has its own board, repository and integrations.
+          </AuthTitle>
+        )}
+        {step === 'about' && (
+          <AuthTitle title="Tell us about you" large>
+            Your answers help us make Spotlight better.
           </AuthTitle>
         )}
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            {step === 'workspace' ? (
+            {step === 'workspace' && (
               <>
                 <label htmlFor={nameId} className="sr-only">
                   Workspace name
@@ -145,7 +175,8 @@ export function CreateWorkspace() {
                   />
                 </div>
               </>
-            ) : (
+            )}
+            {step === 'team' && (
               <>
                 <label htmlFor={teamId} className="sr-only">
                   Team name
@@ -164,6 +195,14 @@ export function CreateWorkspace() {
                 />
               </>
             )}
+            {step === 'about' && (
+              <SignupSurveyFields
+                jobFunction={jobFunction}
+                referralSource={referralSource}
+                onJobFunctionChange={setJobFunction}
+                onReferralSourceChange={setReferralSource}
+              />
+            )}
           </div>
 
           <div className="flex flex-col items-center gap-2">
@@ -173,17 +212,17 @@ export function CreateWorkspace() {
               disabled={!canSubmit}
               className="rounded-full px-6"
             >
-              {step === 'workspace'
+              {step !== 'about'
                 ? 'Continue'
                 : createWorkspace.isPending
                   ? 'Creating workspace…'
                   : 'Create workspace'}
             </Button>
 
-            {step === 'team' && (
+            {step !== 'workspace' && (
               <button
                 type="button"
-                onClick={() => setStep('workspace')}
+                onClick={() => setStep(PREVIOUS[step])}
                 disabled={createWorkspace.isPending}
                 className="text-muted-foreground text-sm outline-none transition-opacity hover:opacity-70 disabled:opacity-60"
               >

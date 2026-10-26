@@ -26,6 +26,13 @@ const meta = {
               await screen.findByPlaceholderText('Product'),
               'Platform',
             );
+            await user.click(screen.getByRole('button', { name: 'Continue' }));
+            await user.click(
+              await screen.findByRole('button', { name: /^Role:/ }),
+            );
+            await user.click(
+              await screen.findByRole('menuitemradio', { name: 'Founder' }),
+            );
             await user.click(
               await screen.findByRole('button', { name: 'Create workspace' }),
             );

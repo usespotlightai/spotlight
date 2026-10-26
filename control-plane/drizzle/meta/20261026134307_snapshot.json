@@ -1,5 +1,5 @@
 {
-  "id": "ddd3bdc0-ad94-4686-a09d-6a38fb5246d2",
+  "id": "5a76c276-7f20-42cc-b50d-de2877a4e9b4",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -2748,6 +2748,78 @@
       },
       "indexes": {},
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.signup_survey": {
+      "name": "signup_survey",
+      "schema": "",
+      "columns": {
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "respondent_id": {
+          "name": "respondent_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "job_function": {
+          "name": "job_function",
+          "type": "job_function",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "referral_source": {
+          "name": "referral_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "signup_survey_workspace_id_workspace_id_fk": {
+          "name": "signup_survey_workspace_id_workspace_id_fk",
+          "tableFrom": "signup_survey",
+          "tableTo": "workspace",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "signup_survey_respondent_id_user_id_fk": {
+          "name": "signup_survey_respondent_id_user_id_fk",
+          "tableFrom": "signup_survey",
+          "tableTo": "user",
+          "columnsFrom": [
+            "respondent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -15112,6 +15184,21 @@
         "open",
         "merged",
         "closed"
+      ]
+    },
+    "public.job_function": {
+      "name": "job_function",
+      "schema": "public",
+      "values": [
+        "marketing",
+        "leadership",
+        "product-management",
+        "sales-success",
+        "data",
+        "student",
+        "engineering",
+        "founder",
+        "other"
       ]
     },
     "public.workspace_role": {

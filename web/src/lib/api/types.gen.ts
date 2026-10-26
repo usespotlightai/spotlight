@@ -2522,6 +2522,17 @@ export type IssuedTokenResponseDto = {
   expiresAt: string;
 };
 
+export type SignupSurveyRequestDto = {
+  /**
+   * The job function of the person who creates the workspace
+   */
+  jobFunction: 'marketing' | 'leadership' | 'product-management' | 'sales-success' | 'data' | 'student' | 'engineering' | 'founder' | 'other';
+  /**
+   * How the person heard about Spotlight, in their own words
+   */
+  referralSource?: string | null;
+};
+
 export type CreateWorkspaceRequestDto = {
   name: string;
   /**
@@ -2532,6 +2543,10 @@ export type CreateWorkspaceRequestDto = {
    * Names the team the workspace starts with. A workspace with no team has nowhere to put work.
    */
   teamName: string;
+  /**
+   * The answers of the person who creates the workspace
+   */
+  survey: SignupSurveyRequestDto;
 };
 
 export type TeamResponseDto = {
@@ -13176,6 +13191,10 @@ export type CreateWorkspaceWithTeamData = {
 
 export type CreateWorkspaceWithTeamErrors = {
   /**
+   * A survey without a job function, or with answers that are not text
+   */
+  400: unknown;
+  /**
    * No valid session
    */
   401: unknown;
@@ -13184,7 +13203,7 @@ export type CreateWorkspaceWithTeamErrors = {
    */
   409: unknown;
   /**
-   * Invalid name or URL
+   * Invalid name, URL, job function or referral source
    */
   422: unknown;
 };

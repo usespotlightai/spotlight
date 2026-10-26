@@ -23,6 +23,7 @@ type ChoiceSelectProps = {
   clearable?: boolean;
   compact?: boolean;
   toolbar?: boolean;
+  input?: boolean;
   className?: string;
 };
 
@@ -50,6 +51,14 @@ const LOOKS = {
     menu: 'w-max min-w-52 max-w-72',
     item: undefined,
   },
+  input: {
+    trigger:
+      'h-9 w-full gap-2 rounded-md border-[0.5px] bg-card px-2.5 text-sm',
+    chevron: 'size-3',
+    Chevron: ChevronsUpDown,
+    menu: 'w-(--anchor-width)',
+    item: undefined,
+  },
 } as const;
 
 export function ChoiceSelect({
@@ -62,10 +71,14 @@ export function ChoiceSelect({
   clearable = true,
   compact = false,
   toolbar = false,
+  input = false,
   className,
 }: ChoiceSelectProps) {
   const chosen = choices.find((each) => each.value === value);
-  const look = LOOKS[toolbar ? 'toolbar' : compact ? 'compact' : 'field'];
+  const look =
+    LOOKS[
+      toolbar ? 'toolbar' : compact ? 'compact' : input ? 'input' : 'field'
+    ];
   const { item, Chevron } = look;
 
   return (

@@ -47,6 +47,20 @@ const renderPage = () =>
     </QueryClientProvider>,
   );
 
+type User = ReturnType<typeof userEvent.setup>;
+
+const reachSurvey = async (user: User, teamName = 'Platform') => {
+  await user.type(screen.getByLabelText('Workspace name'), 'Acme Inc.');
+  await user.click(screen.getByRole('button', { name: 'Continue' }));
+  await user.type(screen.getByLabelText('Team name'), teamName);
+  await user.click(screen.getByRole('button', { name: 'Continue' }));
+};
+
+const chooseRole = async (user: User, role: string) => {
+  await user.click(screen.getByRole('button', { name: /^Role:/ }));
+  await user.click(await screen.findByRole('menuitemradio', { name: role }));
+};
+
 beforeEach(() => {
   createWorkspace.mockReset();
   createState.isPending = false;
@@ -123,15 +137,51 @@ describe('CreateWorkspace', () => {
     await user.type(screen.getByLabelText('Workspace name'), 'Acme Inc.');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
 
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
+
+    await user.type(screen.getByLabelText('Team name'), 'Platform');
+
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
+  });
+
+  it('asks for the role and the referral source after the team', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await reachSurvey(user);
+
+    expect(screen.getByText('What is your role?')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/Where did you hear about us\?/),
+    ).toBeInTheDocument();
+    expect(createWorkspace).not.toHaveBeenCalled();
+  });
+
+  it('keeps the last step blocked until a role is chosen', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await reachSurvey(user);
+
     expect(
       screen.getByRole('button', { name: 'Create workspace' }),
     ).toBeDisabled();
 
-    await user.type(screen.getByLabelText('Team name'), 'Platform');
+    await chooseRole(user, 'Founder');
 
     expect(
       screen.getByRole('button', { name: 'Create workspace' }),
     ).toBeEnabled();
+  });
+
+  it('keeps the team name when stepped back from the survey', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await reachSurvey(user);
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+
+    expect(screen.getByLabelText('Team name')).toHaveValue('Platform');
   });
 
   it('keeps the workspace name when stepped back', async () => {
@@ -153,10 +203,37 @@ describe('CreateWorkspace', () => {
     await user.type(screen.getByLabelText('Workspace name'), '  Acme Inc.  ');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
     await user.type(screen.getByLabelText('Team name'), '  Platform  ');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await chooseRole(user, 'Engineering');
+    await user.type(
+      screen.getByLabelText(/Where did you hear about us\?/),
+      '  Hacker News  ',
+    );
     await user.click(screen.getByRole('button', { name: 'Create workspace' }));
 
     expect(createWorkspace).toHaveBeenCalledWith(
-      { name: 'Acme Inc.', slug: 'acme-inc', teamName: 'Platform' },
+      {
+        name: 'Acme Inc.',
+        slug: 'acme-inc',
+        teamName: 'Platform',
+        survey: { jobFunction: 'engineering', referralSource: 'Hacker News' },
+      },
+      expect.anything(),
+    );
+  });
+
+  it('sends no referral source when it is left blank', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await reachSurvey(user);
+    await chooseRole(user, 'Data');
+    await user.click(screen.getByRole('button', { name: 'Create workspace' }));
+
+    expect(createWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        survey: { jobFunction: 'data', referralSource: null },
+      }),
       expect.anything(),
     );
   });
@@ -165,10 +242,9 @@ describe('CreateWorkspace', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.type(screen.getByLabelText('Workspace name'), 'Acme Inc.');
-    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await reachSurvey(user);
     createState.isPending = true;
-    await user.type(screen.getByLabelText('Team name'), 'Platform');
+    await chooseRole(user, 'Founder');
 
     expect(
       screen.getByRole('button', { name: 'Creating workspace…' }),
@@ -179,9 +255,8 @@ describe('CreateWorkspace', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.type(screen.getByLabelText('Workspace name'), 'Acme Inc.');
-    await user.click(screen.getByRole('button', { name: 'Continue' }));
-    await user.type(screen.getByLabelText('Team name'), 'Platform');
+    await reachSurvey(user);
+    await chooseRole(user, 'Founder');
     await user.click(screen.getByRole('button', { name: 'Create workspace' }));
 
     const [, callbacks] = createWorkspace.mock.calls[0];

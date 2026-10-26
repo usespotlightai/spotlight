@@ -7446,6 +7446,9 @@
               }
             }
           },
+          "400": {
+            "description": "A survey without a job function, or with answers that are not text"
+          },
           "401": {
             "description": "No valid session"
           },
@@ -7453,7 +7456,7 @@
             "description": "That workspace URL is already taken"
           },
           "422": {
-            "description": "Invalid name or URL"
+            "description": "Invalid name, URL, job function or referral source"
           }
         },
         "summary": "Create a workspace, along with the team it starts with",
@@ -30159,6 +30162,37 @@
           "expiresAt"
         ]
       },
+      "SignupSurveyRequestDto": {
+        "type": "object",
+        "properties": {
+          "jobFunction": {
+            "type": "string",
+            "enum": [
+              "marketing",
+              "leadership",
+              "product-management",
+              "sales-success",
+              "data",
+              "student",
+              "engineering",
+              "founder",
+              "other"
+            ],
+            "example": "engineering",
+            "description": "The job function of the person who creates the workspace"
+          },
+          "referralSource": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200,
+            "example": "A colleague",
+            "description": "How the person heard about Spotlight, in their own words"
+          }
+        },
+        "required": [
+          "jobFunction"
+        ]
+      },
       "CreateWorkspaceRequestDto": {
         "type": "object",
         "properties": {
@@ -30178,12 +30212,21 @@
             "example": "Platform",
             "maxLength": 100,
             "description": "Names the team the workspace starts with. A workspace with no team has nowhere to put work."
+          },
+          "survey": {
+            "description": "The answers of the person who creates the workspace",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SignupSurveyRequestDto"
+              }
+            ]
           }
         },
         "required": [
           "name",
           "slug",
-          "teamName"
+          "teamName",
+          "survey"
         ]
       },
       "TeamResponseDto": {

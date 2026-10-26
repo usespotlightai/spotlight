@@ -9,6 +9,7 @@ CREATE TYPE "public"."review_state" AS ENUM('submitted', 'posted', 'failed', 'di
 CREATE TYPE "public"."review_verdict" AS ENUM('comment', 'approve', 'request-changes');--> statement-breakpoint
 CREATE TYPE "public"."stack_check_status" AS ENUM('waiting', 'redrafting', 'checked', 'skipped');--> statement-breakpoint
 CREATE TYPE "public"."github_pull_request_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
+CREATE TYPE "public"."job_function" AS ENUM('marketing', 'leadership', 'product-management', 'sales-success', 'data', 'student', 'engineering', 'founder', 'other');--> statement-breakpoint
 CREATE TYPE "public"."workspace_role" AS ENUM('owner', 'admin', 'member');--> statement-breakpoint
 CREATE TYPE "public"."workspace_token_scope" AS ENUM('read', 'plan', 'configure', 'secrets', 'runners', 'trusts');--> statement-breakpoint
 CREATE TYPE "public"."alert_condition" AS ENUM('risesBy', 'fallsBy', 'above', 'below');--> statement-breakpoint
@@ -350,6 +351,14 @@ CREATE TABLE "oidc_trust_usage" (
 	"trust_id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
 	"last_issued_at" timestamp NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "signup_survey" (
+	"workspace_id" text PRIMARY KEY NOT NULL,
+	"respondent_id" text,
+	"job_function" "job_function" NOT NULL,
+	"referral_source" text,
+	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "team" (
@@ -1799,6 +1808,8 @@ ALTER TABLE "event_delivery" ADD CONSTRAINT "event_delivery_event_id_event_outbo
 ALTER TABLE "decision" ADD CONSTRAINT "decision_set_id_decision_set_id_fk" FOREIGN KEY ("set_id") REFERENCES "public"."decision_set"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "decision_dispute" ADD CONSTRAINT "decision_dispute_decision_id_decision_id_fk" FOREIGN KEY ("decision_id") REFERENCES "public"."decision"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "oidc_trust" ADD CONSTRAINT "oidc_trust_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "signup_survey" ADD CONSTRAINT "signup_survey_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "signup_survey" ADD CONSTRAINT "signup_survey_respondent_id_user_id_fk" FOREIGN KEY ("respondent_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "team" ADD CONSTRAINT "team_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "team_member" ADD CONSTRAINT "team_member_team_id_team_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."team"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "team_member" ADD CONSTRAINT "team_member_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
