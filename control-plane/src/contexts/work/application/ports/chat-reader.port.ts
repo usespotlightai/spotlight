@@ -83,7 +83,7 @@ export interface ChatView extends ChatSummary {
   readonly messages: readonly ChatMessageView[];
 }
 
-export interface SetupCiView {
+interface SetupCiView {
   readonly defaultBranch: string;
   readonly defaultBranchProtected: boolean;
   readonly variables: 'written' | 'not-permitted';

@@ -2328,7 +2328,7 @@ export type OnboardingResponseDto = {
    */
   canSetUp: boolean;
   /**
-   * Whether the viewer is a workspace owner or admin. Only they may set up configuration as code, because the setup creates token trusts
+   * Whether the viewer is a workspace owner or admin. Only they may set up configuration as code, because the setup creates OIDC trusts
    */
   viewerIsAdmin: boolean;
   /**

@@ -47,20 +47,53 @@ const routing = (route: (method: string, url: string) => Answer) =>
     return answering(route(method, url));
   });
 
-const branch = (over: { protected?: boolean; rules?: unknown[] } = {}) =>
+const branch = (
+  over: {
+    reviews?: number | null;
+    reviewsStatus?: number;
+    rules?: unknown[];
+    name?: string;
+  } = {},
+) =>
   routing((_, url) => {
+    const name = encodeURIComponent(over.name ?? 'main');
+
     if (url.endsWith('/repos/acme/config')) {
-      return { status: 200, body: { default_branch: 'main' } };
+      return {
+        status: 200,
+        body: {
+          id: 101,
+          default_branch: over.name ?? 'main',
+          owner: { id: 7 },
+        },
+      };
     }
-    if (url.endsWith('/repos/acme/config/branches/main')) {
-      return { status: 200, body: { protected: over.protected ?? false } };
+    if (
+      url.endsWith(
+        `/repos/acme/config/branches/${name}/protection/required_pull_request_reviews`,
+      )
+    ) {
+      if (over.reviewsStatus) {
+        return { status: over.reviewsStatus, body: { message: 'Refused' } };
+      }
+      return over.reviews === undefined || over.reviews === null
+        ? { status: 404, body: { message: 'Branch not protected' } }
+        : {
+            status: 200,
+            body: { required_approving_review_count: over.reviews },
+          };
     }
-    if (url.endsWith('/rules/branches/main')) {
+    if (url.endsWith(`/rules/branches/${name}`)) {
       return { status: 200, body: over.rules ?? [] };
     }
 
     return { status: 404, body: { message: `unrouted ${url}` } };
   });
+
+const read = () =>
+  new GitHubRepositorySettings(access).defaultBranchOf(workspaceId, repository);
+
+const IDS = { repositoryId: '101', ownerId: '7' };
 
 const variables = (existing: readonly string[], patchStatus?: number) =>
   routing((method, url) => {
@@ -90,39 +123,81 @@ describe('GitHubRepositorySettings', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   describe('reading the default branch', () => {
-    it('counts classic branch protection as protected', async () => {
-      branch({ protected: true });
+    it('counts classic protection that requires a review as protected', async () => {
+      branch({ reviews: 1 });
 
-      expect(
-        await new GitHubRepositorySettings(access).defaultBranchOf(
-          workspaceId,
-          repository,
-        ),
-      ).toEqual({ name: 'main', protected: true });
+      expect(await read()).toEqual({ name: 'main', protected: true, ...IDS });
     });
 
-    it('counts a ruleset that requires a pull request as protected', async () => {
+    it('counts classic protection that requires no review as unprotected', async () => {
+      branch({ reviews: 0 });
+
+      expect((await read()).protected).toBe(false);
+    });
+
+    it('counts a ruleset that requires an approving review as protected', async () => {
       branch({
-        rules: [{ type: 'deletion' }, { type: 'pull_request' }],
+        rules: [
+          { type: 'deletion' },
+          {
+            type: 'pull_request',
+            parameters: { required_approving_review_count: 1 },
+          },
+        ],
       });
 
-      expect(
-        await new GitHubRepositorySettings(access).defaultBranchOf(
-          workspaceId,
-          repository,
-        ),
-      ).toEqual({ name: 'main', protected: true });
+      expect((await read()).protected).toBe(true);
     });
 
-    it('answers unprotected when neither applies', async () => {
-      branch({ rules: [{ type: 'deletion' }] });
+    it('counts a pull request rule with no approvals as unprotected', async () => {
+      branch({
+        rules: [
+          {
+            type: 'pull_request',
+            parameters: { required_approving_review_count: 0 },
+          },
+        ],
+      });
 
-      expect(
-        await new GitHubRepositorySettings(access).defaultBranchOf(
-          workspaceId,
-          repository,
-        ),
-      ).toEqual({ name: 'main', protected: false });
+      expect((await read()).protected).toBe(false);
+    });
+
+    it('counts a review rule it may not read as none, but still reads the rulesets', async () => {
+      branch({
+        reviewsStatus: 403,
+        rules: [
+          {
+            type: 'pull_request',
+            parameters: { required_approving_review_count: 2 },
+          },
+        ],
+      });
+
+      expect((await read()).protected).toBe(true);
+    });
+
+    it('counts a pull request rule without parameters as unprotected', async () => {
+      branch({ reviewsStatus: 403, rules: [{ type: 'pull_request' }] });
+
+      expect((await read()).protected).toBe(false);
+    });
+
+    it('carries GitHub’s error when the review rule cannot be read', async () => {
+      branch({ reviewsStatus: 500 });
+
+      await expect(read()).rejects.toThrow(
+        'GitHub would not return the review rule on main of acme/config',
+      );
+    });
+
+    it('encodes a branch name with characters a URL reserves', async () => {
+      branch({ name: 'release#1', reviews: 2 });
+
+      expect(await read()).toEqual({
+        name: 'release#1',
+        protected: true,
+        ...IDS,
+      });
     });
 
     it('carries GitHub’s error when a read fails', async () => {

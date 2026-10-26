@@ -34,7 +34,12 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
   const written: Record<string, string>[] = [];
 
   const settings: RepositorySettingsPort = {
-    defaultBranchOf: async () => ({ name: 'main', protected: protectedBranch }),
+    defaultBranchOf: async () => ({
+      name: 'main',
+      protected: protectedBranch,
+      repositoryId: '101',
+      ownerId: '7',
+    }),
     putVariables: async (_, __, put) => {
       written.push({ ...put });
       return variables;
@@ -192,6 +197,29 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
     expect(apply?.subject).toBe(
       'repo:acme/platform-config:ref:refs/heads/main',
     );
+  });
+
+  it('stops, and changes nothing, when a trust with its key admits another workload', async () => {
+    await served(app)
+      .post(`/api/resources/workspaces/${workspaceId}/oidc-trusts`)
+      .set(TEST_USER_HEADER, owner)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        key: 'github-apply',
+        issuer: 'https://token.actions.githubusercontent.com',
+        subject: 'repo:acme/infra:environment:production',
+        scopes: ['configure'],
+      })
+      .expect(201);
+
+    const refused = await startingAs(owner).expect(409);
+
+    expect(JSON.stringify(refused.body)).toContain(
+      'The OIDC trust github-apply already admits another workload',
+    );
+    expect((await trusts()).map((each) => each.subject)).toEqual([
+      'repo:acme/infra:environment:production',
+    ]);
   });
 
   it('lets only an owner or admin set up, and creates nothing for anyone else', async () => {

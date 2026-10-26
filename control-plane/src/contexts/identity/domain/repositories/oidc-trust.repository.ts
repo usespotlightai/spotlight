@@ -12,5 +12,8 @@ export interface OidcTrustRepository {
 
   findLocked(id: OidcTrustId): Promise<OidcTrust | null>;
 
-  findByKey(workspaceId: WorkspaceId, key: OidcTrustKey): Promise<OidcTrust | null>;
+  findByKey(
+    workspaceId: WorkspaceId,
+    key: OidcTrustKey,
+  ): Promise<OidcTrust | null>;
 }

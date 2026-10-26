@@ -28,6 +28,7 @@ import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { describe, expect, it } from 'vitest';
+import { parse } from 'yaml';
 
 const NOW = new Date('2026-09-26T09:00:00.000Z');
 const LEON = UserId.of('user_1');
@@ -386,6 +387,38 @@ describe('ChatBriefing', () => {
       expect(briefing).toContain('Spotlight set the repository variables');
     });
 
+    it('signs both jobs in to the state, with a workflow GitHub can read', () => {
+      const briefing = brief(withCi());
+      const workflow = /```yaml\n([\s\S]*?)\n```/.exec(briefing)?.[1] ?? '';
+      const parsed = parse(workflow) as {
+        jobs: Record<string, { steps: { name?: string; run?: string }[] }>;
+      };
+
+      for (const job of ['plan', 'apply']) {
+        const steps = parsed.jobs[job]?.steps ?? [];
+        const signIn = steps.findIndex(
+          (step) => step.name === 'Sign in to the state',
+        );
+        const init = steps.findIndex((step) =>
+          step.run?.startsWith('terraform init'),
+        );
+
+        expect(signIn).toBeGreaterThan(0);
+        expect(signIn).toBeLessThan(init);
+        expect(steps[signIn]?.run).toContain('spotlight" token)');
+        expect(steps[signIn]?.run).toContain('::add-mask::');
+      }
+      expect(briefing).toContain(
+        'If the team keeps the state elsewhere, replace those two steps',
+      );
+      expect(briefing).toContain(
+        'CI may not change trusts, so an admin changes them',
+      );
+      expect(briefing).toContain(
+        'a pull request from a fork gets no OIDC token from GitHub',
+      );
+    });
+
     it('asks the person to add the variables when the GitHub App may not', () => {
       expect(brief(withCi({ variables: 'not-permitted' }))).toContain(
         '`SPOTLIGHT_PLAN_TRUST` = `trust_plan`, `SPOTLIGHT_APPLY_TRUST` = `trust_apply`',
@@ -394,9 +427,11 @@ describe('ChatBriefing', () => {
 
     it('warns first when the default branch has no protection', () => {
       expect(brief(withCi({ defaultBranchProtected: false }))).toContain(
-        '`main` has no branch protection. Anyone who can push to `main` can change',
+        'As far as Spotlight can see, `main` does not require an approving review. Anyone who can push to `main` can change',
       );
-      expect(brief(withCi())).not.toContain('has no branch protection');
+      expect(brief(withCi())).not.toContain(
+        'does not require an approving review',
+      );
     });
 
     it('leaves CI out of a setup that has none', () => {

@@ -29770,7 +29770,7 @@
           },
           "viewerIsAdmin": {
             "type": "boolean",
-            "description": "Whether the viewer is a workspace owner or admin. Only they may set up configuration as code, because the setup creates token trusts"
+            "description": "Whether the viewer is a workspace owner or admin. Only they may set up configuration as code, because the setup creates OIDC trusts"
           },
           "setupChat": {
             "nullable": true,

@@ -8,7 +8,12 @@ import { describe, expect, it, vi } from 'vitest';
 
 const settingUp = (variables: 'written' | 'not-permitted' = 'written') => {
   const settings = {
-    defaultBranchOf: vi.fn(async () => ({ name: 'trunk', protected: false })),
+    defaultBranchOf: vi.fn(async () => ({
+      name: 'trunk',
+      protected: false,
+      repositoryId: '101',
+      ownerId: '7',
+    })),
     putVariables: vi.fn(async () => variables),
   } satisfies RepositorySettingsPort;
   const trusts = {
@@ -43,6 +48,8 @@ describe('CiSetups', () => {
       by: 'admin_1',
       client: 'web',
       repository: 'acme/infra',
+      repositoryId: '101',
+      ownerId: '7',
       defaultBranch: 'trunk',
       applyScopes: ['configure', 'secrets', 'runners'],
     });

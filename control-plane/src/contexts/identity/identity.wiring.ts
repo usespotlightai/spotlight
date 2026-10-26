@@ -47,8 +47,8 @@ import {
   CONFIGURATION_AUDIT,
   type ConfigurationAuditPort,
 } from '@identity/application/ports/configuration-audit.port';
-import { IDENTITY_DEFINITIONS } from '@identity/application/ports/identity-definitions.port';
 import { GITHUB_ACTIONS_TRUSTS } from '@identity/application/ports/github-actions-trusts.port';
+import { IDENTITY_DEFINITIONS } from '@identity/application/ports/identity-definitions.port';
 import {
   IDENTITY_RESOURCES,
   type IdentityResourcesPort,
@@ -632,13 +632,15 @@ const published: Provider[] = [
       DrizzleOidcTrustRepository,
       ID_GENERATOR,
       TRANSACTION,
+      CLOCK,
     ],
     useFactory: (
       access: WorkspaceAccessPort,
       trusts: DrizzleOidcTrustRepository,
       ids: IdGeneratorPort,
       transaction: TransactionPort,
-    ) => new GitHubActionsTrusts(access, trusts, ids, transaction),
+      clock: ClockPort,
+    ) => new GitHubActionsTrusts(access, trusts, ids, transaction, clock),
   },
   {
     provide: OIDC_TRUST_CONFIGURATION,

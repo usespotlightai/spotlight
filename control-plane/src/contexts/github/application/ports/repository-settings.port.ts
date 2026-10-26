@@ -4,6 +4,8 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export interface DefaultBranchDto {
   readonly name: string;
   readonly protected: boolean;
+  readonly repositoryId: string;
+  readonly ownerId: string;
 }
 
 export type VariablesWrite = 'written' | 'not-permitted';

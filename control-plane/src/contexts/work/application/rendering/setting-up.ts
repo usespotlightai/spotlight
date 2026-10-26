@@ -7,6 +7,23 @@ const BRANCH = 'spotlight-configuration';
 
 const WORKFLOW = '.github/workflows/spotlight.yml';
 
+const stateSignIn = [
+  '      - name: Download spotlight',
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions expression syntax
+  '        working-directory: ${{ runner.temp }}',
+  '        run: |',
+  '          base=https://github.com/usespotlightai/spotlight/releases/latest/download',
+  '          curl -fsSL -o spotlight "$base/spotlight-linux-amd64"',
+  '          curl -fsSL -o spotlight.sha256 "$base/spotlight-linux-amd64.sha256"',
+  '          echo "$(cut -d\' \' -f1 spotlight.sha256)  spotlight" | sha256sum -c -',
+  '          chmod +x spotlight',
+  '      - name: Sign in to the state',
+  '        run: |',
+  '          token=$("$RUNNER_TEMP/spotlight" token)',
+  '          echo "::add-mask::$token"',
+  '          echo "TF_HTTP_PASSWORD=$token" >> "$GITHUB_ENV"',
+];
+
 const workflowOf = (folder: string, defaultBranch: string): string =>
   [
     'name: Spotlight',
@@ -15,7 +32,7 @@ const workflowOf = (folder: string, defaultBranch: string): string =>
     '  pull_request:',
     `    paths: ["${folder}/**", "${WORKFLOW}"]`,
     '  push:',
-    `    branches: [${defaultBranch}]`,
+    `    branches: [${JSON.stringify(defaultBranch)}]`,
     `    paths: ["${folder}/**", "${WORKFLOW}"]`,
     '',
     'permissions:',
@@ -39,6 +56,7 @@ const workflowOf = (folder: string, defaultBranch: string): string =>
     '      - uses: hashicorp/setup-terraform@v3',
     '        with:',
     '          terraform_wrapper: false',
+    ...stateSignIn,
     '      - run: terraform fmt -check -recursive',
     '      - run: terraform init -input=false',
     '      - run: terraform validate',
@@ -58,6 +76,7 @@ const workflowOf = (folder: string, defaultBranch: string): string =>
     '      - uses: hashicorp/setup-terraform@v3',
     '        with:',
     '          terraform_wrapper: false',
+    ...stateSignIn,
     '      - run: terraform init -input=false',
     '      - run: terraform apply -input=false -auto-approve',
   ].join('\n');
@@ -65,19 +84,19 @@ const workflowOf = (folder: string, defaultBranch: string): string =>
 const ciStep = (configFolder: ConfigFolder, ci: CiSetup): string =>
   [
     '### 7. Run Terraform in GitHub Actions',
-    `Spotlight already trusts the GitHub Actions of \`${configFolder.repository.value}\`. Both trusts are in the export, so keep them in the Terraform:`,
+    `Spotlight already trusts the GitHub Actions of \`${configFolder.repository.value}\`. Both trusts are in the export. Keep them in the Terraform as they are: CI may not change trusts, so an admin changes them. In the pull request, say this:`,
     `- \`github-pull-requests\` (\`${ci.pullRequestsTrustId}\`): a pull request may plan.`,
     `- \`github-apply\` (\`${ci.defaultBranchTrustId}\`): a push to \`${ci.defaultBranch}\` may apply, with the \`configure\`, \`secrets\` and \`runners\` scopes.`,
     ci.variables === 'written'
       ? `Spotlight set the repository variables \`${CI_VARIABLES.url}\`, \`${CI_VARIABLES.planTrust}\` and \`${CI_VARIABLES.applyTrust}\`.`
       : `The GitHub App may not write repository variables. In the pull request, tell the person to add these repository variables: \`${CI_VARIABLES.planTrust}\` = \`${ci.pullRequestsTrustId}\`, \`${CI_VARIABLES.applyTrust}\` = \`${ci.defaultBranchTrustId}\`, and \`${CI_VARIABLES.url}\` = the Spotlight address in \`$SPOTLIGHT_URL\`.`,
-    `Add \`${WORKFLOW}\` at the repository root. Start from this, and add the credentials that the state backend needs and the \`TF_VAR_\` secrets that the variables need:`,
+    `Add \`${WORKFLOW}\` at the repository root. Start from this, and add the \`TF_VAR_\` secrets that the variables need. Its two state steps sign in to Spotlight's state with the job's OIDC token. If the team keeps the state elsewhere, replace those two steps with that backend's credentials:`,
     `\`\`\`yaml\n${workflowOf(configFolder.folder, ci.defaultBranch)}\n\`\`\``,
-    'In the pull request, list each secret the person must add to the repository, and say what it is for.',
+    'In the pull request, list each secret the person must add to the repository, and say what it is for. Also say that a pull request from a fork gets no OIDC token from GitHub, so its plan job fails.',
     ...(ci.defaultBranchProtected
       ? []
       : [
-          `\`${ci.defaultBranch}\` has no branch protection. Anyone who can push to \`${ci.defaultBranch}\` can change this workspace's configuration through the apply trust. Say this first in the pull request, and recommend branch protection that requires a review.`,
+          `As far as Spotlight can see, \`${ci.defaultBranch}\` does not require an approving review. Anyone who can push to \`${ci.defaultBranch}\` can change this workspace's configuration through the apply trust. Say this first in the pull request, and recommend a branch protection rule or ruleset that requires at least one approving review.`,
         ]),
   ].join('\n');
 

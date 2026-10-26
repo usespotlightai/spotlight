@@ -5,7 +5,7 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 
-export const CI_APPLY_SCOPES = ['configure', 'secrets', 'runners'] as const;
+const CI_APPLY_SCOPES = ['configure', 'secrets', 'runners'] as const;
 
 export const CI_VARIABLES = {
   url: 'SPOTLIGHT_URL',
@@ -31,6 +31,8 @@ export class CiSetups {
       by: by.value,
       client: 'web',
       repository: repository.value,
+      repositoryId: branch.repositoryId,
+      ownerId: branch.ownerId,
       defaultBranch: branch.name,
       applyScopes: CI_APPLY_SCOPES,
     });

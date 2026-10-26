@@ -5,6 +5,8 @@ export interface GitHubActionsTrustsWanted {
   readonly by: string;
   readonly client: string;
   readonly repository: string;
+  readonly repositoryId: string;
+  readonly ownerId: string;
   readonly defaultBranch: string;
   readonly applyScopes: readonly string[];
 }

@@ -21,8 +21,8 @@ export function SetupCi({ repository, ci }: SetupCiProps) {
         {!ci.defaultBranchProtected && (
           <WarningTooltip
             tone="warning"
-            label={`${branch} has no branch protection`}
-            tooltip={`${branch} has no branch protection. Anyone who can push to ${branch} can change this workspace’s configuration. Please require a pull request review.`}
+            label={`${branch} does not require a review`}
+            tooltip={`${branch} does not require an approving review, as far as Spotlight can see. Anyone who can push to ${branch} can change this workspace’s configuration. Please require at least one approving review.`}
           />
         )}
       </p>

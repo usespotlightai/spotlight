@@ -371,7 +371,7 @@ describe('SetupSteps', () => {
       ),
     ).toBeNull();
     expect(
-      screen.queryByRole('img', { name: 'main has no branch protection' }),
+      screen.queryByRole('img', { name: 'main does not require a review' }),
     ).toBeNull();
   });
 
@@ -419,9 +419,9 @@ describe('SetupSteps', () => {
     showing();
 
     expect(
-      screen.getByRole('img', { name: 'main has no branch protection' }),
+      screen.getByRole('img', { name: 'main does not require a review' }),
     ).toHaveAccessibleDescription(
-      'main has no branch protection. Anyone who can push to main can change this workspace’s configuration. Please require a pull request review.',
+      'main does not require an approving review, as far as Spotlight can see. Anyone who can push to main can change this workspace’s configuration. Please require at least one approving review.',
     );
   });
 });

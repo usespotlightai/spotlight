@@ -23,13 +23,23 @@ const FORBIDDEN = 403;
 
 const PULL_REQUEST_RULE = 'pull_request';
 
-interface Branch {
-  readonly protected?: boolean;
+interface RepositoryAnswer {
+  readonly id: number;
+  readonly default_branch: string;
+  readonly owner: { readonly id: number };
+}
+
+interface RequiredReviews {
+  readonly required_approving_review_count?: number;
 }
 
 interface BranchRule {
   readonly type?: string;
+  readonly parameters?: RequiredReviews;
 }
+
+const requiresAReview = (reviews: RequiredReviews | undefined): boolean =>
+  (reviews?.required_approving_review_count ?? 0) >= 1;
 
 @Injectable()
 export class GitHubRepositorySettings implements RepositorySettingsPort {
@@ -43,37 +53,44 @@ export class GitHubRepositorySettings implements RepositorySettingsPort {
     repository: Repository,
   ): Promise<DefaultBranchDto> {
     const token = await this.tokenFor(workspaceId);
-    const { default_branch: name } = await answered<{
-      default_branch: string;
-    }>(
+    const found = await answered<RepositoryAnswer>(
       await call(this.at(repository), token),
       `GitHub would not return the default branch of ${repository.value}`,
     );
+    const name = found.default_branch;
+    const branch = encodeURIComponent(name);
 
-    const [branch, rules] = await Promise.all([
-      call(`${this.at(repository)}/branches/${encodeURI(name)}`, token).then(
+    const [classic, rules] = await Promise.all([
+      call(
+        `${this.at(repository)}/branches/${branch}/protection/required_pull_request_reviews`,
+        token,
+      ),
+      call(`${this.at(repository)}/rules/branches/${branch}`, token).then(
         (response) =>
-          answered<Branch>(
+          answered<BranchRule[]>(
             response,
-            `GitHub would not return the branch ${name} of ${repository.value}`,
+            `GitHub would not return the rules on ${name} of ${repository.value}`,
           ),
       ),
-      call(
-        `${this.at(repository)}/rules/branches/${encodeURI(name)}`,
-        token,
-      ).then((response) =>
-        answered<BranchRule[]>(
-          response,
-          `GitHub would not return the rules on ${name} of ${repository.value}`,
-        ),
-      ),
     ]);
+    const classicReviews =
+      classic.status === NOT_FOUND || classic.status === FORBIDDEN
+        ? undefined
+        : await answered<RequiredReviews>(
+            classic,
+            `GitHub would not return the review rule on ${name} of ${repository.value}`,
+          );
 
     return {
       name,
       protected:
-        branch.protected === true ||
-        rules.some((rule) => rule.type === PULL_REQUEST_RULE),
+        requiresAReview(classicReviews) ||
+        rules.some(
+          (rule) =>
+            rule.type === PULL_REQUEST_RULE && requiresAReview(rule.parameters),
+        ),
+      repositoryId: String(found.id),
+      ownerId: String(found.owner.id),
     };
   }
 
