@@ -45,7 +45,7 @@ func status(version string, args []string) error {
 	flags := flag.NewFlagSet("status", flag.ContinueOnError)
 	asJSON := flags.Bool("json", false, "")
 	if rest, err := parse(flags, args); err != nil || len(rest) > 0 {
-		return fmt.Errorf("usage:\n  spotlight host status [--json]")
+		return fmt.Errorf("%s", statusHelp.Synopsis())
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*timeout)

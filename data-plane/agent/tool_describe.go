@@ -401,11 +401,9 @@ func describing(tool protocol.ToolManifest) string {
 	return strings.Join(sections, "\n\n")
 }
 
-const describeUsage = "usage: spotlight tools describe <tool>   as spotlight tools describe linear.issue-create"
-
 func describeTool(args []string, out io.Writer) error {
 	if len(args) == 0 {
-		return fmt.Errorf("say which tool\n%s", describeUsage)
+		return fmt.Errorf("say which tool\n%s", toolsDescribeHelp.Synopsis())
 	}
 
 	tools, err := manifest()
@@ -415,15 +413,7 @@ func describeTool(args []string, out io.Writer) error {
 
 	tool, rest, found := named(tools, args)
 	if !found || len(rest) > 0 {
-		query := strings.Join(args, " ")
-		if near := search(tools, query, 3); len(near) > 0 {
-			names := make([]string, 0, len(near))
-			for _, each := range near {
-				names = append(names, each.Name)
-			}
-			return fmt.Errorf("this run has no tool %q enabled; the nearest are %s\n%s", query, strings.Join(names, ", "), describeUsage)
-		}
-		return fmt.Errorf("this run has no tool %q enabled\n%s", query, describeUsage)
+		return unknownTool(tools, strings.Join(args, " "), toolsDescribeHelp)
 	}
 
 	fmt.Fprintln(out, describing(tool))

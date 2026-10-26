@@ -24,14 +24,6 @@ import (
 	"usespotlight.ai/data-plane/credentials"
 )
 
-const Usage = `  spotlight login [--url <address>] [--no-browser]
-      logs you in to Spotlight in the browser, so the CLI and the Terraform
-      provider act as you. The address is --url, else SPOTLIGHT_URL, else
-      ` + defaultAddress + `. Keeps the login in credentials.json in
-      SPOTLIGHT_CONFIG_DIR, else $XDG_CONFIG_HOME/spotlight, else ~/.config/spotlight
-  spotlight logout [--url <address>]
-      ends the session and removes the login for the address`
-
 const (
 	defaultAddress = "https://app.usespotlight.ai"
 	urlVar         = "SPOTLIGHT_URL"
@@ -156,7 +148,11 @@ func (c *client) address(set *flag.FlagSet, args []string) (string, error) {
 	given := set.String("url", "", "the Spotlight address")
 
 	if err := set.Parse(args); err != nil || set.NArg() > 0 {
-		return "", fmt.Errorf("usage:\n%s", Usage)
+		shown := loginHelp
+		if set.Name() == logoutHelp.Path {
+			shown = logoutHelp
+		}
+		return "", fmt.Errorf("%s", shown.Synopsis())
 	}
 
 	raw := *given

@@ -17,7 +17,7 @@ func restart(version string, args []string) error {
 	flags := flag.NewFlagSet("restart", flag.ContinueOnError)
 	now := flags.Bool("now", false, "")
 	if rest, err := parse(flags, args); err != nil || len(rest) > 0 {
-		return fmt.Errorf("usage:\n  spotlight host restart [--now]")
+		return fmt.Errorf("%s", restartHelp.Synopsis())
 	}
 
 	cfg, err := config.Load(version)
@@ -37,7 +37,7 @@ func restart(version string, args []string) error {
 
 func reload(version string, args []string) error {
 	if len(args) > 0 {
-		return fmt.Errorf("usage:\n  spotlight host reload")
+		return fmt.Errorf("%s", reloadHelp.Synopsis())
 	}
 
 	cfg, err := config.Load(version)
@@ -65,7 +65,7 @@ func logs(args []string) error {
 	flags.BoolVar(follow, "follow", false, "")
 	lines := flags.Int("n", 100, "")
 	if rest, err := parse(flags, args); err != nil || len(rest) > 0 || *lines < 0 {
-		return fmt.Errorf("usage:\n  spotlight host logs [-f] [-n LINES]")
+		return fmt.Errorf("%s", logsHelp.Synopsis())
 	}
 
 	read, err := install.Logs(*follow, *lines)
@@ -88,7 +88,7 @@ func uninstall(version string, args []string) error {
 	purge := flags.Bool("purge", false, "")
 	yes := flags.Bool("yes", false, "")
 	if rest, err := parse(flags, args); err != nil || len(rest) > 0 {
-		return fmt.Errorf("usage:\n  spotlight host uninstall [--purge] [--yes]")
+		return fmt.Errorf("%s", uninstallHelp.Synopsis())
 	}
 
 	cfg, _ := config.Load(version)

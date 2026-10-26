@@ -107,7 +107,7 @@ func TestDescribesATool(t *testing.T) {
 	for _, want := range []string{
 		"linear.issue-create (from Linear)\nCreate an issue. Needs a person’s approval before it runs: It posts publicly under the team's name.",
 		"Takes:\n{\n  /** What it is about */\n  title: string;\n  \"team-id\": string;\n  priority?: 0 | 1 | 2;\n  state?: \"open\" | \"closed\" | null;\n  labels?: string[];\n  estimate?: number | null;\n  draft: boolean;\n  intent?: string;\n}",
-		"For example:\nspotlight linear issue-create --title \"…\" --team-id 'ENG' --draft --intent \"…\"",
+		"For example:\nspotlight tools call linear.issue-create --title \"…\" --team-id 'ENG' --draft --intent \"…\"",
 	} {
 		if !strings.Contains(described, want) {
 			t.Errorf("described\n%s\nwant it to say\n%s", described, want)
@@ -121,7 +121,7 @@ func TestDescribesATool(t *testing.T) {
 func TestDescribesAToolThatTakesNothing(t *testing.T) {
 	described := describing(tool("linear.teams", "Lists the teams."))
 
-	if !strings.Contains(described, "Takes nothing.\n\nFor example:\nspotlight linear teams") {
+	if !strings.Contains(described, "Takes nothing.\n\nFor example:\nspotlight tools call linear.teams") {
 		t.Errorf("described\n%s", described)
 	}
 }
@@ -151,7 +151,7 @@ func TestWritesAnExampleCallAsJSONWhereAnInputIsNotScalar(t *testing.T) {
 		},
 	})
 
-	if call != `spotlight linear issues --json '{"filter":{"state":"open"},"first":50}'` {
+	if call != `spotlight tools call linear.issues --json '{"filter":{"state":"open"},"first":50}'` {
 		t.Errorf("call = %s", call)
 	}
 }
@@ -165,7 +165,7 @@ func TestQuotesAnExampleForTheShell(t *testing.T) {
 		},
 	})
 
-	if call != `spotlight linear comment --body 'it'\''s done' --notify=false` {
+	if call != `spotlight tools call linear.comment --body 'it'\''s done' --notify=false` {
 		t.Errorf("call = %s", call)
 	}
 }

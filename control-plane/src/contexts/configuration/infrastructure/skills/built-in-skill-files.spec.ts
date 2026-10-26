@@ -42,7 +42,7 @@ describe('BuiltInSkillFiles', () => {
     const instructions = instructionsOf(OPENING_PULL_REQUESTS);
 
     expect(instructions).toContain('\n## Opening a pull request');
-    expect(instructions).toContain('spotlight pull-request --title');
+    expect(instructions).toContain('spotlight tools call pull-request --title');
   });
 
   it('says how to write a handover note, and leaves what a run must do to its briefing', () => {

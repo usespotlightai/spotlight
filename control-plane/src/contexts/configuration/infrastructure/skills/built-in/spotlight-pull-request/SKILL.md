@@ -8,14 +8,14 @@ description: Open a pull request for the branch this task was worked on, through
 Run this, from anywhere in the workspace:
 
 ```
-spotlight pull-request --title "<what it does>" --body "<the detail>"
+spotlight tools call pull-request --title "<what it does>" --body "<the detail>"
 ```
 
 Spotlight opens it for the branch this task was worked on, and answers with
 its address, as `{"url": "…"}`. You cannot reach the host yourself, and do
 not need to: what it takes to open one never leaves Spotlight.
 
-A long body is easier piped in, as `spotlight pull-request --title "…" < body.md`.
+A long body is easier piped in, as `spotlight tools call pull-request --title "…" < body.md`.
 
 Where the line works in several repositories, name the one the change is in
 with `--repository <name>`.

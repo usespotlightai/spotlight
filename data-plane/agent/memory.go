@@ -13,13 +13,6 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-const recallUsage = `usage:
-  spotlight recall "<words>"
-  spotlight recall M-12`
-
-const rememberUsage = `usage:
-  spotlight remember --kind <kind> --body "…" [--path <path>]... [--scope team|line|station] [--supersedes M-12]`
-
 var handleShape = regexp.MustCompile(`^[Mm]-\d+$`)
 
 var sourced = map[string]string{
@@ -40,7 +33,7 @@ func (p *paths) Set(value string) error {
 func recall(args []string, out io.Writer) error {
 	words := strings.TrimSpace(strings.Join(args, " "))
 	if words == "" {
-		return fmt.Errorf("say what to look for\n%s", recallUsage)
+		return fmt.Errorf("say what to look for\n%s", recallHelp.Synopsis())
 	}
 
 	request := protocol.RecallRequest{Words: words}
@@ -95,14 +88,14 @@ func remember(args []string, in io.Reader, out io.Writer) error {
 	flags.Var(&about, "path", "a file or folder it is about")
 
 	if err := flags.Parse(args); err != nil {
-		return fmt.Errorf("%s", rememberUsage)
+		return fmt.Errorf("%v\n%s", err, rememberHelp.Synopsis())
 	}
 	if flags.NArg() > 0 {
-		return fmt.Errorf("put everything in flags, not %q\n%s", flags.Arg(0), rememberUsage)
+		return fmt.Errorf("put everything in flags, not %q\n%s", flags.Arg(0), rememberHelp.Synopsis())
 	}
 
 	if strings.TrimSpace(*kind) == "" {
-		return fmt.Errorf("--kind is required\n%s", rememberUsage)
+		return fmt.Errorf("--kind is required\n%s", rememberHelp.Synopsis())
 	}
 
 	memory, err := prose(*body, in)
@@ -110,7 +103,7 @@ func remember(args []string, in io.Reader, out io.Writer) error {
 		return fmt.Errorf("read the memory: %w", err)
 	}
 	if memory == "" {
-		return fmt.Errorf("--body is required\n%s", rememberUsage)
+		return fmt.Errorf("--body is required\n%s", rememberHelp.Synopsis())
 	}
 
 	absolute := make([]string, 0, len(about))

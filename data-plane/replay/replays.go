@@ -190,7 +190,7 @@ func (c *cli) start(args []string) error {
 		return fmt.Errorf("--repeats is how many times to replay each run, from 1 to %d, not %d", maxRepeats, *repeats)
 	}
 	if *setNamed == "" || *candidateNamed == "" {
-		return fmt.Errorf("--set and --candidate name what to replay, and under what\nusage:\n%s", Usage)
+		return fmt.Errorf("--set and --candidate name what to replay, and under what\n%s", startHelp.Synopsis())
 	}
 	amount, err := strconv.ParseFloat(*ceiling, 64)
 	if err != nil || amount <= 0 {
@@ -274,10 +274,10 @@ func (c *cli) replayFlagsFor(name string) replayFlags {
 func (f replayFlags) parse(args []string) (string, error) {
 	positional, err := parsed(f.set, args)
 	if err != nil {
-		return "", fmt.Errorf("%w\nusage:\n%s", err, Usage)
+		return "", fmt.Errorf("%w\n%s", err, helpFor(f.set.Name()).Synopsis())
 	}
 	if len(positional) != 1 {
-		return "", fmt.Errorf("name the replay, by its id\nusage:\n%s", Usage)
+		return "", fmt.Errorf("name the replay, by its id\n%s", helpFor(f.set.Name()).Synopsis())
 	}
 
 	return positional[0], nil

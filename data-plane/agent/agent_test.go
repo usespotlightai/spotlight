@@ -111,9 +111,9 @@ func TestOutsideARunItSaysSo(t *testing.T) {
 	}
 }
 
-func TestUnknownCommandShowsUsage(t *testing.T) {
+func TestRefusesAnUnknownCommand(t *testing.T) {
 	err := run([]string{"deploy"}, strings.NewReader(""), new(bytes.Buffer))
-	if err == nil || !strings.Contains(err.Error(), "handover") {
+	if err == nil || !strings.Contains(err.Error(), `no command "deploy"`) {
 		t.Fatalf("got %v", err)
 	}
 }
@@ -237,7 +237,7 @@ func TestOpensAPullRequestThroughItsTool(t *testing.T) {
 	carried := openingPullRequests(t)
 
 	out := new(bytes.Buffer)
-	args := []string{"pull-request", "--title", "Fix the queue", "--repository", "api"}
+	args := []string{"tools", "call", "pull-request", "--title", "Fix the queue", "--repository", "api"}
 
 	if err := run(args, strings.NewReader("What it does.\n"), out); err != nil {
 		t.Fatalf("run: %v", err)
@@ -254,7 +254,7 @@ func TestOpensAPullRequestThroughItsTool(t *testing.T) {
 func TestRejectsAPullRequestWithoutATitle(t *testing.T) {
 	openingPullRequests(t)
 
-	err := run([]string{"pull-request", "--body", "What it does."}, strings.NewReader(""), new(bytes.Buffer))
+	err := run([]string{"tools", "call", "pull-request", "--body", "What it does."}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "--title is required") {
 		t.Fatalf("err = %v, want it to require a title", err)
 	}
@@ -269,7 +269,7 @@ func TestSaysWhyItCouldNotLookForATool(t *testing.T) {
 	t.Setenv(protocol.AgentAPIURLVar, down.URL)
 	t.Setenv(protocol.AgentAPITokenVar, "token")
 
-	err := run([]string{"pull-request", "--title", "Fix the queue"}, strings.NewReader(""), new(bytes.Buffer))
+	err := run([]string{"tools", "call", "pull-request", "--title", "Fix the queue"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "the run's tools are unavailable") {
 		t.Fatalf("err = %v, want why the tools could not be read", err)
 	}

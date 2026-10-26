@@ -86,7 +86,7 @@ export const SettingUp = {
       [
         '### 7. Open the pull request',
         `Commit on a new branch, such as \`${BRANCH}\`, push it, and open the pull request:`,
-        `\`\`\`\nspotlight setup-pull-request --branch ${BRANCH} --title "…" < body.md\n\`\`\``,
+        `\`\`\`\nspotlight tools call setup-pull-request --branch ${BRANCH} --title "…" < body.md\n\`\`\``,
         'In the body, list each departure from the built-in lines as a decision with the files it rests on. Say which observability tools you connected, or why there are none. Add the plan.',
       ].join('\n'),
     ].join('\n\n');

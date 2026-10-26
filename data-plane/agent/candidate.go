@@ -15,9 +15,6 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-const candidateUsage = `usage:
-  spotlight candidate --name <name> --hypothesis <text | @file> <station.json | ->`
-
 func candidateCmd(args []string, in io.Reader, out io.Writer) error {
 	flags := flag.NewFlagSet("candidate", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -27,7 +24,7 @@ func candidateCmd(args []string, in io.Reader, out io.Writer) error {
 	var positional []string
 	for {
 		if err := flags.Parse(args); err != nil {
-			return fmt.Errorf("%s", candidateUsage)
+			return fmt.Errorf("%v\n%s", err, candidateHelp.Synopsis())
 		}
 		if flags.NArg() == 0 {
 			break
@@ -37,16 +34,16 @@ func candidateCmd(args []string, in io.Reader, out io.Writer) error {
 	}
 
 	if strings.TrimSpace(*name) == "" {
-		return fmt.Errorf("--name is required\n%s", candidateUsage)
+		return fmt.Errorf("--name is required\n%s", candidateHelp.Synopsis())
 	}
 	if !protocol.IsCandidateName(*name) {
-		return fmt.Errorf("%q cannot name a candidate: a name is a slug of lowercase letters, digits and hyphens, starting with a letter or digit, at most 63 characters\n%s", *name, candidateUsage)
+		return fmt.Errorf("%q cannot name a candidate: a name is a slug of lowercase letters, digits and hyphens, starting with a letter or digit, at most 63 characters\n%s", *name, candidateHelp.Synopsis())
 	}
 	if strings.TrimSpace(*hypothesis) == "" {
-		return fmt.Errorf("--hypothesis is required\n%s", candidateUsage)
+		return fmt.Errorf("--hypothesis is required\n%s", candidateHelp.Synopsis())
 	}
 	if len(positional) != 1 {
-		return fmt.Errorf("name one file that contains the station block, or - to read it from stdin\n%s", candidateUsage)
+		return fmt.Errorf("name one file that contains the station block, or - to read it from stdin\n%s", candidateHelp.Synopsis())
 	}
 
 	expected, err := hypothesisOf(*hypothesis)

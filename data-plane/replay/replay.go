@@ -10,25 +10,6 @@ import (
 	"usespotlight.ai/data-plane/credentials"
 )
 
-const Usage = `  spotlight replay propose --station <team/line/station> --name <name> <station.json>
-  spotlight replay candidates --station <team/line/station>
-  spotlight replay show --station <team/line/station> <candidate name or id>
-  spotlight replay sets --station <team/line/station>
-  spotlight replay start --station <team/line/station> --set <name or id> --candidate <name, id or live> --ceiling <amount> [--currency USD] [--repeats 1]
-  spotlight replay status --team <key> <replay id>
-  spotlight replay watch --team <key> <replay id> [--every 15s]
-  spotlight replay stop --team <key> <replay id>
-      each takes --json and --workspace <slug>; reads SPOTLIGHT_URL and
-      SPOTLIGHT_API_TOKEN, a workspace token that may plan (read is enough to
-      list, show and follow), else the login from spotlight login for
-      SPOTLIGHT_URL; a login in more than one workspace needs --workspace or
-      SPOTLIGHT_WORKSPACE; status and watch exit 2
-      when the candidate regresses on a task its reference replay did well;
-      --repeats replays each run up to 5 times, so each task is rated by
-      the share of its repeats that succeeded and every rate carries a 95%
-      interval
-` + CheckUsage
-
 const (
 	urlVar       = "SPOTLIGHT_URL"
 	tokenVar     = "SPOTLIGHT_API_TOKEN"
@@ -76,7 +57,7 @@ func tokenFor(env func(string) string, base string) (string, error) {
 		return "", fmt.Errorf("read the login for %s: %w", base, err)
 	}
 	if token == "" {
-		return "", fmt.Errorf("no credentials for %s. Run spotlight login, or set %s\nusage:\n%s", base, tokenVar, Usage)
+		return "", fmt.Errorf("no credentials for %s. Run spotlight login, or set %s\n%s", base, tokenVar, replayHelp.Synopsis())
 	}
 
 	return token, nil
@@ -84,12 +65,12 @@ func tokenFor(env func(string) string, base string) (string, error) {
 
 func run(args []string, in io.Reader, out io.Writer, version string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage:\n%s", Usage)
+		return fmt.Errorf("say which command\n%s", replayHelp.Synopsis())
 	}
 
 	base := os.Getenv(urlVar)
 	if base == "" {
-		return fmt.Errorf("set %s to replay\nusage:\n%s", urlVar, Usage)
+		return fmt.Errorf("set %s to replay\n%s", urlVar, replayHelp.Synopsis())
 	}
 
 	token, err := tokenFor(os.Getenv, base)
@@ -118,6 +99,6 @@ func run(args []string, in io.Reader, out io.Writer, version string) error {
 	case "stop":
 		return c.stop(rest)
 	default:
-		return fmt.Errorf("no such replay command as %q\nusage:\n%s", args[0], Usage)
+		return fmt.Errorf("no command %q\n%s", "replay "+args[0], replayHelp.Synopsis())
 	}
 }

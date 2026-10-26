@@ -102,7 +102,7 @@ const toolsOf = (described: readonly DeclaredTool[]): string | null => {
   return integrations.length > 0
     ? [
         '## Tools',
-        `Your station enables tools from ${NAMED.format(integrations.map((each) => `${each.name} (${each.tools})`))}. Find the one you need with \`spotlight tools search "<words>"\`, read what it takes with \`spotlight tools describe <tool>\`, then call it. Every tool answers in JSON.`,
+        `Your station enables tools from ${NAMED.format(integrations.map((each) => `${each.name} (${each.tools})`))}. Find the one you need with \`spotlight tools search "<words>"\`, read what it takes with \`spotlight tools describe <tool>\`, then call it with \`spotlight tools call <tool>\`. Every tool answers in JSON.`,
       ].join('\n\n')
     : null;
 };
@@ -166,7 +166,7 @@ const workspaceOf = (task: BriefedTask, line: Line): string | null => {
         '## The workspace',
         'These repositories are checked out side by side, each in its own directory:',
         listed,
-        'Work out which one (or ones) your change belongs in. When you open a pull request, name the repository with `spotlight pull-request --repository <name>`.',
+        'Work out which one (or ones) your change belongs in. When you open a pull request, name the repository with `spotlight tools call pull-request --repository <name>`.',
         PERSISTENT_WORKSPACE,
       ].join('\n\n');
 };

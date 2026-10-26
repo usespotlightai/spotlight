@@ -24,8 +24,6 @@ import (
 	"usespotlight.ai/data-plane/telemetry"
 )
 
-const Usage = `  spotlight runner            do the one run or check this sandbox was started for`
-
 func Main(args []string, version string) int {
 	if err := cacerts.Install(protocol.SandboxAuthority, protocol.SandboxBundle); err != nil {
 		slog.Warn("could not trust the egress authority, so TLS through egress may fail", "error", err)

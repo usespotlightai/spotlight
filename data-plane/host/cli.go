@@ -16,6 +16,7 @@ import (
 
 	"golang.org/x/term"
 
+	"usespotlight.ai/data-plane/help"
 	"usespotlight.ai/data-plane/host/internal/config"
 	"usespotlight.ai/data-plane/host/internal/install"
 	"usespotlight.ai/data-plane/host/internal/sandbox/docker"
@@ -25,9 +26,9 @@ import (
 // errReported is an error the command already told the person about.
 var errReported = errors.New("reported")
 
-func noArgs(args []string, do func() error) error {
+func noArgs(args []string, shown help.Command, do func() error) error {
 	if len(args) > 0 {
-		return fmt.Errorf("usage:\n%s", Usage)
+		return fmt.Errorf("%s", shown.Synopsis())
 	}
 	return do()
 }

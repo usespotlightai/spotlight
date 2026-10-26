@@ -8,7 +8,7 @@ description: Review a pull request through Spotlight, leaving comments on its li
 Leave each comment on the line it is about, from anywhere in the workspace:
 
 ```
-spotlight review-comment --path "<file>" --line <line> --body "<what is wrong and what would fix it>"
+spotlight tools call review-comment --path "<file>" --line <line> --body "<what is wrong and what would fix it>"
 ```
 
 - `--path` is the file from the root of the repository, as `git diff` names it.
@@ -20,7 +20,7 @@ spotlight review-comment --path "<file>" --line <line> --body "<what is wrong an
   arrives at GitHub as a backslash and an n, not a new line.
 
   ```
-  spotlight review-comment --path "<file>" --line <line> <<'EOF'
+  spotlight tools call review-comment --path "<file>" --line <line> <<'EOF'
   What is wrong.
 
   What would fix it.
@@ -35,7 +35,7 @@ not touch, in the body.
 Comments stay pending until you submit them, all together, as one review:
 
 ```
-spotlight review --verdict comment --body "<what it comes down to>"
+spotlight tools call review --verdict comment --body "<what it comes down to>"
 ```
 
 Pipe a body of more than one line in the same way.

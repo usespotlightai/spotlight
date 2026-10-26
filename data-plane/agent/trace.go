@@ -11,9 +11,6 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-const traceUsage = `usage:
-  spotlight trace --task <id> [--out <path>]`
-
 func traceCmd(args []string, out io.Writer) error {
 	flags := flag.NewFlagSet("trace", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -21,10 +18,10 @@ func traceCmd(args []string, out io.Writer) error {
 	path := flags.String("out", "", "where to write it (a temporary file by default)")
 
 	if err := flags.Parse(args); err != nil {
-		return fmt.Errorf("%s", traceUsage)
+		return fmt.Errorf("%v\n%s", err, traceHelp.Synopsis())
 	}
 	if strings.TrimSpace(*task) == "" {
-		return fmt.Errorf("--task is required\n%s", traceUsage)
+		return fmt.Errorf("--task is required\n%s", traceHelp.Synopsis())
 	}
 
 	trace, err := fetchTrace(*task)

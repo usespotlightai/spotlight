@@ -433,7 +433,7 @@ const setupChat = (): ChatRecord => {
   const sentAt = hoursAgo(4300);
   const answer = chatTurn('run_chat_setup_1', sentAt, [
     { kind: 'tool', tool: 'read', text: 'api/.github/workflows/ci.yml' },
-    { kind: 'tool', tool: 'bash', text: 'spotlight linear.labels' },
+    { kind: 'tool', tool: 'bash', text: 'spotlight tools call linear.labels' },
     {
       kind: 'message',
       text: 'The API runs `npm test` and `npm run lint` in CI, and Linear issues are triaged with the `bug`, `feature` and `chore` labels. I adapted the triage prompt to those labels and gave Implementation the CI commands as its check.\n\nThe pull request is open: https://github.com/acme/infra/pull/12',

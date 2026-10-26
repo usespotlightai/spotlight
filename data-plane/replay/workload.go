@@ -197,7 +197,7 @@ func problemOf(status int, body []byte) string {
 func checkAPI(env func(string) string, version string, now func() time.Time) (*api, error) {
 	base := env(urlVar)
 	if base == "" {
-		return nil, fmt.Errorf("set %s, and %s, %s or a login from spotlight login, to check a plan\nusage:\n%s", urlVar, tokenVar, trustVar, Usage)
+		return nil, fmt.Errorf("set %s, and %s, %s or a login from spotlight login, to check a plan\n%s", urlVar, tokenVar, trustVar, checkHelp.Synopsis())
 	}
 
 	if token := env(tokenVar); token != "" {
@@ -211,7 +211,7 @@ func checkAPI(env func(string) string, version string, now func() time.Time) (*a
 			return nil, fmt.Errorf("read the login for %s: %w", base, err)
 		}
 		if token == "" {
-			return nil, fmt.Errorf("no credentials for %s. Set %s, a workspace token that may plan, or %s, an OIDC trust to exchange the job's OIDC token through, or run spotlight login\nusage:\n%s", base, tokenVar, trustVar, Usage)
+			return nil, fmt.Errorf("no credentials for %s. Set %s, a workspace token that may plan, or %s, an OIDC trust to exchange the job's OIDC token through, or run spotlight login\n%s", base, tokenVar, trustVar, checkHelp.Synopsis())
 		}
 		return newAPI(base, token, version), nil
 	}

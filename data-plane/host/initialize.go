@@ -21,12 +21,6 @@ import (
 )
 
 const (
-	initUsage = `usage:
-  spotlight host init [--url URL] [--token TOKEN | --trust ID --oidc-token-file PATH]
-                      [--capacity N] [--image IMAGE] [--name NAME] [--no-service] [--yes]
-
-Asks for each value no flag gives, when a terminal is attached and --yes is not set.`
-
 	defaultURL      = "https://app.usespotlight.ai"
 	defaultCapacity = "5"
 	pullWait        = 30 * time.Minute
@@ -52,7 +46,7 @@ func initialize(version string, args []string) error {
 	flags.BoolVar(&f.noService, "no-service", false, "")
 	flags.BoolVar(&f.yes, "yes", false, "")
 	if rest, err := parse(flags, args); err != nil || len(rest) > 0 {
-		return fmt.Errorf("%s", initUsage)
+		return fmt.Errorf("%s", initHelp.Synopsis())
 	}
 	f.given = map[string]bool{}
 	flags.Visit(func(each *flag.Flag) { f.given[each.Name] = true })
