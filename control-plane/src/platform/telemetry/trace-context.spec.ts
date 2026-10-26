@@ -1,16 +1,24 @@
-import { trace } from '@opentelemetry/api';
-import { node, tracing } from '@opentelemetry/sdk-node';
+import { context, propagation, trace } from '@opentelemetry/api';
+import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
+import { W3CTraceContextPropagator } from '@opentelemetry/core';
+import {
+  InMemorySpanExporter,
+  SimpleSpanProcessor,
+  TracerProvider,
+} from '@opentelemetry/sdk-trace';
 import {
   activeTraceparent,
   linkActiveSpanTo,
 } from '@platform/telemetry/trace-context';
 import { afterAll, describe, expect, it } from 'vitest';
 
-const exporter = new tracing.InMemorySpanExporter();
-const provider = new node.NodeTracerProvider({
-  spanProcessors: [new tracing.SimpleSpanProcessor(exporter)],
+const exporter = new InMemorySpanExporter();
+const provider = new TracerProvider({
+  spanProcessors: [new SimpleSpanProcessor({ exporter })],
 });
-provider.register();
+context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable());
+trace.setGlobalTracerProvider(provider);
+propagation.setGlobalPropagator(new W3CTraceContextPropagator());
 
 afterAll(() => provider.shutdown());
 
