@@ -31,6 +31,7 @@ const permissionsIn = (
     ? {
         workspaceId: workspace.id,
         slug: workspace.slug.value,
+        plans: permissions.plans,
         configures: permissions.configures,
         managesSecrets: permissions.managesSecrets,
         managesRunners: permissions.managesRunners,
@@ -99,6 +100,16 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
     principal: Principal,
   ): Promise<WorkspacePermissions | null> {
     return permissionsIn(await this.workspaces.find(workspaceId), principal);
+  }
+
+  async permissionsInSlug(
+    slug: string,
+    principal: Principal,
+  ): Promise<WorkspacePermissions | null> {
+    return permissionsIn(
+      await this.workspaces.findBySlug(WorkspaceSlug.of(slug)),
+      principal,
+    );
   }
 
   async permissionsOnTeam(

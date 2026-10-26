@@ -19,6 +19,7 @@ export interface TeamMembership extends WorkspaceMembership {
 export interface WorkspacePermissions {
   readonly workspaceId: WorkspaceId;
   readonly slug: string;
+  readonly plans: boolean;
   readonly configures: boolean;
   readonly managesSecrets: boolean;
   readonly managesRunners: boolean;
@@ -47,6 +48,11 @@ export interface WorkspaceAccessPort {
 
   permissionsIn(
     workspaceId: WorkspaceId,
+    principal: Principal,
+  ): Promise<WorkspacePermissions | null>;
+
+  permissionsInSlug(
+    slug: string,
     principal: Principal,
   ): Promise<WorkspacePermissions | null>;
 

@@ -6,8 +6,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { bearerIn } from '@platform/http/bearer';
+import { basicPasswordIn, bearerIn } from '@platform/http/bearer';
 import { ALLOW_ANONYMOUS } from '@platform/http/decorators/allow-anonymous.decorator';
+import { ALLOW_BASIC_CREDENTIALS } from '@platform/http/decorators/allow-basic-credentials.decorator';
 import { ALLOW_WORKSPACE_TOKENS } from '@platform/http/decorators/allow-workspace-tokens.decorator';
 import {
   REQUEST_PRINCIPAL,
@@ -56,11 +57,17 @@ export class AuthenticatedGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const { authorization } = request.headers;
     const presented = typeof authorization === 'string' ? authorization : '';
-    const bearer = bearerIn(presented);
+    const bearer =
+      bearerIn(presented) ??
+      (marked(ALLOW_BASIC_CREDENTIALS)
+        ? basicPasswordIn(presented)
+        : undefined);
 
     if (presented !== '' && !bearer) {
       throw new UnauthorizedException(
-        'The Authorization header must use the Bearer scheme.',
+        marked(ALLOW_BASIC_CREDENTIALS)
+          ? 'The Authorization header must use the Bearer scheme, or the Basic scheme with the token as the password.'
+          : 'The Authorization header must use the Bearer scheme.',
       );
     }
 

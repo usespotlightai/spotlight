@@ -57,6 +57,7 @@ import { ReadinessChecks } from '@platform/health/readiness-checks';
 import { AuthenticatedGuard } from '@platform/http/guards/authenticated.guard';
 import { RunnerGuard } from '@platform/http/guards/runner.guard';
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
+import { s3ClientsOf } from '@platform/storage/s3-clients';
 import { RUNNER_AUTHENTICATOR } from '@runners/application/ports/runner-authenticator.port';
 import { RUNNER_EGRESS } from '@runners/application/ports/runner-egress.port';
 import { RUNNER_HEARTBEATS } from '@runners/application/ports/runner-heartbeats.port';
@@ -625,7 +626,6 @@ import { DrizzleStartingPointHoldRepository } from '@work/infrastructure/persist
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 import { S3AttachmentStore } from '@work/infrastructure/storage/s3-attachment.store';
-import { s3ClientsOf } from '@work/infrastructure/storage/s3-clients';
 import { S3Readiness } from '@work/infrastructure/storage/s3-readiness';
 import { S3WorkspaceArchiveStore } from '@work/infrastructure/storage/s3-workspace-archive.store';
 import { StorageHosts } from '@work/infrastructure/storage/storage-hosts';

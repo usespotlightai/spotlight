@@ -53,3 +53,43 @@ export const harnessProfile = pgTable(
   },
   (table) => [unique().on(table.teamId, table.key)],
 );
+
+export interface StateLockRow {
+  readonly id: string;
+  readonly info: Record<string, unknown>;
+  readonly lockedBy: string;
+  readonly lockedAt: string;
+}
+
+export const terraformState = pgTable(
+  'terraform_state',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    name: text('name').notNull(),
+    lock: jsonb('lock').$type<StateLockRow>(),
+    latestVersionId: text('latest_version_id'),
+    version: integer('version').notNull().default(1),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [unique().on(table.workspaceId, table.name)],
+);
+
+export const terraformStateVersion = pgTable(
+  'terraform_state_version',
+  {
+    id: text('id').primaryKey(),
+    stateId: text('state_id').notNull(),
+    number: integer('number').notNull(),
+    serial: integer('serial').notNull(),
+    lineage: text('lineage').notNull(),
+    md5: text('md5').notNull(),
+    size: integer('size').notNull(),
+    writtenBy: text('written_by').notNull(),
+    writtenAt: timestamp('written_at').notNull(),
+  },
+  (table) => [unique().on(table.stateId, table.number)],
+);

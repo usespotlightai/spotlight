@@ -7,6 +7,11 @@ import {
   type S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import {
+  headObject,
+  missing,
+  type S3Clients,
+} from '@platform/storage/s3-clients';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
@@ -18,11 +23,6 @@ import type {
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
-import {
-  headObject,
-  missing,
-  type S3Clients,
-} from '@work/infrastructure/storage/s3-clients';
 
 const SIGNED_FOR = 15 * 60;
 

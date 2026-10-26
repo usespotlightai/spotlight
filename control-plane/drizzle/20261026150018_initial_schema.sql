@@ -264,6 +264,30 @@ CREATE TABLE "skill_definition" (
 	CONSTRAINT "skill_definition_team_id_key_unique" UNIQUE("team_id","key")
 );
 --> statement-breakpoint
+CREATE TABLE "terraform_state" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"name" text NOT NULL,
+	"lock" jsonb,
+	"latest_version_id" text,
+	"version" integer DEFAULT 1 NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "terraform_state_workspace_id_name_unique" UNIQUE("workspace_id","name")
+);
+--> statement-breakpoint
+CREATE TABLE "terraform_state_version" (
+	"id" text PRIMARY KEY NOT NULL,
+	"state_id" text NOT NULL,
+	"number" integer NOT NULL,
+	"serial" integer NOT NULL,
+	"lineage" text NOT NULL,
+	"md5" text NOT NULL,
+	"size" integer NOT NULL,
+	"written_by" text NOT NULL,
+	"written_at" timestamp NOT NULL,
+	CONSTRAINT "terraform_state_version_state_id_number_unique" UNIQUE("state_id","number")
+);
+--> statement-breakpoint
 CREATE TABLE "github_connection" (
 	"workspace_id" text PRIMARY KEY NOT NULL,
 	"installation_id" text NOT NULL,

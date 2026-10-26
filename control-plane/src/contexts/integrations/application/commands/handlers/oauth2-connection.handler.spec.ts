@@ -40,6 +40,7 @@ const authorizing = (allowed: boolean, member = true) =>
         : null,
     ),
     permissionsIn: vi.fn(),
+    permissionsInSlug: vi.fn(),
     permissionsOnTeam: vi.fn(),
     permissionsAsTeamReader: vi.fn(),
     mayPlan: vi.fn(),

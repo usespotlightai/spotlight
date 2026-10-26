@@ -131,6 +131,8 @@ func run(args []string, out, errs io.Writer) int {
 		return login.Main(args[1:], version)
 	case "logout":
 		return login.Logout(args[1:], version)
+	case "token":
+		return login.Token(args[1:], version)
 	case "version":
 		fmt.Fprintln(out, version)
 		return 0
@@ -213,7 +215,7 @@ func roleOf(command string) string {
 	switch command {
 	case "host", "runner", "egress", "replay":
 		return command
-	case "login", "logout":
+	case "login", "logout", "token":
 		return "login"
 	default:
 		return "agent"

@@ -31,4 +31,22 @@ var logoutHelp = help.Command{
 	Docs:     "spotlight-command#spotlight-logout",
 }
 
-var Commands = []help.Command{loginHelp, logoutHelp}
+var tokenHelp = help.Command{
+	Path:    "token",
+	Summary: "Print a token for Spotlight, as for Terraform's http backend.",
+	Usage:   []string{"spotlight token [--url <address>]"},
+	Flags:   []help.Flag{{Name: "url", Value: "<address>", Usage: "The Spotlight address. Default: " + urlVar + ", else " + defaultAddress + "."}},
+	Env: []help.Flag{
+		{Name: tokenVar, Usage: "A workspace token. Printed as it is."},
+		{Name: trustVar, Usage: "An OIDC trust's id. The CI job's OIDC token is exchanged through it for a short-lived token."},
+		{Name: workloadVar, Usage: "The CI job's OIDC token, outside GitHub Actions."},
+		{Name: audienceVar, Usage: "The audience of the GitHub Actions OIDC token. Default: " + defaultAudience + "."},
+	},
+	Examples: []help.Example{
+		{Comment: "Give Terraform's http backend the token", Command: "export TF_HTTP_PASSWORD=$(spotlight token)"},
+	},
+	Notes: []string{"Picks the first that is set: " + tokenVar + ", then " + trustVar + ", then the login from spotlight login."},
+	Docs:  "spotlight-command#spotlight-token",
+}
+
+var Commands = []help.Command{loginHelp, logoutHelp, tokenHelp}

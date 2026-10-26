@@ -4,11 +4,11 @@ import {
   HeadObjectCommand,
   type S3Client,
 } from '@aws-sdk/client-s3';
+import type { S3Clients } from '@platform/storage/s3-clients';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { S3AttachmentStore } from '@work/infrastructure/storage/s3-attachment.store';
-import type { S3Clients } from '@work/infrastructure/storage/s3-clients';
 import { describe, expect, it, vi } from 'vitest';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
