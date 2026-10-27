@@ -51,29 +51,6 @@ export const colorOf = (id: string): string => {
 export const collabUrl = (location: Location): string =>
   `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${COLLAB_PATH}`;
 
-const isDraftPerson = (value: unknown): value is DraftPerson =>
-  typeof value === 'object' &&
-  value !== null &&
-  typeof (value as DraftPerson).id === 'string' &&
-  typeof (value as DraftPerson).name === 'string';
-
-export const peopleIn = (
-  states: ReadonlyMap<number, Record<string, unknown>>,
-): DraftPerson[] => {
-  const people = new Map<string, DraftPerson>();
-
-  for (const state of states.values()) {
-    const person = (state.awarenessData as { person?: unknown } | undefined)
-      ?.person;
-
-    if (isDraftPerson(person) && !people.has(person.id)) {
-      people.set(person.id, person);
-    }
-  }
-
-  return [...people.values()];
-};
-
 // Lexical connects once its binding listens, so a draft that syncs fast never arrives before the editor can take it in.
 export const lexicalProvider = (
   provider: HocuspocusProvider,

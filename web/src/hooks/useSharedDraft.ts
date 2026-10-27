@@ -12,7 +12,6 @@ import {
   type DraftPerson,
   draftParts,
   lexicalProvider,
-  peopleIn,
   type SharedAttachment,
   taskDraftName,
 } from '@/lib/shared-draft';
@@ -22,7 +21,6 @@ export type SharedDraft = {
   readonly doc: Doc;
   readonly provider: Provider;
   readonly me: DraftPerson;
-  readonly others: readonly DraftPerson[];
   readonly online: boolean;
   readonly synced: boolean;
   readonly generation: number;
@@ -35,7 +33,6 @@ export type SharedDraft = {
 };
 
 type Live = {
-  readonly others: readonly DraftPerson[];
   readonly online: boolean;
   readonly synced: boolean;
   readonly generation: number;
@@ -51,7 +48,6 @@ type Connection = {
 };
 
 const OFFLINE: Live = {
-  others: [],
   online: true,
   synced: false,
   generation: 0,
@@ -86,19 +82,6 @@ export function useSharedDraft(taskId: string | undefined): SharedDraft | null {
     });
     const person: DraftPerson = { id, name, image, color: colorOf(id) };
     const { meta, attachments } = draftParts(doc);
-    const awareness = provider.awareness;
-
-    awareness?.setLocalStateField('awarenessData', { person });
-
-    const showPeople = () =>
-      setLive((shown) => ({
-        ...shown,
-        others: awareness
-          ? peopleIn(
-              awareness.getStates() as Map<number, Record<string, unknown>>,
-            ).filter((each) => each.id !== id)
-          : [],
-      }));
     const showStatus = ({ status }: { status: string }) =>
       setLive((shown) => ({ ...shown, online: status !== 'disconnected' }));
     const showSynced = ({ state }: { state: boolean }) =>
@@ -115,8 +98,6 @@ export function useSharedDraft(taskId: string | undefined): SharedDraft | null {
     };
     const showAttachments = () =>
       setLive((shown) => ({ ...shown, attachments: attachments.toArray() }));
-
-    awareness?.on('change', showPeople);
     provider.on('status', showStatus);
     provider.on('synced', showSynced);
     meta.observe(showGeneration);
@@ -130,7 +111,6 @@ export function useSharedDraft(taskId: string | undefined): SharedDraft | null {
     });
 
     return () => {
-      awareness?.off('change', showPeople);
       provider.off('status', showStatus);
       provider.off('synced', showSynced);
       meta.unobserve(showGeneration);

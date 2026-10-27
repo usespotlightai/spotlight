@@ -3,7 +3,7 @@ import { type CSSProperties, type ReactNode, useRef } from 'react';
 import { AttachButton } from '@/components/shared/attachment/AttachButton';
 import { ChatEditor } from '@/components/shared/chat-input/ChatEditor';
 import { ChatInputArea } from '@/components/shared/chat-input/ChatInputArea';
-import { DraftPresence } from '@/components/shared/chat-input/DraftPresence';
+import { DraftOffline } from '@/components/shared/chat-input/DraftOffline';
 import { ImageThumbs } from '@/components/shared/chat-input/ImageThumbs';
 import { SendOrStop } from '@/components/shared/chat-input/SendOrStop';
 import { useChatMessage } from '@/hooks/useChatMessage';
@@ -175,7 +175,7 @@ export function ChatInput({
           className="flex min-w-0 flex-wrap items-center gap-1 px-1"
         >
           {below}
-          {shared && <DraftPresence shared={shared} />}
+          {shared && <DraftOffline shared={shared} />}
         </ChatInputArea>
       )}
     </div>

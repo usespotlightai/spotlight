@@ -11,7 +11,7 @@ import {
   $getRoot,
   type LexicalEditor,
 } from 'lexical';
-import { type RefObject, useMemo, useState } from 'react';
+import { type RefObject, useState } from 'react';
 import { EditorHandle } from '@/components/shared/chat-input/EditorHandle';
 import {
   $spacedReferences,
@@ -51,8 +51,6 @@ export function ChatEditor({
   shared,
   cursors,
 }: ChatEditorProps) {
-  const me = shared?.me;
-  const awarenessData = useMemo(() => ({ person: me }), [me]);
   const [initialConfig] = useState(() => ({
     namespace: 'chat-input',
     nodes: [ReferenceNode],
@@ -107,7 +105,6 @@ export function ChatEditor({
               shouldBootstrap
               username={shared.me.name}
               cursorColor={shared.me.color}
-              awarenessData={awarenessData}
               cursorsContainerRef={cursors}
             />
             <SharedWriting onWrote={shared.wrote} />

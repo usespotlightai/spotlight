@@ -8,7 +8,6 @@ import {
   colorOf,
   type DraftPerson,
   draftParts,
-  peopleIn,
   type SharedAttachment,
 } from '@/lib/shared-draft';
 
@@ -105,23 +104,18 @@ const useRoomDraft = (room: Room, person: Omit<DraftPerson, 'color'>) => {
     () => ({ ...person, color: colorOf(person.id) }),
     [person],
   );
-  const [others, setOthers] = useState<DraftPerson[]>([]);
   const [attachments, setAttachments] = useState<SharedAttachment[]>([]);
 
   useEffect(() => {
     const parts = draftParts(doc);
-    const showOthers = () =>
-      setOthers(peopleIn(room.states).filter((each) => each.id !== me.id));
     const showAttachments = () => setAttachments(parts.attachments.toArray());
 
-    room.on(showOthers);
     parts.attachments.observe(showAttachments);
 
     return () => {
-      room.off(showOthers);
       parts.attachments.unobserve(showAttachments);
     };
-  }, [room, doc, me.id]);
+  }, [doc]);
 
   return useMemo((): SharedDraft => {
     const { writers, attachments: shared } = draftParts(doc);
@@ -131,7 +125,6 @@ const useRoomDraft = (room: Room, person: Omit<DraftPerson, 'color'>) => {
       doc,
       provider,
       me,
-      others,
       online: true,
       synced: true,
       generation: 0,
@@ -148,7 +141,7 @@ const useRoomDraft = (room: Room, person: Omit<DraftPerson, 'color'>) => {
         }
       },
     };
-  }, [doc, provider, me, others, attachments]);
+  }, [doc, provider, me, attachments]);
 };
 
 const ADA = { id: 'user_ada', name: 'Ada Lovelace', image: null };

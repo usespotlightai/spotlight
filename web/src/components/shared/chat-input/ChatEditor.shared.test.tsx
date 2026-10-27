@@ -84,7 +84,6 @@ const draftFor = (
     doc,
     provider,
     me: { id, name: id, image: null, color: '#2563eb' },
-    others: [],
     online: true,
     synced: true,
     generation: 0,
@@ -155,12 +154,5 @@ describe('ChatEditor on a shared draft', () => {
     );
     expect(ada.wrote).toHaveBeenCalled();
     expect(bea.wrote).not.toHaveBeenCalled();
-    expect(
-      [...everyone.values()].map(
-        (state) =>
-          (state.awarenessData as { person?: { id: string } } | undefined)
-            ?.person?.id,
-      ),
-    ).toEqual(expect.arrayContaining(['ada', 'bea']));
   });
 });

@@ -4,12 +4,8 @@ import {
   collabUrl,
   colorOf,
   draftParts,
-  peopleIn,
   taskDraftName,
 } from '@/lib/shared-draft';
-
-const anna = { id: 'user_1', name: 'Anna', image: null, color: '#2563eb' };
-const ben = { id: 'user_2', name: 'Ben', image: null, color: '#db2777' };
 
 describe('shared drafts', () => {
   it('names the draft of a task the way the control plane does', () => {
@@ -27,17 +23,6 @@ describe('shared drafts', () => {
 
   it('gives a person the same colour every time', () => {
     expect(colorOf('user_1')).toBe(colorOf('user_1'));
-  });
-
-  it('lists each person in the draft once, even with two tabs open', () => {
-    const states = new Map<number, Record<string, unknown>>([
-      [1, { awarenessData: { person: anna } }],
-      [2, { awarenessData: { person: anna } }],
-      [3, { awarenessData: { person: ben } }],
-      [4, { name: 'no person' }],
-    ]);
-
-    expect(peopleIn(states).map((each) => each.name)).toEqual(['Anna', 'Ben']);
   });
 
   it('keeps the generation, writers and attachments where the control plane reads them', () => {
