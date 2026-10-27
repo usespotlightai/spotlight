@@ -2,6 +2,8 @@ import {
   type ClipboardEvent,
   type DragEvent,
   useCallback,
+  useEffect,
+  useRef,
   useState,
 } from 'react';
 import {
@@ -19,8 +21,18 @@ type Outcome =
   | { readonly state: 'ready'; readonly id: string }
   | { readonly state: 'failed'; readonly problem: string };
 
-export function useAttachments(slug: string) {
+type Ready = PendingAttachment & { readonly state: 'ready' };
+
+export function useAttachments(
+  slug: string,
+  onReady?: (attachment: Ready) => void,
+) {
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const ready = useRef(onReady);
+
+  useEffect(() => {
+    ready.current = onReady;
+  });
 
   const finish = (key: string, outcome: Outcome) =>
     setAttachments((all) =>
@@ -50,7 +62,10 @@ export function useAttachments(slug: string) {
       }
 
       uploadAttachment({ slug, file }).then(
-        ({ id }) => finish(pending.key, { state: 'ready', id }),
+        ({ id }) => {
+          finish(pending.key, { state: 'ready', id });
+          ready.current?.({ ...pending, state: 'ready', id });
+        },
         () =>
           finish(pending.key, { state: 'failed', problem: 'Upload failed' }),
       );

@@ -41,7 +41,20 @@ export function useChatMessage(
   initialText = '',
   shared: SharedDraft | null = null,
 ) {
-  const draft = useAttachments(slug);
+  const draft = useAttachments(slug, (ready) => {
+    if (!shared) {
+      return;
+    }
+
+    shared.share({
+      key: ready.key,
+      id: ready.id,
+      name: ready.name,
+      size: ready.size,
+      image: ready.image !== null,
+    });
+    setHandedOver((all) => new Set([...all, ready.key]));
+  });
   const editor = useRef<LexicalEditor | null>(null);
   const [written, setWritten] = useState<Written>(() => ({
     text: initialText,
@@ -50,7 +63,6 @@ export function useChatMessage(
   const [handedOver, setHandedOver] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
-  const share = shared?.share;
   const sharedAttachments = shared?.attachments;
   const generation = shared?.generation;
   const synced = shared?.synced;
@@ -66,7 +78,6 @@ export function useChatMessage(
       { tag: DRAFT_SENT },
     );
   }, []);
-  const removeLocal = draft.remove;
 
   const placed = new Set(
     written.references.flatMap((each) =>
@@ -103,36 +114,7 @@ export function useChatMessage(
     (each) => shown(each) || placed.has(each.key),
   );
 
-  useEffect(() => {
-    if (!share) {
-      return;
-    }
-
-    const ready = draft.attachments.filter(
-      (each) => each.state === 'ready' && !handedOver.has(each.key),
-    );
-
-    if (ready.length === 0) {
-      return;
-    }
-
-    for (const each of ready) {
-      if (each.state === 'ready') {
-        share({
-          key: each.key,
-          id: each.id,
-          name: each.name,
-          size: each.size,
-          image: each.image !== null,
-        });
-      }
-    }
-
-    setHandedOver((all) => new Set([...all, ...ready.map((each) => each.key)]));
-  }, [draft.attachments, handedOver, share]);
-
-  // A new generation means the draft was sent: what this person handed over went with it,
-  // and every writer clears the sent text, so it goes even when the sender's tab closed.
+  // A new generation means the draft was sent: every writer clears the sent text, so it goes even when the sender's tab closed.
   useEffect(() => {
     if (generation === undefined) {
       return;
@@ -142,15 +124,7 @@ export function useChatMessage(
       clearSent(sentText ?? '');
     }
     seen.current = { generation, synced: synced ?? false };
-
-    setHandedOver((all) => {
-      for (const key of all) {
-        removeLocal(key);
-      }
-
-      return new Set();
-    });
-  }, [generation, synced, sentText, removeLocal, clearSent]);
+  }, [generation, synced, sentText, clearSent]);
 
   const outgoing: Outgoing = {
     body: written.text.trim(),
