@@ -82,6 +82,7 @@ const note = (over: Record<string, unknown> = {}) => ({
   body: 'Which queue should I drain?',
   at: '2026-08-29T12:00:00.000Z',
   author: null,
+  coAuthors: [],
   attachments: [],
   ...over,
 });
@@ -364,6 +365,7 @@ describe('InboxItem', () => {
           body: 'The retry queue.',
           voice: 'person',
           author: { id: 'user_2', name: 'Maya', image: null },
+          coAuthors: [],
         }),
       ]),
     );
@@ -465,6 +467,7 @@ describe('InboxItem', () => {
           body: 'A person wrote this.',
           voice: 'person',
           author: { id: 'user_2', name: 'Leon', image: null },
+          coAuthors: [],
         }),
         note({ position: 2, body: 'And Triage answered.' }),
       ]),
@@ -489,6 +492,7 @@ describe('InboxItem', () => {
           body: 'The retry queue.',
           voice: 'person',
           author: { id: 'user_2', name: 'Leon', image: null },
+          coAuthors: [],
         }),
       ]),
     );
@@ -537,6 +541,7 @@ describe('InboxItem', () => {
           at: '2026-08-29T14:35:00.000Z',
           voice: 'person',
           author: { id: 'user_2', name: 'Leon', image: null },
+          coAuthors: [],
         }),
       ]),
     );
@@ -636,6 +641,7 @@ describe('InboxItem', () => {
       body: 'Drain webhook-retries first.',
       at: '2026-08-29T12:10:00.000Z',
       author: { id: 'user_2', name: 'Maya Chen', image: null },
+      coAuthors: [],
     });
 
     it('says nothing about working while it waits on you, nor offers to stop it', () => {

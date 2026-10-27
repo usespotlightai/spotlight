@@ -2,14 +2,17 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
 import { ApprovalAnswered } from '@work/application/rendering/approval-answered';
 import type { ConversationLoader } from '@work/application/services/conversation-loader.service';
+import type { DraftSending } from '@work/application/services/draft-sending.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import type { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
@@ -25,13 +28,21 @@ export class AnswerInboxItemHandler
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
     private readonly files: FilesLoader,
+    private readonly drafts: DraftSending,
   ) {}
 
   async execute(command: AnswerInboxItemCommand): Promise<void> {
     try {
       for (let attempt = 1; ; attempt++) {
         try {
-          await this.transaction.inTransaction(() => this.answer(command));
+          const answered = await this.transaction.inTransaction(() =>
+            this.answer(command),
+          );
+          await this.drafts.announce(
+            answered.taskId,
+            answered.next,
+            command.body,
+          );
           return;
         } catch (error) {
           if (
@@ -47,7 +58,9 @@ export class AnswerInboxItemHandler
     }
   }
 
-  private async answer(command: AnswerInboxItemCommand): Promise<void> {
+  private async answer(
+    command: AnswerInboxItemCommand,
+  ): Promise<{ taskId: TaskId; next: DraftGeneration | null }> {
     const { item, task, line, station } = await this.conversations.putTo(
       command.itemId,
       command.answeredBy,
@@ -59,6 +72,13 @@ export class AnswerInboxItemHandler
       command.attachments,
     );
 
+    const coAuthors = await this.drafts.coAuthors(
+      task.id,
+      task.workspaceId,
+      command.coAuthors,
+    );
+    const next = await this.drafts.send(task.id, command.draftGeneration);
+
     const changed = task.changesAt(item.from, command.decision, command.edits);
     const answered = task.answer(
       item.from,
@@ -69,7 +89,7 @@ export class AnswerInboxItemHandler
           attachments,
         ),
         at: this.clock.now(),
-        voice: Voice.person(answeredBy),
+        voice: Voice.person(answeredBy, coAuthors),
         attachments,
       },
       command.decision,
@@ -85,5 +105,7 @@ export class AnswerInboxItemHandler
       runId && line ? answered.assignRun(runId, line) : answered,
     );
     await this.files.takenIn(task.workspaceId, attachments);
+
+    return { taskId: task.id, next };
   }
 }

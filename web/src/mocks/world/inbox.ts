@@ -434,6 +434,7 @@ const setupItem = (
         attachments: [],
         at: createdAt,
         author: null,
+        coAuthors: [],
         approval: null,
         failure: null,
         connection: null,

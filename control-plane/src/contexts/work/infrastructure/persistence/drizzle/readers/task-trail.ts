@@ -174,6 +174,7 @@ export const trailsFor = async (
       body: taskNote.body,
       at: taskNote.at,
       authorId: taskNote.authorId,
+      coAuthorIds: taskNote.coAuthorIds,
       approval: taskNote.approval,
       failure: taskNote.failure,
       connectionAsk: taskNote.connectionAsk,
@@ -186,6 +187,7 @@ export const trailsFor = async (
   const authors = await people.findMany(
     rows.flatMap((row) => [
       ...(row.authorId ? [UserId.of(row.authorId)] : []),
+      ...row.coAuthorIds.map(UserId.of),
       ...(row.connectionAsk ? [UserId.of(row.connectionAsk.personId)] : []),
       ...(row.approval?.askedOf ? [UserId.of(row.approval.askedOf)] : []),
     ]),
@@ -217,6 +219,11 @@ export const trailsFor = async (
             image: author?.image ?? null,
           }
         : null,
+      coAuthors: row.coAuthorIds.map((id) => ({
+        id,
+        name: authors.get(id)?.name ?? '',
+        image: authors.get(id)?.image ?? null,
+      })),
       approval: approvalOf(row.approval, authors),
       failure: failed(row.failure),
       connection: connecting(row.connectionAsk, authors),

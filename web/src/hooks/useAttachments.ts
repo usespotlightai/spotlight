@@ -1,4 +1,11 @@
-import { type ClipboardEvent, type DragEvent, useRef, useState } from 'react';
+import {
+  type ClipboardEvent,
+  type DragEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   drawn,
   filesIn,
@@ -7,13 +14,25 @@ import {
 } from '@/lib/attachment';
 import { uploadAttachment } from '@/lib/upload-attachment';
 
+const uniqueKey = (): string =>
+  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+
 type Outcome =
   | { readonly state: 'ready'; readonly id: string }
   | { readonly state: 'failed'; readonly problem: string };
 
-export function useAttachments(slug: string) {
+type Ready = PendingAttachment & { readonly state: 'ready' };
+
+export function useAttachments(
+  slug: string,
+  onReady?: (attachment: Ready) => void,
+) {
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
-  const counted = useRef(0);
+  const ready = useRef(onReady);
+
+  useEffect(() => {
+    ready.current = onReady;
+  });
 
   const finish = (key: string, outcome: Outcome) =>
     setAttachments((all) =>
@@ -22,12 +41,10 @@ export function useAttachments(slug: string) {
 
   const add = (files: readonly File[]): PendingAttachment[] => {
     const added = files.map((file) => {
-      counted.current += 1;
-
       const problem = sizeProblem(file);
 
       const pending: PendingAttachment = {
-        key: String(counted.current),
+        key: uniqueKey(),
         name: file.name,
         size: file.size,
         image: drawn(file.type) ? file : null,
@@ -45,7 +62,10 @@ export function useAttachments(slug: string) {
       }
 
       uploadAttachment({ slug, file }).then(
-        ({ id }) => finish(pending.key, { state: 'ready', id }),
+        ({ id }) => {
+          finish(pending.key, { state: 'ready', id });
+          ready.current?.({ ...pending, state: 'ready', id });
+        },
         () =>
           finish(pending.key, { state: 'failed', problem: 'Upload failed' }),
       );
@@ -54,9 +74,9 @@ export function useAttachments(slug: string) {
     return added.map(({ pending }) => pending);
   };
 
-  const remove = (key: string) => {
+  const remove = useCallback((key: string) => {
     setAttachments((all) => all.filter((each) => each.key !== key));
-  };
+  }, []);
 
   const clear = () => setAttachments([]);
 

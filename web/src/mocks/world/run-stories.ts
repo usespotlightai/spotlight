@@ -786,6 +786,7 @@ export const storyNoteOf = (
     attachments: [],
     at: new Date(at).toISOString(),
     author: script.author ?? null,
+    coAuthors: [],
     approval: script.approval ? structuredClone(script.approval) : null,
     failure: script.failure ?? null,
     connection: null,

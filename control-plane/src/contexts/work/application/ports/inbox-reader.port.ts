@@ -66,6 +66,7 @@ export interface InboxNote {
   readonly attachments: readonly AttachmentSummary[];
   readonly at: Date;
   readonly author: InboxAuthor | null;
+  readonly coAuthors: readonly InboxAuthor[];
   readonly readAt: Date | null;
   readonly approval: InboxApproval | null;
   readonly failure: InboxFailure | null;

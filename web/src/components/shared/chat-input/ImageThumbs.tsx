@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { Image, X } from 'lucide-react';
 import { ImagePreview } from '@/components/shared/attachment/ImagePreview';
 import type { PendingAttachment } from '@/lib/attachment';
 import { cn } from '@/lib/utils';
@@ -21,6 +21,11 @@ export function ImageThumbs({ images, onRemove }: ImageThumbsProps) {
           className="group relative size-14 overflow-hidden rounded-lg border border-border"
           title={image.state === 'failed' ? image.problem : image.name}
         >
+          {!image.image && (
+            <span className="flex size-full items-center justify-center bg-muted text-muted-foreground">
+              <Image aria-hidden className="size-4" />
+            </span>
+          )}
           {image.image && (
             <ImagePreview
               image={image.image}

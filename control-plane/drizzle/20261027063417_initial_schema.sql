@@ -1747,6 +1747,13 @@ CREATE TABLE "starting_point_hold" (
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "task_draft" (
+	"task_id" text PRIMARY KEY NOT NULL,
+	"state" "bytea",
+	"generation" integer DEFAULT 0 NOT NULL,
+	"updated_at" timestamp NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "task" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -1799,6 +1806,7 @@ CREATE TABLE "task_note" (
 	"at" timestamp NOT NULL,
 	"voice" text DEFAULT 'station' NOT NULL,
 	"author_id" text,
+	"co_author_ids" text[] DEFAULT '{}'::text[] NOT NULL,
 	"run_id" text,
 	"kind" text NOT NULL,
 	"form" text DEFAULT 'words' NOT NULL,
@@ -1875,6 +1883,7 @@ ALTER TABLE "run" ADD CONSTRAINT "run_replay_of_run_id_run_id_fk" FOREIGN KEY ("
 ALTER TABLE "run" ADD CONSTRAINT "run_station_id_station_id_fk" FOREIGN KEY ("station_id") REFERENCES "public"."station"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "run_event" ADD CONSTRAINT "run_event_run_id_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."run"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "run_usage" ADD CONSTRAINT "run_usage_run_id_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."run"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "task_draft" ADD CONSTRAINT "task_draft_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "task" ADD CONSTRAINT "task_station_id_station_id_fk" FOREIGN KEY ("station_id") REFERENCES "public"."station"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "task" ADD CONSTRAINT "task_origin_station_id_station_id_fk" FOREIGN KEY ("origin_station_id") REFERENCES "public"."station"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "task_attachment" ADD CONSTRAINT "task_attachment_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

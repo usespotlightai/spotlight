@@ -11,14 +11,21 @@ export class Voice {
     readonly by: AuthorKind,
     readonly author: UserId | null,
     readonly run: RunId | null,
+    readonly coAuthors: readonly UserId[] = [],
   ) {}
 
   static station(run: RunId | null = null): Voice {
     return new Voice('station', null, run);
   }
 
-  static person(author: UserId): Voice {
-    return new Voice('person', author, null);
+  static person(author: UserId, coAuthors: readonly UserId[] = []): Voice {
+    const others = coAuthors.filter(
+      (each, at) =>
+        !each.equals(author) &&
+        coAuthors.findIndex((other) => other.equals(each)) === at,
+    );
+
+    return new Voice('person', author, null, others);
   }
 
   static world(): Voice {
@@ -28,6 +35,7 @@ export class Voice {
   static of(input: {
     by: string;
     author?: string | null;
+    coAuthors?: readonly string[];
     run?: string | null;
   }): Voice {
     if (input.by === 'person') {
@@ -35,7 +43,16 @@ export class Voice {
         throw new InvalidVoiceError('of a person needs their name');
       }
 
-      return Voice.person(UserId.of(input.author));
+      return Voice.person(
+        UserId.of(input.author),
+        (input.coAuthors ?? []).map(UserId.of),
+      );
+    }
+
+    if (input.coAuthors?.length) {
+      throw new InvalidVoiceError(
+        `with co-authors belongs to a person, not to ${input.by}`,
+      );
     }
 
     if (input.author) {
@@ -67,7 +84,12 @@ export class Voice {
         : other.author !== null && this.author.equals(other.author)) &&
       (this.run === null
         ? other.run === null
-        : other.run !== null && this.run.equals(other.run))
+        : other.run !== null && this.run.equals(other.run)) &&
+      this.coAuthors.length === other.coAuthors.length &&
+      this.coAuthors.every((each, at) => {
+        const theirs = other.coAuthors[at];
+        return theirs !== undefined && each.equals(theirs);
+      })
     );
   }
 

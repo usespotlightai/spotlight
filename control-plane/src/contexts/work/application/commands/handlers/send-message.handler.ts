@@ -1,3 +1,4 @@
+import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -6,6 +7,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { SendMessageCommand } from '@work/application/commands/send-message.command';
+import type { DraftSending } from '@work/application/services/draft-sending.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
@@ -15,6 +17,7 @@ import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
+import type { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -37,6 +40,8 @@ export class SendMessageHandler
     private readonly dispatch: TaskDispatching,
     private readonly clock: ClockPort,
     private readonly files: FilesLoader,
+    private readonly access: WorkspaceAccessPort,
+    private readonly drafts: DraftSending,
   ) {}
 
   async execute(command: SendMessageCommand): Promise<void> {
@@ -54,9 +59,10 @@ export class SendMessageHandler
         command.attachments,
       );
 
-      await this.transaction.inTransaction(() =>
+      const next = await this.transaction.inTransaction(() =>
         this.send(command, { runId: run.id, taskId, stationId }, attachments),
       );
+      await this.drafts.announce(taskId, next, command.body);
     } catch (error) {
       rethrowAsApplicationError(error);
     }
@@ -66,13 +72,20 @@ export class SendMessageHandler
     command: SendMessageCommand,
     target: MessageTarget,
     attachments: readonly Attachment[],
-  ): Promise<void> {
+  ): Promise<DraftGeneration | null> {
     const sentBy = UserId.of(command.sentBy);
     const task = await this.tasks.find(target.taskId);
 
-    if (!task?.assignedToThem(sentBy)) {
+    if (!task || !(await this.access.mayView(sentBy, task.workspaceId))) {
       throw new UnknownTaskError(command.runId);
     }
+
+    const coAuthors = await this.drafts.coAuthors(
+      task.id,
+      task.workspaceId,
+      command.coAuthors,
+    );
+    const next = await this.drafts.send(task.id, command.draftGeneration);
 
     const line = await this.lines.findByStation(task.stationId);
     const station = line?.stationAt(task.stationId);
@@ -83,7 +96,7 @@ export class SendMessageHandler
         station: station?.name ?? StationName.unknown(),
         body: TaskNoteBody.fromInput(command.body, attachments),
         at: this.clock.now(),
-        voice: Voice.person(sentBy),
+        voice: Voice.person(sentBy, coAuthors),
         attachments,
       },
       target.stationId,
@@ -95,6 +108,8 @@ export class SendMessageHandler
         : received,
     );
     await this.files.takenIn(task.workspaceId, attachments);
+
+    return next;
   }
 
   private async assignRun(task: Task, line: Line): Promise<Task> {

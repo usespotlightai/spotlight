@@ -1,13 +1,15 @@
 import { Plus } from 'lucide-react';
-import type { CSSProperties, ReactNode } from 'react';
+import { type CSSProperties, type ReactNode, useRef } from 'react';
 import { AttachButton } from '@/components/shared/attachment/AttachButton';
 import { ChatEditor } from '@/components/shared/chat-input/ChatEditor';
 import { ChatInputArea } from '@/components/shared/chat-input/ChatInputArea';
+import { DraftOffline } from '@/components/shared/chat-input/DraftOffline';
 import { ImageThumbs } from '@/components/shared/chat-input/ImageThumbs';
 import { SendOrStop } from '@/components/shared/chat-input/SendOrStop';
 import { useChatMessage } from '@/hooks/useChatMessage';
 import { useChatSend } from '@/hooks/useChatSend';
 import { useOneLineFit } from '@/hooks/useOneLineFit';
+import type { SharedDraft } from '@/hooks/useSharedDraft';
 import {
   type Outgoing,
   type Reference,
@@ -33,6 +35,7 @@ type ChatInputProps = Sending & {
   initialText?: string;
   settings: ReactNode;
   below?: ReactNode;
+  shared?: SharedDraft | null;
 };
 
 const NO_REFERENCES: readonly Reference[] = [];
@@ -61,8 +64,10 @@ export function ChatInput({
   below,
   onSend,
   disabled = false,
+  shared = null,
 }: ChatInputProps) {
-  const message = useChatMessage(slug, initialReferences, initialText);
+  const cursors = useRef<HTMLDivElement>(null);
+  const message = useChatMessage(slug, initialReferences, initialText, shared);
   const lifted = message.images.length > 0;
   const fit = useOneLineFit(message.written, lifted);
 
@@ -74,12 +79,26 @@ export function ChatInput({
     pending,
     running,
     onStop,
-    onSend,
+    onSend:
+      onSend &&
+      ((outgoing, sent) =>
+        shared
+          ? onSend(
+              {
+                ...outgoing,
+                coAuthors: shared.coAuthors(),
+                ...(shared.synced && { draftGeneration: shared.generation }),
+              },
+              () => message.clearSent(outgoing.body),
+            )
+          : onSend(outgoing, sent)),
     sent: message.clear,
   });
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="relative flex flex-col gap-1.5">
+      {/* Remote cursors sit outside the form, so their name labels are not cut off at its edge. */}
+      <div ref={cursors} />
       <form
         onSubmit={send}
         {...(!disabled && message.handlers)}
@@ -108,6 +127,9 @@ export function ChatInput({
           >
             <ReferenceStates value={message.states}>
               <ChatEditor
+                key={shared?.name ?? 'alone'}
+                shared={shared}
+                cursors={cursors}
                 label={label}
                 placeholder={placeholder}
                 initialReferences={initialReferences}
@@ -147,12 +169,13 @@ export function ChatInput({
         </div>
       </form>
 
-      {below && (
+      {(below || shared) && (
         <ChatInputArea
           disabled={disabled}
           className="flex min-w-0 flex-wrap items-center gap-1 px-1"
         >
           {below}
+          {shared && <DraftOffline shared={shared} />}
         </ChatInputArea>
       )}
     </div>

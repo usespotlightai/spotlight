@@ -48,6 +48,8 @@ export const envSchema = databaseSchema
     SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS: z.string().default(''),
     HOOK_SIGNING_KEY: z.string().min(1).optional(),
     OAUTH_CLIENTS: z.string().default('{}'),
+    // Shares live drafts between control-plane instances. Without it, people writing one draft must reach the same instance.
+    REDIS_URL: z.url({ protocol: /^rediss?$/ }).optional(),
     SPOTLIGHT_LONG_POLL_MS: z.coerce.number().int().positive().default(10_000),
     SPOTLIGHT_MCP_RELIST_SECONDS: z.coerce
       .number()

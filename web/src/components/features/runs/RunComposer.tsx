@@ -4,6 +4,7 @@ import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import { useSendMessage } from '@/hooks/api/useSendMessage';
 import { useStopRun } from '@/hooks/api/useStopRun';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
+import { useSharedDraft } from '@/hooks/useSharedDraft';
 import { startsAgainOnMessage } from '@/lib/task';
 
 type RunComposerProps = {
@@ -38,6 +39,7 @@ export function RunComposer({
   } = useTaskStation(teamId, taskId);
   const restarts =
     !answering && startsAgainOnMessage(task, currentStation, stationId);
+  const shared = useSharedDraft(taskId);
 
   return (
     <ChatInput
@@ -58,6 +60,7 @@ export function RunComposer({
       }
       pending={send.isPending}
       running={running}
+      shared={shared}
       settings={<FixedAgent agent={currentStation} />}
       below={
         <FixedRepositories
@@ -66,13 +69,15 @@ export function RunComposer({
         />
       }
       onStop={() => stop.mutate({ teamId, runId })}
-      onSend={({ body, attachments }, sent) => {
+      onSend={({ body, attachments, coAuthors, draftGeneration }, sent) => {
         send.mutate(
           {
             teamId,
             runId,
             body,
             attachments,
+            coAuthors,
+            draftGeneration,
             answers: answering,
             startsWork: answering || restarts,
           },

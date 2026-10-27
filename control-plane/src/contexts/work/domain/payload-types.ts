@@ -68,6 +68,7 @@ import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo'
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
+import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
@@ -260,6 +261,7 @@ export const WORK_PAYLOAD_TYPES = [
   Trail,
   TraceReference,
   Voice,
+  DraftGeneration,
   StationRoutes,
   WorkspaceArchiveId,
   InboxRequestId,

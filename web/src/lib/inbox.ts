@@ -4,6 +4,7 @@ import type {
   NoteResponseDto,
   RunJournalResponseDto,
 } from '@/lib/api';
+import type { Person } from '@/lib/person';
 import type { ShownProgress } from '@/lib/run';
 import { teamPath } from '@/lib/team';
 
@@ -14,6 +15,9 @@ export type InboxNotice = InboxNoticeResponseDto;
 export type InboxEntry = InboxItem | InboxNotice;
 
 export type Note = NoteResponseDto;
+
+export const authorsOf = (note: Note): Person[] =>
+  note.author ? [note.author, ...note.coAuthors] : note.coAuthors;
 
 export type ConversationItem = {
   readonly id: string;

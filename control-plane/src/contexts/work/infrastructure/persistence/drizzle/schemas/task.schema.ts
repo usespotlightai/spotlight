@@ -131,6 +131,10 @@ export const taskNote = pgTable(
     at: timestamp('at').notNull(),
     voice: text('voice').$type<AuthorKind>().notNull().default('station'),
     authorId: text('author_id'),
+    coAuthorIds: text('co_author_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     runId: text('run_id'),
     kind: text('kind').$type<TaskNoteKind>().notNull(),
     form: text('form').$type<TaskNoteForm>().notNull().default('words'),

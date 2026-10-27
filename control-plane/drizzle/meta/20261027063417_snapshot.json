@@ -1,5 +1,5 @@
 {
-  "id": "1c780f08-52cb-48da-ac69-4d2f53861933",
+  "id": "c878cda5-074b-4d85-8c15-1387c526e7a0",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -14504,6 +14504,58 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.task_draft": {
+      "name": "task_draft",
+      "schema": "",
+      "columns": {
+        "task_id": {
+          "name": "task_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "generation": {
+          "name": "generation",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "task_draft_task_id_task_id_fk": {
+          "name": "task_draft_task_id_task_id_fk",
+          "tableFrom": "task_draft",
+          "tableTo": "task",
+          "columnsFrom": [
+            "task_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.task": {
       "name": "task",
       "schema": "",
@@ -14940,6 +14992,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "co_author_ids": {
+          "name": "co_author_ids",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
         },
         "run_id": {
           "name": "run_id",

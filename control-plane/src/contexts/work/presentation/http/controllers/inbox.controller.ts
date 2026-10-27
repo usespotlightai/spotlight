@@ -48,6 +48,7 @@ import {
 } from '@work/presentation/http/dto/inbox.response.dto';
 import { RunJournalResponseDto } from '@work/presentation/http/dto/run-journal.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
+import { draftGenerationInput } from '@work/presentation/http/mappers/draft-generation-input';
 import { editsInput } from '@work/presentation/http/mappers/edits-input';
 import { idsInput } from '@work/presentation/http/mappers/ids-input';
 import { RunJournalHttpMapper } from '@work/presentation/http/mappers/run-journal.http.mapper';
@@ -104,6 +105,10 @@ const taskItemResponse = (item: InboxItemDto): InboxItemResponseDto =>
                 note.author.image,
               )
             : null,
+          note.coAuthors.map(
+            (each) =>
+              new InboxAuthorResponseDto(each.id, each.name, each.image),
+          ),
           note.approval ? new InboxApprovalResponseDto(note.approval) : null,
           note.failure ? new InboxFailureResponseDto(note.failure) : null,
           note.connection
@@ -183,6 +188,8 @@ export class InboxController {
             ? 'approved'
             : 'dismissed',
         editsInput(body.inputs),
+        idsInput(body.coAuthors),
+        draftGenerationInput(body.draftGeneration),
       ),
     );
   }

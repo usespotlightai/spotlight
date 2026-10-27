@@ -20,10 +20,12 @@ export function useSendMessage() {
       runId,
       body,
       attachments,
+      coAuthors,
+      draftGeneration,
     }: OutgoingMessage) => {
       await sendMessage({
         path: { teamId, runId },
-        body: { body, attachments },
+        body: { body, attachments, coAuthors, draftGeneration },
         throwOnError: true,
       });
     },

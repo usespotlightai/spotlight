@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { APP_FILTER, HttpAdapterHost } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
+import { CollabServer } from '@platform/collab/collab-server';
 import { ENV } from '@platform/config/config.constants';
 import { ConfigModule } from '@platform/config/config.module';
 import type { Env } from '@platform/config/env.schema';
@@ -71,6 +72,7 @@ import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types
     { provide: APP_FILTER, useClass: SentryGlobalFilter },
     { provide: APP_FILTER, useClass: InternalErrorFilter },
     { provide: APP_FILTER, useClass: ApplicationErrorFilter },
+    CollabServer,
     OutboundCalls,
     ExpressionFailures,
     OutboxGauges,
@@ -119,6 +121,7 @@ import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types
     { provide: WORKLOAD_TOKENS, useClass: JoseWorkloadTokens },
   ],
   exports: [
+    CollabServer,
     ERROR_REPORTS,
     TELEMETRY,
     ReadinessChecks,

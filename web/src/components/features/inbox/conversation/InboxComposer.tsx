@@ -4,6 +4,7 @@ import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import { useAnswerInboxItem } from '@/hooks/api/useAnswerInboxItem';
 import { useStopRun } from '@/hooks/api/useStopRun';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
+import { useSharedDraft } from '@/hooks/useSharedDraft';
 
 type InboxComposerProps = {
   slug: string;
@@ -27,6 +28,7 @@ export function InboxComposer({
   const answer = useAnswerInboxItem();
   const stop = useStopRun();
   const { line, station: currentStation } = useTaskStation(teamId, taskId);
+  const shared = useSharedDraft(taskId);
 
   return (
     <ChatInput
@@ -35,6 +37,7 @@ export function InboxComposer({
       placeholder="Reply…"
       pending={answer.isPending}
       running={running}
+      shared={shared}
       settings={<FixedAgent agent={currentStation} />}
       below={
         <FixedRepositories
@@ -43,8 +46,11 @@ export function InboxComposer({
         />
       }
       onStop={runId ? () => stop.mutate({ teamId, runId }) : undefined}
-      onSend={({ body, attachments }, sent) =>
-        answer.mutate({ slug, itemId, body, attachments }, { onSuccess: sent })
+      onSend={({ body, attachments, coAuthors, draftGeneration }, sent) =>
+        answer.mutate(
+          { slug, itemId, body, attachments, coAuthors, draftGeneration },
+          { onSuccess: sent },
+        )
       }
     />
   );

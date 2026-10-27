@@ -38,6 +38,7 @@ const note = (position: number, at: string, station = 'Backlog'): Note => ({
   body: `note ${position}`,
   at,
   author: null,
+  coAuthors: [],
   attachments: [],
   approval: null,
   failure: null,
