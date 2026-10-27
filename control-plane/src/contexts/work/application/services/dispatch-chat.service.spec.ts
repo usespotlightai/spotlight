@@ -134,6 +134,7 @@ const dispatching = (
     },
     { inSavepoint: (work) => work() },
     'https://app.usespotlight.ai',
+    { release: null },
   );
 
   return { dispatch, added: () => add.mock.calls[0]?.[0] as Run };

@@ -1,3 +1,4 @@
+import type { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import type {
   BriefedMemory,
   MemoryFolder,
@@ -104,6 +105,7 @@ export const ChatBriefing = {
     memories: readonly BriefedMemory[];
     memoryFolder: MemoryFolder | null;
     spotlightUrl: string;
+    release: Release | null;
   }): string {
     const messages = input.chat.messages.filter(
       (message) => message.kind === 'message',
@@ -121,6 +123,7 @@ export const ChatBriefing = {
             input.chat.workspaceId.value,
             input.chat.repositories,
             input.spotlightUrl,
+            input.release,
           )
         : null,
       input.chat.targetStation

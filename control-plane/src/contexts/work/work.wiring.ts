@@ -1324,6 +1324,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       LOGGER,
       SAVEPOINT,
       ENV,
+      CONTROL_PLANE_RELEASE,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
@@ -1337,6 +1338,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       logger: LoggerPort,
       savepoint: SavepointPort,
       env: Env,
+      controlPlane: ControlPlaneReleasePort,
     ) =>
       new DispatchChat(
         runs,
@@ -1350,6 +1352,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         logger,
         savepoint,
         publicUrlOf(env),
+        controlPlane,
       ),
   },
 

@@ -1,4 +1,5 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -57,6 +58,7 @@ const brief = (
   memories: readonly BriefedMemory[] = [],
   memoryFolder: MemoryFolder | null = null,
   lines: readonly Line[] = [],
+  release: Release | null = null,
 ) =>
   ChatBriefing.brief({
     chat,
@@ -65,6 +67,7 @@ const brief = (
     memories,
     memoryFolder,
     spotlightUrl: 'https://app.usespotlight.ai/',
+    release,
   });
 
 const DELIVERY = Line.rehydrate({
@@ -385,6 +388,23 @@ describe('ChatBriefing', () => {
       expect(briefing).toContain('working-directory: spotlight');
       expect(briefing).toContain('### 8. Open the pull request');
       expect(briefing).toContain('Spotlight set the repository variables');
+    });
+
+    it('downloads the spotlight CLI of the control plane release', () => {
+      const briefing = brief(withCi(), [], null, [], Release.of('v0.1.0'));
+
+      expect(briefing).toContain(
+        'base=https://github.com/usespotlightai/spotlight/releases/download/v0.1.0',
+      );
+    });
+
+    it('downloads the canary spotlight CLI when the control plane has no published release', () => {
+      const briefing = brief(withCi());
+
+      expect(briefing).toContain(
+        'base=https://github.com/usespotlightai/spotlight/releases/download/canary',
+      );
+      expect(briefing).not.toContain('releases/latest');
     });
 
     it('signs both jobs in to the state, with a workflow GitHub can read', () => {

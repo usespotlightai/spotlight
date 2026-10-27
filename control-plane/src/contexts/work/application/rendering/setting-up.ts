@@ -1,3 +1,4 @@
+import type { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { CI_VARIABLES } from '@work/application/services/ci-setups.service';
 import type { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
@@ -7,12 +8,15 @@ const BRANCH = 'spotlight-configuration';
 
 const WORKFLOW = '.github/workflows/spotlight.yml';
 
-const stateSignIn = [
+const downloadsOf = (release: Release | null): string =>
+  `https://github.com/usespotlightai/spotlight/releases/download/${release?.value ?? 'canary'}`;
+
+const stateSignIn = (release: Release | null): string[] => [
   '      - name: Download spotlight',
   // biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions expression syntax
   '        working-directory: ${{ runner.temp }}',
   '        run: |',
-  '          base=https://github.com/usespotlightai/spotlight/releases/latest/download',
+  `          base=${downloadsOf(release)}`,
   '          curl -fsSL -o spotlight "$base/spotlight-linux-amd64"',
   '          curl -fsSL -o spotlight.sha256 "$base/spotlight-linux-amd64.sha256"',
   '          echo "$(cut -d\' \' -f1 spotlight.sha256)  spotlight" | sha256sum -c -',
@@ -24,7 +28,11 @@ const stateSignIn = [
   '          echo "TF_HTTP_PASSWORD=$token" >> "$GITHUB_ENV"',
 ];
 
-const workflowOf = (folder: string, defaultBranch: string): string =>
+const workflowOf = (
+  folder: string,
+  defaultBranch: string,
+  release: Release | null,
+): string =>
   [
     'name: Spotlight',
     '',
@@ -56,7 +64,7 @@ const workflowOf = (folder: string, defaultBranch: string): string =>
     '      - uses: hashicorp/setup-terraform@v3',
     '        with:',
     '          terraform_wrapper: false',
-    ...stateSignIn,
+    ...stateSignIn(release),
     '      - run: terraform fmt -check -recursive',
     '      - run: terraform init -input=false',
     '      - run: terraform validate',
@@ -76,12 +84,16 @@ const workflowOf = (folder: string, defaultBranch: string): string =>
     '      - uses: hashicorp/setup-terraform@v3',
     '        with:',
     '          terraform_wrapper: false',
-    ...stateSignIn,
+    ...stateSignIn(release),
     '      - run: terraform init -input=false',
     '      - run: terraform apply -input=false -auto-approve',
   ].join('\n');
 
-const ciStep = (configFolder: ConfigFolder, ci: CiSetup): string =>
+const ciStep = (
+  configFolder: ConfigFolder,
+  ci: CiSetup,
+  release: Release | null,
+): string =>
   [
     '### 7. Run Terraform in GitHub Actions',
     `Spotlight already trusts the GitHub Actions of \`${configFolder.repository.value}\`. Both trusts are in the export. Keep them in the Terraform as they are: CI may not change trusts, so an admin changes them. In the pull request, say this:`,
@@ -91,7 +103,7 @@ const ciStep = (configFolder: ConfigFolder, ci: CiSetup): string =>
       ? `Spotlight set the repository variables \`${CI_VARIABLES.url}\`, \`${CI_VARIABLES.planTrust}\` and \`${CI_VARIABLES.applyTrust}\`.`
       : `The GitHub App may not write repository variables. In the pull request, tell the person to add these repository variables: \`${CI_VARIABLES.planTrust}\` = \`${ci.pullRequestsTrustId}\`, \`${CI_VARIABLES.applyTrust}\` = \`${ci.defaultBranchTrustId}\`, and \`${CI_VARIABLES.url}\` = the Spotlight address in \`$SPOTLIGHT_URL\`.`,
     `Add \`${WORKFLOW}\` at the repository root. Start from this, and add the \`TF_VAR_\` secrets that the variables need. Its two state steps sign in to Spotlight's state with the job's OIDC token. If the team keeps the state elsewhere, replace those two steps with that backend's credentials:`,
-    `\`\`\`yaml\n${workflowOf(configFolder.folder, ci.defaultBranch)}\n\`\`\``,
+    `\`\`\`yaml\n${workflowOf(configFolder.folder, ci.defaultBranch, release)}\n\`\`\``,
     'In the pull request, list each secret the person must add to the repository, and say what it is for. Also say that a pull request from a fork gets no OIDC token from GitHub, so its plan job fails.',
     ...(ci.defaultBranchProtected
       ? []
@@ -113,6 +125,7 @@ export const SettingUp = {
     workspaceId: string,
     repositories: readonly Repository[],
     spotlightUrl: string,
+    release: Release | null,
   ): string {
     const folder = `${configFolder.repository.name}/${configFolder.folder}`;
     const alone = repositories.every((each) =>
@@ -184,7 +197,9 @@ export const SettingUp = {
         '### 6. Check it',
         '`SPOTLIGHT_URL` and `SPOTLIGHT_API_TOKEN` are set for this run, and the token may read and plan, nothing more. If Spotlight keeps the state, first run `export TF_HTTP_PASSWORD=$SPOTLIGHT_API_TOKEN`. Run `terraform init`, `terraform fmt`, `terraform validate` and `terraform plan`, and keep the plan’s output for the pull request. The plan should only import what exists and change what you adapted. If `terraform init` cannot download the provider, say so and open the pull request without a plan.',
       ].join('\n'),
-      ...(configFolder.ci ? [ciStep(configFolder, configFolder.ci)] : []),
+      ...(configFolder.ci
+        ? [ciStep(configFolder, configFolder.ci, release)]
+        : []),
       [
         `### ${configFolder.ci ? 8 : 7}. Open the pull request`,
         `Commit on a new branch, such as \`${BRANCH}\`, push it, and open the pull request:`,
