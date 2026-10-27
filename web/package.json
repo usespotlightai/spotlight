@@ -33,7 +33,7 @@
     "@lexical/react": "^0.52.0",
     "@lexical/rich-text": "^0.52.0",
     "@pierre/diffs": "^1.6.1",
-    "@sentry/react": "^11.8.0",
+    "@sentry/react": "^11.9.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.104.5",
     "better-auth": "^1.7.12",
@@ -53,7 +53,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.6.2",
     "@hey-api/openapi-ts": "0.0.0-next-20260819153534",
-    "@sentry/vite-plugin": "^11.8.0",
+    "@sentry/vite-plugin": "^11.9.0",
     "@storybook/react-vite": "10.6.3",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
