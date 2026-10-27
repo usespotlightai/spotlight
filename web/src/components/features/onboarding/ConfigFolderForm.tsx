@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
 import { SETUP_CONTROL } from '@/components/features/onboarding/setup-control';
 import { RepositoriesSelect } from '@/components/features/stations/RepositoriesSelect';
 import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
@@ -47,7 +46,7 @@ export function ConfigFolderForm({ slug, teamId }: ConfigFolderFormProps) {
 
   return (
     <form
-      className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2"
+      className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-1"
       onSubmit={(event) => {
         event.preventDefault();
         open();
@@ -65,6 +64,8 @@ export function ConfigFolderForm({ slug, teamId }: ConfigFolderFormProps) {
           placeholder="Repository"
           onChange={setRepository}
           clearable={false}
+          input
+          className="h-8 w-fit px-3 text-xs"
         />
         <span aria-hidden className="text-muted-foreground text-xs">
           /
@@ -73,7 +74,7 @@ export function ConfigFolderForm({ slug, teamId }: ConfigFolderFormProps) {
           aria-label="Folder"
           value={folder}
           onChange={(event) => setFolder(event.target.value)}
-          className="h-8 w-28 rounded-full border-border bg-card px-3 text-xs"
+          className="w-28 bg-card px-3 text-xs"
         />
       </div>
 
@@ -83,20 +84,14 @@ export function ConfigFolderForm({ slug, teamId }: ConfigFolderFormProps) {
         value={reading}
         onChange={setReading}
         none="Repositories your team works in"
-        className="h-8 w-fit rounded-full border border-border bg-card px-3 text-xs"
+        className="h-8 w-fit rounded-md border-[0.5px] border-border bg-card px-3 text-xs"
       />
-
-      <p className="col-span-2 flex items-center gap-1.5 text-muted-foreground text-xs leading-5">
-        Spotlight lets this repository’s GitHub Actions plan pull requests and
-        apply its default branch.
-        <InfoTooltip tooltip="Spotlight creates two OIDC trusts for the repository. Pull requests may plan. Pushes to the default branch may apply configuration, secrets and runners." />
-      </p>
 
       <Button
         type="submit"
         size="sm"
         disabled={!repository || !folder.trim() || reading.length === 0}
-        className={cn(SETUP_CONTROL, 'col-span-2 mt-1 w-fit')}
+        className={cn(SETUP_CONTROL, 'col-span-2 mt-4 w-fit')}
       >
         Continue in chat
       </Button>

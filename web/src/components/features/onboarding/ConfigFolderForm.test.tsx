@@ -84,14 +84,4 @@ describe('ConfigFolderForm', () => {
       repositories: ['acme/api'],
     });
   });
-
-  it('says what the setup lets GitHub Actions do before it continues', () => {
-    showing();
-
-    expect(
-      screen.getByText(
-        'Spotlight lets this repository’s GitHub Actions plan pull requests and apply its default branch.',
-      ),
-    ).toBeInTheDocument();
-  });
 });

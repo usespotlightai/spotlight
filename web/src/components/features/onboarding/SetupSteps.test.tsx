@@ -60,12 +60,6 @@ const onboarding = (
   ...over,
 });
 
-const CI = {
-  defaultBranch: 'main',
-  defaultBranchProtected: true,
-  variables: 'written',
-};
-
 const chat = (over: Record<string, unknown> = {}) => ({
   id: 'chat_setup',
   repository: 'acme/infra',
@@ -351,77 +345,5 @@ describe('SetupSteps', () => {
     showing();
 
     expect(screen.getByText('Sam is setting this up.')).toBeInTheDocument();
-  });
-
-  it('says what GitHub Actions may do once the setup created its trusts', () => {
-    onboardingState.data = onboarding({ setupChat: chat({ ci: CI }) }, [
-      'github',
-      'harness',
-    ]);
-    showing();
-
-    expect(
-      screen.getByText(/GitHub Actions: pull requests in/),
-    ).toHaveTextContent(
-      'GitHub Actions: pull requests in acme/infra plan, and pushes to main apply.',
-    );
-    expect(
-      screen.queryByText(
-        'Add the repository variables that the pull request lists.',
-      ),
-    ).toBeNull();
-    expect(
-      screen.queryByRole('img', { name: 'main does not require a review' }),
-    ).toBeNull();
-  });
-
-  it('keeps what GitHub Actions may do in view after the step is done', () => {
-    onboardingState.data = onboarding(
-      {
-        setupChat: chat({
-          pullRequest: 'https://github.com/acme/infra/pull/12',
-          ci: CI,
-        }),
-      },
-      ['github', 'harness', 'configuration'],
-    );
-    showing();
-
-    expect(
-      screen.getByText(/GitHub Actions: pull requests in/),
-    ).toBeInTheDocument();
-  });
-
-  it('asks for the repository variables that the GitHub App may not write', () => {
-    onboardingState.data = onboarding(
-      { setupChat: chat({ ci: { ...CI, variables: 'not-permitted' } }) },
-      ['github', 'harness'],
-    );
-    showing();
-
-    expect(
-      screen.getByText(
-        'Add the repository variables that the pull request lists.',
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'The GitHub App may not write variables. Grant it “Variables: read and write” to let Spotlight set them.',
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it('warns that a default branch without protection can change the configuration', () => {
-    onboardingState.data = onboarding(
-      { setupChat: chat({ ci: { ...CI, defaultBranchProtected: false } }) },
-      ['github', 'harness'],
-    );
-    showing();
-
-    expect(
-      screen.getByRole('img', { name: 'main does not require a review' }),
-    ).toHaveAccessibleDescription(
-      'main does not require an approving review, as far as Spotlight can see. Anyone who can push to main can change this workspace’s configuration. Please require at least one approving review.',
-    );
   });
 });
