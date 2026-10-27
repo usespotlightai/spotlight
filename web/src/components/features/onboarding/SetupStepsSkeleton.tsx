@@ -16,13 +16,13 @@ export function SetupStepsSkeleton({ about }: SetupStepsSkeletonProps) {
     <div
       role="status"
       aria-label="Loading the setup steps"
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-6"
     >
       {about && (
         <SetupAbout title={about.title} description={about.description} />
       )}
 
-      <ul className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-5">
         {TITLES.map((width) => (
           <li key={width} className="flex items-start gap-3">
             <Skeleton className="mt-1 size-4 rounded-full" />

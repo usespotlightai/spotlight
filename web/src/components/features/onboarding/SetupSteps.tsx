@@ -7,7 +7,6 @@ import {
   SetupAbout,
   type SetupAboutProps,
 } from '@/components/features/onboarding/SetupAbout';
-import { SetupCi } from '@/components/features/onboarding/SetupCi';
 import { SetupStepsSkeleton } from '@/components/features/onboarding/SetupStepsSkeleton';
 import {
   SETUP_CONTROL,
@@ -31,11 +30,10 @@ type SetupStepsProps = {
 type StepProps = {
   step: SetupStepResponseDto;
   action: ReactNode;
-  detail: ReactNode;
   disabled: boolean;
 };
 
-function Step({ step, action, detail, disabled }: StepProps) {
+function Step({ step, action, disabled }: StepProps) {
   const [expanded, setExpanded] = useState(false);
 
   const revisable = step.done && Boolean(action);
@@ -91,8 +89,6 @@ function Step({ step, action, detail, disabled }: StepProps) {
           heading
         )}
 
-        {detail}
-
         {action && (
           <div
             className={cn(
@@ -109,7 +105,7 @@ function Step({ step, action, detail, disabled }: StepProps) {
           >
             <div className={cn('min-h-0', clipped && 'overflow-hidden')}>
               <div
-                className={cn('pt-2', disabled && 'opacity-50')}
+                className={cn('pt-4', disabled && 'opacity-50')}
                 inert={disabled}
               >
                 {action}
@@ -133,7 +129,7 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
 
   if (slug && failed(query)) {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
         {about && (
           <SetupAbout title={about.title} description={about.description} />
         )}
@@ -206,14 +202,6 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
     );
   };
 
-  const created = (step: SetupStepResponseDto): ReactNode => {
-    const chat = onboarding.setupChat;
-
-    return step.key === 'configuration' && chat?.ci ? (
-      <SetupCi repository={chat.repository} ci={chat.ci} />
-    ) : null;
-  };
-
   const goAndDoIt = (step: SetupStepResponseDto): ReactNode => {
     if (step.key === 'github') {
       return (
@@ -237,18 +225,17 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       {about && (
         <SetupAbout title={about.title} description={about.description} />
       )}
 
-      <ul className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-5">
         {onboarding.steps.map((step) => (
           <Step
             key={step.key}
             step={step}
             action={goAndDoIt(step)}
-            detail={created(step)}
             disabled={resolved && step.key !== 'configuration'}
           />
         ))}
