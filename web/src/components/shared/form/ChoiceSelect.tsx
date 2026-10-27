@@ -56,7 +56,7 @@ const LOOKS = {
       'h-9 w-full gap-2 rounded-md border-[0.5px] bg-card px-2.5 text-sm',
     chevron: 'size-3',
     Chevron: ChevronsUpDown,
-    menu: 'w-(--anchor-width)',
+    menu: 'w-max min-w-(--anchor-width) max-w-(--available-width)',
     item: undefined,
   },
 } as const;
