@@ -3,6 +3,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { SavepointPort } from '@shared-kernel/application/ports/savepoint.port';
+import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import {
   REMOTE_VIA_GIT_PROXY,
@@ -10,6 +11,7 @@ import {
   TRACE_PARENT_VAR,
 } from '@work/application/contracts/run-spec.contract';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
+import type { ControlPlaneReleasePort } from '@work/application/ports/control-plane-release.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import {
   type BriefedMemory,
@@ -50,6 +52,7 @@ export class DispatchChat implements ChatDispatching {
     private readonly logger: LoggerPort,
     private readonly savepoint: SavepointPort,
     private readonly spotlightUrl: string,
+    private readonly controlPlane: ControlPlaneReleasePort,
   ) {}
 
   async takenUp(chat: Chat): Promise<Chat> {
@@ -168,6 +171,7 @@ export class DispatchChat implements ChatDispatching {
       memories,
       memoryFolder,
       spotlightUrl: this.spotlightUrl,
+      release: Release.published(this.controlPlane.release),
     });
   }
 
