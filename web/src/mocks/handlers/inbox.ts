@@ -117,6 +117,7 @@ const answer = (
     attachments: [],
     at: now(),
     author: SAM,
+    coAuthors: [],
     approval: null,
     failure: null,
     connection: null,

@@ -49,7 +49,9 @@ vi.mock('@/hooks/api/useTaskJournal', () => ({
 }));
 
 vi.mock('@/hooks/api/useSession', () => ({
-  useSession: () => ({ data: { user: { id: 'user_1' } } }),
+  useSession: () => ({
+    data: { user: { id: 'user_1', name: 'Sam Rivera', image: null } },
+  }),
 }));
 
 vi.mock('@/hooks/api/useWorkspace', () => ({
@@ -203,6 +205,7 @@ const conversationOf = (over: Record<string, unknown> = {}) => ({
       attachments: [],
       at: '2026-08-29T12:00:00.000Z',
       author: null,
+      coAuthors: [],
     },
   ],
   ...over,
@@ -487,6 +490,7 @@ describe('Run', () => {
       attachments: [],
       at: '2026-08-29T12:00:00.000Z',
       author: null,
+      coAuthors: [],
       ...over,
     });
 
@@ -501,6 +505,7 @@ describe('Run', () => {
               runId: null,
               body: 'try again',
               author: { id: 'user_1', name: 'Sam', image: null },
+              coAuthors: [],
             }),
             note(2, { runId: 'run_2', body: 'The tests failed again.' }),
           ],
@@ -963,6 +968,7 @@ describe('Run', () => {
       body: 'Drain webhook-retries first.',
       at: '2026-08-29T12:10:00.000Z',
       author: { id: 'user_1', name: 'Maya Chen', image: null },
+      coAuthors: [],
     };
     const before = { ...step, text: 'queue-stats --all' };
     const after = {

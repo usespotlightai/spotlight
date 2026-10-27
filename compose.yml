@@ -28,6 +28,7 @@ x-control-plane-env: &control-plane-env
   DECISIONS_MODEL: ${DECISIONS_MODEL:-google/gemini-3.8-flash}
   MEMORIES_MODEL: ${MEMORIES_MODEL:-google/gemini-3.8-flash}
   JUDGE_MODEL: ${JUDGE_MODEL:-google/gemini-3.8-flash}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379}
 
 services:
   traefik:
@@ -98,6 +99,8 @@ services:
     environment: *control-plane-env
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
@@ -310,6 +313,17 @@ services:
       - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql
+
+  redis:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: .docker/redis/Dockerfile
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
 
   pgbouncer:
     profiles: [pgbouncer]

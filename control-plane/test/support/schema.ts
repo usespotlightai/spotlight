@@ -30,4 +30,5 @@ export * from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/run-connection.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/starting-point-hold.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
+export * from '@work/infrastructure/persistence/drizzle/schemas/task-draft.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/workspace-archive.schema';

@@ -19,6 +19,20 @@ describe('Voice', () => {
     expect(person.run).toBeNull();
   });
 
+  it('is a person speaking with co-authors, each named once and not twice for the author', () => {
+    const person = Voice.person(UserId.of('user_1'), [
+      UserId.of('user_2'),
+      UserId.of('user_1'),
+      UserId.of('user_2'),
+      UserId.of('user_3'),
+    ]);
+
+    expect(person.coAuthors.map((each) => each.value)).toEqual([
+      'user_2',
+      'user_3',
+    ]);
+  });
+
   it('is the world speaking, which is nobody of ours', () => {
     expect(Voice.world().author).toBeNull();
     expect(Voice.world().run).toBeNull();
@@ -42,6 +56,19 @@ describe('Voice', () => {
         InvalidVoiceError,
       );
       expect(() => Voice.of({ by: 'station', author: 'user_1' })).toThrow(
+        InvalidVoiceError,
+      );
+    });
+
+    it('takes back the co-authors of a person', () => {
+      expect(
+        Voice.of({ by: 'person', author: 'user_1', coAuthors: ['user_2'] })
+          .coAuthors[0]?.value,
+      ).toBe('user_2');
+    });
+
+    it('rejects co-authors on a voice that is not a person’s', () => {
+      expect(() => Voice.of({ by: 'station', coAuthors: ['user_2'] })).toThrow(
         InvalidVoiceError,
       );
     });

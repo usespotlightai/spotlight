@@ -12,6 +12,8 @@ type AnswerInboxItemInput = {
   attachments: string[];
   approve?: boolean;
   inputs?: readonly ApprovalInput[];
+  coAuthors?: string[];
+  draftGeneration?: number;
 };
 
 export function useAnswerInboxItem() {
@@ -25,12 +27,16 @@ export function useAnswerInboxItem() {
       attachments,
       approve,
       inputs,
+      coAuthors,
+      draftGeneration,
     }: AnswerInboxItemInput) => {
       await answerInboxItem({
         path: { slug, itemId },
         body: {
           body,
           attachments,
+          coAuthors,
+          draftGeneration,
           ...(approve === undefined ? {} : { approve }),
           ...(inputs ? { inputs: [...inputs] } : {}),
         },

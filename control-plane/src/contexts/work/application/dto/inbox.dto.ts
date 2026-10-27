@@ -75,6 +75,7 @@ export interface NoteDto {
   readonly attachments: readonly AttachmentDto[];
   readonly at: string;
   readonly author: InboxAuthorDto | null;
+  readonly coAuthors: readonly InboxAuthorDto[];
   readonly approval: InboxApprovalDto | null;
   readonly failure: InboxFailureDto | null;
   readonly connection: InboxConnectionDto | null;

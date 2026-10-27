@@ -71,6 +71,7 @@ import {
 } from '@work/presentation/http/dto/task-run.response.dto';
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
+import { draftGenerationInput } from '@work/presentation/http/mappers/draft-generation-input';
 import { idsInput } from '@work/presentation/http/mappers/ids-input';
 import { TaskHttpMapper } from '@work/presentation/http/mappers/task.http.mapper';
 import { TaskRunHttpMapper } from '@work/presentation/http/mappers/task-run.http.mapper';
@@ -245,6 +246,10 @@ export class TaskController {
                   note.author.image,
                 )
               : null,
+            note.coAuthors.map(
+              (each) =>
+                new InboxAuthorResponseDto(each.id, each.name, each.image),
+            ),
             note.approval ? new InboxApprovalResponseDto(note.approval) : null,
             note.failure ? new InboxFailureResponseDto(note.failure) : null,
             note.connection
@@ -291,6 +296,8 @@ export class TaskController {
         user.id,
         body.body ?? '',
         idsInput(body.attachments),
+        idsInput(body.coAuthors),
+        draftGenerationInput(body.draftGeneration),
       ),
     );
   }

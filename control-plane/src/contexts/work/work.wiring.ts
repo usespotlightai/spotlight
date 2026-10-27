@@ -161,6 +161,7 @@ import { FetchRunSecretsHandler } from '@work/application/commands/handlers/fetc
 import { FetchSharedRunSecretsHandler } from '@work/application/commands/handlers/fetch-shared-run-secrets.handler';
 import { GrantAttachmentUploadHandler } from '@work/application/commands/handlers/grant-attachment-upload.handler';
 import { GrantWorkspaceArchiveHandler } from '@work/application/commands/handlers/grant-workspace-archive.handler';
+import { KeepTaskDraftHandler } from '@work/application/commands/handlers/keep-task-draft.handler';
 import { MarkInboxItemReadHandler } from '@work/application/commands/handlers/mark-inbox-item-read.handler';
 import { MarkInboxRequestReadHandler } from '@work/application/commands/handlers/mark-inbox-request-read.handler';
 import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.handler';
@@ -184,6 +185,7 @@ import {
   ClaimHostCallCommand,
   RecordHostCallResponseCommand,
 } from '@work/application/commands/host-call.commands';
+import { KeepTaskDraftCommand } from '@work/application/commands/keep-task-draft.command';
 import { MarkInboxItemReadCommand } from '@work/application/commands/mark-inbox-item-read.command';
 import { MarkInboxRequestReadCommand } from '@work/application/commands/mark-inbox-request-read.command';
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
@@ -300,6 +302,10 @@ import {
 import type { LineResourcesPort } from '@work/application/ports/line-resources.port';
 import { LINE_RESOURCES } from '@work/application/ports/line-resources.port';
 import {
+  LIVE_TASK_DRAFTS,
+  type LiveTaskDraftsPort,
+} from '@work/application/ports/live-task-drafts.port';
+import {
   MEMORIES_BRIEFED_BEFORE,
   type MemoriesBriefedBeforePort,
 } from '@work/application/ports/memories-briefed-before.port';
@@ -392,6 +398,7 @@ import {
   TASK_DECISIONS,
   type TaskDecisionsPort,
 } from '@work/application/ports/task-decisions.port';
+import { TASK_DRAFT_STATES } from '@work/application/ports/task-draft-states.port';
 import { TASK_NOTES_FROM_HOOKS } from '@work/application/ports/task-notes-from-hooks.port';
 import {
   TASK_NOTICES,
@@ -406,6 +413,7 @@ import {
   TASK_VIEWS,
   type TaskViewsPort,
 } from '@work/application/ports/task-views.port';
+import { TASK_WORKSPACES } from '@work/application/ports/task-workspaces.port';
 import {
   TEAM_INTEGRATIONS,
   type TeamIntegrationsPort,
@@ -439,6 +447,7 @@ import {
 } from '@work/application/queries/chat.queries';
 import { HostRequirementsHandler } from '@work/application/queries/handlers/host-requirements.handler';
 import { ImportLineHandler } from '@work/application/queries/handlers/import-line.handler';
+import { JoinTaskDraftHandler } from '@work/application/queries/handlers/join-task-draft.handler';
 import { ListChatsHandler } from '@work/application/queries/handlers/list-chats.handler';
 import {
   HarnessCatalogueHandler,
@@ -467,6 +476,7 @@ import { ReadRunNotesHandler } from '@work/application/queries/handlers/read-run
 import { ReadRunnerHistoryHandler } from '@work/application/queries/handlers/read-runner-history.handler';
 import { ReadRunnerTraceHandler } from '@work/application/queries/handlers/read-runner-trace.handler';
 import { ReadSearchRunHandler } from '@work/application/queries/handlers/read-search-run.handler';
+import { ReadTaskDraftHandler } from '@work/application/queries/handlers/read-task-draft.handler';
 import { ReadTaskJournalHandler } from '@work/application/queries/handlers/read-task-journal.handler';
 import { ReadTaskTraceHandler } from '@work/application/queries/handlers/read-task-trace.handler';
 import { RunStopRequestedHandler } from '@work/application/queries/handlers/run-stop-requested.handler';
@@ -504,6 +514,10 @@ import { ReadTaskJournalQuery } from '@work/application/queries/read-task-journa
 import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import { RunStopRequestedQuery } from '@work/application/queries/run-stop-requested.query';
 import { StoredWorkspaceArchiveQuery } from '@work/application/queries/stored-workspace-archive.query';
+import {
+  JoinTaskDraftQuery,
+  ReadTaskDraftQuery,
+} from '@work/application/queries/task-draft.queries';
 import { TurnAwaitsPersonQuery } from '@work/application/queries/turn-awaits-person.query';
 import { WatchRunQuery } from '@work/application/queries/watch-run.query';
 import { ApplyLines } from '@work/application/services/apply-lines.service';
@@ -525,6 +539,7 @@ import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import { DispatchReplay } from '@work/application/services/dispatch-replay.service';
 import { DispatchSearch } from '@work/application/services/dispatch-search.service';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
+import { DraftSending } from '@work/application/services/draft-sending.service';
 import { EgressSecretFetches } from '@work/application/services/egress-secret-fetches.service';
 import { FilesLoader } from '@work/application/services/files-loader.service';
 import { HoldStartingPoints } from '@work/application/services/hold-starting-points.service';
@@ -586,6 +601,8 @@ import { WORK_PAYLOAD_TYPES } from '@work/domain/payload-types';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { BUILT_IN_SKILL_KEY_LIST } from '@work/domain/services/built-in-skills';
 import { AcpHarnessToolNames } from '@work/infrastructure/acp/harness-tools';
+import { HocuspocusLiveTaskDrafts } from '@work/infrastructure/collab/hocuspocus-live-task-drafts';
+import { TaskDraftCollab } from '@work/infrastructure/collab/task-draft.collab';
 import { OutboxTeamProvisioning } from '@work/infrastructure/events/outbox-team-provisioning';
 import { GitHubAccessibleRepositories } from '@work/infrastructure/github/github-accessible-repositories';
 import {
@@ -624,6 +641,7 @@ import { DrizzleStationRunReader } from '@work/infrastructure/persistence/drizzl
 import { DrizzleStationTallies } from '@work/infrastructure/persistence/drizzle/readers/station-tallies.reader';
 import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
 import { DrizzleTaskPlacements } from '@work/infrastructure/persistence/drizzle/readers/task-placements.reader';
+import { DrizzleTaskWorkspaces } from '@work/infrastructure/persistence/drizzle/readers/task-workspaces.reader';
 import { DrizzleTracedTaskReader } from '@work/infrastructure/persistence/drizzle/readers/traced-task.reader';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { DrizzleInboxRequestRepository } from '@work/infrastructure/persistence/drizzle/repositories/inbox-request.repository';
@@ -633,6 +651,7 @@ import { DrizzleNoticeRepository } from '@work/infrastructure/persistence/drizzl
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleStartingPointHoldRepository } from '@work/infrastructure/persistence/drizzle/repositories/starting-point-hold.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
+import { DrizzleTaskDraftRepository } from '@work/infrastructure/persistence/drizzle/repositories/task-draft.repository';
 import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 import { S3AttachmentStore } from '@work/infrastructure/storage/s3-attachment.store';
 import { S3Readiness } from '@work/infrastructure/storage/s3-readiness';
@@ -756,6 +775,32 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   DrizzleLineRepository,
 
   DrizzleTaskRepository,
+
+  DrizzleTaskDraftRepository,
+
+  { provide: TASK_DRAFT_STATES, useExisting: DrizzleTaskDraftRepository },
+
+  { provide: TASK_WORKSPACES, useClass: DrizzleTaskWorkspaces },
+
+  { provide: LIVE_TASK_DRAFTS, useClass: HocuspocusLiveTaskDrafts },
+
+  {
+    provide: DraftSending,
+    inject: [
+      DrizzleTaskDraftRepository,
+      WORKSPACE_ACCESS,
+      LIVE_TASK_DRAFTS,
+      LOGGER,
+    ],
+    useFactory: (
+      drafts: DrizzleTaskDraftRepository,
+      access: WorkspaceAccessPort,
+      live: LiveTaskDraftsPort,
+      logger: LoggerPort,
+    ) => new DraftSending(drafts, access, live, logger),
+  },
+
+  TaskDraftCollab,
 
   DrizzleChatRepository,
 
@@ -2128,6 +2173,20 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     TRANSACTION,
     CLOCK,
     FilesLoader,
+    DraftSending,
+  ]),
+
+  ...bindQueryHandler(JoinTaskDraftQuery, JoinTaskDraftHandler, [
+    TASK_WORKSPACES,
+    WORKSPACE_ACCESS,
+  ]),
+
+  ...bindQueryHandler(ReadTaskDraftQuery, ReadTaskDraftHandler, [
+    TASK_DRAFT_STATES,
+  ]),
+
+  ...bindCommandHandler(KeepTaskDraftCommand, KeepTaskDraftHandler, [
+    TASK_DRAFT_STATES,
   ]),
 
   ...bindQueryHandler(OnboardingQuery, OnboardingHandler, [
@@ -2322,6 +2381,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     TASK_DISPATCH,
     CLOCK,
     FilesLoader,
+    WORKSPACE_ACCESS,
+    DraftSending,
   ]),
 
   ...bindCommandHandler(StopRunCommand, StopRunHandler, [

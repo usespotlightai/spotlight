@@ -13,6 +13,7 @@ import { useSession } from '@/hooks/api/useSession';
 import { useInAppLinks } from '@/hooks/useInAppLinks';
 import {
   ARRIVING,
+  authorsOf,
   type ConversationItem,
   type Note,
   type RunJournal,
@@ -72,7 +73,11 @@ export function InboxNote({
   if (note.voice === 'person') {
     return (
       <li data-note={note.position} className={cn(STICKY_AT_TOP, arriving)}>
-        <PersonMessage body={note.body} attachments={note.attachments} />
+        <PersonMessage
+          body={note.body}
+          attachments={note.attachments}
+          authors={authorsOf(note)}
+        />
       </li>
     );
   }

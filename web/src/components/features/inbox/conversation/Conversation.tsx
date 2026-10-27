@@ -10,6 +10,7 @@ import type { ApprovalAnswer } from '@/lib/approval';
 import { togglesDisclosure } from '@/lib/disclosure';
 import {
   ARRIVING,
+  authorsOf,
   type ConversationItem,
   type Note,
   openedAt,
@@ -193,6 +194,7 @@ export function Conversation({
             <PersonMessage
               body={turn.prompt.body}
               attachments={turn.prompt.attachments}
+              authors={authorsOf(turn.prompt)}
             />
           ) : at === 0 ? (
             briefing

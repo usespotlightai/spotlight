@@ -1,3 +1,5 @@
+import { LexicalCollaboration } from '@lexical/react/LexicalCollaborationContext';
+import { CollaborationPlugin } from '@lexical/react/LexicalCollaborationPlugin';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
@@ -9,14 +11,16 @@ import {
   $getRoot,
   type LexicalEditor,
 } from 'lexical';
-import { type RefObject, useState } from 'react';
+import { type RefObject, useMemo, useState } from 'react';
 import { EditorHandle } from '@/components/shared/chat-input/EditorHandle';
 import {
   $spacedReferences,
   ReferenceNode,
 } from '@/components/shared/chat-input/ReferenceNode';
 import { SendOnEnter } from '@/components/shared/chat-input/SendOnEnter';
+import { SharedWriting } from '@/components/shared/chat-input/SharedWriting';
 import { WatchMessage } from '@/components/shared/chat-input/WatchMessage';
+import type { SharedDraft } from '@/hooks/useSharedDraft';
 import type { Reference, Written } from '@/lib/chat-input';
 import { cn } from '@/lib/utils';
 
@@ -30,6 +34,8 @@ type ChatEditorProps = {
   disabled: boolean;
   onEnter: () => void;
   onWritten: (written: Written) => void;
+  shared?: SharedDraft | null;
+  cursors?: RefObject<HTMLDivElement | null>;
 };
 
 export function ChatEditor({
@@ -42,15 +48,20 @@ export function ChatEditor({
   disabled,
   onEnter,
   onWritten,
+  shared,
+  cursors,
 }: ChatEditorProps) {
+  const me = shared?.me;
+  const awarenessData = useMemo(() => ({ person: me }), [me]);
   const [initialConfig] = useState(() => ({
     namespace: 'chat-input',
     nodes: [ReferenceNode],
     onError: (error: Error) => {
       throw error;
     },
-    editorState:
-      initialReferences.length > 0 || initialText
+    editorState: shared
+      ? null
+      : initialReferences.length > 0 || initialText
         ? () => {
             const paragraph = $createParagraphNode();
             paragraph.append(...$spacedReferences(initialReferences));
@@ -63,31 +74,51 @@ export function ChatEditor({
   }));
 
   return (
-    <LexicalComposer initialConfig={initialConfig}>
-      <PlainTextPlugin
-        contentEditable={
-          <ContentEditable
-            aria-label={label}
-            aria-placeholder={placeholder}
-            placeholder={
-              <p
-                className={cn(
-                  'pointer-events-none absolute inset-x-1.5 top-0 truncate text-sm leading-6',
-                  disabled ? 'text-faint' : 'text-muted-foreground',
-                )}
-              >
-                {placeholder}
-              </p>
-            }
-            className="max-h-56 overflow-y-auto whitespace-pre-wrap break-words text-foreground text-sm leading-6 outline-none"
-          />
-        }
-        ErrorBoundary={LexicalErrorBoundary}
-      />
-      <HistoryPlugin />
-      <EditorHandle handle={handle} editable={editable} />
-      <SendOnEnter send={onEnter} />
-      <WatchMessage onChange={onWritten} />
-    </LexicalComposer>
+    <LexicalCollaboration>
+      <LexicalComposer initialConfig={initialConfig}>
+        <PlainTextPlugin
+          contentEditable={
+            <ContentEditable
+              aria-label={label}
+              aria-placeholder={placeholder}
+              placeholder={
+                <p
+                  className={cn(
+                    'pointer-events-none absolute inset-x-1.5 top-0 truncate text-sm leading-6',
+                    disabled ? 'text-faint' : 'text-muted-foreground',
+                  )}
+                >
+                  {placeholder}
+                </p>
+              }
+              className="max-h-56 overflow-y-auto whitespace-pre-wrap break-words text-foreground text-sm leading-6 outline-none"
+            />
+          }
+          ErrorBoundary={LexicalErrorBoundary}
+        />
+        {shared ? (
+          <>
+            <CollaborationPlugin
+              id={shared.name}
+              providerFactory={(id, docs) => {
+                docs.set(id, shared.doc);
+                return shared.provider;
+              }}
+              shouldBootstrap
+              username={shared.me.name}
+              cursorColor={shared.me.color}
+              awarenessData={awarenessData}
+              cursorsContainerRef={cursors}
+            />
+            <SharedWriting onWrote={shared.wrote} />
+          </>
+        ) : (
+          <HistoryPlugin />
+        )}
+        <EditorHandle handle={handle} editable={editable} />
+        <SendOnEnter send={onEnter} />
+        <WatchMessage onChange={onWritten} />
+      </LexicalComposer>
+    </LexicalCollaboration>
   );
 }

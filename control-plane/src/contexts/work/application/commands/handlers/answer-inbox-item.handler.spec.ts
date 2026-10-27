@@ -1,4 +1,6 @@
+import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -11,6 +13,7 @@ import { AnswerInboxItemHandler } from '@work/application/commands/handlers/answ
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ConversationLoader } from '@work/application/services/conversation-loader.service';
+import { DraftSending } from '@work/application/services/draft-sending.service';
 import { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -19,6 +22,7 @@ import { Station } from '@work/domain/entities/station.entity';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import type { TaskDraftRepository } from '@work/domain/repositories/task-draft.repository';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -184,6 +188,21 @@ const store = {
 
 const files = new FilesLoader(store);
 
+const drafts: TaskDraftRepository = {
+  find: async () => null,
+  save: async () => undefined,
+};
+
+const sending = new DraftSending(
+  drafts,
+  { mayView: async () => true } as unknown as WorkspaceAccessPort,
+  {
+    writers: async () => [UserId.of('user_2')],
+    sent: async () => undefined,
+  },
+  { warn: () => undefined } as unknown as LoggerPort,
+);
+
 const answer = (
   found: Task,
   command = new AnswerInboxItemCommand('task_1:0', 'user_1', 'Cap it at 500.'),
@@ -195,6 +214,7 @@ const answer = (
     transaction,
     clock,
     files,
+    sending,
   ).execute(command);
 
 describe('AnswerInboxItem', () => {
@@ -209,6 +229,24 @@ describe('AnswerInboxItem', () => {
     expect(last?.body.value).toBe('Cap it at 500.');
     expect(last?.voice.author?.value).toBe('user_1');
     expect(last?.station.value).toBe('Triage');
+  });
+
+  it('names the people who wrote the answer with the person it was put to', async () => {
+    await answer(
+      waiting(),
+      new AnswerInboxItemCommand(
+        'task_1:0',
+        'user_1',
+        'Cap it at 500.',
+        [],
+        null,
+        null,
+        ['user_2'],
+      ),
+    );
+
+    const last = saved?.notes[saved.notes.length - 1];
+    expect(last?.voice.coAuthors.map((each) => each.value)).toEqual(['user_2']);
   });
 
   it('takes files alone as an answer, naming them in the trail', async () => {

@@ -20,6 +20,8 @@ export interface Outgoing {
   readonly attachments: string[];
   readonly traces: string[];
   readonly targetStation: string | null;
+  readonly coAuthors?: string[];
+  readonly draftGeneration?: number;
 }
 
 const CODE = new Set([

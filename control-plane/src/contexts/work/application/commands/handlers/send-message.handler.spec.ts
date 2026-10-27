@@ -1,4 +1,6 @@
+import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -8,16 +10,21 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { SendMessageHandler } from '@work/application/commands/handlers/send-message.handler';
 import { SendMessageCommand } from '@work/application/commands/send-message.command';
+import type { LiveTaskDraftsPort } from '@work/application/ports/live-task-drafts.port';
+import { DraftSending } from '@work/application/services/draft-sending.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import { TaskDraft } from '@work/domain/aggregates/task-draft.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import type { TaskDraftRepository } from '@work/domain/repositories/task-draft.repository';
+import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
@@ -118,15 +125,37 @@ const interrupted = () =>
     voice: Voice.world(),
   });
 
+const OUTSIDER = 'outsider';
+
 let saved: Task | undefined;
+let draft: TaskDraft | null;
+let typed: string[];
 const dispatched: Task[] = [];
+const announced: number[] = [];
 
 const sendMessage = (
   task: Task,
   body = 'Rename the flag too.',
   sentBy = OWNER.value,
   runnerFor: string | null = 'run_2',
+  shared: { coAuthors?: string[]; draftGeneration?: number | null } = {},
 ) => {
+  const access = {
+    mayView: async (viewer: UserId) => viewer.value !== OUTSIDER,
+  } as unknown as WorkspaceAccessPort;
+  const drafts: TaskDraftRepository = {
+    find: async () => draft,
+    save: async (each) => {
+      draft = each;
+    },
+  };
+  const live: LiveTaskDraftsPort = {
+    writers: async () => typed.map(UserId.of),
+    sent: async (_taskId, next) => {
+      announced.push(next.value);
+    },
+  };
+
   const dispatch: TaskDispatching = {
     runIdFor: async ({ task: wanting }) => {
       dispatched.push(wanting);
@@ -150,12 +179,28 @@ const sendMessage = (
       handedOver: async () => [],
       takenIn: async () => undefined,
     } as unknown as FilesLoader,
-  ).execute(new SendMessageCommand(RUN.value, sentBy, body, []));
+    access,
+    new DraftSending(drafts, access, live, {
+      warn: () => undefined,
+    } as unknown as LoggerPort),
+  ).execute(
+    new SendMessageCommand(
+      RUN.value,
+      sentBy,
+      body,
+      [],
+      shared.coAuthors,
+      shared.draftGeneration,
+    ),
+  );
 };
 
 beforeEach(() => {
   saved = undefined;
+  draft = null;
+  typed = ['teammate', OUTSIDER];
   dispatched.length = 0;
+  announced.length = 0;
 });
 
 describe('SendMessageHandler', () => {
@@ -231,11 +276,81 @@ describe('SendMessageHandler', () => {
     expect(dispatched).toEqual([]);
   });
 
-  it('rejects anyone the task is not assigned to, starting nothing', async () => {
+  it('takes the words of a teammate the task is not assigned to', async () => {
+    await sendMessage(finished(), 'Rename it.', 'teammate');
+
+    expect(
+      saved?.unacknowledged.map((note) => note.voice.author?.value),
+    ).toEqual(['teammate']);
+  });
+
+  it('rejects anyone who cannot see the workspace, starting nothing', async () => {
     await expect(
-      sendMessage(finished(), 'Rename it.', 'someone_else'),
+      sendMessage(finished(), 'Rename it.', OUTSIDER),
     ).rejects.toMatchObject({ kind: 'not-found' });
     expect(saved).toBeUndefined();
     expect(dispatched).toEqual([]);
+  });
+
+  it('names the people who wrote the shared draft with the sender', async () => {
+    await sendMessage(finished(), 'Rename it.', OWNER.value, 'run_2', {
+      coAuthors: ['teammate', OWNER.value],
+    });
+
+    expect(
+      saved?.unacknowledged[0]?.voice.coAuthors.map((each) => each.value),
+    ).toEqual(['teammate']);
+  });
+
+  it('names no co-author who did not type in the shared draft', async () => {
+    typed = [];
+
+    await sendMessage(finished(), 'Rename it.', OWNER.value, 'run_2', {
+      coAuthors: ['teammate'],
+    });
+
+    expect(saved?.unacknowledged[0]?.voice.coAuthors).toEqual([]);
+  });
+
+  it('rejects a co-author who cannot see the workspace', async () => {
+    await expect(
+      sendMessage(finished(), 'Rename it.', OWNER.value, 'run_2', {
+        coAuthors: [OUTSIDER],
+      }),
+    ).rejects.toMatchObject({ kind: 'invalid' });
+    expect(saved).toBeUndefined();
+  });
+
+  it('rejects more co-authors than a message can name', async () => {
+    await expect(
+      sendMessage(finished(), 'Rename it.', OWNER.value, 'run_2', {
+        coAuthors: Array.from({ length: 21 }, (_, at) => `user_${at + 2}`),
+      }),
+    ).rejects.toMatchObject({ kind: 'invalid' });
+    expect(saved).toBeUndefined();
+  });
+
+  it('moves the shared draft on and tells its writers once it is sent', async () => {
+    await sendMessage(finished(), 'Rename it.', OWNER.value, 'run_2', {
+      draftGeneration: 0,
+    });
+
+    expect(draft?.generation.value).toBe(1);
+    expect(announced).toEqual([1]);
+  });
+
+  it('refuses a second send of the same shared draft, adding nothing', async () => {
+    draft = TaskDraft.rehydrate({
+      taskId: TaskId.of('task_1'),
+      generation: DraftGeneration.of(1),
+    });
+
+    await expect(
+      sendMessage(finished(), 'Rename it.', OWNER.value, 'run_2', {
+        draftGeneration: 0,
+      }),
+    ).rejects.toMatchObject({ kind: 'conflict' });
+    expect(saved).toBeUndefined();
+    expect(announced).toEqual([]);
   });
 });

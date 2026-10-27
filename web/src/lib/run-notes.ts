@@ -22,6 +22,8 @@ export type OutgoingMessage = {
   readonly runId: string;
   readonly body: string;
   readonly attachments: string[];
+  readonly coAuthors?: string[];
+  readonly draftGeneration?: number;
   readonly answers?: boolean;
   readonly startsWork?: boolean;
 };
@@ -92,6 +94,7 @@ export const withMessagesInFlight = (
         attachments: [],
         at: new Date(message.sentAt).toISOString(),
         author: me,
+        coAuthors: [],
         approval: null,
         failure: null,
         connection: null,

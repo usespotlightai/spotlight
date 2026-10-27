@@ -19,6 +19,7 @@ const note = (position: number, failure: InboxNote['failure']): InboxNote => ({
   attachments: [],
   at: new Date('2026-09-26T09:15:00.000Z'),
   author: null,
+  coAuthors: [],
   readAt: null,
   approval: null,
   failure,

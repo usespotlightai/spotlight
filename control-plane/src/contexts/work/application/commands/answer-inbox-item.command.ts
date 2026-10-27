@@ -11,5 +11,7 @@ export class AnswerInboxItemCommand {
     readonly attachments: readonly string[] = [],
     readonly decision: ApprovalDecision | null = null,
     readonly edits: ApprovalEdits | null = null,
+    readonly coAuthors: readonly string[] = [],
+    readonly draftGeneration: number | null = null,
   ) {}
 }

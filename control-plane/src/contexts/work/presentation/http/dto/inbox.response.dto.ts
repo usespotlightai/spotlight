@@ -284,6 +284,14 @@ export class NoteResponseDto {
   readonly author: InboxAuthorResponseDto | null;
 
   @ApiProperty({
+    type: InboxAuthorResponseDto,
+    isArray: true,
+    description:
+      'The other people who wrote it with the author in a shared draft',
+  })
+  readonly coAuthors: readonly InboxAuthorResponseDto[];
+
+  @ApiProperty({
     type: InboxApprovalResponseDto,
     nullable: true,
     description: 'The tool call this asks a person to approve, where it is one',
@@ -318,6 +326,7 @@ export class NoteResponseDto {
     attachments: readonly AttachmentResponseDto[],
     at: string,
     author: InboxAuthorResponseDto | null,
+    coAuthors: readonly InboxAuthorResponseDto[],
     approval: InboxApprovalResponseDto | null,
     failure: InboxFailureResponseDto | null,
     connection: InboxConnectionResponseDto | null,
@@ -334,6 +343,7 @@ export class NoteResponseDto {
     this.attachments = attachments;
     this.at = at;
     this.author = author;
+    this.coAuthors = coAuthors;
     this.approval = approval;
     this.failure = failure;
     this.connection = connection;
@@ -653,4 +663,21 @@ export class AnswerInboxItemRequestDto {
       'With approve: true on a tool call, what it runs with instead, as the person changed it. Names exactly the inputs it was called with; a harness asking permission takes no changes.',
   })
   readonly inputs?: AnswerInboxItemInputRequestDto[];
+
+  @ApiPropertyOptional({
+    type: String,
+    isArray: true,
+    description:
+      'The other people who wrote the shared draft with the sender, by user id',
+  })
+  readonly coAuthors?: string[];
+
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    example: 0,
+    description:
+      'The generation of the shared draft this sends. A second send of the same generation is refused, so the draft goes only once',
+  })
+  readonly draftGeneration?: number | null;
 }

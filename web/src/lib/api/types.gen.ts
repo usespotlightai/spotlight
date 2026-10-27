@@ -1416,6 +1416,10 @@ export type NoteResponseDto = {
    */
   author: InboxAuthorResponseDto | null;
   /**
+   * The other people who wrote it with the author in a shared draft
+   */
+  coAuthors: Array<InboxAuthorResponseDto>;
+  /**
    * The tool call this asks a person to approve, where it is one
    */
   approval: InboxApprovalResponseDto | null;
@@ -1554,6 +1558,14 @@ export type AnswerInboxItemRequestDto = {
    * With approve: true on a tool call, what it runs with instead, as the person changed it. Names exactly the inputs it was called with; a harness asking permission takes no changes.
    */
   inputs?: Array<AnswerInboxItemInputRequestDto>;
+  /**
+   * The other people who wrote the shared draft with the sender, by user id
+   */
+  coAuthors?: Array<string>;
+  /**
+   * The generation of the shared draft this sends. A second send of the same generation is refused, so the draft goes only once
+   */
+  draftGeneration?: number | null;
 };
 
 export type RunMarksResponseDto = {
@@ -1888,6 +1900,14 @@ export type SendMessageRequestDto = {
    * Uploads to attach, by the id each was granted
    */
   attachments?: Array<string>;
+  /**
+   * The other people who wrote the shared draft with the sender, by user id
+   */
+  coAuthors?: Array<string>;
+  /**
+   * The generation of the shared draft this sends. A second send of the same generation is refused, so the draft goes only once
+   */
+  draftGeneration?: number | null;
 };
 
 export type TaskRunResponseDto = {
