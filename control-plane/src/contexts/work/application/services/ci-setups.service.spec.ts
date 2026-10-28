@@ -14,6 +14,7 @@ const settingUp = (variables: 'written' | 'not-permitted' = 'written') => {
       repositoryId: '101',
       ownerId: '7',
     })),
+    oidcSubjectPrefixOf: vi.fn(async () => 'repo:acme@7/infra@101'),
     putVariables: vi.fn(async () => variables),
   } satisfies RepositorySettingsPort;
   const trusts = {
@@ -38,7 +39,7 @@ const setUp = (ci: CiSetups) =>
   );
 
 describe('CiSetups', () => {
-  it('trusts the repository on its default branch, as the person who sets it up', async () => {
+  it('trusts the repository by its OIDC subject prefix and default branch, as the person who sets it up', async () => {
     const { ci, trusts } = settingUp();
 
     await setUp(ci);
@@ -47,12 +48,25 @@ describe('CiSetups', () => {
       workspaceId: 'ws_1',
       by: 'admin_1',
       client: 'web',
-      repository: 'acme/infra',
+      subjectPrefix: 'repo:acme@7/infra@101',
       repositoryId: '101',
       ownerId: '7',
       defaultBranch: 'trunk',
       applyScopes: ['configure', 'secrets', 'runners'],
     });
+  });
+
+  it('stops, and trusts nothing, when GitHub will not give the subject prefix', async () => {
+    const { ci, settings, trusts } = settingUp();
+    settings.oidcSubjectPrefixOf.mockRejectedValueOnce(
+      new Error('GitHub would not return the OIDC subject settings'),
+    );
+
+    await expect(setUp(ci)).rejects.toThrow(
+      'GitHub would not return the OIDC subject settings',
+    );
+    expect(trusts.trust).not.toHaveBeenCalled();
+    expect(settings.putVariables).not.toHaveBeenCalled();
   });
 
   it('writes the address and both trusts into the repository’s variables', async () => {

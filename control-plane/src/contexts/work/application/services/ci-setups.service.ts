@@ -25,12 +25,15 @@ export class CiSetups {
     by: UserId,
     repository: Repository,
   ): Promise<CiSetup> {
-    const branch = await this.settings.defaultBranchOf(workspaceId, repository);
+    const [branch, subjectPrefix] = await Promise.all([
+      this.settings.defaultBranchOf(workspaceId, repository),
+      this.settings.oidcSubjectPrefixOf(workspaceId, repository),
+    ]);
     const trusted = await this.trusts.trust({
       workspaceId: workspaceId.value,
       by: by.value,
       client: 'web',
-      repository: repository.value,
+      subjectPrefix,
       repositoryId: branch.repositoryId,
       ownerId: branch.ownerId,
       defaultBranch: branch.name,

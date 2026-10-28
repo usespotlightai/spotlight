@@ -1,6 +1,7 @@
 import { TrustKeyTakenError } from '@identity/application/errors/trust-key-taken.error';
 import { TrustsNeedAnAdminError } from '@identity/application/errors/trusts-need-an-admin.error';
 import { UnsafeBranchNameError } from '@identity/application/errors/unsafe-branch-name.error';
+import { UnsupportedSubjectPrefixError } from '@identity/application/errors/unsupported-subject-prefix.error';
 import type {
   WorkspaceAccessPort,
   WorkspacePermissions,
@@ -23,12 +24,14 @@ const WANTED = {
   workspaceId: 'ws_1',
   by: 'admin_1',
   client: 'web',
-  repository: 'acme/platform',
+  subjectPrefix: 'repo:acme/platform',
   repositoryId: '101',
   ownerId: '7',
   defaultBranch: 'main',
   applyScopes: ['configure', 'secrets', 'runners'],
 };
+
+const IMMUTABLE_PREFIX = 'repo:acme@7/platform@101';
 
 const permissions = (managesOidcTrusts: boolean): WorkspacePermissions => ({
   workspaceId: WorkspaceId.of('ws_1'),
@@ -103,6 +106,52 @@ describe('GitHubActionsTrusts', () => {
     ).toEqual(['configure', 'runners', 'secrets']);
   });
 
+  it('names the repository and owner by id when the repository uses immutable subjects', async () => {
+    const { service, stored } = trusting();
+
+    await service.trust({ ...WANTED, subjectPrefix: IMMUTABLE_PREFIX });
+
+    expect(stored.get('github-pull-requests')?.workload.subject.value).toBe(
+      `${IMMUTABLE_PREFIX}:pull_request`,
+    );
+    expect(stored.get('github-apply')?.workload.subject.value).toBe(
+      `${IMMUTABLE_PREFIX}:ref:refs/heads/main`,
+    );
+  });
+
+  it('moves the trusts it made before to immutable subjects, and back', async () => {
+    const { service, stored } = trusting();
+    const first = await service.trust(WANTED);
+
+    const immutable = await service.trust({
+      ...WANTED,
+      subjectPrefix: IMMUTABLE_PREFIX,
+    });
+
+    expect(immutable).toEqual(first);
+    expect(stored.get('github-apply')?.workload.subject.value).toBe(
+      `${IMMUTABLE_PREFIX}:ref:refs/heads/main`,
+    );
+
+    await service.trust(WANTED);
+
+    expect(stored.get('github-pull-requests')?.workload.subject.value).toBe(
+      'repo:acme/platform:pull_request',
+    );
+  });
+
+  it('refuses a subject prefix that a trust from setup cannot match', async () => {
+    const { service, stored } = trusting();
+
+    await expect(
+      service.trust({
+        ...WANTED,
+        subjectPrefix: 'repo:acme/platform:environment:production',
+      }),
+    ).rejects.toBeInstanceOf(UnsupportedSubjectPrefixError);
+    expect(stored.size).toBe(0);
+  });
+
   it('keeps the trusts it made before, rather than making them twice', async () => {
     const { service } = trusting();
 
@@ -118,7 +167,7 @@ describe('GitHubActionsTrusts', () => {
 
     await service.trust({
       ...WANTED,
-      repository: 'acme/infra',
+      subjectPrefix: 'repo:acme/infra',
       repositoryId: '202',
     });
 

@@ -31,6 +31,7 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
   let unseat: () => Promise<void>;
   let protectedBranch: boolean;
   let variables: VariablesWrite;
+  let subjectPrefix: string | undefined;
   const written: Record<string, string>[] = [];
 
   const settings: RepositorySettingsPort = {
@@ -40,6 +41,8 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
       repositoryId: '101',
       ownerId: '7',
     }),
+    oidcSubjectPrefixOf: async (_, repository) =>
+      subjectPrefix ?? `repo:${repository.value}`,
     putVariables: async (_, __, put) => {
       written.push({ ...put });
       return variables;
@@ -93,6 +96,7 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
     unseat = seat.unseat;
     protectedBranch = true;
     variables = 'written';
+    subjectPrefix = undefined;
     written.length = 0;
     await db.insert(schema.runnerPool).values({
       id: randomUUID(),
@@ -146,6 +150,21 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
         SPOTLIGHT_PLAN_TRUST: byKey['github-pull-requests']?.id,
         SPOTLIGHT_APPLY_TRUST: byKey['github-apply']?.id,
       },
+    ]);
+  });
+
+  it('moves the trusts it made before to immutable subjects when the setup runs again', async () => {
+    await startingAs(owner).expect(201);
+    const first = (await trusts()).map((each) => each.id).sort();
+    subjectPrefix = 'repo:acme@7/infra@101';
+
+    await startingAs(owner).expect(201);
+
+    const kept = await trusts();
+    expect(kept.map((each) => each.id).sort()).toEqual(first);
+    expect(kept.map((each) => each.subject).sort()).toEqual([
+      'repo:acme@7/infra@101:pull_request',
+      'repo:acme@7/infra@101:ref:refs/heads/main',
     ]);
   });
 

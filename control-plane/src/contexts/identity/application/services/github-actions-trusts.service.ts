@@ -1,6 +1,7 @@
 import { TrustKeyTakenError } from '@identity/application/errors/trust-key-taken.error';
 import { TrustsNeedAnAdminError } from '@identity/application/errors/trusts-need-an-admin.error';
 import { UnsafeBranchNameError } from '@identity/application/errors/unsafe-branch-name.error';
+import { UnsupportedSubjectPrefixError } from '@identity/application/errors/unsupported-subject-prefix.error';
 import type {
   GitHubActionsTrustsDto,
   GitHubActionsTrustsPort,
@@ -25,7 +26,6 @@ import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
-import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -36,9 +36,15 @@ const PULL_REQUESTS_TRUST_KEY = 'github-pull-requests';
 
 const DEFAULT_BRANCH_TRUST_KEY = 'github-apply';
 
+const SUBJECT_PREFIX = String.raw`repo:[\w.-]+(?:@\d+)?/[\w.-]+(?:@\d+)?`;
+
+const SUPPORTED_PREFIX = new RegExp(`^${SUBJECT_PREFIX}$`);
+
 const SETUP_SUBJECTS: Readonly<Record<string, RegExp>> = {
-  [PULL_REQUESTS_TRUST_KEY]: /^repo:[^/:*]+\/[^/:*]+:pull_request$/,
-  [DEFAULT_BRANCH_TRUST_KEY]: /^repo:[^/:*]+\/[^/:*]+:ref:refs\/heads\/[^:*]+$/,
+  [PULL_REQUESTS_TRUST_KEY]: new RegExp(`^${SUBJECT_PREFIX}:pull_request$`),
+  [DEFAULT_BRANCH_TRUST_KEY]: new RegExp(
+    `^${SUBJECT_PREFIX}:ref:refs/heads/[^:*]+$`,
+  ),
 };
 
 const PINNED_CLAIMS = ['repository_id', 'repository_owner_id'];
@@ -75,7 +81,10 @@ export class GitHubActionsTrusts implements GitHubActionsTrustsPort {
       throw new UnsafeBranchNameError(wanted.defaultBranch);
     }
 
-    const repository = Repository.of(wanted.repository);
+    if (!SUPPORTED_PREFIX.test(wanted.subjectPrefix)) {
+      throw new UnsupportedSubjectPrefixError(wanted.subjectPrefix);
+    }
+
     const by = ChangeActor.of(
       Actor.of(principal, Client.named(wanted.client)),
       workspaceId,
@@ -92,7 +101,7 @@ export class GitHubActionsTrusts implements GitHubActionsTrustsPort {
         workspaceId,
         this.spec(
           PULL_REQUESTS_TRUST_KEY,
-          `repo:${repository.value}:pull_request`,
+          `${wanted.subjectPrefix}:pull_request`,
           claims,
           ['plan'],
           TokenLifetime.USUAL_MINUTES,
@@ -105,7 +114,7 @@ export class GitHubActionsTrusts implements GitHubActionsTrustsPort {
         workspaceId,
         this.spec(
           DEFAULT_BRANCH_TRUST_KEY,
-          `repo:${repository.value}:ref:refs/heads/${wanted.defaultBranch}`,
+          `${wanted.subjectPrefix}:ref:refs/heads/${wanted.defaultBranch}`,
           claims,
           wanted.applyScopes,
           TokenLifetime.LONGEST_MINUTES,
