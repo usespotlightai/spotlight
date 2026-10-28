@@ -5,6 +5,7 @@ import { useSendMessage } from '@/hooks/api/useSendMessage';
 import { useStopRun } from '@/hooks/api/useStopRun';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
 import { useSharedDraft } from '@/hooks/useSharedDraft';
+import { LINE_SETS_REPOSITORIES } from '@/lib/run';
 import { startsAgainOnMessage } from '@/lib/task';
 
 type RunComposerProps = {
@@ -66,6 +67,7 @@ export function RunComposer({
         <FixedRepositories
           slug={slug}
           repositories={line?.repositories ?? []}
+          because={LINE_SETS_REPOSITORIES}
         />
       }
       onStop={() => stop.mutate({ teamId, runId })}

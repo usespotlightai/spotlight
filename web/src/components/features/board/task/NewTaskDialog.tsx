@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { useAttachments } from '@/hooks/useAttachments';
 import type { NewTask } from '@/lib/task';
@@ -87,7 +88,10 @@ export function NewTaskDialog({
         </DialogHeader>
 
         <form onSubmit={submit} {...draft.handlers} className="contents">
-          <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
+          <ScrollArea
+            className="max-h-[60vh]"
+            contentClassName="flex flex-col gap-3"
+          >
             <AutoGrowTextarea
               autoFocus
               value={title}
@@ -114,7 +118,7 @@ export function NewTaskDialog({
               attachments={draft.attachments}
               onRemove={draft.remove}
             />
-          </div>
+          </ScrollArea>
 
           <DialogFooter className="items-center sm:justify-between">
             <AttachButton

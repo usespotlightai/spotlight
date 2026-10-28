@@ -5,6 +5,7 @@ import type {
 } from '@pierre/diffs';
 import { PatchDiff } from '@pierre/diffs/react';
 import type { ReactNode } from 'react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useHighlighterReady } from '@/hooks/useHighlighterReady';
 import { diffOptions, FLUSH_DIFF_METRICS } from '@/lib/diff';
 
@@ -36,7 +37,7 @@ export function PatchCodeDiff<T>({
   const ready = useHighlighterReady(path);
 
   return (
-    <div className="overflow-x-auto text-xs">
+    <ScrollArea orientation="horizontal" contentClassName="text-xs">
       {ready && (
         <PatchDiff<T>
           patch={patch}
@@ -58,6 +59,6 @@ export function PatchCodeDiff<T>({
           }}
         />
       )}
-    </div>
+    </ScrollArea>
   );
 }

@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import { BeforeAfter } from '@/components/features/insights/changes/BeforeAfter';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   formatStation,
   type InsightsPeriod,
@@ -55,7 +56,10 @@ export function BeforeAfterPanel({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <ScrollArea
+          className="min-h-0 flex-1"
+          contentClassName="min-h-full px-4 py-4"
+        >
           <BeforeAfter
             slug={slug}
             teamId={teamId}
@@ -63,7 +67,7 @@ export function BeforeAfterPanel({
             change={change}
             names={names}
           />
-        </div>
+        </ScrollArea>
       </aside>
     </SidePane>
   );

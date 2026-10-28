@@ -54,5 +54,20 @@ export const sizeProblem = (file: { readonly size: number }): string | null =>
     ? `The file is too large. Maximum size: ${sized(MAX_ATTACHMENT_BYTES)}`
     : null;
 
-export const filesIn = (carried: DataTransfer | null): File[] =>
-  carried ? Array.from(carried.files) : [];
+export const carriesFiles = (carried: DataTransfer | null): boolean =>
+  Boolean(carried?.types.includes('Files'));
+
+export const filesIn = (carried: DataTransfer | null): File[] => {
+  if (!carried) {
+    return [];
+  }
+
+  if (carried.files.length > 0) {
+    return Array.from(carried.files);
+  }
+
+  return Array.from(carried.items ?? []).flatMap((item) => {
+    const file = item.kind === 'file' ? item.getAsFile() : null;
+    return file ? [file] : [];
+  });
+};

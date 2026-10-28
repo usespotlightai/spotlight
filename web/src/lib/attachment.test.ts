@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   attachmentPath,
+  carriesFiles,
   downloadPath,
   drawn,
   filesIn,
@@ -70,5 +71,30 @@ describe('filesIn', () => {
     expect(filesIn({ files: [file] } as unknown as DataTransfer)).toEqual([
       file,
     ]);
+  });
+
+  it('finds a file that a drag carries only as an item', () => {
+    const file = new File(['x'], 'shot.png', { type: 'image/png' });
+    const carried = {
+      files: [],
+      items: [
+        { kind: 'string', getAsFile: () => null },
+        { kind: 'file', getAsFile: () => file },
+      ],
+    } as unknown as DataTransfer;
+
+    expect(filesIn(carried)).toEqual([file]);
+  });
+});
+
+describe('carriesFiles', () => {
+  it('tells a drag of files from a drag of text', () => {
+    expect(carriesFiles({ types: ['Files'] } as unknown as DataTransfer)).toBe(
+      true,
+    );
+    expect(
+      carriesFiles({ types: ['text/plain'] } as unknown as DataTransfer),
+    ).toBe(false);
+    expect(carriesFiles(null)).toBe(false);
   });
 });

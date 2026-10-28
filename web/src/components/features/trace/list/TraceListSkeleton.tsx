@@ -2,6 +2,7 @@ import { TraceHead } from '@/components/features/trace/list/TraceHead';
 import { TraceLegend } from '@/components/features/trace/list/TraceLegend';
 import { TraceRowSkeleton } from '@/components/features/trace/list/TraceRowSkeleton';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export function TraceListSkeleton() {
   return (
@@ -15,13 +16,16 @@ export function TraceListSkeleton() {
         <Skeleton className="mx-2 h-45 rounded-md" />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-1.5">
+      <ScrollArea
+        className="min-h-0 flex-1"
+        contentClassName="min-h-full px-1.5 pb-1.5"
+      >
         <TraceHead />
 
         <ul className="flex flex-col">
           <TraceRowSkeleton />
         </ul>
-      </div>
+      </ScrollArea>
     </div>
   );
 }

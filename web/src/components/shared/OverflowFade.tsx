@@ -1,4 +1,5 @@
 import { type ReactNode, useRef } from 'react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useOverflows } from '@/hooks/useOverflows';
 import { cn } from '@/lib/utils';
 
@@ -14,17 +15,15 @@ export function OverflowFade({ className, slot, children }: OverflowFadeProps) {
 
   return (
     <div className="relative min-w-0">
-      <div
-        ref={scroller}
+      <ScrollArea
+        viewportRef={scroller}
         data-slot={slot}
-        className={cn(
-          '-mr-3 overflow-y-auto overscroll-contain pr-3',
-          scrolls && 'pb-12',
-          className,
-        )}
+        className={cn('-mr-3', className)}
+        viewportClassName="overscroll-contain"
+        contentClassName={cn('pr-3', scrolls && 'pb-12')}
       >
         {children}
-      </div>
+      </ScrollArea>
       {scrolls && (
         <span
           aria-hidden

@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const FADE = '1.5rem';
 
@@ -59,13 +59,13 @@ export function FadingScroll({
   const mask = `linear-gradient(to bottom, ${top} 0, #000 ${FADE}, #000 calc(100% - ${FADE}), ${bottom} 100%)`;
 
   return (
-    <div
-      ref={ref}
+    <ScrollArea
+      viewportRef={ref}
       onScroll={measure}
-      className={cn('overflow-y-auto scrollbar-hide', className)}
+      className={className}
       style={{ maskImage: mask, WebkitMaskImage: mask }}
     >
       {children}
-    </div>
+    </ScrollArea>
   );
 }

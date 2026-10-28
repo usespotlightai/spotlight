@@ -1,5 +1,6 @@
 import { ChevronsUpDown } from 'lucide-react';
 import type { ComponentType } from 'react';
+import { DisabledReasonTooltip } from '@/components/shared/DisabledReasonTooltip';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -17,7 +18,7 @@ type CheckboxSelectProps = {
   none: string;
   many: (count: number) => string;
   empty: string;
-  readOnly?: boolean;
+  disabledBecause?: string;
   className?: string;
 };
 
@@ -30,10 +31,11 @@ export function CheckboxSelect({
   none,
   many,
   empty,
-  readOnly = false,
+  disabledBecause,
   className,
 }: CheckboxSelectProps) {
   const chosen = new Set(value);
+  const disabled = Boolean(disabledBecause);
 
   const toggle = (option: string, checked: boolean) =>
     onChange(
@@ -49,30 +51,35 @@ export function CheckboxSelect({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={label}
-        disabled={readOnly}
-        className={cn(
-          'flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent',
-          className,
+      <DisabledReasonTooltip reason={disabledBecause}>
+        {(describedBy) => (
+          <DropdownMenuTrigger
+            aria-label={label}
+            aria-describedby={describedBy}
+            disabled={disabled}
+            className={cn(
+              'flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50 data-[popup-open]:bg-accent',
+              className,
+            )}
+          >
+            <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+            <span
+              className={cn(
+                'truncate',
+                value.length > 0 ? 'text-foreground' : 'text-muted-foreground',
+              )}
+            >
+              {shown}
+            </span>
+            {!disabled && (
+              <ChevronsUpDown
+                className="ml-auto size-3 shrink-0 text-muted-foreground"
+                aria-hidden
+              />
+            )}
+          </DropdownMenuTrigger>
         )}
-      >
-        <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-        <span
-          className={cn(
-            'truncate',
-            value.length > 0 ? 'text-foreground' : 'text-muted-foreground',
-          )}
-        >
-          {shown}
-        </span>
-        {!readOnly && (
-          <ChevronsUpDown
-            className="ml-auto size-3 shrink-0 text-muted-foreground"
-            aria-hidden
-          />
-        )}
-      </DropdownMenuTrigger>
+      </DisabledReasonTooltip>
 
       <DropdownMenuContent
         align="start"

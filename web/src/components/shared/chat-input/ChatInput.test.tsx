@@ -150,6 +150,33 @@ describe('ChatInput', () => {
     expect(uploaded).toHaveBeenCalledTimes(1);
   });
 
+  it('takes an image that a drag carries only as an item', async () => {
+    input();
+    const shot = new File(['png'], 'shot.png', { type: 'image/png' });
+
+    const opened = fireEvent.drop(box(), {
+      dataTransfer: {
+        files: [],
+        items: [{ kind: 'file', getAsFile: () => shot }],
+        types: ['Files'],
+      },
+    });
+
+    expect(opened).toBe(false);
+    await waitFor(() => expect(uploaded).toHaveBeenCalledTimes(1));
+  });
+
+  it('keeps the browser from opening a dropped file it cannot read', () => {
+    input();
+
+    const opened = fireEvent.drop(box(), {
+      dataTransfer: { files: [], items: [], types: ['Files'] },
+    });
+
+    expect(opened).toBe(false);
+    expect(uploaded).not.toHaveBeenCalled();
+  });
+
   it('blocks the send while a file is still going up', async () => {
     uploaded.mockReturnValue(new Promise(() => {}));
     input();

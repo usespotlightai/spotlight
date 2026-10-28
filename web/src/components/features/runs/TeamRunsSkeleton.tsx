@@ -2,13 +2,15 @@ import { ChevronDown } from 'lucide-react';
 import { RunRowSkeleton } from '@/components/features/runs/RunRowSkeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export function TeamRunsSkeleton() {
   return (
-    <div
+    <ScrollArea
+      className="min-h-0 flex-1"
       role="status"
       aria-label="Loading the runs"
-      className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pb-1.5"
+      contentClassName="min-h-full flex flex-col gap-0.5 pb-1.5"
     >
       <section className="flex flex-col pt-1.5">
         <span className="mx-1.5 flex h-9 items-center gap-2 rounded-md bg-accent px-3 font-medium text-foreground text-xs">
@@ -21,6 +23,6 @@ export function TeamRunsSkeleton() {
           <RunRowSkeleton gutter />
         </Disclosure>
       </section>
-    </div>
+    </ScrollArea>
   );
 }

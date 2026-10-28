@@ -2,6 +2,7 @@ import { ChevronDown } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Attachment } from '@/lib/attachment';
 import { cn } from '@/lib/utils';
 
@@ -12,7 +13,7 @@ type BriefingCardProps = {
 
 export function BriefingCard({ briefing, attachments }: BriefingCardProps) {
   const [open, setOpen] = useState(false);
-  const text = useRef<HTMLParagraphElement>(null);
+  const text = useRef<HTMLDivElement>(null);
   const shown = useId();
 
   const toggle = () => {
@@ -26,19 +27,22 @@ export function BriefingCard({ briefing, attachments }: BriefingCardProps) {
     <div className="flex flex-col gap-1.5">
       <MessageCard>
         <div className="group/briefing relative">
-          <p
-            id={shown}
-            ref={text}
+          <ScrollArea
+            viewportRef={text}
             className={cn(
-              'whitespace-pre-wrap text-foreground text-sm leading-6',
               'transition-[max-height] duration-200 ease-out motion-reduce:transition-none',
               open
-                ? 'max-h-64 overflow-y-auto'
-                : 'max-h-32 overflow-hidden [mask-image:linear-gradient(to_bottom,black_55%,transparent)]',
+                ? 'max-h-64'
+                : 'max-h-32 [mask-image:linear-gradient(to_bottom,black_55%,transparent)]',
             )}
           >
-            {briefing}
-          </p>
+            <p
+              id={shown}
+              className="whitespace-pre-wrap text-foreground text-sm leading-6"
+            >
+              {briefing}
+            </p>
+          </ScrollArea>
 
           <button
             type="button"

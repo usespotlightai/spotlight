@@ -9,6 +9,7 @@ import {
   Breadcrumbs,
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useDeleteTask } from '@/hooks/api/useDeleteTask';
 import type { LineResponseDto } from '@/lib/api';
 import type { Task } from '@/lib/task';
@@ -51,7 +52,7 @@ export function TaskPage({ slug, teamId, task, line, trail }: TaskPageProps) {
         trailing={<TaskActions title={task.title} onDelete={remove} />}
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <ScrollArea className="min-h-0 flex-1" contentClassName="min-h-full">
         <div className="mx-auto flex w-full max-w-5xl gap-10 px-8 py-8">
           <main className="flex min-w-0 flex-1 flex-col gap-3">
             <h1 className="font-semibold text-2xl text-foreground leading-8 tracking-tight">
@@ -79,7 +80,7 @@ export function TaskPage({ slug, teamId, task, line, trail }: TaskPageProps) {
 
           <TaskProperties slug={slug} teamId={teamId} task={task} line={line} />
         </div>
-      </div>
+      </ScrollArea>
     </>
   );
 }

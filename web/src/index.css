@@ -219,12 +219,6 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  html,
-  .overflow-auto,
-  .overflow-y-auto {
-    scrollbar-gutter: stable;
-  }
-
   @supports (scrollbar-color: auto) {
     * {
       scrollbar-width: thin;

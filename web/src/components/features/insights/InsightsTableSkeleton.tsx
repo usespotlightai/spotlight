@@ -3,6 +3,7 @@ import {
   ROW_DIVIDER,
 } from '@/components/shared/nested-table/nested-rows';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { columnTemplate, SPREAD } from '@/lib/nested-table';
 import { cn } from '@/lib/utils';
 
@@ -29,7 +30,7 @@ export function InsightsTableSkeleton({
   );
 
   return (
-    <div role="status" aria-label={label} className="overflow-x-auto">
+    <ScrollArea orientation="horizontal" role="status" aria-label={label}>
       <div
         aria-hidden
         className="grid min-w-min gap-x-6 text-xs"
@@ -69,6 +70,6 @@ export function InsightsTableSkeleton({
           </div>
         ))}
       </div>
-    </div>
+    </ScrollArea>
   );
 }

@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 import {
+  carriesFiles,
   drawn,
   filesIn,
   type PendingAttachment,
@@ -93,12 +94,17 @@ export function useAttachments(
 
     return {
       onDragOver: (event: DragEvent) => {
-        if (event.dataTransfer.types.includes('Files')) {
+        if (carriesFiles(event.dataTransfer)) {
           event.preventDefault();
         }
       },
-      onDropCapture: (event: DragEvent) =>
-        took(event, filesIn(event.dataTransfer)),
+      onDropCapture: (event: DragEvent) => {
+        if (carriesFiles(event.dataTransfer)) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        took(event, filesIn(event.dataTransfer));
+      },
       onPasteCapture: (event: ClipboardEvent) =>
         took(event, filesIn(event.clipboardData)),
     };

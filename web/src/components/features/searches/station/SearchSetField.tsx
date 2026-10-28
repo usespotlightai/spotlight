@@ -1,4 +1,5 @@
 import { SetChoice } from '@/components/features/searches/station/SetChoice';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ReplaySet } from '@/lib/replay';
 
 type SearchSetFieldProps = {
@@ -21,7 +22,7 @@ export function SearchSetField({
       <legend className="font-medium text-foreground text-xs mb-1.5">
         Search on
       </legend>
-      <div className="flex max-h-48 flex-col gap-1 overflow-y-auto">
+      <ScrollArea className="max-h-48" contentClassName="flex flex-col gap-1">
         {sets.map((set) => (
           <SetChoice
             key={set.id}
@@ -31,7 +32,7 @@ export function SearchSetField({
             onChange={onChange}
           />
         ))}
-      </div>
+      </ScrollArea>
       {problem && (
         <p role="alert" className="text-destructive text-xs">
           {problem}

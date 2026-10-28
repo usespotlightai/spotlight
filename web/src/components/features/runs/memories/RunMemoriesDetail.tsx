@@ -5,6 +5,7 @@ import { ProposedMemoryItem } from '@/components/features/runs/memories/Proposed
 import { RunMemoriesDetailSkeleton } from '@/components/features/runs/memories/RunMemoriesDetailSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRunMemories } from '@/hooks/api/useRunMemories';
 import { suppliedMemories } from '@/lib/memory';
 import { failed, loading } from '@/lib/query';
@@ -53,7 +54,10 @@ export function RunMemoriesDetail({
         </button>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-4 scrollbar-hide">
+      <ScrollArea
+        className="min-h-0 flex-1"
+        contentClassName="min-h-full flex flex-col gap-5 px-4 py-4"
+      >
         {loading(query) ? (
           <RunMemoriesDetailSkeleton />
         ) : failed(query) || !memories ? (
@@ -93,7 +97,7 @@ export function RunMemoriesDetail({
             )}
           </>
         )}
-      </div>
+      </ScrollArea>
     </SidePane>
   );
 }

@@ -7,6 +7,7 @@ import { CrumbSeparator } from '@/components/shared/skeleton/CrumbSeparator';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { STICKY_AT_TOP } from '@/lib/inbox';
 
 export function RunSkeleton() {
@@ -30,7 +31,7 @@ export function RunSkeleton() {
       />
 
       <RunSidePanel>
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <ScrollArea className="min-h-0 flex-1" contentClassName="min-h-full">
           <div className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8">
             <SkeletonLine className="w-28 self-center text-xs" />
 
@@ -44,7 +45,7 @@ export function RunSkeleton() {
               <TurnsSkeleton />
             </section>
           </div>
-        </div>
+        </ScrollArea>
 
         <ComposerFooter>
           <ChatInputSkeleton placeholder="Write a message…" />

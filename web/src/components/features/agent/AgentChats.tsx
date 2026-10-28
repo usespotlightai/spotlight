@@ -6,6 +6,7 @@ import { NewChatComposer } from '@/components/features/agent/NewChatComposer';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useChats } from '@/hooks/api/useChats';
 import {
   chatPath,
@@ -38,7 +39,7 @@ export function AgentChats({ slug, teamId }: AgentChatsProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <ScrollArea className="min-h-0 flex-1" contentClassName="min-h-full">
         <div className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8">
           {loading(chats) && (
             <ol role="status" aria-label="Loading the chats" className={LIST}>
@@ -77,7 +78,7 @@ export function AgentChats({ slug, teamId }: AgentChatsProps) {
             </ol>
           )}
         </div>
-      </div>
+      </ScrollArea>
 
       <ComposerFooter>
         <NewChatComposer

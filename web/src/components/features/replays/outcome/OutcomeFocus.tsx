@@ -1,6 +1,7 @@
 import { ArrowLeft } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { CodeDiff } from '@/components/shared/CodeDiff';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { type FileChange, type LineRange, repoRelative } from '@/lib/changes';
 import type { JournalStep } from '@/lib/inbox';
 
@@ -51,9 +52,11 @@ export function OutcomeFocus({ focus, onBack }: OutcomeFocusProps) {
           {focus.step.text}
         </p>
         {focus.step.detail && (
-          <pre className="max-h-64 overflow-auto whitespace-pre-wrap text-muted-foreground text-xs leading-5">
-            {focus.step.detail}
-          </pre>
+          <ScrollArea orientation="both" className="max-h-64">
+            <pre className="whitespace-pre-wrap text-muted-foreground text-xs leading-5">
+              {focus.step.detail}
+            </pre>
+          </ScrollArea>
         )}
       </div>
     );

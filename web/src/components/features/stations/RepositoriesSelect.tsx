@@ -7,7 +7,7 @@ type RepositoriesSelectProps = {
   value: readonly string[];
   onChange: (repositories: string[]) => void;
   none?: string;
-  readOnly?: boolean;
+  disabledBecause?: string;
   className?: string;
 };
 
@@ -16,7 +16,7 @@ export function RepositoriesSelect({
   value,
   onChange,
   none = 'No repositories',
-  readOnly,
+  disabledBecause,
   className,
 }: RepositoriesSelectProps) {
   const { data: available } = useRepositories(slug);
@@ -35,7 +35,7 @@ export function RepositoriesSelect({
       none={none}
       many={(count) => `${count} repositories`}
       empty="No repositories to choose from"
-      readOnly={readOnly}
+      disabledBecause={disabledBecause}
       className={className}
     />
   );
