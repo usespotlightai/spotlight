@@ -31,7 +31,7 @@ export function StationImproveSkeleton() {
             <PanelActions>
               <ButtonSkeleton>
                 <Plus aria-hidden />
-                Create a replay set
+                Create replay set
               </ButtonSkeleton>
             </PanelActions>
           </InsightsCardSkeleton>

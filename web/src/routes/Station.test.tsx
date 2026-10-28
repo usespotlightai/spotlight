@@ -915,7 +915,7 @@ describe('Station', () => {
 
       expect(screen.getByText('No replay sets yet')).toBeInTheDocument();
       expect(
-        screen.getByRole('button', { name: 'Create a replay set' }),
+        screen.getByRole('button', { name: 'Create replay set' }),
       ).toBeInTheDocument();
     });
 
@@ -953,7 +953,7 @@ describe('Station', () => {
         screen.getByText('Searches need a replay set to try configs on.'),
       ).toBeInTheDocument();
       expect(
-        screen.getAllByRole('button', { name: /Create a replay set/ }),
+        screen.getAllByRole('button', { name: /Create replay set/ }),
       ).toHaveLength(1);
     });
   });
